@@ -5,7 +5,7 @@
   if (!grid) return;
 
   const panels = Array.from(grid.querySelectorAll('.panel'));
-  const leaveDelay = 260;
+  const leaveDelay = 120;
   let active = null;
   let leaveTimer = null;
 
@@ -56,16 +56,14 @@
     panel.addEventListener('click', (event) => {
       if (event.target.closest('a')) return;
       if (mobile()) return;
-      if (active === panel) closePanel();
-      else openPanel(panel);
+      openPanel(panel);
     });
 
     panel.addEventListener('keydown', (event) => {
       if (event.key === 'Escape') closePanel();
       if (event.key === 'Enter' || event.key === ' ') {
         event.preventDefault();
-        if (active === panel) closePanel();
-        else openPanel(panel);
+        openPanel(panel);
       }
     });
   });

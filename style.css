@@ -5,27 +5,9 @@
   --yellow: #ddb84f;
   --blue: #23488d;
   --black: #11100d;
-
   --line: 9px;
-
-  /* Ratios tuned from inspiration composition (approx %):
-     columns: 46 / 15 / 12 / 17
-     rows:    56 / 16 / 10 / 18 */
-  --c1: 46fr;
-  --c2: 15fr;
-  --c3: 12fr;
-  --c4: 17fr;
-
-  --r1: 56fr;
-  --r2: 16fr;
-  --r3: 10fr;
-  --r4: 18fr;
-
   --t-grid: 430ms;
-  --t-overlay: 380ms;
-  --t-content: 230ms;
   --ease-main: cubic-bezier(0.28, 0.82, 0.25, 1);
-  --ease-soft: cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -34,7 +16,7 @@ html, body {
   min-height: 100%;
   background: #bdbeb8;
   color: var(--ink);
-  font-family: 'Inter', system-ui, sans-serif;
+  font-family: "Inter", system-ui, sans-serif;
 }
 
 .stage {
@@ -42,10 +24,7 @@ html, body {
   display: grid;
   place-items: center;
   padding: clamp(0.6rem, 1.5vw, 1rem);
-  background:
-    radial-gradient(circle at 18% 14%, rgba(255, 255, 255, 0.42), transparent 47%),
-    radial-gradient(circle at 82% 82%, rgba(0, 0, 0, 0.08), transparent 44%),
-    linear-gradient(138deg, #c4c5bf 0%, #b4b2ab 100%);
+  background: #c4c3bc;
 }
 
 .mondrian {
@@ -54,65 +33,73 @@ html, body {
   aspect-ratio: 1 / 1;
   display: grid;
   grid-template-columns:
-    var(--line) var(--c1) var(--line)
-    var(--c2) var(--line) var(--c3) var(--line)
-    var(--c4) var(--line);
+    var(--line) minmax(8rem, 2.45fr) var(--line)
+    minmax(4.5rem, 1.15fr) var(--line)
+    minmax(4.25rem, 1fr) var(--line)
+    minmax(5.75rem, 1.65fr) var(--line);
   grid-template-rows:
-    var(--line) var(--r1) var(--line)
-    var(--r2) var(--line) var(--r3) var(--line)
-    var(--r4) var(--line);
+    var(--line) minmax(10rem, 3.05fr) var(--line)
+    minmax(3rem, 1fr) var(--line)
+    minmax(2.25rem, 0.68fr) var(--line)
+    minmax(3.75rem, 1.12fr) var(--line);
   background: var(--black);
-  border: 1px solid rgba(118, 121, 120, 0.7);
-  border-radius: 4px;
+  border: 1px solid #1a1814;
   overflow: hidden;
-  box-shadow:
-    0 22px 52px rgba(0, 0, 0, 0.28),
-    0 1px 0 rgba(255, 255, 255, 0.25) inset,
-    0 -2px 0 rgba(0, 0, 0, 0.18) inset;
   transition:
     grid-template-columns var(--t-grid) var(--ease-main),
     grid-template-rows var(--t-grid) var(--ease-main);
 }
 
-.mondrian::before,
-.mondrian::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
+.mondrian[data-focus="about"] {
+  grid-template-columns:
+    var(--line) minmax(10rem, 3.65fr) var(--line)
+    minmax(4.4rem, 1.45fr) var(--line)
+    minmax(3.75rem, 0.82fr) var(--line)
+    minmax(4.8rem, 1.08fr) var(--line);
+  grid-template-rows:
+    var(--line) minmax(11rem, 3.55fr) var(--line)
+    minmax(2.8rem, 0.92fr) var(--line)
+    minmax(2rem, 0.6fr) var(--line)
+    minmax(3.4rem, 0.95fr) var(--line);
 }
 
-.mondrian::before {
-  z-index: 20;
-  opacity: 0.11;
-  background-image:
-    linear-gradient(112deg, rgba(255, 255, 255, 0.45), transparent 38%),
-    linear-gradient(12deg, rgba(0, 0, 0, 0.2), transparent 42%);
-  mix-blend-mode: soft-light;
+.mondrian[data-focus="connect"] {
+  grid-template-columns:
+    var(--line) minmax(6.6rem, 1.32fr) var(--line)
+    minmax(5rem, 1.22fr) var(--line)
+    minmax(6.2rem, 2.18fr) var(--line)
+    minmax(7.3rem, 2.95fr) var(--line);
+  grid-template-rows:
+    var(--line) minmax(8.3rem, 2.55fr) var(--line)
+    minmax(3.1rem, 1.2fr) var(--line)
+    minmax(2.3rem, 0.84fr) var(--line)
+    minmax(3.8rem, 1.08fr) var(--line);
 }
 
-.mondrian::after {
-  z-index: 21;
-  opacity: 0.08;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.82' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
-  mix-blend-mode: multiply;
+.mondrian[data-focus="projects"] {
+  grid-template-columns:
+    var(--line) minmax(11rem, 4.1fr) var(--line)
+    minmax(4.1rem, 0.82fr) var(--line)
+    minmax(3.75rem, 0.72fr) var(--line)
+    minmax(4.8rem, 1.18fr) var(--line);
+  grid-template-rows:
+    var(--line) minmax(5.5rem, 0.88fr) var(--line)
+    minmax(2.75rem, 0.75fr) var(--line)
+    minmax(3.25rem, 1.04fr) var(--line)
+    minmax(8.8rem, 3.7fr) var(--line);
 }
 
-.mondrian[data-focus='about'] {
-  --c1: 58fr; --c2: 17fr; --c3: 8fr; --c4: 7fr;
-  --r1: 66fr; --r2: 15fr; --r3: 7fr; --r4: 12fr;
-}
-.mondrian[data-focus='connect'] {
-  --c1: 9fr; --c2: 9fr; --c3: 28fr; --c4: 44fr;
-  --r1: 66fr; --r2: 15fr; --r3: 7fr; --r4: 12fr;
-}
-.mondrian[data-focus='projects'] {
-  --c1: 60fr; --c2: 20fr; --c3: 8fr; --c4: 12fr;
-  --r1: 16fr; --r2: 13fr; --r3: 12fr; --r4: 59fr;
-}
-.mondrian[data-focus='community'] {
-  --c1: 10fr; --c2: 10fr; --c3: 18fr; --c4: 62fr;
-  --r1: 15fr; --r2: 12fr; --r3: 10fr; --r4: 63fr;
+.mondrian[data-focus="community"] {
+  grid-template-columns:
+    var(--line) minmax(7.8rem, 1.6fr) var(--line)
+    minmax(5.2rem, 1.3fr) var(--line)
+    minmax(4.4rem, 1.08fr) var(--line)
+    minmax(8.5rem, 3.28fr) var(--line);
+  grid-template-rows:
+    var(--line) minmax(6.2rem, 1.1fr) var(--line)
+    minmax(3.1rem, 0.95fr) var(--line)
+    minmax(2.85rem, 0.9fr) var(--line)
+    minmax(9.4rem, 3.3fr) var(--line);
 }
 
 .panel,
@@ -124,70 +111,38 @@ html, body {
 .panel {
   z-index: 4;
   cursor: pointer;
-  transition:
-    background-color var(--t-overlay) var(--ease-soft),
-    color var(--t-overlay) var(--ease-soft);
 }
 
 .block {
   z-index: 2;
 }
 
-.panel::after,
-.block::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  z-index: 2;
-  opacity: 0.06;
-  pointer-events: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='280' height='280'%3E%3Cfilter id='grain'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.68' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23grain)'/%3E%3C/svg%3E");
-  mix-blend-mode: multiply;
-}
-
-.panel-overlay {
-  position: absolute;
-  inset: 0;
-  z-index: 1;
-  opacity: 1;
-  transform: translateY(0);
-  transition:
-    opacity var(--t-overlay) var(--ease-soft),
-    transform var(--t-overlay) var(--ease-soft);
-  pointer-events: none;
-  will-change: opacity, transform;
-}
-
-.panel.is-open .panel-overlay {
-  opacity: 0;
-  transform: translateY(-8%);
-}
-
 .panel-label {
   position: absolute;
   inset: 0;
   z-index: 3;
-  display: grid;
-  place-items: center;
-  padding: 1rem;
-  font-size: clamp(0.8rem, 1.1vw, 1.1rem);
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-start;
+  padding: min(8%, 2rem);
+  font-size: clamp(0.8rem, 1.1vw, 1.08rem);
   font-weight: 600;
   letter-spacing: 0.22em;
   text-transform: uppercase;
-  transition: opacity 180ms ease;
-  text-align: center;
+  text-align: left;
   pointer-events: none;
-  font-family: 'Cormorant Garamond', Garamond, serif;
+  font-family: "Cormorant Garamond", Garamond, serif;
 }
 
 .panel-label--name {
-  font-size: clamp(1.25rem, 2.8vw, 2.9rem);
+  font-size: clamp(1.25rem, 2.7vw, 2.8rem);
   letter-spacing: 0.02em;
   text-transform: none;
   font-weight: 600;
-  place-items: center;
-  text-align: center;
-  padding: 1rem;
+  align-items: center;
+  justify-content: flex-start;
+  padding-left: 10%;
+  padding-right: 8%;
 }
 
 .panel-label--name span {
@@ -205,22 +160,18 @@ html, body {
   position: absolute;
   inset: 0;
   z-index: 4;
-  opacity: 0;
-  transform: translateY(12px);
-  transition:
-    opacity var(--t-content) var(--ease-soft),
-    transform var(--t-content) var(--ease-soft);
+  display: none;
   pointer-events: none;
 }
 
 .panel.is-open .panel-content {
-  opacity: 1;
-  transform: translateY(0);
-  transition-delay: 125ms;
+  display: block;
   pointer-events: auto;
 }
 
-.panel.is-open .panel-label { opacity: 0; }
+.panel.is-open .panel-label {
+  display: none;
+}
 
 .content-inner {
   padding: clamp(1rem, 2.1vw, 2rem);
@@ -229,7 +180,7 @@ html, body {
 }
 
 .content-inner h1 {
-  font-family: 'Cormorant Garamond', Garamond, serif;
+  font-family: "Cormorant Garamond", Garamond, serif;
   font-size: clamp(2rem, 4.6vw, 4.8rem);
   line-height: 0.95;
   margin-bottom: 0.55rem;
@@ -241,7 +192,7 @@ html, body {
 }
 
 .content-inner h2 {
-  font-family: 'Cormorant Garamond', Garamond, serif;
+  font-family: "Cormorant Garamond", Garamond, serif;
   font-size: clamp(1.4rem, 2.2vw, 2.5rem);
   line-height: 1.05;
   margin-bottom: 0.45rem;
@@ -257,10 +208,15 @@ html, body {
 .content-inner p { margin-bottom: 0.5rem; }
 
 .lead {
-  font-family: 'Cormorant Garamond', Garamond, serif;
-  font-size: clamp(1.06rem, 1.28vw, 1.34rem);
+  font-family: "Cormorant Garamond", Garamond, serif;
+  font-size: clamp(1.2rem, 1.02rem + 0.92vw, 1.62rem);
   line-height: 1.42;
   font-weight: 500;
+  font-optical-sizing: auto;
+}
+
+.panel--about .lead {
+  line-height: 1.34;
 }
 
 .meta-tags {
@@ -355,7 +311,7 @@ html, body {
 }
 
 .p-name {
-  font-family: 'Cormorant Garamond', Garamond, serif;
+  font-family: "Cormorant Garamond", Garamond, serif;
   font-size: clamp(1.02rem, 1.25vw, 1.28rem);
   font-weight: 700;
 }
@@ -366,26 +322,26 @@ html, body {
   text-transform: uppercase;
   font-weight: 700;
   padding: 0.13rem 0.36rem;
-  color: var(--yellow);
-  background: rgba(0, 0, 0, 0.32);
+  color: #f2d770;
+  background: #161512;
 }
 
 .p-link {
-  color: var(--yellow);
+  color: #1e3f8a;
   text-decoration: none;
   font-weight: 700;
-  border-bottom: 1px solid rgba(240, 197, 20, 0.6);
+  border-bottom: 1px solid rgba(30, 63, 138, 0.48);
 }
 
 .p-link:hover {
-  border-bottom-color: var(--yellow);
+  border-bottom-color: #1e3f8a;
 }
 
 .stack-note {
   margin-top: 0.4rem;
   padding-top: 0.48rem;
-  border-top: 1px solid rgba(242, 238, 226, 0.2);
-  color: rgba(242, 238, 226, 0.78);
+  border-top: 1px solid rgba(17, 16, 13, 0.24);
+  color: rgba(17, 16, 13, 0.72);
   font-size: clamp(0.72rem, 0.85vw, 0.8rem);
   letter-spacing: 0.05em;
 }
@@ -399,7 +355,7 @@ html, body {
 .effort-link {
   color: inherit;
   text-decoration: none;
-  font-family: 'Cormorant Garamond', Garamond, serif;
+  font-family: "Cormorant Garamond", Garamond, serif;
   font-size: clamp(0.95rem, 1.04vw, 1.12rem);
   font-weight: 700;
   border-bottom: 1px solid currentColor;
@@ -430,9 +386,20 @@ html, body {
   line-height: 1.42;
 }
 
-.panel--about { grid-column: 2 / 5; grid-row: 2 / 5; background: #e4ded0; color: #17130f; container-type: inline-size; }
+.panel--about {
+  grid-column: 2 / 5;
+  grid-row: 2 / 5;
+  background: #c11d19;
+  color: #f2ede1;
+  container-type: inline-size;
+}
+
+.panel--about.is-open {
+  background: #e4ded0;
+  color: #17130f;
+}
+
 .panel--about .panel-label { color: #f2ede1; }
-.panel--about .panel-overlay { background: #c11d19; }
 
 @container (max-width: 380px) {
   .panel--about .panel-label--name {
@@ -448,48 +415,73 @@ html, body {
 
 .block--white-a { grid-column: 6; grid-row: 4; background: var(--paper); }
 
-.panel--connect { grid-column: 6 / 9; grid-row: 2; background: #e4ded0; color: #171208; }
-.panel--connect .panel-label { color: #171208; }
-.panel--connect .panel-overlay { background: #d9b111; }
+.panel--connect {
+  grid-column: 6 / 9;
+  grid-row: 2;
+  background: #d9b111;
+  color: #171208;
+}
+
+.panel--connect.is-open {
+  background: #e4ded0;
+  color: #171208;
+}
+
+.panel--connect .panel-label {
+  color: #171208;
+  align-items: flex-start;
+  justify-content: flex-end;
+  padding-top: 15%;
+  padding-right: 16%;
+}
 
 .block--white-b { grid-column: 8; grid-row: 4; background: #ebe9e0; }
 
-.panel--projects { grid-column: 2; grid-row: 6 / 9; background: #e4ded0; color: #17130f; }
-.panel--projects .panel-label { color: #efe8d8; }
-.panel--projects .panel-overlay { background: #090907; }
+.panel--projects {
+  grid-column: 2;
+  grid-row: 6 / 9;
+  background: #090907;
+  color: #efe8d8;
+}
+
+.panel--projects.is-open {
+  background: #e4ded0;
+  color: #17130f;
+}
+
+.panel--projects .panel-label {
+  color: #efe8d8;
+  align-items: flex-end;
+  justify-content: flex-start;
+  padding-left: 17%;
+  padding-bottom: 16%;
+}
 
 .panel--projects .project-item {
   border-color: rgba(17, 16, 13, 0.32);
 }
 
-.panel--projects .p-tag {
-  color: #f2d770;
-  background: #161512;
-}
-
-.panel--projects .p-link {
-  color: #1e3f8a;
-  border-bottom-color: rgba(30, 63, 138, 0.48);
-}
-
-.panel--projects .p-link:hover {
-  border-bottom-color: #1e3f8a;
-}
-
-.panel--projects .stack-note {
-  border-top-color: rgba(17, 16, 13, 0.24);
-  color: rgba(17, 16, 13, 0.72);
-}
-
 .block--white-c { grid-column: 4 / 7; grid-row: 6; background: var(--paper); }
 .block--white-d { grid-column: 4 / 5; grid-row: 8; background: var(--paper); }
 
-.panel--community { grid-column: 6 / 9; grid-row: 8; background: #e4ded0; color: #191611; }
-.panel--community .panel-label { color: #f0f4ff; }
-.panel--community .panel-overlay { background: #223f89; }
+.panel--community {
+  grid-column: 6 / 9;
+  grid-row: 8;
+  background: #223f89;
+  color: #f0f4ff;
+}
 
-.block--red-accent { grid-column: 8; grid-row: 8 / 10; background: var(--red); }
-.block--yellow-accent { grid-column: 2; grid-row: 8 / 10; background: #e8c560; }
+.panel--community.is-open {
+  background: #e4ded0;
+  color: #191611;
+}
+
+.panel--community .panel-label {
+  color: #f0f4ff;
+  align-items: center;
+  justify-content: flex-start;
+  padding-left: 23%;
+}
 
 .panel:focus-visible {
   outline: 2px solid #f2dfad;
@@ -509,7 +501,6 @@ a:focus-visible {
     max-width: 820px;
     aspect-ratio: auto;
     min-height: 100vh;
-    border-radius: 0;
     grid-template-columns: var(--line) 1fr var(--line);
     grid-template-rows:
       var(--line) auto var(--line)
@@ -527,18 +518,32 @@ a:focus-visible {
   .panel--projects { grid-row: 6; }
   .panel--community { grid-row: 8; }
 
+  /* Keep project content readable when small-screen layout forces dark panel background. */
+  .panel--projects .project-item {
+    border-color: rgba(239, 232, 216, 0.26);
+  }
+
+  .panel--projects .p-link {
+    color: #8fb2ff;
+    border-bottom-color: rgba(143, 178, 255, 0.7);
+  }
+
+  .panel--projects .p-link:hover {
+    border-bottom-color: #a9c4ff;
+  }
+
+  .panel--projects .stack-note {
+    border-top-color: rgba(239, 232, 216, 0.25);
+    color: rgba(239, 232, 216, 0.82);
+  }
+
   .block { display: none; }
 
   .panel-label { display: none; }
 
-  .panel-overlay {
-    transform: translateY(-102%);
-    transition: none;
-  }
-
   .panel-content {
-    opacity: 1;
-    transform: none;
+    position: relative;
+    display: block;
     pointer-events: auto;
   }
 
@@ -548,8 +553,5 @@ a:focus-visible {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .mondrian,
-  .panel-overlay,
-  .panel-content,
-  .panel-label { transition: none !important; }
+  .mondrian { transition: none !important; }
 }
