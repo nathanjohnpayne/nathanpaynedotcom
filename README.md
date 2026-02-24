@@ -19,11 +19,22 @@ The layout is a **Mondrian-inspired grid** — four colored panels arranged in a
 
 On desktop, hovering or focusing a panel triggers a CSS Grid transition that expands it and reveals its content. On mobile (≤ 920px), panels stack vertically with all content visible.
 
+### Color Palette
+
+| Token | Hex | Usage |
+|-------|-----|-------|
+| `--ink` | `#11100d` | Default text, grid background |
+| `--paper` | `#dde1e5` | Decorative white blocks |
+| `--red` | `#c84430` | Design token (about panel uses `#c11d19`) |
+| `--yellow` | `#ddb84f` | Design token (connect panel uses `#d9b111`) |
+| `--blue` | `#23488d` | Design token (community panel uses `#223f89`) |
+| Open bg | `#e4ded0` | All panels when expanded |
+
 ### Typography
 
-- **Headings:** [Cormorant Garamond](https://fonts.google.com/specimen/Cormorant+Garamond) (serif)
-- **Body:** [Inter](https://fonts.google.com/specimen/Inter) (sans-serif)
-- Sizes use `clamp()` for fluid responsive scaling.
+- **Headings / labels:** [Cormorant Garamond](https://fonts.google.com/specimen/Cormorant+Garamond) (serif, weights 400–700)
+- **Body / UI:** [Inter](https://fonts.google.com/specimen/Inter) (sans-serif, weights 300–700)
+- Sizes use `clamp()` for fluid responsive scaling — no fixed breakpoint font overrides.
 
 ---
 
@@ -31,17 +42,21 @@ On desktop, hovering or focusing a panel triggers a CSS Grid transition that exp
 
 ```
 .
-├── index.html          # Single-page markup, SEO meta, OG tags
-├── style.css           # All styles — grid layout, panels, responsive, a11y
-├── script.js           # Panel interactions, keyboard nav, analytics events
-├── og-image.png        # Primary Open Graph image (2400×1260)
-├── og/                 # Platform-specific OG images
+├── index.html                      # Single-page markup, SEO meta, OG tags
+├── style.css                       # All styles — grid, panels, responsive, a11y
+├── script.js                       # Panel interactions, keyboard nav, analytics
+├── og-image.png                    # Primary Open Graph image (2400×1260)
+├── og/                             # Platform-specific OG images
 │   ├── og_imessage_1200x1200.png
 │   ├── og_linkedin_1200x627.png
 │   └── og_slack_1280x640.png
-├── firebase.json       # Firebase Hosting config (headers, rewrites, caching)
-├── .firebaserc         # Firebase project alias
-└── inspiration.jpg     # Visual reference (not deployed)
+├── firebase.json                   # Firebase Hosting config
+├── .firebaserc                     # Firebase project alias
+├── inspiration.jpg                 # Visual reference (not deployed)
+├── AGENTS.md                       # AI agent instructions (platform-agnostic)
+├── README.md                       # This file
+└── .cursor/rules/                  # Cursor IDE conventions
+    └── project-conventions.mdc
 ```
 
 ---
@@ -50,38 +65,52 @@ On desktop, hovering or focusing a panel triggers a CSS Grid transition that exp
 
 ### Grid System (`style.css`)
 
-The `.mondrian` container uses a 9-column × 9-row CSS Grid where alternating tracks are `var(--line)` (9px on desktop, 6px on mobile) to simulate Mondrian-style black dividing lines. When a panel opens, the grid's `grid-template-columns` and `grid-template-rows` transition to new proportions using a `data-focus` attribute on the grid container — giving the active panel more space.
+The `.mondrian` container uses a **9-column × 9-row CSS Grid**. Odd-numbered tracks are `var(--line)` (9px desktop / 6px mobile) — they render as the black dividing lines of the Mondrian composition. Even-numbered tracks hold panels and decorative blocks.
 
-Each panel state (`data-focus="about"`, `"connect"`, `"projects"`, `"community"`) has its own grid template defined in CSS.
+When a panel is focused, JavaScript sets `data-focus="<panel-name>"` on the grid container. CSS defines a separate `grid-template-columns` + `grid-template-rows` for each `data-focus` value, and the grid transitions between them over 430ms with a custom cubic-bezier easing.
+
+Panel grid placements:
+
+| Panel | Column | Row |
+|-------|--------|-----|
+| About | 2 / 5 | 2 / 5 |
+| Connect | 6 / 9 | 2 |
+| Projects | 2 | 6 / 9 |
+| Community | 6 / 9 | 8 |
 
 ### Interactions (`script.js`)
 
-- **Desktop:** `mouseenter` opens a panel; `mouseleave` schedules a close after 120ms (to avoid flicker when moving between panels).
-- **Keyboard:** `Enter`/`Space` opens; `Escape` closes. Focus management preserves tab order.
-- **Mobile:** Interactions are disabled — all panels are expanded by default in the stacked layout.
-- **Analytics:** First hover on each panel fires a `section_view` event to Google Analytics (`gtag`).
+The script is a single IIFE with no external dependencies.
+
+- **Desktop (hover + fine pointer):** `mouseenter` opens a panel; `mouseleave` schedules close after 120ms to prevent flicker when moving between panels.
+- **Keyboard:** `Enter`/`Space` opens a panel; `Escape` closes it. `focusin`/`focusout` manage state so tabbing through links inside a panel keeps it open.
+- **Click:** Opens a panel on click, but passes through if the click target is a link.
+- **Mobile:** All interaction handlers exit early when `matchMedia('(max-width: 920px)')` matches. Panels are always expanded.
+- **Analytics:** First hover on each panel fires a one-time `section_view` event to Google Analytics via `gtag`.
 
 ### Responsive Behavior
 
-At `max-width: 920px`, the grid collapses to a single-column stack:
-- Decorative blocks are hidden
-- Panel labels are hidden
-- All panel content is visible (no open/close interaction)
+At `max-width: 920px`:
+- Grid collapses to single-column (`var(--line) 1fr var(--line)`)
+- Decorative blocks are `display: none`
+- Panel labels are hidden; all `.panel-content` is visible
 - Grid transitions are disabled
+- Projects panel keeps its dark background — link colors are overridden for contrast (`#8fb2ff`)
 
 ### Accessibility
 
-- Panels use `role="region"` with `aria-label`
+- Panels use `role="region"` with descriptive `aria-label`
 - Decorative blocks are `aria-hidden="true"`
 - `tabindex="0"` on panels for keyboard focus
-- `:focus-visible` outlines on panels and links
-- `prefers-reduced-motion: reduce` disables grid transitions
+- `:focus-visible` outlines on panels and links (not `:focus`)
+- `prefers-reduced-motion: reduce` disables all grid transitions
+- Container queries on `.panel--about` adjust label sizing at small widths
 
 ---
 
 ## Development
 
-No build tools are required. Edit the files directly and preview in a browser.
+No build tools are required. Edit the three source files directly and preview in a browser.
 
 ```bash
 # Serve locally (any static server works)
@@ -93,13 +122,15 @@ python3 -m http.server 8000
 
 ### Cache Busting
 
-Static assets use query-string versioning (e.g., `style.css?v=20260223a`). Bump the version string when deploying changes to CSS or JS.
+Static assets use query-string versioning (e.g., `style.css?v=20260223a`). Bump the version string — formatted as `YYYYMMDD` + a letter suffix — when deploying changes to CSS or JS. Update both the `<link>` and `<script>` tags in `index.html`.
+
+OG images have their own version strings and are cached with immutable headers.
 
 ---
 
 ## Deployment
 
-The site is hosted on [Firebase Hosting](https://firebase.google.com/docs/hosting).
+The site is hosted on [Firebase Hosting](https://firebase.google.com/docs/hosting). Firebase project ID: `nathanpaynedotcom`.
 
 ```bash
 # Install Firebase CLI (once)
@@ -116,20 +147,27 @@ firebase deploy
 
 Defined in `firebase.json`:
 
-- **Public directory:** `.` (root — no build output folder)
-- **SPA rewrite:** All routes rewrite to `/index.html`
-- **Caching:**
-  - OG images: 1 year, immutable
-  - JS/CSS: 1 hour
-  - HTML: 1 hour
-- **Security headers:** `X-Content-Type-Options`, `X-Frame-Options`, `X-XSS-Protection`
-- **Ignored on deploy:** `firebase.json`, dotfiles, `node_modules`, `*.sh`, `README.md`
+| Setting | Value |
+|---------|-------|
+| Public directory | `.` (repo root) |
+| SPA rewrite | All routes → `/index.html` |
+| OG image cache | 1 year, immutable |
+| JS/CSS cache | 1 hour |
+| HTML cache | 1 hour |
+| Security headers | `X-Content-Type-Options`, `X-Frame-Options`, `X-XSS-Protection` |
+| Ignored on deploy | `firebase.json`, dotfiles, `node_modules`, `*.sh`, `README.md` |
 
 ---
 
 ## SEO & Social
 
-- Open Graph and Twitter Card meta tags in `<head>`
-- Canonical URL set to `https://nathanpayne.com/`
-- Platform-specific OG images in `/og/` for optimal rendering on iMessage, LinkedIn, and Slack
-- Google Analytics 4 via `gtag.js` (property `G-7C29SRBXB1`)
+- **Open Graph + Twitter Card** meta tags in `<head>` with 2400×1260 image
+- **Canonical URL:** `https://nathanpayne.com/`
+- **Platform-specific OG images** in `/og/` for iMessage (1200×1200), LinkedIn (1200×627), and Slack (1280×640)
+- **Google Analytics 4** via `gtag.js` (property `G-7C29SRBXB1`)
+
+---
+
+## AI Agent Docs
+
+See [`AGENTS.md`](AGENTS.md) for detailed, platform-agnostic instructions for AI coding agents — including architecture decisions, coding conventions, content update patterns, and the complete design token reference.
