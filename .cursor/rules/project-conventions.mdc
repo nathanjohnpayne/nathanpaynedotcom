@@ -18,6 +18,7 @@ There is no `src/` directory.
 ## CSS
 
 - Design tokens in `:root` — always use or extend them.
+- Panel classes are **color-based** (`panel--red`, `panel--yellow`, `panel--black`, `panel--blue`). They control grid position and color; content is assigned independently via `data-panel`.
 - Fluid sizing via `clamp()`; no fixed-breakpoint font overrides.
 - Single responsive breakpoint at `max-width: 920px`.
 - Respect `prefers-reduced-motion: reduce`.

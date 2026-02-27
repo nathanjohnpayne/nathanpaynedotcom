@@ -50,8 +50,8 @@ This is intentional. The site is three files. Do not introduce a bundler, framew
 
 - Design tokens live in `:root` — `--ink`, `--paper`, `--red`, `--yellow`, `--blue`, `--black`, `--line`, `--t-grid`, `--ease-main`.
 - Use `clamp()` for fluid sizing; avoid fixed breakpoint font overrides.
-- Panel-specific color overrides use direct hex values scoped to `.panel--<name>` selectors.
-- Container queries are used on `.panel--about` for label sizing at small widths.
+- Panel classes are **color-based** (`panel--red`, `panel--yellow`, `panel--black`, `panel--blue`), not content-based. They control grid position and color; content is assigned independently via `data-panel`.
+- Container queries are used on `.panel--red` for label sizing at small widths.
 - Respect `prefers-reduced-motion: reduce` — disable transitions.
 - `:focus-visible` for keyboard focus outlines (not `:focus`).
 
@@ -63,21 +63,34 @@ This is intentional. The site is three files. Do not introduce a bundler, framew
 - Analytics calls guard on `typeof gtag !== 'function'`.
 - Each panel tracks its first `section_view` event once per page load.
 
+## Content-to-Cell Mapping
+
+Panel CSS classes are color-based (controlling grid position and color). Content is assigned to cells independently:
+
+| Cell Class | Color | Position | Content |
+|------------|-------|----------|---------|
+| `panel--red` | `#c11d19` | top-left (col 2-5, row 2-5) | About / Identity |
+| `panel--yellow` | `#d9b111` | top-right (col 6-9, row 2) | Vibe Coding (Projects) |
+| `panel--black` | `#090907` | bottom-left (col 2, row 6-9) | Community |
+| `panel--blue` | `#223f89` | bottom-right (col 6-9, row 8) | Connect |
+
+Narrative order: **Identity → Work → Community → Contact**
+
 ## Design Tokens
 
 ```
 --ink:       #11100d    (near-black text)
 --paper:     #dde1e5    (light gray blocks)
---red:       #c84430    (token) / #c11d19 (about panel bg)
---yellow:    #ddb84f    (token) / #d9b111 (connect panel bg)
---blue:      #23488d    (token) / #223f89 (community panel bg)
---black:     #11100d    (grid bg, projects panel)
+--red:       #c84430    (token) / #c11d19 (red cell bg)
+--yellow:    #ddb84f    (token) / #d9b111 (yellow cell bg)
+--blue:      #23488d    (token) / #223f89 (blue cell bg)
+--black:     #11100d    (grid bg, black cell)
 --line:      9px        (grid line width, 6px on mobile)
 --t-grid:    430ms      (grid transition duration)
 --ease-main: cubic-bezier(0.28, 0.82, 0.25, 1)
 ```
 
-All panels transition to `#e4ded0` (warm parchment) when opened.
+All cells transition to `#e4ded0` (warm parchment) when opened.
 
 ## Typography
 
@@ -117,17 +130,17 @@ Applied globally: `X-Content-Type-Options: nosniff`, `X-Frame-Options: SAMEORIGI
 
 ### Adding a Project
 
-1. Add a new `.project-item` div inside `.project-list` in `index.html`, following the existing pattern (`.p-head` with `.p-name` + `.p-tag`, then a `<p>` with description and optional `.p-link`).
+1. Add a new `.project-item` div inside `.project-list` in the **yellow cell** (`panel--yellow`) in `index.html`, following the existing pattern (`.p-head` with `.p-name` + `.p-tag`, then a `<p>` with description and optional `.p-link`).
 2. No CSS changes needed — the project list is a flex column.
 
 ### Adding a Social Link
 
-1. Add a new `.social-row` anchor inside `.social-stack` in `index.html`.
+1. Add a new `.social-row` anchor inside `.social-stack` in the **blue cell** (`panel--blue`) in `index.html`.
 2. Include an inline SVG icon inside `.s-icon`, a `.s-label` span, and `.s-arrow` span.
 
 ### Updating Bio / Community Content
 
-Edit the relevant `.content-inner` block in `index.html`. No other files need changing for text-only updates.
+Edit the relevant `.content-inner` block in `index.html`. About content is in `panel--red`, Community content is in `panel--black`. No other files need changing for text-only updates.
 
 ## Analytics
 

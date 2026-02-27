@@ -10,12 +10,14 @@ Personal portfolio site for Nathan Payne — a static, single-page site built wi
 
 The layout is a **Mondrian-inspired grid** — four colored panels arranged in a geometric composition that animates when a panel receives focus.
 
-| Panel | Color | Content |
-|-------|-------|---------|
-| About | Red `#c11d19` | Bio and role at The Walt Disney Company |
-| Connect | Yellow `#d9b111` | Social links (LinkedIn, Instagram, Threads, Bluesky, X) |
-| Vibe Coding | Black `#090907` | Side-project showcase |
-| Community | Blue `#223f89` | Fundraising and community organizing |
+| Cell | Color | Content |
+|------|-------|---------|
+| `panel--red` | Red `#c11d19` | About — bio and role at The Walt Disney Company |
+| `panel--yellow` | Yellow `#d9b111` | Vibe Coding — side-project showcase |
+| `panel--black` | Black `#090907` | Community — fundraising and organizing |
+| `panel--blue` | Blue `#223f89` | Connect — social links (LinkedIn, Instagram, Threads, Bluesky, X) |
+
+Narrative order: **Identity → Work → Community → Contact**
 
 On desktop, hovering or focusing a panel triggers a CSS Grid transition that expands it and reveals its content. On mobile (≤ 920px), panels stack vertically with all content visible.
 
@@ -26,8 +28,8 @@ On desktop, hovering or focusing a panel triggers a CSS Grid transition that exp
 | `--ink` | `#11100d` | Default text, grid background |
 | `--paper` | `#dde1e5` | Decorative white blocks |
 | `--red` | `#c84430` | Design token (about panel uses `#c11d19`) |
-| `--yellow` | `#ddb84f` | Design token (connect panel uses `#d9b111`) |
-| `--blue` | `#23488d` | Design token (community panel uses `#223f89`) |
+| `--yellow` | `#ddb84f` | Design token (yellow cell uses `#d9b111`) |
+| `--blue` | `#23488d` | Design token (blue cell uses `#223f89`) |
 | Open bg | `#e4ded0` | All panels when expanded |
 
 ### Typography
@@ -71,12 +73,12 @@ When a panel is focused, JavaScript sets `data-focus="<panel-name>"` on the grid
 
 Panel grid placements:
 
-| Panel | Column | Row |
-|-------|--------|-----|
-| About | 2 / 5 | 2 / 5 |
-| Connect | 6 / 9 | 2 |
-| Projects | 2 | 6 / 9 |
-| Community | 6 / 9 | 8 |
+| Cell | Column | Row | Content |
+|------|--------|-----|---------|
+| `panel--red` | 2 / 5 | 2 / 5 | About |
+| `panel--yellow` | 6 / 9 | 2 | Vibe Coding |
+| `panel--black` | 2 | 6 / 9 | Community |
+| `panel--blue` | 6 / 9 | 8 | Connect |
 
 ### Interactions (`script.js`)
 
@@ -95,7 +97,7 @@ At `max-width: 920px`:
 - Decorative blocks are `display: none`
 - Panel labels are hidden; all `.panel-content` is visible
 - Grid transitions are disabled
-- Projects panel keeps its dark background — link colors are overridden for contrast (`#8fb2ff`)
+- All panels display content directly — no hover interaction on mobile
 
 ### Accessibility
 
@@ -104,7 +106,7 @@ At `max-width: 920px`:
 - `tabindex="0"` on panels for keyboard focus
 - `:focus-visible` outlines on panels and links (not `:focus`)
 - `prefers-reduced-motion: reduce` disables all grid transitions
-- Container queries on `.panel--about` adjust label sizing at small widths
+- Container queries on `.panel--red` adjust label sizing at small widths
 
 ---
 
