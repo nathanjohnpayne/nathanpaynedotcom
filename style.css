@@ -470,7 +470,7 @@ html, body {
   padding-right: 16%;
 }
 
-.block--white-b { grid-column: 8; grid-row: 4; background: #ebe9e0; }
+.block--white-b { grid-column: 8; grid-row: 4; background: var(--paper); }
 
 .panel--black {
   grid-column: 2;
