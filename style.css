@@ -42,7 +42,7 @@ html, body {
   grid-template-rows:
     var(--line) minmax(10rem, 3.05fr) var(--line)
     minmax(3rem, 1fr) var(--line)
-    minmax(2.25rem, 0.68fr) var(--line)
+    minmax(2rem, 0.60fr) var(--line)
     minmax(3.75rem, 1.12fr) var(--line);
   background: var(--black);
   border: 1px solid #1a1814;
@@ -152,7 +152,7 @@ html, body {
   background: #11100d;
   color: #f2ede1;
   border: 1px solid rgba(242, 237, 225, 0.85);
-  padding: 0.16em 0.42em 0.2em;
+  padding: 0.22em 0.52em 0.26em;
   line-height: 0.96;
   white-space: nowrap;
   max-width: 100%;
@@ -299,7 +299,7 @@ html, body {
   align-items: center;
   gap: calc(var(--su) * 0.5);
   border: 1px solid rgba(25, 22, 17, 0.18);
-  padding: 0.26rem 0.46rem;
+  padding: 0.22rem 0.42rem;
   color: inherit;
   text-decoration: none;
   font-size: clamp(0.92rem, 1.02vw, 1.04rem);
@@ -424,7 +424,7 @@ html, body {
 }
 
 .panel--yellow .content-inner {
-  padding-top: clamp(0.7rem, 1.6vw, 1.45rem);
+  padding-top: clamp(0.75rem, 1.6vw, 1.45rem);
   padding-bottom: clamp(0.42rem, 1.2vw, 1.3rem);
 }
 
@@ -455,7 +455,7 @@ html, body {
 }
 
 .effort-list {
-  gap: calc(var(--su) * 0.75);
+  gap: calc(var(--su) * 0.65);
 }
 
 .effort-list li {
@@ -492,7 +492,7 @@ html, body {
 }
 
 .panel--black .content-inner {
-  padding-top: clamp(0.8rem, 1.6vw, 1.45rem);
+  padding-top: clamp(0.75rem, 1.6vw, 1.45rem);
   padding-bottom: clamp(0.35rem, 1vw, 1rem);
 }
 
@@ -602,7 +602,8 @@ html, body {
 }
 
 .panel--blue .content-inner {
-  padding-left: clamp(1.15rem, 2.4vw, 2.3rem);
+  padding-top: clamp(0.75rem, 1.6vw, 1.45rem);
+  padding-left: clamp(1.35rem, 2.8vw, 2.7rem);
 }
 
 .panel--blue .content-inner h2 {
