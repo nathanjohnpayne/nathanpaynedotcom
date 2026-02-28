@@ -278,54 +278,72 @@ html, body {
   list-style: none;
 }
 
-.social-stack { margin-top: 0.48rem; }
+.connect-label {
+  display: block;
+  margin-top: var(--su);
+  margin-bottom: var(--su);
+  font-size: clamp(0.52rem, 0.6vw, 0.58rem);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  font-weight: 500;
+  color: rgba(25, 22, 17, 0.50);
+}
+
+.social-stack {
+  margin-top: 0;
+  gap: calc(var(--su) * 0.75);
+}
 
 .social-row {
   display: flex;
   align-items: center;
-  gap: 0.6rem;
-  border: 1.4px solid currentColor;
-  padding: 0.42rem 0.6rem;
+  gap: calc(var(--su) * 0.5);
+  border: 1px solid var(--rule);
+  padding: 0.32rem 0.5rem;
   color: inherit;
   text-decoration: none;
-  font-size: clamp(0.95rem, 1.04vw, 1.06rem);
+  font-size: clamp(0.92rem, 1.02vw, 1.04rem);
   font-weight: 600;
-  transition: background 170ms ease, color 170ms ease;
-}
-
-.social-row--primary {
-  background: transparent;
-  color: inherit;
+  transition: border-color 160ms ease;
 }
 
 .social-row:hover {
-  background: rgba(0, 0, 0, 0.9);
-  color: #f0ece2;
+  border-color: currentColor;
 }
 
 .s-icon {
-  width: 1.04rem;
-  height: 1.04rem;
+  width: 0.92rem;
+  height: 0.92rem;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   flex: 0 0 auto;
-  color: currentColor;
+  opacity: 0.55;
+  transition: opacity 160ms ease;
+}
+
+.social-row:hover .s-icon,
+.social-row:focus-visible .s-icon {
+  opacity: 1;
 }
 
 .s-icon svg {
-  width: 1rem;
-  height: 1rem;
-  color: currentColor;
-}
-
-.s-icon svg * {
+  width: 0.88rem;
+  height: 0.88rem;
   fill: currentColor;
 }
 
 .s-arrow {
   margin-left: auto;
-  font-size: 1.05rem;
+  font-size: 1rem;
+  opacity: 0.5;
+  transition: opacity 160ms ease, transform 160ms ease;
+}
+
+.social-row:hover .s-arrow,
+.social-row:focus-visible .s-arrow {
+  opacity: 1;
+  transform: translateX(2px);
 }
 
 .project-item {
