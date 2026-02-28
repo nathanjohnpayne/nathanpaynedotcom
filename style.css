@@ -227,12 +227,13 @@ html, body {
 }
 
 .meta-tags span {
-  border: 1px solid currentColor;
-  padding: 0.12rem 0.45rem;
+  padding: 0.13rem 0.36rem;
   font-size: clamp(0.62rem, 0.8vw, 0.74rem);
-  letter-spacing: 0.13em;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
-  font-weight: 600;
+  font-weight: 700;
+  color: #f2d770;
+  background: #161512;
 }
 
 .social-stack,
