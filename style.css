@@ -373,13 +373,27 @@ html, body {
   margin-bottom: 0.15rem;
 }
 
-.stack-note {
-  margin-top: 0.4rem;
-  padding-top: 0.48rem;
-  border-top: 1px solid rgba(17, 16, 13, 0.24);
-  color: rgba(17, 16, 13, 0.72);
-  font-size: clamp(0.66rem, 0.78vw, 0.74rem);
-  letter-spacing: 0.05em;
+.stack-ribbon {
+  display: flex;
+  flex-direction: column;
+  gap: 0.18rem;
+  margin-top: 0.6rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid rgba(17, 16, 13, 0.15);
+}
+
+.stack-label {
+  font-size: clamp(0.58rem, 0.68vw, 0.65rem);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-weight: 600;
+  color: rgba(17, 16, 13, 0.55);
+}
+
+.stack-items {
+  font-size: clamp(0.68rem, 0.8vw, 0.78rem);
+  line-height: 1.5;
+  color: rgba(17, 16, 13, 0.6);
 }
 
 .effort-list li {
