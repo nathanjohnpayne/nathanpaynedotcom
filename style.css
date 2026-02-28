@@ -70,10 +70,10 @@ html, body {
     minmax(6.8rem, 2.55fr) var(--line)
     minmax(8rem, 3.45fr) var(--line);
   grid-template-rows:
-    var(--line) minmax(9rem, 3.2fr) var(--line)
-    minmax(2.6rem, 0.85fr) var(--line)
-    minmax(1.8rem, 0.58fr) var(--line)
-    minmax(3rem, 0.82fr) var(--line);
+    var(--line) minmax(10rem, 3.55fr) var(--line)
+    minmax(2.4rem, 0.78fr) var(--line)
+    minmax(1.6rem, 0.52fr) var(--line)
+    minmax(2.8rem, 0.78fr) var(--line);
 }
 
 .mondrian[data-focus="community"] {
