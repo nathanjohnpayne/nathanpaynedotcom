@@ -8,6 +8,7 @@
   --line: 9px;
   --t-grid: 430ms;
   --ease-main: cubic-bezier(0.28, 0.82, 0.25, 1);
+  --su: 0.42rem;
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -339,8 +340,9 @@ html, body {
 }
 
 .panel--yellow .content-inner h2 {
-  font-size: clamp(1.2rem, 1.8vw, 2rem);
-  margin-bottom: 0.35rem;
+  font-size: clamp(1.2rem, 1.9vw, 2.05rem);
+  margin-bottom: var(--su);
+  line-height: 1.05;
 }
 
 .panel--yellow .content-inner p,
@@ -350,7 +352,7 @@ html, body {
 }
 
 .panel--yellow .content-inner p {
-  margin-bottom: 0.38rem;
+  margin-bottom: var(--su);
 }
 
 .panel--yellow .p-name {
@@ -362,7 +364,7 @@ html, body {
 }
 
 .panel--yellow .project-list {
-  gap: 0.42rem;
+  gap: var(--su);
 }
 
 .panel--yellow .project-item {
@@ -377,31 +379,34 @@ html, body {
   padding-bottom: clamp(0.5rem, 1.4vw, 1.5rem);
 }
 
-.stack-ribbon {
+.stack-ribbon,
+.impact-ribbon {
   display: flex;
   flex-direction: column;
   gap: 0.08rem;
-  margin-top: 0.35rem;
-  padding-top: 0.25rem;
+  margin-top: calc(var(--su) * 0.75);
+  padding-top: calc(var(--su) * 0.5);
   border-top: 1px solid rgba(17, 16, 13, 0.22);
 }
 
-.stack-label {
+.stack-label,
+.impact-label {
   font-size: clamp(0.52rem, 0.6vw, 0.58rem);
-  letter-spacing: 0.14em;
+  letter-spacing: 0.15em;
   text-transform: uppercase;
   font-weight: 500;
-  color: rgba(17, 16, 13, 0.42);
+  color: rgba(17, 16, 13, 0.45);
 }
 
-.stack-items {
+.stack-items,
+.impact-items {
   font-size: clamp(0.64rem, 0.74vw, 0.72rem);
   line-height: 1.45;
-  color: rgba(17, 16, 13, 0.48);
+  color: rgba(17, 16, 13, 0.50);
 }
 
 .effort-list {
-  gap: 0.42rem;
+  gap: var(--su);
 }
 
 .effort-list li {
@@ -435,42 +440,19 @@ html, body {
   opacity: 0.78;
 }
 
-.impact-ribbon {
-  display: flex;
-  flex-direction: column;
-  gap: 0.08rem;
-  margin-top: 0.35rem;
-  padding-top: 0.25rem;
-  border-top: 1px solid rgba(17, 16, 13, 0.22);
-}
-
-.impact-label {
-  font-size: clamp(0.52rem, 0.6vw, 0.58rem);
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  font-weight: 500;
-  color: rgba(17, 16, 13, 0.48);
-}
-
-.impact-items {
-  font-size: clamp(0.64rem, 0.74vw, 0.72rem);
-  line-height: 1.45;
-  color: rgba(17, 16, 13, 0.54);
-}
-
 .panel--black .content-inner {
   padding-top: clamp(0.8rem, 1.6vw, 1.45rem);
   padding-bottom: clamp(0.35rem, 1vw, 1rem);
 }
 
 .panel--black .content-inner h2 {
-  margin-bottom: 0.34rem;
-  font-size: clamp(1.22rem, 2.04vw, 2.1rem);
-  line-height: 1.06;
+  margin-bottom: var(--su);
+  font-size: clamp(1.2rem, 1.9vw, 2.05rem);
+  line-height: 1.05;
 }
 
 .panel--black .content-inner > p {
-  margin-bottom: 0.42rem;
+  margin-bottom: var(--su);
   font-size: clamp(0.9rem, 1.02vw, 1.03rem);
   line-height: 1.42;
 }
