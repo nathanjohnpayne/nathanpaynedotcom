@@ -81,6 +81,15 @@
     if (mobile()) closePanel();
   });
 
+  let scrollTimer = null;
+  window.addEventListener('scroll', () => {
+    document.body.classList.add('is-scrolling');
+    clearTimeout(scrollTimer);
+    scrollTimer = setTimeout(() => {
+      document.body.classList.remove('is-scrolling');
+    }, 100);
+  });
+
   panels.forEach((panel) => {
     let tracked = false;
     panel.addEventListener('mouseenter', () => {

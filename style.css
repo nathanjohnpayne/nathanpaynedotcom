@@ -6,10 +6,20 @@
   --blue: #23488d;
   --black: #11100d;
   --line: 9px;
-  --t-grid: 430ms;
-  --ease-main: cubic-bezier(0.28, 0.82, 0.25, 1);
   --su: 0.42rem;
   --rule: rgba(17, 16, 13, 0.25);
+
+  --motion-fast: 130ms;
+  --motion-hover: 170ms;
+  --motion-plane: 280ms;
+  --motion-load: 300ms;
+
+  --ease-standard: cubic-bezier(0.4, 0.0, 0.2, 1);
+  --ease-sharp: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --ease-linear: linear;
+
+  --shift-small: 2px;
+  --shift-medium: 3px;
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -48,8 +58,8 @@ html, body {
   border: 1px solid #1a1814;
   overflow: hidden;
   transition:
-    grid-template-columns var(--t-grid) var(--ease-main),
-    grid-template-rows var(--t-grid) var(--ease-main);
+    grid-template-columns var(--motion-plane) var(--ease-sharp),
+    grid-template-rows var(--motion-plane) var(--ease-sharp);
 }
 
 .mondrian[data-focus="about"] {
@@ -305,7 +315,7 @@ html, body {
   text-decoration: none;
   font-size: clamp(0.92rem, 1.02vw, 1.04rem);
   font-weight: 600;
-  transition: border-color 160ms ease;
+  transition: border-color var(--motion-hover) var(--ease-standard);
 }
 
 .social-row:hover {
@@ -320,7 +330,7 @@ html, body {
   justify-content: center;
   flex: 0 0 auto;
   opacity: 0.55;
-  transition: opacity 160ms ease;
+  transition: opacity var(--motion-hover) var(--ease-standard);
 }
 
 .social-row:hover .s-icon,
@@ -337,14 +347,16 @@ html, body {
 .s-arrow {
   margin-left: auto;
   font-size: 0.92rem;
-  opacity: 0.4;
-  transition: opacity 160ms ease, transform 160ms ease;
+  opacity: 0.6;
+  transition:
+    transform var(--motion-hover) var(--ease-standard),
+    opacity var(--motion-hover) var(--ease-standard);
 }
 
 .social-row:hover .s-arrow,
 .social-row:focus-visible .s-arrow {
-  opacity: 0.85;
-  transform: translateX(2px);
+  opacity: 1;
+  transform: translateX(var(--shift-small));
 }
 
 .project-item {
@@ -381,6 +393,7 @@ html, body {
   text-decoration: none;
   font-weight: 700;
   border-bottom: 1px solid rgba(30, 63, 138, 0.48);
+  transition: border-bottom-color var(--motion-hover) var(--ease-standard);
 }
 
 .p-link:hover {
@@ -476,6 +489,7 @@ html, body {
   text-decoration-color: var(--rule);
   text-decoration-thickness: 1px;
   text-underline-offset: 2px;
+  transition: opacity var(--motion-hover) var(--ease-standard);
 }
 
 .effort-link:hover { opacity: 0.65; }
@@ -615,6 +629,27 @@ html, body {
   line-height: 1.05;
 }
 
+.about-label,
+.connect-label,
+.stack-label,
+.impact-label,
+.about-meta-items,
+.stack-items,
+.impact-items,
+.about-meta,
+.stack-ribbon,
+.impact-ribbon {
+  transition: opacity var(--motion-fast) var(--ease-linear);
+}
+
+.is-scrolling .social-row,
+.is-scrolling .s-icon,
+.is-scrolling .s-arrow,
+.is-scrolling .effort-link,
+.is-scrolling .p-link {
+  transition: none;
+}
+
 .panel:focus-visible {
   outline: 2px solid #f2dfad;
   outline-offset: -2px;
@@ -666,5 +701,10 @@ a:focus-visible {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .mondrian { transition: none !important; }
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0ms !important;
+    animation-duration: 0ms !important;
+  }
 }
