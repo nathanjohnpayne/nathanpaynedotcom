@@ -298,8 +298,8 @@ html, body {
   display: flex;
   align-items: center;
   gap: calc(var(--su) * 0.5);
-  border: 1px solid var(--rule);
-  padding: 0.32rem 0.5rem;
+  border: 1px solid rgba(25, 22, 17, 0.18);
+  padding: 0.26rem 0.46rem;
   color: inherit;
   text-decoration: none;
   font-size: clamp(0.92rem, 1.02vw, 1.04rem);
@@ -308,7 +308,7 @@ html, body {
 }
 
 .social-row:hover {
-  border-color: currentColor;
+  border-color: rgba(25, 22, 17, 0.45);
 }
 
 .s-icon {
@@ -335,14 +335,14 @@ html, body {
 
 .s-arrow {
   margin-left: auto;
-  font-size: 1rem;
-  opacity: 0.5;
+  font-size: 0.92rem;
+  opacity: 0.4;
   transition: opacity 160ms ease, transform 160ms ease;
 }
 
 .social-row:hover .s-arrow,
 .social-row:focus-visible .s-arrow {
-  opacity: 1;
+  opacity: 0.85;
   transform: translateX(2px);
 }
 
@@ -599,6 +599,16 @@ html, body {
   align-items: center;
   justify-content: flex-start;
   padding-left: 23%;
+}
+
+.panel--blue .content-inner {
+  padding-left: clamp(1.15rem, 2.4vw, 2.3rem);
+}
+
+.panel--blue .content-inner h2 {
+  font-size: clamp(1.2rem, 1.9vw, 2.05rem);
+  margin-bottom: var(--su);
+  line-height: 1.05;
 }
 
 .panel:focus-visible {
