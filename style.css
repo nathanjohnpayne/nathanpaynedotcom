@@ -456,6 +456,10 @@ html, body {
   margin-top: calc(var(--su) * 0.85);
 }
 
+.impact-items {
+  word-spacing: 0.08em;
+}
+
 .stack-label,
 .impact-label {
   font-size: clamp(0.52rem, 0.6vw, 0.58rem);
