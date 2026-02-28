@@ -250,7 +250,7 @@ html, body {
 
 .about-meta {
   margin-top: calc(var(--su) * 1.25);
-  padding-top: calc(var(--su) * 0.5);
+  padding-top: calc(var(--su) * 0.6);
   margin-left: -0.4rem;
   margin-right: -0.4rem;
   padding-left: 0.4rem;
@@ -261,8 +261,9 @@ html, body {
 .about-meta-items {
   font-size: clamp(0.64rem, 0.74vw, 0.72rem);
   line-height: 1.45;
-  color: rgba(23, 19, 15, 0.46);
   letter-spacing: 0.10em;
+  word-spacing: 0.05em;
+  color: rgba(17, 16, 13, 0.50);
   text-transform: uppercase;
 }
 
@@ -434,7 +435,7 @@ html, body {
   flex-direction: column;
   gap: 0.08rem;
   margin-top: calc(var(--su) * 0.75);
-  padding-top: calc(var(--su) * 0.5);
+  padding-top: calc(var(--su) * 0.6);
   border-top: 1px solid var(--rule);
 }
 
@@ -451,6 +452,8 @@ html, body {
 .impact-items {
   font-size: clamp(0.64rem, 0.74vw, 0.72rem);
   line-height: 1.45;
+  letter-spacing: 0.10em;
+  word-spacing: 0.05em;
   color: rgba(17, 16, 13, 0.50);
 }
 
