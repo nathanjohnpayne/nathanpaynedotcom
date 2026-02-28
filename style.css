@@ -185,7 +185,7 @@ html, body {
   font-family: "Cormorant Garamond", Garamond, serif;
   font-size: clamp(2rem, 4.6vw, 4.8rem);
   line-height: 0.95;
-  margin-bottom: 0.55rem;
+  margin-bottom: var(--su);
 }
 
 .panel--red .content-inner h1 {
@@ -222,7 +222,8 @@ html, body {
   margin-bottom: calc(var(--su) * 1.5);
 }
 
-.panel--red .content-inner {
+.panel--red .lead,
+.panel--red .about-blocks {
   max-width: 60ch;
 }
 
@@ -243,7 +244,7 @@ html, body {
   text-transform: uppercase;
   font-weight: 500;
   color: rgba(23, 19, 15, 0.50);
-  margin-bottom: 0.18rem;
+  margin-bottom: calc(var(--su) * 0.5);
 }
 
 .about-meta {
@@ -255,7 +256,7 @@ html, body {
 .about-meta-items {
   font-size: clamp(0.64rem, 0.74vw, 0.72rem);
   line-height: 1.45;
-  color: rgba(23, 19, 15, 0.50);
+  color: rgba(23, 19, 15, 0.42);
   letter-spacing: 0.10em;
   text-transform: uppercase;
 }
@@ -400,6 +401,7 @@ html, body {
 }
 
 .panel--yellow .content-inner {
+  padding-top: clamp(0.8rem, 1.8vw, 1.65rem);
   padding-bottom: clamp(0.5rem, 1.4vw, 1.5rem);
 }
 
