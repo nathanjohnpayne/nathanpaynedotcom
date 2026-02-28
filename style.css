@@ -415,7 +415,7 @@ html, body {
   font-family: "Cormorant Garamond", Garamond, serif;
   font-size: clamp(0.95rem, 1.08vw, 1.14rem);
   font-weight: 700;
-  border-bottom: 1px solid currentColor;
+  border-bottom: 1px solid rgba(17, 16, 13, 0.35);
   line-height: 1.16;
 }
 
@@ -446,21 +446,21 @@ html, body {
 
 .impact-label {
   font-size: clamp(0.52rem, 0.6vw, 0.58rem);
-  letter-spacing: 0.14em;
+  letter-spacing: 0.16em;
   text-transform: uppercase;
   font-weight: 500;
-  color: rgba(17, 16, 13, 0.42);
+  color: rgba(17, 16, 13, 0.48);
 }
 
 .impact-items {
   font-size: clamp(0.64rem, 0.74vw, 0.72rem);
   line-height: 1.45;
-  color: rgba(17, 16, 13, 0.48);
+  color: rgba(17, 16, 13, 0.54);
 }
 
 .panel--black .content-inner {
   padding-top: clamp(0.8rem, 1.6vw, 1.45rem);
-  padding-bottom: clamp(0.5rem, 1.4vw, 1.5rem);
+  padding-bottom: clamp(0.35rem, 1vw, 1rem);
 }
 
 .panel--black .content-inner h2 {
