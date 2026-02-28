@@ -7,7 +7,7 @@
   --black: #11100d;
   --line: 9px;
   --su: 0.42rem;
-  --rule: rgba(17, 16, 13, 0.25);
+  --rule: rgba(17, 16, 13, 0.18);
 
   --motion-fast: 130ms;
   --motion-hover: 170ms;
@@ -309,7 +309,7 @@ html, body {
   display: flex;
   align-items: center;
   gap: calc(var(--su) * 0.5);
-  border: 1px solid rgba(25, 22, 17, 0.18);
+  border: 1px solid var(--rule);
   padding: 0.22rem 0.42rem;
   color: inherit;
   text-decoration: none;
@@ -496,7 +496,7 @@ html, body {
   text-decoration: underline;
   text-decoration-color: var(--rule);
   text-decoration-thickness: 1px;
-  text-underline-offset: 2px;
+  text-underline-offset: 3px;
   transition: opacity var(--motion-hover) var(--ease-standard);
 }
 
