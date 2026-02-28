@@ -452,6 +452,10 @@ html, body {
   border-top: 1px solid var(--rule);
 }
 
+.impact-ribbon {
+  margin-top: calc(var(--su) * 0.85);
+}
+
 .stack-label,
 .impact-label {
   font-size: clamp(0.52rem, 0.6vw, 0.58rem);
@@ -471,7 +475,7 @@ html, body {
 }
 
 .effort-list {
-  gap: calc(var(--su) * 0.65);
+  gap: calc(var(--su) * 0.55);
 }
 
 .effort-list li {
@@ -492,20 +496,21 @@ html, body {
   transition: opacity var(--motion-hover) var(--ease-standard);
 }
 
-.effort-link:hover { opacity: 0.65; }
+.effort-link:hover { opacity: 0.70; }
 
 .effort-amount {
-  margin-top: 0.18rem;
+  margin-top: 0.12rem;
   font-size: clamp(0.78rem, 0.88vw, 0.9rem);
-  font-weight: 700;
+  font-weight: 500;
+  letter-spacing: 0.01em;
   line-height: 1.2;
 }
 
 .effort-desc {
-  margin-top: 0.18rem;
+  margin-top: 0.10rem;
   font-size: clamp(0.78rem, 0.88vw, 0.9rem);
   line-height: 1.38;
-  opacity: 0.78;
+  opacity: 0.72;
 }
 
 .panel--black .content-inner {
