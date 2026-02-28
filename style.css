@@ -65,15 +65,15 @@ html, body {
 
 .mondrian[data-focus="projects"] {
   grid-template-columns:
-    var(--line) minmax(6.6rem, 1.32fr) var(--line)
-    minmax(5rem, 1.22fr) var(--line)
-    minmax(6.2rem, 2.18fr) var(--line)
-    minmax(7.3rem, 2.95fr) var(--line);
+    var(--line) minmax(5.2rem, 0.92fr) var(--line)
+    minmax(4.2rem, 0.88fr) var(--line)
+    minmax(6.8rem, 2.55fr) var(--line)
+    minmax(8rem, 3.45fr) var(--line);
   grid-template-rows:
-    var(--line) minmax(8.3rem, 2.55fr) var(--line)
-    minmax(3.1rem, 1.2fr) var(--line)
-    minmax(2.3rem, 0.84fr) var(--line)
-    minmax(3.8rem, 1.08fr) var(--line);
+    var(--line) minmax(9rem, 3.2fr) var(--line)
+    minmax(2.6rem, 0.85fr) var(--line)
+    minmax(1.8rem, 0.58fr) var(--line)
+    minmax(3rem, 0.82fr) var(--line);
 }
 
 .mondrian[data-focus="community"] {
@@ -337,12 +337,47 @@ html, body {
   border-bottom-color: #1e3f8a;
 }
 
+.panel--yellow .content-inner h2 {
+  font-size: clamp(1.2rem, 1.8vw, 2rem);
+  margin-bottom: 0.35rem;
+}
+
+.panel--yellow .content-inner p,
+.panel--yellow .content-inner a {
+  font-size: clamp(0.78rem, 0.88vw, 0.92rem);
+  line-height: 1.48;
+}
+
+.panel--yellow .content-inner p {
+  margin-bottom: 0.38rem;
+}
+
+.panel--yellow .p-name {
+  font-size: clamp(0.92rem, 1.1vw, 1.14rem);
+}
+
+.panel--yellow .p-tag {
+  font-size: clamp(0.56rem, 0.68vw, 0.62rem);
+}
+
+.panel--yellow .project-list {
+  gap: 0.42rem;
+}
+
+.panel--yellow .project-item {
+  padding: 0.35rem 0.55rem;
+}
+
+.panel--yellow .p-head {
+  margin-bottom: 0.15rem;
+}
+
 .stack-note {
   margin-top: 0.4rem;
   padding-top: 0.48rem;
   border-top: 1px solid rgba(17, 16, 13, 0.24);
   color: rgba(17, 16, 13, 0.72);
-  font-size: clamp(0.72rem, 0.85vw, 0.8rem);
+  font-size: clamp(0.66rem, 0.78vw, 0.74rem);
   letter-spacing: 0.05em;
 }
 
