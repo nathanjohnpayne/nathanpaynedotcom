@@ -373,40 +373,47 @@ html, body {
   margin-bottom: 0.15rem;
 }
 
+.panel--yellow .content-inner {
+  padding-bottom: clamp(0.5rem, 1.4vw, 1.5rem);
+}
+
 .stack-ribbon {
   display: flex;
   flex-direction: column;
-  gap: 0.18rem;
-  margin-top: 0.6rem;
-  padding-top: 0.5rem;
-  border-top: 1px solid rgba(17, 16, 13, 0.15);
+  gap: 0.08rem;
+  margin-top: 0.35rem;
+  padding-top: 0.25rem;
+  border-top: 1px solid rgba(17, 16, 13, 0.22);
 }
 
 .stack-label {
-  font-size: clamp(0.58rem, 0.68vw, 0.65rem);
-  letter-spacing: 0.08em;
+  font-size: clamp(0.52rem, 0.6vw, 0.58rem);
+  letter-spacing: 0.14em;
   text-transform: uppercase;
-  font-weight: 600;
-  color: rgba(17, 16, 13, 0.55);
+  font-weight: 500;
+  color: rgba(17, 16, 13, 0.42);
 }
 
 .stack-items {
-  font-size: clamp(0.68rem, 0.8vw, 0.78rem);
-  line-height: 1.5;
-  color: rgba(17, 16, 13, 0.6);
+  font-size: clamp(0.64rem, 0.74vw, 0.72rem);
+  line-height: 1.45;
+  color: rgba(17, 16, 13, 0.48);
+}
+
+.effort-list {
+  gap: 0.42rem;
 }
 
 .effort-list li {
-  border-left: 3px solid currentColor;
+  border-left: 1px solid currentColor;
   padding-left: 0.6rem;
-  margin-bottom: 0.04rem;
 }
 
 .effort-link {
   color: inherit;
   text-decoration: none;
   font-family: "Cormorant Garamond", Garamond, serif;
-  font-size: clamp(0.95rem, 1.04vw, 1.12rem);
+  font-size: clamp(0.95rem, 1.08vw, 1.14rem);
   font-weight: 700;
   border-bottom: 1px solid currentColor;
   line-height: 1.16;
@@ -414,14 +421,46 @@ html, body {
 
 .effort-link:hover { opacity: 0.65; }
 
+.effort-amount {
+  margin-top: 0.18rem;
+  font-size: clamp(0.78rem, 0.88vw, 0.9rem);
+  font-weight: 700;
+  line-height: 1.2;
+}
+
 .effort-desc {
-  margin-top: 0.11rem;
-  font-size: clamp(0.8rem, 0.92vw, 0.92rem);
+  margin-top: 0.18rem;
+  font-size: clamp(0.78rem, 0.88vw, 0.9rem);
   line-height: 1.38;
+  opacity: 0.78;
+}
+
+.impact-ribbon {
+  display: flex;
+  flex-direction: column;
+  gap: 0.08rem;
+  margin-top: 0.35rem;
+  padding-top: 0.25rem;
+  border-top: 1px solid rgba(17, 16, 13, 0.22);
+}
+
+.impact-label {
+  font-size: clamp(0.52rem, 0.6vw, 0.58rem);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  font-weight: 500;
+  color: rgba(17, 16, 13, 0.42);
+}
+
+.impact-items {
+  font-size: clamp(0.64rem, 0.74vw, 0.72rem);
+  line-height: 1.45;
+  color: rgba(17, 16, 13, 0.48);
 }
 
 .panel--black .content-inner {
   padding-top: clamp(0.8rem, 1.6vw, 1.45rem);
+  padding-bottom: clamp(0.5rem, 1.4vw, 1.5rem);
 }
 
 .panel--black .content-inner h2 {
@@ -431,7 +470,7 @@ html, body {
 }
 
 .panel--black .content-inner > p {
-  margin-bottom: 0.56rem;
+  margin-bottom: 0.42rem;
   font-size: clamp(0.9rem, 1.02vw, 1.03rem);
   line-height: 1.42;
 }
