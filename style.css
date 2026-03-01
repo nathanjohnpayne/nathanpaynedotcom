@@ -319,8 +319,8 @@ html, body {
   font-size: clamp(0.92rem, 1.02vw, 1.04rem);
   font-weight: 600;
   transition:
-    background-color var(--motion-fast) var(--ease-standard),
-    border-color var(--motion-fast) var(--ease-standard);
+    background-color var(--motion-hover) var(--ease-standard),
+    border-color var(--motion-hover) var(--ease-standard);
 }
 
 .social-row:hover,
@@ -332,6 +332,7 @@ html, body {
 .social-row:active {
   background-color: rgba(17, 16, 13, 0.07);
   border-color: rgba(25, 22, 17, 0.56);
+  transition-duration: var(--motion-fast);
 }
 
 .s-icon {
@@ -342,7 +343,7 @@ html, body {
   justify-content: center;
   flex: 0 0 auto;
   opacity: 0.52;
-  transition: opacity var(--motion-fast) var(--ease-standard);
+  transition: opacity var(--motion-hover) var(--ease-standard);
 }
 
 .social-row:hover .s-icon,
@@ -352,6 +353,7 @@ html, body {
 
 .social-row:active .s-icon {
   opacity: 0.74;
+  transition-duration: var(--motion-fast);
 }
 
 .s-icon svg {
@@ -362,25 +364,26 @@ html, body {
 
 .s-arrow {
   margin-left: auto;
-  display: inline-block;
+  position: relative;
+  top: 1px;
   font-size: 0.92rem;
-  opacity: 0.76;
+  opacity: 0.68;
   line-height: 1;
-  transform: translateY(1px);
   transition:
-    transform var(--motion-fast) var(--ease-standard),
-    opacity var(--motion-fast) var(--ease-standard);
+    transform var(--motion-hover) var(--ease-standard),
+    opacity var(--motion-hover) var(--ease-standard);
 }
 
 .social-row:hover .s-arrow,
 .social-row:focus-visible .s-arrow {
   opacity: 1;
-  transform: translate(4px, 1px);
+  transform: translateX(var(--shift-medium));
 }
 
 .social-row:active .s-arrow {
   opacity: 1;
-  transform: translate(4px, 1px);
+  transform: translateX(var(--shift-medium));
+  transition-duration: var(--motion-fast);
 }
 
 .project-item {
