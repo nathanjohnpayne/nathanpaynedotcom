@@ -707,6 +707,68 @@ a:focus-visible {
   .content-inner {
     min-height: 220px;
   }
+
+  .lead,
+  .content-inner h2 + p {
+    font-size: clamp(1.08rem, 1rem + 0.9vw, 1.28rem);
+    line-height: 1.44;
+  }
+
+  .about-label,
+  .connect-label,
+  .stack-label,
+  .impact-label {
+    font-size: clamp(0.64rem, 0.58rem + 0.3vw, 0.74rem);
+    letter-spacing: 0.14em;
+  }
+
+  .about-meta-items,
+  .stack-items,
+  .impact-items {
+    font-size: clamp(0.78rem, 0.72rem + 0.35vw, 0.9rem);
+    line-height: 1.52;
+    letter-spacing: 0.08em;
+  }
+
+  .panel--red .about-label,
+  .panel--red .about-meta-items {
+    color: rgba(242, 237, 225, 0.82);
+  }
+
+  .panel--red .about-meta {
+    border-top-color: rgba(242, 237, 225, 0.28);
+  }
+
+  .panel--yellow .stack-label,
+  .panel--yellow .stack-items {
+    color: rgba(23, 18, 8, 0.72);
+  }
+
+  .panel--yellow .stack-ribbon {
+    border-top-color: rgba(23, 18, 8, 0.22);
+  }
+
+  .panel--black .impact-label,
+  .panel--black .impact-items {
+    color: rgba(239, 232, 216, 0.82);
+  }
+
+  .panel--black .impact-ribbon {
+    border-top-color: rgba(239, 232, 216, 0.22);
+  }
+
+  .panel--blue .connect-label {
+    color: rgba(240, 244, 255, 0.82);
+  }
+
+  .panel--blue .social-row {
+    border-color: rgba(240, 244, 255, 0.18);
+  }
+
+  .panel--blue .s-icon,
+  .panel--blue .s-arrow {
+    opacity: 0.78;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
