@@ -18,10 +18,11 @@ There is no `src/` directory.
 ## CSS
 
 - Design tokens in `:root` — always use or extend them.
+- **Motion system:** All durations use `--motion-fast` / `--motion-hover` / `--motion-plane` / `--motion-load`. All easing uses `--ease-standard` / `--ease-sharp` / `--ease-linear`. Translation magnitude uses `--shift-small` / `--shift-medium`. No hard-coded `ms` values or bare `ease` keywords.
 - Panel classes are **color-based** (`panel--red`, `panel--yellow`, `panel--black`, `panel--blue`). They control grid position and color; content is assigned independently via `data-panel`.
 - Fluid sizing via `clamp()`; no fixed-breakpoint font overrides.
 - Single responsive breakpoint at `max-width: 920px`.
-- Respect `prefers-reduced-motion: reduce`.
+- Respect `prefers-reduced-motion: reduce` — universal `*` selector zeroes all transition/animation durations.
 - Use `:focus-visible` (not `:focus`) for keyboard outlines.
 
 ## JavaScript

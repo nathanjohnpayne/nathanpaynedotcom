@@ -45,8 +45,9 @@ On desktop, hovering or focusing a panel triggers a CSS Grid transition that exp
 ```
 .
 ├── index.html                      # Single-page markup, SEO meta, OG tags
-├── style.css                       # All styles — grid, panels, responsive, a11y
-├── script.js                       # Panel interactions, keyboard nav, analytics
+├── style.css                       # All styles — grid, panels, motion system, responsive, a11y
+├── script.js                       # Panel interactions, keyboard nav, scroll guard, analytics
+├── favicon.svg                     # SVG favicon (red with "NP")
 ├── og-image.png                    # Primary Open Graph image (2400×1260)
 ├── og/                             # Platform-specific OG images
 │   ├── og_imessage_1200x1200.png
@@ -69,7 +70,7 @@ On desktop, hovering or focusing a panel triggers a CSS Grid transition that exp
 
 The `.mondrian` container uses a **9-column × 9-row CSS Grid**. Odd-numbered tracks are `var(--line)` (9px desktop / 6px mobile) — they render as the black dividing lines of the Mondrian composition. Even-numbered tracks hold panels and decorative blocks.
 
-When a panel is focused, JavaScript sets `data-focus="<panel-name>"` on the grid container. CSS defines a separate `grid-template-columns` + `grid-template-rows` for each `data-focus` value, and the grid transitions between them over 430ms with a custom cubic-bezier easing.
+When a panel is focused, JavaScript sets `data-focus="<panel-name>"` on the grid container. CSS defines a separate `grid-template-columns` + `grid-template-rows` for each `data-focus` value, and the grid transitions between them over 280ms with a sharp easing curve (`--ease-sharp`).
 
 Panel grid placements:
 
@@ -88,7 +89,21 @@ The script is a single IIFE with no external dependencies.
 - **Keyboard:** `Enter`/`Space` opens a panel; `Escape` closes it. `focusin`/`focusout` manage state so tabbing through links inside a panel keeps it open.
 - **Click:** Opens a panel on click, but passes through if the click target is a link.
 - **Mobile:** All interaction handlers exit early when `matchMedia('(max-width: 920px)')` matches. Panels are always expanded.
+- **Scroll guard:** A debounced scroll listener (100ms) adds `.is-scrolling` to `<body>` during active scroll. CSS suspends hover transitions while this class is present, preventing scroll + hover easing conflicts.
 - **Analytics:** First hover on each panel fires a one-time `section_view` event to Google Analytics via `gtag`.
+
+### Motion System
+
+All animation timing is governed by design tokens in `:root` — no hard-coded durations or easing functions.
+
+| Tier | Token | Duration | Easing | Applies to |
+|------|-------|----------|--------|------------|
+| Metadata / dividers | `--motion-fast` | 130ms | `--ease-linear` | Labels, ribbons, meta text |
+| Hover | `--motion-hover` | 170ms | `--ease-standard` | Social rows, icons, arrows, links |
+| Panel morph | `--motion-plane` | 280ms | `--ease-sharp` | Mondrian grid transitions |
+| Section load | `--motion-load` | 300ms | `--ease-standard` | Entrance animations |
+
+Translation magnitude is capped at `--shift-small` (2px) for hovers and `--shift-medium` (3px) for emphasis. No scaling, rotation, or bounce.
 
 ### Responsive Behavior
 
@@ -105,7 +120,7 @@ At `max-width: 920px`:
 - Decorative blocks are `aria-hidden="true"`
 - `tabindex="0"` on panels for keyboard focus
 - `:focus-visible` outlines on panels and links (not `:focus`)
-- `prefers-reduced-motion: reduce` disables all grid transitions
+- `prefers-reduced-motion: reduce` universally disables all transitions and animations
 - Container queries on `.panel--red` adjust label sizing at small widths
 
 ---
@@ -124,7 +139,7 @@ python3 -m http.server 8000
 
 ### Cache Busting
 
-Static assets use query-string versioning (e.g., `style.css?v=20260223a`). Bump the version string — formatted as `YYYYMMDD` + a letter suffix — when deploying changes to CSS or JS. Update both the `<link>` and `<script>` tags in `index.html`.
+Static assets use query-string versioning (e.g., `style.css?v=20260228j`). Bump the version string — formatted as `YYYYMMDD` + a letter suffix — when deploying changes to CSS or JS. Update both the `<link>` and `<script>` tags in `index.html`.
 
 OG images have their own version strings and are cached with immutable headers.
 

@@ -14,7 +14,7 @@ Three source files, all at the repo root:
 |------|------|
 | `index.html` | Single-page markup. Contains all SEO meta, Open Graph tags, inline GA4 snippet, and font preconnects. |
 | `style.css` | All styles. The Mondrian grid, panel states, typography, responsive breakpoint, accessibility. |
-| `script.js` | Panel open/close logic, keyboard navigation, hover intent, analytics event tracking. Wrapped in an IIFE. |
+| `script.js` | Panel open/close logic, keyboard navigation, hover intent, scroll guard, analytics event tracking. Wrapped in an IIFE. |
 
 There is no `src/` directory, no transpilation, and no bundler. Files are served as-is by Firebase Hosting.
 
@@ -24,7 +24,7 @@ There is no `src/` directory, no transpilation, and no bundler. Files are served
 
 The `.mondrian` container is a 9-column × 9-row CSS Grid. Odd-numbered tracks are `var(--line)` (9px desktop / 6px mobile) — they render as the black dividing lines of the composition. Even-numbered tracks hold panels and decorative blocks.
 
-When a panel is focused, JavaScript sets `data-focus="<panel-name>"` on the grid container. CSS defines a separate `grid-template-columns` + `grid-template-rows` for each `data-focus` value, and the transition (`--t-grid: 430ms`) animates between them.
+When a panel is focused, JavaScript sets `data-focus="<panel-name>"` on the grid container. CSS defines a separate `grid-template-columns` + `grid-template-rows` for each `data-focus` value, and the transition (`--motion-plane: 280ms` with `--ease-sharp`) animates between them.
 
 ### Panel Interaction Model
 
@@ -48,11 +48,12 @@ This is intentional. The site is three files. Do not introduce a bundler, framew
 
 ### CSS
 
-- Design tokens live in `:root` — `--ink`, `--paper`, `--red`, `--yellow`, `--blue`, `--black`, `--line`, `--t-grid`, `--ease-main`.
+- Design tokens live in `:root` — color (`--ink`, `--paper`, `--red`, `--yellow`, `--blue`, `--black`), layout (`--line`, `--su`, `--rule`), and the full motion system (see Motion System section below).
+- All durations and easing functions must use motion tokens — no hard-coded `ms` values or bare `ease` keywords.
 - Use `clamp()` for fluid sizing; avoid fixed breakpoint font overrides.
 - Panel classes are **color-based** (`panel--red`, `panel--yellow`, `panel--black`, `panel--blue`), not content-based. They control grid position and color; content is assigned independently via `data-panel`.
 - Container queries are used on `.panel--red` for label sizing at small widths.
-- Respect `prefers-reduced-motion: reduce` — disable transitions.
+- Respect `prefers-reduced-motion: reduce` — universally disables all transitions and animations.
 - `:focus-visible` for keyboard focus outlines (not `:focus`).
 
 ### JavaScript
@@ -78,6 +79,8 @@ Narrative order: **Identity → Work → Community → Contact**
 
 ## Design Tokens
 
+### Color
+
 ```
 --ink:       #11100d    (near-black text)
 --paper:     #dde1e5    (light gray blocks)
@@ -85,12 +88,64 @@ Narrative order: **Identity → Work → Community → Contact**
 --yellow:    #ddb84f    (token) / #d9b111 (yellow cell bg)
 --blue:      #23488d    (token) / #223f89 (blue cell bg)
 --black:     #11100d    (grid bg, black cell)
---line:      9px        (grid line width, 6px on mobile)
---t-grid:    430ms      (grid transition duration)
---ease-main: cubic-bezier(0.28, 0.82, 0.25, 1)
 ```
 
 All cells transition to `#e4ded0` (warm parchment) when opened.
+
+### Layout
+
+```
+--line:      9px        (grid line width, 6px on mobile)
+--su:        0.42rem    (spacing unit)
+--rule:      rgba(17, 16, 13, 0.18)  (divider/border color)
+```
+
+### Motion — Durations
+
+```
+--motion-fast:   130ms  (metadata, dividers)
+--motion-hover:  170ms  (hover states)
+--motion-plane:  280ms  (panel expand / grid morph)
+--motion-load:   300ms  (section entrance)
+```
+
+### Motion — Easing
+
+```
+--ease-standard: cubic-bezier(0.4, 0.0, 0.2, 1)   (hovers, general interaction)
+--ease-sharp:    cubic-bezier(0.2, 0.8, 0.2, 1)    (panel/grid morph)
+--ease-linear:   linear                              (metadata, dividers)
+```
+
+### Motion — Magnitude
+
+```
+--shift-small:   2px    (hover translation cap)
+--shift-medium:  3px    (emphasis translation cap)
+```
+
+No scaling, rotation, or bounce is used anywhere in the system.
+
+## Motion System
+
+All animation timing is governed by the motion tokens above. No hard-coded durations or easing functions are permitted.
+
+### Motion Hierarchy
+
+| Tier | Duration | Easing | Applies to |
+|------|----------|--------|------------|
+| Metadata / dividers | `--motion-fast` (130ms) | `--ease-linear` | Labels, ribbons, meta text |
+| Hover | `--motion-hover` (170ms) | `--ease-standard` | Social rows, icons, arrows, project links |
+| Panel morph | `--motion-plane` (280ms) | `--ease-sharp` | Mondrian grid transitions |
+| Section load | `--motion-load` (300ms) | `--ease-standard` | Entrance animations |
+
+### Scroll Guard
+
+JavaScript adds `.is-scrolling` to `<body>` during active scroll (debounced at 100ms). CSS suspends hover transitions on interactive elements while this class is present, preventing scroll + hover easing conflicts.
+
+### Reduced Motion
+
+`@media (prefers-reduced-motion: reduce)` sets `transition-duration: 0ms` and `animation-duration: 0ms` on all elements (`*`, `*::before`, `*::after`) universally.
 
 ## Typography
 
@@ -110,7 +165,7 @@ firebase deploy
 
 ### Cache Busting
 
-Assets are versioned via query strings: `style.css?v=20260223a`, `script.js?v=20260223a`. Bump the version string (date + letter suffix) on every deploy that changes CSS or JS.
+Assets are versioned via query strings: `style.css?v=20260228j`, `script.js?v=20260228j`. Bump the version string (date + letter suffix) on every deploy that changes CSS or JS.
 
 OG images use a separate version string and are cached immutably for 1 year.
 
@@ -154,8 +209,9 @@ Google Analytics 4 via `gtag.js`, property `G-7C29SRBXB1`. Events:
 
 ```
 index.html              Markup + meta
-style.css               Styles
-script.js               Interactions
+style.css               Styles (grid, panels, motion system, responsive, a11y)
+script.js               Interactions (panels, keyboard, scroll guard, analytics)
+favicon.svg             SVG favicon (red with "NP")
 og-image.png            Primary OG image (2400×1260)
 og/                     Platform-specific OG images
 firebase.json           Hosting config
