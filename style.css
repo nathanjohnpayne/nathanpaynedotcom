@@ -606,8 +606,8 @@ html, body {
 }
 
 .block--white-c { grid-column: 4 / 7; grid-row: 6; background: var(--paper); }
-.block--gray-e { grid-column: 8; grid-row: 6; background: #e8e8e8; }
-.block--gray-d { grid-column: 4 / 5; grid-row: 8; background: #e8e8e8; }
+.block--gray-e { grid-column: 8; grid-row: 6; background: #d4d4d4; }
+.block--gray-d { grid-column: 4 / 5; grid-row: 8; background: #d4d4d4; }
 
 .panel--blue {
   grid-column: 6 / 9;
