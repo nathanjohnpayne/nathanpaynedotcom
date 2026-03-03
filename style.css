@@ -1,6 +1,6 @@
 :root {
   --ink: #11100d;
-  --paper: #dde1e5;
+  --paper: #ffffff;
   --red: #c84430;
   --yellow: #ddb84f;
   --blue: #23488d;
@@ -708,26 +708,20 @@ a:focus-visible {
     min-height: 220px;
   }
 
-  .lead,
-  .content-inner h2 + p {
-    font-size: clamp(1.08rem, 1rem + 0.9vw, 1.28rem);
-    line-height: 1.44;
-  }
-
   .about-label,
   .connect-label,
   .stack-label,
   .impact-label {
-    font-size: clamp(0.64rem, 0.58rem + 0.3vw, 0.74rem);
-    letter-spacing: 0.14em;
+    font-size: clamp(0.56rem, 0.52rem + 0.2vw, 0.64rem);
+    letter-spacing: 0.15em;
   }
 
   .about-meta-items,
   .stack-items,
   .impact-items {
-    font-size: clamp(0.78rem, 0.72rem + 0.35vw, 0.9rem);
-    line-height: 1.52;
-    letter-spacing: 0.08em;
+    font-size: clamp(0.68rem, 0.64rem + 0.24vw, 0.78rem);
+    line-height: 1.48;
+    letter-spacing: 0.06em;
   }
 
   .panel--red .about-label,
