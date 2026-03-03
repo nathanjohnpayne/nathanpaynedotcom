@@ -588,7 +588,7 @@ html, body {
 .panel--black {
   grid-column: 2;
   grid-row: 6 / 9;
-  background: #090907;
+  background: #1a1a2e;
   color: #efe8d8;
 }
 
