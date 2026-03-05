@@ -1,0 +1,38 @@
+---
+description: Firebase deploy convention — always use non-interactive 1Password auth
+alwaysApply: true
+---
+
+# Deploy Convention
+
+When a deploy is needed, always use `op-firebase-deploy` (global script on PATH).
+
+## Commands
+
+```bash
+op-firebase-deploy                  # full deploy (auto-detects project from .firebaserc)
+op-firebase-deploy --only hosting   # hosting only
+```
+
+## How it works
+
+- `op-firebase-deploy` reads ADC credentials from 1Password (`Private/GCP ADC/credential`)
+- Auto-detects the Firebase project from `.firebaserc`
+- Writes credentials to a temp file, sets `GOOGLE_APPLICATION_CREDENTIALS`, deploys, cleans up
+- No `firebase login`, `gcloud init`, or browser prompts
+
+## Token renewal
+
+The ADC refresh token has no fixed expiry but is revoked on password change, explicit revocation, or 6 months of inactivity. If deploys fail with `invalid_grant` or `Token has been revoked`:
+
+```bash
+gcloud auth application-default login --project=nathanpaynedotcom
+op item edit "GCP ADC" --vault Private \
+  "credential=$(cat ~/.config/gcloud/application_default_credentials.json)"
+```
+
+## Rules
+
+- Never run `firebase deploy` or `npx firebase deploy` directly — always use `op-firebase-deploy`
+- Never run `firebase login` or `gcloud auth login` as part of a deploy flow
+- Never store or print credentials; only use `op://` references in committed files
