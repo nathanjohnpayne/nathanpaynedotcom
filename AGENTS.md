@@ -155,8 +155,21 @@ JavaScript adds `.is-scrolling` to `<body>` during active scroll (debounced at 1
 
 ## Deployment
 
+All deploys use `op-firebase-deploy` (global script on PATH) for non-interactive 1Password auth. No `firebase login` or browser prompts needed.
+
 ```bash
-firebase deploy
+op-firebase-deploy                  # full deploy
+op-firebase-deploy --only hosting   # hosting only
+```
+
+The script reads ADC credentials from 1Password (`Private/GCP ADC`), auto-detects the project from `.firebaserc`, and cleans up credentials on exit.
+
+**Token renewal:** The ADC refresh token has no fixed expiry but is revoked on Google password change, explicit revocation, or 6 months of inactivity. If deploys fail with `invalid_grant`, renew:
+
+```bash
+gcloud auth application-default login --project=nathanpaynedotcom
+op item edit "GCP ADC" --vault Private \
+  "credential=$(cat ~/.config/gcloud/application_default_credentials.json)"
 ```
 
 - Firebase project ID: `nathanpaynedotcom` (defined in `.firebaserc`).
