@@ -16,19 +16,27 @@ op-firebase-deploy --only hosting   # hosting only
 
 ## How it works
 
-- `op-firebase-deploy` reads ADC credentials from 1Password (`Private/GCP ADC/credential`)
-- Auto-detects the Firebase project from `.firebaserc`
-- Writes credentials to a temp file, sets `GOOGLE_APPLICATION_CREDENTIALS`, deploys, cleans up
-- No `firebase login`, `gcloud init`, or browser prompts
+- `op-firebase-deploy` reads a service account key from 1Password (`Private/Firebase Deploy - {project}/credential`)
+- Auto-detects the Firebase project from `.firebaserc`, then looks up the matching 1Password item
+- Writes the key to a temp file (`umask 077`), sets `GOOGLE_APPLICATION_CREDENTIALS`, runs `firebase deploy --non-interactive`, cleans up on exit
+- The only interactive step is the 1Password biometric prompt (Touch ID). No `firebase login`, `gcloud auth login`, or browser prompts needed
+- The service account key never expires unless explicitly deleted
 
-## Token renewal
-
-The ADC refresh token has no fixed expiry but is revoked on password change, explicit revocation, or 6 months of inactivity. If deploys fail with `invalid_grant` or `Token has been revoked`:
+## First-time setup for a new project
 
 ```bash
-gcloud auth application-default login --project=nathanpaynedotcom
-op item edit "GCP ADC" --vault Private \
-  "credential=$(cat ~/.config/gcloud/application_default_credentials.json)"
+op-firebase-setup                    # auto-detect from .firebaserc
+op-firebase-setup my-project-id      # explicit project ID
+```
+
+This creates a `firebase-deployer` service account, grants deploy roles, generates a key, and stores it in 1Password as `Firebase Deploy - {project}`. Run once per project.
+
+## Key rotation
+
+The service account key does not expire. To rotate it if compromised:
+
+```bash
+op-firebase-setup                    # generates a new key and updates 1Password
 ```
 
 ## Rules
