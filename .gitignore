@@ -1,4 +1,5 @@
 .DS_Store
+.firebase/
 .env
 *.key
 service-account.json
