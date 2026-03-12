@@ -1,0 +1,53 @@
+#!/usr/bin/env bash
+# check_duplicate_docs
+# Detects structural documentation duplication — instruction content in conflicting locations.
+# Checks for known duplicate-prone patterns between canonical root files and tool folders.
+# Note: This check detects structural duplication (same role, two locations), not semantic duplication.
+# Exit 0 = pass, Exit 1 = fail.
+
+set -euo pipefail
+
+REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+
+FAILED=0
+
+# Check 1: No .md files inside tool config directories that shadow root canonical files
+TOOL_DIRS=(".claude" ".cursor" ".vscode")
+CANONICAL_NAMES=("AGENTS" "DEPLOYMENT" "CONTRIBUTING" "README" "repo_rules")
+
+for dir in "${TOOL_DIRS[@]}"; do
+  dir_path="$REPO_ROOT/$dir"
+  if [[ ! -d "$dir_path" ]]; then
+    continue
+  fi
+
+  for name in "${CANONICAL_NAMES[@]}"; do
+    if find "$dir_path" -type f -name "${name}.md" | grep -q .; then
+      echo "FAIL: Canonical doc '${name}.md' found inside tool folder '$dir/' — instruction content must live in root files only"
+      FAILED=1
+    fi
+  done
+done
+
+# Check 2: No second DEPLOYMENT.md or CONTRIBUTING.md at root-adjacent locations
+for extra_location in "docs/DEPLOYMENT.md" "docs/CONTRIBUTING.md" "docs/AGENTS.md"; do
+  if [[ -f "$REPO_ROOT/$extra_location" ]]; then
+    echo "WARN: Potential duplicate canonical doc found at: $extra_location (canonical location is repository root)"
+    FAILED=1
+  fi
+done
+
+# Check 3: No rules files outside rules/
+if find "$REPO_ROOT" -maxdepth 1 -type f -name "*rules*.md" | grep -q .; then
+  match=$(find "$REPO_ROOT" -maxdepth 1 -type f -name "*rules*.md")
+  echo "WARN: Rules file found at repository root (should be in rules/): $match"
+  FAILED=1
+fi
+
+if [[ $FAILED -eq 1 ]]; then
+  echo "check_duplicate_docs: FAILED"
+  exit 1
+fi
+
+echo "check_duplicate_docs: PASSED — no obvious documentation duplication detected"
+exit 0

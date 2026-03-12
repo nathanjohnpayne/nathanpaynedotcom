@@ -1,0 +1,34 @@
+#!/usr/bin/env bash
+# check_no_tool_folder_instructions
+# Verifies .claude/, .cursor/, and .vscode/ contain no plain instruction files (.md, .txt).
+# Cursor .mdc rule files are permitted as valid Cursor configuration.
+# Exit 0 = pass, Exit 1 = fail.
+
+set -euo pipefail
+
+REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+TOOL_DIRS=(".claude" ".cursor" ".vscode")
+
+FAILED=0
+
+for dir in "${TOOL_DIRS[@]}"; do
+  dir_path="$REPO_ROOT/$dir"
+  if [[ ! -d "$dir_path" ]]; then
+    continue
+  fi
+
+  # Find .md and .txt files (plain instruction formats); exclude .mdc (Cursor rule format)
+  while IFS= read -r -d '' file; do
+    rel_path="${file#$REPO_ROOT/}"
+    echo "FAIL: Instruction prose file found in tool config directory: $rel_path"
+    FAILED=1
+  done < <(find "$dir_path" -type f \( -name "*.md" -o -name "*.txt" \) -print0)
+done
+
+if [[ $FAILED -eq 1 ]]; then
+  echo "check_no_tool_folder_instructions: FAILED"
+  exit 1
+fi
+
+echo "check_no_tool_folder_instructions: PASSED — no instruction files in tool config directories"
+exit 0

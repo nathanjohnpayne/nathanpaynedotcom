@@ -1,0 +1,57 @@
+#!/usr/bin/env bash
+# check_spec_test_alignment
+# Verifies every spec file in specs/ has a corresponding test file in tests/.
+# Matches on base filename only, ignoring extension, to accommodate different test file conventions.
+# Exit 0 = pass, Exit 1 = fail.
+
+set -euo pipefail
+
+REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+SPECS_DIR="$REPO_ROOT/specs"
+TESTS_DIR="$REPO_ROOT/tests"
+
+# If specs/ doesn't exist or is empty (only .gitkeep), skip
+if [[ ! -d "$SPECS_DIR" ]]; then
+  echo "check_spec_test_alignment: SKIPPED — no specs/ directory found"
+  exit 0
+fi
+
+# Find all spec files, excluding .gitkeep
+SPEC_FILES=()
+while IFS= read -r -d '' file; do
+  filename="$(basename "$file")"
+  if [[ "$filename" != ".gitkeep" ]]; then
+    SPEC_FILES+=("$file")
+  fi
+done < <(find "$SPECS_DIR" -type f -print0)
+
+if [[ ${#SPEC_FILES[@]} -eq 0 ]]; then
+  echo "check_spec_test_alignment: SKIPPED — specs/ is empty"
+  exit 0
+fi
+
+FAILED=0
+
+for spec_file in "${SPEC_FILES[@]}"; do
+  spec_basename="$(basename "$spec_file")"
+  # Strip extension to get base name
+  spec_base="${spec_basename%.*}"
+
+  # Look for any file in tests/ whose base name matches (any extension)
+  MATCH=$(find "$TESTS_DIR" -type f -name "${spec_base}*" 2>/dev/null | head -1)
+
+  if [[ -z "$MATCH" ]]; then
+    echo "WARN: Spec file has no corresponding test file: $spec_basename"
+    FAILED=1
+  fi
+done
+
+if [[ $FAILED -eq 1 ]]; then
+  echo ""
+  echo "check_spec_test_alignment: FAILED — one or more spec files lack corresponding tests"
+  echo "Add test files to tests/ or document exceptions in AGENTS.md"
+  exit 1
+fi
+
+echo "check_spec_test_alignment: PASSED — all spec files have corresponding tests"
+exit 0
