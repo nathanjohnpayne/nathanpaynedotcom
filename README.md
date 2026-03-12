@@ -150,15 +150,19 @@ OG images have their own version strings and are cached with immutable headers.
 The site is hosted on [Firebase Hosting](https://firebase.google.com/docs/hosting). Firebase project ID: `nathanpaynedotcom`.
 
 ```bash
-# Install Firebase CLI (once)
+# Install deploy tooling (once)
 npm install -g firebase-tools
+# Install the 1Password desktop app and 1Password CLI (`op`)
+# Install Google Cloud SDK if gcloud is not already available
 
-# Authenticate (once)
-firebase login
+# One-time per maintainer/project
+op-firebase-setup nathanpaynedotcom
 
 # Deploy
-firebase deploy
+op-firebase-deploy
 ```
+
+`op-firebase-deploy` reads `Private/Firebase Deploy - nathanpaynedotcom` first and falls back to `Private/GCP ADC`.
 
 ### Firebase Configuration
 
@@ -179,6 +183,7 @@ Defined in `firebase.json`:
 - This site does not need Firebase client config today, and the repo should not contain API keys, service-account JSON, or ADC credentials.
 - Google Analytics measurement IDs are public identifiers; anything write-capable is not. If you add Firebase or third-party API keys later, keep them in ignored config or hosting settings, not in `index.html` or `script.js`.
 - If the deploy credential stored in `Private/GCP ADC` is exposed, rerun `gcloud auth application-default login --project=nathanpaynedotcom`, overwrite the 1Password item, and revoke the old Google credential.
+- For future APIs or services, commit only template files with `op://Private/<item>/<field>` references and resolve them into gitignored runtime files with `op inject`.
 
 ---
 

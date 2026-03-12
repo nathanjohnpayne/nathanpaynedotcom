@@ -164,6 +164,10 @@ op-firebase-deploy --only hosting   # hosting only
 
 The script reads ADC credentials from 1Password (`Private/GCP ADC`), auto-detects the project from `.firebaserc`, and cleans up credentials on exit.
 
+`op-firebase-deploy` checks `Private/Firebase Deploy - nathanpaynedotcom` first, then falls back to `Private/GCP ADC`.
+
+**First-time setup:** `op-firebase-setup nathanpaynedotcom` creates `firebase-deployer@nathanpaynedotcom.iam.gserviceaccount.com`, grants deploy roles, and stores the key in 1Password.
+
 **Token renewal:** The ADC refresh token has no fixed expiry but is revoked on Google password change, explicit revocation, or 6 months of inactivity. If deploys fail with `invalid_grant`, renew:
 
 ```bash
@@ -181,6 +185,7 @@ op item edit "GCP ADC" --vault Private \
 - This repo should not contain API keys, service-account JSON, or ADC credentials. Google Analytics measurement IDs are public identifiers; anything write-capable is not.
 - If the `Private/GCP ADC` credential is exposed, rerun `gcloud auth application-default login --project=nathanpaynedotcom`, update the 1Password item, then revoke the old Google credential.
 - If you add Firebase or third-party API keys later, keep them in ignored config or the hosting platform, not in `index.html` or `script.js`. Publicly committed keys still create abuse and alerting risk even when they are browser-scoped.
+- If a future API or service needs secrets, commit only template files with `op://Private/<item>/<field>` references and resolve them with `op inject` into a gitignored runtime file during deploy.
 
 ### Cache Busting
 
