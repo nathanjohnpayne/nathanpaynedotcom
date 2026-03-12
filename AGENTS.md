@@ -176,6 +176,12 @@ op item edit "GCP ADC" --vault Private \
 - Public directory is `.` (repo root).
 - `README.md`, dotfiles, `*.sh`, and `node_modules` are excluded from deploy via `firebase.json` ignore rules.
 
+### Credential Hygiene And Rotation
+
+- This repo should not contain API keys, service-account JSON, or ADC credentials. Google Analytics measurement IDs are public identifiers; anything write-capable is not.
+- If the `Private/GCP ADC` credential is exposed, rerun `gcloud auth application-default login --project=nathanpaynedotcom`, update the 1Password item, then revoke the old Google credential.
+- If you add Firebase or third-party API keys later, keep them in ignored config or the hosting platform, not in `index.html` or `script.js`. Publicly committed keys still create abuse and alerting risk even when they are browser-scoped.
+
 ### Cache Busting
 
 Assets are versioned via query strings: `style.css?v=20260228j`, `script.js?v=20260228j`. Bump the version string (date + letter suffix) on every deploy that changes CSS or JS.

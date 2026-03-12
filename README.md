@@ -174,6 +174,12 @@ Defined in `firebase.json`:
 | Security headers | `X-Content-Type-Options`, `X-Frame-Options`, `X-XSS-Protection` |
 | Ignored on deploy | `firebase.json`, dotfiles, `node_modules`, `*.sh`, `README.md` |
 
+### Credential Hygiene
+
+- This site does not need Firebase client config today, and the repo should not contain API keys, service-account JSON, or ADC credentials.
+- Google Analytics measurement IDs are public identifiers; anything write-capable is not. If you add Firebase or third-party API keys later, keep them in ignored config or hosting settings, not in `index.html` or `script.js`.
+- If the deploy credential stored in `Private/GCP ADC` is exposed, rerun `gcloud auth application-default login --project=nathanpaynedotcom`, overwrite the 1Password item, and revoke the old Google credential.
+
 ---
 
 ## SEO & Social
