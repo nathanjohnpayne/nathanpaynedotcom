@@ -315,12 +315,35 @@ html, body {
   text-decoration: none;
   font-size: clamp(0.92rem, 1.02vw, 1.04rem);
   font-weight: 600;
+  position: relative;
   transition: border-color var(--motion-hover) var(--ease-standard);
 }
 
 .social-row:hover {
   border-color: rgba(25, 22, 17, 0.45);
 }
+
+.social-row::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  bottom: -3px;
+  height: 2px;
+  width: 0%;
+  transition: width 180ms ease;
+}
+
+.social-row:hover::after,
+.social-row:focus-visible::after {
+  width: 100%;
+}
+
+.social-row--linkedin::after { background: #0A66C2; }
+.social-row--github::after { background: #24292E; }
+.social-row--bluesky::after { background: #0085FF; }
+.social-row--instagram::after { background: linear-gradient(90deg, #FFC273, #E56969, #C1558B, #8A49A1); }
+.social-row--threads::after { background: #000000; }
+.social-row--x::after { background: #000000; }
 
 .s-icon {
   width: 0.92rem;
@@ -653,6 +676,7 @@ html, body {
 }
 
 .is-scrolling .social-row,
+.is-scrolling .social-row::after,
 .is-scrolling .s-icon,
 .is-scrolling .s-arrow,
 .is-scrolling .effort-link,
