@@ -5,6 +5,19 @@
   --yellow: #ddb84f;
   --blue: #23488d;
   --black: #11100d;
+  --linkedin-blue-6: #006699;
+  --linkedin-blue-4: #00A0DC;
+  --linkedin-gray-6: #313335;
+  --linkedin-gray-3: #86888A;
+  --linkedin-gray-1: #CACCCE;
+  --bluesky-blue-7: #0E57FF;
+  --bluesky-blue-5: #1F6FFF;
+  --bluesky-blue-3: #73B6FF;
+  --bluesky-blue-1: #CFE5FF;
+  --github-gray-6: #101411;
+  --github-gray-5: #232925;
+  --github-green-4: #0FBF3E;
+  --github-green-2: #8CF2A6;
   --line: 9px;
   --su: 0.42rem;
   --rule: rgba(17, 16, 13, 0.18);
@@ -330,7 +343,7 @@ html, body {
   bottom: -3px;
   height: 2px;
   width: 0%;
-  transition: width 180ms ease;
+  transition: width var(--motion-hover) var(--ease-standard);
 }
 
 .social-row:hover::after,
@@ -338,12 +351,53 @@ html, body {
   width: 100%;
 }
 
-.social-row--linkedin::after { background: #0A66C2; }
-.social-row--github::after { background: #24292E; }
-.social-row--bluesky::after { background: #0085FF; }
+.social-row--linkedin::after {
+  background: linear-gradient(
+    90deg,
+    var(--linkedin-gray-6) 0%,
+    var(--linkedin-blue-6) 34%,
+    var(--linkedin-blue-4) 68%,
+    var(--linkedin-gray-3) 86%,
+    var(--linkedin-gray-1) 100%
+  );
+}
+.social-row--github::after {
+  background: linear-gradient(
+    90deg,
+    var(--github-gray-6) 0%,
+    var(--github-gray-5) 42%,
+    var(--github-green-4) 76%,
+    var(--github-green-2) 100%
+  );
+}
+.social-row--bluesky::after {
+  background: linear-gradient(
+    90deg,
+    var(--bluesky-blue-7) 0%,
+    var(--bluesky-blue-5) 52%,
+    var(--bluesky-blue-3) 84%,
+    var(--bluesky-blue-1) 100%
+  );
+}
 .social-row--instagram::after { background: linear-gradient(90deg, #FFC273, #E56969, #C1558B, #8A49A1); }
-.social-row--threads::after { background: #000000; }
-.social-row--x::after { background: #000000; }
+.social-row--threads::after {
+  background: linear-gradient(
+    90deg,
+    #000000 0%,
+    #242424 38%,
+    #6A6A6A 74%,
+    #F2F2F2 100%
+  );
+}
+.social-row--x::after {
+  background: linear-gradient(
+    90deg,
+    #000000 0%,
+    #0B0B0B 55%,
+    #7C7C7C 82%,
+    #FFFFFF 100%
+  );
+}
 
 .s-icon {
   width: 0.92rem;
