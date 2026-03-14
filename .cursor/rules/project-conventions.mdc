@@ -42,4 +42,4 @@ There is no `src/` directory.
 ## Deployment
 
 - Bump the query-string version (`?v=YYYYMMDD<letter>`) on `style.css` and `script.js` references in `index.html` whenever those files change.
-- Deploy with `firebase deploy`.
+- Deploy with `op-firebase-deploy`. Never run `firebase deploy` directly.

@@ -1,11 +1,13 @@
 # Deployment
 
+> This guide covers deploying the existing project. For **new project setup** (create Firebase project, `firebase init`, first-time credential setup), see `ai_agent_repo_template/DEPLOYMENT.md` in the sibling directory.
+
 ## Prerequisites
 
 - [Firebase CLI](https://firebase.google.com/docs/cli) installed globally
 - [1Password CLI](https://developer.1password.com/docs/cli/) (`op`) installed and signed in
 - `op-firebase-deploy` script on PATH (see First-Time Setup below)
-- Access to the `nathanpaynedotcom` 1Password vault items: `Private/Firebase Deploy - nathanpaynedotcom` and `Private/GCP ADC`
+- Access to the `Private` vault in 1Password: `Private/Firebase Deploy - nathanpaynedotcom`
 
 ## Environments
 
@@ -91,10 +93,6 @@ No CI/CD pipeline is currently configured. Deploys are manual via `op-firebase-d
 - No API keys or secrets are committed to this repository. Google Analytics Measurement ID (`G-7C29SRBXB1`) is a public identifier — not a secret.
 - Service account credentials are stored exclusively in 1Password (`Private/Firebase Deploy - nathanpaynedotcom`).
 - Do not commit API keys, service-account JSON, or ADC credentials.
-- If the `Private/GCP ADC` credential is exposed:
-  1. Run `gcloud auth application-default login --project=nathanpaynedotcom`
-  2. Overwrite the 1Password item: `op item edit "GCP ADC" --vault Private "credential=$(cat ~/.config/gcloud/application_default_credentials.json)"`
-  3. Revoke the old Google credential in the GCP Console
 - If a future feature requires API keys, keep them in ignored config files and apply browser restrictions in Google Cloud. Never commit raw keys.
 
 ## Caching Rules

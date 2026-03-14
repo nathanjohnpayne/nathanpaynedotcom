@@ -187,7 +187,7 @@ Do not introduce npm, bundlers, frameworks, or external libraries. This is inten
 
 ### Credential Hygiene
 - This repo should not contain API keys, service-account JSON, or ADC credentials. GA Measurement IDs are public identifiers; anything write-capable is not.
-- If the `Private/GCP ADC` credential is exposed, rerun `gcloud auth application-default login --project=nathanpaynedotcom`, update the 1Password item, then revoke the old credential.
+- If the deploy service account key (`Private/Firebase Deploy - nathanpaynedotcom`) is compromised, rotate it with `op-firebase-setup nathanpaynedotcom`.
 - If you add Firebase or third-party API keys later, keep them in ignored config, not in `index.html` or `script.js`.
 
 ### Typography

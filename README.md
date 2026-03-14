@@ -162,7 +162,7 @@ op-firebase-setup nathanpaynedotcom
 op-firebase-deploy
 ```
 
-`op-firebase-deploy` reads `Private/Firebase Deploy - nathanpaynedotcom` first and falls back to `Private/GCP ADC`.
+`op-firebase-deploy` reads `Private/Firebase Deploy - nathanpaynedotcom` from 1Password and sets `GOOGLE_APPLICATION_CREDENTIALS`. No browser auth required.
 
 ### Firebase Configuration
 
@@ -182,7 +182,7 @@ Defined in `firebase.json`:
 
 - This site does not need Firebase client config today, and the repo should not contain API keys, service-account JSON, or ADC credentials.
 - Google Analytics measurement IDs are public identifiers; anything write-capable is not. If you add Firebase or third-party API keys later, keep them in ignored config or hosting settings, not in `index.html` or `script.js`.
-- If the deploy credential stored in `Private/GCP ADC` is exposed, rerun `gcloud auth application-default login --project=nathanpaynedotcom`, overwrite the 1Password item, and revoke the old Google credential.
+- If the deploy service account key (`Private/Firebase Deploy - nathanpaynedotcom`) is compromised, rotate it with `op-firebase-setup nathanpaynedotcom`.
 - For future APIs or services, commit only template files with `op://Private/<item>/<field>` references and resolve them into gitignored runtime files with `op inject`.
 
 ---
