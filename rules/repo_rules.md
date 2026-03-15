@@ -12,6 +12,7 @@ The following files must always exist at the repository root and must never be d
 
 The following directories must always exist:
 
+- `projects/` — dedicated static project detail pages and search landing pages
 - `rules/` — contains this file and other binding constraints
 - `plans/` — execution and rollout plans
 - `specs/` — feature specifications and acceptance criteria

@@ -1,6 +1,6 @@
 # nathanpayne.com
 
-Personal portfolio site for Nathan Payne — a static, single-page site built with vanilla HTML, CSS, and JavaScript. No frameworks, no build step, no dependencies.
+Personal portfolio and project site for Nathan Payne — a static site built with vanilla HTML, CSS, and JavaScript. No frameworks, no build step, no dependencies.
 
 **Live:** [nathanpayne.com](https://nathanpayne.com)
 
@@ -44,9 +44,20 @@ On desktop, hovering or focusing a panel triggers a CSS Grid transition that exp
 
 ```
 .
-├── index.html                      # Single-page markup, SEO meta, OG tags
-├── style.css                       # All styles — grid, panels, motion system, responsive, a11y
-├── script.js                       # Panel interactions, keyboard nav, scroll guard, analytics
+├── index.html                      # Homepage markup, SEO meta, OG tags, homepage JSON-LD
+├── style.css                       # Shared styles — homepage grid plus project detail pages
+├── script.js                       # Homepage interactions, keyboard nav, scroll guard, analytics
+├── robots.txt                      # Crawl directives
+├── sitemap.xml                     # Canonical URL inventory for search engines
+├── projects/                       # Dedicated static project pages
+│   ├── device-source-of-truth/
+│   │   └── index.html
+│   ├── friends-and-family-billing/
+│   │   └── index.html
+│   ├── override/
+│   │   └── index.html
+│   └── swipe-watch/
+│       └── index.html
 ├── favicon.svg                     # SVG favicon (red with "NP")
 ├── og-image.png                    # Primary Open Graph image (2400×1260)
 ├── og/                             # Platform-specific OG images
@@ -81,7 +92,7 @@ Panel grid placements:
 | `panel--black` | 2 | 6 / 9 | Community |
 | `panel--blue` | 6 / 9 | 8 | Connect |
 
-### Interactions (`script.js`)
+### Homepage Interactions (`script.js`)
 
 The script is a single IIFE with no external dependencies.
 
@@ -91,6 +102,14 @@ The script is a single IIFE with no external dependencies.
 - **Mobile:** All interaction handlers exit early when `matchMedia('(max-width: 920px)')` matches. Panels are always expanded.
 - **Scroll guard:** A debounced scroll listener (100ms) adds `.is-scrolling` to `<body>` during active scroll. CSS suspends hover transitions while this class is present, preventing scroll + hover easing conflicts.
 - **Analytics:** First hover on each panel fires a one-time `section_view` event to Google Analytics via `gtag`.
+
+### Project Pages
+
+Each project in the yellow panel now has a dedicated static detail page under `projects/`. These pages:
+
+- use clean, crawlable URLs (`/projects/<slug>/`)
+- include page-specific titles, descriptions, canonicals, Open Graph tags, and JSON-LD
+- reuse the shared `style.css` file but do not rely on homepage interaction JavaScript
 
 ### Motion System
 
@@ -171,7 +190,7 @@ Defined in `firebase.json`:
 | Setting | Value |
 |---------|-------|
 | Public directory | `.` (repo root) |
-| SPA rewrite | All routes → `/index.html` |
+| Static route handling | Existing files served directly; unmatched routes rewrite to `/index.html` |
 | OG image cache | 1 year, immutable |
 | JS/CSS cache | 1 hour |
 | HTML cache | 1 hour |
@@ -191,6 +210,9 @@ Defined in `firebase.json`:
 
 - **Open Graph + Twitter Card** meta tags in `<head>` with 2400×1260 image
 - **Canonical URL:** `https://nathanpayne.com/`
+- **JSON-LD:** homepage profile data plus project-page structured data
+- **Crawl files:** `robots.txt` and `sitemap.xml`
+- **Dedicated project pages:** clean internal URLs for project-specific search discovery
 - **Platform-specific OG images** in `/og/` for iMessage (1200×1200), LinkedIn (1200×627), and Slack (1280×640)
 - **Google Analytics 4** via `gtag.js` (property `G-7C29SRBXB1`)
 

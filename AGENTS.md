@@ -5,24 +5,30 @@ Platform-agnostic instructions for AI coding agents working in this repository.
 ## 1. Repository Overview
 
 ### Project Summary
-Static personal portfolio for [nathanpayne.com](https://nathanpayne.com). Vanilla HTML + CSS + JavaScript — no frameworks, no build step, no package manager. Deployed to Firebase Hosting.
+Static personal portfolio and project site for [nathanpayne.com](https://nathanpayne.com). Vanilla HTML + CSS + JavaScript — no frameworks, no build step, no package manager. Deployed to Firebase Hosting.
 
 ### Architecture
-Three source files, all at the repo root:
+Homepage plus dedicated static project pages:
 
 | File | Role |
 |------|------|
-| `index.html` | Single-page markup. Contains all SEO meta, Open Graph tags, inline GA4 snippet, and font preconnects. |
-| `style.css` | All styles. The Mondrian grid, panel states, typography, responsive breakpoint, accessibility. |
-| `script.js` | Panel open/close logic, keyboard navigation, hover intent, scroll guard, analytics event tracking. Wrapped in an IIFE. |
+| `index.html` | Homepage markup. Contains homepage SEO meta, Open Graph tags, homepage JSON-LD, inline GA4 snippet, and font preconnects. |
+| `projects/<slug>/index.html` | Dedicated project detail pages with project-specific meta, canonicals, and JSON-LD. |
+| `style.css` | Shared styles for the Mondrian homepage and the project detail pages. |
+| `script.js` | Homepage panel open/close logic, keyboard navigation, hover intent, scroll guard, analytics event tracking. Wrapped in an IIFE. |
+| `robots.txt` | Crawl directives for search engines. |
+| `sitemap.xml` | Canonical URL inventory for search engines. |
 
 There is no `src/` directory, no transpilation, and no bundler. Files are served as-is by Firebase Hosting.
 
 ### File Inventory
 ```
 index.html              Markup + meta
-style.css               Styles (grid, panels, motion system, responsive, a11y)
-script.js               Interactions (panels, keyboard, scroll guard, analytics)
+style.css               Styles (homepage, project pages, motion system, responsive, a11y)
+script.js               Homepage interactions (panels, keyboard, scroll guard, analytics)
+robots.txt              Crawl directives
+sitemap.xml             Search-engine URL inventory
+projects/               Dedicated static project detail pages
 favicon.svg             SVG favicon (red with "NP")
 favicon-32x32.png       Rasterized favicon (32px)
 apple-touch-icon.png    Apple touch icon (180px)
@@ -102,7 +108,9 @@ Narrative order: **Identity → Work → Community → Contact**
 
 #### Adding a Project
 1. Add a new `.project-item` div inside `.project-list` in the **yellow cell** (`panel--yellow`) in `index.html`, following the existing pattern (`.p-head` with `.p-name` + `.p-tag`, then a `<p>` with description and optional `.p-link`).
-2. No CSS changes needed — the project list is a flex column.
+2. Link the project name to a dedicated detail page at `projects/<slug>/index.html`.
+3. Add the project URL to `sitemap.xml`.
+4. Reuse the shared `style.css` detail-page patterns unless the user explicitly asks for a new visual system.
 
 #### Adding a Social Link
 1. Add a new `.social-row` anchor inside `.social-stack` in the **blue cell** (`panel--blue`) in `index.html`.
