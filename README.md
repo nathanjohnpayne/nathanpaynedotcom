@@ -146,7 +146,7 @@ At `max-width: 920px`:
 
 ## Development
 
-No build tools are required. Edit the three source files directly and preview in a browser.
+No build tools are required. Edit the static source files directly and preview in a browser.
 
 ```bash
 # Serve locally (any static server works)
@@ -171,8 +171,15 @@ The site is hosted on [Firebase Hosting](https://firebase.google.com/docs/hostin
 ```bash
 # Install deploy tooling (once)
 npm install -g firebase-tools
-# Install the 1Password desktop app and 1Password CLI (`op`)
-# Install Google Cloud SDK if gcloud is not already available
+mkdir -p ~/.local/bin
+cp ../ai_agent_repo_template/scripts/gcloud/gcloud ~/.local/bin/gcloud
+cp ../ai_agent_repo_template/scripts/firebase/op-firebase-deploy ~/.local/bin/
+cp ../ai_agent_repo_template/scripts/firebase/op-firebase-setup ~/.local/bin/
+chmod +x ~/.local/bin/gcloud ~/.local/bin/op-firebase-deploy ~/.local/bin/op-firebase-setup
+hash -r
+
+# One-time per maintainer/machine
+gcloud auth application-default login
 
 # One-time per maintainer/project
 op-firebase-setup nathanpaynedotcom
@@ -181,7 +188,7 @@ op-firebase-setup nathanpaynedotcom
 op-firebase-deploy
 ```
 
-`op-firebase-deploy` reads `Private/Firebase Deploy - nathanpaynedotcom` from 1Password and sets `GOOGLE_APPLICATION_CREDENTIALS`. No browser auth required.
+`op-firebase-deploy` keeps the old name for compatibility, but it now creates a short-lived impersonated credential for `firebase-deployer@nathanpaynedotcom.iam.gserviceaccount.com` from local ADC. No long-lived deploy key is stored in 1Password or the repo.
 
 ### Firebase Configuration
 
@@ -201,8 +208,8 @@ Defined in `firebase.json`:
 
 - This site does not need Firebase client config today, and the repo should not contain API keys, service-account JSON, or ADC credentials.
 - Google Analytics measurement IDs are public identifiers; anything write-capable is not. If you add Firebase or third-party API keys later, keep them in ignored config or hosting settings, not in `index.html` or `script.js`.
-- If the deploy service account key (`Private/Firebase Deploy - nathanpaynedotcom`) is compromised, rotate it with `op-firebase-setup nathanpaynedotcom`.
-- For future APIs or services, commit only template files with `op://Private/<item>/<field>` references and resolve them into gitignored runtime files with `op inject`.
+- Deploy auth uses short-lived impersonated credentials. If local auth stops working, rerun `gcloud auth application-default login`; if IAM bindings drift, rerun `op-firebase-setup nathanpaynedotcom`.
+- For future CI deploys, prefer Workload Identity Federation or another `external_account` credential over stored service-account keys.
 
 ---
 

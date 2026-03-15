@@ -65,7 +65,7 @@ When a panel is focused, JavaScript sets `data-focus="<panel-name>"` on the grid
 - **Mobile (≤ 920px):** All interactions are disabled. Panels stack vertically with content always visible. The `mobile()` media-query check gates every interaction handler.
 
 #### No Build Step
-This is intentional. The site is three files. Do not introduce a bundler, framework, or package manager unless explicitly asked. There is no `package.json`.
+This is intentional. The site is a small set of static files. Do not introduce a bundler, framework, or package manager unless explicitly asked. There is no `package.json`.
 
 ### Content-to-Cell Mapping
 Panel CSS classes are color-based (controlling grid position and color). Content is assigned to cells independently:
@@ -191,11 +191,12 @@ JavaScript adds `.is-scrolling` to `<body>` during active scroll (debounced at 1
 `@media (prefers-reduced-motion: reduce)` sets `transition-duration: 0ms` and `animation-duration: 0ms` on all elements (`*`, `*::before`, `*::after`) universally.
 
 ### No New Dependencies
-Do not introduce npm, bundlers, frameworks, or external libraries. This is intentionally a three-file, dependency-free site. Any change requiring new dependencies requires explicit discussion and a `plans/` entry.
+Do not introduce npm, bundlers, frameworks, or external libraries. This is intentionally a small, dependency-free static site. Any change requiring new dependencies requires explicit discussion and a `plans/` entry.
 
 ### Credential Hygiene
 - This repo should not contain API keys, service-account JSON, or ADC credentials. GA Measurement IDs are public identifiers; anything write-capable is not.
-- If the deploy service account key (`Private/Firebase Deploy - nathanpaynedotcom`) is compromised, rotate it with `op-firebase-setup nathanpaynedotcom`.
+- Deploy auth is keyless: `op-firebase-deploy` creates short-lived impersonated credentials from local ADC or CI-provided external-account credentials.
+- If local auth expires, rerun `gcloud auth application-default login`. If impersonation bindings drift, rerun `op-firebase-setup nathanpaynedotcom`.
 - If you add Firebase or third-party API keys later, keep them in ignored config, not in `index.html` or `script.js`.
 
 ### Typography
@@ -239,11 +240,11 @@ No automated test framework is in use. This is a static site with no application
 
 ## 6. Deployment Process
 
-All deploys use `op-firebase-deploy` for non-interactive 1Password auth. Never run `firebase deploy` directly.
+All deploys use `op-firebase-deploy` for non-interactive service account impersonation. Never run `firebase deploy` directly.
 
 ```bash
 op-firebase-deploy                  # full deploy
 op-firebase-deploy --only hosting   # hosting only
 ```
 
-See `DEPLOYMENT.md` for full deployment instructions, first-time setup, cache-bust steps, caching rules, security headers, rollback procedure, and secrets management.
+See `DEPLOYMENT.md` for the local ADC bootstrap, `gcloud` wrapper install, first-time impersonation setup, cache-bust steps, caching rules, security headers, rollback procedure, and secrets management.

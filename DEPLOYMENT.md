@@ -1,13 +1,15 @@
 # Deployment
 
-> This guide covers deploying the existing project. For **new project setup** (create Firebase project, `firebase init`, first-time credential setup), see `ai_agent_repo_template/DEPLOYMENT.md` in the sibling directory.
+> This guide covers deploying the existing project. For **new project setup** (create Firebase project, `firebase init`, first-time auth bootstrap), see `ai_agent_repo_template/DEPLOYMENT.md` in the sibling directory.
 
 ## Prerequisites
 
 - [Firebase CLI](https://firebase.google.com/docs/cli) installed globally
-- [1Password CLI](https://developer.1password.com/docs/cli/) (`op`) installed and signed in
-- `op-firebase-deploy` script on PATH (see First-Time Setup below)
-- Access to the `Private` vault in 1Password: `Private/Firebase Deploy - nathanpaynedotcom`
+- [Google Cloud SDK](https://cloud.google.com/sdk/docs/install) (`gcloud`) installed
+- Local `gcloud` wrapper installed on PATH (see First-Time Setup below)
+- `op-firebase-deploy` and `op-firebase-setup` on PATH
+- Application Default Credentials (ADC) initialized via `gcloud auth application-default login`
+- Permission to impersonate `firebase-deployer@nathanpaynedotcom.iam.gserviceaccount.com`
 
 ## Environments
 
@@ -33,7 +35,7 @@ OG images use a separate version string and are cached immutably for 1 year — 
 
 ## Deployment Steps
 
-All deploys use `op-firebase-deploy` for non-interactive 1Password auth. **Never run `firebase deploy` directly.**
+All deploys use `op-firebase-deploy` for keyless, non-interactive service account impersonation. **Never run `firebase deploy` directly.**
 
 ```bash
 # Full deploy (hosting + all configured services)
@@ -44,21 +46,52 @@ op-firebase-deploy --only hosting
 ```
 
 The script:
-1. Reads the service account key from 1Password (`Private/Firebase Deploy - nathanpaynedotcom/credential`)
-2. Auto-detects the Firebase project from `.firebaserc`
-3. Writes the key to a temp file (`umask 077`), sets `GOOGLE_APPLICATION_CREDENTIALS`
-4. Runs `firebase deploy --non-interactive`
+1. Auto-detects the Firebase project from `.firebaserc`
+2. Reads source credentials from `GOOGLE_APPLICATION_CREDENTIALS` or `~/.config/gcloud/application_default_credentials.json`
+3. Generates a temporary `impersonated_service_account` credential file for `firebase-deployer@nathanpaynedotcom.iam.gserviceaccount.com`
+4. Sets `GOOGLE_APPLICATION_CREDENTIALS` to that temp file and runs `firebase deploy --non-interactive`
 5. Cleans up credentials on exit
 
-The only interactive step is the 1Password biometric prompt (Touch ID). No `firebase login`, `gcloud auth login`, or browser prompts needed.
+No long-lived deploy key is stored locally or in 1Password. The only interactive step is refreshing local ADC if it has expired or been revoked:
+
+```bash
+gcloud auth application-default login
+```
+
+The local `gcloud` wrapper uses the same ADC source so normal `gcloud` commands work without an interactive `gcloud auth login`.
 
 ## First-Time Setup
 
+Install the canonical helper scripts from the sibling template repo once per machine:
+
 ```bash
+mkdir -p ~/.local/bin
+cp ../ai_agent_repo_template/scripts/gcloud/gcloud ~/.local/bin/gcloud
+cp ../ai_agent_repo_template/scripts/firebase/op-firebase-deploy ~/.local/bin/
+cp ../ai_agent_repo_template/scripts/firebase/op-firebase-setup ~/.local/bin/
+chmod +x ~/.local/bin/gcloud ~/.local/bin/op-firebase-deploy ~/.local/bin/op-firebase-setup
+hash -r
+```
+
+Then bootstrap machine auth and project impersonation:
+
+```bash
+gcloud auth application-default login
 op-firebase-setup nathanpaynedotcom
 ```
 
-This creates a `firebase-deployer` service account, grants deploy roles, generates a key, and stores it in 1Password as `Firebase Deploy - nathanpaynedotcom`. Run once per machine.
+`op-firebase-setup` is the legacy script name, but it now performs keyless setup. For this project it:
+1. Enables the IAM Credentials API
+2. Creates `firebase-deployer@nathanpaynedotcom.iam.gserviceaccount.com` if needed
+3. Grants deploy roles to that service account
+4. Grants your current principal `roles/iam.serviceAccountTokenCreator` on the deployer
+5. Creates or updates a dedicated `gcloud` configuration named `nathanpaynedotcom`
+
+To bypass the local wrapper for a one-off command:
+
+```bash
+GCLOUD_BYPASS_ADC_WRAPPER=1 gcloud ...
+```
 
 ## Rollback Procedure
 
@@ -88,10 +121,12 @@ Or use the Firebase Console → Hosting → Release History → Roll back.
 
 No CI/CD pipeline is currently configured. Deploys are manual via `op-firebase-deploy`.
 
+If a CI pipeline is added later, prefer Workload Identity Federation or another `external_account` credential as the source ADC, then let `op-firebase-deploy` impersonate the deployer service account. Do **not** store service account keys as CI secrets.
+
 ## Secrets Management
 
 - No API keys or secrets are committed to this repository. Google Analytics Measurement ID (`G-7C29SRBXB1`) is a public identifier — not a secret.
-- Service account credentials are stored exclusively in 1Password (`Private/Firebase Deploy - nathanpaynedotcom`).
+- Deploy auth uses short-lived impersonated credentials derived from local ADC or CI-provided external-account credentials.
 - Do not commit API keys, service-account JSON, or ADC credentials.
 - If a future feature requires API keys, keep them in ignored config files and apply browser restrictions in Google Cloud. Never commit raw keys.
 
@@ -107,9 +142,15 @@ No CI/CD pipeline is currently configured. Deploys are manual via `op-firebase-d
 
 Applied globally via `firebase.json`: `X-Content-Type-Options: nosniff`, `X-Frame-Options: SAMEORIGIN`, `X-XSS-Protection: 1; mode=block`.
 
-## Key Rotation
+## Auth Maintenance
 
-The service account key does not expire. To rotate if compromised:
+If local ADC has expired, been revoked, or is missing:
+
+```bash
+gcloud auth application-default login
+```
+
+If deploy impersonation breaks because IAM bindings or `gcloud` config drifted, rerun:
 
 ```bash
 op-firebase-setup nathanpaynedotcom
