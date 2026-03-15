@@ -190,6 +190,8 @@ op-firebase-deploy
 
 `op-firebase-deploy` keeps the old name for compatibility, but it now creates a short-lived impersonated credential for `firebase-deployer@nathanpaynedotcom.iam.gserviceaccount.com` from a 1Password-backed GCP ADC source credential or another explicit `GOOGLE_APPLICATION_CREDENTIALS` file. No routine browser login is needed once the shared `Private/GCP ADC` item exists. See [`DEPLOYMENT.md`](DEPLOYMENT.md) if that item still needs to be bootstrapped or rotated.
 
+The 1Password-first deploy-auth model is intentional for this repo. Do not switch it back to ADC-first or deploy-key-based guidance unless a human explicitly requests that change.
+
 ### Firebase Configuration
 
 Defined in `firebase.json`:

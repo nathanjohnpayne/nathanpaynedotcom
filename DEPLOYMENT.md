@@ -55,6 +55,8 @@ The script:
 
 No browser prompt is needed for routine use once `op://Private/GCP ADC/credential` exists and the 1Password CLI is unlocked. In normal use the only interactive step is the 1Password unlock or Touch ID prompt.
 
+This 1Password-first source-credential model is a deliberate project decision. Do not replace it with ADC-first day-to-day docs, routine browser-login steps, `firebase login`, or long-lived deploy keys unless a human explicitly asks for that change.
+
 The local `gcloud` wrapper uses the same source-credential precedence, then applies quota attribution in this order: explicit `--billing-project`, explicit `--project`, the nearest repo `.firebaserc` project, then the active `gcloud` config.
 
 ## First-Time Setup
