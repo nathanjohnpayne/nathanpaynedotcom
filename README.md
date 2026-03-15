@@ -179,7 +179,7 @@ chmod +x ~/.local/bin/gcloud ~/.local/bin/op-firebase-deploy ~/.local/bin/op-fir
 hash -r
 
 # One-time per maintainer/machine
-gcloud auth application-default login
+# Make sure 1Password CLI can read Private/GCP ADC -> credential
 
 # One-time per maintainer/project
 op-firebase-setup nathanpaynedotcom
@@ -188,7 +188,7 @@ op-firebase-setup nathanpaynedotcom
 op-firebase-deploy
 ```
 
-`op-firebase-deploy` keeps the old name for compatibility, but it now creates a short-lived impersonated credential for `firebase-deployer@nathanpaynedotcom.iam.gserviceaccount.com` from local ADC. No long-lived deploy key is stored in 1Password or the repo.
+`op-firebase-deploy` keeps the old name for compatibility, but it now creates a short-lived impersonated credential for `firebase-deployer@nathanpaynedotcom.iam.gserviceaccount.com` from a 1Password-backed GCP ADC source credential or another explicit `GOOGLE_APPLICATION_CREDENTIALS` file. No routine browser login is needed once the shared `Private/GCP ADC` item exists. See [`DEPLOYMENT.md`](DEPLOYMENT.md) if that item still needs to be bootstrapped or rotated.
 
 ### Firebase Configuration
 
@@ -208,7 +208,7 @@ Defined in `firebase.json`:
 
 - This site does not need Firebase client config today, and the repo should not contain API keys, service-account JSON, or ADC credentials.
 - Google Analytics measurement IDs are public identifiers; anything write-capable is not. If you add Firebase or third-party API keys later, keep them in ignored config or hosting settings, not in `index.html` or `script.js`.
-- Deploy auth uses short-lived impersonated credentials. If local auth stops working, rerun `gcloud auth application-default login`; if IAM bindings drift, rerun `op-firebase-setup nathanpaynedotcom`.
+- Deploy auth uses short-lived impersonated credentials. If day-to-day auth stops working, unlock or sign in to the 1Password CLI first; if the shared `Private/GCP ADC` source credential needs rotation, refresh it once and update the item; if IAM bindings drift, rerun `op-firebase-setup nathanpaynedotcom`.
 - For future CI deploys, prefer Workload Identity Federation or another `external_account` credential over stored service-account keys.
 
 ---

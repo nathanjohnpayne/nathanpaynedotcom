@@ -195,8 +195,8 @@ Do not introduce npm, bundlers, frameworks, or external libraries. This is inten
 
 ### Credential Hygiene
 - This repo should not contain API keys, service-account JSON, or ADC credentials. GA Measurement IDs are public identifiers; anything write-capable is not.
-- Deploy auth is keyless: `op-firebase-deploy` creates short-lived impersonated credentials from local ADC or CI-provided external-account credentials.
-- If local auth expires, rerun `gcloud auth application-default login`. If impersonation bindings drift, rerun `op-firebase-setup nathanpaynedotcom`.
+- Deploy auth is keyless and 1Password-backed: `op-firebase-deploy` creates short-lived impersonated credentials from `op://Private/GCP ADC/credential`, another explicit `GOOGLE_APPLICATION_CREDENTIALS` file, or CI-provided external-account credentials.
+- Routine deploys and `gcloud` work should not require browser login once the shared 1Password source credential exists. If that credential itself needs rotation, refresh it once and update the 1Password item. If impersonation bindings drift, rerun `op-firebase-setup nathanpaynedotcom`.
 - If you add Firebase or third-party API keys later, keep them in ignored config, not in `index.html` or `script.js`.
 
 ### Typography
@@ -247,4 +247,4 @@ op-firebase-deploy                  # full deploy
 op-firebase-deploy --only hosting   # hosting only
 ```
 
-See `DEPLOYMENT.md` for the local ADC bootstrap, `gcloud` wrapper install, first-time impersonation setup, cache-bust steps, caching rules, security headers, rollback procedure, and secrets management.
+See `DEPLOYMENT.md` for the 1Password-backed GCP ADC bootstrap, `gcloud` wrapper install, first-time impersonation setup, cache-bust steps, caching rules, security headers, rollback procedure, and secrets management.
