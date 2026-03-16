@@ -734,24 +734,28 @@ body.project-page {
 
 .project-page--red {
   --project-accent: #c11d19;
+  --project-hero-accent: var(--project-accent);
   --project-accent-soft: rgba(193, 29, 25, 0.12);
   --project-bg: #d3c6bf;
 }
 
 .project-page--yellow {
   --project-accent: #9f7610;
+  --project-hero-accent: #d9b111;
   --project-accent-soft: rgba(217, 177, 17, 0.18);
   --project-bg: #d9d0b4;
 }
 
 .project-page--black {
   --project-accent: #333333;
+  --project-hero-accent: var(--project-accent);
   --project-accent-soft: rgba(51, 51, 51, 0.12);
   --project-bg: #d1cbc2;
 }
 
 .project-page--blue {
   --project-accent: #223f89;
+  --project-hero-accent: var(--project-accent);
   --project-accent-soft: rgba(34, 63, 137, 0.12);
   --project-bg: #c7cfdf;
 }
@@ -780,7 +784,7 @@ body.project-page {
   position: absolute;
   inset: 0 auto 0 0;
   width: clamp(0.5rem, 1vw, 0.8rem);
-  background: var(--project-accent);
+  background: var(--project-hero-accent, var(--project-accent));
 }
 
 .project-breadcrumbs {
