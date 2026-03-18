@@ -1,0 +1,53 @@
+name: Weekly PR Audit
+
+on:
+  schedule:
+    - cron: '0 9 * * 1'
+  workflow_dispatch:
+
+permissions:
+  issues: write
+  pull-requests: read
+
+jobs:
+  audit:
+    name: Audit Merged PRs
+    runs-on: ubuntu-latest
+    steps:
+      - name: Audit merged PRs for review policy compliance
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+        run: |
+          SINCE=$(date -u -d '7 days ago' '+%Y-%m-%dT%H:%M:%SZ' 2>/dev/null || date -u -v-7d '+%Y-%m-%dT%H:%M:%SZ')
+          TODAY=$(date -u '+%Y-%m-%d')
+          MERGED_PRS=$(gh pr list --repo "$REPO" --state merged --json number,title,mergedAt,body,labels,author --jq "[.[] | select(.mergedAt >= \"$SINCE\")]")
+          VIOLATION_COUNT=0
+          VIOLATIONS=""
+          for row in $(echo "$MERGED_PRS" | jq -r '.[] | @base64'); do
+            _jq() { echo "$row" | base64 --decode | jq -r "${1}"; }
+            PR_NUM=$(_jq '.number')
+            PR_TITLE=$(_jq '.title')
+            PR_BODY=$(_jq '.body')
+            PR_AUTHOR=$(_jq '.author.login')
+            HAD_REVIEW_LABEL=$(echo "$row" | base64 --decode | jq '[.labels[].name] | any(. == "needs-external-review")')
+            MISSING_SELF_REVIEW=false
+            if ! echo "$PR_BODY" | grep -qE '^## Self-Review'; then MISSING_SELF_REVIEW=true; fi
+            MISSING_HUMAN_APPROVAL=false
+            if [ "$HAD_REVIEW_LABEL" = "true" ]; then
+              REVIEWS=$(gh pr view "$PR_NUM" --repo "$REPO" --json reviews --jq '[.reviews[] | select(.state == "APPROVED" and .authorAssociation != "BOT")] | length')
+              if [ "$REVIEWS" -eq 0 ]; then MISSING_HUMAN_APPROVAL=true; fi
+            fi
+            if [ "$MISSING_SELF_REVIEW" = "true" ] || [ "$MISSING_HUMAN_APPROVAL" = "true" ]; then
+              VIOLATION_COUNT=$((VIOLATION_COUNT + 1))
+              VIOLATION_DETAIL="- **#${PR_NUM}** — ${PR_TITLE} (by ${PR_AUTHOR})"
+              if [ "$MISSING_SELF_REVIEW" = "true" ]; then VIOLATION_DETAIL="${VIOLATION_DETAIL}\n  - Missing Self-Review section"; fi
+              if [ "$MISSING_HUMAN_APPROVAL" = "true" ]; then VIOLATION_DETAIL="${VIOLATION_DETAIL}\n  - Had needs-external-review label but no human approval"; fi
+              VIOLATIONS="${VIOLATIONS}\n${VIOLATION_DETAIL}"
+            fi
+          done
+          if [ "$VIOLATION_COUNT" -gt 0 ]; then
+            gh issue create --repo "$REPO" --title "Weekly PR Audit — $TODAY" --body "## PR Review Policy Violations\n\n**Audit period:** $SINCE to $TODAY\n**Violations found:** $VIOLATION_COUNT\n\n### Details\n\n$(echo -e "$VIOLATIONS")\n\n---\n\nPer policy, these PRs must be retroactively reviewed by a human within one business day.\n\ncc @nathanjohnpayne" --label "audit"
+          else
+            echo "No policy violations found for the past 7 days."
+          fi

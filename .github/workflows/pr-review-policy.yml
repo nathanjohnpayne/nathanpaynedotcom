@@ -1,0 +1,65 @@
+name: PR Review Policy
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize]
+
+permissions:
+  pull-requests: write
+  contents: read
+
+jobs:
+  self-review-check:
+    name: Self-Review Required
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check for Self-Review section
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: |
+          if echo "$PR_BODY" | grep -qE '^## Self-Review'; then
+            echo "Self-Review section found."
+          else
+            echo "PR description must contain a '## Self-Review' section."
+            exit 1
+          fi
+
+  external-review-labeling:
+    name: External Review Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Check for external review triggers
+        id: check
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          NEEDS_REVIEW=false
+          REASONS=""
+          BASE_SHA=${{ github.event.pull_request.base.sha }}
+          HEAD_SHA=${{ github.event.pull_request.head.sha }}
+          LINES_CHANGED=$(git diff --stat "$BASE_SHA"..."$HEAD_SHA" -- ':!*.lock' ':!*lock.json' ':!*.min.js' ':!*.min.css' ':!*.generated.*' ':!*.g.dart' ':!*.freezed.dart' | tail -1 | awk '{print $4+$6}')
+          LINES_CHANGED=${LINES_CHANGED:-0}
+          if [ "$LINES_CHANGED" -gt 300 ]; then
+            NEEDS_REVIEW=true
+            REASONS="${REASONS}\n- Over 300 non-generated lines changed (${LINES_CHANGED})"
+          fi
+          SENSITIVE_FILES=$(git diff --name-only "$BASE_SHA"..."$HEAD_SHA" | grep -E '(^\.github/|/ci/|/auth/|/security/|^package\.json$|^package-lock\.json$|^requirements\.txt$|^Cargo\.toml$|^go\.mod$|^go\.sum$|^Gemfile$|^Gemfile\.lock$|^pubspec\.yaml$|^pubspec\.lock$)' || true)
+          if [ -n "$SENSITIVE_FILES" ]; then
+            NEEDS_REVIEW=true
+            REASONS="${REASONS}\n- Sensitive files modified:\n$(echo "$SENSITIVE_FILES" | sed 's/^/  - /')"
+          fi
+          echo "needs_review=$NEEDS_REVIEW" >> "$GITHUB_OUTPUT"
+          echo -e "reasons=$REASONS" >> "$GITHUB_OUTPUT"
+      - name: Apply label and comment
+        if: steps.check.outputs.needs_review == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          gh pr edit "$PR_NUMBER" --add-label "needs-external-review" --repo "${{ github.repository }}"
+          gh pr comment "$PR_NUMBER" --repo "${{ github.repository }}" --body "External Review Required - This PR has been labeled needs-external-review. A human reviewer must remove the label before merge."
