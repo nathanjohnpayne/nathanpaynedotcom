@@ -2,7 +2,7 @@ name: PR Review Policy
 
 on:
   pull_request:
-    types: [opened, edited, synchronize]
+    types: [opened, edited, synchronize, labeled, unlabeled]
 
 permissions:
   pull-requests: write
@@ -22,6 +22,24 @@ jobs:
           else
             echo "PR description must contain a '## Self-Review' section."
             exit 1
+          fi
+
+  external-review-gate:
+    name: External Review Gate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Block merge if needs-external-review label is present
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          LABELS=$(gh pr view "$PR_NUMBER" --repo "${{ github.repository }}" --json labels --jq '.labels[].name')
+          if echo "$LABELS" | grep -q '^needs-external-review$'; then
+            echo "❌ This PR has the 'needs-external-review' label."
+            echo "A human reviewer must review and remove the label before merge."
+            exit 1
+          else
+            echo "✅ No blocking review label found."
           fi
 
   external-review-labeling:
