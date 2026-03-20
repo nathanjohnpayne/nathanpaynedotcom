@@ -1,20 +1,10 @@
-Read these files before taking any action in this repository:
-
-1. `AGENTS.md` — behavioral rules and operating instructions
-2. `rules/repo_rules.md` — binding structural constraints
-3. Relevant `specs/` files — intended system behavior
-4. `DEPLOYMENT.md` — deploy process and credential setup
-5. `.ai_context.md` — supplemental context
-
-If any of these files are missing, flag the gap before proceeding.
-
 # Code Review Requirements
 
 All AI-generated code must undergo peer review before merge.
 
 ## Self-Review (Required for Every PR)
 
-Before opening or updating a pull request, you MUST perform a structured self-review and include it in the PR description under a `## Self-Review` heading covering:
+Before opening or updating a pull request, perform a structured self-review and include it in the PR description under a `## Self-Review` heading covering:
 
 - Correctness against the stated requirements or ticket
 - Regression risk—does this change break existing behavior?
@@ -32,10 +22,10 @@ External review is required when any of the following apply:
 - The PR affects authentication, authorization, or data handling
 - Your confidence in any portion of the change is below high
 
-When external review is required, you MUST explicitly request it by tagging the appropriate reviewer(s) and MUST NOT self-merge. Include a `## Review Guidance` section in the PR description flagging specific areas where human judgment is needed and why.
+When external review is required, explicitly request it by tagging the appropriate reviewer(s) and do not self-merge. Include a `## Review Guidance` section in the PR description flagging specific areas where human judgment is needed and why.
 
 ## Rules
 
-- NEVER remove the `needs-external-review` label from a PR. Only a human reviewer may remove it.
+- Never remove the `needs-external-review` label from a PR. Only a human reviewer may remove it.
 - PRs missing the `## Self-Review` section will be blocked by CI.
 - PRs labeled `needs-external-review` cannot be merged until a human removes the label.
