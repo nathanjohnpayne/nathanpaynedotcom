@@ -36,6 +36,9 @@ When external review is required, you MUST explicitly request it by tagging the 
 
 ## Rules
 
-- NEVER remove the `needs-external-review` label from a PR. Only a human reviewer may remove it.
+- NEVER remove the `needs-external-review` or `needs-human-review` labels from a PR. Only a human reviewer may remove them.
+- NEVER approve your own PR. Self-approvals are automatically dismissed and labeled `policy-violation`.
 - PRs missing the `## Self-Review` section will be blocked by CI.
-- PRs labeled `needs-external-review` cannot be merged until a human removes the label.
+- PRs labeled `needs-external-review`, `needs-human-review`, or `policy-violation` cannot be merged until the label is resolved.
+- When your PR is labeled `needs-external-review`, push a review guidance branch (`review/pr-{number}-guidance`) with a `reviews/pr-{number}-guidance.md` file using the template at `.github/templates/review-guidance.md`.
+- Cross-agent review rotation: Claude → Codex → Cursor → Claude. You will be auto-assigned as a reviewer on other agents' PRs.

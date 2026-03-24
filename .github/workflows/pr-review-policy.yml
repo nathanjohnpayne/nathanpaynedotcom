@@ -26,23 +26,27 @@ jobs:
             exit 1
           fi
 
-  external-review-gate:
-    name: External Review Gate
+  label-gate:
+    name: Label Gate
     runs-on: ubuntu-latest
     steps:
-      - name: Block merge if needs-external-review label is present
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-        run: |
-          LABELS=$(gh pr view "$PR_NUMBER" --repo "${{ github.repository }}" --json labels --jq '.labels[].name')
-          if echo "$LABELS" | grep -q '^needs-external-review$'; then
-            echo "❌ This PR has the 'needs-external-review' label."
-            echo "A human reviewer must review and remove the label before merge."
-            exit 1
-          else
-            echo "✅ No blocking review label found."
-          fi
+      - name: Block merge if blocking labels present
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const blockingLabels = [
+              'needs-external-review',
+              'needs-human-review',
+              'policy-violation',
+            ];
+            const prLabels = context.payload.pull_request.labels.map(l => l.name);
+            const blockers = prLabels.filter(l => blockingLabels.includes(l));
+
+            if (blockers.length > 0) {
+              core.setFailed(
+                `Merge blocked by label(s): ${blockers.join(', ')}`
+              );
+            }
 
   external-review-labeling:
     name: External Review Check
