@@ -12,6 +12,144 @@
 - Access to the shared 1Password source credential `op://Private/GCP ADC/credential` or another explicit `GOOGLE_APPLICATION_CREDENTIALS` file
 - Permission to impersonate `firebase-deployer@nathanpaynedotcom.iam.gserviceaccount.com`
 
+## Machine User Setup (New Project)
+
+When creating a new repository from this template, complete these steps to enable the AI agent cross-review system. All steps are manual (human-only) unless noted.
+
+### 1. Add machine users as collaborators
+
+Go to the new repo → Settings → Collaborators → Invite each:
+
+- `nathanpayne-claude` — Write access
+- `nathanpayne-codex` — Write access
+- `nathanpayne-cursor` — Write access
+
+### 2. Accept collaborator invitations
+
+Log into each machine user account and accept the invitation:
+
+- https://github.com/notifications (as `nathanpayne-claude`)
+- https://github.com/notifications (as `nathanpayne-codex`)
+- https://github.com/notifications (as `nathanpayne-cursor`)
+
+Alternatively, use `gh` CLI or the invite URL directly: `https://github.com/{owner}/{repo}/invitations`
+
+**Note:** Fine-grained PATs cannot accept invitations via API. Use the browser or a classic PAT with `repo` scope.
+
+### 3. Store PATs as repository secrets
+
+Go to the new repo → Settings → Secrets and variables → Actions → New repository secret. Add:
+
+| Secret name | Value |
+|---|---|
+| `CLAUDE_PAT` | Fine-grained PAT for `nathanpayne-claude` (from 1Password: `GitHub PAT (pr-review-claude)`) |
+| `CODEX_PAT` | Fine-grained PAT for `nathanpayne-codex` (from 1Password: `GitHub PAT (pr-review-codex)`) |
+| `CURSOR_PAT` | Fine-grained PAT for `nathanpayne-cursor` (from 1Password: `GitHub PAT (pr-review-cursor)`) |
+| `REVIEWER_ASSIGNMENT_TOKEN` | PAT for `nathanjohnpayne` (from 1Password: `GitHub PAT (pr-review-nathanjohnpayne)`) |
+| `ANTHROPIC_API_KEY` | Anthropic API key for Claude Code headless review |
+| `OPENAI_API_KEY` | OpenAI API key for Codex headless review |
+
+Or use the CLI (faster):
+
+```bash
+# From 1Password references — replace with actual values
+gh secret set CLAUDE_PAT --repo {owner}/{repo} --body "$(op read 'op://Private/GitHub PAT (pr-review-claude)/token')"
+gh secret set CODEX_PAT --repo {owner}/{repo} --body "$(op read 'op://Private/GitHub PAT (pr-review-codex)/token')"
+gh secret set CURSOR_PAT --repo {owner}/{repo} --body "$(op read 'op://Private/GitHub PAT (pr-review-cursor)/token')"
+gh secret set REVIEWER_ASSIGNMENT_TOKEN --repo {owner}/{repo} --body "$(op read 'op://Private/GitHub PAT (pr-review-nathanjohnpayne)/token')"
+gh secret set ANTHROPIC_API_KEY --repo {owner}/{repo} --body "$(op read 'op://Private/Anthropic API Key/credential')"
+gh secret set OPENAI_API_KEY --repo {owner}/{repo} --body "$(op read 'op://Private/OpenAI API Key/credential')"
+```
+
+### 4. Configure branch protection
+
+Go to the new repo → Settings → Branches → Add branch protection rule for `main`:
+
+1. **Require pull request reviews before merging:** Yes
+2. **Required number of approving reviews:** 1
+3. **Dismiss stale pull request approvals when new commits are pushed:** Yes
+4. **Require status checks to pass before merging:** Yes
+   - Add `Self-Review Required`
+   - Add `Label Gate`
+5. **Do not allow bypassing the above settings:** Disabled (so Nathan can force-merge in emergencies)
+
+Or use the CLI:
+
+```bash
+gh api --method PUT "repos/{owner}/{repo}/branches/main/protection" \
+  --input - <<'EOF'
+{
+  "required_status_checks": {
+    "strict": true,
+    "checks": [
+      {"context": "Self-Review Required"},
+      {"context": "Label Gate"}
+    ]
+  },
+  "enforce_admins": false,
+  "required_pull_request_reviews": {
+    "dismiss_stale_reviews": true,
+    "required_approving_review_count": 1
+  },
+  "restrictions": null
+}
+EOF
+```
+
+**Note:** Branch protection requires the repo to be public, or requires GitHub Pro/Team for private repos.
+
+### 5. Create required labels
+
+The workflows expect these labels to exist. Create them if they don't:
+
+```bash
+gh label create "needs-external-review" --color "D93F0B" --description "Blocks merge until external reviewer approves" --repo {owner}/{repo}
+gh label create "needs-human-review" --color "B60205" --description "Agent disagreement — requires human review" --repo {owner}/{repo}
+gh label create "policy-violation" --color "000000" --description "Review policy violation detected" --repo {owner}/{repo}
+gh label create "audit" --color "FBCA04" --description "Weekly PR audit report" --repo {owner}/{repo}
+```
+
+### 6. Verify setup
+
+Run these checks after completing the steps above:
+
+```bash
+REPO="{owner}/{repo}"
+
+# Check collaborators
+echo "=== Collaborators ==="
+gh api "repos/$REPO/collaborators" --jq '.[].login'
+
+# Check secrets exist
+echo "=== Secrets ==="
+gh secret list --repo "$REPO"
+
+# Check branch protection
+echo "=== Branch Protection ==="
+DEFAULT=$(gh api "repos/$REPO" --jq '.default_branch')
+gh api "repos/$REPO/branches/$DEFAULT/protection/required_status_checks" --jq '.checks[].context'
+
+# Check labels
+echo "=== Labels ==="
+gh label list --repo "$REPO" --search "needs-external-review"
+gh label list --repo "$REPO" --search "needs-human-review"
+gh label list --repo "$REPO" --search "policy-violation"
+```
+
+### Token rotation (as needed)
+
+The current PATs are set to never expire. If you ever need to rotate them:
+
+1. Generate new fine-grained PATs for each machine user account
+2. Update the tokens in 1Password
+3. Update `CLAUDE_PAT`, `CODEX_PAT`, `CURSOR_PAT` secrets on every repo
+4. Revoke the old tokens
+5. Verify agent access still works
+
+The `REVIEWER_ASSIGNMENT_TOKEN` (Nathan's PAT) follows the same rotation process.
+
+---
+
 ## Environments
 
 | Environment | Firebase Project | URL |
