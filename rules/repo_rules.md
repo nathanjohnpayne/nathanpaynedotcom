@@ -17,6 +17,7 @@ The following directories must always exist:
 - `plans/` — execution and rollout plans
 - `specs/` — feature specifications and acceptance criteria
 - `scripts/ci/` — CI enforcement scripts
+- `docs/` — extended documentation including agent process docs
 
 The following tool config directories must contain only configuration — no instruction prose:
 
@@ -29,7 +30,6 @@ The following tool config directories must contain only configuration — no ins
 - `tests/` — No automated test framework for a static site. See `.ai_context.md`.
 - `functions/` — No serverless functions. See `.ai_context.md`.
 - `dist/` — No build step. Files deployed directly from source. See `.ai_context.md`.
-- `docs/` — All documentation fits in canonical root files at this project scale. See `.ai_context.md`.
 
 ## Forbidden Patterns
 
@@ -51,4 +51,4 @@ The following checks are implemented in `scripts/ci/` and must pass before any c
 4. `check_dist_not_modified` — Verifies dist/ files were not directly modified (exits cleanly if dist/ does not exist)
 5. `check_spec_test_alignment` — Verifies every file in specs/ has a corresponding test file in tests/ (skips if specs/ is empty)
 6. `check_duplicate_docs` — Verifies no documentation topic is duplicated between root files and tool folders
-7. `check_review_policy_exists` — Verifies .github/review-policy.yml and REVIEW_POLICY.md both exist
+7. `check_review_policy_exists` (inline in repo_lint.yml) — Verifies .github/review-policy.yml and REVIEW_POLICY.md both exist
