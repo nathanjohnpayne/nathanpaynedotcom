@@ -51,3 +51,4 @@ The following checks are implemented in `scripts/ci/` and must pass before any c
 4. `check_dist_not_modified` — Verifies dist/ files were not directly modified (exits cleanly if dist/ does not exist)
 5. `check_spec_test_alignment` — Verifies every file in specs/ has a corresponding test file in tests/ (skips if specs/ is empty)
 6. `check_duplicate_docs` — Verifies no documentation topic is duplicated between root files and tool folders
+7. `check_review_policy_exists` — Verifies .github/review-policy.yml and REVIEW_POLICY.md both exist
