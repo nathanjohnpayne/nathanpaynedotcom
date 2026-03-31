@@ -135,7 +135,7 @@ If both machines modified the same 1Password item:
 - [1Password CLI](https://developer.1password.com/docs/cli/) (`op`) installed and signed in
 - Local `gcloud` wrapper installed on PATH (see First-Time Setup below)
 - `op-firebase-deploy` and `op-firebase-setup` on PATH
-- Access to the shared 1Password source credential `op://Private/GCP ADC/credential` or another explicit `GOOGLE_APPLICATION_CREDENTIALS` file
+- Access to the project SA key in `op://Firebase/nathanpaynedotcom — Firebase Deployer SA Key` (preferred for CI/headless) or the shared 1Password source credential `op://Private/c2v6emkwppjzjjaq2bdqk3wnlm/credential` or another explicit `GOOGLE_APPLICATION_CREDENTIALS` file
 - Permission to impersonate `firebase-deployer@nathanpaynedotcom.iam.gserviceaccount.com`
 
 ## Machine User Setup (New Project)
@@ -351,12 +351,12 @@ op-firebase-deploy --only hosting
 
 The script:
 1. Auto-detects the Firebase project from `.firebaserc`
-2. Reads source credentials from `GOOGLE_APPLICATION_CREDENTIALS`, then `op://Private/GCP ADC/credential`, then `~/.config/gcloud/application_default_credentials.json`
-3. Generates a temporary `impersonated_service_account` credential file for `firebase-deployer@nathanpaynedotcom.iam.gserviceaccount.com`
+2. Reads source credentials in order: `GOOGLE_APPLICATION_CREDENTIALS`, then the project SA key from `op://Firebase/nathanpaynedotcom — Firebase Deployer SA Key`, then `op://Private/c2v6emkwppjzjjaq2bdqk3wnlm/credential`, then `~/.config/gcloud/application_default_credentials.json`
+3. If the source credential is the `firebase-deployer@nathanpaynedotcom.iam.gserviceaccount.com` service account key, uses it directly (no impersonation, faster). Otherwise generates a temporary `impersonated_service_account` credential file for `firebase-deployer@nathanpaynedotcom.iam.gserviceaccount.com`
 4. Sets `GOOGLE_APPLICATION_CREDENTIALS` to that temp file and runs `firebase deploy --non-interactive`
 5. Cleans up credentials on exit
 
-No browser prompt is needed for routine use once `op://Private/GCP ADC/credential` exists and the 1Password CLI is unlocked. In normal use the only interactive step is the 1Password unlock or Touch ID prompt.
+No browser prompt is needed for routine use once `op://Private/c2v6emkwppjzjjaq2bdqk3wnlm/credential` exists and the 1Password CLI is unlocked. In normal use the only interactive step is the 1Password unlock or Touch ID prompt.
 
 This 1Password-first source-credential model is a deliberate project decision. Do not replace it with ADC-first day-to-day docs, routine browser-login steps, `firebase login`, or long-lived deploy keys unless a human explicitly asks for that change.
 
@@ -381,7 +381,7 @@ Then bootstrap project impersonation:
 op-firebase-setup nathanpaynedotcom
 ```
 
-If `op://Private/GCP ADC/credential` does not exist yet, seed it once by running `gcloud auth application-default login`, then copy the resulting `~/.config/gcloud/application_default_credentials.json` into the 1Password item `Private/GCP ADC`, field `credential`. After that one-time bootstrap or any later credential rotation, the normal daily flow returns to 1Password-backed, non-browser auth.
+If `op://Private/c2v6emkwppjzjjaq2bdqk3wnlm/credential` does not exist yet, seed it once by running `gcloud auth application-default login`, then copy the resulting `~/.config/gcloud/application_default_credentials.json` into the 1Password item `Private/GCP ADC`, field `credential`. After that one-time bootstrap or any later credential rotation, the normal daily flow returns to 1Password-backed, non-browser auth.
 
 `op-firebase-setup` is the legacy script name, but it now performs keyless setup. For this project it:
 1. Enables the IAM Credentials API
@@ -428,6 +428,33 @@ Deploys are manual via `op-firebase-deploy`. CI workflows (repo linting, review 
 
 If a CI pipeline is added later, prefer Workload Identity Federation or another `external_account` credential as the source credential, then let `op-firebase-deploy` impersonate the deployer service account. Do **not** store service account keys as CI secrets.
 
+### CI/CD & Headless Deploy
+
+For headless environments (Claude Code cloud tasks, GitHub Actions, etc.) where
+1Password biometric auth is unavailable, use the project SA key directly:
+
+```bash
+# Pull the SA key from 1Password (one-time, requires biometric)
+op document get "nathanpaynedotcom — Firebase Deployer SA Key" \
+  --vault Firebase --out-file ~/firebase-keys/nathanpaynedotcom-sa-key.json
+
+# Deploy with the SA key
+GOOGLE_APPLICATION_CREDENTIALS=~/firebase-keys/nathanpaynedotcom-sa-key.json op-firebase-deploy
+```
+
+Because this SA key matches `firebase-deployer@nathanpaynedotcom.iam.gserviceaccount.com`,
+`op-firebase-deploy` skips impersonation and uses the key directly (faster).
+
+For Claude Code cloud scheduled tasks:
+1. Retrieve the key: `op document get "nathanpaynedotcom — Firebase Deployer SA Key" --vault Firebase`
+2. Copy the JSON contents
+3. In the task's cloud environment, add: `FIREBASE_SA_KEY=<paste JSON>`
+4. Add a setup script:
+   ```bash
+   echo "$FIREBASE_SA_KEY" > /tmp/sa-key.json
+   export GOOGLE_APPLICATION_CREDENTIALS=/tmp/sa-key.json
+   ```
+
 ## Secrets Management
 
 - No API keys or secrets are committed to this repository. Google Analytics Measurement ID (`G-7C29SRBXB1`) is a public identifier — not a secret.
@@ -449,7 +476,9 @@ Applied globally via `firebase.json`: `X-Content-Type-Options: nosniff`, `X-Fram
 
 ## Auth Maintenance
 
-If day-to-day auth stops working, first make sure the 1Password CLI is signed in and `op://Private/GCP ADC/credential` is readable.
+For interactive (biometric) machines, verify the 1Password CLI is signed in and `op://Private/c2v6emkwppjzjjaq2bdqk3wnlm/credential` is readable. The script also checks the Firebase vault SA key at `op://Firebase/nathanpaynedotcom — Firebase Deployer SA Key` before falling back to the shared ADC.
+
+For headless environments, the Firebase vault SA key (`op://Firebase/cjitzliqlvivlqfltei2drrxcq`) is the primary credential source. Export it as `GOOGLE_APPLICATION_CREDENTIALS` (see CI/CD & Headless Deploy above).
 
 If deploy impersonation breaks because IAM bindings or `gcloud` config drifted, rerun:
 
