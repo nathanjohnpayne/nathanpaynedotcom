@@ -1,0 +1,99 @@
+import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { readFileSync } from 'fs';
+import { resolve } from 'path';
+
+const html = readFileSync(resolve(__dirname, '../index.html'), 'utf-8');
+
+function setupDOM() {
+  document.documentElement.innerHTML = '';
+  document.write(html);
+  document.close();
+
+  Object.defineProperty(window, 'matchMedia', {
+    writable: true,
+    value: vi.fn((query) => ({
+      matches: query === '(hover: hover) and (pointer: fine)' ? true : !query.includes('max-width: 920px'),
+      media: query,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      onchange: null,
+      dispatchEvent: vi.fn(),
+    })),
+  });
+}
+
+function loadScript() {
+  const scriptContent = readFileSync(resolve(__dirname, '../script.js'), 'utf-8');
+  const fn = new Function(scriptContent);
+  fn();
+}
+
+describe('Keyboard Navigation', () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+    setupDOM();
+    loadScript();
+  });
+
+  it('panels have tabindex="0"', () => {
+    const panels = document.querySelectorAll('.panel');
+    panels.forEach((panel) => {
+      expect(panel.getAttribute('tabindex')).toBe('0');
+    });
+  });
+
+  it('Enter key opens a focused panel', () => {
+    const panel = document.querySelector('[data-panel="about"]');
+    panel.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    expect(panel.classList.contains('is-open')).toBe(true);
+    expect(document.getElementById('mondrian').dataset.focus).toBe('about');
+  });
+
+  it('Space key opens a focused panel and prevents default', () => {
+    const panel = document.querySelector('[data-panel="projects"]');
+    const event = new KeyboardEvent('keydown', { key: ' ', bubbles: true, cancelable: true });
+    const spy = vi.spyOn(event, 'preventDefault');
+    panel.dispatchEvent(event);
+    expect(panel.classList.contains('is-open')).toBe(true);
+    expect(spy).toHaveBeenCalled();
+  });
+
+  it('Escape key on a panel collapses the active panel', () => {
+    const panel = document.querySelector('[data-panel="about"]');
+    panel.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    expect(panel.classList.contains('is-open')).toBe(true);
+
+    panel.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    expect(panel.classList.contains('is-open')).toBe(false);
+  });
+
+  it('Escape key on document collapses the active panel', () => {
+    const panel = document.querySelector('[data-panel="community"]');
+    panel.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    expect(panel.classList.contains('is-open')).toBe(true);
+
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    expect(panel.classList.contains('is-open')).toBe(false);
+  });
+
+  it('focusin on a panel opens it', () => {
+    const panel = document.querySelector('[data-panel="connect"]');
+    panel.dispatchEvent(new FocusEvent('focusin', { bubbles: true }));
+    expect(panel.classList.contains('is-open')).toBe(true);
+  });
+
+  it('focusout to a non-child element schedules close', () => {
+    vi.useFakeTimers();
+    const panel = document.querySelector('[data-panel="about"]');
+    panel.dispatchEvent(new FocusEvent('focusin', { bubbles: true }));
+    expect(panel.classList.contains('is-open')).toBe(true);
+
+    // Focus leaves to an element outside the panel
+    panel.dispatchEvent(new FocusEvent('focusout', { bubbles: true, relatedTarget: document.body }));
+    vi.advanceTimersByTime(150);
+    expect(panel.classList.contains('is-open')).toBe(false);
+    vi.useRealTimers();
+  });
+});

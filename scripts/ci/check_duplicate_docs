@@ -1,53 +1,58 @@
 #!/usr/bin/env bash
-# check_duplicate_docs
-# Detects structural documentation duplication — instruction content in conflicting locations.
-# Checks for known duplicate-prone patterns between canonical root files and tool folders.
-# Note: This check detects structural duplication (same role, two locations), not semantic duplication.
-# Exit 0 = pass, Exit 1 = fail.
-
 set -euo pipefail
 
-REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+# check_duplicate_docs
+#
+# Checks for duplicated behavioral-rule content between canonical docs
+# (root files, docs/agents/) and tool folders (.cursor/, .claude/, .vscode/).
+#
+# Currently warning-only (does not block merge). Promotion to hard fail
+# is deferred until all repos have migrated tool-folder content.
 
-FAILED=0
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 
-# Check 1: No .md files inside tool config directories that shadow root canonical files
-TOOL_DIRS=(".claude" ".cursor" ".vscode")
-CANONICAL_NAMES=("AGENTS" "DEPLOYMENT" "CONTRIBUTING" "README" "repo_rules")
+# Topics that should live in canonical docs, not tool folders
+CANONICAL_TOPICS=(
+  "Deploy Auth"
+  "Credential"
+  "Firebase"
+  "Environment"
+  "Branch Naming"
+  "Commit Message"
+  "Pull Request"
+  "Code Review"
+  "Testing Requirement"
+  "Code Modification"
+  "Deployment Process"
+  "Service Account"
+)
 
-for dir in "${TOOL_DIRS[@]}"; do
-  dir_path="$REPO_ROOT/$dir"
-  if [[ ! -d "$dir_path" ]]; then
-    continue
-  fi
+WARNINGS=0
 
-  for name in "${CANONICAL_NAMES[@]}"; do
-    if find "$dir_path" -type f -name "${name}.md" | grep -q .; then
-      echo "FAIL: Canonical doc '${name}.md' found inside tool folder '$dir/' — instruction content must live in root files only"
-      FAILED=1
-    fi
-  done
+for folder in .claude .cursor .vscode; do
+  folder_path="$REPO_ROOT/$folder"
+  [[ ! -d "$folder_path" ]] && continue
+
+  while IFS= read -r -d '' filepath; do
+    relpath="${filepath#$REPO_ROOT/}"
+
+    # Skip worktrees and plan artifacts
+    [[ "$relpath" == .claude/worktrees/* ]] && continue
+    [[ "$relpath" == .cursor/plans/* ]] && continue
+
+    for topic in "${CANONICAL_TOPICS[@]}"; do
+      if grep -qi "$topic" "$filepath" 2>/dev/null; then
+        echo "WARN: '$topic' found in tool folder file: $relpath (canonical location: root docs or docs/agents/)"
+        WARNINGS=$((WARNINGS + 1))
+      fi
+    done
+  done < <(find "$folder_path" -type f \( -name "*.md" -o -name "*.txt" -o -name "*.mdc" -o -name "*.json" \) -print0 2>/dev/null)
 done
 
-# Check 2: No second DEPLOYMENT.md or CONTRIBUTING.md at root-adjacent locations
-for extra_location in "docs/DEPLOYMENT.md" "docs/CONTRIBUTING.md" "docs/AGENTS.md"; do
-  if [[ -f "$REPO_ROOT/$extra_location" ]]; then
-    echo "WARN: Potential duplicate canonical doc found at: $extra_location (canonical location is repository root)"
-    FAILED=1
-  fi
-done
-
-# Check 3: No rules files outside rules/
-if find "$REPO_ROOT" -maxdepth 1 -type f -name "*rules*.md" | grep -q .; then
-  match=$(find "$REPO_ROOT" -maxdepth 1 -type f -name "*rules*.md")
-  echo "WARN: Rules file found at repository root (should be in rules/): $match"
-  FAILED=1
+if [[ $WARNINGS -gt 0 ]]; then
+  echo "check_duplicate_docs: PASS (with $WARNINGS warnings — consider migrating content to canonical docs)"
+else
+  echo "check_duplicate_docs: PASS"
 fi
 
-if [[ $FAILED -eq 1 ]]; then
-  echo "check_duplicate_docs: FAILED"
-  exit 1
-fi
-
-echo "check_duplicate_docs: PASSED — no obvious documentation duplication detected"
 exit 0

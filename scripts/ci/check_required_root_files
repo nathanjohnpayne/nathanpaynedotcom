@@ -1,13 +1,8 @@
 #!/usr/bin/env bash
-# check_required_root_files
-# Verifies all canonical root files exist at the repository root.
-# Exit 0 = pass, Exit 1 = fail.
-
 set -euo pipefail
 
-REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
-REQUIRED_FILES=("README.md" "AGENTS.md" "DEPLOYMENT.md" "CONTRIBUTING.md" ".ai_context.md")
-
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+REQUIRED_FILES=("README.md" "AGENTS.md" "CLAUDE.md" "DEPLOYMENT.md" "CONTRIBUTING.md" ".ai_context.md")
 FAILED=0
 
 for file in "${REQUIRED_FILES[@]}"; do
@@ -18,9 +13,9 @@ for file in "${REQUIRED_FILES[@]}"; do
 done
 
 if [[ $FAILED -eq 1 ]]; then
-  echo "check_required_root_files: FAILED"
+  echo "check_required_root_files: FAIL"
   exit 1
 fi
 
-echo "check_required_root_files: PASSED — all required root files present"
+echo "check_required_root_files: PASS"
 exit 0

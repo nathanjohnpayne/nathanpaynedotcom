@@ -1,0 +1,11 @@
+{
+  "name": "nathanpaynedotcom",
+  "private": true,
+  "scripts": {
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "vitest": "^3.0.0",
+    "jsdom": "^25.0.0"
+  }
+}

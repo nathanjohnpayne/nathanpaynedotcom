@@ -1,46 +1,6 @@
 ---
-description: Firebase deploy convention — always use non-interactive 1Password auth
+description: Deploy conventions — see DEPLOYMENT.md
 alwaysApply: true
 ---
 
-# Deploy Convention
-
-When a deploy is needed, always use `op-firebase-deploy` (global script on PATH).
-
-## Commands
-
-```bash
-op-firebase-deploy                  # full deploy (auto-detects project from .firebaserc)
-op-firebase-deploy --only hosting   # hosting only
-```
-
-## How it works
-
-- `op-firebase-deploy` reads a service account key from 1Password (`Private/Firebase Deploy - {project}/credential`)
-- Auto-detects the Firebase project from `.firebaserc`, then looks up the matching 1Password item
-- Writes the key to a temp file (`umask 077`), sets `GOOGLE_APPLICATION_CREDENTIALS`, runs `firebase deploy --non-interactive`, cleans up on exit
-- The only interactive step is the 1Password biometric prompt (Touch ID). No `firebase login`, `gcloud auth login`, or browser prompts needed
-- The service account key never expires unless explicitly deleted
-
-## First-time setup for a new project
-
-```bash
-op-firebase-setup                    # auto-detect from .firebaserc
-op-firebase-setup my-project-id      # explicit project ID
-```
-
-This creates a `firebase-deployer` service account, grants deploy roles, generates a key, and stores it in 1Password as `Firebase Deploy - {project}`. Run once per project.
-
-## Key rotation
-
-The service account key does not expire. To rotate it if compromised:
-
-```bash
-op-firebase-setup                    # generates a new key and updates 1Password
-```
-
-## Rules
-
-- Never run `firebase deploy` or `npx firebase deploy` directly — always use `op-firebase-deploy`
-- Never run `firebase login` or `gcloud auth login` as part of a deploy flow
-- Never store or print credentials; only use `op://` references in committed files
+See `DEPLOYMENT.md` for the authoritative deployment documentation.

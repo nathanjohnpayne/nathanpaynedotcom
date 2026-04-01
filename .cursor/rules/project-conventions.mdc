@@ -1,45 +1,6 @@
 ---
-description: Core conventions for the nathanpayne.com static portfolio site
+description: Project conventions — see docs/agents/code-modification-rules.md § Project Conventions
 alwaysApply: true
 ---
 
-# Project Conventions
-
-## Stack
-
-Vanilla HTML, CSS, and JavaScript — no frameworks, no build tools, no package manager.
-Deployed to Firebase Hosting. Do not add a bundler or framework unless explicitly asked.
-
-## Files
-
-All source lives at the repo root: `index.html`, `style.css`, `script.js`.
-There is no `src/` directory.
-
-## CSS
-
-- Design tokens in `:root` — always use or extend them.
-- **Motion system:** All durations use `--motion-fast` / `--motion-hover` / `--motion-plane` / `--motion-load`. All easing uses `--ease-standard` / `--ease-sharp` / `--ease-linear`. Translation magnitude uses `--shift-small` / `--shift-medium`. No hard-coded `ms` values or bare `ease` keywords.
-- Panel classes are **color-based** (`panel--red`, `panel--yellow`, `panel--black`, `panel--blue`). They control grid position and color; content is assigned independently via `data-panel`.
-- Fluid sizing via `clamp()`; no fixed-breakpoint font overrides.
-- Single responsive breakpoint at `max-width: 920px`.
-- Respect `prefers-reduced-motion: reduce` — universal `*` selector zeroes all transition/animation durations.
-- Use `:focus-visible` (not `:focus`) for keyboard outlines.
-
-## JavaScript
-
-- IIFE-wrapped, strict mode, no globals.
-- Vanilla DOM APIs only — no jQuery, no utility libraries.
-- Capability detection via `matchMedia`, never user-agent strings.
-- Guard analytics calls with `typeof gtag !== 'function'`.
-
-## HTML
-
-- Semantic elements (`<main>`, `<section>`, `<article>`).
-- ARIA: `role="region"` + `aria-label` on panels; `aria-hidden="true"` on decorative blocks.
-- External links: `target="_blank" rel="noopener"`.
-- Inline SVG for icons — no icon fonts or sprite sheets.
-
-## Deployment
-
-- Bump the query-string version (`?v=YYYYMMDD<letter>`) on `style.css` and `script.js` references in `index.html` whenever those files change.
-- Deploy with `op-firebase-deploy`. Never run `firebase deploy` directly.
+See `docs/agents/code-modification-rules.md` § Project Conventions for the authoritative documentation.
