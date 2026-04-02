@@ -302,6 +302,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Install js-yaml
+        run: npm install js-yaml
+
       - name: Check for conflicting reviews
         uses: actions/github-script@v7
         with:
@@ -324,10 +327,14 @@ jobs:
               pull_number: context.payload.pull_request.number,
             });
 
+            // Only track APPROVED and CHANGES_REQUESTED states.
+            // COMMENTED and other states should not affect disagreement detection.
             const latestByReviewer = {};
             for (const review of reviews.data) {
               if (reviewerAccounts.includes(review.user.login)) {
-                latestByReviewer[review.user.login] = review.state;
+                if (review.state === 'APPROVED' || review.state === 'CHANGES_REQUESTED') {
+                  latestByReviewer[review.user.login] = review.state;
+                }
               }
             }
 
@@ -349,6 +356,19 @@ jobs:
                 issue_number: context.payload.pull_request.number,
                 body: '**Agent disagreement detected.** One reviewer approved and another requested changes. Escalating to @nathanjohnpayne for human tiebreaker per REVIEW_POLICY.md.',
               });
+            } else {
+              // Auto-clear needs-human-review label when disagreement resolves
+              try {
+                await github.rest.issues.removeLabel({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: context.payload.pull_request.number,
+                  name: 'needs-human-review',
+                });
+              } catch (e) {
+                // Label may not exist on the PR — ignore 404
+                if (e.status !== 404) throw e;
+              }
             }
 
   # ──────────────────────────────────────────────
@@ -362,6 +382,9 @@ jobs:
     steps:
       - name: Dismiss self-approval from reviewer bot accounts
         uses: actions/checkout@v4
+
+      - name: Install js-yaml
+        run: npm install js-yaml
 
       - name: Check and dismiss
         uses: actions/github-script@v7
