@@ -33,6 +33,7 @@ The following tool config directories must contain only configuration — no ins
 
 ## Forbidden Patterns
 
+- **Never push directly to `main`.** All changes must go through a pull request—even single-line fixes, documentation updates, and deploy config changes. The only exception is if the human explicitly authorizes a direct push in chat as a break-glass override.
 - **No frameworks, bundlers, or package managers.** This site is intentionally dependency-free. Do not introduce npm, a bundler, or any JavaScript framework without explicit discussion and a `plans/` entry.
 - **No hard-coded motion values.** All CSS durations and easing functions must use the motion token variables defined in `:root`. No bare `ms` values or bare `ease` keywords anywhere.
 - **No instruction files in tool folders.** `.claude/` and `.cursor/` must not contain plain `.md` or `.txt` instruction files. Cursor `.mdc` rule files are permitted as valid Cursor configuration format.
