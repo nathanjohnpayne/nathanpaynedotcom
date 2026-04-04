@@ -40,7 +40,6 @@ function loadPosts() {
 
       return {
         slug,
-        sourcePath: `/content/blog/${entry}`,
         title: frontmatter.title,
         description: frontmatter.description,
         author: frontmatter.author,
@@ -629,10 +628,6 @@ function renderBlogPost(post) {
             </dl>
           </section>
 
-          <section class="project-card" aria-labelledby="post-source">
-            <h2 id="post-source">Source</h2>
-            <p class="project-note"><a href="${post.sourcePath}">View source markdown</a></p>
-          </section>
         </aside>
       </div>
     </article>

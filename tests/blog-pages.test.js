@@ -5,6 +5,7 @@ import { resolve } from 'path';
 const homepageHtml = readFileSync(resolve(__dirname, '../index.html'), 'utf-8');
 const blogIndexHtml = readFileSync(resolve(__dirname, '../blog/index.html'), 'utf-8');
 const blogPostHtml = readFileSync(resolve(__dirname, '../blog/six-prs-one-bug-agent-failure-modes/index.html'), 'utf-8');
+const firebaseConfig = JSON.parse(readFileSync(resolve(__dirname, '../firebase.json'), 'utf-8'));
 
 function setupDOM(html) {
   document.documentElement.innerHTML = '';
@@ -41,11 +42,13 @@ describe('Blog Pages', () => {
     const canonical = document.querySelector('link[rel="canonical"]');
     const ogType = document.querySelector('meta[property="og:type"]');
     const screenshots = [...document.querySelectorAll('.blog-figure img')];
+    const sourceLink = document.querySelector('a[href$=".md"]');
 
     expect(canonical?.getAttribute('href')).toBe('https://nathanpayne.com/blog/six-prs-one-bug-agent-failure-modes/');
     expect(ogType?.getAttribute('content')).toBe('article');
     expect(screenshots).toHaveLength(3);
     expect(screenshots[0].getAttribute('src')).toContain('invoice-bug-01-editor-view.png');
+    expect(sourceLink).toBeNull();
   });
 
   it('blog post structured data declares a BlogPosting entity', () => {
@@ -58,5 +61,9 @@ describe('Blog Pages', () => {
     expect(posting).toBeDefined();
     expect(posting.headline).toBe('Six PRs, One Bug: What AI Agents Actually Get Wrong');
     expect(posting.image).toBe('https://nathanpayne.com/og/six-prs-one-bug.png');
+  });
+
+  it('hosting ignores markdown source content', () => {
+    expect(firebaseConfig.hosting.ignore).toContain('content/**');
   });
 });
