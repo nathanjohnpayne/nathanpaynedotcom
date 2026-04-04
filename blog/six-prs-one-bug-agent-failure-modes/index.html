@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Six PRs, One Bug: What AI Agents Actually Get Wrong | Nathan Payne</title>
+  <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <meta name="description" content="A trivial formatting bug reveals systemic failure modes in AI-generated code." />
+  <meta name="author" content="Nathan Payne" />
+  <meta name="robots" content="index, follow" />
+  <link rel="canonical" href="https://nathanpayne.com/blog/six-prs-one-bug-agent-failure-modes/" />
+
+  <meta property="og:type" content="article" />
+  <meta property="og:locale" content="en_US" />
+  <meta property="og:site_name" content="Nathan Payne" />
+  <meta property="og:title" content="Six PRs, One Bug: What AI Agents Actually Get Wrong | Nathan Payne" />
+  <meta property="og:description" content="A trivial formatting bug reveals systemic failure modes in AI-generated code." />
+  <meta property="og:url" content="https://nathanpayne.com/blog/six-prs-one-bug-agent-failure-modes/" />
+  <meta property="og:image" content="https://nathanpayne.com/og/six-prs-one-bug.png" />
+  <meta property="og:image:secure_url" content="https://nathanpayne.com/og/six-prs-one-bug.png" />
+  <meta property="og:image:type" content="image/png" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta property="og:image:alt" content="Six PRs, One Bug: What AI Agents Actually Get Wrong open graph image" />
+  <meta property="article:published_time" content="2026-04-04T00:00:00Z" />
+  <meta property="article:author" content="Nathan Payne" />
+  <meta property="article:tag" content="AI" />
+  <meta property="article:tag" content="Engineering" />
+  <meta property="article:tag" content="Product" />
+  <meta property="article:tag" content="Systems" />
+  <meta property="article:tag" content="Debugging" />
+
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="Six PRs, One Bug: What AI Agents Actually Get Wrong | Nathan Payne" />
+  <meta name="twitter:description" content="A trivial formatting bug reveals systemic failure modes in AI-generated code." />
+  <meta name="twitter:url" content="https://nathanpayne.com/blog/six-prs-one-bug-agent-failure-modes/" />
+  <meta name="twitter:image" content="https://nathanpayne.com/og/six-prs-one-bug.png" />
+  <meta name="twitter:image:width" content="1200" />
+  <meta name="twitter:image:height" content="630" />
+  <meta name="twitter:image:alt" content="Six PRs, One Bug: What AI Agents Actually Get Wrong open graph image" />
+
+  <script type="application/ld+json">
+    {"@context":"https://schema.org","@graph":[{"@type":"WebPage","@id":"https://nathanpayne.com/blog/six-prs-one-bug-agent-failure-modes/#webpage","url":"https://nathanpayne.com/blog/six-prs-one-bug-agent-failure-modes/","name":"Six PRs, One Bug: What AI Agents Actually Get Wrong | Nathan Payne","description":"A trivial formatting bug reveals systemic failure modes in AI-generated code.","isPartOf":{"@id":"https://nathanpayne.com/#website"},"breadcrumb":{"@id":"https://nathanpayne.com/blog/six-prs-one-bug-agent-failure-modes/#breadcrumb"},"primaryImageOfPage":{"@id":"https://nathanpayne.com/blog/six-prs-one-bug-agent-failure-modes/#primaryimage"},"mainEntity":{"@id":"https://nathanpayne.com/blog/six-prs-one-bug-agent-failure-modes/#article"}},{"@type":"ImageObject","@id":"https://nathanpayne.com/blog/six-prs-one-bug-agent-failure-modes/#primaryimage","url":"https://nathanpayne.com/og/six-prs-one-bug.png","width":1200,"height":630},{"@type":"BreadcrumbList","@id":"https://nathanpayne.com/blog/six-prs-one-bug-agent-failure-modes/#breadcrumb","itemListElement":[{"@type":"ListItem","position":1,"name":"Nathan Payne","item":"https://nathanpayne.com/"},{"@type":"ListItem","position":2,"name":"Blog","item":"https://nathanpayne.com/blog/"},{"@type":"ListItem","position":3,"name":"Six PRs, One Bug: What AI Agents Actually Get Wrong","item":"https://nathanpayne.com/blog/six-prs-one-bug-agent-failure-modes/"}]},{"@type":"BlogPosting","@id":"https://nathanpayne.com/blog/six-prs-one-bug-agent-failure-modes/#article","headline":"Six PRs, One Bug: What AI Agents Actually Get Wrong","description":"A trivial formatting bug reveals systemic failure modes in AI-generated code.","image":"https://nathanpayne.com/og/six-prs-one-bug.png","datePublished":"2026-04-04T00:00:00Z","author":{"@type":"Person","name":"Nathan Payne","url":"https://nathanpayne.com/"},"publisher":{"@type":"Person","name":"Nathan Payne","url":"https://nathanpayne.com/"},"mainEntityOfPage":{"@id":"https://nathanpayne.com/blog/six-prs-one-bug-agent-failure-modes/#webpage"},"keywords":"AI, Engineering, Product, Systems, Debugging"}]}
+  </script>
+
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-7C29SRBXB1"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+    gtag('config', 'G-7C29SRBXB1', {
+      page_title: document.title,
+      page_location: window.location.href
+    });
+  </script>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/style.css?v=20260404a" />
+</head>
+<body class="project-page project-page--red blog-page">
+  <main class="project-shell">
+    <article class="project-detail blog-detail">
+      <header class="project-hero">
+        <nav class="project-breadcrumbs" aria-label="Breadcrumb">
+          <a href="/">Nathan Payne</a>
+          <span>/</span>
+          <a href="/blog/">Blog</a>
+          <span>/</span>
+          <span>Six PRs, One Bug: What AI Agents Actually Get Wrong</span>
+        </nav>
+        <p class="project-kicker">AI · Engineering · Product · Systems · Debugging</p>
+        <h1>Six PRs, One Bug: What AI Agents Actually Get Wrong</h1>
+        <p class="project-deck">A trivial formatting bug reveals systemic failure modes in AI-generated code.</p>
+        <div class="project-actions">
+          <a class="project-action" href="/blog/">Back to Blog</a>
+          <a class="project-action" href="/">Back to Homepage</a>
+        </div>
+      </header>
+
+      <div class="project-layout blog-layout">
+        <div class="project-copy">
+          <article class="project-section blog-prose" aria-labelledby="post-body">
+            <h2 id="post-body" class="blog-prose-title">Essay</h2>
+            <p><em>Or: how a trivial formatting bug exposed systemic failure modes in autonomous code generation.</em></p>
+<hr class="blog-rule" />
+<h2>Context</h2>
+<p>Most product decisions are invisible—until they aren’t.</p>
+<p>At platform scale, small inconsistencies don’t stay small—they compound across rendering environments, devices, and user expectations.</p>
+<p>This bug came from a smaller system: a billing email editor.</p>
+<p>But the failure mode is identical to what happens in large distributed systems.</p>
+<hr class="blog-rule" />
+<h2>The System</h2>
+
+    <div class="blog-diagram blog-diagram--chain" aria-label="Diagram">
+      <div class="blog-diagram-node">User Input</div><div class="blog-diagram-arrow" aria-hidden="true">↓</div><div class="blog-diagram-node">contentEditable DOM</div><div class="blog-diagram-arrow" aria-hidden="true">↓</div><div class="blog-diagram-node">Transform Layer</div><div class="blog-diagram-arrow" aria-hidden="true">↓</div><div class="blog-diagram-node">Preview Renderer</div><div class="blog-diagram-arrow" aria-hidden="true">↓</div><div class="blog-diagram-node">Email Serializer</div><div class="blog-diagram-arrow" aria-hidden="true">↓</div><div class="blog-diagram-node">Email Client Rendering</div>
+    </div>
+  
+<h3>Invariant</h3>
+<pre class="blog-code-block"><code class="language-text">Editor = Preview = Email</code></pre>
+<h3>Reality</h3>
+<pre class="blog-code-block"><code class="language-text">Editor ≠ Preview ≠ Email</code></pre>
+<hr class="blog-rule" />
+<h2>The Bug</h2>
+<p>Input:</p>
+<pre class="blog-code-block"><code class="language-text">Hello John,
+
+**Thank you** for your payment.
+
+Payment methods:
+https://venmo.com/u/nathanPayne</code></pre>
+<hr class="blog-rule" />
+<h2>What the User Actually Sees</h2>
+<h3>Editor</h3>
+<figure class="blog-figure"><img src="https://raw.githubusercontent.com/nathanjohnpayne/friends-and-family-billing/issue/invoice-rendering-bug-screenshots/.github/screenshots/invoice-bug-01-editor-view.png" alt="Editor Screenshot" loading="lazy" /><figcaption>Editor Screenshot</figcaption></figure>
+<ul class="blog-list"><li>Looks correct</li><li>No unexpected formatting</li></ul>
+<hr class="blog-rule" />
+<h3>Preview</h3>
+<figure class="blog-figure"><img src="https://raw.githubusercontent.com/nathanjohnpayne/friends-and-family-billing/issue/invoice-rendering-bug-screenshots/.github/screenshots/invoice-bug-02-preview-view.png" alt="Preview Screenshot" loading="lazy" /><figcaption>Preview Screenshot</figcaption></figure>
+<ul class="blog-list"><li>Extra spacing</li><li>Unexpected bolding</li></ul>
+<hr class="blog-rule" />
+<h3>Sent Email</h3>
+<figure class="blog-figure"><img src="https://raw.githubusercontent.com/nathanjohnpayne/friends-and-family-billing/issue/invoice-rendering-bug-screenshots/.github/screenshots/invoice-bug-03-broken-sent-email.png" alt="Email Screenshot" loading="lazy" /><figcaption>Email Screenshot</figcaption></figure>
+<ul class="blog-list"><li>Different again</li><li>Final output does not match upstream states</li></ul>
+<hr class="blog-rule" />
+<h2>Key Observation</h2>
+<pre class="blog-code-block"><code class="language-text">Same input → three different outputs</code></pre>
+<p>This is not a styling issue.</p>
+<p>This is a <strong>pipeline integrity failure</strong>.</p>
+<hr class="blog-rule" />
+<h2>Failure Mode #1: CSS Patching a Data Problem</h2>
+<pre class="blog-code-block"><code class="language-css">.preview p {
+  margin-bottom: 8px;
+}</code></pre>
+<p>Fixes preview only.</p>
+<p>Breaks system consistency.</p>
+<hr class="blog-rule" />
+<h2>Failure Mode #2: Regex Parsing</h2>
+<pre class="blog-code-block"><code class="language-js">text.replace(/\*\*(.*?)\*\*/g, &#39;&lt;strong&gt;$1&lt;/strong&gt;&#39;)</code></pre>
+<p>Fails on nesting, creates malformed HTML.</p>
+<hr class="blog-rule" />
+<h2>Failure Mode #3: Divergent Render Paths</h2>
+<pre class="blog-code-block"><code class="language-js">preview.innerHTML = format(input);
+email = sanitize(format(input));</code></pre>
+<p>Different outputs from same source.</p>
+<hr class="blog-rule" />
+<h2>Failure Mode #4: DOM as Source of Truth</h2>
+<pre class="blog-code-block"><code class="language-js">editor.innerHTML</code></pre>
+<p>Non-deterministic, polluted structure.</p>
+<hr class="blog-rule" />
+<h2>Failure Mode #5: Email Client Blindness</h2>
+<ul class="blog-list"><li>CSS ignored</li><li>HTML altered</li><li>Rendering inconsistent</li></ul>
+<hr class="blog-rule" />
+<h2>Failure Mode #6: Patch Accumulation</h2>
+<pre class="blog-code-block"><code class="language-text">input
+ → transform
+ → sanitize
+ → override
+ → reprocess</code></pre>
+<p>Complexity increases.</p>
+<p>No convergence.</p>
+<hr class="blog-rule" />
+<h2>Failure Loop</h2>
+
+    <div class="blog-diagram blog-diagram--chain" aria-label="Diagram">
+      <div class="blog-diagram-node">Bug observed</div><div class="blog-diagram-arrow" aria-hidden="true">↓</div><div class="blog-diagram-node">Patch one layer</div><div class="blog-diagram-arrow" aria-hidden="true">↓</div><div class="blog-diagram-node">Break another</div><div class="blog-diagram-arrow" aria-hidden="true">↓</div><div class="blog-diagram-node">Patch again</div><div class="blog-diagram-arrow" aria-hidden="true">↓</div><div class="blog-diagram-node">System complexity increases</div><div class="blog-diagram-loop" aria-hidden="true">↺</div>
+    </div>
+  
+<hr class="blog-rule" />
+<h2>Correct Architecture</h2>
+
+      <div class="blog-diagram blog-diagram--fanout" aria-label="Diagram">
+        <div class="blog-diagram-node">AST</div>
+        <div class="blog-diagram-branch" aria-hidden="true"></div>
+        <div class="blog-diagram-fanout-row">
+          <div class="blog-diagram-node">Editor</div><div class="blog-diagram-node">Preview</div><div class="blog-diagram-node">Email</div>
+        </div>
+      </div>
+    
+<p>Single source of truth.</p>
+<p>Deterministic outputs.</p>
+<hr class="blog-rule" />
+<h2>What the Agents Missed</h2>
+<p>They optimized for:</p>
+<pre class="blog-code-block"><code class="language-text">Does preview look right?</code></pre>
+<p>Instead of:</p>
+<pre class="blog-code-block"><code class="language-text">Does the system stay consistent?</code></pre>
+<hr class="blog-rule" />
+<h2>The Real Problem</h2>
+<p>Not formatting.</p>
+<p>Not rendering.</p>
+<p><strong>Missing system boundaries.</strong></p>
+<hr class="blog-rule" />
+<h2>Practical Takeaway</h2>
+<p>Use AI agents for:</p>
+<ul class="blog-list"><li>Local transformations</li><li>Scoped edits</li></ul>
+<p>Do not rely on them for:</p>
+<ul class="blog-list"><li>System modeling</li><li>Cross-layer invariants</li></ul>
+<hr class="blog-rule" />
+<h2>Closing</h2>
+<p>Six PRs.</p>
+<p>One bug.</p>
+<p>Zero fixes.</p>
+<p>Because the system—not the code—was never understood.</p>
+<hr class="blog-rule" />
+<h2>Signature</h2>
+<p>Nathan Payne<br>Product Manager, Disney+, Hulu, ESPN<br>San Francisco<br></p>
+<p><a href="https://nathanpayne.com">https://nathanpayne.com</a></p>
+          </article>
+        </div>
+
+        <aside class="project-sidebar">
+          <section class="project-card" aria-labelledby="post-meta">
+            <h2 id="post-meta">Post details</h2>
+            <dl class="project-facts">
+              <div>
+                <dt>Published</dt>
+                <dd>April 4, 2026</dd>
+              </div>
+              <div>
+                <dt>Author</dt>
+                <dd>Nathan Payne</dd>
+              </div>
+              <div>
+                <dt>Reading time</dt>
+                <dd>1 min read</dd>
+              </div>
+              <div>
+                <dt>Tags</dt>
+                <dd>AI · Engineering · Product · Systems · Debugging</dd>
+              </div>
+            </dl>
+          </section>
+
+        </aside>
+      </div>
+    </article>
+  </main>
+</body>
+</html>

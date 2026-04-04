@@ -12,11 +12,14 @@ The following files must always exist at the repository root and must never be d
 
 The following directories must always exist:
 
+- `blog/` — generated static blog routes
+- `content/` — Markdown source content for generated blog pages
 - `projects/` — dedicated static project detail pages and search landing pages
 - `rules/` — contains this file and other binding constraints
 - `plans/` — execution and rollout plans
 - `specs/` — feature specifications and acceptance criteria
 - `scripts/ci/` — CI enforcement scripts
+- `tests/` — Vitest smoke tests for static pages and route coverage
 - `docs/` — extended documentation including agent process docs
 
 The following tool config directories must contain only configuration — no instruction prose:
@@ -27,14 +30,13 @@ The following tool config directories must contain only configuration — no ins
 **Intentionally absent directories (documented deviations from the standard):**
 
 - `src/` — Source files live at repository root (three-file static site). See `.ai_context.md`.
-- `tests/` — No automated test framework for a static site. See `.ai_context.md`.
 - `functions/` — No serverless functions. See `.ai_context.md`.
 - `dist/` — No build step. Files deployed directly from source. See `.ai_context.md`.
 
 ## Forbidden Patterns
 
 - **Never push directly to `main`.** All changes must go through a pull request—even single-line fixes, documentation updates, and deploy config changes. The only exception is if the human explicitly authorizes a direct push in chat as a break-glass override.
-- **No frameworks, bundlers, or package managers.** This site is intentionally dependency-free. Do not introduce npm, a bundler, or any JavaScript framework without explicit discussion and a `plans/` entry.
+- **No frameworks or bundlers.** This site is intentionally lightweight. Do not introduce a framework, bundler, or new runtime dependency stack without explicit discussion and a `plans/` entry.
 - **No hard-coded motion values.** All CSS durations and easing functions must use the motion token variables defined in `:root`. No bare `ms` values or bare `ease` keywords anywhere.
 - **No instruction files in tool folders.** `.claude/` and `.cursor/` must not contain plain `.md` or `.txt` instruction files. Cursor `.mdc` rule files are permitted as valid Cursor configuration format.
 - **No committed secrets.** API keys, service account JSON, ADC credentials, and tokens must never be committed. GA Measurement IDs are public identifiers; anything write-capable is not.

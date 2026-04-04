@@ -1,6 +1,6 @@
 # nathanpayne.com
 
-Personal portfolio and project site for Nathan Payne — a static site built with vanilla HTML, CSS, and JavaScript. No frameworks, no build step, no dependencies.
+Personal portfolio, project, and blog site for Nathan Payne — a static site built with vanilla HTML, CSS, and JavaScript. No frameworks and no runtime dependencies.
 
 **Live:** [nathanpayne.com](https://nathanpayne.com)
 
@@ -45,6 +45,13 @@ On desktop, hovering or focusing a panel triggers a CSS Grid transition that exp
 ```
 .
 ├── index.html                      # Homepage markup, SEO meta, OG tags, homepage JSON-LD
+├── blog/                           # Generated static blog index + post pages
+│   ├── index.html
+│   └── six-prs-one-bug-agent-failure-modes/
+│       └── index.html
+├── content/                        # Markdown source for blog posts
+│   └── blog/
+│       └── six-prs-one-bug-agent-failure-modes.md
 ├── style.css                       # Shared styles — homepage grid plus project detail pages
 ├── script.js                       # Homepage interactions, keyboard nav, scroll guard, analytics
 ├── robots.txt                      # Crawl directives
@@ -65,10 +72,13 @@ On desktop, hovering or focusing a panel triggers a CSS Grid transition that exp
 │   ├── og_linkedin_1200x627.png
 │   └── og_slack_1280x640.png
 ├── firebase.json                   # Firebase Hosting config
+├── package.json                    # Test runner metadata
+├── tests/                          # Vitest smoke tests for metadata, layout, and routes
 ├── .firebaserc                     # Firebase project alias
 ├── inspiration.jpg                 # Visual reference (not deployed)
 ├── AGENTS.md                       # AI agent instructions (platform-agnostic)
 ├── README.md                       # This file
+├── scripts/generate-blog.js        # Generates /blog/ pages from content/blog/*.md
 └── .cursor/rules/                  # Cursor IDE conventions
     └── project-conventions.mdc
 ```
@@ -110,6 +120,14 @@ Each project in the yellow panel now has a dedicated static detail page under `p
 - use clean, crawlable URLs (`/projects/<slug>/`)
 - include page-specific titles, descriptions, canonicals, Open Graph tags, and JSON-LD
 - reuse the shared `style.css` file but do not rely on homepage interaction JavaScript
+
+### Blog Pages
+
+Long-form posts live in `content/blog/*.md` with frontmatter. The checked-in static blog routes under `blog/` are generated from those Markdown files by `scripts/generate-blog.js`.
+
+- edit the Markdown source in `content/blog/`
+- run `node scripts/generate-blog.js`
+- deploy the generated `blog/` HTML alongside the rest of the static site
 
 ### Motion System
 
@@ -154,6 +172,9 @@ npx serve .
 
 # Or use Python
 python3 -m http.server 8000
+
+# Regenerate blog pages after editing content/blog/*.md
+node scripts/generate-blog.js
 ```
 
 ### Cache Busting
