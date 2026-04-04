@@ -13,7 +13,7 @@ When a panel is focused, JavaScript sets `data-focus="<panel-name>"` on the grid
 - **Mobile (≤ 920px):** All interactions are disabled. Panels stack vertically with content always visible. The `mobile()` media-query check gates every interaction handler.
 
 #### No Build Step
-This is intentional. The site is a small set of static files. Do not introduce a bundler, framework, or package manager unless explicitly asked. There is no `package.json`.
+This is intentional. The site is a small set of static files. Do not introduce a bundler, framework, or runtime renderer unless explicitly asked. Pre-generating blog HTML from `content/blog/*.md` is acceptable because the generated pages are checked into `blog/` and served directly.
 
 ### Content-to-Cell Mapping
 Panel CSS classes are color-based (controlling grid position and color). Content is assigned to cells independently:
@@ -59,6 +59,12 @@ Narrative order: **Identity → Work → Community → Contact**
 2. Link the project name to a dedicated detail page at `projects/<slug>/index.html`.
 3. Add the project URL to `sitemap.xml`.
 4. Reuse the shared `style.css` detail-page patterns unless the user explicitly asks for a new visual system.
+
+#### Adding a Blog Post
+1. Create the Markdown source file in `content/blog/<slug>.md` with frontmatter.
+2. Run `node scripts/generate-blog.js` to emit `blog/index.html` and `blog/<slug>/index.html`.
+3. Add the blog URLs to `sitemap.xml`.
+4. If `style.css` changes, bump the shared stylesheet query string anywhere it is referenced.
 
 #### Adding a Social Link
 1. Add a new `.social-row` anchor inside `.social-stack` in the **blue cell** (`panel--blue`) in `index.html`.

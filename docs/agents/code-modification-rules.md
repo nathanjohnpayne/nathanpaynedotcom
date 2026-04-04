@@ -82,8 +82,8 @@ Do not introduce npm, bundlers, frameworks, or external libraries. This is inten
 
 ### Stack
 
-Vanilla HTML, CSS, and JavaScript — no frameworks, no build tools, no package manager.
-Deployed to Firebase Hosting. Do not add a bundler or framework unless explicitly asked.
+Vanilla HTML, CSS, and JavaScript — no frameworks, no bundler, no runtime renderer.
+Deployed to Firebase Hosting. Pre-generating blog HTML into checked-in static files is acceptable; do not add a bundler or framework unless explicitly asked.
 
 ### Files
 

@@ -370,6 +370,14 @@ html, body {
     var(--github-green-2) 100%
   );
 }
+.social-row--blog::after {
+  background: linear-gradient(
+    90deg,
+    var(--red) 0%,
+    var(--yellow) 54%,
+    var(--blue) 100%
+  );
+}
 .social-row--bluesky::after {
   background: linear-gradient(
     90deg,
@@ -971,6 +979,242 @@ body.project-page {
   color: inherit;
 }
 
+.blog-index-layout {
+  grid-template-columns: minmax(0, 1.2fr) minmax(15rem, 0.72fr);
+}
+
+.blog-section {
+  background:
+    linear-gradient(180deg, var(--project-accent-soft), rgba(255, 255, 255, 0) 18rem),
+    rgba(255, 255, 255, 0.62);
+}
+
+.blog-card-list {
+  display: grid;
+  gap: 1rem;
+}
+
+.blog-card {
+  padding: 1rem 0 0;
+  border-top: 1px solid var(--rule);
+}
+
+.blog-card:first-child {
+  padding-top: 0.25rem;
+  border-top: 0;
+}
+
+.blog-card-meta,
+.blog-tag {
+  font-size: clamp(0.68rem, 0.82vw, 0.8rem);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.blog-card-meta {
+  color: rgba(17, 16, 13, 0.58);
+}
+
+.blog-card h3 {
+  margin-top: 0.45rem;
+  font-family: "Cormorant Garamond", Garamond, serif;
+  font-size: clamp(1.45rem, 2vw, 2rem);
+  line-height: 1.05;
+}
+
+.blog-card-link {
+  color: inherit;
+  text-decoration: none;
+}
+
+.blog-card-link:hover,
+.blog-card-link:focus-visible {
+  text-decoration: underline;
+  text-decoration-color: var(--project-accent);
+  text-underline-offset: 0.12em;
+}
+
+.blog-card-desc {
+  margin-top: 0.55rem;
+  max-width: 58ch;
+}
+
+.blog-tag-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin-top: 0.8rem;
+}
+
+.blog-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.22rem 0.42rem;
+  background: rgba(17, 16, 13, 0.08);
+}
+
+.blog-prose-title {
+  margin-bottom: 0.25rem;
+  font-size: clamp(0.74rem, 0.9vw, 0.86rem) !important;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: rgba(17, 16, 13, 0.58);
+}
+
+.blog-prose > h2:not(.blog-prose-title) {
+  margin-top: 2rem;
+}
+
+.blog-prose > h3 {
+  margin-top: 1.2rem;
+  font-family: "Cormorant Garamond", Garamond, serif;
+  font-size: clamp(1.08rem, 1.45vw, 1.36rem);
+  line-height: 1.1;
+}
+
+.blog-prose > p,
+.blog-prose li {
+  font-size: clamp(0.98rem, 0.94rem + 0.16vw, 1.08rem);
+  line-height: 1.72;
+}
+
+.blog-prose > p + p {
+  margin-top: 0.8rem;
+}
+
+.blog-prose strong {
+  font-weight: 700;
+}
+
+.blog-prose code {
+  font-family: "SFMono-Regular", "SF Mono", Consolas, "Liberation Mono", Menlo, monospace;
+  font-size: 0.94em;
+}
+
+.blog-prose a {
+  color: inherit;
+  text-decoration-color: rgba(17, 16, 13, 0.32);
+  text-underline-offset: 0.16em;
+}
+
+.blog-rule {
+  margin: 1.6rem 0;
+  border: 0;
+  border-top: 1px solid var(--rule);
+}
+
+.blog-list {
+  list-style: none;
+  display: grid;
+  gap: 0.72rem;
+  margin: 0.9rem 0;
+}
+
+.blog-list li {
+  position: relative;
+  padding-left: 1rem;
+}
+
+.blog-list li::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0.72em;
+  width: 0.4rem;
+  height: 0.4rem;
+  background: var(--project-accent);
+}
+
+.blog-figure {
+  margin: 1rem 0 1.25rem;
+  padding: 0.85rem;
+  border: 1px solid var(--rule);
+  background: rgba(255, 255, 255, 0.82);
+}
+
+.blog-figure img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border: 1px solid var(--rule);
+}
+
+.blog-figure figcaption {
+  margin-top: 0.55rem;
+  font-size: clamp(0.74rem, 0.88vw, 0.84rem);
+  color: rgba(17, 16, 13, 0.62);
+}
+
+.blog-code-block {
+  margin: 1rem 0 1.2rem;
+  overflow-x: auto;
+  padding: 0.95rem 1rem;
+  background: #15120e;
+  color: #f5f0e4;
+  border: 1px solid rgba(17, 16, 13, 0.2);
+}
+
+.blog-code-block code {
+  display: block;
+  white-space: pre;
+  line-height: 1.65;
+}
+
+.blog-diagram {
+  margin: 1rem 0 1.2rem;
+  padding: 1rem;
+  border: 1px solid var(--rule);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.84), rgba(255, 255, 255, 0.58)),
+    var(--project-accent-soft);
+}
+
+.blog-diagram--chain {
+  display: grid;
+  justify-items: center;
+  gap: 0.5rem;
+}
+
+.blog-diagram--fanout {
+  display: grid;
+  justify-items: center;
+  gap: 0.65rem;
+}
+
+.blog-diagram-fanout-row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.65rem;
+  width: 100%;
+}
+
+.blog-diagram-node {
+  width: min(100%, 22rem);
+  padding: 0.7rem 0.85rem;
+  border: 1px solid rgba(17, 16, 13, 0.16);
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 4px 4px 0 rgba(17, 16, 13, 0.06);
+  text-align: center;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.blog-diagram-arrow,
+.blog-diagram-loop {
+  font-family: "Cormorant Garamond", Garamond, serif;
+  font-size: 1.8rem;
+  line-height: 1;
+  color: rgba(17, 16, 13, 0.62);
+}
+
+.blog-diagram-branch {
+  width: min(100%, 18rem);
+  height: 1.3rem;
+  border-top: 2px solid rgba(17, 16, 13, 0.32);
+  border-left: 2px solid rgba(17, 16, 13, 0.32);
+  border-right: 2px solid rgba(17, 16, 13, 0.32);
+}
+
 .about-label,
 .connect-label,
 .stack-label,
@@ -1108,6 +1352,14 @@ a:focus-visible {
 
   .project-sidebar {
     order: -1;
+  }
+
+  .blog-index-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .blog-diagram-fanout-row {
+    grid-template-columns: 1fr;
   }
 }
 

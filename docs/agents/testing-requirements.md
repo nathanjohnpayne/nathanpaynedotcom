@@ -1,6 +1,12 @@
 # Testing Requirements
 
-No automated test framework is in use. This is a static site with no application logic requiring unit tests.
+Vitest smoke tests are in use for static route metadata, sitemap coverage, responsive behavior, and homepage interaction guards.
+
+**Run before any PR:**
+
+```bash
+npm test
+```
 
 **Manual testing checklist (run before any PR):**
 
@@ -10,9 +16,10 @@ No automated test framework is in use. This is a static site with no application
 4. `prefers-reduced-motion` respected: test in macOS Accessibility settings or Chrome DevTools emulation
 5. No console errors in Chrome and Safari
 6. OG metadata renders correctly (use a social card preview tool if OG image changed)
-7. Cache-bust query strings updated in `index.html` if `style.css` or `script.js` changed
-8. Security headers present (check in DevTools → Network → Response Headers)
+7. Blog routes load correctly (`/blog/` and the latest post page) if blog content or generation changed
+8. Cache-bust query strings updated in HTML files that reference `style.css` or `script.js`
+9. Security headers present (check in DevTools → Network → Response Headers)
 
-**When to add automated tests:** If any JavaScript logic is extracted into importable modules, add unit tests for panel state management, hover intent logic, and analytics guards.
+**When to add more automated tests:** Add or extend Vitest coverage whenever new static routes, metadata surfaces, or generation scripts are introduced.
 
 ---

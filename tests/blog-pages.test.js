@@ -1,0 +1,62 @@
+import { describe, it, expect, beforeEach } from 'vitest';
+import { readFileSync } from 'fs';
+import { resolve } from 'path';
+
+const homepageHtml = readFileSync(resolve(__dirname, '../index.html'), 'utf-8');
+const blogIndexHtml = readFileSync(resolve(__dirname, '../blog/index.html'), 'utf-8');
+const blogPostHtml = readFileSync(resolve(__dirname, '../blog/six-prs-one-bug-agent-failure-modes/index.html'), 'utf-8');
+
+function setupDOM(html) {
+  document.documentElement.innerHTML = '';
+  document.write(html);
+  document.close();
+}
+
+describe('Blog Pages', () => {
+  beforeEach(() => {
+    setupDOM(homepageHtml);
+  });
+
+  it('homepage exposes a blog link in the connect panel', () => {
+    const blogLink = document.querySelector('a[href="/blog/"]');
+    expect(blogLink).not.toBeNull();
+    expect(blogLink.textContent).toContain('Blog');
+  });
+
+  it('blog index page has canonical metadata and links to the generated post', () => {
+    setupDOM(blogIndexHtml);
+
+    const canonical = document.querySelector('link[rel="canonical"]');
+    const postLink = document.querySelector('a[href="/blog/six-prs-one-bug-agent-failure-modes/"]');
+    const ogImage = document.querySelector('meta[property="og:image"]');
+
+    expect(canonical?.getAttribute('href')).toBe('https://nathanpayne.com/blog/');
+    expect(postLink).not.toBeNull();
+    expect(ogImage?.getAttribute('content')).toBe('https://nathanpayne.com/og/six-prs-one-bug.png');
+  });
+
+  it('blog post page includes article metadata and screenshot embeds', () => {
+    setupDOM(blogPostHtml);
+
+    const canonical = document.querySelector('link[rel="canonical"]');
+    const ogType = document.querySelector('meta[property="og:type"]');
+    const screenshots = [...document.querySelectorAll('.blog-figure img')];
+
+    expect(canonical?.getAttribute('href')).toBe('https://nathanpayne.com/blog/six-prs-one-bug-agent-failure-modes/');
+    expect(ogType?.getAttribute('content')).toBe('article');
+    expect(screenshots).toHaveLength(3);
+    expect(screenshots[0].getAttribute('src')).toContain('invoice-bug-01-editor-view.png');
+  });
+
+  it('blog post structured data declares a BlogPosting entity', () => {
+    setupDOM(blogPostHtml);
+
+    const script = document.querySelector('script[type="application/ld+json"]');
+    const jsonLd = JSON.parse(script.textContent);
+    const posting = jsonLd['@graph'].find((entry) => entry['@type'] === 'BlogPosting');
+
+    expect(posting).toBeDefined();
+    expect(posting.headline).toBe('Six PRs, One Bug: What AI Agents Actually Get Wrong');
+    expect(posting.image).toBe('https://nathanpayne.com/og/six-prs-one-bug.png');
+  });
+});

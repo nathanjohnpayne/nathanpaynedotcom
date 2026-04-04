@@ -1,17 +1,21 @@
 # Repository Overview
 
 ### Project Summary
-Static personal portfolio and project site for [nathanpayne.com](https://nathanpayne.com). Vanilla HTML + CSS + JavaScript — no frameworks, no build step, no package manager. Deployed to Firebase Hosting.
+Static personal portfolio, project, and blog site for [nathanpayne.com](https://nathanpayne.com). Vanilla HTML + CSS + JavaScript — no frameworks, no runtime dependencies, no bundler. Deployed to Firebase Hosting.
 
 ### Architecture
-Homepage plus dedicated static project pages:
+Homepage plus dedicated static project pages and generated static blog pages:
 
 | File | Role |
 |------|------|
 | `index.html` | Homepage markup. Contains homepage SEO meta, Open Graph tags, homepage JSON-LD, inline GA4 snippet, and font preconnects. |
 | `projects/<slug>/index.html` | Dedicated project detail pages with project-specific meta, canonicals, and JSON-LD. |
+| `content/blog/*.md` | Markdown source posts with frontmatter. |
+| `blog/index.html` | Generated blog landing page. |
+| `blog/<slug>/index.html` | Generated static blog post pages. |
 | `style.css` | Shared styles for the Mondrian homepage and the project detail pages. |
 | `script.js` | Homepage panel open/close logic, keyboard navigation, hover intent, scroll guard, analytics event tracking. Wrapped in an IIFE. |
+| `scripts/generate-blog.js` | Generates static blog routes from `content/blog/*.md`. |
 | `robots.txt` | Crawl directives for search engines. |
 | `sitemap.xml` | Canonical URL inventory for search engines. |
 
@@ -20,8 +24,13 @@ There is no `src/` directory, no transpilation, and no bundler. Files are served
 ### File Inventory
 ```
 index.html              Markup + meta
+blog/                   Generated static blog pages
+content/blog/           Markdown source posts for the blog
 style.css               Styles (homepage, project pages, motion system, responsive, a11y)
 script.js               Homepage interactions (panels, keyboard, scroll guard, analytics)
+scripts/generate-blog.js Blog page generator
+package.json            Vitest metadata
+tests/                  Smoke tests for routes, metadata, layout, and interactions
 robots.txt              Crawl directives
 sitemap.xml             Search-engine URL inventory
 projects/               Dedicated static project detail pages
