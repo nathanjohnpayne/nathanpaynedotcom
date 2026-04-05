@@ -142,7 +142,7 @@ Email:   TipTap / ProseMirror document -&gt; docToPlainTextWithTokens() -&gt; Re
 <p>The crucial idea in the PR description was: keep <code>docToPlainTextWithTokens()</code> as the bridge and leave the old invoice body builder in place.</p>
 <p>That decision made the rest of the bug almost inevitable. The app now had a rich-text editor as the authoring surface, but Preview and send still depended on a lossy intermediate format. The structured document was treated as temporary.</p>
 <p>My kickoff prompt for the session was:</p>
-<blockquote>Read /Users/nathanpayne/GitHub/docs/projects/friends-and-family-billing/invoicing-tab-redesign.md and implement the plan.</blockquote>
+<blockquote>Read <a href="https://github.com/nathanjohnpayne/friends-and-family-billing/blob/main/docs/invoicing-tab-redesign.md">invoicing-tab-redesign.md</a> and implement the plan.</blockquote>
 <p>The design spec described what the invoicing tab should look like. It did not describe what architectural invariants the rendering pipeline should preserve. So the agent picked the fastest path to a working UI: keep the old pipeline, bolt a new editor on top.</p>
 <h3>PR #146: the agent got better at regex, not closer to the invariant</h3>
 <p><a href="https://github.com/nathanjohnpayne/friends-and-family-billing/pull/146">PR #146</a> fixed bold-token round-tripping by making the serializer emit bold-wrapped token markers and tightening the token regex:</p>
