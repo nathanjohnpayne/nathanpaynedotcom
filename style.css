@@ -980,7 +980,21 @@ body.project-page {
 }
 
 .blog-index-layout {
-  grid-template-columns: minmax(0, 1.2fr) minmax(15rem, 0.72fr);
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.blog-index-copy {
+  max-width: 52rem;
+}
+
+.blog-index-aside {
+  max-width: 38rem;
+  margin-top: calc(var(--su) * 0.8);
+  padding-left: clamp(1rem, 2.2vw, 1.6rem);
+  font-size: clamp(0.95rem, 0.9rem + 0.28vw, 1.18rem);
+  line-height: 1.45;
+  font-family: "Cormorant Garamond", Garamond, serif;
+  color: rgba(17, 16, 13, 0.62);
 }
 
 .blog-layout {
@@ -992,6 +1006,32 @@ body.project-page {
 .blog-copy {
   width: var(--blog-content-width);
   justify-self: center;
+}
+
+.blog-meta-bar {
+  border-bottom: 1px solid var(--rule);
+  padding-bottom: 0.85rem;
+  margin-bottom: 0.5rem;
+}
+
+.blog-meta-bar dl {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.5rem;
+  margin: 0;
+}
+
+.blog-meta-bar dt {
+  margin-bottom: 0.18rem;
+  font-size: clamp(0.68rem, 0.82vw, 0.78rem);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(17, 16, 13, 0.58);
+}
+
+.blog-meta-bar dd {
+  font-size: clamp(0.9rem, 0.9rem + 0.08vw, 0.98rem);
+  line-height: 1.55;
 }
 
 .blog-meta-card {
@@ -1040,8 +1080,15 @@ body.project-page {
 }
 
 .blog-card {
-  padding: 1rem 0 0;
+  position: relative;
+  padding: 1rem 0 0 0.85rem;
   border-top: 1px solid var(--rule);
+  border-left: 3px solid transparent;
+  transition: border-left-color var(--motion-hover) var(--ease-standard);
+}
+
+.blog-card:hover {
+  border-left-color: var(--project-accent);
 }
 
 .blog-card:first-child {
@@ -1070,6 +1117,12 @@ body.project-page {
 .blog-card-link {
   color: inherit;
   text-decoration: none;
+}
+
+.blog-card-link::after {
+  content: "";
+  position: absolute;
+  inset: 0;
 }
 
 .blog-card-link:hover,
@@ -1107,7 +1160,9 @@ body.project-page {
 }
 
 .blog-prose > h2:not(.blog-prose-title) {
-  margin-top: 2rem;
+  margin-top: 2.5rem;
+  padding-top: 1.8rem;
+  border-top: 1px solid var(--rule);
 }
 
 .blog-prose > h3 {
@@ -1134,6 +1189,37 @@ body.project-page {
 .blog-prose code {
   font-family: "SFMono-Regular", "SF Mono", Consolas, "Liberation Mono", Menlo, monospace;
   font-size: 0.94em;
+}
+
+.blog-prose blockquote {
+  border-left: 3px solid var(--project-accent);
+  padding: 0.75rem 1rem 0.75rem 1.1rem;
+  margin: 1rem 0 1.2rem;
+  background: rgba(255, 255, 255, 0.52);
+  color: rgba(17, 16, 13, 0.82);
+}
+
+.blog-prose blockquote ul {
+  list-style: none;
+  display: grid;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0;
+}
+
+.blog-prose blockquote li {
+  position: relative;
+  padding-left: 1rem;
+}
+
+.blog-prose blockquote li::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0.72em;
+  width: 0.4rem;
+  height: 0.4rem;
+  background: var(--project-accent);
 }
 
 .blog-prose a {
@@ -1174,6 +1260,7 @@ body.project-page {
   margin: 1rem 0 1.25rem;
   padding: 0.85rem;
   border: 1px solid var(--rule);
+  border-top: 3px solid var(--project-accent);
   background: rgba(255, 255, 255, 0.82);
 }
 
@@ -1199,10 +1286,39 @@ body.project-page {
   border: 1px solid rgba(17, 16, 13, 0.2);
 }
 
+.blog-code-block--light {
+  background: rgba(17, 16, 13, 0.06);
+  color: var(--ink);
+  border: 1px solid var(--rule);
+}
+
 .blog-code-block code {
   display: block;
   white-space: pre;
   line-height: 1.65;
+}
+
+.blog-footer {
+  padding: clamp(1.15rem, 2.5vw, 2rem) clamp(1.15rem, 3vw, 2.5rem);
+  border-top: 1px solid var(--rule);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.blog-footer-attribution {
+  font-size: clamp(0.7rem, 0.88vw, 0.82rem);
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: rgba(17, 16, 13, 0.58);
+}
+
+.blog-footer-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
 }
 
 .blog-diagram {
@@ -1399,8 +1515,19 @@ a:focus-visible {
     order: -1;
   }
 
-  .blog-index-layout {
-    grid-template-columns: 1fr;
+  .blog-meta-bar dl {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+  }
+
+  .blog-footer {
+    flex-direction: column;
+    text-align: center;
+  }
+
+  .blog-footer-nav {
+    justify-content: center;
   }
 
   .blog-diagram-fanout-row {
