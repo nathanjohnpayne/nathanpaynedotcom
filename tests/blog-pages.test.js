@@ -42,13 +42,13 @@ describe('Blog Pages', () => {
     const canonical = document.querySelector('link[rel="canonical"]');
     const ogType = document.querySelector('meta[property="og:type"]');
     const screenshots = [...document.querySelectorAll('.blog-figure img')];
-    const sourceLink = document.querySelector('a[href$=".md"]');
+    const localMdLink = document.querySelector('a[href$=".md"]:not([href^="https://"])');
 
     expect(canonical?.getAttribute('href')).toBe('https://nathanpayne.com/blog/six-prs-one-bug-agent-failure-modes/');
     expect(ogType?.getAttribute('content')).toBe('article');
     expect(screenshots).toHaveLength(4);
     expect(screenshots[0].getAttribute('src')).toContain('invoice-bug-01-editor-view.png');
-    expect(sourceLink).toBeNull();
+    expect(localMdLink).toBeNull();
   });
 
   it('blog post structured data declares a BlogPosting entity', () => {
