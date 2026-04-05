@@ -7,7 +7,7 @@
   <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
   <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-  <meta name="description" content="A trivial formatting bug reveals systemic failure modes in AI-generated code." />
+  <meta name="description" content="A billing email bug took six AI-authored PRs to diagnose—not because the agent couldn&#39;t write code, but because it never promoted a repeated local failure into a structural question. The full session log shows exactly how it happened." />
   <meta name="author" content="Nathan Payne" />
   <meta name="robots" content="index, follow" />
   <link rel="canonical" href="https://nathanpayne.com/blog/six-prs-one-bug-agent-failure-modes/" />
@@ -16,7 +16,7 @@
   <meta property="og:locale" content="en_US" />
   <meta property="og:site_name" content="Nathan Payne" />
   <meta property="og:title" content="Six PRs, One Bug: What AI Agents Actually Get Wrong | Nathan Payne" />
-  <meta property="og:description" content="A trivial formatting bug reveals systemic failure modes in AI-generated code." />
+  <meta property="og:description" content="A billing email bug took six AI-authored PRs to diagnose—not because the agent couldn&#39;t write code, but because it never promoted a repeated local failure into a structural question. The full session log shows exactly how it happened." />
   <meta property="og:url" content="https://nathanpayne.com/blog/six-prs-one-bug-agent-failure-modes/" />
   <meta property="og:image" content="https://nathanpayne.com/og/six-prs-one-bug.png" />
   <meta property="og:image:secure_url" content="https://nathanpayne.com/og/six-prs-one-bug.png" />
@@ -34,7 +34,7 @@
 
   <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:title" content="Six PRs, One Bug: What AI Agents Actually Get Wrong | Nathan Payne" />
-  <meta name="twitter:description" content="A trivial formatting bug reveals systemic failure modes in AI-generated code." />
+  <meta name="twitter:description" content="A billing email bug took six AI-authored PRs to diagnose—not because the agent couldn&#39;t write code, but because it never promoted a repeated local failure into a structural question. The full session log shows exactly how it happened." />
   <meta name="twitter:url" content="https://nathanpayne.com/blog/six-prs-one-bug-agent-failure-modes/" />
   <meta name="twitter:image" content="https://nathanpayne.com/og/six-prs-one-bug.png" />
   <meta name="twitter:image:width" content="1200" />
@@ -42,7 +42,7 @@
   <meta name="twitter:image:alt" content="Six PRs, One Bug: What AI Agents Actually Get Wrong open graph image" />
 
   <script type="application/ld+json">
-    {"@context":"https://schema.org","@graph":[{"@type":"WebPage","@id":"https://nathanpayne.com/blog/six-prs-one-bug-agent-failure-modes/#webpage","url":"https://nathanpayne.com/blog/six-prs-one-bug-agent-failure-modes/","name":"Six PRs, One Bug: What AI Agents Actually Get Wrong | Nathan Payne","description":"A trivial formatting bug reveals systemic failure modes in AI-generated code.","isPartOf":{"@id":"https://nathanpayne.com/#website"},"breadcrumb":{"@id":"https://nathanpayne.com/blog/six-prs-one-bug-agent-failure-modes/#breadcrumb"},"primaryImageOfPage":{"@id":"https://nathanpayne.com/blog/six-prs-one-bug-agent-failure-modes/#primaryimage"},"mainEntity":{"@id":"https://nathanpayne.com/blog/six-prs-one-bug-agent-failure-modes/#article"}},{"@type":"ImageObject","@id":"https://nathanpayne.com/blog/six-prs-one-bug-agent-failure-modes/#primaryimage","url":"https://nathanpayne.com/og/six-prs-one-bug.png","width":1200,"height":630},{"@type":"BreadcrumbList","@id":"https://nathanpayne.com/blog/six-prs-one-bug-agent-failure-modes/#breadcrumb","itemListElement":[{"@type":"ListItem","position":1,"name":"Nathan Payne","item":"https://nathanpayne.com/"},{"@type":"ListItem","position":2,"name":"Blog","item":"https://nathanpayne.com/blog/"},{"@type":"ListItem","position":3,"name":"Six PRs, One Bug: What AI Agents Actually Get Wrong","item":"https://nathanpayne.com/blog/six-prs-one-bug-agent-failure-modes/"}]},{"@type":"BlogPosting","@id":"https://nathanpayne.com/blog/six-prs-one-bug-agent-failure-modes/#article","headline":"Six PRs, One Bug: What AI Agents Actually Get Wrong","description":"A trivial formatting bug reveals systemic failure modes in AI-generated code.","image":"https://nathanpayne.com/og/six-prs-one-bug.png","datePublished":"2026-04-04T00:00:00Z","author":{"@type":"Person","name":"Nathan Payne","url":"https://nathanpayne.com/"},"publisher":{"@type":"Person","name":"Nathan Payne","url":"https://nathanpayne.com/"},"mainEntityOfPage":{"@id":"https://nathanpayne.com/blog/six-prs-one-bug-agent-failure-modes/#webpage"},"keywords":"AI, Engineering, Product, Systems, Debugging"}]}
+    {"@context":"https://schema.org","@graph":[{"@type":"WebPage","@id":"https://nathanpayne.com/blog/six-prs-one-bug-agent-failure-modes/#webpage","url":"https://nathanpayne.com/blog/six-prs-one-bug-agent-failure-modes/","name":"Six PRs, One Bug: What AI Agents Actually Get Wrong | Nathan Payne","description":"A billing email bug took six AI-authored PRs to diagnose—not because the agent couldn't write code, but because it never promoted a repeated local failure into a structural question. The full session log shows exactly how it happened.","isPartOf":{"@id":"https://nathanpayne.com/#website"},"breadcrumb":{"@id":"https://nathanpayne.com/blog/six-prs-one-bug-agent-failure-modes/#breadcrumb"},"primaryImageOfPage":{"@id":"https://nathanpayne.com/blog/six-prs-one-bug-agent-failure-modes/#primaryimage"},"mainEntity":{"@id":"https://nathanpayne.com/blog/six-prs-one-bug-agent-failure-modes/#article"}},{"@type":"ImageObject","@id":"https://nathanpayne.com/blog/six-prs-one-bug-agent-failure-modes/#primaryimage","url":"https://nathanpayne.com/og/six-prs-one-bug.png","width":1200,"height":630},{"@type":"BreadcrumbList","@id":"https://nathanpayne.com/blog/six-prs-one-bug-agent-failure-modes/#breadcrumb","itemListElement":[{"@type":"ListItem","position":1,"name":"Nathan Payne","item":"https://nathanpayne.com/"},{"@type":"ListItem","position":2,"name":"Blog","item":"https://nathanpayne.com/blog/"},{"@type":"ListItem","position":3,"name":"Six PRs, One Bug: What AI Agents Actually Get Wrong","item":"https://nathanpayne.com/blog/six-prs-one-bug-agent-failure-modes/"}]},{"@type":"BlogPosting","@id":"https://nathanpayne.com/blog/six-prs-one-bug-agent-failure-modes/#article","headline":"Six PRs, One Bug: What AI Agents Actually Get Wrong","description":"A billing email bug took six AI-authored PRs to diagnose—not because the agent couldn't write code, but because it never promoted a repeated local failure into a structural question. The full session log shows exactly how it happened.","image":"https://nathanpayne.com/og/six-prs-one-bug.png","datePublished":"2026-04-04T00:00:00Z","author":{"@type":"Person","name":"Nathan Payne","url":"https://nathanpayne.com/"},"publisher":{"@type":"Person","name":"Nathan Payne","url":"https://nathanpayne.com/"},"mainEntityOfPage":{"@id":"https://nathanpayne.com/blog/six-prs-one-bug-agent-failure-modes/#webpage"},"keywords":"AI, Engineering, Product, Systems, Debugging"}]}
   </script>
 
   <script async src="https://www.googletagmanager.com/gtag/js?id=G-7C29SRBXB1"></script>
@@ -59,7 +59,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/style.css?v=20260404a" />
+  <link rel="stylesheet" href="/style.css?v=20260404e" />
 </head>
 <body class="project-page project-page--red blog-page">
   <main class="project-shell">
@@ -74,7 +74,7 @@
         </nav>
         <p class="project-kicker">AI · Engineering · Product · Systems · Debugging</p>
         <h1>Six PRs, One Bug: What AI Agents Actually Get Wrong</h1>
-        <p class="project-deck">A trivial formatting bug reveals systemic failure modes in AI-generated code.</p>
+        <p class="project-deck">A billing email bug took six AI-authored PRs to diagnose—not because the agent couldn&#39;t write code, but because it never promoted a repeated local failure into a structural question. The full session log shows exactly how it happened.</p>
         <div class="project-actions">
           <a class="project-action" href="/blog/">Back to Blog</a>
           <a class="project-action" href="/">Back to Homepage</a>
@@ -85,130 +85,129 @@
         <div class="project-copy">
           <article class="project-section blog-prose" aria-labelledby="post-body">
             <h2 id="post-body" class="blog-prose-title">Essay</h2>
-            <p><em>Or: how a trivial formatting bug exposed systemic failure modes in autonomous code generation.</em></p>
-<hr class="blog-rule" />
-<h2>Context</h2>
-<p>Most product decisions are invisible—until they aren’t.</p>
-<p>At platform scale, small inconsistencies don’t stay small—they compound across rendering environments, devices, and user expectations.</p>
-<p>This bug came from a smaller system: a billing email editor.</p>
-<p>But the failure mode is identical to what happens in large distributed systems.</p>
-<hr class="blog-rule" />
-<h2>The System</h2>
-
-    <div class="blog-diagram blog-diagram--chain" aria-label="Diagram">
-      <div class="blog-diagram-node">User Input</div><div class="blog-diagram-arrow" aria-hidden="true">↓</div><div class="blog-diagram-node">contentEditable DOM</div><div class="blog-diagram-arrow" aria-hidden="true">↓</div><div class="blog-diagram-node">Transform Layer</div><div class="blog-diagram-arrow" aria-hidden="true">↓</div><div class="blog-diagram-node">Preview Renderer</div><div class="blog-diagram-arrow" aria-hidden="true">↓</div><div class="blog-diagram-node">Email Serializer</div><div class="blog-diagram-arrow" aria-hidden="true">↓</div><div class="blog-diagram-node">Email Client Rendering</div>
-    </div>
-  
-<h3>Invariant</h3>
-<pre class="blog-code-block"><code class="language-text">Editor = Preview = Email</code></pre>
-<h3>Reality</h3>
-<pre class="blog-code-block"><code class="language-text">Editor ≠ Preview ≠ Email</code></pre>
-<hr class="blog-rule" />
-<h2>The Bug</h2>
-<p>Input:</p>
-<pre class="blog-code-block"><code class="language-text">Hello John,
-
-**Thank you** for your payment.
-
-Payment methods:
-https://venmo.com/u/nathanPayne</code></pre>
-<hr class="blog-rule" />
-<h2>What the User Actually Sees</h2>
-<h3>Editor</h3>
+            <p>On April 4, 2026, I opened <a href="https://github.com/nathanjohnpayne/friends-and-family-billing/issues/159">issue #159</a> in my Friends &amp; Family Billing app. The bug looked small enough to be annoying, not interesting: the invoice template editor showed one thing, Preview showed another, and the email that actually went to customers showed a third.</p>
+<p>That framing turned out to be wrong.</p>
+<p>This was not a styling bug. It was a systems bug wearing a styling-bug costume. Over roughly twenty hours, one agent opened six PRs trying to resolve it: <a href="https://github.com/nathanjohnpayne/friends-and-family-billing/pull/144">#144</a>, <a href="https://github.com/nathanjohnpayne/friends-and-family-billing/pull/146">#146</a>, <a href="https://github.com/nathanjohnpayne/friends-and-family-billing/pull/153">#153</a>, <a href="https://github.com/nathanjohnpayne/friends-and-family-billing/pull/154">#154</a>, <a href="https://github.com/nathanjohnpayne/friends-and-family-billing/pull/155">#155</a>, and <a href="https://github.com/nathanjohnpayne/friends-and-family-billing/pull/158">#158</a>. None fixed the user-facing problem. <a href="https://github.com/nathanjohnpayne/friends-and-family-billing/pull/161">PR #161</a> finally did, but only after a different agent, given a fundamentally different kind of prompt, treated the whole thing as a failed-fix investigation instead of another incremental patch.</p>
+<p>The lesson is not &quot;AI is bad at formatting.&quot; The lesson is that agents are very good at making local progress inside the wrong model, and that the difference between six failed fixes and one successful one was not a smarter agent. It was a different supervision structure.</p>
+<p>I have the full session log: eighteen user prompts, nine external code review rounds, three automated stop-hook interventions, and the task document that finally produced the fix. This post is about what that record shows.</p>
+<h2>The invariant was simple</h2>
+<p>If a template editor is going to be trustworthy, it has to preserve one basic invariant:</p>
+<pre class="blog-code-block"><code class="language-text">Editor = Preview = Sent email</code></pre>
+<p>Here is what the actual pipeline looked like after the TipTap migration:</p>
+<pre class="blog-code-block"><code class="language-text">Editor:  TipTap / ProseMirror document -&gt; Editor DOM
+Preview: TipTap / ProseMirror document -&gt; docToPlainTextWithTokens() -&gt; CommonMark renderer -&gt; Preview HTML
+Email:   TipTap / ProseMirror document -&gt; docToPlainTextWithTokens() -&gt; Regex-based renderer -&gt; Sent email HTML</code></pre>
+<p>The editor rendered structured content directly. Preview and send did not. They first flattened that structured document back into markdown-like plain text, then reparsed it through two different HTML pipelines.</p>
+<p>Once that happened, &quot;WYSIWYG editor&quot; stopped being true in any meaningful sense. The same content was no longer guaranteed to produce the same semantics.</p>
+<h2>What the screenshots were actually saying</h2>
+<p>The screenshots in <a href="https://github.com/nathanjohnpayne/friends-and-family-billing/issues/159">issue #159</a> are not just visual proof that something looked off. They are evidence that different layers of the system were interpreting the same content differently.</p>
+<h3>1. Editor: the structured document still looked sane</h3>
 <figure class="blog-figure"><img src="https://raw.githubusercontent.com/nathanjohnpayne/friends-and-family-billing/issue/invoice-rendering-bug-screenshots/.github/screenshots/invoice-bug-01-editor-view.png" alt="Editor Screenshot" loading="lazy" /><figcaption>Editor Screenshot</figcaption></figure>
-<ul class="blog-list"><li>Looks correct</li><li>No unexpected formatting</li></ul>
-<hr class="blog-rule" />
-<h3>Preview</h3>
+<p>In Edit mode, the intro paragraph is ordinary body text. The billing-summary link, payment options block, divider, and signature are all in the expected order. At this point the content still lives as structured TipTap / ProseMirror JSON, so the system has not yet lost information.</p>
+<h3>2. Preview: semantics changed during the markdown round-trip</h3>
 <figure class="blog-figure"><img src="https://raw.githubusercontent.com/nathanjohnpayne/friends-and-family-billing/issue/invoice-rendering-bug-screenshots/.github/screenshots/invoice-bug-02-preview-view.png" alt="Preview Screenshot" loading="lazy" /><figcaption>Preview Screenshot</figcaption></figure>
-<ul class="blog-list"><li>Extra spacing</li><li>Unexpected bolding</li></ul>
-<hr class="blog-rule" />
-<h3>Sent Email</h3>
-<figure class="blog-figure"><img src="https://raw.githubusercontent.com/nathanjohnpayne/friends-and-family-billing/issue/invoice-rendering-bug-screenshots/.github/screenshots/invoice-bug-03-broken-sent-email.png" alt="Email Screenshot" loading="lazy" /><figcaption>Email Screenshot</figcaption></figure>
-<ul class="blog-list"><li>Different again</li><li>Final output does not match upstream states</li></ul>
-<hr class="blog-rule" />
-<h2>Key Observation</h2>
-<pre class="blog-code-block"><code class="language-text">Same input → three different outputs</code></pre>
-<p>This is not a styling issue.</p>
-<p>This is a <strong>pipeline integrity failure</strong>.</p>
-<hr class="blog-rule" />
-<h2>Failure Mode #1: CSS Patching a Data Problem</h2>
-<pre class="blog-code-block"><code class="language-css">.preview p {
-  margin-bottom: 8px;
+<p>Preview was not rendering the editor document directly. It serialized the document into markdown-like text and reparsed that text with CommonMark. Separator lines like <code>---</code> were being interpreted differently across surfaces, and list content was picking up paragraph wrappers with default margins. That is why the Preview screenshot looks heavier and more spread out than the editor even though the author never changed the template content.</p>
+<h3>3. Sent email: a second parser created a third version of reality</h3>
+<figure class="blog-figure"><img src="https://raw.githubusercontent.com/nathanjohnpayne/friends-and-family-billing/issue/invoice-rendering-bug-screenshots/.github/screenshots/invoice-bug-03-broken-sent-email.png" alt="Sent Email Screenshot" loading="lazy" /><figcaption>Sent Email Screenshot</figcaption></figure>
+<p>The sent email did not use the Preview renderer. It took the same flattened text and pushed it through a separate regex-based markdown renderer in the Cloud Function. So by the time the email reached a customer inbox, the system had already turned one source document into three different interpretations: editor, preview, and email.</p>
+<h3>4. The target was concrete, not hypothetical</h3>
+<p>This detail in the issue mattered: there was a known-good email from <strong>April 2, 2026 at 5:05 PM</strong>. The bug was not &quot;make Preview look a little nicer.&quot; The bug was &quot;restore parity with a real output that previously existed.&quot;</p>
+<p>That is an important debugging difference. When a target is concrete, the work becomes a parity problem, not a taste problem.</p>
+<h2>What I actually said to the agent</h2>
+<p>I have the full session transcript. Here is how I described the bug across four separate prompts:</p>
+<p><strong>Prompt 6</strong> (first report, two screenshots):</p>
+<p>&gt; The text shows bold in preview, but not in the editor.</p>
+<p><strong>Prompt 7</strong> (second report, two screenshots):</p>
+<p>&gt; The bold issue is still there. It does not get fixed by bolding and unbolding, it doesn&#39;t work at all. To add insult to injury, the app is now loading slowly or failing to reload, even after restarting the browser. Look hard this time, you keep missing something.</p>
+<p><strong>Prompt 9</strong> (third report, five screenshots of a full reload cycle):</p>
+<p>The same message, verbatim. I had already run out of new ways to describe the problem. The only thing that changed was the evidence: two screenshots became five, showing the full reload cycle from dashboard to editor to preview, proving the bug survived a hard refresh. The words were identical because the bug was identical. The agent had changed code between these prompts. The output had not changed.</p>
+<p><strong>Prompt 11</strong> (desperation):</p>
+<p>&gt; Given this is a simply single email template, maybe it is okay to sacrifice to get it right?</p>
+<p>By prompt 11, I was offering to throw away the template rather than keep watching the agent fail. Every developer who has used an agent for more than ten minutes will recognize this arc: you start by describing a bug, escalate to &quot;you keep missing something,&quot; send the same message twice because the bug is the same, and end by questioning your own requirements.</p>
+<p>Notice what I never said in any of those prompts. I never said &quot;Preview and email must use the same rendering path.&quot; I never said &quot;the markdown bridge is the wrong architecture.&quot; I never said &quot;audit your previous fixes before trying again.&quot; I described the symptom each time, more urgently, and expected the agent to promote the symptom into a structural diagnosis.</p>
+<p>It did not.</p>
+<h2>Why six PRs still did not fix it</h2>
+<p>The failed PRs show how an agent can keep doing competent work without ever repairing the invariant. This was Claude Code on the failed attempts and OpenAI Codex on the successful one, but I do not think this is mainly a vendor story. The session log makes clear that the difference was in the prompt structure, not the model.</p>
+<h3>PR #144: the migration preserved the old assumption</h3>
+<p><a href="https://github.com/nathanjohnpayne/friends-and-family-billing/pull/144">PR #144</a> introduced the TipTap WYSIWYG editor. That sounds like the architectural answer. In practice, it preserved the old pipeline by explicitly bridging the new structured document back into the existing plaintext workflow.</p>
+<p>The crucial idea in the PR description was: keep <code>docToPlainTextWithTokens()</code> as the bridge and leave the old invoice body builder in place.</p>
+<p>That decision made the rest of the bug almost inevitable. The app now had a rich-text editor as the authoring surface, but Preview and send still depended on a lossy intermediate format. The structured document was treated as temporary.</p>
+<p>My kickoff prompt for the session was:</p>
+<p>&gt; Read /Users/nathanpayne/GitHub/docs/projects/friends-and-family-billing/invoicing-tab-redesign.md and implement the plan.</p>
+<p>The design spec described what the invoicing tab should look like. It did not describe what architectural invariants the rendering pipeline should preserve. So the agent picked the fastest path to a working UI: keep the old pipeline, bolt a new editor on top.</p>
+<h3>PR #146: the agent got better at regex, not closer to the invariant</h3>
+<p><a href="https://github.com/nathanjohnpayne/friends-and-family-billing/pull/146">PR #146</a> fixed bold-token round-tripping by making the serializer emit bold-wrapped token markers and tightening the token regex:</p>
+<pre class="blog-code-block"><code class="language-js">const token = &#39;%&#39; + id + &#39;%&#39;;
+const hasBold = n.marks?.some(m =&gt; m.type === &#39;bold&#39;);
+return hasBold ? &#39;**&#39; + token + &#39;**&#39; : token;
+
+const tokenPattern = /\*\*%([a-z_]+)%\*\*|%([a-z_]+)%/g;</code></pre>
+<p>This is a perfectly reasonable patch if you assume the markdown bridge is the right architecture and the problem is only that the bridge is slightly lossy.</p>
+<p>But that assumption was the bug.</p>
+<p>Here is the part that makes the session log valuable: my automated code review agent, nathanpayne-codex, flagged exactly this problem in its review of PR #146:</p>
+<p>&gt; Exact bold-wrapped tokens are not round-trip safe. <code>plainTextToDoc(&quot;<strong>%first_name%</strong>&quot;)</code> creates a bold-marked token node, but <code>docToPlainTextWithTokens()</code> serializes it back to <code>%first_name%</code>.</p>
+<p>The review identified the round-trip lossiness. The agent fixed the specific regex. It did not ask why the round-trip existed.</p>
+<h3>PR #153: one part semantic patch, one part visual patch</h3>
+<p><a href="https://github.com/nathanjohnpayne/friends-and-family-billing/pull/153">PR #153</a> contains two different kinds of reasonable fix in one diff, which is why it is my favorite example.</p>
+<p>On the serialization side, it started wrapping inline marks back into markdown:</p>
+<pre class="blog-code-block"><code class="language-js">if (marks.some(m =&gt; m.type === &#39;bold&#39;)) result = &#39;**&#39; + result + &#39;**&#39;;
+if (marks.some(m =&gt; m.type === &#39;italic&#39;)) result = &#39;*&#39; + result + &#39;*&#39;;</code></pre>
+<p>On the presentation side, it collapsed preview spacing with CSS:</p>
+<pre class="blog-code-block"><code class="language-css">.invoice-preview-message li p { margin-bottom: 0; }
+.invoice-preview-message li p + p { margin-top: 2px; }</code></pre>
+<p>Both changes are locally valid. They probably improved the experience. They also show exactly how agents get trapped: one fix assumes the problem is markdown fidelity, the other assumes the problem is preview styling, and neither fix removes the reason formatting can drift between surfaces at all.</p>
+<h3>PR #154 and PR #155 fixed real bugs, just not this one</h3>
+<p><a href="https://github.com/nathanjohnpayne/friends-and-family-billing/pull/154">PR #154</a> fixed an editor lifecycle problem where <code>useEditor</code> was recreating the editor on every keystroke. <a href="https://github.com/nathanjohnpayne/friends-and-family-billing/pull/155">PR #155</a> improved migration from legacy markdown into TipTap marks so bold, italic, and links were not displayed literally in the editor.</p>
+<p>Those were both good fixes. They were also orthogonal to editor/preview/email parity. This is another failure mode worth noticing: an agent working on the right issue can still accumulate adjacent wins that make everyone feel progress is happening while the core invariant remains broken.</p>
+<p>The review feedback on PR #155 is telling. The nathanpayne-codex reviewer flagged three separate round-trip safety issues: link parsing that stopped at the first <code>)</code> in a URL, italic-wrapped links that did not survive serialization, and marked token forms that were not covered. Three findings, all pointing at the same structural problem, the intermediate format was lossy, and the agent addressed each one as a scoped regex fix.</p>
+<h3>PR #158: the bridge got cleaner, and the system stayed wrong</h3>
+<p><a href="https://github.com/nathanjohnpayne/friends-and-family-billing/pull/158">PR #158</a> is where sunk cost becomes obvious. The serializer logic was extracted into a lightweight <code>template-doc.js</code>, and adjacent marked segments were merged so TipTap would not emit markdown like this:</p>
+<pre class="blog-code-block"><code class="language-text">**word1****word2**</code></pre>
+<p>The new module even documented the behavior carefully:</p>
+<pre class="blog-code-block"><code class="language-js">// Merge adjacent TEXT segments with the same non-link marks.
+// This prevents **text1****text2** when TipTap splits text at boundaries.</code></pre>
+<p>Again: technically competent work. Better module boundaries. Better performance. Better round-tripping.</p>
+<p>Still the wrong system.</p>
+<p>The review caught it again. nathanpayne-codex flagged that &quot;the new adjacent-mark merge logic is lossy across token boundaries&quot;—a bold token followed immediately by bold text was serializing as <code><strong>%first_name% owes</strong></code>. That is the third time in three PRs that a review round identified a round-trip safety failure in the serializer. Three times the feedback pointed at the architecture. Three times the agent patched the implementation.</p>
+<p>By this point the agent had invested significant effort in making the intermediate serializer smarter and cheaper, which made it even harder to ask the more uncomfortable question:</p>
+<pre class="blog-code-block"><code class="language-text">Why does this serializer exist at all?</code></pre>
+<h2>The automated guardrails saw it too</h2>
+<p>The session included three automated stop-hook interventions, system-level checks that fire between prompts. Two of them are relevant:</p>
+<p><strong>Hook 2</strong> flagged that the plaintext fallback was being derived from <code>editor.getText()</code> instead of the invoice renderer. With the TipTap schema, <code>getText()</code> was adding extra blank lines around block tokens and dropping list markers. This is the divergent-render-path problem stated as an automated finding: the system was generating plaintext from a method that did not match the rendering pipeline.</p>
+<p><strong>Hook 3</strong> flagged that preview and test share-link generation still hardcoded <code>familyMembers[0]</code> even though Preview now let the user choose another member. A data consistency bug in a UI that was supposed to be showing you what the email would look like.</p>
+<p>The guardrails were identifying the right class of problem. The agent kept treating each finding as a scoped fix.</p>
+<h2>What I gave the second agent</h2>
+<p>The prompt that produced <a href="https://github.com/nathanjohnpayne/friends-and-family-billing/pull/161">PR #161</a> was structurally different from anything I said during the first session. It was not a bug report. It was a task document titled &quot;Codex Task—Investigate Failed Fixes (Issue #159).&quot;</p>
+<p>It opened with this framing:</p>
+<p>&gt; Multiple fixes have already been attempted by Claude Code and <strong>did not resolve the issue</strong>. You MUST treat this as a <strong>failed-fix investigation</strong>, not a greenfield implementation.</p>
+<p>Then it listed all six failed PRs and required the agent to audit each one before writing a single line of code. The task was organized into eight steps. Steps 1 through 3 were pure reading: understand the issue, audit the failed fixes, identify the root cause. No code until step 4.</p>
+<p>It stated the invariant as a non-negotiable requirement:</p>
+<p>&gt; There must be <strong>one canonical rendering pipeline</strong>. At minimum, <strong>Preview and Sent Email must be generated from the exact same rendering path</strong>.</p>
+<p>And it included a constraints section that explicitly banned the exact moves Claude Code had made across six PRs:</p>
+<p>&gt; - Do NOT add another layer of transformation &gt; - Do NOT &quot;fix&quot; by overriding CSS only &gt; - Do NOT leave multiple rendering paths in place &gt; - Do NOT rely on regex to fix formatting &gt; - Do NOT optimize for minimal diff over correctness</p>
+<p>Every constraint corresponds to something the first agent actually did. The CSS patch in PR #153. The regex improvements in #146 and #155. The additional transformation layer in #158. The minimal-diff optimization throughout. This was not a generic best-practices list. It was a list of specific mistakes extracted from the session history.</p>
+<p>The task document also required the agent to deliver an audit of the prior fixes as part of the PR, not just the code, but an explanation of which assumptions were wrong and which abstractions made the problem worse. And it required regression tests proving that Preview output and email output were structurally equivalent.</p>
+<h2>What finally worked</h2>
+<p>Once the prior attempts were lined up side by side, the shared assumption became obvious: every fix preserved the markdown bridge. So the successful fix removed it.</p>
+<p>The core addition was a canonical renderer for invoice templates:</p>
+<pre class="blog-code-block"><code class="language-js">export function buildInvoiceTemplateEmailPayload(ctx, shareUrl) {
+    return {
+        html: renderInvoiceTemplate(ctx, shareUrl),
+        text: buildInvoiceBody(ctx, &#39;text-only&#39;, shareUrl, &#39;email&#39;),
+    };
 }</code></pre>
-<p>Fixes preview only.</p>
-<p>Breaks system consistency.</p>
-<hr class="blog-rule" />
-<h2>Failure Mode #2: Regex Parsing</h2>
-<pre class="blog-code-block"><code class="language-js">text.replace(/\*\*(.*?)\*\*/g, &#39;&lt;strong&gt;$1&lt;/strong&gt;&#39;)</code></pre>
-<p>Fails on nesting, creates malformed HTML.</p>
-<hr class="blog-rule" />
-<h2>Failure Mode #3: Divergent Render Paths</h2>
-<pre class="blog-code-block"><code class="language-js">preview.innerHTML = format(input);
-email = sanitize(format(input));</code></pre>
-<p>Different outputs from same source.</p>
-<hr class="blog-rule" />
-<h2>Failure Mode #4: DOM as Source of Truth</h2>
-<pre class="blog-code-block"><code class="language-js">editor.innerHTML</code></pre>
-<p>Non-deterministic, polluted structure.</p>
-<hr class="blog-rule" />
-<h2>Failure Mode #5: Email Client Blindness</h2>
-<ul class="blog-list"><li>CSS ignored</li><li>HTML altered</li><li>Rendering inconsistent</li></ul>
-<hr class="blog-rule" />
-<h2>Failure Mode #6: Patch Accumulation</h2>
-<pre class="blog-code-block"><code class="language-text">input
- → transform
- → sanitize
- → override
- → reprocess</code></pre>
-<p>Complexity increases.</p>
-<p>No convergence.</p>
-<hr class="blog-rule" />
-<h2>Failure Loop</h2>
+<p>Then the app started using that same renderer for both Preview and the sent email payload:</p>
+<pre class="blog-code-block"><code class="language-js">previewEmailPayload = buildInvoiceTemplateEmailPayload(ctx, previewShareUrl);
+previewBodyHTML = previewEmailPayload.html || renderInvoiceTemplate(ctx, previewShareUrl);
 
-    <div class="blog-diagram blog-diagram--chain" aria-label="Diagram">
-      <div class="blog-diagram-node">Bug observed</div><div class="blog-diagram-arrow" aria-hidden="true">↓</div><div class="blog-diagram-node">Patch one layer</div><div class="blog-diagram-arrow" aria-hidden="true">↓</div><div class="blog-diagram-node">Break another</div><div class="blog-diagram-arrow" aria-hidden="true">↓</div><div class="blog-diagram-node">Patch again</div><div class="blog-diagram-arrow" aria-hidden="true">↓</div><div class="blog-diagram-node">System complexity increases</div><div class="blog-diagram-loop" aria-hidden="true">↺</div>
-    </div>
-  
-<hr class="blog-rule" />
-<h2>Correct Architecture</h2>
-
-      <div class="blog-diagram blog-diagram--fanout" aria-label="Diagram">
-        <div class="blog-diagram-node">AST</div>
-        <div class="blog-diagram-branch" aria-hidden="true"></div>
-        <div class="blog-diagram-fanout-row">
-          <div class="blog-diagram-node">Editor</div><div class="blog-diagram-node">Preview</div><div class="blog-diagram-node">Email</div>
-        </div>
-      </div>
-    
-<p>Single source of truth.</p>
-<p>Deterministic outputs.</p>
-<hr class="blog-rule" />
-<h2>What the Agents Missed</h2>
-<p>They optimized for:</p>
-<pre class="blog-code-block"><code class="language-text">Does preview look right?</code></pre>
-<p>Instead of:</p>
-<pre class="blog-code-block"><code class="language-text">Does the system stay consistent?</code></pre>
-<hr class="blog-rule" />
-<h2>The Real Problem</h2>
-<p>Not formatting.</p>
-<p>Not rendering.</p>
-<p><strong>Missing system boundaries.</strong></p>
-<hr class="blog-rule" />
-<h2>Practical Takeaway</h2>
-<p>Use AI agents for:</p>
-<ul class="blog-list"><li>Local transformations</li><li>Scoped edits</li></ul>
-<p>Do not rely on them for:</p>
-<ul class="blog-list"><li>System modeling</li><li>Cross-layer invariants</li></ul>
-<hr class="blog-rule" />
-<h2>Closing</h2>
-<p>Six PRs.</p>
-<p>One bug.</p>
-<p>Zero fixes.</p>
-<p>Because the system—not the code—was never understood.</p>
-<hr class="blog-rule" />
-<h2>Signature</h2>
-<p>Nathan Payne<br>Product Manager, Disney+, Hulu, ESPN<br>San Francisco<br></p>
-<p><a href="https://nathanpayne.com">https://nathanpayne.com</a></p>
+await queueEmail({
+    to,
+    subject,
+    body: payload.text,
+    html: payload.html,
+    uid
+});</code></pre>
+<p>The Cloud Function was updated to send trusted app-generated HTML when it was provided instead of reparsing markdown again. The winning fix did not become more sophisticated about formatting. It became simpler about boundaries.</p>
           </article>
         </div>
 
@@ -226,7 +225,7 @@ email = sanitize(format(input));</code></pre>
               </div>
               <div>
                 <dt>Reading time</dt>
-                <dd>1 min read</dd>
+                <dd>11 min read</dd>
               </div>
               <div>
                 <dt>Tags</dt>

@@ -983,6 +983,51 @@ body.project-page {
   grid-template-columns: minmax(0, 1.2fr) minmax(15rem, 0.72fr);
 }
 
+.blog-layout {
+  --blog-content-width: min(100%, 60rem);
+  grid-template-columns: minmax(0, 1fr);
+  gap: clamp(1rem, 2.2vw, 1.5rem);
+}
+
+.blog-copy {
+  width: var(--blog-content-width);
+  justify-self: center;
+}
+
+.blog-meta-card {
+  display: grid;
+  gap: 0.85rem;
+  width: var(--blog-content-width);
+  justify-self: center;
+}
+
+.blog-meta-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.blog-meta-head h2 {
+  margin-bottom: 0;
+}
+
+.blog-meta-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.8rem;
+}
+
+.blog-meta-grid div,
+.blog-meta-grid div:last-child {
+  padding: 0.8rem 0.9rem 0.85rem;
+  border: 1px solid var(--rule);
+  background: rgba(255, 255, 255, 0.52);
+}
+
+.blog-meta-grid dd {
+  overflow-wrap: anywhere;
+}
+
 .blog-section {
   background:
     linear-gradient(180deg, var(--project-accent-soft), rgba(255, 255, 255, 0) 18rem),
