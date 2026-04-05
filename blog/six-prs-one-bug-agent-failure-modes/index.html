@@ -86,7 +86,7 @@
           <dl>
             <div><dt>Published</dt><dd>April 4, 2026</dd></div>
             <div><dt>Author</dt><dd>Nathan Payne</dd></div>
-            <div><dt>Reading time</dt><dd>11 min read</dd></div>
+            <div><dt>Reading time</dt><dd>14 min read</dd></div>
             <div><dt>Tags</dt><dd>AI · Engineering · Product · Systems · Debugging</dd></div>
           </dl>
         </div>
@@ -119,6 +119,7 @@ Email:   TipTap / ProseMirror document -&gt; docToPlainTextWithTokens() -&gt; Re
 <figure class="blog-figure"><img src="https://raw.githubusercontent.com/nathanjohnpayne/friends-and-family-billing/issue/invoice-rendering-bug-screenshots/.github/screenshots/invoice-bug-03-broken-sent-email.png" alt="Sent Email Screenshot" loading="lazy" /><figcaption><strong>Figure 3:</strong> Sent Email Screenshot</figcaption></figure>
 <p>The sent email did not use the Preview renderer. It took the same flattened text and pushed it through a separate regex-based markdown renderer in the Cloud Function. So by the time the email reached a customer inbox, the system had already turned one source document into three different interpretations: editor, preview, and email.</p>
 <h3>4. The target was concrete, not hypothetical</h3>
+<figure class="blog-figure"><img src="https://raw.githubusercontent.com/nathanjohnpayne/friends-and-family-billing/issue/invoice-rendering-bug-screenshots/.github/screenshots/invoice-bug-04-correct-sent-email.png" alt="Correct Intended Email Screenshot" loading="lazy" /><figcaption><strong>Figure 4:</strong> Correct Intended Email Screenshot</figcaption></figure>
 <p>This detail in the issue mattered: there was a known-good email from <strong>April 2, 2026 at 5:05 PM</strong>. The bug was not &quot;make Preview look a little nicer.&quot; The bug was &quot;restore parity with a real output that previously existed.&quot;</p>
 <p>That is an important debugging difference. When a target is concrete, the work becomes a parity problem, not a taste problem.</p>
 <h2>What I actually said to the agent</h2>
@@ -224,6 +225,34 @@ await queueEmail({
     uid
 });</code></pre>
 <p>The Cloud Function was updated to send trusted app-generated HTML when it was provided instead of reparsing markdown again. The winning fix did not become more sophisticated about formatting. It became simpler about boundaries.</p>
+<p>The architecture after the fix:</p>
+<pre class="blog-code-block blog-code-block--light"><code class="language-text">Editor:  TipTap / ProseMirror document -&gt; Editor DOM
+Preview: TipTap / ProseMirror document -&gt; Canonical template renderer -&gt; Preview HTML
+Email:   TipTap / ProseMirror document -&gt; Canonical template renderer -&gt; Sent email HTML</code></pre>
+<p>One source document, one semantic rendering path, multiple consumers.</p>
+<h2>The difference was not the model</h2>
+<p>It would be easy to read this as &quot;Codex is better than Claude Code at architecture.&quot; I do not think that is the right conclusion.</p>
+<p>Claude Code received eighteen prompts over twenty hours. In that time, it also received nine rounds of code review feedback from an automated reviewer that correctly identified round-trip safety failures three separate times. It received three stop-hook interventions that flagged data consistency problems in the rendering pipeline. It had more information about what was wrong than the Codex agent ever did.</p>
+<p>The difference was in what the prompt asked the agent to do with that information.</p>
+<p>Every prompt I gave Claude Code described the current symptom: &quot;bold in preview but not editor.&quot; Each time, the agent did what a competent developer would do if you walked up to their desk and said &quot;this looks wrong&quot;&mdash;it found the nearest code path that could explain the symptom and patched it. That is not a failure of intelligence. It is a failure of framing.</p>
+<p>The Codex task document did not describe the current symptom at all. It described a pattern of failed fixes and asked the agent to explain why they failed before proposing anything new. It stated the system invariant explicitly. It banned specific classes of patches. It required an audit as a deliverable.</p>
+<p>That is a different kind of work. It is not &quot;fix this bug.&quot; It is &quot;explain why this bug has survived six attempts to fix it, and address the underlying cause.&quot; Any agent&mdash;Claude, Codex, Gemini, a future model&mdash;will behave differently when the task is framed that way.</p>
+<h2>What I changed after this</h2>
+<p>After this issue, I turned the lesson into repo policy. Three rules:</p>
+<p><strong>The two-strike rule.</strong> If an agent has already made two failed fix attempts on the same problem, the third attempt must begin with an audit of the previous PRs. The agent has to explain what each prior fix assumed and why the assumption was wrong before it proposes a new fix. This prevents the patch-accumulation loop that produced PRs #146 through #158.</p>
+<p><strong>The serialization checklist.</strong> If a bug involves serialization or deserialization&mdash;content crossing a format boundary&mdash;the code review now asks three questions:</p>
+<ul class="blog-list">
+<li>Is the round-trip lossless?</li>
+<li>Do all consumers of the format produce equivalent output?</li>
+<li>Is the intermediate format even necessary?</li>
+</ul>
+<p>Those three questions would have caught this bug at PR #144. They are simple, but they target the exact blind spot that agents have: they will improve a bridge indefinitely without asking whether the bridge should exist.</p>
+<p><strong>Constraint-driven prompts for system bugs.</strong> When a bug touches more than one layer of the system, the prompt now includes an explicit list of banned approaches derived from prior failures. Not &quot;best practices&quot; in the abstract&mdash;specific things this codebase has already tried that did not work. The agent needs to know what the search space does not include.</p>
+<h2>What AI agents actually get wrong</h2>
+<p>The agent was not failing because it could not write code. Every PR compiled, passed tests, and improved something locally. The serializer got more faithful. The CSS got tighter. The module boundaries got cleaner. If you looked at any individual diff, you would approve it.</p>
+<p>The agent was failing because it did not, on its own, promote a repeated local failure into a structural question. It received the same class of bug report four times. It received code review feedback identifying round-trip safety failures three times. It received automated hook interventions flagging data consistency problems twice. At no point did it step back and say: the problem is not that the serializer is slightly wrong. The problem is that the serializer exists.</p>
+<p>The moment the work was reframed around the invariant instead of the symptom, the fix became straightforward.</p>
+<p>That is the gap teams need to close as they hand more of their codebase to agents. Not better models. Better supervision. The question is not whether your agent can write a regex. The question is whether your process tells the agent when to stop writing regexes and start questioning the architecture.</p>
           </article>
         </div>
 
