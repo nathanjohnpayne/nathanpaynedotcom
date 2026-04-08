@@ -1,0 +1,97 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import { getCollection } from 'astro:content';
+
+const posts = (await getCollection('blog', ({ data }) => !data.draft))
+  .sort((a, b) => b.data.date.getTime() - a.data.date.getTime());
+
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "CollectionPage",
+      "@id": "https://nathanpayne.com/blog/#webpage",
+      "url": "https://nathanpayne.com/blog/",
+      "name": "Blog | Nathan Payne",
+      "description": "Essays and notes from Nathan Payne on AI, systems, product, engineering, and debugging.",
+      "isPartOf": { "@id": "https://nathanpayne.com/#website" },
+    },
+    {
+      "@type": "BreadcrumbList",
+      "@id": "https://nathanpayne.com/blog/#breadcrumb",
+      "itemListElement": [
+        { "@type": "ListItem", "position": 1, "name": "Nathan Payne", "item": "https://nathanpayne.com/" },
+        { "@type": "ListItem", "position": 2, "name": "Blog", "item": "https://nathanpayne.com/blog/" },
+      ],
+    },
+  ],
+};
+
+function formatDate(date: Date): string {
+  return date.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric', timeZone: 'UTC' });
+}
+
+function readingTime(body: string | undefined): string {
+  const words = body?.split(/\s+/).length ?? 0;
+  return `${Math.ceil(words / 225)} min read`;
+}
+---
+
+<BaseLayout
+  title="Blog | Nathan Payne"
+  description="Essays and notes from Nathan Payne on AI, systems, product, engineering, and debugging."
+  canonical="https://nathanpayne.com/blog/"
+  ogImage="https://nathanpayne.com/og/six-prs-one-bug.png"
+  ogImageWidth="1200"
+  ogImageHeight="630"
+  ogImageAlt="Six PRs, One Bug: What AI Agents Actually Get Wrong open graph image"
+  bodyClass="project-page project-page--blue blog-index-page"
+  jsonLd={jsonLd}
+>
+  <main class="project-shell">
+    <article class="project-detail blog-index-detail">
+      <header class="project-hero">
+        <nav class="project-breadcrumbs" aria-label="Breadcrumb">
+          <a href="/">Nathan Payne</a>
+          <span>/</span>
+          <span>Blog</span>
+        </nav>
+        <p class="project-kicker">Essays × Systems × Product</p>
+        <h1>Blog</h1>
+        <p class="project-deck">Essays and notes on AI agents, product systems, debugging, and the invisible constraints that shape what people actually experience.</p>
+        <p class="blog-index-aside">Writing about system boundaries, product judgment, engineering tradeoffs, and where AI-generated code breaks when the model never forms the right mental model.</p>
+        <div class="project-actions">
+          <a class="project-action" href="/">Back to Homepage</a>
+        </div>
+      </header>
+      <div class="project-layout blog-index-layout">
+        <section class="project-copy blog-index-copy" aria-labelledby="blog-posts">
+          <div class="project-section blog-section">
+            <h2 id="blog-posts">Posts</h2>
+            <div class="blog-card-list">
+              {posts.map((post) => (
+                <article class="blog-card">
+                  <p class="blog-card-meta">{formatDate(post.data.date)} · {readingTime(post.body)}</p>
+                  <h3><a class="blog-card-link" href={`/blog/${post.id.replace(/\.md$/, '')}/`}>{post.data.title}</a></h3>
+                  <p class="blog-card-desc">{post.data.description}</p>
+                  <div class="blog-tag-row">
+                    {post.data.tags.map((tag) => (
+                      <span class="blog-tag">{tag}</span>
+                    ))}
+                  </div>
+                </article>
+              ))}
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <footer class="blog-footer">
+        <p class="blog-footer-attribution">Nathan Payne · San Francisco</p>
+        <nav class="blog-footer-nav">
+          <a class="project-action" href="/">&larr; Back to Homepage</a>
+        </nav>
+      </footer>
+    </article>
+  </main>
+</BaseLayout>

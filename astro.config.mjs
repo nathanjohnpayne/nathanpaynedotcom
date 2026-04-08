@@ -10,4 +10,30 @@ export default defineConfig({
   build: {
     format: 'directory',
   },
+  markdown: {
+    shikiConfig: {
+      theme: 'vitesse-dark',
+      transformers: [
+        {
+          pre(node) {
+            // Add blog-code-block class to all pre elements
+            const lang = this.options?.lang || '';
+            const classes = ['blog-code-block'];
+            if (!lang || lang === 'text' || lang === 'plaintext') {
+              classes.push('blog-code-block--light');
+            }
+            this.addClassToHast(node, classes);
+            // Remove Shiki's inline background-color and color
+            if (node.properties?.style) {
+              node.properties.style = node.properties.style
+                .replace(/background-color:\s*[^;]+;?/g, '')
+                .replace(/color:\s*[^;]+;?/g, '')
+                .replace(/overflow-x:\s*[^;]+;?/g, '')
+                .trim() || undefined;
+            }
+          },
+        },
+      ],
+    },
+  },
 });
