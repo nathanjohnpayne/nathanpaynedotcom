@@ -7,8 +7,6 @@ tags: ["AI", "Engineering", "Product", "Systems", "Debugging"]
 image: "/og/six-prs-one-bug.png"
 ---
 
-# Six PRs, One Bug: What AI Agents Actually Get Wrong
-
 On April 4, 2026, I opened [issue #159](https://github.com/nathanjohnpayne/friends-and-family-billing/issues/159) in my Friends & Family Billing app. The bug looked small enough to be annoying, not interesting: the invoice template editor showed one thing, Preview showed another, and the email that actually went to customers showed a third.
 
 That framing turned out to be wrong.
