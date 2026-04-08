@@ -1,0 +1,129 @@
+---
+import ProjectLayout from '../../../layouts/ProjectLayout.astro';
+
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "WebPage",
+      "@id": "https://nathanpayne.com/projects/device-source-of-truth/#webpage",
+      "url": "https://nathanpayne.com/projects/device-source-of-truth/",
+      "name": "Device Source of Truth | Nathan Payne",
+      "description": "Device Source of Truth is a React and Firebase web app by Nathan Payne that consolidates partner-device specs, DRM requirements, codec support, and operational metadata into a single source of truth.",
+      "isPartOf": {
+        "@id": "https://nathanpayne.com/#website"
+      },
+      "breadcrumb": {
+        "@id": "https://nathanpayne.com/projects/device-source-of-truth/#breadcrumb"
+      },
+      "mainEntity": {
+        "@id": "https://nathanpayne.com/projects/device-source-of-truth/#app"
+      }
+    },
+    {
+      "@type": "BreadcrumbList",
+      "@id": "https://nathanpayne.com/projects/device-source-of-truth/#breadcrumb",
+      "itemListElement": [
+        {
+          "@type": "ListItem",
+          "position": 1,
+          "name": "Nathan Payne",
+          "item": "https://nathanpayne.com/"
+        },
+        {
+          "@type": "ListItem",
+          "position": 2,
+          "name": "Device Source of Truth",
+          "item": "https://nathanpayne.com/projects/device-source-of-truth/"
+        }
+      ]
+    },
+    {
+      "@type": "SoftwareApplication",
+      "@id": "https://nathanpayne.com/projects/device-source-of-truth/#app",
+      "name": "Device Source of Truth",
+      "applicationCategory": "BusinessApplication",
+      "operatingSystem": "Web",
+      "url": "https://device-source-of-truth.web.app",
+      "creator": {
+        "@type": "Person",
+        "name": "Nathan Payne",
+        "url": "https://nathanpayne.com/"
+      },
+      "description": "A React and Firebase web app that consolidates partner-device specs, DRM requirements, codec support, and operational metadata into a single source of truth."
+    }
+  ]
+};
+---
+
+<ProjectLayout
+  title="Device Source of Truth | Nathan Payne"
+  description="Device Source of Truth is a React and Firebase web app by Nathan Payne that consolidates partner-device specs, DRM requirements, codec support, and operational metadata into a single source of truth."
+  ogDescription="A React and Firebase web app that consolidates partner-device specs, DRM requirements, codec support, and operational metadata into a single source of truth."
+  canonical="https://nathanpayne.com/projects/device-source-of-truth/"
+  kicker="Enterprise × Data"
+  headline="Device Source of Truth"
+  deck="A single web application for understanding partner-device hardware, DRM, codec support, and operational readiness across Disney+, Hulu, and ESPN."
+  breadcrumbLabel="Device Source of Truth"
+  accentColorClass="project-page--red"
+  actions={[
+    { label: "View Live Product", href: "https://device-source-of-truth.web.app", external: true },
+    { label: "Back to Homepage", href: "/" },
+  ]}
+  jsonLd={jsonLd}
+>
+  <section class="project-section" aria-labelledby="dst-overview">
+    <h2 id="dst-overview">Overview</h2>
+    <p>Device Source of Truth brings together the partner-device information that usually ends up scattered across Airtable, Datadog, and spreadsheets. The goal is simple: give teams one place to understand the hardware, DRM, and codec realities behind Disney+, Hulu, and ESPN device support.</p>
+    <p>Instead of treating device knowledge as loose operational memory, the product turns it into a structured system that can be reviewed, updated, and shared with confidence.</p>
+  </section>
+
+  <section class="project-section" aria-labelledby="dst-capabilities">
+    <h2 id="dst-capabilities">What the product does</h2>
+    <ul class="project-checklist">
+      <li>Consolidates fragmented partner-device records into one inventory.</li>
+      <li>Tracks hardware specifications, DRM requirements, and codec support in a single model.</li>
+      <li>Applies rules-based device scoring to make prioritization and compatibility easier to reason about.</li>
+      <li>Creates a shared reference point for partner-platform conversations that would otherwise depend on scattered spreadsheets.</li>
+    </ul>
+  </section>
+
+  <section class="project-section" aria-labelledby="dst-context">
+    <h2 id="dst-context">Why it matters</h2>
+    <p>This project was built for the partner-engineering world I work in. When a platform question comes up, the cost of uncertainty is immediate: support burden grows, launch conversations slow down, and decision quality drops. Device Source of Truth treats that ambiguity as a product problem instead of an inevitable operational tax.</p>
+  </section>
+
+  <section class="project-section" aria-labelledby="dst-build">
+    <h2 id="dst-build">Build notes</h2>
+    <p>The application is built with React and Firebase. The emphasis is not just on storing data, but on turning device knowledge into something navigable and durable enough to support real product and platform decisions.</p>
+  </section>
+
+  <Fragment slot="sidebar">
+    <section class="project-card" aria-labelledby="dst-facts">
+      <h2 id="dst-facts">Project facts</h2>
+      <dl class="project-facts">
+        <div>
+          <dt>Domain</dt>
+          <dd>Enterprise × Data</dd>
+        </div>
+        <div>
+          <dt>Format</dt>
+          <dd>React + Firebase web app</dd>
+        </div>
+        <div>
+          <dt>Focus</dt>
+          <dd>Partner platforms and device support systems</dd>
+        </div>
+        <div>
+          <dt>Status</dt>
+          <dd>Live product</dd>
+        </div>
+      </dl>
+    </section>
+
+    <section class="project-card" aria-labelledby="dst-note">
+      <h2 id="dst-note">Live link</h2>
+      <p class="project-note"><a href="https://device-source-of-truth.web.app" target="_blank" rel="noopener">device-source-of-truth.web.app</a></p>
+    </section>
+  </Fragment>
+</ProjectLayout>

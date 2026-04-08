@@ -1,0 +1,92 @@
+---
+import BaseLayout from './BaseLayout.astro';
+
+interface Action {
+  label: string;
+  href: string;
+  external?: boolean;
+}
+
+interface Props {
+  title: string;
+  description: string;
+  canonical: string;
+  ogDescription?: string;
+  kicker: string;
+  headline: string;
+  deck: string;
+  breadcrumbLabel: string;
+  accentColorClass: string;
+  actions: Action[];
+  jsonLd: object;
+  ogImage?: string;
+  ogImageWidth?: string;
+  ogImageHeight?: string;
+  ogImageAlt?: string;
+}
+
+const {
+  title,
+  description,
+  canonical,
+  ogDescription,
+  kicker,
+  headline,
+  deck,
+  breadcrumbLabel,
+  accentColorClass,
+  actions,
+  jsonLd,
+  ogImage,
+  ogImageWidth,
+  ogImageHeight,
+  ogImageAlt,
+} = Astro.props;
+---
+
+<BaseLayout
+  title={title}
+  description={description}
+  canonical={canonical}
+  ogDescription={ogDescription}
+  bodyClass={`project-page ${accentColorClass}`}
+  jsonLd={jsonLd}
+  ogImage={ogImage}
+  ogImageWidth={ogImageWidth}
+  ogImageHeight={ogImageHeight}
+  ogImageAlt={ogImageAlt}
+>
+  <main class="project-shell">
+    <article class="project-detail">
+      <header class="project-hero">
+        <nav class="project-breadcrumbs" aria-label="Breadcrumb">
+          <a href="/">Nathan Payne</a>
+          <span>/</span>
+          <span>Projects</span>
+          <span>/</span>
+          <span set:html={breadcrumbLabel} />
+        </nav>
+        <p class="project-kicker">{kicker}</p>
+        <h1 set:html={headline} />
+        <p class="project-deck">{deck}</p>
+        <div class="project-actions">
+          {actions.map((action) => (
+            action.external
+              ? <a class="project-action" href={action.href} target="_blank" rel="noopener">{action.label}</a>
+              : <a class="project-action" href={action.href}>{action.label}</a>
+          ))}
+        </div>
+      </header>
+
+      <div class="project-layout">
+        <div class="project-copy">
+          <slot />
+        </div>
+
+        <aside class="project-sidebar">
+          <slot name="sidebar" />
+        </aside>
+      </div>
+    </article>
+  </main>
+</BaseLayout>

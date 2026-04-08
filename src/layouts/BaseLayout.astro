@@ -5,6 +5,7 @@ interface Props {
   title: string;
   description: string;
   canonical: string;
+  ogDescription?: string;
   ogImage?: string;
   ogImageWidth?: string;
   ogImageHeight?: string;
@@ -23,6 +24,7 @@ const {
   title,
   description,
   canonical,
+  ogDescription,
   ogImage = 'https://nathanpayne.com/og-image.png?v=20260303a',
   ogImageWidth = '2400',
   ogImageHeight = '1260',
@@ -32,6 +34,8 @@ const {
   jsonLd,
   articleMeta,
 } = Astro.props;
+
+const socialDescription = ogDescription || description;
 ---
 
 <!DOCTYPE html>
@@ -57,7 +61,7 @@ const {
   <meta property="og:locale" content="en_US" />
   <meta property="og:site_name" content="Nathan Payne" />
   <meta property="og:title" content={title} />
-  <meta property="og:description" content={description} />
+  <meta property="og:description" content={socialDescription} />
   <meta property="og:url" content={canonical} />
   <meta property="og:image" content={ogImage} />
   <meta property="og:image:secure_url" content={ogImage} />
@@ -79,7 +83,7 @@ const {
   <!-- Twitter Card -->
   <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:title" content={title} />
-  <meta name="twitter:description" content={description} />
+  <meta name="twitter:description" content={socialDescription} />
   <meta name="twitter:url" content={canonical} />
   <meta name="twitter:image" content={ogImage} />
   <meta name="twitter:image:width" content={ogImageWidth} />
