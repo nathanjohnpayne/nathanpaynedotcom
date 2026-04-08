@@ -778,6 +778,7 @@ body.project-page {
   margin: 0 auto;
   background: rgba(244, 239, 229, 0.96);
   border: var(--line) solid var(--ink);
+  overflow-x: hidden;
   box-shadow: 14px 14px 0 rgba(17, 16, 13, 0.12);
 }
 
@@ -882,12 +883,14 @@ body.project-page {
 .project-copy {
   display: grid;
   gap: 1.2rem;
+  min-width: 0;
 }
 
 .project-section {
   padding: 1rem 1.1rem 1.1rem;
   border: 1px solid var(--rule);
   background: linear-gradient(180deg, var(--project-accent-soft), rgba(255, 255, 255, 0));
+  min-width: 0;
 }
 
 .project-section h2 {
@@ -1176,6 +1179,7 @@ body.project-page {
 .blog-prose li {
   font-size: clamp(0.98rem, 0.94rem + 0.16vw, 1.08rem);
   line-height: 1.72;
+  overflow-wrap: break-word;
 }
 
 .blog-prose > p + p {
@@ -1406,6 +1410,54 @@ body.project-page {
 a:focus-visible {
   outline: 2px solid currentColor;
   outline-offset: 2px;
+}
+
+@media (max-width: 480px) {
+  .project-hero {
+    padding: 1rem 1rem 1.15rem;
+  }
+
+  .project-breadcrumbs {
+    padding-left: 0.5rem;
+    font-size: 0.68rem;
+  }
+
+  .project-kicker {
+    padding-left: 0.5rem;
+  }
+
+  .project-hero h1 {
+    padding-left: 0.5rem;
+    font-size: 1.75rem;
+  }
+
+  .project-deck {
+    padding-left: 0.5rem;
+  }
+
+  .project-actions {
+    padding-left: 0.5rem;
+    flex-direction: column;
+  }
+
+  .project-action {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .project-layout {
+    padding: 1rem;
+  }
+
+  .blog-code-block {
+    font-size: 0.75rem;
+    padding: 0.75rem 0.85rem;
+  }
+
+  .blog-tag-row {
+    flex-wrap: wrap;
+    gap: 0.25rem 0.5rem;
+  }
 }
 
 @media (max-width: 920px) {
