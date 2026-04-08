@@ -1284,6 +1284,7 @@ body.project-page {
 .blog-code-block {
   margin: 1rem 0 1.2rem;
   overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
   padding: 0.95rem 1rem;
   background: #15120e;
   color: #f5f0e4;
@@ -1455,7 +1456,6 @@ a:focus-visible {
   }
 
   .blog-tag-row {
-    flex-wrap: wrap;
     gap: 0.25rem 0.5rem;
   }
 }
