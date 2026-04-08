@@ -1,11 +1,64 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro';
+
+const homepageJsonLd = {
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "WebSite",
+      "@id": "https://nathanpayne.com/#website",
+      "url": "https://nathanpayne.com/",
+      "name": "Nathan Payne",
+      "description": "Nathan Payne is a systems-minded product leader at The Walt Disney Company, overseeing partner-platform experiences for Disney+, Hulu, and ESPN and building software across streaming, finance, and design.",
+      "publisher": {
+        "@id": "https://nathanpayne.com/#person"
+      }
+    },
+    {
+      "@type": "ProfilePage",
+      "@id": "https://nathanpayne.com/#webpage",
+      "url": "https://nathanpayne.com/",
+      "name": "Nathan Payne | Product Manager for Disney+, Hulu, and ESPN",
+      "description": "Nathan Payne is a systems-minded product leader at The Walt Disney Company, overseeing partner-platform experiences for Disney+, Hulu, and ESPN and building software across streaming, finance, and design.",
+      "isPartOf": {
+        "@id": "https://nathanpayne.com/#website"
+      },
+      "mainEntity": {
+        "@id": "https://nathanpayne.com/#person"
+      }
+    },
+    {
+      "@type": "Person",
+      "@id": "https://nathanpayne.com/#person",
+      "name": "Nathan Payne",
+      "url": "https://nathanpayne.com/",
+      "description": "Nathan Payne oversees product for Disney+, Hulu, and ESPN across partner platforms at The Walt Disney Company and builds software projects across streaming, finance, and design.",
+      "worksFor": {
+        "@type": "Organization",
+        "name": "The Walt Disney Company"
+      },
+      "homeLocation": {
+        "@type": "Place",
+        "name": "San Francisco, California, United States"
+      },
+      "sameAs": [
+        "https://www.linkedin.com/in/nathanpayne/",
+        "https://github.com/nathanjohnpayne",
+        "https://bsky.app/profile/nathanpayne.bsky.social",
+        "https://www.instagram.com/nathanpayne/",
+        "https://www.threads.com/@nathanpayne",
+        "https://x.com/nathanpayne"
+      ]
+    }
+  ]
+};
 ---
 
 <BaseLayout
   title="Nathan Payne | Product Manager for Disney+, Hulu, and ESPN"
   description="Nathan Payne is a systems-minded product leader at The Walt Disney Company, overseeing partner-platform experiences for Disney+, Hulu, and ESPN and building software across streaming, finance, and design."
   canonical="https://nathanpayne.com/"
+  jsonLd={homepageJsonLd}
 >
   <h1>Nathan Payne</h1>
   <p>Site under construction — Astro migration in progress.</p>
