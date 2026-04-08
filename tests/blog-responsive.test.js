@@ -1,10 +1,17 @@
-import { describe, it, expect, beforeEach } from 'vitest';
-import { readFileSync } from 'fs';
+import { describe, it, expect } from 'vitest';
+import { readFileSync, readdirSync, statSync } from 'fs';
 import { resolve } from 'path';
 
 const css = readFileSync(resolve(__dirname, '../style.css'), 'utf-8');
-const blogPostHtml = readFileSync(resolve(__dirname, '../blog/six-prs-one-bug-agent-failure-modes/index.html'), 'utf-8');
 const blogIndexHtml = readFileSync(resolve(__dirname, '../blog/index.html'), 'utf-8');
+
+const blogRoot = resolve(__dirname, '../blog');
+const blogPostPaths = readdirSync(blogRoot)
+  .filter((name) => {
+    const dir = resolve(blogRoot, name);
+    return statSync(dir).isDirectory() && statSync(resolve(dir, 'index.html')).isFile();
+  })
+  .map((name) => ({ slug: name, html: readFileSync(resolve(blogRoot, name, 'index.html'), 'utf-8') }));
 
 function setupDOM(html) {
   document.documentElement.innerHTML = '';
@@ -14,18 +21,22 @@ function setupDOM(html) {
 
 describe('Blog Responsive Layout', () => {
   describe('viewport meta tag', () => {
-    it('blog post page has viewport meta tag with width=device-width', () => {
-      setupDOM(blogPostHtml);
-      const viewport = document.querySelector('meta[name="viewport"]');
-      expect(viewport).not.toBeNull();
-      expect(viewport.getAttribute('content')).toContain('width=device-width');
+    it('blog post pages have viewport meta tag with width=device-width and initial-scale=1', () => {
+      for (const post of blogPostPaths) {
+        setupDOM(post.html);
+        const viewport = document.querySelector('meta[name="viewport"]');
+        expect(viewport, `${post.slug}: missing viewport meta`).not.toBeNull();
+        expect(viewport.getAttribute('content')).toContain('width=device-width');
+        expect(viewport.getAttribute('content')).toMatch(/initial-scale\s*=\s*1(\.0)?/);
+      }
     });
 
-    it('blog index page has viewport meta tag with width=device-width', () => {
+    it('blog index page has viewport meta tag with width=device-width and initial-scale=1', () => {
       setupDOM(blogIndexHtml);
       const viewport = document.querySelector('meta[name="viewport"]');
       expect(viewport).not.toBeNull();
       expect(viewport.getAttribute('content')).toContain('width=device-width');
+      expect(viewport.getAttribute('content')).toMatch(/initial-scale\s*=\s*1(\.0)?/);
     });
   });
 
@@ -50,6 +61,10 @@ describe('Blog Responsive Layout', () => {
       expect(css).toMatch(/\.blog-code-block\s*\{[^}]*overflow-x:\s*auto/);
     });
 
+    it('blog code blocks have -webkit-overflow-scrolling: touch', () => {
+      expect(css).toMatch(/\.blog-code-block\s*\{[^}]*-webkit-overflow-scrolling:\s*touch/);
+    });
+
     it('blog figure images have width: 100% and height: auto', () => {
       expect(css).toMatch(/\.blog-figure\s+img\s*\{[^}]*width:\s*100%/);
       expect(css).toMatch(/\.blog-figure\s+img\s*\{[^}]*height:\s*auto/);
@@ -58,18 +73,23 @@ describe('Blog Responsive Layout', () => {
 
   describe('blog post image markup', () => {
     it('no blog post images have inline width attributes', () => {
-      setupDOM(blogPostHtml);
-      const images = document.querySelectorAll('.blog-figure img');
-      for (const img of images) {
-        expect(img.hasAttribute('width')).toBe(false);
+      for (const post of blogPostPaths) {
+        setupDOM(post.html);
+        const images = document.querySelectorAll('.blog-figure img');
+        for (const img of images) {
+          expect(img.hasAttribute('width'), `${post.slug}: image has inline width`).toBe(false);
+        }
       }
     });
 
     it('all blog post images are inside figure elements', () => {
-      setupDOM(blogPostHtml);
-      const figures = document.querySelectorAll('.blog-figure');
-      const figureImages = document.querySelectorAll('.blog-figure img');
-      expect(figureImages.length).toBe(figures.length);
+      for (const post of blogPostPaths) {
+        setupDOM(post.html);
+        const allImages = document.querySelectorAll('main img');
+        for (const img of allImages) {
+          expect(img.closest('.blog-figure'), `${post.slug}: image not in .blog-figure`).not.toBeNull();
+        }
+      }
     });
   });
 });
