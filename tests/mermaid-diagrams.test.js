@@ -152,6 +152,14 @@ describe('remark-mermaid: renderMermaidDiagram', () => {
       const html = renderMermaidDiagram(code);
       expect(html).toContain('blog-diagram');
     });
+
+    it('renders label-only nodes without edges', () => {
+      const code = 'graph TD\nA["Solo Node"]';
+      const html = renderMermaidDiagram(code);
+      expect(html).toContain('blog-diagram--chain');
+      expect(html).toContain('Solo Node');
+      expect(html).toContain('blog-diagram-node');
+    });
   });
 
   describe('non-mermaid code blocks', () => {

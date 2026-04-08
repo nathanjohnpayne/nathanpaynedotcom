@@ -90,8 +90,15 @@ function renderMermaidDiagram(code) {
     }
   }
 
-  if (edges.length === 0) {
+  if (edges.length === 0 && labels.size === 0) {
     return '<div class="blog-diagram" aria-label="Diagram"></div>';
+  }
+
+  if (edges.length === 0 && labels.size > 0) {
+    const nodes = [...labels.entries()].map(([id, label]) =>
+      `<div class="blog-diagram-node">${escapeHtml(label)}</div>`
+    ).join('');
+    return `<div class="blog-diagram blog-diagram--chain" aria-label="Diagram">${nodes}</div>`;
   }
 
   const fanoutRoot = [...outDegree.entries()].find(([, count]) => count > 1);
