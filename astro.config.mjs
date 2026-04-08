@@ -1,6 +1,8 @@
 // @ts-check
 import { defineConfig } from 'astro/config';
 import sitemap from '@astrojs/sitemap';
+import remarkMermaid from './src/plugins/remark-mermaid.mjs';
+import rehypeFigureCaptions from './src/plugins/rehype-figure-captions.mjs';
 
 // https://astro.build/config
 export default defineConfig({
@@ -11,6 +13,8 @@ export default defineConfig({
     format: 'directory',
   },
   markdown: {
+    remarkPlugins: [remarkMermaid],
+    rehypePlugins: [rehypeFigureCaptions],
     shikiConfig: {
       theme: 'vitesse-dark',
       transformers: [
