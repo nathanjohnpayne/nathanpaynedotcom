@@ -1,15 +1,19 @@
 import { describe, it, expect } from 'vitest';
-import { readFileSync, readdirSync, statSync } from 'fs';
+import { readFileSync, readdirSync, statSync, existsSync } from 'fs';
 import { resolve } from 'path';
 
-const css = readFileSync(resolve(__dirname, '../style.css'), 'utf-8');
-const blogIndexHtml = readFileSync(resolve(__dirname, '../blog/index.html'), 'utf-8');
+// Astro hashes CSS into dist/_astro/*.css
+const astroDir = resolve(__dirname, '../dist/_astro');
+const cssFile = readdirSync(astroDir).find((f) => f.endsWith('.css'));
+const css = readFileSync(resolve(astroDir, cssFile), 'utf-8');
 
-const blogRoot = resolve(__dirname, '../blog');
+const blogIndexHtml = readFileSync(resolve(__dirname, '../dist/blog/index.html'), 'utf-8');
+
+const blogRoot = resolve(__dirname, '../dist/blog');
 const blogPostPaths = readdirSync(blogRoot)
   .filter((name) => {
     const dir = resolve(blogRoot, name);
-    return statSync(dir).isDirectory() && statSync(resolve(dir, 'index.html')).isFile();
+    return statSync(dir).isDirectory() && existsSync(resolve(dir, 'index.html'));
   })
   .map((name) => ({ slug: name, html: readFileSync(resolve(blogRoot, name, 'index.html'), 'utf-8') }));
 

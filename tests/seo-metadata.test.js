@@ -2,7 +2,11 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { readFileSync } from 'fs';
 import { resolve } from 'path';
 
-const html = readFileSync(resolve(__dirname, '../index.html'), 'utf-8');
+const rawHtml = readFileSync(resolve(__dirname, '../dist/index.html'), 'utf-8');
+
+// Strip bare <script> blocks (GA config, panel IIFE) to prevent auto-execution
+// during document.write, but keep <script type="application/ld+json"> for JSON-LD tests.
+const html = rawHtml.replace(/<script>[\s\S]*?<\/script>/g, '');
 
 function setupDOM() {
   document.documentElement.innerHTML = '';

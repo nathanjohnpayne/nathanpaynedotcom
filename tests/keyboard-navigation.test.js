@@ -2,7 +2,11 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { readFileSync } from 'fs';
 import { resolve } from 'path';
 
-const html = readFileSync(resolve(__dirname, '../index.html'), 'utf-8');
+const rawHtml = readFileSync(resolve(__dirname, '../dist/index.html'), 'utf-8');
+
+const inlineScripts = [...rawHtml.matchAll(/<script>([\s\S]*?)<\/script>/g)].map((m) => m[1]);
+const panelScript = inlineScripts.find((s) => s.includes('section_view')) || '';
+const html = rawHtml.replace(/<script>[\s\S]*?<\/script>/g, '');
 
 function setupDOM() {
   document.documentElement.innerHTML = '';
@@ -25,8 +29,7 @@ function setupDOM() {
 }
 
 function loadScript() {
-  const scriptContent = readFileSync(resolve(__dirname, '../script.js'), 'utf-8');
-  const fn = new Function(scriptContent);
+  const fn = new Function(panelScript);
   fn();
 }
 

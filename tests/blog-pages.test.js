@@ -2,9 +2,9 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { readFileSync } from 'fs';
 import { resolve } from 'path';
 
-const homepageHtml = readFileSync(resolve(__dirname, '../index.html'), 'utf-8');
-const blogIndexHtml = readFileSync(resolve(__dirname, '../blog/index.html'), 'utf-8');
-const blogPostHtml = readFileSync(resolve(__dirname, '../blog/six-prs-one-bug-agent-failure-modes/index.html'), 'utf-8');
+const homepageHtml = readFileSync(resolve(__dirname, '../dist/index.html'), 'utf-8');
+const blogIndexHtml = readFileSync(resolve(__dirname, '../dist/blog/index.html'), 'utf-8');
+const blogPostHtml = readFileSync(resolve(__dirname, '../dist/blog/six-prs-one-bug-agent-failure-modes/index.html'), 'utf-8');
 const firebaseConfig = JSON.parse(readFileSync(resolve(__dirname, '../firebase.json'), 'utf-8'));
 
 function setupDOM(html) {

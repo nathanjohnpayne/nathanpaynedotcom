@@ -1,9 +1,17 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { readFileSync } from 'fs';
+import { readFileSync, readdirSync } from 'fs';
 import { resolve } from 'path';
 
-const html = readFileSync(resolve(__dirname, '../index.html'), 'utf-8');
-const css = readFileSync(resolve(__dirname, '../style.css'), 'utf-8');
+const rawHtml = readFileSync(resolve(__dirname, '../dist/index.html'), 'utf-8');
+
+const inlineScripts = [...rawHtml.matchAll(/<script>([\s\S]*?)<\/script>/g)].map((m) => m[1]);
+const panelScript = inlineScripts.find((s) => s.includes('section_view')) || '';
+const html = rawHtml.replace(/<script>[\s\S]*?<\/script>/g, '');
+
+// Astro hashes CSS into dist/_astro/*.css
+const astroDir = resolve(__dirname, '../dist/_astro');
+const cssFile = readdirSync(astroDir).find((f) => f.endsWith('.css'));
+const css = readFileSync(resolve(astroDir, cssFile), 'utf-8');
 
 function setupDOM() {
   document.documentElement.innerHTML = '';
@@ -47,9 +55,8 @@ describe('Responsive Layout', () => {
     expect(stage).not.toBeNull();
   });
 
-  it('CSS contains the 920px mobile breakpoint reference in script.js', () => {
-    const scriptContent = readFileSync(resolve(__dirname, '../script.js'), 'utf-8');
-    expect(scriptContent).toContain('920px');
+  it('CSS contains the 920px mobile breakpoint reference in inline script', () => {
+    expect(panelScript).toContain('920px');
   });
 
   it('CSS uses clamp() for fluid typography', () => {
@@ -78,8 +85,7 @@ describe('Responsive Layout', () => {
       })),
     });
 
-    const scriptContent = readFileSync(resolve(__dirname, '../script.js'), 'utf-8');
-    const fn = new Function(scriptContent);
+    const fn = new Function(panelScript);
     fn();
 
     const panel = document.querySelector('[data-panel="about"]');
