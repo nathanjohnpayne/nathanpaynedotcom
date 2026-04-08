@@ -1320,7 +1320,7 @@ body.project-page {
 .blog-code-block code .hljs-type { color: #d4a5b0; }
 
 .blog-code-block code .hljs-title,
-.blog-code-block code .hljs-title\.function_ { color: #c9b97a; }
+.blog-code-block code .hljs-title.function_ { color: #c9b97a; }
 
 .blog-code-block code .hljs-attr,
 .blog-code-block code .hljs-property,
