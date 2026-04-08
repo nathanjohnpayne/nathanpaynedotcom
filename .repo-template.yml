@@ -1,3 +1,3 @@
-extra_top_level_dirs: [og, projects, public, blog, content, bugs, src]
+extra_top_level_dirs: [public, bugs, src]
 test_globs: ["tests/**/*.test.*"]
 generated_dirs: []

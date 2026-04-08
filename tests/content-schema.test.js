@@ -4,7 +4,7 @@ import { resolve } from 'path';
 
 const configSource = readFileSync(resolve(__dirname, '../src/content.config.ts'), 'utf-8');
 
-const contentDir = resolve(__dirname, '../content/blog');
+const contentDir = resolve(__dirname, '../src/content/blog');
 const markdownFiles = readdirSync(contentDir)
   .filter((f) => f.endsWith('.md'))
   .map((f) => ({
