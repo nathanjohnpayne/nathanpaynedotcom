@@ -9,7 +9,7 @@ const ROOT = path.resolve(__dirname, '..');
 const CONTENT_DIR = path.join(ROOT, 'content', 'blog');
 const BLOG_DIR = path.join(ROOT, 'blog');
 const SITE_URL = 'https://nathanpayne.com';
-const STYLE_VERSION = '20260408a';
+const STYLE_VERSION = '20260408b';
 
 function main() {
   const posts = loadPosts().sort((left, right) => right.date.localeCompare(left.date));
@@ -632,6 +632,8 @@ function renderBlogPost(post) {
       </div>
     </article>
   </main>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js" defer></script>
+  <script>document.addEventListener('DOMContentLoaded', function() { if (typeof hljs !== 'undefined') { hljs.configure({ ignoreUnescapedHTML: true }); hljs.highlightAll(); } });</script>
 </body>
 </html>
 `;
