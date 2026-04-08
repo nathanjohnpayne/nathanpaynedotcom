@@ -43,23 +43,25 @@ The screenshots in [issue #159](https://github.com/nathanjohnpayne/friends-and-f
 
 ### 1. Editor: the structured document still looked sane
 
-![Editor Screenshot](https://raw.githubusercontent.com/nathanjohnpayne/friends-and-family-billing/issue/invoice-rendering-bug-screenshots/.github/screenshots/invoice-bug-01-editor-view.png)
+![Editor Screenshot](/blog/six-prs-one-bug-agent-failure-modes/img/invoice-bug-01-editor-view.png)
 
 In Edit mode, the intro paragraph is ordinary body text. The billing-summary link, payment options block, divider, and signature are all in the expected order. At this point the content still lives as structured TipTap / ProseMirror JSON, so the system has not yet lost information.
 
 ### 2. Preview: semantics changed during the markdown round-trip
 
-![Preview Screenshot](https://raw.githubusercontent.com/nathanjohnpayne/friends-and-family-billing/issue/invoice-rendering-bug-screenshots/.github/screenshots/invoice-bug-02-preview-view.png)
+![Preview Screenshot](/blog/six-prs-one-bug-agent-failure-modes/img/invoice-bug-02-preview-view.png)
 
 Preview was not rendering the editor document directly. It serialized the document into markdown-like text and reparsed that text with CommonMark. Separator lines like `---` were being interpreted differently across surfaces, and list content was picking up paragraph wrappers with default margins. That is why the Preview screenshot looks heavier and more spread out than the editor even though the author never changed the template content.
 
 ### 3. Sent email: a second parser created a third version of reality
 
-![Sent Email Screenshot](https://raw.githubusercontent.com/nathanjohnpayne/friends-and-family-billing/issue/invoice-rendering-bug-screenshots/.github/screenshots/invoice-bug-03-broken-sent-email.png)
+![Sent Email Screenshot](/blog/six-prs-one-bug-agent-failure-modes/img/invoice-bug-03-broken-sent-email.png)
 
 The sent email did not use the Preview renderer. It took the same flattened text and pushed it through a separate regex-based markdown renderer in the Cloud Function. So by the time the email reached a customer inbox, the system had already turned one source document into three different interpretations: editor, preview, and email.
 
 ### 4. The target was concrete, not hypothetical
+
+![Correct Intended Email Screenshot](/blog/six-prs-one-bug-agent-failure-modes/img/invoice-bug-04-correct-sent-email.png)
 
 This detail in the issue mattered: there was a known-good email from **April 2, 2026 at 5:05 PM**. The bug was not "make Preview look a little nicer." The bug was "restore parity with a real output that previously existed."
 
