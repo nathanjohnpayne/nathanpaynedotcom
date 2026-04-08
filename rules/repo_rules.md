@@ -21,6 +21,8 @@ The following directories must always exist:
 - `scripts/ci/` — CI enforcement scripts
 - `tests/` — Vitest smoke tests for static pages and route coverage
 - `docs/` — extended documentation including agent process docs
+- `src/` — Astro source (pages, layouts, components)
+- `public/` — static assets copied verbatim into dist/ at build time
 
 The following tool config directories must contain only configuration — no instruction prose:
 
@@ -29,9 +31,8 @@ The following tool config directories must contain only configuration — no ins
 
 **Intentionally absent directories (documented deviations from the standard):**
 
-- `src/` — Source files live at repository root (three-file static site). See `.ai_context.md`.
 - `functions/` — No serverless functions. See `.ai_context.md`.
-- `dist/` — No build step. Files deployed directly from source. See `.ai_context.md`.
+- `dist/` — Build output, gitignored. Not committed to repository.
 
 ## Forbidden Patterns
 
