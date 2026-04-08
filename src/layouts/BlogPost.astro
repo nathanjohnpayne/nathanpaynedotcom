@@ -1,0 +1,140 @@
+---
+import BaseLayout from './BaseLayout.astro';
+
+interface Props {
+  title: string;
+  description: string;
+  author: string;
+  date: Date;
+  tags: string[];
+  image: string;
+  readingTime: string;
+  slug: string;
+}
+
+const {
+  title,
+  description,
+  author,
+  date,
+  tags,
+  image,
+  readingTime,
+  slug,
+} = Astro.props;
+
+const canonical = `https://nathanpayne.com/blog/${slug}/`;
+const fullTitle = `${title} | Nathan Payne`;
+const kicker = tags.join(' · ');
+const publishedDate = date.toLocaleDateString('en-US', {
+  year: 'numeric',
+  month: 'long',
+  day: 'numeric',
+});
+const isoDate = date.toISOString();
+
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "WebPage",
+      "@id": `${canonical}#webpage`,
+      "url": canonical,
+      "name": fullTitle,
+      "description": description,
+      "isPartOf": { "@id": "https://nathanpayne.com/#website" },
+      "breadcrumb": { "@id": `${canonical}#breadcrumb` },
+      "primaryImageOfPage": { "@id": `${canonical}#primaryimage` },
+      "mainEntity": { "@id": `${canonical}#article` },
+    },
+    {
+      "@type": "ImageObject",
+      "@id": `${canonical}#primaryimage`,
+      "url": `https://nathanpayne.com${image}`,
+      "width": 1200,
+      "height": 630,
+    },
+    {
+      "@type": "BreadcrumbList",
+      "@id": `${canonical}#breadcrumb`,
+      "itemListElement": [
+        { "@type": "ListItem", "position": 1, "name": "Nathan Payne", "item": "https://nathanpayne.com/" },
+        { "@type": "ListItem", "position": 2, "name": "Blog", "item": "https://nathanpayne.com/blog/" },
+        { "@type": "ListItem", "position": 3, "name": title, "item": canonical },
+      ],
+    },
+    {
+      "@type": "BlogPosting",
+      "@id": `${canonical}#article`,
+      "headline": title,
+      "description": description,
+      "image": `https://nathanpayne.com${image}`,
+      "datePublished": isoDate,
+      "author": { "@type": "Person", "name": author, "url": "https://nathanpayne.com/" },
+      "publisher": { "@type": "Person", "name": author, "url": "https://nathanpayne.com/" },
+      "mainEntityOfPage": { "@id": `${canonical}#webpage` },
+      "keywords": tags.join(', '),
+    },
+  ],
+};
+---
+
+<BaseLayout
+  title={fullTitle}
+  description={description}
+  canonical={canonical}
+  ogType="article"
+  ogImage={`https://nathanpayne.com${image}`}
+  ogImageWidth="1200"
+  ogImageHeight="630"
+  ogImageAlt={`${title} open graph image`}
+  bodyClass="project-page project-page--red blog-page"
+  jsonLd={jsonLd}
+  articleMeta={{ published: isoDate, author, tags }}
+>
+  <main class="project-shell">
+    <article class="project-detail blog-detail">
+      <header class="project-hero">
+        <nav class="project-breadcrumbs" aria-label="Breadcrumb">
+          <a href="/">Nathan Payne</a>
+          <span>/</span>
+          <a href="/blog/">Blog</a>
+          <span>/</span>
+          <span>{title}</span>
+        </nav>
+        <p class="project-kicker">{kicker}</p>
+        <h1>{title}</h1>
+        <p class="project-deck">{description}</p>
+        <div class="project-actions">
+          <a class="project-action" href="/blog/">Back to Blog</a>
+          <a class="project-action" href="/">Back to Homepage</a>
+        </div>
+      </header>
+
+      <div class="project-layout blog-layout">
+        <div class="blog-meta-bar">
+          <dl>
+            <div><dt>Published</dt><dd>{publishedDate}</dd></div>
+            <div><dt>Author</dt><dd>{author}</dd></div>
+            <div><dt>Reading time</dt><dd>{readingTime}</dd></div>
+            <div><dt>Tags</dt><dd>{kicker}</dd></div>
+          </dl>
+        </div>
+        <div class="project-copy">
+          <article class="project-section blog-prose" aria-labelledby="post-body">
+            <h2 id="post-body" class="blog-prose-title">Essay</h2>
+            <slot />
+          </article>
+        </div>
+      </div>
+
+      <footer class="blog-footer">
+        <p class="blog-footer-attribution">{author} · San Francisco</p>
+        <nav class="blog-footer-nav">
+          <a class="project-action" href="/blog/">&larr; Back to Blog</a>
+          <a class="project-action" href="/">Back to Homepage &rarr;</a>
+        </nav>
+      </footer>
+    </article>
+  </main>
+</BaseLayout>

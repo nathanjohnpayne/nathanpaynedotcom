@@ -9,10 +9,11 @@
     "test": "astro build && vitest run"
   },
   "devDependencies": {
-    "vitest": "^3.0.0",
-    "jsdom": "^25.0.0",
-    "astro": "^5.0.0",
+    "@astrojs/rss": "^4.0.0",
     "@astrojs/sitemap": "^3.0.0",
-    "@astrojs/rss": "^4.0.0"
+    "astro": "^5.0.0",
+    "jsdom": "^25.0.0",
+    "unist-util-visit": "^5.1.0",
+    "vitest": "^3.0.0"
   }
 }

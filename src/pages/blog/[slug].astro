@@ -1,0 +1,33 @@
+---
+import { getCollection } from 'astro:content';
+import BlogPost from '../../layouts/BlogPost.astro';
+
+export async function getStaticPaths() {
+  const posts = await getCollection('blog', ({ data }) => !data.draft);
+  return posts.map((post) => ({
+    params: { slug: post.id.replace(/\.md$/, '') },
+    props: { post },
+  }));
+}
+
+const { post } = Astro.props;
+const { Content } = await post.render();
+
+// Calculate reading time (avg 225 words per minute)
+const words = post.body?.split(/\s+/).length ?? 0;
+const minutes = Math.ceil(words / 225);
+const readingTime = `${minutes} min read`;
+---
+
+<BlogPost
+  title={post.data.title}
+  description={post.data.description}
+  author={post.data.author}
+  date={post.data.date}
+  tags={post.data.tags}
+  image={post.data.image}
+  readingTime={readingTime}
+  slug={post.id.replace(/\.md$/, '')}
+>
+  <Content />
+</BlogPost>
