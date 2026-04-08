@@ -65,9 +65,18 @@ function renderMermaidDiagram(code) {
     }
 
     const normalizedLine = line.replace(/\["[^"]+"\]/g, '');
-    const edgeMatch = normalizedLine.match(/([A-Za-z0-9_]+)\s*-->\s*([A-Za-z0-9_]+)/);
-    if (edgeMatch) {
-      edges.push([edgeMatch[1], edgeMatch[2]]);
+    const nodeIds = [...normalizedLine.matchAll(/([A-Za-z0-9_]+)/g)].map((m) => m[1]);
+    const arrows = [...normalizedLine.matchAll(/-->/g)];
+    if (arrows.length > 0) {
+      // Extract node IDs between --> separators to handle chains like A --> B --> C
+      const parts = normalizedLine.split(/\s*-->\s*/).map((p) => p.trim()).filter(Boolean);
+      for (let i = 0; i < parts.length - 1; i++) {
+        const from = parts[i].match(/([A-Za-z0-9_]+)/)?.[1];
+        const to = parts[i + 1].match(/([A-Za-z0-9_]+)/)?.[1];
+        if (from && to) {
+          edges.push([from, to]);
+        }
+      }
     }
   }
 

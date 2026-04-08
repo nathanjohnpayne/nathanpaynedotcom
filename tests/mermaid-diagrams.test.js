@@ -153,6 +153,20 @@ describe('remark-mermaid: renderMermaidDiagram', () => {
       expect(html).toContain('blog-diagram');
     });
 
+    it('handles same-line chained edges like A --> B --> C', () => {
+      const code = 'graph TD\nA["Step 1"] --> B["Step 2"] --> C["Step 3"]';
+      const html = renderMermaidDiagram(code);
+      expect(html).toContain('blog-diagram--chain');
+      expect(html).toContain('Step 1');
+      expect(html).toContain('Step 2');
+      expect(html).toContain('Step 3');
+      // Should have 3 nodes and 2 arrows
+      const nodeCount = (html.match(/blog-diagram-node/g) || []).length;
+      const arrowCount = (html.match(/blog-diagram-arrow/g) || []).length;
+      expect(nodeCount).toBe(3);
+      expect(arrowCount).toBe(2);
+    });
+
     it('renders label-only nodes without edges', () => {
       const code = 'graph TD\nA["Solo Node"]';
       const html = renderMermaidDiagram(code);
