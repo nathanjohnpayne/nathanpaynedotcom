@@ -63,7 +63,7 @@ describe('Blog Pages', () => {
     expect(posting.image).toBe('https://nathanpayne.com/og/six-prs-one-bug.png');
   });
 
-  it('hosting ignores markdown source content', () => {
-    expect(firebaseConfig.hosting.ignore).toContain('content/**');
+  it('hosting deploys from dist/ so markdown source is excluded', () => {
+    expect(firebaseConfig.hosting.public).toBe('dist');
   });
 });
