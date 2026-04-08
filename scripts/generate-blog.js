@@ -9,7 +9,7 @@ const ROOT = path.resolve(__dirname, '..');
 const CONTENT_DIR = path.join(ROOT, 'content', 'blog');
 const BLOG_DIR = path.join(ROOT, 'blog');
 const SITE_URL = 'https://nathanpayne.com';
-const STYLE_VERSION = '20260404e';
+const STYLE_VERSION = '20260408a';
 
 function main() {
   const posts = loadPosts().sort((left, right) => right.date.localeCompare(left.date));
