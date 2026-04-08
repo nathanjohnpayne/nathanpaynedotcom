@@ -90,6 +90,10 @@ function renderMermaidDiagram(code) {
     }
   }
 
+  if (edges.length === 0) {
+    return '<div class="blog-diagram" aria-label="Diagram"></div>';
+  }
+
   const fanoutRoot = [...outDegree.entries()].find(([, count]) => count > 1);
   if (fanoutRoot) {
     const root = fanoutRoot[0];

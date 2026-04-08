@@ -139,6 +139,21 @@ describe('remark-mermaid: renderMermaidDiagram', () => {
     });
   });
 
+  describe('edge cases', () => {
+    it('handles empty mermaid block without crashing', () => {
+      const code = 'graph TD';
+      const html = renderMermaidDiagram(code);
+      expect(html).toContain('blog-diagram');
+      expect(html).toContain('aria-label="Diagram"');
+    });
+
+    it('handles mermaid block with only whitespace after header', () => {
+      const code = 'graph TD\n  \n  ';
+      const html = renderMermaidDiagram(code);
+      expect(html).toContain('blog-diagram');
+    });
+  });
+
   describe('non-mermaid code blocks', () => {
     it('does not process non-mermaid code (plugin function identity)', async () => {
       // The remark plugin only visits code nodes with lang=mermaid.
