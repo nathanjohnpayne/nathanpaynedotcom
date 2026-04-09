@@ -139,8 +139,13 @@ const jsonLd = {
     </article>
   </main>
 
+  <!-- Mermaid.js for diagram rendering — pinned to exact version.
+       Degrades gracefully: raw mermaid source is readable if CDN is unavailable.
+       To upgrade: update the version here and verify diagrams render correctly.
+       To self-host: install mermaid as npm dep and bundle, or use @mermaid-js/mermaid-cli
+       for build-time SVG rendering (see issue #67). -->
   <script is:inline type="module">
-    import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
+    import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11.4.1/dist/mermaid.esm.min.mjs';
     mermaid.initialize({
       startOnLoad: true,
       theme: 'base',

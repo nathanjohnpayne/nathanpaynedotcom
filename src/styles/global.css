@@ -1333,14 +1333,6 @@ body.project-page {
   --astro-code-token-link: #4a7a3a;
 }
 
-/* Light code blocks — muted syntax colors */
-.blog-code-block--light code .hljs-keyword,
-.blog-code-block--light code .hljs-built_in { color: #7a5c28; }
-
-.blog-code-block--light code .hljs-string { color: #4a7a3a; }
-
-.blog-code-block--light code .hljs-comment,
-.blog-code-block--light code .hljs-quote { color: #8a8272; font-style: italic; }
 
 .blog-footer {
   padding: clamp(1.15rem, 2.5vw, 2rem) clamp(1.15rem, 3vw, 2.5rem);
