@@ -13,6 +13,10 @@ RIPCUT_GUIDE.md
 dist/
 .astro/
 
+# Playwright
+test-results/
+playwright-report/
+
 # Claude Code local settings
 .claude/settings.local.json
 .claude/launch.json
