@@ -1,4 +1,24 @@
 ---
+/**
+ * BlogPost.astro — Mondrian "Composition with Margins" layout
+ *
+ * Renders a blog post inside a 3-column Mondrian CSS Grid:
+ *   - Left margin:  narrow accent blocks (red, yellow, blue) — pure decoration
+ *   - Center:       main content column (<slot /> — unchanged Markdown flow)
+ *   - Right sidebar: sticky ToC, pullquotes, sidebar items (mermaid, images)
+ *
+ * At ≤920px the grid collapses to a single column:
+ *   - Margin and sidebar hidden
+ *   - Content fills full width inside a var(--line) frame
+ *   - Matches homepage responsive collapse behavior
+ *
+ * Sidebar content is driven by frontmatter:
+ *   - ToC: extracted from Astro's built-in render() headings (no plugin needed)
+ *   - Pullquotes: frontmatter `pullquotes` array with text, label, accent color
+ *   - Sidebar items: frontmatter `sidebar` array (mermaid diagrams, images)
+ *
+ * @see Issue #74 — Blog post template: Mondrian composition with margins layout
+ */
 import BaseLayout from './BaseLayout.astro';
 
 interface Props {
@@ -9,6 +29,9 @@ interface Props {
   tags: string[];
   image: string;
   readingTime: string;
+  headings: { depth: number; slug: string; text: string }[];
+  pullquotes: { text: string; label: string; accent: string }[];
+  sidebar: { type: string; content: string; caption?: string }[];
 }
 
 const {
@@ -19,6 +42,9 @@ const {
   tags,
   image,
   readingTime,
+  headings,
+  pullquotes,
+  sidebar,
 } = Astro.props;
 
 const canonical = new URL(Astro.url.pathname, Astro.site).href;
@@ -31,6 +57,23 @@ const publishedDate = date.toLocaleDateString('en-US', {
   timeZone: 'UTC',
 });
 const isoDate = date.toISOString();
+
+// Filter headings for ToC — only h2-level entries
+const tocHeadings = headings.filter((h) => h.depth === 2);
+
+// Determine if sidebar has any content to render
+const hasSidebar = tocHeadings.length > 0 || pullquotes.length > 0 || sidebar.length > 0;
+
+// Escape HTML for mermaid content — matches remark-mermaid.mjs pattern.
+// Mermaid reads textContent which auto-unescapes entities.
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
 
 const jsonLd = {
   "@context": "https://schema.org",
@@ -92,56 +135,118 @@ const jsonLd = {
   articleMeta={{ published: isoDate, author, tags }}
 >
   <main class="project-shell">
-    <article class="project-detail blog-detail">
-      <header class="project-hero">
+    {/* ── Mondrian Canvas Grid ──────────────────────────────────
+         3-column composition: accent margin | content | sidebar
+         Grid lines are the --ink background showing through gaps.
+         ──────────────────────────────────────────────────────── */}
+    <article class="blog-canvas">
+
+      {/* ── Left margin: per-row Mondrian accent blocks ── */}
+      <div class="blog-margin blog-margin--header" aria-hidden="true"></div>
+      <div class="blog-margin blog-margin--body" aria-hidden="true"></div>
+      <div class="blog-margin blog-margin--footer" aria-hidden="true"></div>
+
+      {/* ── Header ── */}
+      <header class="blog-canvas-header">
         <nav class="project-breadcrumbs" aria-label="Breadcrumb">
           <a href="/">Nathan Payne</a>
           <span>/</span>
           <a href="/blog/">Blog</a>
           <span>/</span>
-          <span>{title}</span>
+          <span>Article</span>
         </nav>
-        <p class="project-kicker">{kicker}</p>
         <h1>{title}</h1>
         <p class="project-deck">{description}</p>
-        <div class="project-actions">
-          <a class="project-action" href="/blog/">Back to Blog</a>
-          <a class="project-action" href="/">Back to Homepage</a>
-        </div>
       </header>
 
-      <div class="project-layout blog-layout">
-        <div class="blog-meta-bar">
-          <dl>
-            <div><dt>Published</dt><dd>{publishedDate}</dd></div>
-            <div><dt>Author</dt><dd>{author}</dd></div>
-            <div><dt>Reading time</dt><dd>{readingTime}</dd></div>
-            <div><dt>Tags</dt><dd>{kicker}</dd></div>
-          </dl>
-        </div>
-        <div class="project-copy">
-          <article class="project-section blog-prose" aria-labelledby="post-body">
-            <h2 id="post-body" class="blog-prose-title">Essay</h2>
-            <slot />
-          </article>
-        </div>
+      {/* ── Sidebar: metadata panel ── */}
+      <div class="blog-sidebar-meta">
+        <dl>
+          <div><dt>Published</dt><dd>{publishedDate}</dd></div>
+          <div><dt>Author</dt><dd>{author}</dd></div>
+          <div><dt>Reading time</dt><dd>{readingTime}</dd></div>
+          <div>
+            <dt>Topics</dt>
+            <dd class="blog-sidebar-topics">
+              {tags.map((tag) => (
+                <span class="blog-sidebar-topic">{tag}</span>
+              ))}
+            </dd>
+          </div>
+        </dl>
       </div>
 
-      <footer class="blog-footer">
-        <p class="blog-footer-attribution">{author} · San Francisco</p>
-        <nav class="blog-footer-nav">
-          <a class="project-action" href="/blog/">&larr; Back to Blog</a>
-          <a class="project-action" href="/">Back to Homepage &rarr;</a>
-        </nav>
+      {/* ── Main content column ── */}
+      <div class="blog-content">
+        <article class="blog-prose">
+          <slot />
+        </article>
+      </div>
+
+      {/* ── Right sidebar ──────────────────────────────────────
+           The <aside> stretches the full grid cell height so its
+           white background covers the entire row. The inner div
+           handles sticky scrolling independently.
+           ──────────────────────────────────────────────────── */}
+      {hasSidebar && (
+        <aside class="blog-sidebar" aria-label="Article sidebar">
+          <div class="blog-sidebar-inner">
+
+            {/* Table of Contents — extracted from Astro's built-in headings */}
+            {tocHeadings.length > 0 && (
+              <nav class="blog-sidebar-section blog-sidebar-toc" aria-label="Table of contents">
+                <h2 class="blog-sidebar-heading">In this article</h2>
+                <ol class="blog-sidebar-toc-list">
+                  {tocHeadings.map((h) => (
+                    <li><a href={`#${h.slug}`}>{h.text}</a></li>
+                  ))}
+                </ol>
+              </nav>
+            )}
+
+            {/* Pullquotes — bordered cards with accent left border */}
+            {pullquotes.map((pq) => (
+              <blockquote class={`blog-sidebar-pullquote blog-sidebar-pullquote--${pq.accent}`}>
+                <p>&ldquo;{pq.text}&rdquo;</p>
+                <cite>{pq.label}</cite>
+              </blockquote>
+            ))}
+
+            {/* Sidebar items — mermaid diagrams, images from frontmatter */}
+            {sidebar.map((item) => (
+              <div class="blog-sidebar-item">
+                {item.type === 'mermaid' && (
+                  <pre class="mermaid" set:html={escapeHtml(item.content)} />
+                )}
+                {item.type === 'image' && (
+                  <img src={item.content} alt={item.caption || ''} loading="lazy" />
+                )}
+                {item.caption && (
+                  <p class="blog-sidebar-caption">{item.caption}</p>
+                )}
+              </div>
+            ))}
+
+          </div>
+        </aside>
+      )}
+
+      {/* ── Footer ── */}
+      <footer class="blog-canvas-footer">
+        <div class="blog-footer">
+          <p class="blog-footer-attribution">{author} · San Francisco</p>
+          <nav class="blog-footer-nav">
+            <a class="project-action" href="/blog/">&larr; Back to Blog</a>
+            <a class="project-action" href="/">Back to Homepage &rarr;</a>
+          </nav>
+        </div>
       </footer>
     </article>
   </main>
 
-  <!-- Mermaid.js for diagram rendering — pinned to exact version.
-       Degrades gracefully: raw mermaid source is readable if CDN is unavailable.
-       To upgrade: update the version here and verify diagrams render correctly.
-       To self-host: install mermaid as npm dep and bundle, or use @mermaid-js/mermaid-cli
-       for build-time SVG rendering (see issue #67). -->
+  {/* Mermaid.js for diagram rendering — handles both in-content diagrams
+      (from remark-mermaid.mjs) and sidebar diagrams (from frontmatter).
+      startOnLoad: true finds ALL <pre class="mermaid"> elements on the page. */}
   <script is:inline type="module">
     import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11.4.1/dist/mermaid.esm.min.mjs';
     mermaid.initialize({

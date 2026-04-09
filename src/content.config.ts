@@ -11,6 +11,19 @@ const blog = defineCollection({
     tags: z.array(z.string()),
     image: z.string(),
     draft: z.boolean().default(false),
+
+    // Sidebar content — optional, defaults to empty arrays.
+    // Posts without these fields render the standard layout.
+    pullquotes: z.array(z.object({
+      text: z.string(),
+      label: z.string(),
+      accent: z.enum(['red', 'yellow', 'blue']),
+    })).optional().default([]),
+    sidebar: z.array(z.object({
+      type: z.enum(['mermaid', 'image']),
+      content: z.string(),
+      caption: z.string().optional(),
+    })).optional().default([]),
   }),
 });
 

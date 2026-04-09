@@ -11,7 +11,10 @@ export async function getStaticPaths() {
 }
 
 const { post } = Astro.props;
-const { Content } = await render(post);
+
+// Astro's render() provides headings built-in — no custom plugin needed.
+// headings: { depth: number; slug: string; text: string }[]
+const { Content, headings } = await render(post);
 
 // Calculate reading time (avg 225 words per minute)
 const words = post.body?.split(/\s+/).length ?? 0;
@@ -27,6 +30,9 @@ const readingTime = `${minutes} min read`;
   tags={post.data.tags}
   image={post.data.image}
   readingTime={readingTime}
+  headings={headings}
+  pullquotes={post.data.pullquotes}
+  sidebar={post.data.sidebar}
 >
   <Content />
 </BlogPost>
