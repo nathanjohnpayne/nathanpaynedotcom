@@ -6,11 +6,13 @@
     "dev": "astro dev",
     "build": "astro build",
     "preview": "astro preview",
-    "test": "astro build && vitest run"
+    "test": "astro build && vitest run",
+    "test:e2e": "playwright test"
   },
   "devDependencies": {
     "@astrojs/rss": "^4.0.0",
     "@astrojs/sitemap": "^3.0.0",
+    "@playwright/test": "^1.59.1",
     "astro": "^5.0.0",
     "jsdom": "^25.0.0",
     "unist-util-visit": "^5.1.0",
