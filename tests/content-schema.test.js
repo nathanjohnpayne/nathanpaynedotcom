@@ -30,7 +30,7 @@ function parseFrontmatter(content) {
 describe('Content Schema', () => {
   it('content.config.ts exists and defines a blog collection', () => {
     expect(configSource).toContain('defineCollection');
-    expect(configSource).toContain("type: 'content'");
+    expect(configSource).toContain('glob(');
     expect(configSource).toMatch(/const\s+blog\s*=/);
     expect(configSource).toContain('collections');
   });

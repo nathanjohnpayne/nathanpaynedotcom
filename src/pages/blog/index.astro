@@ -71,7 +71,7 @@ function readingTime(body: string | undefined): string {
               {posts.map((post) => (
                 <article class="blog-card">
                   <p class="blog-card-meta">{formatDate(post.data.date)} · {readingTime(post.body)}</p>
-                  <h3><a class="blog-card-link" href={`/blog/${post.id.replace(/\.md$/, '')}/`}>{post.data.title}</a></h3>
+                  <h3><a class="blog-card-link" href={`/blog/${post.id}/`}>{post.data.title}</a></h3>
                   <p class="blog-card-desc">{post.data.description}</p>
                   <div class="blog-tag-row">
                     {post.data.tags.map((tag) => (
