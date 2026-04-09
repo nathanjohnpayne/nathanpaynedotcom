@@ -208,7 +208,7 @@ const jsonLd = {
             {pullquotes.map((pq) => (
               <blockquote class={`blog-sidebar-pullquote blog-sidebar-pullquote--${pq.accent}`}>
                 <p>&ldquo;{pq.text}&rdquo;</p>
-                <cite>{pq.label}</cite>
+                {pq.label && <cite>{pq.label}</cite>}
               </blockquote>
             ))}
 
@@ -220,6 +220,9 @@ const jsonLd = {
                 )}
                 {item.type === 'image' && (
                   <img src={item.content} alt={item.caption || ''} loading="lazy" />
+                )}
+                {item.type === 'text' && (
+                  <p class="blog-sidebar-text">{item.content}</p>
                 )}
                 {item.caption && (
                   <p class="blog-sidebar-caption">{item.caption}</p>

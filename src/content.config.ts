@@ -16,11 +16,11 @@ const blog = defineCollection({
     // Posts without these fields render the standard layout.
     pullquotes: z.array(z.object({
       text: z.string(),
-      label: z.string(),
+      label: z.string().optional(),
       accent: z.enum(['red', 'yellow', 'blue']),
     })).optional().default([]),
     sidebar: z.array(z.object({
-      type: z.enum(['mermaid', 'image']),
+      type: z.enum(['mermaid', 'image', 'text']),
       content: z.string(),
       caption: z.string().optional(),
     })).optional().default([]),
