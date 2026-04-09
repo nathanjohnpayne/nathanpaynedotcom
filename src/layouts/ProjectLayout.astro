@@ -10,7 +10,6 @@ interface Action {
 interface Props {
   title: string;
   description: string;
-  canonical: string;
   ogDescription?: string;
   kicker: string;
   headline: string;
@@ -28,7 +27,6 @@ interface Props {
 const {
   title,
   description,
-  canonical,
   ogDescription,
   kicker,
   headline,
@@ -47,7 +45,6 @@ const {
 <BaseLayout
   title={title}
   description={description}
-  canonical={canonical}
   ogDescription={ogDescription}
   bodyClass={`project-page ${accentColorClass}`}
   jsonLd={jsonLd}

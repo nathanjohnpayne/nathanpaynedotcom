@@ -9,7 +9,6 @@ interface Props {
   tags: string[];
   image: string;
   readingTime: string;
-  slug: string;
 }
 
 const {
@@ -20,10 +19,9 @@ const {
   tags,
   image,
   readingTime,
-  slug,
 } = Astro.props;
 
-const canonical = `https://nathanpayne.com/blog/${slug}/`;
+const canonical = new URL(Astro.url.pathname, Astro.site).href;
 const fullTitle = `${title} | Nathan Payne`;
 const kicker = tags.join(' · ');
 const publishedDate = date.toLocaleDateString('en-US', {
@@ -83,7 +81,6 @@ const jsonLd = {
 <BaseLayout
   title={fullTitle}
   description={description}
-  canonical={canonical}
   ogType="article"
   ogImage={`https://nathanpayne.com${image}`}
   ogImageWidth="1200"
