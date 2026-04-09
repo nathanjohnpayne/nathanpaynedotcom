@@ -982,22 +982,321 @@ body.project-page {
   color: inherit;
 }
 
-.blog-index-layout {
-  grid-template-columns: minmax(0, 1fr);
+/* ── Blog Index: Mondrian Row Grid ──────────────────────────
+   Row-based grid matching the De Stijl blog landing mockup.
+   Each post gets its own grid row with accent color blocks.
+   @see Issue #75
+   ──────────────────────────────────────────────────────────── */
+
+.shell {
+  min-height: 100vh;
+  padding: clamp(0.9rem, 2.5vw, 1.8rem);
 }
 
-.blog-index-copy {
-  max-width: 52rem;
+.frame {
+  width: min(100%, 72rem);
+  margin: 0 auto;
+  background: rgba(244, 239, 229, 0.96);
+  border: var(--line) solid var(--ink);
+  overflow: hidden;
+  box-shadow: 14px 14px 0 rgba(17, 16, 13, 0.12);
 }
 
-.blog-index-aside {
+/* ── Hero ── */
+.hero {
+  padding: clamp(1.15rem, 3vw, 2.5rem) clamp(1.15rem, 3vw, 2.5rem);
+  border-bottom: var(--line) solid var(--ink);
+}
+
+.breadcrumbs {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-bottom: 1rem;
+  font-size: clamp(0.72rem, 0.92vw, 0.88rem);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.breadcrumbs a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.kicker {
+  margin-bottom: 0.4rem;
+  font-size: clamp(0.7rem, 0.88vw, 0.82rem);
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: #223f89;
+  font-weight: 600;
+}
+
+.hero h1 {
+  font-family: "Cormorant Garamond", Garamond, serif;
+  font-size: clamp(2.8rem, 6vw, 5.4rem);
+  line-height: 0.92;
+  font-weight: 600;
+}
+
+.deck {
   max-width: 38rem;
-  margin-top: calc(var(--su) * 0.8);
-  padding-left: clamp(1rem, 2.2vw, 1.6rem);
-  font-size: clamp(0.95rem, 0.9rem + 0.28vw, 1.18rem);
+  margin-top: 1rem;
+  font-size: clamp(1.05rem, 1rem + 0.42vw, 1.4rem);
   line-height: 1.45;
   font-family: "Cormorant Garamond", Garamond, serif;
-  color: rgba(17, 16, 13, 0.62);
+  color: rgba(17, 16, 13, 0.72);
+}
+
+/* ── Mondrian Blog Grid ── */
+.blog-grid {
+  display: grid;
+  background: var(--ink);
+  gap: var(--line);
+}
+
+/* Row 1: post (~50%) | red (~22%) | blue (~28%) */
+.grid-row--1 {
+  display: grid;
+  grid-template-columns: minmax(0, 5fr) minmax(0, 2.2fr) minmax(0, 2.8fr);
+  gap: var(--line);
+  min-height: 22rem;
+}
+
+/* Row 2: post (~72%) | yellow (~28%) */
+.grid-row--2 {
+  display: grid;
+  grid-template-columns: minmax(0, 7.2fr) minmax(0, 2.8fr);
+  gap: var(--line);
+  min-height: 13rem;
+}
+
+/* Row 3: post (~50%) | rss/cream (~50%) */
+.grid-row--3 {
+  display: grid;
+  grid-template-columns: minmax(0, 5fr) minmax(0, 5fr);
+  gap: var(--line);
+  min-height: 14rem;
+}
+
+/* Row 4: post (~50%) | black (~22%) | paper (~28%) */
+.grid-row--4 {
+  display: grid;
+  grid-template-columns: minmax(0, 5fr) minmax(0, 2.2fr) minmax(0, 2.8fr);
+  gap: var(--line);
+  min-height: 14rem;
+}
+
+/* Overflow rows (post 5+): alternate between two layouts */
+.grid-row--overflow-a {
+  display: grid;
+  grid-template-columns: minmax(0, 6fr) minmax(0, 4fr);
+  gap: var(--line);
+  min-height: 13rem;
+}
+
+.grid-row--overflow-b {
+  display: grid;
+  grid-template-columns: minmax(0, 4fr) minmax(0, 6fr);
+  gap: var(--line);
+  min-height: 13rem;
+}
+
+/* ── Post Cards ── */
+.post-card {
+  background: var(--paper);
+  padding: clamp(1.2rem, 2.5vw, 2rem);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.post-card:hover,
+.post-card:focus-within {
+  background: #faf8f4;
+  box-shadow: inset 0 0 0 2px rgba(34, 63, 137, 0.18);
+  transition:
+    background-color var(--motion-hover) var(--ease-standard),
+    box-shadow var(--motion-hover) var(--ease-standard);
+}
+
+.post-meta {
+  font-size: clamp(0.65rem, 0.78vw, 0.76rem);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(17, 16, 13, 0.58);
+  margin-bottom: 0.5rem;
+}
+
+.post-title {
+  font-family: "Cormorant Garamond", Garamond, serif;
+  font-size: clamp(1.6rem, 2.2vw, 2.4rem);
+  line-height: 1.05;
+  font-weight: 600;
+  margin-bottom: 0.6rem;
+}
+
+.post-title a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.post-title a:hover {
+  text-decoration: underline;
+  text-decoration-color: #223f89;
+  text-underline-offset: 0.12em;
+}
+
+.post-desc {
+  max-width: 48ch;
+  font-size: clamp(0.88rem, 0.95vw, 0.98rem);
+  line-height: 1.55;
+  color: rgba(17, 16, 13, 0.78);
+  margin-bottom: 0.9rem;
+}
+
+.tag-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.2rem 0.42rem;
+  background: rgba(17, 16, 13, 0.08);
+  font-size: clamp(0.62rem, 0.74vw, 0.72rem);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  line-height: 1.4;
+}
+
+/* ── Placeholder Cards (future posts) ── */
+.post-card--placeholder {
+  background: var(--paper);
+  padding: clamp(1.2rem, 2.5vw, 2rem);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-start;
+}
+
+.placeholder-text {
+  font-family: "Cormorant Garamond", Garamond, serif;
+  font-size: clamp(1.1rem, 1.4vw, 1.5rem);
+  font-style: italic;
+  color: rgba(17, 16, 13, 0.22);
+  line-height: 1.3;
+}
+
+/* ── Color Blocks ── */
+.accent-red {
+  background: #c11d19;
+}
+
+.accent-blue {
+  background: #223f89;
+  position: relative;
+}
+
+.accent-blue-label {
+  position: absolute;
+  bottom: clamp(0.8rem, 1.5vw, 1.2rem);
+  right: clamp(0.8rem, 1.5vw, 1.2rem);
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+  font-family: "Cormorant Garamond", Garamond, serif;
+  font-size: clamp(0.72rem, 0.88vw, 0.84rem);
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.5);
+  font-weight: 500;
+}
+
+.accent-yellow {
+  background: #d9b111;
+}
+
+.accent-cream {
+  background: #DDE1E5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.accent-black {
+  background: #090907;
+}
+
+.accent-paper {
+  background: #DDE1E5;
+}
+
+/* Overflow accent blocks — decorative only, hidden on mobile */
+.accent-overflow--cream {
+  background: #DDE1E5;
+}
+
+.accent-overflow--yellow {
+  background: #d9b111;
+}
+
+.rss-link {
+  font-size: clamp(0.68rem, 0.82vw, 0.78rem);
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: rgba(17, 16, 13, 0.58);
+  text-decoration: none;
+  transition: color var(--motion-hover) var(--ease-standard);
+}
+
+.rss-link:hover {
+  color: var(--ink);
+}
+
+/* ── Footer Row ── */
+.grid-footer {
+  background: rgba(244, 239, 229, 0.96);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: clamp(1.15rem, 2.5vw, 2rem) clamp(1.15rem, 3vw, 2.5rem);
+  border-top: var(--line) solid var(--ink);
+}
+
+.footer-attribution {
+  font-size: clamp(0.7rem, 0.88vw, 0.82rem);
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: rgba(17, 16, 13, 0.58);
+}
+
+.footer-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.55rem 0.85rem;
+  border: 1px solid var(--ink);
+  background: transparent;
+  font-size: clamp(0.8rem, 0.92vw, 0.92rem);
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: inherit;
+  text-decoration: none;
+  transition:
+    background-color var(--motion-hover) var(--ease-standard),
+    color var(--motion-hover) var(--ease-standard),
+    transform var(--motion-hover) var(--ease-standard);
+}
+
+.footer-action:hover {
+  background: #223f89;
+  color: #f5f0e4;
+  transform: translateY(-2px);
 }
 
 /* ── Blog Post: Mondrian "Composition with Margins" Canvas ────
@@ -1391,88 +1690,6 @@ body.project-page {
   overflow-wrap: anywhere;
 }
 
-.blog-section {
-  background:
-    linear-gradient(180deg, var(--project-accent-soft), rgba(255, 255, 255, 0) 18rem),
-    rgba(255, 255, 255, 0.62);
-}
-
-.blog-card-list {
-  display: grid;
-  gap: 1rem;
-}
-
-.blog-card {
-  position: relative;
-  padding: 1rem 0 0 0.85rem;
-  border-top: 1px solid var(--rule);
-  border-left: 3px solid transparent;
-  transition: border-left-color var(--motion-hover) var(--ease-standard);
-}
-
-.blog-card:hover {
-  border-left-color: var(--project-accent);
-}
-
-.blog-card:first-child {
-  padding-top: 0.25rem;
-  border-top: 0;
-}
-
-.blog-card-meta,
-.blog-tag {
-  font-size: clamp(0.68rem, 0.82vw, 0.8rem);
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-}
-
-.blog-card-meta {
-  color: rgba(17, 16, 13, 0.58);
-}
-
-.blog-card h3 {
-  margin-top: 0.45rem;
-  font-family: "Cormorant Garamond", Garamond, serif;
-  font-size: clamp(1.45rem, 2vw, 2rem);
-  line-height: 1.05;
-}
-
-.blog-card-link {
-  color: inherit;
-  text-decoration: none;
-}
-
-.blog-card-link::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-}
-
-.blog-card-link:hover,
-.blog-card-link:focus-visible {
-  text-decoration: underline;
-  text-decoration-color: var(--project-accent);
-  text-underline-offset: 0.12em;
-}
-
-.blog-card-desc {
-  margin-top: 0.55rem;
-  max-width: 58ch;
-}
-
-.blog-tag-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.45rem;
-  margin-top: 0.8rem;
-}
-
-.blog-tag {
-  display: inline-flex;
-  align-items: center;
-  padding: 0.22rem 0.42rem;
-  background: rgba(17, 16, 13, 0.08);
-}
 
 .blog-prose-title {
   margin-bottom: 0.25rem;
@@ -1852,9 +2069,6 @@ a:focus-visible {
     padding: 0.75rem 0.85rem;
   }
 
-  .blog-tag-row {
-    gap: 0.25rem 0.5rem;
-  }
 }
 
 @media (max-width: 920px) {
@@ -1981,6 +2195,41 @@ a:focus-visible {
 
   .blog-diagram-fanout-row {
     grid-template-columns: 1fr;
+  }
+
+  /* ── Blog Index grid: collapse to single column ────────── */
+  .blog-grid {
+    gap: var(--line);
+  }
+
+  .grid-row--1,
+  .grid-row--2,
+  .grid-row--3,
+  .grid-row--4,
+  .grid-row--overflow-a,
+  .grid-row--overflow-b {
+    grid-template-columns: 1fr;
+    min-height: auto;
+  }
+
+  /* Hide decorative accent blocks */
+  .accent-red,
+  .accent-blue,
+  .accent-yellow,
+  .accent-black,
+  .accent-paper,
+  .accent-overflow {
+    display: none;
+  }
+
+  /* RSS block stays but simplifies */
+  .accent-cream {
+    min-height: 4rem;
+  }
+
+  /* Placeholder cards hidden on mobile */
+  .post-card--placeholder {
+    display: none;
   }
 
   /* ── Blog Post canvas: collapse to single column ───────── */

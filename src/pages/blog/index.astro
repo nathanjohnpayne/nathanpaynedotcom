@@ -28,12 +28,17 @@ const jsonLd = {
 };
 
 function formatDate(date: Date): string {
-  return date.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric', timeZone: 'UTC' });
+  return date.toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    timeZone: 'UTC',
+  });
 }
 
 function readingTime(body: string | undefined): string {
   const words = body?.split(/\s+/).length ?? 0;
-  return `${Math.ceil(words / 225)} min read`;
+  return `${Math.ceil(words / 225)} min`;
 }
 ---
 
@@ -44,53 +49,133 @@ function readingTime(body: string | undefined): string {
   ogImageWidth="1200"
   ogImageHeight="630"
   ogImageAlt="Six PRs, One Bug: What AI Agents Actually Get Wrong open graph image"
-  bodyClass="project-page project-page--blue blog-index-page"
+  bodyClass="project-page project-page--blue"
   jsonLd={jsonLd}
 >
-  <main class="project-shell">
-    <article class="project-detail blog-index-detail">
-      <header class="project-hero">
-        <nav class="project-breadcrumbs" aria-label="Breadcrumb">
+  <main class="shell">
+    <div class="frame">
+
+      {/* ── Hero ── */}
+      <header class="hero">
+        <nav class="breadcrumbs" aria-label="Breadcrumb">
           <a href="/">Nathan Payne</a>
           <span>/</span>
           <span>Blog</span>
         </nav>
-        <p class="project-kicker">Essays × Systems × Product</p>
+        <p class="kicker">Essays &times; Systems &times; Product</p>
         <h1>Blog</h1>
-        <p class="project-deck">Essays and notes on AI agents, product systems, debugging, and the invisible constraints that shape what people actually experience.</p>
-        <p class="blog-index-aside">Writing about system boundaries, product judgment, engineering tradeoffs, and where AI-generated code breaks when the model never forms the right mental model.</p>
-        <div class="project-actions">
-          <a class="project-action" href="/">Back to Homepage</a>
-        </div>
+        <p class="deck">Writing about how software systems actually work when they meet real users, real teams, and real deadlines.</p>
       </header>
-      <div class="project-layout blog-index-layout">
-        <section class="project-copy blog-index-copy" aria-labelledby="blog-posts">
-          <div class="project-section blog-section">
-            <h2 id="blog-posts">Posts</h2>
-            <div class="blog-card-list">
-              {posts.map((post) => (
-                <article class="blog-card">
-                  <p class="blog-card-meta">{formatDate(post.data.date)} · {readingTime(post.body)}</p>
-                  <h3><a class="blog-card-link" href={`/blog/${post.id}/`}>{post.data.title}</a></h3>
-                  <p class="blog-card-desc">{post.data.description}</p>
-                  <div class="blog-tag-row">
-                    {post.data.tags.map((tag) => (
-                      <span class="blog-tag">{tag}</span>
-                    ))}
-                  </div>
-                </article>
-              ))}
+
+      {/* ── Mondrian Blog Grid ── */}
+      <div class="blog-grid">
+
+        {/* Row 1: Featured post | Red | Blue("LATEST") */}
+        {posts[0] && (
+          <div class="grid-row--1">
+            <article class="post-card">
+              <p class="post-meta">{formatDate(posts[0].data.date)} &middot; {readingTime(posts[0].body)}</p>
+              <h2 class="post-title"><a href={`/blog/${posts[0].id}/`}>{posts[0].data.title}</a></h2>
+              <p class="post-desc">{posts[0].data.description}</p>
+              <div class="tag-row">
+                {posts[0].data.tags.map((tag) => (
+                  <span class="tag">{tag}</span>
+                ))}
+              </div>
+            </article>
+            <div class="accent-red" aria-hidden="true"></div>
+            <div class="accent-blue" aria-hidden="true">
+              <span class="accent-blue-label">Latest</span>
             </div>
           </div>
-        </section>
+        )}
+
+        {/* Row 2: Post 2 (or placeholder) | Yellow */}
+        <div class="grid-row--2">
+          {posts[1] ? (
+            <article class="post-card">
+              <p class="post-meta">{formatDate(posts[1].data.date)} &middot; {readingTime(posts[1].body)}</p>
+              <h2 class="post-title"><a href={`/blog/${posts[1].id}/`}>{posts[1].data.title}</a></h2>
+              <p class="post-desc">{posts[1].data.description}</p>
+              <div class="tag-row">
+                {posts[1].data.tags.map((tag) => (
+                  <span class="tag">{tag}</span>
+                ))}
+              </div>
+            </article>
+          ) : (
+            <div class="post-card--placeholder">
+              <p class="placeholder-text">More essays coming soon.</p>
+            </div>
+          )}
+          <div class="accent-yellow" aria-hidden="true"></div>
+        </div>
+
+        {/* Row 3: Post 3 (or placeholder) | RSS/Cream */}
+        <div class="grid-row--3">
+          {posts[2] ? (
+            <article class="post-card">
+              <p class="post-meta">{formatDate(posts[2].data.date)} &middot; {readingTime(posts[2].body)}</p>
+              <h2 class="post-title"><a href={`/blog/${posts[2].id}/`}>{posts[2].data.title}</a></h2>
+              <p class="post-desc">{posts[2].data.description}</p>
+              <div class="tag-row">
+                {posts[2].data.tags.map((tag) => (
+                  <span class="tag">{tag}</span>
+                ))}
+              </div>
+            </article>
+          ) : (
+            <div class="post-card--placeholder">
+              <p class="placeholder-text">Writing about system boundaries,<br/>product judgment, and engineering tradeoffs.</p>
+            </div>
+          )}
+          <div class="accent-cream">
+            <a href="/rss.xml" class="rss-link">Subscribe via RSS &rarr;</a>
+          </div>
+        </div>
+
+        {/* Row 4: Post 4 | black | paper — only if post exists */}
+        {posts[3] && (
+          <div class="grid-row--4">
+            <article class="post-card">
+              <p class="post-meta">{formatDate(posts[3].data.date)} &middot; {readingTime(posts[3].body)}</p>
+              <h2 class="post-title"><a href={`/blog/${posts[3].id}/`}>{posts[3].data.title}</a></h2>
+              <p class="post-desc">{posts[3].data.description}</p>
+              <div class="tag-row">
+                {posts[3].data.tags.map((tag) => (
+                  <span class="tag">{tag}</span>
+                ))}
+              </div>
+            </article>
+            <div class="accent-black" aria-hidden="true"></div>
+            <div class="accent-paper" aria-hidden="true"></div>
+          </div>
+        )}
+
+        {/* Overflow rows: posts 5+ — alternating layouts */}
+        {posts.slice(4).map((post, i) => (
+          <div class={i % 2 === 0 ? 'grid-row--overflow-a' : 'grid-row--overflow-b'}>
+            <article class="post-card">
+              <p class="post-meta">{formatDate(post.data.date)} &middot; {readingTime(post.body)}</p>
+              <h2 class="post-title"><a href={`/blog/${post.id}/`}>{post.data.title}</a></h2>
+              <p class="post-desc">{post.data.description}</p>
+              <div class="tag-row">
+                {post.data.tags.map((tag) => (
+                  <span class="tag">{tag}</span>
+                ))}
+              </div>
+            </article>
+            <div class={i % 2 === 0 ? 'accent-overflow accent-overflow--cream' : 'accent-overflow accent-overflow--yellow'} aria-hidden="true"></div>
+          </div>
+        ))}
+
       </div>
 
-      <footer class="blog-footer">
-        <p class="blog-footer-attribution">Nathan Payne · San Francisco</p>
-        <nav class="blog-footer-nav">
-          <a class="project-action" href="/">&larr; Back to Homepage</a>
-        </nav>
+      {/* ── Footer ── */}
+      <footer class="grid-footer">
+        <span class="footer-attribution">Nathan Payne &middot; San Francisco</span>
+        <a href="/" class="footer-action">&larr; Back to Homepage</a>
       </footer>
-    </article>
+    </div>
   </main>
 </BaseLayout>
