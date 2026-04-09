@@ -1000,6 +1000,326 @@ body.project-page {
   color: rgba(17, 16, 13, 0.62);
 }
 
+/* ── Blog Post: Mondrian "Composition with Margins" Canvas ────
+   Three-column grid: accent margin | content | sticky sidebar.
+   Grid lines created by --ink background showing through gaps.
+   Collapses to single column at ≤920px.
+
+   Structure:
+     blog-canvas (grid container)
+     ├── blog-margin         (col 2, row 2)    — accent decoration
+     ├── blog-canvas-header  (col 4/-2, row 2) — breadcrumb, h1, deck
+     ├── blog-sidebar-meta   (col 6, row 2)    — date, author, tags
+     ├── blog-content        (col 4, row 4)    — meta-bar + prose
+     ├── blog-sidebar        (col 6, row 4)    — sticky: ToC, pullquotes
+     └── blog-canvas-footer  (col 2/-2, row 6) — attribution, nav
+
+   @see Issue #74
+   ────────────────────────────────────────────────────────────── */
+
+.blog-canvas {
+  display: grid;
+  grid-template-columns:
+    var(--line)
+    minmax(2.5rem, 0.4fr)    /* left margin — accent blocks */
+    var(--line)
+    minmax(20rem, 3fr)        /* main content */
+    var(--line)
+    minmax(10rem, 1.3fr)      /* right sidebar */
+    var(--line);
+  grid-template-rows:
+    var(--line) auto           /* header row */
+    var(--line) 1fr            /* body row (content + sidebar) */
+    var(--line) auto           /* footer row */
+    var(--line);
+  background: var(--ink);
+  width: min(100%, 72rem);
+  margin: 0 auto;
+  border: 1px solid #1a1814;
+  overflow: hidden;
+}
+
+/* ── Left margin: per-row Mondrian accent blocks ── */
+.blog-margin {
+  grid-column: 2;
+}
+
+.blog-margin--header {
+  grid-row: 2;
+  background: var(--red);
+}
+
+.blog-margin--body {
+  grid-row: 4;
+  /* Gradient stripe: yellow → white → blue (varies by section) */
+  background: linear-gradient(
+    to bottom,
+    var(--yellow) 0%,
+    var(--yellow) 25%,
+    var(--paper) 25%,
+    var(--paper) 60%,
+    var(--blue) 60%,
+    var(--blue) 100%
+  );
+}
+
+.blog-margin--footer {
+  grid-row: 6;
+  background: rgba(244, 239, 229, 0.96);
+}
+
+/* ── Header ── */
+.blog-canvas-header {
+  grid-column: 4;
+  grid-row: 2;
+  min-width: 0;
+  background: var(--paper);
+  padding: clamp(1.15rem, 3vw, 2.5rem);
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+}
+
+/* Header typography — explicit rules since blog-canvas-header
+   is outside the .project-hero scope that normally provides these. */
+.blog-canvas-header .project-breadcrumbs {
+  font-weight: 500;
+  color: rgba(17, 16, 13, 0.42);
+  margin-bottom: 1.5rem;
+}
+
+.blog-canvas-header .project-breadcrumbs a {
+  color: rgba(17, 16, 13, 0.42);
+}
+
+.blog-canvas-header h1 {
+  font-family: "Cormorant Garamond", Garamond, serif;
+  font-weight: 600;
+  font-size: clamp(2rem, 3.4vw, 3.4rem);
+  line-height: 1.04;
+  letter-spacing: -0.012em;
+  margin-bottom: 0.8rem;
+}
+
+.blog-canvas-header .project-deck {
+  font-family: "Inter", system-ui, sans-serif;
+  font-style: normal;
+  font-weight: 400;
+  font-size: clamp(0.85rem, 1vw, 1rem);
+  line-height: 1.6;
+  color: rgba(17, 16, 13, 0.62);
+  max-width: 54ch;
+}
+
+/* ── Sidebar metadata panel (top-right) ── */
+.blog-sidebar-meta {
+  grid-column: 6;
+  grid-row: 2;
+  min-width: 0;
+  background: rgba(244, 239, 229, 0.96);
+  padding: clamp(0.85rem, 2vw, 1.5rem);
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+}
+
+/* Topic pills in metadata panel */
+.blog-sidebar-topics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+}
+
+.blog-sidebar-topic {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.18rem 0.45rem;
+  background: rgba(17, 16, 13, 0.08);
+  border-radius: 2px;
+  font-family: "Inter", system-ui, sans-serif;
+  font-size: 0.6rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(17, 16, 13, 0.62);
+}
+
+.blog-sidebar-meta dl {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+  margin: 0;
+}
+
+.blog-sidebar-meta dt {
+  margin-bottom: 0.12rem;
+  font-size: clamp(0.58rem, 0.72vw, 0.68rem);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: rgba(17, 16, 13, 0.48);
+}
+
+.blog-sidebar-meta dd {
+  font-family: "Cormorant Garamond", Garamond, serif;
+  font-weight: 500;
+  font-size: clamp(0.88rem, 0.92vw, 0.98rem);
+}
+
+/* ── Main content column ── */
+.blog-content {
+  grid-column: 4;
+  grid-row: 4;
+  min-width: 0;
+  background: var(--paper);
+  padding: clamp(1.15rem, 3vw, 2.5rem);
+  align-self: stretch;
+}
+
+/* ── Right sidebar ──
+   The <aside> stretches the full grid cell height (align-self: stretch
+   by default) so its white background covers the entire row.
+   The inner div handles sticky scrolling independently. */
+.blog-sidebar {
+  grid-column: 6;
+  grid-row: 4;
+  min-width: 0;
+  background: var(--paper);
+  padding: 0;
+}
+
+.blog-sidebar-inner {
+  position: sticky;
+  top: 0;
+  max-height: 100vh;
+  overflow-y: auto;
+  padding: clamp(0.85rem, 2vw, 1.5rem);
+}
+
+/* Sidebar section dividers */
+.blog-sidebar-section {
+  padding-bottom: 1rem;
+  margin-bottom: 1rem;
+  border-bottom: 1px solid var(--rule);
+}
+
+.blog-sidebar-section:last-child {
+  border-bottom: none;
+  margin-bottom: 0;
+}
+
+/* Sidebar heading (e.g., "In this article") */
+.blog-sidebar-heading {
+  font-size: clamp(0.58rem, 0.72vw, 0.68rem);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: rgba(17, 16, 13, 0.48);
+  margin-bottom: 0.55rem;
+  font-family: "Inter", system-ui, sans-serif;
+  font-weight: 600;
+}
+
+/* Table of Contents */
+.blog-sidebar-toc-list {
+  list-style: none;
+  padding: 0;
+  display: grid;
+  gap: 0.35rem;
+}
+
+.blog-sidebar-toc-list li {
+  font-size: clamp(0.78rem, 0.86vw, 0.88rem);
+  line-height: 1.35;
+  padding: 0.25em 0;
+  border-bottom: 1px solid var(--rule);
+}
+
+.blog-sidebar-toc-list li:last-child {
+  border-bottom: none;
+}
+
+.blog-sidebar-toc-list a {
+  color: rgba(17, 16, 13, 0.62);
+  text-decoration: none;
+  transition: color var(--motion-fast) var(--ease-standard);
+}
+
+.blog-sidebar-toc-list a:hover {
+  color: var(--project-accent);
+}
+
+/* Pullquotes — bordered cards with accent left border */
+.blog-sidebar-pullquote {
+  margin: 1rem 0;
+  padding: 0.85rem 1rem;
+  border-left: 3px solid var(--project-accent);
+  background: rgba(255, 255, 255, 0.52);
+}
+
+.blog-sidebar-pullquote--red    { border-left-color: var(--red); }
+.blog-sidebar-pullquote--yellow { border-left-color: var(--yellow); }
+.blog-sidebar-pullquote--blue   { border-left-color: var(--blue); }
+
+.blog-sidebar-pullquote p {
+  font-family: "Cormorant Garamond", Garamond, serif;
+  font-size: clamp(0.92rem, 0.98vw, 1.04rem);
+  line-height: 1.38;
+  font-style: italic;
+  margin: 0;
+}
+
+.blog-sidebar-pullquote cite {
+  display: block;
+  margin-top: 0.4rem;
+  font-size: clamp(0.58rem, 0.72vw, 0.68rem);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  font-style: normal;
+  color: rgba(17, 16, 13, 0.48);
+}
+
+/* Sidebar items: mermaid diagrams, images */
+.blog-sidebar-item {
+  margin: 1rem 0;
+  padding: 0.65rem;
+  border: 1px solid var(--rule);
+  background: rgba(255, 255, 255, 0.62);
+  border-radius: 4px;
+  overflow-x: auto;
+}
+
+.blog-sidebar-item .mermaid {
+  font-size: 0.65rem;
+}
+
+.blog-sidebar-item img {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.blog-sidebar-caption {
+  margin-top: 0.4rem;
+  font-size: clamp(0.68rem, 0.78vw, 0.76rem);
+  color: rgba(17, 16, 13, 0.55);
+  line-height: 1.4;
+}
+
+.blog-sidebar-text {
+  margin: 0;
+  font-size: clamp(0.78rem, 0.85vw, 0.88rem);
+  line-height: 1.5;
+  color: rgba(17, 16, 13, 0.72);
+}
+
+/* ── Footer ── */
+.blog-canvas-footer {
+  grid-column: 2 / -2;
+  grid-row: 6;
+  min-width: 0;
+  background: rgba(244, 239, 229, 0.96);
+}
+
+/* Legacy single-column fallback (kept for backward compatibility) */
 .blog-layout {
   --blog-content-width: min(100%, 60rem);
   grid-template-columns: minmax(0, 1fr);
@@ -1163,14 +1483,20 @@ body.project-page {
 }
 
 .blog-prose > h2:not(.blog-prose-title) {
+  font-family: "Cormorant Garamond", Garamond, serif;
+  font-weight: 600;
+  font-size: clamp(1.3rem, 1.2rem + 0.4vw, 1.72rem);
+  line-height: 1.15;
   margin-top: 2.5rem;
   padding-top: 1.8rem;
   border-top: 1px solid var(--rule);
 }
 
 .blog-prose > h3 {
-  margin-top: 1.2rem;
+  margin-top: 1.8rem;
+  margin-bottom: 0.75rem;
   font-family: "Cormorant Garamond", Garamond, serif;
+  font-weight: 600;
   font-size: clamp(1.08rem, 1.45vw, 1.36rem);
   line-height: 1.1;
 }
@@ -1183,7 +1509,7 @@ body.project-page {
 }
 
 .blog-prose > p + p {
-  margin-top: 0.8rem;
+  margin-top: 1.4em;
 }
 
 .blog-prose > ul,
@@ -1198,7 +1524,10 @@ body.project-page {
 
 .blog-prose code {
   font-family: "SFMono-Regular", "SF Mono", Consolas, "Liberation Mono", Menlo, monospace;
-  font-size: 0.94em;
+  font-size: 0.88em;
+  background: rgba(17, 16, 13, 0.07);
+  padding: 0.15em 0.35em;
+  border-radius: 3px;
 }
 
 .blog-prose blockquote {
@@ -1652,6 +1981,59 @@ a:focus-visible {
 
   .blog-diagram-fanout-row {
     grid-template-columns: 1fr;
+  }
+
+  /* ── Blog Post canvas: collapse to single column ───────── */
+  .blog-canvas {
+    grid-template-columns: var(--line) 1fr var(--line);
+    grid-template-rows:
+      var(--line) auto       /* sidebar-meta (moves to top) */
+      var(--line) auto       /* header */
+      var(--line) auto       /* content */
+      var(--line) auto       /* footer */
+      var(--line);
+  }
+
+  .blog-margin { display: none; }
+
+  .blog-sidebar-meta {
+    grid-column: 2;
+    grid-row: 2;
+    min-width: 0;
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: flex-start;
+    gap: 0.8rem 1.5rem;
+    background: var(--project-accent);
+  }
+
+  .blog-sidebar-meta dl {
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 0.4rem 1.5rem;
+  }
+
+  .blog-sidebar-meta dt { color: rgba(255, 255, 255, 0.55); }
+  .blog-sidebar-meta dd { color: rgba(255, 255, 255, 0.95); }
+
+  .blog-canvas-header {
+    grid-column: 2;
+    grid-row: 4;
+    min-width: 0;
+  }
+
+  .blog-content {
+    grid-column: 2;
+    grid-row: 6;
+    min-width: 0;
+  }
+
+  .blog-sidebar { display: none; }
+
+  .blog-canvas-footer {
+    grid-column: 2;
+    grid-row: 8;
+    min-width: 0;
   }
 }
 

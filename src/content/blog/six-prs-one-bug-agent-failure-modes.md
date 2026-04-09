@@ -1,10 +1,41 @@
 ---
 title: "Six PRs, One Bug: What AI Agents Actually Get Wrong"
-description: "A billing email bug took six AI-authored PRs to diagnose—not because the agent couldn't write code, but because it never promoted a repeated local failure into a structural question. The full session log shows exactly how it happened."
+description: "A billing email bug took six AI-authored PRs to diagnose—not because the agent couldn't write code, but because it never promoted a repeated local failure into a structural question."
 author: "Nathan Payne"
 date: 2026-04-04
 tags: ["AI", "Engineering", "Product", "Systems", "Debugging"]
 image: "/og/six-prs-one-bug.png"
+pullquotes:
+  - text: "Agents are very good at making local progress inside the wrong model."
+    label: "Key insight"
+    accent: blue
+  - text: "When a target is concrete, the work becomes a parity problem, not a taste problem."
+    label: "On debugging strategy"
+    accent: red
+  - text: "The problem is not that the serializer is slightly wrong. The problem is that the serializer exists."
+    label: "The structural question"
+    accent: blue
+  - text: "The question is not whether your agent can write a regex. The question is whether your process tells the agent when to stop writing regexes and start questioning the architecture."
+    label: "Closing argument"
+    accent: red
+sidebar:
+  - type: mermaid
+    content: |
+      graph TD
+          PR144["#144: Preserved<br/>markdown bridge"] --> PR146["#146: Improved<br/>regex"]
+          PR146 --> PR153["#153: CSS patch +<br/>serialization"]
+          PR153 --> PR154["#154: Editor<br/>lifecycle fix"]
+          PR154 --> PR155["#155: Legacy<br/>migration fix"]
+          PR155 --> PR158["#158: Cleaner<br/>bridge module"]
+          PR158 -.->|"Reframed"| PR161["#161: Removed<br/>the bridge"]
+          style PR144 fill:#e8b4b4,stroke:#993d3d,color:#333
+          style PR146 fill:#e8b4b4,stroke:#993d3d,color:#333
+          style PR153 fill:#e8b4b4,stroke:#993d3d,color:#333
+          style PR154 fill:#e8b4b4,stroke:#993d3d,color:#333
+          style PR155 fill:#e8b4b4,stroke:#993d3d,color:#333
+          style PR158 fill:#e8b4b4,stroke:#993d3d,color:#333
+          style PR161 fill:#7bc67e,stroke:#4a8a4d,color:#fff
+    caption: "The six failed PRs and the one that worked"
 ---
 
 On April 4, 2026, I opened [issue #159](https://github.com/nathanjohnpayne/friends-and-family-billing/issues/159) in my Friends & Family Billing app. The bug looked small enough to be annoying, not interesting: the invoice template editor showed one thing, Preview showed another, and the email that actually went to customers showed a third.
