@@ -1111,6 +1111,15 @@ body.project-page {
   justify-content: center;
 }
 
+.post-card:hover,
+.post-card:focus-within {
+  background: #faf8f4;
+  box-shadow: inset 0 0 0 2px rgba(34, 63, 137, 0.18);
+  transition:
+    background-color var(--motion-hover) var(--ease-standard),
+    box-shadow var(--motion-hover) var(--ease-standard);
+}
+
 .post-meta {
   font-size: clamp(0.65rem, 0.78vw, 0.76rem);
   letter-spacing: 0.14em;
@@ -1222,6 +1231,15 @@ body.project-page {
 
 .accent-paper {
   background: #DDE1E5;
+}
+
+/* Overflow accent blocks — decorative only, hidden on mobile */
+.accent-overflow--cream {
+  background: #DDE1E5;
+}
+
+.accent-overflow--yellow {
+  background: #d9b111;
 }
 
 .rss-link {
@@ -2199,7 +2217,8 @@ a:focus-visible {
   .accent-blue,
   .accent-yellow,
   .accent-black,
-  .accent-paper {
+  .accent-paper,
+  .accent-overflow {
     display: none;
   }
 
