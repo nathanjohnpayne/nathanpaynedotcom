@@ -11,9 +11,9 @@ On April 4, 2026, I opened [issue #159](https://github.com/nathanjohnpayne/frien
 
 That framing turned out to be wrong.
 
-This was not a styling bug. It was a systems bug wearing a styling-bug costume. Over roughly twenty hours, one agent opened six PRs trying to resolve it: [#144](https://github.com/nathanjohnpayne/friends-and-family-billing/pull/144), [#146](https://github.com/nathanjohnpayne/friends-and-family-billing/pull/146), [#153](https://github.com/nathanjohnpayne/friends-and-family-billing/pull/153), [#154](https://github.com/nathanjohnpayne/friends-and-family-billing/pull/154), [#155](https://github.com/nathanjohnpayne/friends-and-family-billing/pull/155), and [#158](https://github.com/nathanjohnpayne/friends-and-family-billing/pull/158). None fixed the user-facing problem. [PR #161](https://github.com/nathanjohnpayne/friends-and-family-billing/pull/161) finally did, but only after a different agent, given a fundamentally different kind of prompt, treated the whole thing as a failed-fix investigation instead of another incremental patch.
+This was not a styling bug. It was a systems bug wearing a styling-bug costume. Over roughly twenty hours, one agent opened six PRs trying to resolve it: [#144](https://github.com/nathanjohnpayne/friends-and-family-billing/pull/144), [#146](https://github.com/nathanjohnpayne/friends-and-family-billing/pull/146), [#153](https://github.com/nathanjohnpayne/friends-and-family-billing/pull/153), [#154](https://github.com/nathanjohnpayne/friends-and-family-billing/pull/154), [#155](https://github.com/nathanjohnpayne/friends-and-family-billing/pull/155), and [#158](https://github.com/nathanjohnpayne/friends-and-family-billing/pull/158). None fixed the user-facing problem. [PR #161](https://github.com/nathanjohnpayne/friends-and-family-billing/pull/161) finally did—but only after a different agent, given a fundamentally different kind of prompt, treated the whole thing as a failed-fix investigation instead of another incremental patch.
 
-The lesson is not "AI is bad at formatting." The lesson is that agents are very good at making local progress inside the wrong model, and that the difference between six failed fixes and one successful one was not a smarter agent. It was a different supervision structure.
+The lesson is not "AI is bad at formatting." The lesson is that agents are very good at making local progress inside the wrong model—and that the difference between six failed fixes and one successful one was not a smarter agent. It was a different supervision structure.
 
 I have the full session log: eighteen user prompts, nine external code review rounds, three automated stop-hook interventions, and the task document that finally produced the fix. This post is about what that record shows.
 
@@ -25,15 +25,27 @@ If a template editor is going to be trustworthy, it has to preserve one basic in
 Editor = Preview = Sent email
 ```
 
-Here is what the actual pipeline looked like after the TipTap migration:
+**The rendering pipeline after the TipTap migration:**
 
-```text
-Editor:  TipTap / ProseMirror document -> Editor DOM
-Preview: TipTap / ProseMirror document -> docToPlainTextWithTokens() -> CommonMark renderer -> Preview HTML
-Email:   TipTap / ProseMirror document -> docToPlainTextWithTokens() -> Regex-based renderer -> Sent email HTML
+```mermaid
+graph LR
+    A["TipTap / ProseMirror<br/>Document"] --> B["Editor DOM"]
+    A --> C["docToPlainTextWithTokens()"]
+    C --> D["CommonMark<br/>Renderer"]
+    C --> E["Regex-based<br/>Renderer"]
+    D --> F["Preview HTML"]
+    E --> G["Sent Email HTML"]
+
+    style A fill:#4a90d9,stroke:#2c5f8a,color:#fff
+    style B fill:#7bc67e,stroke:#4a8a4d,color:#fff
+    style C fill:#e07c5a,stroke:#b35937,color:#fff
+    style D fill:#d4a84b,stroke:#a07830,color:#fff
+    style E fill:#d4a84b,stroke:#a07830,color:#fff
+    style F fill:#c75c5c,stroke:#993d3d,color:#fff
+    style G fill:#c75c5c,stroke:#993d3d,color:#fff
 ```
 
-The editor rendered structured content directly. Preview and send did not. They first flattened that structured document back into markdown-like plain text, then reparsed it through two different HTML pipelines.
+Three paths, three outputs. The editor rendered structured content directly. Preview and send did not—they first flattened that structured document back into markdown-like plain text through `docToPlainTextWithTokens()`, then reparsed it through two *different* HTML pipelines.
 
 Once that happened, "WYSIWYG editor" stopped being true in any meaningful sense. The same content was no longer guaranteed to produce the same semantics.
 
@@ -95,6 +107,26 @@ It did not.
 
 ## Why six PRs still did not fix it
 
+**The six failed PRs and the one that worked:**
+
+```mermaid
+graph TD
+    PR144["#144: Preserved markdown bridge"] --> PR146["#146: Improved regex"]
+    PR146 --> PR153["#153: CSS patch + mark serialization"]
+    PR153 --> PR154["#154: Editor lifecycle fix"]
+    PR154 --> PR155["#155: Legacy migration fix"]
+    PR155 --> PR158["#158: Cleaner bridge module"]
+    PR158 -.->|"Reframed as failed-fix investigation"| PR161["#161: Removed the bridge entirely"]
+
+    style PR144 fill:#e8b4b4,stroke:#993d3d,color:#333
+    style PR146 fill:#e8b4b4,stroke:#993d3d,color:#333
+    style PR153 fill:#e8b4b4,stroke:#993d3d,color:#333
+    style PR154 fill:#e8b4b4,stroke:#993d3d,color:#333
+    style PR155 fill:#e8b4b4,stroke:#993d3d,color:#333
+    style PR158 fill:#e8b4b4,stroke:#993d3d,color:#333
+    style PR161 fill:#7bc67e,stroke:#4a8a4d,color:#fff
+```
+
 The failed PRs show how an agent can keep doing competent work without ever repairing the invariant. This was Claude Code on the failed attempts and OpenAI Codex on the successful one, but I do not think this is mainly a vendor story. The session log makes clear that the difference was in the prompt structure, not the model.
 
 ### PR #144: the migration preserved the old assumption
@@ -107,9 +139,21 @@ That decision made the rest of the bug almost inevitable. The app now had a rich
 
 My kickoff prompt for the session was:
 
-> Read /Users/nathanpayne/GitHub/docs/projects/friends-and-family-billing/invoicing-tab-redesign.md and implement the plan.
+> Read [invoicing-tab-redesign.md](https://github.com/nathanjohnpayne/friends-and-family-billing/blob/main/docs/invoicing-tab-redesign.md) and implement the plan.
 
-The design spec described what the invoicing tab should look like. It did not describe what architectural invariants the rendering pipeline should preserve. So the agent picked the fastest path to a working UI: keep the old pipeline, bolt a new editor on top.
+Here is the part that makes this harder to dismiss as "bad prompting": that [design spec](https://github.com/nathanjohnpayne/friends-and-family-billing/blob/main/docs/invoicing-tab-redesign.md) was good. It was a 520-line document that explicitly chose TipTap JSON as the canonical storage format, explained why ("persisting HTML would require round-tripping through TipTap's HTML parser/serializer on every load/save cycle, which is lossy"), and described the derived output model clearly: "HTML is generated from JSON for Preview rendering. Email-safe HTML is generated from JSON for final outbound email rendering."
+
+That last sentence is essentially the invariant. The spec described a system where JSON is the source of truth and both Preview and email are derived from it through HTML generation.
+
+But the spec also included a backward-compatibility requirement:
+
+> `buildInvoiceBody` in `invoice.js` must handle: (1) Legacy plain-text templates containing `%token%` syntax (read from `settings.emailMessage`), (2) The new TipTap JSON document format (read from `settings.emailMessageDocument`)
+
+That requirement created the bridge. The agent had to keep the old plaintext pipeline working alongside the new JSON format. PR #144's decision to flatten the structured document back into plaintext via `docToPlainTextWithTokens()` and run it through the existing `buildInvoiceBody` was a reasonable interpretation of "handle both formats"—convert the new format into the old one and reuse the existing pipeline. It is the lazy interpretation, but it is not an unreasonable one. The spec did not say "you must create a new email renderer that operates directly on the JSON document." It said the old function must handle both formats, and the simplest way to handle both is to convert the new one into the old one.
+
+This matters because it means the failure was not "the agent had bad instructions." The spec implied the right architecture. The agent read the spec and made a locally rational decision that violated the spec's intent without violating its letter. Even well-written specs can leave enough room for an agent to choose the path of least resistance, and the path of least resistance is almost always "preserve the existing pipeline."
+
+The takeaway is subtler than "state your invariant explicitly." It is: when a spec describes a new architecture but also requires backward compatibility with the old one, the agent will optimize for the compatibility constraint and sacrifice the architectural one. The invariant needs to be stated as a constraint that outranks backward compatibility, not implied by the storage format choice.
 
 ### PR #146: the agent got better at regex, not closer to the invariant
 
@@ -159,7 +203,7 @@ Both changes are locally valid. They probably improved the experience. They also
 
 Those were both good fixes. They were also orthogonal to editor/preview/email parity. This is another failure mode worth noticing: an agent working on the right issue can still accumulate adjacent wins that make everyone feel progress is happening while the core invariant remains broken.
 
-The review feedback on PR #155 is telling. The nathanpayne-codex reviewer flagged three separate round-trip safety issues: link parsing that stopped at the first `)` in a URL, italic-wrapped links that did not survive serialization, and marked token forms that were not covered. Three findings, all pointing at the same structural problem, the intermediate format was lossy, and the agent addressed each one as a scoped regex fix.
+The review feedback on PR #155 is telling. The nathanpayne-codex reviewer flagged three separate round-trip safety issues: link parsing that stopped at the first `)` in a URL, italic-wrapped links that did not survive serialization, and marked token forms that were not covered. Three findings, all pointing at the same structural problem—the intermediate format was lossy—and the agent addressed each one as a scoped regex fix.
 
 ### PR #158: the bridge got cleaner, and the system stayed wrong
 
@@ -190,7 +234,30 @@ Why does this serializer exist at all?
 
 ## The automated guardrails saw it too
 
-The session included three automated stop-hook interventions, system-level checks that fire between prompts. Two of them are relevant:
+**The closed feedback loop:**
+
+```mermaid
+graph TD
+    BUG["Bug reported"] --> AGENT["Agent receives symptom"]
+    AGENT --> PATCH["Patches nearest code path"]
+    PATCH --> REVIEW["Code review flags\nround-trip failure"]
+    PATCH --> HOOK["Stop-hook flags\ndata consistency issue"]
+    PATCH --> USER["User reports\nsame symptom again"]
+    REVIEW --> AGENT
+    HOOK --> AGENT
+    USER --> AGENT
+
+    style BUG fill:#e07c5a,stroke:#b35937,color:#fff
+    style AGENT fill:#4a90d9,stroke:#2c5f8a,color:#fff
+    style PATCH fill:#d4a84b,stroke:#a07830,color:#fff
+    style REVIEW fill:#c75c5c,stroke:#993d3d,color:#fff
+    style HOOK fill:#c75c5c,stroke:#993d3d,color:#fff
+    style USER fill:#c75c5c,stroke:#993d3d,color:#fff
+```
+
+Three signal sources, one agent, zero escalation. The loop never opened.
+
+The session included three automated stop-hook interventions—system-level checks that fire between prompts. Two of them are relevant:
 
 **Hook 2** flagged that the plaintext fallback was being derived from `editor.getText()` instead of the invoice renderer. With the TipTap schema, `getText()` was adding extra blank lines around block tokens and dropping list markers. This is the divergent-render-path problem stated as an automated finding: the system was generating plaintext from a method that did not match the rendering pipeline.
 
@@ -222,7 +289,7 @@ And it included a constraints section that explicitly banned the exact moves Cla
 
 Every constraint corresponds to something the first agent actually did. The CSS patch in PR #153. The regex improvements in #146 and #155. The additional transformation layer in #158. The minimal-diff optimization throughout. This was not a generic best-practices list. It was a list of specific mistakes extracted from the session history.
 
-The task document also required the agent to deliver an audit of the prior fixes as part of the PR, not just the code, but an explanation of which assumptions were wrong and which abstractions made the problem worse. And it required regression tests proving that Preview output and email output were structurally equivalent.
+The task document also required the agent to deliver an audit of the prior fixes as part of the PR—not just the code, but an explanation of which assumptions were wrong and which abstractions made the problem worse. And it required regression tests proving that Preview output and email output were structurally equivalent.
 
 ## What finally worked
 
@@ -255,3 +322,86 @@ await queueEmail({
 ```
 
 The Cloud Function was updated to send trusted app-generated HTML when it was provided instead of reparsing markdown again. The winning fix did not become more sophisticated about formatting. It became simpler about boundaries.
+
+**The architecture after the fix:**
+
+```mermaid
+graph LR
+    A["TipTap / ProseMirror<br/>Document"] --> B["Editor DOM"]
+    A --> C["Canonical Template<br/>Renderer"]
+    C --> D["Preview HTML"]
+    C --> E["Sent Email HTML"]
+
+    style A fill:#4a90d9,stroke:#2c5f8a,color:#fff
+    style B fill:#7bc67e,stroke:#4a8a4d,color:#fff
+    style C fill:#7bc67e,stroke:#4a8a4d,color:#fff
+    style D fill:#7bc67e,stroke:#4a8a4d,color:#fff
+    style E fill:#7bc67e,stroke:#4a8a4d,color:#fff
+```
+
+One source document, one semantic rendering path, multiple consumers.
+
+## The difference was not the model
+
+**Symptom-driven vs. invariant-driven supervision:**
+
+```mermaid
+graph TD
+    S1["'This looks wrong'"] --> S2["Find nearest code path"]
+    S2 --> S3["Patch it"]
+    S3 --> S4["Same symptom reappears"]
+    S4 --> S2
+
+    I1["'Why have six fixes failed?'"] --> I2["Audit prior assumptions"]
+    I2 --> I3["Identify shared wrong assumption"]
+    I3 --> I4["Remove the wrong abstraction"]
+
+    style S1 fill:#e8b4b4,stroke:#993d3d,color:#333
+    style S2 fill:#e8b4b4,stroke:#993d3d,color:#333
+    style S3 fill:#e8b4b4,stroke:#993d3d,color:#333
+    style S4 fill:#c75c5c,stroke:#993d3d,color:#fff
+    style I1 fill:#b8ddb8,stroke:#4a8a4d,color:#333
+    style I2 fill:#b8ddb8,stroke:#4a8a4d,color:#333
+    style I3 fill:#b8ddb8,stroke:#4a8a4d,color:#333
+    style I4 fill:#7bc67e,stroke:#4a8a4d,color:#fff
+```
+
+It would be easy to read this as "Codex is better than Claude Code at architecture." I do not think that is the right conclusion.
+
+Claude Code received eighteen prompts over twenty hours. In that time, it also received nine rounds of code review feedback from an automated reviewer that correctly identified round-trip safety failures three separate times. It received three stop-hook interventions that flagged data consistency problems in the rendering pipeline. It had more information about what was wrong than the Codex agent ever did.
+
+The difference was in what the prompt asked the agent to do with that information.
+
+Every prompt I gave Claude Code described the current symptom: "bold in preview but not editor." Each time, the agent did what a competent developer would do if you walked up to their desk and said "this looks wrong"—it found the nearest code path that could explain the symptom and patched it. That is not a failure of intelligence. It is a failure of framing.
+
+The Codex task document did not describe the current symptom at all. It described a pattern of failed fixes and asked the agent to explain why they failed before proposing anything new. It stated the system invariant explicitly. It banned specific classes of patches. It required an audit as a deliverable.
+
+That is a different kind of work. It is not "fix this bug." It is "explain why this bug has survived six attempts to fix it, and address the underlying cause." Any agent—Claude, Codex, Gemini, a future model—will behave differently when the task is framed that way.
+
+## What I changed after this
+
+After this issue, I turned the lesson into repo policy. Three rules:
+
+**The two-strike rule.** If an agent has already made two failed fix attempts on the same problem, the third attempt must begin with an audit of the previous PRs. The agent has to explain what each prior fix assumed and why the assumption was wrong before it proposes a new fix. This prevents the patch-accumulation loop that produced PRs #146 through #158.
+
+**The serialization checklist.** If a bug involves serialization or deserialization—content crossing a format boundary—the code review now asks three questions:
+
+- Is the round-trip lossless?
+- Do all consumers of the format produce equivalent output?
+- Is the intermediate format even necessary?
+
+Those three questions would have caught this bug at PR #144. They are simple, but they target the exact blind spot that agents have: they will improve a bridge indefinitely without asking whether the bridge should exist.
+
+**Constraint-driven prompts for system bugs.** When a bug touches more than one layer of the system, the prompt now includes an explicit list of banned approaches derived from prior failures. Not "best practices" in the abstract—specific things this codebase has already tried that did not work. The agent needs to know what the search space does not include.
+
+**Invariants outrank backward compatibility.** This is the lesson from the design spec. A spec can describe the right architecture and still leave room for an agent to build a bridge to the old one if it also requires backward compatibility. When both are present, the spec now states which constraint wins. "The new rendering path is the canonical path. Legacy format support is a migration concern, not an architectural peer."
+
+## What AI agents actually get wrong
+
+The agent was not failing because it could not write code. Every PR compiled, passed tests, and improved something locally. The serializer got more faithful. The CSS got tighter. The module boundaries got cleaner. If you looked at any individual diff, you would approve it.
+
+The agent was failing because it did not, on its own, promote a repeated local failure into a structural question. It received the same class of bug report four times. It received code review feedback identifying round-trip safety failures three times. It received automated hook interventions flagging data consistency problems twice. At no point did it step back and say: the problem is not that the serializer is slightly wrong. The problem is that the serializer exists.
+
+The moment the work was reframed around the invariant instead of the symptom, the fix became straightforward.
+
+That is the gap teams need to close as they hand more of their codebase to agents. Not better models. Better supervision. The question is not whether your agent can write a regex. The question is whether your process tells the agent when to stop writing regexes and start questioning the architecture.
