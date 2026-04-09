@@ -1186,6 +1186,12 @@ body.project-page {
   margin-top: 0.8rem;
 }
 
+.blog-prose > ul,
+.blog-prose > ol {
+  margin: 0.6rem 0 1rem;
+  padding-left: 1.4rem;
+}
+
 .blog-prose strong {
   font-weight: 700;
 }
@@ -1201,6 +1207,12 @@ body.project-page {
   margin: 1rem 0 1.2rem;
   background: rgba(255, 255, 255, 0.52);
   color: rgba(17, 16, 13, 0.82);
+  overflow-wrap: break-word;
+}
+
+.blog-prose blockquote code {
+  overflow-wrap: break-word;
+  word-break: break-all;
 }
 
 .blog-prose blockquote ul {
@@ -1303,13 +1315,38 @@ body.project-page {
   line-height: 1.65;
 }
 
+.blog-code-block::-webkit-scrollbar {
+  height: 6px;
+}
+
+.blog-code-block::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.blog-code-block::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 3px;
+}
+
+.blog-code-block:hover::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.35);
+}
+
+.blog-code-block--light::-webkit-scrollbar-thumb {
+  background: rgba(17, 16, 13, 0.1);
+}
+
+.blog-code-block--light:hover::-webkit-scrollbar-thumb {
+  background: rgba(17, 16, 13, 0.25);
+}
+
 /* Syntax highlighting — Astro/Shiki css-variables mapped to original warm palette */
 .blog-code-block {
   --astro-code-foreground: #f5f0e4;
   --astro-code-background: #15120e;
   --astro-code-token-constant: #d4a5b0;
   --astro-code-token-string: #a3c493;
-  --astro-code-token-comment: #8a8272;
+  --astro-code-token-comment: #a09888;
   --astro-code-token-keyword: #e8a466;
   --astro-code-token-parameter: #b8a9d4;
   --astro-code-token-function: #c9b97a;
