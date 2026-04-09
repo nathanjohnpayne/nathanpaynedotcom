@@ -16,7 +16,7 @@ export default defineConfig({
     remarkPlugins: [remarkMermaid],
     rehypePlugins: [rehypeFigureCaptions],
     shikiConfig: {
-      theme: 'vitesse-dark',
+      theme: 'css-variables',
       transformers: [
         {
           pre(node) {
