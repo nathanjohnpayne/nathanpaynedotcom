@@ -1,5 +1,6 @@
 ---
 title: "Six PRs, One Bug: What AI Agents Actually Get Wrong"
+shortTitle: "Six PRs, One Bug"
 description: "A billing email bug took six AI-authored PRs to diagnose—not because the agent couldn't write code, but because it never promoted a repeated local failure into a structural question."
 author: "Nathan Payne"
 date: 2026-04-04

@@ -1396,13 +1396,31 @@ body.blog-page {
 /* Header typography — explicit rules since blog-canvas-header
    is outside the .project-hero scope that normally provides these. */
 .blog-canvas-header .project-breadcrumbs {
-  font-weight: 500;
-  color: rgba(17, 16, 13, 0.42);
+  font-weight: 400;
+  color: rgba(17, 16, 13, 0.38);
   margin-bottom: 1.5rem;
 }
 
 .blog-canvas-header .project-breadcrumbs a {
-  color: rgba(17, 16, 13, 0.42);
+  color: rgba(17, 16, 13, 0.38);
+}
+
+.blog-canvas-header .project-breadcrumbs a:hover {
+  color: rgba(17, 16, 13, 0.62);
+}
+
+.blog-canvas-header .breadcrumb-sep {
+  color: rgba(17, 16, 13, 0.22);
+  user-select: none;
+}
+
+.blog-canvas-header .breadcrumb-current {
+  color: rgba(17, 16, 13, 0.52);
+  letter-spacing: 0.04em;
+  max-width: 28ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .blog-canvas-header h1 {
@@ -1447,14 +1465,14 @@ body.blog-page {
   display: inline-flex;
   align-items: center;
   padding: 0.18rem 0.45rem;
-  background: transparent;
+  background: rgba(17, 16, 13, 0.08);
   border-radius: 2px;
   font-family: "Inter", system-ui, sans-serif;
   font-size: 0.6rem;
-  font-weight: 500;
+  font-weight: 600;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: rgba(17, 16, 13, 0.48);
+  color: rgba(17, 16, 13, 0.62);
 }
 
 .blog-sidebar-meta dl {
