@@ -6,17 +6,17 @@ date: 2026-04-04
 tags: ["AI", "Engineering", "Product", "Systems", "Debugging"]
 image: "/og/six-prs-one-bug.png"
 pullquotes:
-  - text: "Agents are very good at making local progress inside the wrong model."
-    label: "Key insight"
+  - text: "Every PR compiled, passed tests, and improved something locally."
+    label: "What AI agents actually get wrong"
     accent: blue
-  - text: "When a target is concrete, the work becomes a parity problem, not a taste problem."
-    label: "On debugging strategy"
+  - text: "Three paths, three outputs."
+    label: "The invariant was simple"
     accent: red
-  - text: "The problem is not that the serializer is slightly wrong. The problem is that the serializer exists."
-    label: "The structural question"
+  - text: "Three findings, all pointing at the same structural problem. The agent addressed each one as a scoped fix."
+    label: "Why six PRs still did not fix it"
     accent: blue
-  - text: "The question is not whether your agent can write a regex. The question is whether your process tells the agent when to stop writing regexes and start questioning the architecture."
-    label: "Closing argument"
+  - text: "You start by describing a bug, escalate to 'you keep missing something,' and end by questioning your own requirements."
+    label: "What I actually said to the agent"
     accent: red
 sidebar:
   - type: mermaid
@@ -84,25 +84,25 @@ Once that happened, "WYSIWYG editor" stopped being true in any meaningful sense.
 
 The screenshots in [issue #159](https://github.com/nathanjohnpayne/friends-and-family-billing/issues/159) are not just visual proof that something looked off. They are evidence that different layers of the system were interpreting the same content differently.
 
-### 1. Editor: the structured document still looked sane
+### Editor: the structured document still looked sane
 
 ![Editor Screenshot](/blog/six-prs-one-bug-agent-failure-modes/img/invoice-bug-01-editor-view.png)
 
 In Edit mode, the intro paragraph is ordinary body text. The billing-summary link, payment options block, divider, and signature are all in the expected order. At this point the content still lives as structured TipTap / ProseMirror JSON, so the system has not yet lost information.
 
-### 2. Preview: semantics changed during the markdown round-trip
+### Preview: semantics changed during the markdown round-trip
 
 ![Preview Screenshot](/blog/six-prs-one-bug-agent-failure-modes/img/invoice-bug-02-preview-view.png)
 
 Preview was not rendering the editor document directly. It serialized the document into markdown-like text and reparsed that text with CommonMark. Separator lines like `---` were being interpreted differently across surfaces, and list content was picking up paragraph wrappers with default margins. That is why the Preview screenshot looks heavier and more spread out than the editor even though the author never changed the template content.
 
-### 3. Sent email: a second parser created a third version of reality
+### Sent email: a second parser created a third version of reality
 
 ![Sent Email Screenshot](/blog/six-prs-one-bug-agent-failure-modes/img/invoice-bug-03-broken-sent-email.png)
 
 The sent email did not use the Preview renderer. It took the same flattened text and pushed it through a separate regex-based markdown renderer in the Cloud Function. So by the time the email reached a customer inbox, the system had already turned one source document into three different interpretations: editor, preview, and email.
 
-### 4. The target was concrete, not hypothetical
+### The target was concrete, not hypothetical
 
 ![Correct Intended Email Screenshot](/blog/six-prs-one-bug-agent-failure-modes/img/invoice-bug-04-correct-sent-email.png)
 
@@ -411,7 +411,7 @@ That is a different kind of work. It is not "fix this bug." It is "explain why t
 
 ## What I changed after this
 
-After this issue, I turned the lesson into repo policy. Three rules:
+After this issue, I turned the lesson into repo policy. Four rules:
 
 **The two-strike rule.** If an agent has already made two failed fix attempts on the same problem, the third attempt must begin with an audit of the previous PRs. The agent has to explain what each prior fix assumed and why the assumption was wrong before it proposes a new fix. This prevents the patch-accumulation loop that produced PRs #146 through #158.
 

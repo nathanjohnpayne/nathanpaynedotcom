@@ -1408,10 +1408,10 @@ body.blog-page {
 .blog-canvas-header h1 {
   font-family: "Cormorant Garamond", Garamond, serif;
   font-weight: 600;
-  font-size: clamp(2rem, 3.4vw, 3.4rem);
-  line-height: 1.04;
+  font-size: clamp(2rem, 3vw, 3rem);
+  line-height: 1.08;
   letter-spacing: -0.012em;
-  margin-bottom: 0.8rem;
+  margin-bottom: 1.2rem;
 }
 
 .blog-canvas-header .project-deck {
@@ -1447,14 +1447,14 @@ body.blog-page {
   display: inline-flex;
   align-items: center;
   padding: 0.18rem 0.45rem;
-  background: rgba(17, 16, 13, 0.08);
+  background: transparent;
   border-radius: 2px;
   font-family: "Inter", system-ui, sans-serif;
   font-size: 0.6rem;
-  font-weight: 600;
+  font-weight: 500;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: rgba(17, 16, 13, 0.62);
+  color: rgba(17, 16, 13, 0.48);
 }
 
 .blog-sidebar-meta dl {
@@ -1760,7 +1760,7 @@ body.blog-page {
 .blog-prose blockquote {
   border-left: 3px solid var(--project-accent);
   padding: 0.75rem 1rem 0.75rem 1.1rem;
-  margin: 1rem 0 1.2rem;
+  margin: 1.4rem 0 1.2rem;
   background: rgba(255, 255, 255, 0.52);
   color: rgba(17, 16, 13, 0.82);
   overflow-wrap: break-word;
@@ -1928,7 +1928,7 @@ body.blog-page {
 
 
 .blog-footer {
-  padding: clamp(1.15rem, 2.5vw, 2rem) clamp(1.15rem, 3vw, 2.5rem);
+  padding: clamp(1.5rem, 3vw, 2.5rem) clamp(1.15rem, 3vw, 2.5rem);
   border-top: 1px solid var(--rule);
   display: flex;
   flex-wrap: wrap;
