@@ -177,7 +177,7 @@ html, body {
   display: inline-block;
   background: #11100d;
   color: var(--cream);
-  border: 1px solid rgba(242, 237, 225, 0.85);
+  border: 1px solid rgba(245, 240, 228, 0.85);
   padding: 0.22em 0.52em 0.26em;
   line-height: 0.96;
   white-space: nowrap;
