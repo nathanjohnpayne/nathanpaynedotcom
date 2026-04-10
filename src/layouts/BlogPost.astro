@@ -23,6 +23,7 @@ import BaseLayout from './BaseLayout.astro';
 
 interface Props {
   title: string;
+  shortTitle?: string;
   description: string;
   author: string;
   date: Date;
@@ -36,6 +37,7 @@ interface Props {
 
 const {
   title,
+  shortTitle,
   description,
   author,
   date,
@@ -149,7 +151,11 @@ const jsonLd = {
       {/* ── Header ── */}
       <header class="blog-canvas-header">
         <nav class="project-breadcrumbs" aria-label="Breadcrumb">
-          <a href="/blog/">&larr; Blog</a>
+          <a href="/">Nathan Payne</a>
+          <span class="breadcrumb-sep">/</span>
+          <a href="/blog/">Blog</a>
+          <span class="breadcrumb-sep">/</span>
+          <span class="breadcrumb-current">{shortTitle || 'Article'}</span>
         </nav>
         <h1>{title}</h1>
         <p class="project-deck">{description}</p>
