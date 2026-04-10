@@ -1123,11 +1123,8 @@ body.blog-page {
 
 .post-card:hover,
 .post-card:focus-within {
-  background: #faf8f4;
   box-shadow: inset 0 0 0 2px rgba(34, 63, 137, 0.18);
-  transition:
-    background-color var(--motion-hover) var(--ease-standard),
-    box-shadow var(--motion-hover) var(--ease-standard);
+  transition: box-shadow var(--motion-hover) var(--ease-standard);
 }
 
 .post-meta {
@@ -1267,7 +1264,7 @@ body.blog-page {
 
 /* ── Footer Row ── */
 .grid-footer {
-  background: var(--surface);
+  background: var(--paper);
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -1345,7 +1342,10 @@ body.blog-page {
   width: min(100%, 72rem);
   margin: 0 auto;
   border: 1px solid var(--grid-border);
-  overflow: hidden;
+  /* Use clip instead of hidden — hidden creates a scroll container
+     which breaks position:sticky on .blog-sidebar-inner. clip
+     provides the same visual clipping without a new scroll context. */
+  overflow: clip;
 }
 
 /* ── Left margin: per-row Mondrian accent blocks ── */
@@ -1378,7 +1378,7 @@ body.blog-page {
 
 .blog-margin--footer {
   grid-row: 6;
-  background: var(--surface);
+  background: var(--paper);
 }
 
 /* ── Header ── */
@@ -1386,7 +1386,7 @@ body.blog-page {
   grid-column: 4;
   grid-row: 2;
   min-width: 0;
-  background: var(--surface);
+  background: var(--paper);
   padding: clamp(1.15rem, 3vw, 2.5rem);
   display: flex;
   flex-direction: column;
@@ -1498,14 +1498,9 @@ body.blog-page {
   min-width: 0;
   background: var(--surface);
   padding: 0;
-  overflow: hidden;
 }
 
 .blog-sidebar-inner {
-  position: sticky;
-  top: 0;
-  max-height: 100vh;
-  overflow-y: auto;
   padding: clamp(0.85rem, 2vw, 1.5rem);
 }
 
@@ -1630,7 +1625,7 @@ body.blog-page {
   grid-column: 2 / -2;
   grid-row: 6;
   min-width: 0;
-  background: var(--surface);
+  background: var(--paper);
 }
 
 /* Legacy single-column fallback (kept for backward compatibility) */
