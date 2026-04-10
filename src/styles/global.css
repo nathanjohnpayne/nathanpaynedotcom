@@ -1013,6 +1013,7 @@ body.blog-page {
 /* ── Hero ── */
 .hero {
   padding: clamp(1.15rem, 3vw, 2.5rem) clamp(1.15rem, 3vw, 2.5rem);
+  background: var(--paper);
   border-bottom: var(--line) solid var(--ink);
 }
 
@@ -1227,7 +1228,7 @@ body.blog-page {
 }
 
 .accent-cream {
-  background: #DDE1E5;
+  background: #d4d4d4;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1358,14 +1359,18 @@ body.blog-page {
 
 .blog-margin--body {
   grid-row: 4;
-  /* Gradient stripe: yellow → white → blue (varies by section) */
+  /* Gradient stripe: yellow | ink line | white | ink line | blue */
   background: linear-gradient(
     to bottom,
     var(--yellow) 0%,
     var(--yellow) 25%,
-    var(--paper) 25%,
+    var(--ink) 25%,
+    var(--ink) calc(25% + var(--line)),
+    var(--paper) calc(25% + var(--line)),
     var(--paper) 60%,
-    var(--blue) 60%,
+    var(--ink) 60%,
+    var(--ink) calc(60% + var(--line)),
+    var(--blue) calc(60% + var(--line)),
     var(--blue) 100%
   );
 }
@@ -1423,7 +1428,7 @@ body.blog-page {
   grid-column: 6;
   grid-row: 2;
   min-width: 0;
-  background: var(--surface);
+  background: #d4d4d4;
   padding: clamp(0.85rem, 2vw, 1.5rem);
   display: flex;
   flex-direction: column;
@@ -1492,6 +1497,7 @@ body.blog-page {
   min-width: 0;
   background: var(--surface);
   padding: 0;
+  overflow: hidden;
 }
 
 .blog-sidebar-inner {
