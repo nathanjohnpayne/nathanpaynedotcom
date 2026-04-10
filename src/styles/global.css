@@ -6,6 +6,7 @@
   --blue: #223f89;
   --black: #11100d;
   --accent-black: #333333;
+  --accent-gray: #d4d4d4;
   --linkedin-blue-6: #006699;
   --linkedin-blue-4: #00A0DC;
   --linkedin-gray-6: #313335;
@@ -1228,7 +1229,7 @@ body.blog-page {
 }
 
 .accent-cream {
-  background: #d4d4d4;
+  background: var(--accent-gray);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1428,7 +1429,7 @@ body.blog-page {
   grid-column: 6;
   grid-row: 2;
   min-width: 0;
-  background: #d4d4d4;
+  background: var(--accent-gray);
   padding: clamp(0.85rem, 2vw, 1.5rem);
   display: flex;
   flex-direction: column;
