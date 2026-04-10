@@ -1070,7 +1070,7 @@ body.blog-page {
   display: grid;
   grid-template-columns: minmax(0, 5fr) minmax(0, 2.2fr) minmax(0, 2.8fr);
   gap: var(--line);
-  min-height: 22rem;
+  min-height: 16rem;
 }
 
 /* Row 2: post (~72%) | yellow (~28%) */
@@ -2239,6 +2239,13 @@ a:focus-visible {
 
   /* Placeholder cards hidden on mobile */
   .post-card--placeholder {
+    display: none;
+  }
+
+  /* Hide grid rows that contain only hidden children (placeholder + hidden accent)
+     to prevent double grid-gap lines from empty rows */
+  .grid-row--2:has(> .post-card--placeholder),
+  .grid-row--4:has(> .post-card--placeholder) {
     display: none;
   }
 
