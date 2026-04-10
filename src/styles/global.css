@@ -5,6 +5,7 @@
   --yellow: #d9b111;
   --blue: #223f89;
   --black: #11100d;
+  --accent-black: #333333;
   --linkedin-blue-6: #006699;
   --linkedin-blue-4: #00A0DC;
   --linkedin-gray-6: #313335;
@@ -685,7 +686,7 @@ html, body {
 .panel--black {
   grid-column: 2;
   grid-row: 6 / 9;
-  background: #333333;
+  background: var(--accent-black);
   color: var(--cream);
 }
 
@@ -762,7 +763,7 @@ body.blog-page {
 }
 
 .project-page--black {
-  --project-accent: #333333;
+  --project-accent: var(--accent-black);
   --project-accent-foreground: #f5f0e4;
   --project-accent-soft: rgba(51, 51, 51, 0.12);
   --project-bg: #d1cbc2;
@@ -1111,7 +1112,7 @@ body.blog-page {
 
 /* ── Post Cards ── */
 .post-card {
-  background: var(--paper);
+  background: var(--surface);
   padding: clamp(1.2rem, 2.5vw, 2rem);
   display: flex;
   flex-direction: column;
@@ -1181,7 +1182,7 @@ body.blog-page {
 
 /* ── Placeholder Cards (future posts) ── */
 .post-card--placeholder {
-  background: var(--paper);
+  background: var(--surface);
   padding: clamp(1.2rem, 2.5vw, 2rem);
   display: flex;
   flex-direction: column;
@@ -1233,7 +1234,7 @@ body.blog-page {
 }
 
 .accent-black {
-  background: #333333;
+  background: var(--accent-black);
 }
 
 .accent-paper {
@@ -1379,7 +1380,7 @@ body.blog-page {
   grid-column: 4;
   grid-row: 2;
   min-width: 0;
-  background: var(--paper);
+  background: var(--surface);
   padding: clamp(1.15rem, 3vw, 2.5rem);
   display: flex;
   flex-direction: column;
@@ -1476,7 +1477,7 @@ body.blog-page {
   grid-column: 4;
   grid-row: 4;
   min-width: 0;
-  background: var(--paper);
+  background: var(--surface);
   padding: clamp(1.15rem, 3vw, 2.5rem);
   align-self: stretch;
 }
@@ -1489,7 +1490,7 @@ body.blog-page {
   grid-column: 6;
   grid-row: 4;
   min-width: 0;
-  background: var(--paper);
+  background: var(--surface);
   padding: 0;
 }
 
