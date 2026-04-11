@@ -7,7 +7,7 @@ export async function GET(context: APIContext) {
     .sort((a, b) => b.data.date.getTime() - a.data.date.getTime());
 
   return rss({
-    title: 'Nathan Payne — Blog',
+    title: 'Nathan Payne—Blog',
     description: 'Essays and notes on AI agents, product systems, debugging, and engineering.',
     site: context.site!.toString(),
     items: posts.map((post) => ({
