@@ -7,7 +7,15 @@ import rehypeFigureCaptions from './src/plugins/rehype-figure-captions.mjs';
 // https://astro.build/config
 export default defineConfig({
   site: 'https://nathanpayne.com',
-  integrations: [sitemap()],
+  integrations: [
+    sitemap({
+      serialize(item) {
+        // Add lastmod to all sitemap entries
+        item.lastmod = new Date().toISOString();
+        return item;
+      },
+    }),
+  ],
   output: 'static',
   build: {
     format: 'directory',

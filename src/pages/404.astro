@@ -1,0 +1,39 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+---
+
+<BaseLayout
+  title="Page Not Found | Nathan Payne"
+  description="The page you're looking for doesn't exist. Navigate back to Nathan Payne's portfolio, blog, or projects."
+  bodyClass="project-page project-page--red"
+  noindex
+>
+  <main class="error-shell">
+    <div class="error-mondrian">
+      <div class="e-content">
+        <nav class="breadcrumbs" aria-label="Breadcrumb">
+          <a href="/">Nathan Payne</a>
+          <span>/</span>
+          <span>404</span>
+        </nav>
+        <h1>Page not found</h1>
+        <p class="deck">The page you're looking for doesn't exist or has been moved.</p>
+        <div class="project-actions">
+          <a class="project-action" href="/">Homepage</a>
+          <a class="project-action" href="/blog/">Blog</a>
+          <a class="project-action" href="/projects/override/">Projects</a>
+        </div>
+      </div>
+
+      {/* Decorative Mondrian blocks */}
+      <div class="e-block e-red" aria-hidden="true"></div>
+      <div class="e-block e-yellow-a" aria-hidden="true"></div>
+      <div class="e-block e-blue" aria-hidden="true"></div>
+      <div class="e-block e-black" aria-hidden="true"></div>
+      <div class="e-block e-white-a" aria-hidden="true"></div>
+      <div class="e-block e-white-b" aria-hidden="true"></div>
+      <div class="e-block e-yellow-b" aria-hidden="true"></div>
+      <div class="e-block e-white-c" aria-hidden="true"></div>
+    </div>
+  </main>
+</BaseLayout>

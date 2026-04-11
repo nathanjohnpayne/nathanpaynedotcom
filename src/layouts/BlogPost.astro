@@ -49,7 +49,13 @@ const {
   sidebar,
 } = Astro.props;
 
-const canonical = new URL(Astro.url.pathname, Astro.site).href;
+const rawPathname = Astro.url.pathname;
+const normalizedPathname = rawPathname === '/' || rawPathname.includes('.')
+  ? rawPathname
+  : rawPathname.endsWith('/')
+    ? rawPathname
+    : `${rawPathname}/`;
+const canonical = new URL(normalizedPathname, Astro.site).href;
 const fullTitle = `${title} | Nathan Payne`;
 const kicker = tags.join(' · ');
 const publishedDate = date.toLocaleDateString('en-US', {
@@ -221,7 +227,7 @@ const jsonLd = {
                   <pre class="mermaid" set:html={escapeHtml(item.content)} />
                 )}
                 {item.type === 'image' && (
-                  <img src={item.content} alt={item.caption || ''} loading="lazy" />
+                  <img src={item.content} alt={item.caption || 'Sidebar illustration'} loading="lazy" />
                 )}
                 {item.type === 'text' && (
                   <p class="blog-sidebar-text">{item.content}</p>

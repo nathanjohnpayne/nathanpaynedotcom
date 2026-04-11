@@ -12,6 +12,14 @@ import { visit } from 'unist-util-visit';
  *     <figcaption><strong>Figure N:</strong> Alt text</figcaption>
  *   </figure>
  */
+// Static dimension map for CLS prevention (measured via sips)
+const imageDimensions = {
+  '/blog/six-prs-one-bug-agent-failure-modes/img/invoice-bug-01-editor-view.png': { width: 1915, height: 1716 },
+  '/blog/six-prs-one-bug-agent-failure-modes/img/invoice-bug-02-preview-view.png': { width: 1937, height: 2071 },
+  '/blog/six-prs-one-bug-agent-failure-modes/img/invoice-bug-03-broken-sent-email.png': { width: 1250, height: 1181 },
+  '/blog/six-prs-one-bug-agent-failure-modes/img/invoice-bug-04-correct-sent-email.png': { width: 1250, height: 1222 },
+};
+
 export default function rehypeFigureCaptions() {
   return (tree) => {
     let figureCount = 0;
@@ -34,9 +42,16 @@ export default function rehypeFigureCaptions() {
 
       figureCount++;
 
-      // Add loading="lazy" to the image
+      // Add loading="lazy" and dimensions to the image
       img.properties = img.properties || {};
       img.properties.loading = 'lazy';
+
+      const src = img.properties.src || '';
+      const dims = imageDimensions[src];
+      if (dims) {
+        img.properties.width = dims.width;
+        img.properties.height = dims.height;
+      }
 
       // Build the <figure> element that replaces the <p>
       const figure = {
