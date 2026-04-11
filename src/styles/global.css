@@ -1352,15 +1352,18 @@ body.blog-page {
 .error-mondrian {
   width: min(95vw, 64rem);
   display: grid;
-  grid-template-columns: 2.4fr var(--line) 1fr var(--line) 1.2fr var(--line) 0.5fr;
-  grid-template-rows: auto var(--line) 5rem var(--line) 3.5rem;
+  grid-template-columns:
+    var(--line) 2.4fr var(--line) 1fr var(--line) 1.2fr var(--line) 0.5fr var(--line);
+  grid-template-rows:
+    var(--line) auto var(--line) 5rem var(--line) 3.5rem var(--line);
   background: var(--black);
-  border: 1px solid var(--grid-border);
+  border: var(--line) solid var(--grid-border);
+  box-shadow: 14px 14px 0 rgba(17, 16, 13, 0.12);
 }
 
 .e-content {
-  grid-column: 1 / 6;
-  grid-row: 1;
+  grid-column: 2 / 7;
+  grid-row: 2;
   background: var(--surface);
   padding: clamp(2rem, 5vw, 4rem);
 }
@@ -1403,20 +1406,21 @@ body.blog-page {
 
 .e-block { min-height: 0; }
 
-/* Grid placement for decorative blocks */
-.e-red       { grid-column: 6 / 8; grid-row: 1;     background: var(--red); }
-.e-yellow-a  { grid-column: 1 / 3; grid-row: 3;     background: var(--yellow); }
-.e-blue      { grid-column: 3;     grid-row: 3 / 6; background: var(--blue); }
-.e-black     { grid-column: 5;     grid-row: 3;     background: var(--black); }
-.e-white-a   { grid-column: 6 / 8; grid-row: 3;     background: #E5EEEB; }
-.e-white-b   { grid-column: 1;     grid-row: 5;     background: #F2E7D5; }
-.e-yellow-b  { grid-column: 5 / 7; grid-row: 5;     background: var(--yellow); }
-.e-white-c   { grid-column: 7;     grid-row: 5;     background: #FCFDE7; }
+/* Grid placement for decorative blocks (offset by 1 for border tracks) */
+.e-red       { grid-column: 8 / 10; grid-row: 2;     background: var(--red); }
+.e-yellow-a  { grid-column: 2 / 4;  grid-row: 4;     background: var(--yellow); }
+.e-blue      { grid-column: 4;      grid-row: 4 / 8; background: var(--blue); }
+.e-black     { grid-column: 6;      grid-row: 4;     background: var(--accent-black); }
+.e-white-a   { grid-column: 8 / 10; grid-row: 4;     background: #E5EEEB; }
+.e-white-b   { grid-column: 2;      grid-row: 6;     background: #F2E7D5; }
+.e-yellow-b  { grid-column: 6 / 8;  grid-row: 6;     background: var(--yellow); }
+.e-white-c   { grid-column: 8;      grid-row: 6;     background: #FCFDE7; }
 
 @media (max-width: 768px) {
   .error-mondrian {
     grid-template-columns: 1fr;
     grid-template-rows: auto;
+    box-shadow: 8px 8px 0 rgba(17, 16, 13, 0.1);
   }
   .e-content {
     grid-column: 1;
