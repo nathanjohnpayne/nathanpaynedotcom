@@ -1347,6 +1347,7 @@ body.blog-page {
   justify-content: center;
   min-height: 100vh;
   padding: 2rem;
+  background: #c4c3bc;
 }
 
 .error-mondrian {
@@ -1413,10 +1414,10 @@ body.blog-page {
 .e-yellow-a  { grid-column: 2; grid-row: 4;   background: var(--yellow); }
 .e-blue      { grid-column: 4; grid-row: 4/7; background: var(--blue); }
 .e-black     { grid-column: 6; grid-row: 4;   background: var(--accent-black); }
-.e-white-a   { grid-column: 8; grid-row: 4;   background: #E5EEEB; }
-.e-white-b   { grid-column: 2; grid-row: 6;   background: #F2E7D5; }
+.e-white-a   { grid-column: 8; grid-row: 4;   background: #d4d4d4; }
+.e-white-b   { grid-column: 2; grid-row: 6;   background: #d4d4d4; }
 .e-yellow-b  { grid-column: 6; grid-row: 6;   background: var(--yellow); }
-.e-white-c   { grid-column: 8; grid-row: 6;   background: #FCFDE7; }
+.e-white-c   { grid-column: 8; grid-row: 6;   background: var(--paper); }
 
 @media (max-width: 768px) {
   .error-mondrian {
