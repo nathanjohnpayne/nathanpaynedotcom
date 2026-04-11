@@ -1357,7 +1357,7 @@ body.blog-page {
   grid-template-rows:
     var(--line) auto var(--line) 5rem var(--line) 3.5rem var(--line);
   background: var(--black);
-  border: var(--line) solid var(--grid-border);
+  border: 1px solid var(--grid-border);
   box-shadow: 14px 14px 0 rgba(17, 16, 13, 0.12);
 }
 
@@ -1406,21 +1406,23 @@ body.blog-page {
 
 .e-block { min-height: 0; }
 
-/* Grid placement for decorative blocks (offset by 1 for border tracks) */
-.e-red       { grid-column: 8 / 10; grid-row: 2;     background: var(--red); }
-.e-yellow-a  { grid-column: 2 / 4;  grid-row: 4;     background: var(--yellow); }
-.e-blue      { grid-column: 4;      grid-row: 4 / 8; background: var(--blue); }
-.e-black     { grid-column: 6;      grid-row: 4;     background: var(--accent-black); }
-.e-white-a   { grid-column: 8 / 10; grid-row: 4;     background: #E5EEEB; }
-.e-white-b   { grid-column: 2;      grid-row: 6;     background: #F2E7D5; }
-.e-yellow-b  { grid-column: 6 / 8;  grid-row: 6;     background: var(--yellow); }
-.e-white-c   { grid-column: 8;      grid-row: 6;     background: #FCFDE7; }
+/* Grid placement for decorative blocks — each cell sits in a content track only;
+   var(--line) gap tracks between every cell create consistent black separators.
+   Content tracks: cols 2,4,6,8 · rows 2,4,6 */
+.e-red       { grid-column: 8; grid-row: 2;   background: var(--red); }
+.e-yellow-a  { grid-column: 2; grid-row: 4;   background: var(--yellow); }
+.e-blue      { grid-column: 4; grid-row: 4/7; background: var(--blue); }
+.e-black     { grid-column: 6; grid-row: 4;   background: var(--accent-black); }
+.e-white-a   { grid-column: 8; grid-row: 4;   background: #E5EEEB; }
+.e-white-b   { grid-column: 2; grid-row: 6;   background: #F2E7D5; }
+.e-yellow-b  { grid-column: 6; grid-row: 6;   background: var(--yellow); }
+.e-white-c   { grid-column: 8; grid-row: 6;   background: #FCFDE7; }
 
 @media (max-width: 768px) {
   .error-mondrian {
     grid-template-columns: 1fr;
     grid-template-rows: auto;
-    box-shadow: 8px 8px 0 rgba(17, 16, 13, 0.1);
+    box-shadow: 4px 4px 0 rgba(17, 16, 13, 0.06);
   }
   .e-content {
     grid-column: 1;
