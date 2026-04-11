@@ -598,7 +598,8 @@ html, body {
   font-size: clamp(0.64rem, 0.74vw, 0.72rem);
   line-height: 1.45;
   letter-spacing: 0.10em;
-  color: rgba(17, 16, 13, 0.70);
+  word-spacing: 0.05em;
+  color: rgba(17, 16, 13, 0.50);
   text-decoration: none;
   transition: color var(--motion-hover) var(--ease-standard);
 }
