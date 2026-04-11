@@ -964,11 +964,23 @@ body.blog-page {
 .project-checklist li::before {
   content: "";
   position: absolute;
-  top: 0.7em;
+  top: 0.5em;
   left: 0;
   width: 0.42rem;
   height: 0.42rem;
   background: var(--project-accent);
+}
+
+.project-card .project-checklist a {
+  color: inherit;
+  text-decoration: none;
+  font-size: clamp(0.9rem, 0.9rem + 0.08vw, 0.98rem);
+  line-height: 1.55;
+  transition: color var(--motion-hover) var(--ease-standard);
+}
+
+.project-card .project-checklist a:hover {
+  color: var(--project-accent);
 }
 
 .project-sidebar {
