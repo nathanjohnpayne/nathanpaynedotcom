@@ -58,10 +58,10 @@ const {
       <header class="project-hero">
         <nav class="project-breadcrumbs" aria-label="Breadcrumb">
           <a href="/">Nathan Payne</a>
-          <span>/</span>
-          <span>Projects</span>
-          <span>/</span>
-          <span set:html={breadcrumbLabel} />
+          <span class="breadcrumb-sep">/</span>
+          <a href="/projects/">Projects</a>
+          <span class="breadcrumb-sep">/</span>
+          <span class="breadcrumb-current" set:html={breadcrumbLabel} />
         </nav>
         <p class="project-kicker">{kicker}</p>
         <h1 set:html={headline} />

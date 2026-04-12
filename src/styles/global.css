@@ -883,6 +883,14 @@ body.blog-page {
   text-decoration: none;
 }
 
+.project-breadcrumbs a:hover {
+  text-decoration: underline;
+}
+
+.project-breadcrumbs .breadcrumb-sep {
+  user-select: none;
+}
+
 .project-kicker {
   margin-bottom: calc(var(--su) * 0.9);
   padding-left: clamp(1rem, 2.2vw, 1.6rem);
@@ -1105,6 +1113,14 @@ body.blog-page {
 .breadcrumbs a {
   color: inherit;
   text-decoration: none;
+}
+
+.breadcrumbs a:hover {
+  text-decoration: underline;
+}
+
+.breadcrumbs .breadcrumb-sep {
+  user-select: none;
 }
 
 .kicker {
@@ -1683,6 +1699,7 @@ a.tag:hover {
 
 .blog-canvas-header .project-breadcrumbs a:hover {
   color: rgba(17, 16, 13, 0.62);
+  text-decoration: none;
 }
 
 .blog-canvas-header .breadcrumb-sep {
