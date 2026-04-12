@@ -1486,12 +1486,11 @@ body.blog-page {
   grid-column: 2 / 7;
   grid-row: 2;
   background: var(--surface);
-  padding: 40px 44px;
+  padding: 48px;
   display: flex;
   flex-direction: column;
   justify-content: center;
   overflow: hidden;
-  min-width: 0;
 }
 
 .og-label {
@@ -1506,18 +1505,16 @@ body.blog-page {
 
 .og-heading {
   font-family: "Cormorant Garamond", Garamond, serif;
-  font-size: 52px;
+  font-size: 64px;
   font-weight: 600;
-  line-height: 1.08;
+  line-height: 1.05;
   color: var(--ink);
-  margin: 0 0 10px;
-  overflow-wrap: break-word;
-  word-break: break-word;
+  margin: 0 0 12px;
 }
 
 .og-description {
   font-family: "Inter", system-ui, sans-serif;
-  font-size: 18px;
+  font-size: 20px;
   line-height: 1.45;
   color: #555;
   margin: 0 0 8px;
