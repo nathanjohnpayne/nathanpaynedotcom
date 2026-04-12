@@ -121,7 +121,7 @@ if [[ "$MODE" == "review" || "$MODE" == "all" ]]; then
   # op inject resolves all op:// references in a single process — one
   # biometric prompt covers both reads.
   tpl_file="$(mktemp "${TMPDIR:-/tmp}/op-preflight-tpl-XXXXXX")"
-  trap 'rm -f "$tpl_file" "${adc_tmpfile:-}"' EXIT
+  trap 'rm -f "$tpl_file"' EXIT
 
   cat > "$tpl_file" <<TPL
 REVIEWER_PAT={{ op://Private/${reviewer_item}/token }}
