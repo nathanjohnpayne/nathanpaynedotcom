@@ -20,7 +20,6 @@ import { readdir, mkdir, rm, stat } from 'node:fs/promises';
 import { join, relative } from 'node:path';
 import { createServer } from 'node:http';
 import { createReadStream } from 'node:fs';
-import { lookup } from 'node:dns';
 
 /**
  * Recursively find all index.html files under a directory.
