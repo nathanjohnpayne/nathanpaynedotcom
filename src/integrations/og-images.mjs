@@ -148,10 +148,6 @@ export default function ogImages() {
           }
 
           logger.info(`Generated ${templatePaths.length} OG images`);
-        } catch (error) {
-          logger.warn(
-            `OG image generation failed: ${error instanceof Error ? error.message : String(error)}`
-          );
         } finally {
           await browser?.close();
           server.close();
