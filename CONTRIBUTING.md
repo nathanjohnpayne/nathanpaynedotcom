@@ -2,7 +2,7 @@
 
 ## Overview
 
-nathanpayne.com is a small, focused static portfolio site. Contributions should honor the design philosophy: clean Mondrian grid layout, strict motion system, no dependencies, no build tooling. Changes should be minimal and precise — this is not a site that benefits from added complexity.
+nathanpayne.com is a personal portfolio and blog site built with Astro. Contributions should honor the design philosophy: clean Mondrian grid layout, strict motion system, and minimal complexity. Changes should be precise — this is not a site that benefits from added abstractions.
 
 ## Branch Naming
 
@@ -28,29 +28,35 @@ For larger changes, add a body explaining why, not what.
 
 1. Branch from `main`
 2. Keep changes focused — visual changes and content changes in separate commits
-3. Test manually before opening a PR (see Testing below)
-4. Bump the `?v=` query string on `style.css` and `script.js` in `index.html` if either file changed
-5. Open a PR against `main` with a clear title and description
-6. At least one human review required before merge
+3. Run `npm run test` before opening a PR
+4. Open a PR against `main` with a clear title and description
+5. At least one human review required before merge
 
 ## Code Style
 
-- **HTML:** Semantic elements, ARIA attributes on panels (`role="region"`, `aria-label`), `aria-hidden="true"` on decorative blocks, `target="_blank" rel="noopener"` on external links, inline SVG for icons
-- **CSS:** All durations and easing via motion tokens only (no hard-coded `ms` or bare `ease`). Design tokens in `:root`. Panel classes are color-based, not content-based. `clamp()` for fluid sizing.
-- **JavaScript:** IIFE-wrapped, strict mode, no globals, vanilla DOM only. `matchMedia` for capability detection. Guard analytics calls with `typeof gtag !== 'function'`.
+- **Astro pages:** Semantic elements, ARIA attributes on panels (`role="region"`, `aria-label`), `aria-hidden="true"` on decorative blocks, `target="_blank" rel="noopener"` on external links, inline SVG for icons
+- **CSS:** All durations and easing via motion tokens only (no hard-coded `ms` or bare `ease`). Design tokens in `:root` of `src/styles/global.css`. `clamp()` for fluid sizing.
+- **Markdown:** Blog posts in `src/content/blog/` must include valid frontmatter matching the Zod schema in `src/content.config.ts`.
 - No linter is configured. Follow the patterns in the existing files exactly.
 
 ## Testing
 
-No automated test suite. Before submitting a PR, manually verify:
+Vitest and Playwright tests cover metadata, layout, interactions, and routes.
 
-1. All four panels open/close correctly on desktop (hover)
+```bash
+npm run test          # astro build && vitest run
+npm run test:e2e      # playwright test
+```
+
+Before submitting a PR, also manually verify:
+
+1. Homepage panels open/close correctly on desktop (hover)
 2. Keyboard navigation works: Tab to focus, Enter/Space to open, Escape to close
-3. Mobile view (375px): panels stack vertically, content always visible, no interaction handlers active
-4. `prefers-reduced-motion` respected: test in macOS Accessibility settings or Chrome DevTools
+3. Mobile view (375px): panels stack vertically, content always visible
+4. `prefers-reduced-motion` respected
 5. No console errors in Chrome and Safari
 6. OG metadata renders correctly (use a social card preview tool if OG image changed)
-7. Cache-bust query strings updated in `index.html` if CSS or JS changed
+7. Blog routes and RSS feed work if blog content or templates changed
 
 ## Agent Contributions
 

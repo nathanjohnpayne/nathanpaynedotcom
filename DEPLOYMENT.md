@@ -350,17 +350,20 @@ There is no staging environment. All deploys go directly to production.
 
 ## Build Process
 
-No build step required. This is a static site — source files (`index.html`, `style.css`, `script.js`, assets) are deployed directly from the repository root.
+The site uses Astro to generate static HTML/CSS/JS into `dist/`. **Always build before deploying:**
 
-**Before deploying**, bump the query-string version on asset references in `index.html`:
-
-```html
-<!-- Increment date + letter suffix whenever CSS or JS changes -->
-<link rel="stylesheet" href="style.css?v=20260228j">
-<script src="script.js?v=20260228j"></script>
+```bash
+npm run build
 ```
 
-OG images use a separate version string and are cached immutably for 1 year — bump only when the OG image itself changes.
+This runs `astro build`, which:
+1. Compiles all `.astro` pages and layouts into static HTML
+2. Processes Markdown blog posts via Content Collections
+3. Generates the sitemap via `@astrojs/sitemap`
+4. Generates OG images via the custom Playwright integration
+5. Outputs everything to `dist/`
+
+Astro handles asset fingerprinting automatically — no manual cache-busting is needed.
 
 ## Deployment Steps
 
@@ -444,8 +447,9 @@ Or use the Firebase Console → Hosting → Release History → Roll back.
 3. Hover over each panel on desktop — confirm open/close animations work
 4. Test keyboard navigation (Tab to focus panels, Enter to open, Escape to close)
 5. Verify mobile view at 375px — panels should stack vertically with content always visible
-6. Check DevTools → Network → confirm `style.css` and `script.js` load with correct `?v=` params
-7. Check Firebase Console → Analytics → confirm `section_view` events fire on panel hover
+6. Verify blog listing (`/blog/`) and at least one blog post load correctly
+7. Verify OG images render (check `/og/home.png` or use a social card preview tool)
+8. Check Firebase Console → Analytics → confirm `section_view` events fire on panel hover
 
 ## CI/CD Integration
 
@@ -491,7 +495,7 @@ For Claude Code cloud scheduled tasks:
 
 | Pattern | Cache TTL |
 |---------|-----------|
-| `og-image.png`, `/og/**` | 1 year (immutable) |
+| `og-image.png`, `/og/**` | 24 hours |
 | `**/*.js`, `**/*.css` | 1 hour |
 | `**/*.html` | 1 hour |
 

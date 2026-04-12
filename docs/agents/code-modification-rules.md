@@ -5,20 +5,21 @@
 #### Color
 ```
 --ink:       #11100d    (near-black text)
---paper:     #dde1e5    (light gray blocks)
---red:       #c84430    (token) / #c11d19 (red cell bg)
---yellow:    #ddb84f    (token) / #d9b111 (yellow cell bg)
---blue:      #23488d    (token) / #223f89 (blue cell bg)
---black:     #11100d    (grid bg, black cell)
+--paper:     #ffffff    (white background)
+--red:       #c11d19    (red cell bg)
+--yellow:    #d9b111    (yellow cell bg)
+--blue:      #223f89    (blue cell bg)
+--cream:     #f5f0e4    (light background)
+--surface:   rgba(244, 239, 229, 0.96) (semi-transparent)
+--grid-border: #1a1814  (separator color)
 ```
 
-All cells transition to `#e4ded0` (warm parchment) when opened.
+All cells transition to a warm parchment tone when opened.
 
 #### Layout
 ```
 --line:      9px        (grid line width, 6px on mobile)
 --su:        0.42rem    (spacing unit)
---rule:      rgba(17, 16, 13, 0.18)  (divider/border color)
 ```
 
 #### Motion — Durations
@@ -60,15 +61,15 @@ JavaScript adds `.is-scrolling` to `<body>` during active scroll (debounced at 1
 #### Reduced Motion
 `@media (prefers-reduced-motion: reduce)` sets `transition-duration: 0ms` and `animation-duration: 0ms` on all elements (`*`, `*::before`, `*::after`) universally.
 
-### No New Dependencies
-Do not introduce npm, bundlers, frameworks, or external libraries. This is intentionally a small, dependency-free static site. Any change requiring new dependencies requires explicit discussion and a `plans/` entry.
+### Framework Rules
+**Astro is the framework.** Do not introduce additional frameworks, client-side runtimes, or bundlers without explicit discussion and a `plans/` entry. New npm dependencies require explicit discussion.
 
 ### Credential Hygiene
 - This repo should not contain API keys, service-account JSON, or ADC credentials. GA Measurement IDs are public identifiers; anything write-capable is not.
 - Deploy auth is keyless and 1Password-backed: `op-firebase-deploy` creates short-lived impersonated credentials from `op://Private/c2v6emkwppjzjjaq2bdqk3wnlm/credential`, another explicit `GOOGLE_APPLICATION_CREDENTIALS` file, or CI-provided external-account credentials.
 - The 1Password-first deploy-auth model is a deliberate repository invariant. Do not switch this repo back to ADC-first, routine browser-login, `firebase login`, or long-lived deploy-key auth without explicit human approval.
 - Routine deploys and `gcloud` work should not require browser login once the shared 1Password source credential exists. If that credential itself needs rotation, refresh it once and update the 1Password item. If impersonation bindings drift, rerun `op-firebase-setup nathanpaynedotcom`.
-- If you add Firebase or third-party API keys later, keep them in ignored config, not in `index.html` or `script.js`.
+- If you add Firebase or third-party API keys later, keep them in ignored config files, not in source.
 
 ### Typography
 - **Headings / labels:** Cormorant Garamond (serif), weights 400–700.
@@ -82,39 +83,49 @@ Do not introduce npm, bundlers, frameworks, or external libraries. This is inten
 
 ### Stack
 
-Vanilla HTML, CSS, and JavaScript — no frameworks, no bundler, no runtime renderer.
-Deployed to Firebase Hosting. Pre-generating blog HTML into checked-in static files is acceptable; do not add a bundler or framework unless explicitly asked.
+Astro (static site generator) with vanilla CSS and minimal client-side JavaScript. Build outputs to `dist/`, deployed to Firebase Hosting.
 
 ### Files
 
-All source lives at the repo root: `index.html`, `style.css`, `script.js`.
-There is no `src/` directory.
+All source lives in `src/`:
+- **Pages:** `src/pages/` (Astro routing — each `.astro` file becomes a route)
+- **Layouts:** `src/layouts/` (BaseLayout, BlogPost, ProjectLayout, OgCard)
+- **Content:** `src/content/blog/*.md` (Markdown blog posts with Zod-validated frontmatter)
+- **Styles:** `src/styles/global.css` (single global stylesheet)
+- **Plugins:** `src/plugins/` (Remark and Rehype processors for markdown)
+- **Integrations:** `src/integrations/` (build-time OG image generation)
+
+Static assets (favicons, robots.txt, OG fonts) live in `public/` and are copied verbatim to `dist/`.
 
 ### CSS
 
 - Design tokens in `:root` — always use or extend them.
 - **Motion system:** All durations use `--motion-fast` / `--motion-hover` / `--motion-plane` / `--motion-load`. All easing uses `--ease-standard` / `--ease-sharp` / `--ease-linear`. Translation magnitude uses `--shift-small` / `--shift-medium`. No hard-coded `ms` values or bare `ease` keywords.
-- Panel classes are **color-based** (`panel--red`, `panel--yellow`, `panel--black`, `panel--blue`). They control grid position and color; content is assigned independently via `data-panel`.
+- Homepage panel states are driven by `data-focus` attribute on the grid container. CSS defines `grid-template-columns` + `grid-template-rows` for each `data-focus` value.
 - Fluid sizing via `clamp()`; no fixed-breakpoint font overrides.
 - Single responsive breakpoint at `max-width: 920px`.
 - Respect `prefers-reduced-motion: reduce` — universal `*` selector zeroes all transition/animation durations.
 - Use `:focus-visible` (not `:focus`) for keyboard outlines.
 
-### JavaScript
-
-- IIFE-wrapped, strict mode, no globals.
-- Vanilla DOM APIs only — no jQuery, no utility libraries.
-- Capability detection via `matchMedia`, never user-agent strings.
-- Guard analytics calls with `typeof gtag !== 'function'`.
-
-### HTML
+### Astro Pages
 
 - Semantic elements (`<main>`, `<section>`, `<article>`).
 - ARIA: `role="region"` + `aria-label` on panels; `aria-hidden="true"` on decorative blocks.
 - External links: `target="_blank" rel="noopener"`.
 - Inline SVG for icons — no icon fonts or sprite sheets.
 
-### Deployment
+### Markdown / Content Collections
 
-- Bump the query-string version (`?v=YYYYMMDD<letter>`) on `style.css` and `script.js` references in `index.html` whenever those files change.
-- Deploy with `op-firebase-deploy`. Never run `firebase deploy` directly.
+- Blog posts use Astro Content Collections with a Zod schema defined in `src/content.config.ts`.
+- Frontmatter includes: `title`, `shortTitle` (optional), `description`, `author`, `date`, `tags`, `image`, `draft`, `pullquotes`, `sidebar`.
+- Custom Remark plugin converts ` ```mermaid ` code blocks to `<pre class="mermaid">` for client-side rendering.
+- Custom Rehype plugin wraps standalone images in `<figure>` with auto-numbered `<figcaption>`.
+
+### Build & Dev
+
+- **Dev server:** `npm run dev` (Astro dev server with HMR)
+- **Build:** `npm run build` (outputs to `dist/`)
+- **Tests:** `npm run test` (builds, then runs Vitest); `npm run test:e2e` (Playwright)
+- **Deploy:** `op-firebase-deploy` (never `firebase deploy` directly)
+
+---

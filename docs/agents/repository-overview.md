@@ -1,56 +1,70 @@
 # Repository Overview
 
 ### Project Summary
-Static personal portfolio, project, and blog site for [nathanpayne.com](https://nathanpayne.com). Vanilla HTML + CSS + JavaScript — no frameworks, no runtime dependencies, no bundler. Deployed to Firebase Hosting.
+Static personal portfolio, project, and blog site for [nathanpayne.com](https://nathanpayne.com). Built with **Astro** (static site generator) — outputs pre-rendered HTML/CSS/JS with no server runtime. Deployed to Firebase Hosting.
 
 ### Architecture
-Homepage plus dedicated static project pages and generated static blog pages:
+Astro pages, layouts, and content collections generate the full static site into `dist/`:
 
 | File | Role |
 |------|------|
-| `index.html` | Homepage markup. Contains homepage SEO meta, Open Graph tags, homepage JSON-LD, inline GA4 snippet, and font preconnects. |
-| `projects/<slug>/index.html` | Dedicated project detail pages with project-specific meta, canonicals, and JSON-LD. |
-| `content/blog/*.md` | Markdown source posts with frontmatter. |
-| `blog/index.html` | Generated blog landing page. |
-| `blog/<slug>/index.html` | Generated static blog post pages. |
-| `style.css` | Shared styles for the Mondrian homepage and the project detail pages. |
-| `script.js` | Homepage panel open/close logic, keyboard navigation, hover intent, scroll guard, analytics event tracking. Wrapped in an IIFE. |
-| `scripts/generate-blog.js` | Generates static blog routes from `content/blog/*.md`. |
-| `robots.txt` | Crawl directives for search engines. |
-| `sitemap.xml` | Canonical URL inventory for search engines. |
+| `src/pages/index.astro` | Homepage markup — Mondrian grid layout, panel interactions. |
+| `src/pages/blog/index.astro` | Blog listing page. |
+| `src/pages/blog/[slug].astro` | Dynamic blog post pages rendered from Content Collections. |
+| `src/pages/projects/*/index.astro` | Dedicated project detail pages with project-specific meta, canonicals, and JSON-LD. |
+| `src/pages/rss.xml.ts` | RSS feed endpoint (via `@astrojs/rss`). |
+| `src/pages/404.astro` | Custom error page. |
+| `src/layouts/BaseLayout.astro` | Base wrapper — SEO meta, Open Graph tags, JSON-LD, GA4 snippet, font preconnects. |
+| `src/layouts/BlogPost.astro` | Blog post layout (three-column Mondrian-inspired grid with sidebar). |
+| `src/layouts/ProjectLayout.astro` | Project page layout. |
+| `src/layouts/OgCard.astro` | OG image card template (1200×630). |
+| `src/styles/global.css` | Shared styles — Mondrian homepage grid, project/blog pages, motion system, responsive, accessibility. |
+| `src/content/blog/*.md` | Markdown blog post source files with frontmatter. |
+| `src/content.config.ts` | Content Collections schema definition (Zod-validated frontmatter). |
+| `src/plugins/remark-mermaid.mjs` | Remark plugin — converts ` ```mermaid ` blocks to `<pre class="mermaid">`. |
+| `src/plugins/rehype-figure-captions.mjs` | Rehype plugin — wraps images in `<figure>` with auto-numbered `<figcaption>`. |
+| `src/integrations/og-images.mjs` | Astro integration — build-time OG image generation via Playwright screenshots. |
+| `astro.config.mjs` | Astro configuration — site URL, integrations, markdown plugins, Shiki syntax highlighting. |
+| `firebase.json` | Firebase Hosting config — cache headers, security headers, deploy target. |
 
-There is no `src/` directory, no transpilation, and no bundler. Files are served as-is by Firebase Hosting.
+All source lives in `src/`. The build outputs to `dist/` (gitignored), which is what Firebase deploys.
 
 ### File Inventory
 ```
-index.html              Markup + meta
-blog/                   Generated static blog pages
-content/blog/           Markdown source posts for the blog
-style.css               Styles (homepage, project pages, motion system, responsive, a11y)
-script.js               Homepage interactions (panels, keyboard, scroll guard, analytics)
-scripts/generate-blog.js Blog page generator
-package.json            Vitest metadata
-tests/                  Smoke tests for routes, metadata, layout, and interactions
-robots.txt              Crawl directives
-sitemap.xml             Search-engine URL inventory
-projects/               Dedicated static project detail pages
-favicon.svg             SVG favicon (red with "NP")
-favicon-32x32.png       Rasterized favicon (32px)
-apple-touch-icon.png    Apple touch icon (180px)
-og-image.png            Primary OG image (2400×1260)
-og/                     Platform-specific OG images
-firebase.json           Hosting config
-.firebaserc             Firebase project alias
-inspiration.jpg         Design reference (not deployed)
-AGENTS.md               This file
-README.md               Human-facing project documentation
-DEPLOYMENT.md           Deploy instructions
-CONTRIBUTING.md         Contribution guidelines
-.ai_context.md          Supplemental AI agent context
-rules/                  Repository-level binding constraints
-plans/                  Feature rollout and migration plans
-specs/                  Feature specifications and acceptance criteria
-scripts/ci/             CI enforcement scripts
+astro.config.mjs            Astro configuration
+tsconfig.json               TypeScript configuration (extends astro/tsconfigs/strict)
+package.json                Dependencies and scripts (dev, build, test, test:e2e)
+firebase.json               Firebase Hosting config
+.firebaserc                 Firebase project alias
+src/
+  pages/                    Astro page routes (auto-generates HTML)
+  layouts/                  Layout components (BaseLayout, BlogPost, ProjectLayout, OgCard)
+  content/blog/             Markdown blog post source files
+  content.config.ts         Content Collections schema (Zod)
+  styles/global.css         Global stylesheet (design tokens, grid, motion, responsive)
+  plugins/                  Custom Remark/Rehype processors
+  integrations/             Custom Astro integrations (OG image generation)
+public/
+  favicon.svg               SVG favicon (red with "NP")
+  favicon-32x32.png         Rasterized favicon (32px)
+  apple-touch-icon.png      Apple touch icon (180px)
+  robots.txt                Crawl directives
+  fonts/og/                 Self-hosted fonts for OG image rendering
+dist/                       Build output (gitignored) — deployed to Firebase
+tests/                      Vitest + Playwright tests for metadata, layout, interactions, routes
+specs/                      Feature specifications and acceptance criteria
+rules/                      Repository-level binding constraints
+plans/                      Feature rollout and migration plans
+scripts/ci/                 CI enforcement scripts
+docs/                       Extended documentation (agent processes)
+screenshots/og/             Checked-in OG image screenshots
+bugs/screenshots/           Bug report screenshots
+AGENTS.md                   Agent instructions index
+REVIEW_POLICY.md            Multi-identity review workflow
+README.md                   Human-facing project documentation
+DEPLOYMENT.md               Deploy instructions
+CONTRIBUTING.md             Contribution guidelines
+.ai_context.md              Supplemental AI agent context
 ```
 
 ---
