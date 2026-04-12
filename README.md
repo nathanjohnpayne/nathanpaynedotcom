@@ -146,7 +146,7 @@ At `max-width: 920px`:
 
 - Panels use `role="region"` with descriptive `aria-label`
 - Decorative blocks are `aria-hidden="true"`
-- `tabindex="0"` on panels for keyboard focus
+- `tabindex="0"` on `.panel-label` controls for keyboard focus
 - `:focus-visible` outlines on panels and links (not `:focus`)
 - `prefers-reduced-motion: reduce` universally disables all transitions and animations
 

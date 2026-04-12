@@ -9,6 +9,7 @@
 --red:       #c11d19    (red cell bg)
 --yellow:    #d9b111    (yellow cell bg)
 --blue:      #223f89    (blue cell bg)
+--rule:      rgba(17, 16, 13, 0.18) (divider/border color)
 --cream:     #f5f0e4    (light background)
 --surface:   rgba(244, 239, 229, 0.96) (semi-transparent)
 --grid-border: #1a1814  (separator color)
