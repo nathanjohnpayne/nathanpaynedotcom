@@ -569,7 +569,8 @@ html, body {
 }
 
 .stack-items,
-.impact-items {
+.impact-items,
+.blog-callout-link {
   font-size: clamp(0.64rem, 0.74vw, 0.72rem);
   line-height: 1.45;
   letter-spacing: 0.10em;
@@ -594,17 +595,46 @@ html, body {
   color: rgba(17, 16, 13, 0.50);
 }
 
-.blog-callout-link {
+.content-inner .blog-callout-link {
   font-size: clamp(0.64rem, 0.74vw, 0.72rem);
-  line-height: 1.45;
-  letter-spacing: 0.10em;
-  word-spacing: 0.05em;
-  color: rgba(17, 16, 13, 0.50);
   text-decoration: none;
   transition: color var(--motion-hover) var(--ease-standard);
 }
 
 .blog-callout-link:hover {
+  color: var(--ink);
+}
+
+.panel--blue .blog-callout {
+  border-top-color: rgba(240, 244, 255, 0.18);
+}
+
+.panel--blue .blog-callout-label {
+  color: rgba(240, 244, 255, 0.55);
+}
+
+.panel--blue .blog-callout-link {
+  color: rgba(240, 244, 255, 0.55);
+}
+
+.panel--blue .blog-callout-link:hover {
+  color: rgba(240, 244, 255, 0.9);
+}
+
+/* When Connect panel is expanded, revert to dark text on cream bg */
+.panel--blue.is-open .blog-callout {
+  border-top-color: var(--rule);
+}
+
+.panel--blue.is-open .blog-callout-label {
+  color: rgba(17, 16, 13, 0.50);
+}
+
+.panel--blue.is-open .blog-callout-link {
+  color: rgba(17, 16, 13, 0.50);
+}
+
+.panel--blue.is-open .blog-callout-link:hover {
   color: var(--ink);
 }
 
@@ -981,6 +1011,7 @@ body.blog-page {
 
 .project-card .project-checklist a:hover {
   color: var(--project-accent);
+  text-decoration: underline;
 }
 
 .project-sidebar {
@@ -1220,6 +1251,17 @@ body.blog-page {
   letter-spacing: 0.14em;
   text-transform: uppercase;
   line-height: 1.4;
+}
+
+a.tag {
+  text-decoration: none;
+  color: inherit;
+  font-weight: 700;
+  transition: background var(--motion-hover) var(--ease-standard);
+}
+
+a.tag:hover {
+  background: rgba(17, 16, 13, 0.18);
 }
 
 /* ── Placeholder Cards (future posts) ── */
