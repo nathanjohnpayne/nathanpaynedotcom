@@ -17,25 +17,22 @@
  */
 
 import { readdir, mkdir, rm, stat } from 'node:fs/promises';
-import { join, relative } from 'node:path';
+import { join, dirname, basename } from 'node:path';
 import { createServer } from 'node:http';
 import { createReadStream } from 'node:fs';
 
 /**
- * Recursively find all index.html files under a directory.
+ * Find all index.html files under a directory using flat recursive readdir.
+ * Returns relative directory paths (e.g. "blog/my-post", ".") for each template.
  */
-async function findHtmlFiles(dir, base = dir) {
-  const entries = await readdir(dir, { withFileTypes: true });
-  const files = [];
-  for (const entry of entries) {
-    const full = join(dir, entry.name);
-    if (entry.isDirectory()) {
-      files.push(...await findHtmlFiles(full, base));
-    } else if (entry.name === 'index.html') {
-      files.push(relative(base, dir));
-    }
-  }
-  return files;
+async function findHtmlFiles(dir) {
+  const entries = await readdir(dir, { recursive: true });
+  return entries
+    .filter((f) => basename(f) === 'index.html')
+    .map((f) => {
+      const parent = dirname(f);
+      return parent === '.' ? '.' : parent;
+    });
 }
 
 /**
