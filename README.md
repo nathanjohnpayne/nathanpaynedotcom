@@ -1,6 +1,6 @@
 # nathanpayne.com
 
-Personal portfolio, project, and blog site for Nathan Payne — a static site built with vanilla HTML, CSS, and JavaScript. No frameworks and no runtime dependencies.
+Personal portfolio, project, and blog site for Nathan Payne — a static site built with [Astro](https://astro.build). Deployed to Firebase Hosting.
 
 **Live:** [nathanpayne.com](https://nathanpayne.com)
 
@@ -12,10 +12,10 @@ The layout is a **Mondrian-inspired grid** — four colored panels arranged in a
 
 | Cell | Color | Content |
 |------|-------|---------|
-| `panel--red` | Red `#c11d19` | About — bio and role at The Walt Disney Company |
-| `panel--yellow` | Yellow `#d9b111` | Vibe Coding — side-project showcase |
-| `panel--black` | Black `#090907` | Community — fundraising and organizing |
-| `panel--blue` | Blue `#223f89` | Connect — social links (LinkedIn, Instagram, Threads, Bluesky, X) |
+| Red | `#c11d19` | About — bio and role at The Walt Disney Company |
+| Yellow | `#d9b111` | Vibe Coding — side-project showcase |
+| Black | `#090907` | Community — fundraising and organizing |
+| Blue | `#223f89` | Connect — social links (LinkedIn, Instagram, Threads, Bluesky, X) |
 
 Narrative order: **Identity → Work → Community → Contact**
 
@@ -26,11 +26,11 @@ On desktop, hovering or focusing a panel triggers a CSS Grid transition that exp
 | Token | Hex | Usage |
 |-------|-----|-------|
 | `--ink` | `#11100d` | Default text, grid background |
-| `--paper` | `#dde1e5` | Decorative white blocks |
-| `--red` | `#c84430` | Design token (about panel uses `#c11d19`) |
-| `--yellow` | `#ddb84f` | Design token (yellow cell uses `#d9b111`) |
-| `--blue` | `#23488d` | Design token (blue cell uses `#223f89`) |
-| Open bg | `#e4ded0` | All panels when expanded |
+| `--paper` | `#ffffff` | White background |
+| `--red` | `#c11d19` | Red cell background |
+| `--yellow` | `#d9b111` | Yellow cell background |
+| `--blue` | `#223f89` | Blue cell background |
+| `--cream` | `#f5f0e4` | Light background |
 
 ### Typography
 
@@ -44,90 +44,82 @@ On desktop, hovering or focusing a panel triggers a CSS Grid transition that exp
 
 ```
 .
-├── index.html                      # Homepage markup, SEO meta, OG tags, homepage JSON-LD
-├── blog/                           # Generated static blog index + post pages
-│   ├── index.html
-│   └── six-prs-one-bug-agent-failure-modes/
-│       └── index.html
-├── content/                        # Markdown source for blog posts
-│   └── blog/
-│       └── six-prs-one-bug-agent-failure-modes.md
-├── style.css                       # Shared styles — homepage grid plus project detail pages
-├── script.js                       # Homepage interactions, keyboard nav, scroll guard, analytics
-├── robots.txt                      # Crawl directives
-├── sitemap.xml                     # Canonical URL inventory for search engines
-├── projects/                       # Dedicated static project pages
-│   ├── device-source-of-truth/
-│   │   └── index.html
-│   ├── friends-and-family-billing/
-│   │   └── index.html
-│   ├── override/
-│   │   └── index.html
-│   └── swipe-watch/
-│       └── index.html
-├── favicon.svg                     # SVG favicon (red with "NP")
-├── og-image.png                    # Primary Open Graph image (2400×1260)
-├── og/                             # Platform-specific OG images
-│   ├── og_imessage_1200x1200.png
-│   ├── og_linkedin_1200x627.png
-│   └── og_slack_1280x640.png
-├── firebase.json                   # Firebase Hosting config
-├── package.json                    # Test runner metadata
-├── tests/                          # Vitest smoke tests for metadata, layout, and routes
-├── .firebaserc                     # Firebase project alias
-├── inspiration.jpg                 # Visual reference (not deployed)
-├── AGENTS.md                       # AI agent instructions (platform-agnostic)
-├── README.md                       # This file
-├── scripts/generate-blog.js        # Generates /blog/ pages from content/blog/*.md
-└── .cursor/rules/                  # Cursor IDE conventions
-    └── project-conventions.mdc
+├── astro.config.mjs                # Astro configuration (site, integrations, markdown)
+├── tsconfig.json                   # TypeScript config (extends astro/tsconfigs/strict)
+├── package.json                    # Dependencies and scripts
+├── firebase.json                   # Firebase Hosting config (cache, security headers)
+├── src/
+│   ├── pages/
+│   │   ├── index.astro             # Homepage (Mondrian grid)
+│   │   ├── 404.astro               # Error page
+│   │   ├── rss.xml.ts              # RSS feed endpoint
+│   │   ├── blog/
+│   │   │   ├── index.astro         # Blog listing
+│   │   │   └── [slug].astro        # Dynamic blog post pages
+│   │   ├── projects/               # Project detail pages
+│   │   └── og-templates/           # OG image templates (build-time only)
+│   ├── layouts/
+│   │   ├── BaseLayout.astro        # Base wrapper (meta, SEO, structure)
+│   │   ├── BlogPost.astro          # Blog post layout
+│   │   ├── ProjectLayout.astro     # Project page layout
+│   │   └── OgCard.astro            # OG image card template
+│   ├── content/
+│   │   └── blog/*.md               # Markdown blog posts with frontmatter
+│   ├── content.config.ts           # Content Collections schema (Zod)
+│   ├── styles/
+│   │   └── global.css              # Global styles (tokens, grid, motion, responsive)
+│   ├── plugins/
+│   │   ├── remark-mermaid.mjs      # Mermaid diagram support
+│   │   └── rehype-figure-captions.mjs  # Auto-numbered figure captions
+│   └── integrations/
+│       └── og-images.mjs           # Build-time OG image generation (Playwright)
+├── public/
+│   ├── favicon.svg                 # SVG favicon (red with "NP")
+│   ├── robots.txt                  # Crawl directives
+│   └── fonts/og/                   # Self-hosted fonts for OG rendering
+├── dist/                           # Build output (gitignored)
+├── tests/                          # Vitest + Playwright tests
+├── specs/                          # Feature specifications
+├── AGENTS.md                       # AI agent instructions
+├── REVIEW_POLICY.md                # Multi-identity review workflow
+└── DEPLOYMENT.md                   # Deploy instructions
 ```
 
 ---
 
 ## How It Works
 
-### Grid System (`style.css`)
+### Grid System
 
-The `.mondrian` container uses a **9-column × 9-row CSS Grid**. Odd-numbered tracks are `var(--line)` (9px desktop / 6px mobile) — they render as the black dividing lines of the Mondrian composition. Even-numbered tracks hold panels and decorative blocks.
+The homepage uses a **9-column × 9-row CSS Grid** (defined in `src/styles/global.css`). Odd-numbered tracks are `var(--line)` (9px desktop / 6px mobile) — they render as the black dividing lines of the Mondrian composition. Even-numbered tracks hold panels and decorative blocks.
 
 When a panel is focused, JavaScript sets `data-focus="<panel-name>"` on the grid container. CSS defines a separate `grid-template-columns` + `grid-template-rows` for each `data-focus` value, and the grid transitions between them over 280ms with a sharp easing curve (`--ease-sharp`).
 
-Panel grid placements:
-
-| Cell | Column | Row | Content |
-|------|--------|-----|---------|
-| `panel--red` | 2 / 5 | 2 / 5 | About |
-| `panel--yellow` | 6 / 9 | 2 | Vibe Coding |
-| `panel--black` | 2 | 6 / 9 | Community |
-| `panel--blue` | 6 / 9 | 8 | Connect |
-
-### Homepage Interactions (`script.js`)
-
-The script is a single IIFE with no external dependencies.
+### Homepage Interactions
 
 - **Desktop (hover + fine pointer):** `mouseenter` opens a panel; `mouseleave` schedules close after 120ms to prevent flicker when moving between panels.
 - **Keyboard:** `Enter`/`Space` opens a panel; `Escape` closes it. `focusin`/`focusout` manage state so tabbing through links inside a panel keeps it open.
-- **Click:** Opens a panel on click, but passes through if the click target is a link.
-- **Mobile:** All interaction handlers exit early when `matchMedia('(max-width: 920px)')` matches. Panels are always expanded.
-- **Scroll guard:** A debounced scroll listener (100ms) adds `.is-scrolling` to `<body>` during active scroll. CSS suspends hover transitions while this class is present, preventing scroll + hover easing conflicts.
+- **Mobile (≤ 920px):** All interaction handlers exit early. Panels are always expanded.
+- **Scroll guard:** A debounced scroll listener adds `.is-scrolling` to `<body>` during active scroll. CSS suspends hover transitions while this class is present.
 - **Analytics:** First hover on each panel fires a one-time `section_view` event to Google Analytics via `gtag`.
+
+### Blog
+
+Blog posts are authored as Markdown files in `src/content/blog/` with Zod-validated frontmatter (defined in `src/content.config.ts`). Astro's Content Collections API provides type-safe access to the content. Posts support:
+
+- **Pullquotes** — accent-colored sidebar cards
+- **Sidebar content** — Mermaid diagrams, images, and text blocks
+- **Code syntax highlighting** — via Shiki with CSS variable theming
+- **Figure captions** — auto-numbered via custom Rehype plugin
+- **Mermaid diagrams** — rendered client-side via CDN
+
+### OG Images
+
+OG images are generated at build time by a custom Astro integration (`src/integrations/og-images.mjs`). It uses Playwright to screenshot HTML templates at 1200×630 with 2× device scale factor. Templates live in `src/pages/og-templates/` and are removed from the final build output.
 
 ### Project Pages
 
-Each project in the yellow panel now has a dedicated static detail page under `projects/`. These pages:
-
-- use clean, crawlable URLs (`/projects/<slug>/`)
-- include page-specific titles, descriptions, canonicals, Open Graph tags, and JSON-LD
-- reuse the shared `style.css` file but do not rely on homepage interaction JavaScript
-
-### Blog Pages
-
-Long-form posts live in `content/blog/*.md` with frontmatter. The checked-in static blog routes under `blog/` are generated from those Markdown files by `scripts/generate-blog.js`.
-
-- edit the Markdown source in `content/blog/`
-- run `node scripts/generate-blog.js`
-- deploy the generated `blog/` HTML alongside the rest of the static site
+Each project has a dedicated detail page under `src/pages/projects/` with project-specific meta, canonicals, Open Graph tags, and JSON-LD.
 
 ### Motion System
 
@@ -145,43 +137,40 @@ Translation magnitude is capped at `--shift-small` (2px) for hovers and `--shift
 ### Responsive Behavior
 
 At `max-width: 920px`:
-- Grid collapses to single-column (`var(--line) 1fr var(--line)`)
-- Decorative blocks are `display: none`
-- Panel labels are hidden; all `.panel-content` is visible
+- Grid collapses to single-column
+- Decorative blocks are hidden
+- Panel content is always visible — no hover interaction on mobile
 - Grid transitions are disabled
-- All panels display content directly — no hover interaction on mobile
 
 ### Accessibility
 
 - Panels use `role="region"` with descriptive `aria-label`
 - Decorative blocks are `aria-hidden="true"`
-- `tabindex="0"` on panels for keyboard focus
+- `tabindex="0"` on `.panel-label` controls for keyboard focus
 - `:focus-visible` outlines on panels and links (not `:focus`)
 - `prefers-reduced-motion: reduce` universally disables all transitions and animations
-- Container queries on `.panel--red` adjust label sizing at small widths
 
 ---
 
 ## Development
 
-No build tools are required. Edit the static source files directly and preview in a browser.
-
 ```bash
-# Serve locally (any static server works)
-npx serve .
+# Install dependencies
+npm install
 
-# Or use Python
-python3 -m http.server 8000
+# Start Astro dev server (with HMR)
+npm run dev
 
-# Regenerate blog pages after editing content/blog/*.md
-node scripts/generate-blog.js
+# Build for production
+npm run build
+
+# Preview the production build locally
+npm run preview
+
+# Run tests
+npm run test          # astro build && vitest run
+npm run test:e2e      # playwright test
 ```
-
-### Cache Busting
-
-Static assets use query-string versioning (e.g., `style.css?v=20260228j`). Bump the version string — formatted as `YYYYMMDD` + a letter suffix — when deploying changes to CSS or JS. Update both the `<link>` and `<script>` tags in `index.html`.
-
-OG images have their own version strings and are cached with immutable headers.
 
 ---
 
@@ -190,28 +179,14 @@ OG images have their own version strings and are cached with immutable headers.
 The site is hosted on [Firebase Hosting](https://firebase.google.com/docs/hosting). Firebase project ID: `nathanpaynedotcom`.
 
 ```bash
-# Install deploy tooling (once)
-npm install -g firebase-tools
-mkdir -p ~/.local/bin
-cp ../ai_agent_repo_template/scripts/gcloud/gcloud ~/.local/bin/gcloud
-cp ../ai_agent_repo_template/scripts/firebase/op-firebase-deploy ~/.local/bin/
-cp ../ai_agent_repo_template/scripts/firebase/op-firebase-setup ~/.local/bin/
-chmod +x ~/.local/bin/gcloud ~/.local/bin/op-firebase-deploy ~/.local/bin/op-firebase-setup
-hash -r
+# Build first
+npm run build
 
-# One-time per maintainer/machine
-# Make sure 1Password CLI can read Private/GCP ADC -> credential
-
-# One-time per maintainer/project
-op-firebase-setup nathanpaynedotcom
-
-# Deploy
+# Deploy (uses 1Password-backed credentials)
 op-firebase-deploy
 ```
 
-`op-firebase-deploy` keeps the old name for compatibility, but it now creates a short-lived impersonated credential for `firebase-deployer@nathanpaynedotcom.iam.gserviceaccount.com` from a 1Password-backed GCP ADC source credential or another explicit `GOOGLE_APPLICATION_CREDENTIALS` file. No routine browser login is needed once the shared `Private/GCP ADC` item exists. See [`DEPLOYMENT.md`](DEPLOYMENT.md) if that item still needs to be bootstrapped or rotated.
-
-The 1Password-first deploy-auth model is intentional for this repo. Do not switch it back to ADC-first or deploy-key-based guidance unless a human explicitly requests that change.
+`op-firebase-deploy` creates a short-lived impersonated credential for `firebase-deployer@nathanpaynedotcom.iam.gserviceaccount.com` from a 1Password-backed GCP ADC source credential. No routine browser login is needed. See [`DEPLOYMENT.md`](DEPLOYMENT.md) for full setup, credential bootstrap, and rollback procedures.
 
 ### Firebase Configuration
 
@@ -219,31 +194,22 @@ Defined in `firebase.json`:
 
 | Setting | Value |
 |---------|-------|
-| Public directory | `.` (repo root) |
-| Static route handling | Existing files served directly; unmatched routes rewrite to `/index.html` |
-| OG image cache | 1 year, immutable |
+| Public directory | `dist` (Astro build output) |
+| OG image cache | 24 hours |
 | JS/CSS cache | 1 hour |
 | HTML cache | 1 hour |
 | Security headers | `X-Content-Type-Options`, `X-Frame-Options`, `X-XSS-Protection` |
-| Ignored on deploy | `firebase.json`, dotfiles, `node_modules`, `*.sh`, `README.md` |
-
-### Credential Hygiene
-
-- This site does not need Firebase client config today, and the repo should not contain API keys, service-account JSON, or ADC credentials.
-- Google Analytics measurement IDs are public identifiers; anything write-capable is not. If you add Firebase or third-party API keys later, keep them in ignored config or hosting settings, not in `index.html` or `script.js`.
-- Deploy auth uses short-lived impersonated credentials. If day-to-day auth stops working, unlock or sign in to the 1Password CLI first; if the shared `Private/GCP ADC` source credential needs rotation, refresh it once and update the item; if IAM bindings drift, rerun `op-firebase-setup nathanpaynedotcom`.
-- For future CI deploys, prefer Workload Identity Federation or another `external_account` credential over stored service-account keys.
 
 ---
 
 ## SEO & Social
 
-- **Open Graph + Twitter Card** meta tags in `<head>` with 2400×1260 image
-- **Canonical URL:** `https://nathanpayne.com/`
-- **JSON-LD:** homepage profile data plus project-page structured data
-- **Crawl files:** `robots.txt` and `sitemap.xml`
-- **Dedicated project pages:** clean internal URLs for project-specific search discovery
-- **Platform-specific OG images** in `/og/` for iMessage (1200×1200), LinkedIn (1200×627), and Slack (1280×640)
+- **Open Graph + Twitter Card** meta tags with build-time generated OG images per page
+- **Canonical URLs** on all pages
+- **JSON-LD** structured data (homepage profile, project pages)
+- **Sitemap** auto-generated by `@astrojs/sitemap`
+- **RSS feed** at `/rss.xml` (via `@astrojs/rss`)
+- **`robots.txt`** in `public/`
 - **Google Analytics 4** via `gtag.js` (property `G-7C29SRBXB1`)
 
 ---
