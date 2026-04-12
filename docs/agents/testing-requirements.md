@@ -13,7 +13,7 @@ npm run test:e2e      # playwright test
 
 1. Homepage panels open/close correctly on desktop (hover)
 2. Keyboard navigation works: Tab to focus, Enter/Space to open, Escape to close
-3. Mobile view (375px): panels stack vertically, content always visible, no interaction handlers fire
+3. Mobile view (375px): panels stack vertically, content always visible
 4. `prefers-reduced-motion` respected: test in macOS Accessibility settings or Chrome DevTools emulation
 5. No console errors in Chrome and Safari
 6. OG metadata renders correctly (use a social card preview tool if OG image changed)
