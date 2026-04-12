@@ -17,7 +17,7 @@
  */
 
 import { readdir, mkdir, rm, stat } from 'node:fs/promises';
-import { join, dirname } from 'node:path';
+import { join, dirname, basename } from 'node:path';
 import { createServer } from 'node:http';
 import { createReadStream } from 'node:fs';
 
@@ -28,7 +28,7 @@ import { createReadStream } from 'node:fs';
 async function findHtmlFiles(dir) {
   const entries = await readdir(dir, { recursive: true });
   return entries
-    .filter((f) => f.endsWith('index.html'))
+    .filter((f) => basename(f) === 'index.html')
     .map((f) => {
       const parent = dirname(f);
       return parent === '.' ? '.' : parent;
