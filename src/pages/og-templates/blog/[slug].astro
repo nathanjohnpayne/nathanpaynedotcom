@@ -1,0 +1,34 @@
+---
+import { getCollection } from 'astro:content';
+import OgCard from '../../../layouts/OgCard.astro';
+
+export async function getStaticPaths() {
+  const posts = await getCollection('blog', ({ data }) => !data.draft);
+  return posts.map((post) => {
+    const words = post.body?.split(/\s+/).length ?? 0;
+    const minutes = Math.ceil(words / 225);
+    const dateStr = post.data.date.toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      timeZone: 'UTC',
+    });
+    const tags = post.data.tags.slice(0, 3).join(' · ');
+    return {
+      params: { slug: post.id },
+      props: {
+        title: post.data.title,
+        meta: `${dateStr} · ${minutes} min read · ${tags}`,
+      },
+    };
+  });
+}
+
+const { title, meta } = Astro.props;
+---
+
+<OgCard
+  label="nathanpayne.com / blog"
+  heading={title}
+  meta={meta}
+/>

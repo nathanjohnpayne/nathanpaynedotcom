@@ -33,7 +33,7 @@ describe('Blog Pages', () => {
 
     expect(canonical?.getAttribute('href')).toBe('https://nathanpayne.com/blog/');
     expect(postLink).not.toBeNull();
-    expect(ogImage?.getAttribute('content')).toBe('https://nathanpayne.com/og/six-prs-one-bug.png');
+    expect(ogImage?.getAttribute('content')).toBe('https://nathanpayne.com/og/blog.png');
   });
 
   it('blog post page includes article metadata and screenshot embeds', () => {
@@ -60,7 +60,7 @@ describe('Blog Pages', () => {
 
     expect(posting).toBeDefined();
     expect(posting.headline).toBe('Six PRs, One Bug: What AI Agents Actually Get Wrong');
-    expect(posting.image).toBe('https://nathanpayne.com/og/six-prs-one-bug.png');
+    expect(posting.image).toBe('https://nathanpayne.com/og/blog/six-prs-one-bug-agent-failure-modes.png');
   });
 
   it('hosting deploys from dist/ so markdown source is excluded', () => {

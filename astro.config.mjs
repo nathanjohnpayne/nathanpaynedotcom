@@ -1,6 +1,7 @@
 // @ts-check
 import { defineConfig } from 'astro/config';
 import sitemap from '@astrojs/sitemap';
+import ogImages from './src/integrations/og-images.mjs';
 import remarkMermaid from './src/plugins/remark-mermaid.mjs';
 import rehypeFigureCaptions from './src/plugins/rehype-figure-captions.mjs';
 
@@ -14,7 +15,9 @@ export default defineConfig({
         item.lastmod = new Date().toISOString();
         return item;
       },
+      filter: (page) => !page.includes('/og-templates/'),
     }),
+    ogImages(),
   ],
   output: 'static',
   build: {

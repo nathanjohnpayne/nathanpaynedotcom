@@ -66,6 +66,10 @@ const publishedDate = date.toLocaleDateString('en-US', {
 });
 const isoDate = date.toISOString();
 
+// Derive OG image path from URL slug (e.g., /blog/my-post/ → /og/blog/my-post.png)
+const slug = normalizedPathname.replace(/^\/blog\//, '').replace(/\/$/, '');
+const ogImagePath = `https://nathanpayne.com/og/blog/${slug}.png`;
+
 // Filter headings for ToC — only h2-level entries
 const tocHeadings = headings.filter((h) => h.depth === 2);
 
@@ -134,9 +138,7 @@ const jsonLd = {
   description={description}
   canonical={canonical}
   ogType="article"
-  ogImage={`https://nathanpayne.com${image}`}
-  ogImageWidth="1200"
-  ogImageHeight="630"
+  ogImage={ogImagePath}
   ogImageAlt={`${title} open graph image`}
   bodyClass="project-page project-page--red blog-page"
   jsonLd={jsonLd}

@@ -1,0 +1,57 @@
+---
+/**
+ * OgCard.astro — Shared OG image template layout
+ *
+ * Based on the 404 page's Mondrian grid. Renders a self-contained card
+ * at 1200×630 viewport (2× DPR → 2400×1260 final PNG) for use as an
+ * Open Graph image.
+ *
+ * Chromium screenshots this page during astro:build:done via Playwright.
+ *
+ * @see Issue #106 — Generate OG images at build time
+ */
+import '../styles/global.css';
+
+interface Props {
+  label: string;
+  heading: string;
+  description?: string;
+  meta?: string;
+}
+
+const { label, heading, description, meta } = Astro.props;
+---
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex, nofollow" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+</head>
+<body class="og-body">
+  <div class="og-shell">
+    <div class="og-card">
+      <div class="og-content">
+        <div class="og-label">{label}</div>
+        <h1 class="og-heading">{heading}</h1>
+        {description && <p class="og-description">{description}</p>}
+        {meta && <p class="og-meta">{meta}</p>}
+      </div>
+
+      {/* Decorative Mondrian accent blocks */}
+      <div class="og-block og-red" aria-hidden="true"></div>
+      <div class="og-block og-yellow-a" aria-hidden="true"></div>
+      <div class="og-block og-blue" aria-hidden="true"></div>
+      <div class="og-block og-black" aria-hidden="true"></div>
+      <div class="og-block og-white-a" aria-hidden="true"></div>
+      <div class="og-block og-white-b" aria-hidden="true"></div>
+      <div class="og-block og-yellow-b" aria-hidden="true"></div>
+      <div class="og-block og-white-c" aria-hidden="true"></div>
+    </div>
+  </div>
+</body>
+</html>

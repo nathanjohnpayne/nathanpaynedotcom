@@ -5,7 +5,7 @@ description: "A billing email bug took six AI-authored PRs to diagnose—not bec
 author: "Nathan Payne"
 date: 2026-04-04
 tags: ["AI", "Engineering", "Product", "Systems", "Debugging"]
-image: "/og/six-prs-one-bug.png"
+image: "/og/blog/six-prs-one-bug-agent-failure-modes.png"
 pullquotes:
   - text: "Every PR compiled, passed tests, and improved something locally."
     label: "What AI agents actually get wrong"
