@@ -112,10 +112,11 @@ export default function ogImages() {
         const { server, port } = await serveStatic(distDir);
         const baseUrl = `http://127.0.0.1:${port}`;
 
+        let browser;
         try {
           // Launch Playwright
           const { chromium } = await import('playwright');
-          const browser = await chromium.launch();
+          browser = await chromium.launch();
           const context = await browser.newContext({
             viewport: { width: 1200, height: 630 },
             deviceScaleFactor: 2,
@@ -146,15 +147,23 @@ export default function ogImages() {
             await page.close();
           }
 
-          await browser.close();
           logger.info(`Generated ${templatePaths.length} OG images`);
+        } catch (error) {
+          logger.warn(
+            `OG image generation failed: ${error instanceof Error ? error.message : String(error)}`
+          );
         } finally {
+          await browser?.close();
           server.close();
         }
 
         // Remove og-templates/ templates from dist — they are not public pages
-        await rm(ogTemplateDir, { recursive: true });
-        logger.info('Cleaned up og-templates/ templates from build output');
+        try {
+          await rm(ogTemplateDir, { recursive: true, force: true });
+          logger.info('Cleaned up og-templates/ templates from build output');
+        } catch {
+          logger.warn('Failed to clean up og-templates/ from build output');
+        }
       },
     },
   };

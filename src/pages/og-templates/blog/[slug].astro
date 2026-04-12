@@ -14,11 +14,12 @@ export async function getStaticPaths() {
       timeZone: 'UTC',
     });
     const tags = post.data.tags.slice(0, 3).join(' · ');
+    const metaParts = [dateStr, `${minutes} min read`, tags].filter(Boolean);
     return {
       params: { slug: post.id },
       props: {
         title: post.data.title,
-        meta: `${dateStr} · ${minutes} min read · ${tags}`,
+        meta: metaParts.join(' · '),
       },
     };
   });
