@@ -477,6 +477,10 @@ html, body {
   line-height: 1.1;
 }
 
+.p-name-link:hover {
+  text-decoration: underline;
+}
+
 .p-tag {
   font-size: clamp(0.6rem, 0.75vw, 0.68rem);
   letter-spacing: 0.12em;
@@ -958,6 +962,16 @@ body.blog-page {
   padding: clamp(1.15rem, 3vw, 2.5rem);
 }
 
+.project-detail-footer {
+  padding: clamp(1.5rem, 3vw, 2.5rem) clamp(1.15rem, 3vw, 2.5rem);
+  border-top: 1px solid var(--rule);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
 .project-copy {
   display: grid;
   gap: 1.2rem;
@@ -1339,6 +1353,10 @@ a.tag:hover {
 
 .accent-paper {
   background: #DDE1E5;
+}
+
+.accent-white {
+  background: var(--paper);
 }
 
 /* Overflow accent blocks — decorative only, hidden on mobile */
@@ -2499,6 +2517,11 @@ a:focus-visible {
     order: -1;
   }
 
+  .project-detail-footer {
+    flex-direction: column;
+    text-align: center;
+  }
+
   .blog-meta-bar dl {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -2539,6 +2562,7 @@ a:focus-visible {
   .accent-yellow,
   .accent-black,
   .accent-paper,
+  .accent-white,
   .accent-overflow {
     display: none;
   }
