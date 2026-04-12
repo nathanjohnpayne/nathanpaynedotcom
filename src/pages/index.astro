@@ -1,5 +1,9 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro';
+import { getCollection } from 'astro:content';
+
+const latestPost = (await getCollection('blog', ({ data }) => !data.draft))
+  .sort((a, b) => b.data.date.getTime() - a.data.date.getTime())[0];
 
 const homepageJsonLd = {
   "@context": "https://schema.org",
@@ -241,10 +245,12 @@ const homepageJsonLd = {
                 <span class="s-arrow">→</span>
               </a>
             </div>
-            <div class="blog-callout">
-              <span class="blog-callout-label">From the Blog</span>
-              <a href="/blog/six-prs-one-bug-agent-failure-modes/" class="blog-callout-link">Six PRs, One Bug: What AI Agents Actually Get Wrong &rarr;</a>
-            </div>
+            {latestPost && (
+              <div class="blog-callout">
+                <span class="blog-callout-label">From the Blog</span>
+                <a href={`/blog/${latestPost.id}/`} class="blog-callout-link">{latestPost.data.title} &rarr;</a>
+              </div>
+            )}
           </div>
         </div>
       </article>
