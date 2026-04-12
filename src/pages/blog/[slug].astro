@@ -16,10 +16,13 @@ const { post } = Astro.props;
 // headings: { depth: number; slug: string; text: string }[]
 const { Content, headings } = await render(post);
 
-// Calculate reading time (avg 225 words per minute)
-const words = post.body?.split(/\s+/).length ?? 0;
-const minutes = Math.ceil(words / 225);
-const readingTime = `${minutes} min read`;
+// Calculate reading time: prose at 225 wpm, code blocks at ~30% weight
+const rawBody = post.body ?? '';
+const codeBlocks: string[] = [];
+const prose = rawBody.replace(/```[\s\S]*?```/g, (m) => { codeBlocks.push(m); return ' '; });
+const proseWords = prose.trim().split(/\s+/).filter(Boolean).length;
+const codeWords = codeBlocks.reduce((n, b) => n + b.split(/\s+/).filter(Boolean).length, 0);
+const readingTime = `${Math.max(1, Math.ceil((proseWords + codeWords * 0.3) / 225))} min read`;
 ---
 
 <BlogPost
