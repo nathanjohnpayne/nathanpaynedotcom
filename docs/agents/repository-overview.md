@@ -11,7 +11,8 @@ Astro pages, layouts, and content collections generate the full static site into
 | `src/pages/index.astro` | Homepage markup — Mondrian grid layout, panel interactions. |
 | `src/pages/blog/index.astro` | Blog listing page. |
 | `src/pages/blog/[slug].astro` | Dynamic blog post pages rendered from Content Collections. |
-| `src/pages/projects/*/index.astro` | Dedicated project detail pages with project-specific meta, canonicals, and JSON-LD. |
+| `src/pages/projects/[slug].astro` | Dynamic project detail route (Content Collections) with per-project meta, canonicals, and JSON-LD. |
+| `src/pages/projects/index.astro` | Project index grid page — auto-populated from the projects collection. |
 | `src/pages/rss.xml.ts` | RSS feed endpoint (via `@astrojs/rss`). |
 | `src/pages/404.astro` | Custom error page. |
 | `src/layouts/BaseLayout.astro` | Base wrapper — SEO meta, Open Graph tags, JSON-LD, GA4 snippet, font preconnects. |
@@ -20,6 +21,10 @@ Astro pages, layouts, and content collections generate the full static site into
 | `src/layouts/OgCard.astro` | OG image card template (1200×630). |
 | `src/styles/global.css` | Shared styles — Mondrian homepage grid, project/blog pages, motion system, responsive, accessibility. |
 | `src/content/blog/*.md` | Markdown blog post source files with frontmatter. |
+| `src/content/projects/*.md` | Markdown project source files — each file generates a project page and index entry. See `specs/project-pages.md` for authoring guide. |
+| `src/components/HeroWide.astro` | Project hero header for wide-screenshot layouts. |
+| `src/components/HeroNarrow.astro` | Project hero header for narrow-screenshot layouts. |
+| `src/components/MetadataStrip.astro` | Project metadata + screenshot surface (shared by both layout variants). |
 | `src/content.config.ts` | Content Collections schema definition (Zod-validated frontmatter). |
 | `src/plugins/remark-mermaid.mjs` | Remark plugin — converts ` ```mermaid ` blocks to `<pre class="mermaid">`. |
 | `src/plugins/rehype-figure-captions.mjs` | Rehype plugin — wraps images in `<figure>` with auto-numbered `<figcaption>`. |
@@ -40,6 +45,8 @@ src/
   pages/                    Astro page routes (auto-generates HTML)
   layouts/                  Layout components (BaseLayout, BlogPost, ProjectLayout, OgCard)
   content/blog/             Markdown blog post source files
+  content/projects/         Markdown project source files (content collection)
+  components/               Astro components (HeroWide, HeroNarrow, MetadataStrip)
   content.config.ts         Content Collections schema (Zod)
   styles/global.css         Global stylesheet (design tokens, grid, motion, responsive)
   plugins/                  Custom Remark/Rehype processors

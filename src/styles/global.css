@@ -880,6 +880,7 @@ body.blog-page {
   font-size: clamp(0.72rem, 0.92vw, 0.88rem);
   letter-spacing: 0.12em;
   text-transform: uppercase;
+  color: rgba(17, 16, 13, 0.38);
 }
 
 .project-breadcrumbs a {
@@ -901,7 +902,7 @@ body.blog-page {
   font-size: clamp(0.7rem, 0.88vw, 0.82rem);
   letter-spacing: 0.18em;
   text-transform: uppercase;
-  color: rgba(17, 16, 13, 0.58);
+  color: rgba(17, 16, 13, 0.38);
 }
 
 .project-hero h1 {
@@ -940,7 +941,7 @@ body.blog-page {
   text-decoration: none;
   font-size: clamp(0.8rem, 0.92vw, 0.92rem);
   font-weight: 600;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
   transition:
     background-color var(--motion-hover) var(--ease-standard),
@@ -955,12 +956,7 @@ body.blog-page {
   transform: translateY(calc(var(--shift-small) * -1));
 }
 
-.project-layout {
-  display: grid;
-  grid-template-columns: minmax(0, 1.7fr) minmax(16rem, 0.9fr);
-  gap: clamp(1rem, 2.8vw, 2rem);
-  padding: clamp(1.15rem, 3vw, 2.5rem);
-}
+/* .project-layout removed — replaced by single-column .project-copy */
 
 .project-detail-footer {
   padding: clamp(1.5rem, 3vw, 2.5rem) clamp(1.15rem, 3vw, 2.5rem);
@@ -978,29 +974,7 @@ body.blog-page {
   min-width: 0;
 }
 
-.project-section {
-  padding: 1rem 1.1rem 1.1rem;
-  border: 1px solid var(--rule);
-  background: linear-gradient(180deg, var(--project-accent-soft), rgba(255, 255, 255, 0));
-  min-width: 0;
-}
-
-.project-section h2 {
-  margin-bottom: calc(var(--su) * 1.1);
-  font-family: "Cormorant Garamond", Garamond, serif;
-  font-size: clamp(1.35rem, 2vw, 2rem);
-  line-height: 1.05;
-}
-
-.project-section p,
-.project-section li {
-  font-size: clamp(0.95rem, 0.92rem + 0.14vw, 1.02rem);
-  line-height: 1.65;
-}
-
-.project-section p + p {
-  margin-top: 0.8rem;
-}
+/* .project-section removed — narrative content now styled via .project-copy */
 
 .project-checklist {
   list-style: none;
@@ -1023,36 +997,9 @@ body.blog-page {
   background: var(--project-accent);
 }
 
-.project-card .project-checklist a {
-  color: inherit;
-  text-decoration: none;
-  font-size: clamp(0.9rem, 0.9rem + 0.08vw, 0.98rem);
-  line-height: 1.55;
-  transition: color var(--motion-hover) var(--ease-standard);
-}
+/* .project-card .project-checklist removed — related links now use .project-related__list */
 
-.project-card .project-checklist a:hover {
-  color: var(--project-accent);
-  text-decoration: underline;
-}
-
-.project-sidebar {
-  display: grid;
-  gap: 1rem;
-  align-self: start;
-}
-
-.project-card {
-  padding: 1rem 1.1rem 1.1rem;
-  border: 1px solid var(--rule);
-  background: rgba(255, 255, 255, 0.72);
-}
-
-.project-card h2 {
-  margin-bottom: calc(var(--su) * 0.9);
-  font-family: "Cormorant Garamond", Garamond, serif;
-  font-size: clamp(1.2rem, 1.7vw, 1.6rem);
-}
+/* .project-sidebar, .project-card removed — old two-column layout */
 
 .project-facts {
   display: grid;
@@ -1085,6 +1032,322 @@ body.blog-page {
 
 .project-note a {
   color: inherit;
+}
+
+/* ── Redesigned Project Detail ── Hero, Metadata, Related, Footer ── */
+
+/* Hero header — accent bar, no gradient (gradient is on the metadata surface) */
+.project-hero__gradient {
+  position: relative;
+  border-left: clamp(0.5rem, 1vw, 0.8rem) solid var(--project-accent);
+}
+
+/* Header text area inside the gradient */
+.project-hero__header {
+  padding: clamp(1.15rem, 3vw, 2.5rem);
+  padding-bottom: clamp(1.5rem, 3vw, 2.5rem);
+}
+
+/* Edge-to-edge rule at the bottom of the hero gradient */
+.project-hero__rule {
+  border: none;
+  border-top: 1px solid var(--rule, rgba(17, 16, 13, 0.15));
+  margin: 0;
+}
+
+/* Hero — wide variant: full-width screenshot below CTAs */
+.project-hero--wide {
+  padding: 0;
+  border-bottom: none;
+}
+
+/* Hide the default accent bar on the outer <header> — it's now on __gradient */
+.project-hero--wide::before,
+.project-hero--narrow::before {
+  display: none;
+}
+
+/* (Screenshot box removed — screenshot is now in the metadata surface) */
+
+/* Hero — narrow variant: text + phone side by side */
+.project-hero--narrow {
+  padding: 0;
+  border-bottom: none;
+}
+
+/* Metadata surface — unified gradient container for metadata + screenshot */
+.metadata-surface {
+  margin: clamp(1rem, 2vw, 1.5rem) clamp(1.15rem, 3vw, 2.5rem);
+  border: 1px solid var(--rule, rgba(17, 16, 13, 0.15));
+  background: linear-gradient(
+    135deg,
+    var(--project-gradient-from, transparent),
+    var(--project-gradient-to, var(--surface, #fff))
+  );
+}
+
+/* Screenshot area inside the surface */
+.metadata-surface__screenshot {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: clamp(1rem, 2vw, 1.5rem);
+  border-top: 1px dotted rgba(17, 16, 13, 0.18);
+}
+
+/* Wide variant — full-width screenshot */
+.metadata-surface--wide .metadata-surface__screenshot img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border: 1px solid var(--rule, rgba(17, 16, 13, 0.12));
+}
+
+/* Narrow variant — phone image centered, snug to card bottom */
+.metadata-surface--narrow .metadata-surface__screenshot {
+  padding-bottom: 0;
+}
+
+.metadata-surface--narrow .metadata-surface__screenshot img {
+  display: block;
+  max-height: 500px;
+  width: auto;
+  border-radius: 12px 12px 0 0;
+}
+
+/* Metadata strip — shared label/value styles */
+.metadata-strip {
+  display: grid;
+  gap: 0;
+  margin: 0;
+  padding: 0;
+}
+
+/* Wide variant: 4 columns in a single row */
+.metadata-strip--grid-4 {
+  grid-template-columns: repeat(4, 1fr);
+}
+
+/* Narrow variant: 2×2 grid beside the screenshot — matches phone height */
+.metadata-strip--grid-2x2 {
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: 1fr 1fr;
+}
+
+.metadata-strip--grid-2x2 .metadata-strip__item {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.metadata-strip__item {
+  padding: clamp(0.6rem, 1.2vw, 0.9rem) clamp(0.75rem, 1.5vw, 1rem);
+  border-left: 1px dotted rgba(17, 16, 13, 0.18);
+  border-top: 1px dotted rgba(17, 16, 13, 0.18);
+}
+
+/* Remove top border on items in the first row */
+.metadata-strip--grid-4 .metadata-strip__item {
+  border-top: none;
+}
+
+.metadata-strip--grid-2x2 .metadata-strip__item:nth-child(-n+2) {
+  border-top: none;
+}
+
+/* Remove left border on first item in each row */
+.metadata-strip--grid-4 .metadata-strip__item:first-child {
+  border-left: none;
+}
+
+.metadata-strip--grid-2x2 .metadata-strip__item:nth-child(odd) {
+  border-left: none;
+}
+
+.metadata-strip dt {
+  margin-bottom: 0.3rem;
+  font-size: clamp(0.6rem, 0.7vw, 0.68rem);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: rgba(17, 16, 13, 0.5);
+}
+
+.metadata-strip dd {
+  font-size: clamp(0.9rem, 0.9rem + 0.12vw, 0.98rem);
+  line-height: 1.45;
+  color: var(--ink);
+}
+
+/* Project copy — single column, full-width rules, left-aligned text */
+.project-copy {
+  padding: clamp(1rem, 2vw, 1.5rem) clamp(1.15rem, 3vw, 2.5rem);
+}
+
+.project-copy h2 {
+  margin-top: 3rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid rgba(17, 16, 13, 0.15);
+  margin-bottom: 0.75rem;
+  font-family: "Cormorant Garamond", Garamond, serif;
+  font-style: italic;
+  font-size: clamp(1.65rem, 2.4vw, 2.35rem);
+  line-height: 1.08;
+}
+
+.project-copy h2:first-child {
+  margin-top: 0;
+}
+
+.project-copy p {
+  font-size: clamp(0.95rem, 0.92rem + 0.14vw, 1.02rem);
+  line-height: 1.65;
+}
+
+.project-copy p + p {
+  margin-top: 0.8rem;
+}
+
+.project-copy ul {
+  list-style: none;
+  display: grid;
+  gap: 0.7rem;
+  padding: 0;
+  margin: 0.5rem 0 0;
+}
+
+.project-copy li {
+  position: relative;
+  padding-left: 1rem;
+  font-size: clamp(0.95rem, 0.92rem + 0.14vw, 1.02rem);
+  line-height: 1.65;
+}
+
+.project-copy li::before {
+  content: "";
+  position: absolute;
+  top: 0.5em;
+  left: 0;
+  width: 0.42rem;
+  height: 0.42rem;
+  background: var(--project-accent);
+}
+
+/* Related links — flat list */
+.project-related {
+  padding: 0 clamp(1.15rem, 3vw, 2.5rem) clamp(1rem, 2vw, 1.5rem);
+  margin-top: 1.5rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid rgba(17, 16, 13, 0.15);
+}
+
+.project-related h2 {
+  margin-bottom: 0.6rem;
+  font-family: "Cormorant Garamond", Garamond, serif;
+  font-style: italic;
+  font-size: clamp(1.05rem, 1.3vw, 1.2rem);
+  color: rgba(17, 16, 13, 0.72);
+}
+
+.project-related__list {
+  list-style: none;
+  display: grid;
+  gap: 0.5rem;
+  padding: 0;
+  margin: 0;
+}
+
+.project-related__list li {
+  position: relative;
+  padding-left: 1rem;
+  font-size: clamp(0.9rem, 0.9rem + 0.08vw, 0.98rem);
+  line-height: 1.55;
+}
+
+.project-related__list li::before {
+  content: "";
+  position: absolute;
+  top: 0.5em;
+  left: 0;
+  width: 0.42rem;
+  height: 0.42rem;
+  background: var(--project-accent);
+}
+
+.project-related__list a {
+  color: inherit;
+  text-decoration: none;
+  transition: color var(--motion-hover) var(--ease-standard);
+}
+
+.project-related__list a:hover {
+  color: var(--project-accent);
+  text-decoration: underline;
+}
+
+/* Project footer — matches blog footer pattern */
+.project-detail-footer {
+  padding: clamp(1.5rem, 3vw, 2.5rem) clamp(1.15rem, 3vw, 2.5rem);
+  border-top: 1px solid var(--ink, #11100d);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.project-footer-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.project-footer-attribution {
+  font-size: clamp(0.7rem, 0.88vw, 0.82rem);
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: rgba(17, 16, 13, 0.58);
+}
+
+/* ── Responsive: metadata + layout ── */
+@media (max-width: 768px) {
+  /* Wide 4-col → 2×2 at tablet */
+  .metadata-strip--grid-4 {
+    grid-template-columns: 1fr 1fr;
+  }
+  .metadata-strip--grid-4 .metadata-strip__item:nth-child(n+3) {
+    border-top: 1px dotted rgba(17, 16, 13, 0.18);
+  }
+  .metadata-strip--grid-4 .metadata-strip__item:nth-child(odd) {
+    border-left: none;
+  }
+
+  .metadata-surface--narrow .metadata-surface__screenshot img {
+    max-height: 360px;
+  }
+}
+
+@media (max-width: 480px) {
+  /* All metadata → single column */
+  .metadata-strip--grid-4,
+  .metadata-strip--grid-2x2 {
+    grid-template-columns: 1fr;
+  }
+  .metadata-strip__item {
+    border-left: none !important;
+    border-top: 1px dotted rgba(17, 16, 13, 0.18);
+  }
+  .metadata-strip__item:first-child {
+    border-top: none;
+  }
+
+  .project-detail-footer {
+    flex-direction: column;
+    text-align: center;
+  }
+
+  .project-footer-nav {
+    justify-content: center;
+  }
 }
 
 /* ── Blog Index: Mondrian Row Grid ──────────────────────────
@@ -2399,10 +2662,6 @@ a:focus-visible {
     justify-content: center;
   }
 
-  .project-layout {
-    padding: 1rem;
-  }
-
   .blog-code-block {
     font-size: 0.75rem;
     padding: 0.75rem 0.85rem;
@@ -2509,13 +2768,7 @@ a:focus-visible {
     box-shadow: 8px 8px 0 rgba(17, 16, 13, 0.1);
   }
 
-  .project-layout {
-    grid-template-columns: 1fr;
-  }
-
-  .project-sidebar {
-    order: -1;
-  }
+  /* .project-layout, .project-sidebar responsive rules removed */
 
   .project-detail-footer {
     flex-direction: column;
