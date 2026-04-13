@@ -51,62 +51,57 @@ const jsonLd = {
         <p class="deck">Every project started as a real problem. Each one became a systems design exercise&mdash;built with AI agents from first commit to deploy.</p>
       </header>
 
-      {/* ── Project Grid ── */}
+      {/* ── Project Grid ──
+           Rows 1–4 use fixed Mondrian accent blocks.
+           Projects beyond 4 overflow into alternating a/b rows. */}
       <div class="blog-grid">
 
-        {/* Row 1: Featured project | Red | Blue */}
-        <div class="grid-row--1">
-          <article class="post-card">
-            <p class="post-meta">{projects[0].data.tags.join(' · ')}</p>
-            <h2 class="post-title"><a href={`/projects/${projects[0].data.slug}/`}>{projects[0].data.title}</a></h2>
-            <p class="post-desc">{projects[0].data.description}</p>
-            <div class="tag-row">
-              <a href={projects[0].data.liveUrl} target="_blank" rel="noopener" class="tag">Live &nearr;</a>
-            </div>
-          </article>
-          <div class="accent-red" aria-hidden="true"></div>
-          <div class="accent-blue" aria-hidden="true"></div>
-        </div>
+        {projects.map((project, i) => {
+          const card = (
+            <article class="post-card">
+              <p class="post-meta">{project.data.tags.join(' · ')}</p>
+              <h2 class="post-title"><a href={`/projects/${project.data.slug}/`}>{project.data.title}</a></h2>
+              <p class="post-desc">{project.data.description}</p>
+              <div class="tag-row">
+                <a href={project.data.liveUrl} target="_blank" rel="noopener noreferrer" class="tag">Live &nearr;</a>
+              </div>
+            </article>
+          );
 
-        {/* Row 2: Project 2 | Yellow */}
-        <div class="grid-row--2">
-          <article class="post-card">
-            <p class="post-meta">{projects[1].data.tags.join(' · ')}</p>
-            <h2 class="post-title"><a href={`/projects/${projects[1].data.slug}/`}>{projects[1].data.title}</a></h2>
-            <p class="post-desc">{projects[1].data.description}</p>
-            <div class="tag-row">
-              <a href={projects[1].data.liveUrl} target="_blank" rel="noopener" class="tag">Live &nearr;</a>
+          if (i === 0) return (
+            <div class="grid-row--1">
+              {card}
+              <div class="accent-red" aria-hidden="true"></div>
+              <div class="accent-blue" aria-hidden="true"></div>
             </div>
-          </article>
-          <div class="accent-yellow" aria-hidden="true"></div>
-        </div>
-
-        {/* Row 3: Project 3 | Cream */}
-        <div class="grid-row--3">
-          <article class="post-card">
-            <p class="post-meta">{projects[2].data.tags.join(' · ')}</p>
-            <h2 class="post-title"><a href={`/projects/${projects[2].data.slug}/`}>{projects[2].data.title}</a></h2>
-            <p class="post-desc">{projects[2].data.description}</p>
-            <div class="tag-row">
-              <a href={projects[2].data.liveUrl} target="_blank" rel="noopener" class="tag">Live &nearr;</a>
+          );
+          if (i === 1) return (
+            <div class="grid-row--2">
+              {card}
+              <div class="accent-yellow" aria-hidden="true"></div>
             </div>
-          </article>
-          <div class="accent-white" aria-hidden="true"></div>
-        </div>
-
-        {/* Row 4: Project 4 | Black | Paper */}
-        <div class="grid-row--4">
-          <article class="post-card">
-            <p class="post-meta">{projects[3].data.tags.join(' · ')}</p>
-            <h2 class="post-title"><a href={`/projects/${projects[3].data.slug}/`}>{projects[3].data.title}</a></h2>
-            <p class="post-desc">{projects[3].data.description}</p>
-            <div class="tag-row">
-              <a href={projects[3].data.liveUrl} target="_blank" rel="noopener" class="tag">Live &nearr;</a>
+          );
+          if (i === 2) return (
+            <div class="grid-row--3">
+              {card}
+              <div class="accent-white" aria-hidden="true"></div>
             </div>
-          </article>
-          <div class="accent-black" aria-hidden="true"></div>
-          <div class="accent-paper" aria-hidden="true"></div>
-        </div>
+          );
+          if (i === 3) return (
+            <div class="grid-row--4">
+              {card}
+              <div class="accent-black" aria-hidden="true"></div>
+              <div class="accent-paper" aria-hidden="true"></div>
+            </div>
+          );
+          // Projects 5+ use alternating overflow rows
+          return (
+            <div class={i % 2 === 0 ? 'grid-row--overflow-a' : 'grid-row--overflow-b'}>
+              {card}
+              <div class="accent-paper" aria-hidden="true"></div>
+            </div>
+          );
+        })}
 
       </div>
 

@@ -4,12 +4,11 @@ interface Props {
   kicker: string;
   deck: string;
   breadcrumbLabel: string;
-  screenshotSrc: string;
   liveUrl: string;
   githubUrl: string;
 }
 
-const { title, kicker, deck, breadcrumbLabel, screenshotSrc, liveUrl, githubUrl } = Astro.props;
+const { title, kicker, deck, breadcrumbLabel, liveUrl, githubUrl } = Astro.props;
 ---
 
 <header class="project-hero project-hero--narrow">
@@ -20,14 +19,14 @@ const { title, kicker, deck, breadcrumbLabel, screenshotSrc, liveUrl, githubUrl 
         <span class="breadcrumb-sep">/</span>
         <a href="/projects/">Projects</a>
         <span class="breadcrumb-sep">/</span>
-        <span class="breadcrumb-current">{breadcrumbLabel}</span>
+        <span class="breadcrumb-current" aria-current="page">{breadcrumbLabel}</span>
       </nav>
       <p class="project-kicker">{kicker}</p>
       <h1 class="project-title">{title}</h1>
       <p class="project-deck">{deck}</p>
       <div class="project-actions">
-        <a class="project-action" href={liveUrl} target="_blank" rel="noopener">View Live Product</a>
-        <a class="project-action" href={githubUrl} target="_blank" rel="noopener">View on GitHub</a>
+        <a class="project-action" href={liveUrl} target="_blank" rel="noopener noreferrer">View Live Product</a>
+        <a class="project-action" href={githubUrl} target="_blank" rel="noopener noreferrer">View on GitHub</a>
       </div>
     </div>
   </div>
