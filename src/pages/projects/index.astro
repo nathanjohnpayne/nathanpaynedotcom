@@ -1,36 +1,9 @@
 ---
 import BaseLayout from '../../layouts/BaseLayout.astro';
+import { getCollection } from 'astro:content';
 
-const projects = [
-  {
-    title: "Override",
-    slug: "override",
-    description: "A Broadway-focused financial operating system—built with AI agents—for structuring capitalization, modeling investor returns, and replacing spreadsheet workflows with live, shareable deals.",
-    tags: ["Finance", "Theater", "React", "Firebase"],
-    liveUrl: "https://overridebroadway.com",
-  },
-  {
-    title: "Device Source of Truth",
-    slug: "device-source-of-truth",
-    description: "A single web application—designed and shipped with AI agents—for understanding partner-device hardware, DRM, codec support, and operational readiness across Disney+, Hulu, and ESPN.",
-    tags: ["Enterprise", "Data", "React", "Firebase"],
-    liveUrl: "https://device-source-of-truth.web.app",
-  },
-  {
-    title: "Swipe Watch",
-    slug: "swipe-watch",
-    description: "A swipe-based discovery experiment for Disney+ and Hulu—prototyped with AI tooling—that turns taste signals into a faster, more active recommendation loop.",
-    tags: ["Consumer", "Streaming", "Vanilla JS"],
-    liveUrl: "https://swipewatch.web.app",
-  },
-  {
-    title: "Friends & Family Billing",
-    slug: "friends-and-family-billing",
-    description: "A cloud-synced billing tool—built end-to-end with AI agents—that turns recurring shared costs into clear invoices, payment tracking, and shareable summaries.",
-    tags: ["Utility", "Finance", "React", "Firebase"],
-    liveUrl: "https://friends-and-family-billing.web.app",
-  },
-];
+const allProjects = await getCollection('projects', ({ data }) => !data.draft);
+const projects = allProjects.sort((a, b) => a.data.order - b.data.order);
 
 const jsonLd = {
   "@context": "https://schema.org",
@@ -84,11 +57,11 @@ const jsonLd = {
         {/* Row 1: Featured project | Red | Blue */}
         <div class="grid-row--1">
           <article class="post-card">
-            <p class="post-meta">{projects[0].tags.join(' · ')}</p>
-            <h2 class="post-title"><a href={`/projects/${projects[0].slug}/`}>{projects[0].title}</a></h2>
-            <p class="post-desc">{projects[0].description}</p>
+            <p class="post-meta">{projects[0].data.tags.join(' · ')}</p>
+            <h2 class="post-title"><a href={`/projects/${projects[0].data.slug}/`}>{projects[0].data.title}</a></h2>
+            <p class="post-desc">{projects[0].data.description}</p>
             <div class="tag-row">
-              <a href={projects[0].liveUrl} target="_blank" rel="noopener" class="tag">Live &nearr;</a>
+              <a href={projects[0].data.liveUrl} target="_blank" rel="noopener" class="tag">Live &nearr;</a>
             </div>
           </article>
           <div class="accent-red" aria-hidden="true"></div>
@@ -98,11 +71,11 @@ const jsonLd = {
         {/* Row 2: Project 2 | Yellow */}
         <div class="grid-row--2">
           <article class="post-card">
-            <p class="post-meta">{projects[1].tags.join(' · ')}</p>
-            <h2 class="post-title"><a href={`/projects/${projects[1].slug}/`}>{projects[1].title}</a></h2>
-            <p class="post-desc">{projects[1].description}</p>
+            <p class="post-meta">{projects[1].data.tags.join(' · ')}</p>
+            <h2 class="post-title"><a href={`/projects/${projects[1].data.slug}/`}>{projects[1].data.title}</a></h2>
+            <p class="post-desc">{projects[1].data.description}</p>
             <div class="tag-row">
-              <a href={projects[1].liveUrl} target="_blank" rel="noopener" class="tag">Live &nearr;</a>
+              <a href={projects[1].data.liveUrl} target="_blank" rel="noopener" class="tag">Live &nearr;</a>
             </div>
           </article>
           <div class="accent-yellow" aria-hidden="true"></div>
@@ -111,11 +84,11 @@ const jsonLd = {
         {/* Row 3: Project 3 | Cream */}
         <div class="grid-row--3">
           <article class="post-card">
-            <p class="post-meta">{projects[2].tags.join(' · ')}</p>
-            <h2 class="post-title"><a href={`/projects/${projects[2].slug}/`}>{projects[2].title}</a></h2>
-            <p class="post-desc">{projects[2].description}</p>
+            <p class="post-meta">{projects[2].data.tags.join(' · ')}</p>
+            <h2 class="post-title"><a href={`/projects/${projects[2].data.slug}/`}>{projects[2].data.title}</a></h2>
+            <p class="post-desc">{projects[2].data.description}</p>
             <div class="tag-row">
-              <a href={projects[2].liveUrl} target="_blank" rel="noopener" class="tag">Live &nearr;</a>
+              <a href={projects[2].data.liveUrl} target="_blank" rel="noopener" class="tag">Live &nearr;</a>
             </div>
           </article>
           <div class="accent-white" aria-hidden="true"></div>
@@ -124,11 +97,11 @@ const jsonLd = {
         {/* Row 4: Project 4 | Black | Paper */}
         <div class="grid-row--4">
           <article class="post-card">
-            <p class="post-meta">{projects[3].tags.join(' · ')}</p>
-            <h2 class="post-title"><a href={`/projects/${projects[3].slug}/`}>{projects[3].title}</a></h2>
-            <p class="post-desc">{projects[3].description}</p>
+            <p class="post-meta">{projects[3].data.tags.join(' · ')}</p>
+            <h2 class="post-title"><a href={`/projects/${projects[3].data.slug}/`}>{projects[3].data.title}</a></h2>
+            <p class="post-desc">{projects[3].data.description}</p>
             <div class="tag-row">
-              <a href={projects[3].liveUrl} target="_blank" rel="noopener" class="tag">Live &nearr;</a>
+              <a href={projects[3].data.liveUrl} target="_blank" rel="noopener" class="tag">Live &nearr;</a>
             </div>
           </article>
           <div class="accent-black" aria-hidden="true"></div>

@@ -1,0 +1,78 @@
+---
+import { getCollection, render } from 'astro:content';
+import ProjectLayout from '../../layouts/ProjectLayout.astro';
+
+export async function getStaticPaths() {
+  const projects = await getCollection('projects', ({ data }) => !data.draft);
+  return projects.map((project) => ({
+    params: { slug: project.data.slug },
+    props: { project },
+  }));
+}
+
+const { project } = Astro.props;
+const { Content } = await render(project);
+const { data } = project;
+
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "WebPage",
+      "@id": `https://nathanpayne.com/projects/${data.slug}/#webpage`,
+      "url": `https://nathanpayne.com/projects/${data.slug}/`,
+      "name": `${data.title} | Nathan Payne`,
+      "description": data.description,
+      "isPartOf": { "@id": "https://nathanpayne.com/#website" },
+      "breadcrumb": { "@id": `https://nathanpayne.com/projects/${data.slug}/#breadcrumb` },
+      "mainEntity": { "@id": `https://nathanpayne.com/projects/${data.slug}/#app` },
+    },
+    {
+      "@type": "BreadcrumbList",
+      "@id": `https://nathanpayne.com/projects/${data.slug}/#breadcrumb`,
+      "itemListElement": [
+        { "@type": "ListItem", "position": 1, "name": "Nathan Payne", "item": "https://nathanpayne.com/" },
+        { "@type": "ListItem", "position": 2, "name": "Projects", "item": "https://nathanpayne.com/projects/" },
+        { "@type": "ListItem", "position": 3, "name": data.title, "item": `https://nathanpayne.com/projects/${data.slug}/` },
+      ],
+    },
+    {
+      "@type": "SoftwareApplication",
+      "@id": `https://nathanpayne.com/projects/${data.slug}/#app`,
+      "name": data.title,
+      "applicationCategory": "WebApplication",
+      "operatingSystem": "Web",
+      "url": data.liveUrl,
+      "creator": {
+        "@type": "Person",
+        "name": "Nathan Payne",
+        "url": "https://nathanpayne.com/",
+      },
+      "description": data.description,
+    },
+  ],
+};
+---
+
+<ProjectLayout
+  title={`${data.title} | Nathan Payne`}
+  description={data.description}
+  ogImage={`https://nathanpayne.com/og/projects/${data.slug}.png`}
+  kicker={data.kicker}
+  headline={data.title}
+  deck={data.description}
+  breadcrumbLabel={data.title}
+  accentColorClass={data.accentColorClass}
+  accentColor={data.accentColor}
+  gradientFrom={data.gradientFrom}
+  gradientTo={data.gradientTo}
+  screenshotAspect={data.screenshotAspect}
+  screenshotSrc={data.screenshotSrc}
+  liveUrl={data.liveUrl}
+  githubUrl={data.githubUrl}
+  metadata={data.metadata}
+  related={data.related}
+  jsonLd={jsonLd}
+>
+  <Content />
+</ProjectLayout>

@@ -1,10 +1,12 @@
 ---
 import BaseLayout from './BaseLayout.astro';
+import HeroWide from '../components/HeroWide.astro';
+import HeroNarrow from '../components/HeroNarrow.astro';
+import MetadataStrip from '../components/MetadataStrip.astro';
 
-interface Action {
+interface RelatedLink {
   label: string;
   href: string;
-  external?: boolean;
 }
 
 interface Props {
@@ -16,7 +18,20 @@ interface Props {
   deck: string;
   breadcrumbLabel: string;
   accentColorClass: string;
-  actions: Action[];
+  accentColor: string;
+  gradientFrom: string;
+  gradientTo: string;
+  screenshotAspect: 'wide' | 'narrow';
+  screenshotSrc: string;
+  liveUrl: string;
+  githubUrl: string;
+  metadata: {
+    domain: string;
+    format: string;
+    focus: string;
+    status: string;
+  };
+  related: RelatedLink[];
   jsonLd: object;
   ogImage?: string;
   ogImageWidth?: string;
@@ -33,7 +48,15 @@ const {
   deck,
   breadcrumbLabel,
   accentColorClass,
-  actions,
+  accentColor,
+  gradientFrom,
+  gradientTo,
+  screenshotAspect,
+  screenshotSrc,
+  liveUrl,
+  githubUrl,
+  metadata,
+  related,
   jsonLd,
   ogImage,
   ogImageWidth,
@@ -53,45 +76,66 @@ const {
   ogImageHeight={ogImageHeight}
   ogImageAlt={ogImageAlt}
 >
-  <main class="project-shell">
+  <main
+    class="project-shell"
+    style={`--project-accent: ${accentColor}; --project-gradient-from: ${gradientFrom}; --project-gradient-to: ${gradientTo};`}
+  >
     <article class="project-detail">
-      <header class="project-hero">
-        <nav class="project-breadcrumbs" aria-label="Breadcrumb">
-          <a href="/">Nathan Payne</a>
-          <span class="breadcrumb-sep">/</span>
-          <a href="/projects/">Projects</a>
-          <span class="breadcrumb-sep">/</span>
-          <span class="breadcrumb-current" set:html={breadcrumbLabel} />
-        </nav>
-        <p class="project-kicker">{kicker}</p>
-        <h1 set:html={headline} />
-        <p class="project-deck">{deck}</p>
-        <div class="project-actions">
-          {actions.map((action) => (
-            action.external
-              ? <a class="project-action" href={action.href} target="_blank" rel="noopener">{action.label}</a>
-              : <a class="project-action" href={action.href}>{action.label}</a>
-          ))}
-        </div>
-      </header>
 
-      <div class="project-layout">
-        <div class="project-copy">
-          <slot />
-        </div>
+      {screenshotAspect === 'narrow' ? (
+        <HeroNarrow
+          title={headline}
+          kicker={kicker}
+          deck={deck}
+          breadcrumbLabel={breadcrumbLabel}
+          screenshotSrc={screenshotSrc}
+          liveUrl={liveUrl}
+          githubUrl={githubUrl}
+        />
+      ) : (
+        <HeroWide
+          title={headline}
+          kicker={kicker}
+          deck={deck}
+          breadcrumbLabel={breadcrumbLabel}
+          liveUrl={liveUrl}
+          githubUrl={githubUrl}
+        />
+      )}
 
-        <aside class="project-sidebar">
-          <slot name="sidebar" />
-        </aside>
+      <MetadataStrip
+        domain={metadata.domain}
+        format={metadata.format}
+        focus={metadata.focus}
+        status={metadata.status}
+        screenshotSrc={screenshotSrc}
+        screenshotAlt={`${headline} product screenshot`}
+        screenshotAspect={screenshotAspect}
+      />
+
+      <div class="project-copy">
+        <slot />
       </div>
 
+      {related.length > 0 && (
+        <section class="project-related" aria-labelledby="related-heading">
+          <h2 id="related-heading">Related</h2>
+          <ul class="project-related__list">
+            {related.map((link) => (
+              <li><a href={link.href}>{link.label}</a></li>
+            ))}
+          </ul>
+        </section>
+      )}
+
       <footer class="project-detail-footer">
-        <p class="blog-footer-attribution">Nathan Payne · San Francisco</p>
-        <nav class="blog-footer-nav" aria-label="Project footer navigation">
+        <p class="project-footer-attribution">Nathan Payne &middot; San Francisco</p>
+        <nav class="project-footer-nav" aria-label="Project footer navigation">
           <a class="project-action" href="/projects/">&larr; Back to Projects</a>
           <a class="project-action" href="/">Back to Homepage &rarr;</a>
         </nav>
       </footer>
+
     </article>
   </main>
 </BaseLayout>
