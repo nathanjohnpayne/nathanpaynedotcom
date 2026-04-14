@@ -2,6 +2,7 @@
 import { defineConfig } from 'astro/config';
 import sitemap from '@astrojs/sitemap';
 import ogImages from './src/integrations/og-images.mjs';
+import robotsSitemap from './src/integrations/robots-sitemap.mjs';
 import remarkMermaid from './src/plugins/remark-mermaid.mjs';
 import rehypeFigureCaptions from './src/plugins/rehype-figure-captions.mjs';
 
@@ -18,6 +19,10 @@ export default defineConfig({
       filter: (page) => !page.includes('/og-templates/'),
     }),
     ogImages(),
+    // Must run after @astrojs/sitemap so the sitemap file exists in dist/
+    // when we rewrite robots.txt. Integrations run in array order during
+    // astro:build:done.
+    robotsSitemap(),
   ],
   output: 'static',
   build: {
