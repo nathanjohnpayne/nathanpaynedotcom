@@ -1,8 +1,6 @@
 ---
 spec_id: project-pages
 title: Project Pages
-tested: false
-reason: "Smoke tests for project page routes and rendering are tracked in issue #156 and will ship in a follow-up PR."
 ---
 
 # Project Pages
