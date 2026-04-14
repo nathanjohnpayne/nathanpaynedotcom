@@ -20,6 +20,7 @@ import { readdir, mkdir, rm, stat } from 'node:fs/promises';
 import { join, dirname, basename } from 'node:path';
 import { createServer } from 'node:http';
 import { createReadStream } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 
 /**
  * Find all index.html files under a directory using flat recursive readdir.
@@ -81,7 +82,11 @@ export default function ogImages() {
     name: 'og-images',
     hooks: {
       'astro:build:done': async ({ dir, logger }) => {
-        const distDir = dir.pathname;
+        // `dir` is a URL object. `dir.pathname` yields `/C:/path/...` on
+        // Windows, which then breaks `path.join`. Convert via
+        // `fileURLToPath` per Astro's documented cross-platform pattern.
+        // See #173 (fix) and #171 (same fix applied to robots-sitemap).
+        const distDir = fileURLToPath(dir);
         const ogTemplateDir = join(distDir, 'og-templates');
 
         // Check if og-templates/ templates exist in the build output
