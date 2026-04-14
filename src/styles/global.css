@@ -1167,6 +1167,31 @@ body.blog-page {
   background: var(--project-accent);
 }
 
+/* In-content links — clearly marked, accent-colored, with a hover that
+   strengthens the underline. More visible than the related list, which
+   reads as a reference list rather than body copy. */
+.project-copy a {
+  color: var(--project-accent);
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.22em;
+  text-decoration-color: color-mix(in srgb, var(--project-accent) 55%, transparent);
+  transition:
+    text-decoration-color var(--motion-hover) var(--ease-standard),
+    text-decoration-thickness var(--motion-hover) var(--ease-standard),
+    color var(--motion-hover) var(--ease-standard);
+}
+
+.project-copy a:hover,
+.project-copy a:focus-visible {
+  text-decoration-thickness: 2px;
+  text-decoration-color: var(--project-accent);
+}
+
+.project-copy a code {
+  color: inherit;
+}
+
 /* Related links — flat list */
 .project-related {
   padding: 0 clamp(1.15rem, 3vw, 2.5rem) clamp(1rem, 2vw, 1.5rem);
