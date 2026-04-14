@@ -1169,13 +1169,15 @@ body.blog-page {
 
 /* In-content links — clearly marked, accent-colored, with a hover that
    strengthens the underline. More visible than the related list, which
-   reads as a reference list rather than body copy. */
+   reads as a reference list rather than body copy. Themes whose accent
+   color is too light for body-copy contrast (e.g. the yellow Override
+   theme) override --project-link-color with a darker variant. */
 .project-copy a {
-  color: var(--project-accent);
+  color: var(--project-link-color, var(--project-accent));
   text-decoration: underline;
   text-decoration-thickness: 1px;
   text-underline-offset: 0.22em;
-  text-decoration-color: color-mix(in srgb, var(--project-accent) 55%, transparent);
+  text-decoration-color: color-mix(in srgb, var(--project-link-color, var(--project-accent)) 55%, transparent);
   transition:
     text-decoration-color var(--motion-hover) var(--ease-standard),
     text-decoration-thickness var(--motion-hover) var(--ease-standard),
@@ -1185,11 +1187,18 @@ body.blog-page {
 .project-copy a:hover,
 .project-copy a:focus-visible {
   text-decoration-thickness: 2px;
-  text-decoration-color: var(--project-accent);
+  text-decoration-color: var(--project-link-color, var(--project-accent));
 }
 
 .project-copy a code {
   color: inherit;
+}
+
+/* Override theme — yellow accent (#d9b111) fails body-text contrast on
+   the cream background. Substitute a darker ochre for in-content links
+   only; the accent bar, buttons, and list bullets stay on-brand. */
+.project-page--yellow {
+  --project-link-color: #6f5500;
 }
 
 /* Related links — flat list */
