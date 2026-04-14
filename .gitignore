@@ -21,3 +21,5 @@ playwright-report/
 .claude/settings.local.json
 .claude/launch.json
 package-lock.json
+.claude/worktrees/
+screenshots/
