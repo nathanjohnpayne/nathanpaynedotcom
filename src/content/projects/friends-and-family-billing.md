@@ -5,7 +5,7 @@ description: "A cloud-synced billing tool—built end-to-end with AI agents—th
 kicker: "AI × Utility × Finance"
 order: 4
 screenshotAspect: "wide"
-screenshotSrc: "/images/projects/friends-and-family-billing-hero.png"
+screenshotSrc: "/images/projects/friends-and-family-billing-hero-v2.png"
 accentColor: "#333333"
 accentColorClass: "project-page--black"
 gradientFrom: "#dedad4"
