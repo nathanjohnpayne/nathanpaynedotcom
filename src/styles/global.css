@@ -956,84 +956,6 @@ body.blog-page {
   transform: translateY(calc(var(--shift-small) * -1));
 }
 
-/* .project-layout removed — replaced by single-column .project-copy */
-
-.project-detail-footer {
-  padding: clamp(1.5rem, 3vw, 2.5rem) clamp(1.15rem, 3vw, 2.5rem);
-  border-top: 1px solid var(--rule);
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-}
-
-.project-copy {
-  display: grid;
-  gap: 1.2rem;
-  min-width: 0;
-}
-
-/* .project-section removed — narrative content now styled via .project-copy */
-
-.project-checklist {
-  list-style: none;
-  display: grid;
-  gap: 0.7rem;
-}
-
-.project-checklist li {
-  position: relative;
-  padding-left: 1rem;
-}
-
-.project-checklist li::before {
-  content: "";
-  position: absolute;
-  top: 0.5em;
-  left: 0;
-  width: 0.42rem;
-  height: 0.42rem;
-  background: var(--project-accent);
-}
-
-/* .project-card .project-checklist removed — related links now use .project-related__list */
-
-/* .project-sidebar, .project-card removed — old two-column layout */
-
-.project-facts {
-  display: grid;
-  gap: 0.8rem;
-}
-
-.project-facts div {
-  padding-bottom: 0.65rem;
-  border-bottom: 1px solid var(--rule);
-}
-
-.project-facts div:last-child {
-  padding-bottom: 0;
-  border-bottom: 0;
-}
-
-.project-facts dt {
-  margin-bottom: 0.18rem;
-  font-size: clamp(0.68rem, 0.82vw, 0.78rem);
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: rgba(17, 16, 13, 0.58);
-}
-
-.project-facts dd,
-.project-note {
-  font-size: clamp(0.9rem, 0.9rem + 0.08vw, 0.98rem);
-  line-height: 1.55;
-}
-
-.project-note a {
-  color: inherit;
-}
-
 /* ── Redesigned Project Detail ── Hero, Metadata, Related, Footer ── */
 
 /* Hero header — accent bar, no gradient (gradient is on the metadata surface) */
@@ -1186,8 +1108,13 @@ body.blog-page {
   color: var(--ink);
 }
 
-/* Project copy — single column, full-width rules, left-aligned text */
+/* Project copy — single column, full-width rules, left-aligned text.
+   display: grid gives consistent 1.2rem vertical rhythm between children
+   regardless of individual margin rules. */
 .project-copy {
+  display: grid;
+  gap: 1.2rem;
+  min-width: 0;
   padding: clamp(1rem, 2vw, 1.5rem) clamp(1.15rem, 3vw, 2.5rem);
 }
 
@@ -2775,8 +2702,6 @@ a:focus-visible {
   .project-detail {
     box-shadow: 8px 8px 0 rgba(17, 16, 13, 0.1);
   }
-
-  /* .project-layout, .project-sidebar responsive rules removed */
 
   .project-detail-footer {
     flex-direction: column;
