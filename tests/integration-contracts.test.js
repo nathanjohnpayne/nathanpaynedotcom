@@ -106,8 +106,11 @@ describe('Astro integration contracts (Windows portability)', () => {
     it.runIf(usesBuildDoneHook)(
       'imports fileURLToPath from node:url when it uses astro:build:done',
       () => {
+        // Match against the comment-stripped runtime so a commented-out
+        // `// import { fileURLToPath } from 'node:url'` can't falsely
+        // satisfy the contract.
         expect(
-          source,
+          runtime,
           `${file} uses the astro:build:done hook but does not import ` +
             `fileURLToPath. Every integration that consumes the 'dir' ` +
             `parameter must convert it via fileURLToPath(dir) — see ` +
