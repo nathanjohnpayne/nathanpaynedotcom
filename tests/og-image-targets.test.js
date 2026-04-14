@@ -28,9 +28,9 @@
  * @see Issue #165 — Add SEO smoke checks for robots sitemap and OG image targets
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeAll } from 'vitest';
 import { readFileSync, existsSync, readdirSync, statSync } from 'node:fs';
-import { resolve, join, relative, dirname } from 'node:path';
+import { resolve, join, relative, isAbsolute } from 'node:path';
 import { JSDOM } from 'jsdom';
 
 const distDir = resolve(__dirname, '../dist');
@@ -77,22 +77,56 @@ function extractImageMetas(htmlPath) {
 
 /**
  * Resolve an og:image / twitter:image URL to a path under dist/.
- * Returns null if the URL is not under the site origin.
+ * Returns null if the URL is not under the site origin OR if the
+ * resolved path would escape the dist/ directory via path traversal.
+ *
+ * Uses the WHATWG URL parser (which normalizes `..` segments in the
+ * pathname) and then double-checks containment with `path.relative`.
+ * Belt and suspenders — see CodeRabbit review on #172.
  */
 function urlToDistPath(url) {
-  // Strip query string (the ?v=<hash> cache-bust is intentional)
-  const noQuery = url.split('?')[0];
-  if (!noQuery.startsWith(`${SITE}/`)) return null;
-  const rel = noQuery.slice(SITE.length + 1); // trim "https://nathanpayne.com/"
-  return resolve(distDir, rel);
+  let parsed;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return null;
+  }
+  if (parsed.origin !== SITE) return null;
+
+  // Strip the leading slash from the pathname. Query string and
+  // fragment are ignored — the ?v=<hash> cache-bust is intentional
+  // and intentionally not matched against disk.
+  const relPath = parsed.pathname.replace(/^\/+/, '');
+  const resolved = resolve(distDir, relPath);
+
+  // Containment check: `relative(distDir, resolved)` returns a path
+  // that starts with `..` or is absolute if `resolved` escapes distDir.
+  const relFromDist = relative(distDir, resolved);
+  if (relFromDist.startsWith('..') || isAbsolute(relFromDist)) return null;
+
+  return resolved;
 }
 
-const htmlFiles = findIndexHtmlFiles(distDir);
-const ogImageFindings = htmlFiles.flatMap((htmlPath) =>
-  extractImageMetas(htmlPath).map((meta) => ({ htmlPath, ...meta }))
-);
+// Discovered lazily inside beforeAll so the suite fails with a clear
+// "build output missing" error rather than a readdir stack trace if
+// someone runs vitest without first running `astro build`.
+let htmlFiles = [];
+let ogImageFindings = [];
 
 describe('OG image targets (post-build)', () => {
+  beforeAll(() => {
+    expect(
+      existsSync(distDir),
+      `Build output not found at ${distDir}. ` +
+        `Run \`npm run build\` (or \`npm test\`, which runs it for you) ` +
+        `before invoking vitest directly.`
+    ).toBe(true);
+    htmlFiles = findIndexHtmlFiles(distDir);
+    ogImageFindings = htmlFiles.flatMap((htmlPath) =>
+      extractImageMetas(htmlPath).map((meta) => ({ htmlPath, ...meta }))
+    );
+  });
+
   it('finds at least one built HTML page with an og:image tag', () => {
     // Sanity check: if the build collapses and produces zero pages with
     // og:image tags, something upstream is badly broken — we want a
@@ -132,7 +166,9 @@ describe('OG image targets (post-build)', () => {
     for (const finding of ogImageFindings) {
       const path = urlToDistPath(finding.content);
       if (!path) continue; // already covered by the absolute-URL test
-      if (!existsSync(path)) {
+      // Must exist AND be a regular file — a directory at the resolved
+      // path would also pass existsSync and falsely satisfy the test.
+      if (!existsSync(path) || !statSync(path).isFile()) {
         broken.push({
           page: relative(distDir, finding.htmlPath),
           tag: finding.tag,
@@ -143,9 +179,10 @@ describe('OG image targets (post-build)', () => {
     }
     expect(
       broken,
-      'These pages reference OG images that do not exist in dist/. ' +
-        'This is the class of bug #163 diagnosed — verify the integration ' +
-        'that generates OG images ran and wrote the expected filename.'
+      'These pages reference OG images that do not exist in dist/ ' +
+        '(or resolve to a directory). This is the class of bug #163 ' +
+        'diagnosed — verify the integration that generates OG images ' +
+        'ran and wrote the expected filename.'
     ).toEqual([]);
   });
 
