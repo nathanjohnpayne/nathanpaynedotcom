@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://nathanpayne.com/sitemap.xml
+Sitemap: https://nathanpayne.com/sitemap-index.xml
