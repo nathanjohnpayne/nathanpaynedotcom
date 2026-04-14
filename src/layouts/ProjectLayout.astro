@@ -114,13 +114,13 @@ const {
         <figure class={`project-screenshot project-screenshot--${screenshotAspect}`}>
           <div class="project-screenshot__inner">
             <img src={screenshotSrc} alt={`${headline} product screenshot`} loading="eager" />
-            {stack && (
-              <figcaption class="project-stack">
-                <span class="project-stack__label">Stack</span>
-                <span class="project-stack__value">{stack}</span>
-              </figcaption>
-            )}
           </div>
+          {stack && (
+            <figcaption class="project-stack">
+              <span class="project-stack__label">Stack</span>
+              <span class="project-stack__value">{stack}</span>
+            </figcaption>
+          )}
         </figure>
       </div>
 
