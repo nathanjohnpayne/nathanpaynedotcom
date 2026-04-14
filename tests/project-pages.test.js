@@ -52,8 +52,14 @@ describe('Project Pages — routes', () => {
     const sourceFiles = readdirSync(CONTENT).filter((f) => f.endsWith('.md'));
     const nonDraftSources = sourceFiles.filter((f) => {
       const body = readFileSync(join(CONTENT, f), 'utf-8');
-      // Projects without `draft:` in frontmatter default to draft: false per the schema.
-      return !/^draft:\s*true\s*$/m.test(body);
+      // Restrict the draft: true check to the YAML frontmatter block at the
+      // top of the file. A documentation example in the body that contains
+      // `draft: true` as an indented code sample should not make the project
+      // look drafted. Projects without `draft:` at all default to false per
+      // the schema. (See #161.)
+      const fmMatch = body.match(/^---\n([\s\S]*?)\n---/);
+      const frontmatter = fmMatch ? fmMatch[1] : '';
+      return !/^draft:\s*true\s*$/m.test(frontmatter);
     });
     expect(nonDraftSources.length).toBe(projectSlugs.length);
   });
@@ -139,6 +145,7 @@ describe('Project Pages — screenshot aspect variants', () => {
   it('Swipe Watch uses the narrow screenshot variant', () => {
     setupDOM(readDistHtml('projects/swipe-watch/index.html'));
     const figure = document.querySelector('figure.project-screenshot');
+    expect(figure, 'figure.project-screenshot not found on swipe-watch').not.toBeNull();
     expect(figure.className).toContain('project-screenshot--narrow');
   });
 
@@ -147,6 +154,10 @@ describe('Project Pages — screenshot aspect variants', () => {
     for (const slug of wideSlugs) {
       setupDOM(readDistHtml(`projects/${slug}/index.html`));
       const figure = document.querySelector('figure.project-screenshot');
+      expect(
+        figure,
+        `${slug}: figure.project-screenshot not found`,
+      ).not.toBeNull();
       expect(
         figure.className,
         `${slug} should use project-screenshot--wide`,

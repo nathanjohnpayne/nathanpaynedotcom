@@ -40,10 +40,19 @@ describe('Keyboard Navigation', () => {
     loadScript();
   });
 
-  it('panels have tabindex="0"', () => {
+  it('each panel has a focusable .panel-label with tabindex="0"', () => {
+    // The .panel-label inside each .panel is the button-role element that
+    // receives tab focus. The panel itself is a <region> that registers the
+    // keydown handlers — Enter/Space/Escape bubble up from the focused label.
+    // Giving both elements tabindex="0" would create a confusing tab order, so
+    // focusability lives on the label, not the panel.
     const panels = document.querySelectorAll('.panel');
+    expect(panels.length).toBeGreaterThan(0);
     panels.forEach((panel) => {
-      expect(panel.getAttribute('tabindex')).toBe('0');
+      const label = panel.querySelector('.panel-label');
+      expect(label, 'panel missing .panel-label child').not.toBeNull();
+      expect(label.getAttribute('tabindex')).toBe('0');
+      expect(label.getAttribute('role')).toBe('button');
     });
   });
 

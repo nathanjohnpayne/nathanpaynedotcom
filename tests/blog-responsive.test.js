@@ -76,12 +76,25 @@ describe('Blog Responsive Layout', () => {
   });
 
   describe('blog post image markup', () => {
-    it('no blog post images have inline width attributes', () => {
+    it('blog post images have intrinsic width and height attributes for CLS prevention', () => {
+      // Inline width/height reserve space for the image during layout, which
+      // prevents Cumulative Layout Shift as images load. They do NOT conflict
+      // with responsive sizing — the `.blog-figure img { width: 100%; height:
+      // auto }` rule (asserted above) overrides the inline values for display
+      // while preserving the intrinsic aspect ratio. See the static dimension
+      // map in src/plugins/rehype-figure-captions.mjs.
       for (const post of blogPostPaths) {
         setupDOM(post.html);
         const images = document.querySelectorAll('.blog-figure img');
         for (const img of images) {
-          expect(img.hasAttribute('width'), `${post.slug}: image has inline width`).toBe(false);
+          expect(
+            img.hasAttribute('width'),
+            `${post.slug}: image missing intrinsic width attribute`,
+          ).toBe(true);
+          expect(
+            img.hasAttribute('height'),
+            `${post.slug}: image missing intrinsic height attribute`,
+          ).toBe(true);
         }
       }
     });
