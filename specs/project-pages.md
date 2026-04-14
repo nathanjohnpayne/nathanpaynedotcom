@@ -1,3 +1,10 @@
+---
+spec_id: project-pages
+title: Project Pages
+tested: false
+reason: "Smoke tests for project page routes and rendering are tracked in issue #156 and will ship in a follow-up PR."
+---
+
 # Project Pages
 
 Specification for the content-collection-driven project detail pages.
@@ -33,9 +40,10 @@ githubUrl: "https://github.com/you/repo"
 tags: ["Tag1", "Tag2", "Tag3"]
 metadata:
   domain: "Domain × Subdomain"
-  format: "What it's built with"
+  format: "Product-type label (e.g., Financial operating system)"
   focus: "What it does in a few words"
   status: "Live product"
+stack: "React · TypeScript · Vite · Firebase · Vitest"
 related:
   - label: "Blog: Related Post Title"
     href: "/blog/related-post-slug/"
@@ -64,9 +72,10 @@ draft: false
 | `githubUrl` | string | yes | URL for "View on GitHub" CTA |
 | `tags` | string[] | yes | Category/technology tags |
 | `metadata.domain` | string | yes | Metadata strip: domain value |
-| `metadata.format` | string | yes | Metadata strip: format/tech value |
+| `metadata.format` | string | yes | Metadata strip: product-type label (e.g., "Internal platform tool"). The tech stack lives in the separate `stack` field — this field is for product category |
 | `metadata.focus` | string | yes | Metadata strip: focus area value |
 | `metadata.status` | string | yes | Metadata strip: project status |
+| `stack` | string | no | Tech stack values separated by ` · ` (e.g., `"React · TypeScript · Vite · Firebase · Vitest"`). Rendered as a figcaption below the screenshot. Optional — projects without a stack field render without the caption |
 | `related` | array | no | Related links with `label` and `href` |
 | `draft` | boolean | no | `true` to exclude from builds (default: `false`) |
 
@@ -96,27 +105,29 @@ Bullet lists get square markers colored with `--project-accent`. Horizontal rule
 
 ## Layout Variants
 
-The `screenshotAspect` field controls which layout renders.
+Every project page uses the same `.metadata-surface` container, which wraps a 4-column horizontal metadata strip above a `<figure class="project-screenshot">` element that holds the image and (optionally) a `<figcaption class="project-stack">` caption below it. The `screenshotAspect` field controls only how the figure sizes its image — the metadata strip itself is always identical across projects.
 
 ### Wide (`screenshotAspect: "wide"`)
 
-Used for desktop web app screenshots. The metadata strip (4-column, single row) sits above a full-width screenshot, both wrapped in a single gradient surface with dotted internal dividers.
+Used for desktop web app screenshots. The figure spans the full width of the gradient surface; the image is bordered and rounded, and the stack caption (if present) sits flush left directly below it at the same width.
 
 **Projects using this**: Override, Device Source of Truth, Friends & Family Billing.
 
 ### Narrow (`screenshotAspect: "narrow"`)
 
-Used for phone/mobile screenshots. The metadata strip (2×2 grid) sits above a centered phone image, both in a single gradient surface. The phone image sits flush against the bottom of the card.
+Used for phone/mobile screenshots. The figure's inner wrapper (`.project-screenshot__inner`) is constrained to `max-width: 320px` (280px at the tablet breakpoint) and centered horizontally within the gradient surface. The stack caption inherits the same max-width constraint via the `.project-screenshot--narrow .project-stack` selector, so it aligns to the phone screenshot's left edge rather than the content container's. The phone image is rounded on all four corners and has sufficient bottom padding so the transition to the `Overview` heading below feels intentional.
 
 **Projects using this**: Swipe Watch.
 
 ### Responsive behavior
 
-| Breakpoint | Wide layout | Narrow layout |
-|------------|------------|---------------|
-| Desktop (>768px) | 4-column metadata strip above full-width screenshot | 2×2 metadata grid above centered phone |
-| Tablet (≤768px) | Metadata collapses to 2×2 grid | Same as desktop (already stacked) |
-| Phone (≤480px) | Metadata collapses to single column | Metadata collapses to single column |
+| Breakpoint | Metadata strip | Wide screenshot | Narrow screenshot |
+|------------|----------------|-----------------|-------------------|
+| Desktop (>768px) | 4-column horizontal row | Full-width image with stack caption flush left below | Centered 320px phone image with stack caption aligned to the image's left edge |
+| Tablet (≤768px) | Collapses to 2×2 grid | Full-width image (unchanged) | Inner wrapper and stack caption both narrow to 280px; alignment preserved |
+| Phone (≤480px) | Collapses to single column | Full-width image (unchanged) | Inner wrapper and stack caption stay at the tablet 280px cap; natural wrapping |
+
+The `.metadata-strip--grid-2x2` variant from the previous architecture has been removed — the metadata strip no longer varies by screenshot aspect. Wide and narrow differ only in how the figure sizes the image.
 
 ---
 
@@ -160,14 +171,21 @@ The layout sets three custom properties from frontmatter:
 ### Template chain
 
 ```
-[slug].astro → ProjectLayout.astro → { HeroWide | HeroNarrow } + MetadataStrip
+[slug].astro
+  → ProjectLayout.astro
+      → { HeroWide | HeroNarrow }
+      → .metadata-surface
+          → MetadataStrip
+          → <figure class="project-screenshot">
+              → .project-screenshot__inner → <img>
+              → <figcaption class="project-stack"> (optional, from the `stack` field)
 ```
 
-- **`src/pages/projects/[slug].astro`**: Dynamic route. Calls `getStaticPaths()` from the projects collection, generates JSON-LD, passes all frontmatter to `ProjectLayout`.
-- **`src/layouts/ProjectLayout.astro`**: Sets CSS custom properties on the shell. Conditionally renders `HeroWide` or `HeroNarrow` based on `screenshotAspect`. Always renders `MetadataStrip` with the screenshot.
-- **`src/components/HeroWide.astro`**: Hero header for wide-layout projects (no screenshot—screenshot is in MetadataStrip).
-- **`src/components/HeroNarrow.astro`**: Hero header for narrow-layout projects (no screenshot—screenshot is in MetadataStrip).
-- **`src/components/MetadataStrip.astro`**: Unified metadata + screenshot surface. Renders metadata grid (4-col or 2×2) on top, screenshot below, all in one gradient card with dotted internal dividers.
+- **`src/pages/projects/[slug].astro`**: Dynamic route. Calls `getStaticPaths()` from the projects collection, generates JSON-LD, passes all frontmatter to `ProjectLayout`. Forwards the optional `stack` field through `stack={data.stack}`.
+- **`src/layouts/ProjectLayout.astro`**: Sets CSS custom properties on the shell. Conditionally renders `HeroWide` or `HeroNarrow` based on `screenshotAspect`. Owns the `.metadata-surface` container that wraps `MetadataStrip` and the `<figure class="project-screenshot">`. The figure is rendered here (not in `MetadataStrip`) and contains the `<img>` plus a conditional `<figcaption class="project-stack">` when `stack` is present. The figcaption is a direct child of `<figure>` per HTML5 semantic rules.
+- **`src/components/HeroWide.astro`**: Hero header for wide-layout projects. No screenshot — the screenshot is rendered by `ProjectLayout` below the hero.
+- **`src/components/HeroNarrow.astro`**: Hero header for narrow-layout projects. No screenshot — same as `HeroWide`, the screenshot is rendered by `ProjectLayout` below the hero.
+- **`src/components/MetadataStrip.astro`**: Strip-only — four `<dt>`/`<dd>` pairs for domain, format, focus, and status. Does not own the screenshot; does not accept `screenshotSrc`/`screenshotAlt`/`screenshotAspect` props. The strip is always rendered as a single 4-column horizontal row on desktop and collapses responsively (2-column at ≤768px, 1-column at ≤480px) via `.metadata-strip--grid-4` media queries.
 
 ### Content collection schema
 
@@ -193,8 +211,8 @@ const { Content } = await render(project);
 | Project title | Large serif (clamp 2.4–5.1rem) | Roman | Primary |
 | Description | 16–17px serif | Roman | Primary |
 | CTA buttons | ~14px | Uppercase, 0.14em tracking | Primary, accent fill on hover |
-| Metadata labels | 10–11px | Uppercase, 0.16em tracking | Tertiary (0.4 opacity) |
-| Metadata values | 14–15px | Roman | Primary |
+| Metadata labels | 10–11px | Uppercase, 0.16em tracking | Tertiary (0.62 opacity) — also used for `.project-stack__label` |
+| Metadata values | 14–15px | Roman | Primary — also used for `.project-stack__value` |
 | Section headings | 22–23px | Serif italic | Primary |
 | "Related" heading | 16–18px | Serif italic | Secondary (0.72 opacity) |
 | Body text | 16px | Roman | Primary, line-height 1.65 |
@@ -220,9 +238,9 @@ src/content.config.ts              Collection schema (Zod)
 src/pages/projects/[slug].astro    Dynamic route + JSON-LD
 src/pages/projects/index.astro     Project index grid
 src/layouts/ProjectLayout.astro    Layout wrapper (CSS props, hero, metadata, footer)
-src/components/HeroWide.astro      Wide hero header
-src/components/HeroNarrow.astro    Narrow hero header
-src/components/MetadataStrip.astro Metadata + screenshot surface
-src/styles/global.css              All project page styles
+src/components/HeroWide.astro      Wide hero header (no screenshot)
+src/components/HeroNarrow.astro    Narrow hero header (no screenshot)
+src/components/MetadataStrip.astro 4-column metadata strip (domain/format/focus/status)
+src/styles/global.css              All project page styles (.metadata-strip, .project-screenshot, .project-stack)
 public/images/projects/            Hero screenshots
 ```

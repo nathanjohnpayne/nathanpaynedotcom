@@ -31,6 +31,7 @@ interface Props {
     focus: string;
     status: string;
   };
+  stack?: string;
   related: RelatedLink[];
   jsonLd: object;
   ogImage?: string;
@@ -56,6 +57,7 @@ const {
   liveUrl,
   githubUrl,
   metadata,
+  stack,
   related,
   jsonLd,
   ogImage,
@@ -102,15 +104,25 @@ const {
         />
       )}
 
-      <MetadataStrip
-        domain={metadata.domain}
-        format={metadata.format}
-        focus={metadata.focus}
-        status={metadata.status}
-        screenshotSrc={screenshotSrc}
-        screenshotAlt={`${headline} product screenshot`}
-        screenshotAspect={screenshotAspect}
-      />
+      <div class="metadata-surface">
+        <MetadataStrip
+          domain={metadata.domain}
+          format={metadata.format}
+          focus={metadata.focus}
+          status={metadata.status}
+        />
+        <figure class={`project-screenshot project-screenshot--${screenshotAspect}`}>
+          <div class="project-screenshot__inner">
+            <img src={screenshotSrc} alt={`${headline} product screenshot`} loading="eager" />
+          </div>
+          {stack && (
+            <figcaption class="project-stack">
+              <span class="project-stack__label">Stack</span>
+              <span class="project-stack__value">{stack}</span>
+            </figcaption>
+          )}
+        </figure>
+      </div>
 
       <div class="project-copy">
         <slot />
