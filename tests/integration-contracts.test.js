@@ -41,9 +41,20 @@ import { resolve, join } from 'node:path';
 const integrationsDir = resolve(__dirname, '../src/integrations');
 
 function listIntegrationFiles() {
-  return readdirSync(integrationsDir)
-    .filter((f) => f.endsWith('.mjs') || f.endsWith('.js'))
-    .map((f) => join(integrationsDir, f));
+  // Recursive walk so integrations nested under subdirectories
+  // (e.g. src/integrations/og/index.mjs) are also covered. The
+  // top-level-only version of this would silently skip a new
+  // integration that organized itself into a folder — exactly the
+  // kind of drift this test file is meant to prevent.
+  const walk = (dir) =>
+    readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
+      const fullPath = join(dir, entry.name);
+      if (entry.isDirectory()) return walk(fullPath);
+      const isIntegrationSource =
+        entry.isFile() && (entry.name.endsWith('.mjs') || entry.name.endsWith('.js'));
+      return isIntegrationSource ? [fullPath] : [];
+    });
+  return walk(integrationsDir);
 }
 
 /**
@@ -74,7 +85,10 @@ describe('Astro integration contracts (Windows portability)', () => {
   describe.each(integrationFiles.map((file) => [file]))('%s', (file) => {
     const source = readFileSync(file, 'utf-8');
     const runtime = stripComments(source);
-    const usesBuildDoneHook = source.includes('astro:build:done');
+    // Check the comment-stripped runtime, not raw source — otherwise a
+    // comment mentioning `astro:build:done` could falsely trigger the
+    // import assertion on a file that never actually hooks the build.
+    const usesBuildDoneHook = runtime.includes('astro:build:done');
 
     it('does not reference dir.pathname in runtime code', () => {
       // The explanatory comments (`// dir.pathname yields /C:/path/...`)
