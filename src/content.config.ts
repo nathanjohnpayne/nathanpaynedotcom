@@ -24,6 +24,7 @@ const projects = defineCollection({
       focus: z.string(),
       status: z.string(),
     }),
+    stack: z.string().optional(),
     related: z.array(z.object({
       label: z.string(),
       href: z.string(),

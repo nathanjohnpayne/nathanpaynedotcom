@@ -1086,36 +1086,8 @@ body.blog-page {
   );
 }
 
-/* Screenshot area inside the surface */
-.metadata-surface__screenshot {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: clamp(1rem, 2vw, 1.5rem);
-  border-top: 1px dotted rgba(17, 16, 13, 0.18);
-}
-
-/* Wide variant — full-width screenshot */
-.metadata-surface--wide .metadata-surface__screenshot img {
-  display: block;
-  width: 100%;
-  height: auto;
-  border: 1px solid var(--rule, rgba(17, 16, 13, 0.12));
-}
-
-/* Narrow variant — phone image centered, snug to card bottom */
-.metadata-surface--narrow .metadata-surface__screenshot {
-  padding-bottom: 0;
-}
-
-.metadata-surface--narrow .metadata-surface__screenshot img {
-  display: block;
-  max-height: 500px;
-  width: auto;
-  border-radius: 12px 12px 0 0;
-}
-
-/* Metadata strip — shared label/value styles */
+/* Metadata strip — always a 4-column horizontal row on desktop, regardless
+   of screenshot aspect. Collapses to 2-col on tablet, 1-col on phone. */
 .metadata-strip {
   display: grid;
   gap: 0;
@@ -1123,44 +1095,16 @@ body.blog-page {
   padding: 0;
 }
 
-/* Wide variant: 4 columns in a single row */
 .metadata-strip--grid-4 {
   grid-template-columns: repeat(4, 1fr);
-}
-
-/* Narrow variant: 2×2 grid beside the screenshot — matches phone height */
-.metadata-strip--grid-2x2 {
-  grid-template-columns: 1fr 1fr;
-  grid-template-rows: 1fr 1fr;
-}
-
-.metadata-strip--grid-2x2 .metadata-strip__item {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
 }
 
 .metadata-strip__item {
   padding: clamp(0.6rem, 1.2vw, 0.9rem) clamp(0.75rem, 1.5vw, 1rem);
   border-left: 1px dotted rgba(17, 16, 13, 0.18);
-  border-top: 1px dotted rgba(17, 16, 13, 0.18);
 }
 
-/* Remove top border on items in the first row */
-.metadata-strip--grid-4 .metadata-strip__item {
-  border-top: none;
-}
-
-.metadata-strip--grid-2x2 .metadata-strip__item:nth-child(-n+2) {
-  border-top: none;
-}
-
-/* Remove left border on first item in each row */
 .metadata-strip--grid-4 .metadata-strip__item:first-child {
-  border-left: none;
-}
-
-.metadata-strip--grid-2x2 .metadata-strip__item:nth-child(odd) {
   border-left: none;
 }
 
@@ -1173,6 +1117,70 @@ body.blog-page {
 }
 
 .metadata-strip dd {
+  font-size: clamp(0.9rem, 0.9rem + 0.12vw, 0.98rem);
+  line-height: 1.45;
+  color: var(--ink);
+}
+
+/* Project screenshot — figure container below the metadata strip.
+   Wide variant fills the content width; narrow variant centers a
+   phone-sized image. The inner wrapper constrains width so the
+   stack-line caption can align with the image's left edge. */
+.project-screenshot {
+  margin: 0;
+  padding: clamp(1rem, 2vw, 1.5rem);
+  border-top: 1px dotted rgba(17, 16, 13, 0.18);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.project-screenshot__inner {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.project-screenshot--narrow .project-screenshot__inner {
+  max-width: 320px;
+}
+
+.project-screenshot img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.project-screenshot--wide img {
+  border: 1px solid var(--rule, rgba(17, 16, 13, 0.12));
+}
+
+.project-screenshot--narrow img {
+  border-radius: 12px;
+}
+
+/* Stack line — rendered as a <figcaption> inside the screenshot figure.
+   Single horizontal row with a small-caps label and the stack values.
+   Aligned to the inner wrapper, so narrow layouts align with the
+   screenshot's left edge. */
+.project-stack {
+  display: flex;
+  align-items: baseline;
+  gap: 0.75rem;
+  margin: clamp(0.6rem, 1vw, 0.85rem) 0 0;
+  padding: 0;
+}
+
+.project-stack__label {
+  flex: 0 0 auto;
+  font-size: clamp(0.6rem, 0.7vw, 0.68rem);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: rgba(17, 16, 13, 0.5);
+}
+
+.project-stack__value {
+  flex: 1 1 auto;
   font-size: clamp(0.9rem, 0.9rem + 0.12vw, 0.98rem);
   line-height: 1.45;
   color: var(--ink);
@@ -1321,15 +1329,14 @@ body.blog-page {
     border-left: none;
   }
 
-  .metadata-surface--narrow .metadata-surface__screenshot img {
-    max-height: 360px;
+  .project-screenshot--narrow .project-screenshot__inner {
+    max-width: 280px;
   }
 }
 
 @media (max-width: 480px) {
   /* All metadata → single column */
-  .metadata-strip--grid-4,
-  .metadata-strip--grid-2x2 {
+  .metadata-strip--grid-4 {
     grid-template-columns: 1fr;
   }
   .metadata-strip__item {

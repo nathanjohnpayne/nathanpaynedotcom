@@ -4,35 +4,26 @@ interface Props {
   format: string;
   focus: string;
   status: string;
-  screenshotSrc: string;
-  screenshotAlt?: string;
-  screenshotAspect: 'wide' | 'narrow';
 }
 
-const { domain, format, focus, status, screenshotSrc, screenshotAlt, screenshotAspect } = Astro.props;
-const isNarrow = screenshotAspect === 'narrow';
+const { domain, format, focus, status } = Astro.props;
 ---
 
-<div class={`metadata-surface ${isNarrow ? 'metadata-surface--narrow' : 'metadata-surface--wide'}`}>
-  <dl class={`metadata-strip ${isNarrow ? 'metadata-strip--grid-2x2' : 'metadata-strip--grid-4'}`}>
-    <div class="metadata-strip__item">
-      <dt>Domain</dt>
-      <dd>{domain}</dd>
-    </div>
-    <div class="metadata-strip__item">
-      <dt>Format</dt>
-      <dd>{format}</dd>
-    </div>
-    <div class="metadata-strip__item">
-      <dt>Focus</dt>
-      <dd>{focus}</dd>
-    </div>
-    <div class="metadata-strip__item">
-      <dt>Status</dt>
-      <dd>{status}</dd>
-    </div>
-  </dl>
-  <div class="metadata-surface__screenshot">
-    <img src={screenshotSrc} alt={screenshotAlt || 'Product screenshot'} loading="eager" />
+<dl class="metadata-strip metadata-strip--grid-4">
+  <div class="metadata-strip__item">
+    <dt>Domain</dt>
+    <dd>{domain}</dd>
   </div>
-</div>
+  <div class="metadata-strip__item">
+    <dt>Format</dt>
+    <dd>{format}</dd>
+  </div>
+  <div class="metadata-strip__item">
+    <dt>Focus</dt>
+    <dd>{focus}</dd>
+  </div>
+  <div class="metadata-strip__item">
+    <dt>Status</dt>
+    <dd>{status}</dd>
+  </div>
+</dl>
