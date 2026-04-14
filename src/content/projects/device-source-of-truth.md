@@ -42,7 +42,7 @@ Device Source of Truth consolidates all of it into one system. The product impor
 
 ## How it was built
 
-Device Source of Truth started from a "Starting Over" commit after an initial scaffold was scrapped, and grew to 210 commits across a purpose-built data platform on React, TypeScript, Vite, and Firebase.
+Device Source of Truth started from a "Starting Over" commit after an initial scaffold was scrapped, and grew—well past two hundred commits—into a purpose-built data platform on React, TypeScript, Vite, and Firebase.
 
 The first serious engineering arc was contract alignment. An early commit fixed client/server misalignments across 14 integration points, followed by a contract-hardening effort (DST-TDI-001) that introduced shared Zod schemas and typed DTOs in a `@dst/contracts` monorepo package. The result is that every device import, mutation, and API response now validates against a single source of truth—the kind of invariant that matters most when an AI agent is writing both sides of the wire.
 

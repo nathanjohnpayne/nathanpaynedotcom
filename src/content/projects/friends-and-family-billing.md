@@ -42,7 +42,7 @@ Friends & Family Billing exists because that coordination problem—simple math 
 
 ## How it was built
 
-Friends & Family Billing is the oldest and most developed project in the portfolio—384 commits across a full architecture migration from a vanilla JavaScript single-page app to a React, Vite, and Vitest stack on Firebase.
+Friends & Family Billing is the oldest and most developed project in the portfolio—well over four hundred commits across a full architecture migration from a vanilla JavaScript single-page app to a React, Vite, and Vitest stack on Firebase.
 
 The migration happened in six numbered phases rather than a single rewrite. Phase 0 scaffolded Vite, React, and Vitest alongside the legacy build. Phases 1 through 2c ported the shell, navigation, and core views—members, bills, settlement board, invoicing, review requests—with the two apps coexisting during the transition. Phase 4 cut over fully, deleted the vanilla JS, ported the share page, and added code splitting. The legacy app wasn't thrown away in one commit; it was extracted, wrapped, and replaced view by view.
 

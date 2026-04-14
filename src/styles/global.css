@@ -1329,7 +1329,8 @@ body.blog-page {
     border-left: none;
   }
 
-  .project-screenshot--narrow .project-screenshot__inner {
+  .project-screenshot--narrow .project-screenshot__inner,
+  .project-screenshot--narrow .project-stack {
     max-width: 280px;
   }
 }
