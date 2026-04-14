@@ -23,3 +23,24 @@ playwright-report/
 package-lock.json
 .claude/worktrees/
 screenshots/
+
+# Logs
+*.log
+logs/
+
+# Editor
+.vscode/
+!.vscode/extensions.json
+.idea/
+
+# Cursor runtime artifacts
+.cursor/cache/
+.cursor/state/
+.cursor/plans/
+
+# Coverage
+coverage/
+
+# Misc
+tmp/
+.cache/
