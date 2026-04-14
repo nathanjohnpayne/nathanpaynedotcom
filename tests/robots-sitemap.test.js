@@ -14,12 +14,18 @@
  * If any of these fail, #163-style drift has returned. See #164.
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeAll } from 'vitest';
 import { readFileSync, existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 const distDir = resolve(__dirname, '../dist');
-const robotsTxt = readFileSync(resolve(distDir, 'robots.txt'), 'utf-8');
+const robotsPath = resolve(distDir, 'robots.txt');
+
+// Loaded inside beforeAll so that running `vitest` directly without
+// first running `astro build` surfaces a clear "build output missing"
+// assertion failure instead of a raw ENOENT stack trace. `npm test`
+// runs the build for you.
+let robotsTxt;
 
 const SITEMAP_LINE_RE = /^Sitemap:\s*(.+)$/gim;
 
@@ -32,6 +38,16 @@ function extractSitemaps(text) {
 }
 
 describe('dist/robots.txt (post-build)', () => {
+  beforeAll(() => {
+    expect(
+      existsSync(robotsPath),
+      `Build output not found at ${robotsPath}. ` +
+        `Run \`npm run build\` (or \`npm test\`, which runs it for you) ` +
+        `before invoking vitest directly.`
+    ).toBe(true);
+    robotsTxt = readFileSync(robotsPath, 'utf-8');
+  });
+
   it('has exactly one Sitemap: line', () => {
     const urls = extractSitemaps(robotsTxt);
     expect(urls).toHaveLength(1);

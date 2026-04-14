@@ -37,6 +37,7 @@
 
 import { readdir, readFile, writeFile, stat } from 'node:fs/promises';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 const SITEMAP_LINE_RE = /^\s*Sitemap:.*$/gim;
 
@@ -61,8 +62,10 @@ async function findSitemapFile(distDir) {
     // fall through
   }
 
-  // 3. Last resort: any sitemap*.xml at the root
-  const entries = await readdir(distDir);
+  // 3. Last resort: any sitemap*.xml at the root.
+  // Sort entries so selection is deterministic when more than one
+  // matches — readdir order is filesystem-dependent otherwise.
+  const entries = (await readdir(distDir)).sort();
   const match = entries.find((f) => /^sitemap.*\.xml$/i.test(f));
   if (match) return match;
 
@@ -108,7 +111,10 @@ export default function robotsSitemap() {
       },
 
       'astro:build:done': async ({ dir, logger }) => {
-        const distDir = dir.pathname;
+        // `dir` is a URL object. `dir.pathname` yields `/C:/path/...` on
+        // Windows, which breaks `path.join`. Convert via `fileURLToPath`
+        // per Astro's documented cross-platform pattern.
+        const distDir = fileURLToPath(dir);
         const robotsPath = join(distDir, 'robots.txt');
 
         // robots.txt must exist — it ships from public/ and is a hard

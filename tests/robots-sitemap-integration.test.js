@@ -28,35 +28,41 @@ const silentLogger = { info: () => {}, warn: () => {}, error: () => {} };
 async function runIntegration(files, { site = SITE } = {}) {
   const distDir = await mkdtemp(join(tmpdir(), 'robots-sitemap-test-'));
 
-  for (const [name, content] of Object.entries(files)) {
-    const full = join(distDir, name);
-    await mkdir(join(full, '..'), { recursive: true });
-    await writeFile(full, content, 'utf-8');
-  }
-
-  const integration = robotsSitemap();
-  integration.hooks['astro:config:done']({ config: { site } });
-
-  let error;
+  // try/finally so the temp dir is cleaned up even if an unexpected
+  // exception (mkdir, writeFile, assertion in the config hook) fires
+  // before the normal return path.
   try {
-    await integration.hooks['astro:build:done']({
-      dir: pathToFileURL(distDir + '/'),
-      logger: silentLogger,
-    });
-  } catch (err) {
-    error = err;
-  }
+    for (const [name, content] of Object.entries(files)) {
+      const full = join(distDir, name);
+      await mkdir(join(full, '..'), { recursive: true });
+      await writeFile(full, content, 'utf-8');
+    }
 
-  const robotsPath = join(distDir, 'robots.txt');
-  let robotsTxt;
-  try {
-    robotsTxt = await readFile(robotsPath, 'utf-8');
-  } catch {
-    robotsTxt = null;
-  }
+    const integration = robotsSitemap();
+    integration.hooks['astro:config:done']({ config: { site } });
 
-  await rm(distDir, { recursive: true, force: true });
-  return { robotsTxt, error };
+    let error;
+    try {
+      await integration.hooks['astro:build:done']({
+        dir: pathToFileURL(distDir + '/'),
+        logger: silentLogger,
+      });
+    } catch (err) {
+      error = err;
+    }
+
+    const robotsPath = join(distDir, 'robots.txt');
+    let robotsTxt;
+    try {
+      robotsTxt = await readFile(robotsPath, 'utf-8');
+    } catch {
+      robotsTxt = null;
+    }
+
+    return { robotsTxt, error };
+  } finally {
+    await rm(distDir, { recursive: true, force: true });
+  }
 }
 
 describe('robots-sitemap integration', () => {
