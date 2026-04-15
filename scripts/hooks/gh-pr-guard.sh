@@ -213,13 +213,15 @@ INLINE_CODEX_CLEARED=""
 INLINE_BREAK_GLASS_ADMIN=""
 GLOBAL_REPO=""
 PR_SUBCOMMAND=""
+PR_SUBCOMMAND_INDEX=-1    # index in TOKENS where the gh pr subcommand was found
 SAW_GH=0
 SAW_PR=0
 SKIP_GLOBAL_AS=""        # "" | "repo"
 AT_COMMAND_POSITION=1    # 1 = at command position, 0 = walking unrelated-command args
 SKIP_PREFIX_VALUE=0      # 1 = next token is the value of a prefix-command flag
 CURRENT_PREFIX=""        # name of the most recently seen prefix command (sudo/time/etc.)
-for tok in "${TOKENS[@]}"; do
+for i in "${!TOKENS[@]}"; do
+  tok="${TOKENS[$i]}"
   # --- phase 2: walking after gh, looking for pr + subcommand ---
   if [ "$SAW_GH" -eq 1 ]; then
     if [ "$SKIP_GLOBAL_AS" = "repo" ]; then
@@ -262,6 +264,7 @@ for tok in "${TOKENS[@]}"; do
     fi
     # SAW_PR=1 — this token IS the pr subcommand.
     PR_SUBCOMMAND="$tok"
+    PR_SUBCOMMAND_INDEX=$i
     break
   fi
 
@@ -419,7 +422,8 @@ fi
 
 # --- gh pr merge ---
 #
-# (PR_SUBCOMMAND must be "merge" by this point.)
+# (PR_SUBCOMMAND must be "merge" and PR_SUBCOMMAND_INDEX must point
+# to the actual `merge` subcommand token in TOKENS by this point.)
 #
 # Walk tokens AFTER the literal `merge` subcommand token to extract:
 #   - PR_SELECTOR (first non-flag positional)
@@ -435,15 +439,28 @@ fi
 # quoted flag value (e.g., `--subject "--admin follow-up"`).
 # nathanpayne-codex caught that on PR #66 round 6.
 #
+# An even earlier version of this walk used a separate `FOUND_MERGE`
+# scan that latched onto the FIRST `merge` token anywhere in the
+# command, not specifically the gh-context one. With chained inputs
+# like `echo merge ; gh pr merge 65`, the walk would latch onto the
+# echo arg and then capture `;` as the selector. Codex caught that
+# on the swipewatch propagation PR #33; the fix is to use the
+# PR_SUBCOMMAND_INDEX captured during phase 1 as the starting point
+# of the merge walk, eliminating the FOUND_MERGE state entirely.
+#
 # `gh pr merge` accepts the selector as <number> | <url> | <branch>;
 # we don't parse or validate the form, just pass it through to
 # `gh pr view` which accepts the same grammar.
 PR_SELECTOR=""
 REPO_ARG=""
 ADMIN_REQUESTED=0
-FOUND_MERGE=0
 SKIP_NEXT_AS=""  # "" | "skip" | "repo"
-for tok in "${TOKENS[@]}"; do
+merge_walk_start=$((PR_SUBCOMMAND_INDEX + 1))
+for j in "${!TOKENS[@]}"; do
+  if [ "$j" -lt "$merge_walk_start" ]; then
+    continue
+  fi
+  tok="${TOKENS[$j]}"
   if [ "$SKIP_NEXT_AS" = "skip" ]; then
     SKIP_NEXT_AS=""
     continue
@@ -453,44 +470,38 @@ for tok in "${TOKENS[@]}"; do
     SKIP_NEXT_AS=""
     continue
   fi
-  if [ "$FOUND_MERGE" -eq 1 ]; then
-    case "$tok" in
-      --admin)
-        ADMIN_REQUESTED=1
-        continue
-        ;;
-      --repo|-R)
-        SKIP_NEXT_AS="repo"
-        continue
-        ;;
-      --repo=*)
-        REPO_ARG="${tok#--repo=}"
-        continue
-        ;;
-      -R=*)
-        REPO_ARG="${tok#-R=}"
-        continue
-        ;;
-      --body|-b|--body-file|-F|--subject|-t|--author-email|-A|--match-head-commit)
-        SKIP_NEXT_AS="skip"
-        continue
-        ;;
-    esac
-    case "$tok" in
-      -*)
-        continue
-        ;;
-    esac
-    # First non-flag token after `merge` is the selector. Don't
-    # break — keep walking so a `--repo`/`-R` flag or `--admin`
-    # flag appearing AFTER the selector still gets captured.
-    if [ -z "$PR_SELECTOR" ]; then
-      PR_SELECTOR="$tok"
-    fi
-    continue
-  fi
-  if [ "$tok" = "merge" ]; then
-    FOUND_MERGE=1
+  case "$tok" in
+    --admin)
+      ADMIN_REQUESTED=1
+      continue
+      ;;
+    --repo|-R)
+      SKIP_NEXT_AS="repo"
+      continue
+      ;;
+    --repo=*)
+      REPO_ARG="${tok#--repo=}"
+      continue
+      ;;
+    -R=*)
+      REPO_ARG="${tok#-R=}"
+      continue
+      ;;
+    --body|-b|--body-file|-F|--subject|-t|--author-email|-A|--match-head-commit)
+      SKIP_NEXT_AS="skip"
+      continue
+      ;;
+  esac
+  case "$tok" in
+    -*)
+      continue
+      ;;
+  esac
+  # First non-flag token after the gh-context `merge` is the
+  # selector. Don't break — keep walking so a `--repo`/`-R` flag or
+  # `--admin` flag appearing AFTER the selector still gets captured.
+  if [ -z "$PR_SELECTOR" ]; then
+    PR_SELECTOR="$tok"
   fi
 done
 

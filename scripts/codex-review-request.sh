@@ -337,10 +337,40 @@ scan_codex_state() {
   '
 }
 
-# Returns 0 iff the scan produced a review or reaction (signal received).
+# Returns 0 iff the scan produced ANY signal (review or reaction).
+# Used by the poll loop, which stops as soon as Codex has produced
+# any response — even a review with P0/P1 findings counts because
+# the caller will then process the findings and decide what to do.
 has_signal() {
   local scan=$1
   [ "$(echo "$scan" | jq -r '.review != null or .reaction != null')" = "true" ]
+}
+
+# Returns 0 iff the scan produced a signal that should be treated as
+# CLEARED (no further @codex review trigger needed). Cleared means
+# EITHER:
+#   - any +1 reaction on the PR issue (the no-findings happy path), OR
+#   - a review on HEAD with zero P0/P1 inline findings (the
+#     reviewed-and-clean path)
+#
+# A review with P0/P1 findings does NOT count as cleared — the caller
+# may have replied to the findings with a rebuttal and want Codex to
+# re-evaluate. Earlier versions of this function used has_signal in
+# the pre-flight, which caused the rebuttal-without-commit path to
+# stall: re-running the script saw the existing P1-bearing review
+# and skipped the trigger, so Codex was never asked to reconsider.
+# Codex caught this on swipewatch propagation PR #33 — same shape as
+# the manual `@codex review` workaround I had to use on template PR
+# #73 during dry-run C.
+has_cleared_signal() {
+  local scan=$1
+  [ "$(echo "$scan" | jq -r '
+    if .reaction != null then "true"
+    elif .review != null then
+      ([.findings[] | select(.priority == "P0" or .priority == "P1")] | length) == 0
+    else "false"
+    end
+  ')" = "true" ]
 }
 
 # --- pre-flight: is Codex already working on HEAD? --------------------------
@@ -352,8 +382,8 @@ fi
 
 TRIGGER_POSTED=false
 
-if has_signal "$INITIAL_SCAN"; then
-  log "Codex has already responded on HEAD — skipping trigger comment"
+if has_cleared_signal "$INITIAL_SCAN"; then
+  log "Codex has already cleared on HEAD (reaction or no-P0/P1 review) — skipping trigger comment"
 else
   log "posting '@codex review' trigger comment"
   # Capture stderr (and stdout) into a diagnostic variable so a failure

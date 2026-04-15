@@ -134,6 +134,16 @@ if ! [[ "$REACTION_FRESHNESS_SECONDS" =~ ^[0-9]+$ ]]; then
   exit 3
 fi
 
+# Honor codex.require_ci_green. When true (default), gate (a) runs
+# and any non-passing required check blocks merge. When false, gate
+# (a) is skipped — useful for emergency or manual flows where CI
+# is intentionally bypassed. Codex caught the missing wire-up on
+# the nathanpaynedotcom propagation PR #180 (the field was read by
+# the policy parser and documented in the codex: block but never
+# actually consulted by this script).
+REQUIRE_CI_GREEN=$(codex_field require_ci_green)
+REQUIRE_CI_GREEN=${REQUIRE_CI_GREEN:-true}
+
 # Read the available_reviewers list (one per line). Same state-machine
 # awk pattern, but collecting list items rather than matching a scalar.
 # Outputs one reviewer login per line to stdout. Handles both quoted
@@ -328,6 +338,10 @@ esac
 
 # --- gate (a): CI checks green ---------------------------------------------
 
+if [ "$REQUIRE_CI_GREEN" != "true" ]; then
+  log "gate (a): SKIPPED (codex.require_ci_green=$REQUIRE_CI_GREEN)"
+else
+
 log "gate (a): checking CI state"
 
 # Use the structured statusCheckRollup instead of `gh pr checks` so we can
@@ -396,6 +410,8 @@ if [ "$BAD_COUNT" -gt 0 ]; then
 fi
 
 log "gate (a): CI is green (Label Gate failure, if present, is expected during Phase 4a)"
+
+fi  # end REQUIRE_CI_GREEN
 
 # --- gate (b): reviewer identity approval ----------------------------------
 
