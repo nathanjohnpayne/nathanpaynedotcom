@@ -159,30 +159,43 @@ fi
 #
 # Fails CLOSED on tokenization error (unmatched quote, bad escape).
 # An agent should fix the malformed command and retry.
-TOKENS_OUTPUT=""
-if ! TOKENS_OUTPUT=$(printf '%s' "$COMMAND" | python3 -c '
+#
+# python3 emits tokens NUL-delimited so bash's read -d '' can
+# preserve embedded newlines. The output goes via a tempfile
+# rather than $(...) command substitution because bash command
+# substitution silently strips NUL bytes from its capture buffer,
+# which would re-jam all tokens together. Earlier versions used
+# newline-delimited output via print(tok), which silently SPLIT
+# any token containing a literal newline (e.g., the body of a
+# `gh pr create --body "Authoring-Agent: claude\n## Self-Review
+# \nok"`) into multiple bash tokens. Codex caught the bash-side
+# split on nathanpaynedotcom propagation PR #180 round 5.
+TMP_TOKENS=$(mktemp)
+TMP_TOKENS_ERR=$(mktemp)
+trap 'rm -f "$TMP_TOKENS" "$TMP_TOKENS_ERR"' EXIT
+if ! printf '%s' "$COMMAND" | python3 -c '
 import sys, shlex
 try:
     cmd = sys.stdin.read()
     for tok in shlex.split(cmd):
-        print(tok)
+        sys.stdout.buffer.write(tok.encode("utf-8", errors="replace") + b"\x00")
 except ValueError as e:
     print(f"shlex error: {e}", file=sys.stderr)
     sys.exit(1)
-' 2>&1); then
+' > "$TMP_TOKENS" 2> "$TMP_TOKENS_ERR"; then
   echo "BLOCKED: gh-pr-guard could not tokenize the gh command (malformed shell quoting)." >&2
   echo "  command: $COMMAND" >&2
-  echo "  shlex error: $TOKENS_OUTPUT" >&2
+  echo "  shlex error: $(cat "$TMP_TOKENS_ERR")" >&2
   echo "  Fix the quoting and retry, or use BREAK_GLASS_ADMIN=1 + --admin." >&2
   exit 2
 fi
-# Portable read loop in lieu of bash 4+ `mapfile`. Empty lines
-# preserved so legitimate empty arg values like `--body ""` are
-# consumed correctly by downstream SKIP_NEXT_AS logic.
+# Read NUL-delimited tokens from the tempfile. `read -d ''` means
+# "read until NUL". Each iteration appends one whole token,
+# preserving any embedded newlines.
 TOKENS=()
-while IFS= read -r line; do
-  TOKENS+=("$line")
-done <<<"$TOKENS_OUTPUT"
+while IFS= read -r -d '' tok; do
+  TOKENS+=("$tok")
+done < "$TMP_TOKENS"
 
 # --- detect the pr subcommand, capturing any global -R/--repo ---
 #
@@ -296,25 +309,19 @@ for i in "${!TOKENS[@]}"; do
     continue
   fi
 
-  # Capture inline env assignments regardless of state. Doing it
-  # here means a `CODEX_CLEARED=1 sudo gh pr merge 65` or even
-  # `cat foo; CODEX_CLEARED=1 gh pr merge 65` form still picks up
-  # the inline value when gh is eventually found.
-  case "$tok" in
-    CODEX_CLEARED=*)
-      INLINE_CODEX_CLEARED="${tok#CODEX_CLEARED=}"
-      ;;
-    BREAK_GLASS_ADMIN=*)
-      INLINE_BREAK_GLASS_ADMIN="${tok#BREAK_GLASS_ADMIN=}"
-      ;;
-  esac
-
   # Compound separators always reset us to command position,
   # whether we were in command position or skipping unrelated
   # args. Only standalone `&&` / `||` / `;` / `|` / `&` / `(`
   # tokens count — separators glommed onto adjacent words by
   # missing whitespace (e.g. `foo;`) are NOT detected, which is
   # an acceptable limitation for the agent flow.
+  #
+  # IMPORTANT: separator handling MUST run before the env-assignment
+  # capture below. Otherwise `echo CODEX_CLEARED=1 ; gh pr merge 65`
+  # would capture the literal `CODEX_CLEARED=1` arg of `echo` as a
+  # spoofed inline env var even though it never actually gets exported
+  # to the gh process. nathanpayne-codex caught this on swipewatch
+  # propagation PR #33 round 5 — privilege escalation potential.
   case "$tok" in
     "&&"|"||"|";"|"|"|"&"|"("|")")
       AT_COMMAND_POSITION=1
@@ -322,6 +329,25 @@ for i in "${!TOKENS[@]}"; do
       continue
       ;;
   esac
+
+  # Capture inline env assignments ONLY when AT_COMMAND_POSITION=1.
+  # Tokens in IN_UNRELATED_ARGS are arguments to an unrelated
+  # command (e.g., `echo BREAK_GLASS_ADMIN=1 ; gh pr merge --admin
+  # 65`) and do NOT export to the spawned gh process — capturing
+  # them would let an agent spoof guard variables by prefixing the
+  # command with an echo. Only assignments that are themselves in
+  # command position (e.g., `CODEX_CLEARED=1 gh pr merge 65` or
+  # `CODEX_CLEARED=1 sudo gh pr merge 65`) count.
+  if [ "$AT_COMMAND_POSITION" -eq 1 ]; then
+    case "$tok" in
+      CODEX_CLEARED=*)
+        INLINE_CODEX_CLEARED="${tok#CODEX_CLEARED=}"
+        ;;
+      BREAK_GLASS_ADMIN=*)
+        INLINE_BREAK_GLASS_ADMIN="${tok#BREAK_GLASS_ADMIN=}"
+        ;;
+    esac
+  fi
 
   if [ "$AT_COMMAND_POSITION" -eq 0 ]; then
     # Skipping arguments of an unrelated command. Stay until a
