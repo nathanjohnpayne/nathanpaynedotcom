@@ -487,10 +487,20 @@ COMMENTS_JSON=$(fetch_api_array "repos/$REPO/pulls/$PR_NUMBER/comments" "inline 
 # P2/P3 don't block clearance per REVIEW_POLICY.md § Phase 4a step 15a.
 # If there's no Codex review on HEAD, UNADDRESSED_P01 is [] — the
 # reaction path is then the only way gate (c) can clear.
+#
+# Filter MUST include user.login == BOT_LOGIN. Review-thread replies
+# (e.g., a human quoting a P1 badge from a Codex finding while
+# debugging) share the same pull_request_review_id as the original
+# Codex comments, so a quote-only reply containing `![P1 Badge]`
+# would otherwise be misclassified as an unaddressed Codex finding
+# and incorrectly block merge. nathanpayne-codex caught this on
+# nathanpaynedotcom propagation PR #180 round 3.
 if [ -n "$CODEX_REVIEW_ID" ] && [ "$CODEX_REVIEW_ID" != "null" ]; then
   UNADDRESSED_P01=$(echo "$COMMENTS_JSON" | jq \
+    --arg bot "$BOT_LOGIN" \
     --argjson review_id "$CODEX_REVIEW_ID" '
     [ .[]
+      | select(.user.login == $bot)
       | select(.pull_request_review_id == $review_id)
       | select(.body | test("!\\[P[01] Badge\\]"))
       | { path, line, comment_id: .id }
