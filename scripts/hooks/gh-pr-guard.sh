@@ -173,10 +173,54 @@ fi
 TMP_TOKENS=$(mktemp)
 TMP_TOKENS_ERR=$(mktemp)
 trap 'rm -f "$TMP_TOKENS" "$TMP_TOKENS_ERR"' EXIT
+# The python preprocessor first converts UNQUOTED newlines into `;`
+# command separators (so that multi-command inputs like
+# `echo ok\ngh pr merge 123 --admin` are split into two commands)
+# while preserving QUOTED newlines as literal characters in the
+# token (so that `gh pr create --body "line1\nline2"` keeps the
+# body as one token). Codex caught the unquoted-newline collapse
+# on swipewatch propagation PR #33 round 6 — privilege escalation
+# via newline-separated prefix command was the same shape as the
+# round-5 echo-prefix env spoof, just on a different separator.
 if ! printf '%s' "$COMMAND" | python3 -c '
 import sys, shlex
+
+def normalize_unquoted_newlines(cmd):
+    """Replace newlines OUTSIDE of single/double quotes with `; `.
+    Preserves newlines inside quoted strings as literal characters."""
+    out = []
+    in_single = False
+    in_double = False
+    i = 0
+    while i < len(cmd):
+        c = cmd[i]
+        # Handle backslash-escaped char in double quotes / unquoted
+        if c == "\\" and not in_single and i + 1 < len(cmd):
+            out.append(c)
+            out.append(cmd[i + 1])
+            i += 2
+            continue
+        # chr(39) is a single quote; using chr() avoids embedding a
+        # literal single quote inside the bash heredoc (which would
+        # break the python3 -c '...' surrounding quote).
+        if c == chr(39) and not in_double:
+            in_single = not in_single
+        elif c == chr(34) and not in_single:
+            in_double = not in_double
+        elif c == "\n" and not in_single and not in_double:
+            # Pad with spaces on BOTH sides so shlex parses the
+            # `;` as its own token rather than gluing it to the
+            # preceding word (e.g. "ok;" instead of "ok" + ";").
+            out.append(" ; ")
+            i += 1
+            continue
+        out.append(c)
+        i += 1
+    return "".join(out)
+
 try:
     cmd = sys.stdin.read()
+    cmd = normalize_unquoted_newlines(cmd)
     for tok in shlex.split(cmd):
         sys.stdout.buffer.write(tok.encode("utf-8", errors="replace") + b"\x00")
 except ValueError as e:
