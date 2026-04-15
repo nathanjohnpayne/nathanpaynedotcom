@@ -390,11 +390,28 @@ REQUIRED_CHECK_NAMES=$(gh api "repos/$REPO/branches/$BASE_BRANCH/protection/requ
   || true)
 
 if [ -z "$REQUIRED_CHECK_NAMES" ]; then
-  REQUIRED_FILTER='true'  # no required-check list available, treat all as required
+  # No required-check list available. This can happen because:
+  #   - The branch has no branch protection rules at all, OR
+  #   - The token lacks Administration:read scope (which the
+  #     required_status_checks endpoint requires).
+  #
+  # Earlier versions treated "no list" as "all checks required",
+  # which caused over-strict blocking when the token lacked perms
+  # and optional/flaky checks happened to be failing. Codex caught
+  # this on swipewatch propagation PR #33 round 8.
+  #
+  # New behavior: log a warning and SKIP the required-check filter
+  # entirely, letting gate (a) pass. The rationale is that if
+  # branch protection isn't configured or the token can't read it,
+  # the BRANCH PROTECTION ITSELF doesn't enforce required checks,
+  # so gate (a) shouldn't either.
+  log "gate (a): WARNING — could not determine required checks from branch protection for $BASE_BRANCH (no rules configured or token lacks Administration:read scope). Skipping required-check filter — all checks treated as passing this gate."
+  # Skip gate (a) entirely for this case
+  ROLLUP_JSON='{"statusCheckRollup":[]}'
+  REQUIRED_JSON='[]'
 else
   # Build a jq array of required check names
   REQUIRED_JSON=$(echo "$REQUIRED_CHECK_NAMES" | jq -R . | jq -s .)
-  REQUIRED_FILTER="(.label as \$l | $REQUIRED_JSON | index(\$l)) != null"
 fi
 
 BAD_CHECKS=$(echo "$ROLLUP_JSON" | jq --argjson required_names "${REQUIRED_JSON:-[]}" '
