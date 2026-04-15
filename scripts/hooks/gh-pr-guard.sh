@@ -133,29 +133,46 @@ fi
 
 # --- tokenize the command with shell-quote awareness ---
 #
-# xargs honors POSIX single and double quoting. `gh pr merge
+# Use python3 shlex.split which honors POSIX single and double
+# quoting AND handles multi-line quoted strings. `gh pr merge
 # --body "hello world" 65` tokenizes correctly to (gh, pr, merge,
-# --body, hello world, 65) instead of being naively split into
-# (gh, pr, merge, --body, "hello, world", 65).
+# --body, hello world, 65), and `gh pr create --body "Authoring-
+# Agent: claude\n## Self-Review\nok"` (with literal newlines in
+# the body) also tokenizes correctly because shlex.split treats
+# newlines inside quotes as literal characters, not as token
+# separators.
 #
-# IMPORTANT: pass `printf '%s\n'` as the explicit command. The
-# default `xargs` command is `echo`, and `echo` treats tokens
-# beginning with `-` (specifically `-n`, `-e`, `-E`) as ITS OWN
-# flags rather than printing them. That means a naive `xargs -n 1`
-# silently drops `-n` from the token stream, which broke the
-# pre-gh walk for inputs like `nice -n 5 gh pr merge 65` (the
-# `-n` was missing entirely, so the walk treated `5` as the
-# next command and switched to in_unrelated_args mode, missing
-# the real `gh` command). Using `printf '%s\n'` instead of the
-# implicit echo preserves every token literally.
+# Earlier versions used `xargs -n 1` (with the implicit `echo`
+# command), which:
+#   - Silently drops -n / -e / -E (echo's own flags). Codex caught
+#     this on PR #66 round 6 and the workaround was `xargs -n 1
+#     printf '%s\n'`.
+#   - Treats embedded newlines as token separators, breaking
+#     valid `gh pr create --body "...multiline..."` invocations.
+#     Codex caught this on nathanpaynedotcom propagation PR #180
+#     round 4. xargs has no flag to disable this behavior; the
+#     fix is to switch tokenizers entirely.
+#
+# python3 is available on macOS 12+ by default and on every Linux
+# distro the agent flow runs on. Python startup cost is ~50ms per
+# invocation; acceptable for a hook that already does an API call.
 #
 # Fails CLOSED on tokenization error (unmatched quote, bad escape).
 # An agent should fix the malformed command and retry.
 TOKENS_OUTPUT=""
-if ! TOKENS_OUTPUT=$(printf '%s' "$COMMAND" | xargs -n 1 printf '%s\n' 2>&1); then
+if ! TOKENS_OUTPUT=$(printf '%s' "$COMMAND" | python3 -c '
+import sys, shlex
+try:
+    cmd = sys.stdin.read()
+    for tok in shlex.split(cmd):
+        print(tok)
+except ValueError as e:
+    print(f"shlex error: {e}", file=sys.stderr)
+    sys.exit(1)
+' 2>&1); then
   echo "BLOCKED: gh-pr-guard could not tokenize the gh command (malformed shell quoting)." >&2
   echo "  command: $COMMAND" >&2
-  echo "  xargs error: $TOKENS_OUTPUT" >&2
+  echo "  shlex error: $TOKENS_OUTPUT" >&2
   echo "  Fix the quoting and retry, or use BREAK_GLASS_ADMIN=1 + --admin." >&2
   exit 2
 fi

@@ -444,7 +444,31 @@ else
   # to the new trigger. Codex caught this on swipewatch propagation
   # PR #33 round 2 — same shape as the round-1 has_cleared_signal
   # bug, just on the post-trigger side.
-  TRIGGER_POST_TIME=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+  #
+  # Use GitHub's authoritative timestamp from the just-posted comment
+  # (extracted from the URL gh returns) rather than local wall-clock.
+  # Local wall-clock can be ahead of or behind GitHub by a few seconds
+  # due to NTP skew, and the strict `>` comparison would misclassify
+  # a real Codex response as pre-trigger. Falls back to local wall-
+  # clock minus a 60-second buffer if the comment ID can't be
+  # extracted (e.g., gh output format change). Codex caught the
+  # wall-clock issue on nathanpaynedotcom propagation PR #180 round 4.
+  TRIGGER_COMMENT_ID=$(echo "$POST_OUTPUT" | grep -oE 'issuecomment-[0-9]+' | head -1 | sed 's/issuecomment-//')
+  if [ -n "$TRIGGER_COMMENT_ID" ]; then
+    TRIGGER_POST_TIME=$(gh api "repos/$REPO/issues/comments/$TRIGGER_COMMENT_ID" --jq '.created_at' 2>/dev/null || true)
+  fi
+  if [ -z "$TRIGGER_POST_TIME" ]; then
+    # Fallback: local wall-clock minus a 60-second buffer for
+    # clock skew tolerance.
+    EPOCH_NOW=$(date +%s)
+    EPOCH_BUFFER=$((EPOCH_NOW - 60))
+    if TRIGGER_POST_TIME=$(date -u -r "$EPOCH_BUFFER" +%Y-%m-%dT%H:%M:%SZ 2>/dev/null); then
+      :
+    else
+      TRIGGER_POST_TIME=$(date -u -d "@$EPOCH_BUFFER" +%Y-%m-%dT%H:%M:%SZ 2>/dev/null \
+        || die 3 "could not compute fallback TRIGGER_POST_TIME")
+    fi
+  fi
 fi
 
 # --- poll loop --------------------------------------------------------------
@@ -453,14 +477,22 @@ START_TS=$(date +%s)
 DEADLINE=$((START_TS + TIMEOUT_SECONDS))
 ELAPSED=0
 
-# Returns 0 iff the scan has a signal that is strictly newer than
-# TRIGGER_POST_TIME. Used by the poll loop only when TRIGGER_POSTED=1
-# so we don't short-circuit on stale signals.
+# Returns 0 iff the scan has a signal that is at least as recent
+# as TRIGGER_POST_TIME (>=, not >). Used by the poll loop only
+# when TRIGGER_POSTED=1 so we don't short-circuit on stale signals.
+#
+# Uses >= rather than > because GitHub timestamps are second-
+# precision and a legitimate Codex response in the same second as
+# the trigger comment post would otherwise be classified as stale
+# forever, forcing the script to time out to Phase 4b unnecessarily.
+# nathanpayne-codex caught the >-vs->= bug on swipewatch propagation
+# PR #33 round 4 and the related wall-clock-vs-GitHub-time bug on
+# nathanpaynedotcom propagation PR #180 round 4.
 has_post_trigger_signal() {
   local scan=$1
   [ "$(echo "$scan" | jq -r --arg after "$TRIGGER_POST_TIME" '
-    ((.review != null and .review.submitted_at > $after)
-     or (.reaction != null and .reaction.created_at > $after))
+    ((.review != null and .review.submitted_at >= $after)
+     or (.reaction != null and .reaction.created_at >= $after))
   ')" = "true" ]
 }
 

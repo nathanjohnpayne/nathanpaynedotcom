@@ -372,7 +372,32 @@ ROLLUP_JSON=$(gh pr view "$PR_NUMBER" --repo "$REPO" --json statusCheckRollup 2>
 #
 # Normalize both into {label, workflow, result}, then accept only
 # SUCCESS / SKIPPED / NEUTRAL as non-blocking.
-BAD_CHECKS=$(echo "$ROLLUP_JSON" | jq '
+# Determine which checks are REQUIRED via branch protection. Without
+# this filter, gate (a) blocks on any non-passing check in the
+# rollup including optional / informational ones that branch
+# protection wouldn't actually require for merge. nathanpayne-codex
+# caught the over-strict behavior on swipewatch propagation PR #33
+# round 4.
+#
+# The base branch is read from PR_JSON. If branch protection isn't
+# configured (or returns empty), fall back to the prior behavior
+# (consider all checks). If branch protection IS configured, only
+# checks listed in required_status_checks.contexts AND/OR
+# required_status_checks.checks[].context block the gate.
+BASE_BRANCH=$(echo "$PR_JSON" | jq -r '.base.ref')
+REQUIRED_CHECK_NAMES=$(gh api "repos/$REPO/branches/$BASE_BRANCH/protection/required_status_checks" 2>/dev/null \
+  | jq -r '[.contexts[]?, .checks[]?.context] | unique | .[]' 2>/dev/null \
+  || true)
+
+if [ -z "$REQUIRED_CHECK_NAMES" ]; then
+  REQUIRED_FILTER='true'  # no required-check list available, treat all as required
+else
+  # Build a jq array of required check names
+  REQUIRED_JSON=$(echo "$REQUIRED_CHECK_NAMES" | jq -R . | jq -s .)
+  REQUIRED_FILTER="(.label as \$l | $REQUIRED_JSON | index(\$l)) != null"
+fi
+
+BAD_CHECKS=$(echo "$ROLLUP_JSON" | jq --argjson required_names "${REQUIRED_JSON:-[]}" '
   [.statusCheckRollup[]
     | {
         label: (.name // .context // "?"),
@@ -387,6 +412,14 @@ BAD_CHECKS=$(echo "$ROLLUP_JSON" | jq '
     | select(
         (.workflow != "PR Review Policy") or
         (.label != "Label Gate")
+      )
+    # When branch protection lists required checks, only those
+    # checks block the gate. When the list is empty (no branch
+    # protection configured or query failed), fall back to the
+    # prior behavior of treating all checks as required.
+    | select(
+        ($required_names | length) == 0
+        or ($required_names | index(.label)) != null
       )
     # A check passes the gate iff its result is SUCCESS, SKIPPED, or
     # NEUTRAL. Everything else — FAILURE, CANCELLED, TIMED_OUT,
