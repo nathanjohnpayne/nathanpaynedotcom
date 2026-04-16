@@ -1883,7 +1883,7 @@ a.tag:hover {
   background: var(--ink);
   width: min(100%, 72rem);
   margin: 0 auto;
-  border: 1px solid var(--grid-border);
+  box-shadow: 14px 14px 0 rgba(17, 16, 13, 0.12);
   /* Use clip instead of hidden — hidden creates a scroll container
      which breaks position:sticky on .blog-sidebar-inner. clip
      provides the same visual clipping without a new scroll context. */
