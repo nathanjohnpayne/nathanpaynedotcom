@@ -160,7 +160,7 @@ The most instructive artifact of the entire project is [PR #66](https://github.c
 
 The hook needs to parse `gh pr merge` commands to extract the PR selector (which can be a number, a URL, or a branch name), detect `--admin` flags, and check whether the target PR carries `needs-external-review`. It also needs to handle inline environment prefixes like `CODEX_CLEARED=1 gh pr merge 65` because that is the documented merge form.
 
-PR #66 went through **seven rounds** of `nathanpayne-codex` review. Each round caught a new parser bug:
+[PR #66](https://github.com/nathanjohnpayne/ai_agent_repo_template/pull/66) went through **seven rounds** of `nathanpayne-codex` review. Each round caught a new parser bug:
 
 | Round | Bug | Bypass mechanism |
 |---|---|---|

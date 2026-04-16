@@ -181,7 +181,7 @@ But the spec also included a backward-compatibility requirement:
 
 > `buildInvoiceBody` in `invoice.js` must handle: (1) Legacy plain-text templates containing `%token%` syntax (read from `settings.emailMessage`), (2) The new TipTap JSON document format (read from `settings.emailMessageDocument`)
 
-That requirement created the bridge. The agent had to keep the old plaintext pipeline working alongside the new JSON format. PR #144's decision to flatten the structured document back into plaintext via `docToPlainTextWithTokens()` and run it through the existing `buildInvoiceBody` was a reasonable interpretation of "handle both formats"—convert the new format into the old one and reuse the existing pipeline. It is the lazy interpretation, but it is not an unreasonable one. The spec did not say "you must create a new email renderer that operates directly on the JSON document." It said the old function must handle both formats, and the simplest way to handle both is to convert the new one into the old one.
+That requirement created the bridge. The agent had to keep the old plaintext pipeline working alongside the new JSON format. [PR #144](https://github.com/nathanjohnpayne/friends-and-family-billing/pull/144)'s decision to flatten the structured document back into plaintext via `docToPlainTextWithTokens()` and run it through the existing `buildInvoiceBody` was a reasonable interpretation of "handle both formats"—convert the new format into the old one and reuse the existing pipeline. It is the lazy interpretation, but it is not an unreasonable one. The spec did not say "you must create a new email renderer that operates directly on the JSON document." It said the old function must handle both formats, and the simplest way to handle both is to convert the new one into the old one.
 
 This matters because it means the failure was not "the agent had bad instructions." The spec implied the right architecture. The agent read the spec and made a locally rational decision that violated the spec's intent without violating its letter. Even well-written specs can leave enough room for an agent to choose the path of least resistance, and the path of least resistance is almost always "preserve the existing pipeline."
 
@@ -203,7 +203,7 @@ This is a perfectly reasonable patch if you assume the markdown bridge is the ri
 
 But that assumption was the bug.
 
-Here is the part that makes the session log valuable: my automated code review agent, nathanpayne-codex, flagged exactly this problem in its review of PR #146:
+Here is the part that makes the session log valuable: my automated code review agent, nathanpayne-codex, flagged exactly this problem in its review of [PR #146](https://github.com/nathanjohnpayne/friends-and-family-billing/pull/146):
 
 > Exact bold-wrapped tokens are not round-trip safe. `plainTextToDoc("**%first_name%**")` creates a bold-marked token node, but `docToPlainTextWithTokens()` serializes it back to `%first_name%`.
 
@@ -235,7 +235,7 @@ Both changes are locally valid. They probably improved the experience. They also
 
 Those were both good fixes. They were also orthogonal to editor/preview/email parity. This is another failure mode worth noticing: an agent working on the right issue can still accumulate adjacent wins that make everyone feel progress is happening while the core invariant remains broken.
 
-The review feedback on PR #155 is telling. The nathanpayne-codex reviewer flagged three separate round-trip safety issues: link parsing that stopped at the first `)` in a URL, italic-wrapped links that did not survive serialization, and marked token forms that were not covered. Three findings, all pointing at the same structural problem—the intermediate format was lossy—and the agent addressed each one as a scoped regex fix.
+The review feedback on [PR #155](https://github.com/nathanjohnpayne/friends-and-family-billing/pull/155) is telling. The nathanpayne-codex reviewer flagged three separate round-trip safety issues: link parsing that stopped at the first `)` in a URL, italic-wrapped links that did not survive serialization, and marked token forms that were not covered. Three findings, all pointing at the same structural problem—the intermediate format was lossy—and the agent addressed each one as a scoped regex fix.
 
 ### PR #158: the bridge got cleaner, and the system stayed wrong
 
@@ -319,7 +319,7 @@ And it included a constraints section that explicitly banned the exact moves Cla
 > - Do NOT rely on regex to fix formatting
 > - Do NOT optimize for minimal diff over correctness
 
-Every constraint corresponds to something the first agent actually did. The CSS patch in PR #153. The regex improvements in #146 and #155. The additional transformation layer in #158. The minimal-diff optimization throughout. This was not a generic best-practices list. It was a list of specific mistakes extracted from the session history.
+Every constraint corresponds to something the first agent actually did. The CSS patch in [PR #153](https://github.com/nathanjohnpayne/friends-and-family-billing/pull/153). The regex improvements in [#146](https://github.com/nathanjohnpayne/friends-and-family-billing/pull/146) and [#155](https://github.com/nathanjohnpayne/friends-and-family-billing/pull/155). The additional transformation layer in [#158](https://github.com/nathanjohnpayne/friends-and-family-billing/pull/158). The minimal-diff optimization throughout. This was not a generic best-practices list. It was a list of specific mistakes extracted from the session history.
 
 The task document also required the agent to deliver an audit of the prior fixes as part of the PR—not just the code, but an explanation of which assumptions were wrong and which abstractions made the problem worse. And it required regression tests proving that Preview output and email output were structurally equivalent.
 
@@ -414,7 +414,7 @@ That is a different kind of work. It is not "fix this bug." It is "explain why t
 
 After this issue, I turned the lesson into repo policy. Four rules:
 
-**The two-strike rule.** If an agent has already made two failed fix attempts on the same problem, the third attempt must begin with an audit of the previous PRs. The agent has to explain what each prior fix assumed and why the assumption was wrong before it proposes a new fix. This prevents the patch-accumulation loop that produced PRs #146 through #158.
+**The two-strike rule.** If an agent has already made two failed fix attempts on the same problem, the third attempt must begin with an audit of the previous PRs. The agent has to explain what each prior fix assumed and why the assumption was wrong before it proposes a new fix. This prevents the patch-accumulation loop that produced PRs [#146](https://github.com/nathanjohnpayne/friends-and-family-billing/pull/146), [#153](https://github.com/nathanjohnpayne/friends-and-family-billing/pull/153), [#154](https://github.com/nathanjohnpayne/friends-and-family-billing/pull/154), [#155](https://github.com/nathanjohnpayne/friends-and-family-billing/pull/155), and [#158](https://github.com/nathanjohnpayne/friends-and-family-billing/pull/158).
 
 **The serialization checklist.** If a bug involves serialization or deserialization—content crossing a format boundary—the code review now asks three questions:
 
@@ -422,7 +422,7 @@ After this issue, I turned the lesson into repo policy. Four rules:
 - Do all consumers of the format produce equivalent output?
 - Is the intermediate format even necessary?
 
-Those three questions would have caught this bug at PR #144. They are simple, but they target the exact blind spot that agents have: they will improve a bridge indefinitely without asking whether the bridge should exist.
+Those three questions would have caught this bug at [PR #144](https://github.com/nathanjohnpayne/friends-and-family-billing/pull/144). They are simple, but they target the exact blind spot that agents have: they will improve a bridge indefinitely without asking whether the bridge should exist.
 
 **Constraint-driven prompts for system bugs.** When a bug touches more than one layer of the system, the prompt now includes an explicit list of banned approaches derived from prior failures. Not "best practices" in the abstract—specific things this codebase has already tried that did not work. The agent needs to know what the search space does not include.
 
