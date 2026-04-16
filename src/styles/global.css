@@ -4,6 +4,7 @@
   --red: #c11d19;
   --yellow: #d9b111;
   --blue: #223f89;
+  --lightblue: #2080ca;
   --black: #11100d;
   --accent-black: #333333;
   --accent-gray: #d4d4d4;
@@ -856,6 +857,20 @@ body.blog-page {
   --project-bg: #c7cfdf;
 }
 
+.project-page--lightblue {
+  --project-accent: #2080ca;
+  --project-accent-foreground: #f5f0e4;
+  --project-accent-soft: rgba(32, 128, 202, 0.12);
+  --project-bg: #c4d6e6;
+}
+
+.project-page--paper {
+  --project-accent: #5b5f64;
+  --project-accent-foreground: #f5f0e4;
+  --project-accent-soft: rgba(91, 95, 100, 0.12);
+  --project-bg: #dde1e5;
+}
+
 .project-shell {
   min-height: 100vh;
   padding: clamp(0.9rem, 2.5vw, 1.8rem);
@@ -1599,6 +1614,10 @@ a.tag:hover {
 
 .accent-paper {
   background: #DDE1E5;
+}
+
+.accent-lightblue {
+  background: var(--lightblue);
 }
 
 .accent-white {
@@ -2793,6 +2812,7 @@ a:focus-visible {
   /* Hide decorative accent blocks */
   .accent-red,
   .accent-blue,
+  .accent-lightblue,
   .accent-yellow,
   .accent-black,
   .accent-paper,

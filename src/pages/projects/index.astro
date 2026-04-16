@@ -94,14 +94,15 @@ const jsonLd = {
               <div class="accent-paper" aria-hidden="true"></div>
             </div>
           );
-          // Projects 5+ use alternating overflow rows
-          const accentStyle = project.data.slug === 'friends-and-family-billing'
-            ? 'background: #2080ca;'
-            : undefined;
+          // Projects 5+ use alternating overflow rows. FFB gets the
+          // light-blue accent to match its detail-page variant.
+          const accentClass = project.data.slug === 'friends-and-family-billing'
+            ? 'accent-lightblue'
+            : 'accent-paper';
           return (
             <div class={i % 2 === 0 ? 'grid-row--overflow-a' : 'grid-row--overflow-b'}>
               {card}
-              <div class="accent-paper" style={accentStyle} aria-hidden="true"></div>
+              <div class={accentClass} aria-hidden="true"></div>
             </div>
           );
         })}
