@@ -12,6 +12,7 @@ const DIST = resolve(__dirname, '../dist');
 const CONTENT = resolve(__dirname, '../src/content/projects');
 
 const projectSlugs = [
+  'ai-agent-repo-template',
   'override',
   'device-source-of-truth',
   'friends-and-family-billing',

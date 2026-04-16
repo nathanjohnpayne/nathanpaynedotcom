@@ -30,6 +30,10 @@ const projects = defineCollection({
       href: z.string(),
     })).optional().default([]),
     draft: z.boolean().default(false),
+
+    // Opt-in: refresh `screenshotSrc` on each build from the GitHub
+    // social preview of `githubUrl`. See scripts/refresh-hero-images.mjs.
+    heroRefresh: z.enum(['github-social']).optional(),
   }),
 });
 
