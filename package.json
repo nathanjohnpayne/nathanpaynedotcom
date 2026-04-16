@@ -4,6 +4,7 @@
   "type": "module",
   "scripts": {
     "dev": "astro dev",
+    "prebuild": "node scripts/refresh-hero-images.mjs",
     "build": "astro build",
     "preview": "astro preview",
     "test": "astro build && vitest run",
