@@ -95,10 +95,13 @@ const jsonLd = {
             </div>
           );
           // Projects 5+ use alternating overflow rows
+          const accentStyle = project.data.slug === 'friends-and-family-billing'
+            ? 'background: #2080ca;'
+            : undefined;
           return (
             <div class={i % 2 === 0 ? 'grid-row--overflow-a' : 'grid-row--overflow-b'}>
               {card}
-              <div class="accent-paper" aria-hidden="true"></div>
+              <div class="accent-paper" style={accentStyle} aria-hidden="true"></div>
             </div>
           );
         })}
