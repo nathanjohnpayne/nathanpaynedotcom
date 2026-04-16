@@ -183,6 +183,41 @@ const homepageJsonLd = {
         <div class="panel-content">
           <div class="content-inner">
             <h2>Connect</h2>
+            {/* ── Availability signal ──────────────────────────────────
+                 The mailto address is assembled client-side from base64
+                 fragments so the string `hire@nathanpayne.com` never
+                 appears in the static HTML (protects against the simplest
+                 scrapers). The <noscript> fallback is plain text for
+                 JS-disabled users. The inline <script is:inline> runs
+                 synchronously after the element is parsed, so the window
+                 between page paint and href assembly is negligible. */}
+            <p class="availability-signal">
+              Open to new roles and collaborations. I read every email.
+              {' '}
+              <a
+                id="availability-mailto"
+                class="availability-mailto p-link"
+                href="#"
+                data-u="aGlyZQ=="
+                data-d="bmF0aGFucGF5bmUuY29t"
+                data-s="RnJvbSUyMG5hdGhhbnBheW5lLmNvbQ=="
+              >Get in touch &rarr;</a>
+            </p>
+            <noscript>
+              <p class="availability-noscript">Email: hire [at] nathanpayne [dot] com</p>
+            </noscript>
+            <script is:inline>
+              (function () {
+                var el = document.getElementById('availability-mailto');
+                if (!el) return;
+                try {
+                  var user = atob(el.dataset.u);
+                  var domain = atob(el.dataset.d);
+                  var subject = el.dataset.s ? atob(el.dataset.s) : '';
+                  el.href = 'mailto:' + user + '@' + domain + (subject ? '?subject=' + subject : '');
+                } catch (e) { /* leave href as "#" — noscript covers the fallback */ }
+              })();
+            </script>
             <span class="connect-label">Elsewhere</span>
             <div class="social-stack">
               <a href="https://www.linkedin.com/in/nathanpayne/" target="_blank" rel="noopener" class="social-row social-row--linkedin">
