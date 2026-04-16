@@ -48,7 +48,7 @@ const jsonLd = {
         </nav>
         <p class="kicker">AI &times; Product &times; Engineering</p>
         <h1>Projects</h1>
-        <p class="deck">Every project started as a real problem. Each one became a systems design exercise&mdash;built end-to-end with AI agents under structured supervision, using multi-agent code review and the two-strike rule I developed after watching an agent open six PRs for the same bug. <a href="/blog/six-prs-one-bug-agent-failure-modes/">Read the case study &rarr;</a></p>
+        <p class="deck">Every project started as a real problem. Each one became a systems design exercise&mdash;built with AI agents from first commit to deploy, on top of an enforcement system I designed to make agent output reliable. The infrastructure behind these projects is documented in <a href="/blog/agent-approval-workflow-genesis-of-ai-agent-repo-template/">Agent Approval Workflow and the Genesis of ai-agent-repo-template</a>.</p>
       </header>
 
       {/* ── Project Grid ──
@@ -95,10 +95,13 @@ const jsonLd = {
             </div>
           );
           // Projects 5+ use alternating overflow rows
+          const accentStyle = project.data.slug === 'friends-and-family-billing'
+            ? 'background: #2080ca;'
+            : undefined;
           return (
             <div class={i % 2 === 0 ? 'grid-row--overflow-a' : 'grid-row--overflow-b'}>
               {card}
-              <div class="accent-paper" aria-hidden="true"></div>
+              <div class="accent-paper" style={accentStyle} aria-hidden="true"></div>
             </div>
           );
         })}
