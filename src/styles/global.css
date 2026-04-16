@@ -318,6 +318,20 @@ html, body {
   color: rgba(25, 22, 17, 0.50);
 }
 
+.availability-signal {
+  margin: 0 0 var(--su);
+  font-size: clamp(0.78rem, 0.95vw, 0.88rem);
+  line-height: 1.45;
+  color: rgba(25, 22, 17, 0.82);
+}
+
+.availability-noscript {
+  display: block;
+  margin: 0 0 var(--su);
+  font-size: clamp(0.7rem, 0.85vw, 0.8rem);
+  color: rgba(25, 22, 17, 0.62);
+}
+
 .social-stack {
   margin-top: 0;
   gap: calc(var(--su) * 0.75);
