@@ -31,6 +31,17 @@ const projectsDir = join(repoRoot, 'src/content/projects');
 const publicDir = join(repoRoot, 'public');
 
 const USER_AGENT = 'nathanpaynedotcom-build/1.0 (+https://nathanpayne.com)';
+const FETCH_TIMEOUT_MS = 10_000;
+
+async function fetchWithTimeout(url, options = {}) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+  try {
+    return await fetch(url, { ...options, signal: controller.signal });
+  } finally {
+    clearTimeout(timer);
+  }
+}
 
 function parseFrontmatter(markdown) {
   const match = markdown.match(/^---\n([\s\S]*?)\n---/);
@@ -55,7 +66,7 @@ function parseGithubRepo(url) {
 }
 
 async function fetchGithubSocialImageUrl(owner, repo) {
-  const res = await fetch(`https://github.com/${owner}/${repo}`, {
+  const res = await fetchWithTimeout(`https://github.com/${owner}/${repo}`, {
     headers: { 'User-Agent': USER_AGENT, 'Accept': 'text/html' },
   });
   if (!res.ok) throw new Error(`GitHub repo page returned ${res.status}`);
@@ -66,7 +77,7 @@ async function fetchGithubSocialImageUrl(owner, repo) {
 }
 
 async function downloadImage(url, destPath) {
-  const res = await fetch(url, { headers: { 'User-Agent': USER_AGENT } });
+  const res = await fetchWithTimeout(url, { headers: { 'User-Agent': USER_AGENT } });
   if (!res.ok) throw new Error(`image fetch returned ${res.status}`);
   const buffer = Buffer.from(await res.arrayBuffer());
   await writeFile(destPath, buffer);
