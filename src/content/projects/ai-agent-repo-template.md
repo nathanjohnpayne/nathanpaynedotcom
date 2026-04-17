@@ -5,15 +5,14 @@ description: "A deterministic repository standard that keeps humans and AI codin
 kicker: "AI × Infrastructure × Tooling"
 order: 0
 screenshotAspect: "wide"
-screenshotSrc: "/images/projects/ai-agent-repo-template-hero.png"
+screenshotSrc: "/images/projects/ai-agent-repo-template-mergepath.png"
 accentColor: "#223f89"
 accentColorClass: "project-page--blue"
 gradientFrom: "#dce3f0"
 gradientTo: "#f5f0e4"
-liveUrl: "https://github.com/nathanjohnpayne/ai_agent_repo_template"
+liveUrl: "https://github.com/nathanjohnpayne/ai_agent_repo_template/blob/main/mergepath/index.html"
 githubUrl: "https://github.com/nathanjohnpayne/ai_agent_repo_template"
 tags: ["Infrastructure", "AI Tooling", "GitHub Actions", "Bash/Python"]
-heroRefresh: "github-social"
 metadata:
   domain: "Infrastructure × AI Tooling"
   format: "Repository standard"
@@ -40,6 +39,14 @@ The template treats agent output the way regulated engineering organizations tre
 - Multi-identity review: each agent authors as `nathanjohnpayne` and reviews under a separate machine user (`nathanpayne-claude`, `nathanpayne-codex`, `nathanpayne-cursor`) so an agent never approves its own code.
 - Automated external review for any PR over 300 lines or touching protected paths, routed through the ChatGPT Codex Connector GitHub App with structured request/check scripts (`scripts/codex-review-request.sh`, `scripts/codex-review-check.sh`).
 - 1Password-backed credential plumbing via `scripts/op-preflight.sh` that front-loads all biometric prompts so a session's author and reviewer PATs, GCP ADC, and SSH keys are cached once and reused.
+
+## Mergepath: the policy configurator
+
+The screenshot above is **Mergepath**, a single-file HTML prototype that lives at [`mergepath/index.html`](https://github.com/nathanjohnpayne/ai_agent_repo_template/blob/main/mergepath/index.html) in the template. It lets you tune every knob in `.github/review-policy.yml`—external review threshold, protected paths, CodeRabbit toggle, Codex GitHub App toggle and max rounds, eligible internal reviewers—and then replays recent PRs against the draft policy so you can feel the shape of the change before committing the YAML.
+
+The page opens with a synthetic set of sample PRs so it demos with zero setup. To replay your real PRs, `scripts/policy-sim.sh` runs `gh pr list --state merged`, shapes the JSON into the `window.__PRS` format the page expects, injects it into a temporary copy of the HTML at the `<!-- MERGEPATH_INJECT -->` marker, and opens that copy in a new tab. The header badge flips from **synthetic · 8** to **live · N** and the routing simulation replays each real PR against whichever policy draft you have loaded.
+
+There is no backend, no build system, and no network calls. The draft YAML panel shows what the current knob configuration would look like as `.github/review-policy.yml`, but it does not write to disk—copy it yourself if you want to apply. The canonical spec is `specs/mergepath_policy_configurator.md`; if the spec and the page disagree, the spec wins.
 
 ## The numbers
 
