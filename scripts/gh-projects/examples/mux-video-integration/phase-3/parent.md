@@ -8,6 +8,6 @@ Tracks Phase 3 of **MUX Video Integration** (Project #5).
 - AGENTS.md documents: "How to add a MUX video to a project page" (one frontmatter field).
 - Theming verified against each `project-page--*` accent class (red, yellow, blue, lightblue, paper).
 
-**Depends on:** Phase 1 (#210). Phase 2 is optional — component should work without a Mux Data env key.
+**Depends on:** the Phase 1 parent issue. Phase 2 is optional — component should work without a Mux Data env key.
 
 Sub-issues below. See [Project #5 README](https://github.com/users/nathanjohnpayne/projects/5) for the full phased plan.

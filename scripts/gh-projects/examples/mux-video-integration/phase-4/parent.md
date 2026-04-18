@@ -9,6 +9,6 @@ Tracks Phase 4 of **MUX Video Integration** (Project #5).
 - OG image generation still works against the new GIF.
 - Running the refresher with no network / bad playback ID degrades cleanly (build fails loudly; no silent corruption).
 
-**Depends on:** Phase 1 (#210).
+**Depends on:** the Phase 1 parent issue.
 
 Sub-issues below. See [Project #5 README](https://github.com/users/nathanjohnpayne/projects/5) for the full phased plan.

@@ -8,6 +8,6 @@ Tracks Phase 2 of **MUX Video Integration** (Project #5).
 - Real views show up in the Mux Data dashboard.
 - Unset key → player still loads, no console errors.
 
-**Depends on:** Phase 1 (#210).
+**Depends on:** the Phase 1 parent issue.
 
 Sub-issues below. See [Project #5 README](https://github.com/users/nathanjohnpayne/projects/5) for the full phased plan.
