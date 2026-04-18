@@ -3,6 +3,7 @@ import BaseLayout from './BaseLayout.astro';
 import HeroWide from '../components/HeroWide.astro';
 import HeroNarrow from '../components/HeroNarrow.astro';
 import MetadataStrip from '../components/MetadataStrip.astro';
+import ProjectMuxPlayer from '../components/ProjectMuxPlayer.astro';
 
 interface RelatedLink {
   label: string;
@@ -69,10 +70,6 @@ const {
   ogImageHeight,
   ogImageAlt,
 } = Astro.props;
-
-// Mux Data env key. When unset, the player still runs but emits no
-// analytics — the attribute is conditionally omitted below.
-const muxEnvKey = import.meta.env.PUBLIC_MUX_ENV_KEY;
 ---
 
 <BaseLayout
@@ -121,24 +118,12 @@ const muxEnvKey = import.meta.env.PUBLIC_MUX_ENV_KEY;
         />
         <figure class={`project-screenshot project-screenshot--${screenshotAspect}`}>
           <div class="project-screenshot__inner">
-            {muxPlaybackId ? (
-              <mux-player
-                playback-id={muxPlaybackId}
-                autoplay="muted"
-                muted
-                loop
-                playsinline
-                env-key={muxEnvKey}
-                metadata-video-title={headline}
-                metadata-video-id={slug}
-                class="project-screenshot__mux"
-                style="--media-accent-color: var(--project-accent); --media-primary-color: var(--project-accent);"
-              >
-                <img slot="poster" src={screenshotSrc} alt={`${headline} product screenshot`} />
-              </mux-player>
-            ) : (
-              <img src={screenshotSrc} alt={`${headline} product screenshot`} loading="eager" />
-            )}
+            <ProjectMuxPlayer
+              playbackId={muxPlaybackId}
+              fallbackSrc={screenshotSrc}
+              title={headline}
+              slug={slug}
+            />
           </div>
           {stack && (
             <figcaption class="project-stack">
@@ -174,12 +159,4 @@ const muxEnvKey = import.meta.env.PUBLIC_MUX_ENV_KEY;
 
     </article>
   </main>
-
-  <script>
-    // Register <mux-player> only on pages that actually contain one.
-    // Keeps the bundle cost off of projects without a Mux video.
-    if (document.querySelector('mux-player')) {
-      import('@mux/mux-player');
-    }
-  </script>
 </BaseLayout>
