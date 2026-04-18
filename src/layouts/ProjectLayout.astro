@@ -165,12 +165,12 @@ const {
 
     </article>
   </main>
-</BaseLayout>
 
-<script>
-  // Register <mux-player> only on pages that actually contain one.
-  // Keeps the bundle cost off of projects without a Mux video.
-  if (document.querySelector('mux-player')) {
-    import('@mux/mux-player');
-  }
-</script>
+  <script>
+    // Register <mux-player> only on pages that actually contain one.
+    // Keeps the bundle cost off of projects without a Mux video.
+    if (document.querySelector('mux-player')) {
+      import('@mux/mux-player');
+    }
+  </script>
+</BaseLayout>
