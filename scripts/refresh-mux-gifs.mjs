@@ -57,7 +57,7 @@ async function fetchWithTimeout(url, options = {}) {
 }
 
 function parseFrontmatter(markdown) {
-  const match = markdown.match(/^---\n([\s\S]*?)\n---/);
+  const match = markdown.match(/^---\r?\n([\s\S]*?)\r?\n---/);
   if (!match) return null;
   const body = match[1];
   const data = {};
