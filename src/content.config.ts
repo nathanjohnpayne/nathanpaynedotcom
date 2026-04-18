@@ -34,6 +34,11 @@ const projects = defineCollection({
     // Opt-in: refresh `screenshotSrc` on each build from the GitHub
     // social preview of `githubUrl`. See scripts/refresh-hero-images.mjs.
     heroRefresh: z.enum(['github-social']).optional(),
+
+    // Mux Playback ID. When set, the project page renders a MUX video
+    // in the hero slot; `screenshotSrc` still serves as the JS-disabled
+    // fallback and as the OG image source.
+    muxPlaybackId: z.string().optional(),
   }),
 });
 
