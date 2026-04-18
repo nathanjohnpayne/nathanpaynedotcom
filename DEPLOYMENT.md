@@ -356,11 +356,21 @@ The site uses Astro to generate static HTML/CSS/JS into `dist/`. **Always build 
 npm run build
 ```
 
-This runs `astro build`, which:
+`npm run build` runs `prebuild` first, then `astro build`.
+
+**`prebuild`** (chained via `&&` in [package.json](package.json)):
+
+1. `node scripts/refresh-hero-images.mjs` — for every project with `heroRefresh: github-social` in its frontmatter, re-fetches the repo's current GitHub social preview and writes it to `public/<screenshotSrc>`. Fails soft on any error; keeps the existing image.
+2. `node scripts/refresh-mux-gifs.mjs` — for every project with a `muxPlaybackId`, fetches an animated GIF from `image.mux.com` and writes it to `public/<screenshotSrc>`. Fails **loud** on any network error (non-zero exit halts the build); the Mux GIF is the only authoritative source for the hero fallback on Mux-backed projects, so a silent miss would ship stale content. See [specs/project-pages.md § Fallback GIF regeneration](specs/project-pages.md#fallback-gif-regeneration) for the full contract.
+
+The two refreshers never race for the same output path — `refresh-hero-images.mjs` explicitly skips any project with `muxPlaybackId`.
+
+**`astro build`** then:
+
 1. Compiles all `.astro` pages and layouts into static HTML
 2. Processes Markdown blog posts via Content Collections
 3. Generates the sitemap via `@astrojs/sitemap`
-4. Generates OG images via the custom Playwright integration
+4. Generates OG images via the custom Playwright integration (OG templates consume the freshly-regenerated GIFs from step 2 of prebuild, so OG images and hero images stay in sync)
 5. Outputs everything to `dist/`
 
 Astro handles asset fingerprinting automatically — no manual cache-busting is needed.
