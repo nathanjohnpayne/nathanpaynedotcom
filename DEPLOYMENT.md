@@ -372,9 +372,11 @@ Any `PUBLIC_*` env var read via `import.meta.env` during the build is baked into
 **Workflow when adding a new client env var:**
 
 1. Add the line to `.env.tpl` with an `op://` reference:
-   ```
+
+   ```dotenv
    PUBLIC_FOO=op://Private/<1p-item-id>/<field>
    ```
+
 2. Store the secret in 1Password at that path.
 3. Anyone on the team runs `./scripts/bootstrap.sh --force` to refresh their `.env.local`.
 4. `npm run build` picks up the new value automatically.
