@@ -6,6 +6,18 @@
       "**/.*",
       "**/node_modules/**"
     ],
+    "redirects": [
+      {
+        "source": "/projects/ai-agent-repo-template{,/**}",
+        "destination": "/projects/mergepath/",
+        "type": 301
+      },
+      {
+        "source": "/blog/agent-approval-workflow-genesis-of-ai-agent-repo-template{,/**}",
+        "destination": "/blog/agent-approval-workflow-genesis-of-mergepath/",
+        "type": 301
+      }
+    ],
     "headers": [
       {
         "source": "/og-image.png",
