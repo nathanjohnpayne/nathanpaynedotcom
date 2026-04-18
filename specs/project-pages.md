@@ -162,6 +162,24 @@ The player auto-sizes from the asset's video metadata. There is **no per-project
 
 [src/components/ProjectMuxPlayer.astro](../src/components/ProjectMuxPlayer.astro). Add new props to that component when a per-project override is needed (custom alt text, different fallback, etc.).
 
+### Fallback GIF regeneration
+
+`screenshotSrc` is the JS-disabled fallback and the OG image source. For projects with `muxPlaybackId`, the GIF at that path is **regenerated from Mux on every build** by [scripts/refresh-mux-gifs.mjs](../scripts/refresh-mux-gifs.mjs), which runs as part of `prebuild`. The script fetches `https://image.mux.com/{playbackId}/animated.gif?width=320&fps=15&end=8` and writes the response directly to `public/<screenshotSrc>`.
+
+Key behaviors:
+
+- **Strict failure on network errors.** Any non-200 response or network timeout exits non-zero and halts the build. The design note in the script header explains why: Mux is the only source for a project's fallback frame once `muxPlaybackId` is set, so a silent miss would serve stale content indefinitely.
+- **Per-project config errors warn, don't halt.** A malformed frontmatter (e.g. relative `screenshotSrc`) logs a warning and skips that project — the build still completes.
+- **Co-exists with the GitHub-social refresher.** [scripts/refresh-hero-images.mjs](../scripts/refresh-hero-images.mjs) (which refreshes `heroRefresh: github-social` projects) skips any project with `muxPlaybackId` so the two refreshers can never race for the same output path.
+
+To regenerate a Mux GIF manually without a full build:
+
+```bash
+node scripts/refresh-mux-gifs.mjs
+```
+
+Rendering knobs (width, fps, duration) live at the top of the script. If a future project needs different framing, either pass URL params from within the script or split to per-project config — don't hardcode a second call site.
+
 ---
 
 ## Color System
