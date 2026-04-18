@@ -108,10 +108,15 @@ async function main() {
 
   for (const { file, data } of projects) {
     const { muxPlaybackId, screenshotSrc, slug } = data;
+    // Per-project config errors are reported and skipped, not fatal.
+    // Strict failure is reserved for network/API errors — a missing or
+    // malformed screenshotSrc is a content problem the author can fix
+    // without the CI/deploy flow blocking.
     if (!screenshotSrc?.startsWith('/')) {
-      throw new Error(
-        `[refresh-mux-gifs] ${file}: screenshotSrc must be an absolute path (got "${screenshotSrc}")`,
+      console.warn(
+        `[refresh-mux-gifs] ${slug || file}: screenshotSrc must be an absolute path (got "${screenshotSrc}") — skipping`,
       );
+      continue;
     }
     const destPath = join(publicDir, screenshotSrc);
     const url = muxGifUrl(muxPlaybackId);
