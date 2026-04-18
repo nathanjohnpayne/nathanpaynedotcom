@@ -20,6 +20,8 @@ metadata:
   status: "Live product"
 stack: "Next.js · TypeScript · Firebase · Vitest"
 related:
+  - label: "Blog: Agent Approval Workflow and the Genesis of Mergepath"
+    href: "/blog/agent-approval-workflow-genesis-of-mergepath/"
   - label: "Blog: Six PRs, One Bug—What AI Agents Actually Get Wrong"
     href: "/blog/six-prs-one-bug-agent-failure-modes/"
   - label: "Project: Friends & Family Billing"
