@@ -75,7 +75,7 @@ draft: false
 | `metadata.status` | string | yes | Metadata strip: project status |
 | `stack` | string | no | Tech stack values separated by ` · ` (e.g., `"React · TypeScript · Vite · Firebase · Vitest"`). Rendered as a figcaption below the screenshot. Optional — projects without a stack field render without the caption |
 | `related` | array | no | Related links with `label` and `href` |
-| `muxPlaybackId` | string | no | Mux public Playback ID. When set, the hero renders a themed `<mux-player>` video and `screenshotSrc` is used as the poster + JS-disabled fallback. See "Adding a Mux video" below |
+| `muxPlaybackId` | non-empty string | no | Mux public Playback ID. When set, the hero renders a themed `<mux-player>` video and `screenshotSrc` is used as the poster + JS-disabled fallback. Schema rejects blank / whitespace-only values so a stray empty string fails build-time rather than producing a broken URL. See "Adding a Mux video" below |
 | `draft` | boolean | no | `true` to exclude from builds (default: `false`) |
 
 ### Body content structure
@@ -156,7 +156,7 @@ Any project can render a vertical Mux video in the hero instead of a static scre
 
 ### Aspect ratio
 
-Don't hardcode one. The player auto-sizes from the asset's metadata. The Swipe Watch asset is captured at a modern phone ratio (~9:19.5), not true 9:16 — forcing 9:16 earlier produced letterbox bars. Record or export the source video at the final aspect you want.
+The player auto-sizes from the asset's video metadata. There is **no per-project frontmatter override** — record or export the source video at the final aspect you want and it renders at that shape. Earlier revisions hardcoded `9/16` in CSS and produced letterbox bars on the Swipe Watch asset, which is captured at a modern phone ratio (~9:19.5) rather than true 9:16. If a future project needs a different aspect treatment (e.g. a `cover`-style crop, or a container-driven ratio override), add a prop to [ProjectMuxPlayer.astro](../src/components/ProjectMuxPlayer.astro) at that point.
 
 ### Component source
 
