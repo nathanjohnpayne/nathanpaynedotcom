@@ -6,6 +6,7 @@ kicker: "AI × Consumer × Streaming"
 order: 3
 screenshotAspect: "narrow"
 screenshotSrc: "/images/projects/swipe-watch-hero.gif"
+muxPlaybackId: "wNCRY97981o2uDAJrJ3ExPeK379yldRRFJgUIgSYz00k"
 accentColor: "#c11d19"
 accentColorClass: "project-page--red"
 gradientFrom: "#f5ddd4"

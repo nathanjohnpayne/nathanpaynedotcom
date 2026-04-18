@@ -23,6 +23,7 @@ interface Props {
   gradientTo: string;
   screenshotAspect: 'wide' | 'narrow';
   screenshotSrc: string;
+  muxPlaybackId?: string;
   liveUrl: string;
   githubUrl: string;
   metadata: {
@@ -54,6 +55,7 @@ const {
   gradientTo,
   screenshotAspect,
   screenshotSrc,
+  muxPlaybackId,
   liveUrl,
   githubUrl,
   metadata,
@@ -113,7 +115,21 @@ const {
         />
         <figure class={`project-screenshot project-screenshot--${screenshotAspect}`}>
           <div class="project-screenshot__inner">
-            <img src={screenshotSrc} alt={`${headline} product screenshot`} loading="eager" />
+            {muxPlaybackId ? (
+              <mux-player
+                playback-id={muxPlaybackId}
+                autoplay="muted"
+                muted
+                loop
+                playsinline
+                class="project-screenshot__mux"
+                style="--media-accent-color: var(--project-accent); --media-primary-color: var(--project-accent);"
+              >
+                <img slot="poster" src={screenshotSrc} alt={`${headline} product screenshot`} />
+              </mux-player>
+            ) : (
+              <img src={screenshotSrc} alt={`${headline} product screenshot`} loading="eager" />
+            )}
           </div>
           {stack && (
             <figcaption class="project-stack">
@@ -149,4 +165,12 @@ const {
 
     </article>
   </main>
+
+  <script>
+    // Register <mux-player> only on pages that actually contain one.
+    // Keeps the bundle cost off of projects without a Mux video.
+    if (document.querySelector('mux-player')) {
+      import('@mux/mux-player');
+    }
+  </script>
 </BaseLayout>

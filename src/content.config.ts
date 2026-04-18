@@ -37,8 +37,9 @@ const projects = defineCollection({
 
     // Mux Playback ID. When set, the project page renders a MUX video
     // in the hero slot; `screenshotSrc` still serves as the JS-disabled
-    // fallback and as the OG image source.
-    muxPlaybackId: z.string().optional(),
+    // fallback and as the OG image source. Rejects empty strings so a
+    // blank frontmatter value is a schema error, not a broken URL.
+    muxPlaybackId: z.string().trim().min(1).optional(),
   }),
 });
 

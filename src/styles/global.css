@@ -1109,6 +1109,31 @@ body.blog-page {
   border: 1px solid var(--rule, rgba(17, 16, 13, 0.12));
 }
 
+/* <mux-player> rendered in the hero slot. The player picks its own
+   aspect ratio from the asset's video metadata — we deliberately don't
+   hardcode one here, because different clips (e.g. 9:19.5 modern phone
+   captures vs. true 9:16) would otherwise render with letterbox bars.
+   Width is capped by the surrounding .project-screenshot--narrow
+   container's 320px max-width so pages stay visually consistent
+   between img and video modes. */
+.project-screenshot__mux {
+  display: block;
+  width: 100%;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+/* Poster frame slotted into the player. Before JS upgrades the custom
+   element, this img renders as light-DOM content and fills the player
+   area so the GIF still shows — the graceful-degradation fallback the
+   plan calls for. */
+.project-screenshot__mux img[slot="poster"] {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: 12px;
+}
+
 /* Stack line — rendered as a <figcaption> inside the screenshot figure.
    Single horizontal row with a small-caps label and the stack values.
    Aligned to the inner wrapper, so narrow layouts align with the
