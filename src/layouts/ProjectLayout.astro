@@ -24,6 +24,7 @@ interface Props {
   screenshotAspect: 'wide' | 'narrow';
   screenshotSrc: string;
   muxPlaybackId?: string;
+  slug: string;
   liveUrl: string;
   githubUrl: string;
   metadata: {
@@ -56,6 +57,7 @@ const {
   screenshotAspect,
   screenshotSrc,
   muxPlaybackId,
+  slug,
   liveUrl,
   githubUrl,
   metadata,
@@ -67,6 +69,10 @@ const {
   ogImageHeight,
   ogImageAlt,
 } = Astro.props;
+
+// Mux Data env key. When unset, the player still runs but emits no
+// analytics — the attribute is conditionally omitted below.
+const muxEnvKey = import.meta.env.PUBLIC_MUX_ENV_KEY;
 ---
 
 <BaseLayout
@@ -122,6 +128,9 @@ const {
                 muted
                 loop
                 playsinline
+                env-key={muxEnvKey}
+                metadata-video-title={headline}
+                metadata-video-id={slug}
                 class="project-screenshot__mux"
                 style="--media-accent-color: var(--project-accent); --media-primary-color: var(--project-accent);"
               >
