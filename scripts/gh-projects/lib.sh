@@ -54,7 +54,9 @@ prep_body() {
   echo "$dst"
 }
 
-# Create a parent issue. Echoes the issue URL.
+# Create a parent issue and add it to the configured project.
+# Side effects: calls `add_to_project` on the new issue.
+# Echoes the issue URL.
 # Usage: create_parent <title> <body_file> <labels_csv>
 create_parent() {
   local title="$1" body_file="$2" label="$3"

@@ -15,6 +15,7 @@ The MUX Video Integration initiative ([Project #5](https://github.com/users/nath
 - `gh` installed (via Homebrew on this machine).
 - A PAT in 1Password with `repo` + `project` scopes. The `nathanjohnpayne` author PAT (item `sm5kopwk6t6p3xmu2igesndzhe`) works.
 - Run [scripts/op-preflight.sh](../op-preflight.sh) once per session to cache credentials.
+- The target Project v2 board must have a `Status` single-select field (the default template does). `move-item.sh` discovers the field by that exact name.
 
 ```bash
 # Session setup

@@ -20,57 +20,41 @@ STATUS_NAME="${2:?status name required}"
 : "${OWNER:?OWNER must be set}"
 : "${PROJECT:?PROJECT must be set}"
 
-ISSUE_URL="https://github.com/$REPO/issues/$ISSUE_NUM"
-export ISSUE_URL STATUS_NAME
+export STATUS_NAME
 
-# Discover project id + Status field + option id for the requested status.
-read -r PROJECT_ID STATUS_FIELD_ID OPT_ID <<<"$(gh project field-list "$PROJECT" --owner "$OWNER" --format json | python3 -c "
-import json, sys, os
-d = json.load(sys.stdin)
-status_name = os.environ['STATUS_NAME']
-project_id = None
-field_id = None
-opt_id = None
-for f in d.get('fields', []):
-    if f.get('name') == 'Status':
-        field_id = f['id']
-        for o in f.get('options', []):
-            if o.get('name') == status_name:
-                opt_id = o['id']
-                break
-# Project id — any field's projectId; gh exposes it on the field object in some versions, else query separately
-" )"
+# Resolve the project's node ID.
+PROJECT_ID=$(gh project view "$PROJECT" --owner "$OWNER" --format json \
+  | python3 -c "import json,sys; print(json.load(sys.stdin)['id'])")
 
-# The field-list shape doesn't always expose project id; fetch it via project view.
-PROJECT_ID=$(gh project view "$PROJECT" --owner "$OWNER" --format json | python3 -c "import json,sys; print(json.load(sys.stdin)['id'])")
-
-STATUS_FIELD_ID=$(gh project field-list "$PROJECT" --owner "$OWNER" --format json | python3 -c "
-import json, sys
-d = json.load(sys.stdin)
-for f in d.get('fields', []):
-    if f.get('name') == 'Status':
-        print(f['id']); break
-")
-
-OPT_ID=$(gh project field-list "$PROJECT" --owner "$OWNER" --format json | python3 -c "
-import json, sys, os
-d = json.load(sys.stdin)
+# Resolve the Status field ID + the option ID for the requested status in a
+# single pass over field-list output.
+read -r STATUS_FIELD_ID OPT_ID <<<"$(gh project field-list "$PROJECT" --owner "$OWNER" --format json | python3 -c "
+import json, os, sys
 name = os.environ['STATUS_NAME']
+d = json.load(sys.stdin)
+field_id = ''
+opt_id = ''
 for f in d.get('fields', []):
     if f.get('name') == 'Status':
+        field_id = f.get('id', '')
         for o in f.get('options', []):
             if o.get('name') == name:
-                print(o['id']); break
-")
+                opt_id = o.get('id', '')
+                break
+        break
+print(field_id, opt_id)
+")"
 
 if [ -z "$PROJECT_ID" ] || [ -z "$STATUS_FIELD_ID" ] || [ -z "$OPT_ID" ]; then
-  echo "failed to resolve project/field/option IDs (PROJECT_ID=$PROJECT_ID, STATUS_FIELD_ID=$STATUS_FIELD_ID, OPT_ID=$OPT_ID)" >&2
+  echo "failed to resolve project/field/option IDs (PROJECT_ID=$PROJECT_ID, STATUS_FIELD_ID=$STATUS_FIELD_ID, OPT_ID=$OPT_ID, STATUS_NAME=$STATUS_NAME)" >&2
+  echo "Confirm the project has a 'Status' single-select field and that '$STATUS_NAME' is one of its options." >&2
   exit 1
 fi
 
-# Find the project-item id for this issue.
+# Resolve the project-level item ID for this issue.
+export ISSUE_URL="https://github.com/$REPO/issues/$ISSUE_NUM"
 ITEM_ID=$(gh project item-list "$PROJECT" --owner "$OWNER" --format json --limit 200 | python3 -c "
-import json, sys, os
+import json, os, sys
 url = os.environ['ISSUE_URL']
 d = json.load(sys.stdin)
 for it in d.get('items', []):
@@ -80,7 +64,7 @@ for it in d.get('items', []):
 ")
 
 if [ -z "$ITEM_ID" ]; then
-  echo "could not find project item for $ISSUE_URL" >&2
+  echo "could not find project item for $ISSUE_URL (is the issue in Project #$PROJECT?)" >&2
   exit 1
 fi
 
