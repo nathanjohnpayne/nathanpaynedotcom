@@ -44,7 +44,7 @@ async function fetchWithTimeout(url, options = {}) {
 }
 
 function parseFrontmatter(markdown) {
-  const match = markdown.match(/^---\n([\s\S]*?)\n---/);
+  const match = markdown.match(/^---\r?\n([\s\S]*?)\r?\n---/);
   if (!match) return null;
   const body = match[1];
   const data = {};
@@ -87,11 +87,27 @@ async function downloadImage(url, destPath) {
 async function main() {
   const entries = await readdir(projectsDir);
   const projects = [];
+  const skippedMuxBacked = [];
   for (const entry of entries) {
     if (!entry.endsWith('.md')) continue;
     const markdown = await readFile(join(projectsDir, entry), 'utf8');
     const data = parseFrontmatter(markdown);
-    if (data?.heroRefresh === 'github-social') projects.push({ file: entry, data });
+    if (data?.heroRefresh !== 'github-social') continue;
+    // Mux-backed projects own their hero images via refresh-mux-gifs.mjs.
+    // If both refreshers tried to write the same file, the later one
+    // would clobber the earlier one depending on task order, producing
+    // inconsistent builds. Skip here so refresh-mux-gifs is authoritative.
+    if (data?.muxPlaybackId) {
+      skippedMuxBacked.push(data?.slug || entry);
+      continue;
+    }
+    projects.push({ file: entry, data });
+  }
+
+  if (skippedMuxBacked.length > 0) {
+    console.log(
+      `[refresh-hero-images] skipped Mux-backed: ${skippedMuxBacked.join(', ')}`,
+    );
   }
 
   if (projects.length === 0) {
