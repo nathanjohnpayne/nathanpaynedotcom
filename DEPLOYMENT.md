@@ -365,6 +365,28 @@ This runs `astro build`, which:
 
 Astro handles asset fingerprinting automatically — no manual cache-busting is needed.
 
+### Client-side env vars
+
+Any `PUBLIC_*` env var read via `import.meta.env` during the build is baked into the emitted HTML/JS. These are resolved from `.env.local`, which `scripts/bootstrap.sh` generates from `.env.tpl` via `op inject`.
+
+**Workflow when adding a new client env var:**
+
+1. Add the line to `.env.tpl` with an `op://` reference:
+   ```
+   PUBLIC_FOO=op://Private/<1p-item-id>/<field>
+   ```
+2. Store the secret in 1Password at that path.
+3. Anyone on the team runs `./scripts/bootstrap.sh --force` to refresh their `.env.local`.
+4. `npm run build` picks up the new value automatically.
+
+**Current `PUBLIC_*` vars:**
+
+| Var | 1Password reference | Purpose |
+|---|---|---|
+| `PUBLIC_MUX_ENV_KEY` | `op://Private/owk6d74z2ofmrcivmgju25pifm/env-key` | Mux Data analytics env key (safe to publish; Mux env keys are client-visible by design). Unset = analytics off, player still works. |
+
+Mux env key is provisioned per Mux workspace, not per deploy target — the same key works for dev and prod. Rotate via the [Mux dashboard](https://dashboard.mux.com/) (Settings → Data → Environments) and update the 1Password item; the next bootstrap + build picks up the new value.
+
 ## Deployment Steps
 
 All deploys use `op-firebase-deploy` for keyless, non-interactive service account impersonation. **Never run `firebase deploy` directly.**

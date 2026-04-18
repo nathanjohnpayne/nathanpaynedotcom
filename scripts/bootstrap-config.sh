@@ -1,11 +1,21 @@
-# bootstrap-config.sh — Repo-specific 1Password item mappings
+# bootstrap-config.sh — Repo-specific 1Password mappings
 #
-# Each entry: "1password_item_id:relative_file_path"
-# The item's notesPlain field stores the file contents.
+# Two patterns supported:
 #
-# To add a new file:
-#   1. Store it: op item create --category="Secure Note" --title="<Repo> Local Config (<filename>)" --vault=Private --tags=bootstrap "notesPlain=$(cat <file>)"
-#   2. Copy the item ID and add an entry below.
+# 1. INJECT_FILES (preferred): `.env.tpl` files containing op:// references
+#    resolved by `op inject`. Each entry: "template/path:output/path"
+#    (both relative to repo root). Secrets stay in 1Password; only the
+#    template ships in git.
+#
+# 2. BOOTSTRAP_FILES (legacy): whole-file contents stored in a 1Password
+#    Secure Note's `notesPlain` field. Each entry:
+#    "1password_item_id:relative_file_path"
+#    Use only when a file can't easily be expressed as a template of
+#    op:// references.
+
+INJECT_FILES=(
+  ".env.tpl:.env.local"
+)
 
 BOOTSTRAP_FILES=(
 )
