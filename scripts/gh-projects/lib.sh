@@ -39,11 +39,17 @@ link_sub_issue() {
   gh api -X POST "repos/$REPO/issues/$1/sub_issues" -F "sub_issue_id=$2" > /dev/null
 }
 
-# Substitute placeholders in a body file; write to $GHP_TMPDIR and echo the path.
+# Substitute placeholders in a body file; write to a unique path under
+# $GHP_TMPDIR and echo it. Two different source files whose basenames
+# collide (e.g. phase-1/c1.md and phase-2/c1.md) get distinct output
+# paths — using `basename` alone would overwrite.
 # Usage: prep_body <src> <parent_num> [c1] [c2] [c3] [c4]
 prep_body() {
   local src="$1" parent="$2" c1="${3:-}" c2="${4:-}" c3="${5:-}" c4="${6:-}"
-  local dst="$GHP_TMPDIR/$(basename "$src")"
+  # Encode the full source path into the destination name by replacing
+  # slashes with underscores, so distinct source paths map to distinct
+  # destinations.
+  local dst="$GHP_TMPDIR/$(echo "$src" | tr '/' '_')"
   sed \
     -e "s|__PARENT_NUM__|$parent|g" \
     -e "s|__C1_NUM__|$c1|g" \
