@@ -40,13 +40,13 @@ gh auth login
 
 ```bash
 # Clone the template repo if not already present
-git clone https://github.com/nathanjohnpayne/ai_agent_repo_template.git ~/Documents/GitHub/ai_agent_repo_template
+git clone https://github.com/nathanjohnpayne/mergepath.git ~/Documents/GitHub/mergepath
 
 # Install canonical helper scripts
 mkdir -p ~/.local/bin
-cp ~/Documents/GitHub/ai_agent_repo_template/scripts/gcloud/gcloud ~/.local/bin/
-cp ~/Documents/GitHub/ai_agent_repo_template/scripts/firebase/op-firebase-deploy ~/.local/bin/
-cp ~/Documents/GitHub/ai_agent_repo_template/scripts/firebase/op-firebase-setup ~/.local/bin/
+cp ~/Documents/GitHub/mergepath/scripts/gcloud/gcloud ~/.local/bin/
+cp ~/Documents/GitHub/mergepath/scripts/firebase/op-firebase-deploy ~/.local/bin/
+cp ~/Documents/GitHub/mergepath/scripts/firebase/op-firebase-setup ~/.local/bin/
 chmod +x ~/.local/bin/gcloud ~/.local/bin/op-firebase-deploy ~/.local/bin/op-firebase-setup
 
 # Ensure PATH includes ~/.local/bin
@@ -396,9 +396,9 @@ Install the canonical helper scripts from the sibling template repo once per mac
 
 ```bash
 mkdir -p ~/.local/bin
-cp ../ai_agent_repo_template/scripts/gcloud/gcloud ~/.local/bin/gcloud
-cp ../ai_agent_repo_template/scripts/firebase/op-firebase-deploy ~/.local/bin/
-cp ../ai_agent_repo_template/scripts/firebase/op-firebase-setup ~/.local/bin/
+cp ../mergepath/scripts/gcloud/gcloud ~/.local/bin/gcloud
+cp ../mergepath/scripts/firebase/op-firebase-deploy ~/.local/bin/
+cp ../mergepath/scripts/firebase/op-firebase-setup ~/.local/bin/
 chmod +x ~/.local/bin/gcloud ~/.local/bin/op-firebase-deploy ~/.local/bin/op-firebase-setup
 hash -r
 ```
