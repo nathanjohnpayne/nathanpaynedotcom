@@ -1,11 +1,13 @@
 ---
 // Hero video slot for project pages. When `playbackId` is set, renders a
-// MUX video themed by the surrounding page's --project-accent CSS var.
-// When unset, falls back to the `fallbackSrc` image so the hero never
-// goes blank. Accent theming flows through the documented mux-player
-// CSS vars (`--media-accent-color`, `--media-primary-color`), so any
-// project page that sets `--project-accent` on its container inherits
-// the tint automatically.
+// chromeless <mux-video> element — Mux's bare video primitive with HLS +
+// Mux Data wiring but no UI chrome. This matches the "GIF-alike" hero
+// experience: silent autoplay, looping, no controls, no play button
+// overlay. For pages that need a real video player (scrubber, volume,
+// fullscreen), use <mux-player> instead — that's a different component.
+//
+// When `playbackId` is unset, falls back to the `fallbackSrc` image so
+// the hero never goes blank.
 
 interface Props {
   playbackId?: string;
@@ -24,30 +26,29 @@ const altText = `${title} product screenshot`;
 ---
 
 {playbackId ? (
-  <mux-player
+  <mux-video
     playback-id={playbackId}
     autoplay="muted"
     muted
     loop
     playsinline
     preload="auto"
+    poster={fallbackSrc}
     env-key={muxEnvKey}
     metadata-video-title={title}
     metadata-video-id={slug}
-    nohotkeys
     class="project-screenshot__mux"
-    style="--media-accent-color: var(--project-accent); --media-primary-color: var(--project-accent); --controls: none; --center-controls: none;"
   >
-    <img slot="poster" src={fallbackSrc} alt={altText} />
-  </mux-player>
+    <img src={fallbackSrc} alt={altText} />
+  </mux-video>
 ) : (
   <img src={fallbackSrc} alt={altText} loading="eager" />
 )}
 
 <script>
-  // Register <mux-player> only on pages that actually contain one.
+  // Register <mux-video> only on pages that actually contain one.
   // Keeps the bundle cost off of projects without a Mux video.
-  if (document.querySelector('mux-player')) {
-    import('@mux/mux-player');
+  if (document.querySelector('mux-video')) {
+    import('@mux/mux-video');
   }
 </script>
