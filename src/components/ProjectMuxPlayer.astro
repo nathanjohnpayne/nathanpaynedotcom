@@ -1,13 +1,21 @@
 ---
-// Hero video slot for project pages. When `playbackId` is set, renders a
-// chromeless <mux-video> element — Mux's bare video primitive with HLS +
-// Mux Data wiring but no UI chrome. This matches the "GIF-alike" hero
-// experience: silent autoplay, looping, no controls, no play button
-// overlay. For pages that need a real video player (scrubber, volume,
-// fullscreen), use <mux-player> instead — that's a different component.
+// Hero video slot for project pages. When `playbackId` is set, renders
+// Mux's dedicated background-video component — the one Mux built for
+// this exact use case (hero / GIF-replacement / autoplay-muted-loop).
 //
-// When `playbackId` is unset, falls back to the `fallbackSrc` image so
-// the hero never goes blank.
+// Why <mux-background-video> and not <mux-video> or <mux-player>?
+// - <mux-player> is a full player with controls; hiding the chrome
+//   via CSS vars regressed Safari autoplay.
+// - <mux-video> is a low-level HTML5-like primitive; on Safari the
+//   native HLS manifest load races against Safari's autoplay policy
+//   check, silently leaving the video paused on the poster.
+// - <mux-background-video> is purpose-built for hero videos: no UI
+//   chrome, internal autoplay orchestration that handles the HLS-on-
+//   Safari timing race, and the documented component for this
+//   use case in Mux's own docs.
+//
+// When `playbackId` is unset, falls back to the `fallbackSrc` image
+// so the hero never goes blank.
 
 interface Props {
   playbackId?: string;
@@ -18,16 +26,16 @@ interface Props {
 
 const { playbackId, fallbackSrc, title, slug } = Astro.props;
 
-// Mux Data env key. Baked into the build via `import.meta.env`; when
-// unset, Astro omits the attribute and the player emits no analytics.
-const muxEnvKey = import.meta.env.PUBLIC_MUX_ENV_KEY;
-
 const altText = `${title} product screenshot`;
 
-// Static first-frame poster from Mux's image API. Using a JPEG instead
-// of the animated GIF disambiguates autoplay: Safari animates GIF
-// posters, which visually mimics video playback even when autoplay is
-// blocked. A still frame makes "did autoplay succeed?" a clear signal.
+const streamSrc = playbackId
+  ? `https://stream.mux.com/${playbackId}.m3u8`
+  : undefined;
+
+// Static first-frame poster from Mux's image API. JPEG at 640px is
+// sharper than the GIF rendered at 320px and makes the autoplay-vs-
+// not-autoplaying signal unambiguous (motion = playing; frozen =
+// blocked).
 const posterSrc = playbackId
   ? `https://image.mux.com/${playbackId}/thumbnail.jpg?width=640&time=0`
   : undefined;
@@ -35,19 +43,13 @@ const posterSrc = playbackId
 
 {playbackId ? (
   <>
-    <mux-video
-      playback-id={playbackId}
-      autoplay="muted"
-      muted
-      loop
-      playsinline
-      preload="auto"
-      poster={posterSrc}
-      env-key={muxEnvKey}
-      metadata-video-title={title}
-      metadata-video-id={slug}
+    <mux-background-video
+      src={streamSrc}
+      max-resolution="720p"
       class="project-screenshot__mux"
-    />
+    >
+      <img src={posterSrc} alt={altText} />
+    </mux-background-video>
     <noscript>
       <img src={fallbackSrc} alt={altText} loading="eager" />
     </noscript>
@@ -57,9 +59,10 @@ const posterSrc = playbackId
 )}
 
 <script>
-  // Register <mux-video> only on pages that actually contain one.
-  // Keeps the bundle cost off of projects without a Mux video.
-  if (document.querySelector('mux-video')) {
-    import('@mux/mux-video');
+  // Register <mux-background-video> on pages that use it. Dropping
+  // mux-player and mux-video from the runtime on this page — this
+  // component is the sole consumer.
+  if (document.querySelector('mux-background-video')) {
+    import('@mux/mux-background-video/html');
   }
 </script>
