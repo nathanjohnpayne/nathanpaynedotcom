@@ -34,8 +34,9 @@ const altText = `${title} product screenshot`;
     env-key={muxEnvKey}
     metadata-video-title={title}
     metadata-video-id={slug}
+    nohotkeys
     class="project-screenshot__mux"
-    style="--media-accent-color: var(--project-accent); --media-primary-color: var(--project-accent);"
+    style="--media-accent-color: var(--project-accent); --media-primary-color: var(--project-accent); --controls: none; --center-controls: none;"
   >
     <img slot="poster" src={fallbackSrc} alt={altText} />
   </mux-player>
