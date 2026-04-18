@@ -23,6 +23,14 @@ const { playbackId, fallbackSrc, title, slug } = Astro.props;
 const muxEnvKey = import.meta.env.PUBLIC_MUX_ENV_KEY;
 
 const altText = `${title} product screenshot`;
+
+// Static first-frame poster from Mux's image API. Using a JPEG instead
+// of the animated GIF disambiguates autoplay: Safari animates GIF
+// posters, which visually mimics video playback even when autoplay is
+// blocked. A still frame makes "did autoplay succeed?" a clear signal.
+const posterSrc = playbackId
+  ? `https://image.mux.com/${playbackId}/thumbnail.jpg?width=640&time=0`
+  : undefined;
 ---
 
 {playbackId ? (
@@ -34,7 +42,7 @@ const altText = `${title} product screenshot`;
       loop
       playsinline
       preload="auto"
-      poster={fallbackSrc}
+      poster={posterSrc}
       env-key={muxEnvKey}
       metadata-video-title={title}
       metadata-video-id={slug}
