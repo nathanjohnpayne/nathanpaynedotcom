@@ -1,11 +1,11 @@
 ---
-title: "Agent Approval Workflow and the Genesis of ai-agent-repo-template"
+title: "Agent Approval Workflow and the Genesis of Mergepath"
 shortTitle: "Agent Approval Workflow"
 description: "AI coding agents, like humans, will skip code review if you let them. Building the enforcement infrastructure that makes multi-agent development actually work—from instruction files to GitHub rules to automated cross-agent review."
 author: "Nathan Payne"
 date: 2026-04-16
 tags: ["AI", "Engineering", "Product", "Systems", "Code Review"]
-image: "/og/blog/agent-approval-workflow-genesis-of-ai-agent-repo-template.png"
+image: "/og/blog/agent-approval-workflow-genesis-of-mergepath.png"
 pullquotes:
   - text: "Bots, just like humans, require code review. Without it, bugs crop up, features are missed, and the code shipped is of lower quality."
     label: "The discovery"
@@ -37,7 +37,7 @@ sidebar:
 
 I am not an engineer. I am a product manager who learned to use AI coding agents because I wanted to build things faster. That distinction matters for this story, because the system I am about to describe—a multi-agent code review enforcement layer across seven repositories—was not designed top-down from an engineering principles textbook. It was grown bottom-up from watching agents misbehave.
 
-The [AI Agent Repository Template](https://github.com/nathanjohnpayne/ai_agent_repo_template) is the result. It is a deterministic repository standard that keeps humans and AI agents aligned through canonical documentation, binding CI constraints, multi-identity code review, and automated external review via the OpenAI Codex GitHub App. It took roughly six weeks of daily use across six production repositories to arrive at the current architecture, and every major feature was born from a specific failure I watched happen in real time.
+[Mergepath](https://github.com/nathanjohnpayne/mergepath) (originally `ai_agent_repo_template`) is the result. It is a deterministic repository standard that keeps humans and AI agents aligned through canonical documentation, binding CI constraints, multi-identity code review, and automated external review via the OpenAI Codex GitHub App. It took roughly six weeks of daily use across six production repositories to arrive at the current architecture, and every major feature was born from a specific failure I watched happen in real time.
 
 This post is about those failures and the enforcement infrastructure they produced.
 
@@ -69,7 +69,7 @@ This is the same dynamic that makes honor-system processes fail in human teams. 
 
 I started with GitHub branch protection rules: require a pull request before merging to main. This immediately broke the agent's ability to push directly, which is what I wanted. But it also created a new problem: the agent would open a PR with no self-review section, no description of what changed, and merge it immediately with its own approval.
 
-So I added a [PreToolUse hook](https://github.com/nathanjohnpayne/ai_agent_repo_template/blob/main/scripts/hooks/gh-pr-guard.sh) that intercepts every `gh pr create` call and blocks it unless the PR body contains both an `Authoring-Agent:` header and a `## Self-Review` section. The hook runs locally in the agent's Claude Code session, before the GitHub API call is made. If the agent tries to create a PR without the required sections, the hook returns exit code 2 and the PR is never created.
+So I added a [PreToolUse hook](https://github.com/nathanjohnpayne/mergepath/blob/main/scripts/hooks/gh-pr-guard.sh) that intercepts every `gh pr create` call and blocks it unless the PR body contains both an `Authoring-Agent:` header and a `## Self-Review` section. The hook runs locally in the agent's Claude Code session, before the GitHub API call is made. If the agent tries to create a PR without the required sections, the hook returns exit code 2 and the PR is never created.
 
 ```bash
 # From scripts/hooks/gh-pr-guard.sh — the create guard
@@ -103,7 +103,7 @@ external_review_paths:
   - ".github/**"
 ```
 
-The external review threshold is enforced by a [CI workflow](https://github.com/nathanjohnpayne/ai_agent_repo_template/blob/main/.github/workflows/pr-review-policy.yml) that runs on every PR. When a PR crosses the threshold, the workflow applies the `needs-external-review` label. That label blocks merge via a separate Label Gate check. The PR cannot merge until the label is removed by the review process.
+The external review threshold is enforced by a [CI workflow](https://github.com/nathanjohnpayne/mergepath/blob/main/.github/workflows/pr-review-policy.yml) that runs on every PR. When a PR crosses the threshold, the workflow applies the `needs-external-review` label. That label blocks merge via a separate Label Gate check. The PR cannot merge until the label is removed by the review process.
 
 For months, external review meant a manual handoff. I would take the PR's handoff message to a different agent CLI session—typically Cursor or Codex—relay the context, wait for the review, relay the feedback back to the original agent, and iterate until the external reviewer approved. This worked but did not scale. Each handoff took 5–10 minutes of my time, and complex PRs could go through three or four rounds.
 
@@ -142,25 +142,25 @@ graph TD
 
 Two helper scripts do the heavy lifting:
 
-[`codex-review-request.sh`](https://github.com/nathanjohnpayne/ai_agent_repo_template/blob/main/scripts/codex-review-request.sh) posts the `@codex review` trigger comment, polls for a response from `chatgpt-codex-connector[bot]` every 15 seconds for up to 10 minutes, and emits a machine-parseable JSON summary of what Codex produced. The script handles a behavioral quirk of the Codex GitHub App that took live observation to discover: Codex never posts `APPROVED` reviews. When it has no findings, it posts a 👍 reaction on the PR issue instead. When it has findings, it posts a `COMMENTED` review with inline comments tagged `![P0 Badge]` through `![P3 Badge]`.
+[`codex-review-request.sh`](https://github.com/nathanjohnpayne/mergepath/blob/main/scripts/codex-review-request.sh) posts the `@codex review` trigger comment, polls for a response from `chatgpt-codex-connector[bot]` every 15 seconds for up to 10 minutes, and emits a machine-parseable JSON summary of what Codex produced. The script handles a behavioral quirk of the Codex GitHub App that took live observation to discover: Codex never posts `APPROVED` reviews. When it has no findings, it posts a 👍 reaction on the PR issue instead. When it has findings, it posts a `COMMENTED` review with inline comments tagged `![P0 Badge]` through `![P3 Badge]`.
 
-[`codex-review-check.sh`](https://github.com/nathanjohnpayne/ai_agent_repo_template/blob/main/scripts/codex-review-check.sh) is a read-only merge gate that verifies three conditions before allowing the agent to merge:
+[`codex-review-check.sh`](https://github.com/nathanjohnpayne/mergepath/blob/main/scripts/codex-review-check.sh) is a read-only merge gate that verifies three conditions before allowing the agent to merge:
 
 1. **Gate (a):** Required CI checks are green
 2. **Gate (b):** At least one reviewer identity (`nathanpayne-claude`, `nathanpayne-codex`, etc.) has posted a latest-state `APPROVED` review
 3. **Gate (c):** Codex has cleared on the current HEAD—either a `COMMENTED` review with no unaddressed P0/P1 findings, or a 👍 reaction within the freshness window
 
-Gate (c) was the hardest to get right. Over three rounds of review on [PR #65](https://github.com/nathanjohnpayne/ai_agent_repo_template/pull/65), `nathanpayne-codex` kept finding edge cases in the "when did this commit become the current HEAD" anchor that the gate uses to filter stale reactions. The fundamental problem: GitHub's REST and GraphQL APIs do not expose a per-PR push timestamp for ordinary fast-forward pushes. The timeline endpoint has a `committed` event for each commit, but its `created_at` field is `null`. Force-push events have timestamps; regular pushes do not.
+Gate (c) was the hardest to get right. Over three rounds of review on [PR #65](https://github.com/nathanjohnpayne/mergepath/pull/65), `nathanpayne-codex` kept finding edge cases in the "when did this commit become the current HEAD" anchor that the gate uses to filter stale reactions. The fundamental problem: GitHub's REST and GraphQL APIs do not expose a per-PR push timestamp for ordinary fast-forward pushes. The timeline endpoint has a `committed` event for each commit, but its `created_at` field is `null`. Force-push events have timestamps; regular pushes do not.
 
 The solution was a two-layer defense: use `head_ref_force_pushed` events from the PR-scoped timeline for force-push cases, and bound the residual exposure of ordinary-push-with-old-committer-date cases with a configurable freshness window (`reaction_freshness_window_seconds`, default 1800). A 👍 reaction older than 30 minutes is filtered out regardless of what committer date the new HEAD carries. It is not a complete fix—the hole is documented in the code—but it is the best available given the API's constraints.
 
 ## The hook: seven rounds of parser bugs
 
-The most instructive artifact of the entire project is [PR #66](https://github.com/nathanjohnpayne/ai_agent_repo_template/pull/66), which extended `gh-pr-guard.sh` to block `gh pr merge` on labeled PRs unless `CODEX_CLEARED=1` is set.
+The most instructive artifact of the entire project is [PR #66](https://github.com/nathanjohnpayne/mergepath/pull/66), which extended `gh-pr-guard.sh` to block `gh pr merge` on labeled PRs unless `CODEX_CLEARED=1` is set.
 
 The hook needs to parse `gh pr merge` commands to extract the PR selector (which can be a number, a URL, or a branch name), detect `--admin` flags, and check whether the target PR carries `needs-external-review`. It also needs to handle inline environment prefixes like `CODEX_CLEARED=1 gh pr merge 65` because that is the documented merge form.
 
-[PR #66](https://github.com/nathanjohnpayne/ai_agent_repo_template/pull/66) went through **seven rounds** of `nathanpayne-codex` review. Each round caught a new parser bug:
+[PR #66](https://github.com/nathanjohnpayne/mergepath/pull/66) went through **seven rounds** of `nathanpayne-codex` review. Each round caught a new parser bug:
 
 | Round | Bug | Bypass mechanism |
 |---|---|---|
@@ -171,7 +171,7 @@ The hook needs to parse `gh pr merge` commands to extract the PR selector (which
 | 6 | Walk treated `echo gh pr merge` as a real merge | Command-position detection was too loose |
 | 7 | `--admin` detected via substring grep | `--subject "--admin follow-up"` falsely blocked |
 
-After round 7, I pushed for the review to ship. But the underlying pattern was clear: every fix that relaxed the matcher to handle a new form also opened a new false-positive or false-negative path. Bash string parsing is the wrong tool for parsing shell command grammar. The hook eventually switched to Python `shlex.split` with a hand-rolled wrapper for unquoted-newline normalization and NUL-delimited bash handoff—a decision that was supposed to be investigated via [issue #67](https://github.com/nathanjohnpayne/ai_agent_repo_template/issues/67) but ended up being forced by propagation-time Codex findings.
+After round 7, I pushed for the review to ship. But the underlying pattern was clear: every fix that relaxed the matcher to handle a new form also opened a new false-positive or false-negative path. Bash string parsing is the wrong tool for parsing shell command grammar. The hook eventually switched to Python `shlex.split` with a hand-rolled wrapper for unquoted-newline normalization and NUL-delimited bash handoff—a decision that was supposed to be investigated via [issue #67](https://github.com/nathanjohnpayne/mergepath/issues/67) but ended up being forced by propagation-time Codex findings.
 
 ## What propagation taught me
 
@@ -185,39 +185,39 @@ Seventeen bugs in code that had already been reviewed seven times on the templat
 
 The lesson: **propagation is implicitly a fresh-eyes code review.** When you take code that was developed and reviewed in one context and deploy it to a different repo where Codex has never seen it before, the review quality resets to first-principles. Codex on the template repo had gotten familiar with the code over many rounds; Codex on swipewatch was seeing it for the first time and was not tired of looking at the same functions.
 
-After fixing all seventeen bugs via a consolidated [back-port PR](https://github.com/nathanjohnpayne/ai_agent_repo_template/pull/76), the remaining four repos propagated cleanly in under ten minutes.
+After fixing all seventeen bugs via a consolidated [back-port PR](https://github.com/nathanjohnpayne/mergepath/pull/76), the remaining four repos propagated cleanly in under ten minutes.
 
 ## The five dry-run scenarios
 
 Before propagation, I ran five controlled scenarios against the template's own infrastructure to validate each path through the Phase 4a flow:
 
-**Dry-run A (happy path, [PR #71](https://github.com/nathanjohnpayne/ai_agent_repo_template/pull/71)):** Clean PR, Codex 👍 in 147 seconds, merge gate green, merged. Single round.
+**Dry-run A (happy path, [PR #71](https://github.com/nathanjohnpayne/mergepath/pull/71)):** Clean PR, Codex 👍 in 147 seconds, merge gate green, merged. Single round.
 
-**Dry-run B (fix-and-repass, [PR #72](https://github.com/nathanjohnpayne/ai_agent_repo_template/pull/72)):** PR with a deliberate unquoted shell variable. Codex flagged it as P2. Fixed, re-requested, Codex cleared. Two rounds. Merged.
+**Dry-run B (fix-and-repass, [PR #72](https://github.com/nathanjohnpayne/mergepath/pull/72)):** PR with a deliberate unquoted shell variable. Codex flagged it as P2. Fixed, re-requested, Codex cleared. Two rounds. Merged.
 
-**Dry-run C (disagreement, [PR #73](https://github.com/nathanjohnpayne/ai_agent_repo_template/pull/73)):** PR with a `set +e` pattern I had a defensible rebuttal for. Codex flagged it. I posted the rebuttal. Codex re-flagged the same issue with a *stronger* argument that directly addressed my rebuttal. That is the repeat-after-rebuttal signal—the agent stops the loop, posts an escalation comment with both positions, and alerts the human as tiebreaker. **Closed without merging.**
+**Dry-run C (disagreement, [PR #73](https://github.com/nathanjohnpayne/mergepath/pull/73)):** PR with a `set +e` pattern I had a defensible rebuttal for. Codex flagged it. I posted the rebuttal. Codex re-flagged the same issue with a *stronger* argument that directly addressed my rebuttal. That is the repeat-after-rebuttal signal—the agent stops the loop, posts an escalation comment with both positions, and alerts the human as tiebreaker. **Closed without merging.**
 
 The dry-run C result was the most informative: Codex does not blindly re-run reviews. It reads the conversation and pushes back contextually. Round 2's finding explicitly said "for a valid class of inputs"—a phrase that directly countered my "bounded input space" rebuttal. That level of contextual awareness changes the cost-benefit calculation for automated review significantly.
 
-**Dry-run D (multi-finding, [PR #74](https://github.com/nathanjohnpayne/ai_agent_repo_template/pull/74)):** PR with multiple deliberate issues. Codex found both P1s in the *same* review. This means the "runaway" scenario from the issue (three rounds of new issues each round) does not naturally occur—Codex's review pattern is "find everything at once," not "one finding per round." The `max_review_rounds: 2` runaway guard is a safety belt that may rarely fire in practice.
+**Dry-run D (multi-finding, [PR #74](https://github.com/nathanjohnpayne/mergepath/pull/74)):** PR with multiple deliberate issues. Codex found both P1s in the *same* review. This means the "runaway" scenario from the issue (three rounds of new issues each round) does not naturally occur—Codex's review pattern is "find everything at once," not "one finding per round." The `max_review_rounds: 2` runaway guard is a safety belt that may rarely fire in practice.
 
-**Dry-run E (CI red, [PR #70](https://github.com/nathanjohnpayne/ai_agent_repo_template/pull/70)):** PR with a deliberate CI failure (forbidden `vendor/` directory). Codex actually caught the CI failure itself—it read the repo's CI scripts and predicted the failure before the merge gate ran. The merge gate then confirmed: `FAIL: CI not green: 2 non-passing check(s): repo-lint/lint=FAILURE`.
+**Dry-run E (CI red, [PR #70](https://github.com/nathanjohnpayne/mergepath/pull/70)):** PR with a deliberate CI failure (forbidden `vendor/` directory). Codex actually caught the CI failure itself—it read the repo's CI scripts and predicted the failure before the merge gate ran. The merge gate then confirmed: `FAIL: CI not green: 2 non-passing check(s): repo-lint/lint=FAILURE`.
 
 ## The auto-merge race: a real-time TOCTOU bug
 
 One finding during the project deserves its own mention because it illustrates how subtle multi-agent workflow bugs can be.
 
-[PR #60](https://github.com/nathanjohnpayne/ai_agent_repo_template/pull/60) was a documentation-only change that routed `CLAUDE.md` step 8 to the new Phase 4a/4b flow. It was small enough that external review was required (it touched `.github/**`), but the `needs-external-review` label and the reviewer's `APPROVED` review landed within two seconds of each other.
+[PR #60](https://github.com/nathanjohnpayne/mergepath/pull/60) was a documentation-only change that routed `CLAUDE.md` step 8 to the new Phase 4a/4b flow. It was small enough that external review was required (it touched `.github/**`), but the `needs-external-review` label and the reviewer's `APPROVED` review landed within two seconds of each other.
 
 The `auto-merge-on-approval` job in the Agent Review Pipeline evaluated `github.event.pull_request.labels` from the event payload—a snapshot taken at dispatch time. The label had been applied 2 seconds before the approval, but the event snapshot did not include it. The job's `if:` check passed, auto-merge fired, and the PR merged 12 seconds later without any external review.
 
-This is a textbook [TOCTOU](https://en.wikipedia.org/wiki/Time-of-check_to_time-of-use) race. The check (does the PR have a blocking label?) and the use (enable auto-merge) operate on different snapshots of the label state. The fix in [PR #63](https://github.com/nathanjohnpayne/ai_agent_repo_template/pull/63) added a runtime re-verify step that calls `gh pr view --json labels` immediately before the merge step, ensuring the label check uses the authoritative current state rather than the stale event payload.
+This is a textbook [TOCTOU](https://en.wikipedia.org/wiki/Time-of-check_to_time-of-use) race. The check (does the PR have a blocking label?) and the use (enable auto-merge) operate on different snapshots of the label state. The fix in [PR #63](https://github.com/nathanjohnpayne/mergepath/pull/63) added a runtime re-verify step that calls `gh pr view --json labels` immediately before the merge step, ensuring the label check uses the authoritative current state rather than the stale event payload.
 
 The process-level fix was even simpler: apply the label *before* posting any review, so the label is in the event snapshot by the time the approval triggers the pipeline. Defense in depth: the runtime re-verify is the durable fix, the label ordering is the cheap insurance.
 
 ## What the template actually is
 
-The [AI Agent Repository Template](https://github.com/nathanjohnpayne/ai_agent_repo_template) is the infrastructure that makes all of the above work consistently across seven repositories. It is not a framework or a library. It is a set of files that, when present in a repository, enforce a deterministic review workflow for any AI coding agent.
+[Mergepath](https://github.com/nathanjohnpayne/mergepath) is the infrastructure that makes all of the above work consistently across seven repositories. It is not a framework or a library. It is a set of files that, when present in a repository, enforce a deterministic review workflow for any AI coding agent.
 
 **Canonical documentation as single source of truth.** `REVIEW_POLICY.md` is the policy document. `CLAUDE.md` is the agent's operational checklist. `AGENTS.md` is the behavioral index. `.github/review-policy.yml` is the machine-readable config. Each file has exactly one job, and they cross-reference each other rather than duplicating content.
 
@@ -252,4 +252,4 @@ Everything I learned during this project reduces to four rules:
 
 **4. The difference between a well-intentioned agent and a reliable one is not a smarter model. It is enforcement infrastructure.** Better models will come. Better prompts will be written. But the structural insight of this project is that agent reliability is an infrastructure problem, not a capability problem. The agent that shipped clean code was not a different model than the one that tried to push directly to main. It was the same model, operating inside a system that made the right behavior the only available behavior.
 
-The template is [open source](https://github.com/nathanjohnpayne/ai_agent_repo_template). The enforcement is mechanical. The lessons cost me six weeks. Maybe they save you some of that.
+The template is [open source](https://github.com/nathanjohnpayne/mergepath). The enforcement is mechanical. The lessons cost me six weeks. Maybe they save you some of that.
