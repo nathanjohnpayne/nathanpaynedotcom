@@ -26,21 +26,24 @@ const altText = `${title} product screenshot`;
 ---
 
 {playbackId ? (
-  <mux-video
-    playback-id={playbackId}
-    autoplay="muted"
-    muted
-    loop
-    playsinline
-    preload="auto"
-    poster={fallbackSrc}
-    env-key={muxEnvKey}
-    metadata-video-title={title}
-    metadata-video-id={slug}
-    class="project-screenshot__mux"
-  >
-    <img src={fallbackSrc} alt={altText} />
-  </mux-video>
+  <>
+    <mux-video
+      playback-id={playbackId}
+      autoplay="muted"
+      muted
+      loop
+      playsinline
+      preload="auto"
+      poster={fallbackSrc}
+      env-key={muxEnvKey}
+      metadata-video-title={title}
+      metadata-video-id={slug}
+      class="project-screenshot__mux"
+    />
+    <noscript>
+      <img src={fallbackSrc} alt={altText} loading="eager" />
+    </noscript>
+  </>
 ) : (
   <img src={fallbackSrc} alt={altText} loading="eager" />
 )}
