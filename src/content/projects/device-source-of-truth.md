@@ -58,7 +58,7 @@ The most complex feature arc was the questionnaire intake pipeline. Disney's par
 - [DST-054 — In-App User Role Management](https://github.com/nathanjohnpayne/device-source-of-truth/blob/main/specs/DST-054-user-role-management.md)
 - [DST-055 — Multi-Partner Questionnaire Support](https://github.com/nathanjohnpayne/device-source-of-truth/blob/main/specs/DST-055-multi-partner-questionnaire-support.md)
 
-Like the rest of the portfolio, DST uses the [multi-agent code review pipeline](https://github.com/nathanjohnpayne/device-source-of-truth/blob/main/REVIEW_POLICY.md) first developed for [Override](/projects/override/)—machine user reviewers, CodeRabbit with domain-specific guidance, and the two-strike rule on bug fixes. That pipeline is documented end-to-end in [Agent Approval Workflow and the Genesis of mergepath](/blog/agent-approval-workflow-genesis-of-mergepath/).
+Like the rest of the portfolio, DST uses the [multi-agent code review pipeline](https://github.com/nathanjohnpayne/device-source-of-truth/blob/main/REVIEW_POLICY.md) first developed for [Override](/projects/override/)—machine user reviewers, CodeRabbit with domain-specific guidance, and the two-strike rule on bug fixes. That pipeline is documented end-to-end in [Agent Approval Workflow and the Genesis of ai-agent-repo-template](/blog/agent-approval-workflow-genesis-of-ai-agent-repo-template/).
 
 ## Why it matters
 
