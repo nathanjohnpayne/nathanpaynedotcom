@@ -28,7 +28,7 @@ PROJECT_ID=$(gh project view "$PROJECT" --owner "$OWNER" --format json \
 
 # Resolve the Status field ID + the option ID for the requested status in a
 # single pass over field-list output.
-read -r STATUS_FIELD_ID OPT_ID <<<"$(gh project field-list "$PROJECT" --owner "$OWNER" --format json | python3 -c "
+read -r STATUS_FIELD_ID OPT_ID <<<"$(gh project field-list "$PROJECT" --owner "$OWNER" --limit 100 --format json | python3 -c "
 import json, os, sys
 name = os.environ['STATUS_NAME']
 d = json.load(sys.stdin)
@@ -53,7 +53,7 @@ fi
 
 # Resolve the project-level item ID for this issue.
 export ISSUE_URL="https://github.com/$REPO/issues/$ISSUE_NUM"
-ITEM_ID=$(gh project item-list "$PROJECT" --owner "$OWNER" --format json --limit 200 | python3 -c "
+ITEM_ID=$(gh project item-list "$PROJECT" --owner "$OWNER" --format json --limit 2000 | python3 -c "
 import json, os, sys
 url = os.environ['ISSUE_URL']
 d = json.load(sys.stdin)
