@@ -19,7 +19,7 @@ const { playbackId, fallbackSrc, title, slug } = Astro.props;
 
 // Mux Data env key. Baked into the build via `import.meta.env`; when unset,
 // Astro omits the attribute and the player emits no analytics.
-const muxEnvKey = import.meta.env.PUBLIC_MUX_ENV_KEY;
+const muxEnvKey = import.meta.env.PUBLIC_MUX_ENV_KEY?.trim() || undefined;
 
 const altText = `${title} product screenshot`;
 ---
