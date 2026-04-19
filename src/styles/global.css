@@ -2781,6 +2781,19 @@ a:focus-visible {
     color: rgba(240, 244, 255, 0.82);
   }
 
+  .panel--blue .availability-signal {
+    color: rgba(240, 244, 255, 0.82);
+  }
+
+  .panel--blue .availability-signal .p-link {
+    color: #f0f4ff;
+    border-bottom-color: rgba(240, 244, 255, 0.48);
+  }
+
+  .panel--blue .availability-signal .p-link:hover {
+    border-bottom-color: #f0f4ff;
+  }
+
   .panel--blue .social-row {
     border-color: rgba(240, 244, 255, 0.18);
   }
