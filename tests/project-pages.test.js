@@ -150,6 +150,21 @@ describe('Project Pages — screenshot aspect variants', () => {
     expect(figure.className).toContain('project-screenshot--narrow');
   });
 
+  it('Swipe Watch renders mux-background-video with the Safari-safe hero config', () => {
+    setupDOM(readDistHtml('projects/swipe-watch/index.html'));
+
+    const player = document.querySelector('mux-background-video.project-screenshot__mux');
+    expect(player, 'Swipe Watch mux-background-video not found').not.toBeNull();
+    expect(document.querySelector('mux-player')).toBeNull();
+    expect(player.getAttribute('src')).toBe('https://stream.mux.com/wNCRY97981o2uDAJrJ3ExPeK379yldRRFJgUIgSYz00k.m3u8');
+    expect(player.getAttribute('preload')).toBe('auto');
+    expect(player.hasAttribute('max-resolution')).toBe(false);
+
+    const poster = player.querySelector('img');
+    expect(poster, 'Swipe Watch poster img not found').not.toBeNull();
+    expect(poster.getAttribute('src')).toBe('https://image.mux.com/wNCRY97981o2uDAJrJ3ExPeK379yldRRFJgUIgSYz00k/thumbnail.jpg?width=1280&time=0');
+  });
+
   it('Override, DST, and FFB use the wide screenshot variant', () => {
     const wideSlugs = ['override', 'device-source-of-truth', 'friends-and-family-billing'];
     for (const slug of wideSlugs) {

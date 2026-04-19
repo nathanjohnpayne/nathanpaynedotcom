@@ -5,17 +5,16 @@
 //
 // Why <mux-background-video> and not <mux-video> or <mux-player>?
 // - <mux-player> is a full player with controls; hiding the chrome
-//   via CSS vars regressed Safari autoplay.
+//   regressed Safari autoplay in real-device testing.
 // - <mux-video> is a low-level HTML5-like primitive; on Safari the
 //   native HLS manifest load races against Safari's autoplay policy
 //   check, silently leaving the video paused on the poster.
 // - <mux-background-video> is purpose-built for hero videos: no UI
-//   chrome, internal autoplay orchestration that handles the HLS-on-
-//   Safari timing race, and the documented component for this
-//   use case in Mux's own docs.
+//   chrome, internal autoplay orchestration, and the Safari behavior
+//   this project actually needs.
 //
-// When `playbackId` is unset, falls back to the `fallbackSrc` image
-// so the hero never goes blank.
+// When `playbackId` is unset, falls back to the `fallbackSrc` image so the
+// hero never goes blank.
 
 interface Props {
   playbackId?: string;
@@ -32,12 +31,10 @@ const streamSrc = playbackId
   ? `https://stream.mux.com/${playbackId}.m3u8`
   : undefined;
 
-// Static first-frame poster from Mux's image API. JPEG at 640px is
-// sharper than the GIF rendered at 320px and makes the autoplay-vs-
-// not-autoplaying signal unambiguous (motion = playing; frozen =
-// blocked).
+// Use a higher-res still for the poster so the "loading / blocked" state
+// stays crisp on Retina/iPhone screens while the background video upgrades.
 const posterSrc = playbackId
-  ? `https://image.mux.com/${playbackId}/thumbnail.jpg?width=640&time=0`
+  ? `https://image.mux.com/${playbackId}/thumbnail.jpg?width=1280&time=0`
   : undefined;
 ---
 
@@ -45,7 +42,7 @@ const posterSrc = playbackId
   <>
     <mux-background-video
       src={streamSrc}
-      max-resolution="720p"
+      preload="auto"
       class="project-screenshot__mux"
     >
       <img src={posterSrc} alt={altText} />
@@ -59,9 +56,7 @@ const posterSrc = playbackId
 )}
 
 <script>
-  // Register <mux-background-video> on pages that use it. Dropping
-  // mux-player and mux-video from the runtime on this page — this
-  // component is the sole consumer.
+  // Register <mux-background-video> only on pages that actually contain one.
   if (document.querySelector('mux-background-video')) {
     import('@mux/mux-background-video/html');
   }

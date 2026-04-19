@@ -21,8 +21,6 @@
     "vitest": "^4.1.4"
   },
   "dependencies": {
-    "@mux/mux-background-video": "^0.2.3",
-    "@mux/mux-player": "^3.11.8",
-    "@mux/mux-video": "^0.30.6"
+    "@mux/mux-background-video": "^0.2.3"
   }
 }
