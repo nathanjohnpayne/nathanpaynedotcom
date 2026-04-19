@@ -1123,6 +1123,13 @@ body.blog-page {
   overflow: hidden;
 }
 
+/* Keep player controls available, but remove the centered play overlay so
+   autoplaying project heroes do not look paused. Bottom controls remain for
+   manual recovery if Safari blocks autoplay due to browser/user policy. */
+.project-screenshot__mux::part(center play button) {
+  display: none;
+}
+
 /* Poster frame slotted into the player. Before JS upgrades the custom
    element, this img renders as light-DOM content and fills the player
    area so the GIF still shows — the graceful-degradation fallback the
