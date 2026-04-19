@@ -95,24 +95,38 @@ jobs:
             REASONS="$REASONS- ${LINES_CHANGED} lines changed (threshold: ${THRESHOLD})%0A"
           fi
 
-          # Read protected paths from review-policy.yml and check against diff
-          CHANGED_FILES=$(git diff --name-only "$BASE_SHA"..."$HEAD_SHA")
-          PATHS=$(awk '/^external_review_paths:/,/^[^ ]/' "$CONFIG" \
-            | grep '^ *-' | sed 's/^ *- *"//' | sed 's/"$//')
+          # Extract external_review_paths entries from review-policy.yml.
+          # Delegates to scripts/workflow/parse_policy_list.sh, which is
+          # unit-tested by scripts/ci/check_workflow_parsers (see #57).
+          # History: the earlier inline `awk '/^key:/,/^[^ ]/'` range
+          # parser silently matched only the header line because the
+          # range-start pattern also matched the range-end condition.
+          # See #54 for the post-mortem.
+          PATHS=$(bash scripts/workflow/parse_policy_list.sh "$CONFIG" external_review_paths)
 
-          MATCHED_FILES=""
-          for pattern in $PATHS; do
-            # Convert glob to grep-compatible pattern
-            REGEX=$(echo "$pattern" | sed 's/\*\*/.*/g' | sed 's/\*\//[^\/]*\//g' | sed 's/\*/[^\/]*/g')
-            MATCHES=$(echo "$CHANGED_FILES" | grep -E "$REGEX" || true)
-            if [ -n "$MATCHES" ]; then
-              MATCHED_FILES="$MATCHED_FILES$MATCHES"$'\n'
-            fi
-          done
+          # Match changed files against patterns. Delegates to
+          # scripts/workflow/match_protected_paths.sh (bash `[[ ]]`
+          # pattern matching under the hood), which is unit-tested by
+          # scripts/ci/check_workflow_parsers (see #57). History: the
+          # earlier inline glob-to-regex sed pipeline double-transformed
+          # `*` and silently missed nested paths. See #54 for the
+          # post-mortem.
+          CHANGED_FILES=$(git diff --name-only "$BASE_SHA"..."$HEAD_SHA")
+
+          PATTERNS=()
+          while IFS= read -r line; do
+            [ -n "$line" ] && PATTERNS+=("$line")
+          done <<< "$PATHS"
+
+          if [ "${#PATTERNS[@]}" -gt 0 ]; then
+            MATCHED_FILES=$(printf '%s\n' "$CHANGED_FILES" | bash scripts/workflow/match_protected_paths.sh "${PATTERNS[@]}")
+          else
+            MATCHED_FILES=""
+          fi
 
           if [ -n "$MATCHED_FILES" ]; then
             NEEDS_REVIEW=true
-            FILE_LIST=$(echo "$MATCHED_FILES" | sort -u | sed 's/^/  - /' | tr '\n' ',' | sed 's/,/%0A/g')
+            FILE_LIST=$(echo "$MATCHED_FILES" | sort -u | grep -v '^$' | sed 's/^/  - /' | tr '\n' ',' | sed 's/,/%0A/g')
             REASONS="${REASONS}- Protected paths modified:%0A${FILE_LIST}"
           fi
 
@@ -139,14 +153,14 @@ jobs:
           FORMATTED_REASONS=$(echo "$REASONS" | sed 's/%0A/\n/g')
 
           gh pr comment "$PR_NUMBER" --repo "${{ github.repository }}" --body "$(cat <<EOF
-**External Review Required**
+          **External Review Required**
 
-This PR has been labeled \`needs-external-review\` based on .github/review-policy.yml:
+          This PR has been labeled \`needs-external-review\` based on .github/review-policy.yml:
 
-$FORMATTED_REASONS
+          $FORMATTED_REASONS
 
-Per REVIEW_POLICY.md, the authoring agent must post a handoff message and alert the human. The human will coordinate external review by a different agent.
+          Per REVIEW_POLICY.md, the authoring agent must post a handoff message and alert the human. The human will coordinate external review by a different agent.
 
-> Automated check per .github/review-policy.yml
-EOF
+          > Automated check per .github/review-policy.yml
+          EOF
           )"
