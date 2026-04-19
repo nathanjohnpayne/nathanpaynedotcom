@@ -1109,11 +1109,11 @@ body.blog-page {
   border: 1px solid var(--rule, rgba(17, 16, 13, 0.12));
 }
 
-/* <mux-player> rendered in the hero slot. The player picks its own
-   aspect ratio from the asset's video metadata — we deliberately don't
-   hardcode one here, because different clips (e.g. 9:19.5 modern phone
-   captures vs. true 9:16) would otherwise render with letterbox bars.
-   Width is capped by the surrounding .project-screenshot--narrow
+/* Mux background-video rendered in the hero slot. The component picks
+   its own aspect ratio from the asset's metadata — we deliberately
+   don't hardcode one here, because different clips (e.g. 9:19.5 modern
+   phone captures vs. true 9:16) would otherwise render with letterbox
+   bars. Width is capped by the surrounding .project-screenshot--narrow
    container's 320px max-width so pages stay visually consistent
    between img and video modes. */
 .project-screenshot__mux {
@@ -1123,18 +1123,10 @@ body.blog-page {
   overflow: hidden;
 }
 
-/* Keep player controls available, but remove the centered play overlay so
-   autoplaying project heroes do not look paused. Bottom controls remain for
-   manual recovery if Safari blocks autoplay due to browser/user policy. */
-.project-screenshot__mux::part(center play button) {
-  display: none;
-}
-
-/* Poster frame slotted into the player. Before JS upgrades the custom
-   element, this img renders as light-DOM content and fills the player
-   area so the GIF still shows — the graceful-degradation fallback the
-   plan calls for. */
-.project-screenshot__mux img[slot="poster"] {
+/* Poster frame inside the background-video element. Before JS upgrades
+   the custom element, this light-DOM image fills the hero slot so the
+   page never flashes blank. */
+.project-screenshot__mux > img {
   display: block;
   width: 100%;
   height: auto;
