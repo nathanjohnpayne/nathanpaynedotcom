@@ -5,7 +5,12 @@ name: Agent Review Pipeline
 
 on:
   pull_request:
-    types: [opened, ready_for_review, labeled]
+    # `synchronize` (every push on an open PR) is in the list so
+    # `load-config` re-parses `.github/review-policy.yml` on every
+    # commit, not just on `opened` / `ready_for_review`. Without it,
+    # a shell-parser regression can land on main and only surface
+    # weeks later when the next PR happens to be opened. See #59.
+    types: [opened, ready_for_review, labeled, synchronize]
   pull_request_review:
     types: [submitted]
 
@@ -19,9 +24,21 @@ jobs:
   # Job 1: Read review-policy.yml configuration
   # ──────────────────────────────────────────────
   load-config:
+    # Runs on opened, ready_for_review, and synchronize so the
+    # parser exercises every commit pushed to an open PR, not just
+    # initial open. Explicitly excludes `labeled`: the `assign` job
+    # allows `labeled` as a trigger, and it depends on this job's
+    # outputs — letting load-config run on labeled would cause
+    # assign to re-fire on every label edit and re-request
+    # reviewers who have already reviewed. Downstream jobs keep
+    # their own action-specific guards; they stay no-ops on
+    # synchronize. See #59 for the SKIPPED-as-SUCCESS miss this
+    # closes and Codex's P2 on PR #131 for why labeled is excluded.
     if: >
       github.event_name == 'pull_request' &&
-      (github.event.action == 'opened' || github.event.action == 'ready_for_review')
+      (github.event.action == 'opened' ||
+       github.event.action == 'ready_for_review' ||
+       github.event.action == 'synchronize')
     runs-on: ubuntu-latest
     outputs:
       threshold: ${{ steps.config.outputs.threshold }}
@@ -43,16 +60,26 @@ jobs:
           THRESHOLD=$(grep 'external_review_threshold:' "$CONFIG" | awk '{print $2}')
           echo "threshold=$THRESHOLD" >> "$GITHUB_OUTPUT"
 
-          # Extract external_review_paths as JSON array
-          PATHS=$(awk '/^external_review_paths:/,/^[^ ]/' "$CONFIG" \
-            | grep '^ *-' | sed 's/^ *- *"//' | sed 's/"$//' \
-            | jq -R -s 'split("\n") | map(select(length > 0))')
+          # Extract external_review_paths as a JSON array. Delegates to
+          # scripts/workflow/parse_policy_list.sh (unit-tested by
+          # scripts/ci/check_workflow_parsers — see #57). History: the
+          # earlier inline `awk '/^key:/,/^[^ ]/'` range parser silently
+          # dropped all list entries because the range-start pattern
+          # also matched the range-end condition; see #54.
+          #
+          # `jq -c` (compact) is required here: multi-line JSON cannot
+          # be written via the `key=value` GITHUB_OUTPUT format. Before
+          # #54 fixed the awk extractor, PATHS was always `[]` (single-
+          # line) so this latent bug was hidden; PR #58 / #30 tripped it.
+          PATHS=$(bash scripts/workflow/parse_policy_list.sh "$CONFIG" external_review_paths \
+            | jq -R -s -c 'split("\n") | map(select(length > 0))')
           echo "paths=$PATHS" >> "$GITHUB_OUTPUT"
 
-          # Extract available_reviewers as JSON array
-          REVIEWERS=$(awk '/^available_reviewers:/,/^[^ ]/' "$CONFIG" \
-            | grep '^ *-' | sed 's/^ *- *//' \
-            | jq -R -s 'split("\n") | map(select(length > 0))')
+          # Extract available_reviewers as a JSON array via the same
+          # extracted parser. Before #54 this was always `[]`, which
+          # silently broke the assign step's reviewer lookup.
+          REVIEWERS=$(bash scripts/workflow/parse_policy_list.sh "$CONFIG" available_reviewers \
+            | jq -R -s -c 'split("\n") | map(select(length > 0))')
           echo "reviewers=$REVIEWERS" >> "$GITHUB_OUTPUT"
 
           AUTHOR=$(grep 'author_identity:' "$CONFIG" | awk '{print $2}')
@@ -463,8 +490,21 @@ jobs:
   # ──────────────────────────────────────────────
   # Job 7: Auto-merge on approval (if no external review required)
   # ──────────────────────────────────────────────
+  # Must `needs:` on detect-disagreement and block-self-approval to force
+  # those sibling jobs to COMPLETE before this one starts. Both siblings
+  # can apply blocking labels as a side effect (`needs-human-review` from
+  # detect-disagreement, `policy-violation` from block-self-approval), and
+  # without the ordering constraint they run in parallel with auto-merge.
+  # A sibling applying a label 200ms after the runtime re-verify step
+  # below fetches labels but 100ms before `gh pr merge` dispatches would
+  # still slip through. `always()` in the if: expression keeps auto-merge
+  # running even if a sibling fails — ordering, not gating, is what
+  # `needs:` is for here. See #61 for the cross-event race and this PR
+  # for the same-workflow race nathanpayne-codex caught during review.
   auto-merge-on-approval:
+    needs: [detect-disagreement, block-self-approval]
     if: >
+      always() &&
       github.event_name == 'pull_request_review' &&
       github.event.review.state == 'approved' &&
       !contains(github.event.pull_request.labels.*.name, 'needs-external-review') &&
@@ -477,7 +517,25 @@ jobs:
         id: cr
         run: |
           CONFIG=".github/review-policy.yml"
-          if sed -n '/^coderabbit:/,$ p' "$CONFIG" | grep -qE '^\s*enabled:\s*true'; then
+          # Parse only the `coderabbit:` block — stop at the next top-level key.
+          # The previous `sed -n '/^coderabbit:/,$ p'` was scope-unsafe: it
+          # captured everything from `coderabbit:` to EOF, so a later top-level
+          # block with `enabled: true` (e.g., the `codex:` block added in #31)
+          # produced a false positive and triggered the CodeRabbit wait loop.
+          #
+          # The end-of-block test is "a new line whose first character is
+          # neither whitespace nor `#`" — which catches the next top-level YAML
+          # key while still permitting column-0 comments (`# ...`) and blank
+          # lines inside the block. The earlier `^[^[:space:]]` regex was
+          # too strict: a YAML-valid column-0 comment prematurely exited the
+          # block and produced a false negative. Fix surfaced by nathanpayne-codex
+          # external review on PR #53.
+          if awk '
+            /^coderabbit:/ {in_block=1; next}
+            in_block && /^[^[:space:]#]/ {in_block=0}
+            in_block && /^[[:space:]]*enabled:[[:space:]]*true([[:space:]]*#.*)?$/ {found=1}
+            END {exit found ? 0 : 1}
+          ' "$CONFIG"; then
             echo "enabled=true" >> "$GITHUB_OUTPUT"
           else
             echo "enabled=false" >> "$GITHUB_OUTPUT"
@@ -485,33 +543,97 @@ jobs:
 
       - name: Wait for CodeRabbit review
         if: steps.cr.outputs.enabled == 'true'
-        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
-        with:
-          github-token: ${{ secrets.REVIEWER_ASSIGNMENT_TOKEN }}
-          script: |
-            const prNumber = context.payload.pull_request.number;
-            const maxWaitMs = 5 * 60 * 1000; // 5 minutes
-            const pollMs = 30 * 1000;         // 30 seconds
-            const start = Date.now();
+        env:
+          GH_TOKEN: ${{ secrets.REVIEWER_ASSIGNMENT_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+        run: |
+          # Delegate to scripts/coderabbit-wait.sh so auto-merge honors the
+          # same semantics the agent-driven flow uses: HEAD-anchored
+          # freshness (#136 — do not merge on a stale review from a prior
+          # HEAD), rate-limit retry (#138 — CodeRabbit does not auto-retry
+          # after its published window elapses), and the coderabbit.*
+          # knobs in .github/review-policy.yml. Exit-code translation:
+          #   0 — cleared on current HEAD, no high-severity markers.
+          #   2 — cleared but findings present (Potential issue / ⚠️).
+          #       Blocks auto-merge per REVIEW_POLICY.md § Phase 2.5,
+          #       which requires every Potential issue / ⚠️ finding to
+          #       be explicitly addressed (fixed or dismissed with
+          #       reasoning) before moving on. The agent-driven flow
+          #       does that in-session; the auto-merge workflow has
+          #       no way to address a finding, so it stops here and
+          #       lets the author push a fix (or post a dismissal
+          #       reply). A new approving review after the fix
+          #       re-triggers this job.
+          #   3 — API / infra error. Block and surface.
+          #   4 — max_wait_seconds grace window elapsed without a review.
+          #       CodeRabbit is advisory; log a warning and proceed.
+          #   5 — rate-limit retry budget exhausted. Do NOT merge —
+          #       block and let the human intervene.
+          set +e
+          bash scripts/coderabbit-wait.sh "$PR_NUMBER" "$REPO"
+          rc=$?
+          set -e
+          case "$rc" in
+            0)
+              echo "CodeRabbit cleared on current HEAD — proceeding to merge."
+              ;;
+            2)
+              echo "::error::CodeRabbit flagged Potential issue / ⚠️ findings on the current HEAD. Per REVIEW_POLICY.md § Phase 2.5, each must be explicitly addressed (fixed or dismissed with reasoning) before merge. Blocking auto-merge; address the findings and request a new approval to re-trigger."
+              exit 1
+              ;;
+            4)
+              echo "::warning::CodeRabbit grace window elapsed without a review. CodeRabbit is advisory — proceeding to merge."
+              ;;
+            5)
+              echo "::error::CodeRabbit rate-limit retry budget exhausted. Blocking auto-merge; human must re-trigger or merge manually."
+              exit 1
+              ;;
+            *)
+              echo "::error::coderabbit-wait.sh failed with exit code $rc. Blocking auto-merge."
+              exit 1
+              ;;
+          esac
 
-            while (Date.now() - start < maxWaitMs) {
-              const { data: comments } = await github.rest.issues.listComments({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: prNumber,
-              });
-              const hasCR = comments.some(
-                c => c.user.login === 'coderabbitai[bot]' &&
-                     !c.body.includes('Currently processing')
-              );
-              if (hasCR) {
-                core.info('CodeRabbit review found — proceeding to merge.');
-                return;
-              }
-              core.info(`Waiting for CodeRabbit... (${Math.round((Date.now() - start) / 1000)}s)`);
-              await new Promise(r => setTimeout(r, pollMs));
-            }
-            core.warning('CodeRabbit did not post within 5 minutes — proceeding to merge.');
+      - name: Re-verify blocking labels right before merge
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          GH_TOKEN: ${{ secrets.REVIEWER_ASSIGNMENT_TOKEN }}
+        run: |
+          # Guard against the TOCTOU race between the trigger-time label
+          # snapshot and the actual merge. The job's top-level `if:` expression
+          # evaluates labels from the `pull_request_review` event payload at
+          # the moment GitHub Actions dispatched the event. Two things can
+          # make that snapshot stale by the time we reach the merge step:
+          #
+          #   1. Eventual consistency. If a label is applied milliseconds
+          #      before the review event fires, the event payload can still
+          #      be generated without the label attached. Observed on PR #60
+          #      (2026-04-14), where the `needs-external-review` label was
+          #      applied 2 seconds before the review event but the job's
+          #      `if:` check evaluated to true anyway, merging the PR before
+          #      any external review could happen. See #61.
+          #
+          #   2. The "Wait for CodeRabbit review" step above can sleep for
+          #      up to 5 minutes on a coderabbit-enabled repo. During that
+          #      window, an agent can legitimately apply a blocking label
+          #      (e.g., a human spotting something after approval) and the
+          #      job would still merge because the `if:` already evaluated.
+          #
+          # Re-fetch the authoritative label state from the GitHub API
+          # immediately before merging. Abort if any blocking label is now
+          # present. Also check `policy-violation`, which is applied by the
+          # block-self-approval job earlier in this same workflow run (and
+          # again, the `if:` at job start wouldn't have seen it).
+          LABELS=$(gh pr view "$PR_NUMBER" --repo "${{ github.repository }}" --json labels --jq '[.labels[].name] | join(",")')
+          echo "Labels at merge time: [$LABELS]"
+          case ",$LABELS," in
+            *,needs-external-review,*|*,needs-human-review,*|*,policy-violation,*)
+              echo "::error::Blocking label present at merge time: $LABELS. Aborting auto-merge."
+              exit 1
+              ;;
+          esac
+          echo "No blocking labels present — proceeding to merge."
 
       - name: Enable auto-merge
         run: gh pr merge --squash --auto "$PR_URL" || gh pr merge --squash "$PR_URL" || true
