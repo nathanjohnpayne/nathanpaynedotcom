@@ -107,6 +107,10 @@ html, body {
     minmax(2.8rem, 0.78fr) var(--line);
 }
 
+.mondrian[data-focus="projects"] .panel--yellow {
+  grid-row: 2 / 5;
+}
+
 .mondrian[data-focus="community"] {
   grid-template-columns:
     var(--line) minmax(11rem, 4.1fr) var(--line)
@@ -2656,7 +2660,7 @@ a:focus-visible {
 }
 
 @media (max-width: 480px) {
-  .project-hero {
+  .project-hero__header {
     padding: 1rem 1rem 1.15rem;
   }
 
