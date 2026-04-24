@@ -56,8 +56,36 @@ const posterSrc = playbackId
 )}
 
 <script>
-  // Register <mux-background-video> only on pages that actually contain one.
-  if (document.querySelector('mux-background-video')) {
-    import('@mux/mux-background-video/html');
+  const muxHero = document.querySelector('mux-background-video');
+
+  function loadMuxEmbed() {
+    if (globalThis.mux) return Promise.resolve();
+
+    const existingScript = document.querySelector('script[data-mux-embed]');
+    if (existingScript) {
+      return new Promise((resolve) => {
+        existingScript.addEventListener('load', resolve, { once: true });
+        existingScript.addEventListener('error', resolve, { once: true });
+      });
+    }
+
+    return new Promise((resolve) => {
+      const script = document.createElement('script');
+      script.defer = true;
+      script.dataset.muxEmbed = 'true';
+      script.src = 'https://cdn.jsdelivr.net/npm/mux-embed';
+      script.addEventListener('load', resolve, { once: true });
+      script.addEventListener('error', resolve, { once: true });
+      document.head.append(script);
+    });
+  }
+
+  // Register and monitor <mux-background-video> only on pages that contain one.
+  // The component's Mux Data hook reads globalThis.mux during registration and
+  // infers the env key from the stream.mux.com URL.
+  if (muxHero) {
+    loadMuxEmbed().finally(() => {
+      import('@mux/mux-background-video/html');
+    });
   }
 </script>

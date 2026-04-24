@@ -151,7 +151,8 @@ describe('Project Pages — screenshot aspect variants', () => {
   });
 
   it('Swipe Watch renders mux-background-video with the Safari-safe hero config', () => {
-    setupDOM(readDistHtml('projects/swipe-watch/index.html'));
+    const html = readDistHtml('projects/swipe-watch/index.html');
+    setupDOM(html);
 
     const player = document.querySelector('mux-background-video.project-screenshot__mux');
     expect(player, 'Swipe Watch mux-background-video not found').not.toBeNull();
@@ -163,6 +164,24 @@ describe('Project Pages — screenshot aspect variants', () => {
     const poster = player.querySelector('img');
     expect(poster, 'Swipe Watch poster img not found').not.toBeNull();
     expect(poster.getAttribute('src')).toBe('https://image.mux.com/wNCRY97981o2uDAJrJ3ExPeK379yldRRFJgUIgSYz00k/thumbnail.jpg?width=1280&time=0');
+
+    const muxScriptSrc = html.match(/<script type="module" src="([^"]*ProjectMuxPlayer[^"]*)"/)?.[1];
+    expect(muxScriptSrc, 'ProjectMuxPlayer module script not found').toBeTruthy();
+    const muxScript = readFileSync(resolve(DIST, muxScriptSrc.replace(/^\//, '')), 'utf-8');
+    expect(muxScript).toContain('https://cdn.jsdelivr.net/npm/mux-embed');
+    expect(muxScript).toContain('document.querySelector("mux-background-video")');
+    expect(html).not.toContain('PUBLIC_MUX_ENV_KEY');
+  });
+
+  it('only Swipe Watch opts into the Mux hero today', () => {
+    for (const slug of projectSlugs.filter((projectSlug) => projectSlug !== 'swipe-watch')) {
+      setupDOM(readDistHtml(`projects/${slug}/index.html`));
+      expect(
+        document.querySelector('mux-background-video'),
+        `${slug} should not render a Mux background video`,
+      ).toBeNull();
+      expect(document.querySelector('mux-player'), `${slug} should not render mux-player`).toBeNull();
+    }
   });
 
   it('Override, DST, and FFB use the wide screenshot variant', () => {

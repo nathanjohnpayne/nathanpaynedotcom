@@ -75,7 +75,7 @@ draft: false
 | `metadata.status` | string | yes | Metadata strip: project status |
 | `stack` | string | no | Tech stack values separated by ` · ` (e.g., `"React · TypeScript · Vite · Firebase · Vitest"`). Rendered as a figcaption below the screenshot. Optional — projects without a stack field render without the caption |
 | `related` | array | no | Related links with `label` and `href` |
-| `muxPlaybackId` | non-empty string | no | Mux public Playback ID. When set, the hero renders a themed `<mux-player>` video and `screenshotSrc` is used as the poster + JS-disabled fallback. Schema rejects blank / whitespace-only values so a stray empty string fails build-time rather than producing a broken URL. See "Adding a Mux video" below |
+| `muxPlaybackId` | non-empty string | no | Mux public Playback ID. When set, the hero renders a `<mux-background-video>` video and `screenshotSrc` is used as the JS-disabled fallback. Schema rejects blank / whitespace-only values so a stray empty string fails build-time rather than producing a broken URL. See "Adding a Mux video" below |
 | `draft` | boolean | no | `true` to exclude from builds (default: `false`) |
 
 ### Body content structure
@@ -148,11 +148,10 @@ Any project can render a vertical Mux video in the hero instead of a static scre
 
 ### What happens automatically
 
-- **Theming**: the player's progress bar, scrubber, and accent ornaments pick up the page's `--project-accent` CSS var. Any `project-page--*` class (red, yellow, blue, etc.) themes the player with no extra config.
-- **Autoplay + loop**: `autoplay="muted" muted loop playsinline` match the feel of the animated GIFs that the static hero slot previously used.
-- **Analytics**: if `PUBLIC_MUX_ENV_KEY` is provisioned (see [DEPLOYMENT.md](../DEPLOYMENT.md#client-side-env-vars)), the player reports views to Mux Data tagged with `video_title` = project title and `video_id` = project slug. Without the env key, the player runs identically but emits no analytics.
-- **Fallback**: the existing `screenshotSrc` image renders as the `<img slot="poster">` inside `<mux-player>`. Browsers with JS disabled render the poster directly (unknown custom elements render their light-DOM children inline).
-- **Bundle cost**: `@mux/mux-player` only downloads on pages that actually contain a `<mux-player>` element — projects without `muxPlaybackId` pay zero cost.
+- **Autoplay + loop**: `<mux-background-video>` creates a muted, looped, plays-inline video to match the feel of the animated GIFs that the static hero slot previously used.
+- **Analytics**: pages with a Mux hero load `mux-embed` before registering `<mux-background-video>`. Mux Data monitoring is automatic for the background video and infers the env key from the `stream.mux.com` URL; no `PUBLIC_MUX_ENV_KEY` is read by this site.
+- **Fallback**: the existing `screenshotSrc` image renders in `<noscript>`, while the Mux thumbnail renders inside `<mux-background-video>` as the pre-upgrade poster.
+- **Bundle cost**: the Mux custom element is registered only when a page contains a `<mux-background-video>` element. Projects without `muxPlaybackId` do not load `mux-embed` or the background-video package at runtime.
 
 ### Aspect ratio
 
