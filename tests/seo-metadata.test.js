@@ -120,8 +120,9 @@ describe('SEO Metadata', () => {
       const person = jsonLd['@graph'].find((e) => e['@type'] === 'Person');
       expect(person).toBeDefined();
       expect(person.name).toBe('Nathan Payne');
-      expect(person.worksFor).toBeDefined();
-      expect(person.worksFor.name).toBe('The Walt Disney Company');
+      expect(person.alumniOf).toBeDefined();
+      expect(person.alumniOf.name).toBe('The Walt Disney Company');
+      expect(person.worksFor).toBeUndefined();
       expect(person.sameAs).toBeDefined();
       expect(Array.isArray(person.sameAs)).toBe(true);
       expect(person.sameAs.length).toBeGreaterThan(0);
