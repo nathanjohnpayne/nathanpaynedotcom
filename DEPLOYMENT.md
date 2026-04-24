@@ -399,13 +399,10 @@ Any `PUBLIC_*` env var read via `import.meta.env` during the build is baked into
 3. Anyone on the team runs `./scripts/bootstrap.sh --force` to refresh their `.env.local`.
 4. `npm run build` picks up the new value automatically.
 
-**Current `PUBLIC_*` vars:**
-
-| Var | 1Password reference | Purpose |
-|---|---|---|
-| `PUBLIC_MUX_ENV_KEY` | `op://Private/owk6d74z2ofmrcivmgju25pifm/env-key` | Mux Data analytics env key (safe to publish; Mux env keys are client-visible by design). Unset = analytics off, player still works. |
-
-Mux env key is provisioned per Mux workspace, not per deploy target — the same key works for dev and prod. Rotate via the [Mux dashboard](https://dashboard.mux.com/) (Settings → Data → Environments) and update the 1Password item; the next bootstrap + build picks up the new value.
+There are no current `PUBLIC_*` vars. Mux Data for project hero videos does
+not use a build-time env var in this site: pages with a Mux hero load
+`mux-embed`, and `@mux/mux-background-video` infers the Mux Data env key from
+the public `stream.mux.com` URL at runtime.
 
 ## Deployment Steps
 
