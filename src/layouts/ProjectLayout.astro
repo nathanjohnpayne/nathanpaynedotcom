@@ -3,6 +3,7 @@ import BaseLayout from './BaseLayout.astro';
 import HeroWide from '../components/HeroWide.astro';
 import HeroNarrow from '../components/HeroNarrow.astro';
 import MetadataStrip from '../components/MetadataStrip.astro';
+import ProjectMuxPlayer from '../components/ProjectMuxPlayer.astro';
 
 interface RelatedLink {
   label: string;
@@ -23,6 +24,8 @@ interface Props {
   gradientTo: string;
   screenshotAspect: 'wide' | 'narrow';
   screenshotSrc: string;
+  muxPlaybackId?: string;
+  slug: string;
   liveUrl: string;
   githubUrl: string;
   metadata: {
@@ -54,6 +57,8 @@ const {
   gradientTo,
   screenshotAspect,
   screenshotSrc,
+  muxPlaybackId,
+  slug,
   liveUrl,
   githubUrl,
   metadata,
@@ -113,7 +118,12 @@ const {
         />
         <figure class={`project-screenshot project-screenshot--${screenshotAspect}`}>
           <div class="project-screenshot__inner">
-            <img src={screenshotSrc} alt={`${headline} product screenshot`} loading="eager" />
+            <ProjectMuxPlayer
+              playbackId={muxPlaybackId}
+              fallbackSrc={screenshotSrc}
+              title={headline}
+              slug={slug}
+            />
           </div>
           {stack && (
             <figcaption class="project-stack">

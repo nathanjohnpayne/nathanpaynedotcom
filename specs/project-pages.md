@@ -75,6 +75,7 @@ draft: false
 | `metadata.status` | string | yes | Metadata strip: project status |
 | `stack` | string | no | Tech stack values separated by ` · ` (e.g., `"React · TypeScript · Vite · Firebase · Vitest"`). Rendered as a figcaption below the screenshot. Optional — projects without a stack field render without the caption |
 | `related` | array | no | Related links with `label` and `href` |
+| `muxPlaybackId` | non-empty string | no | Mux public Playback ID. When set, the hero renders a themed `<mux-player>` video and `screenshotSrc` is used as the poster + JS-disabled fallback. Schema rejects blank / whitespace-only values so a stray empty string fails build-time rather than producing a broken URL. See "Adding a Mux video" below |
 | `draft` | boolean | no | `true` to exclude from builds (default: `false`) |
 
 ### Body content structure
@@ -126,6 +127,58 @@ Used for phone/mobile screenshots. The figure's inner wrapper (`.project-screens
 | Phone (≤480px) | Collapses to single column | Full-width image (unchanged) | Inner wrapper and stack caption stay at the tablet 280px cap; natural wrapping |
 
 The `.metadata-strip--grid-2x2` variant from the previous architecture has been removed — the metadata strip no longer varies by screenshot aspect. Wide and narrow differ only in how the figure sizes the image.
+
+---
+
+## Adding a Mux video
+
+Any project can render a vertical Mux video in the hero instead of a static screenshot. The existing `screenshotSrc` stays in the frontmatter — it's still used as the player's poster frame and as the no-JS fallback.
+
+### Steps
+
+1. Upload the video to the [Mux dashboard](https://dashboard.mux.com/).
+2. Copy the **public Playback ID** (not the Asset ID — they look similar but the Asset ID is a different namespace).
+3. Add one line to the project's frontmatter:
+
+   ```yaml
+   muxPlaybackId: "abc123defGHI456..."
+   ```
+
+4. Build and deploy. That's it — the `<ProjectMuxPlayer>` component handles rendering, theming, analytics, and fallback.
+
+### What happens automatically
+
+- **Theming**: the player's progress bar, scrubber, and accent ornaments pick up the page's `--project-accent` CSS var. Any `project-page--*` class (red, yellow, blue, etc.) themes the player with no extra config.
+- **Autoplay + loop**: `autoplay="muted" muted loop playsinline` match the feel of the animated GIFs that the static hero slot previously used.
+- **Analytics**: if `PUBLIC_MUX_ENV_KEY` is provisioned (see [DEPLOYMENT.md](../DEPLOYMENT.md#client-side-env-vars)), the player reports views to Mux Data tagged with `video_title` = project title and `video_id` = project slug. Without the env key, the player runs identically but emits no analytics.
+- **Fallback**: the existing `screenshotSrc` image renders as the `<img slot="poster">` inside `<mux-player>`. Browsers with JS disabled render the poster directly (unknown custom elements render their light-DOM children inline).
+- **Bundle cost**: `@mux/mux-player` only downloads on pages that actually contain a `<mux-player>` element — projects without `muxPlaybackId` pay zero cost.
+
+### Aspect ratio
+
+The player auto-sizes from the asset's video metadata. There is **no per-project frontmatter override** — record or export the source video at the final aspect you want and it renders at that shape. Earlier revisions hardcoded `9/16` in CSS and produced letterbox bars on the Swipe Watch asset, which is captured at a modern phone ratio (~9:19.5) rather than true 9:16. If a future project needs a different aspect treatment (e.g. a `cover`-style crop, or a container-driven ratio override), add a prop to [ProjectMuxPlayer.astro](../src/components/ProjectMuxPlayer.astro) at that point.
+
+### Component source
+
+[src/components/ProjectMuxPlayer.astro](../src/components/ProjectMuxPlayer.astro). Add new props to that component when a per-project override is needed (custom alt text, different fallback, etc.).
+
+### Fallback GIF regeneration
+
+`screenshotSrc` is the JS-disabled fallback and the OG image source. For projects with `muxPlaybackId`, the GIF at that path is **regenerated from Mux on every build** by [scripts/refresh-mux-gifs.mjs](../scripts/refresh-mux-gifs.mjs), which runs as part of `prebuild`. The script fetches `https://image.mux.com/{playbackId}/animated.gif?width=320&fps=15&end=8` and writes the response directly to `public/<screenshotSrc>`.
+
+Key behaviors:
+
+- **Strict failure on network errors.** Any non-200 response or network timeout exits non-zero and halts the build. The design note in the script header explains why: Mux is the only source for a project's fallback frame once `muxPlaybackId` is set, so a silent miss would serve stale content indefinitely.
+- **Per-project config errors warn, don't halt.** A malformed frontmatter (e.g. relative `screenshotSrc`) logs a warning and skips that project — the build still completes.
+- **Co-exists with the GitHub-social refresher.** [scripts/refresh-hero-images.mjs](../scripts/refresh-hero-images.mjs) (which refreshes `heroRefresh: github-social` projects) skips any project with `muxPlaybackId` so the two refreshers can never race for the same output path.
+
+To regenerate a Mux GIF manually without a full build:
+
+```bash
+node scripts/refresh-mux-gifs.mjs
+```
+
+Rendering knobs (width, fps, duration) live at the top of the script. If a future project needs different framing, either pass URL params from within the script or split to per-project config — don't hardcode a second call site.
 
 ---
 

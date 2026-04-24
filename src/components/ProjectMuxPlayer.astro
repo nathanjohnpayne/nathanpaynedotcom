@@ -1,0 +1,63 @@
+---
+// Hero video slot for project pages. When `playbackId` is set, renders
+// Mux's dedicated background-video component — the one Mux built for
+// this exact use case (hero / GIF-replacement / autoplay-muted-loop).
+//
+// Why <mux-background-video> and not <mux-video> or <mux-player>?
+// - <mux-player> is a full player with controls; hiding the chrome
+//   regressed Safari autoplay in real-device testing.
+// - <mux-video> is a low-level HTML5-like primitive; on Safari the
+//   native HLS manifest load races against Safari's autoplay policy
+//   check, silently leaving the video paused on the poster.
+// - <mux-background-video> is purpose-built for hero videos: no UI
+//   chrome, internal autoplay orchestration, and the Safari behavior
+//   this project actually needs.
+//
+// When `playbackId` is unset, falls back to the `fallbackSrc` image so the
+// hero never goes blank.
+
+interface Props {
+  playbackId?: string;
+  fallbackSrc: string;
+  title: string;
+  slug: string;
+}
+
+const { playbackId, fallbackSrc, title, slug } = Astro.props;
+
+const altText = `${title} product screenshot`;
+
+const streamSrc = playbackId
+  ? `https://stream.mux.com/${playbackId}.m3u8`
+  : undefined;
+
+// Use a higher-res still for the poster so the "loading / blocked" state
+// stays crisp on Retina/iPhone screens while the background video upgrades.
+const posterSrc = playbackId
+  ? `https://image.mux.com/${playbackId}/thumbnail.jpg?width=1280&time=0`
+  : undefined;
+---
+
+{playbackId ? (
+  <>
+    <mux-background-video
+      src={streamSrc}
+      preload="auto"
+      class="project-screenshot__mux"
+    >
+      <img src={posterSrc} alt={altText} />
+    </mux-background-video>
+    <noscript>
+      <img src={fallbackSrc} alt={altText} loading="eager" />
+    </noscript>
+  </>
+) : (
+  <img src={fallbackSrc} alt={altText} loading="eager" />
+)}
+
+<script>
+  // Register <mux-background-video> only on pages that actually contain one.
+  if (document.querySelector('mux-background-video')) {
+    import('@mux/mux-background-video/html');
+  }
+</script>

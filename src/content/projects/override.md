@@ -20,6 +20,8 @@ metadata:
   status: "Live product"
 stack: "Next.js · TypeScript · Firebase · Vitest"
 related:
+  - label: "Blog: Agent Approval Workflow and the Genesis of Mergepath"
+    href: "/blog/agent-approval-workflow-genesis-of-mergepath/"
   - label: "Blog: Six PRs, One Bug—What AI Agents Actually Get Wrong"
     href: "/blog/six-prs-one-bug-agent-failure-modes/"
   - label: "Project: Friends & Family Billing"
@@ -48,7 +50,7 @@ The early commits were product work: production CRUD, dashboard view modes, the 
 
 The middle phase was about operational trust. Financial software can't have credential leaks or deployment ambiguity, so the repo moved to a 1Password-first authentication model, with service account keys stored in vaults and a bootstrap script that restores local config from 1Password item IDs. Deploy auth was documented, rotated, and eventually shifted toward keyless Firebase deploys.
 
-The final phase was the one I learned the most from: building the [multi-agent code review system](https://github.com/nathanjohnpayne/overridebroadway/blob/main/REVIEW_POLICY.md) that now runs across all my repos. Override was where I first set up machine user accounts ([nathanpayne-claude](https://github.com/nathanpayne-claude), [nathanpayne-codex](https://github.com/nathanpayne-codex), [nathanpayne-cursor](https://github.com/nathanpayne-cursor)), wrote the cross-agent review pipeline, added CodeRabbit with custom financial modeling review guidance, and introduced the disagreement detection workflow that flags when reviewers diverge. The [PreToolUse hook](https://github.com/nathanjohnpayne/overridebroadway/blob/main/AGENTS.md), the bug fix escalation policy, and the two-strike rule all originated here—before being extracted into a template that I applied to every other project. The full origin story, including why this system matters for trust-sensitive work like financial modeling, is in [Agent Approval Workflow and the Genesis of ai-agent-repo-template](/blog/agent-approval-workflow-genesis-of-ai-agent-repo-template/).
+The final phase was the one I learned the most from: building the [multi-agent code review system](https://github.com/nathanjohnpayne/overridebroadway/blob/main/REVIEW_POLICY.md) that now runs across all my repos. Override was where I first set up machine user accounts ([nathanpayne-claude](https://github.com/nathanpayne-claude), [nathanpayne-codex](https://github.com/nathanpayne-codex), [nathanpayne-cursor](https://github.com/nathanpayne-cursor)), wrote the cross-agent review pipeline, added CodeRabbit with custom financial modeling review guidance, and introduced the disagreement detection workflow that flags when reviewers diverge. The [PreToolUse hook](https://github.com/nathanjohnpayne/overridebroadway/blob/main/AGENTS.md), the bug fix escalation policy, and the two-strike rule all originated here—before being extracted into a template that I applied to every other project. The full origin story, including why this system matters for trust-sensitive work like financial modeling, is in [Agent Approval Workflow and the Genesis of Mergepath](/blog/agent-approval-workflow-genesis-of-mergepath/).
 
 ## Why it matters
 

@@ -4,7 +4,7 @@
   "type": "module",
   "scripts": {
     "dev": "astro dev",
-    "prebuild": "node scripts/refresh-hero-images.mjs",
+    "prebuild": "node scripts/refresh-hero-images.mjs && node scripts/refresh-mux-gifs.mjs",
     "build": "astro build",
     "preview": "astro preview",
     "test": "astro build && vitest run",
@@ -19,5 +19,8 @@
     "jsdom": "^29.0.2",
     "unist-util-visit": "^5.1.0",
     "vitest": "^4.1.4"
+  },
+  "dependencies": {
+    "@mux/mux-background-video": "^0.2.3"
   }
 }
