@@ -120,12 +120,9 @@ describe('SEO Metadata', () => {
       const person = jsonLd['@graph'].find((e) => e['@type'] === 'Person');
       expect(person).toBeDefined();
       expect(person.name).toBe('Nathan Payne');
-      // Post-Disney departure: Disney is referenced via `alumniOf` rather
-      // than `worksFor`. Accept either form so the assertion stays valid
-      // across the 2026-06-20 boundary.
-      const org = person.worksFor || person.alumniOf;
-      expect(org).toBeDefined();
-      expect(org.name).toBe('The Walt Disney Company');
+      expect(person.alumniOf).toBeDefined();
+      expect(person.alumniOf.name).toBe('The Walt Disney Company');
+      expect(person.worksFor).toBeUndefined();
       expect(person.sameAs).toBeDefined();
       expect(Array.isArray(person.sameAs)).toBe(true);
       expect(person.sameAs.length).toBeGreaterThan(0);
