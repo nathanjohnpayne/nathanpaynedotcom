@@ -247,10 +247,14 @@ echo "  C6: $P3_C6_URL"
 # -----------------------------------------------------------------------------
 # Assign human-action tickets to nathanjohnpayne
 # -----------------------------------------------------------------------------
-# Phase 0 human-action children.
+# Phase 0 human-action children. Tolerate per-issue failures (e.g. transient API
+# errors) rather than aborting the whole run under `set -e`.
 for num in "$P0_C5_NUM" "$P0_C6_NUM" "$P0_C7_NUM" "$P0_C8_NUM" "$P0_C9_NUM"; do
-  gh issue edit "$num" --repo "$REPO" --add-assignee nathanjohnpayne > /dev/null
-  echo "assigned #$num → nathanjohnpayne"
+  if gh issue edit "$num" --repo "$REPO" --add-assignee nathanjohnpayne > /dev/null 2>&1; then
+    echo "assigned #$num → nathanjohnpayne"
+  else
+    echo "warning: failed to assign #$num (continuing)" >&2
+  fi
 done
 
 # -----------------------------------------------------------------------------
