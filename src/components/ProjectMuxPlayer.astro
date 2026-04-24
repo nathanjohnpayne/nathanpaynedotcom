@@ -63,6 +63,13 @@ const posterSrc = playbackId
 
     const existingScript = document.querySelector('script[data-mux-embed]');
     if (existingScript) {
+      if (
+        existingScript.dataset.muxEmbedStatus === 'loaded' ||
+        existingScript.dataset.muxEmbedStatus === 'error'
+      ) {
+        return Promise.resolve();
+      }
+
       return new Promise((resolve) => {
         existingScript.addEventListener('load', resolve, { once: true });
         existingScript.addEventListener('error', resolve, { once: true });
@@ -73,9 +80,16 @@ const posterSrc = playbackId
       const script = document.createElement('script');
       script.defer = true;
       script.dataset.muxEmbed = 'true';
+      script.dataset.muxEmbedStatus = 'loading';
       script.src = 'https://cdn.jsdelivr.net/npm/mux-embed@5.18.0';
-      script.addEventListener('load', resolve, { once: true });
-      script.addEventListener('error', resolve, { once: true });
+      script.addEventListener('load', () => {
+        script.dataset.muxEmbedStatus = 'loaded';
+        resolve();
+      }, { once: true });
+      script.addEventListener('error', () => {
+        script.dataset.muxEmbedStatus = 'error';
+        resolve();
+      }, { once: true });
       document.head.append(script);
     });
   }
