@@ -165,11 +165,16 @@ describe('Project Pages — screenshot aspect variants', () => {
     expect(poster, 'Swipe Watch poster img not found').not.toBeNull();
     expect(poster.getAttribute('src')).toBe('https://image.mux.com/wNCRY97981o2uDAJrJ3ExPeK379yldRRFJgUIgSYz00k/thumbnail.jpg?width=1280&time=0');
 
-    const muxScriptSrc = html.match(/<script type="module" src="([^"]*ProjectMuxPlayer[^"]*)"/)?.[1];
-    expect(muxScriptSrc, 'ProjectMuxPlayer module script not found').toBeTruthy();
-    const muxScript = readFileSync(resolve(DIST, muxScriptSrc.replace(/^\//, '')), 'utf-8');
-    expect(muxScript).toContain('https://cdn.jsdelivr.net/npm/mux-embed');
-    expect(muxScript).toContain('document.querySelector("mux-background-video")');
+    const moduleSrcs = Array.from(
+      html.matchAll(/<script type="module" src="([^"]+)"/g),
+      (match) => match[1],
+    );
+    expect(moduleSrcs.length, 'No module scripts found').toBeGreaterThan(0);
+    const muxScript = moduleSrcs
+      .map((src) => readFileSync(resolve(DIST, src.replace(/^\//, '')), 'utf-8'))
+      .find((code) => code.includes('https://cdn.jsdelivr.net/npm/mux-embed@5.18.0'));
+    expect(muxScript, 'Mux runtime module not found').toBeTruthy();
+    expect(muxScript).toMatch(/querySelector\((['"])mux-background-video\1\)/);
     expect(html).not.toContain('PUBLIC_MUX_ENV_KEY');
   });
 
