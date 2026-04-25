@@ -1,7 +1,7 @@
 ---
 title: "Matchline"
 slug: "matchline"
-description: "From what you've done to what's next."
+description: "A career operating system for one person running a serious job search. Turns work history into structured, reusable evidence, maps it against specific job requirements, and generates tailored applications grounded in what the user has actually done."
 kicker: "AI × Product × Career Tools"
 order: 1
 status: "IN PROGRESS"
