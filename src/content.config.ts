@@ -15,13 +15,20 @@ const projects = defineCollection({
     accentColorClass: z.string(),
     gradientFrom: z.string(),
     gradientTo: z.string(),
-    liveUrl: z.string(),
+    // Optional: in-progress projects (status "IN PROGRESS") may not have
+    // a deployed app yet. When omitted, the "View Live Product" CTA is
+    // suppressed on the detail page, the project card, and the homepage
+    // Vibe Coding section. When present, must be a non-empty string.
+    liveUrl: z.string().trim().min(1).optional(),
     githubUrl: z.string(),
     tags: z.array(z.string()),
+    // Status drives both the project-card kicker on /projects/ and the
+    // Status column in the detail-page metadata table — single source of
+    // truth, single short-form vocabulary across both surfaces. See #274.
+    status: z.enum(['LIVE', 'EXPERIMENT', 'IN PROGRESS', 'PAUSED', 'ARCHIVED']),
     metadata: z.object({
       format: z.string(),
       focus: z.string(),
-      status: z.string(),
     }),
     stack: z.string().optional(),
     related: z.array(z.object({

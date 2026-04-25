@@ -3,7 +3,7 @@ title: "Override"
 slug: "override"
 description: "A Broadway-focused financial operating system for structuring capitalization, modeling investor returns, and replacing spreadsheet workflows with live, shareable deals."
 kicker: "AI × Finance × Theater"
-order: 1
+order: 2
 screenshotAspect: "wide"
 screenshotSrc: "/images/projects/override-hero.png"
 accentColor: "#d9b111"
@@ -13,10 +13,10 @@ gradientTo: "#f5f0e4"
 liveUrl: "https://overridebroadway.com"
 githubUrl: "https://github.com/nathanjohnpayne/overridebroadway"
 tags: ["Finance", "Theater", "React", "Firebase"]
+status: "LIVE"
 metadata:
   format: "Financial operating system"
   focus: "Capitalization, ownership, and investor workflows"
-  status: "Live product"
 stack: "Next.js · TypeScript · Firebase · Vitest"
 related:
   - label: "Blog: Agent Approval Workflow and the Genesis of Mergepath"

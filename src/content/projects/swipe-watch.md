@@ -14,10 +14,10 @@ gradientTo: "#f5f0e4"
 liveUrl: "https://swipewatch.web.app"
 githubUrl: "https://github.com/nathanjohnpayne/swipewatch"
 tags: ["Consumer", "Streaming", "Vanilla JS"]
+status: "EXPERIMENT"
 metadata:
   format: "Interaction prototype"
   focus: "Discovery, recommendations, and interaction design"
-  status: "Live experiment"
 stack: "Vanilla JavaScript · Firebase Hosting"
 related:
   - label: "Blog: Six PRs, One Bug—What AI Agents Actually Get Wrong"

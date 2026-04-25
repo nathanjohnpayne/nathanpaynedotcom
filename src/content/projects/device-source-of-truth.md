@@ -3,7 +3,7 @@ title: "Device Source of Truth"
 slug: "device-source-of-truth"
 description: "A single web application for understanding partner-device hardware, DRM, codec support, and operational readiness across Disney+, Hulu, and ESPN."
 kicker: "AI × Enterprise × Data"
-order: 2
+order: 5
 screenshotAspect: "wide"
 screenshotSrc: "/images/projects/device-source-of-truth-hero.png"
 accentColor: "#5b5f64"
@@ -13,10 +13,10 @@ gradientTo: "#f5f0e4"
 liveUrl: "https://device-source-of-truth.web.app"
 githubUrl: "https://github.com/nathanjohnpayne/device-source-of-truth"
 tags: ["Enterprise", "Data", "React", "Firebase"]
+status: "PAUSED"
 metadata:
   format: "Internal platform tool"
   focus: "Partner platforms and device support"
-  status: "Live product"
 stack: "React · TypeScript · Vite · Firebase · Vitest"
 related:
   - label: "Blog: Six PRs, One Bug—What AI Agents Actually Get Wrong"

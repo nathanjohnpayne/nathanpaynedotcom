@@ -58,12 +58,15 @@ const jsonLd = {
         {projects.map((project, i) => {
           const card = (
             <article class="post-card">
+              <p class="post-meta">{project.data.status}</p>
               <p class="post-meta">{project.data.tags.join(' · ')}</p>
               <h2 class="post-title"><a href={`/projects/${project.data.slug}/`}>{project.data.title}</a></h2>
               <p class="post-desc">{project.data.description}</p>
-              <div class="tag-row">
-                <a href={project.data.liveUrl} target="_blank" rel="noopener noreferrer" class="tag">Live &nearr;</a>
-              </div>
+              {project.data.liveUrl && (
+                <div class="tag-row">
+                  <a href={project.data.liveUrl} target="_blank" rel="noopener noreferrer" class="tag">Live &nearr;</a>
+                </div>
+              )}
             </article>
           );
 
@@ -74,10 +77,15 @@ const jsonLd = {
               <div class="accent-blue" aria-hidden="true"></div>
             </div>
           );
+          // Row 2 hosts the in-progress anchor project. Black is the
+          // last unused Mondrian primary on the projects index and
+          // becomes Matchline's color block — unmarked composition,
+          // not a logo surface (the wordmark only renders on the
+          // detail page). See #275.
           if (i === 1) return (
             <div class="grid-row--2">
               {card}
-              <div class="accent-yellow" aria-hidden="true"></div>
+              <div class="accent-black" aria-hidden="true"></div>
             </div>
           );
           if (i === 2) return (
@@ -86,10 +94,13 @@ const jsonLd = {
               <div class="accent-white" aria-hidden="true"></div>
             </div>
           );
+          // Row 4 inherits the yellow that previously lived in row 2,
+          // so the Mondrian composition still has all four primaries
+          // visible on the index after the row 2 swap above.
           if (i === 3) return (
             <div class="grid-row--4">
               {card}
-              <div class="accent-black" aria-hidden="true"></div>
+              <div class="accent-yellow" aria-hidden="true"></div>
               <div class="accent-paper" aria-hidden="true"></div>
             </div>
           );
