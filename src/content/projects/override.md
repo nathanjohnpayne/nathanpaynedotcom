@@ -13,7 +13,7 @@ gradientTo: "#f5f0e4"
 liveUrl: "https://overridebroadway.com"
 githubUrl: "https://github.com/nathanjohnpayne/overridebroadway"
 tags: ["Finance", "Theater", "React", "Firebase"]
-status: "LIVE"
+status: "SHIPPED"
 metadata:
   format: "Financial operating system"
   focus: "Capitalization, ownership, and investor workflows"

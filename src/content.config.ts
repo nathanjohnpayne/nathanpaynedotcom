@@ -25,7 +25,7 @@ const projects = defineCollection({
     // Status drives both the project-card kicker on /projects/ and the
     // Status column in the detail-page metadata table — single source of
     // truth, single short-form vocabulary across both surfaces. See #274.
-    status: z.enum(['LIVE', 'EXPERIMENT', 'IN PROGRESS', 'PAUSED', 'ARCHIVED']),
+    status: z.enum(['SHIPPED', 'EXPERIMENT', 'IN PROGRESS', 'PAUSED', 'ARCHIVED']),
     metadata: z.object({
       format: z.string(),
       focus: z.string(),

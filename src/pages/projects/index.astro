@@ -58,13 +58,11 @@ const jsonLd = {
         {projects.map((project, i) => {
           const card = (
             <article class="post-card">
-              {/* Status kicker is exception-based: render only for non-LIVE
-                  projects so the status line carries meaning instead of
-                  noise. Defensively hide if status is missing too — fail
-                  closed to LIVE per #277. */}
-              {project.data.status && project.data.status !== 'LIVE' && (
-                <p class="post-meta">{project.data.status}</p>
-              )}
+              {/* Status kicker renders on every card — consistency in the
+                  card anatomy beats avoiding the apparent redundancy of
+                  multiple cards saying SHIPPED. See #285. The previous
+                  hide-when-LIVE rule from #277/#280 was reversed. */}
+              <p class="post-meta">{project.data.status}</p>
               <p class="post-meta">{project.data.tags.join(' · ')}</p>
               <h2 class="post-title"><a href={`/projects/${project.data.slug}/`}>{project.data.title}</a></h2>
               <p class="post-desc">{project.data.description}</p>

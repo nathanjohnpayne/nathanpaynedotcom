@@ -36,7 +36,7 @@ gradientTo: "#f5f0e4"
 liveUrl: "https://example.com"     # optional — omit on pre-launch projects
 githubUrl: "https://github.com/you/repo"
 tags: ["Tag1", "Tag2", "Tag3"]
-status: "LIVE"                     # one of: LIVE | EXPERIMENT | IN PROGRESS | PAUSED | ARCHIVED
+status: "SHIPPED"                  # one of: SHIPPED | EXPERIMENT | IN PROGRESS | PAUSED | ARCHIVED
 metadata:
   format: "Product-type label (e.g., Financial operating system)"
   focus: "What it does in a few words"
@@ -68,7 +68,7 @@ draft: false
 | `liveUrl` | non-empty string | no | URL for "View Live Product" CTA. Omit on pre-launch projects (status `IN PROGRESS`) — the CTA, the index card "Live ↗" link, the homepage Vibe Coding "Live ↗" link, and the `SoftwareApplication` JSON-LD entity are all suppressed when this field is missing |
 | `githubUrl` | string | yes | URL for "View on GitHub" CTA |
 | `tags` | string[] | yes | Category/technology tags |
-| `status` | enum | yes | Project lifecycle status. One of `LIVE`, `EXPERIMENT`, `IN PROGRESS`, `PAUSED`, `ARCHIVED`. Drives both the project-card kicker on `/projects/` and the Status column in the detail-page metadata table — single source of truth, single short-form vocabulary across both surfaces. See #274 |
+| `status` | enum | yes | Project lifecycle status. One of `SHIPPED`, `EXPERIMENT`, `IN PROGRESS`, `PAUSED`, `ARCHIVED`. Drives both the project-card kicker on `/projects/` and the Status column in the detail-page metadata table — single source of truth, single short-form vocabulary across both surfaces. See #274, #285 |
 | `metadata.format` | string | yes | Metadata strip: product-type label (e.g., "Internal platform tool"). The tech stack lives in the separate `stack` field — this field is for product category |
 | `metadata.focus` | string | yes | Metadata strip: focus area value |
 | `stack` | string | no | Tech stack values separated by ` · ` (e.g., `"React · TypeScript · Vite · Firebase · Vitest"`). Rendered as a figcaption below the screenshot. Optional — projects without a stack field render without the caption |
