@@ -76,4 +76,25 @@ const blog = defineCollection({
   }),
 });
 
-export const collections = { blog, projects };
+// `bio` collection — long-lived, hand-edited copy that lives on the
+// homepage but isn't the page template. Currently a single entry: NOW
+// (the current-state signal under About). Content stays in MD so an
+// edit doesn't require a template change; `lastUpdated` is explicit
+// (not file mtime) so unrelated edits to the file don't drift the
+// timestamp. See #272.
+const bio = defineCollection({
+  loader: glob({ pattern: '**/*.md', base: './src/content/bio' }),
+  schema: z.object({
+    // Month + year for the human-facing "LAST UPDATED · APRIL 2026"
+    // line. Author edits this whenever they refresh the body — the
+    // whole point of the section is freshness, so an explicit value
+    // beats anything auto-derived. Format: "Month YYYY" in title case
+    // (e.g., "April 2026"); the template uppercases it for display.
+    lastUpdated: z.string().regex(
+      /^(January|February|March|April|May|June|July|August|September|October|November|December) \d{4}$/,
+      'lastUpdated must be "Month YYYY" (e.g., "April 2026")'
+    ),
+  }),
+});
+
+export const collections = { blog, projects, bio };

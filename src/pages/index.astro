@@ -1,9 +1,18 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro';
-import { getCollection } from 'astro:content';
+import { getCollection, getEntry, render } from 'astro:content';
 
 const latestPost = (await getCollection('blog', ({ data }) => !data.draft))
   .sort((a, b) => b.data.date.getTime() - a.data.date.getTime())[0];
+
+// NOW section — current-state signal under About. Content + freshness
+// timestamp live in `src/content/bio/now.md`; the template only
+// renders. See #272.
+const nowEntry = await getEntry('bio', 'now');
+if (!nowEntry) {
+  throw new Error('Missing bio entry "now" — expected at src/content/bio/now.md');
+}
+const { Content: NowContent } = await render(nowEntry);
 
 const homepageJsonLd = {
   "@context": "https://schema.org",
@@ -70,19 +79,21 @@ const homepageJsonLd = {
         <div class="panel-content">
           <div class="content-inner">
             <h1>Nathan Payne</h1>
-            <p class="lead">Most product decisions are invisible—until they aren't.</p>
+            <p class="lead">Most product decisions are invisible—until they aren’t.</p>
             <div class="about-blocks">
               <div class="about-block">
                 <span class="about-label">Context</span>
-                <p>I spent ten years building the streaming platforms that run Disney+, Hulu, and ESPN—first at MLB.com and BAMTECH, which Disney acquired in 2017, and most recently five years leading the Native Client Platform across PlayStation, Xbox, Amazon Fire TV, Vega OS, and smart TVs. I am now focused on the intersection of AI coding agents and shipped software, and open to what's next.</p>
+                <p>I spent ten years building the streaming platforms that run Disney+, Hulu, and ESPN—first at MLB.com and BAMTECH, which Disney acquired in 2017, and most recently five years leading the Native Client Platform across PlayStation, Xbox, Amazon Fire TV, Vega OS, and smart TVs. I am now focused on the intersection of AI coding agents and shipped software, and open to what’s next.</p>
               </div>
               <div class="about-block">
                 <span class="about-label">Approach</span>
                 <p>I treat operational ambiguity as a product problem. The work that matters most is usually at the seam between systems—where a codec mismatch, a certification gap, or a failed-fix loop creates a support burden at scale.</p>
               </div>
-            </div>
-            <div class="about-meta">
-              <span class="about-meta-items">San Francisco · AI Agents · Product · Broadway</span>
+              <div class="about-block about-block--now">
+                <span class="about-label">Now</span>
+                <NowContent />
+                <p class="about-now-updated">Last updated · {nowEntry.data.lastUpdated}</p>
+              </div>
             </div>
           </div>
         </div>
@@ -95,7 +106,7 @@ const homepageJsonLd = {
         <div class="panel-content">
           <div class="content-inner">
             <h2>Vibe Coding</h2>
-            <p>Every project started as a real problem. Each one was built end-to-end with AI agents—Claude Code, Codex, and Cursor—under a multi-agent code review system I designed to catch the failure modes agents don't catch themselves. <a href="/blog/six-prs-one-bug-agent-failure-modes/" class="p-link">What agents actually get wrong →</a> · <a href="/blog/agent-approval-workflow-genesis-of-mergepath/" class="p-link">How the enforcement system works →</a></p>
+            <p>Every project started as a real problem. Each one was built end-to-end with AI agents—Claude Code, Codex, and Cursor—under a multi-agent code review system I designed to catch the failure modes agents don’t catch themselves. <a href="/blog/six-prs-one-bug-agent-failure-modes/" class="p-link">What agents actually get wrong →</a> · <a href="/blog/agent-approval-workflow-genesis-of-mergepath/" class="p-link">How the enforcement system works →</a></p>
             <div class="project-list">
               <div class="project-item">
                 <div class="p-head">
@@ -109,7 +120,7 @@ const homepageJsonLd = {
                   <a class="p-name p-name-link" href="/projects/matchline/" aria-label="Read the Matchline project page">Matchline</a>
                   <span class="p-tag">AI × Product × Career Tools</span>
                 </div>
-                <p>A career operating system for one person running a serious job search. Turns work history into structured, reusable evidence, maps it against specific job requirements, and generates tailored applications grounded in what the user has actually done—not in what an AI can plausibly invent. In progress; V1 ships when it earns its keep.</p>
+                <p>A career operating system for one person running a serious job search. Turns work history into structured, reusable evidence, maps it against specific job requirements, and generates tailored applications grounded in what the user has actually done.</p>
               </div>
               <div class="project-item">
                 <div class="p-head">
