@@ -2723,8 +2723,13 @@ a.tag:hover {
   .panel--nudging {
     animation: none;
   }
+  /* Static hint sits under the label *text* (the panel itself is
+   * full-bleed; a border-bottom on .panel-label would land at the
+   * bottom edge of the panel, not under the visible label). */
   .panel.has-static-hint .panel-label {
-    border-bottom: 1px solid currentColor;
+    text-decoration: underline;
+    text-decoration-thickness: 1px;
+    text-underline-offset: 0.18em;
   }
 }
 
