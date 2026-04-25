@@ -1530,12 +1530,14 @@ body.blog-page {
   margin-bottom: 0.5rem;
 }
 
-/* When two .post-meta lines stack (date kicker + tag kicker on blog
-   cards), tighten the gap between them so they read as a single
-   metadata zone above the headline rather than two equal-weight
-   sibling lines. */
+/* Two-tier metadata zone: when a kicker (.post-meta) is followed by a
+ * tag line (.post-meta), the kicker takes the louder treatment —
+ * darker color, body-text weight — so it reads as primary metadata
+ * (date + read time on blog, status on projects). The tag line keeps
+ * the existing muted treatment so it reads as secondary. See #284. */
 .post-meta:has(+ .post-meta) {
-  margin-bottom: 0.15rem;
+  margin-bottom: 0.225rem;
+  color: rgba(17, 16, 13, 0.92);
 }
 
 .post-title {
