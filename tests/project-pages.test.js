@@ -13,11 +13,18 @@ const CONTENT = resolve(__dirname, '../src/content/projects');
 
 const projectSlugs = [
   'mergepath',
+  'matchline',
   'override',
   'device-source-of-truth',
   'friends-and-family-billing',
   'swipe-watch',
 ];
+
+// Projects without a deployed live URL — the "View Live Product" CTA
+// is suppressed on the detail page, the project card, and the homepage
+// Vibe Coding section. The SoftwareApplication JSON-LD entity is also
+// dropped on these pages (no `url:` to populate).
+const noLiveUrlSlugs = ['matchline'];
 
 function readDistHtml(relativePath) {
   return readFileSync(resolve(DIST, relativePath), 'utf-8');
@@ -111,15 +118,22 @@ describe('Project Pages — render', () => {
         expect(headings).toContain('Overview');
       });
 
-      it('renders both CTA actions (View Live Product and View on GitHub)', () => {
+      it('renders the appropriate CTA actions for the project', () => {
         const actions = Array.from(document.querySelectorAll('.project-action')).map(
           (a) => a.textContent.trim(),
         );
-        expect(actions).toContain('View Live Product');
+        // The "Back to Projects" / "Back to Homepage" footer actions also
+        // share the .project-action class, so filter to the hero CTAs by
+        // checking for the canonical labels we render in HeroWide/Narrow.
+        if (noLiveUrlSlugs.includes(slug)) {
+          expect(actions).not.toContain('View Live Product');
+        } else {
+          expect(actions).toContain('View Live Product');
+        }
         expect(actions).toContain('View on GitHub');
       });
 
-      it('emits a JSON-LD graph containing a SoftwareApplication entity', () => {
+      it('emits a JSON-LD graph; SoftwareApplication present iff project has a live URL', () => {
         const scripts = document.querySelectorAll('script[type="application/ld+json"]');
         expect(scripts.length).toBeGreaterThan(0);
 
@@ -136,7 +150,11 @@ describe('Project Pages — render', () => {
             // malformed JSON-LD would fail another test; ignore here
           }
         }
-        expect(foundSoftwareApp, 'no SoftwareApplication entity in JSON-LD graph').toBe(true);
+        if (noLiveUrlSlugs.includes(slug)) {
+          expect(foundSoftwareApp, 'pre-launch project should NOT emit SoftwareApplication').toBe(false);
+        } else {
+          expect(foundSoftwareApp, 'no SoftwareApplication entity in JSON-LD graph').toBe(true);
+        }
       });
     });
   }
@@ -189,8 +207,14 @@ describe('Project Pages — screenshot aspect variants', () => {
     }
   });
 
-  it('Override, DST, and FFB use the wide screenshot variant', () => {
-    const wideSlugs = ['override', 'device-source-of-truth', 'friends-and-family-billing'];
+  it('Mergepath, Matchline, Override, DST, and FFB use the wide screenshot variant', () => {
+    const wideSlugs = [
+      'mergepath',
+      'matchline',
+      'override',
+      'device-source-of-truth',
+      'friends-and-family-billing',
+    ];
     for (const slug of wideSlugs) {
       setupDOM(readDistHtml(`projects/${slug}/index.html`));
       const figure = document.querySelector('figure.project-screenshot');

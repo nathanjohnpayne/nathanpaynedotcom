@@ -14,29 +14,12 @@ const { project } = Astro.props;
 const { Content } = await render(project);
 const { data } = project;
 
-const jsonLd = {
-  "@context": "https://schema.org",
-  "@graph": [
-    {
-      "@type": "WebPage",
-      "@id": `https://nathanpayne.com/projects/${data.slug}/#webpage`,
-      "url": `https://nathanpayne.com/projects/${data.slug}/`,
-      "name": `${data.title} | Nathan Payne`,
-      "description": data.description,
-      "isPartOf": { "@id": "https://nathanpayne.com/#website" },
-      "breadcrumb": { "@id": `https://nathanpayne.com/projects/${data.slug}/#breadcrumb` },
-      "mainEntity": { "@id": `https://nathanpayne.com/projects/${data.slug}/#app` },
-    },
-    {
-      "@type": "BreadcrumbList",
-      "@id": `https://nathanpayne.com/projects/${data.slug}/#breadcrumb`,
-      "itemListElement": [
-        { "@type": "ListItem", "position": 1, "name": "Nathan Payne", "item": "https://nathanpayne.com/" },
-        { "@type": "ListItem", "position": 2, "name": "Projects", "item": "https://nathanpayne.com/projects/" },
-        { "@type": "ListItem", "position": 3, "name": data.title, "item": `https://nathanpayne.com/projects/${data.slug}/` },
-      ],
-    },
-    {
+// SoftwareApplication node only when the project has a live URL.
+// Pre-launch projects (no liveUrl) drop the SoftwareApplication entry
+// rather than ship a SoftwareApplication with `url: undefined`, which
+// search engines treat as malformed structured data.
+const softwareApp = data.liveUrl
+  ? [{
       "@type": "SoftwareApplication",
       "@id": `https://nathanpayne.com/projects/${data.slug}/#app`,
       "name": data.title,
@@ -49,7 +32,36 @@ const jsonLd = {
         "url": "https://nathanpayne.com/",
       },
       "description": data.description,
+    }]
+  : [];
+
+const webPage: Record<string, unknown> = {
+  "@type": "WebPage",
+  "@id": `https://nathanpayne.com/projects/${data.slug}/#webpage`,
+  "url": `https://nathanpayne.com/projects/${data.slug}/`,
+  "name": `${data.title} | Nathan Payne`,
+  "description": data.description,
+  "isPartOf": { "@id": "https://nathanpayne.com/#website" },
+  "breadcrumb": { "@id": `https://nathanpayne.com/projects/${data.slug}/#breadcrumb` },
+};
+if (data.liveUrl) {
+  webPage.mainEntity = { "@id": `https://nathanpayne.com/projects/${data.slug}/#app` };
+}
+
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@graph": [
+    webPage,
+    {
+      "@type": "BreadcrumbList",
+      "@id": `https://nathanpayne.com/projects/${data.slug}/#breadcrumb`,
+      "itemListElement": [
+        { "@type": "ListItem", "position": 1, "name": "Nathan Payne", "item": "https://nathanpayne.com/" },
+        { "@type": "ListItem", "position": 2, "name": "Projects", "item": "https://nathanpayne.com/projects/" },
+        { "@type": "ListItem", "position": 3, "name": data.title, "item": `https://nathanpayne.com/projects/${data.slug}/` },
+      ],
     },
+    ...softwareApp,
   ],
 };
 ---
@@ -72,6 +84,7 @@ const jsonLd = {
   slug={data.slug}
   liveUrl={data.liveUrl}
   githubUrl={data.githubUrl}
+  status={data.status}
   metadata={data.metadata}
   stack={data.stack}
   related={data.related}

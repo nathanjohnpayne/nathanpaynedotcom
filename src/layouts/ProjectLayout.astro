@@ -26,12 +26,12 @@ interface Props {
   screenshotSrc: string;
   muxPlaybackId?: string;
   slug: string;
-  liveUrl: string;
+  liveUrl?: string;
   githubUrl: string;
+  status: string;
   metadata: {
     format: string;
     focus: string;
-    status: string;
   };
   stack?: string;
   related: RelatedLink[];
@@ -60,6 +60,7 @@ const {
   slug,
   liveUrl,
   githubUrl,
+  status,
   metadata,
   stack,
   related,
@@ -120,7 +121,7 @@ const topics = kicker.split(/\s*×\s*/).join(' · ');
           topics={topics}
           format={metadata.format}
           focus={metadata.focus}
-          status={metadata.status}
+          status={status}
         />
         <figure class={`project-screenshot project-screenshot--${screenshotAspect}`}>
           <div class="project-screenshot__inner">

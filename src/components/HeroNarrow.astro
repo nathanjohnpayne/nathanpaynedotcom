@@ -3,7 +3,7 @@ interface Props {
   title: string;
   deck: string;
   breadcrumbLabel: string;
-  liveUrl: string;
+  liveUrl?: string;
   githubUrl: string;
 }
 
@@ -23,7 +23,9 @@ const { title, deck, breadcrumbLabel, liveUrl, githubUrl } = Astro.props;
       <h1 class="project-title">{title}</h1>
       <p class="project-deck">{deck}</p>
       <div class="project-actions">
-        <a class="project-action" href={liveUrl} target="_blank" rel="noopener noreferrer">View Live Product</a>
+        {liveUrl && (
+          <a class="project-action" href={liveUrl} target="_blank" rel="noopener noreferrer">View Live Product</a>
+        )}
         <a class="project-action" href={githubUrl} target="_blank" rel="noopener noreferrer">View on GitHub</a>
       </div>
     </div>

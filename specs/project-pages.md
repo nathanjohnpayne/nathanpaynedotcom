@@ -33,13 +33,13 @@ accentColor: "#3366cc"
 accentColorClass: "project-page--blue"
 gradientFrom: "#dce3f0"
 gradientTo: "#f5f0e4"
-liveUrl: "https://example.com"
+liveUrl: "https://example.com"     # optional — omit on pre-launch projects
 githubUrl: "https://github.com/you/repo"
 tags: ["Tag1", "Tag2", "Tag3"]
+status: "LIVE"                     # one of: LIVE | EXPERIMENT | IN PROGRESS | PAUSED | ARCHIVED
 metadata:
   format: "Product-type label (e.g., Financial operating system)"
   focus: "What it does in a few words"
-  status: "Live product"
 stack: "React · TypeScript · Vite · Firebase · Vitest"
 related:
   - label: "Blog: Related Post Title"
@@ -65,12 +65,12 @@ draft: false
 | `accentColorClass` | string | yes | CSS class for per-project theming |
 | `gradientFrom` | string | yes | Gradient start color (tinted toward accent) |
 | `gradientTo` | string | yes | Gradient end color (use `"#f5f0e4"` to blend into card) |
-| `liveUrl` | string | yes | URL for "View Live Product" CTA |
+| `liveUrl` | non-empty string | no | URL for "View Live Product" CTA. Omit on pre-launch projects (status `IN PROGRESS`) — the CTA, the index card "Live ↗" link, the homepage Vibe Coding "Live ↗" link, and the `SoftwareApplication` JSON-LD entity are all suppressed when this field is missing |
 | `githubUrl` | string | yes | URL for "View on GitHub" CTA |
 | `tags` | string[] | yes | Category/technology tags |
+| `status` | enum | yes | Project lifecycle status. One of `LIVE`, `EXPERIMENT`, `IN PROGRESS`, `PAUSED`, `ARCHIVED`. Drives both the project-card kicker on `/projects/` and the Status column in the detail-page metadata table — single source of truth, single short-form vocabulary across both surfaces. See #274 |
 | `metadata.format` | string | yes | Metadata strip: product-type label (e.g., "Internal platform tool"). The tech stack lives in the separate `stack` field — this field is for product category |
 | `metadata.focus` | string | yes | Metadata strip: focus area value |
-| `metadata.status` | string | yes | Metadata strip: project status |
 | `stack` | string | no | Tech stack values separated by ` · ` (e.g., `"React · TypeScript · Vite · Firebase · Vitest"`). Rendered as a figcaption below the screenshot. Optional — projects without a stack field render without the caption |
 | `related` | array | no | Related links with `label` and `href` |
 | `muxPlaybackId` | non-empty string | no | Mux public Playback ID. When set, the hero renders a `<mux-background-video>` video and `screenshotSrc` is used as the JS-disabled fallback. Schema rejects blank / whitespace-only values so a stray empty string fails build-time rather than producing a broken URL. See "Adding a Mux video" below |
@@ -233,7 +233,7 @@ The layout sets three custom properties from frontmatter:
 - **`src/layouts/ProjectLayout.astro`**: Sets CSS custom properties on the shell. Conditionally renders `HeroWide` or `HeroNarrow` based on `screenshotAspect`. Owns the `.metadata-surface` container that wraps `MetadataStrip` and the `<figure class="project-screenshot">`. The figure is rendered here (not in `MetadataStrip`) and contains the `<img>` plus a conditional `<figcaption class="project-stack">` when `stack` is present. The figcaption is a direct child of `<figure>` per HTML5 semantic rules.
 - **`src/components/HeroWide.astro`**: Hero header for wide-layout projects. No screenshot — the screenshot is rendered by `ProjectLayout` below the hero. The hero no longer renders the `kicker` tag row; that content moved into the `Topics` column of the metadata strip below.
 - **`src/components/HeroNarrow.astro`**: Hero header for narrow-layout projects. No screenshot — same as `HeroWide`, the screenshot is rendered by `ProjectLayout` below the hero. Also no longer renders the `kicker` tag row.
-- **`src/components/MetadataStrip.astro`**: Strip-only — four `<dt>`/`<dd>` pairs for topics, format, focus, and status (in that visual order). Does not own the screenshot; does not accept `screenshotSrc`/`screenshotAlt`/`screenshotAspect` props. The `topics` value is derived in `ProjectLayout` from the project's `kicker` frontmatter (split on `×` and re-joined with ` · ` to match the metadata table's separator convention). The strip is always rendered as a single 4-column horizontal row on desktop and collapses responsively (2×2 at ≤768px, 1-column at ≤480px) via `.metadata-strip--grid-4` media queries.
+- **`src/components/MetadataStrip.astro`**: Strip-only — four `<dt>`/`<dd>` pairs for topics, format, focus, and status (in that visual order). Does not own the screenshot; does not accept `screenshotSrc`/`screenshotAlt`/`screenshotAspect` props. The `topics` value is derived in `ProjectLayout` from the project's `kicker` frontmatter (split on `×` and re-joined with ` · ` to match the metadata table's separator convention). The `status` value is the project's top-level `status` enum, rendered identically on the index card kicker and in the metadata strip — single short-form vocabulary across both surfaces. The strip is always rendered as a single 4-column horizontal row on desktop and collapses responsively (2×2 at ≤768px, 1-column at ≤480px) via `.metadata-strip--grid-4` media queries.
 
 ### Content collection schema
 
