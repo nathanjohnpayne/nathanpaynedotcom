@@ -19,7 +19,6 @@ const projects = defineCollection({
     githubUrl: z.string(),
     tags: z.array(z.string()),
     metadata: z.object({
-      domain: z.string(),
       format: z.string(),
       focus: z.string(),
       status: z.string(),

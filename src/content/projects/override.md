@@ -14,7 +14,6 @@ liveUrl: "https://overridebroadway.com"
 githubUrl: "https://github.com/nathanjohnpayne/overridebroadway"
 tags: ["Finance", "Theater", "React", "Firebase"]
 metadata:
-  domain: "Finance × Theater"
   format: "Financial operating system"
   focus: "Capitalization, ownership, and investor workflows"
   status: "Live product"

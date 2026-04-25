@@ -29,7 +29,6 @@ interface Props {
   liveUrl: string;
   githubUrl: string;
   metadata: {
-    domain: string;
     format: string;
     focus: string;
     status: string;
@@ -70,6 +69,15 @@ const {
   ogImageHeight,
   ogImageAlt,
 } = Astro.props;
+
+// Derive the metadata-table "Topics" value from the same `kicker`
+// frontmatter the hero used to render. Split on the multiplication
+// sign (U+00D7) — the kicker's documented separator — and re-join
+// with " · " to match the project-card metadata convention used
+// elsewhere in the metadata table. Intentionally NOT splitting on
+// lowercase `x`: that would silently slice mid-word on a future
+// kicker like "AI × Mux × Streaming".
+const topics = kicker.split(/\s*×\s*/).join(' · ');
 ---
 
 <BaseLayout
@@ -92,7 +100,6 @@ const {
       {screenshotAspect === 'narrow' ? (
         <HeroNarrow
           title={headline}
-          kicker={kicker}
           deck={deck}
           breadcrumbLabel={breadcrumbLabel}
           liveUrl={liveUrl}
@@ -101,7 +108,6 @@ const {
       ) : (
         <HeroWide
           title={headline}
-          kicker={kicker}
           deck={deck}
           breadcrumbLabel={breadcrumbLabel}
           liveUrl={liveUrl}
@@ -111,7 +117,7 @@ const {
 
       <div class="metadata-surface">
         <MetadataStrip
-          domain={metadata.domain}
+          topics={topics}
           format={metadata.format}
           focus={metadata.focus}
           status={metadata.status}

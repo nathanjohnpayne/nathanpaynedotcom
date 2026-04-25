@@ -934,15 +934,6 @@ body.blog-page {
   user-select: none;
 }
 
-.project-kicker {
-  margin-bottom: calc(var(--su) * 0.9);
-  padding-left: clamp(1rem, 2.2vw, 1.6rem);
-  font-size: clamp(0.7rem, 0.88vw, 0.82rem);
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  color: rgba(17, 16, 13, 0.38);
-}
-
 .project-hero h1 {
   padding-left: clamp(1rem, 2.2vw, 1.6rem);
   font-family: "Cormorant Garamond", Garamond, serif;
@@ -1047,7 +1038,7 @@ body.blog-page {
 }
 
 /* Metadata strip — always a 4-column horizontal row on desktop, regardless
-   of screenshot aspect. Collapses to 2-col on tablet, 1-col on phone. */
+   of screenshot aspect. Collapses to 2×2 on tablet, 1-col on phone. */
 .metadata-strip {
   display: grid;
   gap: 0;
@@ -1431,15 +1422,6 @@ body.blog-page {
   user-select: none;
 }
 
-.kicker {
-  margin-bottom: 0.4rem;
-  font-size: clamp(0.7rem, 0.88vw, 0.82rem);
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  color: #223f89;
-  font-weight: 600;
-}
-
 .hero h1 {
   font-family: "Cormorant Garamond", Garamond, serif;
   font-size: clamp(2.8rem, 6vw, 5.4rem);
@@ -1531,6 +1513,14 @@ body.blog-page {
   text-transform: uppercase;
   color: rgba(17, 16, 13, 0.58);
   margin-bottom: 0.5rem;
+}
+
+/* When two .post-meta lines stack (date kicker + tag kicker on blog
+   cards), tighten the gap between them so they read as a single
+   metadata zone above the headline rather than two equal-weight
+   sibling lines. */
+.post-meta:has(+ .post-meta) {
+  margin-bottom: 0.15rem;
 }
 
 .post-title {
@@ -2672,10 +2662,6 @@ a:focus-visible {
   .project-breadcrumbs {
     padding-left: 0.5rem;
     font-size: 0.68rem;
-  }
-
-  .project-kicker {
-    padding-left: 0.5rem;
   }
 
   .project-hero h1 {

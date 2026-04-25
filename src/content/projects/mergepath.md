@@ -14,7 +14,6 @@ liveUrl: "https://htmlpreview.github.io/?https://raw.githubusercontent.com/natha
 githubUrl: "https://github.com/nathanjohnpayne/mergepath"
 tags: ["Infrastructure", "AI Tooling", "GitHub Actions", "Bash/Python"]
 metadata:
-  domain: "Infrastructure × AI Tooling"
   format: "Repository standard"
   focus: "Agent governance, code review, and CI enforcement"
   status: "Live template"

@@ -65,7 +65,6 @@ function readingTime(body: string | undefined): string {
           <span class="breadcrumb-sep">/</span>
           <span>Blog</span>
         </nav>
-        <p class="kicker">AI &times; Product &times; Reality</p>
         <h1>The AI-Augmented PM</h1>
         <p class="deck">Writing about what happens when product managers actually use AI to ship&mdash;the leverage, the loops, and the limits.</p>
       </header>
@@ -78,13 +77,9 @@ function readingTime(body: string | undefined): string {
           <div class="grid-row--1">
             <article class="post-card">
               <p class="post-meta">{formatDate(posts[0].data.date)} &middot; {readingTime(posts[0].body)}</p>
+              <p class="post-meta">{posts[0].data.tags.join(' · ')}</p>
               <h2 class="post-title"><a href={`/blog/${posts[0].id}/`}>{posts[0].data.title}</a></h2>
               <p class="post-desc">{posts[0].data.description}</p>
-              <div class="tag-row">
-                {posts[0].data.tags.map((tag) => (
-                  <span class="tag">{tag}</span>
-                ))}
-              </div>
             </article>
             <div class="accent-red" aria-hidden="true"></div>
             <div class="accent-blue" aria-hidden="true">
@@ -98,13 +93,9 @@ function readingTime(body: string | undefined): string {
           {posts[1] ? (
             <article class="post-card">
               <p class="post-meta">{formatDate(posts[1].data.date)} &middot; {readingTime(posts[1].body)}</p>
+              <p class="post-meta">{posts[1].data.tags.join(' · ')}</p>
               <h2 class="post-title"><a href={`/blog/${posts[1].id}/`}>{posts[1].data.title}</a></h2>
               <p class="post-desc">{posts[1].data.description}</p>
-              <div class="tag-row">
-                {posts[1].data.tags.map((tag) => (
-                  <span class="tag">{tag}</span>
-                ))}
-              </div>
             </article>
           ) : (
             <div class="post-card--placeholder">
@@ -119,13 +110,9 @@ function readingTime(body: string | undefined): string {
           {posts[2] ? (
             <article class="post-card">
               <p class="post-meta">{formatDate(posts[2].data.date)} &middot; {readingTime(posts[2].body)}</p>
+              <p class="post-meta">{posts[2].data.tags.join(' · ')}</p>
               <h2 class="post-title"><a href={`/blog/${posts[2].id}/`}>{posts[2].data.title}</a></h2>
               <p class="post-desc">{posts[2].data.description}</p>
-              <div class="tag-row">
-                {posts[2].data.tags.map((tag) => (
-                  <span class="tag">{tag}</span>
-                ))}
-              </div>
             </article>
           ) : (
             <div class="post-card--placeholder">
@@ -142,13 +129,9 @@ function readingTime(body: string | undefined): string {
           <div class="grid-row--4">
             <article class="post-card">
               <p class="post-meta">{formatDate(posts[3].data.date)} &middot; {readingTime(posts[3].body)}</p>
+              <p class="post-meta">{posts[3].data.tags.join(' · ')}</p>
               <h2 class="post-title"><a href={`/blog/${posts[3].id}/`}>{posts[3].data.title}</a></h2>
               <p class="post-desc">{posts[3].data.description}</p>
-              <div class="tag-row">
-                {posts[3].data.tags.map((tag) => (
-                  <span class="tag">{tag}</span>
-                ))}
-              </div>
             </article>
             <div class="accent-black" aria-hidden="true"></div>
             <div class="accent-paper" aria-hidden="true"></div>
@@ -160,13 +143,9 @@ function readingTime(body: string | undefined): string {
           <div class={i % 2 === 0 ? 'grid-row--overflow-a' : 'grid-row--overflow-b'}>
             <article class="post-card">
               <p class="post-meta">{formatDate(post.data.date)} &middot; {readingTime(post.body)}</p>
+              <p class="post-meta">{post.data.tags.join(' · ')}</p>
               <h2 class="post-title"><a href={`/blog/${post.id}/`}>{post.data.title}</a></h2>
               <p class="post-desc">{post.data.description}</p>
-              <div class="tag-row">
-                {post.data.tags.map((tag) => (
-                  <span class="tag">{tag}</span>
-                ))}
-              </div>
             </article>
             <div class={i % 2 === 0 ? 'accent-overflow accent-overflow--cream' : 'accent-overflow accent-overflow--yellow'} aria-hidden="true"></div>
           </div>

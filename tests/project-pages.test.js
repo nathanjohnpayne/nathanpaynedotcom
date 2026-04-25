@@ -86,11 +86,11 @@ describe('Project Pages — render', () => {
         expect(items.length).toBe(4);
       });
 
-      it('renders all four metadata labels (Domain, Format, Focus, Status)', () => {
+      it('renders all four metadata labels (Topics, Format, Focus, Status)', () => {
         const labels = Array.from(document.querySelectorAll('.metadata-strip dt')).map(
           (dt) => dt.textContent.trim(),
         );
-        expect(labels).toEqual(['Domain', 'Format', 'Focus', 'Status']);
+        expect(labels).toEqual(['Topics', 'Format', 'Focus', 'Status']);
       });
 
       it('has a <figure class="project-screenshot"> containing an <img> with src and alt', () => {
