@@ -2678,6 +2678,56 @@ a.tag:hover {
   outline-offset: -2px;
 }
 
+/* ─── Discoverability nudges (#271) ───
+ * The Mondrian panels read as composition at rest, not affordance.
+ * Two layered hints surface their interactivity without adding a
+ * permanent UI vocabulary that would fight the editorial voice:
+ *
+ *   1. Settle on load — each panel scales 0.992 → 1.0 with a tiny
+ *      opacity fade, staggered ~65ms apart via `--settle-index`.
+ *      Establishes "these things are alive" within the first second.
+ *   2. Inactivity pulse — a brightness/saturation breath on the
+ *      targeted panel, fired by JS after 5s of no panel hover.
+ *      Stays within the Mondrian grammar (color-only, no motion of
+ *      the rectangle itself).
+ *
+ * Both use `transform` and `filter` only — no box-model properties —
+ * so neighbors don't reflow. Under prefers-reduced-motion both
+ * animations are suppressed and the JS swaps in a one-time static
+ * border-bottom on each panel label at the same ~5s mark. */
+
+@keyframes panel-settle {
+  from { transform: scale(0.992); opacity: 0.94; }
+  to   { transform: scale(1);     opacity: 1;    }
+}
+
+@keyframes panel-pulse {
+  0%, 100% { filter: none; }
+  50%      { filter: brightness(1.08) saturate(1.05); }
+}
+
+.panel--settling {
+  animation: panel-settle 280ms ease-out both;
+  animation-delay: calc(var(--settle-index, 0) * 65ms);
+  transform-origin: center center;
+  will-change: transform, opacity;
+}
+
+.panel--nudging {
+  animation: panel-pulse 700ms ease-in-out;
+  will-change: filter;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .panel--settling,
+  .panel--nudging {
+    animation: none;
+  }
+  .panel.has-static-hint .panel-label {
+    border-bottom: 1px solid currentColor;
+  }
+}
+
 a:focus-visible {
   outline: 2px solid currentColor;
   outline-offset: 2px;

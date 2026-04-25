@@ -410,6 +410,109 @@ const homepageJsonLd = {
           });
         });
       });
+
+      // ─── Discoverability nudges (#271) ───
+      // 1. On-load settle: subtle staggered scale on each panel.
+      //    Plays on every device — touch users still benefit from a
+      //    "this page is alive" cue. Skipped under reduced-motion.
+      // 2. Inactivity nudge: after 5s of no panel hover/focus/click,
+      //    pulse the Vibe Coding panel; after another 10s, pulse a
+      //    second panel. Stops after two fires; no looping. Skipped
+      //    on touch (no mouse to track) and under reduced-motion
+      //    (replaced by a one-time static label underline).
+      // Feature-detect matchMedia so the script doesn't throw in
+      // environments without it (jsdom under vitest, very old UAs).
+      const matchesQuery = (q) => (typeof window.matchMedia === 'function' ? window.matchMedia(q).matches : false);
+      const reduceMotion = matchesQuery('(prefers-reduced-motion: reduce)');
+
+      if (!reduceMotion) {
+        panels.forEach((panel, i) => {
+          panel.style.setProperty('--settle-index', String(i));
+          panel.classList.add('panel--settling');
+        });
+      }
+
+      // Two-stage nudge sequence with pause/resume on tab visibility.
+      const NUDGE_TARGETS = ['panel--yellow', 'panel--blue']; // Vibe Coding → Connect
+      const NUDGE_DELAYS = [5000, 10000];
+      let nudgeStage = 0; // 0 = not started; 1..N = waiting on stage N; N+1 = done
+      let nudgeTimer = null;
+      let nudgeTimerEnd = null;
+      let nudgeTimerRemaining = null;
+
+      function scheduleNudge(stage) {
+        if (stage > NUDGE_TARGETS.length) {
+          nudgeStage = NUDGE_TARGETS.length + 1;
+          return;
+        }
+        nudgeStage = stage;
+        nudgeTimerRemaining = NUDGE_DELAYS[stage - 1];
+        nudgeTimerEnd = Date.now() + nudgeTimerRemaining;
+        nudgeTimer = setTimeout(() => fireNudge(stage), nudgeTimerRemaining);
+      }
+
+      function pauseNudgeTimer() {
+        if (!nudgeTimer) return;
+        clearTimeout(nudgeTimer);
+        nudgeTimer = null;
+        nudgeTimerRemaining = Math.max(0, nudgeTimerEnd - Date.now());
+      }
+
+      function resumeNudgeTimer() {
+        if (nudgeTimer) return;
+        if (nudgeTimerRemaining == null) return;
+        if (nudgeStage > NUDGE_TARGETS.length) return;
+        nudgeTimerEnd = Date.now() + nudgeTimerRemaining;
+        nudgeTimer = setTimeout(() => fireNudge(nudgeStage), nudgeTimerRemaining);
+      }
+
+      function cancelAllNudges() {
+        if (nudgeTimer) clearTimeout(nudgeTimer);
+        nudgeTimer = null;
+        nudgeTimerRemaining = null;
+        nudgeStage = NUDGE_TARGETS.length + 1;
+      }
+
+      function fireNudge(stage) {
+        nudgeTimer = null;
+        const target = grid.querySelector('.' + NUDGE_TARGETS[stage - 1]);
+        if (target) {
+          target.classList.add('panel--nudging');
+          setTimeout(() => target.classList.remove('panel--nudging'), 800);
+        }
+        if (stage < NUDGE_TARGETS.length) {
+          scheduleNudge(stage + 1);
+        } else {
+          nudgeStage = NUDGE_TARGETS.length + 1;
+        }
+      }
+
+      if (reduceMotion) {
+        // Reduced-motion fallback: one-time static border-bottom on
+        // each panel label at the same 5s mark — same signaling job,
+        // no animation. Does not fire a second event.
+        setTimeout(() => {
+          panels.forEach((p) => p.classList.add('has-static-hint'));
+        }, 5000);
+      } else if (matchesQuery('(hover: hover) and (pointer: fine)')) {
+        scheduleNudge(1);
+      }
+
+      // Any panel interaction cancels the entire nudge sequence —
+      // the user has discovered interactivity without our help.
+      panels.forEach((panel) => {
+        ['mouseenter', 'focusin', 'click'].forEach((evt) => {
+          panel.addEventListener(evt, cancelAllNudges);
+        });
+      });
+
+      // Tab switches pause/resume; mouse-leaving-window without a
+      // tab switch is intentionally not paused (the timer is a UX
+      // cadence, not a precision instrument).
+      document.addEventListener('visibilitychange', () => {
+        if (document.hidden) pauseNudgeTimer();
+        else resumeNudgeTimer();
+      });
     })();
   </script>
 </BaseLayout>
