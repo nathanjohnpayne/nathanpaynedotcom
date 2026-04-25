@@ -32,6 +32,8 @@
   --motion-hover: 170ms;
   --motion-plane: 280ms;
   --motion-load: 300ms;
+  --motion-pulse: 700ms;          /* discoverability breath (#271) */
+  --motion-stagger-step: 65ms;    /* per-sibling delay in staggered groups (#271) */
 
   --ease-standard: cubic-bezier(0.4, 0.0, 0.2, 1);
   --ease-sharp: cubic-bezier(0.2, 0.8, 0.2, 1);
@@ -2707,14 +2709,14 @@ a.tag:hover {
 }
 
 .panel--settling {
-  animation: panel-settle 280ms ease-out both;
-  animation-delay: calc(var(--settle-index, 0) * 65ms);
+  animation: panel-settle var(--motion-plane) var(--ease-standard) both;
+  animation-delay: calc(var(--settle-index, 0) * var(--motion-stagger-step));
   transform-origin: center center;
   will-change: transform, opacity;
 }
 
 .panel--nudging {
-  animation: panel-pulse 700ms ease-in-out;
+  animation: panel-pulse var(--motion-pulse) var(--ease-linear);
   will-change: filter;
 }
 
