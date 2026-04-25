@@ -1515,6 +1515,14 @@ body.blog-page {
   margin-bottom: 0.5rem;
 }
 
+/* When two .post-meta lines stack (date kicker + tag kicker on blog
+   cards), tighten the gap between them so they read as a single
+   metadata zone above the headline rather than two equal-weight
+   sibling lines. */
+.post-meta:has(+ .post-meta) {
+  margin-bottom: 0.15rem;
+}
+
 .post-title {
   font-family: "Cormorant Garamond", Garamond, serif;
   font-size: clamp(1.6rem, 2.2vw, 2.4rem);
