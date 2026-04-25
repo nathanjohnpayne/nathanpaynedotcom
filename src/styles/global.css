@@ -283,20 +283,6 @@ html, body {
   margin-bottom: calc(var(--su) * 0.5);
 }
 
-/* "LAST UPDATED · MONTH YEAR" closer for the NOW section. Small-caps
- * letterspaced, muted, and tightly grouped with the NOW paragraph
- * above (~14px) so it reads as the section's signature rather than as
- * a free-floating metadata row. See #272, #278. */
-.about-now-updated {
-  margin-top: 0.875rem;
-  font-size: 0.68rem;
-  line-height: 1.45;
-  letter-spacing: 0.10em;
-  word-spacing: 0.05em;
-  color: rgba(17, 16, 13, 0.50);
-  text-transform: uppercase;
-}
-
 .social-stack,
 .project-list,
 .effort-list {
@@ -567,7 +553,8 @@ html, body {
 }
 
 .stack-ribbon,
-.impact-ribbon {
+.impact-ribbon,
+.now-ribbon {
   display: flex;
   flex-direction: column;
   gap: 0.08rem;
@@ -585,7 +572,8 @@ html, body {
 }
 
 .stack-label,
-.impact-label {
+.impact-label,
+.now-ribbon-label {
   font-size: 0.56rem;
   letter-spacing: 0.16em;
   text-transform: uppercase;
@@ -595,6 +583,7 @@ html, body {
 
 .stack-items,
 .impact-items,
+.now-ribbon-date,
 .blog-callout-link {
   font-size: 0.68rem;
   line-height: 1.45;
@@ -2652,11 +2641,13 @@ a.tag:hover {
 .connect-label,
 .stack-label,
 .impact-label,
-.about-now-updated,
+.now-ribbon-label,
 .stack-items,
 .impact-items,
+.now-ribbon-date,
 .stack-ribbon,
-.impact-ribbon {
+.impact-ribbon,
+.now-ribbon {
   transition: opacity var(--motion-fast) var(--ease-linear);
 }
 
@@ -2812,22 +2803,28 @@ a:focus-visible {
   .about-label,
   .connect-label,
   .stack-label,
-  .impact-label {
+  .impact-label,
+  .now-ribbon-label {
     font-size: clamp(0.56rem, 0.52rem + 0.2vw, 0.64rem);
     letter-spacing: 0.15em;
   }
 
-  .about-now-updated,
   .stack-items,
-  .impact-items {
+  .impact-items,
+  .now-ribbon-date {
     font-size: clamp(0.68rem, 0.64rem + 0.24vw, 0.78rem);
     line-height: 1.48;
     letter-spacing: 0.06em;
   }
 
   .panel--red .about-label,
-  .panel--red .about-now-updated {
+  .panel--red .now-ribbon-label,
+  .panel--red .now-ribbon-date {
     color: rgba(242, 237, 225, 0.82);
+  }
+
+  .panel--red .now-ribbon {
+    border-top-color: rgba(242, 237, 225, 0.28);
   }
 
   .panel--yellow .stack-label,

@@ -92,7 +92,10 @@ const homepageJsonLd = {
               <div class="about-block about-block--now">
                 <span class="about-label">Now</span>
                 <NowContent />
-                <p class="about-now-updated">Last updated · {nowEntry.data.lastUpdated}</p>
+                <div class="now-ribbon">
+                  <span class="now-ribbon-label">Last updated</span>
+                  <span class="now-ribbon-date">{nowEntry.data.lastUpdated}</span>
+                </div>
               </div>
             </div>
           </div>
