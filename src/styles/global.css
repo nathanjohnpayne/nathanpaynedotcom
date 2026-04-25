@@ -281,17 +281,12 @@ html, body {
   margin-bottom: calc(var(--su) * 0.5);
 }
 
-.about-meta {
-  margin-top: calc(var(--su) * 1.25);
-  padding-top: calc(var(--su) * 0.6);
-  margin-left: -0.4rem;
-  margin-right: -0.4rem;
-  padding-left: 0.4rem;
-  padding-right: 0.4rem;
-  border-top: 1px solid var(--rule);
-}
-
-.about-meta-items {
+/* "LAST UPDATED · MONTH YEAR" closer for the NOW section. Small-caps
+ * letterspaced, muted, and tightly grouped with the NOW paragraph
+ * above (~14px) so it reads as the section's signature rather than as
+ * a free-floating metadata row. See #272, #278. */
+.about-now-updated {
+  margin-top: 0.875rem;
   font-size: 0.68rem;
   line-height: 1.45;
   letter-spacing: 0.10em;
@@ -2655,10 +2650,9 @@ a.tag:hover {
 .connect-label,
 .stack-label,
 .impact-label,
-.about-meta-items,
+.about-now-updated,
 .stack-items,
 .impact-items,
-.about-meta,
 .stack-ribbon,
 .impact-ribbon {
   transition: opacity var(--motion-fast) var(--ease-linear);
@@ -2766,7 +2760,7 @@ a:focus-visible {
     letter-spacing: 0.15em;
   }
 
-  .about-meta-items,
+  .about-now-updated,
   .stack-items,
   .impact-items {
     font-size: clamp(0.68rem, 0.64rem + 0.24vw, 0.78rem);
@@ -2775,12 +2769,8 @@ a:focus-visible {
   }
 
   .panel--red .about-label,
-  .panel--red .about-meta-items {
+  .panel--red .about-now-updated {
     color: rgba(242, 237, 225, 0.82);
-  }
-
-  .panel--red .about-meta {
-    border-top-color: rgba(242, 237, 225, 0.28);
   }
 
   .panel--yellow .stack-label,

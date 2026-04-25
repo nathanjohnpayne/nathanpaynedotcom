@@ -1,9 +1,18 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro';
-import { getCollection } from 'astro:content';
+import { getCollection, getEntry, render } from 'astro:content';
 
 const latestPost = (await getCollection('blog', ({ data }) => !data.draft))
   .sort((a, b) => b.data.date.getTime() - a.data.date.getTime())[0];
+
+// NOW section — current-state signal under About. Content + freshness
+// timestamp live in `src/content/bio/now.md`; the template only
+// renders. See #272.
+const nowEntry = await getEntry('bio', 'now');
+if (!nowEntry) {
+  throw new Error('Missing bio entry "now" — expected at src/content/bio/now.md');
+}
+const { Content: NowContent } = await render(nowEntry);
 
 const homepageJsonLd = {
   "@context": "https://schema.org",
@@ -80,9 +89,11 @@ const homepageJsonLd = {
                 <span class="about-label">Approach</span>
                 <p>I treat operational ambiguity as a product problem. The work that matters most is usually at the seam between systems—where a codec mismatch, a certification gap, or a failed-fix loop creates a support burden at scale.</p>
               </div>
-            </div>
-            <div class="about-meta">
-              <span class="about-meta-items">San Francisco · AI Agents · Product · Broadway</span>
+              <div class="about-block about-block--now">
+                <span class="about-label">Now</span>
+                <NowContent />
+                <p class="about-now-updated">Last updated · {nowEntry.data.lastUpdated}</p>
+              </div>
             </div>
           </div>
         </div>
