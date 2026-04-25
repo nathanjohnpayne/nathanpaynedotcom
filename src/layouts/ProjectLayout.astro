@@ -71,9 +71,13 @@ const {
 } = Astro.props;
 
 // Derive the metadata-table "Topics" value from the same `kicker`
-// frontmatter the hero used to render. Re-join with " · " to match the
-// project-card metadata convention used elsewhere in the metadata table.
-const topics = kicker.split(/\s*[×x]\s*/).join(' · ');
+// frontmatter the hero used to render. Split on the multiplication
+// sign (U+00D7) — the kicker's documented separator — and re-join
+// with " · " to match the project-card metadata convention used
+// elsewhere in the metadata table. Intentionally NOT splitting on
+// lowercase `x`: that would silently slice mid-word on a future
+// kicker like "AI × Mux × Streaming".
+const topics = kicker.split(/\s*×\s*/).join(' · ');
 ---
 
 <BaseLayout
