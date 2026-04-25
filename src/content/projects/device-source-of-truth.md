@@ -14,7 +14,6 @@ liveUrl: "https://device-source-of-truth.web.app"
 githubUrl: "https://github.com/nathanjohnpayne/device-source-of-truth"
 tags: ["Enterprise", "Data", "React", "Firebase"]
 metadata:
-  domain: "Enterprise × Data"
   format: "Internal platform tool"
   focus: "Partner platforms and device support"
   status: "Live product"

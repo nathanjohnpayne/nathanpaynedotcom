@@ -37,7 +37,6 @@ liveUrl: "https://example.com"
 githubUrl: "https://github.com/you/repo"
 tags: ["Tag1", "Tag2", "Tag3"]
 metadata:
-  domain: "Domain × Subdomain"
   format: "Product-type label (e.g., Financial operating system)"
   focus: "What it does in a few words"
   status: "Live product"
@@ -58,7 +57,7 @@ draft: false
 | `title` | string | yes | Page title, hero heading, JSON-LD name |
 | `slug` | string | yes | URL path segment; must match filename |
 | `description` | string | yes | Hero deck text, meta description, JSON-LD |
-| `kicker` | string | yes | Tag line above title (e.g., "AI × Finance × Theater") |
+| `kicker` | string | yes | Source for the metadata table's `Topics` column (e.g., "AI × Finance × Theater" → renders as `AI · Finance · Theater`). Field name kept for frontmatter back-compat |
 | `order` | number | yes | Position on the `/projects/` index grid (lower = first) |
 | `screenshotAspect` | `"wide"` \| `"narrow"` | yes | Layout variant — see below |
 | `screenshotSrc` | string | yes | Path to hero image in `public/` |
@@ -69,7 +68,6 @@ draft: false
 | `liveUrl` | string | yes | URL for "View Live Product" CTA |
 | `githubUrl` | string | yes | URL for "View on GitHub" CTA |
 | `tags` | string[] | yes | Category/technology tags |
-| `metadata.domain` | string | yes | Metadata strip: domain value |
 | `metadata.format` | string | yes | Metadata strip: product-type label (e.g., "Internal platform tool"). The tech stack lives in the separate `stack` field — this field is for product category |
 | `metadata.focus` | string | yes | Metadata strip: focus area value |
 | `metadata.status` | string | yes | Metadata strip: project status |
@@ -233,9 +231,9 @@ The layout sets three custom properties from frontmatter:
 
 - **`src/pages/projects/[slug].astro`**: Dynamic route. Calls `getStaticPaths()` from the projects collection, generates JSON-LD, passes all frontmatter to `ProjectLayout`. Forwards the optional `stack` field through `stack={data.stack}`.
 - **`src/layouts/ProjectLayout.astro`**: Sets CSS custom properties on the shell. Conditionally renders `HeroWide` or `HeroNarrow` based on `screenshotAspect`. Owns the `.metadata-surface` container that wraps `MetadataStrip` and the `<figure class="project-screenshot">`. The figure is rendered here (not in `MetadataStrip`) and contains the `<img>` plus a conditional `<figcaption class="project-stack">` when `stack` is present. The figcaption is a direct child of `<figure>` per HTML5 semantic rules.
-- **`src/components/HeroWide.astro`**: Hero header for wide-layout projects. No screenshot — the screenshot is rendered by `ProjectLayout` below the hero.
-- **`src/components/HeroNarrow.astro`**: Hero header for narrow-layout projects. No screenshot — same as `HeroWide`, the screenshot is rendered by `ProjectLayout` below the hero.
-- **`src/components/MetadataStrip.astro`**: Strip-only — four `<dt>`/`<dd>` pairs for domain, format, focus, and status. Does not own the screenshot; does not accept `screenshotSrc`/`screenshotAlt`/`screenshotAspect` props. The strip is always rendered as a single 4-column horizontal row on desktop and collapses responsively (2-column at ≤768px, 1-column at ≤480px) via `.metadata-strip--grid-4` media queries.
+- **`src/components/HeroWide.astro`**: Hero header for wide-layout projects. No screenshot — the screenshot is rendered by `ProjectLayout` below the hero. The hero no longer renders the `kicker` tag row; that content moved into the `Topics` column of the metadata strip below.
+- **`src/components/HeroNarrow.astro`**: Hero header for narrow-layout projects. No screenshot — same as `HeroWide`, the screenshot is rendered by `ProjectLayout` below the hero. Also no longer renders the `kicker` tag row.
+- **`src/components/MetadataStrip.astro`**: Strip-only — four `<dt>`/`<dd>` pairs for topics, format, focus, and status (in that visual order). Does not own the screenshot; does not accept `screenshotSrc`/`screenshotAlt`/`screenshotAspect` props. The `topics` value is derived in `ProjectLayout` from the project's `kicker` frontmatter (split on `×` and re-joined with ` · ` to match the metadata table's separator convention). The strip is always rendered as a single 4-column horizontal row on desktop and collapses responsively (2×2 at ≤768px, 1-column at ≤480px) via `.metadata-strip--grid-4` media queries.
 
 ### Content collection schema
 
@@ -257,7 +255,6 @@ const { Content } = await render(project);
 | Element | Size | Style | Color |
 |---------|------|-------|-------|
 | Breadcrumb | 12–13px | Uppercase, tracked | Tertiary (0.38 opacity) |
-| Kicker (AI × Domain) | 12–13px | Uppercase, tracked | Tertiary (0.38 opacity) |
 | Project title | Large serif (clamp 2.4–5.1rem) | Roman | Primary |
 | Description | 16–17px serif | Roman | Primary |
 | CTA buttons | ~14px | Uppercase, 0.14em tracking | Primary, accent fill on hover |
@@ -290,7 +287,7 @@ src/pages/projects/index.astro     Project index grid
 src/layouts/ProjectLayout.astro    Layout wrapper (CSS props, hero, metadata, footer)
 src/components/HeroWide.astro      Wide hero header (no screenshot)
 src/components/HeroNarrow.astro    Narrow hero header (no screenshot)
-src/components/MetadataStrip.astro 4-column metadata strip (domain/format/focus/status)
+src/components/MetadataStrip.astro 4-column metadata strip (topics/format/focus/status)
 src/styles/global.css              All project page styles (.metadata-strip, .project-screenshot, .project-stack)
 public/images/projects/            Hero screenshots
 ```

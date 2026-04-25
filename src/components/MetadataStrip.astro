@@ -1,18 +1,18 @@
 ---
 interface Props {
-  domain: string;
+  topics: string;
   format: string;
   focus: string;
   status: string;
 }
 
-const { domain, format, focus, status } = Astro.props;
+const { topics, format, focus, status } = Astro.props;
 ---
 
 <dl class="metadata-strip metadata-strip--grid-4">
   <div class="metadata-strip__item">
-    <dt>Domain</dt>
-    <dd>{domain}</dd>
+    <dt>Topics</dt>
+    <dd>{topics}</dd>
   </div>
   <div class="metadata-strip__item">
     <dt>Format</dt>

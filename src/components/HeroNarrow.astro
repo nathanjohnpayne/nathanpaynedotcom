@@ -1,14 +1,13 @@
 ---
 interface Props {
   title: string;
-  kicker: string;
   deck: string;
   breadcrumbLabel: string;
   liveUrl: string;
   githubUrl: string;
 }
 
-const { title, kicker, deck, breadcrumbLabel, liveUrl, githubUrl } = Astro.props;
+const { title, deck, breadcrumbLabel, liveUrl, githubUrl } = Astro.props;
 ---
 
 <header class="project-hero project-hero--narrow">
@@ -21,7 +20,6 @@ const { title, kicker, deck, breadcrumbLabel, liveUrl, githubUrl } = Astro.props
         <span class="breadcrumb-sep">/</span>
         <span class="breadcrumb-current" aria-current="page">{breadcrumbLabel}</span>
       </nav>
-      <p class="project-kicker">{kicker}</p>
       <h1 class="project-title">{title}</h1>
       <p class="project-deck">{deck}</p>
       <div class="project-actions">

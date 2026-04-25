@@ -15,7 +15,6 @@ liveUrl: "https://swipewatch.web.app"
 githubUrl: "https://github.com/nathanjohnpayne/swipewatch"
 tags: ["Consumer", "Streaming", "Vanilla JS"]
 metadata:
-  domain: "Consumer × Streaming"
   format: "Interaction prototype"
   focus: "Discovery, recommendations, and interaction design"
   status: "Live experiment"

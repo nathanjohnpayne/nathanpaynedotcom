@@ -14,7 +14,6 @@ liveUrl: "https://friends-and-family-billing.web.app"
 githubUrl: "https://github.com/nathanjohnpayne/friends-and-family-billing"
 tags: ["Utility", "Finance", "React", "Firebase"]
 metadata:
-  domain: "Utility × Finance"
   format: "Household coordination tool"
   focus: "Shared subscriptions and recurring group expenses"
   status: "Live product"
