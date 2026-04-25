@@ -32,6 +32,8 @@
   --motion-hover: 170ms;
   --motion-plane: 280ms;
   --motion-load: 300ms;
+  --motion-pulse: 700ms;          /* discoverability breath (#271) */
+  --motion-stagger-step: 65ms;    /* per-sibling delay in staggered groups (#271) */
 
   --ease-standard: cubic-bezier(0.4, 0.0, 0.2, 1);
   --ease-sharp: cubic-bezier(0.2, 0.8, 0.2, 1);
@@ -2670,6 +2672,61 @@ a.tag:hover {
 .panel:focus-visible {
   outline: 2px solid #f2dfad;
   outline-offset: -2px;
+}
+
+/* ─── Discoverability nudges (#271) ───
+ * The Mondrian panels read as composition at rest, not affordance.
+ * Two layered hints surface their interactivity without adding a
+ * permanent UI vocabulary that would fight the editorial voice:
+ *
+ *   1. Settle on load — each panel scales 0.992 → 1.0 with a tiny
+ *      opacity fade, staggered ~65ms apart via `--settle-index`.
+ *      Establishes "these things are alive" within the first second.
+ *   2. Inactivity pulse — a brightness/saturation breath on the
+ *      targeted panel, fired by JS after 5s of no panel hover.
+ *      Stays within the Mondrian grammar (color-only, no motion of
+ *      the rectangle itself).
+ *
+ * Both use `transform` and `filter` only — no box-model properties —
+ * so neighbors don't reflow. Under prefers-reduced-motion both
+ * animations are suppressed and the JS swaps in a one-time static
+ * border-bottom on each panel label at the same ~5s mark. */
+
+@keyframes panel-settle {
+  from { transform: scale(0.992); opacity: 0.94; }
+  to   { transform: scale(1);     opacity: 1;    }
+}
+
+@keyframes panel-pulse {
+  0%, 100% { filter: none; }
+  50%      { filter: brightness(1.08) saturate(1.05); }
+}
+
+.panel--settling {
+  animation: panel-settle var(--motion-plane) var(--ease-standard) both;
+  animation-delay: calc(var(--settle-index, 0) * var(--motion-stagger-step));
+  transform-origin: center center;
+  will-change: transform, opacity;
+}
+
+.panel--nudging {
+  animation: panel-pulse var(--motion-pulse) var(--ease-linear);
+  will-change: filter;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .panel--settling,
+  .panel--nudging {
+    animation: none;
+  }
+  /* Static hint sits under the label *text* (the panel itself is
+   * full-bleed; a border-bottom on .panel-label would land at the
+   * bottom edge of the panel, not under the visible label). */
+  .panel.has-static-hint .panel-label {
+    text-decoration: underline;
+    text-decoration-thickness: 1px;
+    text-underline-offset: 0.18em;
+  }
 }
 
 a:focus-visible {

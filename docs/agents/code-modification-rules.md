@@ -25,10 +25,12 @@ All cells transition to a warm parchment tone when opened.
 
 #### Motion — Durations
 ```
---motion-fast:   130ms  (metadata, dividers)
---motion-hover:  170ms  (hover states)
---motion-plane:  280ms  (panel expand / grid morph)
---motion-load:   300ms  (section entrance)
+--motion-fast:           130ms  (metadata, dividers)
+--motion-hover:          170ms  (hover states)
+--motion-plane:          280ms  (panel expand / grid morph, on-load settle)
+--motion-load:           300ms  (section entrance)
+--motion-pulse:          700ms  (discoverability breath)
+--motion-stagger-step:    65ms  (per-sibling delay in staggered groups)
 ```
 
 #### Motion — Easing
@@ -54,7 +56,10 @@ All animation timing is governed by the motion tokens above. No hard-coded durat
 | Metadata / dividers | `--motion-fast` (130ms) | `--ease-linear` | Labels, ribbons, meta text |
 | Hover | `--motion-hover` (170ms) | `--ease-standard` | Social rows, icons, arrows, project links |
 | Panel morph | `--motion-plane` (280ms) | `--ease-sharp` | Mondrian grid transitions |
+| Settle on load | `--motion-plane` (280ms) | `--ease-standard` | Per-block entrance scale (Mondrian discoverability) |
 | Section load | `--motion-load` (300ms) | `--ease-standard` | Entrance animations |
+| Discoverability breath | `--motion-pulse` (700ms) | `--ease-linear` | Brightness/saturation pulse on idle panels |
+| Stagger step | `--motion-stagger-step` (65ms) | n/a | Per-sibling delay in staggered groups |
 
 #### Scroll Guard
 JavaScript adds `.is-scrolling` to `<body>` during active scroll (debounced at 100ms). CSS suspends hover transitions on interactive elements while this class is present, preventing scroll + hover easing conflicts.
