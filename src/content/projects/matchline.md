@@ -12,11 +12,11 @@ accentColorClass: "project-page--black"
 gradientFrom: "#dde1e5"
 gradientTo: "#f5f0e4"
 githubUrl: "https://github.com/nathanjohnpayne/matchline"
-tags: ["AI", "Product", "Career Tools"]
+tags: ["AI", "Product", "Career Tools", "React", "Firebase"]
 metadata:
   format: "Single-user web app"
   focus: "Evidence-based application generation, capability mapping, pipeline management"
-stack: "React · TypeScript · Vite · Firebase · Vitest"
+stack: "React · TypeScript · Vite · Tailwind · Firebase · Anthropic · OpenAI · Vitest"
 related:
   - label: "Project: Mergepath"
     href: "/projects/mergepath/"
