@@ -16,6 +16,9 @@
 // When `playbackId` is unset, falls back to the `fallbackSrc` image so the
 // hero never goes blank.
 
+import fs from 'node:fs';
+import path from 'node:path';
+
 interface Props {
   playbackId?: string;
   fallbackSrc: string;
@@ -36,6 +39,32 @@ const streamSrc = playbackId
 const posterSrc = playbackId
   ? `https://image.mux.com/${playbackId}/thumbnail.jpg?width=1280&time=0`
   : undefined;
+
+// Inline SVG fallbacks so the page's loaded webfonts (Inter) are
+// available to the SVG's text rendering. `<img src=*.svg>` sandboxes
+// the SVG and forces system-font fallback, which renders fuzzily once
+// the wordmark scales past its small intrinsic size — visible after
+// the Matchline hero was doubled in #291. Inline SVG renders crisply
+// because it's part of the document tree and inherits its font stack.
+const isSvgFallback = !playbackId && fallbackSrc.toLowerCase().endsWith('.svg');
+let inlineSvg: string | null = null;
+if (isSvgFallback) {
+  try {
+    const svgPath = path.join(process.cwd(), 'public', fallbackSrc.replace(/^\/+/, ''));
+    const raw = fs.readFileSync(svgPath, 'utf-8');
+    // Inject role + aria-label on the root <svg> so the inline element
+    // remains an accessible image with the same alt-equivalent text the
+    // <img> path would have provided.
+    inlineSvg = raw.replace(
+      /<svg\b/,
+      `<svg role="img" aria-label="${altText.replace(/"/g, '&quot;')}"`
+    );
+  } catch (err) {
+    // If the file isn't readable for any reason, fall back to the <img>
+    // path so the hero still renders something.
+    inlineSvg = null;
+  }
+}
 ---
 
 {playbackId ? (
@@ -51,6 +80,8 @@ const posterSrc = playbackId
       <img src={fallbackSrc} alt={altText} loading="eager" />
     </noscript>
   </>
+) : inlineSvg ? (
+  <Fragment set:html={inlineSvg} />
 ) : (
   <img src={fallbackSrc} alt={altText} loading="eager" />
 )}
