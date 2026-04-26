@@ -27,7 +27,7 @@ It's also cheap to instrument *after* the surfaces are built (Phase 2 done) and 
    - `track.stageAdvanced({ from, to })`
 3. **Wire into the five surfaces.** Onboarding, Unit Review, Role Detail (Requirements + Matches tabs), Application Editor, Pipeline. Every user-visible state transition emits exactly one event. Pure service-layer calls emit nothing; only screen-level events surface.
 4. **No PII in events.** UUIDs only. Never include raw resume text, JD text, or generated bullet text. Lint rule (grep-based) to catch regressions.
-5. **Debug view.** While developing, `VITE_FIREBASE_ANALYTICS_DEBUG=true` routes events through GA's DebugView instead of production — keeps the real property clean during event-schema iteration.
+5. **Debug view.** While developing, `VITE_FIREBASE_ANALYTICS_DEBUG=true` marks events for GA DebugView while still sending them to the same GA4 property. Keep developer traffic filtered so local validation does not pollute standard reports.
 6. **Documentation.** `docs/architecture/analytics-events.md` — one-pager listing every event, its payload, and when it fires. Kept in sync via a tiny test that reflects on `src/lib/analytics.ts` and diffs against the doc.
 
 **Non-goals:**
