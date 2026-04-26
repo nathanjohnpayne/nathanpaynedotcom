@@ -1255,8 +1255,12 @@ body.blog-page {
   background: var(--project-accent);
 }
 
+/* Use the same contrast-corrected color the in-content links use.
+ * Themes whose accent fails body-text contrast on cream (e.g. the
+ * yellow Override theme) override --project-link-color with a darker
+ * variant; piggyback on that here so the ol decimals stay legible. */
 .project-copy ol li::marker {
-  color: var(--project-accent);
+  color: var(--project-link-color, var(--project-accent));
   font-variant-numeric: tabular-nums;
 }
 
