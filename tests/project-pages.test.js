@@ -114,6 +114,12 @@ describe('Project Pages — render', () => {
           expect(img.getAttribute('src')).toBeTruthy();
           expect(img.getAttribute('alt')).toBeTruthy();
         } else {
+          // Inline SVG must carry image semantics so screen readers
+          // announce it the way an <img alt="..."> would.
+          expect(
+            svg.getAttribute('role'),
+            'inline <svg> in .project-screenshot must have role="img"',
+          ).toBe('img');
           const ariaLabel = svg.getAttribute('aria-label');
           const titleEl = svg.querySelector('title');
           expect(
