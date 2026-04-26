@@ -16,6 +16,9 @@
 // When `playbackId` is unset, falls back to the `fallbackSrc` image so the
 // hero never goes blank.
 
+import fs from 'node:fs';
+import path from 'node:path';
+
 interface Props {
   playbackId?: string;
   fallbackSrc: string;
@@ -36,6 +39,62 @@ const streamSrc = playbackId
 const posterSrc = playbackId
   ? `https://image.mux.com/${playbackId}/thumbnail.jpg?width=1280&time=0`
   : undefined;
+
+// Inline SVG fallbacks so the page's loaded webfonts (Inter) are
+// available to the SVG's text rendering. `<img src=*.svg>` sandboxes
+// the SVG and forces system-font fallback, which renders fuzzily once
+// the wordmark scales past its small intrinsic size — visible after
+// the Matchline hero was doubled in #291. Inline SVG renders crisply
+// because it's part of the document tree and inherits its font stack.
+//
+// Sanitization caveat: `set:html` injects raw HTML into the document.
+// Even though `public/` files are author-controlled, scrub the
+// dangerous-in-page-context constructs (<script>, event handlers,
+// javascript: URLs, <foreignObject>) before injection so a future
+// SVG asset can't accidentally bring active content along. Also
+// escape the aria-label full-HTML-style before concatenation.
+const escapeAttr = (s: string) =>
+  s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+
+const sanitizeSvg = (raw: string) =>
+  raw
+    // Strip <script>...</script> blocks (handles attributes + multiline).
+    .replace(/<script\b[^>]*>[\s\S]*?<\/script\s*>/gi, '')
+    // Strip self-closing or unterminated <script> tags too.
+    .replace(/<script\b[^>]*\/?>/gi, '')
+    // Strip <foreignObject> (allows arbitrary HTML, including scripts).
+    .replace(/<foreignObject\b[^>]*>[\s\S]*?<\/foreignObject\s*>/gi, '')
+    .replace(/<foreignObject\b[^>]*\/?>/gi, '')
+    // Strip on* event attributes (onclick, onload, onmouseover, etc.).
+    .replace(/\s+on[a-z]+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, '')
+    // Strip javascript: URLs (href, xlink:href, src attributes).
+    .replace(/(href|src)\s*=\s*("javascript:[^"]*"|'javascript:[^']*'|javascript:[^\s>]+)/gi, '$1=""');
+
+const isSvgFallback = !playbackId && fallbackSrc.toLowerCase().endsWith('.svg');
+let inlineSvg: string | null = null;
+if (isSvgFallback) {
+  try {
+    const svgPath = path.join(process.cwd(), 'public', fallbackSrc.replace(/^\/+/, ''));
+    const raw = fs.readFileSync(svgPath, 'utf-8');
+    const safe = sanitizeSvg(raw);
+    // Inject role + aria-label on the root <svg> so the inline element
+    // remains an accessible image with the same alt-equivalent text the
+    // <img> path would have provided.
+    inlineSvg = safe.replace(
+      /<svg\b/,
+      `<svg role="img" aria-label="${escapeAttr(altText)}"`
+    );
+  } catch (err) {
+    // If the file isn't readable for any reason, fall back to the <img>
+    // path so the hero still renders something.
+    inlineSvg = null;
+  }
+}
 ---
 
 {playbackId ? (
@@ -51,6 +110,8 @@ const posterSrc = playbackId
       <img src={fallbackSrc} alt={altText} loading="eager" />
     </noscript>
   </>
+) : inlineSvg ? (
+  <Fragment set:html={inlineSvg} />
 ) : (
   <img src={fallbackSrc} alt={altText} loading="eager" />
 )}

@@ -100,13 +100,33 @@ describe('Project Pages — render', () => {
         expect(labels).toEqual(['Topics', 'Format', 'Focus', 'Status']);
       });
 
-      it('has a <figure class="project-screenshot"> containing an <img> with src and alt', () => {
+      it('has a <figure class="project-screenshot"> containing an accessible image', () => {
         const figure = document.querySelector('figure.project-screenshot');
         expect(figure, 'figure.project-screenshot not found').not.toBeNull();
+        // The screenshot slot accepts either <img> (raster screenshots) or
+        // <svg> (inline wordmarks; see ProjectMuxPlayer for why SVG fallbacks
+        // are inlined rather than referenced via <img src=...>). Either path
+        // must carry an accessible name.
         const img = figure.querySelector('img');
-        expect(img, '<img> inside .project-screenshot not found').not.toBeNull();
-        expect(img.getAttribute('src')).toBeTruthy();
-        expect(img.getAttribute('alt')).toBeTruthy();
+        const svg = figure.querySelector('svg');
+        expect(img || svg, 'no <img> or <svg> inside .project-screenshot').not.toBeNull();
+        if (img) {
+          expect(img.getAttribute('src')).toBeTruthy();
+          expect(img.getAttribute('alt')).toBeTruthy();
+        } else {
+          // Inline SVG must carry image semantics so screen readers
+          // announce it the way an <img alt="..."> would.
+          expect(
+            svg.getAttribute('role'),
+            'inline <svg> in .project-screenshot must have role="img"',
+          ).toBe('img');
+          const ariaLabel = svg.getAttribute('aria-label');
+          const titleEl = svg.querySelector('title');
+          expect(
+            ariaLabel || (titleEl && titleEl.textContent.trim()),
+            'inline <svg> in .project-screenshot lacks an accessible name (aria-label or <title>)',
+          ).toBeTruthy();
+        }
       });
 
       it('has a .project-copy container with an <h2>Overview</h2> heading', () => {
