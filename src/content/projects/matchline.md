@@ -1,7 +1,7 @@
 ---
 title: "Matchline"
 slug: "matchline"
-description: "A career operating system for one person running a serious job search. Turns work history into structured, reusable evidence, maps it against specific job requirements, and generates tailored applications grounded in what the user has actually done."
+description: "A career CRM for one person running a serious job search. Turns work history into structured, reusable evidence, maps that evidence against specific job requirements, and generates applications grounded in what the user has actually done. Not a resume builder—a discipline."
 kicker: "AI × Product × Career Tools"
 order: 1
 status: "IN PROGRESS"
@@ -24,7 +24,7 @@ related:
 
 ## Overview
 
-Matchline is a career operating system built for one person at a time, running a serious job search. It turns work history into structured, reusable evidence, maps that evidence against specific job requirements, and generates tailored applications grounded in what the user has actually done—not in what an AI can plausibly invent.
+Matchline is a career CRM built for one person at a time, running a serious job search. It functions as an evidence-based application engine: it turns work history into structured, reusable evidence, maps that evidence against specific job requirements, and generates applications grounded in what the user has actually done—not in what an AI can plausibly invent.
 
 This is not a resume builder. It's a discipline.
 
