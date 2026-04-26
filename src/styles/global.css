@@ -1107,7 +1107,7 @@ body.blog-page {
   border-top-color: var(--ink);
 }
 .project-page--black .project-screenshot__inner {
-  max-width: 28rem;
+  max-width: 56rem;
   margin: 0 auto;
   padding: clamp(2rem, 6vw, 4rem) clamp(1rem, 4vw, 2.5rem);
 }
@@ -1210,22 +1210,42 @@ body.blog-page {
   margin-top: 0.8rem;
 }
 
-.project-copy ul {
-  list-style: none;
+.project-copy ul,
+.project-copy ol {
   display: grid;
   gap: 0.7rem;
-  padding: 0;
   margin: 0.5rem 0 0;
 }
 
+/* Unordered lists get a custom accent square via ::before, so suppress
+ * the default disc and let ::before sit at left: 0. Ordered lists keep
+ * the default decimal counter — without this split, ol items rendered
+ * both the decimal AND the accent square (the "1. ▪ Career…" bug). */
+.project-copy ul {
+  list-style: none;
+  padding: 0;
+}
+
+.project-copy ol {
+  list-style: decimal;
+  padding-left: 1.4rem;
+}
+
 .project-copy li {
-  position: relative;
-  padding-left: 1rem;
   font-size: clamp(0.95rem, 0.92rem + 0.14vw, 1.02rem);
   line-height: 1.65;
 }
 
-.project-copy li::before {
+.project-copy ul li {
+  position: relative;
+  padding-left: 1rem;
+}
+
+.project-copy ol li {
+  padding-left: 0.4rem;
+}
+
+.project-copy ul li::before {
   content: "";
   position: absolute;
   top: 0.5em;
@@ -1233,6 +1253,11 @@ body.blog-page {
   width: 0.42rem;
   height: 0.42rem;
   background: var(--project-accent);
+}
+
+.project-copy ol li::marker {
+  color: var(--project-accent);
+  font-variant-numeric: tabular-nums;
 }
 
 /* In-content links — clearly marked, accent-colored, with a hover that
