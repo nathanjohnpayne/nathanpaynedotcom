@@ -27,9 +27,27 @@ export PROJECT=6
 # shellcheck source=../../../lib.sh
 source "$SCRIPT_DIR/../../../lib.sh"
 
-# Existing parents
-P0_NUM=5
-P1_NUM=15
+# Resolve existing parent issue numbers by exact title. Issue numbers are
+# repo-global, so they cannot be hardcoded — re-running create-issues.sh in a
+# repo with prior issues will not place parents at #5/#15.
+find_parent_num() {
+  local title="$1"
+  local num
+  num=$(gh issue list --repo "$REPO" --state all --limit 200 \
+    --search "in:title \"$title\"" \
+    --json number,title \
+    --jq ".[] | select(.title == \"$title\") | .number" \
+    | head -1)
+  if [ -z "$num" ]; then
+    echo "ERROR: could not find parent issue with title: $title" >&2
+    return 1
+  fi
+  echo "$num"
+}
+
+P0_NUM=$(find_parent_num "Phase 0: Foundations & access")
+P1_NUM=$(find_parent_num "Phase 1: Core loop (Career → Experience Units → Matching → Application)")
+echo "Resolved parents: P0=#$P0_NUM, P1=#$P1_NUM"
 
 # -----------------------------------------------------------------------------
 # Phase 0 additions
