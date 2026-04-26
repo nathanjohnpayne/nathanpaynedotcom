@@ -109,10 +109,14 @@ const jsonLd = {
             </div>
           );
           // Projects 5+ use alternating overflow rows. FFB gets the
-          // light-blue accent to match its detail-page variant.
-          const accentClass = project.data.slug === 'friends-and-family-billing'
-            ? 'accent-lightblue'
-            : 'accent-paper';
+          // light-blue accent to match its detail-page variant; DSoT
+          // gets red so the bottom of the grid keeps a Mondrian
+          // primary in rotation rather than fading to paper.
+          const accentBySlug = {
+            'friends-and-family-billing': 'accent-lightblue',
+            'device-source-of-truth': 'accent-red',
+          };
+          const accentClass = accentBySlug[project.data.slug] ?? 'accent-paper';
           return (
             <div class={i % 2 === 0 ? 'grid-row--overflow-a' : 'grid-row--overflow-b'}>
               {card}
