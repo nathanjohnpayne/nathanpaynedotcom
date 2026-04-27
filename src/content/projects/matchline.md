@@ -7,7 +7,7 @@ order: 1
 status: "IN PROGRESS"
 screenshotAspect: "wide"
 screenshotSrc: "/images/projects/matchline-wordmark.svg"
-accentColor: "#11100d"
+accentColor: "#333333"
 accentColorClass: "project-page--black"
 gradientFrom: "#dde1e5"
 gradientTo: "#f5f0e4"
