@@ -483,16 +483,6 @@ html, body {
   text-decoration: underline;
 }
 
-.p-tag {
-  font-size: 0.64rem;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  font-weight: 700;
-  padding: 0.13rem 0.36rem;
-  color: #f2d770;
-  background: #161512;
-}
-
 .p-link {
   color: var(--blue);
   text-decoration: none;
@@ -531,8 +521,30 @@ html, body {
   font-size: 1rem;
 }
 
-.panel--yellow .p-tag {
-  font-size: 0.6rem;
+/* Vibe Coding project-name links: same blue underline + arrow affordance
+   as the .p-link kicker links above the project list, so the click
+   target stops competing with the (now-removed) chip and reads as an
+   internal link in the same vocabulary as the surrounding "What agents
+   get wrong →" / "How the enforcement system works →" links. The arrow
+   is rendered via ::after so the existing inline link text stays clean. */
+.panel--yellow .p-name-link {
+  border-bottom: 1px solid rgba(34, 63, 137, 0.48);
+  transition: border-bottom-color var(--motion-hover) var(--ease-standard),
+    box-shadow var(--motion-hover) var(--ease-standard),
+    background-color var(--motion-hover) var(--ease-standard);
+}
+
+.panel--yellow .p-name-link::after {
+  content: " →";
+  color: var(--blue);
+  font-weight: 700;
+}
+
+.panel--yellow .p-name-link:hover {
+  border-bottom-color: var(--blue);
+  box-shadow: inset 0 -2px 0 var(--blue);
+  background-color: rgba(34, 63, 137, 0.08);
+  text-decoration: none;
 }
 
 .panel--yellow .project-list {
