@@ -479,25 +479,65 @@ html, body {
   line-height: 1.1;
 }
 
-.p-name-link:hover {
-  text-decoration: underline;
-}
-
 .p-link {
   color: var(--blue);
-  text-decoration: none;
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 2px;
   font-weight: 700;
-  border-bottom: 1px solid rgba(34, 63, 137, 0.48);
-  box-shadow: 0 0 0 transparent;
-  transition: border-bottom-color var(--motion-hover) var(--ease-standard),
-    box-shadow var(--motion-hover) var(--ease-standard),
-    background-color var(--motion-hover) var(--ease-standard);
 }
 
-.p-link:hover {
-  border-bottom-color: var(--blue);
-  box-shadow: inset 0 -2px 0 var(--blue);
-  background-color: rgba(34, 63, 137, 0.08);
+/* === Site-wide link affordance ============================================
+   ONE arrow (→), ONE resting state (text underlined, arrow not), ONE hover
+   behavior (arrow translates 3px right). Captured here so future links can
+   reach for the same convention without inventing new ones.
+
+   Markup convention: every link with a trailing arrow contains
+     <span class="link-arrow" aria-hidden="true">→</span>
+   as the final child of the anchor. The wrapper span has
+   `text-decoration: none`, so the underline cleanly stops at the link
+   text and the arrow can be transformed independently on hover.
+
+   .s-arrow (Connect social rows) is a sibling of .link-arrow that keeps
+   its own bespoke layout (margin-left: auto inside a flex tile) but joins
+   the same hover-translate selector group so the convention is uniform.
+
+   ── Scope exception (Connect social rows) ──────────────────────────────
+   The Connect "Elsewhere" tiles intentionally retain their bespoke hover
+   decoration: per-platform brand-colored gradient under-bar, .s-icon
+   opacity ramp, .s-arrow opacity ramp. The strict reading of issue #302
+   ("no other property changes on hover") would strip those, but the
+   gradients are a deliberate brand-recognition design moment. The site
+   owner explicitly chose Option A on the #302 review: keep the social
+   rows exactly as they are, apply the new convention only to the body-
+   text links above. Future contributors: do not "harmonize" the social
+   rows without asking — that's a documented deviation, not an oversight.
+   ========================================================================== */
+.link-arrow {
+  display: inline-block;
+  margin-left: 0.18em;
+  text-decoration: none;
+  transition: transform var(--motion-hover) var(--ease-standard);
+}
+
+a:hover .link-arrow,
+a:focus-visible .link-arrow,
+.social-row:hover .s-arrow,
+.social-row:focus-visible .s-arrow {
+  transform: translateX(3px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .link-arrow,
+  .s-arrow {
+    transition: none;
+  }
+  a:hover .link-arrow,
+  a:focus-visible .link-arrow,
+  .social-row:hover .s-arrow,
+  .social-row:focus-visible .s-arrow {
+    transform: none;
+  }
 }
 
 .panel--yellow .content-inner h2 {
@@ -521,30 +561,18 @@ html, body {
   font-size: 1rem;
 }
 
-/* Vibe Coding project-name links: same blue underline + arrow affordance
-   as the .p-link kicker links above the project list, so the click
-   target stops competing with the (now-removed) chip and reads as an
-   internal link in the same vocabulary as the surrounding "What agents
-   get wrong →" / "How the enforcement system works →" links. The arrow
-   is rendered via ::after so the existing inline link text stays clean. */
+/* Vibe Coding project-name links pick up the site-wide link convention:
+   text-decoration underline at rest, blue arrow translates on hover. */
 .panel--yellow .p-name-link {
-  border-bottom: 1px solid rgba(34, 63, 137, 0.48);
-  transition: border-bottom-color var(--motion-hover) var(--ease-standard),
-    box-shadow var(--motion-hover) var(--ease-standard),
-    background-color var(--motion-hover) var(--ease-standard);
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 2px;
 }
 
-.panel--yellow .p-name-link::after {
-  content: " →";
+.panel--yellow .p-name-link .link-arrow,
+.panel--black .effort-link .link-arrow {
   color: var(--blue);
   font-weight: 700;
-}
-
-.panel--yellow .p-name-link:hover {
-  border-bottom-color: var(--blue);
-  box-shadow: inset 0 -2px 0 var(--blue);
-  background-color: rgba(34, 63, 137, 0.08);
-  text-decoration: none;
 }
 
 .panel--yellow .project-list {
@@ -623,12 +651,9 @@ html, body {
 
 .content-inner .blog-callout-link {
   font-size: 0.68rem;
-  text-decoration: none;
-  transition: color var(--motion-hover) var(--ease-standard);
-}
-
-.blog-callout-link:hover {
-  color: var(--ink);
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 2px;
 }
 
 .panel--blue .blog-callout {
@@ -643,10 +668,6 @@ html, body {
   color: rgba(240, 244, 255, 0.55);
 }
 
-.panel--blue .blog-callout-link:hover {
-  color: rgba(240, 244, 255, 0.9);
-}
-
 /* When Connect panel is expanded, revert to dark text on cream bg */
 .panel--blue.is-open .blog-callout {
   border-top-color: var(--rule);
@@ -658,10 +679,6 @@ html, body {
 
 .panel--blue.is-open .blog-callout-link {
   color: rgba(17, 16, 13, 0.50);
-}
-
-.panel--blue.is-open .blog-callout-link:hover {
-  color: var(--ink);
 }
 
 .effort-list {
@@ -682,11 +699,8 @@ html, body {
   text-decoration: underline;
   text-decoration-color: var(--rule);
   text-decoration-thickness: 1px;
-  text-underline-offset: 3px;
-  transition: opacity var(--motion-hover) var(--ease-standard);
+  text-underline-offset: 2px;
 }
-
-.effort-link:hover { opacity: 0.70; }
 
 .effort-amount {
   margin-top: 0.12rem;
