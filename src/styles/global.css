@@ -2865,6 +2865,16 @@ a:focus-visible {
     letter-spacing: 0.06em;
   }
 
+  /* Base rule sets the About headline at a flat 4rem with white-space: nowrap,
+     which overflows the panel on phone-sized viewports (the desktop panel is
+     wide enough but the stacked-mobile layout is not). Scale the headline
+     fluidly with viewport width while keeping the nowrap so "Nathan Payne"
+     stays a single line; clamp upper bound restores the desktop value at the
+     920px breakpoint. */
+  .panel--red .content-inner h1 {
+    font-size: clamp(2.4rem, 9vw, 4rem);
+  }
+
   .panel--red .about-label,
   .panel--red .now-ribbon-label,
   .panel--red .now-ribbon-date {
