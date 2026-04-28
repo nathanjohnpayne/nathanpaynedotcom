@@ -476,9 +476,13 @@ const homepageJsonLd = {
         if (!Number.isFinite(n)) return fallback;
         return m[2].toLowerCase() === 's' ? n * 1000 : n;
       };
-      const PULSE_INITIAL_DELAY = readMs('--pulse-initial-delay', 700);
+      const PULSE_INITIAL_DELAY = readMs('--pulse-initial-delay', 300);
       const PULSE_INTERVAL = readMs('--pulse-interval', 370);
       const PULSE_DURATION = readMs('--pulse-duration', 250);
+      // Outer cap: BaseLayout's font gate falls open after 1500ms even if
+      // document.fonts.ready never resolves; pulse should still fire in
+      // that case, just from the failsafe path.
+      const FONTS_READY_FAILSAFE = 1700;
       let pulseFired = false;
 
       function pulsePanel(className) {
@@ -491,9 +495,27 @@ const homepageJsonLd = {
       function runPulseSequence() {
         if (pulseFired || reduceMotion) return;
         pulseFired = true;
-        PULSE_ORDER.forEach((className, i) => {
-          setTimeout(() => pulsePanel(className), PULSE_INITIAL_DELAY + i * PULSE_INTERVAL);
-        });
+        // Wait for the panel labels to settle before pulsing. Fonts.ready
+        // resolves once Cormorant Garamond is loaded; the labels then
+        // fade in over --motion-hover (~170ms); --pulse-initial-delay
+        // (~300ms) gives the page a visible breath before motion starts.
+        // Failsafe: if document.fonts is unavailable or never resolves,
+        // fire after FONTS_READY_FAILSAFE so the discoverability cue
+        // doesn't get stranded.
+        let scheduled = false;
+        const start = function () {
+          if (scheduled) return;
+          scheduled = true;
+          PULSE_ORDER.forEach(function (className, i) {
+            setTimeout(function () { pulsePanel(className); }, PULSE_INITIAL_DELAY + i * PULSE_INTERVAL);
+          });
+        };
+        if (document.fonts && document.fonts.ready && typeof document.fonts.ready.then === 'function') {
+          document.fonts.ready.then(start);
+          setTimeout(start, FONTS_READY_FAILSAFE);
+        } else {
+          start();
+        }
       }
 
       if (document.visibilityState === 'visible') {
