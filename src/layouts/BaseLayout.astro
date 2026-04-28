@@ -149,6 +149,12 @@ const ogImageUrl = ogImage.includes('?') ? `${ogImage}&v=${buildTime}` : `${ogIm
       }
     })();
   </script>
+  <noscript>
+    <!-- JS-disabled users never get [data-fonts-ready] applied; fall back
+         to visible labels with the original FOUT behavior so the homepage
+         still has navigational affordances. -->
+    <style>.panel-label { opacity: 1 !important; }</style>
+  </noscript>
 </head>
 <body class={bodyClass}>
   <slot />
