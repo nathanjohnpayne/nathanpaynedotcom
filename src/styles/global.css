@@ -37,7 +37,11 @@
      and the Community label cross-fade (#304). Defined as tokens so
      timing stays controllable from one place; the inline script in
      src/pages/index.astro reads --pulse-* via getComputedStyle. */
-  --pulse-initial-delay: 700ms;   /* settle before the sequence fires */
+  --pulse-initial-delay: 300ms;   /* breath after panel labels finish fading
+                                     in before the sequence fires; the fade-in
+                                     itself runs at --motion-hover (~170ms),
+                                     so this leaves the page visibly settled
+                                     before any motion starts */
   --pulse-interval: 370ms;        /* time between successive pulse starts */
   --pulse-duration: 250ms;        /* per-panel pulse length */
   --label-fade: 100ms;            /* per-orientation cross-fade duration */
