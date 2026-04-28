@@ -463,11 +463,18 @@ const homepageJsonLd = {
       // Read spec-locked timings from CSS custom properties so the
       // values stay controllable from one place (src/styles/global.css
       // :root) and the JS doesn't drift from the CSS keyframe duration.
+      // Vite/lightningcss minifies durations to whichever serialization
+      // is shorter — `700ms` is emitted as `.7s` in production — so the
+      // parser has to honor both units. parseFloat alone would read
+      // `.7s` as 0.7 and collapse the entire 1.4s sequence to 1.4ms.
       const motionTokens = getComputedStyle(document.documentElement);
       const readMs = (name, fallback) => {
         const raw = motionTokens.getPropertyValue(name).trim();
-        const n = parseFloat(raw);
-        return Number.isFinite(n) ? n : fallback;
+        const m = raw.match(/^([+-]?[\d.]+)\s*(ms|s)\s*$/i);
+        if (!m) return fallback;
+        const n = parseFloat(m[1]);
+        if (!Number.isFinite(n)) return fallback;
+        return m[2].toLowerCase() === 's' ? n * 1000 : n;
       };
       const PULSE_INITIAL_DELAY = readMs('--pulse-initial-delay', 700);
       const PULSE_INTERVAL = readMs('--pulse-interval', 370);
