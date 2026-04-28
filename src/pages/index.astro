@@ -159,7 +159,10 @@ const homepageJsonLd = {
       <div class="block block--white-b" aria-hidden="true"></div>
 
       <article class="panel panel--black" data-panel="community" data-label="Community" role="region" aria-label="Community organizing and fundraising">
-        <div class="panel-label" tabindex="0" role="button" aria-label="Open Community section">Community</div>
+        <div class="panel-label" tabindex="0" role="button" aria-label="Open Community section">
+          <span class="panel-label__h" data-label-orientation="horizontal">Community</span>
+          <span class="panel-label__v" data-label-orientation="vertical" aria-hidden="true">Community</span>
+        </div>
         <div class="panel-content">
           <div class="content-inner">
             <h2>Giving &amp; Governing</h2>
@@ -423,113 +426,72 @@ const homepageJsonLd = {
         });
       });
 
-      // ─── Discoverability nudges (#271) ───
-      // 1. On-load settle: subtle staggered scale on each panel.
-      //    Plays on every device — touch users still benefit from a
-      //    "this page is alive" cue. Skipped under reduced-motion.
-      // 2. Inactivity nudge: after 5s of no panel hover/focus/click,
-      //    pulse the Vibe Coding panel; after another 10s, pulse a
-      //    second panel. Stops after two fires; no looping. Skipped
-      //    on touch (no mouse to track) and under reduced-motion
-      //    (replaced by a one-time static label underline).
+      // ─── Community label horizontal/vertical aria toggle (#304) ───
+      // The cross-fade itself is CSS-driven (opacity transitions keyed
+      // off [data-focus] on the grid). JS only flips aria-hidden on the
+      // two label variants so screen readers announce exactly one.
+      const communityPanel = grid.querySelector('.panel--black');
+      const labelH = communityPanel && communityPanel.querySelector('.panel-label__h');
+      const labelV = communityPanel && communityPanel.querySelector('.panel-label__v');
+
+      function syncCommunityLabelAria() {
+        if (!labelH || !labelV) return;
+        // Vertical only when Vibe Coding (data-focus="projects") is
+        // open — that's the only expansion that compresses Community
+        // narrow enough to truncate "COMMUNITY". Match the CSS rule.
+        const useVertical = grid.dataset.focus === 'projects';
+        labelH.setAttribute('aria-hidden', useVertical ? 'true' : 'false');
+        labelV.setAttribute('aria-hidden', useVertical ? 'false' : 'true');
+      }
+      syncCommunityLabelAria();
+
+      // Keep aria-hidden in lockstep with the grid's data-focus
+      // attribute (which openPanel/closePanel already manage). A
+      // MutationObserver avoids having to thread the call into each
+      // existing call site.
+      new MutationObserver(syncCommunityLabelAria)
+        .observe(grid, { attributes: true, attributeFilter: ['data-focus'] });
+
+      // ─── On-load discoverability pulse sequence (#305) ───
+      // Four primary panels pulse clockwise once on initial load:
+      // red (Nathan Payne) → yellow (Vibe Coding) → blue (Connect)
+      // → black (Community). Total ~1.4s, fired once per page load,
+      // deferred until the tab is visible. Reduced-motion users get
+      // the persistent cursor-pointer affordance only.
       const reduceMotion = matchesQuery('(prefers-reduced-motion: reduce)');
+      const PULSE_ORDER = ['panel--red', 'panel--yellow', 'panel--blue', 'panel--black'];
+      const PULSE_INITIAL_DELAY = 700;
+      const PULSE_INTERVAL = 370;
+      const PULSE_DURATION = 250;
+      let pulseFired = false;
 
-      if (!reduceMotion) {
-        panels.forEach((panel, i) => {
-          panel.style.setProperty('--settle-index', String(i));
-          panel.classList.add('panel--settling');
-          // Drop the class once the settle finishes so `will-change`
-          // doesn't keep a permanent compositor hint on every panel.
-          panel.addEventListener('animationend', function onSettleEnd(e) {
-            if (e.animationName !== 'panel-settle') return;
-            panel.classList.remove('panel--settling');
-            panel.style.removeProperty('--settle-index');
-            panel.removeEventListener('animationend', onSettleEnd);
-          });
+      function pulsePanel(className) {
+        const target = grid.querySelector('.' + className);
+        if (!target) return;
+        target.classList.add('panel--pulsing');
+        setTimeout(() => target.classList.remove('panel--pulsing'), PULSE_DURATION);
+      }
+
+      function runPulseSequence() {
+        if (pulseFired || reduceMotion) return;
+        pulseFired = true;
+        PULSE_ORDER.forEach((className, i) => {
+          setTimeout(() => pulsePanel(className), PULSE_INITIAL_DELAY + i * PULSE_INTERVAL);
         });
       }
 
-      // Two-stage nudge sequence with pause/resume on tab visibility.
-      const NUDGE_TARGETS = ['panel--yellow', 'panel--blue']; // Vibe Coding → Connect
-      const NUDGE_DELAYS = [5000, 10000];
-      let nudgeStage = 0; // 0 = not started; 1..N = waiting on stage N; N+1 = done
-      let nudgeTimer = null;
-      let nudgeTimerEnd = null;
-      let nudgeTimerRemaining = null;
-
-      function scheduleNudge(stage) {
-        if (stage > NUDGE_TARGETS.length) {
-          nudgeStage = NUDGE_TARGETS.length + 1;
-          return;
-        }
-        nudgeStage = stage;
-        nudgeTimerRemaining = NUDGE_DELAYS[stage - 1];
-        nudgeTimerEnd = Date.now() + nudgeTimerRemaining;
-        nudgeTimer = setTimeout(() => fireNudge(stage), nudgeTimerRemaining);
+      if (document.visibilityState === 'visible') {
+        runPulseSequence();
+      } else {
+        // Loaded in a background tab — wait until the user surfaces
+        // the page so the discoverability cue isn't missed.
+        const onVisible = () => {
+          if (document.visibilityState !== 'visible') return;
+          document.removeEventListener('visibilitychange', onVisible);
+          runPulseSequence();
+        };
+        document.addEventListener('visibilitychange', onVisible);
       }
-
-      function pauseNudgeTimer() {
-        if (!nudgeTimer) return;
-        clearTimeout(nudgeTimer);
-        nudgeTimer = null;
-        nudgeTimerRemaining = Math.max(0, nudgeTimerEnd - Date.now());
-      }
-
-      function resumeNudgeTimer() {
-        if (nudgeTimer) return;
-        if (nudgeTimerRemaining == null) return;
-        if (nudgeStage > NUDGE_TARGETS.length) return;
-        nudgeTimerEnd = Date.now() + nudgeTimerRemaining;
-        nudgeTimer = setTimeout(() => fireNudge(nudgeStage), nudgeTimerRemaining);
-      }
-
-      function cancelAllNudges() {
-        if (nudgeTimer) clearTimeout(nudgeTimer);
-        nudgeTimer = null;
-        nudgeTimerRemaining = null;
-        nudgeStage = NUDGE_TARGETS.length + 1;
-      }
-
-      function fireNudge(stage) {
-        nudgeTimer = null;
-        const target = grid.querySelector('.' + NUDGE_TARGETS[stage - 1]);
-        if (target) {
-          target.classList.add('panel--nudging');
-          setTimeout(() => target.classList.remove('panel--nudging'), 800);
-        }
-        if (stage < NUDGE_TARGETS.length) {
-          scheduleNudge(stage + 1);
-        } else {
-          nudgeStage = NUDGE_TARGETS.length + 1;
-        }
-      }
-
-      if (reduceMotion) {
-        // Reduced-motion fallback: one-time static border-bottom on
-        // each panel label at the same 5s mark — same signaling job,
-        // no animation. Does not fire a second event.
-        setTimeout(() => {
-          panels.forEach((p) => p.classList.add('has-static-hint'));
-        }, 5000);
-      } else if (canHover()) {
-        scheduleNudge(1);
-      }
-
-      // Any panel interaction cancels the entire nudge sequence —
-      // the user has discovered interactivity without our help.
-      panels.forEach((panel) => {
-        ['mouseenter', 'focusin', 'click'].forEach((evt) => {
-          panel.addEventListener(evt, cancelAllNudges);
-        });
-      });
-
-      // Tab switches pause/resume; mouse-leaving-window without a
-      // tab switch is intentionally not paused (the timer is a UX
-      // cadence, not a precision instrument).
-      document.addEventListener('visibilitychange', () => {
-        if (document.hidden) pauseNudgeTimer();
-        else resumeNudgeTimer();
-      });
     })();
   </script>
 </BaseLayout>
