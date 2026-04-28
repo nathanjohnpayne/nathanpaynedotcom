@@ -2847,7 +2847,7 @@ a.tag:hover {
   50%      { filter: brightness(1.08) saturate(1.05); }
 }
 
-@keyframes panel-pulse--neutral {
+@keyframes panel-pulse-neutral {
   0%, 100% { filter: none; }
   50%      { filter: brightness(1.16); }
 }
@@ -2858,7 +2858,7 @@ a.tag:hover {
 }
 
 .panel--black.panel--pulsing {
-  animation-name: panel-pulse--neutral;
+  animation-name: panel-pulse-neutral;
 }
 
 @media (prefers-reduced-motion: reduce) {
