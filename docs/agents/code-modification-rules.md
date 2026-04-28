@@ -29,8 +29,9 @@ All cells transition to a warm parchment tone when opened.
 --motion-hover:          170ms  (hover states)
 --motion-plane:          280ms  (panel expand / grid morph, on-load settle)
 --motion-load:           300ms  (section entrance)
---motion-pulse:          700ms  (discoverability breath)
---motion-stagger-step:    65ms  (per-sibling delay in staggered groups)
+--pulse-initial-delay:   300ms  (delay before on-load pulse sequence fires; removed --motion-pulse in #306)
+--pulse-interval:        370ms  (time between successive panel pulse starts)
+--pulse-duration:        250ms  (per-panel brightness/saturation breath)
 ```
 
 #### Motion — Easing
@@ -58,8 +59,9 @@ All animation timing is governed by the motion tokens above. No hard-coded durat
 | Panel morph | `--motion-plane` (280ms) | `--ease-sharp` | Mondrian grid transitions |
 | Settle on load | `--motion-plane` (280ms) | `--ease-standard` | Per-block entrance scale (Mondrian discoverability) |
 | Section load | `--motion-load` (300ms) | `--ease-standard` | Entrance animations |
-| Discoverability breath | `--motion-pulse` (700ms) | `--ease-linear` | Brightness/saturation pulse on idle panels |
-| Stagger step | `--motion-stagger-step` (65ms) | n/a | Per-sibling delay in staggered groups |
+| On-load pulse (delay) | `--pulse-initial-delay` (300ms) | n/a | Pause after label fade-in before sequence fires (#306) |
+| On-load pulse (interval) | `--pulse-interval` (370ms) | n/a | Time between successive panel pulse starts |
+| On-load pulse (per-panel) | `--pulse-duration` (250ms) | `--ease-out` | Per-panel brightness/saturation breath |
 
 #### Scroll Guard
 JavaScript adds `.is-scrolling` to `<body>` during active scroll (debounced at 100ms). CSS suspends hover transitions on interactive elements while this class is present, preventing scroll + hover easing conflicts.
