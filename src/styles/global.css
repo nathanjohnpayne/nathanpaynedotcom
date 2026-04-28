@@ -32,11 +32,24 @@
   --motion-hover: 170ms;
   --motion-plane: 280ms;
   --motion-load: 300ms;
-  --motion-pulse: 700ms;          /* discoverability breath (#271) */
-  --motion-stagger-step: 65ms;    /* per-sibling delay in staggered groups (#271) */
+
+  /* Spec-locked motion for the on-load discoverability pulse (#305)
+     and the Community label cross-fade (#304). Defined as tokens so
+     timing stays controllable from one place; the inline script in
+     src/pages/index.astro reads --pulse-* via getComputedStyle. */
+  --pulse-initial-delay: 700ms;   /* settle before the sequence fires */
+  --pulse-interval: 370ms;        /* time between successive pulse starts */
+  --pulse-duration: 250ms;        /* per-panel pulse length */
+  --label-fade: 100ms;            /* per-orientation cross-fade duration */
+  --label-fade-delay-in: 150ms;   /* hold before the new orientation fades in
+                                     so the container reshape leads the swap */
+  --label-fade-delay-out: 250ms;  /* hold before the original orientation
+                                     returns on collapse so the container
+                                     reshapes back first */
 
   --ease-standard: cubic-bezier(0.4, 0.0, 0.2, 1);
   --ease-sharp: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --ease-out: cubic-bezier(0, 0, 0.2, 1);
   --ease-linear: linear;
 
   --shift-small: 2px;
@@ -169,6 +182,18 @@ html, body {
   text-align: left;
   pointer-events: none;
   font-family: "Cormorant Garamond", Garamond, serif;
+  /* Hidden until Cormorant Garamond is ready, then fades in. Prevents
+     the visible swap from system-fallback to Cormorant on first paint
+     (most noticeable on the boxed "Nathan Payne" label). The
+     [data-fonts-ready] attribute is set by the inline script in
+     BaseLayout.astro that waits on document.fonts.ready (with a 1.5s
+     timeout fallback). */
+  opacity: 0;
+  transition: opacity var(--motion-hover) var(--ease-standard);
+}
+
+html[data-fonts-ready] .panel-label {
+  opacity: 1;
 }
 
 .panel-label--name {
@@ -803,6 +828,69 @@ a:focus-visible .link-arrow,
   justify-content: flex-start;
   padding-left: 17%;
   padding-bottom: 16%;
+}
+
+/* Community label variants (#304).
+   The horizontal variant matches the rest of the Mondrian panel labels.
+   The vertical variant only renders when the Community block compresses
+   (i.e. some other panel is expanded), so the word never truncates as
+   "COMMUNI" inside a narrowed column. Markup keeps both variants in the
+   DOM and toggles aria-hidden via JS so screen readers announce only the
+   active one.
+
+   Cross-fade timing matches the spec sequence in #304:
+   - On compression  : horizontal fades out immediately, vertical fades in
+                       after 150ms (after the container has begun reshaping).
+   - On expansion    : vertical fades out immediately, horizontal fades in
+                       after 250ms (after the container has reshaped back).
+   prefers-reduced-motion swaps the variants instantly. */
+.panel--black .panel-label__h,
+.panel--black .panel-label__v {
+  position: absolute;
+  transition: opacity var(--label-fade) var(--ease-standard);
+}
+
+.panel--black .panel-label__h {
+  /* Inherits the .panel-label flex/padding placement; sits where the
+     original "Community" word always sat. */
+  left: 17%;
+  bottom: 16%;
+  opacity: 1;
+  transition-delay: var(--label-fade-delay-out);
+}
+
+.panel--black .panel-label__v {
+  /* Bottom-anchored, reads bottom-to-top to match the .accent-blue-label
+     "Latest" pattern on the blog index. */
+  left: clamp(0.6rem, 1.4vw, 1.2rem);
+  bottom: clamp(0.8rem, 1.6vw, 1.4rem);
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+  transform: rotate(180deg);
+  transform-origin: center;
+  opacity: 0;
+  transition-delay: 0ms;
+}
+
+/* Vibe Coding (data-focus="projects") is the only state that compresses
+   Community narrow enough to truncate "COMMUNITY" → "COMMUNI". Other
+   expansions (Connect, About) reshape elsewhere and leave Community wide
+   enough for the horizontal label, so the vertical variant stays out of
+   the way unless it's actually solving the truncation problem. */
+.mondrian[data-focus="projects"] .panel--black .panel-label__h {
+  opacity: 0;
+  transition-delay: 0ms;
+}
+.mondrian[data-focus="projects"] .panel--black .panel-label__v {
+  opacity: 1;
+  transition-delay: var(--label-fade-delay-in);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .panel--black .panel-label__h,
+  .panel--black .panel-label__v {
+    transition: none;
+  }
 }
 
 .block--white-c { grid-column: 4 / 7; grid-row: 6; background: var(--paper); }
@@ -2745,40 +2833,37 @@ a.tag:hover {
  * animations are suppressed and the JS swaps in a one-time static
  * border-bottom on each panel label at the same ~5s mark. */
 
-@keyframes panel-settle {
-  from { transform: scale(0.992); opacity: 0.94; }
-  to   { transform: scale(1);     opacity: 1;    }
-}
-
+/* On-load discoverability pulse (#305).
+   Each interactive panel pulses once on initial load, in clockwise order
+   (red -> yellow -> blue -> black), to communicate "these tiles are
+   interactive" without a permanent UI affordance. The .panel--pulsing
+   class is added by JS for one ~250ms breath, then removed. The
+   keyframe peaks at brightness 1.08 / saturate 1.05 for the colored
+   panels; .panel--black gets a brightness boost (1.16) since saturation
+   has near-zero effect on a neutral fill.
+   Supersedes #271 (inactivity nudges + on-load settle). */
 @keyframes panel-pulse {
   0%, 100% { filter: none; }
   50%      { filter: brightness(1.08) saturate(1.05); }
 }
 
-.panel--settling {
-  animation: panel-settle var(--motion-plane) var(--ease-standard) both;
-  animation-delay: calc(var(--settle-index, 0) * var(--motion-stagger-step));
-  transform-origin: center center;
-  will-change: transform, opacity;
+@keyframes panel-pulse-neutral {
+  0%, 100% { filter: none; }
+  50%      { filter: brightness(1.16); }
 }
 
-.panel--nudging {
-  animation: panel-pulse var(--motion-pulse) var(--ease-linear);
+.panel--pulsing {
+  animation: panel-pulse var(--pulse-duration) var(--ease-out);
   will-change: filter;
 }
 
+.panel--black.panel--pulsing {
+  animation-name: panel-pulse-neutral;
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .panel--settling,
-  .panel--nudging {
+  .panel--pulsing {
     animation: none;
-  }
-  /* Static hint sits under the label *text* (the panel itself is
-   * full-bleed; a border-bottom on .panel-label would land at the
-   * bottom edge of the panel, not under the visible label). */
-  .panel.has-static-hint .panel-label {
-    text-decoration: underline;
-    text-decoration-thickness: 1px;
-    text-underline-offset: 0.18em;
   }
 }
 
