@@ -460,9 +460,18 @@ const homepageJsonLd = {
       // the persistent cursor-pointer affordance only.
       const reduceMotion = matchesQuery('(prefers-reduced-motion: reduce)');
       const PULSE_ORDER = ['panel--red', 'panel--yellow', 'panel--blue', 'panel--black'];
-      const PULSE_INITIAL_DELAY = 700;
-      const PULSE_INTERVAL = 370;
-      const PULSE_DURATION = 250;
+      // Read spec-locked timings from CSS custom properties so the
+      // values stay controllable from one place (src/styles/global.css
+      // :root) and the JS doesn't drift from the CSS keyframe duration.
+      const motionTokens = getComputedStyle(document.documentElement);
+      const readMs = (name, fallback) => {
+        const raw = motionTokens.getPropertyValue(name).trim();
+        const n = parseFloat(raw);
+        return Number.isFinite(n) ? n : fallback;
+      };
+      const PULSE_INITIAL_DELAY = readMs('--pulse-initial-delay', 700);
+      const PULSE_INTERVAL = readMs('--pulse-interval', 370);
+      const PULSE_DURATION = readMs('--pulse-duration', 250);
       let pulseFired = false;
 
       function pulsePanel(className) {

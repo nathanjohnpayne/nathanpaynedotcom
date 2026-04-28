@@ -33,8 +33,23 @@
   --motion-plane: 280ms;
   --motion-load: 300ms;
 
+  /* Spec-locked motion for the on-load discoverability pulse (#305)
+     and the Community label cross-fade (#304). Defined as tokens so
+     timing stays controllable from one place; the inline script in
+     src/pages/index.astro reads --pulse-* via getComputedStyle. */
+  --pulse-initial-delay: 700ms;   /* settle before the sequence fires */
+  --pulse-interval: 370ms;        /* time between successive pulse starts */
+  --pulse-duration: 250ms;        /* per-panel pulse length */
+  --label-fade: 100ms;            /* per-orientation cross-fade duration */
+  --label-fade-delay-in: 150ms;   /* hold before the new orientation fades in
+                                     so the container reshape leads the swap */
+  --label-fade-delay-out: 250ms;  /* hold before the original orientation
+                                     returns on collapse so the container
+                                     reshapes back first */
+
   --ease-standard: cubic-bezier(0.4, 0.0, 0.2, 1);
   --ease-sharp: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --ease-out: cubic-bezier(0, 0, 0.2, 1);
   --ease-linear: linear;
 
   --shift-small: 2px;
@@ -174,7 +189,7 @@ html, body {
      BaseLayout.astro that waits on document.fonts.ready (with a 1.5s
      timeout fallback). */
   opacity: 0;
-  transition: opacity 180ms ease;
+  transition: opacity var(--motion-hover) var(--ease-standard);
 }
 
 html[data-fonts-ready] .panel-label {
@@ -832,7 +847,7 @@ a:focus-visible .link-arrow,
 .panel--black .panel-label__h,
 .panel--black .panel-label__v {
   position: absolute;
-  transition: opacity 100ms ease;
+  transition: opacity var(--label-fade) var(--ease-standard);
 }
 
 .panel--black .panel-label__h {
@@ -841,7 +856,7 @@ a:focus-visible .link-arrow,
   left: 17%;
   bottom: 16%;
   opacity: 1;
-  transition-delay: 250ms;
+  transition-delay: var(--label-fade-delay-out);
 }
 
 .panel--black .panel-label__v {
@@ -868,7 +883,7 @@ a:focus-visible .link-arrow,
 }
 .mondrian[data-focus="projects"] .panel--black .panel-label__v {
   opacity: 1;
-  transition-delay: 150ms;
+  transition-delay: var(--label-fade-delay-in);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -2838,7 +2853,7 @@ a.tag:hover {
 }
 
 .panel--pulsing {
-  animation: panel-pulse 250ms var(--ease-out, ease-out);
+  animation: panel-pulse var(--pulse-duration) var(--ease-out);
   will-change: filter;
 }
 
