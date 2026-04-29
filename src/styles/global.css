@@ -613,7 +613,7 @@ a:focus-visible .link-arrow,
 }
 
 .panel--yellow .p-head {
-  margin-bottom: 0.15rem;
+  margin-bottom: 0;
 }
 
 .panel--yellow .content-inner {
