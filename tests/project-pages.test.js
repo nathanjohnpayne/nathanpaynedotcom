@@ -107,13 +107,17 @@ describe('Project Pages — render', () => {
         // <svg> (inline wordmarks; see ProjectMuxPlayer for why SVG fallbacks
         // are inlined rather than referenced via <img src=...>). Either path
         // must carry an accessible name.
-        const img = figure.querySelector('img');
+        const img = figure.querySelector('img[alt]:not([alt=""])');
         const svg = figure.querySelector('svg');
-        expect(img || svg, 'no <img> or <svg> inside .project-screenshot').not.toBeNull();
+        const roleImage = figure.querySelector('[role="img"][aria-label]');
+        expect(
+          img || svg || roleImage,
+          'no accessible image inside .project-screenshot',
+        ).not.toBeNull();
         if (img) {
           expect(img.getAttribute('src')).toBeTruthy();
           expect(img.getAttribute('alt')).toBeTruthy();
-        } else {
+        } else if (svg) {
           // Inline SVG must carry image semantics so screen readers
           // announce it the way an <img alt="..."> would.
           expect(
@@ -199,9 +203,30 @@ describe('Project Pages — screenshot aspect variants', () => {
     expect(player.getAttribute('preload')).toBe('auto');
     expect(player.hasAttribute('max-resolution')).toBe(false);
 
-    const poster = player.querySelector('img');
+    const frame = document.querySelector('.project-screenshot__mux-shell[data-mux-hero]');
+    expect(frame, 'Swipe Watch mux frame not found').not.toBeNull();
+    expect(frame.getAttribute('data-playback-state')).toBe('loading');
+
+    const mediaFrame = frame.querySelector('.project-screenshot__mux-frame');
+    expect(mediaFrame.getAttribute('role')).toBe('img');
+    expect(mediaFrame.getAttribute('aria-label')).toBe('Swipe Watch product screenshot');
+
+    const gifFallback = frame.querySelector('.project-screenshot__mux-gif-fallback');
+    expect(gifFallback, 'Swipe Watch Mux GIF fallback not found').not.toBeNull();
+    expect(gifFallback.getAttribute('data-src')).toBe('/images/projects/swipe-watch-hero.gif');
+    expect(gifFallback.hasAttribute('src')).toBe(false);
+    expect(gifFallback.getAttribute('aria-hidden')).toBe('true');
+
+    const playButton = frame.querySelector('.project-screenshot__mux-play[data-mux-play]');
+    expect(playButton, 'Swipe Watch manual play button not found').not.toBeNull();
+    expect(playButton.getAttribute('type')).toBe('button');
+    expect(playButton.getAttribute('aria-label')).toBe('Play Swipe Watch demo');
+    expect(playButton.hasAttribute('hidden')).toBe(true);
+
+    const poster = player.querySelector('.project-screenshot__mux-poster');
     expect(poster, 'Swipe Watch poster img not found').not.toBeNull();
     expect(poster.getAttribute('src')).toBe('https://image.mux.com/wNCRY97981o2uDAJrJ3ExPeK379yldRRFJgUIgSYz00k/thumbnail.jpg?width=1280&time=0');
+    expect(poster.getAttribute('aria-hidden')).toBe('true');
 
     const moduleSrcs = Array.from(
       html.matchAll(/<script type="module" src="([^"]+)"/g),
@@ -213,6 +238,12 @@ describe('Project Pages — screenshot aspect variants', () => {
       .find((code) => code.includes('https://cdn.jsdelivr.net/npm/mux-embed@5.18.0'));
     expect(muxScript, 'Mux runtime module not found').toBeTruthy();
     expect(muxScript).toMatch(/querySelector\((['"])mux-background-video\1\)/);
+    expect(muxScript).toContain('shadowRoot?.querySelector("video")');
+    expect(muxScript).toContain('setTimeout');
+    expect(muxScript).toContain('dataset.playbackState="fallback"');
+    expect(muxScript).toContain('dataset.playbackState="playing"');
+    expect(muxScript).toContain('.play()');
+    expect(muxScript).toContain('currentTime>0');
     expect(html).not.toContain('PUBLIC_MUX_ENV_KEY');
   });
 
