@@ -145,6 +145,8 @@ if (isSvgFallback) {
   const muxFrame = muxHero?.closest('[data-mux-hero]');
   const gifFallback = muxFrame?.querySelector('[data-src]');
   const playButton = muxFrame?.querySelector('[data-mux-play]');
+  // Long enough for Safari/WebKit to prove real frame progress on slower
+  // networks; short enough that a blocked hero reads as intentional fallback.
   const AUTOPLAY_FALLBACK_DELAY = 2800;
 
   function hidePlayButton() {
@@ -226,16 +228,22 @@ if (isSvgFallback) {
       return;
     }
 
+    let cleanup = () => {};
+    const handleTimeUpdate = () => {
+      if (video.currentTime > 0) {
+        cleanup();
+        markPlaying();
+      }
+    };
     const markFailure = () => {
+      cleanup();
       window.clearTimeout(fallbackTimer);
       showAnimatedFallback(true);
     };
-    const handleTimeUpdate = () => {
-      if (video.currentTime > 0) {
-        video.removeEventListener('timeupdate', handleTimeUpdate);
-        video.removeEventListener('playing', handleTimeUpdate);
-        markPlaying();
-      }
+    cleanup = () => {
+      video.removeEventListener('playing', handleTimeUpdate);
+      video.removeEventListener('timeupdate', handleTimeUpdate);
+      video.removeEventListener('error', markFailure);
     };
 
     video.addEventListener('playing', handleTimeUpdate);
@@ -288,7 +296,7 @@ if (isSvgFallback) {
       import('@mux/mux-background-video/html')
         .then(() => customElements.whenDefined('mux-background-video'))
         .then(monitorMuxPlayback)
-        .catch(showAnimatedFallback);
+        .catch(() => showAnimatedFallback(false));
     });
   }
 </script>

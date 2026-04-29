@@ -16,4 +16,10 @@ test('Swipe Watch swaps to the Mux GIF fallback when the stream cannot autoplay'
   const playButton = frame.locator('.project-screenshot__mux-play');
   await expect(playButton).toBeVisible();
   await expect(playButton).toHaveAttribute('aria-label', 'Play Swipe Watch demo');
+
+  await playButton.click();
+  await expect(frame).toHaveAttribute('data-playback-state', 'loading');
+  await expect(playButton).toBeHidden();
+  await expect(frame).toHaveAttribute('data-playback-state', 'fallback', { timeout: 7000 });
+  await expect(playButton).toBeVisible();
 });
