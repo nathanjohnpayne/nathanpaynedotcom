@@ -1254,21 +1254,100 @@ body.blog-page {
    bars. Width is capped by the surrounding .project-screenshot--narrow
    container's 320px max-width so pages stay visually consistent
    between img and video modes. */
+.project-screenshot__mux-frame {
+  position: relative;
+  width: 100%;
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--ink);
+}
+
 .project-screenshot__mux {
   display: block;
   width: 100%;
   border-radius: 12px;
   overflow: hidden;
+  opacity: 1;
+  transition: opacity var(--motion-fast) var(--ease-linear);
 }
 
 /* Poster frame inside the background-video element. Before JS upgrades
    the custom element, this light-DOM image fills the hero slot so the
    page never flashes blank. */
-.project-screenshot__mux > img {
+.project-screenshot__mux-poster {
   display: block;
   width: 100%;
   height: auto;
   border-radius: 12px;
+}
+
+.project-screenshot__mux-gif-fallback {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 12px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--motion-fast) var(--ease-linear);
+}
+
+.project-screenshot__mux-frame[data-playback-state="fallback"] .project-screenshot__mux {
+  opacity: 0;
+}
+
+.project-screenshot__mux-frame[data-playback-state="fallback"] .project-screenshot__mux-gif-fallback {
+  opacity: 1;
+}
+
+.project-screenshot__mux-play {
+  position: absolute;
+  inset: 50% auto auto 50%;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  width: 3rem;
+  height: 3rem;
+  padding: 0;
+  border: 1px solid rgba(245, 240, 228, 0.72);
+  border-radius: 999px;
+  background: rgba(17, 16, 13, 0.78);
+  box-shadow: 0 0.35rem 1.2rem rgba(17, 16, 13, 0.26);
+  cursor: pointer;
+  transform: translate(-50%, -50%);
+  transition:
+    background-color var(--motion-hover) var(--ease-standard),
+    border-color var(--motion-hover) var(--ease-standard),
+    transform var(--motion-hover) var(--ease-standard);
+}
+
+.project-screenshot__mux-play::before {
+  content: "";
+  display: block;
+  width: 0;
+  height: 0;
+  margin-left: 0.16rem;
+  border-top: 0.5rem solid transparent;
+  border-bottom: 0.5rem solid transparent;
+  border-left: 0.78rem solid var(--cream);
+}
+
+.project-screenshot__mux-play:hover {
+  background: rgba(17, 16, 13, 0.9);
+  border-color: var(--cream);
+  transform: translate(-50%, calc(-50% - var(--shift-small)));
+}
+
+.project-screenshot__mux-play:focus-visible {
+  outline: 2px solid var(--cream);
+  outline-offset: 3px;
+}
+
+.project-screenshot__mux-play[hidden] {
+  display: none;
 }
 
 /* Stack line — rendered as a <figcaption> inside the screenshot figure.

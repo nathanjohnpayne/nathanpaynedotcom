@@ -13,8 +13,9 @@
 //   chrome, internal autoplay orchestration, and the Safari behavior
 //   this project actually needs.
 //
-// When `playbackId` is unset, falls back to the `fallbackSrc` image so the
-// hero never goes blank.
+// When autoplay fails, swaps to the Mux-generated `fallbackSrc` GIF so the
+// hero still reads like an animated product capture. When `playbackId` is
+// unset, falls back to the `fallbackSrc` image directly.
 
 import fs from 'node:fs';
 import path from 'node:path';
@@ -99,13 +100,36 @@ if (isSvgFallback) {
 
 {playbackId ? (
   <>
-    <mux-background-video
-      src={streamSrc}
-      preload="auto"
-      class="project-screenshot__mux"
+    <div
+      class="project-screenshot__mux-frame"
+      data-mux-hero
+      data-playback-state="loading"
+      role="img"
+      aria-label={altText}
     >
-      <img src={posterSrc} alt={altText} />
-    </mux-background-video>
+      <img
+        class="project-screenshot__mux-gif-fallback"
+        data-src={fallbackSrc}
+        alt=""
+        aria-hidden="true"
+        decoding="async"
+      />
+      <mux-background-video
+        src={streamSrc}
+        preload="auto"
+        class="project-screenshot__mux"
+        aria-hidden="true"
+      >
+        <img class="project-screenshot__mux-poster" src={posterSrc} alt="" aria-hidden="true" />
+      </mux-background-video>
+      <button
+        class="project-screenshot__mux-play"
+        type="button"
+        data-mux-play
+        aria-label={`Play ${title} demo`}
+        hidden
+      ></button>
+    </div>
     <noscript>
       <img src={fallbackSrc} alt={altText} loading="eager" />
     </noscript>
@@ -118,6 +142,103 @@ if (isSvgFallback) {
 
 <script>
   const muxHero = document.querySelector('mux-background-video');
+  const muxFrame = muxHero?.closest('[data-mux-hero]');
+  const gifFallback = muxFrame?.querySelector('[data-src]');
+  const playButton = muxFrame?.querySelector('[data-mux-play]');
+  const AUTOPLAY_FALLBACK_DELAY = 2800;
+
+  function hidePlayButton() {
+    if (playButton instanceof HTMLButtonElement) {
+      playButton.hidden = true;
+    }
+  }
+
+  function showPlayButton() {
+    if (playButton instanceof HTMLButtonElement) {
+      playButton.hidden = false;
+    }
+  }
+
+  function showAnimatedFallback() {
+    if (!muxFrame || muxFrame.dataset.playbackState === 'playing') return;
+
+    if (gifFallback instanceof HTMLImageElement && gifFallback.dataset.src && !gifFallback.src) {
+      gifFallback.src = gifFallback.dataset.src;
+    }
+
+    muxFrame.dataset.playbackState = 'fallback';
+    showPlayButton();
+  }
+
+  function markPlaybackProgress(timer) {
+    if (!muxFrame) return;
+
+    window.clearTimeout(timer);
+    muxFrame.dataset.playbackState = 'playing';
+    hidePlayButton();
+  }
+
+  function requestManualPlayback(video) {
+    if (!muxFrame) return;
+
+    muxFrame.dataset.playbackState = 'loading';
+    hidePlayButton();
+
+    const manualTimer = window.setTimeout(showAnimatedFallback, AUTOPLAY_FALLBACK_DELAY);
+    video.muted = true;
+    video.playsInline = true;
+
+    const playAttempt = video.play();
+    if (playAttempt && typeof playAttempt.catch === 'function') {
+      playAttempt.catch(() => {
+        window.clearTimeout(manualTimer);
+        showAnimatedFallback();
+      });
+    }
+  }
+
+  function monitorMuxPlayback() {
+    if (!muxHero || !muxFrame) return;
+
+    const video = muxHero.shadowRoot?.querySelector('video');
+    let sawPlayback = false;
+    const fallbackTimer = window.setTimeout(() => {
+      if (!sawPlayback) showAnimatedFallback();
+    }, AUTOPLAY_FALLBACK_DELAY);
+
+    const markPlaying = () => {
+      sawPlayback = true;
+      markPlaybackProgress(fallbackTimer);
+    };
+
+    if (!video) {
+      window.clearTimeout(fallbackTimer);
+      showAnimatedFallback();
+      return;
+    }
+
+    if (video.currentTime > 0) {
+      markPlaying();
+      return;
+    }
+
+    const markFailure = () => {
+      window.clearTimeout(fallbackTimer);
+      showAnimatedFallback();
+    };
+    const handleTimeUpdate = () => {
+      if (video.currentTime > 0) {
+        video.removeEventListener('timeupdate', handleTimeUpdate);
+        video.removeEventListener('playing', handleTimeUpdate);
+        markPlaying();
+      }
+    };
+
+    video.addEventListener('playing', handleTimeUpdate);
+    video.addEventListener('timeupdate', handleTimeUpdate);
+    video.addEventListener('error', markFailure, { once: true });
+    playButton?.addEventListener('click', () => requestManualPlayback(video));
+  }
 
   function loadMuxEmbed() {
     if (globalThis.mux) return Promise.resolve();
@@ -160,7 +281,10 @@ if (isSvgFallback) {
   // infers the env key from the stream.mux.com URL.
   if (muxHero) {
     loadMuxEmbed().finally(() => {
-      import('@mux/mux-background-video/html');
+      import('@mux/mux-background-video/html')
+        .then(() => customElements.whenDefined('mux-background-video'))
+        .then(monitorMuxPlayback)
+        .catch(showAnimatedFallback);
     });
   }
 </script>
