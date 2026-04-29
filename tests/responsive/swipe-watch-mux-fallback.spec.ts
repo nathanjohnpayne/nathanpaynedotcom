@@ -6,7 +6,7 @@ test('Swipe Watch swaps to the Mux GIF fallback when the stream cannot autoplay'
   await page.route('https://stream.mux.com/**', (route) => route.abort());
   await page.goto('/projects/swipe-watch/');
 
-  const frame = page.locator('.project-screenshot__mux-frame');
+  const frame = page.locator('.project-screenshot__mux-shell');
   await expect(frame).toHaveAttribute('data-playback-state', 'fallback', { timeout: 7000 });
 
   const fallback = frame.locator('.project-screenshot__mux-gif-fallback');

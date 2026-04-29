@@ -100,28 +100,28 @@ if (isSvgFallback) {
 
 {playbackId ? (
   <>
-    <div
-      class="project-screenshot__mux-frame"
-      data-mux-hero
-      data-playback-state="loading"
-      role="img"
-      aria-label={altText}
-    >
-      <img
-        class="project-screenshot__mux-gif-fallback"
-        data-src={fallbackSrc}
-        alt=""
-        aria-hidden="true"
-        decoding="async"
-      />
-      <mux-background-video
-        src={streamSrc}
-        preload="auto"
-        class="project-screenshot__mux"
-        aria-hidden="true"
+    <div class="project-screenshot__mux-shell" data-mux-hero data-playback-state="loading">
+      <div
+        class="project-screenshot__mux-frame"
+        role="img"
+        aria-label={altText}
       >
-        <img class="project-screenshot__mux-poster" src={posterSrc} alt="" aria-hidden="true" />
-      </mux-background-video>
+        <img
+          class="project-screenshot__mux-gif-fallback"
+          data-src={fallbackSrc}
+          alt=""
+          aria-hidden="true"
+          decoding="async"
+        />
+        <mux-background-video
+          src={streamSrc}
+          preload="auto"
+          class="project-screenshot__mux"
+          aria-hidden="true"
+        >
+          <img class="project-screenshot__mux-poster" src={posterSrc} alt="" aria-hidden="true" />
+        </mux-background-video>
+      </div>
       <button
         class="project-screenshot__mux-play"
         type="button"
@@ -159,7 +159,7 @@ if (isSvgFallback) {
     }
   }
 
-  function showAnimatedFallback() {
+  function showAnimatedFallback(manualPlayAvailable = false) {
     if (!muxFrame || muxFrame.dataset.playbackState === 'playing') return;
 
     if (gifFallback instanceof HTMLImageElement && gifFallback.dataset.src && !gifFallback.src) {
@@ -167,7 +167,11 @@ if (isSvgFallback) {
     }
 
     muxFrame.dataset.playbackState = 'fallback';
-    showPlayButton();
+    if (manualPlayAvailable) {
+      showPlayButton();
+    } else {
+      hidePlayButton();
+    }
   }
 
   function markPlaybackProgress(timer) {
@@ -184,7 +188,7 @@ if (isSvgFallback) {
     muxFrame.dataset.playbackState = 'loading';
     hidePlayButton();
 
-    const manualTimer = window.setTimeout(showAnimatedFallback, AUTOPLAY_FALLBACK_DELAY);
+    const manualTimer = window.setTimeout(() => showAnimatedFallback(true), AUTOPLAY_FALLBACK_DELAY);
     video.muted = true;
     video.playsInline = true;
 
@@ -192,7 +196,7 @@ if (isSvgFallback) {
     if (playAttempt && typeof playAttempt.catch === 'function') {
       playAttempt.catch(() => {
         window.clearTimeout(manualTimer);
-        showAnimatedFallback();
+        showAnimatedFallback(true);
       });
     }
   }
@@ -203,7 +207,7 @@ if (isSvgFallback) {
     const video = muxHero.shadowRoot?.querySelector('video');
     let sawPlayback = false;
     const fallbackTimer = window.setTimeout(() => {
-      if (!sawPlayback) showAnimatedFallback();
+      if (!sawPlayback) showAnimatedFallback(true);
     }, AUTOPLAY_FALLBACK_DELAY);
 
     const markPlaying = () => {
@@ -213,7 +217,7 @@ if (isSvgFallback) {
 
     if (!video) {
       window.clearTimeout(fallbackTimer);
-      showAnimatedFallback();
+      showAnimatedFallback(false);
       return;
     }
 
@@ -224,7 +228,7 @@ if (isSvgFallback) {
 
     const markFailure = () => {
       window.clearTimeout(fallbackTimer);
-      showAnimatedFallback();
+      showAnimatedFallback(true);
     };
     const handleTimeUpdate = () => {
       if (video.currentTime > 0) {

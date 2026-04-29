@@ -203,11 +203,13 @@ describe('Project Pages — screenshot aspect variants', () => {
     expect(player.getAttribute('preload')).toBe('auto');
     expect(player.hasAttribute('max-resolution')).toBe(false);
 
-    const frame = document.querySelector('.project-screenshot__mux-frame[data-mux-hero]');
+    const frame = document.querySelector('.project-screenshot__mux-shell[data-mux-hero]');
     expect(frame, 'Swipe Watch mux frame not found').not.toBeNull();
     expect(frame.getAttribute('data-playback-state')).toBe('loading');
-    expect(frame.getAttribute('role')).toBe('img');
-    expect(frame.getAttribute('aria-label')).toBe('Swipe Watch product screenshot');
+
+    const mediaFrame = frame.querySelector('.project-screenshot__mux-frame');
+    expect(mediaFrame.getAttribute('role')).toBe('img');
+    expect(mediaFrame.getAttribute('aria-label')).toBe('Swipe Watch product screenshot');
 
     const gifFallback = frame.querySelector('.project-screenshot__mux-gif-fallback');
     expect(gifFallback, 'Swipe Watch Mux GIF fallback not found').not.toBeNull();
