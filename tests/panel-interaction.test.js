@@ -60,7 +60,7 @@ describe('Panel Interaction', () => {
     // hands off to the new panel. Wait for the fade to complete before
     // asserting the swap.
     projects.click();
-    await new Promise((resolve) => setTimeout(resolve, 200));
+    await new Promise((resolve) => setTimeout(resolve, 700));
     expect(projects.classList.contains('is-open')).toBe(true);
     expect(about.classList.contains('is-open')).toBe(false);
   });
@@ -74,7 +74,7 @@ describe('Panel Interaction', () => {
     // machine: content fades out first (--motion-fast ≈ 130ms), then
     // is-open is removed.
     document.body.click();
-    await new Promise((resolve) => setTimeout(resolve, 200));
+    await new Promise((resolve) => setTimeout(resolve, 700));
     expect(panel.classList.contains('is-open')).toBe(false);
   });
 

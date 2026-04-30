@@ -350,6 +350,14 @@ const homepageJsonLd = {
       const mobile = () => matchesQuery('(max-width: 1023px)');
 
       function readMsToken(name, fallback) {
+        // prefers-reduced-motion zeroes CSS transition durations via the
+        // universal `* { transition-duration: 0 }` rule. The state
+        // machine drives content reveal off setTimeout, so without
+        // mirroring that here, reduced-motion users would sit through
+        // delayed phase transitions with no visible motion. Return 0 so
+        // every phase completes synchronously. (#314, Codex CLI P2
+        // finding from nathanpayne-codex)
+        if (matchesQuery('(prefers-reduced-motion: reduce)')) return 0;
         const raw = getComputedStyle(grid).getPropertyValue(name).trim();
         if (!raw) return fallback;
         if (raw.endsWith('ms')) return parseFloat(raw) || fallback;
@@ -388,6 +396,14 @@ const homepageJsonLd = {
       // immediately opens B before A's morph completes). Each phase
       // checks its captured token against the current one.
       let transitionToken = 0;
+      // Brief, cancellable close delay so a normal cursor move from one
+      // panel to another doesn't flash through `closing` before the
+      // direct-switch shortcut in mouseleave can fire. Tuned short — long
+      // enough to bridge a single mouseenter event hop, short enough that
+      // a true cursor exit (to the dark grid background) still closes
+      // promptly. (#314, Codex CLI P1 finding)
+      const leaveDelay = 80;
+      let leaveTimer = null;
 
       function resolveHoverTarget() {
         if (!canHover()) return;
@@ -423,11 +439,38 @@ const homepageJsonLd = {
         startClose(true);
       }
 
+      // Take the panel-label out of the keyboard tab order and a11y
+      // tree while its panel is open. Visually the label is opacity 0,
+      // but without these flags a keyboard user could still Tab onto an
+      // invisible button. (#314, Codex CLI P3 finding) The original
+      // tabindex / aria values are stashed so we can restore them on
+      // close even if the markup conventions change in the future.
+      function hideLabel(panel) {
+        const label = panel.querySelector('.panel-label');
+        if (!label) return;
+        if (label.dataset.tabindexRestore === undefined) {
+          label.dataset.tabindexRestore = label.getAttribute('tabindex') || '';
+        }
+        label.setAttribute('tabindex', '-1');
+        label.setAttribute('aria-hidden', 'true');
+      }
+      function showLabel(panel) {
+        const label = panel.querySelector('.panel-label');
+        if (!label) return;
+        const restore = label.dataset.tabindexRestore;
+        if (restore !== undefined) {
+          if (restore === '') label.removeAttribute('tabindex');
+          else label.setAttribute('tabindex', restore);
+        }
+        label.removeAttribute('aria-hidden');
+      }
+
       function startOpen(panel, replayHover) {
         const token = ++transitionToken;
         state = 'opening';
         active = panel;
         panel.classList.add('is-open');
+        hideLabel(panel);
         grid.dataset.focus = panel.dataset.panel;
         // After the grid morph settles, reveal content.
         setTimeout(() => {
@@ -450,8 +493,10 @@ const homepageJsonLd = {
           // morph the grid into its focus state. is-open transitions
           // colour; data-focus drives row/column tracks.
           prev.classList.remove('is-open');
+          showLabel(prev);
           active = nextPanel;
           nextPanel.classList.add('is-open');
+          hideLabel(nextPanel);
           grid.dataset.focus = nextPanel.dataset.panel;
           setTimeout(() => {
             if (token !== transitionToken) return;
@@ -474,6 +519,7 @@ const homepageJsonLd = {
           // Phase 2: tear down focus state — grid morphs back to rest,
           // panel colour returns to its base hue, label fades in.
           closing.classList.remove('is-open');
+          showLabel(closing);
           active = null;
           delete grid.dataset.focus;
           setTimeout(() => {
@@ -559,15 +605,38 @@ const homepageJsonLd = {
       panels.forEach((panel) => {
         // Hover paths go through the state-machine guard (requestPanel /
         // requestClose). While the grid is opening / switching / closing,
-        // hover events are ignored; the post-transition resolveHoverTarget
-        // re-checks the actual pointer location and acts on that.
+        // hover events are ignored; the post-transition
+        // resolveHoverTarget re-checks the actual pointer location.
         panel.addEventListener('mouseenter', () => {
           if (!canHover()) return;
+          // Cancel any pending close — cursor came back onto a panel
+          // before the leave-delay expired.
+          clearTimeout(leaveTimer);
           requestPanel(panel);
         });
-        panel.addEventListener('mouseleave', () => {
+        panel.addEventListener('mouseleave', (event) => {
           if (!canHover()) return;
-          requestClose();
+          // If the cursor is moving directly to another panel, treat it
+          // as a switch rather than a close-through-idle. mouseleave
+          // fires before the next panel's mouseenter, so without this
+          // shortcut the state machine would enter `closing`, ignore the
+          // subsequent requestPanel as a no-op, and only land on the
+          // target panel after the close fully unwinds. (#314, Codex CLI
+          // P1 finding from nathanpayne-codex)
+          const next = event.relatedTarget && event.relatedTarget.nodeType === 1
+            ? event.relatedTarget.closest('.panel')
+            : null;
+          if (next && next !== panel) {
+            clearTimeout(leaveTimer);
+            requestPanel(next);
+            return;
+          }
+          // Otherwise schedule a brief, cancellable close. If the cursor
+          // re-enters this panel (or any other panel) before the timer
+          // fires, the close is cancelled and we either stay open or
+          // switch — never a flash through idle.
+          clearTimeout(leaveTimer);
+          leaveTimer = setTimeout(() => requestClose(), leaveDelay);
         });
         panel.addEventListener('focusin', () => openPanel(panel));
         panel.addEventListener('focusout', (event) => {

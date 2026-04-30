@@ -3,14 +3,18 @@
 ### Key Design Decisions
 
 #### Mondrian Grid
-The `.mondrian` container is a 9-column × 9-row CSS Grid. Odd-numbered tracks are `var(--line)` (9px desktop / 6px mobile) — they render as the black dividing lines of the composition. Even-numbered tracks hold panels and decorative blocks.
+The `.mondrian` container is a 9-column × 9-row CSS Grid. Odd-numbered tracks are `var(--line)` (9px desktop / 6px stack-mode) — they render as the black dividing lines of the composition. Even-numbered tracks hold panels and decorative blocks.
 
-When a panel is focused, JavaScript sets `data-focus="<panel-name>"` on the grid container. CSS defines a separate `grid-template-columns` + `grid-template-rows` for each `data-focus` value, and the transition (`--motion-plane: 280ms` with `--ease-sharp`) animates between them.
+When a panel is focused, JavaScript sets `data-focus="<panel-name>"` on the grid container. CSS defines a separate `grid-template-columns` + `grid-template-rows` for each `data-focus` value, and the transition (`--motion-plane: 460ms` with `--ease-standard`) animates between them — bumped from `280ms / --ease-sharp` in #313 / #314 so the row/column re-flow reads as a deliberate composition shift instead of a snap.
+
+Animated `grid-template-rows` values use only explicit, interpolable lengths (`px`, `rem`, `fr`, `calc()` of those, `minmax()` of those). No `auto` tracks during animation — `auto` snaps when the spanning content's flow contribution changes, which produces visible 0-length frames on close. Each panel's natural content height is measured in JS at page load (after fonts settle) and on resize, then exposed as `--cell-h-{about,projects,community,connect}` on `.mondrian`. The focus-state CSS consumes those custom properties via `calc()`. See `measureContentHeights()` in `src/pages/index.astro` and the `--cell-h-*` consumers in `src/styles/global.css`.
 
 #### Panel Interaction Model
-- **Desktop (hover + fine pointer):** `mouseenter` opens immediately; `mouseleave` schedules close after 120ms to prevent flicker.
-- **Keyboard:** `Enter`/`Space` opens; `Escape` closes. `focusin`/`focusout` manage state.
-- **Mobile (≤ 920px):** All interactions are disabled. Panels stack vertically with content always visible. The `mobile()` media-query check gates every interaction handler.
+- **Desktop (hover + fine pointer):** Hover goes through an interaction state machine (`idle` → `opening` → `open` → `switching` → `closing`). `mouseenter` requests open via `requestPanel()`; while a morph is in progress, hover events are ignored. After `--motion-plane` settles, `document.elementFromPoint(lastMoveX, lastMoveY)` re-resolves the cursor's actual target. `mouseleave` checks `event.relatedTarget` first — if the cursor is moving directly to another panel, it triggers a switch instead of closing through `idle`. Otherwise a brief, cancellable close timer fires (`leaveDelay = 80ms`). See `src/pages/index.astro` for the full state machine and #314 for the choreography spec.
+- **Geometry vs content reveal:** `data-focus` and `is-open` drive the grid morph and cream surface. A separate `is-content-visible` class (added late in the open sequence, removed early on close) drives the text fade via opacity/visibility/pointer-events — never `display: none/block`, so the fade actually transitions.
+- **Keyboard:** `Enter`/`Space` opens; `Escape` closes. `focusin`/`focusout` manage state. Click/keyboard/focus paths bypass the state-machine guard so deliberate user intent always works, including mid-morph. They pass `replayHover = false` so the post-morph re-resolve doesn't switch away from a deliberately-opened panel.
+- **Reduced motion:** `prefers-reduced-motion: reduce` zeros all CSS transition durations *and* short-circuits the JS state-machine timers (`readMsToken` returns `0` when the query matches), so reduced-motion users see state changes immediately rather than sitting through invisible delays.
+- **Stack mode (≤ 1023px, below `--bp-stack`):** All interactions are disabled. Panels stack vertically with content always visible. The mobile-stack `panel-content` rules in `global.css` restore `opacity: 1; visibility: visible` so the readable stack always renders content (the desktop base rule keeps it hidden for the fade-in choreography). The `mobile()` media-query check gates every interaction handler.
 
 #### Build Step
 The site uses Astro to generate static HTML into `dist/`. Run `npm run build` before deploying. The dev server (`npm run dev`) provides HMR for local development. Do not introduce additional frameworks or client-side runtimes without explicit discussion.

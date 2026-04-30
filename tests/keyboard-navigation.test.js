@@ -80,7 +80,7 @@ describe('Keyboard Navigation', () => {
     // Close runs through the state machine (#313): content fades out
     // (--motion-fast ≈ 130ms) before is-open is removed.
     panel.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
-    await new Promise((resolve) => setTimeout(resolve, 200));
+    await new Promise((resolve) => setTimeout(resolve, 700));
     expect(panel.classList.contains('is-open')).toBe(false);
   });
 
@@ -90,7 +90,7 @@ describe('Keyboard Navigation', () => {
     expect(panel.classList.contains('is-open')).toBe(true);
 
     document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
-    await new Promise((resolve) => setTimeout(resolve, 200));
+    await new Promise((resolve) => setTimeout(resolve, 700));
     expect(panel.classList.contains('is-open')).toBe(false);
   });
 
@@ -109,7 +109,7 @@ describe('Keyboard Navigation', () => {
     // (#313) fades content first (--motion-fast ≈ 130ms) before
     // removing is-open.
     panel.dispatchEvent(new FocusEvent('focusout', { bubbles: true, relatedTarget: document.body }));
-    await new Promise((resolve) => setTimeout(resolve, 200));
+    await new Promise((resolve) => setTimeout(resolve, 700));
     expect(panel.classList.contains('is-open')).toBe(false);
   });
 });
