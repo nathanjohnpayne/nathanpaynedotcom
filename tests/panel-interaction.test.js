@@ -17,7 +17,7 @@ function setupDOM() {
   Object.defineProperty(window, 'matchMedia', {
     writable: true,
     value: vi.fn((query) => ({
-      matches: query === '(hover: hover) and (pointer: fine)' ? true : !query.includes('max-width: 920px'),
+      matches: query === '(hover: hover) and (pointer: fine)' ? true : !query.includes('max-width: 1023px'),
       media: query,
       addEventListener: vi.fn(),
       removeEventListener: vi.fn(),
@@ -48,25 +48,33 @@ describe('Panel Interaction', () => {
     expect(document.getElementById('mondrian').dataset.focus).toBe('about');
   });
 
-  it('only one panel is expanded at a time', () => {
+  it('only one panel is expanded at a time', async () => {
     const about = document.querySelector('[data-panel="about"]');
     const projects = document.querySelector('[data-panel="projects"]');
 
     about.click();
     expect(about.classList.contains('is-open')).toBe(true);
 
+    // Switching from one panel to another runs through the state machine
+    // (#313): content fades out (--motion-fast ≈ 130ms) before is-open
+    // hands off to the new panel. Wait for the fade to complete before
+    // asserting the swap.
     projects.click();
+    await new Promise((resolve) => setTimeout(resolve, 700));
     expect(projects.classList.contains('is-open')).toBe(true);
     expect(about.classList.contains('is-open')).toBe(false);
   });
 
-  it('clicking outside panels collapses the active panel', () => {
+  it('clicking outside panels collapses the active panel', async () => {
     const panel = document.querySelector('[data-panel="about"]');
     panel.click();
     expect(panel.classList.contains('is-open')).toBe(true);
 
-    // Click on body (outside panels)
+    // Click on body (outside panels). Close runs through the state
+    // machine: content fades out first (--motion-fast ≈ 130ms), then
+    // is-open is removed.
     document.body.click();
+    await new Promise((resolve) => setTimeout(resolve, 700));
     expect(panel.classList.contains('is-open')).toBe(false);
   });
 
@@ -82,7 +90,7 @@ describe('Panel Interaction', () => {
     Object.defineProperty(window, 'matchMedia', {
       writable: true,
       value: vi.fn((query) => ({
-        matches: query.includes('max-width: 920px') ? true : false,
+        matches: query.includes('max-width: 1023px') ? true : false,
         media: query,
         addEventListener: vi.fn(),
         removeEventListener: vi.fn(),

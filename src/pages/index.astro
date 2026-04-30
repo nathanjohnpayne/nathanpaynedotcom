@@ -325,64 +325,328 @@ const homepageJsonLd = {
       if (!grid) return;
 
       const panels = Array.from(grid.querySelectorAll('.panel'));
-      const leaveDelay = 120;
-      let active = null;
-      let leaveTimer = null;
+
+      // Track cursor position so we can re-resolve what's under the
+      // pointer after a grid morph completes (#313). lastMoveX/Y are
+      // updated only on real cursor movement so phantom mouseenter
+      // events (panel shifting under a stationary cursor) leave the
+      // values where they were.
+      let lastMoveX = null;
+      let lastMoveY = null;
+      document.addEventListener('mousemove', (event) => {
+        lastMoveX = event.clientX;
+        lastMoveY = event.clientY;
+      }, { passive: true });
 
       // Feature-detect matchMedia so the script doesn't throw in
       // environments without it (jsdom under vitest, very old UAs).
-      // All media-query checks below funnel through this helper.
       const matchesQuery = (q) => (typeof window.matchMedia === 'function' ? window.matchMedia(q).matches : false);
       const canHover = () => matchesQuery('(hover: hover) and (pointer: fine)');
-      const mobile = () => matchesQuery('(max-width: 920px)');
+      // Below --bp-stack (1024px) the page renders the vertical stack
+      // and panel interactions are disabled — the stack already shows
+      // all content. Kept in sync with the @media (max-width: 1023px)
+      // block in src/styles/global.css and the matchMedia string
+      // asserted in tests/responsive-layout.test.js. Issue #313.
+      const mobile = () => matchesQuery('(max-width: 1023px)');
 
+      function readMsToken(name, fallback) {
+        // prefers-reduced-motion zeroes CSS transition durations via the
+        // universal `* { transition-duration: 0 }` rule. The state
+        // machine drives content reveal off setTimeout, so without
+        // mirroring that here, reduced-motion users would sit through
+        // delayed phase transitions with no visible motion. Return 0 so
+        // every phase completes synchronously. (#314, Codex CLI P2
+        // finding from nathanpayne-codex)
+        if (matchesQuery('(prefers-reduced-motion: reduce)')) return 0;
+        const raw = getComputedStyle(grid).getPropertyValue(name).trim();
+        if (!raw) return fallback;
+        if (raw.endsWith('ms')) return parseFloat(raw) || fallback;
+        if (raw.endsWith('s')) return (parseFloat(raw) || fallback / 1000) * 1000;
+        return parseFloat(raw) || fallback;
+      }
+
+      // Interaction state machine (#313). Decouples geometry from content
+      // reveal so the user perceives one intentional Mondrian
+      // rearrangement instead of implementation states (blank cream
+      // surfaces, content popping in mid-morph).
+      //
+      //   idle     : no panel open. Hover armed.
+      //   opening  : grid morphing to the chosen panel. Content not yet
+      //              visible. Hover suppressed; intent queued.
+      //   open     : morph done; content visible. Hover armed for switch.
+      //   switching: previous panel's content fading out, then grid
+      //              morphs from one focus state to the next, then new
+      //              panel's content fades in. Hover suppressed.
+      //   closing  : current panel's content fading out, then grid
+      //              morphing back to rest. Hover suppressed.
+      //
+      // Hover events that arrive while the state is anything other than
+      // `idle` or `open` are queued (we just remember the cursor's last
+      // position via the mousemove listener above). Whenever a transient
+      // state lands in idle or open, we re-resolve the target via
+      // document.elementFromPoint(lastMoveX, lastMoveY) and act on the
+      // pointer's *current* location — not on a stale mouseenter.
+      //
+      // Click / keyboard / focus paths bypass the state guard because
+      // they're deliberate user intent.
+      let state = 'idle';
+      let active = null;
+      // transitionToken invalidates stale setTimeout callbacks when a
+      // new transition starts mid-flight (e.g. user opens A, then
+      // immediately opens B before A's morph completes). Each phase
+      // checks its captured token against the current one.
+      let transitionToken = 0;
+      // Brief, cancellable close delay so a normal cursor move from one
+      // panel to another doesn't flash through `closing` before the
+      // direct-switch shortcut in mouseleave can fire. Tuned short — long
+      // enough to bridge a single mouseenter event hop, short enough that
+      // a true cursor exit (to the dark grid background) still closes
+      // promptly. (#314, Codex CLI P1 finding)
+      const leaveDelay = 80;
+      let leaveTimer = null;
+
+      function resolveHoverTarget() {
+        if (!canHover()) return;
+        if (lastMoveX === null || lastMoveY === null) return;
+        const target = document.elementFromPoint(lastMoveX, lastMoveY);
+        const panel = target ? target.closest('.panel') : null;
+        if (panel) {
+          if (panel !== active) requestPanel(panel);
+        } else if (active) {
+          requestClose();
+        }
+      }
+
+      function requestPanel(panel) {
+        if (mobile()) return;
+        if (panel === active) return;
+        if (state === 'opening' || state === 'switching' || state === 'closing') return;
+        // Hover-driven path: pass `replayHover = true` so the post-morph
+        // settle re-checks elementFromPoint. That's the wobble-killing
+        // dance for hover. Click / keyboard / focus take the openPanel
+        // entry point and pass false — replaying hover after a deliberate
+        // explicit-intent open could otherwise switch away from the
+        // panel the user just chose if the cursor happens to be over a
+        // different one. (#313, P2 finding from Codex review)
+        if (active) startSwitch(panel, true);
+        else startOpen(panel, true);
+      }
+
+      function requestClose() {
+        if (mobile()) return;
+        if (state !== 'open') return;
+        if (!active) return;
+        startClose(true);
+      }
+
+      // Take the panel-label out of the keyboard tab order and a11y
+      // tree while its panel is open. Visually the label is opacity 0,
+      // but without these flags a keyboard user could still Tab onto an
+      // invisible button. (#314, Codex CLI P3 finding) The original
+      // tabindex / aria values are stashed so we can restore them on
+      // close even if the markup conventions change in the future.
+      function hideLabel(panel) {
+        const label = panel.querySelector('.panel-label');
+        if (!label) return;
+        if (label.dataset.tabindexRestore === undefined) {
+          label.dataset.tabindexRestore = label.getAttribute('tabindex') || '';
+        }
+        label.setAttribute('tabindex', '-1');
+        label.setAttribute('aria-hidden', 'true');
+      }
+      function showLabel(panel) {
+        const label = panel.querySelector('.panel-label');
+        if (!label) return;
+        const restore = label.dataset.tabindexRestore;
+        if (restore !== undefined) {
+          if (restore === '') label.removeAttribute('tabindex');
+          else label.setAttribute('tabindex', restore);
+        }
+        label.removeAttribute('aria-hidden');
+      }
+
+      function startOpen(panel, replayHover) {
+        const token = ++transitionToken;
+        state = 'opening';
+        active = panel;
+        panel.classList.add('is-open');
+        hideLabel(panel);
+        grid.dataset.focus = panel.dataset.panel;
+        // After the grid morph settles, reveal content.
+        setTimeout(() => {
+          if (token !== transitionToken) return;
+          panel.classList.add('is-content-visible');
+          state = 'open';
+          if (replayHover) resolveHoverTarget();
+        }, readMsToken('--motion-plane', 460));
+      }
+
+      function startSwitch(nextPanel, replayHover) {
+        const token = ++transitionToken;
+        const prev = active;
+        state = 'switching';
+        // Phase 1: fade previous content out.
+        prev.classList.remove('is-content-visible');
+        setTimeout(() => {
+          if (token !== transitionToken) return;
+          // Phase 2: hand off the cream surface to the next panel and
+          // morph the grid into its focus state. is-open transitions
+          // colour; data-focus drives row/column tracks.
+          prev.classList.remove('is-open');
+          showLabel(prev);
+          active = nextPanel;
+          nextPanel.classList.add('is-open');
+          hideLabel(nextPanel);
+          grid.dataset.focus = nextPanel.dataset.panel;
+          setTimeout(() => {
+            if (token !== transitionToken) return;
+            // Phase 3: fade the new content in once the grid is settled.
+            nextPanel.classList.add('is-content-visible');
+            state = 'open';
+            if (replayHover) resolveHoverTarget();
+          }, readMsToken('--motion-plane', 460));
+        }, readMsToken('--motion-fast', 130));
+      }
+
+      function startClose(replayHover) {
+        const token = ++transitionToken;
+        const closing = active;
+        state = 'closing';
+        // Phase 1: fade content out first.
+        closing.classList.remove('is-content-visible');
+        setTimeout(() => {
+          if (token !== transitionToken) return;
+          // Phase 2: tear down focus state — grid morphs back to rest,
+          // panel colour returns to its base hue, label fades in.
+          closing.classList.remove('is-open');
+          showLabel(closing);
+          active = null;
+          delete grid.dataset.focus;
+          setTimeout(() => {
+            if (token !== transitionToken) return;
+            state = 'idle';
+            if (replayHover) resolveHoverTarget();
+          }, readMsToken('--motion-plane', 460));
+        }, readMsToken('--motion-fast', 130));
+      }
+
+      // Click / keyboard / focus open and close. These bypass the
+      // state-machine guard so deliberate user intent always works,
+      // and they pass `replayHover = false` so the post-morph settle
+      // does not re-resolve elementFromPoint and switch away from the
+      // panel the user just chose. (#313, Codex P2 finding)
       function openPanel(panel) {
         if (mobile()) return;
-        if (active === panel) return;
-
-        clearTimeout(leaveTimer);
-        if (active) active.classList.remove('is-open');
-
-        active = panel;
-        active.classList.add('is-open');
-        grid.dataset.focus = panel.dataset.panel;
+        if (panel === active) return;
+        if (active) startSwitch(panel, false);
+        else startOpen(panel, false);
       }
 
       function closePanel() {
         if (!active) return;
-        active.classList.remove('is-open');
-        active = null;
-        delete grid.dataset.focus;
+        startClose(false);
       }
 
-      function scheduleClose() {
-        clearTimeout(leaveTimer);
-        leaveTimer = setTimeout(closePanel, leaveDelay);
+      // Content-height measurement (#313). Animated grid-template-rows
+      // states use explicit, interpolable lengths instead of `auto` so
+      // the morph never goes through a 0-length frame when content loses
+      // its in-flow contribution. Each panel's natural content height is
+      // measured once on load (after fonts settle) and on resize, then
+      // exposed as `--cell-h-<panel>` for the focus-state CSS to consume.
+      // The measurement applies the actual focus state's data-focus +
+      // is-open + is-content-visible classes so column widths and content
+      // wrap match what the user will see.
+      function measureContentHeights() {
+        if (mobile()) return;
+        const restoredFocus = grid.dataset.focus;
+        const restoredActive = active;
+        const restoredVisible = restoredActive && restoredActive.classList.contains('is-content-visible');
+        // Suppress transitions during the measure pass so flickers don't
+        // hit first paint. See .mondrian.is-measuring in global.css.
+        grid.classList.add('is-measuring');
+        panels.forEach((panel) => {
+          const key = panel.dataset.panel;
+          const wasOpen = panel.classList.contains('is-open');
+          const wasVisible = panel.classList.contains('is-content-visible');
+          grid.dataset.focus = key;
+          panel.classList.add('is-open', 'is-content-visible');
+          void panel.offsetHeight;
+          const ci = panel.querySelector('.content-inner');
+          if (ci) {
+            grid.style.setProperty('--cell-h-' + key, Math.ceil(ci.scrollHeight) + 'px');
+          }
+          if (!wasOpen) panel.classList.remove('is-open');
+          if (!wasVisible) panel.classList.remove('is-content-visible');
+        });
+        if (restoredFocus) grid.dataset.focus = restoredFocus;
+        else delete grid.dataset.focus;
+        if (restoredActive) {
+          restoredActive.classList.add('is-open');
+          if (restoredVisible) restoredActive.classList.add('is-content-visible');
+        }
+        void grid.offsetHeight;
+        requestAnimationFrame(() => grid.classList.remove('is-measuring'));
       }
+
+      // Run after fonts load (heights depend on Cormorant Garamond's
+      // metrics) and re-run on resize because column widths in each
+      // focus state are fr-based and content reflows.
+      if (typeof document !== 'undefined' && document.fonts && document.fonts.ready) {
+        document.fonts.ready.then(measureContentHeights);
+      } else {
+        measureContentHeights();
+      }
+      let resizeTimer = null;
+      window.addEventListener('resize', () => {
+        clearTimeout(resizeTimer);
+        resizeTimer = setTimeout(measureContentHeights, 150);
+      });
 
       panels.forEach((panel) => {
+        // Hover paths go through the state-machine guard (requestPanel /
+        // requestClose). While the grid is opening / switching / closing,
+        // hover events are ignored; the post-transition
+        // resolveHoverTarget re-checks the actual pointer location.
         panel.addEventListener('mouseenter', () => {
           if (!canHover()) return;
-          openPanel(panel);
+          // Cancel any pending close — cursor came back onto a panel
+          // before the leave-delay expired.
+          clearTimeout(leaveTimer);
+          requestPanel(panel);
         });
-
-        panel.addEventListener('mouseleave', () => {
+        panel.addEventListener('mouseleave', (event) => {
           if (!canHover()) return;
-          scheduleClose();
+          // If the cursor is moving directly to another panel, treat it
+          // as a switch rather than a close-through-idle. mouseleave
+          // fires before the next panel's mouseenter, so without this
+          // shortcut the state machine would enter `closing`, ignore the
+          // subsequent requestPanel as a no-op, and only land on the
+          // target panel after the close fully unwinds. (#314, Codex CLI
+          // P1 finding from nathanpayne-codex)
+          const next = event.relatedTarget && event.relatedTarget.nodeType === 1
+            ? event.relatedTarget.closest('.panel')
+            : null;
+          if (next && next !== panel) {
+            clearTimeout(leaveTimer);
+            requestPanel(next);
+            return;
+          }
+          // Otherwise schedule a brief, cancellable close. If the cursor
+          // re-enters this panel (or any other panel) before the timer
+          // fires, the close is cancelled and we either stay open or
+          // switch — never a flash through idle.
+          clearTimeout(leaveTimer);
+          leaveTimer = setTimeout(() => requestClose(), leaveDelay);
         });
-
         panel.addEventListener('focusin', () => openPanel(panel));
-
         panel.addEventListener('focusout', (event) => {
-          if (!panel.contains(event.relatedTarget)) scheduleClose();
+          if (!panel.contains(event.relatedTarget)) closePanel();
         });
-
         panel.addEventListener('click', (event) => {
           if (event.target.closest('a')) return;
           if (mobile()) return;
           openPanel(panel);
         });
-
         panel.addEventListener('keydown', (event) => {
           if (event.key === 'Escape') closePanel();
           if (event.key === 'Enter' || event.key === ' ') {

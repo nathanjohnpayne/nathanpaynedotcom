@@ -16,7 +16,7 @@ function setupDOM() {
   Object.defineProperty(window, 'matchMedia', {
     writable: true,
     value: vi.fn((query) => ({
-      matches: query === '(hover: hover) and (pointer: fine)' ? true : !query.includes('max-width: 920px'),
+      matches: query === '(hover: hover) and (pointer: fine)' ? true : !query.includes('max-width: 1023px'),
       media: query,
       addEventListener: vi.fn(),
       removeEventListener: vi.fn(),
@@ -72,21 +72,25 @@ describe('Keyboard Navigation', () => {
     expect(spy).toHaveBeenCalled();
   });
 
-  it('Escape key on a panel collapses the active panel', () => {
+  it('Escape key on a panel collapses the active panel', async () => {
     const panel = document.querySelector('[data-panel="about"]');
     panel.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
     expect(panel.classList.contains('is-open')).toBe(true);
 
+    // Close runs through the state machine (#313): content fades out
+    // (--motion-fast ≈ 130ms) before is-open is removed.
     panel.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    await new Promise((resolve) => setTimeout(resolve, 700));
     expect(panel.classList.contains('is-open')).toBe(false);
   });
 
-  it('Escape key on document collapses the active panel', () => {
+  it('Escape key on document collapses the active panel', async () => {
     const panel = document.querySelector('[data-panel="community"]');
     panel.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
     expect(panel.classList.contains('is-open')).toBe(true);
 
     document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    await new Promise((resolve) => setTimeout(resolve, 700));
     expect(panel.classList.contains('is-open')).toBe(false);
   });
 
@@ -96,16 +100,16 @@ describe('Keyboard Navigation', () => {
     expect(panel.classList.contains('is-open')).toBe(true);
   });
 
-  it('focusout to a non-child element schedules close', () => {
-    vi.useFakeTimers();
+  it('focusout to a non-child element schedules close', async () => {
     const panel = document.querySelector('[data-panel="about"]');
     panel.dispatchEvent(new FocusEvent('focusin', { bubbles: true }));
     expect(panel.classList.contains('is-open')).toBe(true);
 
-    // Focus leaves to an element outside the panel
+    // Focus leaves to an element outside the panel. The state machine
+    // (#313) fades content first (--motion-fast ≈ 130ms) before
+    // removing is-open.
     panel.dispatchEvent(new FocusEvent('focusout', { bubbles: true, relatedTarget: document.body }));
-    vi.advanceTimersByTime(150);
+    await new Promise((resolve) => setTimeout(resolve, 700));
     expect(panel.classList.contains('is-open')).toBe(false);
-    vi.useRealTimers();
   });
 });

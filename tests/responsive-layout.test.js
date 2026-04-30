@@ -26,7 +26,7 @@ function setupDOM() {
   Object.defineProperty(window, 'matchMedia', {
     writable: true,
     value: vi.fn((query) => ({
-      matches: query === '(hover: hover) and (pointer: fine)' ? true : !query.includes('max-width: 920px'),
+      matches: query === '(hover: hover) and (pointer: fine)' ? true : !query.includes('max-width: 1023px'),
       media: query,
       addEventListener: vi.fn(),
       removeEventListener: vi.fn(),
@@ -55,8 +55,11 @@ describe('Responsive Layout', () => {
     expect(stage).not.toBeNull();
   });
 
-  it('CSS contains the 920px mobile breakpoint reference in inline script', () => {
-    expect(panelScript).toContain('920px');
+  it('CSS contains the 1023px stack-mode breakpoint reference in inline script', () => {
+    // The inline script's matchMedia('(max-width: 1023px)') guard must stay in
+    // sync with the @media (max-width: 1023px) block in global.css and the
+    // --bp-stack token (1024px) defined on :root. See #313.
+    expect(panelScript).toContain('1023px');
   });
 
   it('CSS uses clamp() for fluid typography', () => {
@@ -74,7 +77,7 @@ describe('Responsive Layout', () => {
     Object.defineProperty(window, 'matchMedia', {
       writable: true,
       value: vi.fn((query) => ({
-        matches: query.includes('max-width: 920px') ? true : false,
+        matches: query.includes('max-width: 1023px') ? true : false,
         media: query,
         addEventListener: vi.fn(),
         removeEventListener: vi.fn(),

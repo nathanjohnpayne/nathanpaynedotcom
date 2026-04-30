@@ -27,7 +27,7 @@ All cells transition to a warm parchment tone when opened.
 ```
 --motion-fast:           130ms  (metadata, dividers)
 --motion-hover:          170ms  (hover states)
---motion-plane:          280ms  (panel expand / grid morph, on-load settle)
+--motion-plane:          460ms  (panel expand / grid morph; bumped from 280ms in #313 for a smoother row/column re-flow that reduces hover wobble at row-line boundaries)
 --motion-load:           300ms  (section entrance)
 --pulse-initial-delay:   300ms  (delay before on-load pulse sequence fires; removed --motion-pulse in #306)
 --pulse-interval:        370ms  (time between successive panel pulse starts)
@@ -37,7 +37,7 @@ All cells transition to a warm parchment tone when opened.
 #### Motion — Easing
 ```
 --ease-standard: cubic-bezier(0.4, 0.0, 0.2, 1)   (hovers, general interaction)
---ease-sharp:    cubic-bezier(0.2, 0.8, 0.2, 1)    (panel/grid morph)
+--ease-sharp:    cubic-bezier(0.2, 0.8, 0.2, 1)    (reserved; not used by panel/grid morph after #313 / #314)
 --ease-linear:   linear                              (metadata, dividers)
 ```
 
@@ -56,8 +56,8 @@ All animation timing is governed by the motion tokens above. No hard-coded durat
 |------|----------|--------|------------|
 | Metadata / dividers | `--motion-fast` (130ms) | `--ease-linear` | Labels, ribbons, meta text |
 | Hover | `--motion-hover` (170ms) | `--ease-standard` | Social rows, icons, arrows, project links |
-| Panel morph | `--motion-plane` (280ms) | `--ease-sharp` | Mondrian grid transitions |
-| Settle on load | `--motion-plane` (280ms) | `--ease-standard` | Per-block entrance scale (Mondrian discoverability) |
+| Panel morph | `--motion-plane` (460ms) | `--ease-standard` | Mondrian grid transitions (bumped from 280ms / `--ease-sharp` in #313) |
+| Settle on load | (superseded by panel-pulse, #305) | — | Was `--motion-plane` + `--ease-standard`; replaced by the on-load pulse below |
 | Section load | `--motion-load` (300ms) | `--ease-standard` | Entrance animations |
 | On-load pulse (delay) | `--pulse-initial-delay` (300ms) | n/a | Pause after label fade-in before sequence fires (#306) |
 | On-load pulse (interval) | `--pulse-interval` (370ms) | n/a | Time between successive panel pulse starts |
@@ -111,7 +111,7 @@ Static assets (favicons, robots.txt, OG fonts) live in `public/` and are copied 
 - **Motion system:** All durations use `--motion-fast` / `--motion-hover` / `--motion-plane` / `--motion-load`. All easing uses `--ease-standard` / `--ease-sharp` / `--ease-linear`. Translation magnitude uses `--shift-small` / `--shift-medium`. No hard-coded `ms` values or bare `ease` keywords.
 - Homepage panel states are driven by `data-focus` attribute on the grid container. CSS defines `grid-template-columns` + `grid-template-rows` for each `data-focus` value.
 - Fluid sizing via `clamp()`; no fixed-breakpoint font overrides.
-- Single responsive breakpoint at `max-width: 920px`.
+- Homepage stack breakpoint at `@media (max-width: 1023px)` (token: `--bp-stack: 1024px`); see #313 / #314 for the move from the prior 920px and the wide-viewport `--mondrian-max-width: 1280px` cap.
 - Respect `prefers-reduced-motion: reduce` — universal `*` selector zeroes all transition/animation durations.
 - Use `:focus-visible` (not `:focus`) for keyboard outlines.
 

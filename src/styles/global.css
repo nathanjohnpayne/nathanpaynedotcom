@@ -30,7 +30,15 @@
 
   --motion-fast: 130ms;
   --motion-hover: 170ms;
-  --motion-plane: 280ms;
+  /* Mondrian grid morph (#313). Bumped from 280ms to 460ms in #313 so the
+     row/column re-flow when a panel opens reads as a deliberate composition
+     change instead of a snap, and so cursor crossings near a row-line
+     boundary have more time to settle in their target panel before the
+     dwell-time guard fires. Pairs with --ease-standard rather than the
+     prior --ease-sharp for a smoother in/out feel. The on-load settle was
+     superseded by the panel-pulse system (#305), so --motion-plane is now
+     used only by the .mondrian grid transition. */
+  --motion-plane: 460ms;
   --motion-load: 300ms;
 
   /* Spec-locked motion for the on-load discoverability pulse (#305)
@@ -58,6 +66,19 @@
 
   --shift-small: 2px;
   --shift-medium: 3px;
+
+  /* Breakpoint scale (#313).
+     The site historically used a single 920px breakpoint plus ad-hoc 480px /
+     768px values per page. Defining a shared scale here so the homepage
+     Mondrian-to-stack swap (--bp-stack) and the wide-viewport Mondrian width
+     cap (--mondrian-max-width) are both authored from one source. Tailwind-
+     adjacent values were chosen to match common device classes: tablet-portrait
+     and phone-landscape (≤956px) fall below --bp-stack, tablet-landscape and
+     up render the Mondrian composition. Per-page deviations from this scale
+     (project hero / blog grid still use 480 + 768) are tracked as follow-up
+     issues — see the PR description for #313. */
+  --bp-stack: 1024px;
+  --mondrian-max-width: 1280px;
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -79,7 +100,11 @@ html, body {
 
 .mondrian {
   position: relative;
-  width: min(95vw, 95vh);
+  /* Width cap (#313): below --mondrian-max-width the composition uses 95% of
+     the smaller viewport dimension, matching the prior min(95vw, 95vh) feel.
+     Above the cap, the composition centers within the .stage (via place-items:
+     center on .stage) with symmetric gutters on both sides. */
+  width: min(95vw, 95vh, var(--mondrian-max-width));
   aspect-ratio: 1 / 1;
   display: grid;
   grid-template-columns:
@@ -95,10 +120,45 @@ html, body {
   background: var(--black);
   border: 1px solid var(--grid-border);
   overflow: hidden;
+  /* Grid morph (#313). The interaction state machine in
+     src/pages/index.astro orders the phases (content fade → grid morph
+     on close; grid morph → content fade on open), so this transition
+     can be symmetric. */
   transition:
-    grid-template-columns var(--motion-plane) var(--ease-sharp),
-    grid-template-rows var(--motion-plane) var(--ease-sharp);
+    grid-template-columns var(--motion-plane) var(--ease-standard),
+    grid-template-rows var(--motion-plane) var(--ease-standard);
 }
+
+/* Focus-state grid templates (#313, #314). Each grid-template-rows entry
+   uses explicit lengths so transitions interpolate smoothly between
+   states — no `auto` tracks that would snap to/from intrinsic sizing on
+   rule change. The custom properties --cell-h-{about,projects,community,
+   connect} are set in JS at page load (and on resize) by measuring each
+   panel's actual content height in its focus state; see
+   measureContentHeights() in src/pages/index.astro. The fallbacks below
+   are reasonable defaults for first paint before measurement runs.
+
+   ── Absorbed helper tracks (consistent across focus states, #314) ──
+
+   Bio (about) and Vibe Coding (projects) panels span tracks 2 / 3 / 4
+   (one content row + line 3 + a second content row); Community spans
+   tracks 6 / 7 / 8; Connect spans track 8 only.
+
+   For the multi-row spanning panels, the spanning panel's full content
+   height collapses into the FIRST content track, and the LINE-3 / LINE-7
+   track and the second content track collapse to 0. The boundary line
+   below the spanning panel (track 5 for about/projects, track 9 for
+   community) stays at `var(--line)`, so adjacent columns see exactly
+   one normal-weight grid-line between the spanning panel and the row
+   below — never a leftover sliver of the absorbed helper track.
+
+   This was the consistency fix Codex CLI flagged (PR #315 P1, review
+   `pullrequestreview-4202225068`): the previous 0.5rem helper rows
+   produced visible thin strips in About-focus (under Vibe Coding)
+   because Vibe Coding stayed at row 2 and didn't absorb track 4, while
+   in Projects-focus Vibe Coding spanned 2/5 and did absorb it. The
+   cleanest fix is to do the absorption uniformly in the grid template
+   rather than asking each non-spanning column to opt into expansion. */
 
 .mondrian[data-focus="about"] {
   grid-template-columns:
@@ -107,10 +167,15 @@ html, body {
     minmax(3.75rem, 0.82fr) var(--line)
     minmax(4.8rem, 1.08fr) var(--line);
   grid-template-rows:
-    var(--line) minmax(11rem, 3.55fr) var(--line)
-    minmax(2.8rem, 0.92fr) var(--line)
-    minmax(2rem, 0.6fr) var(--line)
-    minmax(3.4rem, 0.95fr) var(--line);
+    var(--line)
+    var(--cell-h-about, 547px) /* track 2 — bio cell */
+    0                          /* track 3 — line absorbed (inside bio) */
+    0                          /* track 4 — absorbed */
+    var(--line)                /* track 5 — single line below bio */
+    minmax(2rem, 0.6fr)
+    var(--line)
+    minmax(3.4rem, 0.95fr)
+    var(--line);
 }
 
 .mondrian[data-focus="projects"] {
@@ -120,10 +185,15 @@ html, body {
     minmax(6.8rem, 2.55fr) var(--line)
     minmax(8rem, 3.45fr) var(--line);
   grid-template-rows:
-    var(--line) minmax(10rem, 3.55fr) var(--line)
-    minmax(2.4rem, 0.78fr) var(--line)
-    minmax(1.6rem, 0.52fr) var(--line)
-    minmax(2.8rem, 0.78fr) var(--line);
+    var(--line)
+    var(--cell-h-projects, 676px) /* track 2 — Vibe Coding cell */
+    0                             /* track 3 — line absorbed (inside Vibe Coding) */
+    0                             /* track 4 — absorbed */
+    var(--line)                   /* track 5 — single line below Vibe Coding */
+    minmax(1.6rem, 0.52fr)
+    var(--line)
+    minmax(2.8rem, 0.78fr)
+    var(--line);
 }
 
 .mondrian[data-focus="projects"] .panel--yellow {
@@ -137,10 +207,15 @@ html, body {
     minmax(3.75rem, 0.72fr) var(--line)
     minmax(4.8rem, 1.18fr) var(--line);
   grid-template-rows:
-    var(--line) minmax(5.5rem, 0.88fr) var(--line)
-    minmax(2.75rem, 0.75fr) var(--line)
-    minmax(3.25rem, 1.04fr) var(--line)
-    minmax(8.8rem, 3.7fr) var(--line);
+    var(--line)
+    minmax(5.5rem, 0.88fr)
+    var(--line)
+    minmax(2.75rem, 0.75fr)
+    var(--line)                       /* track 5 — single line above community */
+    var(--cell-h-community, 401px)    /* track 6 — community cell */
+    0                                 /* track 7 — line absorbed (inside community) */
+    0                                 /* track 8 — absorbed */
+    var(--line);                      /* track 9 — bottom boundary */
 }
 
 .mondrian[data-focus="connect"] {
@@ -153,8 +228,52 @@ html, body {
     var(--line) minmax(6.2rem, 1.1fr) var(--line)
     minmax(3.1rem, 0.95fr) var(--line)
     minmax(2.85rem, 0.9fr) var(--line)
-    minmax(9.4rem, 3.3fr) var(--line);
+    var(--cell-h-connect, 423px) var(--line);
 }
+
+/* Disable transitions while the JS measure pass briefly toggles is-open
+   on each panel to read scrollHeight (#313). Without this guard the
+   measurement pass would trigger visible flickers of the cream surface
+   on first paint. */
+.mondrian.is-measuring,
+.mondrian.is-measuring .panel,
+.mondrian.is-measuring .panel-content,
+.mondrian.is-measuring .panel-label {
+  transition: none !important;
+}
+
+/* Open-state content surfaces (#313). The focused panel's
+   `panel-content` is taken out of absolute positioning so its content
+   contributes to the auto row tracks the panel spans. Scoped by
+   `is-open` (set as soon as the open transition starts) so the content
+   stays in flow throughout the morph — preventing the auto rows from
+   collapsing to 0 in a single frame when the panel finally hides.
+   The actual visibility of the content (the cream-on-cream text fade)
+   is governed independently by `is-content-visible` below.
+
+   Rest state (no panel open) has no override: panel-content is
+   absolute-positioned and visually hidden via opacity/visibility, so
+   the rest composition is unaffected. */
+.panel.is-open .panel-content {
+  position: relative;
+  inset: auto;
+}
+
+.panel.is-open .content-inner {
+  height: auto;
+  overflow: visible;
+}
+
+/* Wobble guard handled in JS (#313): the inline panel-interaction script
+   in src/pages/index.astro tracks recent mousemove events and rejects
+   `mouseenter` events that fire without a preceding cursor move. Those
+   phantom mouseenter events happen when a grid morph slides a panel under
+   a stationary cursor at the end of a transition — they look like the
+   user moved onto the panel, but they didn't. By gating openPanel on
+   "did the cursor actually move recently?" we get smooth hover-driven
+   navigation between sections without oscillation at row-line
+   boundaries. Clicks / focus / keyboard still bypass the guard because
+   they're deliberate intent. */
 
 .panel,
 .block {
@@ -165,6 +284,14 @@ html, body {
 .panel {
   z-index: 4;
   cursor: pointer;
+  /* Cream surface eases in/out together with the grid morph. The state
+     machine in src/pages/index.astro orders the phases (content fades
+     before the cream-to-base reversion on close; cream arrives with
+     the grid morph on open), so the CSS transition itself stays
+     symmetric. (#313) */
+  transition:
+    background-color var(--motion-plane) var(--ease-standard),
+    color var(--motion-plane) var(--ease-standard);
 }
 
 .block {
@@ -222,21 +349,45 @@ html[data-fonts-ready] .panel-label {
   max-width: 100%;
 }
 
+/* Content surface — always rendered so its opacity can transition
+   independently of the grid morph (#313). Visibility is governed by
+   the `is-content-visible` class on the panel, set/removed by the
+   interaction state machine in src/pages/index.astro:
+     - On open : added once `--motion-plane` has elapsed since the
+                 grid started morphing, so text only fades in over a
+                 settled cell.
+     - On close: removed first, before `is-open` and `data-focus`, so
+                 text fades out before the grid moves.
+   Opacity transitions in both directions use `--motion-fast`; the
+   close-then-morph and morph-then-open ordering is enforced in JS,
+   not via CSS transition-delay. */
 .panel-content {
   position: absolute;
   inset: 0;
   z-index: 4;
-  display: none;
+  opacity: 0;
+  visibility: hidden;
   pointer-events: none;
+  transition:
+    opacity var(--motion-fast) var(--ease-standard),
+    visibility 0s linear var(--motion-fast);
 }
 
-.panel.is-open .panel-content {
-  display: block;
+.panel.is-content-visible .panel-content {
+  opacity: 1;
+  visibility: visible;
   pointer-events: auto;
+  transition:
+    opacity var(--motion-fast) var(--ease-standard),
+    visibility 0s linear 0s;
 }
 
+/* Labels yield to content gracefully on open and return softly on
+   close. The base .panel-label transition handles the in direction at
+   --motion-hover; here we only flip opacity off when is-open. (#313) */
 .panel.is-open .panel-label {
-  display: none;
+  opacity: 0;
+  pointer-events: none;
 }
 
 .content-inner {
@@ -2159,7 +2310,7 @@ a.tag:hover {
 /* ── Blog Post: Mondrian "Composition with Margins" Canvas ────
    Three-column grid: accent margin | content | sticky sidebar.
    Grid lines created by --ink background showing through gaps.
-   Collapses to single column at ≤920px.
+   Collapses to single column at ≤1023px (--bp-stack, see #313).
 
    Structure:
      blog-canvas (grid container)
@@ -2995,12 +3146,18 @@ a:focus-visible {
 
 }
 
-@media (max-width: 920px) {
+@media (max-width: 1023px) {
   :root { --line: 6px; }
 
+  /* Vertical stack fills the viewport edge-to-edge below --bp-stack (#313).
+     Phone-landscape (e.g. iPhone Pro Max landscape, 956×440) and
+     tablet-portrait widths now render the readable stack rather than a
+     cramped Mondrian composition. The prior max-width: 820px cap created
+     gutters at widths just below the breakpoint; removed so the stack uses
+     the full viewport width. */
   .mondrian {
     width: 100%;
-    max-width: 820px;
+    max-width: none;
     aspect-ratio: auto;
     min-height: 100vh;
     grid-template-columns: var(--line) 1fr var(--line);
@@ -3010,6 +3167,12 @@ a:focus-visible {
       auto var(--line)
       auto var(--line);
     transition: none;
+  }
+
+  .stage {
+    /* Stack mode renders edge-to-edge; remove the .stage padding that creates
+       gutters around the .mondrian container. */
+    padding: 0;
   }
 
   .panel,
@@ -3024,14 +3187,24 @@ a:focus-visible {
 
   .panel-label { display: none; }
 
+  /* Stack mode renders all panel content statically — interactions are
+     disabled below --bp-stack so the is-content-visible state machine
+     never fires. The desktop base rule hides .panel-content via opacity /
+     visibility / pointer-events for the fade-in choreography (#314); the
+     stack-mode override below restores visibility unconditionally so the
+     readable stack actually shows its content. (#313, #314) */
   .panel-content {
     position: relative;
-    display: block;
     pointer-events: auto;
+    opacity: 1;
+    visibility: visible;
+    transition: none;
   }
 
   .content-inner {
     min-height: 220px;
+    height: auto;
+    overflow: visible;
   }
 
   .about-label,
@@ -3056,7 +3229,7 @@ a:focus-visible {
      wide enough but the stacked-mobile layout is not). Scale the headline
      fluidly with viewport width while keeping the nowrap so "Nathan Payne"
      stays a single line; clamp upper bound restores the desktop value at the
-     920px breakpoint. */
+     --bp-stack (1024px) breakpoint. */
   .panel--red .content-inner h1 {
     font-size: clamp(2.4rem, 9vw, 4rem);
   }
