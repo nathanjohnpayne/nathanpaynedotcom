@@ -3154,14 +3154,24 @@ a:focus-visible {
 
   .panel-label { display: none; }
 
+  /* Stack mode renders all panel content statically — interactions are
+     disabled below --bp-stack so the is-content-visible state machine
+     never fires. The desktop base rule hides .panel-content via opacity /
+     visibility / pointer-events for the fade-in choreography (#314); the
+     stack-mode override below restores visibility unconditionally so the
+     readable stack actually shows its content. (#313, #314) */
   .panel-content {
     position: relative;
-    display: block;
     pointer-events: auto;
+    opacity: 1;
+    visibility: visible;
+    transition: none;
   }
 
   .content-inner {
     min-height: 220px;
+    height: auto;
+    overflow: visible;
   }
 
   .about-label,

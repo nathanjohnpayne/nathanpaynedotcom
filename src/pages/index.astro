@@ -405,18 +405,25 @@ const homepageJsonLd = {
         if (mobile()) return;
         if (panel === active) return;
         if (state === 'opening' || state === 'switching' || state === 'closing') return;
-        if (active) startSwitch(panel);
-        else startOpen(panel);
+        // Hover-driven path: pass `replayHover = true` so the post-morph
+        // settle re-checks elementFromPoint. That's the wobble-killing
+        // dance for hover. Click / keyboard / focus take the openPanel
+        // entry point and pass false — replaying hover after a deliberate
+        // explicit-intent open could otherwise switch away from the
+        // panel the user just chose if the cursor happens to be over a
+        // different one. (#313, P2 finding from Codex review)
+        if (active) startSwitch(panel, true);
+        else startOpen(panel, true);
       }
 
       function requestClose() {
         if (mobile()) return;
         if (state !== 'open') return;
         if (!active) return;
-        startClose();
+        startClose(true);
       }
 
-      function startOpen(panel) {
+      function startOpen(panel, replayHover) {
         const token = ++transitionToken;
         state = 'opening';
         active = panel;
@@ -427,11 +434,11 @@ const homepageJsonLd = {
           if (token !== transitionToken) return;
           panel.classList.add('is-content-visible');
           state = 'open';
-          resolveHoverTarget();
+          if (replayHover) resolveHoverTarget();
         }, readMsToken('--motion-plane', 460));
       }
 
-      function startSwitch(nextPanel) {
+      function startSwitch(nextPanel, replayHover) {
         const token = ++transitionToken;
         const prev = active;
         state = 'switching';
@@ -451,12 +458,12 @@ const homepageJsonLd = {
             // Phase 3: fade the new content in once the grid is settled.
             nextPanel.classList.add('is-content-visible');
             state = 'open';
-            resolveHoverTarget();
+            if (replayHover) resolveHoverTarget();
           }, readMsToken('--motion-plane', 460));
         }, readMsToken('--motion-fast', 130));
       }
 
-      function startClose() {
+      function startClose(replayHover) {
         const token = ++transitionToken;
         const closing = active;
         state = 'closing';
@@ -472,25 +479,26 @@ const homepageJsonLd = {
           setTimeout(() => {
             if (token !== transitionToken) return;
             state = 'idle';
-            resolveHoverTarget();
+            if (replayHover) resolveHoverTarget();
           }, readMsToken('--motion-plane', 460));
         }, readMsToken('--motion-fast', 130));
       }
 
-      // Synchronous open/close used by click / keyboard paths. These
-      // bypass the state guard but still set up the same orchestration
-      // (content fade respects is-content-visible regardless of how
-      // active was set).
+      // Click / keyboard / focus open and close. These bypass the
+      // state-machine guard so deliberate user intent always works,
+      // and they pass `replayHover = false` so the post-morph settle
+      // does not re-resolve elementFromPoint and switch away from the
+      // panel the user just chose. (#313, Codex P2 finding)
       function openPanel(panel) {
         if (mobile()) return;
         if (panel === active) return;
-        if (active) startSwitch(panel);
-        else startOpen(panel);
+        if (active) startSwitch(panel, false);
+        else startOpen(panel, false);
       }
 
       function closePanel() {
         if (!active) return;
-        startClose();
+        startClose(false);
       }
 
       // Content-height measurement (#313). Animated grid-template-rows
