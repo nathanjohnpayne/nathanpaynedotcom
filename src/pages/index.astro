@@ -325,64 +325,251 @@ const homepageJsonLd = {
       if (!grid) return;
 
       const panels = Array.from(grid.querySelectorAll('.panel'));
-      const leaveDelay = 120;
-      let active = null;
-      let leaveTimer = null;
+
+      // Track cursor position so we can re-resolve what's under the
+      // pointer after a grid morph completes (#313). lastMoveX/Y are
+      // updated only on real cursor movement so phantom mouseenter
+      // events (panel shifting under a stationary cursor) leave the
+      // values where they were.
+      let lastMoveX = null;
+      let lastMoveY = null;
+      document.addEventListener('mousemove', (event) => {
+        lastMoveX = event.clientX;
+        lastMoveY = event.clientY;
+      }, { passive: true });
 
       // Feature-detect matchMedia so the script doesn't throw in
       // environments without it (jsdom under vitest, very old UAs).
-      // All media-query checks below funnel through this helper.
       const matchesQuery = (q) => (typeof window.matchMedia === 'function' ? window.matchMedia(q).matches : false);
       const canHover = () => matchesQuery('(hover: hover) and (pointer: fine)');
-      const mobile = () => matchesQuery('(max-width: 920px)');
+      // Below --bp-stack (1024px) the page renders the vertical stack
+      // and panel interactions are disabled — the stack already shows
+      // all content. Kept in sync with the @media (max-width: 1023px)
+      // block in src/styles/global.css and the matchMedia string
+      // asserted in tests/responsive-layout.test.js. Issue #313.
+      const mobile = () => matchesQuery('(max-width: 1023px)');
 
+      function readMsToken(name, fallback) {
+        const raw = getComputedStyle(grid).getPropertyValue(name).trim();
+        if (!raw) return fallback;
+        if (raw.endsWith('ms')) return parseFloat(raw) || fallback;
+        if (raw.endsWith('s')) return (parseFloat(raw) || fallback / 1000) * 1000;
+        return parseFloat(raw) || fallback;
+      }
+
+      // Interaction state machine (#313). Decouples geometry from content
+      // reveal so the user perceives one intentional Mondrian
+      // rearrangement instead of implementation states (blank cream
+      // surfaces, content popping in mid-morph).
+      //
+      //   idle     : no panel open. Hover armed.
+      //   opening  : grid morphing to the chosen panel. Content not yet
+      //              visible. Hover suppressed; intent queued.
+      //   open     : morph done; content visible. Hover armed for switch.
+      //   switching: previous panel's content fading out, then grid
+      //              morphs from one focus state to the next, then new
+      //              panel's content fades in. Hover suppressed.
+      //   closing  : current panel's content fading out, then grid
+      //              morphing back to rest. Hover suppressed.
+      //
+      // Hover events that arrive while the state is anything other than
+      // `idle` or `open` are queued (we just remember the cursor's last
+      // position via the mousemove listener above). Whenever a transient
+      // state lands in idle or open, we re-resolve the target via
+      // document.elementFromPoint(lastMoveX, lastMoveY) and act on the
+      // pointer's *current* location — not on a stale mouseenter.
+      //
+      // Click / keyboard / focus paths bypass the state guard because
+      // they're deliberate user intent.
+      let state = 'idle';
+      let active = null;
+      // transitionToken invalidates stale setTimeout callbacks when a
+      // new transition starts mid-flight (e.g. user opens A, then
+      // immediately opens B before A's morph completes). Each phase
+      // checks its captured token against the current one.
+      let transitionToken = 0;
+
+      function resolveHoverTarget() {
+        if (!canHover()) return;
+        if (lastMoveX === null || lastMoveY === null) return;
+        const target = document.elementFromPoint(lastMoveX, lastMoveY);
+        const panel = target ? target.closest('.panel') : null;
+        if (panel) {
+          if (panel !== active) requestPanel(panel);
+        } else if (active) {
+          requestClose();
+        }
+      }
+
+      function requestPanel(panel) {
+        if (mobile()) return;
+        if (panel === active) return;
+        if (state === 'opening' || state === 'switching' || state === 'closing') return;
+        if (active) startSwitch(panel);
+        else startOpen(panel);
+      }
+
+      function requestClose() {
+        if (mobile()) return;
+        if (state !== 'open') return;
+        if (!active) return;
+        startClose();
+      }
+
+      function startOpen(panel) {
+        const token = ++transitionToken;
+        state = 'opening';
+        active = panel;
+        panel.classList.add('is-open');
+        grid.dataset.focus = panel.dataset.panel;
+        // After the grid morph settles, reveal content.
+        setTimeout(() => {
+          if (token !== transitionToken) return;
+          panel.classList.add('is-content-visible');
+          state = 'open';
+          resolveHoverTarget();
+        }, readMsToken('--motion-plane', 460));
+      }
+
+      function startSwitch(nextPanel) {
+        const token = ++transitionToken;
+        const prev = active;
+        state = 'switching';
+        // Phase 1: fade previous content out.
+        prev.classList.remove('is-content-visible');
+        setTimeout(() => {
+          if (token !== transitionToken) return;
+          // Phase 2: hand off the cream surface to the next panel and
+          // morph the grid into its focus state. is-open transitions
+          // colour; data-focus drives row/column tracks.
+          prev.classList.remove('is-open');
+          active = nextPanel;
+          nextPanel.classList.add('is-open');
+          grid.dataset.focus = nextPanel.dataset.panel;
+          setTimeout(() => {
+            if (token !== transitionToken) return;
+            // Phase 3: fade the new content in once the grid is settled.
+            nextPanel.classList.add('is-content-visible');
+            state = 'open';
+            resolveHoverTarget();
+          }, readMsToken('--motion-plane', 460));
+        }, readMsToken('--motion-fast', 130));
+      }
+
+      function startClose() {
+        const token = ++transitionToken;
+        const closing = active;
+        state = 'closing';
+        // Phase 1: fade content out first.
+        closing.classList.remove('is-content-visible');
+        setTimeout(() => {
+          if (token !== transitionToken) return;
+          // Phase 2: tear down focus state — grid morphs back to rest,
+          // panel colour returns to its base hue, label fades in.
+          closing.classList.remove('is-open');
+          active = null;
+          delete grid.dataset.focus;
+          setTimeout(() => {
+            if (token !== transitionToken) return;
+            state = 'idle';
+            resolveHoverTarget();
+          }, readMsToken('--motion-plane', 460));
+        }, readMsToken('--motion-fast', 130));
+      }
+
+      // Synchronous open/close used by click / keyboard paths. These
+      // bypass the state guard but still set up the same orchestration
+      // (content fade respects is-content-visible regardless of how
+      // active was set).
       function openPanel(panel) {
         if (mobile()) return;
-        if (active === panel) return;
-
-        clearTimeout(leaveTimer);
-        if (active) active.classList.remove('is-open');
-
-        active = panel;
-        active.classList.add('is-open');
-        grid.dataset.focus = panel.dataset.panel;
+        if (panel === active) return;
+        if (active) startSwitch(panel);
+        else startOpen(panel);
       }
 
       function closePanel() {
         if (!active) return;
-        active.classList.remove('is-open');
-        active = null;
-        delete grid.dataset.focus;
+        startClose();
       }
 
-      function scheduleClose() {
-        clearTimeout(leaveTimer);
-        leaveTimer = setTimeout(closePanel, leaveDelay);
+      // Content-height measurement (#313). Animated grid-template-rows
+      // states use explicit, interpolable lengths instead of `auto` so
+      // the morph never goes through a 0-length frame when content loses
+      // its in-flow contribution. Each panel's natural content height is
+      // measured once on load (after fonts settle) and on resize, then
+      // exposed as `--cell-h-<panel>` for the focus-state CSS to consume.
+      // The measurement applies the actual focus state's data-focus +
+      // is-open + is-content-visible classes so column widths and content
+      // wrap match what the user will see.
+      function measureContentHeights() {
+        if (mobile()) return;
+        const restoredFocus = grid.dataset.focus;
+        const restoredActive = active;
+        const restoredVisible = restoredActive && restoredActive.classList.contains('is-content-visible');
+        // Suppress transitions during the measure pass so flickers don't
+        // hit first paint. See .mondrian.is-measuring in global.css.
+        grid.classList.add('is-measuring');
+        panels.forEach((panel) => {
+          const key = panel.dataset.panel;
+          const wasOpen = panel.classList.contains('is-open');
+          const wasVisible = panel.classList.contains('is-content-visible');
+          grid.dataset.focus = key;
+          panel.classList.add('is-open', 'is-content-visible');
+          void panel.offsetHeight;
+          const ci = panel.querySelector('.content-inner');
+          if (ci) {
+            grid.style.setProperty('--cell-h-' + key, Math.ceil(ci.scrollHeight) + 'px');
+          }
+          if (!wasOpen) panel.classList.remove('is-open');
+          if (!wasVisible) panel.classList.remove('is-content-visible');
+        });
+        if (restoredFocus) grid.dataset.focus = restoredFocus;
+        else delete grid.dataset.focus;
+        if (restoredActive) {
+          restoredActive.classList.add('is-open');
+          if (restoredVisible) restoredActive.classList.add('is-content-visible');
+        }
+        void grid.offsetHeight;
+        requestAnimationFrame(() => grid.classList.remove('is-measuring'));
       }
+
+      // Run after fonts load (heights depend on Cormorant Garamond's
+      // metrics) and re-run on resize because column widths in each
+      // focus state are fr-based and content reflows.
+      if (typeof document !== 'undefined' && document.fonts && document.fonts.ready) {
+        document.fonts.ready.then(measureContentHeights);
+      } else {
+        measureContentHeights();
+      }
+      let resizeTimer = null;
+      window.addEventListener('resize', () => {
+        clearTimeout(resizeTimer);
+        resizeTimer = setTimeout(measureContentHeights, 150);
+      });
 
       panels.forEach((panel) => {
+        // Hover paths go through the state-machine guard (requestPanel /
+        // requestClose). While the grid is opening / switching / closing,
+        // hover events are ignored; the post-transition resolveHoverTarget
+        // re-checks the actual pointer location and acts on that.
         panel.addEventListener('mouseenter', () => {
           if (!canHover()) return;
-          openPanel(panel);
+          requestPanel(panel);
         });
-
         panel.addEventListener('mouseleave', () => {
           if (!canHover()) return;
-          scheduleClose();
+          requestClose();
         });
-
         panel.addEventListener('focusin', () => openPanel(panel));
-
         panel.addEventListener('focusout', (event) => {
-          if (!panel.contains(event.relatedTarget)) scheduleClose();
+          if (!panel.contains(event.relatedTarget)) closePanel();
         });
-
         panel.addEventListener('click', (event) => {
           if (event.target.closest('a')) return;
           if (mobile()) return;
           openPanel(panel);
         });
-
         panel.addEventListener('keydown', (event) => {
           if (event.key === 'Escape') closePanel();
           if (event.key === 'Enter' || event.key === ' ') {

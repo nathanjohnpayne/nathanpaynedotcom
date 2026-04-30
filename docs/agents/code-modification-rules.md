@@ -27,7 +27,7 @@ All cells transition to a warm parchment tone when opened.
 ```
 --motion-fast:           130ms  (metadata, dividers)
 --motion-hover:          170ms  (hover states)
---motion-plane:          280ms  (panel expand / grid morph, on-load settle)
+--motion-plane:          460ms  (panel expand / grid morph; bumped from 280ms in #313 for a smoother row/column re-flow that reduces hover wobble at row-line boundaries)
 --motion-load:           300ms  (section entrance)
 --pulse-initial-delay:   300ms  (delay before on-load pulse sequence fires; removed --motion-pulse in #306)
 --pulse-interval:        370ms  (time between successive panel pulse starts)
@@ -56,8 +56,8 @@ All animation timing is governed by the motion tokens above. No hard-coded durat
 |------|----------|--------|------------|
 | Metadata / dividers | `--motion-fast` (130ms) | `--ease-linear` | Labels, ribbons, meta text |
 | Hover | `--motion-hover` (170ms) | `--ease-standard` | Social rows, icons, arrows, project links |
-| Panel morph | `--motion-plane` (280ms) | `--ease-sharp` | Mondrian grid transitions |
-| Settle on load | `--motion-plane` (280ms) | `--ease-standard` | Per-block entrance scale (Mondrian discoverability) |
+| Panel morph | `--motion-plane` (460ms) | `--ease-standard` | Mondrian grid transitions (bumped from 280ms / `--ease-sharp` in #313) |
+| Settle on load | (superseded by panel-pulse, #305) | — | Was `--motion-plane` + `--ease-standard`; replaced by the on-load pulse below |
 | Section load | `--motion-load` (300ms) | `--ease-standard` | Entrance animations |
 | On-load pulse (delay) | `--pulse-initial-delay` (300ms) | n/a | Pause after label fade-in before sequence fires (#306) |
 | On-load pulse (interval) | `--pulse-interval` (370ms) | n/a | Time between successive panel pulse starts |
