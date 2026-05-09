@@ -22,7 +22,7 @@ const projectSlugs = [
 
 // Projects without a deployed live URL — the "View Live Product" CTA
 // is suppressed on the detail page, the project card, and the homepage
-// Vibe Coding section. The SoftwareApplication JSON-LD entity is also
+// Builds section. The SoftwareApplication JSON-LD entity is also
 // dropped on these pages (no `url:` to populate).
 const noLiveUrlSlugs = ['matchline'];
 

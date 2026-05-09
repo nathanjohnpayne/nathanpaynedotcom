@@ -18,7 +18,7 @@ const projects = defineCollection({
     // Optional: in-progress projects (status "IN PROGRESS") may not have
     // a deployed app yet. When omitted, the "View Live Product" CTA is
     // suppressed on the detail page, the project card, and the homepage
-    // Vibe Coding section. When present, must be a non-empty string.
+    // Builds section. When present, must be a non-empty string.
     liveUrl: z.string().trim().min(1).optional(),
     githubUrl: z.string(),
     tags: z.array(z.string()),

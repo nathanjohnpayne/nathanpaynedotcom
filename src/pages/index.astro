@@ -104,11 +104,11 @@ const homepageJsonLd = {
 
       <div class="block block--white-a" aria-hidden="true"></div>
 
-      <article class="panel panel--yellow" data-panel="projects" data-label="Vibe Coding" role="region" aria-label="Vibe coding projects">
-        <div class="panel-label" tabindex="0" role="button" aria-label="Open Vibe Coding section">Vibe Coding</div>
+      <article class="panel panel--yellow" data-panel="projects" data-label="Builds" role="region" aria-label="Personal builds">
+        <div class="panel-label" tabindex="0" role="button" aria-label="Open Builds section">Builds</div>
         <div class="panel-content">
           <div class="content-inner">
-            <h2>Vibe Coding</h2>
+            <h2>Builds</h2>
             <p>Every project started as a real problem. Each one was built end-to-end with AI agents—Claude Code, Codex, and Cursor—within a multi-agent code review system I designed to catch failure modes that agents don’t catch on their own. <a href="/blog/six-prs-one-bug-agent-failure-modes/" class="p-link">What agents get wrong<span class="link-arrow" aria-hidden="true">→</span></a> · <a href="/blog/agent-approval-workflow-genesis-of-mergepath/" class="p-link">How the enforcement system works<span class="link-arrow" aria-hidden="true">→</span></a></p>
             <div class="project-list">
               <div class="project-item">
@@ -700,7 +700,7 @@ const homepageJsonLd = {
 
       function syncCommunityLabelAria() {
         if (!labelH || !labelV) return;
-        // Vertical only when Vibe Coding (data-focus="projects") is
+        // Vertical only when Builds (data-focus="projects") is
         // open — that's the only expansion that compresses Community
         // narrow enough to truncate "COMMUNITY". Match the CSS rule.
         const useVertical = grid.dataset.focus === 'projects';
@@ -718,7 +718,7 @@ const homepageJsonLd = {
 
       // ─── On-load discoverability pulse sequence (#305) ───
       // Four primary panels pulse clockwise once on initial load:
-      // red (Nathan Payne) → yellow (Vibe Coding) → blue (Connect)
+      // red (Nathan Payne) → yellow (Builds) → blue (Connect)
       // → black (Community). Total ~1.4s, fired once per page load,
       // deferred until the tab is visible. Reduced-motion users get
       // the persistent cursor-pointer affordance only.

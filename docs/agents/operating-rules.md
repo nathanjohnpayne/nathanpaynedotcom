@@ -27,7 +27,7 @@ Panel CSS classes are color-based (controlling grid position and color). Content
 | Cell Class | Color | Position | Content |
 |------------|-------|----------|---------|
 | `panel--red` | `#c11d19` | top-left (col 2–5, row 2–5) | About / Identity |
-| `panel--yellow` | `#d9b111` | top-right (col 6–9, row 2) | Vibe Coding (Projects) |
+| `panel--yellow` | `#d9b111` | top-right (col 6–9, row 2) | Builds (Projects) |
 | `panel--black` | `#090907` | bottom-left (col 2, row 6–9) | Community |
 | `panel--blue` | `#223f89` | bottom-right (col 6–9, row 8) | Connect |
 

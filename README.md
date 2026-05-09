@@ -13,7 +13,7 @@ The layout is a **Mondrian-inspired grid** — four colored panels arranged in a
 | Cell | Color | Content |
 |------|-------|---------|
 | Red | `#c11d19` | About — bio and role at The Walt Disney Company |
-| Yellow | `#d9b111` | Vibe Coding — side-project showcase |
+| Yellow | `#d9b111` | Builds — side-project showcase |
 | Black | `#090907` | Community — fundraising and organizing |
 | Blue | `#223f89` | Connect — social links (LinkedIn, Instagram, Threads, Bluesky, X) |
 
