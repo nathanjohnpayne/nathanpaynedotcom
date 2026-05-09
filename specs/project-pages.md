@@ -33,7 +33,7 @@ accentColor: "#3366cc"
 accentColorClass: "project-page--blue"
 gradientFrom: "#dce3f0"
 gradientTo: "#f5f0e4"
-liveUrl: "https://example.com"     # optional — omit on pre-launch projects
+liveUrl: "https://example.com"     # optional—omit on pre-launch projects
 githubUrl: "https://github.com/you/repo"
 tags: ["Tag1", "Tag2", "Tag3"]
 status: "SHIPPED"                  # one of: SHIPPED | EXPERIMENT | IN PROGRESS | PAUSED | ARCHIVED
@@ -59,19 +59,19 @@ draft: false
 | `description` | string | yes | Hero deck text, meta description, JSON-LD |
 | `kicker` | string | yes | Source for the metadata table's `Topics` column (e.g., "AI × Finance × Theater" → renders as `AI · Finance · Theater`). Field name kept for frontmatter back-compat |
 | `order` | number | yes | Position on the `/projects/` index grid (lower = first) |
-| `screenshotAspect` | `"wide"` \| `"narrow"` | yes | Layout variant — see below |
+| `screenshotAspect` | `"wide"` \| `"narrow"` | yes | Layout variant—see below |
 | `screenshotSrc` | string | yes | Path to hero image in `public/` |
 | `accentColor` | string | yes | Hex color for accent bar, bullets, hover states |
 | `accentColorClass` | string | yes | CSS class for per-project theming |
 | `gradientFrom` | string | yes | Gradient start color (tinted toward accent) |
 | `gradientTo` | string | yes | Gradient end color (use `"#f5f0e4"` to blend into card) |
-| `liveUrl` | non-empty string | no | URL for "View Live Product" CTA. Omit on pre-launch projects (status `IN PROGRESS`) — the CTA, the index card "Live ↗" link, the homepage Builds "Live ↗" link, and the `SoftwareApplication` JSON-LD entity are all suppressed when this field is missing |
+| `liveUrl` | non-empty string | no | URL for "View Live Product" CTA. Omit on pre-launch projects (status `IN PROGRESS`)—the CTA, the index card "Live ↗" link, the homepage Builds "Live ↗" link, and the `SoftwareApplication` JSON-LD entity are all suppressed when this field is missing |
 | `githubUrl` | string | yes | URL for "View on GitHub" CTA |
 | `tags` | string[] | yes | Category/technology tags |
-| `status` | enum | yes | Project lifecycle status. One of `SHIPPED`, `EXPERIMENT`, `IN PROGRESS`, `PAUSED`, `ARCHIVED`. Drives both the project-card kicker on `/projects/` and the Status column in the detail-page metadata table — single source of truth, single short-form vocabulary across both surfaces. See #274, #285 |
-| `metadata.format` | string | yes | Metadata strip: product-type label (e.g., "Internal platform tool"). The tech stack lives in the separate `stack` field — this field is for product category |
+| `status` | enum | yes | Project lifecycle status. One of `SHIPPED`, `EXPERIMENT`, `IN PROGRESS`, `PAUSED`, `ARCHIVED`. Drives both the project-card kicker on `/projects/` and the Status column in the detail-page metadata table—single source of truth, single short-form vocabulary across both surfaces. See #274, #285 |
+| `metadata.format` | string | yes | Metadata strip: product-type label (e.g., "Internal platform tool"). The tech stack lives in the separate `stack` field—this field is for product category |
 | `metadata.focus` | string | yes | Metadata strip: focus area value |
-| `stack` | string | no | Tech stack values separated by ` · ` (e.g., `"React · TypeScript · Vite · Firebase · Vitest"`). Rendered as a figcaption below the screenshot. Optional — projects without a stack field render without the caption |
+| `stack` | string | no | Tech stack values separated by ` · ` (e.g., `"React · TypeScript · Vite · Firebase · Vitest"`). Rendered as a figcaption below the screenshot. Optional—projects without a stack field render without the caption |
 | `related` | array | no | Related links with `label` and `href` |
 | `muxPlaybackId` | non-empty string | no | Mux public Playback ID. When set, the hero renders a `<mux-background-video>` video and `screenshotSrc` is used as the JS-disabled fallback. Schema rejects blank / whitespace-only values so a stray empty string fails build-time rather than producing a broken URL. See "Adding a Mux video" below |
 | `draft` | boolean | no | `true` to exclude from builds (default: `false`) |
@@ -102,7 +102,7 @@ Bullet lists get square markers colored with `--project-accent`. Horizontal rule
 
 ## Layout Variants
 
-Every project page uses the same `.metadata-surface` container, which wraps a 4-column horizontal metadata strip above a `<figure class="project-screenshot">` element that holds the image and (optionally) a `<figcaption class="project-stack">` caption below it. The `screenshotAspect` field controls only how the figure sizes its image — the metadata strip itself is always identical across projects.
+Every project page uses the same `.metadata-surface` container, which wraps a 4-column horizontal metadata strip above a `<figure class="project-screenshot">` element that holds the image and (optionally) a `<figcaption class="project-stack">` caption below it. The `screenshotAspect` field controls only how the figure sizes its image—the metadata strip itself is always identical across projects.
 
 ### Wide (`screenshotAspect: "wide"`)
 
@@ -124,25 +124,25 @@ Used for phone/mobile screenshots. The figure's inner wrapper (`.project-screens
 | Tablet (≤768px) | Collapses to 2×2 grid | Full-width image (unchanged) | Inner wrapper and stack caption both narrow to 280px; alignment preserved |
 | Phone (≤480px) | Collapses to single column | Full-width image (unchanged) | Inner wrapper and stack caption stay at the tablet 280px cap; natural wrapping |
 
-The `.metadata-strip--grid-2x2` variant from the previous architecture has been removed — the metadata strip no longer varies by screenshot aspect. Wide and narrow differ only in how the figure sizes the image.
+The `.metadata-strip--grid-2x2` variant from the previous architecture has been removed—the metadata strip no longer varies by screenshot aspect. Wide and narrow differ only in how the figure sizes the image.
 
 ---
 
 ## Adding a Mux video
 
-Any project can render a vertical Mux video in the hero instead of a static screenshot. The existing `screenshotSrc` stays in the frontmatter — it's still used as the player's poster frame and as the no-JS fallback.
+Any project can render a vertical Mux video in the hero instead of a static screenshot. The existing `screenshotSrc` stays in the frontmatter—it's still used as the player's poster frame and as the no-JS fallback.
 
 ### Steps
 
 1. Upload the video to the [Mux dashboard](https://dashboard.mux.com/).
-2. Copy the **public Playback ID** (not the Asset ID — they look similar but the Asset ID is a different namespace).
+2. Copy the **public Playback ID** (not the Asset ID—they look similar but the Asset ID is a different namespace).
 3. Add one line to the project's frontmatter:
 
    ```yaml
    muxPlaybackId: "abc123defGHI456..."
    ```
 
-4. Build and deploy. That's it — the `<ProjectMuxPlayer>` component handles rendering, theming, analytics, and fallback.
+4. Build and deploy. That's it—the `<ProjectMuxPlayer>` component handles rendering, theming, analytics, and fallback.
 
 ### What happens automatically
 
@@ -153,7 +153,7 @@ Any project can render a vertical Mux video in the hero instead of a static scre
 
 ### Aspect ratio
 
-The player auto-sizes from the asset's video metadata. There is **no per-project frontmatter override** — record or export the source video at the final aspect you want and it renders at that shape. Earlier revisions hardcoded `9/16` in CSS and produced letterbox bars on the Swipe Watch asset, which is captured at a modern phone ratio (~9:19.5) rather than true 9:16. If a future project needs a different aspect treatment (e.g. a `cover`-style crop, or a container-driven ratio override), add a prop to [ProjectMuxPlayer.astro](../src/components/ProjectMuxPlayer.astro) at that point.
+The player auto-sizes from the asset's video metadata. There is **no per-project frontmatter override**—record or export the source video at the final aspect you want and it renders at that shape. Earlier revisions hardcoded `9/16` in CSS and produced letterbox bars on the Swipe Watch asset, which is captured at a modern phone ratio (~9:19.5) rather than true 9:16. If a future project needs a different aspect treatment (e.g. a `cover`-style crop, or a container-driven ratio override), add a prop to [ProjectMuxPlayer.astro](../src/components/ProjectMuxPlayer.astro) at that point.
 
 ### Component source
 
@@ -166,7 +166,7 @@ The player auto-sizes from the asset's video metadata. There is **no per-project
 Key behaviors:
 
 - **Strict failure on network errors.** Any non-200 response or network timeout exits non-zero and halts the build. The design note in the script header explains why: Mux is the only source for a project's fallback frame once `muxPlaybackId` is set, so a silent miss would serve stale content indefinitely.
-- **Per-project config errors warn, don't halt.** A malformed frontmatter (e.g. relative `screenshotSrc`) logs a warning and skips that project — the build still completes.
+- **Per-project config errors warn, don't halt.** A malformed frontmatter (e.g. relative `screenshotSrc`) logs a warning and skips that project—the build still completes.
 - **Co-exists with the GitHub-social refresher.** [scripts/refresh-hero-images.mjs](../scripts/refresh-hero-images.mjs) (which refreshes `heroRefresh: github-social` projects) skips any project with `muxPlaybackId` so the two refreshers can never race for the same output path.
 
 To regenerate a Mux GIF manually without a full build:
@@ -175,7 +175,7 @@ To regenerate a Mux GIF manually without a full build:
 node scripts/refresh-mux-gifs.mjs
 ```
 
-Rendering knobs (width, fps, duration) live at the top of the script. If a future project needs different framing, either pass URL params from within the script or split to per-project config — don't hardcode a second call site.
+Rendering knobs (width, fps, duration) live at the top of the script. If a future project needs different framing, either pass URL params from within the script or split to per-project config—don't hardcode a second call site.
 
 ---
 
@@ -193,9 +193,9 @@ Each project defines its own palette via frontmatter. The palette controls:
 The layout sets three custom properties from frontmatter:
 
 ```css
---project-accent        /* accentColor — bar, bullets, hover fill */
---project-gradient-from /* gradientFrom — gradient start */
---project-gradient-to   /* gradientTo — gradient end */
+--project-accent        /* accentColor—bar, bullets, hover fill */
+--project-gradient-from /* gradientFrom—gradient start */
+--project-gradient-to   /* gradientTo—gradient end */
 ```
 
 ### Choosing gradient colors
@@ -231,9 +231,9 @@ The layout sets three custom properties from frontmatter:
 
 - **`src/pages/projects/[slug].astro`**: Dynamic route. Calls `getStaticPaths()` from the projects collection, generates JSON-LD, passes all frontmatter to `ProjectLayout`. Forwards the optional `stack` field through `stack={data.stack}`.
 - **`src/layouts/ProjectLayout.astro`**: Sets CSS custom properties on the shell. Conditionally renders `HeroWide` or `HeroNarrow` based on `screenshotAspect`. Owns the `.metadata-surface` container that wraps `MetadataStrip` and the `<figure class="project-screenshot">`. The figure is rendered here (not in `MetadataStrip`) and contains the `<img>` plus a conditional `<figcaption class="project-stack">` when `stack` is present. The figcaption is a direct child of `<figure>` per HTML5 semantic rules.
-- **`src/components/HeroWide.astro`**: Hero header for wide-layout projects. No screenshot — the screenshot is rendered by `ProjectLayout` below the hero. The hero no longer renders the `kicker` tag row; that content moved into the `Topics` column of the metadata strip below.
-- **`src/components/HeroNarrow.astro`**: Hero header for narrow-layout projects. No screenshot — same as `HeroWide`, the screenshot is rendered by `ProjectLayout` below the hero. Also no longer renders the `kicker` tag row.
-- **`src/components/MetadataStrip.astro`**: Strip-only — four `<dt>`/`<dd>` pairs for topics, format, focus, and status (in that visual order). Does not own the screenshot; does not accept `screenshotSrc`/`screenshotAlt`/`screenshotAspect` props. The `topics` value is derived in `ProjectLayout` from the project's `kicker` frontmatter (split on `×` and re-joined with ` · ` to match the metadata table's separator convention). The `status` value is the project's top-level `status` enum, rendered identically on the index card kicker and in the metadata strip — single short-form vocabulary across both surfaces. The strip is always rendered as a single 4-column horizontal row on desktop and collapses responsively (2×2 at ≤768px, 1-column at ≤480px) via `.metadata-strip--grid-4` media queries.
+- **`src/components/HeroWide.astro`**: Hero header for wide-layout projects. No screenshot—the screenshot is rendered by `ProjectLayout` below the hero. The hero no longer renders the `kicker` tag row; that content moved into the `Topics` column of the metadata strip below.
+- **`src/components/HeroNarrow.astro`**: Hero header for narrow-layout projects. No screenshot—same as `HeroWide`, the screenshot is rendered by `ProjectLayout` below the hero. Also no longer renders the `kicker` tag row.
+- **`src/components/MetadataStrip.astro`**: Strip-only—four `<dt>`/`<dd>` pairs for topics, format, focus, and status (in that visual order). Does not own the screenshot; does not accept `screenshotSrc`/`screenshotAlt`/`screenshotAspect` props. The `topics` value is derived in `ProjectLayout` from the project's `kicker` frontmatter (split on `×` and re-joined with ` · ` to match the metadata table's separator convention). The `status` value is the project's top-level `status` enum, rendered identically on the index card kicker and in the metadata strip—single short-form vocabulary across both surfaces. The strip is always rendered as a single 4-column horizontal row on desktop and collapses responsively (2×2 at ≤768px, 1-column at ≤480px) via `.metadata-strip--grid-4` media queries.
 
 ### Content collection schema
 
@@ -258,8 +258,8 @@ const { Content } = await render(project);
 | Project title | Large serif (clamp 2.4–5.1rem) | Roman | Primary |
 | Description | 16–17px serif | Roman | Primary |
 | CTA buttons | ~14px | Uppercase, 0.14em tracking | Primary, accent fill on hover |
-| Metadata labels | 10–11px | Uppercase, 0.16em tracking | Tertiary (0.62 opacity) — also used for `.project-stack__label` |
-| Metadata values | 14–15px | Roman | Primary — also used for `.project-stack__value` |
+| Metadata labels | 10–11px | Uppercase, 0.16em tracking | Tertiary (0.62 opacity)—also used for `.project-stack__label` |
+| Metadata values | 14–15px | Roman | Primary—also used for `.project-stack__value` |
 | Section headings | 22–23px | Serif italic | Primary |
 | "Related" heading | 16–18px | Serif italic | Secondary (0.72 opacity) |
 | Body text | 16px | Roman | Primary, line-height 1.65 |

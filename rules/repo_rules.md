@@ -12,25 +12,25 @@ The following files must always exist at the repository root and must never be d
 
 The following directories must always exist:
 
-- `src/` — Astro source (pages, layouts, components, content collections, plugins)
-- `src/content/blog/` — Markdown blog post source files with frontmatter
-- `public/` — static assets copied verbatim into dist/ at build time
-- `rules/` — contains this file and other binding constraints
-- `plans/` — execution and rollout plans
-- `specs/` — feature specifications and acceptance criteria
-- `scripts/ci/` — CI enforcement scripts
-- `tests/` — Vitest smoke tests for static pages and route coverage
-- `docs/` — extended documentation including agent process docs
+- `src/`—Astro source (pages, layouts, components, content collections, plugins)
+- `src/content/blog/`—Markdown blog post source files with frontmatter
+- `public/`—static assets copied verbatim into dist/ at build time
+- `rules/`—contains this file and other binding constraints
+- `plans/`—execution and rollout plans
+- `specs/`—feature specifications and acceptance criteria
+- `scripts/ci/`—CI enforcement scripts
+- `tests/`—Vitest smoke tests for static pages and route coverage
+- `docs/`—extended documentation including agent process docs
 
-The following tool config directories must contain only configuration — no instruction prose:
+The following tool config directories must contain only configuration—no instruction prose:
 
-- `.claude/` — Claude Code permissions config only
-- `.cursor/` — Cursor configuration and `.mdc` rule files only
+- `.claude/`—Claude Code permissions config only
+- `.cursor/`—Cursor configuration and `.mdc` rule files only
 
 **Intentionally absent directories (documented deviations from the standard):**
 
-- `functions/` — No serverless functions. See `.ai_context.md`.
-- `dist/` — Build output, gitignored. Not committed to repository.
+- `functions/`—No serverless functions. See `.ai_context.md`.
+- `dist/`—Build output, gitignored. Not committed to repository.
 
 ## Forbidden Patterns
 
@@ -47,11 +47,11 @@ The following tool config directories must contain only configuration — no ins
 
 The following checks are implemented in `scripts/ci/` and must pass before any commit is merged:
 
-1. `check_required_root_files` — Verifies README.md, AGENTS.md, DEPLOYMENT.md, CONTRIBUTING.md, and .ai_context.md all exist at repository root
-2. `check_no_tool_folder_instructions` — Verifies .claude/ and .cursor/ contain no plain .md or .txt instruction files
-3. `check_no_forbidden_top_level_dirs` — Verifies no forbidden top-level directories exist (e.g., tool-instructions/, ai-rules/, agent-config/)
-4. `check_dist_not_modified` — Verifies dist/ files were not directly modified (exits cleanly if dist/ does not exist)
-5. `check_spec_test_alignment` — Verifies every file in specs/ has a corresponding test file in tests/ (skips if specs/ is empty)
-6. `check_duplicate_docs` — Verifies no documentation topic is duplicated between root files and tool folders
-7. `check_review_policy_exists` (inline in repo_lint.yml) — Verifies .github/review-policy.yml and REVIEW_POLICY.md both exist
-8. `check_codex_scripts` — Verifies `scripts/codex-review-request.sh` and `scripts/codex-review-check.sh` exist and are executable. Required for `CLAUDE.md` step 8 Phase 4a (automated external review via the OpenAI Codex GitHub App) — missing either script silently forces callers to Phase 4b fallback.
+1. `check_required_root_files`—Verifies README.md, AGENTS.md, DEPLOYMENT.md, CONTRIBUTING.md, and .ai_context.md all exist at repository root
+2. `check_no_tool_folder_instructions`—Verifies .claude/ and .cursor/ contain no plain .md or .txt instruction files
+3. `check_no_forbidden_top_level_dirs`—Verifies no forbidden top-level directories exist (e.g., tool-instructions/, ai-rules/, agent-config/)
+4. `check_dist_not_modified`—Verifies dist/ files were not directly modified (exits cleanly if dist/ does not exist)
+5. `check_spec_test_alignment`—Verifies every file in specs/ has a corresponding test file in tests/ (skips if specs/ is empty)
+6. `check_duplicate_docs`—Verifies no documentation topic is duplicated between root files and tool folders
+7. `check_review_policy_exists` (inline in repo_lint.yml)—Verifies .github/review-policy.yml and REVIEW_POLICY.md both exist
+8. `check_codex_scripts`—Verifies `scripts/codex-review-request.sh` and `scripts/codex-review-check.sh` exist and are executable. Required for `CLAUDE.md` step 8 Phase 4a (automated external review via the OpenAI Codex GitHub App)—missing either script silently forces callers to Phase 4b fallback.

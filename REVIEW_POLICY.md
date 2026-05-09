@@ -86,12 +86,12 @@ Replace `claude` with `cursor` or `codex` depending on which agent is running. T
 | `all` | Everything (recommended) |
 
 After preflight, these environment variables are set:
-- `OP_PREFLIGHT_REVIEWER_PAT` — use with `GH_TOKEN=` for reviewer commands
-- `OP_PREFLIGHT_AUTHOR_PAT` — use with `GH_TOKEN=` for author commands
-- `GOOGLE_APPLICATION_CREDENTIALS` — used automatically by gcloud/Firebase scripts
-- `OP_PREFLIGHT_DONE=1` — flag indicating preflight has been run
+- `OP_PREFLIGHT_REVIEWER_PAT`—use with `GH_TOKEN=` for reviewer commands
+- `OP_PREFLIGHT_AUTHOR_PAT`—use with `GH_TOKEN=` for author commands
+- `GOOGLE_APPLICATION_CREDENTIALS`—used automatically by gcloud/Firebase scripts
+- `OP_PREFLIGHT_DONE=1`—flag indicating preflight has been run
 
-If any `op` command fails mid-session (rare — only if 1Password locks or the 12-hour hard limit is reached), re-run the preflight command.
+If any `op` command fails mid-session (rare—only if 1Password locks or the 12-hour hard limit is reached), re-run the preflight command.
 
 ### Phase 1: Authoring
 
@@ -116,10 +116,10 @@ After internal review passes (Phase 2), CodeRabbit provides an independent autom
 
 1. **Wait for CodeRabbit.** CodeRabbit automatically posts a review when the PR is opened or updated. The agent must wait for CodeRabbit to finish before proceeding. If CodeRabbit has not posted after 3 minutes, ask the human whether to continue waiting or skip.
 2. **Read both API endpoints.** CodeRabbit posts two types of comments that must both be checked:
-   - **PR-level summary:** `gh api repos/{owner}/{repo}/issues/{pr_number}/comments` — contains the high-level walkthrough and summary.
-   - **Inline review comments on the diff:** `gh api repos/{owner}/{repo}/pulls/{pr_number}/comments` — contains line-by-line findings anchored to specific code.
+   - **PR-level summary:** `gh api repos/{owner}/{repo}/issues/{pr_number}/comments`—contains the high-level walkthrough and summary.
+   - **Inline review comments on the diff:** `gh api repos/{owner}/{repo}/pulls/{pr_number}/comments`—contains line-by-line findings anchored to specific code.
 3. **Scan for potential issues.** Before proceeding, grep CodeRabbit's inline review comments for `Potential issue` or `⚠️`. These markers indicate findings CodeRabbit considers high-severity. Every such finding must be explicitly addressed (fixed or dismissed with reasoning).
-4. The agent addresses substantive CodeRabbit findings — fixing issues or posting a reply explaining why a finding is not applicable.
+4. The agent addresses substantive CodeRabbit findings—fixing issues or posting a reply explaining why a finding is not applicable.
 5. The agent is not required to resolve every CodeRabbit comment. Use judgment: fix genuine issues, dismiss false positives with a brief explanation. However, all `Potential issue` / `⚠️` findings require an explicit response.
 6. CodeRabbit review is advisory. It does not block merge via CI and does not submit a "Changes Requested" review state.
 
@@ -134,35 +134,35 @@ Before moving past Phase 2.5, confirm all of the following:
 - [ ] CodeRabbit has posted its review (waited up to 3 minutes, or human approved skip)
 - [ ] Read PR-level comments via `issues/{pr}/comments` endpoint
 - [ ] Read inline diff comments via `pulls/{pr}/comments` endpoint
-- [ ] Grepped inline comments for `Potential issue` and `⚠️` — all flagged findings addressed
+- [ ] Grepped inline comments for `Potential issue` and `⚠️`—all flagged findings addressed
 - [ ] Substantive findings fixed or dismissed with reasoning
 
 ### Phase 3: External Review Threshold Check
 
-> **Note on automation timing:** CI workflows may apply the `needs-external-review` label automatically when a PR is opened or updated, as an early advisory based on line count and protected paths. The label blocks merge via the label-gate until external review clears. When the label is present, the agent's responsibility after internal review passes is to proceed to [Phase 4](#phase-4-external-review) — which routes the PR to Phase 4a (automated via the Codex GitHub App) or Phase 4b (manual handoff) depending on `codex.enabled` and on whether 4a converges. The label itself does NOT imply immediate human mediation; Phase 4b only posts the handoff message when the fallback path is actually taken.
+> **Note on automation timing:** CI workflows may apply the `needs-external-review` label automatically when a PR is opened or updated, as an early advisory based on line count and protected paths. The label blocks merge via the label-gate until external review clears. When the label is present, the agent's responsibility after internal review passes is to proceed to [Phase 4](#phase-4-external-review)—which routes the PR to Phase 4a (automated via the Codex GitHub App) or Phase 4b (manual handoff) depending on `codex.enabled` and on whether 4a converges. The label itself does NOT imply immediate human mediation; Phase 4b only posts the handoff message when the fallback path is actually taken.
 
 8. After internal review passes, the agent evaluates whether the PR meets the external review threshold (see [Review Policy Configuration](#review-policy-configuration)).
 9. If the threshold is **not** met, the agent merges the PR as `nathanjohnpayne`. Done.
-10. If the threshold **is** met, the agent proceeds to [Phase 4: External Review](#phase-4-external-review). Phase 4 itself routes the PR to Phase 4a (automated, via the Codex GitHub App) or Phase 4b (manual handoff) based on `codex.enabled` in `.github/review-policy.yml` and on whether 4a's automated loop converges. The agent does NOT post a handoff message directly from this step — Phase 4b posts its own handoff message if and when the fallback path is taken.
+10. If the threshold **is** met, the agent proceeds to [Phase 4: External Review](#phase-4-external-review). Phase 4 itself routes the PR to Phase 4a (automated, via the Codex GitHub App) or Phase 4b (manual handoff) based on `codex.enabled` in `.github/review-policy.yml` and on whether 4a's automated loop converges. The agent does NOT post a handoff message directly from this step—Phase 4b posts its own handoff message if and when the fallback path is taken.
 
 ### Phase 4: External Review
 
 Phase 4 has two sub-phases that together cover the two ways external review can run:
 
-- **Phase 4a — Automated external review** via the ChatGPT Codex Connector GitHub App. This is the default happy path. The authoring agent drives the review loop without human intervention until Codex signals clearance, then runs a merge-gate check and merges.
-- **Phase 4b — Manual CLI fallback** via a different agent's CLI session (e.g., Codex CLI as `nathanpayne-codex`, or Cursor, or Claude Code). This is the escape hatch when 4a escalates (disagreement or runaway), times out, or is unavailable because `codex.enabled: false`. The human mediates the handoff.
+- **Phase 4a—Automated external review** via the ChatGPT Codex Connector GitHub App. This is the default happy path. The authoring agent drives the review loop without human intervention until Codex signals clearance, then runs a merge-gate check and merges.
+- **Phase 4b—Manual CLI fallback** via a different agent's CLI session (e.g., Codex CLI as `nathanpayne-codex`, or Cursor, or Claude Code). This is the escape hatch when 4a escalates (disagreement or runaway), times out, or is unavailable because `codex.enabled: false`. The human mediates the handoff.
 
 An agent proceeds to 4a first. If 4a escalates, times out, or is disabled, the agent falls back to 4b and surfaces the handoff to the human per [Handoff Message Format](#handoff-message-format).
 
 #### Phase 4a: Automated External Review (Codex GitHub App)
 
-> **Applies only to repos with `codex.enabled: true` in `.github/review-policy.yml`.** The **ChatGPT Codex Connector GitHub App must also be review-ready on the repository**, meaning installed, with Code Review enabled at [chatgpt.com/codex/cloud/settings/code-review](https://chatgpt.com/codex/cloud/settings/code-review), AND with a Codex environment configured at [chatgpt.com/codex/cloud/settings/environments](https://chatgpt.com/codex/cloud/settings/environments). "Installed" alone is not sufficient — a PR in a repo where the App is present but the environment is not configured will receive a "create an environment for this repo" comment from `chatgpt-codex-connector[bot]` instead of a review (observed on PR #62 on 2026-04-14). The only verification available from an agent reviewer PAT is observational: check whether a recent PR in this repo received an auto-review from `chatgpt-codex-connector[bot]`; `gh api repos/{owner}/{repo}/installation` requires a GitHub App JWT and is NOT usable from normal tokens. If any of these conditions is not met, skip directly to Phase 4b.
+> **Applies only to repos with `codex.enabled: true` in `.github/review-policy.yml`.** The **ChatGPT Codex Connector GitHub App must also be review-ready on the repository**, meaning installed, with Code Review enabled at [chatgpt.com/codex/cloud/settings/code-review](https://chatgpt.com/codex/cloud/settings/code-review), AND with a Codex environment configured at [chatgpt.com/codex/cloud/settings/environments](https://chatgpt.com/codex/cloud/settings/environments). "Installed" alone is not sufficient—a PR in a repo where the App is present but the environment is not configured will receive a "create an environment for this repo" comment from `chatgpt-codex-connector[bot]` instead of a review (observed on PR #62 on 2026-04-14). The only verification available from an agent reviewer PAT is observational: check whether a recent PR in this repo received an auto-review from `chatgpt-codex-connector[bot]`; `gh api repos/{owner}/{repo}/installation` requires a GitHub App JWT and is NOT usable from normal tokens. If any of these conditions is not met, skip directly to Phase 4b.
 
 11a. The authoring agent runs `scripts/codex-review-request.sh <PR#>` to trigger or await a Codex review. If the Codex App's "Automatic reviews" setting has already caused Codex to review the PR on open (typical latency ~2 minutes for small PRs), the script skips posting `@codex review` and goes straight to polling.
 
 12a. `codex-review-request.sh` polls the PR until one of the following:
 
-     - **Codex posts a review.** Always in `COMMENTED` state — the Codex GitHub App never uses `APPROVED` or `CHANGES_REQUESTED`. Findings appear as **inline comments on the diff** (`/pulls/{pr}/comments` endpoint), not in the top-level review body. Inline findings carry priority markers: `![P0 Badge]`, `![P1 Badge]`, `![P2 Badge]`, or `![P3 Badge]`.
+     - **Codex posts a review.** Always in `COMMENTED` state—the Codex GitHub App never uses `APPROVED` or `CHANGES_REQUESTED`. Findings appear as **inline comments on the diff** (`/pulls/{pr}/comments` endpoint), not in the top-level review body. Inline findings carry priority markers: `![P0 Badge]`, `![P1 Badge]`, `![P2 Badge]`, or `![P3 Badge]`.
      - **Codex reacts 👍 / `+1`** on the PR issue with no review body. This is Codex's no-findings clearance signal per the ChatGPT Codex Connector documentation.
      - **Timeout.** No review and no reaction within `codex.review_timeout_seconds` (default: 600s / 10 min). The script exits with code `4` (`FALLBACK_REQUIRED`).
 
@@ -171,7 +171,7 @@ An agent proceeds to 4a first. If 4a escalates, times out, or is disabled, the a
      - **Fixing the code** and pushing a new commit to the same branch, or
      - **Replying on the finding thread** with a clear rebuttal explaining why the finding does not apply (for false positives or scope disagreements).
 
-     P2 and P3 findings are addressed at the agent's judgment — not every cosmetic or nit-level finding needs a fix or a rebuttal.
+     P2 and P3 findings are addressed at the agent's judgment—not every cosmetic or nit-level finding needs a fix or a rebuttal.
 
 14a. The agent increments its round counter and re-runs `scripts/codex-review-request.sh` to request a re-review of the new HEAD.
 
@@ -180,7 +180,7 @@ An agent proceeds to 4a first. If 4a escalates, times out, or is disabled, the a
      - **Clearance (happy path).** Codex posts a review with no unaddressed P0/P1 inline findings on the current HEAD, OR reacts 👍 on or after the current HEAD commit. Proceed to step 16a.
      - **Disagreement (escalate).** Codex re-flags the same finding after the agent posted a rebuttal. This is "repeat-after-rebuttal." See [Disagreements and Tiebreaking](#disagreements-and-tiebreaking).
      - **Runaway (escalate).** The round counter exceeds `codex.max_review_rounds` (default: 2). The 3rd round trips this guard. See [Disagreements and Tiebreaking](#disagreements-and-tiebreaking).
-     - **Timeout (fall back).** `codex-review-request.sh` exits with code `4` (`FALLBACK_REQUIRED`) for the current round. The agent falls back to Phase 4b. There is no "second timeout" escalation — a single timeout already routes to human mediation via the 4b handoff.
+     - **Timeout (fall back).** `codex-review-request.sh` exits with code `4` (`FALLBACK_REQUIRED`) for the current round. The agent falls back to Phase 4b. There is no "second timeout" escalation—a single timeout already routes to human mediation via the 4b handoff.
 
 16a. Before merging, the agent runs `scripts/codex-review-check.sh <PR#>` to verify the merge gate. All of the following must be true:
 
@@ -188,7 +188,7 @@ An agent proceeds to 4a first. If 4a escalates, times out, or is disabled, the a
      - A reviewer identity from `available_reviewers` has posted an `APPROVED` review (Phase 2 internal self-peer review)
      - Codex has signaled clearance on the current HEAD via one of the two forms in step 12a
 
-     **The merge gate must never require an `APPROVED` review state from `chatgpt-codex-connector[bot]` — the app does not emit that state.** This point is load-bearing; a merge gate that looks for Codex APPROVED will never be satisfied and the Phase 4a happy path will be unreachable.
+     **The merge gate must never require an `APPROVED` review state from `chatgpt-codex-connector[bot]`—the app does not emit that state.** This point is load-bearing; a merge gate that looks for Codex APPROVED will never be satisfied and the Phase 4a happy path will be unreachable.
 
 17a. On a passing merge gate, `nathanjohnpayne` merges the PR with `gh pr merge <n> --squash --delete-branch`. Never `--admin` unless the human explicitly authorizes a break-glass override in chat.
 
@@ -298,7 +298,7 @@ When external review is required, the originating agent posts a PR comment and s
 ```
 ## External Review Required
 
-**PR:** #{pr_number} — {pr_title}
+**PR:** #{pr_number}—{pr_title}
 **Branch:** {branch_name}
 **Author Agent:** {originating_agent}
 
@@ -347,7 +347,7 @@ In Phase 4a, the agent escalates to the human when either of the following fires
 
 **Timeout is NOT a disagreement signal.** A Codex response timeout (`codex-review-request.sh` exit code `4` = `FALLBACK_REQUIRED`) routes the PR directly to Phase 4b per step 15a above. It is a fallback trigger, not a tiebreaker trigger. Phase 4b itself mediates via the human through the manual handoff, so there is nothing for the disagreement detector to add on top.
 
-Phase 4b escalation (the traditional cross-agent CLI flow) uses the human's judgment directly — there is no automated detection loop to fire, so this subsection does not apply there.
+Phase 4b escalation (the traditional cross-agent CLI flow) uses the human's judgment directly—there is no automated detection loop to fire, so this subsection does not apply there.
 
 ### Escalation procedure
 
@@ -360,13 +360,13 @@ When either of the two signals above fires, the agent:
    - The current round counter and a link to the `scripts/codex-review-request.sh` output from the terminating round
 3. **Alerts the human via chat** and waits for an explicit decision before taking any further action on the PR.
 
-Note that timeout does NOT go through this escalation procedure. On a timeout (exit code `4` from `codex-review-request.sh`), the agent posts the handoff message per [Handoff Message Format](#handoff-message-format) and routes to Phase 4b directly from step 15a — no in-place tiebreaker.
+Note that timeout does NOT go through this escalation procedure. On a timeout (exit code `4` from `codex-review-request.sh`), the agent posts the handoff message per [Handoff Message Format](#handoff-message-format) and routes to Phase 4b directly from step 15a—no in-place tiebreaker.
 
 The human resolves by one of:
 
-- **Approving the existing state** — posting an `APPROVED` review as `nathanjohnpayne` or removing the `needs-external-review` label manually. This unblocks merge under the label-gate rules in [Review Policy Configuration](#review-policy-configuration).
-- **Requesting additional changes** — typing the feedback directly in chat. The agent addresses it as normal edits. No `@codex review` loop, no round counter.
-- **Taking the PR over manually** — the human merges on behalf of the agent, or closes and reopens with a different approach, or promotes the escalation to Phase 4b manually.
+- **Approving the existing state**—posting an `APPROVED` review as `nathanjohnpayne` or removing the `needs-external-review` label manually. This unblocks merge under the label-gate rules in [Review Policy Configuration](#review-policy-configuration).
+- **Requesting additional changes**—typing the feedback directly in chat. The agent addresses it as normal edits. No `@codex review` loop, no round counter.
+- **Taking the PR over manually**—the human merges on behalf of the agent, or closes and reopens with a different approach, or promotes the escalation to Phase 4b manually.
 
 The agent never resolves a fired escalation signal on its own.
 
@@ -377,7 +377,7 @@ Each repository contains a `.github/review-policy.yml` file that governs review 
 The following is an **illustrative example with default values**. Each repository's actual `.github/review-policy.yml` may have different `external_review_paths` customized to its directory structure. Always read the repo's actual file, not this example.
 
 ```yaml
-# .github/review-policy.yml (example defaults — actual config may differ)
+# .github/review-policy.yml (example defaults—actual config may differ)
 
 # Lines changed (additions + deletions, excluding generated/lockfiles) that trigger external review.
 # Set to 0 to require external review on every PR.
@@ -410,12 +410,12 @@ author_identity: nathanjohnpayne
 # Enabled on public repos only; advisory, does not block merge.
 # NOTE: This flag governs AGENT behavior only (whether agents wait for
 # CodeRabbit in Phase 2.5). It does NOT control whether the CodeRabbit
-# GitHub App itself runs — the App runs based on its own install state.
+# GitHub App itself runs—the App runs based on its own install state.
 # To fully disable CodeRabbit, uninstall the GitHub App AND set this flag.
 coderabbit:
   enabled: false
 
-# Codex (Phase 4a automated external review) — see Phase 4a above.
+# Codex (Phase 4a automated external review)—see Phase 4a above.
 # Same semantics note as coderabbit: this flag governs agent behavior,
 # not app runtime. The ChatGPT Codex Connector App runs based on its
 # per-repo install state and its "Automatic reviews" setting.
@@ -428,7 +428,7 @@ codex:
   require_ci_green: true                      # merge gate
 ```
 
-> **Note on `enabled` flags (both `coderabbit` and `codex`).** These flags govern **agent behavior only** — whether the authoring agent waits for the corresponding review in its phase. They do NOT control whether the underlying GitHub App runs. Both apps run based on their own install state on GitHub, independent of what this YAML says. Setting `enabled: false` alone will cause the agent to skip the corresponding phase while the app continues to post reviews silently in the background. This may be desired as a "dark launch," but can confuse readers who expect the flag to mean "off." To fully disable an integration, uninstall the GitHub App AND set the flag to false.
+> **Note on `enabled` flags (both `coderabbit` and `codex`).** These flags govern **agent behavior only**—whether the authoring agent waits for the corresponding review in its phase. They do NOT control whether the underlying GitHub App runs. Both apps run based on their own install state on GitHub, independent of what this YAML says. Setting `enabled: false` alone will cause the agent to skip the corresponding phase while the app continues to post reviews silently in the background. This may be desired as a "dark launch," but can confuse readers who expect the flag to mean "off." To fully disable an integration, uninstall the GitHub App AND set the flag to false.
 
 ### Threshold Evaluation
 
@@ -472,7 +472,7 @@ All repos use SSH remotes (`git@github.com:nathanjohnpayne/...`). SSH keys are m
 
 The public key files (`~/.ssh/id_nathanjohnpayne.pub`, etc.) tell the 1Password agent which private key to sign with. `IdentitiesOnly yes` prevents SSH from trying all keys.
 
-To push/pull as the default author identity (`nathanjohnpayne`), no change is needed — the `github.com` host is the default.
+To push/pull as the default author identity (`nathanjohnpayne`), no change is needed—the `github.com` host is the default.
 
 > **If preflight was run:** SSH keys for both the author and reviewer identities were pre-warmed during Phase 0. The `git push` / `git pull` commands below will not trigger additional biometric prompts.
 
@@ -530,7 +530,7 @@ GH_TOKEN="$(op read 'op://Private/pvbq24vl2h6gl7yjclxy2hbote/token')" \
 
 Reviewer accounts are **collaborators** on repos owned by `nathanjohnpayne`. This constrains the PAT type:
 
-- **Classic PATs with `repo` scope** — required for collaborator accounts. Fine-grained PATs on personal (non-org) GitHub accounts only cover repos the account *owns*. The "All repositories" scope means all owned repos (zero for collaborators), and "Only select repositories" does not list collaborator repos.
+- **Classic PATs with `repo` scope**—required for collaborator accounts. Fine-grained PATs on personal (non-org) GitHub accounts only cover repos the account *owns*. The "All repositories" scope means all owned repos (zero for collaborators), and "Only select repositories" does not list collaborator repos.
 - Store each PAT in 1Password as `GitHub PAT (pr-review-{agent})` with a concealed field named `token`.
 - Access via item ID to avoid shell escaping issues with parentheses in the title. See the [PAT lookup table](#pat-lookup-table) for all current item IDs.
 
@@ -576,7 +576,7 @@ done
 
 1. Create a GitHub account: `nathanpayne-{agent}`
 2. Add it as a collaborator with Write access on each relevant repo.
-3. Accept the invitation (browser or classic PAT — fine-grained PATs cannot accept invites).
+3. Accept the invitation (browser or classic PAT—fine-grained PATs cannot accept invites).
 4. Generate a **classic** PAT with `repo` scope for the new account.
 5. Store the PAT in 1Password as `GitHub PAT (pr-review-{agent})`, field name `token`.
 6. Create an SSH key in 1Password named `GitHub {Agent}`. Add the public key to the new GitHub account under Settings → SSH and GPG keys.
@@ -594,9 +594,9 @@ This policy and the accompanying `review-policy.yml` should be included in every
 1. Copy `.github/review-policy.yml` into the new repo's `.github/` directory.
 2. Copy this document into the repo as `REVIEW_POLICY.md` (or the location specified by your project template).
 3. Copy the governance files from the template:
-   - `.github/dependabot.yml` — Dependabot version update schedule
-   - `.github/CODEOWNERS` — code ownership routing
-   - `SECURITY.md` — vulnerability reporting policy (update the repo name in the advisory URL)
+   - `.github/dependabot.yml`—Dependabot version update schedule
+   - `.github/CODEOWNERS`—code ownership routing
+   - `SECURITY.md`—vulnerability reporting policy (update the repo name in the advisory URL)
 4. Adjust `external_review_threshold`, `external_review_paths`, and `default_external_reviewer` to fit the project.
 5. Ensure all agent environments have credentials configured for the repo.
 6. If the repo is public, enable secret scanning and push protection via GitHub settings (or API).
@@ -609,5 +609,5 @@ To reverse the CodeRabbit integration (e.g., if the trial ends):
 
 1. Uninstall the CodeRabbit GitHub App from the `nathanjohnpayne` GitHub account.
 2. In each repo where CodeRabbit was enabled: set `coderabbit.enabled: false` in `.github/review-policy.yml` and delete `.coderabbit.yml`.
-3. No documentation changes are needed — all agent instructions use conditional language (`"if coderabbit.enabled: true"`) and will skip Phase 2.5 automatically.
+3. No documentation changes are needed—all agent instructions use conditional language (`"if coderabbit.enabled: true"`) and will skip Phase 2.5 automatically.
 4. Optionally remove `.coderabbit.yml` from the template if CodeRabbit will not be used for future repos.
