@@ -197,14 +197,6 @@ html, body {
   grid-row: 2 / 5;
 }
 
-/* Community-focus content-sizes the Community panel via the same JS-measured
-   --cell-h-community pattern (#330 follow-up). The previous attempts (#325,
-   #326, #327) tried to keep Community spanning rows 6/7/8 while shrinking
-   tracks 7+8, which either hid Connect or left a black band in col 2.
-   The clean solution: override .panel--black grid-row to 6 only so the
-   panel matches its content height, keep track 8 at minmax (tall narrow
-   Connect tile preserved), and extend .block--gray-d to span cols 2-5
-   in this state so the row 8 strip tiles cleanly without a band. */
 .mondrian[data-focus="community"] {
   grid-template-columns:
     var(--line) minmax(11rem, 4.1fr) var(--line)
@@ -212,23 +204,10 @@ html, body {
     minmax(3.75rem, 0.72fr) var(--line)
     minmax(4.8rem, 1.18fr) var(--line);
   grid-template-rows:
-    var(--line)                              /* track 1 */
-    minmax(5.5rem, 0.88fr)                   /* track 2 — about row 1 */
-    var(--line)                              /* track 3 */
-    minmax(2.75rem, 0.75fr)                  /* track 4 — about row 2 */
-    var(--line)                              /* track 5 — line above community */
-    var(--cell-h-community, 401px)           /* track 6 — community content */
-    var(--line)                              /* track 7 — line above row 8 strip */
-    minmax(8.8rem, 3.7fr)                    /* track 8 — Connect's tall narrow tile */
-    var(--line);                             /* track 9 — bottom boundary */
-}
-
-.mondrian[data-focus="community"] .panel--black {
-  grid-row: 6;
-}
-
-.mondrian[data-focus="community"] .block--gray-d {
-  grid-column: 2 / 5;
+    var(--line) minmax(5.5rem, 0.88fr) var(--line)
+    minmax(2.75rem, 0.75fr) var(--line)
+    minmax(3.25rem, 1.04fr) var(--line)
+    minmax(8.8rem, 3.7fr) var(--line);
 }
 
 /* Connect-focus content-sizes the Connect panel by sizing track 8 to the
@@ -3106,6 +3085,17 @@ a.tag:hover {
   50%      { filter: brightness(1.16); }
 }
 
+/* Blue Connect panel needs a stronger pulse than the default keyframe.
+   brightness(1.08) saturate(1.05) is calibrated for the saturated red and
+   yellow panels; on the dark navy blue (#223f89) it's barely perceptible.
+   1.22 brightness with a small saturate bump produces a flash readable in
+   the same range as the red and yellow panels' pulses, restoring the
+   "navigation hint" cue across all four primaries. (#330) */
+@keyframes panel-pulse-blue {
+  0%, 100% { filter: none; }
+  50%      { filter: brightness(1.22) saturate(1.10); }
+}
+
 .panel--pulsing {
   animation: panel-pulse var(--pulse-duration) var(--ease-out);
   will-change: filter;
@@ -3113,6 +3103,10 @@ a.tag:hover {
 
 .panel--black.panel--pulsing {
   animation-name: panel-pulse-neutral;
+}
+
+.panel--blue.panel--pulsing {
+  animation-name: panel-pulse-blue;
 }
 
 @media (prefers-reduced-motion: reduce) {
