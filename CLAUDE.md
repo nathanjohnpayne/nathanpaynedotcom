@@ -1,14 +1,14 @@
 Read these files before taking any action in this repository:
 
-1. `AGENTS.md` — behavioral rules and operating instructions
-2. `rules/repo_rules.md` — binding structural constraints
-3. Relevant `specs/` files — intended system behavior
-4. `DEPLOYMENT.md` — deploy process and credential setup
-5. `.ai_context.md` — supplemental context
+1. `AGENTS.md`—behavioral rules and operating instructions
+2. `rules/repo_rules.md`—binding structural constraints
+3. Relevant `specs/` files—intended system behavior
+4. `DEPLOYMENT.md`—deploy process and credential setup
+5. `.ai_context.md`—supplemental context
 
 If any of these files are missing, flag the gap before proceeding.
 
-# Code Review — Mandatory Checklist
+# Code Review—Mandatory Checklist
 
 Never push directly to `main`. All changes must go through a pull request.
 
@@ -45,7 +45,7 @@ explicitly authorizes a break-glass override in chat.
      a. Wait for CodeRabbit to post (up to 3 min; ask human if delayed).
      b. Read PR-level comments: `gh api repos/{owner}/{repo}/issues/{pr}/comments`
      c. Read inline diff comments: `gh api repos/{owner}/{repo}/pulls/{pr}/comments`
-     d. Grep inline comments for `Potential issue` or `⚠️` — address each one.
+     d. Grep inline comments for `Potential issue` or `⚠️`—address each one.
      e. Fix real issues; dismiss false positives with a brief reply.
      CodeRabbit is advisory and does not block merge.
 
@@ -59,7 +59,7 @@ explicitly authorizes a break-glass override in chat.
 9. If the PR meets the threshold, it enters Phase 4 external review.
    See REVIEW_POLICY.md § Phase 4 for the canonical procedure. Short form:
 
-   **Phase 4a — Automated (preferred).** Applies when ALL of the
+   **Phase 4a—Automated (preferred).** Applies when ALL of the
    following are true:
 
    - `codex.enabled: true` in `.github/review-policy.yml`
@@ -83,7 +83,7 @@ explicitly authorizes a break-glass override in chat.
      few hours? If yes, the App is review-ready. If no, check the
      two settings pages above manually, or test with a small throwaway
      PR before routing real work through Phase 4a. **Do NOT use
-     `gh api repos/{owner}/{repo}/installation`** as a check — that
+     `gh api repos/{owner}/{repo}/installation`** as a check—that
      endpoint requires a GitHub App JWT and returns `401 "A JSON web
      token could not be decoded"` for normal user/reviewer PATs.
 
@@ -100,7 +100,7 @@ explicitly authorizes a break-glass override in chat.
    c. Re-run `scripts/codex-review-request.sh` for the next round. Loop
       until Codex clears: a `COMMENTED` review with no unaddressed
       **P0/P1** findings on the current HEAD (P2 and P3 findings do NOT
-      block clearance — address them at the agent's judgment), OR a
+      block clearance—address them at the agent's judgment), OR a
       👍 reaction on the PR issue.
    d. On exit code `4` (FALLBACK_REQUIRED, timeout), stop 4a and drop to
       Phase 4b below.
@@ -111,11 +111,11 @@ explicitly authorizes a break-glass override in chat.
    f. On clearance, run `scripts/codex-review-check.sh <PR#>` to verify
       the merge gate (CI green + internal reviewer approved + Codex
       cleared on current HEAD). The merge gate does NOT require an
-      `APPROVED` review state from the Codex bot — the app never emits
+      `APPROVED` review state from the Codex bot—the app never emits
       one. If the gate passes, merge as nathanjohnpayne with
       `gh pr merge --squash --delete-branch`.
 
-   **Phase 4b — Manual CLI fallback.** Applies when Phase 4a is
+   **Phase 4b—Manual CLI fallback.** Applies when Phase 4a is
    unavailable (`codex.enabled: false`, either helper script missing,
    Codex App not review-ready, or 4a fell back via exit code 4):
 

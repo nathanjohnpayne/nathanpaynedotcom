@@ -2,7 +2,7 @@
 
 ## Overview
 
-nathanpayne.com is a personal portfolio and blog site built with Astro. Contributions should honor the design philosophy: clean Mondrian grid layout, strict motion system, and minimal complexity. Changes should be precise — this is not a site that benefits from added abstractions.
+nathanpayne.com is a personal portfolio and blog site built with Astro. Contributions should honor the design philosophy: clean Mondrian grid layout, strict motion system, and minimal complexity. Changes should be precise—this is not a site that benefits from added abstractions.
 
 ## Branch Naming
 
@@ -27,7 +27,7 @@ For larger changes, add a body explaining why, not what.
 ## Pull Request Process
 
 1. Branch from `main`
-2. Keep changes focused — visual changes and content changes in separate commits
+2. Keep changes focused—visual changes and content changes in separate commits
 3. Run `npm run test` before opening a PR
 4. Open a PR against `main` with a clear title and description
 5. At least one human review required before merge

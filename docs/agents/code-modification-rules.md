@@ -23,7 +23,7 @@ All cells transition to a warm parchment tone when opened.
 --su:        0.42rem    (spacing unit)
 ```
 
-#### Motion — Durations
+#### Motion—Durations
 ```
 --motion-fast:           130ms  (metadata, dividers)
 --motion-hover:          170ms  (hover states)
@@ -34,14 +34,14 @@ All cells transition to a warm parchment tone when opened.
 --pulse-duration:        250ms  (per-panel brightness/saturation breath)
 ```
 
-#### Motion — Easing
+#### Motion—Easing
 ```
 --ease-standard: cubic-bezier(0.4, 0.0, 0.2, 1)   (hovers, general interaction)
 --ease-sharp:    cubic-bezier(0.2, 0.8, 0.2, 1)    (reserved; not used by panel/grid morph after #313 / #314)
 --ease-linear:   linear                              (metadata, dividers)
 ```
 
-#### Motion — Magnitude
+#### Motion—Magnitude
 ```
 --shift-small:   2px    (hover translation cap)
 --shift-medium:  3px    (emphasis translation cap)
@@ -57,7 +57,7 @@ All animation timing is governed by the motion tokens above. No hard-coded durat
 | Metadata / dividers | `--motion-fast` (130ms) | `--ease-linear` | Labels, ribbons, meta text |
 | Hover | `--motion-hover` (170ms) | `--ease-standard` | Social rows, icons, arrows, project links |
 | Panel morph | `--motion-plane` (460ms) | `--ease-standard` | Mondrian grid transitions (bumped from 280ms / `--ease-sharp` in #313) |
-| Settle on load | (superseded by panel-pulse, #305) | — | Was `--motion-plane` + `--ease-standard`; replaced by the on-load pulse below |
+| Settle on load | (superseded by panel-pulse, #305) |—| Was `--motion-plane` + `--ease-standard`; replaced by the on-load pulse below |
 | Section load | `--motion-load` (300ms) | `--ease-standard` | Entrance animations |
 | On-load pulse (delay) | `--pulse-initial-delay` (300ms) | n/a | Pause after label fade-in before sequence fires (#306) |
 | On-load pulse (interval) | `--pulse-interval` (370ms) | n/a | Time between successive panel pulse starts |
@@ -96,7 +96,7 @@ Astro (static site generator) with vanilla CSS and minimal client-side JavaScrip
 ### Files
 
 All source lives in `src/`:
-- **Pages:** `src/pages/` (Astro routing — each `.astro` file becomes a route)
+- **Pages:** `src/pages/` (Astro routing—each `.astro` file becomes a route)
 - **Layouts:** `src/layouts/` (BaseLayout, BlogPost, ProjectLayout, OgCard)
 - **Content:** `src/content/blog/*.md` (Markdown blog posts with Zod-validated frontmatter)
 - **Styles:** `src/styles/global.css` (single global stylesheet)
@@ -107,12 +107,12 @@ Static assets (favicons, robots.txt, OG fonts) live in `public/` and are copied 
 
 ### CSS
 
-- Design tokens in `:root` — always use or extend them.
+- Design tokens in `:root`—always use or extend them.
 - **Motion system:** All durations use `--motion-fast` / `--motion-hover` / `--motion-plane` / `--motion-load`. All easing uses `--ease-standard` / `--ease-sharp` / `--ease-linear`. Translation magnitude uses `--shift-small` / `--shift-medium`. No hard-coded `ms` values or bare `ease` keywords.
 - Homepage panel states are driven by `data-focus` attribute on the grid container. CSS defines `grid-template-columns` + `grid-template-rows` for each `data-focus` value.
 - Fluid sizing via `clamp()`; no fixed-breakpoint font overrides.
 - Homepage stack breakpoint at `@media (max-width: 1023px)` (token: `--bp-stack: 1024px`); see #313 / #314 for the move from the prior 920px and the wide-viewport `--mondrian-max-width: 1280px` cap.
-- Respect `prefers-reduced-motion: reduce` — universal `*` selector zeroes all transition/animation durations.
+- Respect `prefers-reduced-motion: reduce`—universal `*` selector zeroes all transition/animation durations.
 - Use `:focus-visible` (not `:focus`) for keyboard outlines.
 
 ### Astro Pages
@@ -120,7 +120,7 @@ Static assets (favicons, robots.txt, OG fonts) live in `public/` and are copied 
 - Semantic elements (`<main>`, `<section>`, `<article>`).
 - ARIA: `role="region"` + `aria-label` on panels; `aria-hidden="true"` on decorative blocks.
 - External links: `target="_blank" rel="noopener"`.
-- Inline SVG for icons — no icon fonts or sprite sheets.
+- Inline SVG for icons—no icon fonts or sprite sheets.
 
 ### Markdown / Content Collections
 

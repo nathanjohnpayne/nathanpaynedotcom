@@ -3,17 +3,17 @@
 ### Key Design Decisions
 
 #### Mondrian Grid
-The `.mondrian` container is a 9-column × 9-row CSS Grid. Odd-numbered tracks are `var(--line)` (9px desktop / 6px stack-mode) — they render as the black dividing lines of the composition. Even-numbered tracks hold panels and decorative blocks.
+The `.mondrian` container is a 9-column × 9-row CSS Grid. Odd-numbered tracks are `var(--line)` (9px desktop / 6px stack-mode)—they render as the black dividing lines of the composition. Even-numbered tracks hold panels and decorative blocks.
 
-When a panel is focused, JavaScript sets `data-focus="<panel-name>"` on the grid container. CSS defines a separate `grid-template-columns` + `grid-template-rows` for each `data-focus` value, and the transition (`--motion-plane: 460ms` with `--ease-standard`) animates between them — bumped from `280ms / --ease-sharp` in #313 / #314 so the row/column re-flow reads as a deliberate composition shift instead of a snap.
+When a panel is focused, JavaScript sets `data-focus="<panel-name>"` on the grid container. CSS defines a separate `grid-template-columns` + `grid-template-rows` for each `data-focus` value, and the transition (`--motion-plane: 460ms` with `--ease-standard`) animates between them—bumped from `280ms / --ease-sharp` in #313 / #314 so the row/column re-flow reads as a deliberate composition shift instead of a snap.
 
-Animated `grid-template-rows` values use only explicit, interpolable lengths (`px`, `rem`, `fr`, `calc()` of those, `minmax()` of those). No `auto` tracks during animation — `auto` snaps when the spanning content's flow contribution changes, which produces visible 0-length frames on close. Each panel's natural content height is measured in JS at page load (after fonts settle) and on resize, then exposed as `--cell-h-{about,projects,community,connect}` on `.mondrian`. The focus-state CSS consumes those custom properties via `calc()`. See `measureContentHeights()` in `src/pages/index.astro` and the `--cell-h-*` consumers in `src/styles/global.css`.
+Animated `grid-template-rows` values use only explicit, interpolable lengths (`px`, `rem`, `fr`, `calc()` of those, `minmax()` of those). No `auto` tracks during animation—`auto` snaps when the spanning content's flow contribution changes, which produces visible 0-length frames on close. Each panel's natural content height is measured in JS at page load (after fonts settle) and on resize, then exposed as `--cell-h-{about,projects,community,connect}` on `.mondrian`. The focus-state CSS consumes those custom properties via `calc()`. See `measureContentHeights()` in `src/pages/index.astro` and the `--cell-h-*` consumers in `src/styles/global.css`.
 
-For the multi-row spanning panels (about, projects, community), the helper line track and second content track that each panel spans collapse to `0` uniformly across every column when that panel is the focus. Decorative blocks in the absorbed tracks (`block--white-a` / `block--white-b` for about/projects; `block--gray-d` / `panel--blue` for community) resolve to 0px height. The boundary line below the spanning panel stays at `var(--line)` so a single normal-weight grid line remains between the spanning panel and the next visible row — no skinny-strip artifacts. See PR #315 for the consistency fix.
+For the multi-row spanning panels (about, projects, community), the helper line track and second content track that each panel spans collapse to `0` uniformly across every column when that panel is the focus. Decorative blocks in the absorbed tracks (`block--white-a` / `block--white-b` for about/projects; `block--gray-d` / `panel--blue` for community) resolve to 0px height. The boundary line below the spanning panel stays at `var(--line)` so a single normal-weight grid line remains between the spanning panel and the next visible row—no skinny-strip artifacts. See PR #315 for the consistency fix.
 
 #### Panel Interaction Model
-- **Desktop (hover + fine pointer):** Hover goes through an interaction state machine (`idle` → `opening` → `open` → `switching` → `closing`). `mouseenter` requests open via `requestPanel()`; while a morph is in progress, hover events are ignored. After `--motion-plane` settles, `document.elementFromPoint(lastMoveX, lastMoveY)` re-resolves the cursor's actual target. `mouseleave` checks `event.relatedTarget` first — if the cursor is moving directly to another panel, it triggers a switch instead of closing through `idle`. Otherwise a brief, cancellable close timer fires (`leaveDelay = 80ms`). See `src/pages/index.astro` for the full state machine and #314 for the choreography spec.
-- **Geometry vs content reveal:** `data-focus` and `is-open` drive the grid morph and cream surface. A separate `is-content-visible` class (added late in the open sequence, removed early on close) drives the text fade via opacity/visibility/pointer-events — never `display: none/block`, so the fade actually transitions.
+- **Desktop (hover + fine pointer):** Hover goes through an interaction state machine (`idle` → `opening` → `open` → `switching` → `closing`). `mouseenter` requests open via `requestPanel()`; while a morph is in progress, hover events are ignored. After `--motion-plane` settles, `document.elementFromPoint(lastMoveX, lastMoveY)` re-resolves the cursor's actual target. `mouseleave` checks `event.relatedTarget` first—if the cursor is moving directly to another panel, it triggers a switch instead of closing through `idle`. Otherwise a brief, cancellable close timer fires (`leaveDelay = 80ms`). See `src/pages/index.astro` for the full state machine and #314 for the choreography spec.
+- **Geometry vs content reveal:** `data-focus` and `is-open` drive the grid morph and cream surface. A separate `is-content-visible` class (added late in the open sequence, removed early on close) drives the text fade via opacity/visibility/pointer-events—never `display: none/block`, so the fade actually transitions.
 - **Keyboard:** `Enter`/`Space` opens; `Escape` closes. `focusin`/`focusout` manage state. Click/keyboard/focus paths bypass the state-machine guard so deliberate user intent always works, including mid-morph. They pass `replayHover = false` so the post-morph re-resolve doesn't switch away from a deliberately-opened panel.
 - **Reduced motion:** `prefers-reduced-motion: reduce` zeros all CSS transition durations *and* short-circuits the JS state-machine timers (`readMsToken` returns `0` when the query matches), so reduced-motion users see state changes immediately rather than sitting through invisible delays.
 - **Stack mode (≤ 1023px, below `--bp-stack`):** All interactions are disabled. Panels stack vertically with content always visible. The mobile-stack `panel-content` rules in `global.css` restore `opacity: 1; visibility: visible` so the readable stack always renders content (the desktop base rule keeps it hidden for the fade-in choreography). The `mobile()` media-query check gates every interaction handler.
@@ -43,16 +43,16 @@ Narrative order: **Identity → Work → Community → Contact**
 - Inline SVG for social icons (no icon library).
 
 #### CSS
-- Design tokens live in `:root` inside `src/styles/global.css` — color (`--ink`, `--paper`, `--red`, `--yellow`, `--blue`), layout (`--line`, `--su`), and the full motion system (see [Code Modification Rules](code-modification-rules.md)).
-- All durations and easing functions must use motion tokens — no hard-coded `ms` values or bare `ease` keywords.
+- Design tokens live in `:root` inside `src/styles/global.css`—color (`--ink`, `--paper`, `--red`, `--yellow`, `--blue`), layout (`--line`, `--su`), and the full motion system (see [Code Modification Rules](code-modification-rules.md)).
+- All durations and easing functions must use motion tokens—no hard-coded `ms` values or bare `ease` keywords.
 - Use `clamp()` for fluid sizing; avoid fixed breakpoint font overrides.
 - Homepage panel states are driven by `data-focus` attribute on the grid container.
-- Respect `prefers-reduced-motion: reduce` — universally disables all transitions and animations.
+- Respect `prefers-reduced-motion: reduce`—universally disables all transitions and animations.
 - `:focus-visible` for keyboard focus outlines (not `:focus`).
 
 #### Client-Side JavaScript
-- Minimal — Astro pages are static. Client-side JS should be limited to interactive behaviors (panel open/close, keyboard nav, analytics).
-- Vanilla DOM APIs only — no jQuery or utility libraries.
+- Minimal—Astro pages are static. Client-side JS should be limited to interactive behaviors (panel open/close, keyboard nav, analytics).
+- Vanilla DOM APIs only—no jQuery or utility libraries.
 - Use `matchMedia` for capability detection, not user-agent sniffing.
 - Analytics calls guard on `typeof gtag !== 'function'`.
 
@@ -62,12 +62,12 @@ Narrative order: **Identity → Work → Community → Contact**
 1. Add the project to the homepage in `src/pages/index.astro` (yellow panel section).
 2. Create a dedicated project page at `src/pages/projects/<slug>/index.astro` using `ProjectLayout`.
 3. Create an OG template at `src/pages/og-templates/projects/<slug>.astro` for build-time OG image generation.
-4. The sitemap is auto-generated by `@astrojs/sitemap` — no manual update needed.
+4. The sitemap is auto-generated by `@astrojs/sitemap`—no manual update needed.
 
 #### Adding a Blog Post
 1. Create the Markdown source file in `src/content/blog/<slug>.md` with frontmatter matching the Zod schema in `src/content.config.ts`.
 2. Run `npm run build` to generate the static pages (or use `npm run dev` to preview).
-3. The blog listing, RSS feed, and sitemap update automatically — no manual step needed.
+3. The blog listing, RSS feed, and sitemap update automatically—no manual step needed.
 
 #### Adding a Social Link
 1. Edit the blue panel section in `src/pages/index.astro`.
@@ -89,7 +89,7 @@ Google Analytics 4 via `gtag.js`, property `G-7C29SRBXB1`. Events:
 
 If any `op` command (`op read`, `op inject`, `op run`, `op document get`,
 or any script that wraps them) fails with a sign-in or authentication
-error — including but not limited to:
+error—including but not limited to:
 
 - `[ERROR] ... not currently signed in`
 - `session expired`
@@ -115,7 +115,7 @@ Then follow this procedure:
 4. **Wait for the human to confirm** they are present and ready before
    re-running preflight (not individual `op read` commands).
 5. After confirmation, re-run preflight. If it fails again, report the
-   full error output and wait — do not loop.
+   full error output and wait—do not loop.
 
 This rule applies only to 1Password CLI sign-in and authentication
 errors. Other `op` failures (wrong item ID, missing field, network

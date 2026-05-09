@@ -25,14 +25,14 @@ brew install gh
 ### 2. Authenticate
 
 ```bash
-# 1Password — enables biometric unlock for op CLI
+# 1Password—enables biometric unlock for op CLI
 # (Follow the prompts to sign in and enable Touch ID)
 op signin
 
 # GitHub CLI
 gh auth login
 
-# Google Cloud — use 1Password-backed ADC (no interactive login needed
+# Google Cloud—use 1Password-backed ADC (no interactive login needed
 # if op is authenticated and the GCP ADC item exists in 1Password)
 ```
 
@@ -146,9 +146,9 @@ When creating a new repository from this template, complete these steps to enabl
 
 Go to the new repo → Settings → Collaborators → Invite each:
 
-- `nathanpayne-claude` — Write access
-- `nathanpayne-codex` — Write access
-- `nathanpayne-cursor` — Write access
+- `nathanpayne-claude`—Write access
+- `nathanpayne-codex`—Write access
+- `nathanpayne-cursor`—Write access
 
 ### 2. Accept collaborator invitations
 
@@ -246,7 +246,7 @@ The workflows expect these labels to exist. Create them if they don't:
 
 ```bash
 gh label create "needs-external-review" --color "D93F0B" --description "Blocks merge until external reviewer approves" --repo {owner}/{repo}
-gh label create "needs-human-review" --color "B60205" --description "Agent disagreement — requires human review" --repo {owner}/{repo}
+gh label create "needs-human-review" --color "B60205" --description "Agent disagreement—requires human review" --repo {owner}/{repo}
 gh label create "policy-violation" --color "000000" --description "Review policy violation detected" --repo {owner}/{repo}
 gh label create "audit" --color "FBCA04" --description "Weekly PR audit report" --repo {owner}/{repo}
 ```
@@ -282,7 +282,7 @@ gh label list --repo "$REPO" --search "policy-violation"
 
 Machine user reviewer identities (nathanpayne-claude, etc.) are **collaborators**,
 not repo owners. GitHub fine-grained PATs on personal accounts only cover repos
-owned by the token account — they cannot access collaborator repos. The "All
+owned by the token account—they cannot access collaborator repos. The "All
 repositories" scope in fine-grained PATs means all repos the account *owns* (zero
 for collaborators), not repos they collaborate on.
 
@@ -368,10 +368,10 @@ npm run build
 
 **`prebuild`** (chained via `&&` in [package.json](package.json)):
 
-1. `node scripts/refresh-hero-images.mjs` — for every project with `heroRefresh: github-social` in its frontmatter, re-fetches the repo's current GitHub social preview and writes it to `public/<screenshotSrc>`. Fails soft on any error; keeps the existing image.
-2. `node scripts/refresh-mux-gifs.mjs` — for every project with a `muxPlaybackId`, fetches an animated GIF from `image.mux.com` and writes it to `public/<screenshotSrc>`. Fails **loud** on any network error (non-zero exit halts the build); the Mux GIF is the only authoritative source for the hero fallback on Mux-backed projects, so a silent miss would ship stale content. See [specs/project-pages.md § Fallback GIF regeneration](specs/project-pages.md#fallback-gif-regeneration) for the full contract.
+1. `node scripts/refresh-hero-images.mjs`—for every project with `heroRefresh: github-social` in its frontmatter, re-fetches the repo's current GitHub social preview and writes it to `public/<screenshotSrc>`. Fails soft on any error; keeps the existing image.
+2. `node scripts/refresh-mux-gifs.mjs`—for every project with a `muxPlaybackId`, fetches an animated GIF from `image.mux.com` and writes it to `public/<screenshotSrc>`. Fails **loud** on any network error (non-zero exit halts the build); the Mux GIF is the only authoritative source for the hero fallback on Mux-backed projects, so a silent miss would ship stale content. See [specs/project-pages.md § Fallback GIF regeneration](specs/project-pages.md#fallback-gif-regeneration) for the full contract.
 
-The two refreshers never race for the same output path — `refresh-hero-images.mjs` explicitly skips any project with `muxPlaybackId`.
+The two refreshers never race for the same output path—`refresh-hero-images.mjs` explicitly skips any project with `muxPlaybackId`.
 
 **`astro build`** then:
 
@@ -381,7 +381,7 @@ The two refreshers never race for the same output path — `refresh-hero-images.
 4. Generates OG images via the custom Playwright integration (OG templates consume the freshly-regenerated GIFs from step 2 of prebuild, so OG images and hero images stay in sync)
 5. Outputs everything to `dist/`
 
-Astro handles asset fingerprinting automatically — no manual cache-busting is needed.
+Astro handles asset fingerprinting automatically—no manual cache-busting is needed.
 
 ### Client-side env vars
 
@@ -483,16 +483,16 @@ Or use the Firebase Console → Hosting → Release History → Roll back.
 
 1. Open https://nathanpayne.com in an incognito window
 2. Verify all four panels render correctly (red, yellow, black, blue)
-3. Hover over each panel on desktop — confirm open/close animations work
+3. Hover over each panel on desktop—confirm open/close animations work
 4. Test keyboard navigation (Tab to focus panels, Enter to open, Escape to close)
-5. Verify mobile view at 375px — panels should stack vertically with content always visible
+5. Verify mobile view at 375px—panels should stack vertically with content always visible
 6. Verify blog listing (`/blog/`) and at least one blog post load correctly
 7. Verify OG images render (check `/og/home.png` or use a social card preview tool)
 8. Check Firebase Console → Analytics → confirm `section_view` events fire on panel hover
 
 ## CI/CD Integration
 
-Deploys are manual via `op-firebase-deploy`. CI workflows (repo linting, review policy enforcement) run on push/PR via GitHub Actions — see `.github/workflows/`.
+Deploys are manual via `op-firebase-deploy`. CI workflows (repo linting, review policy enforcement) run on push/PR via GitHub Actions—see `.github/workflows/`.
 
 If a CI pipeline is added later, prefer Workload Identity Federation or another `external_account` credential as the source credential, then let `op-firebase-deploy` impersonate the deployer service account. Do **not** store service account keys as CI secrets.
 
@@ -525,7 +525,7 @@ For Claude Code cloud scheduled tasks:
 
 ## Secrets Management
 
-- No API keys or secrets are committed to this repository. Google Analytics Measurement ID (`G-7C29SRBXB1`) is a public identifier — not a secret.
+- No API keys or secrets are committed to this repository. Google Analytics Measurement ID (`G-7C29SRBXB1`) is a public identifier—not a secret.
 - Deploy auth uses short-lived impersonated credentials derived from a 1Password-backed GCP ADC source credential, another explicit `GOOGLE_APPLICATION_CREDENTIALS` file, or CI-provided external-account credentials.
 - Do not commit API keys, service-account JSON, or ADC credentials.
 - If a future feature requires API keys, keep them in ignored config files and apply browser restrictions in Google Cloud. Never commit raw keys.

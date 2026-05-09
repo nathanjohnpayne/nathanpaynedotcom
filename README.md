@@ -1,6 +1,6 @@
 # nathanpayne.com
 
-Personal portfolio, project, and blog site for Nathan Payne — a static site built with [Astro](https://astro.build). Deployed to Firebase Hosting.
+Personal portfolio, project, and blog site for Nathan Payne—a static site built with [Astro](https://astro.build). Deployed to Firebase Hosting.
 
 **Live:** [nathanpayne.com](https://nathanpayne.com)
 
@@ -8,14 +8,14 @@ Personal portfolio, project, and blog site for Nathan Payne — a static site bu
 
 ## Design
 
-The layout is a **Mondrian-inspired grid** — four colored panels arranged in a geometric composition that animates when a panel receives focus.
+The layout is a **Mondrian-inspired grid**—four colored panels arranged in a geometric composition that animates when a panel receives focus.
 
 | Cell | Color | Content |
 |------|-------|---------|
-| Red | `#c11d19` | About — bio and role at The Walt Disney Company |
-| Yellow | `#d9b111` | Builds — side-project showcase |
-| Black | `#090907` | Community — fundraising and organizing |
-| Blue | `#223f89` | Connect — social links (LinkedIn, Instagram, Threads, Bluesky, X) |
+| Red | `#c11d19` | About—bio and role at The Walt Disney Company |
+| Yellow | `#d9b111` | Builds—side-project showcase |
+| Black | `#090907` | Community—fundraising and organizing |
+| Blue | `#223f89` | Connect—social links (LinkedIn, Instagram, Threads, Bluesky, X) |
 
 Narrative order: **Identity → Work → Community → Contact**
 
@@ -36,7 +36,7 @@ On desktop, hovering or focusing a panel triggers a CSS Grid transition that exp
 
 - **Headings / labels:** [Cormorant Garamond](https://fonts.google.com/specimen/Cormorant+Garamond) (serif, weights 400–700)
 - **Body / UI:** [Inter](https://fonts.google.com/specimen/Inter) (sans-serif, weights 300–700)
-- Sizes use `clamp()` for fluid responsive scaling — no fixed breakpoint font overrides.
+- Sizes use `clamp()` for fluid responsive scaling—no fixed breakpoint font overrides.
 
 ---
 
@@ -92,7 +92,7 @@ On desktop, hovering or focusing a panel triggers a CSS Grid transition that exp
 
 ### Grid System
 
-The homepage uses a **9-column × 9-row CSS Grid** (defined in `src/styles/global.css`). Odd-numbered tracks are `var(--line)` (9px desktop / 6px mobile) — they render as the black dividing lines of the Mondrian composition. Even-numbered tracks hold panels and decorative blocks.
+The homepage uses a **9-column × 9-row CSS Grid** (defined in `src/styles/global.css`). Odd-numbered tracks are `var(--line)` (9px desktop / 6px mobile)—they render as the black dividing lines of the Mondrian composition. Even-numbered tracks hold panels and decorative blocks.
 
 When a panel is focused, JavaScript sets `data-focus="<panel-name>"` on the grid container. CSS defines a separate `grid-template-columns` + `grid-template-rows` for each `data-focus` value, and the grid transitions between them over 280ms with a sharp easing curve (`--ease-sharp`).
 
@@ -108,17 +108,17 @@ When a panel is focused, JavaScript sets `data-focus="<panel-name>"` on the grid
 
 Blog posts are authored as Markdown files in `src/content/blog/` with Zod-validated frontmatter (defined in `src/content.config.ts`). Astro's Content Collections API provides type-safe access to the content. Posts support:
 
-- **Pullquotes** — accent-colored sidebar cards
-- **Sidebar content** — Mermaid diagrams, images, and text blocks
-- **Code syntax highlighting** — via Shiki with CSS variable theming
-- **Figure captions** — auto-numbered via custom Rehype plugin
-- **Mermaid diagrams** — rendered client-side via CDN
+- **Pullquotes**—accent-colored sidebar cards
+- **Sidebar content**—Mermaid diagrams, images, and text blocks
+- **Code syntax highlighting**—via Shiki with CSS variable theming
+- **Figure captions**—auto-numbered via custom Rehype plugin
+- **Mermaid diagrams**—rendered client-side via CDN
 
 ### OG Images
 
 OG images are generated at build time by a custom Astro integration (`src/integrations/og-images.mjs`). It uses Playwright to screenshot HTML templates at 1200×630 with 2× device scale factor. Templates live in `src/pages/og-templates/` and are removed from the final build output.
 
-Every built page's `og:image` / `twitter:image` / `og:image:secure_url` URL is cross-checked against the real files in `dist/og/` by `tests/og-image-targets.test.js` at `npm test` time. If a page references an image that doesn't exist in the build output, the test fails with the offending page path, tag, and expected file location — the exact class of bug investigated in #163.
+Every built page's `og:image` / `twitter:image` / `og:image:secure_url` URL is cross-checked against the real files in `dist/og/` by `tests/og-image-targets.test.js` at `npm test` time. If a page references an image that doesn't exist in the build output, the test fails with the offending page path, tag, and expected file location—the exact class of bug investigated in #163.
 
 ### robots.txt and Sitemap
 
@@ -134,7 +134,7 @@ Each project has a dedicated detail page under `src/pages/projects/` with projec
 
 ### Motion System
 
-All animation timing is governed by design tokens in `:root` — no hard-coded durations or easing functions.
+All animation timing is governed by design tokens in `:root`—no hard-coded durations or easing functions.
 
 | Tier | Token | Duration | Easing | Applies to |
 |------|-------|----------|--------|------------|
@@ -150,7 +150,7 @@ Translation magnitude is capped at `--shift-small` (2px) for hovers and `--shift
 At `max-width: 920px`:
 - Grid collapses to single-column
 - Decorative blocks are hidden
-- Panel content is always visible — no hover interaction on mobile
+- Panel content is always visible—no hover interaction on mobile
 - Grid transitions are disabled
 
 ### Accessibility
@@ -227,4 +227,4 @@ Defined in `firebase.json`:
 
 ## AI Agent Docs
 
-See [`AGENTS.md`](AGENTS.md) for detailed, platform-agnostic instructions for AI coding agents — including architecture decisions, coding conventions, content update patterns, and the complete design token reference.
+See [`AGENTS.md`](AGENTS.md) for detailed, platform-agnostic instructions for AI coding agents—including architecture decisions, coding conventions, content update patterns, and the complete design token reference.
