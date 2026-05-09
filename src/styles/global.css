@@ -213,26 +213,10 @@ html, body {
     minmax(2.75rem, 0.75fr)
     var(--line)                       /* track 5 — single line above community */
     var(--cell-h-community, 401px)    /* track 6 — community cell */
-    var(--line)                       /* track 7 — line above connect / gray-d (visible in cols 4–8) */
-    minmax(3.4rem, 0.95fr)            /* track 8 — connect's row */
+    0                                 /* track 7 — line absorbed (inside community) */
+    0                                 /* track 8 — absorbed */
     var(--line);                      /* track 9 — bottom boundary */
 }
-
-/* Community-focus is the asymmetric case (#325).
-   The other multi-row spanning panels (about, projects) absorb their
-   helper rows because no other panel occupies them. Community spans
-   tracks 6 / 7 / 8, but Connect lives on track 8 — collapsing track 8
-   hides Connect, and collapsing track 7 erases the horizontal line
-   above the gray-d / Connect row in cols 4–8. Solution: keep both
-   track 7 (line) and track 8 (minmax) at their normal sizes. Community
-   keeps its default grid-row: 6 / 9, so its column covers tracks 6–8
-   as one continuous cream surface (the panel is on top of the line in
-   col 2), while in cols 4–8 the line at track 7 visually separates the
-   row 6 white spacer from the row 8 gray-d block + Connect tile —
-   matching the about-, projects-, and connect-focus templates that all
-   keep track 7 = var(--line). The .panel-content inside community is
-   `position: absolute; inset: 0` so its content fills the full cell
-   regardless of the extra track 7 + 8 height in col 2. */
 
 .mondrian[data-focus="connect"] {
   grid-template-columns:
