@@ -129,36 +129,17 @@ html, body {
     grid-template-rows var(--motion-plane) var(--ease-standard);
 }
 
-/* Focus-state grid templates (#313, #314). Each grid-template-rows entry
-   uses explicit lengths so transitions interpolate smoothly between
-   states — no `auto` tracks that would snap to/from intrinsic sizing on
-   rule change. The custom properties --cell-h-{about,projects,community,
-   connect} are set in JS at page load (and on resize) by measuring each
-   panel's actual content height in its focus state; see
-   measureContentHeights() in src/pages/index.astro. The fallbacks below
-   are reasonable defaults for first paint before measurement runs.
-
-   ── Absorbed helper tracks (consistent across focus states, #314) ──
-
-   Bio (about) and Builds (projects) panels span tracks 2 / 3 / 4
-   (one content row + line 3 + a second content row); Community spans
-   tracks 6 / 7 / 8; Connect spans track 8 only.
-
-   For the multi-row spanning panels, the spanning panel's full content
-   height collapses into the FIRST content track, and the LINE-3 / LINE-7
-   track and the second content track collapse to 0. The boundary line
-   below the spanning panel (track 5 for about/projects, track 9 for
-   community) stays at `var(--line)`, so adjacent columns see exactly
-   one normal-weight grid-line between the spanning panel and the row
-   below — never a leftover sliver of the absorbed helper track.
-
-   This was the consistency fix Codex CLI flagged (PR #315 P1, review
-   `pullrequestreview-4202225068`): the previous 0.5rem helper rows
-   produced visible thin strips in About-focus (under Builds)
-   because Builds stayed at row 2 and didn't absorb track 4, while
-   in Projects-focus Builds spanned 2/5 and did absorb it. The
-   cleanest fix is to do the absorption uniformly in the grid template
-   rather than asking each non-spanning column to opt into expansion. */
+/* Focus-state grid templates. Pre-regression layout restored after the
+   #315 "absorbed helper tracks" rebalance hid Connect on Community-hover
+   (see #325, #326, #328 for the iteration trail). Each focus state uses
+   minmax-only proportional sizing across all tracks — no var(--cell-h-*)
+   measurement, no zero-collapse helpers. Community in community-focus is
+   sized by its row's minmax (not by content), so there can be cream
+   space below short content; in exchange, all four colored tiles are
+   always visible and Connect retains its tall narrow shape on the right
+   when Community is hovered. The measureContentHeights pass in
+   src/pages/index.astro still runs and sets --cell-h-* vars, but no
+   rule below consumes them. */
 
 .mondrian[data-focus="about"] {
   grid-template-columns:
@@ -167,15 +148,10 @@ html, body {
     minmax(3.75rem, 0.82fr) var(--line)
     minmax(4.8rem, 1.08fr) var(--line);
   grid-template-rows:
-    var(--line)
-    var(--cell-h-about, 547px) /* track 2 — bio cell */
-    0                          /* track 3 — line absorbed (inside bio) */
-    0                          /* track 4 — absorbed */
-    var(--line)                /* track 5 — single line below bio */
-    minmax(2rem, 0.6fr)
-    var(--line)
-    minmax(3.4rem, 0.95fr)
-    var(--line);
+    var(--line) minmax(11rem, 3.55fr) var(--line)
+    minmax(2.8rem, 0.92fr) var(--line)
+    minmax(2rem, 0.6fr) var(--line)
+    minmax(3.4rem, 0.95fr) var(--line);
 }
 
 .mondrian[data-focus="projects"] {
@@ -185,15 +161,10 @@ html, body {
     minmax(6.8rem, 2.55fr) var(--line)
     minmax(8rem, 3.45fr) var(--line);
   grid-template-rows:
-    var(--line)
-    var(--cell-h-projects, 676px) /* track 2 — Builds cell */
-    0                             /* track 3 — line absorbed (inside Builds) */
-    0                             /* track 4 — absorbed */
-    var(--line)                   /* track 5 — single line below Builds */
-    minmax(1.6rem, 0.52fr)
-    var(--line)
-    minmax(2.8rem, 0.78fr)
-    var(--line);
+    var(--line) minmax(10rem, 3.55fr) var(--line)
+    minmax(2.4rem, 0.78fr) var(--line)
+    minmax(1.6rem, 0.52fr) var(--line)
+    minmax(2.8rem, 0.78fr) var(--line);
 }
 
 .mondrian[data-focus="projects"] .panel--yellow {
@@ -207,15 +178,10 @@ html, body {
     minmax(3.75rem, 0.72fr) var(--line)
     minmax(4.8rem, 1.18fr) var(--line);
   grid-template-rows:
-    var(--line)
-    minmax(5.5rem, 0.88fr)
-    var(--line)
-    minmax(2.75rem, 0.75fr)
-    var(--line)                       /* track 5 — single line above community */
-    var(--cell-h-community, 401px)    /* track 6 — community cell */
-    0                                 /* track 7 — line absorbed (inside community) */
-    0                                 /* track 8 — absorbed */
-    var(--line);                      /* track 9 — bottom boundary */
+    var(--line) minmax(5.5rem, 0.88fr) var(--line)
+    minmax(2.75rem, 0.75fr) var(--line)
+    minmax(3.25rem, 1.04fr) var(--line)
+    minmax(8.8rem, 3.7fr) var(--line);
 }
 
 .mondrian[data-focus="connect"] {
@@ -228,7 +194,7 @@ html, body {
     var(--line) minmax(6.2rem, 1.1fr) var(--line)
     minmax(3.1rem, 0.95fr) var(--line)
     minmax(2.85rem, 0.9fr) var(--line)
-    var(--cell-h-connect, 423px) var(--line);
+    minmax(9.4rem, 3.3fr) var(--line);
 }
 
 /* Disable transitions while the JS measure pass briefly toggles is-open
