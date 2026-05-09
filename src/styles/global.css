@@ -218,21 +218,26 @@ html, body {
     var(--line);                      /* track 9 — bottom boundary */
 }
 
-/* Community-focus is the asymmetric case (#325).
+/* Community-focus is the asymmetric case (#325, #326, and follow-up).
    The other multi-row spanning panels (about, projects) absorb their
-   helper rows because no other panel occupies them. Community spans
-   tracks 6 / 7 / 8, but Connect lives on track 8 — collapsing track 8
-   hides Connect, and collapsing track 7 erases the horizontal line
-   above the gray-d / Connect row in cols 4–8. Solution: keep both
-   track 7 (line) and track 8 (minmax) at their normal sizes. Community
-   keeps its default grid-row: 6 / 9, so its column covers tracks 6–8
-   as one continuous cream surface (the panel is on top of the line in
-   col 2), while in cols 4–8 the line at track 7 visually separates the
-   row 6 white spacer from the row 8 gray-d block + Connect tile —
-   matching the about-, projects-, and connect-focus templates that all
-   keep track 7 = var(--line). The .panel-content inside community is
-   `position: absolute; inset: 0` so its content fills the full cell
-   regardless of the extra track 7 + 8 height in col 2. */
+   helper rows so the spanning panel is exactly content-sized. Community
+   would normally do the same, but Connect lives on track 8 of the
+   shared grid — collapsing track 8 to absorb it would hide Connect.
+
+   Solution in two parts:
+   1. Track 7 stays = var(--line) and track 8 stays = minmax (Connect's
+      row), matching the about-/projects-/connect-focus templates.
+   2. Community's grid-row is overridden to row 6 only (instead of the
+      default 6 / 9), so the panel is exactly content-sized — matching
+      the about / projects content-sizing convention. The col 2 area
+      below community at row 8 is filled by `.block--gray-f`, which is
+      hidden behind community in every other state. The result: a
+      coherent row 8 band of three rectangles (gray-f col 2, gray-d
+      col 4, Connect cols 6–8) bordered by a real Mondrian line at
+      track 7. */
+.mondrian[data-focus="community"] .panel--black {
+  grid-row: 6;
+}
 
 .mondrian[data-focus="connect"] {
   grid-template-columns:
@@ -1067,6 +1072,15 @@ a:focus-visible .link-arrow,
 .block--white-c { grid-column: 4 / 7; grid-row: 6; background: var(--paper); }
 .block--gray-e { grid-column: 8; grid-row: 6; background: #d4d4d4; }
 .block--gray-d { grid-column: 4 / 5; grid-row: 8; background: #d4d4d4; }
+/* Sits at col 2 / row 8 — hidden behind community in default and in
+   about/projects/connect focus (panel z-index 4 > block z-index 2), so
+   the visual composition is unchanged in those states. In community-
+   focus the panel--black grid-row is overridden to row 6 only, which
+   uncovers this block — it tiles the bottom-left corner alongside
+   gray-d (col 4) and Connect (cols 6–8), keeping the row 8 band a
+   coherent strip of three Mondrian rectangles instead of an empty
+   black band below community. (#326 follow-up) */
+.block--gray-f { grid-column: 2; grid-row: 8; background: #d4d4d4; }
 
 .panel--blue {
   grid-column: 6 / 9;
