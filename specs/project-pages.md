@@ -65,7 +65,7 @@ draft: false
 | `accentColorClass` | string | yes | CSS class for per-project theming |
 | `gradientFrom` | string | yes | Gradient start color (tinted toward accent) |
 | `gradientTo` | string | yes | Gradient end color (use `"#f5f0e4"` to blend into card) |
-| `liveUrl` | non-empty string | no | URL for "View Live Product" CTA. Omit on pre-launch projects (status `IN PROGRESS`) — the CTA, the index card "Live ↗" link, the homepage Vibe Coding "Live ↗" link, and the `SoftwareApplication` JSON-LD entity are all suppressed when this field is missing |
+| `liveUrl` | non-empty string | no | URL for "View Live Product" CTA. Omit on pre-launch projects (status `IN PROGRESS`) — the CTA, the index card "Live ↗" link, the homepage Builds "Live ↗" link, and the `SoftwareApplication` JSON-LD entity are all suppressed when this field is missing |
 | `githubUrl` | string | yes | URL for "View on GitHub" CTA |
 | `tags` | string[] | yes | Category/technology tags |
 | `status` | enum | yes | Project lifecycle status. One of `SHIPPED`, `EXPERIMENT`, `IN PROGRESS`, `PAUSED`, `ARCHIVED`. Drives both the project-card kicker on `/projects/` and the Status column in the detail-page metadata table — single source of truth, single short-form vocabulary across both surfaces. See #274, #285 |
