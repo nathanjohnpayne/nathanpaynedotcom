@@ -214,23 +214,8 @@ html, body {
     var(--line)                       /* track 5 — single line above community */
     var(--cell-h-community, 401px)    /* track 6 — community cell */
     0                                 /* track 7 — line absorbed (inside community) */
-    minmax(3.4rem, 0.95fr)            /* track 8 — connect's row (cannot be absorbed; connect lives here) */
+    0                                 /* track 8 — absorbed */
     var(--line);                      /* track 9 — bottom boundary */
-}
-
-/* Community-focus is the asymmetric absorption case (#322 follow-up).
-   The other multi-row spanning panels (about, projects) absorb tracks
-   that no other panel occupies, so they collapse helper rows to 0
-   uniformly. Community spans tracks 6 / 7 / 8, but Connect lives on
-   track 8 — collapsing it would hide Connect entirely, breaking the
-   "all four colored tiles always visible" invariant. The fix:
-     1. Keep track 7 absorbed (the helper line stays inside community).
-     2. Restore track 8 to a real minmax so Connect renders.
-     3. Stop community from spanning into track 8 so it doesn't bleed
-        into Connect's row in col 2.
-   Mirrors the projects-focus override of `.panel--yellow` grid-row. */
-.mondrian[data-focus="community"] .panel--black {
-  grid-row: 6 / 8;
 }
 
 .mondrian[data-focus="connect"] {
