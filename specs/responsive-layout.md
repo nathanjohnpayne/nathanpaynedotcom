@@ -7,7 +7,7 @@ title: Responsive Layout
 
 ## Overview
 
-The site uses a CSS grid layout with a 1024px breakpoint (`--bp-stack`) and fluid typography via `clamp()`. Above the breakpoint the homepage renders the Mondrian composition, capped at `--mondrian-max-width` (1280px) so very wide viewports center the composition with symmetric gutters. Below the breakpoint, the page swaps to a vertical stack that fills the viewport edge-to-edge.
+The site uses a CSS grid layout with a three-tier breakpoint scale and fluid typography via `clamp()`. Above the homepage breakpoint the Mondrian composition renders, capped at `--mondrian-max-width` (1280px) so very wide viewports center the composition with symmetric gutters. Below the breakpoint, the page swaps to a vertical stack that fills the viewport edge-to-edge. The bio panel in about-focus and the Builds panel in projects-focus are exactly content-sized via JS-measured `--cell-h-{about,projects}` CSS custom properties; the right column extends below them independently (Mondrian-asymmetric, not height-matched). See #330.
 
 ## Requirements
 
@@ -17,4 +17,11 @@ The site uses a CSS grid layout with a 1024px breakpoint (`--bp-stack`) and flui
 4. Below 1024px (`@media (max-width: 1023px)`), the mobile media query prevents panel interactions (JS guards) and the layout becomes a vertical stack with no max-width / no horizontal gutters.
 5. Typography uses `clamp()` for fluid scaling (e.g., `clamp(0.8rem, 1.1vw, 1.08rem)`).
 6. The stage centers content with `display: grid; place-items: center`.
-7. The breakpoint scale is documented as CSS custom properties on `:root`: `--bp-stack` (1024px) for the homepage Mondrian-to-stack swap and `--mondrian-max-width` (1280px) for the wide-viewport composition cap. See #313.
+7. The breakpoint scale is documented as CSS custom properties on `:root`:
+   - `--bp-narrow` (480px) — phone-portrait threshold (project pages, metadata strips, 404 page).
+   - `--bp-tablet` (768px) — phone-landscape / tablet-portrait threshold.
+   - `--bp-stack` (1024px) — homepage Mondrian-to-stack swap.
+   - `--mondrian-max-width` (1280px) — wide-viewport composition cap.
+   See #313 (initial scale) and #330 (formalisation + bio-block content-sizing).
+8. In about-focus and projects-focus, the spanning panel's first content track equals the JS-measured content height (`--cell-h-about`, `--cell-h-projects`), and the helper line + second content track collapse to 0. The right column's row tracks below retain their proportional sizes — the columns no longer share heights.
+9. Community-focus does NOT apply the absorbed-helper pattern: Connect's `grid-row: 8` lives on a track that Community would absorb, and prior attempts to keep both content-sized (#325–#327) failed to converge. Community-focus uses minmax-only proportional sizing across all tracks; Connect renders as a tall narrow tile on the right. See #329 / #330.

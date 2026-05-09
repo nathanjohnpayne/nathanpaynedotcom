@@ -67,16 +67,18 @@
   --shift-small: 2px;
   --shift-medium: 3px;
 
-  /* Breakpoint scale (#313).
-     The site historically used a single 920px breakpoint plus ad-hoc 480px /
-     768px values per page. Defining a shared scale here so the homepage
-     Mondrian-to-stack swap (--bp-stack) and the wide-viewport Mondrian width
-     cap (--mondrian-max-width) are both authored from one source. Tailwind-
-     adjacent values were chosen to match common device classes: tablet-portrait
-     and phone-landscape (≤956px) fall below --bp-stack, tablet-landscape and
-     up render the Mondrian composition. Per-page deviations from this scale
-     (project hero / blog grid still use 480 + 768) are tracked as follow-up
-     issues — see the PR description for #313. */
+  /* Breakpoint scale (#313, formalised in #330).
+     Three-tier breakpoint scale in CSS custom properties so every responsive
+     rule across the site can reference the same source. Tailwind-adjacent
+     values matched to common device classes: phone-portrait (≤--bp-narrow),
+     phone-landscape and tablet-portrait (≤--bp-tablet), tablet-portrait
+     through tablet-landscape (≤--bp-stack), and tablet-landscape and up
+     (Mondrian composition). The homepage uses --bp-stack and
+     --mondrian-max-width directly. Project detail pages and the 404 page
+     use --bp-narrow and --bp-tablet via raw 480px / 768px values today;
+     migrating them to reference the tokens is tracked as a follow-up. */
+  --bp-narrow: 480px;
+  --bp-tablet: 768px;
   --bp-stack: 1024px;
   --mondrian-max-width: 1280px;
 }
@@ -141,6 +143,20 @@ html, body {
    src/pages/index.astro still runs and sets --cell-h-* vars, but no
    rule below consumes them. */
 
+/* About- and projects-focus use the JS-measured content height for the
+   spanning panel's first content track and absorb the helper line + second
+   content track to 0 (#330). Bio (about) and Builds (projects) are
+   exactly content-sized; the right column extends below independently
+   without forcing the spanning panel taller — Mondrian is full of
+   asymmetric rectangles, and forcing them to match heights was creating
+   the ~400px cream void below LAST UPDATED that #330 reported.
+
+   Community-focus deliberately does NOT use this pattern: Connect's
+   grid-row: 8 lives on a track that community would absorb, and #325
+   showed that hiding Connect to keep community content-sized is worse
+   than the alternative. See the community-focus rule below for the
+   minmax-only design that keeps all four tiles visible. */
+
 .mondrian[data-focus="about"] {
   grid-template-columns:
     var(--line) minmax(10rem, 3.65fr) var(--line)
@@ -148,10 +164,15 @@ html, body {
     minmax(3.75rem, 0.82fr) var(--line)
     minmax(4.8rem, 1.08fr) var(--line);
   grid-template-rows:
-    var(--line) minmax(11rem, 3.55fr) var(--line)
-    minmax(2.8rem, 0.92fr) var(--line)
-    minmax(2rem, 0.6fr) var(--line)
-    minmax(3.4rem, 0.95fr) var(--line);
+    var(--line)
+    var(--cell-h-about, 547px) /* track 2 — bio content height (JS-measured) */
+    0                          /* track 3 — line absorbed inside bio */
+    0                          /* track 4 — second content row absorbed */
+    var(--line)                /* track 5 — boundary line below bio */
+    minmax(2rem, 0.6fr)
+    var(--line)
+    minmax(3.4rem, 0.95fr)
+    var(--line);
 }
 
 .mondrian[data-focus="projects"] {
@@ -161,16 +182,29 @@ html, body {
     minmax(6.8rem, 2.55fr) var(--line)
     minmax(8rem, 3.45fr) var(--line);
   grid-template-rows:
-    var(--line) minmax(10rem, 3.55fr) var(--line)
-    minmax(2.4rem, 0.78fr) var(--line)
-    minmax(1.6rem, 0.52fr) var(--line)
-    minmax(2.8rem, 0.78fr) var(--line);
+    var(--line)
+    var(--cell-h-projects, 676px) /* track 2 — Builds content height */
+    0                             /* track 3 — line absorbed */
+    0                             /* track 4 — absorbed */
+    var(--line)
+    minmax(1.6rem, 0.52fr)
+    var(--line)
+    minmax(2.8rem, 0.78fr)
+    var(--line);
 }
 
 .mondrian[data-focus="projects"] .panel--yellow {
   grid-row: 2 / 5;
 }
 
+/* Community-focus content-sizes the Community panel via the same JS-measured
+   --cell-h-community pattern (#330 follow-up). The previous attempts (#325,
+   #326, #327) tried to keep Community spanning rows 6/7/8 while shrinking
+   tracks 7+8, which either hid Connect or left a black band in col 2.
+   The clean solution: override .panel--black grid-row to 6 only so the
+   panel matches its content height, keep track 8 at minmax (tall narrow
+   Connect tile preserved), and extend .block--gray-d to span cols 2-5
+   in this state so the row 8 strip tiles cleanly without a band. */
 .mondrian[data-focus="community"] {
   grid-template-columns:
     var(--line) minmax(11rem, 4.1fr) var(--line)
@@ -178,12 +212,28 @@ html, body {
     minmax(3.75rem, 0.72fr) var(--line)
     minmax(4.8rem, 1.18fr) var(--line);
   grid-template-rows:
-    var(--line) minmax(5.5rem, 0.88fr) var(--line)
-    minmax(2.75rem, 0.75fr) var(--line)
-    minmax(3.25rem, 1.04fr) var(--line)
-    minmax(8.8rem, 3.7fr) var(--line);
+    var(--line)                              /* track 1 */
+    minmax(5.5rem, 0.88fr)                   /* track 2 — about row 1 */
+    var(--line)                              /* track 3 */
+    minmax(2.75rem, 0.75fr)                  /* track 4 — about row 2 */
+    var(--line)                              /* track 5 — line above community */
+    var(--cell-h-community, 401px)           /* track 6 — community content */
+    var(--line)                              /* track 7 — line above row 8 strip */
+    minmax(8.8rem, 3.7fr)                    /* track 8 — Connect's tall narrow tile */
+    var(--line);                             /* track 9 — bottom boundary */
 }
 
+.mondrian[data-focus="community"] .panel--black {
+  grid-row: 6;
+}
+
+.mondrian[data-focus="community"] .block--gray-d {
+  grid-column: 2 / 5;
+}
+
+/* Connect-focus content-sizes the Connect panel by sizing track 8 to the
+   measured connect content height. Community in col 2 still spans rows
+   6/7/8 by default, just at the smaller resulting total height. */
 .mondrian[data-focus="connect"] {
   grid-template-columns:
     var(--line) minmax(7.8rem, 1.6fr) var(--line)
@@ -194,7 +244,7 @@ html, body {
     var(--line) minmax(6.2rem, 1.1fr) var(--line)
     minmax(3.1rem, 0.95fr) var(--line)
     minmax(2.85rem, 0.9fr) var(--line)
-    minmax(9.4rem, 3.3fr) var(--line);
+    var(--cell-h-connect, 423px) var(--line);
 }
 
 /* Disable transitions while the JS measure pass briefly toggles is-open
