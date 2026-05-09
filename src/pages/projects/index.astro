@@ -12,8 +12,8 @@ const jsonLd = {
       "@type": "CollectionPage",
       "@id": "https://nathanpayne.com/projects/#webpage",
       "url": "https://nathanpayne.com/projects/",
-      "name": "Projects | Nathan Payne",
-      "description": "Products from a product manager—each one a real problem turned into a systems design exercise.",
+      "name": "Builds | Nathan Payne",
+      "description": "Builds from a product manager—each one a real problem turned into a systems design exercise.",
       "isPartOf": { "@id": "https://nathanpayne.com/#website" },
     },
     {
@@ -21,7 +21,7 @@ const jsonLd = {
       "@id": "https://nathanpayne.com/projects/#breadcrumb",
       "itemListElement": [
         { "@type": "ListItem", "position": 1, "name": "Nathan Payne", "item": "https://nathanpayne.com/" },
-        { "@type": "ListItem", "position": 2, "name": "Projects", "item": "https://nathanpayne.com/projects/" },
+        { "@type": "ListItem", "position": 2, "name": "Builds", "item": "https://nathanpayne.com/projects/" },
       ],
     },
   ],
@@ -29,10 +29,10 @@ const jsonLd = {
 ---
 
 <BaseLayout
-  title="Projects | Nathan Payne"
-  description="Products from a product manager—each one a real problem turned into a systems design exercise."
+  title="Builds | Nathan Payne"
+  description="Builds from a product manager—each one a real problem turned into a systems design exercise."
   ogImage="https://nathanpayne.com/og/projects.png"
-  ogImageAlt="Projects index open graph image"
+  ogImageAlt="Builds index open graph image"
   bodyClass="project-page project-page--yellow blog-page"
   jsonLd={jsonLd}
 >
@@ -44,10 +44,10 @@ const jsonLd = {
         <nav class="breadcrumbs" aria-label="Breadcrumb">
           <a href="/">Nathan Payne</a>
           <span class="breadcrumb-sep">/</span>
-          <span>Projects</span>
+          <span>Builds</span>
         </nav>
-        <h1>Projects</h1>
-        <p class="deck">Every project started as a real problem. Each one became a systems design exercise&mdash;built with AI agents from first commit to deploy, on top of an enforcement system I designed to make agent output reliable. The infrastructure behind these projects is documented in <a href="/blog/agent-approval-workflow-genesis-of-mergepath/" class="p-link">Agent Approval Workflow and the Genesis of Mergepath</a>.</p>
+        <h1>Builds</h1>
+        <p class="deck">Every build started as a real problem. Each one became a systems design exercise&mdash;built with AI agents from first commit to deploy, on top of an enforcement system I designed to make agent output reliable. The infrastructure behind these projects is documented in <a href="/blog/agent-approval-workflow-genesis-of-mergepath/" class="p-link">Agent Approval Workflow and the Genesis of Mergepath</a>.</p>
       </header>
 
       {/* ── Project Grid ──
