@@ -39,6 +39,9 @@ logs/
 .cursor/state/
 .cursor/plans/
 
+# Codex CLI local settings
+.codex/hooks.json
+
 # Coverage
 coverage/
 
