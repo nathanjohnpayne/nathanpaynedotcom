@@ -7,7 +7,7 @@ title: Responsive Layout
 
 ## Overview
 
-The site uses a CSS grid layout with a three-tier breakpoint scale and fluid typography via `clamp()`. Above the homepage breakpoint the Mondrian composition renders, capped at `--mondrian-max-width` (1280px) so very wide viewports center the composition with symmetric gutters. Below the breakpoint, the page swaps to a vertical stack that fills the viewport edge-to-edge. The bio panel in about-focus and the Builds panel in projects-focus are exactly content-sized via JS-measured `--cell-h-{about,projects}` CSS custom properties; the right column extends below them independently (Mondrian-asymmetric, not height-matched). See #330.
+The site uses a CSS grid layout with a three-tier breakpoint scale and fluid typography via `clamp()`. Above the homepage breakpoint the Mondrian composition renders, capped at `--mondrian-max-width` (1280px) so very wide viewports center the composition with symmetric gutters. Below the breakpoint, the page swaps to a vertical stack that fills the viewport edge-to-edge. Three of the four focus states (about, projects, connect) size their focused panel to its measured content via JS-measured `--cell-h-{about,projects,connect}` CSS custom properties; community-focus uses minmax-only sizing because Connect lives on a track community would absorb. See #330.
 
 ## Requirements
 
@@ -24,4 +24,5 @@ The site uses a CSS grid layout with a three-tier breakpoint scale and fluid typ
    - `--mondrian-max-width` (1280px) — wide-viewport composition cap.
    See #313 (initial scale) and #330 (formalisation + bio-block content-sizing).
 8. In about-focus and projects-focus, the spanning panel's first content track equals the JS-measured content height (`--cell-h-about`, `--cell-h-projects`), and the helper line + second content track collapse to 0. The right column's row tracks below retain their proportional sizes — the columns no longer share heights.
-9. Community-focus does NOT apply the absorbed-helper pattern: Connect's `grid-row: 8` lives on a track that Community would absorb, and prior attempts to keep both content-sized (#325–#327) failed to converge. Community-focus uses minmax-only proportional sizing across all tracks; Connect renders as a tall narrow tile on the right. See #329 / #330.
+9. In connect-focus, track 8 equals the JS-measured Connect content height (`--cell-h-connect`); other tracks remain at their proportional minmax sizes. Connect's panel cell is therefore exactly content-sized — no cream void below the link list and "FROM THE BLOG" footer.
+10. Community-focus does NOT apply the absorbed-helper pattern: Connect's `grid-row: 8` lives on a track that Community would absorb, and prior attempts to keep both content-sized (#325–#327) failed to converge. Community-focus uses minmax-only proportional sizing across all tracks; Connect renders as a tall narrow tile on the right. See #329 / #330.

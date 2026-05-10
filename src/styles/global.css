@@ -131,31 +131,28 @@ html, body {
     grid-template-rows var(--motion-plane) var(--ease-standard);
 }
 
-/* Focus-state grid templates. Pre-regression layout restored after the
-   #315 "absorbed helper tracks" rebalance hid Connect on Community-hover
-   (see #325, #326, #328 for the iteration trail). Each focus state uses
-   minmax-only proportional sizing across all tracks — no var(--cell-h-*)
-   measurement, no zero-collapse helpers. Community in community-focus is
-   sized by its row's minmax (not by content), so there can be cream
-   space below short content; in exchange, all four colored tiles are
-   always visible and Connect retains its tall narrow shape on the right
-   when Community is hovered. The measureContentHeights pass in
-   src/pages/index.astro still runs and sets --cell-h-* vars, but no
-   rule below consumes them. */
+/* Focus-state grid templates. Three of the four states (about, projects,
+   connect) consume JS-measured `--cell-h-*` custom properties so the
+   focused panel is exactly content-sized; community-focus is the
+   exception (see iteration trail at #325, #326, #328 — Connect's
+   grid-row: 8 lives on a track community would absorb, and the
+   convergent solution we accepted in #329 / #330 keeps community-focus
+   on minmax-only sizing so all four tiles stay visible).
 
-/* About- and projects-focus use the JS-measured content height for the
-   spanning panel's first content track and absorb the helper line + second
-   content track to 0 (#330). Bio (about) and Builds (projects) are
-   exactly content-sized; the right column extends below independently
-   without forcing the spanning panel taller — Mondrian is full of
-   asymmetric rectangles, and forcing them to match heights was creating
-   the ~400px cream void below LAST UPDATED that #330 reported.
+   - about-focus: track 2 = var(--cell-h-about); tracks 3 + 4 absorbed.
+   - projects-focus: track 2 = var(--cell-h-projects); tracks 3 + 4
+     absorbed; .panel--yellow grid-row override spans 2 / 5.
+   - community-focus: minmax-only across all tracks (the exception).
+   - connect-focus: track 8 = var(--cell-h-connect).
 
-   Community-focus deliberately does NOT use this pattern: Connect's
-   grid-row: 8 lives on a track that community would absorb, and #325
-   showed that hiding Connect to keep community content-sized is worse
-   than the alternative. See the community-focus rule below for the
-   minmax-only design that keeps all four tiles visible. */
+   Bio (about) and Builds (projects) sit at exactly their content height;
+   the right column extends below independently — Mondrian is full of
+   asymmetric rectangles, and forcing the spanning panel to match the
+   right column's height was creating the ~400px cream void below
+   LAST UPDATED that #330 reported.
+
+   The measureContentHeights pass in src/pages/index.astro sets the
+   --cell-h-* vars on .mondrian after fonts.ready and on resize. */
 
 .mondrian[data-focus="about"] {
   grid-template-columns:
