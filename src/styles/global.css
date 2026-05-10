@@ -67,16 +67,27 @@
   --shift-small: 2px;
   --shift-medium: 3px;
 
-  /* Breakpoint scale (#313).
-     The site historically used a single 920px breakpoint plus ad-hoc 480px /
-     768px values per page. Defining a shared scale here so the homepage
-     Mondrian-to-stack swap (--bp-stack) and the wide-viewport Mondrian width
-     cap (--mondrian-max-width) are both authored from one source. Tailwind-
-     adjacent values were chosen to match common device classes: tablet-portrait
-     and phone-landscape (≤956px) fall below --bp-stack, tablet-landscape and
-     up render the Mondrian composition. Per-page deviations from this scale
-     (project hero / blog grid still use 480 + 768) are tracked as follow-up
-     issues — see the PR description for #313. */
+  /* Breakpoint scale (#313, formalised in #330).
+     Three-tier breakpoint scale documented as CSS custom properties so the
+     spec, JS, and property values (e.g. width: var(--mondrian-max-width))
+     all read from one source. Tailwind-adjacent values matched to common
+     device classes: phone-portrait (≤--bp-narrow), phone-landscape and
+     tablet-portrait (≤--bp-tablet), tablet-portrait through tablet-landscape
+     (≤--bp-stack), and tablet-landscape and up (Mondrian composition).
+
+     Note: standard CSS does NOT allow custom properties inside @media
+     conditions — `@media (max-width: var(--bp-stack))` is invalid. Reusing
+     these tokens in media-query conditions requires @custom-media (Media
+     Queries Level 5, limited browser support) or build-time preprocessing
+     (PostCSS Custom Media). The homepage's existing rule writes the
+     literal `1023px` in @media and references the token only in the
+     comment for documentation. Project detail pages and the 404 page
+     similarly use raw 480px / 768px in their @media conditions; the
+     follow-up tracked in #332 is documentation alignment (commenting
+     each raw value with the matching token name), not a CSS-level
+     migration. */
+  --bp-narrow: 480px;
+  --bp-tablet: 768px;
   --bp-stack: 1024px;
   --mondrian-max-width: 1280px;
 }
@@ -129,17 +140,28 @@ html, body {
     grid-template-rows var(--motion-plane) var(--ease-standard);
 }
 
-/* Focus-state grid templates. Pre-regression layout restored after the
-   #315 "absorbed helper tracks" rebalance hid Connect on Community-hover
-   (see #325, #326, #328 for the iteration trail). Each focus state uses
-   minmax-only proportional sizing across all tracks — no var(--cell-h-*)
-   measurement, no zero-collapse helpers. Community in community-focus is
-   sized by its row's minmax (not by content), so there can be cream
-   space below short content; in exchange, all four colored tiles are
-   always visible and Connect retains its tall narrow shape on the right
-   when Community is hovered. The measureContentHeights pass in
-   src/pages/index.astro still runs and sets --cell-h-* vars, but no
-   rule below consumes them. */
+/* Focus-state grid templates. Three of the four states (about, projects,
+   connect) consume JS-measured `--cell-h-*` custom properties so the
+   focused panel is exactly content-sized; community-focus is the
+   exception (see iteration trail at #325, #326, #328 — Connect's
+   grid-row: 8 lives on a track community would absorb, and the
+   convergent solution we accepted in #329 / #330 keeps community-focus
+   on minmax-only sizing so all four tiles stay visible).
+
+   - about-focus: track 2 = var(--cell-h-about); tracks 3 + 4 absorbed.
+   - projects-focus: track 2 = var(--cell-h-projects); tracks 3 + 4
+     absorbed; .panel--yellow grid-row override spans 2 / 5.
+   - community-focus: minmax-only across all tracks (the exception).
+   - connect-focus: track 8 = var(--cell-h-connect).
+
+   Bio (about) and Builds (projects) sit at exactly their content height;
+   the right column extends below independently — Mondrian is full of
+   asymmetric rectangles, and forcing the spanning panel to match the
+   right column's height was creating the ~400px cream void below
+   LAST UPDATED that #330 reported.
+
+   The measureContentHeights pass in src/pages/index.astro sets the
+   --cell-h-* vars on .mondrian after fonts.ready and on resize. */
 
 .mondrian[data-focus="about"] {
   grid-template-columns:
@@ -148,10 +170,15 @@ html, body {
     minmax(3.75rem, 0.82fr) var(--line)
     minmax(4.8rem, 1.08fr) var(--line);
   grid-template-rows:
-    var(--line) minmax(11rem, 3.55fr) var(--line)
-    minmax(2.8rem, 0.92fr) var(--line)
-    minmax(2rem, 0.6fr) var(--line)
-    minmax(3.4rem, 0.95fr) var(--line);
+    var(--line)
+    var(--cell-h-about, 547px) /* track 2 — bio content height (JS-measured) */
+    0                          /* track 3 — line absorbed inside bio */
+    0                          /* track 4 — second content row absorbed */
+    var(--line)                /* track 5 — boundary line below bio */
+    minmax(2rem, 0.6fr)
+    var(--line)
+    minmax(3.4rem, 0.95fr)
+    var(--line);
 }
 
 .mondrian[data-focus="projects"] {
@@ -161,10 +188,15 @@ html, body {
     minmax(6.8rem, 2.55fr) var(--line)
     minmax(8rem, 3.45fr) var(--line);
   grid-template-rows:
-    var(--line) minmax(10rem, 3.55fr) var(--line)
-    minmax(2.4rem, 0.78fr) var(--line)
-    minmax(1.6rem, 0.52fr) var(--line)
-    minmax(2.8rem, 0.78fr) var(--line);
+    var(--line)
+    var(--cell-h-projects, 676px) /* track 2 — Builds content height */
+    0                             /* track 3 — line absorbed */
+    0                             /* track 4 — absorbed */
+    var(--line)
+    minmax(1.6rem, 0.52fr)
+    var(--line)
+    minmax(2.8rem, 0.78fr)
+    var(--line);
 }
 
 .mondrian[data-focus="projects"] .panel--yellow {
@@ -184,6 +216,9 @@ html, body {
     minmax(8.8rem, 3.7fr) var(--line);
 }
 
+/* Connect-focus content-sizes the Connect panel by sizing track 8 to the
+   measured connect content height. Community in col 2 still spans rows
+   6/7/8 by default, just at the smaller resulting total height. */
 .mondrian[data-focus="connect"] {
   grid-template-columns:
     var(--line) minmax(7.8rem, 1.6fr) var(--line)
@@ -194,7 +229,7 @@ html, body {
     var(--line) minmax(6.2rem, 1.1fr) var(--line)
     minmax(3.1rem, 0.95fr) var(--line)
     minmax(2.85rem, 0.9fr) var(--line)
-    minmax(9.4rem, 3.3fr) var(--line);
+    var(--cell-h-connect, 423px) var(--line);
 }
 
 /* Disable transitions while the JS measure pass briefly toggles is-open
@@ -3056,6 +3091,17 @@ a.tag:hover {
   50%      { filter: brightness(1.16); }
 }
 
+/* Blue Connect panel needs a stronger pulse than the default keyframe.
+   brightness(1.08) saturate(1.05) is calibrated for the saturated red and
+   yellow panels; on the dark navy blue (#223f89) it's barely perceptible.
+   1.22 brightness with a small saturate bump produces a flash readable in
+   the same range as the red and yellow panels' pulses, restoring the
+   "navigation hint" cue across all four primaries. (#330) */
+@keyframes panel-pulse-blue {
+  0%, 100% { filter: none; }
+  50%      { filter: brightness(1.22) saturate(1.10); }
+}
+
 .panel--pulsing {
   animation: panel-pulse var(--pulse-duration) var(--ease-out);
   will-change: filter;
@@ -3063,6 +3109,10 @@ a.tag:hover {
 
 .panel--black.panel--pulsing {
   animation-name: panel-pulse-neutral;
+}
+
+.panel--blue.panel--pulsing {
+  animation-name: panel-pulse-blue;
 }
 
 @media (prefers-reduced-motion: reduce) {
