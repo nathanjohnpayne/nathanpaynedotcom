@@ -23,7 +23,7 @@ The interaction should feel like a curator sliding panels in a gallery wall, not
 
 ### Open (idle → open)
 
-```
+```text
 hover intent
   → lock hover state changes
   → grid morphs (--motion-plane), cream cell expands, label fades out
@@ -33,7 +33,7 @@ hover intent
 
 ### Close (open → idle)
 
-```
+```text
 fade content out (--motion-fast)
   → grid morphs back (--motion-plane), cream returns to base, label fades in
   → unlock; re-resolve hover target
@@ -41,7 +41,7 @@ fade content out (--motion-fast)
 
 ### Switch (open A → open B)
 
-```
+```text
 fade A content out (--motion-fast)
   → swap is-open / data-focus to B; grid morphs A→B (--motion-plane)
   → fade B content in (--motion-fast)
