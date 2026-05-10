@@ -77,7 +77,7 @@ graph LR
     style G fill:#c75c5c,stroke:#993d3d,color:#fff
 ```
 
-Three paths, three outputs. The editor rendered structured content directly. Preview and send did not—they first flattened that structured document back into markdown-like plain text through `docToPlainTextWithTokens()`, then reparsed it through two *different* HTML pipelines.
+Three paths, three outputs. The editor rendered structured content directly. Preview and send did not—they first flattened that structured document back into markdown-like plain text via `docToPlainTextWithTokens()`, then parsed it again through two *different* HTML pipelines.
 
 Once that happened, "WYSIWYG editor" stopped being true in any meaningful sense. The same content was no longer guaranteed to produce the same semantics.
 
@@ -85,31 +85,31 @@ Once that happened, "WYSIWYG editor" stopped being true in any meaningful sense.
 
 The screenshots in [issue #159](https://github.com/nathanjohnpayne/friends-and-family-billing/issues/159) are not just visual proof that something looked off. They are evidence that different layers of the system were interpreting the same content differently.
 
-### Editor: the structured document still looked sane
+### Editor: The structured document still looked sane
 
 ![Editor Screenshot](/blog/six-prs-one-bug-agent-failure-modes/img/invoice-bug-01-editor-view.png)
 
-In Edit mode, the intro paragraph is ordinary body text. The billing-summary link, payment options block, divider, and signature are all in the expected order. At this point the content still lives as structured TipTap / ProseMirror JSON, so the system has not yet lost information.
+In Edit mode, the intro paragraph is ordinary body text. The billing summary link, payment options block, divider, and signature are all in the expected order. At this point, the content still exists as structured TipTap/ProseMirror JSON, so the system has not yet lost any information.
 
 ### Preview: semantics changed during the markdown round-trip
 
 ![Preview Screenshot](/blog/six-prs-one-bug-agent-failure-modes/img/invoice-bug-02-preview-view.png)
 
-Preview was not rendering the editor document directly. It serialized the document into markdown-like text and reparsed that text with CommonMark. Separator lines like `---` were being interpreted differently across surfaces, and list content was picking up paragraph wrappers with default margins. That is why the Preview screenshot looks heavier and more spread out than the editor even though the author never changed the template content.
+Preview was not rendering the editor document directly. It serialized the document into markdown-like text and reparsed that text with CommonMark. Separator lines like `---` were being interpreted differently across surfaces, and list content was picking up paragraph wrappers with default margins. That is why the Preview screenshot looks heavier and more spread out than the editor, even though the author never changed the template content.
 
 ### Sent email: a second parser created a third version of reality
 
 ![Sent Email Screenshot](/blog/six-prs-one-bug-agent-failure-modes/img/invoice-bug-03-broken-sent-email.png)
 
-The sent email did not use the Preview renderer. It took the same flattened text and pushed it through a separate regex-based markdown renderer in the Cloud Function. So by the time the email reached a customer inbox, the system had already turned one source document into three different interpretations: editor, preview, and email.
+The sent email did not use the Preview renderer. It took the same flattened text and pushed it through a separate regex-based markdown renderer in the Cloud Function. So by the time the email reached a customer's inbox, the system had already turned one source document into three different interpretations: editor, preview, and email.
 
 ### The target was concrete, not hypothetical
 
 ![Correct Intended Email Screenshot](/blog/six-prs-one-bug-agent-failure-modes/img/invoice-bug-04-correct-sent-email.png)
 
-This detail in the issue mattered: there was a known-good email from **April 2, 2026 at 5:05 PM**. The bug was not "make Preview look a little nicer." The bug was "restore parity with a real output that previously existed."
+This detail in the issue mattered: there was a known-good email from **April 2, 2026, at 5:05 PM**. The bug was not "make Preview look a little nicer." The bug was "restore parity with a real output that previously existed."
 
-That is an important debugging difference. When a target is concrete, the work becomes a parity problem, not a taste problem.
+That is an important debugging difference. When a target is concrete, the work becomes a parity problem rather than a taste problem.
 
 ## What I actually said to the agent
 
@@ -159,9 +159,9 @@ graph TD
     style PR161 fill:#7bc67e,stroke:#4a8a4d,color:#fff
 ```
 
-The failed PRs show how an agent can keep doing competent work without ever repairing the invariant. This was Claude Code on the failed attempts and OpenAI Codex on the successful one, but I do not think this is mainly a vendor story. The session log makes clear that the difference was in the prompt structure, not the model.
+The failed PRs show how an agent can continue to perform competent work without ever repairing the invariant. This was Claude Code on the failed attempts and OpenAI Codex on the successful one, but I do not think this is mainly a vendor story. The session log makes clear that the difference was in the prompt structure, not the model.
 
-### PR #144: the migration preserved the old assumption
+### PR #144: The migration preserved the old assumption
 
 [PR #144](https://github.com/nathanjohnpayne/friends-and-family-billing/pull/144) introduced the TipTap WYSIWYG editor. That sounds like the architectural answer. In practice, it preserved the old pipeline by explicitly bridging the new structured document back into the existing plaintext workflow.
 
@@ -181,13 +181,13 @@ But the spec also included a backward-compatibility requirement:
 
 > `buildInvoiceBody` in `invoice.js` must handle: (1) Legacy plain-text templates containing `%token%` syntax (read from `settings.emailMessage`), (2) The new TipTap JSON document format (read from `settings.emailMessageDocument`)
 
-That requirement created the bridge. The agent had to keep the old plaintext pipeline working alongside the new JSON format. [PR #144](https://github.com/nathanjohnpayne/friends-and-family-billing/pull/144)'s decision to flatten the structured document back into plaintext via `docToPlainTextWithTokens()` and run it through the existing `buildInvoiceBody` was a reasonable interpretation of "handle both formats"—convert the new format into the old one and reuse the existing pipeline. It is the lazy interpretation, but it is not an unreasonable one. The spec did not say "you must create a new email renderer that operates directly on the JSON document." It said the old function must handle both formats, and the simplest way to handle both is to convert the new one into the old one.
+That requirement created the bridge. The agent had to keep the old plaintext pipeline working alongside the new JSON format. [PR #144](https://github.com/nathanjohnpayne/friends-and-family-billing/pull/144)'s decision to flatten the structured document back into plaintext via `docToPlainTextWithTokens()` and run it through the existing `buildInvoiceBody` was a reasonable interpretation of "handle both formats"—convert the new format into the old one and reuse the existing pipeline. It is the lazy interpretation, but it is not an unreasonable one. The spec did not say "you must create a new email renderer that operates directly on the JSON document." It said the old function must handle both formats, and the simplest way to do so is to convert the new one to the old one.
 
-This matters because it means the failure was not "the agent had bad instructions." The spec implied the right architecture. The agent read the spec and made a locally rational decision that violated the spec's intent without violating its letter. Even well-written specs can leave enough room for an agent to choose the path of least resistance, and the path of least resistance is almost always "preserve the existing pipeline."
+This matters because it means the failure was not "the agent had bad instructions." The spec implied the right architecture. The agent read the spec and made a locally rational decision that violated the spec's intent without violating its letter. Even well-written specs can leave enough room for an agent to choose the path of least resistance, and that path is almost always "preserve the existing pipeline."
 
-The takeaway is subtler than "state your invariant explicitly." It is: when a spec describes a new architecture but also requires backward compatibility with the old one, the agent will optimize for the compatibility constraint and sacrifice the architectural one. The invariant needs to be stated as a constraint that outranks backward compatibility, not implied by the storage format choice.
+The takeaway is subtler than "state your invariant explicitly." It is: when a spec describes a new architecture but also requires backward compatibility with the old one, the agent will optimize for the compatibility constraint at the expense of the architectural one. The invariant needs to be stated as a constraint that outranks backward compatibility, not implied by the storage format choice.
 
-### PR #146: the agent got better at regex, not closer to the invariant
+### PR #146: The agent got better at regex, not closer to the invariant
 
 [PR #146](https://github.com/nathanjohnpayne/friends-and-family-billing/pull/146) fixed bold-token round-tripping by making the serializer emit bold-wrapped token markers and tightening the token regex:
 
@@ -199,7 +199,7 @@ return hasBold ? '**' + token + '**' : token;
 const tokenPattern = /\*\*%([a-z_]+)%\*\*|%([a-z_]+)%/g;
 ```
 
-This is a perfectly reasonable patch if you assume the markdown bridge is the right architecture and the problem is only that the bridge is slightly lossy.
+This is a perfectly reasonable patch if you assume the markdown bridge is the right architecture and that the problem is only that it's slightly lossy.
 
 But that assumption was the bug.
 
@@ -211,7 +211,7 @@ The review identified the round-trip lossiness. The agent fixed the specific reg
 
 ### PR #153: one part semantic patch, one part visual patch
 
-[PR #153](https://github.com/nathanjohnpayne/friends-and-family-billing/pull/153) contains two different kinds of reasonable fix in one diff, which is why it is my favorite example.
+[PR #153](https://github.com/nathanjohnpayne/friends-and-family-billing/pull/153) contains two different kinds of reasonable fixes in one diff, which is why it is my favorite example.
 
 On the serialization side, it started wrapping inline marks back into markdown:
 
@@ -227,17 +227,17 @@ On the presentation side, it collapsed preview spacing with CSS:
 .invoice-preview-message li p + p { margin-top: 2px; }
 ```
 
-Both changes are locally valid. They probably improved the experience. They also show exactly how agents get trapped: one fix assumes the problem is markdown fidelity, the other assumes the problem is preview styling, and neither fix removes the reason formatting can drift between surfaces at all.
+Both changes are locally valid. They probably improved the experience. They also show exactly how agents get trapped: one fix assumes the problem is markdown fidelity, the other assumes it's preview styling, and neither fixes the reason formatting can drift between surfaces at all.
 
 ### PR #154 and PR #155 fixed real bugs, just not this one
 
 [PR #154](https://github.com/nathanjohnpayne/friends-and-family-billing/pull/154) fixed an editor lifecycle problem where `useEditor` was recreating the editor on every keystroke. [PR #155](https://github.com/nathanjohnpayne/friends-and-family-billing/pull/155) improved migration from legacy markdown into TipTap marks so bold, italic, and links were not displayed literally in the editor.
 
-Those were both good fixes. They were also orthogonal to editor/preview/email parity. This is another failure mode worth noticing: an agent working on the right issue can still accumulate adjacent wins that make everyone feel progress is happening while the core invariant remains broken.
+Those were both good fixes. They were also orthogonal to editor/preview/email parity. This is another failure mode worth noting: an agent working on the right issue can still accumulate adjacent wins that make everyone feel that progress is happening, even as the core invariant remains broken.
 
 The review feedback on [PR #155](https://github.com/nathanjohnpayne/friends-and-family-billing/pull/155) is telling. The nathanpayne-codex reviewer flagged three separate round-trip safety issues: link parsing that stopped at the first `)` in a URL, italic-wrapped links that did not survive serialization, and marked token forms that were not covered. Three findings, all pointing at the same structural problem—the intermediate format was lossy—and the agent addressed each one as a scoped regex fix.
 
-### PR #158: the bridge got cleaner, and the system stayed wrong
+### PR #158: The bridge got cleaner, and the system stayed wrong
 
 [PR #158](https://github.com/nathanjohnpayne/friends-and-family-billing/pull/158) is where sunk cost becomes obvious. The serializer logic was extracted into a lightweight `template-doc.js`, and adjacent marked segments were merged so TipTap would not emit markdown like this:
 
@@ -254,11 +254,11 @@ The new module even documented the behavior carefully:
 
 Again: technically competent work. Better module boundaries. Better performance. Better round-tripping.
 
-Still the wrong system.
+Still, the wrong system.
 
-The review caught it again. nathanpayne-codex flagged that "the new adjacent-mark merge logic is lossy across token boundaries"—a bold token followed immediately by bold text was serializing as `**%first_name% owes**`. That is the third time in three PRs that a review round identified a round-trip safety failure in the serializer. Three times the feedback pointed at the architecture. Three times the agent patched the implementation.
+The review caught it again. nathanpayne-codex flagged that "the new adjacent-mark merge logic is lossy across token boundaries"—a bold token followed immediately by bold text was serializing as `**%first_name% owes**`. That is the third time in three PRs that a review round identified a round-trip safety failure in the serializer. Three times the feedback pointed at the architecture. Three times, the agent patched the implementation.
 
-By this point the agent had invested significant effort in making the intermediate serializer smarter and cheaper, which made it even harder to ask the more uncomfortable question:
+By this point, the agent had invested significant effort in making the intermediate serializer smarter and cheaper, which made it even harder to ask the more uncomfortable question:
 
 ```text
 Why does this serializer exist at all?
@@ -293,7 +293,7 @@ The session included three automated stop-hook interventions—system-level chec
 
 **Hook 2** flagged that the plaintext fallback was being derived from `editor.getText()` instead of the invoice renderer. With the TipTap schema, `getText()` was adding extra blank lines around block tokens and dropping list markers. This is the divergent-render-path problem stated as an automated finding: the system was generating plaintext from a method that did not match the rendering pipeline.
 
-**Hook 3** flagged that preview and test share-link generation still hardcoded `familyMembers[0]` even though Preview now let the user choose another member. A data consistency bug in a UI that was supposed to be showing you what the email would look like.
+**Hook 3** flagged that preview and test share-link generation is still hardcoded `familyMembers[0]` even though Preview now lets the user choose another member. A data consistency bug in a UI that was supposed to show you what the email would look like.
 
 The guardrails were identifying the right class of problem. The agent kept treating each finding as a scoped fix.
 
@@ -303,9 +303,9 @@ The prompt that produced [PR #161](https://github.com/nathanjohnpayne/friends-an
 
 It opened with this framing:
 
-> Multiple fixes have already been attempted by Claude Code and **did not resolve the issue**. You MUST treat this as a **failed-fix investigation**, not a greenfield implementation.
+> Multiple fixes have already been attempted by Claude Code, and **did not resolve the issue**. You MUST treat this as a **failed-fix investigation**, not a greenfield implementation.
 
-Then it listed all six failed PRs and required the agent to audit each one before writing a single line of code. The task was organized into eight steps. Steps 1 through 3 were pure reading: understand the issue, audit the failed fixes, identify the root cause. No code until step 4.
+Then it listed all six failed PRs and required the agent to audit each one before writing a single line of code. The task was organized into eight steps. Steps 1 through 3 were pure reading: understand the issue, audit the failed fixes, and identify the root cause. No code until step 4.
 
 It stated the invariant as a non-negotiable requirement:
 
@@ -321,7 +321,7 @@ And it included a constraints section that explicitly banned the exact moves Cla
 
 Every constraint corresponds to something the first agent actually did. The CSS patch in [PR #153](https://github.com/nathanjohnpayne/friends-and-family-billing/pull/153). The regex improvements in [#146](https://github.com/nathanjohnpayne/friends-and-family-billing/pull/146) and [#155](https://github.com/nathanjohnpayne/friends-and-family-billing/pull/155). The additional transformation layer in [#158](https://github.com/nathanjohnpayne/friends-and-family-billing/pull/158). The minimal-diff optimization throughout. This was not a generic best-practices list. It was a list of specific mistakes extracted from the session history.
 
-The task document also required the agent to deliver an audit of the prior fixes as part of the PR—not just the code, but an explanation of which assumptions were wrong and which abstractions made the problem worse. And it required regression tests proving that Preview output and email output were structurally equivalent.
+The task document also required the agent to deliver an audit of the prior fixes as part of the PR—not just the code, but an explanation of which assumptions were wrong and which abstractions made the problem worse. And it required regression tests proving that the Preview output and the email output were structurally equivalent.
 
 ## What finally worked
 
@@ -353,7 +353,7 @@ await queueEmail({
 });
 ```
 
-The Cloud Function was updated to send trusted app-generated HTML when it was provided instead of reparsing markdown again. The winning fix did not become more sophisticated about formatting. It became simpler about boundaries.
+The Cloud Function was updated to send trusted app-generated HTML when provided, instead of re-parsing markdown. The winning fix did not become more sophisticated about formatting. It became simpler about boundaries.
 
 **The architecture after the fix:**
 
@@ -404,7 +404,7 @@ Claude Code received eighteen prompts over twenty hours. In that time, it also r
 
 The difference was in what the prompt asked the agent to do with that information.
 
-Every prompt I gave Claude Code described the current symptom: "bold in preview but not editor." Each time, the agent did what a competent developer would do if you walked up to their desk and said "this looks wrong"—it found the nearest code path that could explain the symptom and patched it. That is not a failure of intelligence. It is a failure of framing.
+Every prompt I gave Claude Code described the current symptom: "bold in preview but not editor." Each time, the agent did what a competent developer would do if you walked up to their desk and said, "This looks wrong"—it found the nearest code path that could explain the symptom and patched it. That is not a failure of intelligence. It is a failure of framing.
 
 The Codex task document did not describe the current symptom at all. It described a pattern of failed fixes and asked the agent to explain why they failed before proposing anything new. It stated the system invariant explicitly. It banned specific classes of patches. It required an audit as a deliverable.
 
@@ -412,9 +412,9 @@ That is a different kind of work. It is not "fix this bug." It is "explain why t
 
 ## What I changed after this
 
-After this issue, I turned the lesson into repo policy. Four rules:
+After this issue, I turned the lesson into a repo policy. Four rules:
 
-**The two-strike rule.** If an agent has already made two failed fix attempts on the same problem, the third attempt must begin with an audit of the previous PRs. The agent has to explain what each prior fix assumed and why the assumption was wrong before it proposes a new fix. This prevents the patch-accumulation loop that produced PRs [#146](https://github.com/nathanjohnpayne/friends-and-family-billing/pull/146), [#153](https://github.com/nathanjohnpayne/friends-and-family-billing/pull/153), [#154](https://github.com/nathanjohnpayne/friends-and-family-billing/pull/154), [#155](https://github.com/nathanjohnpayne/friends-and-family-billing/pull/155), and [#158](https://github.com/nathanjohnpayne/friends-and-family-billing/pull/158).
+**The two-strike rule.** If an agent has already made two failed fix attempts on the same problem, the third attempt must begin with an audit of the previous PRs. The agent must explain what each prior fix assumed and why that assumption was wrong before proposing a new fix. This prevents the patch-accumulation loop that produced PRs [#146](https://github.com/nathanjohnpayne/friends-and-family-billing/pull/146), [#153](https://github.com/nathanjohnpayne/friends-and-family-billing/pull/153), [#154](https://github.com/nathanjohnpayne/friends-and-family-billing/pull/154), [#155](https://github.com/nathanjohnpayne/friends-and-family-billing/pull/155), and [#158](https://github.com/nathanjohnpayne/friends-and-family-billing/pull/158).
 
 **The serialization checklist.** If a bug involves serialization or deserialization—content crossing a format boundary—the code review now asks three questions:
 
@@ -424,15 +424,15 @@ After this issue, I turned the lesson into repo policy. Four rules:
 
 Those three questions would have caught this bug at [PR #144](https://github.com/nathanjohnpayne/friends-and-family-billing/pull/144). They are simple, but they target the exact blind spot that agents have: they will improve a bridge indefinitely without asking whether the bridge should exist.
 
-**Constraint-driven prompts for system bugs.** When a bug touches more than one layer of the system, the prompt now includes an explicit list of banned approaches derived from prior failures. Not "best practices" in the abstract—specific things this codebase has already tried that did not work. The agent needs to know what the search space does not include.
+**Constraint-driven prompts for system bugs.** When a bug touches more than one layer of the system, the prompt now includes an explicit list of banned approaches derived from prior failures. Not "best practices" in the abstract—specific things this codebase has already tried that did not work. The agent needs to know what the search space excludes.
 
-**Invariants outrank backward compatibility.** This is the lesson from the design spec. A spec can describe the right architecture and still leave room for an agent to build a bridge to the old one if it also requires backward compatibility. When both are present, the spec now states which constraint wins. "The new rendering path is the canonical path. Legacy format support is a migration concern, not an architectural peer."
+**Invariants outrank backward compatibility.** This is the lesson from the design spec. A spec can describe the right architecture and still leave room for an agent to build a bridge to the old one if the new one also requires backward compatibility. When both are present, the spec now states which constraint wins. "The new rendering path is the canonical path. Legacy format support is a migration concern, not an architectural peer."
 
 ## What AI agents actually get wrong
 
 The agent was not failing because it could not write code. Every PR compiled, passed tests, and improved something locally. The serializer got more faithful. The CSS got tighter. The module boundaries got cleaner. If you looked at any individual diff, you would approve it.
 
-The agent was failing because it did not, on its own, promote a repeated local failure into a structural question. It received the same class of bug report four times. It received code review feedback identifying round-trip safety failures three times. It received automated hook interventions flagging data consistency problems twice. At no point did it step back and say: the problem is not that the serializer is slightly wrong. The problem is that the serializer exists.
+The agent was failing because it did not, on its own, promote a repeated local failure into a structural question. It received the same class of bug report four times. It received code review feedback identifying round-trip safety failures three times. It received automated hook interventions flagging data consistency problems twice. At no point did it step back and say, "The problem is not that the serializer is slightly wrong." The problem is that the serializer exists.
 
 The moment the work was reframed around the invariant instead of the symptom, the fix became straightforward.
 
