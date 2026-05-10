@@ -18,3 +18,7 @@ The Mondrian grid contains four expandable panels (about, projects, community, c
 5. Mouse-leaving a panel schedules a delayed close (120 ms).
 6. On mobile / stack viewports (max-width 1023px, below `--bp-stack`), panels do not open on click or hover.
 7. Clicking a link inside a panel does not trigger panel open logic.
+
+## Related specs
+
+- [mondrian-rebalance-animation.md](mondrian-rebalance-animation.md) — the choreography spec for how the grid morphs, when content fades in/out, and how the interaction state machine prevents oscillation at row-line boundaries.
