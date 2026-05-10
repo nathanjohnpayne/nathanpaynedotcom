@@ -68,15 +68,24 @@
   --shift-medium: 3px;
 
   /* Breakpoint scale (#313, formalised in #330).
-     Three-tier breakpoint scale in CSS custom properties so every responsive
-     rule across the site can reference the same source. Tailwind-adjacent
-     values matched to common device classes: phone-portrait (≤--bp-narrow),
-     phone-landscape and tablet-portrait (≤--bp-tablet), tablet-portrait
-     through tablet-landscape (≤--bp-stack), and tablet-landscape and up
-     (Mondrian composition). The homepage uses --bp-stack and
-     --mondrian-max-width directly. Project detail pages and the 404 page
-     use --bp-narrow and --bp-tablet via raw 480px / 768px values today;
-     migrating them to reference the tokens is tracked as a follow-up. */
+     Three-tier breakpoint scale documented as CSS custom properties so the
+     spec, JS, and property values (e.g. width: var(--mondrian-max-width))
+     all read from one source. Tailwind-adjacent values matched to common
+     device classes: phone-portrait (≤--bp-narrow), phone-landscape and
+     tablet-portrait (≤--bp-tablet), tablet-portrait through tablet-landscape
+     (≤--bp-stack), and tablet-landscape and up (Mondrian composition).
+
+     Note: standard CSS does NOT allow custom properties inside @media
+     conditions — `@media (max-width: var(--bp-stack))` is invalid. Reusing
+     these tokens in media-query conditions requires @custom-media (Media
+     Queries Level 5, limited browser support) or build-time preprocessing
+     (PostCSS Custom Media). The homepage's existing rule writes the
+     literal `1023px` in @media and references the token only in the
+     comment for documentation. Project detail pages and the 404 page
+     similarly use raw 480px / 768px in their @media conditions; the
+     follow-up tracked in #332 is documentation alignment (commenting
+     each raw value with the matching token name), not a CSS-level
+     migration. */
   --bp-narrow: 480px;
   --bp-tablet: 768px;
   --bp-stack: 1024px;
