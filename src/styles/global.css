@@ -871,10 +871,16 @@ a:focus-visible .link-arrow,
   padding-left: 0.6rem;
 }
 
+/* Community section item typography matches the Builds section's body
+   typography (#339). Item titles, amounts, and descriptions all sit at
+   the same body-text size as the Builds project list — same content
+   type → same typography across the site. The font-family stays
+   Cormorant Garamond serif on .effort-link to mirror Builds' .p-name
+   serif treatment for item titles. */
 .effort-link {
   color: inherit;
   font-family: "Cormorant Garamond", Garamond, serif;
-  font-size: 1.05rem;
+  font-size: 0.85rem;
   font-weight: 700;
   line-height: 1.16;
   text-decoration: underline;
@@ -885,7 +891,7 @@ a:focus-visible .link-arrow,
 
 .effort-amount {
   margin-top: 0.12rem;
-  font-size: 0.84rem;
+  font-size: 0.85rem;
   font-weight: 500;
   letter-spacing: 0.01em;
   line-height: 1.2;
@@ -893,9 +899,8 @@ a:focus-visible .link-arrow,
 
 .effort-desc {
   margin-top: 0.10rem;
-  font-size: 0.84rem;
-  line-height: 1.38;
-  opacity: 0.72;
+  font-size: 0.85rem;
+  line-height: 1.48;
 }
 
 .panel--black .content-inner {
@@ -911,8 +916,16 @@ a:focus-visible .link-arrow,
 
 .panel--black .content-inner > p {
   margin-bottom: var(--su);
-  font-size: 0.95rem;
-  line-height: 1.42;
+  font-size: 0.85rem;
+  line-height: 1.48;
+}
+
+/* Parallel to .panel--yellow .content-inner a — beats the generic
+   .content-inner a (0.94rem) rule on specificity so Community item-link
+   text matches Builds body-link size. (#339) */
+.panel--black .content-inner a {
+  font-size: 0.85rem;
+  line-height: 1.48;
 }
 
 .panel--red {
