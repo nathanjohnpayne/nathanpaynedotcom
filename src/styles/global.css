@@ -1733,6 +1733,8 @@ body.blog-page {
 }
 
 /* ── Responsive: metadata + layout ── */
+/* 768px matches --bp-tablet on :root. CSS does not allow var() in @media
+   conditions; the literal value is used here for browser support. (#332) */
 @media (max-width: 768px) {
   /* Wide 4-col → 2×2 at tablet */
   .metadata-strip--grid-4 {
@@ -1751,6 +1753,7 @@ body.blog-page {
   }
 }
 
+/* 480px matches --bp-narrow on :root. (#332) */
 @media (max-width: 480px) {
   /* All metadata → single column */
   .metadata-strip--grid-4 {
@@ -2200,6 +2203,7 @@ a.tag:hover {
 .e-yellow-b  { grid-column: 6; grid-row: 6;   background: var(--yellow); }
 .e-white-c   { grid-column: 8; grid-row: 6;   background: var(--paper); }
 
+/* 768px matches --bp-tablet on :root. (#332) */
 @media (max-width: 768px) {
   .error-mondrian {
     grid-template-columns: 1fr;
@@ -3126,6 +3130,7 @@ a:focus-visible {
   outline-offset: 2px;
 }
 
+/* 480px matches --bp-narrow on :root. (#332) */
 @media (max-width: 480px) {
   .project-hero__header {
     padding: 1rem 1rem 1.15rem;
