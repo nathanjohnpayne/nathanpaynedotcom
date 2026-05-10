@@ -128,86 +128,103 @@ test('about/projects/connect panels are exactly content-sized in their focus sta
 // Sequence ordering — "geometry settles before content fades"
 // ─────────────────────────────────────────────────────────────────────────
 
-test('open sequence: data-focus is set before is-content-visible appears', async ({ page }) => {
-  // Capture mutation events in order. The state machine sets data-focus on
-  // .mondrian first, then adds is-content-visible to the panel after the
-  // grid morph settles.
+/**
+ * Install MutationObservers + a transitionend listener that record the
+ * monotonic order of: data-focus changes on .mondrian, is-content-visible
+ * toggles on each panel, and the geometry-settle moment (transitionend on
+ * grid-template-rows / grid-template-columns on .mondrian).
+ *
+ * Ordering is captured via a strictly-incrementing `order` counter to
+ * disambiguate same-tick events that would collide if rounded to a
+ * millisecond timestamp. (CodeRabbit finding on #337.)
+ */
+async function installEventRecorder(page: Page) {
   await page.evaluate(() => {
-    (window as any).__events = [] as Array<{ t: number; kind: string; value: string }>;
-    const grid = document.getElementById('mondrian')!;
+    type Event = { order: number; t: number; kind: string; value: string };
+    (window as any).__events = [] as Event[];
+    let order = 0;
     const start = performance.now();
+    const push = (kind: string, value: string) => {
+      (window as any).__events.push({ order: ++order, t: performance.now() - start, kind, value });
+    };
+    const grid = document.getElementById('mondrian')!;
     new MutationObserver((muts) => {
       for (const m of muts) {
-        if (m.attributeName === 'data-focus') {
-          (window as any).__events.push({
-            t: Math.round(performance.now() - start),
-            kind: 'data-focus',
-            value: grid.dataset.focus || '',
-          });
-        }
+        if (m.attributeName === 'data-focus') push('data-focus', grid.dataset.focus || '');
       }
     }).observe(grid, { attributes: true, attributeFilter: ['data-focus'] });
+    // Capture phase so we catch transitions that target .mondrian itself,
+    // independently of whether anything bubbles up first. The grid-template
+    // longhands are the geometry-settle signal; panels fire their own
+    // transitionend for background-color / opacity which we filter out by
+    // propertyName (and by target, since those events target the panel
+    // article and don't bubble through the grid in capture phase from above).
+    grid.addEventListener('transitionend', (ev) => {
+      const e = ev as TransitionEvent;
+      if (e.target !== grid) return;
+      if (e.propertyName === 'grid-template-rows' || e.propertyName === 'grid-template-columns') {
+        push('geometry-settled', e.propertyName);
+      }
+    }, true);
     for (const p of ['about', 'projects', 'community', 'connect']) {
       const el = document.querySelector(`[data-panel="${p}"]`)!;
       new MutationObserver((muts) => {
         for (const m of muts) {
-          if (m.attributeName === 'class') {
-            const had = (m.oldValue || '').includes('is-content-visible');
-            const has = el.classList.contains('is-content-visible');
-            if (has !== had) {
-              (window as any).__events.push({
-                t: Math.round(performance.now() - start),
-                kind: `is-content-visible:${p}`,
-                value: has ? 'on' : 'off',
-              });
-            }
-          }
+          if (m.attributeName !== 'class') continue;
+          const had = (m.oldValue || '').includes('is-content-visible');
+          const has = el.classList.contains('is-content-visible');
+          if (has !== had) push(`is-content-visible:${p}`, has ? 'on' : 'off');
         }
       }).observe(el, { attributes: true, attributeOldValue: true, attributeFilter: ['class'] });
     }
   });
+}
+
+type RecordedEvent = { order: number; t: number; kind: string; value: string };
+
+test('open sequence: data-focus precedes is-content-visible; grid-template transition fires', async ({ page }) => {
+  await installEventRecorder(page);
 
   await page.click(`[data-panel="about"]`);
-  await page.waitForFunction(() =>
-    document.querySelector('[data-panel="about"]')!.classList.contains('is-content-visible'),
-  );
+  // Wait for BOTH the geometry-settled event AND is-content-visible. The JS
+  // state machine schedules is-content-visible via setTimeout(--motion-plane);
+  // the actual CSS transitionend on grid-template-* fires ~50ms later (real
+  // frame timing exceeds the nominal duration). If we waited only for
+  // is-content-visible, the read of __events could race the transitionend
+  // event and miss the geometry-settled entry.
+  await page.waitForFunction(() => {
+    const events = (window as any).__events as Array<{ kind: string; value: string }>;
+    const hasSettled = events.some((e) => e.kind === 'geometry-settled');
+    const hasContent = events.some((e) => e.kind === 'is-content-visible:about' && e.value === 'on');
+    return hasSettled && hasContent;
+  });
 
-  const events = await page.evaluate(() => (window as any).__events as Array<{ t: number; kind: string; value: string }>);
+  const events: RecordedEvent[] = await page.evaluate(() => (window as any).__events);
   const focusOn = events.find((e) => e.kind === 'data-focus' && e.value === 'about');
+  const settled = events.find((e) => e.kind === 'geometry-settled');
   const contentOn = events.find((e) => e.kind === 'is-content-visible:about' && e.value === 'on');
   expect(focusOn, 'data-focus=about event captured').toBeTruthy();
+  expect(settled, 'geometry-settled event captured (transitionend on grid-template)').toBeTruthy();
   expect(contentOn, 'is-content-visible:about=on event captured').toBeTruthy();
-  expect(contentOn!.t, 'is-content-visible appears AFTER data-focus is set').toBeGreaterThanOrEqual(focusOn!.t);
+  // The load-bearing invariant: data-focus precedes BOTH downstream events.
+  // (We use the strictly-incrementing `order` counter rather than `t` so a
+  // same-tick reversal can't satisfy the comparison.)
+  expect(focusOn!.order, 'data-focus precedes geometry-settled').toBeLessThan(settled!.order);
+  expect(focusOn!.order, 'data-focus precedes is-content-visible').toBeLessThan(contentOn!.order);
+  // is-content-visible vs geometry-settled is NOT strictly ordered: the JS
+  // state machine fires is-content-visible at +--motion-plane ms; the CSS
+  // transitionend fires whenever the browser's frame timer finishes the
+  // grid-template-* interpolation, which can be ~50ms later. Both reach the
+  // user as "the panel opened"; the spec's "content fades in after the
+  // morph" is enforced by the JS scheduler choosing --motion-plane as the
+  // delay, not by a transitionend dependency. Asserting strict ordering here
+  // would catch cosmetic frame-timing changes, not real regressions.
 });
 
 test('close sequence: is-content-visible is removed before data-focus clears', async ({ page }) => {
   await openByClick(page, 'about');
-
-  // Reset event log AFTER the open completes.
-  await page.evaluate(() => {
-    (window as any).__events = [];
-    const grid = document.getElementById('mondrian')!;
-    const start = performance.now();
-    new MutationObserver((muts) => {
-      for (const m of muts) {
-        if (m.attributeName === 'data-focus') {
-          (window as any).__events.push({ t: Math.round(performance.now() - start), kind: 'data-focus', value: grid.dataset.focus || '' });
-        }
-      }
-    }).observe(grid, { attributes: true, attributeFilter: ['data-focus'] });
-    const el = document.querySelector('[data-panel="about"]')!;
-    new MutationObserver((muts) => {
-      for (const m of muts) {
-        if (m.attributeName === 'class') {
-          const had = (m.oldValue || '').includes('is-content-visible');
-          const has = el.classList.contains('is-content-visible');
-          if (has !== had) {
-            (window as any).__events.push({ t: Math.round(performance.now() - start), kind: 'is-content-visible:about', value: has ? 'on' : 'off' });
-          }
-        }
-      }
-    }).observe(el, { attributes: true, attributeOldValue: true, attributeFilter: ['class'] });
-  });
+  // Reset the event log AFTER the open completes so we measure only the close.
+  await installEventRecorder(page);
 
   // Click outside to close.
   await page.click('main', { position: { x: 5, y: 5 }, force: true });
@@ -215,12 +232,14 @@ test('close sequence: is-content-visible is removed before data-focus clears', a
     () => !document.querySelector('[data-panel="about"]')!.classList.contains('is-open'),
   );
 
-  const events = await page.evaluate(() => (window as any).__events as Array<{ t: number; kind: string; value: string }>);
+  const events: RecordedEvent[] = await page.evaluate(() => (window as any).__events);
   const contentOff = events.find((e) => e.kind === 'is-content-visible:about' && e.value === 'off');
   const focusCleared = events.find((e) => e.kind === 'data-focus' && e.value === '');
   expect(contentOff, 'is-content-visible:about=off event captured').toBeTruthy();
   expect(focusCleared, 'data-focus cleared event captured').toBeTruthy();
-  expect(contentOff!.t, 'content fades out BEFORE data-focus clears').toBeLessThanOrEqual(focusCleared!.t);
+  // Strict ordering by monotonic counter (CodeRabbit: rounded timestamps could
+  // mask same-tick reversals).
+  expect(contentOff!.order, 'content fades out BEFORE data-focus clears').toBeLessThan(focusCleared!.order);
 });
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -272,17 +291,35 @@ test('prefers-reduced-motion: reduce short-circuits the state machine to instant
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.reload();
   await page.waitForLoadState('domcontentloaded');
+  // Re-wait for the measureContentHeights pass after reload — page.reload()
+  // skips the beforeEach readiness gate, so without this the test would race
+  // the measurement pass and click before the state machine is fully wired.
+  await page.waitForFunction(() => {
+    const grid = document.getElementById('mondrian');
+    return grid && grid.style.getPropertyValue('--cell-h-about').endsWith('px');
+  });
 
-  const start = Date.now();
   await page.click(`[data-panel="about"]`);
-  await page.waitForFunction(() =>
-    document.querySelector('[data-panel="about"]')!.classList.contains('is-content-visible'),
-  );
-  const elapsed = Date.now() - start;
+  // Measure inside the page using performance.now() so the elapsed value
+  // doesn't include Playwright's Node↔browser RPC round-trip + polling
+  // overhead. (CodeRabbit finding on #337.)
+  const elapsed: number = await page.evaluate(() => {
+    return new Promise<number>((resolve) => {
+      const start = performance.now();
+      const tick = () => {
+        if (document.querySelector('[data-panel="about"]')?.classList.contains('is-content-visible')) {
+          resolve(performance.now() - start);
+        } else {
+          requestAnimationFrame(tick);
+        }
+      };
+      requestAnimationFrame(tick);
+    });
+  });
 
-  // --motion-plane is 460ms in normal mode. With reduce, the state machine
-  // should complete in well under that. 200ms is a generous ceiling that
-  // catches the case where the JS forgot to short-circuit motion tokens.
+  // --motion-plane is 460ms in normal mode. Under reduced-motion the state
+  // machine should complete in well under that. 200ms is a generous ceiling
+  // that catches the case where the JS forgot to short-circuit motion tokens.
   expect(elapsed, 'open completes in <200ms under reduced-motion').toBeLessThan(200);
 });
 
