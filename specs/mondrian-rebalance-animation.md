@@ -1,6 +1,17 @@
 ---
 spec_id: mondrian-rebalance-animation
 title: Mondrian Rebalance Animation
+tested: false
+reason: |
+  This spec captures the choreography of an existing implementation that
+  shipped piecemeal across #313, #314, #315, #325-#329, and #330. The
+  high-level interaction (click / hover / focus, only-one-open, mobile
+  guard) is exercised by tests/panel-interaction.test.js. The
+  fine-grained phase ordering, content-fade timing, --motion-plane
+  duration, and JS-measured --cell-h-* contracts described here are
+  not yet covered by dedicated tests. A follow-up ticket will add a
+  Playwright animation smoke test that asserts the open / close /
+  switch sequences hold in observable order.
 ---
 
 # Mondrian Rebalance Animation
