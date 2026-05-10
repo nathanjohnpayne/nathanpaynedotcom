@@ -47,11 +47,11 @@ The first thing I noticed, within a week of using Claude Code and Cursor full-ti
 
 This sounds obvious. It is obvious. Every developer knows that self-review catches mistakes. But the practical implication for agent-driven development is not obvious at all: **the default agent workflow—prompt, generate code, commit, push—skips review entirely.** The agent treats code generation as a single atomic act. There is no natural pause between "I wrote the code" and "I shipped the code" unless you build one.
 
-I started by asking agents to review their own code in the same chat session. Even that crude approach—"now review what you just wrote"—found real bugs. Missing error handling, unquoted shell variables, race conditions in concurrent workflows. The agent would generate code confidently, then catch its own mistakes when asked to look again with a reviewer's eye.
+I started by asking agents to review their own code in the same chat session. Even that crude approach—"now review what you just wrote"—found real bugs. Missing error handling, unquoted shell variables, and race conditions in concurrent workflows. The agent would confidently generate code, then catch its own mistakes when asked to look again with a reviewer's eye.
 
-More surprisingly, if I asked the agent to post its review under a *different GitHub identity*—to literally switch from `nathanjohnpayne` (the author) to `nathanpayne-claude` (the reviewer) and post the review as a formal GitHub PR review—the quality of the self-review improved noticeably. The act of assuming a different identity made the agent take the review more seriously. It would catch things in the reviewer persona that it missed in the author persona, even though it was the same model with the same context window looking at the same code.
+More surprisingly, if I asked the agent to post its review under a *different GitHub identity*—to literally switch from `nathanjohnpayne` (the author) to `nathanpayne-claude` (the reviewer) and submit it as a formal GitHub PR review—the quality of the self-review improved noticeably. The act of assuming a different identity made the agent take the review more seriously. It would catch things in the reviewer persona that it missed in the author persona, even though it was the same model with the same context window and looked at the same code.
 
-I do not have a mechanistic explanation for why identity-switching improves review quality. I have the empirical observation that it does, consistently, across Claude Code, Cursor, and Codex. The practical consequence is that every agent in my system now has two GitHub identities: an author identity (`nathanjohnpayne`, shared across all agents) and a reviewer identity (`nathanpayne-claude`, `nathanpayne-cursor`, `nathanpayne-codex`). Every PR is authored under one and reviewed under the other.
+I do not have a mechanistic explanation for why identity-switching improves review quality. I have empirical evidence that it does so consistently across Claude Code, Cursor, and Codex. The practical consequence is that every agent in my system now has two GitHub identities: an author identity (`nathanjohnpayne`, shared across all agents) and a reviewer identity (`nathanpayne-claude`, `nathanpayne-cursor`, `nathanpayne-codex`). Every PR is authored under one and reviewed under the other.
 
 ## Why instruction files are not enough
 
@@ -67,7 +67,7 @@ This is the same dynamic that makes honor-system processes fail in human teams. 
 
 ## Adding teeth: GitHub rules and CI enforcement
 
-I started with GitHub branch protection rules: require a pull request before merging to main. This immediately broke the agent's ability to push directly, which is what I wanted. But it also created a new problem: the agent would open a PR with no self-review section, no description of what changed, and merge it immediately with its own approval.
+I started with GitHub branch protection rules: require a pull request before merging to main. This immediately broke the agent's ability to push directly, which is what I wanted. But it also created a new problem: the agent would open a PR with no self-review section and no description of what changed, and merge it immediately with their own approval.
 
 So I added a [PreToolUse hook](https://github.com/nathanjohnpayne/mergepath/blob/main/scripts/hooks/gh-pr-guard.sh) that intercepts every `gh pr create` call and blocks it unless the PR body contains both an `Authoring-Agent:` header and a `## Self-Review` section. The hook runs locally in the agent's Claude Code session, before the GitHub API call is made. If the agent tries to create a PR without the required sections, the hook returns exit code 2 and the PR is never created.
 
@@ -87,7 +87,7 @@ The same hook also blocks `gh pr merge --admin` unless `BREAK_GLASS_ADMIN=1` is 
 
 ## The threshold: when self-review is not enough
 
-Self-review under a separate identity catches a lot. But on complex changes—PRs touching hundreds of lines across multiple files—a single agent reviewing its own work hits diminishing returns. The agent's blind spots are correlated with its authoring decisions. It will not question its own architectural assumptions because those assumptions felt correct when it made them.
+Self-review under a separate identity catches a lot. But for complex changes—PRs spanning hundreds of lines across multiple files—a single agent reviewing their own work hits diminishing returns. The agent's blind spots are correlated with its authoring decisions. It will not question its own architectural assumptions because those assumptions felt correct when it made them.
 
 I adopted a threshold: changes under 300 lines of diff, or changes that do not touch security-sensitive paths, get self-review only. Changes above 300 lines, or changes touching `.github/**`, `src/auth/**`, `src/payments/**`, or files matching `**/*secret*` / `**/*credential*`, require external review by a *different* agent.
 
@@ -103,9 +103,9 @@ external_review_paths:
   - ".github/**"
 ```
 
-The external review threshold is enforced by a [CI workflow](https://github.com/nathanjohnpayne/mergepath/blob/main/.github/workflows/pr-review-policy.yml) that runs on every PR. When a PR crosses the threshold, the workflow applies the `needs-external-review` label. That label blocks merge via a separate Label Gate check. The PR cannot merge until the label is removed by the review process.
+The external review threshold is enforced by a [CI workflow](https://github.com/nathanjohnpayne/mergepath/blob/main/.github/workflows/pr-review-policy.yml) that runs on every PR. When a PR crosses the threshold, the workflow applies the `needs-external-review` label. That label blocks merge via a separate Label Gate check. The PR cannot be merged until the label is removed by the review process.
 
-For months, external review meant a manual handoff. I would take the PR's handoff message to a different agent CLI session—typically Cursor or Codex—relay the context, wait for the review, relay the feedback back to the original agent, and iterate until the external reviewer approved. This worked but did not scale. Each handoff took 5–10 minutes of my time, and complex PRs could go through three or four rounds.
+For months, external review meant a manual handoff. I would take the PR's handoff message to a different agent CLI session—typically Cursor or Codex—relay the context, wait for the review, relay the feedback back to the original agent, and iterate until the external reviewer approves. This worked but did not scale. Each handoff took 5–10 minutes of my time, and complex PRs could go through three or four rounds.
 
 ## The automation: Codex-in-GitHub
 
@@ -158,7 +158,7 @@ The solution was a two-layer defense: use `head_ref_force_pushed` events from th
 
 The most instructive artifact of the entire project is [PR #66](https://github.com/nathanjohnpayne/mergepath/pull/66), which extended `gh-pr-guard.sh` to block `gh pr merge` on labeled PRs unless `CODEX_CLEARED=1` is set.
 
-The hook needs to parse `gh pr merge` commands to extract the PR selector (which can be a number, a URL, or a branch name), detect `--admin` flags, and check whether the target PR carries `needs-external-review`. It also needs to handle inline environment prefixes like `CODEX_CLEARED=1 gh pr merge 65` because that is the documented merge form.
+The hook needs to parse `gh pr merge` commands to extract the PR selector (which can be a number, a URL, or a branch name), detect `--admin` flags, and check whether the target PR carries `needs-external-review`. It also needs to handle inline environment prefixes, such as `CODEX_CLEARED=1 gh pr merge 65`, because that is the documented merge format.
 
 [PR #66](https://github.com/nathanjohnpayne/mergepath/pull/66) went through **seven rounds** of `nathanpayne-codex` review. Each round caught a new parser bug:
 
@@ -171,7 +171,7 @@ The hook needs to parse `gh pr merge` commands to extract the PR selector (which
 | 6 | Walk treated `echo gh pr merge` as a real merge | Command-position detection was too loose |
 | 7 | `--admin` detected via substring grep | `--subject "--admin follow-up"` falsely blocked |
 
-After round 7, I pushed for the review to ship. But the underlying pattern was clear: every fix that relaxed the matcher to handle a new form also opened a new false-positive or false-negative path. Bash string parsing is the wrong tool for parsing shell command grammar. The hook eventually switched to Python `shlex.split` with a hand-rolled wrapper for unquoted-newline normalization and NUL-delimited bash handoff—a decision that was supposed to be investigated via [issue #67](https://github.com/nathanjohnpayne/mergepath/issues/67) but ended up being forced by propagation-time Codex findings.
+After round 7, I pushed to have the review ship. But the underlying pattern was clear: every fix that relaxed the matcher to handle a new form also opened a new false-positive or false-negative path. Bash string parsing is the wrong tool for parsing shell command grammar. The hook eventually switched to Python `shlex.split` with a hand-rolled wrapper for unquoted-newline normalization and NUL-delimited bash handoff—a decision that was supposed to be investigated via [issue #67](https://github.com/nathanjohnpayne/mergepath/issues/67) but ended up being forced by propagation-time Codex findings.
 
 ## What propagation taught me
 
@@ -183,7 +183,7 @@ These were not trivial findings. Three were privilege-escalation vectors where a
 
 Seventeen bugs in code that had already been reviewed seven times on the template repo. Fresh eyes found what familiarity missed.
 
-The lesson: **propagation is implicitly a fresh-eyes code review.** When you take code that was developed and reviewed in one context and deploy it to a different repo where Codex has never seen it before, the review quality resets to first-principles. Codex on the template repo had gotten familiar with the code over many rounds; Codex on swipewatch was seeing it for the first time and was not tired of looking at the same functions.
+The lesson: **propagation is implicitly a fresh-eyes code review.** When you take code that was developed and reviewed in one context and deploy it to a different repo where Codex has never seen it before, the review quality resets to first principles. Codex on the template repo had gotten familiar with the code over many rounds; Codex on swipewatch was seeing it for the first time and was not tired of looking at the same functions.
 
 After fixing all seventeen bugs via a consolidated [back-port PR](https://github.com/nathanjohnpayne/mergepath/pull/76), the remaining four repos propagated cleanly in under ten minutes.
 
@@ -193,9 +193,9 @@ Before propagation, I ran five controlled scenarios against the template's own i
 
 **Dry-run A (happy path, [PR #71](https://github.com/nathanjohnpayne/mergepath/pull/71)):** Clean PR, Codex 👍 in 147 seconds, merge gate green, merged. Single round.
 
-**Dry-run B (fix-and-repass, [PR #72](https://github.com/nathanjohnpayne/mergepath/pull/72)):** PR with a deliberate unquoted shell variable. Codex flagged it as P2. Fixed, re-requested, Codex cleared. Two rounds. Merged.
+**Dry-run B (fix-and-repass, [PR #72](https://github.com/nathanjohnpayne/mergepath/pull/72)):** PR with a deliberate unquoted shell variable. Codex flagged it as P2. Fixed, re-requested, and Codex cleared. Two rounds. Merged.
 
-**Dry-run C (disagreement, [PR #73](https://github.com/nathanjohnpayne/mergepath/pull/73)):** PR with a `set +e` pattern I had a defensible rebuttal for. Codex flagged it. I posted the rebuttal. Codex re-flagged the same issue with a *stronger* argument that directly addressed my rebuttal. That is the repeat-after-rebuttal signal—the agent stops the loop, posts an escalation comment with both positions, and alerts the human as tiebreaker. **Closed without merging.**
+**Dry-run C (disagreement, [PR #73](https://github.com/nathanjohnpayne/mergepath/pull/73)):** PR with a `set +e` pattern I had a defensible rebuttal for. Codex flagged it. I posted the rebuttal. Codex re-flagged the same issue with a *stronger* argument that directly addressed my rebuttal. That is the repeat-after-rebuttal signal—the agent stops the loop, posts an escalation comment with both positions, and alerts the human as a tiebreaker. **Closed without merging.**
 
 The dry-run C result was the most informative: Codex does not blindly re-run reviews. It reads the conversation and pushes back contextually. Round 2's finding explicitly said "for a valid class of inputs"—a phrase that directly countered my "bounded input space" rebuttal. That level of contextual awareness changes the cost-benefit calculation for automated review significantly.
 
@@ -219,15 +219,15 @@ The process-level fix was even simpler: apply the label *before* posting any rev
 
 [Mergepath](https://github.com/nathanjohnpayne/mergepath) is the infrastructure that makes all of the above work consistently across seven repositories. It is not a framework or a library. It is a set of files that, when present in a repository, enforce a deterministic review workflow for any AI coding agent.
 
-**Canonical documentation as single source of truth.** `REVIEW_POLICY.md` is the policy document. `CLAUDE.md` is the agent's operational checklist. `AGENTS.md` is the behavioral index. `.github/review-policy.yml` is the machine-readable config. Each file has exactly one job, and they cross-reference each other rather than duplicating content.
+**Canonical documentation as a single source of truth.** `REVIEW_POLICY.md` is the policy document. `CLAUDE.md` is the agent's operational checklist. `AGENTS.md` is the behavioral index. `.github/review-policy.yml` is the machine-readable config. Each file has exactly one job, and they cross-reference each other rather than duplicating content.
 
 **Binding structural constraints enforced via CI.** Seven CI checks in `scripts/ci/` verify that required files exist, instruction files are not duplicated in tool folders, forbidden directories are absent, and the review policy infrastructure is in place. These run on every push and every PR. Agents cannot merge past a failing check.
 
-**Multi-identity code review.** Every agent has an author identity and a reviewer identity. The `gh-pr-guard.sh` hook enforces that PRs contain `Authoring-Agent:` and `## Self-Review`. The `pr-audit.yml` weekly audit retroactively checks that every merged PR had the required review structure. The `block-self-approval` job in the Agent Review Pipeline prevents a reviewer identity from approving its own PR.
+**Multi-identity code review.** Every agent has an author identity and a reviewer identity. The `gh-pr-guard.sh` hook enforces that PRs contain `Authoring-Agent:` and `## Self-Review`. The `pr-audit.yml` weekly audit retroactively checks that every merged PR had the required review structure. The `block-self-approval` job in the Agent Review Pipeline prevents a reviewer from approving their own PR.
 
 **Automated external review.** `codex-review-request.sh` and `codex-review-check.sh` automate the Codex review loop. The hook enforces that `CODEX_CLEARED=1` is set before merging a labeled PR. The entire flow from "PR crosses threshold" to "merge" can run without human intervention on the happy path.
 
-**Drift prevention.** The template is the canonical source. Propagation to downstream repos preserves per-repo customizations (protected paths, CodeRabbit settings) while overwriting policy files, scripts, and workflows with the template's versions. When the template evolves, the downstream repos are updated to match.
+**Drift prevention.** The template is the canonical source. Propagation to downstream repos preserves per-repo customizations (protected paths, CodeRabbit settings) while overwriting policy files, scripts, and workflows with the template's versions. When the template evolves, the downstream repos are updated to reflect the changes.
 
 ## The numbers
 
@@ -237,19 +237,19 @@ Over six weeks of daily use across seven repositories:
 - **167 hook test cases** covering the `gh-pr-guard.sh` parser across 7 rounds of review
 - **17 template bugs** discovered during propagation to downstream repos
 - **5 dry-run scenarios** validated on live infrastructure
-- **142–342 second** average Codex response time per review round
+- **142–342 seconds** average Codex response time per review round
 - **46 project items** tracked across 5 phases in [Project #2](https://github.com/users/nathanjohnpayne/projects/2)
 
 ## Four rules
 
 Everything I learned during this project reduces to four rules:
 
-**1. Enforce, don't instruct.** Instruction files (`CLAUDE.md`, `AGENTS.md`) are necessary for context but insufficient for compliance. If you want agents to always do PRs, block direct pushes via branch protection. If you want agents to always include self-reviews, block PR creation without them. If you want agents to get external review on complex changes, block merge via a label gate. The enforcement must be mechanical, not behavioral.
+**1. Enforce, don't instruct.** Instruction files (`CLAUDE.md`, `AGENTS.md`) are necessary for context but insufficient for compliance. If you want agents to always do PRs, block direct pushes via branch protection. If you want agents to always include self-reviews, block PR creation without them. If you want agents to get an external review on complex changes, block merge via a label gate. The enforcement must be mechanical, not behavioral.
 
-**2. Identity-switch for reviews.** Having the agent review its own code under a different GitHub identity produces measurably better reviews than asking for review in the same conversation. I cannot explain why, but I have observed it consistently across three different agent platforms. The cost is one additional GitHub account per agent. The benefit is real.
+**2. Identity-switch for reviews.** Having the agent review its own code under a different GitHub identity produces measurably better reviews than asking for a review in the same conversation. I cannot explain why, but I have observed it consistently across three different agent platforms. The cost is one additional GitHub account per agent. The benefit is real.
 
-**3. Fresh eyes find what familiarity misses.** The strongest single signal from this project is that Codex found seventeen bugs in template code that had been reviewed seven times by the same reviewer (`nathanpayne-codex` via the CLI). When the same code was propagated to a different repo and Codex saw it fresh, it caught privilege escalation vectors, findings-filter scoping bugs, and tokenizer edge cases that the familiar reviewer had stopped seeing. Schedule periodic fresh-eyes reviews, either by rotating reviewers or by deploying code to new contexts where it gets reviewed from scratch.
+**3. Fresh eyes find what familiarity misses.** The strongest single signal from this project is that Codex found seventeen bugs in template code that had been reviewed seven times by the same reviewer (`nathanpayne-codex` via the CLI). When the same code was propagated to a different repo, and Codex saw it fresh, it caught privilege escalation vectors, findings-filter scoping bugs, and tokenizer edge cases that the familiar reviewer had stopped seeing. Schedule periodic fresh-eyes reviews, either by rotating reviewers or by deploying code to new contexts where it gets reviewed from scratch.
 
-**4. The difference between a well-intentioned agent and a reliable one is not a smarter model. It is enforcement infrastructure.** Better models will come. Better prompts will be written. But the structural insight of this project is that agent reliability is an infrastructure problem, not a capability problem. The agent that shipped clean code was not a different model than the one that tried to push directly to main. It was the same model, operating inside a system that made the right behavior the only available behavior.
+**4. The difference between a well-intentioned agent and a reliable one is not a smarter model. It is an enforcement infrastructure.** Better models will come. Better prompts will be written. But the project's structural insight is that agent reliability is an infrastructure problem, not a capability problem. The agent that shipped clean code was not a different model from the one that tried to push directly to main. It was the same model, operating inside a system that made the right behavior the only available behavior.
 
 The template is [open source](https://github.com/nathanjohnpayne/mergepath). The enforcement is mechanical. The lessons cost me six weeks. Maybe they save you some of that.
