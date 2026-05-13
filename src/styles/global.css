@@ -314,18 +314,24 @@ html, body {
   text-align: left;
   pointer-events: none;
   font-family: "Cormorant Garamond", Garamond, serif;
-  /* Hidden until Cormorant Garamond is ready, then fades in. Prevents
-     the visible swap from system-fallback to Cormorant on first paint
-     (most noticeable on the boxed "Nathan Payne" label). The
-     [data-fonts-ready] attribute is set by the inline script in
-     BaseLayout.astro that waits on document.fonts.ready (with a 1.5s
-     timeout fallback). */
-  opacity: 0;
+  /* Visible by default so CSP-blocked-inline-script and JS-disabled
+     users never hit invisible labels. The hide-while-fonts-load gate
+     below is opt-IN: only triggers when the inline script in
+     BaseLayout.astro tags <html data-fonts-pending> synchronously in
+     <head>. When that script is blocked or never runs, the gate never
+     applies and labels render with the system-font FOUT instead of
+     waiting on a 1.5s timeout fallback. See #344. */
+  opacity: 1;
   transition: opacity var(--motion-hover) var(--ease-standard);
 }
 
-html[data-fonts-ready] .panel-label {
-  opacity: 1;
+/* Webfont-readiness gate. The inline script sets this attribute
+   synchronously before <body> parses, so labels paint hidden on first
+   frame for users whose script runs (no FOUT swap to Cormorant). The
+   attribute is removed when document.fonts.ready resolves or after a
+   1.5s timeout, fading labels in. */
+html[data-fonts-pending] .panel-label {
+  opacity: 0;
 }
 
 .panel-label--name {
