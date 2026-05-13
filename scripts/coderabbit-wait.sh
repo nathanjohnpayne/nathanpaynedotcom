@@ -217,9 +217,27 @@ HEAD_COMMITTER_DATE=$(gh api "repos/$REPO/commits/$HEAD_SHA" --jq '.commit.commi
 # codex-review-request.sh: advance the anchor past any `head_ref_force_pushed`
 # timeline event. See nathanjohnpayne/mergepath#140 round-2 Codex finding
 # (P1, line 270) for the specific exposure this closes.
+#
+# Push-time anchoring (#342 → #250 P2 follow-up):
+#   The PR timeline's `committed` event for HEAD_SHA carries a `created_at`
+#   field that is the time GitHub *received* the commit (i.e. push time),
+#   independent of the local commit's `committer.date`. When that event
+#   exists, prefer it over the local committer date — it is the only
+#   timestamp guaranteed to be monotonic with the moment HEAD became
+#   visible to CodeRabbit. Falls back to committer date when the timeline
+#   does not yet contain a matching `committed` event (rare, but happens
+#   on very fresh pushes that race the timeline indexer).
 HEAD_ANCHOR="$HEAD_COMMITTER_DATE"
 ANCHOR_SOURCE="HEAD committer date"
 TIMELINE_JSON=$(fetch_api_array "repos/$REPO/issues/$PR_NUMBER/timeline" "PR timeline")
+HEAD_PUSH_TIME=$(echo "$TIMELINE_JSON" | jq -r --arg sha "$HEAD_SHA" '
+  [ .[] | select(.event == "committed" and .sha == $sha) | .created_at ]
+  | max // ""
+')
+if [ -n "$HEAD_PUSH_TIME" ] && [[ "$HEAD_PUSH_TIME" > "$HEAD_ANCHOR" ]]; then
+  HEAD_ANCHOR="$HEAD_PUSH_TIME"
+  ANCHOR_SOURCE="committed event @ $HEAD_PUSH_TIME (push time)"
+fi
 LATEST_FORCE_PUSH_TIME=$(echo "$TIMELINE_JSON" | jq -r '
   [ .[] | select(.event == "head_ref_force_pushed") | .created_at ]
   | max // ""
