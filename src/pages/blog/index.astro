@@ -1,6 +1,7 @@
 ---
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import { getCollection } from 'astro:content';
+import { estimateReadingMinutes } from '../../lib/reading-time';
 
 const posts = (await getCollection('blog', ({ data }) => !data.draft))
   .sort((a, b) => b.data.date.getTime() - a.data.date.getTime());
@@ -36,14 +37,11 @@ function formatDate(date: Date): string {
   });
 }
 
+// Shared estimator with src/pages/blog/[slug].astro — see
+// src/lib/reading-time.ts for algorithm. The bare "min" suffix is
+// listing-specific (the post page uses "min read").
 function readingTime(body: string | undefined): string {
-  if (!body) return '1 min';
-  const codeBlocks: string[] = [];
-  const prose = body.replace(/```[\s\S]*?```/g, (m) => { codeBlocks.push(m); return ' '; });
-  const proseWords = prose.trim().split(/\s+/).filter(Boolean).length;
-  const codeWords = codeBlocks.reduce((n, b) => n + b.split(/\s+/).filter(Boolean).length, 0);
-  const minutes = Math.ceil((proseWords + codeWords * 0.3) / 225);
-  return `${Math.max(1, minutes)} min`;
+  return `${estimateReadingMinutes(body)} min`;
 }
 ---
 

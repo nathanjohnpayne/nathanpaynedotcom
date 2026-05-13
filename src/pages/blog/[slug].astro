@@ -1,6 +1,7 @@
 ---
 import { getCollection, render } from 'astro:content';
 import BlogPost from '../../layouts/BlogPost.astro';
+import { estimateReadingMinutes } from '../../lib/reading-time';
 
 export async function getStaticPaths() {
   const posts = await getCollection('blog', ({ data }) => !data.draft);
@@ -16,13 +17,10 @@ const { post } = Astro.props;
 // headings: { depth: number; slug: string; text: string }[]
 const { Content, headings } = await render(post);
 
-// Calculate reading time: prose at 225 wpm, code blocks at ~30% weight
-const rawBody = post.body ?? '';
-const codeBlocks: string[] = [];
-const prose = rawBody.replace(/```[\s\S]*?```/g, (m) => { codeBlocks.push(m); return ' '; });
-const proseWords = prose.trim().split(/\s+/).filter(Boolean).length;
-const codeWords = codeBlocks.reduce((n, b) => n + b.split(/\s+/).filter(Boolean).length, 0);
-const readingTime = `${Math.max(1, Math.ceil((proseWords + codeWords * 0.3) / 225))} min read`;
+// Shared estimator with src/pages/blog/index.astro — see src/lib/reading-time.ts
+// for algorithm. The "min read" suffix is post-page-specific (the listing
+// uses bare "min").
+const readingTime = `${estimateReadingMinutes(post.body)} min read`;
 ---
 
 <BlogPost
