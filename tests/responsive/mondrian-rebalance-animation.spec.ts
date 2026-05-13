@@ -17,13 +17,6 @@ import { test, expect, Page } from '@playwright/test';
 const PANELS = ['about', 'projects', 'community', 'connect'] as const;
 type PanelName = (typeof PANELS)[number];
 
-const COLOR_BY_PANEL: Record<PanelName, string> = {
-  about: 'red',
-  projects: 'yellow',
-  community: 'black',
-  connect: 'blue',
-};
-
 // Skip the entire file on viewports where the state machine is disabled.
 // playwright.config.ts has 1440 as the only desktop viewport; the others
 // (375, 393, 768) fall below --bp-stack.
@@ -92,7 +85,9 @@ test('all four panels render at non-zero dimensions in every focus state (#315 r
       expect(dims[p].height, `[${focus}-focus] ${p}.height`).toBeGreaterThan(0);
     }
     // Close before next iteration.
-    await page.click('main', { position: { x: 5, y: 5 }, force: true }).catch(() => {});
+    await page.click('main', { position: { x: 5, y: 5 }, force: true }).catch((err) => {
+      console.warn(`close-click failed (continuing to assert close via waitForFunction): ${err?.message ?? err}`);
+    });
     await page.waitForFunction(
       (f) => !document.querySelector(`[data-panel="${f}"]`)!.classList.contains('is-open'),
       focus,
@@ -116,7 +111,9 @@ test('about/projects/connect panels are exactly content-sized in their focus sta
     expect(gap, `[${focus}-focus] cream gap below content`).toBeLessThanOrEqual(TOLERANCE);
 
     // Close before next iteration.
-    await page.click('main', { position: { x: 5, y: 5 }, force: true }).catch(() => {});
+    await page.click('main', { position: { x: 5, y: 5 }, force: true }).catch((err) => {
+      console.warn(`close-click failed (continuing to assert close via waitForFunction): ${err?.message ?? err}`);
+    });
     await page.waitForFunction(
       (f) => !document.querySelector(`[data-panel="${f}"]`)!.classList.contains('is-open'),
       focus,

@@ -245,6 +245,13 @@ describe('Project Pages — screenshot aspect variants', () => {
     expect(muxScript).toContain('.play()');
     expect(muxScript).toContain('currentTime>0');
     expect(html).not.toContain('PUBLIC_MUX_ENV_KEY');
+    // #265 regression: when the mux-embed script tag already exists in a
+    // settled (loaded/error) state, the loader must short-circuit to
+    // Promise.resolve() instead of re-attaching listeners that will never
+    // fire. Encoded via the dataset.muxEmbedStatus sentinel.
+    expect(muxScript).toMatch(/muxEmbedStatus===['"]loaded['"]/);
+    expect(muxScript).toMatch(/muxEmbedStatus===['"]error['"]/);
+    expect(muxScript).toContain('Promise.resolve()');
   });
 
   it('only Swipe Watch opts into the Mux hero today', () => {
