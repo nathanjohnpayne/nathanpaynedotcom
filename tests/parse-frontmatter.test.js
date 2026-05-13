@@ -43,7 +43,7 @@ describe('parseFrontmatter (scripts/lib/parse-frontmatter.mjs)', () => {
     expect(parseFrontmatter(md)).toEqual({ title: 'Single Quotes' });
   });
 
-  it('parses inline arrays (the old parser stringified these)', () => {
+  it('parses inline arrays as proper arrays (the old parser stringified the whole block)', () => {
     const md = '---\ntags: ["Consumer", "Streaming", "Vanilla JS"]\n---\n';
     const data = parseFrontmatter(md);
     expect(Array.isArray(data.tags)).toBe(true);
@@ -70,15 +70,18 @@ describe('parseFrontmatter (scripts/lib/parse-frontmatter.mjs)', () => {
     expect(parseFrontmatter(md)).toEqual({ slug: 'x', foo: 'bar' });
   });
 
-  it('coerces top-level primitive scalars (number/boolean) back to strings', () => {
-    // Preserves the old hand-rolled parser's "every top-level value is a
-    // string" contract for production callers like
-    // `data.screenshotSrc.startsWith("/")`. Codex P2 catch on PR #348.
+  it('keeps every leaf scalar as a string under FAILSAFE_SCHEMA', () => {
+    // FAILSAFE_SCHEMA resolves only !!str / !!seq / !!map, so bare
+    // numbers, booleans, null, and ISO-like dates all parse as strings.
+    // Preserves the legacy hand-rolled parser's contract for production
+    // callers like `data.screenshotSrc.startsWith("/")`. Codex P2 catches
+    // on PR #348 (numbers/booleans, then Date timestamps).
     const md = [
       '---',
       'count: 42',
       'enabled: true',
       'disabled: false',
+      'lastUpdated: 2026-05-13',
       'name: "still a string"',
       '---',
     ].join('\n');
@@ -86,22 +89,25 @@ describe('parseFrontmatter (scripts/lib/parse-frontmatter.mjs)', () => {
     expect(data.count).toBe('42');
     expect(data.enabled).toBe('true');
     expect(data.disabled).toBe('false');
+    expect(data.lastUpdated).toBe('2026-05-13'); // NOT a Date object
     expect(data.name).toBe('still a string');
   });
 
-  it('leaves arrays and nested objects untouched by the coercion pass', () => {
+  it('preserves array + object structure but strings inside them too', () => {
     const md = [
       '---',
-      'tags: [1, 2, 3]',            // an inline array of numbers
+      'tags: [1, 2, 3]',            // inline array of bare scalars
       'metadata:',
-      '  count: 5',                  // a nested number
+      '  count: 5',                  // nested bare scalar
+      '  flag: true',
       '---',
     ].join('\n');
     const data = parseFrontmatter(md);
     expect(Array.isArray(data.tags)).toBe(true);
-    expect(data.tags).toEqual([1, 2, 3]);   // not stringified
+    expect(data.tags).toEqual(['1', '2', '3']);   // strings under FAILSAFE
     expect(typeof data.metadata).toBe('object');
-    expect(data.metadata.count).toBe(5);    // nested values keep their type
+    expect(data.metadata.count).toBe('5');         // strings under FAILSAFE
+    expect(data.metadata.flag).toBe('true');
   });
 
   it('throws on malformed YAML rather than silently returning a partial object', () => {

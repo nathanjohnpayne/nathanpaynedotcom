@@ -23,34 +23,38 @@
  * explicit and decouple from Astro version drift.
  */
 
-import { load as parseYaml } from 'js-yaml';
+import { load as parseYaml, FAILSAFE_SCHEMA } from 'js-yaml';
 
 const FRONTMATTER_RE = /^---\r?\n([\s\S]*?)\r?\n---/;
 
 /**
- * Top-level primitive coercion. js-yaml correctly types scalars (a bare
- * `123` parses to a JS number, `true` to a boolean, etc.), but the
- * production callers (`refresh-hero-images.mjs`, `refresh-mux-gifs.mjs`)
- * inherited the previous hand-rolled parser's "every value is a string"
- * contract: e.g. `data?.screenshotSrc?.startsWith('/')` would throw a
- * TypeError if the value parsed to a number, and `parseGithubRepo(githubUrl)`
- * calls `.match()` on its input. Coerce top-level primitives back to
- * strings to preserve the old contract, leaving arrays / nested objects
- * untouched (those are new capabilities the old parser silently mangled).
+ * Schema choice: FAILSAFE_SCHEMA, not the default.
  *
- * Codex P2 catch on PR #348.
+ * js-yaml's DEFAULT_SCHEMA resolves implicit tags for numbers, booleans,
+ * null, AND timestamps (ISO-like bare scalars → Date objects). The
+ * production callers in this repo (`refresh-hero-images.mjs`,
+ * `refresh-mux-gifs.mjs`) inherited the previous hand-rolled parser's
+ * "every leaf is a string" contract — e.g.
+ *   data?.screenshotSrc?.startsWith('/')
+ *   parseGithubRepo(githubUrl).match(...)
+ * would throw `TypeError: …is not a function` on a number or Date.
+ *
+ * FAILSAFE_SCHEMA resolves only `!!str`, `!!seq`, `!!map`. Bare scalars
+ * stay as strings ("42", "true", "2026-05-13" remain strings, not
+ * coerced to JS number / boolean / Date). Containers — arrays and
+ * nested objects — are still parsed structurally (the actual #193 +
+ * #64 win), but their leaf values are strings too.
+ *
+ * This matches the production contract exactly. Two Codex P2 catches
+ * on PR #348 led to this choice:
+ *   1. Top-level number/boolean coercion needed (first pass: solved
+ *      via post-parse coerceTopLevelPrimitives()).
+ *   2. Top-level Date coercion needed (DEFAULT_SCHEMA auto-converts
+ *      `lastUpdated: 2026-05-13` to a JS Date). Adding Date to the
+ *      post-parse coercion would have worked but kept piling up
+ *      special cases. Switching schemas closes the whole class.
  */
-function coerceTopLevelPrimitives(obj) {
-  for (const [key, value] of Object.entries(obj)) {
-    if (value === null || value === undefined) continue;
-    const t = typeof value;
-    if (t === 'number' || t === 'boolean' || t === 'bigint') {
-      obj[key] = String(value);
-    }
-    // strings: no-op. arrays / objects: untouched.
-  }
-  return obj;
-}
+const SCHEMA = FAILSAFE_SCHEMA;
 
 /**
  * Extract and parse the YAML frontmatter block from a Markdown string.
@@ -58,10 +62,9 @@ function coerceTopLevelPrimitives(obj) {
  * frontmatter block. Throws if the block exists but fails to parse —
  * caller decides whether to swallow.
  *
- * Top-level primitive scalars (numbers, booleans, bigints) are coerced
- * to strings to preserve the legacy hand-rolled parser's "every value
- * is a string" contract for production callers. Arrays and nested
- * objects pass through with their js-yaml types intact.
+ * Uses js-yaml's FAILSAFE_SCHEMA so every leaf scalar stays a string,
+ * matching the legacy hand-rolled parser's contract. Arrays and nested
+ * objects parse structurally; their leaf values are strings too.
  *
  * @param {string} markdown - the full Markdown file contents
  * @returns {object | null} parsed frontmatter, or null when absent
@@ -69,7 +72,7 @@ function coerceTopLevelPrimitives(obj) {
 export function parseFrontmatter(markdown) {
   const match = markdown.match(FRONTMATTER_RE);
   if (!match) return null;
-  const parsed = parseYaml(match[1]);
+  const parsed = parseYaml(match[1], { schema: SCHEMA });
   // js-yaml returns undefined for an empty document; normalize to {}
   // so consumers can do `data?.field` without an extra null check.
   if (parsed === undefined || parsed === null) return {};
@@ -79,5 +82,5 @@ export function parseFrontmatter(markdown) {
     // Returning {} keeps consumers safe.
     return {};
   }
-  return coerceTopLevelPrimitives(parsed);
+  return parsed;
 }
