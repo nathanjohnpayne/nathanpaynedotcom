@@ -24,6 +24,7 @@
 import { readFile, writeFile, readdir } from 'node:fs/promises';
 import { join, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { parseFrontmatter } from './lib/parse-frontmatter.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dirname, '..');
@@ -41,22 +42,6 @@ async function fetchWithTimeout(url, options = {}) {
   } finally {
     clearTimeout(timer);
   }
-}
-
-function parseFrontmatter(markdown) {
-  const match = markdown.match(/^---\r?\n([\s\S]*?)\r?\n---/);
-  if (!match) return null;
-  const body = match[1];
-  const data = {};
-  for (const line of body.split('\n')) {
-    const m = line.match(/^(\w+):\s*(.*)$/);
-    if (!m) continue;
-    const [, key, rawValue] = m;
-    let value = rawValue.trim();
-    if (value.startsWith('"') && value.endsWith('"')) value = value.slice(1, -1);
-    data[key] = value;
-  }
-  return data;
 }
 
 function parseGithubRepo(url) {
