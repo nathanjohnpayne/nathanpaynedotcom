@@ -128,10 +128,15 @@ if $PURGE_ALL; then
   exit 0
 fi
 
-if [[ "$MODE" == "review" || "$MODE" == "all" || "$PURGE" == "true" ]] && [[ -z "$AGENT" ]]; then
-  echo "Error: --agent is required for review, all, or --purge mode." >&2
+if [[ "$MODE" == "review" || "$MODE" == "deploy" || "$MODE" == "all" || "$PURGE" == "true" ]] && [[ -z "$AGENT" ]]; then
+  # Deploy mode also requires --agent because the cache file paths below
+  # are derived from $AGENT (op-preflight-$AGENT.env / op-preflight-$AGENT-adc.json).
+  # An empty agent produces shared filenames (`op-preflight-.env`) that
+  # collide across invocations and would silently mix credentials between
+  # cowork sessions. See #342 → #250 P3 finding.
+  echo "Error: --agent is required for review, deploy, all, or --purge mode." >&2
   echo "Usage: eval \"\$(scripts/op-preflight.sh --agent claude --mode all)\"" >&2
-  exit 1
+  exit 2
 fi
 
 if [[ -n "$AGENT" ]] && [[ -z "$(reviewer_pat_item_for "$AGENT" 2>/dev/null || true)" ]]; then
@@ -346,14 +351,23 @@ emit_from_session_file() (
       exit 2
     fi
     if ! adc_is_usable "${GOOGLE_APPLICATION_CREDENTIALS}"; then
-      # File exists but refresh token is rejected. Warn and skip the
-      # export so downstream deploy callers can fall back to local
-      # firebase-login / ADC. OP_PREFLIGHT_DONE stays 1 and PATs are
-      # still emitted below, because preflight itself succeeded —
-      # only the ADC-specific path is degraded, which matches what
-      # the user will see when they run `gcloud auth ...` manually.
+      # File exists but refresh token is rejected. Exit 2 to fall
+      # through to the full-fetch path below, matching how a missing
+      # ADC file is treated three lines up. The full-fetch path will
+      # re-read from 1Password — if the user has rotated the ADC
+      # since this cache was written, the refresh picks up the new
+      # credential and the system self-heals; if 1Password still
+      # holds the same stale ADC, the slow path itself logs guidance
+      # and continues with PATs only (lines 503-507 below), so the
+      # cost of "self-healing" is one biometric prompt rather than
+      # waiting out TTL.
+      #
+      # Earlier code treated this as a partial-success (warn + emit
+      # PATs from the cache) which violated the symmetry with the
+      # missing-ADC case and meant a rotated 1Password ADC stayed
+      # invisible to the system until TTL expiry. See #342 → #250 P2.
       log_stale_adc_guidance
-      unset GOOGLE_APPLICATION_CREDENTIALS OP_PREFLIGHT_ADC_TMPFILE
+      exit 2
     fi
   fi
 
