@@ -33,8 +33,14 @@ source "$SCRIPT_DIR/../../../lib.sh"
 find_parent_num() {
   local title="$1"
   local num
+  # --sort created --order asc picks the OLDEST matching issue if a repo
+  # accidentally accumulated duplicate parent titles across re-runs of
+  # create-issues.sh. The CLI default is newest-first, which would pick
+  # the most recently-created (typically the empty/abandoned duplicate)
+  # and re-attach refinement work under the wrong parent. See #342 → #292.
   num=$(gh issue list --repo "$REPO" --state all --limit 200 \
     --search "in:title \"$title\"" \
+    --sort created --order asc \
     --json number,title \
     --jq ".[] | select(.title == \"$title\") | .number" \
     | head -1)

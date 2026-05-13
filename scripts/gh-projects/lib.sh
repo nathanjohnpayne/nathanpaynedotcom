@@ -24,7 +24,17 @@ set -euo pipefail
 : "${OWNER:?OWNER must be set}"
 : "${PROJECT:?PROJECT must be set (v2 number)}"
 
-GHP_TMPDIR="${GHP_TMPDIR:-$(mktemp -d)}"
+# If the caller already exported a GHP_TMPDIR they're responsible for
+# its lifecycle (e.g. a wrapper script that wants to inspect issue
+# bodies after the run). Otherwise we mint one here and register a
+# trap to clean it up on script exit so re-running create-issues.sh
+# does not leave a graveyard of $TMPDIR/tmp.XXXXXX/phase-*-c*.md
+# behind. See #342 → #232 nit.
+if [ -z "${GHP_TMPDIR:-}" ]; then
+  GHP_TMPDIR="$(mktemp -d)"
+  GHP_TMPDIR_OWNED=1
+  trap 'rm -rf "$GHP_TMPDIR"' EXIT
+fi
 export GHP_TMPDIR
 
 # Add a created issue to the configured project.
