@@ -28,10 +28,40 @@ import { load as parseYaml } from 'js-yaml';
 const FRONTMATTER_RE = /^---\r?\n([\s\S]*?)\r?\n---/;
 
 /**
+ * Top-level primitive coercion. js-yaml correctly types scalars (a bare
+ * `123` parses to a JS number, `true` to a boolean, etc.), but the
+ * production callers (`refresh-hero-images.mjs`, `refresh-mux-gifs.mjs`)
+ * inherited the previous hand-rolled parser's "every value is a string"
+ * contract: e.g. `data?.screenshotSrc?.startsWith('/')` would throw a
+ * TypeError if the value parsed to a number, and `parseGithubRepo(githubUrl)`
+ * calls `.match()` on its input. Coerce top-level primitives back to
+ * strings to preserve the old contract, leaving arrays / nested objects
+ * untouched (those are new capabilities the old parser silently mangled).
+ *
+ * Codex P2 catch on PR #348.
+ */
+function coerceTopLevelPrimitives(obj) {
+  for (const [key, value] of Object.entries(obj)) {
+    if (value === null || value === undefined) continue;
+    const t = typeof value;
+    if (t === 'number' || t === 'boolean' || t === 'bigint') {
+      obj[key] = String(value);
+    }
+    // strings: no-op. arrays / objects: untouched.
+  }
+  return obj;
+}
+
+/**
  * Extract and parse the YAML frontmatter block from a Markdown string.
  * Returns the parsed data object, or `null` if the input has no
  * frontmatter block. Throws if the block exists but fails to parse —
  * caller decides whether to swallow.
+ *
+ * Top-level primitive scalars (numbers, booleans, bigints) are coerced
+ * to strings to preserve the legacy hand-rolled parser's "every value
+ * is a string" contract for production callers. Arrays and nested
+ * objects pass through with their js-yaml types intact.
  *
  * @param {string} markdown - the full Markdown file contents
  * @returns {object | null} parsed frontmatter, or null when absent
@@ -49,5 +79,5 @@ export function parseFrontmatter(markdown) {
     // Returning {} keeps consumers safe.
     return {};
   }
-  return parsed;
+  return coerceTopLevelPrimitives(parsed);
 }

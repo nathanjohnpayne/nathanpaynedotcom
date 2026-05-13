@@ -70,6 +70,40 @@ describe('parseFrontmatter (scripts/lib/parse-frontmatter.mjs)', () => {
     expect(parseFrontmatter(md)).toEqual({ slug: 'x', foo: 'bar' });
   });
 
+  it('coerces top-level primitive scalars (number/boolean) back to strings', () => {
+    // Preserves the old hand-rolled parser's "every top-level value is a
+    // string" contract for production callers like
+    // `data.screenshotSrc.startsWith("/")`. Codex P2 catch on PR #348.
+    const md = [
+      '---',
+      'count: 42',
+      'enabled: true',
+      'disabled: false',
+      'name: "still a string"',
+      '---',
+    ].join('\n');
+    const data = parseFrontmatter(md);
+    expect(data.count).toBe('42');
+    expect(data.enabled).toBe('true');
+    expect(data.disabled).toBe('false');
+    expect(data.name).toBe('still a string');
+  });
+
+  it('leaves arrays and nested objects untouched by the coercion pass', () => {
+    const md = [
+      '---',
+      'tags: [1, 2, 3]',            // an inline array of numbers
+      'metadata:',
+      '  count: 5',                  // a nested number
+      '---',
+    ].join('\n');
+    const data = parseFrontmatter(md);
+    expect(Array.isArray(data.tags)).toBe(true);
+    expect(data.tags).toEqual([1, 2, 3]);   // not stringified
+    expect(typeof data.metadata).toBe('object');
+    expect(data.metadata.count).toBe(5);    // nested values keep their type
+  });
+
   it('throws on malformed YAML rather than silently returning a partial object', () => {
     // js-yaml raises on bad indentation; the prebuild scripts intentionally
     // do not catch this so the build fails loudly on a corrupt content file.
