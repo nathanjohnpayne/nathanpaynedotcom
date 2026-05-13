@@ -585,7 +585,11 @@ const homepageJsonLd = {
           if (restoredVisible) restoredActive.classList.add('is-content-visible');
         }
         void grid.offsetHeight;
-        requestAnimationFrame(() => grid.classList.remove('is-measuring'));
+        if (typeof requestAnimationFrame === 'function') {
+          requestAnimationFrame(() => grid.classList.remove('is-measuring'));
+        } else {
+          grid.classList.remove('is-measuring');
+        }
       }
 
       // Run after fonts load (heights depend on Cormorant Garamond's
