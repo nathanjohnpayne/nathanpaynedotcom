@@ -200,43 +200,6 @@ jobs:
                 const mergedAt = new Date(pr.merged_at);
                 const mergedHeadSha = pr.head && pr.head.sha;
 
-                // Committer date of the merged HEAD commit. Used as the
-                // reaction-freshness anchor when no head-scoped Codex
-                // review exists — without this, an old +1 from a prior
-                // round (on an earlier HEAD) could satisfy clearance on
-                // a merged commit Codex never actually reviewed (Codex
-                // P1 catch on round 4 of PR #359). Mirrors how
-                // `scripts/codex-review-check.sh` uses HEAD_PUSHED_AT
-                // as the reaction-threshold anchor.
-                //
-                // Best-effort: if the commit isn't fetchable (rare,
-                // typically when the branch was force-pushed or the
-                // commit GC'd), leave the anchor null and let the
-                // no-anchor branch in the reaction filter below
-                // refuse to clear via reactions.
-                let mergedHeadCommittedAt = null;
-                if (mergedHeadSha) {
-                  try {
-                    const commitResp = await github.rest.repos.getCommit({
-                      owner: context.repo.owner,
-                      repo: context.repo.repo,
-                      ref: mergedHeadSha,
-                    });
-                    if (
-                      commitResp.data &&
-                      commitResp.data.commit &&
-                      commitResp.data.commit.committer &&
-                      commitResp.data.commit.committer.date
-                    ) {
-                      mergedHeadCommittedAt = new Date(
-                        commitResp.data.commit.committer.date
-                      );
-                    }
-                  } catch (e) {
-                    // Leave anchor null; reaction path closes below.
-                  }
-                }
-
                 // Anchor: latest Codex review by submitted_at,
                 // scoped to the merge-time review set. Used to gate
                 // reaction-freshness AND to identify the review whose
@@ -292,20 +255,32 @@ jobs:
 
                 // Path 1: +1 reaction on the PR issue from Codex,
                 // dated on or before the merge AND on or after the
-                // freshness anchor. The anchor is the latest
-                // head-scoped Codex review if one exists, else the
-                // merged HEAD's committer date — that way, an old +1
-                // reaction from an earlier HEAD cannot satisfy
-                // clearance on a commit Codex never actually
-                // reviewed (Codex P1 catch on round 4 of PR #359).
-                // If neither anchor is available (no Codex review on
-                // merged HEAD AND head commit not fetchable above),
-                // the reaction path cannot clear and the audit falls
-                // through to require an APPROVED CLI reviewer.
-                const reactionAnchor =
-                  latestCodexReviewAt !== null
-                    ? latestCodexReviewAt
-                    : mergedHeadCommittedAt;
+                // latest head-scoped Codex review.
+                //
+                // The anchor is ONLY the latest head-scoped Codex
+                // review's submitted_at. There is no fallback
+                // anchor: if no head-scoped Codex review exists,
+                // the reaction path stays closed and the audit
+                // falls through to require an APPROVED CLI
+                // reviewer.
+                //
+                // An earlier draft (round 5) used the merged HEAD
+                // commit's committer date as a fallback anchor when
+                // no head-scoped review existed. nathanpayne-codex's
+                // round-6 CHANGES_REQUESTED on PR #359 caught the
+                // hole: committer date can predate when the SHA
+                // actually became the PR head (cherry-pick, rebase
+                // with `--committer-date-is-author-date`, an old
+                // local commit pushed today). An older Codex +1 from
+                // before the merged commit became HEAD could still
+                // satisfy the audit. There's no robust push-time
+                // signal we can derive from the post-merge state
+                // alone, so the cleaner resolution is to close the
+                // path entirely: a PR with `needs-external-review`
+                // and no head-scoped Codex review on the merged
+                // commit must have an APPROVED CLI reviewer to
+                // clear the audit, regardless of how many +1s the
+                // Codex bot ever left.
                 const reactions = await github.paginate(
                   github.rest.reactions.listForIssue,
                   {
@@ -320,8 +295,8 @@ jobs:
                        r.user.login === codexBotLogin &&
                        r.content === '+1' &&
                        new Date(r.created_at) <= mergedAt &&
-                       reactionAnchor !== null &&
-                       new Date(r.created_at) >= reactionAnchor
+                       latestCodexReviewAt !== null &&
+                       new Date(r.created_at) >= latestCodexReviewAt
                 );
 
                 // Path 2: latest Codex review on the PR has no
