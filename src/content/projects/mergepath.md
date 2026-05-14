@@ -64,7 +64,7 @@ There is no backend, no build system, and no network calls. The draft YAML panel
 
 - **100+ PRs** merged on the Mergepath repo itself, each one exercising the governance loop end-to-end.
 - **~27 fail-closed CI checks** enforced on every push and PR.
-- **167 hook test cases** covering the PR guard, review policy parser, and credential preflight script.
+- **A dedicated hook test suite** covering the PR guard and the review-policy parser.
 - **17 template bugs** surfaced during propagation across downstream projects—bugs that had survived seven rounds of review on the template before fresh eyes in a new codebase found them.
 - **8 repositories** currently using Mergepath, including Override, Device Source of Truth, Friends & Family Billing, Swipewatch, and this site.
 
