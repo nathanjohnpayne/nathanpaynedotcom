@@ -217,17 +217,23 @@ The process-level fix was even simpler: apply the label *before* posting any rev
 
 ## What the template actually is
 
-[Mergepath](https://github.com/nathanjohnpayne/mergepath) is the infrastructure that makes all of the above work consistently across seven repositories. It is not a framework or a library. It is a set of files that, when present in a repository, enforce a deterministic review workflow for any AI coding agent.
+[Mergepath](https://github.com/nathanjohnpayne/mergepath) is the infrastructure that makes all of the above work consistently across eight repositories. It is not a framework or a library. It is a set of files that, when present in a repository, enforce a deterministic review workflow for any AI coding agent.
 
 **Canonical documentation as a single source of truth.** `REVIEW_POLICY.md` is the policy document. `CLAUDE.md` is the agent's operational checklist. `AGENTS.md` is the behavioral index. `.github/review-policy.yml` is the machine-readable config. Each file has exactly one job, and they cross-reference each other rather than duplicating content.
 
-**Binding structural constraints enforced via CI.** Seven CI checks in `scripts/ci/` verify that required files exist, instruction files are not duplicated in tool folders, forbidden directories are absent, and the review policy infrastructure is in place. These run on every push and every PR. Agents cannot merge past a failing check.
+**Binding structural constraints enforced via CI.** Roughly two dozen fail-closed CI checks in `scripts/ci/` verify that required files exist, instruction files are not duplicated in tool folders, forbidden directories are absent, specs map to tests, and the review-policy infrastructure is in place. These run on every push and every PR. Agents cannot merge past a failing check.
 
 **Multi-identity code review.** Every agent has an author identity and a reviewer identity. The `gh-pr-guard.sh` hook enforces that PRs contain `Authoring-Agent:` and `## Self-Review`. The `pr-audit.yml` weekly audit retroactively checks that every merged PR had the required review structure. The `block-self-approval` job in the Agent Review Pipeline prevents a reviewer from approving their own PR.
 
-**Automated external review.** `codex-review-request.sh` and `codex-review-check.sh` automate the Codex review loop. The hook enforces that `CODEX_CLEARED=1` is set before merging a labeled PR. The entire flow from "PR crosses threshold" to "merge" can run without human intervention on the happy path.
+**Automated external review.** External review splits into two phases: Phase 4a is automated through the Codex GitHub App—`codex-review-request.sh` and `codex-review-check.sh` drive the request/clear loop—and Phase 4b is a manual CLI fallback for when the App is unavailable, with `phase-4b-classifier.sh` deciding which path a PR takes. A Codex P1 merge gate blocks merge while any unresolved P1 finding is open, and the `gh-pr-guard.sh` hook enforces that `CODEX_CLEARED=1` is set before merging a labeled PR. On the happy path the entire flow from "PR crosses threshold" to "merge" runs without human intervention.
 
-**Drift prevention.** The template is the canonical source. Propagation to downstream repos preserves per-repo customizations (protected paths, CodeRabbit settings) while overwriting policy files, scripts, and workflows with the template's versions. When the template evolves, the downstream repos are updated to reflect the changes.
+**A second automated opinion.** CodeRabbit reviews every PR as an advisory pass. It does not gate merge, but agents must read and address its findings before moving on—a third pair of eyes on top of internal self-review and Codex.
+
+**Drift prevention.** Mergepath is the canonical source, and `sync-to-downstream.sh` keeps the downstream repos current instead of relying on memory. A `.mergepath-sync.yml` manifest declares which paths are mirrored byte-for-byte and which are kit directories; a per-repo `.sync-overrides.yml` registry records intentional divergences so they survive propagation. `--audit` reports drift with zero side effects, `--sync-all` reconciles a repo's full state, and every run opens one PR per consumer through the normal review flow.
+
+**New repos in one command.** `bootstrap-new-repo.sh` stands up a fresh repo from the template end to end—template mirror, GitHub infrastructure, Firebase/CodeRabbit/Codex posture, Project board—as a resumable staged wizard whose `--dry-run` emits a complete runbook with zero side effects.
+
+**A security baseline that ships with the template.** Secret scanning with push protection, Dependabot alerts and version updates, `CODEOWNERS`, `SECURITY.md`, GitHub Actions pinned to commit SHAs, and least-privilege `permissions:` blocks on every workflow—on by default, not opt-in per repo.
 
 ## The numbers
 

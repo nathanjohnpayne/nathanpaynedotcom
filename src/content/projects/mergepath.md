@@ -1,7 +1,7 @@
 ---
 title: "Mergepath"
 slug: "mergepath"
-description: "A deterministic repository standard that keeps humans and AI coding agents aligned through canonical documentation, binding CI constraints, multi-identity code review, and automated external review via the OpenAI Codex GitHub App. The enforcement layer underneath every other project on this site."
+description: "A deterministic repository standard that keeps humans and AI coding agents aligned through canonical documentation, binding CI constraints, multi-identity code review, automated external review via the OpenAI Codex GitHub App, and one-command propagation across every downstream repo. The enforcement layer underneath every other project on this site."
 kicker: "AI × Infrastructure × Tooling"
 order: 0
 screenshotAspect: "wide"
@@ -17,7 +17,7 @@ status: "SHIPPED"
 metadata:
   format: "Repository standard"
   focus: "Agent governance, code review, and CI enforcement"
-stack: "Bash · Python · GitHub Actions · 1Password · Claude Code · Codex · Cursor"
+stack: "Bash · Python · GitHub Actions · 1Password · Claude Code · Codex · Cursor · CodeRabbit"
 related:
   - label: "Blog: Agent Approval Workflow and the Genesis of Mergepath"
     href: "/blog/agent-approval-workflow-genesis-of-mergepath/"
@@ -34,10 +34,23 @@ Mergepath treats agent output the way regulated engineering organizations treat 
 ## What Mergepath provides
 
 - Canonical documentation files (`AGENTS.md`, `CLAUDE.md`, `REVIEW_POLICY.md`, `rules/repo_rules.md`, `specs/`) that every agent reads before acting.
-- Binding branch protection: no direct pushes to `main`, all changes go through a PR, and a `PreToolUse` hook (`scripts/hooks/gh-pr-guard.sh`) blocks `gh pr create` if the required `Authoring-Agent` and `## Self-Review` fields are missing.
+- Binding branch protection: no direct pushes to `main`, all changes go through a PR, and a `PreToolUse` hook (`scripts/hooks/gh-pr-guard.sh`) blocks `gh pr create` when the required `Authoring-Agent` and `## Self-Review` fields are missing. Identity switches run through atomic `gh-as-author.sh` / `gh-as-reviewer.sh` wrappers, so a PR can never land under the wrong account.
 - Multi-identity review: each agent authors as `nathanjohnpayne` and reviews under a separate machine user (`nathanpayne-claude`, `nathanpayne-codex`, `nathanpayne-cursor`) so an agent never approves its own code.
-- Automated external review for any PR over 300 lines or touching protected paths, routed through the ChatGPT Codex Connector GitHub App with structured request/check scripts (`scripts/codex-review-request.sh`, `scripts/codex-review-check.sh`).
+- A two-phase external-review model for any PR over 300 lines or touching protected paths. Phase 4a is automated through the ChatGPT Codex Connector GitHub App with structured request/check scripts (`scripts/codex-review-request.sh`, `scripts/codex-review-check.sh`); Phase 4b is a manual CLI fallback, and `scripts/phase-4b-classifier.sh` decides which one runs.
+- A Codex P1 merge gate (`.github/workflows/codex-p1-gate.yml`) that blocks merge while any unresolved Codex P1 finding is open, with CodeRabbit wired in as an advisory second-opinion pass on every PR.
+- A GitHub security baseline that ships with the template: secret scanning with push protection, Dependabot alerts and version updates, a `CODEOWNERS` file, a `SECURITY.md` policy, GitHub Actions pinned to commit SHAs, and least-privilege `permissions:` blocks on every workflow.
+- Roughly 27 fail-closed CI checks in `scripts/ci/` — required files exist, tool folders carry no instructions, specs map to tests, generated output is untouched — enforced on every push and PR.
 - 1Password-backed credential plumbing via `scripts/op-preflight.sh` that front-loads all biometric prompts so a session's author and reviewer PATs, GCP ADC, and SSH keys are cached once and reused.
+
+## Cross-repo propagation
+
+Mergepath is the canonical source, and a propagation tool keeps every downstream repo current instead of letting them drift. `scripts/sync-to-downstream.sh` reads a `.mergepath-sync.yml` manifest that declares which paths are *canonical* (mirrored byte-for-byte) and which are *kit* directories (every template file required, repo-specific additions allowed), along with which of the eight consumer repos opt in.
+
+`--audit` reports per-repo drift with zero side effects; `--sync-all` reconciles a consumer's full state; passing a commit-ish propagates only what changed at that commit. Every run opens one PR per consumer through the same review flow as any other change. Where a consumer needs to diverge on purpose, a per-repo `.sync-overrides.yml` registry records the exception—with a documented reason—so propagation never clobbers it. The model inverts the old default of "let docs drift, catch it in a weekly audit" into canonical-first, drift-as-exception.
+
+## New-repo bootstrap wizard
+
+`scripts/bootstrap-new-repo.sh` stands up a brand-new repo from the template end to end. It is a staged wizard—scaffold, template mirror, GitHub infrastructure, Firebase/CodeRabbit/Codex posture, and Project board—with a `.bootstrap-state` file so a failed run resumes where it left off. Every side effect runs through a wrapper, so `--dry-run` produces a complete do-it-yourself runbook with zero side effects. What used to be an afternoon of copy-paste-and-customize is one command.
 
 ## Mergepath Playground: the policy playground
 
@@ -49,10 +62,11 @@ There is no backend, no build system, and no network calls. The draft YAML panel
 
 ## The numbers
 
-- **30+ PRs** on the Mergepath repo itself, each one exercising the governance loop end-to-end.
+- **100+ PRs** merged on the Mergepath repo itself, each one exercising the governance loop end-to-end.
+- **~27 fail-closed CI checks** enforced on every push and PR.
 - **167 hook test cases** covering the PR guard, review policy parser, and credential preflight script.
 - **17 template bugs** surfaced during propagation across downstream projects—bugs that had survived seven rounds of review on the template before fresh eyes in a new codebase found them.
-- **7 repositories** currently using Mergepath, including Override, Device Source of Truth, Friends & Family Billing, and this site.
+- **8 repositories** currently using Mergepath, including Override, Device Source of Truth, Friends & Family Billing, Swipewatch, and this site.
 
 ## Why it matters
 
