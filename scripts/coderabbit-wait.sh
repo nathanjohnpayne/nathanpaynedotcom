@@ -167,10 +167,41 @@ if ! [[ "$MAX_RATE_LIMIT_RETRIES" =~ ^[0-9]+$ ]]; then
   exit 3
 fi
 
+WALLCLOCK_FRESHNESS_WINDOW_SECONDS=$(coderabbit_field wallclock_freshness_window_seconds)
+WALLCLOCK_FRESHNESS_WINDOW_SECONDS=${WALLCLOCK_FRESHNESS_WINDOW_SECONDS:-1800}
+if ! [[ "$WALLCLOCK_FRESHNESS_WINDOW_SECONDS" =~ ^[0-9]+$ ]]; then
+  echo "ERROR: coderabbit.wallclock_freshness_window_seconds must be an integer; got '$WALLCLOCK_FRESHNESS_WINDOW_SECONDS'" >&2
+  exit 3
+fi
+
 BOT_LOGIN=$(coderabbit_field bot_login)
 BOT_LOGIN=${BOT_LOGIN:-"coderabbitai[bot]"}
 POLL_INTERVAL_SECONDS=15
 RATE_LIMIT_BUFFER_SECONDS=30
+
+# CodeRabbit emits two distinct per-SHA signals:
+#   1. Narrative review comment (issue/PR comment + inline diff comments).
+#      The freshness-anchored polling loop watches for this. Posted only
+#      when there's commentary to add — clean re-reviews on fix-up pushes
+#      can skip it entirely.
+#   2. `CodeRabbit` StatusContext check on the commit status API. Always
+#      posted per-SHA, terminal state SUCCESS/FAILURE.
+# The narrative comment alone is the historical terminal-state source,
+# but on a fix-up push that genuinely cleared all prior findings, signal
+# (2) flips to SUCCESS while signal (1) stays silent — and this script
+# would burn its full MAX_WAIT_SECONDS budget waiting for a comment that
+# never comes. Toggle off via `coderabbit.trust_status_context_for_clearance:
+# false` in `.github/review-policy.yml` for repos that prefer the
+# strict comment-driven gate. See nathanjohnpayne/mergepath#221.
+TRUST_STATUS_CONTEXT=$(coderabbit_field trust_status_context_for_clearance)
+TRUST_STATUS_CONTEXT=${TRUST_STATUS_CONTEXT:-true}
+case "$TRUST_STATUS_CONTEXT" in
+  true|false) ;;
+  *)
+    echo "ERROR: coderabbit.trust_status_context_for_clearance must be true|false; got '$TRUST_STATUS_CONTEXT'" >&2
+    exit 3
+    ;;
+esac
 
 # --- logging helpers --------------------------------------------------------
 
@@ -194,6 +225,62 @@ fetch_api_array() {
     || die 3 "failed to flatten $label pagination output"
 }
 
+# Fetch the CodeRabbit `StatusContext` check on the current HEAD SHA.
+# Emits one of: success | failure | pending | error | missing
+# on stdout. `missing` covers both the no-statuses-yet case and any
+# transient API hiccup (network, 5xx, etc.) — caller treats it as
+# "fall through to the existing comment-driven path."
+#
+# Two defensive guards (CodeRabbit ⚠️ Critical on PR #224 round 1):
+#
+# 1. Filter by `creator.login == $BOT_LOGIN` in addition to context.
+#    Anyone with write access to commit statuses can post a status
+#    with the literal context string "CodeRabbit"; without the
+#    creator filter, that's a spoof vector. The configured bot login
+#    is the only signal we trust.
+#
+# 2. Use `sort_by(.created_at) | last` to pick the latest status, not
+#    `head -n 1`. The /statuses endpoint does not guarantee chronological
+#    ordering across calls, so `head` could return a stale status if
+#    multiple have been posted on the same SHA (e.g., re-evaluation
+#    after a CodeRabbit retry).
+#
+# Endpoint choice: `/commits/{sha}/statuses` (plural) returns each
+# status object with full `creator` details. The singular
+# `/commits/{sha}/status` rolls up state but omits per-status creator
+# fields, which would defeat guard 1. Confirmed empirically — see
+# PR #224 round 2.
+check_status_context() {
+  local resp state
+  # Pagination (CodeRabbit ⚠️ Minor @ line 267 on PR #224 round 2):
+  # `/commits/{ref}/statuses` defaults to per_page=30 and returns
+  # statuses in reverse chronological order. Without `--paginate`, a
+  # commit with >30 statuses (e.g., long-running PR with retries)
+  # could miss the latest CodeRabbit entry in the unpaginated first
+  # page if non-CodeRabbit statuses crowd it out. `--paginate` plus
+  # `jq -s 'add // []'` flattens all pages into a single array before
+  # the context+creator filter runs.
+  resp=$(gh api --paginate "repos/$REPO/commits/$HEAD_SHA/statuses" 2>/dev/null \
+    | jq -s 'add // []' 2>/dev/null) || {
+    echo "missing"
+    return
+  }
+  state=$(echo "$resp" | jq -r --arg bot "$BOT_LOGIN" '
+    [ .[]?
+      | select(.context == "CodeRabbit")
+      | select((.creator.login // "") == $bot)
+    ]
+    | sort_by(.created_at)
+    | last
+    | .state // ""
+  ')
+  if [ -z "$state" ]; then
+    echo "missing"
+    return
+  fi
+  echo "$state"
+}
+
 # --- fetch PR metadata ------------------------------------------------------
 
 log "PR $REPO#$PR_NUMBER — fetching HEAD commit metadata"
@@ -208,36 +295,39 @@ fi
 HEAD_COMMITTER_DATE=$(gh api "repos/$REPO/commits/$HEAD_SHA" --jq '.commit.committer.date' 2>&1) \
   || die 3 "failed to fetch commit date for $HEAD_SHA: $HEAD_COMMITTER_DATE"
 
-# HEAD freshness anchor. Committer date alone is unreliable — force-push of
-# an older commit, cherry-pick, or rebase with `--committer-date-is-author-date`
-# can produce a HEAD whose committer date predates prior CodeRabbit comments
-# on this PR. Filtering `comments.created_at >= HEAD_COMMITTER_DATE` would
-# then treat stale review-round comments as current and return a false
-# "cleared"/"findings" signal. Mirrors the Layer-1 anchor advance in
-# codex-review-request.sh: advance the anchor past any `head_ref_force_pushed`
-# timeline event. See nathanjohnpayne/mergepath#140 round-2 Codex finding
-# (P1, line 270) for the specific exposure this closes.
+# HEAD freshness anchor. Two stacked guards — committer date alone is
+# unreliable:
 #
-# Push-time anchoring (#342 → #250 P2 follow-up):
-#   The PR timeline's `committed` event for HEAD_SHA carries a `created_at`
-#   field that is the time GitHub *received* the commit (i.e. push time),
-#   independent of the local commit's `committer.date`. When that event
-#   exists, prefer it over the local committer date — it is the only
-#   timestamp guaranteed to be monotonic with the moment HEAD became
-#   visible to CodeRabbit. Falls back to committer date when the timeline
-#   does not yet contain a matching `committed` event (rare, but happens
-#   on very fresh pushes that race the timeline indexer).
+#   Layer 1 (force-push): advance the anchor past any
+#     `head_ref_force_pushed` event on this PR's timeline. Closes the
+#     force-push-with-old-commit false-clear. See #140 round-2 Codex
+#     finding (P1, line 270).
+#
+#   Layer 2 (wallclock floor): max the anchor with NOW - window.
+#     Without this, an ordinary push of a commit with an old committer
+#     date (cherry-pick, rebase with `--committer-date-is-author-date`,
+#     or a commit whose metadata was rewritten) lets CodeRabbit comments
+#     from a prior review round pass the filter and the script exits
+#     cleared/findings without waiting for a real review on the new
+#     HEAD. See #51/#52/#30/#35 round-3 Codex findings ("Anchor
+#     CodeRabbit freshness to push time", "Gate reviews against a
+#     fresh poll anchor", "Tie CodeRabbit freshness to push time",
+#     "Filter CodeRabbit state by current HEAD SHA", "Gate on review
+#     commit rather than comment timestamp").
+#
+# The two layers compose: force-push events get exact timestamps when
+# available, and the wallclock floor bounds residual exposure for the
+# ordinary-push path where the GitHub API does not expose a reliable
+# per-push time for non-force pushes.
+#
+# Mirrors the REACTION_THRESHOLD computation in codex-review-request.sh,
+# which uses `reaction_freshness_window_seconds` as its floor. Here the
+# knob is `coderabbit.wallclock_freshness_window_seconds` (default
+# 1800s / 30min — long enough for a typical Phase 2.5 cycle to land,
+# short enough that cross-cycle staleness is caught).
 HEAD_ANCHOR="$HEAD_COMMITTER_DATE"
 ANCHOR_SOURCE="HEAD committer date"
 TIMELINE_JSON=$(fetch_api_array "repos/$REPO/issues/$PR_NUMBER/timeline" "PR timeline")
-HEAD_PUSH_TIME=$(echo "$TIMELINE_JSON" | jq -r --arg sha "$HEAD_SHA" '
-  [ .[] | select(.event == "committed" and .sha == $sha) | .created_at ]
-  | max // ""
-')
-if [ -n "$HEAD_PUSH_TIME" ] && [[ "$HEAD_PUSH_TIME" > "$HEAD_ANCHOR" ]]; then
-  HEAD_ANCHOR="$HEAD_PUSH_TIME"
-  ANCHOR_SOURCE="committed event @ $HEAD_PUSH_TIME (push time)"
-fi
 LATEST_FORCE_PUSH_TIME=$(echo "$TIMELINE_JSON" | jq -r '
   [ .[] | select(.event == "head_ref_force_pushed") | .created_at ]
   | max // ""
@@ -247,9 +337,23 @@ if [ -n "$LATEST_FORCE_PUSH_TIME" ] && [[ "$LATEST_FORCE_PUSH_TIME" > "$HEAD_ANC
   ANCHOR_SOURCE="head_ref_force_pushed @ $LATEST_FORCE_PUSH_TIME"
 fi
 
+# Layer 2 — wallclock freshness floor.
+EPOCH_NOW=$(date +%s)
+EPOCH_FLOOR=$((EPOCH_NOW - WALLCLOCK_FRESHNESS_WINDOW_SECONDS))
+if FLOOR_ISO=$(date -u -r "$EPOCH_FLOOR" +%Y-%m-%dT%H:%M:%SZ 2>/dev/null); then
+  :
+else
+  FLOOR_ISO=$(date -u -d "@$EPOCH_FLOOR" +%Y-%m-%dT%H:%M:%SZ 2>/dev/null) \
+    || die 3 "could not compute wallclock freshness floor from epoch $EPOCH_FLOOR"
+fi
+if [[ "$FLOOR_ISO" > "$HEAD_ANCHOR" ]]; then
+  HEAD_ANCHOR="$FLOOR_ISO"
+  ANCHOR_SOURCE="wallclock floor (NOW - ${WALLCLOCK_FRESHNESS_WINDOW_SECONDS}s)"
+fi
+
 log "HEAD = $HEAD_SHA committed at $HEAD_COMMITTER_DATE"
 log "anchor = $HEAD_ANCHOR (source: $ANCHOR_SOURCE)"
-log "max_wait = ${MAX_WAIT_SECONDS}s   max_rate_limit_retries = $MAX_RATE_LIMIT_RETRIES"
+log "max_wait = ${MAX_WAIT_SECONDS}s   max_rate_limit_retries = $MAX_RATE_LIMIT_RETRIES   freshness_window = ${WALLCLOCK_FRESHNESS_WINDOW_SECONDS}s"
 
 # --- state machine ----------------------------------------------------------
 
@@ -368,6 +472,46 @@ count_potential_issues() {
   '
 }
 
+# SHA-scoped variant of count_potential_issues, used by the
+# StatusContext fast-path. Counts CodeRabbit inline findings whose
+# `commit_id` (the SHA GitHub considers the comment currently anchored
+# to, after rebases / new commits) equals the given SHA — independent
+# of HEAD_ANCHOR's wallclock floor.
+#
+# Why this is needed (codex CHANGES_REQUESTED on PR #224 round 2 +
+# CodeRabbit ⚠️ Major @ line 581): the freshness-anchored count_potential_
+# issues filters reviews with `submitted_at >= HEAD_ANCHOR`. Once the
+# same unchanged HEAD sits longer than `coderabbit.wallclock_freshness_
+# window_seconds` (default 1800s / 30 min), HEAD_ANCHOR advances past
+# the prior CodeRabbit review's submitted_at, latest_review_id becomes
+# null, and the helper returns 0 — false-clearing the fast-path even
+# while the same SHA still has unresolved Potential issue/⚠️ inline
+# findings. The fast-path is the only caller that has authoritative
+# per-SHA scope (from the StatusContext check) and should leverage it.
+#
+# Filter shape: inline review comments where the bot author posted a
+# comment whose `commit_id == HEAD_SHA` (i.e., GitHub still considers
+# it applicable to HEAD after any rebases) and whose body contains a
+# `Potential issue` / `⚠️` marker. Resolved-thread state is NOT
+# consulted — same scope as count_potential_issues — so an addressed-
+# but-not-resolved finding will still count. That's the conservative
+# interpretation: "if there's any current-HEAD finding I haven't
+# explicitly resolved, hold the gate."
+count_potential_issues_for_sha() {
+  local sha=$1
+  local pulls_comments
+  pulls_comments=$(fetch_api_array "repos/$REPO/pulls/$PR_NUMBER/comments" "pulls comments")
+  echo "$pulls_comments" | jq \
+    --arg bot "$BOT_LOGIN" \
+    --arg sha "$sha" '
+    [ .[]
+      | select(.user.login == $bot)
+      | select(.commit_id == $sha)
+      | select((.body // "") | test("Potential issue|⚠️"; "i"))
+    ] | length
+  '
+}
+
 post_retry_trigger() {
   # Strip the `[bot]` suffix that GitHub REST uses for App logins —
   # @-mentions address the user-facing handle (`@coderabbitai`), not
@@ -453,12 +597,80 @@ sleep_or_timeout() {
   sleep "$actual"
 }
 
+emit_status_context_verdict() {
+  local state=$1
+  # CodeRabbit's StatusContext SUCCESS state means "review completed"
+  # — NOT "no findings remain." With CodeRabbit's default
+  # `request_changes_workflow: false`, the status flips to success
+  # whenever the review finishes, even if Potential issue / ⚠️
+  # comments were posted. Codex (chatgpt-codex-connector[bot]) caught
+  # this on PR #224 round 1 (P1 finding, line 546). The fix: scan
+  # inline `Potential issue` / `⚠️` markers anchored on HEAD before
+  # declaring clearance.
+  #
+  # Round 2 sharpening (codex CHANGES_REQUESTED + CodeRabbit ⚠️ Major
+  # @ line 581 on the round 1 fix): use `count_potential_issues_for_sha
+  # "$HEAD_SHA"` rather than `count_potential_issues`. The latter is
+  # filtered by HEAD_ANCHOR (wallclock freshness floor); after 30 min
+  # on the same unchanged HEAD, anchor advances past prior reviews and
+  # the count drops to 0 — false-clearing the fast-path. The
+  # SHA-scoped variant ignores the wallclock anchor entirely and counts
+  # findings whose `commit_id == HEAD_SHA`, which is the right scope
+  # given the fast-path already has authoritative SHA-level evidence
+  # from the StatusContext check.
+  local potential_issues synthetic
+  potential_issues=$(count_potential_issues_for_sha "$HEAD_SHA")
+  synthetic=$(jq -nc \
+    --arg sha "$HEAD_SHA" \
+    --arg state "$state" \
+    --argjson p "$potential_issues" \
+    '{
+      endpoint: "status_context",
+      head_sha: $sha,
+      context_state: $state,
+      potential_issue_count: $p,
+      body_excerpt: ("CodeRabbit StatusContext = " + $state + " on " + $sha + " (potential_issue_count=" + ($p | tostring) + ")")
+    }')
+  if [ "$potential_issues" -gt 0 ]; then
+    log "StatusContext $state but $potential_issues Potential issue/⚠️ marker(s) on HEAD — emitting findings (exit 2)"
+    emit_json_and_exit "findings" 2 "$synthetic" "$potential_issues"
+  fi
+  log "StatusContext $state and 0 Potential issue/⚠️ markers — emitting cleared (exit 0)"
+  emit_json_and_exit "cleared" 0 "$synthetic" 0
+}
+
+# Pre-loop fast-path. If CodeRabbit posted SUCCESS on this SHA before
+# the script started polling, we can short-circuit immediately and
+# avoid the first 15s sleep. See #221 — the historical comment-driven
+# poll burned the full 300s budget on every clean fix-up push because
+# CodeRabbit doesn't re-narrate when there's nothing new to flag.
+if [ "$TRUST_STATUS_CONTEXT" = "true" ]; then
+  INITIAL_CTX=$(check_status_context)
+  log "initial CodeRabbit StatusContext = $INITIAL_CTX on $HEAD_SHA"
+  if [ "$INITIAL_CTX" = "success" ]; then
+    log "StatusContext success — entering fast-path verdict (scans inline findings before clearance)"
+    emit_status_context_verdict "$INITIAL_CTX"
+  fi
+fi
+
 while :; do
   NOW_EPOCH=$(date +%s)
   ELAPSED=$((NOW_EPOCH - START_EPOCH))
   if [ "$ELAPSED" -ge "$MAX_WAIT_SECONDS" ]; then
     log "max_wait_seconds ($MAX_WAIT_SECONDS) exceeded after ${ELAPSED}s — timing out"
     emit_json_and_exit "timeout" 4 "null" 0
+  fi
+
+  # In-loop fast-path — same intent as the pre-loop check, for the case
+  # where CodeRabbit posts SUCCESS while we're already polling. Cheaper
+  # API call than `scan_latest_comment` so it's worth doing first each
+  # iteration; falls through to the comment scan if not success/failure.
+  if [ "$TRUST_STATUS_CONTEXT" = "true" ]; then
+    LOOP_CTX=$(check_status_context)
+    if [ "$LOOP_CTX" = "success" ]; then
+      log "CodeRabbit StatusContext flipped to success mid-loop on $HEAD_SHA — entering fast-path verdict"
+      emit_status_context_verdict "$LOOP_CTX"
+    fi
   fi
 
   LATEST=$(scan_latest_comment)
