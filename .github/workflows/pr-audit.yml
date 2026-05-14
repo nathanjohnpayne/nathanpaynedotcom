@@ -197,17 +197,47 @@ jobs:
                        reviewerAccounts.includes(r.user.login)
                 );
 
-                // Anchor: latest Codex review by submitted_at, if any.
-                // Used to gate reaction-freshness AND to identify the
-                // review whose inline comments determine the Path 2
-                // gate. Without this anchor, a stale +1 reaction from
-                // an earlier round could satisfy clearance even when
-                // a newer Codex review (still before merge) posted
-                // unaddressed P0/P1 findings — exactly the bypass
-                // this audit is meant to catch. Codex P1 catch on
-                // PR #359.
+                const mergedAt = new Date(pr.merged_at);
+
+                // Anchor: latest Codex review by submitted_at,
+                // scoped to the merge-time review set. Used to gate
+                // reaction-freshness AND to identify the review whose
+                // inline comments determine the Path 2 gate.
+                //
+                // Three constraints on the candidate set, matching the
+                // merge-time gate in `scripts/codex-review-check.sh`:
+                //
+                //   1. `state === 'COMMENTED'` — Codex's GitHub app
+                //      only emits COMMENTED reviews; an APPROVED or
+                //      CHANGES_REQUESTED review by something else
+                //      mis-attributed to the bot login (or a future
+                //      GitHub app behavior change) shouldn't satisfy
+                //      the gate.
+                //   2. `submitted_at <= mergedAt` — exclude post-merge
+                //      Codex reruns (someone manually triggered
+                //      `@codex review` after the merge to audit the
+                //      diff). Those say nothing about whether the PR
+                //      was cleared *before* it merged.
+                //   3. `commit_id === pr.head.sha` — exclude reviews
+                //      on prior commits in the branch's history. The
+                //      audit's clearance question is "did Codex
+                //      clear the commit that actually merged", not
+                //      "did Codex ever review anything on this PR".
+                //
+                // Without these, a stale +1 reaction from an earlier
+                // round could satisfy clearance even when a newer
+                // Codex review (still before merge) posted
+                // unaddressed P0/P1 findings (Codex P1 catch on
+                // round 2 of PR #359), AND `latestCodexReview` could
+                // drift to a post-merge or wrong-head review
+                // (CodeRabbit Major catch on round 3 of PR #359).
+                const mergedHeadSha = pr.head && pr.head.sha;
                 const codexBotReviews = reviews.filter(
-                  r => r.user && r.user.login === codexBotLogin
+                  r => r.user &&
+                       r.user.login === codexBotLogin &&
+                       r.state === 'COMMENTED' &&
+                       new Date(r.submitted_at) <= mergedAt &&
+                       r.commit_id === mergedHeadSha
                 );
                 const latestCodexReview =
                   codexBotReviews.length > 0
@@ -227,8 +257,9 @@ jobs:
                 // dated on or before the merge AND on or after the
                 // latest Codex review (so a stale reaction from an
                 // earlier round cannot mask a later failing review).
-                // If no Codex review exists, the reaction is the only
-                // signal and any pre-merge reaction is accepted.
+                // If no merge-time-scoped Codex review exists, the
+                // reaction is the only signal and any pre-merge
+                // reaction is accepted.
                 const reactions = await github.paginate(
                   github.rest.reactions.listForIssue,
                   {
@@ -238,7 +269,6 @@ jobs:
                     per_page: 100,
                   }
                 );
-                const mergedAt = new Date(pr.merged_at);
                 const codexClearanceReactions = reactions.filter(
                   r => r.user &&
                        r.user.login === codexBotLogin &&
