@@ -13,12 +13,12 @@ The MUX Video Integration initiative ([Project #5](https://github.com/users/nath
 ## Prerequisites
 
 - `gh` installed (via Homebrew on this machine).
-- A PAT in 1Password with `repo` + `project` scopes. The `nathanjohnpayne` author PAT (item `sm5kopwk6t6p3xmu2igesndzhe`) works.
+- A PAT with `repo` + `project` scopes. Use the author PAT or a reviewer-identity PAT — see [REVIEW_POLICY.md § PAT lookup table](../../REVIEW_POLICY.md#pat-lookup-table) for the 1Password item IDs (the table is the canonical source; don't re-list IDs here to avoid drift).
 - Run [scripts/op-preflight.sh](../op-preflight.sh) once per session to cache credentials.
 - The target Project v2 board must have a `Status` single-select field (the default template does). `move-item.sh` discovers the field by that exact name.
 
 ```bash
-# Session setup
+# Session setup — preflight populates OP_PREFLIGHT_AUTHOR_PAT in env.
 eval "$(scripts/op-preflight.sh --agent claude --mode all)"
 export GH_TOKEN="$OP_PREFLIGHT_AUTHOR_PAT"
 ```
@@ -99,9 +99,11 @@ Create children in dependency order: if child C2's body references C1, create C1
 
 [Sub-issues](https://docs.github.com/en/issues/tracking-your-work-with-issues/about-sub-issues) render as a real parent-child tree in the GitHub UI and in Projects, and the parent's progress bar tracks children automatically. Task-list checkboxes in the body work but don't roll up. `lib.sh` uses the REST API:
 
-```
+```http
 POST /repos/{owner}/{repo}/issues/{parent_num}/sub_issues
-Body: {"sub_issue_id": <child_db_id>}
+Content-Type: application/json
+
+{"sub_issue_id": <child_db_id>}
 ```
 
 Note the `sub_issue_id` is the **integer database ID** of the child (from `gh api repos/.../issues/<num> --jq .id`), not the issue number. `gh api` must send it as a number with `-F`, not a string with `-f`.
@@ -117,3 +119,35 @@ Note the `sub_issue_id` is the **integer database ID** of the child (from `gh ap
 ## Worked example
 
 See [`examples/mux-video-integration/`](./examples/mux-video-integration/) for the exact files used to create issues #210–#230. The driver is rerunnable against a fresh project — delete existing issues first or re-point `PROJECT` to a new board.
+
+## Two driver lifecycle patterns
+
+Two driver shapes cover the full per-initiative lifecycle. Both use this same `lib.sh`; the difference is what they're for.
+
+### Fresh-create driver (`examples/<initiative>/create-issues.sh`)
+
+One-shot, non-idempotent script that builds the initial issue tree from scratch. Creates labels, parent issues, child issues in dependency order, links children as native sub-issues, and adds everything to the Project board. Use when a new initiative kicks off.
+
+The MUX example above is a fresh-create driver. After it runs, the issue tree exists and the kit's job is mostly done — subsequent work is moving items between swimlanes via `move-item.sh` and (occasionally) refining the plan.
+
+### Additions driver (`examples/<initiative>/additions/add-*.sh`)
+
+Companion one-shot, non-idempotent driver that adds new children to **existing** parent issues without recreating the tree. Use when:
+
+- A plan-review surfaces follow-on work that needs ticket coverage under existing parents (e.g., "phase 2 also needs a child for X")
+- A phase scope expands mid-flight
+- A mid-phase discovery needs its own ticket
+
+Same `lib.sh` helpers — no library changes. The driver fetches existing parent numbers (or accepts them as args), prep_body's sibling references, calls `create_child` + `link_sub_issue` for each new child, then adds to the Project. The reference implementation lives in nathanpaynedotcom (`scripts/gh-projects/examples/matchline/additions/add-plan-refinements.sh` on the `matchline/issue-driver` branch — promoted in [nathanpaynedotcom#263](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/263)).
+
+### Picking which to write
+
+| Situation | Driver |
+|---|---|
+| New initiative, no issues yet | Fresh-create |
+| Existing initiative, expanding scope | Additions |
+| Existing initiative, refining a single existing issue | Just edit the issue directly via `gh issue edit` — no driver needed |
+
+## Idempotency caveat
+
+Neither driver shape is currently idempotent. Re-running a fresh-create driver against a project that already has the issues will create duplicates. The scope-creep solution would be a `create_child_once` helper that skips when a child with the same title already exists under the same parent — file as a follow-up if you find yourself wanting to safely re-run an additions driver.
