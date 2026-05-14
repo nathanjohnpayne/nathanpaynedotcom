@@ -727,8 +727,32 @@ a:focus-visible .link-arrow,
   }
 }
 
+/* Yellow panel (Builds) typography.
+   Uses clamp() to satisfy `specs/responsive-layout.md:18` (fluid
+   typography), with the middle term `min(Xvw, Xvh)` to mirror the
+   grid's own `min(95vw, 95vh)` sizing constraint. PR #254 had to
+   replace clamp(min, Xvw, max) with fixed rem because, on landscape
+   monitors where the grid was vh-bound, text kept growing with vw
+   and overflowed the cell. `min(vw, vh)` solves that by picking
+   the same smaller dimension the grid does. Max ceilings track the
+   pre-#356 fixed-rem visual cap so wide-landscape rendering does
+   not regress.
+
+   Multipliers are calibrated against a "typical" desktop where the
+   smaller viewport dimension is ~800px (e.g. 1200×800, 1440×900,
+   1920×1080 — vh-bound landscape), so the middle term saturates
+   at the max ceiling for those sizes and the visual matches the
+   pre-#356 fixed-rem rendering. Below the typical-desktop range
+   (e.g. 1024×600 / 1024×768 / unusually narrow viewports above
+   the --bp-stack breakpoint), the clamp becomes active and text
+   scales down with the grid instead of overflowing. Codex P2 on
+   PR #360 caught an earlier draft where the multipliers were too
+   low and clamp was pinned to the MIN at common viewports
+   (readability regression).
+
+   See #356 for the design discussion. */
 .panel--yellow .content-inner h2 {
-  font-size: 1.5rem;
+  font-size: clamp(1.2rem, min(3vw, 3vh), 1.5rem);
   letter-spacing: 0.02em;
   margin-bottom: var(--su);
   line-height: 1.05;
@@ -736,7 +760,7 @@ a:focus-visible .link-arrow,
 
 .panel--yellow .content-inner p,
 .panel--yellow .content-inner a {
-  font-size: 0.85rem;
+  font-size: clamp(0.78rem, min(1.7vw, 1.7vh), 0.85rem);
   line-height: 1.48;
 }
 
@@ -745,7 +769,7 @@ a:focus-visible .link-arrow,
 }
 
 .panel--yellow .p-name {
-  font-size: 1rem;
+  font-size: clamp(0.92rem, min(2vw, 2vh), 1rem);
 }
 
 /* Builds project-name links pick up the site-wide link convention:
@@ -775,8 +799,14 @@ a:focus-visible .link-arrow,
 }
 
 .panel--yellow .content-inner {
-  padding-top: 1.1rem;
-  padding-bottom: 0.9rem;
+  /* Padding tracks the same min(vw, vh) sizing as the typography
+     above so vertical breathing-room scales with the grid, not with
+     viewport width alone. Multipliers calibrated against the ~800px
+     smaller-dim typical desktop so common viewports saturate at the
+     pre-#356 fixed values; smaller-than-typical viewports get
+     proportionally reduced padding. See #356. */
+  padding-top: clamp(0.75rem, min(2.2vw, 2.2vh), 1.1rem);
+  padding-bottom: clamp(0.42rem, min(1.8vw, 1.8vh), 0.9rem);
 }
 
 .stack-ribbon,
