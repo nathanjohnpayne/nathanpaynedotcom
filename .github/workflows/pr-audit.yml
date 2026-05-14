@@ -150,9 +150,11 @@ jobs:
                 // For the external-review path we accept either:
                 //   - an APPROVED review from a CLI reviewer identity
                 //     (nathanpayne-claude / nathanpayne-codex / etc.), OR
-                //   - a 👍 (+1) clearance reaction from the Codex GitHub
-                //     app bot on the PR issue, dated on or before the
-                //     merge.
+                //   - a Codex GitHub app bot clearance — via EITHER
+                //     a +1 reaction on the PR issue, OR a COMMENTED
+                //     Codex review whose latest inline comments have
+                //     zero unaddressed P0/P1 findings on the merged
+                //     HEAD.
                 //
                 // CLI reviewer identities still require state ===
                 // 'APPROVED' because a non-opinionated COMMENTED review
@@ -163,22 +165,28 @@ jobs:
                 // Phase 4b fallback PR with only a COMMENTED CLI
                 // review pass the audit.
                 //
-                // The Codex bot never emits APPROVED — the GitHub app's
-                // clearance signal is a +1 reaction on the PR issue,
-                // which is also what `scripts/codex-review-check.sh`
-                // enforces at merge time. An earlier version of this
-                // gate accepted "any review from the Codex bot,
-                // regardless of state" as clearance — but that
-                // includes Codex reviews that posted P0/P1 findings
-                // and were never cleared (a non-clearance signal
-                // masquerading as one). Issue #354 surfaced that gap.
-                // We now require the explicit reaction, so the audit
-                // matches the merge gate.
+                // The Codex two-path clearance shape mirrors the
+                // merge-time gate in `scripts/codex-review-check.sh`
+                // (gate (c)). An earlier draft of this audit accepted
+                // "any review from the Codex bot, regardless of state"
+                // as clearance — but that includes Codex reviews that
+                // posted P0/P1 findings and were never cleared, a
+                // non-clearance signal masquerading as one (#354).
+                // A subsequent draft tightened to "+1 reaction only,"
+                // which fixed the false-negative but introduced a
+                // false-positive: PRs cleared via the review-only
+                // path (Codex commented, no P0/P1 findings, no
+                // reaction) would be falsely flagged. The check below
+                // accepts both paths so the audit matches the merge
+                // gate exactly. Codex caught the false-positive on
+                // PR #359.
                 const cliApprovedReviews = reviews.filter(
                   r => r.state === 'APPROVED' &&
                        reviewerAccounts.includes(r.user.login)
                 );
 
+                // Path 1: +1 reaction on the PR issue from Codex,
+                // dated on or before the merge.
                 const reactions = await github.paginate(
                   github.rest.reactions.listForIssue,
                   {
@@ -196,11 +204,49 @@ jobs:
                        new Date(r.created_at) <= mergedAt
                 );
 
+                // Path 2: latest Codex review on the PR has no
+                // unaddressed P0/P1 inline comments tied to it.
+                // Mirrors `scripts/codex-review-check.sh:548-561`.
+                // The badge regex matches the canonical markdown
+                // shape `![P0 Badge]…` / `![P1 Badge]…` Codex emits
+                // in inline finding bodies — see codex-review-check.sh
+                // for the source of truth.
+                const codexBotReviews = reviews.filter(
+                  r => r.user && r.user.login === codexBotLogin
+                );
+                let codexReviewCleared = false;
+                if (codexBotReviews.length > 0) {
+                  const latestCodexReview = codexBotReviews.reduce(
+                    (latest, r) =>
+                      new Date(r.submitted_at) > new Date(latest.submitted_at) ? r : latest,
+                    codexBotReviews[0]
+                  );
+                  const inlineComments = await github.paginate(
+                    github.rest.pulls.listReviewComments,
+                    {
+                      owner: context.repo.owner,
+                      repo: context.repo.repo,
+                      pull_number: pr.number,
+                      per_page: 100,
+                    }
+                  );
+                  const unaddressedP01 = inlineComments.filter(
+                    c => c.user &&
+                         c.user.login === codexBotLogin &&
+                         c.pull_request_review_id === latestCodexReview.id &&
+                         /!\[P[01] Badge\]/.test(c.body || '')
+                  );
+                  codexReviewCleared = unaddressedP01.length === 0;
+                }
+
+                const codexCleared =
+                  codexClearanceReactions.length > 0 || codexReviewCleared;
+
                 if (hadExternalLabel &&
                     cliApprovedReviews.length === 0 &&
-                    codexClearanceReactions.length === 0) {
+                    !codexCleared) {
                   prViolations.push(
-                    'External-review PR merged with no APPROVED review from a CLI reviewer identity and no +1 clearance reaction from the Codex bot'
+                    'External-review PR merged with no APPROVED review from a CLI reviewer identity and no Codex clearance signal (+1 reaction or COMMENTED review with no unaddressed P0/P1)'
                   );
                 }
 
