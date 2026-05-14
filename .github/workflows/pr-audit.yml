@@ -72,10 +72,9 @@ jobs:
             // unioning them into a single allow-list. See the
             // Check 2 block for the full rationale; the short
             // version is that CLI identities still require
-            // state === 'APPROVED' but the Codex bot can clear
-            // with any review state because the GitHub app never
-            // emits APPROVED — only COMMENTED with a 👍 reaction
-            // or no findings (see #29 for observational evidence).
+            // state === 'APPROVED', and the Codex bot's clearance
+            // signal is a +1 reaction on the PR issue (the GitHub
+            // app never emits APPROVED — see #29 + #354).
 
             const since = new Date();
             since.setDate(since.getDate() - 7);
@@ -151,36 +150,57 @@ jobs:
                 // For the external-review path we accept either:
                 //   - an APPROVED review from a CLI reviewer identity
                 //     (nathanpayne-claude / nathanpayne-codex / etc.), OR
-                //   - ANY review from the Codex GitHub app bot,
-                //     regardless of state, because the Codex app
-                //     never emits APPROVED — only COMMENTED with a
-                //     👍 reaction or no findings (see #29 for the
-                //     observational evidence).
+                //   - a 👍 (+1) clearance reaction from the Codex GitHub
+                //     app bot on the PR issue, dated on or before the
+                //     merge.
                 //
-                // The state-agnostic exception is intentionally
-                // SCOPED to the Codex bot only. CLI reviewer
-                // identities still require state === 'APPROVED'
-                // because a non-opinionated COMMENTED review from
-                // a CLI reviewer is not a clearance signal under
+                // CLI reviewer identities still require state ===
+                // 'APPROVED' because a non-opinionated COMMENTED review
+                // from a CLI reviewer is not a clearance signal under
                 // policy. nathanpayne-codex caught this on PR #68
                 // round 1 — earlier draft accepted any review from
                 // any external approver, which would have let a
                 // Phase 4b fallback PR with only a COMMENTED CLI
                 // review pass the audit.
+                //
+                // The Codex bot never emits APPROVED — the GitHub app's
+                // clearance signal is a +1 reaction on the PR issue,
+                // which is also what `scripts/codex-review-check.sh`
+                // enforces at merge time. An earlier version of this
+                // gate accepted "any review from the Codex bot,
+                // regardless of state" as clearance — but that
+                // includes Codex reviews that posted P0/P1 findings
+                // and were never cleared (a non-clearance signal
+                // masquerading as one). Issue #354 surfaced that gap.
+                // We now require the explicit reaction, so the audit
+                // matches the merge gate.
                 const cliApprovedReviews = reviews.filter(
                   r => r.state === 'APPROVED' &&
                        reviewerAccounts.includes(r.user.login)
                 );
 
-                const codexBotReviews = reviews.filter(
-                  r => r.user.login === codexBotLogin
+                const reactions = await github.paginate(
+                  github.rest.reactions.listForIssue,
+                  {
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    issue_number: pr.number,
+                    per_page: 100,
+                  }
+                );
+                const mergedAt = new Date(pr.merged_at);
+                const codexClearanceReactions = reactions.filter(
+                  r => r.user &&
+                       r.user.login === codexBotLogin &&
+                       r.content === '+1' &&
+                       new Date(r.created_at) <= mergedAt
                 );
 
                 if (hadExternalLabel &&
                     cliApprovedReviews.length === 0 &&
-                    codexBotReviews.length === 0) {
+                    codexClearanceReactions.length === 0) {
                   prViolations.push(
-                    'External-review PR merged with no APPROVED review from a CLI reviewer identity and no review from the Codex bot'
+                    'External-review PR merged with no APPROVED review from a CLI reviewer identity and no +1 clearance reaction from the Codex bot'
                   );
                 }
 
