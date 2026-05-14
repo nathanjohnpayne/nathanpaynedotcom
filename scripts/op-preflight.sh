@@ -26,7 +26,7 @@
 #
 # Modes:
 #   review  — reviewer PAT + author PAT + SSH key warming
-#   deploy  — GCP ADC credential
+#   deploy  — GCP ADC credential + Cloudflare cache-purge token
 #   all     — everything (default)
 #
 # Flags:
@@ -45,6 +45,14 @@
 #                             file does NOT extend its effective lifetime.
 #   OP_PREFLIGHT_CACHE_DIR    Override cache dir (default
 #                             $XDG_CACHE_HOME/mergepath or $HOME/.cache/mergepath).
+#   OP_PREFLIGHT_SSH_WARM_TTL_SECONDS
+#                             Override SSH-warm freshness window (default
+#                             1800s = 30 min). Independent of the PAT
+#                             cache TTL because the 1Password SSH agent
+#                             has its own session lifetime, typically
+#                             shorter than 4h. Skipping re-warm within
+#                             this window prevents a biometric prompt on
+#                             every cache-hit invocation. See #163.
 #
 # Session file:
 #   Path:        $cache_dir/op-preflight-<agent>.env
@@ -52,11 +60,25 @@
 #   Format:      bash-sourceable KEY='value' lines (printf %q-escaped)
 #   TTL anchor:  OP_PREFLIGHT_CREATED_AT_EPOCH (embedded in file, not mtime)
 #
-# After eval, downstream scripts and agent commands use the exported env
-# vars instead of calling op directly:
-#   GH_TOKEN="$OP_PREFLIGHT_REVIEWER_PAT" gh pr review ...
-#   GH_TOKEN="$OP_PREFLIGHT_AUTHOR_PAT"   gh pr merge ...
-#   # gcloud/firebase use GOOGLE_APPLICATION_CREDENTIALS automatically
+# After eval, downstream usage splits along the gh read/write boundary
+# (see CLAUDE.md § Active-account convention):
+#
+#   # Read-path: GH_TOKEN authenticates the request (no byline involved).
+#   GH_TOKEN="$OP_PREFLIGHT_REVIEWER_PAT" gh api user --jq .login
+#   GH_TOKEN="$OP_PREFLIGHT_REVIEWER_PAT" scripts/codex-review-check.sh <PR#>
+#
+#   # Helpers that may also POST a trigger comment — GH_TOKEN authenticates
+#   # the API call, but the comment byline is the active keyring account.
+#   GH_TOKEN="$OP_PREFLIGHT_REVIEWER_PAT" scripts/coderabbit-wait.sh <PR#>
+#   GH_TOKEN="$OP_PREFLIGHT_REVIEWER_PAT" scripts/codex-review-request.sh <PR#>
+#
+#   # Write-path: active keyring is the byline; GH_TOKEN is irrelevant.
+#   # This script warns if active != expected.
+#   gh pr review <PR#> --comment --body "..."   # active = nathanpayne-<agent>
+#   gh auth switch -u nathanjohnpayne && gh pr merge <PR#> ... && \
+#     gh auth switch -u nathanpayne-<agent>     # author write
+#
+#   # gcloud/firebase use GOOGLE_APPLICATION_CREDENTIALS automatically.
 
 set -eo pipefail
 umask 077  # Restrict file permissions before any mktemp/cache writes
@@ -91,6 +113,15 @@ TTL_SECONDS="${OP_PREFLIGHT_TTL_SECONDS:-$DEFAULT_TTL_SECONDS}"
 
 # ── GCP ADC ───────────────────────────────────────────────────────────
 DEFAULT_ADC_OP_URI="${GCP_ADC_OP_URI:-op://Private/c2v6emkwppjzjjaq2bdqk3wnlm/credential}"
+
+# ── Cloudflare Cache Purge token (#167) ───────────────────────────────
+# Shared API token with Purge:Edit permission across all domains. Wired
+# into preflight so scripts/deploy.sh's existing CF purge step
+# (currently no-op when CF_API_TOKEN is unset) actually fires on
+# agent-driven deploys without an extra biometric prompt. CF_ZONE_ID
+# is intentionally NOT sourced here — it's per-repo and lives in each
+# downstream consumer's own bootstrap, not in this shared wiring.
+DEFAULT_CF_TOKEN_OP_URI="${CF_TOKEN_OP_URI:-op://Private/4x6wslp3f6pal5t6h3jhhe63ie/credential}"
 SSH_AUTHOR_HOST="github.com"
 
 # ── Parse arguments ───────────────────────────────────────────────────
@@ -123,20 +154,15 @@ done
 if $PURGE_ALL; then
   if [[ -d "$CACHE_DIR" ]]; then
     echo "# Purging all session files under $CACHE_DIR" >&2
-    find "$CACHE_DIR" -maxdepth 1 -type f \( -name 'op-preflight-*.env' -o -name 'op-preflight-*-adc.json' \) -print -delete >&2
+    find "$CACHE_DIR" -maxdepth 1 -type f \( -name 'op-preflight-*.env' -o -name 'op-preflight-*-adc.json' -o -name 'op-preflight-*.ssh-warmed' \) -print -delete >&2
   fi
   exit 0
 fi
 
-if [[ "$MODE" == "review" || "$MODE" == "deploy" || "$MODE" == "all" || "$PURGE" == "true" ]] && [[ -z "$AGENT" ]]; then
-  # Deploy mode also requires --agent because the cache file paths below
-  # are derived from $AGENT (op-preflight-$AGENT.env / op-preflight-$AGENT-adc.json).
-  # An empty agent produces shared filenames (`op-preflight-.env`) that
-  # collide across invocations and would silently mix credentials between
-  # cowork sessions. See #342 → #250 P3 finding.
-  echo "Error: --agent is required for review, deploy, all, or --purge mode." >&2
+if [[ "$MODE" == "review" || "$MODE" == "all" || "$PURGE" == "true" ]] && [[ -z "$AGENT" ]]; then
+  echo "Error: --agent is required for review, all, or --purge mode." >&2
   echo "Usage: eval \"\$(scripts/op-preflight.sh --agent claude --mode all)\"" >&2
-  exit 2
+  exit 1
 fi
 
 if [[ -n "$AGENT" ]] && [[ -z "$(reviewer_pat_item_for "$AGENT" 2>/dev/null || true)" ]]; then
@@ -152,11 +178,13 @@ fi
 # ── Cache paths (deterministic per agent) ─────────────────────────────
 SESSION_FILE="$CACHE_DIR/op-preflight-$AGENT.env"
 ADC_TMPFILE="$CACHE_DIR/op-preflight-$AGENT-adc.json"
+SSH_WARM_MARKER="$CACHE_DIR/op-preflight-$AGENT.ssh-warmed"
+SSH_WARM_TTL_SECONDS="${OP_PREFLIGHT_SSH_WARM_TTL_SECONDS:-1800}"  # 30 min default; #163
 
 # ── Purge mode ────────────────────────────────────────────────────────
 if $PURGE; then
-  rm -f "$SESSION_FILE" "$ADC_TMPFILE"
-  echo "# Purged session file + ADC tempfile for agent=$AGENT" >&2
+  rm -f "$SESSION_FILE" "$ADC_TMPFILE" "$SSH_WARM_MARKER"
+  echo "# Purged session file + ADC tempfile + SSH-warm marker for agent=$AGENT" >&2
   exit 0
 fi
 
@@ -186,6 +214,7 @@ if $DRY_RUN; then
   fi
   if [[ "$MODE" == "deploy" || "$MODE" == "all" ]]; then
     echo "# Would read: GCP ADC ($DEFAULT_ADC_OP_URI)" >&2
+    echo "# Would read: Cloudflare cache-purge token ($DEFAULT_CF_TOKEN_OP_URI)" >&2
   fi
   exit 0
 fi
@@ -300,12 +329,57 @@ log_stale_adc_guidance() {
 # incomplete codex session file look valid and causing gh to run as
 # the wrong identity. See round-5 Codex finding on the propagation
 # PRs for the multi-agent repro.
+# Active-account check (warn-only). gh's write paths use the keyring's
+# active account regardless of GH_TOKEN. Each agent's machine should
+# have its agent identity (nathanpayne-<agent>) as the active gh
+# account so reviewer-identity writes (gh pr review --comment) attribute
+# correctly without a switch. Author-identity writes (gh pr create /
+# merge / edit) still need a temporary `gh auth switch -u nathanjohnpayne`
+# around them. See nathanjohnpayne/mergepath#164 for the empirical
+# diagnosis (matchline PRs #181, #182 — wrong-byline reviews when active
+# was nathanjohnpayne instead of the agent identity).
+warn_active_account_mismatch() {
+  # Skip silently when no agent is selected (e.g. deploy-only runs that
+  # don't need a reviewer identity). The check only makes sense when
+  # we know which agent identity SHOULD be active. Codex P2 on PR #171.
+  [[ -z "$AGENT" ]] && return 0
+  command -v gh >/dev/null 2>&1 || return 0
+  local expected="nathanpayne-${AGENT}"
+  local actual=""
+  # Use `gh config get -h github.com user` to read the active keyring
+  # account. This is the GH_TOKEN-immune signal:
+  #
+  #   - `gh auth status` honors GH_TOKEN — when GH_TOKEN is set, gh
+  #     reports the GH_TOKEN entry as Active: true and flips the
+  #     keyring entry to Active: false, even though writes still use
+  #     the keyring active. Codex CHANGES_REQUESTED on #171 reproduced
+  #     this masking: GH_TOKEN=<codex PAT> + keyring active=claude
+  #     made `gh auth status` parsers report codex as active, masking
+  #     the mismatch the warn function exists to surface.
+  #
+  #   - `gh config get -h github.com user` reads the keyring's stored
+  #     active username directly from ~/.config/gh/hosts.yml. It does
+  #     NOT honor GH_TOKEN. Verified: returns `nathanpayne-claude`
+  #     unchanged with and without GH_TOKEN set.
+  #
+  # Wrap in `|| true` so a `gh config` failure (corrupt hosts.yml,
+  # no gh login) cannot abort the parent under `set -eo pipefail`.
+  actual=$(gh config get -h github.com user 2>/dev/null || true)
+  if [[ -n "$actual" ]] && [[ "$actual" != "$expected" ]]; then
+    echo "# WARNING: gh active account is '$actual' (expected '$expected')." >&2
+    echo "#   Reviewer-identity writes (gh pr review) will mis-attribute." >&2
+    echo "#   Fix once: gh auth switch -u $expected" >&2
+    echo "#   See CLAUDE.md § Active-account convention for the full pattern." >&2
+  fi
+}
+
 emit_from_session_file() (
   # Subshell: the (  ... ) above means unset/source/return here do
   # not escape back to the caller. We still "return" rc codes via
   # stdout+exit; parent stays clean.
   unset OP_PREFLIGHT_REVIEWER_PAT OP_PREFLIGHT_AUTHOR_PAT
   unset GOOGLE_APPLICATION_CREDENTIALS OP_PREFLIGHT_ADC_TMPFILE
+  unset CF_API_TOKEN
   unset OP_PREFLIGHT_DONE OP_PREFLIGHT_AGENT OP_PREFLIGHT_MODE
   unset OP_PREFLIGHT_CREATED_AT_EPOCH OP_PREFLIGHT_TTL_SECONDS
 
@@ -351,23 +425,14 @@ emit_from_session_file() (
       exit 2
     fi
     if ! adc_is_usable "${GOOGLE_APPLICATION_CREDENTIALS}"; then
-      # File exists but refresh token is rejected. Exit 2 to fall
-      # through to the full-fetch path below, matching how a missing
-      # ADC file is treated three lines up. The full-fetch path will
-      # re-read from 1Password — if the user has rotated the ADC
-      # since this cache was written, the refresh picks up the new
-      # credential and the system self-heals; if 1Password still
-      # holds the same stale ADC, the slow path itself logs guidance
-      # and continues with PATs only (lines 503-507 below), so the
-      # cost of "self-healing" is one biometric prompt rather than
-      # waiting out TTL.
-      #
-      # Earlier code treated this as a partial-success (warn + emit
-      # PATs from the cache) which violated the symmetry with the
-      # missing-ADC case and meant a rotated 1Password ADC stayed
-      # invisible to the system until TTL expiry. See #342 → #250 P2.
+      # File exists but refresh token is rejected. Warn and skip the
+      # export so downstream deploy callers can fall back to local
+      # firebase-login / ADC. OP_PREFLIGHT_DONE stays 1 and PATs are
+      # still emitted below, because preflight itself succeeded —
+      # only the ADC-specific path is degraded, which matches what
+      # the user will see when they run `gcloud auth ...` manually.
       log_stale_adc_guidance
-      exit 2
+      unset GOOGLE_APPLICATION_CREDENTIALS OP_PREFLIGHT_ADC_TMPFILE
     fi
   fi
 
@@ -379,6 +444,8 @@ emit_from_session_file() (
     printf 'export GOOGLE_APPLICATION_CREDENTIALS=%q\n' "$GOOGLE_APPLICATION_CREDENTIALS"
   [[ -n "${OP_PREFLIGHT_ADC_TMPFILE:-}" ]] && \
     printf 'export OP_PREFLIGHT_ADC_TMPFILE=%q\n' "$OP_PREFLIGHT_ADC_TMPFILE"
+  [[ -n "${CF_API_TOKEN:-}" ]] && \
+    printf 'export CF_API_TOKEN=%q\n' "$CF_API_TOKEN"
   printf 'export OP_PREFLIGHT_DONE=1\n'
   printf 'export OP_PREFLIGHT_AGENT=%q\n' "$AGENT"
   exit 0
@@ -392,7 +459,34 @@ emit_from_session_file() (
 # means subsequent git/gh SSH operations can still block on auth even
 # after preflight reports success (friends-and-family-billing#227
 # round-5 Codex P2). Output goes to stderr so it's not eval'd.
+#
+# SSH-warm freshness (#163): the 1Password SSH agent has its OWN
+# session TTL — independent of the chmod-600 PAT cache. Re-warming
+# on every cache-hit invocation re-prompts biometric whenever the
+# 1Password agent's own session has expired (typically much shorter
+# than the 4h PAT TTL). Track an SSH-warm marker file and skip the
+# warm if it's recent enough. The marker's age is the only thing
+# that matters here — if the 1Password agent expires inside our
+# SSH_WARM_TTL window, the next git push/pull still triggers
+# biometric, but at least preflight itself doesn't multiply that.
+ssh_warm_is_fresh() {
+  [[ -f "$SSH_WARM_MARKER" ]] || return 1
+  local mtime now age
+  mtime=$(stat -f %m "$SSH_WARM_MARKER" 2>/dev/null || stat -c %Y "$SSH_WARM_MARKER" 2>/dev/null || echo 0)
+  now=$(date +%s)
+  age=$((now - mtime))
+  [[ "$age" -lt "$SSH_WARM_TTL_SECONDS" ]]
+}
+
 warm_ssh_keys() {
+  if ssh_warm_is_fresh; then
+    local mtime now age
+    mtime=$(stat -f %m "$SSH_WARM_MARKER" 2>/dev/null || stat -c %Y "$SSH_WARM_MARKER" 2>/dev/null || echo 0)
+    now=$(date +%s); age=$((now - mtime))
+    echo "# Preflight: SSH keys recently warmed (${age}s ago / TTL ${SSH_WARM_TTL_SECONDS}s) — skipping" >&2
+    SUMMARY+=("SSH keys: cached (${age}s ago)")
+    return 0
+  fi
   echo "# Preflight: warming SSH keys..." >&2
   if ssh -T "git@${SSH_AUTHOR_HOST}" 2>&1 | grep -qi "successfully authenticated"; then
     SUMMARY+=("SSH key ($SSH_AUTHOR_HOST): authorized")
@@ -406,7 +500,20 @@ warm_ssh_keys() {
   else
     SUMMARY+=("SSH key ($reviewer_host): warming attempted")
   fi
+  # Touch the marker AFTER both warms attempted. If either warm failed
+  # (network blip, key not in agent) we still set the marker — the next
+  # git op will surface the underlying problem rather than masking it
+  # with a re-warm cycle. Marker-touch failures are non-fatal.
+  touch "$SSH_WARM_MARKER" 2>/dev/null || true
+  chmod 600 "$SSH_WARM_MARKER" 2>/dev/null || true
 }
+
+# ── Refresh forces both PAT cache + SSH-warm marker invalidation ─────
+# (--refresh is the "I want a brand-new biometric burst" knob; honor
+# it for SSH too, otherwise the warm would skip via the marker.)
+if $REFRESH; then
+  rm -f "$SSH_WARM_MARKER"
+fi
 
 # ── Fast path: reuse session file when fresh ──────────────────────────
 if ! $REFRESH && session_is_fresh; then
@@ -441,6 +548,7 @@ if ! $REFRESH && session_is_fresh; then
       echo "#   $line" >&2
     done
     echo "# Run with --refresh to force a new biometric fetch." >&2
+    warn_active_account_mismatch
     echo "# ──────────────────────────────────────────────────────────" >&2
     exit 0
   fi
@@ -524,6 +632,20 @@ if [[ "$MODE" == "deploy" || "$MODE" == "all" ]]; then
     echo "# Warning: could not read GCP ADC. Deploy credentials not cached." >&2
     SUMMARY+=("GCP ADC: SKIPPED (not available)")
   fi
+
+  # Cloudflare cache-purge token (#167). Optional — if 1Password is
+  # unreachable for this item the deploy still proceeds; deploy.sh's
+  # CF purge step gracefully no-ops on empty CF_API_TOKEN.
+  echo "# Preflight: reading Cloudflare cache-purge token..." >&2
+  cf_token=$(op read "$DEFAULT_CF_TOKEN_OP_URI" 2>/dev/null || true)
+  if [[ -n "$cf_token" ]]; then
+    EXPORTS+=("export CF_API_TOKEN=$(printf '%q' "$cf_token")")
+    SESSION_LINES+=("CF_API_TOKEN=$(printf '%q' "$cf_token")")
+    SUMMARY+=("Cloudflare cache-purge token: loaded")
+  else
+    echo "# Warning: could not read Cloudflare cache-purge token. CF_API_TOKEN not exported; deploy.sh will skip the purge step." >&2
+    SUMMARY+=("Cloudflare cache-purge token: SKIPPED (not available)")
+  fi
 fi
 
 # ── Phase 2: SSH key warming ──────────────────────────────────────────
@@ -567,5 +689,6 @@ for line in "${SUMMARY[@]}"; do
 done
 echo "# Session file: $SESSION_FILE (TTL ${TTL_SECONDS}s)" >&2
 echo "# OP_PREFLIGHT_DONE=1" >&2
+warn_active_account_mismatch
 echo "# Human can step away." >&2
 echo "# ──────────────────────────────────────────────────────" >&2
