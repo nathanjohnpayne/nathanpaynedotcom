@@ -109,12 +109,24 @@ jobs:
               // self-approval) consume them, and an earlier version
               // of this script fetched twice. CodeRabbit caught the
               // duplicate on PR #68.
-              const reviewsResp = await github.rest.pulls.listReviews({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                pull_number: pr.number,
-              });
-              const reviews = reviewsResp.data;
+              //
+              // Paginated — `pulls.listReviews` defaults to 30 per
+              // page and returns in chronological order, so a PR
+              // with many review rounds can hide the *latest* Codex
+              // review beyond the first page. The Check 2 logic below
+              // selects the latest Codex review by `submitted_at` to
+              // anchor the clearance gate, so a stale-history slice
+              // would silently misclassify clearance (Codex P2 catch
+              // on PR #359).
+              const reviews = await github.paginate(
+                github.rest.pulls.listReviews,
+                {
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  pull_number: pr.number,
+                  per_page: 100,
+                }
+              );
 
               // Check 1: Missing Self-Review section
               //
@@ -185,8 +197,38 @@ jobs:
                        reviewerAccounts.includes(r.user.login)
                 );
 
+                // Anchor: latest Codex review by submitted_at, if any.
+                // Used to gate reaction-freshness AND to identify the
+                // review whose inline comments determine the Path 2
+                // gate. Without this anchor, a stale +1 reaction from
+                // an earlier round could satisfy clearance even when
+                // a newer Codex review (still before merge) posted
+                // unaddressed P0/P1 findings — exactly the bypass
+                // this audit is meant to catch. Codex P1 catch on
+                // PR #359.
+                const codexBotReviews = reviews.filter(
+                  r => r.user && r.user.login === codexBotLogin
+                );
+                const latestCodexReview =
+                  codexBotReviews.length > 0
+                    ? codexBotReviews.reduce(
+                        (latest, r) =>
+                          new Date(r.submitted_at) > new Date(latest.submitted_at)
+                            ? r
+                            : latest,
+                        codexBotReviews[0]
+                      )
+                    : null;
+                const latestCodexReviewAt = latestCodexReview
+                  ? new Date(latestCodexReview.submitted_at)
+                  : null;
+
                 // Path 1: +1 reaction on the PR issue from Codex,
-                // dated on or before the merge.
+                // dated on or before the merge AND on or after the
+                // latest Codex review (so a stale reaction from an
+                // earlier round cannot mask a later failing review).
+                // If no Codex review exists, the reaction is the only
+                // signal and any pre-merge reaction is accepted.
                 const reactions = await github.paginate(
                   github.rest.reactions.listForIssue,
                   {
@@ -201,7 +243,9 @@ jobs:
                   r => r.user &&
                        r.user.login === codexBotLogin &&
                        r.content === '+1' &&
-                       new Date(r.created_at) <= mergedAt
+                       new Date(r.created_at) <= mergedAt &&
+                       (latestCodexReviewAt === null ||
+                        new Date(r.created_at) >= latestCodexReviewAt)
                 );
 
                 // Path 2: latest Codex review on the PR has no
@@ -211,16 +255,8 @@ jobs:
                 // shape `![P0 Badge]…` / `![P1 Badge]…` Codex emits
                 // in inline finding bodies — see codex-review-check.sh
                 // for the source of truth.
-                const codexBotReviews = reviews.filter(
-                  r => r.user && r.user.login === codexBotLogin
-                );
                 let codexReviewCleared = false;
-                if (codexBotReviews.length > 0) {
-                  const latestCodexReview = codexBotReviews.reduce(
-                    (latest, r) =>
-                      new Date(r.submitted_at) > new Date(latest.submitted_at) ? r : latest,
-                    codexBotReviews[0]
-                  );
+                if (latestCodexReview) {
                   const inlineComments = await github.paginate(
                     github.rest.pulls.listReviewComments,
                     {
