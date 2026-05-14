@@ -240,7 +240,7 @@ The process-level fix was even simpler: apply the label *before* posting any rev
 Over six weeks of daily use across seven repositories:
 
 - **30+ PRs** opened, reviewed, and merged on the template repo alone
-- **167 hook test cases** covering the `gh-pr-guard.sh` parser across 7 rounds of review
+- **A dedicated hook test suite** covering the `gh-pr-guard.sh` parser, built up across 7 rounds of review
 - **17 template bugs** discovered during propagation to downstream repos
 - **5 dry-run scenarios** validated on live infrastructure
 - **142–342 seconds** average Codex response time per review round
