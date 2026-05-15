@@ -40,4 +40,22 @@ describe('estimateReadingMinutes (src/lib/reading-time.ts)', () => {
     // 0 prose + 1000 × 0.3 = 300 → 300/225 = 1.33 → ceil = 2.
     expect(estimateReadingMinutes(code)).toBe(2);
   });
+
+  it('does not count fence ``` delimiters as code words', () => {
+    // Exactly 225 prose words sits right on the 1-minute boundary
+    // (ceil(225/225) = 1). Appending an empty fenced block must not push
+    // the result to 2 min — the ``` tokens are syntax, not content.
+    const prose = Array.from({ length: 225 }, () => 'w').join(' ');
+    const emptyFence = '```\n```';
+    expect(estimateReadingMinutes(`${prose}\n\n${emptyFence}`)).toBe(1);
+  });
+
+  it('does not count a fence language tag as a code word', () => {
+    // Same boundary case, with a language-tagged empty block. The opening
+    // ```js token (with its language hint) is also syntax and must be
+    // stripped before counting.
+    const prose = Array.from({ length: 225 }, () => 'w').join(' ');
+    const taggedFence = '```js\n```';
+    expect(estimateReadingMinutes(`${prose}\n\n${taggedFence}`)).toBe(1);
+  });
 });

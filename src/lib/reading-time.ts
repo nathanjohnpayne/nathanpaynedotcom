@@ -38,10 +38,13 @@ export function estimateReadingMinutes(body: string | undefined | null): number 
     return ' ';
   });
   const proseWords = prose.trim().split(WHITESPACE).filter(Boolean).length;
-  const codeWords = codeBlocks.reduce(
-    (n, b) => n + b.split(WHITESPACE).filter(Boolean).length,
-    0,
-  );
+  // Strip the opening (with optional language tag) and closing fence tokens
+  // before counting so the ``` delimiters aren't tallied as code words —
+  // each fenced block would otherwise contribute 2 phantom "words".
+  const codeWords = codeBlocks.reduce((n, b) => {
+    const codeOnly = b.replace(/^```[^\n]*\n?/, '').replace(/\n?```$/, '');
+    return n + codeOnly.split(WHITESPACE).filter(Boolean).length;
+  }, 0);
   const minutes = Math.ceil((proseWords + codeWords * CODE_WEIGHT) / WORDS_PER_MINUTE);
   return Math.max(1, minutes);
 }
