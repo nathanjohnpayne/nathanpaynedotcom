@@ -1,0 +1,188 @@
+# .mergepath-sync.yml — propagation manifest for sync-to-downstream.sh
+#
+# Single source of truth for which Mergepath paths are canonical
+# (mirrored verbatim) or templated (mirrored with substitutions),
+# and which downstream consumers opt in to each. Read by
+# scripts/sync-to-downstream.sh — see #168 for the full design.
+#
+# Schema is deliberately small for v1 (Layer 1 + Layer 2 of the issue
+# plan): manifest + audit. Additional path types and per-path knobs
+# (kit-with-allowlist, three-way-merge for review-policy.yml,
+# substitution rules for templated docs) land in later layers.
+
+# Schema version. Bumped on incompatible changes; the script refuses
+# to run against an unknown version so old scripts can't silently
+# misinterpret a newer manifest.
+version: 1
+
+consumers:
+  - name: matchline
+    repo: nathanjohnpayne/matchline
+    visibility: private
+  - name: nathanpaynedotcom
+    repo: nathanjohnpayne/nathanpaynedotcom
+    visibility: private
+  - name: overridebroadway
+    repo: nathanjohnpayne/overridebroadway
+    visibility: private
+  - name: device-source-of-truth
+    repo: nathanjohnpayne/device-source-of-truth
+    visibility: public
+  - name: friends-and-family-billing
+    repo: nathanjohnpayne/friends-and-family-billing
+    visibility: public
+  - name: device-platform-reporting
+    repo: nathanjohnpayne/device-platform-reporting
+    visibility: public
+  - name: swipewatch
+    repo: nathanjohnpayne/swipewatch
+    visibility: public
+  - name: tadlockpsychiatry
+    repo: nathanjohnpayne/tadlockpsychiatry
+    visibility: private
+
+# Path types:
+#   canonical  — byte-for-byte mirror. Any difference is drift.
+#   kit        — directory mirror with allow-extras semantics: every
+#                file under Mergepath's path must exist (byte-identical)
+#                in the consumer; consumer-only files in the same dir
+#                are ignored. This matches scripts/ci/, where each
+#                consumer adds repo-specific check_* scripts alongside
+#                the canonical ones.
+#   templated  — RESERVED for Layer 5 (#168). Not yet supported by
+#                --audit; scripts/sync-to-downstream.sh refuses to
+#                process templated entries until the substitution
+#                lib lands.
+#
+# `consumers: all` means every entry in the consumers list above.
+# Per-consumer exclusions live under the `exclusions:` block at the
+# bottom of the file.
+
+paths:
+  # Canonical scripts — Phase 4 review tooling, hooks, helpers.
+  - path: scripts/op-preflight.sh
+    type: canonical
+    consumers: all
+  - path: scripts/coderabbit-wait.sh
+    type: canonical
+    consumers: all
+  - path: scripts/codex-review-request.sh
+    type: canonical
+    consumers: all
+  - path: scripts/codex-review-check.sh
+    type: canonical
+    consumers: all
+  - path: scripts/phase-4b-classifier.sh
+    type: canonical
+    consumers: all
+  - path: scripts/codex-p1-gate.sh
+    type: canonical
+    consumers: all
+  - path: scripts/disagreement-detector.cjs
+    # Runtime dependency of .github/workflows/agent-review.yml's
+    # detect-disagreement job — the job require()s this module.
+    # Must sync in lockstep with the workflow. See #259.
+    type: canonical
+    consumers: all
+  - path: scripts/resolve-pr-threads.sh
+    type: canonical
+    consumers: all
+  - path: scripts/request-label-removal.sh
+    type: canonical
+    consumers: all
+  - path: scripts/gh-as-author.sh
+    type: canonical
+    consumers: all
+  - path: scripts/gh-as-reviewer.sh
+    type: canonical
+    consumers: all
+  - path: scripts/hooks/gh-pr-guard.sh
+    type: canonical
+    consumers: all
+  - path: scripts/hooks/label-removal-guard.sh
+    type: canonical
+    consumers: all
+
+  # Canonical tests — the suites that exercise the canonical
+  # scripts/hooks above. These MUST travel with the scripts they
+  # test: a consumer that runs the suite (via scripts/ci/
+  # check_gh_as_author, or a repo-local check_hook_tests) against a
+  # freshly-propagated canonical hook needs the matching canonical
+  # test, or the test fails closed on a version mismatch. The
+  # propagation wave's matchline failure (#264) was exactly this —
+  # matchline carried a divergent FORK of the gh-pr-guard test that
+  # drifted from the canonical hook. Pairing each script with its
+  # test in the manifest closes that coupling gap.
+  - path: tests/test_gh_pr_guard.sh
+    type: canonical
+    consumers: all
+  - path: tests/test_gh_as_author.sh
+    type: canonical
+    consumers: all
+  - path: tests/test_gh_as_reviewer.sh
+    type: canonical
+    consumers: all
+  # Pairs with scripts/workflow/verify-propagation-pr.sh (under the
+  # scripts/workflow/ kit below). The verifier is security-load-bearing
+  # for the propagation-PR review lane; its test travels with it so a
+  # consumer that runs scripts/ci/check_verify_propagation_pr exercises
+  # the matching suite. See #264 / #268.
+  - path: tests/test_verify_propagation_pr.sh
+    type: canonical
+    consumers: all
+
+  # Canonical workflows — review policy + automation surfaces that
+  # should be lockstep across all consumers.
+  - path: .github/workflows/agent-review.yml
+    type: canonical
+    consumers: all
+  - path: .github/workflows/pr-review-policy.yml
+    type: canonical
+    consumers: all
+  - path: .github/workflows/dependabot-auto-merge.yml
+    type: canonical
+    consumers: all
+  - path: .github/workflows/auto-clear-blocking-labels.yml
+    type: canonical
+    consumers: all
+  - path: .github/workflows/pr-audit.yml
+    type: canonical
+    consumers: all
+  - path: .github/workflows/codex-p1-gate.yml
+    type: canonical
+    consumers: all
+
+  # The manifest itself. Propagated so the propagation-PR review lane
+  # in .github/workflows/pr-review-policy.yml can read the propagation
+  # surface IN-REPO when it runs in a consumer (a sync PR carries this
+  # file, so the lane check sees the exact manifest version the sync
+  # was generated from). See #264 / REVIEW_POLICY.md § Propagation PR
+  # review lane. Consumers otherwise treat it as an inert mirror — they
+  # don't run scripts/sync-to-downstream.sh.
+  - path: .mergepath-sync.yml
+    type: canonical
+    consumers: all
+
+  # Kit directories — Mergepath-canonical files are required;
+  # consumer-only additions in the same directory are allowed.
+  - path: scripts/ci/
+    type: kit
+    consumers: all
+  - path: scripts/gh-projects/
+    type: kit
+    consumers: all
+  # scripts/workflow/ — the awk/bash parser helpers the canonical
+  # .github/workflows/ files shell out to (parse_policy_list,
+  # match_protected_paths, parse_manifest_paths). These were already
+  # present in consumers (seeded at bootstrap) but UNTRACKED by this
+  # manifest — a latent #264-class drift gap, since pr-review-policy.yml
+  # is canonical and depends on them. Tracking the directory as kit
+  # keeps the workflow and its helpers in lockstep.
+  - path: scripts/workflow/
+    type: kit
+    consumers: all
+
+# Per-consumer exclusions. Use sparingly — drift exceptions become
+# audit noise over time. Each entry must list a `reason:` so future
+# readers know whether the exclusion is still load-bearing.
+exclusions: []
