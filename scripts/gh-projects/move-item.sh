@@ -2,8 +2,14 @@
 # Move a GitHub Project v2 item (by issue number) to a named Status swimlane.
 #
 # Usage:
+#   # Front-load the preflight, then run with the cached PAT.
+#   eval "$(scripts/op-preflight.sh --agent claude --mode review)"
 #   PROJECT=5 OWNER=nathanjohnpayne REPO=nathanjohnpayne/nathanpaynedotcom \
-#     GH_TOKEN="$(op read ...)" ./move-item.sh <issue_number> <status_name>
+#     GH_TOKEN="$OP_PREFLIGHT_AUTHOR_PAT" ./move-item.sh <issue_number> <status_name>
+#
+# (The earlier example showed `GH_TOKEN="$(op read ...)"`, which is the
+# disallowed inline-secret-read pattern — caught by CodeRabbit on the
+# 024e0da propagation wave, #272.)
 #
 # <status_name> is the human-readable option name: Todo, In Progress, In Review,
 # Human, Done (or whatever options exist on the project's Status field).
@@ -19,6 +25,13 @@ STATUS_NAME="${2:?status name required}"
 : "${REPO:?REPO must be set (owner/repo)}"
 : "${OWNER:?OWNER must be set}"
 : "${PROJECT:?PROJECT must be set}"
+: "${GH_TOKEN:?GH_TOKEN must be set to a PAT with project scope (this script mutates project items)}"
+
+# Required tooling: gh and python3 (used for parsing gh's JSON output below).
+# CodeRabbit on PR #180 caught the missing python3 check — fail fast with a
+# clear error rather than letting the python3 invocation crash mid-pipeline.
+command -v gh      >/dev/null 2>&1 || { echo "Error: gh CLI not on PATH (install via 'brew install gh')." >&2; exit 1; }
+command -v python3 >/dev/null 2>&1 || { echo "Error: python3 not on PATH (this script uses python3 to parse gh's JSON output; install python3 via your package manager)." >&2; exit 1; }
 
 export STATUS_NAME
 
