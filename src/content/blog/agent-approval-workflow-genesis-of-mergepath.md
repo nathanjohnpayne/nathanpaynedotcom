@@ -35,7 +35,7 @@ sidebar:
     caption: "The five stages of agent review enforcement"
 ---
 
-I am not an engineer. I am a product manager who learned to use AI coding agents because I wanted to build things faster. That distinction matters for this story, because the system I am about to describe—a multi-agent code review enforcement layer across seven repositories—was not designed top-down from an engineering principles textbook. It was grown bottom-up from watching agents misbehave.
+I am not an engineer. I am a product manager who learned to use AI coding agents because I wanted to build things faster. That distinction matters for this story, because the system I am about to describe—a multi-agent code review enforcement layer across nine repositories—was not designed top-down from an engineering principles textbook. It was grown bottom-up from watching agents misbehave.
 
 [Mergepath](https://github.com/nathanjohnpayne/mergepath) (originally `ai_agent_repo_template`) is the result. It is a deterministic repository standard that keeps humans and AI agents aligned through canonical documentation, binding CI constraints, multi-identity code review, and automated external review via the OpenAI Codex GitHub App. It took roughly six weeks of daily use across six production repositories to arrive at the current architecture, and every major feature was born from a specific failure I watched happen in real time.
 
@@ -217,7 +217,7 @@ The process-level fix was even simpler: apply the label *before* posting any rev
 
 ## What the template actually is
 
-[Mergepath](https://github.com/nathanjohnpayne/mergepath) is the infrastructure that makes all of the above work consistently across eight repositories. It is not a framework or a library. It is a set of files that, when present in a repository, enforce a deterministic review workflow for any AI coding agent.
+[Mergepath](https://github.com/nathanjohnpayne/mergepath) is the infrastructure that makes all of the above work consistently across nine repositories. It is not a framework or a library. It is a set of files that, when present in a repository, enforce a deterministic review workflow for any AI coding agent.
 
 **Canonical documentation as a single source of truth.** `REVIEW_POLICY.md` is the policy document. `CLAUDE.md` is the agent's operational checklist. `AGENTS.md` is the behavioral index. `.github/review-policy.yml` is the machine-readable config. Each file has exactly one job, and they cross-reference each other rather than duplicating content.
 
@@ -237,9 +237,9 @@ The process-level fix was even simpler: apply the label *before* posting any rev
 
 ## The numbers
 
-Over six weeks of daily use across seven repositories:
+Over seven weeks of daily use across nine repositories:
 
-- **30+ PRs** opened, reviewed, and merged on the template repo alone
+- **100+ PRs** opened, reviewed, and merged on the template repo alone
 - **A dedicated hook test suite** covering the `gh-pr-guard.sh` parser, built up across 7 rounds of review
 - **17 template bugs** discovered during propagation to downstream repos
 - **5 dry-run scenarios** validated on live infrastructure
