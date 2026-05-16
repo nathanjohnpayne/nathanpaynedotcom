@@ -104,6 +104,23 @@
 
 set -euo pipefail
 
+# --- preflight auto-source (#282) ------------------------------------------
+# Auto-source the op-preflight cache when GH_TOKEN is unset and a fresh
+# cache exists for this agent. No-op when GH_TOKEN is already set.
+__CODEX_REQUEST_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [ -r "$__CODEX_REQUEST_DIR/lib/preflight-helpers.sh" ]; then
+  # shellcheck source=lib/preflight-helpers.sh
+  . "$__CODEX_REQUEST_DIR/lib/preflight-helpers.sh"
+  # Author PAT is correct for this helper: codex-review-request.sh
+  # both reads PR state AND posts the `@codex review` trigger comment.
+  # The byline of the trigger comment is the keyring's active account
+  # (write-path), but the GitHub API call itself authenticates with the
+  # PAT in GH_TOKEN. Use the author PAT so the API call is attributed
+  # to the author identity, consistent with the broader nathanjohnpayne
+  # = drives-the-PR convention. See REVIEW_POLICY.md § PAT scope below.
+  preflight_require_token author || true
+fi
+
 # --- argument parsing -------------------------------------------------------
 
 if [ $# -lt 1 ] || [ $# -gt 2 ]; then
@@ -129,7 +146,10 @@ if [ -z "$REPO" ]; then
 fi
 
 if [ -z "${GH_TOKEN:-}" ]; then
-  echo "ERROR: GH_TOKEN is required. See REVIEW_POLICY.md § PAT lookup table." >&2
+  echo "ERROR: GH_TOKEN is required. Either:" >&2
+  echo "  - Run: eval \"\$(scripts/op-preflight.sh --agent <agent> --mode review)\"" >&2
+  echo "    so this helper auto-sources OP_PREFLIGHT_AUTHOR_PAT, OR" >&2
+  echo "  - Set GH_TOKEN inline per REVIEW_POLICY.md § PAT lookup table." >&2
   exit 3
 fi
 
@@ -427,6 +447,27 @@ TRIGGER_POST_TIME=""
 if has_cleared_signal "$INITIAL_SCAN"; then
   log "Codex has already cleared on HEAD (reaction or no-P0/P1 review) — skipping trigger comment"
 else
+  # Identity check (#284): `gh pr comment` is a keyring-byline write
+  # — fail closed BEFORE posting if the keyring drifted from the
+  # agent's reviewer identity. Opt-out via
+  # CODEX_REVIEW_REQUEST_SKIP_IDENTITY_CHECK=1 for test harnesses.
+  #
+  # r3 (#284): fail CLOSED if the helper is missing or non-executable.
+  # The previous shape ANDed the opt-out and `[ -x "$CHECKER" ]` so a
+  # rename / delete / chmod -x silently skipped the gate. Helper
+  # presence is now a hard error inside the opt-out branch.
+  if [ "${CODEX_REVIEW_REQUEST_SKIP_IDENTITY_CHECK:-0}" != "1" ]; then
+    CHECKER="$(dirname "${BASH_SOURCE[0]}")/identity-check.sh"
+    if [ ! -x "$CHECKER" ]; then
+      echo "ERROR: identity-check helper missing or non-executable: $CHECKER" >&2
+      echo "       Refusing to post '@codex review' without identity verification." >&2
+      echo "       Restore the helper, or opt out via" >&2
+      echo "       CODEX_REVIEW_REQUEST_SKIP_IDENTITY_CHECK=1 (dev only)." >&2
+      die 3 "identity-check helper unavailable"
+    fi
+    "$CHECKER" --expect-reviewer \
+      || die 3 "identity-check failed before posting '@codex review'; see stderr above."
+  fi
   log "posting '@codex review' trigger comment"
   # Capture stderr (and stdout) into a diagnostic variable so a failure
   # here surfaces the actual gh error — e.g. "404" from a nonexistent
