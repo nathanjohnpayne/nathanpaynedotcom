@@ -1,0 +1,433 @@
+#!/usr/bin/env bash
+# check_daily_feedback_rollup
+#
+# Structural check for scripts/daily-feedback-rollup.sh (mergepath#299).
+#
+# Two layers:
+#
+#   1. Run the paired unit tests in tests/test_daily_feedback_rollup.sh
+#      (pure-function coverage of classify_severity / severity_to_track
+#      / item_id_for / extract_tag_class / tag_class_action /
+#      is_agent_author / body_excerpt — 46 cases as of this writing).
+#
+#   2. Run the rollup script's `--dry-run` mode against a `gh`-shimmed
+#      scratch environment with canned fixture responses. Asserts the
+#      end-to-end classification + routing path produces the expected
+#      NDJSON items.
+#
+# Both layers run under hermetic PATH so the script's gh / jq / shasum
+# calls resolve to the shim or to the runner's tools rather than a
+# user-installed alternative.
+#
+# Bash 3.2 compatible (macOS default + ubuntu-latest).
+
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+SCRIPT="$ROOT/scripts/daily-feedback-rollup.sh"
+UNIT_TEST="$ROOT/tests/test_daily_feedback_rollup.sh"
+
+[ -x "$SCRIPT" ] || { echo "missing or non-executable $SCRIPT" >&2; exit 1; }
+[ -x "$UNIT_TEST" ] || { echo "missing or non-executable $UNIT_TEST" >&2; exit 1; }
+
+# ---------------------------------------------------------------------
+# Layer 1 — unit tests
+# ---------------------------------------------------------------------
+
+echo "check_daily_feedback_rollup: running unit tests"
+if ! bash "$UNIT_TEST" >&2; then
+  echo "check_daily_feedback_rollup: FAIL — unit tests did not pass" >&2
+  exit 1
+fi
+
+# ---------------------------------------------------------------------
+# Layer 2 — shimmed integration smoke
+# ---------------------------------------------------------------------
+
+WORKDIR="$(mktemp -d "${TMPDIR:-/tmp}/check-daily-feedback-XXXXXX")"
+trap 'rm -rf "$WORKDIR"' EXIT
+
+BIN="$WORKDIR/bin"
+mkdir -p "$BIN"
+FIXTURES="$WORKDIR/fixtures"
+mkdir -p "$FIXTURES"
+
+# ----- Fixture: one merged PR with three resolved threads -----
+#
+# Thread A: chatgpt-codex-connector P1 finding, no fix, no reply →
+#   classify as deferred-untagged, route to substantive.
+# Thread B: coderabbitai Nitpick, agent posted a 50-char substantive
+#   reply → classify as addressed-via-reply, skip.
+# Thread C: chatgpt-codex-connector P3 with a `[mergepath-resolve:
+#   nitpick-noted]` reply → tagged, route to polish.
+
+cat >"$FIXTURES/prs.json" <<'JSON'
+[
+  {
+    "number": 999,
+    "title": "test PR",
+    "url": "https://github.com/owner/repo/pull/999",
+    "mergedAt": "2026-05-15T12:00:00Z"
+  }
+]
+JSON
+
+cat >"$FIXTURES/threads.json" <<'JSON'
+{
+  "data": {
+    "repository": {
+      "pullRequest": {
+        "headRefOid": "head_sha_xxxxxxxxxxxxxxxxxxxxxx",
+        "commits": {
+          "nodes": [
+            { "commit": { "oid": "commit_early_xxxxxxxxxxxxxxxxxxx", "authoredDate": "2026-05-15T07:00:00Z", "author": { "user": { "login": "nathanjohnpayne" } } } },
+            { "commit": { "oid": "head_sha_xxxxxxxxxxxxxxxxxxxxxx", "authoredDate": "2026-05-15T07:30:00Z", "author": { "user": { "login": "nathanjohnpayne" } } } }
+          ]
+        },
+        "reviewThreads": {
+          "totalCount": 3,
+          "pageInfo": { "hasNextPage": false, "endCursor": null },
+          "nodes": [
+            {
+              "id": "PRT_thread_a",
+              "isResolved": true,
+              "isOutdated": false,
+              "path": "scripts/a.sh",
+              "line": 10,
+              "originalLine": 10,
+              "comments": {
+                "nodes": [
+                  {
+                    "databaseId": 1,
+                    "author": { "login": "chatgpt-codex-connector[bot]" },
+                    "body": "**![P1 Badge]** Critical race condition. Fix before merge.",
+                    "createdAt": "2026-05-15T08:00:00Z",
+                    "originalCommit": { "oid": "head_sha_xxxxxxxxxxxxxxxxxxxxxx" },
+                    "url": "https://github.com/owner/repo/pull/999#discussion_r1"
+                  }
+                ]
+              }
+            },
+            {
+              "id": "PRT_thread_b",
+              "isResolved": true,
+              "isOutdated": false,
+              "path": "scripts/b.sh",
+              "line": 20,
+              "originalLine": 20,
+              "comments": {
+                "nodes": [
+                  {
+                    "databaseId": 2,
+                    "author": { "login": "coderabbitai[bot]" },
+                    "body": "_🧹 Nitpick (assertive)_ minor style suggestion here.",
+                    "createdAt": "2026-05-15T08:10:00Z",
+                    "originalCommit": { "oid": "head_sha_xxxxxxxxxxxxxxxxxxxxxx" },
+                    "url": "https://github.com/owner/repo/pull/999#discussion_r2"
+                  },
+                  {
+                    "databaseId": 3,
+                    "author": { "login": "nathanpayne-claude" },
+                    "body": "Acknowledged — addressed in commit abc1234 with the renamed variable per the suggestion.",
+                    "createdAt": "2026-05-15T09:00:00Z",
+                    "originalCommit": null,
+                    "url": "https://github.com/owner/repo/pull/999#discussion_r3"
+                  }
+                ]
+              }
+            },
+            {
+              "id": "PRT_thread_c",
+              "isResolved": true,
+              "isOutdated": false,
+              "path": "scripts/c.sh",
+              "line": 30,
+              "originalLine": 30,
+              "comments": {
+                "nodes": [
+                  {
+                    "databaseId": 4,
+                    "author": { "login": "chatgpt-codex-connector[bot]" },
+                    "body": "**![P3 Badge]** Polish suggestion — consider extracting a helper.",
+                    "createdAt": "2026-05-15T08:20:00Z",
+                    "originalCommit": { "oid": "head_sha_xxxxxxxxxxxxxxxxxxxxxx" },
+                    "url": "https://github.com/owner/repo/pull/999#discussion_r4"
+                  },
+                  {
+                    "databaseId": 5,
+                    "author": { "login": "nathanpayne-claude" },
+                    "body": "[mergepath-resolve: nitpick-noted] Noted; not worth a refactor for a one-line helper.",
+                    "createdAt": "2026-05-15T09:30:00Z",
+                    "originalCommit": null,
+                    "url": "https://github.com/owner/repo/pull/999#discussion_r5"
+                  }
+                ]
+              }
+            },
+            {
+              "id": "PRT_thread_d",
+              "isResolved": true,
+              "isOutdated": true,
+              "path": "scripts/d.sh",
+              "line": 40,
+              "originalLine": 40,
+              "comments": {
+                "nodes": [
+                  {
+                    "databaseId": 6,
+                    "author": { "login": "chatgpt-codex-connector[bot]" },
+                    "body": "**![P1 Badge]** Stale finding — original commit was force-pushed away.",
+                    "createdAt": "2026-05-15T08:30:00Z",
+                    "originalCommit": { "oid": "DEADBEEF_not_in_commits_list" },
+                    "url": "https://github.com/owner/repo/pull/999#discussion_r6"
+                  }
+                ]
+              }
+            },
+            {
+              "id": "PRT_thread_e",
+              "isResolved": true,
+              "isOutdated": false,
+              "path": "scripts/e.sh",
+              "line": 50,
+              "originalLine": 50,
+              "comments": {
+                "nodes": [
+                  {
+                    "databaseId": 7,
+                    "author": { "login": "chatgpt-codex-connector[bot]" },
+                    "body": "**![P1 Badge]** Race condition addressed by a later fix-commit, no reply or tag.",
+                    "createdAt": "2026-05-15T05:00:00Z",
+                    "originalCommit": { "oid": "commit_early_xxxxxxxxxxxxxxxxxxx" },
+                    "url": "https://github.com/owner/repo/pull/999#discussion_r7"
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      }
+    }
+  }
+}
+JSON
+
+# ----- Fake prior rollup body (#304 dedupe pass) -----
+#
+# Thread A's stable mp-id is the SHA1[1:12] of "owner/repo#999:PRT_thread_a"
+# — we hardcode it here so the dedupe assertion is reproducible. If
+# item_id_for ever changes its hashing strategy, this fixture must be
+# refreshed in lockstep (and the unit tests would catch that first).
+THREAD_A_MPID="aa2b2e31d8f9"
+# Thread C is referenced as a follow-up issue `#888` on a different
+# rollup line to exercise the `#N` triage signal end-to-end.
+THREAD_C_MPID="1d9cdc0a026f"
+
+cat >"$FIXTURES/prior-substantive-rollups.json" <<JSON
+[
+  {
+    "number": 7001,
+    "state": "OPEN",
+    "body": "## owner/repo#900 (merged 2026-05-14, fix: prior PR)\n- [x] [scripts/old.sh:1](https://github.com/owner/repo/pull/900#discussion_r99) — \`chatgpt-codex-connector[bot]\` P1 [untagged]: \"fix landed in commit\" <!-- mp-id:${THREAD_A_MPID} -->\n- [ ] [scripts/another.sh:5](https://github.com/owner/repo/pull/900#discussion_r100) — \`coderabbitai[bot]\` Major [untagged]: \"still open elsewhere\" <!-- mp-id:9999deadbeef -->"
+  }
+]
+JSON
+
+cat >"$FIXTURES/prior-polish-rollups.json" <<JSON
+[
+  {
+    "number": 7002,
+    "state": "OPEN",
+    "body": "## owner/repo#901 (merged 2026-05-13, fix: polish prior)\n- [ ] [scripts/x.sh:1](https://github.com/owner/repo/pull/901#discussion_r200) — \`coderabbitai[bot]\` Nitpick [untagged]: \"polish, filed #888\" <!-- mp-id:${THREAD_C_MPID} -->"
+  }
+]
+JSON
+
+cat >"$FIXTURES/prior-empty.json" <<'JSON'
+[]
+JSON
+
+# ----- gh shim — dispatches on argv -----
+cat >"$BIN/gh" <<STUB
+#!/usr/bin/env bash
+# Minimal gh stub for check_daily_feedback_rollup. Only the calls the
+# rollup script makes in --dry-run mode are handled.
+case "\$1" in
+  repo)
+    # gh repo view --json owner,name --jq ...
+    printf '%s\n' "owner/repo"
+    exit 0
+    ;;
+  pr)
+    # gh pr list ...
+    cat "$FIXTURES/prs.json"
+    exit 0
+    ;;
+  api)
+    # gh api graphql -f query='...' -F owner=... -F name=... -F pr=999
+    # (we don't introspect the query — just return the fixture)
+    cat "$FIXTURES/threads.json"
+    exit 0
+    ;;
+  issue)
+    # gh issue list --repo ... --label <label> --state all|open --search ... --limit ... --json number,state,body
+    # The dedupe pass (mergepath#304) calls this twice per track:
+    # once with --state all + closed:>= search, once with --state open.
+    # Dispatch on the --label value so substantive vs polish prior
+    # rollups can be different (and so an unrelated label returns []).
+    label=""
+    state=""
+    for ((i=1; i<=\$#; i++)); do
+      arg="\${!i}"
+      if [ "\$arg" = "--label" ]; then
+        next_i=\$((i + 1))
+        label="\${!next_i}"
+      elif [ "\$arg" = "--state" ]; then
+        next_i=\$((i + 1))
+        state="\${!next_i}"
+      fi
+    done
+    case "\$label" in
+      deferred-feedback-rollup)
+        # Substantive label: return prior rollup ONLY on the --state all
+        # call (which the dedupe pass uses for closed-in-window). The
+        # second --state open call returns the same OPEN rollup so the
+        # dedupe pass picks it up regardless of which branch hits.
+        cat "$FIXTURES/prior-substantive-rollups.json"
+        ;;
+      polish-feedback-rollup)
+        cat "$FIXTURES/prior-polish-rollups.json"
+        ;;
+      *)
+        cat "$FIXTURES/prior-empty.json"
+        ;;
+    esac
+    exit 0
+    ;;
+  *)
+    echo "[gh-stub] unhandled: \$*" >&2
+    exit 1
+    ;;
+esac
+STUB
+chmod +x "$BIN/gh"
+
+# Capture python3/jq/shasum locations so the hermetic PATH below
+# resolves them. python3 isn't used by the rollup script directly but
+# shasum is.
+PYTHON3_DIR="$(cd "$(dirname "$(command -v python3 2>/dev/null || echo /bin/true)")" && pwd -P 2>/dev/null || echo /usr/bin)"
+JQ_DIR="$(cd "$(dirname "$(command -v jq)")" && pwd -P)"
+SHASUM_DIR="$(cd "$(dirname "$(command -v shasum)")" && pwd -P)"
+
+# Build a PATH that includes the shim, the runner tool paths, and the
+# minimal system dirs. env -i strips everything else.
+STUB_PATH="$BIN:$JQ_DIR:$SHASUM_DIR"
+if [ "$PYTHON3_DIR" != "/usr/bin" ]; then
+  STUB_PATH="$STUB_PATH:$PYTHON3_DIR"
+fi
+STUB_PATH="$STUB_PATH:/usr/bin:/bin:/usr/sbin:/sbin"
+
+echo "check_daily_feedback_rollup: running --dry-run against fixture"
+
+OUT_FILE="$WORKDIR/dry-run.ndjson"
+ERR_FILE="$WORKDIR/dry-run.err"
+
+set +e
+env -i \
+  PATH="$STUB_PATH" \
+  HOME="$WORKDIR" \
+  TMPDIR="$WORKDIR" \
+  GH_TOKEN="stub-token" \
+  REPO="owner/repo" \
+  ROLLUP_AGENT_AUTHORS="nathanjohnpayne:nathanpayne-claude" \
+  "$SCRIPT" --dry-run --since 2026-05-15 --until 2026-05-16 \
+  >"$OUT_FILE" 2>"$ERR_FILE"
+RC=$?
+set -e
+
+if [ "$RC" -ne 0 ]; then
+  echo "FAIL: --dry-run exited rc=$RC" >&2
+  echo "  stderr:" >&2
+  sed 's/^/    /' "$ERR_FILE" >&2 || true
+  exit 1
+fi
+
+# Assertions on the NDJSON output.
+#
+# Pre-#304 baseline was 2 NDJSON lines (Thread A substantive + Thread C
+# polish; B reply-skipped, D stale-skipped, E fix-skipped). With the
+# #304 dedupe pass active and prior rollups in the gh shim containing
+# Thread A's mp-id as `[x]` and Thread C's mp-id on a line with `#888`,
+# BOTH should now be dedupe-skipped — so the expected line count is 0.
+LINES=$(wc -l < "$OUT_FILE" | tr -d ' ')
+if [ "$LINES" -ne 0 ]; then
+  echo "FAIL: expected 0 NDJSON lines after #304 dedupe pass (A + C both triaged on prior rollups), got $LINES" >&2
+  cat "$OUT_FILE" >&2
+  echo "  stderr:" >&2
+  sed 's/^/    /' "$ERR_FILE" >&2
+  exit 1
+fi
+
+# Thread A must be FILTERED — its mp-id appeared `[x]` on the prior
+# substantive rollup fixture (gh-shim returns prior-substantive-rollups.json).
+if grep -q '"thread_id":"PRT_thread_a"' "$OUT_FILE"; then
+  echo "FAIL: thread A should be dedupe-filtered (prior [x] in substantive rollup)" >&2
+  cat "$OUT_FILE" >&2
+  exit 1
+fi
+
+# Thread B — still FILTERED (substantive reply from agent, classifier-level skip)
+if grep -q '"thread_id":"PRT_thread_b"' "$OUT_FILE"; then
+  echo "FAIL: thread B (addressed-via-reply) should be filtered out" >&2
+  exit 1
+fi
+
+# Thread D — still FILTERED (stale-head: originalCommit not in
+# commits.nodes). Locks in the regression fix: the prior naive
+# `orig_commit != head_oid` check would have incorrectly classified
+# Thread A (whose originalCommit matches headRefOid) as in-history
+# AND Thread D as stale; the new membership check produces the same
+# result for D but stops mis-classifying intermediate-commit threads.
+if grep -q '"thread_id":"PRT_thread_d"' "$OUT_FILE"; then
+  echo "FAIL: thread D (stale-head, originalCommit not in commits list) should be filtered out" >&2
+  exit 1
+fi
+
+# Thread E — still FILTERED (addressed-via-fix: agent-author
+# commits at 07:00 + 07:30 are both AFTER the comment's createdAt of
+# 05:00).
+if grep -q '"thread_id":"PRT_thread_e"' "$OUT_FILE"; then
+  echo "FAIL: thread E (addressed-via-fix: agent commit after comment) should be filtered out" >&2
+  exit 1
+fi
+
+# Thread C must be FILTERED — its mp-id appeared on a line with `#888`
+# follow-up reference on the prior polish rollup fixture (the `#N`
+# follow-up triage signal added in #304).
+if grep -q '"thread_id":"PRT_thread_c"' "$OUT_FILE"; then
+  echo "FAIL: thread C should be dedupe-filtered (prior #N follow-up ref in polish rollup)" >&2
+  cat "$OUT_FILE" >&2
+  exit 1
+fi
+
+# Methodology counter (stderr): confirm the dedupe pass actually fired.
+# We want to see `dedup=2` in the per-track summary stderr line. This
+# is the load-bearing observable proving #304 is wired end-to-end.
+if ! grep -q 'dedup=2' "$ERR_FILE"; then
+  echo "FAIL: expected stderr summary to report dedup=2 (Threads A + C filtered by prior-rollup signals)" >&2
+  echo "  stderr:" >&2
+  sed 's/^/    /' "$ERR_FILE" >&2
+  exit 1
+fi
+
+# Confirm the prior-triaged set was assembled. Verifies both labels
+# were scanned (substantive + polish), so a regression that scans only
+# one would surface here.
+if ! grep -qE 'dedupe: [0-9]+ prior-triaged mp-id' "$ERR_FILE"; then
+  echo "FAIL: expected stderr to log the prior-triaged mp-id count" >&2
+  sed 's/^/    /' "$ERR_FILE" >&2
+  exit 1
+fi
+
+echo "check_daily_feedback_rollup: PASS (unit tests + 5-case --dry-run smoke + #304 dedupe)"
+exit 0

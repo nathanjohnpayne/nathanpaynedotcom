@@ -98,6 +98,25 @@
 
 set -euo pipefail
 
+# --- preflight auto-source (#282) ------------------------------------------
+# If GH_TOKEN is unset and a fresh op-preflight cache exists for this
+# agent, source it and export OP_PREFLIGHT_REVIEWER_PAT as GH_TOKEN.
+# This lets agents drop the explicit `GH_TOKEN=...` prefix when their
+# preflight cache is already warm. Preserves existing behavior when
+# GH_TOKEN is already set. The existing
+# `[ -z "${GH_TOKEN:-}" ] && exit 3` guard below still fires on a
+# missing cache + missing env var (no regression).
+__CODERABBIT_WAIT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [ -r "$__CODERABBIT_WAIT_DIR/lib/preflight-helpers.sh" ]; then
+  # shellcheck source=lib/preflight-helpers.sh
+  . "$__CODERABBIT_WAIT_DIR/lib/preflight-helpers.sh"
+  # Author PAT per the original docstring contract — this helper posts
+  # `@coderabbitai, try again.` on rate-limit retries. GH_TOKEN
+  # authenticates the API call; the trigger-comment byline is the
+  # keyring's active account regardless.
+  preflight_require_token author || true
+fi
+
 # --- argument parsing -------------------------------------------------------
 
 if [ $# -lt 1 ] || [ $# -gt 2 ]; then
@@ -121,7 +140,10 @@ if [ -z "$REPO" ]; then
 fi
 
 if [ -z "${GH_TOKEN:-}" ]; then
-  echo "ERROR: GH_TOKEN is required. See REVIEW_POLICY.md § PAT lookup table." >&2
+  echo "ERROR: GH_TOKEN is required. Either:" >&2
+  echo "  - Run: eval \"\$(scripts/op-preflight.sh --agent <agent> --mode review)\"" >&2
+  echo "    so this helper auto-sources OP_PREFLIGHT_REVIEWER_PAT, OR" >&2
+  echo "  - Set GH_TOKEN inline per REVIEW_POLICY.md § PAT lookup table." >&2
   exit 3
 fi
 
@@ -522,6 +544,30 @@ post_retry_trigger() {
   # triggering identities. See #140 round-3 Codex finding (P2, line 320).
   local mention="@${BOT_LOGIN%\[bot\]}"
   local body="${mention}, try again."
+  # Identity check (#284): the retry trigger is a keyring-byline write
+  # (`gh api -X POST ../comments` attributes to whatever signs the
+  # call; in this helper that's whoever the configured GH_TOKEN
+  # resolves to, but the agent's reviewer identity is the expected
+  # byline). Fail closed BEFORE the write if the keyring has drifted.
+  # Opt-out via CODERABBIT_WAIT_SKIP_IDENTITY_CHECK=1 (for CI / test
+  # harnesses without a real keyring).
+  #
+  # r3 (#284): fail CLOSED if the helper is missing or non-executable.
+  # The previous shape ANDed the opt-out and `[ -x "$CHECKER" ]` so a
+  # rename / delete / chmod -x silently skipped the gate. Helper
+  # presence is now a hard error inside the opt-out branch.
+  if [ "${CODERABBIT_WAIT_SKIP_IDENTITY_CHECK:-0}" != "1" ]; then
+    local checker="$(dirname "${BASH_SOURCE[0]}")/identity-check.sh"
+    if [ ! -x "$checker" ]; then
+      echo "ERROR: identity-check helper missing or non-executable: $checker" >&2
+      echo "       Refusing to post retry-trigger comment without identity verification." >&2
+      echo "       Restore the helper, or opt out via" >&2
+      echo "       CODERABBIT_WAIT_SKIP_IDENTITY_CHECK=1 (dev only)." >&2
+      die 3 "identity-check helper unavailable"
+    fi
+    "$checker" --expect-reviewer \
+      || die 3 "identity-check failed before retry-trigger write; see stderr above."
+  fi
   log "posting retry trigger comment to PR #$PR_NUMBER as $mention"
   gh api --method POST "repos/$REPO/issues/$PR_NUMBER/comments" \
     -f body="$body" >/dev/null 2>&1 \

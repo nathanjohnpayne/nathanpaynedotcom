@@ -75,14 +75,17 @@ Valid status names are whatever options the Project's `Status` field has — typ
 ### Set the Project README
 
 ```bash
-gh project edit <N> --owner <owner> --readme "$(cat path/to/plan.md)"
+gh project edit <N> --owner <owner> --readme "$(cat "path/to/plan.md")"
 ```
 
 Or from a driver that has sourced `lib.sh`:
 
 ```bash
-set_project_readme ~/.claude/plans/my-initiative.md
+set_project_readme "$HOME/.claude/plans/my-initiative.md"
 ```
+
+(Use `"$HOME/..."` or `"~/path/..."` with double quotes around any path argument
+so a directory name with spaces — e.g. `~/My Plans/...` — survives word-splitting.)
 
 ## Placeholder conventions in body files
 
@@ -138,7 +141,7 @@ Companion one-shot, non-idempotent driver that adds new children to **existing**
 - A phase scope expands mid-flight
 - A mid-phase discovery needs its own ticket
 
-Same `lib.sh` helpers — no library changes. The driver fetches existing parent numbers (or accepts them as args), prep_body's sibling references, calls `create_child` + `link_sub_issue` for each new child, then adds to the Project. The reference implementation lives in nathanpaynedotcom (`scripts/gh-projects/examples/matchline/additions/add-plan-refinements.sh` on the `matchline/issue-driver` branch — promoted in [nathanpaynedotcom#263](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/263)).
+Same `lib.sh` helpers — no library changes. The driver fetches existing parent numbers (or accepts them as args), prep_body's sibling references, calls `create_child` + `link_sub_issue` for each new child, then adds to the Project. The reference implementation lives in nathanpaynedotcom on `main`: [`scripts/gh-projects/examples/matchline/additions/add-plan-refinements.sh`](https://github.com/nathanjohnpayne/nathanpaynedotcom/blob/main/scripts/gh-projects/examples/matchline/additions/add-plan-refinements.sh), promoted in [nathanpaynedotcom#263](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/263).
 
 ### Picking which to write
 
