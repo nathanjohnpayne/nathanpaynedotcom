@@ -16,6 +16,10 @@ export default [
   // Ignore generated / vendored output. Customize per-consumer via
   // a follow-up commit on the propagation PR if a repo needs extras
   // (e.g., functions/lib for cloud-functions repos).
+  //
+  // `.claude/worktrees/**` is the per-agent worktree root that
+  // Claude Code creates for parallel sub-tasks; linting the working
+  // copies inside it is duplicative and noisy on every agent run.
   {
     ignores: [
       "node_modules/**",
@@ -25,15 +29,32 @@ export default [
       ".astro/**",
       ".next/**",
       ".vercel/**",
-      // CONSUMER-LOCAL: agent-spawned git worktrees (e.g. parallel
-      // PR exploration). Local state, not source — linting them
-      // double-counts findings against the main tree.
       ".claude/worktrees/**",
     ],
   },
 
   // Baseline JS recommended — required by the Mergepath policy floor.
   js.configs.recommended,
+
+  // Baseline rule policy applied to all JS sources. `^_`-prefix
+  // unused-vars is the standard convention for marking intentionally-
+  // unused locals (args, vars, caught errors, destructured-array
+  // leftovers); the `allowEmptyCatch` setting permits the
+  // `catch (_) {}` swallow idiom that appears in legacy code.
+  // Both relaxations were added by hand by 5 of 6 consumers during
+  // the Phase D fanout (#250) — folding them into the baseline
+  // removes the per-consumer churn.
+  {
+    rules: {
+      "no-unused-vars": ["error", {
+        argsIgnorePattern: "^_",
+        varsIgnorePattern: "^_",
+        caughtErrorsIgnorePattern: "^_",
+        destructuredArrayIgnorePattern: "^_",
+      }],
+      "no-empty": ["error", { allowEmptyCatch: true }],
+    },
+  },
 
   // Apply browser + node globals to all JS sources by default. Narrow
   // these per-file-pattern in a follow-up commit if the repo has a
@@ -73,27 +94,16 @@ export default [
   // parser, the recommended rule set, and the file-glob targeting.
   ...tseslint.configs.recommended,
 
-  // Astro flat-config recommended ruleset — applied to .astro files.
-  // The plugin exposes its flat-config preset under the bracketed
-  // `configs['flat/recommended']` key (NOT the legacy
-  // `configs.recommended` which is the eslintrc-shape config).
-  // Same key for ESM and CJS — the plugin's export shape is
-  // module-system-agnostic.
-  ...astro.configs['flat/recommended'],
-
-  // ─────────────────────────────────────────────────────────────────
-  // CONSUMER-LOCAL POLICY — TS + style-rule overrides. MUST be LAST.
-  //
-  // Same template policy class as dpr#83 / ffb#274 / tadlock#58:
-  // - `@typescript-eslint/no-unused-vars`: standard `^_`-prefix
-  //   ignore convention (covers catch-clause args, destructured
-  //   leftovers, intentional shadow params).
-  // - `@typescript-eslint/no-explicit-any`: demoted to warn —
-  //   Playwright tests have legitimate `any` for cross-frame DOM
-  //   types that aren't worth typing strictly (5 sites in
-  //   tests/responsive/mondrian-rebalance-animation.spec.ts).
+  // Tighten the TS-specific unused-vars rule to match the JS baseline
+  // `^_`-prefix convention, and demote `no-explicit-any` to warn —
+  // legitimate `any` usage shows up in Playwright cross-frame DOM
+  // bridges, Firestore type-erasure, and WIP design-direction code;
+  // an error blocks CI on signals the team has already considered.
+  // Both demotions were hand-added by every TS consumer during the
+  // Phase D fanout (#250); folding into the template removes the
+  // per-consumer churn.
   {
-    files: ["**/*.{js,mjs,ts,tsx,astro}"],
+    files: ["**/*.{ts,tsx}"],
     rules: {
       "@typescript-eslint/no-unused-vars": ["error", {
         argsIgnorePattern: "^_",
@@ -104,4 +114,22 @@ export default [
       "@typescript-eslint/no-explicit-any": "warn",
     },
   },
+
+  // Astro flat-config recommended ruleset — applied to .astro files.
+  // The plugin exposes its flat-config preset under the bracketed
+  // `configs['flat/recommended']` key (NOT the legacy
+  // `configs.recommended` which is the eslintrc-shape config).
+  // Same key for ESM and CJS — the plugin's export shape is
+  // module-system-agnostic.
+  ...astro.configs['flat/recommended'],
+
+
+
+// React Compiler advisory disables are now INSIDE the React block(s)
+// above (so they inherit the same `files:` and `plugins:` scope and
+// don't reference react-hooks/* on files where the plugin isn't
+// loaded — codex P1 #327 round 3). The standalone block previously
+// at this position has been removed.
+
+
 ];
