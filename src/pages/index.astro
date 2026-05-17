@@ -226,14 +226,14 @@ const homepageJsonLd = {
             </noscript>
             <script is:inline>
               (function () {
-                var el = document.getElementById('availability-mailto');
+                const el = document.getElementById('availability-mailto');
                 if (!el) return;
                 try {
-                  var user = atob(el.dataset.u);
-                  var domain = atob(el.dataset.d);
-                  var subject = el.dataset.s ? atob(el.dataset.s) : '';
+                  const user = atob(el.dataset.u);
+                  const domain = atob(el.dataset.d);
+                  const subject = el.dataset.s ? atob(el.dataset.s) : '';
                   el.href = 'mailto:' + user + '@' + domain + (subject ? '?subject=' + subject : '');
-                } catch (e) { /* leave href as "#" — noscript covers the fallback */ }
+                } catch (_e) { /* leave href as "#" — noscript covers the fallback */ }
               })();
             </script>
             <span class="connect-label">Elsewhere</span>

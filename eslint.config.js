@@ -25,6 +25,10 @@ export default [
       ".astro/**",
       ".next/**",
       ".vercel/**",
+      // CONSUMER-LOCAL: agent-spawned git worktrees (e.g. parallel
+      // PR exploration). Local state, not source — linting them
+      // double-counts findings against the main tree.
+      ".claude/worktrees/**",
     ],
   },
 
@@ -77,4 +81,27 @@ export default [
   // module-system-agnostic.
   ...astro.configs['flat/recommended'],
 
+  // ─────────────────────────────────────────────────────────────────
+  // CONSUMER-LOCAL POLICY — TS + style-rule overrides. MUST be LAST.
+  //
+  // Same template policy class as dpr#83 / ffb#274 / tadlock#58:
+  // - `@typescript-eslint/no-unused-vars`: standard `^_`-prefix
+  //   ignore convention (covers catch-clause args, destructured
+  //   leftovers, intentional shadow params).
+  // - `@typescript-eslint/no-explicit-any`: demoted to warn —
+  //   Playwright tests have legitimate `any` for cross-frame DOM
+  //   types that aren't worth typing strictly (5 sites in
+  //   tests/responsive/mondrian-rebalance-animation.spec.ts).
+  {
+    files: ["**/*.{js,mjs,ts,tsx,astro}"],
+    rules: {
+      "@typescript-eslint/no-unused-vars": ["error", {
+        argsIgnorePattern: "^_",
+        varsIgnorePattern: "^_",
+        caughtErrorsIgnorePattern: "^_",
+        destructuredArrayIgnorePattern: "^_",
+      }],
+      "@typescript-eslint/no-explicit-any": "warn",
+    },
+  },
 ];

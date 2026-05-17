@@ -119,6 +119,9 @@ const ogImageUrl = ogImage.includes('?') ? `${ogImage}&v=${buildTime}` : `${ogIm
   <script async src="https://www.googletagmanager.com/gtag/js?id=G-7C29SRBXB1"></script>
   <script is:inline>
     window.dataLayer = window.dataLayer || [];
+    // Google's canonical GA4 gtag stub uses `arguments` by design;
+    // rewriting to rest params changes call-signature semantics GA expects.
+    // eslint-disable-next-line prefer-rest-params
     function gtag(){dataLayer.push(arguments);}
     gtag('js', new Date());
     gtag('config', 'G-7C29SRBXB1', {
@@ -153,9 +156,9 @@ const ogImageUrl = ogImage.includes('?') ? `${ogImage}&v=${buildTime}` : `${ogIm
        JS-restricted users. See #344. -->
   <script is:inline>
     (function () {
-      var html = document.documentElement;
+      const html = document.documentElement;
       html.dataset.fontsPending = '';
-      var reveal = function () { delete html.dataset.fontsPending; };
+      const reveal = function () { delete html.dataset.fontsPending; };
       if (document.fonts && document.fonts.ready && typeof document.fonts.ready.then === 'function') {
         document.fonts.ready.then(reveal);
         setTimeout(reveal, 1500);

@@ -27,7 +27,7 @@ interface Props {
   slug: string;
 }
 
-const { playbackId, fallbackSrc, title, slug } = Astro.props;
+const { playbackId, fallbackSrc, title, slug: _slug } = Astro.props;
 
 const altText = `${title} product screenshot`;
 
@@ -90,7 +90,7 @@ if (isSvgFallback) {
       /<svg\b/,
       `<svg role="img" aria-label="${escapeAttr(altText)}"`
     );
-  } catch (err) {
+  } catch (_err) {
     // If the file isn't readable for any reason, fall back to the <img>
     // path so the hero still renders something.
     inlineSvg = null;
