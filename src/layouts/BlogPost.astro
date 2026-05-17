@@ -57,7 +57,6 @@ const normalizedPathname = rawPathname === '/' || rawPathname.includes('.')
     : `${rawPathname}/`;
 const canonical = new URL(normalizedPathname, Astro.site).href;
 const fullTitle = `${title} | Nathan Payne`;
-const kicker = tags.join(' · ');
 const publishedDate = date.toLocaleDateString('en-US', {
   year: 'numeric',
   month: 'long',
