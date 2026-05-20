@@ -92,10 +92,19 @@ const homepageJsonLd = {
               <div class="about-block about-block--now">
                 <span class="about-label">Now</span>
                 <NowContent />
-                <div class="now-ribbon">
-                  <span class="now-ribbon-label">Last updated</span>
-                  <span class="now-ribbon-date">{nowEntry.data.lastUpdated}</span>
-                </div>
+              </div>
+              <div class="about-block about-block--writing">
+                <span class="about-label">Writing</span>
+                <p>Three pieces on building with AI coding agents: where they fail, what makes them reliable, and how to get real work out of them.</p>
+                <ul class="writing-list">
+                  <li><a href="/blog/six-prs-one-bug-agent-failure-modes/" class="p-name-link">Six PRs, One Bug: What AI Agents Actually Get Wrong<span class="link-arrow" aria-hidden="true">→</span></a></li>
+                  <li><a href="/blog/agent-approval-workflow-genesis-of-mergepath/" class="p-name-link">Agent Approval Workflow and the Genesis of Mergepath<span class="link-arrow" aria-hidden="true">→</span></a></li>
+                  <li><a href="/blog/html-mockups-as-spec/" class="p-name-link">The HTML Mock-up Is the Spec<span class="link-arrow" aria-hidden="true">→</span></a></li>
+                </ul>
+              </div>
+              <div class="now-ribbon">
+                <span class="now-ribbon-label">Last updated</span>
+                <span class="now-ribbon-date">{nowEntry.data.lastUpdated}</span>
               </div>
             </div>
           </div>
@@ -109,7 +118,7 @@ const homepageJsonLd = {
         <div class="panel-content">
           <div class="content-inner">
             <h2>Builds</h2>
-            <p>Every project started as a real problem. Each one was built end-to-end with AI agents—Claude Code, Codex, and Cursor—within a multi-agent code review system I designed to catch failure modes that agents don’t catch on their own. <a href="/blog/six-prs-one-bug-agent-failure-modes/" class="p-link">What agents get wrong<span class="link-arrow" aria-hidden="true">→</span></a> · <a href="/blog/agent-approval-workflow-genesis-of-mergepath/" class="p-link">How the enforcement system works<span class="link-arrow" aria-hidden="true">→</span></a></p>
+            <p>Every project started as a real problem. Each one was built end-to-end with AI agents—Claude Code, Codex, and Cursor—within a multi-agent code review system I designed to catch failure modes that agents don’t catch on their own.</p>
             <div class="project-list">
               <div class="project-item">
                 <div class="p-head">
@@ -307,7 +316,7 @@ const homepageJsonLd = {
             </div>
             {latestPost && (
               <div class="blog-callout">
-                <span class="blog-callout-label">From the Blog</span>
+                <span class="blog-callout-label">Latest Post</span>
                 <a href={`/blog/${latestPost.id}/`} class="blog-callout-link">{latestPost.data.title}<span class="link-arrow" aria-hidden="true">→</span></a>
               </div>
             )}
