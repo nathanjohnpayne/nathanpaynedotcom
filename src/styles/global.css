@@ -456,6 +456,12 @@ html[data-fonts-pending] .panel-label {
   gap: var(--su);
 }
 
+/* Extra breathing room so WRITING reads as its own unit, not a
+   continuation of NOW. One additional --su on top of the flex gap. */
+.about-block--writing {
+  margin-top: var(--su);
+}
+
 .about-block p {
   margin-bottom: 0;
 }
@@ -468,6 +474,33 @@ html[data-fonts-pending] .panel-label {
   font-weight: 500;
   color: rgba(23, 19, 15, 0.50);
   margin-bottom: calc(var(--su) * 0.5);
+}
+
+/* About panel "Writing" block — intro line + selected post links.
+   Links mirror the Builds project-name treatment: Cormorant Garamond,
+   inherit color (dark on the open parchment, cream on the mobile red
+   base), underlined per the site link convention. */
+.writing-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  /* Exceed the 0.3rem inter-link gap so the framing sentence reads as
+     governing the whole trio, not as belonging to the first link. */
+  margin-top: var(--su);
+}
+
+.writing-list .p-name-link {
+  font-size: 0.85rem;
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 2px;
+}
+
+/* Blue arrow matches the Builds .p-name-link convention. */
+.writing-list .p-name-link .link-arrow {
+  color: var(--blue);
+  font-weight: 700;
 }
 
 .social-stack,
@@ -3303,6 +3336,12 @@ a:focus-visible {
 
   .panel--red .now-ribbon {
     border-top-color: rgba(242, 237, 225, 0.28);
+  }
+
+  /* Dark-blue arrow is near-invisible on the red mobile base; keep it
+     cream (matching the link text) so the affordance stays legible. */
+  .panel--red .writing-list .p-name-link .link-arrow {
+    color: var(--cream);
   }
 
   .panel--yellow .stack-label,
