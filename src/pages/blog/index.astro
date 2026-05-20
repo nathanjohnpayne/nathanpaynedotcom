@@ -67,87 +67,74 @@ function readingTime(body: string | undefined): string {
         <p class="deck">A product manager’s notes on shipping real systems with AI coding agents—the architecture decisions, the failure modes, and what actually works.</p>
       </header>
 
-      {/* ── Mondrian Blog Grid ── */}
+      {/* ── Mondrian Blog Grid ──
+           Mirrors the /projects index: every post flows through one map
+           so the row pattern repeats and scales. Rows 1–4 use fixed
+           Mondrian accent blocks; posts beyond 4 overflow into
+           alternating a/b rows. The last content row always pairs its
+           post with the RSS subscribe block (in place of a decorative
+           accent), so the subscription is pinned to the bottom of the
+           grid without taking a row of its own. */}
       <div class="blog-grid">
 
-        {/* Row 1: Featured post | Red | Blue("LATEST") */}
-        {posts[0] && (
-          <div class="grid-row--1">
-            <article class="post-card">
-              <p class="post-meta">{formatDate(posts[0].data.date)} &middot; {readingTime(posts[0].body)}</p>
-              <p class="post-meta">{posts[0].data.tags.join(' · ')}</p>
-              <h2 class="post-title"><a href={`/blog/${posts[0].id}/`}>{posts[0].data.title}</a></h2>
-              <p class="post-desc">{posts[0].data.description}</p>
-            </article>
-            <div class="accent-red" aria-hidden="true"></div>
-            <div class="accent-blue" aria-hidden="true">
-              <span class="accent-blue-label">Latest</span>
-            </div>
-          </div>
-        )}
-
-        {/* Row 2: Post 2 (or placeholder) | Yellow */}
-        <div class="grid-row--2">
-          {posts[1] ? (
-            <article class="post-card">
-              <p class="post-meta">{formatDate(posts[1].data.date)} &middot; {readingTime(posts[1].body)}</p>
-              <p class="post-meta">{posts[1].data.tags.join(' · ')}</p>
-              <h2 class="post-title"><a href={`/blog/${posts[1].id}/`}>{posts[1].data.title}</a></h2>
-              <p class="post-desc">{posts[1].data.description}</p>
-            </article>
-          ) : (
-            <div class="post-card--placeholder">
-              <p class="placeholder-text">More essays coming soon.</p>
-            </div>
-          )}
-          <div class="accent-yellow" aria-hidden="true"></div>
-        </div>
-
-        {/* Row 3: Post 3 (or placeholder) | RSS/Cream */}
-        <div class="grid-row--3">
-          {posts[2] ? (
-            <article class="post-card">
-              <p class="post-meta">{formatDate(posts[2].data.date)} &middot; {readingTime(posts[2].body)}</p>
-              <p class="post-meta">{posts[2].data.tags.join(' · ')}</p>
-              <h2 class="post-title"><a href={`/blog/${posts[2].id}/`}>{posts[2].data.title}</a></h2>
-              <p class="post-desc">{posts[2].data.description}</p>
-            </article>
-          ) : (
-            <div class="post-card--placeholder">
-              <p class="placeholder-text">Writing about system boundaries,<br/>product judgment, and engineering tradeoffs.</p>
-            </div>
-          )}
-          <div class="accent-cream">
-            <a href="/rss.xml" class="rss-link">Subscribe via RSS &rarr;</a>
-          </div>
-        </div>
-
-        {/* Row 4: Post 4 | black | paper — only if post exists */}
-        {posts[3] && (
-          <div class="grid-row--4">
-            <article class="post-card">
-              <p class="post-meta">{formatDate(posts[3].data.date)} &middot; {readingTime(posts[3].body)}</p>
-              <p class="post-meta">{posts[3].data.tags.join(' · ')}</p>
-              <h2 class="post-title"><a href={`/blog/${posts[3].id}/`}>{posts[3].data.title}</a></h2>
-              <p class="post-desc">{posts[3].data.description}</p>
-            </article>
-            <div class="accent-black" aria-hidden="true"></div>
-            <div class="accent-paper" aria-hidden="true"></div>
-          </div>
-        )}
-
-        {/* Overflow rows: posts 5+ — alternating layouts */}
-        {posts.slice(4).map((post, i) => (
-          <div class={i % 2 === 0 ? 'grid-row--overflow-a' : 'grid-row--overflow-b'}>
+        {posts.map((post, i) => {
+          const isLast = i === posts.length - 1;
+          const card = (
             <article class="post-card">
               <p class="post-meta">{formatDate(post.data.date)} &middot; {readingTime(post.body)}</p>
               <p class="post-meta">{post.data.tags.join(' · ')}</p>
               <h2 class="post-title"><a href={`/blog/${post.id}/`}>{post.data.title}</a></h2>
               <p class="post-desc">{post.data.description}</p>
             </article>
-            <div class={i % 2 === 0 ? 'accent-overflow accent-overflow--cream' : 'accent-overflow accent-overflow--yellow'} aria-hidden="true"></div>
-          </div>
-        ))}
+          );
+
+          // Last row: post | RSS subscribe block. Pins the subscription
+          // beside the final post regardless of how many posts exist.
+          if (isLast) return (
+            <div class="grid-row--last">
+              {card}
+              <div class="accent-cream">
+                <a href="/rss.xml" class="rss-link">Subscribe via RSS &rarr;</a>
+              </div>
+            </div>
+          );
+
+          // Row 1: featured post | red | blue with vertical "Latest" label.
+          if (i === 0) return (
+            <div class="grid-row--1">
+              {card}
+              <div class="accent-red" aria-hidden="true"></div>
+              <div class="accent-blue" aria-hidden="true">
+                <span class="accent-blue-label">Latest</span>
+              </div>
+            </div>
+          );
+          if (i === 1) return (
+            <div class="grid-row--2">
+              {card}
+              <div class="accent-yellow" aria-hidden="true"></div>
+            </div>
+          );
+          if (i === 2) return (
+            <div class="grid-row--3">
+              {card}
+              <div class="accent-white" aria-hidden="true"></div>
+            </div>
+          );
+          if (i === 3) return (
+            <div class="grid-row--4">
+              {card}
+              <div class="accent-black" aria-hidden="true"></div>
+              <div class="accent-paper" aria-hidden="true"></div>
+            </div>
+          );
+          return (
+            <div class={i % 2 === 0 ? 'grid-row--overflow-a' : 'grid-row--overflow-b'}>
+              {card}
+              <div class={i % 2 === 0 ? 'accent-overflow accent-overflow--cream' : 'accent-overflow accent-overflow--yellow'} aria-hidden="true"></div>
+            </div>
+          );
+        })}
 
       </div>
 

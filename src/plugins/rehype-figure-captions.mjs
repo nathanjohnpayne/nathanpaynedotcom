@@ -18,6 +18,8 @@ const imageDimensions = {
   '/blog/six-prs-one-bug-agent-failure-modes/img/invoice-bug-02-preview-view.png': { width: 1937, height: 2071 },
   '/blog/six-prs-one-bug-agent-failure-modes/img/invoice-bug-03-broken-sent-email.png': { width: 1250, height: 1181 },
   '/blog/six-prs-one-bug-agent-failure-modes/img/invoice-bug-04-correct-sent-email.png': { width: 1250, height: 1222 },
+  '/blog/html-mockups-as-spec/img/mondrian-inspiration.jpg': { width: 3543, height: 3532 },
+  '/blog/html-mockups-as-spec/img/ffb-editor-mockup.png': { width: 1942, height: 1412 },
 };
 
 export default function rehypeFigureCaptions() {

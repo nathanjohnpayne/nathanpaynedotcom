@@ -1946,6 +1946,15 @@ body.blog-page {
   min-height: 13rem;
 }
 
+/* Last content row: post | RSS subscribe block (50/50), so the
+   subscription always sits beside the final post. */
+.grid-row--last {
+  display: grid;
+  grid-template-columns: minmax(0, 5fr) minmax(0, 5fr);
+  gap: var(--line);
+  min-height: 14rem;
+}
+
 /* ── Post Cards ── */
 .post-card {
   background: var(--surface);
@@ -2032,24 +2041,6 @@ a.tag {
 
 a.tag:hover {
   background: rgba(17, 16, 13, 0.18);
-}
-
-/* ── Placeholder Cards (future posts) ── */
-.post-card--placeholder {
-  background: var(--surface);
-  padding: clamp(1.2rem, 2.5vw, 2rem);
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: flex-start;
-}
-
-.placeholder-text {
-  font-family: "Cormorant Garamond", Garamond, serif;
-  font-size: clamp(1.1rem, 1.4vw, 1.5rem);
-  font-style: italic;
-  color: rgba(17, 16, 13, 0.22);
-  line-height: 1.3;
 }
 
 /* ── Color Blocks ── */
@@ -3398,7 +3389,8 @@ a:focus-visible {
   .grid-row--3,
   .grid-row--4,
   .grid-row--overflow-a,
-  .grid-row--overflow-b {
+  .grid-row--overflow-b,
+  .grid-row--last {
     grid-template-columns: 1fr;
     min-height: auto;
   }
@@ -3418,18 +3410,6 @@ a:focus-visible {
   /* RSS block stays but simplifies */
   .accent-cream {
     min-height: 4rem;
-  }
-
-  /* Placeholder cards hidden on mobile */
-  .post-card--placeholder {
-    display: none;
-  }
-
-  /* Hide grid rows that contain only hidden children (placeholder + hidden accent)
-     to prevent double grid-gap lines from empty rows */
-  .grid-row--2:has(> .post-card--placeholder),
-  .grid-row--4:has(> .post-card--placeholder) {
-    display: none;
   }
 
   /* ── Blog Post canvas: collapse to single column ───────── */
