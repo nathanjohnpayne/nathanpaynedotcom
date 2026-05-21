@@ -1950,36 +1950,48 @@ body.blog-page {
   display: grid;
   background: var(--ink);
   gap: var(--line);
+  /* Two shared vertical gridlines, centered on 50% and 72%, so the
+     post→accent and accent→accent dividers line up across every row
+     regardless of how many cells (and therefore gaps) a row has. Each
+     column is shrunk by half a line per adjacent gap so the black grid
+     line sits centered on the target percentage. Used by the desktop
+     row templates below; the mobile stack overrides to a single column. */
+  --col-post: calc(50% - var(--line) / 2);       /* column ending at the 50% line */
+  --col-mid: calc(22% - var(--line));            /* column spanning 50% → 72% */
+  --col-post-wide: calc(72% - var(--line) / 2);  /* column ending at the 72% line */
 }
 
-/* Row 1: post (~50%) | red (~22%) | blue (~28%) */
+/* Rows place their cells on the shared 50% / 72% gridlines (see the
+   .blog-grid --col-* vars) so the black grid lines run continuously down
+   the grid: the post→accent divider lands on 50%, accent→accent on 72%. */
+/* Row 1: post (50%) | accent (50%→72%) | accent (72%→100%) */
 .grid-row--1 {
   display: grid;
-  grid-template-columns: minmax(0, 5fr) minmax(0, 2.2fr) minmax(0, 2.8fr);
+  grid-template-columns: var(--col-post) var(--col-mid) minmax(0, 1fr);
   gap: var(--line);
   min-height: 16rem;
 }
 
-/* Row 2: post (~72%) | yellow (~28%) */
+/* Row 2: post (72%) | accent (72%→100%) */
 .grid-row--2 {
   display: grid;
-  grid-template-columns: minmax(0, 7.2fr) minmax(0, 2.8fr);
+  grid-template-columns: var(--col-post-wide) minmax(0, 1fr);
   gap: var(--line);
   min-height: 13rem;
 }
 
-/* Row 3: post (~50%) | rss/cream (~50%) */
+/* Row 3: post (50%) | accent (50%→100%) */
 .grid-row--3 {
   display: grid;
-  grid-template-columns: minmax(0, 5fr) minmax(0, 5fr);
+  grid-template-columns: var(--col-post) minmax(0, 1fr);
   gap: var(--line);
   min-height: 14rem;
 }
 
-/* Row 4: post (~50%) | black (~22%) | paper (~28%) */
+/* Row 4: post (50%) | accent (50%→72%) | accent (72%→100%) */
 .grid-row--4 {
   display: grid;
-  grid-template-columns: minmax(0, 5fr) minmax(0, 2.2fr) minmax(0, 2.8fr);
+  grid-template-columns: var(--col-post) var(--col-mid) minmax(0, 1fr);
   gap: var(--line);
   min-height: 14rem;
 }
