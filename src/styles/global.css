@@ -1999,15 +1999,6 @@ body.blog-page {
   min-height: 13rem;
 }
 
-/* Last content row: post | RSS subscribe block (50/50), so the
-   subscription always sits beside the final post. */
-.grid-row--last {
-  display: grid;
-  grid-template-columns: minmax(0, 5fr) minmax(0, 5fr);
-  gap: var(--line);
-  min-height: 14rem;
-}
-
 /* ── Post Cards ── */
 .post-card {
   background: var(--surface);
@@ -2124,8 +2115,10 @@ a.tag:hover {
   background: var(--yellow);
 }
 
+/* RSS subscribe cell. Uses the paper accent (#DDE1E5) so the blog's
+   last row matches the /projects last cell. */
 .accent-cream {
-  background: var(--accent-gray);
+  background: #DDE1E5;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -3358,6 +3351,13 @@ a:focus-visible {
     border-top-color: rgba(242, 237, 225, 0.28);
   }
 
+  /* The vertical WRITING rule uses var(--rule) (dark), near-invisible on
+     the red mobile base — flip it to the same light divider color as the
+     ribbon above so the vertical and horizontal rules read as one system. */
+  .panel--red .writing-list {
+    border-left-color: rgba(242, 237, 225, 0.28);
+  }
+
   /* Dark-blue arrow is near-invisible on the red mobile base; keep it
      cream (matching the link text) so the affordance stays legible. */
   .panel--red .writing-list .p-name-link .link-arrow {
@@ -3380,6 +3380,12 @@ a:focus-visible {
 
   .panel--black .impact-ribbon {
     border-top-color: rgba(239, 232, 216, 0.22);
+  }
+
+  /* Match the Giving vertical rule to the ribbon's light divider on the
+     black mobile base (var(--rule) is invisible there). */
+  .panel--black .effort-list li {
+    border-left-color: rgba(239, 232, 216, 0.22);
   }
 
   .panel--blue .connect-label {
@@ -3448,8 +3454,7 @@ a:focus-visible {
   .grid-row--3,
   .grid-row--4,
   .grid-row--overflow-a,
-  .grid-row--overflow-b,
-  .grid-row--last {
+  .grid-row--overflow-b {
     grid-template-columns: 1fr;
     min-height: auto;
   }
