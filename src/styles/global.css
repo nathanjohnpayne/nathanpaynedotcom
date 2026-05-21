@@ -462,6 +462,14 @@ html[data-fonts-pending] .panel-label {
   margin-top: var(--su);
 }
 
+/* The now-ribbon is a flex child of .about-blocks, so the flex gap
+   already spaces it; drop the shared ribbon margin-top here so the
+   rule→ribbon gap reads as tight as the Community (Giving) ribbon
+   instead of doubling (flex gap + margin). Scoped to About only. */
+.about-blocks .now-ribbon {
+  margin-top: 0;
+}
+
 .about-block p {
   margin-bottom: 0;
 }
@@ -488,6 +496,13 @@ html[data-fonts-pending] .panel-label {
   /* Exceed the 0.3rem inter-link gap so the framing sentence reads as
      governing the whole trio, not as belonging to the first link. */
   margin-top: var(--su);
+  /* One continuous left rule bracketing all three links as a single
+     group. Same visual values as the Giving rule (1px var(--rule),
+     0.6rem inset) but on the container, not per-item, so it reads as
+     one unbroken bracket. Inset matches the prior per-item version:
+     rule at the ul's left edge, text at +1px +0.6rem. */
+  border-left: 1px solid var(--rule);
+  padding-left: 0.6rem;
 }
 
 .writing-list .p-name-link {
