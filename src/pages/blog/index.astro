@@ -69,12 +69,11 @@ function readingTime(body: string | undefined): string {
 
       {/* ── Mondrian Blog Grid ──
            Mirrors the /projects index: every post flows through one map
-           so the row pattern repeats and scales. Rows 1–4 use fixed
-           Mondrian accent blocks; posts beyond 4 overflow into
-           alternating a/b rows. The last content row always pairs its
-           post with the RSS subscribe block (in place of a decorative
-           accent), so the subscription is pinned to the bottom of the
-           grid without taking a row of its own. */}
+           by index (rows 1–4, then alternating overflow), so the row
+           pattern matches /projects. The final post keeps its by-index
+           row layout but swaps its last accent cell for the RSS subscribe
+           block — pinning the subscription to the last row without
+           breaking the repeating column pattern. */}
       <div class="blog-grid">
 
         {posts.map((post, i) => {
@@ -88,14 +87,12 @@ function readingTime(body: string | undefined): string {
             </article>
           );
 
-          // Last row: post | RSS subscribe block. Pins the subscription
-          // beside the final post regardless of how many posts exist.
-          if (isLast) return (
-            <div class="grid-row--last">
-              {card}
-              <div class="accent-cream">
-                <a href="/rss.xml" class="rss-link">Subscribe via RSS &rarr;</a>
-              </div>
+          // The final post keeps its by-index row layout (matching the
+          // /projects pattern) but swaps its last accent cell for the RSS
+          // subscribe block, pinning the subscription to the last row.
+          const rssCell = (
+            <div class="accent-cream">
+              <a href="/rss.xml" class="rss-link">Subscribe via RSS &rarr;</a>
             </div>
           );
 
@@ -104,34 +101,36 @@ function readingTime(body: string | undefined): string {
             <div class="grid-row--1">
               {card}
               <div class="accent-red" aria-hidden="true"></div>
-              <div class="accent-blue" aria-hidden="true">
-                <span class="accent-blue-label">Latest</span>
-              </div>
+              {isLast ? rssCell : (
+                <div class="accent-blue" aria-hidden="true">
+                  <span class="accent-blue-label">Latest</span>
+                </div>
+              )}
             </div>
           );
           if (i === 1) return (
             <div class="grid-row--2">
               {card}
-              <div class="accent-yellow" aria-hidden="true"></div>
+              {isLast ? rssCell : <div class="accent-black" aria-hidden="true"></div>}
             </div>
           );
           if (i === 2) return (
             <div class="grid-row--3">
               {card}
-              <div class="accent-white" aria-hidden="true"></div>
+              {isLast ? rssCell : <div class="accent-white" aria-hidden="true"></div>}
             </div>
           );
           if (i === 3) return (
             <div class="grid-row--4">
               {card}
-              <div class="accent-black" aria-hidden="true"></div>
-              <div class="accent-paper" aria-hidden="true"></div>
+              <div class="accent-yellow" aria-hidden="true"></div>
+              {isLast ? rssCell : <div class="accent-paper" aria-hidden="true"></div>}
             </div>
           );
           return (
             <div class={i % 2 === 0 ? 'grid-row--overflow-a' : 'grid-row--overflow-b'}>
               {card}
-              <div class={i % 2 === 0 ? 'accent-overflow accent-overflow--cream' : 'accent-overflow accent-overflow--yellow'} aria-hidden="true"></div>
+              {isLast ? rssCell : <div class={i % 2 === 0 ? 'accent-overflow accent-overflow--cream' : 'accent-overflow accent-overflow--yellow'} aria-hidden="true"></div>}
             </div>
           );
         })}
