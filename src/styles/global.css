@@ -457,9 +457,14 @@ html[data-fonts-pending] .panel-label {
 }
 
 /* Extra breathing room so WRITING reads as its own unit, not a
-   continuation of NOW. One additional --su on top of the flex gap. */
+   continuation of NOW. Half an --su on top of the flex gap — the
+   .about-blocks flex gap already provides one --su above every section,
+   so a full margin-top would double WRITING's gap (the same flex-gap-
+   plus-margin doubling removed from .now-ribbon). Half keeps WRITING
+   distinct (it's a label + framing sentence + linked trio, not prose)
+   without doubling. */
 .about-block--writing {
-  margin-top: var(--su);
+  margin-top: calc(var(--su) * 0.5);
 }
 
 /* The now-ribbon is a flex child of .about-blocks, so the flex gap
