@@ -32,7 +32,7 @@ This repository uses a multi-identity AI agent code review system. The full poli
 1. Author code as nathanjohnpayne. File a PR.
 2. Switch to your reviewer identity (e.g., nathanpayne-claude). Review the PR. Post comments.
 3. Switch back to nathanjohnpayne. Address each comment. Push fix commits.
-4. Repeat steps 2–3 until the reviewer identity approves with no outstanding issues.
+4. Repeat steps 2–3 until the reviewer identity approves with no outstanding issues. The mechanism is scope-dependent: for under-threshold PRs (step 6), `gh pr review --approve` from your reviewer identity is the intended path; it satisfies branch protection without bouncing a small PR to an external agent. For above-threshold PRs (step 7), post `gh pr review --comment` only; Phase 4 carries the cross-agent gate. See REVIEW_POLICY.md § No-self-approve scoping.
 5. If this repo has `coderabbit.enabled: true` in `.github/review-policy.yml`:
    a. **Wait** for CodeRabbit to post its review (up to 3 minutes; ask the human if it hasn't appeared).
    b. **Read both endpoints:** PR-level comments (`gh api repos/{owner}/{repo}/issues/{pr}/comments`) and inline diff comments (`gh api repos/{owner}/{repo}/pulls/{pr}/comments`).

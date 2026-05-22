@@ -40,7 +40,16 @@ explicitly authorizes a break-glass override in chat.
    See REVIEW_POLICY.md § PAT lookup table for your agent's item ID.
 5. Review the PR. Post comments on any issues found.
 6. Switch back to nathanjohnpayne. Address each comment. Push fix commits.
-7. Repeat steps 4–6 until the reviewer identity approves.
+7. Repeat steps 4–6 until the reviewer identity approves. The
+   mechanism is scope-dependent:
+   - Under-threshold PRs (lines changed < `external_review_threshold`
+     AND no file matches `external_review_paths`): the reviewer identity
+     posts `gh pr review --approve` once CodeRabbit has cleared the
+     current HEAD. This is the intended path and satisfies branch
+     protection without a Phase 4 handoff.
+   - Above-threshold / Phase 4 PRs: the authoring agent's own reviewer
+     identity posts `--comment` only. Codex or a Phase 4b external
+     reviewer carries the cross-agent merge gate.
 7.5. If `.github/review-policy.yml` has `coderabbit.enabled: true`:
      a. Wait for CodeRabbit to post (up to 3 min; ask human if delayed).
      b. Read PR-level comments: `gh api repos/{owner}/{repo}/issues/{pr}/comments`

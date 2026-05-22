@@ -67,6 +67,25 @@ GH_TOKEN="$(op read 'op://Private/pvbq24vl2h6gl7yjclxy2hbote/token')" \
   reviewer identity is still being used. Check the lookup table and verify you
   are using your agent's item ID, not the author identity's.
 
+### No-self-approve scoping
+
+The no-self-approve rule applies only to PRs that meet
+`external_review_threshold` or match `external_review_paths` (the Phase 4
+PRs). For those, the agent's own reviewer identity posts `--comment`
+only. The merge gate is carried by Codex in Phase 4a or by a different
+agent's `APPROVED` review in Phase 4b. Posting `--approve` from the
+authoring agent's own reviewer identity on a Phase 4 PR would
+short-circuit the cross-agent gate the threshold exists to enforce.
+
+For PRs that do not meet the threshold, the reviewer identity posting
+`gh pr review --approve` after CodeRabbit has cleared the current HEAD is
+the intended path. It satisfies branch protection's required-approving-review
+check without bouncing a small, self-contained change to an external
+agent. GitHub blocks true self-approval only when the approving account is
+the same GitHub account as the PR author; in this repo's normal flow,
+the PR author is `nathanjohnpayne` and the reviewer identity is
+`nathanpayne-<agent>`.
+
 ## Workflow
 
 ### Phase 0: Credential Preflight
@@ -104,7 +123,7 @@ If any `op` command fails mid-session (rare—only if 1Password locks or the 12-
 4. The agent switches its Git identity to its reviewer account (e.g., `nathanpayne-claude`).
 5. The reviewer identity checks out the PR branch, reviews the diff, and posts review comments on the PR with specific, actionable feedback.
 6. The agent switches back to `nathanjohnpayne` and addresses each comment—pushing fix commits to the same branch.
-7. Steps 4–6 repeat until the reviewer identity approves the PR with no outstanding issues.
+7. Steps 4–6 repeat until the reviewer identity approves the PR with no outstanding issues. The mechanism of "approves" is scope-dependent: for under-threshold PRs (Phase 3 below), the reviewer identity posts `gh pr review --approve` to satisfy branch protection's required-approving-review check. For above-threshold PRs (Phase 4), the reviewer identity posts `gh pr review --comment` only; the cross-agent merge gate is carried by Phase 4. See [No-self-approve scoping](#no-self-approve-scoping) above.
 
 **All review rounds are captured as GitHub PR comments and commits.** The back-and-forth should read like two developers collaborating.
 
