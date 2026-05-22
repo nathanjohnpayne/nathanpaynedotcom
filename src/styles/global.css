@@ -498,9 +498,12 @@ html[data-fonts-pending] .panel-label {
   display: flex;
   flex-direction: column;
   gap: 0.3rem;
-  /* Exceed the 0.3rem inter-link gap so the framing sentence reads as
-     governing the whole trio, not as belonging to the first link. */
-  margin-top: var(--su);
+  /* Sit tighter than the 0.3rem inter-link gap so the trio reads as
+     belonging to the framing sentence above. The paragraph is set in a
+     larger face with more line-height leading below its last line, so a
+     gap equal to the inter-link spacing looked detached; pulling it in
+     keeps the whole block proportional. */
+  margin-top: 0.1rem;
   /* One continuous left rule bracketing all three links as a single
      group. Same visual values as the Giving rule (1px var(--rule),
      0.6rem inset) but on the container, not per-item, so it reads as
@@ -521,6 +524,15 @@ html[data-fonts-pending] .panel-label {
 .writing-list .p-name-link .link-arrow {
   color: var(--blue);
   font-weight: 700;
+}
+
+/* Bind each title's final word to its arrow. The arrow is an inline-block
+   (atomic inline box), so the browser allows a line break right before it;
+   on a title that wraps, that lets the arrow orphan onto its own line.
+   nowrap on the trailing word+arrow keeps them one unit while the rest of
+   the title still wraps normally. */
+.writing-list .no-break {
+  white-space: nowrap;
 }
 
 .social-stack,
