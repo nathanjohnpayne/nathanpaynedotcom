@@ -67,6 +67,25 @@ GH_TOKEN="$(op read 'op://Private/pvbq24vl2h6gl7yjclxy2hbote/token')" \
   reviewer identity is still being used. Check the lookup table and verify you
   are using your agent's item ID, not the author identity's.
 
+### No-self-approve scoping
+
+The no-self-approve rule applies only to PRs that meet
+`external_review_threshold` or match `external_review_paths` (the Phase 4
+PRs). For those, the agent's own reviewer identity posts `--comment`
+only. The merge gate is carried by Codex in Phase 4a or by a different
+agent's `APPROVED` review in Phase 4b. Posting `--approve` from the
+authoring agent's own reviewer identity on a Phase 4 PR would
+short-circuit the cross-agent gate the threshold exists to enforce.
+
+For PRs that do not meet the threshold, the reviewer identity posting
+`gh pr review --approve` after CodeRabbit has cleared the current HEAD is
+the intended path. It satisfies branch protection's required-approving-review
+check without bouncing a small, self-contained change to an external
+agent. GitHub blocks true self-approval only when the approving account is
+the same GitHub account as the PR author; in this repo's normal flow,
+the PR author is `nathanjohnpayne` and the reviewer identity is
+`nathanpayne-<agent>`.
+
 ## Workflow
 
 ### Phase 0: Credential Preflight
@@ -104,7 +123,7 @@ If any `op` command fails mid-session (rare—only if 1Password locks or the 12-
 4. The agent switches its Git identity to its reviewer account (e.g., `nathanpayne-claude`).
 5. The reviewer identity checks out the PR branch, reviews the diff, and posts review comments on the PR with specific, actionable feedback.
 6. The agent switches back to `nathanjohnpayne` and addresses each comment—pushing fix commits to the same branch.
-7. Steps 4–6 repeat until the reviewer identity approves the PR with no outstanding issues.
+7. Steps 4–6 repeat until the reviewer identity approves the PR with no outstanding issues. The mechanism of "approves" is scope-dependent: for under-threshold PRs (Phase 3 below), the reviewer identity posts `gh pr review --approve` to satisfy branch protection's required-approving-review check. For above-threshold PRs (Phase 4), the reviewer identity posts `gh pr review --comment` only; the cross-agent merge gate is carried by Phase 4. See [No-self-approve scoping](#no-self-approve-scoping) above.
 
 **All review rounds are captured as GitHub PR comments and commits.** The back-and-forth should read like two developers collaborating.
 
@@ -185,10 +204,14 @@ An agent proceeds to 4a first. If 4a escalates, times out, or is disabled, the a
 16a. Before merging, the agent runs `scripts/codex-review-check.sh <PR#>` to verify the merge gate. All of the following must be true:
 
      - `gh pr checks` reports all required CI checks green
-     - A reviewer identity from `available_reviewers` has posted an `APPROVED` review (Phase 2 internal self-peer review)
-     - Codex has signaled clearance on the current HEAD via one of the two forms in step 12a
+     - **Gate (b)** is satisfied by either:
+       - **Branch 1 (cross-agent):** a reviewer identity from `available_reviewers` has posted an `APPROVED` review, and that reviewer is not the authoring agent's own reviewer identity.
+       - **Branch 2 (same-agent fallback):** when `codex.enabled: true`, the PR's `Authoring-Agent:` matches an entry in `available_reviewers`, and `chatgpt-codex-connector[bot]` has a fresh thumbs-up reaction on the PR issue. This covers single-agent Phase 4 sessions where the no-self-approve rule correctly keeps the authoring agent's reviewer identity in `--comment` mode.
+     - **Gate (c)** is satisfied when Codex has signaled clearance on the current HEAD via one of the two forms in step 12a, or when Phase 4b has landed an `APPROVED` review on the current HEAD from a non-author identity in `available_reviewers`.
 
      **The merge gate must never require an `APPROVED` review state from `chatgpt-codex-connector[bot]`—the app does not emit that state.** This point is load-bearing; a merge gate that looks for Codex APPROVED will never be satisfied and the Phase 4a happy path will be unreachable.
+
+     **No-self-approve rule + branch 2 interaction:** for Phase 4 PRs, the authoring agent's own reviewer identity posts `--comment` only. Branch 2 prevents that rule from deadlocking the merge gate: Codex's thumbs-up carries the cross-check weight for same-agent sessions, while a different agent's `APPROVED` review carries it for cross-agent/Phase 4b sessions.
 
 17a. On a passing merge gate, `nathanjohnpayne` merges the PR with `gh pr merge <n> --squash --delete-branch`. Never `--admin` unless the human explicitly authorizes a break-glass override in chat.
 
@@ -270,8 +293,9 @@ Phase 4b is invoked when Phase 4a escalates to disagreement or runaway, times ou
   │  codex-review-check.sh   │  │  FALLBACK                  │
   │                          │  │                            │
   │  • gh pr checks = green  │  │  Post handoff message;     │
-  │  • internal reviewer     │  │  alert human.              │
-  │    identity APPROVED     │  │                            │
+  │  • gate (b): cross-agent │  │  alert human.              │
+  │    APPROVED OR same-agent│  │                            │
+  │    + Codex thumbs-up     │  │                            │
   │  • Codex cleared on HEAD │  │  Human takes handoff to    │
   │    via COMMENTED-no-P0/1 │  │  different agent CLI       │
   │    OR 👍 reaction        │  │  (e.g. nathanpayne-codex). │
