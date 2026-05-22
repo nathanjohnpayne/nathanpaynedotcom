@@ -204,10 +204,14 @@ An agent proceeds to 4a first. If 4a escalates, times out, or is disabled, the a
 16a. Before merging, the agent runs `scripts/codex-review-check.sh <PR#>` to verify the merge gate. All of the following must be true:
 
      - `gh pr checks` reports all required CI checks green
-     - A reviewer identity from `available_reviewers` has posted an `APPROVED` review (Phase 2 internal self-peer review)
-     - Codex has signaled clearance on the current HEAD via one of the two forms in step 12a
+     - **Gate (b)** is satisfied by either:
+       - **Branch 1 (cross-agent):** a reviewer identity from `available_reviewers` has posted an `APPROVED` review, and that reviewer is not the authoring agent's own reviewer identity.
+       - **Branch 2 (same-agent fallback):** when `codex.enabled: true`, the PR's `Authoring-Agent:` matches an entry in `available_reviewers`, and `chatgpt-codex-connector[bot]` has a fresh thumbs-up reaction on the PR issue. This covers single-agent Phase 4 sessions where the no-self-approve rule correctly keeps the authoring agent's reviewer identity in `--comment` mode.
+     - **Gate (c)** is satisfied when Codex has signaled clearance on the current HEAD via one of the two forms in step 12a, or when Phase 4b has landed an `APPROVED` review on the current HEAD from a non-author identity in `available_reviewers`.
 
      **The merge gate must never require an `APPROVED` review state from `chatgpt-codex-connector[bot]`—the app does not emit that state.** This point is load-bearing; a merge gate that looks for Codex APPROVED will never be satisfied and the Phase 4a happy path will be unreachable.
+
+     **No-self-approve rule + branch 2 interaction:** for Phase 4 PRs, the authoring agent's own reviewer identity posts `--comment` only. Branch 2 prevents that rule from deadlocking the merge gate: Codex's thumbs-up carries the cross-check weight for same-agent sessions, while a different agent's `APPROVED` review carries it for cross-agent/Phase 4b sessions.
 
 17a. On a passing merge gate, `nathanjohnpayne` merges the PR with `gh pr merge <n> --squash --delete-branch`. Never `--admin` unless the human explicitly authorizes a break-glass override in chat.
 
@@ -289,8 +293,9 @@ Phase 4b is invoked when Phase 4a escalates to disagreement or runaway, times ou
   │  codex-review-check.sh   │  │  FALLBACK                  │
   │                          │  │                            │
   │  • gh pr checks = green  │  │  Post handoff message;     │
-  │  • internal reviewer     │  │  alert human.              │
-  │    identity APPROVED     │  │                            │
+  │  • gate (b): cross-agent │  │  alert human.              │
+  │    APPROVED OR same-agent│  │                            │
+  │    + Codex thumbs-up     │  │                            │
   │  • Codex cleared on HEAD │  │  Human takes handoff to    │
   │    via COMMENTED-no-P0/1 │  │  different agent CLI       │
   │    OR 👍 reaction        │  │  (e.g. nathanpayne-codex). │

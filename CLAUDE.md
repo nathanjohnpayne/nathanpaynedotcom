@@ -118,10 +118,12 @@ explicitly authorizes a break-glass override in chat.
       § Disagreements and Tiebreaking: stop the loop, post a summary
       comment on the PR with both positions, alert the human, do NOT merge.
    f. On clearance, run `scripts/codex-review-check.sh <PR#>` to verify
-      the merge gate (CI green + internal reviewer approved + Codex
-      cleared on current HEAD). The merge gate does NOT require an
-      `APPROVED` review state from the Codex bot—the app never emits
-      one. If the gate passes, merge as nathanjohnpayne with
+      the merge gate: CI green, gate (b) cleared by either a cross-agent
+      reviewer `APPROVED` or the same-agent + Codex thumbs-up fallback,
+      and gate (c) cleared by Codex or a Phase 4b substitute review. The
+      merge gate does NOT require an `APPROVED` review state from the
+      Codex bot—the app never emits one. If the gate passes, merge as
+      nathanjohnpayne with
       `gh pr merge --squash --delete-branch`.
 
    **Phase 4b—Manual CLI fallback.** Applies when Phase 4a is
