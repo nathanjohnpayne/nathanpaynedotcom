@@ -17,7 +17,7 @@ status: "SHIPPED"
 metadata:
   format: "Financial operating system"
   focus: "Capitalization, ownership, and investor workflows"
-stack: "Next.js · TypeScript · Firebase · Vitest"
+stack: "Next.js · TypeScript · Tailwind · Zod · Firebase · Vitest"
 related:
   - label: "Blog: Agent Approval Workflow and the Genesis of Mergepath"
     href: "/blog/agent-approval-workflow-genesis-of-mergepath/"

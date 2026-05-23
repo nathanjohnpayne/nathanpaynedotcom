@@ -17,7 +17,7 @@ status: "SHIPPED"
 metadata:
   format: "Household coordination tool"
   focus: "Shared subscriptions and recurring group expenses"
-stack: "React · TypeScript · Vite · Firebase · Vitest"
+stack: "React · JavaScript · Vite · Firebase · Vitest · Playwright"
 related:
   - label: "Blog: Six PRs, One Bug—What AI Agents Actually Get Wrong"
     href: "/blog/six-prs-one-bug-agent-failure-modes/"

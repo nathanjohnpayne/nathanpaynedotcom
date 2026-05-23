@@ -17,7 +17,7 @@ status: "PAUSED"
 metadata:
   format: "Internal platform tool"
   focus: "Partner platforms and device support"
-stack: "React · TypeScript · Vite · Firebase · Vitest"
+stack: "React · TypeScript · Vite · Tailwind · Zod · Firebase · Express · Vitest"
 related:
   - label: "Blog: Six PRs, One Bug—What AI Agents Actually Get Wrong"
     href: "/blog/six-prs-one-bug-agent-failure-modes/"
