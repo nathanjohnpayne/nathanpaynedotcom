@@ -4,8 +4,8 @@
 # Unit tests for scripts/hooks/gh-pr-guard.sh — covers the #241
 # identity-check on `gh pr create`, the #170/#171 mergeStateStatus
 # guard on `gh pr merge`, and a regression net for the existing
-# Authoring-Agent / Self-Review body checks + needs-external-review
-# label check so the newer checks are additive (don't break old
+# Authoring-Agent / Self-Review body checks + needs-external-review /
+# human-hold label checks so the newer checks are additive (don't break old
 # behavior).
 #
 # The hook reads tool_input.command from a JSON envelope on stdin
@@ -122,12 +122,14 @@ run_hook() {
   local skip_id="${3:-0}"
   local merge_state="${4:-CLEAN}"
   local labels="${5:-}"
+  local expected_reviewer="${6:-nathanpayne-claude}"
   local payload
   payload=$(jq -n --arg c "$cmd" '{tool_input: {command: $c}}')
   PATH="$STUB_DIR:$PATH" \
   STUB_ACTIVE_USER="$stub_user" \
   STUB_MERGE_STATE="$merge_state" \
   STUB_LABELS="$labels" \
+  GH_PR_GUARD_EXPECTED_REVIEWER="$expected_reviewer" \
   BOOTSTRAP_GH_PR_GUARD_SKIP_IDENTITY_CHECK="$skip_id" \
     bash "$HOOK" <<<"$payload"
 }
@@ -145,6 +147,7 @@ run_hook_review() {
   local deletions="${6:-0}"
   local pr_head="${7:-feature/some-branch}"
   local pr_author="${8:-nathanjohnpayne}"
+  local expected_reviewer="${9:-nathanpayne-claude}"
   local payload
   payload=$(jq -n --arg c "$cmd" '{tool_input: {command: $c}}')
   PATH="$STUB_DIR:$PATH" \
@@ -154,6 +157,27 @@ run_hook_review() {
   STUB_PR_DELETIONS="$deletions" \
   STUB_PR_HEAD="$pr_head" \
   STUB_PR_AUTHOR="$pr_author" \
+  GH_PR_GUARD_EXPECTED_REVIEWER="$expected_reviewer" \
+  BOOTSTRAP_GH_PR_GUARD_SKIP_IDENTITY_CHECK="$skip_id" \
+    bash "$HOOK" <<<"$payload"
+}
+
+run_hook_agent_context() {
+  local cmd="$1"
+  local stub_user="${2:-nathanpayne-claude}"
+  local agent="${3:-}"
+  local expected_reviewer="${4:-}"
+  local skip_id="${5:-0}"
+  local merge_state="${6:-CLEAN}"
+  local labels="${7:-}"
+  local payload
+  payload=$(jq -n --arg c "$cmd" '{tool_input: {command: $c}}')
+  PATH="$STUB_DIR:$PATH" \
+  STUB_ACTIVE_USER="$stub_user" \
+  STUB_MERGE_STATE="$merge_state" \
+  STUB_LABELS="$labels" \
+  MERGEPATH_AGENT="$agent" \
+  GH_PR_GUARD_EXPECTED_REVIEWER="$expected_reviewer" \
   BOOTSTRAP_GH_PR_GUARD_SKIP_IDENTITY_CHECK="$skip_id" \
     bash "$HOOK" <<<"$payload"
 }
@@ -256,6 +280,18 @@ if [ "$rc" -eq 0 ]; then
   pass "gh pr merge: identity check does NOT fire (create-only); CLEAN merge allowed"
 else
   fail "gh pr merge: exit $rc, expected 0 (identity check should be create-only); output: $out"
+fi
+
+# Parent-level -R/--repo between `pr` and `merge` is valid gh syntax
+# and must still route into the merge guard.
+set +e
+out=$(run_hook 'gh pr -R nathanjohnpayne/mergepath merge 123 --squash --delete-branch' "nathanjohnpayne" "0" "CLEAN" "" 2>&1)
+rc=$?
+set -e
+if [ "$rc" -eq 0 ]; then
+  pass "gh pr -R <repo> merge: parent-level repo flag still routes to merge guard"
+else
+  fail "gh pr -R <repo> merge: exit $rc, expected 0; output: $out"
 fi
 
 # ---------------------------------------------------------------------------
@@ -409,6 +445,23 @@ else
 fi
 
 # ---------------------------------------------------------------------------
+# Test 15b: human-hold blocks even when all agent-side bypass variables are
+# present. This label is human-remove-only and supersedes CODEX_CLEARED,
+# BREAK_GLASS_ADMIN, and BREAK_GLASS_MERGE_STATE.
+# ---------------------------------------------------------------------------
+set +e
+out=$(run_hook 'CODEX_CLEARED=1 BREAK_GLASS_ADMIN=1 BREAK_GLASS_MERGE_STATE=1 gh pr merge 123 --admin --squash' "nathanjohnpayne" "0" "DIRTY" "human-hold" 2>&1)
+rc=$?
+set -e
+if [ "$rc" -ne 2 ]; then
+  fail "merge + human-hold + bypass envs: exit $rc, expected 2; output: $out"
+elif ! echo "$out" | grep -qi "human-hold"; then
+  fail "merge + human-hold: diagnostic missing label reference; output: $out"
+else
+  pass "merge + human-hold: hard hold blocks every agent-side bypass"
+fi
+
+# ---------------------------------------------------------------------------
 # Test 16: a label literally NAMED `team,needs-external-review` (commas
 # are legal in GitHub label names) must NOT false-match the real
 # `needs-external-review` gate. Regression net for the CSV-join
@@ -423,6 +476,18 @@ if [ "$rc" -eq 0 ]; then
   pass "label 'team,needs-external-review' does NOT false-match the needs-external-review gate"
 else
   fail "comma-in-label false-match: exit $rc, expected 0 (the label is not literally 'needs-external-review'); output: $out"
+fi
+
+# Same exact-match rule for human-hold: a comma in another label's
+# literal name must not trip the hard-hold gate.
+set +e
+out=$(run_hook 'gh pr merge 123 --squash' "nathanjohnpayne" "0" "CLEAN" "team,human-hold" 2>&1)
+rc=$?
+set -e
+if [ "$rc" -eq 0 ]; then
+  pass "label 'team,human-hold' does NOT false-match the human-hold gate"
+else
+  fail "comma-in-human-hold-label false-match: exit $rc, expected 0; output: $out"
 fi
 
 # ===========================================================================
@@ -462,6 +527,107 @@ else
 fi
 
 # ---------------------------------------------------------------------------
+# Test 18b: gh pr comment with the WRONG reviewer identity active →
+# blocked. This closes #363: cross-agent keyring drift (claude session
+# with active=nathanpayne-codex) must not silently post under the wrong
+# reviewer byline.
+# ---------------------------------------------------------------------------
+set +e
+out=$(run_hook 'gh pr comment 123 --body "ping"' "nathanpayne-codex" "0" 2>&1)
+rc=$?
+set -e
+if [ "$rc" -ne 2 ]; then
+  fail "pr comment + wrong reviewer identity: exit $rc, expected 2; output: $out"
+elif ! echo "$out" | grep -qi "not the expected reviewer identity"; then
+  fail "pr comment + wrong reviewer identity: diagnostic missing expected-reviewer mismatch; output: $out"
+elif ! echo "$out" | grep -q "gh-as-reviewer.sh"; then
+  fail "pr comment + wrong reviewer identity: diagnostic missing gh-as-reviewer.sh remediation; output: $out"
+else
+  pass "pr comment + wrong reviewer identity: blocked with reviewer mismatch diagnostic"
+fi
+
+# ---------------------------------------------------------------------------
+# Test 18c: GH_PR_GUARD_EXPECTED_REVIEWER override — codex is valid
+# when the operating agent is codex and the hook env says so.
+# ---------------------------------------------------------------------------
+set +e
+out=$(run_hook 'gh pr comment 123 --body "ping"' "nathanpayne-codex" "0" "CLEAN" "" "nathanpayne-codex" 2>&1)
+rc=$?
+set -e
+if [ "$rc" -eq 0 ]; then
+  pass "pr comment + expected-reviewer override: codex active allowed when expected=codex"
+else
+  fail "pr comment + expected-reviewer override: exit $rc, expected 0; output: $out"
+fi
+
+# ---------------------------------------------------------------------------
+# Test 18c2: MERGEPATH_AGENT fallback — codex is valid when the
+# operating agent is codex even if GH_PR_GUARD_EXPECTED_REVIEWER is
+# unset/empty. This keeps the hook aligned with identity-check.sh
+# --expect-reviewer.
+# ---------------------------------------------------------------------------
+set +e
+out=$(run_hook_agent_context 'gh pr comment 123 --body "ping"' "nathanpayne-codex" "codex" "" 2>&1)
+rc=$?
+set -e
+if [ "$rc" -eq 0 ]; then
+  pass "pr comment + MERGEPATH_AGENT fallback: codex active allowed when agent=codex"
+else
+  fail "pr comment + MERGEPATH_AGENT fallback: exit $rc, expected 0; output: $out"
+fi
+
+# ---------------------------------------------------------------------------
+# Test 18c3: explicit expected-reviewer override wins over
+# MERGEPATH_AGENT. This preserves harness-controlled review sessions
+# where the expected reviewer is intentionally pinned.
+# ---------------------------------------------------------------------------
+set +e
+out=$(run_hook_agent_context 'gh pr comment 123 --body "ping"' "nathanpayne-codex" "codex" "nathanpayne-claude" 2>&1)
+rc=$?
+set -e
+if [ "$rc" -ne 2 ]; then
+  fail "pr comment + explicit override precedence: exit $rc, expected 2; output: $out"
+elif ! echo "$out" | grep -q "GH_PR_GUARD_EXPECTED_REVIEWER"; then
+  fail "pr comment + explicit override precedence: diagnostic missing override source; output: $out"
+else
+  pass "pr comment + explicit override precedence: expected-reviewer override beats MERGEPATH_AGENT"
+fi
+
+# ---------------------------------------------------------------------------
+# Test 18c4: MERGEPATH_AGENT fallback blocks a different active
+# reviewer identity, and the diagnostic names the derived reviewer.
+# ---------------------------------------------------------------------------
+set +e
+out=$(run_hook_agent_context 'gh pr comment 123 --body "ping"' "nathanpayne-claude" "cursor" "" 2>&1)
+rc=$?
+set -e
+if [ "$rc" -ne 2 ]; then
+  fail "pr comment + MERGEPATH_AGENT mismatch: exit $rc, expected 2; output: $out"
+elif ! echo "$out" | grep -q "nathanpayne-cursor"; then
+  fail "pr comment + MERGEPATH_AGENT mismatch: diagnostic missing derived cursor reviewer; output: $out"
+elif ! echo "$out" | grep -q "MERGEPATH_AGENT"; then
+  fail "pr comment + MERGEPATH_AGENT mismatch: diagnostic missing MERGEPATH_AGENT source; output: $out"
+else
+  pass "pr comment + MERGEPATH_AGENT mismatch: blocks wrong active reviewer"
+fi
+
+# ---------------------------------------------------------------------------
+# Test 18d: wrapped reviewer writes are allowed by the tokenizer. The
+# hook sees scripts/gh-as-reviewer.sh in command position and the gh
+# command only as an argument; the wrapper is responsible for switching
+# and verifying the identity internally.
+# ---------------------------------------------------------------------------
+set +e
+out=$(run_hook 'scripts/gh-as-reviewer.sh -- gh pr comment 123 --body "ping"' "nathanpayne-codex" "0" 2>&1)
+rc=$?
+set -e
+if [ "$rc" -eq 0 ]; then
+  pass "wrapped pr comment via gh-as-reviewer.sh: allowed"
+else
+  fail "wrapped pr comment via gh-as-reviewer.sh: exit $rc, expected 0; output: $out"
+fi
+
+# ---------------------------------------------------------------------------
 # Test 19: gh pr review --comment with AUTHOR identity → blocked.
 # ---------------------------------------------------------------------------
 set +e
@@ -490,6 +656,22 @@ else
 fi
 
 # ---------------------------------------------------------------------------
+# Test 20b: gh pr review --comment with the wrong reviewer identity
+# active → blocked. Same #363 drift guard as pr comment, but on review.
+# ---------------------------------------------------------------------------
+set +e
+out=$(run_hook 'gh pr review 123 --comment --body "review"' "nathanpayne-codex" "0" 2>&1)
+rc=$?
+set -e
+if [ "$rc" -ne 2 ]; then
+  fail "pr review --comment + wrong reviewer identity: exit $rc, expected 2; output: $out"
+elif ! echo "$out" | grep -qi "not the expected reviewer identity"; then
+  fail "pr review --comment + wrong reviewer identity: diagnostic missing expected-reviewer mismatch; output: $out"
+else
+  pass "pr review --comment + wrong reviewer identity: blocked"
+fi
+
+# ---------------------------------------------------------------------------
 # Test 21: gh issue comment with AUTHOR identity → blocked.
 # ---------------------------------------------------------------------------
 set +e
@@ -515,6 +697,22 @@ if [ "$rc" -eq 0 ]; then
   pass "issue comment + reviewer identity: allowed"
 else
   fail "issue comment + reviewer identity: exit $rc, expected 0; output: $out"
+fi
+
+# ---------------------------------------------------------------------------
+# Test 22b: gh issue comment with the wrong reviewer identity active →
+# blocked.
+# ---------------------------------------------------------------------------
+set +e
+out=$(run_hook 'gh issue comment 7 --body "thanks"' "nathanpayne-codex" "0" 2>&1)
+rc=$?
+set -e
+if [ "$rc" -ne 2 ]; then
+  fail "issue comment + wrong reviewer identity: exit $rc, expected 2; output: $out"
+elif ! echo "$out" | grep -qi "not the expected reviewer identity"; then
+  fail "issue comment + wrong reviewer identity: diagnostic missing expected-reviewer mismatch; output: $out"
+else
+  pass "issue comment + wrong reviewer identity: blocked"
 fi
 
 # ---------------------------------------------------------------------------
@@ -583,6 +781,108 @@ else
 fi
 
 # ---------------------------------------------------------------------------
+# Test 23e: compound commands with leading allowed gh issue subcommands
+# followed by a guarded merge are blocked before the leading allow-exit
+# can bypass the merge guard (#348). Covers the known issue allow-exit
+# family: close / view / list / edit.
+# ---------------------------------------------------------------------------
+for leading_issue_subcommand in close view list edit; do
+  case "$leading_issue_subcommand" in
+    list) leading_issue_cmd="gh issue list" ;;
+    *) leading_issue_cmd="gh issue $leading_issue_subcommand 7" ;;
+  esac
+  set +e
+  out=$(run_hook "$leading_issue_cmd && gh pr merge --admin 123" "nathanjohnpayne" "0" "CLEAN" "" 2>&1)
+  rc=$?
+  set -e
+  if [ "$rc" -ne 2 ]; then
+    fail "compound issue-$leading_issue_subcommand then merge: exit $rc, expected 2; output: $out"
+  elif ! echo "$out" | grep -qi "#348"; then
+    fail "compound issue-$leading_issue_subcommand then merge: diagnostic missing #348; output: $out"
+  elif ! echo "$out" | grep -qi "gh pr merge"; then
+    fail "compound issue-$leading_issue_subcommand then merge: diagnostic missing guarded merge label; output: $out"
+  else
+    pass "compound issue-$leading_issue_subcommand then merge: blocked by #348 fail-closed guard"
+  fi
+done
+
+# ---------------------------------------------------------------------------
+# Test 23f: compound command with a leading allowed gh pr view followed by
+# a guarded merge is also blocked. This covers the PR allow-exit shape,
+# not just the issue allow-exit shape (#348).
+# ---------------------------------------------------------------------------
+set +e
+out=$(run_hook 'gh pr view 7 && gh pr merge 123 --squash' "nathanjohnpayne" "0" "CLEAN" "" 2>&1)
+rc=$?
+set -e
+if [ "$rc" -ne 2 ]; then
+  fail "compound pr-view then merge: exit $rc, expected 2; output: $out"
+elif ! echo "$out" | grep -qi "#348"; then
+  fail "compound pr-view then merge: diagnostic missing #348; output: $out"
+else
+  pass "compound pr-view then merge: blocked by #348 fail-closed guard"
+fi
+
+set +e
+out=$(run_hook 'gh issue close 7 && gh pr -R nathanjohnpayne/mergepath merge --admin 123' "nathanjohnpayne" "0" "CLEAN" "" 2>&1)
+rc=$?
+set -e
+if [ "$rc" -ne 2 ]; then
+  fail "compound issue-close then parent-repo merge: exit $rc, expected 2; output: $out"
+elif ! echo "$out" | grep -qi "#348"; then
+  fail "compound issue-close then parent-repo merge: diagnostic missing #348; output: $out"
+else
+  pass "compound issue-close then parent-repo merge: parent-level -R does not bypass #348 guard"
+fi
+
+# `|&` is Bash's stdout+stderr pipe separator. It must split command
+# position the same way `|` does, or a leading allowed gh command can
+# still hide a guarded write in the second segment.
+set +e
+out=$(run_hook 'gh issue close 7 |& gh pr merge --admin 123' "nathanjohnpayne" "0" "CLEAN" "" 2>&1)
+rc=$?
+set -e
+if [ "$rc" -ne 2 ]; then
+  fail "compound issue-close pipe-err then merge: exit $rc, expected 2; output: $out"
+elif ! echo "$out" | grep -qi "#348"; then
+  fail "compound issue-close pipe-err then merge: diagnostic missing #348; output: $out"
+else
+  pass "compound issue-close pipe-err then merge: |& separator is blocked by #348 guard"
+fi
+
+# ---------------------------------------------------------------------------
+# Test 23g: gh issue create remains allowed as a single command, but a
+# compound issue-create followed by a guarded merge is blocked. This keeps
+# the intended issue-create workflow while closing the chained bypass.
+# ---------------------------------------------------------------------------
+set +e
+out=$(run_hook 'gh issue create --title "Bug" --body "filed" && gh pr merge --admin 123' "nathanjohnpayne" "0" "CLEAN" "" 2>&1)
+rc=$?
+set -e
+if [ "$rc" -ne 2 ]; then
+  fail "compound issue-create then merge: exit $rc, expected 2; output: $out"
+elif ! echo "$out" | grep -qi "#348"; then
+  fail "compound issue-create then merge: diagnostic missing #348; output: $out"
+else
+  pass "compound issue-create then merge: issue-create stays allowed only as a single gh command"
+fi
+
+# ---------------------------------------------------------------------------
+# Test 23h: multiple gh invocations are allowed when none is a guarded
+# write. The #348 fail-closed rule is scoped to compounds that contain
+# pr create/merge/comment/review or issue comment.
+# ---------------------------------------------------------------------------
+set +e
+out=$(run_hook 'gh issue close 7 && gh issue view 7' "nathanjohnpayne" "0" 2>&1)
+rc=$?
+set -e
+if [ "$rc" -eq 0 ]; then
+  pass "compound unguarded issue commands: allowed"
+else
+  fail "compound unguarded issue commands: exit $rc, expected 0; output: $out"
+fi
+
+# ---------------------------------------------------------------------------
 # Test 24: gh pr review --approve self-approve on over-threshold PR
 # (Authoring-Agent: claude + active=nathanpayne-claude + size > threshold)
 # → blocked. Uses a synthetic body that names claude as the authoring
@@ -611,7 +911,7 @@ fi
 # ---------------------------------------------------------------------------
 set +e
 out=$(run_hook_review 'gh pr review 123 --approve --body "lgtm"' "nathanpayne-codex" "0" \
-  "Authoring-Agent: claude" "5000" "0" 2>&1)
+  "Authoring-Agent: claude" "5000" "0" "feature/some-branch" "nathanjohnpayne" "nathanpayne-codex" 2>&1)
 rc=$?
 set -e
 if [ "$rc" -eq 0 ]; then
