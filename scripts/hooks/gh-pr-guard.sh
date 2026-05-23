@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # gh-pr-guard.sh — PreToolUse hook for Claude Code
 #
-# Gates four operations:
+# Gates five operations:
 #   1. gh pr create — blocks unless (a) the keyring's active gh
 #      account is the AUTHOR identity (nathanjohnpayne by default;
 #      override via GH_PR_GUARD_EXPECTED_AUTHOR), AND (b) the command
@@ -24,7 +24,11 @@
 #      blocks). Originated downstream (matchline #170/#171) and is
 #      unified into the canonical hook here so propagation no longer
 #      clobbers the feature — see the propagation-wave retro.
-#   4. gh pr merge (non-admin) — blocks when the target PR carries
+#   4. gh pr merge (any flavor) — blocks when the target PR carries
+#      `human-hold`, with no CODEX_CLEARED / BREAK_GLASS_* bypass.
+#      This is the human-controlled hard freeze: agents may add the
+#      label, but only the human releases it.
+#   5. gh pr merge (non-admin) — blocks when the target PR carries
 #      the `needs-external-review` label unless CODEX_CLEARED=1
 #      (agent must have just run scripts/codex-review-check.sh
 #      successfully). This enforces REVIEW_POLICY.md § Phase 4a
@@ -42,13 +46,15 @@
 #     - gh pr review <PR#> --comment / --approve / --request-changes
 #     - gh issue comment <issue#> --body "..."
 #
-#   For all three, the keyring's active account must be the agent's
-#   REVIEWER identity (nathanpayne-<agent>, default nathanpayne-claude;
-#   override via GH_PR_GUARD_EXPECTED_REVIEWER). Posting these as the
-#   AUTHOR identity (nathanjohnpayne) breaks the audit-trail
-#   convention REVIEW_POLICY.md depends on — reviewer comments must
-#   attribute to the reviewer. The check fires before the keyring
-#   write so misattributed comments never land.
+#   For all three, the keyring's active account must exactly match the
+#   operating agent's REVIEWER identity. The expected reviewer resolves
+#   as: explicit GH_PR_GUARD_EXPECTED_REVIEWER override, else
+#   nathanpayne-$MERGEPATH_AGENT, else nathanpayne-claude.
+#   Posting these as the AUTHOR identity (nathanjohnpayne), or as the
+#   wrong reviewer identity after cross-session keyring drift, breaks
+#   the audit-trail convention REVIEW_POLICY.md depends on — reviewer
+#   comments must attribute to the reviewer. The check fires before
+#   the keyring write so misattributed comments never land.
 #
 #   `gh issue create` is intentionally NOT in this set. It was briefly
 #   guarded (#317, after the mergepath#315 misattribution) but that
@@ -134,6 +140,13 @@
 #   branches.
 #
 # Design notes:
+#
+#   - Compound Bash tool calls that contain multiple command-position
+#     `gh` invocations now fail closed when any invocation is a
+#     guarded write (pr create/merge/comment/review or issue
+#     comment). This is deliberately conservative: split multi-step
+#     GitHub work into separate Bash tool calls so each write gets
+#     the same single-command guard path (#348).
 #
 #   - The CODEX_CLEARED check is a hook-layer defense-in-depth.
 #     The authoritative merge gate is scripts/codex-review-check.sh;
@@ -329,6 +342,189 @@ while IFS= read -r -d '' tok; do
   TOKENS+=("$tok")
 done < "$TMP_TOKENS"
 
+# #348 defense: the main parser below intentionally identifies one
+# `gh` invocation and then routes it through the existing per-command
+# policy. That was enough for single commands, but a compound shell
+# input could put an allow-listed `gh` first and a guarded write second
+# (`gh issue close 1 && gh pr merge --admin 2`). The first command hit
+# an allow-exit and the second write never reached the guard. Keep the
+# per-command parser unchanged for normal commands, but fail closed when
+# one Bash tool call contains multiple command-position gh invocations
+# and any of them is a guarded write.
+is_guard_separator() {
+  case "$1" in
+    "&&"|"||"|";"|"|"|"|&"|"&"|"("|")")
+      return 0
+      ;;
+  esac
+  return 1
+}
+
+prefix_flag_takes_value() {
+  case "$1:$2" in
+    sudo:-u|sudo:-g|sudo:-U|sudo:-h|sudo:-p|sudo:-r|sudo:-s|sudo:-t|sudo:-c|sudo:-D)
+      return 0
+      ;;
+    time:-f|time:-o)
+      return 0
+      ;;
+    nice:-n)
+      return 0
+      ;;
+    ionice:-c|ionice:-n|ionice:-p)
+      return 0
+      ;;
+    env:-u|env:-S)
+      return 0
+      ;;
+  esac
+  return 1
+}
+
+guarded_gh_invocation_label() {
+  local gh_index="$1"
+  local parent=""
+  local skip_global_as=""
+  local k
+  local tok
+
+  for k in "${!TOKENS[@]}"; do
+    if [ "$k" -le "$gh_index" ]; then
+      continue
+    fi
+
+    tok="${TOKENS[$k]}"
+    if is_guard_separator "$tok"; then
+      return 1
+    fi
+
+    if [ "$skip_global_as" = "repo" ]; then
+      skip_global_as=""
+      continue
+    fi
+
+    if [ -z "$parent" ]; then
+      case "$tok" in
+        pr|issue)
+          parent="$tok"
+          continue
+          ;;
+        -R|--repo)
+          skip_global_as="repo"
+          continue
+          ;;
+        -R=*|--repo=*)
+          continue
+          ;;
+        -*)
+          continue
+          ;;
+        *)
+          return 1
+          ;;
+      esac
+    fi
+
+    case "$tok" in
+      -R|--repo)
+        skip_global_as="repo"
+        continue
+        ;;
+      -R=*|--repo=*)
+        continue
+        ;;
+      -*)
+        continue
+        ;;
+    esac
+
+    case "$parent:$tok" in
+      pr:create|pr:merge|pr:comment|pr:review)
+        printf 'gh pr %s\n' "$tok"
+        return 0
+        ;;
+      issue:comment)
+        printf 'gh issue comment\n'
+        return 0
+        ;;
+      *)
+        return 1
+        ;;
+    esac
+  done
+
+  return 1
+}
+
+COMPOUND_GH_COUNT=0
+COMPOUND_GUARDED_COUNT=0
+COMPOUND_GUARDED_EXAMPLES=""
+SCAN_AT_COMMAND_POSITION=1
+SCAN_SKIP_PREFIX_VALUE=0
+SCAN_CURRENT_PREFIX=""
+for i in "${!TOKENS[@]}"; do
+  tok="${TOKENS[$i]}"
+
+  if is_guard_separator "$tok"; then
+    SCAN_AT_COMMAND_POSITION=1
+    SCAN_SKIP_PREFIX_VALUE=0
+    SCAN_CURRENT_PREFIX=""
+    continue
+  fi
+
+  if [ "$SCAN_SKIP_PREFIX_VALUE" -eq 1 ]; then
+    SCAN_SKIP_PREFIX_VALUE=0
+    continue
+  fi
+
+  if [ "$SCAN_AT_COMMAND_POSITION" -eq 0 ]; then
+    continue
+  fi
+
+  case "$tok" in
+    [A-Za-z_]*=*)
+      continue
+      ;;
+    sudo|eval|time|nohup|env|command|exec|nice|ionice)
+      SCAN_CURRENT_PREFIX="$tok"
+      continue
+      ;;
+    -*)
+      if prefix_flag_takes_value "$SCAN_CURRENT_PREFIX" "$tok"; then
+        SCAN_SKIP_PREFIX_VALUE=1
+      fi
+      continue
+      ;;
+    gh)
+      COMPOUND_GH_COUNT=$((COMPOUND_GH_COUNT + 1))
+      if guarded_label=$(guarded_gh_invocation_label "$i"); then
+        COMPOUND_GUARDED_COUNT=$((COMPOUND_GUARDED_COUNT + 1))
+        if [ -z "$COMPOUND_GUARDED_EXAMPLES" ]; then
+          COMPOUND_GUARDED_EXAMPLES="$guarded_label"
+        elif ! printf '%s\n' "$COMPOUND_GUARDED_EXAMPLES" | grep -Fxq "$guarded_label"; then
+          COMPOUND_GUARDED_EXAMPLES="${COMPOUND_GUARDED_EXAMPLES}
+$guarded_label"
+        fi
+      fi
+      SCAN_AT_COMMAND_POSITION=0
+      continue
+      ;;
+    *)
+      SCAN_AT_COMMAND_POSITION=0
+      continue
+      ;;
+  esac
+done
+
+if [ "$COMPOUND_GH_COUNT" -gt 1 ] && [ "$COMPOUND_GUARDED_COUNT" -gt 0 ]; then
+  echo "BLOCKED: compound gh command contains a guarded write (#348)." >&2
+  echo "  Detected $COMPOUND_GH_COUNT command-position gh invocations in one Bash call." >&2
+  echo "  Guarded write(s) present:" >&2
+  printf '%s\n' "$COMPOUND_GUARDED_EXAMPLES" | sed 's/^/    - /' >&2
+  echo "  Split this into separate Bash tool calls so gh-pr-guard can evaluate each gh write independently." >&2
+  exit 2
+fi
+
 # --- detect the pr subcommand, capturing any global -R/--repo ---
 #
 # Walk tokens to find `gh` IN COMMAND POSITION, then identify the
@@ -347,7 +543,7 @@ done < "$TMP_TOKENS"
 #       - prefix commands         sudo, eval, time, nohup, env,
 #                                 command, exec, nice, ionice
 #       - flags of those prefixes -X
-#       - compound separators     ;  &&  ||  |  &  (
+#       - compound separators     ;  &&  ||  |  |&  &  (
 #       - gh                      → transition to phase 2
 #     Any other token is treated as the START of a non-gh command,
 #     and we transition to IN_UNRELATED_ARGS to skip its arguments.
@@ -368,8 +564,9 @@ done < "$TMP_TOKENS"
 # is harmless: the EFFECTIVE_* values are only consulted by the
 # create/merge guards, which only run when SAW_GH=1.)
 #
-# Tokens BETWEEN `gh` and `pr` are global gh flags. The only global
-# value-taking flag we explicitly handle is -R/--repo; everything
+# Tokens BETWEEN `gh` and `pr` (and parent-level tokens between
+# `pr`/`issue` and the subcommand) may contain inherited gh flags. The
+# only value-taking flag we explicitly handle is -R/--repo; everything
 # else starting with - is assumed boolean and skipped.
 INLINE_CODEX_CLEARED=""
 INLINE_BREAK_GLASS_ADMIN=""
@@ -434,6 +631,26 @@ for i in "${!TOKENS[@]}"; do
           ;;
       esac
     fi
+    # SAW_PR=1 OR SAW_ISSUE=1 — parent-level gh flags may still
+    # appear before the subcommand, e.g. `gh pr -R owner/repo merge`.
+    case "$tok" in
+      -R|--repo)
+        SKIP_GLOBAL_AS="repo"
+        continue
+        ;;
+      -R=*)
+        GLOBAL_REPO="${tok#-R=}"
+        continue
+        ;;
+      --repo=*)
+        GLOBAL_REPO="${tok#--repo=}"
+        continue
+        ;;
+      -*)
+        continue
+        ;;
+    esac
+
     # SAW_PR=1 OR SAW_ISSUE=1 — this token IS the subcommand.
     PR_SUBCOMMAND="$tok"
     PR_SUBCOMMAND_INDEX=$i
@@ -465,7 +682,7 @@ for i in "${!TOKENS[@]}"; do
   # to the gh process. nathanpayne-codex caught this on swipewatch
   # propagation PR #33 round 5 — privilege escalation potential.
   case "$tok" in
-    "&&"|"||"|";"|"|"|"&"|"("|")")
+    "&&"|"||"|";"|"|"|"|&"|"&"|"("|")")
       AT_COMMAND_POSITION=1
       CURRENT_PREFIX=""
       # Clear inline env vars ONLY when the segment that just ended
@@ -554,29 +771,13 @@ for i in "${!TOKENS[@]}"; do
       # Per-prefix value-flag map. nathanpayne-codex caught the
       # original bug (sudo -u, time -f, nice -n) on PR #66
       # round 6; the per-prefix scoping prevents the obvious
-      # over-fix from breaking `time -p`.
-      case "$CURRENT_PREFIX:$tok" in
-        sudo:-u|sudo:-g|sudo:-U|sudo:-h|sudo:-p|sudo:-r|sudo:-s|sudo:-t|sudo:-c|sudo:-D)
-          SKIP_PREFIX_VALUE=1
-          continue
-          ;;
-        time:-f|time:-o)
-          SKIP_PREFIX_VALUE=1
-          continue
-          ;;
-        nice:-n)
-          SKIP_PREFIX_VALUE=1
-          continue
-          ;;
-        ionice:-c|ionice:-n|ionice:-p)
-          SKIP_PREFIX_VALUE=1
-          continue
-          ;;
-        env:-u|env:-S)
-          SKIP_PREFIX_VALUE=1
-          continue
-          ;;
-      esac
+      # over-fix from breaking `time -p`. Keep this shared with
+      # the #348 compound pre-scan so both walks classify prefixes
+      # identically.
+      if prefix_flag_takes_value "$CURRENT_PREFIX" "$tok"; then
+        SKIP_PREFIX_VALUE=1
+        continue
+      fi
       # Otherwise: boolean flag of the current prefix (or a flag
       # of an unknown prefix, which we conservatively assume is
       # boolean to avoid eating `gh`). Stay in command position.
@@ -632,10 +833,10 @@ fi
 # --- byline guard for pr comment / pr review / issue comment ---
 #
 # These three subcommands share a single policy: the keyring's active
-# account must be the agent's REVIEWER identity (not the author
-# identity). Posting any of them under nathanjohnpayne mis-attributes
-# the byline in a way that breaks the audit-trail invariant
-# REVIEW_POLICY.md depends on.
+# account must exactly match the operating agent's REVIEWER identity.
+# Posting any of them under nathanjohnpayne OR the wrong reviewer
+# identity mis-attributes the byline in a way that breaks the
+# audit-trail invariant REVIEW_POLICY.md depends on.
 #
 # `gh issue create` is deliberately excluded — it was briefly guarded
 # here (#317, after the mergepath#315 misattribution) but reverted,
@@ -645,7 +846,18 @@ fi
 # The `gh pr review --approve` self-approve sub-guard runs after this
 # block — only if we made it past the basic byline check does the
 # self-approve question even arise.
-EXPECTED_REVIEWER="${GH_PR_GUARD_EXPECTED_REVIEWER:-nathanpayne-claude}"
+if [ -n "${GH_PR_GUARD_EXPECTED_REVIEWER:-}" ]; then
+  EXPECTED_REVIEWER="$GH_PR_GUARD_EXPECTED_REVIEWER"
+  EXPECTED_REVIEWER_SOURCE="GH_PR_GUARD_EXPECTED_REVIEWER"
+else
+  EXPECTED_REVIEWER_AGENT="${MERGEPATH_AGENT:-claude}"
+  EXPECTED_REVIEWER="nathanpayne-$EXPECTED_REVIEWER_AGENT"
+  if [ -n "${MERGEPATH_AGENT:-}" ]; then
+    EXPECTED_REVIEWER_SOURCE="MERGEPATH_AGENT"
+  else
+    EXPECTED_REVIEWER_SOURCE="default"
+  fi
+fi
 if [ "$PR_SUBCOMMAND" = "comment" ] || [ "$PR_SUBCOMMAND" = "review" ] || [ "$IS_ISSUE_COMMENT" -eq 1 ]; then
   if [ "${BOOTSTRAP_GH_PR_GUARD_SKIP_IDENTITY_CHECK:-0}" != "1" ]; then
     ACTIVE_GH_USER=$(gh config get -h github.com user 2>/dev/null || echo "")
@@ -655,27 +867,27 @@ if [ "$PR_SUBCOMMAND" = "comment" ] || [ "$PR_SUBCOMMAND" = "review" ] || [ "$IS
       echo "  Run 'gh auth login' for the $EXPECTED_REVIEWER identity, then retry." >&2
       exit 2
     fi
-    # Block when active is the author identity. Any other identity is
-    # allowed through here (the reviewer-vs-author split is the
-    # load-bearing distinction in this codebase); a downstream consumer
-    # that wires up a third identity per agent can override
-    # GH_PR_GUARD_EXPECTED_REVIEWER to match.
     EXPECTED_AUTHOR_FOR_BLOCK="${GH_PR_GUARD_EXPECTED_AUTHOR:-nathanjohnpayne}"
-    if [ "$ACTIVE_GH_USER" = "$EXPECTED_AUTHOR_FOR_BLOCK" ]; then
+    if [ "$ACTIVE_GH_USER" != "$EXPECTED_REVIEWER" ]; then
       cmd_label=""
       case "$PR_SUBCOMMAND" in
         comment) cmd_label="gh pr comment" ;;
         review)  cmd_label="gh pr review" ;;
       esac
       [ "$IS_ISSUE_COMMENT" -eq 1 ] && cmd_label="gh issue comment"
-      echo "BLOCKED: $cmd_label is about to run under active account '$ACTIVE_GH_USER' (the AUTHOR identity)." >&2
+      if [ "$ACTIVE_GH_USER" = "$EXPECTED_AUTHOR_FOR_BLOCK" ]; then
+        active_role="the AUTHOR identity"
+      else
+        active_role="not the expected reviewer identity"
+      fi
+      echo "BLOCKED: $cmd_label is about to run under active account '$ACTIVE_GH_USER' ($active_role)." >&2
       echo "" >&2
       echo "  Reviewer-byline commands (pr comment / pr review / issue comment)" >&2
-      echo "  must attribute to the agent's REVIEWER identity ('$EXPECTED_REVIEWER' by default)," >&2
-      echo "  not the author identity. Posting as '$EXPECTED_AUTHOR_FOR_BLOCK' breaks the audit-" >&2
-      echo "  trail convention REVIEW_POLICY.md depends on." >&2
+      echo "  must attribute to the operating agent's REVIEWER identity ('$EXPECTED_REVIEWER' for this hook invocation, from $EXPECTED_REVIEWER_SOURCE)." >&2
+      echo "  Posting as '$ACTIVE_GH_USER' breaks the audit-trail convention REVIEW_POLICY.md depends on." >&2
       echo "" >&2
       echo "  Fix once: gh auth switch -u $EXPECTED_REVIEWER" >&2
+      echo "  Or set MERGEPATH_AGENT=<agent> / GH_PR_GUARD_EXPECTED_REVIEWER=$ACTIVE_GH_USER only if that is this agent's true reviewer identity." >&2
       echo "  Or wrap the single call: scripts/gh-as-reviewer.sh -- $cmd_label ..." >&2
       echo "  See REVIEW_POLICY.md § Operation-to-Identity Matrix." >&2
       exit 2
@@ -1125,6 +1337,17 @@ fi
 # gate further down — never re-join it into a delimited string.
 MERGE_STATE=$(printf '%s\n' "$GH_OUTPUT" | sed -n '1p')
 LABELS=$(printf '%s\n' "$GH_OUTPUT" | sed -n '2,$p')
+
+# `human-hold` is a human-controlled hard freeze. Check it before
+# mergeStateStatus, --admin, or needs-external-review handling so no
+# agent-side bypass variable can release the hold. The only release
+# path is the human removing the label.
+if printf '%s\n' "$LABELS" | grep -Fxq "human-hold"; then
+  echo "BLOCKED: PR carries 'human-hold'." >&2
+  echo "  This is a human-remove-only hard hold and supersedes all merge gates." >&2
+  echo "  Ask the human to remove the label before merging; no agent bypass is available." >&2
+  exit 2
+fi
 
 # mergeStateStatus check (#171 layer 2). API enum (full set per
 # GitHub GraphQL `MergeStateStatus`):
