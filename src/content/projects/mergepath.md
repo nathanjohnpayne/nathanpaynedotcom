@@ -12,12 +12,12 @@ gradientFrom: "#dce3f0"
 gradientTo: "#f5f0e4"
 liveUrl: "https://htmlpreview.github.io/?https://raw.githubusercontent.com/nathanjohnpayne/mergepath/main/mergepath/playground/index.html"
 githubUrl: "https://github.com/nathanjohnpayne/mergepath"
-tags: ["Infrastructure", "AI Tooling", "GitHub Actions", "Bash/Python"]
+tags: ["Infrastructure", "AI Tooling", "GitHub Actions", "Bash"]
 status: "SHIPPED"
 metadata:
   format: "Repository standard"
   focus: "Agent governance, code review, and CI enforcement"
-stack: "Bash · Python · GitHub Actions · 1Password · Claude Code · Codex · Cursor · CodeRabbit"
+stack: "Bash · GitHub Actions · 1Password · Claude Code · Codex · Cursor · CodeRabbit"
 related:
   - label: "Blog: Agent Approval Workflow and the Genesis of Mergepath"
     href: "/blog/agent-approval-workflow-genesis-of-mergepath/"
