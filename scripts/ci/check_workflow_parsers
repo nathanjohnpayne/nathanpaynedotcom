@@ -55,6 +55,35 @@ assert_eq() {
   fi
 }
 
+workflow_guard_block_contains_exit() {
+  local file="$1" guard="$2" required="$3"
+  WORKFLOW_GUARD="$guard" WORKFLOW_REQUIRED="$required" awk '
+    BEGIN {
+      guard = ENVIRON["WORKFLOW_GUARD"]
+      required = ENVIRON["WORKFLOW_REQUIRED"]
+    }
+    /^[[:space:]]*#/ {
+      next
+    }
+    index($0, guard) {
+      in_block = 1
+      saw_guard = 1
+    }
+    in_block && index($0, required) {
+      saw_required = 1
+    }
+    in_block && /^[[:space:]]*exit[[:space:]]+1([[:space:]]|$)/ {
+      saw_exit = 1
+    }
+    in_block && /^[[:space:]]*fi[[:space:]]*$/ {
+      exit
+    }
+    END {
+      exit (saw_guard && saw_required && saw_exit) ? 0 : 1
+    }
+  ' "$file"
+}
+
 # Classify a phase_4b_default value read from review-policy.yml.
 # Echoes "valid" or "invalid".
 #
@@ -70,6 +99,13 @@ assert_eq() {
 classify_phase_4b() {
   case "$1" in
     ""|fallback-only|complex-changes|always) echo "valid" ;;
+    *) echo "invalid" ;;
+  esac
+}
+
+classify_boolean() {
+  case "$1" in
+    ""|true|false) echo "valid" ;;
     *) echo "invalid" ;;
   esac
 }
@@ -224,6 +260,74 @@ fi
 rm -f "$manifest_fixture" "$manifest_notype"
 
 echo
+echo "codex_field (codex block scalar) tests — for codex.enabled (#362)"
+
+real_policy="$ROOT/.github/review-policy.yml"
+
+# Inline copy of the same awk codex_field uses inside
+# scripts/codex-review-check.sh. Keeping the test in lockstep with the
+# parser shape — if the parser changes, this awk literal needs the same
+# update. Documented inline rather than sourced from the script because
+# sourcing codex-review-check.sh runs its full top-level logic.
+codex_field_awk='
+  /^codex:/ {in_block=1; next}
+  in_block && /^[^[:space:]#]/ {in_block=0}
+  in_block && $1 == field":" {
+    sub(/^[[:space:]]*[^:]+:[[:space:]]*/, "", $0)
+    gsub(/^["\047]/, "", $0)
+    gsub(/["\047][[:space:]]*(#.*)?$/, "", $0)
+    gsub(/[[:space:]]*#.*$/, "", $0)
+    sub(/[[:space:]]+$/, "", $0)
+    print
+    exit
+  }
+'
+
+got=$(printf 'codex:\n  enabled: false\n' | awk -v field="enabled" "$codex_field_awk")
+assert_eq "codex_field reads codex.enabled=false" "false" "$got"
+
+got=$(printf 'codex:\n  enabled: true   # Codex app lane on\n' | awk -v field="enabled" "$codex_field_awk")
+assert_eq "codex_field strips trailing comments from codex.enabled" "true" "$got"
+
+got=$(printf 'enabled: false\ncodex:\n  enabled: true\n' | awk -v field="enabled" "$codex_field_awk")
+assert_eq "codex_field ignores same-named top-level field" "true" "$got"
+
+got=$(printf 'codex:\n  enabled: "false"\n' | awk -v field="enabled" "$codex_field_awk")
+assert_eq "codex_field strips double quotes" "false" "$got"
+
+got=$(printf "%s\n" "codex:" "  enabled: 'false'" | awk -v field="enabled" "$codex_field_awk")
+assert_eq "codex_field strips single quotes" "false" "$got"
+
+got=$(printf 'coderabbit:\n  enabled: false\n' | awk -v field="enabled" "$codex_field_awk")
+assert_eq "codex_field returns empty when codex block missing" "" "$got"
+
+real_has_codex_enabled=0
+if awk '
+  /^codex:/ {in_block=1; next}
+  in_block && /^[^[:space:]#]/ {in_block=0}
+  in_block && $1 == "enabled:" {found=1}
+  END {exit found ? 0 : 1}
+' "$real_policy"; then
+  real_has_codex_enabled=1
+fi
+
+got=$(awk -v field="enabled" "$codex_field_awk" "$real_policy")
+if [ -z "$got" ] && [ "$real_has_codex_enabled" -eq 1 ]; then
+  fail=$((fail + 1))
+  echo "  FAIL: real .github/review-policy.yml contains codex.enabled, but codex_field returned empty" >&2
+elif [ "$(classify_boolean "$got")" = "valid" ]; then
+  pass=$((pass + 1))
+  if [ -z "$got" ]; then
+    echo "  PASS: real .github/review-policy.yml has no codex.enabled (valid — defaults to true)"
+  else
+    echo "  PASS: real .github/review-policy.yml has a valid codex.enabled value ('$got')"
+  fi
+else
+  fail=$((fail + 1))
+  echo "  FAIL: real .github/review-policy.yml codex.enabled is set to an unrecognized value (got '$got'; expected true / false, or absent for the true default)" >&2
+fi
+
+echo
 echo "policy_field (top-level scalar) tests — for phase_4b_default (#185)"
 
 # Inline copy of the same awk policy_field uses inside
@@ -234,8 +338,8 @@ echo "policy_field (top-level scalar) tests — for phase_4b_default (#185)"
 policy_field_awk='
   /^[^[:space:]]/ && $1 == field":" {
     sub(/^[[:space:]]*[^:]+:[[:space:]]*/, "", $0)
-    gsub(/^"/, "", $0)
-    gsub(/"[[:space:]]*(#.*)?$/, "", $0)
+    gsub(/^["\047]/, "", $0)
+    gsub(/["\047][[:space:]]*(#.*)?$/, "", $0)
     gsub(/[[:space:]]*#.*$/, "", $0)
     sub(/[[:space:]]+$/, "", $0)
     print
@@ -263,6 +367,10 @@ assert_eq "policy_field reads field amid other top-level fields" "fallback-only"
 # Fixture: field with double quotes (matches the parser's quote-stripping).
 got=$(printf '%s\n' 'phase_4b_default: "complex-changes"' | awk -v field="phase_4b_default" "$policy_field_awk")
 assert_eq "policy_field strips surrounding quotes" "complex-changes" "$got"
+
+# Fixture: field with single quotes (same quote-stripping path).
+got=$(printf "%s\n" "phase_4b_default: 'complex-changes'" | awk -v field="phase_4b_default" "$policy_field_awk")
+assert_eq "policy_field strips single quotes" "complex-changes" "$got"
 
 # Regression: nested same-named key under a parent block must NOT match
 # (Codex P2 on PR #189 — top-level lookup should be anchored to the
@@ -314,6 +422,212 @@ elif [ "$(classify_phase_4b "$got")" = "valid" ]; then
 else
   fail=$((fail + 1))
   echo "  FAIL: real .github/review-policy.yml phase_4b_default is set to an unrecognized value (got '$got'; expected one of fallback-only / complex-changes / always, or absent for the fallback-only default)"
+fi
+
+echo
+echo "agent-review.yml blocking-label exact-match regression (#370)"
+
+# The pre-merge recheck must treat GitHub labels as an array of exact
+# names. A CSV join plus `case "*,human-hold,*"` false-matches a legal
+# label literally named `team,human-hold`, which can block unrelated PRs.
+workflow_label_query=$(grep -F -- "--jq '.labels[].name'" ".github/workflows/agent-review.yml" || true)
+if [ -n "$workflow_label_query" ]; then
+  pass=$((pass + 1))
+  echo "  PASS: agent-review pre-merge recheck reads labels one per line"
+else
+  fail=$((fail + 1))
+  echo "  FAIL: agent-review pre-merge recheck must read labels one per line with --jq '.labels[].name'" >&2
+fi
+
+legacy_csv_join=$(grep -F -- "--jq '[.labels[].name] | join(\",\")'" ".github/workflows/agent-review.yml" || true)
+if [ -z "$legacy_csv_join" ]; then
+  pass=$((pass + 1))
+  echo "  PASS: agent-review pre-merge recheck does not collapse labels into CSV"
+else
+  fail=$((fail + 1))
+  echo "  FAIL: agent-review pre-merge recheck still collapses labels into CSV" >&2
+  echo "$legacy_csv_join" | sed 's/^/    /' >&2
+fi
+
+exact_label_match=$(grep -F 'grep -Fxq "$blocking_label"' ".github/workflows/agent-review.yml" || true)
+if [ -n "$exact_label_match" ]; then
+  pass=$((pass + 1))
+  echo "  PASS: agent-review pre-merge recheck uses fixed-string whole-line label matching"
+else
+  fail=$((fail + 1))
+  echo "  FAIL: agent-review pre-merge recheck must use grep -Fxq for exact label names" >&2
+fi
+
+echo
+echo "agent-review.yml author-token auto-merge regression (#359)"
+
+agent_review_workflow=".github/workflows/agent-review.yml"
+if grep -Fq "secrets.AUTHOR_MERGE_TOKEN" "$agent_review_workflow"; then
+  pass=$((pass + 1))
+  echo "  PASS: agent-review auto-merge references AUTHOR_MERGE_TOKEN"
+else
+  fail=$((fail + 1))
+  echo "  FAIL: agent-review auto-merge must use an author-owned AUTHOR_MERGE_TOKEN, not the reviewer assignment token" >&2
+fi
+
+if grep -Fq "AUTHOR_MERGE_TOKEN resolves to" "$agent_review_workflow"; then
+  pass=$((pass + 1))
+  echo "  PASS: agent-review verifies AUTHOR_MERGE_TOKEN identity before merge"
+else
+  fail=$((fail + 1))
+  echo "  FAIL: agent-review must verify AUTHOR_MERGE_TOKEN resolves to author_identity before merge" >&2
+fi
+
+author_identity_awk='
+  /^[^[:space:]]/ && $1 == "author_identity:" {
+    sub(/^[[:space:]]*[^:]+:[[:space:]]*/, "", $0)
+    gsub(/^"/, "", $0)
+    gsub(/^\047/, "", $0)
+    gsub(/"[[:space:]]*(#.*)?$/, "", $0)
+    gsub(/\047[[:space:]]*(#.*)?$/, "", $0)
+    gsub(/[[:space:]]*#.*$/, "", $0)
+    sub(/[[:space:]]+$/, "", $0)
+    print
+    exit
+  }
+'
+got=$(printf '%s\n' "author_identity: nathanjohnpayne" | awk "$author_identity_awk")
+assert_eq "author_identity parser reads bare value" "nathanjohnpayne" "$got"
+
+got=$(printf '%s\n' 'author_identity: "nathanjohnpayne"' | awk "$author_identity_awk")
+assert_eq "author_identity parser strips double quotes" "nathanjohnpayne" "$got"
+
+got=$(printf '%s\n' "author_identity: 'nathanjohnpayne'" | awk "$author_identity_awk")
+assert_eq "author_identity parser strips single quotes" "nathanjohnpayne" "$got"
+
+enable_auto_merge_block=$(awk '
+  /- name: Enable auto-merge/ {in_block=1}
+  in_block && /- name:/ && $0 !~ /- name: Enable auto-merge/ {exit}
+  in_block {print}
+' "$agent_review_workflow")
+if printf '%s\n' "$enable_auto_merge_block" | grep -Fq 'GH_TOKEN: ${{ secrets.AUTHOR_MERGE_TOKEN }}'; then
+  pass=$((pass + 1))
+  echo "  PASS: Enable auto-merge step runs under AUTHOR_MERGE_TOKEN"
+else
+  fail=$((fail + 1))
+  echo "  FAIL: Enable auto-merge step must set GH_TOKEN from AUTHOR_MERGE_TOKEN" >&2
+fi
+
+if printf '%s\n' "$enable_auto_merge_block" | grep -Fq 'REVIEWER_ASSIGNMENT_TOKEN'; then
+  fail=$((fail + 1))
+  echo "  FAIL: Enable auto-merge step still references REVIEWER_ASSIGNMENT_TOKEN" >&2
+else
+  pass=$((pass + 1))
+  echo "  PASS: Enable auto-merge step does not use REVIEWER_ASSIGNMENT_TOKEN"
+fi
+
+if printf '%s\n' "$enable_auto_merge_block" | grep -Fq '|| true'; then
+  fail=$((fail + 1))
+  echo "  FAIL: Enable auto-merge step must not swallow merge failures with '|| true'" >&2
+else
+  pass=$((pass + 1))
+  echo "  PASS: Enable auto-merge step does not swallow merge failures with '|| true'"
+fi
+
+echo
+echo "dependabot-auto-merge.yml PR-author gate regression (#370)"
+
+dependabot_workflow=".github/workflows/dependabot-auto-merge.yml"
+if grep -Fq "github.event.pull_request.user.login == 'dependabot[bot]'" "$dependabot_workflow"; then
+  pass=$((pass + 1))
+  echo "  PASS: Dependabot auto-merge gates on pull_request.user.login"
+else
+  fail=$((fail + 1))
+  echo "  FAIL: Dependabot auto-merge must gate on github.event.pull_request.user.login" >&2
+fi
+
+if grep -Fq "github.actor == 'dependabot[bot]'" "$dependabot_workflow"; then
+  fail=$((fail + 1))
+  echo "  FAIL: Dependabot auto-merge still gates on github.actor" >&2
+else
+  pass=$((pass + 1))
+  echo "  PASS: Dependabot auto-merge does not gate on github.actor"
+fi
+
+echo
+echo "dependabot-auto-merge.yml reviewer-token fail-closed regression (#374 Pattern A)"
+
+if workflow_guard_block_contains_exit \
+  "$dependabot_workflow" \
+  'if [ -z "${GH_TOKEN:-}" ]; then' \
+  'GH_TOKEN is empty. REVIEWER_ASSIGNMENT_TOKEN secret is not set'; then
+  pass=$((pass + 1))
+  echo "  PASS: Dependabot auto-merge exits when REVIEWER_ASSIGNMENT_TOKEN is empty"
+else
+  fail=$((fail + 1))
+  echo "  FAIL: Dependabot auto-merge must fail closed when REVIEWER_ASSIGNMENT_TOKEN/GH_TOKEN is empty" >&2
+fi
+
+if grep -Fq 'ACTING_AS=$(gh api user --jq .login' "$dependabot_workflow" &&
+   workflow_guard_block_contains_exit \
+     "$dependabot_workflow" \
+     'if [ -z "$ACTING_AS" ]; then' \
+     'gh api user returned empty'; then
+  pass=$((pass + 1))
+  echo "  PASS: Dependabot auto-merge exits when REVIEWER_ASSIGNMENT_TOKEN cannot resolve an identity"
+else
+  fail=$((fail + 1))
+  echo "  FAIL: Dependabot auto-merge must fail closed when REVIEWER_ASSIGNMENT_TOKEN cannot resolve an identity" >&2
+fi
+
+if workflow_guard_block_contains_exit \
+  "$dependabot_workflow" \
+  'if [ "$ACTING_AS" = "$PR_AUTHOR" ]; then' \
+  'GitHub blocks self-approval'; then
+  pass=$((pass + 1))
+  echo "  PASS: Dependabot auto-merge exits when the reviewer token resolves to the PR author"
+else
+  fail=$((fail + 1))
+  echo "  FAIL: Dependabot auto-merge must fail closed when REVIEWER_ASSIGNMENT_TOKEN resolves to the PR author" >&2
+fi
+
+if workflow_guard_block_contains_exit \
+  "$dependabot_workflow" \
+  "if ! printf '%s\\n' \"\$ALLOWED\" | grep -Fxq \"\$ACTING_AS\"; then" \
+  'NOT in $POLICY available_reviewers'; then
+  pass=$((pass + 1))
+  echo "  PASS: Dependabot auto-merge exits when the reviewer token is not allowlisted"
+else
+  fail=$((fail + 1))
+  echo "  FAIL: Dependabot auto-merge must fail closed when REVIEWER_ASSIGNMENT_TOKEN is not in available_reviewers" >&2
+fi
+
+if grep -Fq "!contains(github.event.pull_request.labels.*.name, 'human-hold')" "$dependabot_workflow"; then
+  fail=$((fail + 1))
+  echo "  FAIL: Dependabot auto-merge must not skip the whole job on trigger-time human-hold state" >&2
+else
+  pass=$((pass + 1))
+  echo "  PASS: Dependabot auto-merge leaves human-hold enforcement to the runtime re-read"
+fi
+
+if grep -Fq "has_human_hold()" "$dependabot_workflow"; then
+  pass=$((pass + 1))
+  echo "  PASS: Dependabot auto-merge centralizes human-hold runtime checks"
+else
+  fail=$((fail + 1))
+  echo "  FAIL: Dependabot auto-merge must define a reusable has_human_hold runtime check" >&2
+fi
+
+if grep -Fq 'if ! labels=$(gh pr view "$PR_URL" --json labels --jq' "$dependabot_workflow"; then
+  pass=$((pass + 1))
+  echo "  PASS: Dependabot human-hold lookup fails closed on label-read errors"
+else
+  fail=$((fail + 1))
+  echo "  FAIL: Dependabot human-hold lookup must fail closed when gh pr view cannot read labels" >&2
+fi
+
+hold_recheck_count=$(grep -Fc "if has_human_hold; then" "$dependabot_workflow" || true)
+if [ "$hold_recheck_count" -ge 3 ]; then
+  pass=$((pass + 1))
+  echo "  PASS: Dependabot auto-merge checks human-hold before queued work and both merge paths"
+else
+  fail=$((fail + 1))
+  echo "  FAIL: Dependabot auto-merge must check human-hold before queued work, --auto, and fallback squash (got $hold_recheck_count checks)" >&2
 fi
 
 echo
