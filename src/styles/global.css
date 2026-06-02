@@ -637,6 +637,16 @@ html[data-fonts-pending] .panel-label {
     var(--blue) 100%
   );
 }
+.social-row--resume::after {
+  /* Reversed Mondrian (blue→yellow→red) — an internal site destination
+     like Blog, distinguished from Blog's red→yellow→blue bar. */
+  background: linear-gradient(
+    90deg,
+    var(--blue) 0%,
+    var(--yellow) 54%,
+    var(--red) 100%
+  );
+}
 .social-row--bluesky::after {
   background: linear-gradient(
     90deg,
