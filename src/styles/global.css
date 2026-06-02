@@ -3781,6 +3781,17 @@ body.resume-page {
   color: var(--resume-link);
 }
 
+/* ToC closing divider — sit it tight under the last item (matching the
+   per-item dividers) instead of floating ~1rem below it. The last list item
+   has no border of its own, so the section's own border-bottom is the closing
+   divider; zeroing the section padding-bottom pulls it up to the last item.
+   The section's margin-bottom still separates the ToC from the next sidebar
+   section. Applies to the blog ToC and the resume ToC. See #411. */
+.blog-sidebar-section.blog-sidebar-toc,
+.resume-canvas-section.resume-canvas-toc {
+  padding-bottom: 0;
+}
+
 /* Highlight cards (replace the blog's pullquotes) */
 .resume-highlight {
   margin: 0.7rem 0;
