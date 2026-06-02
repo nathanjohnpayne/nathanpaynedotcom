@@ -521,7 +521,8 @@ html[data-fonts-pending] .panel-label {
 }
 
 /* Blue arrow matches the Builds .p-name-link convention. */
-.writing-list .p-name-link .link-arrow {
+.writing-list .p-name-link .link-arrow,
+.about-block--resume .p-name-link .link-arrow {
   color: var(--blue);
   font-weight: 700;
 }
@@ -531,7 +532,8 @@ html[data-fonts-pending] .panel-label {
    on a title that wraps, that lets the arrow orphan onto its own line.
    nowrap on the trailing word+arrow keeps them one unit while the rest of
    the title still wraps normally. */
-.writing-list .no-break {
+.writing-list .no-break,
+.about-block--resume .no-break {
   white-space: nowrap;
 }
 
@@ -3394,7 +3396,8 @@ a:focus-visible {
 
   /* Dark-blue arrow is near-invisible on the red mobile base; keep it
      cream (matching the link text) so the affordance stays legible. */
-  .panel--red .writing-list .p-name-link .link-arrow {
+  .panel--red .writing-list .p-name-link .link-arrow,
+  .panel--red .about-block--resume .p-name-link .link-arrow {
     color: var(--cream);
   }
 
