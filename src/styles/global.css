@@ -3887,6 +3887,16 @@ body.resume-page {
   border-bottom-color: var(--resume-link);
 }
 
+/* Decorative icon before each contact link/location (inherits currentColor:
+   ochre on links, muted ink on the location). See #409. */
+.contact-icon {
+  width: 0.95em;
+  height: 0.95em;
+  margin-right: 0.32em;
+  vertical-align: -0.13em;
+  flex-shrink: 0;
+}
+
 /* ── Section scaffold ── section titles reuse the project-copy in-content
    header treatment (Cormorant italic over a top rule). The first section
    (Summary) drops the top rule — the header already supplies one. ── */

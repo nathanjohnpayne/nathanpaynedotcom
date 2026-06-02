@@ -17,6 +17,7 @@ import ExperienceSection from '../components/resume/ExperienceSection.astro';
 import EducationSection from '../components/resume/EducationSection.astro';
 import CertificationsSection from '../components/resume/CertificationsSection.astro';
 import ProjectsSection from '../components/resume/ProjectsSection.astro';
+import ContactIcon from '../components/resume/ContactIcon.astro';
 import WritingSection from '../components/resume/WritingSection.astro';
 import AwardsSection from '../components/resume/AwardsSection.astro';
 
@@ -39,11 +40,11 @@ const [skills, experience, education, certifications, resumeProjects, awards] = 
 // the full URL is composed here. Profile links are absolute (it's a CV
 // contact block) so the print stylesheet can append the URL after the text.
 const profileLinks = [
-  { display: m.website, href: `https://${m.website}` },
-  { display: `linkedin.com/in/${m.linkedin}`, href: `https://linkedin.com/in/${m.linkedin}` },
-  { display: `github.com/${m.github}`, href: `https://github.com/${m.github}` },
-  { display: `bsky.app/profile/${m.bluesky}`, href: `https://bsky.app/profile/${m.bluesky}` },
-  { display: m.blog, href: `https://${m.blog}/` },
+  { display: m.website, href: `https://${m.website}`, icon: 'globe' },
+  { display: `linkedin.com/in/${m.linkedin}`, href: `https://linkedin.com/in/${m.linkedin}`, icon: 'linkedin' },
+  { display: `github.com/${m.github}`, href: `https://github.com/${m.github}`, icon: 'github' },
+  { display: `bsky.app/profile/${m.bluesky}`, href: `https://bsky.app/profile/${m.bluesky}`, icon: 'bluesky' },
+  { display: m.blog, href: `https://${m.blog}/`, icon: 'blog' },
 ];
 
 // Sidebar "In this resume" ToC. The page is component-composed (no single
@@ -62,9 +63,26 @@ const toc = [
 
 // Sidebar highlight cards — marquee metrics drawn from the content.
 const highlights = [
-  { text: '$18.1M NCPv3 platform investment', accent: 'red' },
-  { text: '20+ years across streaming & platform', accent: 'yellow' },
-  { text: 'PR cycle time: 7.4 → 4 days', accent: 'blue' },
+  {
+    text: "Conceived and secured an $18.1M investment in NCPv3—extending Disney's JavaScript/React stack across PlayStation, Xbox, Vega OS, MVPD set-top boxes, and smart TVs.",
+    accent: 'red',
+  },
+  {
+    text: "Led Disney's launch on Amazon's Linux-based Vega OS (Kepler): Disney+, Hulu, and ESPN shipped on schedule with no measurable engagement impact.",
+    accent: 'yellow',
+  },
+  {
+    text: 'Introduced an AI-powered PR review pipeline that cut median PR cycle time from 7.4 to 4 days, beating the 30% Q2 OKR target.',
+    accent: 'blue',
+  },
+  {
+    text: 'Replaced 40+ partner questionnaires with a Snowflake and Looker device-intelligence system supporting AV1/HEVC compliance across Germany and Brazil.',
+    accent: 'red',
+  },
+  {
+    text: 'Conceptualized and led the CNN Magic Wall—the multi-touch platform used on-air for historical and real-time news data.',
+    accent: 'yellow',
+  },
 ];
 
 // At-a-glance metadata topics (screen-only panel; contact stays in the
@@ -146,15 +164,15 @@ const jsonLd = {
         <h1 class="resume-name">{m.name}</h1>
         <p class="resume-title">{m.title}</p>
         <p class="resume-contact resume-contact--primary">
-          <span class="resume-contact__location">{m.location}</span>
+          <span class="resume-contact__location"><ContactIcon name="mappin" />{m.location}</span>
           <span class="resume-contact__sep" aria-hidden="true">·</span>
-          <a href={`mailto:${m.email}`}>{m.email}</a>
+          <a href={`mailto:${m.email}`}><ContactIcon name="mail" />{m.email}</a>
         </p>
         <p class="resume-contact resume-contact--profiles">
           {profileLinks.map((link, i) => (
             <>
               {i > 0 && <span class="resume-contact__sep" aria-hidden="true">·</span>}
-              <a href={link.href} target="_blank" rel="noopener">{link.display}</a>
+              <a href={link.href} target="_blank" rel="noopener"><ContactIcon name={link.icon} />{link.display}</a>
             </>
           ))}
         </p>

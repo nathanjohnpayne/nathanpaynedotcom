@@ -99,7 +99,12 @@ describe('Resume — page structure', () => {
     expect(meta, 'metadata panel missing').not.toBeNull();
     expect(meta.textContent).toContain('Open to roles');
     expect(document.querySelectorAll('.resume-canvas-topic').length).toBeGreaterThan(0);
-    expect(document.querySelectorAll('.resume-highlight').length).toBe(3);
+    // Fuller set of highlight cards (≥ 5), accents cycle red/yellow/blue.
+    const cards = document.querySelectorAll('.resume-highlight');
+    expect(cards.length).toBeGreaterThanOrEqual(5);
+    for (const c of cards) {
+      expect(c.className).toMatch(/resume-highlight--(red|yellow|blue)/);
+    }
   });
 
   it('renders an in-page ToC linking to every visible section', () => {
