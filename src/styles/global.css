@@ -4082,8 +4082,10 @@ body.resume-page {
   }
 
   /* Render the URL after any descriptive-text external link for hard copy.
-     Links whose visible text is already the URL (the contact line and the
-     project links) suppress this to avoid duplication. */
+     Links whose visible text is ALREADY the URL — the contact line, the
+     project links, and the Writing lead (nathanpayne.com/blog) — suppress
+     this to avoid duplication. The essay links show titles, so they keep
+     the suffix if ever made absolute. */
   .resume-document a[href^="http"]::after {
     content: " (" attr(href) ")";
     font-size: 0.85em;
@@ -4091,7 +4093,8 @@ body.resume-page {
   }
 
   .resume-contact a[href^="http"]::after,
-  .resume-entry__link a[href^="http"]::after {
+  .resume-entry__link a[href^="http"]::after,
+  .resume-writing__lead a[href^="http"]::after {
     content: "";
   }
 
