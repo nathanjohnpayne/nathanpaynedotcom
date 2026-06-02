@@ -34,11 +34,23 @@ reviews:
         Astro pages. Check for proper use of Astro component syntax,
         SEO meta tags (title, description, og:image), and that pages
         render correctly in both static and server modes.
+    - path: "src/content/blog/**"
+      instructions: >-
+        Blog post markdown. Verify frontmatter schema is complete
+        (title, date, description) and that any linked assets exist.
     - path: "src/content/**"
       instructions: >-
-        Blog and content collection files. Verify frontmatter schema
-        is complete (title, date, description) and that any linked
-        assets exist.
+        Astro content collections. Each collection is validated against
+        its Zod schema in src/content.config.ts. Outside of
+        src/content/blog/**, the resume and structured-data
+        collections—experience, education, certifications, skills,
+        myself, resume/projects, bio, projects, awards—intentionally
+        use domain-specific frontmatter (company, issuer, degree, year,
+        tech, order, etc.) and have NO title/date/description. Do not
+        flag those fields as missing on non-blog collections; the
+        title/date/description requirement applies only to
+        src/content/blog/**. Verify frontmatter matches the relevant
+        collection schema and that any linked assets exist.
     - path: "src/styles/**"
       instructions: >-
         Global styles. Flag accessibility issues — contrast ratios,
