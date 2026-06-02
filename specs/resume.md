@@ -108,10 +108,12 @@ The `resumeProjects` collection must remain separate from the existing
   Leadership cert resolves via Logo.dev (`website: turner.com`) — no override.
 - The logo is **decorative** (the company/school/issuer name is the
   semantic text); each `CompanyLogo` includes an initials fallback element.
-- Displayed LinkedIn-style: small (~48px tall), **height-fixed with natural
-  width** — not forced square, so wide wordmarks (Current TV, Turner) aren't
-  letterboxed (the initials fallback stays square). The logo sits to the left
-  of the entry with the heading + description indented beside it.
+- Displayed as uniform **~48px square "Logo.dev-style" cards**: a thin
+  `--rule` border, rounded corners, and a light (`--paper`) background.
+  Square brand marks fill the tile edge-to-edge (corners clipped); a wide
+  wordmark (Current TV) is contained and centered with the card showing
+  above/below. The card sits to the left of the entry with the heading +
+  description indented beside it; the initials fallback reuses the same card.
 
 ## Styling
 

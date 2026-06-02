@@ -4030,25 +4030,28 @@ body.resume-page {
 }
 
 /* ── Company / school / issuer logo (decorative) + initials fallback ── */
+/* Logo.dev-style card: a uniform square tile with a thin border, rounded
+   corners, and a light background. Square brand marks fill the tile
+   edge-to-edge (their corners clipped by overflow:hidden); a wide wordmark
+   (Current TV) is contained and centered, with the tile showing above/below.
+   The initials fallback reuses the same square card. */
 .company-logo {
   flex: 0 0 auto;
   display: inline-flex;
   align-items: center;
-  justify-content: flex-start;
-  /* Height-fixed, natural width (LinkedIn-style, but not forced square): a
-     wide wordmark (Turner, Scrum Alliance, Current TV) keeps its aspect at
-     --logo-size tall instead of being letterboxed into a square; square
-     brand marks (Disney, MLB, CNN…) still read ~square. */
+  justify-content: center;
+  box-sizing: border-box;
+  width: var(--logo-size, 48px);
   height: var(--logo-size, 48px);
-  width: auto;
-  max-width: 116px;
-  overflow: visible;
+  background: var(--paper);
+  border: 1px solid var(--rule);
+  border-radius: 9px;
+  overflow: hidden;
 }
 
 .company-logo__img {
+  width: 100%;
   height: 100%;
-  width: auto;
-  max-width: 100%;
   object-fit: contain;
   display: block;
 }
@@ -4056,14 +4059,10 @@ body.resume-page {
 .company-logo__initials {
   align-items: center;
   justify-content: center;
-  /* Initials have no aspect, so keep them in a square at the logo height. */
-  width: var(--logo-size, 48px);
-  height: var(--logo-size, 48px);
-  background: var(--surface);
-  border: 1px solid var(--rule);
-  border-radius: 6px;
+  width: 100%;
+  height: 100%;
   color: var(--ink);
-  font-size: calc(var(--logo-size, 48px) * 0.34);
+  font-size: calc(var(--logo-size, 48px) * 0.32);
   font-weight: 600;
   letter-spacing: 0.01em;
 }
