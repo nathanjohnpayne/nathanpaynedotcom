@@ -75,7 +75,8 @@ The `resumeProjects` collection must remain separate from the existing
 
 - One `.resume-canvas` container. On desktop it is a 3-column Mondrian grid;
   it collapses to a single column at ≤ 1023px (`--bp-stack`) — margin and
-  sidebar hidden, metadata panel moved to the top — and prints single-column.
+  sidebar hidden; the header (breadcrumbs + name) stays the top tile with the
+  metadata panel stacked beneath it — and prints single-column.
 - Each `<section>` carries a stable `id` (`summary`, `skills`, `experience`,
   `education`, `certifications`, `projects`, `writing`, `awards`) so the
   sidebar ToC anchors resolve; `scroll-margin-top` offsets the anchor.
