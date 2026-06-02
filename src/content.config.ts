@@ -97,4 +97,131 @@ const bio = defineCollection({
   }),
 });
 
-export const collections = { blog, projects, bio };
+// ── /resume collections ────────────────────────────────────────────
+// The resume page (`src/pages/resume.astro`) renders Nathan's resume as
+// native content using the same glob() loader + render() conventions as
+// `blog`/`projects`/`bio`. Each section maps 1:1 to a collection so a
+// future resume edit is a one-file change. See specs/resume.md and #394.
+//
+// NOTE: `resumeProjects` is intentionally distinct from `projects` — the
+// `projects` collection above is reserved for /projects and the homepage
+// Builds grid (a ~20-field schema). Do not merge the two.
+
+// Single-entry resume header. Social handles are stored bare (no URL
+// scheme) and the full URL is composed in ResumeHeader/SummarySection.
+// No `phone` — the canonical resume is email-only. The two-paragraph
+// summary lives in the markdown body, rendered with render().
+const myself = defineCollection({
+  loader: glob({ pattern: '**/*.md', base: './src/content/myself' }),
+  schema: z.object({
+    name: z.string(),
+    title: z.string(),
+    email: z.string(),
+    website: z.string(),
+    linkedin: z.string(),
+    github: z.string(),
+    bluesky: z.string(),
+    blog: z.string(),
+    location: z.string(),
+  }),
+});
+
+// Work history. `company` + `website` drive the Logo.dev lookup in
+// CompanyLogo; `logo` is an explicit override (used for defunct brands
+// with no live domain — Current TV). `order` sorts most-recent-first.
+// Bullets / descriptive paragraph live in the markdown body.
+const experience = defineCollection({
+  loader: glob({ pattern: '**/*.md', base: './src/content/experience' }),
+  schema: z.object({
+    company: z.string(),
+    title: z.string(),
+    // The bold sub-line on the canonical resume (e.g. "Native Client
+    // Platform (NCP) & ADK"). Optional — AJ+/Current TV/CNN have none.
+    team: z.string().optional(),
+    location: z.string().optional(),
+    startYear: z.number(),
+    endYear: z.number().optional(), // omit ⇒ rendered as "Present"
+    order: z.number(),
+    badges: z.array(z.string()).optional(),
+    website: z.string().optional(), // drives Logo.dev domain lookup
+    logo: z.string().optional(),    // explicit override (path or data-URI)
+  }),
+});
+
+// Education. One entry (George Mason). `website` drives the Logo.dev
+// lookup (gmu.edu); `logo` overrides it.
+const education = defineCollection({
+  loader: glob({ pattern: '**/*.md', base: './src/content/education' }),
+  schema: z.object({
+    degree: z.string(),
+    school: z.string(),
+    location: z.string(),
+    year: z.number(),
+    website: z.string().optional(),
+    logo: z.string().optional(),
+  }),
+});
+
+// Selected projects for the resume. Distinct from `projects` (see note
+// above). Description lives in the markdown body; `order` sorts the list.
+const resumeProjects = defineCollection({
+  loader: glob({ pattern: '**/*.md', base: './src/content/resume/projects' }),
+  schema: z.object({
+    name: z.string(),
+    tech: z.array(z.string()),
+    url: z.string().optional(),
+    repo: z.string().optional(),
+    order: z.number(),
+  }),
+});
+
+// Core skills — one YAML file per category. `priority` sorts the
+// categories; `skills` is rendered as an inline · / comma-joined list.
+const skills = defineCollection({
+  loader: glob({ pattern: '**/*.{yaml,yml}', base: './src/content/skills' }),
+  schema: z.object({
+    label: z.string(),
+    priority: z.number(),
+    skills: z.array(z.string()),
+  }),
+});
+
+// Hackathons / awards. Wired up but empty for now — AwardsSection
+// renders nothing (no header) when the collection has no entries.
+const awards = defineCollection({
+  loader: glob({ pattern: '**/*.{md,yaml,yml}', base: './src/content/awards' }),
+  schema: z.object({
+    name: z.string(),
+    issuer: z.string().optional(),
+    year: z.number().optional(),
+    order: z.number().optional(),
+    url: z.string().optional(),
+  }),
+});
+
+// Certifications. `issuer` + `website` drive the Logo.dev lookup; `logo`
+// overrides it for defunct issuers with no live domain (Turner).
+const certifications = defineCollection({
+  loader: glob({ pattern: '**/*.md', base: './src/content/certifications' }),
+  schema: z.object({
+    name: z.string(),
+    issuer: z.string(),
+    year: z.number(),
+    order: z.number().optional(),
+    website: z.string().optional(),
+    logo: z.string().optional(),
+  }),
+});
+
+export const collections = {
+  blog,
+  projects,
+  bio,
+  myself,
+  experience,
+  education,
+  resumeProjects,
+  skills,
+  awards,
+  certifications,
+};

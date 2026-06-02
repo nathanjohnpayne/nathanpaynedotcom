@@ -1,0 +1,4 @@
+# Awards / hackathons collection — intentionally empty for now.
+# AwardsSection renders nothing (no header) when this collection has no
+# entries. Add one .md or .yaml file per award to populate the section.
+# Schema: name (required), issuer?, year?, order?, url?. See #394.

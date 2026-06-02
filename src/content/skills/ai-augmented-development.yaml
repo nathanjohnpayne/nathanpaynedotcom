@@ -1,0 +1,10 @@
+label: "AI-Augmented Development"
+priority: 3
+skills:
+  - "Claude Code"
+  - "Codex"
+  - "Cursor"
+  - "CodeRabbit"
+  - "Multi-agent code review"
+  - "AI-assisted PR pipelines"
+  - "Agent governance"
