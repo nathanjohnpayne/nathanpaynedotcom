@@ -9,7 +9,7 @@ const { entry } = Astro.props;
 const { Content } = await render(entry);
 ---
 
-<section class="resume-section resume-summary" aria-labelledby="resume-summary-heading">
+<section id="summary" class="resume-section resume-summary" aria-labelledby="resume-summary-heading">
   <h2 id="resume-summary-heading" class="resume-section__title">Summary</h2>
   <div class="resume-prose">
     <Content />

@@ -70,9 +70,50 @@ describe('Resume — page structure', () => {
     expect(og.getAttribute('content')).toMatch(/^https:\/\/nathanpayne\.com\//);
   });
 
-  it('renders a single-column document (one .resume-document, no Mondrian grid)', () => {
-    expect(document.querySelectorAll('.resume-document').length).toBe(1);
-    expect(document.querySelector('.blog-canvas'), 'should not reuse the blog Mondrian grid').toBeNull();
+  it('renders the blog-canvas layout (canvas, accent margin, header, content, sidebar)', () => {
+    expect(document.querySelectorAll('.resume-canvas').length).toBe(1);
+    // The old project-style centered card is gone.
+    expect(document.querySelector('.resume-document')).toBeNull();
+    expect(document.querySelector('.resume-canvas-margin--header'), 'accent margin missing').not.toBeNull();
+    expect(document.querySelector('.resume-canvas-content'), 'content column missing').not.toBeNull();
+    expect(document.querySelector('.resume-canvas-sidebar'), 'sidebar missing').not.toBeNull();
+    expect(document.querySelector('.resume-canvas-footer'), 'footer missing').not.toBeNull();
+  });
+
+  it('renders breadcrumbs (Nathan Payne / Resume) in the header', () => {
+    const crumbs = document.querySelector('.resume-canvas-header .project-breadcrumbs');
+    expect(crumbs, 'breadcrumbs missing').not.toBeNull();
+    const text = crumbs.textContent.replace(/\s+/g, ' ').trim();
+    expect(text).toContain('Nathan Payne');
+    expect(text).toContain('Resume');
+  });
+
+  it('keeps the contact line in the header so it prints (not only the sidebar)', () => {
+    const header = document.querySelector('.resume-canvas-header');
+    expect(header.querySelector('.resume-contact'), 'header contact line missing').not.toBeNull();
+    expect(header.textContent).toContain('hire@nathanpayne.com');
+  });
+
+  it('renders the metadata panel and highlight cards (screen sidebar)', () => {
+    const meta = document.querySelector('.resume-canvas-meta');
+    expect(meta, 'metadata panel missing').not.toBeNull();
+    expect(meta.textContent).toContain('Open to roles');
+    expect(document.querySelectorAll('.resume-canvas-topic').length).toBeGreaterThan(0);
+    expect(document.querySelectorAll('.resume-highlight').length).toBe(3);
+  });
+
+  it('renders an in-page ToC linking to every visible section', () => {
+    const toc = document.querySelector('.resume-canvas-toc-list');
+    expect(toc, 'sidebar ToC missing').not.toBeNull();
+    const links = Array.from(toc.querySelectorAll('a')).map((a) => a.getAttribute('href'));
+    for (const id of ['summary', 'skills', 'experience', 'education', 'certifications', 'projects', 'writing']) {
+      expect(links, `ToC missing link #${id}`).toContain(`#${id}`);
+      expect(document.getElementById(id), `no <section id="${id}"> for the ToC link`).not.toBeNull();
+    }
+    // Awards is empty → AwardsSection renders nothing, so the ToC must NOT
+    // list a (broken) #awards anchor and there is no <section id="awards">.
+    expect(links, 'ToC should omit #awards while the collection is empty').not.toContain('#awards');
+    expect(document.getElementById('awards'), 'awards section should not render while empty').toBeNull();
   });
 
   it('renders the section <h2> titles in order; no References; Awards absent while empty', () => {
@@ -228,27 +269,29 @@ describe('Resume — print stylesheet', () => {
     return null;
   }
 
-  it('hides .company-logo inside an @media print block', () => {
+  it('hides the canvas chrome (logo, accent margin, sidebar) inside @media print', () => {
     expect(cssFiles.length, 'no emitted CSS found in dist/_astro').toBeGreaterThan(0);
     const block = cssFiles.map(printBlock).find((b) => b && b.includes('company-logo'));
     expect(block, 'no @media print block referencing .company-logo').toBeTruthy();
     expect(block).toContain('display:none');
+    // The screen-only Mondrian margin + sidebar (ToC/highlights) are hidden too.
+    expect(block).toContain('resume-canvas-margin');
+    expect(block).toContain('resume-canvas-sidebar');
   });
 
   it('forces black-on-white and avoids breaking entries inside @media print', () => {
-    const block = cssFiles.map(printBlock).find((b) => b && b.includes('resume-document'));
+    const block = cssFiles.map(printBlock).find((b) => b && b.includes('resume-canvas'));
     expect(block, 'no @media print block found').toBeTruthy();
     expect(block).toContain('#000'); // forced black text
     expect(block).toContain('break-inside:avoid'); // keep entries/projects/certs whole
   });
 
-  it('constrains the document to an 8.5in page width only inside @media print', () => {
-    const screenWidthRule = /\.resume-document\{[^}]*max-width:8\.5in/;
-    // The 8.5in constraint must not appear in the base (screen) cascade.
+  it('applies the 8.5in page width only inside @media print', () => {
+    // The 8.5in constraint must not appear anywhere in the base (screen) cascade.
     for (const css of cssFiles) {
       const printIdx = css.indexOf('@media print');
       const head = printIdx === -1 ? css : css.slice(0, printIdx);
-      expect(screenWidthRule.test(head), '8.5in width leaked into the screen cascade').toBe(false);
+      expect(/8\.5in/.test(head), '8.5in width leaked into the screen cascade').toBe(false);
     }
     const block = cssFiles.map(printBlock).find((b) => b && b.includes('8.5in'));
     expect(block, '8.5in print width constraint missing').toBeTruthy();

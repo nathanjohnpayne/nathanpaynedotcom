@@ -8,7 +8,7 @@ const sorted = [...entries].sort((a, b) => (a.data.order ?? 99) - (b.data.order 
 ---
 
 {sorted.length > 0 && (
-  <section class="resume-section resume-awards" aria-labelledby="resume-awards-heading">
+  <section id="awards" class="resume-section resume-awards" aria-labelledby="resume-awards-heading">
     <h2 id="resume-awards-heading" class="resume-section__title">Hackathons &amp; Awards</h2>
     <ul class="resume-awards__list">
       {sorted.map((entry) => {

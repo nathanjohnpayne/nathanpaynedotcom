@@ -9,7 +9,7 @@ const { entries } = Astro.props;
 const sorted = [...entries].sort((a, b) => (a.data.order ?? 99) - (b.data.order ?? 99));
 ---
 
-<section class="resume-section resume-certifications" aria-labelledby="resume-certifications-heading">
+<section id="certifications" class="resume-section resume-certifications" aria-labelledby="resume-certifications-heading">
   <h2 id="resume-certifications-heading" class="resume-section__title">Certifications</h2>
   <ul class="resume-certs">
     {sorted.map((entry) => {

@@ -3592,20 +3592,232 @@ body.resume-page {
   padding: clamp(0.9rem, 2.5vw, 1.8rem);
 }
 
-.resume-document {
-  width: min(100%, 52rem);
+/* ── Mondrian "composition with margins" canvas (mirrors .blog-canvas) ──
+   3-column grid: accent margin | content | sidebar. The --ink background
+   shows through the var(--line) gaps as grid lines. ── */
+.resume-canvas {
+  display: grid;
+  grid-template-columns:
+    var(--line)
+    minmax(2.5rem, 0.4fr)    /* left margin — accent blocks */
+    var(--line)
+    minmax(18rem, 3fr)        /* main content */
+    var(--line)
+    minmax(10rem, 1.3fr)      /* right sidebar */
+    var(--line);
+  grid-template-rows:
+    var(--line) auto           /* header row */
+    var(--line) 1fr            /* body row (content + sidebar) */
+    var(--line) auto           /* footer row */
+    var(--line);
+  background: var(--ink);
+  width: min(100%, 72rem);
   margin: 0 auto;
-  background: var(--surface);
-  border: var(--line) solid var(--grid-border);
   box-shadow: 14px 14px 0 rgba(17, 16, 13, 0.12);
-  padding: clamp(1.5rem, 4vw, 3.2rem) clamp(1.2rem, 3.5vw, 3rem);
+  /* clip (not hidden) so position:sticky on the sidebar still works. */
+  overflow: clip;
+}
+
+/* Left margin: per-row Mondrian accent blocks (decorative) */
+.resume-canvas-margin {
+  grid-column: 2;
+}
+.resume-canvas-margin--header {
+  grid-row: 2;
+  background: var(--red);
+}
+.resume-canvas-margin--body {
+  grid-row: 4;
+  /* Gradient stripe: yellow | ink line | paper | ink line | blue */
+  background: linear-gradient(
+    to bottom,
+    var(--yellow) 0%,
+    var(--yellow) 25%,
+    var(--ink) 25%,
+    var(--ink) calc(25% + var(--line)),
+    var(--paper) calc(25% + var(--line)),
+    var(--paper) 60%,
+    var(--ink) 60%,
+    var(--ink) calc(60% + var(--line)),
+    var(--blue) calc(60% + var(--line)),
+    var(--blue) 100%
+  );
+}
+.resume-canvas-margin--footer {
+  grid-row: 6;
+  background: var(--paper);
+}
+
+/* Header cell — breadcrumbs, name, title, contact */
+.resume-canvas-header {
+  grid-column: 4;
+  grid-row: 2;
+  min-width: 0;
+  background: var(--paper);
+  padding: clamp(1.15rem, 3vw, 2.5rem);
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+}
+.resume-canvas-header .project-breadcrumbs {
+  margin-bottom: 1.4rem;
+  padding-left: 0;
+}
+
+/* Metadata panel (top-right; screen-only) */
+.resume-canvas-meta {
+  grid-column: 6;
+  grid-row: 2;
+  min-width: 0;
+  background: var(--accent-gray);
+  padding: clamp(0.85rem, 2vw, 1.5rem);
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+}
+.resume-canvas-meta dl {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+  margin: 0;
+}
+.resume-canvas-meta dt {
+  margin-bottom: 0.12rem;
+  font-size: clamp(0.58rem, 0.72vw, 0.68rem);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: rgba(17, 16, 13, 0.48);
+}
+.resume-canvas-meta dd {
+  font-family: "Cormorant Garamond", Garamond, serif;
+  font-weight: 500;
+  font-size: clamp(0.88rem, 0.92vw, 0.98rem);
+  line-height: 1.25;
+}
+.resume-canvas-topics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+}
+.resume-canvas-topic {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.18rem 0.45rem;
+  background: rgba(17, 16, 13, 0.08);
+  border-radius: 2px;
+  font-family: "Inter", system-ui, sans-serif;
+  font-size: 0.6rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(17, 16, 13, 0.62);
+}
+
+/* Main content column */
+.resume-canvas-content {
+  grid-column: 4;
+  grid-row: 4;
+  min-width: 0;
+  background: var(--surface);
+  padding: clamp(1.15rem, 3vw, 2.5rem);
+  align-self: stretch;
   overflow-wrap: break-word;
 }
 
-/* ── Header ── */
-.resume-header {
-  padding-bottom: 1.4rem;
+/* Right sidebar — sticky ToC + highlights (screen-only) */
+.resume-canvas-sidebar {
+  grid-column: 6;
+  grid-row: 4;
+  min-width: 0;
+  background: var(--surface);
+}
+.resume-canvas-sidebar-inner {
+  padding: clamp(0.85rem, 2vw, 1.5rem);
+  position: sticky;
+  top: var(--line);
+}
+.resume-canvas-section {
+  padding-bottom: 1rem;
+  margin-bottom: 1rem;
   border-bottom: 1px solid var(--rule);
+}
+.resume-canvas-section:last-child {
+  padding-bottom: 0;
+  margin-bottom: 0;
+  border-bottom: none;
+}
+.resume-canvas-heading {
+  margin-bottom: 0.55rem;
+  font-family: "Inter", system-ui, sans-serif;
+  font-weight: 600;
+  font-size: clamp(0.58rem, 0.72vw, 0.68rem);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: rgba(17, 16, 13, 0.48);
+}
+.resume-canvas-toc-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.35rem;
+}
+.resume-canvas-toc-list li {
+  font-size: clamp(0.78rem, 0.86vw, 0.88rem);
+  line-height: 1.35;
+  padding: 0.25em 0;
+  border-bottom: 1px solid var(--rule);
+}
+.resume-canvas-toc-list li:last-child {
+  border-bottom: none;
+}
+.resume-canvas-toc-list a {
+  color: rgba(17, 16, 13, 0.62);
+  text-decoration: none;
+  transition: color var(--motion-fast) var(--ease-standard);
+}
+.resume-canvas-toc-list a:hover,
+.resume-canvas-toc-list a:focus-visible {
+  color: var(--resume-link);
+}
+
+/* Highlight cards (replace the blog's pullquotes) */
+.resume-highlight {
+  margin: 0.7rem 0;
+  padding: 0.7rem 0.9rem;
+  border-left: 3px solid var(--ink);
+  background: rgba(255, 255, 255, 0.52);
+}
+.resume-highlight:first-of-type {
+  margin-top: 0;
+}
+.resume-highlight--red    { border-left-color: var(--red); }
+.resume-highlight--yellow { border-left-color: var(--yellow); }
+.resume-highlight--blue   { border-left-color: var(--blue); }
+.resume-highlight p {
+  margin: 0;
+  font-family: "Cormorant Garamond", Garamond, serif;
+  font-size: clamp(0.95rem, 1vw, 1.08rem);
+  font-style: italic;
+  line-height: 1.32;
+}
+
+/* Footer cell */
+.resume-canvas-footer {
+  grid-column: 2 / -2;
+  grid-row: 6;
+  min-width: 0;
+  background: var(--paper);
+  padding: clamp(1.15rem, 3vw, 2rem) clamp(1.15rem, 3vw, 2.5rem);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+.resume-canvas-footer__attribution {
+  font-size: clamp(0.8rem, 0.9vw, 0.92rem);
+  color: rgba(17, 16, 13, 0.55);
 }
 
 .resume-name {
@@ -3665,6 +3877,7 @@ body.resume-page {
   margin-top: 2.1rem;
   padding-top: 1.6rem;
   border-top: 1px solid var(--rule);
+  scroll-margin-top: 1rem; /* so ToC anchors don't sit flush at the top */
 }
 
 .resume-summary {
@@ -4001,21 +4214,46 @@ body.resume-page {
 }
 
 /* ── Footer (screen-only navigation) ── */
-.resume-footer {
-  margin-top: 2.4rem;
-  padding-top: 1.4rem;
-  border-top: 1px solid var(--ink);
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-}
-
 .resume-footer-nav {
   display: flex;
   flex-wrap: wrap;
   gap: 0.75rem;
+}
+
+/* ── /resume canvas — collapse to a single column (≤ 1023px, --bp-stack) ──
+   Mirrors the blog collapse: margin + sidebar hidden, the metadata panel
+   moves to the top as a horizontal bar, content fills width. ── */
+@media (max-width: 1023px) {
+  .resume-canvas {
+    grid-template-columns: var(--line) 1fr var(--line);
+    grid-template-rows:
+      var(--line) auto    /* metadata panel (moves to top) */
+      var(--line) auto    /* header */
+      var(--line) auto    /* content */
+      var(--line) auto    /* footer */
+      var(--line);
+  }
+
+  .resume-canvas-margin { display: none; }
+
+  .resume-canvas-meta {
+    grid-column: 2;
+    grid-row: 2;
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: flex-start;
+    gap: 0.7rem 1.5rem;
+  }
+  .resume-canvas-meta dl {
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 0.5rem 1.5rem;
+  }
+
+  .resume-canvas-header { grid-column: 2; grid-row: 4; }
+  .resume-canvas-content { grid-column: 2; grid-row: 6; }
+  .resume-canvas-sidebar { display: none; }
+  .resume-canvas-footer { grid-column: 2; grid-row: 8; }
 }
 
 /* ════════════════════════════════════════════════════════════════════
@@ -4035,15 +4273,43 @@ body.resume-page {
     padding: 0;
   }
 
-  /* The 8.5in canvas constraint lives here — inside @media print only. */
-  .resume-document {
+  /* Collapse the canvas to a single content block: drop the grid, and hide
+     the accent margin, the metadata panel, the sidebar (ToC + highlights),
+     the screen-only footer, the breadcrumbs, and the logos (the company /
+     school / issuer name stays as text — ATS-safe). The 8.5in width
+     constraint lives here, inside @media print only. */
+  .resume-canvas {
+    display: block;
     width: 100%;
     max-width: 8.5in;
     margin: 0;
-    padding: 0;
-    border: none;
-    box-shadow: none;
     background: #fff !important;
+    box-shadow: none;
+    overflow: visible;
+  }
+
+  .resume-canvas-margin,
+  .resume-canvas-meta,
+  .resume-canvas-sidebar,
+  .resume-canvas-footer,
+  .resume-canvas-header .project-breadcrumbs,
+  .company-logo {
+    display: none !important;
+  }
+
+  /* Header (contact letterhead) + content stack as plain blocks. The
+     header retains the contact line so it prints (the metadata panel,
+     hidden above, is screen-only). */
+  .resume-canvas-header,
+  .resume-canvas-content {
+    display: block;
+    grid-column: auto;
+    grid-row: auto;
+    background: #fff !important;
+    padding: 0;
+  }
+  .resume-canvas-header {
+    padding-bottom: 0.4rem;
   }
 
   /* Force black-on-white regardless of screen colors. `color` only covers
@@ -4051,8 +4317,8 @@ body.resume-page {
      ::before squares (a background) and link underlines/borders — to black
      so the printed copy is truly monochrome. */
   .resume-page,
-  .resume-document,
-  .resume-document * {
+  .resume-canvas,
+  .resume-canvas * {
     color: #000 !important;
   }
 
@@ -4061,20 +4327,9 @@ body.resume-page {
     background: #000 !important;
   }
 
-  .resume-document a {
+  .resume-canvas a {
     text-decoration-color: #000 !important;
     border-bottom-color: #000 !important;
-  }
-
-  /* Logos are hidden in print — keeps the PDF clean and ATS-safe (the
-     company/school/issuer name remains as text). */
-  .company-logo {
-    display: none !important;
-  }
-
-  /* Screen-only footer nav. */
-  .resume-footer {
-    display: none !important;
   }
 
   /* Keep each work entry, project, and certification on one page. The
@@ -4096,7 +4351,7 @@ body.resume-page {
      project links, and the Writing lead (nathanpayne.com/blog) — suppress
      this to avoid duplication. The essay links show titles, so they keep
      the suffix if ever made absolute. */
-  .resume-document a[href^="http"]::after {
+  .resume-canvas a[href^="http"]::after {
     content: " (" attr(href) ")";
     font-size: 0.85em;
     word-break: break-all;
@@ -4112,7 +4367,6 @@ body.resume-page {
      lands on two US-Letter pages. The screen margins (2.1rem sections,
      1.5rem entries) are far too airy for print; the content is dense
      (six roles, five projects) so the vertical rhythm is tuned tight. */
-  .resume-header { padding-bottom: 0.35rem; }
   .resume-contact { margin-top: 0.28rem; gap: 0.1rem 0.4rem; line-height: 1.25; }
   .resume-contact--profiles { margin-top: 0.08rem; }
   .resume-section { margin-top: 0.3rem; padding-top: 0.22rem; }

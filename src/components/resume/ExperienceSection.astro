@@ -15,7 +15,7 @@ const rendered = await Promise.all(
 );
 ---
 
-<section class="resume-section resume-experience" aria-labelledby="resume-experience-heading">
+<section id="experience" class="resume-section resume-experience" aria-labelledby="resume-experience-heading">
   <h2 id="resume-experience-heading" class="resume-section__title">Experience</h2>
   {rendered.map(({ entry, Content }) => {
     const d = entry.data;
