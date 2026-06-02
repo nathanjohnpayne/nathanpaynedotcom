@@ -4036,11 +4036,24 @@ body.resume-page {
     background: #fff !important;
   }
 
-  /* Force black-on-white regardless of screen colors. */
+  /* Force black-on-white regardless of screen colors. `color` only covers
+     text, so also neutralize the ochre accent decorations — the bullet
+     ::before squares (a background) and link underlines/borders — to black
+     so the printed copy is truly monochrome. */
   .resume-page,
   .resume-document,
   .resume-document * {
     color: #000 !important;
+  }
+
+  .resume-prose ul li::before,
+  .resume-writing__essays li::before {
+    background: #000 !important;
+  }
+
+  .resume-document a {
+    text-decoration-color: #000 !important;
+    border-bottom-color: #000 !important;
   }
 
   /* Logos are hidden in print — keeps the PDF clean and ATS-safe (the

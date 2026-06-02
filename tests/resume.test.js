@@ -17,9 +17,13 @@ function readDist(relativePath) {
 }
 
 function setupDOM(rawHtml) {
-  // Strip bare <script> blocks to prevent auto-execution during document.write,
-  // but keep <script type="application/ld+json"> for structured-data assertions.
-  const safe = rawHtml.replace(/<script>[\s\S]*?<\/script>/g, '');
+  // Strip every executable <script> (bare, module, or external) to prevent
+  // auto-execution during document.write, but keep
+  // <script type="application/ld+json"> for the structured-data assertions.
+  const safe = rawHtml.replace(
+    /<script\b(?![^>]*\btype=["']application\/ld\+json["'])[^>]*>[\s\S]*?<\/script>/gi,
+    '',
+  );
   document.documentElement.innerHTML = '';
   document.write(safe);
   document.close();
