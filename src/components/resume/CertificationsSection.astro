@@ -16,7 +16,7 @@ const sorted = [...entries].sort((a, b) => (a.data.order ?? 99) - (b.data.order 
       const d = entry.data;
       return (
         <li class="resume-cert">
-          <CompanyLogo name={d.issuer} website={d.website} logo={d.logo} size={48} />
+          <CompanyLogo name={d.issuer} website={d.website} logo={d.logo} size={80} />
           <span class="resume-cert__text">
             <span class="resume-cert__name">{d.name}</span>
             <span class="resume-cert__meta">{d.issuer} · {d.year}</span>

@@ -23,7 +23,7 @@ const rendered = await Promise.all(
     const meta = [d.team, d.location, range].filter(Boolean).join(' · ');
     return (
       <article class="resume-entry resume-entry--logo">
-        <CompanyLogo name={d.company} website={d.website} logo={d.logo} size={48} />
+        <CompanyLogo name={d.company} website={d.website} logo={d.logo} size={80} />
         <div class="resume-entry__body">
           <h3 class="resume-entry__title">{d.title} — {d.company}</h3>
           <p class="resume-entry__meta">{meta}</p>

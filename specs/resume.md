@@ -108,7 +108,8 @@ The `resumeProjects` collection must remain separate from the existing
   Leadership cert resolves via Logo.dev (`website: turner.com`) — no override.
 - The logo is **decorative** (the company/school/issuer name is the
   semantic text); each `CompanyLogo` includes an initials fallback element.
-- Displayed as uniform **~48px square "Logo.dev-style" cards**: a thin
+- Displayed as uniform **~80px square "Logo.dev-style" cards** (matching the
+  logo.dev grid tile size): a thin
   `--rule` border, rounded corners, and a light (`--paper`) background.
   Square brand marks fill the tile edge-to-edge (corners clipped); a wide
   wordmark (Current TV) is contained and centered with the card showing
