@@ -197,14 +197,18 @@ describe('Resume — page structure', () => {
     }
   });
 
-  it('uses self-hosted Commons SVGs for the defunct brands (Current TV, Turner)', () => {
+  it('uses self-hosted SVG overrides where Logo.dev is wrong/absent (Current TV, A-CSM)', () => {
+    // Current TV is defunct (no live domain); the A-CSM cert deliberately
+    // overrides to the Scrum-framework glyph rather than the corporate mark
+    // Logo.dev returns for scrumalliance.org. Turner, by contrast, resolves
+    // via Logo.dev (turner.com), so it's a remote logo with no committed asset.
     const srcs = Array.from(document.querySelectorAll('.company-logo img')).map((img) =>
       img.getAttribute('src'),
     );
     expect(srcs).toContain('/images/logos/current-tv.svg');
-    expect(srcs).toContain('/images/logos/turner.svg');
+    expect(srcs).toContain('/images/logos/scrum.svg');
     expect(existsSync(resolve(DIST, 'images/logos/current-tv.svg'))).toBe(true);
-    expect(existsSync(resolve(DIST, 'images/logos/turner.svg'))).toBe(true);
+    expect(existsSync(resolve(DIST, 'images/logos/scrum.svg'))).toBe(true);
   });
 
   it('emits a Person + ProfilePage JSON-LD graph', () => {

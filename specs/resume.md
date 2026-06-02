@@ -100,9 +100,12 @@ The `resumeProjects` collection must remain separate from the existing
 - The Logo.dev publishable token comes from `PUBLIC_LOGODEV_KEY`
   (`import.meta.env`); if unset the component renders initials only. The
   token is never committed.
-- Defunct brands with no live domain use a self-hosted Commons SVG via the
-  `logo` override: Current TV → `/images/logos/current-tv.svg`, Turner →
-  `/images/logos/turner.svg`.
+- Self-hosted SVG overrides (via `logo`) are used only where Logo.dev is
+  wrong or absent: Current TV (defunct, no live domain) →
+  `/images/logos/current-tv.svg`, and the A-CSM cert →
+  `/images/logos/scrum.svg` (the Scrum-framework glyph, chosen deliberately
+  over the Scrum Alliance corporate mark Logo.dev would return). The Turner
+  Leadership cert resolves via Logo.dev (`website: turner.com`) — no override.
 - The logo is **decorative** (the company/school/issuer name is the
   semantic text); each `CompanyLogo` includes an initials fallback element.
 - Displayed LinkedIn-style: small (~48px tall), **height-fixed with natural

@@ -4029,10 +4029,6 @@ body.resume-page {
   color: rgba(17, 16, 13, 0.6);
 }
 
-.resume-entry__head + .resume-prose {
-  margin-top: 0.6rem;
-}
-
 /* ── Company / school / issuer logo (decorative) + initials fallback ── */
 .company-logo {
   flex: 0 0 auto;
@@ -4434,7 +4430,7 @@ body.resume-page {
   .resume-entry { margin-top: 0.28rem; }
   .resume-entry__meta { margin-top: 0.05rem; }
   .resume-entry__head { gap: 0.5rem; }
-  .resume-entry__head + .resume-prose { margin-top: 0.14rem; }
+  .resume-entry__body .resume-prose { margin-top: 0.14rem; }
   .resume-prose p + p { margin-top: 0.15rem; }
   .resume-prose ul { gap: 0.06rem; margin-top: 0.12rem; }
   .resume-prose li { padding-left: 0.8rem; }
