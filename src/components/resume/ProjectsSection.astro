@@ -1,0 +1,42 @@
+---
+/**
+ * ProjectsSection — selected projects from the `resumeProjects` collection
+ * (distinct from `projects`). Each entry: <h3> name, an inline tech list, a
+ * link (live URL or repo) using the site's → arrow convention, and the
+ * markdown body rendered with render().
+ */
+import { render } from 'astro:content';
+
+const { entries } = Astro.props;
+const sorted = [...entries].sort((a, b) => a.data.order - b.data.order);
+const rendered = await Promise.all(
+  sorted.map(async (entry) => ({ entry, Content: (await render(entry)).Content })),
+);
+
+/** Strip the scheme and any trailing slash for the displayed link text. */
+function displayUrl(url: string): string {
+  return url.replace(/^https?:\/\//i, '').replace(/\/$/, '');
+}
+---
+
+<section class="resume-section resume-projects" aria-labelledby="resume-projects-heading">
+  <h2 id="resume-projects-heading" class="resume-section__title">Selected Projects</h2>
+  {rendered.map(({ entry, Content }) => {
+    const d = entry.data;
+    const link = d.url ?? d.repo;
+    return (
+      <article class="resume-entry">
+        <h3 class="resume-entry__title">{d.name}</h3>
+        <p class="resume-entry__tech">{d.tech.join(' · ')}</p>
+        {link && (
+          <p class="resume-entry__link">
+            <a href={link} target="_blank" rel="noopener">{displayUrl(link)} <span class="link-arrow" aria-hidden="true">→</span></a>
+          </p>
+        )}
+        <div class="resume-prose">
+          <Content />
+        </div>
+      </article>
+    );
+  })}
+</section>

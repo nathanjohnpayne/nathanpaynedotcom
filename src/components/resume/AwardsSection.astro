@@ -1,0 +1,28 @@
+---
+/**
+ * AwardsSection — hackathons / awards. Plumbed but renders nothing (no
+ * header) when the `awards` collection is empty, per #394.
+ */
+const { entries } = Astro.props;
+const sorted = [...entries].sort((a, b) => (a.data.order ?? 99) - (b.data.order ?? 99));
+---
+
+{sorted.length > 0 && (
+  <section class="resume-section resume-awards" aria-labelledby="resume-awards-heading">
+    <h2 id="resume-awards-heading" class="resume-section__title">Hackathons &amp; Awards</h2>
+    <ul class="resume-awards__list">
+      {sorted.map((entry) => {
+        const d = entry.data;
+        const meta = [d.issuer, d.year].filter(Boolean).join(' · ');
+        return (
+          <li class="resume-award">
+            <span class="resume-award__name">
+              {d.url ? <a href={d.url}>{d.name}</a> : d.name}
+            </span>
+            {meta && <span class="resume-award__meta">{meta}</span>}
+          </li>
+        );
+      })}
+    </ul>
+  </section>
+)}

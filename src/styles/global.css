@@ -3554,6 +3554,598 @@ a:focus-visible {
   }
 }
 
+/* ════════════════════════════════════════════════════════════════════
+   /resume — editorial reading layout
+   ────────────────────────────────────────────────────────────────────
+   Anchored to the project/blog reading surface (centered card on the warm
+   cream backdrop), NOT the homepage Mondrian grid. Consumes the site's
+   existing tokens — never redefines them: --ink (text), --cream/--surface
+   (warm reading surface), --paper, --rule (dividers), Cormorant Garamond +
+   Inter, and the --motion- and --ease- motion tokens. The local
+   --resume-link is the darker ochre used elsewhere for in-content links on
+   the cream surface (it clears body-text contrast where the brighter
+   accents do not). See specs/resume.md and #394.
+   ════════════════════════════════════════════════════════════════════ */
+body.resume-page {
+  min-height: 100%;
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.42), rgba(255, 255, 255, 0)),
+    var(--project-bg, #d8d1c5);
+  --resume-link: #6f5500;
+  /* Drives the screen-only footer nav buttons (.project-action). */
+  --project-accent: var(--ink);
+  --project-accent-foreground: #f5f0e4;
+}
+
+.resume-shell {
+  min-height: 100vh;
+  padding: clamp(0.9rem, 2.5vw, 1.8rem);
+}
+
+.resume-document {
+  width: min(100%, 52rem);
+  margin: 0 auto;
+  background: var(--surface);
+  border: var(--line) solid var(--grid-border);
+  box-shadow: 14px 14px 0 rgba(17, 16, 13, 0.12);
+  padding: clamp(1.5rem, 4vw, 3.2rem) clamp(1.2rem, 3.5vw, 3rem);
+  overflow-wrap: break-word;
+}
+
+/* ── Header ── */
+.resume-header {
+  padding-bottom: 1.4rem;
+  border-bottom: 1px solid var(--rule);
+}
+
+.resume-name {
+  font-family: "Cormorant Garamond", Garamond, serif;
+  font-weight: 600;
+  font-size: clamp(2.6rem, 5vw, 4rem);
+  line-height: 0.98;
+  letter-spacing: -0.01em;
+}
+
+.resume-title {
+  margin-top: 0.5rem;
+  max-width: 46rem;
+  font-family: "Cormorant Garamond", Garamond, serif;
+  font-style: italic;
+  font-size: clamp(1.1rem, 1rem + 0.5vw, 1.5rem);
+  line-height: 1.28;
+  color: rgba(17, 16, 13, 0.78);
+}
+
+.resume-contact {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.35rem 0.5rem;
+  margin-top: 0.9rem;
+  font-size: clamp(0.82rem, 0.8rem + 0.12vw, 0.92rem);
+  line-height: 1.55;
+  color: rgba(17, 16, 13, 0.66);
+}
+
+.resume-contact--profiles {
+  margin-top: 0.35rem;
+}
+
+.resume-contact__sep {
+  color: rgba(17, 16, 13, 0.3);
+  user-select: none;
+}
+
+.resume-contact a {
+  color: var(--resume-link);
+  text-decoration: none;
+  border-bottom: 1px solid color-mix(in srgb, var(--resume-link) 35%, transparent);
+  transition: border-color var(--motion-hover) var(--ease-standard);
+}
+
+.resume-contact a:hover,
+.resume-contact a:focus-visible {
+  border-bottom-color: var(--resume-link);
+}
+
+/* ── Section scaffold ── section titles reuse the project-copy in-content
+   header treatment (Cormorant italic over a top rule). The first section
+   (Summary) drops the top rule — the header already supplies one. ── */
+.resume-section {
+  margin-top: 2.1rem;
+  padding-top: 1.6rem;
+  border-top: 1px solid var(--rule);
+}
+
+.resume-summary {
+  margin-top: 1.5rem;
+  padding-top: 0;
+  border-top: none;
+}
+
+.resume-section__title {
+  margin-bottom: 0.85rem;
+  font-family: "Cormorant Garamond", Garamond, serif;
+  font-style: italic;
+  font-size: clamp(1.5rem, 2.2vw, 2.1rem);
+  line-height: 1.08;
+  color: var(--ink);
+}
+
+/* ── Prose (summary body + experience/project bodies) ── */
+.resume-prose p {
+  font-size: clamp(0.94rem, 0.92rem + 0.12vw, 1.02rem);
+  line-height: 1.62;
+}
+
+.resume-prose p + p {
+  margin-top: 0.7rem;
+}
+
+.resume-prose ul {
+  list-style: none;
+  display: grid;
+  gap: 0.45rem;
+  margin: 0.55rem 0 0;
+  padding: 0;
+}
+
+.resume-prose li {
+  position: relative;
+  padding-left: 1rem;
+  font-size: clamp(0.94rem, 0.92rem + 0.12vw, 1.02rem);
+  line-height: 1.55;
+}
+
+.resume-prose ul li::before {
+  content: "";
+  position: absolute;
+  top: 0.55em;
+  left: 0;
+  width: 0.36rem;
+  height: 0.36rem;
+  background: var(--resume-link);
+}
+
+.resume-prose strong {
+  font-weight: 700;
+}
+
+.resume-prose em {
+  font-style: italic;
+}
+
+.resume-prose a {
+  color: var(--resume-link);
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.18em;
+  text-decoration-color: color-mix(in srgb, var(--resume-link) 50%, transparent);
+  transition: text-decoration-color var(--motion-hover) var(--ease-standard);
+}
+
+.resume-prose a:hover,
+.resume-prose a:focus-visible {
+  text-decoration-color: var(--resume-link);
+}
+
+/* ── Entry head (Experience / Education): logo + role/company + meta ── */
+.resume-entry {
+  margin-top: 1.5rem;
+}
+
+.resume-entry:first-of-type {
+  margin-top: 0;
+}
+
+.resume-entry__head {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+}
+
+.resume-entry__headings {
+  min-width: 0;
+}
+
+.resume-entry__title {
+  font-family: "Cormorant Garamond", Garamond, serif;
+  font-weight: 600;
+  font-size: clamp(1.12rem, 1rem + 0.5vw, 1.4rem);
+  line-height: 1.14;
+}
+
+.resume-entry__meta {
+  margin-top: 0.18rem;
+  font-size: clamp(0.8rem, 0.78rem + 0.1vw, 0.9rem);
+  letter-spacing: 0.01em;
+  color: rgba(17, 16, 13, 0.6);
+}
+
+.resume-entry__head + .resume-prose {
+  margin-top: 0.6rem;
+}
+
+/* ── Company / school / issuer logo (decorative) + initials fallback ── */
+.company-logo {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--logo-size, 36px);
+  height: var(--logo-size, 36px);
+  overflow: hidden;
+}
+
+.company-logo__img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.company-logo__initials {
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-radius: 3px;
+  color: var(--ink);
+  font-size: calc(var(--logo-size, 36px) * 0.34);
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+/* The initials box is hidden until the image cascade fails (or shown
+   directly when there's no asset). Respect [hidden]; reveal as flex. */
+.company-logo__initials:not([hidden]) {
+  display: flex;
+}
+
+/* ── Skills — label + inline middle-dot list ── */
+.resume-skills__list {
+  display: grid;
+  gap: 0.6rem;
+}
+
+.resume-skills__row {
+  display: grid;
+  grid-template-columns: minmax(8.5rem, 12rem) 1fr;
+  gap: 0.3rem 1rem;
+  align-items: baseline;
+}
+
+.resume-skills__label {
+  font-weight: 600;
+  font-size: clamp(0.82rem, 0.8rem + 0.1vw, 0.92rem);
+  letter-spacing: 0.03em;
+  color: var(--ink);
+}
+
+.resume-skills__values {
+  font-size: clamp(0.9rem, 0.88rem + 0.12vw, 0.98rem);
+  line-height: 1.5;
+  color: rgba(17, 16, 13, 0.82);
+}
+
+@media (max-width: 560px) {
+  .resume-skills__row {
+    grid-template-columns: 1fr;
+    gap: 0.1rem;
+  }
+}
+
+/* ── Projects ── */
+.resume-projects .resume-entry__title {
+  margin-bottom: 0.05rem;
+}
+
+.resume-entry__tech {
+  margin-top: 0.15rem;
+  font-size: clamp(0.8rem, 0.78rem + 0.1vw, 0.88rem);
+  letter-spacing: 0.02em;
+  color: rgba(17, 16, 13, 0.6);
+}
+
+.resume-entry__link {
+  margin-top: 0.18rem;
+  font-size: clamp(0.84rem, 0.82rem + 0.1vw, 0.92rem);
+}
+
+.resume-entry__link a {
+  color: var(--resume-link);
+  text-decoration: none;
+  border-bottom: 1px solid color-mix(in srgb, var(--resume-link) 35%, transparent);
+  transition: border-color var(--motion-hover) var(--ease-standard);
+}
+
+.resume-entry__link a:hover,
+.resume-entry__link a:focus-visible {
+  border-bottom-color: var(--resume-link);
+}
+
+.resume-entry__link + .resume-prose {
+  margin-top: 0.5rem;
+}
+
+/* ── Certifications ── */
+.resume-certs {
+  list-style: none;
+  display: grid;
+  gap: 0.7rem;
+  margin: 0;
+  padding: 0;
+}
+
+.resume-cert {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.resume-cert__text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.resume-cert__name {
+  font-weight: 600;
+  font-size: clamp(0.92rem, 0.9rem + 0.1vw, 1rem);
+  line-height: 1.25;
+}
+
+.resume-cert__meta {
+  font-size: clamp(0.8rem, 0.78rem + 0.1vw, 0.88rem);
+  color: rgba(17, 16, 13, 0.6);
+}
+
+/* ── Writing (compact inline section) ── */
+.resume-writing__lead {
+  font-size: clamp(0.94rem, 0.92rem + 0.12vw, 1.02rem);
+  line-height: 1.55;
+}
+
+.resume-writing__lead strong {
+  font-weight: 700;
+}
+
+.resume-writing__desc {
+  margin-top: 0.4rem;
+  font-size: clamp(0.9rem, 0.88rem + 0.12vw, 0.98rem);
+  line-height: 1.55;
+  color: rgba(17, 16, 13, 0.82);
+}
+
+.resume-writing__label {
+  margin-top: 0.7rem;
+  font-size: clamp(0.74rem, 0.9vw, 0.82rem);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(17, 16, 13, 0.55);
+}
+
+.resume-writing__essays {
+  list-style: none;
+  display: grid;
+  gap: 0.4rem;
+  margin: 0.4rem 0 0;
+  padding: 0;
+}
+
+.resume-writing__essays li {
+  position: relative;
+  padding-left: 1rem;
+  font-size: clamp(0.9rem, 0.88rem + 0.12vw, 0.98rem);
+}
+
+.resume-writing__essays li::before {
+  content: "";
+  position: absolute;
+  top: 0.55em;
+  left: 0;
+  width: 0.36rem;
+  height: 0.36rem;
+  background: var(--resume-link);
+}
+
+.resume-writing__lead a,
+.resume-writing__essays a {
+  color: var(--resume-link);
+  text-decoration: none;
+  border-bottom: 1px solid color-mix(in srgb, var(--resume-link) 35%, transparent);
+  transition: border-color var(--motion-hover) var(--ease-standard);
+}
+
+.resume-writing__lead a:hover,
+.resume-writing__lead a:focus-visible,
+.resume-writing__essays a:hover,
+.resume-writing__essays a:focus-visible {
+  border-bottom-color: var(--resume-link);
+}
+
+/* ── Awards (rendered only when the collection is non-empty) ── */
+.resume-awards__list {
+  list-style: none;
+  display: grid;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0;
+}
+
+.resume-award {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.4rem 0.6rem;
+}
+
+.resume-award__name {
+  font-weight: 600;
+}
+
+.resume-award__meta {
+  font-size: clamp(0.8rem, 0.78rem + 0.1vw, 0.88rem);
+  color: rgba(17, 16, 13, 0.6);
+}
+
+/* ── Footer (screen-only navigation) ── */
+.resume-footer {
+  margin-top: 2.4rem;
+  padding-top: 1.4rem;
+  border-top: 1px solid var(--ink);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.resume-footer-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   /resume — print stylesheet (US Letter, ~two pages, ATS-safe)
+   ──────────────────────────────────────────────────────────────────── */
+@media print {
+  @page {
+    size: letter;
+    margin: 0.5in;
+  }
+
+  body.resume-page {
+    background: #fff !important;
+  }
+
+  .resume-shell {
+    padding: 0;
+  }
+
+  /* The 8.5in canvas constraint lives here — inside @media print only. */
+  .resume-document {
+    width: 100%;
+    max-width: 8.5in;
+    margin: 0;
+    padding: 0;
+    border: none;
+    box-shadow: none;
+    background: #fff !important;
+  }
+
+  /* Force black-on-white regardless of screen colors. `color` only covers
+     text, so also neutralize the ochre accent decorations — the bullet
+     ::before squares (a background) and link underlines/borders — to black
+     so the printed copy is truly monochrome. */
+  .resume-page,
+  .resume-document,
+  .resume-document * {
+    color: #000 !important;
+  }
+
+  .resume-prose ul li::before,
+  .resume-writing__essays li::before {
+    background: #000 !important;
+  }
+
+  .resume-document a {
+    text-decoration-color: #000 !important;
+    border-bottom-color: #000 !important;
+  }
+
+  /* Logos are hidden in print — keeps the PDF clean and ATS-safe (the
+     company/school/issuer name remains as text). */
+  .company-logo {
+    display: none !important;
+  }
+
+  /* Screen-only footer nav. */
+  .resume-footer {
+    display: none !important;
+  }
+
+  /* Keep each work entry, project, and certification on one page. The
+     section containers themselves may break normally. */
+  .resume-entry,
+  .resume-cert,
+  .resume-skills__row,
+  .resume-writing__essays li {
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
+  .resume-section {
+    break-inside: auto;
+  }
+
+  /* Render the URL after any descriptive-text external link for hard copy.
+     Links whose visible text is ALREADY the URL — the contact line, the
+     project links, and the Writing lead (nathanpayne.com/blog) — suppress
+     this to avoid duplication. The essay links show titles, so they keep
+     the suffix if ever made absolute. */
+  .resume-document a[href^="http"]::after {
+    content: " (" attr(href) ")";
+    font-size: 0.85em;
+    word-break: break-all;
+  }
+
+  .resume-contact a[href^="http"]::after,
+  .resume-entry__link a[href^="http"]::after,
+  .resume-writing__lead a[href^="http"]::after {
+    content: "";
+  }
+
+  /* Print density — collapse the generous screen rhythm so the document
+     lands on two US-Letter pages. The screen margins (2.1rem sections,
+     1.5rem entries) are far too airy for print; the content is dense
+     (six roles, five projects) so the vertical rhythm is tuned tight. */
+  .resume-header { padding-bottom: 0.35rem; }
+  .resume-contact { margin-top: 0.28rem; gap: 0.1rem 0.4rem; line-height: 1.25; }
+  .resume-contact--profiles { margin-top: 0.08rem; }
+  .resume-section { margin-top: 0.3rem; padding-top: 0.22rem; }
+  .resume-summary { margin-top: 0.26rem; }
+  .resume-section__title { margin-bottom: 0.16rem; }
+  .resume-entry { margin-top: 0.28rem; }
+  .resume-entry__meta { margin-top: 0.05rem; }
+  .resume-entry__head { gap: 0.5rem; }
+  .resume-entry__head + .resume-prose { margin-top: 0.14rem; }
+  .resume-prose p + p { margin-top: 0.15rem; }
+  .resume-prose ul { gap: 0.06rem; margin-top: 0.12rem; }
+  .resume-prose li { padding-left: 0.8rem; }
+  .resume-prose ul li::before { top: 0.42em; }
+  .resume-skills__list { gap: 0.12rem; }
+  .resume-skills__row { gap: 0.06rem 0.8rem; }
+  .resume-certs { gap: 0.16rem; }
+  .resume-projects .resume-entry__tech,
+  .resume-entry__link { margin-top: 0.05rem; }
+  .resume-entry__link + .resume-prose { margin-top: 0.14rem; }
+  .resume-writing__desc { margin-top: 0.14rem; }
+  .resume-writing__label { margin-top: 0.26rem; }
+  .resume-writing__essays { gap: 0.12rem; margin-top: 0.14rem; }
+
+  /* Print type scale — point sizes for predictable density. */
+  .resume-name { font-size: 18pt; line-height: 1; }
+  .resume-title { font-size: 10.5pt; line-height: 1.16; }
+  .resume-contact { font-size: 8.5pt; }
+  .resume-section__title { font-size: 11.5pt; }
+  .resume-entry__title { font-size: 10.5pt; line-height: 1.1; }
+  .resume-entry__meta { font-size: 8.5pt; }
+  .resume-prose p,
+  .resume-prose li,
+  .resume-skills__values { font-size: 8.5pt; line-height: 1.22; }
+  .resume-skills__label,
+  .resume-cert__name { font-size: 9pt; }
+  .resume-cert__meta,
+  .resume-entry__tech { font-size: 8pt; }
+  .resume-writing__lead,
+  .resume-writing__desc,
+  .resume-writing__essays li { font-size: 8.5pt; line-height: 1.22; }
+  .resume-writing__label { font-size: 8pt; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

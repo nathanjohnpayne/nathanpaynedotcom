@@ -1,0 +1,12 @@
+label: "Technical"
+priority: 4
+skills:
+  - "TypeScript"
+  - "JavaScript"
+  - "React"
+  - "Next.js"
+  - "Firebase"
+  - "Bash"
+  - "GitHub Actions"
+  - "Playwright"
+  - "Vitest"
