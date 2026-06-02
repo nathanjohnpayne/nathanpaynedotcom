@@ -3572,9 +3572,8 @@ a:focus-visible {
    existing tokens — never redefines them: --ink (text), --cream/--surface
    (warm reading surface), --paper, --rule (dividers), Cormorant Garamond +
    Inter, and the --motion- and --ease- motion tokens. The local
-   --resume-link is the darker ochre used elsewhere for in-content links on
-   the cream surface (it clears body-text contrast where the brighter
-   accents do not). See specs/resume.md and #394.
+   --resume-link is the site's --blue accent, used for in-content links and
+   the header contact links on the cream surface. See specs/resume.md and #394.
    ════════════════════════════════════════════════════════════════════ */
 body.resume-page {
   min-height: 100%;
@@ -3583,7 +3582,7 @@ body.resume-page {
   background:
     linear-gradient(135deg, rgba(255, 255, 255, 0.42), rgba(255, 255, 255, 0)),
     var(--project-bg, #d8d1c5);
-  --resume-link: #6f5500;
+  --resume-link: var(--blue);
   /* Drives the screen-only footer nav buttons (.project-action). */
   --project-accent: var(--ink);
   --project-accent-foreground: #f5f0e4;
@@ -3859,7 +3858,7 @@ body.resume-page {
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
-  gap: 0.35rem 0.5rem;
+  gap: 0.55rem 0.5rem;
   margin-top: 0.9rem;
   font-size: clamp(0.82rem, 0.8rem + 0.12vw, 0.92rem);
   line-height: 1.55;
@@ -3867,7 +3866,7 @@ body.resume-page {
 }
 
 .resume-contact--profiles {
-  margin-top: 0.35rem;
+  margin-top: 0.7rem;
 }
 
 .resume-contact__sep {
@@ -3908,7 +3907,7 @@ body.resume-page {
 }
 
 .resume-summary {
-  margin-top: 1.5rem;
+  margin-top: 0;
   padding-top: 0;
   border-top: none;
 }

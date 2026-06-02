@@ -100,17 +100,18 @@ The `resumeProjects` collection must remain separate from the existing
 - The Logo.dev publishable token comes from `PUBLIC_LOGODEV_KEY`
   (`import.meta.env`); if unset the component renders initials only. The
   token is never committed.
-- Self-hosted SVG overrides (via `logo`) are used only where Logo.dev is
+- Self-hosted asset overrides (via `logo`) are used only where Logo.dev is
   wrong or absent: Current TV (defunct, no live domain) →
-  `/images/logos/current-tv.svg`, and the A-CSM cert →
-  `/images/logos/scrum.svg` (the Scrum-framework glyph, chosen deliberately
-  over the Scrum Alliance corporate mark Logo.dev would return). The Turner
-  Leadership cert resolves via Logo.dev (`website: turner.com`) — no override.
+  `/images/logos/current-tv.svg`, and the CSP-PO cert →
+  `/images/logos/csp-po.png` (the official Scrum Alliance certification badge,
+  chosen deliberately over the corporate mark Logo.dev would return for
+  scrumalliance.org). The Turner Leadership cert resolves via Logo.dev
+  (`website: turner.com`) — no override.
 - The logo is **decorative** (the company/school/issuer name is the
   semantic text); each `CompanyLogo` includes an initials fallback element.
-- Displayed as uniform **~80px square "Logo.dev-style" cards** (matching the
-  logo.dev grid tile size): a thin
-  `--rule` border, rounded corners, and a light (`--paper`) background.
+- Displayed as square "Logo.dev-style" cards: a thin `--rule` border, rounded
+  corners, and a light (`--paper`) background. Sized per section — Experience
+  company logos ~72px, Education/Certification logos ~56px.
   Square brand marks fill the tile edge-to-edge (corners clipped); a wide
   wordmark (Current TV) is contained and centered with the card showing
   above/below. The card sits to the left of the entry with the heading +
@@ -127,8 +128,9 @@ The `resumeProjects` collection must remain separate from the existing
   Garamond + Inter pairing — it does not redefine them or import new fonts.
 - The content-column section styling stays under the existing `.resume-*`
   classes (sections, entries, skills, certs, writing, `CompanyLogo`).
-- In-content links use the darker ochre treatment (not bright blue), with
-  the `→` arrow convention on the project and writing links.
+- In-content links and the header contact links use the site's `--blue`
+  accent (via `--resume-link`), with the `→` arrow convention on the project
+  and writing links.
 - Skills render as inline `·`-joined lists.
 - Any transition uses the `--motion-*`/`--ease-*` tokens (no bare `ms`/`ease`).
 
@@ -156,7 +158,7 @@ The `resumeProjects` collection must remain separate from the existing
 The content is authored **verbatim** from the canonical resume — not
 paraphrased. In particular:
 
-- The A-CSM certification is attributed to **Scrum Alliance** (the
+- The CSP-PO certification is attributed to **Scrum Alliance** (the
   credentialing body), not the training provider.
 - The summary opens with the 20+-years platform framing and names Disney+,
   Hulu, and ESPN.
@@ -171,7 +173,7 @@ paraphrased. In particular:
 3. Each Experience role / Education / Certification renders a `.company-logo`
    (logo or initials fallback).
 4. Experience renders `<h3>` roles and `<ul>`/`<li>` bullets.
-5. Certifications (3) and Projects (5) are present; A-CSM credits Scrum
+5. Certifications (3) and Projects (5) are present; CSP-PO credits Scrum
    Alliance.
 6. The emitted CSS hides `.company-logo` inside an `@media print` block.
 7. The page exposes a resolvable `og:image` and a `Nathan Payne | Resume`
