@@ -5,7 +5,6 @@ email: hire@nathanpayne.com
 website: nathanpayne.com
 linkedin: nathanpayne
 github: nathanjohnpayne
-bluesky: nathanpayne.bsky.social
 blog: nathanpayne.com/blog
 location: San Francisco, CA
 ---

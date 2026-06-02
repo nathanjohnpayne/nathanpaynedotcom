@@ -22,16 +22,14 @@ const rendered = await Promise.all(
     const range = `${d.startYear}–${d.endYear ?? 'Present'}`;
     const meta = [d.team, d.location, range].filter(Boolean).join(' · ');
     return (
-      <article class="resume-entry">
-        <div class="resume-entry__head">
-          <CompanyLogo name={d.company} website={d.website} logo={d.logo} size={38} />
-          <div class="resume-entry__headings">
-            <h3 class="resume-entry__title">{d.title} — {d.company}</h3>
-            <p class="resume-entry__meta">{meta}</p>
+      <article class="resume-entry resume-entry--logo">
+        <CompanyLogo name={d.company} website={d.website} logo={d.logo} size={72} />
+        <div class="resume-entry__body">
+          <h3 class="resume-entry__title">{d.title} — {d.company}</h3>
+          <p class="resume-entry__meta">{meta}</p>
+          <div class="resume-prose">
+            <Content />
           </div>
-        </div>
-        <div class="resume-prose">
-          <Content />
         </div>
       </article>
     );

@@ -166,11 +166,11 @@ describe('Resume — page structure', () => {
     expect(proj.querySelectorAll('h3.resume-entry__title').length).toBe(5);
   });
 
-  it('renders three Certifications; A-CSM is attributed to Scrum Alliance', () => {
+  it('renders three Certifications; CSP-PO is attributed to Scrum Alliance', () => {
     const certs = document.querySelectorAll('.resume-certifications .resume-cert');
     expect(certs.length).toBe(3);
     const text = document.querySelector('.resume-certifications').textContent;
-    expect(text).toContain('Advanced Certified ScrumMaster (A-CSM)');
+    expect(text).toContain('Certified Scrum Professional - Product Owner (CSP-PO)');
     expect(text).toContain('Scrum Alliance');
     // The superseded training-provider attribution must not appear.
     expect(text).not.toContain('LeadingAgile');
@@ -197,14 +197,18 @@ describe('Resume — page structure', () => {
     }
   });
 
-  it('uses self-hosted Commons SVGs for the defunct brands (Current TV, Turner)', () => {
+  it('uses self-hosted asset overrides where Logo.dev is wrong/absent (Current TV, CSP-PO)', () => {
+    // Current TV is defunct (no live domain); the CSP-PO cert deliberately
+    // overrides to the official Scrum Alliance badge rather than the corporate
+    // mark Logo.dev returns for scrumalliance.org. Turner, by contrast, resolves
+    // via Logo.dev (turner.com), so it's a remote logo with no committed asset.
     const srcs = Array.from(document.querySelectorAll('.company-logo img')).map((img) =>
       img.getAttribute('src'),
     );
     expect(srcs).toContain('/images/logos/current-tv.svg');
-    expect(srcs).toContain('/images/logos/turner.svg');
+    expect(srcs).toContain('/images/logos/csp-po.png');
     expect(existsSync(resolve(DIST, 'images/logos/current-tv.svg'))).toBe(true);
-    expect(existsSync(resolve(DIST, 'images/logos/turner.svg'))).toBe(true);
+    expect(existsSync(resolve(DIST, 'images/logos/csp-po.png'))).toBe(true);
   });
 
   it('emits a Person + ProfilePage JSON-LD graph', () => {

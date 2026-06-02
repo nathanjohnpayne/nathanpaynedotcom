@@ -3572,9 +3572,8 @@ a:focus-visible {
    existing tokens — never redefines them: --ink (text), --cream/--surface
    (warm reading surface), --paper, --rule (dividers), Cormorant Garamond +
    Inter, and the --motion- and --ease- motion tokens. The local
-   --resume-link is the darker ochre used elsewhere for in-content links on
-   the cream surface (it clears body-text contrast where the brighter
-   accents do not). See specs/resume.md and #394.
+   --resume-link is the site's --blue accent, used for in-content links and
+   the header contact links on the cream surface. See specs/resume.md and #394.
    ════════════════════════════════════════════════════════════════════ */
 body.resume-page {
   min-height: 100%;
@@ -3583,7 +3582,7 @@ body.resume-page {
   background:
     linear-gradient(135deg, rgba(255, 255, 255, 0.42), rgba(255, 255, 255, 0)),
     var(--project-bg, #d8d1c5);
-  --resume-link: #6f5500;
+  --resume-link: var(--blue);
   /* Drives the screen-only footer nav buttons (.project-action). */
   --project-accent: var(--ink);
   --project-accent-foreground: #f5f0e4;
@@ -3859,7 +3858,7 @@ body.resume-page {
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
-  gap: 0.35rem 0.5rem;
+  gap: 0.55rem 0.5rem;
   margin-top: 0.9rem;
   font-size: clamp(0.82rem, 0.8rem + 0.12vw, 0.92rem);
   line-height: 1.55;
@@ -3867,7 +3866,7 @@ body.resume-page {
 }
 
 .resume-contact--profiles {
-  margin-top: 0.35rem;
+  margin-top: 0.7rem;
 }
 
 .resume-contact__sep {
@@ -3908,7 +3907,7 @@ body.resume-page {
 }
 
 .resume-summary {
-  margin-top: 1.5rem;
+  margin-top: 0;
   padding-top: 0;
   border-top: none;
 }
@@ -3990,12 +3989,29 @@ body.resume-page {
 
 .resume-entry__head {
   display: flex;
-  align-items: center;
-  gap: 0.7rem;
+  align-items: flex-start;
+  gap: 0.85rem;
 }
 
 .resume-entry__headings {
   min-width: 0;
+}
+
+/* Experience entries (LinkedIn-style): the logo sits in a left rail and the
+   heading + meta + description share a body column that indents past it. */
+.resume-entry--logo {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.85rem;
+}
+
+.resume-entry__body {
+  min-width: 0;
+  flex: 1;
+}
+
+.resume-entry__body .resume-prose {
+  margin-top: 0.5rem;
 }
 
 .resume-entry__title {
@@ -4012,18 +4028,23 @@ body.resume-page {
   color: rgba(17, 16, 13, 0.6);
 }
 
-.resume-entry__head + .resume-prose {
-  margin-top: 0.6rem;
-}
-
 /* ── Company / school / issuer logo (decorative) + initials fallback ── */
+/* Logo.dev-style card: a uniform square tile with a thin border, rounded
+   corners, and a light background. Square brand marks fill the tile
+   edge-to-edge (their corners clipped by overflow:hidden); a wide wordmark
+   (Current TV) is contained and centered, with the tile showing above/below.
+   The initials fallback reuses the same square card. */
 .company-logo {
   flex: 0 0 auto;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: var(--logo-size, 36px);
-  height: var(--logo-size, 36px);
+  box-sizing: border-box;
+  width: var(--logo-size, 80px);
+  height: var(--logo-size, 80px);
+  background: var(--paper);
+  border: 1px solid var(--rule);
+  border-radius: 9px;
   overflow: hidden;
 }
 
@@ -4031,6 +4052,7 @@ body.resume-page {
   width: 100%;
   height: 100%;
   object-fit: contain;
+  display: block;
 }
 
 .company-logo__initials {
@@ -4038,11 +4060,8 @@ body.resume-page {
   justify-content: center;
   width: 100%;
   height: 100%;
-  background: var(--surface);
-  border: 1px solid var(--rule);
-  border-radius: 3px;
   color: var(--ink);
-  font-size: calc(var(--logo-size, 36px) * 0.34);
+  font-size: calc(var(--logo-size, 80px) * 0.32);
   font-weight: 600;
   letter-spacing: 0.01em;
 }
@@ -4130,8 +4149,8 @@ body.resume-page {
 
 .resume-cert {
   display: flex;
-  align-items: center;
-  gap: 0.6rem;
+  align-items: flex-start;
+  gap: 0.85rem;
 }
 
 .resume-cert__text {
@@ -4409,7 +4428,7 @@ body.resume-page {
   .resume-entry { margin-top: 0.28rem; }
   .resume-entry__meta { margin-top: 0.05rem; }
   .resume-entry__head { gap: 0.5rem; }
-  .resume-entry__head + .resume-prose { margin-top: 0.14rem; }
+  .resume-entry__body .resume-prose { margin-top: 0.14rem; }
   .resume-prose p + p { margin-top: 0.15rem; }
   .resume-prose ul { gap: 0.06rem; margin-top: 0.12rem; }
   .resume-prose li { padding-left: 0.8rem; }
