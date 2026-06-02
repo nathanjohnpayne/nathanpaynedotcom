@@ -1,0 +1,9 @@
+# Line-ending normalization
+#
+# SVG assets sourced from external origins (e.g. Wikimedia Commons) can arrive
+# with CRLF line endings. Git stores them verbatim, and `git diff --check` then
+# flags every CRLF as a whitespace error—this surfaced as 126 whitespace
+# errors during the #400 external review and required a one-off normalization
+# commit. SVG is XML text, so treat it as text and store it with LF in the repo;
+# this keeps diffs readable and prevents the CRLF reintroduction from recurring.
+*.svg text eol=lf
