@@ -1,0 +1,135 @@
+---
+/**
+ * /resume — Nathan Payne's resume, rendered as native content from the
+ * resume content collections (see src/content.config.ts) and small section
+ * components (src/components/resume/). Styled to match the site's editorial
+ * reading layout (blog/project), not the homepage Mondrian grid. Prints to a
+ * clean two-page PDF via the @media print rules in global.css. See #394 and
+ * specs/resume.md.
+ */
+import { getCollection, getEntry } from 'astro:content';
+import BaseLayout from '../layouts/BaseLayout.astro';
+import SummarySection from '../components/resume/SummarySection.astro';
+import SkillsSection from '../components/resume/SkillsSection.astro';
+import ExperienceSection from '../components/resume/ExperienceSection.astro';
+import EducationSection from '../components/resume/EducationSection.astro';
+import CertificationsSection from '../components/resume/CertificationsSection.astro';
+import ProjectsSection from '../components/resume/ProjectsSection.astro';
+import WritingSection from '../components/resume/WritingSection.astro';
+import AwardsSection from '../components/resume/AwardsSection.astro';
+
+const myself = await getEntry('myself', 'nathan-payne');
+if (!myself) {
+  throw new Error('Missing myself entry "nathan-payne" — expected at src/content/myself/nathan-payne.md');
+}
+const m = myself.data;
+
+const [skills, experience, education, certifications, resumeProjects, awards] = await Promise.all([
+  getCollection('skills'),
+  getCollection('experience'),
+  getCollection('education'),
+  getCollection('certifications'),
+  getCollection('resumeProjects'),
+  getCollection('awards'),
+]);
+
+// Header contact links. Social handles are stored bare in the collection;
+// the full URL is composed here. Profile links are absolute (it's a CV
+// contact block) so the print stylesheet can append the URL after the text.
+const profileLinks = [
+  { display: m.website, href: `https://${m.website}` },
+  { display: `linkedin.com/in/${m.linkedin}`, href: `https://linkedin.com/in/${m.linkedin}` },
+  { display: `github.com/${m.github}`, href: `https://github.com/${m.github}` },
+  { display: `bsky.app/profile/${m.bluesky}`, href: `https://bsky.app/profile/${m.bluesky}` },
+  { display: m.blog, href: `https://${m.blog}/` },
+];
+
+const title = 'Nathan Payne | Resume';
+// Dedicated one-line OG/meta description (≤ ~160 chars) — the on-page
+// summary is two paragraphs, too long for a social card.
+const description =
+  'Senior Platform Product Manager — 20+ years in streaming, partner ecosystems, and infrastructure (Disney+, Hulu, ESPN), building AI-augmented software.';
+
+const canonical = new URL('/resume/', Astro.site).href;
+
+const jsonLd = {
+  '@context': 'https://schema.org',
+  '@graph': [
+    {
+      '@type': 'ProfilePage',
+      '@id': `${canonical}#webpage`,
+      url: canonical,
+      name: title,
+      description,
+      isPartOf: { '@id': 'https://nathanpayne.com/#website' },
+      mainEntity: { '@id': 'https://nathanpayne.com/#person' },
+    },
+    {
+      '@type': 'Person',
+      '@id': 'https://nathanpayne.com/#person',
+      name: m.name,
+      jobTitle: 'Senior Platform Product Manager',
+      url: 'https://nathanpayne.com/',
+      email: `mailto:${m.email}`,
+      address: {
+        '@type': 'PostalAddress',
+        addressLocality: 'San Francisco',
+        addressRegion: 'CA',
+        addressCountry: 'US',
+      },
+      sameAs: [
+        `https://linkedin.com/in/${m.linkedin}`,
+        `https://github.com/${m.github}`,
+        `https://bsky.app/profile/${m.bluesky}`,
+      ],
+      alumniOf: { '@type': 'CollegeOrUniversity', name: 'George Mason University' },
+    },
+  ],
+};
+---
+
+<BaseLayout
+  title={title}
+  description={description}
+  canonical={canonical}
+  bodyClass="resume-page"
+  jsonLd={jsonLd}
+>
+  <main class="resume-shell">
+    <article class="resume-document">
+      <header class="resume-header">
+        <h1 class="resume-name">{m.name}</h1>
+        <p class="resume-title">{m.title}</p>
+        <p class="resume-contact resume-contact--primary">
+          <span class="resume-contact__location">{m.location}</span>
+          <span class="resume-contact__sep" aria-hidden="true">·</span>
+          <a href={`mailto:${m.email}`}>{m.email}</a>
+        </p>
+        <p class="resume-contact resume-contact--profiles">
+          {profileLinks.map((link, i) => (
+            <>
+              {i > 0 && <span class="resume-contact__sep" aria-hidden="true">·</span>}
+              <a href={link.href}>{link.display}</a>
+            </>
+          ))}
+        </p>
+      </header>
+
+      <SummarySection entry={myself} />
+      <SkillsSection categories={skills} />
+      <ExperienceSection entries={experience} />
+      <EducationSection entries={education} />
+      <CertificationsSection entries={certifications} />
+      <ProjectsSection entries={resumeProjects} />
+      <WritingSection />
+      <AwardsSection entries={awards} />
+
+      <footer class="resume-footer">
+        <nav class="resume-footer-nav" aria-label="Resume footer navigation">
+          <a class="project-action" href="/">&larr; Back to Homepage</a>
+          <a class="project-action" href="/blog/">Read the Blog &rarr;</a>
+        </nav>
+      </footer>
+    </article>
+  </main>
+</BaseLayout>

@@ -1,0 +1,36 @@
+---
+/**
+ * WritingSection — a compact inline section (no collection; per #394 the
+ * homepage and /blog already cover writing). Links the blog and the two
+ * selected essays, using the site's → arrow convention.
+ */
+const essays = [
+  {
+    title: 'Agent Approval Workflow and the Genesis of Mergepath',
+    href: '/blog/agent-approval-workflow-genesis-of-mergepath/',
+  },
+  {
+    title: 'Six PRs, One Bug: What AI Agents Actually Get Wrong',
+    href: '/blog/six-prs-one-bug-agent-failure-modes/',
+  },
+];
+---
+
+<section class="resume-section resume-writing" aria-labelledby="resume-writing-heading">
+  <h2 id="resume-writing-heading" class="resume-section__title">Writing</h2>
+  <p class="resume-writing__lead">
+    <strong>The AI-Augmented PM</strong> —
+    <a href="/blog/">nathanpayne.com/blog <span class="link-arrow" aria-hidden="true">→</span></a>
+  </p>
+  <p class="resume-writing__desc">
+    Writing on AI-assisted product development, agent governance, multi-agent review patterns, and software delivery.
+  </p>
+  <p class="resume-writing__label">Selected essays:</p>
+  <ul class="resume-writing__essays">
+    {essays.map((essay) => (
+      <li>
+        <a href={essay.href}>{essay.title} <span class="link-arrow" aria-hidden="true">→</span></a>
+      </li>
+    ))}
+  </ul>
+</section>

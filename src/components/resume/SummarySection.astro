@@ -1,0 +1,17 @@
+---
+/**
+ * SummarySection — renders the two-paragraph summary from the single
+ * `myself` collection entry, using render() like blog/project bodies.
+ */
+import { render } from 'astro:content';
+
+const { entry } = Astro.props;
+const { Content } = await render(entry);
+---
+
+<section class="resume-section resume-summary" aria-labelledby="resume-summary-heading">
+  <h2 id="resume-summary-heading" class="resume-section__title">Summary</h2>
+  <div class="resume-prose">
+    <Content />
+  </div>
+</section>

@@ -1,0 +1,111 @@
+---
+/**
+ * CompanyLogo.astro — employer / school / issuer logo with a layered
+ * fallback cascade. Ports the *strategy* (not the React) from
+ * friends-and-family-billing's CompanyLogo.jsx; this repo is Astro-only
+ * (no client framework — see rules/repo_rules.md). See #394.
+ *
+ * Resolution order:
+ *   1. Explicit `logo` override (self-hosted asset / data-URI) — used for
+ *      defunct brands with no live domain (Current TV, Turner).
+ *   2. Logo.dev domain lookup (from `website`)
+ *        → onerror → Logo.dev name lookup
+ *        → onerror → styled initials
+ *   3. If neither `logo` nor `website` is set: styled initials directly.
+ *      No speculative name lookup — a brand-name guess can silently resolve
+ *      to a *successor* brand (e.g. LeadingAgile → LiminalArc), so a curated
+ *      entry with no asset must land on initials, never a guessed logo.
+ *
+ * The Logo.dev publishable token (PUBLIC_LOGODEV_KEY) is a read-only client
+ * identifier injected at build via import.meta.env. If unset, the component
+ * renders initials only — no broken images. The logo is decorative
+ * (aria-hidden); the company/school/issuer name is the semantic text in the
+ * adjacent heading. Hidden in print (see global.css `@media print`).
+ *
+ * The onerror cascade is a vanilla inline handler — inline handlers/scripts
+ * are an established pattern in this repo (e.g. the Connect availability
+ * script on the homepage).
+ */
+interface Props {
+  /** Brand name — used for the Logo.dev name lookup and the initials. */
+  name: string;
+  /** Bare domain or full URL — drives the Logo.dev domain lookup. */
+  website?: string;
+  /** Explicit override path / data-URI — wins over any lookup. */
+  logo?: string;
+  /** Display size in px (the rendered box is size×size). */
+  size?: number;
+}
+
+const { name, website, logo, size = 36 } = Astro.props;
+
+const KEY = import.meta.env.PUBLIC_LOGODEV_KEY || '';
+
+/** Normalize a bare domain or full URL to a clean hostname (no scheme/www). */
+function extractDomain(input?: string): string | null {
+  if (!input) return null;
+  const trimmed = input.trim();
+  if (!trimmed) return null;
+  try {
+    const host = /^https?:\/\//i.test(trimmed)
+      ? new URL(trimmed).hostname
+      : trimmed.split('/')[0];
+    return host.replace(/^www\./i, '');
+  } catch {
+    return null;
+  }
+}
+
+/** Build a Logo.dev Image CDN URL. `fallback=404` lets onerror detect a miss. */
+function buildLogoUrl(identifier: string): string {
+  if (!KEY) return '';
+  const fetchSize = Math.min(size * 2, 800); // retina, capped at the API max
+  return `https://img.logo.dev/${identifier}?token=${KEY}&size=${fetchSize}&format=png&retina=true&fallback=404`;
+}
+
+/** First letters of up to two words (or first two chars of one word). */
+function initialsOf(value: string): string {
+  const words = value.replace(/[^\p{L}\p{N}\s]/gu, ' ').split(/\s+/).filter(Boolean);
+  if (words.length === 0) return '?';
+  if (words.length === 1) return words[0].slice(0, 2).toUpperCase();
+  return (words[0][0] + words[1][0]).toUpperCase();
+}
+
+const domain = extractDomain(website);
+const useOverride = Boolean(logo);
+const useRemote = !useOverride && Boolean(domain) && Boolean(KEY);
+
+const domainSrc = useRemote ? buildLogoUrl(domain as string) : '';
+const nameSrc = useRemote ? buildLogoUrl(`name/${encodeURIComponent(name)}`) : '';
+const initials = initialsOf(name);
+---
+
+<span class="company-logo" style={`--logo-size: ${size}px`} aria-hidden="true">
+  {useOverride && (
+    <img
+      class="company-logo__img"
+      src={logo}
+      alt=""
+      width={size}
+      height={size}
+      loading="lazy"
+      decoding="async"
+      onerror="this.style.display='none';var f=this.parentElement.querySelector('.company-logo__initials');if(f){f.hidden=false;}"
+    />
+  )}
+  {useRemote && (
+    <img
+      class="company-logo__img"
+      src={domainSrc}
+      data-stage="domain"
+      data-name-src={nameSrc}
+      alt=""
+      width={size}
+      height={size}
+      loading="lazy"
+      decoding="async"
+      onerror="if(this.dataset.stage==='domain'&&this.dataset.nameSrc){this.dataset.stage='name';this.src=this.dataset.nameSrc;}else{this.style.display='none';var f=this.parentElement.querySelector('.company-logo__initials');if(f){f.hidden=false;}}"
+    />
+  )}
+  <span class="company-logo__initials" hidden={useOverride || useRemote}>{initials}</span>
+</span>
