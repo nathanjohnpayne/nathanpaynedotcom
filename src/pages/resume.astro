@@ -43,7 +43,6 @@ const profileLinks = [
   { display: m.website, href: `https://${m.website}`, icon: 'globe' },
   { display: `linkedin.com/in/${m.linkedin}`, href: `https://linkedin.com/in/${m.linkedin}`, icon: 'linkedin' },
   { display: `github.com/${m.github}`, href: `https://github.com/${m.github}`, icon: 'github' },
-  { display: `bsky.app/profile/${m.bluesky}`, href: `https://bsky.app/profile/${m.bluesky}`, icon: 'bluesky' },
   { display: m.blog, href: `https://${m.blog}/`, icon: 'blog' },
 ];
 
@@ -125,7 +124,6 @@ const jsonLd = {
       sameAs: [
         `https://linkedin.com/in/${m.linkedin}`,
         `https://github.com/${m.github}`,
-        `https://bsky.app/profile/${m.bluesky}`,
       ],
       alumniOf: { '@type': 'CollegeOrUniversity', name: 'George Mason University' },
     },

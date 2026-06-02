@@ -120,7 +120,6 @@ const myself = defineCollection({
     website: z.string(),
     linkedin: z.string(),
     github: z.string(),
-    bluesky: z.string(),
     blog: z.string(),
     location: z.string(),
   }),

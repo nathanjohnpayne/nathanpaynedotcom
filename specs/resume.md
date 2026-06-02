@@ -49,14 +49,17 @@ The `resumeProjects` collection must remain separate from the existing
     `aria-hidden`) — the red / yellow→ink→paper→blue Mondrian stripe.
   - **Header** (`.resume-canvas-header`) — breadcrumbs (`Nathan Payne /
     Resume`), the name (`<h1>`), the title, and the **contact line**
-    (location · email · profile links, composed from the `myself` handles).
-    The contact stays in the header so it prints.
+    (location · email · website · LinkedIn · GitHub · blog, composed from the
+    `myself` handles, each prefixed by a small decorative icon —
+    `ContactIcon.astro`, brand glyphs + Lucide mail/globe/map-pin). **No
+    Bluesky** on the resume (it remains on the homepage). The contact stays in
+    the header so it prints.
   - **Metadata panel** (`.resume-canvas-meta`, top-right, screen-only) — a
     `<dl>`: Location, Availability, Focus, and a few Topic pills.
   - **Content column** (`.resume-canvas-content`) — the section components.
   - **Sidebar** (`.resume-canvas-sidebar`, sticky, screen-only) — an
-    "In this resume" in-page ToC (`.resume-canvas-toc-list`) + 2–3
-    `.resume-highlight` metric cards.
+    "In this resume" in-page ToC (`.resume-canvas-toc-list`) + several
+    (≈5) `.resume-highlight` metric cards, accents cycling red/yellow/blue.
   - **Footer** (`.resume-canvas-footer`) — attribution + nav.
 - Sections compose in this order: **Summary, Core Skills, Experience,
   Education, Certifications, Selected Projects, Writing, Awards.**
@@ -102,6 +105,10 @@ The `resumeProjects` collection must remain separate from the existing
   `/images/logos/turner.svg`.
 - The logo is **decorative** (the company/school/issuer name is the
   semantic text); each `CompanyLogo` includes an initials fallback element.
+- Displayed LinkedIn-style: small (~48px tall), **height-fixed with natural
+  width** — not forced square, so wide wordmarks (Current TV, Turner) aren't
+  letterboxed (the initials fallback stays square). The logo sits to the left
+  of the entry with the heading + description indented beside it.
 
 ## Styling
 
