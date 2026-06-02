@@ -4270,7 +4270,14 @@ body.resume-page {
   .resume-canvas-header { grid-column: 2; grid-row: 4; }
   .resume-canvas-content { grid-column: 2; grid-row: 6; }
   .resume-canvas-sidebar { display: none; }
-  .resume-canvas-footer { grid-column: 2; grid-row: 8; }
+  /* Match the blog footer's narrow-screen flow: stack + center. */
+  .resume-canvas-footer {
+    grid-column: 2;
+    grid-row: 8;
+    flex-direction: column;
+    text-align: center;
+  }
+  .resume-footer-nav { justify-content: center; }
 }
 
 /* ════════════════════════════════════════════════════════════════════
