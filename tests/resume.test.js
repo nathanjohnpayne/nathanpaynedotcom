@@ -1,0 +1,252 @@
+import { describe, it, expect, beforeEach, beforeAll } from 'vitest';
+import { existsSync, readFileSync, readdirSync } from 'fs';
+import { resolve, join } from 'path';
+
+// Smoke tests for the content-collection-driven /resume page.
+// See specs/resume.md and issue #394.
+//
+// These read from the already-built dist/ directory — `npm test` runs
+// `astro build && vitest run`, so dist/ is always fresh.
+
+const DIST = resolve(__dirname, '../dist');
+const CONTENT = resolve(__dirname, '../src/content');
+const RESUME_HTML = resolve(DIST, 'resume/index.html');
+
+function readDist(relativePath) {
+  return readFileSync(resolve(DIST, relativePath), 'utf-8');
+}
+
+function setupDOM(rawHtml) {
+  // Strip bare <script> blocks to prevent auto-execution during document.write,
+  // but keep <script type="application/ld+json"> for structured-data assertions.
+  const safe = rawHtml.replace(/<script>[\s\S]*?<\/script>/g, '');
+  document.documentElement.innerHTML = '';
+  document.write(safe);
+  document.close();
+}
+
+function countMd(dir) {
+  return readdirSync(join(CONTENT, dir)).filter((f) => f.endsWith('.md')).length;
+}
+
+describe('Resume — route & build', () => {
+  it('builds a static HTML file at dist/resume/index.html', () => {
+    expect(existsSync(RESUME_HTML), 'missing dist/resume/index.html').toBe(true);
+  });
+
+  it('content collections have the expected file counts', () => {
+    expect(countMd('experience'), 'expected 6 experience entries').toBe(6);
+    expect(countMd('resume/projects'), 'expected 5 resume projects').toBe(5);
+    expect(countMd('certifications'), 'expected 3 certifications').toBe(3);
+    expect(countMd('education'), 'expected 1 education entry').toBe(1);
+    expect(countMd('myself'), 'expected 1 myself entry').toBe(1);
+    const skills = readdirSync(join(CONTENT, 'skills')).filter((f) => /\.ya?ml$/.test(f));
+    expect(skills.length, 'expected 5 skill categories').toBe(5);
+  });
+
+  it('resumeProjects is a distinct collection — the projects collection is untouched', () => {
+    const config = readFileSync(resolve(__dirname, '../src/content.config.ts'), 'utf-8');
+    expect(config).toContain('resumeProjects');
+    expect(config).toContain("base: './src/content/resume/projects'");
+  });
+});
+
+describe('Resume — page structure', () => {
+  beforeEach(() => {
+    setupDOM(readDist('resume/index.html'));
+  });
+
+  it('has the title "Nathan Payne | Resume"', () => {
+    expect(document.querySelector('title')?.textContent).toBe('Nathan Payne | Resume');
+  });
+
+  it('exposes a resolvable og:image meta tag', () => {
+    const og = document.querySelector('meta[property="og:image"]');
+    expect(og, 'missing og:image').not.toBeNull();
+    expect(og.getAttribute('content')).toMatch(/^https:\/\/nathanpayne\.com\//);
+  });
+
+  it('renders a single-column document (one .resume-document, no Mondrian grid)', () => {
+    expect(document.querySelectorAll('.resume-document').length).toBe(1);
+    expect(document.querySelector('.blog-canvas'), 'should not reuse the blog Mondrian grid').toBeNull();
+  });
+
+  it('renders the section <h2> titles in order; no References; Awards absent while empty', () => {
+    const titles = Array.from(document.querySelectorAll('.resume-section__title')).map((h) =>
+      h.textContent.trim(),
+    );
+    expect(titles).toEqual([
+      'Summary',
+      'Core Skills',
+      'Experience',
+      'Education',
+      'Certifications',
+      'Selected Projects',
+      'Writing',
+    ]);
+    // Every section title is a semantic <h2>.
+    for (const h of document.querySelectorAll('.resume-section__title')) {
+      expect(h.tagName).toBe('H2');
+    }
+    // No References section anywhere.
+    const allH2 = Array.from(document.querySelectorAll('h2')).map((h) => h.textContent.toLowerCase());
+    expect(allH2.some((t) => t.includes('reference'))).toBe(false);
+    // Awards collection is empty → no awards section rendered.
+    expect(document.querySelector('.resume-awards')).toBeNull();
+  });
+
+  it('renders six Experience roles as <h3> with <ul>/<li> bullets', () => {
+    const exp = document.querySelector('.resume-experience');
+    expect(exp).not.toBeNull();
+    const roles = exp.querySelectorAll('h3.resume-entry__title');
+    expect(roles.length).toBe(6);
+    // Disney NCP entry has bullets.
+    expect(exp.querySelector('ul li'), 'experience should render <ul><li> bullets').not.toBeNull();
+  });
+
+  it('renders five Selected Projects, each with an <h3>', () => {
+    const proj = document.querySelector('.resume-projects');
+    expect(proj).not.toBeNull();
+    expect(proj.querySelectorAll('h3.resume-entry__title').length).toBe(5);
+  });
+
+  it('renders three Certifications; A-CSM is attributed to Scrum Alliance', () => {
+    const certs = document.querySelectorAll('.resume-certifications .resume-cert');
+    expect(certs.length).toBe(3);
+    const text = document.querySelector('.resume-certifications').textContent;
+    expect(text).toContain('Advanced Certified ScrumMaster (A-CSM)');
+    expect(text).toContain('Scrum Alliance');
+    // The superseded training-provider attribution must not appear.
+    expect(text).not.toContain('LeadingAgile');
+  });
+
+  it('renders a CompanyLogo on every Experience role, Education entry, and Certification', () => {
+    for (const sel of ['.resume-experience .resume-entry', '.resume-education .resume-entry']) {
+      const entries = document.querySelectorAll(sel);
+      expect(entries.length, `no entries for ${sel}`).toBeGreaterThan(0);
+      for (const entry of entries) {
+        expect(entry.querySelector('.company-logo'), `${sel} missing .company-logo`).not.toBeNull();
+      }
+    }
+    for (const cert of document.querySelectorAll('.resume-certifications .resume-cert')) {
+      expect(cert.querySelector('.company-logo'), 'cert missing .company-logo').not.toBeNull();
+    }
+  });
+
+  it('every CompanyLogo carries an initials fallback element', () => {
+    const logos = document.querySelectorAll('.company-logo');
+    expect(logos.length).toBe(10); // 6 experience + 1 education + 3 certifications
+    for (const logo of logos) {
+      expect(logo.querySelector('.company-logo__initials'), 'logo missing initials fallback').not.toBeNull();
+    }
+  });
+
+  it('uses self-hosted Commons SVGs for the defunct brands (Current TV, Turner)', () => {
+    const srcs = Array.from(document.querySelectorAll('.company-logo img')).map((img) =>
+      img.getAttribute('src'),
+    );
+    expect(srcs).toContain('/images/logos/current-tv.svg');
+    expect(srcs).toContain('/images/logos/turner.svg');
+    expect(existsSync(resolve(DIST, 'images/logos/current-tv.svg'))).toBe(true);
+    expect(existsSync(resolve(DIST, 'images/logos/turner.svg'))).toBe(true);
+  });
+
+  it('emits a Person + ProfilePage JSON-LD graph', () => {
+    const scripts = document.querySelectorAll('script[type="application/ld+json"]');
+    const types = new Set();
+    for (const s of scripts) {
+      try {
+        const ld = JSON.parse(s.textContent);
+        const graph = Array.isArray(ld['@graph']) ? ld['@graph'] : [ld];
+        for (const e of graph) if (e && e['@type']) types.add(e['@type']);
+      } catch {
+        /* a malformed graph would fail another test */
+      }
+    }
+    expect(types.has('Person')).toBe(true);
+    expect(types.has('ProfilePage')).toBe(true);
+  });
+
+  it('preserves verbatim summary anchors (20+ years, Disney+/Hulu/ESPN)', () => {
+    const summary = document.querySelector('.resume-summary').textContent;
+    expect(summary).toContain('20+ years');
+    expect(summary).toContain('Disney+, Hulu, and ESPN');
+  });
+
+  it('every section title id is wired to its section via aria-labelledby', () => {
+    const sections = document.querySelectorAll('section.resume-section');
+    expect(sections.length).toBeGreaterThan(0);
+    for (const section of sections) {
+      const id = section.getAttribute('aria-labelledby');
+      expect(id, 'section missing aria-labelledby').toBeTruthy();
+      const heading = section.querySelector(`#${id}`);
+      expect(heading, `aria-labelledby="${id}" does not resolve to a heading`).not.toBeNull();
+      expect(heading.classList.contains('resume-section__title')).toBe(true);
+    }
+  });
+
+  it('never starts a logo at a speculative name lookup (domain/override only)', () => {
+    // The deliberate divergence from the friends-and-family-billing reference:
+    // an entry with no website/logo lands on initials, never a guessed
+    // /name/ logo (which could resolve to a successor brand). Every primary
+    // <img> src is therefore an override path or a by-domain Logo.dev URL;
+    // by-name URLs only ever live in the data-name-src onerror fallback.
+    for (const img of document.querySelectorAll('.company-logo__img')) {
+      expect(
+        img.getAttribute('src'),
+        'a logo primary src should never be a speculative /name/ lookup',
+      ).not.toMatch(/logo\.dev\/name\//);
+    }
+  });
+});
+
+describe('Resume — print stylesheet', () => {
+  let cssFiles;
+  beforeAll(() => {
+    const astroDir = resolve(DIST, '_astro');
+    cssFiles = existsSync(astroDir)
+      ? readdirSync(astroDir)
+          .filter((f) => f.endsWith('.css'))
+          .map((f) => readFileSync(join(astroDir, f), 'utf-8'))
+      : [];
+  });
+
+  // Pull the balanced @media print { ... } block out of a minified stylesheet.
+  function printBlock(css) {
+    const i = css.indexOf('@media print');
+    if (i === -1) return null;
+    let depth = 0;
+    let start = css.indexOf('{', i);
+    for (let j = start; j < css.length; j++) {
+      if (css[j] === '{') depth++;
+      else if (css[j] === '}' && --depth === 0) return css.slice(i, j + 1);
+    }
+    return null;
+  }
+
+  it('hides .company-logo inside an @media print block', () => {
+    expect(cssFiles.length, 'no emitted CSS found in dist/_astro').toBeGreaterThan(0);
+    const block = cssFiles.map(printBlock).find((b) => b && b.includes('company-logo'));
+    expect(block, 'no @media print block referencing .company-logo').toBeTruthy();
+    expect(block).toContain('display:none');
+  });
+
+  it('forces black-on-white and avoids breaking entries inside @media print', () => {
+    const block = cssFiles.map(printBlock).find((b) => b && b.includes('resume-document'));
+    expect(block, 'no @media print block found').toBeTruthy();
+    expect(block).toContain('#000'); // forced black text
+    expect(block).toContain('break-inside:avoid'); // keep entries/projects/certs whole
+  });
+
+  it('constrains the document to an 8.5in page width only inside @media print', () => {
+    const screenWidthRule = /\.resume-document\{[^}]*max-width:8\.5in/;
+    // The 8.5in constraint must not appear in the base (screen) cascade.
+    for (const css of cssFiles) {
+      const printIdx = css.indexOf('@media print');
+      const head = printIdx === -1 ? css : css.slice(0, printIdx);
+      expect(screenWidthRule.test(head), '8.5in width leaked into the screen cascade').toBe(false);
+    }
+    const block = cssFiles.map(printBlock).find((b) => b && b.includes('8.5in'));
+    expect(block, '8.5in print width constraint missing').toBeTruthy();
+  });
+});
