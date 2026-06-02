@@ -2,10 +2,12 @@
 /**
  * /resume — Nathan Payne's resume, rendered as native content from the
  * resume content collections (see src/content.config.ts) and small section
- * components (src/components/resume/). Styled to match the site's editorial
- * reading layout (blog/project), not the homepage Mondrian grid. Prints to a
- * clean two-page PDF via the @media print rules in global.css. See #394 and
- * specs/resume.md.
+ * components (src/components/resume/). Laid out in the blog-post reading
+ * format — a Mondrian "composition with margins" canvas (accent margin ▏
+ * content ▏ sticky sidebar with a metadata panel + in-page ToC) — mirroring
+ * src/layouts/BlogPost.astro via parallel .resume-canvas-* classes. Prints to
+ * a clean two-page PDF (margin/sidebar hidden) via the @media print rules in
+ * global.css. See #394 / #402 and specs/resume.md.
  */
 import { getCollection, getEntry } from 'astro:content';
 import BaseLayout from '../layouts/BaseLayout.astro';
@@ -43,6 +45,31 @@ const profileLinks = [
   { display: `bsky.app/profile/${m.bluesky}`, href: `https://bsky.app/profile/${m.bluesky}` },
   { display: m.blog, href: `https://${m.blog}/` },
 ];
+
+// Sidebar "In this resume" ToC. The page is component-composed (no single
+// markdown body), so there are no render() headings to derive from — the ToC
+// is built from the static section list. Awards is listed only when present.
+const toc = [
+  { label: 'Summary', id: 'summary' },
+  { label: 'Core Skills', id: 'skills' },
+  { label: 'Experience', id: 'experience' },
+  { label: 'Education', id: 'education' },
+  { label: 'Certifications', id: 'certifications' },
+  { label: 'Selected Projects', id: 'projects' },
+  { label: 'Writing', id: 'writing' },
+  ...(awards.length ? [{ label: 'Hackathons & Awards', id: 'awards' }] : []),
+];
+
+// Sidebar highlight cards — marquee metrics drawn from the content.
+const highlights = [
+  { text: '$18.1M NCPv3 platform investment', accent: 'red' },
+  { text: '20+ years across streaming & platform', accent: 'yellow' },
+  { text: 'PR cycle time: 7.4 → 4 days', accent: 'blue' },
+];
+
+// At-a-glance metadata topics (screen-only panel; contact stays in the
+// header so it prints).
+const topics = ['Connected-TV', 'Partner ecosystems', 'AI-augmented dev'];
 
 const title = 'Nathan Payne | Resume';
 // Dedicated one-line OG/meta description (≤ ~160 chars) — the on-page
@@ -98,8 +125,24 @@ const jsonLd = {
   jsonLd={jsonLd}
 >
   <main class="resume-shell">
-    <article class="resume-document">
-      <header class="resume-header">
+    {/* ── Mondrian "composition with margins" canvas ──────────────
+         3-column grid: accent margin | content | sidebar. The --ink
+         background shows through the var(--line) gaps as grid lines.
+         Mirrors src/layouts/BlogPost.astro. ─────────────────────── */}
+    <article class="resume-canvas">
+
+      {/* Left margin: per-row Mondrian accent blocks (decorative) */}
+      <div class="resume-canvas-margin resume-canvas-margin--header" aria-hidden="true"></div>
+      <div class="resume-canvas-margin resume-canvas-margin--body" aria-hidden="true"></div>
+      <div class="resume-canvas-margin resume-canvas-margin--footer" aria-hidden="true"></div>
+
+      {/* Header — breadcrumbs, name, title, and contact (kept here so it prints) */}
+      <header class="resume-canvas-header">
+        <nav class="project-breadcrumbs" aria-label="Breadcrumb">
+          <a href="/">Nathan Payne</a>
+          <span class="breadcrumb-sep">/</span>
+          <span class="breadcrumb-current">Resume</span>
+        </nav>
         <h1 class="resume-name">{m.name}</h1>
         <p class="resume-title">{m.title}</p>
         <p class="resume-contact resume-contact--primary">
@@ -117,21 +160,66 @@ const jsonLd = {
         </p>
       </header>
 
-      <SummarySection entry={myself} />
-      <SkillsSection categories={skills} />
-      <ExperienceSection entries={experience} />
-      <EducationSection entries={education} />
-      <CertificationsSection entries={certifications} />
-      <ProjectsSection entries={resumeProjects} />
-      <WritingSection />
-      <AwardsSection entries={awards} />
+      {/* Metadata panel (top-right; screen-only — contact lives in the header) */}
+      <div class="resume-canvas-meta">
+        <dl>
+          <div><dt>Location</dt><dd>{m.location}</dd></div>
+          <div><dt>Availability</dt><dd>Open to roles</dd></div>
+          <div><dt>Focus</dt><dd>Platform · Streaming · AI-augmented</dd></div>
+          <div>
+            <dt>Topics</dt>
+            <dd class="resume-canvas-topics">
+              {topics.map((topic) => (
+                <span class="resume-canvas-topic">{topic}</span>
+              ))}
+            </dd>
+          </div>
+        </dl>
+      </div>
 
-      <footer class="resume-footer">
+      {/* Main content column */}
+      <div class="resume-canvas-content">
+        <SummarySection entry={myself} />
+        <SkillsSection categories={skills} />
+        <ExperienceSection entries={experience} />
+        <EducationSection entries={education} />
+        <CertificationsSection entries={certifications} />
+        <ProjectsSection entries={resumeProjects} />
+        <WritingSection />
+        <AwardsSection entries={awards} />
+      </div>
+
+      {/* Right sidebar — in-page ToC + highlight cards (screen-only) */}
+      <aside class="resume-canvas-sidebar" aria-label="Resume sidebar">
+        <div class="resume-canvas-sidebar-inner">
+          <nav class="resume-canvas-section resume-canvas-toc" aria-label="Table of contents">
+            <h2 class="resume-canvas-heading">In this resume</h2>
+            <ol class="resume-canvas-toc-list">
+              {toc.map((item) => (
+                <li><a href={`#${item.id}`}>{item.label}</a></li>
+              ))}
+            </ol>
+          </nav>
+          <div class="resume-canvas-section resume-canvas-highlights">
+            <h2 class="resume-canvas-heading">Highlights</h2>
+            {highlights.map((highlight) => (
+              <blockquote class={`resume-highlight resume-highlight--${highlight.accent}`}>
+                <p>{highlight.text}</p>
+              </blockquote>
+            ))}
+          </div>
+        </div>
+      </aside>
+
+      {/* Footer */}
+      <footer class="resume-canvas-footer">
+        <p class="resume-canvas-footer__attribution">{m.name} &middot; San Francisco</p>
         <nav class="resume-footer-nav" aria-label="Resume footer navigation">
           <a class="project-action" href="/">&larr; Back to Homepage</a>
           <a class="project-action" href="/blog/">Read the Blog &rarr;</a>
         </nav>
       </footer>
+
     </article>
   </main>
 </BaseLayout>
