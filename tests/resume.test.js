@@ -110,6 +110,10 @@ describe('Resume — page structure', () => {
       expect(links, `ToC missing link #${id}`).toContain(`#${id}`);
       expect(document.getElementById(id), `no <section id="${id}"> for the ToC link`).not.toBeNull();
     }
+    // Awards is empty → AwardsSection renders nothing, so the ToC must NOT
+    // list a (broken) #awards anchor and there is no <section id="awards">.
+    expect(links, 'ToC should omit #awards while the collection is empty').not.toContain('#awards');
+    expect(document.getElementById('awards'), 'awards section should not render while empty').toBeNull();
   });
 
   it('renders the section <h2> titles in order; no References; Awards absent while empty', () => {
