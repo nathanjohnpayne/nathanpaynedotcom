@@ -30,7 +30,7 @@ function displayUrl(url: string): string {
         <p class="resume-entry__tech">{d.tech.join(' · ')}</p>
         {link && (
           <p class="resume-entry__link">
-            <a href={link}>{displayUrl(link)} <span class="link-arrow" aria-hidden="true">→</span></a>
+            <a href={link} target="_blank" rel="noopener">{displayUrl(link)} <span class="link-arrow" aria-hidden="true">→</span></a>
           </p>
         )}
         <div class="resume-prose">

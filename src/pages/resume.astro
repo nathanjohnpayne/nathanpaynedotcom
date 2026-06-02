@@ -109,7 +109,7 @@ const jsonLd = {
           {profileLinks.map((link, i) => (
             <>
               {i > 0 && <span class="resume-contact__sep" aria-hidden="true">·</span>}
-              <a href={link.href}>{link.display}</a>
+              <a href={link.href} target="_blank" rel="noopener">{link.display}</a>
             </>
           ))}
         </p>
