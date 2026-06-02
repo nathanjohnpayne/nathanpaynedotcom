@@ -3578,6 +3578,8 @@ a:focus-visible {
    ════════════════════════════════════════════════════════════════════ */
 body.resume-page {
   min-height: 100%;
+  /* Match the blog backdrop (body.blog-page sets the same --project-bg). */
+  --project-bg: #c4c3bc;
   background:
     linear-gradient(135deg, rgba(255, 255, 255, 0.42), rgba(255, 255, 255, 0)),
     var(--project-bg, #d8d1c5);
@@ -3819,7 +3821,9 @@ body.resume-page {
   grid-row: 6;
   min-width: 0;
   background: var(--paper);
-  padding: clamp(1.15rem, 3vw, 2rem) clamp(1.15rem, 3vw, 2.5rem);
+  /* Match .blog-footer: padding, top rule, and uppercase attribution. */
+  padding: clamp(1.5rem, 3vw, 2.5rem) clamp(1.15rem, 3vw, 2.5rem);
+  border-top: 1px solid var(--rule);
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -3827,8 +3831,10 @@ body.resume-page {
   gap: 1rem;
 }
 .resume-canvas-footer__attribution {
-  font-size: clamp(0.8rem, 0.9vw, 0.92rem);
-  color: rgba(17, 16, 13, 0.55);
+  font-size: clamp(0.7rem, 0.88vw, 0.82rem);
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: rgba(17, 16, 13, 0.58);
 }
 
 .resume-name {
