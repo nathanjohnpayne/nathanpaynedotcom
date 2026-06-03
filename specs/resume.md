@@ -103,7 +103,7 @@ The `resumeProjects` collection must remain separate from the existing
   token is never committed.
 - Self-hosted asset overrides (via `logo`) are used only where Logo.dev is
   wrong or absent: Current TV (defunct, no live domain) →
-  `/images/logos/current-tv.svg`, and the CSP-PO cert →
+  `/images/logos/current-tv.png`, and the CSP-PO cert →
   `/images/logos/csp-po.png` (the official Scrum Alliance certification badge,
   chosen deliberately over the corporate mark Logo.dev would return for
   scrumalliance.org). The Turner Leadership cert resolves via Logo.dev

@@ -6,7 +6,7 @@ location: "San Francisco"
 startYear: 2018
 endYear: 2021
 order: 2
-website: "disney.com"
+website: "disneyplus.com"
 ---
 
 Led front-end engineering teams that built and launched Disney+ across connected devices.

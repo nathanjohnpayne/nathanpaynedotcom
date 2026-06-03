@@ -205,9 +205,9 @@ describe('Resume — page structure', () => {
     const srcs = Array.from(document.querySelectorAll('.company-logo img')).map((img) =>
       img.getAttribute('src'),
     );
-    expect(srcs).toContain('/images/logos/current-tv.svg');
+    expect(srcs).toContain('/images/logos/current-tv.png');
     expect(srcs).toContain('/images/logos/csp-po.png');
-    expect(existsSync(resolve(DIST, 'images/logos/current-tv.svg'))).toBe(true);
+    expect(existsSync(resolve(DIST, 'images/logos/current-tv.png'))).toBe(true);
     expect(existsSync(resolve(DIST, 'images/logos/csp-po.png'))).toBe(true);
   });
 

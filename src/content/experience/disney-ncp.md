@@ -6,7 +6,7 @@ location: "San Francisco"
 startYear: 2021
 endYear: 2026
 order: 1
-website: "disney.com"
+website: "disney.co"
 ---
 
 Product lead for the SDK and platform layer that runs Disney+, Hulu, and ESPN on partner devices. Scope included device certification, partner integrations, platform observability, release engineering, and cross-program alignment with player, engineering, product, and TPM teams.
