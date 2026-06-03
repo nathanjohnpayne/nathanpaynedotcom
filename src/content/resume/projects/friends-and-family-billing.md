@@ -1,5 +1,5 @@
 ---
-name: "Friends & Family Billing — Shared-Bill Coordination"
+name: "Friends & Family Billing – Shared-Bill Coordination"
 tech: ["React", "TypeScript", "Firebase"]
 url: "https://friends-and-family-billing.web.app"
 order: 5

@@ -1,5 +1,5 @@
 ---
-name: "Swipe Watch — Content Discovery Prototype"
+name: "Swipe Watch – Content Discovery Prototype"
 tech: ["JavaScript", "Firebase Hosting"]
 url: "https://swipewatch.web.app"
 order: 4

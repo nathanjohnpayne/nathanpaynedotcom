@@ -137,24 +137,31 @@ The `resumeProjects` collection must remain separate from the existing
 - Skills render as inline `·`-joined lists.
 - Any transition uses the `--motion-*`/`--ease-*` tokens (no bare `ms`/`ease`).
 
-## Print (two-page PDF, ATS-safe)
+## Print (three-page PDF, ATS-safe)
 
-- US Letter, 0.5in margins; the 8.5in width constraint lives **inside
+- US Letter, 0.7in margins; the 8.5in width constraint lives **inside
   `@media print` only**.
 - The canvas collapses to a single content block in print: the accent
   margin, the metadata panel, the sidebar (ToC + highlights), the
   breadcrumbs, and the footer are **hidden**; the header (with the contact
   line) and the content column print.
 - Forces black-on-white regardless of screen colors (text, bullet `::before`
-  squares, and link underlines/borders all forced to `#000`).
-- `page-break-inside: avoid` on each work entry, project, and certification.
+  squares, and link underlines/borders all forced to `#000`). Resume links
+  print with a real underline (`text-decoration` + `text-underline-offset`)
+  rather than a `border-bottom`, so the rule clears descenders.
+- `page-break-inside: avoid` on each work entry, project, and certification;
+  `break-after: avoid` on section titles; `orphans`/`widows` on prose.
 - Brand logos are **hidden in print** (`@media print { .company-logo {
   display: none } }`); the company/school/issuer name remains as text.
 - Descriptive-text external links get their URL appended for hard copy
   (`a[href^="http"]::after`); links whose visible text is already the URL
   suppress this.
-- Targets exactly two pages (the content column collapses to full 8.5in
-  width in print, so the narrower on-screen column doesn't affect paging).
+- Targets **three balanced pages** at a readable type floor (10pt body,
+  0.7in margins). The earlier two-page target over-compressed ~3 pages of
+  content into ~2.2 and stranded the remainder on a near-empty page 3;
+  decompressing to readable type fills three pages with the same content. The
+  Tier-2 print gaps are the fine-tune dial — nudge up if page 3 lands thin,
+  down if content spills to page 4. See issue #420.
 
 ## Content fidelity
 

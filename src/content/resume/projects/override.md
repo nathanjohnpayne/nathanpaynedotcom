@@ -1,5 +1,5 @@
 ---
-name: "Override — Broadway Financial Operating System"
+name: "Override – Broadway Financial Operating System"
 tech: ["Next.js", "TypeScript", "Firebase", "Vitest"]
 url: "https://overridebroadway.com"
 order: 3
