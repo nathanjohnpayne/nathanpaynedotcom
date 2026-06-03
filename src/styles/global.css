@@ -3992,7 +3992,7 @@ body.resume-page {
 
 .resume-entry__head {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: 0.85rem;
 }
 
@@ -4000,21 +4000,12 @@ body.resume-page {
   min-width: 0;
 }
 
-/* Experience entries (LinkedIn-style): the logo sits in a left rail and the
-   heading + meta + description share a body column that indents past it. */
-.resume-entry--logo {
-  display: flex;
-  align-items: flex-start;
-  gap: 0.85rem;
-}
-
-.resume-entry__body {
-  min-width: 0;
-  flex: 1;
-}
-
-.resume-entry__body .resume-prose {
-  margin-top: 0.5rem;
+/* Experience entries: a [logo | title + meta] head row (logo vertically
+   centered with the headings via .resume-entry__head), with the description
+   below at full width so it wraps under the logo rather than indenting past
+   it. */
+.resume-entry--logo .resume-prose {
+  margin-top: 0.55rem;
 }
 
 .resume-entry__title {
@@ -4025,7 +4016,7 @@ body.resume-page {
 }
 
 .resume-entry__meta {
-  margin-top: 0.18rem;
+  margin-top: 0.32rem;
   font-size: clamp(0.8rem, 0.78rem + 0.1vw, 0.9rem);
   letter-spacing: 0.01em;
   color: rgba(17, 16, 13, 0.6);
@@ -4434,7 +4425,7 @@ body.resume-page {
   .resume-entry { margin-top: 0.28rem; }
   .resume-entry__meta { margin-top: 0.05rem; }
   .resume-entry__head { gap: 0.5rem; }
-  .resume-entry__body .resume-prose { margin-top: 0.14rem; }
+  .resume-entry--logo .resume-prose { margin-top: 0.14rem; }
   .resume-prose p + p { margin-top: 0.15rem; }
   .resume-prose ul { gap: 0.06rem; margin-top: 0.12rem; }
   .resume-prose li { padding-left: 0.8rem; }
