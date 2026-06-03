@@ -43,7 +43,6 @@ const profileLinks = [
   { display: m.website, href: `https://${m.website}`, icon: 'globe' },
   { display: `linkedin.com/in/${m.linkedin}`, href: `https://linkedin.com/in/${m.linkedin}`, icon: 'linkedin' },
   { display: `github.com/${m.github}`, href: `https://github.com/${m.github}`, icon: 'github' },
-  { display: m.blog, href: `https://${m.blog}/`, icon: 'blog' },
 ];
 
 // Sidebar "In this resume" ToC. The page is component-composed (no single
@@ -51,11 +50,11 @@ const profileLinks = [
 // is built from the static section list. Awards is listed only when present.
 const toc = [
   { label: 'Summary', id: 'summary' },
-  { label: 'Core Skills', id: 'skills' },
+  { label: 'Skills', id: 'skills' },
   { label: 'Experience', id: 'experience' },
   { label: 'Education', id: 'education' },
   { label: 'Certifications', id: 'certifications' },
-  { label: 'Selected Projects', id: 'projects' },
+  { label: 'Projects', id: 'projects' },
   { label: 'Writing', id: 'writing' },
   ...(awards.length ? [{ label: 'Hackathons & Awards', id: 'awards' }] : []),
 ];
@@ -86,7 +85,7 @@ const highlights = [
 
 // At-a-glance metadata topics (screen-only panel; contact stays in the
 // header so it prints).
-const topics = ['Connected-TV', 'Partner ecosystems', 'AI-augmented dev'];
+const topics = ['Connected-TV', 'Device certification', 'Subscription activation', 'Partner ecosystems', 'Observability', 'AI-augmented dev', 'Developer tools'];
 
 const title = 'Nathan Payne | Resume';
 // Dedicated one-line OG/meta description (≤ ~160 chars) — the on-page
@@ -180,8 +179,8 @@ const jsonLd = {
       <div class="resume-canvas-meta">
         <dl>
           <div><dt>Location</dt><dd>{m.location}</dd></div>
-          <div><dt>Availability</dt><dd>Open to roles</dd></div>
-          <div><dt>Focus</dt><dd>Platform · Streaming · AI-augmented</dd></div>
+          <div><dt>Availability</dt><dd>Open to senior product and platform roles, especially in streaming, developer tools, and AI</dd></div>
+          <div><dt>Focus</dt><dd>Platform · Streaming · AI-augmented development</dd></div>
           <div>
             <dt>Topics</dt>
             <dd class="resume-canvas-topics">

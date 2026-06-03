@@ -40,7 +40,7 @@ describe('Resume — route & build', () => {
 
   it('content collections have the expected file counts', () => {
     expect(countMd('experience'), 'expected 6 experience entries').toBe(6);
-    expect(countMd('resume/projects'), 'expected 5 resume projects').toBe(5);
+    expect(countMd('resume/projects'), 'expected 6 resume projects').toBe(6);
     expect(countMd('certifications'), 'expected 3 certifications').toBe(3);
     expect(countMd('education'), 'expected 1 education entry').toBe(1);
     expect(countMd('myself'), 'expected 1 myself entry').toBe(1);
@@ -97,7 +97,7 @@ describe('Resume — page structure', () => {
   it('renders the metadata panel and highlight cards (screen sidebar)', () => {
     const meta = document.querySelector('.resume-canvas-meta');
     expect(meta, 'metadata panel missing').not.toBeNull();
-    expect(meta.textContent).toContain('Open to roles');
+    expect(meta.textContent).toContain('Open to');
     expect(document.querySelectorAll('.resume-canvas-topic').length).toBeGreaterThan(0);
     // Fuller set of highlight cards (≥ 5), accents cycle red/yellow/blue.
     const cards = document.querySelectorAll('.resume-highlight');
@@ -133,11 +133,11 @@ describe('Resume — page structure', () => {
     );
     expect(titles).toEqual([
       'Summary',
-      'Core Skills',
+      'Skills',
       'Experience',
       'Education',
       'Certifications',
-      'Selected Projects',
+      'Projects',
       'Writing',
     ]);
     // Every section title is a semantic <h2>.
@@ -160,10 +160,10 @@ describe('Resume — page structure', () => {
     expect(exp.querySelector('ul li'), 'experience should render <ul><li> bullets').not.toBeNull();
   });
 
-  it('renders five Selected Projects, each with an <h3>', () => {
+  it('renders six Projects, each with an <h3>', () => {
     const proj = document.querySelector('.resume-projects');
     expect(proj).not.toBeNull();
-    expect(proj.querySelectorAll('h3.resume-entry__title').length).toBe(5);
+    expect(proj.querySelectorAll('h3.resume-entry__title').length).toBe(6);
   });
 
   it('renders three Certifications; CSP-PO is attributed to Scrum Alliance', () => {

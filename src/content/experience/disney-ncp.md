@@ -1,5 +1,5 @@
 ---
-company: "Disney Entertainment & ESPN Technology"
+company: "Disney Entertainment and ESPN Product & Technology"
 title: "Senior Product Manager"
 team: "Native Client Platform (NCP) & ADK"
 location: "San Francisco"
