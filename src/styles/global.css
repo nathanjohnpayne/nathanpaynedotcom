@@ -4157,6 +4157,7 @@ body.resume-page {
 }
 
 .resume-cert__name {
+  font-family: "Cormorant Garamond", Garamond, serif;
   font-weight: 600;
   font-size: clamp(0.92rem, 0.9rem + 0.1vw, 1rem);
   line-height: 1.25;
@@ -4312,15 +4313,29 @@ body.resume-page {
 @media print {
   @page {
     size: letter;
-    margin: 0.5in;
+    /* 0.6in — issue #420 Contingency B margin floor. Safari, printing via a
+       physical-printer target, lays out ~11% less content per page than
+       Chromium, so at 0.7in the two Writing essay links overflowed the bottom
+       of page 3 and were clipped. 0.6in (with the 9.5pt body, whole bullets,
+       and the two tall-entry breaks below) gives the slack to land all three
+       pages with the Writing section intact. Whole bullets keep page tails
+       ending on a complete line rather than flush mid-sentence. */
+    margin: 0.6in;
   }
 
+  /* Force the page white in print. The base `html, body` background is a warm
+     gray (#bdbeb8) for the screen Mondrian; overriding only `body` leaves the
+     `html` gray to bleed through any partially-filled page as a large gray
+     block on the trailing page (issue #420). Reset the shell's 100vh floor so
+     a short final page isn't forced taller than its content. */
+  html,
   body.resume-page {
     background: #fff !important;
   }
 
   .resume-shell {
     padding: 0;
+    min-height: auto;
   }
 
   /* Collapse the canvas to a single content block: drop the grid, and hide
@@ -4377,16 +4392,26 @@ body.resume-page {
     background: #000 !important;
   }
 
+  /* Drop the screen border-bottom underline in favor of a real underline with
+     a small offset so it clears descenders, and force it black (issue #420
+     R-05). */
   .resume-canvas a {
+    border-bottom: 0 !important;
+    text-decoration: underline;
     text-decoration-color: #000 !important;
-    border-bottom-color: #000 !important;
+    text-underline-offset: 0.14em;
+    text-decoration-thickness: 0.5pt;
   }
 
   /* Keep each work entry, project, and certification on one page. The
-     section containers themselves may break normally. */
+     section containers themselves may break normally. The two tall entries
+     that are allowed to break (Disney NCP, CNN/Turner — see below) break only
+     between their bullets, never mid-bullet, so a sentence is never sliced
+     across a page edge: keep each list item whole. */
   .resume-entry,
   .resume-cert,
   .resume-skills__row,
+  .resume-prose li,
   .resume-writing__essays li {
     page-break-inside: avoid;
     break-inside: avoid;
@@ -4413,51 +4438,92 @@ body.resume-page {
     content: "";
   }
 
-  /* Print density — collapse the generous screen rhythm so the document
-     lands on two US-Letter pages. The screen margins (2.1rem sections,
-     1.5rem entries) are far too airy for print; the content is dense
-     (six roles, five projects) so the vertical rhythm is tuned tight. */
-  .resume-contact { margin-top: 0.28rem; gap: 0.1rem 0.4rem; line-height: 1.25; }
-  .resume-contact--profiles { margin-top: 0.08rem; }
-  .resume-section { margin-top: 0.3rem; padding-top: 0.22rem; }
-  .resume-summary { margin-top: 0.26rem; }
-  .resume-section__title { margin-bottom: 0.16rem; }
-  .resume-entry { margin-top: 0.28rem; }
-  .resume-entry__meta { margin-top: 0.05rem; }
+  /* Print density — restore the screen rhythm to fill three balanced
+     US-Letter pages. The earlier tuning crushed these gaps to their floor to
+     force a two-page fit, which over-compressed ~3 pages of content into ~2.2
+     and stranded the rest on a near-empty page 3. The Tier-1 values above
+     decompressed it; these gaps are then pulled back ~20% from that peak
+     (issue #420 R-02 Tier 2 + Contingency B) so the ~2.7 pages of content
+     packs into three pages instead of spilling the Writing tail onto a fourth
+     in renderers (Safari, Chromium) that fit slightly less per page. This is
+     the fine-tune dial: nudge up if page 3 lands thin, down if it spills. */
+  .resume-contact { margin-top: 0.32rem; gap: 0.12rem 0.4rem; line-height: 1.3; }
+  .resume-contact--profiles { margin-top: 0.1rem; }
+  .resume-section { margin-top: 0.72rem; padding-top: 0.44rem; }
+  .resume-summary { margin-top: 0.32rem; }
+  .resume-section__title { margin-bottom: 0.28rem; }
+  .resume-entry { margin-top: 0.52rem; }
+  .resume-entry__meta { margin-top: 0.1rem; }
   .resume-entry__head { gap: 0.5rem; }
   .resume-entry--logo .resume-prose { margin-top: 0.14rem; }
-  .resume-prose p + p { margin-top: 0.15rem; }
-  .resume-prose ul { gap: 0.06rem; margin-top: 0.12rem; }
+  .resume-prose p + p { margin-top: 0.24rem; }
+  .resume-prose ul { gap: 0.14rem; margin-top: 0.2rem; }
   .resume-prose li { padding-left: 0.8rem; }
-  .resume-prose ul li::before { top: 0.42em; }
-  .resume-skills__list { gap: 0.12rem; }
-  .resume-skills__row { gap: 0.06rem 0.8rem; }
-  .resume-certs { gap: 0.16rem; }
+  .resume-prose ul li::before { top: 0.5em; }
+  .resume-skills__list { gap: 0.24rem; }
+  .resume-skills__row { gap: 0.12rem 0.72rem; }
+  .resume-certs { gap: 0.28rem; }
   .resume-projects .resume-entry__tech,
-  .resume-entry__link { margin-top: 0.05rem; }
-  .resume-entry__link + .resume-prose { margin-top: 0.14rem; }
-  .resume-writing__desc { margin-top: 0.14rem; }
-  .resume-writing__label { margin-top: 0.26rem; }
-  .resume-writing__essays { gap: 0.12rem; margin-top: 0.14rem; }
+  .resume-entry__link { margin-top: 0.1rem; }
+  .resume-entry__link + .resume-prose { margin-top: 0.2rem; }
+  .resume-writing__desc { margin-top: 0.2rem; }
+  .resume-writing__label { margin-top: 0.4rem; }
+  .resume-writing__essays { gap: 0.2rem; margin-top: 0.2rem; }
 
-  /* Print type scale — point sizes for predictable density. */
+  /* Print type scale — decompressed to a readable body size so three pages
+     fill with the content already present (issue #420 R-02 Tier 1). Body is
+     9.5pt rather than the Tier-1 target of 10pt, and prose leading is 1.35
+     rather than 1.4: Contingency B, because Safari (printing via a
+     physical-printer target) fits ~11% less per page than Chromium and the
+     roomier layout clipped the Writing essay links off the bottom of page 3.
+     Both values stay well above the pre-issue floor (8.5pt / 1.22).
+     Section/entry titles keep their Tier-1 sizes. */
   .resume-name { font-size: 18pt; line-height: 1; }
-  .resume-title { font-size: 10.5pt; line-height: 1.16; }
-  .resume-contact { font-size: 8.5pt; }
-  .resume-section__title { font-size: 11.5pt; }
-  .resume-entry__title { font-size: 10.5pt; line-height: 1.1; }
-  .resume-entry__meta { font-size: 8.5pt; }
+  .resume-title { font-size: 11.5pt; line-height: 1.25; }
+  .resume-contact { font-size: 9.5pt; }
+  .resume-section__title { font-size: 14pt; }
+  .resume-entry__title { font-size: 12pt; line-height: 1.15; }
+  .resume-entry__meta { font-size: 9pt; }
   .resume-prose p,
   .resume-prose li,
-  .resume-skills__values { font-size: 8.5pt; line-height: 1.22; }
+  .resume-skills__values { font-size: 9.5pt; line-height: 1.35; }
   .resume-skills__label,
-  .resume-cert__name { font-size: 9pt; }
+  .resume-cert__name { font-size: 9.5pt; }
   .resume-cert__meta,
-  .resume-entry__tech { font-size: 8pt; }
+  .resume-entry__tech { font-size: 9pt; }
   .resume-writing__lead,
   .resume-writing__desc,
-  .resume-writing__essays li { font-size: 8.5pt; line-height: 1.22; }
-  .resume-writing__label { font-size: 8pt; }
+  .resume-writing__essays li { font-size: 9.5pt; line-height: 1.35; }
+  .resume-writing__label { font-size: 8.5pt; }
+
+  /* Project link matches the new body size (issue #420 R-05). At the old
+     8.5pt body the screen-sized link dwarfed the title; it should simply equal
+     the body (now 9.5pt per Contingency B). (The underline treatment lives
+     with the black-on-white link rule above.) */
+  .resume-entry__link,
+  .resume-entry__link a { font-size: 9.5pt; line-height: 1.35; }
+
+  /* Page-break polish (issue #420 R-06). break-inside:avoid on entries/certs/
+     skills-rows/essays already lives above; keep a section title with the
+     first entry under it, and prevent single-line orphans/widows in prose. */
+  .resume-section__title { break-after: avoid; }
+  .resume-prose p { orphans: 3; widows: 3; }
+
+  /* The two tall Experience entries — the first (Disney NCP: intro paragraph
+     + 7 bullets) and the last (CNN / Turner: the Magic Wall paragraph) — are
+     each taller than the space left at their page boundary. With
+     break-inside:avoid they bump wholly to the next page (the section title
+     follows the first via break-after:avoid), stranding ~40% of page 1 and
+     ~18% of page 2 and pushing the Writing tail onto a 4th page in renderers
+     that fit less per page (Safari). Let just these two entries break so they
+     fill the page tails and the document lands on three pages (issue #420
+     R-06, the anticipated escalation). The shorter entries keep
+     break-inside:avoid so they stay whole. */
+  .resume-experience .resume-entry:first-of-type,
+  .resume-experience .resume-entry:last-of-type {
+    break-inside: auto;
+    page-break-inside: auto;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

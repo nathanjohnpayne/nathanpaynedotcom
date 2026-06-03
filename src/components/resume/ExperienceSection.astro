@@ -2,7 +2,7 @@
 /**
  * ExperienceSection — work history, most-recent-first (by `order`). Each
  * entry: a head row with a CompanyLogo (decorative) centered beside an <h3>
- * "Role — Company" + a meta line (team · location · year range), then the
+ * "Role – Company" + a meta line (team · location · year range), then the
  * markdown body (intro paragraph + bullets) below at full width so it wraps
  * under the logo. Rendered with render().
  */
@@ -27,7 +27,7 @@ const rendered = await Promise.all(
         <div class="resume-entry__head">
           <CompanyLogo name={d.company} website={d.website} logo={d.logo} size={72} />
           <div class="resume-entry__headings">
-            <h3 class="resume-entry__title">{d.title} — {d.company}</h3>
+            <h3 class="resume-entry__title">{d.title} – {d.company}</h3>
             <p class="resume-entry__meta">{meta}</p>
           </div>
         </div>

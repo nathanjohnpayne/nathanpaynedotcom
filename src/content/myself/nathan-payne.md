@@ -1,6 +1,6 @@
 ---
 name: Nathan Payne
-title: "Senior Platform Product Manager — Partner Ecosystems, Streaming Infrastructure, AI-Augmented Development"
+title: "Senior Platform Product Manager – Partner Ecosystems, Streaming Infrastructure, AI-Augmented Development"
 email: hire@nathanpayne.com
 website: nathanpayne.com
 linkedin: nathanpayne

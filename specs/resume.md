@@ -137,24 +137,41 @@ The `resumeProjects` collection must remain separate from the existing
 - Skills render as inline `·`-joined lists.
 - Any transition uses the `--motion-*`/`--ease-*` tokens (no bare `ms`/`ease`).
 
-## Print (two-page PDF, ATS-safe)
+## Print (three-page PDF, ATS-safe)
 
-- US Letter, 0.5in margins; the 8.5in width constraint lives **inside
+- US Letter, 0.6in margins; the 8.5in width constraint lives **inside
   `@media print` only**.
 - The canvas collapses to a single content block in print: the accent
   margin, the metadata panel, the sidebar (ToC + highlights), the
   breadcrumbs, and the footer are **hidden**; the header (with the contact
   line) and the content column print.
 - Forces black-on-white regardless of screen colors (text, bullet `::before`
-  squares, and link underlines/borders all forced to `#000`).
-- `page-break-inside: avoid` on each work entry, project, and certification.
+  squares, and link underlines/borders all forced to `#000`). Resume links
+  print with a real underline (`text-decoration` + `text-underline-offset`)
+  rather than a `border-bottom`, so the rule clears descenders.
+- `page-break-inside: avoid` on each work entry, project, certification, and
+  prose list item (so a bullet is never sliced mid-line); `break-after: avoid`
+  on section titles; `orphans`/`widows` on prose. The two tall Experience
+  entries (Disney NCP, CNN/Turner) get `break-inside: auto` so they fill page
+  tails instead of bumping wholly and stranding space. (Safari does not honor
+  `break-inside: avoid` on `<li>`, so in Safari a long bullet may still wrap
+  across a page boundary — the content is intact, only the line wraps.)
 - Brand logos are **hidden in print** (`@media print { .company-logo {
   display: none } }`); the company/school/issuer name remains as text.
 - Descriptive-text external links get their URL appended for hard copy
   (`a[href^="http"]::after`); links whose visible text is already the URL
   suppress this.
-- Targets exactly two pages (the content column collapses to full 8.5in
-  width in print, so the narrower on-screen column doesn't affect paging).
+- Targets **three balanced pages** at a readable body size (9.5pt body,
+  1.35 leading, 0.6in margins). The earlier two-page target over-compressed
+  ~3 pages of content into ~2.2 and stranded the remainder on a near-empty
+  page 3; decompressing to readable type fills three pages with the same
+  content. The body landed at 9.5pt/0.6in rather than the first-pass 10pt/0.7in
+  (issue #420 Contingency B) because **Safari, exporting via a physical-printer
+  target, lays out ~11% less content per page than Chromium** — at 10pt/0.7in
+  the Writing tail spilled onto a 4th page (and, when saved as 3, was silently
+  dropped) in Safari. Safari is the calibration renderer; the Tier-2 print gaps
+  and the body size/leading are the fine-tune dials — nudge tighter if the tail
+  spills, looser if page 3 lands thin. See issue #420.
 
 ## Content fidelity
 
