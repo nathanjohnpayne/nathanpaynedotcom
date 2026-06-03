@@ -115,8 +115,10 @@ The `resumeProjects` collection must remain separate from the existing
   company logos ~72px, Education/Certification logos ~56px.
   Square brand marks fill the tile edge-to-edge (corners clipped); a wide
   wordmark (Current TV) is contained and centered with the card showing
-  above/below. The card sits to the left of the entry with the heading +
-  description indented beside it; the initials fallback reuses the same card.
+  above/below. In each entry the card sits in a head row, vertically centered
+  beside the heading + meta line; the Experience description then wraps at full
+  width *below* that head row (not indented beside the card). The initials
+  fallback reuses the same card.
 
 ## Styling
 
