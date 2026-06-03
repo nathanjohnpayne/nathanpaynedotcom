@@ -4108,14 +4108,14 @@ body.resume-page {
 }
 
 .resume-entry__tech {
-  margin-top: 0.15rem;
+  margin-top: 0.25rem;
   font-size: clamp(0.8rem, 0.78rem + 0.1vw, 0.88rem);
   letter-spacing: 0.02em;
   color: rgba(17, 16, 13, 0.6);
 }
 
 .resume-entry__link {
-  margin-top: 0.18rem;
+  margin-top: 0.3rem;
   font-size: clamp(0.84rem, 0.82rem + 0.1vw, 0.92rem);
 }
 
@@ -4146,7 +4146,7 @@ body.resume-page {
 
 .resume-cert {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: 0.85rem;
 }
 
@@ -4387,8 +4387,7 @@ body.resume-page {
     color: #000 !important;
   }
 
-  .resume-prose ul li::before,
-  .resume-writing__essays li::before {
+  .resume-prose ul li::before {
     background: #000 !important;
   }
 
@@ -4411,8 +4410,7 @@ body.resume-page {
   .resume-entry,
   .resume-cert,
   .resume-skills__row,
-  .resume-prose li,
-  .resume-writing__essays li {
+  .resume-prose li {
     page-break-inside: avoid;
     break-inside: avoid;
   }
@@ -4424,8 +4422,8 @@ body.resume-page {
   /* Render the URL after any descriptive-text external link for hard copy.
      Links whose visible text is ALREADY the URL — the contact line, the
      project links, and the Writing lead (nathanpayne.com/blog) — suppress
-     this to avoid duplication. The essay links show titles, so they keep
-     the suffix if ever made absolute. */
+     this to avoid duplication. (The essay list is hidden in print; see the
+     Writing-collapse rule below.) */
   .resume-canvas a[href^="http"]::after {
     content: " (" attr(href) ")";
     font-size: 0.85em;
@@ -4436,6 +4434,18 @@ body.resume-page {
   .resume-entry__link a[href^="http"]::after,
   .resume-writing__lead a[href^="http"]::after {
     content: "";
+  }
+
+  /* Writing collapses to just its lead line in print. The section is
+     link-driven — a blog CTA plus three essay links — and those links are
+     dead on paper, so only the "The AI-Augmented PM / nathanpayne.com/blog"
+     lead prints; the blurb, the "Selected essays" label, and the essay list
+     are hidden. This also drops the page-tail the essay list used to push
+     past the bottom margin. */
+  .resume-writing__desc,
+  .resume-writing__label,
+  .resume-writing__essays {
+    display: none;
   }
 
   /* Print density — restore the screen rhythm to fill three balanced
@@ -4449,7 +4459,11 @@ body.resume-page {
      the fine-tune dial: nudge up if page 3 lands thin, down if it spills. */
   .resume-contact { margin-top: 0.32rem; gap: 0.12rem 0.4rem; line-height: 1.3; }
   .resume-contact--profiles { margin-top: 0.1rem; }
-  .resume-section { margin-top: 0.72rem; padding-top: 0.44rem; }
+  /* Drop the inter-section divider rules in print and reclaim the padding
+     they reserved — the bold section titles carry the separation, and this
+     buys vertical space toward the three-page fit (Safari fits ~11% less per
+     page than Chromium). */
+  .resume-section { margin-top: 0.55rem; padding-top: 0; border-top: none; }
   .resume-summary { margin-top: 0.32rem; }
   .resume-section__title { margin-bottom: 0.28rem; }
   .resume-entry { margin-top: 0.52rem; }
@@ -4457,18 +4471,30 @@ body.resume-page {
   .resume-entry__head { gap: 0.5rem; }
   .resume-entry--logo .resume-prose { margin-top: 0.14rem; }
   .resume-prose p + p { margin-top: 0.24rem; }
-  .resume-prose ul { gap: 0.14rem; margin-top: 0.2rem; }
-  .resume-prose li { padding-left: 0.8rem; }
+  /* Render the bullet list as normal block flow in print instead of the
+     screen's CSS grid. Grid containers don't fragment reliably across page
+     breaks — Safari slices grid items at the page edge (the clipped-bullet
+     artifact), which is also why break-inside:avoid and orphans/widows were
+     being ignored on the items. Block flow paginates cleanly and lets those
+     per-item rules actually keep each bullet whole. The grid `gap` is
+     restored as a top margin on each item. */
+  .resume-prose ul { display: block; margin-top: 0.2rem; }
+  .resume-prose li { padding-left: 0.8rem; margin-top: 0.14rem; }
+  .resume-prose li:first-child { margin-top: 0; }
   .resume-prose ul li::before { top: 0.5em; }
   .resume-skills__list { gap: 0.24rem; }
   .resume-skills__row { gap: 0.12rem 0.72rem; }
-  .resume-certs { gap: 0.28rem; }
+  /* Same grid->block fix as the prose bullets: the certifications list is a
+     CSS grid on screen, which Safari slices at a page edge (the clipped cert
+     at the page 2->3 break). Render the list AND each cert as block flow in
+     print — the logo is hidden here, so the cert's flex row isn't needed —
+     so each cert's break-inside:avoid keeps it whole. Grid `gap` -> margin. */
+  .resume-certs { display: block; }
+  .resume-cert { display: block; margin-top: 0.28rem; }
+  .resume-cert:first-child { margin-top: 0; }
   .resume-projects .resume-entry__tech,
   .resume-entry__link { margin-top: 0.1rem; }
   .resume-entry__link + .resume-prose { margin-top: 0.2rem; }
-  .resume-writing__desc { margin-top: 0.2rem; }
-  .resume-writing__label { margin-top: 0.4rem; }
-  .resume-writing__essays { gap: 0.2rem; margin-top: 0.2rem; }
 
   /* Print type scale — decompressed to a readable body size so three pages
      fill with the content already present (issue #420 R-02 Tier 1). Body is
@@ -4486,15 +4512,12 @@ body.resume-page {
   .resume-entry__meta { font-size: 9pt; }
   .resume-prose p,
   .resume-prose li,
-  .resume-skills__values { font-size: 9.5pt; line-height: 1.35; }
+  .resume-skills__values { font-size: 9.5pt; line-height: 1.3; }
   .resume-skills__label,
   .resume-cert__name { font-size: 9.5pt; }
   .resume-cert__meta,
   .resume-entry__tech { font-size: 9pt; }
-  .resume-writing__lead,
-  .resume-writing__desc,
-  .resume-writing__essays li { font-size: 9.5pt; line-height: 1.35; }
-  .resume-writing__label { font-size: 8.5pt; }
+  .resume-writing__lead { font-size: 9.5pt; line-height: 1.35; }
 
   /* Project link matches the new body size (issue #420 R-05). At the old
      8.5pt body the screen-sized link dwarfed the title; it should simply equal
@@ -4508,9 +4531,15 @@ body.resume-page {
      first entry under it, and prevent single-line orphans/widows in prose. */
   .resume-section__title { break-after: avoid; }
   .resume-prose p { orphans: 3; widows: 3; }
+  /* Bullets are <li>, and Safari ignores break-inside:avoid on list items —
+     but it DOES honor orphans/widows. Requiring >=2 lines on each side of a
+     break means a 2-3 line bullet that would straddle a page edge is pushed
+     whole to the next page instead of being sliced mid-line (the clipped-line
+     artifact this fixes). */
+  .resume-prose li { orphans: 2; widows: 2; }
 
   /* The two tall Experience entries — the first (Disney NCP: intro paragraph
-     + 7 bullets) and the last (CNN / Turner: the Magic Wall paragraph) — are
+     + 7 bullets) and the last (CNN: the Magic Wall paragraph) — are
      each taller than the space left at their page boundary. With
      break-inside:avoid they bump wholly to the next page (the section title
      follows the first via break-after:avoid), stranding ~40% of page 1 and

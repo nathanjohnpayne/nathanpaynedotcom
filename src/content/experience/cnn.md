@@ -1,5 +1,5 @@
 ---
-company: "CNN / Turner Broadcasting"
+company: "CNN"
 title: "Systems Architect / Support Roles"
 location: "Washington, DC Bureau"
 startYear: 2002

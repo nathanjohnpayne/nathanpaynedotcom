@@ -49,7 +49,7 @@ The `resumeProjects` collection must remain separate from the existing
     `aria-hidden`) — the red / yellow→ink→paper→blue Mondrian stripe.
   - **Header** (`.resume-canvas-header`) — breadcrumbs (`Nathan Payne /
     Resume`), the name (`<h1>`), the title, and the **contact line**
-    (location · email · website · LinkedIn · GitHub · blog, composed from the
+    (location · email · website · LinkedIn · GitHub, composed from the
     `myself` handles, each prefixed by a small decorative icon —
     `ContactIcon.astro`, brand glyphs + Lucide mail/globe/map-pin). **No
     Bluesky** on the resume (it remains on the homepage). The contact stays in
@@ -61,8 +61,8 @@ The `resumeProjects` collection must remain separate from the existing
     "In this resume" in-page ToC (`.resume-canvas-toc-list`) + several
     (≈5) `.resume-highlight` metric cards, accents cycling red/yellow/blue.
   - **Footer** (`.resume-canvas-footer`) — attribution + nav.
-- Sections compose in this order: **Summary, Core Skills, Experience,
-  Education, Certifications, Selected Projects, Writing, Awards.**
+- Sections compose in this order: **Summary, Skills, Experience,
+  Education, Certifications, Projects, Writing, Awards.**
   - `AwardsSection` renders **nothing** (no header) while the `awards`
     collection is empty.
   - There is **no References section.**
@@ -145,17 +145,26 @@ The `resumeProjects` collection must remain separate from the existing
   margin, the metadata panel, the sidebar (ToC + highlights), the
   breadcrumbs, and the footer are **hidden**; the header (with the contact
   line) and the content column print.
+- The **Writing** section collapses to just its lead line in print (the blog
+  CTA linking nathanpayne.com/blog); the blurb, the "Selected essays" label,
+  and the essay list are hidden, since their links can't be followed on
+  paper. The on-screen Writing section is unchanged.
+- Section divider rules (the `border-top` between sections) are dropped in
+  print and the reserved padding reclaimed; the bold section titles carry the
+  separation. This buys vertical space toward the three-page fit.
 - Forces black-on-white regardless of screen colors (text, bullet `::before`
   squares, and link underlines/borders all forced to `#000`). Resume links
   print with a real underline (`text-decoration` + `text-underline-offset`)
   rather than a `border-bottom`, so the rule clears descenders.
 - `page-break-inside: avoid` on each work entry, project, certification, and
   prose list item (so a bullet is never sliced mid-line); `break-after: avoid`
-  on section titles; `orphans`/`widows` on prose. The two tall Experience
-  entries (Disney NCP, CNN/Turner) get `break-inside: auto` so they fill page
-  tails instead of bumping wholly and stranding space. (Safari does not honor
-  `break-inside: avoid` on `<li>`, so in Safari a long bullet may still wrap
-  across a page boundary — the content is intact, only the line wraps.)
+  on section titles; `orphans`/`widows` on prose and bullets. The two tall Experience
+  entries (Disney NCP, CNN) get `break-inside: auto` so they fill page
+  tails instead of bumping wholly and stranding space. (In print the bullet
+  list and the certifications list render as block flow, not the screen's CSS
+  grid: grid containers don't fragment reliably across pages and Safari slices
+  grid items at the page edge. Block flow lets `break-inside: avoid` +
+  `orphans`/`widows` keep each bullet and certification whole.)
 - Brand logos are **hidden in print** (`@media print { .company-logo {
   display: none } }`); the company/school/issuer name remains as text.
 - Descriptive-text external links get their URL appended for hard copy
@@ -182,7 +191,7 @@ paraphrased. In particular:
   credentialing body), not the training provider.
 - The summary opens with the 20+-years platform framing and names Disney+,
   Hulu, and ESPN.
-- Six experience entries span Disney NCP (2021–2026) back to CNN / Turner
+- Six experience entries span Disney NCP (2021–2026) back to CNN
   (2002–2012).
 
 ## Acceptance criteria

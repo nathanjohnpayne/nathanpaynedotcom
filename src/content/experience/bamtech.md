@@ -1,5 +1,5 @@
 ---
-company: "BAMTECH Media / MLB Advanced Media"
+company: "MLB Advanced Media / BAMTech Media"
 title: "Technical Project Manager"
 team: "Connected Devices Team"
 location: "San Francisco"
