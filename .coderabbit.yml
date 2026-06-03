@@ -17,6 +17,16 @@ reviews:
   profile: assertive
   request_changes_workflow: false
 
+  # CodeRabbit's hosted ESLint sandbox runs only curated plugins and does
+  # not install local deps, so it can't resolve the TypeScript frontmatter
+  # parser for .astro files and emits "Parsing error: Unexpected token :"
+  # on every PR touching an .astro component. Our eslint.config.js is
+  # correct (passes `npm run lint` locally); disable the redundant, broken
+  # CodeRabbit ESLint tool. See #426.
+  tools:
+    eslint:
+      enabled: false
+
   high_level_summary: true
   high_level_summary_placeholder: "@coderabbitai summary"
   high_level_summary_in_walkthrough: true
