@@ -34,7 +34,7 @@ collections are:
 | `experience` | `src/content/experience/` | one `.md` per role | Six entries. Bullets / paragraph in the body. |
 | `education` | `src/content/education/` | one `.md` | One entry (George Mason). |
 | `certifications` | `src/content/certifications/` | one `.md` per cert | Three entries. |
-| `resumeProjects` | `src/content/resume/projects/` | one `.md` per project | Five entries. **Distinct from `projects`** (reserved for `/projects`). |
+| `resumeProjects` | `src/content/resume/projects/` | one `.md` per project | Six entries. **Distinct from `projects`** (reserved for `/projects`). |
 | `awards` | `src/content/awards/` | one `.md`/`.yaml` per award | Wired up but **empty** for now. |
 
 The `resumeProjects` collection must remain separate from the existing
@@ -69,7 +69,7 @@ The `resumeProjects` collection must remain separate from the existing
 - Collection bodies (summary, experience, projects) render via `render()`
   from `astro:content`.
 - **Writing** is a compact inline section (no collection) linking the blog
-  and the two selected essays.
+  and a few selected essays.
 
 ## Semantics & structure
 
@@ -193,7 +193,7 @@ paraphrased. In particular:
 3. Each Experience role / Education / Certification renders a `.company-logo`
    (logo or initials fallback).
 4. Experience renders `<h3>` roles and `<ul>`/`<li>` bullets.
-5. Certifications (3) and Projects (5) are present; CSP-PO credits Scrum
+5. Certifications (3) and Projects (6) are present; CSP-PO credits Scrum
    Alliance.
 6. The emitted CSS hides `.company-logo` inside an `@media print` block.
 7. The page exposes a resolvable `og:image` and a `Nathan Payne | Resume`
