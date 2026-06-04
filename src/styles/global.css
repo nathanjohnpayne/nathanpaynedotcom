@@ -2042,6 +2042,14 @@ body.blog-page {
 
 /* ── Post Cards ── */
 .post-card {
+  /* Text-column measures (used by .post-title + .post-desc). Body is capped
+     to a comfortable reading measure; the title is allowed a slightly wider
+     measure since display type carries a longer line, so each card reads as
+     one column without the headline overshooting a narrow body. Both only
+     bite on cards wider than the cap — narrow grid cards and phones (card
+     narrower than the measure) fill normally and are unaffected. */
+  --post-measure: 62ch;
+  --post-title-measure: 40rem;
   background: var(--surface);
   padding: clamp(1.2rem, 2.5vw, 2rem);
   display: flex;
@@ -2079,6 +2087,7 @@ body.blog-page {
   line-height: 1.05;
   font-weight: 600;
   margin-bottom: 0.6rem;
+  max-width: var(--post-title-measure);
 }
 
 .post-title a {
@@ -2093,7 +2102,7 @@ body.blog-page {
 }
 
 .post-desc {
-  max-width: 48ch;
+  max-width: var(--post-measure);
   font-size: clamp(0.88rem, 0.95vw, 0.98rem);
   line-height: 1.55;
   color: rgba(17, 16, 13, 0.78);
