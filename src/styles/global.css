@@ -1264,7 +1264,9 @@ body.blog-page {
 
 .project-shell {
   min-height: 100vh;
-  padding: clamp(0.9rem, 2.5vw, 1.8rem);
+  /* 2rem side gutter keeps the centered box's 14px drop shadow off the
+     viewport edge on narrow screens, matching .error-shell. */
+  padding: clamp(0.9rem, 2.5vw, 1.8rem) 2rem;
 }
 
 .project-detail {
@@ -1911,7 +1913,10 @@ body.blog-page {
 
 .shell {
   min-height: 100vh;
-  padding: clamp(0.9rem, 2.5vw, 1.8rem);
+  /* 2rem side gutter keeps the centered .frame's 14px drop shadow off the
+     viewport edge on narrow screens, matching .error-shell. The box stays
+     centered (margin: 0 auto); only the symmetric breathing room grows. */
+  padding: clamp(0.9rem, 2.5vw, 1.8rem) 2rem;
 }
 
 .frame {
@@ -2236,8 +2241,11 @@ a.tag:hover {
     transform var(--motion-hover) var(--ease-standard);
 }
 
+/* Red on hover to match the other white footers (blog post, resume). The
+   white-footer pages share a single red hover affordance; only the
+   color-themed project detail footer keeps its per-project accent. */
 .footer-action:hover {
-  background: var(--blue);
+  background: var(--red);
   color: var(--cream);
   transform: translateY(-2px);
 }
@@ -2327,14 +2335,17 @@ a.tag:hover {
 
 /* 768px matches --bp-tablet on :root. (#332) */
 @media (max-width: 768px) {
+  /* Keep the var(--line) frame and full drop shadow so the collapsed card
+     matches the resume/blog/project canvases on narrow screens, rather than
+     thinning to the 1px border + small shadow. */
   .error-mondrian {
-    grid-template-columns: 1fr;
-    grid-template-rows: auto;
-    box-shadow: 4px 4px 0 rgba(17, 16, 13, 0.06);
+    grid-template-columns: var(--line) 1fr var(--line);
+    grid-template-rows: var(--line) auto var(--line);
+    box-shadow: 14px 14px 0 rgba(17, 16, 13, 0.12);
   }
   .e-content {
-    grid-column: 1;
-    grid-row: 1;
+    grid-column: 2;
+    grid-row: 2;
   }
   .e-block { display: none; }
 }
@@ -3586,14 +3597,17 @@ body.resume-page {
     linear-gradient(135deg, rgba(255, 255, 255, 0.42), rgba(255, 255, 255, 0)),
     var(--project-bg, #d8d1c5);
   --resume-link: var(--blue);
-  /* Drives the screen-only footer nav buttons (.project-action). */
-  --project-accent: var(--ink);
+  /* Drives the screen-only footer nav buttons (.project-action). Red to
+     match the other white footers (blog post + index pages). */
+  --project-accent: var(--red);
   --project-accent-foreground: #f5f0e4;
 }
 
 .resume-shell {
   min-height: 100vh;
-  padding: clamp(0.9rem, 2.5vw, 1.8rem);
+  /* 2rem side gutter keeps the centered .resume-canvas's 14px drop shadow off
+     the viewport edge on narrow screens, matching .error-shell. */
+  padding: clamp(0.9rem, 2.5vw, 1.8rem) 2rem;
 }
 
 /* ── Mondrian "composition with margins" canvas (mirrors .blog-canvas) ──
