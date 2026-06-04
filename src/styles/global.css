@@ -2265,7 +2265,10 @@ a.tag:hover {
 }
 
 .error-mondrian {
-  width: min(95vw, 64rem);
+  /* Size from the padded content width (like .frame/.blog-canvas/.resume-canvas
+     use min(100%, 72rem)) rather than 95vw, so the card never depends on
+     flex-shrink to fit inside .error-shell's 2rem gutter on narrow screens. */
+  width: min(100%, 64rem);
   display: grid;
   grid-template-columns:
     var(--line) 2.4fr var(--line) 1fr var(--line) 1.2fr var(--line) 0.5fr var(--line);
