@@ -135,7 +135,10 @@ const ogImageUrl = ogImage.includes('?') ? `${ogImage}&v=${buildTime}` : `${ogIm
   <!-- Google Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <!-- Cormorant ships with true italics (#455 finding 1): italic 400 covers
+       the pull-quote/subtitle voice, italic 600 the heading tier the #455
+       tokenization lands on. Inter 300 was loaded but never used — dropped. -->
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400;1,600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <!-- Gate Mondrian panel labels behind webfont readiness so the boxed
        "Nathan Payne" + tile labels don't visibly swap from system
        fallback to Cormorant Garamond on first paint. The pattern is
