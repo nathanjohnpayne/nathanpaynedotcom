@@ -11,7 +11,7 @@
  *   - canvas → white footer cell inside the framed blog/resume canvas
  *   - detail → plain block in the single-column project-detail article
  *
- * Buttons reuse the shared `.project-action`; white footers share one red
+ * Buttons reuse the shared `.nav-button`; white footers share one red
  * hover affordance, while the color-themed project-detail footer keeps its
  * per-project accent (see `.site-footer` rules in global.css).
  */
@@ -46,7 +46,7 @@ const classList = [
   <p class="site-footer__attribution">{attribution} &middot; San Francisco</p>
   <nav class="site-footer__nav" aria-label="Footer navigation">
     {links.map((link) => (
-      <a class="project-action" href={link.href}>{link.label}</a>
+      <a class="nav-button" href={link.href}>{link.label}</a>
     ))}
   </nav>
 </footer>

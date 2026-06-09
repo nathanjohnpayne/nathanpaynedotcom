@@ -1283,7 +1283,7 @@ body.resume-page {
   --project-bg: #dde1e5;
 }
 
-.project-shell {
+.page-shell {
   min-height: 100vh;
   /* 2rem side gutter keeps the centered box's 14px drop shadow off the
      viewport edge on narrow screens, matching .error-shell. */
@@ -1332,14 +1332,7 @@ body.resume-page {
   text-wrap: balance;
 }
 
-.project-deck {
-  max-width: 38rem;
-  margin-top: calc(var(--su) * 1.6);
-  padding-left: clamp(1rem, 2.2vw, 1.6rem);
-  font-size: clamp(1.05rem, 1rem + 0.42vw, 1.4rem);
-  line-height: 1.45;
-  font-family: "Cormorant Garamond", Garamond, serif;
-}
+/* (project hero deck unified into the shared .deck / .deck--inset system, #438) */
 
 .project-actions {
   display: flex;
@@ -1349,7 +1342,7 @@ body.resume-page {
   padding-left: clamp(1rem, 2.2vw, 1.6rem);
 }
 
-.project-action {
+.nav-button {
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
@@ -1368,8 +1361,8 @@ body.resume-page {
     transform var(--motion-hover) var(--ease-standard);
 }
 
-.project-action:hover,
-.project-action:focus-visible {
+.nav-button:hover,
+.nav-button:focus-visible {
   background: var(--project-accent);
   color: var(--project-accent-foreground, #f5f0e4);
   transform: translateY(calc(var(--shift-small) * -1));
@@ -1960,6 +1953,16 @@ body.resume-page {
   color: rgba(17, 16, 13, 0.72);
 }
 
+/* Canvas-header deck variant (#438): indented, for the project hero. Core
+   (font/size/line-height/max-width) comes from .deck above; this adds the inset
+   indent + tighter top margin and keeps the hero's inherited (undimmed) color.
+   Placed after .deck so its single-class overrides win by source order. */
+.deck--inset {
+  margin-top: calc(var(--su) * 1.6);
+  padding-left: clamp(1rem, 2.2vw, 1.6rem);
+  color: inherit;
+}
+
 /* ── Mondrian Blog Grid ── */
 .blog-grid {
   display: grid;
@@ -2202,7 +2205,7 @@ a.tag:hover {
    One footer: attribution + nav actions across the blog index, projects
    index, blog post, project detail, and resume. The cosmetic content lives
    here so a change lands on every page; per-page placement/chrome is a thin
-   modifier. Buttons reuse .project-action. See src/components/Footer.astro. */
+   modifier. Buttons reuse .nav-button. See src/components/Footer.astro. */
 .site-footer {
   display: flex;
   flex-wrap: wrap;
@@ -2228,8 +2231,8 @@ a.tag:hover {
 
 /* White footers (index, blog post, resume) share one red hover affordance;
    only the color-themed project-detail footer keeps its per-project accent. */
-.site-footer:not(.site-footer--detail) .project-action:hover,
-.site-footer:not(.site-footer--detail) .project-action:focus-visible {
+.site-footer:not(.site-footer--detail) .nav-button:hover,
+.site-footer:not(.site-footer--detail) .nav-button:focus-visible {
   background: var(--red);
   color: var(--cream);
 }
@@ -2591,7 +2594,7 @@ a.tag:hover {
   margin-bottom: 1.2rem;
 }
 
-.blog-canvas-header .project-deck {
+.blog-canvas-header .deck {
   font-family: "Inter", system-ui, sans-serif;
   font-style: normal;
   font-weight: 400;
@@ -3271,7 +3274,7 @@ a:focus-visible {
     font-size: 1.75rem;
   }
 
-  .project-deck {
+  .deck--inset {
     padding-left: 0.5rem;
   }
 
@@ -3280,7 +3283,7 @@ a:focus-visible {
     flex-direction: column;
   }
 
-  .project-action {
+  .nav-button {
     width: 100%;
     justify-content: center;
   }
