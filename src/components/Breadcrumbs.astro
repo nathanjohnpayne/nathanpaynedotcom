@@ -6,8 +6,9 @@
  * blog index, projects index, blog post, project detail, resume, and 404. The
  * markup lives here; per-context styling stays scoped in global.css.
  *
- * Items with an `href` render as links; the final (or any href-less) item
- * renders as the current page (`.breadcrumb-current` + `aria-current="page"`).
+ * The final item renders as the current page (`.breadcrumb-current` +
+ * `aria-current="page"`); earlier items render as links when they have an
+ * `href`. Current-ness is by position, not a missing `href`.
  * Pass `class="breadcrumbs--inset"` for the indented/dimmed canvas-header
  * variant used by the project detail, blog post, and resume headers.
  */
@@ -30,10 +31,12 @@ const classList = ["breadcrumbs", extra].filter(Boolean).join(" ");
     items.map((item, i) => (
       <Fragment>
         {i > 0 && <span class="breadcrumb-sep">/</span>}
-        {item.href ? (
+        {i === items.length - 1 ? (
+          <span class="breadcrumb-current" aria-current="page">{item.label}</span>
+        ) : item.href ? (
           <a href={item.href}>{item.label}</a>
         ) : (
-          <span class="breadcrumb-current" aria-current="page">{item.label}</span>
+          <span>{item.label}</span>
         )}
       </Fragment>
     ))
