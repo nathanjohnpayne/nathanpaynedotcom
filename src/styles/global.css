@@ -1228,18 +1228,10 @@ body.blog-page {
   --project-bg: #c4c3bc;
 }
 
-/* #437: accent is page-type-agnostic. data-accent="{color}" sets the canonical
-   --accent (+ --accent-contrast / --accent-soft) and the matching page backdrop
-   tint; .project-page no longer doubles as the accent switch. The legacy
-   --project-accent* tokens now derive from --accent via the shim below, which
-   REPLACES the #433 bridge (the two bridge directions never coexist — see
-   docs/css-architecture.md). */
-body.project-page,
-body.resume-page {
-  --project-accent: var(--accent);
-  --project-accent-foreground: var(--accent-contrast);
-  --project-accent-soft: var(--accent-soft);
-}
+/* #437/#439: accent is page-type-agnostic. data-accent="{color}" sets the
+   canonical --accent (+ --accent-contrast / --accent-soft) and the matching
+   page backdrop tint. The legacy --project-accent* compatibility shim was
+   removed in #439 once all chrome migrated to consuming --accent directly. */
 
 [data-accent="red"] {
   --accent: #c11d19;
@@ -1319,7 +1311,7 @@ body.resume-page {
   position: absolute;
   inset: 0 auto 0 0;
   width: clamp(0.5rem, 1vw, 0.8rem);
-  background: var(--project-accent);
+  background: var(--accent);
 }
 
 /* (project breadcrumbs unified into the shared .breadcrumbs / .breadcrumbs--inset system, #436) */
@@ -1363,8 +1355,8 @@ body.resume-page {
 
 .nav-button:hover,
 .nav-button:focus-visible {
-  background: var(--project-accent);
-  color: var(--project-accent-foreground, #f5f0e4);
+  background: var(--accent);
+  color: var(--accent-contrast, #f5f0e4);
   transform: translateY(calc(var(--shift-small) * -1));
 }
 
@@ -1373,7 +1365,7 @@ body.resume-page {
 /* Hero header — accent bar, no gradient (gradient is on the metadata surface) */
 .project-hero__gradient {
   position: relative;
-  border-left: clamp(0.5rem, 1vw, 0.8rem) solid var(--project-accent);
+  border-left: clamp(0.5rem, 1vw, 0.8rem) solid var(--accent);
 }
 
 /* Header text area inside the gradient */
@@ -1737,7 +1729,7 @@ body.resume-page {
   left: 0;
   width: 0.42rem;
   height: 0.42rem;
-  background: var(--project-accent);
+  background: var(--accent);
 }
 
 /* Use the same contrast-corrected color the in-content links use.
@@ -1745,7 +1737,7 @@ body.resume-page {
  * yellow Override theme) override --project-link-color with a darker
  * variant; piggyback on that here so the ol decimals stay legible. */
 .project-copy ol li::marker {
-  color: var(--project-link-color, var(--project-accent));
+  color: var(--project-link-color, var(--accent));
   font-variant-numeric: tabular-nums;
 }
 
@@ -1755,11 +1747,11 @@ body.resume-page {
    color is too light for body-copy contrast (e.g. the yellow Override
    theme) override --project-link-color with a darker variant. */
 .project-copy a {
-  color: var(--project-link-color, var(--project-accent));
+  color: var(--project-link-color, var(--accent));
   text-decoration: underline;
   text-decoration-thickness: 1px;
   text-underline-offset: 0.22em;
-  text-decoration-color: color-mix(in srgb, var(--project-link-color, var(--project-accent)) 55%, transparent);
+  text-decoration-color: color-mix(in srgb, var(--project-link-color, var(--accent)) 55%, transparent);
   transition:
     text-decoration-color var(--motion-hover) var(--ease-standard),
     text-decoration-thickness var(--motion-hover) var(--ease-standard),
@@ -1769,7 +1761,7 @@ body.resume-page {
 .project-copy a:hover,
 .project-copy a:focus-visible {
   text-decoration-thickness: 2px;
-  text-decoration-color: var(--project-link-color, var(--project-accent));
+  text-decoration-color: var(--project-link-color, var(--accent));
 }
 
 .project-copy a code {
@@ -1821,7 +1813,7 @@ body.resume-page {
   left: 0;
   width: 0.42rem;
   height: 0.42rem;
-  background: var(--project-accent);
+  background: var(--accent);
 }
 
 .project-related__list a {
@@ -1831,7 +1823,7 @@ body.resume-page {
 }
 
 .project-related__list a:hover {
-  color: var(--project-accent);
+  color: var(--accent);
   text-decoration: underline;
 }
 
@@ -2733,14 +2725,14 @@ a.tag:hover {
 }
 
 .blog-sidebar-toc-list a:hover {
-  color: var(--project-accent);
+  color: var(--accent);
 }
 
 /* Pullquotes — bordered cards with accent left border */
 .blog-sidebar-pullquote {
   margin: 1rem 0;
   padding: 0.85rem 1rem;
-  border-left: 3px solid var(--project-accent);
+  border-left: 3px solid var(--accent);
   background: rgba(255, 255, 255, 0.52);
 }
 
@@ -2932,7 +2924,7 @@ a.tag:hover {
 }
 
 .blog-prose blockquote {
-  border-left: 3px solid var(--project-accent);
+  border-left: 3px solid var(--accent);
   padding: 0.75rem 1rem 0.75rem 1.1rem;
   margin: 1.4rem 0 1.2rem;
   background: rgba(255, 255, 255, 0.52);
@@ -2965,7 +2957,7 @@ a.tag:hover {
   top: 0.72em;
   width: 0.4rem;
   height: 0.4rem;
-  background: var(--project-accent);
+  background: var(--accent);
 }
 
 .blog-prose a {
@@ -2999,14 +2991,14 @@ a.tag:hover {
   top: 0.72em;
   width: 0.4rem;
   height: 0.4rem;
-  background: var(--project-accent);
+  background: var(--accent);
 }
 
 .blog-figure {
   margin: 1rem 0 1.25rem;
   padding: 0.85rem;
   border: 1px solid var(--rule);
-  border-top: 3px solid var(--project-accent);
+  border-top: 3px solid var(--accent);
   background: rgba(255, 255, 255, 0.82);
 }
 
@@ -3109,7 +3101,7 @@ a.tag:hover {
   border: 1px solid var(--rule);
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.84), rgba(255, 255, 255, 0.58)),
-    var(--project-accent-soft);
+    var(--accent-soft);
 }
 
 .blog-diagram--chain {
@@ -3526,7 +3518,7 @@ a:focus-visible {
     flex-wrap: wrap;
     justify-content: flex-start;
     gap: 0.8rem 1.5rem;
-    background: var(--project-accent);
+    background: var(--accent);
   }
 
   .blog-sidebar-meta dl {
@@ -3574,8 +3566,8 @@ body.resume-page {
     linear-gradient(135deg, rgba(255, 255, 255, 0.42), rgba(255, 255, 255, 0)),
     var(--project-bg, #d8d1c5);
   --resume-link: var(--blue);
-  /* Accent (red, to match the other white footers) now comes from
-     data-accent="red" on the body (#437), via the --project-accent shim. */
+  /* Accent (red, to match the other white footers) comes from
+     data-accent="red" on the body (#437). */
 }
 
 .resume-shell {
