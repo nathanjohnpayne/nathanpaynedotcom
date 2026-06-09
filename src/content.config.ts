@@ -12,7 +12,7 @@ const projects = defineCollection({
     screenshotAspect: z.enum(['wide', 'narrow']),
     screenshotSrc: z.string(),
     accentColor: z.string(),
-    accentColorClass: z.string(),
+    accent: z.string(),
     gradientFrom: z.string(),
     gradientTo: z.string(),
     // Optional: in-progress projects (status "IN PROGRESS") may not have

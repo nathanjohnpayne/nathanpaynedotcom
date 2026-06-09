@@ -7,7 +7,7 @@ order: 5
 screenshotAspect: "wide"
 screenshotSrc: "/images/projects/device-source-of-truth-hero.png"
 accentColor: "#5b5f64"
-accentColorClass: "project-page--paper"
+accent: "paper"
 gradientFrom: "#e4e7ea"
 gradientTo: "#f5f0e4"
 liveUrl: "https://device-source-of-truth.web.app"

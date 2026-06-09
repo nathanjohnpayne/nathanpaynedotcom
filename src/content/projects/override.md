@@ -7,7 +7,7 @@ order: 2
 screenshotAspect: "wide"
 screenshotSrc: "/images/projects/override-hero.png"
 accentColor: "#d9b111"
-accentColorClass: "project-page--yellow"
+accent: "yellow"
 gradientFrom: "#f0e8c4"
 gradientTo: "#f5f0e4"
 liveUrl: "https://overridebroadway.com"

@@ -12,6 +12,7 @@ interface Props {
   ogImageAlt?: string;
   ogType?: string;
   bodyClass?: string;
+  dataAccent?: string;
   jsonLd?: object;
   articleMeta?: {
     published: string;
@@ -33,6 +34,7 @@ const {
   ogImageAlt = 'Nathan Payne portfolio homepage preview',
   ogType = 'website',
   bodyClass,
+  dataAccent,
   jsonLd,
   articleMeta,
   noindex,
@@ -168,7 +170,7 @@ const ogImageUrl = ogImage.includes('?') ? `${ogImage}&v=${buildTime}` : `${ogIm
     })();
   </script>
 </head>
-<body class={bodyClass}>
+<body class={bodyClass} data-accent={dataAccent}>
   <slot />
 </body>
 </html>

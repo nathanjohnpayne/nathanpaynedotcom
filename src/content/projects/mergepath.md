@@ -7,7 +7,7 @@ order: 0
 screenshotAspect: "wide"
 screenshotSrc: "/images/projects/mergepath.png"
 accentColor: "#223f89"
-accentColorClass: "project-page--blue"
+accent: "blue"
 gradientFrom: "#dce3f0"
 gradientTo: "#f5f0e4"
 liveUrl: "https://htmlpreview.github.io/?https://raw.githubusercontent.com/nathanjohnpayne/mergepath/main/mergepath/playground/index.html"
