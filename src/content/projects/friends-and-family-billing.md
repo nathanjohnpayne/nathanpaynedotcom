@@ -7,7 +7,7 @@ order: 4
 screenshotAspect: "wide"
 screenshotSrc: "/images/projects/friends-and-family-billing-hero-v2.png"
 accentColor: "#2080ca"
-accentColorClass: "project-page--lightblue"
+accent: "lightblue"
 gradientFrom: "#d2e2ee"
 gradientTo: "#f5f0e4"
 liveUrl: "https://friends-and-family-billing.web.app"

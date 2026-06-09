@@ -1228,53 +1228,58 @@ body.blog-page {
   --project-bg: #c4c3bc;
 }
 
-/* #429: shared --accent mirrors the per-theme --project-accent so new chrome can
-   consume --accent now while old consumers keep using --project-accent. Accent
-   is decoupled from page type (data-accent / .theme--*) in #437. */
+/* #437: accent is page-type-agnostic. data-accent="{color}" sets the canonical
+   --accent (+ --accent-contrast / --accent-soft) and the matching page backdrop
+   tint; .project-page no longer doubles as the accent switch. The legacy
+   --project-accent* tokens now derive from --accent via the shim below, which
+   REPLACES the #433 bridge (the two bridge directions never coexist — see
+   docs/css-architecture.md). */
 body.project-page,
 body.resume-page {
-  --accent: var(--project-accent);
+  --project-accent: var(--accent);
+  --project-accent-foreground: var(--accent-contrast);
+  --project-accent-soft: var(--accent-soft);
 }
 
-.project-page--red {
-  --project-accent: #c11d19;
-  --project-accent-foreground: #f5f0e4;
-  --project-accent-soft: rgba(193, 29, 25, 0.12);
+[data-accent="red"] {
+  --accent: #c11d19;
+  --accent-contrast: #f5f0e4;
+  --accent-soft: rgba(193, 29, 25, 0.12);
   --project-bg: #d3c6bf;
 }
 
-.project-page--yellow {
-  --project-accent: #d9b111;
-  --project-accent-foreground: #171208;
-  --project-accent-soft: rgba(217, 177, 17, 0.18);
+[data-accent="yellow"] {
+  --accent: #d9b111;
+  --accent-contrast: #171208;
+  --accent-soft: rgba(217, 177, 17, 0.18);
   --project-bg: #d9d0b4;
 }
 
-.project-page--black {
-  --project-accent: var(--accent-black);
-  --project-accent-foreground: #f5f0e4;
-  --project-accent-soft: rgba(51, 51, 51, 0.12);
+[data-accent="black"] {
+  --accent: var(--accent-black);
+  --accent-contrast: #f5f0e4;
+  --accent-soft: rgba(51, 51, 51, 0.12);
   --project-bg: #d1cbc2;
 }
 
-.project-page--blue {
-  --project-accent: #223f89;
-  --project-accent-foreground: #f5f0e4;
-  --project-accent-soft: rgba(34, 63, 137, 0.12);
+[data-accent="blue"] {
+  --accent: #223f89;
+  --accent-contrast: #f5f0e4;
+  --accent-soft: rgba(34, 63, 137, 0.12);
   --project-bg: #c7cfdf;
 }
 
-.project-page--lightblue {
-  --project-accent: #2080ca;
-  --project-accent-foreground: #f5f0e4;
-  --project-accent-soft: rgba(32, 128, 202, 0.12);
+[data-accent="lightblue"] {
+  --accent: #2080ca;
+  --accent-contrast: #f5f0e4;
+  --accent-soft: rgba(32, 128, 202, 0.12);
   --project-bg: #c4d6e6;
 }
 
-.project-page--paper {
-  --project-accent: #5b5f64;
-  --project-accent-foreground: #f5f0e4;
-  --project-accent-soft: rgba(91, 95, 100, 0.12);
+[data-accent="paper"] {
+  --accent: #5b5f64;
+  --accent-contrast: #f5f0e4;
+  --accent-soft: rgba(91, 95, 100, 0.12);
   --project-bg: #dde1e5;
 }
 
@@ -1505,26 +1510,26 @@ body.resume-page {
    the wordmark breathes rather than stretching to the full content
    column. The border on the inner img is suppressed because there's no
    raster screenshot edge to soften here. */
-.project-page--black .project-screenshot {
+[data-accent="black"] .project-screenshot {
   background: var(--ink);
   border-top-color: var(--ink);
 }
-.project-page--black .project-screenshot__inner {
+[data-accent="black"] .project-screenshot__inner {
   max-width: 56rem;
   margin: 0 auto;
   padding: clamp(2rem, 6vw, 4rem) clamp(1rem, 4vw, 2.5rem);
 }
-.project-page--black .project-screenshot--wide img,
-.project-page--black .project-screenshot--wide .project-screenshot__inner > svg {
+[data-accent="black"] .project-screenshot--wide img,
+[data-accent="black"] .project-screenshot--wide .project-screenshot__inner > svg {
   border: none;
 }
-.project-page--black .project-stack {
+[data-accent="black"] .project-stack {
   color: rgba(245, 240, 228, 0.78);
 }
-.project-page--black .project-stack__label {
+[data-accent="black"] .project-stack__label {
   color: rgba(245, 240, 228, 0.62);
 }
-.project-page--black .project-stack__value {
+[data-accent="black"] .project-stack__value {
   color: rgba(245, 240, 228, 0.92);
 }
 
@@ -1781,7 +1786,7 @@ body.resume-page {
 /* Override theme — yellow accent (#d9b111) fails body-text contrast on
    the cream background. Substitute a darker ochre for in-content links
    only; the accent bar, buttons, and list bullets stay on-brand. */
-.project-page--yellow {
+[data-accent="yellow"] {
   --project-link-color: #6f5500;
 }
 
@@ -3566,10 +3571,8 @@ body.resume-page {
     linear-gradient(135deg, rgba(255, 255, 255, 0.42), rgba(255, 255, 255, 0)),
     var(--project-bg, #d8d1c5);
   --resume-link: var(--blue);
-  /* Drives the screen-only footer nav buttons (.project-action). Red to
-     match the other white footers (blog post + index pages). */
-  --project-accent: var(--red);
-  --project-accent-foreground: #f5f0e4;
+  /* Accent (red, to match the other white footers) now comes from
+     data-accent="red" on the body (#437), via the --project-accent shim. */
 }
 
 .resume-shell {

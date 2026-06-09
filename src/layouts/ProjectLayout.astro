@@ -19,7 +19,7 @@ interface Props {
   headline: string;
   deck: string;
   breadcrumbLabel: string;
-  accentColorClass: string;
+  accent: string;
   accentColor: string;
   gradientFrom: string;
   gradientTo: string;
@@ -51,7 +51,7 @@ const {
   headline,
   deck,
   breadcrumbLabel,
-  accentColorClass,
+  accent,
   accentColor,
   gradientFrom,
   gradientTo,
@@ -86,7 +86,8 @@ const topics = kicker.split(/\s*×\s*/).join(' · ');
   title={title}
   description={description}
   ogDescription={ogDescription}
-  bodyClass={`project-page ${accentColorClass}`}
+  bodyClass="project-page"
+  dataAccent={accent}
   jsonLd={jsonLd}
   ogImage={ogImage}
   ogImageWidth={ogImageWidth}
