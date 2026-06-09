@@ -143,11 +143,11 @@ describe('Project Pages — render', () => {
       });
 
       it('renders the appropriate CTA actions for the project', () => {
-        const actions = Array.from(document.querySelectorAll('.project-action')).map(
+        const actions = Array.from(document.querySelectorAll('.nav-button')).map(
           (a) => a.textContent.trim(),
         );
         // The "Back to Projects" / "Back to Homepage" footer actions also
-        // share the .project-action class, so filter to the hero CTAs by
+        // share the .nav-button class, so filter to the hero CTAs by
         // checking for the canonical labels we render in HeroWide/Narrow.
         if (noLiveUrlSlugs.includes(slug)) {
           expect(actions).not.toContain('View Live Product');
