@@ -113,7 +113,7 @@ function measure(headerSel) {
     const family = cs.fontFamily.split(',')[0].replace(/['"]/g, '').trim();
     records.push({
       role,
-      contentLeft: +(rect.left + parseFloat(cs.paddingLeft)).toFixed(2),
+      contentLeft: +(rect.left + parseFloat(cs.borderLeftWidth) + parseFloat(cs.paddingLeft)).toFixed(2),
       top: +rect.top.toFixed(2),
       width: +rect.width.toFixed(2),
       fontFamily: family,
@@ -192,31 +192,44 @@ try {
   const browser = await chromium.launch();
   const results = [];
   const allFlags = [];
-  for (const { key, path, header } of PAGES) {
-    for (const width of WIDTHS) {
-      const page = await browser.newPage({ viewport: { width, height: 1000 } });
-      await page.goto(`${ORIGIN}${path}`, { waitUntil: 'networkidle' });
-      await page.evaluate(() => document.fonts.ready.then(() => undefined));
-      const records = await page.evaluate(measure, header);
-      const flags = flagRecords(key, width, records);
-      const box = await page.locator(header).first().boundingBox();
-      if (box) {
-        await page.screenshot({
-          path: `${OUT}/${key}-${width}.png`,
-          clip: {
+  try {
+    for (const { key, path, header } of PAGES) {
+      for (const width of WIDTHS) {
+        const page = await browser.newPage({ viewport: { width, height: 1000 } });
+        await page.goto(`${ORIGIN}${path}`, { waitUntil: 'networkidle' });
+        await page.evaluate(() => document.fonts.ready.then(() => undefined));
+        if (key === 'home' && width > 1023) {
+          // Desktop homepage keeps panel content hidden until a panel opens;
+          // open the red panel deliberately (keyboard path on the focusable
+          // label bypasses the hover state machine) so the header measures in
+          // its readable state.
+          await page.focus('.panel--red .panel-label');
+          await page.keyboard.press('Enter');
+          await page.waitForSelector('.panel--red.is-content-visible', { timeout: 5000 });
+          await page.waitForTimeout(700); // let the grid morph settle
+        }
+        const records = await page.evaluate(measure, header);
+        const flags = flagRecords(key, width, records);
+        const box = await page.locator(header).first().boundingBox();
+        if (box) {
+          const clip = {
             x: Math.max(0, box.x - 8),
             y: Math.max(0, box.y - 8),
             width: Math.min(width - Math.max(0, box.x - 8), box.width + 16),
             height: box.height + 16,
-          },
-        });
+          };
+          if (clip.width > 0 && clip.height > 0) {
+            await page.screenshot({ path: `${OUT}/${key}-${width}.png`, clip });
+          }
+        }
+        results.push({ page: key, path, width, records });
+        allFlags.push(...flags);
+        await page.close();
       }
-      results.push({ page: key, path, width, records });
-      allFlags.push(...flags);
-      await page.close();
     }
+  } finally {
+    await browser.close();
   }
-  await browser.close();
 
   await writeFile(`${OUT}/header-audit.json`, JSON.stringify({ generated: 'header-audit.mjs', flags: allFlags, results }));
 
