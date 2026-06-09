@@ -12,6 +12,9 @@ import { test, expect, type Page } from '@playwright/test';
  *     accent; only the color-themed project-detail footer keeps its accent;
  *   - one page-canvas: centered (equal gutters) with the shared drop shadow;
  *   - one breadcrumbs impl with an aria-current current item;
+ *   - one breadcrumb color ramp on every page (#452): token-driven, never
+ *     container-inherited, with parent links a step darker than the muted
+ *     current segment and an underline hover affordance;
  *   - the footer column-stack at <=1023px.
  *
  * Every invariant is checked at all four target breakpoints (320/375/800/1440)
@@ -23,6 +26,11 @@ import { test, expect, type Page } from '@playwright/test';
 
 const RED = 'rgb(193, 29, 25)'; // var(--red) #c11d19
 const BLACK_ACCENT = 'rgb(51, 51, 51)'; // matchline's per-project accent (#333)
+// The single breadcrumb ramp (#452) — the --breadcrumb-* tokens in :root.
+const CRUMB_LINK = 'rgba(17, 16, 13, 0.52)';
+const CRUMB_LINK_HOVER = 'rgba(17, 16, 13, 0.78)';
+const CRUMB_CURRENT = 'rgba(17, 16, 13, 0.38)';
+const CRUMB_SEP = 'rgba(17, 16, 13, 0.22)';
 // The shared ink drop shadow: var(--canvas-shadow) is 0.12; .project-detail
 // reduces it to 0.1 at <=1023. Accept both alphas, reject any other.
 const CANVAS_SHADOW = /rgba\(17, 16, 13, 0\.12?\)/;
@@ -93,21 +101,52 @@ for (const width of BREAKPOINTS) {
       }
     });
 
-    test.describe('shared breadcrumbs — one impl, current item flagged (#436)', () => {
+    test.describe('shared breadcrumbs — one impl, current item flagged (#436), one color ramp (#452)', () => {
       for (const path of CANVAS_PAGES) {
-        test(`${path} has one .breadcrumbs with an aria-current current item`, async ({ page }) => {
+        test(`${path} has one .breadcrumbs with an aria-current current item and the shared ramp`, async ({ page }) => {
           await page.goto(path);
           await page.waitForLoadState('domcontentloaded');
-          const result = await page.evaluate(() => ({
-            count: document.querySelectorAll('.breadcrumbs').length,
-            hasCurrent: !!document.querySelector(
-              '.breadcrumbs .breadcrumb-current[aria-current="page"]',
-            ),
-          }));
+          const result = await page.evaluate(() => {
+            const color = (sel: string) => {
+              const el = document.querySelector(sel);
+              return el ? getComputedStyle(el).color : null;
+            };
+            return {
+              count: document.querySelectorAll('.breadcrumbs').length,
+              hasCurrent: !!document.querySelector(
+                '.breadcrumbs .breadcrumb-current[aria-current="page"]',
+              ),
+              link: color('.breadcrumbs a'),
+              current: color('.breadcrumbs .breadcrumb-current'),
+              sep: color('.breadcrumbs .breadcrumb-sep'),
+            };
+          });
           expect(result.count).toBe(1);
           expect(result.hasCurrent).toBe(true);
+          // The ramp is the same on every page — token values, not the
+          // container's inherited color (#452). Parent links sit a step
+          // darker than the current segment so the hierarchy reads.
+          expect(result.link).toBe(CRUMB_LINK);
+          expect(result.current).toBe(CRUMB_CURRENT);
+          expect(result.sep).toBe(CRUMB_SEP);
         });
       }
+
+      test('parent links carry the hover affordance (underline + darker step)', async ({ page }) => {
+        await page.goto('/blog/');
+        await page.waitForLoadState('domcontentloaded');
+        await page.addStyleTag({
+          content: '*, *::before, *::after { transition: none !important; }',
+        });
+        await page.hover('.breadcrumbs a');
+        const hovered = await page.evaluate(() => {
+          const el = document.querySelector('.breadcrumbs a') as Element;
+          const style = getComputedStyle(el);
+          return { color: style.color, decoration: style.textDecorationLine };
+        });
+        expect(hovered.color).toBe(CRUMB_LINK_HOVER);
+        expect(hovered.decoration).toContain('underline');
+      });
     });
 
     test('footer is a centered column at <=1023px, a row above (#434)', async ({ page }) => {

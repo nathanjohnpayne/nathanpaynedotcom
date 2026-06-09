@@ -28,6 +28,15 @@
   --surface: rgba(244, 239, 229, 0.96);
   --rule: rgba(17, 16, 13, 0.18);
 
+  /* Breadcrumb chrome (#452): one quiet ink ramp on every page. Parent links
+     sit a step darker than the current segment (they're interactive), the
+     current segment stays muted, separators sit lightest. The component never
+     inherits color from its container. */
+  --breadcrumb-link: rgba(17, 16, 13, 0.52);
+  --breadcrumb-link-hover: rgba(17, 16, 13, 0.78);
+  --breadcrumb-current: rgba(17, 16, 13, 0.38);
+  --breadcrumb-sep: rgba(17, 16, 13, 0.22);
+
   /* Shared page-chrome primitives (#429). Frame width is --line (9px) above.
      --canvas-shadow: the drop shadow shared by every framed "black box"
      (.frame/.project-detail/.blog-canvas/.resume-canvas/.error-mondrian).
@@ -1894,39 +1903,54 @@ body.blog-page {
   border-bottom: var(--line) solid var(--ink);
 }
 
+/* One color treatment on every page (#452): the ramp comes from the
+   --breadcrumb-* tokens, never from the container, so the trail reads
+   identically on the hero indexes, the canvas headers, and the 404. */
 .breadcrumbs {
   display: flex;
   align-items: center;
   gap: 0.35rem;
   margin-bottom: 1rem;
   font-size: clamp(0.72rem, 0.92vw, 0.88rem);
+  font-weight: 400;
   letter-spacing: 0.12em;
   text-transform: uppercase;
+  color: var(--breadcrumb-current);
 }
 
 .breadcrumbs a {
-  color: inherit;
+  color: var(--breadcrumb-link);
   text-decoration: none;
 }
 
 .breadcrumbs a:hover {
+  color: var(--breadcrumb-link-hover);
   text-decoration: underline;
 }
 
 .breadcrumbs .breadcrumb-sep {
+  color: var(--breadcrumb-sep);
   user-select: none;
 }
 
-/* Canvas-header breadcrumb variant (#436): indented + dimmed, for the project
-   detail, blog post, and resume headers. Core + link/separator styling come
-   from .breadcrumbs above; this adds only the inset extras. Placed after the
-   base so its single-class overrides win by source order, matching the prior
-   .project-breadcrumbs behavior. */
+.breadcrumbs .breadcrumb-current {
+  color: var(--breadcrumb-current);
+  /* Long current segments (post/project titles) truncate instead of
+     wrapping under the trail. */
+  max-width: 28ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Canvas-header breadcrumb variant (#436): indented, for the project detail
+   and blog post headers. Layout-only — color comes from .breadcrumbs above
+   (#452). Placed after the base so its single-class overrides win by source
+   order, matching the prior .project-breadcrumbs behavior. */
 .breadcrumbs--inset {
   flex-wrap: wrap;
   margin-bottom: calc(var(--su) * 1.5);
   padding-left: clamp(1rem, 2.2vw, 1.6rem);
-  color: rgba(17, 16, 13, 0.38);
 }
 
 .hero h1 {
@@ -2314,22 +2338,10 @@ a.tag:hover {
   margin-bottom: 0;
 }
 
+/* Sizing + colors come from the shared .breadcrumbs rules (#452); only the
+   spacing to the h1 (which carries its own top margin) is local. */
 .e-content .breadcrumbs {
-  display: flex;
-  gap: 0.4rem;
-  font-size: clamp(0.68rem, 0.82vw, 0.78rem);
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
   margin-bottom: 0.5rem;
-}
-
-.e-content .breadcrumbs a {
-  color: inherit;
-  text-decoration: none;
-}
-
-.e-content .breadcrumbs a:hover {
-  text-decoration: underline;
 }
 
 .e-content .project-actions {
@@ -2546,35 +2558,10 @@ a.tag:hover {
   justify-content: flex-end;
 }
 
-/* Header typography — explicit rules since blog-canvas-header
-   is outside the .project-hero scope that normally provides these. */
+/* Breadcrumb colors/typography come from the shared .breadcrumbs rules
+   (#452); only the spacing to the h1 is local. */
 .blog-canvas-header .breadcrumbs {
-  font-weight: 400;
-  color: rgba(17, 16, 13, 0.38);
   margin-bottom: 1.5rem;
-}
-
-.blog-canvas-header .breadcrumbs a {
-  color: rgba(17, 16, 13, 0.38);
-}
-
-.blog-canvas-header .breadcrumbs a:hover {
-  color: rgba(17, 16, 13, 0.62);
-  text-decoration: none;
-}
-
-.blog-canvas-header .breadcrumb-sep {
-  color: rgba(17, 16, 13, 0.22);
-  user-select: none;
-}
-
-.blog-canvas-header .breadcrumb-current {
-  color: rgba(17, 16, 13, 0.52);
-  letter-spacing: 0.04em;
-  max-width: 28ch;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .blog-canvas-header h1 {
@@ -3258,7 +3245,6 @@ a:focus-visible {
 
   .breadcrumbs--inset {
     padding-left: 0.5rem;
-    font-size: 0.68rem;
   }
 
   .project-hero h1 {
@@ -3643,7 +3629,6 @@ body.resume-page {
 }
 .resume-canvas-header .breadcrumbs {
   margin-bottom: 1.4rem;
-  padding-left: 0;
 }
 
 /* Metadata panel (top-right; screen-only) */

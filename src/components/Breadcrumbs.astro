@@ -4,13 +4,15 @@
  *
  * One implementation of the "Nathan Payne / … / current" trail used across the
  * blog index, projects index, blog post, project detail, resume, and 404. The
- * markup lives here; per-context styling stays scoped in global.css.
+ * markup lives here; the color treatment is the shared `.breadcrumbs` ramp in
+ * global.css (--breadcrumb-* tokens, #452) on every page — per-context CSS may
+ * adjust spacing only.
  *
  * The final item renders as the current page (`.breadcrumb-current` +
  * `aria-current="page"`); earlier items render as links when they have an
  * `href`. Current-ness is by position, not a missing `href`.
- * Pass `class="breadcrumbs--inset"` for the indented/dimmed canvas-header
- * variant used by the project detail, blog post, and resume headers.
+ * Pass `class="breadcrumbs--inset"` for the indented canvas-header variant
+ * used by the project detail and blog post headers.
  */
 interface Crumb {
   label: string;
