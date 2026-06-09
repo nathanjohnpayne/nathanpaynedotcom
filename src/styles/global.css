@@ -1285,13 +1285,22 @@ body.resume-page {
   padding: clamp(0.9rem, 2.5vw, 1.8rem) var(--page-gutter);
 }
 
-.project-detail {
-  width: min(100%, 72rem);
+/* ── Shared page canvas (#435) ──────────────────────────────────────────
+   The framed/centered "black box" envelope shared by every page canvas
+   (.frame, .project-detail, .blog-canvas, .resume-canvas, .error-mondrian):
+   width, horizontal centering, and the drop shadow. Page-specific grid,
+   background, border, and overflow stay on each canvas's own class. Width is
+   --canvas-width (72rem default; the 404 card overrides to 64rem). */
+.page-canvas {
+  width: min(100%, var(--canvas-width, 72rem));
   margin: 0 auto;
+  box-shadow: var(--canvas-shadow);
+}
+
+.project-detail {
   background: var(--surface);
   border: var(--line) solid var(--grid-border);
   overflow-x: hidden;
-  box-shadow: var(--canvas-shadow);
 }
 
 .project-hero {
@@ -1907,12 +1916,9 @@ body.resume-page {
 }
 
 .frame {
-  width: min(100%, 72rem);
-  margin: 0 auto;
   background: var(--surface);
   border: var(--line) solid var(--grid-border);
   overflow: hidden;
-  box-shadow: var(--canvas-shadow);
 }
 
 /* ── Hero ── */
@@ -2285,10 +2291,11 @@ a.tag:hover {
 }
 
 .error-mondrian {
-  /* Size from the padded content width (like .frame/.blog-canvas/.resume-canvas
-     use min(100%, 72rem)) rather than 95vw, so the card never depends on
-     flex-shrink to fit inside .error-shell's 2rem gutter on narrow screens. */
-  width: min(100%, 64rem);
+  /* 64rem (narrower than the 72rem default), supplied to the shared
+     .page-canvas via --canvas-width; width/centering/shadow live there.
+     Sizing from the padded content width (not 95vw) keeps the card off
+     .error-shell's gutter without depending on flex-shrink. */
+  --canvas-width: 64rem;
   display: grid;
   grid-template-columns:
     var(--line) 2.4fr var(--line) 1fr var(--line) 1.2fr var(--line) 0.5fr var(--line);
@@ -2296,7 +2303,6 @@ a.tag:hover {
     var(--line) auto var(--line) 5rem var(--line) 3.5rem var(--line);
   background: var(--black);
   border: 1px solid var(--grid-border);
-  box-shadow: var(--canvas-shadow);
 }
 
 .e-content {
@@ -2501,9 +2507,6 @@ a.tag:hover {
     var(--line) auto           /* footer row */
     var(--line);
   background: var(--ink);
-  width: min(100%, 72rem);
-  margin: 0 auto;
-  box-shadow: var(--canvas-shadow);
   /* Use clip instead of hidden — hidden creates a scroll container
      which breaks position:sticky on .blog-sidebar-inner. clip
      provides the same visual clipping without a new scroll context. */
@@ -3607,9 +3610,6 @@ body.resume-page {
     var(--line) auto           /* footer row */
     var(--line);
   background: var(--ink);
-  width: min(100%, 72rem);
-  margin: 0 auto;
-  box-shadow: var(--canvas-shadow);
   /* clip (not hidden) so position:sticky on the sidebar still works. */
   overflow: clip;
 }
