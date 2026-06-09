@@ -110,7 +110,7 @@ changes (#433).
 
 | Token | Replaces | Notes |
 |---|---|---|
-| `--accent` | `--project-accent` | bridged: `--accent: var(--project-accent)` until consumers migrate (#437) |
+| `--accent` | `--project-accent` | #433 bridges `--accent: var(--project-accent)`; the direction flips in #437 (see Shim strategy—never alias both directions at once) |
 | `--canvas-shadow` | `14px 14px 0 rgba(17,16,13,0.12)` (×7) | the shared drop shadow |
 | `--page-gutter` | the repeated `2rem` shell gutters (from #428) | |
 | `--line` | *(already exists, `global.css:24`)* | the `9px` frame width—reuse, do not redefine |
@@ -135,8 +135,16 @@ Dependency-ordered; each is its own PR and preserves parity.
 ## Shim strategy
 
 - **Shims first, removal last.** New primitives and names are introduced while
-  the old `project-*` classes and `--project-accent` keep resolving (e.g. old
-  class aliased to the shared rule; `--project-accent: var(--accent)`).
+  the old `project-*` classes keep resolving (e.g. an old class aliased to the
+  shared rule).
+- **One accent source of truth per phase—never alias both directions at once.**
+  If `--accent: var(--project-accent)` and `--project-accent: var(--accent)` are
+  ever live simultaneously they form a CSS custom-property cycle: both tokens
+  become invalid and accent colors drop. So #433 makes `--project-accent` the
+  source (`--accent: var(--project-accent)`), and #437—when `data-accent` /
+  `.theme--*` starts setting `--accent` directly—**replaces** that bridge with
+  `--project-accent: var(--accent)` in the same PR (accent becomes the source,
+  the legacy token derives). The two bridges never coexist.
 - Migrate **one page type at a time**, asserting parity at each step.
 - **No big-bang rename:** #438 renames behind the shims introduced in #436.
 - Shims are removed only in **#439**, and only after a grep proves zero remaining
