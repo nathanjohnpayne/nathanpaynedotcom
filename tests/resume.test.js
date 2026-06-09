@@ -81,7 +81,7 @@ describe('Resume — page structure', () => {
   });
 
   it('renders breadcrumbs (Nathan Payne / Resume) in the header', () => {
-    const crumbs = document.querySelector('.resume-canvas-header .project-breadcrumbs');
+    const crumbs = document.querySelector('.resume-canvas-header .breadcrumbs');
     expect(crumbs, 'breadcrumbs missing').not.toBeNull();
     const text = crumbs.textContent.replace(/\s+/g, ' ').trim();
     expect(text).toContain('Nathan Payne');

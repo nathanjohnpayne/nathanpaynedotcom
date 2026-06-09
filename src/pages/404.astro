@@ -1,5 +1,6 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro';
+import Breadcrumbs from '../components/Breadcrumbs.astro';
 ---
 
 <BaseLayout
@@ -11,11 +12,7 @@ import BaseLayout from '../layouts/BaseLayout.astro';
   <main class="error-shell">
     <div class="error-mondrian page-canvas">
       <div class="e-content">
-        <nav class="breadcrumbs" aria-label="Breadcrumb">
-          <a href="/">Nathan Payne</a>
-          <span class="breadcrumb-sep">/</span>
-          <span>404</span>
-        </nav>
+        <Breadcrumbs items={[{ label: "Nathan Payne", href: "/" }, { label: "404" }]} />
         <h1>Page not found</h1>
         <p class="deck">The page you're looking for doesn't exist or has been moved.</p>
         <div class="project-actions">
