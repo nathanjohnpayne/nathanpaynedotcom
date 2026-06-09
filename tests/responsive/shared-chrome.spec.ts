@@ -23,7 +23,9 @@ import { test, expect, type Page } from '@playwright/test';
 
 const RED = 'rgb(193, 29, 25)'; // var(--red) #c11d19
 const BLACK_ACCENT = 'rgb(51, 51, 51)'; // matchline's per-project accent (#333)
-const CANVAS_SHADOW_RGBA = 'rgba(17, 16, 13, 0.12)'; // var(--canvas-shadow)
+// The shared ink drop shadow: var(--canvas-shadow) is 0.12; .project-detail
+// reduces it to 0.1 at <=1023. Accept both alphas, reject any other.
+const CANVAS_SHADOW = /rgba\(17, 16, 13, 0\.12?\)/;
 const BREAKPOINTS = [320, 375, 800, 1440];
 
 const CANVAS_PAGES = [
@@ -85,8 +87,8 @@ for (const width of BREAKPOINTS) {
           expect(result, `.page-canvas missing on ${path}`).not.toBeNull();
           // Centered: symmetric gutters (allow 2px for sub-pixel rounding).
           expect(Math.abs(result!.leftGap - result!.rightGap)).toBeLessThanOrEqual(2);
-          // The shared --canvas-shadow is present (full shadow or the narrow reduction).
-          expect(result!.shadow).toContain(CANVAS_SHADOW_RGBA.slice(0, 16));
+          // The shared ink drop shadow is present (full 0.12 or the <=1023 0.1).
+          expect(result!.shadow).toMatch(CANVAS_SHADOW);
         });
       }
     });
