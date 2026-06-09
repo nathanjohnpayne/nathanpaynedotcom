@@ -11,6 +11,7 @@
  */
 import { getCollection, getEntry } from 'astro:content';
 import BaseLayout from '../layouts/BaseLayout.astro';
+import Footer from '../components/Footer.astro';
 import SummarySection from '../components/resume/SummarySection.astro';
 import SkillsSection from '../components/resume/SkillsSection.astro';
 import ExperienceSection from '../components/resume/ExperienceSection.astro';
@@ -227,13 +228,15 @@ const jsonLd = {
       </aside>
 
       {/* Footer */}
-      <footer class="resume-canvas-footer">
-        <p class="resume-canvas-footer__attribution">{m.name} &middot; San Francisco</p>
-        <nav class="resume-footer-nav" aria-label="Resume footer navigation">
-          <a class="project-action" href="/">&larr; Back to Homepage</a>
-          <a class="project-action" href="/blog/">Read the Blog &rarr;</a>
-        </nav>
-      </footer>
+      <Footer
+        attribution={m.name}
+        variant="canvas"
+        class="site-footer--resume"
+        links={[
+          { href: "/", label: "← Back to Homepage" },
+          { href: "/blog/", label: "Read the Blog →" },
+        ]}
+      />
 
     </article>
   </main>

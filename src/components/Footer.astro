@@ -1,0 +1,52 @@
+---
+/**
+ * Shared site footer (#434).
+ *
+ * One implementation of the attribution + nav-action footer used across the
+ * blog index, projects index, blog post, project detail, and resume. The
+ * cosmetic content (layout, attribution, nav, hover affordance) lives in
+ * `.site-footer` in global.css so a change lands on every page at once.
+ * Per-page placement/chrome is a thin `variant` modifier:
+ *   - grid   → white band row in the Mondrian index grids
+ *   - canvas → white footer cell inside the framed blog/resume canvas
+ *   - detail → plain block in the single-column project-detail article
+ *
+ * Buttons reuse the shared `.project-action`; white footers share one red
+ * hover affordance, while the color-themed project-detail footer keeps its
+ * per-project accent (see `.site-footer` rules in global.css).
+ */
+interface FooterLink {
+  href: string;
+  label: string;
+}
+
+interface Props {
+  /** Name before the "· San Francisco" byline. */
+  attribution: string;
+  /** Nav actions, left-to-right. Labels may include arrows (←/→). */
+  links: FooterLink[];
+  /** Placement/chrome modifier. */
+  variant?: "grid" | "canvas" | "detail";
+  /** Extra class(es), e.g. the resume canvas-collapse/print hook. */
+  class?: string;
+}
+
+const { attribution, links, variant, class: extra } = Astro.props;
+
+const classList = [
+  "site-footer",
+  variant ? `site-footer--${variant}` : null,
+  extra ?? null,
+]
+  .filter(Boolean)
+  .join(" ");
+---
+
+<footer class={classList}>
+  <p class="site-footer__attribution">{attribution} &middot; San Francisco</p>
+  <nav class="site-footer__nav" aria-label="Footer navigation">
+    {links.map((link) => (
+      <a class="project-action" href={link.href}>{link.label}</a>
+    ))}
+  </nav>
+</footer>

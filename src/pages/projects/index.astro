@@ -1,6 +1,7 @@
 ---
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import { getCollection } from 'astro:content';
+import Footer from '../../components/Footer.astro';
 
 const allProjects = await getCollection('projects', ({ data }) => !data.draft);
 const projects = allProjects.sort((a, b) => a.data.order - b.data.order);
@@ -128,10 +129,11 @@ const jsonLd = {
       </div>
 
       {/* ── Footer ── */}
-      <footer class="grid-footer">
-        <span class="footer-attribution">Nathan Payne &middot; San Francisco</span>
-        <a href="/" class="footer-action">&larr; Back to Homepage</a>
-      </footer>
+      <Footer
+        attribution="Nathan Payne"
+        variant="grid"
+        links={[{ href: "/", label: "← Back to Homepage" }]}
+      />
     </div>
   </main>
 </BaseLayout>

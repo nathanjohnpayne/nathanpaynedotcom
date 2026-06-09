@@ -1852,29 +1852,7 @@ body.resume-page {
   text-decoration: underline;
 }
 
-/* Project footer — matches blog footer pattern */
-.project-detail-footer {
-  padding: clamp(1.5rem, 3vw, 2.5rem) clamp(1.15rem, 3vw, 2.5rem);
-  border-top: 1px solid var(--ink, #11100d);
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-}
-
-.project-footer-nav {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.75rem;
-}
-
-.project-footer-attribution {
-  font-size: clamp(0.7rem, 0.88vw, 0.82rem);
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  color: rgba(17, 16, 13, 0.58);
-}
+/* Project-detail footer now uses the shared .site-footer system (#434). */
 
 /* ── Responsive: metadata + layout ── */
 /* 768px matches --bp-tablet on :root. CSS does not allow var() in @media
@@ -1911,14 +1889,7 @@ body.resume-page {
     border-top: none;
   }
 
-  .project-detail-footer {
-    flex-direction: column;
-    text-align: center;
-  }
-
-  .project-footer-nav {
-    justify-content: center;
-  }
+  /* footer column-stack + nav-center handled by the shared .site-footer @1023 rule (#434) */
 }
 
 /* ── Blog Index: Mondrian Row Grid ──────────────────────────
@@ -2228,51 +2199,75 @@ a.tag:hover {
   color: var(--ink);
 }
 
-/* ── Footer Row ── */
-.grid-footer {
-  background: var(--paper);
+/* ── Shared site footer (#434) ──────────────────────────────────────────
+   One footer: attribution + nav actions across the blog index, projects
+   index, blog post, project detail, and resume. The cosmetic content lives
+   here so a change lands on every page; per-page placement/chrome is a thin
+   modifier. Buttons reuse .project-action. See src/components/Footer.astro. */
+.site-footer {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
-  padding: clamp(1.15rem, 2.5vw, 2rem) clamp(1.15rem, 3vw, 2.5rem);
-  border-top: var(--line) solid var(--ink);
+  padding: clamp(1.5rem, 3vw, 2.5rem) clamp(1.15rem, 3vw, 2.5rem);
+  border-top: 1px solid var(--rule);
 }
 
-.footer-attribution {
+.site-footer__attribution {
   font-size: clamp(0.7rem, 0.88vw, 0.82rem);
   letter-spacing: 0.18em;
   text-transform: uppercase;
   color: rgba(17, 16, 13, 0.58);
 }
 
-.footer-action {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  padding: 0.55rem 0.85rem;
-  border: 1px solid var(--ink);
-  background: transparent;
-  font-size: clamp(0.8rem, 0.92vw, 0.92rem);
-  font-weight: 600;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: inherit;
-  text-decoration: none;
-  transition:
-    background-color var(--motion-hover) var(--ease-standard),
-    color var(--motion-hover) var(--ease-standard),
-    transform var(--motion-hover) var(--ease-standard);
+.site-footer__nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
 }
 
-/* Red on hover to match the other white footers (blog post, resume). The
-   white-footer pages share a single red hover affordance; only the
-   color-themed project detail footer keeps its per-project accent. */
-.footer-action:hover {
+/* White footers (index, blog post, resume) share one red hover affordance;
+   only the color-themed project-detail footer keeps its per-project accent. */
+.site-footer:not(.site-footer--detail) .project-action:hover,
+.site-footer:not(.site-footer--detail) .project-action:focus-visible {
   background: var(--red);
   color: var(--cream);
-  transform: translateY(-2px);
+}
+
+/* Mondrian grid footer row (blog + projects index): white band, thick rule. */
+.site-footer--grid {
+  background: var(--paper);
+  border-top: var(--line) solid var(--ink);
+  padding-block: clamp(1.15rem, 2.5vw, 2rem);
+}
+
+/* Footer cell inside the framed blog/resume canvas (col 2/-2, row 6). */
+.site-footer--canvas {
+  grid-column: 2 / -2;
+  grid-row: 6;
+  min-width: 0;
+  background: var(--paper);
+}
+
+/* Project-detail footer: plain block in the single-column article, dark rule. */
+.site-footer--detail {
+  border-top: 1px solid var(--ink);
+}
+
+@media (max-width: 1023px) {
+  .site-footer {
+    flex-direction: column;
+    text-align: center;
+  }
+  .site-footer__nav {
+    justify-content: center;
+  }
+  /* Blog + resume canvases collapse to one column; the footer cell moves down. */
+  .site-footer--canvas {
+    grid-column: 2;
+    grid-row: 8;
+  }
 }
 
 /* ── 404 Page: Mondrian Grid ────
@@ -2485,7 +2480,7 @@ a.tag:hover {
      ├── blog-sidebar-meta   (col 6, row 2)    — date, author, tags
      ├── blog-content        (col 4, row 4)    — meta-bar + prose
      ├── blog-sidebar        (col 6, row 4)    — sticky: ToC, pullquotes
-     └── blog-canvas-footer  (col 2/-2, row 6) — attribution, nav
+     └── site-footer--canvas (col 2/-2, row 6) — attribution, nav
 
    @see Issue #74
    ────────────────────────────────────────────────────────────── */
@@ -2806,13 +2801,7 @@ a.tag:hover {
   color: rgba(17, 16, 13, 0.72);
 }
 
-/* ── Footer ── */
-.blog-canvas-footer {
-  grid-column: 2 / -2;
-  grid-row: 6;
-  min-width: 0;
-  background: var(--paper);
-}
+/* Blog footer now uses the shared .site-footer system (#434). */
 
 /* Legacy single-column fallback (kept for backward compatibility) */
 .blog-layout {
@@ -3113,28 +3102,7 @@ a.tag:hover {
 }
 
 
-.blog-footer {
-  padding: clamp(1.5rem, 3vw, 2.5rem) clamp(1.15rem, 3vw, 2.5rem);
-  border-top: 1px solid var(--rule);
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-}
-
-.blog-footer-attribution {
-  font-size: clamp(0.7rem, 0.88vw, 0.82rem);
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  color: rgba(17, 16, 13, 0.58);
-}
-
-.blog-footer-nav {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.75rem;
-}
+/* (blog footer content styles moved to the shared .site-footer system, #434) */
 
 .blog-diagram {
   margin: 1rem 0 1.2rem;
@@ -3496,24 +3464,10 @@ a:focus-visible {
     box-shadow: 8px 8px 0 rgba(17, 16, 13, 0.1);
   }
 
-  .project-detail-footer {
-    flex-direction: column;
-    text-align: center;
-  }
-
   .blog-meta-bar dl {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 1rem;
-  }
-
-  .blog-footer {
-    flex-direction: column;
-    text-align: center;
-  }
-
-  .blog-footer-nav {
-    justify-content: center;
   }
 
   .blog-diagram-fanout-row {
@@ -3599,11 +3553,7 @@ a:focus-visible {
 
   .blog-sidebar { display: none; }
 
-  .blog-canvas-footer {
-    grid-column: 2;
-    grid-row: 8;
-    min-width: 0;
-  }
+  /* blog footer reposition handled by the shared .site-footer--canvas @1023 rule (#434) */
 }
 
 /* ════════════════════════════════════════════════════════════════════
@@ -3859,27 +3809,7 @@ body.resume-page {
   line-height: 1.32;
 }
 
-/* Footer cell */
-.resume-canvas-footer {
-  grid-column: 2 / -2;
-  grid-row: 6;
-  min-width: 0;
-  background: var(--paper);
-  /* Match .blog-footer: padding, top rule, and uppercase attribution. */
-  padding: clamp(1.5rem, 3vw, 2.5rem) clamp(1.15rem, 3vw, 2.5rem);
-  border-top: 1px solid var(--rule);
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-}
-.resume-canvas-footer__attribution {
-  font-size: clamp(0.7rem, 0.88vw, 0.82rem);
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  color: rgba(17, 16, 13, 0.58);
-}
+/* Resume footer now uses the shared .site-footer system (#434). */
 
 .resume-name {
   font-family: "Cormorant Garamond", Garamond, serif;
@@ -4299,12 +4229,7 @@ body.resume-page {
   color: rgba(17, 16, 13, 0.6);
 }
 
-/* ── Footer (screen-only navigation) ── */
-.resume-footer-nav {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.75rem;
-}
+/* (resume footer nav styles moved to the shared .site-footer system, #434) */
 
 /* ── /resume canvas — collapse to a single column (≤ 1023px, --bp-stack) ──
    Mirrors the blog collapse: margin + sidebar hidden, the metadata panel
@@ -4340,13 +4265,9 @@ body.resume-page {
   .resume-canvas-content { grid-column: 2; grid-row: 6; }
   .resume-canvas-sidebar { display: none; }
   /* Match the blog footer's narrow-screen flow: stack + center. */
-  .resume-canvas-footer {
-    grid-column: 2;
-    grid-row: 8;
-    flex-direction: column;
-    text-align: center;
-  }
-  .resume-footer-nav { justify-content: center; }
+  /* Resume footer reposition + column-stack now come from the shared
+     .site-footer / .site-footer--canvas @1023 rules (#434); --resume is the
+     print-hide hook only. */
 }
 
 /* ════════════════════════════════════════════════════════════════════
@@ -4398,7 +4319,7 @@ body.resume-page {
   .resume-canvas-margin,
   .resume-canvas-meta,
   .resume-canvas-sidebar,
-  .resume-canvas-footer,
+  .site-footer--resume,
   .resume-canvas-header .project-breadcrumbs,
   .company-logo {
     display: none !important;

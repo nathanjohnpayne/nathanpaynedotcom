@@ -20,6 +20,7 @@
  * @see Issue #74 — Blog post template: Mondrian composition with margins layout
  */
 import BaseLayout from './BaseLayout.astro';
+import Footer from '../components/Footer.astro';
 
 interface Props {
   title: string;
@@ -244,15 +245,14 @@ const jsonLd = {
       )}
 
       {/* ── Footer ── */}
-      <footer class="blog-canvas-footer">
-        <div class="blog-footer">
-          <p class="blog-footer-attribution">{author} · San Francisco</p>
-          <nav class="blog-footer-nav" aria-label="Blog footer navigation">
-            <a class="project-action" href="/blog/">&larr; Back to Blog</a>
-            <a class="project-action" href="/">Back to Homepage &rarr;</a>
-          </nav>
-        </div>
-      </footer>
+      <Footer
+        attribution={author}
+        variant="canvas"
+        links={[
+          { href: "/blog/", label: "← Back to Blog" },
+          { href: "/", label: "Back to Homepage →" },
+        ]}
+      />
     </article>
   </main>
 
