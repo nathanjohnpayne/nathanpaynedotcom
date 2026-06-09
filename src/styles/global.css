@@ -28,6 +28,14 @@
   --surface: rgba(244, 239, 229, 0.96);
   --rule: rgba(17, 16, 13, 0.18);
 
+  /* Shared page-chrome primitives (#429). Frame width is --line (9px) above.
+     --canvas-shadow: the drop shadow shared by every framed "black box"
+     (.frame/.project-detail/.blog-canvas/.resume-canvas/.error-mondrian).
+     --page-gutter: the side gutter on the shells that keeps that shadow off
+     the viewport edge. */
+  --canvas-shadow: 14px 14px 0 rgba(17, 16, 13, 0.12);
+  --page-gutter: 2rem;
+
   --motion-fast: 130ms;
   --motion-hover: 170ms;
   /* Mondrian grid morph (#313). Bumped from 280ms to 460ms in #313 so the
@@ -1220,6 +1228,14 @@ body.blog-page {
   --project-bg: #c4c3bc;
 }
 
+/* #429: shared --accent mirrors the per-theme --project-accent so new chrome can
+   consume --accent now while old consumers keep using --project-accent. Accent
+   is decoupled from page type (data-accent / .theme--*) in #437. */
+body.project-page,
+body.resume-page {
+  --accent: var(--project-accent);
+}
+
 .project-page--red {
   --project-accent: #c11d19;
   --project-accent-foreground: #f5f0e4;
@@ -1266,7 +1282,7 @@ body.blog-page {
   min-height: 100vh;
   /* 2rem side gutter keeps the centered box's 14px drop shadow off the
      viewport edge on narrow screens, matching .error-shell. */
-  padding: clamp(0.9rem, 2.5vw, 1.8rem) 2rem;
+  padding: clamp(0.9rem, 2.5vw, 1.8rem) var(--page-gutter);
 }
 
 .project-detail {
@@ -1275,7 +1291,7 @@ body.blog-page {
   background: var(--surface);
   border: var(--line) solid var(--grid-border);
   overflow-x: hidden;
-  box-shadow: 14px 14px 0 rgba(17, 16, 13, 0.12);
+  box-shadow: var(--canvas-shadow);
 }
 
 .project-hero {
@@ -1916,7 +1932,7 @@ body.blog-page {
   /* 2rem side gutter keeps the centered .frame's 14px drop shadow off the
      viewport edge on narrow screens, matching .error-shell. The box stays
      centered (margin: 0 auto); only the symmetric breathing room grows. */
-  padding: clamp(0.9rem, 2.5vw, 1.8rem) 2rem;
+  padding: clamp(0.9rem, 2.5vw, 1.8rem) var(--page-gutter);
 }
 
 .frame {
@@ -1925,7 +1941,7 @@ body.blog-page {
   background: var(--surface);
   border: var(--line) solid var(--grid-border);
   overflow: hidden;
-  box-shadow: 14px 14px 0 rgba(17, 16, 13, 0.12);
+  box-shadow: var(--canvas-shadow);
 }
 
 /* ── Hero ── */
@@ -2269,7 +2285,7 @@ a.tag:hover {
   align-items: center;
   justify-content: center;
   min-height: 100vh;
-  padding: 2rem;
+  padding: var(--page-gutter);
   background: #c4c3bc;
 }
 
@@ -2285,7 +2301,7 @@ a.tag:hover {
     var(--line) auto var(--line) 5rem var(--line) 3.5rem var(--line);
   background: var(--black);
   border: 1px solid var(--grid-border);
-  box-shadow: 14px 14px 0 rgba(17, 16, 13, 0.12);
+  box-shadow: var(--canvas-shadow);
 }
 
 .e-content {
@@ -2353,7 +2369,7 @@ a.tag:hover {
   .error-mondrian {
     grid-template-columns: var(--line) 1fr var(--line);
     grid-template-rows: var(--line) auto var(--line);
-    box-shadow: 14px 14px 0 rgba(17, 16, 13, 0.12);
+    box-shadow: var(--canvas-shadow);
   }
   .e-content {
     grid-column: 2;
@@ -2396,7 +2412,7 @@ a.tag:hover {
     var(--line) 1fr var(--line) 5rem var(--line) 3.5rem var(--line);
   background: var(--black);
   border: 1px solid var(--grid-border);
-  box-shadow: 14px 14px 0 rgba(17, 16, 13, 0.12);
+  box-shadow: var(--canvas-shadow);
 }
 
 .og-content {
@@ -2492,7 +2508,7 @@ a.tag:hover {
   background: var(--ink);
   width: min(100%, 72rem);
   margin: 0 auto;
-  box-shadow: 14px 14px 0 rgba(17, 16, 13, 0.12);
+  box-shadow: var(--canvas-shadow);
   /* Use clip instead of hidden — hidden creates a scroll container
      which breaks position:sticky on .blog-sidebar-inner. clip
      provides the same visual clipping without a new scroll context. */
@@ -3619,7 +3635,7 @@ body.resume-page {
   min-height: 100vh;
   /* 2rem side gutter keeps the centered .resume-canvas's 14px drop shadow off
      the viewport edge on narrow screens, matching .error-shell. */
-  padding: clamp(0.9rem, 2.5vw, 1.8rem) 2rem;
+  padding: clamp(0.9rem, 2.5vw, 1.8rem) var(--page-gutter);
 }
 
 /* ── Mondrian "composition with margins" canvas (mirrors .blog-canvas) ──
@@ -3643,7 +3659,7 @@ body.resume-page {
   background: var(--ink);
   width: min(100%, 72rem);
   margin: 0 auto;
-  box-shadow: 14px 14px 0 rgba(17, 16, 13, 0.12);
+  box-shadow: var(--canvas-shadow);
   /* clip (not hidden) so position:sticky on the sidebar still works. */
   overflow: clip;
 }
