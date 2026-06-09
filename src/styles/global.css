@@ -37,6 +37,24 @@
   --breadcrumb-current: rgba(17, 16, 13, 0.38);
   --breadcrumb-sep: rgba(17, 16, 13, 0.22);
 
+  /* Heading scale (#455): display/page/article/section tiers mirror the motion
+     token pattern so page families do not hand-roll near-identical h1/h2
+     values. */
+  --font-heading: "Cormorant Garamond", Garamond, serif;
+  --heading-weight: 600;
+  --heading-letter-spacing: 0;
+  --heading-display-size: clamp(2.8rem, 6vw, 5.4rem);
+  --heading-display-line-height: 1.02;
+  --heading-page-size: clamp(2.4rem, 5vw, 5.1rem);
+  --heading-page-line-height: 1.04;
+  --heading-article-size: clamp(2rem, 3vw, 3rem);
+  --heading-article-line-height: 1.08;
+  --heading-panel-title-size: 3.5rem;
+  --heading-panel-title-red-size: 4rem;
+  --heading-panel-title-line-height: 1;
+  --heading-section-size: clamp(1.4rem, 1.25rem + 0.45vw, 1.85rem);
+  --heading-section-line-height: 1.12;
+
   /* Shared page-chrome primitives (#429). Frame width is --line (9px) above.
      --canvas-shadow: the drop shadow shared by every framed "black box"
      (.frame/.project-detail/.blog-canvas/.resume-canvas/.error-mondrian).
@@ -421,21 +439,25 @@ html[data-fonts-pending] .panel-label {
 }
 
 .content-inner h1 {
-  font-family: "Cormorant Garamond", Garamond, serif;
-  font-size: 3.5rem;
-  line-height: 0.95;
+  font-family: var(--font-heading);
+  font-weight: var(--heading-weight);
+  font-size: var(--heading-panel-title-size);
+  line-height: var(--heading-panel-title-line-height);
+  letter-spacing: var(--heading-letter-spacing);
   margin-bottom: var(--su);
 }
 
 .panel--red .content-inner h1 {
   white-space: nowrap;
-  font-size: 4rem;
+  font-size: var(--heading-panel-title-red-size);
 }
 
 .content-inner h2 {
-  font-family: "Cormorant Garamond", Garamond, serif;
+  font-family: var(--font-heading);
+  font-weight: var(--heading-weight);
   font-size: 1.85rem;
   line-height: 1.05;
+  letter-spacing: var(--heading-letter-spacing);
   margin-bottom: 0.45rem;
 }
 
@@ -847,7 +869,7 @@ a:focus-visible .link-arrow,
    See #356 for the design discussion. */
 .panel--yellow .content-inner h2 {
   font-size: clamp(1.2rem, min(3vw, 3vh), 1.5rem);
-  letter-spacing: 0.02em;
+  letter-spacing: var(--heading-letter-spacing);
   margin-bottom: var(--su);
   line-height: 1.05;
 }
@@ -1327,9 +1349,11 @@ body.blog-page {
 
 .project-hero h1 {
   padding-left: clamp(1rem, 2.2vw, 1.6rem);
-  font-family: "Cormorant Garamond", Garamond, serif;
-  font-size: clamp(2.4rem, 5vw, 5.1rem);
-  line-height: 0.94;
+  font-family: var(--font-heading);
+  font-weight: var(--heading-weight);
+  font-size: var(--heading-page-size);
+  line-height: var(--heading-page-line-height);
+  letter-spacing: var(--heading-letter-spacing);
   text-wrap: balance;
 }
 
@@ -1677,10 +1701,12 @@ body.blog-page {
   padding-top: 1.25rem;
   border-top: 1px solid rgba(17, 16, 13, 0.15);
   margin-bottom: 0.75rem;
-  font-family: "Cormorant Garamond", Garamond, serif;
+  font-family: var(--font-heading);
+  font-weight: var(--heading-weight);
   font-style: italic;
-  font-size: clamp(1.65rem, 2.4vw, 2.35rem);
-  line-height: 1.08;
+  font-size: var(--heading-section-size);
+  line-height: var(--heading-section-line-height);
+  letter-spacing: var(--heading-letter-spacing);
 }
 
 .project-copy h2:first-child {
@@ -1794,9 +1820,12 @@ body.blog-page {
 
 .project-related h2 {
   margin-bottom: 0.6rem;
-  font-family: "Cormorant Garamond", Garamond, serif;
+  font-family: var(--font-heading);
+  font-weight: var(--heading-weight);
   font-style: italic;
   font-size: clamp(1.05rem, 1.3vw, 1.2rem);
+  line-height: var(--heading-section-line-height);
+  letter-spacing: var(--heading-letter-spacing);
   color: rgba(17, 16, 13, 0.72);
 }
 
@@ -1954,10 +1983,11 @@ body.blog-page {
 }
 
 .hero h1 {
-  font-family: "Cormorant Garamond", Garamond, serif;
-  font-size: clamp(2.8rem, 6vw, 5.4rem);
-  line-height: 0.92;
-  font-weight: 600;
+  font-family: var(--font-heading);
+  font-size: var(--heading-display-size);
+  line-height: var(--heading-display-line-height);
+  font-weight: var(--heading-weight);
+  letter-spacing: var(--heading-letter-spacing);
 }
 
 .deck {
@@ -2325,10 +2355,11 @@ a.tag:hover {
 }
 
 .e-content h1 {
-  font-family: "Cormorant Garamond", Garamond, serif;
-  font-size: clamp(2.5rem, 5vw, 4.5rem);
-  font-weight: 600;
-  line-height: 1.05;
+  font-family: var(--font-heading);
+  font-size: var(--heading-page-size);
+  font-weight: var(--heading-weight);
+  line-height: var(--heading-page-line-height);
+  letter-spacing: var(--heading-letter-spacing);
   margin: 0.25rem 0 0.5rem;
 }
 
@@ -2565,11 +2596,11 @@ a.tag:hover {
 }
 
 .blog-canvas-header h1 {
-  font-family: "Cormorant Garamond", Garamond, serif;
-  font-weight: 600;
-  font-size: clamp(2rem, 3vw, 3rem);
-  line-height: 1.08;
-  letter-spacing: -0.012em;
+  font-family: var(--font-heading);
+  font-weight: var(--heading-weight);
+  font-size: var(--heading-article-size);
+  line-height: var(--heading-article-line-height);
+  letter-spacing: var(--heading-letter-spacing);
   margin-bottom: 1.2rem;
 }
 
@@ -2861,10 +2892,12 @@ a.tag:hover {
 /* (.blog-prose-title removed in #455 finding 6 — the class appeared in no
    markup or content, and it carried the stylesheet's only heading !important.) */
 .blog-prose > h2 {
-  font-family: "Cormorant Garamond", Garamond, serif;
-  font-weight: 600;
-  font-size: clamp(1.3rem, 1.2rem + 0.4vw, 1.72rem);
-  line-height: 1.15;
+  font-family: var(--font-heading);
+  font-weight: var(--heading-weight);
+  font-style: italic;
+  font-size: var(--heading-section-size);
+  line-height: var(--heading-section-line-height);
+  letter-spacing: var(--heading-letter-spacing);
   margin-top: 2.5rem;
   padding-top: 1.8rem;
   border-top: 1px solid var(--rule);
@@ -2873,10 +2906,11 @@ a.tag:hover {
 .blog-prose > h3 {
   margin-top: 1.8rem;
   margin-bottom: 0.75rem;
-  font-family: "Cormorant Garamond", Garamond, serif;
-  font-weight: 600;
+  font-family: var(--font-heading);
+  font-weight: var(--heading-weight);
   font-size: clamp(1.08rem, 1.45vw, 1.36rem);
   line-height: 1.1;
+  letter-spacing: var(--heading-letter-spacing);
 }
 
 .blog-prose > p,
@@ -3785,17 +3819,17 @@ body.resume-page {
 /* Resume footer now uses the shared .site-footer system (#434). */
 
 .resume-name {
-  font-family: "Cormorant Garamond", Garamond, serif;
-  font-weight: 600;
+  font-family: var(--font-heading);
+  font-weight: var(--heading-weight);
   font-size: clamp(2.6rem, 5vw, 4rem);
-  line-height: 0.98;
-  letter-spacing: -0.01em;
+  line-height: var(--heading-page-line-height);
+  letter-spacing: var(--heading-letter-spacing);
 }
 
 .resume-title {
   margin-top: 0.5rem;
   max-width: 46rem;
-  font-family: "Cormorant Garamond", Garamond, serif;
+  font-family: var(--font-heading);
   font-style: italic;
   font-size: clamp(1.1rem, 1rem + 0.5vw, 1.5rem);
   line-height: 1.28;
@@ -3862,10 +3896,12 @@ body.resume-page {
 
 .resume-section__title {
   margin-bottom: 0.85rem;
-  font-family: "Cormorant Garamond", Garamond, serif;
+  font-family: var(--font-heading);
+  font-weight: var(--heading-weight);
   font-style: italic;
-  font-size: clamp(1.5rem, 2.2vw, 2.1rem);
-  line-height: 1.08;
+  font-size: var(--heading-section-size);
+  line-height: var(--heading-section-line-height);
+  letter-spacing: var(--heading-letter-spacing);
   color: var(--ink);
 }
 

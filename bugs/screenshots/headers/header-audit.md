@@ -16,21 +16,21 @@ Pages × widths: 7 × 1440/1024/768/480/390. Flags: 25 (full detail in header-au
 
 | page | h1 | letter-spacing |
 |---|---|---|
-| home | 64px/0.95 w700 Cormorant Garamond | normal |
-| blog-index | 86.4px/0.92 w600 Cormorant Garamond | normal |
-| blog-post | 43.2px/1.08 w600 Cormorant Garamond | -0.5184px |
-| projects-index | 86.4px/0.92 w600 Cormorant Garamond | normal |
-| project-page | 72px/0.94 w700 Cormorant Garamond | normal |
-| resume | 64px/0.98 w600 Cormorant Garamond | -0.64px |
-| 404 | 72px/1.05 w600 Cormorant Garamond | normal |
+| home | 64px/1 w600 Cormorant Garamond | normal |
+| blog-index | 86.4px/1.02 w600 Cormorant Garamond | normal |
+| blog-post | 43.2px/1.08 w600 Cormorant Garamond | normal |
+| projects-index | 86.4px/1.02 w600 Cormorant Garamond | normal |
+| project-page | 72px/1.04 w600 Cormorant Garamond | normal |
+| resume | 64px/1.04 w600 Cormorant Garamond | normal |
+| 404 | 72px/1.04 w600 Cormorant Garamond | normal |
 
 ## First body h2 at 1440px
 
 | page | h2 | letter-spacing |
 |---|---|---|
-| home | 24px/1.05 w700 Cormorant Garamond | 0.48px |
+| home | 24px/1.05 w600 Cormorant Garamond | normal |
 | blog-index | 31.68px/1.05 w600 Cormorant Garamond | normal |
-| blog-post | 24.96px/1.15 w600 Cormorant Garamond | normal |
+| blog-post | 26.48px/1.12 w600 italic Cormorant Garamond | normal |
 | projects-index | 31.68px/1.05 w600 Cormorant Garamond | normal |
-| project-page | 34.56px/1.08 w700 italic Cormorant Garamond | normal |
-| resume | 31.68px/1.08 w700 italic Cormorant Garamond | normal |
+| project-page | 26.48px/1.12 w600 italic Cormorant Garamond | normal |
+| resume | 26.48px/1.12 w600 italic Cormorant Garamond | normal |
