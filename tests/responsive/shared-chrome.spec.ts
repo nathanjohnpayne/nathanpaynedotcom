@@ -14,11 +14,16 @@ import { test, expect, type Page } from '@playwright/test';
  *   - one breadcrumbs impl with an aria-current current item;
  *   - the footer column-stack at <=1023px.
  *
+ * Every invariant is checked at all four target breakpoints (320/375/800/1440)
+ * so mobile/tablet-only regressions are caught too (per #440).
+ *
  * Run: `npm run test:e2e` (reuses a dev server on :4321 if one is running).
- * There are no baselines to update — assertions are the contract.
+ * There are no baselines to update — the assertions are the contract.
  */
 
 const RED = 'rgb(193, 29, 25)'; // var(--red) #c11d19
+const BLACK_ACCENT = 'rgb(51, 51, 51)'; // matchline's per-project accent (#333)
+const CANVAS_SHADOW_RGBA = 'rgba(17, 16, 13, 0.12)'; // var(--canvas-shadow)
 const BREAKPOINTS = [320, 375, 800, 1440];
 
 const CANVAS_PAGES = [
@@ -41,73 +46,69 @@ async function hoverBackground(page: Page, selector: string): Promise<string> {
   );
 }
 
-test.describe('shared footer — a single hover affordance (#428/#434)', () => {
-  test('white footer hovers red even when the page accent is not red', async ({ page }) => {
-    await page.setViewportSize({ width: 1440, height: 900 });
-    await page.goto('/blog/'); // page accent is blue
-    await page.waitForLoadState('domcontentloaded');
-    expect(await hoverBackground(page, '.site-footer .nav-button')).toBe(RED);
-  });
+for (const width of BREAKPOINTS) {
+  test.describe(`@${width}px`, () => {
+    test.use({ viewport: { width, height: 900 } });
 
-  test('project-detail footer hovers its per-project accent, not red', async ({ page }) => {
-    await page.setViewportSize({ width: 1440, height: 900 });
-    await page.goto('/projects/matchline/'); // accent is black (#333)
-    await page.waitForLoadState('domcontentloaded');
-    expect(await hoverBackground(page, '.site-footer .nav-button')).toBe('rgb(51, 51, 51)');
-  });
-});
-
-test.describe('shared page canvas — centered with the shared shadow (#428/#435)', () => {
-  for (const path of CANVAS_PAGES) {
-    test(`${path} canvas is centered and carries the drop shadow`, async ({ page }) => {
-      await page.setViewportSize({ width: 1440, height: 900 });
-      await page.goto(path);
-      await page.waitForLoadState('domcontentloaded');
-      const result = await page.evaluate(() => {
-        const el = document.querySelector('.page-canvas');
-        if (!el) return null;
-        const shell =
-          el.closest('.page-shell, .shell, .resume-shell, .error-shell') ?? el.parentElement!;
-        const eb = el.getBoundingClientRect();
-        const sb = shell.getBoundingClientRect();
-        return {
-          leftGap: Math.round(eb.left - sb.left),
-          rightGap: Math.round(sb.right - eb.right),
-          shadow: getComputedStyle(el).boxShadow,
-        };
+    test.describe('shared footer — a single hover affordance (#428/#434)', () => {
+      test('white footer hovers red even when the page accent is not red', async ({ page }) => {
+        await page.goto('/blog/'); // page accent is blue
+        await page.waitForLoadState('domcontentloaded');
+        expect(await hoverBackground(page, '.site-footer .nav-button')).toBe(RED);
       });
-      expect(result, `.page-canvas missing on ${path}`).not.toBeNull();
-      // Centered: symmetric gutters (allow 2px for sub-pixel rounding).
-      expect(Math.abs(result!.leftGap - result!.rightGap)).toBeLessThanOrEqual(2);
-      // The shared --canvas-shadow.
-      expect(result!.shadow).toContain('rgba(17, 16, 13, 0.12)');
-    });
-  }
-});
 
-test.describe('shared breadcrumbs — one impl, current item flagged (#436)', () => {
-  for (const path of CANVAS_PAGES) {
-    test(`${path} has one .breadcrumbs with an aria-current current item`, async ({ page }) => {
-      await page.goto(path);
-      await page.waitForLoadState('domcontentloaded');
-      const result = await page.evaluate(() => ({
-        count: document.querySelectorAll('.breadcrumbs').length,
-        hasCurrent: !!document.querySelector(
-          '.breadcrumbs .breadcrumb-current[aria-current="page"]',
-        ),
-      }));
-      expect(result.count).toBe(1);
-      expect(result.hasCurrent).toBe(true);
+      test('project-detail footer hovers its per-project accent, not red', async ({ page }) => {
+        await page.goto('/projects/matchline/'); // accent is black (#333)
+        await page.waitForLoadState('domcontentloaded');
+        expect(await hoverBackground(page, '.site-footer .nav-button')).toBe(BLACK_ACCENT);
+      });
     });
-  }
-});
 
-test.describe('footer responsive column-stack at <=1023px (#434)', () => {
-  for (const width of BREAKPOINTS) {
-    test(`footer is ${width <= 1023 ? 'a centered column' : 'a row'} at ${width}px`, async ({
-      page,
-    }) => {
-      await page.setViewportSize({ width, height: 900 });
+    test.describe('shared page canvas — centered with the shared shadow (#428/#435)', () => {
+      for (const path of CANVAS_PAGES) {
+        test(`${path} canvas is centered and carries the drop shadow`, async ({ page }) => {
+          await page.goto(path);
+          await page.waitForLoadState('domcontentloaded');
+          const result = await page.evaluate(() => {
+            const el = document.querySelector('.page-canvas');
+            if (!el) return null;
+            const shell =
+              el.closest('.page-shell, .shell, .resume-shell, .error-shell') ?? el.parentElement!;
+            const eb = el.getBoundingClientRect();
+            const sb = shell.getBoundingClientRect();
+            return {
+              leftGap: Math.round(eb.left - sb.left),
+              rightGap: Math.round(sb.right - eb.right),
+              shadow: getComputedStyle(el).boxShadow,
+            };
+          });
+          expect(result, `.page-canvas missing on ${path}`).not.toBeNull();
+          // Centered: symmetric gutters (allow 2px for sub-pixel rounding).
+          expect(Math.abs(result!.leftGap - result!.rightGap)).toBeLessThanOrEqual(2);
+          // The shared --canvas-shadow is present (full shadow or the narrow reduction).
+          expect(result!.shadow).toContain(CANVAS_SHADOW_RGBA.slice(0, 16));
+        });
+      }
+    });
+
+    test.describe('shared breadcrumbs — one impl, current item flagged (#436)', () => {
+      for (const path of CANVAS_PAGES) {
+        test(`${path} has one .breadcrumbs with an aria-current current item`, async ({ page }) => {
+          await page.goto(path);
+          await page.waitForLoadState('domcontentloaded');
+          const result = await page.evaluate(() => ({
+            count: document.querySelectorAll('.breadcrumbs').length,
+            hasCurrent: !!document.querySelector(
+              '.breadcrumbs .breadcrumb-current[aria-current="page"]',
+            ),
+          }));
+          expect(result.count).toBe(1);
+          expect(result.hasCurrent).toBe(true);
+        });
+      }
+    });
+
+    test('footer is a centered column at <=1023px, a row above (#434)', async ({ page }) => {
       await page.goto('/blog/six-prs-one-bug-agent-failure-modes/');
       await page.waitForLoadState('domcontentloaded');
       const direction = await page.evaluate(
@@ -115,5 +116,5 @@ test.describe('footer responsive column-stack at <=1023px (#434)', () => {
       );
       expect(direction).toBe(width <= 1023 ? 'column' : 'row');
     });
-  }
-});
+  });
+}
