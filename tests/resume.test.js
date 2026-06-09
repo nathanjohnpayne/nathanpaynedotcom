@@ -77,7 +77,7 @@ describe('Resume — page structure', () => {
     expect(document.querySelector('.resume-canvas-margin--header'), 'accent margin missing').not.toBeNull();
     expect(document.querySelector('.resume-canvas-content'), 'content column missing').not.toBeNull();
     expect(document.querySelector('.resume-canvas-sidebar'), 'sidebar missing').not.toBeNull();
-    expect(document.querySelector('.resume-canvas-footer'), 'footer missing').not.toBeNull();
+    expect(document.querySelector('.site-footer--resume'), 'footer missing').not.toBeNull();
   });
 
   it('renders breadcrumbs (Nathan Payne / Resume) in the header', () => {

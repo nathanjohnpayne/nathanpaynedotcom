@@ -4,6 +4,7 @@ import HeroWide from '../components/HeroWide.astro';
 import HeroNarrow from '../components/HeroNarrow.astro';
 import MetadataStrip from '../components/MetadataStrip.astro';
 import ProjectMuxPlayer from '../components/ProjectMuxPlayer.astro';
+import Footer from '../components/Footer.astro';
 
 interface RelatedLink {
   label: string;
@@ -156,13 +157,14 @@ const topics = kicker.split(/\s*×\s*/).join(' · ');
         </section>
       )}
 
-      <footer class="project-detail-footer">
-        <p class="project-footer-attribution">Nathan Payne &middot; San Francisco</p>
-        <nav class="project-footer-nav" aria-label="Project footer navigation">
-          <a class="project-action" href="/projects/">&larr; Back to Projects</a>
-          <a class="project-action" href="/">Back to Homepage &rarr;</a>
-        </nav>
-      </footer>
+      <Footer
+        attribution="Nathan Payne"
+        variant="detail"
+        links={[
+          { href: "/projects/", label: "← Back to Projects" },
+          { href: "/", label: "Back to Homepage →" },
+        ]}
+      />
 
     </article>
   </main>
