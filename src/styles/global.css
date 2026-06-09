@@ -40,7 +40,7 @@
   /* Heading scale (#455): display/page/article/section tiers mirror the motion
      token pattern so page families do not hand-roll near-identical h1/h2
      values. */
-  --font-heading: "Cormorant Garamond", Garamond, serif;
+  --font-heading: "Cormorant Garamond", garamond, serif;
   --heading-weight: 600;
   --heading-letter-spacing: 0;
   --heading-display-size: clamp(2.8rem, 6vw, 5.4rem);
