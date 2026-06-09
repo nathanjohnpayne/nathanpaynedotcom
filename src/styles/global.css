@@ -2574,6 +2574,9 @@ a.tag:hover {
 }
 
 .blog-canvas-header .deck {
+  /* Keeps the title-to-deck gap the dropped deck--inset used to provide
+     (#455 finding 8); base .deck opens it to 1rem. */
+  margin-top: calc(var(--su) * 1.6);
   font-family: "Inter", system-ui, sans-serif;
   font-style: normal;
   font-weight: 400;
@@ -2675,12 +2678,14 @@ a.tag:hover {
   margin-bottom: 0;
 }
 
-/* Sidebar heading (e.g., "In this article") */
+/* Sidebar heading (e.g., "In this article"). Size floor and ink raised to
+   clear the 11px practical floor and 4.5:1 on the cream sidebar surface
+   (#455 finding 2). */
 .blog-sidebar-heading {
-  font-size: clamp(0.58rem, 0.72vw, 0.68rem);
+  font-size: clamp(0.7rem, 0.9vw, 0.78rem);
   letter-spacing: 0.16em;
   text-transform: uppercase;
-  color: rgba(17, 16, 13, 0.48);
+  color: rgba(17, 16, 13, 0.62);
   margin-bottom: 0.55rem;
   font-family: "Inter", system-ui, sans-serif;
   font-weight: 600;
@@ -2853,16 +2858,9 @@ a.tag:hover {
   overflow-wrap: anywhere;
 }
 
-
-.blog-prose-title {
-  margin-bottom: 0.25rem;
-  font-size: clamp(0.74rem, 0.9vw, 0.86rem) !important;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  color: rgba(17, 16, 13, 0.58);
-}
-
-.blog-prose > h2:not(.blog-prose-title) {
+/* (.blog-prose-title removed in #455 finding 6 — the class appeared in no
+   markup or content, and it carried the stylesheet's only heading !important.) */
+.blog-prose > h2 {
   font-family: "Cormorant Garamond", Garamond, serif;
   font-weight: 600;
   font-size: clamp(1.3rem, 1.2rem + 0.4vw, 1.72rem);
@@ -3249,7 +3247,10 @@ a:focus-visible {
 
   .project-hero h1 {
     padding-left: 0.5rem;
-    font-size: 1.75rem;
+    /* Fluid per the no-fixed-breakpoint-fonts convention (#455 finding 7);
+       the 2.4rem cap meets the base clamp's floor at the 480px boundary so
+       there is no size jump crossing the breakpoint. */
+    font-size: clamp(1.55rem, 8vw, 2.4rem);
   }
 
   .deck--inset {
@@ -3717,10 +3718,11 @@ body.resume-page {
   margin-bottom: 0.55rem;
   font-family: "Inter", system-ui, sans-serif;
   font-weight: 600;
-  font-size: clamp(0.58rem, 0.72vw, 0.68rem);
+  /* Size floor + ink raised per #455 finding 2 — matches .blog-sidebar-heading. */
+  font-size: clamp(0.7rem, 0.9vw, 0.78rem);
   letter-spacing: 0.16em;
   text-transform: uppercase;
-  color: rgba(17, 16, 13, 0.48);
+  color: rgba(17, 16, 13, 0.62);
 }
 .resume-canvas-toc-list {
   list-style: none;

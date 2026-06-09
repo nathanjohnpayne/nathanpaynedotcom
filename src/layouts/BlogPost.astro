@@ -159,9 +159,11 @@ const jsonLd = {
       <div class="blog-margin blog-margin--footer" aria-hidden="true"></div>
 
       {/* ── Header ── */}
+      {/* No --inset variants here (#455 finding 8): the inset exists to clear
+          the project hero's accent bar, which this header doesn't have — the
+          h1 is flush left, so breadcrumb and deck must be too. */}
       <header class="blog-canvas-header">
         <Breadcrumbs
-          class="breadcrumbs--inset"
           items={[
             { label: "Nathan Payne", href: "/" },
             { label: "Blog", href: "/blog/" },
@@ -169,7 +171,7 @@ const jsonLd = {
           ]}
         />
         <h1>{title}</h1>
-        <p class="deck deck--inset">{description}</p>
+        <p class="deck">{description}</p>
       </header>
 
       {/* ── Sidebar: metadata panel ── */}
