@@ -21,6 +21,7 @@
  */
 import BaseLayout from './BaseLayout.astro';
 import Footer from '../components/Footer.astro';
+import Breadcrumbs from '../components/Breadcrumbs.astro';
 
 interface Props {
   title: string;
@@ -158,13 +159,14 @@ const jsonLd = {
 
       {/* ── Header ── */}
       <header class="blog-canvas-header">
-        <nav class="project-breadcrumbs" aria-label="Breadcrumb">
-          <a href="/">Nathan Payne</a>
-          <span class="breadcrumb-sep">/</span>
-          <a href="/blog/">Blog</a>
-          <span class="breadcrumb-sep">/</span>
-          <span class="breadcrumb-current">{shortTitle || 'Article'}</span>
-        </nav>
+        <Breadcrumbs
+          class="breadcrumbs--inset"
+          items={[
+            { label: "Nathan Payne", href: "/" },
+            { label: "Blog", href: "/blog/" },
+            { label: shortTitle || 'Article' },
+          ]}
+        />
         <h1>{title}</h1>
         <p class="project-deck">{description}</p>
       </header>

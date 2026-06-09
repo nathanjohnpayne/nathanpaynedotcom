@@ -12,6 +12,7 @@
 import { getCollection, getEntry } from 'astro:content';
 import BaseLayout from '../layouts/BaseLayout.astro';
 import Footer from '../components/Footer.astro';
+import Breadcrumbs from '../components/Breadcrumbs.astro';
 import SummarySection from '../components/resume/SummarySection.astro';
 import SkillsSection from '../components/resume/SkillsSection.astro';
 import ExperienceSection from '../components/resume/ExperienceSection.astro';
@@ -154,11 +155,13 @@ const jsonLd = {
 
       {/* Header — breadcrumbs, name, title, and contact (kept here so it prints) */}
       <header class="resume-canvas-header">
-        <nav class="project-breadcrumbs" aria-label="Breadcrumb">
-          <a href="/">Nathan Payne</a>
-          <span class="breadcrumb-sep">/</span>
-          <span class="breadcrumb-current">Resume</span>
-        </nav>
+        <Breadcrumbs
+          class="breadcrumbs--inset"
+          items={[
+            { label: "Nathan Payne", href: "/" },
+            { label: "Resume" },
+          ]}
+        />
         <h1 class="resume-name">{m.name}</h1>
         <p class="resume-title">{m.title}</p>
         <p class="resume-contact resume-contact--primary">

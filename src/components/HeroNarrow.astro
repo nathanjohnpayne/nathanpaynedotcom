@@ -1,4 +1,6 @@
 ---
+import Breadcrumbs from './Breadcrumbs.astro';
+
 interface Props {
   title: string;
   deck: string;
@@ -13,13 +15,14 @@ const { title, deck, breadcrumbLabel, liveUrl, githubUrl } = Astro.props;
 <header class="project-hero project-hero--narrow">
   <div class="project-hero__gradient">
     <div class="project-hero__header">
-      <nav class="project-breadcrumbs" aria-label="Breadcrumb">
-        <a href="/">Nathan Payne</a>
-        <span class="breadcrumb-sep">/</span>
-        <a href="/projects/">Builds</a>
-        <span class="breadcrumb-sep">/</span>
-        <span class="breadcrumb-current" aria-current="page">{breadcrumbLabel}</span>
-      </nav>
+      <Breadcrumbs
+        class="breadcrumbs--inset"
+        items={[
+          { label: "Nathan Payne", href: "/" },
+          { label: "Builds", href: "/projects/" },
+          { label: breadcrumbLabel },
+        ]}
+      />
       <h1 class="project-title">{title}</h1>
       <p class="project-deck">{deck}</p>
       <div class="project-actions">

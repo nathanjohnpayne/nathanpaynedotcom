@@ -1317,31 +1317,7 @@ body.resume-page {
   background: var(--project-accent);
 }
 
-.project-breadcrumbs {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 0.35rem;
-  margin-bottom: calc(var(--su) * 1.5);
-  padding-left: clamp(1rem, 2.2vw, 1.6rem);
-  font-size: clamp(0.72rem, 0.92vw, 0.88rem);
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: rgba(17, 16, 13, 0.38);
-}
-
-.project-breadcrumbs a {
-  color: inherit;
-  text-decoration: none;
-}
-
-.project-breadcrumbs a:hover {
-  text-decoration: underline;
-}
-
-.project-breadcrumbs .breadcrumb-sep {
-  user-select: none;
-}
+/* (project breadcrumbs unified into the shared .breadcrumbs / .breadcrumbs--inset system, #436) */
 
 .project-hero h1 {
   padding-left: clamp(1rem, 2.2vw, 1.6rem);
@@ -1949,6 +1925,18 @@ body.resume-page {
 
 .breadcrumbs .breadcrumb-sep {
   user-select: none;
+}
+
+/* Canvas-header breadcrumb variant (#436): indented + dimmed, for the project
+   detail, blog post, and resume headers. Core + link/separator styling come
+   from .breadcrumbs above; this adds only the inset extras. Placed after the
+   base so its single-class overrides win by source order, matching the prior
+   .project-breadcrumbs behavior. */
+.breadcrumbs--inset {
+  flex-wrap: wrap;
+  margin-bottom: calc(var(--su) * 1.5);
+  padding-left: clamp(1rem, 2.2vw, 1.6rem);
+  color: rgba(17, 16, 13, 0.38);
 }
 
 .hero h1 {
@@ -2560,17 +2548,17 @@ a.tag:hover {
 
 /* Header typography — explicit rules since blog-canvas-header
    is outside the .project-hero scope that normally provides these. */
-.blog-canvas-header .project-breadcrumbs {
+.blog-canvas-header .breadcrumbs {
   font-weight: 400;
   color: rgba(17, 16, 13, 0.38);
   margin-bottom: 1.5rem;
 }
 
-.blog-canvas-header .project-breadcrumbs a {
+.blog-canvas-header .breadcrumbs a {
   color: rgba(17, 16, 13, 0.38);
 }
 
-.blog-canvas-header .project-breadcrumbs a:hover {
+.blog-canvas-header .breadcrumbs a:hover {
   color: rgba(17, 16, 13, 0.62);
   text-decoration: none;
 }
@@ -3268,7 +3256,7 @@ a:focus-visible {
     padding: 1rem 1rem 1.15rem;
   }
 
-  .project-breadcrumbs {
+  .breadcrumbs--inset {
     padding-left: 0.5rem;
     font-size: 0.68rem;
   }
@@ -3655,7 +3643,7 @@ body.resume-page {
   flex-direction: column;
   justify-content: flex-end;
 }
-.resume-canvas-header .project-breadcrumbs {
+.resume-canvas-header .breadcrumbs {
   margin-bottom: 1.4rem;
   padding-left: 0;
 }
@@ -4320,7 +4308,7 @@ body.resume-page {
   .resume-canvas-meta,
   .resume-canvas-sidebar,
   .site-footer--resume,
-  .resume-canvas-header .project-breadcrumbs,
+  .resume-canvas-header .breadcrumbs,
   .company-logo {
     display: none !important;
   }

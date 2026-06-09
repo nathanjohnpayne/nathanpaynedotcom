@@ -1,0 +1,44 @@
+---
+/**
+ * Shared breadcrumb nav (#436).
+ *
+ * One implementation of the "Nathan Payne / … / current" trail used across the
+ * blog index, projects index, blog post, project detail, resume, and 404. The
+ * markup lives here; per-context styling stays scoped in global.css.
+ *
+ * The final item renders as the current page (`.breadcrumb-current` +
+ * `aria-current="page"`); earlier items render as links when they have an
+ * `href`. Current-ness is by position, not a missing `href`.
+ * Pass `class="breadcrumbs--inset"` for the indented/dimmed canvas-header
+ * variant used by the project detail, blog post, and resume headers.
+ */
+interface Crumb {
+  label: string;
+  href?: string;
+}
+
+interface Props {
+  items: Crumb[];
+  class?: string;
+}
+
+const { items, class: extra } = Astro.props;
+const classList = ["breadcrumbs", extra].filter(Boolean).join(" ");
+---
+
+<nav class={classList} aria-label="Breadcrumb">
+  {
+    items.map((item, i) => (
+      <Fragment>
+        {i > 0 && <span class="breadcrumb-sep">/</span>}
+        {i === items.length - 1 ? (
+          <span class="breadcrumb-current" aria-current="page">{item.label}</span>
+        ) : item.href ? (
+          <a href={item.href}>{item.label}</a>
+        ) : (
+          <span>{item.label}</span>
+        )}
+      </Fragment>
+    ))
+  }
+</nav>
