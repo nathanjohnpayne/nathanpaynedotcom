@@ -20,6 +20,12 @@ interface Props {
 }
 
 const { label, heading, description, meta } = Astro.props;
+const headingClass = [
+  'og-heading',
+  !description ? 'og-heading--title-only' : '',
+  description ? 'og-heading--with-description' : '',
+  !description && heading.length > 52 ? 'og-heading--long' : '',
+].filter(Boolean).join(' ');
 ---
 
 <!DOCTYPE html>
@@ -56,7 +62,7 @@ const { label, heading, description, meta } = Astro.props;
     <div class="og-card">
       <div class="og-content">
         <div class="og-label">{label}</div>
-        <h1 class="og-heading">{heading}</h1>
+        <h1 class={headingClass}>{heading}</h1>
         {description && <p class="og-description">{description}</p>}
         {meta && <p class="og-meta">{meta}</p>}
       </div>
