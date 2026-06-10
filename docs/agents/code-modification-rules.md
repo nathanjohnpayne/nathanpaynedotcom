@@ -108,6 +108,7 @@ Static assets (favicons, robots.txt, OG fonts) live in `public/` and are copied 
 ### CSS
 
 - Design tokens in `:root`—always use or extend them.
+- **Selector naming:** loose BEM (block / `__element` / `--modifier`) with `.is-*` state classes; the canonical convention block, including the `p-`/`s-`/`e-`/`og-` prefix glossary, lives at the top of `src/styles/global.css` (#473).
 - **Motion system:** All durations use `--motion-fast` / `--motion-hover` / `--motion-plane` / `--motion-load`. All easing uses `--ease-standard` / `--ease-sharp` / `--ease-linear`. Translation magnitude uses `--shift-small` / `--shift-medium`. No hard-coded `ms` values or bare `ease` keywords.
 - Homepage panel states are driven by `data-focus` attribute on the grid container. CSS defines `grid-template-columns` + `grid-template-rows` for each `data-focus` value.
 - Fluid sizing via `clamp()`; no fixed-breakpoint font overrides.

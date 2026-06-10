@@ -1,3 +1,35 @@
+/* ──────────────────────────────────────────────────────────────────────
+   Naming conventions (#473)
+
+   Selectors follow a loose BEM dialect:
+   - Block      .metadata-strip, .project-hero, .resume-entry
+   - Element    double underscore: .metadata-strip__item,
+                .project-hero__gradient, .resume-entry__meta
+   - Modifier   double dash, on the block or element it modifies. `--`
+                encodes BOTH theme variants (.panel--red, .block--gray-e)
+                and semantic/layout variants (.about-block--writing,
+                .project-hero--wide, .breadcrumbs--inset); the two are
+                not distinguished syntactically — read the value.
+   - State      .is-* classes toggled by JS (.is-open,
+                .is-content-visible, .is-scrolling) and data-*
+                attributes for machine-driven state (data-focus,
+                data-accent, data-playback-state).
+
+   Abbreviated prefix glossary (legacy short names; renaming them is
+   explicitly out of scope per #473 — markup churn for no user value):
+   - .p-*   homepage Builds-panel project-list interiors
+            (.p-head, .p-name, .p-name-link, .p-link)
+   - .s-*   homepage Connect-panel social-row interiors
+            (.s-icon, .s-arrow)
+   - .e-*   404 error-page Mondrian blocks (.e-red, .e-white-a, …)
+   - .og-*  OG-image template blocks (.og-card, .og-label, …) —
+            build-time render context only (see OgCard.astro)
+
+   Tokens: --su / --sp-* spacing (#472), --ink-NN opacity ramp (#466),
+   --bp-* breakpoints. CSS cannot read custom properties inside @media
+   conditions, so raw px values in media queries carry a comment naming
+   the token they mirror (#330/#332).
+   ────────────────────────────────────────────────────────────────── */
 :root {
   --ink: #11100d;
   --paper: #ffffff;
@@ -2384,6 +2416,7 @@ a.tag:hover {
   border-top: 1px solid var(--ink);
 }
 
+/* 1023px is one below --bp-stack (1024px) on :root. (#332) */
 @media (max-width: 1023px) {
   .site-footer {
     flex-direction: column;
@@ -3409,6 +3442,8 @@ a:focus-visible {
 
 }
 
+/* 1023px is one below --bp-stack (1024px) on :root — the homepage
+   stack-mode boundary. (#332) */
 @media (max-width: 1023px) {
   :root { --line: 6px; }
 
@@ -4177,6 +4212,12 @@ body.resume-page {
   color: rgba(17, 16, 13, 0.82);
 }
 
+/* 560px is a documented one-off, not a --bp-* token (#473): the
+   two-column skills row wraps at its own content-driven width — label +
+   inline skill list collide between --bp-narrow (480px) and --bp-tablet
+   (768px), and neither token matches where the collision actually
+   happens. Single use site; promote to a token only if a second
+   consumer appears. (#332 comment-alignment pattern) */
 @media (max-width: 560px) {
   .resume-skills__row {
     grid-template-columns: 1fr;
