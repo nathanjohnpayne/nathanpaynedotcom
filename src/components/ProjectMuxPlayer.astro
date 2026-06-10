@@ -16,6 +16,13 @@
 // When autoplay fails, swaps to the Mux-generated `fallbackSrc` GIF so the
 // hero still reads like an animated product capture. When `playbackId` is
 // unset, falls back to the `fallbackSrc` image directly.
+//
+// prefers-reduced-motion (#468): when the media query matches, the hero
+// never autoplays — the video is held paused on its poster frame with the
+// manual play button visible, so playback stays available on explicit
+// request. The animated-GIF fallback path is gated the same way (a looping
+// GIF is the same continuous motion autoplay would be); the GIF is only
+// swapped in after the user has explicitly requested playback.
 
 import fs from 'node:fs';
 import path from 'node:path';
@@ -149,6 +156,13 @@ if (isSvgFallback) {
   // networks; short enough that a blocked hero reads as intentional fallback.
   const AUTOPLAY_FALLBACK_DELAY = 2800;
 
+  // #468: ambient autoplay and a looping GIF are exactly the continuous
+  // motion prefers-reduced-motion exists to suppress. Evaluated once at
+  // load (matching the site-wide CSS treatment); explicit user playback
+  // requests flip userRequestedPlayback and re-enable the motion paths.
+  const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  let userRequestedPlayback = false;
+
   function hidePlayButton() {
     if (playButton instanceof HTMLButtonElement) {
       playButton.hidden = true;
@@ -163,6 +177,19 @@ if (isSvgFallback) {
 
   function showAnimatedFallback(manualPlayAvailable = false) {
     if (!muxFrame || muxFrame.dataset.playbackState === 'playing') return;
+
+    // #468: don't trade blocked autoplay for a looping GIF when the user
+    // prefers reduced motion — hold the poster instead, keeping the play
+    // affordance when manual playback is possible.
+    if (prefersReducedMotion && !userRequestedPlayback) {
+      muxFrame.dataset.playbackState = 'paused';
+      if (manualPlayAvailable) {
+        showPlayButton();
+      } else {
+        hidePlayButton();
+      }
+      return;
+    }
 
     if (gifFallback instanceof HTMLImageElement && gifFallback.dataset.src && !gifFallback.src) {
       gifFallback.src = gifFallback.dataset.src;
@@ -187,6 +214,9 @@ if (isSvgFallback) {
   function requestManualPlayback(video) {
     if (!muxFrame) return;
 
+    // Explicit request: the user opted into motion, so the normal
+    // playback/fallback paths (including the animated GIF) apply (#468).
+    userRequestedPlayback = true;
     muxFrame.dataset.playbackState = 'loading';
     hidePlayButton();
 
@@ -207,6 +237,34 @@ if (isSvgFallback) {
     if (!muxHero || !muxFrame) return;
 
     const video = muxHero.shadowRoot?.querySelector('video');
+
+    // #468: under prefers-reduced-motion, never autoplay. Hold the hero on
+    // the poster frame with the play button visible so playback remains
+    // available on explicit request. The 'playing' guard re-pauses the
+    // component if its internal autoplay orchestration wins the race
+    // before this monitor attaches.
+    if (prefersReducedMotion && video) {
+      video.autoplay = false;
+      video.pause();
+      muxFrame.dataset.playbackState = 'paused';
+      showPlayButton();
+
+      const handleProgress = () => {
+        if (!userRequestedPlayback) {
+          video.pause();
+          return;
+        }
+        if (video.currentTime > 0) {
+          muxFrame.dataset.playbackState = 'playing';
+          hidePlayButton();
+        }
+      };
+      video.addEventListener('playing', handleProgress);
+      video.addEventListener('timeupdate', handleProgress);
+      playButton?.addEventListener('click', () => requestManualPlayback(video));
+      return;
+    }
+
     let sawPlayback = false;
     const fallbackTimer = window.setTimeout(() => {
       if (!sawPlayback) showAnimatedFallback(true);
@@ -292,6 +350,15 @@ if (isSvgFallback) {
   // The component's Mux Data hook reads globalThis.mux during registration and
   // infers the env key from the stream.mux.com URL.
   if (muxHero) {
+    // #468: set `noautoplay` BEFORE the custom element is imported and
+    // upgraded — the component constructor only puts `autoplay` on its
+    // shadow <video> when the host lacks this attribute at upgrade time
+    // (verified against @mux/mux-background-video dist/html.js), so this
+    // prevents autoplay outright rather than racing to pause it. The
+    // pause guard in monitorMuxPlayback stays as defense-in-depth.
+    if (prefersReducedMotion) {
+      muxHero.setAttribute('noautoplay', '');
+    }
     loadMuxEmbed().finally(() => {
       import('@mux/mux-background-video/html')
         .then(() => customElements.whenDefined('mux-background-video'))

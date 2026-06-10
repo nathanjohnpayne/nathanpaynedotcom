@@ -150,6 +150,7 @@ Any project can render a vertical Mux video in the hero instead of a static scre
 - **Analytics**: pages with a Mux hero load `mux-embed` before registering `<mux-background-video>`. Mux Data monitoring is automatic for the background video and infers the env key from the `stream.mux.com` URL; no `PUBLIC_MUX_ENV_KEY` is read by this site.
 - **Fallback**: the existing `screenshotSrc` image renders in `<noscript>` and is also the autoplay-failure fallback. On JavaScript-enabled pages, the Mux thumbnail renders inside `<mux-background-video>` as the pre-upgrade poster; if the custom element fails to register, the media errors, or the shadow `<video>` does not make real playback progress within the autoplay window, the component lazy-loads the `screenshotSrc` GIF, fades the stalled video out, and reveals a compact manual play button.
 - **Bundle cost**: the Mux custom element is registered only when a page contains a `<mux-background-video>` element. Projects without `muxPlaybackId` do not load `mux-embed` or the background-video package at runtime.
+- **Reduced motion (#468)**: when `prefers-reduced-motion: reduce` matches, the hero never autoplays — the video holds on its poster frame with the manual play button visible, and the animated-GIF fallback is suppressed the same way (a looping GIF is the same continuous motion). Both motion paths re-enable only after the user explicitly presses play.
 
 ### Aspect ratio
 

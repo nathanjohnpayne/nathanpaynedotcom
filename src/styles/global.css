@@ -1436,6 +1436,22 @@ body.blog-page {
   transform: translateY(calc(var(--shift-small) * -1));
 }
 
+/* #468: mirror the .link-arrow reduced-motion treatment — the universal
+   rule zeroes the transition duration, but the hover lift itself must
+   also be neutralized or the button still jumps between resting and
+   raised positions. The background/color swap stays (instant, not
+   motion). */
+@media (prefers-reduced-motion: reduce) {
+  .nav-button {
+    transition: none;
+  }
+
+  .nav-button:hover,
+  .nav-button:focus-visible {
+    transform: none;
+  }
+}
+
 /* ── Redesigned Project Detail ── Hero, Metadata, Related, Footer ── */
 
 /* Hero header — accent bar, no gradient (gradient is on the metadata surface) */
