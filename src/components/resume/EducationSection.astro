@@ -2,15 +2,16 @@
 /**
  * EducationSection — degree(s), most-recent-first. CompanyLogo (decorative)
  * keyed off the school name / website. No body copy.
+ * Section/heading scaffolding via the shared ResumeSection wrapper (#471).
  */
+import ResumeSection from './ResumeSection.astro';
 import CompanyLogo from './CompanyLogo.astro';
 
 const { entries } = Astro.props;
 const sorted = [...entries].sort((a, b) => b.data.year - a.data.year);
 ---
 
-<section id="education" class="resume-section resume-education" aria-labelledby="resume-education-heading">
-  <h2 id="resume-education-heading" class="resume-section__title">Education</h2>
+<ResumeSection type="education" heading="Education">
   {sorted.map((entry) => {
     const d = entry.data;
     const meta = [d.school, d.location, d.year].filter(Boolean).join(' · ');
@@ -26,4 +27,4 @@ const sorted = [...entries].sort((a, b) => b.data.year - a.data.year);
       </article>
     );
   })}
-</section>
+</ResumeSection>

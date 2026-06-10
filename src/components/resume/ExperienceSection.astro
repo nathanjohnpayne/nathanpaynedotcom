@@ -5,7 +5,9 @@
  * "Role – Company" + a meta line (team · location · year range), then the
  * markdown body (intro paragraph + bullets) below at full width so it wraps
  * under the logo. Rendered with render().
+ * Section/heading scaffolding via the shared ResumeSection wrapper (#471).
  */
+import ResumeSection from './ResumeSection.astro';
 import { render } from 'astro:content';
 import CompanyLogo from './CompanyLogo.astro';
 
@@ -16,8 +18,7 @@ const rendered = await Promise.all(
 );
 ---
 
-<section id="experience" class="resume-section resume-experience" aria-labelledby="resume-experience-heading">
-  <h2 id="resume-experience-heading" class="resume-section__title">Experience</h2>
+<ResumeSection type="experience" heading="Experience">
   {rendered.map(({ entry, Content }) => {
     const d = entry.data;
     const range = `${d.startYear}–${d.endYear ?? 'Present'}`;
@@ -37,4 +38,4 @@ const rendered = await Promise.all(
       </article>
     );
   })}
-</section>
+</ResumeSection>

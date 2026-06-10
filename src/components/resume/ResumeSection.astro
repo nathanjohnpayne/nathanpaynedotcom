@@ -1,0 +1,36 @@
+---
+/**
+ * ResumeSection — shared wrapper for the /resume section boilerplate
+ * (#471). Renders the section/heading scaffolding every resume section
+ * repeated by hand:
+ *
+ *   <section id="{type}" class="resume-section resume-{type}"
+ *            aria-labelledby="resume-{type}-heading">
+ *     <h2 id="resume-{type}-heading" class="resume-section__title">…</h2>
+ *     <slot />
+ *   </section>
+ *
+ * The wrapper renders unconditionally — sections with #394 empty-state
+ * behavior (e.g. AwardsSection renders nothing when the collection is
+ * empty) keep their own guard AROUND this wrapper, so an empty section
+ * still produces no shell at all.
+ *
+ * Slot whitespace: element children should hug the ResumeSection tags
+ * (`<ResumeSection …><ul>` / `</ul></ResumeSection>`) — compressHTML
+ * keeps one boundary space from this template's own newlines, and a
+ * second from the child template would diverge from the pre-#471
+ * byte-identical output. Expression children ({list.map(…)}) are
+ * whitespace-trimmed by the compiler and can stay on their own lines.
+ */
+interface Props {
+  type: string;
+  heading: string;
+}
+
+const { type, heading } = Astro.props;
+---
+
+<section id={type} class={`resume-section resume-${type}`} aria-labelledby={`resume-${type}-heading`}>
+  <h2 id={`resume-${type}-heading`} class="resume-section__title">{heading}</h2>
+  <slot />
+</section>
