@@ -543,12 +543,32 @@ html[data-fonts-pending] .panel-label {
   margin-bottom: 0;
 }
 
-.about-label {
-  display: block;
+/* Shared eyebrow micro-label (#467). One utility for the fixed-size
+   uppercase label voice that was hand-rolled under five names
+   (.about-label, .connect-label, .stack-label, .impact-label,
+   .now-ribbon-label, .blog-callout-label). Markup carries both classes
+   (e.g. class="eyebrow about-label"); the per-name rules below keep only
+   layout duties (display, margins) and deliberate color overrides — the
+   warm-tinted About/Connect inks and the panel-scoped closed-state
+   colors still win by source order / specificity.
+   Decision (#467): the clamp-sized dt eyebrows (.metadata-strip dt,
+   .project-stack__label, .blog-sidebar-meta dt, .resume-canvas-meta dt)
+   stay separate rather than joining via an --eyebrow--fluid modifier:
+   they split into two sub-patterns (two clamp() formulas, --ink-62 vs
+   0.48 ink) and are element-scoped dt rules, so a shared modifier would
+   still need every override and would only add markup churn. */
+.eyebrow {
   font-size: 0.56rem;
   letter-spacing: 0.16em;
   text-transform: uppercase;
   font-weight: 500;
+  color: var(--ink-50);
+}
+
+.about-label {
+  display: block;
+  /* Warm-tinted 50% ink (not --ink-50): matches the open parchment
+     surface; deliberate, kept as an override on the shared .eyebrow. */
   color: rgba(23, 19, 15, 0.50);
   margin-bottom: calc(var(--su) * 0.5);
 }
@@ -617,10 +637,7 @@ html[data-fonts-pending] .panel-label {
   display: block;
   margin-top: var(--su);
   margin-bottom: var(--su);
-  font-size: 0.56rem;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  font-weight: 500;
+  /* Warm-tinted 50% ink (not --ink-50): see .about-label note (#467). */
   color: rgba(25, 22, 17, 0.50);
 }
 
@@ -969,15 +986,8 @@ a:focus-visible .link-arrow,
   word-spacing: 0.08em;
 }
 
-.stack-label,
-.impact-label,
-.now-ribbon-label {
-  font-size: 0.56rem;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  font-weight: 500;
-  color: var(--ink-50);
-}
+/* .stack-label / .impact-label / .now-ribbon-label typography moved to
+   the shared .eyebrow utility (#467); they carry no layout duties. */
 
 .stack-items,
 .impact-items,
@@ -999,13 +1009,8 @@ a:focus-visible .link-arrow,
   border-top: 1px solid var(--rule);
 }
 
-.blog-callout-label {
-  font-size: 0.56rem;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  font-weight: 500;
-  color: var(--ink-50);
-}
+/* .blog-callout-label typography moved to the shared .eyebrow utility
+   (#467); the .panel--blue overrides below still set its color. */
 
 .content-inner .blog-callout-link {
   font-size: 0.68rem;
