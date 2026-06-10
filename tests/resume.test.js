@@ -168,6 +168,7 @@ describe('Resume — page structure', () => {
 
   it('opens Projects with a Builds lead — tag, intro, and /projects/ index link (Writing pattern)', () => {
     const proj = document.querySelector('.resume-projects');
+    expect(proj, 'projects section missing').not.toBeNull();
     const lead = proj.querySelector('.resume-projects__lead');
     expect(lead, 'projects lead missing').not.toBeNull();
     expect(lead.querySelector('strong')?.textContent).toBe('Builds');
