@@ -22,8 +22,7 @@ Astro pages, layouts, and content collections generate the full static site into
 | `src/styles/global.css` | Shared styles—Mondrian homepage grid, project/blog pages, motion system, responsive, accessibility. |
 | `src/content/blog/*.md` | Markdown blog post source files with frontmatter. |
 | `src/content/projects/*.md` | Markdown project source files—each file generates a project page and index entry. See `specs/project-pages.md` for authoring guide. |
-| `src/components/HeroWide.astro` | Project hero header for wide-screenshot layouts. |
-| `src/components/HeroNarrow.astro` | Project hero header for narrow-screenshot layouts. |
+| `src/components/ProjectHero.astro` | Project hero header; `variant` prop covers wide/narrow screenshot layouts (#470). |
 | `src/components/MetadataStrip.astro` | Project metadata + screenshot surface (shared by both layout variants). |
 | `src/content.config.ts` | Content Collections schema definition (Zod-validated frontmatter). |
 | `src/plugins/remark-mermaid.mjs` | Remark plugin—converts ` ```mermaid ` blocks to `<pre class="mermaid">`. |
@@ -47,7 +46,7 @@ src/
   layouts/                  Layout components (BaseLayout, BlogPost, ProjectLayout, OgCard)
   content/blog/             Markdown blog post source files
   content/projects/         Markdown project source files (content collection)
-  components/               Astro components (HeroWide, HeroNarrow, MetadataStrip)
+  components/               Astro components (ProjectHero, MetadataStrip)
   content.config.ts         Content Collections schema (Zod)
   styles/global.css         Global stylesheet (design tokens, grid, motion, responsive)
   plugins/                  Custom Remark/Rehype processors

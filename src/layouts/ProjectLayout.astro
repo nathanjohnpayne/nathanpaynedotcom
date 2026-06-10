@@ -1,7 +1,22 @@
 ---
+/**
+ * ProjectLayout — page layout for project detail pages (#470).
+ *
+ * Wraps BaseLayout and owns the project-page shell: it sets the accent
+ * custom properties (`--accent`, `--project-gradient-*`) on the
+ * `.page-shell`, renders ProjectHero (variant derived from
+ * `screenshotAspect`, so the hero modifier always matches the screenshot
+ * treatment), then the `.metadata-surface` with MetadataStrip and the
+ * screenshot figure (ProjectMuxPlayer: Mux video / GIF / static image
+ * cascade), the prose slot, the related-links list, and the shared
+ * Footer. The "Topics" metadata value is derived from the `kicker`
+ * frontmatter (split on ×, joined with ·) — see the inline note below.
+ *
+ * Consumed by src/pages/projects/[slug].astro, which maps the `projects`
+ * content-collection frontmatter onto these props.
+ */
 import BaseLayout from './BaseLayout.astro';
-import HeroWide from '../components/HeroWide.astro';
-import HeroNarrow from '../components/HeroNarrow.astro';
+import ProjectHero from '../components/ProjectHero.astro';
 import MetadataStrip from '../components/MetadataStrip.astro';
 import ProjectMuxPlayer from '../components/ProjectMuxPlayer.astro';
 import Footer from '../components/Footer.astro';
@@ -100,23 +115,14 @@ const topics = kicker.split(/\s*×\s*/).join(' · ');
   >
     <article class="project-detail page-canvas">
 
-      {screenshotAspect === 'narrow' ? (
-        <HeroNarrow
-          title={headline}
-          deck={deck}
-          breadcrumbLabel={breadcrumbLabel}
-          liveUrl={liveUrl}
-          githubUrl={githubUrl}
-        />
-      ) : (
-        <HeroWide
-          title={headline}
-          deck={deck}
-          breadcrumbLabel={breadcrumbLabel}
-          liveUrl={liveUrl}
-          githubUrl={githubUrl}
-        />
-      )}
+      <ProjectHero
+        variant={screenshotAspect}
+        title={headline}
+        deck={deck}
+        breadcrumbLabel={breadcrumbLabel}
+        liveUrl={liveUrl}
+        githubUrl={githubUrl}
+      />
 
       <div class="metadata-surface">
         <MetadataStrip

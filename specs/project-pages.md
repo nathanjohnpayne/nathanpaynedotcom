@@ -222,7 +222,7 @@ The layout sets three custom properties from frontmatter:
 ```
 [slug].astro
   → ProjectLayout.astro
-      → { HeroWide | HeroNarrow }
+      → ProjectHero (variant from screenshotAspect)
       → .metadata-surface
           → MetadataStrip
           → <figure class="project-screenshot">
@@ -231,9 +231,8 @@ The layout sets three custom properties from frontmatter:
 ```
 
 - **`src/pages/projects/[slug].astro`**: Dynamic route. Calls `getStaticPaths()` from the projects collection, generates JSON-LD, passes all frontmatter to `ProjectLayout`. Forwards the optional `stack` field through `stack={data.stack}`.
-- **`src/layouts/ProjectLayout.astro`**: Sets CSS custom properties on the shell. Conditionally renders `HeroWide` or `HeroNarrow` based on `screenshotAspect`. Owns the `.metadata-surface` container that wraps `MetadataStrip` and the `<figure class="project-screenshot">`. The figure is rendered here (not in `MetadataStrip`) and contains the `<img>` plus a conditional `<figcaption class="project-stack">` when `stack` is present. The figcaption is a direct child of `<figure>` per HTML5 semantic rules.
-- **`src/components/HeroWide.astro`**: Hero header for wide-layout projects. No screenshot—the screenshot is rendered by `ProjectLayout` below the hero. The hero no longer renders the `kicker` tag row; that content moved into the `Topics` column of the metadata strip below.
-- **`src/components/HeroNarrow.astro`**: Hero header for narrow-layout projects. No screenshot—same as `HeroWide`, the screenshot is rendered by `ProjectLayout` below the hero. Also no longer renders the `kicker` tag row.
+- **`src/layouts/ProjectLayout.astro`**: Sets CSS custom properties on the shell. Renders `ProjectHero` with `variant={screenshotAspect}` (#470). Owns the `.metadata-surface` container that wraps `MetadataStrip` and the `<figure class="project-screenshot">`. The figure is rendered here (not in `MetadataStrip`) and contains the `<img>` plus a conditional `<figcaption class="project-stack">` when `stack` is present. The figcaption is a direct child of `<figure>` per HTML5 semantic rules.
+- **`src/components/ProjectHero.astro`**: Hero header for project pages; the `variant: "wide" | "narrow"` prop sets the `.project-hero--{variant}` wrapper class (#470 merged the former HeroWide/HeroNarrow twins — their markup was identical). No screenshot—the screenshot is rendered by `ProjectLayout` below the hero. The hero does not render the `kicker` tag row; that content lives in the `Topics` column of the metadata strip below.
 - **`src/components/MetadataStrip.astro`**: Strip-only—four `<dt>`/`<dd>` pairs for topics, format, focus, and status (in that visual order). Does not own the screenshot; does not accept `screenshotSrc`/`screenshotAlt`/`screenshotAspect` props. The `topics` value is derived in `ProjectLayout` from the project's `kicker` frontmatter (split on `×` and re-joined with ` · ` to match the metadata table's separator convention). The `status` value is the project's top-level `status` enum, rendered identically on the index card kicker and in the metadata strip—single short-form vocabulary across both surfaces. The strip is always rendered as a single 4-column horizontal row on desktop and collapses responsively (2×2 at ≤768px, 1-column at ≤480px) via `.metadata-strip--grid-4` media queries.
 
 ### Content collection schema
@@ -286,8 +285,7 @@ src/content.config.ts              Collection schema (Zod)
 src/pages/projects/[slug].astro    Dynamic route + JSON-LD
 src/pages/projects/index.astro     Project index grid
 src/layouts/ProjectLayout.astro    Layout wrapper (CSS props, hero, metadata, footer)
-src/components/HeroWide.astro      Wide hero header (no screenshot)
-src/components/HeroNarrow.astro    Narrow hero header (no screenshot)
+src/components/ProjectHero.astro   Hero header, wide|narrow variant (no screenshot)
 src/components/MetadataStrip.astro 4-column metadata strip (topics/format/focus/status)
 src/styles/global.css              All project page styles (.metadata-strip, .project-screenshot, .project-stack)
 public/images/projects/            Hero screenshots
