@@ -350,6 +350,15 @@ if (isSvgFallback) {
   // The component's Mux Data hook reads globalThis.mux during registration and
   // infers the env key from the stream.mux.com URL.
   if (muxHero) {
+    // #468: set `noautoplay` BEFORE the custom element is imported and
+    // upgraded — the component constructor only puts `autoplay` on its
+    // shadow <video> when the host lacks this attribute at upgrade time
+    // (verified against @mux/mux-background-video dist/html.js), so this
+    // prevents autoplay outright rather than racing to pause it. The
+    // pause guard in monitorMuxPlayback stays as defense-in-depth.
+    if (prefersReducedMotion) {
+      muxHero.setAttribute('noautoplay', '');
+    }
     loadMuxEmbed().finally(() => {
       import('@mux/mux-background-video/html')
         .then(() => customElements.whenDefined('mux-background-video'))
