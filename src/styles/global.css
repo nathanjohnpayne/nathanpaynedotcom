@@ -22,7 +22,29 @@
   --github-green-4: #0FBF3E;
   --github-green-2: #8CF2A6;
   --line: 9px;
+  /* Spacing (#472). --su (0.42rem) is the base spacing unit. The audit
+     pegged it at ~4% adoption, but the real count is 27 declarations —
+     11 direct uses and 16 calc() multiples — concentrated in the
+     homepage panel interiors, where it sets the content rhythm. So the
+     decision (#472) is to COMMIT to the unit: the named steps below
+     give the dominant multiples stable handles for new code and for
+     the follow-up migration of high-traffic ad-hoc rem values (panel
+     content, project hero, blog prose — tracked separately; #472
+     defines the scale only and migrates nothing).
+     Two deliberate boundaries on the system:
+     - Larger layout spacing (page gutters, section breaks, hero
+       padding) stays content-driven via clamp()/rem. Those values are
+       tuned against the viewport, not a modular scale, and naming
+       them would misrepresent how they're chosen.
+     - Existing tuned multiples (e.g. calc(var(--su) * 0.85)) remain
+       valid; collapse onto named steps only where visually safe,
+       per-area, during the migration. */
   --su: 0.42rem;
+  --sp-2xs: calc(var(--su) * 0.5);   /* 0.21rem — hairline gaps */
+  --sp-xs: calc(var(--su) * 0.75);   /* 0.315rem — tight list/label gaps */
+  --sp-sm: var(--su);                /* 0.42rem — base step */
+  --sp-md: calc(var(--su) * 1.5);    /* 0.63rem — block separation */
+  --sp-lg: calc(var(--su) * 2);      /* 0.84rem — section-level gaps */
   --grid-border: #1a1814;
   --cream: #f5f0e4;
   --surface: rgba(244, 239, 229, 0.96);
