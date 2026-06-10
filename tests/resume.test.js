@@ -166,6 +166,28 @@ describe('Resume — page structure', () => {
     expect(proj.querySelectorAll('h3.resume-entry__title').length).toBe(6);
   });
 
+  it('links each resume project title to its matching project page', () => {
+    const proj = document.querySelector('.resume-projects');
+    const links = Array.from(proj.querySelectorAll('h3.resume-entry__title a'));
+    expect(links.length).toBe(6);
+    expect(links.map((link) => link.getAttribute('href'))).toEqual([
+      '/projects/mergepath/',
+      '/projects/matchline/',
+      '/projects/device-source-of-truth/',
+      '/projects/override/',
+      '/projects/swipe-watch/',
+      '/projects/friends-and-family-billing/',
+    ]);
+    expect(links.map((link) => link.textContent.trim())).toEqual([
+      'Mergepath – Agent Governance Infrastructure',
+      'Matchline – AI Career CRM',
+      'Device Source of Truth – Partner Device Intelligence Platform',
+      'Override – Broadway Financial Operating System',
+      'Swipe Watch – Content Discovery Prototype',
+      'Friends & Family Billing – Shared-Bill Coordination',
+    ]);
+  });
+
   it('renders three Certifications; CSP-PO is attributed to Scrum Alliance', () => {
     const certs = document.querySelectorAll('.resume-certifications .resume-cert');
     expect(certs.length).toBe(3);

@@ -134,6 +134,8 @@ The `resumeProjects` collection must remain separate from the existing
 - In-content links and the header contact links use the site's `--blue`
   accent (via `--resume-link`), with the `→` arrow convention on the project
   and writing links.
+- Each project title links to its matching `/projects/<slug>/` detail page
+  while preserving the existing live/repo link.
 - Skills render as inline `·`-joined lists.
 - Any transition uses the `--motion-*`/`--ease-*` tokens (no bare `ms`/`ease`).
 
