@@ -25,9 +25,12 @@ function displayUrl(url: string): string {
   {rendered.map(({ entry, Content }) => {
     const d = entry.data;
     const link = d.url ?? d.repo;
+    const projectHref = `/projects/${entry.id}/`;
     return (
       <article class="resume-entry">
-        <h3 class="resume-entry__title">{d.name}</h3>
+        <h3 class="resume-entry__title">
+          <a href={projectHref}>{d.name}</a>
+        </h3>
         <p class="resume-entry__tech">{d.tech.join(' · ')}</p>
         {link && (
           <p class="resume-entry__link">

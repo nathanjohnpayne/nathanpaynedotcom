@@ -4231,6 +4231,21 @@ body.resume-page {
   margin-bottom: 0.05rem;
 }
 
+.resume-projects .resume-entry__title a {
+  color: inherit;
+  text-decoration: none;
+  border-bottom: 1px solid color-mix(in srgb, var(--resume-link) 35%, transparent);
+  transition:
+    color var(--motion-hover) var(--ease-standard),
+    border-color var(--motion-hover) var(--ease-standard);
+}
+
+.resume-projects .resume-entry__title a:hover,
+.resume-projects .resume-entry__title a:focus-visible {
+  color: var(--resume-link);
+  border-bottom-color: var(--resume-link);
+}
+
 .resume-entry__tech {
   margin-top: 0.25rem;
   font-size: clamp(0.8rem, 0.78rem + 0.1vw, 0.88rem);
