@@ -2,16 +2,16 @@
 /**
  * CertificationsSection — credentials, with a small CompanyLogo (decorative)
  * keyed off the issuer / website. No body copy.
+ * Section/heading scaffolding via the shared ResumeSection wrapper (#471).
  */
+import ResumeSection from './ResumeSection.astro';
 import CompanyLogo from './CompanyLogo.astro';
 
 const { entries } = Astro.props;
 const sorted = [...entries].sort((a, b) => (a.data.order ?? 99) - (b.data.order ?? 99));
 ---
 
-<section id="certifications" class="resume-section resume-certifications" aria-labelledby="resume-certifications-heading">
-  <h2 id="resume-certifications-heading" class="resume-section__title">Certifications</h2>
-  <ul class="resume-certs">
+<ResumeSection type="certifications" heading="Certifications"><ul class="resume-certs">
     {sorted.map((entry) => {
       const d = entry.data;
       return (
@@ -24,5 +24,4 @@ const sorted = [...entries].sort((a, b) => (a.data.order ?? 99) - (b.data.order 
         </li>
       );
     })}
-  </ul>
-</section>
+  </ul></ResumeSection>

@@ -3,19 +3,18 @@
  * SkillsSection — one row per skill category (sorted by `priority`),
  * each rendered as an inline middle-dot-joined list to match the site's
  * inline-list aesthetic. Only the category label is restyled.
+ * Section/heading scaffolding via the shared ResumeSection wrapper (#471).
  */
+import ResumeSection from './ResumeSection.astro';
 const { categories } = Astro.props;
 const sorted = [...categories].sort((a, b) => a.data.priority - b.data.priority);
 ---
 
-<section id="skills" class="resume-section resume-skills" aria-labelledby="resume-skills-heading">
-  <h2 id="resume-skills-heading" class="resume-section__title">Skills</h2>
-  <dl class="resume-skills__list">
+<ResumeSection type="skills" heading="Skills"><dl class="resume-skills__list">
     {sorted.map((category) => (
       <div class="resume-skills__row">
         <dt class="resume-skills__label">{category.data.label}</dt>
         <dd class="resume-skills__values">{category.data.skills.join(' · ')}</dd>
       </div>
     ))}
-  </dl>
-</section>
+  </dl></ResumeSection>

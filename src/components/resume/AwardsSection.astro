@@ -1,16 +1,18 @@
 ---
 /**
  * AwardsSection — hackathons / awards. Plumbed but renders nothing (no
- * header) when the `awards` collection is empty, per #394.
+ * header) when the `awards` collection is empty, per #394 — the guard
+ * wraps the shared wrapper, so an empty collection emits no shell.
+ * Section/heading scaffolding via the shared ResumeSection wrapper (#471).
  */
+import ResumeSection from './ResumeSection.astro';
+
 const { entries } = Astro.props;
 const sorted = [...entries].sort((a, b) => (a.data.order ?? 99) - (b.data.order ?? 99));
 ---
 
 {sorted.length > 0 && (
-  <section id="awards" class="resume-section resume-awards" aria-labelledby="resume-awards-heading">
-    <h2 id="resume-awards-heading" class="resume-section__title">Hackathons &amp; Awards</h2>
-    <ul class="resume-awards__list">
+  <ResumeSection type="awards" heading="Hackathons & Awards"><ul class="resume-awards__list">
       {sorted.map((entry) => {
         const d = entry.data;
         const meta = [d.issuer, d.year].filter(Boolean).join(' · ');
@@ -23,6 +25,5 @@ const sorted = [...entries].sort((a, b) => (a.data.order ?? 99) - (b.data.order 
           </li>
         );
       })}
-    </ul>
-  </section>
+    </ul></ResumeSection>
 )}
