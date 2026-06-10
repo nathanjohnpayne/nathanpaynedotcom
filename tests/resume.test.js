@@ -166,6 +166,25 @@ describe('Resume — page structure', () => {
     expect(proj.querySelectorAll('h3.resume-entry__title').length).toBe(6);
   });
 
+  it('opens Projects with a Builds lead — tag, intro, and /projects/ index link (Writing pattern)', () => {
+    const proj = document.querySelector('.resume-projects');
+    const lead = proj.querySelector('.resume-projects__lead');
+    expect(lead, 'projects lead missing').not.toBeNull();
+    expect(lead.querySelector('strong')?.textContent).toBe('Builds');
+    const link = lead.querySelector('a');
+    expect(link.getAttribute('href')).toBe('/projects/');
+    expect(link.textContent).toContain('nathanpayne.com/projects');
+    const desc = proj.querySelector('.resume-projects__desc');
+    expect(desc, 'projects intro missing').not.toBeNull();
+    expect(desc.textContent).toContain('systems design exercise');
+    // The lead precedes the first project entry.
+    const firstEntry = proj.querySelector('.resume-entry');
+    expect(
+      lead.compareDocumentPosition(firstEntry) & Node.DOCUMENT_POSITION_FOLLOWING,
+      'lead should render before the first project entry',
+    ).toBeTruthy();
+  });
+
   it('links each resume project title to its matching project page', () => {
     const proj = document.querySelector('.resume-projects');
     const links = Array.from(proj.querySelectorAll('h3.resume-entry__title a'));
