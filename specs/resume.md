@@ -70,6 +70,11 @@ The `resumeProjects` collection must remain separate from the existing
   from `astro:content`.
 - **Writing** is a compact inline section (no collection) linking the blog
   and a few selected essays.
+- **Projects** opens with the same compact lead pattern before its entries:
+  a bold **Builds** tag, a link to the project index
+  (nathanpayne.com/projects → `/projects/`), and a one-line intro
+  (`.resume-projects__lead` / `.resume-projects__desc`, sharing the Writing
+  lead styling).
 
 ## Semantics & structure
 
@@ -151,6 +156,8 @@ The `resumeProjects` collection must remain separate from the existing
   CTA linking nathanpayne.com/blog); the blurb, the "Selected essays" label,
   and the essay list are hidden, since their links can't be followed on
   paper. The on-screen Writing section is unchanged.
+- The **Projects** intro collapses the same way: the Builds lead
+  (nathanpayne.com/projects) prints; the one-line blurb is hidden.
 - Section divider rules (the `border-top` between sections) are dropped in
   print and the reserved padding reclaimed; the bold section titles carry the
   separation. This buys vertical space toward the three-page fit.

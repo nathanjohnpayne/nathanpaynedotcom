@@ -4307,21 +4307,32 @@ body.resume-page {
   color: var(--ink-62);
 }
 
-/* ── Writing (compact inline section) ── */
+/* ── Writing (compact inline section) ──
+   The Projects section opens with the same tag/intro/link lead (linking the
+   /projects index), so its __lead/__desc classes share these rules. */
+.resume-projects__lead,
 .resume-writing__lead {
   font-size: clamp(0.94rem, 0.92rem + 0.12vw, 1.02rem);
   line-height: 1.55;
 }
 
+.resume-projects__lead strong,
 .resume-writing__lead strong {
   font-weight: 700;
 }
 
+.resume-projects__desc,
 .resume-writing__desc {
   margin-top: 0.4rem;
   font-size: clamp(0.9rem, 0.88rem + 0.12vw, 0.98rem);
   line-height: 1.55;
   color: rgba(17, 16, 13, 0.82);
+}
+
+/* The gap to the first project entry lives here because
+   .resume-entry:first-of-type zeroes its own top margin. */
+.resume-projects__desc {
+  margin-bottom: 1.5rem;
 }
 
 .resume-writing__label {
@@ -4356,6 +4367,7 @@ body.resume-page {
   background: var(--resume-link);
 }
 
+.resume-projects__lead a,
 .resume-writing__lead a,
 .resume-writing__essays a {
   color: var(--resume-link);
@@ -4364,6 +4376,8 @@ body.resume-page {
   transition: border-color var(--motion-hover) var(--ease-standard);
 }
 
+.resume-projects__lead a:hover,
+.resume-projects__lead a:focus-visible,
 .resume-writing__lead a:hover,
 .resume-writing__lead a:focus-visible,
 .resume-writing__essays a:hover,
@@ -4551,9 +4565,9 @@ body.resume-page {
 
   /* Render the URL after any descriptive-text external link for hard copy.
      Links whose visible text is ALREADY the URL — the contact line, the
-     project links, and the Writing lead (nathanpayne.com/blog) — suppress
-     this to avoid duplication. (The essay list is hidden in print; see the
-     Writing-collapse rule below.) */
+     project links, and the Writing/Projects leads (nathanpayne.com/blog,
+     nathanpayne.com/projects) — suppress this to avoid duplication. (The
+     essay list is hidden in print; see the Writing-collapse rule below.) */
   .resume-canvas a[href^="http"]::after {
     content: " (" attr(href) ")";
     font-size: 0.85em;
@@ -4562,6 +4576,7 @@ body.resume-page {
 
   .resume-contact a[href^="http"]::after,
   .resume-entry__link a[href^="http"]::after,
+  .resume-projects__lead a[href^="http"]::after,
   .resume-writing__lead a[href^="http"]::after {
     content: "";
   }
@@ -4571,12 +4586,18 @@ body.resume-page {
      dead on paper, so only the "The AI-Augmented PM / nathanpayne.com/blog"
      lead prints; the blurb, the "Selected essays" label, and the essay list
      are hidden. This also drops the page-tail the essay list used to push
-     past the bottom margin. */
+     past the bottom margin. The Projects intro collapses the same way: its
+     "Builds / nathanpayne.com/projects" lead prints, the blurb is hidden. */
+  .resume-projects__desc,
   .resume-writing__desc,
   .resume-writing__label,
   .resume-writing__essays {
     display: none;
   }
+
+  /* With the intro hidden, the Projects lead carries the gap to the first
+     entry (.resume-entry:first-of-type zeroes its own top margin). */
+  .resume-projects__lead { margin-bottom: 0.52rem; }
 
   /* Print density — restore the screen rhythm to fill three balanced
      US-Letter pages. The earlier tuning crushed these gaps to their floor to
@@ -4647,6 +4668,7 @@ body.resume-page {
   .resume-cert__name { font-size: 9.5pt; }
   .resume-cert__meta,
   .resume-entry__tech { font-size: 9pt; }
+  .resume-projects__lead,
   .resume-writing__lead { font-size: 9.5pt; line-height: 1.35; }
 
   /* Project link matches the new body size (issue #420 R-05). At the old
