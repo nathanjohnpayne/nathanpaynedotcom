@@ -16,6 +16,13 @@ import { test, expect, Page } from '@playwright/test';
 
 const PANELS = ['about', 'projects', 'community', 'connect'] as const;
 type PanelName = (typeof PANELS)[number];
+type RecordedEvent = { order: number; t: number; kind: string; value: string };
+
+declare global {
+  interface Window {
+    __events: RecordedEvent[];
+  }
+}
 
 // Skip the entire file on viewports where the state machine is disabled.
 // playwright.config.ts has 1440 as the only desktop viewport; the others
@@ -137,12 +144,11 @@ test('about/projects/connect panels are exactly content-sized in their focus sta
  */
 async function installEventRecorder(page: Page) {
   await page.evaluate(() => {
-    type Event = { order: number; t: number; kind: string; value: string };
-    (window as any).__events = [] as Event[];
+    window.__events = [];
     let order = 0;
     const start = performance.now();
     const push = (kind: string, value: string) => {
-      (window as any).__events.push({ order: ++order, t: performance.now() - start, kind, value });
+      window.__events.push({ order: ++order, t: performance.now() - start, kind, value });
     };
     const grid = document.getElementById('mondrian')!;
     new MutationObserver((muts) => {
@@ -177,8 +183,6 @@ async function installEventRecorder(page: Page) {
   });
 }
 
-type RecordedEvent = { order: number; t: number; kind: string; value: string };
-
 test('open sequence: data-focus precedes is-content-visible; grid-template transition fires', async ({ page }) => {
   await installEventRecorder(page);
 
@@ -190,13 +194,13 @@ test('open sequence: data-focus precedes is-content-visible; grid-template trans
   // is-content-visible, the read of __events could race the transitionend
   // event and miss the geometry-settled entry.
   await page.waitForFunction(() => {
-    const events = (window as any).__events as Array<{ kind: string; value: string }>;
+    const events = window.__events;
     const hasSettled = events.some((e) => e.kind === 'geometry-settled');
     const hasContent = events.some((e) => e.kind === 'is-content-visible:about' && e.value === 'on');
     return hasSettled && hasContent;
   });
 
-  const events: RecordedEvent[] = await page.evaluate(() => (window as any).__events);
+  const events: RecordedEvent[] = await page.evaluate(() => window.__events);
   const focusOn = events.find((e) => e.kind === 'data-focus' && e.value === 'about');
   const settled = events.find((e) => e.kind === 'geometry-settled');
   const contentOn = events.find((e) => e.kind === 'is-content-visible:about' && e.value === 'on');
@@ -229,7 +233,7 @@ test('close sequence: is-content-visible is removed before data-focus clears', a
     () => !document.querySelector('[data-panel="about"]')!.classList.contains('is-open'),
   );
 
-  const events: RecordedEvent[] = await page.evaluate(() => (window as any).__events);
+  const events: RecordedEvent[] = await page.evaluate(() => window.__events);
   const contentOff = events.find((e) => e.kind === 'is-content-visible:about' && e.value === 'off');
   const focusCleared = events.find((e) => e.kind === 'data-focus' && e.value === '');
   expect(contentOff, 'is-content-visible:about=off event captured').toBeTruthy();
