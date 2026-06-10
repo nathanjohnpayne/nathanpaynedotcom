@@ -82,23 +82,23 @@ const homepageJsonLd = {
             <p class="lead">Most product decisions are invisible—until they aren’t.</p>
             <div class="about-blocks">
               <div class="about-block">
-                <span class="about-label">Context</span>
+                <span class="eyebrow about-label">Context</span>
                 <p>Over the past ten years, I have built the streaming platforms behind Disney+, Hulu, and ESPN. I started at MLB.com and BAMTECH, joined Disney through the 2017 acquisition, and have spent the last five years leading the Native Client Platform across PlayStation, Xbox, Amazon Fire TV, Linux set-top boxes, and smart TVs.</p>
               </div>
               <div class="about-block">
-                <span class="about-label">Approach</span>
+                <span class="eyebrow about-label">Approach</span>
                 <p>The work that matters most is usually at the seam between systems—where a codec mismatch, a certification gap, or a failed-fix loop becomes a support burden at scale. I treat operational ambiguity as a product problem.</p>
               </div>
               <div class="about-block about-block--now">
-                <span class="about-label">Now</span>
+                <span class="eyebrow about-label">Now</span>
                 <NowContent />
               </div>
               <div class="about-block about-block--resume">
-                <span class="about-label">Résumé</span>
+                <span class="eyebrow about-label">Résumé</span>
                 <p>Open to new platform &amp; product roles. <a href="/resume/" class="p-name-link">Read my <span class="no-break">résumé<span class="link-arrow" aria-hidden="true">→</span></span></a></p>
               </div>
               <div class="about-block about-block--writing">
-                <span class="about-label">Writing</span>
+                <span class="eyebrow about-label">Writing</span>
                 <p>Three pieces on building with AI coding agents: where they fail, what makes them reliable, and how to get real work out of them.</p>
                 <ul class="writing-list">
                   <li><a href="/blog/six-prs-one-bug-agent-failure-modes/" class="p-name-link">Six PRs, One Bug: What AI Agents Actually Get <span class="no-break">Wrong<span class="link-arrow" aria-hidden="true">→</span></span></a></li>
@@ -107,7 +107,7 @@ const homepageJsonLd = {
                 </ul>
               </div>
               <div class="now-ribbon">
-                <span class="now-ribbon-label">Last updated</span>
+                <span class="eyebrow now-ribbon-label">Last updated</span>
                 <span class="now-ribbon-date">{nowEntry.data.lastUpdated}</span>
               </div>
             </div>
@@ -162,7 +162,7 @@ const homepageJsonLd = {
               </div>
             </div>
             <div class="stack-ribbon">
-              <span class="stack-label">Stack</span>
+              <span class="eyebrow stack-label">Stack</span>
               <span class="stack-items">Bash · TypeScript · Vanilla JS · React · Next.js · Vite · Tailwind CSS · Zod · Vitest · Playwright · Firebase · Express · GitHub Actions · Anthropic · OpenAI · Claude Code · Codex · Cursor · CodeRabbit</span>
             </div>
           </div>
@@ -198,7 +198,7 @@ const homepageJsonLd = {
               </li>
             </ul>
             <div class="impact-ribbon">
-              <span class="impact-label">Scope</span>
+              <span class="eyebrow impact-label">Scope</span>
               <span class="impact-items">Health Access · Housing Stability · Economic Mobility · Community Leadership · Strategic Philanthropy</span>
             </div>
           </div>
@@ -251,7 +251,7 @@ const homepageJsonLd = {
                 } catch (_e) { /* leave href as "#" — noscript covers the fallback */ }
               })();
             </script>
-            <span class="connect-label">Elsewhere</span>
+            <span class="eyebrow connect-label">Elsewhere</span>
             <div class="social-stack">
               <a href="https://www.linkedin.com/in/nathanpayne/" target="_blank" rel="noopener" class="social-row social-row--linkedin">
                 <span class="s-icon" aria-hidden="true">
@@ -332,7 +332,7 @@ const homepageJsonLd = {
             </div>
             {latestPost && (
               <div class="blog-callout">
-                <span class="blog-callout-label">Latest Post</span>
+                <span class="eyebrow blog-callout-label">Latest Post</span>
                 <a href={`/blog/${latestPost.id}/`} class="blog-callout-link">{latestPost.data.title}<span class="link-arrow" aria-hidden="true">→</span></a>
               </div>
             )}
