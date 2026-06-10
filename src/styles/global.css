@@ -2481,7 +2481,7 @@ a.tag:hover {
 .og-heading--title-only {
   font-size: 80px;
   line-height: 1.04;
-  text-wrap: normal;
+  text-wrap: wrap;
 }
 
 .og-heading--long {
