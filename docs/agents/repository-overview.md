@@ -23,7 +23,7 @@ Astro pages, layouts, and content collections generate the full static site into
 | `src/content/blog/*.md` | Markdown blog post source files with frontmatter. |
 | `src/content/projects/*.md` | Markdown project source files—each file generates a project page and index entry. See `specs/project-pages.md` for authoring guide. |
 | `src/components/ProjectHero.astro` | Project hero header; `variant` prop covers wide/narrow screenshot layouts (#470). |
-| `src/components/MetadataStrip.astro` | Project metadata + screenshot surface (shared by both layout variants). |
+| `src/components/MetadataStrip.astro` | Strip-only project metadata table (topics/format/focus/status); the screenshot surface is owned by `ProjectLayout`. |
 | `src/content.config.ts` | Content Collections schema definition (Zod-validated frontmatter). |
 | `src/plugins/remark-mermaid.mjs` | Remark plugin—converts ` ```mermaid ` blocks to `<pre class="mermaid">`. |
 | `src/plugins/rehype-figure-captions.mjs` | Rehype plugin—wraps images in `<figure>` with auto-numbered `<figcaption>`. |
