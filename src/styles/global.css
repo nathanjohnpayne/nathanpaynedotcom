@@ -28,14 +28,16 @@
   --surface: rgba(244, 239, 229, 0.96);
   --rule: rgba(17, 16, 13, 0.18);
 
-  /* Breadcrumb chrome (#452): one quiet ink ramp on every page. Parent links
-     sit a step darker than the current segment (they're interactive), the
-     current segment stays muted, separators sit lightest. The component never
-     inherits color from its container. */
-  --breadcrumb-link: rgba(17, 16, 13, 0.52);
-  --breadcrumb-link-hover: rgba(17, 16, 13, 0.78);
-  --breadcrumb-current: rgba(17, 16, 13, 0.38);
-  --breadcrumb-sep: rgba(17, 16, 13, 0.22);
+  /* Breadcrumb chrome (#452, raised to WCAG AA in #454): one ink ramp on
+     every page. Parent links sit a visible step darker than the current
+     segment (they're interactive), the current segment stays the quietest
+     AA-passing ink (0.60 ≈ 4.6:1 on the 404's composited surface, the
+     darkest background the trail renders on), separators are decorative
+     (aria-hidden) and exempt. The component never inherits container color. */
+  --breadcrumb-link: rgba(17, 16, 13, 0.68);
+  --breadcrumb-link-hover: rgba(17, 16, 13, 0.85);
+  --breadcrumb-current: rgba(17, 16, 13, 0.6);
+  --breadcrumb-sep: rgba(17, 16, 13, 0.35);
 
   /* Heading scale (#455): display/page/article/section tiers mirror the motion
      token pattern so page families do not hand-roll near-identical h1/h2

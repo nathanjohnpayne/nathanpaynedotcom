@@ -32,7 +32,7 @@ const classList = ["breadcrumbs", extra].filter(Boolean).join(" ");
   {
     items.map((item, i) => (
       <Fragment>
-        {i > 0 && <span class="breadcrumb-sep">/</span>}
+        {i > 0 && <span class="breadcrumb-sep" aria-hidden="true">/</span>}
         {i === items.length - 1 ? (
           <span class="breadcrumb-current" aria-current="page">{item.label}</span>
         ) : item.href ? (

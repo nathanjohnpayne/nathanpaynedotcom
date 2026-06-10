@@ -26,11 +26,13 @@ import { test, expect, type Page } from '@playwright/test';
 
 const RED = 'rgb(193, 29, 25)'; // var(--red) #c11d19
 const BLACK_ACCENT = 'rgb(51, 51, 51)'; // matchline's per-project accent (#333)
-// The single breadcrumb ramp (#452) — the --breadcrumb-* tokens in :root.
-const CRUMB_LINK = 'rgba(17, 16, 13, 0.52)';
-const CRUMB_LINK_HOVER = 'rgba(17, 16, 13, 0.78)';
-const CRUMB_CURRENT = 'rgba(17, 16, 13, 0.38)';
-const CRUMB_SEP = 'rgba(17, 16, 13, 0.22)';
+// The single breadcrumb ramp (#452, AA-raised in #454) — the --breadcrumb-*
+// tokens in :root. Current is the quietest AA-passing ink on the darkest
+// breadcrumb background; links keep a visible step above it.
+const CRUMB_LINK = 'rgba(17, 16, 13, 0.68)';
+const CRUMB_LINK_HOVER = 'rgba(17, 16, 13, 0.85)';
+const CRUMB_CURRENT = 'rgba(17, 16, 13, 0.6)';
+const CRUMB_SEP = 'rgba(17, 16, 13, 0.35)';
 // The shared ink drop shadow: var(--canvas-shadow) is 0.12; .project-detail
 // reduces it to 0.1 at <=1023. Accept both alphas, reject any other.
 const CANVAS_SHADOW = /rgba\(17, 16, 13, 0\.12?\)/;
