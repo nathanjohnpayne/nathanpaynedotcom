@@ -47,6 +47,19 @@
      derives from the ramp so the value has one source of truth (#466). */
   --rule: var(--ink-18);
 
+  /* Repeated page/panel surface colors, tokenized in #469. */
+  --panel-open-bg: #e4ded0;  /* warm parchment every homepage panel opens to */
+  --blue-contrast: #f0f4ff;  /* light text/chrome on the --blue panel */
+  /* Warm near-ink text on warm surfaces (yellow panel, open parchment).
+     Collapsed from three audit-time near-duplicates (#171208 / #17130f /
+     #191611) that sat on the same parchment background — drift, not
+     surface tuning. #171208 kept: the most-used of the three (incl. the
+     yellow --accent-contrast) and the darkest, so contrast on the light
+     surfaces can only improve (#469). */
+  --ink-warm: #171208;
+  --stage-bg: #c4c3bc;       /* stage/OG backdrop + blog --project-bg */
+  --chrome-bg: #bdbeb8;      /* html/body backdrop behind the stage */
+
   /* Breadcrumb chrome (#452, raised to WCAG AA in #454): one ink ramp on
      every page. Parent links sit a visible step darker than the current
      segment (they're interactive), the current segment stays the quietest
@@ -156,7 +169,7 @@
 
 html, body {
   min-height: 100%;
-  background: #bdbeb8;
+  background: var(--chrome-bg);
   color: var(--ink);
   font-family: var(--font-body);
 }
@@ -166,7 +179,7 @@ html, body {
   display: grid;
   place-items: center;
   padding: clamp(0.6rem, 1.5vw, 1rem);
-  background: #c4c3bc;
+  background: var(--stage-bg);
 }
 
 .mondrian {
@@ -1119,8 +1132,8 @@ a:focus-visible .link-arrow,
 }
 
 .panel--red.is-open {
-  background: #e4ded0;
-  color: #17130f;
+  background: var(--panel-open-bg);
+  color: var(--ink-warm);
 }
 
 .panel--red .panel-label { color: var(--cream); }
@@ -1143,16 +1156,16 @@ a:focus-visible .link-arrow,
   grid-column: 6 / 9;
   grid-row: 2;
   background: var(--yellow);
-  color: #171208;
+  color: var(--ink-warm);
 }
 
 .panel--yellow.is-open {
-  background: #e4ded0;
-  color: #171208;
+  background: var(--panel-open-bg);
+  color: var(--ink-warm);
 }
 
 .panel--yellow .panel-label {
-  color: #171208;
+  color: var(--ink-warm);
   align-items: flex-start;
   justify-content: flex-end;
   padding-top: 15%;
@@ -1169,8 +1182,8 @@ a:focus-visible .link-arrow,
 }
 
 .panel--black.is-open {
-  background: #e4ded0;
-  color: #17130f;
+  background: var(--panel-open-bg);
+  color: var(--ink-warm);
 }
 
 .panel--black .panel-label {
@@ -1252,16 +1265,16 @@ a:focus-visible .link-arrow,
   grid-column: 6 / 9;
   grid-row: 8;
   background: var(--blue);
-  color: #f0f4ff;
+  color: var(--blue-contrast);
 }
 
 .panel--blue.is-open {
-  background: #e4ded0;
-  color: #191611;
+  background: var(--panel-open-bg);
+  color: var(--ink-warm);
 }
 
 .panel--blue .panel-label {
-  color: #f0f4ff;
+  color: var(--blue-contrast);
   align-items: center;
   justify-content: flex-start;
   padding-left: 23%;
@@ -1286,7 +1299,7 @@ body.project-page {
 }
 
 body.blog-page {
-  --project-bg: #c4c3bc;
+  --project-bg: var(--stage-bg);
 }
 
 /* #437/#439: accent is page-type-agnostic. data-accent="{color}" sets the
@@ -1303,7 +1316,7 @@ body.blog-page {
 
 [data-accent="yellow"] {
   --accent: var(--yellow);
-  --accent-contrast: #171208;
+  --accent-contrast: var(--ink-warm);
   --accent-soft: rgba(217, 177, 17, 0.18);
   --project-bg: #d9d0b4;
 }
@@ -2359,7 +2372,7 @@ a.tag:hover {
   justify-content: center;
   min-height: 100vh;
   padding: var(--page-gutter);
-  background: #c4c3bc;
+  background: var(--stage-bg);
 }
 
 .error-mondrian {
@@ -2451,7 +2464,7 @@ a.tag:hover {
 .og-body {
   margin: 0;
   padding: 0;
-  background: #c4c3bc;
+  background: var(--stage-bg);
 }
 
 .og-shell {
@@ -3503,13 +3516,13 @@ a:focus-visible {
   }
 
   .panel--blue .availability-signal .p-link {
-    color: #f0f4ff;
+    color: var(--blue-contrast);
     border-bottom-color: rgba(240, 244, 255, 0.48);
   }
 
   .panel--blue .availability-signal .p-link:hover {
-    border-bottom-color: #f0f4ff;
-    box-shadow: inset 0 -2px 0 #f0f4ff;
+    border-bottom-color: var(--blue-contrast);
+    box-shadow: inset 0 -2px 0 var(--blue-contrast);
     background-color: rgba(240, 244, 255, 0.12);
   }
 
@@ -3632,7 +3645,7 @@ a:focus-visible {
 body.resume-page {
   min-height: 100%;
   /* Match the blog backdrop (body.blog-page sets the same --project-bg). */
-  --project-bg: #c4c3bc;
+  --project-bg: var(--stage-bg);
   background:
     linear-gradient(135deg, rgba(255, 255, 255, 0.42), rgba(255, 255, 255, 0)),
     var(--project-bg, #d8d1c5);
