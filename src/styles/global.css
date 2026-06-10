@@ -68,9 +68,10 @@
        padding) stays content-driven via clamp()/rem. Those values are
        tuned against the viewport, not a modular scale, and naming
        them would misrepresent how they're chosen.
-     - Existing tuned multiples (e.g. calc(var(--su) * 0.85)) remain
-       valid; collapse onto named steps only where visually safe,
-       per-area, during the migration. */
+     - The audit-time tuned multiples (0.55/0.6/0.85/1.6/2.1) were
+       collapsed onto the named steps in #482 — every delta was
+       sub-pixel (<=0.67px at 16px root). New tuned multiples are
+       still valid where a step genuinely doesn't fit. */
   --su: 0.42rem;
   --sp-2xs: calc(var(--su) * 0.5);   /* 0.21rem — hairline gaps */
   --sp-xs: calc(var(--su) * 0.75);   /* 0.315rem — tight list/label gaps */
@@ -536,7 +537,7 @@ html[data-fonts-pending] .panel-label {
   font-size: var(--heading-panel-title-size);
   line-height: var(--heading-panel-title-line-height);
   letter-spacing: var(--heading-letter-spacing);
-  margin-bottom: var(--su);
+  margin-bottom: var(--sp-sm);
 }
 
 .panel--red .content-inner h1 {
@@ -573,7 +574,7 @@ html[data-fonts-pending] .panel-label {
 .panel--red .lead {
   line-height: 1.34;
   font-weight: 600;
-  margin-bottom: calc(var(--su) * 1.5);
+  margin-bottom: var(--sp-md);
 }
 
 .panel--red .lead,
@@ -584,7 +585,7 @@ html[data-fonts-pending] .panel-label {
 .about-blocks {
   display: flex;
   flex-direction: column;
-  gap: var(--su);
+  gap: var(--sp-sm);
 }
 
 /* Extra breathing room so WRITING reads as its own unit, not a
@@ -595,7 +596,7 @@ html[data-fonts-pending] .panel-label {
    distinct (it's a label + framing sentence + linked trio, not prose)
    without doubling. */
 .about-block--writing {
-  margin-top: calc(var(--su) * 0.5);
+  margin-top: var(--sp-2xs);
 }
 
 /* The now-ribbon is a flex child of .about-blocks, so the flex gap
@@ -637,7 +638,7 @@ html[data-fonts-pending] .panel-label {
   /* Warm-tinted 50% ink (not --ink-50): matches the open parchment
      surface; deliberate, kept as an override on the shared .eyebrow. */
   color: rgba(23, 19, 15, 0.50);
-  margin-bottom: calc(var(--su) * 0.5);
+  margin-bottom: var(--sp-2xs);
 }
 
 /* About panel "Writing" block — intro line + selected post links.
@@ -702,14 +703,14 @@ html[data-fonts-pending] .panel-label {
 
 .connect-label {
   display: block;
-  margin-top: var(--su);
-  margin-bottom: var(--su);
+  margin-top: var(--sp-sm);
+  margin-bottom: var(--sp-sm);
   /* Warm-tinted 50% ink (not --ink-50): see .about-label note (#467). */
   color: rgba(25, 22, 17, 0.50);
 }
 
 .availability-signal {
-  margin: 0 0 var(--su);
+  margin: 0 0 var(--sp-sm);
   font-size: 0.84rem;
   line-height: 1.45;
   color: rgba(25, 22, 17, 0.82);
@@ -717,20 +718,20 @@ html[data-fonts-pending] .panel-label {
 
 .availability-noscript {
   display: block;
-  margin: 0 0 var(--su);
+  margin: 0 0 var(--sp-sm);
   font-size: 0.76rem;
   color: rgba(25, 22, 17, 0.62);
 }
 
 .social-stack {
   margin-top: 0;
-  gap: calc(var(--su) * 0.75);
+  gap: var(--sp-xs);
 }
 
 .social-row {
   display: flex;
   align-items: center;
-  gap: calc(var(--su) * 0.5);
+  gap: var(--sp-2xs);
   border: 1px solid var(--rule);
   padding: 0.22rem 0.42rem;
   color: inherit;
@@ -979,7 +980,7 @@ a:focus-visible .link-arrow,
 .panel--yellow .content-inner h2 {
   font-size: clamp(1.2rem, min(3vw, 3vh), 1.5rem);
   letter-spacing: var(--heading-letter-spacing);
-  margin-bottom: var(--su);
+  margin-bottom: var(--sp-sm);
   line-height: 1.05;
 }
 
@@ -990,7 +991,7 @@ a:focus-visible .link-arrow,
 }
 
 .panel--yellow .content-inner p {
-  margin-bottom: var(--su);
+  margin-bottom: var(--sp-sm);
 }
 
 .panel--yellow .p-name {
@@ -1012,7 +1013,7 @@ a:focus-visible .link-arrow,
 }
 
 .panel--yellow .project-list {
-  gap: calc(var(--su) * 0.75);
+  gap: var(--sp-xs);
 }
 
 .panel--yellow .project-item {
@@ -1040,13 +1041,13 @@ a:focus-visible .link-arrow,
   display: flex;
   flex-direction: column;
   gap: 0.08rem;
-  margin-top: calc(var(--su) * 0.75);
-  padding-top: calc(var(--su) * 0.6);
+  margin-top: var(--sp-xs);
+  padding-top: var(--sp-2xs);
   border-top: 1px solid var(--rule);
 }
 
 .impact-ribbon {
-  margin-top: calc(var(--su) * 0.85);
+  margin-top: var(--sp-xs);
 }
 
 .impact-items {
@@ -1071,8 +1072,8 @@ a:focus-visible .link-arrow,
   display: flex;
   flex-direction: column;
   gap: 0.08rem;
-  margin-top: calc(var(--su) * 0.75);
-  padding-top: calc(var(--su) * 0.6);
+  margin-top: var(--sp-xs);
+  padding-top: var(--sp-2xs);
   border-top: 1px solid var(--rule);
 }
 
@@ -1112,7 +1113,7 @@ a:focus-visible .link-arrow,
 }
 
 .effort-list {
-  gap: calc(var(--su) * 0.55);
+  gap: var(--sp-2xs);
 }
 
 .effort-list li {
@@ -1158,13 +1159,13 @@ a:focus-visible .link-arrow,
 }
 
 .panel--black .content-inner h2 {
-  margin-bottom: var(--su);
+  margin-bottom: var(--sp-sm);
   font-size: 1.6rem;
   line-height: 1.05;
 }
 
 .panel--black .content-inner > p {
-  margin-bottom: var(--su);
+  margin-bottom: var(--sp-sm);
   font-size: 0.85rem;
   line-height: 1.48;
 }
@@ -1341,7 +1342,7 @@ a:focus-visible .link-arrow,
 
 .panel--blue .content-inner h2 {
   font-size: 1.6rem;
-  margin-bottom: var(--su);
+  margin-bottom: var(--sp-sm);
   line-height: 1.05;
 }
 
@@ -1460,7 +1461,7 @@ body.blog-page {
   display: flex;
   flex-wrap: wrap;
   gap: 0.75rem;
-  margin-top: calc(var(--su) * 2.1);
+  margin-top: var(--sp-lg);
   padding-left: clamp(1rem, 2.2vw, 1.6rem);
 }
 
@@ -2091,7 +2092,7 @@ body.blog-page {
    order, matching the prior .project-breadcrumbs behavior. */
 .breadcrumbs--inset {
   flex-wrap: wrap;
-  margin-bottom: calc(var(--su) * 1.5);
+  margin-bottom: var(--sp-md);
   padding-left: clamp(1rem, 2.2vw, 1.6rem);
 }
 
@@ -2117,7 +2118,7 @@ body.blog-page {
    indent + tighter top margin and keeps the hero's inherited (undimmed) color.
    Placed after .deck so its single-class overrides win by source order. */
 .deck--inset {
-  margin-top: calc(var(--su) * 1.6);
+  margin-top: var(--sp-md);
   padding-left: clamp(1rem, 2.2vw, 1.6rem);
   color: inherit;
 }
@@ -2741,7 +2742,7 @@ a.tag:hover {
 .blog-canvas-header .deck {
   /* Keeps the title-to-deck gap the dropped deck--inset used to provide
      (#455 finding 8); base .deck opens it to 1rem. */
-  margin-top: calc(var(--su) * 1.6);
+  margin-top: var(--sp-md);
   font-family: var(--font-body);
   font-style: normal;
   font-weight: 400;
