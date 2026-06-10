@@ -26,7 +26,26 @@
   --grid-border: #1a1814;
   --cream: #f5f0e4;
   --surface: rgba(244, 239, 229, 0.96);
-  --rule: rgba(17, 16, 13, 0.18);
+  /* Ink-opacity ramp (#466). Alpha-keyed names (--ink-NN = NN% ink) rather
+     than semantic ones: the ramp serves text, borders, backgrounds, and
+     shadows at once, so role names would either proliferate or mislead.
+     Steps were consolidated from audit-time drift (#466): the 0.15 borders
+     joined --rule (0.18), and the 0.58 / 0.60 muted-text strays joined
+     --ink-62 — both collapses darken slightly, so WCAG contrast can only
+     improve. 0.50 stays its own step: the panel eyebrow tone is a visibly
+     lighter voice than body-muted text. The --breadcrumb-* ramp below is
+     deliberately separate (#452/#454 AA calibration), and --canvas-shadow
+     (0.12) keeps its own role token. */
+  --ink-06: rgba(17, 16, 13, 0.06);  /* tint surfaces, offset shadows */
+  --ink-18: rgba(17, 16, 13, 0.18);  /* rules/dividers, hover tints */
+  --ink-32: rgba(17, 16, 13, 0.32);  /* emphasis borders, underline tint */
+  --ink-50: rgba(17, 16, 13, 0.50);  /* panel eyebrow/ribbon labels */
+  --ink-62: rgba(17, 16, 13, 0.62);  /* muted/secondary text (AA-safe on
+                                        the light surfaces it appears on;
+                                        see the #454 note below) */
+  /* Semantic alias kept for the many existing var(--rule) border sites;
+     derives from the ramp so the value has one source of truth (#466). */
+  --rule: var(--ink-18);
 
   /* Breadcrumb chrome (#452, raised to WCAG AA in #454): one ink ramp on
      every page. Parent links sit a visible step darker than the current
@@ -957,7 +976,7 @@ a:focus-visible .link-arrow,
   letter-spacing: 0.16em;
   text-transform: uppercase;
   font-weight: 500;
-  color: rgba(17, 16, 13, 0.50);
+  color: var(--ink-50);
 }
 
 .stack-items,
@@ -968,7 +987,7 @@ a:focus-visible .link-arrow,
   line-height: 1.45;
   letter-spacing: 0.10em;
   word-spacing: 0.05em;
-  color: rgba(17, 16, 13, 0.50);
+  color: var(--ink-50);
 }
 
 .blog-callout {
@@ -985,7 +1004,7 @@ a:focus-visible .link-arrow,
   letter-spacing: 0.16em;
   text-transform: uppercase;
   font-weight: 500;
-  color: rgba(17, 16, 13, 0.50);
+  color: var(--ink-50);
 }
 
 .content-inner .blog-callout-link {
@@ -1013,11 +1032,11 @@ a:focus-visible .link-arrow,
 }
 
 .panel--blue.is-open .blog-callout-label {
-  color: rgba(17, 16, 13, 0.50);
+  color: var(--ink-50);
 }
 
 .panel--blue.is-open .blog-callout-link {
-  color: rgba(17, 16, 13, 0.50);
+  color: var(--ink-50);
 }
 
 .effort-list {
@@ -1416,7 +1435,7 @@ body.blog-page {
 /* Edge-to-edge rule at the bottom of the hero gradient */
 .project-hero__rule {
   border: none;
-  border-top: 1px solid var(--rule, rgba(17, 16, 13, 0.15));
+  border-top: 1px solid var(--rule);
   margin: 0;
 }
 
@@ -1443,7 +1462,7 @@ body.blog-page {
 /* Metadata surface — unified gradient container for metadata + screenshot */
 .metadata-surface {
   margin: clamp(1rem, 2vw, 1.5rem) clamp(1.15rem, 3vw, 2.5rem);
-  border: 1px solid var(--rule, rgba(17, 16, 13, 0.15));
+  border: 1px solid var(--rule);
   background: linear-gradient(
     135deg,
     var(--project-gradient-from, transparent),
@@ -1466,7 +1485,7 @@ body.blog-page {
 
 .metadata-strip__item {
   padding: clamp(0.6rem, 1.2vw, 0.9rem) clamp(0.75rem, 1.5vw, 1rem);
-  border-left: 1px dotted rgba(17, 16, 13, 0.18);
+  border-left: 1px dotted var(--rule);
 }
 
 .metadata-strip--grid-4 .metadata-strip__item:first-child {
@@ -1478,7 +1497,7 @@ body.blog-page {
   font-size: clamp(0.6rem, 0.7vw, 0.68rem);
   letter-spacing: 0.16em;
   text-transform: uppercase;
-  color: rgba(17, 16, 13, 0.62);
+  color: var(--ink-62);
 }
 
 .metadata-strip dd {
@@ -1494,7 +1513,7 @@ body.blog-page {
 .project-screenshot {
   margin: 0;
   padding: clamp(1rem, 2vw, 1.5rem);
-  border-top: 1px dotted rgba(17, 16, 13, 0.18);
+  border-top: 1px dotted var(--rule);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -1682,7 +1701,7 @@ body.blog-page {
   font-size: clamp(0.6rem, 0.7vw, 0.68rem);
   letter-spacing: 0.16em;
   text-transform: uppercase;
-  color: rgba(17, 16, 13, 0.62);
+  color: var(--ink-62);
 }
 
 .project-stack__value {
@@ -1705,7 +1724,7 @@ body.blog-page {
 .project-copy h2 {
   margin-top: 3rem;
   padding-top: 1.25rem;
-  border-top: 1px solid rgba(17, 16, 13, 0.15);
+  border-top: 1px solid var(--rule);
   margin-bottom: 0.75rem;
   font-family: var(--font-heading);
   font-weight: var(--heading-weight);
@@ -1821,7 +1840,7 @@ body.blog-page {
   padding: 0 clamp(1.15rem, 3vw, 2.5rem) clamp(1rem, 2vw, 1.5rem);
   margin-top: 1.5rem;
   padding-top: 1.25rem;
-  border-top: 1px solid rgba(17, 16, 13, 0.15);
+  border-top: 1px solid var(--rule);
 }
 
 .project-related h2 {
@@ -1882,7 +1901,7 @@ body.blog-page {
     grid-template-columns: 1fr 1fr;
   }
   .metadata-strip--grid-4 .metadata-strip__item:nth-child(n+3) {
-    border-top: 1px dotted rgba(17, 16, 13, 0.18);
+    border-top: 1px dotted var(--rule);
   }
   .metadata-strip--grid-4 .metadata-strip__item:nth-child(odd) {
     border-left: none;
@@ -1902,7 +1921,7 @@ body.blog-page {
   }
   .metadata-strip__item {
     border-left: none !important;
-    border-top: 1px dotted rgba(17, 16, 13, 0.18);
+    border-top: 1px dotted var(--rule);
   }
   .metadata-strip__item:first-child {
     border-top: none;
@@ -2108,7 +2127,7 @@ body.blog-page {
   font-size: clamp(0.65rem, 0.78vw, 0.76rem);
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: rgba(17, 16, 13, 0.58);
+  color: var(--ink-62);
   margin-bottom: 0.5rem;
 }
 
@@ -2175,7 +2194,7 @@ a.tag {
 }
 
 a.tag:hover {
-  background: rgba(17, 16, 13, 0.18);
+  background: var(--ink-18);
 }
 
 /* ── Color Blocks ── */
@@ -2244,7 +2263,7 @@ a.tag:hover {
   font-size: clamp(0.68rem, 0.82vw, 0.78rem);
   letter-spacing: 0.18em;
   text-transform: uppercase;
-  color: rgba(17, 16, 13, 0.58);
+  color: var(--ink-62);
   text-decoration: none;
   transition: color var(--motion-hover) var(--ease-standard);
 }
@@ -2272,7 +2291,7 @@ a.tag:hover {
   font-size: clamp(0.7rem, 0.88vw, 0.82rem);
   letter-spacing: 0.18em;
   text-transform: uppercase;
-  color: rgba(17, 16, 13, 0.58);
+  color: var(--ink-62);
 }
 
 .site-footer__nav {
@@ -2639,7 +2658,7 @@ a.tag:hover {
   font-weight: 400;
   font-size: clamp(0.85rem, 1vw, 1rem);
   line-height: 1.6;
-  color: rgba(17, 16, 13, 0.62);
+  color: var(--ink-62);
   max-width: 54ch;
 }
 
@@ -2673,7 +2692,7 @@ a.tag:hover {
   font-weight: 600;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: rgba(17, 16, 13, 0.62);
+  color: var(--ink-62);
 }
 
 .blog-sidebar-meta dl {
@@ -2742,7 +2761,7 @@ a.tag:hover {
   font-size: clamp(0.7rem, 0.9vw, 0.78rem);
   letter-spacing: 0.16em;
   text-transform: uppercase;
-  color: rgba(17, 16, 13, 0.62);
+  color: var(--ink-62);
   margin-bottom: 0.55rem;
   font-family: var(--font-body);
   font-weight: 600;
@@ -2768,7 +2787,7 @@ a.tag:hover {
 }
 
 .blog-sidebar-toc-list a {
-  color: rgba(17, 16, 13, 0.62);
+  color: var(--ink-62);
   text-decoration: none;
   transition: color var(--motion-fast) var(--ease-standard);
 }
@@ -2873,7 +2892,7 @@ a.tag:hover {
   font-size: clamp(0.68rem, 0.82vw, 0.78rem);
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: rgba(17, 16, 13, 0.58);
+  color: var(--ink-62);
 }
 
 .blog-meta-bar dd {
@@ -3007,7 +3026,7 @@ a.tag:hover {
 
 .blog-prose a {
   color: inherit;
-  text-decoration-color: rgba(17, 16, 13, 0.32);
+  text-decoration-color: var(--ink-32);
   text-underline-offset: 0.16em;
 }
 
@@ -3057,7 +3076,7 @@ a.tag:hover {
 .blog-figure figcaption {
   margin-top: 0.55rem;
   font-size: clamp(0.74rem, 0.88vw, 0.84rem);
-  color: rgba(17, 16, 13, 0.62);
+  color: var(--ink-62);
 }
 
 .blog-code-block {
@@ -3071,7 +3090,7 @@ a.tag:hover {
 }
 
 .blog-code-block--light {
-  background: rgba(17, 16, 13, 0.06);
+  background: var(--ink-06);
   color: var(--ink);
   border: 1px solid var(--rule);
 }
@@ -3173,7 +3192,7 @@ a.tag:hover {
   padding: 0.7rem 0.85rem;
   border: 1px solid rgba(17, 16, 13, 0.16);
   background: rgba(255, 255, 255, 0.92);
-  box-shadow: 4px 4px 0 rgba(17, 16, 13, 0.06);
+  box-shadow: 4px 4px 0 var(--ink-06);
   text-align: center;
   font-weight: 600;
   line-height: 1.35;
@@ -3184,15 +3203,15 @@ a.tag:hover {
   font-family: var(--font-heading);
   font-size: 1.8rem;
   line-height: 1;
-  color: rgba(17, 16, 13, 0.62);
+  color: var(--ink-62);
 }
 
 .blog-diagram-branch {
   width: min(100%, 18rem);
   height: 1.3rem;
-  border-top: 2px solid rgba(17, 16, 13, 0.32);
-  border-left: 2px solid rgba(17, 16, 13, 0.32);
-  border-right: 2px solid rgba(17, 16, 13, 0.32);
+  border-top: 2px solid var(--ink-32);
+  border-left: 2px solid var(--ink-32);
+  border-right: 2px solid var(--ink-32);
 }
 
 .about-label,
@@ -3738,7 +3757,7 @@ body.resume-page {
   font-weight: 600;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: rgba(17, 16, 13, 0.62);
+  color: var(--ink-62);
 }
 
 /* Main content column */
@@ -3782,7 +3801,7 @@ body.resume-page {
   font-size: clamp(0.7rem, 0.9vw, 0.78rem);
   letter-spacing: 0.16em;
   text-transform: uppercase;
-  color: rgba(17, 16, 13, 0.62);
+  color: var(--ink-62);
 }
 .resume-canvas-toc-list {
   list-style: none;
@@ -3801,7 +3820,7 @@ body.resume-page {
   border-bottom: none;
 }
 .resume-canvas-toc-list a {
-  color: rgba(17, 16, 13, 0.62);
+  color: var(--ink-62);
   text-decoration: none;
   transition: color var(--motion-fast) var(--ease-standard);
 }
@@ -4026,7 +4045,7 @@ body.resume-page {
   margin-top: 0.32rem;
   font-size: clamp(0.8rem, 0.78rem + 0.1vw, 0.9rem);
   letter-spacing: 0.01em;
-  color: rgba(17, 16, 13, 0.6);
+  color: var(--ink-62);
 }
 
 /* ── Company / school / issuer logo (decorative) + initials fallback ── */
@@ -4118,7 +4137,7 @@ body.resume-page {
   margin-top: 0.25rem;
   font-size: clamp(0.8rem, 0.78rem + 0.1vw, 0.88rem);
   letter-spacing: 0.02em;
-  color: rgba(17, 16, 13, 0.6);
+  color: var(--ink-62);
 }
 
 .resume-entry__link {
@@ -4172,7 +4191,7 @@ body.resume-page {
 
 .resume-cert__meta {
   font-size: clamp(0.8rem, 0.78rem + 0.1vw, 0.88rem);
-  color: rgba(17, 16, 13, 0.6);
+  color: var(--ink-62);
 }
 
 /* ── Writing (compact inline section) ── */
@@ -4261,7 +4280,7 @@ body.resume-page {
 
 .resume-award__meta {
   font-size: clamp(0.8rem, 0.78rem + 0.1vw, 0.88rem);
-  color: rgba(17, 16, 13, 0.6);
+  color: var(--ink-62);
 }
 
 /* (resume footer nav styles moved to the shared .site-footer system, #434) */
