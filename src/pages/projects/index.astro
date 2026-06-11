@@ -12,6 +12,14 @@ const PROJECTS_OG_DESCRIPTION = 'Each one a real problem turned into a systems d
 
 const allProjects = await getCollection('projects', ({ data }) => !data.draft);
 const projects = allProjects.sort((a, b) => a.data.order - b.data.order);
+const projectIndexRows = [
+  { rowClass: 'grid-row--1', accentClasses: ['accent-red', 'accent-blue'] },
+  { rowClass: 'grid-row--2', accentClasses: ['accent-black'] },
+  { rowClass: 'grid-row--3', accentClasses: ['accent-white'] },
+  { rowClass: 'grid-row--4', accentClasses: ['accent-yellow', 'accent-paper'] },
+  { rowClass: 'grid-row--overflow-a', accentClasses: ['accent-lightblue'] },
+  { rowClass: 'grid-row--overflow-b', accentClasses: ['accent-red'] },
+];
 
 const jsonLd = {
   "@context": "https://schema.org",
@@ -57,11 +65,12 @@ const jsonLd = {
       </header>
 
       {/* ── Project Grid ──
-           Rows 1–4 use fixed Mondrian accent blocks.
-           Projects beyond 4 overflow into alternating a/b rows. */}
+           Accent blocks follow the six-row Mondrian sequence captured in
+           #493/#494 follow-up screenshots, then restart for row 7+. */}
       <div class="blog-grid">
 
         {projects.map((project, i) => {
+          const row = projectIndexRows[i % projectIndexRows.length];
           const card = (
             <article class="post-card">
               {/* Status kicker renders on every card — consistency in the
@@ -80,53 +89,12 @@ const jsonLd = {
             </article>
           );
 
-          if (i === 0) return (
-            <div class="grid-row--1">
-              {card}
-              <div class="accent-red" aria-hidden="true"></div>
-              <div class="accent-blue" aria-hidden="true"></div>
-            </div>
-          );
-          // Row 2 hosts the in-progress anchor project. Black is the
-          // last unused Mondrian primary on the projects index and
-          // becomes Matchline's color block — unmarked composition,
-          // not a logo surface (the wordmark only renders on the
-          // detail page). See #275.
-          if (i === 1) return (
-            <div class="grid-row--2">
-              {card}
-              <div class="accent-black" aria-hidden="true"></div>
-            </div>
-          );
-          if (i === 2) return (
-            <div class="grid-row--3">
-              {card}
-              <div class="accent-white" aria-hidden="true"></div>
-            </div>
-          );
-          // Row 4 inherits the yellow that previously lived in row 2,
-          // so the Mondrian composition still has all four primaries
-          // visible on the index after the row 2 swap above.
-          if (i === 3) return (
-            <div class="grid-row--4">
-              {card}
-              <div class="accent-yellow" aria-hidden="true"></div>
-              <div class="accent-paper" aria-hidden="true"></div>
-            </div>
-          );
-          // Projects 5+ use alternating overflow rows. FFB gets the
-          // light-blue accent to match its detail-page variant; DSoT
-          // gets red so the bottom of the grid keeps a Mondrian
-          // primary in rotation rather than fading to paper.
-          const accentBySlug = {
-            'friends-and-family-billing': 'accent-lightblue',
-            'device-source-of-truth': 'accent-red',
-          };
-          const accentClass = accentBySlug[project.data.slug] ?? 'accent-paper';
           return (
-            <div class={i % 2 === 0 ? 'grid-row--overflow-a' : 'grid-row--overflow-b'}>
+            <div class={row.rowClass}>
               {card}
-              <div class={accentClass} aria-hidden="true"></div>
+              {row.accentClasses.map((accentClass) => (
+                <div class={accentClass} aria-hidden="true"></div>
+              ))}
             </div>
           );
         })}
