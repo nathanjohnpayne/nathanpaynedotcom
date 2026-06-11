@@ -20,6 +20,24 @@ const projectSlugs = [
   'swipe-watch',
 ];
 
+const canonicalProjectCards = [
+  { title: 'Mergepath', href: '/projects/mergepath/' },
+  { title: 'Matchline', href: '/projects/matchline/' },
+  { title: 'Override', href: '/projects/override/' },
+  { title: 'Friends & Family Billing', href: '/projects/friends-and-family-billing/' },
+  { title: 'Device Source of Truth', href: '/projects/device-source-of-truth/' },
+  { title: 'Swipe Watch', href: '/projects/swipe-watch/' },
+];
+
+const homepageProjectDescriptions = [
+  'A deterministic repository standard that keeps humans and AI coding agents aligned—the enforcement layer underneath every other project on this site.',
+  'A career CRM for one person running a serious job search—turns work history into structured, reusable evidence, maps it against specific job requirements, and generates applications grounded in demonstrated work.',
+  'A financial operating system for Broadway productions—models capitalization and investor returns, manages ownership, and shares live deals with backers without spreadsheet or PDF workflows.',
+  'Cloud-synced shared-bill coordination for families and friend groups—turns recurring costs into clear annual invoices, payment tracking, and shareable summaries.',
+  'A single web application that tracks partner-device hardware, DRM, codec support, and operational readiness across Disney+, Hulu, and ESPN.',
+  'A swipe-based discovery experiment for Disney+ and Hulu that turns recommendation training and watchlist building into a game—built in vanilla JS over a weekend.',
+];
+
 // Projects without a deployed live URL — the "View Live Product" CTA
 // is suppressed on the detail page, the project card, and the homepage
 // Builds section. The SoftwareApplication JSON-LD entity is also
@@ -80,6 +98,45 @@ describe('Project Pages — routes', () => {
       'Every build started as a real problem. Each one became a systems design exercise—from first commit to deploy, on top of an enforcement system I designed to make agent output reliable. The infrastructure behind these projects is documented in Agent Approval Workflow and the Genesis of Mergepath.',
     );
     expect(deckText).not.toContain('built with AI agents');
+  });
+
+  it('the homepage Projects panel keeps wayfinding labels while promoting the Built with Agents heading', () => {
+    setupDOM(readDistHtml('index.html'));
+
+    const panel = document.querySelector('[data-panel="projects"]');
+    const panelLabel = panel?.querySelector('.panel-label');
+    const projectItems = [...panel.querySelectorAll('.project-item')];
+
+    expect(panel, 'homepage Projects panel missing').not.toBeNull();
+    expect(panel.getAttribute('data-label')).toBe('Projects');
+    expect(panelLabel?.textContent).toBe('Projects');
+    expect(panelLabel?.getAttribute('aria-label')).toBe('Open Projects section');
+    expect(panel.querySelector('.content-inner > .eyebrow')).toBeNull();
+    expect(panel.querySelector('h2')?.textContent).toBe('Built with Agents');
+    expect(panel.querySelector('.content-inner > p')?.textContent).toBe(
+      'Every project started as a real problem and shipped end-to-end—Claude Code, Codex, and Cursor, working inside a multi-agent review system I designed to catch the failure modes agents miss.',
+    );
+    expect(projectItems.map((item) => item.querySelector('.p-name')?.textContent.replace('→', '').trim())).toEqual(
+      canonicalProjectCards.map((card) => card.title),
+    );
+    expect(projectItems.map((item) => item.querySelector('.p-name')?.getAttribute('href'))).toEqual(
+      canonicalProjectCards.map((card) => card.href),
+    );
+    expect(projectItems.map((item) => item.querySelector('p')?.textContent)).toEqual(homepageProjectDescriptions);
+    expect(homepageProjectDescriptions.join(' ')).not.toMatch(/\b(?:you|your)\b/i);
+  });
+
+  it('the projects index renders the canonical project order and updated Matchline copy', () => {
+    setupDOM(readDistHtml('projects/index.html'));
+
+    const links = [...document.querySelectorAll('.blog-grid .post-title a')];
+    const matchlineCard = links.find((link) => link.textContent === 'Matchline')?.closest('.post-card');
+    const matchlineDescription = matchlineCard?.querySelector('.post-desc')?.textContent;
+
+    expect(links.map((link) => link.textContent)).toEqual(canonicalProjectCards.map((card) => card.title));
+    expect(links.map((link) => link.getAttribute('href'))).toEqual(canonicalProjectCards.map((card) => card.href));
+    expect(matchlineDescription).toContain('generates applications grounded in demonstrated work');
+    expect(matchlineDescription).not.toContain('what the user has actually done');
   });
 
   it('the collection source has the same number of non-draft projects as the index renders', () => {

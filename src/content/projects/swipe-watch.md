@@ -3,7 +3,7 @@ title: "Swipe Watch"
 slug: "swipe-watch"
 description: "A swipe-based discovery experiment for Disney+ and Hulu that turns taste signals into a faster, more active recommendation loop."
 kicker: "AI × Consumer × Streaming"
-order: 3
+order: 5
 screenshotAspect: "narrow"
 screenshotSrc: "/images/projects/swipe-watch-hero.gif"
 muxPlaybackId: "wNCRY97981o2uDAJrJ3ExPeK379yldRRFJgUIgSYz00k"

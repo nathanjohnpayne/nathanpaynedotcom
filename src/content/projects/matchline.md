@@ -1,7 +1,7 @@
 ---
 title: "Matchline"
 slug: "matchline"
-description: "A career CRM for one person running a serious job search. Turns work history into structured, reusable evidence, maps that evidence against specific job requirements, and generates applications grounded in what the user has actually done. Not a resume builder—a discipline."
+description: "A career CRM for one person running a serious job search. Turns work history into structured, reusable evidence, maps that evidence against specific job requirements, and generates applications grounded in demonstrated work. Not a resume builder—a discipline."
 kicker: "AI × Product × Career Tools"
 order: 1
 status: "IN PROGRESS"
