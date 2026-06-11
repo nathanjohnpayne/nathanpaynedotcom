@@ -75,8 +75,11 @@ describe('Project Pages — routes', () => {
     expect(ogDescription?.getAttribute('content')).toBe(
       'Each one a real problem turned into a systems design exercise—from first commit to deploy.',
     );
-    expect(deck?.textContent).toContain('systems design exercise—from first commit to deploy');
-    expect(deck?.textContent).not.toContain('built with AI agents');
+    const deckText = deck?.textContent?.replace(/\s+/g, ' ').trim();
+    expect(deckText).toBe(
+      'Every build started as a real problem. Each one became a systems design exercise—from first commit to deploy, on top of an enforcement system I designed to make agent output reliable. The infrastructure behind these projects is documented in Agent Approval Workflow and the Genesis of Mergepath.',
+    );
+    expect(deckText).not.toContain('built with AI agents');
   });
 
   it('the collection source has the same number of non-draft projects as the index renders', () => {
