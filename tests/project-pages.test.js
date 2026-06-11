@@ -56,6 +56,29 @@ describe('Project Pages — routes', () => {
     }
   });
 
+  it('the projects index keeps the route title while branding the H1 as Built with Agents', () => {
+    setupDOM(readDistHtml('projects/index.html'));
+
+    const title = document.querySelector('title');
+    const heading = document.querySelector('h1');
+    const breadcrumb = document.querySelector('.breadcrumbs');
+    const canonical = document.querySelector('link[rel="canonical"]');
+    const ogTitle = document.querySelector('meta[property="og:title"]');
+    const ogDescription = document.querySelector('meta[property="og:description"]');
+    const deck = document.querySelector('.hero .deck');
+
+    expect(title?.textContent).toBe('Projects | Nathan Payne');
+    expect(heading?.textContent).toBe('Built with Agents');
+    expect(breadcrumb?.textContent).toContain('Projects');
+    expect(canonical?.getAttribute('href')).toBe('https://nathanpayne.com/projects/');
+    expect(ogTitle?.getAttribute('content')).toBe('Projects | Nathan Payne');
+    expect(ogDescription?.getAttribute('content')).toBe(
+      'Each one a real problem turned into a systems design exercise—from first commit to deploy.',
+    );
+    expect(deck?.textContent).toContain('systems design exercise—from first commit to deploy');
+    expect(deck?.textContent).not.toContain('built with AI agents');
+  });
+
   it('the collection source has the same number of non-draft projects as the index renders', () => {
     const sourceFiles = readdirSync(CONTENT).filter((f) => f.endsWith('.md'));
     const nonDraftSources = sourceFiles.filter((f) => {
