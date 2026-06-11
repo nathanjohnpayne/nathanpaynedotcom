@@ -3,7 +3,7 @@ title: "Device Source of Truth"
 slug: "device-source-of-truth"
 description: "A single web application for understanding partner-device hardware, DRM, codec support, and operational readiness across Disney+, Hulu, and ESPN."
 kicker: "AI × Enterprise × Data"
-order: 5
+order: 4
 screenshotAspect: "wide"
 screenshotSrc: "/images/projects/device-source-of-truth-hero.png"
 accentColor: "#5b5f64"
