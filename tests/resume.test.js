@@ -166,18 +166,19 @@ describe('Resume — page structure', () => {
     expect(proj.querySelectorAll('h3.resume-entry__title').length).toBe(6);
   });
 
-  it('opens Projects with a Builds lead — tag, intro, and /projects/ index link (Writing pattern)', () => {
+  it('opens Projects with a Built with Agents lead — tag, intro, and /projects/ index link (Writing pattern)', () => {
     const proj = document.querySelector('.resume-projects');
     expect(proj, 'projects section missing').not.toBeNull();
     const lead = proj.querySelector('.resume-projects__lead');
     expect(lead, 'projects lead missing').not.toBeNull();
-    expect(lead.querySelector('strong')?.textContent).toBe('Builds');
+    expect(lead.querySelector('strong')?.textContent).toBe('Built with Agents');
     const link = lead.querySelector('a');
     expect(link.getAttribute('href')).toBe('/projects/');
     expect(link.textContent).toContain('nathanpayne.com/projects');
     const desc = proj.querySelector('.resume-projects__desc');
     expect(desc, 'projects intro missing').not.toBeNull();
-    expect(desc.textContent).toContain('systems design exercise');
+    expect(desc.textContent).toContain('systems design exercise—from first commit to deploy.');
+    expect(desc.textContent).not.toContain('built with AI agents');
     // The lead precedes the first project entry.
     const firstEntry = proj.querySelector('.resume-entry');
     expect(

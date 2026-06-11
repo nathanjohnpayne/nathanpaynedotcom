@@ -27,17 +27,25 @@ describe('Blog Pages', () => {
   it('blog index page has canonical metadata and links to the generated post', () => {
     setupDOM(blogIndexHtml);
 
+    const title = document.querySelector('title');
+    const heading = document.querySelector('h1');
     const canonical = document.querySelector('link[rel="canonical"]');
     const postLink = document.querySelector('a[href="/blog/six-prs-one-bug-agent-failure-modes/"]');
+    const ogTitle = document.querySelector('meta[property="og:title"]');
     const ogImage = document.querySelector('meta[property="og:image"]');
+    const twitterTitle = document.querySelector('meta[name="twitter:title"]');
 
+    expect(title?.textContent).toBe('The AI-Augmented PM | Nathan Payne');
+    expect(heading?.textContent).toBe('The AI-Augmented PM');
     expect(canonical?.getAttribute('href')).toBe('https://nathanpayne.com/blog/');
     expect(postLink).not.toBeNull();
-    // og:image carries an optional ?v=<hash> cache-busting query so social
+    expect(ogTitle?.getAttribute('content')).toBe('The AI-Augmented PM | Nathan Payne');
+    expect(twitterTitle?.getAttribute('content')).toBe('The AI-Augmented PM | Nathan Payne');
+    // og:image carries a ?v=<hash> cache-busting query so social
     // platforms re-fetch the image after each deploy (see commit 49d2c39).
     // The base URL stays stable; only the query varies.
     expect(ogImage?.getAttribute('content')).toMatch(
-      /^https:\/\/nathanpayne\.com\/og\/blog\.png(\?v=\d+)?$/,
+      /^https:\/\/nathanpayne\.com\/og\/blog\.png\?v=[A-Za-z0-9_-]+$/,
     );
   });
 

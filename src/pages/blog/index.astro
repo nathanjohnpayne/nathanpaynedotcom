@@ -5,6 +5,10 @@ import { estimateReadingMinutes } from '../../lib/reading-time';
 import Footer from '../../components/Footer.astro';
 import Breadcrumbs from '../../components/Breadcrumbs.astro';
 
+const BLOG_TITLE = 'The AI-Augmented PM';
+const BLOG_PAGE_TITLE = `${BLOG_TITLE} | Nathan Payne`;
+const BLOG_DESCRIPTION = 'A product manager’s notes on shipping real systems with AI coding agents—the architecture decisions, the failure modes, and what actually works.';
+
 const posts = (await getCollection('blog', ({ data }) => !data.draft))
   .sort((a, b) => b.data.date.getTime() - a.data.date.getTime());
 
@@ -15,8 +19,8 @@ const jsonLd = {
       "@type": "CollectionPage",
       "@id": "https://nathanpayne.com/blog/#webpage",
       "url": "https://nathanpayne.com/blog/",
-      "name": "Blog | Nathan Payne",
-      "description": "A product manager’s notes on shipping real systems with AI coding agents—the architecture decisions, the failure modes, and what actually works.",
+      "name": BLOG_PAGE_TITLE,
+      "description": BLOG_DESCRIPTION,
       "isPartOf": { "@id": "https://nathanpayne.com/#website" },
     },
     {
@@ -48,10 +52,10 @@ function readingTime(body: string | undefined): string {
 ---
 
 <BaseLayout
-  title="Blog | Nathan Payne"
-  description="A product manager’s notes on shipping real systems with AI coding agents—the architecture decisions, the failure modes, and what actually works."
+  title={BLOG_PAGE_TITLE}
+  description={BLOG_DESCRIPTION}
   ogImage="https://nathanpayne.com/og/blog.png"
-  ogImageAlt="Blog index open graph image"
+  ogImageAlt={`${BLOG_TITLE} open graph image`}
   bodyClass="project-page blog-page"
   dataAccent="blue"
   jsonLd={jsonLd}
@@ -62,8 +66,8 @@ function readingTime(body: string | undefined): string {
       {/* ── Hero ── */}
       <header class="hero">
         <Breadcrumbs items={[{ label: "Nathan Payne", href: "/" }, { label: "Blog" }]} />
-        <h1>Field Notes</h1>
-        <p class="deck">A product manager’s notes on shipping real systems with AI coding agents—the architecture decisions, the failure modes, and what actually works.</p>
+        <h1>{BLOG_TITLE}</h1>
+        <p class="deck">{BLOG_DESCRIPTION}</p>
       </header>
 
       {/* ── Mondrian Blog Grid ──

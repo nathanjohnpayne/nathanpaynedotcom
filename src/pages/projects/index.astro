@@ -4,6 +4,12 @@ import { getCollection } from 'astro:content';
 import Footer from '../../components/Footer.astro';
 import Breadcrumbs from '../../components/Breadcrumbs.astro';
 
+const PROJECTS_TITLE = 'Projects';
+const PROJECTS_PAGE_TITLE = `${PROJECTS_TITLE} | Nathan Payne`;
+const PROJECTS_HEADING = 'Built with Agents';
+const PROJECTS_DESCRIPTION = 'Projects from a product manager—each one a real problem turned into a systems design exercise.';
+const PROJECTS_OG_DESCRIPTION = 'Each one a real problem turned into a systems design exercise—from first commit to deploy.';
+
 const allProjects = await getCollection('projects', ({ data }) => !data.draft);
 const projects = allProjects.sort((a, b) => a.data.order - b.data.order);
 
@@ -14,8 +20,8 @@ const jsonLd = {
       "@type": "CollectionPage",
       "@id": "https://nathanpayne.com/projects/#webpage",
       "url": "https://nathanpayne.com/projects/",
-      "name": "Builds | Nathan Payne",
-      "description": "Builds from a product manager—each one a real problem turned into a systems design exercise.",
+      "name": PROJECTS_PAGE_TITLE,
+      "description": PROJECTS_DESCRIPTION,
       "isPartOf": { "@id": "https://nathanpayne.com/#website" },
     },
     {
@@ -23,7 +29,7 @@ const jsonLd = {
       "@id": "https://nathanpayne.com/projects/#breadcrumb",
       "itemListElement": [
         { "@type": "ListItem", "position": 1, "name": "Nathan Payne", "item": "https://nathanpayne.com/" },
-        { "@type": "ListItem", "position": 2, "name": "Builds", "item": "https://nathanpayne.com/projects/" },
+        { "@type": "ListItem", "position": 2, "name": PROJECTS_TITLE, "item": "https://nathanpayne.com/projects/" },
       ],
     },
   ],
@@ -31,10 +37,11 @@ const jsonLd = {
 ---
 
 <BaseLayout
-  title="Builds | Nathan Payne"
-  description="Builds from a product manager—each one a real problem turned into a systems design exercise."
+  title={PROJECTS_PAGE_TITLE}
+  description={PROJECTS_DESCRIPTION}
+  ogDescription={PROJECTS_OG_DESCRIPTION}
   ogImage="https://nathanpayne.com/og/projects.png"
-  ogImageAlt="Builds index open graph image"
+  ogImageAlt={`${PROJECTS_HEADING} projects index open graph image`}
   bodyClass="project-page blog-page"
   dataAccent="yellow"
   jsonLd={jsonLd}
@@ -44,9 +51,9 @@ const jsonLd = {
 
       {/* ── Hero ── */}
       <header class="hero">
-        <Breadcrumbs items={[{ label: "Nathan Payne", href: "/" }, { label: "Builds" }]} />
-        <h1>Builds</h1>
-        <p class="deck">Every build started as a real problem. Each one became a systems design exercise&mdash;built with AI agents from first commit to deploy, on top of an enforcement system I designed to make agent output reliable. The infrastructure behind these projects is documented in <a href="/blog/agent-approval-workflow-genesis-of-mergepath/" class="p-link">Agent Approval Workflow and the Genesis of Mergepath</a>.</p>
+        <Breadcrumbs items={[{ label: "Nathan Payne", href: "/" }, { label: PROJECTS_TITLE }]} />
+        <h1>{PROJECTS_HEADING}</h1>
+        <p class="deck">Every build started as a real problem. Each one became a systems design exercise&mdash;from first commit to deploy, on top of an enforcement system I designed to make agent output reliable. The infrastructure behind these projects is documented in <a href="/blog/agent-approval-workflow-genesis-of-mergepath/" class="p-link">Agent Approval Workflow and the Genesis of Mergepath</a>.</p>
       </header>
 
       {/* ── Project Grid ──
