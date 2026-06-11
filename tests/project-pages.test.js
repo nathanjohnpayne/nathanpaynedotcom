@@ -38,6 +38,15 @@ const homepageProjectDescriptions = [
   'A swipe-based discovery experiment for Disney+ and Hulu that turns recommendation training and watchlist building into a game—built in vanilla JS over a weekend.',
 ];
 
+const projectIndexAccentRows = [
+  { rowClass: 'grid-row--1', accentClasses: ['accent-red', 'accent-blue'] },
+  { rowClass: 'grid-row--2', accentClasses: ['accent-black'] },
+  { rowClass: 'grid-row--3', accentClasses: ['accent-white'] },
+  { rowClass: 'grid-row--4', accentClasses: ['accent-yellow', 'accent-paper'] },
+  { rowClass: 'grid-row--overflow-a', accentClasses: ['accent-lightblue'] },
+  { rowClass: 'grid-row--overflow-b', accentClasses: ['accent-red'] },
+];
+
 // Projects without a deployed live URL — the "View Live Product" CTA
 // is suppressed on the detail page, the project card, and the homepage
 // Builds section. The SoftwareApplication JSON-LD entity is also
@@ -114,7 +123,7 @@ describe('Project Pages — routes', () => {
     expect(panel.querySelector('.content-inner > .eyebrow')).toBeNull();
     expect(panel.querySelector('h2')?.textContent).toBe('Built with Agents');
     expect(panel.querySelector('.content-inner > p')?.textContent).toBe(
-      'Every project started as a real problem and shipped end-to-end—Claude Code, Codex, and Cursor, working inside a multi-agent review system I designed to catch the failure modes agents miss.',
+      'Every project started as a real problem and shipped end-to-end—Claude Code, Codex, and Cursor—within a multi-agent review system I designed to catch the failure modes agents miss.',
     );
     expect(projectItems.map((item) => item.querySelector('.p-name')?.textContent.replace('→', '').trim())).toEqual(
       canonicalProjectCards.map((card) => card.title),
@@ -137,6 +146,24 @@ describe('Project Pages — routes', () => {
     expect(links.map((link) => link.getAttribute('href'))).toEqual(canonicalProjectCards.map((card) => card.href));
     expect(matchlineDescription).toContain('generates applications grounded in demonstrated work');
     expect(matchlineDescription).not.toContain('what the user has actually done');
+  });
+
+  it('the projects index keeps its Mondrian accent color sequence by row position', () => {
+    setupDOM(readDistHtml('projects/index.html'));
+
+    const rows = [...document.querySelectorAll('.blog-grid > div')];
+    const titleByRow = rows.map((row) => row.querySelector('.post-title a')?.textContent);
+    const accentClassesByRow = rows.map((row) =>
+      [...row.querySelectorAll('[aria-hidden="true"]')].map((accent) =>
+        [...accent.classList].find((className) => className.startsWith('accent-')),
+      ),
+    );
+
+    expect(titleByRow).toEqual(canonicalProjectCards.map((card) => card.title));
+    expect(rows.map((row) => [...row.classList].find((className) => className.startsWith('grid-row--')))).toEqual(
+      projectIndexAccentRows.map((row) => row.rowClass),
+    );
+    expect(accentClassesByRow).toEqual(projectIndexAccentRows.map((row) => row.accentClasses));
   });
 
   it('the collection source has the same number of non-draft projects as the index renders', () => {
