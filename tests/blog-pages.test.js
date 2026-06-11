@@ -41,11 +41,11 @@ describe('Blog Pages', () => {
     expect(postLink).not.toBeNull();
     expect(ogTitle?.getAttribute('content')).toBe('The AI-Augmented PM | Nathan Payne');
     expect(twitterTitle?.getAttribute('content')).toBe('The AI-Augmented PM | Nathan Payne');
-    // og:image carries an optional ?v=<hash> cache-busting query so social
+    // og:image carries a ?v=<hash> cache-busting query so social
     // platforms re-fetch the image after each deploy (see commit 49d2c39).
     // The base URL stays stable; only the query varies.
     expect(ogImage?.getAttribute('content')).toMatch(
-      /^https:\/\/nathanpayne\.com\/og\/blog\.png(\?v=[A-Za-z0-9_-]+)?$/,
+      /^https:\/\/nathanpayne\.com\/og\/blog\.png\?v=[A-Za-z0-9_-]+$/,
     );
   });
 
