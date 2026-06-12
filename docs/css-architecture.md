@@ -93,6 +93,11 @@ plane values (the interior default), and the homepage—which uses no
 (`index.astro` only). `data-palette` selects what the plane tokens resolve
 to; `data-accent` selects which token a page accents with.
 
+Build-time OG cards follow the same per-page register boundary where the card
+represents a page: `og-templates/home.astro` passes `palette="1930"` to
+`OgCard.astro`, so `home.png` matches the homepage register. Other OG cards do
+not pass a palette and stay on the 1921 `:root` default.
+
 | Page | Accent source |
 |---|---|
 | Blog post | `dataAccent="red"` (`BlogPost.astro`) |
