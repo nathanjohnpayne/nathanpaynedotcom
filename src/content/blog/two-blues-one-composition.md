@@ -72,7 +72,9 @@ There was a structural critique too—the page reads as rows wearing a Mondrian 
 
 ## The counter: I had a source
 
-The drift diagnosis was wrong, and I could prove it. The cerulean was not an accident. It was sampled from a specific painting: *Composition with Large Blue Plane, Red, Black, Yellow, and Gray*, 1921, Dallas Museum of Art. I sent Claude a poster reproduction of it.
+The drift diagnosis was wrong, and I could prove it. The cerulean was not an accident. It was sampled from a specific painting: [*Composition with Large Blue Plane, Red, Black, Yellow, and Gray*](https://dma.org/art/collection/object/4348683), 1921, Dallas Museum of Art. I sent Claude a poster reproduction of it.
+
+![Composition with Large Blue Plane, Red, Black, Yellow, and Gray, 1921. Piet Mondrian, oil on canvas, Dallas Museum of Art, accession 1984.200.FA. This is the museum's own digitization—the X-Rite ColorChecker calibration chart visible at the top edge is what makes a scan like this usable as a color source.](/blog/two-blues-one-composition/img/composition-large-blue-plane-1921.jpg)
 
 Claude sampled the poster the same way it had sampled my screenshots and conceded the point with interest. The poster's blue read #028DE2—my #2080CA was a slightly tempered but defensible match. And the concession went further than I pushed it: the same painting's field planes are cool grays around #D8D8E0, which is nearly exactly the #DDE1E5 gray-blue plane Claude had dinged, and its black plane samples as soft charcoal, not far from the #333333 I use. Three of the audit's "violations" turned out to have citations.
 
