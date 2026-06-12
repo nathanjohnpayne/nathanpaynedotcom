@@ -1,6 +1,6 @@
 ---
 title: "Two Blues, One Composition: How a Design Critique Became a Forensics Exercise"
-shortTitle: "Two Blues, One Canvas"
+shortTitle: "Two Blues, One Composition"
 description: "I asked Claude to scrutinize my projects page against Mondrian's principles, expecting adjectives. It sampled pixels instead and found two blues in one composition—one of which I had put there on purpose. Settling the argument took a museum scan, and the least reliable data in the entire exercise turned out to be the model's own memory."
 author: "Nathan Payne"
 date: 2026-06-11
@@ -51,21 +51,6 @@ What I got back was a Python script. Claude loaded the screenshots, bucketed the
 
 The sampled palette told a story I half knew and half did not. The red came back as `#C01D18` on both screenshots—consistent, which meant my token discipline was holding there. The yellow came back as `#D9B314`, which Claude called mustard rather than cadmium, a value step down from anything Mondrian painted. And the blues came back as two different colors: `#224089` on the [Mergepath](/projects/mergepath/) plane and `#2280CA` on the [Friends & Family Billing](/projects/friends-and-family-billing/) plane. An ultramarine and a cerulean, sitting in the same composition.
 
-```mermaid
-graph TD
-    R["Red planes<br/>#C01D18"] --> C["One composition"]
-    Y["Yellow plane<br/>#D9B314"] --> C
-    B1["Mergepath plane<br/>#224089"] --> C
-    B2["Billing plane<br/>#2280CA"] --> C
-    C --> V["Two blues in one canvas.<br/>Mondrian ran one."]
-    style R fill:#C01D18,stroke:#7d1310,color:#fff
-    style Y fill:#D9B314,stroke:#8f760d,color:#333
-    style B1 fill:#224089,stroke:#16294f,color:#fff
-    style B2 fill:#2280CA,stroke:#155481,color:#fff
-    style C fill:#f5f0e4,stroke:#333333,color:#333
-    style V fill:#f5f0e4,stroke:#993d3d,color:#333
-```
-
 The verdict was direct: Mondrian never ran two blues in a single painting. Within a composition, each primary appears at exactly one hue. Claude's diagnosis was that the cerulean looked like token drift—two blues that probably arrived in different PRs rather than a deliberate choice—and the prescription was to keep the ultramarine and kill the cerulean. It also ranked my red as "matching neither era": too dark for the 1930s cadmium, too red for anything earlier. Hold that claim; it gets half retracted later, and the retraction is the most interesting part of this story.
 
 There was a structural critique too—the page reads as rows wearing a Mondrian skin, every horizontal gutter slicing the full width, all the saturated color hugging the right rail—but the structural work deserves its own ticket and its own post. This one is about the colors, because the colors are where the argument happened.
@@ -99,18 +84,6 @@ Before writing the change, Claude pulled the production stylesheet and audited i
 
 Deliberate, exactly as I had said. But the audit kept going, into the places a hex grep cannot see. The `.post-card` hover ring baked ultramarine into an eight-digit alpha hex: `#223f892e`, blue at roughly 18% opacity. Search the shipped CSS for `223f89` and you find it; search for the token's consumers and you do not, because it is not consuming the token. Worse, four `[data-accent=*]` scopes defined `--accent-soft` as `rgba()` literals with the plane colors baked in numerically—`rgba(34, 63, 137, .12)` and friends. Those are invisible to any hex search and would have silently survived a token remap, shipping a mixed register through the back door of the exact feature meant to prevent one.
 
-```mermaid
-graph TD
-    T["--blue: #223f89"] -->|"var(--blue)"| P["Planes, links,<br/>accent scopes"]
-    H[".post-card hover ring<br/>#223f892e"] -.-> S["Invisible to a token remap.<br/>Ships a mixed register."]
-    A["--accent-soft<br/>rgba(34, 63, 137, .12)"] -.-> S
-    style T fill:#223f89,stroke:#16294f,color:#fff
-    style P fill:#b8ddb8,stroke:#4a8a4d,color:#333
-    style H fill:#e8b4b4,stroke:#993d3d,color:#333
-    style A fill:#e8b4b4,stroke:#993d3d,color:#333
-    style S fill:#c75c5c,stroke:#993d3d,color:#fff
-```
-
 The audit also corrected itself twice along the way, which matters for the record. Its first pass claimed `#223F89` was hardcoded twice; the second occurrence was actually the alpha variant, a different and more dangerous finding. Its first pass claimed the gray-blue `#DDE1E5` had no token behind it; the deeper pass found a whole per-scope `--project-bg` system that the three raw usages were bypassing. Both corrections came from the same prompt: I asked it to verify its own extraction before I would accept a ticket built on it. The errors were real, the corrections were real, and neither would have surfaced without the demand.
 
 The best discovery was architectural. My pages already carry `data-accent` attributes that redefine `--accent` and `--accent-soft` per scope. The theming machinery the palette split needed was not new work. The codebase had already voted for the solution; it just had not been asked the question.
@@ -142,47 +115,26 @@ The least reliable data in the entire exercise was the model's memory. Not my CS
 
 ## Two tickets, four decisions
 
-The work shipped as two tickets in strict sequence—[#497](https://github.com/nathanjohnpayne/nathanpaynedotcom/issues/497) and [#498](https://github.com/nathanjohnpayne/nathanpaynedotcom/issues/498)—and the sequencing is the part I would defend hardest.
+The work shipped as two tickets in strict sequence—[#497](https://github.com/nathanjohnpayne/nathanpaynedotcom/issues/497) and [#498](https://github.com/nathanjohnpayne/nathanpaynedotcom/issues/498)—and the sequencing is the part I would defend hardest. The first, shipped as [PR #499](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/499), changed zero rendered pixels: pure plumbing that routed every palette color through a custom property and re-derived every baked wash from its token. Because nothing visible was allowed to change, the acceptance criteria could be brutal and mechanical—grep for `dde1e5` and get exactly one match, grep for baked `rgba()` plane literals and get zero. A refactor with falsifiable acceptance criteria is a refactor an agent can verify itself against.
 
-```mermaid
-graph LR
-    T1["#497 plumbing<br/>zero pixels"] --> P1["PR #499"]
-    P1 --> T2["#498 values<br/>four decisions"]
-    T2 --> P2["PR #500"]
-    P2 --> F1["#503 ink + veils"]
-    P2 --> F2["#504 OG registers"]
-    style T1 fill:#b8ddb8,stroke:#4a8a4d,color:#333
-    style P1 fill:#7bc67e,stroke:#4a8a4d,color:#fff
-    style T2 fill:#b8ddb8,stroke:#4a8a4d,color:#333
-    style P2 fill:#7bc67e,stroke:#4a8a4d,color:#fff
-    style F1 fill:#f5f0e4,stroke:#333333,color:#333
-    style F2 fill:#f5f0e4,stroke:#333333,color:#333
-```
-
-The first ticket, shipped as [PR #499](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/499), changed zero rendered pixels. Pure plumbing: route every palette color through a custom property, replace the alpha hex with `color-mix(in srgb, var(--blue) 18%, transparent)`, derive the `--accent-soft` values from `--accent` instead of baked literals—six scopes once the verification pass added the black and paper accents to the four the audit flagged—and point the three raw gray-blue backgrounds at a new `--gray-plane` token. Because nothing visible was allowed to change, the acceptance criteria could be brutal and mechanical: grep for `dde1e5` and get exactly one match, grep for baked `rgba()` plane literals and get zero. A refactor with falsifiable acceptance criteria is a refactor an agent can verify itself against.
-
-The second ticket, shipped as [PR #500](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/500), was a values exercise against the now-clean system: 1921 values as the `:root` default, one `[data-palette="1930"]` override block, the homepage as the single page that opts in, and `--lightblue` retired by aliasing it to `var(--blue)`—zero template changes, fully reversible. The judgment calls were isolated as four explicit decision checkboxes with recommendations prefilled: the homepage black plane, the interior blue, the wash derivation strategy, the token retirement path. The agent does the plumbing. I ratify the judgment. That division of labor is the whole trick, and the checkbox format makes it enforceable instead of aspirational.
-
-The one genuinely risky task got its own line item: a contrast audit, because the projects index carries `data-accent="yellow"` and the 1921 lemon at roughly 1.2:1 against cream would be flatly illegible anywhere `--accent` colors text. The shipped CSS shows the audit found real cases—there is now an `--accent-text` derivation mixing accent into ink, and the yellow scope routes its contrast token to `--ink-warm`.
+The second, shipped as [PR #500](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/500), was the values diff the plumbing made safe: 1921 as the `:root` default, one `[data-palette="1930"]` override block, the homepage as the single page that opts in. Every judgment call—the homepage black plane, the interior blue, the wash derivation, the token retirement—was an explicit decision checkbox with a recommendation prefilled, and the one genuinely risky item, a contrast audit for accent-colored text on cream, got its own line and found real cases. The agent does the plumbing. I ratify the judgment. That division of labor is the whole trick, and the checkbox format makes it enforceable instead of aspirational.
 
 ## Auditing the shipped site
 
-Both tickets are live, and the post-ship audit of the production CSS came back green across the board. `#dde1e5` appears exactly once, as the token definition. The old `#223f89` is gone entirely. Zero baked `rgba()` plane literals. Seventy-four `color-mix()` usages where hand-baked values used to live (the source file carries seventy-six; the minifier precomputes two of them, which is exactly the kind of source-versus-artifact gap this whole exercise was about). The `:root` carries `#E8784A`, `#E3D477`, and `#2080CA`; the override scope carries `#DA2418`, `#F0C800`, and `#0A5C9E`—the museum-derived values. Even the loose end I expected to become the punch list was already handled: the OG images regenerated per register ([PR #504](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/504)), the homepage card sampling the 1930 set and the projects card sampling vermilion, lemon, and cerulean, with cache-busting params on both.
+Both tickets are live, and the post-ship audit of the production CSS came back green across the board. `#dde1e5` appears exactly once, as the token definition. The old `#223f89` is gone entirely. Zero baked `rgba()` plane literals. Seventy-four `color-mix()` usages where hand-baked values used to live (the source carries seventy-six; the minifier precomputes two—exactly the source-versus-artifact gap this exercise was about). The `:root` carries `#E8784A`, `#E3D477`, and `#2080CA`; the override scope carries `#DA2418`, `#F0C800`, and `#0A5C9E`—the museum-derived values. Even the loose end I expected to become the punch list was already handled: the OG images regenerated per register ([PR #504](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/504)), the homepage card sampling the 1930 set and the projects card sampling vermilion, lemon, and cerulean, with cache-busting params on both.
 
 There are still two blues on the site. One per room.
 
 ## What I generalized
 
-Ask for data, not adjectives. An agent with a filesystem and an image library turns a taste argument into a measurement in about four seconds, and everything downstream of a measurement is a better conversation than everything downstream of a vibe. The two-blues finding, the museum verification, and the drift audit were all the same move applied to different inputs.
+Ask for data, not adjectives. An agent with a filesystem and an image library turns a taste argument into a measurement in about four seconds, and everything downstream of a measurement is a better conversation than everything downstream of a vibe.
 
-Make the model cite its sources, especially when it sounds most certain. The canonical Mondrian hexes arrived with the confidence of a textbook and the sourcing of a rumor. One verification prompt produced two self-corrections and a museum scan that overturned three values. The model being wrong was not the failure mode; the failure mode would have been shipping its memory unexamined.
+Make the model cite its sources, especially when it sounds most certain. The canonical Mondrian hexes arrived with the confidence of a textbook and the sourcing of a rumor; one verification prompt produced two self-corrections and a museum scan that overturned three values. The failure mode was never the model being wrong—it would have been shipping its memory unexamined.
 
-Audit the built artifact, not just the source. Drift hides where greps cannot see—alpha channels, `rgba()` triplets, derived values baked at authoring time. The production stylesheet knew things about my color system that no search of the repo would have surfaced.
+Audit the built artifact, not just the source. Drift hides where greps cannot see—alpha channels, `rgba()` triplets, values baked at authoring time. The production stylesheet knew things about my color system that no search of the repo would have surfaced.
 
-Sequence the refactor before the change. A zero-pixel ticket with grep-able acceptance criteria is the cheapest insurance in this entire workflow. Once the plumbing is provably clean, the behavior change becomes a values diff that one person can review in one sitting.
+Sequence the refactor before the change, and keep judgment separate from plumbing. A zero-pixel ticket with grep-able acceptance criteria is the cheapest insurance in this workflow, and decision checkboxes with prefilled recommendations meant the agent never had to guess what I wanted—or I to review whether it had guessed right.
 
-Separate plumbing from judgment, structurally. Decision checkboxes with prefilled recommendations meant the agent never had to guess what I wanted, and I never had to review whether it had guessed right.
+And keep the design principle the argument itself produced: coherence beats provenance. A choice you can cite and a choice you cannot are indistinguishable on screen. The viewer gets the composition, not the footnotes.
 
-And keep one design principle from the argument itself: coherence beats provenance. A choice you can cite and a choice you cannot are indistinguishable on screen. The viewer gets the composition, not the footnotes.
-
-One critique, one counter-painting, two museum scans, two self-corrections, two tickets, four decisions, nine findings, zero rendered pixels changed in the first PR, six register values in the second. The argument started with an agent telling me my deliberate choice looked like a bug. It ended with the agent's own canonical knowledge overturned by a primary source, and a color system that can prove its own consistency with a grep.
+One critique, one counter-painting, two museum scans, two self-corrections, two tickets, four decisions. The argument started with an agent telling me my deliberate choice looked like a bug. It ended with the agent's own canonical knowledge overturned by a primary source, and a color system that can prove its own consistency with a grep.

@@ -2080,8 +2080,9 @@ body.blog-page {
 .breadcrumbs .breadcrumb-current {
   color: var(--breadcrumb-current);
   /* Long current segments (post/project titles) truncate instead of
-     wrapping under the trail. */
-  max-width: 28ch;
+     wrapping under the trail. 31ch fits the longest shortTitle in use
+     ("Two Blues, One Composition", ~220px at this letter-spacing). */
+  max-width: 31ch;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
