@@ -86,6 +86,13 @@ Every page that needs a color accent uses `data-accent` on `<body>`. The
 `--accent-soft`, `--accent-text`, `--project-bg`, and the derived project
 gradient colors. `.project-page` is a layout family, not a color switch.
 
+Orthogonal to the accent is the palette *register*: `:root` carries the 1921
+plane values (the interior default), and the homepage—which uses no
+`data-accent`—opts into the high-chroma 1930 register via
+`data-palette="1930"`, passed as the `dataPalette` BaseLayout prop
+(`index.astro` only). `data-palette` selects what the plane tokens resolve
+to; `data-accent` selects which token a page accents with.
+
 | Page | Accent source |
 |---|---|
 | Blog post | `dataAccent="red"` (`BlogPost.astro`) |
