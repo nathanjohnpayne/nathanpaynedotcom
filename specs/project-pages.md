@@ -29,10 +29,7 @@ kicker: "AI × Domain × Category"
 order: 5
 screenshotAspect: "wide"
 screenshotSrc: "/images/projects/project-name-hero.png"
-accentColor: "#3366cc"
-accentColorClass: "project-page--blue"
-gradientFrom: "#dce3f0"
-gradientTo: "#f5f0e4"
+accent: "blue"                     # red | yellow | black | blue | lightblue | paper
 liveUrl: "https://example.com"     # optional—omit on pre-launch projects
 githubUrl: "https://github.com/you/repo"
 tags: ["Tag1", "Tag2", "Tag3"]
@@ -61,10 +58,7 @@ draft: false
 | `order` | number | yes | Position on the `/projects/` index grid (lower = first) |
 | `screenshotAspect` | `"wide"` \| `"narrow"` | yes | Layout variant—see below |
 | `screenshotSrc` | string | yes | Path to hero image in `public/` |
-| `accentColor` | string | yes | Hex color for accent bar, bullets, hover states |
-| `accentColorClass` | string | yes | CSS class for per-project theming |
-| `gradientFrom` | string | yes | Gradient start color (tinted toward accent) |
-| `gradientTo` | string | yes | Gradient end color (use `"#f5f0e4"` to blend into card) |
+| `accent` | enum | yes | Semantic accent token for the project. One of `red`, `yellow`, `black`, `blue`, `lightblue`, `paper`. CSS derives the actual palette values, text-safe color, page wash, and metadata gradient from this token |
 | `liveUrl` | non-empty string | no | URL for "View Live Product" CTA. Omit on pre-launch projects (status `IN PROGRESS`)—the CTA, the index card "Live ↗" link, the homepage Builds "Live ↗" link, and the `SoftwareApplication` JSON-LD entity are all suppressed when this field is missing |
 | `githubUrl` | string | yes | URL for "View on GitHub" CTA |
 | `tags` | string[] | yes | Category/technology tags |
@@ -96,7 +90,7 @@ Why this project exists. Build notes fold in here naturally
 rather than getting their own section.
 ```
 
-Bullet lists get square markers colored with `--project-accent`. Horizontal rules between sections are generated from the `## Heading` CSS—no manual `---` needed.
+Bullet lists get square markers colored with `--accent`. Horizontal rules between sections are generated from the `## Heading` CSS—no manual `---` needed.
 
 ---
 
@@ -182,36 +176,40 @@ Rendering knobs (width, fps, duration) live at the top of the script. If a futur
 
 ## Color System
 
-Each project defines its own palette via frontmatter. The palette controls:
+Each project chooses a semantic accent via frontmatter. The palette values themselves live in `src/styles/global.css`:
 
 - **Accent bar**: Left border on the hero header
-- **Gradient surface**: Background on the metadata + screenshot card
+- **Gradient surface**: Background on the metadata + screenshot card, derived from the accent
 - **Bullet markers**: Square list markers in body content
 - **Hover states**: CTA buttons and footer nav fill with accent on hover
+- **Text accents**: Links use the contrast-safe `--accent-text` derivation, not the raw plane color
 
 ### CSS custom properties
 
-The layout sets three custom properties from frontmatter:
+`BaseLayout` places `data-accent="<accent>"` on `<body>`. The global `[data-accent]` rules set or derive:
 
 ```css
---project-accent        /* accentColor—bar, bullets, hover fill */
---project-gradient-from /* gradientFrom—gradient start */
---project-gradient-to   /* gradientTo—gradient end */
+--accent                /* plane/accent color */
+--accent-contrast       /* text on accent fills */
+--accent-soft           /* translucent accent surface */
+--accent-text           /* AA-safe text color derived from accent + ink */
+--project-bg            /* page wash derived from accent + cream */
+--project-gradient-from /* metadata/screenshot gradient start, derived */
+--project-gradient-to   /* metadata/screenshot gradient end */
 ```
 
-### Choosing gradient colors
+Do not add raw hex palette values to project frontmatter. If a project needs a new accent, add a tokenized `data-accent` scope in CSS first, then use that semantic value in content.
 
-- `gradientFrom` should be a noticeably tinted version of the accent color. If it's too close to the card background (`#f5f0e4`), the gradient won't be visible.
-- `gradientTo` should always be `"#f5f0e4"` to blend into the card surface.
+### Current project accents
 
-### Current project palettes
-
-| Project | Accent | Gradient from | Gradient to |
-|---------|--------|--------------|-------------|
-| Override | `#d9b111` (gold) | `#f0e8c4` | `#f5f0e4` |
-| Device Source of Truth | `#c11d19` (red) | `#f5ddd4` | `#f5f0e4` |
-| Swipe Watch | `#223f89` (blue) | `#dce3f0` | `#f5f0e4` |
-| Friends & Family Billing | `#333333` (black) | `#dedad4` | `#f5f0e4` |
+| Project | Accent |
+|---------|--------|
+| Mergepath | `blue` |
+| Matchline | `black` |
+| Override | `yellow` |
+| Friends & Family Billing | `lightblue` |
+| Device Source of Truth | `paper` |
+| Swipe Watch | `red` |
 
 ---
 
@@ -231,7 +229,7 @@ The layout sets three custom properties from frontmatter:
 ```
 
 - **`src/pages/projects/[slug].astro`**: Dynamic route. Calls `getStaticPaths()` from the projects collection, generates JSON-LD, passes all frontmatter to `ProjectLayout`. Forwards the optional `stack` field through `stack={data.stack}`.
-- **`src/layouts/ProjectLayout.astro`**: Sets CSS custom properties on the shell. Renders `ProjectHero` with `variant={screenshotAspect}` (#470). Owns the `.metadata-surface` container that wraps `MetadataStrip` and the `<figure class="project-screenshot">`. The figure is rendered here (not in `MetadataStrip`) and contains the `<img>` plus a conditional `<figcaption class="project-stack">` when `stack` is present. The figcaption is a direct child of `<figure>` per HTML5 semantic rules.
+- **`src/layouts/ProjectLayout.astro`**: Passes the semantic `accent` to `BaseLayout`, which emits `data-accent`. CSS derives `--accent`, text-safe accent color, page wash, and metadata gradient from that attribute. Renders `ProjectHero` with `variant={screenshotAspect}` (#470). Owns the `.metadata-surface` container that wraps `MetadataStrip` and the `<figure class="project-screenshot">`. The figure is rendered here (not in `MetadataStrip`) and contains the `<img>` plus a conditional `<figcaption class="project-stack">` when `stack` is present. The figcaption is a direct child of `<figure>` per HTML5 semantic rules.
 - **`src/components/ProjectHero.astro`**: Hero header for project pages; the `variant: "wide" | "narrow"` prop sets the `.project-hero--{variant}` wrapper class (#470 merged the former HeroWide/HeroNarrow twins — their markup was identical). No screenshot—the screenshot is rendered by `ProjectLayout` below the hero. The hero does not render the `kicker` tag row; that content lives in the `Topics` column of the metadata strip below.
 - **`src/components/MetadataStrip.astro`**: Strip-only—four `<dt>`/`<dd>` pairs for topics, format, focus, and status (in that visual order). Does not own the screenshot; does not accept `screenshotSrc`/`screenshotAlt`/`screenshotAspect` props. The `topics` value is derived in `ProjectLayout` from the project's `kicker` frontmatter (split on `×` and re-joined with ` · ` to match the metadata table's separator convention). The `status` value is the project's top-level `status` enum, rendered identically on the index card kicker and in the metadata strip—single short-form vocabulary across both surfaces. The strip is always rendered as a single 4-column horizontal row on desktop and collapses responsively (2×2 at ≤768px, 1-column at ≤480px) via `.metadata-strip--grid-4` media queries.
 
@@ -273,7 +271,7 @@ The project footer matches the blog footer pattern:
 - Left: `NATHAN PAYNE · SAN FRANCISCO` in uppercase tracked tertiary text
 - Right: Two bordered CTA buttons—`← BACK TO PROJECTS` and `BACK TO HOMEPAGE →`
 - Separated from content by a 1px solid rule (ink color)
-- Button hover fills with `--project-accent`
+- Button hover fills with `--accent`
 
 ---
 

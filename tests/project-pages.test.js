@@ -112,6 +112,8 @@ describe('Project Pages — routes', () => {
   it('the homepage Projects panel keeps wayfinding labels while promoting the Built with Agents heading', () => {
     setupDOM(readDistHtml('index.html'));
 
+    expect(document.body.getAttribute('data-palette')).toBe('1930');
+
     const panel = document.querySelector('[data-panel="projects"]');
     const panelLabel = panel?.querySelector('.panel-label');
     const projectItems = [...panel.querySelectorAll('.project-item')];
@@ -181,6 +183,20 @@ describe('Project Pages — routes', () => {
     });
     expect(nonDraftSources.length).toBe(projectSlugs.length);
   });
+
+  it('project frontmatter does not carry raw palette color fields', () => {
+    const sourceFiles = readdirSync(CONTENT).filter((f) => f.endsWith('.md'));
+
+    for (const file of sourceFiles) {
+      const body = readFileSync(join(CONTENT, file), 'utf-8');
+      const fmMatch = body.match(/^---\n([\s\S]*?)\n---/);
+      const frontmatter = fmMatch ? fmMatch[1] : '';
+
+      expect(frontmatter, `${file} still declares accentColor`).not.toMatch(/^accentColor:/m);
+      expect(frontmatter, `${file} still declares gradientFrom`).not.toMatch(/^gradientFrom:/m);
+      expect(frontmatter, `${file} still declares gradientTo`).not.toMatch(/^gradientTo:/m);
+    }
+  });
 });
 
 describe('Project Pages — render', () => {
@@ -201,6 +217,16 @@ describe('Project Pages — render', () => {
         expect(strip, '.metadata-strip not found').not.toBeNull();
         const items = strip.querySelectorAll('.metadata-strip__item');
         expect(items.length).toBe(4);
+      });
+
+      it('uses the data-accent token path instead of inline palette properties', () => {
+        const body = document.body;
+        const shell = document.querySelector('main.page-shell');
+        const inlineStyle = shell?.getAttribute('style') || '';
+
+        expect(body.getAttribute('data-accent')).toBeTruthy();
+        expect(body.hasAttribute('data-palette')).toBe(false);
+        expect(inlineStyle).not.toMatch(/--accent|--project-gradient/);
       });
 
       it('renders all four metadata labels (Topics, Format, Focus, Status)', () => {

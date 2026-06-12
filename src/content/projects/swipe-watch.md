@@ -7,10 +7,7 @@ order: 5
 screenshotAspect: "narrow"
 screenshotSrc: "/images/projects/swipe-watch-hero.gif"
 muxPlaybackId: "wNCRY97981o2uDAJrJ3ExPeK379yldRRFJgUIgSYz00k"
-accentColor: "#c11d19"
 accent: "red"
-gradientFrom: "#f5ddd4"
-gradientTo: "#f5f0e4"
 liveUrl: "https://swipewatch.web.app"
 githubUrl: "https://github.com/nathanjohnpayne/swipewatch"
 tags: ["Consumer", "Streaming", "Vanilla JS"]

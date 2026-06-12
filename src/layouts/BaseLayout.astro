@@ -13,6 +13,7 @@ interface Props {
   ogType?: string;
   bodyClass?: string;
   dataAccent?: string;
+  dataPalette?: '1930';
   jsonLd?: object;
   articleMeta?: {
     published: string;
@@ -35,6 +36,7 @@ const {
   ogType = 'website',
   bodyClass,
   dataAccent,
+  dataPalette,
   jsonLd,
   articleMeta,
   noindex,
@@ -57,7 +59,7 @@ const ogImageUrl = ogImage.includes('?') ? `${ogImage}&v=${buildTime}` : `${ogIm
 ---
 
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-palette={dataPalette}>
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -173,7 +175,7 @@ const ogImageUrl = ogImage.includes('?') ? `${ogImage}&v=${buildTime}` : `${ogIm
     })();
   </script>
 </head>
-<body class={bodyClass} data-accent={dataAccent}>
+<body class={bodyClass} data-accent={dataAccent} data-palette={dataPalette}>
   <slot />
 </body>
 </html>

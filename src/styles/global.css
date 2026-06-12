@@ -33,10 +33,10 @@
 :root {
   --ink: #11100d;
   --paper: #ffffff;
-  --red: #c11d19;
-  --yellow: #d9b111;
-  --blue: #223f89;
-  --lightblue: #2080ca;
+  --red: #e8784a;
+  --yellow: #e3d477;
+  --blue: #2080ca;
+  --lightblue: var(--blue);
   --gray-plane: #dde1e5;
   --black: #11100d;
   --accent-black: #333333;
@@ -220,6 +220,12 @@
   --bp-tablet: 768px;
   --bp-stack: 1024px;
   --mondrian-max-width: 1280px;
+}
+
+[data-palette="1930"] {
+  --red: #da2418;
+  --yellow: #f0c800;
+  --blue: #0a5c9e;
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -1364,46 +1370,47 @@ body.blog-page {
    page backdrop tint. The legacy --project-accent* compatibility shim was
    removed in #439 once all chrome migrated to consuming --accent directly. */
 
+[data-accent] {
+  --accent-text: color-mix(in srgb, var(--accent) 45%, var(--ink));
+  --project-bg: color-mix(in srgb, var(--accent) 16%, var(--cream));
+  --project-gradient-from: color-mix(in srgb, var(--accent) 14%, var(--cream));
+  --project-gradient-to: var(--cream);
+}
+
 [data-accent="red"] {
   --accent: var(--red);
   --accent-contrast: var(--cream);
   --accent-soft: color-mix(in srgb, var(--accent) 12%, transparent);
-  --project-bg: #d3c6bf;
 }
 
 [data-accent="yellow"] {
   --accent: var(--yellow);
   --accent-contrast: var(--ink-warm);
   --accent-soft: color-mix(in srgb, var(--accent) 18%, transparent);
-  --project-bg: #d9d0b4;
 }
 
 [data-accent="black"] {
   --accent: var(--accent-black);
   --accent-contrast: var(--cream);
   --accent-soft: color-mix(in srgb, var(--accent) 12%, transparent);
-  --project-bg: #d1cbc2;
 }
 
 [data-accent="blue"] {
   --accent: var(--blue);
   --accent-contrast: var(--cream);
   --accent-soft: color-mix(in srgb, var(--accent) 12%, transparent);
-  --project-bg: #c7cfdf;
 }
 
 [data-accent="lightblue"] {
   --accent: var(--lightblue);
   --accent-contrast: var(--cream);
   --accent-soft: color-mix(in srgb, var(--accent) 12%, transparent);
-  --project-bg: #c4d6e6;
 }
 
 [data-accent="paper"] {
   --accent: var(--accent-paper);
   --accent-contrast: var(--cream);
   --accent-soft: color-mix(in srgb, var(--accent) 12%, transparent);
-  --project-bg: var(--gray-plane);
 }
 
 .page-shell {
@@ -1883,26 +1890,22 @@ body.blog-page {
   background: var(--accent);
 }
 
-/* Use the same contrast-corrected color the in-content links use.
- * Themes whose accent fails body-text contrast on cream (e.g. the
- * yellow Override theme) override --project-link-color with a darker
- * variant; piggyback on that here so the ol decimals stay legible. */
+/* Use the same contrast-corrected color the in-content links use. */
 .project-copy ol li::marker {
-  color: var(--project-link-color, var(--accent));
+  color: var(--project-link-color, var(--accent-text));
   font-variant-numeric: tabular-nums;
 }
 
 /* In-content links — clearly marked, accent-colored, with a hover that
    strengthens the underline. More visible than the related list, which
-   reads as a reference list rather than body copy. Themes whose accent
-   color is too light for body-copy contrast (e.g. the yellow Override
-   theme) override --project-link-color with a darker variant. */
+   reads as a reference list rather than body copy. The text color uses
+   --accent-text so red/yellow interior pages stay AA-safe on cream. */
 .project-copy a {
-  color: var(--project-link-color, var(--accent));
+  color: var(--project-link-color, var(--accent-text));
   text-decoration: underline;
   text-decoration-thickness: 1px;
   text-underline-offset: 0.22em;
-  text-decoration-color: color-mix(in srgb, var(--project-link-color, var(--accent)) 55%, transparent);
+  text-decoration-color: color-mix(in srgb, var(--project-link-color, var(--accent-text)) 55%, transparent);
   transition:
     text-decoration-color var(--motion-hover) var(--ease-standard),
     text-decoration-thickness var(--motion-hover) var(--ease-standard),
@@ -1912,18 +1915,11 @@ body.blog-page {
 .project-copy a:hover,
 .project-copy a:focus-visible {
   text-decoration-thickness: 2px;
-  text-decoration-color: var(--project-link-color, var(--accent));
+  text-decoration-color: var(--project-link-color, var(--accent-text));
 }
 
 .project-copy a code {
   color: inherit;
-}
-
-/* Override theme — yellow accent (#d9b111) fails body-text contrast on
-   the cream background. Substitute a darker ochre for in-content links
-   only; the accent bar, buttons, and list bullets stay on-brand. */
-[data-accent="yellow"] {
-  --project-link-color: #6f5500;
 }
 
 /* Related links — flat list */
@@ -1977,7 +1973,7 @@ body.blog-page {
 }
 
 .project-related__list a:hover {
-  color: var(--accent);
+  color: var(--accent-text);
   text-decoration: underline;
 }
 
@@ -2885,7 +2881,7 @@ a.tag:hover {
 }
 
 .blog-sidebar-toc-list a:hover {
-  color: var(--accent);
+  color: var(--accent-text);
 }
 
 /* Pullquotes — bordered cards with accent left border */

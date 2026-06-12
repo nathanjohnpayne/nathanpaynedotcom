@@ -7,10 +7,7 @@ order: 1
 status: "IN PROGRESS"
 screenshotAspect: "wide"
 screenshotSrc: "/images/projects/matchline-wordmark.svg"
-accentColor: "#333333"
 accent: "black"
-gradientFrom: "#dde1e5"
-gradientTo: "#f5f0e4"
 githubUrl: "https://github.com/nathanjohnpayne/matchline"
 tags: ["AI", "Product", "Career Tools", "React", "Firebase"]
 metadata:
