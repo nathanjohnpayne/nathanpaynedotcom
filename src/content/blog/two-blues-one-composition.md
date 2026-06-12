@@ -125,6 +125,24 @@ Both tickets are live, and the post-ship audit of the production CSS came back g
 
 There are still two blues on the site. One per room.
 
+```mermaid
+graph TD
+    SITE["nathanpayne.com"] --> HOME["Homepage<br/>1930 register"]
+    SITE --> INT["Interior pages<br/>1921 register"]
+    HOME --> H1["#DA2418"]
+    HOME --> H2["#F0C800"]
+    HOME --> H3["#0A5C9E"]
+    INT --> I1["#E8784A"]
+    INT --> I2["#E3D477"]
+    INT --> I3["#2080CA"]
+    style H1 fill:#DA2418,stroke:#8a1610,color:#fff
+    style H2 fill:#F0C800,stroke:#a08600,color:#333
+    style H3 fill:#0A5C9E,stroke:#063a64,color:#fff
+    style I1 fill:#E8784A,stroke:#9c4f2f,color:#fff
+    style I2 fill:#E3D477,stroke:#998e4a,color:#333
+    style I3 fill:#2080CA,stroke:#14527f,color:#fff
+```
+
 ## What I generalized
 
 Ask for data, not adjectives. An agent with a filesystem and an image library turns a taste argument into a measurement in about four seconds, and everything downstream of a measurement is a better conversation than everything downstream of a vibe.
