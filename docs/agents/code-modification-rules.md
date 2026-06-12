@@ -5,7 +5,7 @@
 #### Color
 
 Plane colors are split into two *registers* (#499/#500). `:root` carries the
-1921 register—the interior default every page uses unless it opts out:
+1921 register—the interior default for every page:
 
 ```
 --ink:        #11100d        (near-black text)
