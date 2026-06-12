@@ -3,17 +3,41 @@
 ### Design Tokens
 
 #### Color
+
+Plane colors are split into two *registers* (#499/#500). `:root` carries the
+1921 register—the interior default for every page:
+
 ```
---ink:       #11100d    (near-black text)
---paper:     #ffffff    (white background)
---red:       #c11d19    (red cell bg)
---yellow:    #d9b111    (yellow cell bg)
---blue:      #223f89    (blue cell bg)
---rule:      rgba(17, 16, 13, 0.18) (divider/border color)
---cream:     #f5f0e4    (light background)
---surface:   rgba(244, 239, 229, 0.96) (semi-transparent)
---grid-border: #1a1814  (separator color)
+--ink:        #11100d        (near-black text)
+--paper:      #ffffff        (white background)
+--red:        #e8784a        (red plane, 1921 register)
+--yellow:     #e3d477        (yellow plane, 1921 register)
+--blue:       #2080ca        (blue plane, 1921 register)
+--lightblue:  var(--blue)    (alias—resolves to the active register's blue)
+--gray-plane: #dde1e5        (gray plane)
+--rule:       var(--ink-18)  (divider/border—18% ink via the --ink-NN ramp, #466/#503)
+--cream:      #f5f0e4        (light background)
+--surface:    rgba(244, 239, 229, 0.96) (semi-transparent)
+--grid-border: #1a1814       (separator color)
 ```
+
+A `[data-palette="1930"]` block overrides the three primary planes with the
+high-chroma 1930 register:
+
+```
+--red:       #da2418
+--yellow:    #f0c800
+--blue:      #0a5c9e
+```
+
+The opt-in is per page: `BaseLayout` accepts a `dataPalette?: '1930'` prop
+and stamps `data-palette` on `<html>` and `<body>`. Only the homepage
+(`src/pages/index.astro`) passes `dataPalette="1930"`; its build-time OG
+card (`og-templates/home.astro`) passes the matching `palette="1930"` prop
+to `OgCard.astro` so `home.png` renders in the same register (#504). All
+other pages and OG cards stay on the 1921 `:root` default. Never hard-code
+register hexes in page styles—reference the tokens so `data-palette`
+controls what the plane tokens resolve to.
 
 All cells transition to a warm parchment tone when opened.
 
