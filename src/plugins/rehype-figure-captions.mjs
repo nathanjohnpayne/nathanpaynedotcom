@@ -21,6 +21,7 @@ const imageDimensions = {
   '/blog/html-mockups-as-spec/img/mondrian-inspiration.jpg': { width: 3543, height: 3532 },
   '/blog/html-mockups-as-spec/img/ffb-editor-mockup.png': { width: 1942, height: 1412 },
   '/blog/two-blues-one-composition/img/composition-large-blue-plane-1921.jpg': { width: 996, height: 1200 },
+  '/blog/two-blues-one-composition/img/composition-ii-red-blue-yellow-1930.jpg': { width: 1183, height: 1200 },
 };
 
 export default function rehypeFigureCaptions() {
