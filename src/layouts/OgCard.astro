@@ -17,9 +17,10 @@ interface Props {
   heading: string;
   description?: string;
   meta?: string;
+  palette?: '1930';
 }
 
-const { label, heading, description, meta } = Astro.props;
+const { label, heading, description, meta, palette } = Astro.props;
 const headingClass = [
   'og-heading',
   !description ? 'og-heading--title-only' : '',
@@ -57,7 +58,7 @@ const headingClass = [
     }
   </style>
 </head>
-<body class="og-body">
+<body class="og-body" data-palette={palette}>
   <div class="og-shell">
     <div class="og-card">
       <div class="og-content">
