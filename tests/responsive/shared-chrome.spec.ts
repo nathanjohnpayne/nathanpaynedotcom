@@ -26,16 +26,6 @@ import { test, expect, type Page } from '@playwright/test';
 
 const RED = 'rgb(232, 120, 74)'; // var(--red) #e8784a on interior pages
 const BLACK_ACCENT = 'rgb(51, 51, 51)'; // matchline's per-project accent (#333)
-// The single breadcrumb ramp (#452, AA-raised in #454) — the --breadcrumb-*
-// tokens in :root. Current is the quietest AA-passing ink on the darkest
-// breadcrumb background; links keep a visible step above it.
-const CRUMB_LINK = 'rgba(17, 16, 13, 0.68)';
-const CRUMB_LINK_HOVER = 'rgba(17, 16, 13, 0.85)';
-const CRUMB_CURRENT = 'rgba(17, 16, 13, 0.6)';
-const CRUMB_SEP = 'rgba(17, 16, 13, 0.35)';
-// The shared ink drop shadow: var(--canvas-shadow) is 0.12; .project-detail
-// reduces it to 0.1 at <=1023. Accept both alphas, reject any other.
-const CANVAS_SHADOW = /rgba\(17, 16, 13, 0\.12?\)/;
 const BREAKPOINTS = [320, 375, 800, 1440];
 
 const CANVAS_PAGES = [
@@ -56,6 +46,72 @@ async function hoverBackground(page: Page, selector: string): Promise<string> {
     (sel) => getComputedStyle(document.querySelector(sel) as Element).backgroundColor,
     selector,
   );
+}
+
+type ParsedColor = {
+  r: number;
+  g: number;
+  b: number;
+  a: number;
+};
+
+function parseComputedColor(value: string): ParsedColor | null {
+  const commaRgb = value.match(/^rgba?\(\s*([\d.]+),\s*([\d.]+),\s*([\d.]+)(?:,\s*([\d.]+))?\s*\)$/);
+  if (commaRgb) {
+    return {
+      r: Math.round(Number(commaRgb[1])),
+      g: Math.round(Number(commaRgb[2])),
+      b: Math.round(Number(commaRgb[3])),
+      a: commaRgb[4] === undefined ? 1 : Number(commaRgb[4]),
+    };
+  }
+
+  const spaceRgb = value.match(/^rgb\(\s*([\d.]+)\s+([\d.]+)\s+([\d.]+)(?:\s*\/\s*([\d.]+))?\s*\)$/);
+  if (spaceRgb) {
+    return {
+      r: Math.round(Number(spaceRgb[1])),
+      g: Math.round(Number(spaceRgb[2])),
+      b: Math.round(Number(spaceRgb[3])),
+      a: spaceRgb[4] === undefined ? 1 : Number(spaceRgb[4]),
+    };
+  }
+
+  const srgb = value.match(/^color\(srgb\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)(?:\s*\/\s*([\d.]+))?\s*\)$/);
+  if (srgb) {
+    return {
+      r: Math.round(Number(srgb[1]) * 255),
+      g: Math.round(Number(srgb[2]) * 255),
+      b: Math.round(Number(srgb[3]) * 255),
+      a: srgb[4] === undefined ? 1 : Number(srgb[4]),
+    };
+  }
+
+  return null;
+}
+
+function extractComputedColor(value: string): string | null {
+  return value.match(/color\(srgb\s+[^)]+\)|rgba?\([^)]+\)/)?.[0] ?? null;
+}
+
+function expectInkColor(value: string | null, alpha: number): void {
+  expect(value).not.toBeNull();
+  const color = parseComputedColor(value!);
+  expect(color, `Unable to parse computed color: ${value}`).not.toBeNull();
+  expect(color!.r).toBe(17);
+  expect(color!.g).toBe(16);
+  expect(color!.b).toBe(13);
+  expect(color!.a).toBeCloseTo(alpha, 3);
+}
+
+function expectInkShadow(value: string): void {
+  const colorToken = extractComputedColor(value);
+  expect(colorToken, `Unable to extract computed shadow color: ${value}`).not.toBeNull();
+  const color = parseComputedColor(colorToken!);
+  expect(color, `Unable to parse computed shadow color: ${colorToken}`).not.toBeNull();
+  expect(color!.r).toBe(17);
+  expect(color!.g).toBe(16);
+  expect(color!.b).toBe(13);
+  expect([0.1, 0.12].some((alpha) => Math.abs(color!.a - alpha) < 0.001)).toBe(true);
 }
 
 for (const width of BREAKPOINTS) {
@@ -98,7 +154,9 @@ for (const width of BREAKPOINTS) {
           // Centered: symmetric gutters (allow 2px for sub-pixel rounding).
           expect(Math.abs(result!.leftGap - result!.rightGap)).toBeLessThanOrEqual(2);
           // The shared ink drop shadow is present (full 0.12 or the <=1023 0.1).
-          expect(result!.shadow).toMatch(CANVAS_SHADOW);
+          // Compare color values, not computed-style serialization: color-mix()
+          // may produce CSS Color 4 `color(srgb ...)` strings in Chromium.
+          expectInkShadow(result!.shadow);
         });
       }
     });
@@ -128,9 +186,9 @@ for (const width of BREAKPOINTS) {
           // The ramp is the same on every page — token values, not the
           // container's inherited color (#452). Parent links sit a step
           // darker than the current segment so the hierarchy reads.
-          expect(result.link).toBe(CRUMB_LINK);
-          expect(result.current).toBe(CRUMB_CURRENT);
-          expect(result.sep).toBe(CRUMB_SEP);
+          expectInkColor(result.link, 0.68);
+          expectInkColor(result.current, 0.6);
+          expectInkColor(result.sep, 0.35);
         });
       }
 
@@ -146,7 +204,7 @@ for (const width of BREAKPOINTS) {
           const style = getComputedStyle(el);
           return { color: style.color, decoration: style.textDecorationLine };
         });
-        expect(hovered.color).toBe(CRUMB_LINK_HOVER);
+        expectInkColor(hovered.color, 0.85);
         expect(hovered.decoration).toContain('underline');
       });
     });

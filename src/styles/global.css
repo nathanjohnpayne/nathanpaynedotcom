@@ -82,6 +82,9 @@
   --sp-lg: calc(var(--su) * 2);      /* 0.84rem — section-level gaps */
   --grid-border: #1a1814;
   --cream: #f5f0e4;
+  /* Per-plane tuned mobile-panel veils; intentionally distinct from --cream. */
+  --veil-on-red: #f2ede1;
+  --veil-on-black: #efe8d8;
   --surface: rgba(244, 239, 229, 0.96);
   /* Ink-opacity ramp (#466). Alpha-keyed names (--ink-NN = NN% ink) rather
      than semantic ones: the ramp serves text, borders, backgrounds, and
@@ -93,11 +96,11 @@
      lighter voice than body-muted text. The --breadcrumb-* ramp below is
      deliberately separate (#452/#454 AA calibration), and --canvas-shadow
      (0.12) keeps its own role token. */
-  --ink-06: rgba(17, 16, 13, 0.06);  /* tint surfaces, offset shadows */
-  --ink-18: rgba(17, 16, 13, 0.18);  /* rules/dividers, hover tints */
-  --ink-32: rgba(17, 16, 13, 0.32);  /* emphasis borders, underline tint */
-  --ink-50: rgba(17, 16, 13, 0.50);  /* panel eyebrow/ribbon labels */
-  --ink-62: rgba(17, 16, 13, 0.62);  /* muted/secondary text (AA-safe on
+  --ink-06: color-mix(in srgb, var(--ink) 6%, transparent);  /* tint surfaces, offset shadows */
+  --ink-18: color-mix(in srgb, var(--ink) 18%, transparent);  /* rules/dividers, hover tints */
+  --ink-32: color-mix(in srgb, var(--ink) 32%, transparent);  /* emphasis borders, underline tint */
+  --ink-50: color-mix(in srgb, var(--ink) 50%, transparent);  /* panel eyebrow/ribbon labels */
+  --ink-62: color-mix(in srgb, var(--ink) 62%, transparent);  /* muted/secondary text (AA-safe on
                                         the light surfaces it appears on;
                                         see the #454 note below) */
   /* Semantic alias kept for the many existing var(--rule) border sites;
@@ -123,10 +126,10 @@
      AA-passing ink (0.60 ≈ 4.6:1 on the 404's composited surface, the
      darkest background the trail renders on), separators are decorative
      (aria-hidden) and exempt. The component never inherits container color. */
-  --breadcrumb-link: rgba(17, 16, 13, 0.68);
-  --breadcrumb-link-hover: rgba(17, 16, 13, 0.85);
-  --breadcrumb-current: rgba(17, 16, 13, 0.6);
-  --breadcrumb-sep: rgba(17, 16, 13, 0.35);
+  --breadcrumb-link: color-mix(in srgb, var(--ink) 68%, transparent);
+  --breadcrumb-link-hover: color-mix(in srgb, var(--ink) 85%, transparent);
+  --breadcrumb-current: color-mix(in srgb, var(--ink) 60%, transparent);
+  --breadcrumb-sep: color-mix(in srgb, var(--ink) 35%, transparent);
 
   /* Heading scale (#455): display/page/article/section tiers mirror the motion
      token pattern so page families do not hand-roll near-identical h1/h2
@@ -155,7 +158,7 @@
      (.frame/.project-detail/.blog-canvas/.resume-canvas/.error-mondrian).
      --page-gutter: the side gutter on the shells that keeps that shadow off
      the viewport edge. */
-  --canvas-shadow: 14px 14px 0 rgba(17, 16, 13, 0.12);
+  --canvas-shadow: 14px 14px 0 color-mix(in srgb, var(--ink) 12%, transparent);
   --page-gutter: 2rem;
 
   --motion-fast: 130ms;
@@ -1096,15 +1099,15 @@ a:focus-visible .link-arrow,
 }
 
 .panel--blue .blog-callout {
-  border-top-color: rgba(240, 244, 255, 0.18);
+  border-top-color: color-mix(in srgb, var(--blue-contrast) 18%, transparent);
 }
 
 .panel--blue .blog-callout-label {
-  color: rgba(240, 244, 255, 0.55);
+  color: color-mix(in srgb, var(--blue-contrast) 55%, transparent);
 }
 
 .panel--blue .blog-callout-link {
-  color: rgba(240, 244, 255, 0.55);
+  color: color-mix(in srgb, var(--blue-contrast) 55%, transparent);
 }
 
 /* When Connect panel is expanded, revert to dark text on cream bg */
@@ -1641,7 +1644,7 @@ body.blog-page {
 .project-screenshot--wide img,
 .project-screenshot--wide > svg,
 .project-screenshot--wide .project-screenshot__inner > svg {
-  border: 1px solid var(--rule, rgba(17, 16, 13, 0.12));
+  border: 1px solid var(--rule, color-mix(in srgb, var(--ink) 12%, transparent));
 }
 
 /* Black-themed projects (currently Matchline) render a wordmark SVG in
@@ -1745,8 +1748,8 @@ body.blog-page {
   padding: 0;
   border: 1px solid color-mix(in srgb, var(--cream) 72%, transparent);
   border-radius: 999px;
-  background: rgba(17, 16, 13, 0.78);
-  box-shadow: 0 0.35rem 1.2rem rgba(17, 16, 13, 0.26);
+  background: color-mix(in srgb, var(--ink) 78%, transparent);
+  box-shadow: 0 0.35rem 1.2rem color-mix(in srgb, var(--ink) 26%, transparent);
   cursor: pointer;
   transform: translate(-50%, -50%);
   transition:
@@ -1767,7 +1770,7 @@ body.blog-page {
 }
 
 .project-screenshot__mux-play:hover {
-  background: rgba(17, 16, 13, 0.9);
+  background: color-mix(in srgb, var(--ink) 90%, transparent);
   border-color: var(--cream);
   transform: translate(-50%, calc(-50% - var(--shift-small)));
 }
@@ -1938,7 +1941,7 @@ body.blog-page {
   font-size: clamp(1.05rem, 1.3vw, 1.2rem);
   line-height: var(--heading-section-line-height);
   letter-spacing: var(--heading-letter-spacing);
-  color: rgba(17, 16, 13, 0.72);
+  color: color-mix(in srgb, var(--ink) 72%, transparent);
 }
 
 .project-related__list {
@@ -2108,7 +2111,7 @@ body.blog-page {
   font-size: clamp(1.05rem, 1rem + 0.42vw, 1.4rem);
   line-height: 1.45;
   font-family: var(--font-heading);
-  color: rgba(17, 16, 13, 0.72);
+  color: color-mix(in srgb, var(--ink) 72%, transparent);
 }
 
 /* Canvas-header deck variant (#438): indented, for the project hero. Core
@@ -2225,7 +2228,7 @@ body.blog-page {
  * the existing muted treatment so it reads as secondary. See #284. */
 .post-meta:has(+ .post-meta) {
   margin-bottom: 0.225rem;
-  color: rgba(17, 16, 13, 0.92);
+  color: color-mix(in srgb, var(--ink) 92%, transparent);
 }
 
 .post-title {
@@ -2252,7 +2255,7 @@ body.blog-page {
   max-width: var(--post-measure);
   font-size: clamp(0.88rem, 0.95vw, 0.98rem);
   line-height: 1.55;
-  color: rgba(17, 16, 13, 0.78);
+  color: color-mix(in srgb, var(--ink) 78%, transparent);
   margin-bottom: 0.9rem;
 }
 
@@ -2266,7 +2269,7 @@ body.blog-page {
   display: inline-flex;
   align-items: center;
   padding: 0.2rem 0.42rem;
-  background: rgba(17, 16, 13, 0.08);
+  background: color-mix(in srgb, var(--ink) 8%, transparent);
   font-size: clamp(0.62rem, 0.74vw, 0.72rem);
   letter-spacing: 0.14em;
   text-transform: uppercase;
@@ -2773,7 +2776,7 @@ a.tag:hover {
   display: inline-flex;
   align-items: center;
   padding: 0.18rem 0.45rem;
-  background: rgba(17, 16, 13, 0.08);
+  background: color-mix(in srgb, var(--ink) 8%, transparent);
   border-radius: 2px;
   font-family: var(--font-body);
   font-size: 0.6rem;
@@ -2795,7 +2798,7 @@ a.tag:hover {
   font-size: clamp(0.58rem, 0.72vw, 0.68rem);
   letter-spacing: 0.16em;
   text-transform: uppercase;
-  color: rgba(17, 16, 13, 0.48);
+  color: color-mix(in srgb, var(--ink) 48%, transparent);
 }
 
 .blog-sidebar-meta dd {
@@ -2911,7 +2914,7 @@ a.tag:hover {
   letter-spacing: 0.14em;
   text-transform: uppercase;
   font-style: normal;
-  color: rgba(17, 16, 13, 0.48);
+  color: color-mix(in srgb, var(--ink) 48%, transparent);
 }
 
 /* Sidebar items: mermaid diagrams, images */
@@ -2937,7 +2940,7 @@ a.tag:hover {
 .blog-sidebar-caption {
   margin-top: 0.4rem;
   font-size: clamp(0.68rem, 0.78vw, 0.76rem);
-  color: rgba(17, 16, 13, 0.55);
+  color: color-mix(in srgb, var(--ink) 55%, transparent);
   line-height: 1.4;
 }
 
@@ -2945,7 +2948,7 @@ a.tag:hover {
   margin: 0;
   font-size: clamp(0.78rem, 0.85vw, 0.88rem);
   line-height: 1.5;
-  color: rgba(17, 16, 13, 0.72);
+  color: color-mix(in srgb, var(--ink) 72%, transparent);
 }
 
 /* Blog footer now uses the shared .site-footer system (#434). */
@@ -3070,7 +3073,7 @@ a.tag:hover {
 .blog-prose code {
   font-family: "SFMono-Regular", "SF Mono", Consolas, "Liberation Mono", Menlo, monospace;
   font-size: 0.88em;
-  background: rgba(17, 16, 13, 0.07);
+  background: color-mix(in srgb, var(--ink) 7%, transparent);
   padding: 0.15em 0.35em;
   border-radius: 3px;
 }
@@ -3080,7 +3083,7 @@ a.tag:hover {
   padding: 0.75rem 1rem 0.75rem 1.1rem;
   margin: 1.4rem 0 1.2rem;
   background: rgba(255, 255, 255, 0.52);
-  color: rgba(17, 16, 13, 0.82);
+  color: color-mix(in srgb, var(--ink) 82%, transparent);
   overflow-wrap: break-word;
 }
 
@@ -3174,7 +3177,7 @@ a.tag:hover {
   padding: 0.95rem 1rem;
   background: #15120e;
   color: var(--cream);
-  border: 1px solid rgba(17, 16, 13, 0.2);
+  border: 1px solid color-mix(in srgb, var(--ink) 20%, transparent);
 }
 
 .blog-code-block--light {
@@ -3207,11 +3210,11 @@ a.tag:hover {
 }
 
 .blog-code-block--light::-webkit-scrollbar-thumb {
-  background: rgba(17, 16, 13, 0.1);
+  background: color-mix(in srgb, var(--ink) 10%, transparent);
 }
 
 .blog-code-block--light:hover::-webkit-scrollbar-thumb {
-  background: rgba(17, 16, 13, 0.25);
+  background: color-mix(in srgb, var(--ink) 25%, transparent);
 }
 
 /* Syntax highlighting — Astro/Shiki css-variables mapped to original warm palette */
@@ -3232,7 +3235,7 @@ a.tag:hover {
 /* Light code blocks — muted warm palette */
 .blog-code-block--light {
   --astro-code-foreground: var(--ink);
-  --astro-code-background: rgba(17, 16, 13, 0.06);
+  --astro-code-background: var(--ink-06);
   --astro-code-token-constant: #7a5c28;
   --astro-code-token-string: #4a7a3a;
   --astro-code-token-comment: #6b6458;
@@ -3278,7 +3281,7 @@ a.tag:hover {
 .blog-diagram-node {
   width: min(100%, 22rem);
   padding: 0.7rem 0.85rem;
-  border: 1px solid rgba(17, 16, 13, 0.16);
+  border: 1px solid color-mix(in srgb, var(--ink) 16%, transparent);
   background: rgba(255, 255, 255, 0.92);
   box-shadow: 4px 4px 0 var(--ink-06);
   text-align: center;
@@ -3534,18 +3537,18 @@ a:focus-visible {
   .panel--red .about-label,
   .panel--red .now-ribbon-label,
   .panel--red .now-ribbon-date {
-    color: rgba(242, 237, 225, 0.82);
+    color: color-mix(in srgb, var(--veil-on-red) 82%, transparent);
   }
 
   .panel--red .now-ribbon {
-    border-top-color: rgba(242, 237, 225, 0.28);
+    border-top-color: color-mix(in srgb, var(--veil-on-red) 28%, transparent);
   }
 
   /* The vertical WRITING rule uses var(--rule) (dark), near-invisible on
      the red mobile base — flip it to the same light divider color as the
      ribbon above so the vertical and horizontal rules read as one system. */
   .panel--red .writing-list {
-    border-left-color: rgba(242, 237, 225, 0.28);
+    border-left-color: color-mix(in srgb, var(--veil-on-red) 28%, transparent);
   }
 
   /* Dark-blue arrow is near-invisible on the red mobile base; keep it
@@ -3557,49 +3560,49 @@ a:focus-visible {
 
   .panel--yellow .stack-label,
   .panel--yellow .stack-items {
-    color: rgba(23, 18, 8, 0.72);
+    color: color-mix(in srgb, var(--ink-warm) 72%, transparent);
   }
 
   .panel--yellow .stack-ribbon {
-    border-top-color: rgba(23, 18, 8, 0.22);
+    border-top-color: color-mix(in srgb, var(--ink-warm) 22%, transparent);
   }
 
   .panel--black .impact-label,
   .panel--black .impact-items {
-    color: rgba(239, 232, 216, 0.82);
+    color: color-mix(in srgb, var(--veil-on-black) 82%, transparent);
   }
 
   .panel--black .impact-ribbon {
-    border-top-color: rgba(239, 232, 216, 0.22);
+    border-top-color: color-mix(in srgb, var(--veil-on-black) 22%, transparent);
   }
 
   /* Match the Giving vertical rule to the ribbon's light divider on the
      black mobile base (var(--rule) is invisible there). */
   .panel--black .effort-list li {
-    border-left-color: rgba(239, 232, 216, 0.22);
+    border-left-color: color-mix(in srgb, var(--veil-on-black) 22%, transparent);
   }
 
   .panel--blue .connect-label {
-    color: rgba(240, 244, 255, 0.82);
+    color: color-mix(in srgb, var(--blue-contrast) 82%, transparent);
   }
 
   .panel--blue .availability-signal {
-    color: rgba(240, 244, 255, 0.82);
+    color: color-mix(in srgb, var(--blue-contrast) 82%, transparent);
   }
 
   .panel--blue .availability-signal .p-link {
     color: var(--blue-contrast);
-    border-bottom-color: rgba(240, 244, 255, 0.48);
+    border-bottom-color: color-mix(in srgb, var(--blue-contrast) 48%, transparent);
   }
 
   .panel--blue .availability-signal .p-link:hover {
     border-bottom-color: var(--blue-contrast);
     box-shadow: inset 0 -2px 0 var(--blue-contrast);
-    background-color: rgba(240, 244, 255, 0.12);
+    background-color: color-mix(in srgb, var(--blue-contrast) 12%, transparent);
   }
 
   .panel--blue .social-row {
-    border-color: rgba(240, 244, 255, 0.18);
+    border-color: color-mix(in srgb, var(--blue-contrast) 18%, transparent);
   }
 
   .panel--blue .s-icon,
@@ -3608,7 +3611,7 @@ a:focus-visible {
   }
 
   .project-detail {
-    box-shadow: 8px 8px 0 rgba(17, 16, 13, 0.1);
+    box-shadow: 8px 8px 0 color-mix(in srgb, var(--ink) 10%, transparent);
   }
 
   .blog-meta-bar dl {
@@ -3823,7 +3826,7 @@ body.resume-page {
   font-size: clamp(0.58rem, 0.72vw, 0.68rem);
   letter-spacing: 0.16em;
   text-transform: uppercase;
-  color: rgba(17, 16, 13, 0.48);
+  color: color-mix(in srgb, var(--ink) 48%, transparent);
 }
 .resume-canvas-meta dd {
   font-family: var(--font-heading);
@@ -3840,7 +3843,7 @@ body.resume-page {
   display: inline-flex;
   align-items: center;
   padding: 0.18rem 0.45rem;
-  background: rgba(17, 16, 13, 0.08);
+  background: color-mix(in srgb, var(--ink) 8%, transparent);
   border-radius: 2px;
   font-family: var(--font-body);
   font-size: 0.6rem;
@@ -3968,7 +3971,7 @@ body.resume-page {
   font-style: italic;
   font-size: clamp(1.1rem, 1rem + 0.5vw, 1.5rem);
   line-height: 1.28;
-  color: rgba(17, 16, 13, 0.78);
+  color: color-mix(in srgb, var(--ink) 78%, transparent);
 }
 
 .resume-contact {
@@ -3979,7 +3982,7 @@ body.resume-page {
   margin-top: 0.9rem;
   font-size: clamp(0.82rem, 0.8rem + 0.12vw, 0.92rem);
   line-height: 1.55;
-  color: rgba(17, 16, 13, 0.66);
+  color: color-mix(in srgb, var(--ink) 66%, transparent);
 }
 
 .resume-contact--profiles {
@@ -3987,7 +3990,7 @@ body.resume-page {
 }
 
 .resume-contact__sep {
-  color: rgba(17, 16, 13, 0.3);
+  color: color-mix(in srgb, var(--ink) 30%, transparent);
   user-select: none;
 }
 
@@ -4208,7 +4211,7 @@ body.resume-page {
 .resume-skills__values {
   font-size: clamp(0.9rem, 0.88rem + 0.12vw, 0.98rem);
   line-height: 1.5;
-  color: rgba(17, 16, 13, 0.82);
+  color: color-mix(in srgb, var(--ink) 82%, transparent);
 }
 
 /* 560px is a documented one-off, not a --bp-* token (#473): the
@@ -4324,7 +4327,7 @@ body.resume-page {
   margin-top: 0.4rem;
   font-size: clamp(0.9rem, 0.88rem + 0.12vw, 0.98rem);
   line-height: 1.55;
-  color: rgba(17, 16, 13, 0.82);
+  color: color-mix(in srgb, var(--ink) 82%, transparent);
 }
 
 /* The gap to the first project entry lives here because
@@ -4338,7 +4341,7 @@ body.resume-page {
   font-size: clamp(0.74rem, 0.9vw, 0.82rem);
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: rgba(17, 16, 13, 0.55);
+  color: color-mix(in srgb, var(--ink) 55%, transparent);
 }
 
 .resume-writing__essays {
