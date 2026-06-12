@@ -2,9 +2,9 @@
 /**
  * ProjectLayout — page layout for project detail pages (#470).
  *
- * Wraps BaseLayout and owns the project-page shell: it sets the accent
- * custom properties (`--accent`, `--project-gradient-*`) on the
- * `.page-shell`, renders ProjectHero (variant derived from
+ * Wraps BaseLayout and owns the project-page shell: it passes the
+ * semantic accent to BaseLayout, lets CSS derive the palette from
+ * `data-accent`, renders ProjectHero (variant derived from
  * `screenshotAspect`, so the hero modifier always matches the screenshot
  * treatment), then the `.metadata-surface` with MetadataStrip and the
  * screenshot figure (ProjectMuxPlayer: Mux video / GIF / static image
@@ -34,10 +34,7 @@ interface Props {
   headline: string;
   deck: string;
   breadcrumbLabel: string;
-  accent: string;
-  accentColor: string;
-  gradientFrom: string;
-  gradientTo: string;
+  accent: 'red' | 'yellow' | 'black' | 'blue' | 'lightblue' | 'paper';
   screenshotAspect: 'wide' | 'narrow';
   screenshotSrc: string;
   muxPlaybackId?: string;
@@ -67,9 +64,6 @@ const {
   deck,
   breadcrumbLabel,
   accent,
-  accentColor,
-  gradientFrom,
-  gradientTo,
   screenshotAspect,
   screenshotSrc,
   muxPlaybackId,
@@ -109,10 +103,7 @@ const topics = kicker.split(/\s*×\s*/).join(' · ');
   ogImageHeight={ogImageHeight}
   ogImageAlt={ogImageAlt}
 >
-  <main
-    class="page-shell"
-    style={`--accent: ${accentColor}; --project-gradient-from: ${gradientFrom}; --project-gradient-to: ${gradientTo};`}
-  >
+  <main class="page-shell">
     <article class="project-detail page-canvas">
 
       <ProjectHero

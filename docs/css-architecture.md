@@ -79,29 +79,32 @@ These are site-wide primitives; the `project-` prefix obscures that.
 `project-breadcrumbs → breadcrumbs`, `project-deck → deck`. `project-*` is
 reserved for genuinely project-only styling.
 
-### Accent conflated with page type
+### Accent is page-type agnostic
 
-`.project-page--{color}` is borrowed purely as an accent switch—it sets
-`--project-accent` / `--project-accent-foreground` / `--project-accent-soft`
-(`global.css:1224-1262`). Consumers that are not project pages opt in only for
-the color:
+Every page that needs a color accent uses `data-accent` on `<body>`. The
+`[data-accent]` rules in `global.css` set `--accent`, `--accent-contrast`,
+`--accent-soft`, `--accent-text`, `--project-bg`, and the derived project
+gradient colors. `.project-page` is a layout family, not a color switch.
 
-| Page | `bodyClass` |
+Orthogonal to the accent is the palette *register*: `:root` carries the 1921
+plane values (the interior default), and the homepage—which uses no
+`data-accent`—opts into the high-chroma 1930 register via
+`data-palette="1930"`, passed as the `dataPalette` BaseLayout prop
+(`index.astro` only). `data-palette` selects what the plane tokens resolve
+to; `data-accent` selects which token a page accents with.
+
+| Page | Accent source |
 |---|---|
-| Blog post | `project-page project-page--red blog-page` (`BlogPost.astro:142`) |
-| Blog index | `project-page project-page--blue blog-page` (`blog/index.astro:53`) |
-| Projects index | `project-page project-page--yellow blog-page` (`projects/index.astro:36`) |
-| 404 | `project-page project-page--red` (`404.astro:8`) |
-| Project detail | `project-page ${accentColorClass}` (`ProjectLayout.astro:88`) |
-| Resume | `resume-page`, with `--project-accent: var(--red)` hard-set (`global.css:3614`) |
+| Blog post | `dataAccent="red"` (`BlogPost.astro`) |
+| Blog index | `dataAccent="blue"` (`blog/index.astro`) |
+| Projects index | `dataAccent="yellow"` (`projects/index.astro`) |
+| 404 | `dataAccent="red"` (`404.astro`) |
+| Project detail | project frontmatter `accent`, passed through `ProjectLayout.astro` |
+| Resume | `dataAccent="red"` (`resume.astro`) |
 
-Project detail's per-project color comes from frontmatter:
-`accentColorClass` (`src/content.config.ts:15`), set in the 6
-`src/content/projects/*.md` files (e.g. `accentColorClass: "project-page--red"`).
-
-→ **Target:** a page-type-agnostic accent API (`data-accent="red|…"` or
-`.theme--{color}`) that sets `--accent`. `.project-page` no longer doubles as
-the accent switch; project detail maps `accentColorClass` → the same API.
+Project frontmatter carries only the semantic `accent` value. Raw palette hexes
+and gradient fields are intentionally absent; palette values derive from CSS
+tokens so the 1921/1930 register split can be controlled centrally.
 
 ## Target tokens
 

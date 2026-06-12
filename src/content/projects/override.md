@@ -6,10 +6,7 @@ kicker: "AI × Finance × Theater"
 order: 2
 screenshotAspect: "wide"
 screenshotSrc: "/images/projects/override-hero.png"
-accentColor: "#d9b111"
 accent: "yellow"
-gradientFrom: "#f0e8c4"
-gradientTo: "#f5f0e4"
 liveUrl: "https://overridebroadway.com"
 githubUrl: "https://github.com/nathanjohnpayne/overridebroadway"
 tags: ["Finance", "Theater", "React", "Firebase"]

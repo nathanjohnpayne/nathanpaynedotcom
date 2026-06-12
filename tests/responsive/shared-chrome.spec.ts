@@ -24,7 +24,7 @@ import { test, expect, type Page } from '@playwright/test';
  * There are no baselines to update — the assertions are the contract.
  */
 
-const RED = 'rgb(193, 29, 25)'; // var(--red) #c11d19
+const RED = 'rgb(232, 120, 74)'; // var(--red) #e8784a on interior pages
 const BLACK_ACCENT = 'rgb(51, 51, 51)'; // matchline's per-project accent (#333)
 // The single breadcrumb ramp (#452, AA-raised in #454) — the --breadcrumb-*
 // tokens in :root. Current is the quietest AA-passing ink on the darkest

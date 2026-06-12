@@ -127,6 +127,7 @@ Static assets (favicons, robots.txt, OG fonts) live in `public/` and are copied 
 
 - Blog posts use Astro Content Collections with a Zod schema defined in `src/content.config.ts`.
 - Frontmatter includes: `title`, `shortTitle` (optional), `description`, `author`, `date`, `tags`, `image`, `draft`, `pullquotes`, `sidebar`.
+- Project posts choose a semantic `accent` token (`red`, `yellow`, `black`, `blue`, `lightblue`, `paper`). Do not add raw project palette hex fields such as `accentColor`, `gradientFrom`, or `gradientTo`; CSS derives those colors from `data-accent`.
 - Custom Remark plugin converts ` ```mermaid ` code blocks to `<pre class="mermaid">` for client-side rendering.
 - Custom Rehype plugin wraps standalone images in `<figure>` with auto-numbered `<figcaption>`.
 
