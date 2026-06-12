@@ -86,16 +86,15 @@ function readingTime(body: string | undefined): string {
       {/* ── Mondrian Blog Grid ──
            Mirrors the /projects index: every post flows through the same
            six-row accent sequence by index, restarting for row 7+, so the
-           accent colors repeat exactly as they do on /projects. Two
-           blog-specific overlays: the newest post's blue cell carries the
-           vertical "Latest" label, and the final post swaps its row's
-           last accent cell for the RSS subscribe block — pinning the
-           subscription to the last row without breaking the cycle. */}
+           accent colors repeat exactly as they do on /projects — the last
+           post included. Two blog-specific additions: the newest post's
+           blue cell carries the vertical "Latest" label, and a dedicated
+           subscribe band closes the grid so the RSS block never displaces
+           a post's accent cell. */}
       <div class="blog-grid">
 
         {posts.map((post, i) => {
           const row = blogIndexRows[i % blogIndexRows.length];
-          const isLast = i === posts.length - 1;
           const card = (
             <article class="post-card">
               <p class="post-meta">{formatDate(post.data.date)} &middot; {readingTime(post.body)}</p>
@@ -105,17 +104,10 @@ function readingTime(body: string | undefined): string {
             </article>
           );
 
-          const rssCell = (
-            <div class="accent-cream">
-              <a href="/rss.xml" class="rss-link">Subscribe via RSS &rarr;</a>
-            </div>
-          );
-
           return (
             <div class={row.rowClass}>
               {card}
-              {row.accentClasses.map((accentClass, j) => {
-                if (isLast && j === row.accentClasses.length - 1) return rssCell;
+              {row.accentClasses.map((accentClass) => {
                 if (i === 0 && accentClass === 'accent-blue') return (
                   <div class="accent-blue" aria-hidden="true">
                     <span class="accent-blue-label">Latest</span>
@@ -126,6 +118,12 @@ function readingTime(body: string | undefined): string {
             </div>
           );
         })}
+
+        <div class="grid-row--rss">
+          <div class="accent-cream">
+            <a href="/rss.xml" class="rss-link">Subscribe via RSS &rarr;</a>
+          </div>
+        </div>
 
       </div>
 

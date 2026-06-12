@@ -2190,6 +2190,16 @@ body.blog-page {
   min-height: 13rem;
 }
 
+/* Final row: full-width RSS subscribe band. Posts cycle the same
+   six-row accent sequence as /projects — the subscribe block gets its
+   own plane instead of displacing the last post's accent cell. */
+.grid-row--rss {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--line);
+  min-height: 6rem;
+}
+
 /* ── Post Cards ── */
 .post-card {
   /* Text-column measures (used by .post-title + .post-desc). Body is capped
@@ -3069,6 +3079,24 @@ a.tag:hover {
   border-radius: 3px;
 }
 
+/* Inline color chips — rehype-color-chips prepends a swatch inside any
+   inline code span that is exactly a hex color. The swatch's inline
+   background IS the content (a sampled or museum-scanned value the prose
+   is discussing), not a design token — the one place a raw hex belongs. */
+.color-chip {
+  white-space: nowrap;
+}
+
+.color-chip__swatch {
+  display: inline-block;
+  width: 0.8em;
+  height: 0.8em;
+  margin-right: 0.4em;
+  border: 1px solid var(--ink-18);
+  border-radius: 2px;
+  vertical-align: -0.05em;
+}
+
 .blog-prose blockquote {
   border-left: 3px solid var(--accent);
   padding: 0.75rem 1rem 0.75rem 1.1rem;
@@ -3625,7 +3653,8 @@ a:focus-visible {
   .grid-row--3,
   .grid-row--4,
   .grid-row--overflow-a,
-  .grid-row--overflow-b {
+  .grid-row--overflow-b,
+  .grid-row--rss {
     grid-template-columns: 1fr;
     min-height: auto;
   }
