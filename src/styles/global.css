@@ -2340,15 +2340,6 @@ a.tag:hover {
   background: var(--paper);
 }
 
-/* Overflow accent blocks — decorative only, hidden on mobile */
-.accent-overflow--cream {
-  background: var(--gray-plane);
-}
-
-.accent-overflow--yellow {
-  background: var(--yellow);
-}
-
 .rss-link {
   font-size: clamp(0.68rem, 0.82vw, 0.78rem);
   letter-spacing: 0.18em;
@@ -3646,8 +3637,7 @@ a:focus-visible {
   .accent-yellow,
   .accent-black,
   .accent-paper,
-  .accent-white,
-  .accent-overflow {
+  .accent-white {
     display: none;
   }
 
