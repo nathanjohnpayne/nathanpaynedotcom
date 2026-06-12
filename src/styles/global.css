@@ -37,8 +37,10 @@
   --yellow: #d9b111;
   --blue: #223f89;
   --lightblue: #2080ca;
+  --gray-plane: #dde1e5;
   --black: #11100d;
   --accent-black: #333333;
+  --accent-paper: #5b5f64;
   --accent-gray: #d4d4d4;
   --linkedin-blue-6: #006699;
   --linkedin-blue-4: #00A0DC;
@@ -477,7 +479,7 @@ html[data-fonts-pending] .panel-label {
   display: inline-block;
   background: var(--ink);
   color: var(--cream);
-  border: 1px solid rgba(245, 240, 228, 0.85);
+  border: 1px solid color-mix(in srgb, var(--cream) 85%, transparent);
   padding: 0.22em 0.52em 0.26em;
   line-height: 0.96;
   white-space: nowrap;
@@ -1365,43 +1367,43 @@ body.blog-page {
 [data-accent="red"] {
   --accent: var(--red);
   --accent-contrast: var(--cream);
-  --accent-soft: rgba(193, 29, 25, 0.12);
+  --accent-soft: color-mix(in srgb, var(--accent) 12%, transparent);
   --project-bg: #d3c6bf;
 }
 
 [data-accent="yellow"] {
   --accent: var(--yellow);
   --accent-contrast: var(--ink-warm);
-  --accent-soft: rgba(217, 177, 17, 0.18);
+  --accent-soft: color-mix(in srgb, var(--accent) 18%, transparent);
   --project-bg: #d9d0b4;
 }
 
 [data-accent="black"] {
   --accent: var(--accent-black);
   --accent-contrast: var(--cream);
-  --accent-soft: rgba(51, 51, 51, 0.12);
+  --accent-soft: color-mix(in srgb, var(--accent) 12%, transparent);
   --project-bg: #d1cbc2;
 }
 
 [data-accent="blue"] {
   --accent: var(--blue);
   --accent-contrast: var(--cream);
-  --accent-soft: rgba(34, 63, 137, 0.12);
+  --accent-soft: color-mix(in srgb, var(--accent) 12%, transparent);
   --project-bg: #c7cfdf;
 }
 
 [data-accent="lightblue"] {
   --accent: var(--lightblue);
   --accent-contrast: var(--cream);
-  --accent-soft: rgba(32, 128, 202, 0.12);
+  --accent-soft: color-mix(in srgb, var(--accent) 12%, transparent);
   --project-bg: #c4d6e6;
 }
 
 [data-accent="paper"] {
-  --accent: #5b5f64;
+  --accent: var(--accent-paper);
   --accent-contrast: var(--cream);
-  --accent-soft: rgba(91, 95, 100, 0.12);
-  --project-bg: #dde1e5;
+  --accent-soft: color-mix(in srgb, var(--accent) 12%, transparent);
+  --project-bg: var(--gray-plane);
 }
 
 .page-shell {
@@ -1656,13 +1658,13 @@ body.blog-page {
   border: none;
 }
 [data-accent="black"] .project-stack {
-  color: rgba(245, 240, 228, 0.78);
+  color: color-mix(in srgb, var(--cream) 78%, transparent);
 }
 [data-accent="black"] .project-stack__label {
-  color: rgba(245, 240, 228, 0.62);
+  color: color-mix(in srgb, var(--cream) 62%, transparent);
 }
 [data-accent="black"] .project-stack__value {
-  color: rgba(245, 240, 228, 0.92);
+  color: color-mix(in srgb, var(--cream) 92%, transparent);
 }
 
 /* Mux background-video rendered in the hero slot. The component picks
@@ -1734,7 +1736,7 @@ body.blog-page {
   width: 3rem;
   height: 3rem;
   padding: 0;
-  border: 1px solid rgba(245, 240, 228, 0.72);
+  border: 1px solid color-mix(in srgb, var(--cream) 72%, transparent);
   border-radius: 999px;
   background: rgba(17, 16, 13, 0.78);
   box-shadow: 0 0.35rem 1.2rem rgba(17, 16, 13, 0.26);
@@ -2208,7 +2210,7 @@ body.blog-page {
 
 .post-card:hover,
 .post-card:focus-within {
-  box-shadow: inset 0 0 0 2px rgba(34, 63, 137, 0.18);
+  box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--blue) 18%, transparent);
   transition: box-shadow var(--motion-hover) var(--ease-standard);
 }
 
@@ -2314,10 +2316,10 @@ a.tag:hover {
   background: var(--yellow);
 }
 
-/* RSS subscribe cell. Uses the paper accent (#DDE1E5) so the blog's
+/* RSS subscribe cell. Uses the gray plane token so the blog's
    last row matches the /projects last cell. */
 .accent-cream {
-  background: #DDE1E5;
+  background: var(--gray-plane);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2328,7 +2330,7 @@ a.tag:hover {
 }
 
 .accent-paper {
-  background: #DDE1E5;
+  background: var(--gray-plane);
 }
 
 .accent-lightblue {
@@ -2341,7 +2343,7 @@ a.tag:hover {
 
 /* Overflow accent blocks — decorative only, hidden on mobile */
 .accent-overflow--cream {
-  background: #DDE1E5;
+  background: var(--gray-plane);
 }
 
 .accent-overflow--yellow {
@@ -3175,7 +3177,7 @@ a.tag:hover {
   -webkit-overflow-scrolling: touch;
   padding: 0.95rem 1rem;
   background: #15120e;
-  color: #f5f0e4;
+  color: var(--cream);
   border: 1px solid rgba(17, 16, 13, 0.2);
 }
 
@@ -3218,7 +3220,7 @@ a.tag:hover {
 
 /* Syntax highlighting — Astro/Shiki css-variables mapped to original warm palette */
 .blog-code-block {
-  --astro-code-foreground: #f5f0e4;
+  --astro-code-foreground: var(--cream);
   --astro-code-background: #15120e;
   --astro-code-token-constant: #d4a5b0;
   --astro-code-token-string: #a3c493;
@@ -3371,7 +3373,7 @@ a.tag:hover {
 
 /* Blue Connect panel needs a stronger pulse than the default keyframe.
    brightness(1.08) saturate(1.05) is calibrated for the saturated red and
-   yellow panels; on the dark navy blue (#223f89) it's barely perceptible.
+   yellow panels; on the dark navy blue token it's barely perceptible.
    1.22 brightness with a small saturate bump produces a flash readable in
    the same range as the red and yellow panels' pulses, restoring the
    "navigation hint" cue across all four primaries. (#330) */
