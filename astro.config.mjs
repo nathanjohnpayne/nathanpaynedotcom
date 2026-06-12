@@ -5,6 +5,7 @@ import ogImages from './src/integrations/og-images.mjs';
 import robotsSitemap from './src/integrations/robots-sitemap.mjs';
 import remarkMermaid from './src/plugins/remark-mermaid.mjs';
 import rehypeFigureCaptions from './src/plugins/rehype-figure-captions.mjs';
+import rehypeColorChips from './src/plugins/rehype-color-chips.mjs';
 
 // https://astro.build/config
 export default defineConfig({
@@ -30,7 +31,7 @@ export default defineConfig({
   },
   markdown: {
     remarkPlugins: [remarkMermaid],
-    rehypePlugins: [rehypeFigureCaptions],
+    rehypePlugins: [rehypeFigureCaptions, rehypeColorChips],
     shikiConfig: {
       theme: 'css-variables',
       transformers: [

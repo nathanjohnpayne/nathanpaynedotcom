@@ -12,6 +12,19 @@ const BLOG_DESCRIPTION = 'A product manager’s notes on shipping real systems w
 const posts = (await getCollection('blog', ({ data }) => !data.draft))
   .sort((a, b) => b.data.date.getTime() - a.data.date.getTime());
 
+// Same six-row Mondrian sequence as /projects (see projectIndexRows in
+// src/pages/projects/index.astro and the golden copy in
+// tests/project-pages.test.js), restarting for row 7+ so the two
+// indexes repeat their accent colors identically.
+const blogIndexRows = [
+  { rowClass: 'grid-row--1', accentClasses: ['accent-red', 'accent-blue'] },
+  { rowClass: 'grid-row--2', accentClasses: ['accent-black'] },
+  { rowClass: 'grid-row--3', accentClasses: ['accent-white'] },
+  { rowClass: 'grid-row--4', accentClasses: ['accent-yellow', 'accent-paper'] },
+  { rowClass: 'grid-row--overflow-a', accentClasses: ['accent-lightblue'] },
+  { rowClass: 'grid-row--overflow-b', accentClasses: ['accent-red'] },
+];
+
 const jsonLd = {
   "@context": "https://schema.org",
   "@graph": [
@@ -71,16 +84,17 @@ function readingTime(body: string | undefined): string {
       </header>
 
       {/* ── Mondrian Blog Grid ──
-           Mirrors the /projects index: every post flows through one map
-           by index (rows 1–4, then alternating overflow), so the row
-           pattern matches /projects. The final post keeps its by-index
-           row layout but swaps its last accent cell for the RSS subscribe
-           block — pinning the subscription to the last row without
-           breaking the repeating column pattern. */}
+           Mirrors the /projects index: every post flows through the same
+           six-row accent sequence by index, restarting for row 7+, so the
+           accent colors repeat exactly as they do on /projects — the last
+           post included. Two blog-specific additions: the newest post's
+           blue cell carries the vertical "Latest" label, and a dedicated
+           subscribe band closes the grid so the RSS block never displaces
+           a post's accent cell. */}
       <div class="blog-grid">
 
         {posts.map((post, i) => {
-          const isLast = i === posts.length - 1;
+          const row = blogIndexRows[i % blogIndexRows.length];
           const card = (
             <article class="post-card">
               <p class="post-meta">{formatDate(post.data.date)} &middot; {readingTime(post.body)}</p>
@@ -90,53 +104,26 @@ function readingTime(body: string | undefined): string {
             </article>
           );
 
-          // The final post keeps its by-index row layout (matching the
-          // /projects pattern) but swaps its last accent cell for the RSS
-          // subscribe block, pinning the subscription to the last row.
-          const rssCell = (
-            <div class="accent-cream">
-              <a href="/rss.xml" class="rss-link">Subscribe via RSS &rarr;</a>
-            </div>
-          );
-
-          // Row 1: featured post | red | blue with vertical "Latest" label.
-          if (i === 0) return (
-            <div class="grid-row--1">
-              {card}
-              <div class="accent-red" aria-hidden="true"></div>
-              {isLast ? rssCell : (
-                <div class="accent-blue" aria-hidden="true">
-                  <span class="accent-blue-label">Latest</span>
-                </div>
-              )}
-            </div>
-          );
-          if (i === 1) return (
-            <div class="grid-row--2">
-              {card}
-              {isLast ? rssCell : <div class="accent-black" aria-hidden="true"></div>}
-            </div>
-          );
-          if (i === 2) return (
-            <div class="grid-row--3">
-              {card}
-              {isLast ? rssCell : <div class="accent-white" aria-hidden="true"></div>}
-            </div>
-          );
-          if (i === 3) return (
-            <div class="grid-row--4">
-              {card}
-              <div class="accent-yellow" aria-hidden="true"></div>
-              {isLast ? rssCell : <div class="accent-paper" aria-hidden="true"></div>}
-            </div>
-          );
           return (
-            <div class={i % 2 === 0 ? 'grid-row--overflow-a' : 'grid-row--overflow-b'}>
+            <div class={row.rowClass}>
               {card}
-              {isLast ? rssCell : <div class={i % 2 === 0 ? 'accent-overflow accent-overflow--cream' : 'accent-overflow accent-overflow--yellow'} aria-hidden="true"></div>}
+              {row.accentClasses.map((accentClass) => {
+                if (i === 0 && accentClass === 'accent-blue') return (
+                  <div class="accent-blue" aria-hidden="true">
+                    <span class="accent-blue-label">Latest</span>
+                  </div>
+                );
+                return <div class={accentClass} aria-hidden="true"></div>;
+              })}
             </div>
           );
         })}
+
+        <div class="grid-row--rss">
+          <div class="accent-cream">
+            <a href="/rss.xml" class="rss-link">Subscribe via RSS &rarr;</a>
+          </div>
+        </div>
 
       </div>
 
