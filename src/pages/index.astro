@@ -711,7 +711,7 @@ const homepageJsonLd = {
       panels.forEach((panel) => {
         let tracked = false;
         panel.addEventListener('mouseenter', () => {
-          if (tracked || typeof gtag !== 'function') return;
+          if (!canHover() || tracked || typeof gtag !== 'function') return;
           tracked = true;
           gtag('event', 'section_view', {
             section_name: panel.dataset.panel,

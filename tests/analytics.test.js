@@ -86,6 +86,31 @@ describe('Analytics', () => {
     }).not.toThrow();
   });
 
+  it('does not fire section_view on non-hover devices', () => {
+    Object.defineProperty(window, 'matchMedia', {
+      writable: true,
+      value: vi.fn((query) => ({
+        matches: query.includes('max-width: 1023px'),
+        media: query,
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+        addListener: vi.fn(),
+        removeListener: vi.fn(),
+        onchange: null,
+        dispatchEvent: vi.fn(),
+      })),
+    });
+    const gtagMock = vi.fn();
+    window.gtag = gtagMock;
+
+    loadScript();
+
+    const panel = document.querySelector('[data-panel="about"]');
+    panel.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
+
+    expect(gtagMock).not.toHaveBeenCalledWith('event', 'section_view', expect.any(Object));
+  });
+
   it('guards analytics with typeof check', () => {
     expect(panelScript).toContain("typeof gtag !== 'function'");
   });
