@@ -275,4 +275,12 @@ const jsonLd = {
       },
     });
   </script>
+
+  <script is:inline define:vars={{ postTitle: title, postTags: tags, postReadingTime: readingTime }}>
+    window.posthog?.capture('blog_post_viewed', {
+      post_title: postTitle,
+      tags: postTags,
+      reading_time: postReadingTime
+    });
+  </script>
 </BaseLayout>

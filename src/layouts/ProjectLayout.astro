@@ -166,4 +166,12 @@ const topics = kicker.split(/\s*×\s*/).join(' · ');
 
     </article>
   </main>
+
+  <script is:inline define:vars={{ projectSlug: slug, projectTitle: headline, projectStatus: status }}>
+    window.posthog?.capture('project_page_viewed', {
+      project_slug: projectSlug,
+      project_title: projectTitle,
+      project_status: projectStatus
+    });
+  </script>
 </BaseLayout>

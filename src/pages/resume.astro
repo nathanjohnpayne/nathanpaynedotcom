@@ -243,4 +243,8 @@ const jsonLd = {
 
     </article>
   </main>
+
+  <script is:inline>
+    window.posthog?.capture('resume_viewed');
+  </script>
 </BaseLayout>

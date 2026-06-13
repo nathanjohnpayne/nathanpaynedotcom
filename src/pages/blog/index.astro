@@ -135,4 +135,13 @@ function readingTime(body: string | undefined): string {
       />
     </div>
   </main>
+
+  <script is:inline>
+    const rssLink = document.querySelector('.rss-link');
+    if (rssLink) {
+      rssLink.addEventListener('click', function () {
+        window.posthog?.capture('rss_subscribe_clicked');
+      });
+    }
+  </script>
 </BaseLayout>
