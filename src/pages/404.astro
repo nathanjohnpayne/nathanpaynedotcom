@@ -16,10 +16,17 @@ import Breadcrumbs from '../components/Breadcrumbs.astro';
         <Breadcrumbs items={[{ label: "Nathan Payne", href: "/" }, { label: "404" }]} />
         <h1>Page not found</h1>
         <p class="deck">The page you're looking for doesn't exist or has been moved.</p>
+        {/*
+          Canonical wayfinding labels (see #524): these match the navigation
+          labels used elsewhere — "Projects" (homepage panel + project index
+          breadcrumb) and "Blog" (homepage social row + blog breadcrumb). They
+          intentionally differ from the editorial H1s ("Built with Agents",
+          "The AI-Augmented PM"). Guarded by tests/nav-labels.test.js.
+        */}
         <div class="project-actions">
           <a class="nav-button" href="/">Homepage</a>
           <a class="nav-button" href="/resume/">Résumé</a>
-          <a class="nav-button" href="/projects/">Builds</a>
+          <a class="nav-button" href="/projects/">Projects</a>
           <a class="nav-button" href="/blog/">Blog</a>
         </div>
       </div>
