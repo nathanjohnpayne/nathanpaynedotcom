@@ -126,7 +126,8 @@ export default function robotsSitemap() {
           throw new Error(
             `robots-sitemap: dist/robots.txt not found. ` +
               `Expected a public/robots.txt source file to copy through. ` +
-              `(${err.code || err.message})`
+              `(${err.code || err.message})`,
+            { cause: err }
           );
         }
 
