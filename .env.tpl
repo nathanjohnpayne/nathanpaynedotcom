@@ -18,3 +18,11 @@ PUBLIC_LOGODEV_KEY={{ op://Private/rtvfyomcqjigt6ezaycht3vy6i/publishable API ke
 # at build time, PostHog does not initialize — no analytics, no errors. The
 # personal API key (phx_…) is a true secret and is NOT stored here.
 PUBLIC_POSTHOG_PROJECT_TOKEN={{ op://Private/hghd53g7z4fldgqf4d7kgr22ue/project token }}
+
+# Google Analytics 4 Measurement ID — public client identifier (served in page
+# JS), the same class as PUBLIC_LOGODEV_KEY and the PostHog token. Safe to ship
+# in the static HTML output, but must come from env, never committed
+# (rules/repo_rules.md § No committed secrets). Drives GA4 via
+# src/layouts/BaseLayout.astro. If unset at build time, the GA tags are not
+# rendered and GA never loads.
+PUBLIC_GA_MEASUREMENT_ID={{ op://Private/k275utmce46w234q3m4c3bc2yi/measurement id }}

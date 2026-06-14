@@ -77,7 +77,7 @@ Narrative order: **Identity → Work → Community → Contact**
 Edit the relevant panel section in `src/pages/index.astro`. About content is in the red panel, Community content is in the black panel.
 
 ### Analytics
-Google Analytics 4 via `gtag.js`, property `G-7C29SRBXB1`. Events:
+Google Analytics 4 via `gtag.js` (property env-injected via `PUBLIC_GA_MEASUREMENT_ID`, not hardcoded). Events:
 
 | Event | Trigger | Parameters |
 |-------|---------|------------|
