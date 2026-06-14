@@ -21,7 +21,6 @@ playwright-report/
 # Claude Code local settings
 .claude/settings.local.json
 .claude/launch.json
-package-lock.json
 .claude/worktrees/
 screenshots/*
 !screenshots/og/
