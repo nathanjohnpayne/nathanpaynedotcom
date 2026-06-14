@@ -3,9 +3,10 @@
 //
 // The project token below is PostHog's *public* (write-only) ingest key. Like
 // the GA Measurement ID hardcoded in BaseLayout.astro, it is a public
-// identifier — safe to commit (see rules/repo_rules.md "GA Measurement IDs are
-// public identifiers; anything write-capable is not"). It is hardcoded rather
-// than read from a PUBLIC_* env var so the value is present in every build
+// identifier — safe to commit under the documented credential-hygiene
+// exception in docs/agents/code-modification-rules.md § Credential Hygiene
+// (write-only, served in page JS to every visitor, public-by-design). It is
+// hardcoded rather than read from a PUBLIC_* env var so the value is present in every build
 // path (CI, a fresh checkout, the manual deploy) — this repo has no
 // .env.tpl/op-inject pipeline wired for PUBLIC_* vars (DEPLOYMENT.md: "There
 // are no current PUBLIC_* vars"). A personal API key (phx_…) is never used or

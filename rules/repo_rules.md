@@ -38,7 +38,7 @@ The following tool config directories must contain only configuration—no instr
 - **Astro is the framework.** The site uses Astro for static site generation. Do not introduce additional frameworks, client-side runtimes, or bundlers without explicit discussion and a `plans/` entry.
 - **No hard-coded motion values.** All CSS durations and easing functions must use the motion token variables defined in `:root`. No bare `ms` values or bare `ease` keywords anywhere.
 - **No instruction files in tool folders.** `.claude/` and `.cursor/` must not contain plain `.md` or `.txt` instruction files. Cursor `.mdc` rule files are permitted as valid Cursor configuration format.
-- **No committed secrets.** API keys, service account JSON, ADC credentials, and tokens must never be committed. GA Measurement IDs are public identifiers; anything write-capable is not.
+- **No committed secrets.** API keys, service account JSON, ADC credentials, and tokens must never be committed. GA Measurement IDs are public identifiers; anything write-capable is not — with one explicitly documented exception: the PostHog `phc_` project (client) ingest key, a public, browser-side, write-only key in the same class as the GA Measurement ID (full rationale and residual-risk notes in `docs/agents/code-modification-rules.md` § Credential Hygiene). PostHog `phx_` personal keys remain secret and must never be committed.
 - **No duplicate documentation.** If a concept is documented in `AGENTS.md` or a canonical root file, it must not be redefined in a conflicting location.
 - **No new top-level directories** without explicit justification documented in `AGENTS.md` or a `plans/` entry.
 - **Tests must not be deleted to force a build to pass.**
