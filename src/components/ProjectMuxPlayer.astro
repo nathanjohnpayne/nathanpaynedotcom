@@ -149,7 +149,7 @@ if (isSvgFallback) {
 
 <script>
   const muxHero = document.querySelector('mux-background-video');
-  const muxFrame = muxHero?.closest('[data-mux-hero]');
+  const muxFrame = muxHero?.closest<HTMLElement>('[data-mux-hero]');
   const gifFallback = muxFrame?.querySelector('[data-src]');
   const playButton = muxFrame?.querySelector('[data-mux-play]');
   // Long enough for Safari/WebKit to prove real frame progress on slower
@@ -203,7 +203,7 @@ if (isSvgFallback) {
     }
   }
 
-  function markPlaybackProgress(timer) {
+  function markPlaybackProgress(timer: number) {
     if (!muxFrame) return;
 
     window.clearTimeout(timer);
@@ -211,7 +211,7 @@ if (isSvgFallback) {
     hidePlayButton();
   }
 
-  function requestManualPlayback(video) {
+  function requestManualPlayback(video: HTMLVideoElement) {
     if (!muxFrame) return;
 
     // Explicit request: the user opted into motion, so the normal
@@ -311,9 +311,9 @@ if (isSvgFallback) {
   }
 
   function loadMuxEmbed() {
-    if (globalThis.mux) return Promise.resolve();
+    if ((globalThis as Record<string, unknown>).mux) return Promise.resolve();
 
-    const existingScript = document.querySelector('script[data-mux-embed]');
+    const existingScript = document.querySelector<HTMLScriptElement>('script[data-mux-embed]');
     if (existingScript) {
       if (
         existingScript.dataset.muxEmbedStatus === 'loaded' ||
@@ -322,13 +322,13 @@ if (isSvgFallback) {
         return Promise.resolve();
       }
 
-      return new Promise((resolve) => {
-        existingScript.addEventListener('load', resolve, { once: true });
-        existingScript.addEventListener('error', resolve, { once: true });
+      return new Promise<void>((resolve) => {
+        existingScript.addEventListener('load', () => resolve(), { once: true });
+        existingScript.addEventListener('error', () => resolve(), { once: true });
       });
     }
 
-    return new Promise((resolve) => {
+    return new Promise<void>((resolve) => {
       const script = document.createElement('script');
       script.defer = true;
       script.dataset.muxEmbed = 'true';

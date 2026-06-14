@@ -6,6 +6,7 @@ Vitest smoke tests cover SEO metadata, blog rendering, responsive behavior, cont
 
 ```bash
 npm run lint
+npm run typecheck     # astro check
 npm run test          # astro build && vitest run
 npm run test:e2e      # playwright test
 ```

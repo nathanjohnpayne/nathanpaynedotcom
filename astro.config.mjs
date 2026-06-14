@@ -45,7 +45,7 @@ export default defineConfig({
             }
             this.addClassToHast(node, classes);
             // Remove Shiki's inline background-color and color
-            if (node.properties?.style) {
+            if (typeof node.properties?.style === 'string') {
               node.properties.style = node.properties.style
                 .replace(/background-color:\s*[^;]+;?/g, '')
                 .replace(/color:\s*[^;]+;?/g, '')

@@ -190,13 +190,14 @@ npm run build
 # Preview the production build locally
 npm run preview
 
-# Run lint and tests
+# Run lint, typecheck, and tests
 npm run lint
+npm run typecheck     # astro check
 npm run test          # astro build && vitest run
 npm run test:e2e      # playwright test
 ```
 
-`package-lock.json` is intentionally gitignored in this repo, so `npm ci` is not available; use `npm install` for local and CI dependency installation. There is no `typecheck` or `format` script at present.
+`package-lock.json` is intentionally gitignored in this repo, so `npm ci` is not available; use `npm install` for local and CI dependency installation. A `typecheck` script (`astro check`) is available; there is no `format` script at present.
 
 ---
 
