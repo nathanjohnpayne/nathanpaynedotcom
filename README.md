@@ -198,7 +198,7 @@ npm run test          # astro build && vitest run
 npm run test:e2e      # playwright test
 ```
 
-`package-lock.json` is intentionally gitignored in this repo, so `npm ci` is not available; use `npm install` for local and CI dependency installation. A `typecheck` script (`astro check`) and a `format` script (`prettier --write`, with `format:check` to verify) are available.
+`package-lock.json` is committed; use `npm ci` for clean, reproducible installs (CI and fresh clones) and `npm install` when adding or updating dependencies. A `typecheck` script (`astro check`) and a `format` script (`prettier --write`, with `format:check` to verify) are available.
 
 ---
 
