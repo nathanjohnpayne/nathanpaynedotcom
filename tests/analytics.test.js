@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { readFileSync } from 'fs';
 import { resolve } from 'path';
+import { execSync } from 'child_process';
 
 const rawHtml = readFileSync(resolve(__dirname, '../dist/index.html'), 'utf-8');
 
@@ -150,6 +151,26 @@ describe('Analytics', () => {
       new Function(gaConfig)();
       expect(typeof window.gtag).toBe('function');
     }
+  });
+
+  it('does not hardcode the GA Measurement ID anywhere in tracked files', () => {
+    // Repo-wide drift guard: the Measurement ID lives only in 1Password / env,
+    // never committed. The needle is built from parts so this assertion file
+    // does not match itself.
+    const needle = 'G-7C29' + 'SRBXB1';
+    const root = resolve(__dirname, '..');
+    const skipBinary = /\.(png|jpe?g|gif|webp|avif|ico|woff2?|ttf|otf|eot|pdf|mp4|webm|mov|zip)$/i;
+    const files = execSync('git ls-files', { cwd: root, encoding: 'utf-8' })
+      .split('\n')
+      .filter((f) => f && !skipBinary.test(f));
+    const offenders = files.filter((f) => {
+      try {
+        return readFileSync(resolve(root, f), 'utf-8').includes(needle);
+      } catch {
+        return false;
+      }
+    });
+    expect(offenders).toEqual([]);
   });
 });
 
