@@ -11,7 +11,9 @@
     "test:e2e": "playwright test",
     "deploy": "npm run build && op-firebase-deploy && scripts/cf-cache-purge.sh",
     "lint": "eslint .",
-    "typecheck": "astro check"
+    "typecheck": "astro check",
+    "format": "prettier --write \"src/**/*.{ts,js,mjs,css}\" \"tests/**/*.{ts,js}\"",
+    "format:check": "prettier --check \"src/**/*.{ts,js,mjs,css}\" \"tests/**/*.{ts,js}\""
   },
   "devDependencies": {
     "@astrojs/check": "^0.9.9",
@@ -25,6 +27,7 @@
     "globals": "^17.6.0",
     "js-yaml": "^4.1.1",
     "jsdom": "^29.0.2",
+    "prettier": "^3.8.4",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.59.3",
     "unist-util-visit": "^5.1.0",

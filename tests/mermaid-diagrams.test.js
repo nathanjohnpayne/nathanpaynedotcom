@@ -6,9 +6,7 @@ describe('remark-mermaid plugin', () => {
 
     const tree = {
       type: 'root',
-      children: [
-        { type: 'code', lang: 'mermaid', value: 'graph TD\nA --> B' },
-      ],
+      children: [{ type: 'code', lang: 'mermaid', value: 'graph TD\nA --> B' }],
     };
 
     remarkMermaid()(tree);
@@ -24,9 +22,7 @@ describe('remark-mermaid plugin', () => {
 
     const tree = {
       type: 'root',
-      children: [
-        { type: 'code', lang: 'javascript', value: 'const x = 1;' },
-      ],
+      children: [{ type: 'code', lang: 'javascript', value: 'const x = 1;' }],
     };
 
     remarkMermaid()(tree);

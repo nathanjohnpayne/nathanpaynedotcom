@@ -1,7 +1,12 @@
 import { expect, test } from '@playwright/test';
 
-test('Swipe Watch swaps to the Mux GIF fallback when the stream cannot autoplay', async ({ page }, testInfo) => {
-  test.skip(testInfo.project.name !== 'Desktop 1440', 'One viewport covers this media failure contract.');
+test('Swipe Watch swaps to the Mux GIF fallback when the stream cannot autoplay', async ({
+  page,
+}, testInfo) => {
+  test.skip(
+    testInfo.project.name !== 'Desktop 1440',
+    'One viewport covers this media failure contract.',
+  );
 
   await page.route('https://stream.mux.com/**', (route) => route.abort());
   await page.goto('/projects/swipe-watch/');
@@ -28,7 +33,9 @@ test('Swipe Watch swaps to the Mux GIF fallback when the stream cannot autoplay'
   await expect(playButton).toBeVisible();
 });
 
-test('Swipe Watch hero honors prefers-reduced-motion: no autoplay, poster + play button, GIF only after explicit play (#468)', async ({ page }, testInfo) => {
+test('Swipe Watch hero honors prefers-reduced-motion: no autoplay, poster + play button, GIF only after explicit play (#468)', async ({
+  page,
+}, testInfo) => {
   test.skip(testInfo.project.name !== 'Desktop 1440', 'One viewport covers this media contract.');
 
   // Abort the stream like the fallback test so the run is deterministic and
@@ -49,11 +56,9 @@ test('Swipe Watch hero honors prefers-reduced-motion: no autoplay, poster + play
   expect(await fallback.getAttribute('src')).toBeNull();
   expect(
     await page.evaluate(() => {
-      const v = document
-        .querySelector('mux-background-video')
-        ?.shadowRoot?.querySelector('video');
+      const v = document.querySelector('mux-background-video')?.shadowRoot?.querySelector('video');
       return v ? v.paused : null;
-    })
+    }),
   ).toBe(true);
 
   // Explicit play is an opt-in to motion: with the stream aborted, the

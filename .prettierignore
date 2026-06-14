@@ -1,0 +1,33 @@
+# Generated / vendored
+node_modules/
+dist/
+.astro/
+package-lock.json
+coverage/
+test-results/
+playwright-report/
+
+# Static assets and checked-in screenshots
+public/
+screenshots/
+bugs/
+
+# Template-synced from mergepath (owned upstream — reformatting would drift the
+# sync audit) and Do-Not-Touch build config (.ai_context.md).
+.github/
+scripts/
+astro.config.mjs
+eslint.config.js
+firebase.json
+.firebaserc
+
+# Markdown (authored content + synced docs) and YAML are not auto-formatted here.
+*.md
+*.yml
+*.yaml
+
+# .astro templates are NOT auto-formatted: Prettier's markup tag-wrapping leaks
+# insignificant whitespace into the compiled HTML, which changes element
+# textContent and breaks the site's exact-output tests (e.g.
+# tests/project-pages.test.js). Prettier formats the CSS/TS/JS/MJS instead.
+*.astro

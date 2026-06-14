@@ -74,8 +74,14 @@ describe('Resume — page structure', () => {
     expect(document.querySelectorAll('.resume-canvas').length).toBe(1);
     // The old project-style centered card is gone.
     expect(document.querySelector('.resume-document')).toBeNull();
-    expect(document.querySelector('.resume-canvas-margin--header'), 'accent margin missing').not.toBeNull();
-    expect(document.querySelector('.resume-canvas-content'), 'content column missing').not.toBeNull();
+    expect(
+      document.querySelector('.resume-canvas-margin--header'),
+      'accent margin missing',
+    ).not.toBeNull();
+    expect(
+      document.querySelector('.resume-canvas-content'),
+      'content column missing',
+    ).not.toBeNull();
     expect(document.querySelector('.resume-canvas-sidebar'), 'sidebar missing').not.toBeNull();
     expect(document.querySelector('.site-footer--resume'), 'footer missing').not.toBeNull();
   });
@@ -106,10 +112,9 @@ describe('Resume — page structure', () => {
     const cycle = ['red', 'yellow', 'blue'];
     cards.forEach((c, i) => {
       const expected = cycle[i % cycle.length];
-      expect(
-        c.className,
-        `highlight ${i} should use the ${expected} accent`,
-      ).toContain(`resume-highlight--${expected}`);
+      expect(c.className, `highlight ${i} should use the ${expected} accent`).toContain(
+        `resume-highlight--${expected}`,
+      );
     });
   });
 
@@ -117,14 +122,28 @@ describe('Resume — page structure', () => {
     const toc = document.querySelector('.resume-canvas-toc-list');
     expect(toc, 'sidebar ToC missing').not.toBeNull();
     const links = Array.from(toc.querySelectorAll('a')).map((a) => a.getAttribute('href'));
-    for (const id of ['summary', 'skills', 'experience', 'education', 'certifications', 'projects', 'writing']) {
+    for (const id of [
+      'summary',
+      'skills',
+      'experience',
+      'education',
+      'certifications',
+      'projects',
+      'writing',
+    ]) {
       expect(links, `ToC missing link #${id}`).toContain(`#${id}`);
-      expect(document.getElementById(id), `no <section id="${id}"> for the ToC link`).not.toBeNull();
+      expect(
+        document.getElementById(id),
+        `no <section id="${id}"> for the ToC link`,
+      ).not.toBeNull();
     }
     // Awards is empty → AwardsSection renders nothing, so the ToC must NOT
     // list a (broken) #awards anchor and there is no <section id="awards">.
     expect(links, 'ToC should omit #awards while the collection is empty').not.toContain('#awards');
-    expect(document.getElementById('awards'), 'awards section should not render while empty').toBeNull();
+    expect(
+      document.getElementById('awards'),
+      'awards section should not render while empty',
+    ).toBeNull();
   });
 
   it('renders the section <h2> titles in order; no References; Awards absent while empty', () => {
@@ -145,7 +164,9 @@ describe('Resume — page structure', () => {
       expect(h.tagName).toBe('H2');
     }
     // No References section anywhere.
-    const allH2 = Array.from(document.querySelectorAll('h2')).map((h) => h.textContent.toLowerCase());
+    const allH2 = Array.from(document.querySelectorAll('h2')).map((h) =>
+      h.textContent.toLowerCase(),
+    );
     expect(allH2.some((t) => t.includes('reference'))).toBe(false);
     // Awards collection is empty → no awards section rendered.
     expect(document.querySelector('.resume-awards')).toBeNull();
@@ -236,7 +257,10 @@ describe('Resume — page structure', () => {
     const logos = document.querySelectorAll('.company-logo');
     expect(logos.length).toBe(10); // 6 experience + 1 education + 3 certifications
     for (const logo of logos) {
-      expect(logo.querySelector('.company-logo__initials'), 'logo missing initials fallback').not.toBeNull();
+      expect(
+        logo.querySelector('.company-logo__initials'),
+        'logo missing initials fallback',
+      ).not.toBeNull();
     }
   });
 

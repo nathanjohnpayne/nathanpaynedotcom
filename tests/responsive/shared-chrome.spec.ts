@@ -56,7 +56,9 @@ type ParsedColor = {
 };
 
 function parseComputedColor(value: string): ParsedColor | null {
-  const commaRgb = value.match(/^rgba?\(\s*([\d.]+),\s*([\d.]+),\s*([\d.]+)(?:,\s*([\d.]+))?\s*\)$/);
+  const commaRgb = value.match(
+    /^rgba?\(\s*([\d.]+),\s*([\d.]+),\s*([\d.]+)(?:,\s*([\d.]+))?\s*\)$/,
+  );
   if (commaRgb) {
     return {
       r: Math.round(Number(commaRgb[1])),
@@ -66,7 +68,9 @@ function parseComputedColor(value: string): ParsedColor | null {
     };
   }
 
-  const spaceRgb = value.match(/^rgb\(\s*([\d.]+)\s+([\d.]+)\s+([\d.]+)(?:\s*\/\s*([\d.]+))?\s*\)$/);
+  const spaceRgb = value.match(
+    /^rgb\(\s*([\d.]+)\s+([\d.]+)\s+([\d.]+)(?:\s*\/\s*([\d.]+))?\s*\)$/,
+  );
   if (spaceRgb) {
     return {
       r: Math.round(Number(spaceRgb[1])),
@@ -76,7 +80,9 @@ function parseComputedColor(value: string): ParsedColor | null {
     };
   }
 
-  const srgb = value.match(/^color\(srgb\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)(?:\s*\/\s*([\d.]+))?\s*\)$/);
+  const srgb = value.match(
+    /^color\(srgb\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)(?:\s*\/\s*([\d.]+))?\s*\)$/,
+  );
   if (srgb) {
     return {
       r: Math.round(Number(srgb[1]) * 255),
@@ -163,7 +169,9 @@ for (const width of BREAKPOINTS) {
 
     test.describe('shared breadcrumbs — one impl, current item flagged (#436), one color ramp (#452)', () => {
       for (const path of CANVAS_PAGES) {
-        test(`${path} has one .breadcrumbs with an aria-current current item and the shared ramp`, async ({ page }) => {
+        test(`${path} has one .breadcrumbs with an aria-current current item and the shared ramp`, async ({
+          page,
+        }) => {
           await page.goto(path);
           await page.waitForLoadState('domcontentloaded');
           const result = await page.evaluate(() => {
@@ -192,7 +200,9 @@ for (const width of BREAKPOINTS) {
         });
       }
 
-      test('parent links carry the hover affordance (underline + darker step)', async ({ page }) => {
+      test('parent links carry the hover affordance (underline + darker step)', async ({
+        page,
+      }) => {
         await page.goto('/blog/');
         await page.waitForLoadState('domcontentloaded');
         await page.addStyleTag({

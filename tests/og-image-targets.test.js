@@ -64,7 +64,7 @@ function extractImageMetas(htmlPath) {
 
   const out = [];
   for (const meta of doc.querySelectorAll(
-    'meta[property="og:image"], meta[property="og:image:secure_url"], meta[name="twitter:image"]'
+    'meta[property="og:image"], meta[property="og:image:secure_url"], meta[name="twitter:image"]',
   )) {
     const content = meta.getAttribute('content');
     if (content) {
@@ -119,11 +119,11 @@ describe('OG image targets (post-build)', () => {
       existsSync(distDir),
       `Build output not found at ${distDir}. ` +
         `Run \`npm run build\` (or \`npm test\`, which runs it for you) ` +
-        `before invoking vitest directly.`
+        `before invoking vitest directly.`,
     ).toBe(true);
     htmlFiles = findIndexHtmlFiles(distDir);
     ogImageFindings = htmlFiles.flatMap((htmlPath) =>
-      extractImageMetas(htmlPath).map((meta) => ({ htmlPath, ...meta }))
+      extractImageMetas(htmlPath).map((meta) => ({ htmlPath, ...meta })),
     );
   });
 
@@ -143,21 +143,19 @@ describe('OG image targets (post-build)', () => {
     });
     expect(
       pagesWithoutOgImage.map((p) => relative(distDir, p)),
-      'These pages have no og:image meta tag. Add one to the page layout.'
+      'These pages have no og:image meta tag. Add one to the page layout.',
     ).toEqual([]);
   });
 
   it('every og:image / og:image:secure_url / twitter:image URL is absolute https on nathanpayne.com', () => {
-    const invalid = ogImageFindings.filter(
-      (f) => !f.content.startsWith(`${SITE}/`)
-    );
+    const invalid = ogImageFindings.filter((f) => !f.content.startsWith(`${SITE}/`));
     expect(
       invalid.map((f) => ({
         page: relative(distDir, f.htmlPath),
         tag: f.tag,
         content: f.content,
       })),
-      'These image tags are not absolute URLs under https://nathanpayne.com/.'
+      'These image tags are not absolute URLs under https://nathanpayne.com/.',
     ).toEqual([]);
   });
 
@@ -182,7 +180,7 @@ describe('OG image targets (post-build)', () => {
       'These pages reference OG images that do not exist in dist/ ' +
         '(or resolve to a directory). This is the class of bug #163 ' +
         'diagnosed — verify the integration that generates OG images ' +
-        'ran and wrote the expected filename.'
+        'ran and wrote the expected filename.',
     ).toEqual([]);
   });
 
@@ -200,10 +198,7 @@ describe('OG image targets (post-build)', () => {
         });
       }
     }
-    expect(
-      mismatches,
-      'og:image and twitter:image should point at the same asset.'
-    ).toEqual([]);
+    expect(mismatches, 'og:image and twitter:image should point at the same asset.').toEqual([]);
   });
 
   it('og:image:secure_url matches og:image when both are present', () => {

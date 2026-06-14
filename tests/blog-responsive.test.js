@@ -15,7 +15,10 @@ const blogPostPaths = readdirSync(blogRoot)
     const dir = resolve(blogRoot, name);
     return statSync(dir).isDirectory() && existsSync(resolve(dir, 'index.html'));
   })
-  .map((name) => ({ slug: name, html: readFileSync(resolve(blogRoot, name, 'index.html'), 'utf-8') }));
+  .map((name) => ({
+    slug: name,
+    html: readFileSync(resolve(blogRoot, name, 'index.html'), 'utf-8'),
+  }));
 
 function setupDOM(html) {
   document.documentElement.innerHTML = '';
@@ -104,7 +107,10 @@ describe('Blog Responsive Layout', () => {
         setupDOM(post.html);
         const allImages = document.querySelectorAll('main img');
         for (const img of allImages) {
-          expect(img.closest('.blog-figure'), `${post.slug}: image not in .blog-figure`).not.toBeNull();
+          expect(
+            img.closest('.blog-figure'),
+            `${post.slug}: image not in .blog-figure`,
+          ).not.toBeNull();
         }
       }
     });

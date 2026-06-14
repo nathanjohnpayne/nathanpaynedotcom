@@ -25,7 +25,7 @@ describe('No External Images', () => {
       const content = readFileSync(file, 'utf-8');
       expect(
         content.includes('raw.githubusercontent.com'),
-        `${file} contains a raw.githubusercontent.com reference`
+        `${file} contains a raw.githubusercontent.com reference`,
       ).toBe(false);
     }
   });

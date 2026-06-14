@@ -32,9 +32,7 @@ export default function rehypeColorChips() {
       if (!HEX_COLOR.test(value)) return;
 
       node.properties = node.properties || {};
-      const existing = Array.isArray(node.properties.className)
-        ? node.properties.className
-        : [];
+      const existing = Array.isArray(node.properties.className) ? node.properties.className : [];
       node.properties.className = [...existing, 'color-chip'];
 
       node.children.unshift({

@@ -72,7 +72,7 @@ async function findSitemapFile(distDir) {
   throw new Error(
     'robots-sitemap: no sitemap file found in dist/. ' +
       'Expected sitemap-index.xml, sitemap.xml, or similar. ' +
-      'Is @astrojs/sitemap configured and running?'
+      'Is @astrojs/sitemap configured and running?',
   );
 }
 
@@ -81,7 +81,10 @@ async function findSitemapFile(distDir) {
  */
 function rewriteRobotsTxt(existing, sitemapUrl) {
   // Remove all Sitemap: lines (there should be one or zero, but be defensive)
-  let body = existing.replace(SITEMAP_LINE_RE, '').replace(/\n{3,}/g, '\n\n').trimEnd();
+  let body = existing
+    .replace(SITEMAP_LINE_RE, '')
+    .replace(/\n{3,}/g, '\n\n')
+    .trimEnd();
 
   // Ensure a single blank line separates the rules from the Sitemap directive
   if (body.length > 0) body += '\n\n';
@@ -104,7 +107,7 @@ export default function robotsSitemap() {
         if (!config.site) {
           throw new Error(
             'robots-sitemap: astro.config.mjs must declare a `site` URL. ' +
-              '@astrojs/sitemap depends on this, and so do we.'
+              '@astrojs/sitemap depends on this, and so do we.',
           );
         }
         resolvedSite = String(config.site).replace(/\/$/, '');
@@ -127,7 +130,7 @@ export default function robotsSitemap() {
             `robots-sitemap: dist/robots.txt not found. ` +
               `Expected a public/robots.txt source file to copy through. ` +
               `(${err.code || err.message})`,
-            { cause: err }
+            { cause: err },
           );
         }
 

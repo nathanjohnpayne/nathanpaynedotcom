@@ -4,7 +4,10 @@ import { resolve } from 'path';
 
 const homepageHtml = readFileSync(resolve(__dirname, '../dist/index.html'), 'utf-8');
 const blogIndexHtml = readFileSync(resolve(__dirname, '../dist/blog/index.html'), 'utf-8');
-const blogPostHtml = readFileSync(resolve(__dirname, '../dist/blog/six-prs-one-bug-agent-failure-modes/index.html'), 'utf-8');
+const blogPostHtml = readFileSync(
+  resolve(__dirname, '../dist/blog/six-prs-one-bug-agent-failure-modes/index.html'),
+  'utf-8',
+);
 const firebaseConfig = JSON.parse(readFileSync(resolve(__dirname, '../firebase.json'), 'utf-8'));
 
 function setupDOM(html) {
@@ -57,7 +60,9 @@ describe('Blog Pages', () => {
     const screenshots = [...document.querySelectorAll('.blog-figure img')];
     const localMdLink = document.querySelector('a[href$=".md"]:not([href^="https://"])');
 
-    expect(canonical?.getAttribute('href')).toBe('https://nathanpayne.com/blog/six-prs-one-bug-agent-failure-modes/');
+    expect(canonical?.getAttribute('href')).toBe(
+      'https://nathanpayne.com/blog/six-prs-one-bug-agent-failure-modes/',
+    );
     expect(ogType?.getAttribute('content')).toBe('article');
     expect(screenshots).toHaveLength(4);
     expect(screenshots[0].getAttribute('src')).toContain('invoice-bug-01-editor-view.png');
@@ -73,7 +78,9 @@ describe('Blog Pages', () => {
 
     expect(posting).toBeDefined();
     expect(posting.headline).toBe('Six PRs, One Bug: What AI Agents Actually Get Wrong');
-    expect(posting.image).toBe('https://nathanpayne.com/og/blog/six-prs-one-bug-agent-failure-modes.png');
+    expect(posting.image).toBe(
+      'https://nathanpayne.com/og/blog/six-prs-one-bug-agent-failure-modes.png',
+    );
   });
 
   it('hosting deploys from dist/ so markdown source is excluded', () => {

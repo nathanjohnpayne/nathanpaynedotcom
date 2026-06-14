@@ -46,13 +46,10 @@ test.beforeEach(async ({ page }, testInfo) => {
  */
 async function openByClick(page: Page, panel: PanelName) {
   await page.click(`[data-panel="${panel}"]`);
-  await page.waitForFunction(
-    (p) => {
-      const el = document.querySelector(`[data-panel="${p}"]`)!;
-      return el.classList.contains('is-open') && el.classList.contains('is-content-visible');
-    },
-    panel,
-  );
+  await page.waitForFunction((p) => {
+    const el = document.querySelector(`[data-panel="${p}"]`)!;
+    return el.classList.contains('is-open') && el.classList.contains('is-content-visible');
+  }, panel);
 }
 
 /**
@@ -60,22 +57,27 @@ async function openByClick(page: Page, panel: PanelName) {
  * { panel: { width, height } } so assertions can target a single panel.
  */
 async function readPanelDims(page: Page) {
-  return page.evaluate((panels) => {
-    const out: Record<string, { width: number; height: number }> = {};
-    for (const p of panels) {
-      const el = document.querySelector(`[data-panel="${p}"]`)!;
-      const r = el.getBoundingClientRect();
-      out[p] = { width: Math.round(r.width), height: Math.round(r.height) };
-    }
-    return out;
-  }, PANELS as readonly string[]);
+  return page.evaluate(
+    (panels) => {
+      const out: Record<string, { width: number; height: number }> = {};
+      for (const p of panels) {
+        const el = document.querySelector(`[data-panel="${p}"]`)!;
+        const r = el.getBoundingClientRect();
+        out[p] = { width: Math.round(r.width), height: Math.round(r.height) };
+      }
+      return out;
+    },
+    PANELS as readonly string[],
+  );
 }
 
 // ─────────────────────────────────────────────────────────────────────────
 // Regression assertions — concrete bug shapes from this week
 // ─────────────────────────────────────────────────────────────────────────
 
-test('all four panels render at non-zero dimensions in every focus state (#315 regression: Connect-hidden in community-focus)', async ({ page }) => {
+test('all four panels render at non-zero dimensions in every focus state (#315 regression: Connect-hidden in community-focus)', async ({
+  page,
+}) => {
   // Default state — panels at their rest dimensions.
   let dims = await readPanelDims(page);
   for (const p of PANELS) {
@@ -93,7 +95,9 @@ test('all four panels render at non-zero dimensions in every focus state (#315 r
     }
     // Close before next iteration.
     await page.click('main', { position: { x: 5, y: 5 }, force: true }).catch((err) => {
-      console.warn(`close-click failed (continuing to assert close via waitForFunction): ${err?.message ?? err}`);
+      console.warn(
+        `close-click failed (continuing to assert close via waitForFunction): ${err?.message ?? err}`,
+      );
     });
     await page.waitForFunction(
       (f) => !document.querySelector(`[data-panel="${f}"]`)!.classList.contains('is-open'),
@@ -102,7 +106,9 @@ test('all four panels render at non-zero dimensions in every focus state (#315 r
   }
 });
 
-test('about/projects/connect panels are exactly content-sized in their focus states (#330 regression: ~400px cream void)', async ({ page }) => {
+test('about/projects/connect panels are exactly content-sized in their focus states (#330 regression: ~400px cream void)', async ({
+  page,
+}) => {
   // Tolerance for sub-pixel rounding + measurement variance.
   const TOLERANCE = 4;
 
@@ -119,7 +125,9 @@ test('about/projects/connect panels are exactly content-sized in their focus sta
 
     // Close before next iteration.
     await page.click('main', { position: { x: 5, y: 5 }, force: true }).catch((err) => {
-      console.warn(`close-click failed (continuing to assert close via waitForFunction): ${err?.message ?? err}`);
+      console.warn(
+        `close-click failed (continuing to assert close via waitForFunction): ${err?.message ?? err}`,
+      );
     });
     await page.waitForFunction(
       (f) => !document.querySelector(`[data-panel="${f}"]`)!.classList.contains('is-open'),
@@ -162,13 +170,17 @@ async function installEventRecorder(page: Page) {
     // transitionend for background-color / opacity which we filter out by
     // propertyName (and by target, since those events target the panel
     // article and don't bubble through the grid in capture phase from above).
-    grid.addEventListener('transitionend', (ev) => {
-      const e = ev as TransitionEvent;
-      if (e.target !== grid) return;
-      if (e.propertyName === 'grid-template-rows' || e.propertyName === 'grid-template-columns') {
-        push('geometry-settled', e.propertyName);
-      }
-    }, true);
+    grid.addEventListener(
+      'transitionend',
+      (ev) => {
+        const e = ev as TransitionEvent;
+        if (e.target !== grid) return;
+        if (e.propertyName === 'grid-template-rows' || e.propertyName === 'grid-template-columns') {
+          push('geometry-settled', e.propertyName);
+        }
+      },
+      true,
+    );
     for (const p of ['about', 'projects', 'community', 'connect']) {
       const el = document.querySelector(`[data-panel="${p}"]`)!;
       new MutationObserver((muts) => {
@@ -183,7 +195,9 @@ async function installEventRecorder(page: Page) {
   });
 }
 
-test('open sequence: data-focus precedes is-content-visible; grid-template transition fires', async ({ page }) => {
+test('open sequence: data-focus precedes is-content-visible; grid-template transition fires', async ({
+  page,
+}) => {
   await installEventRecorder(page);
 
   await page.click(`[data-panel="about"]`);
@@ -196,7 +210,9 @@ test('open sequence: data-focus precedes is-content-visible; grid-template trans
   await page.waitForFunction(() => {
     const events = window.__events;
     const hasSettled = events.some((e) => e.kind === 'geometry-settled');
-    const hasContent = events.some((e) => e.kind === 'is-content-visible:about' && e.value === 'on');
+    const hasContent = events.some(
+      (e) => e.kind === 'is-content-visible:about' && e.value === 'on',
+    );
     return hasSettled && hasContent;
   });
 
@@ -240,7 +256,9 @@ test('close sequence: is-content-visible is removed before data-focus clears', a
   expect(focusCleared, 'data-focus cleared event captured').toBeTruthy();
   // Strict ordering by monotonic counter (CodeRabbit: rounded timestamps could
   // mask same-tick reversals).
-  expect(contentOff!.order, 'content fades out BEFORE data-focus clears').toBeLessThan(focusCleared!.order);
+  expect(contentOff!.order, 'content fades out BEFORE data-focus clears').toBeLessThan(
+    focusCleared!.order,
+  );
 });
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -249,21 +267,25 @@ test('close sequence: is-content-visible is removed before data-focus clears', a
 
 test('only one panel is open at a time across click switches', async ({ page }) => {
   await openByClick(page, 'about');
-  expect(await page.locator('[data-panel="about"]').evaluate((el) => el.classList.contains('is-open'))).toBe(true);
+  expect(
+    await page.locator('[data-panel="about"]').evaluate((el) => el.classList.contains('is-open')),
+  ).toBe(true);
 
   // Click projects → about should close, projects should open.
   await page.click(`[data-panel="projects"]`);
   await page.waitForFunction(() =>
     document.querySelector('[data-panel="projects"]')!.classList.contains('is-open'),
   );
-  await page.waitForFunction(() =>
-    !document.querySelector('[data-panel="about"]')!.classList.contains('is-open'),
+  await page.waitForFunction(
+    () => !document.querySelector('[data-panel="about"]')!.classList.contains('is-open'),
   );
 
   // After settle: only one panel has is-open.
-  const openCount = await page.evaluate(() =>
-    Array.from(document.querySelectorAll('[data-panel]'))
-      .filter((el) => el.classList.contains('is-open')).length,
+  const openCount = await page.evaluate(
+    () =>
+      Array.from(document.querySelectorAll('[data-panel]')).filter((el) =>
+        el.classList.contains('is-open'),
+      ).length,
   );
   expect(openCount).toBe(1);
 });
@@ -275,20 +297,22 @@ test('keyboard (Enter) bypasses the hover guard and opens a panel', async ({ pag
   await page.waitForFunction(() =>
     document.querySelector('[data-panel="about"]')!.classList.contains('is-open'),
   );
-  expect(
-    await page.evaluate(() => document.getElementById('mondrian')!.dataset.focus),
-  ).toBe('about');
+  expect(await page.evaluate(() => document.getElementById('mondrian')!.dataset.focus)).toBe(
+    'about',
+  );
 });
 
 test('keyboard (Escape) closes the open panel', async ({ page }) => {
   await openByClick(page, 'about');
   await page.keyboard.press('Escape');
-  await page.waitForFunction(() =>
-    !document.querySelector('[data-panel="about"]')!.classList.contains('is-open'),
+  await page.waitForFunction(
+    () => !document.querySelector('[data-panel="about"]')!.classList.contains('is-open'),
   );
 });
 
-test('prefers-reduced-motion: reduce short-circuits the state machine to instant transitions', async ({ page }) => {
+test('prefers-reduced-motion: reduce short-circuits the state machine to instant transitions', async ({
+  page,
+}) => {
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.reload();
   await page.waitForLoadState('domcontentloaded');
@@ -308,7 +332,9 @@ test('prefers-reduced-motion: reduce short-circuits the state machine to instant
     return new Promise<number>((resolve) => {
       const start = performance.now();
       const tick = () => {
-        if (document.querySelector('[data-panel="about"]')?.classList.contains('is-content-visible')) {
+        if (
+          document.querySelector('[data-panel="about"]')?.classList.contains('is-content-visible')
+        ) {
           resolve(performance.now() - start);
         } else {
           requestAnimationFrame(tick);
@@ -328,7 +354,9 @@ test('prefers-reduced-motion: reduce short-circuits the state machine to instant
 // Pulse animation — the brightness keyframe used at peak per panel
 // ─────────────────────────────────────────────────────────────────────────
 
-test('panel-pulse-blue keyframe applies a stronger filter on Connect than the default panel-pulse keyframe (#330 regression)', async ({ page }) => {
+test('panel-pulse-blue keyframe applies a stronger filter on Connect than the default panel-pulse keyframe (#330 regression)', async ({
+  page,
+}) => {
   // Manually trigger the pulse on Connect by adding the class. Read the
   // computed filter mid-keyframe (50% via animation-delay trick).
   const connectFilter = await page.evaluate(() => {

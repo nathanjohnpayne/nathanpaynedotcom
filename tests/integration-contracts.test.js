@@ -70,7 +70,7 @@ function listIntegrationFiles() {
 function stripComments(source) {
   return source
     .replace(/\/\*[\s\S]*?\*\//g, '') // block comments
-    .replace(/\/\/.*$/gm, '');         // line comments
+    .replace(/\/\/.*$/gm, ''); // line comments
 }
 
 const integrationFiles = listIntegrationFiles();
@@ -99,7 +99,7 @@ describe('Astro integration contracts (Windows portability)', () => {
         `${file} still references dir.pathname in runtime code. ` +
           `Use fileURLToPath(dir) from node:url instead — dir.pathname ` +
           `yields /C:/path/... on Windows and breaks path.join. ` +
-          `See #171 / #173 for the documented pattern.`
+          `See #171 / #173 for the documented pattern.`,
       ).not.toMatch(/\bdir\.pathname\b/);
     });
 
@@ -114,9 +114,9 @@ describe('Astro integration contracts (Windows portability)', () => {
           `${file} uses the astro:build:done hook but does not import ` +
             `fileURLToPath. Every integration that consumes the 'dir' ` +
             `parameter must convert it via fileURLToPath(dir) — see ` +
-            `specs/seo-metadata.md requirement 16.`
+            `specs/seo-metadata.md requirement 16.`,
         ).toMatch(/import\s*\{[^}]*\bfileURLToPath\b[^}]*\}\s*from\s*['"]node:url['"]/);
-      }
+      },
     );
   });
 });
