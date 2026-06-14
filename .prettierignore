@@ -17,6 +17,7 @@ bugs/
 .github/
 scripts/
 astro.config.mjs
+eslint.config.js
 firebase.json
 .firebaserc
 
