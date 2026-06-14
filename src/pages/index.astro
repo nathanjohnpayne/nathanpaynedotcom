@@ -858,8 +858,14 @@ const homepageJsonLd = {
         });
       }
 
-      // Resume link clicked (Connect panel and About panel)
-      document.querySelectorAll('.availability-resume, .about-block--resume a').forEach(function (el) {
+      // Resume link clicked — all résumé links in the Connect and About
+      // panels: the About-panel block, the Connect availability link, and the
+      // Connect "Elsewhere" social-stack row. The social row also matches
+      // .social-row below, so it intentionally fires both resume_link_clicked
+      // (location-agnostic résumé aggregate) and social_link_clicked
+      // {platform:"resume"} (social-stack row breakdown) — they answer
+      // different questions.
+      document.querySelectorAll('.availability-resume, .about-block--resume a, .social-row--resume').forEach(function (el) {
         el.addEventListener('click', function () {
           window.posthog?.capture('resume_link_clicked');
         });

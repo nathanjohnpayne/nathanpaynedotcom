@@ -227,4 +227,31 @@ describe('PostHog', () => {
 
     expect(capture).toHaveBeenCalledWith('contact_email_clicked');
   });
+
+  it('captures resume_link_clicked from the Connect social-stack résumé row (and still social_link_clicked)', () => {
+    const capture = vi.fn();
+    window.posthog = { capture };
+    new Function(posthogHomepageScript)();
+
+    document
+      .querySelector('.social-row--resume')
+      .dispatchEvent(new MouseEvent('click', { bubbles: true }));
+
+    // Connect "Elsewhere" résumé row is both a résumé link and a .social-row,
+    // so it fires both events (see specs/analytics.md Behavior #3).
+    expect(capture).toHaveBeenCalledWith('resume_link_clicked');
+    expect(capture).toHaveBeenCalledWith('social_link_clicked', { platform: 'resume' });
+  });
+
+  it('captures resume_link_clicked from the About-panel résumé link', () => {
+    const capture = vi.fn();
+    window.posthog = { capture };
+    new Function(posthogHomepageScript)();
+
+    document
+      .querySelector('.about-block--resume a')
+      .dispatchEvent(new MouseEvent('click', { bubbles: true }));
+
+    expect(capture).toHaveBeenCalledWith('resume_link_clicked');
+  });
 });

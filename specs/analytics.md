@@ -65,3 +65,7 @@ may be removed later without affecting the other.
    focus (or clears it) records no event and emits no per-panel phantom opens.
 2. Clearing `data-focus` (panel close) resets the dedupe latch so re-opening
    the same panel records a fresh `homepage_panel_opened`.
+3. The Connect "Elsewhere" social-stack résumé row (`.social-row--resume`) is
+   both a résumé link and a `.social-row`, so clicking it intentionally records
+   **both** `resume_link_clicked` (the location-agnostic résumé aggregate) and
+   `social_link_clicked` with `platform: "resume"` (the social-stack breakdown).
