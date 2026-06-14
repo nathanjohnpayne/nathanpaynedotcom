@@ -136,6 +136,21 @@ describe('Analytics', () => {
     expect(baseLayoutSrc).toMatch(/\{gaId &&/); // conditional render guard
     expect(baseLayoutSrc).toContain("gtag('config', gaId");
   });
+
+  it('exposes gtag on window despite the define:vars IIFE (section_view regression)', () => {
+    // define:vars wraps the GA config script in an IIFE, so `function gtag`
+    // is IIFE-local; it must be re-exposed on window or the homepage
+    // section_view path (its `typeof gtag` guard) silently stops firing.
+    expect(baseLayoutSrc).toContain('window.gtag = gtag');
+
+    // Behavioral proof when this build actually included GA (env token present):
+    const gaConfig = inlineScripts.find((s) => s.includes("gtag('config'"));
+    if (gaConfig) {
+      delete window.gtag;
+      new Function(gaConfig)();
+      expect(typeof window.gtag).toBe('function');
+    }
+  });
 });
 
 describe('PostHog', () => {

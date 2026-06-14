@@ -140,6 +140,11 @@ const gaId = import.meta.env.PUBLIC_GA_MEASUREMENT_ID || '';
         // rewriting to rest params changes call-signature semantics GA expects.
         // eslint-disable-next-line prefer-rest-params
         function gtag(){dataLayer.push(arguments);}
+        // define:vars makes Astro wrap this inline script in an IIFE, which
+        // scopes `function gtag` locally — expose it on window so the homepage
+        // hover-analytics path in src/pages/index.astro (which calls the global
+        // gtag behind a `typeof gtag` guard) still fires.
+        window.gtag = gtag;
         gtag('js', new Date());
         gtag('config', gaId, {
           page_title: document.title,
