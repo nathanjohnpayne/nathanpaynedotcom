@@ -24,12 +24,14 @@ The site uses Astro to generate static HTML into `dist/`. Run `npm run build` be
 ### Content-to-Cell Mapping
 Panel CSS classes are color-based (controlling grid position and color). Content is assigned to cells independently:
 
-| Cell Class | Color | Position | Content |
-|------------|-------|----------|---------|
-| `panel--red` | `#c11d19` | top-left (col 2–5, row 2–5) | About / Identity |
-| `panel--yellow` | `#d9b111` | top-right (col 6–9, row 2) | Builds (Projects) |
-| `panel--black` | `#090907` | bottom-left (col 2, row 6–9) | Community |
-| `panel--blue` | `#223f89` | bottom-right (col 6–9, row 8) | Connect |
+| Cell Class | Token / Homepage Value | Position | Content |
+|------------|------------------------|----------|---------|
+| `panel--red` | `var(--red)` / `#da2418` | top-left (col 2–5, row 2–5) | About / Identity |
+| `panel--yellow` | `var(--yellow)` / `#f0c800` | top-right (col 6–9, row 2) | Builds (Projects) |
+| `panel--black` | `var(--black)` / `#11100d` | bottom-left (col 2, row 6–9) | Community |
+| `panel--blue` | `var(--blue)` / `#0a5c9e` | bottom-right (col 6–9, row 8) | Connect |
+
+The homepage opts into the 1930 palette via `dataPalette="1930"`; interior pages use the 1921 `:root` register documented in [Code Modification Rules](code-modification-rules.md).
 
 Narrative order: **Identity → Work → Community → Contact**
 

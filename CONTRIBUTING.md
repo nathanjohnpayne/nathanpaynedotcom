@@ -28,7 +28,7 @@ For larger changes, add a body explaining why, not what.
 
 1. Branch from `main`
 2. Keep changes focused—visual changes and content changes in separate commits
-3. Run `npm run test` before opening a PR
+3. Run `npm run lint`, `npm run test`, and `npm run test:e2e` before opening a PR
 4. Open a PR against `main` with a clear title and description
 5. At least one human review required before merge
 
@@ -37,13 +37,14 @@ For larger changes, add a body explaining why, not what.
 - **Astro pages:** Semantic elements, ARIA attributes on panels (`role="region"`, `aria-label`), `aria-hidden="true"` on decorative blocks, `target="_blank" rel="noopener"` on external links, inline SVG for icons
 - **CSS:** All durations and easing via motion tokens only (no hard-coded `ms` or bare `ease`). Design tokens in `:root` of `src/styles/global.css`. `clamp()` for fluid sizing.
 - **Markdown:** Blog posts in `src/content/blog/` must include valid frontmatter matching the Zod schema in `src/content.config.ts`.
-- No linter is configured. Follow the patterns in the existing files exactly.
+- ESLint is configured via `eslint.config.js`. Follow the patterns in the existing files exactly.
 
 ## Testing
 
 Vitest and Playwright tests cover metadata, layout, interactions, and routes.
 
 ```bash
+npm run lint
 npm run test          # astro build && vitest run
 npm run test:e2e      # playwright test
 ```

@@ -10,27 +10,29 @@ Personal portfolio, project, and blog site for Nathan Payne—a static site buil
 
 The layout is a **Mondrian-inspired grid**—four colored panels arranged in a geometric composition that animates when a panel receives focus.
 
-| Cell | Color | Content |
-|------|-------|---------|
-| Red | `#c11d19` | About—bio and role at The Walt Disney Company |
-| Yellow | `#d9b111` | Builds—side-project showcase |
-| Black | `#090907` | Community—fundraising and organizing |
-| Blue | `#223f89` | Connect—social links (LinkedIn, Instagram, Threads, Bluesky, X) |
+| Cell | Token / Homepage Value | Content |
+|------|------------------------|---------|
+| Red | `var(--red)` / `#da2418` | About—bio, current context, writing, and resume link |
+| Yellow | `var(--yellow)` / `#f0c800` | Projects—side-project showcase |
+| Black | `var(--black)` / `#11100d` | Community—fundraising and organizing |
+| Blue | `var(--blue)` / `#0a5c9e` | Connect—social links (LinkedIn, GitHub, Bluesky, Instagram, Threads, X) |
 
 Narrative order: **Identity → Work → Community → Contact**
 
-On desktop, hovering or focusing a panel triggers a CSS Grid transition that expands it and reveals its content. On mobile (≤ 920px), panels stack vertically with all content visible.
+On desktop, hovering or focusing a panel triggers a CSS Grid transition that expands it and reveals its content. On mobile and tablet stack mode (≤ 1023px), panels stack vertically with all content visible.
 
 ### Color Palette
 
-| Token | Hex | Usage |
-|-------|-----|-------|
-| `--ink` | `#11100d` | Default text, grid background |
-| `--paper` | `#ffffff` | White background |
-| `--red` | `#c11d19` | Red cell background |
-| `--yellow` | `#d9b111` | Yellow cell background |
-| `--blue` | `#223f89` | Blue cell background |
-| `--cream` | `#f5f0e4` | Light background |
+The default 1921 register lives in `:root`; the homepage opts into a higher-chroma 1930 register with `dataPalette="1930"`.
+
+| Token | 1921 Default | Homepage 1930 Override | Usage |
+|-------|--------------|------------------------|-------|
+| `--ink` | `#11100d` | same | Default text, grid background |
+| `--paper` | `#ffffff` | same | White background |
+| `--red` | `#e8784a` | `#da2418` | Red plane |
+| `--yellow` | `#e3d477` | `#f0c800` | Yellow plane |
+| `--blue` | `#2080ca` | `#0a5c9e` | Blue plane |
+| `--cream` | `#f5f0e4` | same | Light background |
 
 ### Typography
 
@@ -47,24 +49,31 @@ On desktop, hovering or focusing a panel triggers a CSS Grid transition that exp
 ├── astro.config.mjs                # Astro configuration (site, integrations, markdown)
 ├── tsconfig.json                   # TypeScript config (extends astro/tsconfigs/strict)
 ├── package.json                    # Dependencies and scripts
+├── .env.example                    # Public client env variable template
 ├── firebase.json                   # Firebase Hosting config (cache, security headers)
 ├── src/
 │   ├── pages/
 │   │   ├── index.astro             # Homepage (Mondrian grid)
 │   │   ├── 404.astro               # Error page
+│   │   ├── resume.astro            # Resume page
 │   │   ├── rss.xml.ts              # RSS feed endpoint
 │   │   ├── blog/
 │   │   │   ├── index.astro         # Blog listing
 │   │   │   └── [slug].astro        # Dynamic blog post pages
-│   │   ├── projects/               # Project detail pages
+│   │   ├── projects/               # Project index + dynamic project detail pages
 │   │   └── og-templates/           # OG image templates (build-time only)
+│   ├── components/
+│   │   └── resume/                 # Resume section components and logo helper
 │   ├── layouts/
 │   │   ├── BaseLayout.astro        # Base wrapper (meta, SEO, structure)
 │   │   ├── BlogPost.astro          # Blog post layout
 │   │   ├── ProjectLayout.astro     # Project page layout
 │   │   └── OgCard.astro            # OG image card template
 │   ├── content/
-│   │   └── blog/*.md               # Markdown blog posts with frontmatter
+│   │   ├── blog/*.md               # Markdown blog posts with frontmatter
+│   │   ├── projects/*.md           # Project content collection
+│   │   └── {bio,myself,experience,education,skills,awards,certifications,resume}/
+│   │                               # Resume and homepage content collections
 │   ├── content.config.ts           # Content Collections schema (Zod)
 │   ├── styles/
 │   │   └── global.css              # Global styles (tokens, grid, motion, responsive)
@@ -94,15 +103,15 @@ On desktop, hovering or focusing a panel triggers a CSS Grid transition that exp
 
 The homepage uses a **9-column × 9-row CSS Grid** (defined in `src/styles/global.css`). Odd-numbered tracks are `var(--line)` (9px desktop / 6px mobile)—they render as the black dividing lines of the Mondrian composition. Even-numbered tracks hold panels and decorative blocks.
 
-When a panel is focused, JavaScript sets `data-focus="<panel-name>"` on the grid container. CSS defines a separate `grid-template-columns` + `grid-template-rows` for each `data-focus` value, and the grid transitions between them over 280ms with a sharp easing curve (`--ease-sharp`).
+When a panel is focused, JavaScript sets `data-focus="<panel-name>"` on the grid container. CSS defines a separate `grid-template-columns` + `grid-template-rows` for each `data-focus` value, and the grid transitions between them over `--motion-plane` (460ms) with `--ease-standard`.
 
 ### Homepage Interactions
 
-- **Desktop (hover + fine pointer):** `mouseenter` opens a panel; `mouseleave` schedules close after 120ms to prevent flicker when moving between panels.
-- **Keyboard:** `Enter`/`Space` opens a panel; `Escape` closes it. `focusin`/`focusout` manage state so tabbing through links inside a panel keeps it open.
-- **Mobile (≤ 920px):** All interaction handlers exit early. Panels are always expanded.
+- **Desktop (hover + fine pointer):** `mouseenter` opens a panel through the interaction state machine; `mouseleave` either switches directly to the related panel or schedules a short cancellable close.
+- **Keyboard and click:** `Enter`/`Space` opens a panel; `Escape` closes it. Focus and click paths bypass hover guards so explicit user intent works even mid-transition.
+- **Stack mode (≤ 1023px):** All interaction handlers exit early. Panels are always expanded.
 - **Scroll guard:** A debounced scroll listener adds `.is-scrolling` to `<body>` during active scroll. CSS suspends hover transitions while this class is present.
-- **Analytics:** First hover on each panel fires a one-time `section_view` event to Google Analytics via `gtag`.
+- **Analytics:** First hover on each panel fires a one-time `section_view` event to Google Analytics via `gtag` on hover-capable pointers.
 
 ### Blog
 
@@ -140,14 +149,14 @@ All animation timing is governed by design tokens in `:root`—no hard-coded dur
 |------|-------|----------|--------|------------|
 | Metadata / dividers | `--motion-fast` | 130ms | `--ease-linear` | Labels, ribbons, meta text |
 | Hover | `--motion-hover` | 170ms | `--ease-standard` | Social rows, icons, arrows, links |
-| Panel morph | `--motion-plane` | 280ms | `--ease-sharp` | Mondrian grid transitions |
+| Panel morph | `--motion-plane` | 460ms | `--ease-standard` | Mondrian grid transitions |
 | Section load | `--motion-load` | 300ms | `--ease-standard` | Entrance animations |
 
 Translation magnitude is capped at `--shift-small` (2px) for hovers and `--shift-medium` (3px) for emphasis. No scaling, rotation, or bounce.
 
 ### Responsive Behavior
 
-At `max-width: 920px`:
+At `max-width: 1023px`:
 - Grid collapses to single-column
 - Decorative blocks are hidden
 - Panel content is always visible—no hover interaction on mobile
@@ -169,6 +178,9 @@ At `max-width: 920px`:
 # Install dependencies
 npm install
 
+# Optional local public-client env vars
+cp .env.example .env.local
+
 # Start Astro dev server (with HMR)
 npm run dev
 
@@ -178,10 +190,13 @@ npm run build
 # Preview the production build locally
 npm run preview
 
-# Run tests
+# Run lint and tests
+npm run lint
 npm run test          # astro build && vitest run
 npm run test:e2e      # playwright test
 ```
+
+`package-lock.json` is intentionally gitignored in this repo, so `npm ci` is not available; use `npm install` for local and CI dependency installation. There is no `typecheck` or `format` script at present.
 
 ---
 
@@ -219,6 +234,7 @@ Defined in `firebase.json`:
 - **`robots.txt`** source in `public/`; the `Sitemap:` line is rewritten at build time by `src/integrations/robots-sitemap.mjs` to match the real sitemap filename. Covered by `tests/robots-sitemap.test.js` and `tests/robots-sitemap-integration.test.js`. See the [robots.txt and Sitemap](#robotstxt-and-sitemap) section for full context.
 - **RSS feed** at `/rss.xml` (via `@astrojs/rss`)
 - **Google Analytics 4** via `gtag.js` (property env-injected via `PUBLIC_GA_MEASUREMENT_ID`, never hardcoded)
+- **PostHog** via `src/components/posthog.astro` (public ingest token env-injected via `PUBLIC_POSTHOG_PROJECT_TOKEN`, never hardcoded)
 
 ---
 
