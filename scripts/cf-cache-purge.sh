@@ -12,7 +12,7 @@ OP_ITEM_ID="4x6wslp3f6pal5t6h3jhhe63ie"
 
 if [[ -n "${CF_API_TOKEN:-}" ]]; then
   CF_TOKEN="$CF_API_TOKEN"
-elif [[ "${OP_PREFLIGHT_DONE:-}" == "1" ]]; then
+elif [[ "${OP_PREFLIGHT_DONE:-}" == "1" && ( "${OP_PREFLIGHT_MODE:-}" == "deploy" || "${OP_PREFLIGHT_MODE:-}" == "all" ) ]]; then
   echo "  CF_API_TOKEN not exported by preflight; skipping Cloudflare cache purge."
   exit 0
 else

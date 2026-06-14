@@ -77,13 +77,26 @@ describe('Cloudflare cache purge helper', () => {
 
   it('skips successfully when preflight ran but did not export a Cloudflare token', () => {
     const { output, curlLog } = runPurge({
-      env: { OP_PREFLIGHT_DONE: '1', CF_API_TOKEN: '' },
+      env: { OP_PREFLIGHT_DONE: '1', OP_PREFLIGHT_MODE: 'all', CF_API_TOKEN: '' },
       opScript: failingOp,
       curlScript: failingCurl,
     });
 
     expect(output).toContain('skipping Cloudflare cache purge');
     expect(curlLog).toBe('');
+  });
+
+  it('falls back to 1Password when review preflight did not load deploy credentials', () => {
+    const { output, curlLog } = runPurge({
+      env: { OP_PREFLIGHT_DONE: '1', OP_PREFLIGHT_MODE: 'review', CF_API_TOKEN: '' },
+      opScript: `#!/usr/bin/env bash
+printf 'review-mode-op-token\\n'
+`,
+      curlScript: loggingCurl,
+    });
+
+    expect(output).toContain('Cloudflare cache purged');
+    expect(curlLog).toContain('Authorization: Bearer review-mode-op-token');
   });
 
   it('falls back to 1Password when run directly without preflight', () => {
