@@ -14,6 +14,9 @@ const panelScript = inlineScripts.find((s) => s.includes('section_view')) || '';
 // event behavior against the homepage script, which always renders.
 const posthogComponentSrc = readFileSync(resolve(__dirname, '../src/components/posthog.astro'), 'utf-8');
 const posthogHomepageScript = inlineScripts.find((s) => s.includes('homepage_panel_opened')) || '';
+// GA4 is loaded by BaseLayout from the env Measurement ID and gated on it, so
+// assert the load contract against the layout SOURCE (build-env-independent).
+const baseLayoutSrc = readFileSync(resolve(__dirname, '../src/layouts/BaseLayout.astro'), 'utf-8');
 
 // Flush a macrotask so queued MutationObserver callbacks have run.
 const tick = () => new Promise((resolve) => setTimeout(resolve, 0));
@@ -122,6 +125,16 @@ describe('Analytics', () => {
 
   it('guards analytics with typeof check', () => {
     expect(panelScript).toContain("typeof gtag !== 'function'");
+  });
+
+  it('loads GA from the PUBLIC_GA_MEASUREMENT_ID env var, never hardcoded', () => {
+    expect(baseLayoutSrc).toContain('import.meta.env.PUBLIC_GA_MEASUREMENT_ID');
+    expect(baseLayoutSrc).not.toMatch(/G-[A-Z0-9]{10}/); // no committed Measurement ID
+  });
+
+  it('only loads GA when the Measurement ID is present (graceful degradation)', () => {
+    expect(baseLayoutSrc).toMatch(/\{gaId &&/); // conditional render guard
+    expect(baseLayoutSrc).toContain("gtag('config', gaId");
   });
 });
 

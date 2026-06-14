@@ -25,6 +25,7 @@ may be removed later without affecting the other.
 3. The event includes `section_name` matching the panel's `data-panel` attribute.
 4. The analytics call is guarded with `typeof gtag !== 'function'` to avoid errors when gtag is absent.
 5. The event only fires on hover-capable devices, gated by `canHover()` (`(hover: hover) and (pointer: fine)`). Touch/coarse-pointer devices that synthesize `mouseenter` must not record `section_view`.
+6. GA4 is loaded by `BaseLayout.astro` from the `PUBLIC_GA_MEASUREMENT_ID` env var (resolved from 1Password via `op inject` — the same pipeline as PostHog / Logo.dev), never hardcoded. If it is unset at build time, the GA tags are not rendered and `gtag` is undefined, so the `typeof gtag` guard (req. 4) keeps `section_view` from firing — graceful degradation.
 
 ## PostHog
 

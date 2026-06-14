@@ -400,11 +400,13 @@ Any `PUBLIC_*` env var read via `import.meta.env` during the build is baked into
 4. `npm run build` picks up the new value automatically.
 
 The current `PUBLIC_*` vars are `PUBLIC_LOGODEV_KEY` (Logo.dev publishable
-token — drives the `/resume` company logos via `CompanyLogo.astro`) and
+token — drives the `/resume` company logos via `CompanyLogo.astro`),
 `PUBLIC_POSTHOG_PROJECT_TOKEN` (PostHog public project ingest token — drives
-analytics via `posthog.astro`). Both are public client identifiers resolved
-from 1Password via `op inject`, and both degrade gracefully when unset at build
-time (initials-only logos; PostHog simply does not initialize). Mux Data for
+analytics via `posthog.astro`), and `PUBLIC_GA_MEASUREMENT_ID` (GA4 Measurement
+ID — drives GA4 via `BaseLayout.astro`). All three are public client
+identifiers resolved from 1Password via `op inject`, and all degrade gracefully
+when unset at build time (initials-only logos; PostHog and GA simply do not
+load). Mux Data for
 project hero videos does not use a build-time env var in this site: pages with
 a Mux hero load `mux-embed`, and `@mux/mux-background-video` infers the Mux Data
 env key from the public `stream.mux.com` URL at runtime.
@@ -530,7 +532,7 @@ For Claude Code cloud scheduled tasks:
 
 ## Secrets Management
 
-- No API keys or secrets are committed to this repository. Google Analytics Measurement ID (`G-7C29SRBXB1`) is a public identifier—not a secret.
+- No API keys or secrets are committed to this repository. The Google Analytics Measurement ID is a public identifier—not a secret—but, like the other public client identifiers, it is env-injected (`PUBLIC_GA_MEASUREMENT_ID` via `op inject`), not hardcoded.
 - Deploy auth uses short-lived impersonated credentials derived from a 1Password-backed GCP ADC source credential, another explicit `GOOGLE_APPLICATION_CREDENTIALS` file, or CI-provided external-account credentials.
 - Do not commit API keys, service-account JSON, or ADC credentials.
 - If a future feature requires API keys, keep them in ignored config files and apply browser restrictions in Google Cloud. Never commit raw keys.

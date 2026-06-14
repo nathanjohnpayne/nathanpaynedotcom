@@ -57,6 +57,13 @@ const socialDescription = ogDescription || description;
 // Rounded to the nearest minute for consistency across all pages in a single build.
 const buildTime = Math.floor(Date.now() / 60000).toString();
 const ogImageUrl = ogImage.includes('?') ? `${ogImage}&v=${buildTime}` : `${ogImage}?v=${buildTime}`;
+
+// GA4 Measurement ID — public client identifier (served in page JS), but per
+// the repo's credential-hygiene policy it comes from env via `op inject`, never
+// committed — the same pattern as PUBLIC_LOGODEV_KEY / PUBLIC_POSTHOG_PROJECT_TOKEN.
+// If unset at build time (CI, or a checkout that has not run bootstrap.sh), the
+// GA tags are not rendered and GA never loads — graceful degradation.
+const gaId = import.meta.env.PUBLIC_GA_MEASUREMENT_ID || '';
 ---
 
 <!DOCTYPE html>
@@ -123,20 +130,24 @@ const ogImageUrl = ogImage.includes('?') ? `${ogImage}&v=${buildTime}` : `${ogIm
   <!-- PostHog -->
   <PostHog />
 
-  <!-- Google Analytics 4 -->
-  <script async src="https://www.googletagmanager.com/gtag/js?id=G-7C29SRBXB1"></script>
-  <script is:inline>
-    window.dataLayer = window.dataLayer || [];
-    // Google's canonical GA4 gtag stub uses `arguments` by design;
-    // rewriting to rest params changes call-signature semantics GA expects.
-    // eslint-disable-next-line prefer-rest-params
-    function gtag(){dataLayer.push(arguments);}
-    gtag('js', new Date());
-    gtag('config', 'G-7C29SRBXB1', {
-      page_title: document.title,
-      page_location: window.location.href
-    });
-  </script>
+  <!-- Google Analytics 4 — gated on PUBLIC_GA_MEASUREMENT_ID (graceful degradation) -->
+  {gaId && (
+    <>
+      <script async is:inline src={`https://www.googletagmanager.com/gtag/js?id=${gaId}`}></script>
+      <script is:inline define:vars={{ gaId }}>
+        window.dataLayer = window.dataLayer || [];
+        // Google's canonical GA4 gtag stub uses `arguments` by design;
+        // rewriting to rest params changes call-signature semantics GA expects.
+        // eslint-disable-next-line prefer-rest-params
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        gtag('config', gaId, {
+          page_title: document.title,
+          page_location: window.location.href
+        });
+      </script>
+    </>
+  )}
 
   <!-- Google Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
