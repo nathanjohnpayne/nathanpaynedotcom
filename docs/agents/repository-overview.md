@@ -42,7 +42,7 @@ All source lives in `src/`. The build outputs to `dist/` (gitignored), which is 
 ```
 astro.config.mjs            Astro configuration
 tsconfig.json               TypeScript configuration (extends astro/tsconfigs/strict)
-package.json                Dependencies and scripts (dev, build, preview, lint, test, test:e2e, deploy)
+package.json                Dependencies and scripts (dev, prebuild, build, preview, lint, test, test:e2e, deploy)
 .env.example                Public client env var examples for local development
 firebase.json               Firebase Hosting config
 .firebaserc                 Firebase project alias
