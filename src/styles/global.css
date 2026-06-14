@@ -3167,7 +3167,7 @@ a.tag:hover {
 }
 
 .blog-prose code {
-  font-family: 'SFMono-Regular', 'SF Mono', Consolas, 'Liberation Mono', Menlo, monospace;
+  font-family: SFMono-Regular, 'SF Mono', Consolas, 'Liberation Mono', Menlo, monospace;
   font-size: 0.88em;
   background: color-mix(in srgb, var(--ink) 7%, transparent);
   padding: 0.15em 0.35em;
@@ -3832,10 +3832,10 @@ a:focus-visible {
   }
 
   .blog-sidebar-meta dt {
-    color: rgba(255, 255, 255, 0.55);
+    color: color-mix(in srgb, var(--accent-contrast) 62%, transparent);
   }
   .blog-sidebar-meta dd {
-    color: rgba(255, 255, 255, 0.95);
+    color: var(--accent-contrast);
   }
 
   .blog-canvas-header {
