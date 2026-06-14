@@ -61,3 +61,31 @@ jobs:
             fi
           done
           exit $MISSING
+
+  eslint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+
+      # `npm run lint` (eslint) had never run in CI — the job above only
+      # executes the scripts/ci/* structure checks. eslint errors, such as
+      # the preserve-caught-error break repaired in #519, therefore stayed
+      # latent until someone ran lint locally with lockfile-exact deps.
+      # This job closes that gap.
+      - name: install_dependencies
+        # package-lock.json is gitignored, so `npm ci` is unavailable;
+        # install straight from package.json.
+        #   --no-save        leave package.json untouched
+        #   --ignore-scripts the eslint toolchain needs no lifecycle hooks,
+        #                    and this skips the credentialed prebuild
+        #                    image-refresh scripts
+        # NOTE: unlike the ad-hoc js-yaml installs in agent-review.yml /
+        # pr-audit.yml, this step deliberately omits --legacy-peer-deps.
+        # `typescript` is a PEER dependency of typescript-eslint (and of
+        # astro's tsconfck), not a direct dependency; --legacy-peer-deps
+        # would skip it and `eslint .` would then fail with
+        # "Cannot find module 'typescript'" on the .astro / .ts sources.
+        run: npm install --no-save --ignore-scripts
+
+      - name: eslint
+        run: npm run lint
