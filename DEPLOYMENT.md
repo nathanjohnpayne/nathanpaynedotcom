@@ -399,10 +399,15 @@ Any `PUBLIC_*` env var read via `import.meta.env` during the build is baked into
 3. Anyone on the team runs `./scripts/bootstrap.sh --force` to refresh their `.env.local`.
 4. `npm run build` picks up the new value automatically.
 
-There are no current `PUBLIC_*` vars. Mux Data for project hero videos does
-not use a build-time env var in this site: pages with a Mux hero load
-`mux-embed`, and `@mux/mux-background-video` infers the Mux Data env key from
-the public `stream.mux.com` URL at runtime.
+The current `PUBLIC_*` vars are `PUBLIC_LOGODEV_KEY` (Logo.dev publishable
+token — drives the `/resume` company logos via `CompanyLogo.astro`) and
+`PUBLIC_POSTHOG_PROJECT_TOKEN` (PostHog public project ingest token — drives
+analytics via `posthog.astro`). Both are public client identifiers resolved
+from 1Password via `op inject`, and both degrade gracefully when unset at build
+time (initials-only logos; PostHog simply does not initialize). Mux Data for
+project hero videos does not use a build-time env var in this site: pages with
+a Mux hero load `mux-embed`, and `@mux/mux-background-video` infers the Mux Data
+env key from the public `stream.mux.com` URL at runtime.
 
 ## Deployment Steps
 

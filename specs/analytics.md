@@ -33,9 +33,15 @@ may be removed later without affecting the other.
 1. PostHog is initialized site-wide via the `src/components/posthog.astro`
    component included in `BaseLayout.astro`, so every page loads it.
 2. The project API key is PostHog's **public** (write-only) `phc_` ingest key,
-   hardcoded in the component — the same class of public identifier as the GA
-   Measurement ID. No personal API key (`phx_…`) is ever used or committed.
-3. Every custom event call is guarded with optional chaining
+   injected at build from the `PUBLIC_POSTHOG_PROJECT_TOKEN` env var (resolved
+   from 1Password via `op inject` — the same `.env.tpl`/`bootstrap.sh` pipeline
+   as `PUBLIC_LOGODEV_KEY`), never committed to source. No personal API key
+   (`phx_…`) is ever used or committed.
+3. If `PUBLIC_POSTHOG_PROJECT_TOKEN` is unset at build time (e.g. CI, or a
+   checkout that has not run `scripts/bootstrap.sh`), `posthog.astro` renders
+   nothing and PostHog never initializes — no events, no errors — mirroring
+   `CompanyLogo`'s graceful degradation.
+4. Every custom event call is guarded with optional chaining
    (`window.posthog?.capture(...)`) so a blocked or not-yet-loaded PostHog
    never throws.
 

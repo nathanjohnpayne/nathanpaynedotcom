@@ -8,8 +8,11 @@ const rawHtml = readFileSync(resolve(__dirname, '../dist/index.html'), 'utf-8');
 // Script 0 = GA config, Script 1 = panel interaction IIFE.
 const inlineScripts = [...rawHtml.matchAll(/<script>([\s\S]*?)<\/script>/g)].map((m) => m[1]);
 const panelScript = inlineScripts.find((s) => s.includes('section_view')) || '';
-// PostHog: the init snippet (posthog.init) and the homepage event script.
-const posthogInitScript = inlineScripts.find((s) => s.includes('posthog.init')) || '';
+// PostHog init lives in src/components/posthog.astro and is gated on the env
+// token, so it may be absent from a token-less build (e.g. CI). Assert the
+// init contract against the component SOURCE (build-env-independent); assert
+// event behavior against the homepage script, which always renders.
+const posthogComponentSrc = readFileSync(resolve(__dirname, '../src/components/posthog.astro'), 'utf-8');
 const posthogHomepageScript = inlineScripts.find((s) => s.includes('homepage_panel_opened')) || '';
 
 // Flush a macrotask so queued MutationObserver callbacks have run.
@@ -128,14 +131,18 @@ describe('PostHog', () => {
     setupDOM();
   });
 
-  it('initializes with the public phc_ project key and US host', () => {
-    expect(posthogInitScript).toContain("posthog.init('phc_");
-    expect(posthogInitScript).toContain('us.i.posthog.com');
+  it('reads the PostHog token from env and never commits a key in source', () => {
+    expect(posthogComponentSrc).toContain('import.meta.env.PUBLIC_POSTHOG_PROJECT_TOKEN');
+    // No committed project token (phc_) or personal key (phx_) material in
+    // source — match key bodies, not bare mentions in comments.
+    expect(posthogComponentSrc).not.toMatch(/phc_[A-Za-z0-9]{6}/);
+    expect(posthogComponentSrc).not.toMatch(/phx_[A-Za-z0-9]{6}/);
   });
 
-  it('never ships a personal API key or an unresolved env token', () => {
-    expect(posthogInitScript).not.toContain('phx_');
-    expect(posthogInitScript).not.toContain('import.meta.env');
+  it('only initializes PostHog when a token is present (graceful degradation)', () => {
+    expect(posthogComponentSrc).toMatch(/\{token &&/); // conditional render guard
+    expect(posthogComponentSrc).toContain('posthog.init(token');
+    expect(posthogComponentSrc).toContain('us.i.posthog.com');
   });
 
   it('guards every homepage capture with optional chaining', () => {
