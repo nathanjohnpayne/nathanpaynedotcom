@@ -190,7 +190,7 @@ npm run test:e2e      # playwright test
 The site is hosted on [Firebase Hosting](https://firebase.google.com/docs/hosting). Firebase project ID: `nathanpaynedotcom`.
 
 ```bash
-# Full deploy: build first, then deploy with 1Password-backed credentials
+# Full deploy: build, deploy with 1Password-backed credentials, then purge Cloudflare
 npm run deploy
 ```
 

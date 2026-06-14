@@ -9,7 +9,7 @@
     "preview": "astro preview",
     "test": "astro build && vitest run",
     "test:e2e": "playwright test",
-    "deploy": "npm run build && op-firebase-deploy",
+    "deploy": "npm run build && op-firebase-deploy && scripts/cf-cache-purge.sh",
     "lint": "eslint ."
   },
   "devDependencies": {

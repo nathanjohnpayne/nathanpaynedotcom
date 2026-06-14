@@ -7,10 +7,10 @@ const packageJson = JSON.parse(readFileSync(resolve(rootDir, 'package.json'), 'u
 const deploymentDoc = readFileSync(resolve(rootDir, 'DEPLOYMENT.md'), 'utf-8');
 
 describe('deploy entrypoint contract', () => {
-  it('builds before invoking the PATH-provided Firebase deploy helper', () => {
+  it('builds, deploys with the PATH-provided helper, then purges Cloudflare', () => {
     const deployScript = packageJson.scripts.deploy;
 
-    expect(deployScript).toMatch(/^npm run build && op-firebase-deploy(?:\s|$)/);
+    expect(deployScript).toBe('npm run build && op-firebase-deploy && scripts/cf-cache-purge.sh');
     expect(deployScript).not.toMatch(/\bfirebase\s+deploy\b/);
   });
 
@@ -28,6 +28,7 @@ describe('deploy entrypoint contract', () => {
   it('keeps DEPLOYMENT.md aligned with the package deploy alias', () => {
     expect(deploymentDoc).toContain('npm run deploy');
     expect(deploymentDoc).toContain('npm run build');
+    expect(deploymentDoc).toContain('scripts/cf-cache-purge.sh');
     expect(deploymentDoc).toContain('op-firebase-deploy --only hosting');
   });
 });

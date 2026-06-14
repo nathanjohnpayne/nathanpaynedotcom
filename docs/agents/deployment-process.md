@@ -1,9 +1,9 @@
 # Deployment Process
 
-All deploys use `op-firebase-deploy` for non-interactive service account impersonation. Never run `firebase deploy` directly. For a full production deploy, use the package alias so the build always runs first.
+All deploys use `op-firebase-deploy` for non-interactive service account impersonation. Never run `firebase deploy` directly. For a full production deploy, use the package alias so the build always runs first and Cloudflare is purged afterward.
 
 ```bash
-npm run deploy                      # full deploy: build, then op-firebase-deploy
+npm run deploy                      # full deploy: build, op-firebase-deploy, purge Cloudflare
 npm run build && op-firebase-deploy --only hosting
 ```
 
