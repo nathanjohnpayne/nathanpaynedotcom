@@ -30,12 +30,12 @@ may be removed later without affecting the other.
 
 ### Initialization
 
-6. PostHog is initialized site-wide via the `src/components/posthog.astro`
+1. PostHog is initialized site-wide via the `src/components/posthog.astro`
    component included in `BaseLayout.astro`, so every page loads it.
-7. The project API key is PostHog's **public** (write-only) `phc_` ingest key,
+2. The project API key is PostHog's **public** (write-only) `phc_` ingest key,
    hardcoded in the component — the same class of public identifier as the GA
    Measurement ID. No personal API key (`phx_…`) is ever used or committed.
-8. Every custom event call is guarded with optional chaining
+3. Every custom event call is guarded with optional chaining
    (`window.posthog?.capture(...)`) so a blocked or not-yet-loaded PostHog
    never throws.
 
@@ -58,10 +58,10 @@ may be removed later without affecting the other.
 
 ### Behavior
 
-9. `homepage_panel_opened` is deduped against the last captured panel. Because
+1. `homepage_panel_opened` is deduped against the last captured panel. Because
    `measureContentHeights()` cycles `data-focus` across every panel on load and
    resize and then restores it, the observer must read the *current* focus and
    skip unchanged/cleared values — a measurement pass that restores the same
    focus (or clears it) records no event and emits no per-panel phantom opens.
-10. Clearing `data-focus` (panel close) resets the dedupe latch so re-opening
-    the same panel records a fresh `homepage_panel_opened`.
+2. Clearing `data-focus` (panel close) resets the dedupe latch so re-opening
+   the same panel records a fresh `homepage_panel_opened`.
