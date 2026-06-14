@@ -223,6 +223,10 @@ test_token_mode_agents() {
       fail "test_token_mode_agents($agent): token mode marker missing"
       return
     fi
+    if ! grep -q "export OP_PREFLIGHT_MODE=review" "$out"; then
+      fail "test_token_mode_agents($agent): stdout missing preflight mode export"
+      return
+    fi
     perms="$(mode_for_file "$session")"
     if [[ "$perms" != "600" ]]; then
       fail "test_token_mode_agents($agent): session permissions expected 600, got $perms"
@@ -457,6 +461,10 @@ test_token_mode_cache_and_check() {
   fi
   if ! grep -q "export OP_PREFLIGHT_REVIEWER_PAT=reviewer-pat-codex" "$WORKDIR/check.out"; then
     fail "test_token_mode_cache_and_check: --check missing reviewer PAT export"
+    return
+  fi
+  if ! grep -q "export OP_PREFLIGHT_MODE=review" "$WORKDIR/check.out"; then
+    fail "test_token_mode_cache_and_check: --check missing preflight mode export"
     return
   fi
   if grep -q "OP_PREFLIGHT_AUTHOR_PAT" "$WORKDIR/check.out"; then

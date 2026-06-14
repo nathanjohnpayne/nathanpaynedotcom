@@ -176,11 +176,10 @@ FIREBASE_SA_VAULT="${FIREBASE_SA_VAULT:-Firebase}"
 
 # ── Cloudflare Cache Purge token (#167) ───────────────────────────────
 # Shared API token with Purge:Edit permission across all domains. Wired
-# into preflight so scripts/deploy.sh's existing CF purge step
-# (currently no-op when CF_API_TOKEN is unset) actually fires on
-# agent-driven deploys without an extra biometric prompt. CF_ZONE_ID
-# is intentionally NOT sourced here — it's per-repo and lives in each
-# downstream consumer's own bootstrap, not in this shared wiring.
+# into preflight so deploy flows that purge Cloudflare can do so without
+# an extra biometric prompt. CF_ZONE_ID is intentionally NOT sourced here
+# — it's per-repo and lives in each downstream consumer's own bootstrap,
+# not in this shared wiring.
 DEFAULT_CF_TOKEN_OP_URI="${CF_TOKEN_OP_URI:-op://Private/4x6wslp3f6pal5t6h3jhhe63ie/credential}"
 SSH_AUTHOR_HOST="github.com"
 
@@ -763,6 +762,7 @@ emit_from_session_file() (
     printf 'export CF_API_TOKEN=%q\n' "$CF_API_TOKEN"
   printf 'export OP_PREFLIGHT_DONE=1\n'
   printf 'export OP_PREFLIGHT_AGENT=%q\n' "$AGENT"
+  printf 'export OP_PREFLIGHT_MODE=%q\n' "${OP_PREFLIGHT_MODE:-$MODE}"
   exit 0
 )
 
@@ -1139,8 +1139,8 @@ if [[ "$MODE" == "deploy" || "$MODE" == "all" ]]; then
   fi
 
   # Cloudflare cache-purge token (#167). Optional — if 1Password is
-  # unreachable for this item the deploy still proceeds; deploy.sh's
-  # CF purge step gracefully no-ops on empty CF_API_TOKEN.
+  # unreachable for this item the deploy still proceeds; deploy flows
+  # that purge Cloudflare should gracefully no-op on empty CF_API_TOKEN.
   echo "# Preflight: reading Cloudflare cache-purge token..." >&2
   cf_token=$(op read "$DEFAULT_CF_TOKEN_OP_URI" 2>/dev/null || true)
   if [[ -n "$cf_token" ]]; then
@@ -1148,7 +1148,7 @@ if [[ "$MODE" == "deploy" || "$MODE" == "all" ]]; then
     SESSION_LINES+=("CF_API_TOKEN=$(printf '%q' "$cf_token")")
     SUMMARY+=("Cloudflare cache-purge token: loaded")
   else
-    echo "# Warning: could not read Cloudflare cache-purge token. CF_API_TOKEN not exported; deploy.sh will skip the purge step." >&2
+    echo "# Warning: could not read Cloudflare cache-purge token. CF_API_TOKEN not exported; Cloudflare purge steps should no-op." >&2
     SUMMARY+=("Cloudflare cache-purge token: SKIPPED (not available)")
   fi
 fi
@@ -1182,6 +1182,7 @@ chmod 600 "$SESSION_FILE"
 # ── Output ────────────────────────────────────────────────────────────
 EXPORTS+=("export OP_PREFLIGHT_DONE=1")
 EXPORTS+=("export OP_PREFLIGHT_AGENT=$(printf '%q' "$AGENT")")
+EXPORTS+=("export OP_PREFLIGHT_MODE=$(printf '%q' "$MODE")")
 
 # Print export statements to stdout (caller evals them)
 for exp in "${EXPORTS[@]}"; do
