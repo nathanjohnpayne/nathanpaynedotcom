@@ -23,7 +23,9 @@ playwright-report/
 .claude/launch.json
 package-lock.json
 .claude/worktrees/
-screenshots/
+screenshots/*
+!screenshots/og/
+!screenshots/og/**
 
 # Logs
 *.log
