@@ -136,6 +136,10 @@ test_check_fresh_cache() {
     fail "test_check_fresh_cache: stdout missing author PAT export; got $out"
     return
   fi
+  if ! echo "$out" | grep -q "export OP_PREFLIGHT_MODE=review"; then
+    fail "test_check_fresh_cache: stdout missing preflight mode export; got $out"
+    return
+  fi
   if echo "$err" | grep -q FATAL; then
     fail "test_check_fresh_cache: --check invoked op or ssh; stderr=$err"
     return

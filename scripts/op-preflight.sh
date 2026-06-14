@@ -762,6 +762,7 @@ emit_from_session_file() (
     printf 'export CF_API_TOKEN=%q\n' "$CF_API_TOKEN"
   printf 'export OP_PREFLIGHT_DONE=1\n'
   printf 'export OP_PREFLIGHT_AGENT=%q\n' "$AGENT"
+  printf 'export OP_PREFLIGHT_MODE=%q\n' "${OP_PREFLIGHT_MODE:-$MODE}"
   exit 0
 )
 
@@ -1181,6 +1182,7 @@ chmod 600 "$SESSION_FILE"
 # ── Output ────────────────────────────────────────────────────────────
 EXPORTS+=("export OP_PREFLIGHT_DONE=1")
 EXPORTS+=("export OP_PREFLIGHT_AGENT=$(printf '%q' "$AGENT")")
+EXPORTS+=("export OP_PREFLIGHT_MODE=$(printf '%q' "$MODE")")
 
 # Print export statements to stdout (caller evals them)
 for exp in "${EXPORTS[@]}"; do
