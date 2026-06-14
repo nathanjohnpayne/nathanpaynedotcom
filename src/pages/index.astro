@@ -826,4 +826,78 @@ const homepageJsonLd = {
       }
     })();
   </script>
+
+  <script is:inline>
+    (function () {
+      // ── PostHog event tracking ──────────────────────────────────────────
+
+      // Panel opened: observe data-focus changes on the Mondrian grid.
+      // data-focus is also cycled by measureContentHeights() across every
+      // panel on load and on resize, then restored — so a naive observer
+      // emits phantom opens (and duplicates) for panels the visitor never
+      // touched. Dedupe against the last captured panel and read the current
+      // focus rather than per-mutation values: a measurement pass that
+      // restores the same focus (or clears it) then captures nothing.
+      const phGrid = document.getElementById('mondrian');
+      if (phGrid) {
+        let phLastPanel = null;
+        new MutationObserver(function () {
+          const focus = phGrid.dataset.focus;
+          if (!focus) { phLastPanel = null; return; }
+          if (focus === phLastPanel) return;
+          phLastPanel = focus;
+          window.posthog?.capture('homepage_panel_opened', { panel_name: focus });
+        }).observe(phGrid, { attributes: true, attributeFilter: ['data-focus'] });
+      }
+
+      // Contact email clicked
+      const mailto = document.getElementById('availability-mailto');
+      if (mailto) {
+        mailto.addEventListener('click', function () {
+          window.posthog?.capture('contact_email_clicked');
+        });
+      }
+
+      // Resume link clicked — all résumé links in the Connect and About
+      // panels: the About-panel block, the Connect availability link, and the
+      // Connect "Elsewhere" social-stack row. The social row also matches
+      // .social-row below, so it intentionally fires both resume_link_clicked
+      // (location-agnostic résumé aggregate) and social_link_clicked
+      // {platform:"resume"} (social-stack row breakdown) — they answer
+      // different questions.
+      document.querySelectorAll('.availability-resume, .about-block--resume a, .social-row--resume').forEach(function (el) {
+        el.addEventListener('click', function () {
+          window.posthog?.capture('resume_link_clicked');
+        });
+      });
+
+      // Social link clicked
+      document.querySelectorAll('.social-row').forEach(function (el) {
+        el.addEventListener('click', function () {
+          const match = el.className.match(/social-row--(\w+)/);
+          window.posthog?.capture('social_link_clicked', {
+            platform: match ? match[1] : 'unknown'
+          });
+        });
+      });
+
+      // Donation link clicked (Community panel)
+      document.querySelectorAll('.effort-link').forEach(function (el) {
+        el.addEventListener('click', function () {
+          window.posthog?.capture('donation_link_clicked', {
+            organization: (el.textContent || '').replace('→', '').trim()
+          });
+        });
+      });
+
+      // Writing link clicked (About panel)
+      document.querySelectorAll('.writing-list a').forEach(function (el) {
+        el.addEventListener('click', function () {
+          window.posthog?.capture('writing_link_clicked', {
+            href: el.getAttribute('href') || ''
+          });
+        });
+      });
+    })();
+  </script>
 </BaseLayout>

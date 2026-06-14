@@ -57,3 +57,28 @@ const { variant, title, deck, breadcrumbLabel, liveUrl, githubUrl } = Astro.prop
   </div>
   <hr class="project-hero__rule" />
 </header>
+
+<script is:inline define:vars={{ heroLiveUrl: liveUrl, heroGithubUrl: githubUrl, heroTitle: title }}>
+  (function () {
+    if (heroLiveUrl) {
+      const liveBtn = document.querySelector('.project-actions a[href="' + heroLiveUrl + '"]');
+      if (liveBtn) {
+        liveBtn.addEventListener('click', function () {
+          window.posthog?.capture('project_live_link_clicked', {
+            project_title: heroTitle,
+            url: heroLiveUrl
+          });
+        });
+      }
+    }
+    const githubBtn = document.querySelector('.project-actions a[href="' + heroGithubUrl + '"]');
+    if (githubBtn) {
+      githubBtn.addEventListener('click', function () {
+        window.posthog?.capture('project_github_link_clicked', {
+          project_title: heroTitle,
+          url: heroGithubUrl
+        });
+      });
+    }
+  })();
+</script>
