@@ -38,10 +38,7 @@ import { resolve } from 'node:path';
 
 const REPO_ROOT = resolve(fileURLToPath(import.meta.url), '..', '..');
 
-const BUILD_SCRIPTS = [
-  'scripts/refresh-hero-images.mjs',
-  'scripts/refresh-mux-gifs.mjs',
-];
+const BUILD_SCRIPTS = ['scripts/refresh-hero-images.mjs', 'scripts/refresh-mux-gifs.mjs'];
 
 // The buggy pattern. Match the call form, not the literal substring —
 // `import.meta.url.replace(...)` with any args is suspicious in the

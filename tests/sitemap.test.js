@@ -15,6 +15,8 @@ describe('Sitemap', () => {
   });
 
   it('includes the generated blog post route', () => {
-    expect(sitemap0).toContain('<loc>https://nathanpayne.com/blog/six-prs-one-bug-agent-failure-modes/</loc>');
+    expect(sitemap0).toContain(
+      '<loc>https://nathanpayne.com/blog/six-prs-one-bug-agent-failure-modes/</loc>',
+    );
   });
 });

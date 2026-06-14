@@ -43,7 +43,7 @@ describe('dist/robots.txt (post-build)', () => {
       existsSync(robotsPath),
       `Build output not found at ${robotsPath}. ` +
         `Run \`npm run build\` (or \`npm test\`, which runs it for you) ` +
-        `before invoking vitest directly.`
+        `before invoking vitest directly.`,
     ).toBe(true);
     robotsTxt = readFileSync(robotsPath, 'utf-8');
   });
@@ -66,7 +66,7 @@ describe('dist/robots.txt (post-build)', () => {
     expect(
       existsSync(onDisk),
       `robots.txt declares ${url} but ${onDisk} does not exist. ` +
-        `This is exactly the class of bug #163 diagnosed.`
+        `This is exactly the class of bug #163 diagnosed.`,
     ).toBe(true);
   });
 

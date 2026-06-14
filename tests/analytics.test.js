@@ -13,7 +13,10 @@ const panelScript = inlineScripts.find((s) => s.includes('section_view')) || '';
 // token, so it may be absent from a token-less build (e.g. CI). Assert the
 // init contract against the component SOURCE (build-env-independent); assert
 // event behavior against the homepage script, which always renders.
-const posthogComponentSrc = readFileSync(resolve(__dirname, '../src/components/posthog.astro'), 'utf-8');
+const posthogComponentSrc = readFileSync(
+  resolve(__dirname, '../src/components/posthog.astro'),
+  'utf-8',
+);
 const posthogHomepageScript = inlineScripts.find((s) => s.includes('homepage_panel_opened')) || '';
 // GA4 is loaded by BaseLayout from the env Measurement ID and gated on it, so
 // assert the load contract against the layout SOURCE (build-env-independent).
@@ -33,7 +36,10 @@ function setupDOM() {
   Object.defineProperty(window, 'matchMedia', {
     writable: true,
     value: vi.fn((query) => ({
-      matches: query === '(hover: hover) and (pointer: fine)' ? true : !query.includes('max-width: 1023px'),
+      matches:
+        query === '(hover: hover) and (pointer: fine)'
+          ? true
+          : !query.includes('max-width: 1023px'),
       media: query,
       addEventListener: vi.fn(),
       removeEventListener: vi.fn(),
@@ -83,7 +89,8 @@ describe('Analytics', () => {
     panel.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
 
     const sectionViewCalls = gtagMock.mock.calls.filter(
-      (call) => call[0] === 'event' && call[1] === 'section_view' && call[2].section_name === 'projects'
+      (call) =>
+        call[0] === 'event' && call[1] === 'section_view' && call[2].section_name === 'projects',
     );
     expect(sectionViewCalls).toHaveLength(1);
   });

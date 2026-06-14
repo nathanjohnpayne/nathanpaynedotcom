@@ -43,18 +43,18 @@
   --accent-paper: #5b5f64;
   --accent-gray: #d4d4d4;
   --linkedin-blue-6: #006699;
-  --linkedin-blue-4: #00A0DC;
+  --linkedin-blue-4: #00a0dc;
   --linkedin-gray-6: #313335;
-  --linkedin-gray-3: #86888A;
-  --linkedin-gray-1: #CACCCE;
-  --bluesky-blue-7: #0E57FF;
-  --bluesky-blue-5: #1F6FFF;
-  --bluesky-blue-3: #73B6FF;
-  --bluesky-blue-1: #CFE5FF;
+  --linkedin-gray-3: #86888a;
+  --linkedin-gray-1: #caccce;
+  --bluesky-blue-7: #0e57ff;
+  --bluesky-blue-5: #1f6fff;
+  --bluesky-blue-3: #73b6ff;
+  --bluesky-blue-1: #cfe5ff;
   --github-gray-6: #101411;
   --github-gray-5: #232925;
-  --github-green-4: #0FBF3E;
-  --github-green-2: #8CF2A6;
+  --github-green-4: #0fbf3e;
+  --github-green-2: #8cf2a6;
   --line: 9px;
   /* Spacing (#472). --su (0.42rem) is the base spacing unit. The audit
      pegged it at ~4% adoption, but the real count is 27 declarations —
@@ -75,11 +75,11 @@
        sub-pixel (<=0.67px at 16px root). New tuned multiples are
        still valid where a step genuinely doesn't fit. */
   --su: 0.42rem;
-  --sp-2xs: calc(var(--su) * 0.5);   /* 0.21rem — hairline gaps */
-  --sp-xs: calc(var(--su) * 0.75);   /* 0.315rem — tight list/label gaps */
-  --sp-sm: var(--su);                /* 0.42rem — base step */
-  --sp-md: calc(var(--su) * 1.5);    /* 0.63rem — block separation */
-  --sp-lg: calc(var(--su) * 2);      /* 0.84rem — section-level gaps */
+  --sp-2xs: calc(var(--su) * 0.5); /* 0.21rem — hairline gaps */
+  --sp-xs: calc(var(--su) * 0.75); /* 0.315rem — tight list/label gaps */
+  --sp-sm: var(--su); /* 0.42rem — base step */
+  --sp-md: calc(var(--su) * 1.5); /* 0.63rem — block separation */
+  --sp-lg: calc(var(--su) * 2); /* 0.84rem — section-level gaps */
   --grid-border: #1a1814;
   --cream: #f5f0e4;
   /* Per-plane tuned mobile-panel veils; intentionally distinct from --cream. */
@@ -96,11 +96,15 @@
      lighter voice than body-muted text. The --breadcrumb-* ramp below is
      deliberately separate (#452/#454 AA calibration), and --canvas-shadow
      (0.12) keeps its own role token. */
-  --ink-06: color-mix(in srgb, var(--ink) 6%, transparent);  /* tint surfaces, offset shadows */
-  --ink-18: color-mix(in srgb, var(--ink) 18%, transparent);  /* rules/dividers, hover tints */
-  --ink-32: color-mix(in srgb, var(--ink) 32%, transparent);  /* emphasis borders, underline tint */
-  --ink-50: color-mix(in srgb, var(--ink) 50%, transparent);  /* panel eyebrow/ribbon labels */
-  --ink-62: color-mix(in srgb, var(--ink) 62%, transparent);  /* muted/secondary text (AA-safe on
+  --ink-06: color-mix(in srgb, var(--ink) 6%, transparent); /* tint surfaces, offset shadows */
+  --ink-18: color-mix(in srgb, var(--ink) 18%, transparent); /* rules/dividers, hover tints */
+  --ink-32: color-mix(in srgb, var(--ink) 32%, transparent); /* emphasis borders, underline tint */
+  --ink-50: color-mix(in srgb, var(--ink) 50%, transparent); /* panel eyebrow/ribbon labels */
+  --ink-62: color-mix(
+    in srgb,
+    var(--ink) 62%,
+    transparent
+  ); /* muted/secondary text (AA-safe on
                                         the light surfaces it appears on;
                                         see the #454 note below) */
   /* Semantic alias kept for the many existing var(--rule) border sites;
@@ -108,8 +112,8 @@
   --rule: var(--ink-18);
 
   /* Repeated page/panel surface colors, tokenized in #469. */
-  --panel-open-bg: #e4ded0;  /* warm parchment every homepage panel opens to */
-  --blue-contrast: #f0f4ff;  /* light text/chrome on the --blue panel */
+  --panel-open-bg: #e4ded0; /* warm parchment every homepage panel opens to */
+  --blue-contrast: #f0f4ff; /* light text/chrome on the --blue panel */
   /* Warm near-ink text on warm surfaces (yellow panel, open parchment).
      Collapsed from three audit-time near-duplicates (#171208 / #17130f /
      #191611) that sat on the same parchment background — drift, not
@@ -117,8 +121,8 @@
      yellow --accent-contrast) and the darkest, so contrast on the light
      surfaces can only improve (#469). */
   --ink-warm: #171208;
-  --stage-bg: #c4c3bc;       /* stage/OG backdrop + blog --project-bg */
-  --chrome-bg: #bdbeb8;      /* html/body backdrop behind the stage */
+  --stage-bg: #c4c3bc; /* stage/OG backdrop + blog --project-bg */
+  --chrome-bg: #bdbeb8; /* html/body backdrop behind the stage */
 
   /* Breadcrumb chrome (#452, raised to WCAG AA in #454): one ink ramp on
      every page. Parent links sit a visible step darker than the current
@@ -134,11 +138,11 @@
   /* Heading scale (#455): display/page/article/section tiers mirror the motion
      token pattern so page families do not hand-roll near-identical h1/h2
      values. */
-  --font-heading: "Cormorant Garamond", garamond, serif;
+  --font-heading: 'Cormorant Garamond', garamond, serif;
   /* Body/UI sans stack (#464). Counterpart to --font-heading so neither
      typeface is hand-rolled at use sites. OgCard.astro keeps its inline
      @font-face stack — required for the static OG image render context. */
-  --font-body: "Inter", system-ui, sans-serif;
+  --font-body: 'Inter', system-ui, sans-serif;
   --heading-weight: 600;
   --heading-letter-spacing: 0;
   --heading-display-size: clamp(2.8rem, 6vw, 5.4rem);
@@ -178,21 +182,21 @@
      and the Community label cross-fade (#304). Defined as tokens so
      timing stays controllable from one place; the inline script in
      src/pages/index.astro reads --pulse-* via getComputedStyle. */
-  --pulse-initial-delay: 300ms;   /* breath after panel labels finish fading
+  --pulse-initial-delay: 300ms; /* breath after panel labels finish fading
                                      in before the sequence fires; the fade-in
                                      itself runs at --motion-hover (~170ms),
                                      so this leaves the page visibly settled
                                      before any motion starts */
-  --pulse-interval: 370ms;        /* time between successive pulse starts */
-  --pulse-duration: 250ms;        /* per-panel pulse length */
-  --label-fade: 100ms;            /* per-orientation cross-fade duration */
-  --label-fade-delay-in: 150ms;   /* hold before the new orientation fades in
+  --pulse-interval: 370ms; /* time between successive pulse starts */
+  --pulse-duration: 250ms; /* per-panel pulse length */
+  --label-fade: 100ms; /* per-orientation cross-fade duration */
+  --label-fade-delay-in: 150ms; /* hold before the new orientation fades in
                                      so the container reshape leads the swap */
-  --label-fade-delay-out: 250ms;  /* hold before the original orientation
+  --label-fade-delay-out: 250ms; /* hold before the original orientation
                                      returns on collapse so the container
                                      reshapes back first */
 
-  --ease-standard: cubic-bezier(0.4, 0.0, 0.2, 1);
+  --ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
   --ease-sharp: cubic-bezier(0.2, 0.8, 0.2, 1);
   --ease-out: cubic-bezier(0, 0, 0.2, 1);
   --ease-linear: linear;
@@ -225,15 +229,20 @@
   --mondrian-max-width: 1280px;
 }
 
-[data-palette="1930"] {
+[data-palette='1930'] {
   --red: #da2418;
   --yellow: #f0c800;
   --blue: #0a5c9e;
 }
 
-* { box-sizing: border-box; margin: 0; padding: 0; }
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
 
-html, body {
+html,
+body {
   min-height: 100%;
   background: var(--chrome-bg);
   color: var(--ink);
@@ -265,7 +274,7 @@ html, body {
   grid-template-rows:
     var(--line) minmax(10rem, 3.05fr) var(--line)
     minmax(3rem, 1fr) var(--line)
-    minmax(2rem, 0.60fr) var(--line)
+    minmax(2rem, 0.6fr) var(--line)
     minmax(3.75rem, 1.12fr) var(--line);
   background: var(--black);
   border: 1px solid var(--grid-border);
@@ -302,7 +311,7 @@ html, body {
    The measureContentHeights pass in src/pages/index.astro sets the
    --cell-h-* vars on .mondrian after fonts.ready and on resize. */
 
-.mondrian[data-focus="about"] {
+.mondrian[data-focus='about'] {
   grid-template-columns:
     var(--line) minmax(10rem, 3.65fr) var(--line)
     minmax(4.4rem, 1.45fr) var(--line)
@@ -311,16 +320,16 @@ html, body {
   grid-template-rows:
     var(--line)
     var(--cell-h-about, 547px) /* track 2 — bio content height (JS-measured) */
-    0                          /* track 3 — line absorbed inside bio */
-    0                          /* track 4 — second content row absorbed */
-    var(--line)                /* track 5 — boundary line below bio */
+    0 /* track 3 — line absorbed inside bio */
+    0 /* track 4 — second content row absorbed */
+    var(--line) /* track 5 — boundary line below bio */
     minmax(2rem, 0.6fr)
     var(--line)
     minmax(3.4rem, 0.95fr)
     var(--line);
 }
 
-.mondrian[data-focus="projects"] {
+.mondrian[data-focus='projects'] {
   grid-template-columns:
     var(--line) minmax(5.2rem, 0.92fr) var(--line)
     minmax(4.2rem, 0.88fr) var(--line)
@@ -329,8 +338,8 @@ html, body {
   grid-template-rows:
     var(--line)
     var(--cell-h-projects, 676px) /* track 2 — Builds content height */
-    0                             /* track 3 — line absorbed */
-    0                             /* track 4 — absorbed */
+    0 /* track 3 — line absorbed */
+    0 /* track 4 — absorbed */
     var(--line)
     minmax(1.6rem, 0.52fr)
     var(--line)
@@ -338,11 +347,11 @@ html, body {
     var(--line);
 }
 
-.mondrian[data-focus="projects"] .panel--yellow {
+.mondrian[data-focus='projects'] .panel--yellow {
   grid-row: 2 / 5;
 }
 
-.mondrian[data-focus="community"] {
+.mondrian[data-focus='community'] {
   grid-template-columns:
     var(--line) minmax(11rem, 4.1fr) var(--line)
     minmax(4.1rem, 0.82fr) var(--line)
@@ -358,7 +367,7 @@ html, body {
 /* Connect-focus content-sizes the Connect panel by sizing track 8 to the
    measured connect content height. Community in col 2 still spans rows
    6/7/8 by default, just at the smaller resulting total height. */
-.mondrian[data-focus="connect"] {
+.mondrian[data-focus='connect'] {
   grid-template-columns:
     var(--line) minmax(7.8rem, 1.6fr) var(--line)
     minmax(5.2rem, 1.3fr) var(--line)
@@ -572,7 +581,9 @@ html[data-fonts-pending] .panel-label {
   line-height: 1.58;
 }
 
-.content-inner p { margin-bottom: 0.5rem; }
+.content-inner p {
+  margin-bottom: 0.5rem;
+}
 
 .lead {
   font-family: var(--font-heading);
@@ -648,7 +659,7 @@ html[data-fonts-pending] .panel-label {
   display: block;
   /* Warm-tinted 50% ink (not --ink-50): matches the open parchment
      surface; deliberate, kept as an override on the shared .eyebrow. */
-  color: rgba(23, 19, 15, 0.50);
+  color: rgba(23, 19, 15, 0.5);
   margin-bottom: var(--sp-2xs);
 }
 
@@ -717,7 +728,7 @@ html[data-fonts-pending] .panel-label {
   margin-top: var(--sp-sm);
   margin-bottom: var(--sp-sm);
   /* Warm-tinted 50% ink (not --ink-50): see .about-label note (#467). */
-  color: rgba(25, 22, 17, 0.50);
+  color: rgba(25, 22, 17, 0.5);
 }
 
 .availability-signal {
@@ -758,7 +769,7 @@ html[data-fonts-pending] .panel-label {
 }
 
 .social-row::after {
-  content: "";
+  content: '';
   position: absolute;
   left: 0;
   bottom: -3px;
@@ -792,22 +803,12 @@ html[data-fonts-pending] .panel-label {
   );
 }
 .social-row--blog::after {
-  background: linear-gradient(
-    90deg,
-    var(--red) 0%,
-    var(--yellow) 54%,
-    var(--blue) 100%
-  );
+  background: linear-gradient(90deg, var(--red) 0%, var(--yellow) 54%, var(--blue) 100%);
 }
 .social-row--resume::after {
   /* Reversed Mondrian (blue→yellow→red) — an internal site destination
      like Blog, distinguished from Blog's red→yellow→blue bar. */
-  background: linear-gradient(
-    90deg,
-    var(--blue) 0%,
-    var(--yellow) 54%,
-    var(--red) 100%
-  );
+  background: linear-gradient(90deg, var(--blue) 0%, var(--yellow) 54%, var(--red) 100%);
 }
 .social-row--bluesky::after {
   background: linear-gradient(
@@ -818,24 +819,14 @@ html[data-fonts-pending] .panel-label {
     var(--bluesky-blue-1) 100%
   );
 }
-.social-row--instagram::after { background: linear-gradient(90deg, #FFC273, #E56969, #C1558B, #8A49A1); }
+.social-row--instagram::after {
+  background: linear-gradient(90deg, #ffc273, #e56969, #c1558b, #8a49a1);
+}
 .social-row--threads::after {
-  background: linear-gradient(
-    90deg,
-    #000000 0%,
-    #242424 38%,
-    #6A6A6A 74%,
-    #F2F2F2 100%
-  );
+  background: linear-gradient(90deg, #000000 0%, #242424 38%, #6a6a6a 74%, #f2f2f2 100%);
 }
 .social-row--x::after {
-  background: linear-gradient(
-    90deg,
-    #000000 0%,
-    #0B0B0B 55%,
-    #7C7C7C 82%,
-    #FFFFFF 100%
-  );
+  background: linear-gradient(90deg, #000000 0%, #0b0b0b 55%, #7c7c7c 82%, #ffffff 100%);
 }
 
 .s-icon {
@@ -1074,7 +1065,7 @@ a:focus-visible .link-arrow,
 .blog-callout-link {
   font-size: 0.68rem;
   line-height: 1.45;
-  letter-spacing: 0.10em;
+  letter-spacing: 0.1em;
   word-spacing: 0.05em;
   color: var(--ink-50);
 }
@@ -1159,7 +1150,7 @@ a:focus-visible .link-arrow,
 }
 
 .effort-desc {
-  margin-top: 0.10rem;
+  margin-top: 0.1rem;
   font-size: 0.85rem;
   line-height: 1.48;
 }
@@ -1202,7 +1193,9 @@ a:focus-visible .link-arrow,
   color: var(--ink-warm);
 }
 
-.panel--red .panel-label { color: var(--cream); }
+.panel--red .panel-label {
+  color: var(--cream);
+}
 
 @container (max-width: 380px) {
   .panel--red .panel-label--name {
@@ -1216,7 +1209,11 @@ a:focus-visible .link-arrow,
   }
 }
 
-.block--white-a { grid-column: 6; grid-row: 4; background: var(--paper); }
+.block--white-a {
+  grid-column: 6;
+  grid-row: 4;
+  background: var(--paper);
+}
 
 .panel--yellow {
   grid-column: 6 / 9;
@@ -1238,7 +1235,11 @@ a:focus-visible .link-arrow,
   padding-right: 16%;
 }
 
-.block--white-b { grid-column: 8; grid-row: 4; background: var(--paper); }
+.block--white-b {
+  grid-column: 8;
+  grid-row: 4;
+  background: var(--paper);
+}
 
 .panel--black {
   grid-column: 2;
@@ -1307,11 +1308,11 @@ a:focus-visible .link-arrow,
    expansions (Connect, About) reshape elsewhere and leave Community wide
    enough for the horizontal label, so the vertical variant stays out of
    the way unless it's actually solving the truncation problem. */
-.mondrian[data-focus="projects"] .panel--black .panel-label__h {
+.mondrian[data-focus='projects'] .panel--black .panel-label__h {
   opacity: 0;
   transition-delay: 0ms;
 }
-.mondrian[data-focus="projects"] .panel--black .panel-label__v {
+.mondrian[data-focus='projects'] .panel--black .panel-label__v {
   opacity: 1;
   transition-delay: var(--label-fade-delay-in);
 }
@@ -1323,9 +1324,21 @@ a:focus-visible .link-arrow,
   }
 }
 
-.block--white-c { grid-column: 4 / 7; grid-row: 6; background: var(--paper); }
-.block--gray-e { grid-column: 8; grid-row: 6; background: var(--accent-gray); }
-.block--gray-d { grid-column: 4 / 5; grid-row: 8; background: var(--accent-gray); }
+.block--white-c {
+  grid-column: 4 / 7;
+  grid-row: 6;
+  background: var(--paper);
+}
+.block--gray-e {
+  grid-column: 8;
+  grid-row: 6;
+  background: var(--accent-gray);
+}
+.block--gray-d {
+  grid-column: 4 / 5;
+  grid-row: 8;
+  background: var(--accent-gray);
+}
 
 .panel--blue {
   grid-column: 6 / 9;
@@ -1380,37 +1393,37 @@ body.blog-page {
   --project-gradient-to: var(--cream);
 }
 
-[data-accent="red"] {
+[data-accent='red'] {
   --accent: var(--red);
   --accent-contrast: var(--cream);
   --accent-soft: color-mix(in srgb, var(--accent) 12%, transparent);
 }
 
-[data-accent="yellow"] {
+[data-accent='yellow'] {
   --accent: var(--yellow);
   --accent-contrast: var(--ink-warm);
   --accent-soft: color-mix(in srgb, var(--accent) 18%, transparent);
 }
 
-[data-accent="black"] {
+[data-accent='black'] {
   --accent: var(--accent-black);
   --accent-contrast: var(--cream);
   --accent-soft: color-mix(in srgb, var(--accent) 12%, transparent);
 }
 
-[data-accent="blue"] {
+[data-accent='blue'] {
   --accent: var(--blue);
   --accent-contrast: var(--cream);
   --accent-soft: color-mix(in srgb, var(--accent) 12%, transparent);
 }
 
-[data-accent="lightblue"] {
+[data-accent='lightblue'] {
   --accent: var(--lightblue);
   --accent-contrast: var(--cream);
   --accent-soft: color-mix(in srgb, var(--accent) 12%, transparent);
 }
 
-[data-accent="paper"] {
+[data-accent='paper'] {
   --accent: var(--accent-paper);
   --accent-contrast: var(--cream);
   --accent-soft: color-mix(in srgb, var(--accent) 12%, transparent);
@@ -1448,7 +1461,7 @@ body.blog-page {
 }
 
 .project-hero::before {
-  content: "";
+  content: '';
   position: absolute;
   inset: 0 auto 0 0;
   width: clamp(0.5rem, 1vw, 0.8rem);
@@ -1654,26 +1667,26 @@ body.blog-page {
    the wordmark breathes rather than stretching to the full content
    column. The border on the inner img is suppressed because there's no
    raster screenshot edge to soften here. */
-[data-accent="black"] .project-screenshot {
+[data-accent='black'] .project-screenshot {
   background: var(--ink);
   border-top-color: var(--ink);
 }
-[data-accent="black"] .project-screenshot__inner {
+[data-accent='black'] .project-screenshot__inner {
   max-width: 56rem;
   margin: 0 auto;
   padding: clamp(2rem, 6vw, 4rem) clamp(1rem, 4vw, 2.5rem);
 }
-[data-accent="black"] .project-screenshot--wide img,
-[data-accent="black"] .project-screenshot--wide .project-screenshot__inner > svg {
+[data-accent='black'] .project-screenshot--wide img,
+[data-accent='black'] .project-screenshot--wide .project-screenshot__inner > svg {
   border: none;
 }
-[data-accent="black"] .project-stack {
+[data-accent='black'] .project-stack {
   color: color-mix(in srgb, var(--cream) 78%, transparent);
 }
-[data-accent="black"] .project-stack__label {
+[data-accent='black'] .project-stack__label {
   color: color-mix(in srgb, var(--cream) 62%, transparent);
 }
-[data-accent="black"] .project-stack__value {
+[data-accent='black'] .project-stack__value {
   color: color-mix(in srgb, var(--cream) 92%, transparent);
 }
 
@@ -1729,11 +1742,12 @@ body.blog-page {
   transition: opacity var(--motion-fast) var(--ease-linear);
 }
 
-.project-screenshot__mux-shell[data-playback-state="fallback"] .project-screenshot__mux {
+.project-screenshot__mux-shell[data-playback-state='fallback'] .project-screenshot__mux {
   opacity: 0;
 }
 
-.project-screenshot__mux-shell[data-playback-state="fallback"] .project-screenshot__mux-gif-fallback {
+.project-screenshot__mux-shell[data-playback-state='fallback']
+  .project-screenshot__mux-gif-fallback {
   opacity: 1;
 }
 
@@ -1759,7 +1773,7 @@ body.blog-page {
 }
 
 .project-screenshot__mux-play::before {
-  content: "";
+  content: '';
   display: block;
   width: 0;
   height: 0;
@@ -1884,7 +1898,7 @@ body.blog-page {
 }
 
 .project-copy ul li::before {
-  content: "";
+  content: '';
   position: absolute;
   top: 0.5em;
   left: 0;
@@ -1908,7 +1922,11 @@ body.blog-page {
   text-decoration: underline;
   text-decoration-thickness: 1px;
   text-underline-offset: 0.22em;
-  text-decoration-color: color-mix(in srgb, var(--project-link-color, var(--accent-text)) 55%, transparent);
+  text-decoration-color: color-mix(
+    in srgb,
+    var(--project-link-color, var(--accent-text)) 55%,
+    transparent
+  );
   transition:
     text-decoration-color var(--motion-hover) var(--ease-standard),
     text-decoration-thickness var(--motion-hover) var(--ease-standard),
@@ -1960,7 +1978,7 @@ body.blog-page {
 }
 
 .project-related__list li::before {
-  content: "";
+  content: '';
   position: absolute;
   top: 0.5em;
   left: 0;
@@ -1990,7 +2008,7 @@ body.blog-page {
   .metadata-strip--grid-4 {
     grid-template-columns: 1fr 1fr;
   }
-  .metadata-strip--grid-4 .metadata-strip__item:nth-child(n+3) {
+  .metadata-strip--grid-4 .metadata-strip__item:nth-child(n + 3) {
     border-top: 1px dotted var(--rule);
   }
   .metadata-strip--grid-4 .metadata-strip__item:nth-child(odd) {
@@ -2136,9 +2154,9 @@ body.blog-page {
      column is shrunk by half a line per adjacent gap so the black grid
      line sits centered on the target percentage. Used by the desktop
      row templates below; the mobile stack overrides to a single column. */
-  --col-post: calc(50% - var(--line) / 2);       /* column ending at the 50% line */
-  --col-mid: calc(22% - var(--line));            /* column spanning 50% → 72% */
-  --col-post-wide: calc(72% - var(--line) / 2);  /* column ending at the 72% line */
+  --col-post: calc(50% - var(--line) / 2); /* column ending at the 50% line */
+  --col-mid: calc(22% - var(--line)); /* column spanning 50% → 72% */
+  --col-post-wide: calc(72% - var(--line) / 2); /* column ending at the 72% line */
 }
 
 /* Rows place their cells on the shared 50% / 72% gridlines (see the
@@ -2457,10 +2475,10 @@ a.tag:hover {
      .error-shell's gutter without depending on flex-shrink. */
   --canvas-width: 64rem;
   display: grid;
-  grid-template-columns:
-    var(--line) 2.4fr var(--line) 1fr var(--line) 1.2fr var(--line) 0.5fr var(--line);
-  grid-template-rows:
-    var(--line) auto var(--line) 5rem var(--line) 3.5rem var(--line);
+  grid-template-columns: var(--line) 2.4fr var(--line) 1fr var(--line) 1.2fr var(--line) 0.5fr var(
+      --line
+    );
+  grid-template-rows: var(--line) auto var(--line) 5rem var(--line) 3.5rem var(--line);
   background: var(--black);
   border: 1px solid var(--grid-border);
 }
@@ -2497,19 +2515,53 @@ a.tag:hover {
   padding-left: 0;
 }
 
-.e-block { min-height: 0; }
+.e-block {
+  min-height: 0;
+}
 
 /* Grid placement for decorative blocks — each cell sits in a content track only;
    var(--line) gap tracks between every cell create consistent black separators.
    Content tracks: cols 2,4,6,8 · rows 2,4,6 */
-.e-red       { grid-column: 8; grid-row: 2;   background: var(--red); }
-.e-yellow-a  { grid-column: 2; grid-row: 4;   background: var(--yellow); }
-.e-blue      { grid-column: 4; grid-row: 4/7; background: var(--blue); }
-.e-black     { grid-column: 6; grid-row: 4;   background: var(--accent-black); }
-.e-white-a   { grid-column: 8; grid-row: 4;   background: var(--accent-gray); }
-.e-white-b   { grid-column: 2; grid-row: 6;   background: var(--accent-gray); }
-.e-yellow-b  { grid-column: 6; grid-row: 6;   background: var(--yellow); }
-.e-white-c   { grid-column: 8; grid-row: 6;   background: var(--paper); }
+.e-red {
+  grid-column: 8;
+  grid-row: 2;
+  background: var(--red);
+}
+.e-yellow-a {
+  grid-column: 2;
+  grid-row: 4;
+  background: var(--yellow);
+}
+.e-blue {
+  grid-column: 4;
+  grid-row: 4/7;
+  background: var(--blue);
+}
+.e-black {
+  grid-column: 6;
+  grid-row: 4;
+  background: var(--accent-black);
+}
+.e-white-a {
+  grid-column: 8;
+  grid-row: 4;
+  background: var(--accent-gray);
+}
+.e-white-b {
+  grid-column: 2;
+  grid-row: 6;
+  background: var(--accent-gray);
+}
+.e-yellow-b {
+  grid-column: 6;
+  grid-row: 6;
+  background: var(--yellow);
+}
+.e-white-c {
+  grid-column: 8;
+  grid-row: 6;
+  background: var(--paper);
+}
 
 /* 768px matches --bp-tablet on :root. (#332) */
 @media (max-width: 768px) {
@@ -2525,7 +2577,9 @@ a.tag:hover {
     grid-column: 2;
     grid-row: 2;
   }
-  .e-block { display: none; }
+  .e-block {
+    display: none;
+  }
 }
 
 /* ── OG Image Card ──────────────────────────────────────────────
@@ -2556,10 +2610,10 @@ a.tag:hover {
   width: 100%;
   height: 100%;
   display: grid;
-  grid-template-columns:
-    var(--line) 2.4fr var(--line) 1fr var(--line) 1.2fr var(--line) 0.5fr var(--line);
-  grid-template-rows:
-    var(--line) 1fr var(--line) 5rem var(--line) 3.5rem var(--line);
+  grid-template-columns: var(--line) 2.4fr var(--line) 1fr var(--line) 1.2fr var(--line) 0.5fr var(
+      --line
+    );
+  grid-template-rows: var(--line) 1fr var(--line) 5rem var(--line) 3.5rem var(--line);
   background: var(--black);
   border: 1px solid var(--grid-border);
   box-shadow: var(--canvas-shadow);
@@ -2632,16 +2686,50 @@ a.tag:hover {
   letter-spacing: 0.04em;
 }
 
-.og-block { min-height: 0; }
+.og-block {
+  min-height: 0;
+}
 
-.og-red       { grid-column: 8; grid-row: 2;   background: var(--red); }
-.og-yellow-a  { grid-column: 2; grid-row: 4;   background: var(--yellow); }
-.og-blue      { grid-column: 4; grid-row: 4/7; background: var(--blue); }
-.og-black     { grid-column: 6; grid-row: 4;   background: var(--accent-black); }
-.og-white-a   { grid-column: 8; grid-row: 4;   background: var(--accent-gray); }
-.og-white-b   { grid-column: 2; grid-row: 6;   background: var(--accent-gray); }
-.og-yellow-b  { grid-column: 6; grid-row: 6;   background: var(--yellow); }
-.og-white-c   { grid-column: 8; grid-row: 6;   background: var(--paper); }
+.og-red {
+  grid-column: 8;
+  grid-row: 2;
+  background: var(--red);
+}
+.og-yellow-a {
+  grid-column: 2;
+  grid-row: 4;
+  background: var(--yellow);
+}
+.og-blue {
+  grid-column: 4;
+  grid-row: 4/7;
+  background: var(--blue);
+}
+.og-black {
+  grid-column: 6;
+  grid-row: 4;
+  background: var(--accent-black);
+}
+.og-white-a {
+  grid-column: 8;
+  grid-row: 4;
+  background: var(--accent-gray);
+}
+.og-white-b {
+  grid-column: 2;
+  grid-row: 6;
+  background: var(--accent-gray);
+}
+.og-yellow-b {
+  grid-column: 6;
+  grid-row: 6;
+  background: var(--yellow);
+}
+.og-white-c {
+  grid-column: 8;
+  grid-row: 6;
+  background: var(--paper);
+}
 
 /* ── Blog Post: Mondrian "Composition with Margins" Canvas ────
    Three-column grid: accent margin | content | sticky sidebar.
@@ -2664,16 +2752,16 @@ a.tag:hover {
   display: grid;
   grid-template-columns:
     var(--line)
-    minmax(2.5rem, 0.4fr)    /* left margin — accent blocks */
+    minmax(2.5rem, 0.4fr) /* left margin — accent blocks */
     var(--line)
-    minmax(20rem, 3fr)        /* main content */
+    minmax(20rem, 3fr) /* main content */
     var(--line)
-    minmax(10rem, 1.3fr)      /* right sidebar */
+    minmax(10rem, 1.3fr) /* right sidebar */
     var(--line);
   grid-template-rows:
-    var(--line) auto           /* header row */
-    var(--line) 1fr            /* body row (content + sidebar) */
-    var(--line) auto           /* footer row */
+    var(--line) auto /* header row */
+    var(--line) 1fr /* body row (content + sidebar) */
+    var(--line) auto /* footer row */
     var(--line);
   background: var(--ink);
   /* Use clip instead of hidden — hidden creates a scroll container
@@ -2897,9 +2985,15 @@ a.tag:hover {
   background: rgba(255, 255, 255, 0.52);
 }
 
-.blog-sidebar-pullquote--red    { border-left-color: var(--red); }
-.blog-sidebar-pullquote--yellow { border-left-color: var(--yellow); }
-.blog-sidebar-pullquote--blue   { border-left-color: var(--blue); }
+.blog-sidebar-pullquote--red {
+  border-left-color: var(--red);
+}
+.blog-sidebar-pullquote--yellow {
+  border-left-color: var(--yellow);
+}
+.blog-sidebar-pullquote--blue {
+  border-left-color: var(--blue);
+}
 
 .blog-sidebar-pullquote p {
   font-family: var(--font-heading);
@@ -3073,7 +3167,7 @@ a.tag:hover {
 }
 
 .blog-prose code {
-  font-family: "SFMono-Regular", "SF Mono", Consolas, "Liberation Mono", Menlo, monospace;
+  font-family: 'SFMono-Regular', 'SF Mono', Consolas, 'Liberation Mono', Menlo, monospace;
   font-size: 0.88em;
   background: color-mix(in srgb, var(--ink) 7%, transparent);
   padding: 0.15em 0.35em;
@@ -3126,7 +3220,7 @@ a.tag:hover {
 }
 
 .blog-prose blockquote li::before {
-  content: "";
+  content: '';
   position: absolute;
   left: 0;
   top: 0.72em;
@@ -3160,7 +3254,7 @@ a.tag:hover {
 }
 
 .blog-list li::before {
-  content: "";
+  content: '';
   position: absolute;
   left: 0;
   top: 0.72em;
@@ -3266,7 +3360,6 @@ a.tag:hover {
   --astro-code-token-punctuation: var(--ink);
   --astro-code-token-link: #4a7a3a;
 }
-
 
 /* (blog footer content styles moved to the shared .site-footer system, #434) */
 
@@ -3381,13 +3474,23 @@ a.tag:hover {
    has near-zero effect on a neutral fill.
    Supersedes #271 (inactivity nudges + on-load settle). */
 @keyframes panel-pulse {
-  0%, 100% { filter: none; }
-  50%      { filter: brightness(1.08) saturate(1.05); }
+  0%,
+  100% {
+    filter: none;
+  }
+  50% {
+    filter: brightness(1.08) saturate(1.05);
+  }
 }
 
 @keyframes panel-pulse-neutral {
-  0%, 100% { filter: none; }
-  50%      { filter: brightness(1.16); }
+  0%,
+  100% {
+    filter: none;
+  }
+  50% {
+    filter: brightness(1.16);
+  }
 }
 
 /* Blue Connect panel needs a stronger pulse than the default keyframe.
@@ -3397,8 +3500,13 @@ a.tag:hover {
    the same range as the red and yellow panels' pulses, restoring the
    "navigation hint" cue across all four primaries. (#330) */
 @keyframes panel-pulse-blue {
-  0%, 100% { filter: none; }
-  50%      { filter: brightness(1.22) saturate(1.10); }
+  0%,
+  100% {
+    filter: none;
+  }
+  50% {
+    filter: brightness(1.22) saturate(1.1);
+  }
 }
 
 .panel--pulsing {
@@ -3461,13 +3569,14 @@ a:focus-visible {
     font-size: 0.75rem;
     padding: 0.75rem 0.85rem;
   }
-
 }
 
 /* 1023px is one below --bp-stack (1024px) on :root — the homepage
    stack-mode boundary. (#332) */
 @media (max-width: 1023px) {
-  :root { --line: 6px; }
+  :root {
+    --line: 6px;
+  }
 
   /* Vertical stack fills the viewport edge-to-edge below --bp-stack (#313).
      Phone-landscape (e.g. iPhone Pro Max landscape, 956×440) and
@@ -3496,16 +3605,30 @@ a:focus-visible {
   }
 
   .panel,
-  .block { grid-column: 2; }
+  .block {
+    grid-column: 2;
+  }
 
-  .panel--red { grid-row: 2; }
-  .panel--yellow { grid-row: 4; }
-  .panel--black { grid-row: 6; }
-  .panel--blue { grid-row: 8; }
+  .panel--red {
+    grid-row: 2;
+  }
+  .panel--yellow {
+    grid-row: 4;
+  }
+  .panel--black {
+    grid-row: 6;
+  }
+  .panel--blue {
+    grid-row: 8;
+  }
 
-  .block { display: none; }
+  .block {
+    display: none;
+  }
 
-  .panel-label { display: none; }
+  .panel-label {
+    display: none;
+  }
 
   /* Stack mode renders all panel content statically — interactions are
      disabled below --bp-stack so the is-content-visible state machine
@@ -3680,14 +3803,16 @@ a:focus-visible {
   .blog-canvas {
     grid-template-columns: var(--line) 1fr var(--line);
     grid-template-rows:
-      var(--line) auto       /* sidebar-meta (moves to top) */
-      var(--line) auto       /* header */
-      var(--line) auto       /* content */
-      var(--line) auto       /* footer */
+      var(--line) auto /* sidebar-meta (moves to top) */
+      var(--line) auto /* header */
+      var(--line) auto /* content */
+      var(--line) auto /* footer */
       var(--line);
   }
 
-  .blog-margin { display: none; }
+  .blog-margin {
+    display: none;
+  }
 
   .blog-sidebar-meta {
     grid-column: 2;
@@ -3706,8 +3831,12 @@ a:focus-visible {
     gap: 0.4rem 1.5rem;
   }
 
-  .blog-sidebar-meta dt { color: rgba(255, 255, 255, 0.55); }
-  .blog-sidebar-meta dd { color: rgba(255, 255, 255, 0.95); }
+  .blog-sidebar-meta dt {
+    color: rgba(255, 255, 255, 0.55);
+  }
+  .blog-sidebar-meta dd {
+    color: rgba(255, 255, 255, 0.95);
+  }
 
   .blog-canvas-header {
     grid-column: 2;
@@ -3721,7 +3850,9 @@ a:focus-visible {
     min-width: 0;
   }
 
-  .blog-sidebar { display: none; }
+  .blog-sidebar {
+    display: none;
+  }
 
   /* blog footer reposition handled by the shared .site-footer--canvas @1023 rule (#434) */
 }
@@ -3763,16 +3894,16 @@ body.resume-page {
   display: grid;
   grid-template-columns:
     var(--line)
-    minmax(2.5rem, 0.4fr)    /* left margin — accent blocks */
+    minmax(2.5rem, 0.4fr) /* left margin — accent blocks */
     var(--line)
-    minmax(18rem, 3fr)        /* main content */
+    minmax(18rem, 3fr) /* main content */
     var(--line)
-    minmax(10rem, 1.3fr)      /* right sidebar */
+    minmax(10rem, 1.3fr) /* right sidebar */
     var(--line);
   grid-template-rows:
-    var(--line) auto           /* header row */
-    var(--line) 1fr            /* body row (content + sidebar) */
-    var(--line) auto           /* footer row */
+    var(--line) auto /* header row */
+    var(--line) 1fr /* body row (content + sidebar) */
+    var(--line) auto /* footer row */
     var(--line);
   background: var(--ink);
   /* clip (not hidden) so position:sticky on the sidebar still works. */
@@ -3963,9 +4094,15 @@ body.resume-page {
 .resume-highlight:first-of-type {
   margin-top: 0;
 }
-.resume-highlight--red    { border-left-color: var(--red); }
-.resume-highlight--yellow { border-left-color: var(--yellow); }
-.resume-highlight--blue   { border-left-color: var(--blue); }
+.resume-highlight--red {
+  border-left-color: var(--red);
+}
+.resume-highlight--yellow {
+  border-left-color: var(--yellow);
+}
+.resume-highlight--blue {
+  border-left-color: var(--blue);
+}
 .resume-highlight p {
   margin: 0;
   font-family: var(--font-heading);
@@ -4089,7 +4226,7 @@ body.resume-page {
 }
 
 .resume-prose ul li::before {
-  content: "";
+  content: '';
   position: absolute;
   top: 0.55em;
   left: 0;
@@ -4379,7 +4516,7 @@ body.resume-page {
 }
 
 .resume-writing__essays li::before {
-  content: "";
+  content: '';
   position: absolute;
   top: 0.55em;
   left: 0;
@@ -4440,14 +4577,16 @@ body.resume-page {
   .resume-canvas {
     grid-template-columns: var(--line) 1fr var(--line);
     grid-template-rows:
-      var(--line) auto    /* header (name + breadcrumbs) — top */
-      var(--line) auto    /* metadata panel */
-      var(--line) auto    /* content */
-      var(--line) auto    /* footer */
+      var(--line) auto /* header (name + breadcrumbs) — top */
+      var(--line) auto /* metadata panel */
+      var(--line) auto /* content */
+      var(--line) auto /* footer */
       var(--line);
   }
 
-  .resume-canvas-margin { display: none; }
+  .resume-canvas-margin {
+    display: none;
+  }
 
   .resume-canvas-meta {
     grid-column: 2;
@@ -4463,9 +4602,17 @@ body.resume-page {
     gap: 0.5rem 1.5rem;
   }
 
-  .resume-canvas-header { grid-column: 2; grid-row: 2; }
-  .resume-canvas-content { grid-column: 2; grid-row: 6; }
-  .resume-canvas-sidebar { display: none; }
+  .resume-canvas-header {
+    grid-column: 2;
+    grid-row: 2;
+  }
+  .resume-canvas-content {
+    grid-column: 2;
+    grid-row: 6;
+  }
+  .resume-canvas-sidebar {
+    display: none;
+  }
   /* Match the blog footer's narrow-screen flow: stack + center. */
   /* Resume footer reposition + column-stack now come from the shared
      .site-footer / .site-footer--canvas @1023 rules (#434); --resume is the
@@ -4589,17 +4736,17 @@ body.resume-page {
      project links, and the Writing/Projects leads (nathanpayne.com/blog,
      nathanpayne.com/projects) — suppress this to avoid duplication. (The
      essay list is hidden in print; see the Writing-collapse rule below.) */
-  .resume-canvas a[href^="http"]::after {
-    content: " (" attr(href) ")";
+  .resume-canvas a[href^='http']::after {
+    content: ' (' attr(href) ')';
     font-size: 0.85em;
     word-break: break-all;
   }
 
-  .resume-contact a[href^="http"]::after,
-  .resume-entry__link a[href^="http"]::after,
-  .resume-projects__lead a[href^="http"]::after,
-  .resume-writing__lead a[href^="http"]::after {
-    content: "";
+  .resume-contact a[href^='http']::after,
+  .resume-entry__link a[href^='http']::after,
+  .resume-projects__lead a[href^='http']::after,
+  .resume-writing__lead a[href^='http']::after {
+    content: '';
   }
 
   /* Writing collapses to just its lead line in print. The section is
@@ -4618,7 +4765,9 @@ body.resume-page {
 
   /* With the intro hidden, the Projects lead carries the gap to the first
      entry (.resume-entry:first-of-type zeroes its own top margin). */
-  .resume-projects__lead { margin-bottom: 0.52rem; }
+  .resume-projects__lead {
+    margin-bottom: 0.52rem;
+  }
 
   /* Print density — restore the screen rhythm to fill three balanced
      US-Letter pages. The earlier tuning crushed these gaps to their floor to
@@ -4629,20 +4778,44 @@ body.resume-page {
      packs into three pages instead of spilling the Writing tail onto a fourth
      in renderers (Safari, Chromium) that fit slightly less per page. This is
      the fine-tune dial: nudge up if page 3 lands thin, down if it spills. */
-  .resume-contact { margin-top: 0.32rem; gap: 0.12rem 0.4rem; line-height: 1.3; }
-  .resume-contact--profiles { margin-top: 0.1rem; }
+  .resume-contact {
+    margin-top: 0.32rem;
+    gap: 0.12rem 0.4rem;
+    line-height: 1.3;
+  }
+  .resume-contact--profiles {
+    margin-top: 0.1rem;
+  }
   /* Drop the inter-section divider rules in print and reclaim the padding
      they reserved — the bold section titles carry the separation, and this
      buys vertical space toward the three-page fit (Safari fits ~11% less per
      page than Chromium). */
-  .resume-section { margin-top: 0.55rem; padding-top: 0; border-top: none; }
-  .resume-summary { margin-top: 0.32rem; }
-  .resume-section__title { margin-bottom: 0.28rem; }
-  .resume-entry { margin-top: 0.52rem; }
-  .resume-entry__meta { margin-top: 0.1rem; }
-  .resume-entry__head { gap: 0.5rem; }
-  .resume-entry--logo .resume-prose { margin-top: 0.14rem; }
-  .resume-prose p + p { margin-top: 0.24rem; }
+  .resume-section {
+    margin-top: 0.55rem;
+    padding-top: 0;
+    border-top: none;
+  }
+  .resume-summary {
+    margin-top: 0.32rem;
+  }
+  .resume-section__title {
+    margin-bottom: 0.28rem;
+  }
+  .resume-entry {
+    margin-top: 0.52rem;
+  }
+  .resume-entry__meta {
+    margin-top: 0.1rem;
+  }
+  .resume-entry__head {
+    gap: 0.5rem;
+  }
+  .resume-entry--logo .resume-prose {
+    margin-top: 0.14rem;
+  }
+  .resume-prose p + p {
+    margin-top: 0.24rem;
+  }
   /* Render the bullet list as normal block flow in print instead of the
      screen's CSS grid. Grid containers don't fragment reliably across page
      breaks — Safari slices grid items at the page edge (the clipped-bullet
@@ -4650,23 +4823,48 @@ body.resume-page {
      being ignored on the items. Block flow paginates cleanly and lets those
      per-item rules actually keep each bullet whole. The grid `gap` is
      restored as a top margin on each item. */
-  .resume-prose ul { display: block; margin-top: 0.2rem; }
-  .resume-prose li { padding-left: 0.8rem; margin-top: 0.14rem; }
-  .resume-prose li:first-child { margin-top: 0; }
-  .resume-prose ul li::before { top: 0.5em; }
-  .resume-skills__list { gap: 0.24rem; }
-  .resume-skills__row { gap: 0.12rem 0.72rem; }
+  .resume-prose ul {
+    display: block;
+    margin-top: 0.2rem;
+  }
+  .resume-prose li {
+    padding-left: 0.8rem;
+    margin-top: 0.14rem;
+  }
+  .resume-prose li:first-child {
+    margin-top: 0;
+  }
+  .resume-prose ul li::before {
+    top: 0.5em;
+  }
+  .resume-skills__list {
+    gap: 0.24rem;
+  }
+  .resume-skills__row {
+    gap: 0.12rem 0.72rem;
+  }
   /* Same grid->block fix as the prose bullets: the certifications list is a
      CSS grid on screen, which Safari slices at a page edge (the clipped cert
      at the page 2->3 break). Render the list AND each cert as block flow in
      print — the logo is hidden here, so the cert's flex row isn't needed —
      so each cert's break-inside:avoid keeps it whole. Grid `gap` -> margin. */
-  .resume-certs { display: block; }
-  .resume-cert { display: block; margin-top: 0.28rem; }
-  .resume-cert:first-child { margin-top: 0; }
+  .resume-certs {
+    display: block;
+  }
+  .resume-cert {
+    display: block;
+    margin-top: 0.28rem;
+  }
+  .resume-cert:first-child {
+    margin-top: 0;
+  }
   .resume-projects .resume-entry__tech,
-  .resume-entry__link { margin-top: 0.1rem; }
-  .resume-entry__link + .resume-prose { margin-top: 0.2rem; }
+  .resume-entry__link {
+    margin-top: 0.1rem;
+  }
+  .resume-entry__link + .resume-prose {
+    margin-top: 0.2rem;
+  }
 
   /* Print type scale — decompressed to a readable body size so three pages
      fill with the content already present (issue #420 R-02 Tier 1). Body is
@@ -4676,40 +4874,76 @@ body.resume-page {
      roomier layout clipped the Writing essay links off the bottom of page 3.
      Both values stay well above the pre-issue floor (8.5pt / 1.22).
      Section/entry titles keep their Tier-1 sizes. */
-  .resume-name { font-size: 18pt; line-height: 1; }
-  .resume-title { font-size: 11.5pt; line-height: 1.25; }
-  .resume-contact { font-size: 9.5pt; }
-  .resume-section__title { font-size: 14pt; }
-  .resume-entry__title { font-size: 12pt; line-height: 1.15; }
-  .resume-entry__meta { font-size: 9pt; }
+  .resume-name {
+    font-size: 18pt;
+    line-height: 1;
+  }
+  .resume-title {
+    font-size: 11.5pt;
+    line-height: 1.25;
+  }
+  .resume-contact {
+    font-size: 9.5pt;
+  }
+  .resume-section__title {
+    font-size: 14pt;
+  }
+  .resume-entry__title {
+    font-size: 12pt;
+    line-height: 1.15;
+  }
+  .resume-entry__meta {
+    font-size: 9pt;
+  }
   .resume-prose p,
   .resume-prose li,
-  .resume-skills__values { font-size: 9.5pt; line-height: 1.3; }
+  .resume-skills__values {
+    font-size: 9.5pt;
+    line-height: 1.3;
+  }
   .resume-skills__label,
-  .resume-cert__name { font-size: 9.5pt; }
+  .resume-cert__name {
+    font-size: 9.5pt;
+  }
   .resume-cert__meta,
-  .resume-entry__tech { font-size: 9pt; }
+  .resume-entry__tech {
+    font-size: 9pt;
+  }
   .resume-projects__lead,
-  .resume-writing__lead { font-size: 9.5pt; line-height: 1.35; }
+  .resume-writing__lead {
+    font-size: 9.5pt;
+    line-height: 1.35;
+  }
 
   /* Project link matches the new body size (issue #420 R-05). At the old
      8.5pt body the screen-sized link dwarfed the title; it should simply equal
      the body (now 9.5pt per Contingency B). (The underline treatment lives
      with the black-on-white link rule above.) */
   .resume-entry__link,
-  .resume-entry__link a { font-size: 9.5pt; line-height: 1.35; }
+  .resume-entry__link a {
+    font-size: 9.5pt;
+    line-height: 1.35;
+  }
 
   /* Page-break polish (issue #420 R-06). break-inside:avoid on entries/certs/
      skills-rows/essays already lives above; keep a section title with the
      first entry under it, and prevent single-line orphans/widows in prose. */
-  .resume-section__title { break-after: avoid; }
-  .resume-prose p { orphans: 3; widows: 3; }
+  .resume-section__title {
+    break-after: avoid;
+  }
+  .resume-prose p {
+    orphans: 3;
+    widows: 3;
+  }
   /* Bullets are <li>, and Safari ignores break-inside:avoid on list items —
      but it DOES honor orphans/widows. Requiring >=2 lines on each side of a
      break means a 2-3 line bullet that would straddle a page edge is pushed
      whole to the next page instead of being sliced mid-line (the clipped-line
      artifact this fixes). */
-  .resume-prose li { orphans: 2; widows: 2; }
+  .resume-prose li {
+    orphans: 2;
+    widows: 2;
+  }
 
   /* The two tall Experience entries — the first (Disney NCP: intro paragraph
      + 7 bullets) and the last (CNN: the Magic Wall paragraph) — are

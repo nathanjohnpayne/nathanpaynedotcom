@@ -28,10 +28,15 @@ const projects = defineCollection({
       focus: z.string(),
     }),
     stack: z.string().optional(),
-    related: z.array(z.object({
-      label: z.string(),
-      href: z.string(),
-    })).optional().default([]),
+    related: z
+      .array(
+        z.object({
+          label: z.string(),
+          href: z.string(),
+        }),
+      )
+      .optional()
+      .default([]),
     draft: z.boolean().default(false),
 
     // Opt-in: refresh `screenshotSrc` on each build from the GitHub
@@ -60,16 +65,26 @@ const blog = defineCollection({
 
     // Sidebar content — optional, defaults to empty arrays.
     // Posts without these fields render the standard layout.
-    pullquotes: z.array(z.object({
-      text: z.string(),
-      label: z.string().optional(),
-      accent: z.enum(['red', 'yellow', 'blue']),
-    })).optional().default([]),
-    sidebar: z.array(z.object({
-      type: z.enum(['mermaid', 'image', 'text']),
-      content: z.string(),
-      caption: z.string().optional(),
-    })).optional().default([]),
+    pullquotes: z
+      .array(
+        z.object({
+          text: z.string(),
+          label: z.string().optional(),
+          accent: z.enum(['red', 'yellow', 'blue']),
+        }),
+      )
+      .optional()
+      .default([]),
+    sidebar: z
+      .array(
+        z.object({
+          type: z.enum(['mermaid', 'image', 'text']),
+          content: z.string(),
+          caption: z.string().optional(),
+        }),
+      )
+      .optional()
+      .default([]),
   }),
 });
 
@@ -87,10 +102,12 @@ const bio = defineCollection({
     // whole point of the section is freshness, so an explicit value
     // beats anything auto-derived. Format: "Month YYYY" in title case
     // (e.g., "April 2026"); the template uppercases it for display.
-    lastUpdated: z.string().regex(
-      /^(January|February|March|April|May|June|July|August|September|October|November|December) \d{4}$/,
-      'lastUpdated must be "Month YYYY" (e.g., "April 2026")'
-    ),
+    lastUpdated: z
+      .string()
+      .regex(
+        /^(January|February|March|April|May|June|July|August|September|October|November|December) \d{4}$/,
+        'lastUpdated must be "Month YYYY" (e.g., "April 2026")',
+      ),
   }),
 });
 
@@ -140,7 +157,7 @@ const experience = defineCollection({
     order: z.number(),
     badges: z.array(z.string()).optional(),
     website: z.string().optional(), // drives Logo.dev domain lookup
-    logo: z.string().optional(),    // explicit override (path or data-URI)
+    logo: z.string().optional(), // explicit override (path or data-URI)
   }),
 });
 

@@ -149,7 +149,7 @@ describe('robots-sitemap integration', () => {
           'robots.txt': 'User-agent: *\nAllow: /\n',
           'sitemap-index.xml': '<?xml version="1.0"?><sitemapindex/>',
         },
-        { site: 'https://nathanpayne.com/' }
+        { site: 'https://nathanpayne.com/' },
       );
       expect(result.error).toBeUndefined();
       expect(result.robotsTxt).toContain('Sitemap: https://nathanpayne.com/sitemap-index.xml');
@@ -159,7 +159,7 @@ describe('robots-sitemap integration', () => {
     it('throws if astro.config.mjs has no `site` declared', async () => {
       const integration = robotsSitemap();
       expect(() => integration.hooks['astro:config:done']({ config: {} })).toThrow(
-        /must declare a `site` URL/i
+        /must declare a `site` URL/i,
       );
     });
   });
@@ -191,7 +191,7 @@ describe('robots-sitemap integration', () => {
       });
       expect(result.error).toBeUndefined();
       expect(result.robotsTxt).toMatch(
-        /User-agent: \*\nAllow: \/\n\nSitemap: https:\/\/nathanpayne\.com\/sitemap-index\.xml\n$/
+        /User-agent: \*\nAllow: \/\n\nSitemap: https:\/\/nathanpayne\.com\/sitemap-index\.xml\n$/,
       );
     });
 

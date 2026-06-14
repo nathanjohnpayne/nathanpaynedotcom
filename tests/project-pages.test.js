@@ -127,13 +127,17 @@ describe('Project Pages — routes', () => {
     expect(panel.querySelector('.content-inner > p')?.textContent).toBe(
       'Every project started as a real problem and shipped end-to-end—Claude Code, Codex, and Cursor—within a multi-agent review system I designed to catch the failure modes agents miss.',
     );
-    expect(projectItems.map((item) => item.querySelector('.p-name')?.textContent.replace('→', '').trim())).toEqual(
-      canonicalProjectCards.map((card) => card.title),
-    );
+    expect(
+      projectItems.map((item) =>
+        item.querySelector('.p-name')?.textContent.replace('→', '').trim(),
+      ),
+    ).toEqual(canonicalProjectCards.map((card) => card.title));
     expect(projectItems.map((item) => item.querySelector('.p-name')?.getAttribute('href'))).toEqual(
       canonicalProjectCards.map((card) => card.href),
     );
-    expect(projectItems.map((item) => item.querySelector('p')?.textContent)).toEqual(homepageProjectDescriptions);
+    expect(projectItems.map((item) => item.querySelector('p')?.textContent)).toEqual(
+      homepageProjectDescriptions,
+    );
     expect(homepageProjectDescriptions.join(' ')).not.toMatch(/\b(?:you|your)\b/i);
   });
 
@@ -141,11 +145,17 @@ describe('Project Pages — routes', () => {
     setupDOM(readDistHtml('projects/index.html'));
 
     const links = [...document.querySelectorAll('.blog-grid .post-title a')];
-    const matchlineCard = links.find((link) => link.textContent === 'Matchline')?.closest('.post-card');
+    const matchlineCard = links
+      .find((link) => link.textContent === 'Matchline')
+      ?.closest('.post-card');
     const matchlineDescription = matchlineCard?.querySelector('.post-desc')?.textContent;
 
-    expect(links.map((link) => link.textContent)).toEqual(canonicalProjectCards.map((card) => card.title));
-    expect(links.map((link) => link.getAttribute('href'))).toEqual(canonicalProjectCards.map((card) => card.href));
+    expect(links.map((link) => link.textContent)).toEqual(
+      canonicalProjectCards.map((card) => card.title),
+    );
+    expect(links.map((link) => link.getAttribute('href'))).toEqual(
+      canonicalProjectCards.map((card) => card.href),
+    );
     expect(matchlineDescription).toContain('generates applications grounded in demonstrated work');
     expect(matchlineDescription).not.toContain('what the user has actually done');
   });
@@ -162,9 +172,9 @@ describe('Project Pages — routes', () => {
     );
 
     expect(titleByRow).toEqual(canonicalProjectCards.map((card) => card.title));
-    expect(rows.map((row) => [...row.classList].find((className) => className.startsWith('grid-row--')))).toEqual(
-      projectIndexAccentRows.map((row) => row.rowClass),
-    );
+    expect(
+      rows.map((row) => [...row.classList].find((className) => className.startsWith('grid-row--'))),
+    ).toEqual(projectIndexAccentRows.map((row) => row.rowClass));
     expect(accentClassesByRow).toEqual(projectIndexAccentRows.map((row) => row.accentClasses));
   });
 
@@ -230,8 +240,8 @@ describe('Project Pages — render', () => {
       });
 
       it('renders all four metadata labels (Topics, Format, Focus, Status)', () => {
-        const labels = Array.from(document.querySelectorAll('.metadata-strip dt')).map(
-          (dt) => dt.textContent.trim(),
+        const labels = Array.from(document.querySelectorAll('.metadata-strip dt')).map((dt) =>
+          dt.textContent.trim(),
         );
         expect(labels).toEqual(['Topics', 'Format', 'Focus', 'Status']);
       });
@@ -272,15 +282,13 @@ describe('Project Pages — render', () => {
       it('has a .project-copy container with an <h2>Overview</h2> heading', () => {
         const copy = document.querySelector('.project-copy');
         expect(copy, '.project-copy not found').not.toBeNull();
-        const headings = Array.from(copy.querySelectorAll('h2')).map((h) =>
-          h.textContent.trim(),
-        );
+        const headings = Array.from(copy.querySelectorAll('h2')).map((h) => h.textContent.trim());
         expect(headings).toContain('Overview');
       });
 
       it('renders the appropriate CTA actions for the project', () => {
-        const actions = Array.from(document.querySelectorAll('.nav-button')).map(
-          (a) => a.textContent.trim(),
+        const actions = Array.from(document.querySelectorAll('.nav-button')).map((a) =>
+          a.textContent.trim(),
         );
         // The "Back to Projects" / "Back to Homepage" footer actions also
         // share the .nav-button class, so filter to the hero CTAs by
@@ -311,7 +319,9 @@ describe('Project Pages — render', () => {
           }
         }
         if (noLiveUrlSlugs.includes(slug)) {
-          expect(foundSoftwareApp, 'pre-launch project should NOT emit SoftwareApplication').toBe(false);
+          expect(foundSoftwareApp, 'pre-launch project should NOT emit SoftwareApplication').toBe(
+            false,
+          );
         } else {
           expect(foundSoftwareApp, 'no SoftwareApplication entity in JSON-LD graph').toBe(true);
         }
@@ -335,7 +345,9 @@ describe('Project Pages — screenshot aspect variants', () => {
     const player = document.querySelector('mux-background-video.project-screenshot__mux');
     expect(player, 'Swipe Watch mux-background-video not found').not.toBeNull();
     expect(document.querySelector('mux-player')).toBeNull();
-    expect(player.getAttribute('src')).toBe('https://stream.mux.com/wNCRY97981o2uDAJrJ3ExPeK379yldRRFJgUIgSYz00k.m3u8');
+    expect(player.getAttribute('src')).toBe(
+      'https://stream.mux.com/wNCRY97981o2uDAJrJ3ExPeK379yldRRFJgUIgSYz00k.m3u8',
+    );
     expect(player.getAttribute('preload')).toBe('auto');
     expect(player.hasAttribute('max-resolution')).toBe(false);
 
@@ -361,7 +373,9 @@ describe('Project Pages — screenshot aspect variants', () => {
 
     const poster = player.querySelector('.project-screenshot__mux-poster');
     expect(poster, 'Swipe Watch poster img not found').not.toBeNull();
-    expect(poster.getAttribute('src')).toBe('https://image.mux.com/wNCRY97981o2uDAJrJ3ExPeK379yldRRFJgUIgSYz00k/thumbnail.jpg?width=1280&time=0');
+    expect(poster.getAttribute('src')).toBe(
+      'https://image.mux.com/wNCRY97981o2uDAJrJ3ExPeK379yldRRFJgUIgSYz00k/thumbnail.jpg?width=1280&time=0',
+    );
     expect(poster.getAttribute('aria-hidden')).toBe('true');
 
     const moduleSrcs = Array.from(
@@ -397,7 +411,10 @@ describe('Project Pages — screenshot aspect variants', () => {
         document.querySelector('mux-background-video'),
         `${slug} should not render a Mux background video`,
       ).toBeNull();
-      expect(document.querySelector('mux-player'), `${slug} should not render mux-player`).toBeNull();
+      expect(
+        document.querySelector('mux-player'),
+        `${slug} should not render mux-player`,
+      ).toBeNull();
     }
   });
 
@@ -412,14 +429,10 @@ describe('Project Pages — screenshot aspect variants', () => {
     for (const slug of wideSlugs) {
       setupDOM(readDistHtml(`projects/${slug}/index.html`));
       const figure = document.querySelector('figure.project-screenshot');
-      expect(
-        figure,
-        `${slug}: figure.project-screenshot not found`,
-      ).not.toBeNull();
-      expect(
-        figure.className,
-        `${slug} should use project-screenshot--wide`,
-      ).toContain('project-screenshot--wide');
+      expect(figure, `${slug}: figure.project-screenshot not found`).not.toBeNull();
+      expect(figure.className, `${slug} should use project-screenshot--wide`).toContain(
+        'project-screenshot--wide',
+      );
     }
   });
 });

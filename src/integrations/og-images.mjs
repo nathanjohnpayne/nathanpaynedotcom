@@ -134,9 +134,7 @@ export default function ogImages() {
 
             // Derive output path: og-templates/blog/slug → og/blog/slug.png
             // Special case: og-templates root pages (home, blog, projects)
-            const outputName = templatePath === '.'
-              ? 'home.png'
-              : `${templatePath}.png`;
+            const outputName = templatePath === '.' ? 'home.png' : `${templatePath}.png`;
 
             const outputPath = join(ogOutputDir, outputName);
 

@@ -16,7 +16,10 @@ function setupDOM() {
   Object.defineProperty(window, 'matchMedia', {
     writable: true,
     value: vi.fn((query) => ({
-      matches: query === '(hover: hover) and (pointer: fine)' ? true : !query.includes('max-width: 1023px'),
+      matches:
+        query === '(hover: hover) and (pointer: fine)'
+          ? true
+          : !query.includes('max-width: 1023px'),
       media: query,
       addEventListener: vi.fn(),
       removeEventListener: vi.fn(),
@@ -108,7 +111,9 @@ describe('Keyboard Navigation', () => {
     // Focus leaves to an element outside the panel. The state machine
     // (#313) fades content first (--motion-fast ≈ 130ms) before
     // removing is-open.
-    panel.dispatchEvent(new FocusEvent('focusout', { bubbles: true, relatedTarget: document.body }));
+    panel.dispatchEvent(
+      new FocusEvent('focusout', { bubbles: true, relatedTarget: document.body }),
+    );
     await new Promise((resolve) => setTimeout(resolve, 700));
     expect(panel.classList.contains('is-open')).toBe(false);
   });

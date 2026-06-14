@@ -27,8 +27,6 @@ describe('containedJoin', () => {
   });
 
   it('accepts .. segments that stay inside the base after normalization', () => {
-    expect(containedJoin(base, '/images/../fonts/a.woff2')).toBe(
-      `${base}${sep}fonts${sep}a.woff2`,
-    );
+    expect(containedJoin(base, '/images/../fonts/a.woff2')).toBe(`${base}${sep}fonts${sep}a.woff2`);
   });
 });

@@ -96,17 +96,17 @@ describe('parseFrontmatter (scripts/lib/parse-frontmatter.mjs)', () => {
   it('preserves array + object structure but strings inside them too', () => {
     const md = [
       '---',
-      'tags: [1, 2, 3]',            // inline array of bare scalars
+      'tags: [1, 2, 3]', // inline array of bare scalars
       'metadata:',
-      '  count: 5',                  // nested bare scalar
+      '  count: 5', // nested bare scalar
       '  flag: true',
       '---',
     ].join('\n');
     const data = parseFrontmatter(md);
     expect(Array.isArray(data.tags)).toBe(true);
-    expect(data.tags).toEqual(['1', '2', '3']);   // strings under FAILSAFE
+    expect(data.tags).toEqual(['1', '2', '3']); // strings under FAILSAFE
     expect(typeof data.metadata).toBe('object');
-    expect(data.metadata.count).toBe('5');         // strings under FAILSAFE
+    expect(data.metadata.count).toBe('5'); // strings under FAILSAFE
     expect(data.metadata.flag).toBe('true');
   });
 

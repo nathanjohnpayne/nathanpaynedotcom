@@ -26,7 +26,10 @@ function setupDOM() {
   Object.defineProperty(window, 'matchMedia', {
     writable: true,
     value: vi.fn((query) => ({
-      matches: query === '(hover: hover) and (pointer: fine)' ? true : !query.includes('max-width: 1023px'),
+      matches:
+        query === '(hover: hover) and (pointer: fine)'
+          ? true
+          : !query.includes('max-width: 1023px'),
       media: query,
       addEventListener: vi.fn(),
       removeEventListener: vi.fn(),
