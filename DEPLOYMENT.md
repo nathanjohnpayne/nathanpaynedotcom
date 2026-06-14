@@ -413,14 +413,13 @@ env key from the public `stream.mux.com` URL at runtime.
 
 ## Deployment Steps
 
-All deploys use `op-firebase-deploy` for keyless, non-interactive service account impersonation. **Never run `firebase deploy` directly.** The package `deploy` script is the full production deploy entry point: it builds first, then calls the PATH-provided `op-firebase-deploy` helper.
+All deploys use `op-firebase-deploy` for keyless, non-interactive service account impersonation. **Never run `firebase deploy` directly.**
 
 ```bash
-# Full deploy (build, then hosting + all configured services)
-npm run deploy
+# Full deploy (hosting + all configured services)
+op-firebase-deploy
 
 # Hosting only
-npm run build
 op-firebase-deploy --only hosting
 ```
 
@@ -500,7 +499,7 @@ Or use the Firebase Console → Hosting → Release History → Roll back.
 
 ## CI/CD Integration
 
-Deploys are manual via `npm run deploy`, which builds first and then calls `op-firebase-deploy`. CI workflows (repo linting, review policy enforcement) run on push/PR via GitHub Actions—see `.github/workflows/`.
+Deploys are manual via `op-firebase-deploy`. CI workflows (repo linting, review policy enforcement) run on push/PR via GitHub Actions—see `.github/workflows/`.
 
 If a CI pipeline is added later, prefer Workload Identity Federation or another `external_account` credential as the source credential, then let `op-firebase-deploy` impersonate the deployer service account. Do **not** store service account keys as CI secrets.
 

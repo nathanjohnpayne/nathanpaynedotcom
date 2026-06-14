@@ -190,8 +190,11 @@ npm run test:e2e      # playwright test
 The site is hosted on [Firebase Hosting](https://firebase.google.com/docs/hosting). Firebase project ID: `nathanpaynedotcom`.
 
 ```bash
-# Full deploy: build first, then deploy with 1Password-backed credentials
-npm run deploy
+# Build first
+npm run build
+
+# Deploy (uses 1Password-backed credentials)
+op-firebase-deploy
 ```
 
 `op-firebase-deploy` creates a short-lived impersonated credential for `firebase-deployer@nathanpaynedotcom.iam.gserviceaccount.com` from a 1Password-backed GCP ADC source credential. No routine browser login is needed. See [`DEPLOYMENT.md`](DEPLOYMENT.md) for full setup, credential bootstrap, and rollback procedures.
