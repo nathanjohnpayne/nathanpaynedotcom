@@ -9,7 +9,7 @@
     "preview": "astro preview",
     "test": "astro build && vitest run",
     "test:e2e": "playwright test",
-    "deploy": "scripts/deploy.sh",
+    "deploy": "npm run build && op-firebase-deploy",
     "lint": "eslint ."
   },
   "devDependencies": {
