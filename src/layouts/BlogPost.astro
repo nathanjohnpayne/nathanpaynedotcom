@@ -33,7 +33,7 @@ interface Props {
   image: string;
   readingTime: string;
   headings: { depth: number; slug: string; text: string }[];
-  pullquotes: { text: string; label: string; accent: string }[];
+  pullquotes: { text: string; label?: string; accent: string }[];
   sidebar: { type: string; content: string; caption?: string }[];
 }
 

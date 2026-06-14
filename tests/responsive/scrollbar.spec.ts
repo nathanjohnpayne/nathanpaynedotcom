@@ -12,7 +12,7 @@ test('overflowing code blocks have visible scrollbar', async ({ page }) => {
         overflowX: getComputedStyle(el).overflowX,
         scrollable: el.scrollWidth > el.clientWidth,
         // scrollbar renders if offsetHeight > clientHeight
-        scrollbarRendered: el.offsetHeight > el.clientHeight,
+        scrollbarRendered: (el as HTMLElement).offsetHeight > el.clientHeight,
       }));
   });
 

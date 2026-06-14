@@ -10,9 +10,11 @@
     "test": "astro build && vitest run",
     "test:e2e": "playwright test",
     "deploy": "npm run build && op-firebase-deploy && scripts/cf-cache-purge.sh",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "typecheck": "astro check"
   },
   "devDependencies": {
+    "@astrojs/check": "^0.9.9",
     "@astrojs/rss": "^4.0.0",
     "@astrojs/sitemap": "^3.0.0",
     "@eslint/js": "^10.0.1",
@@ -23,6 +25,7 @@
     "globals": "^17.6.0",
     "js-yaml": "^4.1.1",
     "jsdom": "^29.0.2",
+    "typescript": "^5.9.3",
     "typescript-eslint": "^8.59.3",
     "unist-util-visit": "^5.1.0",
     "vitest": "^4.1.4"

@@ -12,7 +12,7 @@
  * and these assertions don't apply.
  */
 
-import { test, expect, Page } from '@playwright/test';
+import { test, expect, type Page } from '@playwright/test';
 
 const PANELS = ['about', 'projects', 'community', 'connect'] as const;
 type PanelName = (typeof PANELS)[number];
