@@ -1,7 +1,9 @@
 ---
 title: "Six PRs, One Bug: What AI Agents Actually Get Wrong"
+seoTitle: "Six PRs, One Bug"
 shortTitle: "Six PRs, One Bug"
 description: "A billing email bug took six AI-authored PRs to diagnose—not because the agent couldn't write code, but because it never promoted a repeated local failure into a structural question."
+seoDescription: "A billing email bug took six AI-authored PRs to diagnose because every fix stayed local instead of reframing the serialization layer."
 author: "Nathan Payne"
 date: 2026-04-04
 tags: ["AI", "Engineering", "Product", "Systems", "Debugging"]

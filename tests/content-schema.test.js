@@ -37,7 +37,9 @@ describe('Content Schema', () => {
 
   it('blog schema requires title, description, date, tags, and image', () => {
     expect(configSource).toContain('title: z.string()');
+    expect(configSource).toContain('seoTitle: z.string().optional()');
     expect(configSource).toContain('description: z.string()');
+    expect(configSource).toContain('seoDescription: z.string().optional()');
     expect(configSource).toContain('date: z.coerce.date()');
     expect(configSource).toContain('tags: z.array(z.string())');
     expect(configSource).toContain('image: z.string()');

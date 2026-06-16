@@ -13,6 +13,7 @@ export async function getStaticPaths() {
 const { project } = Astro.props;
 const { Content } = await render(project);
 const { data } = project;
+const seoDescription = data.seoDescription || data.description;
 
 // SoftwareApplication node only when the project has a live URL.
 // Pre-launch projects (no liveUrl) drop the SoftwareApplication entry
@@ -31,7 +32,9 @@ const softwareApp = data.liveUrl
         "name": "Nathan Payne",
         "url": "https://nathanpayne.com/",
       },
-      "description": data.description,
+      "description": seoDescription,
+      "keywords": data.tags.join(', '),
+      "sameAs": [data.githubUrl],
     }]
   : [];
 
@@ -40,7 +43,8 @@ const webPage: Record<string, unknown> = {
   "@id": `https://nathanpayne.com/projects/${data.slug}/#webpage`,
   "url": `https://nathanpayne.com/projects/${data.slug}/`,
   "name": `${data.title} | Nathan Payne`,
-  "description": data.description,
+  "description": seoDescription,
+  "keywords": data.tags.join(', '),
   "isPartOf": { "@id": "https://nathanpayne.com/#website" },
   "breadcrumb": { "@id": `https://nathanpayne.com/projects/${data.slug}/#breadcrumb` },
 };
@@ -68,7 +72,7 @@ const jsonLd = {
 
 <ProjectLayout
   title={`${data.title} | Nathan Payne`}
-  description={data.description}
+  description={seoDescription}
   ogImage={`https://nathanpayne.com/og/projects/${data.slug}.png`}
   kicker={data.kicker}
   headline={data.title}

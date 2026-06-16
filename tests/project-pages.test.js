@@ -160,6 +160,47 @@ describe('Project Pages — routes', () => {
     expect(matchlineDescription).not.toContain('what the user has actually done');
   });
 
+  it('the projects index structured data exposes projects as an ItemList', () => {
+    setupDOM(readDistHtml('projects/index.html'));
+
+    const script = document.querySelector('script[type="application/ld+json"]');
+    const jsonLd = JSON.parse(script.textContent);
+    const collectionPage = jsonLd['@graph'].find((entry) => entry['@type'] === 'CollectionPage');
+    const itemList = jsonLd['@graph'].find((entry) => entry['@type'] === 'ItemList');
+
+    expect(collectionPage.mainEntity['@id']).toBe('https://nathanpayne.com/projects/#itemlist');
+    expect(itemList).toBeDefined();
+    expect(itemList.itemListElement.map((item) => item.name)).toEqual(
+      canonicalProjectCards.map((card) => card.title),
+    );
+    expect(itemList.itemListElement[0]).toMatchObject({
+      '@type': 'ListItem',
+      position: 1,
+      url: 'https://nathanpayne.com/projects/mergepath/',
+      name: 'Mergepath',
+    });
+    expect(itemList.itemListElement[0].description.length).toBeLessThanOrEqual(160);
+  });
+
+  it('project detail pages can use concise SEO descriptions without changing card copy', () => {
+    setupDOM(readDistHtml('projects/mergepath/index.html'));
+
+    const description = document.querySelector('meta[name="description"]');
+    const script = document.querySelector('script[type="application/ld+json"]');
+    const jsonLd = JSON.parse(script.textContent);
+    const webPage = jsonLd['@graph'].find((entry) => entry['@type'] === 'WebPage');
+    const softwareApp = jsonLd['@graph'].find((entry) => entry['@type'] === 'SoftwareApplication');
+    const metaDescription = description?.getAttribute('content');
+
+    expect(metaDescription).toBe(
+      'A repository standard for reliable AI-agent development: canonical docs, CI guardrails, multi-identity review, Codex review, and downstream propagation.',
+    );
+    expect(webPage.description).toBe(metaDescription);
+    expect(webPage.keywords).toBe('Infrastructure, AI Tooling, GitHub Actions, Bash');
+    expect(softwareApp.description).toBe(metaDescription);
+    expect(softwareApp.sameAs).toEqual(['https://github.com/nathanjohnpayne/mergepath']);
+  });
+
   it('the projects index keeps its Mondrian accent color sequence by row position', () => {
     setupDOM(readDistHtml('projects/index.html'));
 

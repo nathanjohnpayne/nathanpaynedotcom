@@ -2,6 +2,7 @@
 title: "Mergepath"
 slug: "mergepath"
 description: "A deterministic repository standard that keeps humans and AI coding agents aligned through canonical documentation, binding CI constraints, multi-identity code review, automated external review via the OpenAI Codex GitHub App, and one-command propagation across every downstream repo. The enforcement layer underneath every other project on this site."
+seoDescription: "A repository standard for reliable AI-agent development: canonical docs, CI guardrails, multi-identity review, Codex review, and downstream propagation."
 kicker: "AI × Infrastructure × Tooling"
 order: 0
 screenshotAspect: "wide"

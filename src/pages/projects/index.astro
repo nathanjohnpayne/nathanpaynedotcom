@@ -31,6 +31,19 @@ const jsonLd = {
       "name": PROJECTS_PAGE_TITLE,
       "description": PROJECTS_DESCRIPTION,
       "isPartOf": { "@id": "https://nathanpayne.com/#website" },
+      "mainEntity": { "@id": "https://nathanpayne.com/projects/#itemlist" },
+    },
+    {
+      "@type": "ItemList",
+      "@id": "https://nathanpayne.com/projects/#itemlist",
+      "name": PROJECTS_HEADING,
+      "itemListElement": projects.map((project, index) => ({
+        "@type": "ListItem",
+        "position": index + 1,
+        "url": `https://nathanpayne.com/projects/${project.data.slug}/`,
+        "name": project.data.title,
+        "description": project.data.seoDescription || project.data.description,
+      })),
     },
     {
       "@type": "BreadcrumbList",

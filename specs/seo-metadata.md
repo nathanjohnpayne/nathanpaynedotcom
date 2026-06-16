@@ -14,8 +14,10 @@ Every built page ships comprehensive SEO metadata: Open Graph, Twitter Card, JSO
 1. Open Graph tags are present: `og:type`, `og:title`, `og:description`, `og:url`, `og:image`.
 2. Twitter Card tags are present: `twitter:card`, `twitter:title`, `twitter:description`, `twitter:image`.
 3. A canonical URL link element points to the built URL of the current page.
-4. JSON-LD structured data contains a `@graph` array with WebSite, ProfilePage, and Person types on the homepage; BlogPosting on blog post pages.
-5. The Person entity includes `name`, `worksFor`, and `sameAs` properties.
+4. JSON-LD structured data contains a `@graph` array with WebSite, ProfilePage, and Person types on the homepage; BlogPosting on blog post pages; and ItemList nodes on collection pages.
+5. The Person entity includes `name`, identity/location context, and `sameAs` properties. It must not claim a current `worksFor` value unless the site owner has explicitly chosen to publish one.
+6. Search metadata can use SEO-only content fields (`seoTitle`, `seoDescription`) when visible page copy is intentionally longer than a search title or snippet should be.
+7. Every page advertises `/rss.xml` with a `rel="alternate"` RSS link.
 
 ## Plumbing Requirements (post-build invariants)
 
@@ -23,24 +25,25 @@ These are the invariants that distinguish "SEO tags exist" from "SEO actually wo
 
 ### Sitemap
 
-6. `dist/robots.txt` contains exactly one `Sitemap:` directive.
-7. That `Sitemap:` URL is an absolute `https://nathanpayne.com/...` URL.
-8. The file the URL points at actually exists in `dist/` at the final served path. Enforced by `tests/robots-sitemap.test.js`.
-9. The `Sitemap:` line is not hand-maintained—it is rewritten at build time by `src/integrations/robots-sitemap.mjs`, which scans `dist/` for the real sitemap filename (`sitemap-index.xml` → `sitemap.xml` → sorted `sitemap*.xml` fallback) and appends a fresh directive. Any existing `Sitemap:` lines in `dist/robots.txt` are stripped first. If no sitemap file exists in `dist/`, the build fails rather than shipping a broken `robots.txt`.
-10. The `User-agent:` / `Allow:` rules hand-authored in `public/robots.txt` survive the integration's rewrite intact. Enforced by `tests/robots-sitemap.test.js`.
+8. `dist/robots.txt` contains exactly one `Sitemap:` directive.
+9. That `Sitemap:` URL is an absolute `https://nathanpayne.com/...` URL.
+10. The file the URL points at actually exists in `dist/` at the final served path. Enforced by `tests/robots-sitemap.test.js`.
+11. The `Sitemap:` line is not hand-maintained—it is rewritten at build time by `src/integrations/robots-sitemap.mjs`, which scans `dist/` for the real sitemap filename (`sitemap-index.xml` → `sitemap.xml` → sorted `sitemap*.xml` fallback) and appends a fresh directive. Any existing `Sitemap:` lines in `dist/robots.txt` are stripped first. If no sitemap file exists in `dist/`, the build fails rather than shipping a broken `robots.txt`.
+12. The `User-agent:` / `Allow:` rules hand-authored in `public/robots.txt` survive the integration's rewrite intact. Enforced by `tests/robots-sitemap.test.js`.
+13. Sitemap `<lastmod>` values must be content-derived. Blog post routes use the post frontmatter `date`; the blog index uses the newest published post date. Pages without a reliable content date omit `<lastmod>` rather than using build time. Enforced by `tests/sitemap.test.js`.
 
 ### OG image targets
 
-11. Every built HTML page has an `og:image` meta tag. Enforced by `tests/og-image-targets.test.js`.
-12. Every `og:image`, `og:image:secure_url`, and `twitter:image` URL is absolute under `https://nathanpayne.com/`.
-13. Every such URL resolves to a regular file (not a directory) in `dist/`. Path resolution uses WHATWG URL parsing with a `path.relative` containment check against the dist root, so path-traversal URLs (`../etc/passwd`) cannot escape. `?v=<hash>` cache-bust query strings are stripped before file resolution.
-14. Within a page, `og:image` and `twitter:image` point at the same URL.
-15. Within a page, `og:image:secure_url` matches `og:image` when both are present.
+14. Every built HTML page has an `og:image` meta tag. Enforced by `tests/og-image-targets.test.js`.
+15. Every `og:image`, `og:image:secure_url`, and `twitter:image` URL is absolute under `https://nathanpayne.com/`.
+16. Every such URL resolves to a regular file (not a directory) in `dist/`. Path resolution uses WHATWG URL parsing with a `path.relative` containment check against the dist root, so path-traversal URLs (`../etc/passwd`) cannot escape. `?v=<hash>` cache-bust query strings are stripped before file resolution.
+17. Within a page, `og:image` and `twitter:image` point at the same URL.
+18. Within a page, `og:image:secure_url` matches `og:image` when both are present.
 
 ## Integration Requirements (Astro build hooks)
 
-16. Custom Astro integrations that consume the `dir` parameter from `astro:build:done` MUST convert it via `fileURLToPath(dir)` (from `node:url`)—never via `dir.pathname`. Using `dir.pathname` produces malformed paths on Windows (`/C:/path/...` → `C:\C:\path\...` when passed to `path.join`). See #171 and #173.
-17. Integrations that depend on files generated by earlier integrations (e.g. `robots-sitemap` depends on `@astrojs/sitemap`'s output) MUST be registered after those earlier integrations in `astro.config.mjs`. Astro's `astro:build:done` hooks fire in registration order.
+19. Custom Astro integrations that consume the `dir` parameter from `astro:build:done` MUST convert it via `fileURLToPath(dir)` (from `node:url`)—never via `dir.pathname`. Using `dir.pathname` produces malformed paths on Windows (`/C:/path/...` → `C:\C:\path\...` when passed to `path.join`). See #171 and #173.
+20. Integrations that depend on files generated by earlier integrations (e.g. `robots-sitemap` depends on `@astrojs/sitemap`'s output) MUST be registered after those earlier integrations in `astro.config.mjs`. Astro's `astro:build:done` hooks fire in registration order.
 
 ## Regression Context
 
