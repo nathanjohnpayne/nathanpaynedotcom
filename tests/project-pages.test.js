@@ -170,16 +170,20 @@ describe('Project Pages — routes', () => {
 
     expect(collectionPage.mainEntity['@id']).toBe('https://nathanpayne.com/projects/#itemlist');
     expect(itemList).toBeDefined();
-    expect(itemList.itemListElement.map((item) => item.name)).toEqual(
+    expect(itemList.itemListElement.map((item) => item.item.name)).toEqual(
       canonicalProjectCards.map((card) => card.title),
     );
     expect(itemList.itemListElement[0]).toMatchObject({
       '@type': 'ListItem',
       position: 1,
-      url: 'https://nathanpayne.com/projects/mergepath/',
-      name: 'Mergepath',
+      item: {
+        '@type': 'WebPage',
+        '@id': 'https://nathanpayne.com/projects/mergepath/',
+        url: 'https://nathanpayne.com/projects/mergepath/',
+        name: 'Mergepath',
+      },
     });
-    expect(itemList.itemListElement[0].description.length).toBeLessThanOrEqual(160);
+    expect(itemList.itemListElement[0].item.description.length).toBeLessThanOrEqual(160);
   });
 
   it('project detail pages can use concise SEO descriptions without changing card copy', () => {

@@ -1,9 +1,9 @@
 // @ts-check
 import { defineConfig } from 'astro/config';
 import sitemap from '@astrojs/sitemap';
-import { readdirSync, readFileSync } from 'node:fs';
-import { createRequire } from 'node:module';
+import { readdirSync } from 'node:fs';
 import { basename, join } from 'node:path';
+import { readSitemapFrontmatter } from './scripts/lib/sitemap-frontmatter.mjs';
 import ogImages from './src/integrations/og-images.mjs';
 import robotsSitemap from './src/integrations/robots-sitemap.mjs';
 import remarkMermaid from './src/plugins/remark-mermaid.mjs';
@@ -11,20 +11,6 @@ import rehypeFigureCaptions from './src/plugins/rehype-figure-captions.mjs';
 import rehypeColorChips from './src/plugins/rehype-color-chips.mjs';
 
 const SITE = 'https://nathanpayne.com';
-const require = createRequire(import.meta.url);
-/** @type {{ load(source: string): Record<string, unknown> | null }} */
-const yaml = require('js-yaml');
-
-/**
- * @param {string} filePath
- * @returns {Record<string, unknown>}
- */
-function readFrontmatter(filePath) {
-  const source = readFileSync(filePath, 'utf-8');
-  const match = source.match(/^---\n([\s\S]*?)\n---/);
-  if (!match) return {};
-  return yaml.load(match[1]) || {};
-}
 
 /**
  * @param {unknown} value
@@ -47,7 +33,7 @@ function buildLastmodMap() {
   for (const entry of readdirSync(blogDir, { withFileTypes: true })) {
     if (!entry.isFile() || !entry.name.endsWith('.md')) continue;
 
-    const frontmatter = readFrontmatter(join(blogDir, entry.name));
+    const frontmatter = readSitemapFrontmatter(join(blogDir, entry.name));
     if (frontmatter.draft === true) continue;
 
     const isoDate = toIsoDate(frontmatter.date);

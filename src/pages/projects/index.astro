@@ -40,9 +40,13 @@ const jsonLd = {
       "itemListElement": projects.map((project, index) => ({
         "@type": "ListItem",
         "position": index + 1,
-        "url": `https://nathanpayne.com/projects/${project.data.slug}/`,
-        "name": project.data.title,
-        "description": project.data.seoDescription || project.data.description,
+        "item": {
+          "@type": "WebPage",
+          "@id": `https://nathanpayne.com/projects/${project.data.slug}/`,
+          "url": `https://nathanpayne.com/projects/${project.data.slug}/`,
+          "name": project.data.title,
+          "description": project.data.seoDescription || project.data.description,
+        },
       })),
     },
     {

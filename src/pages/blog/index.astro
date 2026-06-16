@@ -44,10 +44,14 @@ const jsonLd = {
       "itemListElement": posts.map((post, index) => ({
         "@type": "ListItem",
         "position": index + 1,
-        "url": `https://nathanpayne.com/blog/${post.id}/`,
-        "name": post.data.title,
-        "description": post.data.seoDescription || post.data.description,
-        "datePublished": post.data.date.toISOString(),
+        "item": {
+          "@type": "BlogPosting",
+          "@id": `https://nathanpayne.com/blog/${post.id}/`,
+          "url": `https://nathanpayne.com/blog/${post.id}/`,
+          "name": post.data.title,
+          "description": post.data.seoDescription || post.data.description,
+          "datePublished": post.data.date.toISOString(),
+        },
       })),
     },
     {

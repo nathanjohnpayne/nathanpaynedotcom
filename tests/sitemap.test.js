@@ -7,7 +7,7 @@ const sitemap0 = readFileSync(resolve(__dirname, '../dist/sitemap-0.xml'), 'utf-
 
 function sitemapEntryFor(url) {
   const escaped = url.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const match = sitemap0.match(new RegExp(`<url><loc>${escaped}</loc>(.*?)</url>`));
+  const match = sitemap0.match(new RegExp(`<url><loc>${escaped}</loc>(.*?)</url>`, 's'));
   return match?.[1] || '';
 }
 

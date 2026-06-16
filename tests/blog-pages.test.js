@@ -114,10 +114,15 @@ describe('Blog Pages', () => {
     expect(itemList.itemListElement[0]).toMatchObject({
       '@type': 'ListItem',
       position: 1,
-      url: 'https://nathanpayne.com/blog/two-blues-one-composition/',
-      name: 'Two Blues, One Composition: How a Design Critique Became a Forensics Exercise',
+      item: {
+        '@type': 'BlogPosting',
+        '@id': 'https://nathanpayne.com/blog/two-blues-one-composition/',
+        url: 'https://nathanpayne.com/blog/two-blues-one-composition/',
+        name: 'Two Blues, One Composition: How a Design Critique Became a Forensics Exercise',
+        datePublished: '2026-06-11T00:00:00.000Z',
+      },
     });
-    expect(itemList.itemListElement[0].description.length).toBeLessThanOrEqual(160);
+    expect(itemList.itemListElement[0].item.description.length).toBeLessThanOrEqual(160);
   });
 
   it('hosting deploys from dist/ so markdown source is excluded', () => {

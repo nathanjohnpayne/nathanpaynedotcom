@@ -14,7 +14,7 @@ Every built page ships comprehensive SEO metadata: Open Graph, Twitter Card, JSO
 1. Open Graph tags are present: `og:type`, `og:title`, `og:description`, `og:url`, `og:image`.
 2. Twitter Card tags are present: `twitter:card`, `twitter:title`, `twitter:description`, `twitter:image`.
 3. A canonical URL link element points to the built URL of the current page.
-4. JSON-LD structured data contains a `@graph` array with WebSite, ProfilePage, and Person types on the homepage; BlogPosting on blog post pages; and ItemList nodes on collection pages.
+4. JSON-LD structured data contains a `@graph` array with WebSite, ProfilePage, and Person types on the homepage; BlogPosting on blog post pages; and ItemList nodes on collection pages. Collection ItemList entries keep article/page-specific properties on a typed entity under `ListItem.item`, not on the bare ListItem node.
 5. The Person entity includes `name`, identity/location context, and `sameAs` properties. It must not claim a current `worksFor` value unless the site owner has explicitly chosen to publish one.
 6. Search metadata can use SEO-only content fields (`seoTitle`, `seoDescription`) when visible page copy is intentionally longer than a search title or snippet should be.
 7. Every page advertises `/rss.xml` with a `rel="alternate"` RSS link.
