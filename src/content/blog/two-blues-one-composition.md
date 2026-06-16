@@ -1,7 +1,9 @@
 ---
 title: "Two Blues, One Composition: How a Design Critique Became a Forensics Exercise"
+seoTitle: "Two Blues, One Composition"
 shortTitle: "Two Blues, One Composition"
 description: "I asked Claude to scrutinize my projects page against Mondrian's principles, expecting adjectives. It sampled pixels instead and found two blues in one composition—one of which I had put there on purpose. Settling the argument took a museum scan, and the least reliable data in the entire exercise turned out to be the model's own memory."
+seoDescription: "A design critique became a forensics exercise: pixel sampling, museum scans, and the palette rule behind this site's Mondrian-inspired pages."
 author: "Nathan Payne"
 date: 2026-06-11
 tags: ["AI", "Design", "Systems", "Engineering"]

@@ -25,8 +25,10 @@ import Breadcrumbs from '../components/Breadcrumbs.astro';
 
 interface Props {
   title: string;
+  seoTitle?: string;
   shortTitle?: string;
   description: string;
+  seoDescription?: string;
   author: string;
   date: Date;
   tags: string[];
@@ -39,8 +41,10 @@ interface Props {
 
 const {
   title,
+  seoTitle,
   shortTitle,
   description,
+  seoDescription,
   author,
   date,
   tags,
@@ -58,7 +62,8 @@ const normalizedPathname = rawPathname === '/' || rawPathname.includes('.')
     ? rawPathname
     : `${rawPathname}/`;
 const canonical = new URL(normalizedPathname, Astro.site).href;
-const fullTitle = `${title} | Nathan Payne`;
+const pageTitle = `${seoTitle || shortTitle || title} | Nathan Payne`;
+const seoSummary = seoDescription || description;
 const publishedDate = date.toLocaleDateString('en-US', {
   year: 'numeric',
   month: 'long',
@@ -95,8 +100,8 @@ const jsonLd = {
       "@type": "WebPage",
       "@id": `${canonical}#webpage`,
       "url": canonical,
-      "name": fullTitle,
-      "description": description,
+      "name": pageTitle,
+      "description": seoSummary,
       "isPartOf": { "@id": "https://nathanpayne.com/#website" },
       "breadcrumb": { "@id": `${canonical}#breadcrumb` },
       "primaryImageOfPage": { "@id": `${canonical}#primaryimage` },
@@ -122,9 +127,13 @@ const jsonLd = {
       "@type": "BlogPosting",
       "@id": `${canonical}#article`,
       "headline": title,
-      "description": description,
+      "description": seoSummary,
       "image": `https://nathanpayne.com${image}`,
+      "url": canonical,
       "datePublished": isoDate,
+      "dateModified": isoDate,
+      "inLanguage": "en-US",
+      "isAccessibleForFree": true,
       "author": { "@type": "Person", "name": author, "url": "https://nathanpayne.com/" },
       "publisher": { "@type": "Person", "name": author, "url": "https://nathanpayne.com/" },
       "mainEntityOfPage": { "@id": `${canonical}#webpage` },
@@ -135,8 +144,8 @@ const jsonLd = {
 ---
 
 <BaseLayout
-  title={fullTitle}
-  description={description}
+  title={pageTitle}
+  description={seoSummary}
   canonical={canonical}
   ogType="article"
   ogImage={ogImagePath}

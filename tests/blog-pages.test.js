@@ -11,8 +11,12 @@ const blogPostHtml = readFileSync(
 const firebaseConfig = JSON.parse(readFileSync(resolve(__dirname, '../firebase.json'), 'utf-8'));
 
 function setupDOM(html) {
+  const safe = html.replace(
+    /<script(?![^>]*type="application\/ld\+json")[^>]*>[\s\S]*?<\/script>/g,
+    '',
+  );
   document.documentElement.innerHTML = '';
-  document.write(html);
+  document.write(safe);
   document.close();
 }
 
@@ -56,10 +60,16 @@ describe('Blog Pages', () => {
     setupDOM(blogPostHtml);
 
     const canonical = document.querySelector('link[rel="canonical"]');
+    const title = document.querySelector('title');
+    const description = document.querySelector('meta[name="description"]');
     const ogType = document.querySelector('meta[property="og:type"]');
     const screenshots = [...document.querySelectorAll('.blog-figure img')];
     const localMdLink = document.querySelector('a[href$=".md"]:not([href^="https://"])');
 
+    expect(title?.textContent).toBe('Six PRs, One Bug | Nathan Payne');
+    expect(description?.getAttribute('content')).toBe(
+      'A billing email bug took six AI-authored PRs to diagnose because every fix stayed local instead of reframing the serialization layer.',
+    );
     expect(canonical?.getAttribute('href')).toBe(
       'https://nathanpayne.com/blog/six-prs-one-bug-agent-failure-modes/',
     );
@@ -78,9 +88,41 @@ describe('Blog Pages', () => {
 
     expect(posting).toBeDefined();
     expect(posting.headline).toBe('Six PRs, One Bug: What AI Agents Actually Get Wrong');
+    expect(posting.description).toBe(
+      'A billing email bug took six AI-authored PRs to diagnose because every fix stayed local instead of reframing the serialization layer.',
+    );
     expect(posting.image).toBe(
       'https://nathanpayne.com/og/blog/six-prs-one-bug-agent-failure-modes.png',
     );
+    expect(posting.url).toBe('https://nathanpayne.com/blog/six-prs-one-bug-agent-failure-modes/');
+    expect(posting.dateModified).toBe(posting.datePublished);
+    expect(posting.inLanguage).toBe('en-US');
+    expect(posting.isAccessibleForFree).toBe(true);
+  });
+
+  it('blog index structured data exposes the published posts as an ItemList', () => {
+    setupDOM(blogIndexHtml);
+
+    const script = document.querySelector('script[type="application/ld+json"]');
+    const jsonLd = JSON.parse(script.textContent);
+    const collectionPage = jsonLd['@graph'].find((entry) => entry['@type'] === 'CollectionPage');
+    const itemList = jsonLd['@graph'].find((entry) => entry['@type'] === 'ItemList');
+
+    expect(collectionPage.mainEntity['@id']).toBe('https://nathanpayne.com/blog/#itemlist');
+    expect(itemList).toBeDefined();
+    expect(itemList.itemListElement.length).toBeGreaterThan(0);
+    expect(itemList.itemListElement[0]).toMatchObject({
+      '@type': 'ListItem',
+      position: 1,
+      item: {
+        '@type': 'BlogPosting',
+        '@id': 'https://nathanpayne.com/blog/two-blues-one-composition/',
+        url: 'https://nathanpayne.com/blog/two-blues-one-composition/',
+        name: 'Two Blues, One Composition: How a Design Critique Became a Forensics Exercise',
+        datePublished: '2026-06-11T00:00:00.000Z',
+      },
+    });
+    expect(itemList.itemListElement[0].item.description.length).toBeLessThanOrEqual(160);
   });
 
   it('hosting deploys from dist/ so markdown source is excluded', () => {

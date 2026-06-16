@@ -1,7 +1,9 @@
 ---
 title: "Agent Approval Workflow and the Genesis of Mergepath"
+seoTitle: "Agent Review Workflow and Mergepath"
 shortTitle: "Agent Approval Workflow"
 description: "AI coding agents, like humans, will skip code review if you let them. Building the enforcement infrastructure that makes multi-agent development actually work—from instruction files to GitHub rules to automated cross-agent review."
+seoDescription: "How AI coding agents skip review, and the enforcement system behind Mergepath: instruction files, branch rules, reviewer identities, and Codex review."
 author: "Nathan Payne"
 date: 2026-04-16
 tags: ["AI", "Engineering", "Product", "Systems", "Code Review"]

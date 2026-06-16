@@ -5,6 +5,22 @@ import { resolve } from 'path';
 const sitemapIndex = readFileSync(resolve(__dirname, '../dist/sitemap-index.xml'), 'utf-8');
 const sitemap0 = readFileSync(resolve(__dirname, '../dist/sitemap-0.xml'), 'utf-8');
 
+function sitemapEntryFor(url) {
+  const loc = `<loc>${url}</loc>`;
+  const locIndex = sitemap0.indexOf(loc);
+  if (locIndex === -1) {
+    throw new Error(`Missing sitemap entry for ${url}`);
+  }
+
+  const entryStart = sitemap0.lastIndexOf('<url>', locIndex);
+  const entryEnd = sitemap0.indexOf('</url>', locIndex);
+  if (entryStart === -1 || entryEnd === -1) {
+    throw new Error(`Malformed sitemap entry for ${url}`);
+  }
+
+  return sitemap0.slice(entryStart, entryEnd + '</url>'.length);
+}
+
 describe('Sitemap', () => {
   it('sitemap index references sitemap-0.xml', () => {
     expect(sitemapIndex).toContain('sitemap-0.xml');
@@ -18,5 +34,22 @@ describe('Sitemap', () => {
     expect(sitemap0).toContain(
       '<loc>https://nathanpayne.com/blog/six-prs-one-bug-agent-failure-modes/</loc>',
     );
+  });
+
+  it('uses the newest published post date for the blog index lastmod', () => {
+    expect(sitemapEntryFor('https://nathanpayne.com/blog/')).toContain(
+      '<lastmod>2026-06-11T00:00:00.000Z</lastmod>',
+    );
+  });
+
+  it('uses content dates for blog post lastmod values', () => {
+    expect(
+      sitemapEntryFor('https://nathanpayne.com/blog/six-prs-one-bug-agent-failure-modes/'),
+    ).toContain('<lastmod>2026-04-04T00:00:00.000Z</lastmod>');
+  });
+
+  it('does not invent lastmod values for pages without reliable content dates', () => {
+    expect(sitemapEntryFor('https://nathanpayne.com/projects/')).not.toContain('<lastmod>');
+    expect(sitemapEntryFor('https://nathanpayne.com/resume/')).not.toContain('<lastmod>');
   });
 });

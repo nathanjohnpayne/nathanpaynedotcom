@@ -89,6 +89,13 @@ describe('SEO Metadata', () => {
       expect(link).not.toBeNull();
       expect(link.getAttribute('href')).toBe('https://nathanpayne.com/');
     });
+
+    it('advertises the RSS feed with a rel=alternate link', () => {
+      const link = document.querySelector('link[rel="alternate"][type="application/rss+xml"]');
+      expect(link).not.toBeNull();
+      expect(link.getAttribute('href')).toBe('/rss.xml');
+      expect(link.getAttribute('title')).toBe('The AI-Augmented PM');
+    });
   });
 
   describe('JSON-LD Structured Data', () => {

@@ -7,6 +7,7 @@ const projects = defineCollection({
     title: z.string(),
     slug: z.string(),
     description: z.string(),
+    seoDescription: z.string().optional(),
     kicker: z.string(),
     order: z.number(),
     screenshotAspect: z.enum(['wide', 'narrow']),
@@ -55,8 +56,10 @@ const blog = defineCollection({
   loader: glob({ pattern: '**/*.md', base: './src/content/blog' }),
   schema: z.object({
     title: z.string(),
+    seoTitle: z.string().optional(),
     shortTitle: z.string().optional(),
     description: z.string(),
+    seoDescription: z.string().optional(),
     author: z.string().default('Nathan Payne'),
     date: z.coerce.date(),
     tags: z.array(z.string()),

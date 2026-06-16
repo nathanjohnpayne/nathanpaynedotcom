@@ -2,6 +2,7 @@
 title: "Override"
 slug: "override"
 description: "A Broadway-focused financial operating system for structuring capitalization, modeling investor returns, and replacing spreadsheet workflows with live, shareable deals."
+seoDescription: "A Broadway financial operating system for capitalization, investor returns, ownership, and live deal rooms without spreadsheet drift."
 kicker: "AI × Finance × Theater"
 order: 2
 screenshotAspect: "wide"

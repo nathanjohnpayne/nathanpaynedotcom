@@ -35,6 +35,24 @@ const jsonLd = {
       "name": BLOG_PAGE_TITLE,
       "description": BLOG_DESCRIPTION,
       "isPartOf": { "@id": "https://nathanpayne.com/#website" },
+      "mainEntity": { "@id": "https://nathanpayne.com/blog/#itemlist" },
+    },
+    {
+      "@type": "ItemList",
+      "@id": "https://nathanpayne.com/blog/#itemlist",
+      "name": BLOG_TITLE,
+      "itemListElement": posts.map((post, index) => ({
+        "@type": "ListItem",
+        "position": index + 1,
+        "item": {
+          "@type": "BlogPosting",
+          "@id": `https://nathanpayne.com/blog/${post.id}/`,
+          "url": `https://nathanpayne.com/blog/${post.id}/`,
+          "name": post.data.title,
+          "description": post.data.seoDescription || post.data.description,
+          "datePublished": post.data.date.toISOString(),
+        },
+      })),
     },
     {
       "@type": "BreadcrumbList",
