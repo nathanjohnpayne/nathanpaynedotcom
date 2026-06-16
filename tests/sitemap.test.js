@@ -6,9 +6,19 @@ const sitemapIndex = readFileSync(resolve(__dirname, '../dist/sitemap-index.xml'
 const sitemap0 = readFileSync(resolve(__dirname, '../dist/sitemap-0.xml'), 'utf-8');
 
 function sitemapEntryFor(url) {
-  const escaped = url.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const match = sitemap0.match(new RegExp(`<url><loc>${escaped}</loc>(.*?)</url>`, 's'));
-  return match?.[1] || '';
+  const loc = `<loc>${url}</loc>`;
+  const locIndex = sitemap0.indexOf(loc);
+  if (locIndex === -1) {
+    throw new Error(`Missing sitemap entry for ${url}`);
+  }
+
+  const entryStart = sitemap0.lastIndexOf('<url>', locIndex);
+  const entryEnd = sitemap0.indexOf('</url>', locIndex);
+  if (entryStart === -1 || entryEnd === -1) {
+    throw new Error(`Malformed sitemap entry for ${url}`);
+  }
+
+  return sitemap0.slice(entryStart, entryEnd + '</url>'.length);
 }
 
 describe('Sitemap', () => {

@@ -45,6 +45,12 @@ describe('Content Schema', () => {
     expect(configSource).toContain('image: z.string()');
   });
 
+  it('projects schema supports optional seoDescription', () => {
+    expect(configSource).toMatch(
+      /const\s+projects\s*=\s*defineCollection\(\{[\s\S]*seoDescription:\s*z\.string\(\)\.optional\(\)/,
+    );
+  });
+
   it('all blog markdown files have required frontmatter fields', () => {
     expect(markdownFiles.length).toBeGreaterThan(0);
     for (const file of markdownFiles) {
