@@ -27,6 +27,19 @@ function parseFrontmatter(content) {
   return fields;
 }
 
+function collectionSource(collectionName) {
+  const startMatch = configSource.match(
+    new RegExp(`const\\s+${collectionName}\\s*=\\s*defineCollection\\(\\{`),
+  );
+  expect(startMatch, `missing ${collectionName} collection`).not.toBeNull();
+
+  const startIndex = startMatch.index;
+  const endIndex = configSource.indexOf('\n});', startIndex);
+  expect(endIndex, `missing ${collectionName} collection terminator`).not.toBe(-1);
+
+  return configSource.slice(startIndex, endIndex + '\n});'.length);
+}
+
 describe('Content Schema', () => {
   it('content.config.ts exists and defines a blog collection', () => {
     expect(configSource).toContain('defineCollection');
@@ -46,9 +59,10 @@ describe('Content Schema', () => {
   });
 
   it('projects schema supports optional seoDescription', () => {
-    expect(configSource).toMatch(
-      /const\s+projects\s*=\s*defineCollection\(\{[\s\S]*seoDescription:\s*z\.string\(\)\.optional\(\)/,
-    );
+    const projectsSource = collectionSource('projects');
+
+    expect(projectsSource).not.toContain('const blog');
+    expect(projectsSource).toContain('seoDescription: z.string().optional()');
   });
 
   it('all blog markdown files have required frontmatter fields', () => {
