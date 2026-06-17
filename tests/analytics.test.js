@@ -198,7 +198,15 @@ describe('PostHog', () => {
   it('only initializes PostHog when a token is present (graceful degradation)', () => {
     expect(posthogComponentSrc).toMatch(/\{token &&/); // conditional render guard
     expect(posthogComponentSrc).toContain('posthog.init(token');
-    expect(posthogComponentSrc).toContain('us.i.posthog.com');
+    expect(posthogComponentSrc).toContain("api_host: 'https://d.nathanpayne.com'");
+  });
+
+  it('sets ui_host and fully migrates off the direct ingest host (reverse proxy, #540)', () => {
+    // ui_host must point at the real PostHog US app so the toolbar and
+    // "open in PostHog" deep links resolve once api_host is a first-party proxy.
+    expect(posthogComponentSrc).toContain("ui_host: 'https://us.posthog.com'");
+    // Regression guard: api_host must not revert to the cloud ingest host.
+    expect(posthogComponentSrc).not.toContain('us.i.posthog.com');
   });
 
   it('guards every homepage capture with optional chaining', () => {

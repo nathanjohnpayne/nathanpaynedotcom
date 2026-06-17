@@ -46,6 +46,13 @@ may be removed later without affecting the other.
 4. Every custom event call is guarded with optional chaining
    (`window.posthog?.capture(...)`) so a blocked or not-yet-loaded PostHog
    never throws.
+5. Ingest is routed through the first-party managed reverse proxy at
+   `https://d.nathanpayne.com` (`api_host`), so `array.js` and all event /
+   session-replay traffic load from our own subdomain rather than
+   `us.i.posthog.com` — reducing loss to tracking blockers. `ui_host` is set to
+   `https://us.posthog.com` (the real PostHog US app) so the toolbar and
+   "open in PostHog" deep links continue to resolve. Both hosts are non-secret
+   constants, not env-injected.
 
 ### Events
 
