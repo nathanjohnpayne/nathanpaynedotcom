@@ -503,15 +503,16 @@ Or use the Firebase Console → Hosting → Release History → Roll back.
 PostHog events are sent through the first-party reverse proxy `d.nathanpayne.com` (`api_host`), with `ui_host` set to `https://us.posthog.com` (see [`src/components/posthog.astro`](src/components/posthog.astro) and [`specs/analytics.md`](specs/analytics.md) § PostHog). To confirm ingestion is healthy after a deploy:
 
 1. Load https://nathanpayne.com with DevTools → Network open.
-2. **SDK loads via the proxy:** `GET https://d.nathanpayne.com/static/array.js` returns `200`. In the console, `posthog.__loaded === true`, `posthog.config.api_host === 'https://d.nathanpayne.com'`, and `posthog.config.ui_host === 'https://us.posthog.com'`.
-3. **Events post via the proxy:** capturing an event issues a `POST https://d.nathanpayne.com/i/v0/e/` that returns `200`; no requests go to `us.i.posthog.com`.
+2. **SDK loads via the proxy:** `GET https://d.nathanpayne.com/static/array.js` returns `200` (session replay similarly loads `/static/recorder.js`). In the console, `posthog.config.api_host === 'https://d.nathanpayne.com'` and `posthog.config.ui_host === 'https://us.posthog.com'`, and `posthog.__loaded === true` (PostHog's internal flag, set once `array.js` finishes initializing — confirms the real library loaded rather than the queue stub).
+3. **Events post via the proxy:** capturing an event issues a `POST https://d.nathanpayne.com/i/v0/e/` that returns `200`. The managed proxy forwards every PostHog path the SDK calls — assets under `/static/*`, ingest under `/i/*`, and feature-flag/config requests — so the decisive check is that the Network tab shows **only** `d.nathanpayne.com` for PostHog traffic and never a direct host such as `us.i.posthog.com` (which would mean a path bypassed the proxy).
 4. **Ingestion lands in PostHog:** open Activity → Live (project `469428`) and watch a fresh event arrive, or run a recent-events query. A pass shows `$pageview` / `$pageleave` / `$autocapture` with current timestamps.
 
 Headless check via the query API (the personal API key lives in 1Password — item "Claude & Codex MCP for Posthog"; read it at runtime, never commit it):
 
 ```bash
 # POSTHOG_PERSONAL_API_KEY sourced from 1Password (e.g. via `op read`)
-curl -s -H "Authorization: Bearer $POSTHOG_PERSONAL_API_KEY" -H "Content-Type: application/json" \
+# -fsS makes curl fail loudly on an HTTP error (e.g. 401/403) instead of printing the error body
+curl -fsS -H "Authorization: Bearer $POSTHOG_PERSONAL_API_KEY" -H "Content-Type: application/json" \
   https://us.posthog.com/api/projects/469428/query/ \
   -d '{"query":{"kind":"HogQLQuery","query":"SELECT event, count() AS n, max(timestamp) AS latest FROM events WHERE timestamp > now() - INTERVAL 24 HOUR GROUP BY event ORDER BY latest DESC LIMIT 100"}}' | jq .
 ```
