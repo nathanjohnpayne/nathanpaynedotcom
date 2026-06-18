@@ -90,6 +90,8 @@ The default 1921 register lives in `:root`; the homepage opts into a higher-chro
 ├── dist/                           # Build output (gitignored)
 ├── tests/                          # Vitest + Playwright tests
 ├── specs/                          # Feature specifications
+├── screenshots/og/                  # Checked-in OG image screenshot references
+├── .github/screenshots/             # PR, issue, and generated audit evidence
 ├── AGENTS.md                       # AI agent instructions
 ├── REVIEW_POLICY.md                # Multi-identity review workflow
 └── DEPLOYMENT.md                   # Deploy instructions

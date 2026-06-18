@@ -4,7 +4,7 @@
  * `astro preview`, measures the header stack (breadcrumbs, h1, deck/lead/
  * subtitle, first body h2, sidebar eyebrow) on seven pages at five viewport
  * widths, and screenshots each header region. Output (screenshots + minified
- * JSON records + markdown summary) lands in bugs/screenshots/headers/.
+ * JSON records + markdown summary) lands in .github/screenshots/header-audit/.
  *
  * Auto-flags — (a/c/d/e) fire on visible elements only; (b) is a font-loading
  * defect and fires regardless:
@@ -19,7 +19,7 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import { chromium } from 'playwright';
 
 const ORIGIN = 'http://localhost:4321';
-const OUT = 'bugs/screenshots/headers';
+const OUT = '.github/screenshots/header-audit';
 const WIDTHS = [1440, 1024, 768, 480, 390];
 const PAGES = [
   { key: 'home', path: '/', header: '.panel--red .content-inner' },
