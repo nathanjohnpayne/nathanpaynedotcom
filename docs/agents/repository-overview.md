@@ -72,7 +72,7 @@ plans/                      Feature rollout and migration plans
 scripts/ci/                 CI enforcement scripts
 docs/                       Extended documentation (agent processes)
 screenshots/og/             Checked-in OG image screenshots
-bugs/screenshots/           Bug report screenshots
+.github/screenshots/        PR, issue, and generated audit screenshot evidence
 AGENTS.md                   Agent instructions index
 REVIEW_POLICY.md            Multi-identity review workflow
 README.md                   Human-facing project documentation
