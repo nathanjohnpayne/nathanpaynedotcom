@@ -14,10 +14,10 @@ This skill helps you add PostHog analytics to Astro (Static) applications.
 
 Follow these steps in order to complete the integration:
 
-1. `basic-integration-1.0-begin.md` - PostHog Setup - Begin ← **Start here**
-2. `basic-integration-1.1-edit.md` - PostHog Setup - Edit
-3. `basic-integration-1.2-revise.md` - PostHog Setup - Revise
-4. `basic-integration-1.3-conclude.md` - PostHog Setup - Conclusion
+1. `references/basic-integration-1.0-begin.md` - PostHog Setup - Begin ← **Start here**
+2. `references/basic-integration-1.1-edit.md` - PostHog Setup - Edit
+3. `references/basic-integration-1.2-revise.md` - PostHog Setup - Revise
+4. `references/basic-integration-1.3-conclude.md` - PostHog Setup - Conclusion
 
 ## Reference files
 
@@ -47,7 +47,7 @@ The example project shows the target implementation pattern. Consult the documen
 
 ## Identifying users
 
-Identify users during login and signup events. Refer to the example code and documentation for the correct identify pattern for this framework. If both frontend and backend code exist, pass the client-side session and distinct ID using `X-POSTHOG-DISTINCT-ID` and `X-POSTHOG-SESSION-ID` headers to maintain correlation.
+Identify users only after successful login or signup, using the application's stable canonical user ID as the distinct ID. Do not identify with raw form contents, passwords, temporary labels, or unverified user input. Refer to the example code and documentation for the correct identify pattern for this framework. If both frontend and backend code exist, pass the client-side session and distinct ID using `X-POSTHOG-DISTINCT-ID` and `X-POSTHOG-SESSION-ID` headers to maintain correlation.
 
 ## Error tracking
 

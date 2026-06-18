@@ -96,9 +96,14 @@ PostHog AI
 ---
 import PostHog from '../components/posthog.astro'
 ---
-<head>
+<html lang="en">
+  <head>
     <PostHog />
-</head>
+  </head>
+  <body>
+    <slot />
+  </body>
+</html>
 ```
 
 Lastly, update `index.astro` to wrap your existing app components with the new Layout:

@@ -99,11 +99,11 @@ The `is:inline` directive is required to prevent TypeScript errors about `window
 After a successful "login", the app identifies the user and captures a login event:
 
 ```javascript
-window.posthog?.identify(username);
+window.posthog?.identify(authenticatedUserId);
 window.posthog?.capture("user_logged_in");
 ```
 
-Identification happens **only on login**, all further requests will automatically use the same distinct ID.
+Identification happens **only after successful authentication**, using the application's stable user ID. This static demo derives a fake `authenticatedUserId` after validation; production apps should use the canonical ID from their auth system or database.
 
 ### Event tracking (`src/pages/burrito.astro`)
 
@@ -137,6 +137,7 @@ On logout, both the local auth state and PostHog state are cleared:
 ```javascript
 window.posthog?.capture("user_logged_out");
 localStorage.removeItem("currentUser");
+localStorage.removeItem("currentUserId");
 window.posthog?.reset();
 ```
 
@@ -234,6 +235,7 @@ export default defineConfig({});
       window.posthog?.capture('user_logged_out');
     }
     localStorage.removeItem('currentUser');
+    localStorage.removeItem('currentUserId');
     localStorage.removeItem('burritoConsiderations');
     // IMPORTANT: Reset the PostHog instance to clear the user session
     window.posthog?.reset();
@@ -393,6 +395,7 @@ export function login(username: string, password: string): boolean {
   if (!username || !password) return false;
 
   localStorage.setItem("currentUser", username);
+  localStorage.setItem("currentUserId", `demo-user:${username.trim().toLowerCase()}`);
   // Initialize burrito considerations if not set
   if (!localStorage.getItem("burritoConsiderations")) {
     localStorage.setItem("burritoConsiderations", "0");
@@ -403,7 +406,9 @@ export function login(username: string, password: string): boolean {
 
 export function logout(): void {
   localStorage.removeItem("currentUser");
+  localStorage.removeItem("currentUserId");
   localStorage.removeItem("burritoConsiderations");
+  window.posthog?.reset();
 }
 
 export function incrementBurritoConsiderations(): number {
@@ -589,13 +594,15 @@ import PostHogLayout from '../layouts/PostHogLayout.astro';
     }
 
     // Client-side only fake auth - store in localStorage
+    const authenticatedUserId = `demo-user:${username.trim().toLowerCase()}`;
     localStorage.setItem('currentUser', username);
+    localStorage.setItem('currentUserId', authenticatedUserId);
     if (!localStorage.getItem('burritoConsiderations')) {
       localStorage.setItem('burritoConsiderations', '0');
     }
 
-    // Identify the user in PostHog (once on login is enough)
-    window.posthog?.identify(username);
+    // Identify with the post-validation user ID (once on login is enough)
+    window.posthog?.identify(authenticatedUserId);
     window.posthog?.capture('user_logged_in');
 
     // Clear form
@@ -717,4 +724,3 @@ import PostHogLayout from '../layouts/PostHogLayout.astro';
 ```
 
 ---
-
