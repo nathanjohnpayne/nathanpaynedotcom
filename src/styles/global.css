@@ -904,7 +904,7 @@ html[data-fonts-pending] .panel-label {
 
 /* === Site-wide link affordance ============================================
    ONE arrow (→), ONE resting state (text underlined, arrow not), ONE hover
-   behavior (arrow translates 3px right). Captured here so future links can
+   behavior (arrow translates by --shift-medium). Captured here so future links can
    reach for the same convention without inventing new ones.
 
    Markup convention: every link with a trailing arrow contains
@@ -939,7 +939,7 @@ a:hover .link-arrow,
 a:focus-visible .link-arrow,
 .social-row:hover .s-arrow,
 .social-row:focus-visible .s-arrow {
-  transform: translateX(3px);
+  transform: translateX(var(--shift-medium));
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -3735,13 +3735,6 @@ a:focus-visible {
 
   .panel--blue .availability-signal .p-link {
     color: var(--blue-contrast);
-    border-bottom-color: color-mix(in srgb, var(--blue-contrast) 48%, transparent);
-  }
-
-  .panel--blue .availability-signal .p-link:hover {
-    border-bottom-color: var(--blue-contrast);
-    box-shadow: inset 0 -2px 0 var(--blue-contrast);
-    background-color: color-mix(in srgb, var(--blue-contrast) 12%, transparent);
   }
 
   .panel--blue .social-row {
