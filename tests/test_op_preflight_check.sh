@@ -136,10 +136,6 @@ test_check_fresh_cache() {
     fail "test_check_fresh_cache: stdout missing author PAT export; got $out"
     return
   fi
-  if ! echo "$out" | grep -q "export OP_PREFLIGHT_MODE=review"; then
-    fail "test_check_fresh_cache: stdout missing preflight mode export; got $out"
-    return
-  fi
   if echo "$err" | grep -q FATAL; then
     fail "test_check_fresh_cache: --check invoked op or ssh; stderr=$err"
     return
@@ -988,6 +984,75 @@ EOF
   pass "test_deploy_mode_refreshes_cached_firebase_sa_file_mismatch: file mismatch forces refresh"
 }
 
+# #466: a review-mode (default) --check cache hit must NOT re-export deploy
+# credentials that a prior --mode deploy / --mode all run left in the
+# session file. Mode-scoping the emission closes the cross-mode leak.
+test_check_review_mode_omits_deploy_creds() {
+  local case_dir="$WORKDIR/case_modescope"
+  make_fresh_cache "$case_dir" claude "rev-pat-ms" "author-pat-ms"
+  # Append deploy creds, as a prior --mode all run would have.
+  cat >> "$case_dir/op-preflight-claude.env" <<EOF
+GOOGLE_APPLICATION_CREDENTIALS=/tmp/should-not-leak-adc.json
+CF_API_TOKEN=cf-secret-should-not-leak
+EOF
+
+  local out rc=0
+  out=$(PATH="$STUB_DIR:$PATH" OP_PREFLIGHT_CACHE_DIR="$case_dir" \
+    "$SCRIPT" --agent claude --check 2>/dev/null) || rc=$?
+  if [ "$rc" -ne 0 ]; then
+    fail "test_check_review_mode_omits_deploy_creds: expected rc=0, got rc=$rc"
+    return
+  fi
+  if ! echo "$out" | grep -q "OP_PREFLIGHT_REVIEWER_PAT=rev-pat-ms"; then
+    fail "test_check_review_mode_omits_deploy_creds: review PAT missing; out=$out"
+    return
+  fi
+  if echo "$out" | grep -q "export GOOGLE_APPLICATION_CREDENTIALS"; then
+    fail "test_check_review_mode_omits_deploy_creds: deploy ADC exported into review-mode output; out=$out"
+    return
+  fi
+  if echo "$out" | grep -q "export CF_API_TOKEN"; then
+    fail "test_check_review_mode_omits_deploy_creds: CF_API_TOKEN exported into review-mode output; out=$out"
+    return
+  fi
+  # #466 r2: review mode must ALSO actively unset stale deploy vars that a
+  # prior --mode deploy/all eval left in the caller's shell.
+  if ! echo "$out" | grep -q "unset .*GOOGLE_APPLICATION_CREDENTIALS"; then
+    fail "test_check_review_mode_omits_deploy_creds: review mode did not unset stale deploy vars; out=$out"
+    return
+  fi
+  if ! echo "$out" | grep -q "unset .*CF_API_TOKEN"; then
+    fail "test_check_review_mode_omits_deploy_creds: review mode did not unset CF_API_TOKEN; out=$out"
+    return
+  fi
+  pass "test_check_review_mode_omits_deploy_creds: review --check omits AND unsets stale deploy creds (#466)"
+}
+
+# ---------------------------------------------------------------------------
+# test_source_gcp_adc_stale_forces_refresh (#469): the non-Firebase GCP ADC
+# stale fast-path must force a full re-fetch (exit 2) — symmetric to the
+# Firebase-SA branch, which has a behavioral fixture above
+# (test_deploy_mode_refreshes_unusable_cached_firebase_sa). The cached ADC
+# tempfile may be stale while the 1Password ADC item is fresh; degrading in
+# place would skip that refresh. Structural guard against a revert of the
+# exit 2 (a full GCP-ADC deploy fixture would duplicate the Firebase one's
+# op-stub plumbing for a one-line mirror change).
+# ---------------------------------------------------------------------------
+test_source_gcp_adc_stale_forces_refresh() {
+  # In the stale-ADC else-branch: a 'cached GCP ADC is unusable' warning
+  # must be followed by `exit 2` before the block's closing `fi`.
+  if awk '
+    /cached GCP ADC is unusable/ { found = 1; next }
+    found && /^[[:space:]]*exit 2[[:space:]]*$/ { ok = 1 }
+    found && /^[[:space:]]*fi[[:space:]]*$/ { exit (ok ? 0 : 1) }
+    END { exit (ok ? 0 : 1) }
+  ' "$SCRIPT"; then
+    pass "test_source_gcp_adc_stale_forces_refresh: stale GCP ADC forces refresh (exit 2), symmetric to Firebase SA"
+  else
+    fail "test_source_gcp_adc_stale_forces_refresh: non-Firebase ADC stale path must exit 2 to force a re-fetch (#469)"
+  fi
+}
+
 test_check_fresh_cache
 test_check_missing_cache
 test_check_stale_cache
@@ -1002,6 +1067,8 @@ test_deploy_mode_prefers_firebase_sa_over_gcp_adc
 test_deploy_mode_refreshes_unusable_cached_firebase_sa
 test_deploy_mode_refreshes_mismatched_cached_firebase_sa
 test_deploy_mode_refreshes_cached_firebase_sa_file_mismatch
+test_check_review_mode_omits_deploy_creds
+test_source_gcp_adc_stale_forces_refresh
 
 echo
 echo "Results: $PASS passed, $FAIL failed"

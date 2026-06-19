@@ -15,11 +15,28 @@
 #              current repository detected by `gh repo view`.
 #
 # Environment:
-#   GH_TOKEN   Required for the read/polling calls. The load-bearing
-#              trigger comment is posted through gh-as-author.sh, which
-#              verifies and uses the author token for that write.
+#   GH_TOKEN                   Required for the read/polling calls. The
+#                              load-bearing trigger comment is posted
+#                              through gh-as-author.sh, which verifies and
+#                              uses the author token for that write.
+#   MERGEPATH_PHASE_4A_GATED   Optional. Set to true/1 by the caller when
+#                              the PR independently qualifies for Phase 4a
+#                              (lines >= external_review_threshold OR a file
+#                              matches external_review_paths). Only consulted
+#                              when codex.request_by_default is false; lets
+#                              the threshold-gated PR still get a trigger
+#                              under the pre-#486 behavior. Unset/false ⇒ the
+#                              PR is treated as under-threshold.
 #
 # Behavior:
+#   0. Reads codex.enabled (default true) and codex.request_by_default
+#      (default true, #486) and decides whether to request a Codex review
+#      at all (the Phase 4a entry decision). When codex.enabled is false,
+#      Phase 4a is off and the script exits 5 without triggering. When
+#      request_by_default is true, the trigger is posted on EVERY PR; when
+#      false, only on a PR the caller flagged via MERGEPATH_PHASE_4A_GATED.
+#      request_by_default is orthogonal to enabled — it governs only WHEN
+#      the trigger is posted, never WHETHER Codex participates.
 #   1. Reads codex.review_timeout_seconds, codex.ack_wait_seconds,
 #      codex.max_ack_retries, and codex.bot_login from
 #      .github/review-policy.yml (defaults: 600 / 60 / 1 /
@@ -84,6 +101,7 @@
 #       "reaction_id": N
 #     },
 #     "trigger_posted": true | false,
+#     "trigger_requested": true | false,
 #     "rounds_waited_seconds": N
 #   }
 #
@@ -93,6 +111,13 @@
 #   4   FALLBACK_REQUIRED — timed out waiting for a Codex signal. The
 #       caller should route to REVIEW_POLICY.md § Phase 4b. See #27 for
 #       the explicit-review-required decision that mandates this path.
+#   5   NO_TRIGGER_REQUESTED — the Phase 4a entry decision (#486) chose
+#       NOT to request a Codex review on this PR: either codex.enabled is
+#       false (route to Phase 4b), or codex.request_by_default is false
+#       and the PR is not Phase-4a-gated (under-threshold, no protected
+#       path). JSON on stdout with trigger_requested:false and all Codex
+#       signals null. This is a deliberate skip, not an error or a
+#       timeout.
 #
 # Design notes:
 #   - Read-only against the PR except for the one `@codex review` trigger
@@ -126,10 +151,25 @@ fi
 
 # --- argument parsing -------------------------------------------------------
 
+# #489: --trigger-only posts (or confirms) the @codex review trigger and
+# returns WITHOUT polling for clearance. coderabbit-wait.sh's rate-limit
+# failover uses it so a rate-limited PR advances via Codex without the wait
+# helper blocking on Codex's full review. Extract the flag, leave positionals.
+TRIGGER_ONLY=false
+__POSITIONAL=()
+for __arg in "$@"; do
+  case "$__arg" in
+    --trigger-only) TRIGGER_ONLY=true ;;
+    *) __POSITIONAL+=("$__arg") ;;
+  esac
+done
+set -- ${__POSITIONAL[@]+"${__POSITIONAL[@]}"}
+
 if [ $# -lt 1 ] || [ $# -gt 2 ]; then
-  echo "Usage: $0 <PR_NUMBER> [REPO]" >&2
-  echo "  PR_NUMBER  pull request number (integer)" >&2
-  echo "  REPO       owner/repo (optional; defaults to current repo)" >&2
+  echo "Usage: $0 [--trigger-only] <PR_NUMBER> [REPO]" >&2
+  echo "  --trigger-only  post/confirm the @codex trigger, then exit 0 (no clearance poll)" >&2
+  echo "  PR_NUMBER       pull request number (integer)" >&2
+  echo "  REPO            owner/repo (optional; defaults to current repo)" >&2
   exit 3
 fi
 
@@ -171,11 +211,16 @@ codex_field() {
     /^codex:/ {in_block=1; next}
     in_block && /^[^[:space:]#]/ {in_block=0}
     in_block {
-      # Match "  field: value" or "  field: \"value\""
+      # Match "  field: value" or a value wrapped in double OR single
+      # quotes. Strip BOTH quote styles (\047 = single quote) so a
+      # single-quoted boolean (valid YAML) survives the == "true"
+      # entry-gate checks below. Matches the quote-tolerance of the
+      # codex_field parser in scripts/codex-review-check.sh and the
+      # workflow parser tests.
       if ($1 == field":") {
         sub(/^[[:space:]]*[^:]+:[[:space:]]*/, "", $0)
-        gsub(/^"/, "", $0)
-        gsub(/"[[:space:]]*(#.*)?$/, "", $0)
+        gsub(/^["\047]/, "", $0)
+        gsub(/["\047][[:space:]]*(#.*)?$/, "", $0)
         gsub(/[[:space:]]*#.*$/, "", $0)
         sub(/[[:space:]]+$/, "", $0)
         print
@@ -220,6 +265,59 @@ fi
 
 BOT_LOGIN=$(codex_field bot_login)
 BOT_LOGIN=${BOT_LOGIN:-"chatgpt-codex-connector[bot]"}
+
+# --- Phase 4a entry decision (#486) -----------------------------------------
+# Two codex: block keys govern whether this run posts an `@codex review`
+# trigger at all, BEFORE any of the per-HEAD signal scanning below:
+#
+#   codex.enabled            — whether Codex participates as a reviewer.
+#                              Absent ⇒ true (matches codex-review-check.sh).
+#                              When false, Phase 4a is OFF entirely: this
+#                              script never triggers, regardless of
+#                              request_by_default. The caller routes to
+#                              Phase 4b.
+#   codex.request_by_default — whether `@codex review` is requested on
+#                              EVERY PR, not only the threshold/path-gated
+#                              ones. Absent ⇒ true (owner-decided default,
+#                              #486 / #483). When false, the trigger is
+#                              gated on the caller's Phase 4a entry signal
+#                              (MERGEPATH_PHASE_4A_GATED), restoring the
+#                              pre-#486 threshold-only behavior.
+#
+# request_by_default is ORTHOGONAL to enabled: it only governs WHEN the
+# trigger is posted and has no effect when Codex is disabled.
+#
+# MERGEPATH_PHASE_4A_GATED is how the caller (the authoring agent, or a
+# workflow) tells this worker that the PR independently qualifies for
+# Phase 4a (lines ≥ external_review_threshold OR a file matches
+# external_review_paths). Set it to `true`/`1` for a gated PR. This
+# script does not recompute the threshold itself — the entry decision
+# upstream already did. When unset/false and request_by_default is also
+# false, an under-threshold PR is skipped (exit 5, NO_TRIGGER_REQUESTED).
+CODEX_ENABLED=$(codex_field enabled)
+CODEX_ENABLED=${CODEX_ENABLED:-true}
+
+REQUEST_BY_DEFAULT=$(codex_field request_by_default)
+REQUEST_BY_DEFAULT=${REQUEST_BY_DEFAULT:-true}
+
+# Normalize the caller's gate signal to a strict true/false. Accept the
+# common truthy spellings; anything else (including unset) is false.
+PHASE_4A_GATED=false
+case "${MERGEPATH_PHASE_4A_GATED:-}" in
+  true|TRUE|True|1|yes|YES) PHASE_4A_GATED=true ;;
+esac
+
+# Decide whether to request a Codex review on this PR. Returns 0 (request)
+# or 1 (skip). Kept as a function so the decision is testable in one place
+# and reads as a single boolean expression at the call site.
+should_request_codex() {
+  # Codex off ⇒ never trigger (orthogonality rule).
+  [ "$CODEX_ENABLED" = "true" ] || return 1
+  # request_by_default ⇒ trigger on every PR.
+  [ "$REQUEST_BY_DEFAULT" = "true" ] && return 0
+  # Otherwise trigger only when the caller flagged the PR as Phase-4a-gated.
+  [ "$PHASE_4A_GATED" = "true" ]
+}
 
 REACTION_FRESHNESS_SECONDS=$(codex_field reaction_freshness_window_seconds)
 REACTION_FRESHNESS_SECONDS=${REACTION_FRESHNESS_SECONDS:-1800}
@@ -273,6 +371,39 @@ fetch_api_array() {
   echo "$raw" | jq -s 'add // []' 2>/dev/null \
     || die 3 "failed to flatten $label pagination output"
 }
+
+# --- Phase 4a entry gate (#486) ---------------------------------------------
+# Evaluate the request decision BEFORE any PR fetch / signal scan / trigger
+# write. When the decision is "skip", emit a minimal JSON object (same field
+# names as the terminal output, all signals null) and exit 5
+# (NO_TRIGGER_REQUESTED) so the caller can distinguish "deliberately did not
+# request" from a timeout (4) or an API error (3).
+if ! should_request_codex; then
+  if [ "$CODEX_ENABLED" != "true" ]; then
+    log "codex.enabled is false — Phase 4a is off; not requesting a Codex review (route to Phase 4b)"
+  else
+    log "codex.request_by_default is false and this PR is not Phase-4a-gated (MERGEPATH_PHASE_4A_GATED!=true) — not requesting a Codex review"
+  fi
+  jq -n \
+    --argjson pr_number "$PR_NUMBER" \
+    --arg repo "$REPO" \
+    --arg bot_login "$BOT_LOGIN" '
+    {
+      pr_number: $pr_number,
+      repo: $repo,
+      head_sha: null,
+      head_committer_date: null,
+      bot_login: $bot_login,
+      review: null,
+      findings: [],
+      reaction: null,
+      trigger_posted: false,
+      trigger_requested: false,
+      rounds_waited_seconds: 0
+    }
+  '
+  exit 5
+fi
 
 # --- fetch PR metadata ------------------------------------------------------
 
@@ -498,6 +629,37 @@ has_post_trigger_signal() {
   ')" = "true" ]
 }
 
+# #489: HEAD-pinned idempotency for the rate-limit failover. Returns 0 iff a
+# VALID `@codex review` trigger already exists for the current HEAD — meaning a
+# comment authored by the configured `author_identity` (the same identity
+# `post_codex_trigger` writes as, via gh-as-author.sh) whose `created_at` is at
+# or after `REACTION_THRESHOLD` (the PR-scoped pushed-at / freshness anchor,
+# `max(HEAD_PUSHED_AT, freshness floor)`). Author + anchor scoping (Codex P2 on
+# #512) is what makes this sound: a reviewer-authored `@codex review`, or a
+# stale author trigger left on a prior head before a force-push of an
+# old-committer-date commit, must NOT count as "Codex was requested for THIS
+# SHA" — otherwise coderabbit-wait.sh would emit `codex_failover_requested:true`
+# with no valid trigger sent. Lets --trigger-only skip a duplicate post when
+# coderabbit-wait.sh fires the failover more than once for the same HEAD (e.g.
+# a re-invocation). Fail-open: on a missing author identity or any read error it
+# returns non-zero so the caller still posts (better to re-request Codex than to
+# silently skip the failover).
+existing_codex_trigger_on_head() {
+  [ -n "$AUTHOR_IDENTITY" ] || return 1
+  local comments
+  comments=$(gh api --paginate "repos/$REPO/issues/$PR_NUMBER/comments" 2>/dev/null \
+    | jq -s 'add // []' 2>/dev/null) || return 1
+  [ -n "$comments" ] || return 1
+  echo "$comments" | jq -e \
+    --arg author "$AUTHOR_IDENTITY" \
+    --arg since "$REACTION_THRESHOLD" '
+    any(.[];
+      ((.user.login // "") == $author)
+      and ((.body // "") | test("@codex review"; "i"))
+      and (.created_at >= $since))
+  ' >/dev/null 2>&1
+}
+
 reset_review_wait_clock() {
   START_TS=$(date +%s)
   DEADLINE=$((START_TS + TIMEOUT_SECONDS))
@@ -711,8 +873,42 @@ TRIGGER_SIGNAL_THRESHOLD=""
 
 if has_cleared_signal "$INITIAL_SCAN"; then
   log "Codex has already cleared on HEAD (reaction or no-P0/P1 review) — skipping trigger comment"
+elif [ "$TRIGGER_ONLY" = "true" ] && existing_codex_trigger_on_head; then
+  log "trigger-only: @codex review already requested on HEAD — skipping duplicate trigger (idempotent, #489)"
 else
   post_codex_trigger
+fi
+
+# #489 trigger-only: return immediately after posting (or confirming) the
+# trigger — BEFORE run_trigger_ack_gate, which would otherwise re-post
+# @codex up to max_ack_retries (the eyes-ack retry) and break the
+# one-trigger-per-run contract the rate-limit failover relies on. No clearance
+# poll; Codex's actual review/clearance is picked up later by the normal Phase
+# 4a flow and the merge-clearance gate. trigger_posted is false when the
+# idempotency check skipped a duplicate, or when Codex had already cleared.
+if [ "$TRIGGER_ONLY" = "true" ]; then
+  jq -n \
+    --argjson pr_number "$PR_NUMBER" \
+    --arg repo "$REPO" \
+    --arg head_sha "$HEAD_SHA" \
+    --arg head_committer_date "$HEAD_COMMITTER_DATE" \
+    --arg bot_login "$BOT_LOGIN" \
+    --argjson trigger_posted "$TRIGGER_POSTED" '
+    {
+      pr_number: $pr_number,
+      repo: $repo,
+      head_sha: $head_sha,
+      head_committer_date: $head_committer_date,
+      bot_login: $bot_login,
+      review: null,
+      findings: [],
+      reaction: null,
+      trigger_posted: $trigger_posted,
+      trigger_requested: true,
+      trigger_only: true,
+      rounds_waited_seconds: 0
+    }'
+  exit 0
 fi
 
 if [ "$TRIGGER_POSTED" = "true" ]; then
@@ -744,10 +940,15 @@ while :; do
 
   NOW=$(date +%s)
   if [ "$NOW" -ge "$DEADLINE" ]; then
-    log "TIMEOUT after ${ELAPSED}s — no Codex review or reaction on HEAD"
-    log "emitting JSON with review=null, reaction=null; exit code 4 (FALLBACK_REQUIRED)"
-    # Fall through to JSON emission so the caller still gets a structured
-    # answer (all nulls), then exit 4.
+    # Final scan at the deadline (#465): a Codex signal that arrived between
+    # the last poll and now must not be emitted as a stale timeout. Refresh
+    # FINAL_SCAN so BOTH the JSON emission and the exit-code decision below
+    # reflect current state — if a signal landed, has_*_signal sees it and
+    # the script exits 0 instead of 4 (FALLBACK_REQUIRED) on stale data.
+    if ! FINAL_SCAN=$(scan_codex_state); then
+      die 3 "final timeout-path scan failed"
+    fi
+    log "deadline reached after ${ELAPSED}s — emitted scan is the final one; exit code decided below"
     break
   fi
 
@@ -781,6 +982,7 @@ jq -n \
     findings: $scan.findings,
     reaction: $scan.reaction,
     trigger_posted: $trigger_posted,
+    trigger_requested: true,
     rounds_waited_seconds: $elapsed
   }
 '

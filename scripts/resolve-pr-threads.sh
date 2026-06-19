@@ -31,8 +31,10 @@
 #                           Per REVIEW_POLICY.md § Implementation notes
 #                           for branch protection gates: this is a
 #                           CLEAN-UP mechanism, not a policy override.
-#                           Human-authored threads are NEVER auto-
-#                           resolved regardless of mode.
+#                           Non-bot threads are NEVER handled by this
+#                           bot-only mode. Follow REVIEW_POLICY.md's
+#                           pre-merge gate for agent-reviewer vs
+#                           real-human threads.
 #   --dry-run               With --auto-resolve-bots, print what would
 #                           be resolved without mutating.
 #   --rationale <text>      With --auto-resolve-bots, override the
@@ -140,7 +142,7 @@ NO_TAG_REPLY=false
 # (un-suffixed user-facing handle). The trailing `(\[bot\])?` accepts
 # either form so the auto-resolve mode works with the GraphQL data
 # this script reads. Caught on PR #180 review when every CR thread
-# was skipped as "human author" — see #182.
+# was skipped as a non-bot author — see #182.
 BOT_LOGINS_RE='^(coderabbitai|chatgpt-codex-connector|dependabot)(\[bot\])?$'
 
 while [ $# -gt 0 ]; do
@@ -421,8 +423,9 @@ if [ "$MODE" = "list" ]; then
   '
   echo "To resolve bot-authored threads where you have already addressed"
   echo "the finding: re-run with --auto-resolve-bots."
-  echo "Human-authored threads must be resolved via the GitHub UI or by"
-  echo "asking the human. Per REVIEW_POLICY.md § Agent prohibitions."
+  echo "Non-bot threads are not handled by --auto-resolve-bots. Follow"
+  echo "REVIEW_POLICY.md's pre-merge gate for agent-reviewer vs real-human"
+  echo "threads."
   exit 3
 fi
 
@@ -664,21 +667,44 @@ fetch_manifest_templated_dests() {
   local manifest="$REPO_ROOT_FOR_MANIFEST/.mergepath-sync.yml"
   [ -f "$manifest" ] || return 0
   if command -v yq >/dev/null 2>&1; then
-    # Resolve each entry's consumer-name list to repo slugs in one
-    # pass. `. as $root` exposes the top-level consumers table for
-    # the inner lookup. Output: `dest<TAB>repo,repo,...`. The yq
-    # `\t` is a literal tab in the format string.
-    MANIFEST_TEMPLATED_DESTS_CACHE=$(yq -r '
+    # #467: a path entry's `consumers` is EITHER a sequence of names OR
+    # the scalar literal `all`. The prior single-pass expression did
+    # `.consumers // [] | map(...)`, which on the scalar `all` tried to
+    # `map` over a string — a yq runtime error that, under `|| true`,
+    # blanked the ENTIRE templated-dest cache. One `consumers: all`
+    # templated entry thus silently disabled templated-render
+    # classification for every entry. Resolve the two shapes in two
+    # passes (mirrors check_sync_manifest, which splits the same way to
+    # dodge mikefarah/yq's inline if/then/else limits), then merge.
+    #
+    # Pass 1 — scalar `consumers: all` → every consumer's repo slug.
+    # Bind the full repo list inline with `as $all`; mikefarah yq has no
+    # jq-style `--arg`, but it supports `... as $var` (same mechanism as
+    # the `. as $root` lookup in pass 2).
+    local _all_rows _seq_rows
+    _all_rows=$(yq -r '
       . as $root |
-      .paths[] | select(.type == "templated") |
-      [
-        (.dest // .path),
-        (.consumers // [] |
-          map(. as $name |
-            $root.consumers[] | select(.name == $name) | .repo) |
-          join(","))
-      ] | @tsv
+      ($root.consumers | map(.repo) | join(",")) as $all |
+      .paths[]
+      | select(.type == "templated")
+      | select(.consumers == "all")
+      | (.dest // .path) + "\t" + $all
     ' "$manifest" 2>/dev/null || true)
+    # Pass 2 — sequence consumers → resolve each name to its repo slug.
+    # `. as $root` exposes the top-level consumers table for the inner
+    # lookup. The `tag == "!!seq"` guard keeps the scalar form away from
+    # the `map` that errored before. Output: `dest<TAB>repo,repo,...`.
+    _seq_rows=$(yq -r '
+      . as $root |
+      .paths[]
+      | select(.type == "templated")
+      | select(.consumers | tag == "!!seq")
+      | [ (.dest // .path),
+          (.consumers | map(. as $name |
+             $root.consumers[] | select(.name == $name) | .repo) | join(",")) ]
+        | @tsv
+    ' "$manifest" 2>/dev/null || true)
+    MANIFEST_TEMPLATED_DESTS_CACHE=$(printf '%s\n%s\n' "$_all_rows" "$_seq_rows" | grep -v '^[[:space:]]*$' || true)
   else
     # awk fallback — mirrors the canonical-paths fallback above. Pair
     # `type:` and `dest:` (or fall back to `path:`) within a `paths:`
@@ -1063,7 +1089,7 @@ while IFS= read -r thread; do
   COMMIT_OID=$(echo "$thread" | jq -r .commit_oid)
 
   if ! [[ "$AUTHOR" =~ $BOT_LOGINS_RE ]]; then
-    echo "  SKIP (human author $AUTHOR): $PATH_"
+    echo "  SKIP (non-bot author $AUTHOR): $PATH_"
     echo "    $EXCERPT"
     SKIPPED_HUMAN=$((SKIPPED_HUMAN + 1))
     continue

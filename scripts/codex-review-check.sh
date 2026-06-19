@@ -119,6 +119,18 @@ else
   with_gh_retry() { "$@"; }
 fi
 
+# Shared available_reviewers reader (#453) — replaces the local
+# double-quote-only parser so coderabbit-wait.sh and this script parse the
+# allow-list identically (dash + inline comment + BOTH quote styles +
+# whitespace). Hard-require it: REVIEWERS below is a fail-closed gate input
+# (an empty list exits 3), so a missing helper must error, not degrade.
+if [ ! -r "$__CODEX_CHECK_DIR/lib/reviewers-helpers.sh" ]; then
+  echo "ERROR: reviewers-helpers missing: $__CODEX_CHECK_DIR/lib/reviewers-helpers.sh" >&2
+  exit 3
+fi
+# shellcheck source=lib/reviewers-helpers.sh
+. "$__CODEX_CHECK_DIR/lib/reviewers-helpers.sh"
+
 # --- argument parsing -------------------------------------------------------
 
 if [ $# -lt 1 ] || [ $# -gt 2 ]; then
@@ -305,19 +317,10 @@ case "$ALLOW_PHASE_4B_SUBSTITUTE" in
     ;;
 esac
 
-# Read the available_reviewers list (one per line). Same state-machine
-# awk pattern, but collecting list items rather than matching a scalar.
-# Outputs one reviewer login per line to stdout. Handles both quoted
-# (`  - "name"`) and unquoted (`  - name`) list item formats.
-read_available_reviewers() {
-  [ -f "$CONFIG" ] || return 0
-  awk '
-    /^available_reviewers:/ {in_block=1; next}
-    in_block && /^[^[:space:]#]/ {in_block=0}
-    in_block && /^ *-/ {print}
-  ' "$CONFIG" | sed -E 's/^[[:space:]]*-[[:space:]]*"?([^"]*)"?[[:space:]]*$/\1/'
-}
-
+# read_available_reviewers (and login_is_available_reviewer) now live in
+# scripts/lib/reviewers-helpers.sh (sourced above, #453). They default to
+# $CONFIG, so this call site is unchanged — but the allow-list now parses
+# with the strongest normalization (quoted/commented entries included).
 REVIEWERS=$(read_available_reviewers)
 if [ -z "$REVIEWERS" ]; then
   echo "ERROR: no available_reviewers found in $CONFIG" >&2
@@ -632,32 +635,52 @@ ROLLUP_JSON=$(with_gh_retry gh pr view "$PR_NUMBER" --repo "$REPO" --json status
 # checks listed in required_status_checks.contexts AND/OR
 # required_status_checks.checks[].context block the gate.
 BASE_BRANCH=$(echo "$PR_JSON" | jq -r '.base.ref')
-REQUIRED_CHECK_NAMES=$(gh api "repos/$REPO/branches/$BASE_BRANCH/protection/required_status_checks" 2>/dev/null \
-  | jq -r '[.contexts[]?, .checks[]?.context] | unique | .[]' 2>/dev/null \
-  || true)
+# Fetch the branch-protection required-check list, DISTINGUISHING
+# "read OK, none required" (gate (a) imposes no filter, passes) from
+# "could not read" (fail closed) — #465 Option A. The prior code swallowed
+# the gh failure and treated BOTH cases as "no required checks = pass",
+# which fails OPEN: when the token cannot read branch protection (403) or
+# the API errors (5xx), a genuinely-failing required check went unnoticed.
+#
+# gh api exits non-zero on any 4xx/5xx; capture stderr to tell a 404 (the
+# required_status_checks sub-resource is not configured → legitimately NO
+# required checks) apart from 403 (token lacks Administration:read scope) or
+# 5xx/network (transient) — the latter leave the required list UNKNOWN.
+protection_err=$(mktemp)
+if protection_json=$(gh api "repos/$REPO/branches/$BASE_BRANCH/protection/required_status_checks" 2>"$protection_err"); then
+  REQUIRED_CHECK_NAMES=$(printf '%s' "$protection_json" | jq -r '[.contexts[]?, .checks[]?.context] | unique | .[]' 2>/dev/null || true)
+  protection_readable=1
+elif grep -q 'HTTP 404' "$protection_err"; then
+  REQUIRED_CHECK_NAMES=""
+  protection_readable=1   # 404 → no required_status_checks protection → none required
+else
+  REQUIRED_CHECK_NAMES=""
+  protection_readable=0   # 403 token scope / 5xx / network → could not read
+fi
+rm -f "$protection_err"
 
-if [ -z "$REQUIRED_CHECK_NAMES" ]; then
-  # No required-check list available. This can happen because:
-  #   - The branch has no branch protection rules at all, OR
-  #   - The token lacks Administration:read scope (which the
-  #     required_status_checks endpoint requires).
-  #
-  # Earlier versions treated "no list" as "all checks required",
-  # which caused over-strict blocking when the token lacked perms
-  # and optional/flaky checks happened to be failing. Codex caught
-  # this on swipewatch propagation PR #33 round 8.
-  #
-  # New behavior: log a warning and SKIP the required-check filter
-  # entirely, letting gate (a) pass. The rationale is that if
-  # branch protection isn't configured or the token can't read it,
-  # the BRANCH PROTECTION ITSELF doesn't enforce required checks,
-  # so gate (a) shouldn't either.
-  log "gate (a): WARNING — could not determine required checks from branch protection for $BASE_BRANCH (no rules configured or token lacks Administration:read scope). Skipping required-check filter — all checks treated as passing this gate."
-  # Skip gate (a) entirely for this case
+if [ "$protection_readable" -eq 0 ]; then
+  # FAIL CLOSED (#465): the required-check list is UNKNOWN (token lacks
+  # Administration:read, or the API errored). Do NOT optimistically treat
+  # this as "no required checks = pass". Keep the FULL rollup and leave
+  # REQUIRED_JSON empty — the BAD_CHECKS filter below treats an empty
+  # required list as "all checks required", so every non-skipped check must
+  # be green. SKIPPED/NEUTRAL still pass (optional jobs that skip by design
+  # do not block), so this closes the fail-open hole while only blocking on
+  # ACTUAL failures (a narrower reversal of the swipewatch #33 skip than a
+  # blanket exit-3). To restore the precise required-check filter, grant the
+  # token Administration:read.
+  log "gate (a): WARNING — could not read branch-protection required checks for $BASE_BRANCH (token lacks Administration:read scope, or API error). Failing closed: every non-skipped rollup check must be green (#465)."
+  REQUIRED_JSON='[]'
+elif [ -z "$REQUIRED_CHECK_NAMES" ]; then
+  # Read succeeded; branch protection lists NO required checks (404 or empty
+  # contexts). Nothing to enforce — gate (a) imposes no required-check
+  # filter (the other gates still run).
+  log "gate (a): branch protection for $BASE_BRANCH lists no required checks; gate (a) imposes no required-check filter."
   ROLLUP_JSON='{"statusCheckRollup":[]}'
   REQUIRED_JSON='[]'
 else
-  # Build a jq array of required check names
+  # Build a jq array of required check names.
   REQUIRED_JSON=$(echo "$REQUIRED_CHECK_NAMES" | jq -R . | jq -s .)
 fi
 
@@ -897,6 +920,46 @@ if [ -n "$CODEX_REVIEW_ID" ] && [ "$CODEX_REVIEW_ID" != "null" ]; then
   ')
 else
   UNADDRESSED_P01='[]'
+fi
+
+# Resolution-aware filter (Option B on #460 / aligns gate (c) with
+# codex-p1-gate.sh and the weekly audit). Thread resolution is the
+# sanctioned override in codex-p1-gate.sh, so gate (c) must honor it too —
+# otherwise the two required checks contradict (codex-p1-gate clears a
+# resolved P0/P1 thread while gate (c) still blocks it, so a legitimately
+# resolved finding can never satisfy both). A P0/P1 finding counts as
+# unaddressed only when its review thread is NOT resolved.
+#
+# This runs at MERGE time (live), so isResolved is the state AT merge — no
+# retrospective staleness applies here (that is the weekly audit's concern,
+# which bounds resolution by merge time). Mirrors codex-p1-gate.sh's
+# GraphQL reviewThreads → comment-databaseId → isResolved join.
+#
+# Fail CLOSED on lookup failure: leave UNADDRESSED_P01 unfiltered (every
+# finding treated as unresolved), so a GraphQL hiccup or a >100-thread PR
+# can't clear a real P0/P1. Only fetched when there is at least one finding.
+if [ "$(echo "$UNADDRESSED_P01" | jq 'length')" -gt 0 ]; then
+  RES_OWNER=${REPO%/*}
+  RES_NAME=${REPO#*/}
+  RES_QUERY='query($owner:String!,$name:String!,$pr:Int!){repository(owner:$owner,name:$name){pullRequest(number:$pr){reviewThreads(first:100){pageInfo{hasNextPage} nodes{isResolved comments(first:100){nodes{databaseId}}}}}}}'
+  # 2>/dev/null (not 2>&1): with_gh_retry emits retry diagnostics to stderr;
+  # merging them into THREADS_JSON would make a transient-retry-then-success
+  # look like malformed JSON and force a needless fail-closed block
+  # (CodeRabbit Major + Codex P2 on #464). Keep only stdout (the JSON).
+  THREADS_JSON=$(with_gh_retry gh api graphql -F owner="$RES_OWNER" -F name="$RES_NAME" -F pr="$PR_NUMBER" -f query="$RES_QUERY" 2>/dev/null) || THREADS_JSON=""
+  if ! echo "$THREADS_JSON" | jq -e '.data.repository.pullRequest.reviewThreads' >/dev/null 2>&1; then
+    log "gate (c): WARNING reviewThreads resolution lookup failed — failing closed (treating all P0/P1 findings as unresolved)"
+  elif [ "$(echo "$THREADS_JSON" | jq -r '.data.repository.pullRequest.reviewThreads.pageInfo.hasNextPage')" = "true" ]; then
+    log "gate (c): WARNING PR has >100 review threads; resolution pagination unsupported — failing closed (treating all P0/P1 findings as unresolved)"
+  else
+    RESOLUTION_MAP=$(echo "$THREADS_JSON" | jq '
+      .data.repository.pullRequest.reviewThreads.nodes
+      | map((.isResolved) as $r | .comments.nodes | map({ key: (.databaseId | tostring), value: $r }))
+      | flatten | from_entries')
+    UNADDRESSED_P01=$(echo "$UNADDRESSED_P01" | jq --argjson map "$RESOLUTION_MAP" '
+      [ .[] | . as $c | ($map[($c.comment_id | tostring)] // false) as $resolved | select($resolved != true) ]')
+    log "gate (c): resolution-aware — $(echo "$UNADDRESSED_P01" | jq 'length') unresolved P0/P1 finding(s) after honoring thread resolution"
+  fi
 fi
 
 UNADDRESSED_COUNT=$(echo "$UNADDRESSED_P01" | jq 'length')

@@ -127,6 +127,27 @@ assert_rc_contains "wrapper substring spoof still blocked" 2 "token-verifying wr
 ## Self-Review
 - ok"'
 
+# #466: a path-qualified gh (e.g. /usr/bin/gh) must NOT bypass the guard.
+# Before the fix the quick-exit grep only matched bare `gh`, so a
+# path-qualified write skipped the hook entirely (exit 0).
+assert_rc_contains "path-qualified gh pr create blocked (#466)" 2 "token-verifying wrapper" \
+  '/usr/bin/gh pr create --title "t" --body "Authoring-Agent: claude
+
+## Self-Review
+- ok"'
+
+assert_rc_contains "path-qualified gh pr merge blocked (#466)" 2 "" \
+  '/usr/bin/gh pr merge 123 --squash --delete-branch'
+
+# #466 r2: a QUOTED path-qualified (or bare) gh must not bypass either.
+# The closing quote glued to `gh` previously slipped past the quick-exit
+# grep boundary (verified live by the nathanpayne-codex review).
+assert_rc_contains "quoted path-qualified gh pr merge blocked (#466 r2)" 2 "" \
+  "'/usr/bin/gh' pr merge 123 --squash --delete-branch"
+
+assert_rc_contains "quoted bare gh pr merge blocked (#466 r2)" 2 "" \
+  "'gh' pr merge 5 --squash"
+
 assert_rc_contains "wrapper state does not cross separator" 2 "token-verifying wrapper" \
   'scripts/gh-as-author.sh -- echo ok ; gh pr create --title "t" --body "Authoring-Agent: claude
 
@@ -411,6 +432,32 @@ cd "$ORIG_DIR"
 # reached the merge guard rather than bailing at the unset arg).
 assert_rc_contains "env --unset NAME still reaches merge-state checks" 2 "mergeStateStatus is BLOCKED" \
   'env --unset GH_AS_AUTHOR_IDENTITY scripts/gh-as-author.sh -- gh pr merge 123 --squash' "BLOCKED" ""
+
+# Compact `env -uNAME` form (#451) — flag and name attached, no `=`.
+# prefix_flag_takes_value matches only the bare `-u`, so this token would
+# fall through as a boolean flag unless the case block models it
+# explicitly. Same r15 empty-override semantics as `env -u NAME`.
+cd "$WORKDIR/repo-custom-author-empty"
+set +e
+out=$(GH_AS_AUTHOR_IDENTITY=custom-owner run_hook 'env -uGH_AS_AUTHOR_IDENTITY scripts/gh-as-author.sh -- gh pr merge 123 --squash' "CLEAN" "" 2>&1)
+rc=$?
+set -e
+if [ "$rc" -eq 2 ] && echo "$out" | grep -qi "author identity"; then
+  pass "#451: env -uNAME (compact) author unset fails closed in custom-author repo"
+else
+  fail "#451: env -uNAME (compact) author unset fails closed in custom-author repo: rc=$rc; output: $out"
+fi
+cd "$ORIG_DIR"
+
+# ...and in a default repo the compact form must still reach the merge-state
+# checks (BLOCKED proves the walk didn't bail at the unset arg and skip checks).
+assert_rc_contains "#451: env -uNAME (compact) author unset reaches merge-state checks in default repo" 2 "mergeStateStatus is BLOCKED" \
+  'env -uGH_AS_AUTHOR_IDENTITY scripts/gh-as-author.sh -- gh pr merge 123 --squash' "BLOCKED" ""
+
+# Reviewer analog: the compact unset falls the wrapper back to its default
+# reviewer; with a different expected reviewer that must fail closed.
+assert_rc_contains "#451: env -uNAME (compact) reviewer unset fails closed vs different expected reviewer" 2 "not expected reviewer" \
+  'env -uGH_AS_REVIEWER_IDENTITY scripts/gh-as-reviewer.sh -- gh pr comment 123 --body "ping"' "CLEAN" "" "nathanpayne-codex"
 
 # The unset BUILTIN persists past separators (preempted, r17 family).
 cd "$WORKDIR/repo-custom-author-empty"
