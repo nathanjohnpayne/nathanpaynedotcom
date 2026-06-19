@@ -11,14 +11,33 @@
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-TEST_SCRIPT="$REPO_ROOT/tests/test_verify_propagation_pr.sh"
 
-if [ ! -f "$TEST_SCRIPT" ]; then
-  # Missing test script is a hard error, not a skip — silent-skip
-  # would let an accidental delete/rename disable this check
-  # without surfacing in CI.
-  echo "check_verify_propagation_pr: ERROR (missing $TEST_SCRIPT)" >&2
-  exit 1
-fi
+# The verifier and its segment-local protected-path matcher
+# (scripts/workflow/match_protected_paths.sh, #471) are both
+# security-load-bearing for the propagation lane, so both test suites are
+# hard CI gates here.
+TESTS=(
+  "tests/test_verify_propagation_pr.sh"
+  "tests/test_match_protected_paths.sh"
+)
 
-bash "$TEST_SCRIPT"
+for rel in "${TESTS[@]}"; do
+  full="$REPO_ROOT/$rel"
+  if [ ! -f "$full" ]; then
+    # Hard error in BOTH canonical and consumer checkouts — deliberately
+    # NO consumer-safe skip here, unlike check_workflow_verify_propagation_templated
+    # (whose test is NOT propagated, so it is legitimately absent in a
+    # consumer). Both wrapped tests are `consumers: all` AND listed in the
+    # scripts/ci/ kit `requires:` in .mergepath-sync.yml, so they travel to
+    # EVERY consumer. A missing test in a consumer therefore means
+    # propagation BROKE (the kit failed to deliver a required file), not
+    # that the test is legitimately absent — surface it rather than
+    # silently skipping a security-load-bearing check. A manifest-gated
+    # skip here masks exactly that propagation failure (Codex P2 on PR
+    # #477 reproduced the fail-open; #467 r2).
+    echo "check_verify_propagation_pr: ERROR (missing $rel)" >&2
+    exit 1
+  fi
+  echo "check_verify_propagation_pr: running $rel"
+  bash "$full"
+done
