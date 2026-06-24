@@ -324,18 +324,37 @@ test('prefers-reduced-motion: reduce short-circuits the state machine to instant
     return grid && grid.style.getPropertyValue('--cell-h-about').endsWith('px');
   });
 
+  // Deterministic check #1 (CSS): under reduced-motion the global
+  // `* { transition-duration: 0 }` rule zeroes the grid morph that
+  // --motion-plane drives. This is a computed-style read — no timing — so it
+  // cannot flake on a slow runner.
+  const gridTransitionDurations: string = await page.evaluate(
+    () => getComputedStyle(document.getElementById('mondrian')!).transitionDuration,
+  );
+  expect(
+    gridTransitionDurations.split(',').every((d) => parseFloat(d) === 0),
+    `every grid transition-duration is 0s under reduced-motion (got: ${gridTransitionDurations})`,
+  ).toBe(true);
+
+  // Deterministic check #2 (JS state machine): readMsToken() returns 0 under
+  // reduced-motion, so startOpen() reveals content on a setTimeout(…, 0)
+  // macrotask — within a couple of animation frames. We count *frames*, not
+  // milliseconds: a loaded runner stretches each frame's wall-time, but a
+  // zeroed-timer reveal still lands in a handful of frames whereas the
+  // un-short-circuited 460ms path would need ~28. This replaces the #337
+  // wall-clock `<200ms` gate, which could still flake on a slow CI runner (#552).
   await page.click(`[data-panel="about"]`);
-  // Measure inside the page using performance.now() so the elapsed value
-  // doesn't include Playwright's Node↔browser RPC round-trip + polling
-  // overhead. (CodeRabbit finding on #337.)
-  const elapsed: number = await page.evaluate(() => {
+  const frames: number = await page.evaluate(() => {
     return new Promise<number>((resolve) => {
-      const start = performance.now();
+      let count = 0;
       const tick = () => {
+        count += 1;
         if (
           document.querySelector('[data-panel="about"]')?.classList.contains('is-content-visible')
         ) {
-          resolve(performance.now() - start);
+          resolve(count);
+        } else if (count >= 600) {
+          resolve(count); // ~10s safety valve; lets the assertion fail with a count
         } else {
           requestAnimationFrame(tick);
         }
@@ -343,11 +362,7 @@ test('prefers-reduced-motion: reduce short-circuits the state machine to instant
       requestAnimationFrame(tick);
     });
   });
-
-  // --motion-plane is 460ms in normal mode. Under reduced-motion the state
-  // machine should complete in well under that. 200ms is a generous ceiling
-  // that catches the case where the JS forgot to short-circuit motion tokens.
-  expect(elapsed, 'open completes in <200ms under reduced-motion').toBeLessThan(200);
+  expect(frames, 'content reveals within a few frames under reduced-motion').toBeLessThanOrEqual(5);
 });
 
 // ─────────────────────────────────────────────────────────────────────────

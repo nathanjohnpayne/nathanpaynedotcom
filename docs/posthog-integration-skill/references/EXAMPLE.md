@@ -92,7 +92,7 @@ The PostHog snippet is included as an inline script to prevent Astro from proces
 </script>
 ```
 
-The `is:inline` directive is required to prevent TypeScript errors about `window.posthog`.
+The `is:inline` directive tells Astro not to process or bundle the script, so the PostHog snippet is emitted into the page exactly as written.
 
 ### User identification (`src/pages/index.astro`)
 
