@@ -6,20 +6,39 @@
  * Section/heading scaffolding via the shared ResumeSection wrapper (#471).
  */
 import ResumeSection from './ResumeSection.astro';
-const essays = [
-  {
-    title: 'Agent Approval Workflow and the Genesis of Mergepath',
-    href: '/blog/agent-approval-workflow-genesis-of-mergepath/',
-  },
-  {
-    title: 'Six PRs, One Bug: What AI Agents Actually Get Wrong',
-    href: '/blog/six-prs-one-bug-agent-failure-modes/',
-  },
-  {
-    title: 'The HTML Mock-up Is the Spec',
-    href: '/blog/html-mockups-as-spec/',
-  },
-];
+import { getEntry } from 'astro:content';
+
+// The *selection* of which essays to feature is editorial, so the curated
+// slug list stays here. But title and href are derived from the blog content
+// collection rather than re-typed, so a slug rename or a post being drafted
+// surfaces as a loud build-time error instead of a silently broken /blog/…
+// link on the resume. (#400)
+const FEATURED_ESSAY_SLUGS = [
+  'agent-approval-workflow-genesis-of-mergepath',
+  'six-prs-one-bug-agent-failure-modes',
+  'html-mockups-as-spec',
+] as const;
+
+const essays = await Promise.all(
+  FEATURED_ESSAY_SLUGS.map(async (slug) => {
+    const post = await getEntry('blog', slug);
+    if (!post) {
+      throw new Error(
+        `WritingSection: featured essay slug "${slug}" does not resolve to a blog post. ` +
+          `Update FEATURED_ESSAY_SLUGS or restore src/content/blog/${slug}.md.`,
+      );
+    }
+    if (post.data.draft) {
+      throw new Error(
+        `WritingSection: featured essay "${slug}" is a draft, so /blog/${slug}/ would 404. ` +
+          `Remove it from FEATURED_ESSAY_SLUGS or publish the post.`,
+      );
+    }
+    // Use the canonical post title (matches what the two longer entries
+    // already displayed); deriving it removes the prior title/slug drift risk.
+    return { title: post.data.title, href: `/blog/${post.id}/` };
+  }),
+);
 ---
 
 <ResumeSection type="writing" heading="Writing"><p class="resume-writing__lead">

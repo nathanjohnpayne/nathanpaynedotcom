@@ -324,30 +324,50 @@ test('prefers-reduced-motion: reduce short-circuits the state machine to instant
     return grid && grid.style.getPropertyValue('--cell-h-about').endsWith('px');
   });
 
-  await page.click(`[data-panel="about"]`);
-  // Measure inside the page using performance.now() so the elapsed value
-  // doesn't include Playwright's Node↔browser RPC round-trip + polling
-  // overhead. (CodeRabbit finding on #337.)
-  const elapsed: number = await page.evaluate(() => {
-    return new Promise<number>((resolve) => {
-      const start = performance.now();
-      const tick = () => {
-        if (
-          document.querySelector('[data-panel="about"]')?.classList.contains('is-content-visible')
-        ) {
-          resolve(performance.now() - start);
-        } else {
-          requestAnimationFrame(tick);
-        }
-      };
-      requestAnimationFrame(tick);
+  // Deterministic signal, not a wall-clock ceiling. Under reduced-motion the
+  // state machine's readMsToken() returns 0, so startOpen() schedules the
+  // is-content-visible flip on a 0ms timer instead of the 460ms --motion-plane
+  // delay. A single setTimeout(0) chained *after* the click therefore lands in
+  // a macrotask strictly after the 0ms reveal timer but long before any real
+  // 460ms timer — so the class is already present iff the JS short-circuited
+  // motion. This ordering holds no matter how slow or loaded the runner is
+  // (a slow runner just pushes both timers later; it never reorders a 0ms
+  // timer behind a 460ms one), which is exactly why it can't flake the way the
+  // old `elapsed < 200ms` ceiling could.
+  const visibleAfterMacrotask: boolean = await page.evaluate(() => {
+    return new Promise<boolean>((resolve) => {
+      const panel = document.querySelector('[data-panel="about"]')!;
+      panel.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      // Yield one macrotask. If motion is short-circuited the 0ms reveal
+      // timer has already fired by the time this callback runs.
+      setTimeout(() => {
+        resolve(panel.classList.contains('is-content-visible'));
+      }, 0);
     });
   });
+  expect(
+    visibleAfterMacrotask,
+    'reduced-motion reveals content within one macrotask (state machine short-circuited motion tokens to 0)',
+  ).toBe(true);
 
-  // --motion-plane is 460ms in normal mode. Under reduced-motion the state
-  // machine should complete in well under that. 200ms is a generous ceiling
-  // that catches the case where the JS forgot to short-circuit motion tokens.
-  expect(elapsed, 'open completes in <200ms under reduced-motion').toBeLessThan(200);
+  // Belt-and-suspenders on the CSS half. #mondrian carries the grid-template
+  // morph transition (`--motion-plane` in normal mode); the universal
+  // reduced-motion rule must collapse its transition-duration to 0s. This is a
+  // meaningful check because the element genuinely transitions in normal mode,
+  // so a regression that dropped the reduced-motion rule would flip it non-zero.
+  const gridTransitionDuration: string = await page.evaluate(() => {
+    const grid = document.getElementById('mondrian') as HTMLElement;
+    return getComputedStyle(grid).transitionDuration;
+  });
+  // transition-duration lists one value per transitioned property (two here:
+  // grid-template-columns, grid-template-rows). Every entry must be 0s.
+  expect(
+    gridTransitionDuration
+      .split(',')
+      .map((d) => d.trim())
+      .every((d) => d === '0s'),
+    `reduced-motion zeroes the #mondrian grid-morph transition-duration (got "${gridTransitionDuration}")`,
+  ).toBe(true);
 });
 
 // ─────────────────────────────────────────────────────────────────────────
