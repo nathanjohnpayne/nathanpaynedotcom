@@ -61,13 +61,13 @@ echo "Resolved parents: P0=#$P0_NUM, P1=#$P1_NUM"
 # Phase 0 additions
 # -----------------------------------------------------------------------------
 F=$(prep_body "$SCRIPT_DIR/p0-cost-tracker.md" "$P0_NUM")
-read P0_COST_URL P0_COST_NUM _ <<<"$(create_child \
+read -r P0_COST_URL P0_COST_NUM _ <<<"$(create_child \
   "Cost tracker on LLM calls + CI budget alarm" \
   "$F" "matchline,phase-0,agent-action" "$P0_NUM")"
 echo "  P0 cost-tracker: $P0_COST_URL"
 
 F=$(prep_body "$SCRIPT_DIR/p0-eval-bootstrap.md" "$P0_NUM")
-read P0_EVAL_URL P0_EVAL_NUM _ <<<"$(create_child \
+read -r P0_EVAL_URL P0_EVAL_NUM _ <<<"$(create_child \
   "Eval harness bootstrap (scaffolding; fixtures + 80/80 gate land in #25)" \
   "$F" "matchline,phase-0,agent-action" "$P0_NUM")"
 echo "  P0 eval-bootstrap: $P0_EVAL_URL"
@@ -76,13 +76,13 @@ echo "  P0 eval-bootstrap: $P0_EVAL_URL"
 # Phase 1 additions
 # -----------------------------------------------------------------------------
 F=$(prep_body "$SCRIPT_DIR/p1-prompt-versioning.md" "$P1_NUM")
-read P1_PROMPT_URL P1_PROMPT_NUM _ <<<"$(create_child \
+read -r P1_PROMPT_URL P1_PROMPT_NUM _ <<<"$(create_child \
   "Prompt versioning convention + loader (functions/src/prompts/<stage>/<name>.v<N>.md)" \
   "$F" "matchline,phase-1,agent-action" "$P1_NUM")"
 echo "  P1 prompt-versioning: $P1_PROMPT_URL"
 
 F=$(prep_body "$SCRIPT_DIR/p1-pdf-prototype.md" "$P1_NUM")
-read P1_PDF_URL P1_PDF_NUM _ <<<"$(create_child \
+read -r P1_PDF_URL P1_PDF_NUM _ <<<"$(create_child \
   "PDF rendering prototype on Nathan's real resume (de-risk pulled from Phase 2)" \
   "$F" "matchline,phase-1,agent-action" "$P1_NUM")"
 echo "  P1 pdf-prototype: $P1_PDF_URL"
