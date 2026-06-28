@@ -108,8 +108,9 @@
 # Architecture notes:
 #
 #   The hook does ALL its parsing on a tokenized form of the
-#   command produced by `xargs -n 1`, which honors POSIX shell
-#   quoting. Earlier iterations used substring `grep` on the raw
+#   command produced by a python3 shlex.split tokenizer (see the
+#   tokenizer section below; an earlier version used `xargs -n 1`),
+#   which honors POSIX shell quoting. Earlier iterations used substring `grep` on the raw
 #   command string and were buggy in two correlated ways:
 #
 #     1. nathanpayne-codex caught (PR #66 round 2) that
@@ -140,6 +141,15 @@
 #     comment). This is deliberately conservative: split multi-step
 #     GitHub work into separate Bash tool calls so each write gets
 #     the same single-command guard path (#348).
+#
+#   - eval / sh -c / bash -c / dash -c payloads are re-tokenized so a
+#     guarded gh write hidden inside a quoted shell-string payload is
+#     surfaced to the token walk instead of passing as one opaque
+#     token. The python tokenizer expands these recursively before the
+#     walk runs (over-expansion is safe — the walk re-establishes
+#     command position on the expanded stream), and malformed inner
+#     quoting fails closed like any other parse error. Closes the
+#     eval / bash -c / sh -c admin-merge bypass (#533 item 1).
 #
 #   - The CODEX_CLEARED check is a hook-layer defense-in-depth.
 #     The authoritative merge gate is scripts/codex-review-check.sh;
@@ -227,7 +237,32 @@ COMMAND=$(echo "$INPUT" | jq -r '.tool_input.command // empty')
 # token walk below strips quotes itself and the */gh case catches it — but
 # only if we do NOT early-exit here. Stripping quotes for this fast-path
 # probe is safe; it only governs whether the authoritative tokenizer runs.
-if ! echo "$COMMAND" | tr -d "\"'" | grep -qE '(^|[[:space:]])([^[:space:]]*/)?gh([[:space:]]|$)'; then
+#
+# #540 Phase-4b: the boundary classes are [^A-Za-z0-9_] on BOTH sides, not
+# just whitespace, so a `gh` reached through a command substitution or a
+# subshell — `$(gh ...)`, `(gh ...)`, `;gh`, backtick gh — is not skipped
+# here (after quote-stripping it is preceded by `(` / `$` / `;` / a
+# backtick, never a space, so the old whitespace-only boundary missed it
+# and the hook exited before tokenizing). Erring toward NOT early-exiting
+# is the fail-closed direction: a false positive costs one tokenizer run;
+# a false negative is a bypass.
+# #551 (Codex): env -S / --split-string can synthesize `gh` dynamically (e.g.
+# from an octal printf in a $(...) substitution), so the raw command may carry
+# NO literal `gh` yet still run `gh pr merge`. A no-`gh` early-exit would then
+# skip the env -S fail-closed branch in the tokenizer below. Force tokenization
+# whenever the command carries `gh` OR an env -S / --split-string flag (the
+# tokenizer then blocks the env -S, fail-closed). Over-matching only costs one
+# tokenizer run; a false negative is a bypass.
+NEEDS_TOKENIZE=0
+if echo "$COMMAND" | tr -d "\"'" | grep -qE '(^|[^A-Za-z0-9_])([^[:space:]]*/)?gh([^A-Za-z0-9_]|$)'; then
+  NEEDS_TOKENIZE=1
+elif echo "$COMMAND" | tr -d "\"'" | grep -qE '(^|[^A-Za-z0-9_])env([[:space:]]|$)' \
+     && echo "$COMMAND" | tr -d "\"'" | grep -qE '(-[A-Za-z]*S|--split-string)'; then
+  # Quote-stripped (Codex #551): a quoted `'env'` runs env but would otherwise
+  # leave a quote, not whitespace, after `env` and dodge this probe.
+  NEEDS_TOKENIZE=1
+fi
+if [ "$NEEDS_TOKENIZE" -eq 0 ]; then
   exit 0
 fi
 
@@ -282,46 +317,394 @@ trap 'rm -f "$TMP_TOKENS" "$TMP_TOKENS_ERR"' EXIT
 # on swipewatch propagation PR #33 round 6 — privilege escalation
 # via newline-separated prefix command was the same shape as the
 # round-5 echo-prefix env spoof, just on a different separator.
+#
+# --- #546: single source of truth for prefix value-consuming options ---
+# Both the python pre-pass (which surfaces a bash -c payload hidden behind a
+# prefix) and the bash compound-scan + main walk (which skip prefix options
+# to find a command-position gh) MUST agree on which options consume the
+# NEXT token. If the two drift, a "<prefix> <value-opt> VALUE bash -c
+# <gh write>" payload slips through whichever layer is missing the option
+# (#546 gap 2: the bash walk lacked the long forms the python table had).
+# Defined ONCE here and read by BOTH, so they cannot drift. Per-prefix
+# because the same letter differs by tool (nice -n takes a value; sudo -n
+# does not). Format: ";"-joined "<prefix>=<opt>,<opt>,..." entries. ONLY
+# value-CONSUMING options belong here: ionice -t/--ignore is a no-value flag
+# (CodeRabbit #551), and env -S/--split-string is NOT a value either — it runs
+# its argument as a SPLIT command with exotic dynamic semantics, so it FAILS
+# CLOSED in expand_wrappers (Codex #551) rather than being skipped here.
+PREFIX_VALUE_OPTS_SPEC="sudo=-u,--user,-g,--group,-p,--prompt,-h,--host,-t,--type,-r,--role,-C,--close-from,-D,--chdir,-R,--chroot,-U,--other-user,-T,--command-timeout;nice=-n,--adjustment;ionice=-c,--class,-n,--classdata,-p,--pid;env=-u,--unset,-C,--chdir;exec=-a;time=-f,--format,-o,--output"
+export PREFIX_VALUE_OPTS_SPEC
 if ! printf '%s' "$COMMAND" | python3 -c '
-import sys, shlex
+import sys, shlex, re, os
 
-def normalize_unquoted_newlines(cmd):
-    """Replace newlines OUTSIDE of single/double quotes with `; `.
-    Preserves newlines inside quoted strings as literal characters."""
-    out = []
+# chr(39)/chr(34) are single/double quote; chr() avoids embedding a
+# literal single quote inside the python3 -c surrounding heredoc.
+_SQ = chr(39)
+_DQ = chr(34)
+
+def _read_paren_span(cmd, start):
+    # `start` points just AFTER the opening "$(". Return (inner, index
+    # after the matching ")"). Tracks nested $( / ( and an INDEPENDENT
+    # quote context (a ) inside quotes does not close the span), matching
+    # bash command-substitution parsing. Raises on an unterminated span.
+    depth = 1
+    i = start
+    n = len(cmd)
     in_single = False
     in_double = False
-    i = 0
-    while i < len(cmd):
+    while i < n:
         c = cmd[i]
-        # Handle backslash-escaped char in double quotes / unquoted
-        if c == "\\" and not in_single and i + 1 < len(cmd):
+        if c == "\\" and not in_single and i + 1 < n:
+            i += 2
+            continue
+        if c == _SQ and not in_double:
+            in_single = not in_single
+            i += 1
+            continue
+        if c == _DQ and not in_single:
+            in_double = not in_double
+            i += 1
+            continue
+        if not in_single and not in_double:
+            if c == "$" and i + 1 < n and cmd[i + 1] == "(":
+                depth += 1
+                i += 2
+                continue
+            if c == "(":
+                depth += 1
+                i += 1
+                continue
+            if c == ")":
+                depth -= 1
+                if depth == 0:
+                    return cmd[start:i], i + 1
+                i += 1
+                continue
+        i += 1
+    raise ValueError("unterminated command substitution")
+
+def _read_backtick_span(cmd, start):
+    # `start` points just AFTER the opening backtick. Return (inner, index
+    # after the closing backtick). Backticks do not nest; backslash escapes
+    # the next char. Raises on an unterminated span.
+    i = start
+    n = len(cmd)
+    bt = chr(96)
+    while i < n:
+        c = cmd[i]
+        if c == "\\" and i + 1 < n:
+            i += 2
+            continue
+        if c == bt:
+            return cmd[start:i], i + 1
+        i += 1
+    raise ValueError("unterminated backtick substitution")
+
+def flatten_command(cmd, depth=0):
+    """Normalize a command for shlex tokenization so the downstream walk
+    sees every command-position gh write. Three jobs (#533, plus the #540
+    Phase-4b findings):
+      1. Replace UNQUOTED newlines AND shell separators (; | & && || |& ( ))
+         with space-padded standalone tokens. shlex never splits on these,
+         so without padding a `"foo";gh pr merge` or `$(...)`-glued `;`
+         leaves a top-level guarded write fused to a data token and unseen.
+      2. Extract $(...) and `...` command-substitution spans (with correct
+         nested + independent-quote tracking) and append each as its own
+         `; <span>` command segment, so a gh write that EXECUTES inside a
+         substitution is surfaced. The outer keeps a placeholder token.
+      3. Preserve quoted separators/newlines verbatim.
+    Unbalanced quotes / unterminated substitutions raise ValueError -> the
+    hook fails closed exactly like any other parse error."""
+    if depth > 25:
+        raise ValueError("command-substitution nesting too deep")
+    out = []
+    spans = []
+    i = 0
+    n = len(cmd)
+    in_single = False
+    in_double = False
+    while i < n:
+        c = cmd[i]
+        if c == "\\" and not in_single and i + 1 < n:
             out.append(c)
             out.append(cmd[i + 1])
             i += 2
             continue
-        # chr(39) is a single quote; using chr() avoids embedding a
-        # literal single quote inside the bash heredoc (which would
-        # break the python3 -c '...' surrounding quote).
-        if c == chr(39) and not in_double:
+        if c == _SQ and not in_double:
             in_single = not in_single
-        elif c == chr(34) and not in_single:
-            in_double = not in_double
-        elif c == "\n" and not in_single and not in_double:
-            # Pad with spaces on BOTH sides so shlex parses the
-            # `;` as its own token rather than gluing it to the
-            # preceding word (e.g. "ok;" instead of "ok" + ";").
-            out.append(" ; ")
+            out.append(c)
             i += 1
             continue
+        if c == _DQ and not in_single:
+            in_double = not in_double
+            out.append(c)
+            i += 1
+            continue
+        # Command substitution is performed unquoted AND inside double
+        # quotes, never inside single quotes.
+        if not in_single and c == "$" and i + 1 < n and cmd[i + 1] == "(":
+            span, j = _read_paren_span(cmd, i + 2)
+            spans.append(span)
+            out.append(" __MERGEPATH_CMDSUB__ ")
+            i = j
+            continue
+        if not in_single and c == chr(96):
+            span, j = _read_backtick_span(cmd, i + 1)
+            spans.append(span)
+            out.append(" __MERGEPATH_CMDSUB__ ")
+            i = j
+            continue
+        if not in_single and not in_double:
+            two = cmd[i:i + 2]
+            if two in ("&&", "||", "|&"):
+                out.append(" " + two + " ")
+                i += 2
+                continue
+            if c in (";", "|", "&", "(", ")"):
+                out.append(" " + c + " ")
+                i += 1
+                continue
+            if c == "\n":
+                out.append(" ; ")
+                i += 1
+                continue
         out.append(c)
         i += 1
-    return "".join(out)
+    if in_single or in_double:
+        raise ValueError("unbalanced quote")
+    result = "".join(out)
+    for span in spans:
+        result = result + " ; " + flatten_command(span, depth + 1)
+    return result
+
+# --- #533 item 1: surface inner commands hidden behind eval / sh -c ---
+# eval "<payload>" and sh|bash|dash -c "<payload>" run <payload> as a
+# fresh command line, but shlex keeps that payload as one opaque token,
+# so the downstream walk never sees the inner gh write and SAW_GH stays
+# 0 (the admin-merge bypass: eval/bash -c/sh -c forms passed rc=0).
+# Re-tokenize those payloads here, recursively, so the walk evaluates
+# the real inner gh write. Over-expansion is safe: the walk re-
+# establishes command position on the expanded stream, so a quoted-data
+# gh (echo "gh ...") is still not in command position. Malformed inner
+# quoting raises ValueError, failing closed exactly like a top-level
+# parse error.
+_SEPARATORS = {"&&", "||", ";", "|", "|&", "&", "(", ")"}
+_SHELL_BASENAMES = {"sh", "bash", "dash", "zsh", "ksh"}
+_PREFIX_CMDS = {"sudo", "time", "nohup", "env", "command", "exec", "nice", "ionice"}
+# The canonical gh wrappers run "<wrapper> -- <command>". Treat the wrapper
+# (and the -- separator) as prefix-like so a "<wrapper> -- bash -c <gh write>"
+# payload keeps command position and the inner gh write is surfaced and
+# re-checked, not hidden behind the wrapper as an opaque shell-c token
+# (#546 gap 1).
+_WRAPPER_CMDS = {"gh-as-author.sh", "gh-as-reviewer.sh"}
+# sh/bash options that consume the NEXT token as their value, so the -c
+# command flag (and the script positional) lie AFTER that value. Skipping
+# only the option (not its value) would mis-read the value as the script
+# and miss a trailing -c (#540: bash --rcfile FILE -c "<payload>").
+_SHELL_VALUE_OPTS = {"--rcfile", "--init-file", "-o", "+o", "-O", "+O"}
+_ASSIGN_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*=")
+# Per-prefix options that consume the NEXT token as a value, so the value
+# is not mistaken for the wrapped command. Read from the shared
+# PREFIX_VALUE_OPTS_SPEC env var (#546) so THIS python table and the bash
+# prefix_flag_takes_value table cannot drift. Per-prefix because the same
+# letter differs by tool: nice -n N takes a value, but sudo -n is a
+# no-value flag. A prefix not listed is treated as flags-only. Fail closed
+# when the spec is absent: without it every prefix looks flags-only and a
+# "value-opt VALUE" pair would be mis-read as the wrapped command, hiding a
+# trailing bash -c gh-write.
+_PREFIX_VALUE_OPTS = {}
+_RAW_PREFIX_SPEC = os.environ.get("PREFIX_VALUE_OPTS_SPEC", "")
+if not _RAW_PREFIX_SPEC:
+    print("gh-pr-guard: PREFIX_VALUE_OPTS_SPEC unset", file=sys.stderr)
+    sys.exit(1)
+for _entry in _RAW_PREFIX_SPEC.split(";"):
+    if not _entry:
+        continue
+    _pfx, _eq, _opts = _entry.partition("=")
+    _PREFIX_VALUE_OPTS[_pfx] = frozenset(o for o in _opts.split(",") if o)
+_EMPTY_FROZENSET = frozenset()
+
+def expand_wrappers(tokens, depth=0):
+    if depth > 25:
+        raise ValueError("eval/shell -c nesting too deep")
+    out = []
+    i = 0
+    n = len(tokens)
+    at_cmd = True
+    while i < n:
+        tok = tokens[i]
+        if tok in _SEPARATORS:
+            out.append(tok)
+            at_cmd = True
+            i += 1
+            continue
+        if not at_cmd:
+            out.append(tok)
+            i += 1
+            continue
+        if _ASSIGN_RE.match(tok):
+            out.append(tok)
+            i += 1
+            # NAME=$(...) is split by flatten_command into "NAME=" + the
+            # __MERGEPATH_CMDSUB__ placeholder; re-attach the placeholder as the
+            # assignment value so it does not read as "NAME= <command>" and let
+            # a following prefix lose command position (Codex #551:
+            # G=$(printf gh) env -S "${G} ..." must still reach the env -S
+            # fail-closed branch). Only a trailing-"=" (empty-value) assignment
+            # immediately followed by the placeholder is the flatten artifact.
+            if tok.endswith("=") and i < n and tokens[i] == "__MERGEPATH_CMDSUB__":
+                out.append(tokens[i])
+                i += 1
+            continue
+        base = tok.rsplit("/", 1)[-1]
+        if base == "eval":
+            # eval joins its args and parses the result as a command.
+            j = i + 1
+            while j < n and tokens[j] not in _SEPARATORS:
+                j += 1
+            inner = " ".join(tokens[i + 1:j])
+            out.extend(expand_wrappers(shlex.split(flatten_command(inner)), depth + 1))
+            i = j
+            continue
+        if base in _SHELL_BASENAMES:
+            # sh|bash|dash -c "<payload>" runs <payload> as a command.
+            seg_end = i + 1
+            while seg_end < n and tokens[seg_end] not in _SEPARATORS:
+                seg_end += 1
+            inner = None
+            k = i + 1
+            while k < seg_end:
+                t = tokens[k]
+                # A value-taking option consumes the NEXT token; skip both so
+                # the value is not mistaken for the script positional and a
+                # trailing -c is still found (#540: bash --rcfile FILE -c CMD).
+                if t in _SHELL_VALUE_OPTS:
+                    k += 2
+                    continue
+                # A long option (--norc, --noprofile, --rcfile=FILE, ...) is
+                # NOT the -c command-string flag even when it contains a c.
+                # #540 finding 1: matching any "c in t" let --norc consume the
+                # real -c as its payload and discard the command string.
+                if t.startswith("--"):
+                    k += 1
+                    continue
+                # A single-dash cluster including c IS the -c command flag
+                # (-c, -lc, -xc, ...). The command is the text attached after
+                # the c (-cCMD) or, failing that, the next token (-c CMD).
+                if t.startswith("-") and "c" in t:
+                    cpos = t.index("c", 1)
+                    attached = t[cpos + 1:]
+                    if attached:
+                        inner = attached
+                    elif k + 1 < seg_end:
+                        inner = tokens[k + 1]
+                    break
+                if t.startswith("-"):
+                    k += 1
+                    continue
+                break
+            if inner is not None:
+                out.extend(expand_wrappers(shlex.split(flatten_command(inner)), depth + 1))
+            else:
+                out.extend(tokens[i:seg_end])
+            i = seg_end
+            continue
+        if base in _PREFIX_CMDS:
+            out.append(tok)
+            i += 1
+            # Consume the options that belong to this prefix before the
+            # wrapped command, keeping command position so a
+            # <prefix> [opts] bash -c "<payload>" form is still expanded.
+            # Value-taking options (sudo -u USER, nice -n N, ...) consume
+            # their value too; env NAME=VALUE assignments are skipped. The
+            # first shell / nested-prefix / eval / bare token is the wrapped
+            # command, left for the main loop at command position. #540 P1:
+            # a prefix option used to fall through and flip at_cmd off,
+            # hiding a trailing bash -c gh-write.
+            vopts = _PREFIX_VALUE_OPTS.get(base, _EMPTY_FROZENSET)
+            while i < n:
+                a = tokens[i]
+                if a in _SEPARATORS:
+                    break
+                a_base = a.rsplit("/", 1)[-1]
+                if a_base in _SHELL_BASENAMES or a_base in _PREFIX_CMDS or a_base == "eval":
+                    break
+                if _ASSIGN_RE.match(a):
+                    out.append(a)
+                    i += 1
+                    continue
+                # env -S STRING / --split-string STRING runs STRING as a SPLIT
+                # command, so its argument is a NESTED command, not a value to
+                # skip: re-tokenize + expand it so a "env -S bash -c <gh write>"
+                # payload is surfaced (CodeRabbit #551, a pre-existing exotic
+                # gap). Handles the next-token, --split-string=STR, and -SSTR
+                # (attached) forms.
+                if base == "env" and (a == "--split-string"
+                                      or a.startswith("--split-string=")
+                                      or (a.startswith("-") and not a.startswith("--")
+                                          and next((c for c in a[1:] if c in "uCS"), "") == "S")):
+                    # A short cluster IS env -S when the first value-taking-or-S
+                    # option in it is S (CodeRabbit #551: -vS etc., not only a
+                    # leading -S). -u/-C consume the rest of the cluster as their
+                    # value, so an S inside e.g. -uNAME_WITH_S is NOT the split
+                    # flag (keeps the #451 env -uNAME tests passing).
+                    # env -S / --split-string FAILS CLOSED (Codex #551 r1-r4).
+                    # GNU env -S has rich, exotic semantics: whitespace
+                    # splitting, $VAR/${VAR} expansion, $(...)/backtick
+                    # substitution (bash expands those first), AND appending the
+                    # remaining argv after the split string (env -S "bash -c"
+                    # "<payload>"). Each partial model we tried surfaced a new
+                    # bypass, and env -S on a command line is an exotic shebang
+                    # feature no gh workflow needs, so BLOCK any env -S rather
+                    # than risk a hidden write. Reformulate without -S if needed.
+                    raise ValueError("env -S / --split-string is not statically resolvable; reformulate without -S")
+                if a in vopts:
+                    out.append(a)
+                    i += 1
+                    if i < n and tokens[i] not in _SEPARATORS:
+                        out.append(tokens[i])
+                        i += 1
+                    continue
+                if a.startswith("-"):
+                    out.append(a)
+                    i += 1
+                    continue
+                break
+            continue
+        if base in _WRAPPER_CMDS:
+            # Wrapper invocation (gh-as-author.sh / gh-as-reviewer.sh): keep
+            # command position through the -- arg separator and any wrapper
+            # flags so a trailing bash -c / sh -c / prefix / eval payload is
+            # expanded by the main loop and the inner gh write is re-checked,
+            # instead of running under the verified token without the
+            # merge-state / CODEX_CLEARED gate (#546 gap 1). A normal
+            # "<wrapper> -- gh pr merge" is unaffected (gh is not a shell to
+            # expand), so this only matters when a shell/prefix follows.
+            out.append(tok)
+            i += 1
+            while i < n:
+                a = tokens[i]
+                if a in _SEPARATORS:
+                    break
+                a_base = a.rsplit("/", 1)[-1]
+                if (a_base in _SHELL_BASENAMES or a_base in _PREFIX_CMDS
+                        or a_base in _WRAPPER_CMDS or a_base == "eval"):
+                    break
+                if a == "--" or a.startswith("-"):
+                    out.append(a)
+                    i += 1
+                    continue
+                break
+            continue
+        out.append(tok)
+        at_cmd = False
+        i += 1
+    return out
 
 try:
     cmd = sys.stdin.read()
-    cmd = normalize_unquoted_newlines(cmd)
-    for tok in shlex.split(cmd):
+    cmd = flatten_command(cmd)
+    for tok in expand_wrappers(shlex.split(cmd)):
         sys.stdout.buffer.write(tok.encode("utf-8", errors="replace") + b"\x00")
 except ValueError as e:
     print(f"shlex error: {e}", file=sys.stderr)
@@ -360,23 +743,28 @@ is_guard_separator() {
 }
 
 prefix_flag_takes_value() {
-  case "$1:$2" in
-    sudo:-u|sudo:-g|sudo:-U|sudo:-h|sudo:-p|sudo:-r|sudo:-s|sudo:-t|sudo:-c|sudo:-D)
-      return 0
-      ;;
-    time:-f|time:-o)
-      return 0
-      ;;
-    nice:-n)
-      return 0
-      ;;
-    ionice:-c|ionice:-n|ionice:-p)
-      return 0
-      ;;
-    env:-u|env:-S|env:--unset)
-      return 0
-      ;;
+  # Single source of truth: PREFIX_VALUE_OPTS_SPEC (#546). The python
+  # pre-pass and this bash walk read the SAME spec, so the two prefix-option
+  # tables cannot drift. The old hand-maintained case list HAD drifted: it
+  # lacked the long forms the python table carried, so "sudo --user X bash
+  # -c <gh write>" surfaced the inner gh in python but the bash compound
+  # scan mis-read X as the command and never saw it. Spec: ";"-joined
+  # "<prefix>=<opt>,<opt>,..." entries.
+  local pfx="$1" opt="$2" spec opts o
+  spec=";$PREFIX_VALUE_OPTS_SPEC"
+  case "$spec" in
+    *";$pfx="*) ;;
+    *) return 1 ;;
   esac
+  opts="${spec##*;$pfx=}"   # text after the (unique) ";<pfx>="
+  opts="${opts%%;*}"        # up to the next prefix entry
+  # Literal equality (NOT a case glob) so an attacker-supplied option token
+  # such as "-*" cannot glob-match a real value-option and mis-skip the
+  # following gh write.
+  local IFS=,
+  for o in $opts; do
+    [ "$o" = "$opt" ] && return 0
+  done
   return 1
 }
 
@@ -1470,11 +1858,42 @@ if [ "$PR_SUBCOMMAND" = "review" ]; then
       PR_AUTHOR=$(printf '%s\n' "$REVIEW_PR_JSON" | grep -oE '"author":[[:space:]]*"[^"]*"' | head -1 | sed -E 's/.*"author":[[:space:]]*"([^"]*)".*/\1/' || true)
       LANE_BRANCH_PREFIX="${GH_PR_GUARD_PROPAGATION_BRANCH_PREFIX:-mergepath-sync/}"
       LANE_AUTHOR="${GH_PR_GUARD_EXPECTED_AUTHOR:-nathanjohnpayne}"
-      if [ -n "$PR_HEAD_REF" ] && [ -n "$PR_AUTHOR" ] \
+
+      # #533 item 2: honor propagation_prs.enabled before granting the
+      # lane bypass. A repo that explicitly opts out
+      # (propagation_prs.enabled: false) must NOT get the local
+      # self-approve bypass — mirror the CI Merge Clearance Gate, which
+      # already reads this key. Per the DEFAULT-ON convention (#434) an
+      # absent block or absent `enabled` key counts as enabled; otherwise
+      # ONLY a literal `true` keeps the lane on — any other present value
+      # (`false`, `TRUE`, `yes`, `1`, a typo) fails closed and disables
+      # the bypass (#540), matching the propagation-lane audit's
+      # exact-match rule so a misconfigured policy never silently grants
+      # self-approve. Parsed with the same
+      # grep/awk posture the rest of this hook uses (no yq dependency in
+      # the pre-write hook). The block scoping keeps a sibling block's
+      # `enabled:` (coderabbit/codex/...) from being read by mistake.
+      LANE_ENABLED=1
+      LANE_POLICY_PATH="$(guard_policy_file || true)"
+      if [ -f "$LANE_POLICY_PATH" ]; then
+        LANE_PROP_ENABLED=$(awk '
+          # Accept a trailing comment / text after the key (propagation_prs: # opt-out),
+          # matching the workflow parser; an exact-EOL match failed open (#540 P2).
+          /^propagation_prs:([[:space:]]|$)/ { inblock=1; next }
+          inblock && /^[^[:space:]#]/ { inblock=0 }
+          inblock && /^[[:space:]]+enabled:/ { print $2; exit }
+        ' "$LANE_POLICY_PATH" 2>/dev/null | sed -E "s/^[\"']//; s/[\"']\$//" || true)
+        if [ -n "$LANE_PROP_ENABLED" ] && [ "$LANE_PROP_ENABLED" != "true" ]; then
+          LANE_ENABLED=0
+        fi
+      fi
+
+      if [ "$LANE_ENABLED" -eq 1 ] \
+         && [ -n "$PR_HEAD_REF" ] && [ -n "$PR_AUTHOR" ] \
          && [ "$PR_AUTHOR" = "$LANE_AUTHOR" ] \
          && [ "${PR_HEAD_REF#"$LANE_BRANCH_PREFIX"}" != "$PR_HEAD_REF" ]; then
-        # Lane criteria met — skip the self-approve guard entirely.
-        # Allow the gh pr review --approve to proceed.
+        # Lane criteria met (and lane enabled) — skip the self-approve
+        # guard entirely. Allow the gh pr review --approve to proceed.
         exit 0
       fi
 
@@ -1685,10 +2104,10 @@ fi
 # protection: even if branch protection is misconfigured or
 # disabled for an emergency hotfix, the hook will still refuse
 # to dispatch the merge.
-GH_JQ='.mergeStateStatus, .labels[].name'
-GH_ARGS=(pr view --json labels,mergeStateStatus --jq "$GH_JQ")
+GH_JQ='.mergeStateStatus, .mergeable, ([.statusCheckRollup[] | {n:(.name//.context//"?"), c:(.conclusion//.state//"PENDING"), t:(.completedAt//.startedAt//"")}] | group_by(.n) | map(max_by(.t).c) | map(select(. != "SUCCESS" and . != "SKIPPED" and . != "NEUTRAL")) | length), .labels[].name'
+GH_ARGS=(pr view --json labels,mergeStateStatus,mergeable,statusCheckRollup --jq "$GH_JQ")
 if [ -n "$PR_SELECTOR" ]; then
-  GH_ARGS=(pr view "$PR_SELECTOR" --json labels,mergeStateStatus --jq "$GH_JQ")
+  GH_ARGS=(pr view "$PR_SELECTOR" --json labels,mergeStateStatus,mergeable,statusCheckRollup --jq "$GH_JQ")
 fi
 if [ -n "$REPO_ARG" ]; then
   GH_ARGS+=(--repo "$REPO_ARG")
@@ -1723,13 +2142,19 @@ if ! GH_OUTPUT=$(gh "${GH_ARGS[@]}" 2>"$GH_STDERR"); then
   exit 2
 fi
 
-# Line 1 is mergeStateStatus; lines 2..N are label names (one per
-# line, possibly zero). Empty/missing MERGE_STATE (e.g. transient
-# API state) falls into the `*` case below and fails closed.
-# LABELS keeps the newline-delimited remainder for the exact-match
-# gate further down — never re-join it into a delimited string.
+# Line 1 is mergeStateStatus; line 2 is mergeable (MERGEABLE /
+# CONFLICTING / UNKNOWN — conflict-only, NOT a check-pass signal);
+# line 3 is the count of check names whose LATEST run is non-green
+# (a stale failure superseded by a later passing run does NOT count);
+# lines 4..N are label names (one per line, possibly zero).
+# Empty/missing MERGE_STATE (e.g. transient API state) falls into the
+# `*` case below and fails closed. LABELS keeps the newline-delimited
+# remainder for the exact-match gate further down — never re-join it
+# into a delimited string.
 MERGE_STATE=$(printf '%s\n' "$GH_OUTPUT" | sed -n '1p')
-LABELS=$(printf '%s\n' "$GH_OUTPUT" | sed -n '2,$p')
+MERGEABLE_STATE=$(printf '%s\n' "$GH_OUTPUT" | sed -n '2p')
+ROLLUP_NONGREEN=$(printf '%s\n' "$GH_OUTPUT" | sed -n '3p')
+LABELS=$(printf '%s\n' "$GH_OUTPUT" | sed -n '4,$p')
 
 # `human-hold` is a human-controlled hard freeze. Check it before
 # mergeStateStatus, --admin, or needs-external-review handling so no
@@ -1751,7 +2176,13 @@ fi
 #   BLOCKED     — required check failing OR active CHANGES_REQUESTED
 #                 review
 #   DIRTY       — merge conflict
-#   UNSTABLE    — non-required check failed
+#   UNSTABLE    — a non-passing commit status. Allowed ONLY when the
+#                 check rollup confirms every check name's LATEST run is
+#                 green (a stale pre-approval failure superseded by a
+#                 later pass) AND mergeable=MERGEABLE. A genuinely-red
+#                 (or misconfigured-required) check is NOT trusted as
+#                 benign just because mergeable — which is conflict-only
+#                 — says MERGEABLE; that would reopen #170/#171 (#547)
 #   BEHIND      — base has commits the head lacks (with "Require
 #                 branches to be up to date" enabled)
 #   DRAFT       — PR is in draft mode (covered explicitly so the
@@ -1775,7 +2206,32 @@ case "$MERGE_STATE" in
       exit 2
     fi
     ;;
-  BLOCKED|DIRTY|UNSTABLE|BEHIND)
+  UNSTABLE)
+    # UNSTABLE = a non-passing commit status, but mergeable. The naive
+    # read (allow because mergeable=MERGEABLE) is WRONG: GitHub defines
+    # `mergeable` purely by merge CONFLICTS, not check status, so a red
+    # REQUIRED check surfaced as UNSTABLE (or branch protection
+    # misconfigured) would still be MERGEABLE and slip through —
+    # reopening the #170/#171 red-CI bypass. So verify the check ROLLUP:
+    # allow only when every check name's LATEST run is green
+    # (ROLLUP_NONGREEN == 0). That clears the real #547 case — a STALE
+    # pre-approval failed check-suite superseded by a later passing run
+    # (its latest is green) — while a genuinely-red latest check (count
+    # > 0) stays blocked. mergeable=MERGEABLE is kept as a belt-and-
+    # suspenders conflict guard. BLOCKED/DIRTY/BEHIND still block below.
+    if [ "$ROLLUP_NONGREEN" = "0" ] && [ "$MERGEABLE_STATE" = "MERGEABLE" ]; then
+      echo "ALLOW: mergeStateStatus=UNSTABLE, but every check name's LATEST run is green and mergeable=MERGEABLE — a stale check-suite superseded by a later pass (#547)." >&2
+    elif [ "$EFFECTIVE_BREAK_GLASS_MERGE_STATE" = "1" ]; then
+      echo "BREAK-GLASS: merge with mergeStateStatus=UNSTABLE (non-green latest checks=$ROLLUP_NONGREEN, mergeable=$MERGEABLE_STATE) authorized by human." >&2
+    else
+      echo "BLOCKED: PR mergeStateStatus is UNSTABLE with $ROLLUP_NONGREEN check(s) whose latest run is not green (mergeable=$MERGEABLE_STATE) — fail-closed; a red required check is NOT trusted as benign (mergeable is conflict-only)." >&2
+      echo "  Resolve the failing checks, or wait for GitHub's recompute, then retry." >&2
+      echo "  Override: BREAK_GLASS_MERGE_STATE=1 (export or inline prefix; must be authorized by human in chat)." >&2
+      echo "  See #170 / #171 for the regression this guard closes." >&2
+      exit 2
+    fi
+    ;;
+  BLOCKED|DIRTY|BEHIND)
     if [ "$EFFECTIVE_BREAK_GLASS_MERGE_STATE" = "1" ]; then
       echo "BREAK-GLASS: merge with mergeStateStatus=$MERGE_STATE authorized by human." >&2
     else
