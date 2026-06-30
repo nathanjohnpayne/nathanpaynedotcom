@@ -261,6 +261,20 @@ elif echo "$COMMAND" | tr -d "\"'" | grep -qE '(^|[^A-Za-z0-9_])env([[:space:]]|
   # Quote-stripped (Codex #551): a quoted `'env'` runs env but would otherwise
   # leave a quote, not whitespace, after `env` and dodge this probe.
   NEEDS_TOKENIZE=1
+elif echo "$COMMAND" | tr -d "\"'" | grep -qE '\$\(|`' \
+     && echo "$COMMAND" | tr -d "\"'" \
+        | grep -qE '(^|[^A-Za-z0-9_])(pr|issue)[[:space:]]'; then
+  # #553 / #560: a command substitution can synthesize the executable name in
+  # COMMAND position (e.g. `$(printf '\147\150')` -> gh), so the raw command
+  # carries no literal `gh` and the gh / env -S probes above miss it. This holds
+  # even after a prefix command + options (`command -p`, `env -i`), a value-taking
+  # flag (`env -u NAME`), or a quoted env assignment (`FOO="a b"`) — forms the
+  # earlier command-position-only regex could not express. Force tokenization
+  # whenever a cmdsub coexists with a gh pr/issue write noun; the command-position
+  # forward pass below then fails closed ONLY on a genuine command-position synth
+  # write and ignores benign cmdsubs and arguments. Over-matching costs one
+  # tokenizer run; a false negative is a bypass.
+  NEEDS_TOKENIZE=1
 fi
 if [ "$NEEDS_TOKENIZE" -eq 0 ]; then
   exit 0
@@ -891,6 +905,87 @@ guarded_gh_invocation_label() {
 
   return 1
 }
+
+# #553 / #560: a command substitution in COMMAND position can synthesize the
+# executable name ($(printf '\147\150') -> gh), so the flattened
+# __MERGEPATH_CMDSUB__ placeholder sits where the command name belongs and the
+# literal-`gh` detection below misses it entirely. A single forward pass tracks
+# command position exactly as the main walk does — through prefix commands and
+# their boolean / value-taking flags (`prefix_flag_takes_value`) and
+# env-assignment prefixes — so a placeholder reached AT command position AND
+# directly followed by a guarded pr/issue write fails closed, even after
+# `command -p`, `env -i`, `env -u NAME`, or a quoted assignment (`FOO="a b"`)
+# (#560). A placeholder consumed as a value-taking flag's argument, or as a bare
+# assignment's VALUE (`X=$(gh pr merge)` lifts the real write into a later
+# ;-segment, #540), is NOT flagged; the main gh walk still catches any real write
+# lifted out of the substitution. Keeping this OUT of the main walk (no SAW_GH)
+# avoids the assignment-substitution command-position ambiguity.
+_synth_cp=1
+_synth_skip_val=0
+_synth_prefix=""
+for _ci in "${!TOKENS[@]}"; do
+  _stok="${TOKENS[$_ci]}"
+  if is_guard_separator "$_stok"; then
+    _synth_cp=1
+    _synth_skip_val=0
+    _synth_prefix=""
+    continue
+  fi
+  if [ "$_synth_skip_val" -eq 1 ]; then
+    _synth_skip_val=0
+    continue
+  fi
+  if [ "$_synth_cp" -eq 0 ]; then
+    continue
+  fi
+  case "$_stok" in
+    __MERGEPATH_CMDSUB__)
+      if _synth_label=$(guarded_gh_invocation_label "$_ci"); then
+        echo "BLOCKED: command-position command substitution may synthesize a gh write ($_synth_label)." >&2
+        echo "  A \$(...) or backtick in command position can produce the executable name" >&2
+        echo "  (e.g. \$(printf '\\147\\150') -> gh), so the guard cannot verify it. Run the" >&2
+        echo "  write directly through the verifying wrapper instead:" >&2
+        echo "    scripts/gh-as-author.sh -- gh ..." >&2
+        echo "    scripts/gh-as-reviewer.sh -- gh ..." >&2
+        exit 2
+      fi
+      # In command position but NOT followed by a guarded write (e.g. `$(date)`,
+      # or `X=$(gh pr merge)` whose real write is lifted past a `;`): treat the
+      # placeholder as the command and skip its arguments.
+      _synth_cp=0
+      continue
+      ;;
+    [A-Za-z_]*=)
+      # Bare assignment `NAME=`: the NEXT token is its VALUE (e.g. `X=$(...)`),
+      # not a command — consume it so a placeholder-as-value is not mis-read.
+      _synth_skip_val=1
+      continue
+      ;;
+    [A-Za-z_]*=*)
+      # Env-assignment prefix WITH an inline value (`FOO=1`, `FOO="a b"`): the
+      # real command (which may be a synth cmdsub) follows — stay command position.
+      continue
+      ;;
+    sudo|eval|time|nohup|env|command|exec|nice|ionice)
+      _synth_prefix="$_stok"
+      continue
+      ;;
+    -*)
+      # Flag of the current prefix command. A value-taking flag (`env -u NAME`,
+      # `sudo -u USER`) consumes the NEXT token as its value; a boolean flag
+      # (`command -p`, `env -i`) does not — either way we stay command position.
+      if prefix_flag_takes_value "$_synth_prefix" "$_stok"; then
+        _synth_skip_val=1
+      fi
+      continue
+      ;;
+    *)
+      # A real (non-gh) command — its arguments are not command position.
+      _synth_cp=0
+      continue
+      ;;
+  esac
+done
 
 COMPOUND_GH_COUNT=0
 COMPOUND_GUARDED_COUNT=0
@@ -2104,7 +2199,14 @@ fi
 # protection: even if branch protection is misconfigured or
 # disabled for an emergency hotfix, the hook will still refuse
 # to dispatch the merge.
-GH_JQ='.mergeStateStatus, .mergeable, ([.statusCheckRollup[] | {n:(.name//.context//"?"), c:(.conclusion//.state//"PENDING"), t:(.completedAt//.startedAt//"")}] | group_by(.n) | map(max_by(.t).c) | map(select(. != "SUCCESS" and . != "SKIPPED" and . != "NEUTRAL")) | length), .labels[].name'
+#
+# #553 (CodeRabbit Major): a check group counts as green ONLY if no run is
+# still pending AND its latest terminal run is green. The prior `max_by(.t).c`
+# alone mis-ranked an un-timestamped PENDING re-run (t="" sorts lowest) behind a
+# timestamped SUCCESS, so an UNSTABLE PR with a check still re-running counted
+# all-green and could merge before CI finished. `if any(.[]; .c=="PENDING")`
+# treats a group with ANY in-progress run as non-green regardless of timestamps.
+GH_JQ='.mergeStateStatus, .mergeable, ([.statusCheckRollup[] | {n:(.name//.context//"?"), c:(.conclusion//.state//"PENDING"), t:(.completedAt//.startedAt//"")}] | group_by(.n) | map(if any(.[]; .c == "PENDING") then "PENDING" else max_by(.t).c end) | map(select(. != "SUCCESS" and . != "SKIPPED" and . != "NEUTRAL")) | length), .labels[].name'
 GH_ARGS=(pr view --json labels,mergeStateStatus,mergeable,statusCheckRollup --jq "$GH_JQ")
 if [ -n "$PR_SELECTOR" ]; then
   GH_ARGS=(pr view "$PR_SELECTOR" --json labels,mergeStateStatus,mergeable,statusCheckRollup --jq "$GH_JQ")
