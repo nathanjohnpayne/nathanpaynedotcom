@@ -117,6 +117,14 @@
 #       "body_excerpt": "<first 200 chars>"
 #     },
 #     "potential_issue_count": N,
+#     # blocking_tier_unresolved (#577): count of unaddressed inline HEAD
+#     # findings whose coderabbit_tier_of tier is in the resolved
+#     # feedback_policy required set. null when the feedback_policy block is
+#     # ABSENT (preserving the historical shape + exit-code contract) or on
+#     # any non-findings/cleared terminal. Report-only — it never affects the
+#     # exit code; the merge-blocking CodeRabbit gate is
+#     # scripts/coderabbit-severity-gate.sh.
+#     "blocking_tier_unresolved": null | N,
 #     "rate_limit_retries": N,
 #     "resume_retries": N,
 #     "status_probe": {
@@ -394,6 +402,62 @@ POLL_INTERVAL_SECONDS=15
 STATUS_PROBE_POLL_INTERVAL_SECONDS=5
 RATE_LIMIT_BUFFER_SECONDS=30
 
+# #596: CodeRabbit flips its commit StatusContext to `success` while
+# rate-limited, ~1s AFTER posting the rate-limit notice (the #595 spurious
+# success). When the latest HEAD-referencing CodeRabbit comment is a
+# non-review notice (rate_limit/paused/in_progress), a `success` that lands
+# within this many seconds of it is treated as that near-simultaneous flip and
+# suppressed (keep polling); a `success` that postdates the notice by MORE than
+# this is a genuine later re-review — which per #221 can be silent (no new
+# summary comment) — and stays authoritative. Comfortably above CodeRabbit's
+# flip latency (seconds) yet below its minutes-long rate-limit windows, so the
+# #595 false success is caught while a real recovery review still clears.
+STATUS_SUCCESS_GRACE_SECONDS=120
+
+# --- tier-aware classification (#577) ---------------------------------------
+# Additive tier-awareness layered ON TOP of the existing binary
+# `Potential issue`/⚠️ detector — it NEVER replaces the exit-code fast-paths
+# below (HEAD-anchoring, rate-limit, auto-pause). When the feedback_policy
+# block is PRESENT, this surfaces a `blocking_tier_unresolved` count (findings
+# on HEAD whose coderabbit_tier_of tier is in the resolved required set) in
+# the emitted JSON. When the block is ABSENT — or the shared lib is not on
+# disk (some test harnesses stage this script without scripts/lib) —
+# BLOCKING_TIER_UNRESOLVED stays `null` and the exit-code contract is
+# byte-identical to before. Guarded source, same posture as the preflight
+# helpers above: surfacing is best-effort, not a gate.
+#
+# NOTE: the merge-BLOCKING CodeRabbit gate is scripts/coderabbit-severity-gate.sh
+# (a required check); this helper only REPORTS the count so the authoring
+# agent can prioritize, mirroring codex-review-request.sh's per-finding
+# `blocking` flag. It does not itself block.
+BLOCKING_TIER_UNRESOLVED="null"
+FEEDBACK_POLICY_PRESENT=false
+if [ -f "$CONFIG" ] && grep -qE '^feedback_policy:' "$CONFIG" \
+    && [ -r "$__CODERABBIT_WAIT_DIR/lib/feedback-policy-helpers.sh" ]; then
+  # shellcheck source=lib/feedback-policy-helpers.sh
+  . "$__CODERABBIT_WAIT_DIR/lib/feedback-policy-helpers.sh"
+  set +e
+  __CRW_REQUIRED_TIERS=$(resolve_required_tiers "$CONFIG")
+  __CRW_RT_RC=$?
+  set -e
+  if [ "$__CRW_RT_RC" -eq 2 ]; then
+    echo "ERROR: malformed feedback_policy block in $CONFIG (resolve_required_tiers exit 2)" >&2
+    exit 3
+  fi
+  FEEDBACK_POLICY_PRESENT=true
+fi
+
+# Return 0 iff $1 (a tier like p0..p3|nitpick) is in the resolved set.
+# Only meaningful when FEEDBACK_POLICY_PRESENT=true.
+crw_tier_is_required() {
+  local needle=$1 t
+  [ -n "$needle" ] || return 1
+  while IFS= read -r t; do
+    [ "$t" = "$needle" ] && return 0
+  done <<< "${__CRW_REQUIRED_TIERS:-}"
+  return 1
+}
+
 # #489: CodeRabbit→Codex rate-limit failover. When CodeRabbit posts a
 # rate-limit notice, request `@codex review` once so the PR advances via the
 # real blocking gate (Codex) instead of idling on the advisory bot's hourly
@@ -415,6 +479,18 @@ CODEX_REQUEST_CMD="${CODERABBIT_WAIT_CODEX_REQUEST_CMD:-$__CODERABBIT_WAIT_DIR/c
 # is the same shape CodeRabbit emits for its other auto-generated notices
 # (cf. the `rate limited by coderabbit.ai` marker on the same surface).
 PAUSED_MARKER='review paused by coderabbit.ai'
+
+# Stable marker CodeRabbit wraps its rate-limit notice in, on the same
+# auto-generated surface as PAUSED_MARKER. Keyed on directly because the
+# user-facing prose is NOT versioned and has already drifted: the original
+# notice (#138) read "Rate limit exceeded" / "Please wait X minutes and Y
+# seconds", but CodeRabbit's adaptive "Fair Usage Limits" variant reads
+# "Review limit reached" / "Next review available in: N minutes" — matching
+# NONE of the old text patterns. The HTML-comment marker is identical across
+# both, so classify_comment() keys on it first (see #593: a drifted notice
+# misclassified as a clean `review` false-cleared the gate and merged #591
+# with no CodeRabbit review).
+RATE_LIMIT_MARKER='rate limited by coderabbit.ai'
 
 # CodeRabbit emits two distinct per-SHA signals:
 #   1. Narrative review comment (issue/PR comment + inline diff comments).
@@ -665,6 +741,24 @@ parse_rate_limit_window() {
     echo "$total"
     return 0
   fi
+  # Adaptive "Fair Usage Limits" variant (#593): "Next review available in:
+  # **N minutes**" (or "... N seconds"). CodeRabbit wraps the label and value
+  # in markdown bold, so the star/space run between them varies — [* ]* absorbs
+  # it. Held in a variable and matched unquoted so the literal spaces are part
+  # of the regex, not shell word-split (bash 3.2 safe).
+  local re_next_min='[Nn]ext review available in:[* ]*([0-9]+)[* ]*minutes?'
+  if [[ "$body" =~ $re_next_min ]]; then
+    mins=${BASH_REMATCH[1]}
+    total=$((mins * 60))
+    echo "$total"
+    return 0
+  fi
+  local re_next_sec='[Nn]ext review available in:[* ]*([0-9]+)[* ]*seconds?'
+  if [[ "$body" =~ $re_next_sec ]]; then
+    secs=${BASH_REMATCH[1]}
+    echo "$secs"
+    return 0
+  fi
   return 1
 }
 
@@ -672,6 +766,17 @@ parse_rate_limit_window() {
 #   rate_limit | paused | in_progress | status_probe | review
 classify_comment() {
   local body=$1
+  # #593: key on the stable auto-generated marker FIRST, before any prose
+  # match, so a rate-limit notice is recognized regardless of CodeRabbit's
+  # user-facing wording ("Rate limit exceeded" vs "Review limit reached" /
+  # "Fair Usage Limits"). Fixed-string grep (-F) so the literal dots in
+  # "coderabbit.ai" are not treated as regex wildcards, mirroring PAUSED_MARKER.
+  if printf '%s' "$body" | grep -Fqi "$RATE_LIMIT_MARKER"; then
+    echo "rate_limit"
+    return
+  fi
+  # Legacy prose fallback: the original notice text, retained so a notice that
+  # somehow lacks the marker (or an older cached body) still classifies.
   if echo "$body" | grep -qiE 'rate[- ]limit exceeded'; then
     echo "rate_limit"
     return
@@ -814,6 +919,72 @@ count_potential_issues() {
   '
 }
 
+# Count unaddressed inline findings on HEAD whose coderabbit_tier_of tier is
+# in the resolved required set (#577). Tier-aware sibling of
+# count_potential_issues: SAME latest-review-on-HEAD + review_comment_addressed
+# scoping, but stage 1 (jq) emits the candidate finding BODIES and stage 2
+# (bash) classifies each with the shared coderabbit_tier_of and keeps only
+# required-tier ones — reusing the classifier rather than re-implementing its
+# heuristic in jq. Additive/advisory only: the return value populates the
+# JSON's blocking_tier_unresolved and NEVER feeds an exit code. Guarded by
+# FEEDBACK_POLICY_PRESENT at the single call site, so it never runs (and the
+# lib functions are never referenced) when the block is absent.
+count_blocking_tier_issues() {
+  local reviews pulls_comments latest_review_id candidates cand_count blocking body tier i
+  reviews=$(fetch_api_array "repos/$REPO/pulls/$PR_NUMBER/reviews" "reviews")
+  latest_review_id=$(echo "$reviews" | jq --arg bot "$BOT_LOGIN" --arg after "$HEAD_ANCHOR" --arg head_sha "$HEAD_SHA" '
+    [ .[]
+      | select(.user.login == $bot)
+      | select(.submitted_at >= $after)
+      | select(.commit_id == $head_sha)
+    ]
+    | sort_by(.submitted_at) | last
+    | if . == null then null else .id end
+  ')
+
+  if [ -z "$latest_review_id" ] || [ "$latest_review_id" = "null" ]; then
+    echo "0"
+    return
+  fi
+
+  pulls_comments=$(fetch_api_array "repos/$REPO/pulls/$PR_NUMBER/comments" "pulls comments")
+  # Stage 1: same addressed-root exclusion + latest-review scoping as
+  # count_potential_issues, but emit each candidate's body (NOT a count) so
+  # stage 2 can tier-classify. We keep the `Potential issue|⚠️` prefilter OFF
+  # here on purpose: coderabbit_tier_of also grades 🧹 Nitpick / Refactor
+  # findings, which a required nitpick/p2 tier must be able to catch.
+  candidates=$(echo "$pulls_comments" | jq -c \
+    --arg bot "$BOT_LOGIN" \
+    --argjson review_id "$latest_review_id" '
+    [ .[]
+      | select(.user.login == $bot)
+      | select(.in_reply_to_id != null)
+      | select((.body // "") | test("review_comment_addressed"; "i"))
+      | .in_reply_to_id
+    ] as $addressed_root_ids
+    | [ .[]
+      | select(.user.login == $bot)
+      | select(.pull_request_review_id == $review_id)
+      | select(.in_reply_to_id == null)
+      | select(.id as $id | ($addressed_root_ids | index($id)) == null)
+      | (.body // "")
+    ]
+  ')
+
+  blocking=0
+  cand_count=$(echo "$candidates" | jq 'length')
+  i=0
+  while [ "$i" -lt "$cand_count" ]; do
+    body=$(echo "$candidates" | jq -r ".[$i]")
+    tier=$(coderabbit_tier_of "$body")
+    if crw_tier_is_required "$tier"; then
+      blocking=$((blocking + 1))
+    fi
+    i=$((i + 1))
+  done
+  echo "$blocking"
+}
+
 # Returns 0 (true) if the latest PR-level CodeRabbit SUMMARY comment body
 # carries a `Potential issue` / ⚠️ marker, else 1.
 #
@@ -919,9 +1090,30 @@ iso_on_or_after() {
   esac
 }
 
+# #596: return 0 (true) when `status` landed at most `grace` seconds after
+# `comment` — i.e. status <= comment + grace. Used to recognize CodeRabbit's
+# near-simultaneous rate-limit StatusContext flip (a `status` within `grace` of
+# the notice) versus a genuinely later re-review (`status` well after it). Fails
+# OPEN (true → suppress the fast-path) on unparseable input, matching the
+# conservative posture of iso_on_or_after.
+iso_within_seconds_after() {
+  local comment=$1 status=$2 grace=$3 rc
+  if [ -z "$comment" ] || [ "$comment" = "null" ] || [ -z "$status" ] || [ "$status" = "null" ]; then
+    return 0
+  fi
+  jq -en --arg c "$comment" --arg s "$status" --argjson g "$grace" \
+    '($s | fromdateiso8601) <= ($c | fromdateiso8601) + $g' >/dev/null 2>&1
+  rc=$?
+  case "$rc" in
+    0) return 0 ;;
+    1) return 1 ;;
+    *) return 0 ;;
+  esac
+}
+
 status_context_fast_path_blocked_by_comment() {
   local status_created_at=$1
-  local latest class comment_id comment_fresh_at comment_body
+  local latest class comment_id comment_created_at comment_fresh_at comment_body
   latest=$(scan_latest_comment)
   if [ "$(echo "$latest" | jq 'length')" = "0" ]; then
     return 1
@@ -936,15 +1128,46 @@ status_context_fast_path_blocked_by_comment() {
       # the fast-path so the wait keeps polling (and re-invokes `resume`)
       # instead of false-clearing over a paused review.
       comment_id=$(echo "$latest" | jq -r '.id')
-      comment_fresh_at=$(echo "$latest" | jq -r '.fresh_at // .updated_at // .created_at')
       comment_created_at=$(echo "$latest" | jq -r '.created_at // .fresh_at // .updated_at')
+      comment_fresh_at=$(echo "$latest" | jq -r '.fresh_at // .updated_at // .created_at')
       comment_body=$(echo "$latest" | jq -r '.body')
       if printf '%s' "$comment_body" | grep -Fq "$HEAD_SHA"; then
-        if iso_on_or_after "$comment_fresh_at" "$status_created_at"; then
-          log "StatusContext success ignored because latest CodeRabbit comment id=$comment_id class=$class explicitly references current HEAD $HEAD_SHA and fresh_at=$comment_fresh_at is not older than status_created=$status_created_at"
+        # #596: a HEAD-referencing rate_limit/paused/in_progress notice means
+        # CodeRabbit has not (yet) completed a review of this HEAD. CodeRabbit
+        # nonetheless flips its commit StatusContext to success while
+        # rate-limited, ~1s AFTER posting the notice, so the previous
+        # `iso_on_or_after comment_fresh_at status_created_at` gate treated that
+        # 1s-newer success as authoritative and false-cleared (the #595 dogfood:
+        # notice @07:49:36, status success @07:49:37, zero review). Distinguish
+        # by latency rather than raw ordering: SUPPRESS a success that landed
+        # within an effective grace window of the notice; TRUST a success that
+        # postdates it by more (a genuine later re-review, which per #221 can be
+        # silent, i.e. flip the status with no new summary comment).
+        #
+        # The effective grace is the base near-simultaneous-flip window
+        # (STATUS_SUCCESS_GRACE_SECONDS), WIDENED to CodeRabbit's own published
+        # wait window when the notice carries one. A rate-limit notice ("Next
+        # review available in: N minutes") promises no review before
+        # comment_created + N, so a success anywhere inside that window cannot be
+        # a completed review no matter how far past the base grace it lands
+        # (#599 Codex P2: with a fixed 120s grace, a success at 121s but still
+        # mid-13-minute-window would false-clear). paused/in_progress notices
+        # carry no parseable window, so they keep the base grace. The
+        # RATE_LIMIT_BUFFER_SECONDS margin mirrors the retry-sleep path.
+        local effective_grace=$STATUS_SUCCESS_GRACE_SECONDS
+        local published_window
+        published_window=$(parse_rate_limit_window "$comment_body" || echo "")
+        if [ -n "$published_window" ]; then
+          local windowed=$((published_window + RATE_LIMIT_BUFFER_SECONDS))
+          if [ "$windowed" -gt "$effective_grace" ]; then
+            effective_grace=$windowed
+          fi
+        fi
+        if iso_within_seconds_after "$comment_fresh_at" "$status_created_at" "$effective_grace"; then
+          log "StatusContext success ignored because latest CodeRabbit comment id=$comment_id class=$class references current HEAD $HEAD_SHA and the success (status_created=$status_created_at) is within the ${effective_grace}s window after the notice (fresh_at=$comment_fresh_at) — CodeRabbit has not completed a review of this HEAD (near-simultaneous rate-limit status flip, or a success still inside the published wait window)"
           return 0
         fi
-        log "StatusContext success remains authoritative because latest CodeRabbit comment id=$comment_id class=$class explicitly references current HEAD $HEAD_SHA but fresh_at=$comment_fresh_at is older than status_created=$status_created_at"
+        log "StatusContext success remains authoritative: it postdates the HEAD-referencing $class notice id=$comment_id ($HEAD_SHA) by more than ${effective_grace}s (fresh_at=$comment_fresh_at, status_created=$status_created_at) — a genuine later re-review of the current HEAD"
         return 1
       fi
       # #446: a rate_limit/paused/in_progress comment POSTED (created) at/after
@@ -1271,6 +1494,34 @@ emit_json_and_exit() {
     skip_reason_json="null"
   fi
 
+  # blocking_tier_unresolved (#577): lazily compute the required-tier finding
+  # count ONLY when the feedback_policy block is present AND this is a
+  # findings-relevant terminal (`findings` / `cleared`) — the statuses where
+  # inline HEAD findings are meaningful and API access is in play. Every other
+  # terminal (timeout / rate_limit_stalled / paused / skip / config error)
+  # leaves it null, so no extra API calls are made on those paths and the
+  # historical JSON shape is unchanged except for one additive null field.
+  # This never affects $exit_code — the value is report-only.
+  if [ "$FEEDBACK_POLICY_PRESENT" = true ] && [ "$BLOCKING_TIER_UNRESOLVED" = "null" ]; then
+    case "$status" in
+      findings|cleared)
+        # Guard the advisory decoration so it can NEVER flip the terminal exit
+        # code or break the JSON emit (nathanpayne-codex P2 on #590). Two
+        # layers: `|| true` stops a die inside count_blocking_tier_issues from
+        # aborting under set -e, and the numeric-or-null validation forces a
+        # value the downstream `jq --argjson` accepts. The earlier `$(...) ||
+        # VAR=null` was insufficient: when an internal fetch_api_array dies,
+        # count_blocking_tier_issues can exit 0 with EMPTY output, so the `||`
+        # never fired and the empty value broke `jq --argjson` — a hard failure
+        # on an otherwise-terminal path. Validation catches empty/non-numeric.
+        BLOCKING_TIER_UNRESOLVED=$(count_blocking_tier_issues 2>/dev/null || true)
+        case "$BLOCKING_TIER_UNRESOLVED" in
+          ''|*[!0-9]*) BLOCKING_TIER_UNRESOLVED=null ;;
+        esac
+        ;;
+    esac
+  fi
+
   jq -n \
     --argjson pr_number "$PR_NUMBER" \
     --arg repo "$REPO" \
@@ -1281,6 +1532,7 @@ emit_json_and_exit() {
     --argjson skip_reason "$skip_reason_json" \
     --argjson review "$review_json" \
     --argjson potential_issue_count "$potential_issues" \
+    --argjson blocking_tier_unresolved "$BLOCKING_TIER_UNRESOLVED" \
     --argjson rate_limit_retries "$RATE_LIMIT_RETRIES" \
     --argjson resume_retries "$RESUME_RETRIES" \
     --argjson status_probe "$STATUS_PROBE_JSON" \
@@ -1296,6 +1548,7 @@ emit_json_and_exit() {
       skip_reason: $skip_reason,
       review: $review,
       potential_issue_count: $potential_issue_count,
+      blocking_tier_unresolved: $blocking_tier_unresolved,
       rate_limit_retries: $rate_limit_retries,
       resume_retries: $resume_retries,
       status_probe: $status_probe,
