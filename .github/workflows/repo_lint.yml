@@ -1,3 +1,22 @@
+# repo_lint.yml — canonical fleet CI workflow (manifest-propagated, #601).
+#
+# This file is a `canonical` entry in .mergepath-sync.yml (consumers: all):
+# every consumer receives it byte-for-byte on each sync wave. Editing rules:
+#
+#   - A new scripts/ci/check_* MUST add its `run: ./scripts/ci/check_X` step
+#     here in the SAME PR that adds the script. check_ci_scripts_wired
+#     enforces wired-or-exempt on every repo in the fleet, so the check and
+#     its wiring travel to consumers atomically in the same sync PR.
+#   - Consumer-local wiring (consumer-only steps, consumer-local
+#     WIRED-EXEMPT lines) belongs in the OPTIONAL, never-propagated
+#     .github/workflows/repo_lint_local.yml annex — NOT here. Local edits to
+#     this file are drift and get overwritten by the next sync wave.
+#   - Every step must be consumer-safe: SKIP-guard hub-only checks (the
+#     scripts/sync-to-downstream.sh marker idiom — see check_sync_manifest),
+#     depend only on manifest-propagated files, or soft-pass when the
+#     backing script is absent (the #590-style
+#     `[ -f scripts/<gate>.sh ] || exit 0` one-liner).
+
 name: repo-lint
 
 on: [push, pull_request]
@@ -10,9 +29,24 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          # Lint only runs scripts/ci/check_* against the checked-out tree; it
+          # never pushes or uses the workspace remote, so don't leave the
+          # checkout token in .git/config (#548 defense-in-depth).
+          persist-credentials: false
 
       - name: make_ci_scripts_executable
         run: chmod +x scripts/ci/*
+
+      # Structural guard added in #269: every executable
+      # scripts/ci/check_* must be wired into this workflow as an
+      # explicit `run: ./scripts/ci/check_X` step (or carry a
+      # documented exemption comment). Catches the failure mode where
+      # a check ships on disk but never executes in CI because nobody
+      # remembered to add the matching workflow step. Pure-bash so it
+      # can run before any tooling install (yq, etc.).
+      - name: check_ci_scripts_wired
+        run: ./scripts/ci/check_ci_scripts_wired
 
       - name: check_required_root_files
         run: ./scripts/ci/check_required_root_files
@@ -32,6 +66,43 @@ jobs:
       - name: check_duplicate_docs
         run: ./scripts/ci/check_duplicate_docs
 
+      # Bootstrap-wizard test suites (#156). Each check_bootstrap_*
+      # script wraps the matching tests/test_bootstrap_*.sh suite
+      # that exercises the corresponding bootstrap sub-wizard so the
+      # wizards stay reproducible and a regression in any sub-wizard
+      # is caught in CI before it ships to consumer repos. Wired in
+      # #269 after the inventory of unwired scripts/ci/check_*.
+      - name: check_bootstrap_sh
+        # Runtime-secret bootstrap helper: restore-only op inject path
+        # and retired Secure Note / notesPlain sync path.
+        run: ./scripts/ci/check_bootstrap_sh
+
+      - name: check_bootstrap_wizard
+        # Sub-A: top-level bootstrap wizard scaffolding + flow.
+        run: ./scripts/ci/check_bootstrap_wizard
+
+      - name: check_bootstrap_template_mirror
+        # Sub-B: template-mirror bootstrap that seeds a downstream
+        # repo with the canonical mergepath template files.
+        run: ./scripts/ci/check_bootstrap_template_mirror
+
+      - name: check_bootstrap_github_infra
+        # Sub-C: GitHub infrastructure bootstrap (labels, branch
+        # protection, required workflows) for a fresh consumer repo.
+        run: ./scripts/ci/check_bootstrap_github_infra
+
+      - name: check_bootstrap_firebase_and_codereview
+        # Sub-D: Firebase + code-review configuration bootstrap.
+        # Validates the wizard correctly disables CodeRabbit for
+        # private consumer repos (free tier is public-only).
+        run: ./scripts/ci/check_bootstrap_firebase_and_codereview
+
+      - name: check_bootstrap_board_and_summary
+        # Sub-E: Project board + bootstrap-summary generation.
+        # Ensures the wizard's end-state artifacts stay in sync with
+        # the canonical templates.
+        run: ./scripts/ci/check_bootstrap_board_and_summary
+
       - name: check_review_policy_exists
         run: |
           MISSING=0
@@ -45,11 +116,298 @@ jobs:
           fi
           exit $MISSING
 
+      # WIRED-EXEMPT: check_op_firebase_deploy_integration — opt-in
+      # local-only resolver smoke test for `scripts/firebase/op-firebase-deploy`
+      # (#211). Gated on MERGEPATH_RUN_INTEGRATION=1 in the script's
+      # own header; defaults to SKIPPED + exit 0 so wiring it into
+      # repo_lint.yml would just add a SKIPPED step. The check_ci_scripts_wired
+      # exemption keeps it executable on disk (so operators can run it
+      # locally with the env var) without requiring a no-op CI step.
+      # See #289 r4 / #290 / #269 — nathanpayne-codex Phase 4b finding.
+
       - name: check_codex_scripts
         run: ./scripts/ci/check_codex_scripts
 
+      - name: check_daily_feedback_rollup
+        # Pure-function helpers + a 3-case shimmed --dry-run smoke
+        # over scripts/daily-feedback-rollup.sh (#299 v1 slice).
+        # Hermetic — uses a gh stub + canned GraphQL fixture; no
+        # network. The full rollup integration (actually firing the
+        # workflow against live PRs) is exercised once daily via
+        # the cron in .github/workflows/daily-feedback-rollup.yml.
+        run: ./scripts/ci/check_daily_feedback_rollup
+
+      - name: check_canonical_bugs_263caf3
+        # Regression coverage for nathanpayne-codex findings on the
+        # 263caf3 propagation wave and follow-up review-policy bugs:
+        #   - request-label-removal.sh set -e abort in no-`--repo` path
+        #   - codex-review-check.sh self-approval hole via
+        #     same-agent reviewer identity bypassing the author
+        #     exclusion in gate (b) + gate (c) Phase 4b substitute
+        #   - codex-review-check.sh treating Codex bot signals as
+        #     live clearance even when codex.enabled=false (#362)
+        run: ./scripts/ci/check_canonical_bugs_263caf3
+
       - name: check_workflow_parsers
         run: ./scripts/ci/check_workflow_parsers
+
+      - name: check_session_finalization
+        run: ./scripts/ci/check_session_finalization
+
+      # Offline fixture suite for the #623 Codex-latency audit script —
+      # guards the published, replayable analysis (normalize + pairing +
+      # events-only replay). Hub-only; SKIPs on consumer checkouts via
+      # the standard sync-to-downstream marker idiom.
+      - name: check_audit_codex_latency
+        run: ./scripts/ci/check_audit_codex_latency
+
+      # check_verify_propagation_pr exercises the faithful-mirror
+      # verifier (scripts/workflow/verify-propagation-pr.sh) that is
+      # the security teeth of the propagation-PR review lane — it is
+      # what makes it safe for that lane to skip Phase 4 external
+      # review. repo_lint.yml enumerates checks explicitly, so a
+      # check on disk that is not listed here never runs in CI; this
+      # step wires the verifier suite in so it cannot rot or vanish
+      # silently. Codex CHANGES_REQUESTED on #268 caught the gap.
+      - name: check_verify_propagation_pr
+        run: ./scripts/ci/check_verify_propagation_pr
+
+      # check_propagation_lane_audit exercises the #434 lane regression
+      # net (scripts/audit-propagation-lane.sh): the lane's per-consumer
+      # preconditions are evaluated offline against fixture file pairs,
+      # and the audit's default-ON marker is pinned to the literal in
+      # pr-review-policy.yml so the two cannot silently diverge.
+      - name: check_propagation_lane_audit
+        run: ./scripts/ci/check_propagation_lane_audit
+
+      # check_workflow_verify_propagation_templated exercises the
+      # templated-surface arm of verify-propagation-pr.sh (#323) —
+      # the re-render + byte-verify path that closes the propagation
+      # lane gate for type:templated entries. Same lane-eligibility
+      # security teeth as check_verify_propagation_pr above; runs
+      # alongside it so a regression in either surface lights up CI
+      # independently.
+      - name: check_workflow_verify_propagation_templated
+        run: ./scripts/ci/check_workflow_verify_propagation_templated
+
+      - name: check_phase_4b_classifier
+        run: ./scripts/ci/check_phase_4b_classifier
+
+      - name: check_phase_4b_automation
+        run: ./scripts/ci/check_phase_4b_automation
+
+      - name: check_phase_4b_accounting
+        # Phase 4b approval-loop accounting (#602), wired like
+        # check_phase_4b_automation above. Self-bootstrap guard (#590
+        # class): repo_lint.yml reaches consumers via the template mirror
+        # ahead of the manifest-synced scripts, so a tree can carry this
+        # step before scripts/ci/check_phase_4b_accounting exists — that
+        # window soft-passes instead of 127-failing, and the check
+        # activates as soon as the script lands. (Kept on one line so the
+        # check_ci_scripts_wired parser still sees an explicit
+        # `run: ./scripts/ci/check_phase_4b_accounting` wire.)
+        run: ./scripts/ci/check_phase_4b_accounting || { rc=$?; if [ ! -f scripts/ci/check_phase_4b_accounting ]; then echo "check_phase_4b_accounting not on this tree yet — soft pass (self-bootstrap)"; exit 0; fi; exit "$rc"; }
+
+      - name: check_lint_tooling
+        run: ./scripts/ci/check_lint_tooling
+
+      - name: check_codex_p1_gate
+        run: ./scripts/ci/check_codex_p1_gate
+
+      - name: check_coderabbit_severity_gate
+        # CodeRabbit twin of check_codex_p1_gate (#577). Verifies
+        # scripts/coderabbit-severity-gate.sh +
+        # .github/workflows/coderabbit-severity-gate.yml +
+        # tests/test_coderabbit_severity_gate.sh exist, checks the
+        # workflow trigger shape, then runs the fixture-driven suite.
+        run: ./scripts/ci/check_coderabbit_severity_gate
+
+      - name: check_feedback_policy_helpers
+        run: ./scripts/ci/check_feedback_policy_helpers
+
+      - name: check_merge_clearance_gate
+        run: ./scripts/ci/check_merge_clearance_gate
+
+      - name: install_yq_for_sync_manifest
+        # mikefarah/yq is needed by check_sync_manifest and by
+        # check_resolve_pr_threads (whose delegated
+        # tests/test_resolve_pr_threads_verified_propagation.sh suite,
+        # #572, parses the sync manifest and hard-fails without yq —
+        # fail-closed by design, so this install MUST precede it).
+        # Ordered before the FIRST yq-dependent check; keep it ahead of
+        # check_resolve_pr_threads if steps are reshuffled.
+        #
+        # Single source for the version pin: scripts/lib/ensure-yq.sh
+        # (#616), which check_resolve_pr_threads also invokes (CI-only)
+        # so it stays self-sufficient when a consumer's repo_lint.yml
+        # lags the manifest-synced scripts/ci kit (#601 skew window).
+        # The reverse skew (this workflow arriving before the lib) falls
+        # back to the runner image's preinstalled yq 4.x rather than
+        # duplicating the pin inline — but only after the same
+        # implementation sniff ensure-yq.sh applies (#616 finding
+        # 3510689523): any other executable named yq (e.g. the Python
+        # wrapper) would pass a bare `command -v` and then fail the
+        # later mikefarah-v4 manifest parses with opaque errors instead
+        # of failing loudly here.
+        run: |
+          if [ -f scripts/lib/ensure-yq.sh ]; then
+            bash scripts/lib/ensure-yq.sh
+          elif command -v yq >/dev/null 2>&1 \
+              && yq --version 2>&1 | grep -q "mikefarah/yq"; then
+            echo "scripts/lib/ensure-yq.sh not synced yet (#601 skew) — using preinstalled $(yq --version)"
+          else
+            echo "FAIL: scripts/lib/ensure-yq.sh is missing and no mikefarah/yq is on PATH — sync scripts/lib/ensure-yq.sh (the single-source pinned bootstrap) to resolve" >&2
+            exit 1
+          fi
+
+      - name: check_resolve_pr_threads
+        # Requires yq via the delegated verified-propagation suite —
+        # runs after install_yq_for_sync_manifest above (Codex P2 on
+        # #616, finding 3509567286).
+        run: ./scripts/ci/check_resolve_pr_threads
+
+      - name: check_gh_as_author
+        run: ./scripts/ci/check_gh_as_author
+
+      - name: check_no_bare_gh_writes
+        run: ./scripts/ci/check_no_bare_gh_writes
+
+      - name: check_op_preflight_contract
+        run: ./scripts/ci/check_op_preflight_contract
+
+      - name: check_onepassword_headless_proof_workflow
+        run: ./scripts/ci/check_onepassword_headless_proof_workflow
+
+      - name: check_eslint_config_present
+        run: ./scripts/ci/check_eslint_config_present
+
+      - name: check_eslint_config_policy
+        run: ./scripts/ci/check_eslint_config_policy
+
+      - name: check_auto_clear_workflow
+        run: ./scripts/ci/check_auto_clear_workflow
+
+      - name: check_pr_audit_codex_clearance
+        run: ./scripts/ci/check_pr_audit_codex_clearance
+
+      - name: check_pr_audit_sync_exemption
+        run: ./scripts/ci/check_pr_audit_sync_exemption
+
+      - name: check_sweep_unresolved_feedback
+        run: ./scripts/ci/check_sweep_unresolved_feedback
+
+      - name: check_repo_lint_consumer_safety
+        # #601 consumer-safety net (Codex P2 on #624: it existed unwired).
+        # Re-runs every check_* wrapper inside a consumer-SHAPED checkout
+        # and fails if any errors instead of skipping/passing — catching a
+        # hub-only check that would red a consumer BEFORE a wave ships it.
+        # Hub-only (needs the full hub tree); SKIPs on consumers. The
+        # longest check in this job (a few minutes) — keep it late in the
+        # step list so cheap checks fail fast first.
+        run: ./scripts/ci/check_repo_lint_consumer_safety
+
+      - name: check_disagreement_detector
+        run: ./scripts/ci/check_disagreement_detector
+
+      - name: check_sync_manifest
+        # Requires mikefarah/yq — installed by install_yq_for_sync_manifest,
+        # which now runs earlier (before check_resolve_pr_threads, the
+        # first yq-dependent step; see that step for the pin rationale).
+        run: ./scripts/ci/check_sync_manifest
+
+      - name: check_propagation_closure
+        # Systemic closure-completeness guard — the INVERSE of
+        # check_sync_manifest (#519/#521). check_sync_manifest validates
+        # every DECLARED requires:; this scans references OUT of every
+        # propagated scripts/ci/check_* + canonical workflow and fails if
+        # any on-disk tests/+scripts/ reference is undeclared (would not
+        # travel to consumers → the referencing tool fails closed there).
+        # Shares the yq install with check_sync_manifest above.
+        run: ./scripts/ci/check_propagation_closure
+
+      - name: check_sync_overrides
+        # Exercises tests/test_sync_overrides.sh — verifies the
+        # per-consumer sync override semantics (#200) so a downstream
+        # repo can opt files out of the propagation lane without the
+        # mirror lane silently re-overwriting them.
+        run: ./scripts/ci/check_sync_overrides
+
+      - name: check_sync_to_downstream
+        # Exercises tests/test_sync_to_downstream.sh — the propagation
+        # engine suite that structurally guards scripts/sync-to-downstream.sh:
+        # the executable-bit mode-mirror chmod branches (#217), mktemp
+        # portability, and the git-index mode staging that keeps
+        # propagation core.filemode-robust (templated #475, canonical/kit
+        # #476). Ordered after install_yq_for_sync_manifest so the suite
+        # runs rather than self-skipping on a missing yq. Wired in #488.
+        run: ./scripts/ci/check_sync_to_downstream
+
+      - name: check_template_substitution
+        # Exercises tests/test_template_substitution.sh — verifies the
+        # Layer 5 template-substitution lib's v1 syntax (variable
+        # substitution, conditional blocks, comment-prefix flexibility,
+        # malformed-template error paths, strict-mode fact-miss, atomic
+        # render_to). The lib is the substitution engine for the
+        # `type: templated` manifest entries (activated in a follow-up
+        # PR); the check is wired now so the lib's contract is guarded
+        # independently of integration.
+        run: ./scripts/ci/check_template_substitution
+
+      - name: check_export_consumer_facts
+        # Exercises tests/test_export_consumer_facts.sh — regression-
+        # guards the yq filter inside scripts/sync-to-downstream.sh's
+        # export_consumer_facts() against the mikefarah-yq-incompatible
+        # `if (tag == "!!X") then ... else ... end` form that silently
+        # broke Phase D's first real-frameworks consumer (every
+        # templated render fell through to the "no frameworks"
+        # baseline because MERGEPATH_FACT_* was never exported).
+        run: ./scripts/ci/check_export_consumer_facts
+
+      - name: check_coderabbit_config
+        # Validates the template-level .coderabbit.yml stays on the
+        # nit-suppressing profile (chill). Shares the yq install with
+        # check_sync_manifest above. See #237 for the rationale.
+        #
+        # Scope (per Codex P2 on #256): the profile=chill enforcement
+        # only runs when the executing repo is the Mergepath template
+        # itself, detected via GITHUB_REPOSITORY (always set by Actions).
+        # Consumer repos that inherit this workflow via the template-
+        # mirror bootstrap still get the YAML parse + file-existence
+        # checks but are free to set reviews.profile: assertive locally
+        # without their CI failing.
+        run: ./scripts/ci/check_coderabbit_config
+
+      - name: check_coderabbit_config_tests
+        # Unit tests for check_coderabbit_config itself — covers the
+        # template-vs-consumer detection logic and the assertion paths
+        # added by #256 P2.
+        run: ./scripts/ci/check_coderabbit_config_tests
+
+      - name: check_coderabbit_wait
+        # Unit tests for coderabbit-wait.sh's timeout status probe.
+        # Verifies exit-4 status probing stays advisory, surfaces the
+        # reply in JSON, and never counts the reply as clearance.
+        run: ./scripts/ci/check_coderabbit_wait
+
+      - name: check_coderabbit_record_feedback
+        # CodeRabbit disposition-verdict ledger (#584) — the disposition-only
+        # twin of check_codex_scripts' codex-record-feedback coverage (#487).
+        # Verifies scripts/coderabbit-record-feedback.sh exists + is
+        # executable and runs its PATH-shimmed offline suite, including the
+        # #574 asymmetry guarantee that the recorder never issues a gh write.
+        # The `|| { ...; }` tail is the #590-style self-bootstrap guard:
+        # soft-pass when the check script is absent in this tree (a checkout
+        # whose repo_lint.yml arrived ahead of the scripts/ci kit sync — the
+        # #601 skew window); the check activates the moment the kit lands.
+        run: ./scripts/ci/check_coderabbit_record_feedback || { rc=$?; if [ ! -f scripts/ci/check_coderabbit_record_feedback ]; then echo "check_coderabbit_record_feedback not in this tree yet; soft-pass (bootstrap skew)"; else exit "$rc"; fi; }
+
+      - name: check_mktemp_portability
+        # Regression guard for mergepath#286. Hard-fails on any
+        # tracked shell file using the BSD-only `mktemp -t <prefix>`
+        # form, which GNU coreutils mktemp rejects (XXXXXX required).
+        # Closes the re-introduction surface that the closed-review
+        # backlog sweep on #286 caught.
+        run: ./scripts/ci/check_mktemp_portability
 
       - name: check_governance_files
         run: |
@@ -61,31 +419,3 @@ jobs:
             fi
           done
           exit $MISSING
-
-  eslint:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
-
-      # `npm run lint` (eslint) had never run in CI — the job above only
-      # executes the scripts/ci/* structure checks. eslint errors, such as
-      # the preserve-caught-error break repaired in #519, therefore stayed
-      # latent until someone ran lint locally with lockfile-exact deps.
-      # This job closes that gap.
-      - name: install_dependencies
-        # package-lock.json is gitignored, so `npm ci` is unavailable;
-        # install straight from package.json.
-        #   --no-save        leave package.json untouched
-        #   --ignore-scripts the eslint toolchain needs no lifecycle hooks,
-        #                    and this skips the credentialed prebuild
-        #                    image-refresh scripts
-        # NOTE: unlike the ad-hoc js-yaml installs in agent-review.yml /
-        # pr-audit.yml, this step deliberately omits --legacy-peer-deps.
-        # `typescript` is a PEER dependency of typescript-eslint (and of
-        # astro's tsconfck), not a direct dependency; --legacy-peer-deps
-        # would skip it and `eslint .` would then fail with
-        # "Cannot find module 'typescript'" on the .astro / .ts sources.
-        run: npm install --no-save --ignore-scripts
-
-      - name: eslint
-        run: npm run lint
