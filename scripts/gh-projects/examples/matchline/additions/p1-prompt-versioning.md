@@ -20,7 +20,7 @@ Prompts will iterate ~50 times across Phase 1 → Phase 3. Without a versioning 
    ```
 2. **Loader.** `functions/src/prompts/<stage>/index.ts` exports `loadPrompt("resume")` which reads the currently-active version from `modelConfig.ts` (`promptConfig.extraction.resume = "v1"`), loads the `.md` body and the co-located schema, and returns `{ template, schema, version, stage }`. Call sites never string-concat paths or hardcode versions.
 3. **CI lint.** Add `scripts/ci/check_prompt_schema_pairs` that fails CI if any `*.v<N>.md` lacks a co-located `*.v<N>.schema.ts`, or vice versa. Keeps prompt and schema from drifting.
-4. **Eval harness support.** The harness (see the Phase 0 bootstrap ticket and #25) accepts `--prompt-version <stage>=<version>` to pin a specific version per fixture run. Enables v2 dry-runs against the full corpus without flipping `modelConfig.ts`.
+4. **Eval harness support.** The harness (see the Phase 0 bootstrap ticket and #25) accepts `--prompt-version <stage>/<name>=<version>` (e.g. `--prompt-version extraction/resume=v2`) to pin a specific version per fixture run, matching the `<stage>/<name>.v<N>.md` directory convention from item 1 so a stage with multiple named prompts can be disambiguated. Enables v2 dry-runs against the full corpus without flipping `modelConfig.ts`.
 5. **Migrate PR #4 stubs.** Any prompt scaffolding currently sitting inline in `functions/src/llm/*` moves into this directory structure. If there is no prompt code yet (PR #4 is wrappers only), this scope is trivially satisfied and the convention simply applies to the first prompt ticket (#17).
 
 **Non-goals:**

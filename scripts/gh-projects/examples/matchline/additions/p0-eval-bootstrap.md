@@ -7,7 +7,7 @@ Measurable quality from the first prompt that ships. See the comment on #25 for 
 **Scope:**
 
 1. **Harness skeleton.** `tests/eval/` directory with:
-   - `run.ts` — entry point. Walks `tests/fixtures/resumes/*.txt`, calls extraction, diffs against `tests/fixtures/expected/*.json`, prints per-fixture and aggregate scores. Green on empty fixture set.
+   - `run.ts` — entry point. Walks `tests/fixtures/resumes/*.txt`, calls extraction, diffs against `tests/fixtures/expected-units/*.json`, prints per-fixture and aggregate scores. Green on empty fixture set.
    - `scoring.ts` — pure functions (normalized-Unit edit distance, top-K match overlap). Unit-tested in isolation.
    - `report.ts` — stdout formatter: per-fixture row + aggregate summary (accuracy %, p50/p95 latency, p50/p95 cost per eval run).
 2. **Fixture directories.** Create `tests/fixtures/resumes/`, `tests/fixtures/jds/`, `tests/fixtures/expected-units/`, `tests/fixtures/expected-matches/`, `tests/fixtures/expected-asset-traces/` with `.gitkeep` files and a short `README.md` explaining the expected format.
