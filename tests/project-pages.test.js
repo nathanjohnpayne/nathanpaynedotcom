@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { existsSync, readFileSync, readdirSync } from 'fs';
 import { resolve, join } from 'path';
 
@@ -448,6 +448,74 @@ describe('Project Pages — screenshot aspect variants', () => {
     expect(muxScript).toMatch(/muxEmbedStatus===['"]error['"]/);
     expect(muxScript).toContain('Promise.resolve()');
   });
+
+  it.each(['loaded', 'error'])(
+    '#265 regression: loadMuxEmbed short-circuits when script[data-mux-embed] is already settled (%s)',
+    async (settledStatus) => {
+      const html = readDistHtml('projects/swipe-watch/index.html');
+      setupDOM(html);
+
+      // The bundle's top-level module logic reads `window.matchMedia`
+      // eagerly; jsdom doesn't implement it, so stub it before importing.
+      Object.defineProperty(window, 'matchMedia', {
+        writable: true,
+        value: vi.fn((query) => ({
+          matches: false,
+          media: query,
+          addEventListener: vi.fn(),
+          removeEventListener: vi.fn(),
+          addListener: vi.fn(),
+          removeListener: vi.fn(),
+          onchange: null,
+          dispatchEvent: vi.fn(),
+        })),
+      });
+
+      const moduleSrcs = Array.from(
+        html.matchAll(/<script type="module" src="([^"]+)"/g),
+        (match) => match[1],
+      );
+      const muxSrc = moduleSrcs.find((src) =>
+        readFileSync(resolve(DIST, src.replace(/^\//, '')), 'utf-8').includes(
+          'https://cdn.jsdelivr.net/npm/mux-embed@5.18.0',
+        ),
+      );
+      expect(muxSrc, 'Mux runtime module not found').toBeTruthy();
+
+      // Pre-seed a settled mux-embed script tag, mirroring a page revisit
+      // where the embed already finished loading (or failed) earlier, and
+      // spy on its listener registration: a broken settled-branch check
+      // would re-attach 'load'/'error' listeners that can never fire on
+      // this inert stub tag, hanging the loader's promise forever.
+      const existingScript = document.createElement('script');
+      existingScript.setAttribute('data-mux-embed', 'true');
+      existingScript.dataset.muxEmbedStatus = settledStatus;
+      const addEventListenerSpy = vi.spyOn(existingScript, 'addEventListener');
+      document.head.appendChild(existingScript);
+
+      // Import the built module fresh (cache-busted) so its top-level
+      // loadMuxEmbed() invocation runs against our seeded DOM state.
+      await import(
+        /* @vite-ignore */ resolve(DIST, muxSrc.replace(/^\//, '')) + `?settled-${settledStatus}`
+      );
+
+      // Give the module's Promise chain a tick to settle.
+      await new Promise((r) => setTimeout(r, 0));
+
+      expect(
+        addEventListenerSpy,
+        'loadMuxEmbed must not attach load/error listeners to an already-settled script',
+      ).not.toHaveBeenCalled();
+
+      const muxEmbedScripts = document.querySelectorAll('script[data-mux-embed]');
+      expect(
+        muxEmbedScripts.length,
+        'loadMuxEmbed must not append a new script when one is already settled',
+      ).toBe(1);
+      expect(muxEmbedScripts[0]).toBe(existingScript);
+      expect(existingScript.dataset.muxEmbedStatus).toBe(settledStatus);
+    },
+  );
 
   it('only Swipe Watch opts into the Mux hero today', () => {
     for (const slug of projectSlugs.filter((projectSlug) => projectSlug !== 'swipe-watch')) {
