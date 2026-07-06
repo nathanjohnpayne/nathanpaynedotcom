@@ -64,6 +64,9 @@ test('Swipe Watch hero honors prefers-reduced-motion: no autoplay, poster + play
   // Explicit play is an opt-in to motion: with the stream aborted, the
   // normal failure path now applies and the animated GIF may load.
   await playButton.click();
+  await expect(frame).toHaveAttribute('data-playback-state', /^(loading|fallback)$/);
+  await expect(playButton).toBeHidden();
   await expect(frame).toHaveAttribute('data-playback-state', 'fallback', { timeout: 7000 });
   await expect(fallback).toHaveAttribute('src', /\/images\/projects\/swipe-watch-hero\.gif$/);
+  await expect(playButton).toBeVisible();
 });
