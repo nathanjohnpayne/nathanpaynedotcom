@@ -45,6 +45,18 @@ else
   fail "codex-review-check.sh is missing the verdict signal (CODEX_HEAD_VERDICT_TIME / issue-comments fetch / affirmative regex / reviewed-commit scan / prefix anchor / #600)"
 fi
 
+# ── 1b. Structural (#705): same-content carry-forward is present, is routed
+#       through the trusted workflow helper, and is only added as a fallback
+#       when no current-head Codex signal exists.
+if grep -q "CODEX_CARRYFORWARD_VERDICT_TIME" "$SCRIPT" \
+   && grep -q "external_review_carryforward.sh" "$SCRIPT" \
+   && grep -q 'LATEST_SIGNAL_KIND="carry_verdict"' "$SCRIPT" \
+   && grep -q "#705" "$SCRIPT"; then
+  pass "codex-review-check.sh carries forward prior clean Codex verdicts for unchanged external-review fingerprints (#705)"
+else
+  fail "codex-review-check.sh is missing same-content Codex verdict carry-forward (#705)"
+fi
+
 # ── 2. Structural: gate (b) branch 2 accepts the verdict comment as a
 #      same-agent cross-review signal (elif after the 👍 branch).
 if grep -q 'elif \[ -n "\$CODEX_HEAD_VERDICT_TIME" \]; then' "$SCRIPT" \
@@ -77,6 +89,19 @@ if grep -q "CODEX_HEAD_VERDICT_ANY_TIME" "$SCRIPT" \
   pass "codex-review-check.sh selects latest verdict first, anchors the affirmative match to the Codex verdict header, and folds the any-verdict timestamp into the Phase 4b guard (#608 P1/P2/CR-Major)"
 else
   fail "codex-review-check.sh is missing the latest-verdict-first restructure (max_by / CODEX_HEAD_VERDICT_ANY_TIME / #608)"
+fi
+
+# ── 3c. Structural (#727, Codex P2 on #729): the CODEX_REVIEW_CHECK_ALLOW_PHASE_4B_SUBSTITUTE
+#      env var overrides the policy value, taking precedence over
+#      `codex_field allow_phase_4b_substitute`. The post-clearance fast-path
+#      probe sets it to false so gate (c) requires an ACTUAL Codex bot signal and
+#      is NOT satisfied by the same reviewer APPROVED that clears gate (b) — the
+#      env override must win, else a bare under-threshold approval would arm the
+#      shortened CodeRabbit wait and reopen the pre-review merge race.
+if grep -Eq 'ALLOW_PHASE_4B_SUBSTITUTE=\$\{CODEX_REVIEW_CHECK_ALLOW_PHASE_4B_SUBSTITUTE:-\$\(codex_field allow_phase_4b_substitute\)\}' "$SCRIPT"; then
+  pass "gate (c) honors the CODEX_REVIEW_CHECK_ALLOW_PHASE_4B_SUBSTITUTE env override, precedence over policy (#727 fast-path probe requires an actual Codex signal)"
+else
+  fail "codex-review-check.sh does not let CODEX_REVIEW_CHECK_ALLOW_PHASE_4B_SUBSTITUTE override the policy value (#727)"
 fi
 
 # ── 4. Inline logic: the verdict-matching jq filter. KEEP IN SYNC with

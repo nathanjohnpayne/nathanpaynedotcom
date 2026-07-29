@@ -124,6 +124,17 @@
 #       "created_at": "<iso-8601>",
 #       "affirmative": true | false
 #     },
+#     "blocked_reason": null | "usage_limit" | "not_connected",
+#     # Account-/connection-level failure marker (#722). Set when the Codex
+#     # bot answered the trigger with a quota-exhaustion ("usage_limit") or
+#     # app-not-connected ("not_connected") comment instead of a review. It
+#     # short-circuits the poll (re-polling/re-triggering cannot clear it)
+#     # and the script exits 4 (FALLBACK_REQUIRED) so the caller routes to
+#     # Phase 4b — but with the real cause named rather than a generic
+#     # timeout. Detected via the shared regexes in
+#     # scripts/lib/codex-failure-markers.sh, the same patterns
+#     # audit-codex-latency.sh classifies. null on the normal signal/timeout
+#     # paths.
 #     # HEAD-anchored Codex issue-comment verdict (#600/#567), recognized by
 #     # this poller as of #609. "affirmative" mirrors codex-review-check.sh's
 #     # CODEX_HEAD_VERDICT_TIME matcher: true only for the stable "Codex
@@ -138,9 +149,16 @@
 # Exit codes:
 #   0   Codex signal received on current HEAD. JSON on stdout.
 #   3   API / infrastructure error. Error message on stderr.
-#   4   FALLBACK_REQUIRED — timed out waiting for a Codex signal. The
-#       caller should route to REVIEW_POLICY.md § Phase 4b. See #27 for
-#       the explicit-review-required decision that mandates this path.
+#   4   FALLBACK_REQUIRED — no Codex signal on current HEAD. The caller
+#       should route to REVIEW_POLICY.md § Phase 4b. See #27 for the
+#       explicit-review-required decision that mandates this path. Two
+#       sub-cases, distinguished by the `blocked_reason` field in the JSON:
+#       a plain timeout (blocked_reason:null) waited out the full window,
+#       whereas a detected account-/connection-level block
+#       (blocked_reason:"usage_limit"|"not_connected", #722) short-circuits
+#       the wait immediately — re-polling/re-triggering cannot help until a
+#       human upgrades/connects the account, so the handoff should name the
+#       real cause rather than "wait longer."
 #   5   NO_TRIGGER_REQUESTED — the Phase 4a entry decision (#486) chose
 #       NOT to request a Codex review on this PR: either codex.enabled is
 #       false (route to Phase 4b), or codex.request_by_default is false
@@ -177,6 +195,22 @@ if [ -r "$__CODEX_REQUEST_DIR/lib/preflight-helpers.sh" ]; then
   # perform is the `@codex review` trigger, which must be authored by
   # nathanjohnpayne. The wrapper verifies that token before posting.
   preflight_require_token author || true
+fi
+
+# --- Codex failure-marker regexes (#722) ------------------------------------
+# Source the shared usage-limit / not-connected marker patterns so the poll
+# loop can recognize an account-level quota or app-not-connected comment and
+# short-circuit the wait instead of running out the full review timeout (the
+# generic-timeout failure described in #722). Existence-guarded like the
+# preflight source above: a consumer in the middle of a sync skew may not yet
+# carry the lib, in which case marker detection degrades to the pre-#722
+# behavior (run to timeout) rather than hard-erroring — the lib is declared
+# as a `requires:` of this script so the skew window is short.
+CODEX_FAILURE_MARKERS_OK=false
+if [ -r "$__CODEX_REQUEST_DIR/lib/codex-failure-markers.sh" ]; then
+  # shellcheck source=lib/codex-failure-markers.sh
+  . "$__CODEX_REQUEST_DIR/lib/codex-failure-markers.sh"
+  CODEX_FAILURE_MARKERS_OK=true
 fi
 
 # --- argument parsing -------------------------------------------------------
@@ -218,13 +252,11 @@ if [ -z "$REPO" ]; then
   fi
 fi
 
-if [ -z "${GH_TOKEN:-}" ]; then
-  echo "ERROR: GH_TOKEN is required. Either:" >&2
-  echo "  - Run: eval \"\$(scripts/op-preflight.sh --agent <agent> --mode review)\"" >&2
-  echo "    so this helper auto-sources OP_PREFLIGHT_AUTHOR_PAT, OR" >&2
-  echo "  - Set GH_TOKEN inline per REVIEW_POLICY.md § PAT lookup table." >&2
-  exit 3
-fi
+# GH_TOKEN write-token resolution is DEFERRED to just after author_identity
+# is parsed from review-policy.yml (below). That ordering lets the #737
+# keyring fallback resolve `gh auth token --user <author_identity>` when the
+# op-preflight cache has lapsed — the author identity must be known first.
+# See the "write-token resolution (#737)" block after AUTHOR_IDENTITY.
 
 # --- config readers ---------------------------------------------------------
 
@@ -285,6 +317,50 @@ policy_top_field() {
 # whether an ambient GH_TOKEN may be bridged into gh-as-author.sh.
 AUTHOR_IDENTITY=$(policy_top_field author_identity)
 AUTHOR_IDENTITY=${AUTHOR_IDENTITY:-nathanjohnpayne}
+
+# --- write-token resolution (#737) ------------------------------------------
+# Resolve a GitHub token for this helper's API reads and its one write (the
+# `@codex review` trigger, posted through gh-as-author.sh). Two independent
+# sources satisfy it, tried in order:
+#
+#   1. GH_TOKEN already in the environment — exported inline by the caller,
+#      or auto-sourced from a FRESH op-preflight cache by
+#      preflight_require_token above.
+#   2. The gh keyring's stored author account: `gh auth token --user
+#      <author_identity>`. This fallback closes the #737 gap. In a
+#      long-running session the op-preflight cache TTL (36000s = 10h since
+#      #765) can lapse, leaving GH_TOKEN unset even though the keyring still
+#      has the author account authenticated. Before #737 the hard guard exited 3
+#      WITHOUT ever posting the trigger, so `@codex review` silently no-op'd;
+#      callers that pipe `| tail -1` and ignore the exit code then proceeded
+#      to merge as if Codex had been asked (observed on gaycruisebingo PRs
+#      #78/#79 — 0 triggers posted). The keyring fallback lets the trigger
+#      succeed whenever EITHER source is available.
+#
+# author_identity (parsed from review-policy.yml above) is the account the
+# trigger must be attributed to — Codex ignores non-author triggers — and is
+# the identity post_codex_trigger writes as via gh-as-author.sh, so a keyring
+# token for it also bridges cleanly into that write (#438).
+if [ -z "${GH_TOKEN:-}" ] && command -v gh >/dev/null 2>&1; then
+  GH_TOKEN=$(gh auth token --user "$AUTHOR_IDENTITY" 2>/dev/null || true)
+  if [ -n "$GH_TOKEN" ]; then
+    export GH_TOKEN
+    echo "[codex-review-request] GH_TOKEN was unset and no fresh op-preflight cache was found — resolved the author token from the gh keyring for '$AUTHOR_IDENTITY' (#737)" >&2
+  fi
+fi
+if [ -z "${GH_TOKEN:-}" ]; then
+  # Fail LOUD (#737): a caller that pipes `| tail -1` and ignores the exit
+  # code must NOT mistake a non-post for a completed request. Non-zero exit
+  # plus an unmissable stderr banner naming the two exhausted sources.
+  echo "ERROR: could not resolve a GitHub token to post the '@codex review' trigger." >&2
+  echo "       The '@codex review' trigger was NOT posted — do NOT treat Codex as requested (#737)." >&2
+  echo "       Tried, in order:" >&2
+  echo "         1. an already-exported GH_TOKEN / fresh op-preflight cache" >&2
+  echo "            (run: eval \"\$(scripts/op-preflight.sh --agent <agent> --mode review)\")" >&2
+  echo "         2. the gh keyring author account '$AUTHOR_IDENTITY'" >&2
+  echo "            (authenticate once with: gh auth login)" >&2
+  exit 3
+fi
 
 # review_timeout_seconds: foreground poll budget for a Codex terminal signal
 # on HEAD. Default 840s is measured, not folklore (#623): the trigger→verdict
@@ -483,6 +559,7 @@ if ! should_request_codex; then
       findings: [],
       reaction: null,
       verdict: null,
+      blocked_reason: null,
       trigger_posted: false,
       trigger_requested: false,
       rounds_waited_seconds: 0
@@ -562,7 +639,7 @@ log "ack_wait = ${ACK_WAIT_SECONDS}s    max_ack_retries = $MAX_ACK_RETRIES"
 # success. Emits empty object { "review": null, "findings": [], "reaction": null }
 # if nothing matches yet.
 scan_codex_state() {
-  local reviews comments reactions issue_comments review findings reaction verdict
+  local reviews comments reactions issue_comments review findings reaction verdict blocked
 
   reviews=$(fetch_api_array "repos/$REPO/pulls/$PR_NUMBER/reviews" "reviews")
   comments=$(fetch_api_array "repos/$REPO/pulls/$PR_NUMBER/comments" "inline comments")
@@ -674,9 +751,62 @@ scan_codex_state() {
     | max_by(.created_at) // null
   ')
 
-  jq -n --argjson review "$review" --argjson findings "$findings" --argjson reaction "$reaction" --argjson verdict "$verdict" '
-    { review: $review, findings: $findings, reaction: $reaction, verdict: $verdict }
+  # Account-/connection-level failure marker (#722). Codex answers a trigger
+  # with a plain comment — no findings, no `Reviewed commit:` anchor, no
+  # reaction — when the account is quota-exhausted ("usage_limit") or the App
+  # is not connected ("not_connected"). None of the signal kinds above match
+  # it, so without this the poll runs out the full review_timeout_seconds
+  # window and exits 4, indistinguishable from a slow review. Select the
+  # LATEST such marker (by created_at) so the poll can compare it against the
+  # trigger threshold like any other signal.
+  #
+  # Precedence mirrors audit-codex-latency.sh's normalize phase: a bot
+  # comment that is a VERDICT (its header line starts "Codex Review:") is
+  # never a marker — exclude it first — so a findings verdict whose body
+  # happens to mention e.g. "rate limit" is not misread as a quota block.
+  # usage_limit wins over not_connected on a comment matching both.
+  if [ "$CODEX_FAILURE_MARKERS_OK" = "true" ]; then
+    blocked=$(echo "$issue_comments" | jq -c \
+      --arg bot "$BOT_LOGIN" \
+      --arg usage_re "$CODEX_USAGE_LIMIT_MARKER_RE" \
+      --arg nc_re "$CODEX_NOT_CONNECTED_MARKER_RE" '
+      [ .[]
+        | select(.user.login == $bot)
+        | select(((.body // "") | test("(?im)^\\s*codex review:")) | not)
+        | ( if ((.body // "") | test($usage_re; "i")) then "usage_limit"
+            elif ((.body // "") | test($nc_re; "i")) then "not_connected"
+            else null end ) as $reason
+        | select($reason != null)
+        | { reason: $reason, created_at: .created_at, comment_id: .id }
+      ]
+      | max_by(.created_at) // null
+    ')
+  else
+    blocked='null'
+  fi
+
+  jq -n --argjson review "$review" --argjson findings "$findings" --argjson reaction "$reaction" --argjson verdict "$verdict" --argjson blocked "$blocked" '
+    { review: $review, findings: $findings, reaction: $reaction, verdict: $verdict, blocked: $blocked }
   '
+}
+
+# Echo the failure-marker reason (usage_limit|not_connected) carried by a scan
+# that should short-circuit the wait, else empty. When a trigger was posted
+# this run, the marker must be at/after the trigger threshold (a response to
+# THIS trigger, mirroring has_post_trigger_signal); otherwise any marker
+# counts. A usage_limit / not_connected block cannot be cleared by re-polling
+# or re-triggering — only a human upgrading/connecting the account resolves
+# it — so treating it as a wait-ending signal is correct (#722).
+current_blocked_reason() {
+  local scan=$1
+  if [ "$TRIGGER_POSTED" = "true" ]; then
+    local after=${TRIGGER_SIGNAL_THRESHOLD:-$TRIGGER_POST_TIME}
+    echo "$scan" | jq -r --arg after "$after" '
+      if (.blocked != null and .blocked.created_at >= $after)
+      then .blocked.reason else "" end'
+  else
+    echo "$scan" | jq -r 'if .blocked != null then .blocked.reason else "" end'
+  fi
 }
 
 # Returns 0 iff the scan produced ANY signal (review, reaction, or
@@ -900,6 +1030,20 @@ post_codex_trigger() {
     fi
   fi
 
+  # Post-write readback (#737): a genuinely-posted trigger yields an
+  # `issuecomment-<id>` reference in gh's output (TRIGGER_COMMENT_ID above).
+  # If gh-as-author reported success but produced no identifiable comment, do
+  # NOT let the caller treat Codex as requested on the strength of a post we
+  # cannot confirm landed — surface it as a LOUD, unmissable warning. (A hard
+  # write failure already exited 3 in the branches above; this catches the
+  # rarer "success with nothing to show for it" case, e.g. a gh output-format
+  # change.)
+  if [ -n "$TRIGGER_COMMENT_ID" ]; then
+    log "confirmed '@codex review' trigger posted as comment $TRIGGER_COMMENT_ID (post-write readback, #737)"
+  else
+    echo "[codex-review-request] WARNING: '@codex review' write returned success but yielded no comment id — cannot confirm the trigger landed; verify before treating Codex as requested (#737)" >&2
+  fi
+
   # Terminal Codex signals should be accepted if they respond to any
   # trigger posted in this script run. Retries still update
   # TRIGGER_POST_TIME for eyes-ack polling, but must not advance the
@@ -951,6 +1095,14 @@ wait_for_trigger_ack() {
     # eyes is only an acknowledgment, never a clearance signal.
     if ! FINAL_SCAN=$(scan_codex_state); then
       die 3 "eyes-ack Codex scan failed"
+    fi
+    # An account-/connection-level block during the ack window is terminal
+    # too (#722): re-posting `@codex review` cannot help a quota-exhausted or
+    # not-connected account, so stop the ack gate (no re-trigger) and let the
+    # poll loop short-circuit on the marker FINAL_SCAN already carries.
+    if [ -n "$(current_blocked_reason "$FINAL_SCAN")" ]; then
+      log "Codex reported '$(current_blocked_reason "$FINAL_SCAN")' during eyes-ack wait — no re-trigger (a human must resolve it); handing to the poll loop to short-circuit (#722)"
+      return 0
     fi
     if has_post_trigger_signal "$FINAL_SCAN"; then
       log "Codex terminal signal arrived during eyes-ack wait — no re-trigger needed"
@@ -1044,6 +1196,7 @@ if [ "$TRIGGER_ONLY" = "true" ]; then
       findings: [],
       reaction: null,
       verdict: null,
+      blocked_reason: null,
       trigger_posted: $trigger_posted,
       trigger_requested: true,
       trigger_only: true,
@@ -1056,7 +1209,7 @@ if [ "$TRIGGER_POSTED" = "true" ]; then
   # We just posted a trigger. The INITIAL_SCAN data is now stale by
   # definition — Codex will respond with something new. Skip the
   # initial has_signal check; force the loop to actually poll.
-  FINAL_SCAN='{"review":null,"findings":[],"reaction":null,"verdict":null}'
+  FINAL_SCAN='{"review":null,"findings":[],"reaction":null,"verdict":null,"blocked":null}'
   run_trigger_ack_gate
 else
   FINAL_SCAN=$INITIAL_SCAN
@@ -1076,6 +1229,20 @@ while :; do
     fi
   elif has_signal "$FINAL_SCAN"; then
     log "Codex signal received after ${ELAPSED}s"
+    break
+  fi
+
+  # Short-circuit on an account-/connection-level failure marker (#722).
+  # A usage_limit or not_connected comment is terminal: no further polling
+  # or re-triggering can produce a review until a human acts (upgrade / add
+  # credits / connect the App), so break immediately instead of burning the
+  # rest of the timeout. The exit-code logic below still exits 4
+  # (FALLBACK_REQUIRED) because no real Codex signal arrived — but now with
+  # blocked_reason in the JSON so the caller (and the Phase 4b handoff) can
+  # name the real cause instead of a generic timeout.
+  BLOCKED_REASON_NOW=$(current_blocked_reason "$FINAL_SCAN")
+  if [ -n "$BLOCKED_REASON_NOW" ]; then
+    log "Codex reported '$BLOCKED_REASON_NOW' after ${ELAPSED}s — short-circuiting the wait; re-polling/re-triggering cannot clear it. Routing to Phase 4b with blocked_reason=$BLOCKED_REASON_NOW (#722)"
     break
   fi
 
@@ -1104,6 +1271,11 @@ done
 
 # --- emit final JSON --------------------------------------------------------
 
+# Surface the account-/connection-level block (#722) on the final scan, using
+# the same post-trigger anchoring as the poll short-circuit so a stale marker
+# from a prior HEAD does not leak into this run's report. Empty ⇒ null.
+BLOCKED_REASON=$(current_blocked_reason "$FINAL_SCAN")
+
 jq -n \
   --argjson pr_number "$PR_NUMBER" \
   --arg repo "$REPO" \
@@ -1112,6 +1284,7 @@ jq -n \
   --arg bot_login "$BOT_LOGIN" \
   --argjson scan "$FINAL_SCAN" \
   --argjson trigger_posted "$TRIGGER_POSTED" \
+  --arg blocked_reason "$BLOCKED_REASON" \
   --argjson elapsed "$ELAPSED" '
   {
     pr_number: $pr_number,
@@ -1123,6 +1296,7 @@ jq -n \
     findings: $scan.findings,
     reaction: $scan.reaction,
     verdict: $scan.verdict,
+    blocked_reason: (if $blocked_reason == "" then null else $blocked_reason end),
     trigger_posted: $trigger_posted,
     trigger_requested: true,
     rounds_waited_seconds: $elapsed
