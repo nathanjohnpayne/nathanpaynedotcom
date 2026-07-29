@@ -142,15 +142,28 @@ jobs:
     outputs:
       needs_external: ${{ steps.check.outputs.needs_external }}
     steps:
+      - name: Checkout trusted workflow helpers
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # This job shells out only to trusted default-branch helpers; never
+          # run helper code from the PR head under the label-writing PAT.
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+
       - name: Evaluate PR against review-policy.yml
         id: check
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         env:
           THRESHOLD: ${{ needs.load-config.outputs.threshold }}
           PROTECTED_PATHS: ${{ needs.load-config.outputs.paths }}
+          GH_TOKEN: ${{ secrets.REVIEWER_ASSIGNMENT_TOKEN }}
         with:
           github-token: ${{ secrets.REVIEWER_ASSIGNMENT_TOKEN }}
           script: |
+            const childProcess = require('child_process');
+            const fs = require('fs');
+            const os = require('os');
+            const path = require('path');
             const pr = context.payload.pull_request;
             const threshold = parseInt(process.env.THRESHOLD, 10);
             const protectedPaths = JSON.parse(process.env.PROTECTED_PATHS);
@@ -163,6 +176,48 @@ jobs:
                 pull_number: pr.number,
               }
             );
+
+            // Config must come from the PR BASE, not this default-branch
+            // checkout (#763/#769). This job checks out the default branch so
+            // the HELPER code is trusted — correct, and unchanged — but the
+            // helper was then handed the default branch's review-policy.yml. A
+            // PR targeting a stricter non-default base was therefore judged by
+            // the LOOSER policy, and since `needsExternal` is overwritten by
+            // the helper result below, that could flip it to false and skip the
+            // external-review label entirely.
+            //
+            // Resolution goes through the SHARED helper that
+            // merge-clearance-gate.sh and codex-review-check.sh also use, so
+            // every policy decision in the fleet reads one implementation
+            // rather than four near-copies. For a default-base PR it returns
+            // the checked-out path and makes no API call; it fails (exit 2)
+            // only for a positively-identified non-default base whose policy
+            // cannot be read, which is the one case where silently using the
+            // default-branch copy would be the bypass.
+            let policyConfigPath = '.github/review-policy.yml';
+            let policyReadFailed = false;
+            try {
+              policyConfigPath = childProcess.execFileSync(
+                'bash',
+                [
+                  'scripts/workflow/resolve_base_policy.sh',
+                  '--repo', `${context.repo.owner}/${context.repo.repo}`,
+                  '--base-ref', pr.base.ref,
+                  '--base-sha', pr.base.sha,
+                  '--default-branch', context.payload.repository.default_branch,
+                  '--default-config', '.github/review-policy.yml',
+                ],
+                {encoding: 'utf8', env: process.env}
+              ).trim();
+              console.log(`Governing review policy: ${policyConfigPath}`);
+            } catch (e) {
+              policyReadFailed = true;
+              core.warning(
+                `Could not resolve the governing review policy ` +
+                `(${e.message}); requiring external review fail-closed rather ` +
+                `than judging this PR by the default-branch policy.`
+              );
+            }
 
             // Exclude lockfiles, minified, and generated files from line count
             // to match REVIEW_POLICY.md threshold definition
@@ -187,12 +242,61 @@ jobs:
               return new RegExp('^' + re + '$');
             }
 
+            // Both sides of a rename (#763): GitHub reports the destination in
+            // .filename and the source in .previous_filename, so matching only
+            // .filename would let a PR move a protected file to an unprotected
+            // path without tripping this. Same fix as
+            // external_review_fingerprint.sh, applied to this inline twin.
             const touchesProtected = files.some(f =>
-              protectedPaths.some(p => globToRegex(p).test(f.filename))
+              [f.filename, f.previous_filename]
+                .filter(Boolean)
+                .some(name => protectedPaths.some(p => globToRegex(p).test(name)))
             );
 
             // Use >= to match REVIEW_POLICY.md definition
-            const needsExternal = totalChanges >= threshold || touchesProtected;
+            let needsExternal = totalChanges >= threshold || touchesProtected;
+            let externalReviewFingerprint = '';
+            let filesPath = '';
+            const repo = `${context.repo.owner}/${context.repo.repo}`;
+            if (policyReadFailed) {
+              // Base policy unknown — see the fail-closed note above. Skip the
+              // helper entirely: running it against the default-branch config
+              // is exactly the bypass being closed, and its result would
+              // OVERWRITE needsExternal.
+              needsExternal = true;
+              externalReviewFingerprint = '';
+              console.log(
+                'External-review fail-closed: base review policy unreadable; ' +
+                'requiring review and skipping the fingerprint calculation.'
+              );
+            } else {
+              try {
+                filesPath = path.join(os.tmpdir(), `mergepath-pr-${pr.number}-files.json`);
+                fs.writeFileSync(filesPath, JSON.stringify(files));
+                const fingerprintRaw = childProcess.execFileSync(
+                  'bash',
+                  [
+                    'scripts/workflow/external_review_fingerprint.sh',
+                    '--repo', repo,
+                    '--pr', String(pr.number),
+                    '--ref', pr.head.sha,
+                    '--config', policyConfigPath,
+                    '--files-json', filesPath,
+                  ],
+                  {encoding: 'utf8', env: process.env}
+                );
+                const fingerprint = JSON.parse(fingerprintRaw);
+                needsExternal = Boolean(fingerprint.requires_review);
+                externalReviewFingerprint = fingerprint.fingerprint || '';
+              } catch (e) {
+                core.warning(
+                  `External-review fingerprint calculation failed; ` +
+                  `labeling fail-closed (${e.message}).`
+                );
+                needsExternal = true;
+                externalReviewFingerprint = '';
+              }
+            }
 
             // PROPAGATION-LANE-DEFER (#656): this job and pr-review-policy.yml's
             // External Review Check both decide needs-external-review, but only
@@ -264,12 +368,48 @@ jobs:
                 `needs-external-review add; the lane owns this PR's labeling.`
               );
             } else if (needsExternal) {
-              await github.rest.issues.addLabels({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: pr.number,
-                labels: ['needs-external-review'],
-              });
+              let carried = false;
+              try {
+                if (needsExternal && externalReviewFingerprint && filesPath) {
+                  const carryRaw = childProcess.execFileSync(
+                    'bash',
+                    [
+                      'scripts/workflow/external_review_carryforward.sh',
+                      '--repo', repo,
+                      '--pr', String(pr.number),
+                      '--head', pr.head.sha,
+                      '--current-fingerprint', externalReviewFingerprint,
+                      '--config', policyConfigPath,
+                      '--files-json', filesPath,
+                    ],
+                    {encoding: 'utf8', env: process.env}
+                  );
+                  const carry = JSON.parse(carryRaw);
+                  carried = Boolean(carry.carried);
+                  if (carried) {
+                    needsExternal = false;
+                    console.log(
+                      `Codex already cleared the same external-review fingerprint ` +
+                      `on ${carry.source_commit} at ${carry.source_time}; skipping ` +
+                      `needs-external-review on base-only sync (#705).`
+                    );
+                  }
+                }
+              } catch (e) {
+                core.warning(
+                  `External-review fingerprint carry-forward check failed; ` +
+                  `labeling fail-closed using threshold/protected-path result (${e.message}).`
+                );
+              }
+
+              if (!carried && needsExternal) {
+                await github.rest.issues.addLabels({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: pr.number,
+                  labels: ['needs-external-review'],
+                });
+              }
             }
 
             core.setOutput('needs_external', needsExternal.toString());
@@ -859,11 +999,69 @@ jobs:
           #       Codex failover engaged (codex_failover_requested:true in the
           #       JSON) — Codex was requested, so the PR advances via the Codex
           #       gates; otherwise block and let the human intervene.
+          # #727 post-clearance fast path. If the current HEAD already carries an
+          # ACTUAL Codex/Phase-4b clearance AND a reviewer-identity APPROVED, the
+          # real blocking bot-review signal is already in and CodeRabbit is
+          # advisory on top of it — so cap coderabbit-wait.sh's poll budget to
+          # coderabbit.post_clearance_max_wait_seconds instead of the full
+          # max_wait_seconds. Read-only probe; fail SAFE — any non-zero rc leaves
+          # the fast path DISARMED so the full budget is used.
+          #
+          # CODEX_REVIEW_CHECK_ALLOW_PHASE_4B_SUBSTITUTE=false is load-bearing
+          # (#727, Codex P2 on #729): WITHOUT it, gate (c) accepts the same
+          # reviewer APPROVED that clears gate (b) as a Phase-4b substitute, so an
+          # ordinary under-threshold approval with NO Codex review would arm the
+          # cap and reopen the pre-review merge race. With it, gate (c) requires
+          # an actual Codex bot signal (👍 / affirmative verdict / clean review).
+          # SKIP_CI keeps the probe independent of CI; REQUIRE_APPROVAL_ON_HEAD
+          # HEAD-pins gate (b).
+          #
+          # PROBE_HEAD pins the clearance to the head we evaluated (#727, Codex P2
+          # on #729): a push landing between here and coderabbit-wait.sh's own
+          # head fetch would otherwise let the shortened budget apply to a head
+          # that was never cleared. coderabbit-wait.sh disarms if its live head
+          # differs from this SHA.
+          PROBE_HEAD=$(gh api "repos/$REPO/pulls/$PR_NUMBER" --jq .head.sha 2>/dev/null || echo "")
+          CODEX_CLEARED=false
+          set +e
+          CODEX_REVIEW_CHECK_SKIP_CI=1 CODEX_REVIEW_CHECK_REQUIRE_APPROVAL_ON_HEAD=1 \
+            CODEX_REVIEW_CHECK_ALLOW_PHASE_4B_SUBSTITUTE=false \
+            bash scripts/codex-review-check.sh "$PR_NUMBER" "$REPO" >&2
+          crc=$?
+          set -e
+          case "$crc" in
+            0)
+              CODEX_CLEARED=true
+              echo "::notice::Post-clearance fast path armed (#727): HEAD $PROBE_HEAD has an actual Codex/Phase-4b clearance + reviewer APPROVED — CodeRabbit wait capped to coderabbit.post_clearance_max_wait_seconds."
+              ;;
+            1)
+              echo "::notice::Post-clearance fast path not armed: no actual Codex/Phase-4b clearance (or no reviewer APPROVED) on HEAD — using the full CodeRabbit budget."
+              ;;
+            *)
+              echo "::warning::codex-review-check.sh returned rc=$crc while deriving post-clearance state; failing safe to the full CodeRabbit budget."
+              ;;
+          esac
+
+          # Fail closed if the head could not be resolved (Codex P2 r-comment on
+          # #729): without a non-empty PROBE_HEAD there is nothing to pin the
+          # clearance to, so a push landing before coderabbit-wait.sh resolves
+          # its own head could get the shortened budget on an un-reviewed head.
+          # coderabbit-wait.sh also fails closed on an empty pin, but disarm here
+          # too so the intent is explicit and logged.
+          if [ "$CODEX_CLEARED" = "true" ] && [ -n "$PROBE_HEAD" ]; then
+            POST_CLEARANCE_FLAG=1
+          else
+            POST_CLEARANCE_FLAG=0
+            if [ "$CODEX_CLEARED" = "true" ] && [ -z "$PROBE_HEAD" ]; then
+              echo "::warning::Post-clearance clearance derived but the head SHA could not be resolved for the pin — failing closed to the full CodeRabbit budget (#727)."
+            fi
+          fi
+
           set +e
           # Capture the helper's JSON (stdout) so the rc=5 branch can read the
           # #489 codex_failover_requested flag. Its human-readable diagnostics —
           # and the failover child's own JSON — go to stderr and stream to the log.
-          WAIT_JSON=$(bash scripts/coderabbit-wait.sh "$PR_NUMBER" "$REPO")
+          WAIT_JSON=$(CODERABBIT_WAIT_POST_CLEARANCE="$POST_CLEARANCE_FLAG" CODERABBIT_WAIT_POST_CLEARANCE_SHA="$PROBE_HEAD" bash scripts/coderabbit-wait.sh "$PR_NUMBER" "$REPO")
           rc=$?
           set -e
           printf '%s\n' "$WAIT_JSON"
@@ -879,47 +1077,69 @@ jobs:
               echo "::warning::CodeRabbit grace window elapsed without a review. CodeRabbit is advisory — proceeding to merge. Check coderabbit-wait.sh JSON above for status_probe details, if present."
               ;;
             5)
-              # #489: a rate_limit_stalled is non-blocking ONLY when the Codex
-              # failover engaged AND an external-review gate will actually gate
-              # the merge on Codex — i.e. merge-clearance-gate.sh's external
-              # arm applies NON-vacuously to this PR's current head. For PRs
-              # where that gate passes vacuously, --trigger-only does not wait
-              # for Codex, so proceeding would let a rate-limited PR merge
-              # with neither bot having reviewed it — those keep BLOCKING
-              # (Codex P2 on #512 r3). The disposition lives in the
-              # unit-tested, fail-closed
+              # #489/#713: a rate_limit_stalled is non-blocking ONLY when
+              # the Codex failover engaged AND this head is protected from
+              # bot-unreviewed auto-merge. Protection means either
+              # merge-clearance-gate.sh's external arm applies
+              # NON-vacuously, or the PR is intrinsically external-review
+              # and current-head Codex/Phase-4b clearance is already
+              # satisfied. For PRs where both are false, --trigger-only
+              # does not wait for Codex, so proceeding would let a
+              # rate-limited PR merge with neither bot having reviewed it —
+              # those keep BLOCKING (Codex P2 on #512 r3). The disposition
+              # lives in the unit-tested, fail-closed
               # scripts/coderabbit-automerge-rate-limit-gate.sh.
               #
-              # #620: requiredness is asked of merge-clearance-gate.sh ITSELF
-              # (--derive-external-requiredness): the same intrinsic
-              # threshold + protected-paths computation the required check
-              # runs, with the label as a force-on signal and the
-              # propagation lane's HEAD-pinned verified marker as the
-              # exemption, all evaluated on the LIVE head. Label-event
-              # proxies (current-label reads, unlabeled-removal overrides)
-              # were rejected across five review rounds — a label event is
-              # not head-pinned proof of a downstream gate; this derivation
-              # is. It also un-stalls the settle re-arm for EVERY blocking
-              # label removal on an intrinsically above-threshold PR, not
-              # just needs-external-review. Fail closed: any nonzero exit or
-              # unexpected output from the query reads as false (block).
-              # stderr streams to the step log for diagnosability (#633);
-              # only stdout (exactly `true` or `false`) is consumed.
-              ext_required=false
-              if req=$(bash scripts/merge-clearance-gate.sh --derive-external-requiredness "$PR_NUMBER" "$REPO"); then
+              # #713: ask merge-clearance-gate.sh itself for the rc=5
+              # protection predicate. It uses the same intrinsic threshold
+              # + protected-paths computation as the required check, with
+              # the label as a force-on signal and the propagation lane's
+              # HEAD-pinned verified marker as the exemption, all evaluated
+              # on the LIVE head. It returns true on the strength of the
+              # merge-clearance gate only when that gate is ENFORCED —
+              # enabled in the governing policy AND observably a required
+              # status check on the PR's base branch (#772; config-enabled
+              # alone is not evidence the gate can hold a merge). Otherwise
+              # — including when enforcement is undeterminable — it requires
+              # codex-review-check.sh to confirm current-head Codex/Phase-4b
+              # clearance before returning true. Label-event proxies (current-label reads,
+              # unlabeled-removal overrides) remain rejected: a label event
+              # is not head-pinned proof of a downstream gate or clearance.
+              # Fail closed: any nonzero exit or unexpected output from the
+              # query reads as false (block). stderr streams to the step log
+              # for diagnosability; only stdout (exactly `true` or `false`)
+              # is consumed.
+              ext_protected=false
+              if req=$(bash scripts/merge-clearance-gate.sh --derive-rate-limit-protection "$PR_NUMBER" "$REPO"); then
                 case "$req" in
-                  true|false) ext_required=$req ;;
+                  true|false) ext_protected=$req ;;
                 esac
               fi
-              if bash scripts/coderabbit-automerge-rate-limit-gate.sh "$WAIT_JSON" "$ext_required"; then
-                echo "::notice::CodeRabbit rate-limited, but the #489 Codex failover engaged and merge-clearance's external arm applies non-vacuously to the current head — proceeding; that gate blocks the merge until Codex/external clearance lands."
+              # #727: the post-clearance derivation above (CODEX_CLEARED) is the
+              # threshold-INDEPENDENT counterpart of --derive-rate-limit-protection,
+              # which only asserts protection when external review APPLIES (it
+              # returns false for an under-threshold PR even when Codex has
+              # cleared HEAD). A verified Codex/Phase-4b clearance + reviewer
+              # APPROVED on HEAD is exactly the "a real bot reviewed this head"
+              # signal the rate-limit gate protects against merging without — so
+              # fold it in. This lets a rate-limit stall inside the shortened
+              # post-clearance window resolve as advisory (proceed) rather than
+              # blocking an already-cleared PR, matching the #489/#713 intent
+              # that only bot-UNREVIEWED heads stay blocked.
+              if [ "$CODEX_CLEARED" = "true" ]; then
+                ext_protected=true
+                echo "::notice::rc=5 protection folds in the #727 post-clearance signal: HEAD has verified Codex/Phase-4b clearance + reviewer APPROVED — the CodeRabbit rate-limit stall is advisory here."
+              fi
+              if bash scripts/coderabbit-automerge-rate-limit-gate.sh "$WAIT_JSON" "$ext_protected"; then
+                echo "::notice::CodeRabbit rate-limited, but the #489 Codex failover engaged and this head has active or already-satisfied external-review protection — proceeding."
                 # Record the downgrade for the final re-verify step: the
-                # requiredness derivation is re-run there against the live
-                # merge head, so state that changes during the waits (e.g.
-                # a propagation-lane verification landing) aborts the merge.
+                # protection derivation is re-run there against the live
+                # merge head, so state that changes during the waits (for
+                # example, a push or propagation-lane verification landing)
+                # aborts the merge.
                 echo "CR_RATE_LIMIT_DOWNGRADED=true" >> "$GITHUB_ENV"
               else
-                echo "::error::CodeRabbit rate-limit retry budget exhausted — blocking auto-merge. Either the failover did not engage (codex_failover_requested=false) or the PR is under-threshold (no downstream Codex gate, so it must not auto-merge bot-unreviewed). Human must re-trigger or merge manually."
+                echo "::error::CodeRabbit rate-limit retry budget exhausted — blocking auto-merge. Either the failover did not engage, or this head has neither an active merge-clearance external gate nor already-satisfied Codex/Phase-4b clearance. Human must re-trigger or merge manually."
                 exit 1
               fi
               ;;
@@ -1564,7 +1784,20 @@ jobs:
                   }
                 }' -f owner="$repo_owner" -f name="$repo_name" -F number="$PR_NUMBER" "${cursor_args[@]}")
               page_nodes=$(echo "$page_json" | jq -c '(.data.repository.pullRequest.commits.nodes[0].commit.statusCheckRollup.contexts.nodes // [])')
-              rollup_contexts=$(jq -c -n --argjson a "$rollup_contexts" --argjson b "$page_nodes" '$a + $b')
+              # #752 (follow-up to #497/#750, same fix as the
+              # codex-review-check.sh and admin-merge-codeowners-blocked.sh
+              # copies): concatenate via stdin, not argv. rollup_contexts
+              # accumulates every check-run across all pages, and a Phase 4
+              # PR's check-run set (many workflow jobs / matrix runs) is
+              # large enough that the running total, passed as a --argjson
+              # VALUE, exceeds the ubuntu-runner single-argument length
+              # ceiling (MAX_ARG_STRLEN, ~128KB) on a later page — jq then
+              # dies rc=126 "Argument list too long" (observed
+              # deterministically on PR #495; macOS's much larger ARG_MAX
+              # masked it locally). This job runs on ubuntu-latest, which is
+              # exactly where that ceiling bites. `jq -s` slurps both JSON
+              # arrays from stdin instead, which has no such ceiling.
+              rollup_contexts=$(printf '%s\n%s\n' "$rollup_contexts" "$page_nodes" | jq -c -s 'add')
               has_next=$(echo "$page_json" | jq -r '(.data.repository.pullRequest.commits.nodes[0].commit.statusCheckRollup.contexts.pageInfo.hasNextPage // false)')
               cursor=$(echo "$page_json" | jq -r '(.data.repository.pullRequest.commits.nodes[0].commit.statusCheckRollup.contexts.pageInfo.endCursor // "")')
               [ "$has_next" = "true" ] || break
@@ -1837,24 +2070,52 @@ jobs:
           #    merge pins CURRENT_HEAD_SHA (the live head the required-check
           #    wait exported) via --match-head-commit — if they differ, the
           #    CodeRabbit disposition is stale for the merge head. Abort.
-          # 2. Re-run merge-clearance-gate.sh --derive-external-requiredness
+          # 2. Re-run merge-clearance-gate.sh --derive-rate-limit-protection
           #    against the (now-pinned) live head and require `true`: the
-          #    same intrinsic threshold/protected-paths/label/lane-exemption
-          #    derivation the required check uses. Any error or non-true
-          #    output aborts.
+          #    same enforced-gate-or-already-satisfied external-review
+          #    protection predicate used at rc=5 time (#772 — an ENFORCED
+          #    required check on the base branch, not merely one enabled in
+          #    config). Any error or non-true output aborts.
           if [ "${CR_RATE_LIMIT_DOWNGRADED:-false}" = "true" ]; then
             if [ -z "${CURRENT_HEAD_SHA:-}" ] || [ "$CURRENT_HEAD_SHA" != "$HEAD_SHA" ]; then
               echo "::error::Head drifted after the rc=5 rate-limit downgrade (event=$HEAD_SHA live=${CURRENT_HEAD_SHA:-unset}) — the CodeRabbit disposition is stale for the merge head. Aborting auto-merge."
               exit 1
             fi
-            re_required=false
-            if req=$(bash scripts/merge-clearance-gate.sh --derive-external-requiredness "$PR_NUMBER" "$REPO"); then
+            re_protected=false
+            if req=$(bash scripts/merge-clearance-gate.sh --derive-rate-limit-protection "$PR_NUMBER" "$REPO"); then
               case "$req" in
-                true) re_required=true ;;
+                true) re_protected=true ;;
               esac
             fi
-            if [ "$re_required" != "true" ]; then
-              echo "::error::merge-clearance external requiredness is no longer true (or underivable) for $CURRENT_HEAD_SHA after an rc=5 rate-limit downgrade — the gate would pass vacuously with neither bot review. Aborting auto-merge."
+            # #727 (Codex P2 on #729): the rc=5 downgrade can be granted via the
+            # post-clearance signal (CODEX_CLEARED folded into ext_protected),
+            # but --derive-rate-limit-protection returns false for an
+            # under-threshold PR even when Codex cleared HEAD — so re-deriving
+            # only that predicate here would abort a VALID under-threshold
+            # post-clearance downgrade at the last step. Re-evaluate the SAME
+            # post-clearance predicate on the (now head-pinned) live head:
+            # codex-review-check.sh gate (b)+(c), SKIP_CI + REQUIRE_APPROVAL_ON_HEAD,
+            # and ALLOW_PHASE_4B_SUBSTITUTE=false (require an actual Codex bot
+            # signal, not the arming approval — same as the fast-path probe,
+            # Codex P2 on #729). Re-run (not a persisted flag) so state that
+            # changed during the waits is caught, matching this block's
+            # fail-closed intent. Either predicate holding upholds the downgrade.
+            if [ "$re_protected" != "true" ]; then
+              set +e
+              CODEX_REVIEW_CHECK_SKIP_CI=1 CODEX_REVIEW_CHECK_REQUIRE_APPROVAL_ON_HEAD=1 \
+                CODEX_REVIEW_CHECK_ALLOW_PHASE_4B_SUBSTITUTE=false \
+                bash scripts/codex-review-check.sh "$PR_NUMBER" "$REPO" >&2
+              crc=$?
+              set -e
+              if [ "$crc" = "0" ]; then
+                re_protected=true
+                echo "::notice::rc=5 re-verify: post-clearance predicate still holds on $CURRENT_HEAD_SHA (verified Codex/Phase-4b clearance + reviewer APPROVED) — downgrade upheld (#727)."
+              elif [ "$crc" != "1" ]; then
+                echo "::warning::codex-review-check.sh returned rc=$crc re-deriving the post-clearance predicate at final re-verify; treating as not-protected (fail closed)."
+              fi
+            fi
+            if [ "$re_protected" != "true" ]; then
+              echo "::error::external-review protection is no longer true (or underivable) for $CURRENT_HEAD_SHA after an rc=5 rate-limit downgrade — this head has neither an active external gate nor already-satisfied Codex/Phase-4b clearance. Aborting auto-merge."
               exit 1
             fi
           fi

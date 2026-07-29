@@ -169,6 +169,18 @@ jobs:
       - name: check_audit_review_latency
         run: ./scripts/ci/check_audit_review_latency
 
+      # Hermetic regression suite for the #739 canonical-mirror drift
+      # triage aid (scripts/audit-canonical-mirrors.sh) — guards the
+      # vendor-file section parser (fence nesting per the CommonMark
+      # closing-fence run-length rule, annotation/pin extraction,
+      # classification counters). Only the parser suite runs here; the
+      # audit run itself stays local-only (the machine files it audits
+      # are outside every repo checkout, unreachable from CI). Hub-only;
+      # SKIPs on consumer checkouts via the standard sync-to-downstream
+      # marker idiom.
+      - name: check_audit_canonical_mirrors
+        run: ./scripts/ci/check_audit_canonical_mirrors
+
       # Offline PATH-shim suite for the #691 statusCheckRollup pagination in
       # scripts/admin-merge-codeowners-blocked.sh's Gate 2 — guards against a
       # regression to the truncating `gh pr view --json statusCheckRollup`
@@ -238,6 +250,16 @@ jobs:
         # lane precondition, config fail-closed validation. Consumer
         # checkouts SKIP inside the wrapper (script + suite are hub-only).
         run: ./scripts/ci/check_wave_audit
+
+      - name: check_external_review_helpers
+        # Hub-only regression suite for the external-review helpers
+        # (#715/#716 gh stdout-stderr separation, #718 current-head short
+        # circuit). These helpers gate whether external review is required
+        # at all, and the suite was previously unwired and never ran —
+        # wired in #763. Consumer checkouts SKIP inside the wrapper (the
+        # suite is hub-only; the helpers themselves travel under the
+        # scripts/workflow/ kit entry).
+        run: ./scripts/ci/check_external_review_helpers
 
       - name: check_coderabbit_severity_gate
         # CodeRabbit twin of check_codex_p1_gate (#577). Verifies
@@ -352,6 +374,17 @@ jobs:
         # travel to consumers → the referencing tool fails closed there).
         # Shares the yq install with check_sync_manifest above.
         run: ./scripts/ci/check_propagation_closure
+
+      - name: check_doc_ownership
+        # Validates the manifest's doc_ownership: inventory (#780) —
+        # every docs/agents/*.md must carry EXACTLY ONE of canonical /
+        # per-repo-owned / hub-only, and the class must not contradict
+        # the file's paths: entry (an unbacked canonical claim, or a
+        # per-repo-owned doc sitting in a verbatim canonical/kit mirror).
+        # Reads the same manifest as the two checks above and shares
+        # their yq install; consumer checkouts SKIP inside the wrapper
+        # via the sync-to-downstream.sh marker idiom.
+        run: ./scripts/ci/check_doc_ownership
 
       - name: check_project_doc_sync
         # Hub-only project-doc-sync regression suite (#642): PRD/spec
