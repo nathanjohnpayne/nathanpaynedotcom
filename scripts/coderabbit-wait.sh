@@ -77,9 +77,12 @@
 #                        auto-generated marker (the #485 auto-pause NOTE)
 #        - in_progress — body matches /review in progress|currently reviewing/i
 #        - review      — anything else authored by coderabbitai[bot]
-#   4. On rate_limit: parse "X minutes and Y seconds" (or "X seconds"),
-#      sleep that duration + 30s buffer, post `@coderabbitai, try again.`,
-#      increment retry counter, continue polling.
+#   4. On rate_limit: parse "X minutes and Y seconds" (or "X seconds") into a
+#      window, sleep the portion of it that REMAINS after subtracting the time
+#      already elapsed since the notice was posted (#727 — the window runs from
+#      the notice's post time, not from when this helper first sees it), + 30s
+#      buffer, then post `@coderabbitai, try again.`, increment the retry
+#      counter, and continue polling. An already-expired window sleeps 0.
 #   4b. On paused: post `@coderabbitai resume` (a one-shot `review`
 #      re-pauses after the next push, so resume is the correct verb),
 #      increment a resume-retry counter, and continue polling. If
@@ -729,6 +732,48 @@ fi
 
 log "HEAD = $HEAD_SHA committed at $HEAD_COMMITTER_DATE"
 log "anchor = $HEAD_ANCHOR (source: $ANCHOR_SOURCE)"
+
+# #727: post-clearance fast path. When the caller (auto-merge-on-approval) has
+# already confirmed — on THIS head — a verified ACTUAL Codex/Phase-4b clearance
+# AND a reviewer-identity APPROVED, it sets CODERABBIT_WAIT_POST_CLEARANCE=1.
+# The real blocking bot-review signal is already in, so cap the CodeRabbit poll
+# budget to post_clearance_max_wait_seconds (default 240) instead of the full
+# max_wait_seconds — CodeRabbit still gets that window to land a clear (exit 0)
+# or a Potential issue / ⚠️ finding (exit 2), both handled exactly as before; a
+# still-pending CodeRabbit after the cap falls through to the same advisory
+# exit-4 timeout. Only ever SHORTENS the ceiling (min of the two), never
+# lengthens it. Placed AFTER head resolution so it can head-pin the clearance.
+case "${CODERABBIT_WAIT_POST_CLEARANCE:-}" in
+  1|true|TRUE|True|yes|YES)
+    POST_CLEARANCE_MAX_WAIT_SECONDS=$(coderabbit_field post_clearance_max_wait_seconds)
+    POST_CLEARANCE_MAX_WAIT_SECONDS=${POST_CLEARANCE_MAX_WAIT_SECONDS:-240}
+    # Head-pin (#727, Codex P2 on #729): the caller proved clearance for a
+    # specific head, passed as CODERABBIT_WAIT_POST_CLEARANCE_SHA. The cap
+    # applies ONLY when that SHA is non-empty AND equals the head we resolved.
+    # FAIL CLOSED on empty or mismatched (Codex P2 r-comment on #729): an empty
+    # SHA means the caller could not resolve/verify the cleared head (e.g. a
+    # transient API read failure during the probe) — treating "absent" as
+    # "no pin needed" would let the shortened budget apply to a head that was
+    # never cleared, reopening the very TOCTOU race the pin closes. A mismatch
+    # means a push landed after the caller's clearance check. Either way, use
+    # the full max_wait budget. HEAD_SHA is always non-empty here, so a simple
+    # `!=` covers both the empty-SHA and drifted-SHA cases.
+    if [ "${CODERABBIT_WAIT_POST_CLEARANCE_SHA:-}" != "$HEAD_SHA" ]; then
+      echo "[coderabbit-wait] WARNING: post-clearance head-pin '${CODERABBIT_WAIT_POST_CLEARANCE_SHA:-<empty>}' does not match the live head $HEAD_SHA (empty ⇒ the caller could not resolve/verify the cleared head) — failing closed: ignoring the fast path and using the full max_wait budget (#727)" >&2
+    # Validate ONLY when the fast path is actually engaged (#727, CodeRabbit
+    # Major on #729): a fail-safe opt-in latency knob must never break an
+    # unrelated wait, so a bad value here DISARMS the cap (full budget) with a
+    # warning rather than aborting — the "only ever shortens, never breaks the
+    # wait" invariant.
+    elif ! [[ "$POST_CLEARANCE_MAX_WAIT_SECONDS" =~ ^[0-9]+$ ]]; then
+      echo "[coderabbit-wait] WARNING: coderabbit.post_clearance_max_wait_seconds must be an integer; got '$POST_CLEARANCE_MAX_WAIT_SECONDS' — ignoring the post-clearance fast path and using the full max_wait budget (#727)" >&2
+    elif [ "$POST_CLEARANCE_MAX_WAIT_SECONDS" -lt "$MAX_WAIT_SECONDS" ]; then
+      echo "[coderabbit-wait] post-clearance fast path: HEAD $HEAD_SHA has verified Codex/Phase-4b clearance + reviewer APPROVED; capping max_wait ${MAX_WAIT_SECONDS}s -> ${POST_CLEARANCE_MAX_WAIT_SECONDS}s (#727)" >&2
+      MAX_WAIT_SECONDS=$POST_CLEARANCE_MAX_WAIT_SECONDS
+    fi
+    ;;
+esac
+
 log "max_wait = ${MAX_WAIT_SECONDS}s   max_rate_limit_retries = $MAX_RATE_LIMIT_RETRIES   freshness_window = ${WALLCLOCK_FRESHNESS_WINDOW_SECONDS}s"
 log "status_probe_enabled = $STATUS_PROBE_ENABLED   status_probe_wait = ${STATUS_PROBE_WAIT_SECONDS}s"
 
@@ -1126,6 +1171,33 @@ iso_within_seconds_after() {
     1) return 1 ;;
     *) return 0 ;;
   esac
+}
+
+# #727: how many seconds of a CodeRabbit rate-limit window have ALREADY
+# elapsed between when CodeRabbit posted the notice (fresh_at = max of
+# created_at/updated_at) and now. The published "try again in N" window is
+# measured from the notice's post time, NOT from when this helper first
+# observes it — auto-merge-on-approval routinely starts this wait minutes
+# after the notice landed (the reviewer approval that ARMS the job can post
+# long after CodeRabbit rate-limited), so the sleep should cover only the
+# window that REMAINS, not a fresh full copy of it. Emits max(0, now -
+# fresh_at) on stdout. Fails SAFE to 0 (⇒ the caller sleeps the full window,
+# the pre-#727 behavior) on empty/unparseable input, so a bad timestamp can
+# never SHORTEN a genuine rate-limit wait — only a parseable, already-elapsed
+# window trims the sleep.
+rate_limit_window_elapsed_seconds() {
+  local fresh_at=$1 now_epoch=$2 elapsed
+  if [ -z "$fresh_at" ] || [ "$fresh_at" = "null" ]; then
+    echo 0
+    return 0
+  fi
+  elapsed=$(jq -rn --arg t "$fresh_at" --argjson now "$now_epoch" \
+    '($now - ($t | fromdateiso8601)) | floor' 2>/dev/null) || { echo 0; return 0; }
+  case "$elapsed" in
+    ''|*[!0-9-]*) echo 0; return 0 ;;
+  esac
+  if [ "$elapsed" -lt 0 ]; then elapsed=0; fi
+  echo "$elapsed"
 }
 
 status_context_fast_path_blocked_by_comment() {
@@ -1837,22 +1909,35 @@ while :; do
         log "could not parse rate-limit window from comment; falling back to 60s"
         WINDOW_SECONDS=60
       fi
-      SLEEP_FOR=$((WINDOW_SECONDS + RATE_LIMIT_BUFFER_SECONDS))
-      # Clamp against remaining budget — if the published rate-limit
-      # window exceeds max_wait_seconds anyway, there's no point
-      # burning through the entire sleep. Surface it as the same hard
-      # rate-limit stalled state callers already treat as non-advisory
-      # instead of a generic timeout that auto-merge may skip past.
-      # See #140 round-2 Codex finding (P2, line 392), then #386.
+      # #727: sleep only the window that REMAINS. The published window runs
+      # from the notice's post time (COMMENT_FRESH_AT), so subtract however
+      # much of it already elapsed before we reached this point. An
+      # already-expired window ⇒ SLEEP_FOR clamps to 0 and we fall straight
+      # through to the retry + re-poll instead of re-waiting time that has
+      # already passed (auto-merge PR #725 re-waited a fresh 210s for a window
+      # that expired ~5 min earlier). A genuinely-fresh notice (elapsed≈0)
+      # still sleeps ~the full window, so the rate-limit contract is unchanged
+      # for the common case.
       NOW_EPOCH=$(date +%s)
+      WINDOW_ELAPSED=$(rate_limit_window_elapsed_seconds "$COMMENT_FRESH_AT" "$NOW_EPOCH")
+      SLEEP_FOR=$((WINDOW_SECONDS + RATE_LIMIT_BUFFER_SECONDS - WINDOW_ELAPSED))
+      if [ "$SLEEP_FOR" -lt 0 ]; then SLEEP_FOR=0; fi
+      # Clamp against remaining budget — if the (remaining) rate-limit
+      # window still exceeds max_wait_seconds, there's no point burning
+      # through the entire sleep. Surface it as the same hard rate-limit
+      # stalled state callers already treat as non-advisory instead of a
+      # generic timeout that auto-merge may skip past. See #140 round-2 Codex
+      # finding (P2, line 392), then #386. Uses the remaining SLEEP_FOR (not
+      # the full window), so a window that mostly elapsed no longer stalls a
+      # PR that can afford the small remainder (#727).
       ELAPSED=$((NOW_EPOCH - START_EPOCH))
       REMAINING=$((MAX_WAIT_SECONDS - ELAPSED))
       if [ "$SLEEP_FOR" -ge "$REMAINING" ]; then
-        log "rate-limit window (${SLEEP_FOR}s) exceeds remaining budget (${REMAINING}s) — stalling"
+        log "rate-limit window (${SLEEP_FOR}s remaining) exceeds remaining budget (${REMAINING}s) — stalling"
         RATE_LIMIT_REVIEW=$(echo "$LATEST" | jq '{id, created_at, endpoint, body_excerpt: (.body[0:200])}')
         emit_json_and_exit "rate_limit_stalled" 5 "$RATE_LIMIT_REVIEW" 0
       fi
-      log "rate-limited; sleeping ${SLEEP_FOR}s (window=${WINDOW_SECONDS}s + ${RATE_LIMIT_BUFFER_SECONDS}s buffer)"
+      log "rate-limited; sleeping ${SLEEP_FOR}s (window=${WINDOW_SECONDS}s + ${RATE_LIMIT_BUFFER_SECONDS}s buffer, ${WINDOW_ELAPSED}s already elapsed)"
       sleep "$SLEEP_FOR"
       post_retry_trigger
       RATE_LIMIT_RETRIES=$((RATE_LIMIT_RETRIES + 1))

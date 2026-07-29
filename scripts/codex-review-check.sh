@@ -44,6 +44,14 @@
 #           clearance can exist only as this comment. Fail-closed: a
 #           stale-HEAD, findings-bearing, changes-requested, or
 #           unrecognized verdict does not match. OR
+#         - **Same-content carry-forward (#705):** when the current HEAD
+#           has no Codex signal of its own, an older affirmative Codex
+#           issue-comment verdict whose `Reviewed commit` has the same
+#           external-review fingerprint as the current head. The
+#           fingerprint hashes the tree object IDs for the files that
+#           triggered external review, so a pure update-branch/base-only
+#           sync does not force a redundant Codex re-review. Any current
+#           HEAD Codex signal still wins and can fail closed. OR
 #         - **Phase 4b substitute (#218):** an APPROVED review on the
 #           current HEAD (`commit_id == HEAD_SHA`) from a non-author
 #           identity in `available_reviewers`, gated on
@@ -130,6 +138,21 @@ else
   with_gh_retry() { "$@"; }
 fi
 
+# --- Codex failure-marker regexes (#722) ------------------------------------
+# Source the shared usage-limit / not-connected marker patterns so gate (c)'s
+# failure message can name an account-level quota or app-not-connected block
+# as the real cause when Codex has not cleared — instead of the generic "no
+# Codex signal" text that reads as review latency. Diagnostic only: it never
+# changes the merge decision (the gate still fails closed). Existence-guarded
+# / flag-gated so a consumer mid-sync-skew degrades to the old message rather
+# than hard-erroring; declared as a `requires:` of this script.
+CODEX_FAILURE_MARKERS_OK=false
+if [ -r "$__CODEX_CHECK_DIR/lib/codex-failure-markers.sh" ]; then
+  # shellcheck source=lib/codex-failure-markers.sh
+  . "$__CODEX_CHECK_DIR/lib/codex-failure-markers.sh"
+  CODEX_FAILURE_MARKERS_OK=true
+fi
+
 # Shared available_reviewers reader (#453) — replaces the local
 # double-quote-only parser so coderabbit-wait.sh and this script parse the
 # allow-list identically (dash + inline comment + BOTH quote styles +
@@ -174,7 +197,56 @@ fi
 
 # --- config readers ---------------------------------------------------------
 
-CONFIG=".github/review-policy.yml"
+# The policy that governs a PR is the policy of the branch it TARGETS, not
+# this trusted default-branch checkout (#769). Callers that have already
+# resolved it (merge-clearance-gate.sh) pass it in via
+# MERGEPATH_REVIEW_POLICY_PATH to avoid a second API round-trip; callers that
+# have not (the auto-clear workflow, direct invocations) get it resolved below
+# by the same shared helper, so every consumer of this predicate reads ONE
+# policy. Same env-override idiom as scripts/wave-audit.sh.
+CONFIG="${MERGEPATH_REVIEW_POLICY_PATH:-.github/review-policy.yml}"
+if [ -z "${MERGEPATH_REVIEW_POLICY_PATH:-}" ]; then
+  __RESOLVE_POLICY_BIN="$__CODEX_CHECK_DIR/workflow/resolve_base_policy.sh"
+  if [ ! -f "$__RESOLVE_POLICY_BIN" ]; then
+    # FAIL CLOSED, not warn-and-continue (Codex P1 on #768). Without the
+    # resolver this script cannot prove the PR targets the default branch, so
+    # continuing would silently check a non-default-base PR against the
+    # default-branch policy — the downgrade this whole change removes.
+    #
+    # Safe to be strict: the resolver travels in the SAME scripts/workflow/ kit
+    # entry as this script, so they arrive together in one sync PR. A checkout
+    # holding this version of codex-review-check.sh without the resolver is a
+    # broken install, not a mid-sync state.
+    echo "ERROR: policy resolver missing ($__RESOLVE_POLICY_BIN); cannot determine the governing review policy" >&2
+    exit 3
+  fi
+  if [ -f "$__RESOLVE_POLICY_BIN" ]; then
+    # Capture stdout and stderr SEPARATELY: the resolver prints the policy
+    # PATH on stdout and warnings on stderr, so merging them (2>&1) would
+    # concatenate a warning into the path. Same failure class as #715/#716.
+    __resolve_err=$(mktemp "${TMPDIR:-/tmp}/resolve-policy-err.XXXXXX")
+    set +e
+    __resolved=$(bash "$__RESOLVE_POLICY_BIN" --repo "$REPO" --pr "$PR_NUMBER" \
+      --default-config "$CONFIG" 2>"$__resolve_err")
+    __resolve_rc=$?
+    set -e
+    __resolved_msg=$(cat "$__resolve_err" 2>/dev/null || true)
+    rm -f "$__resolve_err"
+    if [ "$__resolve_rc" -ne 0 ]; then
+      # Unknown governing policy — fail closed (exit 3 is this script's
+      # config/infrastructure code; callers already fail closed on nonzero).
+      echo "ERROR: could not resolve the governing review policy: $__resolved_msg" >&2
+      exit 3
+    fi
+    CONFIG="$__resolved"
+    if [ "$CONFIG" != ".github/review-policy.yml" ]; then
+      # Capture the temp path in its own variable so cleanup cannot be
+      # affected by any later reassignment of CONFIG.
+      __POLICY_TMP="$CONFIG"
+      trap 'rm -f "$__POLICY_TMP"' EXIT
+    fi
+  fi
+fi
 
 # Read a scalar field from the codex: block. See agent-review.yml
 # post-#54 for the rationale on the state-machine awk parser.
@@ -318,7 +390,15 @@ fi
 # `needs-external-review` label by hand. Set to false for repos that
 # genuinely require Codex clearance and not a substitute Phase 4b
 # reviewer. See nathanjohnpayne/mergepath#218.
-ALLOW_PHASE_4B_SUBSTITUTE=$(codex_field allow_phase_4b_substitute)
+#
+# CODEX_REVIEW_CHECK_ALLOW_PHASE_4B_SUBSTITUTE overrides the policy value for a
+# single invocation (#727, Codex P2 on #729). The post-clearance fast-path probe
+# sets it to `false` so gate (c) requires an ACTUAL Codex bot signal (👍 /
+# affirmative verdict / clean review) and is NOT satisfied by the same
+# reviewer APPROVED that already clears gate (b) — otherwise an ordinary
+# under-threshold approval with no Codex review would arm the shortened
+# CodeRabbit wait and reopen the pre-review merge race. Unset ⇒ policy value.
+ALLOW_PHASE_4B_SUBSTITUTE=${CODEX_REVIEW_CHECK_ALLOW_PHASE_4B_SUBSTITUTE:-$(codex_field allow_phase_4b_substitute)}
 ALLOW_PHASE_4B_SUBSTITUTE=${ALLOW_PHASE_4B_SUBSTITUTE:-true}
 case "$ALLOW_PHASE_4B_SUBSTITUTE" in
   true|false) ;;
@@ -678,7 +758,16 @@ while :; do
     }' -f owner="$REPO_OWNER" -f name="$REPO_NAME" -F number="$PR_NUMBER" "${ROLLUP_CURSOR_ARGS[@]}") \
     || die 3 "failed to fetch statusCheckRollup page (see stderr above for retry diagnostics)"
   ROLLUP_PAGE_NODES=$(echo "$ROLLUP_PAGE" | jq -c '(.data.repository.pullRequest.commits.nodes[0].commit.statusCheckRollup.contexts.nodes // [])')
-  ROLLUP_CONTEXTS=$(jq -c -n --argjson a "$ROLLUP_CONTEXTS" --argjson b "$ROLLUP_PAGE_NODES" '$a + $b')
+  # #497: concatenate via stdin, not argv. ROLLUP_CONTEXTS accumulates
+  # every check-run across all pages, and a Phase 4 PR's check-run set
+  # (many workflow jobs / matrix runs) is large enough that the running
+  # total, passed as a --argjson VALUE, exceeds the ubuntu-runner
+  # single-argument length ceiling (MAX_ARG_STRLEN, ~128KB) on a later
+  # page — jq then dies rc=126 "Argument list too long" (observed
+  # deterministically on PR #495; macOS's much larger ARG_MAX masked it
+  # locally). `jq -s` slurps both JSON arrays from stdin instead, which
+  # has no such ceiling.
+  ROLLUP_CONTEXTS=$(printf '%s\n%s\n' "$ROLLUP_CONTEXTS" "$ROLLUP_PAGE_NODES" | jq -c -s 'add')
   ROLLUP_HAS_NEXT=$(echo "$ROLLUP_PAGE" | jq -r '(.data.repository.pullRequest.commits.nodes[0].commit.statusCheckRollup.contexts.pageInfo.hasNextPage // false)')
   ROLLUP_CURSOR=$(echo "$ROLLUP_PAGE" | jq -r '(.data.repository.pullRequest.commits.nodes[0].commit.statusCheckRollup.contexts.pageInfo.endCursor // "")')
   [ "$ROLLUP_HAS_NEXT" = "true" ] || break
@@ -1517,6 +1606,11 @@ fi  # end REQUIRE_CI_GREEN
 # leaves disabled repos byte-identical in behavior.
 CODEX_HEAD_VERDICT_TIME=""
 CODEX_HEAD_VERDICT_ANY_TIME=""
+CODEX_CARRYFORWARD_VERDICT_TIME=""
+CODEX_CARRYFORWARD_COMMIT=""
+CODEX_CARRYFORWARD_FINGERPRINT=""
+CODEX_BLOCKED_REASON=""
+CODEX_BLOCKED_TIME=""
 if [ "$CODEX_ENABLED" = "true" ]; then
   ISSUE_COMMENTS_JSON=$(fetch_api_array "repos/$REPO/issues/$PR_NUMBER/comments" "issue comments")
   # Select the LATEST HEAD-anchored Codex verdict comment FIRST (any
@@ -1566,6 +1660,70 @@ if [ "$CODEX_ENABLED" = "true" ]; then
     log "codex verdict: latest HEAD-anchored verdict @ $CODEX_HEAD_VERDICT_TIME is AFFIRMATIVE (Reviewed commit prefixes $HEAD_SHA)"
   elif [ -n "$CODEX_HEAD_VERDICT_ANY_TIME" ]; then
     log "codex verdict: latest HEAD-anchored verdict @ $CODEX_HEAD_VERDICT_ANY_TIME is NON-affirmative — not a clearance signal (fail closed); carried into the Phase 4b freshness guard"
+  fi
+
+  # Account-/connection-level failure marker (#722). When Codex answers a
+  # trigger with a quota-exhaustion ("usage_limit") or app-not-connected
+  # ("not_connected") comment, gate (c) will fail closed for lack of a
+  # clearance signal — same outcome as a slow/absent review — but the real
+  # cause is an account block a human must resolve, not review latency. Detect
+  # the LATEST such marker on or after REACTION_THRESHOLD (the same freshness
+  # anchor the reaction path uses, so a stale marker from a prior head is not
+  # surfaced) and, mirroring audit-codex-latency.sh's precedence, only on a
+  # NON-verdict bot comment. Diagnostic only — folded into the gate (c)
+  # failure message, never into the clearance decision. Shares the regexes
+  # with the live trigger script via scripts/lib/codex-failure-markers.sh.
+  if [ "$CODEX_FAILURE_MARKERS_OK" = "true" ]; then
+    CODEX_BLOCKED_JSON=$(echo "$ISSUE_COMMENTS_JSON" | jq -c \
+      --arg bot "$BOT_LOGIN" --arg after "$REACTION_THRESHOLD" \
+      --arg usage_re "$CODEX_USAGE_LIMIT_MARKER_RE" \
+      --arg nc_re "$CODEX_NOT_CONNECTED_MARKER_RE" '
+      [ .[]
+        | select(.user.login == $bot)
+        | select(.created_at >= $after)
+        | select(((.body // "") | test("(?im)^\\s*codex review:")) | not)
+        | ( if ((.body // "") | test($usage_re; "i")) then "usage_limit"
+            elif ((.body // "") | test($nc_re; "i")) then "not_connected"
+            else null end ) as $reason
+        | select($reason != null)
+        | { reason: $reason, created_at: .created_at }
+      ]
+      | max_by(.created_at) // null
+    ')
+    CODEX_BLOCKED_REASON=$(echo "$CODEX_BLOCKED_JSON" | jq -r 'if . == null then "" else .reason end')
+    CODEX_BLOCKED_TIME=$(echo "$CODEX_BLOCKED_JSON" | jq -r 'if . == null then "" else .created_at end')
+    if [ -n "$CODEX_BLOCKED_REASON" ]; then
+      log "codex block: Codex reported '$CODEX_BLOCKED_REASON' @ $CODEX_BLOCKED_TIME (≥ threshold $REACTION_THRESHOLD) — an account/connection block, not review latency; a human must resolve it before Codex can clear (#722)"
+    fi
+  fi
+
+  # Same-content carry-forward (#705): a base-only update branch produces a new
+  # HEAD SHA even when the protected/threshold-triggering content is unchanged.
+  # If a prior affirmative Codex verdict reviewed that exact content
+  # fingerprint, treat it as a fallback Codex signal for this head. This is only
+  # consulted when there is NO current-head Codex signal; the latest-signal-wins
+  # block below still lets any current-head review/verdict/reaction override it.
+  CARRY_BIN="$__CODEX_CHECK_DIR/workflow/external_review_carryforward.sh"
+  if [ -x "$CARRY_BIN" ]; then
+    set +e
+    CARRY_JSON=$(bash "$CARRY_BIN" \
+      --repo "$REPO" \
+      --pr "$PR_NUMBER" \
+      --head "$HEAD_SHA" \
+      --config "$CONFIG" \
+      --bot-login "$BOT_LOGIN" 2>/dev/null)
+    carry_rc=$?
+    set -e
+    if [ "$carry_rc" -eq 0 ] && [ "$(echo "$CARRY_JSON" | jq -r '.carried // false')" = "true" ]; then
+      CODEX_CARRYFORWARD_VERDICT_TIME=$(echo "$CARRY_JSON" | jq -r '.source_time // ""')
+      CODEX_CARRYFORWARD_COMMIT=$(echo "$CARRY_JSON" | jq -r '.source_commit // ""')
+      CODEX_CARRYFORWARD_FINGERPRINT=$(echo "$CARRY_JSON" | jq -r '.fingerprint // ""')
+      log "codex verdict carry-forward: prior affirmative verdict on $CODEX_CARRYFORWARD_COMMIT @ $CODEX_CARRYFORWARD_VERDICT_TIME matches current external-review fingerprint $CODEX_CARRYFORWARD_FINGERPRINT (#705)"
+    elif [ "$carry_rc" -ne 0 ]; then
+      log "codex verdict carry-forward: helper failed rc=$carry_rc — ignoring carry-forward and requiring a current-head signal (fail closed)"
+    fi
+  else
+    log "codex verdict carry-forward: helper missing at $CARRY_BIN — requiring a current-head signal"
   fi
 fi
 
@@ -1689,6 +1847,14 @@ if [ -z "$APPROVING_REVIEWER" ]; then
       # cross-check, not the findings check.)
       log "gate (b): same-agent + Codex HEAD-anchored verdict comment @ $CODEX_HEAD_VERDICT_TIME — branch 2 cleared (#600)"
       APPROVING_REVIEWER="(branch 2: same-agent + Codex verdict comment)"
+    elif [ -n "$CODEX_CARRYFORWARD_VERDICT_TIME" ]; then
+      # #705: a pure update-branch/base-only sync can move HEAD without
+      # changing the external-review-triggering content. In the same-agent
+      # path, the prior clean Codex verdict on the identical fingerprint is
+      # still the cross-agent signal; gate (c) below separately ensures no
+      # current-head Codex signal overrides it.
+      log "gate (b): same-agent + Codex same-content verdict carry-forward @ $CODEX_CARRYFORWARD_VERDICT_TIME from $CODEX_CARRYFORWARD_COMMIT — branch 2 cleared (#705)"
+      APPROVING_REVIEWER="(branch 2: same-agent + Codex same-content verdict)"
     fi
   fi
 
@@ -1864,6 +2030,11 @@ for __sig in "thumbs|$LATEST_THUMBS_UP_TIME" "review|$CODEX_REVIEW_TIME" "verdic
   fi
 done
 
+if [ -z "$LATEST_SIGNAL_KIND" ] && [ -n "$CODEX_CARRYFORWARD_VERDICT_TIME" ]; then
+  LATEST_SIGNAL_KIND="carry_verdict"
+  LATEST_SIGNAL_TIME="$CODEX_CARRYFORWARD_VERDICT_TIME"
+fi
+
 case "$LATEST_SIGNAL_KIND" in
   thumbs)
     CLEARED=true
@@ -1882,6 +2053,10 @@ case "$LATEST_SIGNAL_KIND" in
     else
       log "gate (c): latest Codex signal is a non-affirmative or findings-bearing verdict comment @ $LATEST_SIGNAL_TIME — fail closed, does not clear (#608 P1)"
     fi
+    ;;
+  carry_verdict)
+    CLEARED=true
+    CLEARANCE_REASON="no current-head Codex signal; prior affirmative verdict @ $LATEST_SIGNAL_TIME on $CODEX_CARRYFORWARD_COMMIT carries forward because the external-review fingerprint is unchanged ($CODEX_CARRYFORWARD_FINGERPRINT) (#705)"
     ;;
 esac
 
@@ -1985,6 +2160,14 @@ if [ "$CLEARED" != "true" ] && [ "$ALLOW_PHASE_4B_SUBSTITUTE" = "true" ]; then
 fi
 
 if [ "$CLEARED" != "true" ]; then
+  # #722: when a fresh account-/connection-level block was detected above,
+  # name it in the failure message so the human/agent reads the real cause
+  # (quota exhausted / App not connected → a human must act) instead of
+  # inferring review latency and waiting or re-triggering.
+  BLOCKED_SUFFIX=""
+  if [ -n "$CODEX_BLOCKED_REASON" ]; then
+    BLOCKED_SUFFIX=" — NOTE: Codex reported '$CODEX_BLOCKED_REASON' @ $CODEX_BLOCKED_TIME; this is an account/connection block a human must resolve (upgrade / add credits / connect the App), not review latency — route to Phase 4b (#722)"
+  fi
   if [ "$CODEX_ENABLED" != "true" ]; then
     if [ "$ALLOW_PHASE_4B_SUBSTITUTE" = "true" ]; then
       fail_gate "codex.enabled=false and no Phase 4b substitute APPROVED on $HEAD_SHA from a non-author identity in available_reviewers"
@@ -1993,9 +2176,9 @@ if [ "$CLEARED" != "true" ]; then
     fi
   elif [ -z "$LATEST_THUMBS_UP_TIME" ] && [ -z "$CODEX_REVIEW_TIME" ]; then
     if [ "$ALLOW_PHASE_4B_SUBSTITUTE" = "true" ]; then
-      fail_gate "Codex has not cleared current HEAD and no Phase 4b substitute APPROVED on $HEAD_SHA from a non-author identity in available_reviewers (no review on HEAD, no +1 reaction from $BOT_LOGIN on or after reaction threshold $REACTION_THRESHOLD: $REACTION_THRESHOLD_SOURCE)"
+      fail_gate "Codex has not cleared current HEAD and no Phase 4b substitute APPROVED on $HEAD_SHA from a non-author identity in available_reviewers (no review on HEAD, no +1 reaction from $BOT_LOGIN on or after reaction threshold $REACTION_THRESHOLD: $REACTION_THRESHOLD_SOURCE)$BLOCKED_SUFFIX"
     else
-      fail_gate "Codex has not cleared current HEAD (no review on $HEAD_SHA and no +1 reaction from $BOT_LOGIN on or after reaction threshold $REACTION_THRESHOLD: $REACTION_THRESHOLD_SOURCE)"
+      fail_gate "Codex has not cleared current HEAD (no review on $HEAD_SHA and no +1 reaction from $BOT_LOGIN on or after reaction threshold $REACTION_THRESHOLD: $REACTION_THRESHOLD_SOURCE)$BLOCKED_SUFFIX"
     fi
   else
     PATHS=$(echo "$UNADDRESSED_P01" | jq -r '[.[] | "\(.path):\(.line)"] | join(", ")')

@@ -7,6 +7,7 @@ on:
 permissions:
   pull-requests: write
   contents: read
+  issues: read
 
 jobs:
   self-review-check:
@@ -71,19 +72,33 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
-          CONFIG=".github/review-policy.yml"
           NEEDS_REVIEW=false
           REASONS=""
 
-          if [ ! -f "$CONFIG" ]; then
-            echo "WARNING: $CONFIG not found, skipping external review check"
-            echo "needs_review=false" >> "$GITHUB_OUTPUT"
-            echo "propagation_lane=false" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-
           BASE_SHA=${{ github.event.pull_request.base.sha }}
           HEAD_SHA=${{ github.event.pull_request.head.sha }}
+
+          # A base with no .github/review-policy.yml predates the policy file.
+          # This used to SKIP the whole check (needs_review=false), which let a
+          # large or protected-path PR targeting such a base pass the label gate
+          # with no external review at all — flagged by the wave audit on the
+          # 4a8f804 wave. It now falls back to the DEFAULT-BRANCH policy, the
+          # same rule scripts/workflow/resolve_base_policy.sh applies for a
+          # confirmed 404, so every site treats "base predates the policy"
+          # identically instead of one of them opting out.
+          #
+          # Trade-off, stated because it is a real behaviour change: a consumer
+          # mid-bootstrap can have PRs whose base predates its policy file, and
+          # those PRs now get evaluated against the policy the repo actually has
+          # rather than waved through. That is the intended direction — the
+          # policy exists on the default branch by then — but it can newly label
+          # such a PR.
+          BASE_HAS_POLICY=true
+          if ! git cat-file -e "$BASE_SHA:.github/review-policy.yml" 2>/dev/null; then
+            BASE_HAS_POLICY=false
+            echo "NOTE: base commit has no .github/review-policy.yml (predates it) — falling back to the default-branch policy rather than skipping the external review check."
+          fi
+
           CHANGED_FILES=$(git diff --name-only "$BASE_SHA"..."$HEAD_SHA")
 
           # --- Propagation PR review lane (mergepath#264 / #268) ---------
@@ -246,57 +261,175 @@ jobs:
           fi
           echo "propagation_lane=false" >> "$GITHUB_OUTPUT"
 
-          # Read threshold from review-policy.yml
-          THRESHOLD=$(grep 'external_review_threshold:' "$CONFIG" | awk '{print $2}')
-          THRESHOLD=${THRESHOLD:-300}
-
-          # Count lines changed (additions + deletions), excluding lockfiles and generated files
-          LINES_CHANGED=$(git diff --stat "$BASE_SHA"..."$HEAD_SHA" -- \
-            ':!*.lock' ':!*lock.json' ':!*.min.js' ':!*.min.css' \
-            ':!*.generated.*' ':!*.g.dart' ':!*.freezed.dart' \
-            | tail -1 | awk '{print $4+$6}')
-          LINES_CHANGED=${LINES_CHANGED:-0}
-
-          # Use >= to match REVIEW_POLICY.md: "Total lines changed >= external_review_threshold"
-          if [ "$LINES_CHANGED" -ge "$THRESHOLD" ]; then
-            NEEDS_REVIEW=true
-            REASONS="$REASONS- ${LINES_CHANGED} lines changed (threshold: ${THRESHOLD})%0A"
+          # Compute the external-review trigger and same-content fingerprint
+          # from GitHub's PR file list. The helper itself must come from the
+          # trusted base tree, not the PR checkout: this job can write labels
+          # and comments, and same-repo PRs can edit scripts/workflow/**.
+          FILES_JSON=$(mktemp)
+          set +e
+          FILES_RAW=$(gh api --paginate "repos/${{ github.repository }}/pulls/$PR_NUMBER/files")
+          files_rc=$?
+          set -e
+          if [ "$files_rc" -ne 0 ] || ! printf '%s\n' "$FILES_RAW" | jq -s 'add // []' > "$FILES_JSON"; then
+            echo "External-review fail-closed: could not fetch PR files; requiring review."
+            echo "needs_review=true" >> "$GITHUB_OUTPUT"
+            echo "reasons=- Could not fetch PR files for external-review fingerprint; requiring review fail-closed" >> "$GITHUB_OUTPUT"
+            exit 0
           fi
 
-          # Extract external_review_paths entries from review-policy.yml.
-          # Delegates to scripts/workflow/parse_policy_list.sh, which is
-          # unit-tested by scripts/ci/check_workflow_parsers (see #57).
-          # History: the earlier inline `awk '/^key:/,/^[^ ]/'` range
-          # parser silently matched only the header line because the
-          # range-start pattern also matched the range-end condition.
-          # See #54 for the post-mortem.
-          PATHS=$(bash scripts/workflow/parse_policy_list.sh "$CONFIG" external_review_paths)
+          # Materialize the trusted trees. Neither the helper nor the config may
+          # come from the PR checkout: this job can write labels and comments,
+          # and same-repo PRs can edit scripts/workflow/** (#531 / #545).
+          #
+          # CONFIG always comes from the PR BASE tree, never the default branch
+          # (#763, Codex P1). The policy that governs a PR is the policy of the
+          # branch it targets: a PR onto a stricter non-default branch (a
+          # release branch with a lower threshold or extra protected paths) must
+          # be judged by THAT branch's .github/review-policy.yml. Reading config
+          # from the default branch would silently ignore it. The earlier guard
+          # in this job already proved BASE_SHA carries a review-policy.yml, so
+          # this source is always available.
+          #
+          # HELPER prefers the PR base too, and falls back to the default branch
+          # ONLY when the base predates the helper (#763). Pinning the helper to
+          # the base alone made POLICY a function of the base's age: a PR opened
+          # against any base predating these helpers forced needs_review=true for
+          # every PR in this workflow, bypassing the threshold logic entirely and
+          # staying stuck until the branch was rebased. Both trees are equally
+          # untouchable by the PR, so the #531 trust property holds either way.
+          #
+          # The fallback can pair a NEWER helper with an OLDER config. That is
+          # the safe skew direction — a current helper tolerates an older config
+          # (missing keys take documented defaults); the reverse, an old helper
+          # against a newer config, is the unsafe one and cannot arise here.
+          DEFAULT_BRANCH="${{ github.event.repository.default_branch }}"
+          TRUSTED_BASE_TREE=""
+          TRUSTED_HELPER_TREE=""
+          TRUSTED_CONFIG_TREE=""
+          cleanup_trusted_trees() {
+            # The helper tree IS the base tree in the common case; only remove
+            # it once so the second pass can't log a spurious failure.
+            for _t in "$TRUSTED_CONFIG_TREE" "$TRUSTED_HELPER_TREE" "$TRUSTED_BASE_TREE"; do
+              [ -n "$_t" ] || continue
+              git worktree remove --force "$_t" >/dev/null 2>&1 || rm -rf "$_t"
+              # Stop after the base tree: in the common case the helper tree
+              # IS the base tree, so a second pass would log a spurious failure.
+              [ "$_t" != "$TRUSTED_BASE_TREE" ] || break
+            done
+          }
+          trap cleanup_trusted_trees EXIT
 
-          # Match changed files against patterns. Delegates to
-          # scripts/workflow/match_protected_paths.sh (bash `[[ ]]`
-          # pattern matching under the hood), which is unit-tested by
-          # scripts/ci/check_workflow_parsers (see #57). History: the
-          # earlier inline glob-to-regex sed pipeline double-transformed
-          # `*` and silently missed nested paths. See #54 for the
-          # post-mortem.
-          # (CHANGED_FILES is computed once near the top of this step,
-          # before the propagation-lane check.)
-
-          PATTERNS=()
-          while IFS= read -r line; do
-            [ -n "$line" ] && PATTERNS+=("$line")
-          done <<< "$PATHS"
-
-          if [ "${#PATTERNS[@]}" -gt 0 ]; then
-            MATCHED_FILES=$(printf '%s\n' "$CHANGED_FILES" | bash scripts/workflow/match_protected_paths.sh "${PATTERNS[@]}")
+          TRUSTED_BASE_TREE=$(mktemp -d)
+          rmdir "$TRUSTED_BASE_TREE" 2>/dev/null || true
+          if ! git worktree add --quiet --detach "$TRUSTED_BASE_TREE" "$BASE_SHA" 2>/dev/null; then
+            echo "External-review fail-closed: could not materialize the PR base tree; requiring review."
+            echo "needs_review=true" >> "$GITHUB_OUTPUT"
+            echo "reasons=- Could not materialize the PR base tree for the external-review calculation; requiring review fail-closed" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          # Pair the config with the base tree, EXCEPT when the base predates
+          # the policy file — then the default-branch copy is the only policy
+          # that exists (see BASE_HAS_POLICY above).
+          #
+          # The fallback MUST come from a trusted origin/$DEFAULT_BRANCH
+          # worktree, never a bare `.github/review-policy.yml` path: this job
+          # is checked out at the PR MERGE COMMIT, so a bare path resolves
+          # against the PR's own content and would let a PR whose base predates
+          # the policy file supply the policy that judges it (CodeRabbit
+          # Major on #768 — a regression introduced by this PR's earlier draft).
+          # If neither the base nor the default branch yields a policy, fail
+          # closed rather than fall back to anything the PR can write.
+          if [ "$BASE_HAS_POLICY" = "true" ]; then
+            TRUSTED_CONFIG="$TRUSTED_BASE_TREE/.github/review-policy.yml"
           else
-            MATCHED_FILES=""
+            if git rev-parse --verify --quiet "origin/$DEFAULT_BRANCH^{commit}" >/dev/null 2>&1; then
+              TRUSTED_CONFIG_TREE=$(mktemp -d)
+              rmdir "$TRUSTED_CONFIG_TREE" 2>/dev/null || true
+              if ! git worktree add --quiet --detach "$TRUSTED_CONFIG_TREE" "origin/$DEFAULT_BRANCH" 2>/dev/null \
+                 || [ ! -f "$TRUSTED_CONFIG_TREE/.github/review-policy.yml" ]; then
+                git worktree remove --force "$TRUSTED_CONFIG_TREE" >/dev/null 2>&1 || rm -rf "$TRUSTED_CONFIG_TREE"
+                TRUSTED_CONFIG_TREE=""
+              fi
+            fi
+            if [ -z "$TRUSTED_CONFIG_TREE" ]; then
+              echo "External-review fail-closed: PR base has no .github/review-policy.yml and no trusted origin/$DEFAULT_BRANCH copy is available; requiring review."
+              echo "needs_review=true" >> "$GITHUB_OUTPUT"
+              echo "reasons=- No trusted review-policy.yml on the PR base or the default branch; requiring review fail-closed" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            TRUSTED_CONFIG="$TRUSTED_CONFIG_TREE/.github/review-policy.yml"
+            echo "NOTE: using the trusted origin/$DEFAULT_BRANCH review policy (the PR base predates the policy file)."
           fi
 
-          if [ -n "$MATCHED_FILES" ]; then
-            NEEDS_REVIEW=true
-            FILE_LIST=$(echo "$MATCHED_FILES" | sort -u | grep -v '^$' | sed 's/^/  - /' | tr '\n' ',' | sed 's/,/%0A/g')
-            REASONS="${REASONS}- Protected paths modified:%0A${FILE_LIST}"
+          TRUSTED_SOURCE=""
+          if [ -x "$TRUSTED_BASE_TREE/scripts/workflow/external_review_fingerprint.sh" ]; then
+            TRUSTED_HELPER_TREE="$TRUSTED_BASE_TREE"
+            TRUSTED_SOURCE="the PR base ($BASE_SHA)"
+          elif git rev-parse --verify --quiet "origin/$DEFAULT_BRANCH^{commit}" >/dev/null 2>&1; then
+            TRUSTED_HELPER_TREE=$(mktemp -d)
+            rmdir "$TRUSTED_HELPER_TREE" 2>/dev/null || true
+            if git worktree add --quiet --detach "$TRUSTED_HELPER_TREE" "origin/$DEFAULT_BRANCH" 2>/dev/null \
+               && [ -x "$TRUSTED_HELPER_TREE/scripts/workflow/external_review_fingerprint.sh" ]; then
+              TRUSTED_SOURCE="origin/$DEFAULT_BRANCH (fallback: the PR base predates the helper)"
+            else
+              git worktree remove --force "$TRUSTED_HELPER_TREE" >/dev/null 2>&1 || rm -rf "$TRUSTED_HELPER_TREE"
+              TRUSTED_HELPER_TREE=""
+            fi
+          fi
+
+          if [ -z "$TRUSTED_SOURCE" ]; then
+            echo "External-review fail-closed: neither the PR base nor origin/$DEFAULT_BRANCH carries an executable fingerprint helper; requiring review."
+            echo "needs_review=true" >> "$GITHUB_OUTPUT"
+            echo "reasons=- Trusted external-review fingerprint helper is unavailable on the PR base and the default branch; requiring review fail-closed" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "External-review: config from the PR base; helpers from $TRUSTED_SOURCE."
+
+          TRUSTED_HELPER_DIR="$TRUSTED_HELPER_TREE/scripts/workflow"
+          FINGERPRINT_HELPER="$TRUSTED_HELPER_DIR/external_review_fingerprint.sh"
+          CARRY_HELPER="$TRUSTED_HELPER_DIR/external_review_carryforward.sh"
+
+          set +e
+          FINGERPRINT_JSON=$(bash "$FINGERPRINT_HELPER" \
+            --repo "${{ github.repository }}" \
+            --pr "$PR_NUMBER" \
+            --ref "$HEAD_SHA" \
+            --config "$TRUSTED_CONFIG" \
+            --files-json "$FILES_JSON")
+          fingerprint_rc=$?
+          set -e
+          if [ "$fingerprint_rc" -ne 0 ]; then
+            echo "External-review fail-closed: fingerprint helper failed (rc=$fingerprint_rc); requiring review."
+            echo "needs_review=true" >> "$GITHUB_OUTPUT"
+            echo "reasons=- External-review fingerprint helper failed; requiring review fail-closed" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          NEEDS_REVIEW=$(echo "$FINGERPRINT_JSON" | jq -r '.requires_review')
+          FINGERPRINT=$(echo "$FINGERPRINT_JSON" | jq -r '.fingerprint // ""')
+          REASONS=$(echo "$FINGERPRINT_JSON" | jq -r '.reasons | map("- " + .) | join("%0A")')
+
+          if [ "$NEEDS_REVIEW" = "true" ] && [ -n "$FINGERPRINT" ] && [ -x "$CARRY_HELPER" ]; then
+            set +e
+            CARRY_JSON=$(bash "$CARRY_HELPER" \
+              --repo "${{ github.repository }}" \
+              --pr "$PR_NUMBER" \
+              --head "$HEAD_SHA" \
+              --current-fingerprint "$FINGERPRINT" \
+              --config "$TRUSTED_CONFIG" \
+              --files-json "$FILES_JSON")
+            carry_rc=$?
+            set -e
+            if [ "$carry_rc" -eq 0 ] && [ "$(echo "$CARRY_JSON" | jq -r '.carried')" = "true" ]; then
+              SOURCE_COMMIT=$(echo "$CARRY_JSON" | jq -r '.source_commit')
+              SOURCE_TIME=$(echo "$CARRY_JSON" | jq -r '.source_time')
+              echo "External-review carry-forward: Codex already cleared the same external-review fingerprint on $SOURCE_COMMIT at $SOURCE_TIME; skipping needs-external-review on base-only sync (#705)."
+              echo "needs_review=false" >> "$GITHUB_OUTPUT"
+              echo "reasons=" >> "$GITHUB_OUTPUT"
+              exit 0
+            elif [ "$carry_rc" -ne 0 ]; then
+              echo "External-review carry-forward failed (rc=$carry_rc); requiring current-head review fail-closed."
+            fi
           fi
 
           echo "needs_review=$NEEDS_REVIEW" >> "$GITHUB_OUTPUT"
