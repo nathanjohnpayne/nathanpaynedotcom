@@ -38,7 +38,7 @@ describe('Sitemap', () => {
 
   it('uses the newest published post date for the blog index lastmod', () => {
     expect(sitemapEntryFor('https://nathanpayne.com/blog/')).toContain(
-      '<lastmod>2026-06-11T00:00:00.000Z</lastmod>',
+      '<lastmod>2026-07-30T00:00:00.000Z</lastmod>',
     );
   });
 
