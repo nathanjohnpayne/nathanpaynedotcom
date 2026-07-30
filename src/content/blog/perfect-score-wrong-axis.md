@@ -2,7 +2,7 @@
 title: "A Perfect Score on the Wrong Axis: 116 Review Findings, Zero Rejected, One Escape"
 seoTitle: "A Perfect Review Score, One Escaped Bug"
 shortTitle: "Perfect Score, Wrong Axis"
-description: "A ten-PR batch went through 41 automated review rounds and 116 severity-tagged findings. Every finding was accepted—none rejected as wrong. Ninety-four seconds after the last merge, a reviewer with no inherited brief found the defect the whole batch had missed. The record was perfect because it was measuring the wrong axis."
+description: "A ten-PR batch went through 41 automated review rounds and 116 severity-tagged findings—not one rejected as wrong. Ninety-four seconds after the last merge, a reviewer with no inherited brief found the defect the whole batch had missed. The record was perfect because it was measuring the wrong axis."
 seoDescription: "An AI review batch accepted all 116 findings with zero rejections and still shipped a P1. Why verification inherits the framing of whoever briefed it."
 author: "Nathan Payne"
 date: 2026-07-30
@@ -43,7 +43,7 @@ On July 30, 2026, at 03:59:00 UTC, [PR #797](https://github.com/nathanjohnpayne/
 
 At 04:00:34 UTC—ninety-four seconds later—a reviewer that had been rate-limited out of most of the batch finished a from-scratch pass on the merged PR and posted [one more finding](https://github.com/nathanjohnpayne/mergepath/pull/797#discussion_r3679855498). It opened: "Indented list/paragraph lines are blanked as code, and no test would catch it."
 
-That finding became [issue #809](https://github.com/nathanjohnpayne/mergepath/issues/809), a post-merge hotfix, and the subject of this post. Because the interesting thing is not that a bug shipped. Bugs ship. The interesting thing is what the review record looked like at the moment it shipped: 116 severity-tagged findings raised across the batch, every single one accepted and acted on, not one rejected as incorrect. By the only metric the process records, the review was perfect. And the metric was measuring the wrong axis.
+That finding became [issue #809](https://github.com/nathanjohnpayne/mergepath/issues/809), a post-merge hotfix, and the subject of this post. Because the interesting thing is not that a bug shipped. Bugs ship. The interesting thing is what the review record looked like at the moment it shipped: 116 severity-tagged findings raised across the batch, and not one of them rejected as incorrect. By the only metric the process records, the review was perfect. And the metric was measuring the wrong axis.
 
 ## The third beat of an arc
 
@@ -100,9 +100,9 @@ Six defects of the same species: a test green against a world that cannot occur.
 
 [PR #797](https://github.com/nathanjohnpayne/mergepath/pull/797) added a new CI check: a canonical doc may not link to a hub-only doc by repo-relative path. To scan only rendered prose, it introduced a Markdown preprocessor, `mp_markdown_renderable_text`, that blanks code before scanning. The preprocessor treated every tab- or four-space-indented line as an indented code block.
 
-CommonMark does not work that way. Indented code cannot interrupt an open paragraph or list item—a four-space-indented line inside a nested bullet is list content, not code. So a nested bullet like `    - See [the audit](coderabbit-audit.md)` was silently blanked before the scan ran, and the check went blind to exactly the links it existed to catch. Fail-open, with a test matrix that—in the words of the finding—"only exercises fenced and inline code, so nothing fails today."
+CommonMark does not work that way. Indented code cannot interrupt an open paragraph or list item—a four-space-indented line inside a nested bullet is list content, not code. So a nested bullet indented four spaces—`- See [the audit](coderabbit-audit.md)`—was silently blanked before the scan ran, and the check went blind to exactly the links it existed to catch. Fail-open, with a test matrix that—in the words of the finding—"only exercises fenced and inline code, so nothing fails today."
 
-#797 was not under-reviewed. It absorbed 27 severity-badged Codex findings across eight review rounds, two large CodeRabbit reviews before the rate limits hit, and six review events from the Phase 4b external reviewer, four of whose approvals were dismissed by subsequent pushes before the fifth stuck. Twenty commits. Every finding fixed. And then it merged, and ninety-four seconds later CodeRabbit—which had spent much of the batch rate-limited, and was therefore reviewing the merged diff cold, with no memory of the batch's eight rounds of conversation—read the preprocessor against CommonMark's actual rules and found the hole.
+PR #797 was not under-reviewed. It absorbed 27 severity-badged Codex findings across eight review rounds, two large CodeRabbit reviews before the rate limits hit, and six review events from the Phase 4b external reviewer, four of whose approvals were dismissed by subsequent pushes before the fifth stuck. Twenty commits. Every finding fixed. And then it merged, and ninety-four seconds later CodeRabbit—which had spent much of the batch rate-limited, and was therefore reviewing the merged diff cold, with no memory of the batch's eight rounds of conversation—read the preprocessor against CommonMark's actual rules and found the hole.
 
 The human filed [#809](https://github.com/nathanjohnpayne/mergepath/issues/809) one minute later. [PR #810](https://github.com/nathanjohnpayne/mergepath/pull/810) fixed it with explicit CommonMark text-flow state tracking and merged at 04:28:05 UTC—twenty-eight minutes from finding to merged fix, with 93 regression cases behind it. (Severity taxonomy footnote, since I am being precise: CodeRabbit tagged the finding "Functional Correctness / Major"; the repo's own approval record for the fix calls it "the P1 from #797." Same defect, two vocabularies.)
 
@@ -118,7 +118,7 @@ What none of them could do, structurally, was ask a question nobody in the sessi
 
 The reviewer that found the escape had none of that context—not by design, but by accident of a rate limit. It read the merged code against the external specification and asked the one question the session never had: *does CommonMark actually let indented code interrupt a list item?*
 
-Here is the reframe I keep coming back to. A perfect disposition record measures precision on the questions asked. It says nothing about the questions that went unasked. The batch's 116-for-116 record looked like rigor, and it was—but it was rigor on one axis, recall on a question set that was fixed at briefing time and never expanded. The metric could not even represent the failure that mattered, so of course it did not move when the failure shipped.
+Here is the reframe I keep coming back to. A perfect disposition record measures precision on the questions asked. It says nothing about the questions that went unasked. The batch's zero-rejections record looked like rigor, and it was—but it was rigor on one axis, recall on a question set that was fixed at briefing time and never expanded. The metric could not even represent the failure that mattered, so of course it did not move when the failure shipped.
 
 ## The worked example: where the matrix comes from
 
