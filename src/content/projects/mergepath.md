@@ -67,7 +67,7 @@ There is no backend, no build system, and no network calls. The draft YAML panel
 - **A dedicated hook test suite** covering the PR guard and the review-policy parser.
 - **17 template bugs** surfaced during propagation across downstream projects—bugs that had survived seven rounds of review on the template before fresh eyes in a new codebase found them.
 - **134 review-finding threads** across a 24-hour, ten-PR batch and its hotfix in July 2026—and the defect that record still let through is examined in [A Perfect Score on the Wrong Axis](/blog/perfect-score-wrong-axis/).
-- **10 repositories** in the Mergepath fleet—the hub plus nine consumers, including Override, Device Source of Truth, Friends & Family Billing, Swipewatch, and this site.
+- **10 repositories** in the Mergepath fleet—the hub plus nine consumers, including Override, Device Source of Truth, Friends & Family Billing, Swipe Watch, and this site.
 
 ## Why it matters
 
