@@ -24,7 +24,7 @@ sidebar:
       graph TD
           A["Authoring session"] --> B["134 finding threads<br/>(116 severity-badged)"]
           B --> C["Verifiers briefed<br/>from the finding list"]
-          C --> D["111 fixed, 9 deferred,<br/>0 rejected as wrong"]
+          C --> D["122 dispositions: 111 fixed,<br/>9 deferred, 2 rebutted<br/>(12 threads unmarked)"]
           D --> E["Defect #809<br/>ships anyway"]
           S["External spec<br/>(CommonMark)"] --> F["Fresh pass outside<br/>the session's brief"]
           F --> G["#809 found in<br/>94 seconds"]
@@ -43,7 +43,7 @@ On July 30, 2026, at 03:59:00 UTC, [PR #797](https://github.com/nathanjohnpayne/
 
 At 04:00:34 UTC—ninety-four seconds later—a reviewer that had been rate-limited out of most of the batch finished a from-scratch pass on the merged PR and posted [one more finding](https://github.com/nathanjohnpayne/mergepath/pull/797#discussion_r3679855498). It opened: "Indented list/paragraph lines are blanked as code, and no test would catch it."
 
-That finding became [issue #809](https://github.com/nathanjohnpayne/mergepath/issues/809), a post-merge hotfix, and the subject of this post. Because the interesting thing is not that a bug shipped. Bugs ship. The interesting thing is what the review record looked like at the moment it shipped: 134 top-level finding threads across the batch, 116 of them severity-badged, and of the 122 threads with a recorded disposition, not one rejected as factually wrong. By the only metric the process records, the review was perfect. And the metric was measuring the wrong axis.
+That finding became [issue #809](https://github.com/nathanjohnpayne/mergepath/issues/809), a post-merge hotfix, and the subject of this post. Because the interesting thing is not that a bug shipped. Bugs ship. The interesting thing is the review record this work compiled: 134 top-level finding threads across the ten PRs and the hotfix, 116 of them severity-badged, and of the 122 threads with a recorded disposition, not one rejected as factually wrong. By the only metric the process records, the review was perfect. And the metric was measuring the wrong axis.
 
 This is the third beat of an arc this blog has been walking all year, and it is a reversal. In [Six PRs, One Bug](/blog/six-prs-one-bug-agent-failure-modes/) (April), an agent made competent local progress inside the wrong model for six straight PRs because nothing forced a repeated local failure to become a structural question. In [Agent Approval Workflow](/blog/agent-approval-workflow-genesis-of-mergepath/) (two weeks later), I built the enforcement infrastructure in response—multi-identity review, external-review thresholds, merge gates agents cannot talk their way past—on the premise that agent reliability is an infrastructure problem. This time the infrastructure ran at full power, produced the best-looking review record the repo has ever generated, and the bug shipped anyway. The failure was not that the machinery was weak. It was that the passes were correlated: layer after layer was, to a first approximation, answering the same question.
 
@@ -65,7 +65,7 @@ Here is where I have to be careful, because this batch taught me—twice, painfu
 
 Across the ten batch PRs and the hotfix, the record contains 268 inline review comments forming 134 top-level finding threads. Of those threads, 116 are severity-badged findings from the Codex App—12 P1, 102 P2, 2 P3—and 18 are actionable CodeRabbit comments. The Codex App alone ran 41 review rounds against 48 trigger comments; the automated Phase 4b adapter ran 13 more loops on top.
 
-The per-finding dispositions are recorded as machine-readable markers on each thread, so the outcome is countable rather than a vibe. Over all 134 threads:
+Dispositions are recorded as machine-readable reply markers on the finding threads—most threads carry one, not all—so the outcome is countable rather than a vibe. Over all 134 threads:
 
 | Disposition | Threads |
 |---|---|
@@ -108,7 +108,7 @@ My diagnosis, written into [the batch retrospective](https://github.com/nathanjo
 graph TD
     A["Authoring session"] --> B["134 finding threads<br/>(116 severity-badged)"]
     B --> C["Verifiers briefed<br/>from the finding list"]
-    C --> D["111 fixed, 9 deferred,<br/>0 rejected as wrong"]
+    C --> D["122 dispositions: 111 fixed,<br/>9 deferred, 2 rebutted<br/>(12 threads unmarked)"]
     D --> E["Defect #809<br/>ships anyway"]
     S["External spec<br/>(CommonMark)"] --> F["Fresh pass outside<br/>the session's brief"]
     F --> G["#809 found in<br/>94 seconds"]
@@ -122,7 +122,7 @@ graph TD
     style G fill:#7bc67e,stroke:#4a8a4d,color:#fff
 ```
 
-Look at the mechanics. The adversarial verifiers this batch added were real and they earned their keep—one of them returned a *blocking* verdict on [PR #791](https://github.com/nathanjohnpayne/mergepath/pull/791) and forced a fix before merge. But they were briefed by the authoring session, from its finding list, in its taxonomy. Their job was to check whether each claimed fix actually fixed the claimed defect, and whether each test actually failed when the fix was reverted. They did that job thoroughly: 111 threads closed against named fix commits, zero findings rejected as wrong.
+Look at the mechanics. The adversarial verifiers this batch added were real and they earned their keep—one of them returned a *blocking* verdict on [PR #791](https://github.com/nathanjohnpayne/mergepath/pull/791) and forced a fix before merge. But they were briefed by the authoring session, from its finding list, in its taxonomy. Their job was to check whether each claimed fix actually fixed the claimed defect, and whether each test actually failed when the fix was reverted. They did that job thoroughly: 111 threads closed against named fix commits; among the 122 recorded dispositions, none was rejected as wrong.
 
 What none of them was positioned to do was ask a question nobody in the session had thought to ask. The session's model of `mp_markdown_renderable_text` was "indented lines are code." Every reviewer briefed inside that session inherited the model along with the brief. Verification validated the fixes against the finding list; nobody re-derived the finding list against the CommonMark spec. The ten-plus passes on #797 were deep, and they were largely deep in the same hole.
 
