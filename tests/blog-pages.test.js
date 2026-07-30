@@ -116,10 +116,10 @@ describe('Blog Pages', () => {
       position: 1,
       item: {
         '@type': 'BlogPosting',
-        '@id': 'https://nathanpayne.com/blog/two-blues-one-composition/',
-        url: 'https://nathanpayne.com/blog/two-blues-one-composition/',
-        name: 'Two Blues, One Composition: How a Design Critique Became a Forensics Exercise',
-        datePublished: '2026-06-11T00:00:00.000Z',
+        '@id': 'https://nathanpayne.com/blog/perfect-score-wrong-axis/',
+        url: 'https://nathanpayne.com/blog/perfect-score-wrong-axis/',
+        name: 'A Perfect Score on the Wrong Axis: 116 Review Findings, Zero Rejected, One Escape',
+        datePublished: '2026-07-30T00:00:00.000Z',
       },
     });
     expect(itemList.itemListElement[0].item.description.length).toBeLessThanOrEqual(160);
