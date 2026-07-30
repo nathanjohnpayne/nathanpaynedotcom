@@ -21,6 +21,8 @@ related:
     href: "/blog/agent-approval-workflow-genesis-of-mergepath/"
   - label: "Blog: Six PRs, One Bug—What AI Agents Actually Get Wrong"
     href: "/blog/six-prs-one-bug-agent-failure-modes/"
+  - label: "Blog: A Perfect Score on the Wrong Axis"
+    href: "/blog/perfect-score-wrong-axis/"
 ---
 
 ## Overview
@@ -64,7 +66,8 @@ There is no backend, no build system, and no network calls. The draft YAML panel
 - **~27 fail-closed CI checks** enforced on every push and PR.
 - **A dedicated hook test suite** covering the PR guard and the review-policy parser.
 - **17 template bugs** surfaced during propagation across downstream projects—bugs that had survived seven rounds of review on the template before fresh eyes in a new codebase found them.
-- **8 repositories** currently using Mergepath, including Override, Device Source of Truth, Friends & Family Billing, Swipewatch, and this site.
+- **134 review-finding threads** across a single 24-hour, ten-PR batch in July 2026—and the defect that record still let through is examined in [A Perfect Score on the Wrong Axis](/blog/perfect-score-wrong-axis/).
+- **10 repositories** in the Mergepath fleet—the hub plus nine consumers, including Override, Device Source of Truth, Friends & Family Billing, Swipewatch, and this site.
 
 ## Why it matters
 
