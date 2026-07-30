@@ -3241,6 +3241,43 @@ a.tag:hover {
   border-top: 1px solid var(--rule);
 }
 
+/* Markdown tables in post prose. Browser defaults render them borderless,
+   so measured-data tables blended into the surrounding paragraphs. Give
+   them the chrome's thin ink rules: a heavy rule under the header, hairline
+   rules between rows, and breathing room above/below. `display: block` +
+   `overflow-x: auto` keeps a wide table scrolling inside its own box
+   instead of overflowing the column on narrow screens. */
+.blog-prose table {
+  display: block;
+  width: max-content;
+  max-width: 100%;
+  overflow-x: auto;
+  margin: 1.5rem 0 1.7rem;
+  border-collapse: collapse;
+  font-size: clamp(0.9rem, 0.87rem + 0.14vw, 0.98rem);
+  line-height: 1.5;
+}
+
+.blog-prose thead th {
+  text-align: left;
+  font-size: 0.76rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 0 1.4rem 0.5rem 0;
+  border-bottom: 2px solid var(--ink);
+}
+
+.blog-prose tbody td {
+  padding: 0.55rem 1.4rem 0.55rem 0;
+  border-bottom: 1px solid var(--rule);
+  vertical-align: top;
+}
+
+.blog-prose thead th:last-child,
+.blog-prose tbody td:last-child {
+  padding-right: 0;
+}
+
 .blog-list {
   list-style: none;
   display: grid;
