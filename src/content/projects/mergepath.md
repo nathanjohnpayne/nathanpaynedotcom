@@ -44,7 +44,7 @@ Mergepath treats agent output the way regulated engineering organizations treat 
 
 ## Cross-repo propagation
 
-Mergepath is the canonical source, and a propagation tool keeps every downstream repo current instead of letting them drift. `scripts/sync-to-downstream.sh` reads a `.mergepath-sync.yml` manifest that declares which paths are *canonical* (mirrored byte-for-byte) and which are *kit* directories (every template file required, repo-specific additions allowed), along with which of the eight consumer repos opt in.
+Mergepath is the canonical source, and a propagation tool keeps every downstream repo current instead of letting them drift. `scripts/sync-to-downstream.sh` reads a `.mergepath-sync.yml` manifest that declares which paths are *canonical* (mirrored byte-for-byte) and which are *kit* directories (every template file required, repo-specific additions allowed), along with which of the nine consumer repos opt in.
 
 `--audit` reports per-repo drift with zero side effects; `--sync-all` reconciles a consumer's full state; passing a commit-ish propagates only what changed at that commit. Every run opens one PR per consumer through the same review flow as any other change. Where a consumer needs to diverge on purpose, a per-repo `.sync-overrides.yml` registry records the exception—with a documented reason—so propagation never clobbers it. The model inverts the old default of "let docs drift, catch it in a weekly audit" into canonical-first, drift-as-exception.
 
@@ -66,7 +66,7 @@ There is no backend, no build system, and no network calls. The draft YAML panel
 - **~27 fail-closed CI checks** enforced on every push and PR.
 - **A dedicated hook test suite** covering the PR guard and the review-policy parser.
 - **17 template bugs** surfaced during propagation across downstream projects—bugs that had survived seven rounds of review on the template before fresh eyes in a new codebase found them.
-- **134 review-finding threads** across a single 24-hour, ten-PR batch in July 2026—and the defect that record still let through is examined in [A Perfect Score on the Wrong Axis](/blog/perfect-score-wrong-axis/).
+- **134 review-finding threads** across a 24-hour, ten-PR batch and its hotfix in July 2026—and the defect that record still let through is examined in [A Perfect Score on the Wrong Axis](/blog/perfect-score-wrong-axis/).
 - **10 repositories** in the Mergepath fleet—the hub plus nine consumers, including Override, Device Source of Truth, Friends & Family Billing, Swipewatch, and this site.
 
 ## Why it matters
