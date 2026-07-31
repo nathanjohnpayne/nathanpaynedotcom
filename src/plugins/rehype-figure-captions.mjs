@@ -40,6 +40,10 @@ const imageDimensions = {
     width: 1183,
     height: 1200,
   },
+  '/blog/perfect-score-wrong-axis/img/coderabbit-review-limit-reached.png': {
+    width: 1980,
+    height: 1460,
+  },
 };
 
 export default function rehypeFigureCaptions() {
