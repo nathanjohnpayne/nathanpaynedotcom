@@ -3133,6 +3133,10 @@ a.tag:hover {
   margin-top: 2.5rem;
   padding-top: 1.8rem;
   border-top: 1px solid var(--rule);
+  /* Body paragraphs get their spacing from `p + p`, which never fires on the
+     first paragraph of a section — so without this the h2 sits flush against
+     it. Matches .blog-prose > h3 and .project-copy h2. */
+  margin-bottom: 0.75rem;
 }
 
 .blog-prose > h3 {

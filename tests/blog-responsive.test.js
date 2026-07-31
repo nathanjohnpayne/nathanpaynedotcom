@@ -76,6 +76,24 @@ describe('Blog Responsive Layout', () => {
       expect(css).toMatch(/\.blog-figure\s+img\s*\{[^}]*width:\s*100%/);
       expect(css).toMatch(/\.blog-figure\s+img\s*\{[^}]*height:\s*auto/);
     });
+
+    it('blog section headings carry a bottom margin', () => {
+      // Paragraph spacing comes from `.blog-prose > p + p`, which does not fire
+      // on the first paragraph after a heading. Without an explicit
+      // margin-bottom on the heading itself, every section opener renders
+      // flush against its h2.
+      for (const tag of ['h2', 'h3']) {
+        const block = css.match(new RegExp(`\\.blog-prose\\s*>\\s*${tag}\\s*\\{([^}]*)\\}`));
+        expect(block, `.blog-prose > ${tag} rule missing`).not.toBeNull();
+        // No trailing `;` on the last declaration of a minified block.
+        const declared = block[1].match(/margin-bottom:\s*([^;}]+)/);
+        expect(declared, `.blog-prose > ${tag} has no margin-bottom`).not.toBeNull();
+        expect(
+          parseFloat(declared[1]),
+          `.blog-prose > ${tag} margin-bottom is zero`,
+        ).toBeGreaterThan(0);
+      }
+    });
   });
 
   describe('blog post image markup', () => {
