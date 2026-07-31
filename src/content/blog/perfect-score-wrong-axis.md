@@ -57,6 +57,8 @@ CommonMark does not work that way. Indented code cannot interrupt an open paragr
 
 [PR #797](https://github.com/nathanjohnpayne/mergepath/pull/797) was not under-reviewed. It absorbed 27 severity-badged findings from the Codex GitHub App across eight review rounds, two large CodeRabbit reviews before the rate limits hit, and five substantive reviews from the Phase 4b external reviewer—four approvals dismissed by subsequent pushes before the fifth stuck. Twenty commits. Every finding on it dispositioned. And then it merged, and ninety-four seconds later CodeRabbit—which had spent much of the batch rate-limited, and was therefore reviewing the merged diff from outside the batch's conversation—read the preprocessor against CommonMark's published rules and found the hole.
 
+![The escape itself, posted at 04:00:34 UTC on the merged PR #797. Ten-plus briefed passes read the preprocessor against the session model of it. This pass read it against CommonMark and asked the one question nobody in the session had.](/blog/perfect-score-wrong-axis/img/coderabbit-escape-finding-797.png)
+
 I filed [#809](https://github.com/nathanjohnpayne/mergepath/issues/809) one minute later. [PR #810](https://github.com/nathanjohnpayne/mergepath/pull/810) fixed it with explicit CommonMark text-flow state tracking and merged at 04:28:05 UTC—twenty-eight minutes from finding to merged fix, with 93 regression cases behind it. (Severity taxonomy footnote, since I am being precise: CodeRabbit tagged the finding "Functional Correctness / Major"; the repo's own approval record for the fix calls it "the P1 from [#797](https://github.com/nathanjohnpayne/mergepath/pull/797)." Same defect, two vocabularies.)
 
 ## The scoreboard, re-derived
@@ -66,6 +68,8 @@ The [backlog](https://github.com/nathanjohnpayne/mergepath/issues/774) behind th
 Here is where I have to be careful, because this batch taught me—twice, painfully—that agent-written summaries do not survive contact with the underlying record. So none of the following numbers come from a summary. I pulled the raw review objects from the GitHub API and counted, and I am keeping every denominator explicit, because the first draft of this post did not and the numbers quietly drifted between sentences.
 
 Across the ten batch PRs and the hotfix, the record contains 268 inline review comments forming 134 top-level finding threads. Of those threads, 116 are severity-badged findings from the Codex App—12 P1, 102 P2, 2 P3—and 18 are actionable CodeRabbit comments. The Codex App alone ran 41 review rounds against 48 trigger comments; the automated Phase 4b adapter ran 13 more loops on top.
+
+![The counting pass behind this section: one command over the eleven PRs of the batch, and its output. Threads are top-level review comments; dispositions are the machine-readable reply markers left on them. Every count in the paragraph above and the table below falls out of this.](/blog/perfect-score-wrong-axis/img/raw-count-query.png)
 
 Dispositions are recorded as machine-readable reply markers on the finding threads—most threads carry one, not all—so the outcome is countable rather than a vibe. Over all 134 threads:
 
@@ -143,6 +147,8 @@ The Phase 4b external reviewer, before approving, did not re-run that matrix. It
 Same harness, same reference implementation, same technique, executed competently both times. The author-derived matrix passed a broken matcher; the spec-derived expansion failed it within one round. I will not claim the matrix provenance was the *only* variable—the author and the reviewer were different agents with different prompts and different context, and nothing here was randomized. But the episode is exactly consistent with the convergence diagnosis, and the direction is the same as [#809](https://github.com/nathanjohnpayne/mergepath/issues/809)'s: the author's pairs came from the same place the author's implementation came from, so they shared its blind spots by construction. A trailing slash was not in the implementation's model of a ref, so it was not in the matrix either.
 
 And one more turn of the screw, because this batch does not let anyone off. The retrospective comment I quoted above—the one containing the diagnosis, written by the agent that drove the batch—cites this very example as "1041 pattern/ref pairs." I went looking for the 1041. It does not exist. The matrix was 168 pairs, then 224 at the moment the mismatch was found, then 255 at merge; the only "1041" anywhere in the PR's record is a line number in a `sed -n '1041,1560p'` command inside a handoff comment. The comment diagnosing that verification inherits unexamined assumptions itself carried an unverified number, and I only know because I re-derived it. I am leaving that in the post rather than quietly correcting it, because it is the phenomenon, demonstrated on the sentence describing the phenomenon.
+
+![The diagnosis and the unverified number, two paragraphs apart in the same retrospective comment. The first paragraph carries the passage block-quoted earlier in this post. The last one credits the fnmatch work with 1041 pattern/ref pairs, a number that appears nowhere in the record: the matrix was 168 pairs, then 224 when the mismatch surfaced, then 255 at merge.](/blog/perfect-score-wrong-axis/img/retrospective-1041-claim.png)
 
 ## A footnote on volume
 

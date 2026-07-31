@@ -44,6 +44,18 @@ const imageDimensions = {
     width: 1980,
     height: 1460,
   },
+  '/blog/perfect-score-wrong-axis/img/coderabbit-escape-finding-797.png': {
+    width: 1596,
+    height: 434,
+  },
+  '/blog/perfect-score-wrong-axis/img/retrospective-1041-claim.png': {
+    width: 1836,
+    height: 724,
+  },
+  '/blog/perfect-score-wrong-axis/img/raw-count-query.png': {
+    width: 2000,
+    height: 1558,
+  },
 };
 
 export default function rehypeFigureCaptions() {
