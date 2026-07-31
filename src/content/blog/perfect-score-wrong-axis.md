@@ -108,7 +108,7 @@ All six were caught inside the batch, by the batch's own verification. Which is 
 
 My diagnosis, written into [the batch retrospective](https://github.com/nathanjohnpayne/mergepath/issues/813#issuecomment-5133940688) the same day, is the spine of this post:
 
-> [S]ame-session verification converged on the implementation's assumptions: the verifier agents were briefed from the authoring agent's finding list using its taxonomy, so they searched the space that session had already mapped. Every round asked the same question.
+> Same-session verification converged on the implementation's assumptions: the verifier agents were briefed from the authoring agent's finding list using its taxonomy, so they searched the space that session had already mapped. Every round asked the same question.
 
 ```mermaid
 graph TD
