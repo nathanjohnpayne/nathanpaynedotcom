@@ -209,6 +209,19 @@ describe('PostHog', () => {
     expect(posthogComponentSrc).not.toContain('us.i.posthog.com');
   });
 
+  it('creates person profiles for anonymous visitors so internal traffic is filterable', () => {
+    // `defaults: '2026-01-30'` implies person_profiles: 'identified_only'. This
+    // site has no login and never calls identify(), so under that default no
+    // visitor ever got a person object — the project held exactly ONE Person row
+    // and every other "person" existed only as a synthetic id on the events table.
+    // That makes person-property filtering impossible: the "Internal / Test users"
+    // cohort can never match, so internal traffic cannot be excluded from
+    // analytics or from the error-tracking alerts that file GitHub issues.
+    // The explicit override must therefore outlive any future `defaults` bump.
+    expect(posthogComponentSrc).toContain("person_profiles: 'always'");
+    expect(posthogComponentSrc).not.toContain("person_profiles: 'identified_only'");
+  });
+
   it('guards every homepage capture with optional chaining', () => {
     expect(posthogHomepageScript).toContain('window.posthog?.capture');
     expect(posthogHomepageScript).not.toContain('window.posthog.capture');
