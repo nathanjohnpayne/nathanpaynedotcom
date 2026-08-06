@@ -8,7 +8,7 @@ This is the part most likely to be re-derived the hard way. Until 2026-08-05 thi
 
 Turning it on required no change to [`src/components/posthog.astro`](../src/components/posthog.astro) and no redeploy. `posthog.init()` there sets `api_host`, `ui_host`, and `defaults` only; it says nothing about exception capture, so the server-side project setting governs and the browser SDK picks it up from remote config:
 
-```
+```text
 call project-settings-update {"id":469428,"autocapture_exceptions_opt_in":true}
 ```
 
@@ -29,7 +29,7 @@ These numbers are **copied from the bingo project rather than sized from data**,
 
 Read and write with the project-scoped PostHog MCP server:
 
-```
+```text
 call error-tracking-settings-get
 call error-tracking-settings-update {"project_rate_limit_value":1000,"project_rate_limit_bucket_size_minutes":60,"per_issue_rate_limit_value":250,"per_issue_rate_limit_bucket_size_minutes":60}
 ```
