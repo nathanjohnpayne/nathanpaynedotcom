@@ -25,7 +25,18 @@ const token = import.meta.env.PUBLIC_POSTHOG_PROJECT_TOKEN || '';
     posthog.init(token, {
       api_host: 'https://d.nathanpayne.com',
       ui_host: 'https://us.posthog.com',
-      defaults: '2026-01-30'
+      defaults: '2026-01-30',
+      // `defaults: '2026-01-30'` implies person_profiles: 'identified_only', and
+      // this site has no login so it never calls identify(). The result was that
+      // anonymous visitors got NO person object at all — the whole project held a
+      // single Person row, every other "person" existing only as a synthetic id in
+      // the events table. Person-property filtering is impossible in that regime:
+      // the "Internal / Test users" cohort can never match a visitor, so internal
+      // traffic cannot be excluded from analytics or from the error-tracking alerts
+      // that file GitHub issues. 'always' creates a profile per visitor, which is
+      // what makes that cohort work. It raises person volume — acceptable here only
+      // because this site's traffic is tiny (~300 pageviews/90 days).
+      person_profiles: 'always'
     })
   </script>
 )}
