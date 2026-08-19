@@ -70,6 +70,9 @@ specs/                      Feature specifications and acceptance criteria
 rules/                      Repository-level binding constraints
 plans/                      Feature rollout and migration plans
 scripts/ci/                 CI enforcement scripts
+.github/workflows/build-and-test.yml
+                             Runs on every PR + push to main: npm ci, npm test
+                             (astro build && vitest run), npm run lint (#632, #563)
 docs/                       Extended documentation (agent processes)
 screenshots/og/             Checked-in OG image screenshots
 .github/screenshots/        PR, issue, and generated audit screenshot evidence

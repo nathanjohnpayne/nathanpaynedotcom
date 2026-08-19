@@ -1,0 +1,117 @@
+name: Build and Test
+
+# Closes #632 and #563.
+#
+# #632: no workflow in this repo built the site or ran the test suite —
+# every job under repo_lint.yml (the manifest-synced fleet workflow, see
+# its own header) is a structural scripts/ci/check_* lint, none of which
+# installs the project's own dependencies or exercises astro build /
+# vitest. Two production-blocking dependabot regressions (#630 astro
+# dropping @astrojs/markdown-remark, #631 typescript ^7 vs
+# @astrojs/check's peer range) merged with every check green and sat
+# undetected for one to two months as a result.
+#
+# #563: repo_lint.yml is a `canonical` entry in mergepath's
+# .mergepath-sync.yml (propagated fleet-wide) — a real `npm run lint` job
+# added there directly was silently overwritten by the next sync wave
+# (see #563 for the exact commits). This file is intentionally NOT
+# repo_lint.yml or anything mergepath treats as canonical, so it is not
+# subject to that sync and `npm run lint` running here cannot be dropped
+# the same way again.
+#
+# This is a consumer-local, never-propagated workflow — same posture as
+# the (currently unused) repo_lint_local.yml annex described in
+# rules/repo_rules.md's CI Enforcement section, just under a name that
+# reflects what it actually does.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-test:
+    name: build-and-test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # Read-only job — never pushes, never needs the checkout token
+          # past this job. Same defense-in-depth posture as repo_lint.yml.
+          persist-credentials: false
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          # Single source of truth for this project's Node version:
+          # `.nvmrc` at the repo root, which nvm/fnm also read locally, so
+          # the runner and a developer shell resolve the same major. The
+          # previous inline `node-version: "22"` asserted it matched "the
+          # version this project runs on locally" while nothing pinned
+          # that — no `.nvmrc`, no `engines` field — and the claim had
+          # already drifted (the dev machine runs 26.x).
+          #
+          # `.nvmrc` holds a bare major, so this resolves to the latest
+          # 26.x rather than floating across majors: a new Node major is
+          # an explicit one-line change here, not something CI adopts on
+          # its own. `engines.node` in package.json separately records the
+          # range the dependency tree actually supports
+          # (^22.22.3 || ^24.16.0 || >=26.3.0 — the tightest constraint is
+          # astro-eslint-parser / eslint-plugin-astro), so a bump that
+          # raises that floor past the pin shows up as an EBADENGINE
+          # warning in the `npm ci` step below.
+          node-version-file: .nvmrc
+
+      - name: npm ci
+        # Plain `npm ci` — deliberately NOT --legacy-peer-deps. #631 was a
+        # real peer-dependency conflict (typescript ^7 vs @astrojs/check's
+        # ^5||^6 range) that --legacy-peer-deps was masking; a CI step that
+        # adds the flag back would silently re-hide the next one of these.
+        # package-lock.json is committed as of #634 (fixing #630/#631),
+        # which is what makes `npm ci` (vs. `npm install`) possible here at
+        # all.
+        run: npm ci
+
+      - name: Install Playwright's Chromium
+        # og-images.mjs (src/integrations/) drives Playwright at BUILD
+        # time to screenshot src/pages/og-templates/ into dist/og/*.png —
+        # `npm test` runs `astro build`, so the OG image generation step
+        # of the build needs a real Chromium available on the runner, not
+        # just the playwright npm package. `--with-deps` also pulls the
+        # OS-level shared libraries Chromium needs on the runner image.
+        # This is for the build's own Playwright use, not the separate
+        # `npm run test:e2e` Playwright *test* suite (deliberately not run
+        # here — see the note below).
+        run: npx playwright install --with-deps chromium
+
+      - name: npm test (astro build && vitest run)
+        # `npm test`, NOT `npm run build`. `npm run build` runs the
+        # `prebuild` hook (scripts/refresh-hero-images.mjs,
+        # scripts/refresh-mux-gifs.mjs), which reaches the network and may
+        # need credentials this runner doesn't have. `npm test` invokes
+        # `astro build` directly, skipping prebuild, then runs the Vitest
+        # suite against the build output. This is the CI entry point
+        # #632's acceptance criteria call for.
+        run: npm test
+
+      - name: npm run lint
+        # Restores CI enforcement of ESLint (closes #563): this repo's
+        # .coderabbit.yml deliberately disables CodeRabbit's ESLint tool
+        # (#426 — its hosted sandbox can't parse .astro frontmatter), so
+        # before this step there was no path by which a real ESLint
+        # failure could block a PR (see #563's "Compounding this" section).
+        # Runs after `npm test` rather than in parallel, matching how the
+        # job is meant to read top to bottom: install, build+unit-test,
+        # lint. A failure in any step still fails the job and blocks the
+        # PR via branch protection.
+        run: npm run lint
+
+# Follow-up, deliberately NOT in scope here: `npm run test:e2e`
+# (Playwright end-to-end / visual regression) is not part of this
+# required workflow. It exercises real browser interactions and adds
+# meaningful wall-clock time to every PR; the brief for #632 is explicit
+# that the unit/build job is the non-negotiable part and e2e can stay a
+# manual/opt-in check. Wiring test:e2e into CI (on some slower cadence,
+# e.g. push-to-main only, or nightly) is left as separate future work.
