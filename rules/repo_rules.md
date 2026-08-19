@@ -60,10 +60,20 @@ automated dependency PRs.
   `typescript@>=4.8.4 <6.1.0`. A caret range would have admitted `6.1.x`, which
   satisfies `@astrojs/check` and still fails `npm ci` on `typescript-eslint`—the
   same ERESOLVE class as #631, which TypeScript 7 caused outright. Do not widen
-  the range until *both* peers admit the wider version; verify with
-  `npm view @astrojs/check peerDependencies` **and**
-  `npm view typescript-eslint peerDependencies` rather than assuming. Checking
-  only `@astrojs/check` is what makes a `6.1` bump look safe when it is not.
+  the range until *both* peers admit the wider version. Verify against the
+  versions this repo actually installs, not the registry's `latest`—a versionless
+  `npm view` reports the peer range of a release that may not be in the lockfile:
+
+  ```bash
+  node -e 'const l=require("./package-lock.json").packages;
+    for (const n of ["@astrojs/check","typescript-eslint"])
+      console.log(n, l["node_modules/"+n].version)'
+  npm view "@astrojs/check@<resolved>" peerDependencies
+  npm view "typescript-eslint@<resolved>" peerDependencies
+  ```
+
+  Checking only `@astrojs/check` is what makes a `6.1` bump look safe when it is
+  not.
 - **`@astrojs/markdown-remark` is a required devDependency even though no source
   file imports it.** Astro 7 made Sätteri the default Markdown processor and
   stopped installing `@astrojs/markdown-remark` transitively, but
