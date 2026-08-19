@@ -17,6 +17,7 @@ Every built page ships comprehensive SEO metadata: Open Graph, Twitter Card, JSO
 4. JSON-LD structured data contains a `@graph` array with WebSite, ProfilePage, and Person types on the homepage; BlogPosting on blog post pages; and ItemList nodes on collection pages. Collection ItemList entries keep article/page-specific properties on a typed entity under `ListItem.item`, not on the bare ListItem node.
 5. The Person entity includes `name`, identity/location context, and `sameAs` properties. It must not claim a current `worksFor` value unless the site owner has explicitly chosen to publish one.
 6. Search metadata can use SEO-only content fields (`seoTitle`, `seoDescription`) when visible page copy is intentionally longer than a search title or snippet should be.
+7. Every page advertises `/rss.xml` with a `rel="alternate"` RSS link.
 
 ## Blog Title Hierarchy
 
@@ -28,10 +29,9 @@ One canonical headline per post. The three frontmatter title fields are a length
 | `seoTitle` | The same headline trimmed to fit the ~60-character SERP budget once `" \| Nathan Payne"` is appended. Optional; omit when `title` already fits. | `<title>`, `og:title`, `twitter:title`, the generated OG card image |
 | `shortTitle` | A breadcrumb-width abbreviation. Optional. | breadcrumb trail only |
 
-1. `seoTitle` must remain recognisably the same headline as `title` — a trim, not a rewrite. `shortTitle` must be an abbreviation of `title`, not a rename.
+1. `seoTitle` must remain recognisably the same headline as `title`—a trim, not a rewrite. `shortTitle` must be an abbreviation of `title`, not a rename.
 2. `shortTitle` must never stand in for the page title, `og:title`, or the OG card heading. A reader who follows a shared link has to land on the headline the unfurl showed them; substituting the abbreviation is what produced the mismatch in #623.
 3. Both constraints are enforced at `npm test` time by `tests/blog-title-consistency.test.js`, which requires meaningful significant-word overlap with `title` and asserts the canonical headline reaches the `<h1>`, the `/blog/` card, the homepage link, and RSS.
-7. Every page advertises `/rss.xml` with a `rel="alternate"` RSS link.
 
 ## Plumbing Requirements (post-build invariants)
 

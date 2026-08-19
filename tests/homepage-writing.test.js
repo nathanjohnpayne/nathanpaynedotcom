@@ -4,10 +4,12 @@ import { resolve } from 'path';
 import { parseFrontmatter } from '../scripts/lib/parse-frontmatter.mjs';
 
 // Guards the homepage Writing block against the drift reported in #523. The
-// block is intentionally a curated selection (not the full published set), so:
+// block is generated from the blog collection — the newest published posts,
+// capped at WRITING_LIST_LIMIT (#619) — so:
 //   1. it must NOT assert a hardcoded post count that can fall behind the blog
 //      collection (the old copy said "Three pieces" while five were published);
-//   2. each curated link must resolve to a real built post, so a renamed or
+//      the expected count is derived from the collection and the cap instead;
+//   2. each generated link must resolve to a real built post, so a renamed or
 //      unpublished post can't leave a dead homepage link.
 // Reads the built dist/ HTML (`npm test` runs `astro build` first).
 
@@ -31,7 +33,8 @@ const publishedPosts = readdirSync(CONTENT_DIR)
 /** Post links only — the trailing "View all writing" link is not a post. */
 function postLinks() {
   return [...document.querySelectorAll('.writing-list a')].filter(
-    (a) => (a.getAttribute('href') || '').startsWith('/blog/') && a.getAttribute('href') !== '/blog/',
+    (a) =>
+      (a.getAttribute('href') || '').startsWith('/blog/') && a.getAttribute('href') !== '/blog/',
   );
 }
 
@@ -100,7 +103,9 @@ describe('homepage Writing block (#523)', () => {
 
   it('uses the canonical post title as the link text', () => {
     const expected = publishedPosts.slice(0, WRITING_LIST_LIMIT);
-    const texts = postLinks().map((a) => a.textContent.replace(/→/g, '').replace(/\s+/g, ' ').trim());
+    const texts = postLinks().map((a) =>
+      a.textContent.replace(/→/g, '').replace(/\s+/g, ' ').trim(),
+    );
 
     expect(texts).toEqual(expected.map((post) => post.data.title));
   });
