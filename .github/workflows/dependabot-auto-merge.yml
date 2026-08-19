@@ -100,9 +100,19 @@ jobs:
           echo "::notice::Merge will be performed as $MERGE_AS."
 
 
+          # Takes the required check-run name as $1. Callers loop this over
+          # every name in REQUIRED_HEAD_CHECK_NAMES via
+          # require_current_head_checks_success below rather than checking
+          # a single hard-coded name — #632 found that this gate previously
+          # only ever waited on the structural `lint` check (repo_lint.yml's
+          # scripts/ci/check_* job), which never installs dependencies or
+          # builds the site, so a dependabot bump that broke `npm ci` or
+          # `astro build` (#630, #631) could still auto-merge. It must also
+          # wait on the real `build-and-test` job (.github/workflows/
+          # build-and-test.yml) before merging.
           require_current_head_check_success() {
             local sha runs conclusion status wait_seconds poll_seconds deadline required_check_name
-            required_check_name=${REQUIRED_HEAD_CHECK_NAME:-lint}
+            required_check_name="${1:?require_current_head_check_success: missing required_check_name argument}"
             wait_seconds=${TEST_CHECK_WAIT_SECONDS:-1200}
             poll_seconds=${TEST_CHECK_POLL_SECONDS:-15}
             deadline=$((SECONDS + wait_seconds))
@@ -134,6 +144,18 @@ jobs:
             done
             echo "::error::Required check run '$required_check_name' wait loop ended unexpectedly; refusing auto-merge."
             exit 1
+          }
+
+          # Waits on every check name in REQUIRED_HEAD_CHECK_NAMES (space-
+          # separated), not just one. Each call to
+          # require_current_head_check_success sets CURRENT_HEAD_SHA as a
+          # side effect; they all resolve the same PR head, so the value
+          # from the last iteration is what callers use afterwards.
+          require_current_head_checks_success() {
+            local name
+            for name in $REQUIRED_HEAD_CHECK_NAMES; do
+              require_current_head_check_success "$name"
+            done
           }
 
           has_human_hold() {
@@ -273,7 +295,7 @@ jobs:
             exit 0
           fi
 
-          require_current_head_check_success
+          require_current_head_checks_success
 
           # Try GitHub-side auto-merge first (fires when required
           # checks pass). Fall back to an immediate squash ONLY when
@@ -307,7 +329,7 @@ jobs:
               echo "::notice::PR carries human-hold immediately before fallback squash; skipping Dependabot auto-merge until the human removes the label."
               exit 0
             fi
-            require_current_head_check_success
+            require_current_head_checks_success
             if has_human_hold; then
               echo "::notice::PR carries human-hold after test wait; skipping Dependabot auto-merge until the human removes the label."
               exit 0
@@ -347,7 +369,15 @@ jobs:
           # keep major dev-group bumps behind CI (#374 / Codex P2 on #405).
           UPDATE_TYPE: ${{ steps.metadata.outputs.update-type }}
           DEPENDENCY_GROUP: ${{ steps.metadata.outputs.dependency-group }}
-          REQUIRED_HEAD_CHECK_NAME: lint
+          # Space-separated list of check-run names that must be
+          # `completed`/`success` on the PR's current HEAD before
+          # auto-merge proceeds: the structural repo_lint.yml `lint` job,
+          # AND the real build-and-test.yml job (added in #632) that
+          # actually runs `npm ci`, `astro build`, `vitest run`, and
+          # `npm run lint`. Waiting on `lint` alone (the pre-#632 state)
+          # let dependabot bumps that broke the build (#630, #631) merge
+          # with every existing check green.
+          REQUIRED_HEAD_CHECK_NAMES: "lint build-and-test"
           GH_TOKEN: ${{ secrets.REVIEWER_ASSIGNMENT_TOKEN }}
           # Author-identity PAT (nathanjohnpayne) used for the merge
           # step only. Reviewer-identity --approve must stay on
