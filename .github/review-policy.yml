@@ -190,3 +190,61 @@ codex:
   # codex-review-check.sh gate (c) and codex-review-request.sh pre-flight
   # and poll scans.
   reaction_freshness_window_seconds: 1800
+
+# ---------------------------------------------------------------------------
+# Automated Phase 4b (local CLI reviewer)
+# ---------------------------------------------------------------------------
+# Replaces the human shuttle in REVIEW_POLICY.md § Phase 4b with an
+# orchestrated headless review: scripts/phase-4b-review.sh selects an external
+# reviewer identity that is NOT the authoring agent, dispatches the diff to
+# that agent's CLI, and posts the resulting verdict under the reviewer PAT via
+# scripts/gh-as-reviewer.sh.
+#
+# Why this repo opts in (#635, #645): the Codex GitHub App never emits an
+# `APPROVED` review state, and REVIEW_POLICY.md § No-self-approve scoping
+# correctly forbids the authoring agent's own reviewer identity from supplying
+# one on a Phase 4 PR. Branch protection on `main` nonetheless requires one
+# approving review. Those three constraints are jointly unsatisfiable, so every
+# same-agent Phase 4 PR reached "all merge gates pass" and stayed BLOCKED, and
+# each one had to be merged by hand. An automated 4b resolves it at the root:
+# it produces a genuine `APPROVED` from a non-author reviewer identity, which
+# is both what the merge gate accepts as a Phase 4b substitute (#218) and what
+# branch protection is asking for.
+#
+# The switch ships false in bootstrap mirrors so new repos opt in explicitly.
+# This is that explicit opt-in.
+#
+# Trusted-path rule (mergepath#628, Codex P1): the orchestrator, the adapters,
+# and gh-as-reviewer MUST be run from a trusted main-ref checkout, never from
+# the checkout of the PR under review. The PR is passed by number and its diff
+# is reviewed as data, so a PR that edits the phase-4b scripts cannot shape its
+# own verdict. This opt-in is deliberately a separate PR from #635 for that
+# reason: #635 modifies `.github/workflows/**`, and letting it carry the switch
+# that clears it would be exactly the self-shaping the rule forbids.
+phase_4b_automation:
+  # Master switch. When true, scripts/phase-4b-review.sh runs the reviewer CLI
+  # instead of emitting the manual handoff. Every fail-closed path—
+  # non-conformant verdict, adapter timeout, head drift, same-head required-
+  # finding gate—still falls back to the manual handoff.
+  enabled: true
+
+  # Execution model. 'local' = the authoring agent's session shells out to the
+  # reviewer CLI on the same machine, reusing op-preflight and the gh reviewer
+  # wrapper. 'manual' defers to the human handoff.
+  mode: local
+
+  # Declarative cap for callers that loop this one-round helper after a
+  # CHANGES_REQUESTED verdict. The orchestrator performs one adapter pass per
+  # invocation and does not persist round state.
+  max_review_rounds: 2
+
+  # An ambiguous or non-schema-conformant adapter verdict must never become an
+  # APPROVED; the orchestrator falls back to the manual handoff instead.
+  fail_closed: true
+
+  # REVIEW_POLICY.md step 9 executor. On an APPROVED verdict carrying
+  # discretionary-tier findings, file one `post-review` + `observation` issue
+  # per finding under the author identity and append the references to the
+  # approval, rather than discarding the verdict. Both labels exist in this
+  # repo, so the default (true) is correct here.
+  post_review_issues: true
