@@ -1,3 +1,24 @@
+# nathanpayne.com — crawler policy
+#
+# Decision (2026-08-19, issue #615): ALL crawlers and bots are allowed,
+# including AI crawlers that collect for training as well as retrieval.
+# Rationale and the options weighed: plans/crawler-access-policy.md.
+#
+# IMPORTANT — this file is not necessarily the whole policy. Cloudflare sits in
+# front of Firebase Hosting and CAN prepend a "# BEGIN Cloudflare Managed
+# content" block to the robots.txt actually served, carrying Content-Signal
+# directives and per-crawler Disallow rules. That block is not in this repo and
+# cannot be removed by editing this file; it is toggled in the Cloudflare
+# dashboard. A permissive file here would not mean a permissive policy in
+# production.
+#
+# As of 2026-08-19 that managed block is DISABLED, so the served file is this
+# file as built. The build changes exactly one thing: the Sitemap: line below is
+# rewritten (and a blank line inserted above it) by the robots-sitemap
+# integration. Every comment here is served verbatim. Do not assume the managed
+# block stays disabled — verify at the public served endpoint (the response
+# comes from Cloudflare, not the origin):
+#   curl -fsS https://nathanpayne.com/robots.txt
 User-agent: *
 Allow: /
 
