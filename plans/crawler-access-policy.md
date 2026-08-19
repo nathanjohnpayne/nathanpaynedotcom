@@ -32,10 +32,14 @@ inherited, whichever way it points.
 **Current state (2026-08-19): the managed block is disabled.** Cloudflare's
 "Manage your robots.txt" control is set to *Disable robots.txt configuration*
 (`is_robots_txt_managed: false`, `cf_robots_variant: "off"` on zone
-`2ea6932e7a6e86434297873a191bb123`). The served file is now this repo's
-`public/robots.txt` verbatim—no `# BEGIN Cloudflare Managed content` block, no
-`Content-Signal` line, no per-crawler `Disallow` rules. The block quoted above
-is historical, retained to explain what was changed and why.
+`2ea6932e7a6e86434297873a191bb123`). The served file is now the build output of
+this repo's `public/robots.txt`—no `# BEGIN Cloudflare Managed content` block, no
+`Content-Signal` line, no per-crawler `Disallow` rules. The build changes exactly
+one thing: the `robots-sitemap` integration
+(`src/integrations/robots-sitemap.mjs`) rewrites the `Sitemap:` line to match the
+filename `@astrojs/sitemap` actually emits, and inserts a blank line above it
+(#164). Everything else, comments included, is served verbatim. The block quoted
+above is historical, retained to explain what was changed and why.
 
 ## Options weighed
 

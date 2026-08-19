@@ -13,8 +13,11 @@
 # production.
 #
 # As of 2026-08-19 that managed block is DISABLED, so the served file is this
-# file verbatim. Do not assume that stays true — verify at the public served
-# endpoint (the response comes from Cloudflare, not the origin):
+# file as built. The build changes exactly one thing: the Sitemap: line below is
+# rewritten (and a blank line inserted above it) by the robots-sitemap
+# integration. Every comment here is served verbatim. Do not assume the managed
+# block stays disabled — verify at the public served endpoint (the response
+# comes from Cloudflare, not the origin):
 #   curl -fsS https://nathanpayne.com/robots.txt
 User-agent: *
 Allow: /
