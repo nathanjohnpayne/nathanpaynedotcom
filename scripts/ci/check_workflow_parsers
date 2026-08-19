@@ -1334,8 +1334,34 @@ else
   fail=$((fail + 1))
   echo "  FAIL: Dependabot check gate must exit 1 when REQUIRED_HEAD_CHECK_NAMES is unset/empty or splits into zero names, not silently verify nothing" >&2
 fi
+# Phase 4b P1 (#635): the per-name waiters used to each resolve the PR head
+# themselves. If the branch was pushed mid-loop, `lint` could be accepted from
+# the old SHA and `build-and-test` from the new one, and since only the last
+# iteration's CURRENT_HEAD_SHA survived, the merge would bind
+# --match-head-commit to a SHA whose full check set was never verified. Pin
+# these three properties so the race cannot be reintroduced:
+#   1. the waiter REQUIRES an explicit head_sha argument (it cannot resolve
+#      its own, which is what made per-iteration drift possible),
+#   2. the looper passes one pinned SHA to every waiter, and
+#   3. it re-reads HEAD afterwards and refuses to clear on drift.
+if grep -Eq '^[[:space:]]*sha="\$\{2:\?require_current_head_check_success: missing head_sha argument\}"' "$dependabot_workflow_file" && \
+   ! grep -Eq '^[[:space:]]*sha=\$\(gh pr view "\$PR_URL" --json headRefOid' "$dependabot_workflow_file" && \
+   grep -Eq '^[[:space:]]*require_current_head_check_success "\$name" "\$pinned_sha"' "$dependabot_workflow_file" && \
+   grep -Fq 'final_sha=$(gh pr view "$PR_URL" --json headRefOid' "$dependabot_workflow_file" && \
+   workflow_guard_block_contains_exit \
+  "$dependabot_workflow_file" \
+  'if [ "$attempts" -ge "$max_attempts" ]; then' \
+  'refusing auto-merge rather than binding the merge to a SHA'; then
+  pass=$((pass + 1))
+  echo "  PASS: Dependabot check gate pins one HEAD for the whole check set and refuses to clear on mid-wait head drift (#635 Phase 4b P1)"
+else
+  fail=$((fail + 1))
+  echo "  FAIL: Dependabot check gate must resolve HEAD once, pass that SHA to every waiter, and exit 1 on head drift rather than binding the merge to a partially-verified SHA" >&2
+fi
 if grep -Fq "Require current-head check success" .github/workflows/agent-review.yml && \
-   grep -Fq "REQUIRED_HEAD_CHECK_NAME: lint" .github/workflows/agent-review.yml && \
+   agent_review_check_names="$(grep -E '^[[:space:]]*REQUIRED_HEAD_CHECK_NAMES:' .github/workflows/agent-review.yml | head -1 | sed -E 's/^[[:space:]]*REQUIRED_HEAD_CHECK_NAMES:[[:space:]]*//' | tr -d '"'"'"'"')" && \
+   printf '%s\n' $agent_review_check_names | grep -Fxq lint && \
+   printf '%s\n' $agent_review_check_names | grep -Fxq build-and-test && \
    grep -Fq 'select((.name // .context // "") == $name)' .github/workflows/agent-review.yml && \
    grep -Fq "Re-verify blocking labels after test wait" .github/workflows/agent-review.yml && \
    grep -Fq 'CURRENT_HEAD_SHA=$sha' .github/workflows/agent-review.yml && \

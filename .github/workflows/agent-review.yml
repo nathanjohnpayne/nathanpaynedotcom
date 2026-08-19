@@ -1198,11 +1198,36 @@ jobs:
           PR_NUMBER: ${{ github.event.pull_request.number }}
           GH_TOKEN: ${{ secrets.AUTHOR_MERGE_TOKEN }}
           REPO: ${{ github.repository }}
-          REQUIRED_HEAD_CHECK_NAME: lint
+          # Space-separated check-run names that must be green on the PR
+          # head before native auto-merge arms. `build-and-test` joined
+          # `lint` here per the Codex P1 on #635: adding the build workflow
+          # gated Dependabot PRs (dependabot-auto-merge.yml) but left the
+          # ordinary approved-PR path waiting on the structural `lint` job
+          # alone, so `gh pr merge --auto` could merge a non-Dependabot PR
+          # while `build-and-test` was still pending or already failing —
+          # contradicting build-and-test.yml's own claim that a failure
+          # blocks the PR. Branch protection does not require the context
+          # either, so this wait is the only thing enforcing it on that path.
+          REQUIRED_HEAD_CHECK_NAMES: "lint build-and-test"
           TEST_CHECK_WAIT_SECONDS: 1200
           TEST_CHECK_POLL_SECONDS: 15
         run: |
-          required_check_name=${REQUIRED_HEAD_CHECK_NAME:-lint}
+          # Fail closed on an empty list rather than defaulting to a single
+          # name: silently falling back to `lint` alone is exactly the
+          # too-weak gate #635 removed. Mirrors the assertions in
+          # dependabot-auto-merge.yml's require_current_head_checks_success.
+          if [ -z "${REQUIRED_HEAD_CHECK_NAMES:-}" ]; then
+            echo "::error::REQUIRED_HEAD_CHECK_NAMES is empty. Refusing auto-merge: with no check names configured this wait would verify nothing."
+            exit 1
+          fi
+          required_check_names_count=0
+          for _rc_name in $REQUIRED_HEAD_CHECK_NAMES; do
+            required_check_names_count=$((required_check_names_count + 1))
+          done
+          if [ "$required_check_names_count" -eq 0 ]; then
+            echo "::error::REQUIRED_HEAD_CHECK_NAMES ('$REQUIRED_HEAD_CHECK_NAMES') split into zero check names. Refusing auto-merge: this wait would verify nothing."
+            exit 1
+          fi
           wait_seconds=${TEST_CHECK_WAIT_SECONDS:-1200}
           poll_seconds=${TEST_CHECK_POLL_SECONDS:-15}
           deadline=$((SECONDS + wait_seconds))
@@ -1276,7 +1301,10 @@ jobs:
           # in flight, and treat "nothing reported for this workflow at all"
           # as non-blocking -- the same trade-off gate (a) already made and
           # validated across #655 rounds 2-5.
-          required_checks_json=$(jq -n --arg name "$required_check_name" '[{name: $name, workflow: ""}]')
+          # One entry per configured name. The polling loop below already
+          # iterates this array generically (check_count / .[$i].name), so
+          # widening it from one name to several needs no change there.
+          required_checks_json=$(printf '%s\n' $REQUIRED_HEAD_CHECK_NAMES | jq -R . | jq -s -c '[.[] | {name: ., workflow: ""}]')
           annex_workflow=""
           annex_unfiltered="false"
           annex_probe_err=$(mktemp)
