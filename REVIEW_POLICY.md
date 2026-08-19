@@ -246,12 +246,16 @@ Only `<PR#>` is required. The repo, the HEAD sha, and the authoring agent (parse
 | Exit | Meaning | Next step |
 |------|---------|-----------|
 | `0` | `APPROVED` posted on the reviewed HEAD. | If the verdict carried discretionary findings and `phase_4b_automation.post_review_issues: true`, the orchestrator has already filed the [Post-Merge Issue Creation](#post-merge-issue-creation) issues under the author identity and linked them in the approval body—do not file them again. Run `scripts/codex-review-check.sh <PR#>` to verify the merge gate, then merge as `nathanjohnpayne`. Done. |
-| `1` | `CHANGES_REQUESTED` posted. | Address the findings as `nathanjohnpayne`, push fix commits, and re-run. The orchestrator does one adapter pass per invocation and persists no round state, so the caller enforces `phase_4b_automation.max_review_rounds`. |
+| `1` | `CHANGES_REQUESTED` posted. | Address the findings as `nathanjohnpayne`, push fix commits, and re-run. The orchestrator does one adapter pass per invocation and persists no round state, so the caller enforces `phase_4b_automation.max_review_rounds`. On exhausting that cap, see **A6**. |
 | `3` | Usage or infrastructure error (missing `jq`/`gh`, unresolvable repo/HEAD/authoring agent, no eligible external reviewer, malformed timeout or effort config). | Fix the environment and re-run, or go to leg 2. |
 | `4` | Fell back to the manual handoff—`fell_back_to_manual: true` with a `reason` in the JSON. Triggers: a non-conformant or unexpected adapter verdict, an adapter error or timeout, no adapter for the selected reviewer, PR head drift between review and posting, failed post-review issue filing on an approved verdict, and the same-head unresolved-required-finding gate. The chat-side handoff block is emitted on stderr. | Go to leg 2. |
 | `5` | Automation is off for this repo (`phase_4b_automation.enabled: false`, or `mode` other than `local`); the JSON reports `skipped: true`. Not an error. | Go to leg 2. |
 
 **A5. Fall through to leg 2 only on exit `3`, `4`, or `5`,** or when `scripts/phase-4b-review.sh` is not on disk. An `APPROVED` or `CHANGES_REQUESTED` verdict is a completed Phase 4b review—do not also post the manual handoff for it.
+
+**A6. Exhausted rounds are an escalation, not a fall-through.** When repeated exit-`1` rounds reach `phase_4b_automation.max_review_rounds`, stop. Do not re-run the orchestrator, do not post the leg 2 handoff, and do not merge. Escalate exactly as Phase 4a does for runaway and repeat-after-rebuttal: post a PR comment summarising both positions with links to each review round, alert the human, and wait. See [Disagreements and Tiebreaking](#disagreements-and-tiebreaking)—the human is the tiebreaker, and the resolutions available there (approve the existing state, give feedback directly in chat, or take the PR over manually) apply unchanged.
+
+Leg 2 is deliberately *not* the answer here. A cap reached through repeated substantive disagreement means the reviewer keeps finding problems, and shuttling the same disagreement to a second external reviewer restarts the argument rather than settling it. Leg 2 exists for when leg 1 could not run, not for when it ran and disagreed.
 
 ##### Leg 2: Manual CLI handoff (fallback of the fallback)
 
