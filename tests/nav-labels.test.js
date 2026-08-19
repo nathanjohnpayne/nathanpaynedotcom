@@ -12,9 +12,17 @@ import { resolve } from 'path';
 const DIST = resolve(__dirname, '../dist');
 
 function setupDOM(rawHtml) {
-  const safe = rawHtml.replace(/<script>[\s\S]*?<\/script>/g, '');
+  // Remove scripts through the DOM rather than by regex (CodeQL
+  // js/bad-tag-filter, js/incomplete-multi-character-sanitization), on a
+  // detached DOMParser document so nothing executes on the way in. See
+  // tests/connect-booking.test.js for the long form. JSON-LD is kept because it
+  // is content, not behaviour.
+  const parsed = new DOMParser().parseFromString(rawHtml, 'text/html');
+  for (const script of parsed.querySelectorAll('script:not([type="application/ld+json"])')) {
+    script.remove();
+  }
   document.documentElement.innerHTML = '';
-  document.write(safe);
+  document.write(parsed.documentElement.outerHTML);
   document.close();
 }
 

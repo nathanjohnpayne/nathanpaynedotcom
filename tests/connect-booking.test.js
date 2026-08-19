@@ -19,10 +19,8 @@ let link;
 
 beforeAll(() => {
   const raw = readFileSync(resolve(DIST, 'index.html'), 'utf-8');
-  document.documentElement.innerHTML = '';
-  document.write(raw);
-  document.close();
-  // Remove scripts through the DOM rather than by regex.
+  // Remove scripts through the DOM rather than by regex. This is the reference
+  // implementation; the other dist-reading tests mirror it with a short comment.
   //
   // The original `/<script>...<\/script>/g` matched only lowercase `<script>`
   // with no attributes, so Astro's own `<script type="module" src="...">`
@@ -33,19 +31,27 @@ beforeAll(() => {
   // can leave `<script` behind through nesting, so CodeQL objects to the
   // technique itself, not to one pattern.
   //
-  // Removing the parsed elements sidesteps the whole class. It is also exact —
+  // Removing the parsed elements sidesteps the whole class. It is also exact:
   // case, attributes, and nesting are the parser's problem, not a pattern's.
-  // Safe because jsdom does not execute scripts unless the environment opts in
-  // with `runScripts: "dangerously"`, which vitest.config.js does not: verified
-  // by writing a script that sets a global and observing it never ran. The
-  // strip therefore prunes the DOM tree; it was never a security control.
+  //
+  // The removal runs on a detached `DOMParser` document, not on the live one.
+  // Vitest's jsdom environment defaults to `runScripts: "dangerously"`, so
+  // anything written into the live document with `document.write` executes
+  // immediately and pruning afterwards would be too late. `DOMParser` never
+  // executes scripts, so stripping there means nothing runs at all. (An earlier
+  // revision of this comment claimed jsdom does not execute scripts under
+  // vitest.config.js; that is wrong. Writing the built homepage into the live
+  // document and clicking a panel with no `loadScript()` call opens the panel,
+  // which only the page's own inline script can do.)
   //
   // JSON-LD is kept because it is content, not behaviour.
-  for (const script of document.querySelectorAll(
-    'script:not([type="application/ld+json"])',
-  )) {
+  const parsed = new DOMParser().parseFromString(raw, 'text/html');
+  for (const script of parsed.querySelectorAll('script:not([type="application/ld+json"])')) {
     script.remove();
   }
+  document.documentElement.innerHTML = '';
+  document.write(parsed.documentElement.outerHTML);
+  document.close();
   link = document.querySelector('.availability-booking');
 });
 
