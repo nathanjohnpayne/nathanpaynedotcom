@@ -158,7 +158,7 @@ Before moving past Phase 2.5, confirm all of the following:
 
 ### Phase 3: External Review Threshold Check
 
-> **Note on automation timing:** CI workflows may apply the `needs-external-review` label automatically when a PR is opened or updated, as an early advisory based on line count and protected paths. The label blocks merge via the label-gate until external review clears. When the label is present, the agent's responsibility after internal review passes is to proceed to [Phase 4](#phase-4-external-review)—which routes the PR to Phase 4a (automated via the Codex GitHub App) or Phase 4b (the external review fallback) depending on `codex.enabled` and on whether 4a converges. The label itself does NOT imply immediate human mediation; Phase 4b tries its automated orchestrator leg first and only posts the handoff message when that leg declines.
+> **Note on automation timing:** CI workflows may apply the `needs-external-review` label automatically when a PR is opened or updated, as an early advisory based on line count and protected paths. The label blocks merge via the label-gate until external review clears. When the label is present, the agent's responsibility after internal review passes is to proceed to [Phase 4](#phase-4-external-review)—which routes the PR to Phase 4a (automated via the Codex GitHub App) or Phase 4b (the external review fallback) depending on `codex.enabled` and on whether 4a converges. The label itself does NOT imply immediate human mediation; Phase 4b runs its automated review first and only posts the handoff message when that automated review declines.
 
 8. After internal review passes, the agent evaluates whether the PR meets the external review threshold (see [Review Policy Configuration](#review-policy-configuration)).
 9. If the threshold is **not** met, the agent merges the PR as `nathanjohnpayne`. Done.
@@ -169,9 +169,9 @@ Before moving past Phase 2.5, confirm all of the following:
 Phase 4 has two sub-phases that together cover the two ways external review can run:
 
 - **Phase 4a—Automated external review** via the ChatGPT Codex Connector GitHub App. This is the default happy path. The authoring agent drives the review loop without human intervention until Codex signals clearance, then runs a merge-gate check and merges.
-- **Phase 4b—External review fallback** via a different agent's CLI (e.g., Codex CLI as `nathanpayne-codex`, or Claude Code). This is the escape hatch when 4a **times out** or is unavailable because `codex.enabled: false`. It runs in two legs: an **automated orchestrator** leg that drives that CLI headlessly, and a **manual handoff** leg the human mediates when the orchestrator declines. Disagreement and runaway do *not* come here—see below.
+- **Phase 4b—External review fallback** via a different agent's CLI (e.g., Codex CLI as `nathanpayne-codex`, or Claude Code). This is the escape hatch when 4a **times out** or is unavailable because `codex.enabled: false`. Where `phase_4b_automation.enabled: true`, it runs that CLI headlessly and posts the resulting review itself; the human-mediated handoff is what happens when the automated review declines. Disagreement and runaway do *not* come here—see below.
 
-An agent proceeds to 4a first. If 4a **times out or is disabled**, the agent falls back to 4b—running the orchestrator first and surfacing the handoff to the human per [Handoff Message Format](#handoff-message-format) only if the orchestrator declines. If 4a instead **escalates** (disagreement or runaway), the agent stops and hands the decision to the human per [Disagreements and Tiebreaking](#disagreements-and-tiebreaking); it does not fall back to 4b, because a second reviewer would settle a dispute the human is supposed to settle.
+An agent proceeds to 4a first. If 4a **times out or is disabled**, the agent falls back to 4b—running `scripts/phase-4b-review.sh` first and surfacing the handoff to the human per [Handoff Message Format](#handoff-message-format) only if that automated review declines. If 4a instead **escalates** (disagreement or runaway), the agent stops and hands the decision to the human per [Disagreements and Tiebreaking](#disagreements-and-tiebreaking); it does not fall back to 4b, because a second reviewer would settle a dispute the human is supposed to settle.
 
 #### Phase 4a: Automated External Review (Codex GitHub App)
 
@@ -217,51 +217,9 @@ An agent proceeds to 4a first. If 4a **times out or is disabled**, the agent fal
 
 #### Phase 4b: External Review Fallback
 
-Phase 4b is invoked when Phase 4a **times out** (single timeout, exit code `4` from `codex-review-request.sh`) or when `codex.enabled: false` in the repo.
+Phase 4b is invoked when Phase 4a **times out** (single timeout, exit code `4` from `codex-review-request.sh`) or when `codex.enabled: false` in the repo. It preserves the cross-agent review flow that existed before the Codex GitHub App integration and provides a human-mediated escape hatch. In this repo the automated path described at the end of this section is the prescribed first move—the numbered steps below are reached only when it declines.
 
-**Phase 4a disagreement and runaway do NOT enter Phase 4b—either leg.** They stay in the human tiebreaking flow described in [Disagreements and Tiebreaking](#disagreements-and-tiebreaking): stop, post both positions, alert the human, wait for an explicit decision. Routing them here would hand a disputed review to a different reviewer and could obtain a substitute `APPROVED` without the human tiebreaker the disagreement procedure exists to require—the same failure A6 below rules out for Phase 4b's own exhausted rounds. A timeout is not a disagreement: nobody disagreed, the reviewer never answered, and there is no position to tiebreak.
-
-Phase 4b has **two legs, tried in order**:
-
-1. **Leg 1—automated orchestrator** (`scripts/phase-4b-review.sh`, steps A1–A5 below). This is the prescribed first move whenever `phase_4b_automation.enabled: true` and `phase_4b_automation.mode: local` in `.github/review-policy.yml`. It produces a genuine `APPROVED` (or `CHANGES_REQUESTED`) review from a non-author reviewer identity, which is both the "Phase 4b substitute" clearance the merge gate already accepts (`codex.allow_phase_4b_substitute`) and the approving review branch protection asks for.
-2. **Leg 2—manual CLI handoff** (steps 11b–19b below). The fallback of the fallback. It preserves the cross-agent review flow that existed before the Codex GitHub App integration and remains the human-mediated escape hatch.
-
-Ordering is safe: every fail-closed path in leg 1 falls back to leg 2, so trying the orchestrator first cannot remove the human escape hatch. Leg 1's steps are lettered `A1`–`A5` so leg 2 keeps its historical `11b`–`19b` numbering unchanged.
-
-##### Leg 1: Automated orchestrator (`scripts/phase-4b-review.sh`)
-
-**A1. Trusted-path rule (mergepath#628)—read this before running anything.** The orchestrator, its adapters, and `scripts/gh-as-reviewer.sh` MUST be run from a **trusted `main`-ref checkout, never from the checkout of the PR under review**. The PR is passed **by number** and its diff is fetched and reviewed as data, so a PR that edits the phase-4b scripts, the adapters, or the review policy cannot shape its own verdict. This rule binds per invocation—it is the single step most likely to be gotten wrong under time pressure.
-
-**A2. Run it.** From that trusted checkout:
-
-```bash
-scripts/phase-4b-review.sh <PR#> [--repo owner/repo] [--reviewer nathanpayne-<agent>] \
-    [--author <agent>] [--head <sha>] [--diff-file <path>] [--dry-run]
-```
-
-Only `<PR#>` is required. The repo, the HEAD sha, and the authoring agent (parsed from the PR body's `Authoring-Agent:` line) are resolved from the GitHub API; the reviewer PAT is auto-sourced from the op-preflight cache. The overrides exist mainly for tests and non-git contexts; `--dry-run` does everything except post the review.
-
-**A3. What it guarantees.** It selects an external reviewer from `available_reviewers` whose **agent differs from the authoring agent**—a forced `--reviewer` is checked against the same invariant, and the run exits `3` rather than proceed when no eligible reviewer exists. It then dispatches the diff to that reviewer's headless CLI adapter (`codex exec` / `claude -p`), validates the returned verdict against `scripts/phase-4b/verdict.schema.json`, and posts `APPROVED` or `CHANGES_REQUESTED` as a real GitHub review under the reviewer identity via `scripts/gh-as-reviewer.sh`, pinned to the reviewed HEAD.
-
-**A4. Act on the exit code and the JSON summary printed on stdout.**
-
-| Exit | Meaning | Next step |
-|------|---------|-----------|
-| `0` | `APPROVED` posted on the reviewed HEAD. | If the verdict carried discretionary findings and `phase_4b_automation.post_review_issues: true`, the orchestrator has already filed the [Post-Merge Issue Creation](#post-merge-issue-creation) issues under the author identity and linked them in the approval body—do not file them again. Run `scripts/codex-review-check.sh <PR#>` to verify the merge gate, then merge as `nathanjohnpayne`. Done. |
-| `1` | `CHANGES_REQUESTED` posted. | Address the findings as `nathanjohnpayne`, push fix commits, and re-run. The orchestrator does one adapter pass per invocation and persists no round state, so the caller enforces `phase_4b_automation.max_review_rounds`. On exhausting that cap, see **A6**. |
-| `3` | Usage or infrastructure error (missing `jq`/`gh`, unresolvable repo/HEAD/authoring agent, no eligible external reviewer, malformed timeout or effort config). | Fix the environment and re-run, or go to leg 2. |
-| `4` | Fell back to the manual handoff—`fell_back_to_manual: true` with a `reason` in the JSON. Triggers: a non-conformant or unexpected adapter verdict, an adapter error or timeout, no adapter for the selected reviewer, PR head drift between review and posting, failed post-review issue filing on an approved verdict, and the same-head unresolved-required-finding gate. The chat-side handoff block is emitted on stderr. | Go to leg 2. |
-| `5` | Automation is off for this repo (`phase_4b_automation.enabled: false`, or `mode` other than `local`); the JSON reports `skipped: true`. Not an error. | Go to leg 2. |
-
-**A5. Fall through to leg 2 only on exit `3`, `4`, or `5`,** or when `scripts/phase-4b-review.sh` is not on disk. An `APPROVED` or `CHANGES_REQUESTED` verdict is a completed Phase 4b review—do not also post the manual handoff for it.
-
-**A6. Exhausted rounds are an escalation, not a fall-through.** When repeated exit-`1` rounds reach `phase_4b_automation.max_review_rounds`, stop. Do not re-run the orchestrator, do not post the leg 2 handoff, and do not merge. Escalate exactly as Phase 4a does for runaway and repeat-after-rebuttal: post a PR comment summarising both positions with links to each review round, alert the human, and wait. See [Disagreements and Tiebreaking](#disagreements-and-tiebreaking)—the human is the tiebreaker, and the resolutions available there (approve the existing state, give feedback directly in chat, or take the PR over manually) apply unchanged.
-
-Leg 2 is deliberately *not* the answer here. A cap reached through repeated substantive disagreement means the reviewer keeps finding problems, and shuttling the same disagreement to a second external reviewer restarts the argument rather than settling it. Leg 2 exists for when leg 1 could not run, not for when it ran and disagreed.
-
-##### Leg 2: Manual CLI handoff (fallback of the fallback)
-
-Reached only when leg 1 declines per A5.
+**Phase 4a disagreement and runaway do NOT enter Phase 4b.** They stay in the human tiebreaking flow described in [Disagreements and Tiebreaking](#disagreements-and-tiebreaking): stop, post both positions, alert the human, wait for an explicit decision. Routing them here would hand a disputed review to a different reviewer and could obtain a substitute `APPROVED` without the human tiebreaker the disagreement procedure exists to require—the same failure the exhausted-rounds rule below rules out for Phase 4b's own review loop. A timeout is not a disagreement: nobody disagreed, the reviewer never answered, and there is no position to tiebreak.
 
 11b. The authoring agent posts the handoff message (see [Handoff Message Format](#handoff-message-format)) as a PR comment and alerts the human.
 
@@ -280,6 +238,10 @@ Reached only when leg 1 declines per A5.
 18b. If the external reviewer flags **observations** or **risks** while approving, those are converted to GitHub Issues on the repo, assigned to `nathanjohnpayne` (see [Post-Merge Issue Creation](#post-merge-issue-creation)).
 
 19b. `nathanjohnpayne` merges the PR. Done.
+
+**Automated Phase 4b.** `scripts/phase-4b-review.sh` drives the cross-agent Phase 4b review by shelling out to a reviewer CLI (Codex or Claude) under the operator's **subscription plan** (never a pay-per-token API key), then posting the resulting `APPROVED` / `CHANGES_REQUESTED` verdict as a real GitHub review under the reviewer PAT via `scripts/gh-as-reviewer.sh`, pinned to the reviewed HEAD—the same Phase 4b substitute clearance gate (c) in step 16a already accepts, and the approving review branch protection asks for. It selects an external reviewer from `available_reviewers` whose agent differs from the authoring agent, and refuses to run rather than proceed when no eligible reviewer exists. This repo runs it **enabled** (`phase_4b_automation.enabled: true`, `mode: local`). **Invocation (enabled repos):** whenever a PR reaches Phase 4b, the authoring agent runs `scripts/phase-4b-review.sh <PR#> --repo <owner/repo>` itself instead of posting the manual handoff—executing the orchestrator, its adapters, and `scripts/gh-as-reviewer.sh` **from a trusted `main`-ref checkout, never from the PR-under-review's own checkout** (the PR is passed by number/head and its diff reviewed as data, so a PR that edits the phase-4b scripts, the adapters, or the review policy cannot shape its own verdict—mergepath#628). Exit `0` means an `APPROVED` review posted: run `scripts/codex-review-check.sh <PR#>` to verify the merge gate, then merge as `nathanjohnpayne`; if the verdict carried discretionary findings and `phase_4b_automation.post_review_issues: true`, the orchestrator has already filed the [Post-Merge Issue Creation](#post-merge-issue-creation) issues under the author identity and linked them in the approval body—do not file them again. Exit `1` means a `CHANGES_REQUESTED` review posted—a completed round, not a failure: address the findings as `nathanjohnpayne`, push, and rerun the automation, up to `phase_4b_automation.max_review_rounds` (the orchestrator does one adapter pass per invocation and persists no round state, so the caller enforces the cap). Only the OTHER non-zero exits fall through to the manual handoff in steps 11b–19b above—a usage or infrastructure error, a fail-closed manual fallback (`fell_back_to_manual: true` with a `reason` in the JSON summary: non-conformant or unexpected adapter verdict, adapter error or timeout, no adapter for the selected reviewer, PR head drift between review and posting, failed post-review issue filing on an approved verdict, or the same-head unresolved-required-finding gate), or automation being off for the repo—as does the absence of `scripts/phase-4b-review.sh` from disk. Knobs live in the `phase_4b_automation` block of `.github/review-policy.yml`; full detail (child-env credential isolation, verdict schema, dry-run, accounting) lives in [`scripts/phase-4b/README.md`](scripts/phase-4b/README.md).
+
+**Exhausted rounds are an escalation, not a fall-through.** When repeated `CHANGES_REQUESTED` rounds reach `phase_4b_automation.max_review_rounds`, stop. Do not re-run the automation, do not post the manual handoff, and do not merge. Escalate exactly as Phase 4a does for runaway and repeat-after-rebuttal: post a PR comment summarising both positions with links to each review round, alert the human, and wait. See [Disagreements and Tiebreaking](#disagreements-and-tiebreaking)—the human is the tiebreaker, and the resolutions available there (approve the existing state, give feedback directly in chat, or take the PR over manually) apply unchanged. The manual handoff is deliberately *not* the answer here: a cap reached through repeated substantive disagreement means the reviewer keeps finding problems, and shuttling the same disagreement to a second external reviewer restarts the argument rather than settling it. The manual leg exists for when the automated review could not run, not for when it ran and disagreed.
 
 ### Flow Diagram
 
@@ -336,7 +298,7 @@ Reached only when leg 1 declines per A5.
   │  MERGE GATE:             │  │  PHASE 4b: EXTERNAL REVIEW │
   │  codex-review-check.sh   │  │  FALLBACK                  │
   │                          │  │                            │
-  │  • gh pr checks = green  │  │  LEG 1 (first): run        │
+  │  • gh pr checks = green  │  │  Automated Phase 4b: run   │
   │  • gate (b): cross-agent │  │  phase-4b-review.sh <PR#>  │
   │    APPROVED OR same-agent│  │  from a TRUSTED main-ref   │
   │    + Codex thumbs-up     │  │  checkout, never the PR's  │
@@ -346,15 +308,16 @@ Reached only when leg 1 declines per A5.
   │                          │  │    by a non-author agent   │
   │  (NEVER expects APPROVED │  │    → merge gate → merge.   │
   │   state from Codex bot —  │  │  exit 1 → CHANGES_REQUESTED│
-  │   the app does not emit  │  │    → fix, push, re-run.    │
-  │   that state.)           │  │  exit 3/4/5 → LEG 2.       │
-  └──────────┬───────────────┘  │                            │
-             │                  │  LEG 2 (only if leg 1      │
-             ▼                  │  declines): post handoff,  │
-  ┌──────────────────────────┐  │  alert human. Human takes  │
-  │  nathanjohnpayne merges  │  │  handoff to a different    │
-  │  (--squash). Done.       │  │  agent CLI, relays feedback│
-  └──────────────────────────┘  │  → APPROVED; issues filed. │
+  │   the app does not emit  │  │    → fix, push, re-run;    │
+  │   that state.)           │  │    cap reached → ESCALATE.  │
+  └──────────┬───────────────┘  │  other nonzero → handoff.  │
+             │                  │                            │
+             ▼                  │  Manual handoff (only if   │
+  ┌──────────────────────────┐  │  the above declines): post │
+  │  nathanjohnpayne merges  │  │  handoff, alert human, who │
+  │  (--squash). Done.       │  │  takes it to a different   │
+  └──────────────────────────┘  │  agent CLI, relays feedback│
+                                │  → APPROVED; issues filed. │
                                 │  nathanjohnpayne merges.   │
                                 └────────────────────────────┘
 ```
@@ -413,7 +376,7 @@ In Phase 4a, the agent escalates to the human when either of the following fires
 
 2. **Runaway rounds.** The round counter exceeds `codex.max_review_rounds` (default: 2). The 3rd `@codex review` request trips this guard. This catches cases where Codex keeps finding new, distinct issues on each pass without the review converging. Even if each individual finding is valid, three rounds of novel issues is a signal that the PR scope is too broad and a human should weigh in.
 
-**Timeout is NOT a disagreement signal.** A Codex response timeout (`codex-review-request.sh` exit code `4` = `FALLBACK_REQUIRED`) routes the PR directly to Phase 4b per step 15a above. It is a fallback trigger, not a tiebreaker trigger. Phase 4b resolves it on its own—first via the automated orchestrator, then via the human-mediated handoff if the orchestrator declines—so there is nothing for the disagreement detector to add on top.
+**Timeout is NOT a disagreement signal.** A Codex response timeout (`codex-review-request.sh` exit code `4` = `FALLBACK_REQUIRED`) routes the PR directly to Phase 4b per step 15a above. It is a fallback trigger, not a tiebreaker trigger. Phase 4b resolves it on its own—first via its automated review, then via the human-mediated handoff if that declines—so there is nothing for the disagreement detector to add on top.
 
 Phase 4b escalation (the traditional cross-agent CLI flow) uses the human's judgment directly—there is no automated detection loop to fire, so this subsection does not apply there.
 
