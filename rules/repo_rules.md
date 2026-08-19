@@ -42,6 +42,30 @@ The following tool config directories must contain only configuration—no instr
 - **No duplicate documentation.** If a concept is documented in `AGENTS.md` or a canonical root file, it must not be redefined in a conflicting location.
 - **No new top-level directories** without explicit justification documented in `AGENTS.md` or a `plans/` entry.
 - **Tests must not be deleted to force a build to pass.**
+- **No `.npmrc` with `legacy-peer-deps=true`.** `npm ci` must succeed with no
+  flags. Suppressing peer resolution hides real incompatibilities—see #631,
+  where a `typescript` major that no installed `@astrojs/check` release peers on
+  went unnoticed for two months.
+
+## Toolchain Constraints
+
+These are pinned deliberately. Read this before bumping either one—including
+automated dependency PRs.
+
+- **`typescript` must stay within the range `@astrojs/check` peers on.**
+  `@astrojs/check@0.9.10` (the latest release) peers `typescript@^5.0.0 || ^6.0.0`,
+  and `typescript-eslint@8.x` peers `typescript@>=4.8.4 <6.1.0`. TypeScript 7 breaks
+  `npm ci` outright (#631). Do not raise `typescript` past `^6` until
+  `@astrojs/check` ships a release whose peer range admits it; verify with
+  `npm view @astrojs/check peerDependencies` rather than assuming.
+- **`@astrojs/markdown-remark` is a required devDependency even though no source
+  file imports it.** Astro 7 made Sätteri the default Markdown processor and
+  stopped installing `@astrojs/markdown-remark` transitively, but
+  `astro.config.mjs` still uses `markdown.remarkPlugins` / `markdown.rehypePlugins`
+  for the three custom plugins in `src/plugins/`. Without the explicit dependency
+  `astro build` fails in `coerceLegacyMarkdownPlugins` (#630). Astro declares it as
+  an exact-version optional peer (`astro@7.2.2` → `@astrojs/markdown-remark@7.2.2`),
+  so the two versions must be bumped together. Do not remove it as "unused."
 
 ## CI Enforcement
 
