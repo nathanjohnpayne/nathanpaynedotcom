@@ -169,9 +169,9 @@ Before moving past Phase 2.5, confirm all of the following:
 Phase 4 has two sub-phases that together cover the two ways external review can run:
 
 - **Phase 4a—Automated external review** via the ChatGPT Codex Connector GitHub App. This is the default happy path. The authoring agent drives the review loop without human intervention until Codex signals clearance, then runs a merge-gate check and merges.
-- **Phase 4b—External review fallback** via a different agent's CLI (e.g., Codex CLI as `nathanpayne-codex`, or Claude Code). This is the escape hatch when 4a escalates (disagreement or runaway), times out, or is unavailable because `codex.enabled: false`. It runs in two legs: an **automated orchestrator** leg that drives that CLI headlessly, and a **manual handoff** leg the human mediates when the orchestrator declines.
+- **Phase 4b—External review fallback** via a different agent's CLI (e.g., Codex CLI as `nathanpayne-codex`, or Claude Code). This is the escape hatch when 4a **times out** or is unavailable because `codex.enabled: false`. It runs in two legs: an **automated orchestrator** leg that drives that CLI headlessly, and a **manual handoff** leg the human mediates when the orchestrator declines. Disagreement and runaway do *not* come here—see below.
 
-An agent proceeds to 4a first. If 4a escalates, times out, or is disabled, the agent falls back to 4b—running the orchestrator first and surfacing the handoff to the human per [Handoff Message Format](#handoff-message-format) only if the orchestrator declines.
+An agent proceeds to 4a first. If 4a **times out or is disabled**, the agent falls back to 4b—running the orchestrator first and surfacing the handoff to the human per [Handoff Message Format](#handoff-message-format) only if the orchestrator declines. If 4a instead **escalates** (disagreement or runaway), the agent stops and hands the decision to the human per [Disagreements and Tiebreaking](#disagreements-and-tiebreaking); it does not fall back to 4b, because a second reviewer would settle a dispute the human is supposed to settle.
 
 #### Phase 4a: Automated External Review (Codex GitHub App)
 
@@ -217,7 +217,9 @@ An agent proceeds to 4a first. If 4a escalates, times out, or is disabled, the a
 
 #### Phase 4b: External Review Fallback
 
-Phase 4b is invoked when Phase 4a escalates to disagreement or runaway, times out (single timeout, exit code `4` from `codex-review-request.sh`), or when `codex.enabled: false` in the repo.
+Phase 4b is invoked when Phase 4a **times out** (single timeout, exit code `4` from `codex-review-request.sh`) or when `codex.enabled: false` in the repo.
+
+**Phase 4a disagreement and runaway do NOT enter Phase 4b—either leg.** They stay in the human tiebreaking flow described in [Disagreements and Tiebreaking](#disagreements-and-tiebreaking): stop, post both positions, alert the human, wait for an explicit decision. Routing them here would hand a disputed review to a different reviewer and could obtain a substitute `APPROVED` without the human tiebreaker the disagreement procedure exists to require—the same failure A6 below rules out for Phase 4b's own exhausted rounds. A timeout is not a disagreement: nobody disagreed, the reviewer never answered, and there is no position to tiebreak.
 
 Phase 4b has **two legs, tried in order**:
 
