@@ -7,6 +7,21 @@ const astroDir = resolve(__dirname, '../dist/_astro');
 const cssFile = readdirSync(astroDir).find((f) => f.endsWith('.css'));
 const css = readFileSync(resolve(astroDir, cssFile), 'utf-8');
 
+// Authored stylesheet. Vite 8's minifier rewrites some declarations into
+// equivalent shorter serializations (e.g. `@media (max-width: 480px)` →
+// `@media (width<=480px)`), so assertions whose intent is "the author wrote
+// this rule" read the source and are paired with a normalized dist check that
+// proves the rule survived the build. See #640.
+const sourceCss = readFileSync(resolve(__dirname, '../src/styles/global.css'), 'utf-8');
+
+// Media Queries Level 4 range syntax back to the Level 3 form the source uses.
+// A pure re-serialization: it does not widen what the matcher accepts.
+function normalizeMediaRanges(cssText) {
+  return cssText
+    .replace(/\(\s*width\s*<=\s*([\d.]+px)\s*\)/g, '(max-width: $1)')
+    .replace(/\(\s*width\s*>=\s*([\d.]+px)\s*\)/g, '(min-width: $1)');
+}
+
 const blogIndexHtml = readFileSync(resolve(__dirname, '../dist/blog/index.html'), 'utf-8');
 
 const blogRoot = resolve(__dirname, '../dist/blog');
@@ -49,7 +64,10 @@ describe('Blog Responsive Layout', () => {
 
   describe('CSS responsive rules', () => {
     it('contains the 480px phone breakpoint', () => {
-      expect(css).toMatch(/@media\s*\(\s*max-width:\s*480px\s*\)/);
+      // Authored form (#332: 480px matches the --bp-narrow token).
+      expect(sourceCss).toMatch(/@media\s*\(\s*max-width:\s*480px\s*\)/);
+      // …and it reached the bundle, whichever serialization the minifier chose.
+      expect(normalizeMediaRanges(css)).toMatch(/@media\s*\(\s*max-width:\s*480px\s*\)/);
     });
 
     it('project-copy has min-width: 0 to prevent grid overflow', () => {

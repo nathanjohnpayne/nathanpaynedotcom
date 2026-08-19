@@ -57,10 +57,39 @@ const FRONTMATTER_RE = /^---\r?\n([\s\S]*?)\r?\n---/;
 const SCHEMA = FAILSAFE_SCHEMA;
 
 /**
+ * True when a YAML document body carries no nodes at all — every line is
+ * blank or a comment.
+ *
+ * js-yaml 4 returned `undefined` for such a document. js-yaml 5 throws
+ * `YAMLException: expected a document, but the input is empty` instead
+ * (#640), which made the `parsed === undefined` normalization below
+ * unreachable and broke this module's documented "empty block yields {}"
+ * contract. Pre-checking is preferred over catching, because catching
+ * would have to distinguish the empty-document exception from a genuine
+ * parse error by message text — and this module deliberately lets real
+ * parse errors escape so a corrupt content file fails the build loudly.
+ *
+ * A line whose first non-whitespace character is `#` is unambiguously a
+ * YAML comment: no scalar, key, or block-scalar header can begin that way
+ * at the start of a line, so a body made only of such lines (plus blanks)
+ * is empty by definition.
+ *
+ * @param {string} body - the raw text between the `---` delimiters
+ * @returns {boolean}
+ */
+function isEmptyYamlDocument(body) {
+  return body.split(/\r?\n/).every((line) => {
+    const trimmed = line.trim();
+    return trimmed === '' || trimmed.startsWith('#');
+  });
+}
+
+/**
  * Extract and parse the YAML frontmatter block from a Markdown string.
  * Returns the parsed data object, or `null` if the input has no
- * frontmatter block. Throws if the block exists but fails to parse —
- * caller decides whether to swallow.
+ * frontmatter block. An empty block (blank or comment-only) returns `{}`.
+ * Throws if the block exists but fails to parse — caller decides whether
+ * to swallow.
  *
  * Uses js-yaml's FAILSAFE_SCHEMA so every leaf scalar stays a string,
  * matching the legacy hand-rolled parser's contract. Arrays and nested
@@ -72,9 +101,14 @@ const SCHEMA = FAILSAFE_SCHEMA;
 export function parseFrontmatter(markdown) {
   const match = markdown.match(FRONTMATTER_RE);
   if (!match) return null;
+  // An empty document (blank/comment-only body) throws under js-yaml 5;
+  // normalize to {} so consumers can do `data?.field` without an extra
+  // null check. See isEmptyYamlDocument above (#640).
+  if (isEmptyYamlDocument(match[1])) return {};
   const parsed = parseYaml(match[1], { schema: SCHEMA });
-  // js-yaml returns undefined for an empty document; normalize to {}
-  // so consumers can do `data?.field` without an extra null check.
+  // Defence in depth: earlier js-yaml majors returned undefined/null for
+  // documents this helper now short-circuits. Keep the normalization so a
+  // future version reverting to that behaviour still honours the contract.
   if (parsed === undefined || parsed === null) return {};
   if (typeof parsed !== 'object') {
     // Top-level scalar frontmatter (e.g. just `123` between dashes)
