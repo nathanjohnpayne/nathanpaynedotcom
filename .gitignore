@@ -50,3 +50,9 @@ coverage/
 tmp/
 .cache/
 .env.local
+
+# Phase 4b orchestrator accounting logs (scripts/phase-4b-review.sh).
+# Local session artifacts, not repository content. mergepath gitignores
+# `.mergepath/` upstream; this consumer repo did not carry that entry, so the
+# first automated Phase 4b run wrote its loop log into a PR commit (#635).
+.mergepath/
