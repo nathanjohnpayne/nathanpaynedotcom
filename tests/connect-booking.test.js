@@ -19,19 +19,33 @@ let link;
 
 beforeAll(() => {
   const raw = readFileSync(resolve(DIST, 'index.html'), 'utf-8');
-  // Case-insensitive and attribute-tolerant on purpose (CodeQL js/bad-tag-filter,
-  // alert #17). The bare `/<script>...<\/script>/g` this replaced matched only
-  // lowercase `<script>` with no attributes, so Astro's own
-  // `<script type="module" src="...">` tags survived the strip and the
-  // "what a JS-disabled reader gets" premise above was not actually achieved.
-  // JSON-LD is preserved because it is content, not behaviour.
-  const safe = raw.replace(
-    /<script\b(?![^>]*type=["']application\/ld\+json["'])[^>]*>[\s\S]*?<\/script\s*>/gi,
-    '',
-  );
   document.documentElement.innerHTML = '';
-  document.write(safe);
+  document.write(raw);
   document.close();
+  // Remove scripts through the DOM rather than by regex.
+  //
+  // The original `/<script>...<\/script>/g` matched only lowercase `<script>`
+  // with no attributes, so Astro's own `<script type="module" src="...">`
+  // survived and the "what a JS-disabled reader gets" premise above was not
+  // actually achieved (CodeQL js/bad-tag-filter, alert #17). Making the regex
+  // case-insensitive and attribute-tolerant fixed that but traded it for
+  // js/incomplete-multi-character-sanitization: any single-pass string replace
+  // can leave `<script` behind through nesting, so CodeQL objects to the
+  // technique itself, not to one pattern.
+  //
+  // Removing the parsed elements sidesteps the whole class. It is also exact —
+  // case, attributes, and nesting are the parser's problem, not a pattern's.
+  // Safe because jsdom does not execute scripts unless the environment opts in
+  // with `runScripts: "dangerously"`, which vitest.config.js does not: verified
+  // by writing a script that sets a global and observing it never ran. The
+  // strip therefore prunes the DOM tree; it was never a security control.
+  //
+  // JSON-LD is kept because it is content, not behaviour.
+  for (const script of document.querySelectorAll(
+    'script:not([type="application/ld+json"])',
+  )) {
+    script.remove();
+  }
   link = document.querySelector('.availability-booking');
 });
 
