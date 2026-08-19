@@ -18,7 +18,11 @@ export async function getStaticPaths() {
     return {
       params: { slug: post.id },
       props: {
-        title: post.data.shortTitle?.trim() || post.data.title,
+        // Same source as <title> / og:title (#623): the social card and the
+        // unfurl headline must agree. `seoTitle` is the canonical headline at
+        // SERP length; `shortTitle` is a breadcrumb abbreviation and is
+        // deliberately not used here.
+        title: post.data.seoTitle?.trim() || post.data.title,
         meta: metaParts.join(' · '),
       },
     };

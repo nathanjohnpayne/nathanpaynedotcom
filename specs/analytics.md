@@ -60,6 +60,7 @@ may be removed later without affecting the other.
 |---|---|---|
 | `homepage_panel_opened` | A Mondrian panel becomes focused (`data-focus` set) | `panel_name` |
 | `contact_email_clicked` | Click on the `#availability-mailto` "Get in touch" link | — |
+| `booking_link_clicked` | Click on the `.availability-booking` Cal.com scheduling link | — |
 | `resume_link_clicked` | Click on a résumé link in the Connect/About panels | — |
 | `social_link_clicked` | Click on a `.social-row` link | `platform` |
 | `donation_link_clicked` | Click on a Community-panel `.effort-link` | `organization` |

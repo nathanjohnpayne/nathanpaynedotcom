@@ -26,7 +26,10 @@ describe('Blog Pages', () => {
   });
 
   it('homepage exposes a blog link in the connect panel', () => {
-    const blogLink = document.querySelector('a[href="/blog/"]');
+    // Scoped to the Connect panel's social stack. The About panel now also
+    // carries a /blog/ link ("View all writing →", #619), so a bare
+    // a[href="/blog/"] selector no longer identifies this row.
+    const blogLink = document.querySelector('.social-row--blog[href="/blog/"]');
     expect(blogLink).not.toBeNull();
     expect(blogLink.textContent).toContain('Blog');
   });
