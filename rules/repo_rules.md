@@ -71,7 +71,21 @@ automated dependency PRs.
   for the three custom plugins in `src/plugins/`. Without the explicit dependency
   `astro build` fails in `coerceLegacyMarkdownPlugins` (#630). Astro declares it as
   an exact-version optional peer (`astro@7.2.2` → `@astrojs/markdown-remark@7.2.2`),
-  so the two versions must be bumped together. Do not remove it as "unused."
+  so the two versions must move together—and because a caret range on one side
+  cannot express that, **both are pinned exact in `package.json`**. A floating
+  `astro` range breaks `npm ci` on its own; verified against the registry rather
+  than assumed:
+
+  ```text
+  $ # package.json: astro ^7.2.2, @astrojs/markdown-remark 7.2.2
+  $ npm install --package-lock-only
+  npm error Conflicting peer dependency: @astrojs/markdown-remark@7.2.4
+  npm error   peerOptional @astrojs/markdown-remark@"7.2.4" from astro@7.2.4
+  ```
+
+  `astro@7.2.4` is already published, so this is a live break, not a latent one.
+  Bump both entries in the same change, to the same version, or not at all. Do not
+  remove `@astrojs/markdown-remark` as "unused."
 
 ## CI Enforcement
 
