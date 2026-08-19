@@ -2,8 +2,30 @@
 import BaseLayout from '../layouts/BaseLayout.astro';
 import { getCollection, getEntry, render } from 'astro:content';
 
-const latestPost = (await getCollection('blog', ({ data }) => !data.draft))
-  .sort((a, b) => b.data.date.getTime() - a.data.date.getTime())[0];
+// Published blog posts, newest first. Single source for both the About-panel
+// Writing list and the Latest Post callout — the hand-typed <ul> this replaces
+// had drifted two posts behind the collection twice (#619).
+const publishedPosts = (await getCollection('blog', ({ data }) => !data.draft))
+  .sort((a, b) => b.data.date.getTime() - a.data.date.getTime());
+
+const latestPost = publishedPosts[0];
+
+// The Mondrian About panel has finite room, so the list is capped and the
+// "View all writing" link carries the remainder. Ordering is chronological:
+// editorial ordering would need a frontmatter field to avoid re-introducing
+// exactly the array-literal drift this issue is about (see #619 notes).
+const WRITING_LIST_LIMIT = 5;
+
+// Split each title so the final word can carry the arrow inside a .no-break
+// span — the treatment that was hand-applied per link before templating.
+const writingLinks = publishedPosts.slice(0, WRITING_LIST_LIMIT).map((post) => {
+  const words = post.data.title.trim().split(/\s+/);
+  return {
+    href: `/blog/${post.id}/`,
+    lead: words.slice(0, -1).join(' '),
+    lastWord: words[words.length - 1],
+  };
+});
 
 // NOW section — current-state signal under About. Content + freshness
 // timestamp live in `src/content/bio/now.md`; the template only
@@ -102,10 +124,14 @@ const homepageJsonLd = {
                 <span class="eyebrow about-label">Writing</span>
                 <p>Selected writing on building with AI coding agents: where they fail, what makes them reliable, how to get real work out of them, and what a perfect review record still misses.</p>
                 <ul class="writing-list">
-                  <li><a href="/blog/six-prs-one-bug-agent-failure-modes/" class="p-name-link">Six PRs, One Bug: What AI Agents Actually Get <span class="no-break">Wrong<span class="link-arrow" aria-hidden="true">→</span></span></a></li>
-                  <li><a href="/blog/agent-approval-workflow-genesis-of-mergepath/" class="p-name-link">Agent Approval Workflow and the Genesis of <span class="no-break">Mergepath<span class="link-arrow" aria-hidden="true">→</span></span></a></li>
-                  <li><a href="/blog/html-mockups-as-spec/" class="p-name-link">The HTML Mock-up Is the Spec: How I Got Visual Work Out of Claude <span class="no-break">Code<span class="link-arrow" aria-hidden="true">→</span></span></a></li>
-                  <li><a href="/blog/perfect-score-wrong-axis/" class="p-name-link">A Perfect Score on the Wrong Axis: 116 Review Findings, Zero Rejected, One <span class="no-break">Escape<span class="link-arrow" aria-hidden="true">→</span></span></a></li>
+                  {/* The separating space lives inside the interpolated string,
+                      not in the template's own whitespace — JSX collapses
+                      trailing whitespace at an element boundary, which silently
+                      welded the last two words together ("…One" + "Escape"). */}
+                  {writingLinks.map((link) => (
+                    <li><a href={link.href} class="p-name-link">{link.lead ? `${link.lead} ` : ''}<span class="no-break">{link.lastWord}<span class="link-arrow" aria-hidden="true">→</span></span></a></li>
+                  ))}
+                  <li class="writing-list-all"><a href="/blog/" class="p-name-link">View all <span class="no-break">writing<span class="link-arrow" aria-hidden="true">→</span></span></a></li>
                 </ul>
               </div>
               <div class="now-ribbon">
@@ -235,6 +261,20 @@ const homepageJsonLd = {
                 data-d="bmF0aGFucGF5bmUuY29t"
                 data-s="RnJvbSUyMG5hdGhhbnBheW5lLmNvbQ=="
               >Get in touch<span class="link-arrow" aria-hidden="true">→</span></a>
+              {' · '}
+              {/* Scheduling link (#620). Unlike the mailto beside it this is a
+                  plain href in the static HTML — there is no address to
+                  harvest, so the base64 assembly would buy nothing and would
+                  cost the JS-disabled case. Booking is spam-hardened on the
+                  Cal.com side (booker email verification, guest invites
+                  disabled, rolling window, daily/weekly caps, required
+                  screening question) — see the audit on #620. */}
+              <a
+                class="availability-booking p-link"
+                href="https://cal.com/nathanpayne"
+                target="_blank"
+                rel="noopener"
+              >Book time<span class="link-arrow" aria-hidden="true">→</span></a>
               {' · '}
               <a class="availability-resume p-link" href="/resume/">Résumé<span class="link-arrow" aria-hidden="true">→</span></a>
             </p>
@@ -858,6 +898,13 @@ const homepageJsonLd = {
           window.posthog?.capture('contact_email_clicked');
         });
       }
+
+      // Booking link clicked (Connect availability line, #620)
+      document.querySelectorAll('.availability-booking').forEach(function (el) {
+        el.addEventListener('click', function () {
+          window.posthog?.capture('booking_link_clicked');
+        });
+      });
 
       // Resume link clicked — all résumé links in the Connect and About
       // panels: the About-panel block, the Connect availability link, and the

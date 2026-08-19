@@ -62,7 +62,15 @@ const normalizedPathname = rawPathname === '/' || rawPathname.includes('.')
     ? rawPathname
     : `${rawPathname}/`;
 const canonical = new URL(normalizedPathname, Astro.site).href;
-const pageTitle = `${seoTitle || shortTitle || title} | Nathan Payne`;
+// One canonical headline per post (#623). `title` is the headline of record —
+// it renders as the <h1>, the /blog card, the homepage link, RSS and the
+// JSON-LD headline. `seoTitle` is the same headline trimmed to the ~60-char
+// SERP budget once the " | Nathan Payne" suffix is added; it must stay
+// recognisably the same headline (enforced by tests/blog-title-consistency).
+// `shortTitle` is deliberately NOT in this chain: it is a breadcrumb-width
+// abbreviation, and letting it stand in for the page title is what made a
+// shared link unfurl with a headline the reader never saw on the page.
+const pageTitle = `${seoTitle || title} | Nathan Payne`;
 const seoSummary = seoDescription || description;
 const publishedDate = date.toLocaleDateString('en-US', {
   year: 'numeric',

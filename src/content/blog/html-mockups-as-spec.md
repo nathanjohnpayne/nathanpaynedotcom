@@ -1,7 +1,7 @@
 ---
 title: "The HTML Mock-up Is the Spec: How I Got Visual Work Out of Claude Code"
-seoTitle: "HTML Mockups as Specs for Claude Code"
-shortTitle: "Mock-ups as Spec"
+seoTitle: "The HTML Mock-up Is the Spec"
+shortTitle: "Mock-up as Spec"
 description: "Pointing Claude at an existing page and asking it to look more like a Mondrian painting did not work. Screenshots with arrows did not work. Diagrams did not work. The thing that worked was asking Claude to build a standalone HTML mock-up first, then handing the mock-up and the live page back to it and saying make this look like that."
 seoDescription: "How standalone HTML mockups turned vague visual direction into a concrete spec Claude Code could diff against and implement on the live site."
 author: "Nathan Payne"

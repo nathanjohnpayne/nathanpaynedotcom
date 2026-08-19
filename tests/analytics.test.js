@@ -264,6 +264,7 @@ describe('PostHog', () => {
     for (const evt of [
       'homepage_panel_opened',
       'contact_email_clicked',
+      'booking_link_clicked',
       'resume_link_clicked',
       'social_link_clicked',
       'donation_link_clicked',
@@ -343,6 +344,18 @@ describe('PostHog', () => {
       .dispatchEvent(new MouseEvent('click', { bubbles: true }));
 
     expect(capture).toHaveBeenCalledWith('contact_email_clicked');
+  });
+
+  it('captures booking_link_clicked on the Cal.com scheduling link (#620)', () => {
+    const capture = vi.fn();
+    window.posthog = { capture };
+    new Function(posthogHomepageScript)();
+
+    document
+      .querySelector('.availability-booking')
+      .dispatchEvent(new MouseEvent('click', { bubbles: true }));
+
+    expect(capture).toHaveBeenCalledWith('booking_link_clicked');
   });
 
   it('captures resume_link_clicked from the Connect social-stack résumé row (and still social_link_clicked)', () => {

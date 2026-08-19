@@ -687,6 +687,15 @@ html[data-fonts-pending] .panel-label {
   padding-left: 0.6rem;
 }
 
+/* "View all writing →" closes the list (#619). It is a route, not a post, so
+   it sits slightly apart from the titles above it. It keeps the underline and
+   the arrow: on the mobile red base the block's links are already restyled by
+   `.panel--red .writing-list .p-name-link`, and an exception here would either
+   lose to that rule's specificity or need a louder selector to beat it. */
+.writing-list-all {
+  margin-top: 0.2rem;
+}
+
 .writing-list .p-name-link {
   font-size: 0.85rem;
   text-decoration: underline;
