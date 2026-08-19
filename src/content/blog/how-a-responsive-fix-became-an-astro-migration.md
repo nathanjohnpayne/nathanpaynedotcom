@@ -42,9 +42,11 @@ sidebar:
     caption: "Same-day pivot: a small responsive fix became the trigger for a full SSG migration"
 ---
 
-I am not an engineer. I am a product manager. I built the first version of nathanpayne.com the way a product manager builds things: I copied an HTML file, pasted it into a folder named for the new page, edited the parts that needed to change, and shipped it. The site was four `index.html` files, one global `style.css`, and the inevitability of every editor's opening prayer—"please let nothing be stale across the four copies."
+The first version of nathanpayne.com was four `index.html` files, one global `style.css`, and four hand-maintained copies of the same page chrome. I built it the way a product manager builds things: copy an HTML file, paste it into a folder named for the new page, edit the parts that need to change, ship it. Every publish came with the same opening prayer—"please let nothing be stale across the four copies."
 
 That worked for a homepage, an About page, and a couple of project case studies. It stopped working the first time I tried to ship a long-form blog post.
+
+I am not an engineer. I am a product manager, and that shows up in the site's first chassis twice: I shipped something real without waiting to learn a framework first, and I did not notice for months that the thing I had shipped could not grow. What made me notice was a bug that looked like it had nothing to do with any of it.
 
 ## The bug that was not the bug
 
