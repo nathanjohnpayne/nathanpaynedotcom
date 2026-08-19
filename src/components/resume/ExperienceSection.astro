@@ -5,6 +5,11 @@
  * "Role – Company" + a meta line (team · location · year range), then the
  * markdown body (intro paragraph + bullets) below at full width so it wraps
  * under the logo. Rendered with render().
+ *
+ * Entries flagged `compact: true` in frontmatter (the pre-2016 roles, #618)
+ * get a smaller logo tile and the `resume-entry--compact` modifier, which
+ * tightens their vertical rhythm — density is a layout decision, not a
+ * prose one, and flipping the flag restores full weight.
  * Section/heading scaffolding via the shared ResumeSection wrapper (#471).
  */
 import ResumeSection from './ResumeSection.astro';
@@ -24,9 +29,9 @@ const rendered = await Promise.all(
     const range = `${d.startYear}–${d.endYear ?? 'Present'}`;
     const meta = [d.team, d.location, range].filter(Boolean).join(' · ');
     return (
-      <article class="resume-entry resume-entry--logo">
+      <article class={`resume-entry resume-entry--logo${d.compact ? ' resume-entry--compact' : ''}`}>
         <div class="resume-entry__head">
-          <CompanyLogo name={d.company} website={d.website} logo={d.logo} size={72} />
+          <CompanyLogo name={d.company} website={d.website} logo={d.logo} size={d.compact ? 52 : 72} />
           <div class="resume-entry__headings">
             <h3 class="resume-entry__title">{d.title} – {d.company}</h3>
             <p class="resume-entry__meta">{meta}</p>

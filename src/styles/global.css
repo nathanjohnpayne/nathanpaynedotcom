@@ -4405,6 +4405,35 @@ body.resume-page {
   border-bottom-color: var(--resume-link);
 }
 
+/* ── Download PDF affordance (#616) ── sits under the contact block in the
+   header. Screen-only: the @media print block hides .resume-actions, since a
+   download button on paper is noise. Styled as a bordered plane rather than a
+   third contact line so it reads as an action, not another address. */
+.resume-actions {
+  margin-top: 1rem;
+}
+
+.resume-download {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.42rem 0.85rem;
+  border: 1px solid var(--rule);
+  background: var(--paper);
+  color: var(--resume-link);
+  font-size: clamp(0.82rem, 0.8rem + 0.12vw, 0.92rem);
+  line-height: 1.4;
+  text-decoration: none;
+  transition:
+    border-color var(--motion-hover) var(--ease-standard),
+    background-color var(--motion-hover) var(--ease-standard);
+}
+
+.resume-download:hover,
+.resume-download:focus-visible {
+  border-color: var(--resume-link);
+  background: var(--cream);
+}
+
 /* Decorative icon before each contact link/location (inherits currentColor:
    ochre on links, muted ink on the location). See #409. */
 .contact-icon {
@@ -4524,6 +4553,27 @@ body.resume-page {
    it. */
 .resume-entry--logo .resume-prose {
   margin-top: 0.55rem;
+}
+
+/* Compact entries (#618) — the pre-2016 roles. They keep a full head row
+   (company, role, years, logo) so tenure is never hidden, but tighten the
+   gaps and step the title down toward the meta line so a decade of broadcast
+   engineering reads as background depth rather than headline work. Density
+   lives here, in layout; the flag is `compact: true` in frontmatter. */
+.resume-entry--compact {
+  margin-top: 1.05rem;
+}
+
+.resume-entry--compact .resume-entry__head {
+  gap: 0.7rem;
+}
+
+.resume-entry--compact .resume-entry__title {
+  font-size: clamp(1rem, 0.92rem + 0.34vw, 1.18rem);
+}
+
+.resume-entry--compact.resume-entry--logo .resume-prose {
+  margin-top: 0.35rem;
 }
 
 .resume-entry__title {
@@ -4912,6 +4962,7 @@ body.resume-page {
   .resume-canvas-sidebar,
   .site-footer--resume,
   .resume-canvas-header .breadcrumbs,
+  .resume-actions,
   .company-logo {
     display: none !important;
   }

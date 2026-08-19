@@ -29,9 +29,9 @@ collections are:
 
 | Collection | Dir | Shape | Notes |
 |---|---|---|---|
-| `myself` | `src/content/myself/` | single `.md` entry | Header fields + two-paragraph summary in the body. **No `phone`** — email-only. |
+| `myself` | `src/content/myself/` | single `.md` entry | Header fields + the summary in the body (a single ~55–75-word paragraph, #617). **No `phone`** — email-only. |
 | `skills` | `src/content/skills/` | one `.yaml` per category | `{ label, priority, skills[] }`. Five categories. |
-| `experience` | `src/content/experience/` | one `.md` per role | Six entries. Bullets / paragraph in the body. |
+| `experience` | `src/content/experience/` | one `.md` per role | Six entries. Bullets / paragraph in the body. Optional `compact: true` — see *Experience density* below. |
 | `education` | `src/content/education/` | one `.md` | One entry (George Mason). |
 | `certifications` | `src/content/certifications/` | one `.md` per cert | Three entries. |
 | `resumeProjects` | `src/content/resume/projects/` | one `.md` per project | Six entries. **Distinct from `projects`** (reserved for `/projects`). |
@@ -53,7 +53,15 @@ The `resumeProjects` collection must remain separate from the existing
     `myself` handles, each prefixed by a small decorative icon —
     `ContactIcon.astro`, brand glyphs + Lucide mail/globe/map-pin). **No
     Bluesky** on the resume (it remains on the homepage). The contact stays in
-    the header so it prints.
+    the header so it prints. Below the contact block sits the **Download PDF**
+    affordance (`.resume-actions` / `.resume-download`, screen-only — hidden
+    in `@media print`), linking the build-generated PDF (see *Downloadable
+    PDF* below).
+  - The header `title` is a **single role title** — "Senior Platform Product
+    Manager" — matching the `jobTitle` in the page's `Person` JSON-LD. The
+    domain facets it used to carry (partner ecosystems, streaming
+    infrastructure, AI-augmented development) live in **Skills**, which
+    already names all three. See #617.
   - **Metadata panel** (`.resume-canvas-meta`, top-right, screen-only) — a
     `<dl>`: Location, Availability, Focus, and a few Topic pills.
   - **Content column** (`.resume-canvas-content`) — the section components.
@@ -92,6 +100,47 @@ The `resumeProjects` collection must remain separate from the existing
 - Title is `Nathan Payne | Resume`; the page has a resolvable `og:image`
   and a dedicated one-line meta/OG description.
 - A `Person` + `ProfilePage` JSON-LD graph is emitted.
+
+## Experience density
+
+Vertical space tracks relevance, and **layout controls density, not prose**
+(#618). An experience entry may set `compact: true` in frontmatter; the
+`ExperienceSection` then renders it with the `resume-entry--compact` modifier
+(tighter gaps, a stepped-down title, a 52px rather than 72px logo tile).
+
+The three pre-2016 roles — AJ+ (2013–2016), Current TV (2012–2013), and CNN
+(2002–2012) — are compact, and their bodies are one to two lines each: company,
+role, years, and the most transferable accomplishment. The two Disney entries
+(7 and 4 bullets) and BAMTech keep full weight. Compression is emphasis, never
+erasure: every role keeps its full date range, and the **CNN Magic Wall** stays
+on the page — it is the most memorable line on the résumé.
+
+The flag is reversible; flipping it back restores full weight without touching
+the copy.
+
+## Downloadable PDF
+
+`/resume/` ships a real, letter-size PDF at **`/Nathan-Payne-Resume.pdf`** — a
+recruiter-legible filename, for "attach your resume" forms and ATS pipelines
+(#616).
+
+- It is generated **at build time** from the already-built `/resume/` route,
+  by `src/integrations/resume-pdf.mjs`, under `page.emulateMedia({ media:
+  'print' })` — so the file is exactly the `@media print` cascade below and
+  cannot drift from the page. (A committed static PDF is the drift bug class
+  of #163 / #164.)
+- The generator is invoked from `og-images.mjs`'s `astro:build:done` hook
+  rather than registered as its own integration: it needs the same headless
+  Chromium and static dist/ server that hook already stands up, and
+  `astro.config.mjs` is on the Do Not Touch list (`.ai_context.md`).
+- `RESUME_PDF_MARGIN` in the generator restates the `@page { margin }` value
+  (0.6in, the #420 Safari floor) because Chromium takes print margins from the
+  printToPDF parameters, not from CSS. The paired test asserts the two agree.
+- The PDF is an asset, not a route — `@astrojs/sitemap` does not list it.
+- The on-page affordance is `.resume-download` inside `.resume-actions`, placed
+  after the header contact block and hidden in `@media print`. Clicking it
+  fires a `resume_pdf_downloaded` PostHog capture alongside the existing
+  `resume_viewed`.
 
 ## Brand logos (Logo.dev)
 
@@ -190,6 +239,11 @@ The `resumeProjects` collection must remain separate from the existing
   dropped) in Safari. Safari is the calibration renderer; the Tier-2 print gaps
   and the body size/leading are the fine-tune dials — nudge tighter if the tail
   spills, looser if page 3 lands thin. See issue #420.
+- The #617 / #618 trims took the print content from ~2.65 to ~2.56 US-Letter
+  pages (measured in Chromium print emulation at 7.3in × 9.8in), so the
+  document still lands on three pages, with page 3 a little lighter. The
+  three-page target itself is unchanged: #420 established that forcing two
+  pages over-compresses this much content.
 
 ## Content fidelity
 
@@ -199,7 +253,10 @@ paraphrased. In particular:
 - The CSP-PO certification is attributed to **Scrum Alliance** (the
   credentialing body), not the training provider.
 - The summary opens with the 20+-years platform framing and names Disney+,
-  Hulu, and ESPN.
+  Hulu, and ESPN. Since #617 it is one paragraph of ~55–75 words with the
+  AI-augmented development focus in the same opening lines as the Disney
+  scale; the detail it shed is recoverable elsewhere on the page (Skills,
+  the Disney NCP bullets, the Projects section) rather than deleted.
 - Six experience entries span Disney NCP (2021–2026) back to CNN
   (2002–2012).
 
@@ -216,3 +273,11 @@ paraphrased. In particular:
 6. The emitted CSS hides `.company-logo` inside an `@media print` block.
 7. The page exposes a resolvable `og:image` and a `Nathan Payne | Resume`
    title.
+8. The header renders a screen-only `.resume-download` link to
+   `/Nathan-Payne-Resume.pdf`, that path resolves to a real letter-size PDF in
+   `dist/`, and the file is absent from the sitemap.
+9. The visible header title is a single role title equal to the JSON-LD
+   `jobTitle`; the summary is 55–75 words naming Disney+/Hulu/ESPN and the
+   AI-augmented focus up front.
+10. AJ+, Current TV, and CNN render with `resume-entry--compact`, keep their
+    full date ranges, and the CNN Magic Wall is still present.
