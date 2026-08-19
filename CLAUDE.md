@@ -98,7 +98,8 @@ explicitly authorizes a break-glass override in chat.
 
    If any of these conditions is false (Codex not enabled, either
    helper script missing, or the Codex App is not review-ready), fall
-   back to Phase 4b directly rather than entering 4a and stalling:
+   back to Phase 4b directly rather than entering 4a and stalling.
+   Otherwise, drive the Phase 4a loop:
 
    a. Run `scripts/codex-review-request.sh <PR#>`. It posts `@codex review`
       (or skips the trigger if Codex already auto-reviewed on open) and
