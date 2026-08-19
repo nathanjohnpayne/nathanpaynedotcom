@@ -343,8 +343,8 @@ describe('Resume — print stylesheet', () => {
   // end-of-post print rules (#622) sit ahead of the resume's — so each
   // assertion below selects the block it cares about by content rather
   // than assuming the first one is the resume's.
-  function printBlocks(css) {
-    const blocks = [];
+  function printBlockRanges(css) {
+    const ranges = [];
     let i = css.indexOf('@media print');
     while (i !== -1) {
       let depth = 0;
@@ -352,13 +352,33 @@ describe('Resume — print stylesheet', () => {
       for (let j = start; j < css.length; j++) {
         if (css[j] === '{') depth++;
         else if (css[j] === '}' && --depth === 0) {
-          blocks.push(css.slice(i, j + 1));
+          ranges.push([i, j + 1]);
           break;
         }
       }
       i = css.indexOf('@media print', i + 1);
     }
-    return blocks;
+    return ranges;
+  }
+
+  function printBlocks(css) {
+    return printBlockRanges(css).map(([from, to]) => css.slice(from, to));
+  }
+
+  /**
+   * The stylesheet with every @media print block cut out — i.e. everything the
+   * screen cascade actually sees. Slicing at the FIRST print block instead
+   * would silently stop guarding every line after it, which is what happened
+   * when #622 added a second print block ahead of the resume's.
+   */
+  function withoutPrintBlocks(css) {
+    let out = '';
+    let cursor = 0;
+    for (const [from, to] of printBlockRanges(css)) {
+      out += css.slice(cursor, from);
+      cursor = to;
+    }
+    return out + css.slice(cursor);
   }
 
   /** All @media print blocks across every emitted stylesheet. */
@@ -384,11 +404,14 @@ describe('Resume — print stylesheet', () => {
   });
 
   it('applies the 8.5in page width only inside @media print', () => {
-    // The 8.5in constraint must not appear anywhere in the base (screen) cascade.
+    // The 8.5in constraint must not appear anywhere in the base (screen)
+    // cascade — meaning outside EVERY @media print block, not merely before
+    // the first one.
     for (const css of cssFiles) {
-      const printIdx = css.indexOf('@media print');
-      const head = printIdx === -1 ? css : css.slice(0, printIdx);
-      expect(/8\.5in/.test(head), '8.5in width leaked into the screen cascade').toBe(false);
+      const screenCascade = withoutPrintBlocks(css);
+      expect(/8\.5in/.test(screenCascade), '8.5in width leaked into the screen cascade').toBe(
+        false,
+      );
     }
     const block = allPrintBlocks().find((b) => b.includes('8.5in'));
     expect(block, '8.5in print width constraint missing').toBeTruthy();

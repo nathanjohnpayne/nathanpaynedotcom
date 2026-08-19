@@ -50,6 +50,12 @@ const posthogInitConfig = (() => {
 // GA4 is loaded by BaseLayout from the env Measurement ID and gated on it, so
 // assert the load contract against the layout SOURCE (build-env-independent).
 const baseLayoutSrc = readFileSync(resolve(__dirname, '../src/layouts/BaseLayout.astro'), 'utf-8');
+// Blog post events live in the BlogPost layout rather than the homepage script,
+// so they are asserted against that layout's SOURCE for the same reason.
+const blogPostLayoutSrc = readFileSync(
+  resolve(__dirname, '../src/layouts/BlogPost.astro'),
+  'utf-8',
+);
 
 // Flush a macrotask so queued MutationObserver callbacks have run.
 const tick = () => new Promise((resolve) => setTimeout(resolve, 0));
@@ -271,6 +277,14 @@ describe('PostHog', () => {
       'writing_link_clicked',
     ]) {
       expect(posthogHomepageScript).toContain(evt);
+    }
+  });
+
+  it('wires the blog post events', () => {
+    // Every event here has a row in specs/analytics.md § Events. The registry
+    // stops being canonical the first time a shipped event is missing from it.
+    for (const evt of ['blog_post_viewed', 'blog_cta_clicked', 'blog_post_nav_clicked']) {
+      expect(blogPostLayoutSrc).toContain(`capture('${evt}'`);
     }
   });
 

@@ -234,9 +234,15 @@ const jsonLd = {
             hidden below --bp-stack, and this is the one block that has to
             reach the skimmer and the crawler. Real heading + real list so
             it reads as content, not chrome. */}
+        {/* The heading id is namespaced rather than the natural
+            "key-takeaways" slug: Astro slugs markdown headings from their
+            visible text, so a post that ever writes "## Key takeaways" in its
+            body would emit a second id="key-takeaways" and break this
+            aria-labelledby reference. No heading text slugs to
+            "blog-takeaways-heading". */}
         {keyTakeaways.length > 0 && (
-          <section class="blog-takeaways" aria-labelledby="key-takeaways">
-            <h2 class="blog-takeaways__heading" id="key-takeaways">Key takeaways</h2>
+          <section class="blog-takeaways" aria-labelledby="blog-takeaways-heading">
+            <h2 class="blog-takeaways__heading" id="blog-takeaways-heading">Key takeaways</h2>
             <ul class="blog-takeaways__list" role="list">
               {keyTakeaways.map((takeaway) => (
                 <li>{takeaway}</li>
