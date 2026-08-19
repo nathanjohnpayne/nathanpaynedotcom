@@ -52,12 +52,16 @@ The following tool config directories must contain only configuration—no instr
 These are pinned deliberately. Read this before bumping either one—including
 automated dependency PRs.
 
-- **`typescript` must stay within the range `@astrojs/check` peers on.**
-  `@astrojs/check@0.9.10` (the latest release) peers `typescript@^5.0.0 || ^6.0.0`,
-  and `typescript-eslint@8.x` peers `typescript@>=4.8.4 <6.1.0`. TypeScript 7 breaks
-  `npm ci` outright (#631). Do not raise `typescript` past `^6` until
-  `@astrojs/check` ships a release whose peer range admits it; verify with
-  `npm view @astrojs/check peerDependencies` rather than assuming.
+- **`typescript` must stay below `6.1.0`.** Two peers constrain it, and the
+  binding one is the tighter of the two: `@astrojs/check@0.9.10` (the latest
+  release) peers `typescript@^5.0.0 || ^6.0.0`, but `typescript-eslint@8.x` peers
+  `typescript@>=4.8.4 <6.1.0`. The effective ceiling is therefore `<6.1.0`, not
+  `^6`—a `6.1.x` bump satisfies `@astrojs/check` and still breaks `npm ci` on
+  `typescript-eslint`. TypeScript 7 breaks it outright (#631). Do not raise
+  `typescript` to `6.1` or beyond until *both* peer ranges admit it; verify with
+  `npm view @astrojs/check peerDependencies` **and**
+  `npm view typescript-eslint peerDependencies` rather than assuming. Checking
+  only `@astrojs/check` is what makes this look safe when it is not.
 - **`@astrojs/markdown-remark` is a required devDependency even though no source
   file imports it.** Astro 7 made Sätteri the default Markdown processor and
   stopped installing `@astrojs/markdown-remark` transitively, but
