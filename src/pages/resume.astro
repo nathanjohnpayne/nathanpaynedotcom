@@ -22,6 +22,10 @@ import ProjectsSection from '../components/resume/ProjectsSection.astro';
 import ContactIcon from '../components/resume/ContactIcon.astro';
 import WritingSection from '../components/resume/WritingSection.astro';
 import AwardsSection from '../components/resume/AwardsSection.astro';
+// Single source of truth for the built PDF's path — the same constant the
+// build-time generator writes to, so the link can never point at a filename
+// that isn't produced (#616).
+import { RESUME_PDF_PATH } from '../integrations/resume-pdf.mjs';
 
 const myself = await getEntry('myself', 'nathan-payne');
 if (!myself) {
@@ -177,6 +181,16 @@ const jsonLd = {
             </>
           ))}
         </p>
+        {/* Download affordance (#616). Points at the letter-size PDF that
+            src/integrations/resume-pdf.mjs renders from this page's own
+            @media print cascade at build time, so the file cannot drift from
+            what's on screen. Screen-only — hidden in @media print, where a
+            "download" button is meaningless on paper. */}
+        <p class="resume-actions">
+          <a class="resume-download" href={RESUME_PDF_PATH} download data-resume-download>
+            <ContactIcon name="download" />Download PDF
+          </a>
+        </p>
       </header>
 
       {/* Metadata panel (top-right; screen-only — contact lives in the header) */}
@@ -246,5 +260,8 @@ const jsonLd = {
 
   <script is:inline>
     window.posthog?.capture('resume_viewed');
+    document.querySelector('[data-resume-download]')?.addEventListener('click', () => {
+      window.posthog?.capture('resume_pdf_downloaded');
+    });
   </script>
 </BaseLayout>

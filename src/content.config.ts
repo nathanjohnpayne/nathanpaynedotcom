@@ -161,6 +161,11 @@ const experience = defineCollection({
     badges: z.array(z.string()).optional(),
     website: z.string().optional(), // drives Logo.dev domain lookup
     logo: z.string().optional(), // explicit override (path or data-URI)
+    // Density flag (#618). Pre-2016 roles are background depth, not headline
+    // work: `compact: true` renders the entry with a smaller logo tile and
+    // tighter vertical rhythm so LAYOUT, not prose, controls how much of the
+    // skim they consume. Reversible — flip the flag, the copy is unchanged.
+    compact: z.boolean().optional(),
   }),
 });
 
