@@ -1253,20 +1253,86 @@ else
 fi
 
 echo
-echo "auto-merge workflows require current-head check success (#516)"
-dependabot_check_gate_calls=$(grep -Ec '^[[:space:]]*require_current_head_check_success[[:space:]]*$' .github/workflows/dependabot-auto-merge.yml || true)
-if grep -Fq "REQUIRED_HEAD_CHECK_NAME: lint" .github/workflows/dependabot-auto-merge.yml && \
-   grep -Fq 'select(.name == $check)' .github/workflows/dependabot-auto-merge.yml && \
-   grep -Eq '^[[:space:]]*require_current_head_check_success\(\)[[:space:]]*\{' .github/workflows/dependabot-auto-merge.yml && \
+echo "auto-merge workflows require current-head check success (#516, #632)"
+# #632 replaced the dependabot gate's single hard-coded check name with a
+# space-separated REQUIRED_HEAD_CHECK_NAMES list, looped by a new
+# require_current_head_checks_success wrapper around the (still per-name)
+# require_current_head_check_success waiter. The assertions below cover the
+# new shape at least as strictly as the singular ones they replace: the
+# per-name waiter AND the plural looper must both still be defined, the
+# looper must still be called on both merge paths (--auto and the fallback
+# squash), the configured list must still name the structural `lint` job,
+# and — new strictness — it must also name the real `build-and-test` job,
+# which is the entire point of #632. A workflow that dropped the gate, the
+# list, or either check name still fails here.
+#
+# agent-review.yml deliberately keeps the SINGULAR REQUIRED_HEAD_CHECK_NAME
+# and is asserted separately below. Its wait is a different implementation
+# (a GraphQL statusCheckRollup query with workflow disambiguation and
+# isRequired preference, #655) that takes exactly one check name; giving it
+# a list is a behavioral change to the agent-PR merge gate with its own
+# review surface, not a rename. Unifying the variable names without
+# unifying the implementations would only make them look interchangeable.
+dependabot_workflow_file=".github/workflows/dependabot-auto-merge.yml"
+dependabot_check_gate_calls=$(grep -Ec '^[[:space:]]*require_current_head_checks_success[[:space:]]*$' "$dependabot_workflow_file" || true)
+# Read the configured list and split it exactly the way the workflow's own
+# `for name in $REQUIRED_HEAD_CHECK_NAMES` loop does, so this validates the
+# value as consumed rather than as a substring of the file.
+dependabot_required_check_names=$(
+  grep -E '^[[:space:]]*REQUIRED_HEAD_CHECK_NAMES:' "$dependabot_workflow_file" \
+    | head -n 1 \
+    | sed -E 's/^[[:space:]]*REQUIRED_HEAD_CHECK_NAMES:[[:space:]]*//' \
+    | tr -d "\"'" \
+    || true
+)
+dependabot_names_lint=0
+dependabot_names_build=0
+for dependabot_check_name in $dependabot_required_check_names; do
+  if [ "$dependabot_check_name" = "lint" ]; then
+    dependabot_names_lint=1
+  fi
+  if [ "$dependabot_check_name" = "build-and-test" ]; then
+    dependabot_names_build=1
+  fi
+done
+if [ "$dependabot_names_lint" -eq 1 ] && \
+   [ "$dependabot_names_build" -eq 1 ] && \
+   grep -Fq 'select(.name == $check)' "$dependabot_workflow_file" && \
+   grep -Eq '^[[:space:]]*require_current_head_check_success\(\)[[:space:]]*\{' "$dependabot_workflow_file" && \
+   grep -Eq '^[[:space:]]*require_current_head_checks_success\(\)[[:space:]]*\{' "$dependabot_workflow_file" && \
+   grep -Eq '^[[:space:]]*for[[:space:]]+name[[:space:]]+in[[:space:]]+\$REQUIRED_HEAD_CHECK_NAMES;' "$dependabot_workflow_file" && \
    [ "$dependabot_check_gate_calls" -ge 2 ] && \
-   grep -Fq -- "--match-head-commit" .github/workflows/dependabot-auto-merge.yml && \
-   grep -Fq "waiting for completion" .github/workflows/dependabot-auto-merge.yml && \
-   grep -Fq "TEST_CHECK_WAIT_SECONDS" .github/workflows/dependabot-auto-merge.yml; then
+   grep -Fq -- "--match-head-commit" "$dependabot_workflow_file" && \
+   grep -Fq "waiting for completion" "$dependabot_workflow_file" && \
+   grep -Fq "TEST_CHECK_WAIT_SECONDS" "$dependabot_workflow_file"; then
   pass=$((pass + 1))
-  echo "  PASS: Dependabot auto-merge waits for configured current-head check success and binds merges to the checked HEAD"
+  echo "  PASS: Dependabot auto-merge waits for every configured current-head check (lint AND build-and-test) and binds merges to the checked HEAD"
 else
-  echo "  FAIL: Dependabot auto-merge must call the configured check gate, wait for success, and bind merges to the checked HEAD" >&2
+  echo "  FAIL: Dependabot auto-merge must loop the configured check gate over REQUIRED_HEAD_CHECK_NAMES (naming at least lint and build-and-test), wait for success, and bind merges to the checked HEAD [names read: '$dependabot_required_check_names'; gate calls: $dependabot_check_gate_calls]" >&2
   fail=$((fail + 1))
+fi
+
+# #632 fail-open: an unset/empty REQUIRED_HEAD_CHECK_NAMES would make the
+# looper iterate zero times, return 0, and let auto-merge proceed having
+# verified nothing — the same silent-no-op shape as the empty
+# REVIEWER_ASSIGNMENT_TOKEN incident the GH_TOKEN preflight guards against.
+# The singular predecessor could not fail open (it defaulted to `lint`), so
+# the list form has to assert instead. Both halves are required: `-z`
+# catches unset/empty, the iteration counter catches a non-empty value that
+# splits into zero words.
+if workflow_guard_block_contains_exit \
+  "$dependabot_workflow_file" \
+  'if [ -z "${REQUIRED_HEAD_CHECK_NAMES:-}" ]; then' \
+  'REQUIRED_HEAD_CHECK_NAMES is empty' && \
+   workflow_guard_block_contains_exit \
+  "$dependabot_workflow_file" \
+  'if [ "$checks_waited" -eq 0 ]; then' \
+  'split into zero check names'; then
+  pass=$((pass + 1))
+  echo "  PASS: Dependabot check gate fails closed when REQUIRED_HEAD_CHECK_NAMES is empty or splits into zero names"
+else
+  fail=$((fail + 1))
+  echo "  FAIL: Dependabot check gate must exit 1 when REQUIRED_HEAD_CHECK_NAMES is unset/empty or splits into zero names, not silently verify nothing" >&2
 fi
 if grep -Fq "Require current-head check success" .github/workflows/agent-review.yml && \
    grep -Fq "REQUIRED_HEAD_CHECK_NAME: lint" .github/workflows/agent-review.yml && \

@@ -151,11 +151,36 @@ jobs:
           # require_current_head_check_success sets CURRENT_HEAD_SHA as a
           # side effect; they all resolve the same PR head, so the value
           # from the last iteration is what callers use afterwards.
+          #
+          # Fails closed when REQUIRED_HEAD_CHECK_NAMES is unset, empty, or
+          # whitespace-only. Without the two assertions below the loop would
+          # run zero times, the function would return 0, and auto-merge would
+          # proceed having verified no check at all — the same silent-no-op
+          # shape as the empty REVIEWER_ASSIGNMENT_TOKEN incident the GH_TOKEN
+          # preflight at the top of this step exists for. The pre-#632 code
+          # could not reach that state because it defaulted a single name
+          # (`${REQUIRED_HEAD_CHECK_NAME:-lint}`); a list of names has no
+          # equally safe default — silently falling back to `lint` alone is
+          # exactly the too-weak gate #632 removed — so an empty list is a
+          # hard error instead. The `-z` test catches unset/empty; the
+          # iteration counter catches a value that is non-empty but splits
+          # into zero words (e.g. `"   "`).
           require_current_head_checks_success() {
-            local name
+            local name checks_waited
+            if [ -z "${REQUIRED_HEAD_CHECK_NAMES:-}" ]; then
+              echo "::error::REQUIRED_HEAD_CHECK_NAMES is empty. Refusing auto-merge: with no check names configured this gate would verify nothing."
+              echo "::error::Set REQUIRED_HEAD_CHECK_NAMES on this step to the space-separated check-run names that must be green on the PR head (expected: lint build-and-test)."
+              exit 1
+            fi
+            checks_waited=0
             for name in $REQUIRED_HEAD_CHECK_NAMES; do
               require_current_head_check_success "$name"
+              checks_waited=$((checks_waited + 1))
             done
+            if [ "$checks_waited" -eq 0 ]; then
+              echo "::error::REQUIRED_HEAD_CHECK_NAMES ('$REQUIRED_HEAD_CHECK_NAMES') split into zero check names. Refusing auto-merge: this gate verified nothing."
+              exit 1
+            fi
           }
 
           has_human_hold() {

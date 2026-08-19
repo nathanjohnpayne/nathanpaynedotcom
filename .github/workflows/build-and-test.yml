@@ -45,14 +45,24 @@ jobs:
 
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          # Matches the Node version this project runs on locally
-          # (v22.22.2 at time of writing) and the astro-eslint-parser /
-          # eslint-plugin-astro engines range (^22.22.3 || ^24.16.0 ||
-          # >=26.3.0). "22" resolves to the latest 22.x, which satisfies
-          # that range even though the exact local dev version does not
-          # (that mismatch is a pre-existing EBADENGINE warning, not
-          # something this workflow needs to fix).
-          node-version: "22"
+          # Single source of truth for this project's Node version:
+          # `.nvmrc` at the repo root, which nvm/fnm also read locally, so
+          # the runner and a developer shell resolve the same major. The
+          # previous inline `node-version: "22"` asserted it matched "the
+          # version this project runs on locally" while nothing pinned
+          # that — no `.nvmrc`, no `engines` field — and the claim had
+          # already drifted (the dev machine runs 26.x).
+          #
+          # `.nvmrc` holds a bare major, so this resolves to the latest
+          # 26.x rather than floating across majors: a new Node major is
+          # an explicit one-line change here, not something CI adopts on
+          # its own. `engines.node` in package.json separately records the
+          # range the dependency tree actually supports
+          # (^22.22.3 || ^24.16.0 || >=26.3.0 — the tightest constraint is
+          # astro-eslint-parser / eslint-plugin-astro), so a bump that
+          # raises that floor past the pin shows up as an EBADENGINE
+          # warning in the `npm ci` step below.
+          node-version-file: .nvmrc
 
       - name: npm ci
         # Plain `npm ci` — deliberately NOT --legacy-peer-deps. #631 was a
