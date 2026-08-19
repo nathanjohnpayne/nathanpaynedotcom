@@ -126,20 +126,20 @@ explicitly authorizes a break-glass override in chat.
       nathanjohnpayne with
       `gh pr merge --squash --delete-branch`.
 
-   **Phase 4b—Manual CLI fallback.** Applies when Phase 4a is
-   unavailable (`codex.enabled: false`, either helper script missing,
-   Codex App not review-ready, or 4a fell back via exit code 4):
+   **Phase 4b—External review fallback.** Applies when Phase 4a is unavailable (`codex.enabled: false`, either helper script missing, Codex App not review-ready, or 4a fell back via exit code 4). Two legs, tried in order: the automated orchestrator first, the manual handoff only if the orchestrator declines. Canonical steps and the full exit-code table: REVIEW_POLICY.md § Phase 4b.
 
-   a. Post the handoff message per REVIEW_POLICY.md § Handoff Message
-      Format as a PR comment.
-   b. Alert the human via chat. The human takes the handoff to a
-      different agent CLI session (typically `nathanpayne-codex`), which
-      posts an external review.
-   c. Address feedback via the usual nathanjohnpayne commit loop.
-   d. Wait for the external reviewer identity to post an `APPROVED` review.
-   e. If the external reviewer flags observations or risks, file the
-      post-merge GitHub Issues per step 11 below.
-   f. Merge as nathanjohnpayne.
+   a. **Automated leg—do this first.** When `.github/review-policy.yml` has `phase_4b_automation.enabled: true` and `mode: local`, run `scripts/phase-4b-review.sh <PR#>`. **Run it from a trusted `main`-ref checkout, never from the checkout of the PR under review** (mergepath#628): the PR is passed by number and its diff is reviewed as data, so a PR that edits the phase-4b scripts, the adapters, or `gh-as-reviewer.sh` cannot shape its own verdict. The orchestrator selects an external reviewer whose agent differs from the authoring agent, runs that reviewer's headless CLI over the diff, and posts `APPROVED` or `CHANGES_REQUESTED` under the reviewer identity via `scripts/gh-as-reviewer.sh`, pinned to the reviewed HEAD.
+   b. Act on its exit code and the JSON summary it prints on stdout:
+      - `0`—`APPROVED` posted. Run `scripts/codex-review-check.sh <PR#>` to verify the merge gate, then merge as nathanjohnpayne. If the verdict carried discretionary findings and `post_review_issues: true`, the orchestrator already filed the step 11 issues and linked them in the approval body—do not file them again.
+      - `1`—`CHANGES_REQUESTED` posted. Address the findings as nathanjohnpayne, push fix commits, and re-run. One adapter pass per invocation, so cap the loop at `phase_4b_automation.max_review_rounds`.
+      - `3` (usage or infrastructure error), `4` (`fell_back_to_manual: true`—non-conformant verdict, adapter error or timeout, or PR head drift), or `5` (automation disabled or `mode` other than `local`)—drop to the manual leg.
+   c. **Manual leg—fallback of the fallback.** Only after the automated leg exits `3`, `4`, or `5`, or when `scripts/phase-4b-review.sh` is not on disk:
+      1. Post the handoff message per REVIEW_POLICY.md § Handoff Message Format as a PR comment.
+      2. Alert the human via chat. The human takes the handoff to a different agent CLI session (typically `nathanpayne-codex`), which posts an external review.
+      3. Address feedback via the usual nathanjohnpayne commit loop.
+      4. Wait for the external reviewer identity to post an `APPROVED` review.
+      5. If the external reviewer flags observations or risks, file the post-merge GitHub Issues per step 11 below.
+      6. Merge as nathanjohnpayne.
 
 10. Never use `--admin` to merge unless the human explicitly authorizes it
     in chat as a break-glass exception. The hook will block it otherwise.
