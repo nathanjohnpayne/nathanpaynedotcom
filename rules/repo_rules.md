@@ -42,6 +42,60 @@ The following tool config directories must contain only configuration—no instr
 - **No duplicate documentation.** If a concept is documented in `AGENTS.md` or a canonical root file, it must not be redefined in a conflicting location.
 - **No new top-level directories** without explicit justification documented in `AGENTS.md` or a `plans/` entry.
 - **Tests must not be deleted to force a build to pass.**
+- **No `.npmrc` with `legacy-peer-deps=true`.** `npm ci` must succeed with no
+  flags. Suppressing peer resolution hides real incompatibilities—see #631,
+  where a `typescript` major that no installed `@astrojs/check` release peers on
+  went unnoticed for two months.
+
+## Toolchain Constraints
+
+These are pinned deliberately. Read this before bumping either one—including
+automated dependency PRs.
+
+- **`typescript` must stay below `6.1.0`, and the manifest enforces it.**
+  `package.json` declares `>=6.0.3 <6.1.0` rather than a caret range, so an
+  automated bump cannot silently cross the ceiling. Two peers constrain it and
+  the binding one is the tighter of the two: `@astrojs/check@0.9.10` (the latest
+  release) peers `typescript@^5.0.0 || ^6.0.0`, but `typescript-eslint@8.x` peers
+  `typescript@>=4.8.4 <6.1.0`. A caret range would have admitted `6.1.x`, which
+  satisfies `@astrojs/check` and still fails `npm ci` on `typescript-eslint`—the
+  same ERESOLVE class as #631, which TypeScript 7 caused outright. Do not widen
+  the range until *both* peers admit the wider version. Verify against the
+  versions this repo actually installs, not the registry's `latest`—a versionless
+  `npm view` reports the peer range of a release that may not be in the lockfile:
+
+  ```bash
+  node -e 'const l=require("./package-lock.json").packages;
+    for (const n of ["@astrojs/check","typescript-eslint"])
+      console.log(n, l["node_modules/"+n].version)'
+  npm view "@astrojs/check@<resolved>" peerDependencies
+  npm view "typescript-eslint@<resolved>" peerDependencies
+  ```
+
+  Checking only `@astrojs/check` is what makes a `6.1` bump look safe when it is
+  not.
+- **`@astrojs/markdown-remark` is a required devDependency even though no source
+  file imports it.** Astro 7 made Sätteri the default Markdown processor and
+  stopped installing `@astrojs/markdown-remark` transitively, but
+  `astro.config.mjs` still uses `markdown.remarkPlugins` / `markdown.rehypePlugins`
+  for the three custom plugins in `src/plugins/`. Without the explicit dependency
+  `astro build` fails in `coerceLegacyMarkdownPlugins` (#630). Astro declares it as
+  an exact-version optional peer (`astro@7.2.2` → `@astrojs/markdown-remark@7.2.2`),
+  so the two versions must move together—and because a caret range on one side
+  cannot express that, **both are pinned exact in `package.json`**. A floating
+  `astro` range breaks `npm ci` on its own; verified against the registry rather
+  than assumed:
+
+  ```text
+  $ # package.json: astro ^7.2.2, @astrojs/markdown-remark 7.2.2
+  $ npm install --package-lock-only
+  npm error Conflicting peer dependency: @astrojs/markdown-remark@7.2.4
+  npm error   peerOptional @astrojs/markdown-remark@"7.2.4" from astro@7.2.4
+  ```
+
+  `astro@7.2.4` is already published, so this is a live break, not a latent one.
+  Bump both entries in the same change, to the same version, or not at all. Do not
+  remove `@astrojs/markdown-remark` as "unused."
 
 ## CI Enforcement
 
