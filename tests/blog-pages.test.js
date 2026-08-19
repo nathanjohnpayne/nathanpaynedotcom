@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { readFileSync } from 'fs';
 import { resolve } from 'path';
+import { writeSanitizedDOM } from './helpers/dom.js';
 
 const homepageHtml = readFileSync(resolve(__dirname, '../dist/index.html'), 'utf-8');
 const blogIndexHtml = readFileSync(resolve(__dirname, '../dist/blog/index.html'), 'utf-8');
@@ -11,13 +12,9 @@ const blogPostHtml = readFileSync(
 const firebaseConfig = JSON.parse(readFileSync(resolve(__dirname, '../firebase.json'), 'utf-8'));
 
 function setupDOM(html) {
-  const safe = html.replace(
-    /<script(?![^>]*type="application\/ld\+json")[^>]*>[\s\S]*?<\/script>/g,
-    '',
-  );
-  document.documentElement.innerHTML = '';
-  document.write(safe);
-  document.close();
+  // Scripts are removed on a detached document and the doctype preserved by
+  // the shared helper — see tests/helpers/dom.js for why both matter.
+  writeSanitizedDOM(html);
 }
 
 describe('Blog Pages', () => {

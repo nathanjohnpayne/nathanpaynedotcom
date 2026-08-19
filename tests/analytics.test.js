@@ -2,11 +2,13 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { readFileSync } from 'fs';
 import { resolve } from 'path';
 import { execSync } from 'child_process';
+import { writeSanitizedDOM } from './helpers/dom.js';
 
 const rawHtml = readFileSync(resolve(__dirname, '../dist/index.html'), 'utf-8');
 
-// Extract inline scripts before stripping them from the HTML.
-// Script 0 = GA config, Script 1 = panel interaction IIFE.
+// Read the inline script bodies so the assertions below can inspect them.
+// Script 0 = GA config, Script 1 = panel interaction IIFE. This is extraction,
+// not sanitization, so it stays a regex; setupDOM does the removal.
 const inlineScripts = [...rawHtml.matchAll(/<script>([\s\S]*?)<\/script>/g)].map((m) => m[1]);
 const panelScript = inlineScripts.find((s) => s.includes('section_view')) || '';
 // PostHog init lives in src/components/posthog.astro and is gated on the env
@@ -60,13 +62,10 @@ const blogPostLayoutSrc = readFileSync(
 // Flush a macrotask so queued MutationObserver callbacks have run.
 const tick = () => new Promise((resolve) => setTimeout(resolve, 0));
 
-// Strip all inline <script> blocks so they don't auto-execute during document.write.
-const html = rawHtml.replace(/<script>[\s\S]*?<\/script>/g, '');
-
 function setupDOM() {
-  document.documentElement.innerHTML = '';
-  document.write(html);
-  document.close();
+  // Scripts are removed on a detached document and the doctype preserved by
+  // the shared helper — see tests/helpers/dom.js for why both matter.
+  writeSanitizedDOM(rawHtml);
 
   Object.defineProperty(window, 'matchMedia', {
     writable: true,

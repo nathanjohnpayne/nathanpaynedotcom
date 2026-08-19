@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { readFileSync } from 'fs';
 import { resolve } from 'path';
+import { writeSanitizedDOM } from './helpers/dom.js';
 
 // Guards the canonical wayfinding labels on the 404 page against drift (#524).
 // The 404 shortcut buttons must use the same navigation labels as the rest of
@@ -12,10 +13,9 @@ import { resolve } from 'path';
 const DIST = resolve(__dirname, '../dist');
 
 function setupDOM(rawHtml) {
-  const safe = rawHtml.replace(/<script>[\s\S]*?<\/script>/g, '');
-  document.documentElement.innerHTML = '';
-  document.write(safe);
-  document.close();
+  // Scripts are removed on a detached document and the doctype preserved by
+  // the shared helper — see tests/helpers/dom.js for why both matter.
+  writeSanitizedDOM(rawHtml);
 }
 
 describe('404 navigation labels (#524)', () => {

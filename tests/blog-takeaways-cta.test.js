@@ -12,6 +12,7 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync, readdirSync, statSync, existsSync } from 'fs';
 import { resolve } from 'path';
+import { writeSanitizedDOM } from './helpers/dom.js';
 
 const configSource = readFileSync(resolve(__dirname, '../src/content.config.ts'), 'utf-8');
 
@@ -72,13 +73,9 @@ const cssFile = readdirSync(astroDir).find((f) => f.endsWith('.css'));
 const css = readFileSync(resolve(astroDir, cssFile), 'utf-8');
 
 function setupDOM(html) {
-  const safe = html.replace(
-    /<script(?![^>]*type="application\/ld\+json")[^>]*>[\s\S]*?<\/script>/g,
-    '',
-  );
-  document.documentElement.innerHTML = '';
-  document.write(safe);
-  document.close();
+  // Scripts are removed on a detached document and the doctype preserved by
+  // the shared helper — see tests/helpers/dom.js for why both matter.
+  writeSanitizedDOM(html);
 }
 
 // Date order, newest first — the same ordering /blog/ and [slug].astro use.

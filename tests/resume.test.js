@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, beforeAll } from 'vitest';
 import { existsSync, readFileSync, readdirSync } from 'fs';
 import { resolve, join } from 'path';
+import { writeSanitizedDOM } from './helpers/dom.js';
 
 // Smoke tests for the content-collection-driven /resume page.
 // See specs/resume.md and issue #394.
@@ -17,16 +18,9 @@ function readDist(relativePath) {
 }
 
 function setupDOM(rawHtml) {
-  // Strip every executable <script> (bare, module, or external) to prevent
-  // auto-execution during document.write, but keep
-  // <script type="application/ld+json"> for the structured-data assertions.
-  const safe = rawHtml.replace(
-    /<script\b(?![^>]*\btype=["']application\/ld\+json["'])[^>]*>[\s\S]*?<\/script>/gi,
-    '',
-  );
-  document.documentElement.innerHTML = '';
-  document.write(safe);
-  document.close();
+  // Scripts are removed on a detached document and the doctype preserved by
+  // the shared helper — see tests/helpers/dom.js for why both matter.
+  writeSanitizedDOM(rawHtml);
 }
 
 function countMd(dir) {
@@ -562,7 +556,9 @@ describe('Resume — skim weighting', () => {
     expect(words, `summary is ${words} words; target 55–75`).toBeLessThanOrEqual(75);
     // Both anchors land early, not in a trailing sentence.
     const head = text.split(' ').slice(0, 45).join(' ');
-    expect(head, 'Disney scale should be in the opening lines').toContain('Disney+, Hulu, and ESPN');
+    expect(head, 'Disney scale should be in the opening lines').toContain(
+      'Disney+, Hulu, and ESPN',
+    );
     expect(head.toLowerCase(), 'the AI-augmented focus should be in the opening lines').toContain(
       'ai-augmented',
     );

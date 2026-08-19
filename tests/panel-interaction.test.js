@@ -1,17 +1,19 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { readFileSync } from 'fs';
 import { resolve } from 'path';
+import { writeSanitizedDOM } from './helpers/dom.js';
 
 const rawHtml = readFileSync(resolve(__dirname, '../dist/index.html'), 'utf-8');
 
+// Read the panel script body so loadScript() can run it. This is extraction,
+// not sanitization, so it stays a regex; setupDOM does the removal.
 const inlineScripts = [...rawHtml.matchAll(/<script>([\s\S]*?)<\/script>/g)].map((m) => m[1]);
 const panelScript = inlineScripts.find((s) => s.includes('section_view')) || '';
-const html = rawHtml.replace(/<script>[\s\S]*?<\/script>/g, '');
 
 function setupDOM() {
-  document.documentElement.innerHTML = '';
-  document.write(html);
-  document.close();
+  // Scripts are removed on a detached document and the doctype preserved by
+  // the shared helper — see tests/helpers/dom.js for why both matter.
+  writeSanitizedDOM(rawHtml);
 
   // Default: desktop with hover support
   Object.defineProperty(window, 'matchMedia', {

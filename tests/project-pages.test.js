@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { existsSync, readFileSync, readdirSync } from 'fs';
 import { resolve, join } from 'path';
+import { writeSanitizedDOM } from './helpers/dom.js';
 
 // Smoke tests for the content-collection-driven project detail pages.
 // See specs/project-pages.md and issue #156.
@@ -68,12 +69,9 @@ function readDistHtml(relativePath) {
 }
 
 function setupDOM(rawHtml) {
-  // Strip bare <script> blocks to prevent auto-execution during document.write,
-  // but keep <script type="application/ld+json"> for structured-data assertions.
-  const safe = rawHtml.replace(/<script>[\s\S]*?<\/script>/g, '');
-  document.documentElement.innerHTML = '';
-  document.write(safe);
-  document.close();
+  // Scripts are removed on a detached document and the doctype preserved by
+  // the shared helper — see tests/helpers/dom.js for why both matter.
+  writeSanitizedDOM(rawHtml);
 }
 
 describe('Project Pages — routes', () => {

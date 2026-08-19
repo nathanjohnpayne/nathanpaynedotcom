@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { existsSync, readFileSync, readdirSync } from 'fs';
 import { resolve } from 'path';
 import { parseFrontmatter } from '../scripts/lib/parse-frontmatter.mjs';
+import { writeSanitizedDOM } from './helpers/dom.js';
 
 // Guards the homepage Writing block against the drift reported in #523. The
 // block is generated from the blog collection — the newest published posts,
@@ -39,10 +40,9 @@ function postLinks() {
 }
 
 function setupDOM(rawHtml) {
-  const safe = rawHtml.replace(/<script>[\s\S]*?<\/script>/g, '');
-  document.documentElement.innerHTML = '';
-  document.write(safe);
-  document.close();
+  // Scripts are removed on a detached document and the doctype preserved by
+  // the shared helper — see tests/helpers/dom.js for why both matter.
+  writeSanitizedDOM(rawHtml);
 }
 
 describe('homepage Writing block (#523)', () => {
