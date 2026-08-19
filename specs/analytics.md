@@ -69,6 +69,8 @@ may be removed later without affecting the other.
 | `project_live_link_clicked` | "View Live Product" button click | `project_title`, `url` |
 | `project_github_link_clicked` | "View on GitHub" button click | `project_title`, `url` |
 | `blog_post_viewed` | A blog post page loads | `post_title`, `tags`, `reading_time` |
+| `blog_cta_clicked` | Click on a `.blog-cta__link` in the end-of-post block | `cta`, `post_title` |
+| `blog_post_nav_clicked` | Click on a `.blog-postnav__card` prev/next card | `direction`, `from_post_title`, `to_post_href` |
 | `rss_subscribe_clicked` | Click on the blog index `.rss-link` | — |
 | `resume_viewed` | The resume page loads | — |
 

@@ -23,3 +23,6 @@ No rendered element's bounding rect may extend beyond `document.documentElement.
 6. Blog figure images (`.blog-figure img`) use `width: 100%` and `height: auto` for fluid sizing.
 7. A phone breakpoint at `max-width: 480px` adjusts typography, padding, and button layout for small screens.
 8. No blog post `<img>` element uses an inline `width` attribute that could override CSS fluid sizing.
+9. The key-takeaways box (`.blog-takeaways`, issue #621) renders inside the article column (`.blog-content`), never in the sidebar, and its list items use `overflow-wrap: break-word` so a long claim cannot overflow the column.
+10. End-of-post prev/next navigation (`.blog-postnav`, issue #622) sizes its columns with `repeat(auto-fit, minmax(16rem, 1fr))`, so it collapses to a single column on narrow viewports without a breakpoint, and each card carries `min-width: 0` so a long post title cannot expand the grid track.
+11. The end-of-post block (`.blog-postscript`) is hidden in `@media print`; the key-takeaways box prints instead, forced to black-on-white and kept whole with `break-inside: avoid`.

@@ -23,6 +23,12 @@ import BaseLayout from './BaseLayout.astro';
 import Footer from '../components/Footer.astro';
 import Breadcrumbs from '../components/Breadcrumbs.astro';
 
+interface PostLink {
+  title: string;
+  href: string;
+  readingTime: string;
+}
+
 interface Props {
   title: string;
   seoTitle?: string;
@@ -35,8 +41,13 @@ interface Props {
   image: string;
   readingTime: string;
   headings: { depth: number; slug: string; text: string }[];
+  keyTakeaways?: string[];
   pullquotes: { text: string; label?: string; accent: string }[];
   sidebar: { type: string; content: string; caption?: string }[];
+  /** Older neighbour by date; null on the oldest post (no wrap). */
+  prevPost?: PostLink | null;
+  /** Newer neighbour by date; null on the newest post (no wrap). */
+  nextPost?: PostLink | null;
 }
 
 const {
@@ -51,8 +62,11 @@ const {
   image,
   readingTime,
   headings,
+  keyTakeaways = [],
   pullquotes,
   sidebar,
+  prevPost = null,
+  nextPost = null,
 } = Astro.props;
 
 const rawPathname = Astro.url.pathname;
@@ -146,6 +160,10 @@ const jsonLd = {
       "publisher": { "@type": "Person", "name": author, "url": "https://nathanpayne.com/" },
       "mainEntityOfPage": { "@id": `${canonical}#webpage` },
       "keywords": tags.join(', '),
+      // The takeaways are the post's thesis in the author's own words, which
+      // is exactly what schema.org's `abstract` is for (#621). Omitted rather
+      // than emitted empty when a post carries no takeaways.
+      ...(keyTakeaways.length > 0 ? { "abstract": keyTakeaways.join(' ') } : {}),
     },
   ],
 };
@@ -210,9 +228,102 @@ const jsonLd = {
 
       {/* ── Main content column ── */}
       <div class="blog-content">
+
+        {/* Key takeaways (#621) — article column, not the sidebar: the
+            sidebar already carries ToC + pullquotes + diagrams and is
+            hidden below --bp-stack, and this is the one block that has to
+            reach the skimmer and the crawler. Real heading + real list so
+            it reads as content, not chrome. */}
+        {/* The heading id is namespaced rather than the natural
+            "key-takeaways" slug: Astro slugs markdown headings from their
+            visible text, so a post that ever writes "## Key takeaways" in its
+            body would emit a second id="key-takeaways" and break this
+            aria-labelledby reference. No heading text slugs to
+            "blog-takeaways-heading". */}
+        {keyTakeaways.length > 0 && (
+          <section class="blog-takeaways" aria-labelledby="blog-takeaways-heading">
+            <h2 class="blog-takeaways__heading" id="blog-takeaways-heading">Key takeaways</h2>
+            <ul class="blog-takeaways__list" role="list">
+              {keyTakeaways.map((takeaway) => (
+                <li>{takeaway}</li>
+              ))}
+            </ul>
+          </section>
+        )}
+
         <article class="blog-prose">
           <slot />
         </article>
+
+        {/* ── End-of-post block (#622) ──────────────────────────────
+             Prev/next by date + a one-line availability CTA. Sits after
+             a rule so it reads as a separate beat from the post's closing
+             line, and is hidden in @media print. ───────────────────── */}
+        <div class="blog-postscript">
+          {(prevPost || nextPost) && (
+            <nav class="blog-postnav" aria-label="More posts">
+              {prevPost && (
+                <a
+                  class="blog-postnav__card blog-postnav__card--prev"
+                  href={prevPost.href}
+                  data-postnav="previous"
+                >
+                  <span class="blog-postnav__label">&larr; Previous</span>
+                  <span class="blog-postnav__title">{prevPost.title}</span>
+                  <span class="blog-postnav__meta">{prevPost.readingTime}</span>
+                </a>
+              )}
+              {nextPost && (
+                <a
+                  class="blog-postnav__card blog-postnav__card--next"
+                  href={nextPost.href}
+                  data-postnav="next"
+                >
+                  <span class="blog-postnav__label">Next &rarr;</span>
+                  <span class="blog-postnav__title">{nextPost.title}</span>
+                  <span class="blog-postnav__meta">{nextPost.readingTime}</span>
+                </a>
+              )}
+            </nav>
+          )}
+
+          {/* Availability CTA. One line, three links, no pitch — an
+              unsubtle CTA undercuts the credibility the post just built.
+              The mailto is assembled client-side from base64 fragments so
+              the address never appears in the static HTML, matching the
+              homepage availability line; <noscript> carries the fallback. */}
+          <aside class="blog-cta" aria-label="Availability">
+            <p class="blog-cta__line">
+              <span class="blog-cta__lede">Open to senior product/platform roles.</span>
+              <a class="blog-cta__link" href="/resume/" data-cta="resume"
+                >Résumé<span class="link-arrow" aria-hidden="true">→</span></a
+              >
+              <span class="blog-cta__sep" aria-hidden="true">·</span>
+              <a
+                id="blog-cta-mailto"
+                class="blog-cta__link"
+                href="#"
+                data-cta="email"
+                data-u="aGlyZQ=="
+                data-d="bmF0aGFucGF5bmUuY29t"
+                data-s="RnJvbSUyMHRoZSUyMGJsb2c="
+                >Get in touch<span class="link-arrow" aria-hidden="true">→</span></a
+              >
+              <span class="blog-cta__sep" aria-hidden="true">·</span>
+              <a
+                class="blog-cta__link"
+                href="https://cal.com/nathanpayne"
+                rel="noopener"
+                target="_blank"
+                data-cta="schedule"
+                >Book a time<span class="link-arrow" aria-hidden="true">→</span></a
+              >
+            </p>
+            <noscript>
+              <p class="blog-cta__noscript">Email: hire [at] nathanpayne [dot] com</p>
+            </noscript>
+          </aside>
+        </div>
       </div>
 
       {/* ── Right sidebar ──────────────────────────────────────
@@ -299,5 +410,41 @@ const jsonLd = {
       tags: postTags,
       reading_time: postReadingTime
     });
+
+    // End-of-post block (#622). The mailto href is assembled here so the
+    // address never ships in the static HTML (same pattern as the homepage
+    // availability line); the <noscript> line covers JS-disabled readers.
+    (function () {
+      const mailto = document.getElementById('blog-cta-mailto');
+      if (mailto) {
+        try {
+          const user = atob(mailto.dataset.u);
+          const domain = atob(mailto.dataset.d);
+          const subject = mailto.dataset.s ? atob(mailto.dataset.s) : '';
+          mailto.href = 'mailto:' + user + '@' + domain + (subject ? '?subject=' + subject : '');
+        } catch (_e) { /* leave href as "#" — noscript covers the fallback */ }
+      }
+
+      // Distinct events: the CTA measures hiring intent, prev/next measures
+      // whether the end-of-post block keeps readers on the blog.
+      document.querySelectorAll('.blog-cta__link').forEach(function (link) {
+        link.addEventListener('click', function () {
+          window.posthog?.capture('blog_cta_clicked', {
+            cta: link.dataset.cta,
+            post_title: postTitle
+          });
+        });
+      });
+
+      document.querySelectorAll('.blog-postnav__card').forEach(function (card) {
+        card.addEventListener('click', function () {
+          window.posthog?.capture('blog_post_nav_clicked', {
+            direction: card.dataset.postnav,
+            from_post_title: postTitle,
+            to_post_href: card.getAttribute('href')
+          });
+        });
+      });
+    })();
   </script>
 </BaseLayout>

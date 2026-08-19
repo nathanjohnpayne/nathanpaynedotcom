@@ -8,6 +8,11 @@ author: "Nathan Payne"
 date: 2026-06-11
 tags: ["AI", "Design", "Systems", "Engineering"]
 image: "/og/blog/two-blues-one-composition.png"
+keyTakeaways:
+  - "Ask an agent for data, not adjectives. A design argument that would stall on taste becomes a measurement as soon as the model samples the pixels."
+  - "Make the model cite its sources exactly where it sounds most certain: three canonical color values recalled from training data did not survive contact with a museum scan."
+  - "Audit the built artifact, not just the source. Drift hides where greps cannot see it — alpha channels, rgba() triplets, values baked at authoring time."
+  - "Sequence a zero-pixel refactor with grep-able acceptance criteria ahead of the change it enables, and the agent can verify its own plumbing while the judgment calls stay with you."
 pullquotes:
   - text: "Provenance is invisible at render time. Coherence is the only thing that survives to the screen."
     label: "The design principle"
