@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { existsSync, readFileSync, readdirSync } from 'fs';
 import { resolve, join } from 'path';
+import { writeSanitizedDOM } from './helpers/dom.js';
 
 // Smoke tests for the content-collection-driven project detail pages.
 // See specs/project-pages.md and issue #156.
@@ -68,18 +69,9 @@ function readDistHtml(relativePath) {
 }
 
 function setupDOM(rawHtml) {
-  // Remove scripts through the DOM rather than by regex (CodeQL
-  // js/bad-tag-filter, js/incomplete-multi-character-sanitization), on a
-  // detached DOMParser document so nothing executes on the way in. See
-  // tests/connect-booking.test.js for the long form. JSON-LD is kept because it
-  // is content, not behaviour.
-  const parsed = new DOMParser().parseFromString(rawHtml, 'text/html');
-  for (const script of parsed.querySelectorAll('script:not([type="application/ld+json"])')) {
-    script.remove();
-  }
-  document.documentElement.innerHTML = '';
-  document.write(parsed.documentElement.outerHTML);
-  document.close();
+  // Scripts are removed on a detached document and the doctype preserved by
+  // the shared helper — see tests/helpers/dom.js for why both matter.
+  writeSanitizedDOM(rawHtml);
 }
 
 describe('Project Pages — routes', () => {

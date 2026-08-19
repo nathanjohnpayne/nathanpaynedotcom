@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync, readdirSync, statSync, existsSync } from 'fs';
 import { resolve } from 'path';
+import { writeSanitizedDOM } from './helpers/dom.js';
 
 // Astro hashes CSS into dist/_astro/*.css
 const astroDir = resolve(__dirname, '../dist/_astro');
@@ -36,9 +37,9 @@ const blogPostPaths = readdirSync(blogRoot)
   }));
 
 function setupDOM(html) {
-  document.documentElement.innerHTML = '';
-  document.write(html);
-  document.close();
+  // Scripts are removed on a detached document and the doctype preserved by
+  // the shared helper — see tests/helpers/dom.js for why both matter.
+  writeSanitizedDOM(html);
 }
 
 describe('Blog Responsive Layout', () => {

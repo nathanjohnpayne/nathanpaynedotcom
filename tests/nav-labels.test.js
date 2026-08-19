@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { readFileSync } from 'fs';
 import { resolve } from 'path';
+import { writeSanitizedDOM } from './helpers/dom.js';
 
 // Guards the canonical wayfinding labels on the 404 page against drift (#524).
 // The 404 shortcut buttons must use the same navigation labels as the rest of
@@ -12,18 +13,9 @@ import { resolve } from 'path';
 const DIST = resolve(__dirname, '../dist');
 
 function setupDOM(rawHtml) {
-  // Remove scripts through the DOM rather than by regex (CodeQL
-  // js/bad-tag-filter, js/incomplete-multi-character-sanitization), on a
-  // detached DOMParser document so nothing executes on the way in. See
-  // tests/connect-booking.test.js for the long form. JSON-LD is kept because it
-  // is content, not behaviour.
-  const parsed = new DOMParser().parseFromString(rawHtml, 'text/html');
-  for (const script of parsed.querySelectorAll('script:not([type="application/ld+json"])')) {
-    script.remove();
-  }
-  document.documentElement.innerHTML = '';
-  document.write(parsed.documentElement.outerHTML);
-  document.close();
+  // Scripts are removed on a detached document and the doctype preserved by
+  // the shared helper — see tests/helpers/dom.js for why both matter.
+  writeSanitizedDOM(rawHtml);
 }
 
 describe('404 navigation labels (#524)', () => {

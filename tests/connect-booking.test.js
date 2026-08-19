@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import { readFileSync } from 'fs';
 import { resolve } from 'path';
+import { writeSanitizedDOM } from './helpers/dom.js';
 
 /**
  * Cal.com scheduling link in the Connect panel (#620).
@@ -19,39 +20,9 @@ let link;
 
 beforeAll(() => {
   const raw = readFileSync(resolve(DIST, 'index.html'), 'utf-8');
-  // Remove scripts through the DOM rather than by regex. This is the reference
-  // implementation; the other dist-reading tests mirror it with a short comment.
-  //
-  // The original `/<script>...<\/script>/g` matched only lowercase `<script>`
-  // with no attributes, so Astro's own `<script type="module" src="...">`
-  // survived and the "what a JS-disabled reader gets" premise above was not
-  // actually achieved (CodeQL js/bad-tag-filter, alert #17). Making the regex
-  // case-insensitive and attribute-tolerant fixed that but traded it for
-  // js/incomplete-multi-character-sanitization: any single-pass string replace
-  // can leave `<script` behind through nesting, so CodeQL objects to the
-  // technique itself, not to one pattern.
-  //
-  // Removing the parsed elements sidesteps the whole class. It is also exact:
-  // case, attributes, and nesting are the parser's problem, not a pattern's.
-  //
-  // The removal runs on a detached `DOMParser` document, not on the live one.
-  // Vitest's jsdom environment defaults to `runScripts: "dangerously"`, so
-  // anything written into the live document with `document.write` executes
-  // immediately and pruning afterwards would be too late. `DOMParser` never
-  // executes scripts, so stripping there means nothing runs at all. (An earlier
-  // revision of this comment claimed jsdom does not execute scripts under
-  // vitest.config.js; that is wrong. Writing the built homepage into the live
-  // document and clicking a panel with no `loadScript()` call opens the panel,
-  // which only the page's own inline script can do.)
-  //
-  // JSON-LD is kept because it is content, not behaviour.
-  const parsed = new DOMParser().parseFromString(raw, 'text/html');
-  for (const script of parsed.querySelectorAll('script:not([type="application/ld+json"])')) {
-    script.remove();
-  }
-  document.documentElement.innerHTML = '';
-  document.write(parsed.documentElement.outerHTML);
-  document.close();
+  // Scripts are removed on a detached document and the doctype preserved by
+  // the shared helper — see tests/helpers/dom.js for why both matter.
+  writeSanitizedDOM(raw);
   link = document.querySelector('.availability-booking');
 });
 

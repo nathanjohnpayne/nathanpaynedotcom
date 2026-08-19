@@ -12,6 +12,7 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync, readdirSync, statSync, existsSync } from 'fs';
 import { resolve } from 'path';
+import { writeSanitizedDOM } from './helpers/dom.js';
 
 const configSource = readFileSync(resolve(__dirname, '../src/content.config.ts'), 'utf-8');
 
@@ -72,18 +73,9 @@ const cssFile = readdirSync(astroDir).find((f) => f.endsWith('.css'));
 const css = readFileSync(resolve(astroDir, cssFile), 'utf-8');
 
 function setupDOM(html) {
-  // Remove scripts through the DOM rather than by regex (CodeQL
-  // js/bad-tag-filter, js/incomplete-multi-character-sanitization), on a
-  // detached DOMParser document so nothing executes on the way in. See
-  // tests/connect-booking.test.js for the long form. JSON-LD is kept because it
-  // is content, not behaviour.
-  const parsed = new DOMParser().parseFromString(html, 'text/html');
-  for (const script of parsed.querySelectorAll('script:not([type="application/ld+json"])')) {
-    script.remove();
-  }
-  document.documentElement.innerHTML = '';
-  document.write(parsed.documentElement.outerHTML);
-  document.close();
+  // Scripts are removed on a detached document and the doctype preserved by
+  // the shared helper — see tests/helpers/dom.js for why both matter.
+  writeSanitizedDOM(html);
 }
 
 // Date order, newest first — the same ordering /blog/ and [slug].astro use.
