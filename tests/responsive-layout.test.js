@@ -13,6 +13,18 @@ const astroDir = resolve(__dirname, '../dist/_astro');
 const cssFile = readdirSync(astroDir).find((f) => f.endsWith('.css'));
 const css = readFileSync(resolve(astroDir, cssFile), 'utf-8');
 
+// Authored stylesheet. Vite 8's minifier collapses `aspect-ratio: 1 / 1` to the
+// equivalent `aspect-ratio:1`, so the "did the author write this rule"
+// assertion reads the source and is paired with a normalized dist check that
+// proves the rule survived the build. See #640.
+const sourceCss = readFileSync(resolve(__dirname, '../src/styles/global.css'), 'utf-8');
+
+// `aspect-ratio: <number>` is defined as `<number> / 1`, so re-expanding the
+// single-value form is a pure re-serialization, not a looser matcher.
+function normalizeAspectRatio(cssText) {
+  return cssText.replace(/aspect-ratio:\s*([\d.]+)\s*(?=[;}])/g, 'aspect-ratio: $1 / 1');
+}
+
 function setupDOM() {
   document.documentElement.innerHTML = '';
   document.write(html);
@@ -72,7 +84,10 @@ describe('Responsive Layout', () => {
   });
 
   it('mondrian grid uses aspect-ratio 1/1', () => {
-    expect(css).toMatch(/aspect-ratio:\s*1\s*\/\s*1/);
+    // Authored form.
+    expect(sourceCss).toMatch(/aspect-ratio:\s*1\s*\/\s*1/);
+    // …and it reached the bundle, whichever serialization the minifier chose.
+    expect(normalizeAspectRatio(css)).toMatch(/aspect-ratio:\s*1\s*\/\s*1/);
   });
 
   it('mobile guard prevents panel opening when viewport is narrow', () => {

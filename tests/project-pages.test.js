@@ -11,6 +11,16 @@ import { resolve, join } from 'path';
 const DIST = resolve(__dirname, '../dist');
 const CONTENT = resolve(__dirname, '../src/content/projects');
 
+// Rewrite interpolation-free template literals back to single-quoted strings.
+// The three JS string delimiters are interchangeable for a literal containing
+// no backslash, quote, newline, or `${`, so this is a pure re-serialization of
+// minifier output — it does not widen what an assertion accepts. See #640.
+function normalizeTemplateLiterals(code) {
+  return code.replace(/`([^`\\\r\n'"]*)`/g, (match, body) =>
+    body.includes('${') ? match : `'${body}'`,
+  );
+}
+
 const projectSlugs = [
   'mergepath',
   'matchline',
@@ -432,21 +442,26 @@ describe('Project Pages — screenshot aspect variants', () => {
       .map((src) => readFileSync(resolve(DIST, src.replace(/^\//, '')), 'utf-8'))
       .find((code) => code.includes('https://cdn.jsdelivr.net/npm/mux-embed@5.18.0'));
     expect(muxScript, 'Mux runtime module not found').toBeTruthy();
-    expect(muxScript).toMatch(/querySelector\((['"])mux-background-video\1\)/);
-    expect(muxScript).toContain('shadowRoot?.querySelector("video")');
-    expect(muxScript).toContain('setTimeout');
-    expect(muxScript).toContain('dataset.playbackState="fallback"');
-    expect(muxScript).toContain('dataset.playbackState="playing"');
-    expect(muxScript).toContain('.play()');
-    expect(muxScript).toContain('currentTime>0');
+    // Vite 8's minifier re-emits plain string literals as interpolation-free
+    // template literals (`` `mux-background-video` ``). Normalize those back to
+    // single quotes so every literal below stays pinned to an exact string
+    // rather than being widened to accept arbitrary delimiters. See #640.
+    const mux = normalizeTemplateLiterals(muxScript);
+    expect(mux).toMatch(/querySelector\((['"])mux-background-video\1\)/);
+    expect(mux).toContain("shadowRoot?.querySelector('video')");
+    expect(mux).toContain('setTimeout');
+    expect(mux).toContain("dataset.playbackState='fallback'");
+    expect(mux).toContain("dataset.playbackState='playing'");
+    expect(mux).toContain('.play()');
+    expect(mux).toContain('currentTime>0');
     expect(html).not.toContain('PUBLIC_MUX_ENV_KEY');
     // #265 regression: when the mux-embed script tag already exists in a
     // settled (loaded/error) state, the loader must short-circuit to
     // Promise.resolve() instead of re-attaching listeners that will never
     // fire. Encoded via the dataset.muxEmbedStatus sentinel.
-    expect(muxScript).toMatch(/muxEmbedStatus===['"]loaded['"]/);
-    expect(muxScript).toMatch(/muxEmbedStatus===['"]error['"]/);
-    expect(muxScript).toContain('Promise.resolve()');
+    expect(mux).toMatch(/muxEmbedStatus===['"]loaded['"]/);
+    expect(mux).toMatch(/muxEmbedStatus===['"]error['"]/);
+    expect(mux).toContain('Promise.resolve()');
   });
 
   it.each(['loaded', 'error'])(

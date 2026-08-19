@@ -18,6 +18,35 @@ const posthogComponentSrc = readFileSync(
   'utf-8',
 );
 const posthogHomepageScript = inlineScripts.find((s) => s.includes('homepage_panel_opened')) || '';
+
+/**
+ * The `posthog.init(token, { … })` config object, with full-line `//` comments
+ * removed. The component source carries an explanatory comment that quotes the
+ * literal string `person_profiles: 'identified_only'` (#612), and a raw grep of
+ * the source cannot tell code from prose (#640). Scoping to the config body and
+ * dropping comments keeps the regression guard exact.
+ *
+ * Only comments occupying a whole line are stripped, so `//` inside a URL
+ * (`https://…`) is untouched.
+ */
+const posthogInitConfig = (() => {
+  const callIndex = posthogComponentSrc.indexOf('posthog.init(token');
+  if (callIndex === -1) return '';
+  const open = posthogComponentSrc.indexOf('{', callIndex);
+  if (open === -1) return '';
+  let depth = 0;
+  for (let i = open; i < posthogComponentSrc.length; i += 1) {
+    const char = posthogComponentSrc[i];
+    if (char === '{') depth += 1;
+    else if (char === '}') {
+      depth -= 1;
+      if (depth === 0) {
+        return posthogComponentSrc.slice(open, i + 1).replace(/^[ \t]*\/\/.*$/gm, '');
+      }
+    }
+  }
+  return '';
+})();
 // GA4 is loaded by BaseLayout from the env Measurement ID and gated on it, so
 // assert the load contract against the layout SOURCE (build-env-independent).
 const baseLayoutSrc = readFileSync(resolve(__dirname, '../src/layouts/BaseLayout.astro'), 'utf-8');
@@ -218,8 +247,12 @@ describe('PostHog', () => {
     // cohort can never match, so internal traffic cannot be excluded from
     // analytics or from the error-tracking alerts that file GitHub issues.
     // The explicit override must therefore outlive any future `defaults` bump.
-    expect(posthogComponentSrc).toContain("person_profiles: 'always'");
-    expect(posthogComponentSrc).not.toContain("person_profiles: 'identified_only'");
+    // Asserted against the init config object with comments stripped, not the
+    // raw component source: an explanatory comment in posthog.astro quotes
+    // `person_profiles: 'identified_only'` verbatim (#612, #640).
+    expect(posthogInitConfig, 'posthog.init config object not found').not.toBe('');
+    expect(posthogInitConfig).toContain("person_profiles: 'always'");
+    expect(posthogInitConfig).not.toContain("person_profiles: 'identified_only'");
   });
 
   it('guards every homepage capture with optional chaining', () => {
