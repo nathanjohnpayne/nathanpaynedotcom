@@ -19,7 +19,16 @@ let link;
 
 beforeAll(() => {
   const raw = readFileSync(resolve(DIST, 'index.html'), 'utf-8');
-  const safe = raw.replace(/<script>[\s\S]*?<\/script>/g, '');
+  // Case-insensitive and attribute-tolerant on purpose (CodeQL js/bad-tag-filter,
+  // alert #17). The bare `/<script>...<\/script>/g` this replaced matched only
+  // lowercase `<script>` with no attributes, so Astro's own
+  // `<script type="module" src="...">` tags survived the strip and the
+  // "what a JS-disabled reader gets" premise above was not actually achieved.
+  // JSON-LD is preserved because it is content, not behaviour.
+  const safe = raw.replace(
+    /<script\b(?![^>]*type=["']application\/ld\+json["'])[^>]*>[\s\S]*?<\/script\s*>/gi,
+    '',
+  );
   document.documentElement.innerHTML = '';
   document.write(safe);
   document.close();
