@@ -8,6 +8,11 @@ author: "Nathan Payne"
 date: 2026-05-09
 tags: ["Engineering", "Product", "Architecture", "Astro", "Web Performance"]
 image: "/og/blog/how-a-responsive-fix-became-an-astro-migration.png"
+keyTakeaways:
+  - "A visible bug is sometimes a report on the architecture. Duplicated markup across hand-rolled pages surfaces first as one page's responsive defect, and the correct local patch is what makes the ceiling visible."
+  - "The cheapest moment to make the structural call is before the next ten patches ship on top of the old chassis — not after the eleventh finally forces it."
+  - "A static site generator buys a content schema, generated OG images, RSS, and sitemaps, and charges a dependency chain that breaks on its own schedule. It pays off only if you intend to keep an editorial cadence."
+  - "Agents change the economics of architecture: when trying an approach costs an afternoon instead of a vacation week, the structurally right choice becomes the affordable one."
 pullquotes:
   - text: "I had been hand-editing duplicated chrome on every page, and the responsive bug was just the first thing visible enough to admit it."
     label: "What the bug was hiding"

@@ -1,17 +1,43 @@
 ---
+import type { CollectionEntry } from 'astro:content';
 import { getCollection, render } from 'astro:content';
 import BlogPost from '../../layouts/BlogPost.astro';
 import { estimateReadingMinutes } from '../../lib/reading-time';
 
 export async function getStaticPaths() {
-  const posts = await getCollection('blog', ({ data }) => !data.draft);
-  return posts.map((post) => ({
+  // Same sort as /blog/ — newest first, by date (#622). Date order is the
+  // ordering the reader already saw on the index, so prev/next matches the
+  // list they arrived from. An editorial ordering does not exist in the
+  // collection yet; when it does, this is the single place to change.
+  const posts = (await getCollection('blog', ({ data }) => !data.draft)).sort(
+    (a, b) => b.data.date.getTime() - a.data.date.getTime(),
+  );
+
+  // Neighbour summary for the end-of-post nav cards. Bare "min" matches the
+  // /blog/ index cards (the post's own metadata panel uses "min read").
+  const summarize = (post: CollectionEntry<'blog'> | undefined) =>
+    post
+      ? {
+          title: post.data.title,
+          href: `/blog/${post.id}/`,
+          readingTime: `${estimateReadingMinutes(post.body)} min`,
+        }
+      : null;
+
+  return posts.map((post, index) => ({
     params: { slug: post.id },
-    props: { post },
+    props: {
+      post,
+      // Newest-first array: the older neighbour sits after this post,
+      // the newer one before it. The ends omit the missing side rather
+      // than wrapping around the collection.
+      prevPost: summarize(posts[index + 1]),
+      nextPost: summarize(posts[index - 1]),
+    },
   }));
 }
 
-const { post } = Astro.props;
+const { post, prevPost, nextPost } = Astro.props;
 
 // Astro's render() provides headings built-in — no custom plugin needed.
 // headings: { depth: number; slug: string; text: string }[]
@@ -35,8 +61,11 @@ const readingTime = `${estimateReadingMinutes(post.body)} min read`;
   image={post.data.image}
   readingTime={readingTime}
   headings={headings}
+  keyTakeaways={post.data.keyTakeaways}
   pullquotes={post.data.pullquotes}
   sidebar={post.data.sidebar}
+  prevPost={prevPost}
+  nextPost={nextPost}
 >
   <Content />
 </BlogPost>

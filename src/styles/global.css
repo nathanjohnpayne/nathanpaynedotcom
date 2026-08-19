@@ -3056,6 +3056,205 @@ a.tag:hover {
   color: color-mix(in srgb, var(--ink) 72%, transparent);
 }
 
+/* ── Key takeaways (#621) ───────────────────────────────────────────
+   Sits at the top of the article column — not the sidebar, which is
+   already carrying ToC + pullquotes + diagrams and is hidden below
+   --bp-stack. A white plane with a yellow edge, echoing the yellow band
+   at the top of the .blog-margin stripe; the CTA at the foot of the same
+   column takes red, so the column reads top-to-bottom as the margin does.
+   ────────────────────────────────────────────────────────────────── */
+.blog-takeaways {
+  margin-bottom: clamp(1.4rem, 3vw, 2.2rem);
+  padding: clamp(0.85rem, 2vw, 1.35rem) clamp(1rem, 2.2vw, 1.6rem);
+  background: var(--paper);
+  border: 1px solid var(--rule);
+  border-left: var(--line) solid var(--yellow);
+}
+
+/* Matches .blog-sidebar-heading's eyebrow voice (#455 finding 2 floors). */
+.blog-takeaways__heading {
+  font-family: var(--font-body);
+  font-weight: 600;
+  font-size: clamp(0.7rem, 0.9vw, 0.78rem);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink-62);
+  margin-bottom: 0.6rem;
+}
+
+/* list-style: none for the Mondrian square markers below; the <ul> carries
+   role="list" in the markup so Safari/VoiceOver keeps list semantics. */
+.blog-takeaways__list {
+  margin: 0;
+  padding-left: 1.05rem;
+  list-style: none;
+}
+
+.blog-takeaways__list li {
+  position: relative;
+  margin-top: 0.5rem;
+  font-family: var(--font-body);
+  font-size: clamp(0.85rem, 0.95vw, 0.98rem);
+  line-height: 1.55;
+  overflow-wrap: break-word;
+}
+
+.blog-takeaways__list li:first-child {
+  margin-top: 0;
+}
+
+.blog-takeaways__list li::before {
+  content: '';
+  position: absolute;
+  left: -1.05rem;
+  top: 0.6em;
+  width: 0.42rem;
+  height: 0.42rem;
+  background: var(--red);
+}
+
+/* ── End-of-post block (#622) ───────────────────────────────────────
+   Prev/next navigation + the availability CTA, separated from the post's
+   closing line by a rule so the ending keeps its beat. Screen only —
+   hidden in the blog print rules below.
+   ────────────────────────────────────────────────────────────────── */
+.blog-postscript {
+  margin-top: clamp(2rem, 4vw, 3rem);
+  padding-top: clamp(1.2rem, 2.5vw, 1.8rem);
+  border-top: 1px solid var(--rule);
+}
+
+/* auto-fit collapses to a single column under ~32rem without a media
+   query, and lets a lone card (first/last post) fill the row. */
+.blog-postnav {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+  gap: var(--line);
+}
+
+.blog-postnav__card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  min-width: 0;
+  padding: clamp(0.75rem, 1.8vw, 1.1rem);
+  background: var(--paper);
+  border: 1px solid var(--rule);
+  color: inherit;
+  text-decoration: none;
+  transition:
+    border-color var(--motion-hover) var(--ease-standard),
+    transform var(--motion-hover) var(--ease-standard);
+}
+
+.blog-postnav__card:hover,
+.blog-postnav__card:focus-visible {
+  border-color: var(--ink-32);
+  transform: translateY(calc(-1 * var(--shift-small)));
+}
+
+.blog-postnav__card--next {
+  text-align: right;
+}
+
+.blog-postnav__label {
+  font-family: var(--font-body);
+  font-size: clamp(0.6rem, 0.72vw, 0.68rem);
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink-62);
+}
+
+.blog-postnav__title {
+  font-family: var(--font-heading);
+  font-weight: 500;
+  font-size: clamp(1rem, 1.15vw, 1.2rem);
+  line-height: 1.25;
+  overflow-wrap: break-word;
+}
+
+.blog-postnav__meta {
+  font-family: var(--font-body);
+  font-size: clamp(0.68rem, 0.8vw, 0.76rem);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-62);
+}
+
+/* One line, three links, no pitch. Red edge mirrors the yellow edge on the
+   takeaways box at the head of the same column. */
+.blog-cta {
+  margin-top: var(--line);
+  padding: clamp(0.75rem, 1.8vw, 1.1rem) clamp(0.9rem, 2vw, 1.35rem);
+  background: var(--paper);
+  border: 1px solid var(--rule);
+  border-left: var(--line) solid var(--red);
+}
+
+.blog-cta__line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.25rem 0.5rem;
+  font-family: var(--font-body);
+  font-size: clamp(0.82rem, 0.92vw, 0.95rem);
+  line-height: 1.5;
+}
+
+.blog-cta__link {
+  color: var(--ink);
+  text-decoration: none;
+  border-bottom: 1px solid var(--ink-32);
+  transition:
+    border-color var(--motion-hover) var(--ease-standard),
+    color var(--motion-hover) var(--ease-standard);
+}
+
+.blog-cta__link:hover,
+.blog-cta__link:focus-visible {
+  border-bottom-color: var(--red);
+}
+
+.blog-cta__sep {
+  color: var(--ink-32);
+}
+
+.blog-cta__noscript {
+  margin-top: 0.4rem;
+  font-family: var(--font-body);
+  font-size: clamp(0.72rem, 0.85vw, 0.82rem);
+  color: var(--ink-62);
+}
+
+/* ── Blog post — print ──────────────────────────────────────────────
+   The end-of-post block is navigation and a CTA: neither survives paper,
+   so it is dropped. The takeaways are content, so they print — as black
+   on white, kept whole on one page. (#621, #622)
+   ────────────────────────────────────────────────────────────────── */
+@media print {
+  .blog-postscript {
+    display: none !important;
+  }
+
+  .blog-takeaways {
+    background: #fff !important;
+    border: 1pt solid #000;
+    border-left: 3pt solid #000;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .blog-takeaways__heading,
+  .blog-takeaways__list li {
+    color: #000 !important;
+  }
+
+  .blog-takeaways__list li::before {
+    background: #000 !important;
+  }
+}
+
 /* Blog footer now uses the shared .site-footer system (#434). */
 
 /* Legacy single-column fallback (kept for backward compatibility) */

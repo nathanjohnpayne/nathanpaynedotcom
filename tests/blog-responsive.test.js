@@ -114,6 +114,42 @@ describe('Blog Responsive Layout', () => {
     });
   });
 
+  // Spec requirements 9–11 — the key-takeaways box (#621) and the
+  // end-of-post block (#622) both live in the article column, so they
+  // inherit its width and must not introduce a new overflow source.
+  describe('article-column blocks (key takeaways, end-of-post)', () => {
+    it('key takeaway list items break long words', () => {
+      expect(css).toMatch(/\.blog-takeaways__list li\{[^}]*overflow-wrap:\s*break-word/);
+    });
+
+    it('the key-takeaways box renders in the article column, never the sidebar', () => {
+      for (const post of blogPostPaths) {
+        setupDOM(post.html);
+        expect(
+          document.querySelector('.blog-content .blog-takeaways'),
+          `${post.slug}: takeaways box missing from the article column`,
+        ).not.toBeNull();
+        expect(
+          document.querySelector('.blog-sidebar .blog-takeaways'),
+          `${post.slug}: takeaways box must not render in the sidebar`,
+        ).toBeNull();
+      }
+    });
+
+    it('prev/next navigation collapses to one column via auto-fit, with no track-expanding cards', () => {
+      expect(css).toMatch(
+        /\.blog-postnav\{[^}]*grid-template-columns:\s*repeat\(auto-fit,\s*minmax\(16rem,\s*1fr\)\)/,
+      );
+      expect(css).toMatch(/\.blog-postnav__card\{[^}]*min-width:\s*0/);
+    });
+
+    it('the end-of-post block is hidden in print', () => {
+      expect(css).toMatch(
+        /@media print\{[\s\S]*?\.blog-postscript\{display:\s*none\s*!important\}/,
+      );
+    });
+  });
+
   describe('blog post image markup', () => {
     it('blog post images have intrinsic width and height attributes for CLS prevention', () => {
       // Inline width/height reserve space for the image during layout, which

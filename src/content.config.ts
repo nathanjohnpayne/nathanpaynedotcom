@@ -66,6 +66,15 @@ const blog = defineCollection({
     image: z.string(),
     draft: z.boolean().default(false),
 
+    // Key takeaways — 2–4 portable claims rendered above the article body
+    // (#621). Each entry must stand alone out of context ("the fix is X"),
+    // not summarize a section ("in this post I discuss X"). Optional with a
+    // [] default so a post authored before the field still builds; the
+    // route test in tests/blog-takeaways-cta.test.js asserts every
+    // non-draft post actually ships a non-empty array, so a new post
+    // cannot quietly skip it.
+    keyTakeaways: z.array(z.string()).optional().default([]),
+
     // Sidebar content — optional, defaults to empty arrays.
     // Posts without these fields render the standard layout.
     pullquotes: z
