@@ -23,6 +23,7 @@ function normalizeTemplateLiterals(code) {
 }
 
 const projectSlugs = [
+  'five-across',
   'mergepath',
   'matchline',
   'override',
@@ -32,6 +33,7 @@ const projectSlugs = [
 ];
 
 const canonicalProjectCards = [
+  { title: 'Five Across', href: '/projects/five-across/' },
   { title: 'Mergepath', href: '/projects/mergepath/' },
   { title: 'Matchline', href: '/projects/matchline/' },
   { title: 'Override', href: '/projects/override/' },
@@ -41,6 +43,7 @@ const canonicalProjectCards = [
 ];
 
 const homepageProjectDescriptions = [
+  'Live multiplayer bingo that turns a group trip into a shared game—daily themed cards, offline-first marking, and a choreographed finale, live-operated through a nine-night cruise at sea.',
   'A deterministic repository standard that keeps humans and AI coding agents aligned—the enforcement layer underneath every other project on this site.',
   'A career CRM for one person running a serious job search—turns work history into structured, reusable evidence, maps it against specific job requirements, and generates applications grounded in demonstrated work.',
   'A financial operating system for Broadway productions—models capitalization and investor returns, manages ownership, and shares live deals with backers without spreadsheet or PDF workflows.',
@@ -49,7 +52,12 @@ const homepageProjectDescriptions = [
   'A swipe-based discovery experiment for Disney+ and Hulu that turns recommendation training and watchlist building into a game—built in vanilla JS over a weekend.',
 ];
 
-const projectIndexAccentRows = [
+// The six-row Mondrian sequence from the #493/#494 screenshots. It CYCLES:
+// `projects/index.astro` indexes it with `i % length`, so a seventh project
+// restarts at `grid-row--1` by design, not by accident. Expressed as one cycle
+// plus a derivation so adding a project extends the expectation rather than
+// breaking it (#493 comment: "then restart for row 7+").
+const projectIndexAccentCycle = [
   { rowClass: 'grid-row--1', accentClasses: ['accent-red', 'accent-blue'] },
   { rowClass: 'grid-row--2', accentClasses: ['accent-black'] },
   { rowClass: 'grid-row--3', accentClasses: ['accent-white'] },
@@ -57,6 +65,10 @@ const projectIndexAccentRows = [
   { rowClass: 'grid-row--overflow-a', accentClasses: ['accent-lightblue'] },
   { rowClass: 'grid-row--overflow-b', accentClasses: ['accent-red'] },
 ];
+
+const projectIndexAccentRows = canonicalProjectCards.map(
+  (_, i) => projectIndexAccentCycle[i % projectIndexAccentCycle.length],
+);
 
 // Projects without a deployed live URL — the "View Live Product" CTA
 // is suppressed on the detail page, the project card, and the homepage
@@ -186,9 +198,9 @@ describe('Project Pages — routes', () => {
       position: 1,
       item: {
         '@type': 'WebPage',
-        '@id': 'https://nathanpayne.com/projects/mergepath/',
-        url: 'https://nathanpayne.com/projects/mergepath/',
-        name: 'Mergepath',
+        '@id': 'https://nathanpayne.com/projects/five-across/',
+        url: 'https://nathanpayne.com/projects/five-across/',
+        name: 'Five Across',
       },
     });
     expect(itemList.itemListElement[0].item.description.length).toBeLessThanOrEqual(160);

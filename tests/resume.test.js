@@ -34,7 +34,7 @@ describe('Resume — route & build', () => {
 
   it('content collections have the expected file counts', () => {
     expect(countMd('experience'), 'expected 6 experience entries').toBe(6);
-    expect(countMd('resume/projects'), 'expected 6 resume projects').toBe(6);
+    expect(countMd('resume/projects'), 'expected 7 resume projects').toBe(7);
     expect(countMd('certifications'), 'expected 3 certifications').toBe(3);
     expect(countMd('education'), 'expected 1 education entry').toBe(1);
     expect(countMd('myself'), 'expected 1 myself entry').toBe(1);
@@ -175,10 +175,10 @@ describe('Resume — page structure', () => {
     expect(exp.querySelector('ul li'), 'experience should render <ul><li> bullets').not.toBeNull();
   });
 
-  it('renders six Projects, each with an <h3>', () => {
+  it('renders seven Projects, each with an <h3>', () => {
     const proj = document.querySelector('.resume-projects');
     expect(proj).not.toBeNull();
-    expect(proj.querySelectorAll('h3.resume-entry__title').length).toBe(6);
+    expect(proj.querySelectorAll('h3.resume-entry__title').length).toBe(7);
   });
 
   it('opens Projects with a Built with Agents lead — tag, intro, and /projects/ index link (Writing pattern)', () => {
@@ -205,8 +205,9 @@ describe('Resume — page structure', () => {
   it('links each resume project title to its matching project page', () => {
     const proj = document.querySelector('.resume-projects');
     const links = Array.from(proj.querySelectorAll('h3.resume-entry__title a'));
-    expect(links.length).toBe(6);
+    expect(links.length).toBe(7);
     expect(links.map((link) => link.getAttribute('href'))).toEqual([
+      '/projects/five-across/',
       '/projects/mergepath/',
       '/projects/matchline/',
       '/projects/device-source-of-truth/',
@@ -215,6 +216,7 @@ describe('Resume — page structure', () => {
       '/projects/friends-and-family-billing/',
     ]);
     expect(links.map((link) => link.textContent.trim())).toEqual([
+      'Five Across – Live Multiplayer Social Bingo Platform',
       'Mergepath – Agent Governance Infrastructure',
       'Matchline – AI Career CRM',
       'Device Source of Truth – Partner Device Intelligence Platform',
