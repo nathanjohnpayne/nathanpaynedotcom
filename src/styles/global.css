@@ -1669,18 +1669,25 @@ body.blog-page {
   border: 1px solid var(--rule, color-mix(in srgb, var(--ink) 12%, transparent));
 }
 
-/* Black-themed projects (currently Matchline) render a wordmark SVG in
-   the screenshot slot rather than a screenshot. Give the figure a black
-   surface so the white-fill wordmark sits on its intended background,
-   center the SVG inside its inner wrapper, and constrain its width so
-   the wordmark breathes rather than stretching to the full content
-   column. The border on the inner img is suppressed because there's no
-   raster screenshot edge to soften here. */
+/* Black-themed projects get a black figure surface: Matchline renders a
+   white-fill wordmark SVG in the screenshot slot rather than a screenshot,
+   and Five Across's phone shot is itself a near-black app. The surface rule
+   applies to both.
+
+   The width/padding override below is the WORDMARK treatment specifically —
+   center the SVG in its inner wrapper and constrain it so it breathes rather
+   than stretching to the full content column — so it is scoped to `--wide`.
+   Unscoped it also matched `--narrow`, where its 56rem cap beat the narrow
+   variant's own 320px cap on equal specificity by sheer source order, and a
+   black-accent phone screenshot rendered at full content width. Matchline was
+   the only black project until Five Across, so the collision had never fired.
+   The border on the inner img is suppressed because there's no raster
+   screenshot edge to soften on the wordmark. */
 [data-accent='black'] .project-screenshot {
   background: var(--ink);
   border-top-color: var(--ink);
 }
-[data-accent='black'] .project-screenshot__inner {
+[data-accent='black'] .project-screenshot--wide .project-screenshot__inner {
   max-width: 56rem;
   margin: 0 auto;
   padding: clamp(2rem, 6vw, 4rem) clamp(1rem, 4vw, 2.5rem);

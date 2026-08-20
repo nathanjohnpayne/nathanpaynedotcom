@@ -3,7 +3,7 @@ title: "Friends & Family Billing"
 slug: "friends-and-family-billing"
 description: "A cloud-synced billing tool that turns recurring shared costs into clear invoices, payment tracking, and shareable summaries."
 kicker: "AI × Utility × Finance"
-order: 3
+order: 4
 screenshotAspect: "wide"
 screenshotSrc: "/images/projects/friends-and-family-billing-hero-v2.png"
 accent: "lightblue"
