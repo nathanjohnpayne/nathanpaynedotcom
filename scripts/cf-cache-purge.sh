@@ -13,7 +13,24 @@ OP_ITEM_ID="4x6wslp3f6pal5t6h3jhhe63ie"
 if [[ -n "${CF_API_TOKEN:-}" ]]; then
   CF_TOKEN="$CF_API_TOKEN"
 elif [[ "${OP_PREFLIGHT_DONE:-}" == "1" && ( "${OP_PREFLIGHT_MODE:-}" == "deploy" || "${OP_PREFLIGHT_MODE:-}" == "all" ) ]]; then
-  echo "  CF_API_TOKEN not exported by preflight; skipping Cloudflare cache purge."
+  # Exit 0 on purpose: a missing cache token must not fail an otherwise good
+  # deploy. But say so unmissably — this branch is the reason a deploy can
+  # report success while the edge still serves the previous build.
+  # Deliberately stdout, matching the script's other progress messages so the
+  # notice travels with the deploy output that gets read (and asserted on).
+  echo ""
+  echo "⚠  CF_API_TOKEN not exported by preflight; skipping Cloudflare cache purge."
+  echo ""
+  echo "   The deploy reached Firebase, but Cloudflare will keep serving the"
+  echo "   previous copy from its edge — several hours for images. Production"
+  echo "   will look unchanged even though the deploy succeeded."
+  echo ""
+  echo "   Fix: re-run preflight with a deploy-capable mode, then purge:"
+  echo "     eval \"\$(scripts/op-preflight.sh --agent <agent> --mode all --refresh)\""
+  echo "     scripts/cf-cache-purge.sh"
+  echo ""
+  echo "   Then verify against the live URL, not this log."
+  echo ""
   exit 0
 else
   CF_TOKEN="$(op read "op://Private/${OP_ITEM_ID}/credential")"
