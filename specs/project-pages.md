@@ -55,7 +55,7 @@ draft: false
 | `slug` | string | yes | URL path segment; must match filename |
 | `description` | string | yes | Hero deck text, meta description, JSON-LD |
 | `kicker` | string | yes | Source for the metadata table's `Topics` column (e.g., "AI × Finance × Theater" → renders as `AI · Finance · Theater`). Field name kept for frontmatter back-compat |
-| `order` | number | yes | Position on the `/projects/` index grid (lower = first) |
+| `order` | number | yes | Position on the `/projects/` index grid (lower = first). Governs `/projects/` **only** — the homepage Builds grid is hand-authored markup and ignores this field. See § Canonical project ordering |
 | `screenshotAspect` | `"wide"` \| `"narrow"` | yes | Layout variant—see below |
 | `screenshotSrc` | string | yes | Path to hero image in `public/` |
 | `accent` | enum | yes | Semantic accent token for the project. One of `red`, `yellow`, `black`, `blue`, `lightblue`, `paper`. CSS derives the actual palette values, text-safe color, page wash, and metadata gradient from this token |
@@ -91,6 +91,46 @@ rather than getting their own section.
 ```
 
 Bullet lists get square markers colored with `--accent`. Horizontal rules between sections are generated from the `## Heading` CSS—no manual `---` needed.
+
+---
+
+## Canonical project ordering
+
+The portfolio is ordered for **narrative impact**, not alphabetically, not by
+status, and not by recency. Owner-confirmed 2026-08-20:
+
+| # | Project | Why it sits here |
+|---|---------|------------------|
+| 0 | Five Across | Shipped, live, consumer — the strongest story, so it leads |
+| 1 | Mergepath | The AI-governance signature; underpins every other project |
+| 2 | Override | Production platform with real external users |
+| 3 | Device Source of Truth | Archived but demoable; the platform/device domain proof |
+| 4 | Matchline | Paused; the concept carries it mid-list |
+| 5 | Swipe Watch | Experiment |
+| 6 | Friends & Family Billing | Case-study source; anchors the list |
+
+`/resume` mirrors the same sequence, at its own 1-based numbering
+(`src/content/resume/projects/*.md`, orders 1–7).
+
+**This ordering is a deliberate editorial decision and must not be "corrected."**
+An agent tidying the collection will find it looks unsorted by every mechanical
+rule, because it is: `ARCHIVED` outranks `PAUSED` here, and the newest project
+leads while an older shipped one anchors. Change it only on an explicit
+instruction from the owner.
+
+### It lives in two places, and only one of them is enforced
+
+`order` drives `/projects/` — `src/pages/projects/index.astro` sorts the
+collection by it. The **homepage Builds grid does not read the collection at
+all**: `src/pages/index.astro` calls `getCollection` only for `blog`, and the
+project list is hand-authored anchors. Editing `order` alone changes `/projects/`
+and silently leaves the homepage on its old sequence.
+
+Nothing in the build catches that divergence, and it had already happened once
+before this was written. When you reorder, change both, and update the
+order-sensitive fixtures in `tests/project-pages.test.js`
+(`canonicalProjectCards`, `homepageProjectDescriptions`) and
+`tests/resume.test.js`, which assert the rendered sequence on all three surfaces.
 
 ---
 

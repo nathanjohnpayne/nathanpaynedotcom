@@ -25,31 +25,31 @@ function normalizeTemplateLiterals(code) {
 const projectSlugs = [
   'five-across',
   'mergepath',
-  'matchline',
   'override',
   'device-source-of-truth',
-  'friends-and-family-billing',
+  'matchline',
   'swipe-watch',
+  'friends-and-family-billing',
 ];
 
 const canonicalProjectCards = [
   { title: 'Five Across', href: '/projects/five-across/' },
   { title: 'Mergepath', href: '/projects/mergepath/' },
-  { title: 'Matchline', href: '/projects/matchline/' },
   { title: 'Override', href: '/projects/override/' },
-  { title: 'Friends & Family Billing', href: '/projects/friends-and-family-billing/' },
   { title: 'Device Source of Truth', href: '/projects/device-source-of-truth/' },
+  { title: 'Matchline', href: '/projects/matchline/' },
   { title: 'Swipe Watch', href: '/projects/swipe-watch/' },
+  { title: 'Friends & Family Billing', href: '/projects/friends-and-family-billing/' },
 ];
 
 const homepageProjectDescriptions = [
   'Live multiplayer bingo that turns a group trip into a shared game—daily themed cards, offline-first marking, and a choreographed finale, live-operated through a nine-night cruise at sea.',
   'A deterministic repository standard that keeps humans and AI coding agents aligned—the enforcement layer underneath every other project on this site.',
-  'A career CRM for one person running a serious job search—turns work history into structured, reusable evidence, maps it against specific job requirements, and generates applications grounded in demonstrated work.',
   'A financial operating system for Broadway productions—models capitalization and investor returns, manages ownership, and shares live deals with backers without spreadsheet or PDF workflows.',
-  'Cloud-synced shared-bill coordination for families and friend groups—turns recurring costs into clear annual invoices, payment tracking, and shareable summaries.',
   'A single web application that tracks partner-device hardware, DRM, codec support, and operational readiness across Disney+, Hulu, and ESPN.',
+  'A career CRM for one person running a serious job search—turns work history into structured, reusable evidence, maps it against specific job requirements, and generates applications grounded in demonstrated work.',
   'A swipe-based discovery experiment for Disney+ and Hulu that turns recommendation training and watchlist building into a game—built in vanilla JS over a weekend.',
+  'Cloud-synced shared-bill coordination for families and friend groups—turns recurring costs into clear annual invoices, payment tracking, and shareable summaries.',
 ];
 
 // The six-row Mondrian sequence from the #493/#494 screenshots. It CYCLES:

@@ -209,18 +209,18 @@ describe('Resume — page structure', () => {
     expect(links.map((link) => link.getAttribute('href'))).toEqual([
       '/projects/five-across/',
       '/projects/mergepath/',
-      '/projects/matchline/',
-      '/projects/device-source-of-truth/',
       '/projects/override/',
+      '/projects/device-source-of-truth/',
+      '/projects/matchline/',
       '/projects/swipe-watch/',
       '/projects/friends-and-family-billing/',
     ]);
     expect(links.map((link) => link.textContent.trim())).toEqual([
       'Five Across – Live Multiplayer Social Bingo Platform',
       'Mergepath – Agent Governance Infrastructure',
-      'Matchline – AI Career CRM',
-      'Device Source of Truth – Partner Device Intelligence Platform',
       'Override – Broadway Financial Operating System',
+      'Device Source of Truth – Partner Device Intelligence Platform',
+      'Matchline – AI Career CRM',
       'Swipe Watch – Content Discovery Prototype',
       'Friends & Family Billing – Shared-Bill Coordination',
     ]);
