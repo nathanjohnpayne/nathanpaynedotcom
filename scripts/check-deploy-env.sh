@@ -51,6 +51,17 @@ if [[ ${#REQUIRED_KEYS[@]} -eq 0 ]]; then
   exit 0
 fi
 
+# Does this file ASSIGN the key at all? Presence is tracked separately from
+# emptiness because `PUBLIC_FOO=` is a real assignment: dotenv reads it as an
+# empty string, and a higher-precedence empty assignment overrides a lower one
+# rather than deferring to it. Treating empty as "not found" would let this
+# script report a value the build will never see.
+dotenv_assigns() {
+  local file="$1" key="$2"
+  [[ -f "$file" ]] || return 1
+  grep -qE "^[[:space:]]*${key}=" "$file"
+}
+
 # Read KEY from a dotenv file: last assignment wins, surrounding quotes are
 # stripped, commented lines are ignored.
 read_dotenv_value() {
@@ -76,21 +87,34 @@ MISSING=()
 PLACEHOLDER=()
 
 for key in "${REQUIRED_KEYS[@]}"; do
-  value="${!key:-}"
-  source_label="the shell environment"
+  value=""
+  source_label=""
 
-  if [[ -z "$value" ]]; then
-    for env_file in "${ENV_FILES[@]}"; do
-      candidate="$(read_dotenv_value "${ROOT_DIR}/${env_file}" "$key")"
-      if [[ -n "$candidate" ]]; then
-        value="$candidate"
-        source_label="$env_file"
-      fi
-    done
+  # Ascending precedence: each file that assigns the key overrides the previous
+  # one, empty assignment included.
+  for env_file in "${ENV_FILES[@]}"; do
+    if dotenv_assigns "${ROOT_DIR}/${env_file}" "$key"; then
+      value="$(read_dotenv_value "${ROOT_DIR}/${env_file}" "$key")"
+      source_label="$env_file"
+    fi
+  done
+
+  # A shell variable beats every file — again, empty included. `${!key+…}` tests
+  # whether the name is set at all, which `${!key:-}` cannot distinguish from
+  # set-but-empty.
+  if [[ -n "${!key+set}" ]]; then
+    value="${!key}"
+    source_label="the shell environment"
   fi
 
   if [[ -z "$value" ]]; then
-    MISSING+=("$key")
+    if [[ -n "$source_label" ]]; then
+      # Assigned but empty: the build would bake in an empty string, so this is
+      # a missing token wearing a value-shaped hat.
+      MISSING+=("${key} (empty in ${source_label})")
+    else
+      MISSING+=("$key")
+    fi
   elif is_placeholder "$value"; then
     PLACEHOLDER+=("${key} (unresolved in ${source_label})")
   fi

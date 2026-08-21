@@ -138,6 +138,35 @@ describe('deploy client-env guard', () => {
     expect(status).toBe(0);
   });
 
+  it('treats an explicitly empty shell variable as missing, not as absent', () => {
+    // A shell var beats every .env file in Vite, empty string included, so the
+    // build would bake in "" while a resolved .env.local sat there unused.
+    // Falling through to the file would report a value the build never sees.
+    const { status, output } = runCheck({
+      envFiles: { '.env.local': RESOLVED },
+      env: { PUBLIC_LOGODEV_KEY: '' },
+    });
+
+    expect(status).toBe(1);
+    expect(output).toContain('PUBLIC_LOGODEV_KEY');
+    expect(output).toContain('the shell environment');
+  });
+
+  it('treats an empty higher-precedence dotenv assignment as missing', () => {
+    // `PUBLIC_FOO=` is an assignment, not an absence: .env.production.local
+    // outranks .env.local, so the empty value wins and the build ships without
+    // the token.
+    const { status, output } = runCheck({
+      envFiles: {
+        '.env.local': RESOLVED,
+        '.env.production.local': 'PUBLIC_LOGODEV_KEY=',
+      },
+    });
+
+    expect(status).toBe(1);
+    expect(output).toContain('empty in .env.production.local');
+  });
+
   it('derives required keys from .env.tpl, so a new client var is covered for free', () => {
     // The list is not hardcoded: adding PUBLIC_FOO to .env.tpl must be enough.
     const { status, output } = runCheck({
