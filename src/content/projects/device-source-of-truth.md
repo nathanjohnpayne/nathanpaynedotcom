@@ -64,4 +64,4 @@ Those are all answerable questions—but before DST, answering them meant cross-
 
 Device Source of Truth treats that ambiguity as a product problem. The questionnaire pipeline automates the most labor-intensive part of the certification workflow. The version registry flags stale ADK builds. The telemetry freshness badge tells you whether you're looking at data from last week or last quarter. This is the partner-engineering work I spent a decade doing at Disney, and DST is the tool I wanted to exist before I sat down to build it.
 
-Development ended with my Disney tenure, and the deployed instance now runs entirely on synthetic seed data: the schema, import pipelines, and review workflows are real; every device, partner, and questionnaire record is invented for demonstration.
+Development ended with my Disney tenure, and the deployed instance now runs entirely on synthetic seed data: the schema, import pipelines, and review workflows are real; every device, partner, and questionnaire record is invented for demonstration, presented under a fictional streaming group (Story Entertainment) rather than Disney's brands.
