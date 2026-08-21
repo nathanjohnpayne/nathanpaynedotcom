@@ -419,10 +419,20 @@ All deploys use `op-firebase-deploy` for keyless, non-interactive service accoun
 # Full deploy (build, deploy, then purge Cloudflare)
 npm run deploy
 
-# Hosting only
-npm run build
-op-firebase-deploy --only hosting
+# Hosting only (build, deploy hosting, then purge Cloudflare)
+npm run deploy:hosting
 ```
+
+> **Always finish with the Cloudflare purge.** Both aliases above do it for you.
+> Calling `op-firebase-deploy` directly does **not** — it only reaches Firebase,
+> so Cloudflare keeps serving the previous copy from its edge and production
+> looks unchanged even though the deploy succeeded. Images are cached at the
+> edge for several hours (observed `max-age=14400` on `/images/**`), which is
+> long enough to read as "the deploy did not work."
+>
+> If you do run `op-firebase-deploy` on its own, run `scripts/cf-cache-purge.sh`
+> afterwards. Then verify against the live URL rather than the deploy log — a
+> clean deploy plus a warm edge is indistinguishable from success.
 
 The script:
 1. Auto-detects the Firebase project from `.firebaserc`
