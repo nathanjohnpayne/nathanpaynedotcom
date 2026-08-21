@@ -563,6 +563,9 @@ html[data-fonts-pending] .panel-label {
 .panel--red .content-inner h1 {
   white-space: nowrap;
   font-size: var(--heading-panel-title-red-size);
+  /* The tagline belongs to the name, so it sits closer to it than to
+     CONTEXT below — the same proximity rule the section labels follow. */
+  margin-bottom: var(--sp-2xs);
 }
 
 .content-inner h2 {
@@ -593,32 +596,46 @@ html[data-fonts-pending] .panel-label {
   font-optical-sizing: auto;
 }
 
-.panel--red .lead {
-  line-height: 1.34;
-  font-weight: 600;
-  margin-bottom: var(--sp-md);
+/* About-panel section rhythm (#659). Every eyebrow label used to sit almost
+   equidistant between the paragraph above it and the paragraph it heads
+   (6.72px above from the .about-blocks flex gap, 3.36px below from the label's
+   own margin), so it read as floating between two blocks instead of binding
+   to the one it introduces. These two properties are the rhythm: the space
+   above a label is 3x the space below it, so proximity assigns the label
+   downward and the four sections separate.
+
+   Why 0.75rem / 0.25rem and not the 32px / 10px the issue opens with: the
+   about-focus grid track is sized from the panel's measured content height
+   (--cell-h-about) inside a fixed min(95vw, 95vh) composition. At 1440x960
+   the grid is 912px tall and the About content already needs 843px of it, so
+   the rows below (the Community strip and its blocks) are running on their
+   minimums. 32px / 10px measures out at ~1030px of content — it would clip
+   the bottom of the panel's own text and erase the bottom band of the
+   composition entirely. 0.75rem / 0.25rem holds the 3:1 relationship the
+   issue is actually asking for and keeps the total inside today's envelope.
+   Raising these is safe only alongside a change to the grid's row model. */
+.panel--red {
+  --about-space-above-label: 0.75rem;
+  --about-space-below-label: 0.25rem;
 }
 
-.panel--red .lead,
-.panel--red .about-blocks {
-  max-width: 60ch;
+.panel--red .lead {
+  /* .content-inner p (0.94rem / 1.58) outranks the .lead font-size on
+     specificity, so the tagline had been rendering at body size and body
+     leading directly beneath a 4rem name — a caption, not a statement.
+     Restated here, where the rule wins. */
+  font-size: 1.25rem;
+  line-height: 1.34;
+  font-weight: 600;
+  /* Wider than the section gap: this closes the header zone (name +
+     tagline) before the labelled sections begin. */
+  margin-bottom: 1.25rem;
 }
 
 .about-blocks {
   display: flex;
   flex-direction: column;
-  gap: var(--sp-sm);
-}
-
-/* Extra breathing room so WRITING reads as its own unit, not a
-   continuation of NOW. Half an --su on top of the flex gap — the
-   .about-blocks flex gap already provides one --su above every section,
-   so a full margin-top would double WRITING's gap (the same flex-gap-
-   plus-margin doubling removed from .now-ribbon). Half keeps WRITING
-   distinct (it's a label + framing sentence + linked trio, not prose)
-   without doubling. */
-.about-block--writing {
-  margin-top: var(--sp-2xs);
+  gap: var(--about-space-above-label);
 }
 
 /* The now-ribbon is a flex child of .about-blocks, so the flex gap
@@ -631,6 +648,21 @@ html[data-fonts-pending] .panel-label {
 
 .about-block p {
   margin-bottom: 0;
+  /* Measure cap (#659). Lines ran to ~83 characters at a 1440px viewport.
+     `ch` is the advance of "0", which is wider than the average lowercase
+     glyph, so the rendered character count always lands below the ch value:
+     56ch measures out at ~73 characters here. */
+  max-width: 56ch;
+  /* Leading tracks the measure. 1.58 was set for the old ~83-character line;
+     at ~73 the eye needs less vertical help finding the next line start. */
+  line-height: 1.5;
+}
+
+/* The exit line that closes NOW — the résumé link that used to be its own
+   RÉSUMÉ section (#659). Tight to the paragraph it follows: it is the last
+   line of NOW, not a sixth section. */
+.about-exit {
+  margin-top: var(--sp-2xs);
 }
 
 /* Shared eyebrow micro-label (#467). One utility for the fixed-size
@@ -660,25 +692,31 @@ html[data-fonts-pending] .panel-label {
   /* Warm-tinted 50% ink (not --ink-50): matches the open parchment
      surface; deliberate, kept as an override on the shared .eyebrow. */
   color: rgba(23, 19, 15, 0.5);
-  margin-bottom: var(--sp-2xs);
+  margin-bottom: var(--about-space-below-label);
 }
 
-/* About panel "Writing" block — intro line + selected post links.
-   Links mirror the Builds project-name treatment: Cormorant Garamond,
-   inherit color (dark on the open parchment, cream on the mobile red
-   base), underlined per the site link convention. */
+/* About panel "Writing" block — intro line, selected post links, and the
+   exit link out to /blog/. .writing-list is the wrapper around both halves;
+   the posts live in .writing-list__posts so the bracketing left rule stops
+   where the article list stops, and the exit link reads as a control rather
+   than a sixth article (#659). Post links mirror the Builds project-name
+   treatment: Cormorant Garamond, inherit color (dark on the open parchment,
+   cream on the mobile red base). */
 .writing-list {
-  list-style: none;
-  display: flex;
-  flex-direction: column;
-  gap: 0.3rem;
-  /* Sit tighter than the 0.3rem inter-link gap so the trio reads as
+  /* Sit tighter than the 0.3rem inter-link gap so the group reads as
      belonging to the framing sentence above. The paragraph is set in a
      larger face with more line-height leading below its last line, so a
      gap equal to the inter-link spacing looked detached; pulling it in
      keeps the whole block proportional. */
   margin-top: 0.1rem;
-  /* One continuous left rule bracketing all three links as a single
+}
+
+.writing-list__posts {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  /* One continuous left rule bracketing the article titles as a single
      group. Same visual values as the Giving rule (1px var(--rule),
      0.6rem inset) but on the container, not per-item, so it reads as
      one unbroken bracket. Inset matches the prior per-item version:
@@ -687,36 +725,78 @@ html[data-fonts-pending] .panel-label {
   padding-left: 0.6rem;
 }
 
-/* "View all writing →" closes the list (#619). It is a route, not a post, so
-   it sits slightly apart from the titles above it. It keeps the underline and
-   the arrow: on the mobile red base the block's links are already restyled by
-   `.panel--red .writing-list .p-name-link`, and an exception here would either
-   lose to that rule's specificity or need a louder selector to beat it. */
-.writing-list-all {
-  margin-top: 0.2rem;
+/* The li inherits .content-inner li's 1.58 leading, sized for prose. These
+   are single-line 0.85rem titles separated by their own 0.3rem gap, so the
+   prose strut only smeared the rhythm of the list. */
+.writing-list__posts li {
+  line-height: 1.3;
 }
 
-.writing-list .p-name-link {
+.writing-list .writing-link {
   font-size: 0.85rem;
+  line-height: 1.3;
+}
+
+/* ── Scope exception to the site-wide link affordance (#659) ──────────────
+   The site convention rests body links underlined (see the block below
+   .p-link). In this panel the links are serif titles at 0.85rem, where a
+   static 1px underline runs straight through the descenders of g/y/p and
+   makes the titles harder to read, not easier. The About panel therefore
+   moves the underline to :hover / :focus-visible. Do not "harmonize" this
+   back without re-checking the descender collision — that's a documented
+   deviation, not an oversight. */
+.writing-list .writing-link:hover,
+.writing-list .writing-link:focus-visible,
+.about-resume-link:hover,
+.about-resume-link:focus-visible {
   text-decoration: underline;
   text-decoration-thickness: 1px;
   text-underline-offset: 2px;
 }
 
-/* Blue arrow matches the Builds .p-name-link convention. */
-.writing-list .p-name-link .link-arrow,
-.about-block--resume .p-name-link .link-arrow {
+/* "View all writing →" closes the block (#619). It is a route, not a post, so
+   #659 gave it the eyebrow voice the section labels use and set it below a
+   hairline: separated from the article list, sharing no class with it, and
+   carrying no underline. */
+.writing-list .writing-list__all {
+  display: block;
+  margin-top: 0.7rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--rule);
+  font-family: var(--font-body);
+  font-size: 0.6rem;
+  line-height: 1.2;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  font-weight: 500;
+  text-decoration: none;
+  /* The same warm ink as .about-label but at 72% rather than 50%. The
+     labels are static text; this is an interactive control at 0.6rem, and
+     50% ink on the parchment lands at ~3.4:1 — under the 4.5:1 floor.
+     72% reads as the same voice and measures ~6.5:1. */
+  color: rgba(23, 19, 15, 0.72);
+  transition: color var(--motion-hover) var(--ease-standard);
+}
+
+.writing-list .writing-list__all:hover,
+.writing-list .writing-list__all:focus-visible {
+  color: var(--ink);
+}
+
+/* Blue arrow matches the Builds .p-name-link convention. Only the two
+   navigational exits out of the panel carry one now — the résumé link and
+   this one — so the arrow means "leaves this panel" again (#659). */
+.writing-list__all .link-arrow,
+.about-resume-link .link-arrow {
   color: var(--blue);
   font-weight: 700;
 }
 
-/* Bind each title's final word to its arrow. The arrow is an inline-block
-   (atomic inline box), so the browser allows a line break right before it;
-   on a title that wraps, that lets the arrow orphan onto its own line.
-   nowrap on the trailing word+arrow keeps them one unit while the rest of
-   the title still wraps normally. */
-.writing-list .no-break,
-.about-block--resume .no-break {
+/* Bind the résumé link's final word to its arrow. The arrow is an
+   inline-block (atomic inline box), so the browser allows a line break right
+   before it; on a line that wraps, that lets the arrow orphan by itself.
+   nowrap on the trailing word+arrow keeps them one unit. */
+.about-resume-link .no-break {
   white-space: nowrap;
 }
 
@@ -925,6 +1005,12 @@ html[data-fonts-pending] .panel-label {
    .s-arrow (Connect social rows) is a sibling of .link-arrow that keeps
    its own bespoke layout (margin-left: auto inside a flex tile) but joins
    the same hover-translate selector group so the convention is uniform.
+
+   ── Scope exception (About panel writing links) ───────────────────────
+   The About panel's serif article titles and its two exit links rest with
+   NO underline and take it on :hover / :focus-visible instead — a static
+   underline cuts through the descenders at 0.85rem Cormorant. See the
+   .writing-list rules above (#659).
 
    ── Scope exception (Connect social rows) ──────────────────────────────
    The Connect "Elsewhere" tiles intentionally retain their bespoke hover
@@ -3910,7 +3996,8 @@ a:focus-visible {
   .connect-label,
   .stack-label,
   .impact-label,
-  .now-ribbon-label {
+  .now-ribbon-label,
+  .writing-list .writing-list__all {
     font-size: clamp(0.56rem, 0.52rem + 0.2vw, 0.64rem);
     letter-spacing: 0.15em;
   }
@@ -3935,7 +4022,8 @@ a:focus-visible {
 
   .panel--red .about-label,
   .panel--red .now-ribbon-label,
-  .panel--red .now-ribbon-date {
+  .panel--red .now-ribbon-date,
+  .panel--red .writing-list .writing-list__all {
     color: color-mix(in srgb, var(--veil-on-red) 82%, transparent);
   }
 
@@ -3943,17 +4031,22 @@ a:focus-visible {
     border-top-color: color-mix(in srgb, var(--veil-on-red) 28%, transparent);
   }
 
-  /* The vertical WRITING rule uses var(--rule) (dark), near-invisible on
-     the red mobile base — flip it to the same light divider color as the
-     ribbon above so the vertical and horizontal rules read as one system. */
-  .panel--red .writing-list {
+  /* The WRITING rules use var(--rule) (dark), near-invisible on the red
+     mobile base — flip both the vertical bracket beside the article list and
+     the hairline above the exit link to the same light divider color as the
+     ribbon so every rule in the panel reads as one system. */
+  .panel--red .writing-list__posts {
     border-left-color: color-mix(in srgb, var(--veil-on-red) 28%, transparent);
+  }
+
+  .panel--red .writing-list .writing-list__all {
+    border-top-color: color-mix(in srgb, var(--veil-on-red) 28%, transparent);
   }
 
   /* Dark-blue arrow is near-invisible on the red mobile base; keep it
      cream (matching the link text) so the affordance stays legible. */
-  .panel--red .writing-list .p-name-link .link-arrow,
-  .panel--red .about-block--resume .p-name-link .link-arrow {
+  .panel--red .writing-list__all .link-arrow,
+  .panel--red .about-resume-link .link-arrow {
     color: var(--cream);
   }
 
