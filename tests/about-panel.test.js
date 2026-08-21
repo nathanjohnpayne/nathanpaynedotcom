@@ -94,6 +94,29 @@ describe('About panel section rhythm (#659)', () => {
     expect((above + INK_ABOVE) / (below + INK_BELOW)).toBeGreaterThanOrEqual(2.5);
   });
 
+  it('declares the rhythm and measure tokens on the element that consumes them', () => {
+    // Every consumer is .about-blocks or a descendant of it — .about-block,
+    // .about-label, `.about-blocks .now-ribbon` — so the tokens travel with
+    // the block that uses them. Declared a level up on .panel--red, lifting
+    // .about-blocks out of the panel resolves all three to nothing and fails
+    // silently in three directions: both measure caps revert to `none` and
+    // their rules overshoot the prose, and the rhythm collapses to zero gaps.
+    // A var() fallback would have rescued only the measure.
+    const rule = CSS.match(/\n\.about-blocks \{([^}]*)\}/);
+    expect(rule, '.about-blocks rule missing').not.toBeNull();
+
+    for (const token of [
+      '--about-space-above-label',
+      '--about-space-below-label',
+      '--about-measure',
+    ]) {
+      // `${token}:` matches the declaration and not the `var(${token})`
+      // usages that also live in this rule body — a bare-name check passes
+      // vacuously on `gap: var(--about-space-above-label)`.
+      expect(rule[1], `${token} must be declared on .about-blocks`).toContain(`${token}:`);
+    }
+  });
+
   it('caps prose and rules at one shared measure', () => {
     // Declared in rem, not ch, because the cap is shared: `ch` resolves
     // against the using element's font-size, which is what left the hairlines

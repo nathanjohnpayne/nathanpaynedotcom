@@ -596,36 +596,6 @@ html[data-fonts-pending] .panel-label {
   font-optical-sizing: auto;
 }
 
-/* About-panel section rhythm (#659). Every eyebrow label used to sit almost
-   equidistant between the paragraph above it and the paragraph it heads
-   (6.72px above from the .about-blocks flex gap, 3.36px below from the label's
-   own margin), so it read as floating between two blocks instead of binding
-   to the one it introduces. These two properties are the rhythm: the space
-   above a label is 3x the space below it, so proximity assigns the label
-   downward and the four sections separate.
-
-   Why 0.75rem / 0.25rem and not the 32px / 10px the issue opens with: the
-   about-focus grid track is sized from the panel's measured content height
-   (--cell-h-about) inside a fixed min(95vw, 95vh) composition. At 1440x960
-   the grid is 912px tall and the About content already needs 843px of it, so
-   the rows below (the Community strip and its blocks) are running on their
-   minimums. 32px / 10px measures out at ~1030px of content — it would clip
-   the bottom of the panel's own text and erase the bottom band of the
-   composition entirely. 0.75rem / 0.25rem holds the 3:1 relationship the
-   issue is actually asking for and keeps the total inside today's envelope.
-   Raising these is safe only alongside a change to the grid's row model. */
-.panel--red {
-  --about-space-above-label: 1.25rem;
-  --about-space-below-label: 0.1rem;
-  /* One measure for the whole panel — prose, the bracketed article list and
-     the WRITING hairline all stop at the same right edge. 33rem is ~56ch at
-     the panel's 0.94rem body size and renders ~73 characters. Expressed in
-     rem, not ch, precisely because it is shared: `ch` resolves against the
-     font-size of whichever element uses it, so the rules would have landed
-     ~35px right of the prose they separate. */
-  --about-measure: 33rem;
-}
-
 .panel--red .lead {
   /* .content-inner p (0.94rem / 1.58) outranks the .lead font-size on
      specificity, so the tagline had been rendering at body size and body
@@ -639,7 +609,53 @@ html[data-fonts-pending] .panel-label {
   margin-bottom: 1.5rem;
 }
 
+/* About-panel section rhythm and measure (#659).
+
+   These three properties are declared HERE, on .about-blocks, and not on
+   .panel--red. Every consumer is this element or a descendant of it —
+   .about-block, .about-label, and `.about-blocks .now-ribbon` — so the tokens
+   travel with the block that uses them. Declared one level up on the panel,
+   lifting .about-blocks out of .panel--red would resolve all three to nothing
+   and fail silently in three directions at once: both measure caps would
+   revert to `none` and their rules would overshoot the prose again, and the
+   section rhythm would collapse to zero gaps.
+
+   ── The rhythm ────────────────────────────────────────────────────────────
+   Every eyebrow label used to sit almost equidistant between the paragraph
+   above it and the paragraph it heads (6.72px above from this flex gap,
+   3.36px below from the label's own margin), so it read as floating between
+   two blocks instead of binding to the one it introduces.
+
+   The pair looks lopsided — 12.5:1 — and that number is meaningless. What a
+   reader sees is the margin PLUS the half-leading of both line boxes, and
+   leading alone contributes ~7px on each side of a label; the space below is
+   therefore mostly supplied for free, and nearly all the *margin* has to go
+   above to balance it. Measured ink-to-ink at 1440x960 the four labels land
+   at 2.93x to 3.32x, against the 2.5x floor the issue sets. Judging these two
+   values by their ratio to each other is the mistake this change made once
+   already — tests/about-panel.test.js asserts the ink axis for that reason.
+
+   Not the 32px / 10px the issue opens with: the about-focus grid track is
+   sized from the panel's measured content height (--cell-h-about) inside a
+   fixed min(95vw, 95vh) composition. At 1440x960 the grid is 912px tall and
+   the About content needed 843px of it before this change, so the rows below
+   (the Community strip and its blocks) run on their minimums. 32px / 10px
+   measures out at ~1030px of content — it would clip the bottom of the
+   panel's own text and erase the bottom band of the composition entirely.
+   Raising these is safe only alongside a change to the grid's row model.
+
+   ── The measure ───────────────────────────────────────────────────────────
+   One measure for the whole panel — prose, the bracketed article list and the
+   WRITING hairline all stop at the same right edge. 33rem is ~56ch at the
+   panel's 0.94rem body size and renders ~73 characters. Expressed in rem, not
+   ch, precisely because it is shared: `ch` resolves against the font-size of
+   whichever element uses it, so the rules would have landed ~35px right of
+   the prose they separate. */
 .about-blocks {
+  --about-space-above-label: 1.25rem;
+  --about-space-below-label: 0.1rem;
+  --about-measure: 33rem;
+
   display: flex;
   flex-direction: column;
   gap: var(--about-space-above-label);
