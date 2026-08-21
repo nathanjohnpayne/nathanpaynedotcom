@@ -16,16 +16,13 @@ const latestPost = publishedPosts[0];
 // exactly the array-literal drift this issue is about (see #619 notes).
 const WRITING_LIST_LIMIT = 5;
 
-// Split each title so the final word can carry the arrow inside a .no-break
-// span — the treatment that was hand-applied per link before templating.
-const writingLinks = publishedPosts.slice(0, WRITING_LIST_LIMIT).map((post) => {
-  const words = post.data.title.trim().split(/\s+/);
-  return {
-    href: `/blog/${post.id}/`,
-    lead: words.slice(0, -1).join(' '),
-    lastWord: words[words.length - 1],
-  };
-});
+// Plain title text. The per-link trailing arrow (and the .no-break span that
+// bound it to the final word) came off in #659: the arrow now marks only the
+// two navigational exits out of the panel, so a title is just a title.
+const writingLinks = publishedPosts.slice(0, WRITING_LIST_LIMIT).map((post) => ({
+  href: `/blog/${post.id}/`,
+  title: post.data.title,
+}));
 
 // NOW section — current-state signal under About. Content + freshness
 // timestamp live in `src/content/bio/now.md`; the template only
@@ -112,27 +109,37 @@ const homepageJsonLd = {
                 <span class="eyebrow about-label">Approach</span>
                 <p>The work that matters most is usually at the seam between systems—where a codec mismatch, a certification gap, or a failed-fix loop becomes a support burden at scale. I treat operational ambiguity as a product problem.</p>
               </div>
+              {/* NOW absorbed the former RÉSUMÉ section in #659. Its opening
+                  line ("Open to new platform & product roles") restated the
+                  "Open to senior product and platform roles" already two
+                  paragraphs above it, so only the link survived the fold.
+                  .about-now-flow exists so the link joins the end of NOW's
+                  last sentence instead of standing as its own line — see the
+                  display rule in global.css. The anchor stays in the template
+                  rather than in src/content/bio/now.md: that file is prose,
+                  and no content markdown in this repo carries markup. */}
               <div class="about-block about-block--now">
                 <span class="eyebrow about-label">Now</span>
-                <NowContent />
-              </div>
-              <div class="about-block about-block--resume">
-                <span class="eyebrow about-label">Résumé</span>
-                <p>Open to new platform &amp; product roles. <a href="/resume/" class="p-name-link">Read my <span class="no-break">résumé<span class="link-arrow" aria-hidden="true">→</span></span></a></p>
+                <div class="about-now-flow">
+                  <NowContent />
+                  <a href="/resume/" class="p-name-link about-resume-link">Read my <span class="no-break">résumé<span class="link-arrow" aria-hidden="true">→</span></span></a>
+                </div>
               </div>
               <div class="about-block about-block--writing">
                 <span class="eyebrow about-label">Writing</span>
-                <p>Selected writing on building with AI coding agents: where they fail, what makes them reliable, how to get real work out of them, and what a perfect review record still misses.</p>
-                <ul class="writing-list">
-                  {/* The separating space lives inside the interpolated string,
-                      not in the template's own whitespace — JSX collapses
-                      trailing whitespace at an element boundary, which silently
-                      welded the last two words together ("…One" + "Escape"). */}
-                  {writingLinks.map((link) => (
-                    <li><a href={link.href} class="p-name-link">{link.lead ? `${link.lead} ` : ''}<span class="no-break">{link.lastWord}<span class="link-arrow" aria-hidden="true">→</span></span></a></li>
-                  ))}
-                  <li class="writing-list-all"><a href="/blog/" class="p-name-link">View all <span class="no-break">writing<span class="link-arrow" aria-hidden="true">→</span></span></a></li>
-                </ul>
+                <p>Selected writing on building with AI coding agents.</p>
+                {/* .writing-list wraps the post list AND the exit link so the
+                    two read as one block while carrying different treatments:
+                    the posts are bracketed by the left rule, the exit sits
+                    below a hairline in the eyebrow voice (#659). */}
+                <div class="writing-list">
+                  <ul class="writing-list__posts">
+                    {writingLinks.map((link) => (
+                      <li><a href={link.href} class="p-name-link writing-link">{link.title}</a></li>
+                    ))}
+                  </ul>
+                  <a href="/blog/" class="writing-list__all">View all writing<span class="link-arrow" aria-hidden="true">→</span></a>
+                </div>
               </div>
               <div class="now-ribbon">
                 <span class="eyebrow now-ribbon-label">Last updated</span>
@@ -919,13 +926,13 @@ const homepageJsonLd = {
       });
 
       // Resume link clicked — all résumé links in the Connect and About
-      // panels: the About-panel block, the Connect availability link, and the
-      // Connect "Elsewhere" social-stack row. The social row also matches
+      // panels: the About-panel NOW exit line, the Connect availability link,
+      // and the Connect "Elsewhere" social-stack row. The social row also matches
       // .social-row below, so it intentionally fires both resume_link_clicked
       // (location-agnostic résumé aggregate) and social_link_clicked
       // {platform:"resume"} (social-stack row breakdown) — they answer
       // different questions.
-      document.querySelectorAll('.availability-resume, .about-block--resume a, .social-row--resume').forEach(function (el) {
+      document.querySelectorAll('.availability-resume, .about-resume-link, .social-row--resume').forEach(function (el) {
         el.addEventListener('click', function () {
           window.posthog?.capture('resume_link_clicked');
         });

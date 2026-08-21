@@ -386,13 +386,15 @@ describe('PostHog', () => {
     expect(capture).toHaveBeenCalledWith('social_link_clicked', { platform: 'resume' });
   });
 
+  // #659 folded the RÉSUMÉ section into NOW, so the About-panel résumé link
+  // is no longer identifiable by its block: it carries .about-resume-link.
   it('captures resume_link_clicked from the About-panel résumé link', () => {
     const capture = vi.fn();
     window.posthog = { capture };
     new Function(posthogHomepageScript)();
 
     document
-      .querySelector('.about-block--resume a')
+      .querySelector('.about-resume-link')
       .dispatchEvent(new MouseEvent('click', { bubbles: true }));
 
     expect(capture).toHaveBeenCalledWith('resume_link_clicked');
