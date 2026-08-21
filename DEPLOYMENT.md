@@ -398,6 +398,7 @@ Any `PUBLIC_*` env var read via `import.meta.env` during the build is baked into
 2. Store the secret in 1Password at that path.
 3. Anyone on the team runs `./scripts/bootstrap.sh --force` to refresh their `.env.local`.
 4. `npm run build` picks up the new value automatically.
+5. Nothing else. `scripts/check-deploy-env.sh` derives the required key list from `.env.tpl` itself, so the deploy guard covers the new var with no second edit.
 
 The current `PUBLIC_*` vars are `PUBLIC_LOGODEV_KEY` (Logo.dev publishable
 token — drives the `/resume` company logos via `CompanyLogo.astro`),
@@ -406,14 +407,18 @@ analytics via `posthog.astro`), and `PUBLIC_GA_MEASUREMENT_ID` (GA4 Measurement
 ID — drives GA4 via `BaseLayout.astro`). All three are public client
 identifiers resolved from 1Password via `op inject`, and all degrade gracefully
 when unset at build time (initials-only logos; PostHog and GA simply do not
-load). Mux Data for
+load).
+
+That graceful degradation is correct for CI and for a fresh checkout, and wrong for production, where it publishes a site with no brand logos and no analytics while the build still exits 0. `scripts/check-deploy-env.sh` draws that line: it runs at the front of both deploy aliases and fails the deploy when any of these is missing or unresolved, leaving the build itself free to degrade quietly everywhere else. See § Deployment Steps.
+
+Mux Data for
 project hero videos does not use a build-time env var in this site: pages with
 a Mux hero load `mux-embed`, and `@mux/mux-background-video` infers the Mux Data
 env key from the public `stream.mux.com` URL at runtime.
 
 ## Deployment Steps
 
-All deploys use `op-firebase-deploy` for keyless, non-interactive service account impersonation. **Never run `firebase deploy` directly.** The package `deploy` script is the full production deploy entry point: it builds first, calls the PATH-provided `op-firebase-deploy` helper, then purges Cloudflare via `scripts/cf-cache-purge.sh`.
+All deploys use `op-firebase-deploy` for keyless, non-interactive service account impersonation. **Never run `firebase deploy` directly.** The package `deploy` script is the full production deploy entry point: it checks the client env vars via `scripts/check-deploy-env.sh`, builds, calls the PATH-provided `op-firebase-deploy` helper, then purges Cloudflare via `scripts/cf-cache-purge.sh`.
 
 ```bash
 # Full deploy (build, deploy, then purge Cloudflare)
@@ -439,6 +444,12 @@ npm run deploy:hosting
 > If you do deploy by hand, follow it with `scripts/cf-cache-purge.sh`. Then
 > verify against the live URL rather than the deploy log — a clean deploy plus a
 > warm edge is indistinguishable from one that reached users.
+
+> **Deploy from the main checkout, not a worktree.** Both aliases run `scripts/check-deploy-env.sh` before the build and refuse to deploy when a `PUBLIC_*` client var is missing or still an unresolved `op://` reference. Only `~/GitHub/nathanpaynedotcom` has `.env.local` — `scripts/bootstrap.sh` writes it there and it is gitignored, so no worktree ever gets one.
+>
+> Without that check, a worktree deploy publishes a degraded site and reports success: `astro build` bakes each `PUBLIC_*` var into the HTML, and every consumer degrades gracefully when one is absent, so nothing fails. That is what shipped once already — `/resume` fell back to styled initials instead of Logo.dev brand marks, and PostHog and GA4 stopped loading site-wide, all from one build with no `.env.local`.
+>
+> To ship without them on purpose, set `DEPLOY_ALLOW_MISSING_PUBLIC_ENV=1`. It downgrades the refusal to a warning and is break-glass only.
 
 The script:
 1. Auto-detects the Firebase project from `.firebaserc`
