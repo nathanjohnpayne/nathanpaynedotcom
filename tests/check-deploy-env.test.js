@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { execFileSync } from 'node:child_process';
-import { copyFileSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 
@@ -24,7 +24,7 @@ const RESOLVED = [
  * from $BASH_SOURCE, so the sandbox gets a copy of the script rather than a
  * flag — which also proves the root resolution works from an arbitrary path.
  */
-function runCheck({ template = TEMPLATE, envFiles = {}, env = {} } = {}) {
+function runCheck({ template = TEMPLATE, envFiles = {}, env = {}, interpreter = 'bash' } = {}) {
   const workDir = mkdtempSync(join(tmpdir(), 'check-deploy-env-test-'));
   try {
     mkdirSync(join(workDir, 'scripts'));
@@ -40,9 +40,12 @@ function runCheck({ template = TEMPLATE, envFiles = {}, env = {} } = {}) {
       Object.entries(process.env).filter(([key]) => !key.startsWith('PUBLIC_')),
     );
 
+    // The interpreter is invoked explicitly rather than letting the shebang
+    // pick one, so a test that pins bash 3.2 behavior actually runs under bash
+    // 3.2 instead of whatever `env bash` resolves to on the dev machine.
     // 2>&1 so the diagnostic block is captured on the success path too — the
     // break-glass override exits 0 while still writing its warning to stderr.
-    const command = `'${join(workDir, 'scripts/check-deploy-env.sh')}' 2>&1`;
+    const command = `'${interpreter}' '${join(workDir, 'scripts/check-deploy-env.sh')}' 2>&1`;
     try {
       return {
         status: 0,
@@ -167,6 +170,31 @@ describe('deploy client-env guard', () => {
     expect(status).toBe(0);
     expect(output).toContain('continuing anyway');
   });
+
+  it.runIf(existsSync('/bin/bash'))(
+    'prints the diagnostic under bash 3.2, where one of the two lists is empty',
+    () => {
+      // macOS ships bash 3.2 as /bin/bash, where `${arr[@]}` on an EMPTY array
+      // is an unbound-variable error under `set -u`. Both report lists live in
+      // the error path and one of them is normally empty, so the crash would
+      // land exactly where the diagnostic should be — failing with a shell
+      // error instead of the explanation. Caught on review, not by the happy
+      // path, because the dev shell here is Homebrew bash 5.
+      const { status, output } = runCheck({
+        interpreter: '/bin/bash',
+        envFiles: {
+          '.env.local': RESOLVED.replace(
+            'PUBLIC_LOGODEV_KEY=pk_resolved',
+            'PUBLIC_LOGODEV_KEY=op://Private/aaa/publishable API key',
+          ),
+        },
+      });
+
+      expect(status).toBe(1);
+      expect(output).toContain('unresolved:  PUBLIC_LOGODEV_KEY');
+      expect(output).not.toMatch(/unbound variable/);
+    },
+  );
 
   it('fails loudly when .env.tpl itself is missing', () => {
     // Without the template there is no key list, so passing would be a silent

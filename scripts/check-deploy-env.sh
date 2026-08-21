@@ -105,10 +105,15 @@ fi
   echo ""
   echo "⚠  Refusing to deploy: client env vars are missing from this checkout."
   echo ""
-  for key in "${MISSING[@]}"; do
+  # `${arr[@]}` on an empty array is an unbound-variable error under `set -u`
+  # in bash 3.2, which is still /bin/bash on macOS. Exactly one of these two
+  # lists is usually empty, and the crash would land inside the error path —
+  # losing the diagnostic this script exists to print. The `+` expansion keeps
+  # an empty list empty instead of unset.
+  for key in ${MISSING[@]+"${MISSING[@]}"}; do
     echo "     missing:     ${key}"
   done
-  for entry in "${PLACEHOLDER[@]}"; do
+  for entry in ${PLACEHOLDER[@]+"${PLACEHOLDER[@]}"}; do
     echo "     unresolved:  ${entry}"
   done
   echo ""
