@@ -62,14 +62,64 @@ dotenv_assigns() {
   grep -qE "^[[:space:]]*${key}=" "$file"
 }
 
-# Read KEY from a dotenv file: last assignment wins, surrounding quotes are
-# stripped, commented lines are ignored.
+# Read KEY from a dotenv file and report `<status><TAB><value>`, where status is
+# `ok` or `unparseable`. Last assignment wins; commented-out lines never match.
+#
+# This has to agree with how dotenv actually reads the file, because the whole
+# guard turns on whether a value is empty and several ordinary dotenv forms LOOK
+# non-empty to a naive parser:
+#
+#   PUBLIC_FOO= # intentionally blank    dotenv: empty   naive: "# intentionally blank"
+#   PUBLIC_FOO="" # comment              dotenv: empty   naive: '"" # comment'
+#
+# Both would have passed the guard while the build baked in an empty string —
+# the precise false pass this script exists to prevent. Anything the parser
+# cannot interpret faithfully (an unterminated quote, trailing junk after a
+# closing quote, or a `$` that dotenv-expand would resolve against an
+# environment this script does not model) is reported as `unparseable` and
+# fails the deploy. Guessing is what produces a false pass; refusing does not.
 read_dotenv_value() {
-  local file="$1" key="$2"
-  [[ -f "$file" ]] || return 0
-  sed -n "s/^[[:space:]]*${key}=//p" "$file" \
-    | tail -n 1 \
-    | sed -e 's/^"\(.*\)"$/\1/' -e "s/^'\(.*\)'\$/\1/"
+  local file="$1" key="$2" raw
+  [[ -f "$file" ]] || { printf 'ok\t'; return 0; }
+
+  raw="$(sed -n "s/^[[:space:]]*${key}=//p" "$file" | tail -n 1)"
+
+  DOTENV_RAW="$raw" awk 'BEGIN {
+    rest = ENVIRON["DOTENV_RAW"]
+    sub(/^[ \t]+/, "", rest)
+    status = "ok"
+    value = ""
+
+    first = substr(rest, 1, 1)
+    if (rest == "" || first == "#") {
+      # `KEY=` and `KEY=   # note` are both the empty string.
+      value = ""
+    } else if (first == "\"" || first == "'"'"'") {
+      body = substr(rest, 2)
+      idx = index(body, first)
+      if (idx == 0) {
+        status = "unparseable"          # unterminated quote
+      } else {
+        value = substr(body, 1, idx - 1)
+        trail = substr(body, idx + 1)
+        sub(/^[ \t]+/, "", trail)
+        # Only whitespace or a comment may follow the closing quote. Anything
+        # else (an escaped inner quote, concatenation) is not modelled here.
+        if (trail != "" && substr(trail, 1, 1) != "#") status = "unparseable"
+      }
+    } else {
+      # Unquoted: a comment begins at whitespace followed by `#`.
+      if (match(rest, /[ \t]+#/)) value = substr(rest, 1, RSTART - 1)
+      else value = rest
+      sub(/[ \t]+$/, "", value)
+    }
+
+    # dotenv-expand would resolve this against an environment this script does
+    # not reproduce, so an apparently non-empty value could still build empty.
+    if (status == "ok" && index(value, "$") > 0) status = "unparseable"
+
+    printf "%s\t%s", status, value
+  }'
 }
 
 # A value that is still an op:// reference or an .env.example placeholder is
@@ -85,29 +135,37 @@ is_placeholder() {
 
 MISSING=()
 PLACEHOLDER=()
+UNPARSEABLE=()
 
 for key in "${REQUIRED_KEYS[@]}"; do
   value=""
   source_label=""
+  status="ok"
 
   # Ascending precedence: each file that assigns the key overrides the previous
   # one, empty assignment included.
   for env_file in "${ENV_FILES[@]}"; do
     if dotenv_assigns "${ROOT_DIR}/${env_file}" "$key"; then
-      value="$(read_dotenv_value "${ROOT_DIR}/${env_file}" "$key")"
+      parsed="$(read_dotenv_value "${ROOT_DIR}/${env_file}" "$key")"
+      status="${parsed%%$'\t'*}"
+      value="${parsed#*$'\t'}"
       source_label="$env_file"
     fi
   done
 
   # A shell variable beats every file — again, empty included. `${!key+…}` tests
   # whether the name is set at all, which `${!key:-}` cannot distinguish from
-  # set-but-empty.
+  # set-but-empty. A shell value needs no dotenv parsing, so it also clears any
+  # unparseable verdict from the file it overrides.
   if [[ -n "${!key+set}" ]]; then
     value="${!key}"
     source_label="the shell environment"
+    status="ok"
   fi
 
-  if [[ -z "$value" ]]; then
+  if [[ "$status" != "ok" ]]; then
+    UNPARSEABLE+=("${key} (in ${source_label})")
+  elif [[ -z "$value" ]]; then
     if [[ -n "$source_label" ]]; then
       # Assigned but empty: the build would bake in an empty string, so this is
       # a missing token wearing a value-shaped hat.
@@ -120,7 +178,7 @@ for key in "${REQUIRED_KEYS[@]}"; do
   fi
 done
 
-if [[ ${#MISSING[@]} -eq 0 && ${#PLACEHOLDER[@]} -eq 0 ]]; then
+if [[ ${#MISSING[@]} -eq 0 && ${#PLACEHOLDER[@]} -eq 0 && ${#UNPARSEABLE[@]} -eq 0 ]]; then
   echo "✔  All ${#REQUIRED_KEYS[@]} PUBLIC_* client vars resolved; safe to build for deploy."
   exit 0
 fi
@@ -140,6 +198,9 @@ fi
   for entry in ${PLACEHOLDER[@]+"${PLACEHOLDER[@]}"}; do
     echo "     unresolved:  ${entry}"
   done
+  for entry in ${UNPARSEABLE[@]+"${UNPARSEABLE[@]}"}; do
+    echo "     unreadable:  ${entry}"
+  done
   echo ""
   echo "   These are baked into the HTML at build time. Building without them"
   echo "   succeeds and publishes a degraded site: /resume falls back to styled"
@@ -153,6 +214,13 @@ fi
   echo ""
   echo "     cd ~/GitHub/nathanpaynedotcom && npm run deploy"
   echo ""
+  if [[ ${#UNPARSEABLE[@]} -gt 0 ]]; then
+    echo "   An unreadable entry is one this script will not guess at: an"
+    echo "   unterminated quote, trailing text after a closing quote, or a \$"
+    echo "   that dotenv-expand resolves against an environment checked here."
+    echo "   Simplify the line to a plain KEY=value and retry."
+    echo ""
+  fi
   echo "   Otherwise, regenerate .env.local from 1Password and retry:"
   echo ""
   echo "     ./scripts/bootstrap.sh --force"

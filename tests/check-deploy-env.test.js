@@ -167,6 +167,65 @@ describe('deploy client-env guard', () => {
     expect(output).toContain('empty in .env.production.local');
   });
 
+  // Codex Phase 4b P1: several ordinary dotenv forms are empty to the build but
+  // look non-empty to a naive parser, so the guard passed while `astro build`
+  // received an empty token — the exact false pass this script exists to stop.
+  describe('dotenv values the build reads as empty', () => {
+    for (const [label, line] of [
+      ['a bare key with a trailing comment', 'PUBLIC_LOGODEV_KEY= # intentionally blank'],
+      ['empty double quotes with a trailing comment', 'PUBLIC_LOGODEV_KEY="" # comment'],
+      ['empty single quotes', "PUBLIC_LOGODEV_KEY=''"],
+      ['whitespace only', 'PUBLIC_LOGODEV_KEY=   '],
+    ]) {
+      it(`fails on ${label}`, () => {
+        const { status, output } = runCheck({
+          envFiles: {
+            '.env.local': RESOLVED.replace('PUBLIC_LOGODEV_KEY=pk_resolved', line),
+          },
+        });
+
+        expect(status).toBe(1);
+        expect(output).toContain('PUBLIC_LOGODEV_KEY');
+      });
+    }
+  });
+
+  describe('dotenv syntax the checker will not guess at', () => {
+    for (const [label, line] of [
+      ['variable expansion', 'PUBLIC_LOGODEV_KEY=$OTHER_VAR'],
+      ['an unterminated quote', 'PUBLIC_LOGODEV_KEY="pk_abc'],
+      ['trailing junk after the closing quote', 'PUBLIC_LOGODEV_KEY="pk_abc"trailing'],
+    ]) {
+      it(`fails closed on ${label}`, () => {
+        // Refusing is safe; guessing is what produces a false pass.
+        const { status, output } = runCheck({
+          envFiles: {
+            '.env.local': RESOLVED.replace('PUBLIC_LOGODEV_KEY=pk_resolved', line),
+          },
+        });
+
+        expect(status).toBe(1);
+        expect(output).toContain('unreadable:  PUBLIC_LOGODEV_KEY');
+      });
+    }
+  });
+
+  it('still accepts the ordinary quoted and commented forms', () => {
+    // Failing closed must not mean failing on everything — these are all values
+    // the build reads as non-empty, and they have to keep passing.
+    const { status } = runCheck({
+      envFiles: {
+        '.env.local': [
+          'PUBLIC_LOGODEV_KEY=pk_plain # trailing note',
+          'PUBLIC_POSTHOG_PROJECT_TOKEN="phc_quoted"',
+          "PUBLIC_GA_MEASUREMENT_ID='G-SINGLE' # note",
+        ].join('\n'),
+      },
+    });
+
+    expect(status).toBe(0);
+  });
+
   it('derives required keys from .env.tpl, so a new client var is covered for free', () => {
     // The list is not hardcoded: adding PUBLIC_FOO to .env.tpl must be enough.
     const { status, output } = runCheck({
