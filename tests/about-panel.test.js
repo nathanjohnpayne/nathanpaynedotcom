@@ -79,7 +79,19 @@ describe('About panel section rhythm (#659)', () => {
     const above = remProperty('--about-space-above-label');
     const below = remProperty('--about-space-below-label');
 
-    expect(above / below).toBeGreaterThanOrEqual(2.5);
+    // Asserted on the axis the criterion is written against: what a reader
+    // sees is the margin PLUS the half-leading of both line boxes plus the
+    // glyphs' unused ascent and descent. Leading contributes far more to the
+    // small side than to the large one, so the bare margin ratio flatters the
+    // rendered result — a 1.25rem/0.25rem pair reads 5:1 on margins and 2.3:1
+    // on screen, which is how the first pass of #659 shipped a 1.67:1 gap
+    // believing it was 3:1. These offsets are the leading contribution
+    // measured in Chromium at 1440x960; they are stable for this pair of
+    // fonts at these sizes.
+    const INK_ABOVE = 3.9;
+    const INK_BELOW = 6.4;
+
+    expect((above + INK_ABOVE) / (below + INK_BELOW)).toBeGreaterThanOrEqual(2.5);
   });
 
   it('caps prose and rules at one shared measure', () => {
