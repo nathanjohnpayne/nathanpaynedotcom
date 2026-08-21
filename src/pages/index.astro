@@ -112,12 +112,18 @@ const homepageJsonLd = {
               {/* NOW absorbed the former RÉSUMÉ section in #659. Its opening
                   line ("Open to new platform & product roles") restated the
                   "Open to senior product and platform roles" already two
-                  paragraphs above it, so only the link survived the fold — as
-                  the exit line that closes NOW. */}
+                  paragraphs above it, so only the link survived the fold.
+                  .about-now-flow exists so the link joins the end of NOW's
+                  last sentence instead of standing as its own line — see the
+                  display rule in global.css. The anchor stays in the template
+                  rather than in src/content/bio/now.md: that file is prose,
+                  and no content markdown in this repo carries markup. */}
               <div class="about-block about-block--now">
                 <span class="eyebrow about-label">Now</span>
-                <NowContent />
-                <p class="about-exit"><a href="/resume/" class="p-name-link about-resume-link">Read my <span class="no-break">résumé<span class="link-arrow" aria-hidden="true">→</span></span></a></p>
+                <div class="about-now-flow">
+                  <NowContent />
+                  <a href="/resume/" class="p-name-link about-resume-link">Read my <span class="no-break">résumé<span class="link-arrow" aria-hidden="true">→</span></span></a>
+                </div>
               </div>
               <div class="about-block about-block--writing">
                 <span class="eyebrow about-label">Writing</span>

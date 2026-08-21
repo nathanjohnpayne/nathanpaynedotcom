@@ -615,8 +615,15 @@ html[data-fonts-pending] .panel-label {
    issue is actually asking for and keeps the total inside today's envelope.
    Raising these is safe only alongside a change to the grid's row model. */
 .panel--red {
-  --about-space-above-label: 0.75rem;
-  --about-space-below-label: 0.25rem;
+  --about-space-above-label: 1.25rem;
+  --about-space-below-label: 0.1rem;
+  /* One measure for the whole panel — prose, the bracketed article list and
+     the WRITING hairline all stop at the same right edge. 33rem is ~56ch at
+     the panel's 0.94rem body size and renders ~73 characters. Expressed in
+     rem, not ch, precisely because it is shared: `ch` resolves against the
+     font-size of whichever element uses it, so the rules would have landed
+     ~35px right of the prose they separate. */
+  --about-measure: 33rem;
 }
 
 .panel--red .lead {
@@ -629,7 +636,7 @@ html[data-fonts-pending] .panel-label {
   font-weight: 600;
   /* Wider than the section gap: this closes the header zone (name +
      tagline) before the labelled sections begin. */
-  margin-bottom: 1.25rem;
+  margin-bottom: 1.5rem;
 }
 
 .about-blocks {
@@ -638,31 +645,46 @@ html[data-fonts-pending] .panel-label {
   gap: var(--about-space-above-label);
 }
 
-/* The now-ribbon is a flex child of .about-blocks, so the flex gap
-   already spaces it; drop the shared ribbon margin-top here so the
-   rule→ribbon gap reads as tight as the Community (Giving) ribbon
-   instead of doubling (flex gap + margin). Scoped to About only. */
+/* The now-ribbon is a flex child of .about-blocks, so the flex gap already
+   spaces it; drop the shared ribbon margin-top here so the gap above it
+   doesn't double (flex gap + margin). Scoped to About only.
+
+   The shared ribbon rule also draws a hairline above the ribbon. In this
+   panel that put two rules 40px apart — one over VIEW ALL WRITING, one over
+   LAST UPDATED — banding a single line into a strip. LAST UPDATED is already
+   demoted by size and colour and does not need a rule to separate it, so
+   About drops its own. Community and Builds keep theirs. */
 .about-blocks .now-ribbon {
   margin-top: 0;
+  border-top: none;
+  padding-top: 0;
+}
+
+/* The measure cap lives on the block, not on the paragraph, so every rule
+   inside a section — the WRITING hairline, the article list's left bracket —
+   ends where the prose ends. Lines ran to ~83 characters before #659. */
+.about-block {
+  max-width: var(--about-measure);
 }
 
 .about-block p {
   margin-bottom: 0;
-  /* Measure cap (#659). Lines ran to ~83 characters at a 1440px viewport.
-     `ch` is the advance of "0", which is wider than the average lowercase
-     glyph, so the rendered character count always lands below the ch value:
-     56ch measures out at ~73 characters here. */
-  max-width: 56ch;
   /* Leading tracks the measure. 1.58 was set for the old ~83-character line;
      at ~73 the eye needs less vertical help finding the next line start. */
   line-height: 1.5;
 }
 
-/* The exit line that closes NOW — the résumé link that used to be its own
-   RÉSUMÉ section (#659). Tight to the paragraph it follows: it is the last
-   line of NOW, not a sixth section. */
-.about-exit {
-  margin-top: var(--sp-2xs);
+/* The résumé link closes NOW as the tail of its last sentence rather than as
+   a line of its own — an unlabelled line between NOW's body and the WRITING
+   label read as a fifth section that had lost its label. Only the LAST
+   paragraph goes inline, so a two-paragraph now.md would still set normally
+   and the link would still join the end of it. */
+.about-now-flow > p:last-of-type {
+  display: inline;
+}
+
+.about-now-flow > .about-resume-link {
+  margin-left: 0.3em;
 }
 
 /* Shared eyebrow micro-label (#467). One utility for the fixed-size
@@ -692,6 +714,11 @@ html[data-fonts-pending] .panel-label {
   /* Warm-tinted 50% ink (not --ink-50): matches the open parchment
      surface; deliberate, kept as an override on the shared .eyebrow. */
   color: rgba(23, 19, 15, 0.5);
+  /* The gap a reader sees is the margin PLUS the half-leading of both line
+     boxes, and the leading alone contributes ~7px on each side of the label.
+     Trimming the label's own line box to its text is what lets the margin
+     below stay hairline-thin without the label touching the paragraph. */
+  line-height: 1;
   margin-bottom: var(--about-space-below-label);
 }
 

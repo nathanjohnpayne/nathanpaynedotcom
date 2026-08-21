@@ -37,12 +37,17 @@ describe('About panel section rhythm (#659)', () => {
     expect(labels).toEqual(['Context', 'Approach', 'Now', 'Writing']);
   });
 
-  it('folds the résumé link into NOW instead of giving it its own section', () => {
+  it('folds the résumé link into the end of NOW rather than onto its own line', () => {
     expect(document.querySelector('.about-block--resume')).toBeNull();
 
-    const link = document.querySelector('.about-block--now .about-resume-link');
-    expect(link, 'résumé link should close the NOW block').not.toBeNull();
+    const link = document.querySelector('.about-now-flow > .about-resume-link');
+    expect(link, 'résumé link should close NOW inside its text flow').not.toBeNull();
     expect(link.getAttribute('href')).toBe('/resume/');
+
+    // The link joins the last paragraph's line flow; the CSS that does it only
+    // reaches the last paragraph, so a multi-paragraph now.md still sets
+    // normally. An unlabelled line of its own read as a fifth section.
+    expect(CSS).toMatch(/\.about-now-flow > p:last-of-type \{[^}]*display:\s*inline;/);
   });
 
   it('keeps the arrow on the two navigational exits and nowhere else', () => {
@@ -77,10 +82,21 @@ describe('About panel section rhythm (#659)', () => {
     expect(above / below).toBeGreaterThanOrEqual(2.5);
   });
 
-  it('caps the paragraph measure so lines stop running to the panel edge', () => {
-    // 56ch of Inter's "0" advance renders ~73 characters here; the browser
-    // check in the PR is what pins the character count.
-    expect(CSS).toMatch(/\.about-block p \{[^}]*max-width:\s*56ch;/);
+  it('caps prose and rules at one shared measure', () => {
+    // Declared in rem, not ch, because the cap is shared: `ch` resolves
+    // against the using element's font-size, which is what left the hairlines
+    // ~265px right of the prose they separate. 33rem renders ~73 characters;
+    // the browser check in the PR is what pins the character count and the
+    // matching right edges.
+    expect(CSS).toMatch(/--about-measure:\s*33rem;/);
+    expect(CSS).toMatch(/\.about-block \{[^}]*max-width:\s*var\(--about-measure\);/);
+  });
+
+  it('leaves LAST UPDATED without a second hairline', () => {
+    // Two rules 40px apart banded the exit link into a strip. The shared
+    // ribbon rule still draws one for Community and Builds.
+    expect(CSS).toMatch(/\.about-blocks \.now-ribbon \{[^}]*border-top:\s*none;/);
+    expect(CSS).toMatch(/\.stack-ribbon,\n\.impact-ribbon,\n\.now-ribbon \{/);
   });
 
   it('rests the panel links without an underline and takes it on hover', () => {
