@@ -10,7 +10,7 @@ accent: "paper"
 liveUrl: "https://device-source-of-truth.web.app"
 githubUrl: "https://github.com/nathanjohnpayne/device-source-of-truth"
 tags: ["Enterprise", "Data", "React", "Firebase"]
-status: "PAUSED"
+status: "ARCHIVED"
 metadata:
   format: "Internal platform tool"
   focus: "Partner platforms and device support"
@@ -62,4 +62,6 @@ When Amazon launches Vega OS and replaces the Android-based Fire TV stack, the f
 
 Those are all answerable questions—but before DST, answering them meant cross-referencing three or four data sources maintained by different people on different cadences. The cost of uncertainty isn't abstract: support tickets increase, launch timelines slip, and partner conversations happen without a shared factual foundation.
 
-Device Source of Truth treats that ambiguity as a product problem. The questionnaire pipeline automates the most labor-intensive part of the certification workflow. The version registry flags stale ADK builds. The telemetry freshness badge tells you whether you're looking at data from last week or last quarter. This is the partner-engineering work I spend my days on at Disney, and DST is the tool I wanted to exist before I sat down to build it.
+Device Source of Truth treats that ambiguity as a product problem. The questionnaire pipeline automates the most labor-intensive part of the certification workflow. The version registry flags stale ADK builds. The telemetry freshness badge tells you whether you're looking at data from last week or last quarter. This is the partner-engineering work I spent a decade doing at Disney, and DST is the tool I wanted to exist before I sat down to build it.
+
+Development ended with my Disney tenure, and the deployed instance now runs entirely on synthetic seed data: the schema, import pipelines, and review workflows are real; every device, partner, and questionnaire record is invented for demonstration.

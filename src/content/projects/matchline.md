@@ -5,7 +5,7 @@ description: "A career CRM for one person running a serious job search. Turns wo
 seoDescription: "A career CRM that maps work history to job requirements and generates applications grounded in verified evidence, not fabricated resume claims."
 kicker: "AI × Product × Career Tools"
 order: 2
-status: "IN PROGRESS"
+status: "PAUSED"
 screenshotAspect: "wide"
 screenshotSrc: "/images/projects/matchline-wordmark.svg"
 accent: "black"
@@ -45,6 +45,6 @@ This is a hard constraint, not a target. The full-flow latency budget is under t
 
 ## Status
 
-In active build, V1 targeted for July 2026. Currently a single-user system—the author's own active job search is V1's only customer. Public release decisions come after V1 has earned its keep on real outcomes.
+Paused, deliberately. V1 was in active build with a July 2026 target when Five Across took the summer—a live game with a hard sailing date beat a tool with a soft one. Matchline remains a single-user system with the author's own job search as V1's only customer, and public release decisions still come after V1 has earned its keep on real outcomes.
 
 No live URL until V1 ships. The repository is public; the running product is not.
