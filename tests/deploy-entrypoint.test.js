@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, statSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 const rootDir = resolve(__dirname, '..');
@@ -11,11 +11,62 @@ const agentsDeploymentDoc = readFileSync(
 );
 
 describe('deploy entrypoint contract', () => {
-  it('builds, deploys with the PATH-provided helper, then purges Cloudflare', () => {
+  it('checks client env, builds, deploys with the PATH-provided helper, then purges Cloudflare', () => {
     const deployScript = packageJson.scripts.deploy;
 
-    expect(deployScript).toBe('npm run build && op-firebase-deploy && scripts/cf-cache-purge.sh');
+    expect(deployScript).toBe(
+      'scripts/check-deploy-env.sh && npm run build && op-firebase-deploy && scripts/cf-cache-purge.sh',
+    );
     expect(deployScript).not.toMatch(/\bfirebase\s+deploy\b/);
+  });
+
+  it('gates both deploy aliases on the client env check, before the build', () => {
+    // Every PUBLIC_* var degrades gracefully when unset, so `astro build`
+    // cannot fail on a missing one — it just publishes a site with no brand
+    // logos and no analytics. The only place that can catch it is here, and it
+    // has to run before the build so the failure costs seconds, not a full
+    // Playwright OG-image pass.
+    for (const alias of ['deploy', 'deploy:hosting']) {
+      const script = packageJson.scripts[alias];
+
+      expect(script, `package.json needs a ${alias} script`).toBeDefined();
+      expect(
+        script.indexOf('scripts/check-deploy-env.sh'),
+        `${alias} must run the client env check`,
+      ).toBeGreaterThanOrEqual(0);
+      expect(
+        script.indexOf('scripts/check-deploy-env.sh'),
+        `${alias} must run the client env check before the build`,
+      ).toBeLessThan(script.indexOf('npm run build'));
+    }
+  });
+
+  it('ships the client env check as an executable repo script', () => {
+    const checkPath = resolve(rootDir, 'scripts/check-deploy-env.sh');
+
+    expect(existsSync(checkPath), 'scripts/check-deploy-env.sh is missing').toBe(true);
+    expect(
+      statSync(checkPath).mode & 0o111,
+      'scripts/check-deploy-env.sh is not executable',
+    ).toBeGreaterThan(0);
+  });
+
+  it('documents the worktree deploy trap wherever the deploy flow is described', () => {
+    // Knowing the check exists is not the useful part; knowing that only the
+    // main checkout has .env.local is. That is the fact that was missing when
+    // a worktree deploy stripped the tokens out of production.
+    for (const [label, doc] of [
+      ['DEPLOYMENT.md', deploymentDoc],
+      ['docs/agents/deployment-process.md', agentsDeploymentDoc],
+    ]) {
+      expect(doc, `${label} does not mention the client env check`).toContain(
+        'scripts/check-deploy-env.sh',
+      );
+      expect(
+        /worktree/i.test(doc),
+        `${label} describes the deploy flow without warning that a worktree has no .env.local`,
+      ).toBe(true);
+    }
   });
 
   it('does not point at a missing repo-local script', () => {
