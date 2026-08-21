@@ -92,11 +92,17 @@ describe('About panel section rhythm (#659)', () => {
     expect(CSS).toMatch(/\.about-block \{[^}]*max-width:\s*var\(--about-measure\);/);
   });
 
-  it('leaves LAST UPDATED without a second hairline', () => {
-    // Two rules 40px apart banded the exit link into a strip. The shared
-    // ribbon rule still draws one for Community and Builds.
-    expect(CSS).toMatch(/\.about-blocks \.now-ribbon \{[^}]*border-top:\s*none;/);
+  it('draws one horizontal rule, above LAST UPDATED, capped to the measure', () => {
+    // Two rules 40px apart banded the exit link into a strip. The exit link
+    // is differentiated by voice; the panel's one rule closes the content
+    // before the timestamp, matching Community's and Builds' ribbons.
+    expect(CSS).not.toMatch(/\.writing-list \.writing-list__all \{[^}]*border-top:/);
     expect(CSS).toMatch(/\.stack-ribbon,\n\.impact-ribbon,\n\.now-ribbon \{/);
+    // The ribbon is a sibling of .about-block, so the block's cap does not
+    // reach it — without this the rule overshoots the prose it closes.
+    expect(CSS).toMatch(
+      /\.about-blocks \.now-ribbon \{[^}]*max-width:\s*var\(--about-measure\);/,
+    );
   });
 
   it('rests the panel links without an underline and takes it on hover', () => {

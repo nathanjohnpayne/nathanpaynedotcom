@@ -649,15 +649,14 @@ html[data-fonts-pending] .panel-label {
    spaces it; drop the shared ribbon margin-top here so the gap above it
    doesn't double (flex gap + margin). Scoped to About only.
 
-   The shared ribbon rule also draws a hairline above the ribbon. In this
-   panel that put two rules 40px apart — one over VIEW ALL WRITING, one over
-   LAST UPDATED — banding a single line into a strip. LAST UPDATED is already
-   demoted by size and colour and does not need a rule to separate it, so
-   About drops its own. Community and Builds keep theirs. */
+   The ribbon keeps the shared hairline — it is the panel's one rule, closing
+   the content before the timestamp, and it matches what Community and Builds
+   draw above their own ribbons. The ribbon is a sibling of .about-block, so
+   the block's measure cap does not reach it; without this the rule would run
+   the full column width and overshoot the prose it closes by ~63px. */
 .about-blocks .now-ribbon {
   margin-top: 0;
-  border-top: none;
-  padding-top: 0;
+  max-width: var(--about-measure);
 }
 
 /* The measure cap lives on the block, not on the paragraph, so every rule
@@ -782,14 +781,15 @@ html[data-fonts-pending] .panel-label {
 }
 
 /* "View all writing →" closes the block (#619). It is a route, not a post, so
-   #659 gave it the eyebrow voice the section labels use and set it below a
-   hairline: separated from the article list, sharing no class with it, and
-   carrying no underline. */
+   #659 gave it the eyebrow voice the section labels use: separated from the
+   article list, sharing no class with it, and carrying no underline.
+
+   It is separated by voice and by gap, not by a rule of its own. The panel
+   holds exactly one horizontal rule and it belongs above LAST UPDATED — two
+   rules 40px apart banded this line into a strip. */
 .writing-list .writing-list__all {
   display: block;
-  margin-top: 0.7rem;
-  padding-top: 0.5rem;
-  border-top: 1px solid var(--rule);
+  margin-top: 0.75rem;
   font-family: var(--font-body);
   font-size: 0.6rem;
   line-height: 1.2;
@@ -4058,16 +4058,11 @@ a:focus-visible {
     border-top-color: color-mix(in srgb, var(--veil-on-red) 28%, transparent);
   }
 
-  /* The WRITING rules use var(--rule) (dark), near-invisible on the red
-     mobile base — flip both the vertical bracket beside the article list and
-     the hairline above the exit link to the same light divider color as the
-     ribbon so every rule in the panel reads as one system. */
+  /* The article list's vertical bracket uses var(--rule) (dark),
+     near-invisible on the red mobile base — flip it to the same light divider
+     color as the ribbon hairline so both rules read as one system. */
   .panel--red .writing-list__posts {
     border-left-color: color-mix(in srgb, var(--veil-on-red) 28%, transparent);
-  }
-
-  .panel--red .writing-list .writing-list__all {
-    border-top-color: color-mix(in srgb, var(--veil-on-red) 28%, transparent);
   }
 
   /* Dark-blue arrow is near-invisible on the red mobile base; keep it
