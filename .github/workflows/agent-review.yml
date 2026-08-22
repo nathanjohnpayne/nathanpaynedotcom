@@ -76,46 +76,101 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          # Trusted default-branch checkout (#788). This step now shells out to
+          # scripts/workflow/ helpers with a token in the environment, so the
+          # HELPER CODE must come from the default branch and never from the PR
+          # head — the same trust rule the triage job below states. The default
+          # checkout ref made this the PR's own merge ref on `pull_request`
+          # events and the default branch on `pull_request_review` events, so
+          # the same PR was parsed from two different files depending on which
+          # event woke the job.
+          #
+          # The POLICY the helpers read is a separate decision, resolved from
+          # the PR base by scripts/workflow/resolve_base_policy.sh below.
+          ref: ${{ github.event.repository.default_branch }}
           # Explicit-token gh / github-script only, no authenticated git, so
           # don't leave the checkout token in .git/config (#548 / Codex #550).
           persist-credentials: false
 
-      - name: Parse review-policy.yml
+      - name: Parse the governing review-policy.yml
         id: config
+        env:
+          # Only consumed on the non-default-base path, where the resolver
+          # fetches the base branch's policy. A default-base PR — every PR in
+          # the fleet today — makes no API call at all, so an unset secret is
+          # harmless there and fails closed (empty reviewer allow-list)
+          # everywhere else. Mirrors the triage job's resolver invocation.
+          GH_TOKEN: ${{ secrets.REVIEWER_ASSIGNMENT_TOKEN }}
+          REPO: ${{ github.repository }}
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
         run: |
+          # Bootstrap-skew guard (the #577/#590 shape). The checkout above is
+          # pinned to the DEFAULT branch so the helper code is trusted, which
+          # means the helper is absent from this tree on exactly two
+          # occasions: the PR that INTRODUCES it (this one), and each
+          # consumer's first sync wave — .mergepath-sync.yml makes the
+          # workflow and scripts/workflow/ travel together, but they land IN
+          # that PR, not on the consumer's default branch before it runs.
+          # Without this guard `bash <missing file>` exits 127 and the step —
+          # and the job — hard-fail.
+          #
+          # A failed load-config is the fail-OPEN outcome this whole step
+          # exists to avoid: `triage` declares `needs: [load-config]` with no
+          # `always()`, so it would be SKIPPED and never apply or refresh
+          # `needs-external-review` (#59's SKIPPED-as-SUCCESS class), and
+          # `auto-merge-on-approval` would be skipped with it.
+          #
+          # So emit the SAME fail-closed outputs load_review_config.sh emits
+          # when it cannot resolve the governing policy, and exit 0:
+          # `reviewers=[]` (assign assigns nobody; the auto-merge arming gate
+          # already defaults `REVIEWERS_JSON` to `[]` and rejects every
+          # approver as unregistered), `threshold=0` (triage's preliminary
+          # calculation requires external review), `paths=[]`,
+          # `author_identity=` unproven. Requiredness itself is unaffected
+          # either way: triage re-resolves the base policy for itself, and
+          # pr-review-policy.yml labels independently from a base worktree.
+          # The step activates in full the moment this lands on the default
+          # branch. A PR cannot fake the skew to reach this branch — the test
+          # is against the default-branch tree, which no unmerged PR alters.
+          LOADER="scripts/workflow/load_review_config.sh"
+          if [ ! -f "$LOADER" ]; then
+            echo "::notice::$LOADER is not on the default branch yet (the bootstrap PR introducing it, or a consumer's first sync wave); emitting fail-closed load-config outputs — empty reviewer allow-list, threshold 0 — and soft-passing so triage is not skipped."
+            {
+              echo "threshold=0"
+              echo "paths=[]"
+              echo "reviewers=[]"
+              echo "author_identity="
+            } >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
           CONFIG=".github/review-policy.yml"
           if [ ! -f "$CONFIG" ]; then
             echo "ERROR: $CONFIG not found"
             exit 1
           fi
 
-          THRESHOLD=$(grep 'external_review_threshold:' "$CONFIG" | awk '{print $2}')
-          echo "threshold=$THRESHOLD" >> "$GITHUB_OUTPUT"
-
-          # Extract external_review_paths as a JSON array. Delegates to
-          # scripts/workflow/parse_policy_list.sh (unit-tested by
-          # scripts/ci/check_workflow_parsers — see #57). History: the
-          # earlier inline `awk '/^key:/,/^[^ ]/'` range parser silently
-          # dropped all list entries because the range-start pattern
-          # also matched the range-end condition; see #54.
+          # Parsing lives in scripts/workflow/load_review_config.sh so it can
+          # be exercised hermetically (tests/test_load_review_config.sh, run by
+          # scripts/ci/check_external_review_helpers) — the same extraction
+          # this repo applied to parse_policy_list.sh after #54/#57.
           #
-          # `jq -c` (compact) is required here: multi-line JSON cannot
-          # be written via the `key=value` GITHUB_OUTPUT format. Before
-          # #54 fixed the awk extractor, PATHS was always `[]` (single-
-          # line) so this latent bug was hidden; PR #58 / #30 tripped it.
-          PATHS=$(bash scripts/workflow/parse_policy_list.sh "$CONFIG" external_review_paths \
-            | jq -R -s -c 'split("\n") | map(select(length > 0))')
-          echo "paths=$PATHS" >> "$GITHUB_OUTPUT"
-
-          # Extract available_reviewers as a JSON array via the same
-          # extracted parser. Before #54 this was always `[]`, which
-          # silently broke the assign step's reviewer lookup.
-          REVIEWERS=$(bash scripts/workflow/parse_policy_list.sh "$CONFIG" available_reviewers \
-            | jq -R -s -c 'split("\n") | map(select(length > 0))')
-          echo "reviewers=$REVIEWERS" >> "$GITHUB_OUTPUT"
-
-          AUTHOR=$(grep 'author_identity:' "$CONFIG" | awk '{print $2}')
-          echo "author_identity=${AUTHOR:-nathanjohnpayne}" >> "$GITHUB_OUTPUT"
+          # It resolves the policy that GOVERNS this PR (the base branch's)
+          # through the shared resolver that merge-clearance-gate.sh,
+          # codex-review-check.sh and the triage job also use, then emits
+          # threshold / paths / reviewers / author_identity from it. Passing
+          # --base-ref/--base-sha/--default-branch rather than --pr is
+          # load-bearing: it keeps the default-base short circuit free of any
+          # API call (#769), which matters because this job runs on every push
+          # to every open PR in the fleet.
+          bash "$LOADER" \
+            --repo "$REPO" \
+            --base-ref "$BASE_REF" \
+            --base-sha "$BASE_SHA" \
+            --default-branch "$DEFAULT_BRANCH" \
+            --default-config "$CONFIG"
 
   # ──────────────────────────────────────────────
   # Job 2: Auto-label PRs that need external review
@@ -717,8 +772,8 @@ jobs:
   #      exists on the PR (`dismiss_stale_reviews` is OFF, so the
   #      approval carries across the fix-push — see the BEHIND-PR
   #      carryover behavior). A push with NO existing approval does NOT
-  #      arm. Every other gate (coderabbit-wait, AUTHOR_MERGE_TOKEN
-  #      identity, blocking-label re-verify) re-applies on the NEW HEAD,
+  #      arm. Every load-bearing gate (AUTHOR_MERGE_TOKEN identity,
+  #      blocking-label re-verify, required checks) re-applies on the NEW HEAD,
   #      and `gh pr merge --auto` is idempotent when --auto is already
   #      enabled.
   #   3. `pull_request` + `unlabeled` for a BLOCKING label (#620) — the
@@ -768,6 +823,9 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          # This job holds the author merge token. Its helper scripts must
+          # come from the trusted default branch, never the PR checkout.
+          ref: ${{ github.event.repository.default_branch }}
           # Explicit-token gh merge path only, no authenticated git, so don't
           # leave the checkout token in .git/config (#548 / Codex #550).
           persist-credentials: false
@@ -896,6 +954,28 @@ jobs:
         if: steps.require_approval.outputs.proceed != 'false'
         env:
           GH_TOKEN: ${{ secrets.AUTHOR_MERGE_TOKEN }}
+          # The author identity this token must resolve to comes from the
+          # policy that GOVERNS this PR — the base branch's — which
+          # `load-config` already resolved through
+          # scripts/workflow/resolve_base_policy.sh (#788).
+          #
+          # This step used to parse `author_identity` out of THIS job's
+          # checkout, and that checkout is not pinned: on a `pull_request`
+          # event `actions/checkout` materializes `refs/pull/N/merge`, so the
+          # expected identity came from the PR's OWN copy of the policy, and on
+          # a `pull_request_review` event it came from a different file again.
+          # Two answers for one PR, neither of them the governing one — the
+          # remaining half of #788, on the surface that issue named explicitly
+          # (the auto-merge approval gate). A PR must not be able to nominate
+          # the identity that is allowed to merge it by editing policy on its
+          # own branch, and on a non-default base the default-branch copy is
+          # equally wrong in the other direction: it can name an identity the
+          # base policy does not permit to merge there.
+          EXPECTED_AUTHOR: ${{ needs.load-config.outputs.author_identity }}
+          # Diagnostic only, and an env var rather than a `${{ }}` expansion
+          # inside the shell below: a ref name interpolated into script text is
+          # the workflow-injection shape this repo keeps out of `run:` blocks.
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
         run: |
           if [ -z "${GH_TOKEN:-}" ]; then
             echo "::notice::AUTHOR_MERGE_TOKEN is not configured; automatic PR merge is disabled. Merge manually as the author identity."
@@ -903,257 +983,42 @@ jobs:
             exit 0
           fi
 
-          expected_author=$(awk '
-            /^[^[:space:]]/ && $1 == "author_identity:" {
-              sub(/^[[:space:]]*[^:]+:[[:space:]]*/, "", $0)
-              gsub(/^"/, "", $0)
-              gsub(/^\047/, "", $0)
-              gsub(/"[[:space:]]*(#.*)?$/, "", $0)
-              gsub(/\047[[:space:]]*(#.*)?$/, "", $0)
-              gsub(/[[:space:]]*#.*$/, "", $0)
-              sub(/[[:space:]]+$/, "", $0)
-              print
-              exit
-            }
-          ' .github/review-policy.yml)
-          expected_author="${expected_author:-nathanjohnpayne}"
+          # FAIL CLOSED on an unproven identity. An empty value means
+          # `load-config` could not resolve the governing policy (or was itself
+          # skipped — this job runs under `always()`), and it is exactly the
+          # fail-closed output scripts/workflow/load_review_config.sh emits in
+          # that case. Defaulting to a hard-coded login here would merge under
+          # an identity no policy we can read has authorized, which is the
+          # substitution #768/#769/#788 exist to prevent. Disabling the merge
+          # path costs nothing that is not already lost: the same fail-closed
+          # load-config emits `reviewers=[]`, so the arming gate above has
+          # already rejected every approver. The author merges manually, and
+          # the required merge-clearance gate is untouched either way.
+          expected_author="${EXPECTED_AUTHOR:-}"
+          if [ -z "$expected_author" ]; then
+            echo "::notice::The review policy governing this PR's base branch yielded no author_identity, so the identity permitted to merge here is unproven; automatic PR merge is disabled (#788). Merge manually as the author identity."
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
 
           if ! actual_author=$(gh api user --jq .login); then
             echo "::error::AUTHOR_MERGE_TOKEN could not authenticate to GitHub. Refusing automatic merge."
             exit 1
           fi
           if [ "$actual_author" != "$expected_author" ]; then
-            echo "::error::AUTHOR_MERGE_TOKEN resolves to '$actual_author', expected '$expected_author'. Refusing automatic merge."
+            echo "::error::AUTHOR_MERGE_TOKEN resolves to '$actual_author', expected '$expected_author' (author_identity in the policy governing base branch '${BASE_REF:-?}'). Refusing automatic merge."
             exit 1
           fi
 
           echo "Automatic merge token verified for author identity: $actual_author"
           echo "enabled=true" >> "$GITHUB_OUTPUT"
 
-      - name: Check if CodeRabbit is enabled
-        if: steps.author_merge_token.outputs.enabled == 'true'
-        id: cr
-        run: |
-          CONFIG=".github/review-policy.yml"
-          # Parse only the `coderabbit:` block — stop at the next top-level key.
-          # The previous `sed -n '/^coderabbit:/,$ p'` was scope-unsafe: it
-          # captured everything from `coderabbit:` to EOF, so a later top-level
-          # block with `enabled: true` (e.g., the `codex:` block added in #31)
-          # produced a false positive and triggered the CodeRabbit wait loop.
-          #
-          # The end-of-block test is "a new line whose first character is
-          # neither whitespace nor `#`" — which catches the next top-level YAML
-          # key while still permitting column-0 comments (`# ...`) and blank
-          # lines inside the block. The earlier `^[^[:space:]]` regex was
-          # too strict: a YAML-valid column-0 comment prematurely exited the
-          # block and produced a false negative. Fix surfaced by nathanpayne-codex
-          # external review on PR #53.
-          if awk '
-            /^coderabbit:/ {in_block=1; next}
-            in_block && /^[^[:space:]#]/ {in_block=0}
-            in_block && /^[[:space:]]*enabled:[[:space:]]*true([[:space:]]*#.*)?$/ {found=1}
-            END {exit found ? 0 : 1}
-          ' "$CONFIG"; then
-            echo "enabled=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "enabled=false" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Wait for CodeRabbit review
-        if: steps.author_merge_token.outputs.enabled == 'true' && steps.cr.outputs.enabled == 'true'
-        env:
-          GH_TOKEN: ${{ secrets.REVIEWER_ASSIGNMENT_TOKEN }}
-          # #489: author token for the rate-limit→Codex failover. coderabbit-wait.sh
-          # runs as the reviewer (GH_TOKEN above) for its own retry comments, but its
-          # failover posts the author-attributed `@codex review` via
-          # codex-review-request.sh → gh-as-author.sh, which resolves the author token
-          # from OP_PREFLIGHT_AUTHOR_PAT and verifies it as author_identity. This step
-          # only runs when author_merge_token is enabled, so the secret is present;
-          # preflight_require_token is a no-op here (GH_TOKEN is set), so this value is
-          # not clobbered, and coderabbit-wait.sh itself reads only the reviewer PAT.
-          OP_PREFLIGHT_AUTHOR_PAT: ${{ secrets.AUTHOR_MERGE_TOKEN }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-          REPO: ${{ github.repository }}
-        run: |
-          # Delegate to scripts/coderabbit-wait.sh so auto-merge honors the
-          # same semantics the agent-driven flow uses: HEAD-anchored
-          # freshness (#136 — do not merge on a stale review from a prior
-          # HEAD), rate-limit retry (#138 — CodeRabbit does not auto-retry
-          # after its published window elapses), and the coderabbit.*
-          # knobs in .github/review-policy.yml. Exit-code translation:
-          #   0 — cleared on current HEAD, no high-severity markers.
-          #   2 — cleared but findings present (Potential issue / ⚠️).
-          #       Blocks auto-merge per REVIEW_POLICY.md § Phase 2.5,
-          #       which requires every Potential issue / ⚠️ finding to
-          #       be explicitly addressed (fixed or dismissed with
-          #       reasoning) before moving on. The agent-driven flow
-          #       does that in-session; the auto-merge workflow has
-          #       no way to address a finding, so it stops here and
-          #       lets the author push a fix (or post a dismissal
-          #       reply). A new approving review after the fix
-          #       re-triggers this job.
-          #   3 — API / infra error. Block and surface.
-          #   4 — max_wait_seconds grace window elapsed without a review.
-          #       CodeRabbit is advisory; log a warning and proceed.
-          #   5 — rate-limit retry budget exhausted. Non-blocking IFF the #489
-          #       Codex failover engaged (codex_failover_requested:true in the
-          #       JSON) — Codex was requested, so the PR advances via the Codex
-          #       gates; otherwise block and let the human intervene.
-          # #727 post-clearance fast path. If the current HEAD already carries an
-          # ACTUAL Codex/Phase-4b clearance AND a reviewer-identity APPROVED, the
-          # real blocking bot-review signal is already in and CodeRabbit is
-          # advisory on top of it — so cap coderabbit-wait.sh's poll budget to
-          # coderabbit.post_clearance_max_wait_seconds instead of the full
-          # max_wait_seconds. Read-only probe; fail SAFE — any non-zero rc leaves
-          # the fast path DISARMED so the full budget is used.
-          #
-          # CODEX_REVIEW_CHECK_ALLOW_PHASE_4B_SUBSTITUTE=false is load-bearing
-          # (#727, Codex P2 on #729): WITHOUT it, gate (c) accepts the same
-          # reviewer APPROVED that clears gate (b) as a Phase-4b substitute, so an
-          # ordinary under-threshold approval with NO Codex review would arm the
-          # cap and reopen the pre-review merge race. With it, gate (c) requires
-          # an actual Codex bot signal (👍 / affirmative verdict / clean review).
-          # SKIP_CI keeps the probe independent of CI; REQUIRE_APPROVAL_ON_HEAD
-          # HEAD-pins gate (b).
-          #
-          # PROBE_HEAD pins the clearance to the head we evaluated (#727, Codex P2
-          # on #729): a push landing between here and coderabbit-wait.sh's own
-          # head fetch would otherwise let the shortened budget apply to a head
-          # that was never cleared. coderabbit-wait.sh disarms if its live head
-          # differs from this SHA.
-          PROBE_HEAD=$(gh api "repos/$REPO/pulls/$PR_NUMBER" --jq .head.sha 2>/dev/null || echo "")
-          CODEX_CLEARED=false
-          set +e
-          CODEX_REVIEW_CHECK_SKIP_CI=1 CODEX_REVIEW_CHECK_REQUIRE_APPROVAL_ON_HEAD=1 \
-            CODEX_REVIEW_CHECK_ALLOW_PHASE_4B_SUBSTITUTE=false \
-            bash scripts/codex-review-check.sh "$PR_NUMBER" "$REPO" >&2
-          crc=$?
-          set -e
-          case "$crc" in
-            0)
-              CODEX_CLEARED=true
-              echo "::notice::Post-clearance fast path armed (#727): HEAD $PROBE_HEAD has an actual Codex/Phase-4b clearance + reviewer APPROVED — CodeRabbit wait capped to coderabbit.post_clearance_max_wait_seconds."
-              ;;
-            1)
-              echo "::notice::Post-clearance fast path not armed: no actual Codex/Phase-4b clearance (or no reviewer APPROVED) on HEAD — using the full CodeRabbit budget."
-              ;;
-            *)
-              echo "::warning::codex-review-check.sh returned rc=$crc while deriving post-clearance state; failing safe to the full CodeRabbit budget."
-              ;;
-          esac
-
-          # Fail closed if the head could not be resolved (Codex P2 r-comment on
-          # #729): without a non-empty PROBE_HEAD there is nothing to pin the
-          # clearance to, so a push landing before coderabbit-wait.sh resolves
-          # its own head could get the shortened budget on an un-reviewed head.
-          # coderabbit-wait.sh also fails closed on an empty pin, but disarm here
-          # too so the intent is explicit and logged.
-          if [ "$CODEX_CLEARED" = "true" ] && [ -n "$PROBE_HEAD" ]; then
-            POST_CLEARANCE_FLAG=1
-          else
-            POST_CLEARANCE_FLAG=0
-            if [ "$CODEX_CLEARED" = "true" ] && [ -z "$PROBE_HEAD" ]; then
-              echo "::warning::Post-clearance clearance derived but the head SHA could not be resolved for the pin — failing closed to the full CodeRabbit budget (#727)."
-            fi
-          fi
-
-          set +e
-          # Capture the helper's JSON (stdout) so the rc=5 branch can read the
-          # #489 codex_failover_requested flag. Its human-readable diagnostics —
-          # and the failover child's own JSON — go to stderr and stream to the log.
-          WAIT_JSON=$(CODERABBIT_WAIT_POST_CLEARANCE="$POST_CLEARANCE_FLAG" CODERABBIT_WAIT_POST_CLEARANCE_SHA="$PROBE_HEAD" bash scripts/coderabbit-wait.sh "$PR_NUMBER" "$REPO")
-          rc=$?
-          set -e
-          printf '%s\n' "$WAIT_JSON"
-          case "$rc" in
-            0)
-              echo "CodeRabbit cleared on current HEAD — proceeding to merge."
-              ;;
-            2)
-              echo "::error::CodeRabbit flagged Potential issue / ⚠️ findings on the current HEAD. Per REVIEW_POLICY.md § Phase 2.5, each must be explicitly addressed (fixed or dismissed with reasoning) before merge. Blocking auto-merge; address the findings and request a new approval to re-trigger."
-              exit 1
-              ;;
-            4)
-              echo "::warning::CodeRabbit grace window elapsed without a review. CodeRabbit is advisory — proceeding to merge. Check coderabbit-wait.sh JSON above for status_probe details, if present."
-              ;;
-            5)
-              # #489/#713: a rate_limit_stalled is non-blocking ONLY when
-              # the Codex failover engaged AND this head is protected from
-              # bot-unreviewed auto-merge. Protection means either
-              # merge-clearance-gate.sh's external arm applies
-              # NON-vacuously, or the PR is intrinsically external-review
-              # and current-head Codex/Phase-4b clearance is already
-              # satisfied. For PRs where both are false, --trigger-only
-              # does not wait for Codex, so proceeding would let a
-              # rate-limited PR merge with neither bot having reviewed it —
-              # those keep BLOCKING (Codex P2 on #512 r3). The disposition
-              # lives in the unit-tested, fail-closed
-              # scripts/coderabbit-automerge-rate-limit-gate.sh.
-              #
-              # #713: ask merge-clearance-gate.sh itself for the rc=5
-              # protection predicate. It uses the same intrinsic threshold
-              # + protected-paths computation as the required check, with
-              # the label as a force-on signal and the propagation lane's
-              # HEAD-pinned verified marker as the exemption, all evaluated
-              # on the LIVE head. It returns true on the strength of the
-              # merge-clearance gate only when that gate is ENFORCED —
-              # enabled in the governing policy AND observably a required
-              # status check on the PR's base branch (#772; config-enabled
-              # alone is not evidence the gate can hold a merge). Otherwise
-              # — including when enforcement is undeterminable — it requires
-              # codex-review-check.sh to confirm current-head Codex/Phase-4b
-              # clearance before returning true. Label-event proxies (current-label reads,
-              # unlabeled-removal overrides) remain rejected: a label event
-              # is not head-pinned proof of a downstream gate or clearance.
-              # Fail closed: any nonzero exit or unexpected output from the
-              # query reads as false (block). stderr streams to the step log
-              # for diagnosability; only stdout (exactly `true` or `false`)
-              # is consumed.
-              ext_protected=false
-              if req=$(bash scripts/merge-clearance-gate.sh --derive-rate-limit-protection "$PR_NUMBER" "$REPO"); then
-                case "$req" in
-                  true|false) ext_protected=$req ;;
-                esac
-              fi
-              # #727: the post-clearance derivation above (CODEX_CLEARED) is the
-              # threshold-INDEPENDENT counterpart of --derive-rate-limit-protection,
-              # which only asserts protection when external review APPLIES (it
-              # returns false for an under-threshold PR even when Codex has
-              # cleared HEAD). A verified Codex/Phase-4b clearance + reviewer
-              # APPROVED on HEAD is exactly the "a real bot reviewed this head"
-              # signal the rate-limit gate protects against merging without — so
-              # fold it in. This lets a rate-limit stall inside the shortened
-              # post-clearance window resolve as advisory (proceed) rather than
-              # blocking an already-cleared PR, matching the #489/#713 intent
-              # that only bot-UNREVIEWED heads stay blocked.
-              if [ "$CODEX_CLEARED" = "true" ]; then
-                ext_protected=true
-                echo "::notice::rc=5 protection folds in the #727 post-clearance signal: HEAD has verified Codex/Phase-4b clearance + reviewer APPROVED — the CodeRabbit rate-limit stall is advisory here."
-              fi
-              if bash scripts/coderabbit-automerge-rate-limit-gate.sh "$WAIT_JSON" "$ext_protected"; then
-                echo "::notice::CodeRabbit rate-limited, but the #489 Codex failover engaged and this head has active or already-satisfied external-review protection — proceeding."
-                # Record the downgrade for the final re-verify step: the
-                # protection derivation is re-run there against the live
-                # merge head, so state that changes during the waits (for
-                # example, a push or propagation-lane verification landing)
-                # aborts the merge.
-                echo "CR_RATE_LIMIT_DOWNGRADED=true" >> "$GITHUB_ENV"
-              else
-                echo "::error::CodeRabbit rate-limit retry budget exhausted — blocking auto-merge. Either the failover did not engage, or this head has neither an active merge-clearance external gate nor already-satisfied Codex/Phase-4b clearance. Human must re-trigger or merge manually."
-                exit 1
-              fi
-              ;;
-            *)
-              echo "::error::coderabbit-wait.sh failed with exit code $rc. Blocking auto-merge."
-              exit 1
-              ;;
-          esac
-
-      - name: Re-verify blocking labels before test wait
+      - name: Re-verify blocking labels before readiness probe
         if: steps.author_merge_token.outputs.enabled == 'true'
         env:
           PR_NUMBER: ${{ github.event.pull_request.number }}
           GH_TOKEN: ${{ secrets.AUTHOR_MERGE_TOKEN }}
+          REPO: ${{ github.repository }}
         run: |
           # Guard against the TOCTOU race between the trigger-time label
           # snapshot and the actual merge. The job's top-level `if:` expression
@@ -1169,68 +1034,82 @@ jobs:
           #      `if:` check evaluated to true anyway, merging the PR before
           #      any external review could happen. See #61.
           #
-          #   2. The "Wait for CodeRabbit review" step above can sleep for
-          #      up to 5 minutes on a coderabbit-enabled repo. During that
-          #      window, an agent can legitimately apply a blocking label
-          #      (e.g., a human spotting something after approval) and the
-          #      job would still merge because the `if:` already evaluated.
+          #   2. Other jobs can legitimately apply a blocking label after
+          #      approval while this job is evaluating current-head checks.
+          #      The trigger payload does not reflect that later mutation.
           #
           # Re-fetch the authoritative label state from the GitHub API before
-          # entering the test wait. The same check repeats after the wait,
-          # immediately before merge. Abort if any blocking label is now
-          # present. Also check `policy-violation`, which is applied by the
+          # entering the readiness probe. The shared continuation repeats this
+          # check, along with feedback-accounting and conversation-resolution
+          # gates, immediately before arming auto-merge. Abort if any blocking
+          # label is now present. Also check `policy-violation`, which is applied by the
           # block-self-approval job earlier in this same workflow run (and
           # again, the `if:` at job start wouldn't have seen it).
-          LABELS=$(gh pr view "$PR_NUMBER" --repo "${{ github.repository }}" --json labels --jq '.labels[].name')
+          # The trusted default-branch checkout intentionally lags an atomic
+          # workflow+helper rollout by one merge. Source the shared helper when
+          # it is present; retain the exact bootstrap predicate for the first
+          # mergepath or consumer rollout so approval does not fail before the
+          # helper has landed on that repository's default branch.
+          if [ -f scripts/lib/blocking-labels.sh ]; then
+            # shellcheck source=scripts/lib/blocking-labels.sh
+            source scripts/lib/blocking-labels.sh
+          else
+            mergepath_blocking_labels_csv() {
+              awk '$0 == "needs-external-review" || $0 == "needs-human-review" || $0 == "policy-violation" || $0 == "human-hold"' \
+                | paste -sd, -
+            }
+          fi
+          LABELS=$(gh pr view "$PR_NUMBER" --repo "$REPO" --json labels --jq '.labels[].name')
           printf 'Labels at merge time:\n%s\n' "$LABELS"
-          for blocking_label in needs-external-review needs-human-review policy-violation human-hold; do
-            if printf '%s\n' "$LABELS" | grep -Fxq "$blocking_label"; then
-              echo "::error::Blocking label present at merge time: $blocking_label. Aborting auto-merge."
-              exit 1
-            fi
-          done
+          blocking_labels=$(printf '%s\n' "$LABELS" | mergepath_blocking_labels_csv)
+          if [ -n "$blocking_labels" ]; then
+            echo "::error::Blocking label(s) present at merge time: $blocking_labels. Aborting auto-merge."
+            exit 1
+          fi
           echo "No blocking labels present — proceeding to merge."
 
 
-      - name: Require current-head check success
+      - name: Probe current-head check readiness once
+        id: check_readiness
         if: steps.author_merge_token.outputs.enabled == 'true'
         env:
           PR_NUMBER: ${{ github.event.pull_request.number }}
           GH_TOKEN: ${{ secrets.AUTHOR_MERGE_TOKEN }}
           REPO: ${{ github.repository }}
-          # Space-separated check-run names that must be green on the PR
-          # head before native auto-merge arms. `build-and-test` joined
-          # `lint` here per the Codex P1 on #635: adding the build workflow
-          # gated Dependabot PRs (dependabot-auto-merge.yml) but left the
-          # ordinary approved-PR path waiting on the structural `lint` job
-          # alone, so `gh pr merge --auto` could merge a non-Dependabot PR
-          # while `build-and-test` was still pending or already failing —
-          # contradicting build-and-test.yml's own claim that a failure
-          # blocks the PR. Branch protection does not require the context
-          # either, so this wait is the only thing enforcing it on that path.
-          REQUIRED_HEAD_CHECK_NAMES: "lint build-and-test"
-          TEST_CHECK_WAIT_SECONDS: 1200
-          TEST_CHECK_POLL_SECONDS: 15
+          REQUIRED_HEAD_CHECK_NAME: lint
         run: |
-          # Fail closed on an empty list rather than defaulting to a single
-          # name: silently falling back to `lint` alone is exactly the
-          # too-weak gate #635 removed. Mirrors the assertions in
-          # dependabot-auto-merge.yml's require_current_head_checks_success.
-          if [ -z "${REQUIRED_HEAD_CHECK_NAMES:-}" ]; then
-            echo "::error::REQUIRED_HEAD_CHECK_NAMES is empty. Refusing auto-merge: with no check names configured this wait would verify nothing."
+          # Resolve the check-run names that must be green on the PR head.
+          # Shared with dependabot-auto-merge.yml and the approval
+          # continuation so all three enforce ONE list with one
+          # implementation; see scripts/required-head-checks.sh for why the
+          # value is per-consumer and read from the default branch.
+          # First-rollout guard (#1070). On the PR introducing this helper,
+          # and on each consumer's first propagation PR, the checkout can
+          # predate the script. Fall back to the PRE-#1070 behaviour --
+          # `lint` alone -- rather than failing closed: a repo without the
+          # script cannot have received the config file either, so there is
+          # no configured gate to drop. This is NOT the indeterminate-read
+          # case, which stays fail-closed inside the script.
+          if [ ! -f scripts/required-head-checks.sh ]; then
+            echo "::notice::scripts/required-head-checks.sh absent (pre-#1070 checkout); using the default required head check."
+            required_check_names="lint"
+          elif ! required_check_names=$(bash scripts/required-head-checks.sh --repo "$REPO" --list); then
+            echo "::error::could not resolve the required head-check list; refusing to report merge readiness."
             exit 1
           fi
-          required_check_names_count=0
-          for _rc_name in $REQUIRED_HEAD_CHECK_NAMES; do
-            required_check_names_count=$((required_check_names_count + 1))
-          done
-          if [ "$required_check_names_count" -eq 0 ]; then
-            echo "::error::REQUIRED_HEAD_CHECK_NAMES ('$REQUIRED_HEAD_CHECK_NAMES') split into zero check names. Refusing auto-merge: this wait would verify nothing."
+          if [ -z "$required_check_names" ]; then
+            echo "::error::required head-check list resolved empty; refusing to report merge readiness."
             exit 1
           fi
-          wait_seconds=${TEST_CHECK_WAIT_SECONDS:-1200}
-          poll_seconds=${TEST_CHECK_POLL_SECONDS:-15}
-          deadline=$((SECONDS + wait_seconds))
+          echo "::notice::required head checks:"
+          printf '%s\n' "$required_check_names" | sed 's/^/::notice::  /'
+          # Retained for the diagnostics below, which name a single check.
+          required_check_name=$(printf '%s\n' "$required_check_names" | head -n 1)
+          # Approval is durable readiness state. This job probes current-head
+          # checks exactly once; it never reserves a runner while CI executes.
+          # A successful repo-lint / annex / policy workflow later wakes the
+          # trusted continuation in auto-clear-blocking-labels.yml, which
+          # reruns the complete merge gate and final mutable-state readback.
           pr_view_json=$(gh pr view "$PR_NUMBER" --repo "$REPO" --json headRefOid,isCrossRepository,baseRefName,headRefName)
           sha=$(echo "$pr_view_json" | jq -r .headRefOid)
           # #655 Codex P2 round 9 ("wait for valid push-only annex
@@ -1284,27 +1163,33 @@ jobs:
           #
           # required_checks_json stays scoped to ONLY the canonical
           # `required_check_name` entry -- it is a hard requirement this
-          # loop waits for, up to the shared deadline, and fails closed on
-          # timeout. The repo_lint_local.yml annex must NOT be enforced the
+          # one-shot readiness probe evaluates. The repo_lint_local.yml annex
+          # must NOT be enforced the
           # same way (#655 Codex P2 round 6, "avoid forcing path-filtered
           # annex jobs to start"): a consumer annex scoped by workflow-level
           # `paths`/`paths-ignore` legitimately produces NO check run at all
           # for a PR outside those paths, and earlier rounds forcing its
-          # derived name(s) into this hard-required list made this loop
-          # wait out the full deadline and refuse auto-merge on every such
-          # PR, forever. Annex enforcement instead runs as a separate
-          # workflow-wide scan below (annex_workflow), each poll iteration,
-          # mirroring codex-review-check.sh gate (a): match by
-          # .workflowName rather than by a specific name, block immediately
-          # on any REPORTED bad conclusion, keep polling (bounded by this
-          # same shared deadline) while anything for that workflow is still
-          # in flight, and treat "nothing reported for this workflow at all"
+          # derived name(s) into this hard-required list made the old wait
+          # loop refuse auto-merge on every such PR. Annex enforcement instead
+          # runs as a separate workflow-wide scan below (annex_workflow),
+          # mirroring codex-review-check.sh gate (a): match by the stable
+          # .workflowPath rather than by a specific job name, block immediately
+          # on any REPORTED bad conclusion, report not-ready while anything
+          # for that workflow is still in flight, and treat "nothing reported
+          # for this workflow at all"
           # as non-blocking -- the same trade-off gate (a) already made and
           # validated across #655 rounds 2-5.
-          # One entry per configured name. The polling loop below already
-          # iterates this array generically (check_count / .[$i].name), so
-          # widening it from one name to several needs no change there.
-          required_checks_json=$(printf '%s\n' $REQUIRED_HEAD_CHECK_NAMES | jq -R . | jq -s -c '[.[] | {name: ., workflow: ""}]')
+          # Built from the resolved LIST. The consumers of this array below
+          # (check_count, .[$i].name, the rollup filter) already iterate it
+          # generically, so widening one name to several needs no change
+          # there. The scoping rule in the comment above is unchanged: only
+          # explicitly-configured hard requirements land here, never the
+          # path-filtered annex.
+          # -R over the NEWLINE list: check-run names contain spaces
+          # ("Merge clearance gate"), so word-splitting would shatter them
+          # into names that do not exist and this probe would never be ready.
+          required_checks_json=$(printf '%s\n' "$required_check_names" \
+            | jq -R . | jq -s -c '[.[] | select(length > 0) | {name: ., workflow: ""}]')
           annex_workflow=""
           annex_unfiltered="false"
           annex_probe_err=$(mktemp)
@@ -1750,11 +1635,10 @@ jobs:
           # required" -- confirmed empirically), so this switches from
           # `gh pr view --json` to a raw graphql call and reshapes the result
           # into the same {statusCheckRollup: [...]} shape the rest of this
-          # loop already expects, adding isRequired as an extra field.
+          # evaluation below expects, adding isRequired as an extra field.
           repo_owner="${REPO%%/*}"
           repo_name="${REPO#*/}"
-          while :; do
-            all_done=1
+          all_done=1
             check_count=$(echo "$required_checks_json" | jq 'length')
             # #655 Codex P1 round 12 ("paginate the status check rollup"):
             # a PR with more than 100 statusCheckRollup contexts (this PR
@@ -1770,6 +1654,11 @@ jobs:
             # later page.
             rollup_contexts="[]"
             cursor=""
+            # #1024 (b): rollup_complete records whether this probe
+            # actually walked every page. It is only ever cleared by the
+            # short-circuit below, which fires exclusively toward the
+            # "not ready" verdict -- never toward "green".
+            rollup_complete=1
             while :; do
               cursor_args=(-F cursor=null)
               if [ -n "$cursor" ]; then
@@ -1829,7 +1718,73 @@ jobs:
               has_next=$(echo "$page_json" | jq -r '(.data.repository.pullRequest.commits.nodes[0].commit.statusCheckRollup.contexts.pageInfo.hasNextPage // false)')
               cursor=$(echo "$page_json" | jq -r '(.data.repository.pullRequest.commits.nodes[0].commit.statusCheckRollup.contexts.pageInfo.endCursor // "")')
               [ "$has_next" = "true" ] || break
+              # #1024 (b): the pages walked so far can already SETTLE this
+              # probe's verdict as "not ready", and when they do,
+              # the remaining pages cannot change it -- so stop paying for
+              # them. The predicate below is deliberately one-directional:
+              # it only ever short-circuits toward not-ready, never toward
+              # concluding green, because cheaper pagination that can miss a
+              # pending required check is far worse than an expensive one.
+              #
+              # Soundness (this is the whole safety argument, so it is
+              # spelled out rather than asserted): the predicate fires only
+              # on an entry that (1) matches a configured required check
+              # name, (2) for the canonical workflow=="" requirement, also
+              # reports isRequired==true for THIS pull request, and (3) is
+              # non-terminal by the same CheckRun/StatusContext rule the
+              # winner-selection query below uses. Given such an entry, the
+              # full-pagination evaluation below is GUARANTEED to reach
+              # all_done=0 for that check name no matter what the unfetched
+              # pages hold: isRequired==true makes $required_matches
+              # non-empty, so the workflow=="" branch keeps this entry in
+              # $matches; its workflow group therefore has a non-empty
+              # $pending list; and a non-empty $pending makes that group's
+              # winner the pending entry, which is exactly the
+              # pending_count>0 branch. A name-scoped ($workflow != "")
+              # requirement skips the isRequired filter entirely and lands
+              # on the same branch. An absent or null isRequired never
+              # fires the short-circuit, so an ambiguous rollup keeps
+              # paging as before.
+              pending_required=$(printf '%s' "$rollup_contexts" | jq --argjson required "$required_checks_json" '
+                . as $ctx
+                | [ $required[]
+                    | . as $req
+                    | ($ctx | map(select(
+                          ((.name // .context // "") == $req.name)
+                          and ($req.workflow == "" or ((.checkSuite.workflowRun.workflow.name // "") == $req.workflow))
+                          and (if $req.workflow == "" then (.isRequired == true) else true end)
+                          and (if (.status != null)
+                               then (.status != "COMPLETED")
+                               else ((.state // "") as $sc_state | ["PENDING","EXPECTED"] | index($sc_state))
+                               end)
+                      )) | length)
+                  ]
+                | add // 0')
+              if [ "$pending_required" -gt 0 ]; then
+                rollup_complete=0
+                break
+              fi
             done
+            # #1024 (b): a short-circuited probe holds only a PREFIX of
+            # the rollup, so nothing below may draw a conclusion from it.
+            # The verdict is already settled ("not ready", per the
+            # soundness argument above), so skip this probe's remaining
+            # evaluation and emit the durable readiness result. Zeroing the
+            # check-loop bound (rather than
+            # re-indenting ~200 lines of evaluation into an else-branch)
+            # keeps the diff on a propagated required-gate workflow small
+            # enough to review line by line. Skipping matters: on a partial
+            # rollup a stale FAILED entry whose superseding success sits on
+            # an unfetched page would lose winner-selection and wrongly
+            # refuse auto-merge. Nothing is lost by deferring -- a red
+            # sibling check cannot change a verdict that is already "wait",
+            # and it is still caught by the later completed-workflow event
+            # whose probe completes pagination.
+            if [ "$rollup_complete" -ne 1 ]; then
+              echo "::notice::A required check is still pending on the first $(echo "$rollup_contexts" | jq 'length') statusCheckRollup context(s) for HEAD $sha; skipping the remaining pages in this readiness probe (#1024)."
+              all_done=0
+              check_count=0
+            fi
             # workflowPath (#655 round 13, "disambiguate annex workflows
             # beyond display name", found on the codex-review-check.sh copy
             # and mirrored here): derived from the workflow FILE's
@@ -1943,14 +1898,14 @@ jobs:
                   ]')
               winner_count=$(echo "$winners" | jq 'length')
               if [ "$winner_count" -eq 0 ]; then
-                echo "::notice::Required check run '$check_name' is absent on current HEAD $sha; waiting for it to start."
+                echo "::notice::Required check run '$check_name' is absent on current HEAD $sha; not ready."
                 all_done=0
                 continue
               fi
               pending_count=$(echo "$winners" | jq '[.[] | select(if (.status != null) then (.status != "COMPLETED") else ((.state // "") as $ann_state | ["PENDING","EXPECTED"] | index($ann_state)) end)] | length')
               if [ "$pending_count" -gt 0 ]; then
                 pending_status=$(echo "$winners" | jq -r '[.[] | select(if (.status != null) then (.status != "COMPLETED") else ((.state // "") as $ann_state | ["PENDING","EXPECTED"] | index($ann_state)) end)][0].status // .state // ""')
-                echo "::notice::Required check run '$check_name' is $pending_status on current HEAD $sha; waiting for completion."
+                echo "::notice::Required check run '$check_name' is $pending_status on current HEAD $sha; not ready."
                 all_done=0
                 continue
               fi
@@ -1972,7 +1927,13 @@ jobs:
               echo "Required check run '$check_name' is $conclusion_summary on current HEAD $sha."
             done
 
-            if [ -n "$annex_workflow" ]; then
+            # #1024 (b): `rollup_complete` guards the annex scan for the
+            # same reason the required-check evaluation is skipped above -- its
+            # group-by-name winner selection over a PREFIX of the rollup
+            # could pick a stale FAILURE whose green rerun sits on an
+            # unfetched page and exit 1 on it. The scan runs unchanged on
+            # a probe whose pagination completed.
+            if [ -n "$annex_workflow" ] && [ "$rollup_complete" -eq 1 ]; then
               # #655 Codex round 6 (P1 "wait for annex checks before
               # clearing the label", P1 "observe matrix annex jobs before
               # auto-merge", P2 "avoid forcing path-filtered annex jobs to
@@ -1982,9 +1943,9 @@ jobs:
               # ANNEX_WORKFLOW_BAD scan. A still-in-progress entry is
               # deliberately treated as pending (not bad) here -- unlike
               # gate (a) (a repeatedly re-evaluated snapshot, where
-              # in-progress correctly counts as "not yet clean"), this loop
-              # can just keep polling for it, bounded by the same shared
-              # deadline as every other required check. Zero reported
+              # in-progress correctly counts as "not yet clean"), this probe
+              # reports not-ready and lets the completion event re-enter.
+              # Zero reported
               # entries for this workflow is non-blocking: forcing a wait
               # for one that may legitimately never exist (a path-filtered
               # annex outside this PR's diff) would time out and refuse
@@ -2013,17 +1974,16 @@ jobs:
                 # means Actions has not scheduled it yet, not that it never
                 # will (unlike a path-filtered annex, where zero entries is
                 # genuinely ambiguous between "not yet" and "never for this
-                # diff"). Keep polling instead of treating this the same as
-                # the path-filtered case; bounded by the same shared
-                # deadline as every other required check, so this cannot
-                # deadlock forever if something is actually wrong.
-                echo "::notice::repo_lint_local.yml annex workflow '$annex_workflow' has not reported yet (unfiltered trigger, so it is expected to); waiting for it to start on current HEAD $sha (#655)."
+                # diff"). Report not-ready instead of treating this the same
+                # as the path-filtered case; the annex completion event will
+                # re-enter the trusted continuation.
+                echo "::notice::repo_lint_local.yml annex workflow '$annex_workflow' has not reported yet (unfiltered trigger, so it is expected to); current HEAD $sha is not ready (#655)."
                 all_done=0
               else
                 annex_pending=$(echo "$annex_matches" | jq -c '[.[] | select(if (.status != null) then (.status != "COMPLETED") else ((.state // "") as $ann_state | ["PENDING","EXPECTED"] | index($ann_state)) end)]')
                 annex_pending_count=$(echo "$annex_pending" | jq 'length')
                 if [ "$annex_pending_count" -gt 0 ]; then
-                  echo "::notice::repo_lint_local.yml annex workflow '$annex_workflow' has $annex_pending_count check-run(s) still in progress on current HEAD $sha; waiting for completion (#655)."
+                  echo "::notice::repo_lint_local.yml annex workflow '$annex_workflow' has $annex_pending_count check-run(s) still in progress on current HEAD $sha; not ready (#655)."
                   all_done=0
                 else
                   # #655 Codex P2 round 13 ("ignore stale annex runs after a
@@ -2057,112 +2017,36 @@ jobs:
             fi
             if [ "$all_done" -eq 1 ]; then
               echo "CURRENT_HEAD_SHA=$sha" >> "$GITHUB_ENV"
+              echo "ready=true" >> "$GITHUB_OUTPUT"
               echo "All required check run(s) are successful on current HEAD $sha."
               exit 0
             fi
-            if [ "$SECONDS" -ge "$deadline" ]; then
-              echo "::error::Required check run(s) did not all complete successfully within ${wait_seconds}s on current HEAD $sha; refusing auto-merge."
-              exit 1
-            fi
-            sleep "$poll_seconds"
-          done
-          echo "::error::Required check run wait loop ended unexpectedly; refusing auto-merge."
-          exit 1
-
-      - name: Re-verify blocking labels after test wait
-        if: steps.author_merge_token.outputs.enabled == 'true'
-        env:
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-          GH_TOKEN: ${{ secrets.AUTHOR_MERGE_TOKEN }}
-          REPO: ${{ github.repository }}
-          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-        run: |
-          LABELS=$(gh pr view "$PR_NUMBER" --repo "${{ github.repository }}" --json labels --jq '.labels[].name')
-          printf 'Labels after test wait:\n%s\n' "$LABELS"
-          for blocking_label in needs-external-review needs-human-review policy-violation human-hold; do
-            if printf '%s\n' "$LABELS" | grep -Fxq "$blocking_label"; then
-              echo "::error::Blocking label present after test wait: $blocking_label. Aborting auto-merge."
-              exit 1
-            fi
-          done
-          # #620 (automated 4b P1, rounds 1+2): if this run downgraded a
-          # CodeRabbit rate-limit stall (rc=5), re-validate the downgrade's
-          # premise at the last verify point. The rc=5-time derivation ran
-          # minutes earlier; state can change during the waits (a push, a
-          # propagation-lane verification landing), and merge-clearance
-          # passing vacuously for the head being merged would mean neither
-          # bot reviewed it.
-          #
-          # Two fail-closed checks, scoped to downgraded runs only:
-          # 1. Head drift: the downgrade anchored the event head, and the
-          #    merge pins CURRENT_HEAD_SHA (the live head the required-check
-          #    wait exported) via --match-head-commit — if they differ, the
-          #    CodeRabbit disposition is stale for the merge head. Abort.
-          # 2. Re-run merge-clearance-gate.sh --derive-rate-limit-protection
-          #    against the (now-pinned) live head and require `true`: the
-          #    same enforced-gate-or-already-satisfied external-review
-          #    protection predicate used at rc=5 time (#772 — an ENFORCED
-          #    required check on the base branch, not merely one enabled in
-          #    config). Any error or non-true output aborts.
-          if [ "${CR_RATE_LIMIT_DOWNGRADED:-false}" = "true" ]; then
-            if [ -z "${CURRENT_HEAD_SHA:-}" ] || [ "$CURRENT_HEAD_SHA" != "$HEAD_SHA" ]; then
-              echo "::error::Head drifted after the rc=5 rate-limit downgrade (event=$HEAD_SHA live=${CURRENT_HEAD_SHA:-unset}) — the CodeRabbit disposition is stale for the merge head. Aborting auto-merge."
-              exit 1
-            fi
-            re_protected=false
-            if req=$(bash scripts/merge-clearance-gate.sh --derive-rate-limit-protection "$PR_NUMBER" "$REPO"); then
-              case "$req" in
-                true) re_protected=true ;;
-              esac
-            fi
-            # #727 (Codex P2 on #729): the rc=5 downgrade can be granted via the
-            # post-clearance signal (CODEX_CLEARED folded into ext_protected),
-            # but --derive-rate-limit-protection returns false for an
-            # under-threshold PR even when Codex cleared HEAD — so re-deriving
-            # only that predicate here would abort a VALID under-threshold
-            # post-clearance downgrade at the last step. Re-evaluate the SAME
-            # post-clearance predicate on the (now head-pinned) live head:
-            # codex-review-check.sh gate (b)+(c), SKIP_CI + REQUIRE_APPROVAL_ON_HEAD,
-            # and ALLOW_PHASE_4B_SUBSTITUTE=false (require an actual Codex bot
-            # signal, not the arming approval — same as the fast-path probe,
-            # Codex P2 on #729). Re-run (not a persisted flag) so state that
-            # changed during the waits is caught, matching this block's
-            # fail-closed intent. Either predicate holding upholds the downgrade.
-            if [ "$re_protected" != "true" ]; then
-              set +e
-              CODEX_REVIEW_CHECK_SKIP_CI=1 CODEX_REVIEW_CHECK_REQUIRE_APPROVAL_ON_HEAD=1 \
-                CODEX_REVIEW_CHECK_ALLOW_PHASE_4B_SUBSTITUTE=false \
-                bash scripts/codex-review-check.sh "$PR_NUMBER" "$REPO" >&2
-              crc=$?
-              set -e
-              if [ "$crc" = "0" ]; then
-                re_protected=true
-                echo "::notice::rc=5 re-verify: post-clearance predicate still holds on $CURRENT_HEAD_SHA (verified Codex/Phase-4b clearance + reviewer APPROVED) — downgrade upheld (#727)."
-              elif [ "$crc" != "1" ]; then
-                echo "::warning::codex-review-check.sh returned rc=$crc re-deriving the post-clearance predicate at final re-verify; treating as not-protected (fail closed)."
-              fi
-            fi
-            if [ "$re_protected" != "true" ]; then
-              echo "::error::external-review protection is no longer true (or underivable) for $CURRENT_HEAD_SHA after an rc=5 rate-limit downgrade — this head has neither an active external gate nor already-satisfied Codex/Phase-4b clearance. Aborting auto-merge."
-              exit 1
-            fi
-          fi
-          echo "No blocking labels present after test wait — proceeding to merge."
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Required current-head checks are still pending. Approval readiness is recorded; the completed-workflow continuation will re-evaluate without holding this runner."
+            exit 0
 
       - name: Enable auto-merge
-        if: steps.author_merge_token.outputs.enabled == 'true'
+        if: steps.author_merge_token.outputs.enabled == 'true' && steps.check_readiness.outputs.ready == 'true'
         run: |
-          # Do NOT fall back to an unconditional "gh pr merge --squash" when
-          # --auto is unavailable (#465): an immediate merge bypasses the
-          # status-check and label guards re-verified above. A sibling job
-          # could apply a blocking label between that re-verify and this step,
-          # and the unconditional fallback would merge it anyway. Fail closed:
-          # if auto-merge cannot be enabled, surface the error and let a human
-          # or a re-run handle it.
-          if ! gh pr merge --squash --auto --match-head-commit "$CURRENT_HEAD_SHA" "$PR_URL"; then
-            echo "::error::Could not enable auto-merge for $PR_URL; refusing to merge unconditionally (#465)."
-            exit 1
+          # Route the immediate-green case through the same trusted final
+          # safety path used by later workflow completions and the sweep. It
+          # revalidates the live head, approval, checks, blocking labels,
+          # feedback accounting, and unresolved conversations before arming
+          # native auto-merge with --match-head-commit.
+          if [ ! -f scripts/workflow/approval-merge-continuation.sh ]; then
+            echo "::notice::Approval continuation helper is not on the trusted default branch yet; skipping this first-rollout approval event."
+            exit 0
           fi
+          set +e
+          bash scripts/workflow/approval-merge-continuation.sh "$PR_NUMBER" "$REPO"
+          rc=$?
+          set -e
+          case "$rc" in
+            0) ;;
+            4) echo "::notice::PR #$PR_NUMBER is no longer merge-ready; a later completion event or sweep will re-evaluate it." ;;
+            *) echo "::error::Approval continuation hit infrastructure/config error rc=$rc on PR #$PR_NUMBER."; exit "$rc" ;;
+          esac
         env:
-          PR_URL: ${{ github.event.pull_request.html_url }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
           GH_TOKEN: ${{ secrets.AUTHOR_MERGE_TOKEN }}
