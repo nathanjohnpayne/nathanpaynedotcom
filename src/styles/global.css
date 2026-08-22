@@ -4559,15 +4559,20 @@ body.resume-page {
   border-bottom-color: var(--resume-link);
 }
 
-/* ── Download PDF affordance (#616) ── sits under the contact block in the
-   header. Screen-only: the @media print block hides .resume-actions, since a
-   download button on paper is noise. Styled as a bordered plane rather than a
-   third contact line so it reads as an action, not another address. */
+/* ── Header action row (#616, #703) ── sits under the contact block in the
+   header: Download PDF, Get in touch, Book a time. Screen-only: the
+   @media print block hides .resume-actions, so none of the three reaches the
+   generated PDF, where an action button is noise. Styled as bordered planes
+   rather than a third contact line so they read as actions, not addresses.
+   The row wraps rather than overflowing once the canvas stacks (≤ 1023px). */
 .resume-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
   margin-top: 1rem;
 }
 
-.resume-download {
+.resume-action {
   display: inline-flex;
   align-items: center;
   padding: 0.42rem 0.85rem;
@@ -4582,10 +4587,51 @@ body.resume-page {
     background-color var(--motion-hover) var(--ease-standard);
 }
 
-.resume-download:hover,
-.resume-download:focus-visible {
+.resume-action:hover,
+.resume-action:focus-visible {
   border-color: var(--resume-link);
   background: var(--cream);
+}
+
+/* ── End-of-page availability CTA (#702) ── the closing counterpart to the
+   header row, mirroring .blog-cta at the end of a post. Parallel namespace,
+   not a shared selector: specs/resume.md § Styling keeps the resume off the
+   blog's classes so a blog-layout change cannot move it. Red left edge picks
+   up the page accent. Screen-only — see the @media print hide list. */
+.resume-cta {
+  margin-top: var(--line);
+  padding: clamp(0.75rem, 1.8vw, 1.1rem) clamp(0.9rem, 2vw, 1.35rem);
+  background: var(--paper);
+  border: 1px solid var(--rule);
+  border-left: var(--line) solid var(--red);
+}
+
+.resume-cta__line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.25rem 0.5rem;
+  font-family: var(--font-body);
+  font-size: clamp(0.82rem, 0.92vw, 0.95rem);
+  line-height: 1.5;
+}
+
+.resume-cta__link {
+  color: var(--ink);
+  text-decoration: none;
+  border-bottom: 1px solid var(--ink-32);
+  transition:
+    border-color var(--motion-hover) var(--ease-standard),
+    color var(--motion-hover) var(--ease-standard);
+}
+
+.resume-cta__link:hover,
+.resume-cta__link:focus-visible {
+  border-bottom-color: var(--red);
+}
+
+.resume-cta__sep {
+  color: var(--ink-32);
 }
 
 /* Decorative icon before each contact link/location (inherits currentColor:
@@ -5117,6 +5163,7 @@ body.resume-page {
   .site-footer--resume,
   .resume-canvas-header .breadcrumbs,
   .resume-actions,
+  .resume-cta,
   .company-logo {
     display: none !important;
   }

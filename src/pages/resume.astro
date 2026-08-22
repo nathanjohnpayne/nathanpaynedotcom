@@ -49,6 +49,17 @@ const profileLinks = [
   { display: `github.com/${m.github}`, href: `https://github.com/${m.github}`, icon: 'github' },
 ] as const;
 
+// Contact-action targets, shared by the header action row (#703) and the
+// end-of-page availability CTA (#702) so the two can never drift apart.
+// Both are plain hrefs in the static HTML, deliberately unlike the
+// base64-assembled mailto on the homepage and in blog posts: the header
+// contact block above already ships the address as visible text, because a CV
+// contact block has to print, so obfuscating a button on the same page would
+// buy nothing and would cost the JS-disabled case. Booking carries no address
+// to harvest and is spam-hardened on the Cal.com side (see the audit on #620).
+const contactMailto = `mailto:${m.email}?subject=${encodeURIComponent('From nathanpayne.com/resume')}`;
+const bookingUrl = 'https://cal.com/nathanpayne';
+
 // Sidebar "In this resume" ToC. The page is component-composed (no single
 // markdown body), so there are no render() headings to derive from — the ToC
 // is built from the static section list. The dormant awards scaffold is added
@@ -179,14 +190,33 @@ const jsonLd = {
             </>
           ))}
         </p>
-        {/* Download affordance (#616). Points at the letter-size PDF that
-            src/integrations/resume-pdf.mjs renders from this page's own
-            @media print cascade at build time, so the file cannot drift from
-            what's on screen. Screen-only — hidden in @media print, where a
-            "download" button is meaningless on paper. */}
+        {/* Header actions (#616, #703). Download PDF points at the letter-size
+            PDF that src/integrations/resume-pdf.mjs renders from this page's
+            own @media print cascade at build time, so the file cannot drift
+            from what's on screen; the two sibling actions reuse the shared
+            targets declared above. The whole container is screen-only:
+            @media print hides .resume-actions, so none of the three reaches
+            the generated PDF, where an action button is meaningless on
+            paper. */}
         <p class="resume-actions">
-          <a class="resume-download" href={RESUME_PDF_PATH} download data-resume-download>
+          <a class="resume-action resume-download" href={RESUME_PDF_PATH} download data-resume-action="download">
             <ContactIcon name="download" />Download PDF
+          </a>
+          <a
+            class="resume-action"
+            href={contactMailto}
+            data-resume-action="email"
+          >
+            <ContactIcon name="mail" />Get in touch
+          </a>
+          <a
+            class="resume-action"
+            href={bookingUrl}
+            target="_blank"
+            rel="noopener"
+            data-resume-action="schedule"
+          >
+            <ContactIcon name="calendar" />Book a time
           </a>
         </p>
       </header>
@@ -217,6 +247,33 @@ const jsonLd = {
         <CertificationsSection entries={certifications} />
         <ProjectsSection entries={resumeProjects} />
         <WritingSection />
+
+        {/* Availability CTA (#702). Mirrors the end-of-post block in
+            src/layouts/BlogPost.astro, minus its Résumé link — the reader is
+            already on the résumé. Kept on the parallel .resume-cta namespace
+            rather than reusing .blog-cta, per specs/resume.md § Styling: the
+            resume must not move when the blog layout does. Screen-only —
+            @media print hides it, so it stays out of the generated PDF. */}
+        <aside class="resume-cta" aria-label="Availability">
+          <p class="resume-cta__line">
+            <span class="resume-cta__lede">Open to senior product/platform roles.</span>
+            <a
+              class="resume-cta__link"
+              href={contactMailto}
+              data-resume-cta="email"
+              >Get in touch<span class="link-arrow" aria-hidden="true">→</span></a
+            >
+            <span class="resume-cta__sep" aria-hidden="true">·</span>
+            <a
+              class="resume-cta__link"
+              href={bookingUrl}
+              target="_blank"
+              rel="noopener"
+              data-resume-cta="schedule"
+              >Book a time<span class="link-arrow" aria-hidden="true">→</span></a
+            >
+          </p>
+        </aside>
       </div>
 
       {/* Right sidebar — in-page ToC + highlight cards (screen-only) */}
@@ -257,8 +314,27 @@ const jsonLd = {
 
   <script is:inline>
     window.posthog?.capture('resume_viewed');
-    document.querySelector('[data-resume-download]')?.addEventListener('click', () => {
-      window.posthog?.capture('resume_pdf_downloaded');
+    // Header actions (#616, #703). The PDF download keeps its own dedicated
+    // event name — it predates the row and existing PostHog insights key off
+    // it — while email/booking share a `resume_action_clicked` capture
+    // discriminated by `action`.
+    document.querySelectorAll('[data-resume-action]').forEach(function (link) {
+      link.addEventListener('click', function () {
+        const action = link.dataset.resumeAction;
+        if (action === 'download') {
+          window.posthog?.capture('resume_pdf_downloaded');
+          return;
+        }
+        window.posthog?.capture('resume_action_clicked', { action: action });
+      });
+    });
+    // End-of-page availability CTA (#702). A separate event from the header
+    // row: reaching the bottom of the résumé is a different signal from
+    // acting on the letterhead.
+    document.querySelectorAll('[data-resume-cta]').forEach(function (link) {
+      link.addEventListener('click', function () {
+        window.posthog?.capture('resume_cta_clicked', { cta: link.dataset.resumeCta });
+      });
     });
   </script>
 </BaseLayout>

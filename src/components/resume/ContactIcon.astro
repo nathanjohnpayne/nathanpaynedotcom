@@ -3,12 +3,18 @@
  * ContactIcon.astro — small inline icon for the /resume header contact links.
  * Decorative (aria-hidden; the link text is the accessible name). Inherits
  * `currentColor` so it matches its link/text color. Brand glyphs are reused
- * from the homepage Connect rows (src/pages/index.astro); mail/globe/map-pin
- * are Lucide (https://lucide.dev, ISC) inlined here (no icon-library dep).
- * See #409.
+ * from the homepage Connect rows (src/pages/index.astro); mail/globe/map-pin/
+ * download/calendar are Lucide (https://lucide.dev, ISC) inlined here (no
+ * icon-library dep).
+ *
+ * Lucide glyphs are transcribed verbatim from the upstream source so a drift
+ * check is a byte comparison, not a geometry argument (#704):
+ *   curl -s https://raw.githubusercontent.com/lucide-icons/lucide/main/icons/<name>.svg
+ *
+ * See #409, #703, #704.
  */
 interface Props {
-  name: 'mappin' | 'mail' | 'globe' | 'linkedin' | 'github' | 'blog' | 'download';
+  name: 'mappin' | 'mail' | 'globe' | 'linkedin' | 'github' | 'blog' | 'download' | 'calendar';
 }
 const { name } = Astro.props;
 ---
@@ -44,9 +50,17 @@ const { name } = Astro.props;
 )}
 {name === 'download' && (
   <svg class="contact-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-    <path d="M7 10l5 5 5-5"></path>
     <path d="M12 15V3"></path>
+    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+    <path d="m7 10 5 5 5-5"></path>
+  </svg>
+)}
+{name === 'calendar' && (
+  <svg class="contact-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+    <path d="M8 2v3"></path>
+    <path d="M16 2v3"></path>
+    <rect x="3" y="3" width="18" height="18" rx="2"></rect>
+    <path d="M3 9h18"></path>
   </svg>
 )}
 {name === 'blog' && (
