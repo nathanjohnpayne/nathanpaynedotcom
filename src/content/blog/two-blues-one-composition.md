@@ -31,6 +31,8 @@ pullquotes:
     accent: red
 sidebar:
   - type: mermaid
+    title: "Two palette registers across one site"
+    description: "Nathanpayne.com branches into a high-chroma 1930 register for the homepage and a softer 1921 register for interior pages, with distinct red, yellow, and blue values in each."
     content: |
       graph TD
           SITE["nathanpayne.com"] --> HOME["Homepage<br/>1930 register"]
@@ -107,7 +109,7 @@ The 1921 results vindicated my poster. Museum blue `#0383E3` against the poster'
 
 The 1930 results dismantled the model's own numbers. The actual red is `#DE2822`—visibly orange-leaning, with a real green channel, nothing like the pure `#DD0100` it had cited. Which means my brick `#C11D19`, the one that "matched neither era," was hue-correct for 1930 all along and merely dark. The blue sampled `#025D9E`, distinctly more cyan than the violet-leaning `#0A4A9F`. And the canvas yellow read `#EEDB6E`—soft, aged cadmium, nowhere near the `#F8D000` of pop-culture Mondrian, because a century of paint chemistry has opinions that posters do not.
 
-```mermaid
+```mermaid title="Cited colors compared with museum scan values" description="Each color recalled by the model—red, blue, and yellow—is paired with the corresponding sampled value from a museum scan, revealing material differences between citation and canvas."
 graph LR
     MR["Cited red<br/>#DD0100"] -.->|"museum scan"| CR["Canvas red<br/>#DE2822"]
     MB["Cited blue<br/>#0A4A9F"] -.->|"museum scan"| CB["Canvas blue<br/>#025D9E"]
@@ -134,7 +136,7 @@ Both tickets are live, and the post-ship audit of the production CSS came back g
 
 There are still two blues on the site. One per room.
 
-```mermaid
+```mermaid title="Two palette registers across one site" description="Nathanpayne.com branches into a high-chroma 1930 register for the homepage and a softer 1921 register for interior pages, with distinct red, yellow, and blue values in each."
 graph TD
     SITE["nathanpayne.com"] --> HOME["Homepage<br/>1930 register"]
     SITE --> INT["Interior pages<br/>1921 register"]

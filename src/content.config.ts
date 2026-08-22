@@ -89,11 +89,25 @@ const blog = defineCollection({
       .default([]),
     sidebar: z
       .array(
-        z.object({
-          type: z.enum(['mermaid', 'image', 'text']),
-          content: z.string(),
-          caption: z.string().optional(),
-        }),
+        z.discriminatedUnion('type', [
+          z.object({
+            type: z.literal('mermaid'),
+            content: z.string(),
+            title: z.string().trim().min(1),
+            description: z.string().trim().min(1),
+            caption: z.string().optional(),
+          }),
+          z.object({
+            type: z.literal('image'),
+            content: z.string(),
+            caption: z.string().optional(),
+          }),
+          z.object({
+            type: z.literal('text'),
+            content: z.string(),
+            caption: z.string().optional(),
+          }),
+        ]),
       )
       .optional()
       .default([]),

@@ -25,6 +25,8 @@ pullquotes:
     accent: yellow
 sidebar:
   - type: mermaid
+    title: "Correlated review versus a fresh spec-derived pass"
+    description: "The authoring-session path turns 134 findings into 122 dispositions yet still ships defect 809; a separate path derived from CommonMark finds that defect in 94 seconds."
     content: |
       graph TD
           A["Authoring session"] --> B["134 finding threads<br/>(116 severity-badged)"]
@@ -117,7 +119,7 @@ My diagnosis, written into [the batch retrospective](https://github.com/nathanjo
 
 > Same-session verification converged on the implementation's assumptions: the verifier agents were briefed from the authoring agent's finding list using its taxonomy, so they searched the space that session had already mapped. Every round asked the same question.
 
-```mermaid
+```mermaid title="Correlated review versus a fresh spec-derived pass" description="The authoring-session path turns 134 findings into 122 dispositions yet still ships defect 809; a separate path derived from CommonMark finds that defect in 94 seconds."
 graph TD
     A["Authoring session"] --> B["134 finding threads<br/>(116 severity-badged)"]
     B --> C["Verifiers briefed<br/>from the finding list"]

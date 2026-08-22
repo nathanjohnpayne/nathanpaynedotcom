@@ -28,6 +28,8 @@ pullquotes:
     accent: red
 sidebar:
   - type: mermaid
+    title: "Six local fixes followed by one structural fix"
+    description: "Six pull requests preserve and refine the markdown bridge without resolving the bug; reframing the work as a failed-fix investigation leads to pull request 161, which removes the bridge."
     content: |
       graph TD
           PR144["#144: Preserved<br/>markdown bridge"] --> PR146["#146: Improved<br/>regex"]
@@ -66,7 +68,7 @@ Editor = Preview = Sent email
 
 **The rendering pipeline after the TipTap migration:**
 
-```mermaid
+```mermaid title="Three rendering paths from one document" description="The ProseMirror document renders directly to the editor DOM but passes through a plain-text token bridge before splitting into separate CommonMark and regex renderers, producing preview and sent-email HTML that can diverge."
 graph LR
     A["TipTap / ProseMirror<br/>Document"] --> B["Editor DOM"]
     A --> C["docToPlainTextWithTokens()"]
@@ -148,7 +150,7 @@ It did not.
 
 **The six failed PRs and the one that worked:**
 
-```mermaid
+```mermaid title="Six local fixes followed by one structural fix" description="Six pull requests preserve and refine the markdown bridge without resolving the bug; reframing the work as a failed-fix investigation leads to pull request 161, which removes the bridge."
 graph TD
     PR144["#144: Preserved markdown bridge"] --> PR146["#146: Improved regex"]
     PR146 --> PR153["#153: CSS patch + mark serialization"]
@@ -275,7 +277,7 @@ Why does this serializer exist at all?
 
 **The closed feedback loop:**
 
-```mermaid
+```mermaid title="Symptom-patching feedback loop" description="The agent patches the nearest code path, then code review, a stop hook, and the user each report the same structural failure and send the agent back to patching without changing the underlying assumption."
 graph TD
     BUG["Bug reported"] --> AGENT["Agent receives symptom"]
     AGENT --> PATCH["Patches nearest code path"]
@@ -364,7 +366,7 @@ The Cloud Function was updated to send trusted app-generated HTML when provided,
 
 **The architecture after the fix:**
 
-```mermaid
+```mermaid title="One canonical renderer for preview and email" description="The ProseMirror document still renders the editor DOM directly, while one canonical template renderer now produces both preview HTML and sent-email HTML from the same source."
 graph LR
     A["TipTap / ProseMirror<br/>Document"] --> B["Editor DOM"]
     A --> C["Canonical Template<br/>Renderer"]
@@ -384,7 +386,7 @@ One source document, one semantic rendering path, multiple consumers.
 
 **Symptom-driven vs. invariant-driven supervision:**
 
-```mermaid
+```mermaid title="Symptom framing versus invariant framing" description="Symptom framing loops from the nearest code path through another patch and the same recurring symptom; invariant framing audits prior assumptions, identifies the shared error, and removes the wrong abstraction."
 graph TD
     S1["'This looks wrong'"] --> S2["Find nearest code path"]
     S2 --> S3["Patch it"]

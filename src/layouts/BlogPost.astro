@@ -43,7 +43,10 @@ interface Props {
   headings: { depth: number; slug: string; text: string }[];
   keyTakeaways?: string[];
   pullquotes: { text: string; label?: string; accent: string }[];
-  sidebar: { type: string; content: string; caption?: string }[];
+  sidebar: (
+    | { type: 'mermaid'; content: string; title: string; description: string; caption?: string }
+    | { type: 'image' | 'text'; content: string; caption?: string }
+  )[];
   /** Older neighbour by date; null on the oldest post (no wrap). */
   prevPost?: PostLink | null;
   /** Newer neighbour by date; null on the newest post (no wrap). */
@@ -356,10 +359,24 @@ const jsonLd = {
             ))}
 
             {/* Sidebar items — mermaid diagrams, images from frontmatter */}
-            {sidebar.map((item) => (
+            {sidebar.map((item, index) => (
               <div class="blog-sidebar-item">
                 {item.type === 'mermaid' && (
-                  <pre class="mermaid" set:html={escapeHtml(item.content)} />
+                  <figure
+                    class="mermaid-figure"
+                    role="img"
+                    aria-label={item.title}
+                    aria-describedby={`sidebar-mermaid-description-${index + 1}`}
+                  >
+                    <pre class="mermaid" aria-hidden="true" set:html={escapeHtml(item.content)} />
+                    <span
+                      id={`sidebar-mermaid-description-${index + 1}`}
+                      class="mermaid-figure__description"
+                      aria-hidden="true"
+                    >
+                      {item.description}
+                    </span>
+                  </figure>
                 )}
                 {item.type === 'image' && (
                   <img src={item.content} alt={item.caption || 'Sidebar illustration'} loading="lazy" />

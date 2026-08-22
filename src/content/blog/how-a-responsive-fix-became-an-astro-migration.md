@@ -31,6 +31,8 @@ pullquotes:
     accent: red
 sidebar:
   - type: mermaid
+    title: "From mobile overflow fix to Astro migration"
+    description: "A mobile-overflow issue leads through two same-day pull requests and phased page ports to an Astro site with type-safe frontmatter, generated Open Graph images, RSS, and a sitemap."
     content: |
       graph TD
           A["Hand-rolled HTML<br/>4 pages, 1 stylesheet"] --> B["Issue #28<br/>Mobile overflow"]
