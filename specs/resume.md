@@ -51,12 +51,21 @@ The `resumeProjects` collection must remain separate from the existing
     Resume`), the name (`<h1>`), the title, and the **contact line**
     (location · email · website · LinkedIn · GitHub, composed from the
     `myself` handles, each prefixed by a small decorative icon —
-    `ContactIcon.astro`, brand glyphs + Lucide mail/globe/map-pin). **No
-    Bluesky** on the resume (it remains on the homepage). The contact stays in
-    the header so it prints. Below the contact block sits the **Download PDF**
-    affordance (`.resume-actions` / `.resume-download`, screen-only — hidden
-    in `@media print`), linking the build-generated PDF (see *Downloadable
-    PDF* below).
+    `ContactIcon.astro`, brand glyphs + Lucide mail/globe/map-pin/download/
+    calendar). **No Bluesky** on the resume (it remains on the homepage). The
+    contact stays in the header so it prints. Below the contact block sits the
+    **action row** (`.resume-actions`, screen-only — hidden in `@media print`,
+    which is also what the PDF is rendered from, so none of it reaches the
+    file). Three `.resume-action` affordances, in order: **Download PDF**
+    (`.resume-download`, the build-generated PDF — see *Downloadable PDF*
+    below), **Get in touch** (`mailto:`), and **Book a time**
+    (`https://cal.com/nathanpayne`, `target="_blank" rel="noopener"`) — #703.
+    Both new links are plain hrefs in the static HTML, deliberately unlike the
+    base64-assembled mailto on the homepage and in blog posts: the contact
+    line above already ships the address as visible text (a CV contact block
+    has to print), so obfuscating a button on the same page would buy nothing
+    and would cost the JS-disabled case. Booking carries no address to harvest
+    and is spam-hardened on the Cal.com side (#620).
   - The header `title` is a **single role title** — "Senior Platform Product
     Manager" — matching the `jobTitle` in the page's `Person` JSON-LD. The
     domain facets it used to carry (partner ecosystems, streaming
@@ -64,7 +73,9 @@ The `resumeProjects` collection must remain separate from the existing
     already names all three. See #617.
   - **Metadata panel** (`.resume-canvas-meta`, top-right, screen-only) — a
     `<dl>`: Location, Availability, Focus, and a few Topic pills.
-  - **Content column** (`.resume-canvas-content`) — the section components.
+  - **Content column** (`.resume-canvas-content`) — the section components,
+    closed by the **availability CTA** (`.resume-cta`, screen-only) described
+    below.
   - **Sidebar** (`.resume-canvas-sidebar`, sticky, screen-only) — an
     "In this resume" in-page ToC (`.resume-canvas-toc-list`) + several
     (≈5) `.resume-highlight` metric cards, accents cycling red/yellow/blue.
@@ -77,6 +88,15 @@ The `resumeProjects` collection must remain separate from the existing
   from `astro:content`.
 - **Writing** is a compact inline section (no collection) linking the blog
   and a few selected essays.
+- The content column closes with the **availability CTA** (`.resume-cta`,
+  #702): a lede ("Open to senior product/platform roles.") followed by two
+  `·`-separated arrow links — **Get in touch** and **Book a time**. It mirrors
+  the end-of-post block in `src/layouts/BlogPost.astro` (`.blog-cta`, #622)
+  **minus that block's Résumé link**, since the reader is already on the
+  résumé. It is a sibling of the sections, not a section: no `id`, no ToC
+  entry, and it is screen-only. The parallel `.resume-cta` namespace is
+  deliberate — see *Styling* below; the resume must not move when the blog
+  layout does.
 - **Projects** opens with the same compact lead pattern before its entries:
   a bold **Built with Agents** tag, a link to the project index
   (nathanpayne.com/projects → `/projects/`), and a one-line intro
@@ -157,7 +177,14 @@ recruiter-legible filename, for "attach your resume" forms and ATS pipelines
 - The on-page affordance is `.resume-download` inside `.resume-actions`, placed
   after the header contact block and hidden in `@media print`. Clicking it
   fires a `resume_pdf_downloaded` PostHog capture alongside the existing
-  `resume_viewed`.
+  `resume_viewed`; the two sibling actions fire `resume_action_clicked` with an
+  `action` of `email` or `schedule`, and the end-of-page CTA fires
+  `resume_cta_clicked` with a `cta` of `email` or `schedule`.
+
+The Lucide glyphs in `ContactIcon.astro` are transcribed verbatim from the
+upstream source (`lucide-icons/lucide@main/icons/<name>.svg`, ISC) so a drift
+check is a byte comparison rather than a geometry argument (#704). There is no
+icon-library dependency.
 
 ## Brand logos (Logo.dev)
 
@@ -216,8 +243,13 @@ recruiter-legible filename, for "attach your resume" forms and ATS pipelines
   `@media print` only**.
 - The canvas collapses to a single content block in print: the accent
   margin, the metadata panel, the sidebar (ToC + highlights), the
-  breadcrumbs, and the footer are **hidden**; the header (with the contact
-  line) and the content column print.
+  breadcrumbs, the header action row (`.resume-actions`), the closing
+  availability CTA (`.resume-cta`), and the footer are **hidden**; the header
+  (with the contact line) and the content column print. Because
+  `src/integrations/resume-pdf.mjs` renders under `emulateMedia({ media:
+  'print' })`, every one of those hides applies to the downloadable PDF too —
+  an action button is meaningless on paper, and the printed contact line
+  already carries the address.
 - The **Writing** section collapses to just its lead line in print (the blog
   CTA linking nathanpayne.com/blog); the blurb, the "Selected essays" label,
   and the essay list are hidden, since their links can't be followed on
@@ -293,6 +325,15 @@ paraphrased. In particular:
 8. The header renders a screen-only `.resume-download` link to
    `/Nathan-Payne-Resume.pdf`, that path resolves to a real letter-size PDF in
    `dist/`, and the file is absent from the sitemap.
+8b. `.resume-actions` holds exactly three `.resume-action` affordances —
+    Download PDF, Get in touch (`mailto:`), Book a time (`cal.com/nathanpayne`,
+    `target="_blank" rel="noopener"`) — each carrying a Lucide glyph, and the
+    `download` glyph matches upstream Lucide path data byte for byte.
+8c. `.resume-cta` closes the content column with exactly two links (Get in
+    touch, Book a time) and **no** self-link back to `/resume/`.
+8d. The emitted CSS hides both `.resume-actions` and `.resume-cta` inside
+    `@media print`, and neither "Book a time" nor "Get in touch" appears in the
+    text of the generated `Nathan-Payne-Resume.pdf`.
 8a. No link annotation in the generated PDF points at `127.0.0.1` or
     `localhost`, and every one carries an `http(s):` or `mailto:` scheme.
 9. The visible header title is a single role title equal to the JSON-LD

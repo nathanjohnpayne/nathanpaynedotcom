@@ -73,6 +73,9 @@ may be removed later without affecting the other.
 | `blog_post_nav_clicked` | Click on a `.blog-postnav__card` prev/next card | `direction`, `from_post_title`, `to_post_href` |
 | `rss_subscribe_clicked` | Click on the blog index `.rss-link` | — |
 | `resume_viewed` | The resume page loads | — |
+| `resume_pdf_downloaded` | Click on the `/resume` header `.resume-download` button | — |
+| `resume_action_clicked` | Click on the `/resume` header row's Get in touch or Book a time button | `action` |
+| `resume_cta_clicked` | Click on a `.resume-cta__link` in the end-of-page availability block | `cta` |
 
 ### Behavior
 
