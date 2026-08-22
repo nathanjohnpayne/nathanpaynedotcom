@@ -767,6 +767,13 @@ describe('content em-dash lint', () => {
     );
   });
 
+  it('accounts for nested sequence prefixes in explicit block-scalar indentation', () => {
+    const source = '- - |2\n    — leading\n';
+
+    expect(findSpacedEmDashViolations('/tmp/skills.yaml', source)).toHaveLength(1);
+    expect(closeUpSpacedEmDashesInText(source, '/tmp/skills.yaml')).toBe('- - |2\n    —leading\n');
+  });
+
   it('removes visible padding from a later more-indented block-scalar line', () => {
     const source = 'description: |2\n  first\n    — leading\n';
 
@@ -843,6 +850,32 @@ describe('content em-dash lint', () => {
     expect(closeUpSpacedEmDashesInText(source)).toBe(
       '<div data-example="white-space: normal">word\n—next</div>',
     );
+  });
+
+  it('does not treat an attribute name ending in style as inline CSS', () => {
+    const source = '<div class="pre" data-style="white-space: normal">word\n— next</div>';
+
+    expect(findSpacedEmDashViolations('/tmp/test.md', source)).toHaveLength(1);
+    expect(closeUpSpacedEmDashesInText(source)).toBe(
+      '<div class="pre" data-style="white-space: normal">word\n—next</div>',
+    );
+  });
+
+  it('honours implicit HTML end tags when tracking whitespace contexts', () => {
+    const source =
+      '<div style="white-space: pre"><p style="white-space: normal">a<p>word\n— next</div>';
+
+    expect(findSpacedEmDashViolations('/tmp/test.md', source)).toHaveLength(1);
+    expect(closeUpSpacedEmDashesInText(source)).toBe(
+      '<div style="white-space: pre"><p style="white-space: normal">a<p>word\n—next</div>',
+    );
+  });
+
+  it('carries a blockquote continuation prefix across inline Markdown nodes', () => {
+    const source = '> word—\n> <em>continuation</em>';
+
+    expect(findSpacedEmDashViolations('/tmp/test.md', source)).toHaveLength(1);
+    expect(closeUpSpacedEmDashesInText(source)).toBe('> word—<em>continuation</em>');
   });
 
   it('collapses a raw HTML newline when inline CSS declares normal whitespace', () => {

@@ -119,7 +119,7 @@ function frontmatterLength(source) {
 // ---------------------------------------------------------------------------
 
 function createProseStream(protectedRanges = []) {
-  return { text: '', spans: [], protectedRanges };
+  return { text: '', spans: [], protectedRanges, pendingSoftBreak: null };
 }
 
 function isProtectedOffset(stream, span) {
@@ -327,6 +327,12 @@ function emitText(node, body, stream) {
     // node in one block, so closing the gap cannot glue two blocks together.
     if (character === '\n') {
       pushCharacter(stream, ' ', span);
+      if (index === characters.length - 1) {
+        stream.pendingSoftBreak = {
+          spanIndex: stream.spans.length - 1,
+          sourceEnd: span[1],
+        };
+      }
       continue;
     }
 
@@ -388,7 +394,7 @@ function emitVisibleCharacter(raw, index, start, stream, preserveWhitespace) {
 
 function inlineWhiteSpaceMode(tag) {
   const styleAttribute = tag.match(
-    /\bstyle\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/i,
+    /(?:^|[\t\n\f\r ])style\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/i,
   );
   const style = styleAttribute?.[1] ?? styleAttribute?.[2] ?? styleAttribute?.[3];
   if (style === undefined) {
@@ -407,6 +413,71 @@ function inlineWhiteSpaceMode(tag) {
   const effective = (importantDeclarations.length > 0 ? importantDeclarations : declarations).at(-1);
 
   return effective?.[1] ?? null;
+}
+
+const P_CLOSING_START_TAGS = new Set([
+  'address',
+  'article',
+  'aside',
+  'blockquote',
+  'details',
+  'div',
+  'dl',
+  'fieldset',
+  'figcaption',
+  'figure',
+  'footer',
+  'form',
+  'h1',
+  'h2',
+  'h3',
+  'h4',
+  'h5',
+  'h6',
+  'header',
+  'hgroup',
+  'hr',
+  'main',
+  'menu',
+  'nav',
+  'ol',
+  'p',
+  'pre',
+  'search',
+  'section',
+  'table',
+  'ul',
+]);
+
+function implicitlyClosedContext(openingName, contextName) {
+  if (contextName === 'p' && P_CLOSING_START_TAGS.has(openingName)) {
+    return true;
+  }
+  if (openingName === 'li') {
+    return contextName === 'li';
+  }
+  if (openingName === 'dt' || openingName === 'dd') {
+    return contextName === 'dt' || contextName === 'dd';
+  }
+  if (openingName === 'rt' || openingName === 'rp') {
+    return contextName === 'rt' || contextName === 'rp';
+  }
+  if (openingName === 'option') {
+    return contextName === 'option';
+  }
+  if (openingName === 'optgroup') {
+    return contextName === 'option' || contextName === 'optgroup';
+  }
+  if (openingName === 'thead' || openingName === 'tbody' || openingName === 'tfoot') {
+    return contextName === 'thead' || contextName === 'tbody' || contextName === 'tfoot';
+  }
+  if (openingName === 'tr') {
+    return contextName === 'tr';
+  }
+  if (openingName === 'td' || openingName === 'th') {
+    return contextName === 'td' || contextName === 'th';
+  }
+  return false;
 }
 
 // A raw-HTML span is not uniformly opaque: the tags are markup, the body of a
@@ -453,6 +524,14 @@ function emitHtml(node, body, stream, inline) {
             whitespaceContexts.length = contextIndex;
           }
         } else {
+          const implicitContextIndex = whitespaceContexts.findLastIndex((context) =>
+            implicitlyClosedContext(name, context.name),
+          );
+          if (implicitContextIndex !== -1) {
+            preserveWhitespace = whitespaceContexts[implicitContextIndex].previous;
+            whitespaceContexts.length = implicitContextIndex;
+          }
+
           const whiteSpaceMode = inlineWhiteSpaceMode(tag);
           const nextPreserve = whiteSpaceMode
             ? !/^(?:normal|nowrap)$/i.test(whiteSpaceMode)
@@ -477,6 +556,21 @@ function emitHtml(node, body, stream, inline) {
   if (!inline) {
     pushBoundary(stream);
   }
+}
+
+function carryTrailingContinuationPrefix(node, body, stream) {
+  const pending = stream.pendingSoftBreak;
+  const nodeStart = node.position?.start?.offset;
+  if (!pending || !Number.isInteger(nodeStart) || nodeStart < pending.sourceEnd) {
+    return;
+  }
+
+  const gap = body.slice(pending.sourceEnd, nodeStart);
+  const prefixEnd = skipMarkdownContinuationPrefix(gap, 0);
+  if (prefixEnd === gap.length && prefixEnd > 0) {
+    stream.spans[pending.spanIndex][1] = nodeStart;
+  }
+  stream.pendingSoftBreak = null;
 }
 
 // The raw span of a title, found from the source syntax rather than by
@@ -555,6 +649,8 @@ const BLOCK_CONTAINERS = new Set([
 ]);
 
 function emitNode(node, body, stream, inline = false) {
+  carryTrailingContinuationPrefix(node, body, stream);
+
   if (OPAQUE_NODES.has(node.type)) {
     pushBoundary(stream);
     return;
@@ -764,14 +860,15 @@ function blockScalarOpenerOf(line) {
   // the first non-blank content line.
   const digits = match[5].match(/\d+/);
   const indent = match[1].length;
-  const inlineSequenceMappingIndent = match[2] && match[3] ? match[2].length : 0;
+  const sequenceIndent = match[2].length;
+  const explicitIndent = digits ? Number(digits[0]) : null;
 
   return {
     indent,
     // `>` folds line breaks into spaces; `|` keeps them literal.
     folded: match[4] === '>',
     contentIndent: digits
-      ? indent + inlineSequenceMappingIndent + Number(digits[0])
+      ? indent + (match[3] ? sequenceIndent + explicitIndent : Math.max(sequenceIndent, explicitIndent))
       : null,
   };
 }
