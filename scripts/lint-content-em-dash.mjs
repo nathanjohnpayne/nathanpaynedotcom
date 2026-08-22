@@ -100,8 +100,15 @@ function frontmatterLength(source) {
 // source edit.
 // ---------------------------------------------------------------------------
 
-function createProseStream() {
-  return { text: '', spans: [] };
+function createProseStream(protectedRanges = []) {
+  return { text: '', spans: [], protectedRanges };
+}
+
+function isProtectedOffset(stream, span) {
+  return (
+    span !== null &&
+    stream.protectedRanges.some(([start, end]) => span[0] >= start && span[0] < end)
+  );
 }
 
 // One span per UTF-16 unit, not per code point: the stream is matched with a
@@ -109,6 +116,15 @@ function createProseStream() {
 // (`&#x1F600;`) occupies two units, and pushing one span for it would
 // desynchronize every span after it.
 function pushCharacter(stream, character, span) {
+  // mdast splits inline HTML into separate opener, text, and closer nodes, so
+  // `<code>a — b</code>` reaches this function as three siblings. Raw-text
+  // ranges are computed over the whole body and applied here, or the middle
+  // text node would be linted and `--write` would edit the code sample.
+  if (isProtectedOffset(stream, span)) {
+    pushBoundary(stream);
+    return;
+  }
+
   stream.text += character;
   for (let unit = 0; unit < character.length; unit += 1) {
     stream.spans.push(span);
@@ -119,7 +135,8 @@ function pushCharacter(stream, character, span) {
 // break, code, an image. It has no source span, so it is never rewritten.
 function pushBoundary(stream) {
   if (stream.text.length > 0 && !stream.text.endsWith('\n')) {
-    pushCharacter(stream, '\n', null);
+    stream.text += '\n';
+    stream.spans.push(null);
   }
 }
 
@@ -256,25 +273,6 @@ function emitVisibleCharacter(raw, index, start, stream) {
 function emitHtml(node, body, stream, inline) {
   const start = node.position.start.offset;
   const raw = body.slice(start, node.position.end.offset);
-  const closed = collectMatchRanges(HTML_RAW_TEXT_ELEMENT, raw);
-  const opaque = [...closed];
-
-  // CommonMark lets an HTML block run to the end of the document, so a
-  // raw-text element can be left unclosed. Protect it through the end of the
-  // node rather than scanning executable source as prose.
-  const openers = new RegExp(HTML_RAW_TEXT_OPENER.source, 'gi');
-  let opener;
-  while ((opener = openers.exec(raw)) !== null) {
-    const openerStart = opener.index;
-    if (closed.some(([closedStart, closedEnd]) => openerStart >= closedStart && openerStart < closedEnd)) {
-      continue;
-    }
-    const closing = new RegExp(`</${opener[1]}\\s*>`, 'i').test(raw.slice(openers.lastIndex));
-    if (!closing) {
-      opaque.push([openerStart, raw.length]);
-    }
-  }
-
   const markup = collectMatchRanges(HTML_MARKUP, raw);
 
   if (!inline) {
@@ -283,13 +281,6 @@ function emitHtml(node, body, stream, inline) {
 
   let index = 0;
   while (index < raw.length) {
-    const opaqueRange = opaque.find(([rangeStart, rangeEnd]) => index >= rangeStart && index < rangeEnd);
-    if (opaqueRange) {
-      pushBoundary(stream);
-      index = opaqueRange[1];
-      continue;
-    }
-
     const markupRange = markup.find(([rangeStart, rangeEnd]) => index >= rangeStart && index < rangeEnd);
     if (markupRange) {
       const tag = raw.slice(markupRange[0], markupRange[1]);
@@ -302,6 +293,8 @@ function emitHtml(node, body, stream, inline) {
       continue;
     }
 
+    // Raw-text bodies are filtered by the shared protected ranges in
+    // pushCharacter, so they need no special case here.
     index = emitVisibleCharacter(raw, index, start, stream);
   }
 
@@ -417,8 +410,27 @@ function emitNode(node, body, stream, inline = false) {
 // Astro enables GFM by default, so the gate parses with it too. Without the
 // extension a table row is read as a paragraph and its cell-separator padding
 // looks like prose padding, which `--write` would then "fix" into the table.
+// Every raw-text element span in the body, closed or left open through EOF.
+function rawTextRanges(source) {
+  const ranges = collectMatchRanges(HTML_RAW_TEXT_ELEMENT, source);
+  const openers = new RegExp(HTML_RAW_TEXT_OPENER.source, 'gi');
+  let opener;
+
+  while ((opener = openers.exec(source)) !== null) {
+    const openerStart = opener.index;
+    if (ranges.some(([start, end]) => openerStart >= start && openerStart < end)) {
+      continue;
+    }
+    if (!new RegExp(`</${opener[1]}\\s*>`, 'i').test(source.slice(openers.lastIndex))) {
+      ranges.push([openerStart, source.length]);
+    }
+  }
+
+  return ranges;
+}
+
 function buildProseStream(body) {
-  const stream = createProseStream();
+  const stream = createProseStream(rawTextRanges(body));
   const tree = fromMarkdown(body, {
     extensions: [gfm()],
     mdastExtensions: [gfmFromMarkdown()],
@@ -492,15 +504,27 @@ function bodyViolations(source) {
 // YAML allows the chomping and indentation indicators in either order, so
 // `|2-` is as valid as `|-2`.
 const BLOCK_SCALAR_OPENER =
-  /^([\p{Zs}\t]*)(?:-[\p{Zs}\t]+)*(?:[^:\n]+:)?[\p{Zs}\t]*[|>](?:[-+]\d*|\d+[-+]?)?[\p{Zs}\t]*$/u;
+  /^([\p{Zs}\t]*)(?:-[\p{Zs}\t]+)*(?:(?:"(?:[^"\\]|\\.)*"|'(?:[^']|'')*'|[^:\n]+):)?[\p{Zs}\t]*([|>])((?:[-+]\d*|\d+[-+]?)?)[\p{Zs}\t]*$/u;
 
 function blockScalarOpenerOf(line) {
   const match = line.match(BLOCK_SCALAR_OPENER);
   if (!match) {
     return null;
   }
-  // `>` folds line breaks into spaces; `|` keeps them literal.
-  return { indent: match[1].length, folded: match[0].includes('>') };
+
+  // An explicit indentation indicator (`>2`) fixes the content indentation
+  // relative to the opener, and that is what decides which lines are folded
+  // and which are more-indented literal lines. Without one it is inferred from
+  // the first non-blank content line.
+  const digits = match[3].match(/\d+/);
+  const indent = match[1].length;
+
+  return {
+    indent,
+    // `>` folds line breaks into spaces; `|` keeps them literal.
+    folded: match[2] === '>',
+    contentIndent: digits ? indent + Number(digits[0]) : null,
+  };
 }
 
 function indentOf(line) {
@@ -639,7 +663,12 @@ function yamlViolations(source, end) {
               break;
             }
             if (baseIndent === null) {
-              baseIndent = nextIndent;
+              baseIndent = opener.contentIndent ?? nextIndent;
+            }
+            // A line shallower than the declared content indent ends the
+            // scalar even though it is still deeper than the opener.
+            if (nextIndent < baseIndent) {
+              break;
             }
           }
           cursor = nextEnd + 1;

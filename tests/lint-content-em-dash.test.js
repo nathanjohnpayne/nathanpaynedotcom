@@ -579,6 +579,37 @@ describe('content em-dash lint', () => {
     expect(closeUpSpacedEmDashesInText(blank, '/tmp/skills.yaml')).toBe(blank);
   });
 
+  it('protects a raw-text element split across sibling nodes', () => {
+    // mdast represents inline HTML as separate opener, text, and closer nodes,
+    // so the code sample arrives as a bare text node in the middle.
+    const source = 'text <code>a — b</code>';
+
+    expect(findSpacedEmDashViolations('/tmp/test.md', source)).toHaveLength(0);
+    expect(closeUpSpacedEmDashesInText(source)).toBe(source);
+  });
+
+  it('honours an explicit indentation indicator on a folded scalar', () => {
+    // `>2` fixes content indentation at 2, so the four-space line is a
+    // more-indented literal line and YAML keeps a newline after it.
+    const literalFirst = 'description: >2\n    code—\n  continuation\n';
+
+    expect(findSpacedEmDashViolations('/tmp/skills.yaml', literalFirst)).toHaveLength(0);
+    expect(closeUpSpacedEmDashesInText(literalFirst, '/tmp/skills.yaml')).toBe(literalFirst);
+
+    // At the declared indentation the lines do fold.
+    const folded = 'description: >2\n  word—\n  continuation\n';
+    expect(closeUpSpacedEmDashesInText(folded, '/tmp/skills.yaml')).toBe(
+      'description: >2\n  word—continuation\n',
+    );
+  });
+
+  it('does not fold into a more-indented literal line', () => {
+    const source = 'description: >\n  word—\n    literal line\n';
+
+    expect(findSpacedEmDashViolations('/tmp/skills.yaml', source)).toHaveLength(0);
+    expect(closeUpSpacedEmDashesInText(source, '/tmp/skills.yaml')).toBe(source);
+  });
+
   it('preserves CRLF line endings through a fix pass', () => {
     const source = 'prose — one.\r\nprose — two.\r\n';
 
