@@ -35,7 +35,7 @@ collections are:
 | `education` | `src/content/education/` | one `.md` | One entry (George Mason). |
 | `certifications` | `src/content/certifications/` | one `.md` per cert | Three entries. |
 | `resumeProjects` | `src/content/resume/projects/` | one `.md` per project | Six entries. **Distinct from `projects`** (reserved for `/projects`). |
-| `awards` | `src/content/awards/` | one `.md`/`.yaml` per award | Wired up but **empty** for now. |
+| `awards` (future) | `src/content/awards/` | one `.md`/`.yaml` per award | Dormant scaffold; deliberately not registered until the first entry exists, so an empty loader cannot pollute build logs (#654). |
 
 The `resumeProjects` collection must remain separate from the existing
 `projects` collection; the two have different schemas and surfaces.
@@ -70,9 +70,8 @@ The `resumeProjects` collection must remain separate from the existing
     (≈5) `.resume-highlight` metric cards, accents cycling red/yellow/blue.
   - **Footer** (`.resume-canvas-footer`) — attribution + nav.
 - Sections compose in this order: **Summary, Skills, Experience,
-  Education, Certifications, Projects, Writing, Awards.**
-  - `AwardsSection` renders **nothing** (no header) while the `awards`
-    collection is empty.
+  Education, Certifications, Projects, Writing.**
+  - `AwardsSection` is a dormant future scaffold. When the first award entry lands, restore its collection schema and add Awards after Writing; until then no empty collection is registered (#654).
   - There is **no References section.**
 - Collection bodies (summary, experience, projects) render via `render()`
   from `astro:content`.
@@ -90,8 +89,8 @@ The `resumeProjects` collection must remain separate from the existing
   it collapses to a single column at ≤ 1023px (`--bp-stack`) — margin and
   sidebar hidden; the header (breadcrumbs + name) stays the top tile with the
   metadata panel stacked beneath it — and prints single-column.
-- Each `<section>` carries a stable `id` (`summary`, `skills`, `experience`,
-  `education`, `certifications`, `projects`, `writing`, `awards`) so the
+- Each visible `<section>` carries a stable `id` (`summary`, `skills`,
+  `experience`, `education`, `certifications`, `projects`, `writing`) so the
   sidebar ToC anchors resolve; `scroll-margin-top` offsets the anchor.
 - Exactly one `<h1>` (the name); each section has a semantic `<h2>` title;
   each Experience role, Education degree, and Project has a semantic `<h3>`.
@@ -282,7 +281,7 @@ paraphrased. In particular:
 
 1. `/resume/` builds to `dist/resume/index.html` with no Zod schema errors.
 2. The seven visible section `<h2>` titles render in order; no References;
-   Awards is absent while empty.
+   Awards is absent while its empty scaffold is dormant.
 3. Each Experience role / Education / Certification renders a `.company-logo`
    (logo or initials fallback).
 4. Experience renders `<h3>` roles and `<ul>`/`<li>` bullets.

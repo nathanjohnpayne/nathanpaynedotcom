@@ -1,8 +1,10 @@
 ---
 /**
- * AwardsSection — hackathons / awards. Plumbed but renders nothing (no
- * header) when the `awards` collection is empty, per #394 — the guard
- * wraps the shared wrapper, so an empty collection emits no shell.
+ * AwardsSection — dormant hackathons / awards scaffold. It is deliberately
+ * not imported while src/content/awards has no entries, because configuring
+ * an empty Astro collection emits a misleading warning on every build (#654).
+ * Wire the collection and this component back into resume.astro when the first
+ * real entry lands. The guard remains defensive for future filtered inputs.
  * Section/heading scaffolding via the shared ResumeSection wrapper (#471).
  */
 import ResumeSection from './ResumeSection.astro';

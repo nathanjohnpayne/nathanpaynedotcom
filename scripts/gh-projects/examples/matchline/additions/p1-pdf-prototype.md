@@ -6,11 +6,11 @@ Prototype PDF rendering on Nathan's real resume at the **end of Phase 1**, not d
 
 **Scope:**
 
-1. **Spike PR, not production code.** One-off branch that renders the output of #22 (resume generation) through `react-pdf`. Lands as a reviewable PR against main, kept behind a `/debug/pdf-prototype` route gated by the same authenticated-owner check as every other protected route (not just hidden from the main nav — a hidden route is still reachable if deployed).
+1. **Spike PR, not production code.** One-off branch that renders the output of #22 (resume generation) through `react-pdf`. Open it as a draft PR against main for review only; it must never merge into main with the `/debug/pdf-prototype` route. Gate the route with the same authenticated-owner check as every other protected route (not just hidden from the main nav — a hidden route is still reachable if deployed).
 2. **Real inputs only.** Render the JSON output of a real Phase 1 end-to-end run on Nathan's resume against one real target JD. No lorem ipsum.
 3. **Evaluate the layout model.** Does `react-pdf` hold a 1-page dense resume with tight leading? Can it handle 6-point contact info + 10-point body + 11-point headings without font-weight quirks? How does it fare on long bullet wrapping + section widow/orphan control? Document answers in the PR description.
 4. **Binary fidelity call.** Nathan opens the PDF and answers: "would I actually send this?" Yes → #33 proceeds with `react-pdf` in Phase 2. No → file a Phase 2 pre-work ticket to evaluate alternatives (Puppeteer + HTML/CSS, `pdf-lib`, a template-based service like React-PDF-Template) before #33 starts.
-5. **Merge or close, don't leave open.** If the answer is yes, the prototype gets merged into #33's branch as its starting point. If no, the prototype PR gets closed with the findings captured in the Phase 2 pre-work ticket — either way, nothing is left open/unmerged past the fidelity call.
+5. **Promote or close, don't merge the spike to main.** If the answer is yes, create #33's implementation branch from main, then either retarget the draft spike PR to that branch or cherry-pick its reviewed commits into #33's branch. Close the original spike PR after the commits are present on #33's branch. If no, close the prototype PR with the findings captured in the Phase 2 pre-work ticket. Either way, the debug route never lands on main and nothing is left open past the fidelity call.
 
 **Non-goals:**
 
@@ -21,8 +21,8 @@ Prototype PDF rendering on Nathan's real resume at the **end of Phase 1**, not d
 
 **Verification:**
 
-- PR merged or closed with a documented fidelity call.
-- If yes: `react-pdf` marked as the chosen library in #33's scope.
+- Draft spike PR closed with a documented fidelity call; it is never merged into main.
+- If yes: the reviewed spike commits are present on #33's implementation branch and `react-pdf` is marked as the chosen library in #33's scope.
 - If no: Phase 2 pre-work ticket filed with alternative options + rough evaluation criteria.
 - Nathan has physically opened the rendered PDF and given a thumbs-up or -down in the PR description.
 

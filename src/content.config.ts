@@ -230,19 +230,6 @@ const skills = defineCollection({
   }),
 });
 
-// Hackathons / awards. Wired up but empty for now — AwardsSection
-// renders nothing (no header) when the collection has no entries.
-const awards = defineCollection({
-  loader: glob({ pattern: '**/*.{md,yaml,yml}', base: './src/content/awards' }),
-  schema: z.object({
-    name: z.string(),
-    issuer: z.string().optional(),
-    year: z.number().optional(),
-    order: z.number().optional(),
-    url: z.string().optional(),
-  }),
-});
-
 // Certifications. `issuer` + `website` drive the Logo.dev lookup; `logo`
 // overrides it for defunct issuers with no live domain (Turner).
 const certifications = defineCollection({
@@ -266,6 +253,5 @@ export const collections = {
   education,
   resumeProjects,
   skills,
-  awards,
   certifications,
 };

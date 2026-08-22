@@ -55,14 +55,17 @@ reviews:
         differ per collection (e.g. projects requires title +
         description; certifications requires name/issuer/year; skills
         requires label/priority/skills). The resume and structured-data
-        collections—experience, education, certifications, skills,
-        myself, resume/projects, bio, awards—intentionally do NOT use
+        active collections—experience, education, certifications,
+        skills, myself, resume/projects, bio—intentionally do NOT use
         the blog title/date/description triad, instead carrying
         domain-specific frontmatter (company, issuer, degree, year,
         tech, order, etc.); do not flag those three fields as missing on
-        them. The title/date/description requirement applies only to
-        src/content/blog/**. Always verify frontmatter matches the
-        relevant collection schema and that any linked assets exist.
+        them. `src/content/awards/**` is a dormant, unregistered scaffold
+        while empty; the collection and resume-page wiring must return
+        with its first real entry. The title/date/description requirement
+        applies only to src/content/blog/**. Always verify frontmatter
+        matches the relevant collection schema and that any linked assets
+        exist.
     - path: "src/styles/**"
       instructions: >-
         Global styles. Flag accessibility issues — contrast ratios,
