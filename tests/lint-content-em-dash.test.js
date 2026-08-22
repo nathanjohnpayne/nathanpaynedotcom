@@ -290,11 +290,17 @@ describe('content em-dash lint', () => {
     expect(findSpacedEmDashViolations('/tmp/test.md', source)).toHaveLength(1);
   });
 
-  it('fixes a soft-break dash without reflowing the source', () => {
-    const source = '- one —\n- two';
+  it('does not reflow across a block boundary', () => {
+    // The newline between two list items is a block boundary, not padding, so
+    // only the space is removed and the items stay separate.
+    expect(closeUpSpacedEmDashesInText('- one —\n- two')).toBe('- one—\n- two');
+  });
 
-    // The newline survives: deleting it would glue the two list items.
-    expect(closeUpSpacedEmDashesInText(source)).toBe('- one—\n- two');
+  it('closes a soft-break gap by joining the one paragraph it spans', () => {
+    // Both sides sit in a single text node, so removing the newline cannot
+    // glue two blocks together, and it is the only way to close the gap.
+    expect(closeUpSpacedEmDashesInText('word —\ncontinuation')).toBe('word—continuation');
+    expect(closeUpSpacedEmDashesInText('word—\ncontinuation')).toBe('word—continuation');
   });
 
   it('does not treat a paragraph break as padding', () => {
@@ -354,6 +360,51 @@ describe('content em-dash lint', () => {
     expect(findSpacedEmDashViolations('/tmp/test.md', commented)).toHaveLength(0);
     expect(closeUpSpacedEmDashesInText(commented)).toBe(commented);
     expect(findSpacedEmDashViolations('/tmp/test.md', quoted)).toHaveLength(1);
+  });
+
+  it('maps every code point a character reference produces', () => {
+    // `&NotEqualTilde;` decodes to two code points. Assigning the whole entity
+    // span to only the first desynchronizes every span after it.
+    const multi = 'word &NotEqualTilde; — next';
+    expect(closeUpSpacedEmDashesInText(multi)).toBe('word &NotEqualTilde;—next');
+
+    // `&#x1F600;` is one code point but two UTF-16 units.
+    const supplementary = 'word &#x1F600; — next';
+    expect(closeUpSpacedEmDashesInText(supplementary)).toBe('word &#x1F600;—next');
+
+    // A literal supplementary character, with no entity involved.
+    expect(closeUpSpacedEmDashesInText('a \u{1F600} — b')).toBe('a \u{1F600}—b');
+  });
+
+  it('reads GFM table cells as cells, not as padded prose', () => {
+    const table = ['| a | b |', '| --- | --- |', '| word | — |'].join('\n');
+
+    expect(findSpacedEmDashViolations('/tmp/test.md', table)).toHaveLength(0);
+    expect(closeUpSpacedEmDashesInText(table)).toBe(table);
+  });
+
+  it('lints prose inside a GFM table cell', () => {
+    const table = ['| a | b |', '| --- | --- |', '| word — next | b |'].join('\n');
+
+    expect(findSpacedEmDashViolations('/tmp/test.md', table)).toHaveLength(1);
+    expect(closeUpSpacedEmDashesInText(table)).toBe(
+      ['| a | b |', '| --- | --- |', '| word—next | b |'].join('\n'),
+    );
+  });
+
+  it('scans standalone YAML content collections', () => {
+    const source = ['label: Strategy', 'skills:', '  - "Strategy — Operations"', ''].join('\n');
+
+    expect(findSpacedEmDashViolations('/tmp/skills.yaml', source)).toHaveLength(1);
+    expect(closeUpSpacedEmDashesInText(source, '/tmp/skills.yaml')).toBe(
+      ['label: Strategy', 'skills:', '  - "Strategy—Operations"', ''].join('\n'),
+    );
+  });
+
+  it('does not parse a YAML collection file as Markdown', () => {
+    const source = ['note: |', '  a fenced-looking line ```', '  text — here', ''].join('\n');
+
+    expect(findSpacedEmDashViolations('/tmp/skills.yml', source)).toHaveLength(1);
   });
 
   it('preserves CRLF line endings through a fix pass', () => {

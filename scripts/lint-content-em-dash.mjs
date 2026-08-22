@@ -3,14 +3,20 @@ import { readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { extname, join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { fromMarkdown } from 'mdast-util-from-markdown';
+import { gfmFromMarkdown } from 'mdast-util-gfm';
+import { decodeNamedCharacterReference } from 'decode-named-character-reference';
+import { gfm } from 'micromark-extension-gfm';
 
 const CONTENT_ROOT = resolve(process.cwd(), 'src/content');
 
-// `.md` only. The body is parsed as plain CommonMark, which does not
-// recognize MDX expressions or JSX, so an `.mdx` file would have its embedded
-// code read as prose and potentially rewritten. Adding `.mdx` back requires an
-// MDX-aware parser that can exclude expression and JSX node spans.
-const TARGET_EXTENSIONS = new Set(['.md']);
+// Markdown is parsed; YAML is scanned line by line. `.mdx` is deliberately
+// absent: the body is parsed as CommonMark + GFM, which does not recognize MDX
+// expressions or JSX, so an `.mdx` file would have its embedded code read as
+// prose and potentially rewritten. Adding it back requires an MDX-aware parser
+// that can exclude expression and JSX node spans.
+const MARKDOWN_EXTENSIONS = new Set(['.md']);
+const YAML_EXTENSIONS = new Set(['.yaml', '.yml']);
+const TARGET_EXTENSIONS = new Set([...MARKDOWN_EXTENSIONS, ...YAML_EXTENSIONS]);
 
 // Padding is any rendered horizontal space. `\p{Zs}` covers the whole Unicode
 // space-separator category — ordinary, no-break, narrow no-break, thin, and
@@ -88,60 +94,100 @@ function frontmatterLength(source) {
 // ---------------------------------------------------------------------------
 
 function createProseStream() {
-  return { text: '', spans: [], fixed: [] };
+  return { text: '', spans: [] };
 }
 
-// `isFixed` marks a character the fixer must not delete — a soft line break,
-// which renders as a space but whose newline is structural. Deleting it would
-// reflow the source and could glue two block elements together.
-function pushCharacter(stream, character, span, isFixed = false) {
+// One span per UTF-16 unit, not per code point: the stream is matched with a
+// regex, whose indices are UTF-16 offsets. A supplementary-plane character
+// (`&#x1F600;`) occupies two units, and pushing one span for it would
+// desynchronize every span after it.
+function pushCharacter(stream, character, span) {
   stream.text += character;
-  stream.spans.push(span);
-  stream.fixed.push(isFixed);
-}
-
-function pushBoundary(stream) {
-  if (stream.text.length > 0 && !stream.text.endsWith('\n')) {
-    pushCharacter(stream, '\n', null, true);
+  for (let unit = 0; unit < character.length; unit += 1) {
+    stream.spans.push(span);
   }
 }
 
-// Map each character of a node's decoded value back to the source span that
+// A boundary is a newline the padding rule may not cross: a block edge, a hard
+// break, code, an image. It has no source span, so it is never rewritten.
+function pushBoundary(stream) {
+  if (stream.text.length > 0 && !stream.text.endsWith('\n')) {
+    pushCharacter(stream, '\n', null);
+  }
+}
+
+// Decode a character reference body (the text between `&` and `;`).
+function decodeReference(name) {
+  if (name.startsWith('#')) {
+    const digits = name.slice(1);
+    const code = /^[xX]/.test(digits) ? Number.parseInt(digits.slice(1), 16) : Number.parseInt(digits, 10);
+    if (!Number.isInteger(code) || code < 0 || code > 0x10ffff) {
+      return null;
+    }
+    try {
+      return String.fromCodePoint(code);
+    } catch {
+      return null;
+    }
+  }
+
+  return decodeNamedCharacterReference(name) || null;
+}
+
+// Map each code point of a node's decoded value back to the source span that
 // produced it. The two run at different lengths wherever the source used a
-// character reference (`&mdash;`) or a backslash escape.
+// character reference or a backslash escape — and a single reference can
+// decode to several code points (`&NotEqualTilde;`) or to a supplementary-plane
+// one (`&#x1F600;`), so the reference is decoded rather than assumed to be one
+// character. Getting this wrong desynchronizes every span after it, which
+// would make `--write` corrupt the file.
 function alignValueToSource(value, raw) {
-  const spans = [];
+  const characters = [...value];
+  const spans = new Array(characters.length);
+  let index = 0;
   let cursor = 0;
 
-  for (const character of value) {
+  while (index < characters.length) {
     if (cursor >= raw.length) {
-      spans.push([raw.length, raw.length]);
+      spans[index] = [raw.length, raw.length];
+      index += 1;
       continue;
     }
 
-    if (raw[cursor] === character) {
-      spans.push([cursor, cursor + character.length]);
-      cursor += character.length;
+    if (raw.startsWith(characters[index], cursor)) {
+      spans[index] = [cursor, cursor + characters[index].length];
+      cursor += characters[index].length;
+      index += 1;
       continue;
     }
 
     if (raw[cursor] === '&') {
       const semicolon = raw.indexOf(';', cursor);
-      if (semicolon !== -1 && semicolon - cursor <= 32) {
-        spans.push([cursor, semicolon + 1]);
+      const decoded = semicolon !== -1 && semicolon - cursor <= 32
+        ? decodeReference(raw.slice(cursor + 1, semicolon))
+        : null;
+
+      if (decoded !== null) {
+        const span = [cursor, semicolon + 1];
+        for (let produced = 0; produced < [...decoded].length && index < characters.length; produced += 1) {
+          spans[index] = span;
+          index += 1;
+        }
         cursor = semicolon + 1;
         continue;
       }
     }
 
     if (raw[cursor] === '\\') {
-      spans.push([cursor, cursor + 2]);
+      spans[index] = [cursor, cursor + 2];
       cursor += 2;
+      index += 1;
       continue;
     }
 
-    spans.push([cursor, cursor + 1]);
+    spans[index] = [cursor, cursor + 1];
     cursor += 1;
+    index += 1;
   }
 
   return spans;
@@ -156,10 +202,11 @@ function emitText(node, body, stream) {
     const [spanStart, spanEnd] = spans[index];
     const span = [spanStart + start, spanEnd + start];
 
-    // A soft break renders as a space, so it is padding — but its source
-    // newline must survive the fix.
+    // A soft break renders as a space, so it is padding. Removing it is safe:
+    // the parser has already established that both sides sit inside one text
+    // node in one block, so closing the gap cannot glue two blocks together.
     if (character === '\n') {
-      pushCharacter(stream, ' ', span, true);
+      pushCharacter(stream, ' ', span);
       return;
     }
 
@@ -242,9 +289,16 @@ function emitNode(node, body, stream) {
   }
 }
 
+// Astro enables GFM by default, so the gate parses with it too. Without the
+// extension a table row is read as a paragraph and its cell-separator padding
+// looks like prose padding, which `--write` would then "fix" into the table.
 function buildProseStream(body) {
   const stream = createProseStream();
-  emitNode(fromMarkdown(body), body, stream);
+  const tree = fromMarkdown(body, {
+    extensions: [gfm()],
+    mdastExtensions: [gfmFromMarkdown()],
+  });
+  emitNode(tree, body, stream);
   return stream;
 }
 
@@ -261,22 +315,28 @@ function bodyViolations(source) {
   const violations = [];
 
   for (const [start, end] of collectMatchRanges(PADDED_EM_DASH, stream.text)) {
-    const removals = [];
+    const padding = new Map();
     let dashOffset = null;
+    let dashKey = null;
 
     for (let index = start; index < end; index += 1) {
       const span = stream.spans[index];
       if (!span) {
         continue;
       }
+      const key = `${span[0]}:${span[1]}`;
       if (stream.text[index] === '—') {
         dashOffset = span[0] + bodyStart;
+        dashKey = key;
         continue;
       }
-      if (!stream.fixed[index]) {
-        removals.push([span[0] + bodyStart, span[1] + bodyStart]);
-      }
+      padding.set(key, [span[0] + bodyStart, span[1] + bodyStart]);
     }
+
+    // A single character reference can decode to both the dash and something
+    // adjacent; never delete the span that produced the dash.
+    padding.delete(dashKey);
+    const removals = [...padding.values()];
 
     if (dashOffset === null || end - start < 2) {
       continue;
@@ -321,12 +381,13 @@ function yamlCommentStart(line) {
   return line.length;
 }
 
-// Frontmatter is YAML, not Markdown, but it carries most of this repo's
-// published prose (titles, card copy, pull quotes). It is scanned line by
-// line: a line break separates scalars rather than joining them, structural
-// prefixes are not padding, and comments are not published.
-function frontmatterViolations(source) {
-  const end = frontmatterLength(source);
+// YAML carries a lot of this repo's published prose: frontmatter titles, card
+// copy and pull quotes, and the `src/content/skills/**` collection, which is
+// authored as standalone YAML and rendered onto the resume. It is scanned line
+// by line rather than parsed as Markdown: a line break separates scalars
+// rather than joining them, structural prefixes are not padding, and comments
+// are not published.
+function yamlViolations(source, end) {
   if (end === 0) {
     return [];
   }
@@ -377,8 +438,16 @@ function frontmatterViolations(source) {
   return violations;
 }
 
-function collectViolations(source) {
-  return [...frontmatterViolations(source), ...bodyViolations(source)].sort(
+function isYamlPath(filePath) {
+  return YAML_EXTENSIONS.has(extname(filePath));
+}
+
+function collectViolations(source, filePath = '') {
+  if (isYamlPath(filePath)) {
+    return yamlViolations(source, source.length);
+  }
+
+  return [...yamlViolations(source, frontmatterLength(source)), ...bodyViolations(source)].sort(
     (a, b) => a.offset - b.offset,
   );
 }
@@ -417,14 +486,14 @@ function locationOf(offset, lineStarts, source) {
 export function findSpacedEmDashViolations(filePath, source) {
   const lineStarts = buildLineIndex(source);
 
-  return collectViolations(source).map((violation) => ({
+  return collectViolations(source, filePath).map((violation) => ({
     filePath,
     ...locationOf(violation.removals[0]?.[0] ?? violation.offset, lineStarts, source),
   }));
 }
 
-export function closeUpSpacedEmDashesInText(source) {
-  const removals = collectViolations(source)
+export function closeUpSpacedEmDashesInText(source, filePath = '') {
+  const removals = collectViolations(source, filePath)
     .flatMap((violation) => violation.removals)
     .sort((a, b) => a[0] - b[0]);
 
@@ -522,7 +591,7 @@ function main() {
 
   for (const filePath of files) {
     const source = readFileSync(filePath, 'utf8');
-    const fixedSource = closeUpSpacedEmDashesInText(source);
+    const fixedSource = closeUpSpacedEmDashesInText(source, filePath);
     if (fixedSource !== source) {
       writeFileSync(filePath, fixedSource, 'utf8');
       fixedCount += 1;
