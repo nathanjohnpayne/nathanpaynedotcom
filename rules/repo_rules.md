@@ -96,6 +96,31 @@ automated dependency PRs.
   `astro@7.2.4` is already published, so this is a live break, not a latent one.
   Bump both entries in the same change, to the same version, or not at all. Do not
   remove `@astrojs/markdown-remark` as "unused."
+- **The current lockfile's missing `libc` metadata is accepted as bounded install
+  waste, not a runtime-correctness risk (#644).** npm/cli [#8514](https://github.com/npm/cli/issues/8514)
+  confirmed that old lockfiles without `libc` cause Linux installs to unpack both
+  glibc and musl optional packages. npm fixed lockfile serialization in
+  [#9025](https://github.com/npm/cli/pull/9025), released in npm 11.11.0; npm
+  12.0.2 writes the fields in a clean lockfile, but an in-place
+  `npm install --package-lock-only` does not backfill missing package metadata.
+
+  We measured the committed lockfile with npm 12.0.2 on glibc Ubuntu 24.04 x64.
+  `npm ci` installed both sides of six native-package pairs, leaving 59,644 KiB
+  (about 58.2 MiB) of unused musl packages. Sharp, Lightning CSS, Rolldown, the
+  complete 35-page Astro build, and all 17 OG-image renders used working glibc
+  binaries; the test suite also passed. The effect is therefore extra download
+  and disk use, not the wrong binary being loaded in this repository's Linux
+  build path.
+
+  Do not hand-add `libc` fields or pin npm to paper over this: hand edits are
+  removed by ordinary lockfile operations, and a pin cannot repair metadata
+  already absent from the lock. A clean npm 12.0.2 regeneration restores 38
+  `libc` fields but currently changes roughly 240 transitive package entries, so
+  that unrelated dependency churn belongs in a deliberate lockfile-refresh PR.
+  When that refresh happens, use npm 11.11.0 or newer, verify that the regenerated
+  lockfile contains `libc` fields, and let Linux CI prove the resulting tree.
+  Until then, do not re-file the missing fields as an npm 12 regression unless
+  new evidence shows an incompatible binary is selected.
 
 ## CI Enforcement
 
