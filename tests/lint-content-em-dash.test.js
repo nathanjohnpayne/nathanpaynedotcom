@@ -309,11 +309,11 @@ describe('content em-dash lint', () => {
     expect(findSpacedEmDashViolations('/tmp/test.md', source)).toHaveLength(0);
   });
 
-  it('sees a dash padded through inline markup', () => {
+  it('reports but does not structurally rewrite a dash padded through inline markup', () => {
     const source = 'word **—** next';
 
     expect(findSpacedEmDashViolations('/tmp/test.md', source)).toHaveLength(1);
-    expect(closeUpSpacedEmDashesInText(source)).toBe('word**—**next');
+    expect(closeUpSpacedEmDashesInText(source)).toBe(source);
   });
 
   it('sees a dash written as a character reference', () => {
@@ -664,11 +664,11 @@ describe('content em-dash lint', () => {
     expect(closeUpSpacedEmDashesInText(source, '/tmp/skills.yaml')).toBe(source);
   });
 
-  it('falls back to the per-line scan on an unterminated quote', () => {
+  it('reports but does not rewrite an invalid unterminated YAML quote', () => {
     const source = 'title: "word — next\n';
 
     expect(findSpacedEmDashViolations('/tmp/skills.yaml', source)).toHaveLength(1);
-    expect(closeUpSpacedEmDashesInText(source, '/tmp/skills.yaml')).toBe('title: "word—next\n');
+    expect(closeUpSpacedEmDashesInText(source, '/tmp/skills.yaml')).toBe(source);
   });
 
   it('does not treat a quote inside a plain scalar as a scalar opener', () => {
@@ -728,5 +728,42 @@ describe('content em-dash lint', () => {
     const source = 'prose — one.\r\nprose — two.\r\n';
 
     expect(closeUpSpacedEmDashesInText(source)).toBe('prose—one.\r\nprose—two.\r\n');
+  });
+
+  it('treats a CRLF soft break as rendered padding', () => {
+    const source = 'word—\r\ncontinuation';
+
+    expect(findSpacedEmDashViolations('/tmp/test.md', source)).toHaveLength(1);
+    expect(closeUpSpacedEmDashesInText(source)).toBe('word—continuation');
+  });
+
+  it('does not corrupt a character reference before a padded dash', () => {
+    const source = 'word &amp; — next';
+
+    expect(findSpacedEmDashViolations('/tmp/test.md', source)).toHaveLength(1);
+    expect(closeUpSpacedEmDashesInText(source)).toBe('word &amp;—next');
+  });
+
+  it('preserves block-scalar indentation when content starts with a dash', () => {
+    const source = 'description: |\n  — leading\n';
+
+    expect(findSpacedEmDashViolations('/tmp/skills.yaml', source)).toHaveLength(1);
+    expect(closeUpSpacedEmDashesInText(source, '/tmp/skills.yaml')).toBe(
+      'description: |\n  —leading\n',
+    );
+  });
+
+  it('does not let a raw-text opener inside code suppress later prose', () => {
+    const source = '`sample <pre>` prose — here';
+
+    expect(findSpacedEmDashViolations('/tmp/test.md', source)).toHaveLength(1);
+    expect(closeUpSpacedEmDashesInText(source)).toBe('`sample <pre>` prose—here');
+  });
+
+  it('collapses raw HTML whitespace before applying the prose rule', () => {
+    const source = '<div>word\n— next</div>';
+
+    expect(findSpacedEmDashViolations('/tmp/test.md', source)).toHaveLength(1);
+    expect(closeUpSpacedEmDashesInText(source)).toBe('<div>word—next</div>');
   });
 });

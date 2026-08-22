@@ -6,6 +6,7 @@ import { fromMarkdown } from 'mdast-util-from-markdown';
 import { gfmFromMarkdown } from 'mdast-util-gfm';
 import { decodeNamedCharacterReference } from 'decode-named-character-reference';
 import { gfm } from 'micromark-extension-gfm';
+import { loadAll as parseYamlDocuments } from 'js-yaml';
 
 const CONTENT_ROOT = resolve(process.cwd(), 'src/content');
 
@@ -178,28 +179,45 @@ function alignValueToSource(value, raw) {
       continue;
     }
 
-    if (raw.startsWith(characters[index], cursor)) {
-      spans[index] = [cursor, cursor + characters[index].length];
-      cursor += characters[index].length;
+    // micromark normalizes CRLF soft breaks to `\n` in a text node. Map the
+    // normalized character back to both source units or every later span
+    // shifts by one and the break itself cannot be removed safely.
+    if (characters[index] === '\n' && raw.startsWith('\r\n', cursor)) {
+      spans[index] = [cursor, cursor + 2];
+      cursor += 2;
       index += 1;
       continue;
     }
 
+    // Decode before accepting a literal `&`. For `&amp;`, the decoded value
+    // begins with the same character as the source, so literal-first matching
+    // would consume only `&` and desynchronize every span after it.
     if (raw[cursor] === '&') {
       const semicolon = raw.indexOf(';', cursor);
       const decoded = semicolon !== -1 && semicolon - cursor <= 32
         ? decodeReference(raw.slice(cursor + 1, semicolon))
         : null;
 
-      if (decoded !== null) {
+      const decodedCharacters = decoded === null ? [] : [...decoded];
+      if (
+        decoded !== null &&
+        decodedCharacters.every((character, produced) => characters[index + produced] === character)
+      ) {
         const span = [cursor, semicolon + 1];
-        for (let produced = 0; produced < [...decoded].length && index < characters.length; produced += 1) {
+        for (let produced = 0; produced < decodedCharacters.length && index < characters.length; produced += 1) {
           spans[index] = span;
           index += 1;
         }
         cursor = semicolon + 1;
         continue;
       }
+    }
+
+    if (raw.startsWith(characters[index], cursor)) {
+      spans[index] = [cursor, cursor + characters[index].length];
+      cursor += characters[index].length;
+      index += 1;
+      continue;
     }
 
     if (raw[cursor] === '\\') {
@@ -222,20 +240,29 @@ function emitText(node, body, stream) {
   const raw = body.slice(start, node.position.end.offset);
   const spans = alignValueToSource(node.value, raw);
 
-  [...node.value].forEach((character, index) => {
+  const characters = [...node.value];
+  for (let index = 0; index < characters.length; index += 1) {
+    const character = characters[index];
     const [spanStart, spanEnd] = spans[index];
     const span = [spanStart + start, spanEnd + start];
+
+    if (character === '\r' && characters[index + 1] === '\n') {
+      const [, nextSpanEnd] = spans[index + 1];
+      pushCharacter(stream, ' ', [span[0], nextSpanEnd + start]);
+      index += 1;
+      continue;
+    }
 
     // A soft break renders as a space, so it is padding. Removing it is safe:
     // the parser has already established that both sides sit inside one text
     // node in one block, so closing the gap cannot glue two blocks together.
     if (character === '\n') {
       pushCharacter(stream, ' ', span);
-      return;
+      continue;
     }
 
     pushCharacter(stream, character, span);
-  });
+  }
 }
 
 // Tags that render as a break even inline.
@@ -245,6 +272,18 @@ const HTML_BREAK_TAG = /^<\/?(?:br|hr)\b/i;
 // `<div>word &mdash; next</div>` is seen the way it renders. Returns the index
 // just past the run's first character.
 function emitVisibleCharacter(raw, index, start, stream) {
+  // Ordinary HTML collapses a run of ASCII whitespace to one rendered space.
+  // Preserve the entire source run as that space's span so `--write` can
+  // remove a line break only when the rendered prose rule requires it.
+  if (/[\t\n\f\r ]/.test(raw[index])) {
+    let end = index + 1;
+    while (end < raw.length && /[\t\n\f\r ]/.test(raw[end])) {
+      end += 1;
+    }
+    pushCharacter(stream, ' ', [index + start, end + start]);
+    return end;
+  }
+
   if (raw[index] === '&') {
     const semicolon = raw.indexOf(';', index);
     const decoded =
@@ -423,13 +462,20 @@ function emitNode(node, body, stream, inline = false) {
 // extension a table row is read as a paragraph and its cell-separator padding
 // looks like prose padding, which `--write` would then "fix" into the table.
 // Every raw-text element span in the body, closed or left open through EOF.
-function rawTextRanges(source) {
-  const ranges = collectMatchRanges(HTML_RAW_TEXT_ELEMENT, source);
+function rawTextRanges(source, opaqueRanges = []) {
+  const isOpaqueStart = (offset) =>
+    opaqueRanges.some(([start, end]) => offset >= start && offset < end);
+  const ranges = collectMatchRanges(HTML_RAW_TEXT_ELEMENT, source).filter(
+    ([start]) => !isOpaqueStart(start),
+  );
   const openers = new RegExp(HTML_RAW_TEXT_OPENER.source, 'gi');
   let opener;
 
   while ((opener = openers.exec(source)) !== null) {
     const openerStart = opener.index;
+    if (isOpaqueStart(openerStart)) {
+      continue;
+    }
     if (ranges.some(([start, end]) => openerStart >= start && openerStart < end)) {
       continue;
     }
@@ -437,6 +483,26 @@ function rawTextRanges(source) {
       ranges.push([openerStart, source.length]);
     }
   }
+
+  return ranges;
+}
+
+function collectOpaqueSourceRanges(tree) {
+  const ranges = [];
+
+  (function walk(node) {
+    if (
+      (node.type === 'code' || node.type === 'inlineCode') &&
+      Number.isInteger(node.position?.start?.offset) &&
+      Number.isInteger(node.position?.end?.offset)
+    ) {
+      ranges.push([node.position.start.offset, node.position.end.offset]);
+      return;
+    }
+    for (const child of node.children ?? []) {
+      walk(child);
+    }
+  })(tree);
 
   return ranges;
 }
@@ -472,11 +538,11 @@ function collectEffectiveDefinitions(tree) {
 }
 
 function buildProseStream(body) {
-  const stream = createProseStream(rawTextRanges(body));
   const tree = fromMarkdown(body, {
     extensions: [gfm()],
     mdastExtensions: [gfmFromMarkdown()],
   });
+  const stream = createProseStream(rawTextRanges(body, collectOpaqueSourceRanges(tree)));
   stream.effectiveDefinitions = collectEffectiveDefinitions(tree);
   emitNode(tree, body, stream);
   return stream;
@@ -878,8 +944,9 @@ function lineViolations(source, lineStart, scanEnd, inBlockScalar, exceptionRang
     }
 
     // Whitespace after `key:` or a sequence `-` is YAML syntax.
-    const prefixIsStructural =
-      !inBlockScalar && YAML_VALUE_PREFIX.test(source.slice(lineStart, absoluteStart));
+    const prefixIsStructural = inBlockScalar
+      ? /^[\p{Zs}\t]*$/u.test(source.slice(lineStart, dashOffset))
+      : YAML_VALUE_PREFIX.test(source.slice(lineStart, absoluteStart));
     const paddingStart = prefixIsStructural ? dashOffset : absoluteStart;
 
     // Whitespace running to the end of the scannable region is not rendered
@@ -963,6 +1030,79 @@ export function findSpacedEmDashViolations(filePath, source) {
   }));
 }
 
+// `--write` may change text values, but it must not change which Markdown
+// constructs the source parses into. For example, closing the spaces around
+// `**—**` makes both strong delimiters intraword and turns them into literal
+// asterisks. Keep a compact node-type tree so that case fails closed.
+function markdownStructure(source) {
+  const body = source.slice(frontmatterLength(source));
+  const tree = fromMarkdown(body, {
+    extensions: [gfm()],
+    mdastExtensions: [gfmFromMarkdown()],
+  });
+
+  function shape(node) {
+    return [node.type, ...(node.children ?? []).map(shape)];
+  }
+
+  return JSON.stringify(shape(tree));
+}
+
+function yamlShape(value) {
+  if (Array.isArray(value)) {
+    return ['array', ...value.map(yamlShape)];
+  }
+  if (value !== null && typeof value === 'object') {
+    return [
+      'object',
+      ...Object.keys(value)
+        .sort()
+        .map((key) => [key, yamlShape(value[key])]),
+    ];
+  }
+  return typeof value;
+}
+
+function yamlStructure(source) {
+  const documents = [];
+  parseYamlDocuments(source, (document) => documents.push(yamlShape(document)));
+  return JSON.stringify(documents);
+}
+
+function frontmatterYaml(source) {
+  const match = source.match(FRONTMATTER);
+  if (!match) {
+    return null;
+  }
+  return match[0]
+    .replace(/^---\r?\n/, '')
+    .replace(/\r?\n---(?:\r?\n|$)$/, '');
+}
+
+function structureIsPreserved(source, fixed, filePath) {
+  try {
+    if (isYamlPath(filePath)) {
+      return yamlStructure(source) === yamlStructure(fixed);
+    }
+
+    if (markdownStructure(source) !== markdownStructure(fixed)) {
+      return false;
+    }
+
+    const originalFrontmatter = frontmatterYaml(source);
+    const fixedFrontmatter = frontmatterYaml(fixed);
+    return (
+      originalFrontmatter === null ||
+      (fixedFrontmatter !== null &&
+        yamlStructure(originalFrontmatter) === yamlStructure(fixedFrontmatter))
+    );
+  } catch {
+    // A formatter must never turn parse uncertainty into a write. The
+    // remaining violation makes the CLI exit non-zero and names the file.
+    return false;
+  }
+}
+
 export function closeUpSpacedEmDashesInText(source, filePath = '') {
   const removals = collectViolations(source, filePath)
     .flatMap((violation) => violation.removals)
@@ -981,7 +1121,8 @@ export function closeUpSpacedEmDashesInText(source, filePath = '') {
 
   // Splicing the original string leaves every byte outside a removal
   // untouched, so a CRLF file stays CRLF.
-  return fixed + source.slice(cursor);
+  const candidate = fixed + source.slice(cursor);
+  return structureIsPreserved(source, candidate, filePath) ? candidate : source;
 }
 
 // ---------------------------------------------------------------------------
