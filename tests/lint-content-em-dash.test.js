@@ -894,6 +894,27 @@ describe('content em-dash lint', () => {
     );
   });
 
+  it('keeps an outer list item open across a nested list-item scope', () => {
+    const source =
+      '<ul style="white-space: normal"><li style="white-space: pre">a' +
+      '<ul><li>word\n— next</ul></ul>';
+
+    expect(findSpacedEmDashViolations('/tmp/test.md', source)).toHaveLength(1);
+    expect(closeUpSpacedEmDashesInText(source)).toBe(
+      '<ul style="white-space: normal"><li style="white-space: pre">a' +
+        '<ul><li>word\n—next</ul></ul>',
+    );
+  });
+
+  it('ignores self-closing syntax on ordinary HTML elements', () => {
+    const source = '<div style="white-space: normal"/>word\n— next';
+
+    expect(findSpacedEmDashViolations('/tmp/test.md', source)).toHaveLength(1);
+    expect(closeUpSpacedEmDashesInText(source)).toBe(
+      '<div style="white-space: normal"/>word—next',
+    );
+  });
+
   it('carries a blockquote continuation prefix across inline Markdown nodes', () => {
     const source = '> word—\n> <em>continuation</em>';
 

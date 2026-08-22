@@ -469,6 +469,23 @@ const P_CLOSING_START_TAGS = new Set([
   'ul',
 ]);
 
+// HTML's implicit-close rules are scope-sensitive. In particular, a nested
+// list is a list-item-scope boundary, so its first `<li>` must not close an
+// outer list item's whitespace context.
+const HTML_SCOPE_BOUNDARIES = new Set([
+  'applet',
+  'caption',
+  'html',
+  'marquee',
+  'object',
+  'table',
+  'td',
+  'template',
+  'th',
+]);
+const LIST_ITEM_SCOPE_BOUNDARIES = new Set([...HTML_SCOPE_BOUNDARIES, 'ol', 'ul']);
+const TABLE_SCOPE_BOUNDARIES = new Set(['html', 'table', 'template']);
+
 function implicitlyClosedContext(openingName, contextName) {
   if (contextName === 'p' && P_CLOSING_START_TAGS.has(openingName)) {
     return true;
@@ -498,6 +515,32 @@ function implicitlyClosedContext(openingName, contextName) {
     return contextName === 'td' || contextName === 'th';
   }
   return false;
+}
+
+function implicitCloseScopeBoundary(openingName, contextName) {
+  if (openingName === 'li') {
+    return LIST_ITEM_SCOPE_BOUNDARIES.has(contextName);
+  }
+  if (openingName === 'thead' || openingName === 'tbody' || openingName === 'tfoot') {
+    return TABLE_SCOPE_BOUNDARIES.has(contextName);
+  }
+  if (openingName === 'tr' || openingName === 'td' || openingName === 'th') {
+    return TABLE_SCOPE_BOUNDARIES.has(contextName);
+  }
+  return HTML_SCOPE_BOUNDARIES.has(contextName);
+}
+
+function implicitContextIndex(contexts, openingName) {
+  for (let index = contexts.length - 1; index >= 0; index -= 1) {
+    const contextName = contexts[index].name;
+    if (implicitlyClosedContext(openingName, contextName)) {
+      return index;
+    }
+    if (implicitCloseScopeBoundary(openingName, contextName)) {
+      break;
+    }
+  }
+  return -1;
 }
 
 // A raw-HTML span is not uniformly opaque: the tags are markup, the body of a
@@ -544,19 +587,20 @@ function emitHtml(node, body, stream, inline) {
             whitespaceContexts.length = contextIndex;
           }
         } else {
-          const implicitContextIndex = whitespaceContexts.findLastIndex((context) =>
-            implicitlyClosedContext(name, context.name),
-          );
-          if (implicitContextIndex !== -1) {
-            preserveWhitespace = whitespaceContexts[implicitContextIndex].previous;
-            whitespaceContexts.length = implicitContextIndex;
+          const contextIndex = implicitContextIndex(whitespaceContexts, name);
+          if (contextIndex !== -1) {
+            preserveWhitespace = whitespaceContexts[contextIndex].previous;
+            whitespaceContexts.length = contextIndex;
           }
 
           const whiteSpaceMode = inlineWhiteSpaceMode(tag);
           const nextPreserve = whiteSpaceMode
             ? !/^(?:normal|nowrap)$/i.test(whiteSpaceMode)
             : preserveWhitespace;
-          const selfClosing = /\/\s*>$/.test(tag) || HTML_VOID_ELEMENTS.has(name);
+          // In HTML syntax the self-closing flag is ignored for ordinary
+          // elements (`<div/>` still opens a div). Only void elements close
+          // themselves here.
+          const selfClosing = HTML_VOID_ELEMENTS.has(name);
 
           if (!selfClosing) {
             whitespaceContexts.push({ name, previous: preserveWhitespace });
