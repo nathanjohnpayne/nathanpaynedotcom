@@ -60,6 +60,57 @@ describe('content em-dash lint', () => {
     );
   });
 
+  it('only exempts the ID-title separator and not additional em dashes in labels', () => {
+    const source = '[DST-047 — Title — extra prose](https://example.test/)';
+
+    expect(findSpacedEmDashViolations('/tmp/test.md', source)).toHaveLength(1);
+  });
+
+  it('does not treat mixed-marker fence runs as code fences', () => {
+    const source = [
+      '```~```',
+      'spaced — in malformed code fence line',
+      '```~```',
+    ].join('\n');
+
+    expect(findSpacedEmDashViolations('/tmp/test.md', source)).toHaveLength(1);
+  });
+
+  it('keeps unmatched backtick text as prose', () => {
+    const source = '`unfinished code — still prose';
+
+    expect(findSpacedEmDashViolations('/tmp/test.md', source)).toHaveLength(1);
+    expect(closeUpSpacedEmDashesInText(source)).toBe('`unfinished code—still prose');
+  });
+
+  it('does not open a backtick fence whose info string contains a backtick', () => {
+    const source = [
+      '``` js `inline` ```',
+      'spaced — after a line that is not a fence',
+    ].join('\n');
+
+    expect(findSpacedEmDashViolations('/tmp/test.md', source)).toHaveLength(1);
+  });
+
+  it('does not close a fence on a line carrying an info string', () => {
+    const source = [
+      '```',
+      'spaced — inside code',
+      '``` js',
+      'spaced — still inside code',
+      '```',
+    ].join('\n');
+
+    expect(findSpacedEmDashViolations('/tmp/test.md', source)).toHaveLength(0);
+  });
+
+  it('closes up em dashes padded with more than one space', () => {
+    const source = 'a sentence  —  with wide padding.';
+
+    expect(findSpacedEmDashViolations('/tmp/test.md', source)).toHaveLength(1);
+    expect(closeUpSpacedEmDashesInText(source)).toBe('a sentence—with wide padding.');
+  });
+
   it('fixes prose-only spacing while preserving ID-title exceptions', () => {
     const source = [
       'A spaced — em dash.',

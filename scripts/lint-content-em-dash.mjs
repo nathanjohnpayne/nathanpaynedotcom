@@ -4,10 +4,9 @@ import { extname, join, resolve } from 'node:path';
 
 const CONTENT_ROOT = resolve(process.cwd(), 'src/content');
 const TARGET_EXTENSIONS = new Set(['.md', '.mdx']);
-const SPACED_EM_DASH = / — /g;
-const IDENTIFIER_LABEL_EXCEPTION = /\[[A-Z]{2,}[A-Z0-9_-]*-\d+\s—\s[^\]]+\](?:\([^)]+\))?/g;
-const CODE_FENCE_OPEN = /^ {0,3}([`~]{3,})(.*)$/;
-const CODE_FENCE_CLOSE = /^ {0,3}([`~]{3,})\s*$/;
+const SPACED_EM_DASH = / +— +/g;
+const IDENTIFIER_LABEL_EXCEPTION = /\[[A-Z]{2,}[A-Z0-9_-]*-\d+\s+—\s+/g;
+const CODE_FENCE = /^ {0,3}(`{3,}|~{3,})(.*)$/;
 
 function collectRanges(regex, line) {
   const cloned = new RegExp(regex.source, regex.flags.includes('g') ? regex.flags : `${regex.flags}g`);
@@ -22,12 +21,10 @@ function collectRanges(regex, line) {
 function removeInlineCodeToSpaces(line) {
   let output = '';
   let i = 0;
-  let inInlineCode = false;
-  let inlineFenceLen = 0;
 
   while (i < line.length) {
     if (line[i] !== '`') {
-      output += inInlineCode ? ' ' : line[i];
+      output += line[i];
       i += 1;
       continue;
     }
@@ -36,53 +33,83 @@ function removeInlineCodeToSpaces(line) {
     while (j < line.length && line[j] === '`') {
       j += 1;
     }
-    const runLen = j - i;
-    output += ' '.repeat(runLen);
+    const openFenceLen = j - i;
+    let k = j;
+    let closeIndex = -1;
 
-    if (!inInlineCode) {
-      inInlineCode = true;
-      inlineFenceLen = runLen;
-    } else if (runLen >= inlineFenceLen) {
-      inInlineCode = false;
-      inlineFenceLen = 0;
+    while (k < line.length) {
+      if (line[k] !== '`') {
+        k += 1;
+        continue;
+      }
+
+      let m = k;
+      while (m < line.length && line[m] === '`') {
+        m += 1;
+      }
+
+      if (m - k === openFenceLen) {
+        closeIndex = k;
+        k = m;
+        break;
+      }
+
+      k = m;
     }
 
-    i = j;
+    if (closeIndex === -1) {
+      output += line.slice(i, j);
+      i = j;
+      continue;
+    }
+
+    output += ' '.repeat(k - i);
+    i = k;
   }
 
   return output;
 }
 
+// Returns the fence this line opens or closes, or null when the line is prose.
+// The marker run is homogeneous by construction, and a backtick fence's info
+// string may not itself contain a backtick (CommonMark 4.5).
+function parseFence(line) {
+  const match = line.match(CODE_FENCE);
+  if (!match) {
+    return null;
+  }
+
+  const [, marker, info] = match;
+  if (marker[0] === '`' && info.includes('`')) {
+    return null;
+  }
+
+  return { fenceChar: marker[0], fenceLen: marker.length, info };
+}
+
 function updateCodeFenceState(line, state) {
-  const openMatch = line.match(CODE_FENCE_OPEN);
+  const fence = parseFence(line);
 
   if (!state.inCodeBlock) {
-    if (!openMatch) {
+    if (!fence) {
       return { ...state, isFenceBoundary: false };
     }
 
-    const marker = openMatch[1];
     return {
       inCodeBlock: true,
-      fenceChar: marker[0],
-      fenceLen: marker.length,
+      fenceChar: fence.fenceChar,
+      fenceLen: fence.fenceLen,
       isFenceBoundary: true,
     };
   }
 
-  if (!openMatch) {
-    return { ...state, isFenceBoundary: false };
-  }
-
-  const closeMatch = line.match(CODE_FENCE_CLOSE);
-  if (!closeMatch) {
-    return { ...state, isFenceBoundary: false };
-  }
-
-  const marker = closeMatch[1];
+  // A closing fence repeats the opening marker, is at least as long, and
+  // carries no info string.
   const isClose =
-    marker[0] === state.fenceChar &&
-    marker.length >= (state.fenceLen || 0);
+    fence !== null &&
+    fence.fenceChar === state.fenceChar &&
+    fence.fenceLen >= (state.fenceLen || 0) &&
+    fence.info.trim() === '';
 
   if (!isClose) {
     return { ...state, isFenceBoundary: false };
@@ -199,6 +226,29 @@ Exceptions: bracketed ID-title labels such as [DST-047 — Title] remain allowed
   process.exit(code);
 }
 
+function scanFiles(files) {
+  let violations = [];
+
+  for (const filePath of files) {
+    violations = violations.concat(
+      findSpacedEmDashViolations(filePath, readFileSync(filePath, 'utf8')),
+    );
+  }
+
+  return violations;
+}
+
+function reportViolations(violations) {
+  for (const violation of violations) {
+    console.error(
+      `${violation.filePath}:${violation.line}:${violation.column}: use an unspaced em dash (—).`,
+    );
+    if (violation.snippet) {
+      console.error(`  ${violation.snippet}`);
+    }
+  }
+}
+
 function main() {
   const args = process.argv.slice(2);
   const applyWrite = args.includes('--write');
@@ -209,34 +259,35 @@ function main() {
   }
 
   const files = collectContentFiles(CONTENT_ROOT);
-  let violations = [];
+
+  if (!applyWrite) {
+    const violations = scanFiles(files);
+    if (violations.length > 0) {
+      reportViolations(violations);
+      process.exit(1);
+    }
+    return;
+  }
+
+  let fixedCount = 0;
 
   for (const filePath of files) {
     const source = readFileSync(filePath, 'utf8');
-    const fileViolations = findSpacedEmDashViolations(filePath, source);
-    violations = violations.concat(fileViolations);
-    if (applyWrite && fileViolations.length > 0) {
-      const fixedSource = closeUpSpacedEmDashesInText(source);
-      if (fixedSource !== source) {
-        writeFileSync(filePath, fixedSource, 'utf8');
-      }
+    const fixedSource = closeUpSpacedEmDashesInText(source);
+    if (fixedSource !== source) {
+      writeFileSync(filePath, fixedSource, 'utf8');
+      fixedCount += 1;
     }
   }
 
-  if (violations.length > 0) {
-    for (const violation of violations) {
-      console.error(
-        `${violation.filePath}:${violation.line}:${violation.column}: use an unspaced em dash (—).`,
-      );
-      if (violation.snippet) {
-        console.error(`  ${violation.snippet}`);
-      }
-    }
-    if (!applyWrite) {
-      process.exit(1);
-    }
-  } else if (applyWrite) {
-    console.log('content em-dash lint: fixed zero files');
+  console.log(`content em-dash lint: fixed ${fixedCount} file${fixedCount === 1 ? '' : 's'}`);
+
+  // A write pass that leaves violations behind must not report success.
+  const remaining = scanFiles(files);
+  if (remaining.length > 0) {
+    console.error('content em-dash lint: violations remain after --write.');
+    reportViolations(remaining);
+    process.exit(1);
   }
 }
 
