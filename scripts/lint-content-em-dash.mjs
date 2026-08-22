@@ -165,6 +165,12 @@ function pushBoundary(stream) {
   }
 }
 
+function resetInlineWhitespaceState(stream) {
+  stream.inlineWhitespaceContexts.length = 0;
+  stream.inlinePreserveWhitespace = true;
+  stream.pendingSoftBreak = null;
+}
+
 // Decode a character reference body (the text between `&` and `;`).
 function decodeReference(name) {
   if (name.startsWith('#')) {
@@ -693,6 +699,7 @@ function emitNode(node, body, stream, inline = false) {
   const isBlock = BLOCK_NODES.has(node.type);
   if (isBlock) {
     pushBoundary(stream);
+    resetInlineWhitespaceState(stream);
   }
 
   const childrenAreInline = !BLOCK_CONTAINERS.has(node.type);
@@ -712,6 +719,7 @@ function emitNode(node, body, stream, inline = false) {
 
   if (isBlock) {
     pushBoundary(stream);
+    resetInlineWhitespaceState(stream);
   }
 }
 
@@ -1215,6 +1223,40 @@ function yamlViolations(source, end) {
 
 // Padded dashes on a single physical YAML line, between `lineStart` and
 // `scanEnd`.
+function followsFlowMappingSeparator(line, paddingStart) {
+  if (paddingStart === 0 || line[paddingStart - 1] !== ':') {
+    return false;
+  }
+
+  let quote = null;
+  let mappingDepth = 0;
+  for (let index = 0; index < paddingStart; index += 1) {
+    const character = line[index];
+    if (quote) {
+      if (quote === '"' && character === '\\') {
+        index += 1;
+      } else if (character === quote) {
+        if (quote === "'" && line[index + 1] === "'") {
+          index += 1;
+        } else {
+          quote = null;
+        }
+      }
+      continue;
+    }
+
+    if (character === '"' || character === "'") {
+      quote = character;
+    } else if (character === '{') {
+      mappingDepth += 1;
+    } else if (character === '}') {
+      mappingDepth = Math.max(0, mappingDepth - 1);
+    }
+  }
+
+  return mappingDepth > 0 && quote === null;
+}
+
 function lineViolations(source, lineStart, scanEnd, blockScalarContentIndent, exceptionRanges) {
   const violations = [];
   const line = source.slice(lineStart, scanEnd);
@@ -1231,7 +1273,8 @@ function lineViolations(source, lineStart, scanEnd, blockScalarContentIndent, ex
     const inBlockScalar = blockScalarContentIndent !== null;
     const prefixIsStructural = inBlockScalar
       ? /^[\p{Zs}\t]*$/u.test(source.slice(lineStart, dashOffset))
-      : YAML_VALUE_PREFIX.test(source.slice(lineStart, absoluteStart));
+      : YAML_VALUE_PREFIX.test(source.slice(lineStart, absoluteStart)) ||
+        followsFlowMappingSeparator(line, start);
     const paddingStart = prefixIsStructural
       ? inBlockScalar
         ? Math.min(lineStart + blockScalarContentIndent, dashOffset)
@@ -1345,16 +1388,23 @@ function markdownStructure(source, mapOffset = (offset) => offset) {
   return JSON.stringify(shape(tree));
 }
 
-function yamlShape(value) {
+function yamlShape(value, seen = new Map()) {
+  if (value !== null && typeof value === 'object') {
+    if (seen.has(value)) {
+      return ['reference', seen.get(value)];
+    }
+    seen.set(value, seen.size);
+  }
+
   if (Array.isArray(value)) {
-    return ['array', ...value.map(yamlShape)];
+    return ['array', ...value.map((entry) => yamlShape(entry, seen))];
   }
   if (value !== null && typeof value === 'object') {
     return [
       'object',
       ...Object.keys(value)
         .sort()
-        .map((key) => [key, yamlShape(value[key])]),
+        .map((key) => [key, yamlShape(value[key], seen)]),
     ];
   }
   return typeof value;

@@ -740,6 +740,22 @@ describe('content em-dash lint', () => {
     expect(closeUpSpacedEmDashesInText(source)).toBe('word &#0;—next');
   });
 
+  it('rewrites YAML safely when an alias is recursive', () => {
+    const source = 'a: &a [*a]\ntitle: word — next\n';
+
+    expect(findSpacedEmDashViolations('/tmp/skills.yaml', source)).toHaveLength(1);
+    expect(closeUpSpacedEmDashesInText(source, '/tmp/skills.yaml')).toBe(
+      'a: &a [*a]\ntitle: word—next\n',
+    );
+  });
+
+  it('preserves a flow-mapping value separator before a leading dash', () => {
+    const source = 'x: {k: — leading}\n';
+
+    expect(findSpacedEmDashViolations('/tmp/skills.yaml', source)).toHaveLength(1);
+    expect(closeUpSpacedEmDashesInText(source, '/tmp/skills.yaml')).toBe('x: {k: —leading}\n');
+  });
+
   it('preserves block-scalar indentation when content starts with a dash', () => {
     const source = 'description: |\n  — leading\n';
 
@@ -898,6 +914,15 @@ describe('content em-dash lint', () => {
     expect(findSpacedEmDashViolations('/tmp/test.md', source)).toHaveLength(1);
     expect(closeUpSpacedEmDashesInText(source)).toBe(
       '<span style="white-space: pre">word\n—next</span>',
+    );
+  });
+
+  it('resets an unclosed inline whitespace context at a block boundary', () => {
+    const source = '<span style="white-space: pre">first\n\nword—\nnext';
+
+    expect(findSpacedEmDashViolations('/tmp/test.md', source)).toHaveLength(1);
+    expect(closeUpSpacedEmDashesInText(source)).toBe(
+      '<span style="white-space: pre">first\n\nword—next',
     );
   });
 
