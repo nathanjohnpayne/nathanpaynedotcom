@@ -38,7 +38,11 @@ const FRONTMATTER = /^---\r?\n[\s\S]*?\r?\n---(?:\r?\n|$)/;
 // an optional `key:`. Whitespace that follows such a prefix is YAML syntax,
 // not prose padding — rewriting it would turn `title: —` into `title:—` and
 // break the frontmatter mapping.
-const YAML_VALUE_PREFIX = /^[\p{Zs}\t]*(?:-[\p{Zs}\t]*)*(?:[^:\n]+:)?[\p{Zs}\t]*$/u;
+// The key may be quoted, in which case it can legally contain a colon
+// (`"a:b": value`), so a bare `[^:]+` would mistake the key's own colon for the
+// mapping separator and treat the required space after it as prose padding.
+const YAML_VALUE_PREFIX =
+  /^[\p{Zs}\t]*(?:-[\p{Zs}\t]*)*(?:(?:"(?:[^"\\]|\\.)*"|'(?:[^']|'')*'|[^:\n]+):)?[\p{Zs}\t]*$/u;
 
 // HTML elements whose content is raw text or code rather than prose. Their
 // bodies are left alone: rewriting `<pre>a — b</pre>` would edit a code
@@ -215,13 +219,43 @@ function emitText(node, body, stream) {
   });
 }
 
+// Tags that render as a break even inline.
+const HTML_BREAK_TAG = /^<\/?(?:br|hr)\b/i;
+
+// Emit one run of visible HTML text, decoding character references so
+// `<div>word &mdash; next</div>` is seen the way it renders. Returns the index
+// just past the run's first character.
+function emitVisibleCharacter(raw, index, start, stream) {
+  if (raw[index] === '&') {
+    const semicolon = raw.indexOf(';', index);
+    const decoded =
+      semicolon !== -1 && semicolon - index <= 32
+        ? decodeReference(raw.slice(index + 1, semicolon))
+        : null;
+
+    if (decoded !== null) {
+      const span = [index + start, semicolon + 1 + start];
+      for (const character of decoded) {
+        pushCharacter(stream, character, span);
+      }
+      return semicolon + 1;
+    }
+  }
+
+  pushCharacter(stream, raw[index], [index + start, index + start + 1]);
+  return index + 1;
+}
+
 // A raw-HTML span is not uniformly opaque: the tags are markup, the body of a
 // raw-text element is code, and everything else between tags is visible prose.
-function emitHtml(node, body, stream) {
+// `inline` marks HTML sitting inside a paragraph — omitting its tags must not
+// break adjacency, or `word <em>—</em> next` would read as three fragments and
+// the rendered padding would go unseen.
+function emitHtml(node, body, stream, inline) {
   const start = node.position.start.offset;
   const raw = body.slice(start, node.position.end.offset);
   const closed = collectMatchRanges(HTML_RAW_TEXT_ELEMENT, raw);
-  const skip = [...closed, ...collectMatchRanges(HTML_MARKUP, raw)];
+  const opaque = [...closed];
 
   // CommonMark lets an HTML block run to the end of the document, so a
   // raw-text element can be left unclosed. Protect it through the end of the
@@ -235,46 +269,115 @@ function emitHtml(node, body, stream) {
     }
     const closing = new RegExp(`</${opener[1]}\\s*>`, 'i').test(raw.slice(openers.lastIndex));
     if (!closing) {
-      skip.push([openerStart, raw.length]);
+      opaque.push([openerStart, raw.length]);
     }
   }
 
-  pushBoundary(stream);
-  for (let index = 0; index < raw.length; index += 1) {
-    if (skip.some(([skipStart, skipEnd]) => index >= skipStart && index < skipEnd)) {
+  const markup = collectMatchRanges(HTML_MARKUP, raw);
+
+  if (!inline) {
+    pushBoundary(stream);
+  }
+
+  let index = 0;
+  while (index < raw.length) {
+    const opaqueRange = opaque.find(([rangeStart, rangeEnd]) => index >= rangeStart && index < rangeEnd);
+    if (opaqueRange) {
       pushBoundary(stream);
+      index = opaqueRange[1];
       continue;
     }
-    pushCharacter(stream, raw[index], [index + start, index + start + 1]);
+
+    const markupRange = markup.find(([rangeStart, rangeEnd]) => index >= rangeStart && index < rangeEnd);
+    if (markupRange) {
+      const tag = raw.slice(markupRange[0], markupRange[1]);
+      // A comment or a visual break separates prose; an ordinary inline tag
+      // does not.
+      if (tag.startsWith('<!--') || HTML_BREAK_TAG.test(tag)) {
+        pushBoundary(stream);
+      }
+      index = markupRange[1];
+      continue;
+    }
+
+    index = emitVisibleCharacter(raw, index, start, stream);
   }
-  pushBoundary(stream);
+
+  if (!inline) {
+    pushBoundary(stream);
+  }
 }
 
-// A link title (`[a](/url "title")`) is published text, so it is scanned. The
-// destination never is.
+// The raw span of a link title (`[a](/url "title")`), found from the source
+// syntax rather than by searching for the decoded value — a title containing an
+// entity or escape has no raw occurrence of what it decodes to.
+function linkTitleRange(node, body) {
+  const nodeStart = node.position.start.offset;
+  const raw = body.slice(nodeStart, node.position.end.offset);
+
+  let index = raw.length - 1;
+  while (index >= 0 && /\s/.test(raw[index])) {
+    index -= 1;
+  }
+  if (raw[index] !== ')') {
+    return null;
+  }
+
+  index -= 1;
+  while (index >= 0 && /\s/.test(raw[index])) {
+    index -= 1;
+  }
+
+  const closer = raw[index];
+  if (closer !== '"' && closer !== "'" && closer !== ')') {
+    return null;
+  }
+  const opener = closer === ')' ? '(' : closer;
+
+  let cursor = index - 1;
+  while (cursor >= 0 && !(raw[cursor] === opener && raw[cursor - 1] !== '\\')) {
+    cursor -= 1;
+  }
+  if (cursor < 0) {
+    return null;
+  }
+
+  return [nodeStart + cursor + 1, nodeStart + index];
+}
+
+// A link title is published text, so it is scanned. The destination never is.
 function emitLinkTitle(node, body, stream) {
   if (!node.title) {
     return;
   }
 
-  const nodeEnd = node.position.end.offset;
-  const titleStart = body.lastIndexOf(node.title, nodeEnd);
-  if (titleStart === -1 || titleStart < node.position.start.offset) {
+  const range = linkTitleRange(node, body);
+  if (!range) {
     return;
   }
 
   pushBoundary(stream);
-  // Indexed by UTF-16 unit, not code point: a supplementary character such as
-  // an emoji occupies two units, and walking code points while treating the
-  // index as a source offset shifts every span after it — which would make
-  // `--write` delete prose instead of the padding around the dash.
-  for (let unit = 0; unit < node.title.length; unit += 1) {
-    pushCharacter(stream, node.title[unit], [titleStart + unit, titleStart + unit + 1]);
+  const [titleStart, titleEnd] = range;
+  const raw = body.slice(titleStart, titleEnd);
+  let index = 0;
+  while (index < raw.length) {
+    index = emitVisibleCharacter(raw, index, titleStart, stream);
   }
   pushBoundary(stream);
 }
 
-function emitNode(node, body, stream) {
+// Children of these contain blocks; children of anything else are inline.
+const BLOCK_CONTAINERS = new Set([
+  'blockquote',
+  'footnoteDefinition',
+  'list',
+  'listItem',
+  'root',
+  'table',
+  'tableRow',
+]);
+
+function emitNode(node, body, stream, inline = false) {
   if (OPAQUE_NODES.has(node.type)) {
     pushBoundary(stream);
     return;
@@ -286,7 +389,7 @@ function emitNode(node, body, stream) {
   }
 
   if (node.type === 'html') {
-    emitHtml(node, body, stream);
+    emitHtml(node, body, stream, inline);
     return;
   }
 
@@ -295,8 +398,9 @@ function emitNode(node, body, stream) {
     pushBoundary(stream);
   }
 
+  const childrenAreInline = !BLOCK_CONTAINERS.has(node.type);
   for (const child of node.children ?? []) {
-    emitNode(child, body, stream);
+    emitNode(child, body, stream, childrenAreInline);
   }
 
   if (node.type === 'link' || node.type === 'linkReference') {
@@ -627,11 +731,20 @@ Exceptions: bracketed ID-title labels such as [DST-047 — Title] remain allowed
 
 function main() {
   const args = process.argv.slice(2);
-  const applyWrite = args.includes('--write');
 
   if (args.includes('-h') || args.includes('--help')) {
     printUsageAndExit(0);
   }
+
+  // A typo such as `--wrtie` must not silently degrade to a read-only check
+  // and report success without applying the requested fix.
+  const unknown = args.filter((arg) => arg !== '--write');
+  if (unknown.length > 0) {
+    console.error(`content em-dash lint: unknown argument(s): ${unknown.join(', ')}`);
+    printUsageAndExit(2);
+  }
+
+  const applyWrite = args.includes('--write');
 
   const files = collectContentFiles(CONTENT_ROOT);
 

@@ -516,6 +516,37 @@ describe('content em-dash lint', () => {
     expect(closeUpSpacedEmDashesInText(source, '/tmp/skills.yaml')).toBe(source);
   });
 
+  it('sees a dash padded through inline HTML', () => {
+    // Omitting inline tags must not break adjacency.
+    const source = 'word <em>—</em> next';
+
+    expect(findSpacedEmDashViolations('/tmp/test.md', source)).toHaveLength(1);
+    expect(closeUpSpacedEmDashesInText(source)).toBe('word<em>—</em>next');
+  });
+
+  it('decodes character references inside an HTML block', () => {
+    const source = '<div>word &mdash; next</div>';
+
+    expect(findSpacedEmDashViolations('/tmp/test.md', source)).toHaveLength(1);
+    expect(closeUpSpacedEmDashesInText(source)).toBe('<div>word&mdash;next</div>');
+  });
+
+  it('finds a link title that contains a character reference', () => {
+    // The decoded title never appears verbatim in the source, so locating it
+    // by value search silently skipped it.
+    const source = '[x](/ "word &mdash; next")';
+
+    expect(findSpacedEmDashViolations('/tmp/test.md', source)).toHaveLength(1);
+    expect(closeUpSpacedEmDashesInText(source)).toBe('[x](/ "word&mdash;next")');
+  });
+
+  it('does not mistake a colon inside a quoted YAML key for the separator', () => {
+    // Removing the space after the mapping colon would corrupt the structure.
+    const source = '"a:b": — leading';
+
+    expect(closeUpSpacedEmDashesInText(source, '/tmp/skills.yaml')).toBe('"a:b": —leading');
+  });
+
   it('preserves CRLF line endings through a fix pass', () => {
     const source = 'prose — one.\r\nprose — two.\r\n';
 
