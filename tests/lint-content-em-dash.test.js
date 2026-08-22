@@ -219,6 +219,90 @@ describe('content em-dash lint', () => {
     expect(closeUpSpacedEmDashesInText('word—next.')).toBe('word—next.');
   });
 
+  it('treats no-break spaces as padding', () => {
+    const source = 'word\u00a0—\u00a0next and word\u202f—\u202fnext';
+
+    expect(findSpacedEmDashViolations('/tmp/test.md', source)).toHaveLength(2);
+    expect(closeUpSpacedEmDashesInText(source)).toBe('word—next and word—next');
+  });
+
+  it('does not rewrite the YAML space separating a key from a dash value', () => {
+    const source = ['---', 'title: —', 'blurb: — leading dash', '---', ''].join('\n');
+
+    const violations = findSpacedEmDashViolations('/tmp/test.md', source);
+    expect(violations).toHaveLength(1);
+    expect(violations[0]).toMatchObject({ line: 3 });
+    expect(closeUpSpacedEmDashesInText(source)).toBe(
+      ['---', 'title: —', 'blurb: —leading dash', '---', ''].join('\n'),
+    );
+  });
+
+  it('does not rewrite the YAML space after a sequence dash', () => {
+    const source = ['---', 'quotes:', '  - — leading dash', '---', ''].join('\n');
+
+    expect(closeUpSpacedEmDashesInText(source)).toBe(
+      ['---', 'quotes:', '  - —leading dash', '---', ''].join('\n'),
+    );
+  });
+
+  it('scans visible prose inside a raw HTML block but not its markup', () => {
+    const source = ['<div class="note">', 'visible — prose', '</div>'].join('\n');
+
+    expect(findSpacedEmDashViolations('/tmp/test.md', source)).toHaveLength(1);
+    expect(closeUpSpacedEmDashesInText(source)).toBe(
+      ['<div class="note">', 'visible—prose', '</div>'].join('\n'),
+    );
+  });
+
+  it('leaves an HTML comment alone', () => {
+    const source = ['<div>', '<!-- note — for editors -->', 'prose — here', '</div>'].join('\n');
+
+    const violations = findSpacedEmDashViolations('/tmp/test.md', source);
+    expect(violations).toHaveLength(1);
+    expect(violations[0]).toMatchObject({ line: 3 });
+  });
+
+  it('ignores an em dash inside a link destination', () => {
+    const source = '[label](<https://example.test/a — b>) and prose — here.';
+
+    const violations = findSpacedEmDashViolations('/tmp/test.md', source);
+    expect(violations).toHaveLength(1);
+    expect(closeUpSpacedEmDashesInText(source)).toBe(
+      '[label](<https://example.test/a — b>) and prose—here.',
+    );
+  });
+
+  it('still lints the label and title around a link destination', () => {
+    const source = '[a label — here](https://example.test/ "a title — here")';
+
+    expect(findSpacedEmDashViolations('/tmp/test.md', source)).toHaveLength(2);
+  });
+
+  it('ignores an em dash in a link reference definition URL', () => {
+    const source = '[ref]: <https://example.test/a — b>\n\nprose — here.';
+
+    expect(findSpacedEmDashViolations('/tmp/test.md', source)).toHaveLength(1);
+  });
+
+  it('catches an em dash padded across a soft line break', () => {
+    const source = 'a line ending in a dash —\ncontinuation of the paragraph.';
+
+    expect(findSpacedEmDashViolations('/tmp/test.md', source)).toHaveLength(1);
+  });
+
+  it('fixes a soft-break dash without reflowing the source', () => {
+    const source = '- one —\n- two';
+
+    // The newline survives: deleting it would glue the two list items.
+    expect(closeUpSpacedEmDashesInText(source)).toBe('- one—\n- two');
+  });
+
+  it('does not treat a paragraph break as padding', () => {
+    const source = 'a paragraph ending in a dash—\n\nA new paragraph.';
+
+    expect(findSpacedEmDashViolations('/tmp/test.md', source)).toHaveLength(0);
+  });
+
   it('preserves CRLF line endings through a fix pass', () => {
     const source = 'prose — one.\r\nprose — two.\r\n';
 
