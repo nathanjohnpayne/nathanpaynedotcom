@@ -13,7 +13,7 @@ githubUrl: "https://github.com/nathanjohnpayne/gaycruisebingo"
 tags: ["Consumer", "Social", "PWA", "Live Ops"]
 status: "SHIPPED"
 metadata:
-  format: "Production PWA — live multiplayer game"
+  format: "Production PWA—live multiplayer game"
   focus: "Consumer experience, social mechanics, and live operations"
 stack: "React · TypeScript · Vite · Firebase · Cloud Functions · Cloudflare Workers · PostHog"
 related:

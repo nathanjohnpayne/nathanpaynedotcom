@@ -9,7 +9,7 @@ date: 2026-04-16
 tags: ["AI", "Engineering", "Product", "Systems", "Code Review"]
 image: "/og/blog/agent-approval-workflow-genesis-of-mergepath.png"
 keyTakeaways:
-  - "Instruction files give an agent context, not compliance. If a behavior matters, make its absence mechanically impossible — branch protection, a PR-creation hook, a merge gate."
+  - "Instruction files give an agent context, not compliance. If a behavior matters, make its absence mechanically impossible—branch protection, a PR-creation hook, a merge gate."
   - "Having an agent review its own code under a separate reviewer identity produces measurably better reviews than asking for a review in the same conversation. The cost is one extra account."
   - "Fresh eyes beat familiarity: template code reviewed seven times by the same reviewer gave up seventeen more bugs the first time a different agent read it in a new repository."
   - "Agent reliability is an infrastructure problem, not a capability problem. The agent that shipped clean code was the same model as the one that tried to push straight to main."
