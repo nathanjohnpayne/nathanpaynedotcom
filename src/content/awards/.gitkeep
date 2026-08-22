@@ -1,4 +1,5 @@
-# Awards / hackathons collection — intentionally empty for now.
-# AwardsSection renders nothing (no header) when this collection has no
-# entries. Add one .md or .yaml file per award to populate the section.
-# Schema: name (required), issuer?, year?, order?, url?. See #394.
+# Awards / hackathons scaffold — intentionally empty and not registered as an
+# Astro collection, because an empty glob loader warns on every build (#654).
+# When the first real entry lands, restore the collection schema in
+# src/content.config.ts and wire AwardsSection into src/pages/resume.astro.
+# Intended schema: name (required), issuer?, year?, order?, url?. See #394.

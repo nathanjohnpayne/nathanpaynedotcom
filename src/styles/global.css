@@ -4973,7 +4973,7 @@ body.resume-page {
   border-bottom-color: var(--resume-link);
 }
 
-/* ── Awards (rendered only when the collection is non-empty) ── */
+/* ── Awards (dormant scaffold; wire back when content exists, #654) ── */
 .resume-awards__list {
   list-style: none;
   display: grid;

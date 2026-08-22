@@ -47,6 +47,25 @@ describe('Resume — route & build', () => {
     expect(config).toContain('resumeProjects');
     expect(config).toContain("base: './src/content/resume/projects'");
   });
+
+  it('keeps the empty awards scaffold dormant until there is content to load', () => {
+    const awardEntries = readdirSync(join(CONTENT, 'awards')).filter((file) =>
+      /\.(md|ya?ml)$/.test(file),
+    );
+    const config = readFileSync(resolve(__dirname, '../src/content.config.ts'), 'utf-8');
+    const page = readFileSync(resolve(__dirname, '../src/pages/resume.astro'), 'utf-8');
+
+    expect(awardEntries, 'add the awards collection back when the first entry lands').toHaveLength(
+      0,
+    );
+    expect(config).not.toMatch(/const awards\s*=\s*defineCollection/);
+    expect(config).not.toMatch(/^\s*awards,\s*$/m);
+    expect(page).not.toContain("getCollection('awards')");
+    expect(page).not.toContain(
+      "import AwardsSection from '../components/resume/AwardsSection.astro'",
+    );
+    expect(page).not.toContain('<AwardsSection');
+  });
 });
 
 describe('Resume — page structure', () => {
@@ -131,16 +150,16 @@ describe('Resume — page structure', () => {
         `no <section id="${id}"> for the ToC link`,
       ).not.toBeNull();
     }
-    // Awards is empty → AwardsSection renders nothing, so the ToC must NOT
-    // list a (broken) #awards anchor and there is no <section id="awards">.
-    expect(links, 'ToC should omit #awards while the collection is empty').not.toContain('#awards');
+    // The awards scaffold stays dormant until the first real entry, so the ToC
+    // must not list a broken #awards anchor.
+    expect(links, 'ToC should omit #awards while the scaffold is dormant').not.toContain('#awards');
     expect(
       document.getElementById('awards'),
-      'awards section should not render while empty',
+      'awards section should not render while its scaffold is dormant',
     ).toBeNull();
   });
 
-  it('renders the section <h2> titles in order; no References; Awards absent while empty', () => {
+  it('renders the section <h2> titles in order; no References; Awards dormant', () => {
     const titles = Array.from(document.querySelectorAll('.resume-section__title')).map((h) =>
       h.textContent.trim(),
     );
@@ -162,7 +181,7 @@ describe('Resume — page structure', () => {
       h.textContent.toLowerCase(),
     );
     expect(allH2.some((t) => t.includes('reference'))).toBe(false);
-    // Awards collection is empty → no awards section rendered.
+    // Awards is not wired until content exists → no awards section rendered.
     expect(document.querySelector('.resume-awards')).toBeNull();
   });
 
