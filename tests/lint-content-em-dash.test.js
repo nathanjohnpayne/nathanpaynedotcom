@@ -547,6 +547,38 @@ describe('content em-dash lint', () => {
     expect(closeUpSpacedEmDashesInText(source, '/tmp/skills.yaml')).toBe('"a:b": —leading');
   });
 
+  it('does not break a tag on a > inside a quoted attribute', () => {
+    const source = '<div title="a > b — c">text</div>';
+
+    expect(findSpacedEmDashViolations('/tmp/test.md', source)).toHaveLength(0);
+    expect(closeUpSpacedEmDashesInText(source)).toBe(source);
+  });
+
+  it('folds a YAML > scalar, so a line-end dash counts as padded', () => {
+    // The fold renders the break as a space: `word— continuation`.
+    const trailing = 'description: >\n  word—\n  continuation\n';
+    const padded = 'description: >\n  word —\n  continuation\n';
+
+    expect(findSpacedEmDashViolations('/tmp/skills.yaml', trailing)).toHaveLength(1);
+    expect(closeUpSpacedEmDashesInText(trailing, '/tmp/skills.yaml')).toBe(
+      'description: >\n  word—continuation\n',
+    );
+    expect(closeUpSpacedEmDashesInText(padded, '/tmp/skills.yaml')).toBe(
+      'description: >\n  word—continuation\n',
+    );
+  });
+
+  it('does not fold a literal | scalar or across a blank line', () => {
+    // `|` keeps breaks literal, and a blank line folds to a break, not a space.
+    const literal = 'description: |\n  word—\n  continuation\n';
+    const blank = 'description: >\n  word—\n\n  continuation\n';
+
+    expect(findSpacedEmDashViolations('/tmp/skills.yaml', literal)).toHaveLength(0);
+    expect(closeUpSpacedEmDashesInText(literal, '/tmp/skills.yaml')).toBe(literal);
+    expect(findSpacedEmDashViolations('/tmp/skills.yaml', blank)).toHaveLength(0);
+    expect(closeUpSpacedEmDashesInText(blank, '/tmp/skills.yaml')).toBe(blank);
+  });
+
   it('preserves CRLF line endings through a fix pass', () => {
     const source = 'prose — one.\r\nprose — two.\r\n';
 

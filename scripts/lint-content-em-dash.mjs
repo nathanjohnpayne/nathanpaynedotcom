@@ -49,7 +49,9 @@ const YAML_VALUE_PREFIX =
 // sample, and rewriting a `<script>` string would edit executable source.
 const HTML_RAW_TEXT_ELEMENT = /<(script|style|pre|code|textarea)\b[\s\S]*?<\/\1\s*>/gi;
 const HTML_RAW_TEXT_OPENER = /<(script|style|pre|code|textarea)\b[^>]*>/gi;
-const HTML_MARKUP = /<!--[\s\S]*?-->|<[^>]*>/g;
+// A tag ends at the first `>` that is NOT inside a quoted attribute value.
+// `<div title="a > b">` is one tag, not a tag plus stray prose.
+const HTML_MARKUP = /<!--[\s\S]*?-->|<[^>"']*(?:(?:"[^"]*"|'[^']*')[^>"']*)*>/g;
 
 // Block-level nodes. Padding may not run across their edges, because the
 // rendered output puts a line break there.
@@ -431,10 +433,10 @@ function buildProseStream(body) {
 
 // A violation is a dash plus the source spans of the padding around it. The
 // spans are what a fix deletes; the dash itself is never touched.
-function bodyViolations(source) {
-  const bodyStart = frontmatterLength(source);
-  const stream = buildProseStream(source.slice(bodyStart));
-  const exceptionRanges = collectMatchRanges(IDENTIFIER_LABEL_EXCEPTION, source);
+// Turn padding matches on a rendered stream into violations. A violation is a
+// dash plus the source spans of the padding around it; the spans are what a fix
+// deletes, and the dash itself is never touched.
+function violationsFromStream(stream, offsetBase, exceptionRanges) {
   const violations = [];
 
   for (const [start, end] of collectMatchRanges(PADDED_EM_DASH, stream.text)) {
@@ -449,11 +451,11 @@ function bodyViolations(source) {
       }
       const key = `${span[0]}:${span[1]}`;
       if (stream.text[index] === '—') {
-        dashOffset = span[0] + bodyStart;
+        dashOffset = span[0] + offsetBase;
         dashKey = key;
         continue;
       }
-      padding.set(key, [span[0] + bodyStart, span[1] + bodyStart]);
+      padding.set(key, [span[0] + offsetBase, span[1] + offsetBase]);
     }
 
     // A single character reference can decode to both the dash and something
@@ -461,7 +463,7 @@ function bodyViolations(source) {
     padding.delete(dashKey);
     const removals = [...padding.values()];
 
-    if (dashOffset === null || end - start < 2) {
+    if (dashOffset === null || removals.length === 0) {
       continue;
     }
     if (exceptionRanges.some(([rangeStart, rangeEnd]) => dashOffset >= rangeStart && dashOffset < rangeEnd)) {
@@ -474,6 +476,14 @@ function bodyViolations(source) {
   return violations;
 }
 
+function bodyViolations(source) {
+  const bodyStart = frontmatterLength(source);
+  const stream = buildProseStream(source.slice(bodyStart));
+  const exceptionRanges = collectMatchRanges(IDENTIFIER_LABEL_EXCEPTION, source);
+
+  return violationsFromStream(stream, bodyStart, exceptionRanges);
+}
+
 // Strip a YAML end-of-line comment, without mistaking a `#` inside a quoted
 // scalar for one.
 // A `key: |` or `key: >` line opens a block scalar, whose following indented
@@ -484,9 +494,13 @@ function bodyViolations(source) {
 const BLOCK_SCALAR_OPENER =
   /^([\p{Zs}\t]*)(?:-[\p{Zs}\t]+)*(?:[^:\n]+:)?[\p{Zs}\t]*[|>](?:[-+]\d*|\d+[-+]?)?[\p{Zs}\t]*$/u;
 
-function blockScalarIndentOf(line) {
+function blockScalarOpenerOf(line) {
   const match = line.match(BLOCK_SCALAR_OPENER);
-  return match ? match[1].length : null;
+  if (!match) {
+    return null;
+  }
+  // `>` folds line breaks into spaces; `|` keeps them literal.
+  return { indent: match[1].length, folded: match[0].includes('>') };
 }
 
 function indentOf(line) {
@@ -527,6 +541,64 @@ function yamlCommentStart(line) {
 // by line rather than parsed as Markdown: a line break separates scalars
 // rather than joining them, structural prefixes are not padding, and comments
 // are not published.
+// A folded (`>`) scalar joins its lines with spaces, so a dash at the end of
+// one line renders padded against the next. Build the folded text as a stream
+// whose fold-space carries the source span of the line break plus the following
+// indentation — deleting that span joins the lines, which is exactly what the
+// fold already does semantically.
+function foldedScalarViolations(source, regionStart, regionEnd, baseIndent, exceptionRanges) {
+  const stream = createProseStream();
+  let lineStart = regionStart;
+  let pendingFold = null;
+
+  while (lineStart < regionEnd) {
+    const newline = source.indexOf('\n', lineStart);
+    const lineEnd = newline === -1 || newline > regionEnd ? regionEnd : newline;
+    const line = source.slice(lineStart, lineEnd).replace(/\r$/, '');
+    const isBlank = line.trim() === '';
+    const indent = indentOf(line);
+
+    // A blank line, or a more-indented line, is not folded: it renders as a
+    // break rather than a space.
+    if (isBlank || indent > baseIndent) {
+      pendingFold = null;
+      pushBoundary(stream);
+      if (!isBlank) {
+        for (let index = lineStart + indent; index < lineStart + line.length; index += 1) {
+          pushCharacter(stream, source[index], [index, index + 1]);
+        }
+        pushBoundary(stream);
+      }
+      lineStart = lineEnd + 1;
+      continue;
+    }
+
+    const contentStart = lineStart + indent;
+    const contentEnd = lineStart + line.replace(/[\p{Zs}\t]+$/u, '').length;
+
+    if (pendingFold !== null) {
+      pushCharacter(stream, ' ', [pendingFold, contentStart]);
+    }
+
+    for (let index = contentStart; index < contentEnd; index += 1) {
+      pushCharacter(stream, source[index], [index, index + 1]);
+    }
+
+    // The fold consumes this line's trailing whitespace, the break, and the
+    // next line's indentation.
+    pendingFold = contentEnd;
+    lineStart = lineEnd + 1;
+  }
+
+  return violationsFromStream(stream, 0, exceptionRanges);
+}
+
+// YAML carries a lot of this repo's published prose: frontmatter titles, card
+// copy and pull quotes, and the `src/content/skills/**` collection, which is
+// authored as standalone YAML and rendered onto the resume. It is scanned line
+// by line rather than parsed as Markdown: outside a folded scalar a line break
+// separates scalars rather than joining them, structural prefixes are not
+// padding, and comments are not published.
 function yamlViolations(source, end) {
   if (end === 0) {
     return [];
@@ -548,8 +620,41 @@ function yamlViolations(source, end) {
       blockScalarIndent = null;
     }
     const inBlockScalar = blockScalarIndent !== null;
+
     if (!inBlockScalar && !isBlank) {
-      blockScalarIndent = blockScalarIndentOf(line);
+      const opener = blockScalarOpenerOf(line);
+
+      if (opener?.folded) {
+        // Consume the whole folded region here and hand it to the stream
+        // scanner, so its lines are not also scanned one at a time.
+        let cursor = lineEnd + 1;
+        let baseIndent = null;
+        while (cursor < end) {
+          const nextNewline = source.indexOf('\n', cursor);
+          const nextEnd = nextNewline === -1 || nextNewline > end ? end : nextNewline;
+          const nextLine = source.slice(cursor, nextEnd).replace(/\r$/, '');
+          if (nextLine.trim() !== '') {
+            const nextIndent = indentOf(nextLine);
+            if (nextIndent <= opener.indent) {
+              break;
+            }
+            if (baseIndent === null) {
+              baseIndent = nextIndent;
+            }
+          }
+          cursor = nextEnd + 1;
+        }
+
+        if (baseIndent !== null) {
+          violations.push(
+            ...foldedScalarViolations(source, lineEnd + 1, Math.min(cursor, end), baseIndent, exceptionRanges),
+          );
+        }
+        lineStart = cursor;
+        continue;
+      }
+
+      blockScalarIndent = opener ? opener.indent : null;
     }
 
     // Inside a block scalar the whole line is literal content: no comment to
