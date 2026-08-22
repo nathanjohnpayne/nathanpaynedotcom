@@ -6,85 +6,163 @@ const CONTENT_ROOT = resolve(process.cwd(), 'src/content');
 const TARGET_EXTENSIONS = new Set(['.md', '.mdx']);
 const SPACED_EM_DASH = / — /g;
 const IDENTIFIER_LABEL_EXCEPTION = /\[[A-Z]{2,}[A-Z0-9_-]*-\d+\s—\s[^\]]+\](?:\([^)]+\))?/g;
+const CODE_FENCE_OPEN = /^ {0,3}([`~]{3,})(.*)$/;
+const CODE_FENCE_CLOSE = /^ {0,3}([`~]{3,})\s*$/;
+
+function collectRanges(regex, line) {
+  const cloned = new RegExp(regex.source, regex.flags.includes('g') ? regex.flags : `${regex.flags}g`);
+  const ranges = [];
+  let match;
+  while ((match = cloned.exec(line)) !== null) {
+    ranges.push([match.index, match.index + match[0].length]);
+  }
+  return ranges;
+}
+
+function removeInlineCodeToSpaces(line) {
+  let output = '';
+  let i = 0;
+  let inInlineCode = false;
+  let inlineFenceLen = 0;
+
+  while (i < line.length) {
+    if (line[i] !== '`') {
+      output += inInlineCode ? ' ' : line[i];
+      i += 1;
+      continue;
+    }
+
+    let j = i;
+    while (j < line.length && line[j] === '`') {
+      j += 1;
+    }
+    const runLen = j - i;
+    output += ' '.repeat(runLen);
+
+    if (!inInlineCode) {
+      inInlineCode = true;
+      inlineFenceLen = runLen;
+    } else if (runLen >= inlineFenceLen) {
+      inInlineCode = false;
+      inlineFenceLen = 0;
+    }
+
+    i = j;
+  }
+
+  return output;
+}
+
+function updateCodeFenceState(line, state) {
+  const openMatch = line.match(CODE_FENCE_OPEN);
+
+  if (!state.inCodeBlock) {
+    if (!openMatch) {
+      return { ...state, isFenceBoundary: false };
+    }
+
+    const marker = openMatch[1];
+    return {
+      inCodeBlock: true,
+      fenceChar: marker[0],
+      fenceLen: marker.length,
+      isFenceBoundary: true,
+    };
+  }
+
+  if (!openMatch) {
+    return { ...state, isFenceBoundary: false };
+  }
+
+  const closeMatch = line.match(CODE_FENCE_CLOSE);
+  if (!closeMatch) {
+    return { ...state, isFenceBoundary: false };
+  }
+
+  const marker = closeMatch[1];
+  const isClose =
+    marker[0] === state.fenceChar &&
+    marker.length >= (state.fenceLen || 0);
+
+  if (!isClose) {
+    return { ...state, isFenceBoundary: false };
+  }
+
+  return {
+    inCodeBlock: false,
+    fenceChar: null,
+    fenceLen: null,
+    isFenceBoundary: true,
+  };
+}
+
+function isRangeInsideExceptions(start, end, ranges) {
+  return ranges.some(([exceptionStart, exceptionEnd]) => start >= exceptionStart && end <= exceptionEnd);
+}
+
+function fixContentLine(line) {
+  const lineWithoutInlineCode = removeInlineCodeToSpaces(line);
+  const exceptionRanges = collectRanges(IDENTIFIER_LABEL_EXCEPTION, lineWithoutInlineCode);
+  const spacedDashRanges = collectRanges(SPACED_EM_DASH, lineWithoutInlineCode);
+
+  let fixed = '';
+  let cursor = 0;
+
+  for (const [start, end] of spacedDashRanges) {
+    if (isRangeInsideExceptions(start, end, exceptionRanges)) {
+      continue;
+    }
+
+    fixed += `${line.slice(cursor, start)}—`;
+    cursor = end;
+  }
+
+  fixed += line.slice(cursor);
+  return fixed;
+}
 
 export function findSpacedEmDashViolations(filePath, source) {
   const violations = [];
   const lines = source.split(/\r?\n/);
-  let inCodeBlock = false;
+  const fenceState = { inCodeBlock: false, fenceChar: null, fenceLen: null, isFenceBoundary: false };
 
   lines.forEach((line, index) => {
-    if (/^\s*```/.test(line)) {
-      inCodeBlock = !inCodeBlock;
+    Object.assign(fenceState, updateCodeFenceState(line, fenceState));
+
+    if (fenceState.isFenceBoundary || fenceState.inCodeBlock) {
       return;
     }
 
-    if (inCodeBlock) {
-      return;
-    }
+    const lineWithoutInlineCode = removeInlineCodeToSpaces(line);
+    const exceptionRanges = collectRanges(IDENTIFIER_LABEL_EXCEPTION, lineWithoutInlineCode);
+    const spacedDashRanges = collectRanges(SPACED_EM_DASH, lineWithoutInlineCode);
 
-    const exceptionRanges = [];
-    const exceptionRegex = new RegExp(IDENTIFIER_LABEL_EXCEPTION);
-    let match;
-
-    while ((match = exceptionRegex.exec(line)) !== null) {
-      exceptionRanges.push([match.index, match.index + match[0].length]);
-    }
-
-    const spacedDashRegex = new RegExp(SPACED_EM_DASH);
-    while ((match = spacedDashRegex.exec(line)) !== null) {
-      const start = match.index;
-      const end = match.index + match[0].length;
-      const insideException = exceptionRanges.some(
-        ([exceptionStart, exceptionEnd]) => start >= exceptionStart && end <= exceptionEnd,
-      );
-
-      if (!insideException) {
-        violations.push({
-          filePath,
-          line: index + 1,
-          column: start + 1,
-          snippet: line.trim(),
-        });
+    for (const [start, end] of spacedDashRanges) {
+      if (isRangeInsideExceptions(start, end, exceptionRanges)) {
+        continue;
       }
+
+      violations.push({
+        filePath,
+        line: index + 1,
+        column: start + 1,
+        snippet: line.trim(),
+      });
     }
   });
 
   return violations;
 }
 
-export function fixContentLine(line) {
-  const exceptionMatches = [];
-  const exceptionRegex = new RegExp(IDENTIFIER_LABEL_EXCEPTION);
-  let index = 0;
-  let match;
-
-  while ((match = exceptionRegex.exec(line)) !== null) {
-    const token = `__MERGEPATH_EM_DASH_EXCEPTION_${exceptionMatches.length}__`;
-    exceptionMatches.push({
-      token,
-      text: match[0],
-    });
-    line = line.slice(0, match.index - index) + token + line.slice(match.index + match[0].length - index);
-    index += match[0].length - token.length;
-  }
-
-  const fixedLine = line.replace(SPACED_EM_DASH, '—');
-
-  return exceptionMatches.reduce((acc, { token, text }) => acc.replace(token, text), fixedLine);
-}
-
 export function closeUpSpacedEmDashesInText(source) {
   const lines = source.split(/\r?\n/);
-  let inCodeBlock = false;
+  const fenceState = { inCodeBlock: false, fenceChar: null, fenceLen: null, isFenceBoundary: false };
 
   return lines
     .map((line) => {
-      if (/^\s*```/.test(line)) {
-        inCodeBlock = !inCodeBlock;
-        return line;
-      }
+      Object.assign(fenceState, updateCodeFenceState(line, fenceState));
 
-      if (inCodeBlock) {
+      if (fenceState.isFenceBoundary || fenceState.inCodeBlock) {
         return line;
       }
 

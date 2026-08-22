@@ -29,6 +29,37 @@ describe('content em-dash lint', () => {
     expect(findSpacedEmDashViolations('/tmp/test.md', source)).toHaveLength(0);
   });
 
+  it('skips tildes code blocks and matching-length rules', () => {
+    const source = [
+      '~~~~',
+      'spaced — em dash inside code',
+      '~~~~',
+    ].join('\n');
+
+    expect(findSpacedEmDashViolations('/tmp/test.md', source)).toHaveLength(0);
+  });
+
+  it('skips inline code spans in fix and detect steps', () => {
+    const source = '`inline code — keeps spaced dashes` and prose — gets fixed.';
+
+    expect(findSpacedEmDashViolations('/tmp/test.md', source)).toHaveLength(1);
+    expect(closeUpSpacedEmDashesInText(source)).toBe(
+      '`inline code — keeps spaced dashes` and prose—gets fixed.',
+    );
+  });
+
+  it('preserves multiple identifier-label exceptions on one line', () => {
+    const source = [
+      '[DST-047 — Questionnaire Intake](/tmp/whatever.md) [DST-048 — Prompt Safety](/tmp/whatever-2.md)',
+      'text with spaced — issue.',
+    ].join('\n');
+
+    expect(findSpacedEmDashViolations('/tmp/test.md', source)).toHaveLength(1);
+    expect(closeUpSpacedEmDashesInText(source)).toBe(
+      '[DST-047 — Questionnaire Intake](/tmp/whatever.md) [DST-048 — Prompt Safety](/tmp/whatever-2.md)\ntext with spaced—issue.',
+    );
+  });
+
   it('fixes prose-only spacing while preserving ID-title exceptions', () => {
     const source = [
       'A spaced — em dash.',
@@ -40,5 +71,15 @@ describe('content em-dash lint', () => {
 
     const fixed = closeUpSpacedEmDashesInText(source);
     expect(fixed).toBe('A spaced—em dash.\n[DST-047 — Questionnaire Intake](/tmp/whatever.md)\n```\ncode — block\n```');
+  });
+
+  it('does not treat 4-space-indented fences as code fences', () => {
+    const source = [
+      '    ```',
+      '    spaced — inside indented code',
+      '    ```',
+    ].join('\n');
+
+    expect(findSpacedEmDashViolations('/tmp/test.md', source)).toHaveLength(1);
   });
 });
