@@ -5,6 +5,7 @@ import { pathToFileURL } from 'node:url';
 import { fromMarkdown } from 'mdast-util-from-markdown';
 import { gfmFromMarkdown } from 'mdast-util-gfm';
 import { decodeNamedCharacterReference } from 'decode-named-character-reference';
+import { decodeNumericCharacterReference } from 'micromark-util-decode-numeric-character-reference';
 import { gfm } from 'micromark-extension-gfm';
 import { loadAll as parseYamlDocuments } from 'js-yaml';
 
@@ -145,18 +146,24 @@ function pushBoundary(stream) {
 function decodeReference(name) {
   if (name.startsWith('#')) {
     const digits = name.slice(1);
-    const code = /^[xX]/.test(digits) ? Number.parseInt(digits.slice(1), 16) : Number.parseInt(digits, 10);
-    if (!Number.isInteger(code) || code < 0 || code > 0x10ffff) {
+    const hex = /^[xX]/.test(digits);
+    const value = hex ? digits.slice(1) : digits;
+    if (!(hex ? /^[\dA-Fa-f]+$/ : /^\d+$/).test(value)) {
       return null;
     }
-    try {
-      return String.fromCodePoint(code);
-    } catch {
-      return null;
-    }
+    return decodeNumericCharacterReference(value, hex ? 16 : 10);
   }
 
   return decodeNamedCharacterReference(name) || null;
+}
+
+function skipMarkdownContinuationPrefix(raw, start) {
+  let cursor = start;
+  let match;
+  while ((match = raw.slice(cursor).match(/^[\t ]{0,3}>[\t ]?/))) {
+    cursor += match[0].length;
+  }
+  return cursor;
 }
 
 function findCharacterSourceOffset(raw, start, character) {
@@ -207,6 +214,7 @@ function alignValueToSource(value, raw) {
     // break so closing the rendered gap removes the whole continuation rather
     // than publishing a stray `>` or list prefix.
     if (pendingSoftBreakSpan !== null) {
+      cursor = skipMarkdownContinuationPrefix(raw, cursor);
       const nextOffset = findCharacterSourceOffset(raw, cursor, characters[index]);
       if (nextOffset !== null) {
         spans[pendingSoftBreakSpan][1] = nextOffset;
@@ -372,9 +380,8 @@ function emitHtml(node, body, stream, inline) {
   const raw = body.slice(start, node.position.end.offset);
   const markup = collectMatchRanges(HTML_MARKUP, raw);
   const whiteSpaceDeclaration = raw.match(/\bwhite-space\s*:\s*(normal|nowrap|pre|pre-line|pre-wrap|break-spaces)\b/i);
-  const preserveWhitespace = whiteSpaceDeclaration
-    ? !/^(?:normal|nowrap)$/i.test(whiteSpaceDeclaration[1])
-    : /\bclass\s*=/i.test(raw);
+  const preserveWhitespace =
+    !whiteSpaceDeclaration || !/^(?:normal|nowrap)$/i.test(whiteSpaceDeclaration[1]);
 
   if (!inline) {
     pushBoundary(stream);

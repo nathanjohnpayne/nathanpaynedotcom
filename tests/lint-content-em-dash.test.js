@@ -744,11 +744,25 @@ describe('content em-dash lint', () => {
     expect(closeUpSpacedEmDashesInText(source)).toBe('> word—continuation');
   });
 
+  it('disambiguates a continuation prefix from the next rendered character', () => {
+    const source = '> word—\r\n> \\> continuation';
+
+    expect(findSpacedEmDashViolations('/tmp/test.md', source)).toHaveLength(1);
+    expect(closeUpSpacedEmDashesInText(source)).toBe('> word—\\> continuation');
+  });
+
   it('does not corrupt a character reference before a padded dash', () => {
     const source = 'word &amp; — next';
 
     expect(findSpacedEmDashViolations('/tmp/test.md', source)).toHaveLength(1);
     expect(closeUpSpacedEmDashesInText(source)).toBe('word &amp;—next');
+  });
+
+  it('does not corrupt a normalized numeric character reference', () => {
+    const source = 'word &#0; — next';
+
+    expect(findSpacedEmDashViolations('/tmp/test.md', source)).toHaveLength(1);
+    expect(closeUpSpacedEmDashesInText(source)).toBe('word &#0;—next');
   });
 
   it('preserves block-scalar indentation when content starts with a dash', () => {
@@ -785,11 +799,11 @@ describe('content em-dash lint', () => {
     expect(closeUpSpacedEmDashesInText(source)).toBe('`sample <pre>` prose—here');
   });
 
-  it('collapses raw HTML whitespace before applying the prose rule', () => {
+  it('preserves an unclassified raw HTML newline while applying the prose rule', () => {
     const source = '<div>word\n— next</div>';
 
     expect(findSpacedEmDashViolations('/tmp/test.md', source)).toHaveLength(1);
-    expect(closeUpSpacedEmDashesInText(source)).toBe('<div>word—next</div>');
+    expect(closeUpSpacedEmDashesInText(source)).toBe('<div>word\n—next</div>');
   });
 
   it('preserves raw HTML newlines when an inline style preserves whitespace', () => {
@@ -808,5 +822,12 @@ describe('content em-dash lint', () => {
     expect(closeUpSpacedEmDashesInText(source)).toBe(
       '<div class="preserve-whitespace">word\n—next</div>',
     );
+  });
+
+  it('preserves raw HTML newlines when an ID may select whitespace-preserving CSS', () => {
+    const source = '<div id="pre">word\n— next</div>';
+
+    expect(findSpacedEmDashViolations('/tmp/test.md', source)).toHaveLength(1);
+    expect(closeUpSpacedEmDashesInText(source)).toBe('<div id="pre">word\n—next</div>');
   });
 });

@@ -38,6 +38,7 @@
     "mdast-util-from-markdown": "^2.0.3",
     "mdast-util-gfm": "^3.1.0",
     "micromark-extension-gfm": "^3.0.0",
+    "micromark-util-decode-numeric-character-reference": "^2.0.2",
     "prettier": "^3.9.6",
     "typescript": ">=6.0.3 <6.1.0",
     "typescript-eslint": "^8.67.0",
