@@ -478,6 +478,21 @@ describe('content em-dash lint', () => {
     expect(closeUpSpacedEmDashesInText(pre)).toBe(pre);
   });
 
+  it('honours an explicit block scalar indentation indicator', () => {
+    // Tracking keys off the opener line's indentation, so content indented
+    // past it stays in the scalar whatever the explicit indicator says.
+    const cases = [
+      'description: |2\n  visible # topic — explanation\n',
+      'a:\n  description: |2\n    visible # topic — explanation\n',
+      'a:\n  description: |1\n   visible # topic — explanation\n',
+      'items:\n  - |2\n    visible # topic — explanation\n',
+    ];
+
+    for (const source of cases) {
+      expect(findSpacedEmDashViolations('/tmp/skills.yaml', source)).toHaveLength(1);
+    }
+  });
+
   it('preserves CRLF line endings through a fix pass', () => {
     const source = 'prose — one.\r\nprose — two.\r\n';
 
