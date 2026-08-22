@@ -57,6 +57,11 @@ default_external_reviewer: nathanpayne-codex
 # Do not change this unless the repo owner account changes.
 author_identity: nathanjohnpayne
 
+# GitHub counts approvals from service accounts with write access toward branch
+# protection. Keep CI-only identities out of every reviewer lane.
+non_reviewer_identities:
+  - nathanpayne-robot
+
 # ---------------------------------------------------------------------------
 # CodeRabbit (Automated External Review — Phase 2.5)
 # ---------------------------------------------------------------------------

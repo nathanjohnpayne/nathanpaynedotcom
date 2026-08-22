@@ -7,6 +7,7 @@
 #
 # Usage:
 #   scripts/codex-review-check.sh <PR_NUMBER> [REPO]
+#   scripts/codex-review-check.sh --approval-readiness-only <PR_NUMBER> [REPO]
 #
 # Arguments:
 #   PR_NUMBER  Required. The pull request number (integer).
@@ -85,7 +86,13 @@
 #   reply-matching version if false-negatives become a problem.
 #
 # Exit codes:
-#   0   All three gate conditions pass; PR is mergeable.
+#   0   All three Phase 4 POLICY gate conditions pass. This does NOT mean
+#       GitHub will accept the merge: branch protection is evaluated
+#       separately and can still refuse. Most often it wants an APPROVED
+#       review OBJECT, and a Codex 👍 is a reaction, not a review — so a
+#       👍-cleared PR exits 0 here and stays BLOCKED / REVIEW_REQUIRED on
+#       every repo with required_approving_review_count >= 1 (all nine
+#       consumers; the hub is 0). See mergepath#1059.
 #   1   At least one gate condition fails. A one-line reason is
 #       printed to stderr.
 #   3   API / infrastructure error. Error message on stderr.
@@ -165,10 +172,60 @@ fi
 # shellcheck source=lib/reviewers-helpers.sh
 . "$__CODEX_CHECK_DIR/lib/reviewers-helpers.sh"
 
+# Shared paginated-list reader (#1008) — the fetch → capture → flatten
+# algorithm fetch_api_array below used to carry inline, alongside seven other
+# copies. Hard-required for the same reason reviewers-helpers is: the changed-
+# files, reviews and reactions reads are fail-closed gate inputs, and an
+# undefined reader would surface as `command not found` rather than as a
+# decision.
+if [ ! -r "$__CODEX_CHECK_DIR/lib/gh-api-array.sh" ]; then
+  echo "ERROR: gh-api-array helper missing: $__CODEX_CHECK_DIR/lib/gh-api-array.sh" >&2
+  exit 3
+fi
+# shellcheck source=lib/gh-api-array.sh
+. "$__CODEX_CHECK_DIR/lib/gh-api-array.sh"
+
 # --- argument parsing -------------------------------------------------------
 
+# --diagnostic-signal-only (#814) and --approval-readiness-only (#1062) are
+# FLAGS, deliberately not environment variables (CodeRabbit Major on #835).
+#
+# It skips gate (b) and disables the #705 carry-forward so the run reports
+# purely on "did Codex speak on THIS head", which is what the same-head
+# barrier needs. That WEAKENS a gate, and this script is the delegate of a
+# REQUIRED status check invoked by scripts/merge-clearance-gate.sh, by
+# .github/workflows/agent-review.yml and by the auto-clear workflow. An
+# environment variable is inherited by every child process, so any of those
+# callers would silently pick it up from a runner env, an exported shell
+# variable, or a workflow-level `env:` block, and the required gate would stop
+# checking for reviewer approval without anyone asking it to.
+#
+# A flag cannot be inherited. Callers that want a narrowed read-only answer
+# pass it explicitly; callers that do not, cannot get it by accident.
+#
+# The three pre-existing env knobs are left as-is on purpose: SKIP_CI narrows
+# scope, and REQUIRE_APPROVAL_ON_HEAD=1 / ALLOW_PHASE_4B_SUBSTITUTE=false both
+# make the gate STRICTER. Inheriting those is safe in a way inheriting this
+# one is not.
+DIAGNOSTIC_SIGNAL_ONLY=0
+APPROVAL_READINESS_ONLY=0
+_crc_positional=()
+for _arg in "$@"; do
+  case "$_arg" in
+    --diagnostic-signal-only) DIAGNOSTIC_SIGNAL_ONLY=1 ;;
+    --approval-readiness-only) APPROVAL_READINESS_ONLY=1 ;;
+    *) _crc_positional+=("$_arg") ;;
+  esac
+done
+set -- ${_crc_positional[@]+"${_crc_positional[@]}"}
+
+if [ "$DIAGNOSTIC_SIGNAL_ONLY" = "1" ] && [ "$APPROVAL_READINESS_ONLY" = "1" ]; then
+  echo "ERROR: choose only one diagnostic mode" >&2
+  exit 3
+fi
+
 if [ $# -lt 1 ] || [ $# -gt 2 ]; then
-  echo "Usage: $0 <PR_NUMBER> [REPO]" >&2
+  echo "Usage: $0 [--diagnostic-signal-only|--approval-readiness-only] <PR_NUMBER> [REPO]" >&2
   exit 3
 fi
 
@@ -379,6 +436,41 @@ if [ "${CODEX_REVIEW_CHECK_REQUIRE_APPROVAL_ON_HEAD:-}" = "1" ]; then
   REQUIRE_APPROVAL_ON_HEAD=1
 fi
 
+# Gate (b) bypass, driven by --diagnostic-signal-only (#814).
+# Treat gate (b) as satisfied so the run reports purely on gate (c): does a
+# Codex signal exist on this head?
+#
+# The same-head barrier needs that question answered BEFORE it runs a
+# reviewer, and gate (b) is evaluated first and hard-fails when no non-author
+# APPROVED exists on HEAD — which is precisely the state at the barrier's
+# first evaluation, since no Phase 4b approval has been posted yet. Without
+# this the composite returns 1 for a gate-(b) reason on essentially every
+# first evaluation, the barrier reads permanent NOT-YET, and it can never
+# open. Where it happens to return 0, that is gate (b) branch 2 clearing on a
+# Codex 👍 or carry-forward — mechanics unrelated to the question being asked.
+#
+# Default behaviour is byte-identical: without the flag, nothing changes.
+# Deliberately NOT combinable with a merge decision — a caller passing it is
+# asking a diagnostic question, not clearing a merge.
+SKIP_REVIEWER_APPROVAL="$DIAGNOSTIC_SIGNAL_ONLY"
+
+# Carry-forward suppression, driven by the same --diagnostic-signal-only flag.
+# Disable the #705 same-content carry-forward so gate (c) can clear ONLY on a
+# Codex signal anchored to this exact head.
+#
+# The carry-forward is consulted precisely when the current head has no Codex
+# signal of its own, so without this a caller asking "has Codex spoken on THIS
+# head?" gets exit 0 for a verdict on an older commit. That is correct for a
+# merge gate — the reviewed content is identical, which is the whole point of
+# #705 and #763 — and wrong for a same-head ordering barrier, whose contract
+# is head identity, not content identity. Conflating the two would let the
+# barrier open before Codex has spoken on the head about to be approved.
+#
+# Bound to the same flag rather than a separate one: both express the single
+# question "did Codex speak on this head", and splitting them would let a
+# caller ask half of it.
+REQUIRE_HEAD_SIGNAL="$DIAGNOSTIC_SIGNAL_ONLY"
+
 # Honor codex.allow_phase_4b_substitute. When true (default), gate (c)
 # also accepts an APPROVED review on the current HEAD from an
 # available_reviewers identity != the PR author as a Codex-equivalent
@@ -437,15 +529,11 @@ die() {
 }
 
 # Fetch a paginated GitHub REST API endpoint and return the flattened JSON
-# array on stdout. See the identical helper in codex-review-request.sh for
-# the rationale; both scripts need the same fix (#64 review finding 3).
+# array on stdout. The algorithm lives in scripts/lib/gh-api-array.sh (#1008);
+# what stays here is this checker's failure ACTION — `die 3`, the infra status
+# every caller of this script reads as "could not decide".
 fetch_api_array() {
-  local endpoint=$1
-  local label=$2
-  local raw
-  raw=$(gh api --paginate "$endpoint" 2>&1) || die 3 "failed to fetch $label: $raw"
-  echo "$raw" | jq -s 'add // []' 2>/dev/null \
-    || die 3 "failed to flatten $label pagination output"
+  gh_api_array "$1" "$2" || die 3 "$GH_API_ARRAY_ERROR"
 }
 
 # --- fetch PR metadata ------------------------------------------------------
@@ -531,6 +619,19 @@ if grep -qiE '^Authoring-Agent:' <<<"$PR_BODY"; then
     # when no record matched.
     SAME_AGENT_REVIEWER=$(echo "$REVIEWERS" | awk -v agent="-$AUTHORING_AGENT" '$0 ~ agent"$" { print; exit }')
   fi
+fi
+
+# The trusted completed-workflow continuation needs the shared answers to
+# gates (a) and (b) without imposing Phase 4 on an under-threshold PR. In this
+# mode, a registered reviewer approval is the durable readiness signal, so the
+# authoring agent's own reviewer identity is allowed exactly as it is on the
+# normal under-threshold path. No Codex reaction/verdict may substitute for
+# that APPROVED review. The continuation separately invokes the threshold-aware
+# merge-clearance gate immediately after this check; this mode alone is not an
+# external-review clearance decision.
+GATE_B_SAME_AGENT_REVIEWER="$SAME_AGENT_REVIEWER"
+if [ "$APPROVAL_READINESS_ONLY" = "1" ]; then
+  GATE_B_SAME_AGENT_REVIEWER=""
 fi
 
 HEAD_COMMITTER_DATE=$(gh api "repos/$REPO/commits/$HEAD_SHA" --jq '.commit.committer.date' 2>&1) \
@@ -740,7 +841,12 @@ while :; do
                         conclusion
                         startedAt
                         completedAt
-                        checkSuite { workflowRun { workflow { name resourcePath } } }
+                        checkSuite {
+                          workflowRun {
+                            databaseId
+                            workflow { name resourcePath }
+                          }
+                        }
                       }
                       ... on StatusContext {
                         context
@@ -778,6 +884,7 @@ ROLLUP_JSON=$(echo "$ROLLUP_CONTEXTS" | jq '{
       context: .context,
       workflowName: (.checkSuite.workflowRun.workflow.name // null),
       workflowPath: (((.checkSuite.workflowRun.workflow.resourcePath // "") | split("/") | last) // ""),
+      runId: ((.checkSuite.workflowRun.databaseId // "") | tostring),
       status: .status,
       conclusion: .conclusion,
       state: .state,
@@ -1306,13 +1413,30 @@ BASE_BRANCH=$(echo "$PR_JSON" | jq -r '.base.ref')
 # required_status_checks sub-resource is not configured → legitimately NO
 # required checks) apart from 403 (token lacks Administration:read scope) or
 # 5xx/network (transient) — the latter leave the required list UNKNOWN.
+PROTECTION_404_AMBIGUOUS=0
 protection_err=$(mktemp)
 if protection_json=$(gh api "repos/$REPO/branches/$BASE_BRANCH/protection/required_status_checks" 2>"$protection_err"); then
   REQUIRED_CHECK_NAMES=$(printf '%s' "$protection_json" | jq -r '[.contexts[]?, .checks[]?.context] | unique | .[]' 2>/dev/null || true)
   protection_readable=1
 elif grep -q 'HTTP 404' "$protection_err"; then
+  # Behaviour here is UNCHANGED and deliberately so; only the reporting is
+  # fixed. This 404 is AMBIGUOUS: GitHub returns it both when no required
+  # status checks are configured AND when the token simply may not see branch
+  # protection — it hides the resource's existence rather than admitting a
+  # permission denial (which is why the 403 arm below never fires for the most
+  # common cause). A reviewer PAT therefore lands here on a repo with five
+  # required checks, and the old log line asserted "lists no required checks"
+  # as if that were established fact.
+  #
+  # Resolving the ambiguity for real needs more than a second read: classic
+  # protection 404s on a ruleset-governed branch, `#`/`%` in a ref name corrupt
+  # the path, and the privileged retry is unreachable from auto-clear CI, which
+  # runs this script with only GH_TOKEN. Attempting it here shipped a
+  # fleet-wide gate (a) regression, so it is deferred whole to #1064. What
+  # remains is the honest log: say the list is unverified rather than absent.
   REQUIRED_CHECK_NAMES=""
-  protection_readable=1   # 404 → no required_status_checks protection → none required
+  protection_readable=1
+  PROTECTION_404_AMBIGUOUS=1
 else
   REQUIRED_CHECK_NAMES=""
   protection_readable=0   # 403 token scope / 5xx / network → could not read
@@ -1330,7 +1454,7 @@ if [ "$protection_readable" -eq 0 ]; then
   # ACTUAL failures (a narrower reversal of the swipewatch #33 skip than a
   # blanket exit-3). To restore the precise required-check filter, grant the
   # token Administration:read.
-  log "gate (a): WARNING — could not read branch-protection required checks for $BASE_BRANCH (token lacks Administration:read scope, or API error). Failing closed: every non-skipped rollup check must be green (#465)."
+  log "gate (a): WARNING — the branch-protection read for $BASE_BRANCH failed with a real error (403 forbidden, 5xx, or network). A permission-hiding 404 is handled by the branch above and does NOT reach here, so this is a genuine failure: a 403 means the token lacks Administration:read, while a 5xx or network error is usually transient and worth retrying before touching credentials. Failing closed: every non-skipped rollup check must be green (#465)."
   REQUIRED_JSON='[]'
 elif [ -z "$REQUIRED_CHECK_NAMES" ]; then
   # Read succeeded; branch protection lists NO required checks (404 or empty
@@ -1341,7 +1465,11 @@ elif [ -z "$REQUIRED_CHECK_NAMES" ]; then
   # copy frozen BEFORE this branch's own wipe, #655 round 7) -- so wiping
   # ROLLUP_JSON here unconditionally does NOT hide the annex the way it used
   # to before that scan existed (#655 round 1's original problem).
-  log "gate (a): branch protection for $BASE_BRANCH lists no required checks; gate (a) imposes no required-check filter beyond the independent annex workflow-wide scan."
+  if [ "${PROTECTION_404_AMBIGUOUS:-0}" -eq 1 ]; then
+    log "gate (a): could not VERIFY the required-check list for $BASE_BRANCH — the protection endpoint returned 404, which GitHub uses both for \"no required checks configured\" and for \"this token may not see protection\" (it is 404, not 403 — mergepath#1059). Proceeding with no required-check filter, which is the long-standing behaviour on this path; re-run with GH_TOKEN=\"\$OP_PREFLIGHT_AUTHOR_PAT\" to read the real list. Resolving this automatically is #1064."
+  else
+    log "gate (a): branch protection for $BASE_BRANCH lists no required checks; gate (a) imposes no required-check filter beyond the independent annex workflow-wide scan."
+  fi
   ROLLUP_JSON='{"statusCheckRollup":[]}'
   REQUIRED_JSON='[]'
 else
@@ -1362,13 +1490,35 @@ else
   REQUIRED_JSON=$(echo "$REQUIRED_CHECK_NAMES" | jq -R . | jq -s .)
 fi
 
-BAD_CHECKS=$(echo "$ROLLUP_JSON" | jq --argjson required_names "${REQUIRED_JSON:-[]}" '
+CURRENT_RUN_ID=""
+if [ "$APPROVAL_READINESS_ONLY" = "1" ] && [[ "${GITHUB_RUN_ID:-}" =~ ^[0-9]+$ ]]; then
+  CURRENT_RUN_ID="$GITHUB_RUN_ID"
+  log "gate (a): approval readiness will ignore only non-completed checks from its own trusted workflow run $CURRENT_RUN_ID"
+fi
+
+BAD_CHECKS=$(echo "$ROLLUP_JSON" | jq \
+  --argjson required_names "${REQUIRED_JSON:-[]}" \
+  --arg approval_readiness_only "$APPROVAL_READINESS_ONLY" \
+  --arg current_run_id "$CURRENT_RUN_ID" '
   [.statusCheckRollup[]
     | {
         label: (.name // .context // "?"),
         workflow: (.workflowName // ""),
+        runId: (.runId // ""),
+        status: (.status // ""),
         result: (.conclusion // .state // "")
       }
+    # Approval readiness runs inside a check on the same HEAD. If branch
+    # protection is unreadable, the fail-closed full-rollup fallback would
+    # otherwise block forever on the caller itself. Exclude only non-completed
+    # checks from this exact trusted run; completed failures in this run and
+    # active checks in every other run remain blocking.
+    | select(
+        ($approval_readiness_only != "1")
+        or ($current_run_id == "")
+        or (.runId != $current_run_id)
+        or (.status == "COMPLETED")
+      )
     # Filter out the known "expected to fail during Phase 4a" check.
     # Label Gate lives in the "PR Review Policy" workflow and fails by
     # design whenever needs-external-review / needs-human-review /
@@ -1604,6 +1754,50 @@ fi  # end REQUIRE_CI_GREEN
 #
 # Only a Codex-bot signal, so compute it only when codex.enabled=true;
 # leaves disabled repos byte-identical in behavior.
+
+# BEGIN codex_block_marker_selector
+# Select the newest account-/connection-level BLOCK marker on this head, as
+# `{reason, created_at}` or `null` (#722).
+#
+# Extracted verbatim from its single call site so the selection is assertable
+# without driving the whole gate (#839): the barrier's escalate-instead-of-wait
+# routing is only as good as this predicate, and until now nothing exercised it
+# — the coverage was a structural grep for the `exit 2` guard, which cannot
+# tell whether the marker that reaches it is ever found. Same
+# extract-by-sentinel pattern as crw_select_head_pinned_review_run in
+# scripts/coderabbit-wait.sh.
+#
+# Pure: jq over the passed strings only, no globals and no I/O.
+#
+# Three filters, each load-bearing:
+#   author        only the Codex connector bot's own comments say anything
+#                 about the Codex account.
+#   freshness     at-or-after the caller's threshold, so a marker from a prior
+#                 head cannot resurface as a live block.
+#   non-verdict   a comment leading with the `Codex Review:` header is a
+#                 REVIEW; Codex quoting its own limits inside one is not a
+#                 block. Mirrors audit-codex-latency.sh's precedence.
+#
+# crc_select_codex_block_marker <issue-comments-json> <bot-login> <after-iso> <usage-re> <not-connected-re>
+crc_select_codex_block_marker() {
+  echo "${1:-[]}" | jq -c \
+    --arg bot "${2:-}" --arg after "${3:-}" \
+    --arg usage_re "${4:-}" --arg nc_re "${5:-}" '
+    [ .[]
+      | select(.user.login == $bot)
+      | select(.created_at >= $after)
+      | select(((.body // "") | test("(?im)^\\s*codex review:")) | not)
+      | ( if ((.body // "") | test($usage_re; "i")) then "usage_limit"
+          elif ((.body // "") | test($nc_re; "i")) then "not_connected"
+          else null end ) as $reason
+      | select($reason != null)
+      | { reason: $reason, created_at: .created_at }
+    ]
+    | max_by(.created_at) // null
+  '
+}
+# END codex_block_marker_selector
+
 CODEX_HEAD_VERDICT_TIME=""
 CODEX_HEAD_VERDICT_ANY_TIME=""
 CODEX_CARRYFORWARD_VERDICT_TIME=""
@@ -1674,22 +1868,8 @@ if [ "$CODEX_ENABLED" = "true" ]; then
   # failure message, never into the clearance decision. Shares the regexes
   # with the live trigger script via scripts/lib/codex-failure-markers.sh.
   if [ "$CODEX_FAILURE_MARKERS_OK" = "true" ]; then
-    CODEX_BLOCKED_JSON=$(echo "$ISSUE_COMMENTS_JSON" | jq -c \
-      --arg bot "$BOT_LOGIN" --arg after "$REACTION_THRESHOLD" \
-      --arg usage_re "$CODEX_USAGE_LIMIT_MARKER_RE" \
-      --arg nc_re "$CODEX_NOT_CONNECTED_MARKER_RE" '
-      [ .[]
-        | select(.user.login == $bot)
-        | select(.created_at >= $after)
-        | select(((.body // "") | test("(?im)^\\s*codex review:")) | not)
-        | ( if ((.body // "") | test($usage_re; "i")) then "usage_limit"
-            elif ((.body // "") | test($nc_re; "i")) then "not_connected"
-            else null end ) as $reason
-        | select($reason != null)
-        | { reason: $reason, created_at: .created_at }
-      ]
-      | max_by(.created_at) // null
-    ')
+    CODEX_BLOCKED_JSON=$(crc_select_codex_block_marker "$ISSUE_COMMENTS_JSON" "$BOT_LOGIN" \
+      "$REACTION_THRESHOLD" "$CODEX_USAGE_LIMIT_MARKER_RE" "$CODEX_NOT_CONNECTED_MARKER_RE")
     CODEX_BLOCKED_REASON=$(echo "$CODEX_BLOCKED_JSON" | jq -r 'if . == null then "" else .reason end')
     CODEX_BLOCKED_TIME=$(echo "$CODEX_BLOCKED_JSON" | jq -r 'if . == null then "" else .created_at end')
     if [ -n "$CODEX_BLOCKED_REASON" ]; then
@@ -1704,7 +1884,11 @@ if [ "$CODEX_ENABLED" = "true" ]; then
   # consulted when there is NO current-head Codex signal; the latest-signal-wins
   # block below still lets any current-head review/verdict/reaction override it.
   CARRY_BIN="$__CODEX_CHECK_DIR/workflow/external_review_carryforward.sh"
-  if [ -x "$CARRY_BIN" ]; then
+  if [ "$REQUIRE_HEAD_SIGNAL" = "1" ]; then
+    # #814: the caller is asking whether Codex spoke on THIS head. A
+    # same-content verdict on an older commit is not that answer.
+    log "codex verdict carry-forward: SKIPPED (--diagnostic-signal-only — current-head signal required)"
+  elif [ -x "$CARRY_BIN" ]; then
     set +e
     CARRY_JSON=$(bash "$CARRY_BIN" \
       --repo "$REPO" \
@@ -1769,7 +1953,7 @@ REVIEWERS_JSON=$(echo "$REVIEWERS" | jq -R . | jq -s .)
 APPROVING_REVIEWER=$(echo "$REVIEWS_JSON" | jq -r \
   --argjson reviewers "$REVIEWERS_JSON" \
   --arg author "$PR_AUTHOR" \
-  --arg same_agent_reviewer "$SAME_AGENT_REVIEWER" \
+  --arg same_agent_reviewer "$GATE_B_SAME_AGENT_REVIEWER" \
   --arg sha "$HEAD_SHA" \
   --arg require_head "$REQUIRE_APPROVAL_ON_HEAD" '
     [ .[]
@@ -1792,6 +1976,7 @@ APPROVING_REVIEWER=$(echo "$REVIEWS_JSON" | jq -r \
 ')
 
 if [ -z "$APPROVING_REVIEWER" ]; then
+  if [ "$APPROVAL_READINESS_ONLY" != "1" ]; then
   # Branch 2 (#170): same-agent author/reviewer fallback. For Phase 4
   # PRs, the no-self-approve scoping rule (REVIEW_POLICY.md § No-self-
   # approve scoping; #220) prohibits the agent that authored the PR from
@@ -1858,11 +2043,28 @@ if [ -z "$APPROVING_REVIEWER" ]; then
     fi
   fi
 
+  if [ -z "$APPROVING_REVIEWER" ] && [ "$SKIP_REVIEWER_APPROVAL" = "1" ]; then
+    # #814: the caller is asking whether Codex has spoken on this head, not
+    # whether the PR may merge. Gate (b) is skipped for this invocation only;
+    # gate (c) below still has to pass on its own evidence.
+    log "gate (b): SKIPPED (--diagnostic-signal-only — diagnostic invocation, not a merge decision)"
+    APPROVING_REVIEWER="(skipped: reviewer-approval check disabled for this invocation)"
+  fi
+  fi
+
   if [ -z "$APPROVING_REVIEWER" ]; then
+    if [ "$APPROVAL_READINESS_ONLY" = "1" ]; then
+      fail_gate "no reviewer identity in available_reviewers has a latest-state APPROVED review on current HEAD $HEAD_SHA"
+    fi
     fail_gate "no reviewer identity in available_reviewers has a latest-state APPROVED review, and same-agent + Codex 👍 fallback (branch 2) did not apply (codex.enabled=$CODEX_ENABLED; Authoring-Agent: ${AUTHORING_AGENT:-not set}; matched reviewer: ${SAME_AGENT_REVIEWER:-none}; threshold: $REACTION_THRESHOLD)"
   fi
 else
   log "gate (b): latest-state APPROVED by $APPROVING_REVIEWER"
+fi
+
+if [ "$APPROVAL_READINESS_ONLY" = "1" ]; then
+  log "approval readiness: gates (a) and (b) cleared; external clearance intentionally delegated to the threshold-aware merge-clearance gate"
+  exit 0
 fi
 
 # --- gate (c): Codex / Phase 4b cleared on current HEAD --------------------
@@ -2020,6 +2222,14 @@ for __sig in "thumbs|$LATEST_THUMBS_UP_TIME" "review|$CODEX_REVIEW_TIME" "verdic
   __k=${__sig%%|*}
   __t=${__sig#*|}
   [ -n "$__t" ] || continue
+  # #814 (Codex P2 on #835 round 3): drop reactions from SELECTION in
+  # diagnostic mode, not just from clearance. Rejecting a selected 👍 left the
+  # gate with no signal even when an anchored review or verdict existed on the
+  # head, so the diagnostic reported "Codex has not spoken" on definitive
+  # current-head evidence and drove a needless bounded wait.
+  if [ "$DIAGNOSTIC_SIGNAL_ONLY" = "1" ] && [ "$__k" = "thumbs" ]; then
+    continue
+  fi
   # Replace on strictly-newer OR on an equal timestamp: iterating thumbs →
   # review → verdict means the last one at the max time wins the tie, giving
   # priority verdict > review > 👍.
@@ -2037,17 +2247,45 @@ fi
 
 case "$LATEST_SIGNAL_KIND" in
   thumbs)
-    CLEARED=true
-    CLEARANCE_REASON="latest Codex signal is 👍 reaction @ $LATEST_SIGNAL_TIME (newest of 👍/review/verdict on HEAD; on or after reaction threshold $REACTION_THRESHOLD)"
+    if [ "$DIAGNOSTIC_SIGNAL_ONLY" = "1" ]; then
+      # #814 (Codex P1 on #835): a reaction carries NO commit id. It is
+      # admitted on freshness alone, against a threshold derived from the head
+      # committer date — which the pusher controls. A clean reaction for the
+      # previous head landing just after a new head is pushed would satisfy
+      # this, and a caller asking "did Codex review THIS head" would be told
+      # yes. Diagnostic mode accepts only the two head-anchored forms: a review
+      # object (commit_id == HEAD) or a verdict comment whose Reviewed commit
+      # prefixes HEAD.
+      log "gate (c): 👍 reaction @ $LATEST_SIGNAL_TIME is not head-anchored — rejected under --diagnostic-signal-only"
+    else
+      CLEARED=true
+      CLEARANCE_REASON="latest Codex signal is 👍 reaction @ $LATEST_SIGNAL_TIME (newest of 👍/review/verdict on HEAD; on or after reaction threshold $REACTION_THRESHOLD)"
+    fi
     ;;
   review)
-    if [ "$UNADDRESSED_COUNT" -eq 0 ]; then
+    if [ "$DIAGNOSTIC_SIGNAL_ONLY" = "1" ]; then
+      # #814 (Codex P2 on #835, raised twice): diagnostic mode asks whether
+      # Codex has SPOKEN on this head, not whether its verdict clears. A
+      # current-head review carrying findings is Codex having spoken — the
+      # ordering the barrier protects is satisfied, and the P1 gate plus the
+      # conversation-resolution gate own the verdict. Mapping it to "not
+      # reported" made the barrier exhaust its budget and escalate on a PR
+      # Codex had actively reviewed, and the exit code could not change
+      # without author action, so the wait was guaranteed wasted.
+      CLEARED=true
+      CLEARANCE_REASON="head-anchored COMMENTED review @ $LATEST_SIGNAL_TIME on $HEAD_SHA (presence only; findings not evaluated under --diagnostic-signal-only)"
+    elif [ "$UNADDRESSED_COUNT" -eq 0 ]; then
       CLEARED=true
       CLEARANCE_REASON="latest Codex signal is COMMENTED review @ $LATEST_SIGNAL_TIME on $HEAD_SHA with no unaddressed P0/P1 findings"
     fi
     ;;
   verdict)
-    if [ -n "$CODEX_HEAD_VERDICT_TIME" ] && [ "$UNADDRESSED_COUNT" -eq 0 ]; then
+    if [ "$DIAGNOSTIC_SIGNAL_ONLY" = "1" ]; then
+      # Same as the review arm: a non-affirmative or findings-bearing verdict
+      # on THIS head still means Codex reported on it.
+      CLEARED=true
+      CLEARANCE_REASON="head-anchored verdict comment @ $LATEST_SIGNAL_TIME (presence only; disposition not evaluated under --diagnostic-signal-only)"
+    elif [ -n "$CODEX_HEAD_VERDICT_TIME" ] && [ "$UNADDRESSED_COUNT" -eq 0 ]; then
       CLEARED=true
       CLEARANCE_REASON="latest Codex signal is a HEAD-anchored AFFIRMATIVE verdict comment @ $LATEST_SIGNAL_TIME (Reviewed commit prefixes $HEAD_SHA; no unaddressed P0/P1) (#600)"
     else
@@ -2167,6 +2405,22 @@ if [ "$CLEARED" != "true" ]; then
   BLOCKED_SUFFIX=""
   if [ -n "$CODEX_BLOCKED_REASON" ]; then
     BLOCKED_SUFFIX=" — NOTE: Codex reported '$CODEX_BLOCKED_REASON' @ $CODEX_BLOCKED_TIME; this is an account/connection block a human must resolve (upgrade / add credits / connect the App), not review latency — route to Phase 4b (#722)"
+    # In DIAGNOSTIC mode only, distinguish "Codex CANNOT report" from "Codex
+    # has not reported YET" with exit 2 (#842). The #814 barrier is the only
+    # caller of that mode, and it must not hold a Phase 4b run behind a Codex
+    # that is account-blocked: Phase 4b is the documented fallback for exactly
+    # that state, and the message directly above already says to route there.
+    # Holding instead made the barrier wait out its whole budget and then page
+    # a human, so the automated leg could never serve its fallback role
+    # (Codex P1 on #842).
+    #
+    # Diagnostic-only on purpose. The merge gate must keep failing closed on a
+    # block — an account-blocked Codex has cleared nothing — so exit 2 is
+    # unreachable for every real gate caller, whose exit codes stay 0/1/3.
+    if [ "$DIAGNOSTIC_SIGNAL_ONLY" = "1" ]; then
+      echo "[codex-review-check] diagnostic: Codex is account-blocked ('$CODEX_BLOCKED_REASON') — reporting CANNOT-REPORT (exit 2), not merely absent" >&2
+      exit 2
+    fi
   fi
   if [ "$CODEX_ENABLED" != "true" ]; then
     if [ "$ALLOW_PHASE_4B_SUBSTITUTE" = "true" ]; then
@@ -2190,5 +2444,57 @@ log "gate (c): cleared — $CLEARANCE_REASON"
 
 # --- all gates pass ---------------------------------------------------------
 
-log "all merge gates pass — PR $REPO#$PR_NUMBER is mergeable under Phase 4 external review"
+# What just cleared is the POLICY gate, not GitHub's. Saying "is mergeable"
+# invited exactly one wrong inference: gate (b) branch 2 accepts a Codex 👍,
+# but a 👍 is a REACTION and GitHub's `required_approving_review_count` counts
+# only APPROVED REVIEW OBJECTS. On every consumer that count is 1 (the hub is
+# 0), so a 👍-cleared consumer PR reports all-gates-pass here and stays
+# BLOCKED / REVIEW_REQUIRED indefinitely — and because the symptom surfaces as
+# a stale red required check, the time goes into re-firing recheck dispatches
+# at a context that is already green. Name the outstanding approval instead of
+# leaving it to be rediscovered per PR. See mergepath#1059.
+#
+# Advisory only: this is a policy gate and must not start failing on a
+# branch-protection condition it does not own. An unreadable reviewDecision
+# (GraphQL denied, gh absent) simply prints nothing.
+REVIEW_DECISION=$(gh api graphql -f query='
+  query($owner:String!,$name:String!,$number:Int!){
+    repository(owner:$owner,name:$name){
+      pullRequest(number:$number){ reviewDecision }
+    }
+  }' -F owner="${REPO%%/*}" -F name="${REPO##*/}" -F number="$PR_NUMBER" \
+  --jq '.data.repository.pullRequest.reviewDecision' 2>/dev/null || true)
+
+log "all Phase 4 POLICY gates pass for PR $REPO#$PR_NUMBER — GitHub's own merge requirements are evaluated separately"
+if [ "$REVIEW_DECISION" = "REVIEW_REQUIRED" ]; then
+  # REVIEW_REQUIRED has two very different causes and prescribing Phase 4b for
+  # both sends the operator into a futile loop. The ordinary cause is that no
+  # APPROVED review OBJECT exists (a Codex 👍 is a reaction and never
+  # satisfies branch protection). The other is the CODEOWNERS deadlock, where
+  # a qualifying approval DOES exist and reviewDecision stays REVIEW_REQUIRED
+  # anyway — documented in scripts/admin-merge-codeowners-blocked.sh, which
+  # evaluates the reviews directly for exactly this reason. Another 4b round
+  # cannot clear that one. Distinguish them by looking for the approval
+  # (#1061 Codex P1).
+  # Lead with the remedy that almost always applies, and count nothing.
+  # REVIEW_REQUIRED does not have two neat causes: no APPROVED
+  # review OBJECT exists (a Codex 👍 is a reaction and never satisfies branch
+  # protection), or the CODEOWNERS deadlock, where a qualifying approval DOES
+  # exist and reviewDecision stays REVIEW_REQUIRED anyway — documented in
+  # scripts/admin-merge-codeowners-blocked.sh, which evaluates the reviews
+  # directly for exactly that reason.
+  #
+  # An earlier revision tried to distinguish them here by counting approvals.
+  # That was wrong three separate ways (#1061 Codex P2, rounds 4 and 5): a bare
+  # count conflates an approval's presence with its qualification, `gh api
+  # --paginate` with `| length` emits one count PER PAGE so the value becomes
+  # "0\n1" and the integer test silently fails, and a failed read degraded to
+  # "" which then read as a definite zero. Every one of those sends the
+  # operator to the wrong remedy with full confidence.
+  #
+  # Naming both remedies costs one line and cannot be wrong. The script that
+  # actually checks qualification is one command away, and it does the
+  # permission / latest-per-author / CHANGES_REQUESTED work properly.
+  log "NOTE: GitHub reports reviewDecision=REVIEW_REQUIRED, so this PR will not merge yet — branch protection wants an APPROVED review OBJECT, which a Codex 👍 reaction does not provide. Usual remedy: scripts/phase-4b-review.sh $PR_NUMBER --repo $REPO from a trusted main-ref checkout. That also applies when an approval already exists but protection wants MORE of them, or one from a specific CODEOWNER — another round from a different eligible identity clears those. Only if a qualifying approval exists AND no further eligible reviewer can satisfy the rule is this the self-author CODEOWNERS deadlock, which no Phase 4b round can clear; scripts/admin-merge-codeowners-blocked.sh verifies that case directly rather than inferring it (mergepath#1059)."
+fi
 exit 0

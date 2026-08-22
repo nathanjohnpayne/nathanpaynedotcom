@@ -15,11 +15,11 @@
 #
 # Round 6 (Codex P1/P2) rewrote how agent-review.yml enforces the annex:
 # rather than forcing its derived check name(s) into the hard-required
-# required_checks_json list (which deadlocked the wait loop forever on a
+# required_checks_json list (which deadlocked the old runner-held wait on a
 # path-filtered or all-matrix annex that would never report under any
 # derivable name), it now captures the annex's own workflow name
-# (annex_workflow) and runs a separate workflow-wide bad/pending scan each
-# poll iteration — the same design codex-review-check.sh gate (a) already
+# (annex_workflow) and runs a separate workflow-wide bad/pending scan in each
+# readiness evaluation — the same design codex-review-check.sh gate (a) already
 # uses for the identical reason.
 #
 # The workflow files here cannot be unit-executed without a full Actions
@@ -53,19 +53,19 @@ assert_not_grep() {  # <label> <file> <fixed-string>
 
 W=.github/workflows
 
-# agent-review.yml: the required-check wait probes the PR HEAD commit for
+# agent-review.yml: the required-check readiness probe reads the PR HEAD for
 # the annex file via the Contents API (not the job's own checkout) and
 # conditionally scans its check run(s) alongside lint.
 assert_grep "agent-review: probes for the repo_lint_local.yml annex at the PR HEAD commit (#655)" \
   "$W/agent-review.yml" 'repos/$REPO/contents/.github/workflows/repo_lint_local.yml?ref=$sha'
-assert_grep "agent-review: the wait loop iterates over the required_checks_json array, not one hardcoded name" \
+assert_grep "agent-review: the readiness probe evaluates the required_checks_json array, not one hardcoded name" \
   "$W/agent-review.yml" 'for ((i = 0; i < check_count; i++)); do'
 
 # Codex P2 (#655 round 6, "avoid forcing path-filtered annex jobs to
 # start"): a consumer annex scoped by workflow-level paths/paths-ignore
 # legitimately never reports under ANY derived name for an out-of-scope
 # PR, so forcing one into required_checks_json (rounds 4-5's approach)
-# made this loop wait out the full deadline and refuse auto-merge forever.
+# made the former wait refuse auto-merge forever.
 # required_checks_json must stay scoped to only the canonical check;
 # annex enforcement moves to a name-free workflow-wide scan instead.
 assert_grep "agent-review: required_checks_json stays scoped to only the canonical check (#655 round 6)" \
@@ -138,8 +138,8 @@ assert_grep "agent-review: workflow-wide annex scan matches by the stable .workf
   "$W/agent-review.yml" '[.statusCheckRollup[] | select((.workflowPath // "") == "repo_lint_local.yml")]'
 assert_grep "agent-review: a bad conclusion reported anywhere in the annex's workflow refuses auto-merge immediately (#655 round 6)" \
   "$W/agent-review.yml" 'non-passing reported check-run(s) after winner-selection on current HEAD $sha (conclusion=$annex_bad_summary); refusing auto-merge (#655)'
-assert_grep "agent-review: a still-in-progress annex entry is treated as pending (keeps polling), not as a failure (#655 round 6)" \
-  "$W/agent-review.yml" 'check-run(s) still in progress on current HEAD $sha; waiting for completion (#655)'
+assert_grep "agent-review: a still-in-progress annex entry is treated as not-ready, not as a failure (#655 round 6)" \
+  "$W/agent-review.yml" 'check-run(s) still in progress on current HEAD $sha; not ready (#655)'
 assert_grep "agent-review: workflow query requests resourcePath alongside name to derive the stable workflowPath (#655 round 13)" \
   "$W/agent-review.yml" 'checkSuite { workflowRun { workflow { name resourcePath } } }'
 assert_grep "agent-review: rollup_json derives workflowPath from resourcePath's final path segment (#655 round 13)" \
@@ -198,8 +198,8 @@ assert_grep "agent-review: requires every matched workflow group to be green, no
 # literally "PENDING" -- round 7 added "EXPECTED" (GitHub's "waiting for a
 # status to be reported" state, distinct from PENDING but equally
 # non-terminal): without it, a required external status context sitting in
-# EXPECTED aborted the wait loop as a failure instead of continuing to
-# poll. A CheckRun is non-terminal whenever .status is present and not
+# EXPECTED made the old wait abort as a failure instead of treating the
+# check as not ready. A CheckRun is non-terminal whenever .status is present and not
 # "COMPLETED". This predicate is shared by the winner selection, the
 # pending-count check, and the annex workflow-wide scan.
 assert_grep "agent-review: a status-context entry is pending when .state is PENDING or EXPECTED, not merely lacking .status (#655 rounds 6-7)" \
@@ -261,7 +261,7 @@ assert_grep "agent-review: alias token-count guard requires a line-anchored dash
 # optional.
 assert_grep "agent-review: reads the on: trigger via the true-key fallback (YAML 1.1 Norway-problem coercion) (#655 round 7)" \
   "$W/agent-review.yml" 'on = doc.key?("on") ? doc["on"] : doc[true]'
-assert_grep "agent-review: keeps polling (does not silently pass) when an unfiltered annex has zero reported entries (#655 round 7)" \
+assert_grep "agent-review: reports not-ready when an unfiltered annex has zero reported entries (#655 round 7)" \
   "$W/agent-review.yml" 'if [ "$annex_match_count" -eq 0 ] && [ "$annex_unfiltered" = "true" ]; then'
 assert_grep "agent-review: a path-filtered annex with zero reported entries still does not block (Finding O, round 6, preserved)" \
   "$W/agent-review.yml" 'has not reported yet (unfiltered trigger, so it is expected to)'
@@ -515,7 +515,7 @@ assert_not_grep "agent-review: does not accumulate the rollup through an unbound
 # behavioral half cannot fail — the explicit two-net lesson recorded in
 # the #750 test comments.
 echo ""
-echo "agent-review.yml oversized rollup accumulation — the wait loop survives a >128KB running total (#752/#754)"
+echo "agent-review.yml oversized rollup accumulation — the readiness probe survives a >128KB running total (#752/#754)"
 
 if [ ! -f "$W/agent-review.yml" ]; then
   echo "SKIP: agent-review.yml oversized rollup behavioral test (file absent)"; SKIP=$((SKIP + 1))
@@ -625,6 +625,14 @@ assert_grep "auto-clear: workflow_run trigger list includes repo-lint-local (#65
 assert_grep "auto-clear: workflow_run trigger list also includes the unnamed-annex file-path fallback name (#655 round 11)" \
   "$W/auto-clear-blocking-labels.yml" '- ".github/workflows/repo_lint_local.yml"'
 
+# A named annex is intentionally unconstrained, while workflow_run accepts
+# only literal display names. The existing scheduled sweep therefore needs a
+# general approved-PR continuation backstop for custom annex names (#1062).
+assert_grep "auto-clear: scheduled sweep finds approved PRs that a custom annex name cannot wake" \
+  "$W/auto-clear-blocking-labels.yml" "--search 'review:approved'"
+assert_grep "auto-clear: scheduled sweep re-enters the trusted approval continuation for custom annex names" \
+  "$W/auto-clear-blocking-labels.yml" 'Continue approved PRs after custom-workflow completions'
+
 # ── Bash syntax check on every agent-review.yml `run:` block. Catches
 #    heredoc/subshell/loop errors the grep assertions above cannot (mirrors
 #    check_auto_clear_workflow's equivalent check for its own file — no
@@ -672,6 +680,20 @@ if [ -f "$W/agent-review.yml" ]; then
   fi
 else
   echo "SKIP: agent-review.yml bash syntax test (file absent)"; SKIP=$((SKIP + 1))
+fi
+
+# ── #1024/#1062: approval readiness is a one-shot probe ──────────
+if [ ! -f "$W/agent-review.yml" ]; then
+  echo "SKIP: #1062 approval readiness contract (agent-review.yml absent)"; SKIP=$((SKIP + 1))
+elif grep -Fq "name: Probe current-head check readiness once" "$W/agent-review.yml" \
+     && grep -Fq 'echo "ready=false" >> "$GITHUB_OUTPUT"' "$W/agent-review.yml" \
+     && grep -Fq "completed-workflow continuation" "$W/agent-review.yml" \
+     && ! grep -Fq "for readiness_probe in 1; do" "$W/agent-review.yml" \
+     && ! grep -Fq "TEST_CHECK_WAIT_SECONDS" "$W/agent-review.yml" \
+     && ! grep -Fq 'sleep "$poll_seconds"' "$W/agent-review.yml"; then
+  pass "#1062: approval readiness probes once, records pending state, and never polls"
+else
+  fail "#1062: approval readiness must not retain a wait loop, poll budget, or sleep"
 fi
 
 echo ""
