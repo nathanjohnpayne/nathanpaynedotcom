@@ -31,6 +31,8 @@ pullquotes:
     accent: red
 sidebar:
   - type: mermaid
+    title: "Prose iteration loop versus mockup-first loop"
+    description: "Describing a design in prose cycles through tweaks and mismatch; building and approving a standalone mockup creates a direct specification that the live page can match."
     content: |
       graph TD
           A["Describe the design<br/>in prose"] --> B["Claude tweaks the<br/>existing page"]
@@ -67,7 +69,7 @@ The pattern I kept missing is now obvious to me. All three of these inputs—pro
 
 The two loops, side by side—the describe-it loop that kept failing, and the prototype-it loop that worked:
 
-```mermaid
+```mermaid title="Prose iteration loop versus mockup-first loop" description="Describing a design in prose cycles through tweaks and mismatch; building and approving a standalone mockup creates a direct specification that the live page can match."
 graph TD
     A["Describe the design<br/>in prose"] --> B["Claude tweaks the<br/>existing page"]
     B --> C["Result does not match<br/>what's in my head"]

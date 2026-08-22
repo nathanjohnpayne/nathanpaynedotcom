@@ -28,6 +28,8 @@ pullquotes:
     accent: red
 sidebar:
   - type: mermaid
+    title: "Five stages of agent review enforcement"
+    description: "The enforcement path progresses from instruction files to branch rules, separate-identity self-review, external review for complex changes, and finally automated Codex review."
     content: |
       graph TD
           A["Instruction files only<br/>(AGENTS.md, CLAUDE.md)"] --> B["GitHub branch rules<br/>(require PRs)"]
@@ -128,7 +130,7 @@ Building this took [Project #2](https://github.com/users/nathanjohnpayne/project
 
 **The Phase 4a automated review flow:**
 
-```mermaid
+```mermaid title="Automated external review decision flow" description="A threshold-triggered pull request enters Codex review; clean clearance reaches the merge gate, findings loop back through fixes or rebuttals, timeouts fall back to Phase 4b, and gate failures are diagnosed before retry."
 graph TD
     A["PR crosses threshold<br/>or touches protected path"] --> B["needs-external-review<br/>label applied by CI"]
     B --> C["Agent runs<br/>codex-review-request.sh"]
