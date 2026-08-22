@@ -9,9 +9,9 @@ date: 2026-07-30
 tags: ["AI", "Engineering", "Systems", "Code Review", "Debugging"]
 image: "/og/blog/perfect-score-wrong-axis.png"
 keyTakeaways:
-  - "A perfect disposition record measures closure — how completely you resolved the findings raised. It says nothing about coverage: the defects nobody thought to raise."
+  - "A perfect disposition record measures closure—how completely you resolved the findings raised. It says nothing about coverage: the defects nobody thought to raise."
   - "Reviewers briefed from the authoring session's finding list inherit its blind spots. This batch recorded 122 dispositions with zero rejections and still shipped a P1 that an unbriefed pass found in 94 seconds."
-  - "Where a component implements an external specification — CommonMark, fnmatch, an RFC — make at least one review pass derive its test matrix from the spec rather than from the session's own findings."
+  - "Where a component implements an external specification—CommonMark, fnmatch, an RFC—make at least one review pass derive its test matrix from the spec rather than from the session's own findings."
   - "Budgeting review by passes, rounds, or approvals rewards spending every pass inside one frame. Three passes from independent framings are worth more than ten from the same one."
 pullquotes:
   - text: "A perfect disposition record measures how completely you closed the findings raised. It says nothing about the defects nobody raised."

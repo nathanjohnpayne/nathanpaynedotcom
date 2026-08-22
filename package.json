@@ -11,7 +11,8 @@
     "test:e2e": "playwright test",
     "deploy": "scripts/check-deploy-env.sh && npm run build && op-firebase-deploy && scripts/cf-cache-purge.sh",
     "deploy:hosting": "scripts/check-deploy-env.sh && npm run build && op-firebase-deploy --only hosting && scripts/cf-cache-purge.sh",
-    "lint": "eslint .",
+    "lint": "eslint . && node scripts/lint-content-em-dash.mjs",
+    "lint:content-em-dash": "node scripts/lint-content-em-dash.mjs",
     "typecheck": "astro check",
     "format": "prettier --write \"src/**/*.{ts,js,mjs,css}\" \"tests/**/*.{ts,js}\"",
     "format:check": "prettier --check \"src/**/*.{ts,js,mjs,css}\" \"tests/**/*.{ts,js}\""
