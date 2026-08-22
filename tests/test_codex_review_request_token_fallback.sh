@@ -21,6 +21,7 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+export MERGEPATH_REVIEW_FEEDBACK_ACCOUNTING_CMD=true
 
 WORKDIR="$(mktemp -d "${TMPDIR:-/tmp}/codex-token-fallback.XXXXXX")"
 trap 'rm -rf "$WORKDIR"' EXIT
@@ -38,9 +39,11 @@ make_case() {
   local name=$1
   local keyring_ok=$2
   local dir="$WORKDIR/$name"
-  mkdir -p "$dir/scripts" "$dir/.github" "$dir/bin" "$dir/state"
+  mkdir -p "$dir/scripts" "$dir/scripts/lib" "$dir/.github" "$dir/bin" "$dir/state"
   cp "$ROOT/scripts/codex-review-request.sh" "$dir/scripts/codex-review-request.sh"
   chmod +x "$dir/scripts/codex-review-request.sh"
+  cp "$ROOT/scripts/lib/gh-api-scalar.sh" "$dir/scripts/lib/gh-api-scalar.sh"   # #799, hard-sourced
+  cp "$ROOT/scripts/lib/gh-api-array.sh" "$dir/scripts/lib/gh-api-array.sh"     # #1008, hard-sourced
 
   cat >"$dir/.github/review-policy.yml" <<'EOF'
 author_identity: nathanjohnpayne

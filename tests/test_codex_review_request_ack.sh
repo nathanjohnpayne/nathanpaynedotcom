@@ -7,6 +7,7 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+export MERGEPATH_REVIEW_FEEDBACK_ACCOUNTING_CMD=true
 
 WORKDIR="$(mktemp -d "${TMPDIR:-/tmp}/codex-review-request-ack.XXXXXX")"
 trap 'rm -rf "$WORKDIR"' EXIT
@@ -16,6 +17,30 @@ FAIL=0
 pass() { echo "PASS: $*"; PASS=$((PASS + 1)); }
 fail() { echo "FAIL: $*" >&2; FAIL=$((FAIL + 1)); }
 
+# #951: a diagnostic must never carry a value that could be a credential.
+# The bridge assertions below read whatever OP_PREFLIGHT_AUTHOR_PAT the
+# wrapper saw; on a developer or agent machine that can be a LIVE PAT, and
+# these messages land in CI logs, shell scrollback and agent transcripts.
+# So describe the value instead of quoting it. Two facts are enough to
+# debug every case this file asserts — is it empty, and how long is it —
+# plus a classification drawn from a CLOSED set of well-known GitHub token
+# prefixes. The classification is a fixed constant, never a slice of the
+# value, so nothing here is reversible into the credential.
+describe_secret() {
+  local value=${1:-}
+  local kind='opaque'
+  if [ -z "$value" ]; then
+    printf 'empty'
+    return 0
+  fi
+  case "$value" in
+    github_pat_*) kind='fine-grained GitHub PAT' ;;
+    ghp_*) kind='classic GitHub PAT' ;;
+    gho_*|ghu_*|ghs_*|ghr_*) kind='GitHub token' ;;
+  esac
+  printf '<redacted %s, %s chars>' "$kind" "${#value}"
+}
+
 make_case() {
   local name=$1
   local ack_wait=$2
@@ -23,9 +48,16 @@ make_case() {
   local review_timeout=${4:-0}
   local dir="$WORKDIR/$name"
 
-  mkdir -p "$dir/scripts" "$dir/.github" "$dir/bin" "$dir/state"
+  mkdir -p "$dir/scripts" "$dir/scripts/lib" "$dir/.github" "$dir/bin" "$dir/state"
   cp "$ROOT/scripts/codex-review-request.sh" "$dir/scripts/codex-review-request.sh"
   chmod +x "$dir/scripts/codex-review-request.sh"
+  # #799: codex-review-request.sh HARD-sources this lib (exit 3 if absent),
+  # because the read it guards anchors every freshness comparison in the poll
+  # loop. Fixture trees must stage the real one.
+  cp "$ROOT/scripts/lib/gh-api-scalar.sh" "$dir/scripts/lib/gh-api-scalar.sh"
+  # #1008: the array twin, hard-sourced for the same reason — every signal
+  # the poll loop scans for arrives through it.
+  cp "$ROOT/scripts/lib/gh-api-array.sh" "$dir/scripts/lib/gh-api-array.sh"
 
   cat >"$dir/.github/review-policy.yml" <<EOF
 codex:
@@ -61,7 +93,7 @@ printf '%s\n' "$count" >"$state_dir/trigger-count"
 # Record the author-PAT and author-identity env the wrapper sees, so
 # the #438 inline-token bridging tests can assert what (if anything)
 # was bridged in.
-printf '%s\n' "${OP_PREFLIGHT_AUTHOR_PAT:-}" >>"$state_dir/author-pat-env"
+printf '%s\n' "${OP_PREFLIGHT_AUTHOR_PAT:-}" >>"$state_dir/author-pat-env"  # TOKEN_OUTPUT_EXEMPT: run_case unsets both PATs (#993), so this records only what the bridge injected, and the assertions compare it exactly (#996)
 printf '%s\n' "${GH_AS_AUTHOR_IDENTITY:-}" >>"$state_dir/author-identity-env"
 
 comment_id=$((1000 + count))
@@ -226,6 +258,14 @@ run_case() {
 
   (
     cd "$dir"
+    # #951: the fixture must not inherit the caller's credentials. An agent
+    # session normally carries OP_PREFLIGHT_AUTHOR_PAT / _REVIEWER_PAT (a
+    # warm `op-preflight --check` exports both), and the bridging tests
+    # below assert on exactly those variables — so an ambient value both
+    # broke the assertions and pulled a live PAT into the failure message.
+    # The bridge is supposed to start from an empty environment; make the
+    # fixture actually provide one.
+    unset OP_PREFLIGHT_AUTHOR_PAT OP_PREFLIGHT_REVIEWER_PAT
     PATH="$dir/bin:$PATH" \
       GH_TOKEN="$gh_token" \
       CODEX_TEST_STATE_DIR="$dir/state" \
@@ -461,7 +501,7 @@ test_inline_author_pat_bridged_into_wrapper() {
   if [ "$(trigger_count "$dir")" -lt 1 ]; then
     fail "author-pat bridge: no trigger was posted; stderr=$(cat "$dir/err.log")"
   elif [ "$pat" != "author-pat-123" ]; then
-    fail "author-pat bridge: wrapper saw OP_PREFLIGHT_AUTHOR_PAT='$pat', expected the verified inline token; stderr=$(cat "$dir/err.log")"
+    fail "author-pat bridge: wrapper saw OP_PREFLIGHT_AUTHOR_PAT=$(describe_secret "$pat"), expected the verified inline token; stderr=$(cat "$dir/err.log")"
   elif ! grep -q "bridging it into gh-as-author.sh" "$dir/err.log"; then
     fail "author-pat bridge: missing bridging log line; stderr=$(cat "$dir/err.log")"
   else
@@ -489,7 +529,7 @@ EOF
   identity=$(head -1 "$dir/state/author-identity-env" 2>/dev/null || printf '')
 
   if [ "$pat" != "author-pat-123" ]; then
-    fail "custom-author bridge: wrapper saw OP_PREFLIGHT_AUTHOR_PAT='$pat', expected the verified inline token; stderr=$(cat "$dir/err.log")"
+    fail "custom-author bridge: wrapper saw OP_PREFLIGHT_AUTHOR_PAT=$(describe_secret "$pat"), expected the verified inline token; stderr=$(cat "$dir/err.log")"
   elif [ "$identity" != "custom-owner" ]; then
     fail "custom-author bridge: wrapper saw GH_AS_AUTHOR_IDENTITY='$identity', expected 'custom-owner'; stderr=$(cat "$dir/err.log")"
   else
@@ -507,7 +547,7 @@ test_non_author_token_is_not_bridged() {
   if [ "$(trigger_count "$dir")" -lt 1 ]; then
     fail "non-author token: no trigger was posted; stderr=$(cat "$dir/err.log")"
   elif [ -n "$pat" ]; then
-    fail "non-author token: wrapper saw OP_PREFLIGHT_AUTHOR_PAT='$pat', expected empty (no bridge)"
+    fail "non-author token: wrapper saw OP_PREFLIGHT_AUTHOR_PAT=$(describe_secret "$pat"), expected empty (no bridge)"
   elif grep -q "bridging it into gh-as-author.sh" "$dir/err.log"; then
     fail "non-author token: bridging log line present for a non-author token"
   else
@@ -544,9 +584,104 @@ test_missing_identity_checker_skips_bridge() {
   if [ "$(trigger_count "$dir")" -lt 1 ]; then
     fail "missing checker: no trigger was posted; stderr=$(cat "$dir/err.log")"
   elif [ -n "$pat" ]; then
-    fail "missing checker: wrapper saw OP_PREFLIGHT_AUTHOR_PAT='$pat', expected empty (bridge requires verification)"
+    fail "missing checker: wrapper saw OP_PREFLIGHT_AUTHOR_PAT=$(describe_secret "$pat"), expected empty (bridge requires verification)"
   else
     pass "without identity-check.sh the bridge is skipped (verification-gated) (rc=$rc)"
+  fi
+}
+
+# --- #951: credential material never reaches the output ---------------
+#
+# The four bridging cases above assert on OP_PREFLIGHT_AUTHOR_PAT, and
+# they used to print the value they read. Run from an agent session with
+# a warm op-preflight cache, the fixture inherited the caller's real
+# author PAT, so those cases both failed spuriously AND printed a live
+# credential into the transcript. Two things have to hold, and each gets
+# its own case: the fixture must not inherit an ambient credential, and
+# no message may quote one even when it is present.
+#
+# Obviously-fake sentinel. Never substitute a real token here, or
+# anywhere else in this file --- the point of the case is that whatever
+# is in this variable gets printed if the redaction regresses.
+# Assembled from two pieces so the literal token shape never appears in a
+# tracked line. This is NOT obfuscation of a real credential -- the value is
+# a deliberate fake, and the point of the case is that it gets printed if
+# redaction regresses. It is split because this file is a canonical manifest
+# path: it propagates into consumer repos, several of which run their own
+# tracked-file secret scanner over `git ls-files`
+# (/\bgh[pousr]_[A-Za-z0-9]{20,255}\b/, no allowlist mechanism), and a
+# contiguous `ghp_...` here reds their CI on content they did not write.
+# Measured on the wave-0 fan-out: device-source-of-truth#167 and
+# friends-and-family-billing#416 both failed on exactly this line, and it was
+# the ONLY finding in the whole hub tree.
+#
+# The runtime VALUE is unchanged, so every assertion below still sees the
+# same string -- including `${CREDENTIAL_SENTINEL#ghp_}`, which needs the
+# real `ghp_` prefix, and `${#CREDENTIAL_SENTINEL}`, which needs the length.
+# Never inline this back into one literal, and never substitute a real token
+# here or anywhere else in this file.
+CREDENTIAL_SENTINEL_TAIL='FAKEFAKEFAKE951NOTAREALTOKEN'
+CREDENTIAL_SENTINEL="ghp_${CREDENTIAL_SENTINEL_TAIL}"
+
+test_ambient_author_pat_is_not_inherited_or_echoed() {
+  local dir rc pat leaked
+  dir=$(make_case "ambient-pat-not-echoed" 0 0)
+  # Exported, not merely assigned: the leak path runs through the real
+  # script's process environment, so the sentinel has to be there too.
+  rc=$(
+    export OP_PREFLIGHT_AUTHOR_PAT="$CREDENTIAL_SENTINEL"
+    export OP_PREFLIGHT_REVIEWER_PAT="$CREDENTIAL_SENTINEL"
+    run_case "$dir" absent 0 reviewer-pat-456
+  )
+  pat=$(bridged_pat "$dir")
+  leaked=no
+  if grep -qF "$CREDENTIAL_SENTINEL" "$dir/out.json" "$dir/err.log" 2>/dev/null; then
+    leaked=yes
+  fi
+
+  if [ "$pat" = "$CREDENTIAL_SENTINEL" ]; then
+    fail "ambient credential: the fixture inherited the caller's OP_PREFLIGHT_AUTHOR_PAT; the bridge must start from an empty environment"
+  elif [ -n "$pat" ]; then
+    fail "ambient credential: wrapper saw OP_PREFLIGHT_AUTHOR_PAT=$(describe_secret "$pat"), expected empty"
+  elif [ "$leaked" = "yes" ]; then
+    fail "ambient credential: the sentinel reached the script's stdout or stderr"
+  else
+    pass "an ambient author PAT is neither inherited by the fixture nor echoed by the script (rc=$rc)"
+  fi
+}
+
+test_secret_descriptor_never_reveals_the_value() {
+  local rendered empty_rendered secret_tail window i chunk
+  rendered=$(describe_secret "$CREDENTIAL_SENTINEL")
+  empty_rendered=$(describe_secret "")
+  # `ghp_` is a fixed, publicly-known constant; everything after it is
+  # the entropy, and none of THAT may survive into a message. A
+  # fixed-prefix classification is fine, a prefix of the secret is not,
+  # so slide a short window over the tail rather than only checking for
+  # the tail whole: an eight-character "just enough to identify it"
+  # excerpt is exactly the regression this has to catch.
+  secret_tail=${CREDENTIAL_SENTINEL#ghp_}
+  window=""
+  i=0
+  while [ $((i + 4)) -le ${#secret_tail} ]; do
+    chunk=${secret_tail:$i:4}
+    if printf '%s' "$rendered" | grep -qF "$chunk"; then
+      window=$chunk
+      break
+    fi
+    i=$((i + 1))
+  done
+
+  if printf '%s' "$rendered" | grep -qF "$CREDENTIAL_SENTINEL"; then
+    fail "secret descriptor: the rendering still contains the whole value"
+  elif [ -n "$window" ]; then
+    fail "secret descriptor: the rendering leaks a 4-char run of the value's entropy (found '$window' in '$rendered')"
+  elif [ "$rendered" = "$empty_rendered" ]; then
+    fail "secret descriptor: set and unset render identically ('$rendered'), so no message can tell them apart"
+  elif ! printf '%s' "$rendered" | grep -qF "${#CREDENTIAL_SENTINEL} chars"; then
+    fail "secret descriptor: the rendering omits the length that makes it debuggable (got '$rendered')"
+  else
+    pass "describe_secret reports class and length only, never the value ($rendered)"
   fi
 }
 
@@ -564,6 +699,8 @@ test_bridge_passes_configured_author_identity
 test_non_author_token_is_not_bridged
 test_non_bridge_path_passes_configured_identity
 test_missing_identity_checker_skips_bridge
+test_ambient_author_pat_is_not_inherited_or_echoed
+test_secret_descriptor_never_reveals_the_value
 
 echo
 echo "Results: $PASS passed, $FAIL failed"
