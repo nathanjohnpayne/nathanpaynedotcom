@@ -119,7 +119,14 @@ function frontmatterLength(source) {
 // ---------------------------------------------------------------------------
 
 function createProseStream(protectedRanges = []) {
-  return { text: '', spans: [], protectedRanges, pendingSoftBreak: null };
+  return {
+    text: '',
+    spans: [],
+    protectedRanges,
+    pendingSoftBreak: null,
+    inlineWhitespaceContexts: [],
+    inlinePreserveWhitespace: true,
+  };
 }
 
 function isProtectedOffset(stream, span) {
@@ -176,7 +183,7 @@ function decodeReference(name) {
 function skipMarkdownContinuationPrefix(raw, start) {
   let cursor = start;
   let match;
-  while ((match = raw.slice(cursor).match(/^[\t ]{0,3}>[\t ]?/))) {
+  while ((match = raw.slice(cursor).match(/^[\t ]{0,3}>[\t ]*/))) {
     cursor += match[0].length;
   }
   return cursor;
@@ -326,12 +333,19 @@ function emitText(node, body, stream) {
     // the parser has already established that both sides sit inside one text
     // node in one block, so closing the gap cannot glue two blocks together.
     if (character === '\n') {
-      pushCharacter(stream, ' ', span);
-      if (index === characters.length - 1) {
-        stream.pendingSoftBreak = {
-          spanIndex: stream.spans.length - 1,
-          sourceEnd: span[1],
-        };
+      if (
+        stream.inlineWhitespaceContexts.length > 0 &&
+        stream.inlinePreserveWhitespace
+      ) {
+        pushBoundary(stream);
+      } else {
+        pushCharacter(stream, ' ', span);
+        if (index === characters.length - 1) {
+          stream.pendingSoftBreak = {
+            spanIndex: stream.spans.length - 1,
+            sourceEnd: span[1],
+          };
+        }
       }
       continue;
     }
@@ -489,8 +503,8 @@ function emitHtml(node, body, stream, inline) {
   const start = node.position.start.offset;
   const raw = body.slice(start, node.position.end.offset);
   const markup = collectMatchRanges(HTML_MARKUP, raw);
-  const whitespaceContexts = [];
-  let preserveWhitespace = true;
+  const whitespaceContexts = inline ? stream.inlineWhitespaceContexts : [];
+  let preserveWhitespace = inline ? stream.inlinePreserveWhitespace : true;
 
   if (!inline) {
     pushBoundary(stream);
@@ -555,6 +569,8 @@ function emitHtml(node, body, stream, inline) {
 
   if (!inline) {
     pushBoundary(stream);
+  } else {
+    stream.inlinePreserveWhitespace = preserveWhitespace;
   }
 }
 
@@ -569,6 +585,14 @@ function carryTrailingContinuationPrefix(node, body, stream) {
   const prefixEnd = skipMarkdownContinuationPrefix(gap, 0);
   if (prefixEnd === gap.length && prefixEnd > 0) {
     stream.spans[pending.spanIndex][1] = nodeStart;
+  } else if (gap.length > 0) {
+    // An omitted source gap we cannot classify must not leave the preceding
+    // soft break removable. Turn it into a boundary so --write fails closed.
+    stream.text =
+      stream.text.slice(0, pending.spanIndex) +
+      '\n' +
+      stream.text.slice(pending.spanIndex + 1);
+    stream.spans[pending.spanIndex] = null;
   }
   stream.pendingSoftBreak = null;
 }
@@ -862,13 +886,17 @@ function blockScalarOpenerOf(line) {
   const indent = match[1].length;
   const sequenceIndent = match[2].length;
   const explicitIndent = digits ? Number(digits[0]) : null;
+  const directSequenceParentIndent = match[2] ? match[2].lastIndexOf('-') : 0;
 
   return {
     indent,
     // `>` folds line breaks into spaces; `|` keeps them literal.
     folded: match[4] === '>',
     contentIndent: digits
-      ? indent + (match[3] ? sequenceIndent + explicitIndent : Math.max(sequenceIndent, explicitIndent))
+      ? indent +
+        (match[3]
+          ? sequenceIndent + explicitIndent
+          : directSequenceParentIndent + explicitIndent)
       : null,
   };
 }

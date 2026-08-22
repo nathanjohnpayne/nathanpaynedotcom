@@ -774,6 +774,13 @@ describe('content em-dash lint', () => {
     expect(closeUpSpacedEmDashesInText(source, '/tmp/skills.yaml')).toBe('- - |2\n    —leading\n');
   });
 
+  it('derives direct sequence scalar indentation from the final sequence parent', () => {
+    const source = '- - |1\n     — leading\n';
+
+    expect(findSpacedEmDashViolations('/tmp/skills.yaml', source)).toHaveLength(1);
+    expect(closeUpSpacedEmDashesInText(source, '/tmp/skills.yaml')).toBe('- - |1\n   —leading\n');
+  });
+
   it('removes visible padding from a later more-indented block-scalar line', () => {
     const source = 'description: |2\n  first\n    — leading\n';
 
@@ -876,6 +883,22 @@ describe('content em-dash lint', () => {
 
     expect(findSpacedEmDashViolations('/tmp/test.md', source)).toHaveLength(1);
     expect(closeUpSpacedEmDashesInText(source)).toBe('> word—<em>continuation</em>');
+  });
+
+  it('consumes extra continuation indentation before an inline Markdown node', () => {
+    const source = '> word—\n>   <em>continuation</em>';
+
+    expect(findSpacedEmDashViolations('/tmp/test.md', source)).toHaveLength(1);
+    expect(closeUpSpacedEmDashesInText(source)).toBe('> word—<em>continuation</em>');
+  });
+
+  it('preserves whitespace state across split inline HTML nodes', () => {
+    const source = '<span style="white-space: pre">word\n— next</span>';
+
+    expect(findSpacedEmDashViolations('/tmp/test.md', source)).toHaveLength(1);
+    expect(closeUpSpacedEmDashesInText(source)).toBe(
+      '<span style="white-space: pre">word\n—next</span>',
+    );
   });
 
   it('collapses a raw HTML newline when inline CSS declares normal whitespace', () => {
