@@ -14,27 +14,20 @@ describe('content em-dash lint', () => {
   });
 
   it('allows identifier-label link exceptions', () => {
-    const source = '[DST-047 — Questionnaire Intake & AI Extraction Pipeline](https://example.test/)';
+    const source =
+      '[DST-047 — Questionnaire Intake & AI Extraction Pipeline](https://example.test/)';
 
     expect(findSpacedEmDashViolations('/tmp/test.md', source)).toHaveLength(0);
   });
 
   it('skips fenced code blocks', () => {
-    const source = [
-      '```',
-      'spaced — em dash inside code',
-      '```',
-    ].join('\n');
+    const source = ['```', 'spaced — em dash inside code', '```'].join('\n');
 
     expect(findSpacedEmDashViolations('/tmp/test.md', source)).toHaveLength(0);
   });
 
   it('skips tildes code blocks and matching-length rules', () => {
-    const source = [
-      '~~~~',
-      'spaced — em dash inside code',
-      '~~~~',
-    ].join('\n');
+    const source = ['~~~~', 'spaced — em dash inside code', '~~~~'].join('\n');
 
     expect(findSpacedEmDashViolations('/tmp/test.md', source)).toHaveLength(0);
   });
@@ -67,11 +60,7 @@ describe('content em-dash lint', () => {
   });
 
   it('does not treat mixed-marker fence runs as code fences', () => {
-    const source = [
-      '```~```',
-      'spaced — in malformed code fence line',
-      '```~```',
-    ].join('\n');
+    const source = ['```~```', 'spaced — in malformed code fence line', '```~```'].join('\n');
 
     expect(findSpacedEmDashViolations('/tmp/test.md', source)).toHaveLength(1);
   });
@@ -84,10 +73,7 @@ describe('content em-dash lint', () => {
   });
 
   it('does not open a backtick fence whose info string contains a backtick', () => {
-    const source = [
-      '``` js `inline` ```',
-      'spaced — after a line that is not a fence',
-    ].join('\n');
+    const source = ['``` js `inline` ```', 'spaced — after a line that is not a fence'].join('\n');
 
     expect(findSpacedEmDashViolations('/tmp/test.md', source)).toHaveLength(1);
   });
@@ -121,14 +107,13 @@ describe('content em-dash lint', () => {
     ].join('\n');
 
     const fixed = closeUpSpacedEmDashesInText(source);
-    expect(fixed).toBe('A spaced—em dash.\n[DST-047 — Questionnaire Intake](/tmp/whatever.md)\n```\ncode — block\n```');
+    expect(fixed).toBe(
+      'A spaced—em dash.\n[DST-047 — Questionnaire Intake](/tmp/whatever.md)\n```\ncode — block\n```',
+    );
   });
 
   it('treats a 4-space-indented block as code, not prose', () => {
-    const source = [
-      '    spaced — inside an indented code block',
-      '    still code',
-    ].join('\n');
+    const source = ['    spaced — inside an indented code block', '    still code'].join('\n');
 
     expect(findSpacedEmDashViolations('/tmp/test.md', source)).toHaveLength(0);
     expect(closeUpSpacedEmDashesInText(source)).toBe(source);
@@ -147,22 +132,15 @@ describe('content em-dash lint', () => {
   });
 
   it('skips fences nested in a list item', () => {
-    const source = [
-      '- item',
-      '',
-      '  ```',
-      '  spaced — inside list code',
-      '  ```',
-    ].join('\n');
+    const source = ['- item', '', '  ```', '  spaced — inside list code', '  ```'].join('\n');
 
     expect(findSpacedEmDashViolations('/tmp/test.md', source)).toHaveLength(0);
   });
 
   it('skips code spans that wrap across lines', () => {
-    const source = [
-      'prose with `a span that',
-      'wraps — across lines` and then prose — here.',
-    ].join('\n');
+    const source = ['prose with `a span that', 'wraps — across lines` and then prose — here.'].join(
+      '\n',
+    );
 
     const violations = findSpacedEmDashViolations('/tmp/test.md', source);
     expect(violations).toHaveLength(1);
@@ -170,13 +148,9 @@ describe('content em-dash lint', () => {
   });
 
   it('scans frontmatter prose, which is where most published copy lives', () => {
-    const source = [
-      '---',
-      'title: "A title — with a spaced dash"',
-      '---',
-      '',
-      'Body prose.',
-    ].join('\n');
+    const source = ['---', 'title: "A title — with a spaced dash"', '---', '', 'Body prose.'].join(
+      '\n',
+    );
 
     expect(findSpacedEmDashViolations('/tmp/test.md', source)).toHaveLength(1);
     expect(closeUpSpacedEmDashesInText(source)).toContain('title: "A title—with a spaced dash"');
@@ -413,9 +387,7 @@ describe('content em-dash lint', () => {
     const source = '[x](https://example.test/ "\u{1F600} a — b")';
 
     expect(findSpacedEmDashViolations('/tmp/test.md', source)).toHaveLength(1);
-    expect(closeUpSpacedEmDashesInText(source)).toBe(
-      '[x](https://example.test/ "\u{1F600} a—b")',
-    );
+    expect(closeUpSpacedEmDashesInText(source)).toBe('[x](https://example.test/ "\u{1F600} a—b")');
   });
 
   it('reads a literal block scalar as content, not as a comment', () => {
@@ -619,7 +591,10 @@ describe('content em-dash lint', () => {
   });
 
   it('scans every reference definition title delimiter', () => {
-    for (const [open, close] of [["'", "'"], ['(', ')']]) {
+    for (const [open, close] of [
+      ["'", "'"],
+      ['(', ')'],
+    ]) {
       const source = `[ref]: /url ${open}word — next${close}\n\nUse [ref].\n`;
 
       expect(findSpacedEmDashViolations('/tmp/test.md', source)).toHaveLength(1);
@@ -783,6 +758,15 @@ describe('content em-dash lint', () => {
     );
   });
 
+  it('accounts for an inline sequence mapping in explicit block-scalar indentation', () => {
+    const source = '- description: |2\n    — leading\n';
+
+    expect(findSpacedEmDashViolations('/tmp/skills.yaml', source)).toHaveLength(1);
+    expect(closeUpSpacedEmDashesInText(source, '/tmp/skills.yaml')).toBe(
+      '- description: |2\n    —leading\n',
+    );
+  });
+
   it('removes visible padding from a later more-indented block-scalar line', () => {
     const source = 'description: |2\n  first\n    — leading\n';
 
@@ -829,5 +813,24 @@ describe('content em-dash lint', () => {
 
     expect(findSpacedEmDashViolations('/tmp/test.md', source)).toHaveLength(1);
     expect(closeUpSpacedEmDashesInText(source)).toBe('<div id="pre">word\n—next</div>');
+  });
+
+  it('tracks whitespace handling independently for sibling raw HTML elements', () => {
+    const source =
+      '<div style="white-space: normal">a</div>\n' +
+      '<div style="white-space: pre">word\n— next</div>';
+
+    expect(findSpacedEmDashViolations('/tmp/test.md', source)).toHaveLength(1);
+    expect(closeUpSpacedEmDashesInText(source)).toBe(
+      '<div style="white-space: normal">a</div>\n' +
+        '<div style="white-space: pre">word\n—next</div>',
+    );
+  });
+
+  it('fails closed when a Markdown construct moves to different source delimiters', () => {
+    const source = 'word **—** next / x ** — ** y';
+
+    expect(findSpacedEmDashViolations('/tmp/test.md', source)).toHaveLength(2);
+    expect(closeUpSpacedEmDashesInText(source)).toBe(source);
   });
 });

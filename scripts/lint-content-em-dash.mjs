@@ -54,6 +54,22 @@ const HTML_RAW_TEXT_OPENER = /<(script|style|pre|code|textarea)\b[^>]*>/gi;
 // A tag ends at the first `>` that is NOT inside a quoted attribute value.
 // `<div title="a > b">` is one tag, not a tag plus stray prose.
 const HTML_MARKUP = /<!--[\s\S]*?-->|<[^>"']*(?:(?:"[^"]*"|'[^']*')[^>"']*)*>/g;
+const HTML_VOID_ELEMENTS = new Set([
+  'area',
+  'base',
+  'br',
+  'col',
+  'embed',
+  'hr',
+  'img',
+  'input',
+  'link',
+  'meta',
+  'param',
+  'source',
+  'track',
+  'wbr',
+]);
 
 // Block-level nodes. Padding may not run across their edges, because the
 // rendered output puts a line break there.
@@ -379,9 +395,8 @@ function emitHtml(node, body, stream, inline) {
   const start = node.position.start.offset;
   const raw = body.slice(start, node.position.end.offset);
   const markup = collectMatchRanges(HTML_MARKUP, raw);
-  const whiteSpaceDeclaration = raw.match(/\bwhite-space\s*:\s*(normal|nowrap|pre|pre-line|pre-wrap|break-spaces)\b/i);
-  const preserveWhitespace =
-    !whiteSpaceDeclaration || !/^(?:normal|nowrap)$/i.test(whiteSpaceDeclaration[1]);
+  const whitespaceContexts = [];
+  let preserveWhitespace = true;
 
   if (!inline) {
     pushBoundary(stream);
@@ -396,6 +411,38 @@ function emitHtml(node, body, stream, inline) {
       // does not.
       if (tag.startsWith('<!--') || HTML_BREAK_TAG.test(tag)) {
         pushBoundary(stream);
+      }
+
+      const tagMatch = tag.match(/^<\s*(\/?)\s*([A-Za-z][\w:-]*)\b/);
+      if (tagMatch) {
+        const closing = tagMatch[1] === '/';
+        const name = tagMatch[2].toLowerCase();
+
+        if (closing) {
+          const contextIndex = whitespaceContexts.findLastIndex((context) => context.name === name);
+          if (contextIndex === -1) {
+            // Malformed or partial raw HTML is uncertain. Preserve line breaks
+            // rather than letting a guessed CSS context authorize deletion.
+            whitespaceContexts.length = 0;
+            preserveWhitespace = true;
+          } else {
+            preserveWhitespace = whitespaceContexts[contextIndex].previous;
+            whitespaceContexts.length = contextIndex;
+          }
+        } else {
+          const declaration = tag.match(
+            /\bwhite-space\s*:\s*(normal|nowrap|pre|pre-line|pre-wrap|break-spaces)\b/i,
+          );
+          const nextPreserve = declaration
+            ? !/^(?:normal|nowrap)$/i.test(declaration[1])
+            : preserveWhitespace;
+          const selfClosing = /\/\s*>$/.test(tag) || HTML_VOID_ELEMENTS.has(name);
+
+          if (!selfClosing) {
+            whitespaceContexts.push({ name, previous: preserveWhitespace });
+            preserveWhitespace = nextPreserve;
+          }
+        }
       }
       index = markupRange[1];
       continue;
@@ -682,7 +729,7 @@ function bodyViolations(source) {
 // YAML allows the chomping and indentation indicators in either order, so
 // `|2-` is as valid as `|-2`.
 const BLOCK_SCALAR_OPENER =
-  /^([\p{Zs}\t]*)(?:-[\p{Zs}\t]+)*(?:(?:"(?:[^"\\]|\\.)*"|'(?:[^']|'')*'|[^:\n]+):)?[\p{Zs}\t]*([|>])((?:[-+]\d*|\d+[-+]?)?)[\p{Zs}\t]*$/u;
+  /^([\p{Zs}\t]*)((?:-[\p{Zs}\t]+)*)(?:("(?:[^"\\]|\\.)*"|'(?:[^']|'')*'|[^:\n]+):)?[\p{Zs}\t]*([|>])((?:[-+]\d*|\d+[-+]?)?)[\p{Zs}\t]*$/u;
 
 function blockScalarOpenerOf(line) {
   const match = line.match(BLOCK_SCALAR_OPENER);
@@ -694,14 +741,17 @@ function blockScalarOpenerOf(line) {
   // relative to the opener, and that is what decides which lines are folded
   // and which are more-indented literal lines. Without one it is inferred from
   // the first non-blank content line.
-  const digits = match[3].match(/\d+/);
+  const digits = match[5].match(/\d+/);
   const indent = match[1].length;
+  const inlineSequenceMappingIndent = match[2] && match[3] ? match[2].length : 0;
 
   return {
     indent,
     // `>` folds line breaks into spaces; `|` keeps them literal.
-    folded: match[2] === '>',
-    contentIndent: digits ? indent + Number(digits[0]) : null,
+    folded: match[4] === '>',
+    contentIndent: digits
+      ? indent + inlineSequenceMappingIndent + Number(digits[0])
+      : null,
   };
 }
 
@@ -1127,15 +1177,23 @@ export function findSpacedEmDashViolations(filePath, source) {
 // constructs the source parses into. For example, closing the spaces around
 // `**—**` makes both strong delimiters intraword and turns them into literal
 // asterisks. Keep a compact node-type tree so that case fails closed.
-function markdownStructure(source) {
+function markdownStructure(source, mapOffset = (offset) => offset) {
   const body = source.slice(frontmatterLength(source));
+  const bodyStart = frontmatterLength(source);
   const tree = fromMarkdown(body, {
     extensions: [gfm()],
     mdastExtensions: [gfmFromMarkdown()],
   });
 
   function shape(node) {
-    return [node.type, ...(node.children ?? []).map(shape)];
+    const bounds =
+      node.type !== 'text' && node.position
+        ? [
+            mapOffset(bodyStart + node.position.start.offset, 'right'),
+            mapOffset(bodyStart + node.position.end.offset, 'left'),
+          ]
+        : [];
+    return [node.type, ...bounds, ...(node.children ?? []).map(shape)];
   }
 
   return JSON.stringify(shape(tree));
@@ -1172,13 +1230,32 @@ function frontmatterYaml(source) {
     .replace(/\r?\n---(?:\r?\n|$)$/, '');
 }
 
-function structureIsPreserved(source, fixed, filePath) {
+function originalOffsetOfFixedOffset(fixedOffset, removals, bias) {
+  let deleted = 0;
+
+  for (const [start, end] of removals) {
+    const fixedBoundary = start - deleted;
+    if (fixedOffset < fixedBoundary) {
+      break;
+    }
+    if (fixedOffset === fixedBoundary && bias === 'left') {
+      return start;
+    }
+    deleted += end - start;
+  }
+
+  return fixedOffset + deleted;
+}
+
+function structureIsPreserved(source, fixed, filePath, removals) {
   try {
     if (isYamlPath(filePath)) {
       return yamlStructure(source) === yamlStructure(fixed);
     }
 
-    if (markdownStructure(source) !== markdownStructure(fixed)) {
+    const mapFixedOffset = (offset, bias) =>
+      originalOffsetOfFixedOffset(offset, removals, bias);
+    if (markdownStructure(source) !== markdownStructure(fixed, mapFixedOffset)) {
       return false;
     }
 
@@ -1203,6 +1280,7 @@ export function closeUpSpacedEmDashesInText(source, filePath = '') {
 
   let fixed = '';
   let cursor = 0;
+  const appliedRemovals = [];
 
   for (const [start, end] of removals) {
     if (start < cursor) {
@@ -1210,12 +1288,13 @@ export function closeUpSpacedEmDashesInText(source, filePath = '') {
     }
     fixed += source.slice(cursor, start);
     cursor = end;
+    appliedRemovals.push([start, end]);
   }
 
   // Splicing the original string leaves every byte outside a removal
   // untouched, so a CRLF file stays CRLF.
   const candidate = fixed + source.slice(cursor);
-  return structureIsPreserved(source, candidate, filePath) ? candidate : source;
+  return structureIsPreserved(source, candidate, filePath, appliedRemovals) ? candidate : source;
 }
 
 // ---------------------------------------------------------------------------
