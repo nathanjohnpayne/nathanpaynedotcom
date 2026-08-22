@@ -23,7 +23,7 @@ The spec makes cost a first-class invariant: per-application LLM spend ≤ $1 at
 **Verification:**
 
 - Fixture test: mock an Anthropic response with known token counts → `recordUsage` writes a Firestore doc with the expected `cost_usd`.
-- Type-level tests: application and fixture correlations require their IDs, reject the other ID, and permit an uncorrelated call only through the explicit `ad-hoc` variant.
+- Type-level tests: application and fixture correlations require their IDs, reject the other ID, and permit an uncorrelated call only through the explicit `ad-hoc` variant. Separately assert each production wrapper accepts only an application correlation and each eval wrapper accepts only a fixture correlation; both wrapper families reject `ad-hoc` and the opposite correlation kind at compile time.
 - Fixture test: every model identifier in `modelConfig.ts` has a rate-table entry.
 - Integration smoke: one real call to each of Anthropic + OpenAI + embeddings logs a non-zero `cost_usd`.
 - CI lint: grep check for bare LLM calls without adjacent `recordUsage` fails cleanly.
