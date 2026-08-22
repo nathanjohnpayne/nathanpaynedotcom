@@ -1,5 +1,14 @@
-import { existsSync, readFileSync, readdirSync } from 'node:fs';
-import { dirname, resolve } from 'node:path';
+import {
+  existsSync,
+  readFileSync,
+  readdirSync,
+  mkdtempSync,
+  mkdirSync,
+  writeFileSync,
+  rmSync,
+} from 'node:fs';
+import { dirname, join, resolve } from 'node:path';
+import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { JSDOM } from 'jsdom';
 import { describe, it, expect } from 'vitest';
@@ -131,5 +140,111 @@ describe('remark-mermaid plugin', () => {
     expect(diagramCount, 'the assertion must exercise at least one built diagram').toBeGreaterThan(
       0,
     );
+  });
+
+  it('ships every diagram as static inline SVG with no Mermaid CDN runtime', () => {
+    expect(existsSync(builtBlogRoot), 'dist/blog must exist; run npm run build first').toBe(true);
+
+    let diagramCount = 0;
+
+    for (const entry of readdirSync(builtBlogRoot, { withFileTypes: true })) {
+      if (!entry.isDirectory()) continue;
+
+      const pagePath = resolve(builtBlogRoot, entry.name, 'index.html');
+      if (!existsSync(pagePath)) continue;
+
+      const html = readFileSync(pagePath, 'utf8');
+      const document = new JSDOM(html).window.document;
+      const diagrams = document.querySelectorAll('svg.mermaid');
+      diagramCount += diagrams.length;
+
+      expect(html, `${entry.name}: Mermaid still loads from the network`).not.toMatch(
+        /cdn\.jsdelivr\.net\/npm\/mermaid/i,
+      );
+      expect(
+        document.querySelectorAll('pre.mermaid'),
+        `${entry.name}: raw Mermaid source shipped instead of SVG`,
+      ).toHaveLength(0);
+
+      for (const diagram of diagrams) {
+        expect(diagram.getAttribute('aria-hidden'), `${entry.name}: SVG duplicates AX output`).toBe(
+          'true',
+        );
+        expect(
+          diagram.querySelectorAll('.node').length,
+          `${entry.name}: SVG has no rendered nodes`,
+        ).toBeGreaterThan(0);
+        expect(
+          diagram.querySelectorAll('.edgePaths .flowchart-link').length,
+          `${entry.name}: SVG has no rendered edges`,
+        ).toBeGreaterThan(0);
+      }
+    }
+
+    expect(diagramCount, 'all 10 inline and 6 sidebar diagrams must be rendered').toBe(16);
+  });
+
+  it('preserves representative Mermaid syntax in the static SVG output', () => {
+    const paletteHtml = readFileSync(
+      resolve(builtBlogRoot, 'two-blues-one-composition', 'index.html'),
+      'utf8',
+    );
+    const failureModesHtml = readFileSync(
+      resolve(builtBlogRoot, 'six-prs-one-bug-agent-failure-modes', 'index.html'),
+      'utf8',
+    );
+    const paletteDocument = new JSDOM(paletteHtml).window.document;
+    const failureModesDocument = new JSDOM(failureModesHtml).window.document;
+
+    expect(paletteDocument.querySelector('svg.mermaid')).not.toBeNull();
+    expect(paletteDocument.body.textContent).toContain('museum scan');
+    expect(paletteDocument.querySelector('[style*="fill:#DA2418" i]')).not.toBeNull();
+    expect(paletteDocument.querySelector('.edge-pattern-dotted')).not.toBeNull();
+
+    expect(failureModesDocument.querySelector('svg.mermaid foreignObject br')).not.toBeNull();
+    expect(failureModesDocument.querySelector('svg.mermaid')?.textContent).toContain(
+      'TipTap / ProseMirror',
+    );
+    expect(failureModesDocument.querySelector('svg.mermaid')?.textContent).toContain(
+      'Sent Email HTML',
+    );
+  });
+
+  it('renders the complete documented syntax surface through the build pass', async () => {
+    const fixtureRoot = mkdtempSync(join(tmpdir(), 'mermaid-static-build-'));
+    const fixturePage = resolve(fixtureRoot, 'blog', 'syntax-coverage');
+    const source = `<!DOCTYPE html><html><body><figure class="mermaid-figure"><pre class="mermaid">graph TD
+subgraph GROUP["Grouped nodes"]
+  A["Alpha&lt;br/&gt;line"] -.-&gt;|"dotted label"| B["Beta"]
+end
+style A fill:#ff0000,stroke:#000000,color:#ffffff</pre></figure></body></html>`;
+    let browser;
+
+    try {
+      mkdirSync(fixturePage, { recursive: true });
+      writeFileSync(resolve(fixturePage, 'index.html'), source);
+
+      const { chromium } = await import('playwright');
+      const { renderMermaidDiagrams } = await import('../src/integrations/og-images.mjs');
+      browser = await chromium.launch();
+      await renderMermaidDiagrams({
+        browser,
+        distDir: fixtureRoot,
+        logger: { info() {}, warn() {} },
+      });
+
+      const result = new JSDOM(readFileSync(resolve(fixturePage, 'index.html'), 'utf8')).window
+        .document;
+      expect(result.querySelector('pre.mermaid')).toBeNull();
+      expect(result.querySelector('svg.mermaid')).not.toBeNull();
+      expect(result.querySelector('.cluster')).not.toBeNull();
+      expect(result.querySelector('.edge-pattern-dotted')).not.toBeNull();
+      expect(result.querySelector('foreignObject br')).not.toBeNull();
+      expect(result.querySelector('[style*="fill:#ff0000" i]')).not.toBeNull();
+      expect(result.body.textContent).toContain('dotted label');
+    } finally {
+      await browser?.close();
+      rmSync(fixtureRoot, { recursive: true, force: true });
+    }
   });
 });

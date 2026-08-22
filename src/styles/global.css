@@ -3163,6 +3163,13 @@ a.tag:hover {
   margin: 0;
 }
 
+.mermaid-figure svg.mermaid {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  height: auto;
+}
+
 .mermaid-figure__description {
   position: absolute;
   width: 1px;
@@ -3404,6 +3411,16 @@ a.tag:hover {
 
   .blog-takeaways__list li::before {
     background: #000 !important;
+  }
+
+  .mermaid-figure {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .mermaid-figure svg.mermaid {
+    max-width: 100% !important;
+    height: auto !important;
   }
 }
 
