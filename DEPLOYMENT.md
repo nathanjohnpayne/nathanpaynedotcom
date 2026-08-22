@@ -295,8 +295,10 @@ in 1Password with the field name `token` (not `credential` or `password`).
 |---|---|---|
 | `nathanpayne-claude` | `pvbq24vl2h6gl7yjclxy2hbote` | `op read "op://Private/pvbq24vl2h6gl7yjclxy2hbote/token"` |
 | `nathanpayne-cursor` | `bslrih4spwxgookzfy6zedz5g4` | `op read "op://Private/bslrih4spwxgookzfy6zedz5g4/token"` |
-| `nathanpayne-codex` | `o6ekjxjjl5gq6rmcneomrjahpu` | `op read "op://Private/o6ekjxjjl5gq6rmcneomrjahpu/token"` |
+| `nathanpayne-codex` | `etak327mpz4drd4byxszfex4vm` | `op read "op://Private/etak327mpz4drd4byxszfex4vm/token"` |
 | `nathanjohnpayne` | `sm5kopwk6t6p3xmu2igesndzhe` | `op read "op://Private/sm5kopwk6t6p3xmu2igesndzhe/token"` |
+
+> The item `o6ekjxjjl5gq6rmcneomrjahpu` is **not** in this table on purpose: it is the `nathanpayne-robot` CI service account, which holds no reviewer standing and must never post a review. It was the Codex item until 2026-08-21 — see REVIEW_POLICY.md § PAT lookup table for the hazard note.
 
 Use the item ID (not the item title) to avoid shell issues with parentheses in
 1Password item names like `GitHub PAT (pr-review-claude)`.
