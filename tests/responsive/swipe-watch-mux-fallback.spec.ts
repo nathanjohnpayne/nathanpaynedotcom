@@ -1,4 +1,18 @@
 import { expect, test } from '@playwright/test';
+import type { Locator } from '@playwright/test';
+
+async function expectLoadingOrFastFallback(frame: Locator) {
+  await expect
+    .poll(() =>
+      frame.evaluate((shell) => {
+        const state = shell.getAttribute('data-playback-state');
+        const playButton = shell.querySelector<HTMLButtonElement>('[data-mux-play]');
+
+        return state === 'fallback' || (state === 'loading' && playButton?.hidden === true);
+      }),
+    )
+    .toBe(true);
+}
 
 test('Swipe Watch swaps to the Mux GIF fallback when the stream cannot autoplay', async ({
   page,
@@ -23,12 +37,10 @@ test('Swipe Watch swaps to the Mux GIF fallback when the stream cannot autoplay'
   await expect(playButton).toHaveAttribute('aria-label', 'Play Swipe Watch demo');
 
   await playButton.click();
-  // Either we catch the transient "loading" state mid-flight, or the route
-  // abort fires so fast we land straight on "fallback". Both are valid —
-  // the contract being tested is that the click moves us off the prior
-  // "fallback" snapshot, not which intermediate frame Playwright observes.
-  await expect(frame).toHaveAttribute('data-playback-state', /^(loading|fallback)$/);
-  await expect(playButton).toBeHidden();
+  // The button is hidden while loading, but a fast route failure may settle
+  // straight back to fallback and re-show it before Playwright observes that
+  // transient state. Assert either coherent DOM snapshot atomically.
+  await expectLoadingOrFastFallback(frame);
   await expect(frame).toHaveAttribute('data-playback-state', 'fallback', { timeout: 7000 });
   await expect(playButton).toBeVisible();
 });
@@ -61,11 +73,20 @@ test('Swipe Watch hero honors prefers-reduced-motion: no autoplay, poster + play
     }),
   ).toBe(true);
 
+  // Force the failure to settle in the microtask immediately after click so
+  // this test covers the valid loading-to-fallback race deterministically.
+  await page.evaluate(() => {
+    const video = document
+      .querySelector('mux-background-video')
+      ?.shadowRoot?.querySelector('video');
+    if (!video) throw new Error('Mux shadow video was not available');
+    video.play = () => Promise.reject(new DOMException('Simulated playback failure'));
+  });
+
   // Explicit play is an opt-in to motion: with the stream aborted, the
   // normal failure path now applies and the animated GIF may load.
   await playButton.click();
-  await expect(frame).toHaveAttribute('data-playback-state', /^(loading|fallback)$/);
-  await expect(playButton).toBeHidden();
+  await expectLoadingOrFastFallback(frame);
   await expect(frame).toHaveAttribute('data-playback-state', 'fallback', { timeout: 7000 });
   await expect(fallback).toHaveAttribute('src', /\/images\/projects\/swipe-watch-hero\.gif$/);
   await expect(playButton).toBeVisible();
