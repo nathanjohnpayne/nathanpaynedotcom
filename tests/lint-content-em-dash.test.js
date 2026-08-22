@@ -303,6 +303,59 @@ describe('content em-dash lint', () => {
     expect(findSpacedEmDashViolations('/tmp/test.md', source)).toHaveLength(0);
   });
 
+  it('sees a dash padded through inline markup', () => {
+    const source = 'word **—** next';
+
+    expect(findSpacedEmDashViolations('/tmp/test.md', source)).toHaveLength(1);
+    expect(closeUpSpacedEmDashesInText(source)).toBe('word**—**next');
+  });
+
+  it('sees a dash written as a character reference', () => {
+    const source = 'word &mdash; next';
+
+    expect(findSpacedEmDashViolations('/tmp/test.md', source)).toHaveLength(1);
+    expect(closeUpSpacedEmDashesInText(source)).toBe('word&mdash;next');
+  });
+
+  it('sees padding written as a character reference', () => {
+    const source = 'word&nbsp;—&nbsp;next';
+
+    expect(findSpacedEmDashViolations('/tmp/test.md', source)).toHaveLength(1);
+    expect(closeUpSpacedEmDashesInText(source)).toBe('word—next');
+  });
+
+  it('treats a thin space as padding', () => {
+    const source = 'word\u2009—\u2009next';
+
+    expect(findSpacedEmDashViolations('/tmp/test.md', source)).toHaveLength(1);
+    expect(closeUpSpacedEmDashesInText(source)).toBe('word—next');
+  });
+
+  it('does not flag an unpadded dash before a block boundary', () => {
+    expect(findSpacedEmDashViolations('/tmp/test.md', 'word—\n# Heading')).toHaveLength(0);
+    expect(findSpacedEmDashViolations('/tmp/test.md', 'word—  \ncontinuation')).toHaveLength(0);
+    expect(findSpacedEmDashViolations('/tmp/test.md', 'word—\n')).toHaveLength(0);
+  });
+
+  it('leaves raw-text element bodies alone', () => {
+    const script = '<script>\nconst x = "a — b";\n</script>';
+    const pre = '<pre>code — sample</pre>';
+
+    expect(findSpacedEmDashViolations('/tmp/test.md', script)).toHaveLength(0);
+    expect(closeUpSpacedEmDashesInText(script)).toBe(script);
+    expect(findSpacedEmDashViolations('/tmp/test.md', pre)).toHaveLength(0);
+    expect(closeUpSpacedEmDashesInText(pre)).toBe(pre);
+  });
+
+  it('ignores a YAML comment but not a hash inside a quoted scalar', () => {
+    const commented = ['---', 'title: Plain # note — for editors', '---', ''].join('\n');
+    const quoted = ['---', 'title: "a # b — c"', '---', ''].join('\n');
+
+    expect(findSpacedEmDashViolations('/tmp/test.md', commented)).toHaveLength(0);
+    expect(closeUpSpacedEmDashesInText(commented)).toBe(commented);
+    expect(findSpacedEmDashViolations('/tmp/test.md', quoted)).toHaveLength(1);
+  });
+
   it('preserves CRLF line endings through a fix pass', () => {
     const source = 'prose — one.\r\nprose — two.\r\n';
 
