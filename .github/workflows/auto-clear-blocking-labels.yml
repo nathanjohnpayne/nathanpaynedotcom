@@ -93,7 +93,9 @@ on:
   # after Codex cleared). 3× the API quota cost, but a meaningfully
   # shorter blocker window. The PAT-driven label removal added in
   # #324 also helps — but the sweep is still the only backstop for
-  # the no-event path.
+  # the no-event path. It also re-enters the approval continuation for open
+  # approved PRs. That backstop covers a consumer annex with a custom display
+  # name, which cannot be enumerated in workflow_run.workflows.
   schedule:
     - cron: '*/5 * * * *'
 
@@ -243,6 +245,7 @@ jobs:
           fi
 
       - name: Re-evaluate gate per PR + remove label on pass
+        id: clear
         if: steps.pr.outputs.numbers != ''
         env:
           # PAT-driven label removal (#315/#324). GITHUB_TOKEN-driven
@@ -280,6 +283,7 @@ jobs:
           # evaluation was actually impossible.
           had_infra_error=0
           failing_prs=""
+          cleared_prs=""
           while IFS= read -r PR; do
             [ -z "$PR" ] && continue
             echo "::group::Evaluating PR #$PR"
@@ -314,36 +318,67 @@ jobs:
             case "$rc" in
               0)
                 echo "Gate passes — removing needs-external-review label."
-                # Single (non-retried) removal of the non-idempotent write,
-                # then verify end state with a retried READ (#465): retrying
-                # --remove-label can double-fire downstream label-event
-                # workflows and can hit a post-success "label not found" that
-                # looks transient. Authoritative success = the label is gone,
-                # not the write's exit code (still fail-closed per #271).
-                gh pr edit "$PR" --repo "$REPO" --remove-label needs-external-review 2>/dev/null || true
+                # Single (non-retried) removal, then verify end state with a
+                # retried READ (#465): retrying the removal can double-fire
+                # downstream label-event workflows. Authoritative success = the
+                # label is gone, not the write's exit code (fail-closed #271).
+                #
+                # #827: the removal is a REST DELETE, NOT
+                # `gh pr edit --remove-label`, because only the DELETE's HTTP
+                # status distinguishes "THIS run removed the label" from "the
+                # label was already gone". `gh pr edit --remove-label` is backed
+                # by the idempotent GraphQL removeLabelsFromLabelable mutation
+                # and exits 0 even when the label was never present, so neither
+                # its exit code nor the `still_present` read below can attribute
+                # the removal. Gating the attribution comment on mere ABSENCE is
+                # what produced duplicate comments: this workflow has no
+                # concurrency group (a per-PR one is not expressible for
+                # workflow_run, whose PR is resolved in a step), so several runs
+                # clear the HAS_LABEL check above, one write wins, and every one
+                # of them then reads "absent" and comments. On #797 that made 15
+                # comments for 5 real removals. DELETE
+                # /issues/{n}/labels/{name} returns 404 when the label is not on
+                # the issue, so exactly one racing run sees 2xx.
+                del_out=$(gh api "repos/$REPO/issues/$PR/labels/needs-external-review" -X DELETE -i --silent 2>/dev/null || true)
+                del_status=$(printf '%s\n' "$del_out" | awk 'NR==1{print $2; exit}')
                 still_present=$(with_gh_retry gh pr view "$PR" --repo "$REPO" --json labels --jq 'any(.labels[]?; .name == "needs-external-review")' || echo "unknown")
                 if [ "$still_present" != "false" ]; then
-                  echo "::error::Failed to remove needs-external-review on PR #$PR — label still stuck (state: $still_present)."
+                  echo "::error::Failed to remove needs-external-review on PR #$PR — label still stuck (state: $still_present, DELETE HTTP ${del_status:-none})."
                   had_infra_error=1
                   failing_prs="$failing_prs $PR"
                   echo "::endgroup::"
                   continue
                 fi
-                # Direct string body (NOT a heredoc — heredoc closing
-                # delimiter must be column-0 unless using `<<-` with
-                # tabs; YAML run blocks make that brittle).
-                comment_body='**Automated label removal.** `scripts/codex-review-check.sh` cleared the merge gate on this HEAD (CI green + reviewer-identity APPROVED + Codex cleared). Removed `needs-external-review` so Label Gate passes and the PR can merge. See [.github/workflows/auto-clear-blocking-labels.yml](.github/workflows/auto-clear-blocking-labels.yml) (#191/#195) for the trigger doctrine.'
-                # #530 (IMPLEMENTED — was DEFER+DOCUMENT, human-ratified
-                # 2026-06-28): this attribution-comment POST is NON-idempotent,
-                # so it is deliberately NOT wrapped in with_gh_retry. A retry
-                # after a timeout-after-accept would post a DUPLICATE comment;
-                # a single unretried attempt cannot. Failure stays warn-only
-                # (non-fatal) and is purely cosmetic — the label is already
-                # cleared and the workflow log records the action. The other
-                # retried writes here are check-runs keyed on (name, head_sha),
-                # which GitHub UPSERTS (idempotent), so those stay wrapped.
-                gh pr comment "$PR" --repo "$REPO" --body "$comment_body" \
-                  || echo "::warning::Failed to post attribution comment for PR #$PR"
+                # End state is correct. Comment ONLY if THIS run performed the
+                # removal (#827) — a 404 means another run or an earlier sweep
+                # already cleared it, and the desired end state holds either way.
+                case "$del_status" in
+                  200|204)
+                    cleared_prs="$cleared_prs $PR"
+                    # Direct string body (NOT a heredoc — heredoc closing
+                    # delimiter must be column-0 unless using `<<-` with
+                    # tabs; YAML run blocks make that brittle).
+                    comment_body='**Automated label removal.** `scripts/codex-review-check.sh` cleared the merge gate on this HEAD (CI green + reviewer-identity APPROVED + Codex cleared). Removed `needs-external-review` so Label Gate passes and the PR can merge. See [.github/workflows/auto-clear-blocking-labels.yml](.github/workflows/auto-clear-blocking-labels.yml) (#191/#195) for the trigger doctrine.'
+                    # #530 (IMPLEMENTED — was DEFER+DOCUMENT, human-ratified
+                    # 2026-06-28): this attribution-comment POST is
+                    # NON-idempotent, so it is deliberately NOT wrapped in
+                    # with_gh_retry. A retry after a timeout-after-accept would
+                    # post a DUPLICATE comment; a single unretried attempt
+                    # cannot. Failure stays warn-only (non-fatal) and is purely
+                    # cosmetic — the label is already cleared and the workflow
+                    # log records the action. The other retried writes here are
+                    # check-runs keyed on (name, head_sha), which GitHub UPSERTS
+                    # (idempotent), so those stay wrapped.
+                    gh pr comment "$PR" --repo "$REPO" --body "$comment_body" \
+                      || echo "::warning::Failed to post attribution comment for PR #$PR"
+                    ;;
+                  404)
+                    echo "needs-external-review was already absent (DELETE HTTP 404) — another run or sweep cleared it; skipping the attribution comment (#827)."
+                    ;;
+                  *)
+                    echo "::warning::Unexpected DELETE HTTP '${del_status:-none}' for needs-external-review on PR #$PR; label is confirmed absent, so skipping the attribution comment rather than risking a duplicate (#827)."
+                    ;;
+                esac
                 ;;
               1)
                 echo "Gate not yet met — leaving label in place."
@@ -374,7 +409,73 @@ jobs:
           echo "HAD_INFRA_ERROR=$had_infra_error" >> "$GITHUB_ENV"
           # shellcheck disable=SC2086  # intentional word-splitting to trim
           echo "HAD_INFRA_ERROR_PRS=$(echo $failing_prs)" >> "$GITHUB_ENV"
+          # A PR whose external-review label was removed in THIS pass must
+          # wait for the label-policy workflow to publish its new verdict.
+          # The continuation step skips it until that later workflow_run.
+          # shellcheck disable=SC2086  # intentional word-splitting to trim
+          echo "cleared_prs=$(echo $cleared_prs)" >> "$GITHUB_OUTPUT"
           exit "$had_infra_error"
+
+      - name: Continue approved PRs after completed checks
+        if: github.event_name == 'workflow_run' && steps.pr.outputs.numbers != ''
+        env:
+          GH_TOKEN: ${{ secrets.AUTHOR_MERGE_TOKEN }}
+          PR_NUMBERS: ${{ steps.pr.outputs.numbers }}
+          CLEARED_PRS: ${{ steps.clear.outputs.cleared_prs }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          if [ -z "${GH_TOKEN:-}" ]; then
+            echo "::notice::AUTHOR_MERGE_TOKEN is not configured; approval continuation is disabled."
+            exit 0
+          fi
+          if [ ! -f scripts/workflow/approval-merge-continuation.sh ]; then
+            echo "::notice::Approval continuation helper is not on the trusted default branch yet; skipping this first-rollout event."
+            exit 0
+          fi
+          continuation_infra_error=0
+          continuation_failing_prs=""
+          while IFS= read -r PR; do
+            [ -n "$PR" ] || continue
+            case " $CLEARED_PRS " in
+              *" $PR "*)
+                echo "PR #$PR had needs-external-review removed in this pass; waiting for the resulting policy workflow completion."
+                continue
+                ;;
+            esac
+            set +e
+            bash scripts/workflow/approval-merge-continuation.sh "$PR" "$REPO"
+            rc=$?
+            set -e
+            case "$rc" in
+              0) ;;
+              4) echo "PR #$PR is not merge-ready on this event; a later completion event will re-evaluate it." ;;
+              *)
+                echo "::error::Approval continuation hit infrastructure/config error rc=$rc on PR #$PR."
+                continuation_infra_error=1
+                continuation_failing_prs="$continuation_failing_prs $PR"
+                ;;
+            esac
+          done <<<"$PR_NUMBERS"
+          echo "CONTINUATION_INFRA_ERROR=$continuation_infra_error" >> "$GITHUB_ENV"
+          # shellcheck disable=SC2086  # intentional word-splitting to trim
+          echo "CONTINUATION_INFRA_ERROR_PRS=$(echo $continuation_failing_prs)" >> "$GITHUB_ENV"
+          exit "$continuation_infra_error"
+
+      - name: Surface approval continuation failures as per-PR check-runs
+        if: always() && env.CONTINUATION_INFRA_ERROR == '1'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          if [ ! -f scripts/workflow/report-approval-continuation-failures.sh ]; then
+            echo "::notice::Continuation failure reporter is not on the trusted default branch yet; the workflow log remains authoritative for this first rollout."
+            exit 0
+          fi
+          bash scripts/workflow/report-approval-continuation-failures.sh \
+            "$REPO" "$RUN_URL" "${CONTINUATION_INFRA_ERROR_PRS:-}"
 
       - name: Surface infra failure as per-PR check-runs
         # Run even when the prior step failed — `if: always()` + the
@@ -513,6 +614,7 @@ jobs:
             ' "$CONFIG")
             [ "$val" = "false" ] && enabled=false
           fi
+          echo "enabled=$enabled" >> "$GITHUB_OUTPUT"
           if [ "$enabled" = "false" ]; then
             echo "Scheduled sweep disabled for $REPO via review-policy.yml; skipping."
             echo "prs=" >> "$GITHUB_OUTPUT"
@@ -574,6 +676,32 @@ jobs:
           while IFS= read -r PR; do
             [ -z "$PR" ] && continue
             echo "::group::Sweep PR #$PR"
+
+            # #827: re-verify the label against the AUTHORITATIVE labels
+            # endpoint before doing any work. The PR list above comes from
+            # `gh pr list --label`, which resolves through the GraphQL
+            # `search()` API — GitHub's eventually-consistent search index,
+            # NOT live label state. A PR whose label was cleared keeps
+            # appearing in that index long after the fact (observed on #797:
+            # ~3.5h, across 9 consecutive sweeps). Without this precheck the
+            # sweep ran a full codex-review-check.sh evaluation, issued a
+            # no-op removal, read "absent", and posted an attribution comment
+            # for a label it never removed — 8 spurious comments on #797.
+            # Mirrors the evaluate-and-clear job's HAS_LABEL check.
+            if ! HAS_LABEL=$(with_gh_retry gh pr view "$PR" --repo "$REPO" --json labels \
+              --jq '[.labels[].name] | contains(["needs-external-review"])'); then
+              echo "::error::Failed to query labels for PR #$PR — cannot evaluate."
+              had_infra_error=1
+              failing_prs="$failing_prs $PR"
+              echo "::endgroup::"
+              continue
+            fi
+            if [ "$HAS_LABEL" != "true" ]; then
+              echo "Label needs-external-review not present (stale search-index hit); nothing to clear."
+              echo "::endgroup::"
+              continue
+            fi
+
             set +e
             scripts/codex-review-check.sh "$PR"
             rc=$?
@@ -581,23 +709,38 @@ jobs:
             case "$rc" in
               0)
                 echo "Gate passes — removing needs-external-review label."
-                # Single (non-retried) removal + retried verify (#465) — see
-                # the evaluate-and-clear job above for the full rationale.
-                gh pr edit "$PR" --repo "$REPO" --remove-label needs-external-review 2>/dev/null || true
+                # Single (non-retried) REST DELETE + retried verify (#465/#827)
+                # — see the evaluate-and-clear job above for the full rationale
+                # on why the DELETE's HTTP status, not the end-state read, is
+                # what attributes the removal to this run.
+                del_out=$(gh api "repos/$REPO/issues/$PR/labels/needs-external-review" -X DELETE -i --silent 2>/dev/null || true)
+                del_status=$(printf '%s\n' "$del_out" | awk 'NR==1{print $2; exit}')
                 still_present=$(with_gh_retry gh pr view "$PR" --repo "$REPO" --json labels --jq 'any(.labels[]?; .name == "needs-external-review")' || echo "unknown")
                 if [ "$still_present" = "false" ]; then
-                  comment_body='**Automated label removal (scheduled sweep).** `scripts/codex-review-check.sh` cleared the merge gate on this HEAD between event triggers (typical: Codex 👍 after the last push, with no synchronize / review / workflow_run event to fire the event-driven path). Removed `needs-external-review`. See [.github/workflows/auto-clear-blocking-labels.yml](.github/workflows/auto-clear-blocking-labels.yml) (#191/#197) for the sweep doctrine.'
-                  # #530: non-idempotent comment POST — deliberately unretried
-                  # (a single attempt cannot duplicate); see the event-driven
-                  # job above for the full rationale. Failure is warn-only.
-                  gh pr comment "$PR" --repo "$REPO" --body "$comment_body" \
-                    || echo "::warning::Failed to post attribution comment for PR #$PR"
+                  # Comment ONLY if THIS sweep performed the removal (#827).
+                  case "$del_status" in
+                    200|204)
+                      comment_body='**Automated label removal (scheduled sweep).** `scripts/codex-review-check.sh` cleared the merge gate on this HEAD between event triggers (typical: Codex 👍 after the last push, with no synchronize / review / workflow_run event to fire the event-driven path). Removed `needs-external-review`. See [.github/workflows/auto-clear-blocking-labels.yml](.github/workflows/auto-clear-blocking-labels.yml) (#191/#197) for the sweep doctrine.'
+                      # #530: non-idempotent comment POST — deliberately
+                      # unretried (a single attempt cannot duplicate); see the
+                      # event-driven job above for the full rationale. Failure
+                      # is warn-only.
+                      gh pr comment "$PR" --repo "$REPO" --body "$comment_body" \
+                        || echo "::warning::Failed to post attribution comment for PR #$PR"
+                      ;;
+                    404)
+                      echo "needs-external-review was already absent (DELETE HTTP 404) — another run or sweep cleared it; skipping the attribution comment (#827)."
+                      ;;
+                    *)
+                      echo "::warning::Unexpected DELETE HTTP '${del_status:-none}' for needs-external-review on PR #$PR; label is confirmed absent, so skipping the attribution comment rather than risking a duplicate (#827)."
+                      ;;
+                  esac
                 else
                   # Removal did not take (label still present or verify read
                   # failed) — infra error, not warning-only. The sweep must
                   # not report success when the label is still stuck
                   # (CodeRabbit Major, #271; verify-end-state per #465).
-                  echo "::error::Failed to remove needs-external-review on PR #$PR — label still stuck (state: $still_present)."
+                  echo "::error::Failed to remove needs-external-review on PR #$PR — label still stuck (state: $still_present, DELETE HTTP ${del_status:-none})."
                   had_infra_error=1
                   failing_prs="$failing_prs $PR"
                 fi
@@ -615,6 +758,90 @@ jobs:
           # shellcheck disable=SC2086  # intentional word-splitting to trim
           echo "HAD_INFRA_ERROR_PRS=$(echo $failing_prs)" >> "$GITHUB_ENV"
           exit "$had_infra_error"
+
+      - name: Find open approved PRs for the continuation backstop
+        id: approved
+        if: steps.find.outputs.enabled != 'false'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          source scripts/lib/gh-retry-helpers.sh
+          # workflow_run accepts only literal workflow display names. A valid
+          # consumer repo_lint_local.yml may choose any name, so its completion
+          # cannot always wake the event-driven continuation above. The existing
+          # five-minute sweep is the bounded backstop; search narrows it to PRs
+          # GitHub considers approved, and the continuation re-verifies the
+          # registered reviewer's latest state authoritatively.
+          if ! prs=$(with_gh_retry gh pr list --repo "$REPO" --state open \
+            --search 'review:approved' --limit 500 --json number --jq '.[].number'); then
+            echo "::error::Failed to list open approved PRs on $REPO"
+            exit 1
+          fi
+          if [ -z "$prs" ]; then
+            echo "prs=" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          {
+            echo 'prs<<EOF'
+            echo "$prs"
+            echo 'EOF'
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Continue approved PRs after custom-workflow completions
+        if: steps.find.outputs.enabled != 'false' && steps.approved.outputs.prs != ''
+        env:
+          GH_TOKEN: ${{ secrets.AUTHOR_MERGE_TOKEN }}
+          PRS: ${{ steps.approved.outputs.prs }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          if [ -z "${GH_TOKEN:-}" ]; then
+            echo "::notice::AUTHOR_MERGE_TOKEN is not configured; scheduled approval continuation is disabled."
+            exit 0
+          fi
+          if [ ! -f scripts/workflow/approval-merge-continuation.sh ]; then
+            echo "::notice::Approval continuation helper is not on the trusted default branch yet; skipping this first-rollout sweep."
+            exit 0
+          fi
+          continuation_infra_error=0
+          continuation_failing_prs=""
+          while IFS= read -r PR; do
+            [ -n "$PR" ] || continue
+            set +e
+            bash scripts/workflow/approval-merge-continuation.sh "$PR" "$REPO"
+            rc=$?
+            set -e
+            case "$rc" in
+              0) ;;
+              4) echo "PR #$PR is not merge-ready; a later event or sweep will re-evaluate it." ;;
+              *)
+                echo "::error::Scheduled approval continuation hit infrastructure/config error rc=$rc on PR #$PR."
+                continuation_infra_error=1
+                continuation_failing_prs="$continuation_failing_prs $PR"
+                ;;
+            esac
+          done <<<"$PRS"
+          echo "CONTINUATION_INFRA_ERROR=$continuation_infra_error" >> "$GITHUB_ENV"
+          # shellcheck disable=SC2086  # intentional word-splitting to trim
+          echo "CONTINUATION_INFRA_ERROR_PRS=$(echo $continuation_failing_prs)" >> "$GITHUB_ENV"
+          exit "$continuation_infra_error"
+
+      - name: Surface approval continuation failures as per-PR check-runs
+        if: always() && env.CONTINUATION_INFRA_ERROR == '1'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          if [ ! -f scripts/workflow/report-approval-continuation-failures.sh ]; then
+            echo "::notice::Continuation failure reporter is not on the trusted default branch yet; the workflow log remains authoritative for this first rollout."
+            exit 0
+          fi
+          bash scripts/workflow/report-approval-continuation-failures.sh \
+            "$REPO" "$RUN_URL" "${CONTINUATION_INFRA_ERROR_PRS:-}"
 
       - name: Surface infra failure as per-PR check-runs
         # Mirrors evaluate-and-clear's surfacing step. See that step's

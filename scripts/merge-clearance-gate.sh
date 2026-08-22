@@ -48,7 +48,14 @@
 #              `ref.refUpdateRule` (classic branch protection — null for a
 #              viewer without push access) and REST
 #              `repos/{owner}/{repo}/rules/branches/{branch}` (rulesets —
-#              needs repo metadata read). A plain write-scoped classic PAT,
+#              needs repo metadata read). Verifying a candidate ruleset's
+#              bypass actors then reads the ruleset in ITS OWN scope —
+#              `repos/{owner}/{repo}/rulesets/{id}` for a repository ruleset,
+#              `orgs/{org}/rulesets/{id}` for an org ruleset inherited by the
+#              repo (which does NOT exist under the repository path). The org
+#              read needs an org-scoped token; without one the ruleset is
+#              unreadable, hence unproven, hence not counted — availability,
+#              not safety. A plain write-scoped classic PAT,
 #              which is what agent-review.yml runs this query under, reads
 #              both. A fine-grained PAT scoped to pull-requests only still
 #              satisfies the line above but gets null/403 on BOTH: the probe
@@ -132,6 +139,32 @@ for _tool in gh jq awk; do
     exit 2
   fi
 done
+
+# Shared available_reviewers reader (#453, adopted here by #817). Replaces
+# the local double-quote-only parser this script used to carry, so every
+# consumer of the allow-list normalizes it identically (dash + inline comment
+# + BOTH quote styles + whitespace). Hard-require it the way
+# scripts/codex-review-check.sh does: REVIEWERS on the Dependabot path is a
+# fail-closed gate input (an empty list exits 2), so a missing helper must
+# error rather than silently degrade to an empty allow-list.
+if [ ! -r "$SCRIPT_DIR/lib/reviewers-helpers.sh" ]; then
+  echo "ERROR: reviewers-helpers missing: $SCRIPT_DIR/lib/reviewers-helpers.sh" >&2
+  exit 2
+fi
+# shellcheck source=lib/reviewers-helpers.sh
+. "$SCRIPT_DIR/lib/reviewers-helpers.sh"
+
+# Shared paginated-list reader (#1008) — the fetch → capture → flatten
+# algorithm fetch_api_array below used to carry inline, alongside seven other
+# copies. Hard-required for the same reason reviewers-helpers is: the reviews
+# and PR-files reads are fail-closed gate inputs, and an undefined reader
+# would surface as `command not found` rather than as a decision.
+if [ ! -r "$SCRIPT_DIR/lib/gh-api-array.sh" ]; then
+  echo "ERROR: gh-api-array helper missing: $SCRIPT_DIR/lib/gh-api-array.sh" >&2
+  exit 2
+fi
+# shellcheck source=lib/gh-api-array.sh
+. "$SCRIPT_DIR/lib/gh-api-array.sh"
 
 # --- argument parsing -------------------------------------------------------
 
@@ -266,21 +299,6 @@ nested_field() {  # <top_block> <sub_block> <field>
   ' "$POLICY_CONFIG"
 }
 
-# Read the available_reviewers list (one login per line). Identical parser
-# to scripts/codex-review-check.sh read_available_reviewers.
-read_available_reviewers() {
-  # $POLICY_CONFIG, not $CONFIG (#769): the reviewer allow-list must come from
-  # the SAME policy as the gate-enable switch and the threshold. Reading it
-  # from the default branch while the switch came from the base was the
-  # half-threaded state the #767 review flagged.
-  [ -f "$POLICY_CONFIG" ] || return 0
-  awk '
-    /^available_reviewers:/ {in_block=1; next}
-    in_block && /^[^[:space:]#]/ {in_block=0}
-    in_block && /^ *-/ {print}
-  ' "$POLICY_CONFIG" | sed -E 's/^[[:space:]]*-[[:space:]]*"?([^"]*)"?[[:space:]]*$/\1/'
-}
-
 # --- logging helpers --------------------------------------------------------
 
 log() {
@@ -305,11 +323,12 @@ clear_pass() {  # <reason>
   exit 0
 }
 
+# Paginated fetch helper. The algorithm lives in scripts/lib/gh-api-array.sh
+# (#1008); what stays here is this gate's failure ACTION — `die 2`, the
+# documented config/usage code, so an unreadable reviews or files read can
+# never weaken the gate by reading as an empty list.
 fetch_api_array() {  # <endpoint> <label>
-  local endpoint=$1 label=$2 raw
-  raw=$(gh api --paginate "$endpoint" 2>&1) || die 2 "failed to fetch $label: $raw"
-  echo "$raw" | jq -s 'add // []' 2>/dev/null \
-    || die 2 "failed to flatten $label pagination output"
+  gh_api_array "$1" "$2" || die 2 "$GH_API_ARRAY_ERROR"
 }
 
 # --- merge-clearance required-check enforcement probe (#772) ----------------
@@ -317,8 +336,12 @@ fetch_api_array() {  # <endpoint> <label>
 # The required-status-check CONTEXT this gate reports. Branch protection and
 # rulesets both key on the workflow JOB name, and
 # .github/workflows/merge-clearance-gate.yml names that job `Merge clearance
-# gate` (its scheduled-sweep and dispatch-recheck jobs POST check_runs under the
-# same CHECK_NAME so every source resolves as one context).
+# gate`. Every trigger path POSTs a check_run under that same CHECK_NAME — the
+# scheduled sweep, the #658 dispatch-recheck job, and since #843 the
+# event-driven job too. That last one is not redundancy: supersession is
+# reliable only WITHIN the Checks-API slot, so a job-native completion can
+# never retire a Checks-API entry, and an event path that reported only
+# natively left stale entries blocking cleared PRs (#841).
 # scripts/ci/check_merge_clearance_gate asserts that job name verbatim and
 # scripts/audit-branch-protection.sh carries the same string in
 # CANONICAL_REQUIRED_CHECKS, so this constant cannot drift from the workflow
@@ -340,6 +363,13 @@ MERGE_CLEARANCE_CHECK_NAME="Merge clearance gate"
 # recorded under that same app_id. Overridable for GitHub Enterprise Server,
 # where the id differs.
 MERGE_CLEARANCE_EXPECTED_APP_ID="${MERGE_CLEARANCE_EXPECTED_APP_ID:-15368}"
+
+# The login that will run the final `gh pr merge`, read from the GOVERNING
+# review policy's `author_identity` after POLICY_CONFIG resolves. Empty means
+# "the merging identity is unknown", which disables every bypass-actor
+# rule-out below (see the applicability model). Declared here so the probe
+# function can reference it; assigned once the base policy is resolved.
+MERGE_CLEARANCE_AUTHOR_IDENTITY=""
 
 # Positive proof that $MERGE_CLEARANCE_CHECK_NAME is an ENFORCED required
 # status check on the PR's base branch. Returns 0 ONLY when the context is
@@ -369,6 +399,7 @@ MERGE_CLEARANCE_EXPECTED_APP_ID="${MERGE_CLEARANCE_EXPECTED_APP_ID:-15368}"
 # (the conservative direction) and never toward a false "enforced".
 merge_clearance_check_enforced() {
   local owner name contexts="" out err rc parsed observed
+  local ruleset_recs rs_rec rs_id rs_rest rs_src_type rs_src rs_endpoint rs_out rs_rc rs_blocking
   owner=${REPO%%/*}
   name=${REPO##*/}
 
@@ -550,15 +581,24 @@ merge_clearance_check_enforced() {
     # constraining the merge at all, and counting it would reproduce the exact
     # defect this PR exists to remove: treating configuration as enforcement.
     # `bypass_actors` is not returned by this endpoint, so each candidate
-    # ruleset is fetched and required to have NO bypass actors. A ruleset that
-    # cannot be read, or that has any, is not proof — drop it and fall through
-    # to arm 2 (#772 r2 P1).
+    # ruleset is fetched and its bypass actors evaluated against the merging
+    # identity. A ruleset that cannot be read, or one carrying an actor whose
+    # applicability cannot be ruled out, is not proof — drop it and fall
+    # through to arm 2 (#772 r2 P1, refined by #781 item 11).
     set +e
     # A rule counts only when it requires OUR context FROM the trusted app.
     # `integration_id` absent means the rule accepts the context from ANY
     # producer, so an untrusted workflow emitting that name would satisfy it —
     # not proof, and dropped here rather than trusted (#772 r5 P1).
-    ruleset_ids=$(printf '%s' "$out" \
+    #
+    # Each surviving rule is emitted as `<ruleset_id>|<source_type>|<source>`.
+    # The source metadata is load-bearing (#781 item 1): an ORG-level ruleset
+    # inherited by this repo appears in this response but does NOT exist at
+    # `repos/{owner}/{repo}/rulesets/{id}`, so a repo-only lookup 404s, the
+    # ruleset is discarded as unreadable, and arm 1 returns false permanently
+    # on every centrally governed repo. The endpoint is selected from
+    # `ruleset_source_type` / `ruleset_source` below.
+    ruleset_recs=$(printf '%s' "$out" \
       | jq -r -s --arg ctx "$MERGE_CLEARANCE_CHECK_NAME" --arg app "$MERGE_CLEARANCE_EXPECTED_APP_ID" '
           add // []
           | [ .[]? | objects
@@ -566,45 +606,147 @@ merge_clearance_check_enforced() {
               | select([ .parameters.required_status_checks[]?
                          | select(.context == $ctx)
                          | select((.integration_id | tostring) == $app) ] | length > 0)
-              | .ruleset_id ]
-          | map(select(. != null)) | unique | .[]' 2>"$err")
+              | { id: .ruleset_id,
+                  src_type: (.ruleset_source_type // "" | tostring),
+                  src: (.ruleset_source // "" | tostring) } ]
+          | map(select(.id != null)) | unique
+          | .[] | [ (.id | tostring), .src_type, .src ] | join("|")' 2>"$err")
     rc=$?
     set -e
     if [ "$rc" -ne 0 ]; then
       log "enforcement probe: could not parse the ruleset response for '$BASE_REF': $(tr '\n' ' ' <"$err")"
-    elif [ -n "$ruleset_ids" ]; then
-      while IFS= read -r rs_id; do
-        [ -n "$rs_id" ] || continue
+    elif [ -n "$ruleset_recs" ]; then
+      while IFS= read -r rs_rec; do
+        [ -n "$rs_rec" ] || continue
+        # Split on the first two `|`. Field-splitting via IFS is deliberately
+        # avoided: a tab/space IFS collapses adjacent empty fields, which would
+        # silently shift `ruleset_source` into the `ruleset_source_type` slot
+        # when the type is absent.
+        rs_id=${rs_rec%%|*}
+        rs_rest=${rs_rec#*|}
+        rs_src_type=${rs_rest%%|*}
+        rs_src=${rs_rest#*|}
+        if ! [[ "$rs_id" =~ ^[0-9]+$ ]]; then
+          log "enforcement probe: ruleset entry on '$BASE_REF' has a non-numeric id ('$rs_id') — not counting it"
+          continue
+        fi
+
+        # Endpoint selection from the OWNING scope (#781 item 1). Anything
+        # other than a repository or organization ruleset is not counted:
+        # an Enterprise ruleset is readable only through an enterprise-admin
+        # endpoint this token does not have, and an absent/unrecognized
+        # source type means the payload is not the shape this probe knows how
+        # to verify. Both are "cannot rule out" → conservative drop.
+        case "$rs_src_type" in
+          Repository)
+            rs_endpoint="repos/$REPO/rulesets/$rs_id"
+            ;;
+          Organization)
+            # $rs_src is interpolated into a URL path, so require a bare
+            # GitHub login shape — no slashes, no percent-escapes, nothing
+            # that could redirect the read at a different resource.
+            if ! [[ "$rs_src" =~ ^[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?$ ]]; then
+              log "enforcement probe: ruleset $rs_id on '$BASE_REF' is organization-owned but its ruleset_source ('$rs_src') is not a bare org login — not counting it"
+              continue
+            fi
+            rs_endpoint="orgs/$rs_src/rulesets/$rs_id"
+            ;;
+          *)
+            log "enforcement probe: ruleset $rs_id carries '$MERGE_CLEARANCE_CHECK_NAME' on '$BASE_REF' but its owning scope is '${rs_src_type:-<absent>}' (source '${rs_src:-<absent>}'), which this probe cannot read to verify bypass actors — not counting it"
+            continue
+            ;;
+        esac
+
         set +e
-        rs_out=$(gh api "repos/$REPO/rulesets/$rs_id" 2>"$err")
+        rs_out=$(gh api "$rs_endpoint" 2>"$err")
         rs_rc=$?
         set -e
         if [ "$rs_rc" -ne 0 ]; then
-          log "enforcement probe: ruleset $rs_id carries '$MERGE_CLEARANCE_CHECK_NAME' on '$BASE_REF' but could not be read for bypass actors (gh rc=$rs_rc) — not counting it: $(tr '\n' ' ' <"$err")"
+          log "enforcement probe: ruleset $rs_id carries '$MERGE_CLEARANCE_CHECK_NAME' on '$BASE_REF' but $rs_endpoint could not be read for bypass actors (gh rc=$rs_rc) — not counting it: $(tr '\n' ' ' <"$err")"
           continue
         fi
         set +e
-        # The key must be PRESENT and an ARRAY. `[ .bypass_actors[]? ] | length`
-        # yields 0 for a genuinely empty list AND for an absent key or a null /
-        # non-array value — so an unknown payload shape would have been recorded
-        # as positive proof of "no bypass actors". That is the one direction
-        # this probe must never move in; every other unknown here falls back
-        # conservatively. Flagged independently by both reviewers.
-        bypass_count=$(printf '%s' "$rs_out" \
-          | jq -r 'if (.bypass_actors | type) == "array" then (.bypass_actors | length) else "unknown" end' 2>"$err")
+        # Bypass-actor applicability (#781 item 11, refining #772 r2 P1).
+        #
+        # #772 r2 established that a bypass-capable ruleset must not count as
+        # enforcement, and implemented that as "ANY bypass actor disqualifies".
+        # That is sound but over-broad: a deployment App or a release Team in
+        # `bypass_actors` says nothing about whether the AUTHOR token running
+        # `gh pr merge` is unconstrained, so a genuinely protected merge was
+        # blocked. This narrows the rule to actors that provably cannot BE the
+        # merging identity, and leaves every other case exactly where #772 r2
+        # put it. The full decision, including the alternatives weighed, is
+        # recorded in
+        # docs/architecture/0002-merge-clearance-bypass-actor-applicability.md.
+        #
+        # The list is an ALLOWLIST of provably-inapplicable forms, never a
+        # blocklist: anything not named here — including an actor_type GitHub
+        # adds after this was written — falls through to "cannot rule out" and
+        # disqualifies the ruleset. Per actor type:
+        #
+        #   DeployKey       — RULED OUT. Deploy keys authenticate git transport
+        #                     only; the REST/GraphQL API rejects them, so a
+        #                     deploy key can never perform the PR merge whose
+        #                     protection this probe is asserting.
+        #   Integration     — RULED OUT when actor_id is a number other than
+        #                     $MERGE_CLEARANCE_EXPECTED_APP_ID. A GitHub App is
+        #                     a different principal from the user account
+        #                     `author_identity`, and REVIEW_POLICY.md §
+        #                     Automated merge identity requires the merge to run
+        #                     under an AUTHOR_MERGE_TOKEN verified to resolve to
+        #                     that user. The trusted Actions app is EXCLUDED
+        #                     from the rule-out because workflow steps in this
+        #                     repo do authenticate as it.
+        #   OrganizationAdmin, RepositoryRole, Team
+        #                   — NOT ruled out. Each is a SET of accounts that can
+        #                     contain `author_identity`, and deciding membership
+        #                     needs org/collaborator/team reads this token is not
+        #                     guaranteed to have — and membership can change
+        #                     between this probe and the merge. Fail closed.
+        #   anything else / missing actor_type
+        #                   — NOT ruled out.
+        #
+        # Every rule-out additionally requires the merging identity to be KNOWN
+        # and to be a user account: with `author_identity` absent from the
+        # governing policy, or set to a `[bot]` login, the "an App is not the
+        # merger" premise does not hold, so nothing is ruled out and behaviour
+        # is byte-identical to #772 r2.
+        #
+        # The `bypass_actors` key must still be PRESENT and an ARRAY.
+        # `[ .bypass_actors[]? ]` yields an empty list for an absent key or a
+        # null / non-array value too, so an unknown payload shape would be
+        # recorded as positive proof of "no bypass actors" — the one direction
+        # this probe must never move in (#772 r4).
+        rs_blocking=$(printf '%s' "$rs_out" \
+          | jq -r --arg app "$MERGE_CLEARANCE_EXPECTED_APP_ID" \
+                  --arg author "$MERGE_CLEARANCE_AUTHOR_IDENTITY" '
+            if (.bypass_actors | type) != "array" then "__unknown_shape__"
+            else
+              (($author | length) > 0 and (($author | test("\\[bot\\]$")) | not)) as $merger_known
+              | [ .bypass_actors[]
+                  | (.actor_type // "" | tostring) as $t
+                  | .actor_id as $id
+                  | if $merger_known and $t == "DeployKey" then empty
+                    elif $merger_known and $t == "Integration"
+                         and ($id | type) == "number"
+                         and (($id | tostring) != $app) then empty
+                    else (if $t == "" then "<no actor_type>" else $t end)
+                    end ]
+              | if length == 0 then "__none__" else (unique | join(", ")) end
+            end' 2>"$err")
         rs_rc=$?
         set -e
-        # An empty or non-numeric count means the payload was not the ruleset
-        # object we expected; that is not proof of zero bypass actors.
-        if [ "$rs_rc" -ne 0 ] || ! [[ "$bypass_count" =~ ^[0-9]+$ ]]; then
-          log "enforcement probe: could not read bypass actors for ruleset $rs_id (got '${bypass_count:-}') — not counting it: $(tr '\n' ' ' <"$err")"
-        elif [ "$bypass_count" -gt 0 ]; then
-          log "enforcement probe: ruleset $rs_id requires '$MERGE_CLEARANCE_CHECK_NAME' but declares $bypass_count bypass actor(s), so it does not provably constrain the merging identity — not counting it"
+        if [ "$rs_rc" -ne 0 ] || [ -z "$rs_blocking" ]; then
+          log "enforcement probe: could not evaluate bypass actors for ruleset $rs_id — not counting it: $(tr '\n' ' ' <"$err")"
+        elif [ "$rs_blocking" = "__unknown_shape__" ]; then
+          log "enforcement probe: ruleset $rs_id does not expose a bypass_actors array — not counting it"
+        elif [ "$rs_blocking" != "__none__" ]; then
+          log "enforcement probe: ruleset $rs_id requires '$MERGE_CLEARANCE_CHECK_NAME' but declares bypass actor(s) whose applicability to the merging identity '${MERGE_CLEARANCE_AUTHOR_IDENTITY:-<unknown>}' cannot be ruled out ($rs_blocking) — not counting it"
         else
           contexts="$contexts$MERGE_CLEARANCE_CHECK_NAME"$'\n'
         fi
       done <<EOF
-$ruleset_ids
+$ruleset_recs
 EOF
     fi
   fi
@@ -774,6 +916,18 @@ case "$POLICY_CONFIG" in
   *) BASE_POLICY_TMP="$POLICY_CONFIG" ;;
 esac
 
+# The account that runs the final `gh pr merge` (#781 item 11). Read from the
+# GOVERNING policy, same as every other gating input, because that is the value
+# REVIEW_POLICY.md § Automated merge identity requires AUTHOR_MERGE_TOKEN to
+# resolve to before any automated merge, and the value gh-pr-guard.sh enforces
+# on manual author writes. It is used ONLY to rule bypass actors OUT in the
+# enforcement probe; absent or unparseable, nothing is ruled out and the probe
+# keeps the stricter #772 r2 behaviour. Quote-tolerant, matching the sibling
+# policy parsers.
+MERGE_CLEARANCE_AUTHOR_IDENTITY=$(grep -m1 '^author_identity:' "$POLICY_CONFIG" 2>/dev/null \
+  | awk '{print $2}' | sed -E "s/^[\"']//; s/[\"']\$//" || true)
+MERGE_CLEARANCE_AUTHOR_IDENTITY=${MERGE_CLEARANCE_AUTHOR_IDENTITY:-}
+
 DEPENDABOT_GATE_ENABLED=$(nested_field dependabot reviewer_gate enabled)
 DEPENDABOT_GATE_ENABLED=${DEPENDABOT_GATE_ENABLED:-false}
 case "$DEPENDABOT_GATE_ENABLED" in
@@ -803,6 +957,99 @@ HAS_EXTERNAL_LABEL=$(echo "$PR_JSON" \
   | jq -r 'if any(.labels[]?.name; . == "needs-external-review") then "true" else "false" end')
 
 log "HEAD = $HEAD_SHA    author = $PR_AUTHOR    needs-external-review = $HAS_EXTERNAL_LABEL"
+
+# --- non-reviewer approval assertion (#1080) --------------------------------
+#
+# Runs on EVERY lane, ahead of the class dispatch, because the lanes below are
+# the gap it closes. The Dependabot and external-review arms already validate
+# the approving identity against `available_reviewers`; an ORDINARY
+# under-threshold PR is judged by neither, so no gate has ever examined WHO
+# approved it. GitHub's own branch protection counts an approval from any
+# account with write access, which includes a CI service account.
+#
+# That is not hypothetical. On 2026-08-22 a stale agent->1Password-item map
+# handed a local Codex session the nathanpayne-robot CI token; it posted two
+# APPROVED reviews on nathanjohnpayne/nathanpaynedotcom#668, a one-approval
+# repo. The PR read APPROVED/CLEAN and this gate passed, because the PR was
+# ordinary and the identity arms never ran. The local PreToolUse hook that was
+# supposed to refuse the write had failed open on an unset variable, so the
+# only surviving defence was a layer that was not looking.
+#
+# Deny-list, not allow-list, and that asymmetry is deliberate. An allow-list of
+# `available_reviewers` would have to answer "is this login a human?" to avoid
+# blocking legitimate human approvals, and GitHub gives no such signal — a
+# service account and a person are both `type: "User"`. A deny-list of the
+# identities this repo has DECLARED to be non-reviewers has no false positives
+# and encodes a claim REVIEW_POLICY.md already makes in prose.
+#
+# An absent or empty `non_reviewer_identities` is a legitimate configuration
+# meaning "no such identity here" and makes this check inert. That keeps a repo
+# that has not adopted the key working exactly as before rather than failing on
+# a key it does not carry; the cost is that the protection is opt-in per repo.
+#
+# Query modes are deliberately exempt: --derive-rate-limit-protection answers a
+# narrow question about bot review coverage, and folding an unrelated identity
+# verdict into that boolean would change what its callers think they asked.
+if [ "$DERIVE_ONLY" != "true" ] && [ "$RATE_LIMIT_PROTECTION_ONLY" != "true" ]; then
+  NON_REVIEWERS=$(read_non_reviewer_identities "$POLICY_CONFIG")
+  # A key present with an inline value the block reader cannot consume -- a
+  # YAML flow list or a bare scalar -- parses to NOTHING and is otherwise
+  # indistinguishable from an absent key. Treating it as absent is a silent
+  # fail-OPEN: the repo looks like it declared its service account and gets no
+  # protection. Refuse to run rather than pretend the key is not there.
+  if [ -z "$NON_REVIEWERS" ] \
+     && policy_list_has_unconsumed_inline_value non_reviewer_identities "$POLICY_CONFIG"; then
+    die 2 "non_reviewer_identities in $POLICY_CONFIG carries an inline value this reader cannot parse (use a dash-prefixed block list, one identity per line). Refusing to run a gate that would silently pass."
+  fi
+  if [ -n "$NON_REVIEWERS" ]; then
+    NON_REVIEWERS_JSON=$(echo "$NON_REVIEWERS" | jq -R . | jq -s .)
+    NR_REVIEWS_JSON=$(fetch_api_array "repos/$REPO/pulls/$PR_NUMBER/reviews" "reviews")
+
+    # Same latest-state-per-reviewer collapse the Dependabot arm uses, with the
+    # membership test inverted -- and deliberately WITHOUT that arm's
+    # commit_id == HEAD pin.
+    #
+    # HEAD-pinning here was a bug, caught by Codex on #1080. Whether an
+    # approval from an earlier commit still counts is decided by
+    # `dismiss_stale_reviews`, which this script cannot see and must not
+    # assume: with it OFF, GitHub keeps counting the older approval, so a
+    # HEAD-pinned check passes while the merge bypass this gate exists to close
+    # is still open -- the non-reviewer only has to approve, then push. The
+    # repo does not even agree with itself about that setting: the live API
+    # reports dismiss_stale_reviews=true on mergepath and three consumers,
+    # while .github/workflows/agent-review.yml's auto-merge arming path
+    # documents it as OFF and relies on the approval carrying across a push.
+    #
+    # A deny-list pays nothing for the wider scope. A declared non-reviewer
+    # should hold no standing approval on this PR at ANY commit, so there is no
+    # false positive to trade against -- unlike the Dependabot arm, where the
+    # pin exists to reject a STALE approval as insufficient (#427).
+    #
+    # Filtering to the opinionated states before the collapse is still
+    # load-bearing and mirrors GitHub: a COMMENTED review does not supersede an
+    # APPROVED one, so a naive "most recent review" would let a later comment
+    # mask a standing approval. A push that dismisses the approval flips the
+    # latest state to DISMISSED, which correctly clears this gate.
+    NR_APPROVERS=$(echo "$NR_REVIEWS_JSON" | jq -r \
+      --argjson deny "$NON_REVIEWERS_JSON" '
+        [ .[]
+          | select(.state == "APPROVED" or .state == "CHANGES_REQUESTED" or .state == "DISMISSED")
+          | select(.user.login as $u | $deny | index($u))
+        ]
+        | group_by(.user.login)
+        | map(max_by(.submitted_at))
+        | map(select(.state == "APPROVED"))
+        | map(.user.login)
+        | unique
+        | join(", ")
+      ')
+
+    if [ -n "$NR_APPROVERS" ]; then
+      block "standing APPROVED review on this PR from an identity this repo declares a non-reviewer: $NR_APPROVERS. Such an account holds no reviewer standing and its approval must not satisfy branch protection (see REVIEW_POLICY.md, non_reviewer_identities). Dismiss the review, then find out which process is holding that token."
+    fi
+    log "non-reviewer check: no standing approval anywhere on this PR from [$(echo "$NON_REVIEWERS" | tr '\n' ' ' | sed 's/ $//')]"
+  fi
+fi
 
 # --- class dispatch ---------------------------------------------------------
 #
@@ -834,9 +1081,15 @@ if [ "$PR_AUTHOR" = "dependabot[bot]" ]; then
 
   log "Dependabot path: requiring a reviewer-identity APPROVED review on HEAD"
 
-  REVIEWERS=$(read_available_reviewers)
+  # $POLICY_CONFIG, not $CONFIG (#769): the reviewer allow-list must come from
+  # the SAME policy as the gate-enable switch and the threshold. Reading it
+  # from the default branch while the switch came from the base was the
+  # half-threaded state the #767 review flagged. Passed explicitly rather than
+  # left to the helper's $CONFIG fallback, which would resolve to the
+  # default-branch path and silently reintroduce that split.
+  REVIEWERS=$(read_available_reviewers "$POLICY_CONFIG")
   if [ -z "$REVIEWERS" ]; then
-    die 2 "no available_reviewers found in $CONFIG"
+    die 2 "no available_reviewers found in $POLICY_CONFIG"
   fi
   REVIEWERS_JSON=$(echo "$REVIEWERS" | jq -R . | jq -s .)
 

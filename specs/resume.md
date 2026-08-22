@@ -137,6 +137,24 @@ recruiter-legible filename, for "attach your resume" forms and ATS pipelines
 - `RESUME_PDF_MARGIN` in the generator restates the `@page { margin }` value
   (0.6in, the #420 Safari floor) because Chromium takes print margins from the
   printToPDF parameters, not from CSS. The paired test asserts the two agree.
+- **Links are absolutized before the file is written (#683).** The render
+  happens over a localhost static server, and Chromium resolves the PDF's link
+  annotations against that base — so every root-relative `href` shipped as
+  `http://127.0.0.1:<ephemeral port>/...`, dead on any reader's machine and
+  varying per build. `absolutizeLinks` in the generator rewrites same-origin
+  hrefs to the `site` origin from `astro.config.mjs` (passed in from
+  `og-images.mjs`, which captures it at `astro:config:done` because
+  `astro:build:done` is not given the resolved config). External URLs and
+  `mailto:` already carry an origin and are untouched; in-page `#` anchors are
+  skipped so they stay intra-document jumps. `siteUrl` is required — the
+  generator throws rather than silently falling back to localhost links.
+- Absolutizing interacts with the print sheet's `a[href^='http']::after` URL
+  suffix: project **titles** matched that selector for the first time once
+  their hrefs became absolute, printing a redundant `/projects/<slug>/` after
+  every name. `.resume-entry__title` is therefore in the suppression list
+  explicitly, alongside the contact line, project links, and the two section
+  leads. The printed text is byte-identical before and after #683; only the
+  link targets changed.
 - The PDF is an asset, not a route — `@astrojs/sitemap` does not list it.
 - The on-page affordance is `.resume-download` inside `.resume-actions`, placed
   after the header contact block and hidden in `@media print`. Clicking it
@@ -277,6 +295,8 @@ paraphrased. In particular:
 8. The header renders a screen-only `.resume-download` link to
    `/Nathan-Payne-Resume.pdf`, that path resolves to a real letter-size PDF in
    `dist/`, and the file is absent from the sitemap.
+8a. No link annotation in the generated PDF points at `127.0.0.1` or
+    `localhost`, and every one carries an `http(s):` or `mailto:` scheme.
 9. The visible header title is a single role title equal to the JSON-LD
    `jobTitle`; the summary is 55–75 words naming Disney+/Hulu/ESPN and the
    AI-augmented focus up front.

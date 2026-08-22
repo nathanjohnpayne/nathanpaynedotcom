@@ -5166,7 +5166,15 @@ body.resume-page {
      Links whose visible text is ALREADY the URL — the contact line, the
      project links, and the Writing/Projects leads (nathanpayne.com/blog,
      nathanpayne.com/projects) — suppress this to avoid duplication. (The
-     essay list is hidden in print; see the Writing-collapse rule below.) */
+     essay list is hidden in print; see the Writing-collapse rule below.)
+
+     Project TITLES are suppressed too: the title is a name, not a URL, and
+     each entry already prints its live/repo URL on the very next line via
+     .resume-entry__link — so appending /projects/<slug>/ after the name is
+     both redundant and a second, less useful destination. This used to hold
+     implicitly, because the title href was root-relative and so never matched
+     [href^='http']. Since #683 absolutizes every link before the PDF is
+     written, that accident is gone and the intent has to be stated. */
   .resume-canvas a[href^='http']::after {
     content: ' (' attr(href) ')';
     font-size: 0.85em;
@@ -5174,6 +5182,7 @@ body.resume-page {
   }
 
   .resume-contact a[href^='http']::after,
+  .resume-entry__title a[href^='http']::after,
   .resume-entry__link a[href^='http']::after,
   .resume-projects__lead a[href^='http']::after,
   .resume-writing__lead a[href^='http']::after {

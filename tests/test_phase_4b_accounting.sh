@@ -15,6 +15,7 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+export MERGEPATH_REVIEW_FEEDBACK_ACCOUNTING_CMD=true
 ACCT="$ROOT/scripts/phase-4b/accounting.sh"
 LIB="$ROOT/scripts/phase-4b/lib.sh"
 ORCH="$ROOT/scripts/phase-4b-review.sh"
@@ -212,6 +213,18 @@ phase_4b_automation:
     accounting:
       enabled: false
 YAML
+
+# (#814) The orchestrator now consults the external providers before it will
+# review at all, and holds when neither has reported on the head. This suite
+# is about accounting arithmetic and record shape, not about providers, and
+# its cases review two different heads — which a single probe stub cannot
+# satisfy, since --probe resolves the live head itself rather than taking one.
+# Switch both providers off in every fixture so the barrier is a no-op here and
+# each case exercises the accounting path it was written for. The barrier's own
+# behaviour is covered in tests/test_phase_4b_automation.sh.
+for _p in "$WORK"/policy-*.yml; do
+  printf 'coderabbit:\n  enabled: false\ncodex:\n  enabled: false\n' >> "$_p"
+done
 
 # Deterministic test price table (never depend on live prices for math).
 TEST_PRICES="$WORK/prices-test.json"
@@ -2551,7 +2564,13 @@ else fail "notional end-to-end (rc=$rc, rec=$REC_H)"; fi
 #     state never claims a phantom posted approval.
 STATE_I="$WORK/state-i"
 set +e
-run_orch "$STATE_I" "$POLICY_ON" fake-codex-approve 209 P4B_FAKE_LIVE_HEAD=zzz999 -- >/dev/null 2>&1; rc=$?
+# #799: the drifted head is `9de456`, not the old `zzz999`. This case models a
+# head that CHANGED, which needs a different but VALID object name — `zzz999`
+# is not hex and so is not a sha any API can return. Since the live-head
+# re-read shape-checks its answer, an impossible value now reads as an
+# UNREADABLE head (p4b_die 3) rather than a drifted one (exit 4), which is a
+# different branch than this case is about.
+run_orch "$STATE_I" "$POLICY_ON" fake-codex-approve 209 P4B_FAKE_LIVE_HEAD=9de456 -- >/dev/null 2>&1; rc=$?
 set -e
 LOG_I="$(find "$STATE_I/phase-4b-loops" -name '*.jsonl' 2>/dev/null | head -n1)"
 if [ "$rc" = 4 ] \
