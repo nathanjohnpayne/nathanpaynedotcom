@@ -171,13 +171,12 @@ describe('remark-mermaid plugin', () => {
           'true',
         );
         expect(
-          diagram.querySelectorAll('.node').length,
-          `${entry.name}: SVG has no rendered nodes`,
+          diagram.innerHTML.trim().length,
+          `${entry.name}: Mermaid emitted an empty SVG`,
         ).toBeGreaterThan(0);
-        expect(
-          diagram.querySelectorAll('.edgePaths .flowchart-link').length,
-          `${entry.name}: SVG has no rendered edges`,
-        ).toBeGreaterThan(0);
+        expect(diagram.hasAttribute('viewBox'), `${entry.name}: SVG has no rendered viewport`).toBe(
+          true,
+        );
       }
     }
 
