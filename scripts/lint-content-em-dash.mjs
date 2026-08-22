@@ -317,6 +317,32 @@ function alignValueToSource(value, raw) {
   return spans;
 }
 
+// A soft break renders as a space, so it is padding. Removing it is safe: the
+// parser has already established that both sides sit inside one text node in
+// one block, so closing the gap cannot glue two blocks together — unless an
+// HTML white-space context preserves the break, in which case it renders as a
+// line break and is a boundary instead.
+//
+// `isTrailing` marks a break that ends the text node. The continuation then
+// lives in a sibling inline node, and the omitted block marker (a blockquote
+// `>`, a list indent) has to be absorbed when that sibling is emitted — so the
+// span is parked for the sibling to extend. CRLF and LF must both do this: a
+// CRLF that skipped it published a literal `>` into `> word—\r\n> **next**`.
+function emitSoftBreak(stream, span, isTrailing) {
+  if (stream.inlineWhitespaceContexts.length > 0 && stream.inlinePreserveWhitespace) {
+    pushBoundary(stream);
+    return;
+  }
+
+  pushCharacter(stream, ' ', span);
+  if (isTrailing) {
+    stream.pendingSoftBreak = {
+      spanIndex: stream.spans.length - 1,
+      sourceEnd: span[1],
+    };
+  }
+}
+
 function emitText(node, body, stream) {
   const start = node.position.start.offset;
   const raw = body.slice(start, node.position.end.offset);
@@ -330,29 +356,13 @@ function emitText(node, body, stream) {
 
     if (character === '\r' && characters[index + 1] === '\n') {
       const [, nextSpanEnd] = spans[index + 1];
-      pushCharacter(stream, ' ', [span[0], nextSpanEnd + start]);
+      emitSoftBreak(stream, [span[0], nextSpanEnd + start], index + 1 === characters.length - 1);
       index += 1;
       continue;
     }
 
-    // A soft break renders as a space, so it is padding. Removing it is safe:
-    // the parser has already established that both sides sit inside one text
-    // node in one block, so closing the gap cannot glue two blocks together.
     if (character === '\n') {
-      if (
-        stream.inlineWhitespaceContexts.length > 0 &&
-        stream.inlinePreserveWhitespace
-      ) {
-        pushBoundary(stream);
-      } else {
-        pushCharacter(stream, ' ', span);
-        if (index === characters.length - 1) {
-          stream.pendingSoftBreak = {
-            spanIndex: stream.spans.length - 1,
-            sourceEnd: span[1],
-          };
-        }
-      }
+      emitSoftBreak(stream, span, index === characters.length - 1);
       continue;
     }
 
@@ -435,6 +445,12 @@ function isFosterParentedContext(contexts) {
   return false;
 }
 
+// An author stylesheet rule marked `!important` outranks a non-important
+// inline declaration, so the inline value is no longer the final word. Resolving
+// the cascade means resolving selectors; fail closed instead.
+const IMPORTANT_WHITE_SPACE_RULE =
+  /<style\b[^>]*>[\s\S]*?white-space[^;}]*!\s*important[\s\S]*?<\/style\s*>/i;
+
 function inlineWhiteSpaceMode(tag) {
   const styleAttribute = tag.match(
     /(?:^|[\t\n\f\r ])style\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/i,
@@ -462,20 +478,21 @@ function inlineWhiteSpaceMode(tag) {
     return null;
   }
 
+  const important = Boolean(effective[2]);
   const value = effective[1].toLowerCase();
   if (value === 'inherit' || value === 'unset') {
-    return 'inherit';
+    return { value: 'inherit', important };
   }
   if (value === 'initial') {
-    return 'normal';
+    return { value: 'normal', important };
   }
   if (/^(?:normal|nowrap|pre|pre-line|pre-wrap|break-spaces)$/.test(value)) {
-    return value;
+    return { value, important };
   }
 
   // `revert`, `revert-layer`, variables, and future values depend on CSS we
   // cannot evaluate here. Fail closed rather than deleting a rendered break.
-  return 'unknown';
+  return { value: 'unknown', important };
 }
 
 const P_CLOSING_START_TAGS = new Set([
@@ -636,7 +653,13 @@ function emitHtml(node, body, stream, inline) {
             whitespaceContexts.length = contextIndex;
           }
 
-          const whiteSpaceMode = inlineWhiteSpaceMode(tag);
+          const declaration = inlineWhiteSpaceMode(tag);
+          // A non-important inline value can still be overridden by an
+          // important stylesheet rule; treat it as unresolvable in that case.
+          const whiteSpaceMode =
+            declaration !== null && stream.importantWhiteSpaceRule && !declaration.important
+              ? 'unknown'
+              : (declaration?.value ?? null);
           const nextPreserve =
             whiteSpaceMode === null || whiteSpaceMode === 'inherit'
               ? preserveWhitespace
@@ -645,8 +668,14 @@ function emitHtml(node, body, stream, inline) {
                 : !/^(?:normal|nowrap)$/i.test(whiteSpaceMode);
           // In HTML syntax the self-closing flag is ignored for ordinary
           // elements (`<div/>` still opens a div). Only void elements close
-          // themselves here.
-          const selfClosing = HTML_VOID_ELEMENTS.has(name);
+          // themselves — except in SVG or MathML, where foreign-content
+          // parsing does honour `/>`.
+          const inForeignContent =
+            name === 'svg' ||
+            name === 'math' ||
+            whitespaceContexts.some((context) => context.name === 'svg' || context.name === 'math');
+          const selfClosing =
+            HTML_VOID_ELEMENTS.has(name) || (inForeignContent && /\/\s*>$/.test(tag));
 
           if (!selfClosing) {
             whitespaceContexts.push({ name, previous: preserveWhitespace });
@@ -905,6 +934,7 @@ function buildProseStream(body) {
   });
   const stream = createProseStream(rawTextRanges(body, collectOpaqueSourceRanges(tree)));
   stream.effectiveDefinitions = collectEffectiveDefinitions(tree);
+  stream.importantWhiteSpaceRule = IMPORTANT_WHITE_SPACE_RULE.test(body);
   emitNode(tree, body, stream);
   return stream;
 }
@@ -974,7 +1004,7 @@ function bodyViolations(source) {
 // YAML allows the chomping and indentation indicators in either order, so
 // `|2-` is as valid as `|-2`.
 const BLOCK_SCALAR_OPENER =
-  /^([\p{Zs}\t]*)((?:-[\p{Zs}\t]+)*)(?:("(?:[^"\\]|\\.)*"|'(?:[^']|'')*'|[^:\n]+):)?[\p{Zs}\t]*([|>])((?:[-+]\d*|\d+[-+]?)?)[\p{Zs}\t]*$/u;
+  /^([\p{Zs}\t]*)((?:-[\p{Zs}\t]+)*)(?:("(?:[^"\\]|\\.)*"|'(?:[^']|'')*'|[^:\n]+):)?[\p{Zs}\t]*(?:(?:&[^\s[\]{},]+|![^\s]*)[\p{Zs}\t]*)*([|>])((?:[-+]\d*|\d+[-+]?)?)[\p{Zs}\t]*(?:#[^\n]*)?$/u;
 
 function blockScalarOpenerOf(line) {
   const match = line.match(BLOCK_SCALAR_OPENER);
@@ -990,7 +1020,12 @@ function blockScalarOpenerOf(line) {
   const indent = match[1].length;
   const sequenceIndent = match[2].length;
   const explicitIndent = digits ? Number(digits[0]) : null;
-  const directSequenceParentIndent = match[2] ? match[2].lastIndexOf('-') : 0;
+  // The indicator is relative to the PARENT node's indentation. For a scalar
+  // directly under a sequence dash that is the dash's column; for a scalar that
+  // is the whole document there is no parent, and YAML treats the root's
+  // conceptual indentation as -1. `lastIndexOf` returns exactly that for an
+  // empty sequence prefix, so both cases fall out of one expression.
+  const directSequenceParentIndent = match[2].lastIndexOf('-');
 
   return {
     indent,

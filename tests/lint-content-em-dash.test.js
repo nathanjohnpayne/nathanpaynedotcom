@@ -740,6 +740,66 @@ describe('content em-dash lint', () => {
     );
   });
 
+  it('carries a trailing CRLF soft break into a sibling inline node', () => {
+    // The continuation starts in a `strong` sibling; without the pending
+    // state the omitted blockquote marker was published as a literal `>`.
+    expect(closeUpSpacedEmDashesInText('> word—\r\n> **next**')).toBe('> word—**next**');
+    // Matches the LF behaviour exactly.
+    expect(closeUpSpacedEmDashesInText('> word—\n> **next**')).toBe('> word—**next**');
+  });
+
+  it('preserves a CRLF break inside a pre context', () => {
+    const source = '<div style="white-space: pre">word\r\n— next</div>';
+
+    expect(closeUpSpacedEmDashesInText(source)).toBe(
+      '<div style="white-space: pre">word\r\n—next</div>',
+    );
+  });
+
+  it('fails closed when an important stylesheet rule can override inline', () => {
+    const overridden =
+      '<style>#x { white-space: pre !important }</style>\n<div id="x" style="white-space: normal">word\n— next</div>';
+    expect(closeUpSpacedEmDashesInText(overridden)).toContain('word\n—next');
+
+    // An inline `!important` outranks the stylesheet, so the value is final.
+    const inlineWins =
+      '<style>#x { white-space: pre !important }</style>\n<div id="x" style="white-space: normal !important">word\n— next</div>';
+    expect(closeUpSpacedEmDashesInText(inlineWins)).toContain('word—next');
+  });
+
+  it('honours self-closing syntax only in foreign content', () => {
+    // In SVG, `<g/>` really closes, so `<text>` inherits the svg's `pre`.
+    const svg =
+      '<svg style="white-space: pre"><g style="white-space: normal"/><text>word\n— next</text></svg>';
+    expect(closeUpSpacedEmDashesInText(svg)).toContain('word\n—next');
+
+    // In HTML the self-closing flag is ignored, so the span stays open.
+    const html = '<div style="white-space: pre"><span style="white-space: normal"/>word\n— next</div>';
+    expect(closeUpSpacedEmDashesInText(html)).toContain('word—next');
+  });
+
+  it('reads block scalar headers carrying properties or a comment', () => {
+    for (const header of ['&a |2', '!!str |2', '|2 # note']) {
+      const source = `description: ${header}\n    — leading\n`;
+
+      // Only the declared two spaces are structural; the visible pair goes.
+      expect(closeUpSpacedEmDashesInText(source, '/tmp/skills.yaml')).toBe(
+        `description: ${header}\n  —leading\n`,
+      );
+    }
+  });
+
+  it('offsets a root block scalar from the document parent indentation', () => {
+    // At the root there is no parent node, so YAML treats its indentation as
+    // -1: `|1` declares zero structural spaces, not one.
+    expect(closeUpSpacedEmDashesInText('|1\n — leading\n', '/tmp/skills.yaml')).toBe(
+      '|1\n—leading\n',
+    );
+    expect(closeUpSpacedEmDashesInText('|2\n  — leading\n', '/tmp/skills.yaml')).toBe(
+      '|2\n —leading\n',
+    );
+  });
+
   it('preserves CRLF line endings through a fix pass', () => {
     const source = 'prose — one.\r\nprose — two.\r\n';
 
