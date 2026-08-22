@@ -827,6 +827,33 @@ describe('content em-dash lint', () => {
     );
   });
 
+  it('uses the last effective inline white-space declaration', () => {
+    const source = '<div style="white-space: normal; white-space: pre">word\n— next</div>';
+
+    expect(findSpacedEmDashViolations('/tmp/test.md', source)).toHaveLength(1);
+    expect(closeUpSpacedEmDashesInText(source)).toBe(
+      '<div style="white-space: normal; white-space: pre">word\n—next</div>',
+    );
+  });
+
+  it('does not read white-space declarations from non-style attributes', () => {
+    const source = '<div data-example="white-space: normal">word\n— next</div>';
+
+    expect(findSpacedEmDashViolations('/tmp/test.md', source)).toHaveLength(1);
+    expect(closeUpSpacedEmDashesInText(source)).toBe(
+      '<div data-example="white-space: normal">word\n—next</div>',
+    );
+  });
+
+  it('collapses a raw HTML newline when inline CSS declares normal whitespace', () => {
+    const source = '<div style="white-space: normal">word\n— next</div>';
+
+    expect(findSpacedEmDashViolations('/tmp/test.md', source)).toHaveLength(1);
+    expect(closeUpSpacedEmDashesInText(source)).toBe(
+      '<div style="white-space: normal">word—next</div>',
+    );
+  });
+
   it('fails closed when a Markdown construct moves to different source delimiters', () => {
     const source = 'word **—** next / x ** — ** y';
 

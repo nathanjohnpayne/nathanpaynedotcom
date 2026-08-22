@@ -386,6 +386,29 @@ function emitVisibleCharacter(raw, index, start, stream, preserveWhitespace) {
   return index + 1;
 }
 
+function inlineWhiteSpaceMode(tag) {
+  const styleAttribute = tag.match(
+    /\bstyle\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/i,
+  );
+  const style = styleAttribute?.[1] ?? styleAttribute?.[2] ?? styleAttribute?.[3];
+  if (style === undefined) {
+    return null;
+  }
+
+  const declarations = style
+    .split(';')
+    .map((declaration) =>
+      declaration.match(
+        /^\s*white-space\s*:\s*(normal|nowrap|pre|pre-line|pre-wrap|break-spaces)\s*(!important)?\s*$/i,
+      ),
+    )
+    .filter(Boolean);
+  const importantDeclarations = declarations.filter((declaration) => declaration[2]);
+  const effective = (importantDeclarations.length > 0 ? importantDeclarations : declarations).at(-1);
+
+  return effective?.[1] ?? null;
+}
+
 // A raw-HTML span is not uniformly opaque: the tags are markup, the body of a
 // raw-text element is code, and everything else between tags is visible prose.
 // `inline` marks HTML sitting inside a paragraph — omitting its tags must not
@@ -430,11 +453,9 @@ function emitHtml(node, body, stream, inline) {
             whitespaceContexts.length = contextIndex;
           }
         } else {
-          const declaration = tag.match(
-            /\bwhite-space\s*:\s*(normal|nowrap|pre|pre-line|pre-wrap|break-spaces)\b/i,
-          );
-          const nextPreserve = declaration
-            ? !/^(?:normal|nowrap)$/i.test(declaration[1])
+          const whiteSpaceMode = inlineWhiteSpaceMode(tag);
+          const nextPreserve = whiteSpaceMode
+            ? !/^(?:normal|nowrap)$/i.test(whiteSpaceMode)
             : preserveWhitespace;
           const selfClosing = /\/\s*>$/.test(tag) || HTML_VOID_ELEMENTS.has(name);
 
@@ -517,7 +538,7 @@ function emitLinkTitle(node, body, stream) {
   const raw = body.slice(titleStart, titleEnd);
   let index = 0;
   while (index < raw.length) {
-    index = emitVisibleCharacter(raw, index, titleStart, stream);
+    index = emitVisibleCharacter(raw, index, titleStart, stream, false);
   }
   pushBoundary(stream);
 }
