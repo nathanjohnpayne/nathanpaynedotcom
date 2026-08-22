@@ -118,7 +118,10 @@ automated dependency PRs.
   `libc` fields but currently changes roughly 240 transitive package entries, so
   that unrelated dependency churn belongs in a deliberate lockfile-refresh PR.
   When that refresh happens, use npm 11.11.0 or newer, verify that the regenerated
-  lockfile contains `libc` fields, and let Linux CI prove the resulting tree.
+  lockfile contains `libc` fields, add the durable npm-floor and CI enforcement
+  tracked in #692, and let Linux CI prove the resulting tree. Enforcing field
+  presence before that refresh would reject the intentionally accepted current
+  lockfile, so the guard and the regenerated metadata must land together.
   Until then, do not re-file the missing fields as an npm 12 regression unless
   new evidence shows an incompatible binary is selected.
 
