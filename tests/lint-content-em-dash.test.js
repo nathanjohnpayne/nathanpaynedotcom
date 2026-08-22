@@ -866,6 +866,18 @@ describe('content em-dash lint', () => {
     );
   });
 
+  it('honours a CSS-wide whitespace declaration that overrides an earlier value', () => {
+    const source =
+      '<div style="white-space: pre"><span style="white-space: normal; white-space: inherit">' +
+      'word\n— next</span></div>';
+
+    expect(findSpacedEmDashViolations('/tmp/test.md', source)).toHaveLength(1);
+    expect(closeUpSpacedEmDashesInText(source)).toBe(
+      '<div style="white-space: pre"><span style="white-space: normal; white-space: inherit">' +
+        'word\n—next</span></div>',
+    );
+  });
+
   it('does not read white-space declarations from non-style attributes', () => {
     const source = '<div data-example="white-space: normal">word\n— next</div>';
 

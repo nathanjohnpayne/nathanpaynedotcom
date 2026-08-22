@@ -424,15 +424,30 @@ function inlineWhiteSpaceMode(tag) {
   const declarations = style
     .split(';')
     .map((declaration) =>
-      declaration.match(
-        /^\s*white-space\s*:\s*(normal|nowrap|pre|pre-line|pre-wrap|break-spaces)\s*(!important)?\s*$/i,
-      ),
+      declaration.match(/^\s*white-space\s*:\s*(.+?)\s*(!important)?\s*$/i),
     )
     .filter(Boolean);
   const importantDeclarations = declarations.filter((declaration) => declaration[2]);
   const effective = (importantDeclarations.length > 0 ? importantDeclarations : declarations).at(-1);
 
-  return effective?.[1] ?? null;
+  if (!effective) {
+    return null;
+  }
+
+  const value = effective[1].toLowerCase();
+  if (value === 'inherit' || value === 'unset') {
+    return 'inherit';
+  }
+  if (value === 'initial') {
+    return 'normal';
+  }
+  if (/^(?:normal|nowrap|pre|pre-line|pre-wrap|break-spaces)$/.test(value)) {
+    return value;
+  }
+
+  // `revert`, `revert-layer`, variables, and future values depend on CSS we
+  // cannot evaluate here. Fail closed rather than deleting a rendered break.
+  return 'unknown';
 }
 
 const P_CLOSING_START_TAGS = new Set([
@@ -594,9 +609,12 @@ function emitHtml(node, body, stream, inline) {
           }
 
           const whiteSpaceMode = inlineWhiteSpaceMode(tag);
-          const nextPreserve = whiteSpaceMode
-            ? !/^(?:normal|nowrap)$/i.test(whiteSpaceMode)
-            : preserveWhitespace;
+          const nextPreserve =
+            whiteSpaceMode === null || whiteSpaceMode === 'inherit'
+              ? preserveWhitespace
+              : whiteSpaceMode === 'unknown'
+                ? true
+                : !/^(?:normal|nowrap)$/i.test(whiteSpaceMode);
           // In HTML syntax the self-closing flag is ignored for ordinary
           // elements (`<div/>` still opens a div). Only void elements close
           // themselves here.
