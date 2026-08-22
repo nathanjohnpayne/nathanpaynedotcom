@@ -1,201 +1,144 @@
 #!/usr/bin/env node
 import { readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { extname, join, resolve } from 'node:path';
+import { pathToFileURL } from 'node:url';
+import { fromMarkdown } from 'mdast-util-from-markdown';
+import { visit } from 'unist-util-visit';
 
 const CONTENT_ROOT = resolve(process.cwd(), 'src/content');
 const TARGET_EXTENSIONS = new Set(['.md', '.mdx']);
-const SPACED_EM_DASH = / +— +/g;
-const IDENTIFIER_LABEL_EXCEPTION = /\[[A-Z]{2,}[A-Z0-9_-]*-\d+\s+—\s+/g;
-const CODE_FENCE = /^ {0,3}(`{3,}|~{3,})(.*)$/;
 
-function collectRanges(regex, line) {
+// A spaced em dash, padded by one or more spaces on each side. Matching the
+// whole padding run means `word  —  next` collapses in a single pass instead
+// of leaving a violation behind for the next lint run.
+const SPACED_EM_DASH = / +— +/g;
+
+// `[DST-047 — Title]` keeps its separator: the dash after the identifier is a
+// delimiter, not prose punctuation. The match deliberately stops at the
+// separator, so any *later* dash in the same label is still linted.
+const IDENTIFIER_LABEL_EXCEPTION = /\[[A-Z]{2,}[A-Z0-9_-]*-\d+\s+—\s+/g;
+
+// Frontmatter is YAML rather than Markdown, but it carries published prose
+// (titles, card copy, pull quotes), so it is scanned as plain text. Only the
+// body below it is parsed as Markdown.
+const FRONTMATTER = /^---\r?\n[\s\S]*?\r?\n---(?:\r?\n|$)/;
+
+// Node types whose source span is code or raw markup, never prose. `code`
+// covers fenced and indented blocks alike, at any container depth, because
+// the span comes from the parsed tree rather than from a line scan.
+const NON_PROSE_NODES = new Set(['code', 'inlineCode', 'html']);
+
+function collectMatchRanges(regex, source) {
   const cloned = new RegExp(regex.source, regex.flags.includes('g') ? regex.flags : `${regex.flags}g`);
   const ranges = [];
   let match;
-  while ((match = cloned.exec(line)) !== null) {
+  while ((match = cloned.exec(source)) !== null) {
     ranges.push([match.index, match.index + match[0].length]);
   }
   return ranges;
 }
 
-function removeInlineCodeToSpaces(line) {
-  let output = '';
-  let i = 0;
-
-  while (i < line.length) {
-    if (line[i] !== '`') {
-      output += line[i];
-      i += 1;
-      continue;
-    }
-
-    let j = i;
-    while (j < line.length && line[j] === '`') {
-      j += 1;
-    }
-    const openFenceLen = j - i;
-    let k = j;
-    let closeIndex = -1;
-
-    while (k < line.length) {
-      if (line[k] !== '`') {
-        k += 1;
-        continue;
-      }
-
-      let m = k;
-      while (m < line.length && line[m] === '`') {
-        m += 1;
-      }
-
-      if (m - k === openFenceLen) {
-        closeIndex = k;
-        k = m;
-        break;
-      }
-
-      k = m;
-    }
-
-    if (closeIndex === -1) {
-      output += line.slice(i, j);
-      i = j;
-      continue;
-    }
-
-    output += ' '.repeat(k - i);
-    i = k;
-  }
-
-  return output;
+function frontmatterLength(source) {
+  const match = source.match(FRONTMATTER);
+  return match ? match[0].length : 0;
 }
 
-// Returns the fence this line opens or closes, or null when the line is prose.
-// The marker run is homogeneous by construction, and a backtick fence's info
-// string may not itself contain a backtick (CommonMark 4.5).
-function parseFence(line) {
-  const match = line.match(CODE_FENCE);
-  if (!match) {
-    return null;
-  }
+// Source offsets of every code or raw-markup span in the Markdown body.
+// Parsing rather than line-scanning is what makes indented code blocks,
+// fences nested in block quotes or list items, and multi-line code spans all
+// fall out correctly.
+function collectNonProseRanges(source) {
+  const bodyStart = frontmatterLength(source);
+  const tree = fromMarkdown(source.slice(bodyStart));
+  const ranges = [];
 
-  const [, marker, info] = match;
-  if (marker[0] === '`' && info.includes('`')) {
-    return null;
-  }
+  visit(tree, (node) => {
+    if (!NON_PROSE_NODES.has(node.type)) {
+      return;
+    }
+    const { start, end } = node.position ?? {};
+    if (start?.offset === undefined || end?.offset === undefined) {
+      return;
+    }
+    ranges.push([start.offset + bodyStart, end.offset + bodyStart]);
+  });
 
-  return { fenceChar: marker[0], fenceLen: marker.length, info };
+  return ranges;
 }
 
-function updateCodeFenceState(line, state) {
-  const fence = parseFence(line);
+function isInsideAnyRange(start, end, ranges) {
+  return ranges.some(([rangeStart, rangeEnd]) => start >= rangeStart && end <= rangeEnd);
+}
 
-  if (!state.inCodeBlock) {
-    if (!fence) {
-      return { ...state, isFenceBoundary: false };
+function overlapsAnyRange(start, end, ranges) {
+  return ranges.some(([rangeStart, rangeEnd]) => start < rangeEnd && end > rangeStart);
+}
+
+// The spaced-em-dash matches in `source` that are neither inside code nor
+// covered by the identifier-label exception.
+function collectViolationRanges(source) {
+  const nonProseRanges = collectNonProseRanges(source);
+  const exceptionRanges = collectMatchRanges(IDENTIFIER_LABEL_EXCEPTION, source);
+
+  return collectMatchRanges(SPACED_EM_DASH, source).filter(
+    ([start, end]) =>
+      !overlapsAnyRange(start, end, nonProseRanges) &&
+      !isInsideAnyRange(start, end, exceptionRanges),
+  );
+}
+
+function buildLineIndex(source) {
+  const starts = [0];
+  for (let i = 0; i < source.length; i += 1) {
+    if (source[i] === '\n') {
+      starts.push(i + 1);
     }
+  }
+  return starts;
+}
 
-    return {
-      inCodeBlock: true,
-      fenceChar: fence.fenceChar,
-      fenceLen: fence.fenceLen,
-      isFenceBoundary: true,
-    };
+function locationOf(offset, lineStarts, source) {
+  let low = 0;
+  let high = lineStarts.length - 1;
+  while (low < high) {
+    const mid = Math.ceil((low + high) / 2);
+    if (lineStarts[mid] <= offset) {
+      low = mid;
+    } else {
+      high = mid - 1;
+    }
   }
 
-  // A closing fence repeats the opening marker, is at least as long, and
-  // carries no info string.
-  const isClose =
-    fence !== null &&
-    fence.fenceChar === state.fenceChar &&
-    fence.fenceLen >= (state.fenceLen || 0) &&
-    fence.info.trim() === '';
-
-  if (!isClose) {
-    return { ...state, isFenceBoundary: false };
-  }
-
+  const lineStart = lineStarts[low];
+  const lineEnd = source.indexOf('\n', lineStart);
   return {
-    inCodeBlock: false,
-    fenceChar: null,
-    fenceLen: null,
-    isFenceBoundary: true,
+    line: low + 1,
+    column: offset - lineStart + 1,
+    snippet: source.slice(lineStart, lineEnd === -1 ? source.length : lineEnd).trim(),
   };
 }
 
-function isRangeInsideExceptions(start, end, ranges) {
-  return ranges.some(([exceptionStart, exceptionEnd]) => start >= exceptionStart && end <= exceptionEnd);
-}
-
-function fixContentLine(line) {
-  const lineWithoutInlineCode = removeInlineCodeToSpaces(line);
-  const exceptionRanges = collectRanges(IDENTIFIER_LABEL_EXCEPTION, lineWithoutInlineCode);
-  const spacedDashRanges = collectRanges(SPACED_EM_DASH, lineWithoutInlineCode);
-
-  let fixed = '';
-  let cursor = 0;
-
-  for (const [start, end] of spacedDashRanges) {
-    if (isRangeInsideExceptions(start, end, exceptionRanges)) {
-      continue;
-    }
-
-    fixed += `${line.slice(cursor, start)}—`;
-    cursor = end;
-  }
-
-  fixed += line.slice(cursor);
-  return fixed;
-}
-
 export function findSpacedEmDashViolations(filePath, source) {
-  const violations = [];
-  const lines = source.split(/\r?\n/);
-  const fenceState = { inCodeBlock: false, fenceChar: null, fenceLen: null, isFenceBoundary: false };
+  const lineStarts = buildLineIndex(source);
 
-  lines.forEach((line, index) => {
-    Object.assign(fenceState, updateCodeFenceState(line, fenceState));
-
-    if (fenceState.isFenceBoundary || fenceState.inCodeBlock) {
-      return;
-    }
-
-    const lineWithoutInlineCode = removeInlineCodeToSpaces(line);
-    const exceptionRanges = collectRanges(IDENTIFIER_LABEL_EXCEPTION, lineWithoutInlineCode);
-    const spacedDashRanges = collectRanges(SPACED_EM_DASH, lineWithoutInlineCode);
-
-    for (const [start, end] of spacedDashRanges) {
-      if (isRangeInsideExceptions(start, end, exceptionRanges)) {
-        continue;
-      }
-
-      violations.push({
-        filePath,
-        line: index + 1,
-        column: start + 1,
-        snippet: line.trim(),
-      });
-    }
-  });
-
-  return violations;
+  return collectViolationRanges(source).map(([start]) => ({
+    filePath,
+    ...locationOf(start, lineStarts, source),
+  }));
 }
 
 export function closeUpSpacedEmDashesInText(source) {
-  const lines = source.split(/\r?\n/);
-  const fenceState = { inCodeBlock: false, fenceChar: null, fenceLen: null, isFenceBoundary: false };
+  let fixed = '';
+  let cursor = 0;
 
-  return lines
-    .map((line) => {
-      Object.assign(fenceState, updateCodeFenceState(line, fenceState));
+  for (const [start, end] of collectViolationRanges(source)) {
+    fixed += `${source.slice(cursor, start)}—`;
+    cursor = end;
+  }
 
-      if (fenceState.isFenceBoundary || fenceState.inCodeBlock) {
-        return line;
-      }
-
-      return fixContentLine(line);
-    })
-    .join('\n');
+  // Splicing the original string leaves every byte outside a violation
+  // untouched, so a CRLF file stays CRLF.
+  return fixed + source.slice(cursor);
 }
 
 function collectContentFiles(dir) {
@@ -215,15 +158,6 @@ function collectContentFiles(dir) {
   }
 
   return files;
-}
-
-function printUsageAndExit(code = 0) {
-  console.log(`Usage:
-  node scripts/lint-content-em-dash.mjs [--write]
-
-Checks for spaced em dashes in src/content markdown files and reports violations.
-Exceptions: bracketed ID-title labels such as [DST-047 — Title] remain allowed.`);
-  process.exit(code);
 }
 
 function scanFiles(files) {
@@ -247,6 +181,15 @@ function reportViolations(violations) {
       console.error(`  ${violation.snippet}`);
     }
   }
+}
+
+function printUsageAndExit(code = 0) {
+  console.log(`Usage:
+  node scripts/lint-content-em-dash.mjs [--write]
+
+Checks for spaced em dashes in src/content markdown files and reports violations.
+Exceptions: bracketed ID-title labels such as [DST-047 — Title] remain allowed.`);
+  process.exit(code);
 }
 
 function main() {
@@ -291,4 +234,8 @@ function main() {
   }
 }
 
-main();
+// Importing this module for its helpers must not run a repository-wide scan
+// or call process.exit().
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  main();
+}

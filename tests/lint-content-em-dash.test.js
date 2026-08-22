@@ -124,13 +124,83 @@ describe('content em-dash lint', () => {
     expect(fixed).toBe('A spaced—em dash.\n[DST-047 — Questionnaire Intake](/tmp/whatever.md)\n```\ncode — block\n```');
   });
 
-  it('does not treat 4-space-indented fences as code fences', () => {
+  it('treats a 4-space-indented block as code, not prose', () => {
     const source = [
-      '    ```',
-      '    spaced — inside indented code',
-      '    ```',
+      '    spaced — inside an indented code block',
+      '    still code',
+    ].join('\n');
+
+    expect(findSpacedEmDashViolations('/tmp/test.md', source)).toHaveLength(0);
+    expect(closeUpSpacedEmDashesInText(source)).toBe(source);
+  });
+
+  it('skips fences nested in a block quote', () => {
+    const source = [
+      '> ```',
+      '> spaced — inside quoted code',
+      '> ```',
+      '',
+      'prose — outside the quote.',
     ].join('\n');
 
     expect(findSpacedEmDashViolations('/tmp/test.md', source)).toHaveLength(1);
+  });
+
+  it('skips fences nested in a list item', () => {
+    const source = [
+      '- item',
+      '',
+      '  ```',
+      '  spaced — inside list code',
+      '  ```',
+    ].join('\n');
+
+    expect(findSpacedEmDashViolations('/tmp/test.md', source)).toHaveLength(0);
+  });
+
+  it('skips code spans that wrap across lines', () => {
+    const source = [
+      'prose with `a span that',
+      'wraps — across lines` and then prose — here.',
+    ].join('\n');
+
+    const violations = findSpacedEmDashViolations('/tmp/test.md', source);
+    expect(violations).toHaveLength(1);
+    expect(violations[0]).toMatchObject({ line: 2 });
+  });
+
+  it('scans frontmatter prose, which is where most published copy lives', () => {
+    const source = [
+      '---',
+      'title: "A title — with a spaced dash"',
+      '---',
+      '',
+      'Body prose.',
+    ].join('\n');
+
+    expect(findSpacedEmDashViolations('/tmp/test.md', source)).toHaveLength(1);
+    expect(closeUpSpacedEmDashesInText(source)).toContain('title: "A title—with a spaced dash"');
+  });
+
+  it('does not treat frontmatter delimiters as Markdown structure', () => {
+    const source = [
+      '---',
+      'title: "Plain"',
+      '---',
+      '',
+      '```',
+      'code — stays',
+      '```',
+      '',
+      'prose — fixed.',
+    ].join('\n');
+
+    expect(findSpacedEmDashViolations('/tmp/test.md', source)).toHaveLength(1);
+  });
+
+  it('preserves CRLF line endings through a fix pass', () => {
+    const source = 'prose — one.\r\nprose — two.\r\n';
+
+    expect(closeUpSpacedEmDashesInText(source)).toBe('prose—one.\r\nprose—two.\r\n');
   });
 });
