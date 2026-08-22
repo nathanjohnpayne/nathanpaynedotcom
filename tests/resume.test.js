@@ -75,7 +75,7 @@ describe('Resume — route & build', () => {
     );
     expect(config).not.toMatch(/const awards\s*=\s*defineCollection/);
     expect(config).not.toMatch(/^\s*awards,\s*$/m);
-    expect(page).not.toContain("getCollection('awards')");
+    expect(page).not.toMatch(/getCollection\s*\(\s*['"]awards['"]\s*\)/);
     expect(page).not.toContain(
       "import AwardsSection from '../components/resume/AwardsSection.astro'",
     );

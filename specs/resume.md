@@ -71,9 +71,7 @@ The `resumeProjects` collection must remain separate from the existing
   - **Footer** (`.resume-canvas-footer`) — attribution + nav.
 - Sections compose in this order: **Summary, Skills, Experience,
   Education, Certifications, Projects, Writing.**
-  - `AwardsSection` is a dormant future scaffold. When the first award entry
-    lands, restore its collection schema and add Awards after Writing; until
-    then no empty collection is registered (#654).
+  - `AwardsSection` is a dormant future scaffold. When the first award entry lands, restore its collection schema and add Awards after Writing; until then no empty collection is registered (#654).
   - There is **no References section.**
 - Collection bodies (summary, experience, projects) render via `render()`
   from `astro:content`.
