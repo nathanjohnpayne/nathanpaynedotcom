@@ -161,7 +161,7 @@ Static assets (favicons, robots.txt, OG fonts) live in `public/` and are copied 
 - Blog frontmatter includes: `title`, `seoTitle` (optional), `shortTitle` (optional), `description`, `seoDescription` (optional), `author`, `date`, `tags`, `image`, `draft`, `pullquotes`, `sidebar`.
 - Project frontmatter includes optional `seoDescription`; use it when a project card/hero description is intentionally longer than a search snippet should be.
 - Project posts choose a semantic `accent` token (`red`, `yellow`, `black`, `blue`, `lightblue`, `paper`). Do not add raw project palette hex fields such as `accentColor`, `gradientFrom`, or `gradientTo`; CSS derives those colors from `data-accent`.
-- Custom Remark plugin converts ` ```mermaid ` code blocks to `<pre class="mermaid">` for client-side rendering.
+- The custom Remark plugin converts ` ```mermaid ` code blocks to intermediate `<pre class="mermaid">` elements. The build-time Playwright integration replaces every intermediate block with static inline SVG before deployment; Mermaid does not run in production visitors' browsers. `BlogPost.astro` uses the pinned local dependency as a development-only renderer so HMR previews show diagrams rather than raw DSL.
 - Custom Rehype plugin wraps standalone images in `<figure>` with auto-numbered `<figcaption>`.
 
 ### Build & Dev
