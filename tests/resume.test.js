@@ -1,6 +1,15 @@
 import { describe, it, expect, beforeEach, beforeAll } from 'vitest';
-import { existsSync, readFileSync, readdirSync } from 'fs';
+import {
+  existsSync,
+  readFileSync,
+  readdirSync,
+  mkdtempSync,
+  mkdirSync,
+  writeFileSync,
+  rmSync,
+} from 'fs';
 import { resolve, join } from 'path';
+import { tmpdir } from 'os';
 import { writeSanitizedDOM } from './helpers/dom.js';
 
 // Smoke tests for the content-collection-driven /resume page.
@@ -27,6 +36,14 @@ function countMd(dir) {
   return readdirSync(join(CONTENT, dir)).filter((f) => f.endsWith('.md')).length;
 }
 
+function findContentEntries(dir) {
+  return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
+    const entryPath = join(dir, entry.name);
+    if (entry.isDirectory()) return findContentEntries(entryPath);
+    return /\.(md|ya?ml)$/.test(entry.name) ? [entryPath] : [];
+  });
+}
+
 describe('Resume — route & build', () => {
   it('builds a static HTML file at dist/resume/index.html', () => {
     expect(existsSync(RESUME_HTML), 'missing dist/resume/index.html').toBe(true);
@@ -46,6 +63,35 @@ describe('Resume — route & build', () => {
     const config = readFileSync(resolve(__dirname, '../src/content.config.ts'), 'utf-8');
     expect(config).toContain('resumeProjects');
     expect(config).toContain("base: './src/content/resume/projects'");
+  });
+
+  it('keeps the empty awards scaffold dormant until there is content to load', () => {
+    const awardEntries = findContentEntries(join(CONTENT, 'awards'));
+    const config = readFileSync(resolve(__dirname, '../src/content.config.ts'), 'utf-8');
+    const page = readFileSync(resolve(__dirname, '../src/pages/resume.astro'), 'utf-8');
+
+    expect(awardEntries, 'add the awards collection back when the first entry lands').toHaveLength(
+      0,
+    );
+    expect(config).not.toMatch(/\b(?:const|let|var)\s+awards\s*=/);
+    expect(config).not.toMatch(/^\s*['"]?awards['"]?\s*(?:,|:)/m);
+    expect(page).not.toMatch(/getCollection\s*\(\s*['"]awards['"]\s*\)/);
+    expect(page).not.toContain(
+      "import AwardsSection from '../components/resume/AwardsSection.astro'",
+    );
+    expect(page).not.toContain('<AwardsSection');
+  });
+
+  it('detects nested award content before allowing the scaffold to stay dormant', () => {
+    const fixtureRoot = mkdtempSync(join(tmpdir(), 'awards-scaffold-'));
+    try {
+      const nestedDir = join(fixtureRoot, 'hackathons');
+      mkdirSync(nestedDir);
+      writeFileSync(join(nestedDir, 'winner.md'), '---\nname: Winner\n---\n');
+      expect(findContentEntries(fixtureRoot)).toHaveLength(1);
+    } finally {
+      rmSync(fixtureRoot, { recursive: true, force: true });
+    }
   });
 });
 
@@ -131,16 +177,16 @@ describe('Resume — page structure', () => {
         `no <section id="${id}"> for the ToC link`,
       ).not.toBeNull();
     }
-    // Awards is empty → AwardsSection renders nothing, so the ToC must NOT
-    // list a (broken) #awards anchor and there is no <section id="awards">.
-    expect(links, 'ToC should omit #awards while the collection is empty').not.toContain('#awards');
+    // The awards scaffold stays dormant until the first real entry, so the ToC
+    // must not list a broken #awards anchor.
+    expect(links, 'ToC should omit #awards while the scaffold is dormant').not.toContain('#awards');
     expect(
       document.getElementById('awards'),
-      'awards section should not render while empty',
+      'awards section should not render while its scaffold is dormant',
     ).toBeNull();
   });
 
-  it('renders the section <h2> titles in order; no References; Awards absent while empty', () => {
+  it('renders the section <h2> titles in order; no References; Awards dormant', () => {
     const titles = Array.from(document.querySelectorAll('.resume-section__title')).map((h) =>
       h.textContent.trim(),
     );
@@ -162,7 +208,7 @@ describe('Resume — page structure', () => {
       h.textContent.toLowerCase(),
     );
     expect(allH2.some((t) => t.includes('reference'))).toBe(false);
-    // Awards collection is empty → no awards section rendered.
+    // Awards is not wired until content exists → no awards section rendered.
     expect(document.querySelector('.resume-awards')).toBeNull();
   });
 
@@ -501,7 +547,9 @@ describe('Resume — downloadable PDF', () => {
     });
 
     it('never points a link at the localhost render origin', () => {
-      const localhost = pdfLinkUris().filter((uri) => /^https?:\/\/(127\.0\.0\.1|localhost)/i.test(uri));
+      const localhost = pdfLinkUris().filter((uri) =>
+        /^https?:\/\/(127\.0\.0\.1|localhost)/i.test(uri),
+      );
       expect(
         localhost,
         `the PDF links to the build machine's static server. src/integrations/` +

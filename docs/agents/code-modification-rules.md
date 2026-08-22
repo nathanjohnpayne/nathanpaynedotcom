@@ -96,6 +96,14 @@ JavaScript adds `.is-scrolling` to `<body>` during active scroll (debounced at 1
 ### Framework Rules
 **Astro is the framework.** Do not introduce additional frameworks, client-side runtimes, or bundlers without explicit discussion and a `plans/` entry. New npm dependencies require explicit discussion.
 
+### Mermaid Accessibility
+
+Every Mermaid diagram is authored with a short accessible title and a
+relational description. Inline fences use `title="..." description="..."`
+metadata; sidebar Mermaid items use required `title` and `description`
+frontmatter fields. Describe the relationships or conclusion conveyed by the
+diagram, not merely its list of nodes. Missing metadata is a build error.
+
 ### Credential Hygiene
 - This repo should not contain API keys, service-account JSON, or ADC credentials. Public client identifiers (GA Measurement ID, Logo.dev publishable token, PostHog `phc_`) are public-by-design but still env-injected via `.env.tpl`/`op inject` and never hardcoded; anything that can read or manage data is a secret and likewise never committed.
 - Deploy auth is keyless and 1Password-backed: `op-firebase-deploy` creates short-lived impersonated credentials from `op://Private/c2v6emkwppjzjjaq2bdqk3wnlm/credential`, another explicit `GOOGLE_APPLICATION_CREDENTIALS` file, or CI-provided external-account credentials.

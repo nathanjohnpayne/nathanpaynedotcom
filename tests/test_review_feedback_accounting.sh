@@ -1443,6 +1443,17 @@ reset_fixtures
 FINGERPRINT_ONE=$(env PATH="$TMP/bin:$PATH" GH_TOKEN=test-token \
   GH_FIXTURE_DIR="$TMP/fixtures" GH_CALL_LOG="$TMP/gh-calls.log" \
   "$SURFACE_FINGERPRINT" 7 acme/widget)
+
+set +e
+FINGERPRINT_ERROR=$(env PATH="$TMP/bin:$PATH" GH_TOKEN=test-token \
+  GH_FIXTURE_DIR="$TMP/fixtures" GH_CALL_LOG="$TMP/gh-calls.log" \
+  GH_FAIL_ENDPOINT="repos/acme/widget/pulls/7/reviews" \
+  "$SURFACE_FINGERPRINT" 7 acme/widget 2>&1)
+FINGERPRINT_RC=$?
+set -e
+assert_eq 2 "$FINGERPRINT_RC" "feedback-surface fingerprint preserves API failure status"
+assert_match 'failed to fetch review objects' "$FINGERPRINT_ERROR" "feedback-surface fingerprint preserves API failure detail"
+
 jq '. + [{
   "id": 9900,
   "created_at": "2026-08-18T23:10:00Z",

@@ -72,8 +72,9 @@ The default 1921 register lives in `:root`; the homepage opts into a higher-chro
 │   ├── content/
 │   │   ├── blog/*.md               # Markdown blog posts with frontmatter
 │   │   ├── projects/*.md           # Project content collection
-│   │   └── {bio,myself,experience,education,skills,awards,certifications,resume}/
-│   │                               # Resume and homepage content collections
+│   │   ├── {bio,myself,experience,education,skills,certifications,resume}/
+│   │   │                           # Active resume and homepage content collections
+│   │   └── awards/                 # Dormant scaffold; restore collection wiring with first entry
 │   ├── content.config.ts           # Content Collections schema (Zod)
 │   ├── styles/
 │   │   └── global.css              # Global styles (tokens, grid, motion, responsive)

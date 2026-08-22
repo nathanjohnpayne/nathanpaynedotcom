@@ -89,11 +89,25 @@ const blog = defineCollection({
       .default([]),
     sidebar: z
       .array(
-        z.object({
-          type: z.enum(['mermaid', 'image', 'text']),
-          content: z.string(),
-          caption: z.string().optional(),
-        }),
+        z.discriminatedUnion('type', [
+          z.object({
+            type: z.literal('mermaid'),
+            content: z.string(),
+            title: z.string().trim().min(1),
+            description: z.string().trim().min(1),
+            caption: z.string().optional(),
+          }),
+          z.object({
+            type: z.literal('image'),
+            content: z.string(),
+            caption: z.string().optional(),
+          }),
+          z.object({
+            type: z.literal('text'),
+            content: z.string(),
+            caption: z.string().optional(),
+          }),
+        ]),
       )
       .optional()
       .default([]),
@@ -216,19 +230,6 @@ const skills = defineCollection({
   }),
 });
 
-// Hackathons / awards. Wired up but empty for now — AwardsSection
-// renders nothing (no header) when the collection has no entries.
-const awards = defineCollection({
-  loader: glob({ pattern: '**/*.{md,yaml,yml}', base: './src/content/awards' }),
-  schema: z.object({
-    name: z.string(),
-    issuer: z.string().optional(),
-    year: z.number().optional(),
-    order: z.number().optional(),
-    url: z.string().optional(),
-  }),
-});
-
 // Certifications. `issuer` + `website` drive the Logo.dev lookup; `logo`
 // overrides it for defunct issuers with no live domain (Turner).
 const certifications = defineCollection({
@@ -252,6 +253,5 @@ export const collections = {
   education,
   resumeProjects,
   skills,
-  awards,
   certifications,
 };

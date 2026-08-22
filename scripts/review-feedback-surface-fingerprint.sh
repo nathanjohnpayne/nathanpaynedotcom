@@ -21,12 +21,12 @@ case "$PR_NUMBER" in ''|*[!0-9]*) echo "invalid PR number" >&2; exit 2 ;; esac
 case "$REPO" in */*) ;; *) echo "invalid repository" >&2; exit 2 ;; esac
 [ -n "${GH_TOKEN:-}" ] || { echo "GH_TOKEN is required" >&2; exit 2; }
 
-INLINE=$(gh_api_array "repos/$REPO/pulls/$PR_NUMBER/comments" "inline review comments") \
-  || { echo "$GH_API_ARRAY_ERROR" >&2; exit 2; }
-REVIEWS=$(gh_api_array "repos/$REPO/pulls/$PR_NUMBER/reviews" "review objects") \
-  || { echo "$GH_API_ARRAY_ERROR" >&2; exit 2; }
-ISSUES=$(gh_api_array "repos/$REPO/issues/$PR_NUMBER/comments" "PR-level comments") \
-  || { echo "$GH_API_ARRAY_ERROR" >&2; exit 2; }
+INLINE=$(gh_api_array "repos/$REPO/pulls/$PR_NUMBER/comments" "inline review comments" \
+  || { echo "$GH_API_ARRAY_ERROR" >&2; exit 2; }) || exit 2
+REVIEWS=$(gh_api_array "repos/$REPO/pulls/$PR_NUMBER/reviews" "review objects" \
+  || { echo "$GH_API_ARRAY_ERROR" >&2; exit 2; }) || exit 2
+ISSUES=$(gh_api_array "repos/$REPO/issues/$PR_NUMBER/comments" "PR-level comments" \
+  || { echo "$GH_API_ARRAY_ERROR" >&2; exit 2; }) || exit 2
 
 FINGERPRINT_TMP=$(mktemp -d "${TMPDIR:-/tmp}/feedback-surface-fingerprint.XXXXXX")
 trap 'rm -rf "$FINGERPRINT_TMP"' EXIT
