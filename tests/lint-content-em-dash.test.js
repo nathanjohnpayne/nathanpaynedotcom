@@ -610,6 +610,67 @@ describe('content em-dash lint', () => {
     expect(closeUpSpacedEmDashesInText(source, '/tmp/skills.yaml')).toBe(source);
   });
 
+  it('scans a reference definition title', () => {
+    // The title publishes wherever the reference is used (#676).
+    const source = '[ref]: /url "word — next"\n\nUse [ref].\n';
+
+    expect(findSpacedEmDashViolations('/tmp/test.md', source)).toHaveLength(1);
+    expect(closeUpSpacedEmDashesInText(source)).toBe('[ref]: /url "word—next"\n\nUse [ref].\n');
+  });
+
+  it('scans every reference definition title delimiter', () => {
+    for (const [open, close] of [["'", "'"], ['(', ')']]) {
+      const source = `[ref]: /url ${open}word — next${close}\n\nUse [ref].\n`;
+
+      expect(findSpacedEmDashViolations('/tmp/test.md', source)).toHaveLength(1);
+    }
+  });
+
+  it('leaves a reference definition URL alone', () => {
+    const source = '[ref]: <https://example.test/a — b>\n\nUse [ref].\n';
+
+    expect(findSpacedEmDashViolations('/tmp/test.md', source)).toHaveLength(0);
+    expect(closeUpSpacedEmDashesInText(source)).toBe(source);
+  });
+
+  it('folds a multiline quoted YAML scalar', () => {
+    // YAML renders the break as a space, so this publishes `word— continuation`
+    // even though neither line holds padding next to the dash (#677).
+    const double = 'title: "word—\n  continuation"\n';
+    const single = "title: 'word—\n  continuation'\n";
+
+    expect(findSpacedEmDashViolations('/tmp/skills.yaml', double)).toHaveLength(1);
+    expect(closeUpSpacedEmDashesInText(double, '/tmp/skills.yaml')).toBe(
+      'title: "word—continuation"\n',
+    );
+    expect(findSpacedEmDashViolations('/tmp/skills.yaml', single)).toHaveLength(1);
+  });
+
+  it('keeps quote state across lines of a multiline scalar', () => {
+    // Quoting used to reset each line, so this `#` read as a comment and the
+    // padded dash after it was skipped.
+    const source = 'title: "a # b —\n  continuation"\n';
+
+    expect(findSpacedEmDashViolations('/tmp/skills.yaml', source)).toHaveLength(1);
+    expect(closeUpSpacedEmDashesInText(source, '/tmp/skills.yaml')).toBe(
+      'title: "a # b—continuation"\n',
+    );
+  });
+
+  it('still treats a real end-of-line comment as a comment', () => {
+    const source = 'title: plain # note — here\n';
+
+    expect(findSpacedEmDashViolations('/tmp/skills.yaml', source)).toHaveLength(0);
+    expect(closeUpSpacedEmDashesInText(source, '/tmp/skills.yaml')).toBe(source);
+  });
+
+  it('falls back to the per-line scan on an unterminated quote', () => {
+    const source = 'title: "word — next\n';
+
+    expect(findSpacedEmDashViolations('/tmp/skills.yaml', source)).toHaveLength(1);
+    expect(closeUpSpacedEmDashesInText(source, '/tmp/skills.yaml')).toBe('title: "word—next\n');
+  });
+
   it('preserves CRLF line endings through a fix pass', () => {
     const source = 'prose — one.\r\nprose — two.\r\n';
 

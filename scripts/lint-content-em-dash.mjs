@@ -303,9 +303,11 @@ function emitHtml(node, body, stream, inline) {
   }
 }
 
-// The raw span of a link title (`[a](/url "title")`), found from the source
-// syntax rather than by searching for the decoded value — a title containing an
-// entity or escape has no raw occurrence of what it decodes to.
+// The raw span of a title, found from the source syntax rather than by
+// searching for the decoded value — a title containing an entity or escape has
+// no raw occurrence of what it decodes to. Covers the inline form
+// (`[a](/url "title")`) and the reference definition (`[a]: /url "title"`),
+// which differ only in whether a closing paren wraps the whole thing.
 function linkTitleRange(node, body) {
   const nodeStart = node.position.start.offset;
   const raw = body.slice(nodeStart, node.position.end.offset);
@@ -314,13 +316,17 @@ function linkTitleRange(node, body) {
   while (index >= 0 && /\s/.test(raw[index])) {
     index -= 1;
   }
-  if (raw[index] !== ')') {
-    return null;
-  }
 
-  index -= 1;
-  while (index >= 0 && /\s/.test(raw[index])) {
+  // A definition ends at its title; an inline link ends at the paren that
+  // closes the destination.
+  if (node.type !== 'definition') {
+    if (raw[index] !== ')') {
+      return null;
+    }
     index -= 1;
+    while (index >= 0 && /\s/.test(raw[index])) {
+      index -= 1;
+    }
   }
 
   const closer = raw[index];
@@ -398,7 +404,9 @@ function emitNode(node, body, stream, inline = false) {
     emitNode(child, body, stream, childrenAreInline);
   }
 
-  if (node.type === 'link' || node.type === 'linkReference') {
+  // A definition's title publishes wherever its reference is used, so it is
+  // scanned like an inline link title.
+  if (node.type === 'link' || node.type === 'linkReference' || node.type === 'definition') {
     emitLinkTitle(node, body, stream);
   }
 
@@ -531,8 +539,13 @@ function indentOf(line) {
   return line.length - line.replace(/^[\p{Zs}\t]*/u, '').length;
 }
 
-function yamlCommentStart(line) {
-  let quote = null;
+// Scan one YAML line for its comment boundary while tracking quote state.
+// `openQuote` carries the state in from a previous line, because a quoted
+// scalar may span lines — without it, quoting resets every line and a `#`
+// inside a continuation reads as a comment.
+function scanYamlLine(line, openQuote = null) {
+  let quote = openQuote;
+  let quoteStart = -1;
 
   for (let index = 0; index < line.length; index += 1) {
     const character = line[index];
@@ -542,78 +555,144 @@ function yamlCommentStart(line) {
         index += 1;
       } else if (character === quote) {
         quote = null;
+        quoteStart = -1;
       }
       continue;
     }
 
     if (character === '"' || character === "'") {
       quote = character;
+      quoteStart = index;
       continue;
     }
 
     if (character === '#' && (index === 0 || /[\p{Zs}\t]/u.test(line[index - 1]))) {
-      return index;
+      return { commentStart: index, quote, quoteStart };
     }
   }
 
-  return line.length;
+  return { commentStart: line.length, quote, quoteStart };
 }
 
-// YAML carries a lot of this repo's published prose: frontmatter titles, card
-// copy and pull quotes, and the `src/content/skills/**` collection, which is
-// authored as standalone YAML and rendered onto the resume. It is scanned line
-// by line rather than parsed as Markdown: a line break separates scalars
-// rather than joining them, structural prefixes are not padding, and comments
-// are not published.
+// Index at which an already-open quote closes on this line, or -1.
+function closeQuoteIndex(line, quote) {
+  for (let index = 0; index < line.length; index += 1) {
+    if (line[index] === '\\' && quote === '"') {
+      index += 1;
+      continue;
+    }
+    if (line[index] === quote) {
+      return index;
+    }
+  }
+  return -1;
+}
+
+// Emit content segments that YAML folds together. The gap between consecutive
+// folded segments renders as a single space, and deleting that gap joins them —
+// exactly what the fold already does semantically. `null` marks a blank line,
+// which renders as a break rather than a space; a `literal` segment is
+// more-indented content that is not folded at all.
+function emitFoldedSegments(stream, source, segments) {
+  let pendingFold = null;
+
+  for (const segment of segments) {
+    if (segment === null) {
+      pendingFold = null;
+      pushBoundary(stream);
+      continue;
+    }
+
+    const [segmentStart, segmentEnd, literal] = segment;
+
+    if (literal) {
+      // Reset happens after the content is emitted, below.
+      pushBoundary(stream);
+    } else if (pendingFold !== null) {
+      pushCharacter(stream, ' ', [pendingFold, segmentStart]);
+    }
+
+    for (let index = segmentStart; index < segmentEnd; index += 1) {
+      pushCharacter(stream, source[index], [index, index + 1]);
+    }
+
+    if (literal) {
+      pushBoundary(stream);
+      pendingFold = null;
+    } else {
+      pendingFold = segmentEnd;
+    }
+  }
+}
+
 // A folded (`>`) scalar joins its lines with spaces, so a dash at the end of
 // one line renders padded against the next. Build the folded text as a stream
 // whose fold-space carries the source span of the line break plus the following
 // indentation — deleting that span joins the lines, which is exactly what the
 // fold already does semantically.
 function foldedScalarViolations(source, regionStart, regionEnd, baseIndent, exceptionRanges) {
-  const stream = createProseStream();
+  const segments = [];
   let lineStart = regionStart;
-  let pendingFold = null;
 
   while (lineStart < regionEnd) {
     const newline = source.indexOf('\n', lineStart);
     const lineEnd = newline === -1 || newline > regionEnd ? regionEnd : newline;
     const line = source.slice(lineStart, lineEnd).replace(/\r$/, '');
-    const isBlank = line.trim() === '';
     const indent = indentOf(line);
 
-    // A blank line, or a more-indented line, is not folded: it renders as a
-    // break rather than a space.
-    if (isBlank || indent > baseIndent) {
-      pendingFold = null;
-      pushBoundary(stream);
-      if (!isBlank) {
-        for (let index = lineStart + indent; index < lineStart + line.length; index += 1) {
-          pushCharacter(stream, source[index], [index, index + 1]);
-        }
-        pushBoundary(stream);
-      }
-      lineStart = lineEnd + 1;
-      continue;
+    if (line.trim() === '') {
+      segments.push(null);
+    } else if (indent > baseIndent) {
+      // A more-indented line is literal content: the fold does not apply.
+      segments.push([lineStart + indent, lineStart + line.length, true]);
+    } else {
+      segments.push([
+        lineStart + indent,
+        lineStart + line.replace(/[\p{Zs}\t]+$/u, '').length,
+        false,
+      ]);
     }
 
-    const contentStart = lineStart + indent;
-    const contentEnd = lineStart + line.replace(/[\p{Zs}\t]+$/u, '').length;
-
-    if (pendingFold !== null) {
-      pushCharacter(stream, ' ', [pendingFold, contentStart]);
-    }
-
-    for (let index = contentStart; index < contentEnd; index += 1) {
-      pushCharacter(stream, source[index], [index, index + 1]);
-    }
-
-    // The fold consumes this line's trailing whitespace, the break, and the
-    // next line's indentation.
-    pendingFold = contentEnd;
     lineStart = lineEnd + 1;
   }
 
+  const stream = createProseStream();
+  emitFoldedSegments(stream, source, segments);
+  return violationsFromStream(stream, 0, exceptionRanges);
+}
+
+// A quoted YAML scalar may span lines, and YAML folds each break into a space,
+// so `title: "word—\n  continuation"` publishes `word— continuation`. The
+// line-at-a-time scan cannot see that, because neither line holds padding
+// adjacent to the dash.
+function flowScalarViolations(source, contentStart, contentEnd, exceptionRanges) {
+  const segments = [];
+  let lineStart = contentStart;
+  let isFirst = true;
+
+  while (lineStart < contentEnd) {
+    const newline = source.indexOf('\n', lineStart);
+    const endsRegion = newline === -1 || newline >= contentEnd;
+    const lineEnd = endsRegion ? contentEnd : newline;
+    const line = source.slice(lineStart, lineEnd).replace(/\r$/, '');
+
+    // The opening quote sits mid-line; continuation lines have their leading
+    // indentation stripped by the fold.
+    const segmentStart = isFirst ? lineStart : lineStart + indentOf(line);
+    // Whitespace before the closing quote is part of the value; whitespace
+    // before a fold is not.
+    const segmentEnd = endsRegion
+      ? contentEnd
+      : lineStart + line.replace(/[\p{Zs}\t]+$/u, '').length;
+
+    segments.push(segmentStart >= segmentEnd ? null : [segmentStart, segmentEnd, false]);
+
+    isFirst = false;
+    lineStart = lineEnd + 1;
+  }
+
+  const stream = createProseStream();
+  emitFoldedSegments(stream, source, segments);
   return violationsFromStream(stream, 0, exceptionRanges);
 }
 
@@ -688,46 +767,88 @@ function yamlViolations(source, end) {
 
     // Inside a block scalar the whole line is literal content: no comment to
     // strip, and no structural prefix to step past.
-    const scanEnd = inBlockScalar ? lineEnd : lineStart + yamlCommentStart(line);
+    const scan = scanYamlLine(line);
+    const scanEnd = inBlockScalar ? lineEnd : lineStart + scan.commentStart;
 
-    for (const [start, matchEnd] of collectMatchRanges(PADDED_EM_DASH, line)) {
-      const absoluteStart = lineStart + start;
-      const absoluteEnd = Math.min(lineStart + matchEnd, scanEnd);
-      const dashOffset = source.indexOf('—', absoluteStart);
-      if (dashOffset === -1 || dashOffset >= scanEnd) {
+    // A quote still open at end of line means the scalar continues onto the
+    // next one, where YAML folds the break into a space. Hand the whole scalar
+    // to the folding scanner and consume its lines here.
+    if (!inBlockScalar && scan.quote && scan.quoteStart !== -1) {
+      const openOffset = lineStart + scan.quoteStart;
+      let cursor = lineEnd + 1;
+      let closeOffset = -1;
+
+      while (cursor < end) {
+        const nextNewline = source.indexOf('\n', cursor);
+        const nextEnd = nextNewline === -1 || nextNewline > end ? end : nextNewline;
+        const nextLine = source.slice(cursor, nextEnd).replace(/\r$/, '');
+        const closeIndex = closeQuoteIndex(nextLine, scan.quote);
+        if (closeIndex !== -1) {
+          closeOffset = cursor + closeIndex;
+          cursor = nextEnd + 1;
+          break;
+        }
+        cursor = nextEnd + 1;
+      }
+
+      if (closeOffset !== -1) {
+        // Anything before the opening quote is ordinary YAML and still scanned.
+        violations.push(...lineViolations(source, lineStart, openOffset, false, exceptionRanges));
+        violations.push(...flowScalarViolations(source, openOffset + 1, closeOffset, exceptionRanges));
+        lineStart = cursor;
         continue;
       }
-
-      // Whitespace after `key:` or a sequence `-` is YAML syntax.
-      const prefixIsStructural =
-        !inBlockScalar && YAML_VALUE_PREFIX.test(source.slice(lineStart, absoluteStart));
-      const paddingStart = prefixIsStructural ? dashOffset : absoluteStart;
-
-      // Whitespace running to the end of the scannable region is not rendered
-      // padding: YAML strips trailing whitespace from a scalar. It is also the
-      // separator an end-of-line comment requires, so deleting it would fold
-      // the comment into the published value.
-      const trailingEnd = absoluteEnd >= scanEnd ? dashOffset + 1 : absoluteEnd;
-
-      const removals = [];
-      if (paddingStart < dashOffset) {
-        removals.push([paddingStart, dashOffset]);
-      }
-      if (trailingEnd > dashOffset + 1) {
-        removals.push([dashOffset + 1, trailingEnd]);
-      }
-
-      if (removals.length === 0) {
-        continue;
-      }
-      if (exceptionRanges.some(([rangeStart, rangeEnd]) => dashOffset >= rangeStart && dashOffset < rangeEnd)) {
-        continue;
-      }
-
-      violations.push({ offset: dashOffset, removals });
+      // Unterminated quote: fall through to the ordinary per-line scan.
     }
 
+    violations.push(...lineViolations(source, lineStart, scanEnd, inBlockScalar, exceptionRanges));
     lineStart = lineEnd + 1;
+  }
+
+  return violations;
+}
+
+// Padded dashes on a single physical YAML line, between `lineStart` and
+// `scanEnd`.
+function lineViolations(source, lineStart, scanEnd, inBlockScalar, exceptionRanges) {
+  const violations = [];
+  const line = source.slice(lineStart, scanEnd);
+
+  for (const [start, matchEnd] of collectMatchRanges(PADDED_EM_DASH, line)) {
+    const absoluteStart = lineStart + start;
+    const absoluteEnd = Math.min(lineStart + matchEnd, scanEnd);
+    const dashOffset = source.indexOf('—', absoluteStart);
+    if (dashOffset === -1 || dashOffset >= scanEnd) {
+      continue;
+    }
+
+    // Whitespace after `key:` or a sequence `-` is YAML syntax.
+    const prefixIsStructural =
+      !inBlockScalar && YAML_VALUE_PREFIX.test(source.slice(lineStart, absoluteStart));
+    const paddingStart = prefixIsStructural ? dashOffset : absoluteStart;
+
+    // Whitespace running to the end of the scannable region is not rendered
+    // padding: YAML strips trailing whitespace from a scalar. It is also the
+    // separator an end-of-line comment requires, so deleting it would fold
+    // the comment into the published value.
+    const trailingEnd = absoluteEnd >= scanEnd ? dashOffset + 1 : absoluteEnd;
+
+    const removals = [];
+    if (paddingStart < dashOffset) {
+      removals.push([paddingStart, dashOffset]);
+    }
+    if (trailingEnd > dashOffset + 1) {
+      removals.push([dashOffset + 1, trailingEnd]);
+    }
+
+    if (removals.length === 0) {
+      continue;
+    }
+    if (exceptionRanges.some(([rangeStart, rangeEnd]) => dashOffset >= rangeStart && dashOffset < rangeEnd)) {
+      continue;
+    }
+
+    violations.push({ offset: dashOffset, removals });
   }
 
   return violations;
