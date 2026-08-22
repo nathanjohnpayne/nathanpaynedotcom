@@ -766,6 +766,43 @@ describe('Resume — contact actions', () => {
       ).toBeTruthy();
     });
 
+    it('is ruled off from the Writing section above it', () => {
+      // The card sat flush under the essay list and read as an orphan. The
+      // divider is a ::before rather than a border-top because the card's own
+      // `border` already draws its box — a border-top would thicken that edge
+      // instead of ruling off the space above it.
+      //
+      // Geometry is asserted, not just the color: a rule that is present but
+      // mis-offset is the actual regression to fear here, and it would look
+      // fine in a diff. Each declaration is matched independently because the
+      // minifier reorders them (`position` migrates to the end) and collapses
+      // `::before` to `:before`.
+      const astroDir = resolve(DIST, '_astro');
+      const css = readdirSync(astroDir)
+        .filter((f) => f.endsWith('.css'))
+        .map((f) => readFileSync(join(astroDir, f), 'utf-8'))
+        .join('\n');
+      const body = css.match(/\.resume-cta::?before[^{]*\{([^}]*)\}/)?.[1];
+      expect(
+        body,
+        '.resume-cta has no ::before divider — the CTA will read as an orphan ' +
+          'hanging off the Writing essay list.',
+      ).toBeTruthy();
+      const decls = body.replace(/\s+/g, ' ');
+      for (const [label, pattern] of [
+        ['a 1px hairline in the divider color', /border-top: ?1px solid var\(--rule\)/],
+        ['absolute positioning, so the rule sits in the margin', /position: ?absolute/],
+        ['the rule 1.6rem above the card, matching the section rhythm', /top: ?-1\.6rem/],
+        // var(--line), never a literal 9px: the token drops to 6px below the
+        // stack breakpoint, and a hard-coded value would leave the hairline
+        // short of the section dividers on mobile.
+        ['a left inset of one grid line', /left: ?calc\( ?-1 ?\* ?var\(--line\) ?\)/],
+        ['a right inset over the 1px border', /right: ?-1px/],
+      ]) {
+        expect(decls, `.resume-cta::before is missing ${label}`).toMatch(pattern);
+      }
+    });
+
     it('is a sibling of the sections, not a section — no id, no ToC entry', () => {
       const cta = document.querySelector('.resume-cta');
       expect(cta.tagName).toBe('ASIDE');

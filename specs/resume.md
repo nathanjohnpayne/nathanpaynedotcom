@@ -90,7 +90,13 @@ The `resumeProjects` collection must remain separate from the existing
   and a few selected essays.
 - The content column closes with the **availability CTA** (`.resume-cta`,
   #702): a lede ("Open to senior product/platform roles.") followed by two
-  `·`-separated arrow links — **Get in touch** and **Book a time**. It mirrors
+  `·`-separated arrow links — **Get in touch** and **Book a time**. A
+  `::before` hairline rules it off from the Writing section above on the same
+  rhythm as a `.resume-section` divider (2.1rem above the rule, 1.6rem below),
+  flush with those dividers at both ends, so the card reads as closing the
+  page rather than hanging off the essay list. It must be a pseudo-element:
+  the card's own `border` draws its box, so a `border-top` would thicken that
+  edge instead of ruling off the space above it. It mirrors
   the end-of-post block in `src/layouts/BlogPost.astro` (`.blog-cta`, #622)
   **minus that block's Résumé link**, since the reader is already on the
   résumé. It is a sibling of the sections, not a section: no `id`, no ToC
