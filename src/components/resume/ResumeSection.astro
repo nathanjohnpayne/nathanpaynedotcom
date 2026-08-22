@@ -10,10 +10,10 @@
  *     <slot />
  *   </section>
  *
- * The wrapper renders unconditionally — sections with #394 empty-state
- * behavior (e.g. AwardsSection renders nothing when the collection is
- * empty) keep their own guard AROUND this wrapper, so an empty section
- * still produces no shell at all.
+ * The wrapper renders unconditionally — any section with empty-state
+ * behavior keeps its own guard AROUND this wrapper, so an empty section
+ * produces no shell. The dormant AwardsSection scaffold retains that guard
+ * for when real award content is wired in (#394, #654).
  *
  * Slot whitespace: element children should hug the ResumeSection tags
  * (`<ResumeSection …><ul>` / `</ul></ResumeSection>`) — compressHTML

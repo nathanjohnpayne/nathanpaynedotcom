@@ -21,7 +21,6 @@ import CertificationsSection from '../components/resume/CertificationsSection.as
 import ProjectsSection from '../components/resume/ProjectsSection.astro';
 import ContactIcon from '../components/resume/ContactIcon.astro';
 import WritingSection from '../components/resume/WritingSection.astro';
-import AwardsSection from '../components/resume/AwardsSection.astro';
 // Single source of truth for the built PDF's path — the same constant the
 // build-time generator writes to, so the link can never point at a filename
 // that isn't produced (#616).
@@ -33,13 +32,12 @@ if (!myself) {
 }
 const m = myself.data;
 
-const [skills, experience, education, certifications, resumeProjects, awards] = await Promise.all([
+const [skills, experience, education, certifications, resumeProjects] = await Promise.all([
   getCollection('skills'),
   getCollection('experience'),
   getCollection('education'),
   getCollection('certifications'),
   getCollection('resumeProjects'),
-  getCollection('awards'),
 ]);
 
 // Header contact links. Social handles are stored bare in the collection;
@@ -53,7 +51,8 @@ const profileLinks = [
 
 // Sidebar "In this resume" ToC. The page is component-composed (no single
 // markdown body), so there are no render() headings to derive from — the ToC
-// is built from the static section list. Awards is listed only when present.
+// is built from the static section list. The dormant awards scaffold is added
+// here only when the first real entry is wired up (#654).
 const toc = [
   { label: 'Summary', id: 'summary' },
   { label: 'Skills', id: 'skills' },
@@ -62,7 +61,6 @@ const toc = [
   { label: 'Certifications', id: 'certifications' },
   { label: 'Projects', id: 'projects' },
   { label: 'Writing', id: 'writing' },
-  ...(awards.length ? [{ label: 'Hackathons & Awards', id: 'awards' }] : []),
 ];
 
 // Sidebar highlight cards — marquee metrics drawn from the content.
@@ -219,7 +217,6 @@ const jsonLd = {
         <CertificationsSection entries={certifications} />
         <ProjectsSection entries={resumeProjects} />
         <WritingSection />
-        <AwardsSection entries={awards} />
       </div>
 
       {/* Right sidebar — in-page ToC + highlight cards (screen-only) */}
