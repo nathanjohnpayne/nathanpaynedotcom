@@ -44,6 +44,7 @@ const YAML_VALUE_PREFIX = /^[\p{Zs}\t]*(?:-[\p{Zs}\t]*)*(?:[^:\n]+:)?[\p{Zs}\t]*
 // bodies are left alone: rewriting `<pre>a — b</pre>` would edit a code
 // sample, and rewriting a `<script>` string would edit executable source.
 const HTML_RAW_TEXT_ELEMENT = /<(script|style|pre|code|textarea)\b[\s\S]*?<\/\1\s*>/gi;
+const HTML_RAW_TEXT_OPENER = /<(script|style|pre|code|textarea)\b[^>]*>/gi;
 const HTML_MARKUP = /<!--[\s\S]*?-->|<[^>]*>/g;
 
 // Block-level nodes. Padding may not run across their edges, because the
@@ -219,10 +220,24 @@ function emitText(node, body, stream) {
 function emitHtml(node, body, stream) {
   const start = node.position.start.offset;
   const raw = body.slice(start, node.position.end.offset);
-  const skip = [
-    ...collectMatchRanges(HTML_RAW_TEXT_ELEMENT, raw),
-    ...collectMatchRanges(HTML_MARKUP, raw),
-  ];
+  const closed = collectMatchRanges(HTML_RAW_TEXT_ELEMENT, raw);
+  const skip = [...closed, ...collectMatchRanges(HTML_MARKUP, raw)];
+
+  // CommonMark lets an HTML block run to the end of the document, so a
+  // raw-text element can be left unclosed. Protect it through the end of the
+  // node rather than scanning executable source as prose.
+  const openers = new RegExp(HTML_RAW_TEXT_OPENER.source, 'gi');
+  let opener;
+  while ((opener = openers.exec(raw)) !== null) {
+    const openerStart = opener.index;
+    if (closed.some(([closedStart, closedEnd]) => openerStart >= closedStart && openerStart < closedEnd)) {
+      continue;
+    }
+    const closing = new RegExp(`</${opener[1]}\\s*>`, 'i').test(raw.slice(openers.lastIndex));
+    if (!closing) {
+      skip.push([openerStart, raw.length]);
+    }
+  }
 
   pushBoundary(stream);
   for (let index = 0; index < raw.length; index += 1) {
@@ -360,7 +375,10 @@ function bodyViolations(source) {
 // A `key: |` or `key: >` line opens a block scalar, whose following indented
 // lines are literal content: a `#` there is prose, not a comment. Returns the
 // indentation of the opening line, or null when the line opens nothing.
-const BLOCK_SCALAR_OPENER = /^([\p{Zs}\t]*)(?:-[\p{Zs}\t]+)*(?:[^:\n]+:)?[\p{Zs}\t]*[|>][-+]?\d*[\p{Zs}\t]*$/u;
+// YAML allows the chomping and indentation indicators in either order, so
+// `|2-` is as valid as `|-2`.
+const BLOCK_SCALAR_OPENER =
+  /^([\p{Zs}\t]*)(?:-[\p{Zs}\t]+)*(?:[^:\n]+:)?[\p{Zs}\t]*[|>](?:[-+]\d*|\d+[-+]?)?[\p{Zs}\t]*$/u;
 
 function blockScalarIndentOf(line) {
   const match = line.match(BLOCK_SCALAR_OPENER);

@@ -459,6 +459,25 @@ describe('content em-dash lint', () => {
     expect(findSpacedEmDashViolations('/tmp/skills.yaml', source)).toHaveLength(1);
   });
 
+  it('accepts YAML block scalar indicators in either order', () => {
+    for (const header of ['|2-', '|-2', '>2+', '>+2', '|2', '|']) {
+      const source = [`description: ${header}`, '  prose # topic — explanation', ''].join('\n');
+
+      expect(findSpacedEmDashViolations('/tmp/skills.yaml', source)).toHaveLength(1);
+    }
+  });
+
+  it('protects an unclosed raw-text element through the end of the block', () => {
+    // CommonMark lets an HTML block run to EOF, so the closing tag may be absent.
+    const script = '<script>\nconst label = "a — b";';
+    const pre = '<pre>\ncode — sample';
+
+    expect(findSpacedEmDashViolations('/tmp/test.md', script)).toHaveLength(0);
+    expect(closeUpSpacedEmDashesInText(script)).toBe(script);
+    expect(findSpacedEmDashViolations('/tmp/test.md', pre)).toHaveLength(0);
+    expect(closeUpSpacedEmDashesInText(pre)).toBe(pre);
+  });
+
   it('preserves CRLF line endings through a fix pass', () => {
     const source = 'prose — one.\r\nprose — two.\r\n';
 
