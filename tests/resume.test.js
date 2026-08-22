@@ -73,8 +73,8 @@ describe('Resume — route & build', () => {
     expect(awardEntries, 'add the awards collection back when the first entry lands').toHaveLength(
       0,
     );
-    expect(config).not.toMatch(/const awards\s*=\s*defineCollection/);
-    expect(config).not.toMatch(/^\s*awards,\s*$/m);
+    expect(config).not.toMatch(/\b(?:const|let|var)\s+awards\s*=/);
+    expect(config).not.toMatch(/^\s*['"]?awards['"]?\s*(?:,|:)/m);
     expect(page).not.toMatch(/getCollection\s*\(\s*['"]awards['"]\s*\)/);
     expect(page).not.toContain(
       "import AwardsSection from '../components/resume/AwardsSection.astro'",
