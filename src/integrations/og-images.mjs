@@ -11,7 +11,8 @@
  *   3. Launches headless Chromium via Playwright
  *   4. Screenshots each template page
  *   5. Writes PNGs to dist/og/
- *   6. Renders the built /resume/ route to dist/Nathan-Payne-Resume.pdf
+ *   6. Renders the built /resume/ route to dist/Nathan-Payne-Resume.pdf,
+ *      with its relative links rewritten to the configured `site` origin
  *      (see ./resume-pdf.mjs)
  *   7. Removes the og-templates/ directory from dist/ (not publicly served)
  *
@@ -22,6 +23,7 @@
  *
  * @see Issue #106 — Generate OG images at build time
  * @see Issue #616 — Downloadable resume PDF
+ * @see Issue #683 — PDF links froze at the localhost render origin
  */
 
 import { readdir, mkdir, rm, stat } from 'node:fs/promises';
@@ -87,9 +89,17 @@ function serveStatic(root) {
 }
 
 export default function ogImages() {
+  // Captured at astro:config:done because astro:build:done does not receive
+  // the resolved config, and the resume PDF needs the production origin to
+  // absolutize its links (#683).
+  let siteUrl;
+
   return {
     name: 'og-images',
     hooks: {
+      'astro:config:done': ({ config }) => {
+        siteUrl = config.site;
+      },
       'astro:build:done': async ({ dir, logger }) => {
         // `dir` is a URL object. `dir.pathname` yields `/C:/path/...` on
         // Windows, which then breaks `path.join`. Convert via
@@ -138,6 +148,7 @@ export default function ogImages() {
           await generateResumePdf({
             browser,
             baseUrl,
+            siteUrl,
             outputPath: join(distDir, RESUME_PDF_FILENAME),
             logger,
           });
