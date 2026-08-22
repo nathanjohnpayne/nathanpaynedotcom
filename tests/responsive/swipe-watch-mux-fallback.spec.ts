@@ -8,7 +8,10 @@ async function expectLoadingOrFastFallback(frame: Locator) {
         const state = shell.getAttribute('data-playback-state');
         const playButton = shell.querySelector<HTMLButtonElement>('[data-mux-play]');
 
-        return state === 'fallback' || (state === 'loading' && playButton?.hidden === true);
+        return (
+          (state === 'fallback' && playButton?.hidden === false) ||
+          (state === 'loading' && playButton?.hidden === true)
+        );
       }),
     )
     .toBe(true);
