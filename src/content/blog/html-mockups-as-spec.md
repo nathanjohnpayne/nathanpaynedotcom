@@ -10,7 +10,7 @@ tags: ["AI", "Product", "Design", "Engineering", "Workflow"]
 image: "/og/blog/html-mockups-as-spec.png"
 keyTakeaways:
   - "Hand a coding agent an artifact in the same medium as its output. A standalone HTML mock-up is a file it can diff against; an annotated screenshot is a picture it has to interpret."
-  - "The mock-up is the spec, and unlike prose it does not drift between prompts — the agent re-reads the file instead of remembering the conversation."
+  - "The mock-up is the spec, and unlike prose it does not drift between prompts—the agent re-reads the file instead of remembering the conversation."
   - "Prototype outside the production build. Design and re-implementation are different jobs, and production constraints win over design intent whenever an agent is made to do both at once."
   - "The same swap works beyond visual work: a transcript rather than a description of CLI behavior, a JSON example rather than a field list, a paragraph in the target voice rather than a list of adjectives."
 pullquotes:
