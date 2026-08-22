@@ -407,6 +407,58 @@ describe('content em-dash lint', () => {
     expect(findSpacedEmDashViolations('/tmp/skills.yml', source)).toHaveLength(1);
   });
 
+  it('maps a link title by UTF-16 unit, not code point', () => {
+    // The emoji occupies two units; walking code points would shift every
+    // span after it and delete prose instead of the padding.
+    const source = '[x](https://example.test/ "\u{1F600} a — b")';
+
+    expect(findSpacedEmDashViolations('/tmp/test.md', source)).toHaveLength(1);
+    expect(closeUpSpacedEmDashesInText(source)).toBe(
+      '[x](https://example.test/ "\u{1F600} a—b")',
+    );
+  });
+
+  it('reads a literal block scalar as content, not as a comment', () => {
+    const source = [
+      'description: |',
+      '  prose # topic — explanation',
+      '  more — here',
+      'other: plain # real — comment',
+      '',
+    ].join('\n');
+
+    // Both dashes in the block scalar count; the one in the real comment does not.
+    expect(findSpacedEmDashViolations('/tmp/skills.yaml', source)).toHaveLength(2);
+    expect(closeUpSpacedEmDashesInText(source, '/tmp/skills.yaml')).toBe(
+      [
+        'description: |',
+        '  prose # topic—explanation',
+        '  more—here',
+        'other: plain # real — comment',
+        '',
+      ].join('\n'),
+    );
+  });
+
+  it('reads a folded block scalar and closes it on dedent', () => {
+    const source = [
+      'blurb: >-',
+      '  folded # not a comment — here',
+      'label: after # real — comment',
+      '',
+    ].join('\n');
+
+    const violations = findSpacedEmDashViolations('/tmp/skills.yaml', source);
+    expect(violations).toHaveLength(1);
+    expect(violations[0]).toMatchObject({ line: 2 });
+  });
+
+  it('handles a block scalar under a sequence item', () => {
+    const source = ['items:', '  - |', '    text # x — y', ''].join('\n');
+
+    expect(findSpacedEmDashViolations('/tmp/skills.yaml', source)).toHaveLength(1);
+  });
+
   it('preserves CRLF line endings through a fix pass', () => {
     const source = 'prose — one.\r\nprose — two.\r\n';
 

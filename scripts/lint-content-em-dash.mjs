@@ -249,9 +249,13 @@ function emitLinkTitle(node, body, stream) {
   }
 
   pushBoundary(stream);
-  [...node.title].forEach((character, index) => {
-    pushCharacter(stream, character, [titleStart + index, titleStart + index + 1]);
-  });
+  // Indexed by UTF-16 unit, not code point: a supplementary character such as
+  // an emoji occupies two units, and walking code points while treating the
+  // index as a source offset shifts every span after it — which would make
+  // `--write` delete prose instead of the padding around the dash.
+  for (let unit = 0; unit < node.title.length; unit += 1) {
+    pushCharacter(stream, node.title[unit], [titleStart + unit, titleStart + unit + 1]);
+  }
   pushBoundary(stream);
 }
 
@@ -353,6 +357,20 @@ function bodyViolations(source) {
 
 // Strip a YAML end-of-line comment, without mistaking a `#` inside a quoted
 // scalar for one.
+// A `key: |` or `key: >` line opens a block scalar, whose following indented
+// lines are literal content: a `#` there is prose, not a comment. Returns the
+// indentation of the opening line, or null when the line opens nothing.
+const BLOCK_SCALAR_OPENER = /^([\p{Zs}\t]*)(?:-[\p{Zs}\t]+)*(?:[^:\n]+:)?[\p{Zs}\t]*[|>][-+]?\d*[\p{Zs}\t]*$/u;
+
+function blockScalarIndentOf(line) {
+  const match = line.match(BLOCK_SCALAR_OPENER);
+  return match ? match[1].length : null;
+}
+
+function indentOf(line) {
+  return line.length - line.replace(/^[\p{Zs}\t]*/u, '').length;
+}
+
 function yamlCommentStart(line) {
   let quote = null;
 
@@ -395,12 +413,26 @@ function yamlViolations(source, end) {
   const exceptionRanges = collectMatchRanges(IDENTIFIER_LABEL_EXCEPTION, source);
   const violations = [];
   let lineStart = 0;
+  let blockScalarIndent = null;
 
   while (lineStart < end) {
     const newline = source.indexOf('\n', lineStart);
     const lineEnd = newline === -1 || newline > end ? end : newline;
     const line = source.slice(lineStart, lineEnd).replace(/\r$/, '');
-    const scanEnd = lineStart + yamlCommentStart(line);
+
+    // A block scalar runs until a non-blank line dedents back to its opener.
+    const isBlank = line.trim() === '';
+    if (blockScalarIndent !== null && !isBlank && indentOf(line) <= blockScalarIndent) {
+      blockScalarIndent = null;
+    }
+    const inBlockScalar = blockScalarIndent !== null;
+    if (!inBlockScalar && !isBlank) {
+      blockScalarIndent = blockScalarIndentOf(line);
+    }
+
+    // Inside a block scalar the whole line is literal content: no comment to
+    // strip, and no structural prefix to step past.
+    const scanEnd = inBlockScalar ? lineEnd : lineStart + yamlCommentStart(line);
 
     for (const [start, matchEnd] of collectMatchRanges(PADDED_EM_DASH, line)) {
       const absoluteStart = lineStart + start;
@@ -411,7 +443,8 @@ function yamlViolations(source, end) {
       }
 
       // Whitespace after `key:` or a sequence `-` is YAML syntax.
-      const prefixIsStructural = YAML_VALUE_PREFIX.test(source.slice(lineStart, absoluteStart));
+      const prefixIsStructural =
+        !inBlockScalar && YAML_VALUE_PREFIX.test(source.slice(lineStart, absoluteStart));
       const paddingStart = prefixIsStructural ? dashOffset : absoluteStart;
 
       const removals = [];
