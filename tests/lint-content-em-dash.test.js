@@ -697,6 +697,33 @@ describe('content em-dash lint', () => {
     );
   });
 
+  it('ignores a definition title nothing references', () => {
+    // An unreferenced definition renders nothing, so its title never publishes.
+    const source = '[ref]: /u "word — next"\n\nNo usage here.\n';
+
+    expect(findSpacedEmDashViolations('/tmp/test.md', source)).toHaveLength(0);
+    expect(closeUpSpacedEmDashesInText(source)).toBe(source);
+  });
+
+  it('scans only the definition a reference actually resolves to', () => {
+    // CommonMark resolves to the FIRST definition; the second is shadowed and
+    // never publishes.
+    const source = '[ref]: /a "first — one"\n[ref]: /b "second — two"\n\nUse [ref].\n';
+
+    const violations = findSpacedEmDashViolations('/tmp/test.md', source);
+    expect(violations).toHaveLength(1);
+    expect(violations[0]).toMatchObject({ line: 1 });
+    expect(closeUpSpacedEmDashesInText(source)).toBe(
+      '[ref]: /a "first—one"\n[ref]: /b "second — two"\n\nUse [ref].\n',
+    );
+  });
+
+  it('counts an image reference as a use of its definition', () => {
+    const source = '[ref]: /u "word — next"\n\n![alt][ref]\n';
+
+    expect(findSpacedEmDashViolations('/tmp/test.md', source)).toHaveLength(1);
+  });
+
   it('preserves CRLF line endings through a fix pass', () => {
     const source = 'prose — one.\r\nprose — two.\r\n';
 
