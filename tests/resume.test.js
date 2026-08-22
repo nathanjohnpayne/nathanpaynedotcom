@@ -657,6 +657,15 @@ describe('Resume — downloadable PDF', () => {
  */
 describe('Resume — contact actions', () => {
   const CAL_URL = 'https://cal.com/nathanpayne';
+  const BOOKING_HOST = new URL(CAL_URL).host;
+  /** Parsed host of a URL, or '' for a non-URL (mailto:, a relative path). */
+  function hostOf(url) {
+    try {
+      return new URL(url).host;
+    } catch {
+      return '';
+    }
+  }
   // Distinguishes the two action mailtos from the header contact line's bare
   // `mailto:hire@nathanpayne.com`, which is content and does print.
   const ACTION_SUBJECT = 'subject=';
@@ -808,7 +817,10 @@ describe('Resume — contact actions', () => {
       const uris = [...raw.matchAll(/\/URI\s*\(([^)]*)\)/g)].map((m) => m[1]);
       expect(uris.length, 'no /URI annotations found in the PDF').toBeGreaterThan(0);
       expect(
-        uris.filter((u) => u.includes('cal.com')),
+        // Host equality, not a substring test: `u.includes('cal.com')` also
+        // matches https://cal.com.evil.example/ and https://evil.example/cal.com,
+        // which CodeQL flags as js/incomplete-url-substring-sanitization.
+        uris.filter((u) => hostOf(u) === BOOKING_HOST),
         'the booking link reached the PDF — check the @media print hide list',
       ).toEqual([]);
       expect(
