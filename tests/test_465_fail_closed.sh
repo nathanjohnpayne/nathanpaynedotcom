@@ -50,8 +50,10 @@ refute_grep "D1: merge-clearance no longer silently skips on unresolved head SHA
 # Defect 2: no unconditional immediate-merge fallback when --auto is unavailable.
 refute_grep "D2: agent-review dropped the '|| gh pr merge --squash' immediate fallback" \
   "$W/agent-review.yml" '--auto "$PR_URL" || gh pr merge --squash "$PR_URL"'
-assert_grep "D2: agent-review fails closed when auto-merge cannot be enabled" \
-  "$W/agent-review.yml" 'refusing to merge unconditionally'
+assert_grep "D2: agent-review delegates merge arming to the shared continuation" \
+  "$W/agent-review.yml" 'scripts/workflow/approval-merge-continuation.sh'
+assert_grep "D2: shared continuation fails closed when auto-merge cannot be enabled" \
+  scripts/workflow/approval-merge-continuation.sh 'could not enable exact-head auto-merge'
 
 # Defect 3: label removal verifies end-state instead of retrying the non-idempotent write.
 assert_grep "D3: auto-clear verifies label end-state (still_present)" \
@@ -226,6 +228,26 @@ if grep_nocomment_q "$_d9_good_block" 'pull_request_review'; then
 else
   fail "D9 self-test: guard must match a real if: condition on pull_request_review (#689)"
 fi
+
+# Defect 10 (#827): auto-clear's attribution comment must be gated on THIS run
+# having performed the removal, never on a bare "the label is absent" read.
+# Absence is not attributable — the workflow carries no concurrency group, so
+# concurrent runs all observe it, and the scheduled sweep observes it on stale
+# `gh pr list --label` search-index hits too. Gating on absence produced 15
+# attribution comments for 5 real removals on #797.
+#
+# The removal is therefore a REST DELETE (404 when the label is not on the
+# issue) rather than `gh pr edit --remove-label`, which is backed by the
+# idempotent GraphQL removeLabelsFromLabelable mutation and exits 0 even when
+# the label was never present — carrying no signal to gate on.
+assert_grep "D10: auto-clear removes via REST DELETE so the HTTP status attributes the removal (#827)" \
+  "$W/auto-clear-blocking-labels.yml" '-X DELETE -i --silent'
+assert_grep "D10: auto-clear branches the attribution comment on the DELETE status (#827)" \
+  "$W/auto-clear-blocking-labels.yml" 'case "$del_status" in'
+refute_grep "D10: auto-clear no longer removes via the unattributable gh pr edit path (#827)" \
+  "$W/auto-clear-blocking-labels.yml" 'gh pr edit "$PR" --repo "$REPO" --remove-label needs-external-review'
+assert_grep "D10: the scheduled sweep re-verifies the label against live state, not the search index (#827)" \
+  "$W/auto-clear-blocking-labels.yml" 'stale search-index hit'
 
 echo ""
 echo "test_465_fail_closed: $PASS passed, $FAIL failed, $SKIP skipped"

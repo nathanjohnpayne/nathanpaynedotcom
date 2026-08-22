@@ -104,6 +104,21 @@ else
   fail "codex-review-check.sh does not let CODEX_REVIEW_CHECK_ALLOW_PHASE_4B_SUBSTITUTE override the policy value (#727)"
 fi
 
+# ── 3d. Structural (#1062): the completed-workflow continuation can reuse
+#      gates (a) and (b) without imposing gate (c) on an under-threshold PR.
+#      The mode is an explicit non-inheritable flag, requires a real registered
+#      APPROVED review (no same-agent exclusion and no Codex branch-2
+#      substitution), and returns before gate (c).
+if grep -q -- '--approval-readiness-only' "$SCRIPT" \
+   && grep -q 'APPROVAL_READINESS_ONLY=1' "$SCRIPT" \
+   && grep -q 'GATE_B_SAME_AGENT_REVIEWER=""' "$SCRIPT" \
+   && grep -q 'CURRENT_RUN_ID="\$GITHUB_RUN_ID"' "$SCRIPT" \
+   && grep -q 'external clearance intentionally delegated to the threshold-aware merge-clearance gate' "$SCRIPT"; then
+  pass "approval-readiness mode reuses current-head CI/annex plus registered approval without imposing Phase 4 or self-deadlocking (#1062)"
+else
+  fail "approval-readiness mode is missing its explicit flag, reviewer semantics, self-run guard, or pre-gate-(c) return (#1062)"
+fi
+
 # ── 4. Inline logic: the verdict-matching jq filter. KEEP IN SYNC with
 #      scripts/codex-review-check.sh CODEX_VERDICT_JSON. The filter selects the
 #      LATEST HEAD-anchored verdict FIRST (any disposition), then requires that
@@ -286,6 +301,80 @@ gc "verdict-only affirmative + unaddressed findings → NO"           no  ""    
 gc "thumbs-only → YES"                                              yes "2026-07-01T10:00:00Z" ""                    ""                    0 0
 gc "review-only clean → YES"                                        yes ""                    "2026-07-01T10:00:00Z" ""                    0 0
 gc "no signals at all → NO"                                         no  ""                    ""                    ""                    0 0
+
+# ── #814: the diagnostic bypass is a FLAG, not an inheritable env var.
+#
+# This script is the delegate of a REQUIRED status check in every fleet repo.
+# --diagnostic-signal-only skips gate (b) and disables the #705 carry-forward,
+# which WEAKENS the gate — so the risk is not what it does when asked for, but
+# whether a caller can get it without asking. An environment variable is
+# inherited by every child process, so merge-clearance-gate.sh, agent-review.yml
+# and the auto-clear workflow would pick it up from a runner env or a
+# workflow-level `env:` block and silently stop checking reviewer approval
+# (CodeRabbit Major on #835). A flag cannot be inherited.
+#
+# Structural, matching this file's documented approach; the behavioural check
+# (env var inert, flag effective) was run live against a real PR and is not
+# automated here, because driving the full flow needs a gh stub harness this
+# suite does not have.
+knob_ok=1
+# The bypass is reachable ONLY through the flag.
+grep -q -- '--diagnostic-signal-only) DIAGNOSTIC_SIGNAL_ONLY=1 ;;' "$SCRIPT" || knob_ok=0
+grep -q '^SKIP_REVIEWER_APPROVAL="\$DIAGNOSTIC_SIGNAL_ONLY"' "$SCRIPT" || knob_ok=0
+grep -q '^REQUIRE_HEAD_SIGNAL="\$DIAGNOSTIC_SIGNAL_ONLY"' "$SCRIPT" || knob_ok=0
+# No environment variable may enable it. This is the assertion that fails if
+# anyone reintroduces the inheritable form.
+if grep -qE 'CODEX_REVIEW_CHECK_(SKIP_REVIEWER_APPROVAL|REQUIRE_HEAD_SIGNAL)' "$SCRIPT"; then
+  knob_ok=0
+fi
+# Defaults off, and the skip cannot mask a real approval.
+grep -q '^DIAGNOSTIC_SIGNAL_ONLY=0' "$SCRIPT" || knob_ok=0
+grep -q 'if \[ -z "\$APPROVING_REVIEWER" \] && \[ "\$SKIP_REVIEWER_APPROVAL" = "1" \]; then' "$SCRIPT" || knob_ok=0
+# The gate (b) hard failure is still reachable without the flag.
+grep -q 'fail_gate "no reviewer identity in available_reviewers has a latest-state APPROVED' "$SCRIPT" || knob_ok=0
+if [ "$knob_ok" = 1 ]; then
+  pass "#814: the gate bypass is flag-only, defaults off, has no env-var path, and cannot mask a real approval"
+else
+  fail "#814: the gate bypass lost one of its non-inheritability guarantees"
+fi
+
+# Positional rather than a text scan — the header documents gate (c) long
+# before it is evaluated, so a "starts matching at the first mention" filter
+# reports a false leak (it did, on the first version of this assertion).
+knob_last=$(grep -n 'SKIP_REVIEWER_APPROVAL\|REQUIRE_HEAD_SIGNAL' "$SCRIPT" | tail -1 | cut -d: -f1)
+gatec_at=$(grep -n 'log "gate (c): checking external clearance' "$SCRIPT" | head -1 | cut -d: -f1)
+if [ -n "$knob_last" ] && [ -n "$gatec_at" ] && [ "$knob_last" -lt "$gatec_at" ]; then
+  pass "#814: every bypass reference precedes the gate (c) evaluation — it cannot influence external clearance"
+else
+  fail "#814: bypass reference at line ${knob_last:-?} is not before gate (c) at ${gatec_at:-?}"
+fi
+
+# #842: the CANNOT-REPORT exit must be diagnostic-mode-only. The barrier reads
+# exit 2 as "Codex is account-blocked, waive it and let Phase 4b run"; a real
+# merge-gate caller must never reach it, because an account-blocked Codex has
+# cleared nothing and the gate has to keep failing closed on 1.
+exit2_at=$(grep -n '^      exit 2$' "$SCRIPT" | head -1 | cut -d: -f1)
+guard_ok=0
+if [ -n "$exit2_at" ]; then
+  # The guard must be within the few lines immediately above the exit, so a
+  # later edit cannot leave the exit reachable from the gate path.
+  guard_at=$(sed -n "$((exit2_at - 4)),$((exit2_at - 1))p" "$SCRIPT" \
+    | grep -c 'DIAGNOSTIC_SIGNAL_ONLY" = "1"' || true)
+  # Proximity alone is not containment (CodeRabbit on #842): moving `fi` above
+  # the exit would leave the guard text nearby while the exit sits outside the
+  # block. Require that no `fi` closes between the guard and the exit.
+  fi_between=$(sed -n "$((exit2_at - 4)),$((exit2_at - 1))p" "$SCRIPT" \
+    | grep -cE '^[[:space:]]*fi[[:space:]]*$' || true)
+  [ "$guard_at" -ge 1 ] && [ "$fi_between" -eq 0 ] && guard_ok=1
+fi
+# And it must be the ONLY exit 2 in the script, so the documented 0/1/3
+# contract still holds for every non-diagnostic caller.
+n_exit2=$(grep -c '^[[:space:]]*exit 2$' "$SCRIPT" || true)
+if [ "$guard_ok" = 1 ] && [ "$n_exit2" = "1" ]; then
+  pass "#842: the CANNOT-REPORT exit is diagnostic-only and unique — the merge gate's 0/1/3 contract is unchanged"
+else
+  fail "#842: exit 2 is unguarded or duplicated (guard_ok=$guard_ok count=$n_exit2)"
+fi
 
 echo ""
 echo "test_codex_review_check_verdict: $PASS passed, $FAIL failed"

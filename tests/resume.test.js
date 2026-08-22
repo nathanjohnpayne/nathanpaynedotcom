@@ -480,6 +480,49 @@ describe('Resume — downloadable PDF', () => {
     expect([...boxes][0]).toBe('/MediaBox [0 0 612 792]');
   });
 
+  /**
+   * #683 — the PDF is rendered off a localhost static server, so Chromium
+   * resolved every root-relative href against `http://127.0.0.1:<port>` and
+   * froze that into the file's link annotations. 15 of 39 links shipped
+   * pointing at a machine the reader doesn't have. The generator now
+   * absolutizes them; these assert the file, not the intent.
+   */
+  describe('link annotations', () => {
+    /** Every /URI value Chromium wrote into the PDF's link annotations. */
+    function pdfLinkUris() {
+      const raw = readFileSync(PDF_PATH).toString('latin1');
+      return [...raw.matchAll(/\/URI\s*\(([^)]*)\)/g)].map((m) => m[1]);
+    }
+
+    it('has link annotations at all', () => {
+      // Guards the two tests below: a regex that silently matched nothing
+      // would make them pass on a PDF with no links whatsoever.
+      expect(pdfLinkUris().length, 'no /URI annotations found in the PDF').toBeGreaterThan(0);
+    });
+
+    it('never points a link at the localhost render origin', () => {
+      const localhost = pdfLinkUris().filter((uri) => /^https?:\/\/(127\.0\.0\.1|localhost)/i.test(uri));
+      expect(
+        localhost,
+        `the PDF links to the build machine's static server. src/integrations/` +
+          `resume-pdf.mjs must absolutize relative hrefs to the configured ` +
+          `\`site\` origin before page.pdf() writes the annotations (#683).`,
+      ).toEqual([]);
+    });
+
+    it('emits only absolute production, external, or mailto links', () => {
+      // A relative /URI would be just as broken as a localhost one — it would
+      // resolve against whatever the reader's PDF viewer considers the base.
+      const bad = pdfLinkUris().filter((uri) => !/^(https?:|mailto:)/i.test(uri));
+      expect(bad, 'PDF links must carry a scheme to be clickable off-site').toEqual([]);
+    });
+
+    it('routes the Writing link to the production blog, not a local path', () => {
+      // The specific link in the bug report, asserted by value.
+      expect(pdfLinkUris()).toContain('https://nathanpayne.com/blog/');
+    });
+  });
+
   it('the PDF margin constant matches the @page margin in the print stylesheet', () => {
     // Chromium takes its print margins from the printToPDF parameters, not
     // from the CSS @page rule, so the 0.6in floor (#420) is restated in the
@@ -520,6 +563,36 @@ describe('Resume — downloadable PDF', () => {
       return /\.resume-actions[^{]*\{[^}]*display:\s*none/.test(css.slice(i));
     });
     expect(hidden, '.resume-actions is not hidden inside @media print').toBe(true);
+  });
+
+  it('does not append the URL after project titles in print', () => {
+    // The print sheet appends ' (' attr(href) ')' to descriptive-text links
+    // matching a[href^='http']. Project titles were exempt only by accident —
+    // their href was root-relative, so it never matched. #683 absolutizes
+    // every href before the PDF is written, which dragged all seven titles
+    // into that selector and printed a redundant /projects/<slug>/ after each
+    // name. The suppression is now explicit; this keeps it that way.
+    const astroDir = resolve(DIST, '_astro');
+    const withPrint = readdirSync(astroDir)
+      .filter((f) => f.endsWith('.css'))
+      .map((f) => readFileSync(join(astroDir, f), 'utf-8'))
+      .filter((css) => css.includes('@media print'));
+    const suppressed = withPrint.some((css) => {
+      const printBlock = css.slice(css.indexOf('@media print'));
+      // The selector must appear in a rule whose content resolves to empty.
+      // Matched loosely against BUILT css: the minifier drops the quotes in
+      // [href^=http] and collapses ::after to :after, and the selector is one
+      // of several grouped before the shared { content: '' } block.
+      return /\.resume-entry__title a\[href\^=['"]?http['"]?\]::?after[^{]*\{[^}]*content:\s*(''|"")/.test(
+        printBlock,
+      );
+    });
+    expect(
+      suppressed,
+      `.resume-entry__title links are not exempted from the a[href^='http']::after ` +
+        `URL suffix in @media print — every project title will print its own ` +
+        `/projects/<slug>/ URL after the name (#683).`,
+    ).toBe(true);
   });
 });
 

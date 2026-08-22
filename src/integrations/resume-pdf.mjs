@@ -23,6 +23,14 @@
  * The output is written to the dist root, so Firebase serves it at
  * https://nathanpayne.com/Nathan-Payne-Resume.pdf. It is not a page, so
  * `@astrojs/sitemap` (which enumerates routes) never lists it.
+ *
+ * Because the render happens over that local static server, the document base
+ * URL is `http://127.0.0.1:<ephemeral port>` — and Chromium resolves every
+ * link annotation it writes into the PDF against that base. Root-relative
+ * hrefs (`/blog/`, `/projects/<slug>/`) therefore shipped as localhost links
+ * that resolve to nothing on a reader's machine, with the port varying per
+ * build (#683). `absolutizeLinks` below rewrites them to the production
+ * origin before the file is written.
  */
 
 /** Recruiter-legible filename — not `resume.pdf`. */
@@ -41,15 +49,76 @@ export const RESUME_PDF_PATH = `/${RESUME_PDF_FILENAME}`;
 export const RESUME_PDF_MARGIN = '0.6in';
 
 /**
+ * Rewrite same-origin links in the loaded page to absolute production URLs.
+ *
+ * The PDF is rendered off a localhost static server, so anything root-relative
+ * would otherwise be frozen into the file as `http://127.0.0.1:<port>/...`
+ * (#683). Only links that resolve to the *serving* origin are touched:
+ *
+ * - external URLs (github.com, the project live sites) already carry their own
+ *   origin and are left alone;
+ * - `mailto:` resolves to a null origin, so it never matches;
+ * - pure in-page anchors (`#summary`) are skipped explicitly, so they stay
+ *   intra-document jumps rather than becoming web links out of the PDF.
+ *
+ * Runs in the browser context, so it must be self-contained — no imports or
+ * outer-scope references survive serialization into `page.evaluate`.
+ *
+ * @param {import('playwright').Page} page
+ * @param {string} siteUrl  production origin, e.g. https://nathanpayne.com
+ * @returns {Promise<number>} how many hrefs were rewritten
+ */
+export function absolutizeLinks(page, siteUrl) {
+  // Resolved here rather than in the page: Astro's `site` may be a URL object,
+  // which does not survive structured-clone into the browser context. Passing
+  // a plain origin string keeps the evaluate argument serializable either way.
+  const origin = new URL(String(siteUrl)).origin;
+  return page.evaluate((productionOrigin) => {
+    let rewritten = 0;
+    for (const anchor of document.querySelectorAll('a[href]')) {
+      const href = anchor.getAttribute('href');
+      // In-page anchors stay internal to the document.
+      if (!href || href.startsWith('#')) continue;
+      let resolved;
+      try {
+        resolved = new URL(href, document.baseURI);
+      } catch {
+        // Unparseable href — leave it exactly as authored.
+        continue;
+      }
+      // Only the localhost render origin gets swapped; mailto: and external
+      // links resolve elsewhere and fall through untouched.
+      if (resolved.origin !== window.location.origin) continue;
+      anchor.setAttribute(
+        'href',
+        productionOrigin + resolved.pathname + resolved.search + resolved.hash,
+      );
+      rewritten += 1;
+    }
+    return rewritten;
+  }, origin);
+}
+
+/**
  * Render the built /resume/ route to a letter-size PDF.
  *
  * @param {object} options
  * @param {import('playwright').Browser} options.browser  already-launched Chromium
  * @param {string} options.baseUrl  origin of the static server serving dist/
+ * @param {string} options.siteUrl  production origin from `site` in astro.config.mjs
  * @param {string} options.outputPath  absolute path of the .pdf to write
  * @param {{ info: (m: string) => void, warn: (m: string) => void }} options.logger
  */
-export async function generateResumePdf({ browser, baseUrl, outputPath, logger }) {
+export async function generateResumePdf({ browser, baseUrl, siteUrl, outputPath, logger }) {
+  // Required, not optional-with-a-fallback: without it every root-relative
+  // link in the file silently reverts to a localhost URL (#683). Failing the
+  // build is better than shipping a PDF whose links go nowhere.
+  if (!siteUrl) {
+    throw new Error(
+      'generateResumePdf: siteUrl is required — pass the `site` value from astro.config.mjs. ' +
+        'Without it the PDF\'s links would be frozen at the localhost render origin (#683).',
+    );
+  }
   const context = await browser.newContext();
   const page = await context.newPage();
   try {
@@ -61,6 +130,10 @@ export async function generateResumePdf({ browser, baseUrl, outputPath, logger }
     // @media print cascade — the calibrated resume layout — is what lands in
     // the file.
     await page.emulateMedia({ media: 'print' });
+    // Must happen after load and before the write: Chromium bakes the link
+    // annotations at printToPDF time, resolved against the document base.
+    const rewritten = await absolutizeLinks(page, siteUrl);
+    logger.info(`  rewrote ${rewritten} relative link(s) to ${siteUrl}`);
     await page.pdf({
       path: outputPath,
       format: 'Letter',

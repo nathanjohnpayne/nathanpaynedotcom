@@ -27,6 +27,14 @@
 #                              the threshold-gated PR still get a trigger
 #                              under the pre-#486 behavior. Unset/false ⇒ the
 #                              PR is treated as under-threshold.
+#   MERGEPATH_CODEX_AUTO_TRIGGER
+#                              Optional. Set to true/1 by an AUTOMATIC caller
+#                              (CI), never by an agent invoking this script by
+#                              hand. Marks the trigger as machine-initiated,
+#                              which makes it eligible to be skipped when the
+#                              head introduces no reviewable content change —
+#                              see auto_trigger_content_free() and #798. Only
+#                              honored together with --trigger-only.
 #
 # IMPORTANT: a plain push (`synchronize`) never re-triggers a Codex review —
 # the Codex GitHub App reviews only on PR-open, ready-for-review, or an
@@ -71,7 +79,11 @@
 #      already present on the current HEAD. If found, skips the trigger
 #      comment and goes straight to emitting JSON — re-posting `@codex
 #      review` when Codex has already responded can cause double-processing
-#      or rate-limit pushback.
+#      or rate-limit pushback. Under --trigger-only, an AUTOMATIC caller
+#      (MERGEPATH_CODEX_AUTO_TRIGGER) additionally skips when
+#      scripts/workflow/codex_auto_trigger_gate.sh shows a prior Codex verdict
+#      carrying forward to this head on an unchanged external-review
+#      fingerprint — the content-free `update-branch` head of #798.
 #   4. Otherwise posts `@codex review` as a PR comment, waits a short
 #      bounded window for Codex's documented `eyes` acknowledgment on
 #      that trigger comment, and re-posts the trigger up to
@@ -166,6 +178,9 @@
 #       path). JSON on stdout with trigger_requested:false and all Codex
 #       signals null. This is a deliberate skip, not an error or a
 #       timeout.
+#   6   FEEDBACK_UNACCOUNTED — at least one earlier reviewer finding has no
+#       durable disposition evidence. No new trigger is posted. Account for
+#       every reported finding, then rerun this script (#1000).
 #
 # Design notes:
 #   - Read-only against the PR except for the one `@codex review` trigger
@@ -212,6 +227,32 @@ if [ -r "$__CODEX_REQUEST_DIR/lib/codex-failure-markers.sh" ]; then
   . "$__CODEX_REQUEST_DIR/lib/codex-failure-markers.sh"
   CODEX_FAILURE_MARKERS_OK=true
 fi
+
+# --- scalar API reads that must fail closed (#799) --------------------------
+# Hard-required, unlike the marker lib above: the one call site is the
+# post-trigger timestamp that anchors every "is this review newer than my
+# trigger?" comparison, and its documented wall-clock fallback was dead. A
+# degraded mode here is a wrong anchor, not a lost feature. Declared as a
+# `requires:` of this script in .mergepath-sync.yml.
+if [ ! -r "$__CODEX_REQUEST_DIR/lib/gh-api-scalar.sh" ]; then
+  echo "[codex-review-request] ERROR: missing helper: $__CODEX_REQUEST_DIR/lib/gh-api-scalar.sh (see #799)" >&2
+  exit 3
+fi
+# shellcheck source=lib/gh-api-scalar.sh
+. "$__CODEX_REQUEST_DIR/lib/gh-api-scalar.sh"
+
+# --- paginated LIST reads that must fail closed (#1008) ---------------------
+# The array twin of the scalar reader above, and hard-required for the same
+# reason: every signal this script scans for — reviews, inline comments,
+# reactions, issue comments, the timeline — arrives through it, and an
+# undefined reader would surface as `command not found` on all of them.
+# Declared as a `requires:` of this script in .mergepath-sync.yml.
+if [ ! -r "$__CODEX_REQUEST_DIR/lib/gh-api-array.sh" ]; then
+  echo "[codex-review-request] ERROR: missing helper: $__CODEX_REQUEST_DIR/lib/gh-api-array.sh (see #1008)" >&2
+  exit 3
+fi
+# shellcheck source=lib/gh-api-array.sh
+. "$__CODEX_REQUEST_DIR/lib/gh-api-array.sh"
 
 # --- argument parsing -------------------------------------------------------
 
@@ -523,14 +564,50 @@ die() {
 # once per input (per page), which miscounts and misfilters on multi-page
 # PRs. Slurp with `-s` collects all inputs into an outer array, then `add`
 # concatenates the per-page arrays into one flat array. Defaults to `[]`
-# on empty input. Exits 3 on API or parse error.
+# on empty input.
+#
+# RETURNS 3 on failure; it cannot abort its caller (#966, mirroring the
+# #831 contract fix already applied to coderabbit-wait.sh). Every call
+# site here is a command substitution (`VAR=$(fetch_api_array …)`), so a
+# `die`/`exit` inside this function would kill only that subshell — the
+# assigning statement resumes with an empty string and status 0, and a
+# caller that infers "no results" from emptiness reads a failed API call
+# as a confident negative. `return` carries the SAME status a `die` exit
+# would have produced; the difference is that this function no longer
+# claims a power (aborting the whole script) it does not actually have
+# when called from inside another function. A top-level
+# `VAR=$(fetch_api_array …)` (outside any function) still trips
+# `set -euo pipefail` and exits the script with status 3 — unaffected by
+# this change. A call site INSIDE a function body must propagate the
+# status explicitly (`|| return 3` / `|| die 3 …`); see scan_codex_state
+# below for the call site migrated here. The other in-function site,
+# trigger_ack_present, is deliberately NOT migrated in this change: its
+# unread-vs-absent distinction is the eyes-ack deadline rule, specified
+# and tested as a whole in #987. It keeps the pre-existing behaviour —
+# an unreadable read reads as a missing ack — until then.
+#
+# The two streams are captured SEPARATELY. `gh api` writes diagnostics to
+# stderr on calls that SUCCEED — deprecation notices, retry/backoff
+# chatter, token-scope warnings — so folding stderr into stdout with
+# `2>&1` feeds that prose to the `jq -s` slurp below, which then fails
+# and reports a healthy fetch as an error. That is the same dishonesty
+# this contract fix is about, pointed the other way: a swallowed failure
+# lies about a bad read, a merged stderr stream lies about a good one.
+# Only stdout reaches jq; stderr is kept solely for the diagnostic.
+#
+# That separation, and the algorithm around it, now live in
+# scripts/lib/gh-api-array.sh (#1008). This file's copy was the ONLY one of the
+# eight that had it, so extracting it is what finally gives the other seven the
+# same correction. What stays here is this script's failure ACTION: `return`
+# rather than `die`, per the paragraph above. One behaviour changed in the
+# move and is recorded in the lib's header — an unallocatable stderr capture
+# file now degrades to a less detailed diagnostic instead of failing the read,
+# because the read itself is unaffected by it.
 fetch_api_array() {
-  local endpoint=$1
-  local label=$2
-  local raw
-  raw=$(gh api --paginate "$endpoint" 2>&1) || die 3 "failed to fetch $label: $raw"
-  echo "$raw" | jq -s 'add // []' 2>/dev/null \
-    || die 3 "failed to flatten $label pagination output"
+  gh_api_array "$1" "$2" || {
+    log "ERROR: $GH_API_ARRAY_ERROR"
+    return 3
+  }
 }
 
 # --- Phase 4a entry gate (#486) ---------------------------------------------
@@ -641,10 +718,19 @@ log "ack_wait = ${ACK_WAIT_SECONDS}s    max_ack_retries = $MAX_ACK_RETRIES"
 scan_codex_state() {
   local reviews comments reactions issue_comments review findings reaction verdict blocked
 
-  reviews=$(fetch_api_array "repos/$REPO/pulls/$PR_NUMBER/reviews" "reviews")
-  comments=$(fetch_api_array "repos/$REPO/pulls/$PR_NUMBER/comments" "inline comments")
-  reactions=$(fetch_api_array "repos/$REPO/issues/$PR_NUMBER/reactions" "reactions")
-  issue_comments=$(fetch_api_array "repos/$REPO/issues/$PR_NUMBER/comments" "issue comments")
+  # Each read must propagate fetch_api_array's status explicitly (#966):
+  # scan_codex_state is invoked from every call site as
+  # `VAR=$(scan_codex_state)`, so it runs inside ITS OWN command
+  # substitution subshell — a `die` from within fetch_api_array, called
+  # from in here, would only kill that inner subshell too, leaving these
+  # assignments empty and status 0. `|| return 3` makes the caller's
+  # `if ! scan_codex_state; then die …` guard (below and at every call
+  # site) actually observe the failure instead of relying on the
+  # trailing `jq -n --argjson` emitter to crash on empty input.
+  reviews=$(fetch_api_array "repos/$REPO/pulls/$PR_NUMBER/reviews" "reviews") || return 3
+  comments=$(fetch_api_array "repos/$REPO/pulls/$PR_NUMBER/comments" "inline comments") || return 3
+  reactions=$(fetch_api_array "repos/$REPO/issues/$PR_NUMBER/reactions" "reactions") || return 3
+  issue_comments=$(fetch_api_array "repos/$REPO/issues/$PR_NUMBER/comments" "issue comments") || return 3
 
   # Latest review from the Codex bot on the current HEAD commit, if any.
   # Codex always uses COMMENTED state regardless of findings. We also
@@ -930,13 +1016,110 @@ existing_codex_trigger_on_head() {
   ' >/dev/null 2>&1
 }
 
+# #798: content-fingerprint idempotency for AUTOMATIC callers, alongside the
+# per-HEAD idempotency above. `existing_codex_trigger_on_head` answers "was a
+# trigger already posted for this SHA"; this answers "has Codex already
+# reviewed this CONTENT", which is the question an `update-branch` head raises.
+# `gh pr update-branch` mints a new SHA that changes no file in the PR's own
+# diff, and with `required_status_checks.strict: true` every merge forces one
+# on every other open PR — so a batch of N PRs drew O(N²) review rounds that
+# responded to no code change (#798).
+#
+# OPT-IN, and deliberately so. It applies only when the caller sets
+# MERGEPATH_CODEX_AUTO_TRIGGER=true (or 1) — today that is
+# agent-review.yml's auto-merge job, whose CodeRabbit-wait step reaches this
+# script through coderabbit-wait.sh's #489 rate-limit failover. An agent's own
+# `codex-review-request.sh <PR#> --trigger-only` never sets it and therefore
+# ALWAYS posts, which is what keeps the explicit-invocation requirement
+# (#631/#648) intact: a fix push must re-arm HEAD-anchored clearance, and only
+# a machine-initiated trigger on content nobody changed is suppressible.
+#
+# Honored only under --trigger-only, the shape every automatic caller uses.
+# In full (polling) mode a suppressed trigger would leave the poll loop
+# waiting out `review_timeout_seconds` for a review nobody requested, so the
+# mode that cannot express "no trigger, no wait" simply does not opt in.
+#
+# The decision itself lives in scripts/workflow/codex_auto_trigger_gate.sh so
+# it is directly testable; this is the call site, not the policy. That gate in
+# turn delegates to external_review_carryforward.sh and suppresses only on
+# `carried: true`, so a suppressed head is by construction one whose Codex
+# clearance already carries forward — never one left with no clearance and no
+# caller to re-request it (#798 review). Fail-open on
+# every uncertainty — a missing helper (a consumer mid-sync, or the PR that
+# introduces it), a nonzero exit, unparseable output, or an explicit
+# `trigger:true` all return non-zero here so the trigger is posted.
+AUTO_TRIGGER_SKIP_REASON=""
+auto_trigger_content_free() {
+  case "${MERGEPATH_CODEX_AUTO_TRIGGER:-}" in
+    true|True|TRUE|1) ;;
+    *) return 1 ;;
+  esac
+
+  local gate
+  gate="${MERGEPATH_CODEX_AUTO_TRIGGER_GATE_CMD:-$__CODEX_REQUEST_DIR/workflow/codex_auto_trigger_gate.sh}"
+  if [ ! -f "$gate" ]; then
+    log "auto-trigger gate helper not present at $gate — posting the trigger (fail open)"
+    return 1
+  fi
+
+  local json rc=0
+  # stderr is inherited so the gate's diagnostics stream into this run's log;
+  # only stdout is parsed.
+  json=$(bash "$gate" \
+    --repo "$REPO" \
+    --pr "$PR_NUMBER" \
+    --head "$HEAD_SHA" \
+    --config "$CONFIG" \
+    --bot-login "$BOT_LOGIN") || rc=$?
+  if [ "$rc" -ne 0 ]; then
+    log "auto-trigger gate exited $rc — posting the trigger (fail open)"
+    return 1
+  fi
+
+  local decision
+  decision=$(printf '%s' "$json" | jq -r 'if .trigger == false then "skip" else "post" end' 2>/dev/null) || decision="post"
+  [ "$decision" = "skip" ] || return 1
+
+  AUTO_TRIGGER_SKIP_REASON=$(printf '%s' "$json" | jq -r '.reason // "reviewable content is unchanged"' 2>/dev/null || printf 'reviewable content is unchanged')
+  return 0
+}
+
 reset_review_wait_clock() {
   START_TS=$(date +%s)
   DEADLINE=$((START_TS + TIMEOUT_SECONDS))
   ELAPSED=0
 }
 
+run_feedback_accounting_gate() {
+  local gate output rc=0 posted accounted
+  gate="${MERGEPATH_REVIEW_FEEDBACK_ACCOUNTING_CMD:-$__CODEX_REQUEST_DIR/review-feedback-accounting.sh}"
+  command -v "$gate" >/dev/null 2>&1 \
+    || die 3 "review feedback accounting gate unavailable: $gate"
+
+  output=$("$gate" "$PR_NUMBER" "$REPO") || rc=$?
+  case "$rc" in
+    0)
+      posted=$(printf '%s' "$output" | jq -r '.posted // "?"' 2>/dev/null || printf '?')
+      accounted=$(printf '%s' "$output" | jq -r '.accounted // "?"' 2>/dev/null || printf '?')
+      log "review feedback accounting clear ($accounted/$posted accounted)"
+      ;;
+    1)
+      printf '%s\n' "$output" >&2
+      die 6 "review feedback is unaccounted; disposition every finding before requesting another Codex review"
+      ;;
+    *)
+      printf '%s\n' "$output" >&2
+      die 3 "review feedback accounting gate failed with exit $rc"
+      ;;
+  esac
+}
+
 post_codex_trigger() {
+  # A new review round must not hide findings from an earlier round. This
+  # enumerates both inline and top-level review-body findings and fails before
+  # the author-attributed write when posted != dispositioned (#1000).
+  run_feedback_accounting_gate
+
   # The Codex GitHub App ONLY monitors '@codex review' comments authored
   # by the repo's AUTHOR/human identity (nathanjohnpayne). A trigger
   # posted by a reviewer/bot identity (nathanpayne-claude/-codex/-cursor)
@@ -1015,7 +1198,15 @@ post_codex_trigger() {
   # wall-clock issue on nathanpaynedotcom propagation PR #180 round 4.
   TRIGGER_COMMENT_ID=$(echo "$POST_OUTPUT" | grep -oE 'issuecomment-[0-9]+' | head -1 | sed 's/issuecomment-//' || true)
   if [ -n "$TRIGGER_COMMENT_ID" ]; then
-    TRIGGER_POST_TIME=$(gh api "repos/$REPO/issues/comments/$TRIGGER_COMMENT_ID" --jq '.created_at' 2>/dev/null || true)
+    # #799: the wall-clock fallback immediately below was unreachable on a
+    # failed read. The error body is non-empty, so `[ -z ]` passed and a JSON
+    # blob became TRIGGER_POST_TIME — which is then compared as a STRING
+    # against ISO-8601 comment timestamps, and `{"message":…` sorts above
+    # every `2026-…`, so every Codex response would read as pre-trigger and
+    # the poll would run to timeout. `--shape timestamp` is what makes the
+    # fallback fire rather than merely making the blob emptier.
+    TRIGGER_POST_TIME=$(gh_api_scalar --shape timestamp "trigger comment $TRIGGER_COMMENT_ID timestamp" \
+      "repos/$REPO/issues/comments/$TRIGGER_COMMENT_ID" --jq '.created_at') || TRIGGER_POST_TIME=""
   fi
   if [ -z "$TRIGGER_POST_TIME" ]; then
     # Fallback: local wall-clock minus a 60-second buffer for
@@ -1167,6 +1358,8 @@ if has_cleared_signal "$INITIAL_SCAN"; then
   log "Codex has already cleared on HEAD (reaction, no-blocking-tier review, or affirmative verdict comment) — skipping trigger comment"
 elif [ "$TRIGGER_ONLY" = "true" ] && existing_codex_trigger_on_head; then
   log "trigger-only: @codex review already requested on HEAD — skipping duplicate trigger (idempotent, #489)"
+elif [ "$TRIGGER_ONLY" = "true" ] && auto_trigger_content_free; then
+  log "auto-trigger: $AUTO_TRIGGER_SKIP_REASON — skipping the automatic @codex review (#798)"
 else
   post_codex_trigger
 fi
