@@ -4614,13 +4614,33 @@ body.resume-page {
    header row, mirroring .blog-cta at the end of a post. Parallel namespace,
    not a shared selector: specs/resume.md § Styling keeps the resume off the
    blog's classes so a blog-layout change cannot move it. Red left edge picks
-   up the page accent. Screen-only — see the @media print hide list. */
+   up the page accent. Screen-only — see the @media print hide list.
+
+   The ::before hairline reproduces the .resume-section divider so the card
+   reads as closing the page rather than as an orphan hanging off the Writing
+   essay list. It has to be a pseudo-element: the card's own `border` already
+   draws its box, so a `border-top` here would thicken that edge instead of
+   ruling off the space above it. The 3.7rem margin is the section rhythm
+   (2.1rem above the rule + 1.6rem below it) with the rule pulled up into it.
+   The negative insets reach back over the card's own borders — absolute
+   offsets resolve against the padding box — so the hairline spans the full
+   content column, flush with the section dividers above it. */
 .resume-cta {
-  margin-top: var(--line);
+  position: relative;
+  margin-top: 3.7rem;
   padding: clamp(0.75rem, 1.8vw, 1.1rem) clamp(0.9rem, 2vw, 1.35rem);
   background: var(--paper);
   border: 1px solid var(--rule);
   border-left: var(--line) solid var(--red);
+}
+
+.resume-cta::before {
+  content: '';
+  position: absolute;
+  top: -1.6rem;
+  left: calc(-1 * var(--line));
+  right: -1px;
+  border-top: 1px solid var(--rule);
 }
 
 .resume-cta__line {

@@ -766,6 +766,25 @@ describe('Resume — contact actions', () => {
       ).toBeTruthy();
     });
 
+    it('is ruled off from the Writing section above it', () => {
+      // The card sat flush under the essay list and read as an orphan. The
+      // divider is a ::before rather than a border-top because the card's own
+      // `border` already draws its box — a border-top would thicken that edge
+      // instead of ruling off the space above it.
+      const astroDir = resolve(DIST, '_astro');
+      const css = readdirSync(astroDir)
+        .filter((f) => f.endsWith('.css'))
+        .map((f) => readFileSync(join(astroDir, f), 'utf-8'))
+        .join('\n');
+      // Matched loosely against BUILT css: the minifier collapses ::before to
+      // :before and drops the quotes in content:''.
+      expect(
+        /\.resume-cta::?before[^{]*\{[^}]*border-top:[^};]*var\(--rule\)/.test(css),
+        '.resume-cta has no ::before divider — the CTA will read as an orphan ' +
+          'hanging off the Writing essay list.',
+      ).toBe(true);
+    });
+
     it('is a sibling of the sections, not a section — no id, no ToC entry', () => {
       const cta = document.querySelector('.resume-cta');
       expect(cta.tagName).toBe('ASIDE');
