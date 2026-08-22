@@ -159,6 +159,28 @@ function decodeReference(name) {
   return decodeNamedCharacterReference(name) || null;
 }
 
+function findCharacterSourceOffset(raw, start, character) {
+  for (let cursor = start; cursor < raw.length; cursor += 1) {
+    if (raw.startsWith(character, cursor)) {
+      return cursor;
+    }
+    if (raw[cursor] === '\\' && raw.startsWith(character, cursor + 1)) {
+      return cursor;
+    }
+    if (raw[cursor] === '&') {
+      const semicolon = raw.indexOf(';', cursor);
+      const decoded =
+        semicolon !== -1 && semicolon - cursor <= 32
+          ? decodeReference(raw.slice(cursor + 1, semicolon))
+          : null;
+      if (decoded !== null && [...decoded][0] === character) {
+        return cursor;
+      }
+    }
+  }
+  return null;
+}
+
 // Map each code point of a node's decoded value back to the source span that
 // produced it. The two run at different lengths wherever the source used a
 // character reference or a backslash escape — and a single reference can
@@ -171,6 +193,7 @@ function alignValueToSource(value, raw) {
   const spans = new Array(characters.length);
   let index = 0;
   let cursor = 0;
+  let pendingSoftBreakSpan = null;
 
   while (index < characters.length) {
     if (cursor >= raw.length) {
@@ -179,12 +202,34 @@ function alignValueToSource(value, raw) {
       continue;
     }
 
+    // Markdown continuation syntax is present in the source but absent from
+    // the text node value. Attach that omitted prefix to the preceding soft
+    // break so closing the rendered gap removes the whole continuation rather
+    // than publishing a stray `>` or list prefix.
+    if (pendingSoftBreakSpan !== null) {
+      const nextOffset = findCharacterSourceOffset(raw, cursor, characters[index]);
+      if (nextOffset !== null) {
+        spans[pendingSoftBreakSpan][1] = nextOffset;
+        cursor = nextOffset;
+      }
+      pendingSoftBreakSpan = null;
+    }
+
     // micromark normalizes CRLF soft breaks to `\n` in a text node. Map the
     // normalized character back to both source units or every later span
     // shifts by one and the break itself cannot be removed safely.
     if (characters[index] === '\n' && raw.startsWith('\r\n', cursor)) {
       spans[index] = [cursor, cursor + 2];
       cursor += 2;
+      pendingSoftBreakSpan = index;
+      index += 1;
+      continue;
+    }
+
+    if (characters[index] === '\n' && raw[cursor] === '\n') {
+      spans[index] = [cursor, cursor + 1];
+      cursor += 1;
+      pendingSoftBreakSpan = index;
       index += 1;
       continue;
     }
@@ -271,7 +316,20 @@ const HTML_BREAK_TAG = /^<\/?(?:br|hr)\b/i;
 // Emit one run of visible HTML text, decoding character references so
 // `<div>word &mdash; next</div>` is seen the way it renders. Returns the index
 // just past the run's first character.
-function emitVisibleCharacter(raw, index, start, stream) {
+function emitVisibleCharacter(raw, index, start, stream, preserveWhitespace) {
+  if (preserveWhitespace && /[\t\n\f\r ]/.test(raw[index])) {
+    if (raw.startsWith('\r\n', index)) {
+      pushBoundary(stream);
+      return index + 2;
+    }
+    if (raw[index] === '\n' || raw[index] === '\r') {
+      pushBoundary(stream);
+      return index + 1;
+    }
+    pushCharacter(stream, ' ', [index + start, index + start + 1]);
+    return index + 1;
+  }
+
   // Ordinary HTML collapses a run of ASCII whitespace to one rendered space.
   // Preserve the entire source run as that space's span so `--write` can
   // remove a line break only when the rendered prose rule requires it.
@@ -313,6 +371,10 @@ function emitHtml(node, body, stream, inline) {
   const start = node.position.start.offset;
   const raw = body.slice(start, node.position.end.offset);
   const markup = collectMatchRanges(HTML_MARKUP, raw);
+  const whiteSpaceDeclaration = raw.match(/\bwhite-space\s*:\s*(normal|nowrap|pre|pre-line|pre-wrap|break-spaces)\b/i);
+  const preserveWhitespace = whiteSpaceDeclaration
+    ? !/^(?:normal|nowrap)$/i.test(whiteSpaceDeclaration[1])
+    : /\bclass\s*=/i.test(raw);
 
   if (!inline) {
     pushBoundary(stream);
@@ -334,7 +396,7 @@ function emitHtml(node, body, stream, inline) {
 
     // Raw-text bodies are filtered by the shared protected ranges in
     // pushCharacter, so they need no special case here.
-    index = emitVisibleCharacter(raw, index, start, stream);
+    index = emitVisibleCharacter(raw, index, start, stream, preserveWhitespace);
   }
 
   if (!inline) {
@@ -822,7 +884,7 @@ function yamlViolations(source, end) {
   const exceptionRanges = collectMatchRanges(IDENTIFIER_LABEL_EXCEPTION, source);
   const violations = [];
   let lineStart = 0;
-  let blockScalarIndent = null;
+  let blockScalar = null;
 
   while (lineStart < end) {
     const newline = source.indexOf('\n', lineStart);
@@ -831,10 +893,19 @@ function yamlViolations(source, end) {
 
     // A block scalar runs until a non-blank line dedents back to its opener.
     const isBlank = line.trim() === '';
-    if (blockScalarIndent !== null && !isBlank && indentOf(line) <= blockScalarIndent) {
-      blockScalarIndent = null;
+    if (
+      blockScalar !== null &&
+      !isBlank &&
+      (indentOf(line) <= blockScalar.openerIndent ||
+        (blockScalar.contentIndent !== null && indentOf(line) < blockScalar.contentIndent))
+    ) {
+      blockScalar = null;
     }
-    const inBlockScalar = blockScalarIndent !== null;
+    const inBlockScalar = blockScalar !== null;
+
+    if (inBlockScalar && !isBlank && blockScalar.contentIndent === null) {
+      blockScalar.contentIndent = indentOf(line);
+    }
 
     if (!inBlockScalar && !isBlank) {
       const opener = blockScalarOpenerOf(line);
@@ -874,7 +945,9 @@ function yamlViolations(source, end) {
         continue;
       }
 
-      blockScalarIndent = opener ? opener.indent : null;
+      blockScalar = opener
+        ? { openerIndent: opener.indent, contentIndent: opener.contentIndent }
+        : null;
     }
 
     // Inside a block scalar the whole line is literal content: no comment to
@@ -914,7 +987,7 @@ function yamlViolations(source, end) {
 
       if (closeOffset !== -1) {
         // Anything before the opening quote is ordinary YAML and still scanned.
-        violations.push(...lineViolations(source, lineStart, openOffset, false, exceptionRanges));
+        violations.push(...lineViolations(source, lineStart, openOffset, null, exceptionRanges));
         violations.push(...flowScalarViolations(source, openOffset + 1, closeOffset, exceptionRanges));
         lineStart = cursor;
         continue;
@@ -922,7 +995,15 @@ function yamlViolations(source, end) {
       // Unterminated quote: fall through to the ordinary per-line scan.
     }
 
-    violations.push(...lineViolations(source, lineStart, scanEnd, inBlockScalar, exceptionRanges));
+    violations.push(
+      ...lineViolations(
+        source,
+        lineStart,
+        scanEnd,
+        inBlockScalar ? blockScalar.contentIndent : null,
+        exceptionRanges,
+      ),
+    );
     lineStart = lineEnd + 1;
   }
 
@@ -931,7 +1012,7 @@ function yamlViolations(source, end) {
 
 // Padded dashes on a single physical YAML line, between `lineStart` and
 // `scanEnd`.
-function lineViolations(source, lineStart, scanEnd, inBlockScalar, exceptionRanges) {
+function lineViolations(source, lineStart, scanEnd, blockScalarContentIndent, exceptionRanges) {
   const violations = [];
   const line = source.slice(lineStart, scanEnd);
 
@@ -944,10 +1025,15 @@ function lineViolations(source, lineStart, scanEnd, inBlockScalar, exceptionRang
     }
 
     // Whitespace after `key:` or a sequence `-` is YAML syntax.
+    const inBlockScalar = blockScalarContentIndent !== null;
     const prefixIsStructural = inBlockScalar
       ? /^[\p{Zs}\t]*$/u.test(source.slice(lineStart, dashOffset))
       : YAML_VALUE_PREFIX.test(source.slice(lineStart, absoluteStart));
-    const paddingStart = prefixIsStructural ? dashOffset : absoluteStart;
+    const paddingStart = prefixIsStructural
+      ? inBlockScalar
+        ? Math.min(lineStart + blockScalarContentIndent, dashOffset)
+        : dashOffset
+      : absoluteStart;
 
     // Whitespace running to the end of the scannable region is not rendered
     // padding: YAML strips trailing whitespace from a scalar. It is also the

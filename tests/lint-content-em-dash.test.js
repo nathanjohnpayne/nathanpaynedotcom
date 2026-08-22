@@ -737,6 +737,13 @@ describe('content em-dash lint', () => {
     expect(closeUpSpacedEmDashesInText(source)).toBe('word—continuation');
   });
 
+  it('removes Markdown continuation prefixes with a CRLF soft break', () => {
+    const source = '> word—\r\n> continuation';
+
+    expect(findSpacedEmDashViolations('/tmp/test.md', source)).toHaveLength(1);
+    expect(closeUpSpacedEmDashesInText(source)).toBe('> word—continuation');
+  });
+
   it('does not corrupt a character reference before a padded dash', () => {
     const source = 'word &amp; — next';
 
@@ -753,6 +760,24 @@ describe('content em-dash lint', () => {
     );
   });
 
+  it('removes only visible padding beyond explicit block-scalar indentation', () => {
+    const source = 'description: |2\n    — leading\n';
+
+    expect(findSpacedEmDashViolations('/tmp/skills.yaml', source)).toHaveLength(1);
+    expect(closeUpSpacedEmDashesInText(source, '/tmp/skills.yaml')).toBe(
+      'description: |2\n  —leading\n',
+    );
+  });
+
+  it('removes visible padding from a later more-indented block-scalar line', () => {
+    const source = 'description: |2\n  first\n    — leading\n';
+
+    expect(findSpacedEmDashViolations('/tmp/skills.yaml', source)).toHaveLength(1);
+    expect(closeUpSpacedEmDashesInText(source, '/tmp/skills.yaml')).toBe(
+      'description: |2\n  first\n  —leading\n',
+    );
+  });
+
   it('does not let a raw-text opener inside code suppress later prose', () => {
     const source = '`sample <pre>` prose — here';
 
@@ -765,5 +790,23 @@ describe('content em-dash lint', () => {
 
     expect(findSpacedEmDashViolations('/tmp/test.md', source)).toHaveLength(1);
     expect(closeUpSpacedEmDashesInText(source)).toBe('<div>word—next</div>');
+  });
+
+  it('preserves raw HTML newlines when an inline style preserves whitespace', () => {
+    const source = '<div style="white-space: pre">word\n— next</div>';
+
+    expect(findSpacedEmDashViolations('/tmp/test.md', source)).toHaveLength(1);
+    expect(closeUpSpacedEmDashesInText(source)).toBe(
+      '<div style="white-space: pre">word\n—next</div>',
+    );
+  });
+
+  it('preserves raw HTML newlines when a class may preserve inherited whitespace', () => {
+    const source = '<div class="preserve-whitespace">word\n— next</div>';
+
+    expect(findSpacedEmDashViolations('/tmp/test.md', source)).toHaveLength(1);
+    expect(closeUpSpacedEmDashesInText(source)).toBe(
+      '<div class="preserve-whitespace">word\n—next</div>',
+    );
   });
 });
