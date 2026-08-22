@@ -554,8 +554,14 @@ function scanYamlLine(line, openQuote = null) {
       if (character === '\\' && quote === '"') {
         index += 1;
       } else if (character === quote) {
-        quote = null;
-        quoteStart = -1;
+        // In a single-quoted scalar `''` is an escaped apostrophe, not the
+        // closing delimiter.
+        if (quote === "'" && line[index + 1] === "'") {
+          index += 1;
+        } else {
+          quote = null;
+          quoteStart = -1;
+        }
       }
       continue;
     }
@@ -582,6 +588,11 @@ function closeQuoteIndex(line, quote) {
       continue;
     }
     if (line[index] === quote) {
+      // `''` inside a single-quoted scalar is an escaped apostrophe.
+      if (quote === "'" && line[index + 1] === "'") {
+        index += 1;
+        continue;
+      }
       return index;
     }
   }
@@ -773,7 +784,16 @@ function yamlViolations(source, end) {
     // A quote still open at end of line means the scalar continues onto the
     // next one, where YAML folds the break into a space. Hand the whole scalar
     // to the folding scanner and consume its lines here.
-    if (!inBlockScalar && scan.quote && scan.quoteStart !== -1) {
+    // Only when the quote is the value's opening delimiter. A quote appearing
+    // after plain-scalar content (`title: He said "word`) is an ordinary
+    // character, and treating it as a scalar opener would let the fixer join
+    // two mapping entries into one.
+    if (
+      !inBlockScalar &&
+      scan.quote &&
+      scan.quoteStart !== -1 &&
+      YAML_VALUE_PREFIX.test(line.slice(0, scan.quoteStart))
+    ) {
       const openOffset = lineStart + scan.quoteStart;
       let cursor = lineEnd + 1;
       let closeOffset = -1;

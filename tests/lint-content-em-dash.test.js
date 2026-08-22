@@ -671,6 +671,32 @@ describe('content em-dash lint', () => {
     expect(closeUpSpacedEmDashesInText(source, '/tmp/skills.yaml')).toBe('title: "word—next\n');
   });
 
+  it('does not treat a quote inside a plain scalar as a scalar opener', () => {
+    // These are two mapping entries; joining them would destroy `description`.
+    const source = 'title: He said "word—\ndescription: next"\n';
+
+    expect(findSpacedEmDashViolations('/tmp/skills.yaml', source)).toHaveLength(0);
+    expect(closeUpSpacedEmDashesInText(source, '/tmp/skills.yaml')).toBe(source);
+  });
+
+  it('reads a doubled apostrophe as an escape, not a closing quote', () => {
+    const source = "title: 'first\n  it''s — next'\n";
+
+    expect(findSpacedEmDashViolations('/tmp/skills.yaml', source)).toHaveLength(1);
+    expect(closeUpSpacedEmDashesInText(source, '/tmp/skills.yaml')).toBe(
+      "title: 'first\n  it''s—next'\n",
+    );
+  });
+
+  it('folds a multiline scalar under a sequence item', () => {
+    const source = 'items:\n  - "word—\n    continuation"\n';
+
+    expect(findSpacedEmDashViolations('/tmp/skills.yaml', source)).toHaveLength(1);
+    expect(closeUpSpacedEmDashesInText(source, '/tmp/skills.yaml')).toBe(
+      'items:\n  - "word—continuation"\n',
+    );
+  });
+
   it('preserves CRLF line endings through a fix pass', () => {
     const source = 'prose — one.\r\nprose — two.\r\n';
 
