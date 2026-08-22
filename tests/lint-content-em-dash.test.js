@@ -699,6 +699,47 @@ describe('content em-dash lint', () => {
     expect(findSpacedEmDashViolations('/tmp/test.md', source)).toHaveLength(1);
   });
 
+  it('ignores CSS comments when picking the effective white-space', () => {
+    // CSS ignores the comment, so `pre` wins and the newline renders.
+    const commented =
+      '<div style="white-space: normal; /* note */ white-space: pre">word\n— next</div>';
+    expect(closeUpSpacedEmDashesInText(commented)).toBe(
+      '<div style="white-space: normal; /* note */ white-space: pre">word\n—next</div>',
+    );
+
+    // A comment may contain a `;` that would otherwise split the declaration.
+    const withSemicolon = '<div style="white-space: pre; /* a; b */">word\n— next</div>';
+    expect(closeUpSpacedEmDashesInText(withSemicolon)).toBe(
+      '<div style="white-space: pre; /* a; b */">word\n—next</div>',
+    );
+
+    // An unterminated comment comments out the rest of the attribute.
+    const unterminated = '<div style="white-space: pre; /* oops">word\n— next</div>';
+    expect(closeUpSpacedEmDashesInText(unterminated)).toBe(
+      '<div style="white-space: pre; /* oops">word\n—next</div>',
+    );
+  });
+
+  it('fails closed on text a table would foster-parent', () => {
+    // Tree construction moves this text before the table, where it inherits
+    // the div's `pre`, not the table's `normal`.
+    const fostered =
+      '<div style="white-space: pre"><table style="white-space: normal">word\n— next</table></div>';
+    expect(closeUpSpacedEmDashesInText(fostered)).toBe(
+      '<div style="white-space: pre"><table style="white-space: normal">word\n—next</table></div>',
+    );
+  });
+
+  it('still uses the real context for text inside a cell', () => {
+    // Text in a `td` is not foster-parented, so the cell's `normal` applies
+    // and the break does collapse.
+    const inCell =
+      '<div style="white-space: pre"><table><td style="white-space: normal">word\n— next</td></table></div>';
+    expect(closeUpSpacedEmDashesInText(inCell)).toBe(
+      '<div style="white-space: pre"><table><td style="white-space: normal">word—next</td></table></div>',
+    );
+  });
+
   it('preserves CRLF line endings through a fix pass', () => {
     const source = 'prose — one.\r\nprose — two.\r\n';
 

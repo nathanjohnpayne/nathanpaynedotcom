@@ -412,6 +412,29 @@ function emitVisibleCharacter(raw, index, start, stream, preserveWhitespace) {
   return index + 1;
 }
 
+// Table elements whose direct text content the HTML tree builder relocates.
+const HTML_TABLE_SECTIONS = new Set(['table', 'thead', 'tbody', 'tfoot', 'tr']);
+// Inside these, text is kept in place and the surrounding context is real.
+const HTML_TABLE_TEXT_PARENTS = new Set(['td', 'th', 'caption']);
+
+// Text sitting inside a table but outside a cell is foster-parented: tree
+// construction moves it to just before the table, where it inherits the
+// table's PARENT white-space context rather than the table's own. Modelling
+// that faithfully means modelling tree construction, so treat the context as
+// unknown and never delete a rendered break there.
+function isFosterParentedContext(contexts) {
+  for (let index = contexts.length - 1; index >= 0; index -= 1) {
+    const { name } = contexts[index];
+    if (HTML_TABLE_TEXT_PARENTS.has(name)) {
+      return false;
+    }
+    if (HTML_TABLE_SECTIONS.has(name)) {
+      return true;
+    }
+  }
+  return false;
+}
+
 function inlineWhiteSpaceMode(tag) {
   const styleAttribute = tag.match(
     /(?:^|[\t\n\f\r ])style\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/i,
@@ -421,7 +444,12 @@ function inlineWhiteSpaceMode(tag) {
     return null;
   }
 
-  const declarations = style
+  // CSS ignores comments, and a comment may legally contain a `;` that would
+  // otherwise split one declaration into two. An unterminated `/*` comments out
+  // the remainder of the attribute.
+  const uncommented = style.replace(/\/\*[\s\S]*?\*\//g, ' ').split('/*')[0];
+
+  const declarations = uncommented
     .split(';')
     .map((declaration) =>
       declaration.match(/^\s*white-space\s*:\s*(.+?)\s*(!important)?\s*$/i),
@@ -632,7 +660,13 @@ function emitHtml(node, body, stream, inline) {
 
     // Raw-text bodies are filtered by the shared protected ranges in
     // pushCharacter, so they need no special case here.
-    index = emitVisibleCharacter(raw, index, start, stream, preserveWhitespace);
+    index = emitVisibleCharacter(
+      raw,
+      index,
+      start,
+      stream,
+      preserveWhitespace || isFosterParentedContext(whitespaceContexts),
+    );
   }
 
   if (!inline) {
