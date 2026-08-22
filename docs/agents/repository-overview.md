@@ -51,8 +51,9 @@ src/
   layouts/                  Layout components (BaseLayout, BlogPost, ProjectLayout, OgCard)
   content/blog/             Markdown blog post source files
   content/projects/         Markdown project source files (content collection)
-  content/{bio,myself,experience,education,skills,awards,certifications,resume}/
-                            Homepage and resume content collections
+  content/{bio,myself,experience,education,skills,certifications,resume}/
+                            Active homepage and resume content collections
+  content/awards/           Dormant resume scaffold; register the collection and restore page wiring when the first real entry lands
   components/               Astro components (ProjectHero, MetadataStrip)
   content.config.ts         Content Collections schema (Zod)
   styles/global.css         Global stylesheet (design tokens, grid, motion, responsive)

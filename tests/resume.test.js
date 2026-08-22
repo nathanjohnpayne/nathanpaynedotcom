@@ -1,6 +1,15 @@
 import { describe, it, expect, beforeEach, beforeAll } from 'vitest';
-import { existsSync, readFileSync, readdirSync } from 'fs';
+import {
+  existsSync,
+  readFileSync,
+  readdirSync,
+  mkdtempSync,
+  mkdirSync,
+  writeFileSync,
+  rmSync,
+} from 'fs';
 import { resolve, join } from 'path';
+import { tmpdir } from 'os';
 import { writeSanitizedDOM } from './helpers/dom.js';
 
 // Smoke tests for the content-collection-driven /resume page.
@@ -27,6 +36,14 @@ function countMd(dir) {
   return readdirSync(join(CONTENT, dir)).filter((f) => f.endsWith('.md')).length;
 }
 
+function findContentEntries(dir) {
+  return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
+    const entryPath = join(dir, entry.name);
+    if (entry.isDirectory()) return findContentEntries(entryPath);
+    return /\.(md|ya?ml)$/.test(entry.name) ? [entryPath] : [];
+  });
+}
+
 describe('Resume — route & build', () => {
   it('builds a static HTML file at dist/resume/index.html', () => {
     expect(existsSync(RESUME_HTML), 'missing dist/resume/index.html').toBe(true);
@@ -49,9 +66,7 @@ describe('Resume — route & build', () => {
   });
 
   it('keeps the empty awards scaffold dormant until there is content to load', () => {
-    const awardEntries = readdirSync(join(CONTENT, 'awards')).filter((file) =>
-      /\.(md|ya?ml)$/.test(file),
-    );
+    const awardEntries = findContentEntries(join(CONTENT, 'awards'));
     const config = readFileSync(resolve(__dirname, '../src/content.config.ts'), 'utf-8');
     const page = readFileSync(resolve(__dirname, '../src/pages/resume.astro'), 'utf-8');
 
@@ -65,6 +80,18 @@ describe('Resume — route & build', () => {
       "import AwardsSection from '../components/resume/AwardsSection.astro'",
     );
     expect(page).not.toContain('<AwardsSection');
+  });
+
+  it('detects nested award content before allowing the scaffold to stay dormant', () => {
+    const fixtureRoot = mkdtempSync(join(tmpdir(), 'awards-scaffold-'));
+    try {
+      const nestedDir = join(fixtureRoot, 'hackathons');
+      mkdirSync(nestedDir);
+      writeFileSync(join(nestedDir, 'winner.md'), '---\nname: Winner\n---\n');
+      expect(findContentEntries(fixtureRoot)).toHaveLength(1);
+    } finally {
+      rmSync(fixtureRoot, { recursive: true, force: true });
+    }
   });
 });
 
@@ -520,7 +547,9 @@ describe('Resume — downloadable PDF', () => {
     });
 
     it('never points a link at the localhost render origin', () => {
-      const localhost = pdfLinkUris().filter((uri) => /^https?:\/\/(127\.0\.0\.1|localhost)/i.test(uri));
+      const localhost = pdfLinkUris().filter((uri) =>
+        /^https?:\/\/(127\.0\.0\.1|localhost)/i.test(uri),
+      );
       expect(
         localhost,
         `the PDF links to the build machine's static server. src/integrations/` +
