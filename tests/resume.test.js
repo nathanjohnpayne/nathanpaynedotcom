@@ -722,6 +722,10 @@ describe('Resume — contact actions', () => {
       'utf-8',
     );
 
+    /**
+     * The subpath elements of one named glyph, normalized to `tag attrs` so a
+     * mismatch reports which subpath drifted rather than a whole-SVG diff.
+     */
     function subpathsFor(name) {
       const start = ICON_SRC.indexOf(`{name === '${name}' &&`);
       expect(start, `no '${name}' case in ContactIcon.astro`).toBeGreaterThan(-1);
@@ -789,6 +793,7 @@ describe('Resume — contact actions', () => {
   });
 
   describe('none of it reaches paper', () => {
+    /** Every emitted stylesheet's `@media print` block, from the rule onward. */
     function printBlocks() {
       const astroDir = resolve(DIST, '_astro');
       return readdirSync(astroDir)
