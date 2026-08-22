@@ -2,11 +2,12 @@ import { visit } from 'unist-util-visit';
 
 /**
  * Remark plugin that converts documented ```mermaid code fences into an
- * accessible figure containing the <pre class="mermaid"> used for client-side
- * rendering by Mermaid.js.
+ * accessible figure containing the intermediate <pre class="mermaid"> consumed
+ * by the build-time Mermaid pass in src/integrations/og-images.mjs.
  *
- * The mermaid code is passed through as-is — the Mermaid.js library handles
- * parsing, layout, and SVG rendering in the browser.
+ * The Mermaid source is passed through as-is. A build hook renders it with the
+ * pinned local Mermaid dependency and replaces the pre with inline SVG before
+ * anything is deployed.
  */
 export default function remarkMermaid() {
   return (tree) => {

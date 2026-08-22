@@ -645,6 +645,204 @@ describe('Resume — downloadable PDF', () => {
 });
 
 /**
+ * Header action row (#703), the Lucide download glyph (#704), and the
+ * end-of-page availability CTA (#702).
+ *
+ * The through-line for all three is that none of them may reach paper. The
+ * downloadable PDF is rendered from this page's own `@media print` cascade
+ * (`emulateMedia({ media: 'print' })` in src/integrations/resume-pdf.mjs), so
+ * a screen-only affordance is screen-only in the PDF too — but only as long
+ * as the print hide list keeps up with the markup. These assert the file, not
+ * the intent.
+ */
+describe('Resume — contact actions', () => {
+  const CAL_URL = 'https://cal.com/nathanpayne';
+  const BOOKING_HOST = new URL(CAL_URL).host;
+  /** Parsed host of a URL, or '' for a non-URL (mailto:, a relative path). */
+  function hostOf(url) {
+    try {
+      return new URL(url).host;
+    } catch {
+      return '';
+    }
+  }
+  // Distinguishes the two action mailtos from the header contact line's bare
+  // `mailto:hire@nathanpayne.com`, which is content and does print.
+  const ACTION_SUBJECT = 'subject=';
+
+  beforeEach(() => {
+    setupDOM(readDist('resume/index.html'));
+  });
+
+  describe('header action row', () => {
+    it('renders exactly three actions, in order, under the contact block', () => {
+      const header = document.querySelector('.resume-canvas-header');
+      const actions = Array.from(header.querySelectorAll('.resume-actions .resume-action'));
+      expect(actions.map((a) => a.textContent.replace(/\s+/g, ' ').trim())).toEqual([
+        'Download PDF',
+        'Get in touch',
+        'Book a time',
+      ]);
+      const contact = header.querySelector('.resume-contact--profiles');
+      expect(
+        contact.compareDocumentPosition(actions[0]) & Node.DOCUMENT_POSITION_FOLLOWING,
+        'the action row should follow the contact block',
+      ).toBeTruthy();
+    });
+
+    it('points the two new actions at a mailto and the booking page', () => {
+      const [, email, booking] = Array.from(document.querySelectorAll('.resume-action'));
+      expect(email.getAttribute('href')).toMatch(/^mailto:[^@]+@[^?]+\?subject=/);
+      expect(booking.getAttribute('href')).toBe(CAL_URL);
+      // External link convention (docs/agents/code-modification-rules.md).
+      expect(booking.getAttribute('target')).toBe('_blank');
+      expect(booking.getAttribute('rel')).toBe('noopener');
+    });
+
+    it('gives every action a decorative icon and an accessible text name', () => {
+      for (const action of document.querySelectorAll('.resume-action')) {
+        const icon = action.querySelector('svg.contact-icon');
+        expect(icon, `no .contact-icon in "${action.textContent.trim()}"`).not.toBeNull();
+        expect(icon.getAttribute('aria-hidden'), 'the glyph must stay decorative').toBe('true');
+        expect(
+          action.textContent.trim().length,
+          'the link text is the accessible name',
+        ).toBeGreaterThan(0);
+      }
+    });
+  });
+
+  describe('Lucide glyph provenance', () => {
+    // Source-level, not DOM-level: the point of #704 is that the committed
+    // path data is byte-identical to upstream, so a drift check is a string
+    // comparison. Upstream:
+    //   lucide-icons/lucide@main/icons/{download,calendar}.svg
+    const ICON_SRC = readFileSync(
+      resolve(__dirname, '../src/components/resume/ContactIcon.astro'),
+      'utf-8',
+    );
+
+    /**
+     * The subpath elements of one named glyph, normalized to `tag attrs` so a
+     * mismatch reports which subpath drifted rather than a whole-SVG diff.
+     */
+    function subpathsFor(name) {
+      const start = ICON_SRC.indexOf(`{name === '${name}' &&`);
+      expect(start, `no '${name}' case in ContactIcon.astro`).toBeGreaterThan(-1);
+      const block = ICON_SRC.slice(start, ICON_SRC.indexOf('</svg>', start));
+      return [...block.matchAll(/<(path|rect|circle)\b([^>]*)>/g)].map(
+        (m) => `${m[1]}${m[2].replace(/\s+/g, ' ').trimEnd()}`,
+      );
+    }
+
+    it('carries Lucide download verbatim', () => {
+      expect(subpathsFor('download')).toEqual([
+        'path d="M12 15V3"',
+        'path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"',
+        'path d="m7 10 5 5 5-5"',
+      ]);
+    });
+
+    it('carries Lucide calendar verbatim', () => {
+      expect(subpathsFor('calendar')).toEqual([
+        'path d="M8 2v3"',
+        'path d="M16 2v3"',
+        'rect x="3" y="3" width="18" height="18" rx="2"',
+        'path d="M3 9h18"',
+      ]);
+    });
+  });
+
+  describe('end-of-page availability CTA', () => {
+    it('closes the content column, after the Writing section', () => {
+      const content = document.querySelector('.resume-canvas-content');
+      const cta = content.querySelector('.resume-cta');
+      expect(cta, 'no .resume-cta in the content column').not.toBeNull();
+      expect(content.lastElementChild, '.resume-cta should close the column').toBe(cta);
+      const writing = content.querySelector('#writing');
+      expect(
+        writing.compareDocumentPosition(cta) & Node.DOCUMENT_POSITION_FOLLOWING,
+        'the CTA should follow the Writing section',
+      ).toBeTruthy();
+    });
+
+    it('is a sibling of the sections, not a section — no id, no ToC entry', () => {
+      const cta = document.querySelector('.resume-cta');
+      expect(cta.tagName).toBe('ASIDE');
+      expect(cta.hasAttribute('id'), 'the CTA must not claim a ToC anchor').toBe(false);
+      const tocHrefs = Array.from(document.querySelectorAll('.resume-canvas-toc-list a')).map((a) =>
+        a.getAttribute('href'),
+      );
+      expect(tocHrefs).not.toContain('#cta');
+    });
+
+    it('offers exactly two links and never self-links back to /resume/', () => {
+      const links = Array.from(document.querySelectorAll('.resume-cta a'));
+      expect(links.map((a) => a.textContent.replace(/\s+/g, ' ').replace(/→/g, '').trim())).toEqual(
+        ['Get in touch', 'Book a time'],
+      );
+      // The blog's version of this block carries a Résumé link (#622). On the
+      // résumé itself that link is a loop, and dropping it is the whole point
+      // of #702 — assert it stays dropped.
+      for (const a of links) {
+        expect(a.getAttribute('href'), 'the CTA must not link back to /resume/').not.toMatch(
+          /\/resume\/?$/,
+        );
+      }
+    });
+  });
+
+  describe('none of it reaches paper', () => {
+    /** Every emitted stylesheet's `@media print` block, from the rule onward. */
+    function printBlocks() {
+      const astroDir = resolve(DIST, '_astro');
+      return readdirSync(astroDir)
+        .filter((f) => f.endsWith('.css'))
+        .map((f) => readFileSync(join(astroDir, f), 'utf-8'))
+        .filter((css) => css.includes('@media print'))
+        .map((css) => css.slice(css.indexOf('@media print')));
+    }
+
+    it('hides .resume-cta inside @media print', () => {
+      const blocks = printBlocks();
+      expect(blocks.length, 'no emitted stylesheet has an @media print block').toBeGreaterThan(0);
+      expect(
+        blocks.some((b) => /\.resume-cta[^{]*\{[^}]*display:\s*none/.test(b)),
+        '.resume-cta is not hidden inside @media print — the availability CTA ' +
+          'will print, and will land in Nathan-Payne-Resume.pdf (#702).',
+      ).toBe(true);
+    });
+
+    it('leaves no booking or action-mailto link annotation in the generated PDF', () => {
+      // The PDF's text is inside compressed content streams, but Chromium
+      // writes link annotations in the clear — so the cheapest proof that a
+      // screen-only affordance stayed off paper is that its href never became
+      // a /URI. See the 'link annotations' block above for the same technique.
+      const raw = readFileSync(resolve(DIST, 'Nathan-Payne-Resume.pdf')).toString('latin1');
+      const uris = [...raw.matchAll(/\/URI\s*\(([^)]*)\)/g)].map((m) => m[1]);
+      expect(uris.length, 'no /URI annotations found in the PDF').toBeGreaterThan(0);
+      expect(
+        // Host equality, not a substring test: `u.includes('cal.com')` also
+        // matches https://cal.com.evil.example/ and https://evil.example/cal.com,
+        // which CodeQL flags as js/incomplete-url-substring-sanitization.
+        uris.filter((u) => hostOf(u) === BOOKING_HOST),
+        'the booking link reached the PDF — check the @media print hide list',
+      ).toEqual([]);
+      expect(
+        uris.filter((u) => u.startsWith('mailto:') && u.includes(ACTION_SUBJECT)),
+        'an action mailto reached the PDF; only the bare contact-line address ' + 'should print',
+      ).toEqual([]);
+      // Positive control: the contact line's own address must still print, or
+      // this test would pass on a PDF that lost the contact block entirely.
+      expect(
+        uris.some((u) => u.startsWith('mailto:') && !u.includes(ACTION_SUBJECT)),
+        'the header contact mailto is missing from the PDF',
+      ).toBe(true);
+    });
+  });
+});
+
+/**
  * Top-of-resume skim (#617) and pre-2016 density (#618).
  */
 describe('Resume — skim weighting', () => {

@@ -58,6 +58,9 @@ const blogPostLayoutSrc = readFileSync(
   resolve(__dirname, '../src/layouts/BlogPost.astro'),
   'utf-8',
 );
+// Resume events live in the page itself rather than a layout, so they are
+// asserted against that page's SOURCE for the same reason (#702, #703).
+const resumePageSrc = readFileSync(resolve(__dirname, '../src/pages/resume.astro'), 'utf-8');
 
 // Flush a macrotask so queued MutationObserver callbacks have run.
 const tick = () => new Promise((resolve) => setTimeout(resolve, 0));
@@ -285,6 +288,26 @@ describe('PostHog', () => {
     for (const evt of ['blog_post_viewed', 'blog_cta_clicked', 'blog_post_nav_clicked']) {
       expect(blogPostLayoutSrc).toContain(`capture('${evt}'`);
     }
+  });
+
+  it('wires the resume events', () => {
+    // Same registry contract as the blog events above: a shipped event with no
+    // row in specs/analytics.md § Events is the thing this guards against.
+    for (const evt of [
+      'resume_viewed',
+      'resume_pdf_downloaded',
+      'resume_action_clicked',
+      'resume_cta_clicked',
+    ]) {
+      expect(resumePageSrc).toContain(`capture('${evt}'`);
+    }
+  });
+
+  it('keeps the resume PDF download on its own event name', () => {
+    // The download predates the action row (#616) and existing insights key
+    // off `resume_pdf_downloaded`, so it must NOT be folded into the shared
+    // `resume_action_clicked` capture when the row grew (#703).
+    expect(resumePageSrc).toMatch(/action === 'download'[\s\S]{0,120}resume_pdf_downloaded/);
   });
 
   it('captures homepage_panel_opened when a panel gains focus', async () => {
