@@ -198,6 +198,27 @@ describe('content em-dash lint', () => {
     expect(findSpacedEmDashViolations('/tmp/test.md', source)).toHaveLength(1);
   });
 
+  it('catches one-sided spacing on either side of the dash', () => {
+    expect(findSpacedEmDashViolations('/tmp/test.md', 'word —next')).toHaveLength(1);
+    expect(findSpacedEmDashViolations('/tmp/test.md', 'word— next')).toHaveLength(1);
+    expect(closeUpSpacedEmDashesInText('word —next')).toBe('word—next');
+    expect(closeUpSpacedEmDashesInText('word— next')).toBe('word—next');
+  });
+
+  it('catches tab padding around the dash', () => {
+    const source = 'word\t—\tnext';
+
+    expect(findSpacedEmDashViolations('/tmp/test.md', source)).toHaveLength(1);
+    expect(closeUpSpacedEmDashesInText(source)).toBe('word—next');
+  });
+
+  it('leaves an already-correct em dash alone', () => {
+    const source = 'word—next, and a lone — is only flagged when padded.';
+
+    expect(findSpacedEmDashViolations('/tmp/test.md', source)).toHaveLength(1);
+    expect(closeUpSpacedEmDashesInText('word—next.')).toBe('word—next.');
+  });
+
   it('preserves CRLF line endings through a fix pass', () => {
     const source = 'prose — one.\r\nprose — two.\r\n';
 

@@ -6,17 +6,23 @@ import { fromMarkdown } from 'mdast-util-from-markdown';
 import { visit } from 'unist-util-visit';
 
 const CONTENT_ROOT = resolve(process.cwd(), 'src/content');
-const TARGET_EXTENSIONS = new Set(['.md', '.mdx']);
+// `.md` only. The body is parsed as plain CommonMark, which does not
+// recognize MDX expressions or JSX, so an `.mdx` file would have its embedded
+// code read as prose and potentially rewritten. Adding `.mdx` back requires an
+// MDX-aware parser that can exclude expression and JSX node spans.
+const TARGET_EXTENSIONS = new Set(['.md']);
 
-// A spaced em dash, padded by one or more spaces on each side. Matching the
-// whole padding run means `word  —  next` collapses in a single pass instead
-// of leaving a violation behind for the next lint run.
-const SPACED_EM_DASH = / +— +/g;
+// An em dash carrying any horizontal padding on either side. Matching the
+// whole padding run catches one-sided spacing (`word —next`), tabs, and
+// multi-space padding, and collapses each in a single pass instead of leaving
+// a violation behind for the next lint run. A bare `—` matches with zero
+// padding and is filtered out below.
+const PADDED_EM_DASH = /[ \t]*—[ \t]*/g;
 
 // `[DST-047 — Title]` keeps its separator: the dash after the identifier is a
 // delimiter, not prose punctuation. The match deliberately stops at the
 // separator, so any *later* dash in the same label is still linted.
-const IDENTIFIER_LABEL_EXCEPTION = /\[[A-Z]{2,}[A-Z0-9_-]*-\d+\s+—\s+/g;
+const IDENTIFIER_LABEL_EXCEPTION = /\[[A-Z]{2,}[A-Z0-9_-]*-\d+[ \t]+—[ \t]+/g;
 
 // Frontmatter is YAML rather than Markdown, but it carries published prose
 // (titles, card copy, pull quotes), so it is scanned as plain text. Only the
@@ -80,8 +86,10 @@ function collectViolationRanges(source) {
   const nonProseRanges = collectNonProseRanges(source);
   const exceptionRanges = collectMatchRanges(IDENTIFIER_LABEL_EXCEPTION, source);
 
-  return collectMatchRanges(SPACED_EM_DASH, source).filter(
+  return collectMatchRanges(PADDED_EM_DASH, source).filter(
     ([start, end]) =>
+      // A dash with no padding at all is already correct.
+      end - start > 1 &&
       !overlapsAnyRange(start, end, nonProseRanges) &&
       !isInsideAnyRange(start, end, exceptionRanges),
   );
