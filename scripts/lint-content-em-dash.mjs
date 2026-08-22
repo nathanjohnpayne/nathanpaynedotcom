@@ -405,8 +405,12 @@ function emitNode(node, body, stream, inline = false) {
   }
 
   // A definition's title publishes wherever its reference is used, so it is
-  // scanned like an inline link title.
-  if (node.type === 'link' || node.type === 'linkReference' || node.type === 'definition') {
+  // scanned like an inline link title — but only the definition that actually
+  // resolves.
+  const isEffectiveDefinition =
+    node.type === 'definition' && stream.effectiveDefinitions?.has(node);
+
+  if (node.type === 'link' || node.type === 'linkReference' || isEffectiveDefinition) {
     emitLinkTitle(node, body, stream);
   }
 
@@ -437,12 +441,43 @@ function rawTextRanges(source) {
   return ranges;
 }
 
+// The definitions whose titles actually publish. CommonMark resolves a
+// reference to the FIRST definition with that identifier, and a definition
+// nothing references renders nothing at all — so scanning every definition
+// would lint, and `--write` would rewrite, titles that never reach a reader.
+function collectEffectiveDefinitions(tree) {
+  const referenced = new Set();
+  const firstByIdentifier = new Map();
+
+  (function walk(node) {
+    if (node.type === 'linkReference' || node.type === 'imageReference') {
+      referenced.add(node.identifier);
+    } else if (node.type === 'definition' && !firstByIdentifier.has(node.identifier)) {
+      firstByIdentifier.set(node.identifier, node);
+    }
+    for (const child of node.children ?? []) {
+      walk(child);
+    }
+  })(tree);
+
+  const effective = new Set();
+  for (const identifier of referenced) {
+    const definition = firstByIdentifier.get(identifier);
+    if (definition) {
+      effective.add(definition);
+    }
+  }
+
+  return effective;
+}
+
 function buildProseStream(body) {
   const stream = createProseStream(rawTextRanges(body));
   const tree = fromMarkdown(body, {
     extensions: [gfm()],
     mdastExtensions: [gfmFromMarkdown()],
   });
+  stream.effectiveDefinitions = collectEffectiveDefinitions(tree);
   emitNode(tree, body, stream);
   return stream;
 }
