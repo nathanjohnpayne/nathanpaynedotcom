@@ -493,6 +493,29 @@ describe('content em-dash lint', () => {
     }
   });
 
+  it('never eats the whitespace a YAML comment needs as its separator', () => {
+    // Removing it would fold `# editorial note` into the published value.
+    const source = 'title: foo— # editorial note';
+
+    expect(findSpacedEmDashViolations('/tmp/skills.yaml', source)).toHaveLength(0);
+    expect(closeUpSpacedEmDashesInText(source, '/tmp/skills.yaml')).toBe(source);
+
+    // Padding that is genuinely rendered is still closed, comment intact.
+    expect(closeUpSpacedEmDashesInText('title: foo —  # note', '/tmp/skills.yaml')).toBe(
+      'title: foo—  # note',
+    );
+    expect(closeUpSpacedEmDashesInText('title: foo — bar # note', '/tmp/skills.yaml')).toBe(
+      'title: foo—bar # note',
+    );
+  });
+
+  it('ignores trailing whitespace YAML would strip anyway', () => {
+    const source = 'title: foo— ';
+
+    expect(findSpacedEmDashViolations('/tmp/skills.yaml', source)).toHaveLength(0);
+    expect(closeUpSpacedEmDashesInText(source, '/tmp/skills.yaml')).toBe(source);
+  });
+
   it('preserves CRLF line endings through a fix pass', () => {
     const source = 'prose — one.\r\nprose — two.\r\n';
 

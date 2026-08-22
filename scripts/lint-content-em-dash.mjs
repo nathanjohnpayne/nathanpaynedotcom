@@ -465,12 +465,18 @@ function yamlViolations(source, end) {
         !inBlockScalar && YAML_VALUE_PREFIX.test(source.slice(lineStart, absoluteStart));
       const paddingStart = prefixIsStructural ? dashOffset : absoluteStart;
 
+      // Whitespace running to the end of the scannable region is not rendered
+      // padding: YAML strips trailing whitespace from a scalar. It is also the
+      // separator an end-of-line comment requires, so deleting it would fold
+      // the comment into the published value.
+      const trailingEnd = absoluteEnd >= scanEnd ? dashOffset + 1 : absoluteEnd;
+
       const removals = [];
       if (paddingStart < dashOffset) {
         removals.push([paddingStart, dashOffset]);
       }
-      if (absoluteEnd > dashOffset + 1) {
-        removals.push([dashOffset + 1, absoluteEnd]);
+      if (trailingEnd > dashOffset + 1) {
+        removals.push([dashOffset + 1, trailingEnd]);
       }
 
       if (removals.length === 0) {
