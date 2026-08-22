@@ -100,27 +100,82 @@ jobs:
           echo "::notice::Merge will be performed as $MERGE_AS."
 
 
-          # Takes the required check-run name as $1. Callers loop this over
-          # every name in REQUIRED_HEAD_CHECK_NAMES via
-          # require_current_head_checks_success below rather than checking
-          # a single hard-coded name — #632 found that this gate previously
-          # only ever waited on the structural `lint` check (repo_lint.yml's
-          # scripts/ci/check_* job), which never installs dependencies or
-          # builds the site, so a dependabot bump that broke `npm ci` or
-          # `astro build` (#630, #631) could still auto-merge. It must also
-          # wait on the real `build-and-test` job (.github/workflows/
-          # build-and-test.yml) before merging.
+          # Resolve the latest check run named "$1" on commit "$2", or
+          # empty if that check is absent.
+          #
+          # The `check_name` query parameter filters SERVER-side. That is
+          # load-bearing, not a micro-optimization: the previous
+          # implementation fetched the unfiltered
+          # `check-runs?per_page=100` first page and filtered in jq, which
+          # silently truncated at 100 results because it never paginated.
+          # Repos with many bot/gate workflows blow past that easily —
+          # each re-dispatches on every PR event.
+          #
+          # Concrete failure: nathanjohnpayne/gaycruisebingo PR #524, head
+          # fa6ccdbb724ae2ba77d917371eb6ab243e0a68a0, accumulated 143
+          # check-runs (128 when first diagnosed). The `lint` run this
+          # function waits for had ALREADY succeeded, but sorted onto page
+          # 2 and so was invisible to the single-page call. The function
+          # took the "check absent" branch on every poll, spun the full
+          # 1200s deadline, then hard-failed with a false "did not
+          # complete successfully within 1200s" — blocking a perfectly
+          # mergeable Dependabot PR. With `check_name=lint` the same
+          # commit returns total_count=2. The filter keeps the usual query
+          # small, but it does NOT bound the result set: repeated
+          # re-dispatches can still leave more than 100 matching runs on a
+          # single HEAD. Request every page as well, then select the latest
+          # exact match locally.
+          #
+          # Passed via `-X GET -f` so gh URL-encodes the value. Check
+          # names legitimately contain spaces (e.g. "Label Gate", "Merge
+          # clearance gate"); interpolating one straight into the query
+          # string produces a malformed request that hangs rather than
+          # erroring.
+          #
+          # The redundant-looking jq `select(.name == $check)` is kept
+          # deliberately: it preserves exact-match semantics locally if
+          # the server-side filter ever loosens, and costs nothing on a
+          # handful of rows. `sort_by(...) | last` is unchanged — latest
+          # run of that check still wins.
+          latest_check_run() {
+            gh api --paginate -X GET "repos/${GITHUB_REPOSITORY}/commits/$2/check-runs" \
+              -f check_name="$1" -F per_page=100 \
+              | jq -sc --arg check "$1" '[.[] | .check_runs[] | select(.name == $check)] | sort_by(.started_at // .created_at) | last // empty'
+          }
+
+          # NOTE (unfixed here, deliberately): the `lint` default is a
+          # proxy signal, not the actual merge gate. It is only ever "a
+          # check we expect to be green on HEAD" — it is NOT read from
+          # branch protection's required contexts. In gaycruisebingo, for
+          # instance, the five genuinely-required contexts are CodeRabbit
+          # unresolved blocking findings / Codex P1 unresolved threads /
+          # Label Gate / Merge clearance gate / Self-Review Required, and
+          # `lint` is not among them — so this wait watches something
+          # unrelated to what actually blocks the merge. That is mostly
+          # benign because `--auto` (the primary path) defers to real
+          # branch protection anyway, and this wait is a belt-and-braces
+          # pre-check; it matters most on the no-branch-protection
+          # fallback squash below, which is exactly where a proxy signal
+          # is weakest. The default is intentionally NOT changed here:
+          # other repos may legitimately depend on `lint`, and deriving
+          # the list from branch protection is a behavior change that
+          # belongs in its own reviewed PR, not in a pagination fix.
+          # Repos can already override via REQUIRED_HEAD_CHECK_NAME.
           require_current_head_check_success() {
-            local sha runs conclusion status wait_seconds poll_seconds deadline required_check_name
-            required_check_name="${1:?require_current_head_check_success: missing required_check_name argument}"
-            sha="${2:?require_current_head_check_success: missing head_sha argument}"
+            local sha runs conclusion status wait_seconds poll_seconds deadline required_check_name ever_seen
+            # Optional explicit name so the plural wrapper below can loop
+            # this unchanged; with no argument the previous env behaviour is
+            # exactly preserved.
+            required_check_name=${1:-${REQUIRED_HEAD_CHECK_NAME:-lint}}
             wait_seconds=${TEST_CHECK_WAIT_SECONDS:-1200}
             poll_seconds=${TEST_CHECK_POLL_SECONDS:-15}
             deadline=$((SECONDS + wait_seconds))
+            ever_seen=0
+            sha=$(gh pr view "$PR_URL" --json headRefOid --jq .headRefOid)
             while :; do
-              runs=$(gh api "repos/${GITHUB_REPOSITORY}/commits/$sha/check-runs?per_page=100" \
-                | jq -c --arg check "$required_check_name" '[.check_runs[] | select(.name == $check)] | sort_by(.started_at // .created_at) | last // empty')
+              runs=$(latest_check_run "$required_check_name" "$sha")
               if [ -n "$runs" ]; then
+                ever_seen=1
                 status=$(printf '%s' "$runs" | jq -r '.status')
                 conclusion=$(printf '%s' "$runs" | jq -r '.conclusion // ""')
                 if [ "$status" = "completed" ]; then
@@ -137,7 +192,20 @@ jobs:
                 echo "::notice::Required check run '$required_check_name' is absent on current HEAD $sha; waiting for it to start."
               fi
               if [ "$SECONDS" -ge "$deadline" ]; then
-                echo "::error::Required check run '$required_check_name' did not complete successfully within ${wait_seconds}s on current HEAD $sha; refusing auto-merge."
+                # Deliberately still the full deadline, and still a hard
+                # refusal: a check that genuinely never ran is a real
+                # reason not to auto-merge, and shortening the wait would
+                # break repos whose CI is slow to schedule. Only the
+                # diagnostics split. The old message claimed the check
+                # "did not complete successfully" even when it had never
+                # appeared at all, which is what made the #524 truncation
+                # bug read as a CI failure and cost an hour of digging.
+                if [ "$ever_seen" -eq 0 ]; then
+                  echo "::error::Required check run '$required_check_name' never appeared on current HEAD $sha within ${wait_seconds}s; refusing auto-merge."
+                  echo "::error::The check never started, or REQUIRED_HEAD_CHECK_NAME does not match any check name in this repo. Compare against: gh api -X GET repos/${GITHUB_REPOSITORY}/commits/$sha/check-runs --paginate --jq '.check_runs[].name' | sort -u"
+                else
+                  echo "::error::Required check run '$required_check_name' did not complete successfully within ${wait_seconds}s on current HEAD $sha; refusing auto-merge."
+                fi
                 exit 1
               fi
               sleep "$poll_seconds"
@@ -146,70 +214,73 @@ jobs:
             exit 1
           }
 
-          # Waits on every check name in REQUIRED_HEAD_CHECK_NAMES (space-
-          # separated), not just one.
+          # Wait until EVERY configured required head check is green, with
+          # the whole set pinned to ONE head SHA.
           #
-          # HEAD is resolved ONCE here and passed to every waiter, and the
-          # whole set restarts if HEAD moves while it runs. The waiters used
-          # to each resolve the PR head themselves, on the assumption that
-          # "they all resolve the same PR head" — which is false whenever the
-          # branch is pushed mid-loop. In that window `lint` could be accepted
-          # from the old SHA and `build-and-test` from the new one, and because
-          # only the last iteration's CURRENT_HEAD_SHA survived, the merge
-          # would then bind --match-head-commit to a SHA whose `lint` result
-          # was never checked. That is the same too-weak gate #632 removed,
-          # reachable through a race instead of through configuration.
-          # (Automated Phase 4b, nathanpayne-codex, P1 on #635.)
+          # Pinning matters: an earlier per-name wait could otherwise succeed
+          # against SHA1 while a later one advanced CURRENT_HEAD_SHA to SHA2,
+          # and both merge commands bind to CURRENT_HEAD_SHA -- so a check
+          # that is NOT branch-protected (the entire reason this list exists)
+          # could be pending or failing on the merged head. Re-pin and
+          # re-verify on drift instead of accepting a mixed-SHA verdict.
           #
-          # Fails closed when REQUIRED_HEAD_CHECK_NAMES is unset, empty, or
-          # whitespace-only. Without the two assertions below the loop would
-          # run zero times, the function would return 0, and auto-merge would
-          # proceed having verified no check at all — the same silent-no-op
-          # shape as the empty REVIEWER_ASSIGNMENT_TOKEN incident the GH_TOKEN
-          # preflight at the top of this step exists for. The pre-#632 code
-          # could not reach that state because it defaulted a single name
-          # (`${REQUIRED_HEAD_CHECK_NAME:-lint}`); a list of names has no
-          # equally safe default — silently falling back to `lint` alone is
-          # exactly the too-weak gate #632 removed — so an empty list is a
-          # hard error instead. The `-z` test catches unset/empty; the
-          # iteration counter catches a value that is non-empty but splits
-          # into zero words (e.g. `"   "`).
+          # Resolution, name splitting and per-workflow grouping all live in
+          # scripts/required-head-checks.sh so the three call sites share one
+          # implementation rather than three drifting copies.
           require_current_head_checks_success() {
-            local name checks_waited pinned_sha final_sha attempts max_attempts
-            if [ -z "${REQUIRED_HEAD_CHECK_NAMES:-}" ]; then
-              echo "::error::REQUIRED_HEAD_CHECK_NAMES is empty. Refusing auto-merge: with no check names configured this gate would verify nothing."
-              echo "::error::Set REQUIRED_HEAD_CHECK_NAMES on this step to the space-separated check-run names that must be green on the PR head (expected: lint build-and-test)."
-              exit 1
-            fi
+            local wait_seconds poll_seconds deadline pinned attempts max_attempts
+            wait_seconds=${TEST_CHECK_WAIT_SECONDS:-1200}
+            poll_seconds=${TEST_CHECK_POLL_SECONDS:-15}
             max_attempts=${HEAD_DRIFT_MAX_RESTARTS:-3}
             attempts=0
             while :; do
               attempts=$((attempts + 1))
-              pinned_sha=$(gh pr view "$PR_URL" --json headRefOid --jq .headRefOid)
-              if [ -z "$pinned_sha" ]; then
+              pinned=$(gh pr view "$PR_URL" --json headRefOid --jq .headRefOid)
+              if [ -z "$pinned" ]; then
                 echo "::error::Could not resolve the PR head SHA; refusing auto-merge."
                 exit 1
               fi
-              checks_waited=0
-              for name in $REQUIRED_HEAD_CHECK_NAMES; do
-                require_current_head_check_success "$name" "$pinned_sha"
-                checks_waited=$((checks_waited + 1))
+              deadline=$((SECONDS + wait_seconds))
+              while :; do
+                # Capture the verifier's OWN status. `rc=$?` after a failed
+                # `if` reads the compound statement's status (0), not the
+                # command's -- which would take the fail-closed branch on the
+                # first not-ready poll and never wait at all.
+                rc=0
+                if [ ! -f scripts/required-head-checks.sh ]; then
+                  # First-rollout guard (#1070); see agent-review.yml for why
+                  # this falls back rather than failing closed.
+                  echo "::notice::scripts/required-head-checks.sh absent (pre-#1070 checkout); falling back to the singular waiter."
+                  require_current_head_check_success
+                  CURRENT_HEAD_SHA="$pinned"
+                  return 0
+                fi
+                bash scripts/required-head-checks.sh --repo "$GITHUB_REPOSITORY" --verify --sha "$pinned" || rc=$?
+                if [ "$rc" -eq 0 ]; then
+                  break
+                fi
+                if [ "$rc" -ne 1 ]; then
+                  echo "::error::required-head-checks failed closed (rc=$rc); refusing auto-merge."
+                  exit 1
+                fi
+                if [ "$SECONDS" -ge "$deadline" ]; then
+                  echo "::error::Timed out waiting for the configured required head checks on $pinned."
+                  exit 1
+                fi
+                sleep "$poll_seconds"
               done
-              if [ "$checks_waited" -eq 0 ]; then
-                echo "::error::REQUIRED_HEAD_CHECK_NAMES ('$REQUIRED_HEAD_CHECK_NAMES') split into zero check names. Refusing auto-merge: this gate verified nothing."
-                exit 1
-              fi
-              final_sha=$(gh pr view "$PR_URL" --json headRefOid --jq .headRefOid)
-              if [ "$final_sha" = "$pinned_sha" ]; then
-                CURRENT_HEAD_SHA="$pinned_sha"
-                echo "::notice::All required check runs ($REQUIRED_HEAD_CHECK_NAMES) are successful on HEAD $CURRENT_HEAD_SHA."
+              # Every configured check is green on $pinned. Accept only if the
+              # head has not moved underneath the verdict.
+              if [ "$(gh pr view "$PR_URL" --json headRefOid --jq .headRefOid)" = "$pinned" ]; then
+                CURRENT_HEAD_SHA="$pinned"
+                echo "::notice::All configured required head checks are successful on $CURRENT_HEAD_SHA."
                 return 0
               fi
               if [ "$attempts" -ge "$max_attempts" ]; then
-                echo "::error::PR head moved during the required-check wait $attempts time(s) (last: $pinned_sha -> $final_sha); refusing auto-merge rather than binding the merge to a SHA whose full check set was never verified."
+                echo "::error::PR head kept moving during check verification; refusing auto-merge."
                 exit 1
               fi
-              echo "::notice::PR head moved from $pinned_sha to $final_sha during the required-check wait; restarting the complete check set (attempt $attempts of $max_attempts)."
+              echo "::notice::PR head moved during verification; re-pinning and re-verifying."
             done
           }
 
@@ -403,6 +474,43 @@ jobs:
             # approval" gate is satisfied either way.
             if [ "$UPDATE_TYPE" = "version-update:semver-patch" ] || \
                [ "$UPDATE_TYPE" = "version-update:semver-minor" ]; then
+              # Reviewer-feedback accounting immediately before the squash
+              # (#1000). The `--auto` path above hands the merge to GitHub,
+              # which releases it only after the repository's required checks
+              # pass — and the Codex P1 gate carries the accounting backstop
+              # for top-level review-body, PR-level, and prior-head findings.
+              # This fallback runs precisely when that machinery is absent:
+              # `--auto` is unavailable because the repo has no branch
+              # protection, so there are no required checks to release
+              # against and the squash below would merge past an
+              # unacknowledged bot finding. Run the gate here instead, and
+              # fail closed on any non-zero exit — an accounting miss (1) and
+              # an infrastructure error (2) are both reasons not to merge.
+              # Same posture, and the same reason, as
+              # scripts/admin-merge-codeowners-blocked.sh: that is the other
+              # merge path that cannot rely on the required-check backstop.
+              # The PR stays approved-but-unmerged, so the weekly audit's "no
+              # reviewer approval" gate is still satisfied and a human (or a
+              # rerun after the findings are dispositioned) completes it.
+              FEEDBACK_ACCOUNTING_GATE="${MERGEPATH_REVIEW_FEEDBACK_ACCOUNTING_CMD:-scripts/review-feedback-accounting.sh}"
+              if [ ! -x "$FEEDBACK_ACCOUNTING_GATE" ]; then
+                echo "::error::$FEEDBACK_ACCOUNTING_GATE is missing or not executable in the base checkout; refusing the fallback squash because feedback accounting cannot be verified. Propagate the scripts/ kit, then rerun."
+                exit 1
+              fi
+              set +e
+              ACCOUNTING_JSON=$("$FEEDBACK_ACCOUNTING_GATE" "$PR_NUMBER" "$GITHUB_REPOSITORY")
+              ACCOUNTING_RC=$?
+              set -e
+              if [ "$ACCOUNTING_RC" -ne 0 ]; then
+                printf '%s\n' "$ACCOUNTING_JSON" >&2
+                if [ "$ACCOUNTING_RC" -eq 1 ]; then
+                  echo "::error::reviewer feedback is unaccounted on this PR; refusing the fallback squash. Disposition every finding named above, then rerun this workflow."
+                else
+                  echo "::error::reviewer feedback accounting exited $ACCOUNTING_RC (infrastructure error); refusing the fallback squash. Failing closed."
+                fi
+                exit 1
+              fi
+              echo "::notice::reviewer feedback accounted; proceeding with the fallback squash."
               GH_TOKEN="$AUTHOR_MERGE_TOKEN" gh pr merge --squash --match-head-commit "$CURRENT_HEAD_SHA" "$PR_URL"
             else
               echo "::notice::update-type='$UPDATE_TYPE' (dependency-group='$DEPENDENCY_GROUP') is not patch/minor and --auto is unavailable; leaving the PR approved-but-unmerged to preserve the CI-green safety case. Configure branch protection/auto-merge or merge manually after CI."
@@ -420,19 +528,15 @@ jobs:
           # Dependabot PR is never `nathanjohnpayne`). (CodeRabbit
           # Major, #271.)
           PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+          # Passed to scripts/review-feedback-accounting.sh in the
+          # immediate-squash fallback; the script takes a PR number, and
+          # PR_URL above is a URL.
+          PR_NUMBER: ${{ github.event.pull_request.number }}
           # Dependabot metadata — used by the immediate-squash fallback to
           # keep major dev-group bumps behind CI (#374 / Codex P2 on #405).
           UPDATE_TYPE: ${{ steps.metadata.outputs.update-type }}
           DEPENDENCY_GROUP: ${{ steps.metadata.outputs.dependency-group }}
-          # Space-separated list of check-run names that must be
-          # `completed`/`success` on the PR's current HEAD before
-          # auto-merge proceeds: the structural repo_lint.yml `lint` job,
-          # AND the real build-and-test.yml job (added in #632) that
-          # actually runs `npm ci`, `astro build`, `vitest run`, and
-          # `npm run lint`. Waiting on `lint` alone (the pre-#632 state)
-          # let dependabot bumps that broke the build (#630, #631) merge
-          # with every existing check green.
-          REQUIRED_HEAD_CHECK_NAMES: "lint build-and-test"
+          REQUIRED_HEAD_CHECK_NAME: lint
           GH_TOKEN: ${{ secrets.REVIEWER_ASSIGNMENT_TOKEN }}
           # Author-identity PAT (nathanjohnpayne) used for the merge
           # step only. Reviewer-identity --approve must stay on

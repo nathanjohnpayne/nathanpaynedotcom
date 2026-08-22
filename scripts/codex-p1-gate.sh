@@ -41,33 +41,36 @@
 #              motivation as PR_NUMBER above.
 #
 # Algorithm:
-#   1. Read .github/review-policy.yml `codex.p1_gate.enabled`. If false
-#      (the default everywhere except mergepath), exit 0 — clean pass,
-#      gate disabled.
-#   2. Fetch all inline review comments on the PR via
+#   1. Reconcile all inline and top-level review-body findings against durable
+#      disposition evidence. Any missing disposition blocks before the
+#      current-HEAD P1 scan (#1000).
+#   2. Read .github/review-policy.yml `codex.p1_gate.enabled`. If false
+#      (the default everywhere except mergepath), exit 0 after accounting;
+#      only the legacy current-HEAD thread scan is disabled.
+#   3. Fetch all inline review comments on the PR via
 #      `repos/{repo}/pulls/{pr}/comments`.
-#   3. Filter to comments authored by `chatgpt-codex-connector[bot]`
+#   4. Filter to comments authored by `chatgpt-codex-connector[bot]`
 #      (or whatever `codex.bot_login` is configured to) whose Codex
 #      tier (codex_tier_of: the badge image `![Pn Badge]` or the text
 #      fallback `**Pn`) is in the resolved BLOCKING tier set. With the
 #      feedback_policy block absent the set is {p1}, so this matches the
 #      original `![P1 Badge]` / `**P1` filter exactly.
-#   4. For each candidate, fetch its review thread state via GraphQL
+#   5. For each candidate, fetch its review thread state via GraphQL
 #      `reviewThreads` and check `isResolved`. The author or any
 #      collaborator can resolve a thread via the GitHub UI or
 #      `resolveReviewThread` mutation; this script does NOT fight
 #      against a human-or-agent-marked-resolved state.
-#   5. SHA scope: a P1 finding only gates if its comment was attached
+#   6. SHA scope: a P1 finding only gates if its comment was attached
 #      to the PR's current HEAD. A P1 from an earlier SHA that is now
 #      either resolved OR no longer on HEAD does not count.
-#   6. Print one line per unresolved blocking-tier finding to stdout for
+#   7. Print one line per unresolved blocking-tier finding to stdout for
 #      CI visibility, then the summary "Codex blocking-tier unresolved: N".
 #
 # Exit codes:
-#   0   No unresolved blocking-tier findings on current HEAD (or gate
-#       disabled).
-#   1   One or more unresolved blocking-tier findings on current HEAD —
-#       gate blocks.
+#   0   Feedback accounted and no unresolved blocking-tier findings on current
+#       HEAD (or the legacy thread scan is disabled).
+#   1   Feedback unaccounted or one or more unresolved blocking-tier findings
+#       on current HEAD — gate blocks.
 #   2   Usage / config error. Error message on stderr.
 #
 # Design notes:
@@ -116,6 +119,30 @@ __P1_GATE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=lib/feedback-policy-helpers.sh
 . "$__P1_GATE_DIR/lib/feedback-policy-helpers.sh"
 
+# Shared paginated-list reader (#1008) — the fetch → capture → flatten
+# algorithm fetch_api_array below used to carry inline, alongside seven other
+# copies. Hard-required: this is a REQUIRED status check, and an undefined
+# reader would surface as `command not found` on the read whose fail-closed
+# contract keeps an unreadable inline surface from being graded as "no
+# findings".
+if [ ! -r "$__P1_GATE_DIR/lib/gh-api-array.sh" ]; then
+  echo "ERROR: gh-api-array helper missing: $__P1_GATE_DIR/lib/gh-api-array.sh" >&2
+  exit 2
+fi
+# shellcheck source=lib/gh-api-array.sh
+. "$__P1_GATE_DIR/lib/gh-api-array.sh"
+
+# The issue-comment head-drift fence reads one SHA. Keep gh's stderr separate
+# from that machine-readable value through the shared scalar contract (#799,
+# #1008); benign retry/deprecation chatter on a successful request must not
+# turn this required check into a false hard failure.
+if [ ! -r "$__P1_GATE_DIR/lib/gh-api-scalar.sh" ]; then
+  echo "ERROR: gh-api-scalar helper missing: $__P1_GATE_DIR/lib/gh-api-scalar.sh" >&2
+  exit 2
+fi
+# shellcheck source=lib/gh-api-scalar.sh
+. "$__P1_GATE_DIR/lib/gh-api-scalar.sh"
+
 # Read a scalar field nested inside `codex:` `<sub_block>:` `<field>:`.
 # Same state-machine awk pattern as codex-review-check.sh, but tracks
 # nesting one level deeper for the `p1_gate` sub-block.
@@ -129,8 +156,14 @@ codex_p1_gate_field() {
     in_p1_gate && /^[[:space:]]{0,3}[^[:space:]#]/ { in_p1_gate=0 }
     in_p1_gate && $1 == field":" {
       sub(/^[[:space:]]*[^:]+:[[:space:]]*/, "", $0)
-      gsub(/^"/, "", $0)
-      gsub(/"[[:space:]]*(#.*)?$/, "", $0)
+      # Strip BOTH single and double quotes (#536, unified here by #817).
+      # This reader was double-quote-only, so `enabled: '"'"'true'"'"'` came back
+      # with its quotes intact, reached P1_GATE_ENABLED below, and tripped
+      # the true|false validator — a required gate deadlocked by a benign
+      # YAML quoting choice. \047 is the octal escape for a single quote
+      # inside the awk character class, matching codex-review-check.sh:253.
+      gsub(/^["\047]/, "", $0)
+      gsub(/["\047][[:space:]]*(#.*)?$/, "", $0)
       gsub(/[[:space:]]*#.*$/, "", $0)
       sub(/[[:space:]]+$/, "", $0)
       print
@@ -148,8 +181,14 @@ codex_field() {
     in_block && /^[^[:space:]#]/ {in_block=0}
     in_block && $1 == field":" {
       sub(/^[[:space:]]*[^:]+:[[:space:]]*/, "", $0)
-      gsub(/^"/, "", $0)
-      gsub(/"[[:space:]]*(#.*)?$/, "", $0)
+      # Strip BOTH single and double quotes (#536, unified here by #817).
+      # This reader was double-quote-only, so a single-quoted bot_login came
+      # back with its quotes intact and matched zero comments — the gate then
+      # passed on an empty finding set instead of blocking. That direction is
+      # a soundness defect, not just a nuisance. Same form as
+      # codex-review-check.sh:253.
+      gsub(/^["\047]/, "", $0)
+      gsub(/["\047][[:space:]]*(#.*)?$/, "", $0)
       gsub(/[[:space:]]*#.*$/, "", $0)
       sub(/[[:space:]]+$/, "", $0)
       print
@@ -158,16 +197,10 @@ codex_field() {
   ' "$CONFIG"
 }
 
-# Gate knob: codex.p1_gate.enabled. Default false everywhere except
-# mergepath itself (which sets it true in .github/review-policy.yml).
-# Off-state is a clean pass — no API calls, no work.
-#
-# This off-state short-circuit runs BEFORE the PR_NUMBER/REPO/GH_TOKEN
-# requirements below (#447): the header documents step 1 as
-# "p1_gate.enabled=false → clean pass," so a consumer with the gate
-# disabled must no-op on a bare/ad-hoc invocation instead of erroring on
-# missing PR context. The readers above touch only the local
-# review-policy.yml — no args, no API, no gh.
+# Legacy thread-gate knob: codex.p1_gate.enabled. Default false everywhere
+# except mergepath itself. It controls only the current-HEAD required-tier
+# thread scan; complete-history feedback accounting is independent and
+# default-on in every consumer (#1000).
 P1_GATE_ENABLED=$(codex_p1_gate_field enabled)
 P1_GATE_ENABLED=${P1_GATE_ENABLED:-false}
 case "$P1_GATE_ENABLED" in
@@ -178,13 +211,7 @@ case "$P1_GATE_ENABLED" in
     ;;
 esac
 
-if [ "$P1_GATE_ENABLED" != "true" ]; then
-  echo "[codex-p1-gate] codex.p1_gate.enabled=false — skipping (clean pass)"
-  echo "Codex blocking-tier unresolved: 0"
-  exit 0
-fi
-
-# --- PR context (required only once the gate is enabled) --------------------
+# --- PR context (required for default-on feedback accounting) ---------------
 
 # Positional args take precedence; env fallbacks support the
 # workflow_dispatch / scheduled-sweep paths where it's more
@@ -261,14 +288,50 @@ die() {
   exit "$code"
 }
 
-# Paginated fetch helper — same shape as codex-review-check.sh.
+run_feedback_accounting_gate() {
+  local gate output rc=0
+  gate="${MERGEPATH_REVIEW_FEEDBACK_ACCOUNTING_CMD:-$__P1_GATE_DIR/review-feedback-accounting.sh}"
+  command -v "$gate" >/dev/null 2>&1 \
+    || die 2 "review feedback accounting gate unavailable: $gate"
+  output=$("$gate" "$PR_NUMBER" "$REPO") || rc=$?
+  case "$rc" in
+    0) log "review feedback accounting clear" ;;
+    1)
+      printf '%s\n' "$output"
+      die 1 "review feedback is unaccounted; disposition every finding before merge"
+      ;;
+    *)
+      printf '%s\n' "$output" >&2
+      die 2 "review feedback accounting gate failed with exit $rc"
+      ;;
+  esac
+}
+
+run_feedback_accounting_gate
+
+# The issue_comment workflow captures the PR head before evaluation and passes
+# it here. Refuse an evaluation that crossed a synchronize boundary; otherwise
+# an old-head success could be published against the new head commit (#1000).
+if [ -n "${CODEX_P1_EXPECTED_HEAD_SHA:-}" ]; then
+  OBSERVED_HEAD_SHA=$(gh_api_scalar --shape sha "PR head for drift check" \
+    "repos/$REPO/pulls/$PR_NUMBER" --jq '.head.sha // empty') \
+    || die 2 "failed to re-read PR head for drift check"
+  [ -n "$OBSERVED_HEAD_SHA" ] || die 2 "PR head was empty during drift check"
+  [ "$OBSERVED_HEAD_SHA" = "$CODEX_P1_EXPECTED_HEAD_SHA" ] \
+    || die 2 "PR head drifted during gate evaluation (expected $CODEX_P1_EXPECTED_HEAD_SHA, observed $OBSERVED_HEAD_SHA)"
+fi
+
+if [ "$P1_GATE_ENABLED" != "true" ]; then
+  echo "[codex-p1-gate] feedback accounting clear; codex.p1_gate.enabled=false — skipping legacy current-HEAD thread scan"
+  echo "Codex blocking-tier unresolved: 0"
+  exit 0
+fi
+
+# Paginated fetch helper. The algorithm lives in scripts/lib/gh-api-array.sh
+# (#1008); what stays here is this gate's failure ACTION — `die 2`, the
+# config/usage code the workflow maps to a hard gate failure.
 fetch_api_array() {
-  local endpoint=$1
-  local label=$2
-  local raw
-  raw=$(gh api --paginate "$endpoint" 2>&1) || die 2 "failed to fetch $label: $raw"
-  echo "$raw" | jq -s 'add // []' 2>/dev/null \
-    || die 2 "failed to flatten $label pagination output"
+  gh_api_array "$1" "$2" || die 2 "$GH_API_ARRAY_ERROR"
 }
 
 # --- fetch PR metadata ------------------------------------------------------

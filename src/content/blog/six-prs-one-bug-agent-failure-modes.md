@@ -11,7 +11,7 @@ image: "/og/blog/six-prs-one-bug-agent-failure-modes.png"
 keyTakeaways:
   - "An agent will improve a wrong abstraction indefinitely if every prompt describes a symptom. It takes a prompt about the invariant to make it ask whether the abstraction should exist at all."
   - "Two failed fixes on the same problem should change the task, not the patch: the third attempt starts with an audit of what the first two assumed and why it was wrong."
-  - "When a bug crosses a format boundary, ask three questions — is the round-trip lossless, do all consumers produce equivalent output, and is the intermediate format necessary?"
+  - "When a bug crosses a format boundary, ask three questions—is the round-trip lossless, do all consumers produce equivalent output, and is the intermediate format necessary?"
   - "The agent that finally fixed it was not the smarter model; it got the better-framed task. Supervision, not capability, was the variable that moved."
 pullquotes:
   - text: "Every PR compiled, passed tests, and improved something locally."

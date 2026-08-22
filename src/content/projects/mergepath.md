@@ -39,7 +39,7 @@ Mergepath treats agent output the way regulated engineering organizations treat 
 - A two-phase external-review model for any PR over 300 lines or touching protected paths. Phase 4a is automated through the ChatGPT Codex Connector GitHub App with structured request/check scripts (`scripts/codex-review-request.sh`, `scripts/codex-review-check.sh`); Phase 4b is a manual CLI fallback, and `scripts/phase-4b-classifier.sh` decides which one runs.
 - A Codex P1 merge gate (`.github/workflows/codex-p1-gate.yml`) that blocks merge while any unresolved Codex P1 finding is open, with CodeRabbit wired in as an advisory second-opinion pass on every PR.
 - A GitHub security baseline that ships with the template: secret scanning with push protection, Dependabot alerts and version updates, a `CODEOWNERS` file, a `SECURITY.md` policy, GitHub Actions pinned to commit SHAs, and least-privilege `permissions:` blocks on every workflow.
-- Roughly 27 fail-closed CI checks in `scripts/ci/` — required files exist, tool folders carry no instructions, specs map to tests, generated output is untouched — enforced on every push and PR.
+- Roughly 27 fail-closed CI checks in `scripts/ci/`—required files exist, tool folders carry no instructions, specs map to tests, generated output is untouched—enforced on every push and PR.
 - 1Password-backed credential plumbing via `scripts/op-preflight.sh` that front-loads all biometric prompts so a session's author and reviewer PATs, GCP ADC, and SSH keys are cached once and reused.
 
 ## Cross-repo propagation

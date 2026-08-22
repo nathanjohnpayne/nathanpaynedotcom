@@ -52,6 +52,18 @@
 #      block from scripts/post-phase-4b-handoff.sh is emitted on stderr.
 #   5  automation disabled or mode != local — caller uses the manual
 #      handoff (today's behavior). Not an error.
+#   6  held: external review has not reached the reviewed head yet (#814).
+#      NOT a fallback and NOT an unavailable reviewer — no handoff block is
+#      emitted and no fail-closed loop is recorded. The JSON carries
+#      barrier_pending:true and retry_after; the caller should retry after
+#      that many seconds. Deliberately distinct from 4 so that every existing
+#      consumer of 4 keeps its meaning: AGENTS.md, REVIEW_POLICY.md and
+#      scripts/wave-audit.sh all treat 4 as a reviewer that will not answer,
+#      and wave-audit proceeds fail-open on it — which would be wrong for a
+#      wait that clears on its own.
+#   7  FEEDBACK_UNACCOUNTED — an earlier reviewer finding has no durable
+#      disposition evidence. No adapter is dispatched and no handoff block is
+#      emitted. Account for every finding, then rerun this command (#1000).
 
 set -euo pipefail
 
@@ -107,8 +119,9 @@ p4b_acct_mark_unposted() {
   return 0
 }
 
-ADAPTER_DIR="$ROOT/phase-4b/adapters"
+ADAPTER_DIR="$(p4b_adapter_dir)"
 HANDOFF="${P4B_HANDOFF:-$ROOT/post-phase-4b-handoff.sh}"
+FEEDBACK_ACCOUNTING_GATE="${MERGEPATH_REVIEW_FEEDBACK_ACCOUNTING_CMD:-$ROOT/review-feedback-accounting.sh}"
 GH_AS_REVIEWER="${P4B_GH_AS_REVIEWER:-$ROOT/gh-as-reviewer.sh}"
 # Author wrapper for the step-9 issue writes (#672/#674): resolves AND
 # identity-verifies the author PAT before each write, replacing manual
@@ -179,6 +192,14 @@ fi
 
 command -v jq >/dev/null 2>&1 || p4b_die 3 "jq is required"
 
+# Hard-required (#799). Every documented fallback in this script keyed off an
+# empty head sha, and an unreadable read never produced one — see the call
+# sites below. A consumer missing the lib must die here rather than run with
+# the dead guards restored.
+[ -r "$ROOT/lib/gh-api-scalar.sh" ] || p4b_die 3 "missing helper: $ROOT/lib/gh-api-scalar.sh (see #799)"
+# shellcheck source=lib/gh-api-scalar.sh
+. "$ROOT/lib/gh-api-scalar.sh"
+
 # Auto-source the op-preflight reviewer PAT only after the disabled/mode checks.
 # The default disabled path must stay credential-free and exit 5 without
 # touching 1Password/GitHub auth state.
@@ -200,7 +221,12 @@ fi
 
 if [ -z "$HEAD" ]; then
   need_gh
-  HEAD="$(gh api "repos/$REPO/pulls/$PR" --jq '.head.sha' 2>/dev/null || true)"
+  # #799: the `[ -n "$HEAD" ]` guard below was dead. An unreadable response
+  # put the JSON error body in $HEAD, which then became the head every
+  # downstream drift check compares against — so a run that could not read
+  # the PR at all reviewed, and could approve, a "head" nobody has.
+  HEAD="$(gh_api_scalar --shape sha "HEAD sha for $REPO#$PR" \
+    "repos/$REPO/pulls/$PR" --jq '.head.sha')" || HEAD=""
   [ -n "$HEAD" ] || p4b_die 3 "could not resolve HEAD sha for $REPO#$PR; pass --head"
 fi
 
@@ -208,7 +234,15 @@ fi
 # even when --reviewer is forced so the cross-agent invariant still applies.
 if [ -z "$AUTHOR" ]; then
   need_gh
-  body="$(gh api "repos/$REPO/pulls/$PR" --jq '.body // ""' 2>/dev/null || true)"
+  # #799: `--jq '.body // ""'` reads as a safe default and is not one — gh
+  # emits the error body WITHOUT running the filter, so the `// ""` never
+  # applies. No `--shape` is possible on free text (a PR body may legitimately
+  # be empty, or contain anything), so the status is the whole guard here:
+  # gh_api_scalar returns 3 with empty stdout, and the Authoring-Agent parse
+  # below then finds nothing and dies with its own message instead of scanning
+  # a JSON error body for an agent name.
+  body="$(gh_api_scalar "PR body for $REPO#$PR" \
+    "repos/$REPO/pulls/$PR" --jq '.body // ""')" || body=""
   AUTHOR="$(printf '%s\n' "$body" | sed -n 's/^[[:space:]]*Authoring-Agent:[[:space:]]*\([A-Za-z0-9_-]*\).*/\1/p' | head -n1)"
   [ -n "$AUTHOR" ] || p4b_die 3 "could not parse Authoring-Agent from PR body; pass --author"
 fi
@@ -258,11 +292,32 @@ esac
 
 p4b_log "PR $REPO#$PR  HEAD=${HEAD:-?}  direction=$DIRECTION  reviewer=$REVIEWER  adapter=$ADAPTER  timeout=${ADAPTER_TIMEOUT}s  effort=${EFFECTIVE_EFFORT:-cli-default}  dry_run=$DRY_RUN"
 
+require_feedback_accounted() {
+  local accounting_json="" accounting_rc=0
+  command -v "$FEEDBACK_ACCOUNTING_GATE" >/dev/null 2>&1 \
+    || p4b_die 3 "review feedback accounting gate unavailable: $FEEDBACK_ACCOUNTING_GATE"
+  accounting_json=$("$FEEDBACK_ACCOUNTING_GATE" "$PR" "$REPO") \
+    || accounting_rc=$?
+  case "$accounting_rc" in
+    0) p4b_log "review feedback accounting clear" ;;
+    1)
+      printf '%s\n' "$accounting_json" >&2
+      p4b_die 7 "review feedback is unaccounted; disposition every finding before Phase 4b dispatch"
+      ;;
+    *)
+      printf '%s\n' "$accounting_json" >&2
+      p4b_die 3 "review feedback accounting gate failed with exit $accounting_rc"
+      ;;
+  esac
+}
+
 # --- manual-handoff fallback -----------------------------------------------
 fall_back_to_manual() {
   local why="$1"
   local handoff_ref="$PR"
+  local handoff_output="" handoff_rc=0
   [ -n "$REPO" ] && handoff_ref="${REPO}#${PR}"
+  require_feedback_accounted
   p4b_warn "falling back to the manual Phase 4b handoff: $why"
   # Accounting (#602): record the fail-closed loop as positive safety
   # evidence. Advisory — a recording failure never alters this fallback.
@@ -278,8 +333,16 @@ fall_back_to_manual() {
     fi
   fi
   if [ -x "$HANDOFF" ]; then
-    PHASE_4B_REVIEWER_IDENTITY="$REVIEWER" "$HANDOFF" "$handoff_ref" >&2 2>/dev/null \
-      || p4b_warn "could not render chat-side handoff block (needs gh); brief the human manually"
+    handoff_output=$(PHASE_4B_REVIEWER_IDENTITY="$REVIEWER" "$HANDOFF" "$handoff_ref" 2>&1) \
+      || handoff_rc=$?
+    case "$handoff_rc" in
+      0) printf '%s\n' "$handoff_output" >&2 ;;
+      4)
+        printf '%s\n' "$handoff_output" >&2
+        p4b_die 7 "review feedback became unaccounted before manual Phase 4b handoff; no handoff rendered"
+        ;;
+      *) p4b_warn "could not render chat-side handoff block (needs gh); brief the human manually" ;;
+    esac
   fi
   jq -n --argjson pr "$PR" --arg repo "$REPO" --arg head "${HEAD:-}" \
         --arg direction "$DIRECTION" --arg reviewer "$REVIEWER" \
@@ -288,6 +351,51 @@ fall_back_to_manual() {
      reviewer_identity:$reviewer, adapter:$adapter, verdict:null,
      review_posted:false, fell_back_to_manual:true, reason:$why}'
   exit 4
+}
+
+# #814: a barrier that has not opened yet is NOT a fallback. It exits 6, its
+# own code, carrying barrier_pending:true and retry_after so the caller retries
+# after that many seconds instead of paging a human.
+#
+# Exit 6 rather than reusing 4 (raised in review). Every existing consumer of 4
+# reads it as "this reviewer will not answer": AGENTS.md and REVIEW_POLICY.md
+# route it to the manual handoff, and scripts/wave-audit.sh proceeds fail-open
+# on CI + lane. Reusing 4 would make those true statements false and would turn
+# the ordinary case — wave-audit dispatching a canary before either provider
+# has read it — into the documented fail-open path.
+#
+# Deliberately does NOT render the chat-side handoff and does NOT write a
+# note_fallback ledger entry: nothing has failed. Recording a fail-closed loop
+# on every bounded retry would flood the accounting history and inflate the
+# #813 series-3 fallback counts with waits that later succeed on their own.
+#
+# Reached only from the pre-adapter evaluation, which runs before any loop is
+# recorded and before any step-9 issue is filed — so a hold leaves no
+# provisional posted record to correct and no follow-up issues to orphan.
+hold_for_external_review() {
+  local payload="$1"
+  p4b_warn "external review has not reached the current head; holding without posting (retry_after=$(printf '%s' "$payload" | jq -r '.retry_after // 0')s)"
+  jq -n --argjson pr "$PR" --arg repo "$REPO" --arg head "${HEAD:-}" \
+        --arg direction "$DIRECTION" --arg reviewer "$REVIEWER" \
+        --arg adapter "$ADAPTER" --argjson b "$payload" '
+    {pr_number:$pr, repo:$repo, head_sha:$head, direction:$direction,
+     reviewer_identity:$reviewer, adapter:$adapter, verdict:null,
+     review_posted:false, fell_back_to_manual:false, barrier_pending:true,
+     retry_after:($b.retry_after // 0), barrier:$b,
+     reason:"external review has not reached the current head"}'
+  exit 6
+}
+
+# Run the same-head barrier and act on it. Escalation routes to the existing
+# manual handoff; only the non-terminal case takes the new hold path.
+run_same_head_barrier() {
+  local where="$1" out rc=0
+  out="$(p4b_same_head_barrier "$REPO" "$PR" "$HEAD" "$REVIEWER" "$DRY_RUN")" || rc=$?
+  case "$rc" in
+    0) return 0 ;;
+    1) hold_for_external_review "$out" ;;
+    *) fall_back_to_manual "external review barrier ($where): $(printf '%s' "$out" | jq -r '.reason // "escalated"')" ;;
+  esac
 }
 
 # Temp hygiene: one EXIT trap owns every temp path this run creates (the
@@ -312,9 +420,25 @@ trap _p4b_cleanup_tmp EXIT
 # history present, gate fidelity preserved), and the real state is untouched.
 # Placed BEFORE the first fall_back_to_manual call site so even an early
 # fallback's note_fallback recording lands in the sandbox.
+#
+# The redirect is NOT conditional on accounting being available (Codex P2 on
+# #842). The #814 barrier keys its pending marker off the same state dir, and a
+# missing or unsourceable accounting module is an explicitly supported
+# configuration — so gating this block on P4B_ACCT_AVAILABLE let a dry run
+# write its marker into the REAL .mergepath/phase-4b-barrier, where a later
+# real run inherited time accumulated by the rehearsal and could exhaust the
+# barrier into a manual handoff it had not earned. Every dry run now gets an
+# isolated state dir; only the COPY of prior history needs accounting.
 _P4B_ACCT_DRY_STATE=""
-if [ "$DRY_RUN" = true ] && [ "$P4B_ACCT_AVAILABLE" = true ]; then
-  _p4b_real_state="$(p4b_acct_state_dir)"
+if [ "$DRY_RUN" = true ]; then
+  # An `if`, not `[ ... ] && assign`: as a standalone statement the latter
+  # returns non-zero whenever accounting is unavailable, which under this
+  # script's errexit would abort the run — in exactly the degraded
+  # configuration this change exists to support.
+  _p4b_real_state=""
+  if [ "$P4B_ACCT_AVAILABLE" = true ]; then
+    _p4b_real_state="$(p4b_acct_state_dir)"
+  fi
   if _P4B_ACCT_DRY_STATE="$(mktemp -d "${TMPDIR:-/tmp}/p4b-acct-dry.XXXXXX" 2>/dev/null)"; then
     if [ -d "$_p4b_real_state" ]; then
       cp -Rp "$_p4b_real_state/." "$_P4B_ACCT_DRY_STATE/" 2>/dev/null \
@@ -334,6 +458,34 @@ fi
 if [ ! -x "$ADAPTER_SCRIPT" ]; then
   fall_back_to_manual "no adapter for reviewer '$REVIEWER' (expected $ADAPTER_SCRIPT)"
 fi
+
+# First barrier evaluation (#814), before the adapter run — the expensive part
+# of the loop. If external review has not reached this head there is nothing
+# to order the approval against yet, so the reasoning pass is not worth
+# spending. Placed AFTER the adapter-existence check rather than before it
+# (a deviation from #814's change detail, recorded there): a PR with no
+# adapter can never get a Phase 4b review, so probing providers and possibly
+# triggering CodeRabbit for it would be wasted work and wasted allowance.
+#
+# Skipped entirely on --dry-run (Codex P2 on #842). The barrier guards the
+# review POST, and a dry-run never posts, so there is no ordering hazard for
+# it to prevent — running it would be ceremony. It is not free ceremony
+# either: both provider helpers are gh-backed, so it breaks the offline
+# dry-run recipe in scripts/phase-4b/README.md ("Try it (dry-run, offline,
+# with fake CLIs)"), which exists precisely to validate adapter dispatch and
+# verdict parsing with no network and no credentials. That workflow is also
+# how tests/test_phase_4b_automation.sh exercises the package.
+if [ "$DRY_RUN" = true ]; then
+  p4b_warn "dry-run: skipping the same-head barrier — it guards the review POST, and a dry-run posts nothing (offline dry-runs stay offline)"
+else
+  run_same_head_barrier "pre-adapter"
+fi
+
+# Do not spend an external reviewer round while an earlier finding remains
+# unread or undispositioned. Unlike the provider-ordering barrier, this also
+# applies to dry-runs: invoking the reasoning adapter is the scarce action the
+# gate protects. The command override keeps the orchestrator hermetic in tests.
+require_feedback_accounted
 
 # --- run the adapter (reasoning plane; never posts) ------------------------
 ADAPTER_ARGS=( --pr "$PR" )
@@ -530,7 +682,12 @@ if [ "$VERDICT" = "APPROVED" ] && [ "$FINDINGS_COUNT" -gt 0 ]; then
     # then the issues would already exist — a head that drifted during the
     # adapter run must refuse here, with zero issues claiming an approval
     # that will never post.
-    live_head_pre="$(gh api "repos/$REPO/pulls/$PR" --jq '.head.sha' 2>/dev/null || true)"
+    # #799: this re-read exists to catch head drift, so an unreadable answer
+    # must NOT compare unequal-and-therefore-drifted, nor equal-and-therefore-
+    # safe. gh_api_scalar makes it empty, which is what the fall-back below
+    # already tested for.
+    live_head_pre="$(gh_api_scalar --shape sha "live PR head for $REPO#$PR" \
+      "repos/$REPO/pulls/$PR" --jq '.head.sha')" || live_head_pre=""
     [ -n "$live_head_pre" ] \
       || fall_back_to_manual "could not re-read the live PR head before filing post-review issues"
     if [ "$live_head_pre" != "$HEAD" ]; then
@@ -571,7 +728,8 @@ if [ "$VERDICT" = "APPROVED" ] && [ "$FINDINGS_COUNT" -gt 0 ]; then
     # filing pins the just-filed issues to a head whose approval will be
     # refused at post_review, and a new-head rerun cannot reuse the old
     # head-pinned markers. Close this run's creations and refuse now.
-    live_head_post="$(gh api "repos/$REPO/pulls/$PR" --jq '.head.sha' 2>/dev/null || true)"
+    live_head_post="$(gh_api_scalar --shape sha "live PR head for $REPO#$PR" \
+      "repos/$REPO/pulls/$PR" --jq '.head.sha')" || live_head_post=""
     if [ -z "$live_head_post" ] || [ "$live_head_post" != "$HEAD" ]; then
       p4b_warn "PR head drifted during issue filing (reviewed $HEAD, live ${live_head_post:-unreadable}) — closing this run's filed issues as superseded"
       p4b_close_post_review_issues "$P4B_CREATED_ISSUE_REFS" "Superseded: the PR head of ${REPO}#${PR} changed before the Phase 4b approval could post; a re-run on the new head files fresh follow-ups."
@@ -815,7 +973,13 @@ post_review() {
     *) p4b_die 3 "unsupported review state flag: $state_flag" ;;
   esac
   local live_head
-  live_head="$(gh api "repos/$REPO/pulls/$PR" --jq '.head.sha' 2>/dev/null || true)"
+  # #799: the last drift check before a review POSTS. An unreadable read that
+  # arrived as a JSON blob compared unequal to $HEAD and took the
+  # fall_back_to_manual branch — the safe direction by luck, not by design,
+  # and the diagnostic named a "live head" that was an error body. Empty now
+  # means unread, and the guard on the next line is live.
+  live_head="$(gh_api_scalar --shape sha "live PR head for $REPO#$PR" \
+    "repos/$REPO/pulls/$PR" --jq '.head.sha')" || live_head=""
   [ -n "$live_head" ] || { p4b_acct_mark_unposted "could not re-read live PR head before posting review"; p4b_die 3 "could not re-read live PR head before posting review"; }
   if [ "$live_head" != "$HEAD" ]; then
     # Late-window drift (#674 round-5 P2): a push landing during body or
@@ -829,6 +993,22 @@ post_review() {
     fi
     fall_back_to_manual "PR head changed during review (reviewed $HEAD, live $live_head)"
   fi
+  # No second barrier evaluation here, despite #814's change detail asking for
+  # one at this line — recorded on #814 as superseded.
+  #
+  # It cannot change the answer. A provider's report on head H is permanent
+  # for H: reports do not un-happen, so a barrier that opened before the
+  # adapter is still open now. The one state change that WOULD invalidate it
+  # is a push, and that is caught by the live-head recheck immediately above,
+  # which returns before this point. Meanwhile the pre-adapter barrier holds
+  # the run outright unless it opened, so reaching here already implies it did.
+  #
+  # Re-evaluating could therefore only agree, or spuriously escalate on a
+  # transient provider-CLI failure — converting a valid approval into a manual
+  # handoff. It also cost two defects found in review: this line sits AFTER the
+  # step-9 issue filing and after the provisional posted loop record, so a hold
+  # here left a phantom posted approval in the accounting history and re-filed
+  # follow-up issues on every retry cycle.
   payload_file="$(mktemp "${TMPDIR:-/tmp}/p4b-review-payload.XXXXXX")"
   jq -n --arg commit_id "$HEAD" --arg event "$event" --rawfile body "$BODY_FILE" \
     '{commit_id:$commit_id,event:$event,body:$body}' > "$payload_file"

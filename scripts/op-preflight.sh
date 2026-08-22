@@ -124,7 +124,7 @@ reviewer_pat_item_for() {
   case "$1" in
     claude) echo "pvbq24vl2h6gl7yjclxy2hbote" ;;
     cursor) echo "bslrih4spwxgookzfy6zedz5g4" ;;
-    codex)  echo "o6ekjxjjl5gq6rmcneomrjahpu" ;;
+    codex)  echo "etak327mpz4drd4byxszfex4vm" ;;
     *)      return 1 ;;
   esac
 }
@@ -694,6 +694,16 @@ emit_from_session_file() (
       if [[ -z "${OP_PREFLIGHT_REVIEWER_PAT:-}" ]] || [[ -z "${OP_PREFLIGHT_AUTHOR_PAT:-}" ]]; then
         exit 2
       fi
+      # Reject a cache minted from a DIFFERENT 1Password item than the
+      # one this agent now maps to, so an agent->item remap takes effect
+      # immediately instead of after the TTL. Absent on caches written
+      # before this field existed: treat that as stale too (exit 2 =>
+      # full refresh) rather than trusting an unattributable token.
+      desired_reviewer_ref="$(reviewer_pat_ref_for "$AGENT" 2>/dev/null || true)"
+      if [[ -n "$desired_reviewer_ref" ]] \
+         && [[ "${OP_PREFLIGHT_REVIEWER_PAT_SOURCE_REF:-}" != "$desired_reviewer_ref" ]]; then
+        exit 2
+      fi
     fi
   fi
   if [[ "$MODE" == "deploy" || "$MODE" == "all" ]]; then
@@ -773,9 +783,9 @@ emit_from_session_file() (
   fi
 
   [[ -n "${OP_PREFLIGHT_REVIEWER_PAT:-}" ]] && \
-    printf 'export OP_PREFLIGHT_REVIEWER_PAT=%q\n' "$OP_PREFLIGHT_REVIEWER_PAT"
+    printf 'export OP_PREFLIGHT_REVIEWER_PAT=%q\n' "$OP_PREFLIGHT_REVIEWER_PAT"  # TOKEN_OUTPUT_EXEMPT: writing these values to the cache IS op-preflight's contract (#996)
   [[ -n "${OP_PREFLIGHT_AUTHOR_PAT:-}" ]] && \
-    printf 'export OP_PREFLIGHT_AUTHOR_PAT=%q\n' "$OP_PREFLIGHT_AUTHOR_PAT"
+    printf 'export OP_PREFLIGHT_AUTHOR_PAT=%q\n' "$OP_PREFLIGHT_AUTHOR_PAT"  # TOKEN_OUTPUT_EXEMPT: writing these values to the cache IS op-preflight's contract (#996)
   [[ "${OP_PREFLIGHT_TOKEN_MODE:-0}" == "1" ]] && \
     printf 'export OP_PREFLIGHT_TOKEN_MODE=1\n'
   # Mode-scope the deploy-credential emission (#466): a review-mode (or
@@ -795,7 +805,7 @@ emit_from_session_file() (
     [[ -n "${OP_PREFLIGHT_FIREBASE_PROJECT:-}" ]] && \
       printf 'export OP_PREFLIGHT_FIREBASE_PROJECT=%q\n' "$OP_PREFLIGHT_FIREBASE_PROJECT"
     [[ -n "${CF_API_TOKEN:-}" ]] && \
-      printf 'export CF_API_TOKEN=%q\n' "$CF_API_TOKEN"
+      printf 'export CF_API_TOKEN=%q\n' "$CF_API_TOKEN"  # TOKEN_OUTPUT_EXEMPT: writing these values to the cache IS op-preflight's contract (#996)
   else
     # Review-only request (#466 r2): actively clear any deploy credentials a
     # prior --mode deploy / --mode all eval exported into the caller's
@@ -1114,6 +1124,16 @@ TPL
     EXPORTS+=("export OP_PREFLIGHT_AUTHOR_PAT=$(printf '%q' "$author_pat")")
     SESSION_LINES+=("OP_PREFLIGHT_REVIEWER_PAT=$(printf '%q' "$reviewer_pat")")
     SESSION_LINES+=("OP_PREFLIGHT_AUTHOR_PAT=$(printf '%q' "$author_pat")")
+    # Record WHICH 1Password item this PAT came from. The cache stores a
+    # resolved token, so a change to the agent->item mapping is invisible
+    # to a warm cache: session_is_fresh only compares the TTL, and the
+    # fast path would keep serving a token from the OLD item for up to
+    # TTL_SECONDS. That is not hypothetical — item
+    # o6ekjxjjl5gq6rmcneomrjahpu was repurposed from codex to the robot CI
+    # account on 2026-08-21, and every warm codex cache kept emitting a
+    # robot token after the mapping was corrected. Token mode already
+    # guarded this; the interactive path did not.
+    SESSION_LINES+=("OP_PREFLIGHT_REVIEWER_PAT_SOURCE_REF=$(printf '%q' "op://Private/${reviewer_item}/token")")
     SUMMARY+=("Reviewer PAT ($AGENT): loaded")
     SUMMARY+=("Author PAT: loaded")
   fi
