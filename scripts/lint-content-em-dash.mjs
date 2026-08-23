@@ -1003,8 +1003,14 @@ function bodyViolations(source) {
 // indentation of the opening line, or null when the line opens nothing.
 // YAML allows the chomping and indentation indicators in either order, so
 // `|2-` is as valid as `|-2`.
+//
+// The node-properties group is deliberately bounded and requires whitespace
+// between properties. With a zero-width separator the `&…`/`!…` alternation
+// could split one run many ways, which CodeQL correctly flagged as
+// exponential backtracking (js/redos). YAML permits at most one anchor and
+// one tag, so `{0,2}` loses nothing.
 const BLOCK_SCALAR_OPENER =
-  /^([\p{Zs}\t]*)((?:-[\p{Zs}\t]+)*)(?:("(?:[^"\\]|\\.)*"|'(?:[^']|'')*'|[^:\n]+):)?[\p{Zs}\t]*(?:(?:&[^\s[\]{},]+|![^\s]*)[\p{Zs}\t]*)*([|>])((?:[-+]\d*|\d+[-+]?)?)[\p{Zs}\t]*(?:#[^\n]*)?$/u;
+  /^([\p{Zs}\t]*)((?:-[\p{Zs}\t]+)*)(?:("(?:[^"\\]|\\.)*"|'(?:[^']|'')*'|[^:\n]+):)?[\p{Zs}\t]*(?:(?:&[^\s[\]{},]+|![^\s]*)[\p{Zs}\t]+){0,2}([|>])((?:[-+]\d*|\d+[-+]?)?)[\p{Zs}\t]*(?:#[^\n]*)?$/u;
 
 function blockScalarOpenerOf(line) {
   const match = line.match(BLOCK_SCALAR_OPENER);
