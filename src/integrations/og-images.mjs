@@ -27,7 +27,7 @@
  */
 
 import { readdir, readFile, writeFile, mkdir, rm, stat } from 'node:fs/promises';
-import { join, dirname, basename } from 'node:path';
+import { join, dirname, basename, resolve, sep } from 'node:path';
 import { createServer } from 'node:http';
 import { createReadStream } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -53,10 +53,37 @@ async function findHtmlFiles(dir) {
 }
 
 /**
+ * Resolve a request URL to a file path inside `root`, refusing anything
+ * that would escape it (e.g. `/../../../etc/passwd` or its encoded form).
+ * Returns null if the URL is malformed or resolves outside `root`.
+ */
+function resolveRequestPath(root, requestUrl) {
+  let pathname;
+  try {
+    pathname = decodeURIComponent(new URL(requestUrl, 'http://localhost').pathname);
+  } catch {
+    return null;
+  }
+
+  let filePath = join(root, pathname === '/' ? 'index.html' : pathname);
+  // If path doesn't end with a file extension, try index.html
+  if (!filePath.match(/\.\w+$/)) {
+    filePath = join(filePath, 'index.html');
+  }
+
+  const resolvedRoot = resolve(root);
+  const resolvedPath = resolve(filePath);
+  if (resolvedPath !== resolvedRoot && !resolvedPath.startsWith(resolvedRoot + sep)) {
+    return null;
+  }
+  return resolvedPath;
+}
+
+/**
  * Serve static files from a directory. Minimal server for Playwright.
  */
-function serveStatic(root) {
-  return new Promise((resolve) => {
+export function serveStatic(root) {
+  return new Promise((resolvePromise) => {
     const mimeTypes = {
       '.html': 'text/html',
       '.css': 'text/css',
@@ -66,10 +93,11 @@ function serveStatic(root) {
     };
 
     const server = createServer((req, res) => {
-      let filePath = join(root, req.url === '/' ? 'index.html' : req.url);
-      // If path doesn't end with a file extension, try index.html
-      if (!filePath.match(/\.\w+$/)) {
-        filePath = join(filePath, 'index.html');
+      const filePath = resolveRequestPath(root, req.url);
+      if (!filePath) {
+        res.writeHead(403);
+        res.end('Forbidden');
+        return;
       }
 
       const ext = '.' + filePath.split('.').pop();
@@ -88,7 +116,7 @@ function serveStatic(root) {
 
     server.listen(0, '127.0.0.1', () => {
       const { port } = server.address();
-      resolve({ server, port });
+      resolvePromise({ server, port });
     });
   });
 }
