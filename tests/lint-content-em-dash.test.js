@@ -869,6 +869,48 @@ describe('content em-dash lint', () => {
     );
   });
 
+  it('refuses a fix that would retarget a shortcut reference', () => {
+    // Closing the padding turns `[foo — bar]` into `[foo—bar]`, which resolves
+    // to the OTHER definition. Node types and bounds stay identical, so only
+    // comparing the reference identifier catches it.
+    const source = '[foo — bar]\n\n[foo — bar]: /one\n[foo—bar]: /two\n';
+
+    expect(closeUpSpacedEmDashesInText(source)).toBe(source);
+  });
+
+  it('still fixes a GFM autolink that has no source position', () => {
+    // micromark omits `position` on the generated autolink node; treating that
+    // as a structural mismatch used to reject this safe fix.
+    expect(closeUpSpacedEmDashesInText('plain — www.example.com')).toBe(
+      'plain—www.example.com',
+    );
+  });
+
+  it('ignores an end tag that closes nothing open', () => {
+    // HTML ignores `</bogus>`, so the span stays open and its break is real.
+    const source = '<span style="white-space: pre">word</bogus>—\nnext';
+
+    expect(closeUpSpacedEmDashesInText(source)).toContain('\n');
+  });
+
+  it('skips an explicit YAML key without stranding the rest of the file', () => {
+    // `? key` / `: value` puts the separator on the next line.
+    const source = '? Release — Notes\n: ok\nblurb: a — b\n';
+
+    expect(findSpacedEmDashViolations('/tmp/skills.yaml', source)).toHaveLength(1);
+    expect(closeUpSpacedEmDashesInText(source, '/tmp/skills.yaml')).toBe(
+      '? Release — Notes\n: ok\nblurb: a—b\n',
+    );
+  });
+
+  it('absorbs list continuation indentation across inline siblings', () => {
+    // Markdown strips the indent, so the break is padding, not a boundary.
+    expect(closeUpSpacedEmDashesInText('- word—\n  <em>next</em>')).toBe(
+      '- word—<em>next</em>',
+    );
+    expect(closeUpSpacedEmDashesInText('- word —\n  next')).toBe('- word—next');
+  });
+
   it('preserves CRLF line endings through a fix pass', () => {
     const source = 'prose — one.\r\nprose — two.\r\n';
 

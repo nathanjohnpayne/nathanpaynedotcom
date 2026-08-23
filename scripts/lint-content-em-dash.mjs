@@ -124,7 +124,7 @@ function createProseStream(protectedRanges = []) {
     spans: [],
     protectedRanges,
     pendingSoftBreak: null,
-    inlineHtmlDepth: 0,
+    openInlineHtml: [],
   };
 }
 
@@ -165,7 +165,7 @@ function pushBoundary(stream) {
 }
 
 function resetInlineWhitespaceState(stream) {
-  stream.inlineHtmlDepth = 0;
+  stream.openInlineHtml.length = 0;
   stream.pendingSoftBreak = null;
 }
 
@@ -190,6 +190,16 @@ function skipMarkdownContinuationPrefix(raw, start) {
   while ((match = raw.slice(cursor).match(/^[\t ]{0,3}>[\t ]*/))) {
     cursor += match[0].length;
   }
+
+  // A list item's continuation lines are indented, and Markdown strips that
+  // indentation when rendering. Without absorbing it, `- word—\n  <em>next</em>`
+  // left an unclassified gap, the soft break became a boundary, and the padded
+  // dash went unreported.
+  const indent = raw.slice(cursor).match(/^[\t ]+/);
+  if (indent) {
+    cursor += indent[0].length;
+  }
+
   return cursor;
 }
 
@@ -329,7 +339,7 @@ function alignValueToSource(value, raw) {
 function emitSoftBreak(stream, span, isTrailing) {
   // Inside an unclosed inline HTML element the surrounding white-space rules
   // are no longer modelled, so the break is a boundary rather than padding.
-  if (stream.inlineHtmlDepth > 0) {
+  if (stream.openInlineHtml.length > 0) {
     pushBoundary(stream);
     return;
   }
@@ -454,13 +464,19 @@ function trackInlineHtmlDepth(stream, tag) {
   }
 
   if (match[1] === '/') {
-    stream.inlineHtmlDepth = Math.max(0, stream.inlineHtmlDepth - 1);
+    // An end tag that matches nothing open is ignored by HTML. Popping on it
+    // anyway would report the element closed while the browser keeps it open,
+    // and the break inside it would look removable.
+    const index = stream.openInlineHtml.lastIndexOf(name);
+    if (index !== -1) {
+      stream.openInlineHtml.length = index;
+    }
     return;
   }
 
   // HTML ignores the self-closing flag on ordinary elements, so only void
   // elements close themselves.
-  stream.inlineHtmlDepth += 1;
+  stream.openInlineHtml.push(name);
 }
 
 // A raw-HTML span is not uniformly opaque: the tags are markup, the body of a
@@ -1228,6 +1244,15 @@ function mappingKeyEnd(line) {
     }
   }
 
+  // Explicit key form: `? key` on one line, `: value` on the next. The whole
+  // `?` line is key, so nothing on it is prose; the `:` line introduces a
+  // value the same way an inline `key:` does.
+  const indicator = line[index];
+  const afterIndicator = line[index + 1];
+  if ((indicator === '?' || indicator === ':') && (afterIndicator === undefined || isSpace(afterIndicator))) {
+    return indicator === '?' ? line.length : index + 1;
+  }
+
   const quote = line[index];
   if (quote === '"' || quote === "'") {
     let cursor = index + 1;
@@ -1388,26 +1413,86 @@ export function findSpacedEmDashViolations(filePath, source) {
 // constructs the source parses into. For example, closing the spaces around
 // `**—**` makes both strong delimiters intraword and turns them into literal
 // asterisks. Keep a compact node-type tree so that case fails closed.
-function markdownStructure(source, mapOffset = (offset) => offset) {
-  const body = source.slice(frontmatterLength(source));
-  const bodyStart = frontmatterLength(source);
-  const tree = fromMarkdown(body, {
-    extensions: [gfm()],
-    mdastExtensions: [gfmFromMarkdown()],
-  });
+// Semantic properties that decide what a node MEANS. A padding fix must never
+// change one: `[foo — bar]` and `[foo—bar]` are different reference
+// identifiers, so closing that padding can silently retarget a link when both
+// definitions exist.
+// `title` and `alt` are deliberately absent: both are published prose the fixer
+// is allowed to edit, so comparing them would reject its own legitimate work.
+const MARKDOWN_IDENTITY_KEYS = [
+  'identifier',
+  'label',
+  'url',
+  'depth',
+  'ordered',
+  'start',
+  'checked',
+  'lang',
+  'meta',
+  'align',
+  'referenceType',
+];
 
-  function shape(node) {
-    const bounds =
-      node.type !== 'text' && node.position
-        ? [
-            mapOffset(bodyStart + node.position.start.offset, 'right'),
-            mapOffset(bodyStart + node.position.end.offset, 'left'),
-          ]
-        : [];
-    return [node.type, ...bounds, ...(node.children ?? []).map(shape)];
+function markdownTree(source) {
+  const bodyStart = frontmatterLength(source);
+  return {
+    bodyStart,
+    tree: fromMarkdown(source.slice(bodyStart), {
+      extensions: [gfm()],
+      mdastExtensions: [gfmFromMarkdown()],
+    }),
+  };
+}
+
+function identityOf(node) {
+  return MARKDOWN_IDENTITY_KEYS.filter((key) => node[key] !== undefined)
+    .map((key) => `${key}=${JSON.stringify(node[key])}`)
+    .join(',');
+}
+
+// Walk both trees together rather than stringifying each. Comparing in
+// parallel is what lets bounds be skipped when EITHER side lacks a position:
+// micromark omits `position` on some generated GFM nodes (a bare autolink
+// literal), and treating that as a mismatch rejected fixes that were safe.
+function markdownNodesMatch(a, b, aStart, bStart, mapOffset) {
+  if (a.type !== b.type) {
+    return false;
+  }
+  if (identityOf(a) !== identityOf(b)) {
+    return false;
   }
 
-  return JSON.stringify(shape(tree));
+  // Text content shifts by design — that is the whole edit.
+  if (a.type !== 'text' && a.position && b.position) {
+    if (
+      aStart + a.position.start.offset !== mapOffset(bStart + b.position.start.offset, 'right') ||
+      aStart + a.position.end.offset !== mapOffset(bStart + b.position.end.offset, 'left')
+    ) {
+      return false;
+    }
+  }
+
+  const aChildren = a.children ?? [];
+  const bChildren = b.children ?? [];
+  if (aChildren.length !== bChildren.length) {
+    return false;
+  }
+
+  return aChildren.every((child, index) =>
+    markdownNodesMatch(child, bChildren[index], aStart, bStart, mapOffset),
+  );
+}
+
+function markdownStructureMatches(source, fixed, mapOffset) {
+  const original = markdownTree(source);
+  const candidate = markdownTree(fixed);
+  return markdownNodesMatch(
+    original.tree,
+    candidate.tree,
+    original.bodyStart,
+    candidate.bodyStart,
+    mapOffset,
+  );
 }
 
 function yamlShape(value, seen = new Map()) {
@@ -1473,7 +1558,7 @@ function structureIsPreserved(source, fixed, filePath, removals) {
 
     const mapFixedOffset = (offset, bias) =>
       originalOffsetOfFixedOffset(offset, removals, bias);
-    if (markdownStructure(source) !== markdownStructure(fixed, mapFixedOffset)) {
+    if (!markdownStructureMatches(source, fixed, mapFixedOffset)) {
       return false;
     }
 
