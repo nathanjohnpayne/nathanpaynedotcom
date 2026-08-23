@@ -840,26 +840,24 @@ function blockScalarOpenerOf(line) {
   // and which are more-indented literal lines. Without one it is inferred from
   // the first non-blank content line.
   const digits = match[5].match(/\d+/);
-  const indent = match[1].length;
-  const sequenceIndent = match[2].length;
   const explicitIndent = digits ? Number(digits[0]) : null;
-  // The indicator is relative to the PARENT node's indentation. For a scalar
-  // directly under a sequence dash that is the dash's column; for a scalar that
-  // is the whole document there is no parent, and YAML treats the root's
-  // conceptual indentation as -1. `lastIndexOf` returns exactly that for an
-  // empty sequence prefix, so both cases fall out of one expression.
-  const directSequenceParentIndent = match[2].lastIndexOf('-');
+
+  // Content belongs to the scalar only while it is indented past the scalar's
+  // PARENT node, and an explicit indicator is measured from that parent too.
+  // The parent is the mapping key when there is one (`- description: |` is
+  // owned by `description`, at column 2, so a sibling key back at column 2
+  // ends the scalar rather than becoming its content); otherwise the sequence
+  // dash; otherwise the document root, which YAML treats as -1. `lastIndexOf`
+  // returns exactly -1 for an empty sequence prefix, so the root falls out of
+  // the same expression.
+  const parentIndent =
+    match[1].length + (match[3] ? match[2].length : match[2].lastIndexOf('-'));
 
   return {
-    indent,
+    indent: parentIndent,
     // `>` folds line breaks into spaces; `|` keeps them literal.
     folded: match[4] === '>',
-    contentIndent: digits
-      ? indent +
-        (match[3]
-          ? sequenceIndent + explicitIndent
-          : directSequenceParentIndent + explicitIndent)
-      : null,
+    contentIndent: digits ? parentIndent + explicitIndent : null,
   };
 }
 
@@ -1283,8 +1281,15 @@ function mappingKeySpans(line) {
       continue;
     }
 
-    // A colon separates only when whitespace or the end of the line follows.
-    if (character === ':' && (line[cursor + 1] === undefined || isSpace(line[cursor + 1]))) {
+    // A colon separates only when whitespace or the end of the line follows —
+    // except in a flow collection after a quoted key, where YAML accepts the
+    // JSON spelling `{"key":"value"}` with no space at all.
+    const separates =
+      character === ':' &&
+      (line[cursor + 1] === undefined ||
+        isSpace(line[cursor + 1]) ||
+        (flowDepth > 0 && (line[cursor - 1] === '"' || line[cursor - 1] === "'")));
+    if (separates) {
       // Outside a flow collection a line has exactly one key; the rest is its
       // value. Scanning continues regardless, because that value may itself be
       // a flow collection carrying keys of its own.

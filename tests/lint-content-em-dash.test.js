@@ -673,6 +673,25 @@ describe('content em-dash lint', () => {
     expect(yaml('|1\n — leading\n')).toHaveLength(1);
   });
 
+  it('reads a JSON-style flow mapping separator', () => {
+    // In a flow collection YAML accepts `{"key":"value"}` with no space after
+    // the colon, so the quoted key must still be recognised as a key.
+    const source = 'x: {"Release — Notes":"ok", "blurb":"word — next"}\n';
+
+    expect(findSpacedEmDashViolations('/tmp/skills.yaml', source)).toHaveLength(1);
+  });
+
+  it('ends an empty block scalar at a sibling key', () => {
+    // `description:` owns the scalar and sits at column 2, so a key back at
+    // column 2 is its sibling, not scalar content. Scanning it as prose made
+    // the mapping key a spurious violation.
+    const source = '- description: |\n  Release — Notes: ok\n  blurb: word — next\n';
+
+    const violations = findSpacedEmDashViolations('/tmp/skills.yaml', source);
+    expect(violations).toHaveLength(1);
+    expect(violations[0]).toMatchObject({ line: 3 });
+  });
+
   it('does not scan a YAML mapping key', () => {
     // A key is an identifier, not prose. Rewriting one changes the document
     // shape, so the structural check rejects the whole write — and because a
