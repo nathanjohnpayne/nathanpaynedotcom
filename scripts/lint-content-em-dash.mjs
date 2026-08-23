@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { readFileSync, readdirSync, writeFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { extname, join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { fromMarkdown } from 'mdast-util-from-markdown';
@@ -7,7 +7,6 @@ import { gfmFromMarkdown } from 'mdast-util-gfm';
 import { decodeNamedCharacterReference } from 'decode-named-character-reference';
 import { decodeNumericCharacterReference } from 'micromark-util-decode-numeric-character-reference';
 import { gfm } from 'micromark-extension-gfm';
-import { loadAll as parseYamlDocuments } from 'js-yaml';
 
 const CONTENT_ROOT = resolve(process.cwd(), 'src/content');
 
@@ -1422,193 +1421,6 @@ export function findSpacedEmDashViolations(filePath, source) {
 // constructs the source parses into. For example, closing the spaces around
 // `**—**` makes both strong delimiters intraword and turns them into literal
 // asterisks. Keep a compact node-type tree so that case fails closed.
-// Semantic properties that decide what a node MEANS. A padding fix must never
-// change one: `[foo — bar]` and `[foo—bar]` are different reference
-// identifiers, so closing that padding can silently retarget a link when both
-// definitions exist.
-// `title` and `alt` are deliberately absent: both are published prose the fixer
-// is allowed to edit, so comparing them would reject its own legitimate work.
-const MARKDOWN_IDENTITY_KEYS = [
-  'identifier',
-  'label',
-  'url',
-  'depth',
-  'ordered',
-  'start',
-  'checked',
-  'lang',
-  'meta',
-  'align',
-  'referenceType',
-];
-
-function markdownTree(source) {
-  const bodyStart = frontmatterLength(source);
-  return {
-    bodyStart,
-    tree: fromMarkdown(source.slice(bodyStart), {
-      extensions: [gfm()],
-      mdastExtensions: [gfmFromMarkdown()],
-    }),
-  };
-}
-
-function identityOf(node) {
-  return MARKDOWN_IDENTITY_KEYS.filter((key) => node[key] !== undefined)
-    .map((key) => `${key}=${JSON.stringify(node[key])}`)
-    .join(',');
-}
-
-// Walk both trees together rather than stringifying each. Comparing in
-// parallel is what lets bounds be skipped when EITHER side lacks a position:
-// micromark omits `position` on some generated GFM nodes (a bare autolink
-// literal), and treating that as a mismatch rejected fixes that were safe.
-function markdownNodesMatch(a, b, aStart, bStart, mapOffset) {
-  if (a.type !== b.type) {
-    return false;
-  }
-  if (identityOf(a) !== identityOf(b)) {
-    return false;
-  }
-
-  // Text content shifts by design — that is the whole edit.
-  if (a.type !== 'text' && a.position && b.position) {
-    if (
-      aStart + a.position.start.offset !== mapOffset(bStart + b.position.start.offset, 'right') ||
-      aStart + a.position.end.offset !== mapOffset(bStart + b.position.end.offset, 'left')
-    ) {
-      return false;
-    }
-  }
-
-  const aChildren = a.children ?? [];
-  const bChildren = b.children ?? [];
-  if (aChildren.length !== bChildren.length) {
-    return false;
-  }
-
-  return aChildren.every((child, index) =>
-    markdownNodesMatch(child, bChildren[index], aStart, bStart, mapOffset),
-  );
-}
-
-function markdownStructureMatches(source, fixed, mapOffset) {
-  const original = markdownTree(source);
-  const candidate = markdownTree(fixed);
-  return markdownNodesMatch(
-    original.tree,
-    candidate.tree,
-    original.bodyStart,
-    candidate.bodyStart,
-    mapOffset,
-  );
-}
-
-function yamlShape(value, seen = new Map()) {
-  if (value !== null && typeof value === 'object') {
-    if (seen.has(value)) {
-      return ['reference', seen.get(value)];
-    }
-    seen.set(value, seen.size);
-  }
-
-  if (Array.isArray(value)) {
-    return ['array', ...value.map((entry) => yamlShape(entry, seen))];
-  }
-  if (value !== null && typeof value === 'object') {
-    return [
-      'object',
-      ...Object.keys(value)
-        .sort()
-        .map((key) => [key, yamlShape(value[key], seen)]),
-    ];
-  }
-  return typeof value;
-}
-
-function yamlStructure(source) {
-  const documents = [];
-  parseYamlDocuments(source, (document) => documents.push(yamlShape(document)));
-  return JSON.stringify(documents);
-}
-
-function frontmatterYaml(source) {
-  const match = source.match(FRONTMATTER);
-  if (!match) {
-    return null;
-  }
-  return match[0]
-    .replace(/^---\r?\n/, '')
-    .replace(/\r?\n---(?:\r?\n|$)$/, '');
-}
-
-function originalOffsetOfFixedOffset(fixedOffset, removals, bias) {
-  let deleted = 0;
-
-  for (const [start, end] of removals) {
-    const fixedBoundary = start - deleted;
-    if (fixedOffset < fixedBoundary) {
-      break;
-    }
-    if (fixedOffset === fixedBoundary && bias === 'left') {
-      return start;
-    }
-    deleted += end - start;
-  }
-
-  return fixedOffset + deleted;
-}
-
-function structureIsPreserved(source, fixed, filePath, removals) {
-  try {
-    if (isYamlPath(filePath)) {
-      return yamlStructure(source) === yamlStructure(fixed);
-    }
-
-    const mapFixedOffset = (offset, bias) =>
-      originalOffsetOfFixedOffset(offset, removals, bias);
-    if (!markdownStructureMatches(source, fixed, mapFixedOffset)) {
-      return false;
-    }
-
-    const originalFrontmatter = frontmatterYaml(source);
-    const fixedFrontmatter = frontmatterYaml(fixed);
-    return (
-      originalFrontmatter === null ||
-      (fixedFrontmatter !== null &&
-        yamlStructure(originalFrontmatter) === yamlStructure(fixedFrontmatter))
-    );
-  } catch {
-    // A formatter must never turn parse uncertainty into a write. The
-    // remaining violation makes the CLI exit non-zero and names the file.
-    return false;
-  }
-}
-
-export function closeUpSpacedEmDashesInText(source, filePath = '') {
-  const removals = collectViolations(source, filePath)
-    .flatMap((violation) => violation.removals)
-    .sort((a, b) => a[0] - b[0]);
-
-  let fixed = '';
-  let cursor = 0;
-  const appliedRemovals = [];
-
-  for (const [start, end] of removals) {
-    if (start < cursor) {
-      continue;
-    }
-    fixed += source.slice(cursor, start);
-    cursor = end;
-    appliedRemovals.push([start, end]);
-  }
-
-  // Splicing the original string leaves every byte outside a removal
-  // untouched, so a CRLF file stays CRLF.
-  const candidate = fixed + source.slice(cursor);
-  return structureIsPreserved(source, candidate, filePath, appliedRemovals) ? candidate : source;
-}
-
 // ---------------------------------------------------------------------------
 // CLI
 // ---------------------------------------------------------------------------
@@ -1657,10 +1469,13 @@ function reportViolations(violations) {
 
 function printUsageAndExit(code = 0) {
   console.log(`Usage:
-  node scripts/lint-content-em-dash.mjs [--write]
+  node scripts/lint-content-em-dash.mjs
 
-Checks for spaced em dashes in src/content markdown files and reports violations.
-Exceptions: bracketed ID-title labels such as [DST-047 — Title] remain allowed.`);
+Reports spaced em dashes in src/content and exits non-zero when any remain.
+Reporting only: closing them is a manual edit, because rewriting published
+prose in place cannot be done safely across Markdown, HTML and YAML without
+reimplementing their parsers.
+Exception: bracketed ID-title labels such as [DST-047 — Title] are allowed.`);
   process.exit(code);
 }
 
@@ -1671,45 +1486,14 @@ function main() {
     printUsageAndExit(0);
   }
 
-  // A typo such as `--wrtie` must not silently degrade to a read-only check
-  // and report success without applying the requested fix.
-  const unknown = args.filter((arg) => arg !== '--write');
-  if (unknown.length > 0) {
-    console.error(`content em-dash lint: unknown argument(s): ${unknown.join(', ')}`);
+  if (args.length > 0) {
+    console.error(`content em-dash lint: unknown argument(s): ${args.join(', ')}`);
     printUsageAndExit(2);
   }
 
-  const applyWrite = args.includes('--write');
-
-  const files = collectContentFiles(CONTENT_ROOT);
-
-  if (!applyWrite) {
-    const violations = scanFiles(files);
-    if (violations.length > 0) {
-      reportViolations(violations);
-      process.exit(1);
-    }
-    return;
-  }
-
-  let fixedCount = 0;
-
-  for (const filePath of files) {
-    const source = readFileSync(filePath, 'utf8');
-    const fixedSource = closeUpSpacedEmDashesInText(source, filePath);
-    if (fixedSource !== source) {
-      writeFileSync(filePath, fixedSource, 'utf8');
-      fixedCount += 1;
-    }
-  }
-
-  console.log(`content em-dash lint: fixed ${fixedCount} file${fixedCount === 1 ? '' : 's'}`);
-
-  // A write pass that leaves violations behind must not report success.
-  const remaining = scanFiles(files);
-  if (remaining.length > 0) {
-    console.error('content em-dash lint: violations remain after --write.');
-    reportViolations(remaining);
+  const violations = scanFiles(collectContentFiles(CONTENT_ROOT));
+  if (violations.length > 0) {
+    reportViolations(violations);
     process.exit(1);
   }
 }
