@@ -445,6 +445,14 @@ function trackInlineHtmlDepth(stream, tag) {
     return;
   }
 
+  const name = match[2].toLowerCase();
+
+  // A void element has no end tag: HTML parses `</br>` as `<br>` and never
+  // pops an open element, so it must not close anything here either.
+  if (HTML_VOID_ELEMENTS.has(name)) {
+    return;
+  }
+
   if (match[1] === '/') {
     stream.inlineHtmlDepth = Math.max(0, stream.inlineHtmlDepth - 1);
     return;
@@ -452,9 +460,7 @@ function trackInlineHtmlDepth(stream, tag) {
 
   // HTML ignores the self-closing flag on ordinary elements, so only void
   // elements close themselves.
-  if (!HTML_VOID_ELEMENTS.has(match[2].toLowerCase())) {
-    stream.inlineHtmlDepth += 1;
-  }
+  stream.inlineHtmlDepth += 1;
 }
 
 // A raw-HTML span is not uniformly opaque: the tags are markup, the body of a

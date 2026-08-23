@@ -819,6 +819,21 @@ describe('content em-dash lint', () => {
     expect(closeUpSpacedEmDashesInText('x: [a — b]\n', '/tmp/skills.yaml')).toBe('x: [a—b]\n');
   });
 
+  it('does not let a void end tag close an open inline element', () => {
+    // HTML parses `</br>` as `<br>`; it never pops an open element. Treating
+    // it as a close dropped the depth to zero and made the break inside the
+    // still-open `<em>` look like removable padding.
+    for (const voidName of ['br', 'hr', 'img', 'input']) {
+      const source = `word <em>a</${voidName}>b —\nc</em>`;
+
+      expect(closeUpSpacedEmDashesInText(source)).toContain('\n');
+    }
+
+    // A genuine end tag still closes, so the break after it is ordinary
+    // Markdown padding again.
+    expect(closeUpSpacedEmDashesInText('word <em>a</em>b —\nc')).toBe('word <em>a</em>b—c');
+  });
+
   it('preserves CRLF line endings through a fix pass', () => {
     const source = 'prose — one.\r\nprose — two.\r\n';
 
