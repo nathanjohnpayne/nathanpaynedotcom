@@ -464,13 +464,17 @@ function trackInlineHtmlDepth(stream, tag) {
   }
 
   if (match[1] === '/') {
-    // An end tag that matches nothing open is ignored by HTML. Popping on it
-    // anyway would report the element closed while the browser keeps it open,
-    // and the break inside it would look removable.
-    const index = stream.openInlineHtml.lastIndexOf(name);
-    if (index !== -1) {
-      stream.openInlineHtml.length = index;
+    const open = stream.openInlineHtml;
+    // An end tag closing the innermost element is the simple case.
+    if (open[open.length - 1] === name) {
+      open.pop();
+      return;
     }
+    // Anything else is either an end tag that closes nothing (HTML ignores it)
+    // or misnesting, where the adoption agency algorithm can reconstruct the
+    // inner formatting element around following text — `<b><i></b>text` leaves
+    // `i` active. Truncating the stack would call everything closed and make a
+    // real break look removable, so leave it open and fail closed.
     return;
   }
 
@@ -1212,25 +1216,14 @@ function followsFlowMappingSeparator(line, paddingStart) {
   return flowDepth > 0 && quote === null;
 }
 
-// YAML only treats a colon as a mapping separator when whitespace or the end of
-// the line follows it. Without that rule the colon in a bare URL splits the
-// line, so `- label — https://example.test` reads as a key and its padded dash
-// is skipped.
-function isMappingSeparator(line, index) {
-  if (line[index] !== ':') {
-    return false;
-  }
-  const next = line[index + 1];
-  return next === undefined || /[\p{Zs}\t]/u.test(next);
-}
-
-// End offset of a block mapping key on this line, or 0 when the line has no
-// mapping separator. Scanned rather than matched with one regex: an
-// alternation whose sequence prefix can backtrack to zero lets the plain-key
-// branch start at the `-` and swallow a quoted scalar, so `- "a — b: c"` reads
-// as a key when it is a value.
-function mappingKeyEnd(line) {
+// Every mapping-key span on this line, as [start, end) offsets within it.
+// A single prefix length is not enough: a flow collection can carry keys of
+// its own (`x: {Release — Notes: ok, blurb: word — next}`), and scanning those
+// makes the structural check reject the whole write, stranding the unrelated
+// value violations on the same line.
+function mappingKeySpans(line) {
   const isSpace = (character) => character !== undefined && /[\p{Zs}\t]/u.test(character);
+  const spans = [];
   let index = 0;
 
   while (isSpace(line[index])) {
@@ -1244,56 +1237,69 @@ function mappingKeyEnd(line) {
     }
   }
 
-  // Explicit key form: `? key` on one line, `: value` on the next. The whole
-  // `?` line is key, so nothing on it is prose; the `:` line introduces a
-  // value the same way an inline `key:` does.
+  // Explicit key form: `? key` on one line, `: value` on the next.
   const indicator = line[index];
-  const afterIndicator = line[index + 1];
-  if ((indicator === '?' || indicator === ':') && (afterIndicator === undefined || isSpace(afterIndicator))) {
-    return indicator === '?' ? line.length : index + 1;
+  if ((indicator === '?' || indicator === ':') && (line[index + 1] === undefined || isSpace(line[index + 1]))) {
+    return indicator === '?' ? [[index, line.length]] : [[0, index + 1]];
   }
 
-  const quote = line[index];
-  if (quote === '"' || quote === "'") {
-    let cursor = index + 1;
-    while (cursor < line.length) {
-      if (quote === '"' && line[cursor] === '\\') {
-        cursor += 2;
-        continue;
-      }
-      if (line[cursor] === quote) {
-        // `''` is an escaped apostrophe inside a single-quoted scalar.
-        if (quote === "'" && line[cursor + 1] === "'") {
-          cursor += 2;
-          continue;
-        }
-        break;
-      }
-      cursor += 1;
-    }
-    if (cursor >= line.length) {
-      return 0;
-    }
-
-    let after = cursor + 1;
-    while (isSpace(line[after])) {
-      after += 1;
-    }
-    // A quoted run is a KEY only when a mapping separator follows it.
-    return isMappingSeparator(line, after) ? after + 1 : 0;
-  }
+  let segmentStart = index;
+  let flowDepth = 0;
+  let quote = null;
+  let blockKeyTaken = false;
 
   for (let cursor = index; cursor < line.length; cursor += 1) {
-    if (isMappingSeparator(line, cursor)) {
-      return cursor + 1;
+    const character = line[cursor];
+
+    if (quote) {
+      if (quote === '"' && character === '\\') {
+        cursor += 1;
+      } else if (character === quote) {
+        if (quote === "'" && line[cursor + 1] === "'") {
+          cursor += 1;
+        } else {
+          quote = null;
+        }
+      }
+      continue;
     }
-    // A quote before any separator means this is a value, not a key.
-    if (line[cursor] === '"' || line[cursor] === "'") {
-      return 0;
+
+    if (character === '"' || character === "'") {
+      quote = character;
+      continue;
+    }
+
+    if (character === '{' || character === '[') {
+      flowDepth += 1;
+      segmentStart = cursor + 1;
+      continue;
+    }
+    if (character === '}' || character === ']') {
+      flowDepth = Math.max(0, flowDepth - 1);
+      segmentStart = cursor + 1;
+      continue;
+    }
+    if (character === ',' && flowDepth > 0) {
+      segmentStart = cursor + 1;
+      continue;
+    }
+
+    // A colon separates only when whitespace or the end of the line follows.
+    if (character === ':' && (line[cursor + 1] === undefined || isSpace(line[cursor + 1]))) {
+      // Outside a flow collection a line has exactly one key; the rest is its
+      // value. Scanning continues regardless, because that value may itself be
+      // a flow collection carrying keys of its own.
+      if (flowDepth > 0 || !blockKeyTaken) {
+        spans.push([segmentStart, cursor + 1]);
+        if (flowDepth === 0) {
+          blockKeyTaken = true;
+        }
+      }
+      segmentStart = cursor + 1;
     }
   }
 
-  return 0;
+  return spans;
 }
 
 function lineViolations(source, lineStart, scanEnd, blockScalarContentIndent, exceptionRanges) {
@@ -1303,7 +1309,10 @@ function lineViolations(source, lineStart, scanEnd, blockScalarContentIndent, ex
   // the document's shape, so `structureIsPreserved` rejects the whole write —
   // and because a write is all-or-nothing, one dash in a key would leave every
   // unrelated violation in the same file unfixed too.
-  const keyEnd = blockScalarContentIndent === null ? lineStart + mappingKeyEnd(line) : lineStart;
+  const keySpans =
+    blockScalarContentIndent === null
+      ? mappingKeySpans(line).map(([from, to]) => [lineStart + from, lineStart + to])
+      : [];
 
   for (const [start, matchEnd] of collectMatchRanges(PADDED_EM_DASH, line)) {
     const absoluteStart = lineStart + start;
@@ -1312,7 +1321,7 @@ function lineViolations(source, lineStart, scanEnd, blockScalarContentIndent, ex
     if (dashOffset === -1 || dashOffset >= scanEnd) {
       continue;
     }
-    if (dashOffset < keyEnd) {
+    if (keySpans.some(([from, to]) => dashOffset >= from && dashOffset < to)) {
       continue;
     }
 

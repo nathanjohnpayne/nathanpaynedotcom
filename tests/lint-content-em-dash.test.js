@@ -911,6 +911,31 @@ describe('content em-dash lint', () => {
     expect(closeUpSpacedEmDashesInText('- word —\n  next')).toBe('- word—next');
   });
 
+  it('fails closed on misnested formatting elements', () => {
+    // `</b>` here triggers HTML's adoption agency algorithm, which keeps `i`
+    // active and reconstructs it around the following text, so the break is
+    // still meaningful. Truncating the stack would call everything closed.
+    const source = '<b><i style="white-space: pre"></b>word—\nnext';
+
+    expect(closeUpSpacedEmDashesInText(source)).toContain('\n');
+  });
+
+  it('excludes mapping keys nested inside a flow collection', () => {
+    // Only the flow key is out of scope; the value beside it is still fixed,
+    // rather than the whole write being rejected and stranding it.
+    const source = 'x: {Release — Notes: ok, blurb: word — next}\n';
+
+    expect(findSpacedEmDashViolations('/tmp/skills.yaml', source)).toHaveLength(1);
+    expect(closeUpSpacedEmDashesInText(source, '/tmp/skills.yaml')).toBe(
+      'x: {Release — Notes: ok, blurb: word—next}\n',
+    );
+
+    // A flow collection inside a sequence item behaves the same way.
+    expect(closeUpSpacedEmDashesInText('- {k: a — b}\n', '/tmp/skills.yaml')).toBe(
+      '- {k: a—b}\n',
+    );
+  });
+
   it('preserves CRLF line endings through a fix pass', () => {
     const source = 'prose — one.\r\nprose — two.\r\n';
 
