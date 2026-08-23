@@ -1197,13 +1197,66 @@ function followsFlowMappingSeparator(line, paddingStart) {
 }
 
 // End offset of a block mapping key on this line, or 0 when the line has no
-// mapping separator. A quoted key may legally contain a colon.
-const YAML_MAPPING_KEY =
-  /^[\p{Zs}\t]*(?:-[\p{Zs}\t]+)*(?:"(?:[^"\\]|\\.)*"|'(?:[^']|'')*'|[^:\n]+):/u;
-
+// mapping separator. Scanned rather than matched with one regex: an
+// alternation whose sequence prefix can backtrack to zero lets the plain-key
+// branch start at the `-` and swallow a quoted scalar, so `- "a — b: c"` reads
+// as a key when it is a value.
 function mappingKeyEnd(line) {
-  const match = line.match(YAML_MAPPING_KEY);
-  return match ? match[0].length : 0;
+  const isSpace = (character) => character !== undefined && /[\p{Zs}\t]/u.test(character);
+  let index = 0;
+
+  while (isSpace(line[index])) {
+    index += 1;
+  }
+  // Sequence indicators, each followed by whitespace.
+  while (line[index] === '-' && isSpace(line[index + 1])) {
+    index += 1;
+    while (isSpace(line[index])) {
+      index += 1;
+    }
+  }
+
+  const quote = line[index];
+  if (quote === '"' || quote === "'") {
+    let cursor = index + 1;
+    while (cursor < line.length) {
+      if (quote === '"' && line[cursor] === '\\') {
+        cursor += 2;
+        continue;
+      }
+      if (line[cursor] === quote) {
+        // `''` is an escaped apostrophe inside a single-quoted scalar.
+        if (quote === "'" && line[cursor + 1] === "'") {
+          cursor += 2;
+          continue;
+        }
+        break;
+      }
+      cursor += 1;
+    }
+    if (cursor >= line.length) {
+      return 0;
+    }
+
+    let after = cursor + 1;
+    while (isSpace(line[after])) {
+      after += 1;
+    }
+    // A quoted run is a KEY only when a mapping separator follows it.
+    return line[after] === ':' ? after + 1 : 0;
+  }
+
+  for (let cursor = index; cursor < line.length; cursor += 1) {
+    if (line[cursor] === ':') {
+      return cursor + 1;
+    }
+    // A quote before any separator means this is a value, not a key.
+    if (line[cursor] === '"' || line[cursor] === "'") {
+      return 0;
+    }
+  }
+
+  return 0;
 }
 
 function lineViolations(source, lineStart, scanEnd, blockScalarContentIndent, exceptionRanges) {

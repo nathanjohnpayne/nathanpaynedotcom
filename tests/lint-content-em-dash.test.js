@@ -821,6 +821,20 @@ describe('content em-dash lint', () => {
     );
   });
 
+  it('treats a quoted sequence scalar containing a colon as a value', () => {
+    // The colon lives inside the quoted scalar, so this is a sequence item,
+    // not a mapping key.
+    expect(closeUpSpacedEmDashesInText('- "a — b: c"\n', '/tmp/skills.yaml')).toBe(
+      '- "a—b: c"\n',
+    );
+    expect(closeUpSpacedEmDashesInText("- 'a — b: c'\n", '/tmp/skills.yaml')).toBe(
+      "- 'a—b: c'\n",
+    );
+    // A sequence item that really is a mapping still has its key skipped and
+    // its value fixed.
+    expect(closeUpSpacedEmDashesInText('- a: b — c\n', '/tmp/skills.yaml')).toBe('- a: b—c\n');
+  });
+
   it('still scans values, sequence items, and block scalars', () => {
     // The key matcher must not swallow the value, including one with a colon.
     expect(closeUpSpacedEmDashesInText('blurb: "x: y — z"\n', '/tmp/skills.yaml')).toBe(
