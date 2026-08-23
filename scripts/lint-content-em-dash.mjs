@@ -1196,6 +1196,18 @@ function followsFlowMappingSeparator(line, paddingStart) {
   return flowDepth > 0 && quote === null;
 }
 
+// YAML only treats a colon as a mapping separator when whitespace or the end of
+// the line follows it. Without that rule the colon in a bare URL splits the
+// line, so `- label — https://example.test` reads as a key and its padded dash
+// is skipped.
+function isMappingSeparator(line, index) {
+  if (line[index] !== ':') {
+    return false;
+  }
+  const next = line[index + 1];
+  return next === undefined || /[\p{Zs}\t]/u.test(next);
+}
+
 // End offset of a block mapping key on this line, or 0 when the line has no
 // mapping separator. Scanned rather than matched with one regex: an
 // alternation whose sequence prefix can backtrack to zero lets the plain-key
@@ -1243,11 +1255,11 @@ function mappingKeyEnd(line) {
       after += 1;
     }
     // A quoted run is a KEY only when a mapping separator follows it.
-    return line[after] === ':' ? after + 1 : 0;
+    return isMappingSeparator(line, after) ? after + 1 : 0;
   }
 
   for (let cursor = index; cursor < line.length; cursor += 1) {
-    if (line[cursor] === ':') {
+    if (isMappingSeparator(line, cursor)) {
       return cursor + 1;
     }
     // A quote before any separator means this is a value, not a key.

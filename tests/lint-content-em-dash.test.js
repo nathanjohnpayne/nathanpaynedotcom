@@ -835,6 +835,27 @@ describe('content em-dash lint', () => {
     expect(closeUpSpacedEmDashesInText('- a: b — c\n', '/tmp/skills.yaml')).toBe('- a: b—c\n');
   });
 
+  it('does not treat a colon inside a URL as a mapping separator', () => {
+    // YAML requires whitespace after a separator colon. Without that rule the
+    // colon in `https:` split the line and the padded dash was skipped.
+    expect(closeUpSpacedEmDashesInText('- label — https://example.test\n', '/tmp/skills.yaml')).toBe(
+      '- label—https://example.test\n',
+    );
+    expect(
+      closeUpSpacedEmDashesInText('link: label — https://example.test\n', '/tmp/skills.yaml'),
+    ).toBe('link: label—https://example.test\n');
+
+    // A key followed by a URL value is still a key.
+    expect(
+      findSpacedEmDashViolations('/tmp/skills.yaml', '"Release — Notes": https://x.test\n'),
+    ).toHaveLength(0);
+
+    // A colon ending the line is still a separator.
+    expect(closeUpSpacedEmDashesInText('key:\n  - a — b\n', '/tmp/skills.yaml')).toBe(
+      'key:\n  - a—b\n',
+    );
+  });
+
   it('still scans values, sequence items, and block scalars', () => {
     // The key matcher must not swallow the value, including one with a colon.
     expect(closeUpSpacedEmDashesInText('blurb: "x: y — z"\n', '/tmp/skills.yaml')).toBe(
