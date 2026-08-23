@@ -673,6 +673,22 @@ describe('content em-dash lint', () => {
     expect(yaml('|1\n — leading\n')).toHaveLength(1);
   });
 
+  it('publishes indentation beyond a folded scalar base indent', () => {
+    // A more-indented line inside `>` is literal, and YAML publishes the
+    // spaces past the base indent as visible text — so the dash is left-padded
+    // even with nothing after it.
+    expect(
+      findSpacedEmDashViolations('/tmp/skills.yaml', 'x: >\n  first\n    —leading\n'),
+    ).toHaveLength(1);
+    expect(
+      findSpacedEmDashViolations('/tmp/skills.yaml', 'x: >\n  first\n    — leading\n'),
+    ).toHaveLength(1);
+    // Without a dash adjacent to that indentation there is nothing to report.
+    expect(
+      findSpacedEmDashViolations('/tmp/skills.yaml', 'x: >\n  first\n    literal—line\n'),
+    ).toHaveLength(0);
+  });
+
   it('reads a JSON-style flow mapping separator', () => {
     // In a flow collection YAML accepts `{"key":"value"}` with no space after
     // the colon, so the quoted key must still be recognised as a key.

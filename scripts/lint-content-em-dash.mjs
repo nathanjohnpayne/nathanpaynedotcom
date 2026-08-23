@@ -980,8 +980,12 @@ function foldedScalarViolations(source, regionStart, regionEnd, baseIndent, exce
     if (line.trim() === '') {
       segments.push(null);
     } else if (indent > baseIndent) {
-      // A more-indented line is literal content: the fold does not apply.
-      segments.push([lineStart + indent, lineStart + line.length, true]);
+      // A more-indented line is literal content: the fold does not apply, and
+      // YAML publishes the indentation BEYOND baseIndent as visible text. The
+      // segment therefore starts at baseIndent, not at the end of the run —
+      // otherwise `x: >\n  first\n    — leading` hides the two published
+      // spaces and the left-padded dash goes unreported.
+      segments.push([lineStart + baseIndent, lineStart + line.length, true]);
     } else {
       segments.push([
         lineStart + indent,
