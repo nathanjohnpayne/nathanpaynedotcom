@@ -1196,15 +1196,33 @@ function followsFlowMappingSeparator(line, paddingStart) {
   return flowDepth > 0 && quote === null;
 }
 
+// End offset of a block mapping key on this line, or 0 when the line has no
+// mapping separator. A quoted key may legally contain a colon.
+const YAML_MAPPING_KEY =
+  /^[\p{Zs}\t]*(?:-[\p{Zs}\t]+)*(?:"(?:[^"\\]|\\.)*"|'(?:[^']|'')*'|[^:\n]+):/u;
+
+function mappingKeyEnd(line) {
+  const match = line.match(YAML_MAPPING_KEY);
+  return match ? match[0].length : 0;
+}
+
 function lineViolations(source, lineStart, scanEnd, blockScalarContentIndent, exceptionRanges) {
   const violations = [];
   const line = source.slice(lineStart, scanEnd);
+  // A mapping key is an identifier, not published prose. Rewriting one changes
+  // the document's shape, so `structureIsPreserved` rejects the whole write —
+  // and because a write is all-or-nothing, one dash in a key would leave every
+  // unrelated violation in the same file unfixed too.
+  const keyEnd = blockScalarContentIndent === null ? lineStart + mappingKeyEnd(line) : lineStart;
 
   for (const [start, matchEnd] of collectMatchRanges(PADDED_EM_DASH, line)) {
     const absoluteStart = lineStart + start;
     const absoluteEnd = Math.min(lineStart + matchEnd, scanEnd);
     const dashOffset = source.indexOf('—', absoluteStart);
     if (dashOffset === -1 || dashOffset >= scanEnd) {
+      continue;
+    }
+    if (dashOffset < keyEnd) {
       continue;
     }
 

@@ -805,6 +805,35 @@ describe('content em-dash lint', () => {
     expect(closeUpSpacedEmDashesInText('word <em>a</em>b —\nc')).toBe('word <em>a</em>b—c');
   });
 
+  it('does not scan a YAML mapping key', () => {
+    // A key is an identifier, not prose. Rewriting one changes the document
+    // shape, so the structural check rejects the whole write — and because a
+    // write is all-or-nothing, one dash in a key used to leave every unrelated
+    // violation in the file unfixed too.
+    expect(findSpacedEmDashViolations('/tmp/skills.yaml', '"Release — Notes": ok\n')).toHaveLength(0);
+    expect(findSpacedEmDashViolations('/tmp/skills.yaml', 'Release — Notes: ok\n')).toHaveLength(0);
+
+    // The unrelated value in the same file is fixed rather than held hostage.
+    const mixed = '"Release — Notes": ok\nblurb: a — b\n';
+    expect(findSpacedEmDashViolations('/tmp/skills.yaml', mixed)).toHaveLength(1);
+    expect(closeUpSpacedEmDashesInText(mixed, '/tmp/skills.yaml')).toBe(
+      '"Release — Notes": ok\nblurb: a—b\n',
+    );
+  });
+
+  it('still scans values, sequence items, and block scalars', () => {
+    // The key matcher must not swallow the value, including one with a colon.
+    expect(closeUpSpacedEmDashesInText('blurb: "x: y — z"\n', '/tmp/skills.yaml')).toBe(
+      'blurb: "x: y—z"\n',
+    );
+    expect(closeUpSpacedEmDashesInText('items:\n  - a — b\n', '/tmp/skills.yaml')).toBe(
+      'items:\n  - a—b\n',
+    );
+    expect(closeUpSpacedEmDashesInText('description: |\n  a — b\n', '/tmp/skills.yaml')).toBe(
+      'description: |\n  a—b\n',
+    );
+  });
+
   it('preserves CRLF line endings through a fix pass', () => {
     const source = 'prose — one.\r\nprose — two.\r\n';
 
