@@ -124,8 +124,7 @@ function createProseStream(protectedRanges = []) {
     spans: [],
     protectedRanges,
     pendingSoftBreak: null,
-    inlineWhitespaceContexts: [],
-    inlinePreserveWhitespace: true,
+    inlineHtmlDepth: 0,
   };
 }
 
@@ -166,8 +165,7 @@ function pushBoundary(stream) {
 }
 
 function resetInlineWhitespaceState(stream) {
-  stream.inlineWhitespaceContexts.length = 0;
-  stream.inlinePreserveWhitespace = true;
+  stream.inlineHtmlDepth = 0;
   stream.pendingSoftBreak = null;
 }
 
@@ -329,7 +327,9 @@ function alignValueToSource(value, raw) {
 // span is parked for the sibling to extend. CRLF and LF must both do this: a
 // CRLF that skipped it published a literal `>` into `> word—\r\n> **next**`.
 function emitSoftBreak(stream, span, isTrailing) {
-  if (stream.inlineWhitespaceContexts.length > 0 && stream.inlinePreserveWhitespace) {
+  // Inside an unclosed inline HTML element the surrounding white-space rules
+  // are no longer modelled, so the break is a boundary rather than padding.
+  if (stream.inlineHtmlDepth > 0) {
     pushBoundary(stream);
     return;
   }
@@ -422,185 +422,39 @@ function emitVisibleCharacter(raw, index, start, stream, preserveWhitespace) {
   return index + 1;
 }
 
-// Table elements whose direct text content the HTML tree builder relocates.
-const HTML_TABLE_SECTIONS = new Set(['table', 'thead', 'tbody', 'tfoot', 'tr']);
-// Inside these, text is kept in place and the surrounding context is real.
-const HTML_TABLE_TEXT_PARENTS = new Set(['td', 'th', 'caption']);
+// Text inside a raw-HTML span cannot be rewritten across a line break.
+//
+// Deciding whether a break inside HTML renders as a space or as a break means
+// resolving HTML tree construction (implicit closes, table foster parenting,
+// SVG/MathML integration points) and the CSS cascade (`white-space` across
+// stylesheets, `!important`, entity-encoded property names). That is a browser,
+// not a lint script, and every attempt at it produced another way to delete a
+// rendered break. So a line break inside raw HTML is always a boundary: never
+// collapsible padding, never removed. Padding on a single line still counts and
+// is still fixed, because that needs no layout knowledge at all.
+//
+// `src/content` contains zero raw-HTML nodes, so this costs the repository
+// nothing today; it only bounds what the fixer is willing to claim.
 
-// Text sitting inside a table but outside a cell is foster-parented: tree
-// construction moves it to just before the table, where it inherits the
-// table's PARENT white-space context rather than the table's own. Modelling
-// that faithfully means modelling tree construction, so treat the context as
-// unknown and never delete a rendered break there.
-function isFosterParentedContext(contexts) {
-  for (let index = contexts.length - 1; index >= 0; index -= 1) {
-    const { name } = contexts[index];
-    if (HTML_TABLE_TEXT_PARENTS.has(name)) {
-      return false;
-    }
-    if (HTML_TABLE_SECTIONS.has(name)) {
-      return true;
-    }
-  }
-  return false;
-}
-
-// An author stylesheet rule marked `!important` outranks a non-important
-// inline declaration, so the inline value is no longer the final word. Resolving
-// the cascade means resolving selectors; fail closed instead.
-const IMPORTANT_WHITE_SPACE_RULE =
-  /<style\b[^>]*>[\s\S]*?white-space[^;}]*!\s*important[\s\S]*?<\/style\s*>/i;
-
-function inlineWhiteSpaceMode(tag) {
-  const styleAttribute = tag.match(
-    /(?:^|[\t\n\f\r ])style\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/i,
-  );
-  const style = styleAttribute?.[1] ?? styleAttribute?.[2] ?? styleAttribute?.[3];
-  if (style === undefined) {
-    return null;
+// Unmatched inline HTML means following Markdown text may sit inside an element
+// whose white-space rules we deliberately no longer model, so its soft breaks
+// fail closed too.
+function trackInlineHtmlDepth(stream, tag) {
+  const match = tag.match(/^<\s*(\/?)\s*([A-Za-z][\w:-]*)\b/);
+  if (!match) {
+    return;
   }
 
-  // CSS ignores comments, and a comment may legally contain a `;` that would
-  // otherwise split one declaration into two. An unterminated `/*` comments out
-  // the remainder of the attribute.
-  const uncommented = style.replace(/\/\*[\s\S]*?\*\//g, ' ').split('/*')[0];
-
-  const declarations = uncommented
-    .split(';')
-    .map((declaration) =>
-      declaration.match(/^\s*white-space\s*:\s*(.+?)\s*(!important)?\s*$/i),
-    )
-    .filter(Boolean);
-  const importantDeclarations = declarations.filter((declaration) => declaration[2]);
-  const effective = (importantDeclarations.length > 0 ? importantDeclarations : declarations).at(-1);
-
-  if (!effective) {
-    return null;
+  if (match[1] === '/') {
+    stream.inlineHtmlDepth = Math.max(0, stream.inlineHtmlDepth - 1);
+    return;
   }
 
-  const important = Boolean(effective[2]);
-  const value = effective[1].toLowerCase();
-  if (value === 'inherit' || value === 'unset') {
-    return { value: 'inherit', important };
+  // HTML ignores the self-closing flag on ordinary elements, so only void
+  // elements close themselves.
+  if (!HTML_VOID_ELEMENTS.has(match[2].toLowerCase())) {
+    stream.inlineHtmlDepth += 1;
   }
-  if (value === 'initial') {
-    return { value: 'normal', important };
-  }
-  if (/^(?:normal|nowrap|pre|pre-line|pre-wrap|break-spaces)$/.test(value)) {
-    return { value, important };
-  }
-
-  // `revert`, `revert-layer`, variables, and future values depend on CSS we
-  // cannot evaluate here. Fail closed rather than deleting a rendered break.
-  return { value: 'unknown', important };
-}
-
-const P_CLOSING_START_TAGS = new Set([
-  'address',
-  'article',
-  'aside',
-  'blockquote',
-  'details',
-  'div',
-  'dl',
-  'fieldset',
-  'figcaption',
-  'figure',
-  'footer',
-  'form',
-  'h1',
-  'h2',
-  'h3',
-  'h4',
-  'h5',
-  'h6',
-  'header',
-  'hgroup',
-  'hr',
-  'main',
-  'menu',
-  'nav',
-  'ol',
-  'p',
-  'pre',
-  'search',
-  'section',
-  'table',
-  'ul',
-]);
-
-// HTML's implicit-close rules are scope-sensitive. In particular, a nested
-// list is a list-item-scope boundary, so its first `<li>` must not close an
-// outer list item's whitespace context.
-const HTML_SCOPE_BOUNDARIES = new Set([
-  'applet',
-  'caption',
-  'html',
-  'marquee',
-  'object',
-  'table',
-  'td',
-  'template',
-  'th',
-]);
-const LIST_ITEM_SCOPE_BOUNDARIES = new Set([...HTML_SCOPE_BOUNDARIES, 'ol', 'ul']);
-const TABLE_SCOPE_BOUNDARIES = new Set(['html', 'table', 'template']);
-
-function implicitlyClosedContext(openingName, contextName) {
-  if (contextName === 'p' && P_CLOSING_START_TAGS.has(openingName)) {
-    return true;
-  }
-  if (openingName === 'li') {
-    return contextName === 'li';
-  }
-  if (openingName === 'dt' || openingName === 'dd') {
-    return contextName === 'dt' || contextName === 'dd';
-  }
-  if (openingName === 'rt' || openingName === 'rp') {
-    return contextName === 'rt' || contextName === 'rp';
-  }
-  if (openingName === 'option') {
-    return contextName === 'option';
-  }
-  if (openingName === 'optgroup') {
-    return contextName === 'option' || contextName === 'optgroup';
-  }
-  if (openingName === 'thead' || openingName === 'tbody' || openingName === 'tfoot') {
-    return contextName === 'thead' || contextName === 'tbody' || contextName === 'tfoot';
-  }
-  if (openingName === 'tr') {
-    return contextName === 'tr';
-  }
-  if (openingName === 'td' || openingName === 'th') {
-    return contextName === 'td' || contextName === 'th';
-  }
-  return false;
-}
-
-function implicitCloseScopeBoundary(openingName, contextName) {
-  if (openingName === 'li') {
-    return LIST_ITEM_SCOPE_BOUNDARIES.has(contextName);
-  }
-  if (openingName === 'thead' || openingName === 'tbody' || openingName === 'tfoot') {
-    return TABLE_SCOPE_BOUNDARIES.has(contextName);
-  }
-  if (openingName === 'tr' || openingName === 'td' || openingName === 'th') {
-    return TABLE_SCOPE_BOUNDARIES.has(contextName);
-  }
-  return HTML_SCOPE_BOUNDARIES.has(contextName);
-}
-
-function implicitContextIndex(contexts, openingName) {
-  for (let index = contexts.length - 1; index >= 0; index -= 1) {
-    const contextName = contexts[index].name;
-    if (implicitlyClosedContext(openingName, contextName)) {
-      return index;
-    }
-    if (implicitCloseScopeBoundary(openingName, contextName)) {
-      break;
-    }
-  }
-  return -1;
 }
 
 // A raw-HTML span is not uniformly opaque: the tags are markup, the body of a
@@ -612,8 +466,6 @@ function emitHtml(node, body, stream, inline) {
   const start = node.position.start.offset;
   const raw = body.slice(start, node.position.end.offset);
   const markup = collectMatchRanges(HTML_MARKUP, raw);
-  const whitespaceContexts = inline ? stream.inlineWhitespaceContexts : [];
-  let preserveWhitespace = inline ? stream.inlinePreserveWhitespace : true;
 
   if (!inline) {
     pushBoundary(stream);
@@ -629,79 +481,20 @@ function emitHtml(node, body, stream, inline) {
       if (tag.startsWith('<!--') || HTML_BREAK_TAG.test(tag)) {
         pushBoundary(stream);
       }
-
-      const tagMatch = tag.match(/^<\s*(\/?)\s*([A-Za-z][\w:-]*)\b/);
-      if (tagMatch) {
-        const closing = tagMatch[1] === '/';
-        const name = tagMatch[2].toLowerCase();
-
-        if (closing) {
-          const contextIndex = whitespaceContexts.findLastIndex((context) => context.name === name);
-          if (contextIndex === -1) {
-            // Malformed or partial raw HTML is uncertain. Preserve line breaks
-            // rather than letting a guessed CSS context authorize deletion.
-            whitespaceContexts.length = 0;
-            preserveWhitespace = true;
-          } else {
-            preserveWhitespace = whitespaceContexts[contextIndex].previous;
-            whitespaceContexts.length = contextIndex;
-          }
-        } else {
-          const contextIndex = implicitContextIndex(whitespaceContexts, name);
-          if (contextIndex !== -1) {
-            preserveWhitespace = whitespaceContexts[contextIndex].previous;
-            whitespaceContexts.length = contextIndex;
-          }
-
-          const declaration = inlineWhiteSpaceMode(tag);
-          // A non-important inline value can still be overridden by an
-          // important stylesheet rule; treat it as unresolvable in that case.
-          const whiteSpaceMode =
-            declaration !== null && stream.importantWhiteSpaceRule && !declaration.important
-              ? 'unknown'
-              : (declaration?.value ?? null);
-          const nextPreserve =
-            whiteSpaceMode === null || whiteSpaceMode === 'inherit'
-              ? preserveWhitespace
-              : whiteSpaceMode === 'unknown'
-                ? true
-                : !/^(?:normal|nowrap)$/i.test(whiteSpaceMode);
-          // In HTML syntax the self-closing flag is ignored for ordinary
-          // elements (`<div/>` still opens a div). Only void elements close
-          // themselves — except in SVG or MathML, where foreign-content
-          // parsing does honour `/>`.
-          const inForeignContent =
-            name === 'svg' ||
-            name === 'math' ||
-            whitespaceContexts.some((context) => context.name === 'svg' || context.name === 'math');
-          const selfClosing =
-            HTML_VOID_ELEMENTS.has(name) || (inForeignContent && /\/\s*>$/.test(tag));
-
-          if (!selfClosing) {
-            whitespaceContexts.push({ name, previous: preserveWhitespace });
-            preserveWhitespace = nextPreserve;
-          }
-        }
+      if (inline) {
+        trackInlineHtmlDepth(stream, tag);
       }
       index = markupRange[1];
       continue;
     }
 
-    // Raw-text bodies are filtered by the shared protected ranges in
-    // pushCharacter, so they need no special case here.
-    index = emitVisibleCharacter(
-      raw,
-      index,
-      start,
-      stream,
-      preserveWhitespace || isFosterParentedContext(whitespaceContexts),
-    );
+    // `true` makes every line break here a boundary. Raw-text bodies are
+    // filtered by the shared protected ranges in pushCharacter.
+    index = emitVisibleCharacter(raw, index, start, stream, true);
   }
 
   if (!inline) {
     pushBoundary(stream);
-  } else {
-    stream.inlinePreserveWhitespace = preserveWhitespace;
   }
 }
 
@@ -934,7 +727,6 @@ function buildProseStream(body) {
   });
   const stream = createProseStream(rawTextRanges(body, collectOpaqueSourceRanges(tree)));
   stream.effectiveDefinitions = collectEffectiveDefinitions(tree);
-  stream.importantWhiteSpaceRule = IMPORTANT_WHITE_SPACE_RULE.test(body);
   emitNode(tree, body, stream);
   return stream;
 }
@@ -1366,7 +1158,7 @@ function followsFlowMappingSeparator(line, paddingStart) {
   }
 
   let quote = null;
-  let mappingDepth = 0;
+  let flowDepth = 0;
   for (let index = 0; index < paddingStart; index += 1) {
     const character = line[index];
     if (quote) {
@@ -1384,14 +1176,18 @@ function followsFlowMappingSeparator(line, paddingStart) {
 
     if (character === '"' || character === "'") {
       quote = character;
-    } else if (character === '{') {
-      mappingDepth += 1;
-    } else if (character === '}') {
-      mappingDepth = Math.max(0, mappingDepth - 1);
+    } else if (character === '{' || character === '[') {
+      // A single-pair mapping inside a flow SEQUENCE needs the same
+      // protection as one inside a flow mapping: `x: [k: — leading]` is a
+      // mapping, and closing the padding would turn `[k:—leading]` into one
+      // plain scalar.
+      flowDepth += 1;
+    } else if (character === '}' || character === ']') {
+      flowDepth = Math.max(0, flowDepth - 1);
     }
   }
 
-  return mappingDepth > 0 && quote === null;
+  return flowDepth > 0 && quote === null;
 }
 
 function lineViolations(source, lineStart, scanEnd, blockScalarContentIndent, exceptionRanges) {

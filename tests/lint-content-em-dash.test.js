@@ -730,16 +730,6 @@ describe('content em-dash lint', () => {
     );
   });
 
-  it('still uses the real context for text inside a cell', () => {
-    // Text in a `td` is not foster-parented, so the cell's `normal` applies
-    // and the break does collapse.
-    const inCell =
-      '<div style="white-space: pre"><table><td style="white-space: normal">word\n— next</td></table></div>';
-    expect(closeUpSpacedEmDashesInText(inCell)).toBe(
-      '<div style="white-space: pre"><table><td style="white-space: normal">word—next</td></table></div>',
-    );
-  });
-
   it('carries a trailing CRLF soft break into a sibling inline node', () => {
     // The continuation starts in a `strong` sibling; without the pending
     // state the omitted blockquote marker was published as a literal `>`.
@@ -754,28 +744,6 @@ describe('content em-dash lint', () => {
     expect(closeUpSpacedEmDashesInText(source)).toBe(
       '<div style="white-space: pre">word\r\n—next</div>',
     );
-  });
-
-  it('fails closed when an important stylesheet rule can override inline', () => {
-    const overridden =
-      '<style>#x { white-space: pre !important }</style>\n<div id="x" style="white-space: normal">word\n— next</div>';
-    expect(closeUpSpacedEmDashesInText(overridden)).toContain('word\n—next');
-
-    // An inline `!important` outranks the stylesheet, so the value is final.
-    const inlineWins =
-      '<style>#x { white-space: pre !important }</style>\n<div id="x" style="white-space: normal !important">word\n— next</div>';
-    expect(closeUpSpacedEmDashesInText(inlineWins)).toContain('word—next');
-  });
-
-  it('honours self-closing syntax only in foreign content', () => {
-    // In SVG, `<g/>` really closes, so `<text>` inherits the svg's `pre`.
-    const svg =
-      '<svg style="white-space: pre"><g style="white-space: normal"/><text>word\n— next</text></svg>';
-    expect(closeUpSpacedEmDashesInText(svg)).toContain('word\n—next');
-
-    // In HTML the self-closing flag is ignored, so the span stays open.
-    const html = '<div style="white-space: pre"><span style="white-space: normal"/>word\n— next</div>';
-    expect(closeUpSpacedEmDashesInText(html)).toContain('word—next');
   });
 
   it('reads block scalar headers carrying properties or a comment', () => {
@@ -798,6 +766,57 @@ describe('content em-dash lint', () => {
     expect(closeUpSpacedEmDashesInText('|2\n  — leading\n', '/tmp/skills.yaml')).toBe(
       '|2\n —leading\n',
     );
+  });
+
+  it('never deletes a line break inside raw HTML, whatever the CSS says', () => {
+    // Deciding whether a break inside HTML renders as a space needs HTML tree
+    // construction and the CSS cascade. The fixer does not attempt it: every
+    // break inside raw HTML is a boundary. Each case below was a reported way
+    // of deleting a rendered break.
+    const cases = [
+      '<div style="white-space: normal; /* n */ white-space: pre">word\n— next</div>',
+      '<div style="white-space: pre"><table style="white-space: normal">word\n— next</table></div>',
+      '<style>#x{white-space:pre !important}</style>\n<div id="x" style="white-space: normal">word\n— next</div>',
+      '<svg style="white-space: normal"><foreignObject><div style="white-space: pre"/>word\n— next</foreignObject></svg>',
+      '<div style="white-space: pre"><a style="white-space: normal">x<a>word\n— next</div>',
+      '<div style="white-space: pre"><p style="white-space: normal"><center>word\n— next</center></div>',
+      '<div style="white-space: normal"><span style="white-space&#58; pre">word\n— next</span></div>',
+      '<div style="white-space: normal">word\r\n— next</div>',
+    ];
+
+    for (const source of cases) {
+      const fixed = closeUpSpacedEmDashesInText(source);
+      expect(fixed.match(/\n/g) ?? []).toHaveLength(source.match(/\n/g).length);
+    }
+  });
+
+  it('still closes padding that sits on one line inside raw HTML', () => {
+    // Same-line spacing needs no layout knowledge, so it is still fixed.
+    expect(closeUpSpacedEmDashesInText('<div>word — next</div>')).toBe('<div>word—next</div>');
+    expect(closeUpSpacedEmDashesInText('<div>word &mdash; next</div>')).toBe(
+      '<div>word&mdash;next</div>',
+    );
+    expect(closeUpSpacedEmDashesInText('word <em>—</em> next')).toBe('word<em>—</em>next');
+  });
+
+  it('fails closed on a Markdown soft break inside unclosed inline HTML', () => {
+    // The span may carry white-space rules we no longer model, so the break
+    // that follows it is a boundary rather than padding.
+    const source = '<span style="white-space: pre">word —\nnext</span>';
+
+    expect(closeUpSpacedEmDashesInText(source)).toContain('\n');
+  });
+
+  it('protects a single-pair mapping inside a flow sequence', () => {
+    // `[k:—leading]` would parse as one plain scalar instead of a mapping.
+    expect(closeUpSpacedEmDashesInText('x: [k: — leading]\n', '/tmp/skills.yaml')).toBe(
+      'x: [k: —leading]\n',
+    );
+    expect(closeUpSpacedEmDashesInText('x: [{k: — leading}]\n', '/tmp/skills.yaml')).toBe(
+      'x: [{k: —leading}]\n',
+    );
+    // Ordinary prose padding inside a flow sequence is still closed.
+    expect(closeUpSpacedEmDashesInText('x: [a — b]\n', '/tmp/skills.yaml')).toBe('x: [a—b]\n');
   });
 
   it('preserves CRLF line endings through a fix pass', () => {
@@ -1019,15 +1038,6 @@ describe('content em-dash lint', () => {
     );
   });
 
-  it('ignores self-closing syntax on ordinary HTML elements', () => {
-    const source = '<div style="white-space: normal"/>word\n— next';
-
-    expect(findSpacedEmDashViolations('/tmp/test.md', source)).toHaveLength(1);
-    expect(closeUpSpacedEmDashesInText(source)).toBe(
-      '<div style="white-space: normal"/>word—next',
-    );
-  });
-
   it('carries a blockquote continuation prefix across inline Markdown nodes', () => {
     const source = '> word—\n> <em>continuation</em>';
 
@@ -1057,15 +1067,6 @@ describe('content em-dash lint', () => {
     expect(findSpacedEmDashViolations('/tmp/test.md', source)).toHaveLength(1);
     expect(closeUpSpacedEmDashesInText(source)).toBe(
       '<span style="white-space: pre">first\n\nword—next',
-    );
-  });
-
-  it('collapses a raw HTML newline when inline CSS declares normal whitespace', () => {
-    const source = '<div style="white-space: normal">word\n— next</div>';
-
-    expect(findSpacedEmDashViolations('/tmp/test.md', source)).toHaveLength(1);
-    expect(closeUpSpacedEmDashesInText(source)).toBe(
-      '<div style="white-space: normal">word—next</div>',
     );
   });
 
