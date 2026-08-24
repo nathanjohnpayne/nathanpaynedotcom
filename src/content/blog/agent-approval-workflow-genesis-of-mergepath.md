@@ -38,10 +38,10 @@ sidebar:
           C --> D["External review for<br/>complex changes (>300 lines)"]
           D --> E["Automated external<br/>review via Codex App"]
           style A fill:#e8b4b4,stroke:#993d3d,color:#333
-          style B fill:#d4a84b,stroke:#a07830,color:#fff
-          style C fill:#d4a84b,stroke:#a07830,color:#fff
-          style D fill:#7bc67e,stroke:#4a8a4d,color:#fff
-          style E fill:#4a90d9,stroke:#2c5f8a,color:#fff
+          style B fill:#d4a84b,stroke:#a07830,color:#333
+          style C fill:#d4a84b,stroke:#a07830,color:#333
+          style D fill:#7bc67e,stroke:#4a8a4d,color:#333
+          style E fill:#2c5f8a,stroke:#2c5f8a,color:#fff
     caption: "The five stages of agent review enforcement"
 ---
 
@@ -143,15 +143,15 @@ graph TD
     E -->|"All gates pass"| H["Merge"]
     E -->|"Gate fails"| I["Agent diagnoses<br/>and retries"]
 
-    style A fill:#4a90d9,stroke:#2c5f8a,color:#fff
-    style B fill:#d4a84b,stroke:#a07830,color:#fff
-    style C fill:#4a90d9,stroke:#2c5f8a,color:#fff
-    style D fill:#e07c5a,stroke:#b35937,color:#fff
-    style E fill:#7bc67e,stroke:#4a8a4d,color:#fff
+    style A fill:#2c5f8a,stroke:#2c5f8a,color:#fff
+    style B fill:#d4a84b,stroke:#a07830,color:#333
+    style C fill:#2c5f8a,stroke:#2c5f8a,color:#fff
+    style D fill:#b35937,stroke:#b35937,color:#fff
+    style E fill:#7bc67e,stroke:#4a8a4d,color:#333
     style F fill:#e8b4b4,stroke:#993d3d,color:#333
     style G fill:#e8b4b4,stroke:#993d3d,color:#333
-    style H fill:#7bc67e,stroke:#4a8a4d,color:#fff
-    style I fill:#d4a84b,stroke:#a07830,color:#fff
+    style H fill:#7bc67e,stroke:#4a8a4d,color:#333
+    style I fill:#d4a84b,stroke:#a07830,color:#333
 ```
 
 Two helper scripts do the heavy lifting:

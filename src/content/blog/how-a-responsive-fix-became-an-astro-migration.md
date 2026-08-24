@@ -43,10 +43,10 @@ sidebar:
           E --> F["Type-safe frontmatter,<br/>OG generation, RSS, sitemap"]
           style A fill:#e8b4b4,stroke:#993d3d,color:#333
           style B fill:#e8b4b4,stroke:#993d3d,color:#333
-          style C fill:#d4a84b,stroke:#a07830,color:#fff
-          style D fill:#d4a84b,stroke:#a07830,color:#fff
-          style E fill:#4a90d9,stroke:#2c5f8a,color:#fff
-          style F fill:#7bc67e,stroke:#4a8a4d,color:#fff
+          style C fill:#d4a84b,stroke:#a07830,color:#333
+          style D fill:#d4a84b,stroke:#a07830,color:#333
+          style E fill:#2c5f8a,stroke:#2c5f8a,color:#fff
+          style F fill:#7bc67e,stroke:#4a8a4d,color:#333
     caption: "Same-day pivot: a small responsive fix became the trigger for a full SSG migration"
 ---
 

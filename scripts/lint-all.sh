@@ -23,6 +23,7 @@ run_gate() {
 
 run_gate eslint "$ROOT/node_modules/.bin/eslint" .
 run_gate prose node "$ROOT/scripts/lint-prose.mjs"
+run_gate mermaid-contrast node "$ROOT/scripts/check-mermaid-contrast.mjs"
 
 if [ "$status" -ne 0 ]; then
   echo "lint-all: one or more gates failed" >&2

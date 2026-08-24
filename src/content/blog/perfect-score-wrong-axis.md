@@ -39,11 +39,11 @@ sidebar:
           style A fill:#e8b4b4,stroke:#993d3d,color:#333
           style B fill:#e8b4b4,stroke:#993d3d,color:#333
           style C fill:#e8b4b4,stroke:#993d3d,color:#333
-          style D fill:#d4a84b,stroke:#a07830,color:#fff
-          style E fill:#c75c5c,stroke:#993d3d,color:#fff
+          style D fill:#d4a84b,stroke:#a07830,color:#333
+          style E fill:#993d3d,stroke:#993d3d,color:#fff
           style S fill:#b8ddb8,stroke:#4a8a4d,color:#333
           style F fill:#b8ddb8,stroke:#4a8a4d,color:#333
-          style G fill:#7bc67e,stroke:#4a8a4d,color:#fff
+          style G fill:#7bc67e,stroke:#4a8a4d,color:#333
     caption: "Two ways to derive a review: verifiers briefed from the session's own finding list closed everything they were asked about; a pass shaped by the external spec found the escape."
 ---
 
@@ -131,11 +131,11 @@ graph TD
     style A fill:#e8b4b4,stroke:#993d3d,color:#333
     style B fill:#e8b4b4,stroke:#993d3d,color:#333
     style C fill:#e8b4b4,stroke:#993d3d,color:#333
-    style D fill:#d4a84b,stroke:#a07830,color:#fff
-    style E fill:#c75c5c,stroke:#993d3d,color:#fff
+    style D fill:#d4a84b,stroke:#a07830,color:#333
+    style E fill:#993d3d,stroke:#993d3d,color:#fff
     style S fill:#b8ddb8,stroke:#4a8a4d,color:#333
     style F fill:#b8ddb8,stroke:#4a8a4d,color:#333
-    style G fill:#7bc67e,stroke:#4a8a4d,color:#fff
+    style G fill:#7bc67e,stroke:#4a8a4d,color:#333
 ```
 
 Look at the mechanics. The adversarial verifiers this batch added were real and they earned their keep—one of them returned a *blocking* verdict on [PR #791](https://github.com/nathanjohnpayne/mergepath/pull/791) and forced a fix before merge. But they were briefed by the authoring session, from its finding list, in its taxonomy. Their job was to check whether each claimed fix actually fixed the claimed defect, and whether each test actually failed when the fix was reverted. They did that job thoroughly: 111 threads closed against named fix commits; among the 122 recorded dispositions, none was rejected as wrong.
