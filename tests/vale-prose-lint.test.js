@@ -372,7 +372,10 @@ describe.skipIf(!valeAvailable)('Vale prose lint', () => {
     const result = spawnSync(
       process.execPath,
       ['scripts/lint-prose.mjs', 'tests/fixtures/vale-frontmatter/no-frontmatter.md'],
-      { encoding: 'utf8', env: { ...process.env, PATH: '/usr/bin:/bin' } },
+      {
+        encoding: 'utf8',
+        env: { ...process.env, GITHUB_ACTIONS: 'false', PATH: '/usr/bin:/bin' },
+      },
     );
 
     expect(result.status).toBe(0);
