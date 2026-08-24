@@ -236,8 +236,7 @@ This blocks all merges. Workarounds:
 - Fix the CI secrets so status checks report, **or**
 - Use the GitHub web UI "Merge without waiting for requirements" bypass checkbox
 
-The `--admin` flag on `gh pr merge` does **not** bypass required status checks—it only bypasses review requirements. The break-glass hook (`BREAK_GLASS_ADMIN=1`)
-only bypasses the Claude Code PreToolUse guard, not GitHub's branch protection API.
+The `--admin` flag on `gh pr merge` does **not** bypass required status checks—it only bypasses review requirements. The break-glass hook (`BREAK_GLASS_ADMIN=1`) only bypasses the Claude Code PreToolUse guard, not GitHub's branch protection API.
 
 ### 5. Create required labels
 

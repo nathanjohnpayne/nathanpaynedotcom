@@ -481,4 +481,28 @@ describe('Vale availability behavior', () => {
       rmSync(emptyPath, { force: true, recursive: true });
     }
   });
+
+  it('preserves the JSON contract when Vale is unavailable locally', () => {
+    const emptyPath = mkdtempSync(join(tmpdir(), 'vale-empty-path-'));
+    try {
+      const result = spawnSync(
+        process.execPath,
+        [
+          'scripts/lint-prose.mjs',
+          '--output=JSON',
+          'tests/fixtures/vale-frontmatter/no-frontmatter.md',
+        ],
+        {
+          encoding: 'utf8',
+          env: { ...process.env, GITHUB_ACTIONS: 'false', PATH: emptyPath },
+        },
+      );
+
+      expect(result.status).toBe(0);
+      expect(JSON.parse(result.stdout)).toEqual({});
+      expect(result.stderr).toContain('skipping outside CI');
+    } finally {
+      rmSync(emptyPath, { force: true, recursive: true });
+    }
+  });
 });

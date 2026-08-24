@@ -387,6 +387,7 @@ function main() {
       process.exit(2);
     }
     console.warn('prose lint: Vale is not installed; skipping outside CI');
+    if (parsed.outputJson) console.log('{}');
     process.exit(0);
   }
 
