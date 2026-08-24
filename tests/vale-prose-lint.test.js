@@ -482,6 +482,25 @@ describe.skipIf(!valeAvailable)('Vale prose lint', () => {
           '  continuation"',
           'plainFold: word—   ',
           '  continuation',
+          'literalLeading: |',
+          '  word',
+          '  —next',
+          'quotedLeadingBlank: "word',
+          '',
+          '  —next"',
+          'quotedLeadingFold: "word',
+          '  —next"',
+          'foldedLeadingBlank: >',
+          '  word',
+          '',
+          '  —next',
+          'foldedLeading: >',
+          '  word',
+          '  —next',
+          'rightNbsp: "word—\u00a0',
+          '',
+          '  continuation"',
+          'leftNbsp: \u00a0—word',
           '',
         ].join('\n'),
       );
@@ -497,7 +516,7 @@ describe.skipIf(!valeAvailable)('Vale prose lint', () => {
       const alerts = JSON.parse(result.stdout)[reportedPath].filter(
         (alert) => alert.Check === 'CMOS.EmDash',
       );
-      expect(alerts.map((alert) => alert.Line)).toEqual([7, 9]);
+      expect(alerts.map((alert) => alert.Line)).toEqual([7, 9, 24, 26, 29]);
     } finally {
       rmSync(directory, { force: true, recursive: true });
     }

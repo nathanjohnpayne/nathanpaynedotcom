@@ -220,18 +220,18 @@ function blockScalarIndent(source, scalar) {
     scalar.blockIndent ??
     Math.min(
       ...contentLines
-        .filter((line) => line.trim() !== '')
-        .map((line) => line.match(/^[\p{Zs}\t]*/u)[0].length),
+        .filter((line) => /[^ \t]/u.test(line))
+        .map((line) => line.match(/^[ \t]*/u)[0].length),
     )
   );
 }
 
 function foldedBlockBoundaryIsSpace(source, lines, lineIndex, scalar) {
   const contentIndent = blockScalarIndent(source, scalar);
-  const indentation = (line) => line.match(/^[\p{Zs}\t]*/u)[0].length;
+  const indentation = (line) => line.match(/^[ \t]*/u)[0].length;
   return (
-    lines[lineIndex].trim() !== '' &&
-    lines[lineIndex + 1]?.trim() !== '' &&
+    /[^ \t]/u.test(lines[lineIndex]) &&
+    /[^ \t]/u.test(lines[lineIndex + 1] || '') &&
     indentation(lines[lineIndex]) === contentIndent &&
     indentation(lines[lineIndex + 1]) === contentIndent
   );
@@ -250,39 +250,64 @@ function yamlAlertIsProse(alert, source, scalarContext) {
     Array.isArray(alert.Span) && Number.isInteger(alert.Span[0])
       ? utf16Column(line, alert.Span[0])
       : line.indexOf(alert.Match);
-  const dash = matchStart + matchDash;
   if (matchDash === -1 || matchStart === -1) return true;
 
-  for (const match of line.matchAll(IDENTIFIER_SEPARATOR)) {
-    if (dash >= match.index && dash < match.index + match[0].length) return false;
+  const lineOffsets = sourceLineOffsets(source);
+  const absoluteMatchStart = (lineOffsets[alert.Line - 1] ?? 0) + matchStart;
+  const absoluteDash = absoluteMatchStart + matchDash;
+  const dashLineIndex = lineOffsets.findLastIndex((offset) => offset <= absoluteDash);
+  const dashLine = lines[dashLineIndex] || '';
+  const dashColumn = absoluteDash - (lineOffsets[dashLineIndex] ?? 0);
+
+  for (const match of dashLine.matchAll(IDENTIFIER_SEPARATOR)) {
+    if (dashColumn >= match.index && dashColumn < match.index + match[0].length) return false;
   }
   if (scalarContext.invalid) return true;
-  const lineOffsets = sourceLineOffsets(source);
-  const absoluteDash = (lineOffsets[alert.Line - 1] ?? 0) + dash;
   const scalar = scalarContext.ranges.find(
     (candidate) => absoluteDash >= candidate.start && absoluteDash < candidate.end,
   );
   if (!scalar || scalar.isKey) return false;
 
-  const absoluteMatchStart = (lineOffsets[alert.Line - 1] ?? 0) + matchStart;
   const left = alert.Match[matchDash - 1];
   const right = alert.Match[matchDash + 1];
   const isBlockScalar = scalar.type === 'BLOCK_FOLDED' || scalar.type === 'BLOCK_LITERAL';
-  const scalarLineStart = Math.max(0, scalar.start - (lineOffsets[alert.Line - 1] ?? 0));
-  const hasPublishedLeftContext = isBlockScalar
-    ? dash > blockScalarIndent(source, scalar)
-    : /\S/u.test(line.slice(scalarLineStart, dash));
+  const leadingAsciiRun = dashLine.slice(0, dashColumn).match(/[ \t]+$/u)?.[0] ?? '';
+  const atYamlLineEdge =
+    leadingAsciiRun.length > 0 &&
+    /^[ \t]*$/u.test(dashLine.slice(0, dashColumn - leadingAsciiRun.length));
+  let leftBoundaryIsSpace = false;
+  if (atYamlLineEdge && dashLineIndex > 0 && scalar.type !== 'BLOCK_LITERAL') {
+    if (scalar.type === 'BLOCK_FOLDED') {
+      leftBoundaryIsSpace = foldedBlockBoundaryIsSpace(
+        source,
+        lines,
+        dashLineIndex - 1,
+        scalar,
+      );
+    } else {
+      const previousLine = lines[dashLineIndex - 1];
+      const previousContentColumn = previousLine.search(/[^ \t]/u);
+      const previousContentOffset =
+        (lineOffsets[dashLineIndex - 1] ?? 0) + previousContentColumn;
+      leftBoundaryIsSpace =
+        previousContentColumn !== -1 &&
+        previousContentOffset >= scalar.start &&
+        previousContentOffset < scalar.end;
+    }
+  }
+  const leftPaddingIsValue =
+    !atYamlLineEdge || (isBlockScalar && dashColumn > blockScalarIndent(source, scalar));
   const leftIsPublished =
     left !== undefined &&
     /\s/u.test(left) &&
     left !== '\r' &&
     left !== '\n' &&
-    hasPublishedLeftContext &&
-    absoluteMatchStart + matchDash - 1 >= scalar.start &&
-    absoluteMatchStart + matchDash - 1 < scalar.end;
-  const rightOffset = absoluteMatchStart + matchDash + 1;
+    absoluteDash - 1 >= scalar.start &&
+    absoluteDash - 1 < scalar.end &&
+    (leftPaddingIsValue || leftBoundaryIsSpace);
+  const rightOffset = absoluteDash + 1;
   const rightTail = alert.Match.slice(matchDash + 1);
-  const horizontalRun = rightTail.match(/^[^\S\r\n]+/u)?.[0] ?? '';
+  const horizontalRun = rightTail.match(/^[ \t]+/u)?.[0] ?? '';
   const afterHorizontalRun = source[rightOffset + horizontalRun.length];
   const flowLineEdgeSpace =
     !isBlockScalar &&
@@ -299,18 +324,18 @@ function yamlAlertIsProse(alert, source, scalarContext) {
   if (leftIsPublished || rightIsPublishedSourceSpace) return true;
 
   const rightReachesNewline =
-    right === '\r' || right === '\n' || (!isBlockScalar && /^[^\S\r\n]*\r?\n/u.test(rightTail));
+    right === '\r' || right === '\n' || (!isBlockScalar && /^[ \t]*\r?\n/u.test(rightTail));
   if (!rightReachesNewline) return false;
   if (scalar.type === 'BLOCK_LITERAL') return false;
 
-  const nextLine = lines[alert.Line];
-  const nextContentColumn = nextLine?.search(/\S/) ?? -1;
+  const nextLine = lines[dashLineIndex + 1];
+  const nextContentColumn = nextLine?.search(/[^ \t]/u) ?? -1;
   if (nextContentColumn === -1) return false;
-  const nextContentOffset = (lineOffsets[alert.Line] ?? source.length) + nextContentColumn;
+  const nextContentOffset = (lineOffsets[dashLineIndex + 1] ?? source.length) + nextContentColumn;
   if (nextContentOffset < scalar.start || nextContentOffset >= scalar.end) return false;
 
   if (scalar.type === 'BLOCK_FOLDED') {
-    return foldedBlockBoundaryIsSpace(source, lines, alert.Line - 1, scalar);
+    return foldedBlockBoundaryIsSpace(source, lines, dashLineIndex, scalar);
   }
   return true;
 }
