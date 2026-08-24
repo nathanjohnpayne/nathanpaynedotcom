@@ -2,8 +2,7 @@
 # lint-all.sh — run every lint gate and report all of their failures.
 #
 # A short-circuiting chain hides later failures. Every gate runs here so one
-# `npm run lint` reports JavaScript and both prose implementations together
-# during the issue #719 equivalence window (#670).
+# `npm run lint` reports JavaScript and prose failures together (#670).
 #
 # Every gate runs here, and the command fails if any of them failed.
 set -uo pipefail
@@ -23,7 +22,6 @@ run_gate() {
 }
 
 run_gate eslint "$ROOT/node_modules/.bin/eslint" .
-run_gate content-em-dash node "$ROOT/scripts/lint-content-em-dash.mjs"
 run_gate prose node "$ROOT/scripts/lint-prose.mjs"
 
 if [ "$status" -ne 0 ]; then
