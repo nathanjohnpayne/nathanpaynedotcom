@@ -3,6 +3,7 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
 import { getCollection } from 'astro:content';
 import Footer from '../../components/Footer.astro';
 import Breadcrumbs from '../../components/Breadcrumbs.astro';
+import { indexGridRows } from '../../lib/index-grid';
 
 const PROJECTS_TITLE = 'Projects';
 const PROJECTS_PAGE_TITLE = `${PROJECTS_TITLE} | Nathan Payne`;
@@ -12,14 +13,6 @@ const PROJECTS_OG_DESCRIPTION = 'Each one a real problem turned into a systems d
 
 const allProjects = await getCollection('projects', ({ data }) => !data.draft);
 const projects = allProjects.sort((a, b) => a.data.order - b.data.order);
-const projectIndexRows = [
-  { rowClass: 'grid-row--1', accentClasses: ['accent-red', 'accent-blue'] },
-  { rowClass: 'grid-row--2', accentClasses: ['accent-black'] },
-  { rowClass: 'grid-row--3', accentClasses: ['accent-white'] },
-  { rowClass: 'grid-row--4', accentClasses: ['accent-yellow', 'accent-paper'] },
-  { rowClass: 'grid-row--overflow-a', accentClasses: ['accent-lightblue'] },
-  { rowClass: 'grid-row--overflow-b', accentClasses: ['accent-red'] },
-];
 
 const jsonLd = {
   "@context": "https://schema.org",
@@ -82,12 +75,12 @@ const jsonLd = {
       </header>
 
       {/* ── Project Grid ──
-           Accent blocks follow the six-row Mondrian sequence captured in
-           #493/#494 follow-up screenshots, then restart for row 7+. */}
+           Accent blocks follow the shared six-row Mondrian sequence from
+           src/lib/index-grid.ts, then restart for row 7+. */}
       <div class="blog-grid">
 
         {projects.map((project, i) => {
-          const row = projectIndexRows[i % projectIndexRows.length];
+          const row = indexGridRows[i % indexGridRows.length];
           const card = (
             <article class="post-card">
               {/* Status kicker renders on every card — consistency in the

@@ -52,15 +52,15 @@ const homepageProjectDescriptions = [
   'Cloud-synced shared-bill coordination for families and friend groups—turns recurring costs into clear annual invoices, payment tracking, and shareable summaries.',
 ];
 
-// The six-row Mondrian sequence from the #493/#494 screenshots. It CYCLES:
-// `projects/index.astro` indexes it with `i % length`, so a seventh project
+// The canonical six-row Mondrian sequence from #733. It CYCLES: both index
+// routes consume one shared source with `i % length`, so a seventh project
 // restarts at `grid-row--1` by design, not by accident. Expressed as one cycle
 // plus a derivation so adding a project extends the expectation rather than
 // breaking it (#493 comment: "then restart for row 7+").
 const projectIndexAccentCycle = [
-  { rowClass: 'grid-row--1', accentClasses: ['accent-red', 'accent-blue'] },
-  { rowClass: 'grid-row--2', accentClasses: ['accent-black'] },
-  { rowClass: 'grid-row--3', accentClasses: ['accent-white'] },
+  { rowClass: 'grid-row--1', accentClasses: ['accent-red', 'accent-paper'] },
+  { rowClass: 'grid-row--2', accentClasses: ['accent-blue'] },
+  { rowClass: 'grid-row--3', accentClasses: ['accent-black'] },
   { rowClass: 'grid-row--4', accentClasses: ['accent-yellow', 'accent-paper'] },
   { rowClass: 'grid-row--overflow-a', accentClasses: ['accent-lightblue'] },
   { rowClass: 'grid-row--overflow-b', accentClasses: ['accent-red'] },

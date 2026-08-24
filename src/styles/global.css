@@ -1429,7 +1429,7 @@ a:focus-visible .link-arrow,
 }
 
 .panel--black .panel-label__v {
-  /* Bottom-anchored, reads bottom-to-top to match the .accent-blue-label
+  /* Bottom-anchored, reads bottom-to-top to match the .index-feature-label
      "Latest" pattern on the blog index. */
   left: clamp(0.6rem, 1.4vw, 1.2rem);
   bottom: clamp(0.8rem, 1.6vw, 1.4rem);
@@ -2468,10 +2468,13 @@ a.tag:hover {
 
 .accent-blue {
   background: var(--blue);
+}
+
+.index-feature-cell {
   position: relative;
 }
 
-.accent-blue-label {
+.index-feature-label {
   position: absolute;
   bottom: clamp(0.8rem, 1.5vw, 1.2rem);
   right: clamp(0.8rem, 1.5vw, 1.2rem);
@@ -2481,7 +2484,7 @@ a.tag:hover {
   font-size: clamp(0.72rem, 0.88vw, 0.84rem);
   letter-spacing: 0.22em;
   text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--ink-62);
   font-weight: 500;
 }
 

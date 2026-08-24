@@ -1,9 +1,9 @@
 import { test, expect } from '@playwright/test';
 
 const expectedRows = [
-  { axes: [0.5, 0.72], accents: ['accent-red', 'accent-blue'] },
-  { axes: [0.72], accents: ['accent-black'] },
-  { axes: [0.5], accents: ['accent-white'] },
+  { axes: [0.5, 0.72], accents: ['accent-red', 'accent-paper'] },
+  { axes: [0.72], accents: ['accent-blue'] },
+  { axes: [0.5], accents: ['accent-black'] },
   { axes: [0.5, 0.72], accents: ['accent-yellow', 'accent-paper'] },
   { axes: [0.72], accents: ['accent-lightblue'] },
   { axes: [0.5], accents: ['accent-red'] },
@@ -40,3 +40,16 @@ for (const route of ['/projects/', '/blog/']) {
     expect(rows).toEqual(expectedRows);
   });
 }
+
+test('/blog/ keeps Latest on the opening row without coupling it to blue', async (
+  { page },
+  testInfo,
+) => {
+  test.skip(testInfo.project.name !== 'Desktop 1440', 'Desktop composition only');
+
+  await page.goto('/blog/');
+  const firstRow = page.locator('.blog-grid > div:not(.grid-row--rss)').first();
+
+  await expect(firstRow.locator('.accent-paper .index-feature-label')).toHaveText('Latest');
+  await expect(page.locator('.accent-blue .index-feature-label')).toHaveCount(0);
+});
