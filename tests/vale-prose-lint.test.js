@@ -525,6 +525,35 @@ describe.skipIf(!valeAvailable)('Vale prose lint', () => {
         (alert) => alert.Check === 'CMOS.EmDash',
       );
       expect(alerts.map((alert) => alert.Line)).toEqual([7, 9, 17, 24, 26, 29, 32, 34, 36]);
+
+      const crlfFixture = join(directory, 'line-edge-crlf.yaml');
+      writeFileSync(
+        crlfFixture,
+        [
+          'odd: "word\\',
+          '  —next"',
+          'even: "word\\\\',
+          '  —next"',
+          'blank: "word',
+          '',
+          '  —next"',
+          'ordinary: "word',
+          '  —next"',
+          '',
+        ].join('\r\n'),
+      );
+      const crlfResult = spawnSync(
+        process.execPath,
+        ['scripts/lint-prose.mjs', '--output=JSON', crlfFixture],
+        { encoding: 'utf8' },
+      );
+
+      expect(crlfResult.status).toBe(1);
+      const crlfReportedPath = relative(process.cwd(), crlfFixture);
+      const crlfAlerts = JSON.parse(crlfResult.stdout)[crlfReportedPath].filter(
+        (alert) => alert.Check === 'CMOS.EmDash',
+      );
+      expect(crlfAlerts.map((alert) => alert.Line)).toEqual([3, 8]);
     } finally {
       rmSync(directory, { force: true, recursive: true });
     }

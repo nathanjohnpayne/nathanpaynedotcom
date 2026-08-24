@@ -253,11 +253,15 @@ function yamlAlertIsProse(alert, source, scalarContext) {
   if (matchDash === -1 || matchStart === -1) return true;
 
   const lineOffsets = sourceLineOffsets(source);
-  const absoluteMatchStart = (lineOffsets[alert.Line - 1] ?? 0) + matchStart;
-  const absoluteDash = absoluteMatchStart + matchDash;
-  const dashLineIndex = lineOffsets.findLastIndex((offset) => offset <= absoluteDash);
+  const beforeDash = alert.Match.slice(0, matchDash);
+  const matchLineBreaks = beforeDash.match(/\n/g)?.length ?? 0;
+  const dashLineIndex = alert.Line - 1 + matchLineBreaks;
+  const dashColumn =
+    matchLineBreaks === 0
+      ? matchStart + matchDash
+      : beforeDash.length - beforeDash.lastIndexOf('\n') - 1;
+  const absoluteDash = (lineOffsets[dashLineIndex] ?? 0) + dashColumn;
   const dashLine = lines[dashLineIndex] || '';
-  const dashColumn = absoluteDash - (lineOffsets[dashLineIndex] ?? 0);
 
   for (const match of dashLine.matchAll(IDENTIFIER_SEPARATOR)) {
     if (dashColumn >= match.index && dashColumn < match.index + match[0].length) return false;
@@ -286,7 +290,8 @@ function yamlAlertIsProse(alert, source, scalarContext) {
       );
     } else {
       const previousLineStart = lineOffsets[dashLineIndex - 1] ?? 0;
-      const previousLineEnd = (lineOffsets[dashLineIndex] ?? source.length) - 1;
+      let previousLineEnd = (lineOffsets[dashLineIndex] ?? source.length) - 1;
+      if (source[previousLineEnd - 1] === '\r') previousLineEnd -= 1;
       const intersectionStart = Math.max(previousLineStart, scalar.start);
       const intersectionEnd = Math.min(previousLineEnd, scalar.end);
       let previousScalarContent = source.slice(intersectionStart, intersectionEnd);
