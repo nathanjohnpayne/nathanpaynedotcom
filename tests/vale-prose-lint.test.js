@@ -19,6 +19,16 @@ const valeAvailable = (() => {
   return result.status === 0;
 })();
 
+describe('Vale configuration', () => {
+  it('keeps the style and token-ignore settings in one prose section', () => {
+    const configuration = readFileSync('.vale.ini', 'utf8');
+    const proseSection = '[*.{md,mdx,yaml,yml}]';
+
+    expect(configuration.split(proseSection)).toHaveLength(2);
+    expect(configuration).toContain(`${proseSection}\nBasedOnStyles = CMOS\nTokenIgnores = `);
+  });
+});
+
 describe('Vale provisioning', () => {
   it('installs and verifies a pinned CI archive through the test seams', () => {
     const directory = mkdtempSync(join(tmpdir(), 'ensure-vale-test-'));
@@ -632,6 +642,66 @@ describe.skipIf(!valeAvailable)('Vale prose lint', () => {
 });
 
 describe('Vale availability behavior', () => {
+  it('runs when Vale matches the repository pin', () => {
+    const directory = mkdtempSync(join(tmpdir(), 'vale-version-match-'));
+    try {
+      const fakeVale = join(directory, 'vale');
+      writeFileSync(
+        fakeVale,
+        '#!/usr/bin/env sh\nif [ "$1" = "--version" ]; then echo "vale version 3.18.0"; else echo "{}"; fi\n',
+      );
+      chmodSync(fakeVale, 0o755);
+
+      const result = spawnSync(
+        process.execPath,
+        [
+          'scripts/lint-prose.mjs',
+          '--output=JSON',
+          'tests/fixtures/vale-frontmatter/no-frontmatter.md',
+        ],
+        {
+          encoding: 'utf8',
+          env: { ...process.env, PATH: `${directory}:/usr/bin:/bin` },
+        },
+      );
+
+      expect(result.status).toBe(0);
+      expect(JSON.parse(result.stdout)).toEqual({});
+    } finally {
+      rmSync(directory, { force: true, recursive: true });
+    }
+  });
+
+  it('fails closed with a clear message when Vale does not match the repository pin', () => {
+    const directory = mkdtempSync(join(tmpdir(), 'vale-version-mismatch-'));
+    try {
+      const fakeVale = join(directory, 'vale');
+      writeFileSync(
+        fakeVale,
+        '#!/usr/bin/env sh\nif [ "$1" = "--version" ]; then echo "vale version 9.9.9"; else echo "{}"; fi\n',
+      );
+      chmodSync(fakeVale, 0o755);
+
+      const result = spawnSync(
+        process.execPath,
+        [
+          'scripts/lint-prose.mjs',
+          '--output=JSON',
+          'tests/fixtures/vale-frontmatter/no-frontmatter.md',
+        ],
+        {
+          encoding: 'utf8',
+          env: { ...process.env, PATH: `${directory}:/usr/bin:/bin` },
+        },
+      );
+
+      expect(result.status).toBe(2);
+      expect(result.stderr).toContain('Vale 9.9.9 does not match pinned 3.18.0');
+    } finally {
+      rmSync(directory, { force: true, recursive: true });
+    }
+  });
+
   it('skips cached prose paths that are deleted only from the working tree', () => {
     const directory = mkdtempSync(join(tmpdir(), 'vale-deleted-path-'));
     const linter = join(process.cwd(), 'scripts/lint-prose.mjs');

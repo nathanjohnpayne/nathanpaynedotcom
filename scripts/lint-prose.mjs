@@ -8,6 +8,7 @@ import { isScalar, parseAllDocuments, visit } from 'yaml';
 const MARKDOWN_EXTENSIONS = new Set(['.md', '.mdx']);
 const YAML_EXTENSIONS = new Set(['.yaml', '.yml']);
 const PROSE_EXTENSIONS = new Set([...MARKDOWN_EXTENSIONS, ...YAML_EXTENSIONS]);
+const PINNED_VALE_VERSION = readFileSync(new URL('../.vale-version', import.meta.url), 'utf8').trim();
 const IDENTIFIER_SEPARATOR = /\[[A-Z]{2,}[A-Z0-9_-]*-\d+[\s\p{Zs}]+—[\s\p{Zs}]+/gu;
 const PROPAGATED_MARKDOWN_FILES = new Set([
   '.github/pull_request_template.md',
@@ -407,6 +408,13 @@ function main() {
     console.warn('prose lint: Vale is not installed; skipping outside CI');
     if (parsed.outputJson) console.log('{}');
     process.exit(0);
+  }
+  const installedValeVersion = version.stdout.trim().split(/\s+/u).at(-1);
+  if (installedValeVersion !== PINNED_VALE_VERSION) {
+    console.error(
+      `prose lint: Vale ${installedValeVersion || 'unknown'} does not match pinned ${PINNED_VALE_VERSION}`,
+    );
+    process.exit(2);
   }
 
   const report = {};

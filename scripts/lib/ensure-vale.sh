@@ -2,6 +2,13 @@
 # Provision the pinned Vale release in CI while leaving local installation to the developer.
 set -euo pipefail
 
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+PINNED_VALE_VERSION="$(tr -d '\r\n' < "$ROOT/.vale-version")"
+if ! [[ "$PINNED_VALE_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+  echo "ensure-vale.sh: invalid pinned version in .vale-version: $PINNED_VALE_VERSION" >&2
+  exit 1
+fi
+
 CI_ONLY=false
 for arg in "$@"; do
   case "$arg" in
@@ -12,7 +19,7 @@ for arg in "$@"; do
   esac
 done
 
-VALE_VERSION="${ENSURE_VALE_VERSION:-v3.18.0}"
+VALE_VERSION="${ENSURE_VALE_VERSION:-v$PINNED_VALE_VERSION}"
 
 if command -v vale >/dev/null 2>&1; then
   INSTALLED_VALE_VERSION="$(vale --version | awk '{print $NF}')"
@@ -41,7 +48,7 @@ fi
 
 VALE_DEST="${ENSURE_VALE_DEST:-/usr/local/bin/vale}"
 DEFAULT_SHA256="a6f71a75a12fe689345b754f2412b90367fe33648abb7d200fa19eaadc2dbf6d"
-if [ "$VALE_VERSION" != "v3.18.0" ] && [ -z "${ENSURE_VALE_SHA256:-}" ]; then
+if [ "$VALE_VERSION" != "v$PINNED_VALE_VERSION" ] && [ -z "${ENSURE_VALE_SHA256:-}" ]; then
   echo "ensure-vale.sh: ENSURE_VALE_SHA256 is required when overriding the pinned version" >&2
   exit 1
 fi
