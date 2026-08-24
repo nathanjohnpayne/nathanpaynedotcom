@@ -354,11 +354,11 @@ describe.skipIf(!valeAvailable)('Vale prose lint', () => {
     );
 
     expect(result.status).toBe(1);
-    expect(JSON.parse(result.stdout)[fixture]).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({ Check: 'CMOS.EmDash', Line: 1, Severity: 'error' }),
-      ]),
+    const alerts = JSON.parse(result.stdout)[fixture].filter(
+      (alert) => alert.Check === 'CMOS.EmDash',
     );
+    expect(alerts).toHaveLength(1);
+    expect(alerts[0]).toMatchObject({ Line: 3, Severity: 'error' });
   });
 
   it('reports named and numeric NBSP character references', () => {

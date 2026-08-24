@@ -302,7 +302,10 @@ function main() {
     const markdownReport = runVale(parsed.files);
     for (const file of parsed.files) {
       const extraction = frontmatter.get(file);
-      const alerts = markdownReport[file] || markdownReport[resolve(file)] || [];
+      const reportedAlerts = markdownReport[file] || markdownReport[resolve(file)] || [];
+      const alerts = YAML_EXTENSIONS.has(extname(file).toLowerCase())
+        ? reportedAlerts.filter((alert) => yamlAlertIsProse(alert, sources.get(file)))
+        : reportedAlerts;
       const bodyAlerts = alerts.filter(
         (alert) =>
           extraction.kind !== 'complete' ||
