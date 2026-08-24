@@ -1,0 +1,26 @@
+extends: capitalization
+message: "Found: '%s'; expected: '%s'."
+level: warning
+scope: table.header
+match: $title
+style: Chicago
+exceptions:
+  - AGENTS.md
+  - Astro
+  - CI
+  - CLI
+  - CMOS
+  - CodeRabbit
+  - Codex
+  - GitHub
+  - HTML
+  - JavaScript
+  - JSON
+  - Markdown
+  - MDX
+  - npm
+  - Playwright
+  - TypeScript
+  - Vale
+  - Vitest
+  - YAML

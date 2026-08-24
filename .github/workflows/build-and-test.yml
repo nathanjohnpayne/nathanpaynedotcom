@@ -74,6 +74,12 @@ jobs:
         # all.
         run: npm ci
 
+      - name: Install pinned Vale
+        # Vale is not part of ubuntu-latest. The helper pins and verifies the
+        # release archive, while local runs retain their soft-pass behavior
+        # when the binary is not installed.
+        run: scripts/lib/ensure-vale.sh --ci-only
+
       - name: Install Playwright's Chromium
         # og-images.mjs (src/integrations/) drives Playwright at BUILD
         # time to screenshot src/pages/og-templates/ into dist/og/*.png —
