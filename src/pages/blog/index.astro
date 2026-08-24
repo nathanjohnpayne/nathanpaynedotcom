@@ -2,6 +2,7 @@
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import { getCollection } from 'astro:content';
 import { estimateReadingMinutes } from '../../lib/reading-time';
+import { getIndexGridRow } from '../../lib/index-grid';
 import Footer from '../../components/Footer.astro';
 import Breadcrumbs from '../../components/Breadcrumbs.astro';
 
@@ -11,19 +12,6 @@ const BLOG_DESCRIPTION = 'A product manager’s notes on shipping real systems w
 
 const posts = (await getCollection('blog', ({ data }) => !data.draft))
   .sort((a, b) => b.data.date.getTime() - a.data.date.getTime());
-
-// Same six-row Mondrian sequence as /projects (see projectIndexRows in
-// src/pages/projects/index.astro and the golden copy in
-// tests/project-pages.test.js), restarting for row 7+ so the two
-// indexes repeat their accent colors identically.
-const blogIndexRows = [
-  { rowClass: 'grid-row--1', accentClasses: ['accent-red', 'accent-blue'] },
-  { rowClass: 'grid-row--2', accentClasses: ['accent-black'] },
-  { rowClass: 'grid-row--3', accentClasses: ['accent-white'] },
-  { rowClass: 'grid-row--4', accentClasses: ['accent-yellow', 'accent-paper'] },
-  { rowClass: 'grid-row--overflow-a', accentClasses: ['accent-lightblue'] },
-  { rowClass: 'grid-row--overflow-b', accentClasses: ['accent-red'] },
-];
 
 const jsonLd = {
   "@context": "https://schema.org",
@@ -103,16 +91,16 @@ function readingTime(body: string | undefined): string {
 
       {/* ── Mondrian Blog Grid ──
            Mirrors the /projects index: every post flows through the same
-           six-row accent sequence by index, restarting for row 7+, so the
-           accent colors repeat exactly as they do on /projects — the last
-           post included. Two blog-specific additions: the newest post's
-           blue cell carries the vertical "Latest" label, and a dedicated
-           subscribe band closes the grid so the RSS block never displaces
-           a post's accent cell. */}
+           six-row geometry and boundary-aware accent placement, so a later
+           cycle never opens with red immediately after a red closing row.
+           Two blog-specific additions: the newest post's trailing accent
+           carries the vertical "Latest" label, and a dedicated subscribe band
+           closes the grid so the RSS block never displaces a post's accent
+           cell. */}
       <div class="blog-grid">
 
         {posts.map((post, i) => {
-          const row = blogIndexRows[i % blogIndexRows.length];
+          const row = getIndexGridRow(i);
           const card = (
             <article class="post-card">
               <p class="post-meta">{formatDate(post.data.date)} &middot; {readingTime(post.body)}</p>
@@ -125,13 +113,16 @@ function readingTime(body: string | undefined): string {
           return (
             <div class={row.rowClass}>
               {card}
-              {row.accentClasses.map((accentClass) => {
-                if (i === 0 && accentClass === 'accent-blue') return (
-                  <div class="accent-blue" aria-hidden="true">
-                    <span class="accent-blue-label">Latest</span>
+              {row.accentClasses.map((accentClass, accentIndex) => {
+                const isLatestCell = i === 0 && accentIndex === row.accentClasses.length - 1;
+                return (
+                  <div
+                    class:list={[accentClass, { 'index-feature-cell': isLatestCell }]}
+                    aria-hidden={isLatestCell ? undefined : 'true'}
+                  >
+                    {isLatestCell && <span class="index-feature-cell__label">Latest</span>}
                   </div>
                 );
-                return <div class={accentClass} aria-hidden="true"></div>;
               })}
             </div>
           );
