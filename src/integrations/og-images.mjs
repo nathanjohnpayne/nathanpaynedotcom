@@ -226,6 +226,21 @@ export async function renderMermaidDiagrams({ browser, distDir, logger }) {
     return;
   }
 
+  const diagramPages = [];
+  for (const pagePath of pagePaths) {
+    const htmlPath = join(blogDir, pagePath, 'index.html');
+    const html = await readFile(htmlPath, 'utf8');
+    const sourceBlocks = findMermaidSourceBlocks(html);
+    if (sourceBlocks.length > 0) {
+      diagramPages.push({ pagePath, htmlPath, html, sourceBlocks });
+    }
+  }
+
+  if (diagramPages.length === 0) {
+    logger.info('Rendered 0 Mermaid diagrams as static SVG');
+    return;
+  }
+
   const context = await browser.newContext();
   const rendererPage = await context.newPage();
   let diagramCount = 0;
@@ -244,15 +259,11 @@ export async function renderMermaidDiagrams({ browser, distDir, logger }) {
       });
     });
 
-    for (const pagePath of pagePaths) {
-      const htmlPath = join(blogDir, pagePath, 'index.html');
-      const html = await readFile(htmlPath, 'utf8');
-      const dom = new JSDOM(html);
-      const { document } = dom.window;
-      const sourceBlocks = Array.from(document.querySelectorAll('pre.mermaid'));
-
+    for (const { pagePath, htmlPath, html, sourceBlocks } of diagramPages) {
+      const replacements = [];
       for (const [index, sourceBlock] of sourceBlocks.entries()) {
-        const source = sourceBlock.textContent ?? '';
+        const sourceMarkup = html.slice(sourceBlock.contentStart, sourceBlock.contentEnd);
+        const source = JSDOM.fragment(sourceMarkup).textContent ?? '';
         const renderId = `mermaid-static-${diagramCount + 1}`;
         let svg;
 
@@ -280,19 +291,70 @@ export async function renderMermaidDiagrams({ browser, distDir, logger }) {
         renderedSvg.classList.add('mermaid');
         renderedSvg.setAttribute('aria-hidden', 'true');
         renderedSvg.setAttribute('focusable', 'false');
-        sourceBlock.replaceWith(document.importNode(renderedSvg, true));
+        replacements.push({
+          start: sourceBlock.start,
+          end: sourceBlock.end,
+          value: renderedSvg.outerHTML,
+        });
         diagramCount += 1;
       }
 
-      if (sourceBlocks.length > 0) {
-        await writeFile(htmlPath, `<!DOCTYPE html>${document.documentElement.outerHTML}`);
-      }
+      await writeFile(htmlPath, replaceRanges(html, replacements));
     }
   } finally {
     await context.close();
   }
 
   logger.info(`Rendered ${diagramCount} Mermaid diagrams as static SVG`);
+}
+
+/**
+ * Locate the exact source ranges for the intermediate Mermaid elements without
+ * parsing or reserializing the surrounding document. The plugin and sidebar
+ * layout HTML-escape diagram definitions, so a literal closing pre tag safely
+ * terminates each known intermediate block.
+ */
+function findMermaidSourceBlocks(html) {
+  const blocks = [];
+  const openingTagPattern = /<pre\b[^>]*>/gi;
+  let openingMatch;
+
+  while ((openingMatch = openingTagPattern.exec(html)) !== null) {
+    const openingTag = openingMatch[0];
+    const classMatch = openingTag.match(/\bclass\s*=\s*(["'])(.*?)\1/i);
+    const classes = classMatch?.[2].split(/\s+/) ?? [];
+    if (!classes.includes('mermaid')) continue;
+
+    const closingTagPattern = /<\/pre\s*>/gi;
+    closingTagPattern.lastIndex = openingTagPattern.lastIndex;
+    const closingMatch = closingTagPattern.exec(html);
+    if (closingMatch == null) {
+      throw new Error('Mermaid source block is missing its closing </pre> tag');
+    }
+
+    blocks.push({
+      start: openingMatch.index,
+      contentStart: openingTagPattern.lastIndex,
+      contentEnd: closingMatch.index,
+      end: closingTagPattern.lastIndex,
+    });
+    openingTagPattern.lastIndex = closingTagPattern.lastIndex;
+  }
+
+  return blocks;
+}
+
+function replaceRanges(source, replacements) {
+  let cursor = 0;
+  let result = '';
+
+  for (const replacement of replacements) {
+    result += source.slice(cursor, replacement.start);
+    result += replacement.value;
+    cursor = replacement.end;
+  }
+
+  return result + source.slice(cursor);
 }
 
 /**

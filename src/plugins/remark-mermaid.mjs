@@ -10,7 +10,7 @@ import { visit } from 'unist-util-visit';
  * anything is deployed.
  */
 export default function remarkMermaid() {
-  return (tree) => {
+  return (tree, file) => {
     let diagramIndex = 0;
 
     visit(tree, 'code', (node, index, parent) => {
@@ -18,6 +18,7 @@ export default function remarkMermaid() {
         return;
       }
 
+      assertSupportedContentFile(file);
       const { title, description } = parseMetadata(node.meta);
       diagramIndex += 1;
       const descriptionId = `mermaid-description-${diagramIndex}`;
@@ -30,28 +31,36 @@ export default function remarkMermaid() {
   };
 }
 
+function assertSupportedContentFile(file) {
+  const filePath = String(file?.path ?? file?.history?.at(-1) ?? '').replaceAll('\\', '/');
+  if (!/(^|\/)src\/content\/blog\/[^/]+\.md$/.test(filePath)) {
+    throw new Error(
+      `Mermaid code fences are only supported in src/content/blog Markdown files (received ${filePath || 'an unknown source'})`,
+    );
+  }
+}
+
 function parseMetadata(meta) {
   const requiredMessage = 'Mermaid code fences require title="..." description="..." metadata';
   const attributes = {};
-  const source = meta ?? '';
-  const pattern = /([A-Za-z][\w-]*)="([^"]*)"/g;
+  const source = (meta ?? '').trim();
+  const pattern = /(?:^|\s+)([A-Za-z][\w-]*)="((?:\\["\\]|[^"\\])*)"/gy;
   let cursor = 0;
   let match;
 
-  while ((match = pattern.exec(source)) !== null) {
-    if (source.slice(cursor, match.index).trim() !== '') {
-      throw new Error(requiredMessage);
-    }
-
+  while (cursor < source.length) {
+    pattern.lastIndex = cursor;
+    match = pattern.exec(source);
+    if (match == null || match.index !== cursor) throw new Error(requiredMessage);
     const [, key, value] = match;
     if (key in attributes || !['title', 'description'].includes(key)) {
       throw new Error(requiredMessage);
     }
-    attributes[key] = value.trim();
+    attributes[key] = value.replace(/\\(["\\])/g, '$1').trim();
     cursor = pattern.lastIndex;
   }
 
-  if (source.slice(cursor).trim() !== '' || !attributes.title || !attributes.description) {
+  if (!attributes.title || !attributes.description) {
     throw new Error(requiredMessage);
   }
 

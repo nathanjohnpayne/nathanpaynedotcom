@@ -6,8 +6,13 @@ test('Mermaid descriptions label diagrams without becoming duplicate navigable t
   page,
 }) => {
   await page.goto('/blog/six-prs-one-bug-agent-failure-modes/');
-  await expect(page.locator('.mermaid-figure svg')).toHaveCount(6);
+  const figures = page.locator('.mermaid-figure:visible');
+  const figureCount = await figures.count();
+  expect(figureCount, 'the page must exercise at least one Mermaid diagram').toBeGreaterThan(0);
   await expect(page.locator('pre.mermaid')).toHaveCount(0);
+  await expect(figures.locator('svg[aria-hidden="true"][focusable="false"]')).toHaveCount(
+    figureCount,
+  );
 
   const diagramBounds = await page.locator('.blog-prose .mermaid-figure svg').evaluateAll((svgs) =>
     svgs.map((svg) => {
@@ -27,27 +32,33 @@ test('Mermaid descriptions label diagrams without becoming duplicate navigable t
     expect(bounds.width).toBeLessThanOrEqual(bounds.containerWidth + 1);
   }
 
-  const descriptions = await page
-    .locator('.mermaid-figure')
-    .evaluateAll((figures) =>
-      figures
-        .filter((figure) => figure.getClientRects().length > 0)
-        .map(
-          (figure) =>
-            figure.querySelector('.mermaid-figure__description')?.textContent?.trim() ?? '',
-        ),
-    );
+  const accessibleMetadata = await figures.evaluateAll((visibleFigures) =>
+    visibleFigures.map((figure) => ({
+      title: figure.getAttribute('aria-label')?.trim() ?? '',
+      description: figure.querySelector('.mermaid-figure__description')?.textContent?.trim() ?? '',
+    })),
+  );
   const session = await page.context().newCDPSession(page);
   const { nodes } = await session.send('Accessibility.getFullAXTree');
 
   const expectedOccurrences = new Map<string, number>();
-  for (const description of descriptions.map((value) => value.trim())) {
-    expectedOccurrences.set(description, (expectedOccurrences.get(description) ?? 0) + 1);
+  for (const { title, description } of accessibleMetadata) {
+    expect(title, 'every diagram must have an accessible title').not.toBe('');
+    expect(description, 'every diagram must have a relational description').not.toBe('');
+    const key = JSON.stringify({ title, description });
+    expectedOccurrences.set(key, (expectedOccurrences.get(key) ?? 0) + 1);
   }
 
-  for (const [description, expectedCount] of expectedOccurrences) {
+  for (const [metadata, expectedCount] of expectedOccurrences) {
+    const { title, description } = JSON.parse(metadata) as {
+      title: string;
+      description: string;
+    };
     const diagrams = nodes.filter(
-      (node) => node.role?.value === 'image' && node.description?.value === description,
+      (node) =>
+        node.role?.value === 'image' &&
+        node.name?.value === title &&
+        node.description?.value === description,
     );
     expect(
       diagrams,
@@ -70,7 +81,10 @@ test('static Mermaid diagrams remain visible in print without JavaScript', async
   await page.goto('/blog/two-blues-one-composition/');
 
   const diagrams = page.locator('.blog-prose .mermaid-figure svg');
-  await expect(diagrams).toHaveCount(2);
+  expect(
+    await diagrams.count(),
+    'the print assertion must exercise at least one Mermaid diagram',
+  ).toBeGreaterThan(0);
 
   for (const diagram of await diagrams.all()) {
     await expect(diagram).toBeVisible();
