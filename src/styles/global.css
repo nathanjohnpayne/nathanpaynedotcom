@@ -1429,7 +1429,8 @@ a:focus-visible .link-arrow,
 }
 
 .panel--black .panel-label__v {
-  /* Bottom-anchored, reads bottom-to-top to match the .index-feature-label
+  /* Bottom-anchored, reads bottom-to-top to match the
+     .index-feature-cell__label
      "Latest" pattern on the blog index. */
   left: clamp(0.6rem, 1.4vw, 1.2rem);
   bottom: clamp(0.8rem, 1.6vw, 1.4rem);
@@ -2474,7 +2475,7 @@ a.tag:hover {
   position: relative;
 }
 
-.index-feature-label {
+.index-feature-cell__label {
   position: absolute;
   bottom: clamp(0.8rem, 1.5vw, 1.2rem);
   right: clamp(0.8rem, 1.5vw, 1.2rem);

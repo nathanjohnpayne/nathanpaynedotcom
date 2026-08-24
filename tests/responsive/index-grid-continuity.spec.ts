@@ -50,6 +50,6 @@ test('/blog/ keeps Latest on the opening row without coupling it to blue', async
   await page.goto('/blog/');
   const firstRow = page.locator('.blog-grid > div:not(.grid-row--rss)').first();
 
-  await expect(firstRow.locator('.accent-paper .index-feature-label')).toHaveText('Latest');
-  await expect(page.locator('.accent-blue .index-feature-label')).toHaveCount(0);
+  await expect(firstRow.locator('.accent-paper .index-feature-cell__label')).toHaveText('Latest');
+  await expect(page.locator('.accent-blue .index-feature-cell__label')).toHaveCount(0);
 });

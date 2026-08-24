@@ -114,10 +114,10 @@ function readingTime(body: string | undefined): string {
             <div class={row.rowClass}>
               {card}
               {row.accentClasses.map((accentClass, accentIndex) => {
-                const isFeatureCell = i === 0 && accentIndex === row.accentClasses.length - 1;
+                const isLatestCell = i === 0 && accentIndex === row.accentClasses.length - 1;
                 return (
-                  <div class:list={[accentClass, { 'index-feature-cell': isFeatureCell }]} aria-hidden="true">
-                    {isFeatureCell && <span class="index-feature-label">Latest</span>}
+                  <div class:list={[accentClass, { 'index-feature-cell': isLatestCell }]} aria-hidden="true">
+                    {isLatestCell && <span class="index-feature-cell__label">Latest</span>}
                   </div>
                 );
               })}
