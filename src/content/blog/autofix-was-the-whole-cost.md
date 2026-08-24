@@ -48,43 +48,19 @@ sidebar:
     caption: "Three capabilities arrived as one requirement. Only the third was optional, and it was the one the project could not finish."
   - type: text
     content: |
-      A note on counting tokens. The figures in this post come from three
-      separate systems—a review ledger, Codex CLI session counters, and Claude
-      Code session telemetry—and they are not directly comparable. Cached input
-      reads dominate raw totals: one session here processed 848 million tokens
-      including cache reads, against 1.78 million of output. Cached reads are
-      discounted, but the discount varies by provider and plan, so a raw
-      "tokens processed" total is a poor proxy for either effort or spend.
-      Output and fresh input track the real work more closely, which is why
-      those are the numbers quoted above.
+      A note on counting tokens. The figures in this post come from three separate systems—a review ledger, Codex CLI session counters, and Claude Code session telemetry—and they are not directly comparable. Cached input reads dominate raw totals: one session here processed 848 million tokens including cache reads, against 1.78 million of output. Cached reads are discounted, but the discount varies by provider and plan, so a raw "tokens processed" total is a poor proxy for either effort or spend. Output and fresh input track the real work more closely, which is why those are the numbers quoted above.
     caption: "Why the headline figures are output and fresh input rather than totals."
   - type: text
     content: |
-      What it would have cost, at API list rates published on August 24, 2026.
-      None of this was billed—every session ran under a subscription—so the
-      following is a counterfactual, not an invoice. Both providers can change
-      these rates, and OpenAI currently describes the
-      GPT-5.6 Sol prices as promotional.
+      What it would have cost, at API list rates published on August 24, 2026. None of this was billed—every session ran under a subscription—so the following is a counterfactual, not an invoice. Both providers can change these rates, and OpenAI currently describes the GPT-5.6 Sol prices as promotional.
 
-      Two Codex GPT-5.6 Sol sessions, at $4/M fresh input, $0.40/M cached and
-      $20/M output: $60.81 for the PR #686 hardening work and $59.95 for
-      the Vale migration.
+      Two Codex GPT-5.6 Sol sessions, at $4/M fresh input, $0.40/M cached and $20/M output: $60.81 for the PR #686 hardening work and $59.95 for the Vale migration.
 
-      The Claude Opus 5 session, at $5/M input, $10/M cache writes on this
-      session's one-hour cache TTL, $0.50/M cache reads and $25/M output:
-      $591.90—$0.02 fresh input, $130.61 cache writes, $416.86 cache reads,
-      $44.41 output. Cache reads alone are 70% of it.
+      The Claude Opus 5 session, at $5/M input, $10/M cache writes on this session's one-hour cache TTL, $0.50/M cache reads and $25/M output: $591.90—$0.02 fresh input, $130.61 cache writes, $416.86 cache reads, $44.41 output. Cache reads alone are 70% of it.
 
-      Priceable total: about $712.66. The two remaining Codex sessions ran on
-      gpt-5.3-codex-spark, which has no established public API equivalent, and
-      the review ledger records only combined totals rather than the category
-      splits pricing needs.
+      Priceable total: about $712.66. The two remaining Codex sessions ran on gpt-5.3-codex-spark, which has no established public API equivalent, and the review ledger records only combined totals rather than the category splits pricing needs.
 
-      Two warnings. This is not the arc's cost: the Claude session also reviewed
-      the Vale rollout, researched this post, and did unrelated work, so it
-      over-attributes. And it is not a model-to-model comparison—the sessions
-      covered different amounts of work under different cache policies, so the
-      gap between them says nothing useful about relative cost per unit of work.
+      Two warnings. This is not the arc's cost: the Claude session also reviewed the Vale rollout, researched this post, and did unrelated work, so it over-attributes. And it is not a model-to-model comparison—the sessions covered different amounts of work under different cache policies, so the gap between them says nothing useful about relative cost per unit of work.
     caption: "An API-equivalent counterfactual. Nothing here was invoiced."
 ---
 

@@ -3214,6 +3214,12 @@ a.tag:hover {
 
 .blog-sidebar-text {
   margin: 0;
+  /* type: text sidebar values are interpolated verbatim into one <p>, so the
+     authored paragraph breaks are real newlines in the DOM that HTML would
+     otherwise collapse (#746). pre-line honours the blank lines and nothing
+     else, which is why those values are written one physical line per
+     paragraph — a soft-wrapped source line would become a hard break. */
+  white-space: pre-line;
   font-size: clamp(0.78rem, 0.85vw, 0.88rem);
   line-height: 1.5;
   color: color-mix(in srgb, var(--ink) 72%, transparent);
