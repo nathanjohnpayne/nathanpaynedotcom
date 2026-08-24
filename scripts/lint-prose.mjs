@@ -285,14 +285,18 @@ function yamlAlertIsProse(alert, source, scalarContext) {
         scalar,
       );
     } else {
-      const previousLine = lines[dashLineIndex - 1];
-      const previousContentColumn = previousLine.search(/[^ \t]/u);
-      const previousContentOffset =
-        (lineOffsets[dashLineIndex - 1] ?? 0) + previousContentColumn;
-      leftBoundaryIsSpace =
-        previousContentColumn !== -1 &&
-        previousContentOffset >= scalar.start &&
-        previousContentOffset < scalar.end;
+      const previousLineStart = lineOffsets[dashLineIndex - 1] ?? 0;
+      const previousLineEnd = (lineOffsets[dashLineIndex] ?? source.length) - 1;
+      const intersectionStart = Math.max(previousLineStart, scalar.start);
+      const intersectionEnd = Math.min(previousLineEnd, scalar.end);
+      let previousScalarContent = source.slice(intersectionStart, intersectionEnd);
+      if (
+        intersectionStart === scalar.start &&
+        (scalar.type === 'QUOTE_DOUBLE' || scalar.type === 'QUOTE_SINGLE')
+      ) {
+        previousScalarContent = previousScalarContent.slice(1);
+      }
+      leftBoundaryIsSpace = /[^ \t]/u.test(previousScalarContent);
     }
   }
   const leftPaddingIsValue =
