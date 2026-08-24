@@ -64,22 +64,19 @@ sidebar:
       None of this was billed—every session ran under a subscription—so the
       following is a counterfactual, not an invoice. Both providers can change
       these rates, and OpenAI currently describes the
-      [GPT-5.6 Sol](https://developers.openai.com/api/docs/models/gpt-5.6-sol)
-      prices as promotional.
+      GPT-5.6 Sol prices as promotional.
 
-      Two Codex [GPT-5.6 Sol](https://developers.openai.com/api/docs/models/gpt-5.6-sol)
-      sessions, at $4/M fresh input, $0.40/M cached and
+      Two Codex GPT-5.6 Sol sessions, at $4/M fresh input, $0.40/M cached and
       $20/M output: $60.81 for the PR #686 hardening work and $59.95 for
       the Vale migration.
 
-      The [Claude Opus 5](https://platform.claude.com/docs/en/about-claude/pricing)
-      session, at $5/M input, $10/M cache writes on this
+      The Claude Opus 5 session, at $5/M input, $10/M cache writes on this
       session's one-hour cache TTL, $0.50/M cache reads and $25/M output:
       $591.90—$0.02 fresh input, $130.61 cache writes, $416.86 cache reads,
       $44.41 output. Cache reads alone are 70% of it.
 
       Priceable total: about $712.66. The two remaining Codex sessions ran on
-      `gpt-5.3-codex-spark`, which has no established public API equivalent, and
+      gpt-5.3-codex-spark, which has no established public API equivalent, and
       the review ledger records only combined totals rather than the category
       splits pricing needs.
 
@@ -170,6 +167,8 @@ The decision was to make the tool report-only. It names each violation and exits
 That cut reduced the two files by a net 500 lines—the proof, and the tests that exercised it—and the review loop that had run 24 rounds without converging ended immediately. The size of the reduction was never the point. The point was that it removed the capability creating the proof obligation behind the findings.
 
 The reasoning was not really technical. A punctuation nit should not block shipping, and what I actually wanted was a list to clean up later—not a tool with permission to rewrite my published writing. Once "rewrite" was off the table, the expensive proof had nothing left to protect.
+
+Worth being exact about what "should not block shipping" means here, because report-only did not make detection consequence-free. The gate still exits non-zero on a violation and still turns the lint run red. What makes it non-blocking is a separate fact about this repository: `lint` is not among `main`'s required status checks, so a violation is a red X anyone can merge past. That is deliberate, and it is also unfinished—a check you can merge past and then forget is noise rather than a backlog, which is why turning those violations into tracked issues is still an open item.
 
 The generalisable version: **when a project will not converge, check whether it is defending a capability nobody has justified.** Cost tends to concentrate in the parts of scope that were never argued for, precisely because nothing was ever argued about them.
 
