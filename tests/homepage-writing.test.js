@@ -121,7 +121,7 @@ describe('homepage Writing block (#523)', () => {
     const link = document.querySelector('.blog-callout-link');
 
     expect(link?.getAttribute('href')).toBe(`/blog/${latest.slug}/`);
-    expect(link?.getAttribute('href')).toBe('/blog/perfect-score-wrong-axis/');
+    expect(link?.getAttribute('href')).toBe('/blog/autofix-was-the-whole-cost/');
   });
 
   it('closes the list with a "View all writing" link to /blog/', () => {
