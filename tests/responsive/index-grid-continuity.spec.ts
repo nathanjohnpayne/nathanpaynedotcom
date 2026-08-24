@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, type Page } from '@playwright/test';
 
 const expectedRows = [
   { axes: [0.5, 0.72], accents: ['accent-red', 'accent-paper'] },
@@ -8,6 +8,27 @@ const expectedRows = [
   { axes: [0.72], accents: ['accent-lightblue'] },
   { axes: [0.5], accents: ['accent-red'] },
 ];
+
+async function readRows(page: Page, start: number, end: number) {
+  return page.locator('.blog-grid > div:not(.grid-row--rss)').evaluateAll(
+    (elements, range) => elements.slice(range.start, range.end).map((row) => {
+      const rowRect = row.getBoundingClientRect();
+      const children = [...row.children];
+      const gap = Number.parseFloat(getComputedStyle(row).columnGap);
+
+      return {
+        axes: children.slice(0, -1).map((child) => {
+          const ruleCenter = child.getBoundingClientRect().right + gap / 2;
+          return Number(((ruleCenter - rowRect.left) / rowRect.width).toFixed(2));
+        }),
+        accents: children.slice(1).map((accent) =>
+          [...accent.classList].find((className) => className.startsWith('accent-')),
+        ),
+      };
+    }),
+    { start, end },
+  );
+}
 
 for (const route of ['/projects/', '/blog/']) {
   test(`${route} repeats the established Mondrian axes and accents through row 6`, async (
@@ -19,23 +40,7 @@ for (const route of ['/projects/', '/blog/']) {
     await page.goto(route);
     await page.waitForLoadState('domcontentloaded');
 
-    const rows = await page.locator('.blog-grid > div:not(.grid-row--rss)').evaluateAll((elements) =>
-      elements.slice(0, 6).map((row) => {
-        const rowRect = row.getBoundingClientRect();
-        const children = [...row.children];
-        const gap = Number.parseFloat(getComputedStyle(row).columnGap);
-
-        return {
-          axes: children.slice(0, -1).map((child) => {
-            const ruleCenter = child.getBoundingClientRect().right + gap / 2;
-            return Number(((ruleCenter - rowRect.left) / rowRect.width).toFixed(2));
-          }),
-          accents: children.slice(1).map((accent) =>
-            [...accent.classList].find((className) => className.startsWith('accent-')),
-          ),
-        };
-      }),
-    );
+    const rows = await readRows(page, 0, 6);
 
     expect(rows).toEqual(expectedRows);
   });
@@ -49,8 +54,11 @@ test('/blog/ keeps Latest on the opening row without coupling it to blue', async
 
   await page.goto('/blog/');
   const firstRow = page.locator('.blog-grid > div:not(.grid-row--rss)').first();
+  const featureCell = firstRow.locator('.accent-paper.index-feature-cell');
 
-  await expect(firstRow.locator('.accent-paper .index-feature-cell__label')).toHaveText('Latest');
+  await expect(featureCell.locator('.index-feature-cell__label')).toHaveText('Latest');
+  expect(await featureCell.getAttribute('aria-hidden')).toBeNull();
+  await expect(firstRow.locator('.accent-red')).toHaveAttribute('aria-hidden', 'true');
   await expect(page.locator('.accent-blue .index-feature-cell__label')).toHaveCount(0);
 });
 
@@ -61,24 +69,7 @@ test('/projects/ restarts the geometry cycle without adjacent red accents', asyn
   test.skip(testInfo.project.name !== 'Desktop 1440', 'Desktop composition only');
 
   await page.goto('/projects/');
-  const closingAndRestartRows = await page
-    .locator('.blog-grid > div:not(.grid-row--rss)')
-    .evaluateAll((elements) =>
-      elements.slice(5, 7).map((row) => {
-        const rowRect = row.getBoundingClientRect();
-        const children = [...row.children];
-        const gap = Number.parseFloat(getComputedStyle(row).columnGap);
-        return {
-          axes: children.slice(0, -1).map((child) => {
-            const ruleCenter = child.getBoundingClientRect().right + gap / 2;
-            return Number(((ruleCenter - rowRect.left) / rowRect.width).toFixed(2));
-          }),
-          accents: children.slice(1).map((accent) =>
-            [...accent.classList].find((className) => className.startsWith('accent-')),
-          ),
-        };
-      }),
-    );
+  const closingAndRestartRows = await readRows(page, 5, 7);
 
   expect(closingAndRestartRows).toEqual([
     { axes: [0.5], accents: ['accent-red'] },

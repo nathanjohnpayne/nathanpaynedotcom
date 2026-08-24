@@ -116,7 +116,10 @@ function readingTime(body: string | undefined): string {
               {row.accentClasses.map((accentClass, accentIndex) => {
                 const isLatestCell = i === 0 && accentIndex === row.accentClasses.length - 1;
                 return (
-                  <div class:list={[accentClass, { 'index-feature-cell': isLatestCell }]} aria-hidden="true">
+                  <div
+                    class:list={[accentClass, { 'index-feature-cell': isLatestCell }]}
+                    aria-hidden={isLatestCell ? undefined : 'true'}
+                  >
                     {isLatestCell && <span class="index-feature-cell__label">Latest</span>}
                   </div>
                 );
