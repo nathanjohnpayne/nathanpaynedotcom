@@ -20,7 +20,8 @@ if command -v vale >/dev/null 2>&1; then
     echo "Vale already present: $(vale --version)"
     exit 0
   fi
-  echo "ensure-vale.sh: replacing Vale ${INSTALLED_VALE_VERSION} with pinned ${VALE_VERSION#v}"
+  echo "ensure-vale.sh: Vale ${INSTALLED_VALE_VERSION} does not match pinned ${VALE_VERSION#v}; refusing to run with an unverified binary" >&2
+  exit 1
 fi
 
 if $CI_ONLY && [ "${GITHUB_ACTIONS:-}" != "true" ]; then

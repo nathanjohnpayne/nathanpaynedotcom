@@ -24,14 +24,9 @@ describe('Vale provisioning', () => {
     const directory = mkdtempSync(join(tmpdir(), 'ensure-vale-test-'));
     try {
       const sourceDirectory = join(directory, 'source');
-      const staleDirectory = join(directory, 'stale');
       const destinationDirectory = join(directory, 'destination');
       mkdirSync(sourceDirectory);
-      mkdirSync(staleDirectory);
       mkdirSync(destinationDirectory);
-      const staleVale = join(staleDirectory, 'vale');
-      writeFileSync(staleVale, '#!/usr/bin/env sh\necho "vale version 0.0.0"\n');
-      chmodSync(staleVale, 0o755);
       const fakeVale = join(sourceDirectory, 'vale');
       writeFileSync(fakeVale, '#!/usr/bin/env sh\necho "vale version 3.18.0"\n');
       chmodSync(fakeVale, 0o755);
@@ -53,7 +48,7 @@ describe('Vale provisioning', () => {
           ENSURE_VALE_SHA256: checksum,
           ENSURE_VALE_SYSTEM: 'Linux',
           GITHUB_ACTIONS: 'true',
-          PATH: `${staleDirectory}:/usr/bin:/bin`,
+          PATH: '/usr/bin:/bin',
         },
       });
 
@@ -61,6 +56,30 @@ describe('Vale provisioning', () => {
       expect(spawnSync(destination, ['--version'], { encoding: 'utf8' }).stdout).toContain(
         '3.18.0',
       );
+    } finally {
+      rmSync(directory, { force: true, recursive: true });
+    }
+  });
+
+  it('fails closed when PATH resolves an unpinned Vale version', () => {
+    const directory = mkdtempSync(join(tmpdir(), 'ensure-vale-stale-test-'));
+    try {
+      const staleVale = join(directory, 'vale');
+      writeFileSync(staleVale, '#!/usr/bin/env sh\necho "vale version 0.0.0"\n');
+      chmodSync(staleVale, 0o755);
+
+      const result = spawnSync('bash', ['scripts/lib/ensure-vale.sh', '--ci-only'], {
+        encoding: 'utf8',
+        env: {
+          ...process.env,
+          ENSURE_VALE_ARCHIVE_PATH: '/does/not/exist',
+          GITHUB_ACTIONS: 'true',
+          PATH: `${directory}:/usr/bin:/bin`,
+        },
+      });
+
+      expect(result.status).toBe(1);
+      expect(result.stderr).toContain('Vale 0.0.0 does not match pinned 3.18.0');
     } finally {
       rmSync(directory, { force: true, recursive: true });
     }
