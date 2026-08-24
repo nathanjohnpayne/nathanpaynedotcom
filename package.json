@@ -13,6 +13,7 @@
     "deploy:hosting": "scripts/check-deploy-env.sh && npm run build && op-firebase-deploy --only hosting && scripts/cf-cache-purge.sh",
     "lint": "scripts/lint-all.sh",
     "lint:js": "eslint .",
+    "lint:prose": "node scripts/lint-prose.mjs",
     "lint:content-em-dash": "node scripts/lint-content-em-dash.mjs",
     "typecheck": "astro check",
     "format": "prettier --write \"src/**/*.{ts,js,mjs,css}\" \"tests/**/*.{ts,js}\"",
@@ -44,7 +45,8 @@
     "typescript": ">=6.0.3 <6.1.0",
     "typescript-eslint": "^8.67.0",
     "unist-util-visit": "^5.1.0",
-    "vitest": "^4.1.10"
+    "vitest": "^4.1.10",
+    "yaml": "^2.9.0"
   },
   "dependencies": {
     "@mux/mux-background-video": "^0.2.3"

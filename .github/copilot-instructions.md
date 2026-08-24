@@ -24,4 +24,4 @@ Before opening or updating a pull request, perform a structured self-review and 
 
 ## CodeRabbit Review
 
-If this repo has `coderabbit.enabled: true` in `.github/review-policy.yml`, CodeRabbit provides automated review on every PR (Phase 2.5). Read and address CodeRabbit comments after internal review passes. CodeRabbit is advisory — it does not block merge.
+If this repo has `coderabbit.enabled: true` in `.github/review-policy.yml`, CodeRabbit provides automated review on every PR (Phase 2.5). Read and address CodeRabbit comments after internal review passes. CodeRabbit is advisory—it does not block merge.

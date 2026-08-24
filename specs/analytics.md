@@ -9,9 +9,9 @@ title: Analytics
 
 The site runs two analytics systems in parallel during the PostHog transition:
 
-- **Google Analytics 4 (gtag)** — fires a `section_view` event once per panel on
+- **Google Analytics 4 (gtag)**—fires a `section_view` event once per panel on
   first hover on hover-capable (fine-pointer) devices.
-- **PostHog** — product analytics + autocapture + session replay, loaded
+- **PostHog**—product analytics + autocapture + session replay, loaded
   site-wide, with twelve custom conversion/engagement events instrumented
   across the homepage, project pages, blog, and resume.
 
@@ -25,7 +25,7 @@ may be removed later without affecting the other.
 3. The event includes `section_name` matching the panel's `data-panel` attribute.
 4. The analytics call is guarded with `typeof gtag !== 'function'` to avoid errors when gtag is absent.
 5. The event only fires on hover-capable devices, gated by `canHover()` (`(hover: hover) and (pointer: fine)`). Touch/coarse-pointer devices that synthesize `mouseenter` must not record `section_view`.
-6. GA4 is loaded by `BaseLayout.astro` from the `PUBLIC_GA_MEASUREMENT_ID` env var (resolved from 1Password via `op inject` — the same pipeline as PostHog / Logo.dev), never hardcoded. If it is unset at build time, the GA tags are not rendered and `gtag` is undefined, so the `typeof gtag` guard (req. 4) keeps `section_view` from firing — graceful degradation.
+6. GA4 is loaded by `BaseLayout.astro` from the `PUBLIC_GA_MEASUREMENT_ID` env var (resolved from 1Password via `op inject`—the same pipeline as PostHog / Logo.dev), never hardcoded. If it is unset at build time, the GA tags are not rendered and `gtag` is undefined, so the `typeof gtag` guard (req. 4) keeps `section_view` from firing—graceful degradation.
 7. When GA *is* loaded, the `gtag` stub is exposed on `window` (`window.gtag = gtag`). Because injecting the Measurement ID via `define:vars` makes Astro wrap the config script in an IIFE, the stub would otherwise be IIFE-local and the global `gtag` that the `section_view` path (req. 1, 4) calls would be undefined.
 
 ## PostHog
@@ -36,12 +36,12 @@ may be removed later without affecting the other.
    component included in `BaseLayout.astro`, so every page loads it.
 2. The project API key is PostHog's **public** (write-only) `phc_` ingest key,
    injected at build from the `PUBLIC_POSTHOG_PROJECT_TOKEN` env var (resolved
-   from 1Password via `op inject` — the same `.env.tpl`/`bootstrap.sh` pipeline
+   from 1Password via `op inject`—the same `.env.tpl`/`bootstrap.sh` pipeline
    as `PUBLIC_LOGODEV_KEY`), never committed to source. No personal API key
    (`phx_…`) is ever used or committed.
 3. If `PUBLIC_POSTHOG_PROJECT_TOKEN` is unset at build time (e.g. CI, or a
    checkout that has not run `scripts/bootstrap.sh`), `posthog.astro` renders
-   nothing and PostHog never initializes — no events, no errors — mirroring
+   nothing and PostHog never initializes—no events, no errors—mirroring
    `CompanyLogo`'s graceful degradation.
 4. Every custom event call is guarded with optional chaining
    (`window.posthog?.capture(...)`) so a blocked or not-yet-loaded PostHog
@@ -49,7 +49,7 @@ may be removed later without affecting the other.
 5. Ingest is routed through the first-party managed reverse proxy at
    `https://d.nathanpayne.com` (`api_host`), so `array.js` and all event /
    session-replay traffic load from our own subdomain rather than
-   `us.i.posthog.com` — reducing loss to tracking blockers. `ui_host` is set to
+   `us.i.posthog.com`—reducing loss to tracking blockers. `ui_host` is set to
    `https://us.posthog.com` (the real PostHog US app) so the toolbar and
    "open in PostHog" deep links continue to resolve. Both hosts are non-secret
    constants, not env-injected.
@@ -82,7 +82,7 @@ may be removed later without affecting the other.
 1. `homepage_panel_opened` is deduped against the last captured panel. Because
    `measureContentHeights()` cycles `data-focus` across every panel on load and
    resize and then restores it, the observer must read the *current* focus and
-   skip unchanged/cleared values — a measurement pass that restores the same
+   skip unchanged/cleared values—a measurement pass that restores the same
    focus (or clears it) records no event and emits no per-panel phantom opens.
 2. Clearing `data-focus` (panel close) resets the dedupe latch so re-opening
    the same panel records a fresh `homepage_panel_opened`.

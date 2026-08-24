@@ -236,9 +236,7 @@ This blocks all merges. Workarounds:
 - Fix the CI secrets so status checks report, **or**
 - Use the GitHub web UI "Merge without waiting for requirements" bypass checkbox
 
-The `--admin` flag on `gh pr merge` does **not** bypass required status checks —
-it only bypasses review requirements. The break-glass hook (`BREAK_GLASS_ADMIN=1`)
-only bypasses the Claude Code PreToolUse guard, not GitHub's branch protection API.
+The `--admin` flag on `gh pr merge` does **not** bypass required status checks—it only bypasses review requirements. The break-glass hook (`BREAK_GLASS_ADMIN=1`) only bypasses the Claude Code PreToolUse guard, not GitHub's branch protection API.
 
 ### 5. Create required labels
 
@@ -298,7 +296,7 @@ in 1Password with the field name `token` (not `credential` or `password`).
 | `nathanpayne-codex` | `etak327mpz4drd4byxszfex4vm` | `op read "op://Private/etak327mpz4drd4byxszfex4vm/token"` |
 | `nathanjohnpayne` | `sm5kopwk6t6p3xmu2igesndzhe` | `op read "op://Private/sm5kopwk6t6p3xmu2igesndzhe/token"` |
 
-> The item `o6ekjxjjl5gq6rmcneomrjahpu` is **not** in this table on purpose: it is the `nathanpayne-robot` CI service account, which holds no reviewer standing and must never post a review. It was the Codex item until 2026-08-21 — see REVIEW_POLICY.md § PAT lookup table for the hazard note. It changed hands on 2026-08-21 because the robot PAT was created by repurposing the existing Codex item instead of minting a fresh one.
+> The item `o6ekjxjjl5gq6rmcneomrjahpu` is **not** in this table on purpose: it is the `nathanpayne-robot` CI service account, which holds no reviewer standing and must never post a review. It was the Codex item until 2026-08-21—see REVIEW_POLICY.md § PAT lookup table for the hazard note. It changed hands on 2026-08-21 because the robot PAT was created by repurposing the existing Codex item instead of minting a fresh one.
 
 Use the item ID (not the item title) to avoid shell issues with parentheses in
 1Password item names like `GitHub PAT (pr-review-claude)`.
@@ -402,14 +400,7 @@ Any `PUBLIC_*` env var read via `import.meta.env` during the build is baked into
 4. `npm run build` picks up the new value automatically.
 5. Nothing else. `scripts/check-deploy-env.sh` derives the required key list from `.env.tpl` itself, so the deploy guard covers the new var with no second edit.
 
-The current `PUBLIC_*` vars are `PUBLIC_LOGODEV_KEY` (Logo.dev publishable
-token — drives the `/resume` company logos via `CompanyLogo.astro`),
-`PUBLIC_POSTHOG_PROJECT_TOKEN` (PostHog public project ingest token — drives
-analytics via `posthog.astro`), and `PUBLIC_GA_MEASUREMENT_ID` (GA4 Measurement
-ID — drives GA4 via `BaseLayout.astro`). All three are public client
-identifiers resolved from 1Password via `op inject`, and all degrade gracefully
-when unset at build time (initials-only logos; PostHog and GA simply do not
-load).
+The current `PUBLIC_*` vars are `PUBLIC_LOGODEV_KEY` (Logo.dev publishable token—drives the `/resume` company logos via `CompanyLogo.astro`), `PUBLIC_POSTHOG_PROJECT_TOKEN` (PostHog public project ingest token—drives analytics via `posthog.astro`), and `PUBLIC_GA_MEASUREMENT_ID` (GA4 Measurement ID—drives GA4 via `BaseLayout.astro`). All three are public client identifiers resolved from 1Password via `op inject`, and all degrade gracefully when unset at build time (initials-only logos; PostHog and GA simply do not load).
 
 That graceful degradation is correct for CI and for a fresh checkout, and wrong for production, where it publishes a site with no brand logos and no analytics while the build still exits 0. `scripts/check-deploy-env.sh` draws that line: it runs at the front of both deploy aliases and fails the deploy when any of these is missing or unresolved, leaving the build itself free to degrade quietly everywhere else. See § Deployment Steps.
 
@@ -443,13 +434,11 @@ npm run deploy:hosting
 > sit at the edge for several hours (observed `max-age=14400` on `/images/**`),
 > which is long enough to read as "the deploy did not work."
 >
-> If you do deploy by hand, follow it with `scripts/cf-cache-purge.sh`. Then
-> verify against the live URL rather than the deploy log — a clean deploy plus a
-> warm edge is indistinguishable from one that reached users.
-
-> **Deploy from the main checkout, not a worktree.** Both aliases run `scripts/check-deploy-env.sh` before the build and refuse to deploy when a `PUBLIC_*` client var is missing or still an unresolved `op://` reference. Only `~/GitHub/nathanpaynedotcom` has `.env.local` — `scripts/bootstrap.sh` writes it there and it is gitignored, so no worktree ever gets one.
+> If you do deploy by hand, follow it with `scripts/cf-cache-purge.sh`. Then verify against the live URL rather than the deploy log—a clean deploy plus a warm edge is indistinguishable from one that reached users.
 >
-> Without that check, a worktree deploy publishes a degraded site and reports success: `astro build` bakes each `PUBLIC_*` var into the HTML, and every consumer degrades gracefully when one is absent, so nothing fails. That is what shipped once already — `/resume` fell back to styled initials instead of Logo.dev brand marks, and PostHog and GA4 stopped loading site-wide, all from one build with no `.env.local`.
+> **Deploy from the main checkout, not a worktree.** Both aliases run `scripts/check-deploy-env.sh` before the build and refuse to deploy when a `PUBLIC_*` client var is missing or still an unresolved `op://` reference. Only `~/GitHub/nathanpaynedotcom` has `.env.local`—`scripts/bootstrap.sh` writes it there and it is gitignored, so no worktree ever gets one.
+>
+> Without that check, a worktree deploy publishes a degraded site and reports success: `astro build` bakes each `PUBLIC_*` var into the HTML, and every consumer degrades gracefully when one is absent, so nothing fails. That is what shipped once already—`/resume` fell back to styled initials instead of Logo.dev brand marks, and PostHog and GA4 stopped loading site-wide, all from one build with no `.env.local`.
 >
 > To ship without them on purpose, set `DEPLOY_ALLOW_MISSING_PUBLIC_ENV=1`. It downgrades the refusal to a warning and is break-glass only.
 
@@ -532,11 +521,11 @@ Or use the Firebase Console → Hosting → Release History → Roll back.
 PostHog events are sent through the first-party reverse proxy `d.nathanpayne.com` (`api_host`), with `ui_host` set to `https://us.posthog.com` (see [`src/components/posthog.astro`](src/components/posthog.astro) and [`specs/analytics.md`](specs/analytics.md) § PostHog). To confirm ingestion is healthy after a deploy:
 
 1. Load https://nathanpayne.com with DevTools → Network open.
-2. **SDK loads via the proxy:** `GET https://d.nathanpayne.com/static/array.js` returns `200` (session replay similarly loads `/static/recorder.js`). In the console, `posthog.config.api_host === 'https://d.nathanpayne.com'` and `posthog.config.ui_host === 'https://us.posthog.com'`, and `posthog.__loaded === true` (PostHog's internal flag, set once `array.js` finishes initializing — confirms the real library loaded rather than the queue stub).
-3. **Events post via the proxy:** capturing an event issues a `POST https://d.nathanpayne.com/i/v0/e/` that returns `200`. The managed proxy forwards every PostHog path the SDK calls — assets under `/static/*`, ingest under `/i/*`, and feature-flag/config requests — so the decisive check is that the Network tab shows **only** `d.nathanpayne.com` for PostHog traffic and never a direct host such as `us.i.posthog.com` (which would mean a path bypassed the proxy).
+2. **SDK loads via the proxy:** `GET https://d.nathanpayne.com/static/array.js` returns `200` (session replay similarly loads `/static/recorder.js`). In the console, `posthog.config.api_host === 'https://d.nathanpayne.com'` and `posthog.config.ui_host === 'https://us.posthog.com'`, and `posthog.__loaded === true` (PostHog's internal flag, set once `array.js` finishes initializing—confirms the real library loaded rather than the queue stub).
+3. **Events post via the proxy:** capturing an event issues a `POST https://d.nathanpayne.com/i/v0/e/` that returns `200`. The managed proxy forwards every PostHog path the SDK calls—assets under `/static/*`, ingest under `/i/*`, and feature-flag/config requests—so the decisive check is that the Network tab shows **only** `d.nathanpayne.com` for PostHog traffic and never a direct host such as `us.i.posthog.com` (which would mean a path bypassed the proxy).
 4. **Ingestion lands in PostHog:** open Activity → Live (project `469428`) and watch a fresh event arrive, or run a recent-events query. A pass shows `$pageview` / `$pageleave` / `$autocapture` with current timestamps.
 
-Headless check via the query API (the personal API key lives in 1Password — item "Claude & Codex MCP for Posthog"; read it at runtime, never commit it):
+Headless check via the query API (the personal API key lives in 1Password—item "Claude & Codex MCP for Posthog"; read it at runtime, never commit it):
 
 ```bash
 # POSTHOG_PERSONAL_API_KEY sourced from 1Password (e.g. via `op read`)
@@ -546,7 +535,7 @@ curl -fsS -H "Authorization: Bearer $POSTHOG_PERSONAL_API_KEY" -H "Content-Type:
   -d '{"query":{"kind":"HogQLQuery","query":"SELECT event, count() AS n, max(timestamp) AS latest FROM events WHERE timestamp > now() - INTERVAL 24 HOUR GROUP BY event ORDER BY latest DESC LIMIT 100"}}' | jq .
 ```
 
-A maintained runbook with an embedded live query is kept as the PostHog notebook **Analytics validation — PostHog reverse proxy** ([`/project/469428/notebooks/oK81CjVS`](https://us.posthog.com/project/469428/notebooks/oK81CjVS)).
+A maintained runbook with an embedded live query is kept as the PostHog notebook **Analytics validation—PostHog reverse proxy** ([`/project/469428/notebooks/oK81CjVS`](https://us.posthog.com/project/469428/notebooks/oK81CjVS)).
 
 ## CI/CD Integration
 

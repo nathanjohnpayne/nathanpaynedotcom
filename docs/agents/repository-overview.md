@@ -71,6 +71,7 @@ specs/                      Feature specifications and acceptance criteria
 rules/                      Repository-level binding constraints
 plans/                      Feature rollout and migration plans
 scripts/ci/                 CI enforcement scripts
+styles/                     Repository-owned Vale rules for prose linting
 .github/workflows/build-and-test.yml
                              Runs on every PR + push to main: npm ci, npm test
                              (astro build && vitest run), npm run lint (#632, #563)

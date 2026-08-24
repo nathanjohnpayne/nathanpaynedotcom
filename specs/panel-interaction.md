@@ -21,4 +21,4 @@ The Mondrian grid contains four expandable panels (about, projects, community, c
 
 ## Related specs
 
-- [mondrian-rebalance-animation.md](mondrian-rebalance-animation.md) — the choreography spec for how the grid morphs, when content fades in/out, and how the interaction state machine prevents oscillation at row-line boundaries.
+- [mondrian-rebalance-animation.md](mondrian-rebalance-animation.md)—the choreography spec for how the grid morphs, when content fades in/out, and how the interaction state machine prevents oscillation at row-line boundaries.

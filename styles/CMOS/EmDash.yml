@@ -1,0 +1,7 @@
+extends: existence
+message: Use an unspaced em dash (—).
+level: error
+scope: ~code
+nonword: true
+tokens:
+  - '(?:[\s\x{00A0}\p{Zs}]+—[\s\x{00A0}\p{Zs}]*|—[\s\x{00A0}\p{Zs}]+)'

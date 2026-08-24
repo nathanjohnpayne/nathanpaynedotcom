@@ -109,9 +109,7 @@ Then follow this procedure:
    > "1Password auth failed. Would you like to run credential preflight
    > to cache all credentials at once?
    > `eval \"$(scripts/op-preflight.sh --agent claude --mode all)\"`"
-3. **If preflight was already run** but credentials expired (rare —
-   only after 1Password locks or the 12-hour hard limit), prompt
-   the human and suggest re-running preflight:
+3. **If preflight was already run** but credentials expired (rare—only after 1Password locks or the 12-hour hard limit), prompt the human and suggest re-running preflight:
    > "Preflight credentials appear to have expired. Could you re-run
    > preflight when you're back? I need to resume the review."
 4. **Wait for the human to confirm** they are present and ready before

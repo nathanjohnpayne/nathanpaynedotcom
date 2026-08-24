@@ -1,0 +1,71 @@
+"Release — Notes": clean
+dashOnly: —
+? Release — Digest
+: clean
+x: {Release — Summary: ok, blurb: word — next}
+identifier: "[DST-047 — Title]"
+description: Standalone — YAML violation.
+literal: |
+  Release — Notes: ok
+folded: >
+  ? Release — Notes
+sequence:
+  - description: |
+      Scalar — sequence prose.
+    blurb: word — next
+  - empty: |
+    Release — Notes: ok
+    blurb: word — next
+  - - |2
+      Nested — sequence prose.
+  - description: |2
+      Explicit — scalar prose.
+    Release — Explicit: ok
+multiline: "First
+  Release — Notes: continued"
+single: 'First
+  Release — Digest: continued'
+foldedBoundary: >
+  word—
+  continuation
+literalBoundary: |
+  word—
+  continuation
+foldedLiteral: >
+  first
+    code—
+  continuation
+plain: He said "word—
+next: clean"
+flow: {value: "First
+  continued", Release — Notes: clean}
+items: ["First
+  Release — Notes: continued"]
+foldedBlank: >
+  word—
+
+  continuation
+foldedMoreIndented: >
+  word—
+    continuation
+plainContinuation: First—
+  continuation
+? "Release
+  word — Notes"
+: clean
+literalQuote: |
+  "unclosed text
+Release — Structural: clean
+closingQuote: "closing"
+inlineComment: clean # word — next
+commentOnly: — # note
+visibleBeforeComment: word — # note
+terminalVisible: word —
+explicitMoreIndented: >2
+    word—
+    continuation
+😀: — word
+compactSequence:
+  - - >2
+      word—
+      continuation

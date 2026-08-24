@@ -13,9 +13,9 @@ The interaction should feel like a curator sliding panels in a gallery wall, not
 
 ## Curatorial framing
 
-- Crisp orthogonal movement only — no scaling, bouncing, rotation, shadows, or springiness.
+- Crisp orthogonal movement only—no scaling, bouncing, rotation, shadows, or springiness.
 - Fixed black line weight; grid lines remain visually authoritative.
-- Cream / parchment as the reading surface — never blank for long.
+- Cream / parchment as the reading surface—never blank for long.
 - Labels yield gracefully to content; text is delayed until the geometry is stable.
 - One active subject at a time; the animation never chases the cursor.
 
@@ -63,17 +63,17 @@ fade A content out (--motion-fast)
 
 ## Implementation references
 
-- Interaction state machine: [src/pages/index.astro](../src/pages/index.astro) — search for `state =` and `requestPanel`.
-- Content reveal class management: same file — search for `is-content-visible`.
-- Content height measurement: same file — `measureContentHeights()`.
-- Focus-state grid templates: [src/styles/global.css](../src/styles/global.css) — `.mondrian[data-focus="..."]` rules and the comment block introducing them.
-- Panel pulse on load: same file — `@keyframes panel-pulse{,-neutral,-blue}` plus the `.panel--pulsing` selector.
+- Interaction state machine: [src/pages/index.astro](../src/pages/index.astro)—search for `state =` and `requestPanel`.
+- Content reveal class management: same file—search for `is-content-visible`.
+- Content height measurement: same file—`measureContentHeights()`.
+- Focus-state grid templates: [src/styles/global.css](../src/styles/global.css)—`.mondrian[data-focus="..."]` rules and the comment block introducing them.
+- Panel pulse on load: same file—`@keyframes panel-pulse{,-neutral,-blue}` plus the `.panel--pulsing` selector.
 
 ## Related specs
 
-- [responsive-layout.md](responsive-layout.md) — grid template structure, breakpoint scale, and focus-state cell-sizing rules.
-- [panel-interaction.md](panel-interaction.md) — higher-level interaction model (click / hover / focus, mobile guard, link-inside-panel).
-- [keyboard-navigation.md](keyboard-navigation.md) — keyboard-driven open/close paths that bypass the hover guard.
+- [responsive-layout.md](responsive-layout.md)—grid template structure, breakpoint scale, and focus-state cell-sizing rules.
+- [panel-interaction.md](panel-interaction.md)—higher-level interaction model (click / hover / focus, mobile guard, link-inside-panel).
+- [keyboard-navigation.md](keyboard-navigation.md)—keyboard-driven open/close paths that bypass the hover guard.
 
 ## Out of scope
 

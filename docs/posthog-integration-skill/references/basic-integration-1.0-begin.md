@@ -5,7 +5,7 @@ description: Start the event tracking setup process by analyzing the project and
 
 We're making an event tracking plan for this project.
 
-This is the first of several phases — plan the events, implement them, revise and validate changes, then conclude by creating a dashboard and writing a setup report.
+This is the first of several phases—plan the events, implement them, revise and validate changes, then conclude by creating a dashboard and writing a setup report.
 
 ## Task list
 
@@ -49,7 +49,7 @@ Status to report in this phase:
 
 ## Abort statuses
 
-If and only if the instructions have `[ABORT]` states specified, and you clearly match the conditions for an abort, emit the abort message. Do NOT attempt to exit or halt yourself — the wizard's middleware catches `[ABORT]` and terminates the run for you.
+If and only if the instructions have `[ABORT]` states specified, and you clearly match the conditions for an abort, emit the abort message. Do NOT attempt to exit or halt yourself—the wizard's middleware catches `[ABORT]` and terminates the run for you.
 
 ---
 
