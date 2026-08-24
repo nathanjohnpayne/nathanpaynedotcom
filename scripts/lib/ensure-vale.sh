@@ -16,12 +16,15 @@ VALE_VERSION="${ENSURE_VALE_VERSION:-v3.18.0}"
 
 if command -v vale >/dev/null 2>&1; then
   INSTALLED_VALE_VERSION="$(vale --version | awk '{print $NF}')"
-  if [ "$INSTALLED_VALE_VERSION" = "${VALE_VERSION#v}" ]; then
+  if [ "$INSTALLED_VALE_VERSION" != "${VALE_VERSION#v}" ]; then
+    echo "ensure-vale.sh: Vale ${INSTALLED_VALE_VERSION} does not match pinned ${VALE_VERSION#v}; refusing to run with an unverified binary" >&2
+    exit 1
+  fi
+  if [ "${GITHUB_ACTIONS:-}" != "true" ]; then
     echo "Vale already present: $(vale --version)"
     exit 0
   fi
-  echo "ensure-vale.sh: Vale ${INSTALLED_VALE_VERSION} does not match pinned ${VALE_VERSION#v}; refusing to run with an unverified binary" >&2
-  exit 1
+  echo "ensure-vale.sh: CI will replace the existing matching-version binary with the checksum-verified release"
 fi
 
 if $CI_ONLY && [ "${GITHUB_ACTIONS:-}" != "true" ]; then
@@ -69,4 +72,10 @@ else
 fi
 
 "$VALE_DEST" --version | grep -F "${VALE_VERSION#v}" >/dev/null
+hash -r
+RESOLVED_VALE="$(command -v vale || true)"
+if [ "$RESOLVED_VALE" != "$VALE_DEST" ]; then
+  echo "ensure-vale.sh: installed $VALE_DEST but PATH resolves vale to ${RESOLVED_VALE:-nothing}" >&2
+  exit 1
+fi
 echo "Installed $($VALE_DEST --version)"

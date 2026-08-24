@@ -48,7 +48,7 @@ describe('Vale provisioning', () => {
           ENSURE_VALE_SHA256: checksum,
           ENSURE_VALE_SYSTEM: 'Linux',
           GITHUB_ACTIONS: 'true',
-          PATH: '/usr/bin:/bin',
+          PATH: `${destinationDirectory}:/usr/bin:/bin`,
         },
       });
 
@@ -84,6 +84,53 @@ describe('Vale provisioning', () => {
       rmSync(directory, { force: true, recursive: true });
     }
   });
+
+  it('reprovisions a matching but unverified CI binary and owns command resolution', () => {
+    const directory = mkdtempSync(join(tmpdir(), 'ensure-vale-provenance-test-'));
+    try {
+      const sourceDirectory = join(directory, 'source');
+      const staleDirectory = join(directory, 'stale');
+      const destinationDirectory = join(directory, 'destination');
+      mkdirSync(sourceDirectory);
+      mkdirSync(staleDirectory);
+      mkdirSync(destinationDirectory);
+      const verifiedVale = join(sourceDirectory, 'vale');
+      writeFileSync(verifiedVale, '#!/usr/bin/env sh\necho "vale version 3.18.0"\n');
+      chmodSync(verifiedVale, 0o755);
+      const staleVale = join(staleDirectory, 'vale');
+      writeFileSync(staleVale, '#!/usr/bin/env sh\necho "vale version 3.18.0"\n');
+      chmodSync(staleVale, 0o755);
+      const archive = join(directory, 'vale.tar.gz');
+      expect(spawnSync('tar', ['-czf', archive, '-C', sourceDirectory, 'vale']).status).toBe(0);
+      const checksum = createHash('sha256').update(readFileSync(archive)).digest('hex');
+      const destination = join(destinationDirectory, 'vale');
+      const runtimePath = `${destinationDirectory}:${staleDirectory}:/usr/bin:/bin`;
+
+      const result = spawnSync('bash', ['scripts/lib/ensure-vale.sh', '--ci-only'], {
+        encoding: 'utf8',
+        env: {
+          ...process.env,
+          ENSURE_VALE_ARCHIVE_PATH: archive,
+          ENSURE_VALE_DEST: destination,
+          ENSURE_VALE_MACHINE: 'x86_64',
+          ENSURE_VALE_SHA256: checksum,
+          ENSURE_VALE_SYSTEM: 'Linux',
+          GITHUB_ACTIONS: 'true',
+          PATH: runtimePath,
+        },
+      });
+
+      expect(result.status).toBe(0);
+      expect(
+        spawnSync('sh', ['-c', 'command -v vale'], {
+          encoding: 'utf8',
+          env: { ...process.env, PATH: runtimePath },
+        }).stdout.trim(),
+      ).toBe(destination);
+    } finally {
+      rmSync(directory, { force: true, recursive: true });
+    }
+  });
 });
 
 describe.skipIf(!valeAvailable)('Vale prose lint', () => {
@@ -106,6 +153,7 @@ describe.skipIf(!valeAvailable)('Vale prose lint', () => {
     const files = result.stdout.trim().split('\n');
     expect(files).toContain('README.md');
     expect(files).toContain('src/content/blog/perfect-score-wrong-axis.md');
+    expect(files).toContain('src/content/skills/technical.yaml');
     for (const propagated of [
       '.github/ISSUE_TEMPLATE/bug_report.md',
       '.github/pull_request_template.md',
@@ -294,7 +342,23 @@ describe.skipIf(!valeAvailable)('Vale prose lint', () => {
     const alerts = JSON.parse(result.stdout)[fixture].filter(
       (alert) => alert.Check === 'CMOS.EmDash',
     );
-    expect(alerts.map((alert) => alert.Line)).toEqual([3, 6, 7]);
+    expect(alerts.map((alert) => alert.Line)).toEqual([3, 6, 7, 8]);
+  });
+
+  it('lints standalone YAML prose retained from the legacy gate', () => {
+    const fixture = 'tests/fixtures/vale-em-dash/standalone.yaml';
+    const result = spawnSync(
+      process.execPath,
+      ['scripts/lint-prose.mjs', '--output=JSON', fixture],
+      { encoding: 'utf8' },
+    );
+
+    expect(result.status).toBe(1);
+    expect(JSON.parse(result.stdout)[fixture]).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ Check: 'CMOS.EmDash', Line: 1, Severity: 'error' }),
+      ]),
+    );
   });
 
   it('reports named and numeric NBSP character references', () => {

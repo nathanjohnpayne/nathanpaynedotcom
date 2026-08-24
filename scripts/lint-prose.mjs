@@ -5,6 +5,8 @@ import { tmpdir } from 'node:os';
 import { extname, join, resolve } from 'node:path';
 
 const MARKDOWN_EXTENSIONS = new Set(['.md', '.mdx']);
+const YAML_EXTENSIONS = new Set(['.yaml', '.yml']);
+const PROSE_EXTENSIONS = new Set([...MARKDOWN_EXTENSIONS, ...YAML_EXTENSIONS]);
 const PROPAGATED_MARKDOWN_FILES = new Set([
   '.github/pull_request_template.md',
   'docs/agents/code-review-requirements.md',
@@ -39,8 +41,8 @@ function parseArguments(args) {
   }
 
   for (const file of files) {
-    if (!MARKDOWN_EXTENSIONS.has(extname(file).toLowerCase())) {
-      throw new Error(`expected a .md or .mdx path: ${file}`);
+    if (!PROSE_EXTENSIONS.has(extname(file).toLowerCase())) {
+      throw new Error(`expected a .md, .mdx, .yaml, or .yml path: ${file}`);
     }
   }
 
@@ -62,19 +64,36 @@ function isPropagatedMirror(file) {
   return firstLines.some((line) => /^> Canonical source:/.test(line));
 }
 
-function discoverMarkdownFiles() {
+function discoverProseFiles() {
   const result = spawnSync(
     'git',
-    ['ls-files', '--cached', '--others', '--exclude-standard', '--', '*.md', '*.mdx'],
+    [
+      'ls-files',
+      '--cached',
+      '--others',
+      '--exclude-standard',
+      '--',
+      '*.md',
+      '*.mdx',
+      '*.yaml',
+      '*.yml',
+    ],
     { encoding: 'utf8', maxBuffer: 10 * 1024 * 1024 },
   );
   if (result.status !== 0) {
-    throw new Error(`could not enumerate Markdown files: ${result.stderr || result.stdout}`);
+    throw new Error(`could not enumerate prose files: ${result.stderr || result.stdout}`);
   }
 
   return result.stdout
     .split('\n')
     .filter(Boolean)
+    .filter((file) => {
+      const extension = extname(file).toLowerCase();
+      return (
+        MARKDOWN_EXTENSIONS.has(extension) ||
+        (YAML_EXTENSIONS.has(extension) && file.startsWith('src/content/'))
+      );
+    })
     .filter((file) => !file.startsWith('tests/fixtures/vale-'))
     .filter((file) => !isPropagatedMirror(file))
     .sort();
@@ -233,7 +252,7 @@ function main() {
   let parsed;
   try {
     parsed = parseArguments(process.argv.slice(2));
-    if (parsed.files.length === 0) parsed.files = discoverMarkdownFiles();
+    if (parsed.files.length === 0) parsed.files = discoverProseFiles();
   } catch (error) {
     console.error(`prose lint: ${error.message}`);
     process.exit(2);
@@ -265,7 +284,9 @@ function main() {
     for (const [index, file] of parsed.files.entries()) {
       const source = readFileSync(file, 'utf8');
       sources.set(file, source);
-      const extraction = frontmatterOf(source, file);
+      const extraction = MARKDOWN_EXTENSIONS.has(extname(file).toLowerCase())
+        ? frontmatterOf(source, file)
+        : { kind: 'none' };
       frontmatter.set(file, extraction);
 
       if (extraction.kind === 'unterminated') {
