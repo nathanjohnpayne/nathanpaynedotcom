@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { existsSync, readFileSync, readdirSync } from 'fs';
 import { resolve } from 'path';
 import { parseFrontmatter } from '../scripts/lib/parse-frontmatter.mjs';
+import { EXPECTED_BLOG_EDITORIAL_ORDER } from './helpers/blog-editorial-order.js';
 import { writeSanitizedDOM } from './helpers/dom.js';
 
 // Guards the homepage Writing block against the drift reported in #523. The
@@ -30,16 +31,7 @@ const publishedPosts = readdirSync(CONTENT_DIR)
   }))
   .filter((post) => post.data.draft !== 'true');
 
-const EDITORIAL_SLUGS = [
-  'six-prs-one-bug-agent-failure-modes',
-  'perfect-score-wrong-axis',
-  'html-mockups-as-spec',
-  'agent-approval-workflow-genesis-of-mergepath',
-  'two-blues-one-composition',
-  'how-a-responsive-fix-became-an-astro-migration',
-];
-
-const editorialPosts = EDITORIAL_SLUGS.map((slug) =>
+const editorialPosts = EXPECTED_BLOG_EDITORIAL_ORDER.map((slug) =>
   publishedPosts.find((post) => post.slug === slug),
 );
 

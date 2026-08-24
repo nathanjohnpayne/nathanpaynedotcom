@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { readFileSync } from 'fs';
 import { resolve } from 'path';
+import { EXPECTED_BLOG_EDITORIAL_ORDER } from './helpers/blog-editorial-order.js';
 import { writeSanitizedDOM } from './helpers/dom.js';
 
 const homepageHtml = readFileSync(resolve(__dirname, '../dist/index.html'), 'utf-8');
@@ -10,15 +11,6 @@ const blogPostHtml = readFileSync(
   'utf-8',
 );
 const firebaseConfig = JSON.parse(readFileSync(resolve(__dirname, '../firebase.json'), 'utf-8'));
-
-const EDITORIAL_ORDER = [
-  'six-prs-one-bug-agent-failure-modes',
-  'perfect-score-wrong-axis',
-  'html-mockups-as-spec',
-  'agent-approval-workflow-genesis-of-mergepath',
-  'two-blues-one-composition',
-  'how-a-responsive-fix-became-an-astro-migration',
-];
 
 function setupDOM(html) {
   // Scripts are removed on a detached document and the doctype preserved by
@@ -121,7 +113,7 @@ describe('Blog Pages', () => {
     expect(itemList).toBeDefined();
     expect(itemList.itemListElement.length).toBeGreaterThan(0);
     expect(itemList.itemListElement.map((entry) => entry.item.url)).toEqual(
-      EDITORIAL_ORDER.map((slug) => `https://nathanpayne.com/blog/${slug}/`),
+      EXPECTED_BLOG_EDITORIAL_ORDER.map((slug) => `https://nathanpayne.com/blog/${slug}/`),
     );
     expect(itemList.itemListElement[0]).toMatchObject({
       '@type': 'ListItem',
@@ -147,7 +139,7 @@ describe('Blog Pages', () => {
     const categories = cards.map((card) => card.querySelector('.post-meta')?.textContent.trim());
     const featureLabel = document.querySelector('.index-feature-cell__label');
 
-    expect(slugs).toEqual(EDITORIAL_ORDER);
+    expect(slugs).toEqual(EXPECTED_BLOG_EDITORIAL_ORDER);
     expect(categories).toEqual([
       'Agent Systems',
       'Agent Systems',
