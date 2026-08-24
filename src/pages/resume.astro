@@ -53,10 +53,13 @@ const profileLinks = [
 // end-of-page availability CTA (#702) so the two can never drift apart.
 // Both are plain hrefs in the static HTML, deliberately unlike the
 // base64-assembled mailto on the homepage and in blog posts: the header
-// contact block above already ships the address as visible text, because a CV
-// contact block has to print, so obfuscating a button on the same page would
-// buy nothing and would cost the JS-disabled case. Booking carries no address
-// to harvest and is spam-hardened on the Cal.com side (see the audit on #620).
+// contact block already publishes the address for print. In production,
+// Cloudflare Scrape Shield obfuscates the three mail links and the visible
+// address,
+// restoring them with JavaScript. Issue #710 accepts that no-JS tradeoff to
+// keep zone-wide email obfuscation enabled; the PDF and JSON-LD still carry
+// the address. Booking carries no address to harvest and is spam-hardened on
+// the Cal.com side (see the audit on #620).
 const contactMailto = `mailto:${m.email}?subject=${encodeURIComponent('From nathanpayne.com/resume')}`;
 const bookingUrl = 'https://cal.com/nathanpayne';
 
