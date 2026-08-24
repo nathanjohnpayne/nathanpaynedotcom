@@ -71,8 +71,6 @@ function discoverProseFiles() {
     [
       'ls-files',
       '--cached',
-      '--others',
-      '--exclude-standard',
       '--',
       '*.md',
       '*.mdx',

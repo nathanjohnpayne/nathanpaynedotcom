@@ -54,7 +54,7 @@ VALE_ARCHIVE="$VALE_TEMP_DIR/vale.tar.gz"
 if [ -n "${ENSURE_VALE_ARCHIVE_PATH:-}" ]; then
   cp "$ENSURE_VALE_ARCHIVE_PATH" "$VALE_ARCHIVE"
 else
-  curl -fsSL -o "$VALE_ARCHIVE" \
+  curl -fsSL --connect-timeout 10 --max-time 120 -o "$VALE_ARCHIVE" \
     "https://github.com/vale-cli/vale/releases/download/${VALE_VERSION}/vale_${VALE_VERSION#v}_Linux_64-bit.tar.gz"
 fi
 
@@ -78,4 +78,4 @@ if [ "$RESOLVED_VALE" != "$VALE_DEST" ]; then
   echo "ensure-vale.sh: installed $VALE_DEST but PATH resolves vale to ${RESOLVED_VALE:-nothing}" >&2
   exit 1
 fi
-echo "Installed $($VALE_DEST --version)"
+echo "Installed $("$VALE_DEST" --version)"

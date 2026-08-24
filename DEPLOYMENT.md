@@ -445,7 +445,7 @@ npm run deploy:hosting
 > If you do deploy by hand, follow it with `scripts/cf-cache-purge.sh`. Then
 > verify against the live URL rather than the deploy log—a clean deploy plus a
 > warm edge is indistinguishable from one that reached users.
-
+>
 > **Deploy from the main checkout, not a worktree.** Both aliases run `scripts/check-deploy-env.sh` before the build and refuse to deploy when a `PUBLIC_*` client var is missing or still an unresolved `op://` reference. Only `~/GitHub/nathanpaynedotcom` has `.env.local`—`scripts/bootstrap.sh` writes it there and it is gitignored, so no worktree ever gets one.
 >
 > Without that check, a worktree deploy publishes a degraded site and reports success: `astro build` bakes each `PUBLIC_*` var into the HTML, and every consumer degrades gracefully when one is absent, so nothing fails. That is what shipped once already—`/resume` fell back to styled initials instead of Logo.dev brand marks, and PostHog and GA4 stopped loading site-wide, all from one build with no `.env.local`.

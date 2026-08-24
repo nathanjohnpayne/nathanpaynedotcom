@@ -171,12 +171,28 @@ describe.skipIf(!valeAvailable)('Vale prose lint', () => {
     expect(files).not.toContain('tests/fixtures/vale-em-dash/behavior.md');
   });
 
+  it('does not let an untracked draft enter automatic discovery', () => {
+    const draft = `tests/.vale-untracked-${process.pid}.md`;
+    writeFileSync(draft, 'Draft — prose.\n');
+    try {
+      const result = spawnSync(process.execPath, ['scripts/lint-prose.mjs', '--list-files'], {
+        encoding: 'utf8',
+      });
+
+      expect(result.status).toBe(0);
+      expect(result.stdout.trim().split('\n')).not.toContain(draft);
+    } finally {
+      rmSync(draft, { force: true });
+    }
+  });
+
   it('emits complete machine-readable output for the whole repository', () => {
     const result = spawnSync(process.execPath, ['scripts/lint-prose.mjs', '--output=JSON'], {
       encoding: 'utf8',
       maxBuffer: 20 * 1024 * 1024,
     });
 
+    expect([0, 1]).toContain(result.status);
     expect(() => JSON.parse(result.stdout)).not.toThrow();
   });
 
@@ -441,32 +457,28 @@ describe.skipIf(!valeAvailable)('Vale prose lint', () => {
     expect(result.stderr).toContain('unknown argument: --write');
     expect(readFileSync(fixture, 'utf8')).toBe(before);
   });
+});
 
-  it('soft-passes locally when Vale is unavailable', () => {
-    const result = spawnSync(
-      process.execPath,
-      ['scripts/lint-prose.mjs', 'tests/fixtures/vale-frontmatter/no-frontmatter.md'],
-      {
-        encoding: 'utf8',
-        env: { ...process.env, GITHUB_ACTIONS: 'false', PATH: '/usr/bin:/bin' },
-      },
-    );
+describe('Vale availability behavior', () => {
+  it.each([
+    ['soft-passes locally', 'false', 0, 'skipping outside CI'],
+    ['fails closed in CI', 'true', 2, 'Vale is required in CI'],
+  ])('%s when Vale is unavailable', (_name, githubActions, status, message) => {
+    const emptyPath = mkdtempSync(join(tmpdir(), 'vale-empty-path-'));
+    try {
+      const result = spawnSync(
+        process.execPath,
+        ['scripts/lint-prose.mjs', 'tests/fixtures/vale-frontmatter/no-frontmatter.md'],
+        {
+          encoding: 'utf8',
+          env: { ...process.env, GITHUB_ACTIONS: githubActions, PATH: emptyPath },
+        },
+      );
 
-    expect(result.status).toBe(0);
-    expect(result.stderr).toContain('skipping outside CI');
-  });
-
-  it('fails closed in CI when Vale is unavailable', () => {
-    const result = spawnSync(
-      process.execPath,
-      ['scripts/lint-prose.mjs', 'tests/fixtures/vale-frontmatter/no-frontmatter.md'],
-      {
-        encoding: 'utf8',
-        env: { ...process.env, GITHUB_ACTIONS: 'true', PATH: '/usr/bin:/bin' },
-      },
-    );
-
-    expect(result.status).toBe(2);
-    expect(result.stderr).toContain('Vale is required in CI');
+      expect(result.status).toBe(status);
+      expect(result.stderr).toContain(message);
+    } finally {
+      rmSync(emptyPath, { force: true, recursive: true });
+    }
   });
 });
