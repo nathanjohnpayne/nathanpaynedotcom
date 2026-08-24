@@ -357,8 +357,13 @@ describe.skipIf(!valeAvailable)('Vale prose lint', () => {
     const alerts = JSON.parse(result.stdout)[fixture].filter(
       (alert) => alert.Check === 'CMOS.EmDash',
     );
-    expect(alerts).toHaveLength(1);
-    expect(alerts[0]).toMatchObject({ Line: 3, Severity: 'error' });
+    expect(alerts).toHaveLength(2);
+    expect(alerts).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ Line: 5, Severity: 'error' }),
+        expect.objectContaining({ Line: 7, Severity: 'error' }),
+      ]),
+    );
   });
 
   it('reports named and numeric NBSP character references', () => {

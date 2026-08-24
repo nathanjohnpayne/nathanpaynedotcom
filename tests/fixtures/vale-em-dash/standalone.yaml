@@ -1,3 +1,7 @@
 "Release — Notes": clean
 dashOnly: —
+? Release — Notes
+: clean
+x: {Release — Notes: ok, blurb: word — next}
+identifier: "[DST-047 — Title]"
 description: Standalone — YAML violation.

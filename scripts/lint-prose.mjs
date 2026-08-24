@@ -7,6 +7,7 @@ import { extname, join, resolve } from 'node:path';
 const MARKDOWN_EXTENSIONS = new Set(['.md', '.mdx']);
 const YAML_EXTENSIONS = new Set(['.yaml', '.yml']);
 const PROSE_EXTENSIONS = new Set([...MARKDOWN_EXTENSIONS, ...YAML_EXTENSIONS]);
+const IDENTIFIER_SEPARATOR = /\[[A-Z]{2,}[A-Z0-9_-]*-\d+[\s\p{Zs}]+—[\s\p{Zs}]+/gu;
 const PROPAGATED_MARKDOWN_FILES = new Set([
   '.github/pull_request_template.md',
   'docs/agents/code-review-requirements.md',
@@ -172,9 +173,16 @@ function alertKey(alert) {
   return [alert.Check, alert.Line, ...(alert.Span || []), alert.Message].join(':');
 }
 
-function mappingSeparatorOf(line) {
+function yamlStructureOf(line) {
+  const keyRanges = [];
+  const separators = [];
   let quote = null;
   let escaped = false;
+  let blockSeparatorSeen = false;
+  const flow = [];
+
+  const explicitKey = line.match(/^\s*\?\s+/);
+  if (explicitKey) keyRanges.push([explicitKey[0].length, line.length]);
 
   for (let index = 0; index < line.length; index += 1) {
     const character = line[index];
@@ -192,12 +200,57 @@ function mappingSeparatorOf(line) {
     }
     if (character === '"' || character === "'") {
       quote = character;
-    } else if (character === ':' && (line[index + 1] === undefined || /\s/.test(line[index + 1]))) {
-      return index;
+      continue;
+    }
+
+    if (character === '{' || character === '[') {
+      flow.push({ character, expectingKey: true, keyStart: index + 1 });
+      continue;
+    }
+    if (character === '}' || character === ']') {
+      flow.pop();
+      continue;
+    }
+
+    const context = flow.at(-1);
+    if (character === ',' && context) {
+      context.expectingKey = true;
+      context.keyStart = index + 1;
+      continue;
+    }
+    if (character !== ':') continue;
+
+    if (context?.expectingKey) {
+      const isSeparator =
+        context.character === '{' ||
+        line[index + 1] === undefined ||
+        /\s/.test(line[index + 1]);
+      if (isSeparator) {
+        keyRanges.push([context.keyStart, index]);
+        separators.push(index);
+        context.expectingKey = false;
+      }
+      continue;
+    }
+
+    if (
+      !context &&
+      !blockSeparatorSeen &&
+      (line[index + 1] === undefined || /\s/.test(line[index + 1]))
+    ) {
+      let keyStart = line.search(/\S/);
+      if (keyStart === -1) keyStart = 0;
+      if (line[keyStart] === '-' && /\s/.test(line[keyStart + 1] || '')) {
+        keyStart += 1;
+        while (/\s/.test(line[keyStart] || '')) keyStart += 1;
+      }
+      keyRanges.push([keyStart, index]);
+      separators.push(index);
+      blockSeparatorSeen = true;
     }
   }
 
-  return -1;
+  return { keyRanges, separators };
 }
 
 function yamlAlertIsProse(alert, source) {
@@ -210,8 +263,14 @@ function yamlAlertIsProse(alert, source) {
       : line.indexOf('—');
   if (dash === -1) return true;
 
-  const separator = mappingSeparatorOf(line);
-  if (separator !== -1 && dash < separator) return false;
+  for (const match of line.matchAll(IDENTIFIER_SEPARATOR)) {
+    if (dash >= match.index && dash < match.index + match[0].length) return false;
+  }
+
+  const structure = yamlStructureOf(line);
+  if (structure.keyRanges.some(([start, end]) => dash >= start && dash < end)) return false;
+
+  const separator = structure.separators.filter((position) => position < dash).at(-1) ?? -1;
 
   const structuralPrefix = separator === -1 ? /^\s*-\s*$/ : /^\s*$/;
   const valueStart = separator === -1 ? 0 : separator + 1;
