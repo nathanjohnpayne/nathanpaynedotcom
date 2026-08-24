@@ -189,7 +189,6 @@ describe('content em-dash lint', () => {
     expect(violations[0]).toMatchObject({ line: 3 });
   });
 
-
   it('scans visible prose inside a raw HTML block but not its markup', () => {
     const source = ['<div class="note">', 'visible — prose', '</div>'].join('\n');
 
@@ -228,8 +227,6 @@ describe('content em-dash lint', () => {
 
     expect(findSpacedEmDashViolations('/tmp/test.md', source)).toHaveLength(1);
   });
-
-
 
   it('does not treat a paragraph break as padding', () => {
     const source = 'a paragraph ending in a dash—\n\nA new paragraph.';
@@ -282,7 +279,6 @@ describe('content em-dash lint', () => {
     expect(findSpacedEmDashViolations('/tmp/test.md', commented)).toHaveLength(0);
     expect(findSpacedEmDashViolations('/tmp/test.md', quoted)).toHaveLength(1);
   });
-
 
   it('reads GFM table cells as cells, not as padded prose', () => {
     const table = ['| a | b |', '| --- | --- |', '| word | — |'].join('\n');
@@ -386,7 +382,12 @@ describe('content em-dash lint', () => {
 
     expect(findSpacedEmDashViolations('/tmp/skills.yaml', source)).toHaveLength(0);
 
-    // Padding that is genuinely rendered is still closed, comment intact.
+    // Padding that is genuinely rendered is still reported, and the comment
+    // separator is not what makes it one.
+    expect(findSpacedEmDashViolations('/tmp/skills.yaml', 'title: foo —  # note')).toHaveLength(1);
+    expect(
+      findSpacedEmDashViolations('/tmp/skills.yaml', 'title: foo — bar # note'),
+    ).toHaveLength(1);
   });
 
   it('ignores trailing whitespace YAML would strip anyway', () => {
@@ -415,7 +416,6 @@ describe('content em-dash lint', () => {
 
     expect(findSpacedEmDashViolations('/tmp/test.md', source)).toHaveLength(1);
   });
-
 
   it('does not break a tag on a > inside a quoted attribute', () => {
     const source = '<div title="a > b — c">text</div>';
@@ -564,10 +564,6 @@ describe('content em-dash lint', () => {
     expect(findSpacedEmDashViolations('/tmp/test.md', source)).toHaveLength(1);
   });
 
-
-
-
-
   it('never deletes a line break inside raw HTML, whatever the CSS says', () => {
     // Deciding whether a break inside HTML renders as a space needs HTML tree
     // construction and the CSS cascade. The fixer does not attempt it: every
@@ -596,10 +592,6 @@ describe('content em-dash lint', () => {
       findSpacedEmDashViolations('/tmp/test.md', '<div style="white-space: pre">word\n—next</div>'),
     ).toHaveLength(0);
   });
-
-
-
-
 
   it('reports a dash padded across a soft break, CRLF or LF', () => {
     // The continuation begins in a sibling `strong` node; the omitted
@@ -721,22 +713,25 @@ describe('content em-dash lint', () => {
     expect(findSpacedEmDashViolations('/tmp/skills.yaml', mixed)).toHaveLength(1);
   });
 
-
   it('does not treat a colon inside a URL as a mapping separator', () => {
     // YAML requires whitespace after a separator colon. Without that rule the
     // colon in `https:` split the line and the padded dash was skipped.
+    expect(
+      findSpacedEmDashViolations('/tmp/skills.yaml', '- label — https://example.test\n'),
+    ).toHaveLength(1);
+    expect(
+      findSpacedEmDashViolations('/tmp/skills.yaml', 'link: label — https://example.test\n'),
+    ).toHaveLength(1);
 
     // A key followed by a URL value is still a key.
     expect(
       findSpacedEmDashViolations('/tmp/skills.yaml', '"Release — Notes": https://x.test\n'),
     ).toHaveLength(0);
 
-    // A colon ending the line is still a separator.
+    // A colon ending the line is still a separator, so the value below it is
+    // scanned as prose.
+    expect(findSpacedEmDashViolations('/tmp/skills.yaml', 'key:\n  - a — b\n')).toHaveLength(1);
   });
-
-
-
-
 
   it('skips an explicit YAML key without stranding the rest of the file', () => {
     // `? key` / `: value` puts the separator on the next line.
@@ -744,8 +739,6 @@ describe('content em-dash lint', () => {
 
     expect(findSpacedEmDashViolations('/tmp/skills.yaml', source)).toHaveLength(1);
   });
-
-
 
   it('excludes mapping keys nested inside a flow collection', () => {
     // Only the flow key is out of scope; the value beside it is still fixed,
@@ -755,8 +748,8 @@ describe('content em-dash lint', () => {
     expect(findSpacedEmDashViolations('/tmp/skills.yaml', source)).toHaveLength(1);
 
     // A flow collection inside a sequence item behaves the same way.
+    expect(findSpacedEmDashViolations('/tmp/skills.yaml', '- {k: a — b}\n')).toHaveLength(1);
   });
-
 
   it('treats a CRLF soft break as rendered padding', () => {
     const source = 'word—\r\ncontinuation';
