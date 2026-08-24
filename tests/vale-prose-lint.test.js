@@ -53,7 +53,9 @@ describe('Vale provisioning', () => {
       });
 
       expect(result.status).toBe(0);
-      expect(spawnSync(destination, ['--version'], { encoding: 'utf8' }).stdout).toContain('3.18.0');
+      expect(spawnSync(destination, ['--version'], { encoding: 'utf8' }).stdout).toContain(
+        '3.18.0',
+      );
     } finally {
       rmSync(directory, { force: true, recursive: true });
     }
@@ -120,9 +122,13 @@ describe.skipIf(!valeAvailable)('Vale prose lint', () => {
 
   it('does not confuse a body horizontal rule with another frontmatter block', () => {
     const fixture = 'tests/fixtures/vale-frontmatter/body-horizontal-rule.md';
-    const result = spawnSync(process.execPath, ['scripts/lint-prose.mjs', '--output=JSON', fixture], {
-      encoding: 'utf8',
-    });
+    const result = spawnSync(
+      process.execPath,
+      ['scripts/lint-prose.mjs', '--output=JSON', fixture],
+      {
+        encoding: 'utf8',
+      },
+    );
 
     expect(result.status).toBe(1);
     const alerts = JSON.parse(result.stdout)[fixture];
@@ -135,9 +141,13 @@ describe.skipIf(!valeAvailable)('Vale prose lint', () => {
 
   it('keeps an indented delimiter inside a folded frontmatter scalar', () => {
     const fixture = 'tests/fixtures/vale-frontmatter/folded-delimiter.md';
-    const result = spawnSync(process.execPath, ['scripts/lint-prose.mjs', '--output=JSON', fixture], {
-      encoding: 'utf8',
-    });
+    const result = spawnSync(
+      process.execPath,
+      ['scripts/lint-prose.mjs', '--output=JSON', fixture],
+      {
+        encoding: 'utf8',
+      },
+    );
 
     expect(result.status).toBe(1);
     expect(JSON.parse(result.stdout)[fixture]).toEqual(
@@ -149,9 +159,13 @@ describe.skipIf(!valeAvailable)('Vale prose lint', () => {
 
   it('fails loudly on unterminated frontmatter', () => {
     const fixture = 'tests/fixtures/vale-frontmatter/unterminated.md';
-    const result = spawnSync(process.execPath, ['scripts/lint-prose.mjs', '--output=JSON', fixture], {
-      encoding: 'utf8',
-    });
+    const result = spawnSync(
+      process.execPath,
+      ['scripts/lint-prose.mjs', '--output=JSON', fixture],
+      {
+        encoding: 'utf8',
+      },
+    );
 
     expect(result.status).toBe(1);
     expect(JSON.parse(result.stdout)[fixture]).toEqual(
@@ -163,9 +177,13 @@ describe.skipIf(!valeAvailable)('Vale prose lint', () => {
 
   it('returns a distinct clean report when a file has no frontmatter', () => {
     const fixture = 'tests/fixtures/vale-frontmatter/no-frontmatter.md';
-    const result = spawnSync(process.execPath, ['scripts/lint-prose.mjs', '--output=JSON', fixture], {
-      encoding: 'utf8',
-    });
+    const result = spawnSync(
+      process.execPath,
+      ['scripts/lint-prose.mjs', '--output=JSON', fixture],
+      {
+        encoding: 'utf8',
+      },
+    );
 
     expect(result.status).toBe(0);
     expect(JSON.parse(result.stdout)).toEqual({});
@@ -173,9 +191,13 @@ describe.skipIf(!valeAvailable)('Vale prose lint', () => {
 
   it('lints a missing opening delimiter as Markdown body prose', () => {
     const fixture = 'tests/fixtures/vale-frontmatter/missing-opener.md';
-    const result = spawnSync(process.execPath, ['scripts/lint-prose.mjs', '--output=JSON', fixture], {
-      encoding: 'utf8',
-    });
+    const result = spawnSync(
+      process.execPath,
+      ['scripts/lint-prose.mjs', '--output=JSON', fixture],
+      {
+        encoding: 'utf8',
+      },
+    );
 
     expect(result.status).toBe(1);
     expect(JSON.parse(result.stdout)[fixture]).toEqual(
@@ -190,9 +212,13 @@ describe.skipIf(!valeAvailable)('Vale prose lint', () => {
 
   it('reports heading and table-header capitalization as warnings', () => {
     const fixture = 'tests/fixtures/vale-capitalization/violations.md';
-    const result = spawnSync(process.execPath, ['scripts/lint-prose.mjs', '--output=JSON', fixture], {
-      encoding: 'utf8',
-    });
+    const result = spawnSync(
+      process.execPath,
+      ['scripts/lint-prose.mjs', '--output=JSON', fixture],
+      {
+        encoding: 'utf8',
+      },
+    );
 
     expect(result.status).toBe(0);
     const alerts = JSON.parse(result.stdout)[fixture];
@@ -206,9 +232,13 @@ describe.skipIf(!valeAvailable)('Vale prose lint', () => {
 
   it('allows technical identifiers in otherwise Chicago-cased headings and headers', () => {
     const fixture = 'tests/fixtures/vale-capitalization/technical-identifiers.md';
-    const result = spawnSync(process.execPath, ['scripts/lint-prose.mjs', '--output=JSON', fixture], {
-      encoding: 'utf8',
-    });
+    const result = spawnSync(
+      process.execPath,
+      ['scripts/lint-prose.mjs', '--output=JSON', fixture],
+      {
+        encoding: 'utf8',
+      },
+    );
 
     expect(result.status).toBe(0);
     expect(JSON.parse(result.stdout)).toEqual({});
@@ -216,9 +246,13 @@ describe.skipIf(!valeAvailable)('Vale prose lint', () => {
 
   it('is markup-aware, NBSP-aware, entity-aware, and preserves identifier separators', () => {
     const fixture = 'tests/fixtures/vale-em-dash/behavior.md';
-    const result = spawnSync(process.execPath, ['scripts/lint-prose.mjs', '--output=JSON', fixture], {
-      encoding: 'utf8',
-    });
+    const result = spawnSync(
+      process.execPath,
+      ['scripts/lint-prose.mjs', '--output=JSON', fixture],
+      {
+        encoding: 'utf8',
+      },
+    );
 
     expect(result.status).toBe(1);
     const alerts = JSON.parse(result.stdout)[fixture].filter(
@@ -229,9 +263,13 @@ describe.skipIf(!valeAvailable)('Vale prose lint', () => {
 
   it('reports named and numeric NBSP character references', () => {
     const fixture = 'tests/fixtures/vale-em-dash/entities.md';
-    const result = spawnSync(process.execPath, ['scripts/lint-prose.mjs', '--output=JSON', fixture], {
-      encoding: 'utf8',
-    });
+    const result = spawnSync(
+      process.execPath,
+      ['scripts/lint-prose.mjs', '--output=JSON', fixture],
+      {
+        encoding: 'utf8',
+      },
+    );
 
     expect(result.status).toBe(1);
     expect(JSON.parse(result.stdout)[fixture]).toEqual(
@@ -243,9 +281,13 @@ describe.skipIf(!valeAvailable)('Vale prose lint', () => {
 
   it('lints MDX prose without treating expressions or JSX attributes as prose', () => {
     const fixture = 'tests/fixtures/vale-em-dash/behavior.mdx';
-    const result = spawnSync(process.execPath, ['scripts/lint-prose.mjs', '--output=JSON', fixture], {
-      encoding: 'utf8',
-    });
+    const result = spawnSync(
+      process.execPath,
+      ['scripts/lint-prose.mjs', '--output=JSON', fixture],
+      {
+        encoding: 'utf8',
+      },
+    );
 
     expect(result.status).toBe(1);
     const alerts = JSON.parse(result.stdout)[fixture].filter(
@@ -257,9 +299,13 @@ describe.skipIf(!valeAvailable)('Vale prose lint', () => {
 
   it('lints YAML values without mistaking mapping syntax or keys for prose padding', () => {
     const fixture = 'tests/fixtures/vale-frontmatter/yaml-structure.md';
-    const result = spawnSync(process.execPath, ['scripts/lint-prose.mjs', '--output=JSON', fixture], {
-      encoding: 'utf8',
-    });
+    const result = spawnSync(
+      process.execPath,
+      ['scripts/lint-prose.mjs', '--output=JSON', fixture],
+      {
+        encoding: 'utf8',
+      },
+    );
 
     expect(result.status).toBe(1);
     const alerts = JSON.parse(result.stdout)[fixture].filter(
