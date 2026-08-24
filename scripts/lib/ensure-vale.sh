@@ -3,7 +3,12 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-PINNED_VALE_VERSION="$(tr -d '\r\n' < "$ROOT/.vale-version")"
+PINNED_VALE_VERSION="$(cat "$ROOT/.vale-version"; printf '.')"
+PINNED_VALE_VERSION="${PINNED_VALE_VERSION%.}"
+if [[ "$PINNED_VALE_VERSION" == *$'\n' ]]; then
+  PINNED_VALE_VERSION="${PINNED_VALE_VERSION%$'\n'}"
+  PINNED_VALE_VERSION="${PINNED_VALE_VERSION%$'\r'}"
+fi
 if ! [[ "$PINNED_VALE_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
   echo "ensure-vale.sh: invalid pinned version in .vale-version: $PINNED_VALE_VERSION" >&2
   exit 1

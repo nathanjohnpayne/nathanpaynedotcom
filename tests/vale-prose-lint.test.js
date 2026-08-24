@@ -18,6 +18,7 @@ const valeAvailable = (() => {
   const result = spawnSync('vale', ['--version'], { encoding: 'utf8' });
   return result.status === 0;
 })();
+const pinnedValeVersion = readFileSync('.vale-version', 'utf8').trim();
 
 describe('Vale configuration', () => {
   it('keeps the style and token-ignore settings in one prose section', () => {
@@ -30,6 +31,28 @@ describe('Vale configuration', () => {
 });
 
 describe('Vale provisioning', () => {
+  it('rejects a multiline repository version pin', () => {
+    const directory = mkdtempSync(join(process.cwd(), '.ensure-vale-invalid-pin-'));
+    try {
+      const scriptDirectory = join(directory, 'scripts', 'lib');
+      mkdirSync(scriptDirectory, { recursive: true });
+      writeFileSync(join(directory, '.vale-version'), '3.18.\n0\n');
+      writeFileSync(
+        join(scriptDirectory, 'ensure-vale.sh'),
+        readFileSync('scripts/lib/ensure-vale.sh', 'utf8'),
+      );
+
+      const result = spawnSync('bash', [join(scriptDirectory, 'ensure-vale.sh')], {
+        encoding: 'utf8',
+      });
+
+      expect(result.status).toBe(1);
+      expect(result.stderr).toContain('invalid pinned version');
+    } finally {
+      rmSync(directory, { force: true, recursive: true });
+    }
+  });
+
   it('installs and verifies a pinned CI archive through the test seams', () => {
     const directory = mkdtempSync(join(tmpdir(), 'ensure-vale-test-'));
     try {
@@ -38,7 +61,7 @@ describe('Vale provisioning', () => {
       mkdirSync(sourceDirectory);
       mkdirSync(destinationDirectory);
       const fakeVale = join(sourceDirectory, 'vale');
-      writeFileSync(fakeVale, '#!/usr/bin/env sh\necho "vale version 3.18.0"\n');
+      writeFileSync(fakeVale, `#!/usr/bin/env sh\necho "vale version ${pinnedValeVersion}"\n`);
       chmodSync(fakeVale, 0o755);
       const archive = join(directory, 'vale.tar.gz');
       const archived = spawnSync('tar', ['-czf', archive, '-C', sourceDirectory, 'vale'], {
@@ -64,7 +87,7 @@ describe('Vale provisioning', () => {
 
       expect(result.status).toBe(0);
       expect(spawnSync(destination, ['--version'], { encoding: 'utf8' }).stdout).toContain(
-        '3.18.0',
+        pinnedValeVersion,
       );
     } finally {
       rmSync(directory, { force: true, recursive: true });
@@ -89,7 +112,7 @@ describe('Vale provisioning', () => {
       });
 
       expect(result.status).toBe(1);
-      expect(result.stderr).toContain('Vale 0.0.0 does not match pinned 3.18.0');
+      expect(result.stderr).toContain(`Vale 0.0.0 does not match pinned ${pinnedValeVersion}`);
     } finally {
       rmSync(directory, { force: true, recursive: true });
     }
@@ -105,10 +128,16 @@ describe('Vale provisioning', () => {
       mkdirSync(staleDirectory);
       mkdirSync(destinationDirectory);
       const verifiedVale = join(sourceDirectory, 'vale');
-      writeFileSync(verifiedVale, '#!/usr/bin/env sh\necho "vale verified version 3.18.0"\n');
+      writeFileSync(
+        verifiedVale,
+        `#!/usr/bin/env sh\necho "vale verified version ${pinnedValeVersion}"\n`,
+      );
       chmodSync(verifiedVale, 0o755);
       const staleVale = join(staleDirectory, 'vale');
-      writeFileSync(staleVale, '#!/usr/bin/env sh\necho "vale stale version 3.18.0"\n');
+      writeFileSync(
+        staleVale,
+        `#!/usr/bin/env sh\necho "vale stale version ${pinnedValeVersion}"\n`,
+      );
       chmodSync(staleVale, 0o755);
       const archive = join(directory, 'vale.tar.gz');
       expect(spawnSync('tar', ['-czf', archive, '-C', sourceDirectory, 'vale']).status).toBe(0);
@@ -642,13 +671,33 @@ describe.skipIf(!valeAvailable)('Vale prose lint', () => {
 });
 
 describe('Vale availability behavior', () => {
+  it('rejects a multiline repository version pin', () => {
+    const directory = mkdtempSync(join(process.cwd(), '.lint-prose-invalid-pin-'));
+    try {
+      const scriptDirectory = join(directory, 'scripts');
+      mkdirSync(scriptDirectory);
+      writeFileSync(join(directory, '.vale-version'), '3.18.\n0\n');
+      const linter = join(scriptDirectory, 'lint-prose.mjs');
+      writeFileSync(linter, readFileSync('scripts/lint-prose.mjs', 'utf8'));
+
+      const result = spawnSync(process.execPath, [linter, '--list-files'], {
+        encoding: 'utf8',
+      });
+
+      expect(result.status).toBe(2);
+      expect(result.stderr).toContain('invalid pinned version');
+    } finally {
+      rmSync(directory, { force: true, recursive: true });
+    }
+  });
+
   it('runs when Vale matches the repository pin', () => {
     const directory = mkdtempSync(join(tmpdir(), 'vale-version-match-'));
     try {
       const fakeVale = join(directory, 'vale');
       writeFileSync(
         fakeVale,
-        '#!/usr/bin/env sh\nif [ "$1" = "--version" ]; then echo "vale version 3.18.0"; else echo "{}"; fi\n',
+        `#!/usr/bin/env sh\nif [ "$1" = "--version" ]; then echo "vale version ${pinnedValeVersion}"; else echo "{}"; fi\n`,
       );
       chmodSync(fakeVale, 0o755);
 
@@ -696,7 +745,7 @@ describe('Vale availability behavior', () => {
       );
 
       expect(result.status).toBe(2);
-      expect(result.stderr).toContain('Vale 9.9.9 does not match pinned 3.18.0');
+      expect(result.stderr).toContain(`Vale 9.9.9 does not match pinned ${pinnedValeVersion}`);
     } finally {
       rmSync(directory, { force: true, recursive: true });
     }
