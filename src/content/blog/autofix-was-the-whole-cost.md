@@ -43,7 +43,9 @@ sidebar:
     caption: "An API-equivalent counterfactual. Nothing here was invoiced."
 ---
 
-The requirement was one sentence, from the Chicago Manual of Style: an em dash takes no space on either side.
+The requirement was one sentence, from the Chicago Manual of Style: an em dash takes no space on either side. [Chicago's own Q&A](https://www.chicagomanualofstyle.org/qanda/data/faq/topics/HyphensEnDashesEmDashes/faq0108.html) puts it in a single line, with the exceptions it does allow.
+
+![Chicago's published answer on dash spacing—the whole specification this project set out to enforce. The exceptions it grants are for hyphens and en dashes; the em dash has none.](/blog/autofix-was-the-whole-cost/img/cmos-qanda-dashes.png)
 
 Enforcing it on this site produced 1,513 lines of code, a 940-line test suite, and 57 findings across 24 review rounds that dipped but never converged. Then I removed the capability responsible for the churn, and the work finished in a single commit.
 
@@ -87,6 +89,10 @@ The rule was never the hard part. The bespoke path paid for a rewrite it eventua
 ## Why "Just Fix It Automatically" Was the Expensive Part
 
 This is worth making concrete, because "automatically fix formatting" sounds like the *easy* half to anyone who has not built one.
+
+Part of what makes the mark worth enforcing is how much work it does. [The Punctuation Guide](https://www.thepunctuationguide.com/em-dash.html) calls it perhaps the most versatile punctuation mark there is—it can stand in for commas, parentheses, or a colon, each to a slightly different effect. A mark that flexible shows up constantly in prose, which is why a rule about its spacing is worth a gate at all.
+
+![The Punctuation Guide on the em dash: a mark that can replace commas, parentheses, or colons, and is easily confused with the narrower en dash and hyphen.](/blog/autofix-was-the-whole-cost/img/punctuation-guide-em-dash.png)
 
 Take the text `word **—** next`. In Markdown, `**` makes text bold, so this is a bolded dash with spaces around it. It has the violation, so the tool should flag it. Now let the tool fix it by closing up the spaces:
 
@@ -161,6 +167,10 @@ Cutting auto-fix ended the churn. It did not address why I was maintaining a pro
 The first decision stopped the bleeding. The second reduced what I owned.
 
 With auto-fixing gone, what remained was still 1,513 lines of custom code doing something a mature off-the-shelf tool already does: [Vale](https://vale.sh/), an open-source prose linter. I moved to it.
+
+There is a pattern worth noticing here. The rule came from a style manual that has been revised for over a century—[the Chicago Manual of Style](https://en.wikipedia.org/wiki/The_Chicago_Manual_of_Style) is in its eighteenth edition. Nobody writes their own. The tooling that enforces such rules deserves the same instinct, and it took me 1,513 lines to apply it.
+
+![The eighteenth edition of the Chicago Manual of Style. The rule being enforced is a century-old published standard; the tool enforcing it was written from scratch.](/blog/autofix-was-the-whole-cost/img/cmos-18th-edition-cover.jpg)
 
 The tempting summary is *1,513 lines became 7*—the em-dash rule in Vale is seven lines of configuration. That summary is false, and the false version is why most build-versus-buy posts are useless.
 
