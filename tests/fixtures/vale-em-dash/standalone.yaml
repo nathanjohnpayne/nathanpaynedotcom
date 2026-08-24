@@ -57,3 +57,11 @@ literalQuote: |
   "unclosed text
 Release — Structural: clean
 closingQuote: "closing"
+inlineComment: clean # word — next
+commentOnly: — # note
+visibleBeforeComment: word — # note
+terminalVisible: word —
+explicitMoreIndented: >2
+    word—
+    continuation
+😀: — word

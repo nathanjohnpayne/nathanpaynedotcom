@@ -403,9 +403,9 @@ describe.skipIf(!valeAvailable)('Vale prose lint', () => {
     const alerts = JSON.parse(result.stdout)[fixture].filter(
       (alert) => alert.Check === 'CMOS.EmDash',
     );
-    expect(alerts).toHaveLength(14);
+    expect(alerts).toHaveLength(17);
     expect(alerts.map((alert) => alert.Line)).toEqual([
-      5, 7, 9, 11, 14, 15, 18, 20, 22, 25, 27, 29, 43, 51,
+      5, 7, 9, 11, 14, 15, 18, 20, 22, 25, 27, 29, 43, 51, 62, 63, 67,
     ]);
     expect(alerts).toEqual(
       expect.arrayContaining([
@@ -423,6 +423,9 @@ describe.skipIf(!valeAvailable)('Vale prose lint', () => {
         expect.objectContaining({ Line: 29, Severity: 'error' }),
         expect.objectContaining({ Line: 43, Severity: 'error' }),
         expect.objectContaining({ Line: 51, Severity: 'error' }),
+        expect.objectContaining({ Line: 62, Severity: 'error' }),
+        expect.objectContaining({ Line: 63, Severity: 'error' }),
+        expect.objectContaining({ Line: 67, Severity: 'error' }),
       ]),
     );
   });
@@ -439,6 +442,24 @@ describe.skipIf(!valeAvailable)('Vale prose lint', () => {
     expect(JSON.parse(result.stdout)[fixture]).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ Check: 'CMOS.EmDash', Line: 2, Severity: 'error' }),
+      ]),
+    );
+  });
+
+  it.each([
+    'tests/fixtures/vale-em-dash/invalid.yaml',
+    'tests/fixtures/vale-em-dash/duplicate-key.yaml',
+  ])('fails closed on invalid YAML while preserving Vale findings in %s', (fixture) => {
+    const result = spawnSync(
+      process.execPath,
+      ['scripts/lint-prose.mjs', '--output=JSON', fixture],
+      { encoding: 'utf8' },
+    );
+
+    expect(result.status).toBe(1);
+    expect(JSON.parse(result.stdout)[fixture]).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ Check: 'CMOS.EmDash', Line: 1, Severity: 'error' }),
       ]),
     );
   });

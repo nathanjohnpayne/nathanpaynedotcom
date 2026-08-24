@@ -185,14 +185,18 @@ function alertKey(alert) {
 
 function yamlScalarRanges(source) {
   const ranges = [];
-  const documents = parseAllDocuments(source, { prettyErrors: false });
+  const documents = parseAllDocuments(source, { keepSourceTokens: true, prettyErrors: false });
+  let invalid = false;
 
   for (const document of documents) {
-    if (document.errors.length > 0) continue;
+    if (document.errors.length > 0) invalid = true;
     visit(document, (key, node) => {
       if (!isScalar(node) || !Array.isArray(node.range)) return;
+      const header = node.srcToken?.props?.find((token) => token.type === 'block-scalar-header');
+      const explicitIndent = header?.source.match(/[1-9]/)?.[0];
       ranges.push({
-        end: node.range[2] ?? node.range[1],
+        blockIndent: explicitIndent ? header.indent + Number(explicitIndent) : null,
+        end: node.range[1],
         isKey: key === 'key',
         start: node.range[0],
         type: node.type,
@@ -200,7 +204,7 @@ function yamlScalarRanges(source) {
     });
   }
 
-  return ranges;
+  return { invalid, ranges };
 }
 
 function sourceLineOffsets(source) {
@@ -212,11 +216,13 @@ function sourceLineOffsets(source) {
 function foldedBlockBoundaryIsSpace(source, lines, lineIndex, scalar) {
   const content = source.slice(scalar.start, scalar.end);
   const contentLines = content.split(/\r?\n/).slice(1);
-  const contentIndent = Math.min(
-    ...contentLines
-      .filter((line) => line.trim() !== '')
-      .map((line) => line.match(/^[\p{Zs}\t]*/u)[0].length),
-  );
+  const contentIndent =
+    scalar.blockIndent ??
+    Math.min(
+      ...contentLines
+        .filter((line) => line.trim() !== '')
+        .map((line) => line.match(/^[\p{Zs}\t]*/u)[0].length),
+    );
   const indentation = (line) => line.match(/^[\p{Zs}\t]*/u)[0].length;
   return (
     lines[lineIndex].trim() !== '' &&
@@ -226,28 +232,54 @@ function foldedBlockBoundaryIsSpace(source, lines, lineIndex, scalar) {
   );
 }
 
-function yamlAlertIsProse(alert, source, scalarRanges) {
+function utf16Column(line, codePointColumn) {
+  return Array.from(line).slice(0, codePointColumn - 1).join('').length;
+}
+
+function yamlAlertIsProse(alert, source, scalarContext) {
   if (alert.Check !== 'CMOS.EmDash') return true;
   const lines = source.split(/\r?\n/);
   const line = lines[alert.Line - 1] || '';
   const matchDash = typeof alert.Match === 'string' ? alert.Match.indexOf('—') : -1;
-  const dash =
-    Array.isArray(alert.Span) && Number.isInteger(alert.Span[0]) && matchDash !== -1
-      ? alert.Span[0] - 1 + matchDash
-      : line.indexOf('—');
-  if (dash === -1) return true;
+  const matchStart =
+    Array.isArray(alert.Span) && Number.isInteger(alert.Span[0])
+      ? utf16Column(line, alert.Span[0])
+      : line.indexOf(alert.Match);
+  const dash = matchStart + matchDash;
+  if (matchDash === -1 || matchStart === -1) return true;
 
   for (const match of line.matchAll(IDENTIFIER_SEPARATOR)) {
     if (dash >= match.index && dash < match.index + match[0].length) return false;
   }
+  if (scalarContext.invalid) return true;
   const lineOffsets = sourceLineOffsets(source);
   const absoluteDash = (lineOffsets[alert.Line - 1] ?? 0) + dash;
-  const scalar = scalarRanges.find(
+  const scalar = scalarContext.ranges.find(
     (candidate) => absoluteDash >= candidate.start && absoluteDash < candidate.end,
   );
   if (!scalar || scalar.isKey) return false;
 
-  if (typeof alert.Match !== 'string' || !/\r?\n/.test(alert.Match)) return true;
+  const absoluteMatchStart = (lineOffsets[alert.Line - 1] ?? 0) + matchStart;
+  const left = alert.Match[matchDash - 1];
+  const right = alert.Match[matchDash + 1];
+  const leftIsPublished =
+    left !== undefined &&
+    /\s/u.test(left) &&
+    left !== '\r' &&
+    left !== '\n' &&
+    absoluteMatchStart + matchDash - 1 >= scalar.start &&
+    absoluteMatchStart + matchDash - 1 < scalar.end;
+  const rightOffset = absoluteMatchStart + matchDash + 1;
+  const rightIsPublishedSourceSpace =
+    right !== undefined &&
+    /\s/u.test(right) &&
+    right !== '\r' &&
+    right !== '\n' &&
+    rightOffset >= scalar.start &&
+    rightOffset < scalar.end;
+  if (leftIsPublished || rightIsPublishedSourceSpace) return true;
+
+  if (right !== '\r' && right !== '\n') return false;
   if (scalar.type === 'BLOCK_LITERAL') return false;
 
   const nextLine = lines[alert.Line];
