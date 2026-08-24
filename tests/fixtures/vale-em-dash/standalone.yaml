@@ -9,3 +9,12 @@ literal: |
   Release — Notes: ok
 folded: >
   ? Release — Notes
+- description: |
+  Release — Notes: ok
+  blurb: word — next
+- - |2
+    Nested — sequence prose.
+  Release — Notes: ok
+- description: |2
+    Explicit — scalar prose.
+  Release — Notes: ok

@@ -270,7 +270,7 @@ function yamlBlockScalarLines(source) {
           continue;
         }
 
-        const indentation = line.match(/^ */)[0].length;
+        const indentation = line.match(/^[\p{Zs}\t]*/u)[0].length;
         if (scalar.contentIndent === null) {
           if (indentation <= scalar.parentIndent) {
             scalar = null;
@@ -293,14 +293,17 @@ function yamlBlockScalarLines(source) {
       }
 
       const header = line.match(
-        /(?:^|:\s+|-\s+)(?:(?:[!&][^\s]+)\s+)*[|>](?<modifiers>[1-9+-]{0,2})\s*(?:#.*)?$/,
+        /^([\p{Zs}\t]*)((?:-[\p{Zs}\t]+)*)(?:("(?:[^"\\]|\\.)*"|'(?:[^']|'')*'|[^:\n]+):)?[\p{Zs}\t]*(?:(?:&[^\s[\]{},]+|![^\s]*)[\p{Zs}\t]+){0,2}[|>](?<modifiers>(?:[-+]\d*|\d+[-+]?)?)[\p{Zs}\t]*(?:#[^\n]*)?$/u,
       );
       if (header) {
         const digit = header.groups.modifiers.match(/[1-9]/)?.[0];
+        const parentIndent =
+          header[1].length +
+          (header[3] ? header[2].length : header[2].lastIndexOf('-'));
         scalar = {
           contentIndent: null,
           explicitIndent: digit ? Number(digit) : null,
-          parentIndent: line.match(/^ */)[0].length,
+          parentIndent,
         };
       }
     }
