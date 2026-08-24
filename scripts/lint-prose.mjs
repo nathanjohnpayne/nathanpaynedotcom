@@ -370,7 +370,10 @@ function main() {
   let parsed;
   try {
     parsed = parseArguments(process.argv.slice(2));
-    if (parsed.files.length === 0) parsed.files = discoverProseFiles();
+    parsed.files =
+      parsed.files.length === 0
+        ? discoverProseFiles()
+        : parsed.files.filter((file) => !isPropagatedMirror(file));
   } catch (error) {
     console.error(`prose lint: ${error.message}`);
     process.exit(2);

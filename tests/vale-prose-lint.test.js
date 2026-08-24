@@ -189,6 +189,18 @@ describe.skipIf(!valeAvailable)('Vale prose lint', () => {
     }
   });
 
+  it('excludes a propagated mirror passed as an explicit path', () => {
+    const mirror = 'docs/agents/prose-line-wrapping.md';
+    const result = spawnSync(
+      process.execPath,
+      ['scripts/lint-prose.mjs', '--output=JSON', mirror],
+      { encoding: 'utf8' },
+    );
+
+    expect(result.status).toBe(0);
+    expect(JSON.parse(result.stdout)).toEqual({});
+  });
+
   it('emits complete machine-readable output for the whole repository', () => {
     const result = spawnSync(process.execPath, ['scripts/lint-prose.mjs', '--output=JSON'], {
       encoding: 'utf8',
