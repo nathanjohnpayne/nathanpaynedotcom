@@ -465,6 +465,28 @@ describe.skipIf(!valeAvailable)('Vale prose lint', () => {
 });
 
 describe('Vale availability behavior', () => {
+  it('skips cached prose paths that are deleted only from the working tree', () => {
+    const directory = mkdtempSync(join(tmpdir(), 'vale-deleted-path-'));
+    const linter = join(process.cwd(), 'scripts/lint-prose.mjs');
+    try {
+      expect(spawnSync('git', ['init', '--quiet'], { cwd: directory }).status).toBe(0);
+      const deleted = join(directory, 'deleted.md');
+      writeFileSync(deleted, 'Tracked prose.\n');
+      expect(spawnSync('git', ['add', 'deleted.md'], { cwd: directory }).status).toBe(0);
+      rmSync(deleted);
+
+      const result = spawnSync(process.execPath, [linter, '--list-files'], {
+        cwd: directory,
+        encoding: 'utf8',
+      });
+
+      expect(result.status).toBe(0);
+      expect(result.stdout).toBe('\n');
+    } finally {
+      rmSync(directory, { force: true, recursive: true });
+    }
+  });
+
   it.each([
     ['soft-passes locally', 'false', 0, 'skipping outside CI'],
     ['fails closed in CI', 'true', 2, 'Vale is required in CI'],
