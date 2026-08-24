@@ -3,7 +3,7 @@ title: "1,513 Lines for One Dash: The Requirement Nobody Questioned"
 seoTitle: "1,513 Lines for One Dash"
 shortTitle: "The Requirement Nobody Questioned"
 description: "A one-sentence style rule turned into 1,513 lines of code and 57 findings across 24 review rounds that dipped but never converged. Auto-fixing violations was 17% of the implementation and tests combined—and nearly all of the work that would not finish. Cutting one unexamined capability ended the loop."
-seoDescription: "One style rule drew 57 findings across 24 non-converging review rounds. Auto-fix was 17% of the implementation and tests combined, and nearly all of the churn. Replacing the tool halved the code rather than eliminating it."
+seoDescription: "One style rule drew 57 findings across 24 non-converging review rounds. Auto-fix was 17% of the code and nearly all of the churn."
 category: "Agent Systems"
 author: "Nathan Payne"
 date: 2026-08-24
@@ -12,8 +12,8 @@ image: "/og/blog/autofix-was-the-whole-cost.png"
 keyTakeaways:
   - "The expensive part of a requirement is rarely the part stated in it, and it is not always the largest part. Auto-fixing violations was 17% of the implementation and tests combined, and nearly all of the work that would not converge—scope can be cheap to build and ruinously expensive to finish."
   - "Findings per review round is a burn-down chart for quality work. A series that dips and rebounds without reaching zero means the work is not converging, and more rounds without changing the approach were unlikely to change it. The external-review lane alone recorded 524,554 tokens across 17 loops that nobody approved as a line item."
-  - "Buying instead of building relocates complexity rather than removing it. The honest number here was 2,453 lines becoming 1,224—a halving, not the two-hundred-fold collapse the headline version implies."
-  - "A migration that reports success is not the same as a migration that works. Running the old and new tools side by side and comparing outputs caught a silent gap that would have dropped 50 reader-facing fields out of lint coverage."
+  - "Buying instead of building relocates complexity rather than removing it. The honest number here was 2,453 lines becoming 1,343—a 45% reduction, not the two-hundred-fold collapse the headline version implies."
+  - "A migration that reports success is not the same as a migration that works. Running the old and new tools side by side and comparing outputs caught a silent gap that would have dropped 57 reader-facing fields out of lint coverage."
 pullquotes:
   - text: "Auto-fix was not most of the surviving code. It was most of the trust burden, and nearly all of the work that would not converge."
     label: "The correction"
@@ -48,7 +48,7 @@ sidebar:
     caption: "Three capabilities arrived as one requirement. Only the third was optional, and it was the one the project could not finish."
   - type: text
     content: |
-      **A note on counting tokens.** The figures in this post come from three
+      A note on counting tokens. The figures in this post come from three
       separate systems—a review ledger, Codex CLI session counters, and Claude
       Code session telemetry—and they are not directly comparable. Cached input
       reads dominate raw totals: one session here processed 848 million tokens
@@ -60,7 +60,7 @@ sidebar:
     caption: "Why the headline figures are output and fresh input rather than totals."
   - type: text
     content: |
-      **What it would have cost at API list rates published on August 24, 2026.**
+      What it would have cost, at API list rates published on August 24, 2026.
       None of this was billed—every session ran under a subscription—so the
       following is a counterfactual, not an invoice. Both providers can change
       these rates, and OpenAI currently describes the
@@ -69,16 +69,16 @@ sidebar:
 
       Two Codex [GPT-5.6 Sol](https://developers.openai.com/api/docs/models/gpt-5.6-sol)
       sessions, at $4/M fresh input, $0.40/M cached and
-      $20/M output: **$60.81** for the [PR #686](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/686) hardening work and **$59.95** for
+      $20/M output: $60.81 for the PR #686 hardening work and $59.95 for
       the Vale migration.
 
       The [Claude Opus 5](https://platform.claude.com/docs/en/about-claude/pricing)
       session, at $5/M input, $10/M cache writes on this
       session's one-hour cache TTL, $0.50/M cache reads and $25/M output:
-      **$591.90**—$0.02 fresh input, $130.61 cache writes, $416.86 cache reads,
+      $591.90—$0.02 fresh input, $130.61 cache writes, $416.86 cache reads,
       $44.41 output. Cache reads alone are 70% of it.
 
-      Priceable total: **about $712.66.** The two remaining Codex sessions ran on
+      Priceable total: about $712.66. The two remaining Codex sessions ran on
       `gpt-5.3-codex-spark`, which has no established public API equivalent, and
       the review ledger records only combined totals rather than the category
       splits pricing needs.
@@ -159,7 +159,7 @@ Every one of those is a floor or an upper bound rather than a clean attribution,
 
 I am deliberately not extrapolating a grand total. I could multiply the uninstrumented reviews by the measured average and produce a confident-looking number, and it would be invention.
 
-Dollars are a similar problem, but a tractable one if the labelling is honest. Priced at [OpenAI](https://developers.openai.com/api/docs/models/gpt-5.6-sol) and [Anthropic](https://platform.claude.com/docs/en/about-claude/pricing) list rates published on August 24, 2026, the three sessions with the necessary category splits come to about **$712.66**. Nothing was invoiced; every session ran under a subscription. That figure over-attributes, because the Claude session covered the Vale rollout and the research for this post as well, and it omits two sessions on a model with no public API equivalent. The sidebar carries the breakdown and the caveats. The estimate is worth having because it translates otherwise abstract token volume into familiar units—without pretending it was the feature's bill.
+Dollars are a similar problem, but a tractable one if the labelling is honest. Priced at [OpenAI](https://developers.openai.com/api/docs/models/gpt-5.6-sol) and [Anthropic](https://platform.claude.com/docs/en/about-claude/pricing) list rates published on August 24, 2026, the three sessions with the necessary category splits come to about **$712.66**. Nothing was invoiced; every session ran under a subscription. Two warnings travel with it. It over-attributes, because the Claude session also covered the Vale rollout and the research for this post. And it is not a model-to-model comparison—the sessions covered different amounts of work under different cache policies, so the gap between them says nothing about cost per unit of work. It omits two further sessions on a model with no public API equivalent. The estimate is worth having because it translates otherwise abstract token volume into familiar units—without pretending it was the feature's bill.
 
 The point survives the imprecision: **a requirement nobody questioned consumed a large amount of compute, and none of it was visible as a line item.** Nobody approves "spend 500,000 tokens re-reviewing an auto-fixer." It accrues one reasonable-looking round at a time, which is exactly why the shape of the series matters more than any individual round did.
 
@@ -190,10 +190,10 @@ The honest accounting:
 | the rule itself | 1,513 lines | 7 lines |
 | supporting adapter | — | 509 lines |
 | configuration | — | 6 lines |
-| tests | 940 lines | 702 lines |
-| **total** | **~2,453** | **~1,224** |
+| tests | 940 lines | 821 lines |
+| **total** | **~2,453** | **~1,343** |
 
-A halving. Not a two-hundred-fold collapse.
+A 45% reduction. Not a two-hundred-fold collapse.
 
 **You do not escape complexity by buying instead of building. You relocate it.** The trade was still clearly right—what remains is boring, well-tested glue against one specific gap, rather than a bespoke engine with a rewrite-safety proof bolted to it. But anyone who promises the headline number is selling something, and the 509-line adapter is the part of this story worth understanding.
 
@@ -201,7 +201,7 @@ A halving. Not a two-hundred-fold collapse.
 
 Vale handles most of this site's content correctly. It does not check items in bulleted lists inside a post's metadata block.
 
-On this site that is 117 such items across 37 files. Fifty of them are the pull quotes and key takeaways rendered prominently on every post—including the ones at the top of this one. Not internal metadata. Published, reader-facing writing.
+On this site that is 127 such items across 38 files, this post included. Fifty-seven of them are the pull quotes and key takeaways rendered prominently on every post—including the ones at the top of this one. Not internal metadata. Published, reader-facing writing.
 
 The custom tool checked those. A straight swap would have dropped them out of coverage **and reported success**, because a tool that declines to look is indistinguishable from a clean result. The writing would still have been published; nothing would have been checking it.
 
@@ -219,7 +219,7 @@ So before approving the deletion I took all 174 test cases from the suite being 
 
 **149 matched. 25 differed**—18 the new tool no longer catches, 7 it now flags where the old one stayed quiet.
 
-Then the number that decides what any of that is worth: every affected pattern appears **zero times** across all 37 content files. So this was 18 capabilities retired, not 18 defects shipped. Retiring them was a good trade—those were exactly the cases that could not converge.
+Then the number that decides what any of that is worth: every affected pattern appears **zero times** across all 38 content files. So this was 18 capabilities retired, not 18 defects shipped. Retiring them was a good trade—those were exactly the cases that could not converge.
 
 But it should be a *recorded* trade. I wrote the full comparison into [an issue](https://github.com/nathanjohnpayne/nathanpaynedotcom/issues/722) before the merge, because the deletion destroyed the only artifact that encoded the difference. Afterwards, recovering it would have gone from cheap to expensive. That is a five-minute habit that turns "we think this was fine" into something a future decision can actually stand on.
 
