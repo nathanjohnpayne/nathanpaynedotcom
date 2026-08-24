@@ -100,8 +100,8 @@ describe('Resume — page structure', () => {
     setupDOM(readDist('resume/index.html'));
   });
 
-  it('has the title "Nathan Payne | Resume"', () => {
-    expect(document.querySelector('title')?.textContent).toBe('Nathan Payne | Resume');
+  it('has the title "Nathan Payne | Résumé"', () => {
+    expect(document.querySelector('title')?.textContent).toBe('Nathan Payne | Résumé');
   });
 
   it('exposes a resolvable og:image meta tag', () => {
@@ -126,12 +126,12 @@ describe('Resume — page structure', () => {
     expect(document.querySelector('.site-footer--resume'), 'footer missing').not.toBeNull();
   });
 
-  it('renders breadcrumbs (Nathan Payne / Resume) in the header', () => {
+  it('renders breadcrumbs (Nathan Payne / Résumé) in the header', () => {
     const crumbs = document.querySelector('.resume-canvas-header .breadcrumbs');
     expect(crumbs, 'breadcrumbs missing').not.toBeNull();
     const text = crumbs.textContent.replace(/\s+/g, ' ').trim();
     expect(text).toContain('Nathan Payne');
-    expect(text).toContain('Resume');
+    expect(text).toContain('Résumé');
   });
 
   it('keeps the contact line in the header so it prints (not only the sidebar)', () => {

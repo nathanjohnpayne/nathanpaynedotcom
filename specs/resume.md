@@ -121,7 +121,7 @@ The `resumeProjects` collection must remain separate from the existing
   each Experience role, Education degree, and Project has a semantic `<h3>`.
 - Experience entries with bullets render them as a `<ul>` of `<li>`.
 - The sidebar ToC links to every visible section id.
-- Title is `Nathan Payne | Resume`; the page has a resolvable `og:image`
+- Title is `Nathan Payne | Résumé`; the page has a resolvable `og:image`
   and a dedicated one-line meta/OG description.
 - A `Person` + `ProfilePage` JSON-LD graph is emitted.
 
@@ -324,7 +324,7 @@ paraphrased. In particular:
 5. Certifications (3) and Projects (6) are present; CSP-PO credits Scrum
    Alliance.
 6. The emitted CSS hides `.company-logo` inside an `@media print` block.
-7. The page exposes a resolvable `og:image` and a `Nathan Payne | Resume`
+7. The page exposes a resolvable `og:image` and a `Nathan Payne | Résumé`
    title.
 8. The header renders a screen-only `.resume-download` link to
    `/Nathan-Payne-Resume.pdf`, that path resolves to a real letter-size PDF in
