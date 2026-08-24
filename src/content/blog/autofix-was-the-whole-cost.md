@@ -37,14 +37,14 @@ sidebar:
           E --> F["17% of the lines<br/>57 findings across 24 rounds"]
           D --> G["Cut this one capability"]
           G --> H["Loop ended<br/>in a single commit"]
-          style A fill:#d4a84b,stroke:#a07830,color:#fff
+          style A fill:#d4a84b,stroke:#a07830,color:#333
           style B fill:#b8ddb8,stroke:#4a8a4d,color:#333
-          style C fill:#d4a84b,stroke:#a07830,color:#fff
+          style C fill:#d4a84b,stroke:#a07830,color:#333
           style D fill:#e8b4b4,stroke:#993d3d,color:#333
-          style E fill:#c75c5c,stroke:#993d3d,color:#fff
-          style F fill:#c75c5c,stroke:#993d3d,color:#fff
+          style E fill:#993d3d,stroke:#7a3030,color:#fff
+          style F fill:#993d3d,stroke:#7a3030,color:#fff
           style G fill:#b8ddb8,stroke:#4a8a4d,color:#333
-          style H fill:#7bc67e,stroke:#4a8a4d,color:#fff
+          style H fill:#7bc67e,stroke:#4a8a4d,color:#333
     caption: "Three capabilities arrived as one requirement. Only the third was optional, and it was the one the project could not finish."
   - type: text
     content: |
@@ -172,7 +172,7 @@ Worth being exact about what "should not block shipping" means here, because rep
 
 The gate still exits non-zero on a violation, which fails the `build-and-test` job that runs it. That job is not one of `main`'s five required status checks—those are all review-policy gates—so branch protection will let a human merge past a red result. But this repository keeps a *second*, separately configured list at `.github/required-head-checks`, and it contains both `lint` and `build-and-test`. The automated merge path verifies that list against the head commit before arming, and refuses when any entry is not green. The script's own comment is explicit that this is the point: the whole premise of the configured list is that the extra check is not branch-protected.
 
-So the accurate version is narrower than "does not block shipping." A punctuation violation stops the automated merge and can be merged past by hand. That is a deliberate split, and it is still unfinished—a red check a human can wave through, with nothing recording what was waved, is noise rather than a backlog. Turning those violations into tracked issues is the open follow-up. That is deliberate, and it is also unfinished—a check you can merge past and then forget is noise rather than a backlog, which is why turning those violations into tracked issues is still an open item.
+So the accurate version is narrower than "does not block shipping." A punctuation violation stops the automated merge and can be merged past by hand. That is a deliberate split, and it is still unfinished—a red check a human can wave through, with nothing recording what was waved, is noise rather than a backlog. Turning those violations into tracked issues is the open follow-up.
 
 The generalisable version: **when a project will not converge, check whether it is defending a capability nobody has justified.** Cost tends to concentrate in the parts of scope that were never argued for, precisely because nothing was ever argued about them.
 
