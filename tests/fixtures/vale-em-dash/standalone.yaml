@@ -65,3 +65,7 @@ explicitMoreIndented: >2
     word—
     continuation
 😀: — word
+compactSequence:
+  - - >2
+      word—
+      continuation

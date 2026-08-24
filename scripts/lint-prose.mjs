@@ -195,7 +195,7 @@ function yamlScalarRanges(source) {
       const header = node.srcToken?.props?.find((token) => token.type === 'block-scalar-header');
       const explicitIndent = header?.source.match(/[1-9]/)?.[0];
       ranges.push({
-        blockIndent: explicitIndent ? header.indent + Number(explicitIndent) : null,
+        blockIndent: explicitIndent ? node.srcToken.indent + Number(explicitIndent) : null,
         end: node.range[1],
         isKey: key === 'key',
         start: node.range[0],
@@ -213,16 +213,21 @@ function sourceLineOffsets(source) {
   return offsets;
 }
 
-function foldedBlockBoundaryIsSpace(source, lines, lineIndex, scalar) {
+function blockScalarIndent(source, scalar) {
   const content = source.slice(scalar.start, scalar.end);
   const contentLines = content.split(/\r?\n/).slice(1);
-  const contentIndent =
+  return (
     scalar.blockIndent ??
     Math.min(
       ...contentLines
         .filter((line) => line.trim() !== '')
         .map((line) => line.match(/^[\p{Zs}\t]*/u)[0].length),
-    );
+    )
+  );
+}
+
+function foldedBlockBoundaryIsSpace(source, lines, lineIndex, scalar) {
+  const contentIndent = blockScalarIndent(source, scalar);
   const indentation = (line) => line.match(/^[\p{Zs}\t]*/u)[0].length;
   return (
     lines[lineIndex].trim() !== '' &&
@@ -262,24 +267,40 @@ function yamlAlertIsProse(alert, source, scalarContext) {
   const absoluteMatchStart = (lineOffsets[alert.Line - 1] ?? 0) + matchStart;
   const left = alert.Match[matchDash - 1];
   const right = alert.Match[matchDash + 1];
+  const isBlockScalar = scalar.type === 'BLOCK_FOLDED' || scalar.type === 'BLOCK_LITERAL';
+  const scalarLineStart = Math.max(0, scalar.start - (lineOffsets[alert.Line - 1] ?? 0));
+  const hasPublishedLeftContext = isBlockScalar
+    ? dash > blockScalarIndent(source, scalar)
+    : /\S/u.test(line.slice(scalarLineStart, dash));
   const leftIsPublished =
     left !== undefined &&
     /\s/u.test(left) &&
     left !== '\r' &&
     left !== '\n' &&
+    hasPublishedLeftContext &&
     absoluteMatchStart + matchDash - 1 >= scalar.start &&
     absoluteMatchStart + matchDash - 1 < scalar.end;
   const rightOffset = absoluteMatchStart + matchDash + 1;
+  const rightTail = alert.Match.slice(matchDash + 1);
+  const horizontalRun = rightTail.match(/^[^\S\r\n]+/u)?.[0] ?? '';
+  const afterHorizontalRun = source[rightOffset + horizontalRun.length];
+  const flowLineEdgeSpace =
+    !isBlockScalar &&
+    horizontalRun.length > 0 &&
+    (afterHorizontalRun === '\r' || afterHorizontalRun === '\n' || afterHorizontalRun === undefined);
   const rightIsPublishedSourceSpace =
     right !== undefined &&
     /\s/u.test(right) &&
     right !== '\r' &&
     right !== '\n' &&
+    !flowLineEdgeSpace &&
     rightOffset >= scalar.start &&
     rightOffset < scalar.end;
   if (leftIsPublished || rightIsPublishedSourceSpace) return true;
 
-  if (right !== '\r' && right !== '\n') return false;
+  const rightReachesNewline =
+    right === '\r' || right === '\n' || (!isBlockScalar && /^[^\S\r\n]*\r?\n/u.test(rightTail));
+  if (!rightReachesNewline) return false;
   if (scalar.type === 'BLOCK_LITERAL') return false;
 
   const nextLine = lines[alert.Line];

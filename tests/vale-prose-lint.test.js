@@ -11,7 +11,7 @@ import {
 } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, relative } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 const valeAvailable = (() => {
@@ -403,9 +403,9 @@ describe.skipIf(!valeAvailable)('Vale prose lint', () => {
     const alerts = JSON.parse(result.stdout)[fixture].filter(
       (alert) => alert.Check === 'CMOS.EmDash',
     );
-    expect(alerts).toHaveLength(17);
+    expect(alerts).toHaveLength(18);
     expect(alerts.map((alert) => alert.Line)).toEqual([
-      5, 7, 9, 11, 14, 15, 18, 20, 22, 25, 27, 29, 43, 51, 62, 63, 67,
+      5, 7, 9, 11, 14, 15, 18, 20, 22, 25, 27, 29, 43, 51, 62, 63, 67, 70,
     ]);
     expect(alerts).toEqual(
       expect.arrayContaining([
@@ -426,6 +426,7 @@ describe.skipIf(!valeAvailable)('Vale prose lint', () => {
         expect.objectContaining({ Line: 62, Severity: 'error' }),
         expect.objectContaining({ Line: 63, Severity: 'error' }),
         expect.objectContaining({ Line: 67, Severity: 'error' }),
+        expect.objectContaining({ Line: 70, Severity: 'error' }),
       ]),
     );
   });
@@ -462,6 +463,44 @@ describe.skipIf(!valeAvailable)('Vale prose lint', () => {
         expect.objectContaining({ Check: 'CMOS.EmDash', Line: 1, Severity: 'error' }),
       ]),
     );
+  });
+
+  it('applies YAML flow folding before treating line-edge spaces as prose padding', () => {
+    const directory = mkdtempSync(join(tmpdir(), 'vale-yaml-line-edge-'));
+    const fixture = join(directory, 'line-edge.yaml');
+    try {
+      writeFileSync(
+        fixture,
+        [
+          'quotedBlank: "word—   ',
+          '',
+          '  continuation"',
+          'plainBlank: word—   ',
+          '',
+          '  continuation',
+          'quotedFold: "word—   ',
+          '  continuation"',
+          'plainFold: word—   ',
+          '  continuation',
+          '',
+        ].join('\n'),
+      );
+
+      const result = spawnSync(
+        process.execPath,
+        ['scripts/lint-prose.mjs', '--output=JSON', fixture],
+        { encoding: 'utf8' },
+      );
+
+      expect(result.status).toBe(1);
+      const reportedPath = relative(process.cwd(), fixture);
+      const alerts = JSON.parse(result.stdout)[reportedPath].filter(
+        (alert) => alert.Check === 'CMOS.EmDash',
+      );
+      expect(alerts.map((alert) => alert.Line)).toEqual([7, 9]);
+    } finally {
+      rmSync(directory, { force: true, recursive: true });
+    }
   });
 
   it('reports named and numeric NBSP character references', () => {
