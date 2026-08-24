@@ -403,9 +403,9 @@ describe.skipIf(!valeAvailable)('Vale prose lint', () => {
     const alerts = JSON.parse(result.stdout)[fixture].filter(
       (alert) => alert.Check === 'CMOS.EmDash',
     );
-    expect(alerts).toHaveLength(13);
+    expect(alerts).toHaveLength(14);
     expect(alerts.map((alert) => alert.Line)).toEqual([
-      5, 7, 9, 11, 14, 15, 18, 20, 22, 25, 27, 29, 43,
+      5, 7, 9, 11, 14, 15, 18, 20, 22, 25, 27, 29, 43, 51,
     ]);
     expect(alerts).toEqual(
       expect.arrayContaining([
@@ -422,6 +422,7 @@ describe.skipIf(!valeAvailable)('Vale prose lint', () => {
         expect.objectContaining({ Line: 27, Severity: 'error' }),
         expect.objectContaining({ Line: 29, Severity: 'error' }),
         expect.objectContaining({ Line: 43, Severity: 'error' }),
+        expect.objectContaining({ Line: 51, Severity: 'error' }),
       ]),
     );
   });

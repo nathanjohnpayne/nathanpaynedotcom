@@ -3,6 +3,7 @@ import { spawnSync } from 'node:child_process';
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { extname, join, relative, resolve } from 'node:path';
+import { isScalar, parseAllDocuments, visit } from 'yaml';
 
 const MARKDOWN_EXTENSIONS = new Set(['.md', '.mdx']);
 const YAML_EXTENSIONS = new Set(['.yaml', '.yml']);
@@ -182,231 +183,53 @@ function alertKey(alert) {
   return [alert.Check, alert.Line, ...(alert.Span || []), alert.Message].join(':');
 }
 
-function yamlStructureOf(line, scalarRanges = []) {
-  const keyRanges = [];
-  const separators = [];
-  let quote = null;
-  let escaped = false;
-  let blockSeparatorSeen = false;
-  const flow = [];
+function yamlScalarRanges(source) {
+  const ranges = [];
+  const documents = parseAllDocuments(source, { prettyErrors: false });
 
-  const explicitKey = line.match(/^\s*\?\s+/);
-  if (explicitKey) keyRanges.push([explicitKey[0].length, line.length]);
-
-  for (let index = 0; index < line.length; index += 1) {
-    const scalarRange = scalarRanges.find(([start, end]) => index >= start && index < end);
-    if (scalarRange) {
-      index = scalarRange[1] - 1;
-      continue;
-    }
-    const character = line[index];
-    if (escaped) {
-      escaped = false;
-      continue;
-    }
-    if (quote === '"' && character === '\\') {
-      escaped = true;
-      continue;
-    }
-    if (quote) {
-      if (character === quote) quote = null;
-      continue;
-    }
-    if (character === '"' || character === "'") {
-      quote = character;
-      continue;
-    }
-
-    if (character === '{' || character === '[') {
-      flow.push({ character, expectingKey: true, keyStart: index + 1 });
-      continue;
-    }
-    if (character === '}' || character === ']') {
-      flow.pop();
-      continue;
-    }
-
-    const context = flow.at(-1);
-    if (character === ',' && context) {
-      context.expectingKey = true;
-      context.keyStart = index + 1;
-      continue;
-    }
-    if (character !== ':') continue;
-
-    if (context?.expectingKey) {
-      const isSeparator =
-        context.character === '{' ||
-        line[index + 1] === undefined ||
-        /\s/.test(line[index + 1]);
-      if (isSeparator) {
-        keyRanges.push([context.keyStart, index]);
-        separators.push(index);
-        context.expectingKey = false;
-      }
-      continue;
-    }
-
-    if (
-      !context &&
-      !blockSeparatorSeen &&
-      (line[index + 1] === undefined || /\s/.test(line[index + 1]))
-    ) {
-      let keyStart = line.search(/\S/);
-      if (keyStart === -1) keyStart = 0;
-      if (line[keyStart] === '-' && /\s/.test(line[keyStart + 1] || '')) {
-        keyStart += 1;
-        while (/\s/.test(line[keyStart] || '')) keyStart += 1;
-      }
-      keyRanges.push([keyStart, index]);
-      separators.push(index);
-      blockSeparatorSeen = true;
-    }
-  }
-
-  return { keyRanges, separators };
-}
-
-function yamlBlockScalarLines(source) {
-  const lines = source.split(/\r?\n/);
-  const scalarLines = new Set();
-  const foldedLines = new Set();
-  let scalar = null;
-
-  for (let index = 0; index < lines.length; index += 1) {
-    const line = lines[index];
-    let classifyAgain = true;
-
-    while (classifyAgain) {
-      classifyAgain = false;
-      if (scalar) {
-        if (line.trim() === '') {
-          scalarLines.add(index + 1);
-          continue;
-        }
-
-        const indentation = line.match(/^[\p{Zs}\t]*/u)[0].length;
-        if (scalar.contentIndent === null) {
-          if (indentation <= scalar.parentIndent) {
-            scalar = null;
-            classifyAgain = true;
-            continue;
-          }
-          scalar.contentIndent = scalar.explicitIndent
-            ? scalar.parentIndent + scalar.explicitIndent
-            : indentation;
-        }
-
-        if (indentation >= scalar.contentIndent) {
-          scalarLines.add(index + 1);
-          if (scalar.folded && indentation === scalar.contentIndent) {
-            foldedLines.add(index + 1);
-          }
-          continue;
-        }
-
-        scalar = null;
-        classifyAgain = true;
-        continue;
-      }
-
-      const header = line.match(
-        /^([\p{Zs}\t]*)((?:-[\p{Zs}\t]+)*)(?:("(?:[^"\\]|\\.)*"|'(?:[^']|'')*'|[^:\n]+):)?[\p{Zs}\t]*(?:(?:&[^\s[\]{},]+|![^\s]*)[\p{Zs}\t]+){0,2}(?<indicator>[|>])(?<modifiers>(?:[-+]\d*|\d+[-+]?)?)[\p{Zs}\t]*(?:#[^\n]*)?$/u,
-      );
-      if (header) {
-        const digit = header.groups.modifiers.match(/[1-9]/)?.[0];
-        const parentIndent =
-          header[1].length +
-          (header[3] ? header[2].length : header[2].lastIndexOf('-'));
-        scalar = {
-          contentIndent: null,
-          explicitIndent: digit ? Number(digit) : null,
-          folded: header.groups.indicator === '>',
-          parentIndent,
-        };
-      }
-    }
-  }
-
-  return { foldedLines, scalarLines };
-}
-
-function yamlQuoteCanOpen(line, index) {
-  const prefix = line.slice(0, index);
-  const boundary = Math.max(
-    prefix.lastIndexOf(':'),
-    prefix.lastIndexOf('['),
-    prefix.lastIndexOf('{'),
-    prefix.lastIndexOf(','),
-  );
-  const candidate = prefix
-    .slice(boundary + 1)
-    .replace(/^\s*(?:-\s+)*/, '')
-    .trim();
-  return candidate === '' || /^(?:(?:[!&][^\s]+)\s*){1,2}$/.test(candidate);
-}
-
-function nextYamlCharacter(lines, lineIndex, column) {
-  for (let index = lineIndex; index < lines.length; index += 1) {
-    const start = index === lineIndex ? column : 0;
-    const match = lines[index].slice(start).match(/\S/);
-    if (match) return match[0];
-  }
-  return null;
-}
-
-function yamlQuotedScalarRanges(source) {
-  const lines = source.split(/\r?\n/);
-  const ranges = new Map();
-  let quote = null;
-  let spans = [];
-  let spanStart = 0;
-
-  for (let lineIndex = 0; lineIndex < lines.length; lineIndex += 1) {
-    const line = lines[lineIndex];
-    for (let index = 0; index < line.length; index += 1) {
-      const character = line[index];
-      if (quote) {
-        if (quote === '"' && character === '\\') {
-          index += 1;
-          continue;
-        }
-        if (character !== quote) continue;
-        if (quote === "'" && line[index + 1] === "'") {
-          index += 1;
-          continue;
-        }
-
-        spans.push([lineIndex + 1, spanStart, index + 1]);
-        if (nextYamlCharacter(lines, lineIndex, index + 1) !== ':') {
-          for (const [lineNumber, start, end] of spans) {
-            const lineRanges = ranges.get(lineNumber) || [];
-            lineRanges.push([start, end]);
-            ranges.set(lineNumber, lineRanges);
-          }
-        }
-        quote = null;
-        spans = [];
-        continue;
-      }
-
-      if ((character === '"' || character === "'") && yamlQuoteCanOpen(line, index)) {
-        quote = character;
-        spanStart = index;
-      }
-    }
-    if (quote) {
-      spans.push([lineIndex + 1, spanStart, line.length]);
-      spanStart = 0;
-    }
+  for (const document of documents) {
+    if (document.errors.length > 0) continue;
+    visit(document, (key, node) => {
+      if (!isScalar(node) || !Array.isArray(node.range)) return;
+      ranges.push({
+        end: node.range[2] ?? node.range[1],
+        isKey: key === 'key',
+        start: node.range[0],
+        type: node.type,
+      });
+    });
   }
 
   return ranges;
 }
 
-function yamlAlertIsProse(alert, source, blockScalars, quotedScalarRanges) {
+function sourceLineOffsets(source) {
+  const offsets = [0];
+  for (const match of source.matchAll(/\n/g)) offsets.push(match.index + 1);
+  return offsets;
+}
+
+function foldedBlockBoundaryIsSpace(source, lines, lineIndex, scalar) {
+  const content = source.slice(scalar.start, scalar.end);
+  const contentLines = content.split(/\r?\n/).slice(1);
+  const contentIndent = Math.min(
+    ...contentLines
+      .filter((line) => line.trim() !== '')
+      .map((line) => line.match(/^[\p{Zs}\t]*/u)[0].length),
+  );
+  const indentation = (line) => line.match(/^[\p{Zs}\t]*/u)[0].length;
+  return (
+    lines[lineIndex].trim() !== '' &&
+    lines[lineIndex + 1]?.trim() !== '' &&
+    indentation(lines[lineIndex]) === contentIndent &&
+    indentation(lines[lineIndex + 1]) === contentIndent
+  );
+}
+
+function yamlAlertIsProse(alert, source, scalarRanges) {
   if (alert.Check !== 'CMOS.EmDash') return true;
-  const line = source.split(/\r?\n/)[alert.Line - 1] || '';
+  const lines = source.split(/\r?\n/);
+  const line = lines[alert.Line - 1] || '';
   const matchDash = typeof alert.Match === 'string' ? alert.Match.indexOf('—') : -1;
   const dash =
     Array.isArray(alert.Span) && Number.isInteger(alert.Span[0]) && matchDash !== -1
@@ -417,26 +240,25 @@ function yamlAlertIsProse(alert, source, blockScalars, quotedScalarRanges) {
   for (const match of line.matchAll(IDENTIFIER_SEPARATOR)) {
     if (dash >= match.index && dash < match.index + match[0].length) return false;
   }
-  const inQuotedScalar = (quotedScalarRanges.get(alert.Line) || []).some(
-    ([start, end]) => dash >= start && dash < end,
+  const lineOffsets = sourceLineOffsets(source);
+  const absoluteDash = (lineOffsets[alert.Line - 1] ?? 0) + dash;
+  const scalar = scalarRanges.find(
+    (candidate) => absoluteDash >= candidate.start && absoluteDash < candidate.end,
   );
-  if (typeof alert.Match === 'string' && /\r?\n/.test(alert.Match)) {
-    if (inQuotedScalar || blockScalars.foldedLines.has(alert.Line)) return true;
-    return false;
+  if (!scalar || scalar.isKey) return false;
+
+  if (typeof alert.Match !== 'string' || !/\r?\n/.test(alert.Match)) return true;
+  if (scalar.type === 'BLOCK_LITERAL') return false;
+
+  const nextLine = lines[alert.Line];
+  const nextContentColumn = nextLine?.search(/\S/) ?? -1;
+  if (nextContentColumn === -1) return false;
+  const nextContentOffset = (lineOffsets[alert.Line] ?? source.length) + nextContentColumn;
+  if (nextContentOffset < scalar.start || nextContentOffset >= scalar.end) return false;
+
+  if (scalar.type === 'BLOCK_FOLDED') {
+    return foldedBlockBoundaryIsSpace(source, lines, alert.Line - 1, scalar);
   }
-  if (blockScalars.scalarLines.has(alert.Line) || inQuotedScalar) return true;
-
-  const structure = yamlStructureOf(line, quotedScalarRanges.get(alert.Line));
-  if (structure.keyRanges.some(([start, end]) => dash >= start && dash < end)) return false;
-
-  const separator = structure.separators.filter((position) => position < dash).at(-1) ?? -1;
-
-  const structuralPrefix = separator === -1 ? /^\s*-\s*$/ : /^\s*$/;
-  const valueStart = separator === -1 ? 0 : separator + 1;
-  if (structuralPrefix.test(line.slice(valueStart, dash)) && !/^\s+\S/.test(line.slice(dash + 1))) {
-    return false;
-  }
-
   return true;
 }
 
@@ -529,11 +351,8 @@ function main() {
       const source = sources.get(file);
       let alerts = reportedAlerts;
       if (YAML_EXTENSIONS.has(extname(file).toLowerCase())) {
-        const blockScalars = yamlBlockScalarLines(source);
-        const quotedScalarRanges = yamlQuotedScalarRanges(source);
-        alerts = reportedAlerts.filter((alert) =>
-          yamlAlertIsProse(alert, source, blockScalars, quotedScalarRanges),
-        );
+        const scalarRanges = yamlScalarRanges(source);
+        alerts = reportedAlerts.filter((alert) => yamlAlertIsProse(alert, source, scalarRanges));
       }
       const bodyAlerts = alerts.filter(
         (alert) =>
@@ -550,16 +369,13 @@ function main() {
       if (!sourceFile) {
         throw new Error(`Vale reported an unknown extracted path: ${reportedPath}`);
       }
-      const source = sources.get(sourceFile);
-      const blockScalars = yamlBlockScalarLines(source);
-      const quotedScalarRanges = yamlQuotedScalarRanges(source);
+      const yamlSource = frontmatter.get(sourceFile).yaml;
+      const scalarRanges = yamlScalarRanges(yamlSource);
       mergeAlerts(
         report,
         sourceFile,
         alerts
-          .filter((alert) =>
-            yamlAlertIsProse(alert, source, blockScalars, quotedScalarRanges),
-          )
+          .filter((alert) => yamlAlertIsProse(alert, yamlSource, scalarRanges))
           .map((alert) => ({ ...alert, Origin: 'frontmatter' })),
       );
     }

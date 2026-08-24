@@ -41,3 +41,19 @@ flow: {value: "First
   continued", Release — Notes: clean}
 items: ["First
   Release — Notes: continued"]
+foldedBlank: >
+  word—
+
+  continuation
+foldedMoreIndented: >
+  word—
+    continuation
+plainContinuation: First—
+  continuation
+? "Release
+  word — Notes"
+: clean
+literalQuote: |
+  "unclosed text
+Release — Structural: clean
+closingQuote: "closing"
