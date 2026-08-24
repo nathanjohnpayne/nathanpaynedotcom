@@ -52,11 +52,11 @@ const homepageProjectDescriptions = [
   'Cloud-synced shared-bill coordination for families and friend groups—turns recurring costs into clear annual invoices, payment tracking, and shareable summaries.',
 ];
 
-// The canonical six-row Mondrian sequence from #733. It CYCLES: both index
-// routes consume one shared source with `i % length`, so a seventh project
-// restarts at `grid-row--1` by design, not by accident. Expressed as one cycle
-// plus a derivation so adding a project extends the expectation rather than
-// breaking it (#493 comment: "then restart for row 7+").
+// The canonical six-row Mondrian sequence from #733. Its geometry cycles, but
+// accent placement is boundary-aware: later `grid-row--1` entries open with
+// yellow + paper instead of placing red immediately after the closing red row.
+// Expressed as one cycle plus a derivation so adding a project extends the
+// expectation rather than breaking it (#627 comment 5399490885).
 const projectIndexAccentCycle = [
   { rowClass: 'grid-row--1', accentClasses: ['accent-red', 'accent-paper'] },
   { rowClass: 'grid-row--2', accentClasses: ['accent-blue'] },
@@ -67,7 +67,9 @@ const projectIndexAccentCycle = [
 ];
 
 const projectIndexAccentRows = canonicalProjectCards.map(
-  (_, i) => projectIndexAccentCycle[i % projectIndexAccentCycle.length],
+  (_, i) => i > 0 && i % projectIndexAccentCycle.length === 0
+    ? { ...projectIndexAccentCycle[0], accentClasses: ['accent-yellow', 'accent-paper'] }
+    : projectIndexAccentCycle[i % projectIndexAccentCycle.length],
 );
 
 // Projects without a deployed live URL — the "View Live Product" CTA

@@ -2,7 +2,7 @@
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import { getCollection } from 'astro:content';
 import { estimateReadingMinutes } from '../../lib/reading-time';
-import { indexGridRows } from '../../lib/index-grid';
+import { getIndexGridRow } from '../../lib/index-grid';
 import Footer from '../../components/Footer.astro';
 import Breadcrumbs from '../../components/Breadcrumbs.astro';
 
@@ -91,16 +91,16 @@ function readingTime(body: string | undefined): string {
 
       {/* ── Mondrian Blog Grid ──
            Mirrors the /projects index: every post flows through the same
-           six-row accent sequence by index, restarting for row 7+, so the
-           accent colors repeat exactly as they do on /projects — the last
-           post included. Two blog-specific additions: the newest post's
-           trailing accent carries the vertical "Latest" label, and a dedicated
-           subscribe band closes the grid so the RSS block never displaces
-           a post's accent cell. */}
+           six-row geometry and boundary-aware accent placement, so a later
+           cycle never opens with red immediately after a red closing row.
+           Two blog-specific additions: the newest post's trailing accent
+           carries the vertical "Latest" label, and a dedicated subscribe band
+           closes the grid so the RSS block never displaces a post's accent
+           cell. */}
       <div class="blog-grid">
 
         {posts.map((post, i) => {
-          const row = indexGridRows[i % indexGridRows.length];
+          const row = getIndexGridRow(i);
           const card = (
             <article class="post-card">
               <p class="post-meta">{formatDate(post.data.date)} &middot; {readingTime(post.body)}</p>

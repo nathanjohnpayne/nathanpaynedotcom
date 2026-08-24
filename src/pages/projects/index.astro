@@ -3,7 +3,7 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
 import { getCollection } from 'astro:content';
 import Footer from '../../components/Footer.astro';
 import Breadcrumbs from '../../components/Breadcrumbs.astro';
-import { indexGridRows } from '../../lib/index-grid';
+import { getIndexGridRow } from '../../lib/index-grid';
 
 const PROJECTS_TITLE = 'Projects';
 const PROJECTS_PAGE_TITLE = `${PROJECTS_TITLE} | Nathan Payne`;
@@ -75,12 +75,13 @@ const jsonLd = {
       </header>
 
       {/* ── Project Grid ──
-           Accent blocks follow the shared six-row Mondrian sequence from
-           src/lib/index-grid.ts, then restart for row 7+. */}
+           Geometry follows the shared six-row Mondrian cycle from
+           src/lib/index-grid.ts. Accent placement is boundary-aware so a
+           later cycle never opens red immediately after a red closing row. */}
       <div class="blog-grid">
 
         {projects.map((project, i) => {
-          const row = indexGridRows[i % indexGridRows.length];
+          const row = getIndexGridRow(i);
           const card = (
             <article class="post-card">
               {/* Status kicker renders on every card — consistency in the
