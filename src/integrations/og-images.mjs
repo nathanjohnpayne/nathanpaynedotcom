@@ -230,6 +230,8 @@ export async function renderMermaidDiagrams({ browser, distDir, logger }) {
   for (const pagePath of pagePaths) {
     const htmlPath = join(blogDir, pagePath, 'index.html');
     const html = await readFile(htmlPath, 'utf8');
+    if (!html.includes('<pre class="mermaid"')) continue;
+
     const sourceBlocks = findMermaidSourceBlocks(html);
     if (sourceBlocks.length > 0) {
       diagramPages.push({ pagePath, htmlPath, html, sourceBlocks });
@@ -262,8 +264,6 @@ export async function renderMermaidDiagrams({ browser, distDir, logger }) {
     for (const { pagePath, htmlPath, html, sourceBlocks } of diagramPages) {
       const replacements = [];
       for (const [index, sourceBlock] of sourceBlocks.entries()) {
-        const sourceMarkup = html.slice(sourceBlock.contentStart, sourceBlock.contentEnd);
-        const source = JSDOM.fragment(sourceMarkup).textContent ?? '';
         const renderId = `mermaid-static-${diagramCount + 1}`;
         let svg;
 
@@ -273,7 +273,7 @@ export async function renderMermaidDiagrams({ browser, distDir, logger }) {
               const result = await window.mermaid.render(id, definition);
               return result.svg;
             },
-            { id: renderId, definition: source },
+            { id: renderId, definition: sourceBlock.source },
           );
         } catch (error) {
           throw new Error(
@@ -309,39 +309,30 @@ export async function renderMermaidDiagrams({ browser, distDir, logger }) {
 }
 
 /**
- * Locate the exact source ranges for the intermediate Mermaid elements without
- * parsing or reserializing the surrounding document. The plugin and sidebar
- * layout HTML-escape diagram definitions, so a literal closing pre tag safely
- * terminates each known intermediate block.
+ * Locate actual intermediate Mermaid elements with parser-provided offsets.
+ * The caller uses these ranges for targeted replacement instead of serializing
+ * the document, so JSON-LD, scripts, comments, templates, entities, and
+ * whitespace outside each source element retain their original bytes.
  */
 function findMermaidSourceBlocks(html) {
-  const blocks = [];
-  const openingTagPattern = /<pre\b[^>]*>/gi;
-  let openingMatch;
+  const dom = new JSDOM(html, { includeNodeLocations: true });
 
-  while ((openingMatch = openingTagPattern.exec(html)) !== null) {
-    const openingTag = openingMatch[0];
-    const classMatch = openingTag.match(/\bclass\s*=\s*(["'])(.*?)\1/i);
-    const classes = classMatch?.[2].split(/\s+/) ?? [];
-    if (!classes.includes('mermaid')) continue;
+  try {
+    return Array.from(dom.window.document.querySelectorAll('pre.mermaid'), (sourceBlock) => {
+      const location = dom.nodeLocation(sourceBlock);
+      if (location?.startTag == null || location.endTag == null) {
+        throw new Error('Mermaid source block has no complete source location');
+      }
 
-    const closingTagPattern = /<\/pre\s*>/gi;
-    closingTagPattern.lastIndex = openingTagPattern.lastIndex;
-    const closingMatch = closingTagPattern.exec(html);
-    if (closingMatch == null) {
-      throw new Error('Mermaid source block is missing its closing </pre> tag');
-    }
-
-    blocks.push({
-      start: openingMatch.index,
-      contentStart: openingTagPattern.lastIndex,
-      contentEnd: closingMatch.index,
-      end: closingTagPattern.lastIndex,
+      return {
+        start: location.startOffset,
+        end: location.endOffset,
+        source: sourceBlock.textContent ?? '',
+      };
     });
-    openingTagPattern.lastIndex = closingTagPattern.lastIndex;
+  } finally {
+    dom.window.close();
   }
-
-  return blocks;
 }
 
 function replaceRanges(source, replacements) {

@@ -293,14 +293,14 @@ describe('remark-mermaid plugin', () => {
     const fixtureRoot = mkdtempSync(join(tmpdir(), 'mermaid-static-build-'));
     const fixturePage = resolve(fixtureRoot, 'blog', 'syntax-coverage');
     const unchangedPage = resolve(fixtureRoot, 'blog', 'without-diagrams');
-    const prefix = `<!doctype html>\n<html data-preserve="yes"><head><script type="application/ld+json">{"name":"A & B < C","markup":"&quot;literal&quot;"}</script></head><body>\n<p title="A &amp; B">A&nbsp;&amp; B</p>\n<figure class="mermaid-figure">`;
+    const prefix = `<!doctype html>\n<html data-preserve="yes"><head><script type="application/ld+json">{"name":"A & B < C","markup":"<pre class='mermaid'>literal JSON-LD example</pre>"}</script><script>const example = '<pre class="mermaid">literal script example</pre>';</script></head><body>\n<!-- <pre class="mermaid">literal comment example</pre> -->\n<template><pre class="mermaid">literal template example</pre></template>\n<p title="A &amp; B">A&nbsp;&amp; B</p>\n<figure class="mermaid-figure">`;
     const suffix = `</figure>\n<!-- preserve this whitespace -->\n</body></html>\n`;
     const source = `${prefix}<pre class="mermaid" aria-hidden="true">graph TD
 subgraph GROUP["Grouped nodes"]
   A["Alpha&lt;br/&gt;line"] -.-&gt;|"dotted label"| B["Beta"]
 end
 style A fill:#ff0000,stroke:#000000,color:#ffffff</pre>${suffix}`;
-    const unchangedSource = `<!doctype html>\n<html><head><script type="application/ld+json">{"text":"A & B"}</script></head><body>\n<p>A&nbsp;&amp; B</p>\n</body></html>\n`;
+    const unchangedSource = `<!doctype html>\n<html><head><script type="application/ld+json">{"text":"<pre class='mermaid'>literal example</pre>"}</script></head><body>\n<p>A&nbsp;&amp; B</p>\n</body></html>\n`;
     let browser;
 
     try {
