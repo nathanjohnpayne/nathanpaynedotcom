@@ -142,7 +142,8 @@ function pushCharacter(stream, character, span) {
   // mdast splits inline HTML into separate opener, text, and closer nodes, so
   // `<code>a — b</code>` reaches this function as three siblings. Raw-text
   // ranges are computed over the whole body and applied here, or the middle
-  // text node would be linted and `--write` would edit the code sample.
+  // text node would be linted and the gate would report a dash inside the
+  // code sample.
   if (isProtectedOffset(stream, span)) {
     pushBoundary(stream);
     return;
@@ -229,8 +230,8 @@ function findCharacterSourceOffset(raw, start, character) {
 // character reference or a backslash escape — and a single reference can
 // decode to several code points (`&NotEqualTilde;`) or to a supplementary-plane
 // one (`&#x1F600;`), so the reference is decoded rather than assumed to be one
-// character. Getting this wrong desynchronizes every span after it, which
-// would make `--write` corrupt the file.
+// character. Getting this wrong desynchronizes every span after it, so the
+// gate would report real violations at the wrong source location.
 function alignValueToSource(value, raw) {
   const characters = [...value];
   const spans = new Array(characters.length);
@@ -400,8 +401,9 @@ function emitVisibleCharacter(raw, index, start, stream, preserveWhitespace) {
   }
 
   // Ordinary HTML collapses a run of ASCII whitespace to one rendered space.
-  // Preserve the entire source run as that space's span so `--write` can
-  // remove a line break only when the rendered prose rule requires it.
+  // Preserve the entire source run as that space's span so a violation is
+  // reported against all the source that renders it, not just its first
+  // character.
   if (/[\t\n\f\r ]/.test(raw[index])) {
     let end = index + 1;
     while (end < raw.length && /[\t\n\f\r ]/.test(raw[end])) {
@@ -536,7 +538,8 @@ function carryTrailingContinuationPrefix(node, body, stream) {
     stream.spans[pending.spanIndex][1] = nodeStart;
   } else if (gap.length > 0) {
     // An omitted source gap we cannot classify must not leave the preceding
-    // soft break removable. Turn it into a boundary so --write fails closed.
+    // soft break looking like prose padding. Turn it into a boundary so the
+    // gate fails closed and reports nothing across it.
     stream.text =
       stream.text.slice(0, pending.spanIndex) +
       '\n' +
@@ -668,7 +671,7 @@ function emitNode(node, body, stream, inline = false) {
 
 // Astro enables GFM by default, so the gate parses with it too. Without the
 // extension a table row is read as a paragraph and its cell-separator padding
-// looks like prose padding, which `--write` would then "fix" into the table.
+// looks like prose padding, which the gate would then report as a violation.
 // Every raw-text element span in the body, closed or left open through EOF.
 function rawTextRanges(source, opaqueRanges = []) {
   const isOpaqueStart = (offset) =>
@@ -718,7 +721,7 @@ function collectOpaqueSourceRanges(tree) {
 // The definitions whose titles actually publish. CommonMark resolves a
 // reference to the FIRST definition with that identifier, and a definition
 // nothing references renders nothing at all — so scanning every definition
-// would lint, and `--write` would rewrite, titles that never reach a reader.
+// would report violations in titles that never reach a reader.
 function collectEffectiveDefinitions(tree) {
   const referenced = new Set();
   const firstByIdentifier = new Map();
@@ -1313,10 +1316,10 @@ function mappingKeySpans(line) {
 function lineViolations(source, lineStart, scanEnd, blockScalarContentIndent, exceptionRanges) {
   const violations = [];
   const line = source.slice(lineStart, scanEnd);
-  // A mapping key is an identifier, not published prose. Rewriting one changes
-  // the document's shape, so `structureIsPreserved` rejects the whole write —
-  // and because a write is all-or-nothing, one dash in a key would leave every
-  // unrelated violation in the same file unfixed too.
+  // A mapping key is an identifier, not published prose: it names a field, and
+  // no reader ever sees it rendered. A dash inside one is therefore not a style
+  // violation, and closing it up would rename the field rather than edit prose.
+  // Exclude keys so the gate reports only what actually reaches a reader.
   const keySpans =
     blockScalarContentIndent === null
       ? mappingKeySpans(line).map(([from, to]) => [lineStart + from, lineStart + to])
@@ -1426,10 +1429,6 @@ export function findSpacedEmDashViolations(filePath, source) {
   }));
 }
 
-// `--write` may change text values, but it must not change which Markdown
-// constructs the source parses into. For example, closing the spaces around
-// `**—**` makes both strong delimiters intraword and turns them into literal
-// asterisks. Keep a compact node-type tree so that case fails closed.
 // ---------------------------------------------------------------------------
 // CLI
 // ---------------------------------------------------------------------------
