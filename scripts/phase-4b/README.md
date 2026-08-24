@@ -1,4 +1,4 @@
-# `scripts/phase-4b/`—automated Phase 4b review handoff
+# `scripts/phase-4b/` — automated Phase 4b review handoff
 
 Reference implementation for automating the Phase 4b external-review
 handoff (REVIEW_POLICY.md § Phase 4b). Design and diagrams:
@@ -9,7 +9,7 @@ unit-tested with fake CLIs, and accompanied by real plan-backed `codex` /
 `claude` validation evidence in PR #580's review thread. **Mergepath itself
 runs it ENABLED since 2026-07-02 (#628: `phase_4b_automation.enabled: true`,
 accounting live; `high` effort on both adapters since #669, with xhigh as
-the per-run, per-adapter env escalation)**—the bootstrap template
+the per-run, per-adapter env escalation)** — the bootstrap template
 mirror resets the switch to `false`, so any OTHER repo still opts in
 explicitly and should re-run the live adapter validation from its own
 enablement environment before flipping `phase_4b_automation.enabled: true`.
@@ -24,7 +24,7 @@ checkout's on-disk location follows `docs/agents/worktree-placement.md`.
 | [`../phase-4b-review.sh`](../phase-4b-review.sh) | Orchestrator. Selects the reviewer (≠ author), dispatches to an adapter, fails closed on any doubt, and posts the verdict under the reviewer PAT via `gh-as-reviewer.sh`. |
 | [`adapters/review-via-codex.sh`](adapters/review-via-codex.sh) | Direction A (Claude→Codex). `codex --ask-for-approval never exec --sandbox read-only --output-schema verdict.schema.json`. |
 | [`adapters/review-via-claude.sh`](adapters/review-via-claude.sh) | Direction B (Codex→Claude). `claude -p --system-prompt ... --permission-mode plan --effort medium --tools "" --output-format json`. |
-| [`verdict.schema.json`](verdict.schema.json) | The normalized verdict contract both adapters emit, with optional adapter-populated token usage metadata when the CLI exposes it. **Single source of truth for the structural contract**—the `lib.sh` validator derives its key sets and enums from this file (see below). |
+| [`verdict.schema.json`](verdict.schema.json) | The normalized verdict contract both adapters emit, with optional adapter-populated token usage metadata when the CLI exposes it. **Single source of truth for the structural contract** — the `lib.sh` validator derives its key sets and enums from this file (see below). |
 | [`lib.sh`](lib.sh) | Shared config readers, reviewer selection, `jq`-based verdict validation, JSON-block extraction, and the per-adapter timeout/effort resolvers. |
 | [`collect-enablement-evidence.sh`](collect-enablement-evidence.sh) | Captures the pre-enablement evidence (#586): CLI versions, plan-auth status, API-key env scan, resolved config, and an optional adapter dry-run. Markdown or `--json`; exits `1` when BLOCKED. |
 | [`accounting.sh`](accounting.sh) | Approval-loop accounting (#602). Sourced by the orchestrator; renders the "## Phase 4b Approval Accounting" block + embedded `p4b-accounting:v1` record into the automated `APPROVED` review body. Pure functions, no network; advisory to safety (any failure ⇒ the plain summary posts). |
@@ -37,44 +37,45 @@ checkout's on-disk location follows `docs/agents/worktree-placement.md`.
   hand-mirrors the verdict's structural constants. It reads the top-level key
   set, the `verdict` enum, the per-finding key set, the `severity` enum, and
   the `usage` key set **from `verdict.schema.json` at validation time**, so
-  editing the schema reconfigures the validator automatically—the two cannot
+  editing the schema reconfigures the validator automatically — the two cannot
   silently drift. Only the semantics the JSON Schema cannot express stay in
   `jq`: the config-dependent `feedback_policy` approval gate, the
   all-or-nothing `usage` object, and the 1-based `line` bound. A missing or
   malformed schema makes validation fail closed. `tests/test_phase_4b_automation.sh`
   adds behavior-locking parity fixtures (`tests/fixtures/phase_4b_verdicts.jsonl`),
-  schema-vs-validator boundary assertions, and—when a JSON Schema validator
-  (`check-jsonschema`/`ajv`) is installed—an independent cross-check that every
+  schema-vs-validator boundary assertions, and — when a JSON Schema validator
+  (`check-jsonschema`/`ajv`) is installed — an independent cross-check that every
   validator-accepted fixture is also schema-valid.
 - **Hardened JSON extraction (#587).** `p4b_extract_json_block` (used by the
   Claude adapter to pull the verdict out of model output) is a string-aware
   brace-depth scanner rather than a naive first-`{`-to-last-`}` slice. It tracks
   JSON string literals (honoring `\"` / `\\` escapes) so braces inside string
   values don't miscount, and it stops at the matching close of the **first**
-  balanced object—so balanced-brace prose *after* the JSON object can no
+  balanced object — so balanced-brace prose *after* the JSON object can no
   longer extend the slice and corrupt it. Unbalanced or object-free input emits
   nothing, so schema validation still fails closed on ambiguous output.
 
 ### Approval-loop accounting (#602)
 
 When `phase_4b_automation.accounting.enabled` is not `false` (the default is
-`true`; with mergepath's parent switch now on, the block is live—on a repo
+`true`; with mergepath's parent switch now on, the block is live — on a repo
 whose parent `enabled` is false it still gates everything), the
 orchestrator sources `accounting.sh` and:
 
 1. **Records every loop.** Each invocation appends one loop record to a
    per-PR loop log under `.mergepath/phase-4b-loops/` (gitignored runtime
-   state; override with `P4B_ACCT_STATE_DIR`)—including CHANGES_REQUESTED
+   state; override with `P4B_ACCT_STATE_DIR`) — including CHANGES_REQUESTED
    rounds and fail-closed fallbacks (reason + duration, counted as positive
    safety evidence), so a changes-requested-then-fixed cycle renders its full
    history.
 2. **Augments the APPROVED body.** On an approval it appends the
-   "## Phase 4b Approval Accounting" block—loop table, findings lifecycle
+   "## Phase 4b Approval Accounting" block — loop table, findings lifecycle
    with dispositions, a rigor proof-of-work table (rows are green only when
    the backing signal was captured; otherwise `n/a — reason`), the four-part
    cost model (wall-clock / CLI-exposed tokens / throttle / labeled
-   **notional** $ with billed `$0.00` on the plan; a CLI-REPORTED cost—Claude envelope `total_cost_usd` → `tokens.cost_usd` /
-   `totals.reported_cost_usd`—is preferred over the price-table notional,
+   **notional** $ with billed `$0.00` on the plan; a CLI-REPORTED cost —
+   Claude envelope `total_cost_usd` → `tokens.cost_usd` /
+   `totals.reported_cost_usd` — is preferred over the price-table notional,
    labeled `CLI-reported`), repo running totals with
    an explicit totals-source footer, and the embedded machine-readable
    `<!-- p4b-accounting:v1 ... -->` record (`accounting.schema.json`,
@@ -92,16 +93,17 @@ orchestrator sources `accounting.sh` and:
 Running totals prefer an injected GitHub-derived prior-record file
 (`P4B_ACCT_PRIOR_RECORDS_JSONL`, e.g. prior review bodies piped through
 `p4b_acct_extract_records`); when none is injected the hook layer fetches
-one itself—a single read-only `gh api graphql` call over the most
+one itself — a single read-only `gh api graphql` call over the most
 recently updated 50 merged PRs (cap via `P4B_ACCT_PRIOR_SCAN_PRS`),
-plan-safe, PATH-shimmable in tests—so the real orchestrator path reports
+plan-safe, PATH-shimmable in tests — so the real orchestrator path reports
 repo-wide totals from any checkout. On fetch failure they fall back to the
 append-only `.mergepath/phase-4b-ledger.jsonl` cache (two-phase commit: the record is
 staged at render time and appended only after the review POST actually
-succeeds, so dry-runs, head drift, and POST failures never contaminate it—those failure paths also correct the per-PR loop log in place, so local state
+succeeds, so dry-runs, head drift, and POST failures never contaminate it —
+those failure paths also correct the per-PR loop log in place, so local state
 never claims a phantom posted approval), else render `unavailable`. A prior
 record with an unavailable (null) tokens/elapsed/notional measurement makes
-that CUMULATIVE figure `unavailable` too, per metric—never coerced to 0. Notional pricing
+that CUMULATIVE figure `unavailable` too, per metric — never coerced to 0. Notional pricing
 requires the opt-in `accounting.{codex,claude}_price_key` mappings into
 `prices.json` because the adapters do not capture exact model IDs yet.
 Covered by `tests/test_phase_4b_accounting.sh` via
@@ -134,7 +136,7 @@ phase-4b-classifier.sh (is 4b needed?) ─▶ phase-4b-review.sh
 
 - **Runtime:** `bash` (3.2+), `jq`, `gh`, `git`, and the reviewer CLI
   (`codex` and/or `claude`) on `PATH`.
-- **Reasoning-plane auth (per direction)—subscription plan only:** the
+- **Reasoning-plane auth (per direction) — subscription plan only:** the
   adapters verify the persisted CLI auth mode before launch and run the
   reviewer CLI under a tightly allowlisted child environment. Codex must report
   `auth_mode=chatgpt`; Claude must report `apiProvider=firstParty` with either
@@ -147,7 +149,7 @@ phase-4b-classifier.sh (is 4b needed?) ─▶ phase-4b-review.sh
   Claude via its subscription login or `claude setup-token`
   (`CLAUDE_CODE_OAUTH_TOKEN`, which is preserved). If the CLI is not
   plan-logged-in, the read-only call fails and the orchestrator falls back to
-  the manual handoff (fail-closed)—it never uses the API.
+  the manual handoff (fail-closed) — it never uses the API.
 - **Child-process credential isolation:** the reviewer CLI child process is
   launched with an allowlisted environment (`PATH`, `HOME`, locale/tmp basics,
   plus `CODEX_HOME` or `CLAUDE_CODE_OAUTH_TOKEN` only when needed). It does not
@@ -196,7 +198,7 @@ phase-4b-classifier.sh (is 4b needed?) ─▶ phase-4b-review.sh
   carries discretionary findings triggers the policy step-9 executor (#672):
   the orchestrator files one `post-review` + `observation` issue per finding
   (author identity, assigned to it) and posts the approval with the issue
-  references appended—observations become issues BEFORE the approval clears
+  references appended — observations become issues BEFORE the approval clears
   the merge gate. Any filing failure refuses the approval fail-closed (the
   pre-#672 behavior); `phase_4b_automation.post_review_issues: false` opts a
   repo back into the plain refusal.
@@ -224,7 +226,7 @@ scripts/phase-4b/collect-enablement-evidence.sh
 
 It records `codex --version` / `claude --version`, each adapter's plan-auth
 status, the disallowed-API-key scan, the resolved per-adapter timeout/effort,
-and (optionally) a successful adapter dry-run—the exact evidence the
+and (optionally) a successful adapter dry-run — the exact evidence the
 enablement PR should paste. Then flip the switch:
 
 ```yaml
@@ -264,7 +266,7 @@ exercises the package without network or real model calls.
 
 The #814 same-head barrier is **skipped** under `--dry-run`, which is what
 keeps this recipe offline. The barrier guards the review POST and a dry-run
-never posts, so there is no ordering hazard for it to prevent—and both
+never posts, so there is no ordering hazard for it to prevent — and both
 provider probes it would otherwise run are `gh`-backed, so running them would
 require network and credentials here. A real run always evaluates it.
 
@@ -272,10 +274,10 @@ require network and credentials here. A real run always evaluates it.
 
 | Code | Meaning |
 |------|---------|
-| 0 | APPROVED—review posted (or would, under `--dry-run`) |
-| 1 | CHANGES_REQUESTED—posted; author addresses findings, then re-run |
+| 0 | APPROVED — review posted (or would, under `--dry-run`) |
+| 1 | CHANGES_REQUESTED — posted; author addresses findings, then re-run |
 | 3 | usage / infrastructure error |
 | 4 | fell back to the manual handoff (adapter error, timeout, invalid verdict, head drift, or no adapter) |
-| 5 | automation disabled or `mode != local`—caller uses the manual handoff |
-| 6 | **held** (#814)—an enabled external provider has not reported on the reviewed head. Nothing was posted, no handoff was rendered, no fail-closed loop was recorded. Wait the `retry_after` seconds in the emitted JSON and re-run the same command, **from the same checkout**. Deliberately not `4`: every consumer of `4` reads it as a reviewer that will not answer, and `scripts/wave-audit.sh` proceeds fail-open on it. The wait is bounded by `coderabbit.max_wait_seconds` and escalates to `4` when exhausted—but elapsed time rides an advisory marker in `.mergepath/`, so an unwritable state dir or retries from different checkouts leave it at zero and the hold repeats without escalating. Not every hold clears by waiting either: `paused`, draft, and non-base-branch all read as not-yet and need the cause resolved. |
-| 7 | **feedback unaccounted** (#1000)—an earlier inline, top-level review-body, or PR-level finding lacks disposition evidence. No adapter ran and no handoff was rendered. Complete the named dispositions and re-run; do not route this status to manual fallback. |
+| 5 | automation disabled or `mode != local` — caller uses the manual handoff |
+| 6 | **held** (#814) — an enabled external provider has not reported on the reviewed head. Nothing was posted, no handoff was rendered, no fail-closed loop was recorded. Wait the `retry_after` seconds in the emitted JSON and re-run the same command, **from the same checkout**. Deliberately not `4`: every consumer of `4` reads it as a reviewer that will not answer, and `scripts/wave-audit.sh` proceeds fail-open on it. The wait is bounded by `coderabbit.max_wait_seconds` and escalates to `4` when exhausted — but elapsed time rides an advisory marker in `.mergepath/`, so an unwritable state dir or retries from different checkouts leave it at zero and the hold repeats without escalating. Not every hold clears by waiting either: `paused`, draft, and non-base-branch all read as not-yet and need the cause resolved. |
+| 7 | **feedback unaccounted** (#1000) — an earlier inline, top-level review-body, or PR-level finding lacks disposition evidence. No adapter ran and no handoff was rendered. Complete the named dispositions and re-run; do not route this status to manual fallback. |

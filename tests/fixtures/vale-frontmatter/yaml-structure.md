@@ -1,5 +1,5 @@
 ---
-"mapping — key": clean
+"mapping — key": value — violation
 dashOnly: —
 leading: — leading prose
 ---

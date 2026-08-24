@@ -12,9 +12,15 @@ for arg in "$@"; do
   esac
 done
 
+VALE_VERSION="${ENSURE_VALE_VERSION:-v3.18.0}"
+
 if command -v vale >/dev/null 2>&1; then
-  echo "Vale already present: $(vale --version)"
-  exit 0
+  INSTALLED_VALE_VERSION="$(vale --version | awk '{print $NF}')"
+  if [ "$INSTALLED_VALE_VERSION" = "${VALE_VERSION#v}" ]; then
+    echo "Vale already present: $(vale --version)"
+    exit 0
+  fi
+  echo "ensure-vale.sh: replacing Vale ${INSTALLED_VALE_VERSION} with pinned ${VALE_VERSION#v}"
 fi
 
 if $CI_ONLY && [ "${GITHUB_ACTIONS:-}" != "true" ]; then
@@ -29,7 +35,6 @@ if [ "$VALE_SYSTEM" != "Linux" ] || [ "$VALE_MACHINE" != "x86_64" ]; then
   exit 1
 fi
 
-VALE_VERSION="${ENSURE_VALE_VERSION:-v3.18.0}"
 VALE_DEST="${ENSURE_VALE_DEST:-/usr/local/bin/vale}"
 DEFAULT_SHA256="a6f71a75a12fe689345b754f2412b90367fe33648abb7d200fa19eaadc2dbf6d"
 if [ "$VALE_VERSION" != "v3.18.0" ] && [ -z "${ENSURE_VALE_SHA256:-}" ]; then

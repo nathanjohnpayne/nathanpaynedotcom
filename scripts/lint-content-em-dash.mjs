@@ -1429,17 +1429,6 @@ export function findSpacedEmDashViolations(filePath, source) {
   }));
 }
 
-export function fixSpacedEmDashes(filePath, source) {
-  const removals = collectViolations(source, filePath)
-    .flatMap((violation) => violation.removals)
-    .sort((left, right) => right[0] - left[0]);
-  let fixed = source;
-  for (const [start, end] of removals) {
-    fixed = `${fixed.slice(0, start)}${fixed.slice(end)}`;
-  }
-  return fixed;
-}
-
 // ---------------------------------------------------------------------------
 // CLI
 // ---------------------------------------------------------------------------

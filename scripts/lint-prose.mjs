@@ -5,6 +5,21 @@ import { tmpdir } from 'node:os';
 import { extname, join, resolve } from 'node:path';
 
 const MARKDOWN_EXTENSIONS = new Set(['.md', '.mdx']);
+const PROPAGATED_MARKDOWN_FILES = new Set([
+  '.github/pull_request_template.md',
+  'docs/agents/code-review-requirements.md',
+  'docs/agents/decision-records.md',
+  'docs/agents/prose-line-wrapping.md',
+  'docs/agents/shared-operating-rules.md',
+  'docs/agents/worktree-placement.md',
+]);
+const PROPAGATED_MARKDOWN_PREFIXES = [
+  '.github/ISSUE_TEMPLATE/',
+  'scripts/ci/',
+  'scripts/gh-projects/',
+  'scripts/phase-4b/',
+  'scripts/workflow/',
+];
 
 function parseArguments(args) {
   const files = [];
@@ -37,6 +52,12 @@ function parseArguments(args) {
 }
 
 function isPropagatedMirror(file) {
+  if (
+    PROPAGATED_MARKDOWN_FILES.has(file) ||
+    PROPAGATED_MARKDOWN_PREFIXES.some((prefix) => file.startsWith(prefix))
+  ) {
+    return true;
+  }
   const firstLines = readFileSync(file, 'utf8').split(/\r?\n/, 8);
   return firstLines.some((line) => /^> Canonical source:/.test(line));
 }
@@ -54,7 +75,6 @@ function discoverMarkdownFiles() {
   return result.stdout
     .split('\n')
     .filter(Boolean)
-    .filter((file) => !file.startsWith('scripts/gh-projects/examples/'))
     .filter((file) => !file.startsWith('tests/fixtures/vale-'))
     .filter((file) => !isPropagatedMirror(file))
     .sort();
@@ -164,7 +184,11 @@ function mappingSeparatorOf(line) {
 function yamlAlertIsProse(alert, source) {
   if (alert.Check !== 'CMOS.EmDash') return true;
   const line = source.split(/\r?\n/)[alert.Line - 1] || '';
-  const dash = line.indexOf('—');
+  const matchDash = typeof alert.Match === 'string' ? alert.Match.indexOf('—') : -1;
+  const dash =
+    Array.isArray(alert.Span) && Number.isInteger(alert.Span[0]) && matchDash !== -1
+      ? alert.Span[0] - 1 + matchDash
+      : line.indexOf('—');
   if (dash === -1) return true;
 
   const separator = mappingSeparatorOf(line);

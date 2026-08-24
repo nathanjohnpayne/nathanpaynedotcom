@@ -24,9 +24,14 @@ describe('Vale provisioning', () => {
     const directory = mkdtempSync(join(tmpdir(), 'ensure-vale-test-'));
     try {
       const sourceDirectory = join(directory, 'source');
+      const staleDirectory = join(directory, 'stale');
       const destinationDirectory = join(directory, 'destination');
       mkdirSync(sourceDirectory);
+      mkdirSync(staleDirectory);
       mkdirSync(destinationDirectory);
+      const staleVale = join(staleDirectory, 'vale');
+      writeFileSync(staleVale, '#!/usr/bin/env sh\necho "vale version 0.0.0"\n');
+      chmodSync(staleVale, 0o755);
       const fakeVale = join(sourceDirectory, 'vale');
       writeFileSync(fakeVale, '#!/usr/bin/env sh\necho "vale version 3.18.0"\n');
       chmodSync(fakeVale, 0o755);
@@ -48,7 +53,7 @@ describe('Vale provisioning', () => {
           ENSURE_VALE_SHA256: checksum,
           ENSURE_VALE_SYSTEM: 'Linux',
           GITHUB_ACTIONS: 'true',
-          PATH: '/usr/bin:/bin',
+          PATH: `${staleDirectory}:/usr/bin:/bin`,
         },
       });
 
@@ -82,8 +87,20 @@ describe.skipIf(!valeAvailable)('Vale prose lint', () => {
     const files = result.stdout.trim().split('\n');
     expect(files).toContain('README.md');
     expect(files).toContain('src/content/blog/perfect-score-wrong-axis.md');
-    expect(files).not.toContain('docs/agents/shared-operating-rules.md');
-    expect(files).not.toContain('scripts/gh-projects/examples/mux-video-integration/README.md');
+    for (const propagated of [
+      '.github/ISSUE_TEMPLATE/bug_report.md',
+      '.github/pull_request_template.md',
+      'docs/agents/code-review-requirements.md',
+      'docs/agents/decision-records.md',
+      'docs/agents/prose-line-wrapping.md',
+      'docs/agents/shared-operating-rules.md',
+      'docs/agents/worktree-placement.md',
+      'scripts/ci/README.md',
+      'scripts/gh-projects/README.md',
+      'scripts/phase-4b/README.md',
+    ]) {
+      expect(files).not.toContain(propagated);
+    }
     expect(files).not.toContain('tests/fixtures/vale-em-dash/behavior.md');
   });
 
@@ -311,8 +328,13 @@ describe.skipIf(!valeAvailable)('Vale prose lint', () => {
     const alerts = JSON.parse(result.stdout)[fixture].filter(
       (alert) => alert.Check === 'CMOS.EmDash',
     );
-    expect(alerts).toHaveLength(1);
-    expect(alerts[0]).toMatchObject({ Line: 4, Origin: 'frontmatter' });
+    expect(alerts).toHaveLength(2);
+    expect(alerts).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ Line: 2, Origin: 'frontmatter' }),
+        expect.objectContaining({ Line: 4, Origin: 'frontmatter' }),
+      ]),
+    );
   });
 
   it('rejects autofix flags and leaves the source unchanged', () => {
