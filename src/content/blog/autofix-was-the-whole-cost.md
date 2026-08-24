@@ -25,27 +25,6 @@ pullquotes:
     label: "The honest number"
     accent: blue
 sidebar:
-  - type: mermaid
-    title: "Where the cost actually sat"
-    description: "Recognizing the forbidden pattern was trivial. Deciding what counts as prose was legitimately hard. Automatically fixing violations required proving each edit was safe—17% of the implementation and tests combined, and nearly all of the work that would not converge."
-    content: |
-      graph TD
-          A["Requirement:<br/>no space beside an em dash"] --> B["Detect it<br/>~1 line"]
-          A --> C["Know what counts as prose<br/>legitimately hard"]
-          A --> D["Fix it automatically<br/>never requested, never questioned"]
-          D --> E["Prove every edit is safe"]
-          E --> F["17% of the lines<br/>57 findings across 24 rounds"]
-          D --> G["Cut this one capability"]
-          G --> H["Loop ended<br/>in a single commit"]
-          style A fill:#d4a84b,stroke:#a07830,color:#333
-          style B fill:#b8ddb8,stroke:#4a8a4d,color:#333
-          style C fill:#d4a84b,stroke:#a07830,color:#333
-          style D fill:#e8b4b4,stroke:#993d3d,color:#333
-          style E fill:#993d3d,stroke:#7a3030,color:#fff
-          style F fill:#993d3d,stroke:#7a3030,color:#fff
-          style G fill:#b8ddb8,stroke:#4a8a4d,color:#333
-          style H fill:#7bc67e,stroke:#4a8a4d,color:#333
-    caption: "Three capabilities arrived as one requirement. Only the third was optional, and it was the one the project could not finish."
   - type: text
     content: |
       A note on counting tokens. The figures in this post come from three separate systems—a review ledger, Codex CLI session counters, and Claude Code session telemetry—and they are not directly comparable. Cached input reads dominate raw totals: one session here processed 848 million tokens including cache reads, against 1.78 million of output. Cached reads are discounted, but the discount varies by provider and plan, so a raw "tokens processed" total is a poor proxy for either effort or spend. Output and fresh input track the real work more closely, which is why those are the numbers quoted above.
@@ -81,6 +60,27 @@ Written out, "enforce this style rule" meant:
 Here is the part I got wrong when I first wrote this up, and it is worth correcting in public because the wrong version is the more flattering story. I claimed auto-fix had produced *most of the code*. It had not. Measured against the commit that removed it, the linter and its test suite fell from 2,917 lines to 2,417—a net reduction of **500 lines, or 17% of the implementation and tests combined**. Taken separately it is 12.6% of the linter and 23.7% of the tests.
 
 What it produced instead was most of the *trust burden*, and nearly all of the work that would not converge. Those are different claims, and the second is both true and more interesting: a capability can be a modest share of a codebase and still be the reason the project cannot finish.
+
+```mermaid title="Where the cost actually sat" description="Detecting the style violation was trivial. Deciding what counts as prose was legitimately hard. Automatically fixing violations required proving each edit was safe—17% of the implementation and tests combined, and nearly all of the work that would not converge."
+graph TD
+    A["Requirement:<br/>no space beside an em dash"] --> B["Detect it<br/>~1 line"]
+    A --> C["Know what counts as prose<br/>legitimately hard"]
+    A --> D["Fix it automatically<br/>never requested, never questioned"]
+    D --> E["Prove every edit is safe"]
+    E --> F["17% of the lines<br/>57 findings across 24 rounds"]
+    D --> G["Cut this one capability"]
+    G --> H["Loop ended<br/>in a single commit"]
+    style A fill:#d4a84b,stroke:#a07830,color:#333
+    style B fill:#b8ddb8,stroke:#4a8a4d,color:#333
+    style C fill:#d4a84b,stroke:#a07830,color:#333
+    style D fill:#e8b4b4,stroke:#993d3d,color:#333
+    style E fill:#993d3d,stroke:#7a3030,color:#fff
+    style F fill:#993d3d,stroke:#7a3030,color:#fff
+    style G fill:#b8ddb8,stroke:#4a8a4d,color:#333
+    style H fill:#7bc67e,stroke:#4a8a4d,color:#333
+```
+
+The rule was never the hard part. The bespoke path paid for a rewrite it eventually deleted; the replacement pays for one specific extraction gap.
 
 ## Why "Just Fix It Automatically" Was the Expensive Part
 
