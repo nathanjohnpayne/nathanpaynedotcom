@@ -5,10 +5,9 @@ import BlogPost from '../../layouts/BlogPost.astro';
 import { estimateReadingMinutes } from '../../lib/reading-time';
 
 export async function getStaticPaths() {
-  // Same sort as /blog/ — newest first, by date (#622). Date order is the
-  // ordering the reader already saw on the index, so prev/next matches the
-  // list they arrived from. An editorial ordering does not exist in the
-  // collection yet; when it does, this is the single place to change.
+  // Prev/next stays newest first by date (#622, #627). The blog index now has
+  // an editorial order, but narrative navigation is a separate concern and
+  // deliberately remains chronological.
   const posts = (await getCollection('blog', ({ data }) => !data.draft)).sort(
     (a, b) => b.data.date.getTime() - a.data.date.getTime(),
   );

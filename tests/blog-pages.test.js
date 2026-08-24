@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { readFileSync } from 'fs';
 import { resolve } from 'path';
+import { EXPECTED_BLOG_EDITORIAL_ORDER } from './helpers/blog-editorial-order.js';
 import { writeSanitizedDOM } from './helpers/dom.js';
 
 const homepageHtml = readFileSync(resolve(__dirname, '../dist/index.html'), 'utf-8');
@@ -111,18 +112,43 @@ describe('Blog Pages', () => {
     expect(collectionPage.mainEntity['@id']).toBe('https://nathanpayne.com/blog/#itemlist');
     expect(itemList).toBeDefined();
     expect(itemList.itemListElement.length).toBeGreaterThan(0);
+    expect(itemList.itemListElement.map((entry) => entry.item.url)).toEqual(
+      EXPECTED_BLOG_EDITORIAL_ORDER.map((slug) => `https://nathanpayne.com/blog/${slug}/`),
+    );
     expect(itemList.itemListElement[0]).toMatchObject({
       '@type': 'ListItem',
       position: 1,
       item: {
         '@type': 'BlogPosting',
-        '@id': 'https://nathanpayne.com/blog/perfect-score-wrong-axis/',
-        url: 'https://nathanpayne.com/blog/perfect-score-wrong-axis/',
-        name: 'A Perfect Score on the Wrong Axis: 116 Review Findings, Zero Rejected, One Escape',
-        datePublished: '2026-07-30T00:00:00.000Z',
+        '@id': 'https://nathanpayne.com/blog/six-prs-one-bug-agent-failure-modes/',
+        url: 'https://nathanpayne.com/blog/six-prs-one-bug-agent-failure-modes/',
+        name: 'Six PRs, One Bug: What AI Agents Actually Get Wrong',
+        datePublished: '2026-04-04T00:00:00.000Z',
       },
     });
     expect(itemList.itemListElement[0].item.description.length).toBeLessThanOrEqual(160);
+  });
+
+  it('renders category shelves and the featured label in editorial order', () => {
+    setupDOM(blogIndexHtml);
+
+    const cards = [...document.querySelectorAll('.post-card')];
+    const slugs = cards.map((card) =>
+      card.querySelector('.post-title a')?.getAttribute('href')?.split('/').filter(Boolean).at(-1),
+    );
+    const categories = cards.map((card) => card.querySelector('.post-meta')?.textContent.trim());
+    const featureLabel = document.querySelector('.index-feature-cell__label');
+
+    expect(slugs).toEqual(EXPECTED_BLOG_EDITORIAL_ORDER);
+    expect(categories).toEqual([
+      'Agent Systems',
+      'Agent Systems',
+      'Agent Systems',
+      'Agent Systems',
+      'Building This Site',
+      'Building This Site',
+    ]);
+    expect(featureLabel?.textContent.trim()).toBe('Featured');
   });
 
   it('hosting deploys from dist/ so markdown source is excluded', () => {

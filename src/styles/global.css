@@ -1431,7 +1431,7 @@ a:focus-visible .link-arrow,
 .panel--black .panel-label__v {
   /* Bottom-anchored, reads bottom-to-top to match the
      .index-feature-cell__label
-     "Latest" pattern on the blog index. */
+     "Featured" pattern on the blog index. */
   left: clamp(0.6rem, 1.4vw, 1.2rem);
   bottom: clamp(0.8rem, 1.6vw, 1.4rem);
   writing-mode: vertical-rl;

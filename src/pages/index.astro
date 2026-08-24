@@ -1,25 +1,28 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro';
 import { getCollection, getEntry, render } from 'astro:content';
+import { compareBlogPosts } from '../lib/blog-order';
 
-// Published blog posts, newest first. Single source for both the About-panel
-// Writing list and the Latest Post callout — the hand-typed <ul> this replaces
-// had drifted two posts behind the collection twice (#619).
-const publishedPosts = (await getCollection('blog', ({ data }) => !data.draft))
-  .sort((a, b) => b.data.date.getTime() - a.data.date.getTime());
+// One published collection feeds two deliberately different surfaces (#627):
+// the Writing list is editorial, while Latest Post remains chronological.
+const publishedPosts = await getCollection('blog', ({ data }) => !data.draft);
+const chronologicalPosts = [...publishedPosts].sort(
+  (a, b) => b.data.date.getTime() - a.data.date.getTime(),
+);
+const editorialPosts = [...publishedPosts].sort(compareBlogPosts);
 
-const latestPost = publishedPosts[0];
+const latestPost = chronologicalPosts[0];
 
 // The Mondrian About panel has finite room, so the list is capped and the
-// "View all writing" link carries the remainder. Ordering is chronological:
-// editorial ordering would need a frontmatter field to avoid re-introducing
-// exactly the array-literal drift this issue is about (see #619 notes).
+// "View all writing" link carries the remainder. Category + featured
+// frontmatter keep this curated sequence in the collection rather than a
+// hand-maintained array literal.
 const WRITING_LIST_LIMIT = 5;
 
 // Plain title text. The per-link trailing arrow (and the .no-break span that
 // bound it to the final word) came off in #659: the arrow now marks only the
 // two navigational exits out of the panel, so a title is just a title.
-const writingLinks = publishedPosts.slice(0, WRITING_LIST_LIMIT).map((post) => ({
+const writingLinks = editorialPosts.slice(0, WRITING_LIST_LIMIT).map((post) => ({
   href: `/blog/${post.id}/`,
   title: post.data.title,
 }));

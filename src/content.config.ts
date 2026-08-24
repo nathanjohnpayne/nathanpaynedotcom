@@ -1,5 +1,6 @@
 import { defineCollection, z } from 'astro:content';
 import { glob } from 'astro/loaders';
+import { BLOG_CATEGORIES } from './lib/blog-order';
 
 const projects = defineCollection({
   loader: glob({ pattern: '**/*.md', base: './src/content/projects' }),
@@ -60,6 +61,8 @@ const blog = defineCollection({
     shortTitle: z.string().optional(),
     description: z.string(),
     seoDescription: z.string().optional(),
+    category: z.enum(BLOG_CATEGORIES),
+    featured: z.boolean().default(false),
     author: z.string().default('Nathan Payne'),
     date: z.coerce.date(),
     tags: z.array(z.string()),

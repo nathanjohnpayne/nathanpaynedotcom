@@ -156,7 +156,7 @@ Static assets (favicons, robots.txt, OG fonts) live in `public/` and are copied 
 ### Markdown / Content Collections
 
 - Blog posts use Astro Content Collections with a Zod schema defined in `src/content.config.ts`.
-- Blog frontmatter includes: `title`, `seoTitle` (optional), `shortTitle` (optional), `description`, `seoDescription` (optional), `author`, `date`, `tags`, `image`, `draft`, `pullquotes`, `sidebar`.
+- Blog frontmatter includes: `title`, `seoTitle` (optional), `shortTitle` (optional), `description`, `seoDescription` (optional), `category` (required enum), `featured` (defaults to `false`), `author`, `date`, `tags`, `image`, `draft`, `pullquotes`, `sidebar`.
 - Project frontmatter includes optional `seoDescription`; use it when a project card/hero description is intentionally longer than a search snippet should be.
 - Project posts choose a semantic `accent` token (`red`, `yellow`, `black`, `blue`, `lightblue`, `paper`). Do not add raw project palette hex fields such as `accentColor`, `gradientFrom`, or `gradientTo`; CSS derives those colors from `data-accent`.
 - The custom Remark plugin converts supported blog ` ```mermaid ` code blocks to intermediate `<pre class="mermaid">` elements and rejects them outside `src/content/blog/*.md`. The build-time Playwright integration replaces every intermediate block with static inline SVG before deployment; Mermaid does not run in production visitors' browsers. `BlogPost.astro` uses the pinned local dependency as a development-only renderer so HMR previews show diagrams rather than raw DSL.

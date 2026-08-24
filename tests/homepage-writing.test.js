@@ -2,10 +2,11 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { existsSync, readFileSync, readdirSync } from 'fs';
 import { resolve } from 'path';
 import { parseFrontmatter } from '../scripts/lib/parse-frontmatter.mjs';
+import { EXPECTED_BLOG_EDITORIAL_ORDER } from './helpers/blog-editorial-order.js';
 import { writeSanitizedDOM } from './helpers/dom.js';
 
 // Guards the homepage Writing block against the drift reported in #523. The
-// block is generated from the blog collection — the newest published posts,
+// block is generated from the blog collection — the editorially ordered posts,
 // capped at WRITING_LIST_LIMIT (#619) — so:
 //   1. it must NOT assert a hardcoded post count that can fall behind the blog
 //      collection (the old copy said "Three pieces" while five were published);
@@ -28,8 +29,11 @@ const publishedPosts = readdirSync(CONTENT_DIR)
     slug: name.replace(/\.md$/, ''),
     data: parseFrontmatter(readFileSync(resolve(CONTENT_DIR, name), 'utf-8')) ?? {},
   }))
-  .filter((post) => post.data.draft !== true)
-  .sort((a, b) => new Date(b.data.date).getTime() - new Date(a.data.date).getTime());
+  .filter((post) => post.data.draft !== 'true');
+
+const editorialPosts = EXPECTED_BLOG_EDITORIAL_ORDER.map((slug) =>
+  publishedPosts.find((post) => post.slug === slug),
+);
 
 /** Post links only — the trailing "View all writing" link is not a post. */
 function postLinks() {
@@ -77,8 +81,8 @@ describe('homepage Writing block (#523)', () => {
   // The block used to be a hand-typed <ul> that fell two posts behind the
   // collection. These assert it is generated from the collection instead.
 
-  it('lists the published posts up to the cap, newest first', () => {
-    const expected = publishedPosts.slice(0, WRITING_LIST_LIMIT);
+  it('lists the published posts up to the cap in editorial order', () => {
+    const expected = editorialPosts.slice(0, WRITING_LIST_LIMIT);
     const hrefs = postLinks().map((a) => a.getAttribute('href'));
 
     expect(hrefs).toHaveLength(Math.min(publishedPosts.length, WRITING_LIST_LIMIT));
@@ -102,12 +106,22 @@ describe('homepage Writing block (#523)', () => {
   });
 
   it('uses the canonical post title as the link text', () => {
-    const expected = publishedPosts.slice(0, WRITING_LIST_LIMIT);
+    const expected = editorialPosts.slice(0, WRITING_LIST_LIMIT);
     const texts = postLinks().map((a) =>
       a.textContent.replace(/→/g, '').replace(/\s+/g, ' ').trim(),
     );
 
     expect(texts).toEqual(expected.map((post) => post.data.title));
+  });
+
+  it('keeps Latest Post chronological rather than featured', () => {
+    const latest = [...publishedPosts].sort(
+      (a, b) => new Date(b.data.date).getTime() - new Date(a.data.date).getTime(),
+    )[0];
+    const link = document.querySelector('.blog-callout-link');
+
+    expect(link?.getAttribute('href')).toBe(`/blog/${latest.slug}/`);
+    expect(link?.getAttribute('href')).toBe('/blog/perfect-score-wrong-axis/');
   });
 
   it('closes the list with a "View all writing" link to /blog/', () => {
