@@ -1,31 +1,20 @@
-const indexGridGeometry = [
-  'grid-row--1',
-  'grid-row--2',
-  'grid-row--3',
-  'grid-row--4',
-  'grid-row--overflow-a',
-  'grid-row--overflow-b',
-] as const;
-
-const openingAccentCycle = [
-  ['accent-red', 'accent-paper'],
-  ['accent-blue'],
-  ['accent-black'],
-  ['accent-yellow', 'accent-paper'],
-  ['accent-lightblue'],
-  ['accent-red'],
+const openingRows = [
+  { rowClass: 'grid-row--1', accentClasses: ['accent-red', 'accent-paper'] },
+  { rowClass: 'grid-row--2', accentClasses: ['accent-blue'] },
+  { rowClass: 'grid-row--3', accentClasses: ['accent-black'] },
+  { rowClass: 'grid-row--4', accentClasses: ['accent-yellow', 'accent-paper'] },
+  { rowClass: 'grid-row--overflow-a', accentClasses: ['accent-lightblue'] },
+  { rowClass: 'grid-row--overflow-b', accentClasses: ['accent-red'] },
 ] as const;
 
 const repeatedCycleOpeningAccents = ['accent-yellow', 'accent-paper'] as const;
 
 export function getIndexGridRow(index: number) {
-  const cyclePosition = index % indexGridGeometry.length;
+  const cyclePosition = index % openingRows.length;
   const startsLaterCycle = index > 0 && cyclePosition === 0;
+  const openingRow = openingRows[cyclePosition];
 
-  return {
-    rowClass: indexGridGeometry[cyclePosition],
-    accentClasses: startsLaterCycle
-      ? repeatedCycleOpeningAccents
-      : openingAccentCycle[cyclePosition],
-  };
+  return startsLaterCycle
+    ? { ...openingRow, accentClasses: repeatedCycleOpeningAccents }
+    : openingRow;
 }
