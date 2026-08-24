@@ -1,14 +1,14 @@
-# scripts/gh-projects — multi-phase GitHub Project driver kit
+# scripts/gh-projects—multi-phase GitHub Project driver kit
 
 Reusable helpers for tracking larger, multi-phase initiatives in [GitHub Projects v2](https://docs.github.com/en/issues/planning-and-tracking-with-projects). Each phase gets a parent issue with native [sub-issue](https://docs.github.com/en/issues/tracking-your-work-with-issues/about-sub-issues) links to the child tasks that make it up, and every issue is added to a Project board whose swimlanes are advanced as work moves.
 
-The MUX Video Integration initiative ([Project #5](https://github.com/users/nathanjohnpayne/projects/5)) is the reference implementation — see [`examples/mux-video-integration/`](./examples/mux-video-integration/).
+The MUX Video Integration initiative ([Project #5](https://github.com/users/nathanjohnpayne/projects/5)) is the reference implementation—see [`examples/mux-video-integration/`](./examples/mux-video-integration/).
 
 ## What this gives you
 
-- **`lib.sh`** — a sourceable library of functions: `create_parent`, `create_child`, `link_sub_issue`, `add_to_project`, `set_project_readme`, `ensure_label`, `prep_body` (placeholder substitution). Source it from a short per-initiative driver script.
-- **`move-item.sh`** — a standalone CLI that moves one issue to a named Status swimlane by discovering the project's field/option IDs at runtime. Works against any Project v2 with a `Status` single-select field.
-- **`examples/mux-video-integration/`** — a complete worked example: the driver script, body-file templates, and the output that produced issues #210–#230.
+- **`lib.sh`**—a sourceable library of functions: `create_parent`, `create_child`, `link_sub_issue`, `add_to_project`, `set_project_readme`, `ensure_label`, `prep_body` (placeholder substitution). Source it from a short per-initiative driver script.
+- **`move-item.sh`**—a standalone CLI that moves one issue to a named Status swimlane by discovering the project's field/option IDs at runtime. Works against any Project v2 with a `Status` single-select field.
+- **`examples/mux-video-integration/`**—a complete worked example: the driver script, body-file templates, and the output that produced issues #210–#230.
 
 ## Prerequisites
 
@@ -27,7 +27,7 @@ export GH_TOKEN="$OP_PREFLIGHT_AUTHOR_PAT"
 
 For every initiative you want to track:
 
-1. **Create the Project v2 board** in the GitHub UI. Note its owner + number (e.g. `nathanjohnpayne / 5`). Ensure it has a `Status` single-select field — the default template does.
+1. **Create the Project v2 board** in the GitHub UI. Note its owner + number (e.g. `nathanjohnpayne / 5`). Ensure it has a `Status` single-select field—the default template does.
 2. **Write the plan** somewhere durable (e.g. `~/.claude/plans/<name>.md`). This becomes the Project README.
 3. **Draft parent + child issue bodies** as Markdown files, using placeholders (`__PARENT_NUM__`, `__C1_NUM__`, etc.) for cross-references.
 4. **Write a one-shot driver script** that sources `lib.sh` and creates everything. See [`examples/mux-video-integration/create-issues.sh`](./examples/mux-video-integration/create-issues.sh).
@@ -70,7 +70,7 @@ PROJECT=5 OWNER=nathanjohnpayne REPO=nathanjohnpayne/nathanpaynedotcom \
   scripts/gh-projects/move-item.sh 211 "In Progress"
 ```
 
-Valid status names are whatever options the Project's `Status` field has — typically `Todo`, `In Progress`, `In Review`, `Human`, `Done`.
+Valid status names are whatever options the Project's `Status` field has—typically `Todo`, `In Progress`, `In Review`, `Human`, `Done`.
 
 ### Set the Project README
 
@@ -85,7 +85,7 @@ set_project_readme "$HOME/.claude/plans/my-initiative.md"
 ```
 
 (Use `"$HOME/..."` or `"~/path/..."` with double quotes around any path argument
-so a directory name with spaces — e.g. `~/My Plans/...` — survives word-splitting.)
+so a directory name with spaces—e.g. `~/My Plans/...`—survives word-splitting.)
 
 ## Placeholder conventions in body files
 
@@ -94,7 +94,7 @@ so a directory name with spaces — e.g. `~/My Plans/...` — survives word-spli
 | Token | Meaning |
 |---|---|
 | `__PARENT_NUM__` | The parent issue number (always available once the parent is created). |
-| `__C1_NUM__` … `__C4_NUM__` | A sibling child's issue number — useful when one child needs to reference another (e.g. "Verify the PR from sub-issue #\_\_C3\_NUM\_\_"). |
+| `__C1_NUM__` … `__C4_NUM__` | A sibling child's issue number—useful when one child needs to reference another (e.g. "Verify the PR from sub-issue #\_\_C3\_NUM\_\_"). |
 
 Create children in dependency order: if child C2's body references C1, create C1 first, capture its number, then `prep_body C2.md $PARENT_NUM $C1_NUM`.
 
@@ -121,7 +121,7 @@ Note the `sub_issue_id` is the **integer database ID** of the child (from `gh ap
 
 ## Worked example
 
-See [`examples/mux-video-integration/`](./examples/mux-video-integration/) for the exact files used to create issues #210–#230. The driver is rerunnable against a fresh project — delete existing issues first or re-point `PROJECT` to a new board.
+See [`examples/mux-video-integration/`](./examples/mux-video-integration/) for the exact files used to create issues #210–#230. The driver is rerunnable against a fresh project—delete existing issues first or re-point `PROJECT` to a new board.
 
 ## Two driver lifecycle patterns
 
@@ -131,7 +131,7 @@ Two driver shapes cover the full per-initiative lifecycle. Both use this same `l
 
 One-shot, non-idempotent script that builds the initial issue tree from scratch. Creates labels, parent issues, child issues in dependency order, links children as native sub-issues, and adds everything to the Project board. Use when a new initiative kicks off.
 
-The MUX example above is a fresh-create driver. After it runs, the issue tree exists and the kit's job is mostly done — subsequent work is moving items between swimlanes via `move-item.sh` and (occasionally) refining the plan.
+The MUX example above is a fresh-create driver. After it runs, the issue tree exists and the kit's job is mostly done—subsequent work is moving items between swimlanes via `move-item.sh` and (occasionally) refining the plan.
 
 ### Additions driver (`examples/<initiative>/additions/add-*.sh`)
 
@@ -141,7 +141,7 @@ Companion one-shot, non-idempotent driver that adds new children to **existing**
 - A phase scope expands mid-flight
 - A mid-phase discovery needs its own ticket
 
-Same `lib.sh` helpers — no library changes. The driver fetches existing parent numbers (or accepts them as args), prep_body's sibling references, calls `create_child` + `link_sub_issue` for each new child, then adds to the Project. The reference implementation lives in nathanpaynedotcom on `main`: [`scripts/gh-projects/examples/matchline/additions/add-plan-refinements.sh`](https://github.com/nathanjohnpayne/nathanpaynedotcom/blob/main/scripts/gh-projects/examples/matchline/additions/add-plan-refinements.sh), promoted in [nathanpaynedotcom#263](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/263).
+Same `lib.sh` helpers—no library changes. The driver fetches existing parent numbers (or accepts them as args), prep_body's sibling references, calls `create_child` + `link_sub_issue` for each new child, then adds to the Project. The reference implementation lives in nathanpaynedotcom on `main`: [`scripts/gh-projects/examples/matchline/additions/add-plan-refinements.sh`](https://github.com/nathanjohnpayne/nathanpaynedotcom/blob/main/scripts/gh-projects/examples/matchline/additions/add-plan-refinements.sh), promoted in [nathanpaynedotcom#263](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/263).
 
 ### Picking which to write
 
@@ -149,8 +149,8 @@ Same `lib.sh` helpers — no library changes. The driver fetches existing parent
 |---|---|
 | New initiative, no issues yet | Fresh-create |
 | Existing initiative, expanding scope | Additions |
-| Existing initiative, refining a single existing issue | Just edit the issue directly via `gh issue edit` — no driver needed |
+| Existing initiative, refining a single existing issue | Just edit the issue directly via `gh issue edit`—no driver needed |
 
 ## Idempotency caveat
 
-Neither driver shape is currently idempotent. Re-running a fresh-create driver against a project that already has the issues will create duplicates. The scope-creep solution would be a `create_child_once` helper that skips when a child with the same title already exists under the same parent — file as a follow-up if you find yourself wanting to safely re-run an additions driver.
+Neither driver shape is currently idempotent. Re-running a fresh-create driver against a project that already has the issues will create duplicates. The scope-creep solution would be a `create_child_once` helper that skips when a child with the same title already exists under the same parent—file as a follow-up if you find yourself wanting to safely re-run an additions driver.

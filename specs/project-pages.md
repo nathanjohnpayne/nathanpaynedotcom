@@ -55,7 +55,7 @@ draft: false
 | `slug` | string | yes | URL path segment; must match filename |
 | `description` | string | yes | Hero deck text, meta description, JSON-LD |
 | `kicker` | string | yes | Source for the metadata table's `Topics` column (e.g., "AI × Finance × Theater" → renders as `AI · Finance · Theater`). Field name kept for frontmatter back-compat |
-| `order` | number | yes | Position on the `/projects/` index grid (lower = first). Governs `/projects/` **only** — the homepage Builds grid is hand-authored markup and ignores this field. See § Canonical project ordering |
+| `order` | number | yes | Position on the `/projects/` index grid (lower = first). Governs `/projects/` **only**—the homepage Builds grid is hand-authored markup and ignores this field. See § Canonical project ordering |
 | `screenshotAspect` | `"wide"` \| `"narrow"` | yes | Layout variant—see below |
 | `screenshotSrc` | string | yes | Path to hero image in `public/` |
 | `accent` | enum | yes | Semantic accent token for the project. One of `red`, `yellow`, `black`, `blue`, `lightblue`, `paper`. CSS derives the actual palette values, text-safe color, page wash, and metadata gradient from this token |
@@ -101,7 +101,7 @@ status, and not by recency. Owner-confirmed 2026-08-20:
 
 | # | Project | Why it sits here |
 |---|---------|------------------|
-| 0 | Five Across | Shipped, live, consumer — the strongest story, so it leads |
+| 0 | Five Across | Shipped, live, consumer—the strongest story, so it leads |
 | 1 | Mergepath | The AI-governance signature; underpins every other project |
 | 2 | Override | Production platform with real external users |
 | 3 | Device Source of Truth | Archived but demoable; the platform/device domain proof |
@@ -120,7 +120,7 @@ instruction from the owner.
 
 ### It lives in two places, and only one of them is enforced
 
-`order` drives `/projects/` — `src/pages/projects/index.astro` sorts the
+`order` drives `/projects/`—`src/pages/projects/index.astro` sorts the
 collection by it. The **homepage Builds grid does not read the collection at
 all**: `src/pages/index.astro` calls `getCollection` only for `blog`, and the
 project list is hand-authored anchors. Editing `order` alone changes `/projects/`
@@ -184,7 +184,7 @@ Any project can render a vertical Mux video in the hero instead of a static scre
 - **Analytics**: pages with a Mux hero load `mux-embed` before registering `<mux-background-video>`. Mux Data monitoring is automatic for the background video and infers the env key from the `stream.mux.com` URL; no `PUBLIC_MUX_ENV_KEY` is read by this site.
 - **Fallback**: the existing `screenshotSrc` image renders in `<noscript>` and is also the autoplay-failure fallback. On JavaScript-enabled pages, the Mux thumbnail renders inside `<mux-background-video>` as the pre-upgrade poster; if the custom element fails to register, the media errors, or the shadow `<video>` does not make real playback progress within the autoplay window, the component lazy-loads the `screenshotSrc` GIF, fades the stalled video out, and reveals a compact manual play button.
 - **Bundle cost**: the Mux custom element is registered only when a page contains a `<mux-background-video>` element. Projects without `muxPlaybackId` do not load `mux-embed` or the background-video package at runtime.
-- **Reduced motion (#468)**: when `prefers-reduced-motion: reduce` matches, the hero never autoplays — the video holds on its poster frame with the manual play button visible, and the animated-GIF fallback is suppressed the same way (a looping GIF is the same continuous motion). Both motion paths re-enable only after the user explicitly presses play.
+- **Reduced motion (#468)**: when `prefers-reduced-motion: reduce` matches, the hero never autoplays—the video holds on its poster frame with the manual play button visible, and the animated-GIF fallback is suppressed the same way (a looping GIF is the same continuous motion). Both motion paths re-enable only after the user explicitly presses play.
 
 ### Aspect ratio
 
@@ -270,7 +270,7 @@ Do not add raw hex palette values to project frontmatter. If a project needs a n
 
 - **`src/pages/projects/[slug].astro`**: Dynamic route. Calls `getStaticPaths()` from the projects collection, generates JSON-LD, passes all frontmatter to `ProjectLayout`. Forwards the optional `stack` field through `stack={data.stack}`.
 - **`src/layouts/ProjectLayout.astro`**: Passes the semantic `accent` to `BaseLayout`, which emits `data-accent`. CSS derives `--accent`, text-safe accent color, page wash, and metadata gradient from that attribute. Renders `ProjectHero` with `variant={screenshotAspect}` (#470). Owns the `.metadata-surface` container that wraps `MetadataStrip` and the `<figure class="project-screenshot">`. The figure is rendered here (not in `MetadataStrip`) and contains the `<img>` plus a conditional `<figcaption class="project-stack">` when `stack` is present. The figcaption is a direct child of `<figure>` per HTML5 semantic rules.
-- **`src/components/ProjectHero.astro`**: Hero header for project pages; the `variant: "wide" | "narrow"` prop sets the `.project-hero--{variant}` wrapper class (#470 merged the former HeroWide/HeroNarrow twins — their markup was identical). No screenshot—the screenshot is rendered by `ProjectLayout` below the hero. The hero does not render the `kicker` tag row; that content lives in the `Topics` column of the metadata strip below.
+- **`src/components/ProjectHero.astro`**: Hero header for project pages; the `variant: "wide" | "narrow"` prop sets the `.project-hero--{variant}` wrapper class (#470 merged the former HeroWide/HeroNarrow twins—their markup was identical). No screenshot—the screenshot is rendered by `ProjectLayout` below the hero. The hero does not render the `kicker` tag row; that content lives in the `Topics` column of the metadata strip below.
 - **`src/components/MetadataStrip.astro`**: Strip-only—four `<dt>`/`<dd>` pairs for topics, format, focus, and status (in that visual order). Does not own the screenshot; does not accept `screenshotSrc`/`screenshotAlt`/`screenshotAspect` props. The `topics` value is derived in `ProjectLayout` from the project's `kicker` frontmatter (split on `×` and re-joined with ` · ` to match the metadata table's separator convention). The `status` value is the project's top-level `status` enum, rendered identically on the index card kicker and in the metadata strip—single short-form vocabulary across both surfaces. The strip is always rendered as a single 4-column horizontal row on desktop and collapses responsively (2×2 at ≤768px, 1-column at ≤480px) via `.metadata-strip--grid-4` media queries.
 
 ### Content collection schema

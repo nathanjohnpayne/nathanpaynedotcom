@@ -5,7 +5,7 @@ title: Resume Page
 
 # Resume Page
 
-Specification for the `/resume` route — Nathan Payne's resume rendered as
+Specification for the `/resume` route—Nathan Payne's resume rendered as
 native content from this repo's content collections and small section
 components, laid out in the **blog post reading format**: the Mondrian
 "composition with margins" canvas from `src/layouts/BlogPost.astro` (accent
@@ -20,7 +20,7 @@ the test verifies the structural invariants below against the built
 
 ---
 
-## Data source — content collections
+## Data source—content collections
 
 The page is driven entirely by collections defined inline in
 `src/content.config.ts` using the `glob()` loader (the same Astro 6 API as
@@ -29,9 +29,9 @@ collections are:
 
 | Collection | Dir | Shape | Notes |
 |---|---|---|---|
-| `myself` | `src/content/myself/` | single `.md` entry | Header fields + the summary in the body (a single ~55–75-word paragraph, #617). **No `phone`** — email-only. |
+| `myself` | `src/content/myself/` | single `.md` entry | Header fields + the summary in the body (a single ~55–75-word paragraph, #617). **No `phone`**—email-only. |
 | `skills` | `src/content/skills/` | one `.yaml` per category | `{ label, priority, skills[] }`. Five categories. |
-| `experience` | `src/content/experience/` | one `.md` per role | Six entries. Bullets / paragraph in the body. Optional `compact: true` — see *Experience density* below. |
+| `experience` | `src/content/experience/` | one `.md` per role | Six entries. Bullets / paragraph in the body. Optional `compact: true`—see *Experience density* below. |
 | `education` | `src/content/education/` | one `.md` | One entry (George Mason). |
 | `certifications` | `src/content/certifications/` | one `.md` per cert | Three entries. |
 | `resumeProjects` | `src/content/resume/projects/` | one `.md` per project | Six entries. **Distinct from `projects`** (reserved for `/projects`). |
@@ -46,40 +46,39 @@ The `resumeProjects` collection must remain separate from the existing
   (`format: 'directory'`).
 - The page is a `.resume-canvas` Mondrian grid with these cells:
   - **Left accent margin** (`.resume-canvas-margin--header|body|footer`,
-    `aria-hidden`) — the red / yellow→ink→paper→blue Mondrian stripe.
-  - **Header** (`.resume-canvas-header`) — breadcrumbs (`Nathan Payne /
+    `aria-hidden`)—the red / yellow→ink→paper→blue Mondrian stripe.
+  - **Header** (`.resume-canvas-header`)—breadcrumbs (`Nathan Payne /
     Resume`), the name (`<h1>`), the title, and the **contact line**
     (location · email · website · LinkedIn · GitHub, composed from the
-    `myself` handles, each prefixed by a small decorative icon —
-    `ContactIcon.astro`, brand glyphs + Lucide mail/globe/map-pin/download/
+    `myself` handles, each prefixed by a small decorative icon—`ContactIcon.astro`, brand glyphs + Lucide mail/globe/map-pin/download/
     calendar). **No Bluesky** on the resume (it remains on the homepage). The
     contact stays in the header so it prints. Below the contact block sits the
-    **action row** (`.resume-actions`, screen-only — hidden in `@media print`,
+    **action row** (`.resume-actions`, screen-only—hidden in `@media print`,
     which is also what the PDF is rendered from, so none of it reaches the
     file). Three `.resume-action` affordances, in order: **Download PDF**
-    (`.resume-download`, the build-generated PDF — see *Downloadable PDF*
+    (`.resume-download`, the build-generated PDF—see *Downloadable PDF*
     below), **Get in touch** (`mailto:`), and **Book a time**
-    (`https://cal.com/nathanpayne`, `target="_blank" rel="noopener"`) — #703.
+    (`https://cal.com/nathanpayne`, `target="_blank" rel="noopener"`)—#703.
     Both new links are plain hrefs in the static HTML, deliberately unlike the
     base64-assembled mailto on the homepage and in blog posts: the contact
     line above already ships the address as visible text (a CV contact block
     has to print), so obfuscating a button on the same page would buy nothing
     and would cost the JS-disabled case. Booking carries no address to harvest
     and is spam-hardened on the Cal.com side (#620).
-  - The header `title` is a **single role title** — "Senior Platform Product
-    Manager" — matching the `jobTitle` in the page's `Person` JSON-LD. The
+  - The header `title` is a **single role title**—"Senior Platform Product
+    Manager"—matching the `jobTitle` in the page's `Person` JSON-LD. The
     domain facets it used to carry (partner ecosystems, streaming
     infrastructure, AI-augmented development) live in **Skills**, which
     already names all three. See #617.
-  - **Metadata panel** (`.resume-canvas-meta`, top-right, screen-only) — a
+  - **Metadata panel** (`.resume-canvas-meta`, top-right, screen-only)—a
     `<dl>`: Location, Availability, Focus, and a few Topic pills.
-  - **Content column** (`.resume-canvas-content`) — the section components,
+  - **Content column** (`.resume-canvas-content`)—the section components,
     closed by the **availability CTA** (`.resume-cta`, screen-only) described
     below.
-  - **Sidebar** (`.resume-canvas-sidebar`, sticky, screen-only) — an
+  - **Sidebar** (`.resume-canvas-sidebar`, sticky, screen-only)—an
     "In this resume" in-page ToC (`.resume-canvas-toc-list`) + several
     (≈5) `.resume-highlight` metric cards, accents cycling red/yellow/blue.
-  - **Footer** (`.resume-canvas-footer`) — attribution + nav.
+  - **Footer** (`.resume-canvas-footer`)—attribution + nav.
 - Sections compose in this order: **Summary, Skills, Experience,
   Education, Certifications, Projects, Writing.**
   - `AwardsSection` is a dormant future scaffold. When the first award entry lands, restore its collection schema and add Awards after Writing; until then no empty collection is registered (#654).
@@ -90,7 +89,7 @@ The `resumeProjects` collection must remain separate from the existing
   and a few selected essays.
 - The content column closes with the **availability CTA** (`.resume-cta`,
   #702): a lede ("Open to senior product/platform roles.") followed by two
-  `·`-separated arrow links — **Get in touch** and **Book a time**. A
+  `·`-separated arrow links—**Get in touch** and **Book a time**. A
   `::before` hairline rules it off from the Writing section above on the same
   rhythm as a `.resume-section` divider (2.1rem above the rule, 1.6rem below),
   flush with those dividers at both ends, so the card reads as closing the
@@ -101,7 +100,7 @@ The `resumeProjects` collection must remain separate from the existing
   **minus that block's Résumé link**, since the reader is already on the
   résumé. It is a sibling of the sections, not a section: no `id`, no ToC
   entry, and it is screen-only. The parallel `.resume-cta` namespace is
-  deliberate — see *Styling* below; the resume must not move when the blog
+  deliberate—see *Styling* below; the resume must not move when the blog
   layout does.
 - **Projects** opens with the same compact lead pattern before its entries:
   a bold **Built with Agents** tag, a link to the project index
@@ -112,9 +111,9 @@ The `resumeProjects` collection must remain separate from the existing
 ## Semantics & structure
 
 - One `.resume-canvas` container. On desktop it is a 3-column Mondrian grid;
-  it collapses to a single column at ≤ 1023px (`--bp-stack`) — margin and
+  it collapses to a single column at ≤ 1023px (`--bp-stack`)—margin and
   sidebar hidden; the header (breadcrumbs + name) stays the top tile with the
-  metadata panel stacked beneath it — and prints single-column.
+  metadata panel stacked beneath it—and prints single-column.
 - Each visible `<section>` carries a stable `id` (`summary`, `skills`,
   `experience`, `education`, `certifications`, `projects`, `writing`) so the
   sidebar ToC anchors resolve; `scroll-margin-top` offsets the anchor.
@@ -133,25 +132,25 @@ Vertical space tracks relevance, and **layout controls density, not prose**
 `ExperienceSection` then renders it with the `resume-entry--compact` modifier
 (tighter gaps, a stepped-down title, a 52px rather than 72px logo tile).
 
-The three pre-2016 roles — AJ+ (2013–2016), Current TV (2012–2013), and CNN
-(2002–2012) — are compact, and their bodies are one to two lines each: company,
+The three pre-2016 roles—AJ+ (2013–2016), Current TV (2012–2013), and CNN
+(2002–2012)—are compact, and their bodies are one to two lines each: company,
 role, years, and the most transferable accomplishment. The two Disney entries
 (7 and 4 bullets) and BAMTech keep full weight. Compression is emphasis, never
 erasure: every role keeps its full date range, and the **CNN Magic Wall** stays
-on the page — it is the most memorable line on the résumé.
+on the page—it is the most memorable line on the résumé.
 
 The flag is reversible; flipping it back restores full weight without touching
 the copy.
 
 ## Downloadable PDF
 
-`/resume/` ships a real, letter-size PDF at **`/Nathan-Payne-Resume.pdf`** — a
+`/resume/` ships a real, letter-size PDF at **`/Nathan-Payne-Resume.pdf`**—a
 recruiter-legible filename, for "attach your resume" forms and ATS pipelines
 (#616).
 
 - It is generated **at build time** from the already-built `/resume/` route,
   by `src/integrations/resume-pdf.mjs`, under `page.emulateMedia({ media:
-  'print' })` — so the file is exactly the `@media print` cascade below and
+  'print' })`—so the file is exactly the `@media print` cascade below and
   cannot drift from the page. (A committed static PDF is the drift bug class
   of #163 / #164.)
 - The generator is invoked from `og-images.mjs`'s `astro:build:done` hook
@@ -163,14 +162,14 @@ recruiter-legible filename, for "attach your resume" forms and ATS pipelines
   printToPDF parameters, not from CSS. The paired test asserts the two agree.
 - **Links are absolutized before the file is written (#683).** The render
   happens over a localhost static server, and Chromium resolves the PDF's link
-  annotations against that base — so every root-relative `href` shipped as
+  annotations against that base—so every root-relative `href` shipped as
   `http://127.0.0.1:<ephemeral port>/...`, dead on any reader's machine and
   varying per build. `absolutizeLinks` in the generator rewrites same-origin
   hrefs to the `site` origin from `astro.config.mjs` (passed in from
   `og-images.mjs`, which captures it at `astro:config:done` because
   `astro:build:done` is not given the resolved config). External URLs and
   `mailto:` already carry an origin and are untouched; in-page `#` anchors are
-  skipped so they stay intra-document jumps. `siteUrl` is required — the
+  skipped so they stay intra-document jumps. `siteUrl` is required—the
   generator throws rather than silently falling back to localhost links.
 - Absolutizing interacts with the print sheet's `a[href^='http']::after` URL
   suffix: project **titles** matched that selector for the first time once
@@ -179,7 +178,7 @@ recruiter-legible filename, for "attach your resume" forms and ATS pipelines
   explicitly, alongside the contact line, project links, and the two section
   leads. The printed text is byte-identical before and after #683; only the
   link targets changed.
-- The PDF is an asset, not a route — `@astrojs/sitemap` does not list it.
+- The PDF is an asset, not a route—`@astrojs/sitemap` does not list it.
 - The on-page affordance is `.resume-download` inside `.resume-actions`, placed
   after the header contact block and hidden in `@media print`. Clicking it
   fires a `resume_pdf_downloaded` PostHog capture alongside the existing
@@ -211,11 +210,11 @@ icon-library dependency.
   `/images/logos/csp-po.png` (the official Scrum Alliance certification badge,
   chosen deliberately over the corporate mark Logo.dev would return for
   scrumalliance.org). The Turner Leadership cert resolves via Logo.dev
-  (`website: turner.com`) — no override.
+  (`website: turner.com`)—no override.
 - The logo is **decorative** (the company/school/issuer name is the
   semantic text); each `CompanyLogo` includes an initials fallback element.
 - Displayed as square "Logo.dev-style" cards: a thin `--rule` border, rounded
-  corners, and a light (`--paper`) background. Sized per section — Experience
+  corners, and a light (`--paper`) background. Sized per section—Experience
   company logos ~72px, Education/Certification logos ~56px.
   Square brand marks fill the tile edge-to-edge (corners clipped); a wide
   wordmark (Current TV) is contained and centered with the card showing
@@ -232,7 +231,7 @@ icon-library dependency.
   reuses the full red/yellow/blue Mondrian stripe.
 - Consumes the site tokens (`--ink`, `--cream`/`--surface`, `--paper`,
   `--rule`, `--accent-gray`, `--red`/`--yellow`/`--blue`) and the Cormorant
-  Garamond + Inter pairing — it does not redefine them or import new fonts.
+  Garamond + Inter pairing—it does not redefine them or import new fonts.
 - The content-column section styling stays under the existing `.resume-*`
   classes (sections, entries, skills, certs, writing, `CompanyLogo`).
 - In-content links and the header contact links use the site's `--blue`
@@ -253,8 +252,7 @@ icon-library dependency.
   availability CTA (`.resume-cta`), and the footer are **hidden**; the header
   (with the contact line) and the content column print. Because
   `src/integrations/resume-pdf.mjs` renders under `emulateMedia({ media:
-  'print' })`, every one of those hides applies to the downloadable PDF too —
-  an action button is meaningless on paper, and the printed contact line
+  'print' })`, every one of those hides applies to the downloadable PDF too—an action button is meaningless on paper, and the printed contact line
   already carries the address.
 - The **Writing** section collapses to just its lead line in print (the blog
   CTA linking nathanpayne.com/blog); the blurb, the "Selected essays" label,
@@ -289,10 +287,10 @@ icon-library dependency.
   page 3; decompressing to readable type fills three pages with the same
   content. The body landed at 9.5pt/0.6in rather than the first-pass 10pt/0.7in
   (issue #420 Contingency B) because **Safari, exporting via a physical-printer
-  target, lays out ~11% less content per page than Chromium** — at 10pt/0.7in
+  target, lays out ~11% less content per page than Chromium**—at 10pt/0.7in
   the Writing tail spilled onto a 4th page (and, when saved as 3, was silently
   dropped) in Safari. Safari is the calibration renderer; the Tier-2 print gaps
-  and the body size/leading are the fine-tune dials — nudge tighter if the tail
+  and the body size/leading are the fine-tune dials—nudge tighter if the tail
   spills, looser if page 3 lands thin. See issue #420.
 - The #617 / #618 trims took the print content from ~2.65 to ~2.56 US-Letter
   pages (measured in Chromium print emulation at 7.3in × 9.8in), so the
@@ -302,7 +300,7 @@ icon-library dependency.
 
 ## Content fidelity
 
-The content is authored **verbatim** from the canonical resume — not
+The content is authored **verbatim** from the canonical resume—not
 paraphrased. In particular:
 
 - The CSP-PO certification is attributed to **Scrum Alliance** (the
@@ -331,9 +329,8 @@ paraphrased. In particular:
 8. The header renders a screen-only `.resume-download` link to
    `/Nathan-Payne-Resume.pdf`, that path resolves to a real letter-size PDF in
    `dist/`, and the file is absent from the sitemap.
-8b. `.resume-actions` holds exactly three `.resume-action` affordances —
-    Download PDF, Get in touch (`mailto:`), Book a time (`cal.com/nathanpayne`,
-    `target="_blank" rel="noopener"`) — each carrying a Lucide glyph, and the
+8b. `.resume-actions` holds exactly three `.resume-action` affordances—Download PDF, Get in touch (`mailto:`), Book a time (`cal.com/nathanpayne`,
+    `target="_blank" rel="noopener"`)—each carrying a Lucide glyph, and the
     `download` glyph matches upstream Lucide path data byte for byte.
 8c. `.resume-cta` closes the content column with exactly two links (Get in
     touch, Book a time) and **no** self-link back to `/resume/`.
