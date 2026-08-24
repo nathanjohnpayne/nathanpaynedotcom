@@ -1,8 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import {
-  closeUpSpacedEmDashesInText,
-  findSpacedEmDashViolations,
-} from '../scripts/lint-content-em-dash.mjs';
+import { findSpacedEmDashViolations } from '../scripts/lint-content-em-dash.mjs';
 
 describe('content em-dash lint', () => {
   it('reports spaced em dashes in prose', () => {
@@ -14,27 +11,20 @@ describe('content em-dash lint', () => {
   });
 
   it('allows identifier-label link exceptions', () => {
-    const source = '[DST-047 — Questionnaire Intake & AI Extraction Pipeline](https://example.test/)';
+    const source =
+      '[DST-047 — Questionnaire Intake & AI Extraction Pipeline](https://example.test/)';
 
     expect(findSpacedEmDashViolations('/tmp/test.md', source)).toHaveLength(0);
   });
 
   it('skips fenced code blocks', () => {
-    const source = [
-      '```',
-      'spaced — em dash inside code',
-      '```',
-    ].join('\n');
+    const source = ['```', 'spaced — em dash inside code', '```'].join('\n');
 
     expect(findSpacedEmDashViolations('/tmp/test.md', source)).toHaveLength(0);
   });
 
   it('skips tildes code blocks and matching-length rules', () => {
-    const source = [
-      '~~~~',
-      'spaced — em dash inside code',
-      '~~~~',
-    ].join('\n');
+    const source = ['~~~~', 'spaced — em dash inside code', '~~~~'].join('\n');
 
     expect(findSpacedEmDashViolations('/tmp/test.md', source)).toHaveLength(0);
   });
@@ -43,9 +33,6 @@ describe('content em-dash lint', () => {
     const source = '`inline code — keeps spaced dashes` and prose — gets fixed.';
 
     expect(findSpacedEmDashViolations('/tmp/test.md', source)).toHaveLength(1);
-    expect(closeUpSpacedEmDashesInText(source)).toBe(
-      '`inline code — keeps spaced dashes` and prose—gets fixed.',
-    );
   });
 
   it('preserves multiple identifier-label exceptions on one line', () => {
@@ -55,9 +42,6 @@ describe('content em-dash lint', () => {
     ].join('\n');
 
     expect(findSpacedEmDashViolations('/tmp/test.md', source)).toHaveLength(1);
-    expect(closeUpSpacedEmDashesInText(source)).toBe(
-      '[DST-047 — Questionnaire Intake](/tmp/whatever.md) [DST-048 — Prompt Safety](/tmp/whatever-2.md)\ntext with spaced—issue.',
-    );
   });
 
   it('only exempts the ID-title separator and not additional em dashes in labels', () => {
@@ -67,11 +51,7 @@ describe('content em-dash lint', () => {
   });
 
   it('does not treat mixed-marker fence runs as code fences', () => {
-    const source = [
-      '```~```',
-      'spaced — in malformed code fence line',
-      '```~```',
-    ].join('\n');
+    const source = ['```~```', 'spaced — in malformed code fence line', '```~```'].join('\n');
 
     expect(findSpacedEmDashViolations('/tmp/test.md', source)).toHaveLength(1);
   });
@@ -80,14 +60,10 @@ describe('content em-dash lint', () => {
     const source = '`unfinished code — still prose';
 
     expect(findSpacedEmDashViolations('/tmp/test.md', source)).toHaveLength(1);
-    expect(closeUpSpacedEmDashesInText(source)).toBe('`unfinished code—still prose');
   });
 
   it('does not open a backtick fence whose info string contains a backtick', () => {
-    const source = [
-      '``` js `inline` ```',
-      'spaced — after a line that is not a fence',
-    ].join('\n');
+    const source = ['``` js `inline` ```', 'spaced — after a line that is not a fence'].join('\n');
 
     expect(findSpacedEmDashViolations('/tmp/test.md', source)).toHaveLength(1);
   });
@@ -108,7 +84,6 @@ describe('content em-dash lint', () => {
     const source = 'a sentence  —  with wide padding.';
 
     expect(findSpacedEmDashViolations('/tmp/test.md', source)).toHaveLength(1);
-    expect(closeUpSpacedEmDashesInText(source)).toBe('a sentence—with wide padding.');
   });
 
   it('fixes prose-only spacing while preserving ID-title exceptions', () => {
@@ -120,18 +95,15 @@ describe('content em-dash lint', () => {
       '```',
     ].join('\n');
 
-    const fixed = closeUpSpacedEmDashesInText(source);
-    expect(fixed).toBe('A spaced—em dash.\n[DST-047 — Questionnaire Intake](/tmp/whatever.md)\n```\ncode — block\n```');
+    // The prose dash is reported; the ID-title separator and the fenced code
+    // block are not.
+    expect(findSpacedEmDashViolations('/tmp/test.md', source)).toHaveLength(1);
   });
 
   it('treats a 4-space-indented block as code, not prose', () => {
-    const source = [
-      '    spaced — inside an indented code block',
-      '    still code',
-    ].join('\n');
+    const source = ['    spaced — inside an indented code block', '    still code'].join('\n');
 
     expect(findSpacedEmDashViolations('/tmp/test.md', source)).toHaveLength(0);
-    expect(closeUpSpacedEmDashesInText(source)).toBe(source);
   });
 
   it('skips fences nested in a block quote', () => {
@@ -147,22 +119,15 @@ describe('content em-dash lint', () => {
   });
 
   it('skips fences nested in a list item', () => {
-    const source = [
-      '- item',
-      '',
-      '  ```',
-      '  spaced — inside list code',
-      '  ```',
-    ].join('\n');
+    const source = ['- item', '', '  ```', '  spaced — inside list code', '  ```'].join('\n');
 
     expect(findSpacedEmDashViolations('/tmp/test.md', source)).toHaveLength(0);
   });
 
   it('skips code spans that wrap across lines', () => {
-    const source = [
-      'prose with `a span that',
-      'wraps — across lines` and then prose — here.',
-    ].join('\n');
+    const source = ['prose with `a span that', 'wraps — across lines` and then prose — here.'].join(
+      '\n',
+    );
 
     const violations = findSpacedEmDashViolations('/tmp/test.md', source);
     expect(violations).toHaveLength(1);
@@ -170,16 +135,11 @@ describe('content em-dash lint', () => {
   });
 
   it('scans frontmatter prose, which is where most published copy lives', () => {
-    const source = [
-      '---',
-      'title: "A title — with a spaced dash"',
-      '---',
-      '',
-      'Body prose.',
-    ].join('\n');
+    const source = ['---', 'title: "A title — with a spaced dash"', '---', '', 'Body prose.'].join(
+      '\n',
+    );
 
     expect(findSpacedEmDashViolations('/tmp/test.md', source)).toHaveLength(1);
-    expect(closeUpSpacedEmDashesInText(source)).toContain('title: "A title—with a spaced dash"');
   });
 
   it('does not treat frontmatter delimiters as Markdown structure', () => {
@@ -201,29 +161,24 @@ describe('content em-dash lint', () => {
   it('catches one-sided spacing on either side of the dash', () => {
     expect(findSpacedEmDashViolations('/tmp/test.md', 'word —next')).toHaveLength(1);
     expect(findSpacedEmDashViolations('/tmp/test.md', 'word— next')).toHaveLength(1);
-    expect(closeUpSpacedEmDashesInText('word —next')).toBe('word—next');
-    expect(closeUpSpacedEmDashesInText('word— next')).toBe('word—next');
   });
 
   it('catches tab padding around the dash', () => {
     const source = 'word\t—\tnext';
 
     expect(findSpacedEmDashViolations('/tmp/test.md', source)).toHaveLength(1);
-    expect(closeUpSpacedEmDashesInText(source)).toBe('word—next');
   });
 
   it('leaves an already-correct em dash alone', () => {
     const source = 'word—next, and a lone — is only flagged when padded.';
 
     expect(findSpacedEmDashViolations('/tmp/test.md', source)).toHaveLength(1);
-    expect(closeUpSpacedEmDashesInText('word—next.')).toBe('word—next.');
   });
 
   it('treats no-break spaces as padding', () => {
     const source = 'word\u00a0—\u00a0next and word\u202f—\u202fnext';
 
     expect(findSpacedEmDashViolations('/tmp/test.md', source)).toHaveLength(2);
-    expect(closeUpSpacedEmDashesInText(source)).toBe('word—next and word—next');
   });
 
   it('does not rewrite the YAML space separating a key from a dash value', () => {
@@ -232,26 +187,12 @@ describe('content em-dash lint', () => {
     const violations = findSpacedEmDashViolations('/tmp/test.md', source);
     expect(violations).toHaveLength(1);
     expect(violations[0]).toMatchObject({ line: 3 });
-    expect(closeUpSpacedEmDashesInText(source)).toBe(
-      ['---', 'title: —', 'blurb: —leading dash', '---', ''].join('\n'),
-    );
-  });
-
-  it('does not rewrite the YAML space after a sequence dash', () => {
-    const source = ['---', 'quotes:', '  - — leading dash', '---', ''].join('\n');
-
-    expect(closeUpSpacedEmDashesInText(source)).toBe(
-      ['---', 'quotes:', '  - —leading dash', '---', ''].join('\n'),
-    );
   });
 
   it('scans visible prose inside a raw HTML block but not its markup', () => {
     const source = ['<div class="note">', 'visible — prose', '</div>'].join('\n');
 
     expect(findSpacedEmDashViolations('/tmp/test.md', source)).toHaveLength(1);
-    expect(closeUpSpacedEmDashesInText(source)).toBe(
-      ['<div class="note">', 'visible—prose', '</div>'].join('\n'),
-    );
   });
 
   it('leaves an HTML comment alone', () => {
@@ -267,9 +208,6 @@ describe('content em-dash lint', () => {
 
     const violations = findSpacedEmDashViolations('/tmp/test.md', source);
     expect(violations).toHaveLength(1);
-    expect(closeUpSpacedEmDashesInText(source)).toBe(
-      '[label](<https://example.test/a — b>) and prose—here.',
-    );
   });
 
   it('still lints the label and title around a link destination', () => {
@@ -290,51 +228,34 @@ describe('content em-dash lint', () => {
     expect(findSpacedEmDashViolations('/tmp/test.md', source)).toHaveLength(1);
   });
 
-  it('does not reflow across a block boundary', () => {
-    // The newline between two list items is a block boundary, not padding, so
-    // only the space is removed and the items stay separate.
-    expect(closeUpSpacedEmDashesInText('- one —\n- two')).toBe('- one—\n- two');
-  });
-
-  it('closes a soft-break gap by joining the one paragraph it spans', () => {
-    // Both sides sit in a single text node, so removing the newline cannot
-    // glue two blocks together, and it is the only way to close the gap.
-    expect(closeUpSpacedEmDashesInText('word —\ncontinuation')).toBe('word—continuation');
-    expect(closeUpSpacedEmDashesInText('word—\ncontinuation')).toBe('word—continuation');
-  });
-
   it('does not treat a paragraph break as padding', () => {
     const source = 'a paragraph ending in a dash—\n\nA new paragraph.';
 
     expect(findSpacedEmDashViolations('/tmp/test.md', source)).toHaveLength(0);
   });
 
-  it('sees a dash padded through inline markup', () => {
+  it('reports but does not structurally rewrite a dash padded through inline markup', () => {
     const source = 'word **—** next';
 
     expect(findSpacedEmDashViolations('/tmp/test.md', source)).toHaveLength(1);
-    expect(closeUpSpacedEmDashesInText(source)).toBe('word**—**next');
   });
 
   it('sees a dash written as a character reference', () => {
     const source = 'word &mdash; next';
 
     expect(findSpacedEmDashViolations('/tmp/test.md', source)).toHaveLength(1);
-    expect(closeUpSpacedEmDashesInText(source)).toBe('word&mdash;next');
   });
 
   it('sees padding written as a character reference', () => {
     const source = 'word&nbsp;—&nbsp;next';
 
     expect(findSpacedEmDashViolations('/tmp/test.md', source)).toHaveLength(1);
-    expect(closeUpSpacedEmDashesInText(source)).toBe('word—next');
   });
 
   it('treats a thin space as padding', () => {
     const source = 'word\u2009—\u2009next';
 
     expect(findSpacedEmDashViolations('/tmp/test.md', source)).toHaveLength(1);
-    expect(closeUpSpacedEmDashesInText(source)).toBe('word—next');
   });
 
   it('does not flag an unpadded dash before a block boundary', () => {
@@ -348,9 +269,7 @@ describe('content em-dash lint', () => {
     const pre = '<pre>code — sample</pre>';
 
     expect(findSpacedEmDashViolations('/tmp/test.md', script)).toHaveLength(0);
-    expect(closeUpSpacedEmDashesInText(script)).toBe(script);
     expect(findSpacedEmDashViolations('/tmp/test.md', pre)).toHaveLength(0);
-    expect(closeUpSpacedEmDashesInText(pre)).toBe(pre);
   });
 
   it('ignores a YAML comment but not a hash inside a quoted scalar', () => {
@@ -358,47 +277,25 @@ describe('content em-dash lint', () => {
     const quoted = ['---', 'title: "a # b — c"', '---', ''].join('\n');
 
     expect(findSpacedEmDashViolations('/tmp/test.md', commented)).toHaveLength(0);
-    expect(closeUpSpacedEmDashesInText(commented)).toBe(commented);
     expect(findSpacedEmDashViolations('/tmp/test.md', quoted)).toHaveLength(1);
-  });
-
-  it('maps every code point a character reference produces', () => {
-    // `&NotEqualTilde;` decodes to two code points. Assigning the whole entity
-    // span to only the first desynchronizes every span after it.
-    const multi = 'word &NotEqualTilde; — next';
-    expect(closeUpSpacedEmDashesInText(multi)).toBe('word &NotEqualTilde;—next');
-
-    // `&#x1F600;` is one code point but two UTF-16 units.
-    const supplementary = 'word &#x1F600; — next';
-    expect(closeUpSpacedEmDashesInText(supplementary)).toBe('word &#x1F600;—next');
-
-    // A literal supplementary character, with no entity involved.
-    expect(closeUpSpacedEmDashesInText('a \u{1F600} — b')).toBe('a \u{1F600}—b');
   });
 
   it('reads GFM table cells as cells, not as padded prose', () => {
     const table = ['| a | b |', '| --- | --- |', '| word | — |'].join('\n');
 
     expect(findSpacedEmDashViolations('/tmp/test.md', table)).toHaveLength(0);
-    expect(closeUpSpacedEmDashesInText(table)).toBe(table);
   });
 
   it('lints prose inside a GFM table cell', () => {
     const table = ['| a | b |', '| --- | --- |', '| word — next | b |'].join('\n');
 
     expect(findSpacedEmDashViolations('/tmp/test.md', table)).toHaveLength(1);
-    expect(closeUpSpacedEmDashesInText(table)).toBe(
-      ['| a | b |', '| --- | --- |', '| word—next | b |'].join('\n'),
-    );
   });
 
   it('scans standalone YAML content collections', () => {
     const source = ['label: Strategy', 'skills:', '  - "Strategy — Operations"', ''].join('\n');
 
     expect(findSpacedEmDashViolations('/tmp/skills.yaml', source)).toHaveLength(1);
-    expect(closeUpSpacedEmDashesInText(source, '/tmp/skills.yaml')).toBe(
-      ['label: Strategy', 'skills:', '  - "Strategy—Operations"', ''].join('\n'),
-    );
   });
 
   it('does not parse a YAML collection file as Markdown', () => {
@@ -413,9 +310,6 @@ describe('content em-dash lint', () => {
     const source = '[x](https://example.test/ "\u{1F600} a — b")';
 
     expect(findSpacedEmDashViolations('/tmp/test.md', source)).toHaveLength(1);
-    expect(closeUpSpacedEmDashesInText(source)).toBe(
-      '[x](https://example.test/ "\u{1F600} a—b")',
-    );
   });
 
   it('reads a literal block scalar as content, not as a comment', () => {
@@ -429,15 +323,6 @@ describe('content em-dash lint', () => {
 
     // Both dashes in the block scalar count; the one in the real comment does not.
     expect(findSpacedEmDashViolations('/tmp/skills.yaml', source)).toHaveLength(2);
-    expect(closeUpSpacedEmDashesInText(source, '/tmp/skills.yaml')).toBe(
-      [
-        'description: |',
-        '  prose # topic—explanation',
-        '  more—here',
-        'other: plain # real — comment',
-        '',
-      ].join('\n'),
-    );
   });
 
   it('reads a folded block scalar and closes it on dedent', () => {
@@ -473,9 +358,7 @@ describe('content em-dash lint', () => {
     const pre = '<pre>\ncode — sample';
 
     expect(findSpacedEmDashViolations('/tmp/test.md', script)).toHaveLength(0);
-    expect(closeUpSpacedEmDashesInText(script)).toBe(script);
     expect(findSpacedEmDashViolations('/tmp/test.md', pre)).toHaveLength(0);
-    expect(closeUpSpacedEmDashesInText(pre)).toBe(pre);
   });
 
   it('honours an explicit block scalar indentation indicator', () => {
@@ -498,22 +381,19 @@ describe('content em-dash lint', () => {
     const source = 'title: foo— # editorial note';
 
     expect(findSpacedEmDashViolations('/tmp/skills.yaml', source)).toHaveLength(0);
-    expect(closeUpSpacedEmDashesInText(source, '/tmp/skills.yaml')).toBe(source);
 
-    // Padding that is genuinely rendered is still closed, comment intact.
-    expect(closeUpSpacedEmDashesInText('title: foo —  # note', '/tmp/skills.yaml')).toBe(
-      'title: foo—  # note',
-    );
-    expect(closeUpSpacedEmDashesInText('title: foo — bar # note', '/tmp/skills.yaml')).toBe(
-      'title: foo—bar # note',
-    );
+    // Padding that is genuinely rendered is still reported, and the comment
+    // separator is not what makes it one.
+    expect(findSpacedEmDashViolations('/tmp/skills.yaml', 'title: foo —  # note')).toHaveLength(1);
+    expect(
+      findSpacedEmDashViolations('/tmp/skills.yaml', 'title: foo — bar # note'),
+    ).toHaveLength(1);
   });
 
   it('ignores trailing whitespace YAML would strip anyway', () => {
     const source = 'title: foo— ';
 
     expect(findSpacedEmDashViolations('/tmp/skills.yaml', source)).toHaveLength(0);
-    expect(closeUpSpacedEmDashesInText(source, '/tmp/skills.yaml')).toBe(source);
   });
 
   it('sees a dash padded through inline HTML', () => {
@@ -521,14 +401,12 @@ describe('content em-dash lint', () => {
     const source = 'word <em>—</em> next';
 
     expect(findSpacedEmDashViolations('/tmp/test.md', source)).toHaveLength(1);
-    expect(closeUpSpacedEmDashesInText(source)).toBe('word<em>—</em>next');
   });
 
   it('decodes character references inside an HTML block', () => {
     const source = '<div>word &mdash; next</div>';
 
     expect(findSpacedEmDashViolations('/tmp/test.md', source)).toHaveLength(1);
-    expect(closeUpSpacedEmDashesInText(source)).toBe('<div>word&mdash;next</div>');
   });
 
   it('finds a link title that contains a character reference', () => {
@@ -537,21 +415,12 @@ describe('content em-dash lint', () => {
     const source = '[x](/ "word &mdash; next")';
 
     expect(findSpacedEmDashViolations('/tmp/test.md', source)).toHaveLength(1);
-    expect(closeUpSpacedEmDashesInText(source)).toBe('[x](/ "word&mdash;next")');
-  });
-
-  it('does not mistake a colon inside a quoted YAML key for the separator', () => {
-    // Removing the space after the mapping colon would corrupt the structure.
-    const source = '"a:b": — leading';
-
-    expect(closeUpSpacedEmDashesInText(source, '/tmp/skills.yaml')).toBe('"a:b": —leading');
   });
 
   it('does not break a tag on a > inside a quoted attribute', () => {
     const source = '<div title="a > b — c">text</div>';
 
     expect(findSpacedEmDashViolations('/tmp/test.md', source)).toHaveLength(0);
-    expect(closeUpSpacedEmDashesInText(source)).toBe(source);
   });
 
   it('folds a YAML > scalar, so a line-end dash counts as padded', () => {
@@ -560,12 +429,8 @@ describe('content em-dash lint', () => {
     const padded = 'description: >\n  word —\n  continuation\n';
 
     expect(findSpacedEmDashViolations('/tmp/skills.yaml', trailing)).toHaveLength(1);
-    expect(closeUpSpacedEmDashesInText(trailing, '/tmp/skills.yaml')).toBe(
-      'description: >\n  word—continuation\n',
-    );
-    expect(closeUpSpacedEmDashesInText(padded, '/tmp/skills.yaml')).toBe(
-      'description: >\n  word—continuation\n',
-    );
+    // Padding before the dash plus the fold after it is still one violation.
+    expect(findSpacedEmDashViolations('/tmp/skills.yaml', padded)).toHaveLength(1);
   });
 
   it('does not fold a literal | scalar or across a blank line', () => {
@@ -574,9 +439,7 @@ describe('content em-dash lint', () => {
     const blank = 'description: >\n  word—\n\n  continuation\n';
 
     expect(findSpacedEmDashViolations('/tmp/skills.yaml', literal)).toHaveLength(0);
-    expect(closeUpSpacedEmDashesInText(literal, '/tmp/skills.yaml')).toBe(literal);
     expect(findSpacedEmDashViolations('/tmp/skills.yaml', blank)).toHaveLength(0);
-    expect(closeUpSpacedEmDashesInText(blank, '/tmp/skills.yaml')).toBe(blank);
   });
 
   it('protects a raw-text element split across sibling nodes', () => {
@@ -585,7 +448,6 @@ describe('content em-dash lint', () => {
     const source = 'text <code>a — b</code>';
 
     expect(findSpacedEmDashViolations('/tmp/test.md', source)).toHaveLength(0);
-    expect(closeUpSpacedEmDashesInText(source)).toBe(source);
   });
 
   it('honours an explicit indentation indicator on a folded scalar', () => {
@@ -594,20 +456,16 @@ describe('content em-dash lint', () => {
     const literalFirst = 'description: >2\n    code—\n  continuation\n';
 
     expect(findSpacedEmDashViolations('/tmp/skills.yaml', literalFirst)).toHaveLength(0);
-    expect(closeUpSpacedEmDashesInText(literalFirst, '/tmp/skills.yaml')).toBe(literalFirst);
 
-    // At the declared indentation the lines do fold.
+    // At the declared indentation the lines do fold, so the break is padding.
     const folded = 'description: >2\n  word—\n  continuation\n';
-    expect(closeUpSpacedEmDashesInText(folded, '/tmp/skills.yaml')).toBe(
-      'description: >2\n  word—continuation\n',
-    );
+    expect(findSpacedEmDashViolations('/tmp/skills.yaml', folded)).toHaveLength(1);
   });
 
   it('does not fold into a more-indented literal line', () => {
     const source = 'description: >\n  word—\n    literal line\n';
 
     expect(findSpacedEmDashViolations('/tmp/skills.yaml', source)).toHaveLength(0);
-    expect(closeUpSpacedEmDashesInText(source, '/tmp/skills.yaml')).toBe(source);
   });
 
   it('scans a reference definition title', () => {
@@ -615,11 +473,13 @@ describe('content em-dash lint', () => {
     const source = '[ref]: /url "word — next"\n\nUse [ref].\n';
 
     expect(findSpacedEmDashViolations('/tmp/test.md', source)).toHaveLength(1);
-    expect(closeUpSpacedEmDashesInText(source)).toBe('[ref]: /url "word—next"\n\nUse [ref].\n');
   });
 
   it('scans every reference definition title delimiter', () => {
-    for (const [open, close] of [["'", "'"], ['(', ')']]) {
+    for (const [open, close] of [
+      ["'", "'"],
+      ['(', ')'],
+    ]) {
       const source = `[ref]: /url ${open}word — next${close}\n\nUse [ref].\n`;
 
       expect(findSpacedEmDashViolations('/tmp/test.md', source)).toHaveLength(1);
@@ -630,7 +490,6 @@ describe('content em-dash lint', () => {
     const source = '[ref]: <https://example.test/a — b>\n\nUse [ref].\n';
 
     expect(findSpacedEmDashViolations('/tmp/test.md', source)).toHaveLength(0);
-    expect(closeUpSpacedEmDashesInText(source)).toBe(source);
   });
 
   it('folds a multiline quoted YAML scalar', () => {
@@ -640,9 +499,6 @@ describe('content em-dash lint', () => {
     const single = "title: 'word—\n  continuation'\n";
 
     expect(findSpacedEmDashViolations('/tmp/skills.yaml', double)).toHaveLength(1);
-    expect(closeUpSpacedEmDashesInText(double, '/tmp/skills.yaml')).toBe(
-      'title: "word—continuation"\n',
-    );
     expect(findSpacedEmDashViolations('/tmp/skills.yaml', single)).toHaveLength(1);
   });
 
@@ -652,23 +508,18 @@ describe('content em-dash lint', () => {
     const source = 'title: "a # b —\n  continuation"\n';
 
     expect(findSpacedEmDashViolations('/tmp/skills.yaml', source)).toHaveLength(1);
-    expect(closeUpSpacedEmDashesInText(source, '/tmp/skills.yaml')).toBe(
-      'title: "a # b—continuation"\n',
-    );
   });
 
   it('still treats a real end-of-line comment as a comment', () => {
     const source = 'title: plain # note — here\n';
 
     expect(findSpacedEmDashViolations('/tmp/skills.yaml', source)).toHaveLength(0);
-    expect(closeUpSpacedEmDashesInText(source, '/tmp/skills.yaml')).toBe(source);
   });
 
-  it('falls back to the per-line scan on an unterminated quote', () => {
+  it('reports but does not rewrite an invalid unterminated YAML quote', () => {
     const source = 'title: "word — next\n';
 
     expect(findSpacedEmDashViolations('/tmp/skills.yaml', source)).toHaveLength(1);
-    expect(closeUpSpacedEmDashesInText(source, '/tmp/skills.yaml')).toBe('title: "word—next\n');
   });
 
   it('does not treat a quote inside a plain scalar as a scalar opener', () => {
@@ -676,25 +527,18 @@ describe('content em-dash lint', () => {
     const source = 'title: He said "word—\ndescription: next"\n';
 
     expect(findSpacedEmDashViolations('/tmp/skills.yaml', source)).toHaveLength(0);
-    expect(closeUpSpacedEmDashesInText(source, '/tmp/skills.yaml')).toBe(source);
   });
 
   it('reads a doubled apostrophe as an escape, not a closing quote', () => {
     const source = "title: 'first\n  it''s — next'\n";
 
     expect(findSpacedEmDashViolations('/tmp/skills.yaml', source)).toHaveLength(1);
-    expect(closeUpSpacedEmDashesInText(source, '/tmp/skills.yaml')).toBe(
-      "title: 'first\n  it''s—next'\n",
-    );
   });
 
   it('folds a multiline scalar under a sequence item', () => {
     const source = 'items:\n  - "word—\n    continuation"\n';
 
     expect(findSpacedEmDashViolations('/tmp/skills.yaml', source)).toHaveLength(1);
-    expect(closeUpSpacedEmDashesInText(source, '/tmp/skills.yaml')).toBe(
-      'items:\n  - "word—continuation"\n',
-    );
   });
 
   it('ignores a definition title nothing references', () => {
@@ -702,7 +546,6 @@ describe('content em-dash lint', () => {
     const source = '[ref]: /u "word — next"\n\nNo usage here.\n';
 
     expect(findSpacedEmDashViolations('/tmp/test.md', source)).toHaveLength(0);
-    expect(closeUpSpacedEmDashesInText(source)).toBe(source);
   });
 
   it('scans only the definition a reference actually resolves to', () => {
@@ -713,9 +556,6 @@ describe('content em-dash lint', () => {
     const violations = findSpacedEmDashViolations('/tmp/test.md', source);
     expect(violations).toHaveLength(1);
     expect(violations[0]).toMatchObject({ line: 1 });
-    expect(closeUpSpacedEmDashesInText(source)).toBe(
-      '[ref]: /a "first—one"\n[ref]: /b "second — two"\n\nUse [ref].\n',
-    );
   });
 
   it('counts an image reference as a use of its definition', () => {
@@ -724,9 +564,377 @@ describe('content em-dash lint', () => {
     expect(findSpacedEmDashViolations('/tmp/test.md', source)).toHaveLength(1);
   });
 
-  it('preserves CRLF line endings through a fix pass', () => {
-    const source = 'prose — one.\r\nprose — two.\r\n';
+  it('never deletes a line break inside raw HTML, whatever the CSS says', () => {
+    // Deciding whether a break inside HTML renders as a space needs HTML tree
+    // construction and the CSS cascade. The fixer does not attempt it: every
+    // break inside raw HTML is a boundary. Each case below was a reported way
+    // of deleting a rendered break.
+    const cases = [
+      '<div style="white-space: normal; /* n */ white-space: pre">word\n— next</div>',
+      '<div style="white-space: pre"><table style="white-space: normal">word\n— next</table></div>',
+      '<style>#x{white-space:pre !important}</style>\n<div id="x" style="white-space: normal">word\n— next</div>',
+      '<svg style="white-space: normal"><foreignObject><div style="white-space: pre"/>word\n— next</foreignObject></svg>',
+      '<div style="white-space: pre"><a style="white-space: normal">x<a>word\n— next</div>',
+      '<div style="white-space: pre"><p style="white-space: normal"><center>word\n— next</center></div>',
+      '<div style="white-space: normal"><span style="white-space&#58; pre">word\n— next</span></div>',
+      '<div style="white-space: normal">word\r\n— next</div>',
+    ];
 
-    expect(closeUpSpacedEmDashesInText(source)).toBe('prose—one.\r\nprose—two.\r\n');
+    // Each reports exactly one violation — the space AFTER the dash. The break
+    // before it contributes nothing, which is the whole point: no CSS context
+    // is consulted, so a break inside raw HTML is never counted as padding.
+    for (const source of cases) {
+      expect(findSpacedEmDashViolations('/tmp/test.md', source)).toHaveLength(1);
+    }
+
+    // Drop the same-line space and the break alone reports nothing.
+    expect(
+      findSpacedEmDashViolations('/tmp/test.md', '<div style="white-space: pre">word\n—next</div>'),
+    ).toHaveLength(0);
+  });
+
+  it('reports a dash padded across a soft break, CRLF or LF', () => {
+    // The continuation begins in a sibling `strong` node; the omitted
+    // blockquote marker must be absorbed for the break to count as padding.
+    expect(findSpacedEmDashViolations('/tmp/test.md', '> word—\r\n> **next**')).toHaveLength(1);
+    expect(findSpacedEmDashViolations('/tmp/test.md', '> word—\n> **next**')).toHaveLength(1);
+    // A list item's continuation indentation is absorbed the same way.
+    expect(findSpacedEmDashViolations('/tmp/test.md', '- word—\n  <em>next</em>')).toHaveLength(1);
+  });
+
+  it('maps every code point a character reference produces', () => {
+    // `&NotEqualTilde;` decodes to two code points and `&#x1F600;` occupies
+    // two UTF-16 units; both used to desynchronize the source-span map.
+    expect(findSpacedEmDashViolations('/tmp/test.md', 'word &NotEqualTilde; — next')).toHaveLength(1);
+    expect(findSpacedEmDashViolations('/tmp/test.md', 'word &#x1F600; — next')).toHaveLength(1);
+    expect(findSpacedEmDashViolations('/tmp/test.md', 'a \u{1F600} — b')).toHaveLength(1);
+  });
+
+  it('reports same-line padding inside raw HTML', () => {
+    // Same-line spacing needs no layout knowledge, so it is still reported,
+    // including when the dash arrives as a character reference.
+    expect(findSpacedEmDashViolations('/tmp/test.md', '<div>word — next</div>')).toHaveLength(1);
+    expect(findSpacedEmDashViolations('/tmp/test.md', '<div>word &mdash; next</div>')).toHaveLength(1);
+    expect(
+      findSpacedEmDashViolations('/tmp/test.md', '<div style="white-space: pre">word\r\n— next</div>'),
+    ).toHaveLength(1);
+  });
+
+  it('does not count a break as padding when inline HTML is open', () => {
+    // An end tag that closes nothing, and a misnested one that HTML would
+    // reconstruct, both leave the element open, so the break is a boundary.
+    expect(
+      findSpacedEmDashViolations('/tmp/test.md', '<span style="white-space: pre">word</bogus>—\nnext'),
+    ).toHaveLength(0);
+    expect(
+      findSpacedEmDashViolations('/tmp/test.md', '<b><i style="white-space: pre"></b>word—\nnext'),
+    ).toHaveLength(0);
+    // A void end tag opens and closes nothing, so `<em>` stays open.
+    for (const voidName of ['br', 'hr', 'img', 'input']) {
+      expect(
+        findSpacedEmDashViolations('/tmp/test.md', `word <em>a</${voidName}>b—\nc</em>`),
+      ).toHaveLength(0);
+    }
+  });
+
+  it('reports a padded dash even where an automatic fix would be unsafe', () => {
+    // Closing `[foo — bar]` would retarget the link to the other definition,
+    // and `word **—** next` would break the `strong` node. Reporting surfaces
+    // both for a human rather than rewriting them.
+    const retarget = '[foo — bar]\n\n[foo — bar]: /one\n[foo—bar]: /two\n';
+    expect(findSpacedEmDashViolations('/tmp/test.md', retarget)).toHaveLength(1);
+    expect(findSpacedEmDashViolations('/tmp/test.md', 'word **—** next')).toHaveLength(1);
+    // A GFM autolink node carries no source position; still reported.
+    expect(findSpacedEmDashViolations('/tmp/test.md', 'plain — www.example.com')).toHaveLength(1);
+  });
+
+  it('reports YAML values while leaving structural whitespace out of scope', () => {
+    const yaml = (source) => findSpacedEmDashViolations('/tmp/skills.yaml', source);
+
+    // A sequence dash and a mapping colon are syntax, not padding — but the
+    // value beside them is prose.
+    expect(yaml('---\nquotes:\n  - — leading dash\n---\n')).toHaveLength(1);
+    expect(yaml('"a:b": — leading')).toHaveLength(1);
+    expect(yaml('x: [k: — leading]')).toHaveLength(1);
+    expect(yaml('- "a — b: c"')).toHaveLength(1);
+    // Block scalar headers may carry an anchor, a tag, or a comment.
+    for (const header of ['&a |2', '!!str |2', '|2 # note']) {
+      expect(yaml(`description: ${header}\n    — leading\n`)).toHaveLength(1);
+    }
+    // A root scalar's indicator is relative to a parent indentation of -1.
+    expect(yaml('|1\n — leading\n')).toHaveLength(1);
+  });
+
+  it('publishes indentation beyond a folded scalar base indent', () => {
+    // A more-indented line inside `>` is literal, and YAML publishes the
+    // spaces past the base indent as visible text — so the dash is left-padded
+    // even with nothing after it.
+    expect(
+      findSpacedEmDashViolations('/tmp/skills.yaml', 'x: >\n  first\n    —leading\n'),
+    ).toHaveLength(1);
+    expect(
+      findSpacedEmDashViolations('/tmp/skills.yaml', 'x: >\n  first\n    — leading\n'),
+    ).toHaveLength(1);
+    // Without a dash adjacent to that indentation there is nothing to report.
+    expect(
+      findSpacedEmDashViolations('/tmp/skills.yaml', 'x: >\n  first\n    literal—line\n'),
+    ).toHaveLength(0);
+  });
+
+  it('reads a JSON-style flow mapping separator', () => {
+    // In a flow collection YAML accepts `{"key":"value"}` with no space after
+    // the colon, so the quoted key must still be recognised as a key.
+    const source = 'x: {"Release — Notes":"ok", "blurb":"word — next"}\n';
+
+    expect(findSpacedEmDashViolations('/tmp/skills.yaml', source)).toHaveLength(1);
+  });
+
+  it('ends an empty block scalar at a sibling key', () => {
+    // `description:` owns the scalar and sits at column 2, so a key back at
+    // column 2 is its sibling, not scalar content. Scanning it as prose made
+    // the mapping key a spurious violation.
+    const source = '- description: |\n  Release — Notes: ok\n  blurb: word — next\n';
+
+    const violations = findSpacedEmDashViolations('/tmp/skills.yaml', source);
+    expect(violations).toHaveLength(1);
+    expect(violations[0]).toMatchObject({ line: 3 });
+  });
+
+  it('does not scan a YAML mapping key', () => {
+    // A key is an identifier, not prose. Rewriting one changes the document
+    // shape, so the structural check rejects the whole write — and because a
+    // write is all-or-nothing, one dash in a key used to leave every unrelated
+    // violation in the file unfixed too.
+    expect(findSpacedEmDashViolations('/tmp/skills.yaml', '"Release — Notes": ok\n')).toHaveLength(0);
+    expect(findSpacedEmDashViolations('/tmp/skills.yaml', 'Release — Notes: ok\n')).toHaveLength(0);
+
+    // The unrelated value in the same file is fixed rather than held hostage.
+    const mixed = '"Release — Notes": ok\nblurb: a — b\n';
+    expect(findSpacedEmDashViolations('/tmp/skills.yaml', mixed)).toHaveLength(1);
+  });
+
+  it('does not treat a colon inside a URL as a mapping separator', () => {
+    // YAML requires whitespace after a separator colon. Without that rule the
+    // colon in `https:` split the line and the padded dash was skipped.
+    expect(
+      findSpacedEmDashViolations('/tmp/skills.yaml', '- label — https://example.test\n'),
+    ).toHaveLength(1);
+    expect(
+      findSpacedEmDashViolations('/tmp/skills.yaml', 'link: label — https://example.test\n'),
+    ).toHaveLength(1);
+
+    // A key followed by a URL value is still a key.
+    expect(
+      findSpacedEmDashViolations('/tmp/skills.yaml', '"Release — Notes": https://x.test\n'),
+    ).toHaveLength(0);
+
+    // A colon ending the line is still a separator, so the value below it is
+    // scanned as prose.
+    expect(findSpacedEmDashViolations('/tmp/skills.yaml', 'key:\n  - a — b\n')).toHaveLength(1);
+  });
+
+  it('skips an explicit YAML key without stranding the rest of the file', () => {
+    // `? key` / `: value` puts the separator on the next line.
+    const source = '? Release — Notes\n: ok\nblurb: a — b\n';
+
+    expect(findSpacedEmDashViolations('/tmp/skills.yaml', source)).toHaveLength(1);
+  });
+
+  it('excludes mapping keys nested inside a flow collection', () => {
+    // Only the flow key is out of scope; the value beside it is still fixed,
+    // rather than the whole write being rejected and stranding it.
+    const source = 'x: {Release — Notes: ok, blurb: word — next}\n';
+
+    expect(findSpacedEmDashViolations('/tmp/skills.yaml', source)).toHaveLength(1);
+
+    // A flow collection inside a sequence item behaves the same way.
+    expect(findSpacedEmDashViolations('/tmp/skills.yaml', '- {k: a — b}\n')).toHaveLength(1);
+  });
+
+  it('treats a CRLF soft break as rendered padding', () => {
+    const source = 'word—\r\ncontinuation';
+
+    expect(findSpacedEmDashViolations('/tmp/test.md', source)).toHaveLength(1);
+  });
+
+  it('removes Markdown continuation prefixes with a CRLF soft break', () => {
+    const source = '> word—\r\n> continuation';
+
+    expect(findSpacedEmDashViolations('/tmp/test.md', source)).toHaveLength(1);
+  });
+
+  it('disambiguates a continuation prefix from the next rendered character', () => {
+    const source = '> word—\r\n> \\> continuation';
+
+    expect(findSpacedEmDashViolations('/tmp/test.md', source)).toHaveLength(1);
+  });
+
+  it('does not corrupt a character reference before a padded dash', () => {
+    const source = 'word &amp; — next';
+
+    expect(findSpacedEmDashViolations('/tmp/test.md', source)).toHaveLength(1);
+  });
+
+  it('does not corrupt a normalized numeric character reference', () => {
+    const source = 'word &#0; — next';
+
+    expect(findSpacedEmDashViolations('/tmp/test.md', source)).toHaveLength(1);
+  });
+
+  it('rewrites YAML safely when an alias is recursive', () => {
+    const source = 'a: &a [*a]\ntitle: word — next\n';
+
+    expect(findSpacedEmDashViolations('/tmp/skills.yaml', source)).toHaveLength(1);
+  });
+
+  it('preserves a flow-mapping value separator before a leading dash', () => {
+    const source = 'x: {k: — leading}\n';
+
+    expect(findSpacedEmDashViolations('/tmp/skills.yaml', source)).toHaveLength(1);
+  });
+
+  it('preserves block-scalar indentation when content starts with a dash', () => {
+    const source = 'description: |\n  — leading\n';
+
+    expect(findSpacedEmDashViolations('/tmp/skills.yaml', source)).toHaveLength(1);
+  });
+
+  it('removes only visible padding beyond explicit block-scalar indentation', () => {
+    const source = 'description: |2\n    — leading\n';
+
+    expect(findSpacedEmDashViolations('/tmp/skills.yaml', source)).toHaveLength(1);
+  });
+
+  it('accounts for an inline sequence mapping in explicit block-scalar indentation', () => {
+    const source = '- description: |2\n    — leading\n';
+
+    expect(findSpacedEmDashViolations('/tmp/skills.yaml', source)).toHaveLength(1);
+  });
+
+  it('accounts for nested sequence prefixes in explicit block-scalar indentation', () => {
+    const source = '- - |2\n    — leading\n';
+
+    expect(findSpacedEmDashViolations('/tmp/skills.yaml', source)).toHaveLength(1);
+  });
+
+  it('derives direct sequence scalar indentation from the final sequence parent', () => {
+    const source = '- - |1\n     — leading\n';
+
+    expect(findSpacedEmDashViolations('/tmp/skills.yaml', source)).toHaveLength(1);
+  });
+
+  it('removes visible padding from a later more-indented block-scalar line', () => {
+    const source = 'description: |2\n  first\n    — leading\n';
+
+    expect(findSpacedEmDashViolations('/tmp/skills.yaml', source)).toHaveLength(1);
+  });
+
+  it('does not let a raw-text opener inside code suppress later prose', () => {
+    const source = '`sample <pre>` prose — here';
+
+    expect(findSpacedEmDashViolations('/tmp/test.md', source)).toHaveLength(1);
+  });
+
+  it('preserves an unclassified raw HTML newline while applying the prose rule', () => {
+    const source = '<div>word\n— next</div>';
+
+    expect(findSpacedEmDashViolations('/tmp/test.md', source)).toHaveLength(1);
+  });
+
+  it('preserves raw HTML newlines when an inline style preserves whitespace', () => {
+    const source = '<div style="white-space: pre">word\n— next</div>';
+
+    expect(findSpacedEmDashViolations('/tmp/test.md', source)).toHaveLength(1);
+  });
+
+  it('preserves raw HTML newlines when a class may preserve inherited whitespace', () => {
+    const source = '<div class="preserve-whitespace">word\n— next</div>';
+
+    expect(findSpacedEmDashViolations('/tmp/test.md', source)).toHaveLength(1);
+  });
+
+  it('preserves raw HTML newlines when an ID may select whitespace-preserving CSS', () => {
+    const source = '<div id="pre">word\n— next</div>';
+
+    expect(findSpacedEmDashViolations('/tmp/test.md', source)).toHaveLength(1);
+  });
+
+  it('tracks whitespace handling independently for sibling raw HTML elements', () => {
+    const source =
+      '<div style="white-space: normal">a</div>\n' +
+      '<div style="white-space: pre">word\n— next</div>';
+
+    expect(findSpacedEmDashViolations('/tmp/test.md', source)).toHaveLength(1);
+  });
+
+  it('uses the last effective inline white-space declaration', () => {
+    const source = '<div style="white-space: normal; white-space: pre">word\n— next</div>';
+
+    expect(findSpacedEmDashViolations('/tmp/test.md', source)).toHaveLength(1);
+  });
+
+  it('honours a CSS-wide whitespace declaration that overrides an earlier value', () => {
+    const source =
+      '<div style="white-space: pre"><span style="white-space: normal; white-space: inherit">' +
+      'word\n— next</span></div>';
+
+    expect(findSpacedEmDashViolations('/tmp/test.md', source)).toHaveLength(1);
+  });
+
+  it('does not read white-space declarations from non-style attributes', () => {
+    const source = '<div data-example="white-space: normal">word\n— next</div>';
+
+    expect(findSpacedEmDashViolations('/tmp/test.md', source)).toHaveLength(1);
+  });
+
+  it('does not treat an attribute name ending in style as inline CSS', () => {
+    const source = '<div class="pre" data-style="white-space: normal">word\n— next</div>';
+
+    expect(findSpacedEmDashViolations('/tmp/test.md', source)).toHaveLength(1);
+  });
+
+  it('honours implicit HTML end tags when tracking whitespace contexts', () => {
+    const source =
+      '<div style="white-space: pre"><p style="white-space: normal">a<p>word\n— next</div>';
+
+    expect(findSpacedEmDashViolations('/tmp/test.md', source)).toHaveLength(1);
+  });
+
+  it('keeps an outer list item open across a nested list-item scope', () => {
+    const source =
+      '<ul style="white-space: normal"><li style="white-space: pre">a' +
+      '<ul><li>word\n— next</ul></ul>';
+
+    expect(findSpacedEmDashViolations('/tmp/test.md', source)).toHaveLength(1);
+  });
+
+  it('carries a blockquote continuation prefix across inline Markdown nodes', () => {
+    const source = '> word—\n> <em>continuation</em>';
+
+    expect(findSpacedEmDashViolations('/tmp/test.md', source)).toHaveLength(1);
+  });
+
+  it('consumes extra continuation indentation before an inline Markdown node', () => {
+    const source = '> word—\n>   <em>continuation</em>';
+
+    expect(findSpacedEmDashViolations('/tmp/test.md', source)).toHaveLength(1);
+  });
+
+  it('preserves whitespace state across split inline HTML nodes', () => {
+    const source = '<span style="white-space: pre">word\n— next</span>';
+
+    expect(findSpacedEmDashViolations('/tmp/test.md', source)).toHaveLength(1);
+  });
+
+  it('resets an unclosed inline whitespace context at a block boundary', () => {
+    const source = '<span style="white-space: pre">first\n\nword—\nnext';
+
+    expect(findSpacedEmDashViolations('/tmp/test.md', source)).toHaveLength(1);
+  });
+
+  it('fails closed when a Markdown construct moves to different source delimiters', () => {
+    const source = 'word **—** next / x ** — ** y';
+
+    expect(findSpacedEmDashViolations('/tmp/test.md', source)).toHaveLength(2);
   });
 });

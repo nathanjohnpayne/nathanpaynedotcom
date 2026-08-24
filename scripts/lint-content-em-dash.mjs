@@ -1,10 +1,11 @@
 #!/usr/bin/env node
-import { readFileSync, readdirSync, writeFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { extname, join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { fromMarkdown } from 'mdast-util-from-markdown';
 import { gfmFromMarkdown } from 'mdast-util-gfm';
 import { decodeNamedCharacterReference } from 'decode-named-character-reference';
+import { decodeNumericCharacterReference } from 'micromark-util-decode-numeric-character-reference';
 import { gfm } from 'micromark-extension-gfm';
 
 const CONTENT_ROOT = resolve(process.cwd(), 'src/content');
@@ -52,6 +53,22 @@ const HTML_RAW_TEXT_OPENER = /<(script|style|pre|code|textarea)\b[^>]*>/gi;
 // A tag ends at the first `>` that is NOT inside a quoted attribute value.
 // `<div title="a > b">` is one tag, not a tag plus stray prose.
 const HTML_MARKUP = /<!--[\s\S]*?-->|<[^>"']*(?:(?:"[^"]*"|'[^']*')[^>"']*)*>/g;
+const HTML_VOID_ELEMENTS = new Set([
+  'area',
+  'base',
+  'br',
+  'col',
+  'embed',
+  'hr',
+  'img',
+  'input',
+  'link',
+  'meta',
+  'param',
+  'source',
+  'track',
+  'wbr',
+]);
 
 // Block-level nodes. Padding may not run across their edges, because the
 // rendered output puts a line break there.
@@ -101,7 +118,13 @@ function frontmatterLength(source) {
 // ---------------------------------------------------------------------------
 
 function createProseStream(protectedRanges = []) {
-  return { text: '', spans: [], protectedRanges };
+  return {
+    text: '',
+    spans: [],
+    protectedRanges,
+    pendingSoftBreak: null,
+    openInlineHtml: [],
+  };
 }
 
 function isProtectedOffset(stream, span) {
@@ -140,22 +163,65 @@ function pushBoundary(stream) {
   }
 }
 
+function resetInlineWhitespaceState(stream) {
+  stream.openInlineHtml.length = 0;
+  stream.pendingSoftBreak = null;
+}
+
 // Decode a character reference body (the text between `&` and `;`).
 function decodeReference(name) {
   if (name.startsWith('#')) {
     const digits = name.slice(1);
-    const code = /^[xX]/.test(digits) ? Number.parseInt(digits.slice(1), 16) : Number.parseInt(digits, 10);
-    if (!Number.isInteger(code) || code < 0 || code > 0x10ffff) {
+    const hex = /^[xX]/.test(digits);
+    const value = hex ? digits.slice(1) : digits;
+    if (!(hex ? /^[\dA-Fa-f]+$/ : /^\d+$/).test(value)) {
       return null;
     }
-    try {
-      return String.fromCodePoint(code);
-    } catch {
-      return null;
-    }
+    return decodeNumericCharacterReference(value, hex ? 16 : 10);
   }
 
   return decodeNamedCharacterReference(name) || null;
+}
+
+function skipMarkdownContinuationPrefix(raw, start) {
+  let cursor = start;
+  let match;
+  while ((match = raw.slice(cursor).match(/^[\t ]{0,3}>[\t ]*/))) {
+    cursor += match[0].length;
+  }
+
+  // A list item's continuation lines are indented, and Markdown strips that
+  // indentation when rendering. Without absorbing it, `- word—\n  <em>next</em>`
+  // left an unclassified gap, the soft break became a boundary, and the padded
+  // dash went unreported.
+  const indent = raw.slice(cursor).match(/^[\t ]+/);
+  if (indent) {
+    cursor += indent[0].length;
+  }
+
+  return cursor;
+}
+
+function findCharacterSourceOffset(raw, start, character) {
+  for (let cursor = start; cursor < raw.length; cursor += 1) {
+    if (raw.startsWith(character, cursor)) {
+      return cursor;
+    }
+    if (raw[cursor] === '\\' && raw.startsWith(character, cursor + 1)) {
+      return cursor;
+    }
+    if (raw[cursor] === '&') {
+      const semicolon = raw.indexOf(';', cursor);
+      const decoded =
+        semicolon !== -1 && semicolon - cursor <= 32
+          ? decodeReference(raw.slice(cursor + 1, semicolon))
+          : null;
+      if (decoded !== null && [...decoded][0] === character) {
+        return cursor;
+      }
+    }
+  }
+  return null;
 }
 
 // Map each code point of a node's decoded value back to the source span that
@@ -170,6 +236,7 @@ function alignValueToSource(value, raw) {
   const spans = new Array(characters.length);
   let index = 0;
   let cursor = 0;
+  let pendingSoftBreakSpan = null;
 
   while (index < characters.length) {
     if (cursor >= raw.length) {
@@ -178,28 +245,68 @@ function alignValueToSource(value, raw) {
       continue;
     }
 
-    if (raw.startsWith(characters[index], cursor)) {
-      spans[index] = [cursor, cursor + characters[index].length];
-      cursor += characters[index].length;
+    // Markdown continuation syntax is present in the source but absent from
+    // the text node value. Attach that omitted prefix to the preceding soft
+    // break so closing the rendered gap removes the whole continuation rather
+    // than publishing a stray `>` or list prefix.
+    if (pendingSoftBreakSpan !== null) {
+      cursor = skipMarkdownContinuationPrefix(raw, cursor);
+      const nextOffset = findCharacterSourceOffset(raw, cursor, characters[index]);
+      if (nextOffset !== null) {
+        spans[pendingSoftBreakSpan][1] = nextOffset;
+        cursor = nextOffset;
+      }
+      pendingSoftBreakSpan = null;
+    }
+
+    // micromark normalizes CRLF soft breaks to `\n` in a text node. Map the
+    // normalized character back to both source units or every later span
+    // shifts by one and the break itself cannot be removed safely.
+    if (characters[index] === '\n' && raw.startsWith('\r\n', cursor)) {
+      spans[index] = [cursor, cursor + 2];
+      cursor += 2;
+      pendingSoftBreakSpan = index;
       index += 1;
       continue;
     }
 
+    if (characters[index] === '\n' && raw[cursor] === '\n') {
+      spans[index] = [cursor, cursor + 1];
+      cursor += 1;
+      pendingSoftBreakSpan = index;
+      index += 1;
+      continue;
+    }
+
+    // Decode before accepting a literal `&`. For `&amp;`, the decoded value
+    // begins with the same character as the source, so literal-first matching
+    // would consume only `&` and desynchronize every span after it.
     if (raw[cursor] === '&') {
       const semicolon = raw.indexOf(';', cursor);
       const decoded = semicolon !== -1 && semicolon - cursor <= 32
         ? decodeReference(raw.slice(cursor + 1, semicolon))
         : null;
 
-      if (decoded !== null) {
+      const decodedCharacters = decoded === null ? [] : [...decoded];
+      if (
+        decoded !== null &&
+        decodedCharacters.every((character, produced) => characters[index + produced] === character)
+      ) {
         const span = [cursor, semicolon + 1];
-        for (let produced = 0; produced < [...decoded].length && index < characters.length; produced += 1) {
+        for (let produced = 0; produced < decodedCharacters.length && index < characters.length; produced += 1) {
           spans[index] = span;
           index += 1;
         }
         cursor = semicolon + 1;
         continue;
       }
+    }
+
+    if (raw.startsWith(characters[index], cursor)) {
+      spans[index] = [cursor, cursor + characters[index].length];
+      cursor += characters[index].length;
+      index += 1;
+      continue;
     }
 
     if (raw[cursor] === '\\') {
@@ -217,25 +324,59 @@ function alignValueToSource(value, raw) {
   return spans;
 }
 
+// A soft break renders as a space, so it is padding. Removing it is safe: the
+// parser has already established that both sides sit inside one text node in
+// one block, so closing the gap cannot glue two blocks together — unless an
+// HTML white-space context preserves the break, in which case it renders as a
+// line break and is a boundary instead.
+//
+// `isTrailing` marks a break that ends the text node. The continuation then
+// lives in a sibling inline node, and the omitted block marker (a blockquote
+// `>`, a list indent) has to be absorbed when that sibling is emitted — so the
+// span is parked for the sibling to extend. CRLF and LF must both do this: a
+// CRLF that skipped it published a literal `>` into `> word—\r\n> **next**`.
+function emitSoftBreak(stream, span, isTrailing) {
+  // Inside an unclosed inline HTML element the surrounding white-space rules
+  // are no longer modelled, so the break is a boundary rather than padding.
+  if (stream.openInlineHtml.length > 0) {
+    pushBoundary(stream);
+    return;
+  }
+
+  pushCharacter(stream, ' ', span);
+  if (isTrailing) {
+    stream.pendingSoftBreak = {
+      spanIndex: stream.spans.length - 1,
+      sourceEnd: span[1],
+    };
+  }
+}
+
 function emitText(node, body, stream) {
   const start = node.position.start.offset;
   const raw = body.slice(start, node.position.end.offset);
   const spans = alignValueToSource(node.value, raw);
 
-  [...node.value].forEach((character, index) => {
+  const characters = [...node.value];
+  for (let index = 0; index < characters.length; index += 1) {
+    const character = characters[index];
     const [spanStart, spanEnd] = spans[index];
     const span = [spanStart + start, spanEnd + start];
 
-    // A soft break renders as a space, so it is padding. Removing it is safe:
-    // the parser has already established that both sides sit inside one text
-    // node in one block, so closing the gap cannot glue two blocks together.
+    if (character === '\r' && characters[index + 1] === '\n') {
+      const [, nextSpanEnd] = spans[index + 1];
+      emitSoftBreak(stream, [span[0], nextSpanEnd + start], index + 1 === characters.length - 1);
+      index += 1;
+      continue;
+    }
+
     if (character === '\n') {
-      pushCharacter(stream, ' ', span);
-      return;
+      emitSoftBreak(stream, span, index === characters.length - 1);
+      continue;
     }
 
     pushCharacter(stream, character, span);
-  });
+  }
 }
 
 // Tags that render as a break even inline.
@@ -244,7 +385,32 @@ const HTML_BREAK_TAG = /^<\/?(?:br|hr)\b/i;
 // Emit one run of visible HTML text, decoding character references so
 // `<div>word &mdash; next</div>` is seen the way it renders. Returns the index
 // just past the run's first character.
-function emitVisibleCharacter(raw, index, start, stream) {
+function emitVisibleCharacter(raw, index, start, stream, preserveWhitespace) {
+  if (preserveWhitespace && /[\t\n\f\r ]/.test(raw[index])) {
+    if (raw.startsWith('\r\n', index)) {
+      pushBoundary(stream);
+      return index + 2;
+    }
+    if (raw[index] === '\n' || raw[index] === '\r') {
+      pushBoundary(stream);
+      return index + 1;
+    }
+    pushCharacter(stream, ' ', [index + start, index + start + 1]);
+    return index + 1;
+  }
+
+  // Ordinary HTML collapses a run of ASCII whitespace to one rendered space.
+  // Preserve the entire source run as that space's span so `--write` can
+  // remove a line break only when the rendered prose rule requires it.
+  if (/[\t\n\f\r ]/.test(raw[index])) {
+    let end = index + 1;
+    while (end < raw.length && /[\t\n\f\r ]/.test(raw[end])) {
+      end += 1;
+    }
+    pushCharacter(stream, ' ', [index + start, end + start]);
+    return end;
+  }
+
   if (raw[index] === '&') {
     const semicolon = raw.indexOf(';', index);
     const decoded =
@@ -263,6 +429,57 @@ function emitVisibleCharacter(raw, index, start, stream) {
 
   pushCharacter(stream, raw[index], [index + start, index + start + 1]);
   return index + 1;
+}
+
+// Text inside a raw-HTML span cannot be rewritten across a line break.
+//
+// Deciding whether a break inside HTML renders as a space or as a break means
+// resolving HTML tree construction (implicit closes, table foster parenting,
+// SVG/MathML integration points) and the CSS cascade (`white-space` across
+// stylesheets, `!important`, entity-encoded property names). That is a browser,
+// not a lint script, and every attempt at it produced another way to delete a
+// rendered break. So a line break inside raw HTML is always a boundary: never
+// collapsible padding, never removed. Padding on a single line still counts and
+// is still fixed, because that needs no layout knowledge at all.
+//
+// `src/content` contains zero raw-HTML nodes, so this costs the repository
+// nothing today; it only bounds what the fixer is willing to claim.
+
+// Unmatched inline HTML means following Markdown text may sit inside an element
+// whose white-space rules we deliberately no longer model, so its soft breaks
+// fail closed too.
+function trackInlineHtmlDepth(stream, tag) {
+  const match = tag.match(/^<\s*(\/?)\s*([A-Za-z][\w:-]*)\b/);
+  if (!match) {
+    return;
+  }
+
+  const name = match[2].toLowerCase();
+
+  // A void element has no end tag: HTML parses `</br>` as `<br>` and never
+  // pops an open element, so it must not close anything here either.
+  if (HTML_VOID_ELEMENTS.has(name)) {
+    return;
+  }
+
+  if (match[1] === '/') {
+    const open = stream.openInlineHtml;
+    // An end tag closing the innermost element is the simple case.
+    if (open[open.length - 1] === name) {
+      open.pop();
+      return;
+    }
+    // Anything else is either an end tag that closes nothing (HTML ignores it)
+    // or misnesting, where the adoption agency algorithm can reconstruct the
+    // inner formatting element around following text — `<b><i></b>text` leaves
+    // `i` active. Truncating the stack would call everything closed and make a
+    // real break look removable, so leave it open and fail closed.
+    return;
+  }
+
+  // HTML ignores the self-closing flag on ordinary elements, so only void
+  // elements close themselves.
+  stream.openInlineHtml.push(name);
 }
 
 // A raw-HTML span is not uniformly opaque: the tags are markup, the body of a
@@ -289,18 +506,44 @@ function emitHtml(node, body, stream, inline) {
       if (tag.startsWith('<!--') || HTML_BREAK_TAG.test(tag)) {
         pushBoundary(stream);
       }
+      if (inline) {
+        trackInlineHtmlDepth(stream, tag);
+      }
       index = markupRange[1];
       continue;
     }
 
-    // Raw-text bodies are filtered by the shared protected ranges in
-    // pushCharacter, so they need no special case here.
-    index = emitVisibleCharacter(raw, index, start, stream);
+    // `true` makes every line break here a boundary. Raw-text bodies are
+    // filtered by the shared protected ranges in pushCharacter.
+    index = emitVisibleCharacter(raw, index, start, stream, true);
   }
 
   if (!inline) {
     pushBoundary(stream);
   }
+}
+
+function carryTrailingContinuationPrefix(node, body, stream) {
+  const pending = stream.pendingSoftBreak;
+  const nodeStart = node.position?.start?.offset;
+  if (!pending || !Number.isInteger(nodeStart) || nodeStart < pending.sourceEnd) {
+    return;
+  }
+
+  const gap = body.slice(pending.sourceEnd, nodeStart);
+  const prefixEnd = skipMarkdownContinuationPrefix(gap, 0);
+  if (prefixEnd === gap.length && prefixEnd > 0) {
+    stream.spans[pending.spanIndex][1] = nodeStart;
+  } else if (gap.length > 0) {
+    // An omitted source gap we cannot classify must not leave the preceding
+    // soft break removable. Turn it into a boundary so --write fails closed.
+    stream.text =
+      stream.text.slice(0, pending.spanIndex) +
+      '\n' +
+      stream.text.slice(pending.spanIndex + 1);
+    stream.spans[pending.spanIndex] = null;
+  }
+  stream.pendingSoftBreak = null;
 }
 
 // The raw span of a title, found from the source syntax rather than by
@@ -362,7 +605,7 @@ function emitLinkTitle(node, body, stream) {
   const raw = body.slice(titleStart, titleEnd);
   let index = 0;
   while (index < raw.length) {
-    index = emitVisibleCharacter(raw, index, titleStart, stream);
+    index = emitVisibleCharacter(raw, index, titleStart, stream, false);
   }
   pushBoundary(stream);
 }
@@ -379,6 +622,8 @@ const BLOCK_CONTAINERS = new Set([
 ]);
 
 function emitNode(node, body, stream, inline = false) {
+  carryTrailingContinuationPrefix(node, body, stream);
+
   if (OPAQUE_NODES.has(node.type)) {
     pushBoundary(stream);
     return;
@@ -397,6 +642,7 @@ function emitNode(node, body, stream, inline = false) {
   const isBlock = BLOCK_NODES.has(node.type);
   if (isBlock) {
     pushBoundary(stream);
+    resetInlineWhitespaceState(stream);
   }
 
   const childrenAreInline = !BLOCK_CONTAINERS.has(node.type);
@@ -416,6 +662,7 @@ function emitNode(node, body, stream, inline = false) {
 
   if (isBlock) {
     pushBoundary(stream);
+    resetInlineWhitespaceState(stream);
   }
 }
 
@@ -423,13 +670,20 @@ function emitNode(node, body, stream, inline = false) {
 // extension a table row is read as a paragraph and its cell-separator padding
 // looks like prose padding, which `--write` would then "fix" into the table.
 // Every raw-text element span in the body, closed or left open through EOF.
-function rawTextRanges(source) {
-  const ranges = collectMatchRanges(HTML_RAW_TEXT_ELEMENT, source);
+function rawTextRanges(source, opaqueRanges = []) {
+  const isOpaqueStart = (offset) =>
+    opaqueRanges.some(([start, end]) => offset >= start && offset < end);
+  const ranges = collectMatchRanges(HTML_RAW_TEXT_ELEMENT, source).filter(
+    ([start]) => !isOpaqueStart(start),
+  );
   const openers = new RegExp(HTML_RAW_TEXT_OPENER.source, 'gi');
   let opener;
 
   while ((opener = openers.exec(source)) !== null) {
     const openerStart = opener.index;
+    if (isOpaqueStart(openerStart)) {
+      continue;
+    }
     if (ranges.some(([start, end]) => openerStart >= start && openerStart < end)) {
       continue;
     }
@@ -437,6 +691,26 @@ function rawTextRanges(source) {
       ranges.push([openerStart, source.length]);
     }
   }
+
+  return ranges;
+}
+
+function collectOpaqueSourceRanges(tree) {
+  const ranges = [];
+
+  (function walk(node) {
+    if (
+      (node.type === 'code' || node.type === 'inlineCode') &&
+      Number.isInteger(node.position?.start?.offset) &&
+      Number.isInteger(node.position?.end?.offset)
+    ) {
+      ranges.push([node.position.start.offset, node.position.end.offset]);
+      return;
+    }
+    for (const child of node.children ?? []) {
+      walk(child);
+    }
+  })(tree);
 
   return ranges;
 }
@@ -472,11 +746,11 @@ function collectEffectiveDefinitions(tree) {
 }
 
 function buildProseStream(body) {
-  const stream = createProseStream(rawTextRanges(body));
   const tree = fromMarkdown(body, {
     extensions: [gfm()],
     mdastExtensions: [gfmFromMarkdown()],
   });
+  const stream = createProseStream(rawTextRanges(body, collectOpaqueSourceRanges(tree)));
   stream.effectiveDefinitions = collectEffectiveDefinitions(tree);
   emitNode(tree, body, stream);
   return stream;
@@ -546,8 +820,14 @@ function bodyViolations(source) {
 // indentation of the opening line, or null when the line opens nothing.
 // YAML allows the chomping and indentation indicators in either order, so
 // `|2-` is as valid as `|-2`.
+//
+// The node-properties group is deliberately bounded and requires whitespace
+// between properties. With a zero-width separator the `&…`/`!…` alternation
+// could split one run many ways, which CodeQL correctly flagged as
+// exponential backtracking (js/redos). YAML permits at most one anchor and
+// one tag, so `{0,2}` loses nothing.
 const BLOCK_SCALAR_OPENER =
-  /^([\p{Zs}\t]*)(?:-[\p{Zs}\t]+)*(?:(?:"(?:[^"\\]|\\.)*"|'(?:[^']|'')*'|[^:\n]+):)?[\p{Zs}\t]*([|>])((?:[-+]\d*|\d+[-+]?)?)[\p{Zs}\t]*$/u;
+  /^([\p{Zs}\t]*)((?:-[\p{Zs}\t]+)*)(?:("(?:[^"\\]|\\.)*"|'(?:[^']|'')*'|[^:\n]+):)?[\p{Zs}\t]*(?:(?:&[^\s[\]{},]+|![^\s]*)[\p{Zs}\t]+){0,2}([|>])((?:[-+]\d*|\d+[-+]?)?)[\p{Zs}\t]*(?:#[^\n]*)?$/u;
 
 function blockScalarOpenerOf(line) {
   const match = line.match(BLOCK_SCALAR_OPENER);
@@ -559,14 +839,25 @@ function blockScalarOpenerOf(line) {
   // relative to the opener, and that is what decides which lines are folded
   // and which are more-indented literal lines. Without one it is inferred from
   // the first non-blank content line.
-  const digits = match[3].match(/\d+/);
-  const indent = match[1].length;
+  const digits = match[5].match(/\d+/);
+  const explicitIndent = digits ? Number(digits[0]) : null;
+
+  // Content belongs to the scalar only while it is indented past the scalar's
+  // PARENT node, and an explicit indicator is measured from that parent too.
+  // The parent is the mapping key when there is one (`- description: |` is
+  // owned by `description`, at column 2, so a sibling key back at column 2
+  // ends the scalar rather than becoming its content); otherwise the sequence
+  // dash; otherwise the document root, which YAML treats as -1. `lastIndexOf`
+  // returns exactly -1 for an empty sequence prefix, so the root falls out of
+  // the same expression.
+  const parentIndent =
+    match[1].length + (match[3] ? match[2].length : match[2].lastIndexOf('-'));
 
   return {
-    indent,
+    indent: parentIndent,
     // `>` folds line breaks into spaces; `|` keeps them literal.
-    folded: match[2] === '>',
-    contentIndent: digits ? indent + Number(digits[0]) : null,
+    folded: match[4] === '>',
+    contentIndent: digits ? parentIndent + explicitIndent : null,
   };
 }
 
@@ -689,8 +980,12 @@ function foldedScalarViolations(source, regionStart, regionEnd, baseIndent, exce
     if (line.trim() === '') {
       segments.push(null);
     } else if (indent > baseIndent) {
-      // A more-indented line is literal content: the fold does not apply.
-      segments.push([lineStart + indent, lineStart + line.length, true]);
+      // A more-indented line is literal content: the fold does not apply, and
+      // YAML publishes the indentation BEYOND baseIndent as visible text. The
+      // segment therefore starts at baseIndent, not at the end of the run —
+      // otherwise `x: >\n  first\n    — leading` hides the two published
+      // spaces and the left-padded dash goes unreported.
+      segments.push([lineStart + baseIndent, lineStart + line.length, true]);
     } else {
       segments.push([
         lineStart + indent,
@@ -756,7 +1051,7 @@ function yamlViolations(source, end) {
   const exceptionRanges = collectMatchRanges(IDENTIFIER_LABEL_EXCEPTION, source);
   const violations = [];
   let lineStart = 0;
-  let blockScalarIndent = null;
+  let blockScalar = null;
 
   while (lineStart < end) {
     const newline = source.indexOf('\n', lineStart);
@@ -765,10 +1060,19 @@ function yamlViolations(source, end) {
 
     // A block scalar runs until a non-blank line dedents back to its opener.
     const isBlank = line.trim() === '';
-    if (blockScalarIndent !== null && !isBlank && indentOf(line) <= blockScalarIndent) {
-      blockScalarIndent = null;
+    if (
+      blockScalar !== null &&
+      !isBlank &&
+      (indentOf(line) <= blockScalar.openerIndent ||
+        (blockScalar.contentIndent !== null && indentOf(line) < blockScalar.contentIndent))
+    ) {
+      blockScalar = null;
     }
-    const inBlockScalar = blockScalarIndent !== null;
+    const inBlockScalar = blockScalar !== null;
+
+    if (inBlockScalar && !isBlank && blockScalar.contentIndent === null) {
+      blockScalar.contentIndent = indentOf(line);
+    }
 
     if (!inBlockScalar && !isBlank) {
       const opener = blockScalarOpenerOf(line);
@@ -808,7 +1112,9 @@ function yamlViolations(source, end) {
         continue;
       }
 
-      blockScalarIndent = opener ? opener.indent : null;
+      blockScalar = opener
+        ? { openerIndent: opener.indent, contentIndent: opener.contentIndent }
+        : null;
     }
 
     // Inside a block scalar the whole line is literal content: no comment to
@@ -848,7 +1154,7 @@ function yamlViolations(source, end) {
 
       if (closeOffset !== -1) {
         // Anything before the opening quote is ordinary YAML and still scanned.
-        violations.push(...lineViolations(source, lineStart, openOffset, false, exceptionRanges));
+        violations.push(...lineViolations(source, lineStart, openOffset, null, exceptionRanges));
         violations.push(...flowScalarViolations(source, openOffset + 1, closeOffset, exceptionRanges));
         lineStart = cursor;
         continue;
@@ -856,7 +1162,15 @@ function yamlViolations(source, end) {
       // Unterminated quote: fall through to the ordinary per-line scan.
     }
 
-    violations.push(...lineViolations(source, lineStart, scanEnd, inBlockScalar, exceptionRanges));
+    violations.push(
+      ...lineViolations(
+        source,
+        lineStart,
+        scanEnd,
+        inBlockScalar ? blockScalar.contentIndent : null,
+        exceptionRanges,
+      ),
+    );
     lineStart = lineEnd + 1;
   }
 
@@ -865,9 +1179,148 @@ function yamlViolations(source, end) {
 
 // Padded dashes on a single physical YAML line, between `lineStart` and
 // `scanEnd`.
-function lineViolations(source, lineStart, scanEnd, inBlockScalar, exceptionRanges) {
+function followsFlowMappingSeparator(line, paddingStart) {
+  if (paddingStart === 0 || line[paddingStart - 1] !== ':') {
+    return false;
+  }
+
+  let quote = null;
+  let flowDepth = 0;
+  for (let index = 0; index < paddingStart; index += 1) {
+    const character = line[index];
+    if (quote) {
+      if (quote === '"' && character === '\\') {
+        index += 1;
+      } else if (character === quote) {
+        if (quote === "'" && line[index + 1] === "'") {
+          index += 1;
+        } else {
+          quote = null;
+        }
+      }
+      continue;
+    }
+
+    if (character === '"' || character === "'") {
+      quote = character;
+    } else if (character === '{' || character === '[') {
+      // A single-pair mapping inside a flow SEQUENCE needs the same
+      // protection as one inside a flow mapping: `x: [k: — leading]` is a
+      // mapping, and closing the padding would turn `[k:—leading]` into one
+      // plain scalar.
+      flowDepth += 1;
+    } else if (character === '}' || character === ']') {
+      flowDepth = Math.max(0, flowDepth - 1);
+    }
+  }
+
+  return flowDepth > 0 && quote === null;
+}
+
+// Every mapping-key span on this line, as [start, end) offsets within it.
+// A single prefix length is not enough: a flow collection can carry keys of
+// its own (`x: {Release — Notes: ok, blurb: word — next}`), and scanning those
+// makes the structural check reject the whole write, stranding the unrelated
+// value violations on the same line.
+function mappingKeySpans(line) {
+  const isSpace = (character) => character !== undefined && /[\p{Zs}\t]/u.test(character);
+  const spans = [];
+  let index = 0;
+
+  while (isSpace(line[index])) {
+    index += 1;
+  }
+  // Sequence indicators, each followed by whitespace.
+  while (line[index] === '-' && isSpace(line[index + 1])) {
+    index += 1;
+    while (isSpace(line[index])) {
+      index += 1;
+    }
+  }
+
+  // Explicit key form: `? key` on one line, `: value` on the next.
+  const indicator = line[index];
+  if ((indicator === '?' || indicator === ':') && (line[index + 1] === undefined || isSpace(line[index + 1]))) {
+    return indicator === '?' ? [[index, line.length]] : [[0, index + 1]];
+  }
+
+  let segmentStart = index;
+  let flowDepth = 0;
+  let quote = null;
+  let blockKeyTaken = false;
+
+  for (let cursor = index; cursor < line.length; cursor += 1) {
+    const character = line[cursor];
+
+    if (quote) {
+      if (quote === '"' && character === '\\') {
+        cursor += 1;
+      } else if (character === quote) {
+        if (quote === "'" && line[cursor + 1] === "'") {
+          cursor += 1;
+        } else {
+          quote = null;
+        }
+      }
+      continue;
+    }
+
+    if (character === '"' || character === "'") {
+      quote = character;
+      continue;
+    }
+
+    if (character === '{' || character === '[') {
+      flowDepth += 1;
+      segmentStart = cursor + 1;
+      continue;
+    }
+    if (character === '}' || character === ']') {
+      flowDepth = Math.max(0, flowDepth - 1);
+      segmentStart = cursor + 1;
+      continue;
+    }
+    if (character === ',' && flowDepth > 0) {
+      segmentStart = cursor + 1;
+      continue;
+    }
+
+    // A colon separates only when whitespace or the end of the line follows —
+    // except in a flow collection after a quoted key, where YAML accepts the
+    // JSON spelling `{"key":"value"}` with no space at all.
+    const separates =
+      character === ':' &&
+      (line[cursor + 1] === undefined ||
+        isSpace(line[cursor + 1]) ||
+        (flowDepth > 0 && (line[cursor - 1] === '"' || line[cursor - 1] === "'")));
+    if (separates) {
+      // Outside a flow collection a line has exactly one key; the rest is its
+      // value. Scanning continues regardless, because that value may itself be
+      // a flow collection carrying keys of its own.
+      if (flowDepth > 0 || !blockKeyTaken) {
+        spans.push([segmentStart, cursor + 1]);
+        if (flowDepth === 0) {
+          blockKeyTaken = true;
+        }
+      }
+      segmentStart = cursor + 1;
+    }
+  }
+
+  return spans;
+}
+
+function lineViolations(source, lineStart, scanEnd, blockScalarContentIndent, exceptionRanges) {
   const violations = [];
   const line = source.slice(lineStart, scanEnd);
+  // A mapping key is an identifier, not published prose. Rewriting one changes
+  // the document's shape, so `structureIsPreserved` rejects the whole write —
+  // and because a write is all-or-nothing, one dash in a key would leave every
+  // unrelated violation in the same file unfixed too.
+  const keySpans =
+    blockScalarContentIndent === null
+      ? mappingKeySpans(line).map(([from, to]) => [lineStart + from, lineStart + to])
+      : [];
 
   for (const [start, matchEnd] of collectMatchRanges(PADDED_EM_DASH, line)) {
     const absoluteStart = lineStart + start;
@@ -876,11 +1329,21 @@ function lineViolations(source, lineStart, scanEnd, inBlockScalar, exceptionRang
     if (dashOffset === -1 || dashOffset >= scanEnd) {
       continue;
     }
+    if (keySpans.some(([from, to]) => dashOffset >= from && dashOffset < to)) {
+      continue;
+    }
 
     // Whitespace after `key:` or a sequence `-` is YAML syntax.
-    const prefixIsStructural =
-      !inBlockScalar && YAML_VALUE_PREFIX.test(source.slice(lineStart, absoluteStart));
-    const paddingStart = prefixIsStructural ? dashOffset : absoluteStart;
+    const inBlockScalar = blockScalarContentIndent !== null;
+    const prefixIsStructural = inBlockScalar
+      ? /^[\p{Zs}\t]*$/u.test(source.slice(lineStart, dashOffset))
+      : YAML_VALUE_PREFIX.test(source.slice(lineStart, absoluteStart)) ||
+        followsFlowMappingSeparator(line, start);
+    const paddingStart = prefixIsStructural
+      ? inBlockScalar
+        ? Math.min(lineStart + blockScalarContentIndent, dashOffset)
+        : dashOffset
+      : absoluteStart;
 
     // Whitespace running to the end of the scannable region is not rendered
     // padding: YAML strips trailing whitespace from a scalar. It is also the
@@ -963,27 +1426,10 @@ export function findSpacedEmDashViolations(filePath, source) {
   }));
 }
 
-export function closeUpSpacedEmDashesInText(source, filePath = '') {
-  const removals = collectViolations(source, filePath)
-    .flatMap((violation) => violation.removals)
-    .sort((a, b) => a[0] - b[0]);
-
-  let fixed = '';
-  let cursor = 0;
-
-  for (const [start, end] of removals) {
-    if (start < cursor) {
-      continue;
-    }
-    fixed += source.slice(cursor, start);
-    cursor = end;
-  }
-
-  // Splicing the original string leaves every byte outside a removal
-  // untouched, so a CRLF file stays CRLF.
-  return fixed + source.slice(cursor);
-}
-
+// `--write` may change text values, but it must not change which Markdown
+// constructs the source parses into. For example, closing the spaces around
+// `**—**` makes both strong delimiters intraword and turns them into literal
+// asterisks. Keep a compact node-type tree so that case fails closed.
 // ---------------------------------------------------------------------------
 // CLI
 // ---------------------------------------------------------------------------
@@ -1032,10 +1478,13 @@ function reportViolations(violations) {
 
 function printUsageAndExit(code = 0) {
   console.log(`Usage:
-  node scripts/lint-content-em-dash.mjs [--write]
+  node scripts/lint-content-em-dash.mjs
 
-Checks for spaced em dashes in src/content markdown files and reports violations.
-Exceptions: bracketed ID-title labels such as [DST-047 — Title] remain allowed.`);
+Reports spaced em dashes in src/content and exits non-zero when any remain.
+Reporting only: closing them is a manual edit, because rewriting published
+prose in place cannot be done safely across Markdown, HTML and YAML without
+reimplementing their parsers.
+Exception: bracketed ID-title labels such as [DST-047 — Title] are allowed.`);
   process.exit(code);
 }
 
@@ -1046,45 +1495,14 @@ function main() {
     printUsageAndExit(0);
   }
 
-  // A typo such as `--wrtie` must not silently degrade to a read-only check
-  // and report success without applying the requested fix.
-  const unknown = args.filter((arg) => arg !== '--write');
-  if (unknown.length > 0) {
-    console.error(`content em-dash lint: unknown argument(s): ${unknown.join(', ')}`);
+  if (args.length > 0) {
+    console.error(`content em-dash lint: unknown argument(s): ${args.join(', ')}`);
     printUsageAndExit(2);
   }
 
-  const applyWrite = args.includes('--write');
-
-  const files = collectContentFiles(CONTENT_ROOT);
-
-  if (!applyWrite) {
-    const violations = scanFiles(files);
-    if (violations.length > 0) {
-      reportViolations(violations);
-      process.exit(1);
-    }
-    return;
-  }
-
-  let fixedCount = 0;
-
-  for (const filePath of files) {
-    const source = readFileSync(filePath, 'utf8');
-    const fixedSource = closeUpSpacedEmDashesInText(source, filePath);
-    if (fixedSource !== source) {
-      writeFileSync(filePath, fixedSource, 'utf8');
-      fixedCount += 1;
-    }
-  }
-
-  console.log(`content em-dash lint: fixed ${fixedCount} file${fixedCount === 1 ? '' : 's'}`);
-
-  // A write pass that leaves violations behind must not report success.
-  const remaining = scanFiles(files);
-  if (remaining.length > 0) {
-    console.error('content em-dash lint: violations remain after --write.');
-    reportViolations(remaining);
+  const violations = scanFiles(collectContentFiles(CONTENT_ROOT));
+  if (violations.length > 0) {
+    reportViolations(violations);
     process.exit(1);
   }
 }
