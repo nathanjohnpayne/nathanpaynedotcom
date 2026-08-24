@@ -403,7 +403,10 @@ describe.skipIf(!valeAvailable)('Vale prose lint', () => {
     const alerts = JSON.parse(result.stdout)[fixture].filter(
       (alert) => alert.Check === 'CMOS.EmDash',
     );
-    expect(alerts).toHaveLength(11);
+    expect(alerts).toHaveLength(13);
+    expect(alerts.map((alert) => alert.Line)).toEqual([
+      5, 7, 9, 11, 14, 15, 18, 20, 22, 25, 27, 29, 43,
+    ]);
     expect(alerts).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ Line: 5, Severity: 'error' }),
@@ -417,6 +420,24 @@ describe.skipIf(!valeAvailable)('Vale prose lint', () => {
         expect.objectContaining({ Line: 22, Severity: 'error' }),
         expect.objectContaining({ Line: 25, Severity: 'error' }),
         expect.objectContaining({ Line: 27, Severity: 'error' }),
+        expect.objectContaining({ Line: 29, Severity: 'error' }),
+        expect.objectContaining({ Line: 43, Severity: 'error' }),
+      ]),
+    );
+  });
+
+  it('lints a multiline quoted scalar at the YAML document root', () => {
+    const fixture = 'tests/fixtures/vale-em-dash/root-multiline.yaml';
+    const result = spawnSync(
+      process.execPath,
+      ['scripts/lint-prose.mjs', '--output=JSON', fixture],
+      { encoding: 'utf8' },
+    );
+
+    expect(result.status).toBe(1);
+    expect(JSON.parse(result.stdout)[fixture]).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ Check: 'CMOS.EmDash', Line: 2, Severity: 'error' }),
       ]),
     );
   });

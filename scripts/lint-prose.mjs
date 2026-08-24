@@ -182,7 +182,7 @@ function alertKey(alert) {
   return [alert.Check, alert.Line, ...(alert.Span || []), alert.Message].join(':');
 }
 
-function yamlStructureOf(line) {
+function yamlStructureOf(line, scalarRanges = []) {
   const keyRanges = [];
   const separators = [];
   let quote = null;
@@ -194,6 +194,11 @@ function yamlStructureOf(line) {
   if (explicitKey) keyRanges.push([explicitKey[0].length, line.length]);
 
   for (let index = 0; index < line.length; index += 1) {
+    const scalarRange = scalarRanges.find(([start, end]) => index >= start && index < end);
+    if (scalarRange) {
+      index = scalarRange[1] - 1;
+      continue;
+    }
     const character = line[index];
     if (escaped) {
       escaped = false;
@@ -265,6 +270,7 @@ function yamlStructureOf(line) {
 function yamlBlockScalarLines(source) {
   const lines = source.split(/\r?\n/);
   const scalarLines = new Set();
+  const foldedLines = new Set();
   let scalar = null;
 
   for (let index = 0; index < lines.length; index += 1) {
@@ -293,6 +299,9 @@ function yamlBlockScalarLines(source) {
 
         if (indentation >= scalar.contentIndent) {
           scalarLines.add(index + 1);
+          if (scalar.folded && indentation === scalar.contentIndent) {
+            foldedLines.add(index + 1);
+          }
           continue;
         }
 
@@ -302,7 +311,7 @@ function yamlBlockScalarLines(source) {
       }
 
       const header = line.match(
-        /^([\p{Zs}\t]*)((?:-[\p{Zs}\t]+)*)(?:("(?:[^"\\]|\\.)*"|'(?:[^']|'')*'|[^:\n]+):)?[\p{Zs}\t]*(?:(?:&[^\s[\]{},]+|![^\s]*)[\p{Zs}\t]+){0,2}[|>](?<modifiers>(?:[-+]\d*|\d+[-+]?)?)[\p{Zs}\t]*(?:#[^\n]*)?$/u,
+        /^([\p{Zs}\t]*)((?:-[\p{Zs}\t]+)*)(?:("(?:[^"\\]|\\.)*"|'(?:[^']|'')*'|[^:\n]+):)?[\p{Zs}\t]*(?:(?:&[^\s[\]{},]+|![^\s]*)[\p{Zs}\t]+){0,2}(?<indicator>[|>])(?<modifiers>(?:[-+]\d*|\d+[-+]?)?)[\p{Zs}\t]*(?:#[^\n]*)?$/u,
       );
       if (header) {
         const digit = header.groups.modifiers.match(/[1-9]/)?.[0];
@@ -312,60 +321,90 @@ function yamlBlockScalarLines(source) {
         scalar = {
           contentIndent: null,
           explicitIndent: digit ? Number(digit) : null,
+          folded: header.groups.indicator === '>',
           parentIndent,
         };
       }
     }
   }
 
-  return scalarLines;
+  return { foldedLines, scalarLines };
 }
 
-function quoteRemainsOpen(text, quote) {
-  for (let index = 1; index < text.length; index += 1) {
-    if (quote === '"' && text[index] === '\\') {
-      index += 1;
-      continue;
-    }
-    if (text[index] !== quote) continue;
-    if (quote === "'" && text[index + 1] === "'") {
-      index += 1;
-      continue;
-    }
-    return false;
+function yamlQuoteCanOpen(line, index) {
+  const prefix = line.slice(0, index);
+  const boundary = Math.max(
+    prefix.lastIndexOf(':'),
+    prefix.lastIndexOf('['),
+    prefix.lastIndexOf('{'),
+    prefix.lastIndexOf(','),
+  );
+  const candidate = prefix
+    .slice(boundary + 1)
+    .replace(/^\s*(?:-\s+)*/, '')
+    .trim();
+  return candidate === '' || /^(?:(?:[!&][^\s]+)\s*){1,2}$/.test(candidate);
+}
+
+function nextYamlCharacter(lines, lineIndex, column) {
+  for (let index = lineIndex; index < lines.length; index += 1) {
+    const start = index === lineIndex ? column : 0;
+    const match = lines[index].slice(start).match(/\S/);
+    if (match) return match[0];
   }
-  return true;
+  return null;
 }
 
-function yamlMultilineQuotedScalarLines(source) {
+function yamlQuotedScalarRanges(source) {
   const lines = source.split(/\r?\n/);
-  const continuationLines = new Set();
+  const ranges = new Map();
   let quote = null;
+  let spans = [];
+  let spanStart = 0;
 
-  for (let index = 0; index < lines.length; index += 1) {
-    const line = lines[index];
-    if (quote) {
-      continuationLines.add(index + 1);
-      if (!quoteRemainsOpen(`${quote}${line}`, quote)) quote = null;
-      continue;
+  for (let lineIndex = 0; lineIndex < lines.length; lineIndex += 1) {
+    const line = lines[lineIndex];
+    for (let index = 0; index < line.length; index += 1) {
+      const character = line[index];
+      if (quote) {
+        if (quote === '"' && character === '\\') {
+          index += 1;
+          continue;
+        }
+        if (character !== quote) continue;
+        if (quote === "'" && line[index + 1] === "'") {
+          index += 1;
+          continue;
+        }
+
+        spans.push([lineIndex + 1, spanStart, index + 1]);
+        if (nextYamlCharacter(lines, lineIndex, index + 1) !== ':') {
+          for (const [lineNumber, start, end] of spans) {
+            const lineRanges = ranges.get(lineNumber) || [];
+            lineRanges.push([start, end]);
+            ranges.set(lineNumber, lineRanges);
+          }
+        }
+        quote = null;
+        spans = [];
+        continue;
+      }
+
+      if ((character === '"' || character === "'") && yamlQuoteCanOpen(line, index)) {
+        quote = character;
+        spanStart = index;
+      }
     }
-
-    const structure = yamlStructureOf(line);
-    const separator = structure.separators.at(-1);
-    const sequence = separator === undefined ? line.match(/^\s*-\s+/) : null;
-    if (separator === undefined && !sequence) continue;
-
-    let value = line.slice(separator === undefined ? sequence[0].length : separator + 1).trimStart();
-    value = value.replace(/^(?:(?:[!&][^\s]+)\s+){0,2}/, '');
-    if ((value[0] === '"' || value[0] === "'") && quoteRemainsOpen(value, value[0])) {
-      quote = value[0];
+    if (quote) {
+      spans.push([lineIndex + 1, spanStart, line.length]);
+      spanStart = 0;
     }
   }
 
-  return continuationLines;
+  return ranges;
 }
 
-function yamlAlertIsProse(alert, source, blockScalarLines, quotedScalarLines) {
+function yamlAlertIsProse(alert, source, blockScalars, quotedScalarRanges) {
   if (alert.Check !== 'CMOS.EmDash') return true;
   const line = source.split(/\r?\n/)[alert.Line - 1] || '';
   const matchDash = typeof alert.Match === 'string' ? alert.Match.indexOf('—') : -1;
@@ -378,10 +417,16 @@ function yamlAlertIsProse(alert, source, blockScalarLines, quotedScalarLines) {
   for (const match of line.matchAll(IDENTIFIER_SEPARATOR)) {
     if (dash >= match.index && dash < match.index + match[0].length) return false;
   }
-  if (blockScalarLines.has(alert.Line)) return true;
-  if (quotedScalarLines.has(alert.Line)) return true;
+  const inQuotedScalar = (quotedScalarRanges.get(alert.Line) || []).some(
+    ([start, end]) => dash >= start && dash < end,
+  );
+  if (typeof alert.Match === 'string' && /\r?\n/.test(alert.Match)) {
+    if (inQuotedScalar || blockScalars.foldedLines.has(alert.Line)) return true;
+    return false;
+  }
+  if (blockScalars.scalarLines.has(alert.Line) || inQuotedScalar) return true;
 
-  const structure = yamlStructureOf(line);
+  const structure = yamlStructureOf(line, quotedScalarRanges.get(alert.Line));
   if (structure.keyRanges.some(([start, end]) => dash >= start && dash < end)) return false;
 
   const separator = structure.separators.filter((position) => position < dash).at(-1) ?? -1;
@@ -484,10 +529,10 @@ function main() {
       const source = sources.get(file);
       let alerts = reportedAlerts;
       if (YAML_EXTENSIONS.has(extname(file).toLowerCase())) {
-        const blockScalarLines = yamlBlockScalarLines(source);
-        const quotedScalarLines = yamlMultilineQuotedScalarLines(source);
+        const blockScalars = yamlBlockScalarLines(source);
+        const quotedScalarRanges = yamlQuotedScalarRanges(source);
         alerts = reportedAlerts.filter((alert) =>
-          yamlAlertIsProse(alert, source, blockScalarLines, quotedScalarLines),
+          yamlAlertIsProse(alert, source, blockScalars, quotedScalarRanges),
         );
       }
       const bodyAlerts = alerts.filter(
@@ -506,14 +551,14 @@ function main() {
         throw new Error(`Vale reported an unknown extracted path: ${reportedPath}`);
       }
       const source = sources.get(sourceFile);
-      const blockScalarLines = yamlBlockScalarLines(source);
-      const quotedScalarLines = yamlMultilineQuotedScalarLines(source);
+      const blockScalars = yamlBlockScalarLines(source);
+      const quotedScalarRanges = yamlQuotedScalarRanges(source);
       mergeAlerts(
         report,
         sourceFile,
         alerts
           .filter((alert) =>
-            yamlAlertIsProse(alert, source, blockScalarLines, quotedScalarLines),
+            yamlAlertIsProse(alert, source, blockScalars, quotedScalarRanges),
           )
           .map((alert) => ({ ...alert, Origin: 'frontmatter' })),
       );
