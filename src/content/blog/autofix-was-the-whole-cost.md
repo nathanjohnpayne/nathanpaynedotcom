@@ -57,7 +57,9 @@ Written out, "enforce this style rule" meant:
 2. **Know what counts as prose.** Legitimately hard, and unavoidable. A naive search across the site returns about 250 matches; thirteen are real. The rest are structure—code samples, configuration keys, link addresses, table borders, a password-manager entry whose name contains a dash and must never be edited. Getting this wrong means the tool cries wolf and people stop running it.
 3. **Fix violations automatically.** Never requested. Never defended. It arrived attached to the requirement the way features often do, and nobody ever asked whether it was worth having.
 
-Here is the part I got wrong when I first wrote this up, and it is worth correcting in public because the wrong version is the more flattering story. I claimed auto-fix had produced *most of the code*. It had not. Measured against the commit that removed it, the linter and its test suite fell from 2,917 lines to 2,417—a net reduction of **500 lines, or 17% of the implementation and tests combined**. Taken separately it is 12.6% of the linter and 23.7% of the tests.
+Here is the part I got wrong when I first wrote this up, and it is worth correcting in public because the wrong version is the more flattering story. I claimed auto-fix had produced *most of the code*. It had not. Measured across the commit that removed it, the linter and its test suite fell from 2,917 lines to 2,417—a net reduction of **500 lines, or 17% of the implementation and tests combined**. Taken separately it is 12.6% of the linter and 23.7% of the tests.
+
+Two snapshots appear in this post and they are deliberately different commits. This one brackets the removal itself. The 2,453-line figure further down is the tool as finally merged, slightly larger because later fixes landed on top of the cut.
 
 What it produced instead was most of the *trust burden*, and nearly all of the work that would not converge. Those are different claims, and the second is both true and more interesting: a capability can be a modest share of a codebase and still be the reason the project cannot finish.
 
@@ -88,7 +90,7 @@ This is worth making concrete, because "automatically fix formatting" sounds lik
 
 Take the text `word **—** next`. In Markdown, `**` makes text bold, so this is a bolded dash with spaces around it. It has the violation, so the tool should flag it. Now let the tool fix it by closing up the spaces:
 
-```
+```text
 word **—** next     →     word**—**next
 ```
 
@@ -104,7 +106,7 @@ The work went through automated code review—the [Codex GitHub App](https://lea
 
 Across [the PR that tried to make the auto-fixer safe](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/686): 57 findings across 24 review rounds. Findings per round, in order:
 
-```
+```text
 3 3 3 1 3 4 3 3 2 1 2 5 2 3 3 1 1 1 1 5 2 2 1 2
 ```
 
@@ -162,7 +164,7 @@ With auto-fixing gone, what remained was still 1,513 lines of custom code doing 
 
 The tempting summary is *1,513 lines became 7*—the em-dash rule in Vale is seven lines of configuration. That summary is false, and the false version is why most build-versus-buy posts are useless.
 
-The honest accounting:
+The honest accounting, with the "before" column being the tool as merged rather than the pre-removal snapshot above:
 
 | | Before | After |
 |---|---|---|
