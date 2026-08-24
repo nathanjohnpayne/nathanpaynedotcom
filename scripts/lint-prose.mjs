@@ -290,13 +290,17 @@ function yamlAlertIsProse(alert, source, scalarContext) {
       const intersectionStart = Math.max(previousLineStart, scalar.start);
       const intersectionEnd = Math.min(previousLineEnd, scalar.end);
       let previousScalarContent = source.slice(intersectionStart, intersectionEnd);
-      if (
+      const startsQuotedScalar =
         intersectionStart === scalar.start &&
-        (scalar.type === 'QUOTE_DOUBLE' || scalar.type === 'QUOTE_SINGLE')
-      ) {
+        (scalar.type === 'QUOTE_DOUBLE' || scalar.type === 'QUOTE_SINGLE');
+      if (startsQuotedScalar) {
         previousScalarContent = previousScalarContent.slice(1);
       }
-      leftBoundaryIsSpace = /[^ \t]/u.test(previousScalarContent);
+      const trailingBackslashes = previousScalarContent.match(/\\+$/u)?.[0].length ?? 0;
+      const escapedLineBreak =
+        scalar.type === 'QUOTE_DOUBLE' && trailingBackslashes % 2 === 1;
+      leftBoundaryIsSpace =
+        (startsQuotedScalar || /[^ \t]/u.test(previousScalarContent)) && !escapedLineBreak;
     }
   }
   const leftPaddingIsValue =

@@ -501,6 +501,14 @@ describe.skipIf(!valeAvailable)('Vale prose lint', () => {
           '',
           '  continuation"',
           'leftNbsp: \u00a0—word',
+          'escapedContinuation: "word\\',
+          '  —next"',
+          'escapedBackslash: "word\\\\',
+          '  —next"',
+          'emptyDouble: "',
+          '  —next"',
+          "emptySingle: '",
+          "  —next'",
           '',
         ].join('\n'),
       );
@@ -516,7 +524,7 @@ describe.skipIf(!valeAvailable)('Vale prose lint', () => {
       const alerts = JSON.parse(result.stdout)[reportedPath].filter(
         (alert) => alert.Check === 'CMOS.EmDash',
       );
-      expect(alerts.map((alert) => alert.Line)).toEqual([7, 9, 17, 24, 26, 29]);
+      expect(alerts.map((alert) => alert.Line)).toEqual([7, 9, 17, 24, 26, 29, 32, 34, 36]);
     } finally {
       rmSync(directory, { force: true, recursive: true });
     }
