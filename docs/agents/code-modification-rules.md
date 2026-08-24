@@ -98,11 +98,9 @@ JavaScript adds `.is-scrolling` to `<body>` during active scroll (debounced at 1
 
 ### Mermaid Accessibility
 
-Every Mermaid diagram is authored with a short accessible title and a
-relational description. Inline fences use `title="..." description="..."`
-metadata; sidebar Mermaid items use required `title` and `description`
-frontmatter fields. Describe the relationships or conclusion conveyed by the
-diagram, not merely its list of nodes. Missing metadata is a build error.
+Every Mermaid diagram is authored with a short accessible title and a relational description. Inline fences use whitespace-separated `title="..." description="..."` metadata; sidebar Mermaid items use required `title` and `description` frontmatter fields. Describe the relationships or conclusion conveyed by the diagram, not merely its list of nodes. Missing metadata or adjacent attributes without a separator are build errors.
+
+Mermaid is supported only in blog posts under `src/content/blog/*.md`. The globally registered Remark plugin rejects Mermaid fences in every other content collection and Markdown page because those surfaces do not share the blog development renderer and production static-SVG pass.
 
 ### Credential Hygiene
 - This repo should not contain API keys, service-account JSON, or ADC credentials. Public client identifiers (GA Measurement ID, Logo.dev publishable token, PostHog `phc_`) are public-by-design but still env-injected via `.env.tpl`/`op inject` and never hardcoded; anything that can read or manage data is a secret and likewise never committed.
@@ -161,7 +159,7 @@ Static assets (favicons, robots.txt, OG fonts) live in `public/` and are copied 
 - Blog frontmatter includes: `title`, `seoTitle` (optional), `shortTitle` (optional), `description`, `seoDescription` (optional), `author`, `date`, `tags`, `image`, `draft`, `pullquotes`, `sidebar`.
 - Project frontmatter includes optional `seoDescription`; use it when a project card/hero description is intentionally longer than a search snippet should be.
 - Project posts choose a semantic `accent` token (`red`, `yellow`, `black`, `blue`, `lightblue`, `paper`). Do not add raw project palette hex fields such as `accentColor`, `gradientFrom`, or `gradientTo`; CSS derives those colors from `data-accent`.
-- The custom Remark plugin converts ` ```mermaid ` code blocks to intermediate `<pre class="mermaid">` elements. The build-time Playwright integration replaces every intermediate block with static inline SVG before deployment; Mermaid does not run in production visitors' browsers. `BlogPost.astro` uses the pinned local dependency as a development-only renderer so HMR previews show diagrams rather than raw DSL.
+- The custom Remark plugin converts supported blog ` ```mermaid ` code blocks to intermediate `<pre class="mermaid">` elements and rejects them outside `src/content/blog/*.md`. The build-time Playwright integration replaces every intermediate block with static inline SVG before deployment; Mermaid does not run in production visitors' browsers. `BlogPost.astro` uses the pinned local dependency as a development-only renderer so HMR previews show diagrams rather than raw DSL.
 - Custom Rehype plugin wraps standalone images in `<figure>` with auto-numbered `<figcaption>`.
 
 ### Build & Dev

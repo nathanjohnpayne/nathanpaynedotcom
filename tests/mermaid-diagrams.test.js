@@ -14,12 +14,18 @@ import { JSDOM } from 'jsdom';
 import { describe, it, expect } from 'vitest';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
+const builtRoot = resolve(__dirname, '../dist');
 const builtBlogRoot = resolve(__dirname, '../dist/blog');
+const blogFixturePath = resolve(__dirname, '../src/content/blog/mermaid-fixture.md');
+
+function transformMermaid(tree, filePath = blogFixturePath) {
+  return import('../src/plugins/remark-mermaid.mjs').then(({ default: remarkMermaid }) => {
+    remarkMermaid()(tree, { path: filePath });
+  });
+}
 
 describe('remark-mermaid plugin', () => {
   it('converts mermaid code fences to pre.mermaid elements', async () => {
-    const { default: remarkMermaid } = await import('../src/plugins/remark-mermaid.mjs');
-
     const tree = {
       type: 'root',
       children: [
@@ -32,7 +38,7 @@ describe('remark-mermaid plugin', () => {
       ],
     };
 
-    remarkMermaid()(tree);
+    await transformMermaid(tree);
 
     expect(tree.children[0].type).toBe('html');
     expect(tree.children[0].value).toContain('class="mermaid"');
@@ -49,22 +55,18 @@ describe('remark-mermaid plugin', () => {
   });
 
   it('does not process non-mermaid code blocks', async () => {
-    const { default: remarkMermaid } = await import('../src/plugins/remark-mermaid.mjs');
-
     const tree = {
       type: 'root',
       children: [{ type: 'code', lang: 'javascript', value: 'const x = 1;' }],
     };
 
-    remarkMermaid()(tree);
+    await transformMermaid(tree, resolve(__dirname, '../src/content/projects/example.md'));
 
     expect(tree.children[0].type).toBe('code');
     expect(tree.children[0].lang).toBe('javascript');
   });
 
   it('escapes HTML in mermaid content', async () => {
-    const { default: remarkMermaid } = await import('../src/plugins/remark-mermaid.mjs');
-
     const tree = {
       type: 'root',
       children: [
@@ -77,7 +79,7 @@ describe('remark-mermaid plugin', () => {
       ],
     };
 
-    remarkMermaid()(tree);
+    await transformMermaid(tree);
 
     expect(tree.children[0].value).not.toContain('<script>');
     expect(tree.children[0].value).toContain('&lt;script&gt;');
@@ -85,14 +87,65 @@ describe('remark-mermaid plugin', () => {
   });
 
   it('rejects mermaid fences without a short title and relational description', async () => {
-    const { default: remarkMermaid } = await import('../src/plugins/remark-mermaid.mjs');
-
     const tree = {
       type: 'root',
       children: [{ type: 'code', lang: 'mermaid', value: 'graph TD\nA --> B' }],
     };
 
-    expect(() => remarkMermaid()(tree)).toThrow(/title=.*description=/i);
+    await expect(transformMermaid(tree)).rejects.toThrow(/title=.*description=/i);
+  });
+
+  it('accepts whitespace-separated metadata and preserves escaped quotes', async () => {
+    const tree = {
+      type: 'root',
+      children: [
+        {
+          type: 'code',
+          lang: 'mermaid',
+          meta: String.raw`title="A \"quoted\" flow" 	 description="A leads to \"B\"."`,
+          value: 'graph TD\nA --> B',
+        },
+      ],
+    };
+
+    await transformMermaid(tree);
+
+    expect(tree.children[0].value).toContain('aria-label="A &quot;quoted&quot; flow"');
+    expect(tree.children[0].value).toContain('A leads to &quot;B&quot;.');
+  });
+
+  it('rejects adjacent metadata attributes without a whitespace separator', async () => {
+    const tree = {
+      type: 'root',
+      children: [
+        {
+          type: 'code',
+          lang: 'mermaid',
+          meta: 'title="Example flow"description="A leads directly to B."',
+          value: 'graph TD\nA --> B',
+        },
+      ],
+    };
+
+    await expect(transformMermaid(tree)).rejects.toThrow(/title=.*description=/i);
+  });
+
+  it('rejects Mermaid fences outside the blog content collection', async () => {
+    const tree = {
+      type: 'root',
+      children: [
+        {
+          type: 'code',
+          lang: 'mermaid',
+          meta: 'title="Example flow" description="A leads directly to B."',
+          value: 'graph TD\nA --> B',
+        },
+      ],
+    };
+
+    await expect(
+      transformMermaid(tree, resolve(__dirname, '../src/content/projects/example.md')),
+    ).rejects.toThrow(/only supported in src\/content\/blog/i);
   });
 
   it('gives every built diagram an accessible name and description', () => {
@@ -193,6 +246,23 @@ describe('remark-mermaid plugin', () => {
     expect(layout).not.toMatch(/cdn\.jsdelivr\.net\/npm\/mermaid/i);
   });
 
+  it('excludes the Mermaid runtime and production import from emitted client JavaScript', () => {
+    const clientJavaScript = readdirSync(builtRoot, { recursive: true })
+      .filter((entry) => typeof entry === 'string' && entry.endsWith('.js'))
+      .sort();
+
+    expect(clientJavaScript, 'the production build must emit client JavaScript').not.toHaveLength(
+      0,
+    );
+
+    for (const relativePath of clientJavaScript) {
+      const source = readFileSync(resolve(builtRoot, relativePath), 'utf8');
+      expect(source, `${relativePath}: Mermaid leaked into the production bundle`).not.toMatch(
+        /mermaid/i,
+      );
+    }
+  });
+
   it('preserves representative Mermaid syntax in the static SVG output', () => {
     const paletteHtml = readFileSync(
       resolve(builtBlogRoot, 'two-blues-one-composition', 'index.html'),
@@ -222,16 +292,22 @@ describe('remark-mermaid plugin', () => {
   it('renders the complete documented syntax surface through the build pass', async () => {
     const fixtureRoot = mkdtempSync(join(tmpdir(), 'mermaid-static-build-'));
     const fixturePage = resolve(fixtureRoot, 'blog', 'syntax-coverage');
-    const source = `<!DOCTYPE html><html><body><figure class="mermaid-figure"><pre class="mermaid">graph TD
+    const unchangedPage = resolve(fixtureRoot, 'blog', 'without-diagrams');
+    const prefix = `<!doctype html>\n<html data-preserve="yes"><head><script type="application/ld+json">{"name":"A & B < C","markup":"<pre class='mermaid'>literal JSON-LD example</pre>"}</script><script>const example = '<pre class="mermaid">literal script example</pre>';</script></head><body>\n<!-- <pre class="mermaid">literal comment example</pre> -->\n<template><pre class="mermaid">literal template example</pre></template>\n<p title="A &amp; B">A&nbsp;&amp; B</p>\n<figure class="mermaid-figure">`;
+    const suffix = `</figure>\n<!-- preserve this whitespace -->\n</body></html>\n`;
+    const source = `${prefix}<pre class="mermaid" aria-hidden="true">graph TD
 subgraph GROUP["Grouped nodes"]
   A["Alpha&lt;br/&gt;line"] -.-&gt;|"dotted label"| B["Beta"]
 end
-style A fill:#ff0000,stroke:#000000,color:#ffffff</pre></figure></body></html>`;
+style A fill:#ff0000,stroke:#000000,color:#ffffff</pre>${suffix}`;
+    const unchangedSource = `<!doctype html>\n<html><head><script type="application/ld+json">{"text":"<pre class='mermaid'>literal example</pre>"}</script></head><body>\n<p>A&nbsp;&amp; B</p>\n</body></html>\n`;
     let browser;
 
     try {
       mkdirSync(fixturePage, { recursive: true });
+      mkdirSync(unchangedPage, { recursive: true });
       writeFileSync(resolve(fixturePage, 'index.html'), source);
+      writeFileSync(resolve(unchangedPage, 'index.html'), unchangedSource);
 
       const { chromium } = await import('playwright');
       const { renderMermaidDiagrams } = await import('../src/integrations/og-images.mjs');
@@ -242,8 +318,14 @@ style A fill:#ff0000,stroke:#000000,color:#ffffff</pre></figure></body></html>`;
         logger: { info() {}, warn() {} },
       });
 
-      const result = new JSDOM(readFileSync(resolve(fixturePage, 'index.html'), 'utf8')).window
-        .document;
+      const renderedHtml = readFileSync(resolve(fixturePage, 'index.html'), 'utf8');
+      const svgStart = renderedHtml.indexOf('<svg');
+      const svgEnd = renderedHtml.lastIndexOf('</svg>') + '</svg>'.length;
+      expect(renderedHtml.slice(0, svgStart)).toBe(prefix);
+      expect(renderedHtml.slice(svgEnd)).toBe(suffix);
+      expect(readFileSync(resolve(unchangedPage, 'index.html'), 'utf8')).toBe(unchangedSource);
+
+      const result = new JSDOM(renderedHtml).window.document;
       expect(result.querySelector('pre.mermaid')).toBeNull();
       expect(result.querySelector('svg.mermaid')).not.toBeNull();
       expect(result.querySelector('.cluster')).not.toBeNull();
@@ -253,6 +335,32 @@ style A fill:#ff0000,stroke:#000000,color:#ffffff</pre></figure></body></html>`;
       expect(result.body.textContent).toContain('dotted label');
     } finally {
       await browser?.close();
+      rmSync(fixtureRoot, { recursive: true, force: true });
+    }
+  });
+
+  it('does not initialize a DOM or browser renderer when blog pages contain no diagrams', async () => {
+    const fixtureRoot = mkdtempSync(join(tmpdir(), 'mermaid-static-empty-'));
+    const fixturePage = resolve(fixtureRoot, 'blog', 'without-diagrams');
+    const source = '<!doctype html><html><body><p>No diagrams here.</p></body></html>\n';
+
+    try {
+      mkdirSync(fixturePage, { recursive: true });
+      writeFileSync(resolve(fixturePage, 'index.html'), source);
+
+      const { renderMermaidDiagrams } = await import('../src/integrations/og-images.mjs');
+      await renderMermaidDiagrams({
+        browser: {
+          newContext() {
+            throw new Error('renderer setup must be skipped');
+          },
+        },
+        distDir: fixtureRoot,
+        logger: { info() {}, warn() {} },
+      });
+
+      expect(readFileSync(resolve(fixturePage, 'index.html'), 'utf8')).toBe(source);
+    } finally {
       rmSync(fixtureRoot, { recursive: true, force: true });
     }
   });

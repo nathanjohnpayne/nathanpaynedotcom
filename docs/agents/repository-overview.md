@@ -28,7 +28,7 @@ Astro pages, layouts, and content collections generate the full static site into
 | `src/components/resume/*` | Resume section components and Logo.dev-backed company/school/issuer logo rendering. |
 | `src/components/posthog.astro` | PostHog analytics bootstrap; no-ops when `PUBLIC_POSTHOG_PROJECT_TOKEN` is unset. |
 | `src/content.config.ts` | Content Collections schema definition (Zod-validated frontmatter). |
-| `src/plugins/remark-mermaid.mjs` | Remark plugin—converts ` ```mermaid ` blocks to `<pre class="mermaid">`. |
+| `src/plugins/remark-mermaid.mjs` | Remark plugin—converts supported blog ` ```mermaid ` blocks to `<pre class="mermaid">` and rejects fences on unsupported Markdown surfaces. |
 | `src/plugins/rehype-figure-captions.mjs` | Rehype plugin—wraps images in `<figure>` with auto-numbered `<figcaption>`. |
 | `src/plugins/rehype-color-chips.mjs` | Rehype plugin—renders constrained inline color chips from markdown markup. |
 | `src/integrations/og-images.mjs` | Astro integration—build-time OG image generation via Playwright screenshots. |

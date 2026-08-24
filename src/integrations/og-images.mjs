@@ -226,6 +226,23 @@ export async function renderMermaidDiagrams({ browser, distDir, logger }) {
     return;
   }
 
+  const diagramPages = [];
+  for (const pagePath of pagePaths) {
+    const htmlPath = join(blogDir, pagePath, 'index.html');
+    const html = await readFile(htmlPath, 'utf8');
+    if (!html.includes('<pre class="mermaid"')) continue;
+
+    const sourceBlocks = findMermaidSourceBlocks(html);
+    if (sourceBlocks.length > 0) {
+      diagramPages.push({ pagePath, htmlPath, html, sourceBlocks });
+    }
+  }
+
+  if (diagramPages.length === 0) {
+    logger.info('Rendered 0 Mermaid diagrams as static SVG');
+    return;
+  }
+
   const context = await browser.newContext();
   const rendererPage = await context.newPage();
   let diagramCount = 0;
@@ -244,15 +261,9 @@ export async function renderMermaidDiagrams({ browser, distDir, logger }) {
       });
     });
 
-    for (const pagePath of pagePaths) {
-      const htmlPath = join(blogDir, pagePath, 'index.html');
-      const html = await readFile(htmlPath, 'utf8');
-      const dom = new JSDOM(html);
-      const { document } = dom.window;
-      const sourceBlocks = Array.from(document.querySelectorAll('pre.mermaid'));
-
+    for (const { pagePath, htmlPath, html, sourceBlocks } of diagramPages) {
+      const replacements = [];
       for (const [index, sourceBlock] of sourceBlocks.entries()) {
-        const source = sourceBlock.textContent ?? '';
         const renderId = `mermaid-static-${diagramCount + 1}`;
         let svg;
 
@@ -262,7 +273,7 @@ export async function renderMermaidDiagrams({ browser, distDir, logger }) {
               const result = await window.mermaid.render(id, definition);
               return result.svg;
             },
-            { id: renderId, definition: source },
+            { id: renderId, definition: sourceBlock.source },
           );
         } catch (error) {
           throw new Error(
@@ -280,19 +291,61 @@ export async function renderMermaidDiagrams({ browser, distDir, logger }) {
         renderedSvg.classList.add('mermaid');
         renderedSvg.setAttribute('aria-hidden', 'true');
         renderedSvg.setAttribute('focusable', 'false');
-        sourceBlock.replaceWith(document.importNode(renderedSvg, true));
+        replacements.push({
+          start: sourceBlock.start,
+          end: sourceBlock.end,
+          value: renderedSvg.outerHTML,
+        });
         diagramCount += 1;
       }
 
-      if (sourceBlocks.length > 0) {
-        await writeFile(htmlPath, `<!DOCTYPE html>${document.documentElement.outerHTML}`);
-      }
+      await writeFile(htmlPath, replaceRanges(html, replacements));
     }
   } finally {
     await context.close();
   }
 
   logger.info(`Rendered ${diagramCount} Mermaid diagrams as static SVG`);
+}
+
+/**
+ * Locate actual intermediate Mermaid elements with parser-provided offsets.
+ * The caller uses these ranges for targeted replacement instead of serializing
+ * the document, so JSON-LD, scripts, comments, templates, entities, and
+ * whitespace outside each source element retain their original bytes.
+ */
+function findMermaidSourceBlocks(html) {
+  const dom = new JSDOM(html, { includeNodeLocations: true });
+
+  try {
+    return Array.from(dom.window.document.querySelectorAll('pre.mermaid'), (sourceBlock) => {
+      const location = dom.nodeLocation(sourceBlock);
+      if (location?.startTag == null || location.endTag == null) {
+        throw new Error('Mermaid source block has no complete source location');
+      }
+
+      return {
+        start: location.startOffset,
+        end: location.endOffset,
+        source: sourceBlock.textContent ?? '',
+      };
+    });
+  } finally {
+    dom.window.close();
+  }
+}
+
+function replaceRanges(source, replacements) {
+  let cursor = 0;
+  let result = '';
+
+  for (const replacement of replacements) {
+    result += source.slice(cursor, replacement.start);
+    result += replacement.value;
+    cursor = replacement.end;
+  }
+
+  return result + source.slice(cursor);
 }
 
 /**
