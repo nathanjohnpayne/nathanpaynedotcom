@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { extname, join, resolve } from 'node:path';
 
@@ -94,6 +94,7 @@ function discoverProseFiles() {
       );
     })
     .filter((file) => !file.startsWith('tests/fixtures/vale-'))
+    .filter((file) => existsSync(file))
     .filter((file) => !isPropagatedMirror(file))
     .sort();
 }

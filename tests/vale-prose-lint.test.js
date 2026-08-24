@@ -95,10 +95,10 @@ describe('Vale provisioning', () => {
       mkdirSync(staleDirectory);
       mkdirSync(destinationDirectory);
       const verifiedVale = join(sourceDirectory, 'vale');
-      writeFileSync(verifiedVale, '#!/usr/bin/env sh\necho "vale version 3.18.0"\n');
+      writeFileSync(verifiedVale, '#!/usr/bin/env sh\necho "vale verified version 3.18.0"\n');
       chmodSync(verifiedVale, 0o755);
       const staleVale = join(staleDirectory, 'vale');
-      writeFileSync(staleVale, '#!/usr/bin/env sh\necho "vale version 3.18.0"\n');
+      writeFileSync(staleVale, '#!/usr/bin/env sh\necho "vale stale version 3.18.0"\n');
       chmodSync(staleVale, 0o755);
       const archive = join(directory, 'vale.tar.gz');
       expect(spawnSync('tar', ['-czf', archive, '-C', sourceDirectory, 'vale']).status).toBe(0);
@@ -127,6 +127,9 @@ describe('Vale provisioning', () => {
           env: { ...process.env, PATH: runtimePath },
         }).stdout.trim(),
       ).toBe(destination);
+      expect(spawnSync(destination, ['--version'], { encoding: 'utf8' }).stdout).toContain(
+        'verified',
+      );
     } finally {
       rmSync(directory, { force: true, recursive: true });
     }
@@ -373,7 +376,7 @@ describe.skipIf(!valeAvailable)('Vale prose lint', () => {
     const alerts = JSON.parse(result.stdout)[fixture].filter(
       (alert) => alert.Check === 'CMOS.EmDash',
     );
-    expect(alerts).toHaveLength(7);
+    expect(alerts).toHaveLength(9);
     expect(alerts).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ Line: 5, Severity: 'error' }),
@@ -381,8 +384,10 @@ describe.skipIf(!valeAvailable)('Vale prose lint', () => {
         expect.objectContaining({ Line: 9, Severity: 'error' }),
         expect.objectContaining({ Line: 11, Severity: 'error' }),
         expect.objectContaining({ Line: 14, Severity: 'error' }),
-        expect.objectContaining({ Line: 16, Severity: 'error' }),
-        expect.objectContaining({ Line: 19, Severity: 'error' }),
+        expect.objectContaining({ Line: 15, Severity: 'error' }),
+        expect.objectContaining({ Line: 18, Severity: 'error' }),
+        expect.objectContaining({ Line: 20, Severity: 'error' }),
+        expect.objectContaining({ Line: 22, Severity: 'error' }),
       ]),
     );
   });

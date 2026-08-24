@@ -1,20 +1,23 @@
 "Release — Notes": clean
 dashOnly: —
-? Release — Notes
+? Release — Digest
 : clean
-x: {Release — Notes: ok, blurb: word — next}
+x: {Release — Summary: ok, blurb: word — next}
 identifier: "[DST-047 — Title]"
 description: Standalone — YAML violation.
 literal: |
   Release — Notes: ok
 folded: >
   ? Release — Notes
-- description: |
-  Release — Notes: ok
-  blurb: word — next
-- - |2
-    Nested — sequence prose.
-  Release — Notes: ok
-- description: |2
-    Explicit — scalar prose.
-  Release — Notes: ok
+sequence:
+  - description: |
+      Scalar — sequence prose.
+    blurb: word — next
+  - empty: |
+    Release — Notes: ok
+    blurb: word — next
+  - - |2
+      Nested — sequence prose.
+  - description: |2
+      Explicit — scalar prose.
+    Release — Explicit: ok
