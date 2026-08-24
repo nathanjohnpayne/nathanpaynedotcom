@@ -16,12 +16,13 @@ Astro pages, layouts, and content collections generate the full static site into
 | `src/pages/resume.astro` | Resume page rendered from resume-specific content collections and section components. |
 | `src/pages/rss.xml.ts` | RSS feed endpoint (via `@astrojs/rss`). |
 | `src/pages/404.astro` | Custom error page. |
+| `src/lib/blog-order.ts` | Shared blog category vocabulary and editorial comparator (featured, then category, then date). |
 | `src/layouts/BaseLayout.astro` | Base wrapper—SEO meta, Open Graph tags, JSON-LD, GA4 snippet, font preconnects. |
 | `src/layouts/BlogPost.astro` | Blog post layout (three-column Mondrian-inspired grid with sidebar). |
 | `src/layouts/ProjectLayout.astro` | Project page layout. |
 | `src/layouts/OgCard.astro` | OG image card template (1200×630). |
 | `src/styles/global.css` | Shared styles—Mondrian homepage grid, project/blog pages, motion system, responsive, accessibility. |
-| `src/content/blog/*.md` | Markdown blog post source files with frontmatter, including optional SEO-only title/description fields for concise search metadata. |
+| `src/content/blog/*.md` | Markdown blog post source files with required editorial category, optional featured flag, and optional SEO-only title/description fields. |
 | `src/content/projects/*.md` | Markdown project source files—each file generates a project page and index entry. Optional `seoDescription` keeps search snippets concise without shortening on-page case-study copy. See `specs/project-pages.md` for authoring guide. |
 | `src/components/ProjectHero.astro` | Project hero header; `variant` prop covers wide/narrow screenshot layouts (#470). |
 | `src/components/MetadataStrip.astro` | Strip-only project metadata table (topics/format/focus/status); the screenshot surface is owned by `ProjectLayout`. |
@@ -48,6 +49,7 @@ firebase.json               Firebase Hosting config
 .firebaserc                 Firebase project alias
 src/
   pages/                    Astro page routes (auto-generates HTML)
+  lib/                      Shared position and editorial ordering helpers
   layouts/                  Layout components (BaseLayout, BlogPost, ProjectLayout, OgCard)
   content/blog/             Markdown blog post source files
   content/projects/         Markdown project source files (content collection)

@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync, readdirSync } from 'fs';
 import { resolve } from 'path';
+import { parseFrontmatter } from '../scripts/lib/parse-frontmatter.mjs';
 
 const configSource = readFileSync(resolve(__dirname, '../src/content.config.ts'), 'utf-8');
 
@@ -11,21 +12,6 @@ const markdownFiles = readdirSync(contentDir)
     name: f,
     content: readFileSync(resolve(contentDir, f), 'utf-8'),
   }));
-
-function parseFrontmatter(content) {
-  const match = content.match(/^---\n([\s\S]*?)\n---/);
-  if (!match) return null;
-  const raw = match[1];
-  const fields = {};
-  for (const line of raw.split('\n')) {
-    const colonIndex = line.indexOf(':');
-    if (colonIndex === -1) continue;
-    const key = line.slice(0, colonIndex).trim();
-    const value = line.slice(colonIndex + 1).trim();
-    fields[key] = value;
-  }
-  return fields;
-}
 
 function collectionSource(collectionName) {
   const startMatch = configSource.match(
@@ -48,11 +34,14 @@ describe('Content Schema', () => {
     expect(configSource).toContain('collections');
   });
 
-  it('blog schema requires title, description, date, tags, and image', () => {
+  it('blog schema requires title, description, category, date, tags, and image', () => {
     expect(configSource).toContain('title: z.string()');
     expect(configSource).toContain('seoTitle: z.string().optional()');
     expect(configSource).toContain('description: z.string()');
     expect(configSource).toContain('seoDescription: z.string().optional()');
+    expect(configSource).toContain("import { BLOG_CATEGORIES } from './lib/blog-order'");
+    expect(configSource).toContain('category: z.enum(BLOG_CATEGORIES)');
+    expect(configSource).toContain('featured: z.boolean().default(false)');
     expect(configSource).toContain('date: z.coerce.date()');
     expect(configSource).toContain('tags: z.array(z.string())');
     expect(configSource).toContain('image: z.string()');
@@ -72,9 +61,29 @@ describe('Content Schema', () => {
       expect(fm, `${file.name}: missing frontmatter`).not.toBeNull();
       expect(fm.title, `${file.name}: missing title`).toBeTruthy();
       expect(fm.description, `${file.name}: missing description`).toBeTruthy();
+      expect(fm.category, `${file.name}: missing category`).toBeTruthy();
       expect(fm.date, `${file.name}: missing date`).toBeTruthy();
       expect(fm.tags, `${file.name}: missing tags`).toBeTruthy();
       expect(fm.image, `${file.name}: missing image`).toBeTruthy();
+    }
+  });
+
+  it('publishes exactly one featured post across the collection', () => {
+    const featured = markdownFiles.filter((file) => {
+      const fm = parseFrontmatter(file.content);
+      return fm?.featured === 'true' && fm?.draft !== 'true';
+    });
+
+    expect(featured.map((file) => file.name)).toEqual(['six-prs-one-bug-agent-failure-modes.md']);
+  });
+
+  it('assigns every published post to one of the two editorial categories', () => {
+    const allowedCategories = ['Agent Systems', 'Building This Site'];
+
+    for (const file of markdownFiles) {
+      const fm = parseFrontmatter(file.content);
+      if (fm?.draft === 'true') continue;
+      expect(allowedCategories, `${file.name}: invalid category`).toContain(fm?.category);
     }
   });
 });

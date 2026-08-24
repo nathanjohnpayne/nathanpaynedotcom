@@ -4,6 +4,7 @@ seoTitle: "How Making a Page Responsive Led to Astro"
 shortTitle: "Responsive Fix to Astro"
 description: "A mobile responsive bug on a single blog post was the symptom of a hand-rolled chassis that could not scale. Why the right move was to migrate to a static site generator the same afternoon, and what an SSG actually buys you over hand-rolled HTML or a CMS."
 seoDescription: "A mobile overflow bug exposed duplicated static HTML. Why this site moved to Astro, content collections, generated OG images, RSS, and sitemaps."
+category: "Building This Site"
 author: "Nathan Payne"
 date: 2026-05-09
 tags: ["Engineering", "Product", "Architecture", "Astro", "Web Performance"]

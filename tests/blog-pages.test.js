@@ -11,6 +11,15 @@ const blogPostHtml = readFileSync(
 );
 const firebaseConfig = JSON.parse(readFileSync(resolve(__dirname, '../firebase.json'), 'utf-8'));
 
+const EDITORIAL_ORDER = [
+  'six-prs-one-bug-agent-failure-modes',
+  'perfect-score-wrong-axis',
+  'html-mockups-as-spec',
+  'agent-approval-workflow-genesis-of-mergepath',
+  'two-blues-one-composition',
+  'how-a-responsive-fix-became-an-astro-migration',
+];
+
 function setupDOM(html) {
   // Scripts are removed on a detached document and the doctype preserved by
   // the shared helper — see tests/helpers/dom.js for why both matter.
@@ -111,18 +120,43 @@ describe('Blog Pages', () => {
     expect(collectionPage.mainEntity['@id']).toBe('https://nathanpayne.com/blog/#itemlist');
     expect(itemList).toBeDefined();
     expect(itemList.itemListElement.length).toBeGreaterThan(0);
+    expect(itemList.itemListElement.map((entry) => entry.item.url)).toEqual(
+      EDITORIAL_ORDER.map((slug) => `https://nathanpayne.com/blog/${slug}/`),
+    );
     expect(itemList.itemListElement[0]).toMatchObject({
       '@type': 'ListItem',
       position: 1,
       item: {
         '@type': 'BlogPosting',
-        '@id': 'https://nathanpayne.com/blog/perfect-score-wrong-axis/',
-        url: 'https://nathanpayne.com/blog/perfect-score-wrong-axis/',
-        name: 'A Perfect Score on the Wrong Axis: 116 Review Findings, Zero Rejected, One Escape',
-        datePublished: '2026-07-30T00:00:00.000Z',
+        '@id': 'https://nathanpayne.com/blog/six-prs-one-bug-agent-failure-modes/',
+        url: 'https://nathanpayne.com/blog/six-prs-one-bug-agent-failure-modes/',
+        name: 'Six PRs, One Bug: What AI Agents Actually Get Wrong',
+        datePublished: '2026-04-04T00:00:00.000Z',
       },
     });
     expect(itemList.itemListElement[0].item.description.length).toBeLessThanOrEqual(160);
+  });
+
+  it('renders category shelves and the featured label in editorial order', () => {
+    setupDOM(blogIndexHtml);
+
+    const cards = [...document.querySelectorAll('.post-card')];
+    const slugs = cards.map((card) =>
+      card.querySelector('.post-title a')?.getAttribute('href')?.split('/').filter(Boolean).at(-1),
+    );
+    const categories = cards.map((card) => card.querySelector('.post-meta')?.textContent.trim());
+    const featureLabel = document.querySelector('.index-feature-cell__label');
+
+    expect(slugs).toEqual(EDITORIAL_ORDER);
+    expect(categories).toEqual([
+      'Agent Systems',
+      'Agent Systems',
+      'Agent Systems',
+      'Agent Systems',
+      'Building This Site',
+      'Building This Site',
+    ]);
+    expect(featureLabel?.textContent.trim()).toBe('Featured');
   });
 
   it('hosting deploys from dist/ so markdown source is excluded', () => {

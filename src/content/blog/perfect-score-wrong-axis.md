@@ -4,6 +4,7 @@ seoTitle: "A Perfect Score on the Wrong Axis"
 shortTitle: "Perfect Score, Wrong Axis"
 description: "A ten-PR batch and its hotfix generated 134 review-finding threads, 116 of them severity-badged—and of the 122 threads with recorded dispositions, not one was rejected as wrong. Ninety-four seconds after the last merge, a reviewer working outside the session's frame found the defect every briefed pass had missed. The record was perfect because it was measuring closure, not coverage."
 seoDescription: "An AI review batch recorded 122 finding dispositions with zero rejections and still shipped a P1. Correlated verification keeps shared blind spots."
+category: "Agent Systems"
 author: "Nathan Payne"
 date: 2026-07-30
 tags: ["AI", "Engineering", "Systems", "Code Review", "Debugging"]
