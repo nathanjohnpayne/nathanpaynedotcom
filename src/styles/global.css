@@ -2339,17 +2339,17 @@ body.blog-page {
   min-height: 14rem;
 }
 
-/* Overflow rows (post 5+): alternate between two layouts */
+/* Rows 5–6 reprise the shared 72% and 50% axes established above. */
 .grid-row--overflow-a {
   display: grid;
-  grid-template-columns: minmax(0, 6fr) minmax(0, 4fr);
+  grid-template-columns: var(--col-post-wide) minmax(0, 1fr);
   gap: var(--line);
   min-height: 13rem;
 }
 
 .grid-row--overflow-b {
   display: grid;
-  grid-template-columns: minmax(0, 4fr) minmax(0, 6fr);
+  grid-template-columns: var(--col-post) minmax(0, 1fr);
   gap: var(--line);
   min-height: 13rem;
 }
