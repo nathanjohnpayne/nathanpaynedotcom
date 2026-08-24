@@ -5,3 +5,7 @@ dashOnly: —
 x: {Release — Notes: ok, blurb: word — next}
 identifier: "[DST-047 — Title]"
 description: Standalone — YAML violation.
+literal: |
+  Release — Notes: ok
+folded: >
+  ? Release — Notes

@@ -253,7 +253,63 @@ function yamlStructureOf(line) {
   return { keyRanges, separators };
 }
 
-function yamlAlertIsProse(alert, source) {
+function yamlBlockScalarLines(source) {
+  const lines = source.split(/\r?\n/);
+  const scalarLines = new Set();
+  let scalar = null;
+
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index];
+    let classifyAgain = true;
+
+    while (classifyAgain) {
+      classifyAgain = false;
+      if (scalar) {
+        if (line.trim() === '') {
+          scalarLines.add(index + 1);
+          continue;
+        }
+
+        const indentation = line.match(/^ */)[0].length;
+        if (scalar.contentIndent === null) {
+          if (indentation <= scalar.parentIndent) {
+            scalar = null;
+            classifyAgain = true;
+            continue;
+          }
+          scalar.contentIndent = scalar.explicitIndent
+            ? scalar.parentIndent + scalar.explicitIndent
+            : indentation;
+        }
+
+        if (indentation >= scalar.contentIndent) {
+          scalarLines.add(index + 1);
+          continue;
+        }
+
+        scalar = null;
+        classifyAgain = true;
+        continue;
+      }
+
+      const header = line.match(
+        /(?:^|:\s+|-\s+)(?:(?:[!&][^\s]+)\s+)*[|>](?<modifiers>[1-9+-]{0,2})\s*(?:#.*)?$/,
+      );
+      if (header) {
+        const digit = header.groups.modifiers.match(/[1-9]/)?.[0];
+        scalar = {
+          contentIndent: null,
+          explicitIndent: digit ? Number(digit) : null,
+          parentIndent: line.match(/^ */)[0].length,
+        };
+      }
+    }
+  }
+
+  return scalarLines;
+}
+
+function yamlAlertIsProse(alert, source, blockScalarLines) {
   if (alert.Check !== 'CMOS.EmDash') return true;
   const line = source.split(/\r?\n/)[alert.Line - 1] || '';
   const matchDash = typeof alert.Match === 'string' ? alert.Match.indexOf('—') : -1;
@@ -266,6 +322,7 @@ function yamlAlertIsProse(alert, source) {
   for (const match of line.matchAll(IDENTIFIER_SEPARATOR)) {
     if (dash >= match.index && dash < match.index + match[0].length) return false;
   }
+  if (blockScalarLines.has(alert.Line)) return true;
 
   const structure = yamlStructureOf(line);
   if (structure.keyRanges.some(([start, end]) => dash >= start && dash < end)) return false;
@@ -362,9 +419,14 @@ function main() {
     for (const file of parsed.files) {
       const extraction = frontmatter.get(file);
       const reportedAlerts = markdownReport[file] || markdownReport[resolve(file)] || [];
-      const alerts = YAML_EXTENSIONS.has(extname(file).toLowerCase())
-        ? reportedAlerts.filter((alert) => yamlAlertIsProse(alert, sources.get(file)))
-        : reportedAlerts;
+      const source = sources.get(file);
+      let alerts = reportedAlerts;
+      if (YAML_EXTENSIONS.has(extname(file).toLowerCase())) {
+        const blockScalarLines = yamlBlockScalarLines(source);
+        alerts = reportedAlerts.filter((alert) =>
+          yamlAlertIsProse(alert, source, blockScalarLines),
+        );
+      }
       const bodyAlerts = alerts.filter(
         (alert) =>
           extraction.kind !== 'complete' ||
@@ -380,11 +442,13 @@ function main() {
       if (!sourceFile) {
         throw new Error(`Vale reported an unknown extracted path: ${reportedPath}`);
       }
+      const source = sources.get(sourceFile);
+      const blockScalarLines = yamlBlockScalarLines(source);
       mergeAlerts(
         report,
         sourceFile,
         alerts
-          .filter((alert) => yamlAlertIsProse(alert, sources.get(sourceFile)))
+          .filter((alert) => yamlAlertIsProse(alert, source, blockScalarLines))
           .map((alert) => ({ ...alert, Origin: 'frontmatter' })),
       );
     }
