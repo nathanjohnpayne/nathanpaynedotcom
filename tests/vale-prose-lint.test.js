@@ -189,8 +189,8 @@ describe.skipIf(!valeAvailable)('Vale prose lint', () => {
     }
   });
 
-  it('excludes a propagated mirror passed as an explicit path', () => {
-    const mirror = 'docs/agents/prose-line-wrapping.md';
+  it('excludes an unmarked propagated mirror passed as an absolute path', () => {
+    const mirror = join(process.cwd(), '.github/pull_request_template.md');
     const result = spawnSync(
       process.execPath,
       ['scripts/lint-prose.mjs', '--output=JSON', mirror],
@@ -199,6 +199,21 @@ describe.skipIf(!valeAvailable)('Vale prose lint', () => {
 
     expect(result.status).toBe(0);
     expect(JSON.parse(result.stdout)).toEqual({});
+  });
+
+  it('retains findings when an explicit path has a dot-slash prefix', () => {
+    const fixture = './tests/fixtures/vale-em-dash/behavior.md';
+    const result = spawnSync(
+      process.execPath,
+      ['scripts/lint-prose.mjs', '--output=JSON', fixture],
+      { encoding: 'utf8' },
+    );
+
+    expect(result.status).toBe(1);
+    const alerts = JSON.parse(result.stdout)['tests/fixtures/vale-em-dash/behavior.md'].filter(
+      (alert) => alert.Check === 'CMOS.EmDash',
+    );
+    expect(alerts.map((alert) => alert.Line)).toEqual([3, 6, 7, 8]);
   });
 
   it('emits complete machine-readable output for the whole repository', () => {

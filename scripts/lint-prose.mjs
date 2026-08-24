@@ -2,7 +2,7 @@
 import { spawnSync } from 'node:child_process';
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { extname, join, resolve } from 'node:path';
+import { extname, join, relative, resolve } from 'node:path';
 
 const MARKDOWN_EXTENSIONS = new Set(['.md', '.mdx']);
 const YAML_EXTENSIONS = new Set(['.yaml', '.yml']);
@@ -63,6 +63,16 @@ function isPropagatedMirror(file) {
   }
   const firstLines = readFileSync(file, 'utf8').split(/\r?\n/, 8);
   return firstLines.some((line) => /^> Canonical source:/.test(line));
+}
+
+function normalizedInputPath(file) {
+  return relative(process.cwd(), resolve(file));
+}
+
+function reportByResolvedPath(report) {
+  return new Map(
+    Object.entries(report).map(([reportedPath, alerts]) => [resolve(reportedPath), alerts]),
+  );
 }
 
 function discoverProseFiles() {
@@ -370,6 +380,7 @@ function main() {
   let parsed;
   try {
     parsed = parseArguments(process.argv.slice(2));
+    parsed.files = parsed.files.map(normalizedInputPath);
     parsed.files =
       parsed.files.length === 0
         ? discoverProseFiles()
@@ -421,10 +432,10 @@ function main() {
       }
     }
 
-    const markdownReport = runVale(parsed.files);
+    const markdownReport = reportByResolvedPath(runVale(parsed.files));
     for (const file of parsed.files) {
       const extraction = frontmatter.get(file);
-      const reportedAlerts = markdownReport[file] || markdownReport[resolve(file)] || [];
+      const reportedAlerts = markdownReport.get(resolve(file)) || [];
       const source = sources.get(file);
       let alerts = reportedAlerts;
       if (YAML_EXTENSIONS.has(extname(file).toLowerCase())) {
