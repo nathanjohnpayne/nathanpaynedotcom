@@ -321,7 +321,51 @@ function yamlBlockScalarLines(source) {
   return scalarLines;
 }
 
-function yamlAlertIsProse(alert, source, blockScalarLines) {
+function quoteRemainsOpen(text, quote) {
+  for (let index = 1; index < text.length; index += 1) {
+    if (quote === '"' && text[index] === '\\') {
+      index += 1;
+      continue;
+    }
+    if (text[index] !== quote) continue;
+    if (quote === "'" && text[index + 1] === "'") {
+      index += 1;
+      continue;
+    }
+    return false;
+  }
+  return true;
+}
+
+function yamlMultilineQuotedScalarLines(source) {
+  const lines = source.split(/\r?\n/);
+  const continuationLines = new Set();
+  let quote = null;
+
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index];
+    if (quote) {
+      continuationLines.add(index + 1);
+      if (!quoteRemainsOpen(`${quote}${line}`, quote)) quote = null;
+      continue;
+    }
+
+    const structure = yamlStructureOf(line);
+    const separator = structure.separators.at(-1);
+    const sequence = separator === undefined ? line.match(/^\s*-\s+/) : null;
+    if (separator === undefined && !sequence) continue;
+
+    let value = line.slice(separator === undefined ? sequence[0].length : separator + 1).trimStart();
+    value = value.replace(/^(?:(?:[!&][^\s]+)\s+){0,2}/, '');
+    if ((value[0] === '"' || value[0] === "'") && quoteRemainsOpen(value, value[0])) {
+      quote = value[0];
+    }
+  }
+
+  return continuationLines;
+}
+
+function yamlAlertIsProse(alert, source, blockScalarLines, quotedScalarLines) {
   if (alert.Check !== 'CMOS.EmDash') return true;
   const line = source.split(/\r?\n/)[alert.Line - 1] || '';
   const matchDash = typeof alert.Match === 'string' ? alert.Match.indexOf('—') : -1;
@@ -335,6 +379,7 @@ function yamlAlertIsProse(alert, source, blockScalarLines) {
     if (dash >= match.index && dash < match.index + match[0].length) return false;
   }
   if (blockScalarLines.has(alert.Line)) return true;
+  if (quotedScalarLines.has(alert.Line)) return true;
 
   const structure = yamlStructureOf(line);
   if (structure.keyRanges.some(([start, end]) => dash >= start && dash < end)) return false;
@@ -440,8 +485,9 @@ function main() {
       let alerts = reportedAlerts;
       if (YAML_EXTENSIONS.has(extname(file).toLowerCase())) {
         const blockScalarLines = yamlBlockScalarLines(source);
+        const quotedScalarLines = yamlMultilineQuotedScalarLines(source);
         alerts = reportedAlerts.filter((alert) =>
-          yamlAlertIsProse(alert, source, blockScalarLines),
+          yamlAlertIsProse(alert, source, blockScalarLines, quotedScalarLines),
         );
       }
       const bodyAlerts = alerts.filter(
@@ -461,11 +507,14 @@ function main() {
       }
       const source = sources.get(sourceFile);
       const blockScalarLines = yamlBlockScalarLines(source);
+      const quotedScalarLines = yamlMultilineQuotedScalarLines(source);
       mergeAlerts(
         report,
         sourceFile,
         alerts
-          .filter((alert) => yamlAlertIsProse(alert, source, blockScalarLines))
+          .filter((alert) =>
+            yamlAlertIsProse(alert, source, blockScalarLines, quotedScalarLines),
+          )
           .map((alert) => ({ ...alert, Origin: 'frontmatter' })),
       );
     }

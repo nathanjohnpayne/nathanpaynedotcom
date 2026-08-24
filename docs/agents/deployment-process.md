@@ -16,9 +16,7 @@ afterwards.
 
 **Deploy from the main checkout, not a worktree.** Both aliases run `scripts/check-deploy-env.sh` first, which refuses the deploy when a `PUBLIC_*` client var is missing or still an unresolved `op://` reference. Only `~/GitHub/nathanpaynedotcom` has `.env.local`; it is gitignored, so no worktree has one. Without the check, a worktree deploy succeeds and publishes a site with no Logo.dev brand marks on `/resume` and no PostHog or GA4 anywhere—every `PUBLIC_*` consumer degrades gracefully by design, so the build has nothing to fail on. Break-glass override: `DEPLOY_ALLOW_MISSING_PUBLIC_ENV=1`.
 
-**Merging a PR deploys nothing.** There is no deploy workflow in
-`.github/workflows/`—deploys are manual. After merging a change that should be
-visible on the site, run a deploy alias yourself.
+**Merging a PR deploys nothing.** There is no deploy workflow in `.github/workflows/`—deploys are manual. After merging a change that should be visible on the site, run a deploy alias yourself.
 
 **Verify against the live URL, not the deploy log.** Fetch the changed page or
 asset and confirm the new bytes are being served (`curl -s <url> | md5`). A

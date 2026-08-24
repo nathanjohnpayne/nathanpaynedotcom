@@ -21,3 +21,7 @@ sequence:
   - description: |2
       Explicit — scalar prose.
     Release — Explicit: ok
+multiline: "First
+  Release — Notes: continued"
+single: 'First
+  Release — Digest: continued'

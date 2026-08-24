@@ -400,14 +400,7 @@ Any `PUBLIC_*` env var read via `import.meta.env` during the build is baked into
 4. `npm run build` picks up the new value automatically.
 5. Nothing else. `scripts/check-deploy-env.sh` derives the required key list from `.env.tpl` itself, so the deploy guard covers the new var with no second edit.
 
-The current `PUBLIC_*` vars are `PUBLIC_LOGODEV_KEY` (Logo.dev publishable
-token—drives the `/resume` company logos via `CompanyLogo.astro`),
-`PUBLIC_POSTHOG_PROJECT_TOKEN` (PostHog public project ingest token—drives
-analytics via `posthog.astro`), and `PUBLIC_GA_MEASUREMENT_ID` (GA4 Measurement
-ID—drives GA4 via `BaseLayout.astro`). All three are public client
-identifiers resolved from 1Password via `op inject`, and all degrade gracefully
-when unset at build time (initials-only logos; PostHog and GA simply do not
-load).
+The current `PUBLIC_*` vars are `PUBLIC_LOGODEV_KEY` (Logo.dev publishable token—drives the `/resume` company logos via `CompanyLogo.astro`), `PUBLIC_POSTHOG_PROJECT_TOKEN` (PostHog public project ingest token—drives analytics via `posthog.astro`), and `PUBLIC_GA_MEASUREMENT_ID` (GA4 Measurement ID—drives GA4 via `BaseLayout.astro`). All three are public client identifiers resolved from 1Password via `op inject`, and all degrade gracefully when unset at build time (initials-only logos; PostHog and GA simply do not load).
 
 That graceful degradation is correct for CI and for a fresh checkout, and wrong for production, where it publishes a site with no brand logos and no analytics while the build still exits 0. `scripts/check-deploy-env.sh` draws that line: it runs at the front of both deploy aliases and fails the deploy when any of these is missing or unresolved, leaving the build itself free to degrade quietly everywhere else. See § Deployment Steps.
 
@@ -441,9 +434,7 @@ npm run deploy:hosting
 > sit at the edge for several hours (observed `max-age=14400` on `/images/**`),
 > which is long enough to read as "the deploy did not work."
 >
-> If you do deploy by hand, follow it with `scripts/cf-cache-purge.sh`. Then
-> verify against the live URL rather than the deploy log—a clean deploy plus a
-> warm edge is indistinguishable from one that reached users.
+> If you do deploy by hand, follow it with `scripts/cf-cache-purge.sh`. Then verify against the live URL rather than the deploy log—a clean deploy plus a warm edge is indistinguishable from one that reached users.
 >
 > **Deploy from the main checkout, not a worktree.** Both aliases run `scripts/check-deploy-env.sh` before the build and refuse to deploy when a `PUBLIC_*` client var is missing or still an unresolved `op://` reference. Only `~/GitHub/nathanpaynedotcom` has `.env.local`—`scripts/bootstrap.sh` writes it there and it is gitignored, so no worktree ever gets one.
 >
