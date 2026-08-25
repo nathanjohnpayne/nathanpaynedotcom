@@ -36,6 +36,8 @@ describe('blog file inventory', () => {
   it('routes slash-separated blog slugs through an Astro rest parameter', () => {
     expect(existsSync(resolve('src/pages/blog/[...slug].astro'))).toBe(true);
     expect(existsSync(resolve('src/pages/blog/[slug].astro'))).toBe(false);
+    expect(existsSync(resolve('src/pages/og-templates/blog/[...slug].astro'))).toBe(true);
+    expect(existsSync(resolve('src/pages/og-templates/blog/[slug].astro'))).toBe(false);
   });
 
   it('includes nested published posts in sitemap lastmod values', () => {

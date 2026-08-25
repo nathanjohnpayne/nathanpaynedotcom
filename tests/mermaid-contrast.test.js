@@ -82,6 +82,33 @@ describe('rendered Mermaid contrast', () => {
       ],
     });
   });
+
+  it('measures the effective last rendered declaration for a repeated property', async () => {
+    const rendered = await renderSidebarMermaid([
+      {
+        type: 'mermaid',
+        title: 'Repeated style fixture',
+        description: 'The final fill declaration has insufficient contrast.',
+        content: [
+          'graph TD; A[Repeated fill];',
+          'style A fill:#993d3d,color:#fff,fill:#7bc67e;',
+        ].join('\n'),
+      },
+    ]);
+    const document = new JSDOM(rendered.get(0)).window.document;
+
+    expect(renderedContrastFailures(document)).toEqual({
+      styledNodeCount: 1,
+      failures: [
+        expect.objectContaining({
+          label: 'Repeated fill',
+          fill: '#7bc67e',
+          color: '#fff',
+          ratio: expect.closeTo(2.05, 2),
+        }),
+      ],
+    });
+  });
 });
 
 function renderedContrastFailures(document) {
@@ -106,8 +133,17 @@ function renderedContrastFailures(document) {
 }
 
 function styleProperty(style, property) {
-  const match = style?.match(new RegExp(`(?:^|;)\\s*${property}\\s*:\\s*([^;!\\s]+)`, 'i'));
-  return match?.[1];
+  let selected;
+  for (const declaration of style?.split(';') ?? []) {
+    const match = declaration.match(
+      new RegExp(`^\\s*${property}\\s*:\\s*([^!\\s]+)\\s*(!important)?\\s*$`, 'i'),
+    );
+    if (!match) continue;
+
+    const candidate = { value: match[1], important: Boolean(match[2]) };
+    if (!selected || candidate.important || !selected.important) selected = candidate;
+  }
+  return selected?.value;
 }
 
 function contrastRatio(first, second) {

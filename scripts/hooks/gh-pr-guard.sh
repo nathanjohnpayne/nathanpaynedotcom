@@ -1372,6 +1372,8 @@ prefix_flag_takes_value() {
 
 HOOK_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 GUARD_REPO_ROOT="$(cd "$HOOK_DIR/../.." && pwd)"
+# shellcheck source=../lib/pr-body-contract.sh
+. "$GUARD_REPO_ROOT/scripts/lib/pr-body-contract.sh"
 
 # Locate the governing review-policy.yml without trusting the caller's
 # cwd to BE the repo root (Codex P2 on PR #442 r21): walk upward from
@@ -3019,7 +3021,16 @@ if [ "$PR_SUBCOMMAND" = "review" ]; then
         exit 0
       fi
 
-      PR_AUTHORING_AGENT=$(printf '%s\n' "$REVIEW_PR_JSON" | grep -oiE 'Authoring-Agent:[[:space:]]*[A-Za-z0-9_-]+' | head -1 | sed -E 's/Authoring-Agent:[[:space:]]*//I' | tr '[:upper:]' '[:lower:]' || true)
+      if ! REVIEW_PR_BODY=$(printf '%s\n' "$REVIEW_PR_JSON" | jq -r '.body // ""'); then
+        echo "BLOCKED: gh-pr-guard could not parse the PR body for the self-approve check." >&2
+        exit 2
+      fi
+      PR_AUTHORING_AGENT_COUNT=$(pr_body_authoring_agent_count "$REVIEW_PR_BODY")
+      PR_AUTHORING_AGENT=$(pr_body_authoring_agent "$REVIEW_PR_BODY")
+      if [ "$PR_AUTHORING_AGENT_COUNT" -ne 1 ] || [ -z "$PR_AUTHORING_AGENT" ]; then
+        echo "BLOCKED: gh-pr-guard could not identify exactly one visible Authoring-Agent in the PR body." >&2
+        exit 2
+      fi
 
       if [ -n "$PR_AUTHORING_AGENT" ] && [ "$PR_AUTHORING_AGENT" = "$REVIEWER_AGENT" ]; then
         # Same-agent author + reviewer. Decide over/under-threshold.
