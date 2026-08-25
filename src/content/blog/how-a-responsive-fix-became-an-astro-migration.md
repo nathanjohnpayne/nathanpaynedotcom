@@ -3,7 +3,7 @@ title: "How Making a Page Responsive Led to a Full Astro Site Implementation"
 seoTitle: "How Making a Page Responsive Led to Astro"
 shortTitle: "Responsive Fix to Astro"
 description: "A mobile overflow bug on one blog post was the symptom of a hand-rolled chassis—seven duplicated HTML pages—whose publishing workflow could not support a real cadence. Why the fix led to an Astro scaffold four hours later, a full migration deployed the same day, and a dependency bill accepted knowingly."
-seoDescription: "A mobile overflow bug exposed duplicated static HTML. Why this site scaffolded Astro the same afternoon, shipped the full phased migration the same day, and what content collections, generated OG images, RSS, and sitemaps cost in maintenance."
+seoDescription: "A mobile overflow bug exposed seven duplicated HTML pages. Why this site scaffolded Astro the same afternoon and shipped the migration that day."
 category: "Building This Site"
 author: "Nathan Payne"
 date: 2026-05-09
@@ -110,9 +110,10 @@ The reviews were not ceremony. Codex blocked three of the eight—#54, #62, and 
 | Apr 8, 1:50–1:55pm | Phase issues #35–#45 opened as a batch |
 | Apr 8, 2:11pm | [PR #47](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/47) merges the Phase 0 Astro scaffold |
 | Apr 8, 6:39pm | Phase 10 closes: production deploy verified |
-| Apr 8, evening | Playwright responsive suite ([PR #70](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/70)); Astro v5 to v6.1 ([PR #73](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/73)) |
+| Apr 8, 7:31pm | Playwright responsive suite merges ([PR #70](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/70)) |
+| Apr 8, 7:54pm | Astro v5 to v6.1 ([PR #73](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/73)) |
 | Apr 9 | Blog template ([PR #76](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/76)) and index ([PR #77](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/77)) polish |
-| Apr 14 | SEO and OG plumbing chain (#163–#175) |
+| Apr 14 | The [LinkedIn crawler incident](https://github.com/nathanjohnpayne/nathanpaynedotcom/issues/163) and the SEO plumbing chain it set off |
 
 So the same-day claim has edges worth stating exactly: the scaffold landed the same afternoon as the fix; the full tracked migration, through verified production deploy, landed the same day; the polish and the SEO plumbing ran over the following week.
 

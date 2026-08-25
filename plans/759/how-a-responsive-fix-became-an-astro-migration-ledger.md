@@ -1,6 +1,6 @@
-# Facts ledger — #740 `how-a-responsive-fix-became-an-astro-migration`
+# Facts ledger—#740 `how-a-responsive-fix-became-an-astro-migration`
 
-Post source: `src/content/blog/how-a-responsive-fix-became-an-astro-migration.md` (2,351 body words; 2,856 including frontmatter — the epic's 2,863 baseline counts frontmatter).
+Post source: `src/content/blog/how-a-responsive-fix-became-an-astro-migration.md` (2,351 body words; 2,856 including frontmatter—the epic's 2,863 baseline counts frontmatter).
 Evidence repo: `nathanjohnpayne/nathanpaynedotcom` (this repository). Resolved references live in `plans/759/refs.json`; local git history is authoritative for diffs and tree state.
 
 Verdicts: **SUPPORTED** (record proves the claim as written) · **WRONG** (record contradicts it; corrected value given) · **UNPROVABLE** (record neither proves nor disproves the strong form; defensible weaker form given).
@@ -11,35 +11,35 @@ Every row cites a source precise enough to re-check. Timestamps are UTC unless a
 
 ## A. Timeline and sequence
 
-### A1 — Issue #28 filed April 8, 2026
+### A1—Issue #28 filed April 8, 2026
 
 > "On April 8, 2026, I [filed an issue](…/issues/28): the new blog post had horizontal scroll on mobile." (L61)
 
 **SUPPORTED.** `nathanpaynedotcom#28` "Make Blog Post Pages Responsive and Mobile-Friendly", `created_at` `2026-04-08T14:54:39Z` = 07:54 PT.
 Source: `gh api repos/nathanjohnpayne/nathanpaynedotcom/issues/28` → `.created_at`; cached at `refs.json` → `references["nathanjohnpayne/nathanpaynedotcom#28"]`.
 
-### A2 — PR #30 merged 10:04am Pacific
+### A2—PR #30 merged 10:04am Pacific
 
 > "PR #30 merged at 10:04am Pacific." (L91, L24 pullquote, Mermaid node C)
 
 **SUPPORTED.** `merged_at` `2026-04-08T17:04:36Z` = 10:04:36 PT.
 Source: `gh api repos/nathanjohnpayne/nathanpaynedotcom/pulls/30` → `.merged_at`; merge commit `93bb4819b199508b48608f8c9f0550ab5d660700`.
 
-### A3 — PR #47 merged 2:11pm Pacific, "four hours later"
+### A3—PR #47 merged 2:11pm Pacific, "four hours later"
 
 > "Four hours later, [PR #47] … merged at 2:11pm Pacific." (L91); "stamped four hours apart in the git log" (L141)
 
 **SUPPORTED.** `merged_at` `2026-04-08T21:11:15Z` = 14:11:15 PT. Interval from A2 is **4h 06m 39s**. "Four hours later" is fair shorthand; nothing in the post implies an exact four hours.
 Source: `gh api repos/nathanjohnpayne/nathanpaynedotcom/pulls/47` → `.merged_at`.
 
-### A4 — PR #47's title
+### A4—PR #47's title
 
 > "[PR #47]—'Scaffold Astro project (Phase 0 of migration)'—merged at 2:11pm Pacific." (L91)
 
 **WRONG (quotation).** The PR's actual title is **"Phase 0: Scaffold Astro project"**. The quoted string does not exist. Correction: quote the real title or drop the quotation marks.
 Source: `gh api repos/nathanjohnpayne/nathanpaynedotcom/pulls/47` → `.title`.
 
-### A5 — "the migration was done over a couple of weekends, not a sprint"
+### A5—"the migration was done over a couple of weekends, not a sprint"
 
 > L97
 
@@ -54,7 +54,7 @@ Source: `gh api repos/nathanjohnpayne/nathanpaynedotcom/pulls/47` → `.title`.
 Corrected value: the tracked Phase 0–10 migration completed the same Wednesday it started, roughly eight and a half hours after the responsive fix merged. Later polish (blog Mondrian template #76, blog index #77, Apr 9; the SEO/OG plumbing chain #163–#175, Apr 14) ran over the following week and should be named separately if the post wants a longer arc.
 Source: `gh api 'repos/nathanjohnpayne/nathanpaynedotcom/issues?state=all&since=2026-04-08T00:00:00Z&sort=created&direction=asc'`, filtered to `created_at < 2026-04-10`; `.number`, `.created_at`, `.closed_at` per row.
 
-### A6 — "Each phase was a single PR"
+### A6—"Each phase was a single PR"
 
 > "Each phase was a single PR—reviewable, revertable, shippable on its own" (L97)
 
@@ -75,11 +75,11 @@ Source: `gh api 'repos/nathanjohnpayne/nathanpaynedotcom/issues?state=all&since=
 Defensible form: every phase shipped as its own reviewable, revertible PR except two adjacent pairs that were merged into one PR each.
 Source: same issue listing as A5, cross-referenced with PR titles.
 
-### A7 — Title/lede milestone alignment
+### A7—Title/lede milestone alignment
 
 > Title: "How Making a Page Responsive Led to a **Full Astro Site Implementation**"; description: "migrate to a static site generator **the same afternoon**" (L2, L5)
 
-**UNPROVABLE as written / needs disambiguation.** The same-*afternoon* evidence (A2–A3) covers only the **Phase 0 scaffold**, PR #47, merged 14:11 PT. The **full** implementation — all eleven phases including production deploy — completed the same *day* at 18:39 PT (A5), not the same afternoon. Both readings are defensible; the post currently mixes them.
+**UNPROVABLE as written / needs disambiguation.** The same-*afternoon* evidence (A2–A3) covers only the **Phase 0 scaffold**, PR #47, merged 14:11 PT. The **full** implementation—all eleven phases including production deploy—completed the same *day* at 18:39 PT (A5), not the same afternoon. Both readings are defensible; the post currently mixes them.
 Defensible form: the scaffold shipped four hours after the fix; the full migration shipped the same day, about eight and a half hours after it.
 Source: A2, A3, A5.
 
@@ -87,17 +87,17 @@ Source: A2, A3, A5.
 
 ## B. The responsive fix (PR #30)
 
-### B1 — What PR #30's diff contained
+### B1—What PR #30's diff contained
 
 > "The diff was small: `min-width: 0` on the grid item, `overflow-wrap: break-word` on prose, **`overflow-x: auto` on code blocks**, and a 480px breakpoint" (L63)
 
 **WRONG in one particular.** Three of the four were added by PR #30; **`overflow-x: auto` on `.blog-code-block` already existed before the PR** and was not part of the diff. PR #30 *documented* it as an invariant in the new spec and *locked it in* with a new test, but did not introduce it.
 
 Verified added by the diff: `overflow-x: hidden` on `.project-detail`; `min-width: 0` on `.project-copy` and `.project-section`; `overflow-wrap: break-word` on `.blog-prose p/li`; a new `@media (max-width: 480px)` block.
-Corrected value: "…and a 480px breakpoint — plus a spec and a test that pinned the code-block `overflow-x: auto` rule that was already there."
+Corrected value: "…and a 480px breakpoint—plus a spec and a test that pinned the code-block `overflow-x: auto` rule that was already there."
 Source: `git show 93bb4819b199 -- style.css`; and `git show 93bb4819b199^1:style.css` line 1282 shows `overflow-x: auto` present in `.blog-code-block` **before** the change.
 
-### B2 — "Twenty-five lines of CSS"
+### B2—"Twenty-five lines of CSS"
 
 > L63
 
@@ -107,7 +107,7 @@ Full diffstat: `specs/blog-responsive.md` +25, `style.css` +52, `tests/blog-resp
 Corrected value: either "fifty-two lines of CSS" or, better, "a 152-line diff across three files: the CSS, a spec, and a test."
 Source: `git show --stat 93bb4819b199`; `gh api repos/nathanjohnpayne/nathanpaynedotcom/pulls/30` → `.additions`/`.deletions`/`.changed_files`.
 
-### B3 — "a spec file … a Vitest smoke test"
+### B3—"a spec file … a Vitest smoke test"
 
 > L63
 
@@ -118,7 +118,7 @@ Source: `git show --stat 93bb4819b199`; `git show 93bb4819b199:package.json`.
 
 ## C. The pre-migration chassis
 
-### C1 — "four `index.html` files, one global `style.css`"
+### C1—"four `index.html` files, one global `style.css`"
 
 > L53; and the Mermaid node "Hand-rolled HTML<br/>**4 pages, 1 stylesheet**" (L39)
 
@@ -130,7 +130,7 @@ Source: `git show --stat 93bb4819b199`; `git show 93bb4819b199:package.json`.
 Corrected value: seven hand-maintained `index.html` files and one global `style.css` (one stylesheet is correct in both the prose and the diagram).
 Source: `git ls-tree -r --name-only 93bb4819b199^1 | grep -E '\.(html|css)$'`; `git ls-tree -r --name-only 57ec5491bbf115848c7288cf93936a290e81eec4`.
 
-### C2 — "a homepage, an About page, and a couple of project case studies"
+### C2—"a homepage, an About page, and a couple of project case studies"
 
 > L55
 
@@ -138,7 +138,7 @@ Source: `git ls-tree -r --name-only 93bb4819b199^1 | grep -E '\.(html|css)$'`; `
 Corrected value: a homepage, a blog index, and four project case studies.
 Source: `git log --all --oneline --diff-filter=A -- 'about/*' 'about.html' 'src/pages/about*'` (empty); C1 tree listing.
 
-### C3 — "I did not notice for months"
+### C3—"I did not notice for months"
 
 > "I did not notice for months that the thing I had shipped could not grow." (L57)
 
@@ -150,45 +150,45 @@ Source: `git log --reverse --format='%aI' | head -1`; `git log --before=2026-04-
 
 ## D. Framework and hosting claims
 
-### D1 — "the page is already cached on the CDN before the user requests it"
+### D1—"the page is already cached on the CDN before the user requests it"
 
 > L85, attributed to static site generators in general
 
 **WRONG as attributed.** Pre-population of a CDN is a property of the **hosting and cache configuration**, not of static generation. This site's caching is explicit Firebase Hosting config in `firebase.json`: `"public": "dist"`, `Cache-Control: public, max-age=3600` on `**/*.html` and on `**/*.@(js|css)`, and `max-age=86400` on `/og/**` and `/og-image.png`. An SSG with no such config gets none of it.
-Corrected value: attribute the caching to this deployment — Astro emits flat HTML into `dist/`, and Firebase Hosting serves it from its CDN under the `Cache-Control` headers `firebase.json` sets.
+Corrected value: attribute the caching to this deployment—Astro emits flat HTML into `dist/`, and Firebase Hosting serves it from its CDN under the `Cache-Control` headers `firebase.json` sets.
 Source: `firebase.json` (repository root), `hosting.headers`.
 
-### D2 — The CMS characterization
+### D2—The CMS characterization
 
 > "the CMS renders the page when a request comes in… performance depends on the caching strategy and the origin's uptime… you inherit the CMS's data model" (L83)
 
-**WRONG as a categorical.** The contrast holds only for request-time-rendered, fixed-schema CMSs. A headless CMS feeding a static build (custom content models, build-time rendering, cached delivery) defeats all three halves of the contrast — no request-time render, no fixed vendor schema, no origin in the hot path.
-Corrected value: draw the axis where the evidence actually is — **when** the templating runs (build time vs request time) and **who owns the schema** — and concede that a headless CMS plus static generation occupies the same square as an SSG.
+**WRONG as a categorical.** The contrast holds only for request-time-rendered, fixed-schema CMSs. A headless CMS feeding a static build (custom content models, build-time rendering, cached delivery) defeats all three halves of the contrast—no request-time render, no fixed vendor schema, no origin in the hot path.
+Corrected value: draw the axis where the evidence actually is—**when** the templating runs (build time vs request time) and **who owns the schema**—and concede that a headless CMS plus static generation occupies the same square as an SSG.
 Source: internal to the argument; no repository artifact contradicts or supports the taxonomy. Flagged by #740 § Evidence to reconcile.
 
-### D3 — Astro chosen over Eleventy, Hugo, Next.js, Gatsby
+### D3—Astro chosen over Eleventy, Hugo, Next.js, Gatsby
 
 > L95
 
 **UNPROVABLE.** No issue, PR body, ADR, or `plans/` entry in this repository records an options comparison. Issue #35 ("Phase 0: Scaffold Astro project") opens with Astro already chosen.
-Defensible form: present it as the author's recollected reasoning, not as a recorded decision. The one part that **is** checkable is the stated deciding factor: Content Collections with a Zod schema — see D4.
+Defensible form: present it as the author's recollected reasoning, not as a recorded decision. The one part that **is** checkable is the stated deciding factor: Content Collections with a Zod schema—see D4.
 Source: `gh api repos/nathanjohnpayne/nathanpaynedotcom/issues/35`; absence of any `plans/` or `specs/` decision record predating `2026-04-08T20:50Z`.
 
-### D4 — Zod frontmatter schema
+### D4—Zod frontmatter schema
 
 > "required fields (`title`, `description`, `date`, `tags`, `image`), optional fields (`shortTitle`, `pullquotes`, `sidebar`), and constrained enums (pullquote `accent` is `red | yellow | blue`; nothing else)" (L103)
 
 **SUPPORTED, and incomplete in the post's favour.** All named fields verify exactly against the live `blog` collection. The post **omits** that `category` is also required (`z.enum(BLOG_CATEGORIES)`, no default), as is `author` by default value. Nothing stated is wrong.
 Source: `src/content.config.ts`, `blog` collection: `title`/`description`/`date`/`tags`/`image` bare (required); `shortTitle`/`pullquotes`/`sidebar` `.optional()`; `accent: z.enum(['red','yellow','blue'])` at line 111.
 
-### D5 — Build-time OG cards at 1200×630
+### D5—Build-time OG cards at 1200×630
 
 > L107
 
 **SUPPORTED.** `src/integrations/og-images.mjs` renders at `viewport: { width: 1200, height: 630 }` with 2× DPR (2400×1260 output).
 Source: `src/integrations/og-images.mjs:212`, and the header comment at `:6`.
 
-### D6 — Sitemap, robots.txt sync, RSS
+### D6—Sitemap, robots.txt sync, RSS
 
 > L109
 
@@ -197,93 +197,93 @@ Source: `astro.config.mjs`; `src/pages/rss.xml.ts`; `src/integrations/robots-sit
 
 ---
 
-## E. The cost section — the largest error cluster
+## E. The cost section—the largest error cluster
 
-### E1 — "`fileURLToPath` versus `dir.pathname` cost me PR #171 and PR #173 to nail down"
+### E1—"`fileURLToPath` versus `dir.pathname` cost me PR #171 and PR #173 to nail down"
 
 > L107
 
 **WRONG on both numbers and on the kind of both items.**
 
-- **`nathanpaynedotcom#171` is not that work.** Its title is *"fix(seo): auto-sync robots.txt Sitemap URL with dist output"* (merged `2026-04-14T19:25:16Z`). It is where the `fileURLToPath` pattern was first applied — but to **`robots-sitemap.mjs`**, not to the OG integration.
+- **`nathanpaynedotcom#171` is not that work.** Its title is *"fix(seo): auto-sync robots.txt Sitemap URL with dist output"* (merged `2026-04-14T19:25:16Z`). It is where the `fileURLToPath` pattern was first applied—but to **`robots-sitemap.mjs`**, not to the OG integration.
 - **`nathanpaynedotcom#173` is an issue, not a PR.** *"og-images integration uses `dir.pathname` instead of `fileURLToPath` (Windows portability)"*, opened `2026-04-14T19:26:05Z`, closed `19:41:51Z`. The post links it as `/pull/173`; GitHub silently redirects `/pull/N` to `/issues/N`, which is why the bad link looks live.
 - The actual fix is **PR #174** *"fix(seo): og-images fileURLToPath + document the SEO plumbing invariants"* (merged `2026-04-14T19:41:49Z`, `Closes #173`), with follow-up **PR #175** *"test: enforce fileURLToPath contract for Astro integrations"* (merged `2026-04-14T20:02:22Z`).
 
 Corrected value: the fix was issue #173 → PR #174, with the contract test in PR #175; #171 is the sibling robots.txt fix that the pattern came from.
 Source: `gh api repos/nathanjohnpayne/nathanpaynedotcom/issues/{171,173,174,175}` → `.title`/`.pull_request`/`.closed_at`; `gh api repos/nathanjohnpayne/nathanpaynedotcom/issues/173/timeline` → `cross-referenced` to 174 then `closed`; PR #174 body, first line: "Closes #173."
 
-### E2 — "works on macOS and silently mishandles paths on Linux CI"
+### E2—"works on macOS and silently mishandles paths on Linux CI"
 
 > L117
 
 **WRONG.** The bug is **Windows-only**. Issue #173 states it explicitly: on Windows `dir.pathname` yields `/C:/path/to/dist`, which `path.join` turns into `C:\C:\path\to\dist\og-templates`. It also states the blast radius in as many words: *"Production impact: zero (CI and the author's workstation are both macOS/Linux)"*, and *"on macOS/Linux, `dir.pathname` and `fileURLToPath(dir)` produce the same result. The bug only bites on Windows builds."*
-Corrected value: it works on macOS and Linux and breaks on Windows — a contributor-portability bug with zero production impact.
+Corrected value: it works on macOS and Linux and breaks on Windows—a contributor-portability bug with zero production impact.
 Source: `gh api repos/nathanjohnpayne/nathanpaynedotcom/issues/173` → `.body`, §§ Problem and Impact.
 
-### E3 — "I caught it during a deploy that produced empty OG images"
+### E3—"I caught it during a deploy that produced empty OG images"
 
 > L117
 
-**WRONG — this conflates two separate real events.**
+**WRONG—this conflates two separate real events.**
 
 - The `dir.pathname` bug was **not** caught by a deploy. It was surfaced by the **`nathanpayne-codex` reviewer as a non-blocking observation during external review of PR #171**, then filed as #173 per REVIEW_POLICY.md § Post-Merge Issue Creation. Issue #173's opening line: *"Surfaced during the external review of #171 by `nathanpayne-codex` as a non-blocking follow-up."*
-- There **was** a genuine production crawler incident, but it is a different bug: **issue #163** *"Investigation: LinkedIn crawler returns empty page / stale OG images"* (opened `2026-04-14T14:49:34Z`). Its fix chain is #164/#165/#166 → PRs #170, #171, #172 — the robots.txt sitemap 404 and the OG-target smoke checks. Not `dir.pathname`.
+- There **was** a genuine production crawler incident, but it is a different bug: **issue #163** *"Investigation: LinkedIn crawler returns empty page / stale OG images"* (opened `2026-04-14T14:49:34Z`). Its fix chain is #164/#165/#166 → PRs #170, #171, #172—the robots.txt sitemap 404 and the OG-target smoke checks. Not `dir.pathname`.
 
-Corrected value: keep both stories, separated. The reviewer-caught portability bug is the better illustration of the point the paragraph is making — a dependency-chain class of bug the hand-rolled site could not have had — and it is *stronger* told accurately, because it was caught by the review system rather than by production.
+Corrected value: keep both stories, separated. The reviewer-caught portability bug is the better illustration of the point the paragraph is making—a dependency-chain class of bug the hand-rolled site could not have had—and it is *stronger* told accurately, because it was caught by the review system rather than by production.
 Source: `gh api repos/nathanjohnpayne/nathanpaynedotcom/issues/{163,173}` → `.body`; issue listing for #164–#167, #170–#175.
 
-### E4 — Playwright responsive suite in PR #70
+### E4—Playwright responsive suite in PR #70
 
 > L115
 
 **SUPPORTED.** `nathanpaynedotcom#70` "Add Playwright responsive test suite", merged `2026-04-09T02:31:10Z`, +122/−1 across 6 files, closing issue #29.
 Source: `gh api repos/nathanjohnpayne/nathanpaynedotcom/pulls/70`.
 
-### E5 — Astro v5 → v6.1 upgrade in PR #73
+### E5—Astro v5 → v6.1 upgrade in PR #73
 
 > L119
 
 **SUPPORTED.** `nathanpaynedotcom#73` "Upgrade Astro from v5 to v6.1", merged `2026-04-09T02:54:08Z`, +9/−8 across 6 files, closing issue #65.
 Source: `gh api repos/nathanjohnpayne/nathanpaynedotcom/pulls/73`.
 
-### E6 — "the migration was net positive within a couple of weeks of routine use"
+### E6—"the migration was net positive within a couple of weeks of routine use"
 
 > L121
 
-**UNPROVABLE.** No cost baseline, no denominator, no telemetry. This repository has no token or cost ledger for April 2026 — the external-review token ledger cited elsewhere in the portfolio begins with August 2026 pull requests. There is no measurement of what "net positive" is net of.
-Defensible form: drop the break-even claim, or state it explicitly as a personal judgement with the thing being traded named — publishing friction against dependency maintenance — and no timeframe.
+**UNPROVABLE.** No cost baseline, no denominator, no telemetry. This repository has no token or cost ledger for April 2026—the external-review token ledger cited elsewhere in the portfolio begins with August 2026 pull requests. There is no measurement of what "net positive" is net of.
+Defensible form: drop the break-even claim, or state it explicitly as a personal judgement with the thing being traded named—publishing friction against dependency maintenance—and no timeframe.
 Source: absence. `scripts/` contains no April-2026 cost ledger; `plans/` contains no economics record predating this epic.
 
 ---
 
 ## F. The agent-economics section
 
-### F1 — "the marginal cost of writing the code is close to zero"
+### F1—"the marginal cost of writing the code is close to zero"
 
 > L127
 
 **UNPROVABLE.** No token counts, no runtime, no subscription or API-equivalent cost is recorded for this work. Agent *runtime* is also unmeasured: the record shows only wall-clock between PR events.
-Defensible form: state what is measurable — the tracked migration ran in one working day across eight PRs (A5, A6) — and let the reader draw the cost inference, rather than asserting a marginal cost.
+Defensible form: state what is measurable—the tracked migration ran in one working day across eight PRs (A5, A6)—and let the reader draw the cost inference, rather than asserting a marginal cost.
 
-### F2 — "somewhere between a long weekend and a vacation week of focused engineering time"
+### F2—"somewhere between a long weekend and a vacation week of focused engineering time"
 
 > L127
 
-**UNPROVABLE, and correctly so — it is a counterfactual.** No manual-migration baseline exists or could exist.
+**UNPROVABLE, and correctly so—it is a counterfactual.** No manual-migration baseline exists or could exist.
 Defensible form: keep it, but label it as the author's estimate of the counterfactual rather than as a measured comparison. It is the honest core of the section; it only needs to stop wearing the costume of a measurement.
 
-### F3 — "the cost of trying an approach drops from a weekend to an afternoon" / "drops by an order of magnitude"
+### F3—"the cost of trying an approach drops from a weekend to an afternoon" / "drops by an order of magnitude"
 
 > L127, L129, L16 keyTakeaway, L27 pullquote
 
 **UNPROVABLE.** Same denominator problem as F1/F2. "Order of magnitude" implies a ratio of measured quantities; neither quantity is measured.
-Defensible form: derive the ratio from the one interval that *is* stamped — a scaffold four hours after the fix, a full migration the same day — and present it as what that afternoon actually cost, not as a general multiplier.
+Defensible form: derive the ratio from the one interval that *is* stamped—a scaffold four hours after the fix, a full migration the same day—and present it as what that afternoon actually cost, not as a general multiplier.
 
-### F4 — "Claude Code, primarily, with Cursor and Codex on review duty"
+### F4—"Claude Code, primarily, with Cursor and Codex on review duty"
 
 > L129
 
-**WRONG in one particular.** Claude and Codex are confirmed; **Cursor reviewed none of the migration PRs**, and CodeRabbit — unmentioned — reviewed three of them.
+**WRONG in one particular.** Claude and Codex are confirmed; **Cursor reviewed none of the migration PRs**, and CodeRabbit—unmentioned—reviewed three of them.
 
 Every commit on `2026-04-08`/`04-09` carries `Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>` (26 occurrences, plus 21 of the lowercase spelling). Review states on the phase PRs:
 
@@ -299,10 +299,10 @@ Every commit on `2026-04-08`/`04-09` carries `Co-Authored-By: Claude Opus 4.6 (1
 
 Corrected value: Claude Code did the authoring; `nathanpayne-claude`, `nathanpayne-codex`, and CodeRabbit reviewed. Cursor is a registered reviewer identity in `.github/review-policy.yml` but did not review this work.
 
-**This table is also the best available evidence for the reviewability claim in A6** — Codex blocked #54, #62, and #63, taking three rounds on #63 before approving. Worth surfacing in the prose: the phased PRs were not a formality.
+**This table is also the best available evidence for the reviewability claim in A6**—Codex blocked #54, #62, and #63, taking three rounds on #63 before approving. Worth surfacing in the prose: the phased PRs were not a formality.
 Source: `git log --since=2026-04-08 --until=2026-04-10 --format='%H%n%b' | grep -i co-authored-by`; `gh api repos/nathanjohnpayne/nathanpaynedotcom/pulls/{47,54,55,56,62,63,64}/reviews` → `.user.login`, `.state`.
 
-### F5 — "runs end-to-end on a Firebase project I pay for personally"
+### F5—"runs end-to-end on a Firebase project I pay for personally"
 
 > L129
 
@@ -322,6 +322,8 @@ Recorded so a later pass does not re-audit them.
 | Mermaid + auto-numbered figure captions are build-time Markdown processors | L105 | `src/plugins/`; `astro.config.mjs` `markdown.remarkPlugins`/`rehypePlugins` |
 | Astro Content Collections use a Zod schema and fail the build | L95, L103 | `src/content.config.ts`; `rules/repo_rules.md` § Toolchain Constraints |
 | The right call was made on April 8, 2026 | L131, L139, L141 | A1–A3 |
+| Apr 9 follow-up polish: blog post template (PR #76) and blog index (PR #77) | timeline table | `gh api repos/nathanjohnpayne/nathanpaynedotcom/pulls/{76,77}` → `.title`/`.merged_at`: #76 "Blog post template: Mondrian composition with margins layout" merged `2026-04-09T21:31:59Z` (14:31 PT); #77 "Blog index: De Stijl Mondrian row grid from mockup" merged `2026-04-09T22:29:25Z` (15:29 PT) |
+| PR #70 merged 7:31pm PT and PR #73 at 7:54pm PT on Apr 8 | timeline table | `merged_at` `2026-04-09T02:31:10Z` and `2026-04-09T02:54:08Z`, both = Apr 8 PT evening, both **after** the 18:39 PT Phase 10 close |
 
 ---
 
@@ -333,3 +335,22 @@ Recorded so a later pass does not re-audit them.
 4. The E-cluster (E1–E3) is the single largest factual defect in the post and its correction *strengthens* the argument: a bug caught by the review system, with zero production impact, is better evidence for "the dependency chain has its own failure classes" than a misremembered deploy incident.
 5. F4's review table is unused evidence. The post asserts reversible, reviewable phasing; the table proves it.
 6. A5 is the claim most likely to be quoted back. Get the Wednesday right.
+
+---
+
+## I. Review-round addendum (PR #787, reviewer pass)
+
+Three findings from the `nathanpayne-claude` reviewer pass on PR #787, all addressed in the same PR.
+
+### I1—`seoDescription` length regression *(blocking, fixed)*
+
+The drafting pass grew `seoDescription` from 143 to 242 characters. `specs/seo-metadata.md` §6 gives the field the opposite job—search metadata exists so it can be **shorter** than the visible copy—and every other post in the collection sits in a 129–150 band (`agent-approval…` 150, `autofix…` 129, `html-mockups…` 141, `perfect-score…` 147, `six-prs…` 133, `two-blues…` 141). Rewritten to 144. `description` at 304 needs no change; the six others span 182–385.
+Source: `specs/seo-metadata.md` §6; frontmatter of all seven posts in `src/content/blog/`.
+
+### I2—Bare `#163–#175` range in the timeline *(fixed)*
+
+The last timeline row cited a bare number range spanning a mix of issues (#163, #173) and pull requests (#170, #171, #172, #174, #175)—the exact ambiguity class this epic audits for, and the only unlinked citation left in the post. Replaced with a single link to issue #163, letting the body paragraph carry the rest of the chain, which it already cites correctly.
+
+### I3—"Apr 8, evening" imprecision *(fixed)*
+
+The only timeline cell without a stamped time, in a table whose job is to be trustworthy at a skim. Split into two rows at 7:31pm and 7:54pm PT, both derived from the UTC `merged_at` values and both correctly ordered after the 6:39pm Phase 10 close.
