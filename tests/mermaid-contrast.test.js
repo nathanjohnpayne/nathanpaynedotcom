@@ -72,6 +72,24 @@ describe('Mermaid contrast checker', () => {
     ]);
   });
 
+  it('preserves quote and bracket state across multiline Markdown-string labels', () => {
+    const markdown = [
+      '```mermaid title="Example" description="Example relationship."',
+      'graph TD; A["`First line',
+      'second line`"]; style A fill:#7bc67e,color:#fff;',
+      '```',
+    ].join('\n');
+
+    expect(findMermaidContrastFailures(markdown, 'example.md')).toEqual([
+      expect.objectContaining({
+        filePath: 'example.md',
+        line: 3,
+        fill: '#7bc67e',
+        color: '#fff',
+      }),
+    ]);
+  });
+
   it('removes a terminal semicolon from line-leading style values', () => {
     const markdown = [
       '```mermaid title="Example" description="Example relationship."',

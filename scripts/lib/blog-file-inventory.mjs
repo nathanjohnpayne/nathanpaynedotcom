@@ -1,5 +1,6 @@
 import { readdirSync } from 'node:fs';
 import { join, relative, sep } from 'node:path';
+import { slug as githubSlug } from 'github-slugger';
 
 export function findFilesRecursively(directory, predicate = () => true) {
   return readdirSync(directory, { withFileTypes: true })
@@ -16,5 +17,10 @@ export function findBlogMarkdownFiles(directory) {
 }
 
 export function blogSlugFromPath(filePath, blogDirectory) {
-  return relative(blogDirectory, filePath).replace(/\.md$/, '').split(sep).join('/');
+  return relative(blogDirectory, filePath)
+    .replace(/\.md$/, '')
+    .split(sep)
+    .map((segment) => githubSlug(segment))
+    .join('/')
+    .replace(/\/index$/, '');
 }

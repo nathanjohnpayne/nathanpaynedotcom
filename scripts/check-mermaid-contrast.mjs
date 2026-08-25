@@ -62,7 +62,7 @@ function parseStyleProperties(source) {
   return properties;
 }
 
-function mermaidStatements(line) {
+function mermaidStatements(source, firstLine) {
   const statements = [];
   const openingBrackets = new Map([
     ['[', ']'],
@@ -74,9 +74,19 @@ function mermaidStatements(line) {
   let quote = null;
   let escaped = false;
   let start = 0;
+  let currentLine = firstLine;
+  let statementLine = firstLine;
 
-  for (let index = 0; index < line.length; index += 1) {
-    const character = line[index];
+  function pushStatement(end) {
+    const rawStatement = source.slice(start, end);
+    const leadingWhitespace = rawStatement.match(/^\s*/)?.[0] ?? '';
+    const line = statementLine + (leadingWhitespace.match(/\n/g)?.length ?? 0);
+    const statement = rawStatement.trim();
+    if (statement !== '') statements.push({ statement, line });
+  }
+
+  for (let index = 0; index < source.length; index += 1) {
+    const character = source[index];
 
     if (quote != null) {
       if (escaped) {
@@ -85,6 +95,10 @@ function mermaidStatements(line) {
         escaped = true;
       } else if (character === quote) {
         quote = null;
+      }
+      if (character === '\n') {
+        currentLine += 1;
+        escaped = false;
       }
       continue;
     }
@@ -104,21 +118,35 @@ function mermaidStatements(line) {
       continue;
     }
 
-    if (character === '%' && line[index + 1] === '%' && bracketStack.length === 0) {
-      const statement = line.slice(start, index).trim();
-      if (statement !== '') statements.push(statement);
-      return statements;
+    if (character === '%' && source[index + 1] === '%' && bracketStack.length === 0) {
+      pushStatement(index);
+      const newlineIndex = source.indexOf('\n', index + 2);
+      if (newlineIndex === -1) return statements;
+      currentLine += 1;
+      start = newlineIndex + 1;
+      statementLine = currentLine;
+      index = newlineIndex;
+      continue;
     }
 
     if (character === ';' && bracketStack.length === 0) {
-      const statement = line.slice(start, index).trim();
-      if (statement !== '') statements.push(statement);
+      pushStatement(index);
       start = index + 1;
+      statementLine = currentLine;
+      continue;
+    }
+
+    if (character === '\n') {
+      currentLine += 1;
+      if (bracketStack.length === 0) {
+        pushStatement(index);
+        start = index + 1;
+        statementLine = currentLine;
+      }
     }
   }
 
-  const statement = line.slice(start).trim();
-  if (statement !== '') statements.push(statement);
+  pushStatement(source.length);
   return statements;
 }
 
@@ -152,9 +180,9 @@ function failureForStatement(statement, lineNumber, filePath) {
   };
 }
 
-function failuresForLine(line, lineNumber, filePath) {
-  return mermaidStatements(line)
-    .map((statement) => failureForStatement(statement, lineNumber, filePath))
+function failuresForDiagram(source, firstLine, filePath) {
+  return mermaidStatements(source, firstLine)
+    .map(({ statement, line }) => failureForStatement(statement, line, filePath))
     .filter((failure) => failure != null);
 }
 
@@ -236,9 +264,7 @@ function frontmatterFailures(frontmatter, filePath) {
     const contentStartsOnFollowingLine = content.type?.startsWith('BLOCK_') ?? false;
     const firstContentLine = scalarLine + (contentStartsOnFollowingLine ? 2 : 1);
 
-    for (const [index, line] of content.value.split(/\r?\n/).entries()) {
-      failures.push(...failuresForLine(line, firstContentLine + index, filePath));
-    }
+    failures.push(...failuresForDiagram(content.value, firstContentLine, filePath));
   }
 
   return failures;
@@ -251,9 +277,7 @@ function bodyFailures(body, bodyStartLine, filePath) {
   function visit(node) {
     if (node.type === 'code' && node.lang?.toLowerCase() === 'mermaid' && node.position != null) {
       const firstContentLine = bodyStartLine + node.position.start.line;
-      for (const [index, line] of node.value.split(/\r?\n/).entries()) {
-        failures.push(...failuresForLine(line, firstContentLine + index, filePath));
-      }
+      failures.push(...failuresForDiagram(node.value, firstContentLine, filePath));
     }
 
     if (Array.isArray(node.children)) {

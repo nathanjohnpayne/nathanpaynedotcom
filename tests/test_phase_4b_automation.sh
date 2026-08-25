@@ -1619,6 +1619,16 @@ if [ "$rc" = 1 ] \
   pass "#764: Phase 4b parses Authoring-Agent from a newly created PR body"
 else fail "#764: Phase 4b live-body author parsing (rc=$rc): $out"; fi
 
+set +e
+out="$(PATH="$BIN:$PATH" MERGEPATH_REVIEW_POLICY_PATH="$POLICY_ON" CLAUDE_BIN="$BIN/fake-claude-changes" \
+  P4B_FAKE_PR_BODY=$'Authoring-Agent: codxe\n\n## Self-Review\n\n- Correctness: verified.' \
+  bash "$ORCH" 764 --repo o/r --head abc123 --diff-file "$DIFF" --dry-run 2>&1)"; rc=$?
+set -e
+if [ "$rc" = 3 ] \
+   && printf '%s' "$out" | grep -q 'available_reviewers'; then
+  pass "#764: Phase 4b rejects unknown Authoring-Agent values before reviewer selection"
+else fail "#764: Phase 4b unknown author rejection (rc=$rc): $out"; fi
+
 # Fail-closed: adapter returns junk → orchestrator falls back, exit 4, never APPROVED
 HANDOFF_LOG="$WORK/handoff-junk.log"
 set +e

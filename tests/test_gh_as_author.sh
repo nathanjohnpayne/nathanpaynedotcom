@@ -72,7 +72,7 @@ if [ "${1:-}" = "api" ] && [ "${2:-}" = "user" ]; then
   exit 0
 fi
 
-if [ "${1:-}" = "pr" ] && [ "${2:-}" = "create" ]; then
+if [ "${1:-}" = "pr" ] && { [ "${2:-}" = "create" ] || [ "${2:-}" = "new" ]; }; then
   echo "${GH_CREATE_PR_URL:-https://github.com/example/repo/pull/42}"
   exit "${GH_CREATE_PR_RC:-0}"
 fi
@@ -143,6 +143,20 @@ fi
 reset_log
 set +e
 stderr_capture=$(OP_PREFLIGHT_AUTHOR_PAT="author-token" \
+  run_wrapper -- gh pr new --title "t" --body "INVALID" 2>&1 >/dev/null)
+rc=$?
+set -e
+if [ "$rc" -ne 1 ]; then
+  fail "pr new alias contract: rc=$rc expected 1"
+elif grep -q $'gh\tpr\tnew' "$WORKDIR/calls.log"; then
+  fail "pr new alias contract: create alias ran despite invalid body"
+else
+  pass "pr new alias contract: invalid body blocked before write"
+fi
+
+reset_log
+set +e
+stderr_capture=$(OP_PREFLIGHT_AUTHOR_PAT="author-token" \
   run_wrapper -- gh pr create --title "t" \
     --body $'Authoring-Agent: codex\n\n## Self-Review\n\n- Correctness: verified.' \
     -bINVALID 2>&1 >/dev/null)
@@ -172,6 +186,21 @@ elif grep -q $'gh\tpr\tcreate' "$WORKDIR/calls.log"; then
   fail "pr create contract: attached invalid -F body file bypassed validation"
 else
   pass "pr create contract: attached -F body file is validated as the effective body"
+fi
+
+reset_log
+set +e
+stderr_capture=$(OP_PREFLIGHT_AUTHOR_PAT="author-token" \
+  run_wrapper -- gh pr create --body INVALID --title \
+    $'-bAuthoring-Agent: codex\n\n## Self-Review\n\n- Correctness: verified.' 2>&1 >/dev/null)
+rc=$?
+set -e
+if [ "$rc" -ne 1 ]; then
+  fail "pr create contract: title value beginning -b rc=$rc expected 1"
+elif grep -q $'gh\tpr\tcreate' "$WORKDIR/calls.log"; then
+  fail "pr create contract: title value beginning -b bypassed invalid body validation"
+else
+  pass "pr create contract: values consumed by non-body flags cannot masquerade as body flags"
 fi
 
 reset_log

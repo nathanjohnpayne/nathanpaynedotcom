@@ -245,9 +245,14 @@ if [ -z "$AUTHOR" ]; then
   # a JSON error body for an agent name.
   body="$(gh_api_scalar "PR body for $REPO#$PR" \
     "repos/$REPO/pulls/$PR" --jq '.body // ""')" || body=""
+  pr_body_validate "$body" "$(p4b_config)" \
+    || p4b_die 3 "PR body does not satisfy the Authoring-Agent contract"
   AUTHOR="$(pr_body_authoring_agent "$body")"
   [ -n "$AUTHOR" ] || p4b_die 3 "could not parse Authoring-Agent from PR body; pass --author"
 fi
+
+pr_body_agent_is_allowed "$AUTHOR" "$(p4b_config)" \
+  || p4b_die 3 "authoring agent '$AUTHOR' is not represented in available_reviewers"
 
 # --- select reviewer + adapter ---------------------------------------------
 AUTHOR_AGENT="$(p4b_agent_of_login "$AUTHOR")"

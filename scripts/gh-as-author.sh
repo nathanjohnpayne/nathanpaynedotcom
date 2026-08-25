@@ -96,7 +96,7 @@ is_pr_create_command() {
         [ "$saw_pr" -eq 0 ] || return 1
         saw_pr=1
         ;;
-      create)
+      create|new)
         [ "$saw_pr" -eq 1 ] && return 0
         return 1
         ;;
@@ -117,6 +117,10 @@ if [ "$IS_PR_CREATE" -eq 1 ]; then
   PR_BODY=""
   SKIP_NEXT=""
   for argument in "$@"; do
+    if [ "$SKIP_NEXT" = "other" ]; then
+      SKIP_NEXT=""
+      continue
+    fi
     if [ "$SKIP_NEXT" = "body" ]; then
       PR_BODY="$argument"
       SKIP_NEXT=""
@@ -139,6 +143,9 @@ if [ "$IS_PR_CREATE" -eq 1 ]; then
     case "$argument" in
       --body|-b) SKIP_NEXT="body" ;;
       --body-file|-F) SKIP_NEXT="body-file" ;;
+      -R|--repo|--hostname|-a|--assignee|-B|--base|-H|--head|-l|--label|-m|--milestone|-p|--project|--recover|-r|--reviewer|-T|--template|-t|--title)
+        SKIP_NEXT="other"
+        ;;
       --body=*) PR_BODY="${argument#--body=}" ;;
       -b?*) PR_BODY="${argument#-b}" ;;
       --body-file=*)
@@ -152,6 +159,8 @@ if [ "$IS_PR_CREATE" -eq 1 ]; then
           exit 1
         fi
         PR_BODY="$(cat "$body_file")"
+        ;;
+      -R?*|--repo=*|--hostname=*|-a?*|--assignee=*|-B?*|--base=*|-H?*|--head=*|-l?*|--label=*|-m?*|--milestone=*|-p?*|--project=*|--recover=*|-r?*|--reviewer=*|-T?*|--template=*|-t?*|--title=*)
         ;;
       -F?*)
         body_file="${argument#-F}"
@@ -173,7 +182,7 @@ if [ "$IS_PR_CREATE" -eq 1 ]; then
     exit 1
   fi
 
-  if ! pr_body_validate "$PR_BODY"; then
+  if ! pr_body_validate "$PR_BODY" "$ROOT/.github/review-policy.yml"; then
     echo "gh-as-author: refusing to create a PR that Phase 4b cannot attribute." >&2
     exit 1
   fi

@@ -22,6 +22,12 @@ describe('blog file inventory', () => {
       expect(findBlogMarkdownFiles(directory)).toEqual([rootPost, nestedPost]);
       expect(blogSlugFromPath(rootPost, directory)).toBe('root');
       expect(blogSlugFromPath(nestedPost, directory)).toBe('series/part-one/entry');
+      expect(blogSlugFromPath(join(directory, 'Series Name', 'index.md'), directory)).toBe(
+        'series-name',
+      );
+      expect(blogSlugFromPath(join(directory, 'Series Name', 'Hello.World.md'), directory)).toBe(
+        'series-name/helloworld',
+      );
     } finally {
       rmSync(directory, { recursive: true, force: true });
     }
@@ -38,12 +44,17 @@ describe('blog file inventory', () => {
         join(nestedDirectory, 'nested.md'),
         '---\ntitle: Nested\ndate: 2026-02-03\n---\nNested\n',
       );
+      writeFileSync(
+        join(nestedDirectory, 'index.md'),
+        '---\ntitle: Series\ndate: 2026-03-04\n---\nSeries\n',
+      );
 
       const lastmod = buildBlogLastmodMap(directory);
 
       expect(lastmod.get('/blog/root/')).toBe('2026-01-02T00:00:00.000Z');
       expect(lastmod.get('/blog/series/nested/')).toBe('2026-02-03T00:00:00.000Z');
-      expect(lastmod.get('/blog/')).toBe('2026-02-03T00:00:00.000Z');
+      expect(lastmod.get('/blog/series/')).toBe('2026-03-04T00:00:00.000Z');
+      expect(lastmod.get('/blog/')).toBe('2026-03-04T00:00:00.000Z');
     } finally {
       rmSync(directory, { recursive: true, force: true });
     }

@@ -18,7 +18,7 @@ case "${1:-}" in
 esac
 
 BODY="$(cat)"
-pr_body_validate "$BODY"
+pr_body_validate "$BODY" "$ROOT/.github/review-policy.yml"
 
 if [ "$PRINT_AUTHOR" = true ]; then
   pr_body_authoring_agent "$BODY"
