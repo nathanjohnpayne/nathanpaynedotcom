@@ -110,13 +110,29 @@ describe('PR body contract', () => {
     const workflow = readFileSync('.github/workflows/pr-review-policy.yml', 'utf8');
     const repoLintWorkflow = readFileSync('.github/workflows/repo_lint.yml', 'utf8');
     const parser = readFileSync('scripts/lib/pr-body-contract.mjs', 'utf8');
+    const toolManifest = JSON.parse(
+      readFileSync('scripts/ci/pr-body-contract/package.json', 'utf8'),
+    );
 
     expect(workflow).toContain('actions/setup-node@');
-    expect(workflow).toContain('npm ci --ignore-scripts');
-    expect(workflow).toContain("if: steps.node_project.outputs.enabled == 'true'");
+    expect(workflow).toContain('node-version-file: scripts/ci/pr-body-contract/.nvmrc');
+    expect(workflow).toContain('working-directory: scripts/ci/pr-body-contract');
+    expect(workflow).toContain('ln -s "$PWD/node_modules" ../../node_modules');
     expect(repoLintWorkflow.match(/actions\/setup-node@/g)).toHaveLength(2);
-    expect(repoLintWorkflow.match(/npm ci --ignore-scripts/g)).toHaveLength(2);
-    expect(repoLintWorkflow.match(/id: node_project/g)).toHaveLength(2);
+    expect(
+      repoLintWorkflow.match(/working-directory: scripts\/ci\/pr-body-contract/g),
+    ).toHaveLength(2);
+    expect(
+      repoLintWorkflow.match(/ln -s "\$PWD\/node_modules" \.\.\/\.\.\/node_modules/g),
+    ).toHaveLength(2);
+    expect(repoLintWorkflow.match(/id: parser_tool/g)).toHaveLength(2);
+    expect(toolManifest.dependencies).toMatchObject({
+      micromark: '4.0.2',
+      'micromark-extension-gfm-footnote': '2.1.0',
+      'micromark-extension-gfm-table': '2.1.1',
+      'micromark-extension-math': '3.1.0',
+      parse5: '7.3.0',
+    });
     expect(parser).toMatch(/from ['"]micromark['"]/);
     expect(parser).not.toMatch(/from ['"](?:unified|remark-parse)['"]/);
   });

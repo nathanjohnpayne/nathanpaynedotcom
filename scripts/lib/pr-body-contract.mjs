@@ -6,6 +6,7 @@ import { pathToFileURL } from 'node:url';
 import { micromark } from 'micromark';
 import { gfmFootnote, gfmFootnoteHtml } from 'micromark-extension-gfm-footnote';
 import { gfmTable, gfmTableHtml } from 'micromark-extension-gfm-table';
+import { math, mathHtml } from 'micromark-extension-math';
 import { parseFragment } from 'parse5';
 
 const SENTINEL_SECRET = randomBytes(16).toString('base64url');
@@ -29,8 +30,8 @@ export function parsePrBodyContract(body) {
     const renderedRoot = parseFragment(
       micromark(labeled.body, {
         allowDangerousHtml: true,
-        extensions: [gfmFootnote(), gfmTable()],
-        htmlExtensions: [gfmFootnoteHtml(), gfmTableHtml()],
+        extensions: [gfmFootnote(), gfmTable(), math()],
+        htmlExtensions: [gfmFootnoteHtml(), gfmTableHtml(), mathHtml()],
       }),
     );
 
@@ -129,9 +130,14 @@ if (isDirectExecution(process.argv[1])) {
     case '--has-self-review':
       process.exitCode = contract.hasSelfReview ? 0 : 1;
       break;
+    case '--summary':
+      process.stdout.write(
+        `${contract.authorCount}\n${contract.author}\n${contract.hasSelfReview ? '1' : '0'}\n`,
+      );
+      break;
     default:
       process.stderr.write(
-        'usage: pr-body-contract.mjs (--author|--author-count|--has-self-review) < pr-body.md\n',
+        'usage: pr-body-contract.mjs (--author|--author-count|--has-self-review|--summary) < pr-body.md\n',
       );
       process.exitCode = 2;
   }

@@ -52,10 +52,14 @@ pr_body_validate() {
   local policy_file=${2:-}
   local author
   local author_count
+  local has_self_review
+  local summary
   local failed=0
 
-  author_count="$(pr_body_authoring_agent_count "$body")"
-  author="$(pr_body_authoring_agent "$body")"
+  summary="$(printf '%s\n' "$body" | node "$PR_BODY_CONTRACT_PARSER" --summary)" || return 1
+  author_count="$(printf '%s\n' "$summary" | sed -n '1p')"
+  author="$(printf '%s\n' "$summary" | sed -n '2p')"
+  has_self_review="$(printf '%s\n' "$summary" | sed -n '3p')"
   if [ "$author_count" -eq 0 ]; then
     echo "PR description is missing a valid 'Authoring-Agent:' line (expected one agent identifier)." >&2
     failed=1
@@ -70,7 +74,7 @@ pr_body_validate() {
     failed=1
   fi
 
-  if ! pr_body_has_self_review "$body"; then
+  if [ "$has_self_review" != "1" ]; then
     echo "PR description is missing a '## Self-Review' section." >&2
     failed=1
   fi
