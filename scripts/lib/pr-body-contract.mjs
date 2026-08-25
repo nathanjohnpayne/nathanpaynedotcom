@@ -3,6 +3,7 @@
 import { readFileSync, realpathSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
 import { parse, postprocess, preprocess } from 'micromark';
+import { gfmFootnote } from 'micromark-extension-gfm-footnote';
 
 const AUTHOR_TOKEN_TYPES = new Set(['content', 'paragraph', 'data']);
 const SELF_REVIEW_TOKEN_TYPES = new Set(['atxHeading', 'atxHeadingSequence']);
@@ -25,7 +26,7 @@ export function parsePrBodyContract(body) {
 
   try {
     events = postprocess(
-      parse()
+      parse({ extensions: [gfmFootnote()] })
         .document()
         .write(preprocess()(body, 'utf8', true)),
     );
@@ -82,19 +83,15 @@ function hasOnlyTokenTypes(events, offset, allowedTypes, ...requiredTypes) {
 
 function* sourceLines(body) {
   let offset = 0;
+  const lineEnding = /\r\n|\r|\n/g;
+  let match;
 
-  while (offset <= body.length) {
-    const lineFeed = body.indexOf('\n', offset);
-    const end = lineFeed === -1 ? body.length : lineFeed;
-    const rawLine = body.slice(offset, end);
-    yield {
-      line: rawLine.endsWith('\r') ? rawLine.slice(0, -1) : rawLine,
-      offset,
-    };
-
-    if (lineFeed === -1) break;
-    offset = lineFeed + 1;
+  while ((match = lineEnding.exec(body)) !== null) {
+    yield { line: body.slice(offset, match.index), offset };
+    offset = match.index + match[0].length;
   }
+
+  yield { line: body.slice(offset), offset };
 }
 
 function isDirectExecution(entryPath) {

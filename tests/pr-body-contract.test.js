@@ -84,6 +84,28 @@ describe('PR body contract', () => {
     expect(commentClosingLine.stderr).toContain("missing a valid 'Authoring-Agent:' line");
   });
 
+  it('ignores contract markers in GitHub footnote definitions', () => {
+    const hiddenAuthor = validate(
+      ['[^agent]: generated note', 'Authoring-Agent: codex', '', '## Self-Review'].join('\n'),
+    );
+    const hiddenSelfReview = validate(
+      ['Authoring-Agent: codex', '', '[^review]: generated note', '', '    ## Self-Review'].join(
+        '\n',
+      ),
+    );
+
+    expect(hiddenAuthor.status).toBe(1);
+    expect(hiddenAuthor.stderr).toContain("missing a valid 'Authoring-Agent:' line");
+    expect(hiddenSelfReview.status).toBe(1);
+    expect(hiddenSelfReview.stderr).toContain("missing a '## Self-Review' section");
+  });
+
+  it('accepts CR-only PR body line endings', () => {
+    const result = validate(validBody.replaceAll('\n', '\r'));
+
+    expect(result.status, result.stderr).toBe(0);
+  });
+
   it('installs the maintained parser from the trusted lockfile without lifecycle scripts', () => {
     const workflow = readFileSync('.github/workflows/pr-review-policy.yml', 'utf8');
     const parser = readFileSync('scripts/lib/pr-body-contract.mjs', 'utf8');
@@ -105,7 +127,15 @@ describe('PR body contract', () => {
         input: 'Authoring-Agent: codex\n',
       });
 
+      expect(result.stderr).toBe('');
       expect(result.status).toBe(1);
+
+      const accepted = spawnSync(process.execPath, [linkedParser, '--has-self-review'], {
+        encoding: 'utf8',
+        input: 'Authoring-Agent: codex\n\n## Self-Review\n',
+      });
+
+      expect(accepted.status, accepted.stderr).toBe(0);
     } finally {
       rmSync(temporaryDirectory, { recursive: true });
     }

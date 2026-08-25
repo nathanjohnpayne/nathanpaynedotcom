@@ -1,5 +1,6 @@
 import { JSDOM } from 'jsdom';
 import { micromark } from 'micromark';
+import { gfmFootnote, gfmFootnoteHtml } from 'micromark-extension-gfm-footnote';
 import { describe, expect, it } from 'vitest';
 
 import { parsePrBodyContract } from '../scripts/lib/pr-body-contract.mjs';
@@ -22,7 +23,10 @@ function pick(random, values) {
 }
 
 function renderedContract(body) {
-  sharedDocument.body.innerHTML = micromark(body);
+  sharedDocument.body.innerHTML = micromark(body, {
+    extensions: [gfmFootnote()],
+    htmlExtensions: [gfmFootnoteHtml()],
+  });
   const plainTopLevelText = [...sharedDocument.body.children]
     .filter((element) => element.tagName === 'P')
     .flatMap((paragraph) => [...paragraph.childNodes])
