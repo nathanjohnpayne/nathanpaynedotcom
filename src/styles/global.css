@@ -1783,6 +1783,78 @@ body.blog-page {
   width: 100%;
 }
 
+/* Paired capture: two captures of one product side by side. The inner wrapper
+   turns into a row and widens to hold both frames plus the gap.
+
+   The gap is declared on the FIGURE, not on the inner wrapper and not on the
+   `--narrow` pairing. Two separate reasons, both found the hard way:
+
+   - A `wide` project opting into `screenshotSecondary` would reference an
+     undefined custom property, `gap` would fall back to `normal` (0), and the
+     two captures would touch (Codex P2 on #785).
+   - `.project-stack` is a SIBLING of `.project-screenshot__inner`, not a
+     descendant, so declaring it on the wrapper left the caption's
+     `max-width: calc(... + var(--screenshot-pair-gap))` unresolved. An
+     unresolved var() is invalid at computed-value time, which resets
+     `max-width` to `none` rather than falling back to the earlier 320px rule —
+     the caption rendered full-bleed while the images stayed centred.
+
+   Declaring it on the figure puts both the wrapper and the caption inside its
+   inheritance scope. */
+.project-screenshot--pair {
+  --screenshot-pair-gap: clamp(0.6rem, 1.8vw, 1.4rem);
+}
+
+.project-screenshot--pair .project-screenshot__inner {
+  flex-direction: row;
+  align-items: flex-start;
+  justify-content: center;
+  gap: var(--screenshot-pair-gap);
+}
+
+.project-screenshot--pair .project-screenshot__inner > * {
+  flex: 1 1 0;
+  /* Flex items floor at their content width without this, which lets a wide
+     image push the row past the wrapper instead of shrinking. */
+  min-width: 0;
+}
+
+/* `--narrow` pairs two phone frames: the wrapper widens past the single-frame
+   320px cap, and that cap moves onto each shot. A `--wide` pair deliberately
+   gets neither — its two captures split the full content column, which is the
+   full-width treatment that variant already promises. */
+.project-screenshot--narrow.project-screenshot--pair .project-screenshot__inner,
+.project-screenshot--narrow.project-screenshot--pair .project-stack {
+  max-width: calc(320px * 2 + var(--screenshot-pair-gap));
+}
+
+.project-screenshot--narrow.project-screenshot--pair .project-screenshot__inner > * {
+  max-width: 320px;
+}
+
+/* Below --bp-tablet (768px) two frames plus the gap no longer fit the content
+   column, so the pair stacks and each shot returns to full width. The caption
+   has to come back with them: the two-class pair selector above outranks the
+   `--narrow` 280px caption rule in the 768px block, so without this the images
+   would center in a 660px wrapper while the caption started at its far-left
+   edge (Codex P2 on #785). */
+@media (max-width: 767px) {
+  .project-screenshot--pair .project-screenshot__inner {
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .project-screenshot--pair .project-screenshot__inner > * {
+    flex: 0 1 auto;
+    width: 100%;
+  }
+
+  .project-screenshot--narrow.project-screenshot--pair .project-screenshot__inner,
+  .project-screenshot--narrow.project-screenshot--pair .project-stack {
+    max-width: 280px;
+  }
+}
+
 .project-screenshot img,
 .project-screenshot > svg,
 .project-screenshot__inner > svg {

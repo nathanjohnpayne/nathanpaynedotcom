@@ -37,6 +37,7 @@ interface Props {
   accent: 'red' | 'yellow' | 'black' | 'blue' | 'paper';
   screenshotAspect: 'wide' | 'narrow';
   screenshotSrc: string;
+  screenshotSecondary?: { src: string; alt: string; width: number; height: number };
   muxPlaybackId?: string;
   slug: string;
   liveUrl?: string;
@@ -66,6 +67,7 @@ const {
   accent,
   screenshotAspect,
   screenshotSrc,
+  screenshotSecondary,
   muxPlaybackId,
   slug,
   liveUrl,
@@ -122,7 +124,11 @@ const topics = kicker.split(/\s*×\s*/).join(' · ');
           focus={metadata.focus}
           status={status}
         />
-        <figure class={`project-screenshot project-screenshot--${screenshotAspect}`}>
+        <figure
+          class={`project-screenshot project-screenshot--${screenshotAspect}${
+            screenshotSecondary ? ' project-screenshot--pair' : ''
+          }`}
+        >
           <div class="project-screenshot__inner">
             <ProjectMuxPlayer
               playbackId={muxPlaybackId}
@@ -130,6 +136,16 @@ const topics = kicker.split(/\s*×\s*/).join(' · ');
               title={headline}
               slug={slug}
             />
+            {screenshotSecondary && (
+              <img
+                src={screenshotSecondary.src}
+                alt={screenshotSecondary.alt}
+                width={screenshotSecondary.width}
+                height={screenshotSecondary.height}
+                loading="lazy"
+                decoding="async"
+              />
+            )}
           </div>
           {stack && (
             <figcaption class="project-stack">

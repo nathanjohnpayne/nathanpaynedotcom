@@ -17,6 +17,25 @@ const projects = defineCollection({
     order: z.number().int().nonnegative(),
     screenshotAspect: z.enum(['wide', 'narrow']),
     screenshotSrc: z.string(),
+    // A companion capture rendered BESIDE `screenshotSrc` (side by side above
+    // --bp-tablet, stacked below). For a platform that ships more than one
+    // front end, one shot per Edition says more than either alone. `alt` is
+    // required rather than optional so a second image cannot reach the page
+    // without alt text — the primary derives its own from the project title.
+    screenshotSecondary: z
+      .object({
+        src: z.string().trim().min(1),
+        alt: z.string().trim().min(1),
+        // Intrinsic pixel dimensions, required rather than optional. The
+        // companion is `loading="lazy"` and stacks BELOW the primary on phones,
+        // so without an aspect-ratio box it occupies zero height until fetched
+        // and then shoves the stack caption and the whole article down by a
+        // full frame (Codex P2 on #785). Assets in `public/` are not processed
+        // by Astro, so nothing can infer these at build time.
+        width: z.number().int().positive(),
+        height: z.number().int().positive(),
+      })
+      .optional(),
     accent: z.enum(['red', 'yellow', 'black', 'blue', 'paper']),
     // Optional: in-progress projects (status "IN PROGRESS") may not have
     // a deployed app yet. When omitted, the "View Live Product" CTA is
