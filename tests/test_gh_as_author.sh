@@ -113,7 +113,7 @@ fi
 
 reset_log
 OP_PREFLIGHT_AUTHOR_PAT="author-token" GH_CREATE_PR_URL="https://github.com/example/repo/pull/77" GH_VIEW_AUTHOR="nathanjohnpayne" \
-  run_wrapper -- gh pr create --title "t" --body "b" >/dev/null 2>&1
+  run_wrapper -- gh pr create --title "t" --body $'Authoring-Agent: codex\n\n## Self-Review\n\n- Correctness: verified.' >/dev/null 2>&1
 rc=$?
 if [ "$rc" -ne 0 ]; then
   fail "pr create verification: rc=$rc"
@@ -126,8 +126,36 @@ fi
 
 reset_log
 set +e
+stderr_capture=$(OP_PREFLIGHT_AUTHOR_PAT="author-token" \
+  run_wrapper -- gh pr create --title "t" --body "## Self-Review" 2>&1 >/dev/null)
+rc=$?
+set -e
+if [ "$rc" -ne 1 ]; then
+  fail "pr create contract: rc=$rc expected 1"
+elif ! echo "$stderr_capture" | grep -q "Authoring-Agent"; then
+  fail "pr create contract: missing actionable Authoring-Agent diagnostic"
+elif grep -q $'gh\tpr\tcreate' "$WORKDIR/calls.log"; then
+  fail "pr create contract: create ran despite invalid body"
+else
+  pass "pr create contract: invalid inline body blocked before write"
+fi
+
+reset_log
+BODY_FILE="$WORKDIR/pr-body.md"
+printf '%s\n' 'Authoring-Agent: codex' '' '## Self-Review' '' '- Correctness: verified.' >"$BODY_FILE"
+OP_PREFLIGHT_AUTHOR_PAT="author-token" GH_CREATE_PR_URL="https://github.com/example/repo/pull/78" GH_VIEW_AUTHOR="nathanjohnpayne" \
+  run_wrapper -- gh pr create --title "t" --body-file "$BODY_FILE" >/dev/null 2>&1
+rc=$?
+if [ "$rc" -ne 0 ]; then
+  fail "pr create contract: valid body file should pass; rc=$rc"
+else
+  pass "pr create contract: valid body file passes runtime validation"
+fi
+
+reset_log
+set +e
 stderr_capture=$(OP_PREFLIGHT_AUTHOR_PAT="author-token" GH_CREATE_PR_URL="https://github.com/example/repo/pull/88" GH_VIEW_AUTHOR="nathanpayne-claude" \
-  run_wrapper -- gh pr create --title "t" --body "b" 2>&1 >/dev/null)
+  run_wrapper -- gh pr create --title "t" --body $'Authoring-Agent: codex\n\n## Self-Review\n\n- Correctness: verified.' 2>&1 >/dev/null)
 rc=$?
 set -e
 if [ "$rc" -ne 5 ]; then
@@ -187,6 +215,7 @@ install_wrapper_copy() {
   mkdir -p "$dir/scripts/lib" "$dir/.github"
   cp "$ROOT/scripts/gh-as-author.sh" "$dir/scripts/gh-as-author.sh"
   cp "$ROOT/scripts/lib/gh-token-resolver.sh" "$dir/scripts/lib/gh-token-resolver.sh"
+  cp "$ROOT/scripts/lib/pr-body-contract.sh" "$dir/scripts/lib/pr-body-contract.sh"
   cp "$ROOT/scripts/identity-check.sh" "$dir/scripts/identity-check.sh"
   chmod +x "$dir/scripts/gh-as-author.sh" "$dir/scripts/identity-check.sh"
 }

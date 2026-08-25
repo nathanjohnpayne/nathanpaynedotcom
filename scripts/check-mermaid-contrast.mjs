@@ -61,8 +61,76 @@ function parseStyleProperties(source) {
   return properties;
 }
 
-function contrastFailureForLine(line, lineNumber, filePath) {
-  const style = line.match(/^\s*style\s+\S+\s+(.+)$/i);
+function mermaidStatements(line) {
+  const statements = [];
+  const openingBrackets = new Map([
+    ['[', ']'],
+    ['(', ')'],
+    ['{', '}'],
+  ]);
+  const closingBrackets = new Set(openingBrackets.values());
+  const bracketStack = [];
+  let quote = null;
+  let escaped = false;
+  let start = 0;
+
+  for (let index = 0; index < line.length; index += 1) {
+    const character = line[index];
+
+    if (quote != null) {
+      if (escaped) {
+        escaped = false;
+      } else if (character === '\\') {
+        escaped = true;
+      } else if (character === quote) {
+        quote = null;
+      }
+      continue;
+    }
+
+    if (character === '"' || character === "'" || character === '`') {
+      quote = character;
+      continue;
+    }
+
+    if (openingBrackets.has(character)) {
+      bracketStack.push(openingBrackets.get(character));
+      continue;
+    }
+
+    if (closingBrackets.has(character)) {
+      if (bracketStack.at(-1) === character) bracketStack.pop();
+      continue;
+    }
+
+    if (character === '%' && line[index + 1] === '%' && bracketStack.length === 0) {
+      const statement = line.slice(start, index).trim();
+      if (statement !== '') statements.push(statement);
+      return statements;
+    }
+
+    if (character === ';' && bracketStack.length === 0) {
+      const statement = line.slice(start, index).trim();
+      if (statement !== '') statements.push(statement);
+      start = index + 1;
+    }
+  }
+
+  const statement = line.slice(start).trim();
+  if (statement !== '') statements.push(statement);
+  return statements;
+}
+
+function failureForStatement(statement, lineNumber, filePath) {
+  if (/^classDef(?:\s|$)/i.test(statement)) {
+    return {
+      filePath,
+      line: lineNumber,
+      kind: 'unsupported-class-def',
+    };
+  }
+
+  const style = statement.match(/^style\s+\S+\s+(.+)$/i);
   if (style == null) return null;
 
   const properties = parseStyleProperties(style[1]);
@@ -76,15 +144,22 @@ function contrastFailureForLine(line, lineNumber, filePath) {
   return {
     filePath,
     line: lineNumber,
+    kind: 'contrast',
     fill,
     color,
     ratio,
   };
 }
 
+function failuresForLine(line, lineNumber, filePath) {
+  return mermaidStatements(line)
+    .map((statement) => failureForStatement(statement, lineNumber, filePath))
+    .filter((failure) => failure != null);
+}
+
 function splitMarkdownDocument(markdown) {
   const lines = markdown.split(/\r?\n/);
-  if (lines[0] !== '---') {
+  if (lines[0]?.replace(/^\uFEFF/, '') !== '---') {
     return { frontmatter: null, body: markdown, bodyStartLine: 1 };
   }
 
@@ -140,7 +215,10 @@ function yamlMapValue(map, key, document, ancestors = new Set()) {
 function frontmatterFailures(frontmatter, filePath) {
   const failures = [];
   const document = parseDocument(frontmatter, { merge: true });
-  const sidebar = resolveYamlAliases(document.get('sidebar', true), document);
+  const root = resolveYamlAliases(document.contents, document);
+  if (!isMap(root)) return failures;
+
+  const sidebar = yamlMapValue(root, 'sidebar', document);
   if (!isSeq(sidebar)) return failures;
 
   for (const sidebarItem of sidebar.items) {
@@ -158,8 +236,7 @@ function frontmatterFailures(frontmatter, filePath) {
     const firstContentLine = scalarLine + (contentStartsOnFollowingLine ? 2 : 1);
 
     for (const [index, line] of content.value.split(/\r?\n/).entries()) {
-      const failure = contrastFailureForLine(line, firstContentLine + index, filePath);
-      if (failure != null) failures.push(failure);
+      failures.push(...failuresForLine(line, firstContentLine + index, filePath));
     }
   }
 
@@ -174,8 +251,7 @@ function bodyFailures(body, bodyStartLine, filePath) {
     if (node.type === 'code' && node.lang?.toLowerCase() === 'mermaid' && node.position != null) {
       const firstContentLine = bodyStartLine + node.position.start.line;
       for (const [index, line] of node.value.split(/\r?\n/).entries()) {
-        const failure = contrastFailureForLine(line, firstContentLine + index, filePath);
-        if (failure != null) failures.push(failure);
+        failures.push(...failuresForLine(line, firstContentLine + index, filePath));
       }
     }
 
@@ -196,10 +272,13 @@ export function findMermaidContrastFailures(markdown, filePath) {
   ];
 }
 
-function defaultBlogFiles() {
-  return readdirSync(blogDirectory, { withFileTypes: true })
-    .filter((entry) => entry.isFile() && entry.name.endsWith('.md'))
-    .map((entry) => join(blogDirectory, entry.name))
+export function findBlogMarkdownFiles(directory = blogDirectory) {
+  return readdirSync(directory, { withFileTypes: true })
+    .flatMap((entry) => {
+      const entryPath = join(directory, entry.name);
+      if (entry.isDirectory()) return findBlogMarkdownFiles(entryPath);
+      return entry.isFile() && entry.name.endsWith('.md') ? [entryPath] : [];
+    })
     .sort();
 }
 
@@ -215,6 +294,13 @@ function run(filePaths) {
   });
 
   for (const failure of failures) {
+    if (failure.kind === 'unsupported-class-def') {
+      console.error(
+        `${failure.filePath}:${failure.line}: Mermaid classDef is unsupported by the contrast gate; use explicit style directives instead`,
+      );
+      continue;
+    }
+
     const detail =
       failure.ratio == null
         ? `unsupported colors ${failure.color} on ${failure.fill}`
@@ -228,5 +314,7 @@ function run(filePaths) {
 }
 
 if (process.argv[1] != null && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
-  process.exitCode = run(process.argv.slice(2).length > 0 ? process.argv.slice(2) : defaultBlogFiles());
+  process.exitCode = run(
+    process.argv.slice(2).length > 0 ? process.argv.slice(2) : findBlogMarkdownFiles(),
+  );
 }

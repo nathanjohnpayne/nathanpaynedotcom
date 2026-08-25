@@ -6,7 +6,7 @@
 # public API while selecting attribution per command through GH_TOKEN.
 #
 # Usage:
-#   scripts/gh-as-author.sh -- gh pr create --title ...
+#   scripts/gh-as-author.sh -- gh pr create --title ... --body-file pr-body.md
 #   scripts/gh-as-author.sh -- gh pr merge 123 --squash --delete-branch
 #   scripts/gh-as-author.sh -- gh pr edit 123 --add-label foo
 #
@@ -30,6 +30,8 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 # shellcheck source=lib/gh-token-resolver.sh
 . "$ROOT/scripts/lib/gh-token-resolver.sh"
+# shellcheck source=lib/pr-body-contract.sh
+. "$ROOT/scripts/lib/pr-body-contract.sh"
 
 AUTHOR="${GH_AS_AUTHOR_IDENTITY:-nathanjohnpayne}"
 
@@ -76,6 +78,59 @@ TOKEN="$GH_RESOLVED_TOKEN"
 IS_PR_CREATE=0
 if [ "${1:-}" = "gh" ] && [ "${2:-}" = "pr" ] && [ "${3:-}" = "create" ]; then
   IS_PR_CREATE=1
+fi
+
+if [ "$IS_PR_CREATE" -eq 1 ]; then
+  PR_BODY=""
+  SKIP_NEXT=""
+  for argument in "$@"; do
+    if [ "$SKIP_NEXT" = "body" ]; then
+      PR_BODY="$argument"
+      SKIP_NEXT=""
+      continue
+    fi
+    if [ "$SKIP_NEXT" = "body-file" ]; then
+      if [ "$argument" = "-" ]; then
+        echo "gh-as-author: --body-file - is unsupported because the body must be validated before the write; use a readable file path." >&2
+        exit 1
+      fi
+      if [ ! -r "$argument" ]; then
+        echo "gh-as-author: PR body file is not readable: $argument" >&2
+        exit 1
+      fi
+      PR_BODY="$(cat "$argument")"
+      SKIP_NEXT=""
+      continue
+    fi
+
+    case "$argument" in
+      --body|-b) SKIP_NEXT="body" ;;
+      --body-file|-F) SKIP_NEXT="body-file" ;;
+      --body=*) PR_BODY="${argument#--body=}" ;;
+      --body-file=*)
+        body_file="${argument#--body-file=}"
+        if [ "$body_file" = "-" ]; then
+          echo "gh-as-author: --body-file - is unsupported because the body must be validated before the write; use a readable file path." >&2
+          exit 1
+        fi
+        if [ ! -r "$body_file" ]; then
+          echo "gh-as-author: PR body file is not readable: $body_file" >&2
+          exit 1
+        fi
+        PR_BODY="$(cat "$body_file")"
+        ;;
+    esac
+  done
+
+  if [ -n "$SKIP_NEXT" ]; then
+    echo "gh-as-author: PR creation flag is missing its $SKIP_NEXT value." >&2
+    exit 1
+  fi
+
+  if ! pr_body_validate "$PR_BODY"; then
+    echo "gh-as-author: refusing to create a PR that Phase 4b cannot attribute." >&2
+    exit 1
+  fi
 fi
 
 run_with_author_token() {

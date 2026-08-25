@@ -119,7 +119,7 @@ If any `op` command fails mid-session (rare—only if 1Password locks or the 12-
 
 1. The agent creates a feature branch from the target branch (e.g., `main`).
 2. The agent writes code as `nathanjohnpayne`, following all project-level rules (linting, testing, conventions).
-3. The agent files a PR from the feature branch to the target branch under `nathanjohnpayne`. The PR description must include an `Authoring-Agent:` line identifying which agent wrote the code (e.g., `Authoring-Agent: claude`). This is required because all PRs share the `nathanjohnpayne` author identity, and the workflow uses this line to assign the correct reviewer identity for internal self-peer review.
+3. The agent files a PR from the feature branch to the target branch under `nathanjohnpayne`. For local agent sessions, the supported creation path is `scripts/gh-as-author.sh -- gh pr create ...`; the wrapper validates the description from `--body` or `--body-file` before writing. The PR description must include an `Authoring-Agent:` line identifying which agent wrote the code (e.g., `Authoring-Agent: claude`) and a `## Self-Review` section. This is required because all PRs share the `nathanjohnpayne` author identity, and the workflow uses this line to assign the correct reviewer identity for internal self-peer review. API-backed integrations that cannot invoke the wrapper must provide the same fields. The required `PR Review Policy / Self-Review Required` check validates the live body on PR open, edit, and synchronization, so REST, GraphQL, UI, and guarded CLI creation converge on the same contract before merge.
 
 ### Phase 2: Internal Review (Self-Peer Review)
 

@@ -70,6 +70,8 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=phase-4b/lib.sh
 . "$ROOT/phase-4b/lib.sh"
+# shellcheck source=lib/pr-body-contract.sh
+. "$ROOT/lib/pr-body-contract.sh"
 
 # Phase 4b approval-loop accounting (#602). Sourced when present so the hook
 # call sites below exist; a missing or unsourceable module simply leaves
@@ -243,7 +245,7 @@ if [ -z "$AUTHOR" ]; then
   # a JSON error body for an agent name.
   body="$(gh_api_scalar "PR body for $REPO#$PR" \
     "repos/$REPO/pulls/$PR" --jq '.body // ""')" || body=""
-  AUTHOR="$(printf '%s\n' "$body" | sed -n 's/^[[:space:]]*Authoring-Agent:[[:space:]]*\([A-Za-z0-9_-]*\).*/\1/p' | head -n1)"
+  AUTHOR="$(pr_body_authoring_agent "$body")"
   [ -n "$AUTHOR" ] || p4b_die 3 "could not parse Authoring-Agent from PR body; pass --author"
 fi
 

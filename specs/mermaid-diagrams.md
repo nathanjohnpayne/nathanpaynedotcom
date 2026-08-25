@@ -30,7 +30,7 @@ therefore remain visible with JavaScript disabled, to crawlers, and in print.
 ## Supported Content Boundary
 
 Mermaid is intentionally supported only in blog posts under
-`src/content/blog/*.md`, including their body fences and typed sidebar items.
+`src/content/blog/**/*.md`, including their body fences and typed sidebar items.
 Astro registers the Remark plugin globally, so the plugin fails the build when
 a Mermaid fence appears in another content collection or Markdown page rather
 than allowing raw diagram source to reach an unsupported development or
@@ -64,3 +64,9 @@ build pass before widening this boundary.
     measurable three- or six-digit hex colors with a WCAG contrast ratio of at
     least 4.5:1, enforced across body fences and sidebar Mermaid items by
     `npm run lint`.
+13. The contrast gate recognizes newline- and semicolon-delimited `style`
+    directives. Mermaid `classDef` declarations are outside the supported
+    accessibility contract and fail with guidance to use explicit `style`
+    directives, whose concrete fill and label color the gate can measure.
+14. Contrast discovery follows Astro's blog boundary recursively and accepts
+    UTF-8 BOM-prefixed frontmatter plus root- or item-level YAML merge keys.

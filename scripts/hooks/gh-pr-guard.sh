@@ -3073,11 +3073,17 @@ fi
 
 # --- gh pr create ---
 #
-# Substring grep on the raw command is fine here — the body markers
-# `Authoring-Agent:` and `## Self-Review` are content checks, not
-# structural ones, and they don't depend on argument positions or
-# global flags.
+# The canonical author wrapper validates the effective `--body` or
+# `--body-file` content inside the runtime process before the write. Let it own
+# that check so a file-backed body is not rejected merely because its contents
+# are absent from the raw command string. A direct invocation never reaches
+# the wrapper's runtime validator, so retain the static defense-in-depth check
+# for that unsupported path.
 if [ "$PR_SUBCOMMAND" = "create" ]; then
+  if [ "$WRAPPER_KIND" = "author" ]; then
+    exit 0
+  fi
+
   MISSING=""
 
   if ! echo "$COMMAND" | grep -qi 'Authoring-Agent:'; then

@@ -1,10 +1,14 @@
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
-import { contrastRatio, findMermaidContrastFailures } from '../scripts/check-mermaid-contrast.mjs';
+import {
+  contrastRatio,
+  findBlogMarkdownFiles,
+  findMermaidContrastFailures,
+} from '../scripts/check-mermaid-contrast.mjs';
 
 describe('Mermaid contrast checker', () => {
   it('computes WCAG relative-luminance contrast ratios', () => {
@@ -31,6 +35,56 @@ describe('Mermaid contrast checker', () => {
         color: '#fff',
         ratio: expect.closeTo(2.05, 2),
       }),
+    ]);
+  });
+
+  it('checks semicolon-delimited style directives without splitting quoted labels', () => {
+    const markdown = [
+      '```mermaid title="Example" description="Example relationship."',
+      'graph TD; A["A; label"] --> B; style A fill:#7bc67e,color:#fff;',
+      '```',
+    ].join('\n');
+
+    expect(findMermaidContrastFailures(markdown, 'example.md')).toEqual([
+      expect.objectContaining({
+        filePath: 'example.md',
+        line: 2,
+        fill: '#7bc67e',
+        color: '#fff',
+      }),
+    ]);
+  });
+
+  it('removes a terminal semicolon from line-leading style values', () => {
+    const markdown = [
+      '```mermaid title="Example" description="Example relationship."',
+      'style A fill:#d4a84b,color:#fff;',
+      '```',
+    ].join('\n');
+
+    expect(findMermaidContrastFailures(markdown, 'example.md')).toEqual([
+      expect.objectContaining({
+        line: 2,
+        fill: '#d4a84b',
+        color: '#fff',
+        ratio: expect.closeTo(2.21, 2),
+      }),
+    ]);
+  });
+
+  it('refuses classDef declarations with an actionable failure', () => {
+    const markdown = [
+      '```mermaid title="Example" description="Example relationship."',
+      'graph TD; classDef warning fill:#7bc67e,color:#fff;',
+      '```',
+    ].join('\n');
+
+    expect(findMermaidContrastFailures(markdown, 'example.md')).toEqual([
+      {
+        filePath: 'example.md',
+        line: 2,
+        kind: 'unsupported-class-def',
+      },
     ]);
   });
 
@@ -144,6 +198,38 @@ describe('Mermaid contrast checker', () => {
     ]);
   });
 
+  it('checks a sidebar supplied by a root YAML merge key', () => {
+    const markdown = [
+      '---',
+      'shared: &page',
+      '  sidebar:',
+      '    - type: mermaid',
+      '      content: |',
+      '        style A fill:#7bc67e,color:#fff',
+      '<<: *page',
+      '---',
+    ].join('\n');
+
+    expect(findMermaidContrastFailures(markdown, 'example.md')).toEqual([
+      expect.objectContaining({ line: 6, fill: '#7bc67e', color: '#fff' }),
+    ]);
+  });
+
+  it('checks frontmatter after a UTF-8 byte-order mark', () => {
+    const markdown = [
+      '\uFEFF---',
+      'sidebar:',
+      '  - type: mermaid',
+      '    content: |',
+      '      style A fill:#d4a84b,color:#fff',
+      '---',
+    ].join('\n');
+
+    expect(findMermaidContrastFailures(markdown, 'example.md')).toEqual([
+      expect.objectContaining({ line: 5, fill: '#d4a84b', color: '#fff' }),
+    ]);
+  });
+
   it('checks Mermaid fences nested in blockquotes', () => {
     const markdown = [
       '> ```mermaid title="Example" description="Example relationship."',
@@ -223,6 +309,59 @@ describe('Mermaid contrast checker', () => {
     } finally {
       rmSync(directory, { force: true, recursive: true });
     }
+  });
+
+  it('fails the command with actionable classDef guidance', () => {
+    const directory = mkdtempSync(join(tmpdir(), 'mermaid-contrast-'));
+    const fixture = join(directory, 'fixture.md');
+
+    try {
+      writeFileSync(
+        fixture,
+        '```mermaid title="Example" description="Example relationship."\n' +
+          'classDef warning fill:#7bc67e,color:#fff\n' +
+          '```\n',
+      );
+
+      const result = spawnSync(process.execPath, ['scripts/check-mermaid-contrast.mjs', fixture], {
+        encoding: 'utf8',
+      });
+
+      expect(result.status).toBe(1);
+      expect(result.stderr).toContain(`${fixture}:2`);
+      expect(result.stderr).toContain('classDef is unsupported');
+      expect(result.stderr).toContain('use explicit style directives');
+    } finally {
+      rmSync(directory, { force: true, recursive: true });
+    }
+  });
+
+  it('discovers Markdown files recursively under the blog directory', () => {
+    const directory = mkdtempSync(join(tmpdir(), 'mermaid-discovery-'));
+    const nestedDirectory = join(directory, 'nested', 'deeper');
+
+    try {
+      mkdirSync(nestedDirectory, { recursive: true });
+      writeFileSync(join(directory, 'root.md'), 'root');
+      writeFileSync(join(nestedDirectory, 'nested.md'), 'nested');
+      writeFileSync(join(nestedDirectory, 'ignored.mdx'), 'ignored');
+
+      expect(findBlogMarkdownFiles(directory)).toEqual([
+        join(nestedDirectory, 'nested.md'),
+        join(directory, 'root.md'),
+      ]);
+    } finally {
+      rmSync(directory, { force: true, recursive: true });
+    }
+  });
+
+  it('preserves the labeled 1921 palette swatches with accessible black labels', () => {
+    const article = readFileSync('src/content/blog/two-blues-one-composition.md', 'utf8');
+
+    expect(article.match(/style I1 fill:#E8784A,stroke:#9c4f2f,color:#000/g)).toHaveLength(2);
+    expect(article.match(/style I3 fill:#2080CA,stroke:#14527f,color:#000/g)).toHaveLength(2);
+    expect(contrastRatio('#000', '#E8784A')).toBeGreaterThanOrEqual(4.5);
+    expect(contrastRatio('#000', '#2080CA')).toBeGreaterThanOrEqual(4.5);
   });
 
   it('keeps every repository blog Mermaid style pair at WCAG AA contrast', () => {

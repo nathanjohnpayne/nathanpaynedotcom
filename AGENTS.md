@@ -30,7 +30,11 @@ This repository uses a multi-identity AI agent code review system. The full poli
    This triggers biometric prompts once and caches all credentials for the session.
    Use `GH_TOKEN="$OP_PREFLIGHT_REVIEWER_PAT"` for reviewer commands and
    `GH_TOKEN="$OP_PREFLIGHT_AUTHOR_PAT"` for author commands.
-1. Author code as nathanjohnpayne. File a PR.
+1. Author code as nathanjohnpayne. File a PR through
+   `scripts/gh-as-author.sh -- gh pr create ...`, with both
+   `Authoring-Agent: <agent>` and `## Self-Review` in its body. API-backed
+   integrations must provide the same fields; the PR Review Policy check
+   enforces the live-body contract regardless of creation path.
 2. Switch to your reviewer identity (e.g., nathanpayne-claude). Review the PR. Post comments.
 3. Switch back to nathanjohnpayne. Address each comment. Push fix commits.
 4. Repeat steps 2–3 until the reviewer identity approves with no outstanding issues. The mechanism is scope-dependent: for under-threshold PRs (step 6), `gh pr review --approve` from your reviewer identity is the intended path; it satisfies branch protection without bouncing a small PR to an external agent. For above-threshold PRs (step 7), post `gh pr review --comment` only; Phase 4 carries the cross-agent gate. See REVIEW_POLICY.md § No-self-approve scoping.

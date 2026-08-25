@@ -47,9 +47,9 @@ sidebar:
           style H1 fill:#DA2418,stroke:#8a1610,color:#fff
           style H2 fill:#F0C800,stroke:#a08600,color:#333
           style H3 fill:#0A5C9E,stroke:#063a64,color:#fff
-          style I1 fill:#9c4f2f,stroke:#9c4f2f,color:#fff
+          style I1 fill:#E8784A,stroke:#9c4f2f,color:#000
           style I2 fill:#E3D477,stroke:#998e4a,color:#333
-          style I3 fill:#14527f,stroke:#14527f,color:#fff
+          style I3 fill:#2080CA,stroke:#14527f,color:#000
     caption: "One register per room: the homepage opts into 1930; every interior page defaults to 1921. No page mixes."
 ---
 
@@ -150,9 +150,9 @@ graph TD
     style H1 fill:#DA2418,stroke:#8a1610,color:#fff
     style H2 fill:#F0C800,stroke:#a08600,color:#333
     style H3 fill:#0A5C9E,stroke:#063a64,color:#fff
-    style I1 fill:#9c4f2f,stroke:#9c4f2f,color:#fff
+    style I1 fill:#E8784A,stroke:#9c4f2f,color:#000
     style I2 fill:#E3D477,stroke:#998e4a,color:#333
-    style I3 fill:#14527f,stroke:#14527f,color:#fff
+    style I3 fill:#2080CA,stroke:#14527f,color:#000
 ```
 
 ## What I generalized

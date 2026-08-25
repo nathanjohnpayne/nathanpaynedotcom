@@ -177,8 +177,11 @@ assert_rc_contains "author wrapper pr create valid body allowed" 0 "" \
 ## Self-Review
 - ok"'
 
-assert_rc_contains "author wrapper pr create missing body blocked" 2 "Self-Review" \
+assert_rc_contains "author wrapper defers inline body validation to runtime wrapper" 0 "" \
   'scripts/gh-as-author.sh -- gh pr create --title "t" --body "Authoring-Agent: claude"'
+
+assert_rc_contains "author wrapper body-file creation allowed for runtime validation" 0 "" \
+  'scripts/gh-as-author.sh -- gh pr create --title "t" --body-file /tmp/pr-body.md'
 
 assert_rc_contains "reviewer wrapper pr create blocked" 2 "author token" \
   'scripts/gh-as-reviewer.sh -- gh pr create --title "t" --body "Authoring-Agent: claude

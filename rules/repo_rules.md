@@ -104,7 +104,7 @@ automated dependency PRs.
 
 ## Content Invariants
 
-- **Mermaid labels must meet WCAG AA contrast.** Every blog Mermaid `style` directive that supplies both `fill:` and label `color:` must use measurable three- or six-digit hex colors with a contrast ratio of at least 4.5:1. `npm run lint` enforces this for body fences and sidebar Mermaid items.
+- **Mermaid labels must meet WCAG AA contrast.** Every blog Mermaid `style` directive that supplies both `fill:` and label `color:` must use measurable three- or six-digit hex colors with a contrast ratio of at least 4.5:1. `classDef` declarations are unsupported because the gate cannot resolve their application to concrete nodes; use explicit `style` directives instead. `npm run lint` enforces this recursively for body fences and sidebar Mermaid items.
 
 ## CI Enforcement
 
