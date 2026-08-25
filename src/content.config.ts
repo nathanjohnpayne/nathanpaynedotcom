@@ -10,7 +10,12 @@ const projects = defineCollection({
     description: z.string(),
     seoDescription: z.string().optional(),
     kicker: z.string(),
-    order: z.number(),
+    // Non-negative integer: `accent` is derived as RAMP[order % 5], so a
+    // fractional or negative order has no position in that walk. Bare
+    // z.number() also admitted `order: 1.0`, which is schema-valid, renders
+    // fine, and then failed the ramp assertion in tests/project-pages.test.js
+    // with a misleading "declares no order" (Codex P2 on #783).
+    order: z.number().int().nonnegative(),
     screenshotAspect: z.enum(['wide', 'narrow']),
     screenshotSrc: z.string(),
     accent: z.enum(['red', 'yellow', 'black', 'blue', 'paper']),
