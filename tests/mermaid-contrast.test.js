@@ -109,6 +109,34 @@ describe('rendered Mermaid contrast', () => {
       ],
     });
   });
+
+  it('rejects opacity that makes an otherwise high-contrast node transparent', async () => {
+    const rendered = await renderSidebarMermaid([
+      {
+        type: 'mermaid',
+        title: 'Transparent contrast fixture',
+        description: 'The transparent black fill exposes the white page behind a white label.',
+        content: [
+          'graph TD; A[Transparent fill];',
+          'style A fill:#000,color:#fff,fill-opacity:0;',
+        ].join('\n'),
+      },
+    ]);
+    const document = new JSDOM(rendered.get(0)).window.document;
+
+    expect(renderedContrastFailures(document)).toEqual({
+      styledNodeCount: 1,
+      failures: [
+        expect.objectContaining({
+          label: 'Transparent fill',
+          fill: '#000',
+          color: '#fff',
+          fillOpacity: '0',
+          ratio: null,
+        }),
+      ],
+    });
+  });
 });
 
 function renderedContrastFailures(document) {
@@ -120,16 +148,23 @@ function renderedContrastFailures(document) {
     const label = node.querySelector('.nodeLabel');
     const fill = styleProperty(shape?.getAttribute('style'), 'fill');
     const color = styleProperty(label?.getAttribute('style'), 'color');
-    if (!fill && !color) continue;
+    const fillOpacity = styleProperty(shape?.getAttribute('style'), 'fill-opacity');
+    const opacity = styleProperty(shape?.getAttribute('style'), 'opacity');
+    if (!fill && !color && !fillOpacity && !opacity) continue;
 
     styledNodeCount += 1;
-    const ratio = contrastRatio(color, fill);
+    const ratio =
+      isFullyOpaque(fillOpacity) && isFullyOpaque(opacity) ? contrastRatio(color, fill) : null;
     if (ratio == null || ratio < MINIMUM_CONTRAST) {
-      failures.push({ label: label?.textContent.trim(), fill, color, ratio });
+      failures.push({ label: label?.textContent.trim(), fill, color, fillOpacity, opacity, ratio });
     }
   }
 
   return { styledNodeCount, failures };
+}
+
+function isFullyOpaque(value) {
+  return value == null || /^1(?:\.0+)?$/.test(value) || /^100(?:\.0+)?%$/.test(value);
 }
 
 function styleProperty(style, property) {

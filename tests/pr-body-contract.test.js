@@ -104,6 +104,23 @@ describe('PR body contract', () => {
     expect(hiddenAuthor.stderr).toContain("missing a valid 'Authoring-Agent:' line");
   });
 
+  it('keeps markers inside CommonMark processing, declaration, and CDATA blocks hidden', () => {
+    const blocks = [
+      ['<?review', '?>'],
+      ['<!REVIEW', '>'],
+      ['<![CDATA[', ']]>'],
+    ];
+
+    for (const [opening, closing] of blocks) {
+      const hiddenAuthor = validate(
+        [opening, 'Authoring-Agent: codex', closing, '', '## Self-Review'].join('\n'),
+      );
+
+      expect(hiddenAuthor.status, opening).toBe(1);
+      expect(hiddenAuthor.stderr).toContain("missing a valid 'Authoring-Agent:' line");
+    }
+  });
+
   it('ignores fenced markers nested in Markdown containers', () => {
     const result = validate(
       ['## Self-Review', '', '- ```text', '  Authoring-Agent: codex', '  ```'].join('\n'),

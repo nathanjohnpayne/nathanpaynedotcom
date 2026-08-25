@@ -38,6 +38,12 @@ export function parsePrBodyContract(body) {
     if (htmlBlock != null) {
       if (htmlBlock === 'blank') {
         if (line.trim() === '') htmlBlock = null;
+      } else if (htmlBlock === 'processing') {
+        if (line.includes('?>')) htmlBlock = null;
+      } else if (htmlBlock === 'cdata') {
+        if (line.includes(']]>')) htmlBlock = null;
+      } else if (htmlBlock === 'declaration') {
+        if (line.includes('>')) htmlBlock = null;
       } else if (new RegExp(`</${htmlBlock}\\s*>`, 'i').test(line)) {
         htmlBlock = null;
       }
@@ -49,6 +55,18 @@ export function parsePrBodyContract(body) {
       if (!new RegExp(`</${rawTag[1]}\\s*>`, 'i').test(line)) {
         htmlBlock = rawTag[1].toLowerCase();
       }
+      continue;
+    }
+    if (/^ {0,3}<\?/.test(line)) {
+      if (!line.includes('?>')) htmlBlock = 'processing';
+      continue;
+    }
+    if (/^ {0,3}<!\[CDATA\[/.test(line)) {
+      if (!line.includes(']]>')) htmlBlock = 'cdata';
+      continue;
+    }
+    if (/^ {0,3}<![A-Z]/.test(line)) {
+      if (!line.includes('>')) htmlBlock = 'declaration';
       continue;
     }
     if (/^ {0,3}<\/?[A-Za-z][^>]*(?:>|$)/.test(line)) {
