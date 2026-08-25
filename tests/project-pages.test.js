@@ -293,8 +293,12 @@ describe('Project Pages — routes', () => {
       const fmMatch = body.match(/^---\n([\s\S]*?)\n---/);
       const frontmatter = fmMatch ? fmMatch[1] : '';
 
-      const orderMatch = frontmatter.match(/^order:\s*(\d+)\s*$/m);
-      const accentMatch = frontmatter.match(/^accent:\s*["']?([a-z]+)["']?\s*$/m);
+      // Trailing `# ...` is valid YAML and is exactly what the authoring
+      // template in specs/project-pages.md ships, so both patterns tolerate an
+      // inline comment. Without it, copying the documented template verbatim
+      // fails here with "declares no accent" (Codex P2 on #783).
+      const orderMatch = frontmatter.match(/^order:\s*(\d+)\s*(?:#.*)?$/m);
+      const accentMatch = frontmatter.match(/^accent:\s*["']?([a-z]+)["']?\s*(?:#.*)?$/m);
 
       expect(orderMatch, `${file} declares no order`).not.toBeNull();
       expect(accentMatch, `${file} declares no accent`).not.toBeNull();

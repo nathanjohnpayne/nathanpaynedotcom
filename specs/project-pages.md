@@ -238,7 +238,7 @@ Each project declares a semantic accent in frontmatter, but does not choose it f
 --project-gradient-to   /* metadata/screenshot gradient end */
 ```
 
-Do not add raw hex palette values to project frontmatter. If a project needs a new accent, add a tokenized `data-accent` scope in CSS first, then use that semantic value in content.
+Do not add raw hex palette values to project frontmatter. The accent set is closed at five, and an individual project does not get to introduce a sixth: the accent is derived from the ramp, so adding a color is a change to the ramp itself rather than a per-project decision. Making that change means moving four contracts together—a new `[data-accent]` scope in `global.css`, the `accent` enum in `src/content.config.ts`, the prop union in `ProjectLayout.astro`, and `projectAccentRamp` in `tests/project-pages.test.js`—and accepting that a six-token ramp re-colors every project whose `order` is at or past the insertion point.
 
 ### Accent ramp
 
