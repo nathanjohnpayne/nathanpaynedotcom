@@ -168,13 +168,17 @@ Go to the new repo → Settings → Secrets and variables → Actions → New re
 
 | Secret name | Value | PAT type |
 |---|---|---|
-| `REVIEWER_ASSIGNMENT_TOKEN` | PAT for `nathanjohnpayne` | Fine-grained OK (owns repo) |
+| `REVIEWER_ASSIGNMENT_TOKEN` | PAT for `nathanpayne-robot` | Classic, `repo` scope |
 
 Or use the CLI (faster):
 
 ```bash
-gh secret set REVIEWER_ASSIGNMENT_TOKEN --repo {owner}/{repo} --body "$(op read 'op://Private/sm5kopwk6t6p3xmu2igesndzhe/token')"
+gh secret set REVIEWER_ASSIGNMENT_TOKEN --repo {owner}/{repo} --body "$(op read 'op://Private/o6ekjxjjl5gq6rmcneomrjahpu/token')"
 ```
+
+`REVIEWER_ASSIGNMENT_TOKEN` must hold the `nathanpayne-robot` CI service account and nothing else. It is the token the Agent Review Pipeline uses to request reviewers and to strip the `needs-external-review` gate label, so whatever identity it carries becomes the actor on those events. Two identities are specifically wrong here. A **reviewer** PAT conflates the account that clears the blocking gate with the account that holds reviewer standing, and spends that identity's rate limit on CI traffic. The **author** PAT (`nathanjohnpayne`) makes CI indistinguishable from Nathan in the audit trail. The robot exists precisely to be neither: `.github/review-policy.yml` declares it under `non_reviewer_identities`, and `scripts/merge-clearance-gate.sh` fails closed if a standing `APPROVED` review ever appears under it, so a leaked robot token cannot satisfy branch protection.
+
+> **History:** this secret held the `nathanpayne-claude` reviewer PAT until 2026-08-25, in violation of the rule below. Every reviewer assignment and gate-label removal through PR #765 is attributed to `nathanpayne-claude` for that reason, not because a reviewer acted.
 
 **Reviewer identity PATs (`nathanpayne-claude`, `nathanpayne-codex`,
 `nathanpayne-cursor`) are intentionally NOT stored as repo CI secrets.**
@@ -296,7 +300,7 @@ in 1Password with the field name `token` (not `credential` or `password`).
 | `nathanpayne-codex` | `etak327mpz4drd4byxszfex4vm` | `op read "op://Private/etak327mpz4drd4byxszfex4vm/token"` |
 | `nathanjohnpayne` | `sm5kopwk6t6p3xmu2igesndzhe` | `op read "op://Private/sm5kopwk6t6p3xmu2igesndzhe/token"` |
 
-> The item `o6ekjxjjl5gq6rmcneomrjahpu` is **not** in this table on purpose: it is the `nathanpayne-robot` CI service account, which holds no reviewer standing and must never post a review. It was the Codex item until 2026-08-21—see REVIEW_POLICY.md § PAT lookup table for the hazard note. It changed hands on 2026-08-21 because the robot PAT was created by repurposing the existing Codex item instead of minting a fresh one.
+> The item `o6ekjxjjl5gq6rmcneomrjahpu` is **not** in this table on purpose: it is the `nathanpayne-robot` CI service account, which holds no reviewer standing and must never post a review. It is the token behind `REVIEWER_ASSIGNMENT_TOKEN`—see § Store PATs as repository secrets. It was the Codex item until 2026-08-21—see REVIEW_POLICY.md § PAT lookup table for the hazard note. It changed hands on 2026-08-21 because the robot PAT was created by repurposing the existing Codex item instead of minting a fresh one.
 
 Use the item ID (not the item title) to avoid shell issues with parentheses in
 1Password item names like `GitHub PAT (pr-review-claude)`.
@@ -341,10 +345,7 @@ Note: reviewer identity PATs are NOT stored as repo CI secrets. They are
 read from 1Password per-session by the authoring agent for the in-session
 identity switch, so rotation does not require updating any repo secrets.
 
-The `REVIEWER_ASSIGNMENT_TOKEN` repo secret (Nathan's PAT used by the
-Agent Review Pipeline workflow) follows a similar process but also
-needs a `gh secret set REVIEWER_ASSIGNMENT_TOKEN --repo {owner}/{repo}`
-call on every repo after rotating the 1Password item.
+The `REVIEWER_ASSIGNMENT_TOKEN` repo secret (the `nathanpayne-robot` CI service account, used by the Agent Review Pipeline workflow) follows a similar process but also needs a `gh secret set REVIEWER_ASSIGNMENT_TOKEN --repo {owner}/{repo}` call on every repo after rotating the 1Password item. Rotating the robot PAT without pushing it to every consuming repo leaves reviewer assignment and gate-label removal failing silently in CI.
 
 ---
 
