@@ -115,7 +115,11 @@ describe('PR body contract', () => {
     );
 
     expect(workflow).toContain('actions/setup-node@');
-    expect(workflow).toContain('node-version-file: scripts/ci/pr-body-contract/.nvmrc');
+    expect(workflow).toContain(
+      'node-version-file: ${{ steps.parser_runtime.outputs.version_file }}',
+    );
+    expect(workflow).toContain("if: steps.parser_runtime.outputs.mode == 'tool'");
+    expect(workflow).toContain("if: steps.parser_runtime.outputs.mode == 'bootstrap'");
     expect(workflow).toContain('working-directory: scripts/ci/pr-body-contract');
     expect(workflow).toContain('ln -s "$PWD/node_modules" ../../node_modules');
     expect(repoLintWorkflow.match(/actions\/setup-node@/g)).toHaveLength(2);
