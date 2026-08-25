@@ -13,7 +13,7 @@ keyTakeaways:
   - "A visible bug can be a report on the architecture: one page's mobile overflow was the first symptom of page chrome duplicated across seven hand-maintained HTML files."
   - "The cheapest moment for a structural decision is while the diagnosis is still loaded, and agents are what make that moment affordable: the Astro scaffold merged four hours after the responsive fix, and that stamped interval is what let the structural option compete with the quick patch."
   - "A static site generator buys a build-enforced content schema, generated OG images, RSS, and a sitemap, and charges a dependency chain that breaks on its own schedule; the trade only makes sense with an editorial cadence to serve."
-  - "Phasing a migration into small, individually reviewable PRs is what makes a one-day rewrite safe: eleven tracked phases shipped as eight PRs, and reviewers blocked three of them before approving."
+  - "Phasing a migration into small, individually reviewable PRs is what makes a one-day rewrite safe: ten of the eleven tracked phases shipped as eight PRs, the eleventh was the deploy itself, and reviewers blocked three of the eight before approving."
 pullquotes:
   - text: "I had been hand-editing duplicated chrome on every page, and the responsive bug was just the first thing visible enough to admit it."
     label: "What the bug was hiding"
@@ -39,7 +39,7 @@ sidebar:
           A["Hand-rolled HTML<br/>7 pages, 1 stylesheet"] --> B["Issue #28<br/>Mobile overflow"]
           B --> C["PR #30 merged<br/>10:04am PT"]
           C --> D["PR #47 scaffold<br/>2:11pm PT"]
-          D --> E["Phased ports<br/>11 phases, 8 PRs"]
+          D --> E["Phased ports<br/>10 phases, 8 PRs"]
           E --> F["Phase 10 deploy<br/>verified 6:39pm PT"]
           F --> G["Type-safe frontmatter,<br/>OG images, RSS, sitemap"]
           style A fill:#e8b4b4,stroke:#993d3d,color:#333
@@ -78,7 +78,7 @@ Four options were on the table that afternoon.
 
 | Option | Publishing a post | Chrome duplication | Content schema | New moving parts |
 |---|---|---|---|---|
-| Ship the patch, change nothing | Five hand steps across seven files | Grows with every page | Conventions in my head | None |
+| Ship the patch, change nothing | Five hand steps, two files edited, drift risk across seven headers | Grows with every page | Conventions in my head | None |
 | Keep hand-authoring, add discipline | Same steps, plus a checklist | Still one copy per page | Still informal | None |
 | CMS | Author in the CMS | Templated away | Depends on the CMS | A content service—and, for request-time CMSs, a runtime in the hot path |
 | Static site generator | Write Markdown, commit | Templated away | Mine, enforced at build time | A build chain and a dependency tree |
@@ -99,7 +99,7 @@ Nothing in the repository records a framework bake-off—the first phase issue o
 
 ## Eleven phases, eight pull requests
 
-Before the scaffold even merged, the whole sequence was scoped: eleven phase issues, [#35](https://github.com/nathanjohnpayne/nathanpaynedotcom/issues/35) through [#45](https://github.com/nathanjohnpayne/nathanpaynedotcom/issues/45), opened as a batch in a five-minute window just before 2pm. Phase 0 installed Astro, pointed `firebase.json` at `dist/` instead of the repo root, moved static assets into `public/`, and updated the documentation. Later phases ported one surface at a time—base layout, homepage, project pages ([PR #56](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/56)), blog layouts—each sized so it could be reviewed whole, deployed on its own, and reverted without touching its neighbors. The eleven phases shipped as eight PRs; two adjacent pairs (Mermaid support with figure captions, tests with cleanup) merged combined where splitting them bought no review value.
+Before the scaffold even merged, the whole sequence was scoped: eleven phase issues, [#35](https://github.com/nathanjohnpayne/nathanpaynedotcom/issues/35) through [#45](https://github.com/nathanjohnpayne/nathanpaynedotcom/issues/45), opened as a batch in a five-minute window just before 2pm. Phase 0 installed Astro, pointed `firebase.json` at `dist/` instead of the repo root, moved static assets into `public/`, and updated the documentation. Later phases ported one surface at a time—base layout, homepage, project pages ([PR #56](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/56)), blog layouts—each sized so it could be reviewed whole, deployed on its own, and reverted without touching its neighbors. Ten of the eleven phases shipped as eight PRs, because two adjacent pairs—Mermaid support with figure captions, tests with cleanup—merged combined where splitting them bought no review value. The eleventh, Phase 10, was the production deploy itself, so it closed without a PR of its own.
 
 The reviews were not ceremony. Codex blocked three of the eight—#54, #62, and #63—with change requests before approving, taking three rounds on #63, and CodeRabbit commented on three. Phase 10, "Deploy and verify production," closed at 6:39pm Pacific—the same Wednesday the bug was filed.
 
@@ -127,7 +127,7 @@ So the same-day claim has edges worth stating exactly: the scaffold landed the s
 
 **Sitemap, robots.txt, and RSS.** The `@astrojs/sitemap` integration generates the sitemap from the routes Astro already knows about. A custom integration syncs the `Sitemap:` line in `robots.txt` so the filename never drifts from what got shipped. RSS is a small endpoint file under `src/pages/rss.xml.ts`. None of those existed on the hand-rolled site.
 
-The outcome I actually care about is editorial, not technical. The post that started all this reads cleanly on a phone, and stays that way under a spec and two layers of tests rather than my memory. Publishing went from five hand steps across seven files to one Markdown file and a build that rejects malformed frontmatter. And the metadata surfaces—OG cards, RSS, sitemap, robots.txt—behave consistently because they are generated, not maintained.
+The outcome I actually care about is editorial, not technical. The post that started all this reads cleanly on a phone, and stays that way under a spec and two layers of tests rather than my memory. Publishing went from five hand steps across two files, carrying a drift risk that spanned seven duplicated headers, to one Markdown file and a build that rejects malformed frontmatter. And the metadata surfaces—OG cards, RSS, sitemap, robots.txt—behave consistently because they are generated, not maintained.
 
 ## What it cost
 
@@ -135,7 +135,7 @@ I want to be honest about the bill.
 
 A hand-rolled static site has roughly zero moving parts. This site now has Astro itself, its integrations, the Markdown processor, the Remark and Rehype plugin chain, the build-time OG renderer, the sitemap integration, the Firebase deploy step, and the Playwright responsive suite added in [PR #70](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/70). Every one of those can break on its own schedule.
 
-The OG integration bug is the canonical example, and the accurate telling is more instructive than a dramatic one. An early version computed the output directory with `dir.pathname` instead of `fileURLToPath(dir)`. On macOS and Linux the two produce identical results; on Windows, `dir.pathname` yields `/C:/path/to/dist`, which `path.join` mangles into `C:\C:\path\to\dist`. Production impact: zero—CI and my workstation are both in the safe set, and no deploy ever surfaced it. What surfaced it was the review system: the `nathanpayne-codex` reviewer flagged it as a non-blocking observation during the external review of [PR #171](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/171)—the sibling robots.txt fix where the `fileURLToPath` pattern first landed—and it became [issue #173](https://github.com/nathanjohnpayne/nathanpaynedotcom/issues/173), fixed in [PR #174](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/174), then pinned in [PR #175](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/175) with a contract test so no future integration reintroduces it. The hand-rolled site could not have had this bug, because it had no integrations. It also had no second reviewer catching a portability defect before any user saw it.
+The OG integration bug is the canonical example, and the accurate telling is more instructive than a dramatic one. An early version computed the output directory with `dir.pathname` instead of `fileURLToPath(dir)`. The two diverge in two different ways. On Windows, `dir.pathname` yields `/C:/path/to/dist`, which `path.join` mangles into `C:\C:\path\to\dist`—the case the issue was filed for. On macOS and Linux they agree only while the path is free of characters a URL escapes: a checkout at `/tmp/site checkout` gives a `pathname` of `/tmp/site%20checkout`, which is not a real directory. Production impact was zero, because CI and my workstation are both plain-ASCII POSIX paths and no deploy ever surfaced it—but "zero impact" is a fact about the paths in use, not about the defect. What surfaced it was the review system: the `nathanpayne-codex` reviewer flagged it as a non-blocking observation during the external review of [PR #171](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/171)—the sibling robots.txt fix where the `fileURLToPath` pattern first landed—and it became [issue #173](https://github.com/nathanjohnpayne/nathanpaynedotcom/issues/173), fixed in [PR #174](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/174), then pinned in [PR #175](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/175) with a contract test so no future integration reintroduces it. The hand-rolled site could not have had this bug, because it had no integrations. It also had no second reviewer catching a portability defect before any user saw it.
 
 The same week did bring a genuine production incident, and it was a different bug: LinkedIn's crawler was getting an empty page and stale OG images ([issue #163](https://github.com/nathanjohnpayne/nathanpaynedotcom/issues/163)). The fix chain—[PR #170](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/170) through [PR #172](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/172)—closed a robots.txt sitemap 404 and added OG-target smoke checks. Two failures, two detection paths: one caught in review before it could matter, one caught in production because no check yet existed. Both belong on the bill.
 
@@ -147,7 +147,7 @@ Whether this ledger nets out positive is a judgement, not a measurement—I have
 
 A counterfactual runs underneath this whole story, and it deserves to be stated with the facts separated from the estimates.
 
-The facts: the tracked migration—scaffold through verified production deploy—ran inside one working day, across eight reviewed PRs. Claude Code did the authoring; every commit from that day carries its co-author trailer. Review came from three identities: `nathanpayne-claude`, `nathanpayne-codex`, and CodeRabbit. Cursor, a registered reviewer identity in this repo's policy, reviewed none of it.
+The facts: the tracked migration—scaffold through verified production deploy—ran inside one working day, across eight reviewed PRs. Claude Code did the authoring; every commit in those eight PRs carries its co-author trailer. Review came from three identities: `nathanpayne-claude`, `nathanpayne-codex`, and CodeRabbit. Cursor, a registered reviewer identity in this repo's policy, reviewed none of it.
 
 The estimate: had I done this by hand—learned Astro well enough to ship cleanly, ported the homepage, blog, and project pages, debugged the OG integration, written the Playwright suite, rewired the Firebase deploy, and propagated the documentation—my honest guess is somewhere between a long weekend and a vacation week of focused engineering time. That is an estimate of a migration that never ran, not a measurement; no manual baseline exists to compare against. But the decision was made against that estimate, and I do not have those weeks. Without agents, the likeliest world is the old chassis limping along with maybe two more posts in it before I stopped adding them.
 

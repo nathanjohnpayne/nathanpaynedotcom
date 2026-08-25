@@ -216,7 +216,7 @@ Source: `gh api repos/nathanjohnpayne/nathanpaynedotcom/issues/{171,173,174,175}
 
 > L117
 
-**WRONG.** The bug is **Windows-only**. Issue #173 states it explicitly: on Windows `dir.pathname` yields `/C:/path/to/dist`, which `path.join` turns into `C:\C:\path\to\dist\og-templates`. It also states the blast radius in as many words: *"Production impact: zero (CI and the author's workstation are both macOS/Linux)"*, and *"on macOS/Linux, `dir.pathname` and `fileURLToPath(dir)` produce the same result. The bug only bites on Windows builds."*
+**WRONG, and the correction is itself narrower than issue #173 claims** (see §J3). Issue #173 states: on Windows `dir.pathname` yields `/C:/path/to/dist`, which `path.join` turns into `C:\C:\path\to\dist\og-templates`. It also states the blast radius in as many words: *"Production impact: zero (CI and the author's workstation are both macOS/Linux)"*, and *"on macOS/Linux, `dir.pathname` and `fileURLToPath(dir)` produce the same result. The bug only bites on Windows builds."*
 Corrected value: it works on macOS and Linux and breaks on Windows—a contributor-portability bug with zero production impact.
 Source: `gh api repos/nathanjohnpayne/nathanpaynedotcom/issues/173` → `.body`, §§ Problem and Impact.
 
@@ -354,3 +354,42 @@ The last timeline row cited a bare number range spanning a mix of issues (#163, 
 ### I3—"Apr 8, evening" imprecision *(fixed)*
 
 The only timeline cell without a stamped time, in a table whose job is to be trustworthy at a skim. Split into two rows at 7:31pm and 7:54pm PT, both derived from the UTC `merged_at` values and both correctly ordered after the 6:39pm Phase 10 close.
+
+---
+
+## J. Round-2 addendum (PR #787, Codex external review)
+
+Four P2 findings on HEAD `8001191`. None blocking, all correct, all fixed. Three of them are factual-precision defects of exactly the kind this audit exists to catch, which is why they were taken rather than waved through on the P2 tier.
+
+### J1—The phase-to-PR arithmetic did not reconcile
+
+Combining two adjacent pairs takes eleven phases to **nine**, not eight. The eighth comes from Phase 10 having no PR at all: it was the production deploy, and issue #45 closed on the deploy rather than on a merge. §A6's table already showed this; the prose attributed the whole difference to the two paired PRs.
+Corrected on all three surfaces that carried it: the `keyTakeaways` entry, the Mermaid node (`11 phases, 8 PRs` → `10 phases, 8 PRs`), and the body.
+Source: §A6 table; `gh api repos/nathanjohnpayne/nathanpaynedotcom/issues/45` closes with no linked PR.
+
+### J2—"every commit from that day" was false by exactly one
+
+Verified by enumeration: of the commits authored 2026-04-08 through 2026-04-09 Pacific, exactly one lacks a `Co-authored-by: Claude` trailer—`d946296`, the merge commit for PR #34 (blog syntax highlighting), 10:56am PT. PR #34 is not a migration PR. Every commit inside the eight migration PRs does carry the trailer; spot-checked `75e2100`, `406cd05`, `d627616`, `c879059`.
+Corrected to "every commit in those eight PRs".
+Source: `git log --since=2026-04-08T00:00:00-07:00 --until=2026-04-10T00:00:00-07:00 --format='%H|%aI|%s'` with a per-commit `%b` trailer grep.
+
+### J3—`dir.pathname` vs `fileURLToPath` is not a Windows-only divergence
+
+Issue #173 says the two "produce the same result" on macOS/Linux. That is true only for paths free of characters a URL escapes. Verified directly against Node:
+
+| path | `dir.pathname` | `fileURLToPath(dir)` | same? |
+|---|---|---|---|
+| `/tmp/plain/dist` | `/tmp/plain/dist` | `/tmp/plain/dist` | yes |
+| `/tmp/site checkout/dist` | `/tmp/site%20checkout/dist` | `/tmp/site checkout/dist` | **no** |
+| `/tmp/café/dist` | `/tmp/caf%C3%A9/dist` | `/tmp/café/dist` | **no** |
+
+So the defect bites on POSIX too, whenever the checkout path contains a space or a non-ASCII character. The **zero production impact** conclusion still holds—CI and the author's workstation are both plain-ASCII POSIX paths—but it is a fact about the paths in use, not a property of the defect. §E2 above is amended accordingly.
+
+This is the one place where the primary source (issue #173) is itself imprecise, so the post now states the narrower truth rather than repeating the issue's framing.
+Source: `node -e` using `pathToFileURL`/`fileURLToPath` from `node:url`, run on this machine.
+
+### J4—"Five hand steps across seven files" conflated two different counts
+
+The five-step list edits **two** files: the new post's HTML and the blog index. Its fifth item is not an edit at all—it is the drift risk across the seven duplicated headers. Fusing the step count to the page count turned a duplication metric into a per-post edit count and overstated the workload being compared.
+Corrected in both places it appeared (the decision table's first row and the outcome paragraph) to state the three metrics separately: five steps, two files edited, drift risk spanning seven headers.
+Source: the five-step list in the post itself, read against §C1's tree listing.
