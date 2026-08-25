@@ -120,6 +120,12 @@ assert_rc_contains "direct pr create blocked" 2 "token-verifying wrapper" \
 ## Self-Review
 - ok"'
 
+assert_rc_contains "direct pr new alias blocked" 2 "token-verifying wrapper" \
+  'gh pr new --title "t" --body "Authoring-Agent: claude
+
+## Self-Review
+- ok"'
+
 assert_rc_contains "inline-token pr create blocked" 2 "not hook-verifiable" \
   'GH_TOKEN=author-token gh pr create --title "t" --body "Authoring-Agent: claude
 
@@ -173,6 +179,12 @@ assert_rc_contains "wrapper non-guarded then bare guarded compound blocked" 2 "#
 
 assert_rc_contains "author wrapper pr create valid body allowed" 0 "" \
   'scripts/gh-as-author.sh -- gh pr create --title "t" --body "Authoring-Agent: claude
+
+## Self-Review
+- ok"'
+
+assert_rc_contains "author wrapper pr new alias allowed" 0 "" \
+  'scripts/gh-as-author.sh -- gh pr new --title "t" --body "Authoring-Agent: claude
 
 ## Self-Review
 - ok"'

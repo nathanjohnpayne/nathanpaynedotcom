@@ -1,32 +1,14 @@
 #!/usr/bin/env bash
 # Shared parser for the identity-bearing fields in pull request bodies.
 
+PR_BODY_CONTRACT_PARSER="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/pr-body-contract.mjs"
+
 pr_body_authoring_agent() {
-  printf '%s\n' "$1" | awk '
-    {
-      lower = tolower($0)
-      if (lower ~ /^[[:space:]]*authoring-agent:[[:space:]]*/) {
-        count += 1
-        value = $0
-        sub(/^[[:space:]]*[Aa][Uu][Tt][Hh][Oo][Rr][Ii][Nn][Gg]-[Aa][Gg][Ee][Nn][Tt]:[[:space:]]*/, "", value)
-        sub(/[[:space:]]+$/, "", value)
-        if (value ~ /^[A-Za-z0-9_-]+$/) {
-          author = tolower(value)
-          valid = 1
-        } else {
-          valid = 0
-        }
-      }
-    }
-    END { if (count == 1 && valid == 1) print author }
-  '
+  printf '%s\n' "$1" | node "$PR_BODY_CONTRACT_PARSER" --author
 }
 
 pr_body_authoring_agent_count() {
-  printf '%s\n' "$1" | awk '
-    tolower($0) ~ /^[[:space:]]*authoring-agent:[[:space:]]*/ { count += 1 }
-    END { print count + 0 }
-  '
+  printf '%s\n' "$1" | node "$PR_BODY_CONTRACT_PARSER" --author-count
 }
 
 pr_body_available_authoring_agents() {
@@ -62,10 +44,7 @@ pr_body_agent_is_allowed() {
 }
 
 pr_body_has_self_review() {
-  printf '%s\n' "$1" | awk '
-    tolower($0) ~ /^## self-review[[:space:]]*$/ { found = 1 }
-    END { exit(found ? 0 : 1) }
-  '
+  printf '%s\n' "$1" | node "$PR_BODY_CONTRACT_PARSER" --has-self-review
 }
 
 pr_body_validate() {
