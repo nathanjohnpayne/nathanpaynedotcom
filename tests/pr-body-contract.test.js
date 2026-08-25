@@ -108,10 +108,13 @@ describe('PR body contract', () => {
 
   it('installs the maintained parser from the trusted lockfile without lifecycle scripts', () => {
     const workflow = readFileSync('.github/workflows/pr-review-policy.yml', 'utf8');
+    const repoLintWorkflow = readFileSync('.github/workflows/repo_lint.yml', 'utf8');
     const parser = readFileSync('scripts/lib/pr-body-contract.mjs', 'utf8');
 
     expect(workflow).toContain('actions/setup-node@');
     expect(workflow).toContain('npm ci --ignore-scripts');
+    expect(repoLintWorkflow.match(/actions\/setup-node@/g)).toHaveLength(2);
+    expect(repoLintWorkflow.match(/npm ci --ignore-scripts/g)).toHaveLength(2);
     expect(parser).toMatch(/from ['"]micromark['"]/);
     expect(parser).not.toMatch(/from ['"](?:unified|remark-parse)['"]/);
   });
