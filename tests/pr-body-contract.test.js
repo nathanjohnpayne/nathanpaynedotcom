@@ -1,5 +1,7 @@
-import { readFileSync } from 'node:fs';
+import { copyFileSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 const validBody = [
@@ -61,6 +63,9 @@ describe('PR body contract', () => {
         '\n',
       ),
     );
+    const htmlBlockAttribute = validate(
+      ['<div data-agent="', 'Authoring-Agent: codex', '">', '', '## Self-Review'].join('\n'),
+    );
 
     expect(hiddenAuthor.status).toBe(1);
     expect(hiddenAuthor.stderr).toContain("missing a valid 'Authoring-Agent:' line");
@@ -68,6 +73,26 @@ describe('PR body contract', () => {
     expect(fencedSelfReview.stderr).toContain("missing a '## Self-Review' section");
     expect(multilineInlineComment.status).toBe(1);
     expect(multilineInlineComment.stderr).toContain("missing a valid 'Authoring-Agent:' line");
+    expect(htmlBlockAttribute.status).toBe(1);
+    expect(htmlBlockAttribute.stderr).toContain("missing a valid 'Authoring-Agent:' line");
+  });
+
+  it('runs without repository dependencies like the clean policy job', () => {
+    const directory = mkdtempSync(join(tmpdir(), 'pr-body-contract-'));
+    const parser = join(directory, 'pr-body-contract.mjs');
+
+    try {
+      copyFileSync('scripts/lib/pr-body-contract.mjs', parser);
+      const result = spawnSync('node', [parser, '--author'], {
+        encoding: 'utf8',
+        input: validBody,
+      });
+
+      expect(result.status, result.stderr).toBe(0);
+      expect(result.stdout).toBe('codex\n');
+    } finally {
+      rmSync(directory, { recursive: true, force: true });
+    }
   });
 
   it('uses the same parser in Phase 4b and enforces it on every PR event path', () => {

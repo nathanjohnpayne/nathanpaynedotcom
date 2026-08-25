@@ -1,33 +1,84 @@
 #!/usr/bin/env node
 
 import { readFileSync } from 'node:fs';
-import { unified } from 'unified';
-import remarkParse from 'remark-parse';
 
-function visibleText(node) {
-  if (node.type === 'text') return node.value;
-  if (node.type === 'break') return '\n';
-  if (['html', 'inlineCode', 'image', 'imageReference'].includes(node.type)) return '';
-  if (!Array.isArray(node.children)) return '';
-  return node.children.map(visibleText).join('');
-}
+function stripHtmlComments(line, startsInComment) {
+  let inComment = startsInComment;
+  let index = 0;
+  let visible = '';
 
-export function parsePrBodyContract(body) {
-  const tree = unified().use(remarkParse).parse(body);
-  const authorValues = [];
-  let hasSelfReview = false;
-
-  for (const node of tree.children) {
-    if (node.type === 'heading' && node.depth === 2) {
-      if (visibleText(node).trim().toLowerCase() === 'self-review') hasSelfReview = true;
+  while (index < line.length) {
+    if (inComment) {
+      const commentEnd = line.indexOf('-->', index);
+      if (commentEnd === -1) return { inComment, visible };
+      inComment = false;
+      index = commentEnd + 3;
       continue;
     }
 
-    if (node.type !== 'paragraph') continue;
-    for (const line of visibleText(node).split(/\r?\n/)) {
-      const match = line.match(/^\s*authoring-agent:\s*(.*?)\s*$/i);
-      if (match != null) authorValues.push(match[1]);
+    const commentStart = line.indexOf('<!--', index);
+    if (commentStart === -1) {
+      visible += line.slice(index);
+      break;
     }
+
+    visible += line.slice(index, commentStart);
+    inComment = true;
+    index = commentStart + 4;
+  }
+
+  return { inComment, visible };
+}
+
+export function parsePrBodyContract(body) {
+  const authorValues = [];
+  let hasSelfReview = false;
+  let inHtmlComment = false;
+  let inHtmlBlock = false;
+  let fenceCharacter = '';
+  let fenceLength = 0;
+
+  for (const line of body.split(/\r?\n/)) {
+    if (fenceCharacter !== '') {
+      const closingFence = line.match(/^ {0,3}(`{3,}|~{3,})[ \t]*$/);
+      if (
+        closingFence != null &&
+        closingFence[1][0] === fenceCharacter &&
+        closingFence[1].length >= fenceLength
+      ) {
+        fenceCharacter = '';
+        fenceLength = 0;
+      }
+      continue;
+    }
+
+    if (inHtmlBlock) {
+      if (/^[ \t]*$/.test(line)) inHtmlBlock = false;
+      continue;
+    }
+
+    const commentResult = stripHtmlComments(line, inHtmlComment);
+    inHtmlComment = commentResult.inComment;
+    const visibleLine = commentResult.visible;
+
+    if (/^ {0,3}<[A-Za-z!?/]/.test(visibleLine)) {
+      inHtmlBlock = true;
+      continue;
+    }
+
+    const openingFence = visibleLine.match(/^ {0,3}(`{3,}|~{3,})/);
+    if (openingFence != null) {
+      fenceCharacter = openingFence[1][0];
+      fenceLength = openingFence[1].length;
+      continue;
+    }
+
+    if (/^( {4}|\t)/.test(visibleLine)) continue;
+
+    if (/^## self-review[ \t]*$/i.test(visibleLine)) hasSelfReview = true;
+
+    const authorMatch = visibleLine.match(/^[ \t]*authoring-agent:[ \t]*(.*?)[ \t]*$/i);
+    if (authorMatch != null) authorValues.push(authorMatch[1]);
   }
 
   const author =
