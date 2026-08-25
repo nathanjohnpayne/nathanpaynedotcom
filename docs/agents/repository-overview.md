@@ -10,7 +10,7 @@ Astro pages, layouts, and content collections generate the full static site into
 |------|------|
 | `src/pages/index.astro` | Homepage markup—Mondrian grid layout, panel interactions. |
 | `src/pages/blog/index.astro` | Blog listing page. |
-| `src/pages/blog/[slug].astro` | Dynamic blog post pages rendered from Content Collections. |
+| `src/pages/blog/[...slug].astro` | Dynamic blog post pages, including nested content paths, rendered from Content Collections. |
 | `src/pages/projects/[slug].astro` | Dynamic project detail route (Content Collections) with per-project meta, canonicals, and JSON-LD. |
 | `src/pages/projects/index.astro` | Project index grid page—auto-populated from the projects collection. |
 | `src/pages/resume.astro` | Resume page rendered from resume-specific content collections and section components. |
@@ -22,14 +22,15 @@ Astro pages, layouts, and content collections generate the full static site into
 | `src/layouts/ProjectLayout.astro` | Project page layout. |
 | `src/layouts/OgCard.astro` | OG image card template (1200×630). |
 | `src/styles/global.css` | Shared styles—Mondrian homepage grid, project/blog pages, motion system, responsive, accessibility. |
-| `src/content/blog/*.md` | Markdown blog post source files with required editorial category, optional featured flag, and optional SEO-only title/description fields. |
+| `src/content/blog/**/*.md` | Recursively discovered Markdown blog posts with required editorial category, optional featured flag, and optional SEO-only title/description fields. |
 | `src/content/projects/*.md` | Markdown project source files—each file generates a project page and index entry. Optional `seoDescription` keeps search snippets concise without shortening on-page case-study copy. See `specs/project-pages.md` for authoring guide. |
 | `src/components/ProjectHero.astro` | Project hero header; `variant` prop covers wide/narrow screenshot layouts (#470). |
 | `src/components/MetadataStrip.astro` | Strip-only project metadata table (topics/format/focus/status); the screenshot surface is owned by `ProjectLayout`. |
 | `src/components/resume/*` | Resume section components and Logo.dev-backed company/school/issuer logo rendering. |
 | `src/components/posthog.astro` | PostHog analytics bootstrap; no-ops when `PUBLIC_POSTHOG_PROJECT_TOKEN` is unset. |
 | `src/content.config.ts` | Content Collections schema definition (Zod-validated frontmatter). |
-| `src/plugins/remark-mermaid.mjs` | Remark plugin—converts supported blog ` ```mermaid ` blocks to `<pre class="mermaid">` and rejects fences on unsupported Markdown surfaces. |
+| `src/plugins/remark-mermaid.mjs` | Mermaid metadata contract—requires accessible title/description fields and rejects fences on unsupported Markdown surfaces. |
+| `src/plugins/rehype-mermaid-accessibility.mjs` | Accessibility wrapper and clean render-error fallback around `rehype-mermaid`. |
 | `src/plugins/rehype-figure-captions.mjs` | Rehype plugin—wraps images in `<figure>` with auto-numbered `<figcaption>`. |
 | `src/plugins/rehype-color-chips.mjs` | Rehype plugin—renders constrained inline color chips from markdown markup. |
 | `src/integrations/og-images.mjs` | Astro integration—build-time OG image generation via Playwright screenshots. |

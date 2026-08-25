@@ -100,9 +100,9 @@ JavaScript adds `.is-scrolling` to `<body>` during active scroll (debounced at 1
 
 Every Mermaid diagram is authored with a short accessible title and a relational description. Inline fences use whitespace-separated `title="..." description="..."` metadata; sidebar Mermaid items use required `title` and `description` frontmatter fields. Describe the relationships or conclusion conveyed by the diagram, not merely its list of nodes. Missing metadata or adjacent attributes without a separator are build errors.
 
-Every Mermaid `style` directive that sets both `fill:` and label `color:` uses three- or six-digit hex colors whose WCAG contrast ratio is at least 4.5:1. `npm run lint` checks both body fences and sidebar Mermaid items arithmetically; visual inspection is not sufficient.
+Every explicit Mermaid node fill and label color uses three- or six-digit hex colors whose WCAG contrast ratio is at least 4.5:1. Tests measure the rendered SVG rather than parsing Mermaid source syntax.
 
-Mermaid is supported only in blog posts under `src/content/blog/*.md`. The globally registered Remark plugin rejects Mermaid fences in every other content collection and Markdown page because those surfaces do not share the blog development renderer and production static-SVG pass.
+Mermaid is supported only in blog posts under `src/content/blog/**/*.md`. The globally registered metadata adapter rejects Mermaid fences in every other content collection and Markdown page.
 
 ### Credential Hygiene
 - This repo should not contain API keys, service-account JSON, or ADC credentials. Public client identifiers (GA Measurement ID, Logo.dev publishable token, PostHog `phc_`) are public-by-design but still env-injected via `.env.tpl`/`op inject` and never hardcoded; anything that can read or manage data is a secret and likewise never committed.
@@ -130,7 +130,7 @@ Astro (static site generator) with vanilla CSS and minimal client-side JavaScrip
 All source lives in `src/`:
 - **Pages:** `src/pages/` (Astro routing—each `.astro` file becomes a route)
 - **Layouts:** `src/layouts/` (BaseLayout, BlogPost, ProjectLayout, OgCard)
-- **Content:** `src/content/blog/*.md` (Markdown blog posts with Zod-validated frontmatter)
+- **Content:** `src/content/blog/**/*.md` (Markdown blog posts with Zod-validated frontmatter)
 - **Styles:** `src/styles/global.css` (single global stylesheet)
 - **Plugins:** `src/plugins/` (Remark and Rehype processors for markdown)
 - **Integrations:** `src/integrations/` (build-time OG image generation)
@@ -161,7 +161,7 @@ Static assets (favicons, robots.txt, OG fonts) live in `public/` and are copied 
 - Blog frontmatter includes: `title`, `seoTitle` (optional), `shortTitle` (optional), `description`, `seoDescription` (optional), `category` (required enum), `featured` (defaults to `false`), `author`, `date`, `tags`, `image`, `draft`, `pullquotes`, `sidebar`.
 - Project frontmatter includes optional `seoDescription`; use it when a project card/hero description is intentionally longer than a search snippet should be.
 - Project posts choose a semantic `accent` token (`red`, `yellow`, `black`, `blue`, `lightblue`, `paper`). Do not add raw project palette hex fields such as `accentColor`, `gradientFrom`, or `gradientTo`; CSS derives those colors from `data-accent`.
-- The custom Remark plugin converts supported blog ` ```mermaid ` code blocks to intermediate `<pre class="mermaid">` elements and rejects them outside `src/content/blog/*.md`. The build-time Playwright integration replaces every intermediate block with static inline SVG before deployment; Mermaid does not run in production visitors' browsers. `BlogPost.astro` uses the pinned local dependency as a development-only renderer so HMR previews show diagrams rather than raw DSL.
+- `rehype-mermaid` renders supported blog ` ```mermaid ` code blocks to static inline SVG during the Markdown build. A small adapter preserves required accessible metadata and rejects fences outside `src/content/blog/**/*.md`; it does not parse Mermaid grammar. Sidebar items use the same maintained renderer. No Mermaid runtime ships to visitors.
 - Custom Rehype plugin wraps standalone images in `<figure>` with auto-numbered `<figcaption>`.
 
 ### Build & Dev

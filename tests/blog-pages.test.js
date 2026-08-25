@@ -18,6 +18,10 @@ function setupDOM(html) {
   writeSanitizedDOM(html);
 }
 
+function blogSlugFromHref(href) {
+  return href?.replace(/^\/blog\//, '').replace(/\/$/, '');
+}
+
 describe('Blog Pages', () => {
   beforeEach(() => {
     setupDOM(homepageHtml);
@@ -134,7 +138,7 @@ describe('Blog Pages', () => {
 
     const cards = [...document.querySelectorAll('.post-card')];
     const slugs = cards.map((card) =>
-      card.querySelector('.post-title a')?.getAttribute('href')?.split('/').filter(Boolean).at(-1),
+      blogSlugFromHref(card.querySelector('.post-title a')?.getAttribute('href')),
     );
     const categories = cards.map((card) => card.querySelector('.post-meta')?.textContent.trim());
     const featureLabel = document.querySelector('.index-feature-cell__label');
@@ -150,6 +154,10 @@ describe('Blog Pages', () => {
       'Building This Site',
     ]);
     expect(featureLabel?.textContent.trim()).toBe('Featured');
+  });
+
+  it('preserves parent segments when auditing nested post routes', () => {
+    expect(blogSlugFromHref('/blog/series/entry/')).toBe('series/entry');
   });
 
   it('hosting deploys from dist/ so markdown source is excluded', () => {

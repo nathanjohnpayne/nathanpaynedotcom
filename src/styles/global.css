@@ -3184,6 +3184,28 @@ svg.mermaid foreignObject {
   height: auto;
 }
 
+.mermaid-fallback {
+  padding: 1rem;
+  border: 1px solid var(--rule);
+  background: color-mix(in srgb, var(--paper) 88%, var(--accent-yellow));
+}
+
+.mermaid-fallback p {
+  margin: 0;
+}
+
+.mermaid-fallback__heading {
+  font-weight: 700;
+}
+
+.mermaid-fallback__title {
+  margin-top: 0.5rem !important;
+}
+
+.mermaid-fallback__description {
+  margin-top: 0.25rem !important;
+}
+
 .mermaid-figure__description {
   position: absolute;
   width: 1px;

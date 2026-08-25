@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { existsSync, readFileSync, readdirSync } from 'fs';
+import { existsSync, readFileSync } from 'fs';
 import { resolve } from 'path';
+import { blogSlugFromPath, findBlogMarkdownFiles } from '../scripts/lib/blog-file-inventory.mjs';
 import { parseFrontmatter } from '../scripts/lib/parse-frontmatter.mjs';
 import { EXPECTED_BLOG_EDITORIAL_ORDER } from './helpers/blog-editorial-order.js';
 import { writeSanitizedDOM } from './helpers/dom.js';
@@ -23,13 +24,12 @@ const CONTENT_DIR = resolve(__dirname, '../src/content/blog');
 // exactly the way the hand-typed <ul> did (#619).
 const WRITING_LIST_LIMIT = 5;
 
-const publishedPosts = readdirSync(CONTENT_DIR)
-  .filter((name) => name.endsWith('.md'))
-  .map((name) => ({
-    slug: name.replace(/\.md$/, ''),
-    data: parseFrontmatter(readFileSync(resolve(CONTENT_DIR, name), 'utf-8')) ?? {},
-  }))
-  .filter((post) => post.data.draft !== 'true');
+const allPosts = findBlogMarkdownFiles(CONTENT_DIR).map((filePath) => ({
+  slug: blogSlugFromPath(filePath, CONTENT_DIR),
+  data: parseFrontmatter(readFileSync(filePath, 'utf-8')) ?? {},
+}));
+
+const publishedPosts = allPosts.filter((post) => post.data.draft !== 'true');
 
 const editorialPosts = EXPECTED_BLOG_EDITORIAL_ORDER.map((slug) =>
   publishedPosts.find((post) => post.slug === slug),
@@ -90,12 +90,7 @@ describe('homepage Writing block (#523)', () => {
   });
 
   it('never renders a draft post', () => {
-    const draftSlugs = readdirSync(CONTENT_DIR)
-      .filter((name) => name.endsWith('.md'))
-      .map((name) => ({
-        slug: name.replace(/\.md$/, ''),
-        data: parseFrontmatter(readFileSync(resolve(CONTENT_DIR, name), 'utf-8')) ?? {},
-      }))
+    const draftSlugs = allPosts
       .filter((post) => post.data.draft === true)
       .map((post) => `/blog/${post.slug}/`);
 

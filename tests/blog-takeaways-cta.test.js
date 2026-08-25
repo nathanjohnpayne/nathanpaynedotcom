@@ -10,20 +10,19 @@
  *      wrapping — plus a single availability CTA with distinct PostHog events.
  */
 import { describe, it, expect } from 'vitest';
-import { readFileSync, readdirSync, statSync, existsSync } from 'fs';
+import { readFileSync, readdirSync } from 'fs';
 import { resolve } from 'path';
+import { blogSlugFromPath, findBlogMarkdownFiles } from '../scripts/lib/blog-file-inventory.mjs';
 import { writeSanitizedDOM } from './helpers/dom.js';
 
 const configSource = readFileSync(resolve(__dirname, '../src/content.config.ts'), 'utf-8');
 
 const contentDir = resolve(__dirname, '../src/content/blog');
-const sourcePosts = readdirSync(contentDir)
-  .filter((f) => f.endsWith('.md'))
-  .map((f) => ({
-    name: f,
-    slug: f.replace(/\.md$/, ''),
-    raw: readFileSync(resolve(contentDir, f), 'utf-8'),
-  }));
+const sourcePosts = findBlogMarkdownFiles(contentDir).map((filePath) => ({
+  name: blogSlugFromPath(filePath, contentDir),
+  slug: blogSlugFromPath(filePath, contentDir),
+  raw: readFileSync(filePath, 'utf-8').replace(/^\uFEFF/, ''),
+}));
 
 /** Frontmatter block of a post, as raw text. */
 function frontmatter(raw) {
@@ -58,15 +57,10 @@ function stringList(raw, key) {
 const publishedPosts = sourcePosts.filter((p) => scalar(p.raw, 'draft') !== 'true');
 
 const blogRoot = resolve(__dirname, '../dist/blog');
-const builtPosts = readdirSync(blogRoot)
-  .filter((name) => {
-    const dir = resolve(blogRoot, name);
-    return statSync(dir).isDirectory() && existsSync(resolve(dir, 'index.html'));
-  })
-  .map((name) => ({
-    slug: name,
-    html: readFileSync(resolve(blogRoot, name, 'index.html'), 'utf-8'),
-  }));
+const builtPosts = publishedPosts.map(({ slug }) => ({
+  slug,
+  html: readFileSync(resolve(blogRoot, slug, 'index.html'), 'utf-8'),
+}));
 
 const astroDir = resolve(__dirname, '../dist/_astro');
 const cssFile = readdirSync(astroDir).find((f) => f.endsWith('.css'));
@@ -78,7 +72,7 @@ function setupDOM(html) {
   writeSanitizedDOM(html);
 }
 
-// Date order, newest first — intentionally retained by [slug].astro even
+// Date order, newest first — intentionally retained by [...slug].astro even
 // though /blog/ now uses editorial ordering (#627).
 const postsByDateDesc = publishedPosts
   .map((p) => ({ ...p, date: scalar(p.raw, 'date') }))

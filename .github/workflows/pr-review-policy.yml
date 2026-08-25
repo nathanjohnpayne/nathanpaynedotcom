@@ -15,17 +15,36 @@ jobs:
     if: github.event.pull_request.user.login != 'dependabot[bot]'
     runs-on: ubuntu-latest
     steps:
-      - name: Check for Self-Review section
+      - name: Checkout trusted PR body validator
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+
+      - name: Check PR body contract
         env:
           PR_BODY: ${{ github.event.pull_request.body }}
         run: |
-          if echo "$PR_BODY" | grep -qE '^## Self-Review'; then
-            echo "Self-Review section found."
-          else
-            echo "PR description must contain a '## Self-Review' section."
-            echo "Required items: correctness, regression risk, style/conventions, test coverage, security/dependency hygiene."
-            exit 1
+          if [ -x scripts/validate-pr-body.sh ]; then
+            printf '%s\n' "$PR_BODY" | scripts/validate-pr-body.sh
+            exit
           fi
+
+          # Bootstrap for the PR that first adds the trusted default-branch
+          # validator. Future runs use the shared parser above.
+          printf '%s\n' "$PR_BODY" | grep -qiE '^[[:space:]]*Authoring-Agent:[[:space:]]*[A-Za-z0-9_-]+[[:space:]]*$' || {
+            echo "PR description must contain a valid 'Authoring-Agent:' line."
+            exit 1
+          }
+          printf '%s\n' "$PR_BODY" | grep -qiE '^## Self-Review[[:space:]]*$' || {
+            echo "PR description must contain a '## Self-Review' section."
+            exit 1
+          }
 
   label-gate:
     name: Label Gate

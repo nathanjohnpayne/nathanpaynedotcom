@@ -283,9 +283,14 @@ mk_fake fake-claude-cost-only \
 
 cat > "$BIN/gh" <<'SH'
 #!/usr/bin/env bash
+default_pr_body=$'Authoring-Agent: claude\n\n## Self-Review\n\n- Correctness: verified.'
 if [ "${1:-}" = "api" ]; then
   case "${2:-}" in
     repos/o/r/pulls/*)
+      if printf '%s\n' "$*" | grep -qF '.body // ""'; then
+        printf '%s\n' "${P4B_FAKE_PR_BODY-$default_pr_body}"
+        exit 0
+      fi
       printf '%s\n' "${P4B_FAKE_LIVE_HEAD:-abc123}"
       exit 0
       ;;
@@ -2747,6 +2752,7 @@ out="$(env PATH="$BIN:$PATH" \
   CLAUDE_BIN="$BIN/fake-claude-cache-usage" \
   P4B_GH_AS_REVIEWER="$BIN/fake-gh-as-reviewer" \
   P4B_FAKE_LIVE_HEAD=abc123 \
+  P4B_FAKE_PR_BODY=$'Authoring-Agent: codex\n\n## Self-Review\n\n- Correctness: verified.' \
   P4B_WRAPPER_BODY="$BODY_M" \
   bash "$ORCH" 213 --repo o/r --author codex --reviewer nathanpayne-claude \
     --head abc123 --diff-file "$DIFF" 2>/dev/null)"; rc=$?

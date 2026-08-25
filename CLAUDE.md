@@ -29,18 +29,25 @@ explicitly authorizes a break-glass override in chat.
 1. Include `Authoring-Agent: claude` (or cursor/codex) in the PR description.
 2. Include a `## Self-Review` section covering: correctness, regression risk,
    style, test coverage, and security/dependency hygiene.
-3. The PreToolUse hook (`scripts/hooks/gh-pr-guard.sh`) will block `gh pr create`
-   if either field is missing.
+3. The PreToolUse hook (`scripts/hooks/gh-pr-guard.sh`) requires PR creation to
+   use the verified author wrapper. The wrapper itself blocks creation if
+   either field is missing from the effective body.
+4. The supported local creation path is
+   `scripts/gh-as-author.sh -- gh pr create ...`. The wrapper validates both
+   fields from `--body` or `--body-file` before writing. Integrations that must
+   create through the GitHub API must supply the same fields; the required PR
+   Review Policy check validates the live PR body on open and edit, regardless
+   of how the PR was created.
 
 ## After opening the PR
 
-4. Switch to your reviewer identity (e.g., nathanpayne-claude).
+5. Switch to your reviewer identity (e.g., nathanpayne-claude).
    If preflight was run: `GH_TOKEN="$OP_PREFLIGHT_REVIEWER_PAT"` (no biometric).
    Otherwise: `GH_TOKEN="$(op read 'op://Private/<item-id>/token')"`.
    See REVIEW_POLICY.md § PAT lookup table for your agent's item ID.
-5. Review the PR. Post comments on any issues found.
-6. Switch back to nathanjohnpayne. Address each comment. Push fix commits.
-7. Repeat steps 4–6 until the reviewer identity approves. The
+6. Review the PR. Post comments on any issues found.
+7. Switch back to nathanjohnpayne. Address each comment. Push fix commits.
+8. Repeat steps 5–7 until the reviewer identity approves. The
    mechanism is scope-dependent:
    - Under-threshold PRs (lines changed < `external_review_threshold`
      AND no file matches `external_review_paths`): the reviewer identity
@@ -50,22 +57,24 @@ explicitly authorizes a break-glass override in chat.
    - Above-threshold / Phase 4 PRs: the authoring agent's own reviewer
      identity posts `--comment` only. Codex or a Phase 4b external
      reviewer carries the cross-agent merge gate.
-7.5. If `.github/review-policy.yml` has `coderabbit.enabled: true`:
-     a. Wait for CodeRabbit to post (up to 3 min; ask human if delayed).
-     b. Read PR-level comments: `gh api repos/{owner}/{repo}/issues/{pr}/comments`
-     c. Read inline diff comments: `gh api repos/{owner}/{repo}/pulls/{pr}/comments`
-     d. Grep inline comments for `Potential issue` or `⚠️`—address each one.
-     e. Fix real issues; dismiss false positives with a brief reply.
-     CodeRabbit is advisory and does not block merge.
+**8.5. CodeRabbit review.** If `.github/review-policy.yml` has
+`coderabbit.enabled: true`:
+
+- **a.** Wait for CodeRabbit to post (up to 3 min; ask human if delayed).
+- **b.** Read PR-level comments: `gh api repos/{owner}/{repo}/issues/{pr}/comments`
+- **c.** Read inline diff comments: `gh api repos/{owner}/{repo}/pulls/{pr}/comments`
+- **d.** Grep inline comments for `Potential issue` or `⚠️`—address each one.
+- **e.** Fix real issues; dismiss false positives with a brief reply. CodeRabbit
+  is advisory and does not block merge.
 
 ## Before merging
 
-8. Check `.github/review-policy.yml` for the external review threshold.
+9. Check `.github/review-policy.yml` for the external review threshold.
    If the PR does NOT meet it (lines changed < `external_review_threshold`
    AND no file matches `external_review_paths`), merge as nathanjohnpayne.
    Done.
 
-9. If the PR meets the threshold, it enters Phase 4 external review.
+10. If the PR meets the threshold, it enters Phase 4 external review.
    See REVIEW_POLICY.md § Phase 4 for the canonical procedure. Short form:
 
    **Phase 4a—Automated (preferred).** Applies when ALL of the

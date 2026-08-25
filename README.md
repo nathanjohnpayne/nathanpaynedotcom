@@ -59,7 +59,7 @@ The default 1921 register lives in `:root`; the homepage opts into a higher-chro
 │   │   ├── rss.xml.ts              # RSS feed endpoint
 │   │   ├── blog/
 │   │   │   ├── index.astro         # Blog listing
-│   │   │   └── [slug].astro        # Dynamic blog post pages
+│   │   │   └── [...slug].astro     # Dynamic blog post pages, including nested paths
 │   │   ├── projects/               # Project index + dynamic project detail pages
 │   │   └── og-templates/           # OG image templates (build-time only)
 │   ├── components/
@@ -79,7 +79,8 @@ The default 1921 register lives in `:root`; the homepage opts into a higher-chro
 │   ├── styles/
 │   │   └── global.css              # Global styles (tokens, grid, motion, responsive)
 │   ├── plugins/
-│   │   ├── remark-mermaid.mjs      # Mermaid diagram support
+│   │   ├── remark-mermaid.mjs      # Mermaid metadata contract
+│   │   ├── rehype-mermaid-accessibility.mjs # Accessible rendering adapter
 │   │   └── rehype-figure-captions.mjs  # Auto-numbered figure captions
 │   └── integrations/
 │       ├── og-images.mjs           # Build-time OG image generation (Playwright)
@@ -118,13 +119,13 @@ When a panel is focused, JavaScript sets `data-focus="<panel-name>"` on the grid
 
 ### Blog
 
-Blog posts are authored as Markdown files in `src/content/blog/` with Zod-validated frontmatter (defined in `src/content.config.ts`). Astro's Content Collections API provides type-safe access to the content. Posts support:
+Blog posts are recursively discovered as Markdown files in `src/content/blog/` with Zod-validated frontmatter (defined in `src/content.config.ts`). Astro's Content Collections API provides type-safe access to the content. Posts support:
 
 - **Pullquotes**—accent-colored sidebar cards
 - **Sidebar content**—Mermaid diagrams, images, and text blocks
 - **Code syntax highlighting**—via Shiki with CSS variable theming
 - **Figure captions**—auto-numbered via custom Rehype plugin
-- **Mermaid diagrams**—rendered client-side via CDN
+- **Mermaid diagrams**—rendered to accessible inline SVG at build time by `rehype-mermaid`
 
 ### OG Images
 

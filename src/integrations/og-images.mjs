@@ -11,32 +11,24 @@
  *   3. Launches headless Chromium via Playwright
  *   4. Screenshots each template page
  *   5. Writes PNGs to dist/og/
- *   6. Replaces Mermaid source blocks in built blog pages with inline SVG
- *   7. Renders the built /resume/ route to dist/Nathan-Payne-Resume.pdf,
+ *   6. Renders the built /resume/ route to dist/Nathan-Payne-Resume.pdf,
  *      with its relative links rewritten to the configured `site` origin
  *      (see ./resume-pdf.mjs)
- *   8. Removes the og-templates/ directory from dist/ (not publicly served)
+ *   7. Removes the og-templates/ directory from dist/ (not publicly served)
  *
- * Steps 6 and 7 ride along here rather than in their own integrations because
- * they reuse the same expensive headless Chromium. Keeping the passes together
- * also means the OG screenshots and resume PDF read the final static HTML.
+ * The screenshot and PDF passes share the same expensive headless Chromium.
  *
  * @see Issue #106 — Generate OG images at build time
  * @see Issue #616 — Downloadable resume PDF
  * @see Issue #683 — PDF links froze at the localhost render origin
  */
 
-import { readdir, readFile, writeFile, mkdir, rm, stat } from 'node:fs/promises';
+import { readdir, mkdir, rm, stat } from 'node:fs/promises';
 import { join, dirname, basename, resolve, sep } from 'node:path';
 import { createServer } from 'node:http';
 import { createReadStream } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { createRequire } from 'node:module';
-import { JSDOM } from 'jsdom';
 import { generateResumePdf, RESUME_PDF_FILENAME } from './resume-pdf.mjs';
-
-const require = createRequire(import.meta.url);
-const MERMAID_BUNDLE_PATH = require.resolve('mermaid/dist/mermaid.min.js');
 
 /**
  * Find all index.html files under a directory using flat recursive readdir.
@@ -165,8 +157,6 @@ export default function ogImages() {
           const { chromium } = await import('playwright');
           browser = await chromium.launch();
 
-          await renderMermaidDiagrams({ browser, distDir, logger });
-
           if (templatePaths.length > 0) {
             await renderOgImages({ browser, baseUrl, distDir, templatePaths, logger });
           }
@@ -204,148 +194,6 @@ export default function ogImages() {
       },
     },
   };
-}
-
-/**
- * Render every intermediate <pre class="mermaid"> in dist/blog to inline SVG.
- *
- * Markdown fences and sidebar frontmatter deliberately converge on the same
- * intermediate element, so this single build pass covers both paths. Mermaid
- * runs from the pinned local dependency inside the Chromium already used by
- * this integration; generated pages never load Mermaid or a third-party CDN.
- */
-export async function renderMermaidDiagrams({ browser, distDir, logger }) {
-  const blogDir = join(distDir, 'blog');
-  let pagePaths;
-
-  try {
-    await stat(blogDir);
-    pagePaths = (await findHtmlFiles(blogDir)).sort();
-  } catch {
-    logger.warn('No dist/blog directory found, skipping Mermaid rendering');
-    return;
-  }
-
-  const diagramPages = [];
-  for (const pagePath of pagePaths) {
-    const htmlPath = join(blogDir, pagePath, 'index.html');
-    const html = await readFile(htmlPath, 'utf8');
-    if (!html.includes('<pre class="mermaid"')) continue;
-
-    const sourceBlocks = findMermaidSourceBlocks(html);
-    if (sourceBlocks.length > 0) {
-      diagramPages.push({ pagePath, htmlPath, html, sourceBlocks });
-    }
-  }
-
-  if (diagramPages.length === 0) {
-    logger.info('Rendered 0 Mermaid diagrams as static SVG');
-    return;
-  }
-
-  const context = await browser.newContext();
-  const rendererPage = await context.newPage();
-  let diagramCount = 0;
-
-  try {
-    await rendererPage.addScriptTag({ path: MERMAID_BUNDLE_PATH });
-    await rendererPage.evaluate(() => {
-      window.mermaid.initialize({
-        startOnLoad: false,
-        securityLevel: 'strict',
-        theme: 'base',
-        themeVariables: {
-          fontFamily: 'Inter, sans-serif',
-          fontSize: '14px',
-        },
-      });
-    });
-
-    for (const { pagePath, htmlPath, html, sourceBlocks } of diagramPages) {
-      const replacements = [];
-      for (const [index, sourceBlock] of sourceBlocks.entries()) {
-        const renderId = `mermaid-static-${diagramCount + 1}`;
-        let svg;
-
-        try {
-          svg = await rendererPage.evaluate(
-            async ({ id, definition }) => {
-              const result = await window.mermaid.render(id, definition);
-              return result.svg;
-            },
-            { id: renderId, definition: sourceBlock.source },
-          );
-        } catch (error) {
-          throw new Error(
-            `Mermaid rendering failed for blog/${pagePath}/ diagram ${index + 1}: ${error instanceof Error ? error.message : String(error)}`,
-            { cause: error },
-          );
-        }
-
-        const fragment = JSDOM.fragment(svg);
-        const renderedSvg = fragment.querySelector('svg');
-        if (!renderedSvg) {
-          throw new Error(`Mermaid returned no SVG for blog/${pagePath}/ diagram ${index + 1}`);
-        }
-
-        renderedSvg.classList.add('mermaid');
-        renderedSvg.setAttribute('aria-hidden', 'true');
-        renderedSvg.setAttribute('focusable', 'false');
-        replacements.push({
-          start: sourceBlock.start,
-          end: sourceBlock.end,
-          value: renderedSvg.outerHTML,
-        });
-        diagramCount += 1;
-      }
-
-      await writeFile(htmlPath, replaceRanges(html, replacements));
-    }
-  } finally {
-    await context.close();
-  }
-
-  logger.info(`Rendered ${diagramCount} Mermaid diagrams as static SVG`);
-}
-
-/**
- * Locate actual intermediate Mermaid elements with parser-provided offsets.
- * The caller uses these ranges for targeted replacement instead of serializing
- * the document, so JSON-LD, scripts, comments, templates, entities, and
- * whitespace outside each source element retain their original bytes.
- */
-function findMermaidSourceBlocks(html) {
-  const dom = new JSDOM(html, { includeNodeLocations: true });
-
-  try {
-    return Array.from(dom.window.document.querySelectorAll('pre.mermaid'), (sourceBlock) => {
-      const location = dom.nodeLocation(sourceBlock);
-      if (location?.startTag == null || location.endTag == null) {
-        throw new Error('Mermaid source block has no complete source location');
-      }
-
-      return {
-        start: location.startOffset,
-        end: location.endOffset,
-        source: sourceBlock.textContent ?? '',
-      };
-    });
-  } finally {
-    dom.window.close();
-  }
-}
-
-function replaceRanges(source, replacements) {
-  let cursor = 0;
-  let result = '';
-
-  for (const replacement of replacements) {
-    result += source.slice(cursor, replacement.start);
-    result += replacement.value;
-    cursor = replacement.end;
-  }
-
-  return result + source.slice(cursor);
 }
 
 /**

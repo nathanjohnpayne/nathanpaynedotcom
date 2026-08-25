@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { readFileSync, readdirSync, statSync, existsSync } from 'fs';
-import { resolve } from 'path';
+import { readFileSync, readdirSync } from 'fs';
+import { dirname, relative, resolve, sep } from 'path';
+import { findFilesRecursively } from '../scripts/lib/blog-file-inventory.mjs';
 import { writeSanitizedDOM } from './helpers/dom.js';
 
 // Astro hashes CSS into dist/_astro/*.css
@@ -26,15 +27,13 @@ function normalizeMediaRanges(cssText) {
 const blogIndexHtml = readFileSync(resolve(__dirname, '../dist/blog/index.html'), 'utf-8');
 
 const blogRoot = resolve(__dirname, '../dist/blog');
-const blogPostPaths = readdirSync(blogRoot)
-  .filter((name) => {
-    const dir = resolve(blogRoot, name);
-    return statSync(dir).isDirectory() && existsSync(resolve(dir, 'index.html'));
-  })
-  .map((name) => ({
-    slug: name,
-    html: readFileSync(resolve(blogRoot, name, 'index.html'), 'utf-8'),
-  }));
+const blogPostPaths = findFilesRecursively(
+  blogRoot,
+  (filePath) => filePath.endsWith(`${sep}index.html`) && dirname(filePath) !== blogRoot,
+).map((filePath) => ({
+  slug: relative(blogRoot, dirname(filePath)).split(sep).join('/'),
+  html: readFileSync(filePath, 'utf-8'),
+}));
 
 function setupDOM(html) {
   // Scripts are removed on a detached document and the doctype preserved by

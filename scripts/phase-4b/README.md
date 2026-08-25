@@ -134,7 +134,7 @@ phase-4b-classifier.sh (is 4b needed?) ─▶ phase-4b-review.sh
 
 ## Dependencies
 
-- **Runtime:** `bash` (3.2+), `jq`, `gh`, `git`, and the reviewer CLI
+- **Runtime:** `bash` (3.2+), Node.js, `jq`, `gh`, `git`, and the reviewer CLI
   (`codex` and/or `claude`) on `PATH`.
 - **Reasoning-plane auth (per direction) — subscription plan only:** the
   adapters verify the persisted CLI auth mode before launch and run the

@@ -1,12 +1,12 @@
 ---
 import { getCollection } from 'astro:content';
 import OgCard from '../../../layouts/OgCard.astro';
+import { estimateReadingMinutes } from '../../../lib/reading-time';
 
 export async function getStaticPaths() {
   const posts = await getCollection('blog', ({ data }) => !data.draft);
   return posts.map((post) => {
-    const words = post.body?.split(/\s+/).length ?? 0;
-    const minutes = Math.ceil(words / 225);
+    const minutes = estimateReadingMinutes(post.body);
     const dateStr = post.data.date.toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'short',
