@@ -1,6 +1,7 @@
 import { JSDOM } from 'jsdom';
 import { micromark } from 'micromark';
 import { gfmFootnote, gfmFootnoteHtml } from 'micromark-extension-gfm-footnote';
+import { gfmTable, gfmTableHtml } from 'micromark-extension-gfm-table';
 import { describe, expect, it } from 'vitest';
 
 import { parsePrBodyContract } from '../scripts/lib/pr-body-contract.mjs';
@@ -25,8 +26,8 @@ function pick(random, values) {
 function renderedContract(body) {
   sharedDocument.body.innerHTML = micromark(body, {
     allowDangerousHtml: true,
-    extensions: [gfmFootnote()],
-    htmlExtensions: [gfmFootnoteHtml()],
+    extensions: [gfmFootnote(), gfmTable()],
+    htmlExtensions: [gfmFootnoteHtml(), gfmTableHtml()],
   });
   const plainTopLevelText = [...sharedDocument.body.children]
     .filter((element) => element.tagName === 'P')
@@ -271,6 +272,17 @@ describe('PR body contract differential fuzzing', () => {
       author: '',
       authorCount: 0,
       hasSelfReview: false,
+    });
+  });
+
+  it('rejects author markers consumed as cells by GitHub tables', () => {
+    const body = ['| Review metadata |', '| --- |', AUTHOR, '', SELF_REVIEW].join('\n');
+
+    expect(renderedContract(body)).toEqual({ hasAuthor: false, hasSelfReview: true });
+    expect(parsePrBodyContract(body)).toEqual({
+      author: '',
+      authorCount: 0,
+      hasSelfReview: true,
     });
   });
 

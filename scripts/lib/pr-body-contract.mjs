@@ -4,6 +4,7 @@ import { readFileSync, realpathSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
 import { micromark } from 'micromark';
 import { gfmFootnote, gfmFootnoteHtml } from 'micromark-extension-gfm-footnote';
+import { gfmTable, gfmTableHtml } from 'micromark-extension-gfm-table';
 import { parseFragment } from 'parse5';
 
 /**
@@ -24,8 +25,8 @@ export function parsePrBodyContract(body) {
     const renderedRoot = parseFragment(
       micromark(labeled.body, {
         allowDangerousHtml: true,
-        extensions: [gfmFootnote()],
-        htmlExtensions: [gfmFootnoteHtml()],
+        extensions: [gfmFootnote(), gfmTable()],
+        htmlExtensions: [gfmFootnoteHtml(), gfmTableHtml()],
       }),
     );
 
