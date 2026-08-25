@@ -40,6 +40,12 @@ const imageDimensions = {
     width: 1183,
     height: 1200,
   },
+  '/blog/autofix-was-the-whole-cost/img/cmos-qanda-dashes.png': { width: 1244, height: 954 },
+  '/blog/autofix-was-the-whole-cost/img/punctuation-guide-em-dash.png': {
+    width: 1600,
+    height: 1053,
+  },
+  '/blog/autofix-was-the-whole-cost/img/cmos-18th-edition-cover.jpg': { width: 463, height: 700 },
   '/blog/perfect-score-wrong-axis/img/coderabbit-review-limit-reached.png': {
     width: 1980,
     height: 1460,

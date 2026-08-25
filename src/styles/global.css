@@ -3162,6 +3162,16 @@ a.tag:hover {
   color: color-mix(in srgb, var(--ink) 48%, transparent);
 }
 
+/* Mermaid measures node boxes in the build-time renderer, where Inter is not
+   loaded, so it sizes each foreignObject against a fallback face. The page then
+   applies Inter, which is wider, and the foreignObject clips its own label —
+   text lost mid-word with no ellipsis (#746). The node shapes are drawn wider
+   than the labels they hold, so letting the label escape its foreignObject
+   keeps every label inside its own node rather than spilling out of it. */
+svg.mermaid foreignObject {
+  overflow: visible;
+}
+
 /* Sidebar items: mermaid diagrams, images */
 .mermaid-figure {
   margin: 0;
