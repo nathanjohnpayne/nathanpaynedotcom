@@ -77,8 +77,9 @@ const projectIndexAccentRows = canonicalProjectCards.map(
 // sequence indexed by `order` — warm, bright, neutral, cool, dark — so each
 // project added to the portfolio takes the next color in the walk instead of a
 // hand-picked one. Indexed by `order`, not by array position, so a reorder
-// re-colors the grid rather than silently breaking the sequence.
-// See specs/project-pages.md § Accent system.
+// re-colors the affected project pages rather than silently breaking the
+// sequence. The projects-index Mondrian grid is a separate accent system and
+// is unaffected. See specs/project-pages.md § Accent ramp.
 const projectAccentRamp = ['red', 'yellow', 'paper', 'blue', 'black'];
 
 // Projects without a deployed live URL — the "View Live Product" CTA

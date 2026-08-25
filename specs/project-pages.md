@@ -29,7 +29,7 @@ kicker: "AI × Domain × Category"
 order: 5
 screenshotAspect: "wide"
 screenshotSrc: "/images/projects/project-name-hero.png"
-accent: "blue"                     # red | yellow | paper | blue | black — see Accent ramp
+accent: "red"                      # = RAMP[order % 5]; order 5 → red. See Accent ramp
 liveUrl: "https://example.com"     # optional—omit on pre-launch projects
 githubUrl: "https://github.com/you/repo"
 tags: ["Tag1", "Tag2", "Tag3"]
