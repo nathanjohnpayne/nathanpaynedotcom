@@ -127,6 +127,12 @@ export default function ogImages() {
         siteUrl = config.site;
         projectRoot = fileURLToPath(config.root);
       },
+      'astro:build:start': async () => {
+        // Invalidate prior test output before compilation. If the build fails,
+        // a later focused Vitest run must not inspect a stale successful build.
+        const captureDir = join(projectRoot, '.astro', 'test-artifacts', 'og-templates');
+        await rm(captureDir, { recursive: true, force: true });
+      },
       'astro:build:done': async ({ dir, logger }) => {
         // `dir` is a URL object. `dir.pathname` yields `/C:/path/...` on
         // Windows, which then breaks `path.join`. Convert via
@@ -135,10 +141,6 @@ export default function ogImages() {
         const distDir = fileURLToPath(dir);
         const ogTemplateDir = join(distDir, 'og-templates');
         const captureDir = join(projectRoot, '.astro', 'test-artifacts', 'og-templates');
-
-        // A normal build must invalidate any prior test capture so a later
-        // focused Vitest run cannot accidentally inspect stale route output.
-        await rm(captureDir, { recursive: true, force: true });
 
         // Check if og-templates/ templates exist in the build output. A build
         // without them still needs the resume PDF below, so this only skips

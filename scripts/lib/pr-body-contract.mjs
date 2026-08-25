@@ -1,11 +1,15 @@
 #!/usr/bin/env node
 
 import { readFileSync, realpathSync } from 'node:fs';
+import { randomBytes } from 'node:crypto';
 import { pathToFileURL } from 'node:url';
 import { micromark } from 'micromark';
 import { gfmFootnote, gfmFootnoteHtml } from 'micromark-extension-gfm-footnote';
 import { gfmTable, gfmTableHtml } from 'micromark-extension-gfm-table';
 import { parseFragment } from 'parse5';
+
+const SENTINEL_SECRET = randomBytes(16).toString('base64url');
+let sentinelSequence = 0n;
 
 /**
  * Label literal contract candidates, render them with maintained GitHub
@@ -65,7 +69,13 @@ export function parsePrBodyContract(body) {
 }
 
 function labelContractCandidates(body) {
-  let prefix = `PRBODYCONTRACT${body.length}X`;
+  // The rendered DOM decodes character references. A deterministic sentinel
+  // could therefore be forged in source as numeric entities even when its
+  // literal spelling was absent. Combine a process-private 128-bit secret with
+  // a per-parse sequence so user-authored source cannot predict the marker.
+  const sequence = sentinelSequence;
+  sentinelSequence += 1n;
+  let prefix = `Z${SENTINEL_SECRET}${sequence}Z`;
   while (body.includes(prefix)) prefix += 'X';
 
   const authors = [];

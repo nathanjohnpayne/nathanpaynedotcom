@@ -286,6 +286,36 @@ describe('PR body contract differential fuzzing', () => {
     });
   });
 
+  it('does not let decoded character references impersonate internal sentinels', () => {
+    const encode = (value) =>
+      [...value].map((character) => `&#${character.codePointAt(0)};`).join('');
+    let expectedLength = 0;
+    let body;
+    let lengthStable = false;
+
+    while (!lengthStable) {
+      const oldPrefix = `PRBODYCONTRACT${expectedLength}X`;
+      body = [
+        '```',
+        AUTHOR,
+        SELF_REVIEW,
+        '```',
+        encode(`${oldPrefix}AUTHOR0END`),
+        '',
+        `## ${encode(`${oldPrefix}SELFREVIEW0END`)}`,
+      ].join('\n');
+      lengthStable = body.length === expectedLength;
+      expectedLength = body.length;
+    }
+
+    expect(renderedContract(body)).toEqual({ hasAuthor: false, hasSelfReview: false });
+    expect(parsePrBodyContract(body)).toEqual({
+      author: '',
+      authorCount: 0,
+      hasSelfReview: false,
+    });
+  });
+
   it('never accepts generated hidden markers that a maintained CommonMark renderer hides', () => {
     const random = mulberry32(0x765767);
     let hiddenAuthorCases = 0;
