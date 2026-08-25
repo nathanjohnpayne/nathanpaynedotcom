@@ -56,7 +56,7 @@ build pass before widening this boundary.
 8. Mermaid fences without both `title` and `description` fail the build.
 9. Static diagrams fit their figure at narrow and desktop widths and remain
    readable in print with JavaScript disabled.
-10. Mermaid fences outside `src/content/blog/*.md` fail the build.
+10. Mermaid fences outside `src/content/blog/**/*.md` fail the build.
 11. Static replacement preserves every byte outside the targeted
     `<pre class="mermaid">` ranges, and pages without those ranges bypass DOM
     and browser renderer setup.

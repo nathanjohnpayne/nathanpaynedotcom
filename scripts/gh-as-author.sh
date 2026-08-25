@@ -75,8 +75,41 @@ if [ "$RESOLVE_RC" -ne 0 ]; then
 fi
 TOKEN="$GH_RESOLVED_TOKEN"
 
+is_pr_create_command() {
+  [ "${1:-}" = "gh" ] || return 1
+  shift
+
+  local saw_pr=0
+  local skip_value=0
+  local argument
+  for argument in "$@"; do
+    if [ "$skip_value" -eq 1 ]; then
+      skip_value=0
+      continue
+    fi
+    case "$argument" in
+      -R|--repo|--hostname)
+        skip_value=1
+        ;;
+      -R?*|--repo=*|--hostname=*) ;;
+      pr)
+        [ "$saw_pr" -eq 0 ] || return 1
+        saw_pr=1
+        ;;
+      create)
+        [ "$saw_pr" -eq 1 ] && return 0
+        return 1
+        ;;
+      -*) ;;
+      *) return 1 ;;
+    esac
+  done
+
+  return 1
+}
+
 IS_PR_CREATE=0
-if [ "${1:-}" = "gh" ] && [ "${2:-}" = "pr" ] && [ "${3:-}" = "create" ]; then
+if is_pr_create_command "$@"; then
   IS_PR_CREATE=1
 fi
 

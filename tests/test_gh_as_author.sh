@@ -154,6 +154,20 @@ fi
 
 reset_log
 set +e
+stderr_capture=$(OP_PREFLIGHT_AUTHOR_PAT="author-token" \
+  run_wrapper -- gh --repo example/repo pr create --title "t" --body "## Self-Review" 2>&1 >/dev/null)
+rc=$?
+set -e
+if [ "$rc" -ne 1 ]; then
+  fail "pr create contract: global --repo form rc=$rc expected 1"
+elif grep -q $'gh\t--repo\texample/repo\tpr\tcreate' "$WORKDIR/calls.log"; then
+  fail "pr create contract: global --repo create ran despite invalid body"
+else
+  pass "pr create contract: global --repo form cannot bypass validation"
+fi
+
+reset_log
+set +e
 stderr_capture=$(OP_PREFLIGHT_AUTHOR_PAT="author-token" GH_CREATE_PR_URL="https://github.com/example/repo/pull/88" GH_VIEW_AUTHOR="nathanpayne-claude" \
   run_wrapper -- gh pr create --title "t" --body $'Authoring-Agent: codex\n\n## Self-Review\n\n- Correctness: verified.' 2>&1 >/dev/null)
 rc=$?

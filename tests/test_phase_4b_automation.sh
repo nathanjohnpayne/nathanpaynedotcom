@@ -355,6 +355,10 @@ cat > "$BIN/gh" <<'SH'
 if [ "${1:-}" = "api" ]; then
   case "${2:-}" in
     repos/o/r/pulls/*)
+      if printf '%s\n' "$*" | grep -qF '.body // ""'; then
+        printf '%s\n' "${P4B_FAKE_PR_BODY:-}"
+        exit 0
+      fi
       # #674 round 4: P4B_FAKE_LIVE_HEAD2 simulates a head that drifts
       # between reads — served from the SECOND live-head read on.
       cnt_file="${P4B_ISSUE_LOG:-${TMPDIR:-/tmp}/p4b-fake}.headreads"
@@ -1591,7 +1595,7 @@ else fail "Direction A (rc=$rc): $out"; fi
 
 # Direction B: author=codex → reviewer claude → CHANGES_REQUESTED → exit 1
 set +e
-out="$(MERGEPATH_REVIEW_POLICY_PATH="$POLICY_ON" CLAUDE_BIN="$BIN/fake-claude-changes" \
+out="$(PATH="$BIN:$PATH" MERGEPATH_REVIEW_POLICY_PATH="$POLICY_ON" CLAUDE_BIN="$BIN/fake-claude-changes" \
   bash "$ORCH" 124 --repo o/r --author codex --head abc123 --diff-file "$DIFF" --dry-run 2>/dev/null)"; rc=$?
 set -e
 if [ "$rc" = 1 ] \
@@ -1600,6 +1604,20 @@ if [ "$rc" = 1 ] \
    && [ "$(printf '%s' "$out" | jq -r '.findings_count')" = "1" ]; then
   pass "Direction B (codex→claude) dry-run CHANGES_REQUESTED → exit 1"
 else fail "Direction B (rc=$rc): $out"; fi
+
+# A freshly created PR is attributable without an explicit --author override:
+# the orchestrator reads the live body, applies the shared contract parser,
+# and rotates to the other reviewer identity.
+set +e
+out="$(PATH="$BIN:$PATH" MERGEPATH_REVIEW_POLICY_PATH="$POLICY_ON" CLAUDE_BIN="$BIN/fake-claude-changes" \
+  P4B_FAKE_PR_BODY=$'Authoring-Agent: codex\n\n## Self-Review\n\n- Correctness: verified.' \
+  bash "$ORCH" 764 --repo o/r --head abc123 --diff-file "$DIFF" --dry-run 2>/dev/null)"; rc=$?
+set -e
+if [ "$rc" = 1 ] \
+   && [ "$(printf '%s' "$out" | jq -r '.direction')" = "codex->claude" ] \
+   && [ "$(printf '%s' "$out" | jq -r '.reviewer_identity')" = "nathanpayne-claude" ]; then
+  pass "#764: Phase 4b parses Authoring-Agent from a newly created PR body"
+else fail "#764: Phase 4b live-body author parsing (rc=$rc): $out"; fi
 
 # Fail-closed: adapter returns junk → orchestrator falls back, exit 4, never APPROVED
 HANDOFF_LOG="$WORK/handoff-junk.log"
