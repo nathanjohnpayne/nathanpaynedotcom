@@ -21,7 +21,7 @@ const contentDir = resolve(__dirname, '../src/content/blog');
 const sourcePosts = findBlogMarkdownFiles(contentDir).map((filePath) => ({
   name: blogSlugFromPath(filePath, contentDir),
   slug: blogSlugFromPath(filePath, contentDir),
-  raw: readFileSync(filePath, 'utf-8'),
+  raw: readFileSync(filePath, 'utf-8').replace(/^\uFEFF/, ''),
 }));
 
 /** Frontmatter block of a post, as raw text. */

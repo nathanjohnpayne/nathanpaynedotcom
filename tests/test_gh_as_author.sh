@@ -171,6 +171,17 @@ else
 fi
 
 reset_log
+VALID_INLINE_BODY=$'Authoring-Agent: codex\n\n## Self-Review\n\n- Correctness: verified.'
+OP_PREFLIGHT_AUTHOR_PAT="author-token" GH_CREATE_PR_URL="https://github.com/example/repo/pull/76" GH_VIEW_AUTHOR="nathanjohnpayne" \
+  run_wrapper -- gh pr create --title "t" "-b=$VALID_INLINE_BODY" >/dev/null 2>&1
+rc=$?
+if [ "$rc" -ne 0 ]; then
+  fail "pr create contract: equals-separated -b body should pass; rc=$rc"
+else
+  pass "pr create contract: equals-separated -b strips its optional equals sign"
+fi
+
+reset_log
 INVALID_BODY_FILE="$WORKDIR/invalid-pr-body.md"
 printf '%s\n' 'INVALID' >"$INVALID_BODY_FILE"
 set +e
@@ -186,6 +197,18 @@ elif grep -q $'gh\tpr\tcreate' "$WORKDIR/calls.log"; then
   fail "pr create contract: attached invalid -F body file bypassed validation"
 else
   pass "pr create contract: attached -F body file is validated as the effective body"
+fi
+
+reset_log
+VALID_EQUALS_BODY_FILE="$WORKDIR/valid-equals-pr-body.md"
+printf '%s\n' 'Authoring-Agent: codex' '' '## Self-Review' '' '- Correctness: verified.' >"$VALID_EQUALS_BODY_FILE"
+OP_PREFLIGHT_AUTHOR_PAT="author-token" GH_CREATE_PR_URL="https://github.com/example/repo/pull/77" GH_VIEW_AUTHOR="nathanjohnpayne" \
+  run_wrapper -- gh pr create --title "t" "-F=$VALID_EQUALS_BODY_FILE" >/dev/null 2>&1
+rc=$?
+if [ "$rc" -ne 0 ]; then
+  fail "pr create contract: equals-separated -F body file should pass; rc=$rc"
+else
+  pass "pr create contract: equals-separated -F strips its optional equals sign"
 fi
 
 reset_log

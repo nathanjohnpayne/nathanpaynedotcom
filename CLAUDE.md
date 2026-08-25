@@ -57,13 +57,15 @@ explicitly authorizes a break-glass override in chat.
    - Above-threshold / Phase 4 PRs: the authoring agent's own reviewer
      identity posts `--comment` only. Codex or a Phase 4b external
      reviewer carries the cross-agent merge gate.
-8.5. If `.github/review-policy.yml` has `coderabbit.enabled: true`:
-     a. Wait for CodeRabbit to post (up to 3 min; ask human if delayed).
-     b. Read PR-level comments: `gh api repos/{owner}/{repo}/issues/{pr}/comments`
-     c. Read inline diff comments: `gh api repos/{owner}/{repo}/pulls/{pr}/comments`
-     d. Grep inline comments for `Potential issue` or `⚠️`—address each one.
-     e. Fix real issues; dismiss false positives with a brief reply.
-     CodeRabbit is advisory and does not block merge.
+**8.5. CodeRabbit review.** If `.github/review-policy.yml` has
+`coderabbit.enabled: true`:
+
+- **a.** Wait for CodeRabbit to post (up to 3 min; ask human if delayed).
+- **b.** Read PR-level comments: `gh api repos/{owner}/{repo}/issues/{pr}/comments`
+- **c.** Read inline diff comments: `gh api repos/{owner}/{repo}/pulls/{pr}/comments`
+- **d.** Grep inline comments for `Potential issue` or `⚠️`—address each one.
+- **e.** Fix real issues; dismiss false positives with a brief reply. CodeRabbit
+  is advisory and does not block merge.
 
 ## Before merging
 

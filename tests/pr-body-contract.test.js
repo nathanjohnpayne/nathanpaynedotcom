@@ -1,7 +1,5 @@
-import { copyFileSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 const validBody = [
@@ -77,22 +75,35 @@ describe('PR body contract', () => {
     expect(htmlBlockAttribute.stderr).toContain("missing a valid 'Authoring-Agent:' line");
   });
 
-  it('runs without repository dependencies like the clean policy job', () => {
-    const directory = mkdtempSync(join(tmpdir(), 'pr-body-contract-'));
-    const parser = join(directory, 'pr-body-contract.mjs');
+  it('installs parser dependencies before validation on a clean policy runner', () => {
+    const workflow = readFileSync('.github/workflows/pr-review-policy.yml', 'utf8');
+    const setupIndex = workflow.indexOf('actions/setup-node@');
+    const installIndex = workflow.indexOf('run: npm ci');
+    const validationIndex = workflow.indexOf('printf \'%s\\n\' "$PR_BODY"');
 
-    try {
-      copyFileSync('scripts/lib/pr-body-contract.mjs', parser);
-      const result = spawnSync('node', [parser, '--author'], {
-        encoding: 'utf8',
-        input: validBody,
-      });
+    expect(setupIndex).toBeGreaterThan(-1);
+    expect(installIndex).toBeGreaterThan(setupIndex);
+    expect(validationIndex).toBeGreaterThan(installIndex);
+  });
 
-      expect(result.status, result.stderr).toBe(0);
-      expect(result.stdout).toBe('codex\n');
-    } finally {
-      rmSync(directory, { recursive: true, force: true });
+  it('keeps raw HTML blocks hidden across internal blank lines', () => {
+    for (const tag of ['script', 'pre', 'style', 'textarea']) {
+      const result = validate(
+        [`<${tag}>`, '', 'Authoring-Agent: codex', `</${tag}>`, '', '## Self-Review'].join('\n'),
+      );
+
+      expect(result.status, tag).toBe(1);
+      expect(result.stderr).toContain("missing a valid 'Authoring-Agent:' line");
     }
+  });
+
+  it('ignores fenced markers nested in Markdown containers', () => {
+    const result = validate(
+      ['## Self-Review', '', '- ```text', '  Authoring-Agent: codex', '  ```'].join('\n'),
+    );
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain("missing a valid 'Authoring-Agent:' line");
   });
 
   it('uses the same parser in Phase 4b and enforces it on every PR event path', () => {

@@ -232,24 +232,24 @@ if [ -z "$HEAD" ]; then
   [ -n "$HEAD" ] || p4b_die 3 "could not resolve HEAD sha for $REPO#$PR; pass --head"
 fi
 
-# Authoring agent: explicit override, else parse the PR body line. Required
-# even when --reviewer is forced so the cross-agent invariant still applies.
-if [ -z "$AUTHOR" ]; then
-  need_gh
-  # #799: `--jq '.body // ""'` reads as a safe default and is not one — gh
-  # emits the error body WITHOUT running the filter, so the `// ""` never
-  # applies. No `--shape` is possible on free text (a PR body may legitimately
-  # be empty, or contain anything), so the status is the whole guard here:
-  # gh_api_scalar returns 3 with empty stdout, and the Authoring-Agent parse
-  # below then finds nothing and dies with its own message instead of scanning
-  # a JSON error body for an agent name.
-  body="$(gh_api_scalar "PR body for $REPO#$PR" \
-    "repos/$REPO/pulls/$PR" --jq '.body // ""')" || body=""
-  pr_body_validate "$body" "$(p4b_config)" \
-    || p4b_die 3 "PR body does not satisfy the Authoring-Agent contract"
-  AUTHOR="$(pr_body_authoring_agent "$body")"
-  [ -n "$AUTHOR" ] || p4b_die 3 "could not parse Authoring-Agent from PR body; pass --author"
+# The live PR body is the identity source of truth. An explicit --author is a
+# consistency assertion only; it must never replace or bypass that contract.
+need_gh
+# #799: `--jq '.body // ""'` reads as a safe default and is not one — gh
+# emits the error body WITHOUT running the filter, so the `// ""` never
+# applies. No `--shape` is possible on free text (a PR body may legitimately
+# be empty, or contain anything), so the status is the whole guard here.
+body="$(gh_api_scalar "PR body for $REPO#$PR" \
+  "repos/$REPO/pulls/$PR" --jq '.body // ""')" || body=""
+pr_body_validate "$body" "$(p4b_config)" \
+  || p4b_die 3 "PR body does not satisfy the Authoring-Agent contract"
+body_author="$(pr_body_authoring_agent "$body")"
+[ -n "$body_author" ] || p4b_die 3 "could not parse Authoring-Agent from PR body"
+
+if [ -n "$AUTHOR" ] && [ "$(p4b_agent_of_login "$AUTHOR")" != "$body_author" ]; then
+  p4b_die 3 "--author '$AUTHOR' conflicts with live PR body Authoring-Agent '$body_author'"
 fi
+AUTHOR="$body_author"
 
 pr_body_agent_is_allowed "$AUTHOR" "$(p4b_config)" \
   || p4b_die 3 "authoring agent '$AUTHOR' is not represented in available_reviewers"
