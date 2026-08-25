@@ -12,7 +12,7 @@ Deliberate. #740 calibrates the ledger format and the Fable handoff; #739/#741 r
 | # | Issue | Slug | Phase reached | Ledger path | Branch | PR | Status |
 |---|-------|------|---------------|-------------|--------|----|--------|
 | 0 | — | shared evidence cache | **0 complete** | `plans/759/refs.json` | `content/740-astro-migration-audit` | [#787](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/787) | done |
-| 1 | #740 | how-a-responsive-fix-became-an-astro-migration | 3 in progress | `plans/759/how-a-responsive-fix-became-an-astro-migration-ledger.md` | `content/740-astro-migration-audit` | [#787](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/787) | in review |
+| 1 | #740 | how-a-responsive-fix-became-an-astro-migration | 3 blocked | `plans/759/how-a-responsive-fix-became-an-astro-migration-ledger.md` | `content/740-astro-migration-audit` | [#787](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/787) | **awaiting manual 4b** |
 | 2 | #739 | agent-approval-workflow-genesis-of-mergepath | not started | `plans/759/agent-approval-workflow-genesis-of-mergepath-ledger.md`  | — | — | pending |
 | 3 | #741 | html-mockups-as-spec | not started | `plans/759/html-mockups-as-spec-ledger.md`  | — | — | pending |
 | 4 | #744 | six-prs-one-bug-agent-failure-modes | not started | `plans/759/six-prs-one-bug-agent-failure-modes-ledger.md`  | — | — | pending |
@@ -71,7 +71,7 @@ Deliberate. #740 calibrates the ledger format and the Fable handoff; #739/#741 r
 - 2026-08-25—**#740 round 3.** Codex recovered from `not_connected` and reviewed `10db69b` alongside CodeRabbit: **7 more findings, all P2, all correct, all fixed** (ledger §L). Two were corrections to the ledger rather than the post. Highlights: the frontmatter `description`/`seoDescription` still carried the deployment claim §K1 retracted, which are the two most publicly visible surfaces on the page; `robots.txt` is hand-maintained and only its `Sitemap:` line is generated; `firebase.json` caches HTML/JS/CSS only, not "assets"; and §F4's review table omitted PR #49, so "eight reviewed PRs" was true but unsourced (row fetched and added rather than narrowing the prose).
   - **Fill the PR cell in the table at creation time, not in the log afterwards**—§L4 was Codex catching that this table said "in review" with an empty PR column, which a resumed agent could read as not-yet-filed.
   - **CodeRabbit's committable suggestion for §L7 would have reintroduced the claim §L1 removes** ("a same-day deployment"). Two findings in one round pulling opposite ways. Take the count from one and the verb from the other; a suggestion is not an instruction.
-  - **Careful with blanket dash normalisation.** A `replace(' — ','—')` sweep over this file collapsed the table's `| — |` placeholder cells into `|—|`. Normalise prose lines only, never table rows.
+  - **Careful with blanket dash normalisation.** A `replace('—','—')` sweep over this file collapsed the table's `|—|` placeholder cells into `|—|`. Normalise prose lines only, never table rows.
 
 
 ---
@@ -87,3 +87,19 @@ Deliberate. #740 calibrates the ledger format and the Fable handoff; #739/#741 r
   - This file's table row was flagged as needing a `done` status—**rebutted**, see below.
 - **The one rebuttal.** Codex read the presence of the commit as proof PR #787 had landed and asked for the row to be marked `done`. It has not merged; `done` is defined in this file as merged, so "3 in progress"/"in review" is the accurate state. Marking it done pre-merge would create exactly the resume hazard the finding is worried about, in the opposite direction.
 - **Rule for the remaining six audits: when a review finding corrects a claim, grep the ledger and this file for every other instance of that claim before pushing.** Four of the five self-inconsistencies above would have been caught by one grep.
+
+---
+
+## BLOCKED: #740 is at a manual Phase 4b handoff
+
+**State as of 2026-08-25.** PR [#787](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/787) is open at HEAD `c101bcc`, complete, and green on every local gate. It is **not merged** and cannot be merged by this agent.
+
+- All 21 bot findings across five Codex rounds are dispositioned. **No P0 or P1 was ever raised.** Twenty were fixed; one is rebutted on its thread. `scripts/review-feedback-accounting.sh` reports `status: clear`; every review thread is resolved.
+- Local gates green at `c101bcc`: `astro build` (37 pages, 18 OG images), `vitest run` (490 passed / 1 skipped), `eslint`, `lint-prose`.
+- The [handoff message](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/787#issuecomment-5417925265) is posted per REVIEW_POLICY.md § Handoff Message Format, suggesting `nathanpayne-codex`.
+
+**Why it is blocked.** `scripts/phase-4b-review.sh` returns exit 6 (barrier pending) every time: it wants a reviewer signal pinned to the *current* HEAD, and fixing a finding requires a commit, which moves the HEAD. Codex ran five rounds (the operator's cap)—0, 4, 5, 1, 7 findings—so convergence broke at round 5 and further rounds are not obviously terminating. CodeRabbit is unreliable here: rate-limited on first contact, and it edits its own root comments seconds after a disposition reply, which flips findings back to unaccounted (hit three times).
+
+**What unblocks it.** A human takes the handoff to a `nathanpayne-codex` CLI session for an `APPROVED`, or merges directly. Branch protection wants one approving review and the authoring agent's own reviewer identity cannot supply it on a Phase 4 PR.
+
+**Do not start #739's Phase 3 until #787 merges.** Phase 1 for #739 may begin now—#740 was the calibration run and both the ledger format and the Fable handoff survived a full review cycle, which was the gate.
