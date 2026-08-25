@@ -51,7 +51,7 @@ export function parsePrBodyContract(body) {
       }
       continue;
     }
-    if (/^ {0,3}<[A-Za-z][^>]*(?:>|$)/.test(line)) {
+    if (/^ {0,3}<\/?[A-Za-z][^>]*(?:>|$)/.test(line)) {
       htmlBlock = line.trim() === '' ? null : 'blank';
       continue;
     }

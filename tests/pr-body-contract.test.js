@@ -95,6 +95,15 @@ describe('PR body contract', () => {
     }
   });
 
+  it('keeps contract markers after closing HTML block tags hidden until a blank line', () => {
+    const hiddenAuthor = validate(
+      ['</div>', 'Authoring-Agent: codex', '', '## Self-Review'].join('\n'),
+    );
+
+    expect(hiddenAuthor.status).toBe(1);
+    expect(hiddenAuthor.stderr).toContain("missing a valid 'Authoring-Agent:' line");
+  });
+
   it('ignores fenced markers nested in Markdown containers', () => {
     const result = validate(
       ['## Self-Review', '', '- ```text', '  Authoring-Agent: codex', '  ```'].join('\n'),
