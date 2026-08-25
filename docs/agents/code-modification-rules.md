@@ -100,6 +100,8 @@ JavaScript adds `.is-scrolling` to `<body>` during active scroll (debounced at 1
 
 Every Mermaid diagram is authored with a short accessible title and a relational description. Inline fences use whitespace-separated `title="..." description="..."` metadata; sidebar Mermaid items use required `title` and `description` frontmatter fields. Describe the relationships or conclusion conveyed by the diagram, not merely its list of nodes. Missing metadata or adjacent attributes without a separator are build errors.
 
+Every Mermaid `style` directive that sets both `fill:` and label `color:` uses three- or six-digit hex colors whose WCAG contrast ratio is at least 4.5:1. `npm run lint` checks both body fences and sidebar Mermaid items arithmetically; visual inspection is not sufficient.
+
 Mermaid is supported only in blog posts under `src/content/blog/*.md`. The globally registered Remark plugin rejects Mermaid fences in every other content collection and Markdown page because those surfaces do not share the blog development renderer and production static-SVG pass.
 
 ### Credential Hygiene

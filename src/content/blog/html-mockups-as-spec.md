@@ -44,11 +44,11 @@ sidebar:
           F --> G["Live page now matches<br/>the mock-up"]
           style A fill:#e8b4b4,stroke:#993d3d,color:#333
           style B fill:#e8b4b4,stroke:#993d3d,color:#333
-          style C fill:#c75c5c,stroke:#993d3d,color:#fff
+          style C fill:#993d3d,stroke:#993d3d,color:#fff
           style D fill:#b8ddb8,stroke:#4a8a4d,color:#333
           style E fill:#b8ddb8,stroke:#4a8a4d,color:#333
           style F fill:#b8ddb8,stroke:#4a8a4d,color:#333
-          style G fill:#7bc67e,stroke:#4a8a4d,color:#fff
+          style G fill:#7bc67e,stroke:#4a8a4d,color:#333
     caption: "Two loops: describing the design (top) and prototyping the design (bottom)"
 ---
 
@@ -80,11 +80,11 @@ graph TD
     F --> G["Live page now matches<br/>the mock-up"]
     style A fill:#e8b4b4,stroke:#993d3d,color:#333
     style B fill:#e8b4b4,stroke:#993d3d,color:#333
-    style C fill:#c75c5c,stroke:#993d3d,color:#fff
+    style C fill:#993d3d,stroke:#993d3d,color:#fff
     style D fill:#b8ddb8,stroke:#4a8a4d,color:#333
     style E fill:#b8ddb8,stroke:#4a8a4d,color:#333
     style F fill:#b8ddb8,stroke:#4a8a4d,color:#333
-    style G fill:#7bc67e,stroke:#4a8a4d,color:#fff
+    style G fill:#7bc67e,stroke:#4a8a4d,color:#333
 ```
 
 ## The pivot: build the mock-up first

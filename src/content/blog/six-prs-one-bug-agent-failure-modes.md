@@ -46,7 +46,7 @@ sidebar:
           style PR154 fill:#e8b4b4,stroke:#993d3d,color:#333
           style PR155 fill:#e8b4b4,stroke:#993d3d,color:#333
           style PR158 fill:#e8b4b4,stroke:#993d3d,color:#333
-          style PR161 fill:#7bc67e,stroke:#4a8a4d,color:#fff
+          style PR161 fill:#7bc67e,stroke:#4a8a4d,color:#333
     caption: "The six failed PRs and the one that worked"
 ---
 
@@ -79,13 +79,13 @@ graph LR
     D --> F["Preview HTML"]
     E --> G["Sent Email HTML"]
 
-    style A fill:#4a90d9,stroke:#2c5f8a,color:#fff
-    style B fill:#7bc67e,stroke:#4a8a4d,color:#fff
-    style C fill:#e07c5a,stroke:#b35937,color:#fff
-    style D fill:#d4a84b,stroke:#a07830,color:#fff
-    style E fill:#d4a84b,stroke:#a07830,color:#fff
-    style F fill:#c75c5c,stroke:#993d3d,color:#fff
-    style G fill:#c75c5c,stroke:#993d3d,color:#fff
+    style A fill:#2c5f8a,stroke:#2c5f8a,color:#fff
+    style B fill:#7bc67e,stroke:#4a8a4d,color:#333
+    style C fill:#b35937,stroke:#b35937,color:#fff
+    style D fill:#d4a84b,stroke:#a07830,color:#333
+    style E fill:#d4a84b,stroke:#a07830,color:#333
+    style F fill:#993d3d,stroke:#993d3d,color:#fff
+    style G fill:#993d3d,stroke:#993d3d,color:#fff
 ```
 
 Three paths, three outputs. The editor rendered structured content directly. Preview and send did not—they first flattened that structured document back into markdown-like plain text via `docToPlainTextWithTokens()`, then parsed it again through two *different* HTML pipelines.
@@ -167,7 +167,7 @@ graph TD
     style PR154 fill:#e8b4b4,stroke:#993d3d,color:#333
     style PR155 fill:#e8b4b4,stroke:#993d3d,color:#333
     style PR158 fill:#e8b4b4,stroke:#993d3d,color:#333
-    style PR161 fill:#7bc67e,stroke:#4a8a4d,color:#fff
+    style PR161 fill:#7bc67e,stroke:#4a8a4d,color:#333
 ```
 
 The failed PRs show how an agent can continue to perform competent work without ever repairing the invariant. This was Claude Code on the failed attempts and OpenAI Codex on the successful one, but I do not think this is mainly a vendor story. The session log makes clear that the difference was in the prompt structure, not the model.
@@ -290,12 +290,12 @@ graph TD
     HOOK --> AGENT
     USER --> AGENT
 
-    style BUG fill:#e07c5a,stroke:#b35937,color:#fff
-    style AGENT fill:#4a90d9,stroke:#2c5f8a,color:#fff
-    style PATCH fill:#d4a84b,stroke:#a07830,color:#fff
-    style REVIEW fill:#c75c5c,stroke:#993d3d,color:#fff
-    style HOOK fill:#c75c5c,stroke:#993d3d,color:#fff
-    style USER fill:#c75c5c,stroke:#993d3d,color:#fff
+    style BUG fill:#b35937,stroke:#b35937,color:#fff
+    style AGENT fill:#2c5f8a,stroke:#2c5f8a,color:#fff
+    style PATCH fill:#d4a84b,stroke:#a07830,color:#333
+    style REVIEW fill:#993d3d,stroke:#993d3d,color:#fff
+    style HOOK fill:#993d3d,stroke:#993d3d,color:#fff
+    style USER fill:#993d3d,stroke:#993d3d,color:#fff
 ```
 
 Three signal sources, one agent, zero escalation. The loop never opened.
@@ -375,11 +375,11 @@ graph LR
     C --> D["Preview HTML"]
     C --> E["Sent Email HTML"]
 
-    style A fill:#4a90d9,stroke:#2c5f8a,color:#fff
-    style B fill:#7bc67e,stroke:#4a8a4d,color:#fff
-    style C fill:#7bc67e,stroke:#4a8a4d,color:#fff
-    style D fill:#7bc67e,stroke:#4a8a4d,color:#fff
-    style E fill:#7bc67e,stroke:#4a8a4d,color:#fff
+    style A fill:#2c5f8a,stroke:#2c5f8a,color:#fff
+    style B fill:#7bc67e,stroke:#4a8a4d,color:#333
+    style C fill:#7bc67e,stroke:#4a8a4d,color:#333
+    style D fill:#7bc67e,stroke:#4a8a4d,color:#333
+    style E fill:#7bc67e,stroke:#4a8a4d,color:#333
 ```
 
 One source document, one semantic rendering path, multiple consumers.
@@ -402,11 +402,11 @@ graph TD
     style S1 fill:#e8b4b4,stroke:#993d3d,color:#333
     style S2 fill:#e8b4b4,stroke:#993d3d,color:#333
     style S3 fill:#e8b4b4,stroke:#993d3d,color:#333
-    style S4 fill:#c75c5c,stroke:#993d3d,color:#fff
+    style S4 fill:#993d3d,stroke:#993d3d,color:#fff
     style I1 fill:#b8ddb8,stroke:#4a8a4d,color:#333
     style I2 fill:#b8ddb8,stroke:#4a8a4d,color:#333
     style I3 fill:#b8ddb8,stroke:#4a8a4d,color:#333
-    style I4 fill:#7bc67e,stroke:#4a8a4d,color:#fff
+    style I4 fill:#7bc67e,stroke:#4a8a4d,color:#333
 ```
 
 It would be easy to read this as "Codex is better than Claude Code at architecture." I do not think that is the right conclusion.

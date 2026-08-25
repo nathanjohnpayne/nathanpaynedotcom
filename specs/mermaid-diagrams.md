@@ -60,3 +60,7 @@ build pass before widening this boundary.
 11. Static replacement preserves every byte outside the targeted
     `<pre class="mermaid">` ranges, and pages without those ranges bypass DOM
     and browser renderer setup.
+12. Every `style` directive that supplies both `fill:` and label `color:` uses
+    measurable three- or six-digit hex colors with a WCAG contrast ratio of at
+    least 4.5:1, enforced across body fences and sidebar Mermaid items by
+    `npm run lint`.
