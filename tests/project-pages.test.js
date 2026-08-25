@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { existsSync, readFileSync, readdirSync } from 'fs';
 import { resolve, join } from 'path';
+import { extractFrontmatter, parseFrontmatter } from '@astrojs/markdown-remark';
 import { writeSanitizedDOM } from './helpers/dom.js';
 
 // Smoke tests for the content-collection-driven project detail pages.
@@ -11,6 +12,25 @@ import { writeSanitizedDOM } from './helpers/dom.js';
 
 const DIST = resolve(__dirname, '../dist');
 const CONTENT = resolve(__dirname, '../src/content/projects');
+
+// Read source assertions through Astro's frontmatter parser so equivalent YAML
+// spellings (for example, `1` and `1.0`) cannot disagree between the build and
+// the test suite.
+function parseProjectFrontmatter(markdown, label) {
+  if (extractFrontmatter(markdown) == null) {
+    throw new Error(`${label} is missing YAML frontmatter`);
+  }
+
+  const parsed = parseFrontmatter(markdown).frontmatter;
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    throw new Error(`${label} frontmatter must be a YAML mapping`);
+  }
+  return parsed;
+}
+
+function readProjectFrontmatter(file) {
+  return parseProjectFrontmatter(readFileSync(join(CONTENT, file), 'utf-8'), file);
+}
 
 // Rewrite interpolation-free template literals back to single-quoted strings.
 // The three JS string delimiters are interchangeable for a literal containing
@@ -66,8 +86,8 @@ const projectIndexAccentCycle = [
   { rowClass: 'grid-row--overflow-b', accentClasses: ['accent-red'] },
 ];
 
-const projectIndexAccentRows = canonicalProjectCards.map(
-  (_, i) => i > 0 && i % projectIndexAccentCycle.length === 0
+const projectIndexAccentRows = canonicalProjectCards.map((_, i) =>
+  i > 0 && i % projectIndexAccentCycle.length === 0
     ? { ...projectIndexAccentCycle[0], accentClasses: ['accent-yellow', 'accent-paper'] }
     : projectIndexAccentCycle[i % projectIndexAccentCycle.length],
 );
@@ -257,17 +277,9 @@ describe('Project Pages — routes', () => {
 
   it('the collection source has the same number of non-draft projects as the index renders', () => {
     const sourceFiles = readdirSync(CONTENT).filter((f) => f.endsWith('.md'));
-    const nonDraftSources = sourceFiles.filter((f) => {
-      const body = readFileSync(join(CONTENT, f), 'utf-8');
-      // Restrict the draft: true check to the YAML frontmatter block at the
-      // top of the file. A documentation example in the body that contains
-      // `draft: true` as an indented code sample should not make the project
-      // look drafted. Projects without `draft:` at all default to false per
-      // the schema. (See #161.)
-      const fmMatch = body.match(/^---\n([\s\S]*?)\n---/);
-      const frontmatter = fmMatch ? fmMatch[1] : '';
-      return !/^draft:\s*true\s*$/m.test(frontmatter);
-    });
+    const nonDraftSources = sourceFiles.filter(
+      (file) => readProjectFrontmatter(file).draft !== true,
+    );
     expect(nonDraftSources.length).toBe(projectSlugs.length);
   });
 
@@ -275,36 +287,42 @@ describe('Project Pages — routes', () => {
     const sourceFiles = readdirSync(CONTENT).filter((f) => f.endsWith('.md'));
 
     for (const file of sourceFiles) {
-      const body = readFileSync(join(CONTENT, file), 'utf-8');
-      const fmMatch = body.match(/^---\n([\s\S]*?)\n---/);
-      const frontmatter = fmMatch ? fmMatch[1] : '';
+      const frontmatter = readProjectFrontmatter(file);
 
-      expect(frontmatter, `${file} still declares accentColor`).not.toMatch(/^accentColor:/m);
-      expect(frontmatter, `${file} still declares gradientFrom`).not.toMatch(/^gradientFrom:/m);
-      expect(frontmatter, `${file} still declares gradientTo`).not.toMatch(/^gradientTo:/m);
+      expect(Object.hasOwn(frontmatter, 'accentColor'), `${file} still declares accentColor`).toBe(
+        false,
+      );
+      expect(
+        Object.hasOwn(frontmatter, 'gradientFrom'),
+        `${file} still declares gradientFrom`,
+      ).toBe(false);
+      expect(Object.hasOwn(frontmatter, 'gradientTo'), `${file} still declares gradientTo`).toBe(
+        false,
+      );
     }
+  });
+
+  it('evaluates the accent ramp from YAML-parsed values', () => {
+    const frontmatter = parseProjectFrontmatter(
+      '---\norder: 1.0\naccent: "yellow" # inline comments are valid YAML\n---\n',
+      'regression fixture',
+    );
+
+    expect(frontmatter.order).toBe(1);
+    expect(frontmatter.accent).toBe(
+      projectAccentRamp[frontmatter.order % projectAccentRamp.length],
+    );
   });
 
   it('every project accent follows the canonical ramp for its order', () => {
     const sourceFiles = readdirSync(CONTENT).filter((f) => f.endsWith('.md'));
 
     for (const file of sourceFiles) {
-      const body = readFileSync(join(CONTENT, file), 'utf-8');
-      const fmMatch = body.match(/^---\n([\s\S]*?)\n---/);
-      const frontmatter = fmMatch ? fmMatch[1] : '';
+      const { order, accent } = readProjectFrontmatter(file);
 
-      // Trailing `# ...` is valid YAML and is exactly what the authoring
-      // template in specs/project-pages.md ships, so both patterns tolerate an
-      // inline comment. Without it, copying the documented template verbatim
-      // fails here with "declares no accent" (Codex P2 on #783).
-      const orderMatch = frontmatter.match(/^order:\s*(\d+)\s*(?:#.*)?$/m);
-      const accentMatch = frontmatter.match(/^accent:\s*["']?([a-z]+)["']?\s*(?:#.*)?$/m);
-
-      expect(orderMatch, `${file} declares no order`).not.toBeNull();
-      expect(accentMatch, `${file} declares no accent`).not.toBeNull();
-
-      const order = Number(orderMatch[1]);
-      expect(accentMatch[1], `${file} (order ${order}) breaks the accent ramp`).toBe(
+      expect(Number.isInteger(order), `${file} order must be an integer`).toBe(true);
+      expect(order, `${file} order must be non-negative`).toBeGreaterThanOrEqual(0);
+      expect(accent, `${file} (order ${order}) breaks the accent ramp`).toBe(
         projectAccentRamp[order % projectAccentRamp.length],
       );
     }

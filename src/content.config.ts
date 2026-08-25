@@ -11,10 +11,9 @@ const projects = defineCollection({
     seoDescription: z.string().optional(),
     kicker: z.string(),
     // Non-negative integer: `accent` is derived as RAMP[order % 5], so a
-    // fractional or negative order has no position in that walk. Bare
-    // z.number() also admitted `order: 1.0`, which is schema-valid, renders
-    // fine, and then failed the ramp assertion in tests/project-pages.test.js
-    // with a misleading "declares no order" (Codex P2 on #783).
+    // fractional or negative value has no position in that walk. YAML numeric
+    // spellings such as `1` and `1.0` both reach Zod as the integer-valued
+    // number 1; the ramp assertion parses frontmatter the same way.
     order: z.number().int().nonnegative(),
     screenshotAspect: z.enum(['wide', 'narrow']),
     screenshotSrc: z.string(),

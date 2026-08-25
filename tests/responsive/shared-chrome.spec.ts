@@ -120,6 +120,36 @@ function expectInkShadow(value: string): void {
   expect([0.1, 0.12].some((alpha) => Math.abs(color!.a - alpha) < 0.001)).toBe(true);
 }
 
+function relativeLuminance({ r, g, b }: ParsedColor): number {
+  const channel = (value: number) => {
+    const srgb = value / 255;
+    return srgb <= 0.04045 ? srgb / 12.92 : ((srgb + 0.055) / 1.055) ** 2.4;
+  };
+
+  return 0.2126 * channel(r) + 0.7152 * channel(g) + 0.0722 * channel(b);
+}
+
+function contrastRatio(foreground: ParsedColor, background: ParsedColor): number {
+  const foregroundLuminance = relativeLuminance(foreground);
+  const backgroundLuminance = relativeLuminance(background);
+  const lighter = Math.max(foregroundLuminance, backgroundLuminance);
+  const darker = Math.min(foregroundLuminance, backgroundLuminance);
+  return (lighter + 0.05) / (darker + 0.05);
+}
+
+function compositeColor(foreground: ParsedColor, background: ParsedColor): ParsedColor {
+  const alpha = foreground.a + background.a * (1 - foreground.a);
+  const channel = (foregroundValue: number, backgroundValue: number) =>
+    (foregroundValue * foreground.a + backgroundValue * background.a * (1 - foreground.a)) / alpha;
+
+  return {
+    r: channel(foreground.r, background.r),
+    g: channel(foreground.g, background.g),
+    b: channel(foreground.b, background.b),
+    a: alpha,
+  };
+}
+
 for (const width of BREAKPOINTS) {
   test.describe(`@${width}px`, () => {
     test.use({ viewport: { width, height: 900 } });
@@ -227,5 +257,50 @@ for (const width of BREAKPOINTS) {
       );
       expect(direction).toBe(width <= 1023 ? 'column' : 'row');
     });
+
+    if (width <= 1023) {
+      test('mobile blog metadata text retains AA contrast on the accent plane', async ({
+        page,
+      }) => {
+        await page.goto('/blog/six-prs-one-bug-agent-failure-modes/');
+        await page.waitForLoadState('domcontentloaded');
+        const colors = await page.evaluate(() => {
+          const panel = document.querySelector('.blog-sidebar-meta') as Element;
+          const label = panel.querySelector('dt') as Element;
+          const topic = panel.querySelector('.blog-sidebar-topic') as Element;
+          return {
+            background: getComputedStyle(panel).backgroundColor,
+            labelForeground: getComputedStyle(label).color,
+            topicBackground: getComputedStyle(topic).backgroundColor,
+            topicForeground: getComputedStyle(topic).color,
+          };
+        });
+        const background = parseComputedColor(colors.background);
+        const labelForeground = parseComputedColor(colors.labelForeground);
+        const topicBackground = parseComputedColor(colors.topicBackground);
+        const topicForeground = parseComputedColor(colors.topicForeground);
+
+        expect(background, `Unable to parse computed color: ${colors.background}`).not.toBeNull();
+        expect(
+          labelForeground,
+          `Unable to parse computed color: ${colors.labelForeground}`,
+        ).not.toBeNull();
+        expect(
+          topicBackground,
+          `Unable to parse computed color: ${colors.topicBackground}`,
+        ).not.toBeNull();
+        expect(
+          topicForeground,
+          `Unable to parse computed color: ${colors.topicForeground}`,
+        ).not.toBeNull();
+        expect(background!.a).toBe(1);
+        expect(labelForeground!.a).toBe(1);
+        expect(topicForeground!.a).toBe(1);
+        expect(contrastRatio(labelForeground!, background!)).toBeGreaterThanOrEqual(4.5);
+        expect(
+          contrastRatio(topicForeground!, compositeColor(topicBackground!, background!)),
+        ).toBeGreaterThanOrEqual(4.5);
+      });
+    }
   });
 }
