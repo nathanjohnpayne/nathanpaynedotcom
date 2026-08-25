@@ -456,3 +456,27 @@ Source: `gh api repos/nathanjohnpayne/nathanpaynedotcom/pulls/49/reviews`.
 The Mermaid `description` called all eleven phases ports. Phase 10 is the deploy, so only phases 0–9 are ports. Corrected to ten ports plus the close-out of the eleventh.
 
 **Note on L7 versus L1.** CodeRabbit's suggested wording for L7 was "ten phased ports and a same-day deployment", which would have reintroduced the very deployment claim L1 and §K1 remove. The two findings arrived in the same round and pull in opposite directions; the fix takes L7's count and L1's verb. A committable suggestion is a suggestion, not an instruction.
+
+---
+
+## M. Round-4 addendum (PR #787, Codex on HEAD `261e2c0`)
+
+One P2 finding. Correct, and it makes **three** for the running tally of primary sources that turned out to be imprecise.
+
+### M1—The Windows `path.join` result was wrong, and issue #173 is where it came from
+
+The post said `path.join` mangles `/C:/path/to/dist` into `C:\C:\path\to\dist`, a duplicated drive prefix. It does not. Verified against Node:
+
+```
+path.win32.join('/C:/path/to/dist', 'og-templates')  ->  '\C:\path\to\dist\og-templates'
+path.win32.isAbsolute('/C:/path/to/dist')            ->  true
+```
+
+There is no duplicated `C:`. What actually happens is that the drive letter stops being a drive letter and becomes an ordinary directory name under the root, so the path is malformed in a different way than described. The conclusion is unchanged; the concrete output was wrong.
+
+The claim was inherited: **issue #173's own body asserts `C:\C:\path\to\dist\og-templates`**. Repeating it was the same failure §J3 and §K1 already recorded—trusting a primary source's characterisation instead of checking the mechanism it describes.
+
+Corrected to the verified output, with a phrase naming what is actually broken about it.
+Source: `node -e` with `path.win32.join` / `path.win32.isAbsolute`, run on this machine; `gh api repos/nathanjohnpayne/nathanpaynedotcom/issues/173` → `.body` for the inherited error.
+
+**Running tally for the six remaining audits.** Three primary sources in this one post were looser than they looked: issue #173's "Windows-only" framing (§J3), issue #45's title promising verification it never recorded (§K1), and now issue #173's concrete `path.join` output (§M1). Two of the three are the same issue. **An issue body is evidence of what someone believed at the time, not of what the code does.** Where a claim is mechanically checkable—a path join, a URL parse, a regex—check the mechanism, not the write-up.
