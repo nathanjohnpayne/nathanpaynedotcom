@@ -1,7 +1,20 @@
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { describe, it, expect } from 'vitest';
 import { estimateReadingMinutes } from '../src/lib/reading-time';
 
 describe('estimateReadingMinutes (src/lib/reading-time.ts)', () => {
+  it('is the shared estimator used by every blog reading-time surface', () => {
+    for (const relativePath of [
+      'src/pages/blog/[...slug].astro',
+      'src/pages/blog/index.astro',
+      'src/pages/og-templates/blog/[...slug].astro',
+    ]) {
+      const source = readFileSync(resolve(relativePath), 'utf8');
+      expect(source, relativePath).toContain('estimateReadingMinutes');
+    }
+  });
+
   it('returns 1 for empty / nullish input', () => {
     expect(estimateReadingMinutes('')).toBe(1);
     expect(estimateReadingMinutes(undefined)).toBe(1);

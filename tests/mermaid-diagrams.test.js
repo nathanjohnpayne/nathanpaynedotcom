@@ -101,14 +101,16 @@ describe('rehype-mermaid integration', () => {
     const document = new JSDOM(rendered.get(0)).window.document;
     const figure = document.querySelector('.mermaid-figure');
 
-    expect(figure?.getAttribute('role')).toBe('img');
-    expect(figure?.getAttribute('aria-label')).toBe('Broken flow');
+    expect(figure?.getAttribute('role')).toBeNull();
+    expect(figure?.getAttribute('aria-label')).toBeNull();
+    expect(figure?.getAttribute('aria-describedby')).toBeNull();
     expect(figure?.textContent).toContain('Diagram unavailable');
     expect(figure?.textContent).toContain('Broken flow');
     expect(figure?.textContent).toContain('A was intended to lead to B.');
     expect(figure?.textContent).not.toMatch(/error|stack|at file:/i);
     const fallback = document.querySelector('.mermaid-fallback');
     expect(fallback?.hasAttribute('aria-hidden')).toBe(false);
+    expect(fallback?.closest('[aria-hidden="true"]')).toBeNull();
     expect(document.querySelector('pre, code, svg')).toBeNull();
   });
 

@@ -74,6 +74,20 @@ export function rehypeMermaidSvg() {
       if (child.type !== 'element' || child.tagName !== 'figure') return;
       if (!classNames(child).includes('mermaid-figure')) return;
 
+      const fallback = child.children.find(
+        (candidate) =>
+          candidate.type === 'element' && classNames(candidate).includes('mermaid-fallback'),
+      );
+      if (fallback) {
+        // A role="img" makes the figure's descendants presentational, which
+        // would hide the visible failure message from assistive technology.
+        // Restore normal document semantics when Mermaid could not render.
+        delete child.properties?.role;
+        delete child.properties?.ariaLabel;
+        delete child.properties?.ariaDescribedBy;
+        return;
+      }
+
       const rendered = child.children.find(
         (candidate) => candidate.type === 'element' && candidate.tagName === 'svg',
       );
