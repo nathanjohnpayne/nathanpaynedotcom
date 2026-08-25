@@ -72,15 +72,15 @@ Source: `gh api 'repos/nathanjohnpayne/nathanpaynedotcom/issues?state=all&since=
 | #43 + #44 Phases 8+9 Tests + cleanup | **#64** |
 | #45 Phase 10 Deploy | (deploy; pre-deploy fixes in #68) |
 
-Defensible form: every phase shipped as its own reviewable, revertible PR except two adjacent pairs that were merged into one PR each.
+Defensible form: ten of the eleven phases shipped as reviewable, revertible PRs—eight of them, because two adjacent pairs were merged into one PR each—and the eleventh, Phase 10, was the deploy itself and closed without a PR.
 Source: same issue listing as A5, cross-referenced with PR titles.
 
 ### A7—Title/lede milestone alignment
 
 > Title: "How Making a Page Responsive Led to a **Full Astro Site Implementation**"; description: "migrate to a static site generator **the same afternoon**" (L2, L5)
 
-**UNPROVABLE as written / needs disambiguation.** The same-*afternoon* evidence (A2–A3) covers only the **Phase 0 scaffold**, PR #47, merged 14:11 PT. The **full** implementation—all eleven phases including production deploy—completed the same *day* at 18:39 PT (A5), not the same afternoon. Both readings are defensible; the post currently mixes them.
-Defensible form: the scaffold shipped four hours after the fix; the full migration shipped the same day, about eight and a half hours after it.
+**UNPROVABLE as written / needs disambiguation.** The same-*afternoon* evidence (A2–A3) covers only the **Phase 0 scaffold**, PR #47, merged 14:11 PT. All eleven tracked phases **closed** the same *day*, the last at 18:39 PT (A5), not the same afternoon. Both readings are defensible; the post currently mixes them.
+Defensible form: the scaffold shipped four hours after the fix; every tracked phase closed the same day, the last about eight and a half hours after it. Note the verb—**closed**, not "completed", "shipped", or "deployed". Per §K1 the record does not support the stronger word, and §H directs drafting passes to reuse these corrected values verbatim, so a loose verb here propagates.
 Source: A2, A3, A5.
 
 ---
@@ -285,7 +285,7 @@ Defensible form: derive the ratio from the one interval that *is* stamped—a sc
 
 **WRONG in one particular.** Claude and Codex are confirmed; **Cursor reviewed none of the migration PRs**, and CodeRabbit—unmentioned—reviewed three of them.
 
-Every commit on `2026-04-08`/`04-09` carries `Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>` (26 occurrences, plus 21 of the lowercase spelling). Review states on the phase PRs:
+Every commit **in the eight migration PRs** carries `Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>` (26 occurrences across `2026-04-08`/`04-09`, plus 21 of the lowercase spelling). Scoped deliberately: per §J2, exactly one commit in that window—`d946296`, the merge of PR #34, not a migration PR—carries no trailer, so the universal form is false. Review states on the phase PRs:
 
 | PR | Reviews |
 |---|---|

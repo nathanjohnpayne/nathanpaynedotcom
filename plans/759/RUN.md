@@ -42,7 +42,7 @@ Deliberate. #740 calibrates the ledger format and the Fable handoff; #739/#741 r
 - 2026-08-25—**#740 Phase 1 complete.** Ledger at `plans/759/how-a-responsive-fix-became-an-astro-migration-ledger.md` (335 lines, 8 sections A–H). Post baseline: 2,351 body words / 2,856 with frontmatter.
   - Verdict counts: 12 SUPPORTED, 11 WRONG, 8 UNPROVABLE.
   - The issue's own "Evidence to reconcile" bullets all **verified true**—no contradiction with #740's framing. The ledger is additive to it.
-  - Largest defect found that the issue did **not** catch—ledger §E: the OG-image `fileURLToPath` story is wrong in three ways at once. The fix was PR #174 (+ test PR #175), not "#171 and #173"; #171 is the sibling robots.txt fix and #173 is an **issue**, not a PR (the post links `/pull/173`, which GitHub silently redirects, hiding the error). The bug is **Windows-only with zero production impact**, not "Linux CI". And it was caught by the `nathanpayne-codex` reviewer on PR #171, not by "a deploy that produced empty OG images"—that was a separate real incident, issue #163.
+  - Largest defect found that the issue did **not** catch—ledger §E: the OG-image `fileURLToPath` story is wrong in three ways at once. The fix was PR #174 (+ test PR #175), not "#171 and #173"; #171 is the sibling robots.txt fix and #173 is an **issue**, not a PR (the post links `/pull/173`, which GitHub silently redirects, hiding the error). The bug is **not Linux-CI-specific and has zero production impact**—it breaks on Windows, and on POSIX too whenever the checkout path contains a character a URL escapes (§J3); it matches `fileURLToPath` only on plain-ASCII POSIX paths, which is what CI and the workstation use. And it was caught by the `nathanpayne-codex` reviewer on PR #171, not by "a deploy that produced empty OG images"—that was a separate real incident, issue #163.
   - Other new findings: seven hand-maintained `index.html` files at PR #30, not four (§C1, and the Mermaid node says the same wrong thing); no standalone About page has ever existed (§C2); `overflow-x: auto` on code blocks pre-dated PR #30 (§B1); "twenty-five lines of CSS" is actually the spec file's line count, the CSS diff is 52 insertions (§B2); eleven phases shipped as eight PRs, not one-per-phase (§A6); Cursor reviewed none of the migration PRs while CodeRabbit reviewed three (§F4).
   - §F4's review table is unused evidence that proves the post's own reversible-phasing claim: Codex blocked PRs #54, #62, and #63, taking three CHANGES_REQUESTED rounds on #63.
 - 2026-08-25—**#740 Phase 2 + 3.** Fable subagent drafted the revision from the ledger; verified claim by claim and applied to `src/content/blog/how-a-responsive-fix-became-an-astro-migration.md`.
@@ -73,3 +73,17 @@ Deliberate. #740 calibrates the ledger format and the Fable handoff; #739/#741 r
   - **CodeRabbit's committable suggestion for §L7 would have reintroduced the claim §L1 removes** ("a same-day deployment"). Two findings in one round pulling opposite ways. Take the count from one and the verb from the other; a suggestion is not an instruction.
   - **Careful with blanket dash normalisation.** A `replace(' — ','—')` sweep over this file collapsed the table's `| — |` placeholder cells into `|—|`. Normalise prose lines only, never table rows.
 
+
+---
+
+## Round-5 findings and the round limit
+
+- 2026-08-25—**Codex round 5 on `42297a4`: 7 findings, and convergence broke** (4 → 7 → 1 → 7). Round budget for this PR is 5 per the operator's instruction, so this is the cap. Six of the seven were correct and are fixed in one final commit; the seventh is rebutted. **No round 6**—the PR goes to a manual Phase 4b handoff.
+- The striking thing about round 5: **five of the seven were internal inconsistencies in the ledger and this file, not in the post.** Correcting a claim in the prose while leaving the same claim standing in the evidence artifact is its own defect class, and it is worse than a prose error, because §H tells every later drafting pass to reuse the ledger's corrected values verbatim. A stale row propagates into the six remaining audits.
+  - §A7 still said the full implementation "completed"/"shipped" that day, the exact verb §K1 retracted.
+  - §A6's defensible form still implied every phase had a PR, which yields nine rather than the audited eight.
+  - §F4's prose still asserted the universal co-author claim that §J2 had already narrowed.
+  - This file still called the `dir.pathname` defect "Windows-only", disproved in §J3.
+  - This file's table row was flagged as needing a `done` status—**rebutted**, see below.
+- **The one rebuttal.** Codex read the presence of the commit as proof PR #787 had landed and asked for the row to be marked `done`. It has not merged; `done` is defined in this file as merged, so "3 in progress"/"in review" is the accurate state. Marking it done pre-merge would create exactly the resume hazard the finding is worried about, in the opposite direction.
+- **Rule for the remaining six audits: when a review finding corrects a claim, grep the ledger and this file for every other instance of that claim before pushing.** Four of the five self-inconsistencies above would have been caught by one grep.
