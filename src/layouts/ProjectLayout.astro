@@ -36,8 +36,8 @@ interface Props {
   breadcrumbLabel: string;
   accent: 'red' | 'yellow' | 'black' | 'blue' | 'paper';
   screenshotAspect: 'wide' | 'narrow';
-  screenshotSecondary?: { src: string; alt: string };
   screenshotSrc: string;
+  screenshotSecondary?: { src: string; alt: string };
   muxPlaybackId?: string;
   slug: string;
   liveUrl?: string;
@@ -66,8 +66,8 @@ const {
   breadcrumbLabel,
   accent,
   screenshotAspect,
-  screenshotSecondary,
   screenshotSrc,
+  screenshotSecondary,
   muxPlaybackId,
   slug,
   liveUrl,
@@ -138,7 +138,6 @@ const topics = kicker.split(/\s*×\s*/).join(' · ');
             />
             {screenshotSecondary && (
               <img
-                class="project-screenshot__companion"
                 src={screenshotSecondary.src}
                 alt={screenshotSecondary.alt}
                 loading="lazy"
