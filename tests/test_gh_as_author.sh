@@ -90,6 +90,9 @@ if [ "${1:-}" = "alias" ] && [ "${2:-}" = "list" ]; then
 fi
 
 if [ "${1:-}" = "extension" ] && [ "${2:-}" = "list" ]; then
+  if [ "${GH_EXTENSION_REQUIRE_AUTH:-0}" = "1" ] && [ -z "${GH_TOKEN:-}" ]; then
+    exit 4
+  fi
   printf '%s' "${GH_EXTENSION_LIST:-}"
   exit "${GH_EXTENSION_LIST_RC:-0}"
 fi
@@ -207,10 +210,24 @@ elif ! echo "$stderr_capture" | grep -q "installed gh extension"; then
   fail "extension boundary: missing actionable rejection"
 elif grep -q $'GH_TOKEN=author-token GITHUB_TOKEN= gh\tship\t' "$WORKDIR/calls.log"; then
   fail "extension boundary: extension inherited the author token"
-elif ! grep -q $'GH_TOKEN= GITHUB_TOKEN= gh\textension\tlist' "$WORKDIR/calls.log"; then
-  fail "extension boundary: extension inventory did not clear credential variables"
+elif ! grep -q $'GH_TOKEN=local-extension-inventory GITHUB_TOKEN= gh\textension\tlist' "$WORKDIR/calls.log"; then
+  fail "extension boundary: extension inventory did not replace credentials with the local sentinel"
 else
   pass "extension boundary: installed extensions are rejected before receiving the author token"
+fi
+
+reset_log
+OP_PREFLIGHT_AUTHOR_PAT="author-token" GH_EXTENSION_REQUIRE_AUTH=1 \
+  run_wrapper -- gh pr merge 123 >/dev/null 2>&1
+rc=$?
+if [ "$rc" -ne 0 ]; then
+  fail "extension inventory without stored login: rc=$rc"
+elif grep -q $'GH_TOKEN=author-token GITHUB_TOKEN= gh\textension\tlist' "$WORKDIR/calls.log"; then
+  fail "extension inventory without stored login: author token reached local inventory"
+elif ! grep -q $'GH_TOKEN=local-extension-inventory GITHUB_TOKEN= gh\textension\tlist' "$WORKDIR/calls.log"; then
+  fail "extension inventory without stored login: local sentinel was not supplied"
+else
+  pass "extension inventory without stored login: local sentinel avoids auth prompt without exposing author token"
 fi
 
 reset_log

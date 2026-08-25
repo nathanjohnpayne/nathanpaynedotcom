@@ -147,12 +147,24 @@ jobs:
       - name: check_git_identity_hygiene --snapshot
         run: ./scripts/ci/check_git_identity_hygiene --snapshot || { rc=$?; if [ ! -f scripts/ci/check_git_identity_hygiene ]; then echo "check_git_identity_hygiene not in this tree yet; soft-pass (bootstrap skew)"; else exit "$rc"; fi; }
 
+      - name: Detect Node project for PR body contract tests
+        id: node_project
+        run: |
+          if [ -f .nvmrc ] && [ -f package.json ] && [ -f package-lock.json ]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "Node project manifests unavailable; skipping repository-local parser dependency setup."
+          fi
+
       - name: Set up Node.js for PR body contract tests
+        if: steps.node_project.outputs.enabled == 'true'
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version-file: .nvmrc
 
       - name: Install trusted PR body parser dependencies
+        if: steps.node_project.outputs.enabled == 'true'
         run: npm ci --ignore-scripts
 
       # #853 — provision the Python packages the check_* loop depends on
@@ -842,14 +854,25 @@ jobs:
       - name: check_git_identity_hygiene --snapshot
         run: ./scripts/ci/check_git_identity_hygiene --snapshot || { rc=$?; if [ ! -f scripts/ci/check_git_identity_hygiene ]; then echo "check_git_identity_hygiene not in this tree yet; soft-pass (bootstrap skew)"; else exit "$rc"; fi; }
 
-      - name: Set up Node.js for PR body contract tests
+      - name: Detect Node project for PR body contract tests
         if: matrix.safety == 'consumer'
+        id: node_project
+        run: |
+          if [ -f .nvmrc ] && [ -f package.json ] && [ -f package-lock.json ]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "Node project manifests unavailable; skipping repository-local parser dependency setup."
+          fi
+
+      - name: Set up Node.js for PR body contract tests
+        if: matrix.safety == 'consumer' && steps.node_project.outputs.enabled == 'true'
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version-file: .nvmrc
 
       - name: Install trusted PR body parser dependencies
-        if: matrix.safety == 'consumer'
+        if: matrix.safety == 'consumer' && steps.node_project.outputs.enabled == 'true'
         run: npm ci --ignore-scripts
 
       - name: install_python_ci_dependencies

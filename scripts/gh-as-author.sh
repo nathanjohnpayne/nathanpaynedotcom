@@ -138,7 +138,10 @@ if [ -n "$TOP_LEVEL_COMMAND" ]; then
   esac
 
   set +e
-  EXTENSION_LIST=$(unset GH_TOKEN GITHUB_TOKEN; gh extension list)
+  # `gh extension list` is local-only but still prompts for login when no
+  # stored account exists. A non-secret sentinel suppresses that prompt
+  # without exposing the verified author credential to extension discovery.
+  EXTENSION_LIST=$(unset GITHUB_TOKEN; GH_TOKEN="local-extension-inventory" gh extension list)
   EXTENSION_RC=$?
   set -e
   if [ "$EXTENSION_RC" -ne 0 ]; then

@@ -2,22 +2,17 @@
 
 import { readFileSync, realpathSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
-import { parse, postprocess, preprocess } from 'micromark';
-import { gfmFootnote } from 'micromark-extension-gfm-footnote';
-
-const AUTHOR_TOKEN_TYPES = new Set(['content', 'paragraph', 'data']);
-const SELF_REVIEW_TOKEN_TYPES = new Set(['atxHeading', 'atxHeadingSequence']);
+import { micromark } from 'micromark';
+import { gfmFootnote, gfmFootnoteHtml } from 'micromark-extension-gfm-footnote';
+import { parseFragment } from 'parse5';
 
 /**
- * Read the PR-body contract from CommonMark's maintained token tree.
- * Contract markers count only as plain top-level Markdown, never inside a
- * container, code span/block, raw HTML, link, comment, or other inline markup.
+ * Label literal contract candidates, render them with maintained GitHub
+ * Markdown semantics, and accept only sentinels that reach the document root.
+ * This delegates both Markdown containers and raw-HTML ancestry to parsers.
  */
 export function parsePrBodyContract(body) {
   const authorValues = [];
-  let hasSelfReview = false;
-  let events;
-
   // micromark replaces NUL with U+FFFD before tokenization. Reject it before
   // normalization so an invalid autolink cannot swallow a code-span opener.
   if (body.includes('\0')) {
@@ -25,73 +20,78 @@ export function parsePrBodyContract(body) {
   }
 
   try {
-    events = postprocess(
-      parse({ extensions: [gfmFootnote()] })
-        .document()
-        .write(preprocess()(body, 'utf8', true)),
+    const labeled = labelContractCandidates(body);
+    const renderedRoot = parseFragment(
+      micromark(labeled.body, {
+        allowDangerousHtml: true,
+        extensions: [gfmFootnote()],
+        htmlExtensions: [gfmFootnoteHtml()],
+      }),
     );
+
+    const topLevelTextLines = renderedRoot.childNodes
+      .filter((node) => node.nodeName === 'p')
+      .flatMap((paragraph) => paragraph.childNodes)
+      .filter((node) => node.nodeName === '#text')
+      .flatMap((node) => node.value.split(/\r\n|\r|\n/))
+      .map((line) => line.trim());
+
+    for (const candidate of labeled.authors) {
+      if (topLevelTextLines.includes(candidate.sentinel)) {
+        authorValues.push(candidate.value);
+      }
+    }
+
+    const hasSelfReview = labeled.selfReviews.some((sentinel) =>
+      renderedRoot.childNodes.some(
+        (node) =>
+          node.nodeName === 'h2' &&
+          node.childNodes.length === 1 &&
+          node.childNodes[0].nodeName === '#text' &&
+          node.childNodes[0].value.trim() === sentinel,
+      ),
+    );
+
+    const author =
+      authorValues.length === 1 && /^[A-Za-z0-9_-]+$/.test(authorValues[0])
+        ? authorValues[0].toLowerCase()
+        : '';
+
+    return { author, authorCount: authorValues.length, hasSelfReview };
   } catch {
     return { author: '', authorCount: 0, hasSelfReview: false };
   }
+}
 
-  for (const { line, offset } of sourceLines(body)) {
-    const authorMatch = line.match(/^ {0,3}Authoring-Agent:[ \t]*(.*?)[ \t]*$/i);
+function labelContractCandidates(body) {
+  let prefix = `PRBODYCONTRACT${body.length}X`;
+  while (body.includes(prefix)) prefix += 'X';
+
+  const authors = [];
+  const selfReviews = [];
+  const parts = body.split(/(\r\n|\r|\n)/);
+
+  for (let index = 0; index < parts.length; index += 2) {
+    const line = parts[index];
+    const authorMatch = line.match(/^( {0,3})Authoring-Agent:[ \t]*(.*?)[ \t]*$/i);
     if (authorMatch) {
-      const markerOffset = offset + line.search(/Authoring-Agent:/i);
-      if (hasOnlyTokenTypes(events, markerOffset, AUTHOR_TOKEN_TYPES, 'paragraph', 'data')) {
-        authorValues.push(authorMatch[1]);
-      }
+      const sentinel = `${prefix}AUTHOR${authors.length}END`;
+      authors.push({ sentinel, value: authorMatch[2] });
+      parts[index] = `${authorMatch[1]}${sentinel}`;
+      continue;
     }
 
-    if (/^ {0,3}##[ \t]+Self-Review(?:[ \t]+#*)?[ \t]*$/i.test(line)) {
-      const markerOffset = offset + line.indexOf('#');
-      if (
-        hasOnlyTokenTypes(
-          events,
-          markerOffset,
-          SELF_REVIEW_TOKEN_TYPES,
-          'atxHeading',
-          'atxHeadingSequence',
-        )
-      ) {
-        hasSelfReview = true;
-      }
+    const selfReviewMatch = line.match(
+      /^( {0,3})##[ \t]+Self-Review(?:[ \t]+#*)?[ \t]*$/i,
+    );
+    if (selfReviewMatch) {
+      const sentinel = `${prefix}SELFREVIEW${selfReviews.length}END`;
+      selfReviews.push(sentinel);
+      parts[index] = `${selfReviewMatch[1]}## ${sentinel}`;
     }
   }
 
-  const author =
-    authorValues.length === 1 && /^[A-Za-z0-9_-]+$/.test(authorValues[0])
-      ? authorValues[0].toLowerCase()
-      : '';
-
-  return { author, authorCount: authorValues.length, hasSelfReview };
-}
-
-function hasOnlyTokenTypes(events, offset, allowedTypes, ...requiredTypes) {
-  const tokenTypes = events
-    .filter(
-      ([event, token]) =>
-        event === 'enter' && offset >= token.start.offset && offset < token.end.offset,
-    )
-    .map(([, token]) => token.type);
-
-  return (
-    requiredTypes.every((type) => tokenTypes.includes(type)) &&
-    tokenTypes.every((type) => allowedTypes.has(type))
-  );
-}
-
-function* sourceLines(body) {
-  let offset = 0;
-  const lineEnding = /\r\n|\r|\n/g;
-  let match;
-
-  while ((match = lineEnding.exec(body)) !== null) {
-    yield { line: body.slice(offset, match.index), offset };
-    offset = match.index + match[0].length;
-  }
-
-  yield { line: body.slice(offset), offset };
+  return { body: parts.join(''), authors, selfReviews };
 }
 
 function isDirectExecution(entryPath) {

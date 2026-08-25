@@ -113,8 +113,10 @@ describe('PR body contract', () => {
 
     expect(workflow).toContain('actions/setup-node@');
     expect(workflow).toContain('npm ci --ignore-scripts');
+    expect(workflow).toContain("if: steps.node_project.outputs.enabled == 'true'");
     expect(repoLintWorkflow.match(/actions\/setup-node@/g)).toHaveLength(2);
     expect(repoLintWorkflow.match(/npm ci --ignore-scripts/g)).toHaveLength(2);
+    expect(repoLintWorkflow.match(/id: node_project/g)).toHaveLength(2);
     expect(parser).toMatch(/from ['"]micromark['"]/);
     expect(parser).not.toMatch(/from ['"](?:unified|remark-parse)['"]/);
   });

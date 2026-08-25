@@ -24,6 +24,7 @@ function pick(random, values) {
 
 function renderedContract(body) {
   sharedDocument.body.innerHTML = micromark(body, {
+    allowDangerousHtml: true,
     extensions: [gfmFootnote()],
     htmlExtensions: [gfmFootnoteHtml()],
   });
@@ -251,6 +252,26 @@ describe('PR body contract differential fuzzing', () => {
     expect(renderedContract('## Self-Review').hasSelfReview).toBe(true);
     expect(renderedContract('> ## Self-Review').hasSelfReview).toBe(false);
     expect(renderedContract('- ## Self-Review').hasSelfReview).toBe(false);
+  });
+
+  it('requires markers to remain at the browser DOM root across raw HTML blank lines', () => {
+    const body = [
+      '<details>',
+      '<summary>Review metadata</summary>',
+      '',
+      AUTHOR,
+      '',
+      SELF_REVIEW,
+      '',
+      '</details>',
+    ].join('\n');
+
+    expect(renderedContract(body)).toEqual({ hasAuthor: false, hasSelfReview: false });
+    expect(parsePrBodyContract(body)).toEqual({
+      author: '',
+      authorCount: 0,
+      hasSelfReview: false,
+    });
   });
 
   it('never accepts generated hidden markers that a maintained CommonMark renderer hides', () => {
