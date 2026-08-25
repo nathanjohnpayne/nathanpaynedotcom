@@ -10,6 +10,8 @@ screenshotSrc: "/images/projects/five-across-hero.png"
 screenshotSecondary:
   src: "/images/projects/five-across-gcb-hero.png"
   alt: "Gay Cruise Bingo warm-up card on the same Five Across platform, showing a Welcome Aboard bingo grid for a Trieste sailing"
+  width: 786
+  height: 1550
 accent: "red"
 liveUrl: "https://fiveacross.app"
 githubUrl: "https://github.com/nathanjohnpayne/gaycruisebingo"

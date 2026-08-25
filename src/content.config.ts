@@ -27,6 +27,14 @@ const projects = defineCollection({
       .object({
         src: z.string().trim().min(1),
         alt: z.string().trim().min(1),
+        // Intrinsic pixel dimensions, required rather than optional. The
+        // companion is `loading="lazy"` and stacks BELOW the primary on phones,
+        // so without an aspect-ratio box it occupies zero height until fetched
+        // and then shoves the stack caption and the whole article down by a
+        // full frame (Codex P2 on #785). Assets in `public/` are not processed
+        // by Astro, so nothing can infer these at build time.
+        width: z.number().int().positive(),
+        height: z.number().int().positive(),
       })
       .optional(),
     accent: z.enum(['red', 'yellow', 'black', 'blue', 'paper']),

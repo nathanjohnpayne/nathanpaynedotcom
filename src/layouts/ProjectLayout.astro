@@ -37,7 +37,7 @@ interface Props {
   accent: 'red' | 'yellow' | 'black' | 'blue' | 'paper';
   screenshotAspect: 'wide' | 'narrow';
   screenshotSrc: string;
-  screenshotSecondary?: { src: string; alt: string };
+  screenshotSecondary?: { src: string; alt: string; width: number; height: number };
   muxPlaybackId?: string;
   slug: string;
   liveUrl?: string;
@@ -140,6 +140,8 @@ const topics = kicker.split(/\s*×\s*/).join(' · ');
               <img
                 src={screenshotSecondary.src}
                 alt={screenshotSecondary.alt}
+                width={screenshotSecondary.width}
+                height={screenshotSecondary.height}
                 loading="lazy"
                 decoding="async"
               />

@@ -29,6 +29,11 @@ kicker: "AI × Domain × Category"
 order: 5
 screenshotAspect: "wide"
 screenshotSrc: "/images/projects/project-name-hero.png"
+screenshotSecondary:                # optional—a second capture shown beside the first
+  src: "/images/projects/project-name-hero-b.png"
+  alt: "What the second capture shows"
+  width: 786                        # intrinsic pixels; required, prevents layout shift
+  height: 1550
 accent: "red"                      # = RAMP[order % 5]; order 5 → red. See Accent ramp
 liveUrl: "https://example.com"     # optional—omit on pre-launch projects
 githubUrl: "https://github.com/you/repo"
@@ -58,6 +63,7 @@ draft: false
 | `order` | number | yes | Position on the `/projects/` index grid (lower = first). Governs `/projects/` **only**—the homepage Builds grid is hand-authored markup and ignores this field. See § Canonical project ordering |
 | `screenshotAspect` | `"wide"` \| `"narrow"` | yes | Layout variant—see below |
 | `screenshotSrc` | string | yes | Path to hero image in `public/` |
+| `screenshotSecondary` | object | no | A companion capture rendered beside `screenshotSrc`—see § Paired screenshots. All four keys are required when the field is present: `src`, `alt`, `width`, `height` |
 | `accent` | enum | yes | Semantic accent token for the project. One of `red`, `yellow`, `paper`, `blue`, `black`. Not a free choice—it must be `RAMP[order % 5]` per the Accent ramp below, enforced by `tests/project-pages.test.js`. CSS derives the actual palette values, text-safe color, page wash, and metadata gradient from this token |
 | `liveUrl` | non-empty string | no | URL for "View Live Product" CTA. Omit on pre-launch projects (status `IN PROGRESS`)—the CTA, the index card "Live ↗" link, the homepage Builds "Live ↗" link, and the `SoftwareApplication` JSON-LD entity are all suppressed when this field is missing |
 | `githubUrl` | string | yes | URL for "View on GitHub" CTA |
@@ -91,6 +97,18 @@ rather than getting their own section.
 ```
 
 Bullet lists get square markers colored with `--accent`. Horizontal rules between sections are generated from the `## Heading` CSS—no manual `---` needed.
+
+
+### Paired screenshots
+
+A project whose product ships more than one front end can carry two captures instead of one. Adding `screenshotSecondary` puts a second image beside `screenshotSrc` and adds `project-screenshot--pair` to the figure:
+
+- **Above `--bp-tablet` (768px)** the two sit side by side. Under `screenshotAspect: "narrow"` each is capped at 320px and the wrapper widens to hold both plus the gap; under `"wide"` they split the full content column.
+- **Below 768px** they stack, and the stack caption narrows with them.
+
+`alt` is required, not optional: the primary derives its alt text from the project title, and a second image has no such fallback. `width` and `height` are the asset's intrinsic pixels and are also required—the companion is lazy-loaded and stacks *below* the primary on phones, so without an aspect-ratio box it would occupy zero height until fetched and then push the caption and the article down by a full frame. Assets in `public/` bypass Astro's image pipeline, so nothing can infer them at build time.
+
+Do not add per-image captions. Each capture is expected to carry its own identifying chrome; labelling them repeats what the images already say.
 
 ---
 
