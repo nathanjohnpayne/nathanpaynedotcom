@@ -10,10 +10,10 @@ date: 2026-08-24
 tags: ["Product", "Engineering", "Scope", "Decision Making", "AI"]
 image: "/og/blog/autofix-was-the-whole-cost.png"
 keyTakeaways:
-  - "The expensive part of a requirement is rarely the part stated in it, and it is not always the largest part. Auto-fixing violations was 17% of the implementation and tests combined, and nearly all of the work that would not converge—scope can be cheap to build and ruinously expensive to finish."
-  - "Findings per review round is a burn-down chart for quality work. A series that dips and rebounds without reaching zero means the work is not converging, and more rounds without changing the approach were unlikely to change it. The external-review lane alone recorded 524,554 tokens across 17 loops that nobody approved as a line item."
-  - "Buying instead of building relocates complexity rather than removing it. The honest number here was 2,453 lines becoming 1,343—a 45% reduction, not the two-hundred-fold collapse the headline version implies."
-  - "A migration that reports success is not the same as a migration that works. Running the old and new tools side by side and comparing outputs caught a silent gap that would have dropped 57 reader-facing fields out of lint coverage."
+  - "The expensive part of a requirement is rarely the part it states. One sentence of style guidance bundled three capabilities—detect the pattern, decide what counts as prose, rewrite the file—and the one nobody had requested was 17% of the implementation and tests combined but nearly all of the work that would not converge: 57 findings across 24 rounds that dipped and rebounded rather than approaching zero. Deleting it ended the loop in a single commit, eighteen rounds after the series had already shown the same shape."
+  - "Automated review removes the friction that used to stop a loop. The arc logged 256 review submissions and 126 inline findings across seven pull requests, and none of that rework needed anyone's approval or appeared as a line item. When the next round is nearly free, the signal to stop has to come from the shape of the series, because no budget will raise its hand."
+  - "Buying instead of building relocates complexity rather than removing it. Moving to an off-the-shelf linter took the tool and its tests from 2,453 lines to 1,343, a 45% reduction rather than the two-hundred-fold collapse the headline version implies: the rule itself did shrink to 7 lines, and a 509-line adapter absorbed the difference. Still the right trade, and the honest number is the one worth quoting."
+  - "A migration that reports success is not the same as a migration that works. The replacement silently skips list items in a post's metadata block, which would have dropped 57 reader-facing fields—pull quotes and key takeaways like this one—out of coverage while reporting green. Running both tools side by side before deleting either caught it, and replaying all 174 retired test cases turned 18 lost checks into a recorded trade with zero occurrences in the content."
 pullquotes:
   - text: "Auto-fix was not most of the surviving code. It was most of the trust burden, and nearly all of the work that would not converge."
     label: "The correction"
@@ -220,7 +220,7 @@ Little of this is about linting.
 
 **Unbundle the requirement before estimating it.** One sentence contained three capabilities with wildly different cost profiles. The one that could not converge was also the optional one, and nobody knew either fact—because nobody had listed them separately. Size and difficulty are not the same axis.
 
-**Plot the thing that would tell you it is not working.** Findings per round, escaped defects per release, reopen rate. A shallow decline that never reaches zero is the dangerous shape, because it still reads as progress on any single round. Change the shape of the work rather than pushing harder. The metric that would have saved three weeks here cost one query.
+**Plot the thing that would tell you it is not working.** Findings per round, escaped defects per release, reopen rate. A shallow decline that never reaches zero is the dangerous shape, because it still reads as progress on any single round. Change the shape of the work rather than pushing harder. The metric that would have ended this eighteen rounds earlier cost one query.
 
 **Ask what a capability is protecting.** The proof obligation that generated the findings existed solely to serve a feature nobody had defended. Requirements that were never argued for are where cost quietly concentrates, precisely because nothing was ever argued about them.
 
