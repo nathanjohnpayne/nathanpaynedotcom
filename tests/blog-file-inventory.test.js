@@ -1,6 +1,6 @@
-import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 import { blogSlugFromPath, findBlogMarkdownFiles } from '../scripts/lib/blog-file-inventory.mjs';
@@ -31,6 +31,11 @@ describe('blog file inventory', () => {
     } finally {
       rmSync(directory, { recursive: true, force: true });
     }
+  });
+
+  it('routes slash-separated blog slugs through an Astro rest parameter', () => {
+    expect(existsSync(resolve('src/pages/blog/[...slug].astro'))).toBe(true);
+    expect(existsSync(resolve('src/pages/blog/[slug].astro'))).toBe(false);
   });
 
   it('includes nested published posts in sitemap lastmod values', () => {

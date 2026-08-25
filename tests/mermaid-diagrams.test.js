@@ -107,6 +107,8 @@ describe('rehype-mermaid integration', () => {
     expect(figure?.textContent).toContain('Broken flow');
     expect(figure?.textContent).toContain('A was intended to lead to B.');
     expect(figure?.textContent).not.toMatch(/error|stack|at file:/i);
+    const fallback = document.querySelector('.mermaid-fallback');
+    expect(fallback?.hasAttribute('aria-hidden')).toBe(false);
     expect(document.querySelector('pre, code, svg')).toBeNull();
   });
 

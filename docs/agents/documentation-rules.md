@@ -15,7 +15,7 @@ Follow [Prose Line-Wrapping](prose-line-wrapping.md) for these consumer-owned Ma
 - `AGENTS.md`, `.ai_context.md`, `README.md`, `CONTRIBUTING.md`, `DEPLOYMENT.md`, and `SECURITY.md`
 - `docs/*.md`, `plans/*.md`, and `rules/*.md`
 - `docs/agents/repository-overview.md`, `docs/agents/operating-rules.md`, `docs/agents/code-modification-rules.md`, `docs/agents/documentation-rules.md`, `docs/agents/testing-requirements.md`, and `docs/agents/deployment-process.md`
-- `src/content/blog/*.md`
+- `src/content/blog/**/*.md`
 
 Canonical Mergepath mirrors, generated files, fixtures, and vendored trees remain out of scope. This repository applies the convention during authoring and review; it does not currently add a dedicated wrapping lint gate.
 

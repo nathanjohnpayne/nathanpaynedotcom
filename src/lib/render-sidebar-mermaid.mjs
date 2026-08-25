@@ -49,5 +49,11 @@ export async function renderSidebarMermaid(items, filePath = 'sidebar') {
   await render(tree, { path: filePath });
   finish(tree);
 
+  if (tree.children.length !== diagrams.length) {
+    throw new Error(
+      `Sidebar Mermaid rendering produced ${tree.children.length} nodes for ${diagrams.length} diagrams`,
+    );
+  }
+
   return new Map(tree.children.map((node, index) => [diagrams[index].index, toHtml(node)]));
 }

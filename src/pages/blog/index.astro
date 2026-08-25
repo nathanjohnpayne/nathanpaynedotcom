@@ -63,7 +63,7 @@ function formatDate(date: Date): string {
   });
 }
 
-// Shared estimator with src/pages/blog/[slug].astro — see
+// Shared estimator with src/pages/blog/[...slug].astro — see
 // src/lib/reading-time.ts for algorithm. The bare "min" suffix is
 // listing-specific (the post page uses "min read").
 function readingTime(body: string | undefined): string {

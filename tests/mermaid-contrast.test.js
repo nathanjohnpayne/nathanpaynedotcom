@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { JSDOM } from 'jsdom';
 import { describe, expect, it } from 'vitest';
@@ -12,6 +12,8 @@ describe('rendered Mermaid contrast', () => {
   it('keeps every explicitly styled rendered node at WCAG AA contrast', () => {
     const failures = [];
     let styledNodeCount = 0;
+
+    expect(existsSync(builtBlogRoot), 'dist/blog must exist; run npm run build first').toBe(true);
 
     for (const pagePath of findFilesRecursively(builtBlogRoot, (path) =>
       path.endsWith('index.html'),

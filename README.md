@@ -59,7 +59,7 @@ The default 1921 register lives in `:root`; the homepage opts into a higher-chro
 │   │   ├── rss.xml.ts              # RSS feed endpoint
 │   │   ├── blog/
 │   │   │   ├── index.astro         # Blog listing
-│   │   │   └── [slug].astro        # Dynamic blog post pages
+│   │   │   └── [...slug].astro     # Dynamic blog post pages, including nested paths
 │   │   ├── projects/               # Project index + dynamic project detail pages
 │   │   └── og-templates/           # OG image templates (build-time only)
 │   ├── components/
@@ -119,7 +119,7 @@ When a panel is focused, JavaScript sets `data-focus="<panel-name>"` on the grid
 
 ### Blog
 
-Blog posts are authored as Markdown files in `src/content/blog/` with Zod-validated frontmatter (defined in `src/content.config.ts`). Astro's Content Collections API provides type-safe access to the content. Posts support:
+Blog posts are recursively discovered as Markdown files in `src/content/blog/` with Zod-validated frontmatter (defined in `src/content.config.ts`). Astro's Content Collections API provides type-safe access to the content. Posts support:
 
 - **Pullquotes**—accent-colored sidebar cards
 - **Sidebar content**—Mermaid diagrams, images, and text blocks

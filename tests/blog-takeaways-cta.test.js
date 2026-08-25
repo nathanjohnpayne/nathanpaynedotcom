@@ -72,7 +72,7 @@ function setupDOM(html) {
   writeSanitizedDOM(html);
 }
 
-// Date order, newest first — intentionally retained by [slug].astro even
+// Date order, newest first — intentionally retained by [...slug].astro even
 // though /blog/ now uses editorial ordering (#627).
 const postsByDateDesc = publishedPosts
   .map((p) => ({ ...p, date: scalar(p.raw, 'date') }))

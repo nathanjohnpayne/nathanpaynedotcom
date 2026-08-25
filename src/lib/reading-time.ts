@@ -1,7 +1,7 @@
 /**
  * reading-time.ts — shared reading-time estimator for blog posts.
  *
- * Used by both `src/pages/blog/[slug].astro` and `src/pages/blog/index.astro`,
+ * Used by both `src/pages/blog/[...slug].astro` and `src/pages/blog/index.astro`,
  * where the same algorithm previously lived inline in each file (#342 → #115
  * CodeRabbit nit on PR #115). Extracted here so future tweaks to the wpm
  * baseline or the code-block weight don't have to be applied in two places

@@ -19,7 +19,7 @@ export const mermaidOptions = {
     return {
       type: 'element',
       tagName: 'div',
-      properties: { className: ['mermaid-fallback'], ariaHidden: 'true' },
+      properties: { className: ['mermaid-fallback'] },
       children: [
         paragraph('Diagram unavailable', ['mermaid-fallback__heading']),
         paragraph(title, ['mermaid-fallback__title']),
