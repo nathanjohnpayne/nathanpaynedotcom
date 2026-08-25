@@ -168,21 +168,21 @@ Go to the new repo → Settings → Secrets and variables → Actions → New re
 
 | Secret name | Value | PAT type |
 |---|---|---|
-| `REVIEWER_ASSIGNMENT_TOKEN` | PAT for `nathanjohnpayne` | Fine-grained OK (owns repo) |
+| `REVIEWER_ASSIGNMENT_TOKEN` | PAT for a **reviewer identity** (`nathanpayne-claude` here) | Classic, `repo` scope |
 
 Or use the CLI (faster):
 
 ```bash
-gh secret set REVIEWER_ASSIGNMENT_TOKEN --repo {owner}/{repo} --body "$(op read 'op://Private/sm5kopwk6t6p3xmu2igesndzhe/token')"
+gh secret set REVIEWER_ASSIGNMENT_TOKEN --repo {owner}/{repo} --body "$(op read 'op://Private/pvbq24vl2h6gl7yjclxy2hbote/token')"
 ```
 
-**Reviewer identity PATs (`nathanpayne-claude`, `nathanpayne-codex`,
-`nathanpayne-cursor`) are intentionally NOT stored as repo CI secrets.**
-Phase 2 internal self-peer review runs in the agent's own session: the
-agent switches its Git identity to its reviewer account with a PAT
-read directly from 1Password (`op read 'op://Private/<item-id>/token'`)
-and posts the review with that PAT. See REVIEW_POLICY.md § Phase 2 and
-each repo's `CLAUDE.md` / `AGENTS.md` for the identity-switch procedure.
+`REVIEWER_ASSIGNMENT_TOKEN` **must resolve to an identity listed in `available_reviewers`.** This is enforced, not advisory: `dependabot-auto-merge.yml` posts `gh pr review --approve` with this secret (line 399) and hard-fails at lines 347-348 when the resolved login is not in the allowlist. It also rejects the author identity at line 315, because GitHub blocks self-approval. So neither `nathanjohnpayne` nor a CI service account works here, however much the name and most of its other uses suggest otherwise.
+
+That is the trap in this secret: its *visible* uses are ordinary CI work—requesting reviewers in `agent-review.yml`, stripping `needs-external-review` in `pr-review-policy.yml`—so it reads like a CI-actor token. It is not. One consumer needs reviewer standing, and that consumer sets the requirement for all of them. Rotating it to `nathanpayne-robot` breaks every Dependabot auto-merge; if it got past that, the robot approval would then trip the `non_reviewer_identities` block in `scripts/merge-clearance-gate.sh`.
+
+The consequence is that routine CI activity in this repo is attributed to `nathanpayne-claude` rather than to CI. That is a known wart, not a misconfiguration, and it cannot be fixed here: the four workflows involved are canonical mergepath surfaces (`consumers: all`), so the split belongs upstream. Tracked in nathanjohnpayne/mergepath#1097.
+
+**Reviewer identity PATs are otherwise NOT stored as repo CI secrets.** `REVIEWER_ASSIGNMENT_TOKEN` is the single exception, for the Dependabot approval path above. Phase 2 internal self-peer review does not use it: that runs in the agent's own session, where the agent switches its Git identity to its reviewer account with a PAT read directly from 1Password (`op read 'op://Private/<item-id>/token'`) and posts the review with that PAT. See REVIEW_POLICY.md § Phase 2 and each repo's `CLAUDE.md` / `AGENTS.md` for the identity-switch procedure.
 
 **Do NOT add `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` / `CLAUDE_PAT` /
 `CODEX_PAT` / `CURSOR_PAT` as repo secrets.** An earlier iteration of
@@ -296,7 +296,7 @@ in 1Password with the field name `token` (not `credential` or `password`).
 | `nathanpayne-codex` | `etak327mpz4drd4byxszfex4vm` | `op read "op://Private/etak327mpz4drd4byxszfex4vm/token"` |
 | `nathanjohnpayne` | `sm5kopwk6t6p3xmu2igesndzhe` | `op read "op://Private/sm5kopwk6t6p3xmu2igesndzhe/token"` |
 
-> The item `o6ekjxjjl5gq6rmcneomrjahpu` is **not** in this table on purpose: it is the `nathanpayne-robot` CI service account, which holds no reviewer standing and must never post a review. It was the Codex item until 2026-08-21—see REVIEW_POLICY.md § PAT lookup table for the hazard note. It changed hands on 2026-08-21 because the robot PAT was created by repurposing the existing Codex item instead of minting a fresh one.
+> The item `o6ekjxjjl5gq6rmcneomrjahpu` is **not** in this table on purpose: it is the `nathanpayne-robot` CI service account, which holds no reviewer standing and must never post a review. It is a write collaborator but is currently wired to **no** workflow or secret—`REVIEWER_ASSIGNMENT_TOKEN` cannot hold it (see § Store PATs as repository secrets), and giving it a CI role needs nathanjohnpayne/mergepath#1097 to land first. It was the Codex item until 2026-08-21—see REVIEW_POLICY.md § PAT lookup table for the hazard note. It changed hands on 2026-08-21 because the robot PAT was created by repurposing the existing Codex item instead of minting a fresh one.
 
 Use the item ID (not the item title) to avoid shell issues with parentheses in
 1Password item names like `GitHub PAT (pr-review-claude)`.
@@ -341,10 +341,7 @@ Note: reviewer identity PATs are NOT stored as repo CI secrets. They are
 read from 1Password per-session by the authoring agent for the in-session
 identity switch, so rotation does not require updating any repo secrets.
 
-The `REVIEWER_ASSIGNMENT_TOKEN` repo secret (Nathan's PAT used by the
-Agent Review Pipeline workflow) follows a similar process but also
-needs a `gh secret set REVIEWER_ASSIGNMENT_TOKEN --repo {owner}/{repo}`
-call on every repo after rotating the 1Password item.
+`REVIEWER_ASSIGNMENT_TOKEN` is the exception to the note above: it holds a reviewer-identity PAT (`nathanpayne-claude` here, per § Store PATs as repository secrets), so rotating that reviewer item **does** require a `gh secret set REVIEWER_ASSIGNMENT_TOKEN --repo {owner}/{repo}` call on every repo carrying it. Skipping that leaves Dependabot auto-merge failing closed on an invalid token.
 
 ---
 
