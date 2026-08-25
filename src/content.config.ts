@@ -17,6 +17,17 @@ const projects = defineCollection({
     // with a misleading "declares no order" (Codex P2 on #783).
     order: z.number().int().nonnegative(),
     screenshotAspect: z.enum(['wide', 'narrow']),
+    // A companion capture rendered BESIDE `screenshotSrc` (side by side above
+    // --bp-tablet, stacked below). For a platform that ships more than one
+    // front end, one shot per Edition says more than either alone. `alt` is
+    // required rather than optional so a second image cannot reach the page
+    // without alt text — the primary derives its own from the project title.
+    screenshotSecondary: z
+      .object({
+        src: z.string().trim().min(1),
+        alt: z.string().trim().min(1),
+      })
+      .optional(),
     screenshotSrc: z.string(),
     accent: z.enum(['red', 'yellow', 'black', 'blue', 'paper']),
     // Optional: in-progress projects (status "IN PROGRESS") may not have

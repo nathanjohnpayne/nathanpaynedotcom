@@ -1787,6 +1787,45 @@ body.blog-page {
   width: 100%;
 }
 
+/* Paired capture: two Editions of one platform side by side. The inner
+   wrapper turns into a row and widens to hold both phone frames plus the
+   gap, so `--narrow`'s single-frame 320px cap no longer applies to the
+   wrapper — it still applies to each shot via `flex-basis`. */
+.project-screenshot--pair .project-screenshot__inner {
+  flex-direction: row;
+  align-items: flex-start;
+  justify-content: center;
+  gap: var(--screenshot-pair-gap);
+}
+
+.project-screenshot--narrow.project-screenshot--pair .project-screenshot__inner,
+.project-screenshot--narrow.project-screenshot--pair .project-stack {
+  --screenshot-pair-gap: clamp(0.6rem, 1.8vw, 1.4rem);
+  max-width: calc(320px * 2 + var(--screenshot-pair-gap));
+}
+
+.project-screenshot--pair .project-screenshot__inner > * {
+  flex: 1 1 0;
+  /* Flex items floor at their content width without this, which lets a wide
+     image push the row past the wrapper instead of shrinking. */
+  min-width: 0;
+  max-width: 320px;
+}
+
+/* Below --bp-tablet (768px) two 320px frames plus the gap no longer fit the
+   content column, so the pair stacks and each shot returns to full width. */
+@media (max-width: 767px) {
+  .project-screenshot--pair .project-screenshot__inner {
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .project-screenshot--pair .project-screenshot__inner > * {
+    flex: 0 1 auto;
+    width: 100%;
+  }
+}
+
 .project-screenshot img,
 .project-screenshot > svg,
 .project-screenshot__inner > svg {

@@ -7,6 +7,9 @@ kicker: "Consumer × Social × Live Ops"
 order: 0
 screenshotAspect: "narrow"
 screenshotSrc: "/images/projects/five-across-hero.png"
+screenshotSecondary:
+  src: "/images/projects/five-across-gcb-hero.png"
+  alt: "Gay Cruise Bingo warm-up card on the same Five Across platform, showing a Welcome Aboard bingo grid for a Trieste sailing"
 accent: "red"
 liveUrl: "https://fiveacross.app"
 githubUrl: "https://github.com/nathanjohnpayne/gaycruisebingo"
