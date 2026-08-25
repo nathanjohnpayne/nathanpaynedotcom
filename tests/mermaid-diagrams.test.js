@@ -66,6 +66,28 @@ describe('remark-mermaid plugin', () => {
     expect(tree.children[0].lang).toBe('javascript');
   });
 
+  it('accepts Mermaid fences in nested blog content', async () => {
+    const tree = {
+      type: 'root',
+      children: [
+        {
+          type: 'code',
+          lang: 'mermaid',
+          meta: 'title="Nested flow" description="A nested article connects A to B."',
+          value: 'graph TD\nA --> B',
+        },
+      ],
+    };
+
+    await transformMermaid(
+      tree,
+      resolve(__dirname, '../src/content/blog/nested/deeper/example.md'),
+    );
+
+    expect(tree.children[0].type).toBe('html');
+    expect(tree.children[0].value).toContain('aria-label="Nested flow"');
+  });
+
   it('escapes HTML in mermaid content', async () => {
     const tree = {
       type: 'root',

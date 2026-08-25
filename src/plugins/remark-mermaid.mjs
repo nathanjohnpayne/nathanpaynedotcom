@@ -33,7 +33,7 @@ export default function remarkMermaid() {
 
 function assertSupportedContentFile(file) {
   const filePath = String(file?.path ?? file?.history?.at(-1) ?? '').replaceAll('\\', '/');
-  if (!/(^|\/)src\/content\/blog\/[^/]+\.md$/.test(filePath)) {
+  if (!/(^|\/)src\/content\/blog\/(?:[^/]+\/)*[^/]+\.md$/.test(filePath)) {
     throw new Error(
       `Mermaid code fences are only supported in src/content/blog Markdown files (received ${filePath || 'an unknown source'})`,
     );
