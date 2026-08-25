@@ -171,6 +171,23 @@ else
 fi
 
 reset_log
+set +e
+stderr_capture=$(OP_PREFLIGHT_AUTHOR_PAT="author-token" \
+  run_wrapper -- gh pr create --title "t" -dbINVALID \
+    --body $'Authoring-Agent: codex\n\n## Self-Review\n\n- Correctness: verified.' 2>&1 >/dev/null)
+rc=$?
+set -e
+if [ "$rc" -ne 1 ]; then
+  fail "pr create contract: clustered body flag rc=$rc expected 1"
+elif ! echo "$stderr_capture" | grep -q "ambiguous clustered short option"; then
+  fail "pr create contract: clustered body flag missing actionable diagnostic"
+elif grep -q $'gh\tpr\tcreate' "$WORKDIR/calls.log"; then
+  fail "pr create contract: clustered body flag reached the write"
+else
+  pass "pr create contract: clustered short body flags are rejected before write"
+fi
+
+reset_log
 VALID_INLINE_BODY=$'Authoring-Agent: codex\n\n## Self-Review\n\n- Correctness: verified.'
 OP_PREFLIGHT_AUTHOR_PAT="author-token" GH_CREATE_PR_URL="https://github.com/example/repo/pull/76" GH_VIEW_AUTHOR="nathanjohnpayne" \
   run_wrapper -- gh pr create --title "t" "-b=$VALID_INLINE_BODY" >/dev/null 2>&1
@@ -234,8 +251,32 @@ OP_PREFLIGHT_AUTHOR_PAT="author-token" GH_CREATE_PR_URL="https://github.com/exam
 rc=$?
 if [ "$rc" -ne 0 ]; then
   fail "pr create contract: valid body file should pass; rc=$rc"
+elif grep -q -- "--body-file\|$BODY_FILE" "$WORKDIR/calls.log"; then
+  fail "pr create contract: body file path was read again by the wrapped command"
+  cat "$WORKDIR/calls.log" >&2
+elif ! grep -q $'gh\tpr\tcreate\t--title\tt\t--body\tAuthoring-Agent: codex' "$WORKDIR/calls.log"; then
+  fail "pr create contract: captured body file snapshot was not passed inline"
+  cat "$WORKDIR/calls.log" >&2
 else
-  pass "pr create contract: valid body file passes runtime validation"
+  pass "pr create contract: body file is validated once and passed as the captured snapshot"
+fi
+
+reset_log
+VALID_STDIN_BODY=$'Authoring-Agent: codex\n\n## Self-Review\n\n- Correctness: verified.'
+printf '%s' "$VALID_STDIN_BODY" | \
+  OP_PREFLIGHT_AUTHOR_PAT="author-token" GH_CREATE_PR_URL="https://github.com/example/repo/pull/79" GH_VIEW_AUTHOR="nathanjohnpayne" \
+  run_wrapper -- gh pr create --title "t" -F /dev/stdin >/dev/null 2>&1
+rc=$?
+if [ "$rc" -ne 0 ]; then
+  fail "pr create contract: /dev/stdin body snapshot should pass; rc=$rc"
+elif grep -q -- "/dev/stdin\|\t-F\t" "$WORKDIR/calls.log"; then
+  fail "pr create contract: /dev/stdin was passed to the wrapped command for a second read"
+  cat "$WORKDIR/calls.log" >&2
+elif ! grep -q $'gh\tpr\tcreate\t--title\tt\t--body\tAuthoring-Agent: codex' "$WORKDIR/calls.log"; then
+  fail "pr create contract: captured stdin snapshot was not passed inline"
+  cat "$WORKDIR/calls.log" >&2
+else
+  pass "pr create contract: stdin is validated once and passed as the captured snapshot"
 fi
 
 reset_log

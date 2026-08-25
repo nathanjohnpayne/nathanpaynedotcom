@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
@@ -57,6 +57,27 @@ describe('blog file inventory', () => {
       expect(lastmod.get('/blog/')).toBe('2026-03-04T00:00:00.000Z');
     } finally {
       rmSync(directory, { recursive: true, force: true });
+    }
+  });
+
+  it('follows linked files and directories without recursing through symlink cycles', () => {
+    const directory = mkdtempSync(join(tmpdir(), 'blog-symlinks-'));
+    const linkedDirectory = mkdtempSync(join(tmpdir(), 'blog-linked-content-'));
+
+    try {
+      const linkedPost = join(linkedDirectory, 'linked.md');
+      writeFileSync(linkedPost, 'linked');
+      symlinkSync(linkedDirectory, join(directory, 'linked-series'));
+      symlinkSync(linkedPost, join(directory, 'linked-file.md'));
+      symlinkSync(directory, join(linkedDirectory, 'cycle'));
+
+      expect(findBlogMarkdownFiles(directory)).toEqual([
+        join(directory, 'linked-file.md'),
+        join(directory, 'linked-series', 'linked.md'),
+      ]);
+    } finally {
+      rmSync(directory, { recursive: true, force: true });
+      rmSync(linkedDirectory, { recursive: true, force: true });
     }
   });
 });

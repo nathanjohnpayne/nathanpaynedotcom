@@ -75,15 +75,13 @@ describe('PR body contract', () => {
     expect(htmlBlockAttribute.stderr).toContain("missing a valid 'Authoring-Agent:' line");
   });
 
-  it('installs parser dependencies before validation on a clean policy runner', () => {
+  it('keeps the trusted parser self-contained on a clean policy runner', () => {
     const workflow = readFileSync('.github/workflows/pr-review-policy.yml', 'utf8');
-    const setupIndex = workflow.indexOf('actions/setup-node@');
-    const installIndex = workflow.indexOf('run: npm ci');
-    const validationIndex = workflow.indexOf('printf \'%s\\n\' "$PR_BODY"');
+    const parser = readFileSync('scripts/lib/pr-body-contract.mjs', 'utf8');
 
-    expect(setupIndex).toBeGreaterThan(-1);
-    expect(installIndex).toBeGreaterThan(setupIndex);
-    expect(validationIndex).toBeGreaterThan(installIndex);
+    expect(workflow).toContain('actions/setup-node@');
+    expect(workflow).not.toContain('Install trusted validator dependencies');
+    expect(parser).not.toMatch(/from ['"](?:unified|remark-parse)['"]/);
   });
 
   it('keeps raw HTML blocks hidden across internal blank lines', () => {

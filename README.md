@@ -125,7 +125,7 @@ Blog posts are authored as Markdown files in `src/content/blog/` with Zod-valida
 - **Sidebar content**—Mermaid diagrams, images, and text blocks
 - **Code syntax highlighting**—via Shiki with CSS variable theming
 - **Figure captions**—auto-numbered via custom Rehype plugin
-- **Mermaid diagrams**—rendered client-side via CDN
+- **Mermaid diagrams**—rendered to accessible inline SVG at build time by `rehype-mermaid`
 
 ### OG Images
 

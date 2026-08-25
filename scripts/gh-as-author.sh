@@ -115,36 +115,41 @@ fi
 
 if [ "$IS_PR_CREATE" -eq 1 ]; then
   PR_BODY=""
-  SKIP_NEXT=""
-  for argument in "$@"; do
-    if [ "$SKIP_NEXT" = "other" ]; then
-      SKIP_NEXT=""
-      continue
-    fi
-    if [ "$SKIP_NEXT" = "body" ]; then
-      PR_BODY="$argument"
-      SKIP_NEXT=""
-      continue
-    fi
-    if [ "$SKIP_NEXT" = "body-file" ]; then
-      if [ "$argument" = "-" ]; then
-        echo "gh-as-author: --body-file - is unsupported because the body must be validated before the write; use a readable file path." >&2
-        exit 1
-      fi
-      if [ ! -r "$argument" ]; then
-        echo "gh-as-author: PR body file is not readable: $argument" >&2
-        exit 1
-      fi
-      PR_BODY="$(cat "$argument")"
-      SKIP_NEXT=""
-      continue
-    fi
+  NORMALIZED_COMMAND=()
 
+  read_pr_body_file() {
+    local body_file="$1"
+    local spelling="$2"
+    if [ "$body_file" = "-" ]; then
+      echo "gh-as-author: $spelling is unsupported because the body must be validated before the write; use /dev/stdin when stdin is intentional." >&2
+      exit 1
+    fi
+    if [ ! -r "$body_file" ]; then
+      echo "gh-as-author: PR body file is not readable: $body_file" >&2
+      exit 1
+    fi
+    PR_BODY="$(cat "$body_file")"
+  }
+
+  while [ "$#" -gt 0 ]; do
+    argument="$1"
+    shift
     case "$argument" in
-      --body|-b) SKIP_NEXT="body" ;;
-      --body-file|-F) SKIP_NEXT="body-file" ;;
-      -R|--repo|--hostname|-a|--assignee|-B|--base|-H|--head|-l|--label|-m|--milestone|-p|--project|--recover|-r|--reviewer|-T|--template|-t|--title)
-        SKIP_NEXT="other"
+      --body|-b)
+        if [ "$#" -eq 0 ]; then
+          echo "gh-as-author: PR creation flag is missing its body value." >&2
+          exit 1
+        fi
+        PR_BODY="$1"
+        shift
+        ;;
+      --body-file|-F)
+        if [ "$#" -eq 0 ]; then
+          echo "gh-as-author: PR creation flag is missing its body-file value." >&2
+          exit 1
+        fi
+        read_pr_body_file "$1" "$argument -"
+        shift
         ;;
       --body=*) PR_BODY="${argument#--body=}" ;;
       -b?*)
@@ -153,43 +158,38 @@ if [ "$IS_PR_CREATE" -eq 1 ]; then
         ;;
       --body-file=*)
         body_file="${argument#--body-file=}"
-        if [ "$body_file" = "-" ]; then
-          echo "gh-as-author: --body-file - is unsupported because the body must be validated before the write; use a readable file path." >&2
-          exit 1
-        fi
-        if [ ! -r "$body_file" ]; then
-          echo "gh-as-author: PR body file is not readable: $body_file" >&2
-          exit 1
-        fi
-        PR_BODY="$(cat "$body_file")"
-        ;;
-      -R?*|--repo=*|--hostname=*|-a?*|--assignee=*|-B?*|--base=*|-H?*|--head=*|-l?*|--label=*|-m?*|--milestone=*|-p?*|--project=*|--recover=*|-r?*|--reviewer=*|-T?*|--template=*|-t?*|--title=*)
+        read_pr_body_file "$body_file" "--body-file=-"
         ;;
       -F?*)
         body_file="${argument#-F}"
         body_file="${body_file#=}"
-        if [ "$body_file" = "-" ]; then
-          echo "gh-as-author: -F- is unsupported because the body must be validated before the write; use a readable file path." >&2
-          exit 1
-        fi
-        if [ ! -r "$body_file" ]; then
-          echo "gh-as-author: PR body file is not readable: $body_file" >&2
-          exit 1
-        fi
-        PR_BODY="$(cat "$body_file")"
+        read_pr_body_file "$body_file" "-F-"
         ;;
+      -R|--repo|--hostname|-a|--assignee|-B|--base|-H|--head|-l|--label|-m|--milestone|-p|--project|--recover|-r|--reviewer|-T|--template|-t|--title)
+        if [ "$#" -eq 0 ]; then
+          echo "gh-as-author: PR creation flag '$argument' is missing its value." >&2
+          exit 1
+        fi
+        NORMALIZED_COMMAND+=("$argument" "$1")
+        shift
+        ;;
+      -[^-]*[bF]*)
+        echo "gh-as-author: ambiguous clustered short option '$argument' contains a PR body flag; pass -b or -F separately." >&2
+        exit 1
+        ;;
+      *) NORMALIZED_COMMAND+=("$argument") ;;
     esac
   done
-
-  if [ -n "$SKIP_NEXT" ]; then
-    echo "gh-as-author: PR creation flag is missing its $SKIP_NEXT value." >&2
-    exit 1
-  fi
 
   if ! pr_body_validate "$PR_BODY" "$ROOT/.github/review-policy.yml"; then
     echo "gh-as-author: refusing to create a PR that Phase 4b cannot attribute." >&2
     exit 1
   fi
+
+  # The validated snapshot is the only body value passed to gh. This prevents
+  # stdin or a mutable body file from changing between validation and creation.
+  NORMALIZED_COMMAND+=(--body "$PR_BODY")
+  set -- "${NORMALIZED_COMMAND[@]}"
 fi
 
 run_with_author_token() {

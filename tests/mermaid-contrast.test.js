@@ -56,6 +56,30 @@ describe('rendered Mermaid contrast', () => {
       ],
     });
   });
+
+  it('rejects explicit node styles missing either measurable fill or label color', async () => {
+    const rendered = await renderSidebarMermaid([
+      {
+        type: 'mermaid',
+        title: 'Incomplete contrast fixture',
+        description: 'A lacks a label color while B lacks a fill color.',
+        content: [
+          'graph TD; A[Missing color] --> B[Missing fill];',
+          'style A fill:#7bc67e;',
+          'style B color:#fff;',
+        ].join('\n'),
+      },
+    ]);
+    const document = new JSDOM(rendered.get(0)).window.document;
+
+    expect(renderedContrastFailures(document)).toEqual({
+      styledNodeCount: 2,
+      failures: [
+        expect.objectContaining({ label: 'Missing color', fill: '#7bc67e', ratio: null }),
+        expect.objectContaining({ label: 'Missing fill', color: '#fff', ratio: null }),
+      ],
+    });
+  });
 });
 
 function renderedContrastFailures(document) {
@@ -67,7 +91,7 @@ function renderedContrastFailures(document) {
     const label = node.querySelector('.nodeLabel');
     const fill = styleProperty(shape?.getAttribute('style'), 'fill');
     const color = styleProperty(label?.getAttribute('style'), 'color');
-    if (!fill || !color) continue;
+    if (!fill && !color) continue;
 
     styledNodeCount += 1;
     const ratio = contrastRatio(color, fill);
@@ -85,6 +109,7 @@ function styleProperty(style, property) {
 }
 
 function contrastRatio(first, second) {
+  if (!first || !second) return null;
   const firstLuminance = relativeLuminance(first);
   const secondLuminance = relativeLuminance(second);
   if (firstLuminance == null || secondLuminance == null) return null;
