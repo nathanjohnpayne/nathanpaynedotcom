@@ -1,0 +1,1780 @@
+{
+  "generated_for": "epic #759 blog audits",
+  "note": "Cache once; later phases read this instead of re-querying. Every entry was resolved against the repository named in its own citation URL; bare_number_collision records whether the same bare #NNN also resolves in the other ambiguous repo.",
+  "ambiguous_repos": [
+    "nathanjohnpayne/nathanpaynedotcom",
+    "nathanjohnpayne/mergepath"
+  ],
+  "references": {
+    "nathanjohnpayne/friends-and-family-billing#144": {
+      "repo": "nathanjohnpayne/friends-and-family-billing",
+      "number": 144,
+      "resolved": true,
+      "type": "pull",
+      "title": "feat: TipTap WYSIWYG editor for InvoicingTab",
+      "author": "nathanjohnpayne",
+      "state": "closed",
+      "created_at": "2026-04-03T19:51:18Z",
+      "closed_at": "2026-04-03T20:14:29Z",
+      "url": "https://github.com/nathanjohnpayne/friends-and-family-billing/pull/144",
+      "cited_in": [
+        "six-prs-one-bug-agent-failure-modes"
+      ],
+      "merged": true,
+      "merged_at": "2026-04-03T20:14:29Z",
+      "merge_commit_sha": "602bce87635b7cf16c16c5021ce453817c33d676",
+      "base": "main",
+      "head": "feat/tiptap-invoicing-editor",
+      "additions": 2687,
+      "deletions": 330,
+      "changed_files": 18,
+      "commits": 3
+    },
+    "nathanjohnpayne/friends-and-family-billing#145": {
+      "repo": "nathanjohnpayne/friends-and-family-billing",
+      "number": 145,
+      "resolved": true,
+      "type": "issue",
+      "title": "[Post-Review] Post-merge review: 20dcb32 pushed directly to main",
+      "author": "nathanjohnpayne",
+      "state": "closed",
+      "created_at": "2026-04-03T21:18:38Z",
+      "closed_at": "2026-04-03T22:40:13Z",
+      "url": "https://github.com/nathanjohnpayne/friends-and-family-billing/issues/145",
+      "cited_in": [
+        "html-mockups-as-spec"
+      ]
+    },
+    "nathanjohnpayne/friends-and-family-billing#146": {
+      "repo": "nathanjohnpayne/friends-and-family-billing",
+      "number": 146,
+      "resolved": true,
+      "type": "pull",
+      "title": "fix: balanced bold-token regex and round-trip safe serialization",
+      "author": "nathanjohnpayne",
+      "state": "closed",
+      "created_at": "2026-04-03T22:35:34Z",
+      "closed_at": "2026-04-03T22:40:00Z",
+      "url": "https://github.com/nathanjohnpayne/friends-and-family-billing/pull/146",
+      "cited_in": [
+        "six-prs-one-bug-agent-failure-modes"
+      ],
+      "merged": true,
+      "merged_at": "2026-04-03T22:40:00Z",
+      "merge_commit_sha": "907b5e612c5d936b32538b320854d6f9da1dd2aa",
+      "base": "main",
+      "head": "fix/token-bold-regex-roundtrip",
+      "additions": 77,
+      "deletions": 8,
+      "changed_files": 2,
+      "commits": 1
+    },
+    "nathanjohnpayne/friends-and-family-billing#153": {
+      "repo": "nathanjohnpayne/friends-and-family-billing",
+      "number": 153,
+      "resolved": true,
+      "type": "pull",
+      "title": "fix: resolve five InvoicingTab bugs (#148\u2013#152)",
+      "author": "nathanjohnpayne",
+      "state": "closed",
+      "created_at": "2026-04-03T23:07:10Z",
+      "closed_at": "2026-04-03T23:13:12Z",
+      "url": "https://github.com/nathanjohnpayne/friends-and-family-billing/pull/153",
+      "cited_in": [
+        "six-prs-one-bug-agent-failure-modes"
+      ],
+      "merged": true,
+      "merged_at": "2026-04-03T23:13:12Z",
+      "merge_commit_sha": "34a90531a0a81695f9205212723c92e7b764280f",
+      "base": "main",
+      "head": "fix/invoicing-tab-bugs-148-152",
+      "additions": 36,
+      "deletions": 14,
+      "changed_files": 6,
+      "commits": 1
+    },
+    "nathanjohnpayne/friends-and-family-billing#154": {
+      "repo": "nathanjohnpayne/friends-and-family-billing",
+      "number": 154,
+      "resolved": true,
+      "type": "pull",
+      "title": "fix: prevent useEditor from recreating editor on every keystroke",
+      "author": "nathanjohnpayne",
+      "state": "closed",
+      "created_at": "2026-04-04T04:56:13Z",
+      "closed_at": "2026-04-04T04:56:39Z",
+      "url": "https://github.com/nathanjohnpayne/friends-and-family-billing/pull/154",
+      "cited_in": [
+        "six-prs-one-bug-agent-failure-modes"
+      ],
+      "merged": true,
+      "merged_at": "2026-04-04T04:56:39Z",
+      "merge_commit_sha": "760fc10b960a4b9586ada9ef96658ea6f1d8f1f1",
+      "base": "main",
+      "head": "fix/editor-focus-loss-useEditor-deps",
+      "additions": 18,
+      "deletions": 4,
+      "changed_files": 2,
+      "commits": 1
+    },
+    "nathanjohnpayne/friends-and-family-billing#155": {
+      "repo": "nathanjohnpayne/friends-and-family-billing",
+      "number": 155,
+      "resolved": true,
+      "type": "pull",
+      "title": "fix: convert bold, italic, and links in legacy template migration",
+      "author": "nathanjohnpayne",
+      "state": "closed",
+      "created_at": "2026-04-04T05:01:41Z",
+      "closed_at": "2026-04-04T05:37:15Z",
+      "url": "https://github.com/nathanjohnpayne/friends-and-family-billing/pull/155",
+      "cited_in": [
+        "six-prs-one-bug-agent-failure-modes"
+      ],
+      "merged": true,
+      "merged_at": "2026-04-04T05:37:15Z",
+      "merge_commit_sha": "c9a1e20c4174a472b7092ae977ddc30bca8764ce",
+      "base": "main",
+      "head": "fix/migration-bold-links",
+      "additions": 238,
+      "deletions": 13,
+      "changed_files": 2,
+      "commits": 4
+    },
+    "nathanjohnpayne/friends-and-family-billing#158": {
+      "repo": "nathanjohnpayne/friends-and-family-billing",
+      "number": 158,
+      "resolved": true,
+      "type": "pull",
+      "title": "fix: extract template-doc.js to fix loading slowdown and bold preview",
+      "author": "nathanjohnpayne",
+      "state": "closed",
+      "created_at": "2026-04-04T06:13:16Z",
+      "closed_at": "2026-04-04T16:16:42Z",
+      "url": "https://github.com/nathanjohnpayne/friends-and-family-billing/pull/158",
+      "cited_in": [
+        "six-prs-one-bug-agent-failure-modes"
+      ],
+      "merged": true,
+      "merged_at": "2026-04-04T16:16:41Z",
+      "merge_commit_sha": "b2886ad2520f40c39c032cf1c08d0ac973c9cc5e",
+      "base": "main",
+      "head": "fix/bold-preview-and-loading",
+      "additions": 766,
+      "deletions": 312,
+      "changed_files": 14,
+      "commits": 4
+    },
+    "nathanjohnpayne/friends-and-family-billing#159": {
+      "repo": "nathanjohnpayne/friends-and-family-billing",
+      "number": 159,
+      "resolved": true,
+      "type": "issue",
+      "title": "Bug: Invoicing editor/preview/rendering are not visually consistent; preview and sent email formatting diverge from intended output",
+      "author": "nathanjohnpayne",
+      "state": "closed",
+      "created_at": "2026-04-04T16:52:16Z",
+      "closed_at": "2026-04-04T18:21:52Z",
+      "url": "https://github.com/nathanjohnpayne/friends-and-family-billing/issues/159",
+      "cited_in": [
+        "six-prs-one-bug-agent-failure-modes"
+      ]
+    },
+    "nathanjohnpayne/friends-and-family-billing#161": {
+      "repo": "nathanjohnpayne/friends-and-family-billing",
+      "number": 161,
+      "resolved": true,
+      "type": "pull",
+      "title": "[codex] Fix invoice template rendering parity",
+      "author": "nathanjohnpayne",
+      "state": "closed",
+      "created_at": "2026-04-04T17:41:42Z",
+      "closed_at": "2026-04-04T17:57:49Z",
+      "url": "https://github.com/nathanjohnpayne/friends-and-family-billing/pull/161",
+      "cited_in": [
+        "six-prs-one-bug-agent-failure-modes"
+      ],
+      "merged": true,
+      "merged_at": "2026-04-04T17:57:49Z",
+      "merge_commit_sha": "1a87dfc9a937b0d1e95fb1882175a77dce86eeff",
+      "base": "main",
+      "head": "codex/issue-159-rendering-pipeline",
+      "additions": 391,
+      "deletions": 79,
+      "changed_files": 8,
+      "commits": 2
+    },
+    "nathanjohnpayne/mergepath#60": {
+      "repo": "nathanjohnpayne/mergepath",
+      "number": 60,
+      "resolved": true,
+      "type": "pull",
+      "title": "docs(policy): route CLAUDE.md and AGENTS.md to Phase 4a/4b (#32, #33)",
+      "author": "nathanjohnpayne",
+      "state": "closed",
+      "created_at": "2026-04-15T02:21:44Z",
+      "closed_at": "2026-04-15T02:27:19Z",
+      "url": "https://github.com/nathanjohnpayne/mergepath/pull/60",
+      "cited_in": [
+        "agent-approval-workflow-genesis-of-mergepath"
+      ],
+      "merged": true,
+      "merged_at": "2026-04-15T02:27:19Z",
+      "merge_commit_sha": "685a8309af28c898672c301bb3dd46d6204d7e12",
+      "base": "main",
+      "head": "docs/claude-agents-phase-4-routing-32-33",
+      "additions": 60,
+      "deletions": 10,
+      "changed_files": 2,
+      "commits": 2,
+      "bare_number_collision": {
+        "other_repo": "nathanjohnpayne/nathanpaynedotcom",
+        "exists_there": true,
+        "other_title": "Phase 5d: Blog index page"
+      }
+    },
+    "nathanjohnpayne/mergepath#63": {
+      "repo": "nathanjohnpayne/mergepath",
+      "number": 63,
+      "resolved": true,
+      "type": "pull",
+      "title": "fix(workflows): runtime label re-verify in auto-merge-on-approval (#61)",
+      "author": "nathanjohnpayne",
+      "state": "closed",
+      "created_at": "2026-04-15T02:56:29Z",
+      "closed_at": "2026-04-15T03:09:35Z",
+      "url": "https://github.com/nathanjohnpayne/mergepath/pull/63",
+      "cited_in": [
+        "agent-approval-workflow-genesis-of-mergepath"
+      ],
+      "merged": true,
+      "merged_at": "2026-04-15T03:09:35Z",
+      "merge_commit_sha": "8e1a356b05e1803b89fea30d0870917ba02a3854",
+      "base": "main",
+      "head": "fix/auto-merge-runtime-label-recheck-61",
+      "additions": 53,
+      "deletions": 0,
+      "changed_files": 1,
+      "commits": 2,
+      "bare_number_collision": {
+        "other_repo": "nathanjohnpayne/nathanpaynedotcom",
+        "exists_there": true,
+        "other_title": "Phases 6+7: Mermaid diagrams and figure captions"
+      }
+    },
+    "nathanjohnpayne/mergepath#65": {
+      "repo": "nathanjohnpayne/mergepath",
+      "number": 65,
+      "resolved": true,
+      "type": "pull",
+      "title": "fix(scripts): latest-signal-wins in gate (c) + HEAD pushed-at anchor (#64 follow-up)",
+      "author": "nathanjohnpayne",
+      "state": "closed",
+      "created_at": "2026-04-15T04:02:25Z",
+      "closed_at": "2026-04-15T12:32:41Z",
+      "url": "https://github.com/nathanjohnpayne/mergepath/pull/65",
+      "cited_in": [
+        "agent-approval-workflow-genesis-of-mergepath"
+      ],
+      "merged": true,
+      "merged_at": "2026-04-15T12:32:41Z",
+      "merge_commit_sha": "43e1ec7b9786357af2c6c39f3ac0fa481959cdaf",
+      "base": "main",
+      "head": "fix/gate-c-latest-signal-wins-64-followup",
+      "additions": 285,
+      "deletions": 24,
+      "changed_files": 3,
+      "commits": 4,
+      "bare_number_collision": {
+        "other_repo": "nathanjohnpayne/nathanpaynedotcom",
+        "exists_there": true,
+        "other_title": "Upgrade Astro from v5 to v6.1"
+      }
+    },
+    "nathanjohnpayne/mergepath#66": {
+      "repo": "nathanjohnpayne/mergepath",
+      "number": 66,
+      "resolved": true,
+      "type": "pull",
+      "title": "feat(hook+ci): Phase 4a merge-gate hook cross-check and helper-script CI presence check (#37, #38, #39)",
+      "author": "nathanjohnpayne",
+      "state": "closed",
+      "created_at": "2026-04-15T12:42:21Z",
+      "closed_at": "2026-04-15T16:51:59Z",
+      "url": "https://github.com/nathanjohnpayne/mergepath/pull/66",
+      "cited_in": [
+        "agent-approval-workflow-genesis-of-mergepath"
+      ],
+      "merged": true,
+      "merged_at": "2026-04-15T16:51:59Z",
+      "merge_commit_sha": "a28169a3f6df6a9aebe3b6b928c075ed59317672",
+      "base": "main",
+      "head": "feat/pr-guard-codex-cleared-and-ci-check-37-38-39",
+      "additions": 555,
+      "deletions": 14,
+      "changed_files": 5,
+      "commits": 8,
+      "bare_number_collision": {
+        "other_repo": "nathanjohnpayne/nathanpaynedotcom",
+        "exists_there": true,
+        "other_title": "Add RSS feed preview route for local testing"
+      }
+    },
+    "nathanjohnpayne/mergepath#67": {
+      "repo": "nathanjohnpayne/mergepath",
+      "number": 67,
+      "resolved": true,
+      "type": "issue",
+      "title": "Investigate: rewrite gh-pr-guard parser in python shlex/argparse",
+      "author": "nathanjohnpayne",
+      "state": "closed",
+      "created_at": "2026-04-15T15:56:02Z",
+      "closed_at": "2026-04-15T22:49:55Z",
+      "url": "https://github.com/nathanjohnpayne/mergepath/issues/67",
+      "cited_in": [
+        "agent-approval-workflow-genesis-of-mergepath"
+      ],
+      "bare_number_collision": {
+        "other_repo": "nathanjohnpayne/nathanpaynedotcom",
+        "exists_there": true,
+        "other_title": "Replace custom mermaid plugin with full Mermaid.js rendering"
+      }
+    },
+    "nathanjohnpayne/mergepath#70": {
+      "repo": "nathanjohnpayne/mergepath",
+      "number": 70,
+      "resolved": true,
+      "type": "pull",
+      "title": "chore: vendor/ placeholder for dry-run E #44 (deliberate CI failure)",
+      "author": "nathanjohnpayne",
+      "state": "closed",
+      "created_at": "2026-04-15T18:01:05Z",
+      "closed_at": "2026-04-15T18:18:18Z",
+      "url": "https://github.com/nathanjohnpayne/mergepath/pull/70",
+      "cited_in": [
+        "agent-approval-workflow-genesis-of-mergepath"
+      ],
+      "merged": false,
+      "merged_at": null,
+      "merge_commit_sha": "87e2ad597caa838a615493369238df985a9e4aca",
+      "base": "main",
+      "head": "smoke/dry-run-e-44",
+      "additions": 1,
+      "deletions": 0,
+      "changed_files": 1,
+      "commits": 1,
+      "bare_number_collision": {
+        "other_repo": "nathanjohnpayne/nathanpaynedotcom",
+        "exists_there": true,
+        "other_title": "Add Playwright responsive test suite"
+      }
+    },
+    "nathanjohnpayne/mergepath#705": {
+      "repo": "nathanjohnpayne/mergepath",
+      "number": 705,
+      "resolved": true,
+      "type": "issue",
+      "title": "Prevent update-branch/label re-review livelock on strict consumers (matchline #362 post-mortem)",
+      "author": "nathanpayne-claude",
+      "state": "closed",
+      "created_at": "2026-07-06T21:31:26Z",
+      "closed_at": "2026-07-06T23:22:28Z",
+      "url": "https://github.com/nathanjohnpayne/mergepath/issues/705",
+      "cited_in": [
+        "perfect-score-wrong-axis"
+      ],
+      "bare_number_collision": {
+        "other_repo": "nathanjohnpayne/nathanpaynedotcom",
+        "exists_there": true,
+        "other_title": "Bound continuation-offset scan complexity in the em-dash linter"
+      }
+    },
+    "nathanjohnpayne/mergepath#71": {
+      "repo": "nathanjohnpayne/mergepath",
+      "number": 71,
+      "resolved": true,
+      "type": "pull",
+      "title": "docs(workflow): pr-audit.yml docstring header (dry-run A #40)",
+      "author": "nathanjohnpayne",
+      "state": "closed",
+      "created_at": "2026-04-15T18:02:11Z",
+      "closed_at": "2026-04-15T18:12:34Z",
+      "url": "https://github.com/nathanjohnpayne/mergepath/pull/71",
+      "cited_in": [
+        "agent-approval-workflow-genesis-of-mergepath"
+      ],
+      "merged": true,
+      "merged_at": "2026-04-15T18:12:33Z",
+      "merge_commit_sha": "789207d530b1c8b8461519de22c3b765110ccac9",
+      "base": "main",
+      "head": "smoke/dry-run-a-40",
+      "additions": 15,
+      "deletions": 0,
+      "changed_files": 1,
+      "commits": 1,
+      "bare_number_collision": {
+        "other_repo": "nathanjohnpayne/nathanpaynedotcom",
+        "exists_there": true,
+        "other_title": "Blog CSS polish: list spacing, code contrast, blockquote overflow, scrollbar"
+      }
+    },
+    "nathanjohnpayne/mergepath#72": {
+      "repo": "nathanjohnpayne/mergepath",
+      "number": 72,
+      "resolved": true,
+      "type": "pull",
+      "title": "test(fixture): tests/fixtures/greet.sh helper (dry-run B #41)",
+      "author": "nathanjohnpayne",
+      "state": "closed",
+      "created_at": "2026-04-15T18:03:39Z",
+      "closed_at": "2026-04-15T18:14:36Z",
+      "url": "https://github.com/nathanjohnpayne/mergepath/pull/72",
+      "cited_in": [
+        "agent-approval-workflow-genesis-of-mergepath"
+      ],
+      "merged": true,
+      "merged_at": "2026-04-15T18:14:36Z",
+      "merge_commit_sha": "532989235e24a73446f2cf625943cfd3056b8698",
+      "base": "main",
+      "head": "smoke/dry-run-b-41",
+      "additions": 7,
+      "deletions": 0,
+      "changed_files": 1,
+      "commits": 2,
+      "bare_number_collision": {
+        "other_repo": "nathanjohnpayne/nathanpaynedotcom",
+        "exists_there": true,
+        "other_title": "Derive canonical URL from Astro.url instead of manual prop"
+      }
+    },
+    "nathanjohnpayne/mergepath#73": {
+      "repo": "nathanjohnpayne/mergepath",
+      "number": 73,
+      "resolved": true,
+      "type": "pull",
+      "title": "test(fixture): tests/fixtures/probe.sh tolerant probe (dry-run C #42)",
+      "author": "nathanjohnpayne",
+      "state": "closed",
+      "created_at": "2026-04-15T18:06:40Z",
+      "closed_at": "2026-04-15T18:18:14Z",
+      "url": "https://github.com/nathanjohnpayne/mergepath/pull/73",
+      "cited_in": [
+        "agent-approval-workflow-genesis-of-mergepath"
+      ],
+      "merged": false,
+      "merged_at": null,
+      "merge_commit_sha": "d88d22f2043a5f639a98280accab1789b2b4e569",
+      "base": "main",
+      "head": "smoke/dry-run-c-42",
+      "additions": 16,
+      "deletions": 0,
+      "changed_files": 1,
+      "commits": 1,
+      "bare_number_collision": {
+        "other_repo": "nathanjohnpayne/nathanpaynedotcom",
+        "exists_there": true,
+        "other_title": "Upgrade Astro from v5 to v6.1"
+      }
+    },
+    "nathanjohnpayne/mergepath#74": {
+      "repo": "nathanjohnpayne/mergepath",
+      "number": 74,
+      "resolved": true,
+      "type": "pull",
+      "title": "test(fixture): tests/fixtures/cleanup.sh log rotation (dry-run D #43)",
+      "author": "nathanjohnpayne",
+      "state": "closed",
+      "created_at": "2026-04-15T18:09:25Z",
+      "closed_at": "2026-04-15T18:17:57Z",
+      "url": "https://github.com/nathanjohnpayne/mergepath/pull/74",
+      "cited_in": [
+        "agent-approval-workflow-genesis-of-mergepath"
+      ],
+      "merged": true,
+      "merged_at": "2026-04-15T18:17:57Z",
+      "merge_commit_sha": "2d547fb49afa7521639b4a1e6b7f4086e6ddf13f",
+      "base": "main",
+      "head": "smoke/dry-run-d-43",
+      "additions": 17,
+      "deletions": 0,
+      "changed_files": 1,
+      "commits": 2,
+      "bare_number_collision": {
+        "other_repo": "nathanjohnpayne/nathanpaynedotcom",
+        "exists_there": true,
+        "other_title": "Blog post template: Mondrian composition with margins layout"
+      }
+    },
+    "nathanjohnpayne/mergepath#76": {
+      "repo": "nathanjohnpayne/mergepath",
+      "number": 76,
+      "resolved": true,
+      "type": "pull",
+      "title": "fix(scripts+hook): back-port 17 propagation-discovered bugs (#75)",
+      "author": "nathanjohnpayne",
+      "state": "closed",
+      "created_at": "2026-04-15T21:44:12Z",
+      "closed_at": "2026-04-15T22:49:53Z",
+      "url": "https://github.com/nathanjohnpayne/mergepath/pull/76",
+      "cited_in": [
+        "agent-approval-workflow-genesis-of-mergepath"
+      ],
+      "merged": true,
+      "merged_at": "2026-04-15T22:49:53Z",
+      "merge_commit_sha": "b8204304f14fbc70adc4bc90f1fc9e5dac0d06c5",
+      "base": "main",
+      "head": "fix/backport-propagation-bugs-75",
+      "additions": 450,
+      "deletions": 102,
+      "changed_files": 3,
+      "commits": 2,
+      "bare_number_collision": {
+        "other_repo": "nathanjohnpayne/nathanpaynedotcom",
+        "exists_there": true,
+        "other_title": "Blog post template: Mondrian composition with margins layout"
+      }
+    },
+    "nathanjohnpayne/mergepath#774": {
+      "repo": "nathanjohnpayne/mergepath",
+      "number": 774,
+      "resolved": true,
+      "type": "issue",
+      "title": "Branch protection has drifted fleet-wide: audit-branch-protection.sh exits 3 on all 10 repos, 3 have no protection at all",
+      "author": "nathanpayne-claude",
+      "state": "closed",
+      "created_at": "2026-07-28T14:44:17Z",
+      "closed_at": "2026-07-30T03:49:31Z",
+      "url": "https://github.com/nathanjohnpayne/mergepath/issues/774",
+      "cited_in": [
+        "perfect-score-wrong-axis"
+      ],
+      "bare_number_collision": {
+        "other_repo": "nathanjohnpayne/nathanpaynedotcom",
+        "exists_there": true,
+        "other_title": "[Post-Review] Clarify defensive ARIA cleanup on Mermaid fallback"
+      }
+    },
+    "nathanjohnpayne/mergepath#777": {
+      "repo": "nathanjohnpayne/mergepath",
+      "number": 777,
+      "resolved": true,
+      "type": "issue",
+      "title": "Test fixture identity leaks into the real repo's .git/config, misattributing and unsigning local commits (already on main twice)",
+      "author": "nathanpayne-claude",
+      "state": "closed",
+      "created_at": "2026-07-28T14:54:47Z",
+      "closed_at": "2026-07-30T03:36:13Z",
+      "url": "https://github.com/nathanjohnpayne/mergepath/issues/777",
+      "cited_in": [
+        "perfect-score-wrong-axis"
+      ],
+      "bare_number_collision": {
+        "other_repo": "nathanjohnpayne/nathanpaynedotcom",
+        "exists_there": true,
+        "other_title": "[Post-Review] observation from nathanjohnpayne/nathanpaynedotcom#765: P3 scripts/gh-as-author.sh"
+      }
+    },
+    "nathanjohnpayne/mergepath#785": {
+      "repo": "nathanjohnpayne/mergepath",
+      "number": 785,
+      "resolved": true,
+      "type": "issue",
+      "title": "[Post-Review] observation from nathanjohnpayne/mergepath#783: P2 scripts/ci/check_doc_ownership:413",
+      "author": "nathanjohnpayne",
+      "state": "closed",
+      "created_at": "2026-07-29T00:13:38Z",
+      "closed_at": "2026-07-29T15:35:22Z",
+      "url": "https://github.com/nathanjohnpayne/mergepath/issues/785",
+      "cited_in": [
+        "perfect-score-wrong-axis"
+      ],
+      "bare_number_collision": {
+        "other_repo": "nathanjohnpayne/nathanpaynedotcom",
+        "exists_there": true,
+        "other_title": "content(five-across): show the Gay Cruise Bingo card beside Vacay Bingo"
+      }
+    },
+    "nathanjohnpayne/mergepath#789": {
+      "repo": "nathanjohnpayne/mergepath",
+      "number": 789,
+      "resolved": true,
+      "type": "pull",
+      "title": "fix(785,786): strip Bash quotes when check_doc_ownership reads the identity denylist",
+      "author": "nathanjohnpayne",
+      "state": "closed",
+      "created_at": "2026-07-29T04:12:07Z",
+      "closed_at": "2026-07-29T15:35:21Z",
+      "url": "https://github.com/nathanjohnpayne/mergepath/pull/789",
+      "cited_in": [
+        "perfect-score-wrong-axis"
+      ],
+      "merged": true,
+      "merged_at": "2026-07-29T15:35:21Z",
+      "merge_commit_sha": "6e883aa2ded7d273cb15dc6fded8120c4d730b59",
+      "base": "main",
+      "head": "claude/fix-785-786-doc-ownership-denylist-quotes",
+      "additions": 510,
+      "deletions": 14,
+      "changed_files": 2,
+      "commits": 4,
+      "bare_number_collision": {
+        "other_repo": "nathanjohnpayne/nathanpaynedotcom",
+        "exists_there": false,
+        "other_title": null
+      }
+    },
+    "nathanjohnpayne/mergepath#790": {
+      "repo": "nathanjohnpayne/mergepath",
+      "number": 790,
+      "resolved": true,
+      "type": "pull",
+      "title": "fix(761,782): name the strict secret-provision cause, make the remediation runnable, and resume after repo creation",
+      "author": "nathanjohnpayne",
+      "state": "closed",
+      "created_at": "2026-07-29T04:12:12Z",
+      "closed_at": "2026-07-29T18:38:14Z",
+      "url": "https://github.com/nathanjohnpayne/mergepath/pull/790",
+      "cited_in": [
+        "perfect-score-wrong-axis"
+      ],
+      "merged": true,
+      "merged_at": "2026-07-29T18:38:14Z",
+      "merge_commit_sha": "dab657203356799a6e0d58489236197a923aaca3",
+      "base": "main",
+      "head": "claude/fix-761-782-781-bootstrap-warn-path",
+      "additions": 2006,
+      "deletions": 110,
+      "changed_files": 9,
+      "commits": 7,
+      "bare_number_collision": {
+        "other_repo": "nathanjohnpayne/nathanpaynedotcom",
+        "exists_there": false,
+        "other_title": null
+      }
+    },
+    "nathanjohnpayne/mergepath#791": {
+      "repo": "nathanjohnpayne/mergepath",
+      "number": 791,
+      "resolved": true,
+      "type": "pull",
+      "title": "fix(781): marker-bounded help extraction and CommonMark-correct fence and indent parsing",
+      "author": "nathanjohnpayne",
+      "state": "closed",
+      "created_at": "2026-07-29T04:12:16Z",
+      "closed_at": "2026-07-30T00:41:52Z",
+      "url": "https://github.com/nathanjohnpayne/mergepath/pull/791",
+      "cited_in": [
+        "perfect-score-wrong-axis"
+      ],
+      "merged": true,
+      "merged_at": "2026-07-30T00:41:52Z",
+      "merge_commit_sha": "e32d686e7a1500804f27851dcaf8048706fd2a7d",
+      "base": "main",
+      "head": "claude/fix-781-parser-and-help-polish",
+      "additions": 1553,
+      "deletions": 19,
+      "changed_files": 3,
+      "commits": 12,
+      "bare_number_collision": {
+        "other_repo": "nathanjohnpayne/nathanpaynedotcom",
+        "exists_there": false,
+        "other_title": null
+      }
+    },
+    "nathanjohnpayne/mergepath#794": {
+      "repo": "nathanjohnpayne/mergepath",
+      "number": 794,
+      "resolved": true,
+      "type": "pull",
+      "title": "docs(788,781): carve out Path taken from the narration ban and make decision markers date-independent",
+      "author": "nathanjohnpayne",
+      "state": "closed",
+      "created_at": "2026-07-29T04:12:29Z",
+      "closed_at": "2026-07-29T18:48:01Z",
+      "url": "https://github.com/nathanjohnpayne/mergepath/pull/794",
+      "cited_in": [
+        "perfect-score-wrong-axis"
+      ],
+      "merged": true,
+      "merged_at": "2026-07-29T18:48:01Z",
+      "merge_commit_sha": "743299c367013634dd409e267e4042076a7b4280",
+      "base": "main",
+      "head": "claude/fix-788-781-decision-records-narration",
+      "additions": 551,
+      "deletions": 12,
+      "changed_files": 5,
+      "commits": 8,
+      "bare_number_collision": {
+        "other_repo": "nathanjohnpayne/nathanpaynedotcom",
+        "exists_there": false,
+        "other_title": null
+      }
+    },
+    "nathanjohnpayne/mergepath#795": {
+      "repo": "nathanjohnpayne/mergepath",
+      "number": 795,
+      "resolved": true,
+      "type": "pull",
+      "title": "fix(777): stop test fixtures writing git identity into the real repository config",
+      "author": "nathanjohnpayne",
+      "state": "closed",
+      "created_at": "2026-07-29T04:12:33Z",
+      "closed_at": "2026-07-30T03:36:12Z",
+      "url": "https://github.com/nathanjohnpayne/mergepath/pull/795",
+      "cited_in": [
+        "perfect-score-wrong-axis"
+      ],
+      "merged": true,
+      "merged_at": "2026-07-30T03:36:12Z",
+      "merge_commit_sha": "0be396cb68cb56088670c69fa25273092cbb1f67",
+      "base": "main",
+      "head": "claude/fix-777-gitconfig-fixture-leak",
+      "additions": 3073,
+      "deletions": 23,
+      "changed_files": 11,
+      "commits": 15,
+      "bare_number_collision": {
+        "other_repo": "nathanjohnpayne/nathanpaynedotcom",
+        "exists_there": false,
+        "other_title": null
+      }
+    },
+    "nathanjohnpayne/mergepath#796": {
+      "repo": "nathanjohnpayne/mergepath",
+      "number": 796,
+      "resolved": true,
+      "type": "pull",
+      "title": "feat(774): scheduled fleet branch-protection audit and recorded enforcement posture",
+      "author": "nathanjohnpayne",
+      "state": "closed",
+      "created_at": "2026-07-29T04:12:38Z",
+      "closed_at": "2026-07-30T03:49:30Z",
+      "url": "https://github.com/nathanjohnpayne/mergepath/pull/796",
+      "cited_in": [
+        "perfect-score-wrong-axis"
+      ],
+      "merged": true,
+      "merged_at": "2026-07-30T03:49:30Z",
+      "merge_commit_sha": "fb4dfd0871961e2b8e41f33e7f6ce579b4f2387d",
+      "base": "main",
+      "head": "claude/feat-774-scheduled-branch-protection-audit",
+      "additions": 5070,
+      "deletions": 160,
+      "changed_files": 13,
+      "commits": 11,
+      "bare_number_collision": {
+        "other_repo": "nathanjohnpayne/nathanpaynedotcom",
+        "exists_there": false,
+        "other_title": null
+      }
+    },
+    "nathanjohnpayne/mergepath#797": {
+      "repo": "nathanjohnpayne/mergepath",
+      "number": 797,
+      "resolved": true,
+      "type": "pull",
+      "title": "feat(780): complete the docs/agents ownership class audit",
+      "author": "nathanjohnpayne",
+      "state": "closed",
+      "created_at": "2026-07-29T04:12:43Z",
+      "closed_at": "2026-07-30T03:59:00Z",
+      "url": "https://github.com/nathanjohnpayne/mergepath/pull/797",
+      "cited_in": [
+        "perfect-score-wrong-axis"
+      ],
+      "merged": true,
+      "merged_at": "2026-07-30T03:59:00Z",
+      "merge_commit_sha": "c4525e76e02f1b292f951865a7f37c8fbdee4461",
+      "base": "main",
+      "head": "claude/feat-780-doc-class-audit-step6",
+      "additions": 2298,
+      "deletions": 94,
+      "changed_files": 21,
+      "commits": 20,
+      "bare_number_collision": {
+        "other_repo": "nathanjohnpayne/nathanpaynedotcom",
+        "exists_there": false,
+        "other_title": null
+      }
+    },
+    "nathanjohnpayne/mergepath#798": {
+      "repo": "nathanjohnpayne/mergepath",
+      "number": 798,
+      "resolved": true,
+      "type": "issue",
+      "title": "agent-review auto-triggers a full Codex review on a content-free update-branch head, livelocking concurrent PR batches",
+      "author": "nathanjohnpayne",
+      "state": "closed",
+      "created_at": "2026-07-29T17:07:06Z",
+      "closed_at": "2026-08-03T21:41:30Z",
+      "url": "https://github.com/nathanjohnpayne/mergepath/issues/798",
+      "cited_in": [
+        "perfect-score-wrong-axis"
+      ],
+      "bare_number_collision": {
+        "other_repo": "nathanjohnpayne/nathanpaynedotcom",
+        "exists_there": false,
+        "other_title": null
+      }
+    },
+    "nathanjohnpayne/mergepath#799": {
+      "repo": "nathanjohnpayne/mergepath",
+      "number": 799,
+      "resolved": true,
+      "type": "issue",
+      "title": "gh api --jq writes HTTP error bodies to stdout, so 15 emptiness-inference failure guards are dead",
+      "author": "nathanjohnpayne",
+      "state": "open",
+      "created_at": "2026-07-29T17:34:59Z",
+      "closed_at": null,
+      "url": "https://github.com/nathanjohnpayne/mergepath/issues/799",
+      "cited_in": [
+        "perfect-score-wrong-axis"
+      ],
+      "bare_number_collision": {
+        "other_repo": "nathanjohnpayne/nathanpaynedotcom",
+        "exists_there": false,
+        "other_title": null
+      }
+    },
+    "nathanjohnpayne/mergepath#800": {
+      "repo": "nathanjohnpayne/mergepath",
+      "number": 800,
+      "resolved": true,
+      "type": "pull",
+      "title": "feat(780): guard that a hub-only check's verdict cannot depend on bootstrap residue",
+      "author": "nathanjohnpayne",
+      "state": "closed",
+      "created_at": "2026-07-29T18:29:38Z",
+      "closed_at": "2026-07-30T00:42:06Z",
+      "url": "https://github.com/nathanjohnpayne/mergepath/pull/800",
+      "cited_in": [
+        "perfect-score-wrong-axis"
+      ],
+      "merged": true,
+      "merged_at": "2026-07-30T00:42:06Z",
+      "merge_commit_sha": "33525579577d8dac3192a2a34ba7f37904cbd432",
+      "base": "main",
+      "head": "claude/feat-consumer-shape-residue-guard",
+      "additions": 1815,
+      "deletions": 1,
+      "changed_files": 8,
+      "commits": 3,
+      "bare_number_collision": {
+        "other_repo": "nathanjohnpayne/nathanpaynedotcom",
+        "exists_there": false,
+        "other_title": null
+      }
+    },
+    "nathanjohnpayne/mergepath#809": {
+      "repo": "nathanjohnpayne/mergepath",
+      "number": 809,
+      "resolved": true,
+      "type": "issue",
+      "title": "Preserve nested Markdown list links during ownership scans",
+      "author": "nathanjohnpayne",
+      "state": "closed",
+      "created_at": "2026-07-30T04:01:29Z",
+      "closed_at": "2026-07-30T04:28:06Z",
+      "url": "https://github.com/nathanjohnpayne/mergepath/issues/809",
+      "cited_in": [
+        "perfect-score-wrong-axis"
+      ],
+      "bare_number_collision": {
+        "other_repo": "nathanjohnpayne/nathanpaynedotcom",
+        "exists_there": false,
+        "other_title": null
+      }
+    },
+    "nathanjohnpayne/mergepath#810": {
+      "repo": "nathanjohnpayne/mergepath",
+      "number": 810,
+      "resolved": true,
+      "type": "pull",
+      "title": "fix(809): preserve indented Markdown links",
+      "author": "nathanjohnpayne",
+      "state": "closed",
+      "created_at": "2026-07-30T04:07:32Z",
+      "closed_at": "2026-07-30T04:28:05Z",
+      "url": "https://github.com/nathanjohnpayne/mergepath/pull/810",
+      "cited_in": [
+        "perfect-score-wrong-axis"
+      ],
+      "merged": true,
+      "merged_at": "2026-07-30T04:28:05Z",
+      "merge_commit_sha": "415d3178180899e98dd32cd9177426c1f2035165",
+      "base": "main",
+      "head": "codex/fix-809-markdown-indented-links",
+      "additions": 131,
+      "deletions": 4,
+      "changed_files": 3,
+      "commits": 4,
+      "bare_number_collision": {
+        "other_repo": "nathanjohnpayne/nathanpaynedotcom",
+        "exists_there": false,
+        "other_title": null
+      }
+    },
+    "nathanjohnpayne/mergepath#813": {
+      "repo": "nathanjohnpayne/mergepath",
+      "number": 813,
+      "resolved": true,
+      "type": "issue",
+      "title": "Create a bounded review lane: order providers, count cycles, and stop discretionary churn",
+      "author": "nathanjohnpayne",
+      "state": "open",
+      "created_at": "2026-07-30T04:53:38Z",
+      "closed_at": null,
+      "url": "https://github.com/nathanjohnpayne/mergepath/issues/813",
+      "cited_in": [
+        "perfect-score-wrong-axis"
+      ],
+      "bare_number_collision": {
+        "other_repo": "nathanjohnpayne/nathanpaynedotcom",
+        "exists_there": false,
+        "other_title": null
+      }
+    },
+    "nathanjohnpayne/nathanpaynedotcom#171": {
+      "repo": "nathanjohnpayne/nathanpaynedotcom",
+      "number": 171,
+      "resolved": true,
+      "type": "pull",
+      "title": "fix(seo): auto-sync robots.txt Sitemap URL with dist output",
+      "author": "nathanjohnpayne",
+      "state": "closed",
+      "created_at": "2026-04-14T18:47:34Z",
+      "closed_at": "2026-04-14T19:25:16Z",
+      "url": "https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/171",
+      "cited_in": [
+        "how-a-responsive-fix-became-an-astro-migration"
+      ],
+      "merged": true,
+      "merged_at": "2026-04-14T19:25:16Z",
+      "merge_commit_sha": "beedc0ef2ebefc801e34733e4064f9268115978f",
+      "base": "main",
+      "head": "fix/prevent-robots-txt-sitemap-drift",
+      "additions": 445,
+      "deletions": 0,
+      "changed_files": 5,
+      "commits": 2,
+      "bare_number_collision": {
+        "other_repo": "nathanjohnpayne/mergepath",
+        "exists_there": true,
+        "other_title": "docs: switch CLAUDE.md / REVIEW_POLICY.md to active-account convention (#164)"
+      }
+    },
+    "nathanjohnpayne/nathanpaynedotcom#173": {
+      "repo": "nathanjohnpayne/nathanpaynedotcom",
+      "number": 173,
+      "resolved": true,
+      "type": "issue",
+      "title": "og-images integration uses dir.pathname instead of fileURLToPath (Windows portability)",
+      "author": "nathanjohnpayne",
+      "state": "closed",
+      "created_at": "2026-04-14T19:26:05Z",
+      "closed_at": "2026-04-14T19:41:51Z",
+      "url": "https://github.com/nathanjohnpayne/nathanpaynedotcom/issues/173",
+      "cited_in": [
+        "how-a-responsive-fix-became-an-astro-migration"
+      ],
+      "bare_number_collision": {
+        "other_repo": "nathanjohnpayne/mergepath",
+        "exists_there": true,
+        "other_title": "fix(#164 follow-up): GH_TOKEN-immune active-account check + purge stale write-path docs"
+      }
+    },
+    "nathanjohnpayne/nathanpaynedotcom#180": {
+      "repo": "nathanjohnpayne/nathanpaynedotcom",
+      "number": 180,
+      "resolved": true,
+      "type": "pull",
+      "title": "feat: propagate Phase 4a Codex external review automation from template (#46)",
+      "author": "nathanjohnpayne",
+      "state": "closed",
+      "created_at": "2026-04-15T18:33:24Z",
+      "closed_at": "2026-04-15T23:49:31Z",
+      "url": "https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/180",
+      "cited_in": [
+        "agent-approval-workflow-genesis-of-mergepath"
+      ],
+      "merged": true,
+      "merged_at": "2026-04-15T23:49:31Z",
+      "merge_commit_sha": "09bb9bdca5f3b24bf054fd43d20602aa89708ade",
+      "base": "main",
+      "head": "feat/propagate-phase-4a-from-template",
+      "additions": 2390,
+      "deletions": 79,
+      "changed_files": 11,
+      "commits": 8,
+      "bare_number_collision": {
+        "other_repo": "nathanjohnpayne/mergepath",
+        "exists_there": true,
+        "other_title": "feat: promote scripts/gh-projects/ kit into mergepath canonical tree (#155)"
+      }
+    },
+    "nathanjohnpayne/nathanpaynedotcom#28": {
+      "repo": "nathanjohnpayne/nathanpaynedotcom",
+      "number": 28,
+      "resolved": true,
+      "type": "issue",
+      "title": "Make Blog Post Pages Responsive and Mobile-Friendly",
+      "author": "nathanjohnpayne",
+      "state": "closed",
+      "created_at": "2026-04-08T14:54:39Z",
+      "closed_at": "2026-04-08T17:04:37Z",
+      "url": "https://github.com/nathanjohnpayne/nathanpaynedotcom/issues/28",
+      "cited_in": [
+        "how-a-responsive-fix-became-an-astro-migration"
+      ],
+      "bare_number_collision": {
+        "other_repo": "nathanjohnpayne/mergepath",
+        "exists_there": true,
+        "other_title": "[Decision] REVIEW_POLICY.md drift \u2014 template vs repos"
+      }
+    },
+    "nathanjohnpayne/nathanpaynedotcom#30": {
+      "repo": "nathanjohnpayne/nathanpaynedotcom",
+      "number": 30,
+      "resolved": true,
+      "type": "pull",
+      "title": "Fix blog post responsive layout for mobile viewports",
+      "author": "nathanjohnpayne",
+      "state": "closed",
+      "created_at": "2026-04-08T15:23:49Z",
+      "closed_at": "2026-04-08T17:04:36Z",
+      "url": "https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/30",
+      "cited_in": [
+        "how-a-responsive-fix-became-an-astro-migration"
+      ],
+      "merged": true,
+      "merged_at": "2026-04-08T17:04:36Z",
+      "merge_commit_sha": "93bb4819b199508b48608f8c9f0550ab5d660700",
+      "base": "main",
+      "head": "responsive-blog-layout",
+      "additions": 152,
+      "deletions": 0,
+      "changed_files": 3,
+      "commits": 2,
+      "bare_number_collision": {
+        "other_repo": "nathanjohnpayne/mergepath",
+        "exists_there": true,
+        "other_title": "REVIEW_POLICY.md \u2014 Phase 4 rewrite + flow diagram"
+      }
+    },
+    "nathanjohnpayne/nathanpaynedotcom#47": {
+      "repo": "nathanjohnpayne/nathanpaynedotcom",
+      "number": 47,
+      "resolved": true,
+      "type": "pull",
+      "title": "Phase 0: Scaffold Astro project",
+      "author": "nathanjohnpayne",
+      "state": "closed",
+      "created_at": "2026-04-08T21:09:24Z",
+      "closed_at": "2026-04-08T21:11:15Z",
+      "url": "https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/47",
+      "cited_in": [
+        "how-a-responsive-fix-became-an-astro-migration"
+      ],
+      "merged": true,
+      "merged_at": "2026-04-08T21:11:15Z",
+      "merge_commit_sha": "75e2100e6c72ecc859e7828986142becb419a341",
+      "base": "main",
+      "head": "claude/thirsty-margulis",
+      "additions": 70,
+      "deletions": 14,
+      "changed_files": 19,
+      "commits": 1,
+      "bare_number_collision": {
+        "other_repo": "nathanjohnpayne/mergepath",
+        "exists_there": true,
+        "other_title": "Propagate: friends-and-family-billing"
+      }
+    },
+    "nathanjohnpayne/nathanpaynedotcom#497": {
+      "repo": "nathanjohnpayne/nathanpaynedotcom",
+      "number": 497,
+      "resolved": true,
+      "type": "issue",
+      "title": "Color token cleanup: route all palette colors through custom properties",
+      "author": "nathanjohnpayne",
+      "state": "closed",
+      "created_at": "2026-06-12T01:03:07Z",
+      "closed_at": "2026-06-12T02:18:08Z",
+      "url": "https://github.com/nathanjohnpayne/nathanpaynedotcom/issues/497",
+      "cited_in": [
+        "two-blues-one-composition"
+      ],
+      "bare_number_collision": {
+        "other_repo": "nathanjohnpayne/mergepath",
+        "exists_there": true,
+        "other_title": "Reconcile 3 PRD vs implementation mismatches: declare artifacts/ and bugs/, fix CI check count, document second inline check"
+      }
+    },
+    "nathanjohnpayne/nathanpaynedotcom#498": {
+      "repo": "nathanjohnpayne/nathanpaynedotcom",
+      "number": 498,
+      "resolved": true,
+      "type": "issue",
+      "title": "Palette split: 1921 register for interior pages, 1930 register for homepage",
+      "author": "nathanjohnpayne",
+      "state": "closed",
+      "created_at": "2026-06-12T01:12:08Z",
+      "closed_at": "2026-06-12T03:07:13Z",
+      "url": "https://github.com/nathanjohnpayne/nathanpaynedotcom/issues/498",
+      "cited_in": [
+        "two-blues-one-composition"
+      ],
+      "bare_number_collision": {
+        "other_repo": "nathanjohnpayne/mergepath",
+        "exists_there": true,
+        "other_title": "docs(prd): add Mergepath product requirements document"
+      }
+    },
+    "nathanjohnpayne/nathanpaynedotcom#499": {
+      "repo": "nathanjohnpayne/nathanpaynedotcom",
+      "number": 499,
+      "resolved": true,
+      "type": "pull",
+      "title": "Route all palette colors through custom properties",
+      "author": "nathanjohnpayne",
+      "state": "closed",
+      "created_at": "2026-06-12T02:12:32Z",
+      "closed_at": "2026-06-12T02:18:07Z",
+      "url": "https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/499",
+      "cited_in": [
+        "two-blues-one-composition"
+      ],
+      "merged": true,
+      "merged_at": "2026-06-12T02:18:07Z",
+      "merge_commit_sha": "bd70b4f8f388f93584c4cc8bf6ded2174e32a680",
+      "base": "main",
+      "head": "codex/issue-497-color-token-cleanup",
+      "additions": 23,
+      "deletions": 21,
+      "changed_files": 1,
+      "commits": 1,
+      "bare_number_collision": {
+        "other_repo": "nathanjohnpayne/mergepath",
+        "exists_there": true,
+        "other_title": "auto-clear can leave failed synthetic check after successful label removal"
+      }
+    },
+    "nathanjohnpayne/nathanpaynedotcom#500": {
+      "repo": "nathanjohnpayne/nathanpaynedotcom",
+      "number": 500,
+      "resolved": true,
+      "type": "pull",
+      "title": "Split palette registers: 1921 interior, 1930 homepage",
+      "author": "nathanjohnpayne",
+      "state": "closed",
+      "created_at": "2026-06-12T02:49:46Z",
+      "closed_at": "2026-06-12T03:07:12Z",
+      "url": "https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/500",
+      "cited_in": [
+        "two-blues-one-composition"
+      ],
+      "merged": true,
+      "merged_at": "2026-06-12T03:07:12Z",
+      "merge_commit_sha": "4ab38cca691b4875aca15483b093dcfdabcb35fb",
+      "base": "main",
+      "head": "codex/issue-498-palette-split",
+      "additions": 114,
+      "deletions": 120,
+      "changed_files": 17,
+      "commits": 2,
+      "bare_number_collision": {
+        "other_repo": "nathanjohnpayne/mergepath",
+        "exists_there": true,
+        "other_title": "feat(review): request @codex by default + Playground checkbox (#486)"
+      }
+    },
+    "nathanjohnpayne/nathanpaynedotcom#504": {
+      "repo": "nathanjohnpayne/nathanpaynedotcom",
+      "number": 504,
+      "resolved": true,
+      "type": "pull",
+      "title": "Opt the home OG card into the 1930 register",
+      "author": "nathanjohnpayne",
+      "state": "closed",
+      "created_at": "2026-06-12T03:48:04Z",
+      "closed_at": "2026-06-12T03:55:06Z",
+      "url": "https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/504",
+      "cited_in": [
+        "two-blues-one-composition"
+      ],
+      "merged": true,
+      "merged_at": "2026-06-12T03:55:06Z",
+      "merge_commit_sha": "8bebc312e71b1860ebd614c7175fe01ec5829c48",
+      "base": "main",
+      "head": "codex/issue-502-og-home-palette",
+      "additions": 53,
+      "deletions": 2,
+      "changed_files": 4,
+      "commits": 1,
+      "bare_number_collision": {
+        "other_repo": "nathanjohnpayne/mergepath",
+        "exists_there": true,
+        "other_title": "feat(coderabbit-wait): detect auto-pause and resume; surface static skips (#490)"
+      }
+    },
+    "nathanjohnpayne/nathanpaynedotcom#56": {
+      "repo": "nathanjohnpayne/nathanpaynedotcom",
+      "number": 56,
+      "resolved": true,
+      "type": "pull",
+      "title": "Phase 3: Port project pages",
+      "author": "nathanjohnpayne",
+      "state": "closed",
+      "created_at": "2026-04-08T22:00:24Z",
+      "closed_at": "2026-04-08T22:06:32Z",
+      "url": "https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/56",
+      "cited_in": [
+        "how-a-responsive-fix-became-an-astro-migration"
+      ],
+      "merged": true,
+      "merged_at": "2026-04-08T22:06:32Z",
+      "merge_commit_sha": "406cd05ea06d241882870ef51df0585316c00630",
+      "base": "main",
+      "head": "claude/thirsty-margulis",
+      "additions": 614,
+      "deletions": 2,
+      "changed_files": 6,
+      "commits": 1,
+      "bare_number_collision": {
+        "other_repo": "nathanjohnpayne/mergepath",
+        "exists_there": true,
+        "other_title": "pr-review-policy.yml auto-comment: strip empty bullet from FILE_LIST rendering"
+      }
+    },
+    "nathanjohnpayne/nathanpaynedotcom#668": {
+      "repo": "nathanjohnpayne/nathanpaynedotcom",
+      "number": 668,
+      "resolved": true,
+      "type": "pull",
+      "title": "Content: close up spaced em dashes in published prose (CMOS) and gate it in lint",
+      "author": "nathanjohnpayne",
+      "state": "closed",
+      "created_at": "2026-08-22T04:46:12Z",
+      "closed_at": "2026-08-22T16:19:21Z",
+      "url": "https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/668",
+      "cited_in": [
+        "autofix-was-the-whole-cost"
+      ],
+      "merged": true,
+      "merged_at": "2026-08-22T16:19:21Z",
+      "merge_commit_sha": "2a8cb68496b903565f0297a929b5c5458667e393",
+      "base": "main",
+      "head": "codex/issue-664-content-em-dash",
+      "additions": 1576,
+      "deletions": 12,
+      "changed_files": 15,
+      "commits": 16,
+      "bare_number_collision": {
+        "other_repo": "nathanjohnpayne/mergepath",
+        "exists_there": true,
+        "other_title": "phase-4b: diff-budget omission guard residuals \u2014 allowlist provenance + rename-path eligibility (P1-class, found in #662 calibration)"
+      }
+    },
+    "nathanjohnpayne/nathanpaynedotcom#678": {
+      "repo": "nathanjohnpayne/nathanpaynedotcom",
+      "number": 678,
+      "resolved": true,
+      "type": "pull",
+      "title": "lint(content): scan definition titles and fold multiline quoted YAML scalars",
+      "author": "nathanjohnpayne",
+      "state": "closed",
+      "created_at": "2026-08-22T16:30:57Z",
+      "closed_at": "2026-08-22T16:37:22Z",
+      "url": "https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/678",
+      "cited_in": [
+        "autofix-was-the-whole-cost"
+      ],
+      "merged": true,
+      "merged_at": "2026-08-22T16:37:22Z",
+      "merge_commit_sha": "637afece87647646ac43c2b667b5d9505d52135c",
+      "base": "main",
+      "head": "claude/issues-676-677",
+      "additions": 304,
+      "deletions": 76,
+      "changed_files": 2,
+      "commits": 2,
+      "bare_number_collision": {
+        "other_repo": "nathanjohnpayne/mergepath",
+        "exists_there": true,
+        "other_title": "fix(phase-4b): enrich accounting records with dispositions and issue links for step-9 filed advisories (#675)"
+      }
+    },
+    "nathanjohnpayne/nathanpaynedotcom#681": {
+      "repo": "nathanjohnpayne/nathanpaynedotcom",
+      "number": 681,
+      "resolved": true,
+      "type": "pull",
+      "title": "lint(content): scan only the definition a reference resolves to",
+      "author": "nathanjohnpayne",
+      "state": "closed",
+      "created_at": "2026-08-22T17:00:26Z",
+      "closed_at": "2026-08-22T17:15:04Z",
+      "url": "https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/681",
+      "cited_in": [
+        "autofix-was-the-whole-cost"
+      ],
+      "merged": true,
+      "merged_at": "2026-08-22T17:15:04Z",
+      "merge_commit_sha": "5df9043aae1a311a95510927474315646632131e",
+      "base": "main",
+      "head": "claude/issue-679",
+      "additions": 64,
+      "deletions": 2,
+      "changed_files": 2,
+      "commits": 1,
+      "bare_number_collision": {
+        "other_repo": "nathanjohnpayne/mergepath",
+        "exists_there": true,
+        "other_title": "fix(merge-clearance-gate): re-trigger on the propagation-lane verified-head marker (#658)"
+      }
+    },
+    "nathanjohnpayne/nathanpaynedotcom#682": {
+      "repo": "nathanjohnpayne/nathanpaynedotcom",
+      "number": 682,
+      "resolved": true,
+      "type": "pull",
+      "title": "lint: run every gate instead of short-circuiting on the first failure",
+      "author": "nathanjohnpayne",
+      "state": "closed",
+      "created_at": "2026-08-22T17:51:28Z",
+      "closed_at": "2026-08-22T17:54:55Z",
+      "url": "https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/682",
+      "cited_in": [
+        "autofix-was-the-whole-cost"
+      ],
+      "merged": true,
+      "merged_at": "2026-08-22T17:54:55Z",
+      "merge_commit_sha": "9095ab05f619f369819f91f3587d38d7ba76149c",
+      "base": "main",
+      "head": "claude/lint-followups",
+      "additions": 36,
+      "deletions": 1,
+      "changed_files": 2,
+      "commits": 1,
+      "bare_number_collision": {
+        "other_repo": "nathanjohnpayne/mergepath",
+        "exists_there": true,
+        "other_title": "codex-record-feedback.sh SOLICITATION match uses a regular space where Codex posts a non-breaking space"
+      }
+    },
+    "nathanjohnpayne/nathanpaynedotcom#686": {
+      "repo": "nathanjohnpayne/nathanpaynedotcom",
+      "number": 686,
+      "resolved": true,
+      "type": "pull",
+      "title": "fix(lint): make em-dash autofix source-safe",
+      "author": "nathanjohnpayne",
+      "state": "closed",
+      "created_at": "2026-08-22T18:18:17Z",
+      "closed_at": "2026-08-24T00:30:00Z",
+      "url": "https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/686",
+      "cited_in": [
+        "autofix-was-the-whole-cost"
+      ],
+      "merged": true,
+      "merged_at": "2026-08-24T00:30:00Z",
+      "merge_commit_sha": "8f5deace969b76487cd3dd8a1b0e9711d3b95c5d",
+      "base": "main",
+      "head": "codex/issue-684-em-dash-safety",
+      "additions": 944,
+      "deletions": 314,
+      "changed_files": 5,
+      "commits": 32,
+      "bare_number_collision": {
+        "other_repo": "nathanjohnpayne/mergepath",
+        "exists_there": true,
+        "other_title": "fix(codex-record-feedback): tolerate NBSP in the Codex solicitation match (#682)"
+      }
+    },
+    "nathanjohnpayne/nathanpaynedotcom#70": {
+      "repo": "nathanjohnpayne/nathanpaynedotcom",
+      "number": 70,
+      "resolved": true,
+      "type": "pull",
+      "title": "Add Playwright responsive test suite",
+      "author": "nathanjohnpayne",
+      "state": "closed",
+      "created_at": "2026-04-09T02:30:44Z",
+      "closed_at": "2026-04-09T02:31:10Z",
+      "url": "https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/70",
+      "cited_in": [
+        "how-a-responsive-fix-became-an-astro-migration"
+      ],
+      "merged": true,
+      "merged_at": "2026-04-09T02:31:10Z",
+      "merge_commit_sha": "d62761629142299b5bba508347067aa05dd0b555",
+      "base": "main",
+      "head": "claude/thirsty-margulis",
+      "additions": 122,
+      "deletions": 1,
+      "changed_files": 6,
+      "commits": 1,
+      "bare_number_collision": {
+        "other_repo": "nathanjohnpayne/mergepath",
+        "exists_there": true,
+        "other_title": "chore: vendor/ placeholder for dry-run E #44 (deliberate CI failure)"
+      }
+    },
+    "nathanjohnpayne/nathanpaynedotcom#720": {
+      "repo": "nathanjohnpayne/nathanpaynedotcom",
+      "number": 720,
+      "resolved": true,
+      "type": "pull",
+      "title": "feat: prove Vale alongside the legacy prose gate",
+      "author": "nathanjohnpayne",
+      "state": "closed",
+      "created_at": "2026-08-24T02:41:30Z",
+      "closed_at": "2026-08-24T05:19:33Z",
+      "url": "https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/720",
+      "cited_in": [
+        "autofix-was-the-whole-cost"
+      ],
+      "merged": true,
+      "merged_at": "2026-08-24T05:19:33Z",
+      "merge_commit_sha": "a37bb51654f8432fa7bc4df72fd6d628d62b0a2d",
+      "base": "main",
+      "head": "codex/issue-719-vale-content-lint",
+      "additions": 1638,
+      "deletions": 118,
+      "changed_files": 51,
+      "commits": 28,
+      "bare_number_collision": {
+        "other_repo": "nathanjohnpayne/mergepath",
+        "exists_there": true,
+        "other_title": "ci: reduce pr-review workflow issue scope to read"
+      }
+    },
+    "nathanjohnpayne/nathanpaynedotcom#721": {
+      "repo": "nathanjohnpayne/nathanpaynedotcom",
+      "number": 721,
+      "resolved": true,
+      "type": "pull",
+      "title": "chore: remove superseded em-dash linter",
+      "author": "nathanjohnpayne",
+      "state": "closed",
+      "created_at": "2026-08-24T05:31:07Z",
+      "closed_at": "2026-08-24T05:43:06Z",
+      "url": "https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/721",
+      "cited_in": [
+        "autofix-was-the-whole-cost"
+      ],
+      "merged": true,
+      "merged_at": "2026-08-24T05:43:06Z",
+      "merge_commit_sha": "aff0c23dc85bf1316d30dcbda28bb656e4af9e89",
+      "base": "main",
+      "head": "codex/issue-719-remove-legacy",
+      "additions": 1,
+      "deletions": 2483,
+      "changed_files": 6,
+      "commits": 1,
+      "bare_number_collision": {
+        "other_repo": "nathanjohnpayne/mergepath",
+        "exists_there": true,
+        "other_title": "fix(workflow): separate gh stderr from stdout in external-review helpers"
+      }
+    },
+    "nathanjohnpayne/nathanpaynedotcom#722": {
+      "repo": "nathanjohnpayne/nathanpaynedotcom",
+      "number": 722,
+      "resolved": true,
+      "type": "issue",
+      "title": "lint(prose): record the 25 legacy/Vale detection divergences before the legacy suite is deleted",
+      "author": "nathanjohnpayne",
+      "state": "closed",
+      "created_at": "2026-08-24T05:41:11Z",
+      "closed_at": "2026-08-24T06:36:47Z",
+      "url": "https://github.com/nathanjohnpayne/nathanpaynedotcom/issues/722",
+      "cited_in": [
+        "autofix-was-the-whole-cost"
+      ],
+      "bare_number_collision": {
+        "other_repo": "nathanjohnpayne/mergepath",
+        "exists_there": true,
+        "other_title": "codex-review-request.sh / codex-review-check.sh don't detect the Codex usage-limit quota marker"
+      }
+    },
+    "nathanjohnpayne/nathanpaynedotcom#73": {
+      "repo": "nathanjohnpayne/nathanpaynedotcom",
+      "number": 73,
+      "resolved": true,
+      "type": "pull",
+      "title": "Upgrade Astro from v5 to v6.1",
+      "author": "nathanjohnpayne",
+      "state": "closed",
+      "created_at": "2026-04-09T02:49:16Z",
+      "closed_at": "2026-04-09T02:54:08Z",
+      "url": "https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/73",
+      "cited_in": [
+        "how-a-responsive-fix-became-an-astro-migration"
+      ],
+      "merged": true,
+      "merged_at": "2026-04-09T02:54:08Z",
+      "merge_commit_sha": "c87905937eb2a836263e5659c6ca8285a9f406e1",
+      "base": "main",
+      "head": "claude/thirsty-margulis",
+      "additions": 9,
+      "deletions": 8,
+      "changed_files": 6,
+      "commits": 1,
+      "bare_number_collision": {
+        "other_repo": "nathanjohnpayne/mergepath",
+        "exists_there": true,
+        "other_title": "test(fixture): tests/fixtures/probe.sh tolerant probe (dry-run C #42)"
+      }
+    },
+    "nathanjohnpayne/nathanpaynedotcom#74": {
+      "repo": "nathanjohnpayne/nathanpaynedotcom",
+      "number": 74,
+      "resolved": true,
+      "type": "issue",
+      "title": "Blog post template: Mondrian composition with margins layout",
+      "author": "nathanjohnpayne",
+      "state": "closed",
+      "created_at": "2026-04-09T13:01:48Z",
+      "closed_at": "2026-04-09T21:32:00Z",
+      "url": "https://github.com/nathanjohnpayne/nathanpaynedotcom/issues/74",
+      "cited_in": [
+        "html-mockups-as-spec"
+      ],
+      "bare_number_collision": {
+        "other_repo": "nathanjohnpayne/mergepath",
+        "exists_there": true,
+        "other_title": "test(fixture): tests/fixtures/cleanup.sh log rotation (dry-run D #43)"
+      }
+    },
+    "nathanjohnpayne/nathanpaynedotcom#75": {
+      "repo": "nathanjohnpayne/nathanpaynedotcom",
+      "number": 75,
+      "resolved": true,
+      "type": "issue",
+      "title": "Blog index: De Stijl Mondrian grid layout",
+      "author": "nathanjohnpayne",
+      "state": "closed",
+      "created_at": "2026-04-09T13:02:17Z",
+      "closed_at": "2026-04-09T22:29:26Z",
+      "url": "https://github.com/nathanjohnpayne/nathanpaynedotcom/issues/75",
+      "cited_in": [
+        "html-mockups-as-spec"
+      ],
+      "bare_number_collision": {
+        "other_repo": "nathanjohnpayne/mergepath",
+        "exists_there": true,
+        "other_title": "Back-port 17 Phase 4a bugs found by Codex during propagation #45/#46"
+      }
+    },
+    "nathanjohnpayne/nathanpaynedotcom#76": {
+      "repo": "nathanjohnpayne/nathanpaynedotcom",
+      "number": 76,
+      "resolved": true,
+      "type": "pull",
+      "title": "Blog post template: Mondrian composition with margins layout",
+      "author": "nathanjohnpayne",
+      "state": "closed",
+      "created_at": "2026-04-09T21:03:22Z",
+      "closed_at": "2026-04-09T21:31:59Z",
+      "url": "https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/76",
+      "cited_in": [
+        "html-mockups-as-spec"
+      ],
+      "merged": true,
+      "merged_at": "2026-04-09T21:31:59Z",
+      "merge_commit_sha": "d6c645f9760b4f676cd8498de05dd7d89bfdaf92",
+      "base": "main",
+      "head": "claude/hungry-goldwasser",
+      "additions": 579,
+      "deletions": 39,
+      "changed_files": 5,
+      "commits": 2,
+      "bare_number_collision": {
+        "other_repo": "nathanjohnpayne/mergepath",
+        "exists_there": true,
+        "other_title": "fix(scripts+hook): back-port 17 propagation-discovered bugs (#75)"
+      }
+    },
+    "nathanjohnpayne/nathanpaynedotcom#77": {
+      "repo": "nathanjohnpayne/nathanpaynedotcom",
+      "number": 77,
+      "resolved": true,
+      "type": "pull",
+      "title": "Blog index: De Stijl Mondrian row grid from mockup",
+      "author": "nathanjohnpayne",
+      "state": "closed",
+      "created_at": "2026-04-09T22:14:05Z",
+      "closed_at": "2026-04-09T22:29:25Z",
+      "url": "https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/77",
+      "cited_in": [
+        "html-mockups-as-spec"
+      ],
+      "merged": true,
+      "merged_at": "2026-04-09T22:29:25Z",
+      "merge_commit_sha": "8b8b048f16a7269fe9715c89ed4741cb9aa94e3a",
+      "base": "main",
+      "head": "claude/pedantic-euler",
+      "additions": 465,
+      "deletions": 131,
+      "changed_files": 2,
+      "commits": 2,
+      "bare_number_collision": {
+        "other_repo": "nathanjohnpayne/mergepath",
+        "exists_there": true,
+        "other_title": "Deploy guard: prevent agents from shipping stale worktree builds"
+      }
+    },
+    "nathanjohnpayne/nathanpaynedotcom#90": {
+      "repo": "nathanjohnpayne/nathanpaynedotcom",
+      "number": 90,
+      "resolved": true,
+      "type": "issue",
+      "title": "Update site to follow Google Search SEO best practices",
+      "author": "nathanjohnpayne",
+      "state": "closed",
+      "created_at": "2026-04-11T17:14:56Z",
+      "closed_at": "2026-04-11T17:34:04Z",
+      "url": "https://github.com/nathanjohnpayne/nathanpaynedotcom/issues/90",
+      "cited_in": [
+        "html-mockups-as-spec"
+      ],
+      "bare_number_collision": {
+        "other_repo": "nathanjohnpayne/mergepath",
+        "exists_there": true,
+        "other_title": "Phase 6 \u2014 External PRD + shared docs"
+      }
+    },
+    "nathanjohnpayne/nathanpaynedotcom#91": {
+      "repo": "nathanjohnpayne/nathanpaynedotcom",
+      "number": 91,
+      "resolved": true,
+      "type": "pull",
+      "title": "Remove SPA rewrite so custom 404 page works",
+      "author": "nathanjohnpayne",
+      "state": "closed",
+      "created_at": "2026-04-11T18:40:25Z",
+      "closed_at": "2026-04-11T18:41:12Z",
+      "url": "https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/91",
+      "cited_in": [
+        "html-mockups-as-spec"
+      ],
+      "merged": true,
+      "merged_at": "2026-04-11T18:41:12Z",
+      "merge_commit_sha": "ff0c0ae72bb66152acfe303cb4871567db62f87f",
+      "base": "main",
+      "head": "fix/remove-spa-rewrite-for-404",
+      "additions": 0,
+      "deletions": 6,
+      "changed_files": 1,
+      "commits": 1,
+      "bare_number_collision": {
+        "other_repo": "nathanjohnpayne/mergepath",
+        "exists_there": true,
+        "other_title": "P0: Pre-flight: resolve any open Cowork PR under mockups/"
+      }
+    },
+    "nathanjohnpayne/nathanpaynedotcom#92": {
+      "repo": "nathanjohnpayne/nathanpaynedotcom",
+      "number": 92,
+      "resolved": true,
+      "type": "pull",
+      "title": "Update 404 page colors to match homepage palette",
+      "author": "nathanjohnpayne",
+      "state": "closed",
+      "created_at": "2026-04-11T18:47:28Z",
+      "closed_at": "2026-04-11T18:47:48Z",
+      "url": "https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/92",
+      "cited_in": [
+        "html-mockups-as-spec"
+      ],
+      "merged": true,
+      "merged_at": "2026-04-11T18:47:48Z",
+      "merge_commit_sha": "1bf32a51a5b6eb4787ddb09318e62a77e19af52d",
+      "base": "main",
+      "head": "fix/404-color-tweaks",
+      "additions": 4,
+      "deletions": 3,
+      "changed_files": 1,
+      "commits": 1,
+      "bare_number_collision": {
+        "other_repo": "nathanjohnpayne/mergepath",
+        "exists_there": true,
+        "other_title": "P0: Pre-flight: reserve `mergepath` on npm (placeholder)"
+      }
+    },
+    "nathanjohnpayne/swipewatch#33": {
+      "repo": "nathanjohnpayne/swipewatch",
+      "number": 33,
+      "resolved": true,
+      "type": "pull",
+      "title": "feat: propagate Phase 4a Codex external review automation from template (#45)",
+      "author": "nathanjohnpayne",
+      "state": "closed",
+      "created_at": "2026-04-15T18:30:51Z",
+      "closed_at": "2026-04-15T23:49:26Z",
+      "url": "https://github.com/nathanjohnpayne/swipewatch/pull/33",
+      "cited_in": [
+        "agent-approval-workflow-genesis-of-mergepath"
+      ],
+      "merged": true,
+      "merged_at": "2026-04-15T23:49:26Z",
+      "merge_commit_sha": "e5745fb40f690ed761cf5e37258bedec94979e24",
+      "base": "main",
+      "head": "feat/propagate-phase-4a-from-template",
+      "additions": 2388,
+      "deletions": 78,
+      "changed_files": 11,
+      "commits": 9
+    }
+  },
+  "rejected_not_references": [
+    {
+      "token": "#000",
+      "reason": "CSS hex color in a Mermaid style/classDef declaration",
+      "seen_in": [
+        "two-blues-one-composition"
+      ],
+      "example": "two-blues-one-composition:50: style I1 fill:#E8784A,stroke:#9c4f2f,color:#000"
+    },
+    {
+      "token": "#224089",
+      "reason": "six-digit CSS hex color quoted in prose (sampled/palette value)",
+      "seen_in": [
+        "two-blues-one-composition"
+      ],
+      "example": "two-blues-one-composition:62: The sampled palette told a story I half knew and half did not. The red came back"
+    },
+    {
+      "token": "#323137",
+      "reason": "six-digit CSS hex color quoted in prose (sampled/palette value)",
+      "seen_in": [
+        "two-blues-one-composition"
+      ],
+      "example": "two-blues-one-composition:109: The 1921 results vindicated my poster. Museum blue `#0383E3` against the poster'"
+    },
+    {
+      "token": "#333",
+      "reason": "CSS hex color in a Mermaid style/classDef declaration",
+      "seen_in": [
+        "agent-approval-workflow-genesis-of-mergepath",
+        "autofix-was-the-whole-cost",
+        "how-a-responsive-fix-became-an-astro-migration",
+        "html-mockups-as-spec",
+        "perfect-score-wrong-axis",
+        "six-prs-one-bug-agent-failure-modes",
+        "two-blues-one-composition"
+      ],
+      "example": "agent-approval-workflow-genesis-of-mergepath:40: style A fill:#e8b4b4,stroke:#993d3d,color:#333"
+    },
+    {
+      "token": "#333333",
+      "reason": "six-digit CSS hex color quoted in prose (sampled/palette value)",
+      "seen_in": [
+        "two-blues-one-composition"
+      ],
+      "example": "two-blues-one-composition:74: Claude sampled the poster the same way it had sampled my screenshots and concede"
+    }
+  ]
+}
