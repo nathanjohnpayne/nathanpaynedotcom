@@ -36,7 +36,6 @@
   --red: #e8784a;
   --yellow: #e3d477;
   --blue: #2080ca;
-  --lightblue: var(--blue);
   --gray-plane: #dde1e5;
   --black: #11100d;
   --accent-black: #333333;
@@ -1556,12 +1555,6 @@ body.blog-page {
   --accent-soft: color-mix(in srgb, var(--accent) 12%, transparent);
 }
 
-[data-accent='lightblue'] {
-  --accent: var(--lightblue);
-  --accent-contrast: var(--cream);
-  --accent-soft: color-mix(in srgb, var(--accent) 12%, transparent);
-}
-
 [data-accent='paper'] {
   --accent: var(--accent-paper);
   --accent-contrast: var(--cream);
@@ -2508,10 +2501,6 @@ a.tag:hover {
 
 .accent-paper {
   background: var(--gray-plane);
-}
-
-.accent-lightblue {
-  background: var(--lightblue);
 }
 
 .accent-white {
@@ -4241,7 +4230,6 @@ a:focus-visible {
   /* Hide decorative accent blocks */
   .accent-red,
   .accent-blue,
-  .accent-lightblue,
   .accent-yellow,
   .accent-black,
   .accent-paper,

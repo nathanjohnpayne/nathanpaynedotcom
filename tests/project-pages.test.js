@@ -62,7 +62,7 @@ const projectIndexAccentCycle = [
   { rowClass: 'grid-row--2', accentClasses: ['accent-blue'] },
   { rowClass: 'grid-row--3', accentClasses: ['accent-black'] },
   { rowClass: 'grid-row--4', accentClasses: ['accent-yellow', 'accent-paper'] },
-  { rowClass: 'grid-row--overflow-a', accentClasses: ['accent-lightblue'] },
+  { rowClass: 'grid-row--overflow-a', accentClasses: ['accent-blue'] },
   { rowClass: 'grid-row--overflow-b', accentClasses: ['accent-red'] },
 ];
 
@@ -71,6 +71,15 @@ const projectIndexAccentRows = canonicalProjectCards.map(
     ? { ...projectIndexAccentCycle[0], accentClasses: ['accent-yellow', 'accent-paper'] }
     : projectIndexAccentCycle[i % projectIndexAccentCycle.length],
 );
+
+// The canonical accent ramp. `accent` stays an authored frontmatter field, but
+// it is not free-form: the five interior-register planes run in one fixed
+// sequence indexed by `order` — warm, bright, neutral, cool, dark — so each
+// project added to the portfolio takes the next color in the walk instead of a
+// hand-picked one. Indexed by `order`, not by array position, so a reorder
+// re-colors the grid rather than silently breaking the sequence.
+// See specs/project-pages.md § Accent system.
+const projectAccentRamp = ['red', 'yellow', 'paper', 'blue', 'black'];
 
 // Projects without a deployed live URL — the "View Live Product" CTA
 // is suppressed on the detail page, the project card, and the homepage
@@ -272,6 +281,27 @@ describe('Project Pages — routes', () => {
       expect(frontmatter, `${file} still declares accentColor`).not.toMatch(/^accentColor:/m);
       expect(frontmatter, `${file} still declares gradientFrom`).not.toMatch(/^gradientFrom:/m);
       expect(frontmatter, `${file} still declares gradientTo`).not.toMatch(/^gradientTo:/m);
+    }
+  });
+
+  it('every project accent follows the canonical ramp for its order', () => {
+    const sourceFiles = readdirSync(CONTENT).filter((f) => f.endsWith('.md'));
+
+    for (const file of sourceFiles) {
+      const body = readFileSync(join(CONTENT, file), 'utf-8');
+      const fmMatch = body.match(/^---\n([\s\S]*?)\n---/);
+      const frontmatter = fmMatch ? fmMatch[1] : '';
+
+      const orderMatch = frontmatter.match(/^order:\s*(\d+)\s*$/m);
+      const accentMatch = frontmatter.match(/^accent:\s*["']?([a-z]+)["']?\s*$/m);
+
+      expect(orderMatch, `${file} declares no order`).not.toBeNull();
+      expect(accentMatch, `${file} declares no accent`).not.toBeNull();
+
+      const order = Number(orderMatch[1]);
+      expect(accentMatch[1], `${file} (order ${order}) breaks the accent ramp`).toBe(
+        projectAccentRamp[order % projectAccentRamp.length],
+      );
     }
   });
 });

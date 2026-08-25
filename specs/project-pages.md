@@ -29,7 +29,7 @@ kicker: "AI × Domain × Category"
 order: 5
 screenshotAspect: "wide"
 screenshotSrc: "/images/projects/project-name-hero.png"
-accent: "blue"                     # red | yellow | black | blue | lightblue | paper
+accent: "blue"                     # red | yellow | paper | blue | black — see Accent ramp
 liveUrl: "https://example.com"     # optional—omit on pre-launch projects
 githubUrl: "https://github.com/you/repo"
 tags: ["Tag1", "Tag2", "Tag3"]
@@ -58,7 +58,7 @@ draft: false
 | `order` | number | yes | Position on the `/projects/` index grid (lower = first). Governs `/projects/` **only**—the homepage Builds grid is hand-authored markup and ignores this field. See § Canonical project ordering |
 | `screenshotAspect` | `"wide"` \| `"narrow"` | yes | Layout variant—see below |
 | `screenshotSrc` | string | yes | Path to hero image in `public/` |
-| `accent` | enum | yes | Semantic accent token for the project. One of `red`, `yellow`, `black`, `blue`, `lightblue`, `paper`. CSS derives the actual palette values, text-safe color, page wash, and metadata gradient from this token |
+| `accent` | enum | yes | Semantic accent token for the project. One of `red`, `yellow`, `paper`, `blue`, `black`. Not a free choice—it must be `RAMP[order % 5]` per the Accent ramp below, enforced by `tests/project-pages.test.js`. CSS derives the actual palette values, text-safe color, page wash, and metadata gradient from this token |
 | `liveUrl` | non-empty string | no | URL for "View Live Product" CTA. Omit on pre-launch projects (status `IN PROGRESS`)—the CTA, the index card "Live ↗" link, the homepage Builds "Live ↗" link, and the `SoftwareApplication` JSON-LD entity are all suppressed when this field is missing |
 | `githubUrl` | string | yes | URL for "View on GitHub" CTA |
 | `tags` | string[] | yes | Category/technology tags |
@@ -216,7 +216,7 @@ Rendering knobs (width, fps, duration) live at the top of the script. If a futur
 
 ## Color System
 
-Each project chooses a semantic accent via frontmatter. The palette values themselves live in `src/styles/global.css`:
+Each project declares a semantic accent in frontmatter, but does not choose it freely: the accent follows a fixed ramp indexed by `order` (see Accent ramp below). The palette values themselves live in `src/styles/global.css`:
 
 - **Accent bar**: Left border on the hero header
 - **Gradient surface**: Background on the metadata + screenshot card, derived from the accent
@@ -240,16 +240,30 @@ Each project chooses a semantic accent via frontmatter. The palette values thems
 
 Do not add raw hex palette values to project frontmatter. If a project needs a new accent, add a tokenized `data-accent` scope in CSS first, then use that semantic value in content.
 
+### Accent ramp
+
+The five interior-register planes run in one fixed sequence, and a project's position in the [canonical ordering](#canonical-project-ordering) picks its accent out of that sequence:
+
+```
+red → yellow → paper → blue → black   (repeating)
+accent = RAMP[order % 5]
+```
+
+The sequence is a single-direction walk—warm, bright, neutral, cool, dark—so the portfolio reads as a progression rather than a rotation, and adding a project extends the walk instead of requiring a fresh judgment call about which color is still free. The ramp keys off `order`, not file position or publication date, so a reorder re-colors the affected projects rather than silently breaking the sequence. `tests/project-pages.test.js` asserts every project's `accent` matches `RAMP[order % 5]`, so a new project that picks its own color fails the suite.
+
+There is no `lightblue`. It existed as a second blue while the site ran two palette registers in one composition; PR #500 made 1921 the `:root` default and left `--lightblue: var(--blue)` behind as an alias that resolved identically in both registers. The alias and its `data-accent` scope were removed once the duplication was confirmed—the two blues the site still runs are the 1921 and 1930 registers, one per room, not two tokens inside one register. See [Two Blues, One Composition](/blog/two-blues-one-composition/).
+
 ### Current project accents
 
-| Project | Accent |
-|---------|--------|
-| Mergepath | `blue` |
-| Matchline | `black` |
-| Override | `yellow` |
-| Friends & Family Billing | `lightblue` |
-| Device Source of Truth | `paper` |
-| Swipe Watch | `red` |
+| `order` | Project | Accent |
+|---------|---------|--------|
+| 0 | Five Across | `red` |
+| 1 | Mergepath | `yellow` |
+| 2 | Override | `paper` |
+| 3 | Device Source of Truth | `blue` |
+| 4 | Matchline | `black` |
+| 5 | Swipe Watch | `red` |
+| 6 | Friends & Family Billing | `yellow` |
 
 ---
 

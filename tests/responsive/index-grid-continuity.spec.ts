@@ -5,7 +5,7 @@ const expectedRows = [
   { axes: [0.72], accents: ['accent-blue'] },
   { axes: [0.5], accents: ['accent-black'] },
   { axes: [0.5, 0.72], accents: ['accent-yellow', 'accent-paper'] },
-  { axes: [0.72], accents: ['accent-lightblue'] },
+  { axes: [0.72], accents: ['accent-blue'] },
   { axes: [0.5], accents: ['accent-red'] },
 ];
 

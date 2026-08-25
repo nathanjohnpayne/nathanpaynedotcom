@@ -13,7 +13,7 @@ const projects = defineCollection({
     order: z.number(),
     screenshotAspect: z.enum(['wide', 'narrow']),
     screenshotSrc: z.string(),
-    accent: z.enum(['red', 'yellow', 'black', 'blue', 'lightblue', 'paper']),
+    accent: z.enum(['red', 'yellow', 'black', 'blue', 'paper']),
     // Optional: in-progress projects (status "IN PROGRESS") may not have
     // a deployed app yet. When omitted, the "View Live Product" CTA is
     // suppressed on the detail page, the project card, and the homepage
