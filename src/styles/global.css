@@ -36,7 +36,6 @@
   --red: #e8784a;
   --yellow: #e3d477;
   --blue: #2080ca;
-  --lightblue: var(--blue);
   --gray-plane: #dde1e5;
   --black: #11100d;
   --accent-black: #333333;
@@ -1534,7 +1533,12 @@ body.blog-page {
 
 [data-accent='red'] {
   --accent: var(--red);
-  --accent-contrast: var(--cream);
+  /* Ink, not cream: `.nav-button:hover/:focus-visible` paints --accent as the
+     background and --accent-contrast as the label, and cream on this plane is
+     2.56:1 — under AA for text this small. Ink is 6.54:1. Predates the
+     accent ramp (Swipe Watch and Mergepath already shipped it); the ramp just
+     spread it to two more pages, which is what surfaced it. */
+  --accent-contrast: var(--ink);
   --accent-soft: color-mix(in srgb, var(--accent) 12%, transparent);
 }
 
@@ -1552,13 +1556,12 @@ body.blog-page {
 
 [data-accent='blue'] {
   --accent: var(--blue);
-  --accent-contrast: var(--cream);
-  --accent-soft: color-mix(in srgb, var(--accent) 12%, transparent);
-}
-
-[data-accent='lightblue'] {
-  --accent: var(--lightblue);
-  --accent-contrast: var(--cream);
+  /* Ink, not cream: `.nav-button:hover/:focus-visible` paints --accent as the
+     background and --accent-contrast as the label, and cream on this plane is
+     3.69:1 — under AA for text this small. Ink is 4.53:1. Predates the
+     accent ramp (Swipe Watch and Mergepath already shipped it); the ramp just
+     spread it to two more pages, which is what surfaced it. */
+  --accent-contrast: var(--ink);
   --accent-soft: color-mix(in srgb, var(--accent) 12%, transparent);
 }
 
@@ -1799,10 +1802,23 @@ body.blog-page {
   border: 1px solid var(--rule, color-mix(in srgb, var(--ink) 12%, transparent));
 }
 
-/* Black-themed projects get a black figure surface: Matchline renders a
-   white-fill wordmark SVG in the screenshot slot rather than a screenshot,
-   and Five Across's phone shot is itself a near-black app. The surface rule
-   applies to both.
+/* Black-accent projects get a black figure surface. Matchline is the load-
+   bearing case: it renders a white-fill wordmark SVG in the screenshot slot
+   rather than a screenshot, so the dark surface is what makes the mark
+   visible at all.
+
+   Five Across used to ride along here — its phone shot is a near-black app,
+   and the surface continued that artwork past the 320px image cap. The
+   accent ramp moved it to red, so it now sits on the ordinary page wash and
+   the treatment no longer applies. That was reviewed and accepted: the phone
+   capture reads as a device on the cream field and does not need the slab.
+
+   Note the coupling this leaves behind. The surface is keyed on the ACCENT
+   but is really a property of the ARTWORK, and Matchline keeps it only
+   because `order: 4` happens to land on black. A reorder that moves Matchline
+   off black would silently render a white wordmark on cream. If that day
+   comes, key this off the figure rather than off `data-accent` — do not
+   restore the accent to work around it.
 
    The width/padding override below is the WORDMARK treatment specifically —
    center the SVG in its inner wrapper and constrain it so it breathes rather
@@ -2508,10 +2524,6 @@ a.tag:hover {
 
 .accent-paper {
   background: var(--gray-plane);
-}
-
-.accent-lightblue {
-  background: var(--lightblue);
 }
 
 .accent-white {
@@ -4241,7 +4253,6 @@ a:focus-visible {
   /* Hide decorative accent blocks */
   .accent-red,
   .accent-blue,
-  .accent-lightblue,
   .accent-yellow,
   .accent-black,
   .accent-paper,

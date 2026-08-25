@@ -13,7 +13,6 @@ Plane colors are split into two *registers* (#499/#500). `:root` carries the
 --red:        #e8784a        (red plane, 1921 register)
 --yellow:     #e3d477        (yellow plane, 1921 register)
 --blue:       #2080ca        (blue plane, 1921 register)
---lightblue:  var(--blue)    (alias—resolves to the active register's blue)
 --gray-plane: #dde1e5        (gray plane)
 --rule:       var(--ink-18)  (divider/border—18% ink via the --ink-NN ramp, #466/#503)
 --cream:      #f5f0e4        (light background)
@@ -160,7 +159,7 @@ Static assets (favicons, robots.txt, OG fonts) live in `public/` and are copied 
 - Blog posts use Astro Content Collections with a Zod schema defined in `src/content.config.ts`.
 - Blog frontmatter includes: `title`, `seoTitle` (optional), `shortTitle` (optional), `description`, `seoDescription` (optional), `category` (required enum), `featured` (defaults to `false`), `author`, `date`, `tags`, `image`, `draft`, `pullquotes`, `sidebar`.
 - Project frontmatter includes optional `seoDescription`; use it when a project card/hero description is intentionally longer than a search snippet should be.
-- Project posts choose a semantic `accent` token (`red`, `yellow`, `black`, `blue`, `lightblue`, `paper`). Do not add raw project palette hex fields such as `accentColor`, `gradientFrom`, or `gradientTo`; CSS derives those colors from `data-accent`.
+- Project posts declare a semantic `accent` token (`red`, `yellow`, `paper`, `blue`, `black`), but do not choose it freely: the accent is `RAMP[order % 5]` along the fixed ramp red → yellow → paper → blue → black, enforced by `tests/project-pages.test.js`. See specs/project-pages.md § Accent ramp. Do not add raw project palette hex fields such as `accentColor`, `gradientFrom`, or `gradientTo`; CSS derives those colors from `data-accent`.
 - `rehype-mermaid` renders supported blog ` ```mermaid ` code blocks to static inline SVG during the Markdown build. A small adapter preserves required accessible metadata and rejects fences outside `src/content/blog/**/*.md`; it does not parse Mermaid grammar. Sidebar items use the same maintained renderer. No Mermaid runtime ships to visitors.
 - Custom Rehype plugin wraps standalone images in `<figure>` with auto-numbered `<figcaption>`.
 

@@ -7,7 +7,7 @@ kicker: "AI × Infrastructure × Tooling"
 order: 1
 screenshotAspect: "wide"
 screenshotSrc: "/images/projects/mergepath.png"
-accent: "blue"
+accent: "yellow"
 liveUrl: "https://htmlpreview.github.io/?https://raw.githubusercontent.com/nathanjohnpayne/mergepath/main/mergepath/playground/index.html"
 githubUrl: "https://github.com/nathanjohnpayne/mergepath"
 tags: ["Infrastructure", "AI Tooling", "GitHub Actions", "Bash"]

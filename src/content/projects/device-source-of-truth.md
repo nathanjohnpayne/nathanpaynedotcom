@@ -6,7 +6,7 @@ kicker: "AI × Enterprise × Data"
 order: 3
 screenshotAspect: "wide"
 screenshotSrc: "/images/projects/device-source-of-truth-hero.png"
-accent: "paper"
+accent: "blue"
 liveUrl: "https://device-source-of-truth.web.app"
 githubUrl: "https://github.com/nathanjohnpayne/device-source-of-truth"
 tags: ["Enterprise", "Data", "React", "Firebase"]

@@ -6,7 +6,7 @@ kicker: "AI × Utility × Finance"
 order: 6
 screenshotAspect: "wide"
 screenshotSrc: "/images/projects/friends-and-family-billing-hero-v2.png"
-accent: "lightblue"
+accent: "yellow"
 liveUrl: "https://friends-and-family-billing.web.app"
 githubUrl: "https://github.com/nathanjohnpayne/friends-and-family-billing"
 tags: ["Utility", "Finance", "React", "Firebase"]

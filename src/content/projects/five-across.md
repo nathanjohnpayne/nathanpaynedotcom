@@ -7,7 +7,7 @@ kicker: "Consumer × Social × Live Ops"
 order: 0
 screenshotAspect: "narrow"
 screenshotSrc: "/images/projects/five-across-hero.png"
-accent: "black"
+accent: "red"
 liveUrl: "https://fiveacross.app"
 githubUrl: "https://github.com/nathanjohnpayne/gaycruisebingo"
 tags: ["Consumer", "Social", "PWA", "Live Ops"]
