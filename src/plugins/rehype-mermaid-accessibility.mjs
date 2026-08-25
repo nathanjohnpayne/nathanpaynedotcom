@@ -99,8 +99,54 @@ export function rehypeMermaidSvg() {
       rendered.properties.className = [...new Set([...classNames(rendered), 'mermaid'])];
       rendered.properties.ariaHidden = 'true';
       rendered.properties.focusable = 'false';
+      splitLabelLines(rendered);
     });
   };
+}
+
+/**
+ * Rewrite `<p>first<br>second</p>` label paragraphs as one paragraph per line.
+ *
+ * Mermaid measures a `<br/>` label as two lines and sizes the node box to
+ * match, but `hast-util-to-html` enters the SVG schema at `<svg>` and never
+ * leaves it for `foreignObject`. `br` is void in HTML and not in SVG, so it
+ * serializes as `<br></br>`, and an HTML parser reads that closing tag as a
+ * second `<br>`. Every authored break then rendered as two, pushing the second
+ * line onto a third line that overflowed the bottom of the node box (#788).
+ * Sibling paragraphs carry no void element, so no serializer can double them,
+ * and Mermaid's own `p{margin:0}` rule keeps one paragraph to one line height.
+ */
+function splitLabelLines(node) {
+  if (!Array.isArray(node.children)) return;
+
+  const children = [];
+  for (const child of node.children) {
+    splitLabelLines(child);
+    children.push(...(hasLineBreak(child) ? paragraphPerLine(child) : [child]));
+  }
+  node.children = children;
+}
+
+function isLineBreak(node) {
+  return node.type === 'element' && node.tagName === 'br';
+}
+
+function hasLineBreak(node) {
+  if (node.type !== 'element' || node.tagName !== 'p') return false;
+  return Array.isArray(node.children) && node.children.some(isLineBreak);
+}
+
+function paragraphPerLine(paragraph) {
+  const lines = [[]];
+  for (const child of paragraph.children) {
+    if (isLineBreak(child)) lines.push([]);
+    else lines[lines.length - 1].push(child);
+  }
+  return lines.map((children) => ({
+    ...paragraph,
+    properties: { ...paragraph.properties },
+    children,
+  }));
 }
 
 export function createMermaidFigure({ sourceNode, title, description, descriptionId }) {
