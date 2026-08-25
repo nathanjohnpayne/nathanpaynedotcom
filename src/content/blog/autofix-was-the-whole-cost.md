@@ -3,7 +3,7 @@ title: "1,513 Lines for One Dash: The Requirement Nobody Questioned"
 seoTitle: "1,513 Lines for One Dash"
 shortTitle: "The Requirement Nobody Questioned"
 description: "A one-sentence style rule turned into 1,513 lines of code and 57 findings across 24 review rounds that dipped but never converged. Auto-fixing violations was 17% of the implementation and tests combined—and nearly all of the work that would not finish. Cutting one unexamined capability ended the loop."
-seoDescription: "One style rule drew 57 findings across 24 non-converging review rounds. Auto-fix was 17% of implementation and tests, and nearly all of the churn."
+seoDescription: "One style rule drew 57 findings across 24 non-converging review rounds. Auto-fix was 17% of the code and nearly all of the churn."
 category: "Agent Systems"
 author: "Nathan Payne"
 date: 2026-08-24
