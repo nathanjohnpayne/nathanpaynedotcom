@@ -217,7 +217,7 @@ Source: `gh api repos/nathanjohnpayne/nathanpaynedotcom/issues/{171,173,174,175}
 > L117
 
 **WRONG, and the correction is itself narrower than issue #173 claims** (see §J3). Issue #173 states: on Windows `dir.pathname` yields `/C:/path/to/dist`, which `path.join` turns into `C:\C:\path\to\dist\og-templates`. It also states the blast radius in as many words: *"Production impact: zero (CI and the author's workstation are both macOS/Linux)"*, and *"on macOS/Linux, `dir.pathname` and `fileURLToPath(dir)` produce the same result. The bug only bites on Windows builds."*
-Corrected value: it works on macOS and Linux and breaks on Windows—a contributor-portability bug with zero production impact.
+Corrected value: it breaks on Windows, and on POSIX too whenever the checkout path contains a character a URL escapes (see §J3); it agrees with `fileURLToPath` only on plain-ASCII POSIX paths, which is what CI and the author's workstation happen to use. A contributor-portability bug with zero production impact on the paths in use.
 Source: `gh api repos/nathanjohnpayne/nathanpaynedotcom/issues/173` → `.body`, §§ Problem and Impact.
 
 ### E3—"I caught it during a deploy that produced empty OG images"
@@ -290,6 +290,7 @@ Every commit on `2026-04-08`/`04-09` carries `Co-Authored-By: Claude Opus 4.6 (1
 | PR | Reviews |
 |---|---|
 | #47 | `nathanpayne-claude` APPROVED |
+| #49 | `nathanpayne-claude` APPROVED; `nathanpayne-codex` COMMENTED → APPROVED |
 | #54 | `nathanpayne-claude` APPROVED; `nathanpayne-codex` CHANGES_REQUESTED → APPROVED |
 | #55 | `nathanpayne-claude` APPROVED |
 | #56 | `nathanpayne-claude` APPROVED; `nathanpayne-codex` APPROVED |
@@ -300,7 +301,7 @@ Every commit on `2026-04-08`/`04-09` carries `Co-Authored-By: Claude Opus 4.6 (1
 Corrected value: Claude Code did the authoring; `nathanpayne-claude`, `nathanpayne-codex`, and CodeRabbit reviewed. Cursor is a registered reviewer identity in `.github/review-policy.yml` but did not review this work.
 
 **This table is also the best available evidence for the reviewability claim in A6**—Codex blocked #54, #62, and #63, taking three rounds on #63 before approving. Worth surfacing in the prose: the phased PRs were not a formality.
-Source: `git log --since=2026-04-08 --until=2026-04-10 --format='%H%n%b' | grep -i co-authored-by`; `gh api repos/nathanjohnpayne/nathanpaynedotcom/pulls/{47,54,55,56,62,63,64}/reviews` → `.user.login`, `.state`.
+Source: `git log --since=2026-04-08 --until=2026-04-10 --format='%H%n%b' | grep -i co-authored-by`; `gh api repos/nathanjohnpayne/nathanpaynedotcom/pulls/{47,49,54,55,56,62,63,64}/reviews` → `.user.login`, `.state`.
 
 ### F5—"runs end-to-end on a Firebase project I pay for personally"
 
@@ -416,3 +417,42 @@ The post now states the gap explicitly rather than eliding it—the checklist, t
 Source: `gh api repos/nathanjohnpayne/nathanpaynedotcom/issues/45` → `.body` (checklist), `.closed_at`; checkbox tally `grep -cE '^\s*- \[x\]'` → **0**, `grep -cE '^\s*- \[ \]'` → **25**; `gh api .../issues/45/comments` → empty.
 
 **Method note for the remaining six audits.** This is the second time in one PR that a *primary source* turned out to be looser than it looked—§J3, where issue #173's "Windows-only" framing was incomplete, and this row, where an issue title promising "verify production" carried no verification. Reading an issue's **title** as evidence of what happened is the failure mode. Read the body and the checkbox state.
+
+---
+
+## L. Round-3 addendum (PR #787, both reviewers on HEAD `10db69b`)
+
+Seven more P2 findings, all correct, all fixed. Two of them are corrections to **this ledger**, not to the post.
+
+### L1—The frontmatter still carried the claim §K1 retracted
+
+§K1 corrected five surfaces but missed two: `description` still said "a full migration deployed the same day" and `seoDescription` "shipped the migration that day". Those are the two surfaces that appear in search results and social previews, so the retracted claim was the most publicly visible copy on the page. Rewritten to the supported form—every tracked phase **closed** by that evening.
+
+### L2—The cache-header claim covered more than `firebase.json` does
+
+"An hour on pages and assets" overstated it. `firebase.json` sets `max-age=3600` on `**/*.html` and `**/*.@(js|css)` only, and `max-age=86400` on `/og/**` and `/og-image.png`. Images, fonts, and everything else match no `Cache-Control` rule at all. Corrected to name HTML, JavaScript, and CSS, and to say plainly that nothing else is specified—which is more interesting than the overstatement, in a paragraph whose whole point is that caching is configuration rather than category.
+Source: `firebase.json` → `hosting.headers`.
+
+### L3—`robots.txt` is hand-maintained, not generated
+
+The post grouped it with the generated surfaces. Only its `Sitemap:` line is rewritten, by `src/integrations/robots-sitemap.mjs`. The file itself is a hand-written crawler policy in `public/`, and it says so at length in its own comments—including that Cloudflare may prepend a managed block that is not in this repository at all. Corrected to claim generation of the `Sitemap:` line inside an otherwise hand-written file.
+Source: `public/robots.txt` (header comments); `src/integrations/robots-sitemap.mjs`.
+
+### L4—`RUN.md`'s table left the PR cell empty
+
+The table is the designated resume source and marked the row "in review" with no PR number, so a resumed agent could have read the row as not-yet-filed and opened a duplicate. Populated with #787. **Worth generalising for the remaining six: fill the table cell at the moment the PR is created, not in the log entry afterwards.**
+
+### L5—"eight reviewed PRs" did not trace to the evidence, though it is true
+
+§F4's review table covered seven PRs and omitted **#49** (Phase 1). The claim was correct but unsourced. Rather than narrow the prose, the missing row was fetched and added: `nathanpayne-claude` APPROVED `2026-04-08T21:17:41Z`, `nathanpayne-codex` COMMENTED `21:19:08Z` then APPROVED `21:19:18Z`. All eight are now in the table.
+Source: `gh api repos/nathanjohnpayne/nathanpaynedotcom/pulls/49/reviews`.
+
+### L6—§E2's corrected value still carried the too-broad wording
+
+§J3 amended E2's verdict line but left its "Corrected value" saying "it works on macOS and Linux and breaks on Windows"—the exact claim §J3 had just shown to be too broad. Rewritten to match §J3. **A ledger amendment has to reach every sentence in the row, not just the verdict line.**
+
+### L7—"eleven phased ports" counts the deployment as a port
+
+The Mermaid `description` called all eleven phases ports. Phase 10 is the deploy, so only phases 0–9 are ports. Corrected to ten ports plus the close-out of the eleventh.
+
+**Note on L7 versus L1.** CodeRabbit's suggested wording for L7 was "ten phased ports and a same-day deployment", which would have reintroduced the very deployment claim L1 and §K1 remove. The two findings arrived in the same round and pull in opposite directions; the fix takes L7's count and L1's verb. A committable suggestion is a suggestion, not an instruction.

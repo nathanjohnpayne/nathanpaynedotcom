@@ -2,8 +2,8 @@
 title: "How Making a Page Responsive Led to a Full Astro Site Implementation"
 seoTitle: "How Making a Page Responsive Led to Astro"
 shortTitle: "Responsive Fix to Astro"
-description: "A mobile overflow bug on one blog post was the symptom of a hand-rolled chassis—seven duplicated HTML pages—whose publishing workflow could not support a real cadence. Why the fix led to an Astro scaffold four hours later, a full migration deployed the same day, and a dependency bill accepted knowingly."
-seoDescription: "A mobile overflow bug exposed seven duplicated HTML pages. Why this site scaffolded Astro the same afternoon and shipped the migration that day."
+description: "A mobile overflow bug on one blog post was the symptom of a hand-rolled chassis—seven duplicated HTML pages—whose publishing workflow could not support a real cadence. Why the fix led to an Astro scaffold four hours later, every tracked migration phase closed by that evening, and a dependency bill accepted knowingly."
+seoDescription: "A mobile overflow bug exposed seven duplicated HTML pages. Why this site scaffolded Astro that afternoon and closed every migration phase that day."
 category: "Building This Site"
 author: "Nathan Payne"
 date: 2026-05-09
@@ -33,7 +33,7 @@ pullquotes:
 sidebar:
   - type: mermaid
     title: "From mobile overflow fix to Astro migration"
-    description: "A mobile-overflow issue leads through a responsive fix, a same-afternoon Astro scaffold, and eleven phased ports to a same-day close-out, delivering type-safe frontmatter, generated Open Graph images, RSS, and a sitemap."
+    description: "A mobile-overflow issue leads through a responsive fix, a same-afternoon Astro scaffold, and ten phased ports to a same-day close-out of the eleventh, delivering type-safe frontmatter, generated Open Graph images, RSS, and a sitemap."
     content: |
       graph TD
           A["Hand-rolled HTML<br/>7 pages, 1 stylesheet"] --> B["Issue #28<br/>Mobile overflow"]
@@ -85,7 +85,7 @@ Four options were on the table that afternoon.
 
 The CMS row is really two options, and the line is worth drawing accurately. A traditional CMS renders pages at request time against its own data model: performance rides on the caching strategy and the origin's uptime, and the schema is the vendor's. But a headless CMS feeding a static build sits in the same square as an SSG—build-time rendering, custom content models, cached delivery. The axis that matters is not "CMS versus static." It is when the templating runs and who owns the schema. I wanted build time and mine, and for a one-person Markdown site an SSG gets both without standing up a separate content service.
 
-The performance claim deserves the same precision. This site is fast because of its deployment, not its category: Astro emits flat HTML into `dist/`, and Firebase Hosting serves it from its CDN under the `Cache-Control` headers set in `firebase.json`—an hour on pages and assets, a day on OG images. An SSG with no cache configuration inherits none of that.
+The performance claim deserves the same precision. This site is fast because of its deployment, not its category: Astro emits flat HTML into `dist/`, and Firebase Hosting serves it from its CDN under the `Cache-Control` headers set in `firebase.json`—an hour on HTML, JavaScript, and CSS, a day on the OG images, and nothing specified for anything else. An SSG with no cache configuration inherits none of that.
 
 Two more criteria closed the decision. Cadence: only the bottom two rows remove the per-post tax, and I intended to keep publishing. Reversibility: an SSG's output is the same flat HTML I had been writing by hand, so the deployable artifact stays portable and the old chassis stays one revert away—if the migration soured mid-flight, it could be backed out without taking the site down. The patch-only option was the most reversible and decided nothing; the SSG removed the tax while keeping the exit cheap. So the open question was never "should I use one?" It was whether to start that afternoon or keep patching the hand-rolled site and do this in three months when it hurt more.
 
@@ -129,7 +129,7 @@ So the same-day claim has edges worth stating exactly: the scaffold landed the s
 
 **Sitemap, robots.txt, and RSS.** The `@astrojs/sitemap` integration generates the sitemap from the routes Astro already knows about. A custom integration syncs the `Sitemap:` line in `robots.txt` so the filename never drifts from what got shipped. RSS is a small endpoint file under `src/pages/rss.xml.ts`. None of those existed on the hand-rolled site.
 
-The outcome I actually care about is editorial, not technical. The post that started all this reads cleanly on a phone, and stays that way under a spec and two layers of tests rather than my memory. Publishing went from five hand steps across two files, carrying a drift risk that spanned seven duplicated headers, to one Markdown file and a build that rejects malformed frontmatter. And the metadata surfaces—OG cards, RSS, sitemap, robots.txt—behave consistently because they are generated, not maintained.
+The outcome I actually care about is editorial, not technical. The post that started all this reads cleanly on a phone, and stays that way under a spec and two layers of tests rather than my memory. Publishing went from five hand steps across two files, carrying a drift risk that spanned seven duplicated headers, to one Markdown file and a build that rejects malformed frontmatter. And the metadata surfaces that should never drift—OG cards, RSS, the sitemap, and the `Sitemap:` line inside an otherwise hand-written `robots.txt`—behave consistently because they are generated, not maintained.
 
 ## What it cost
 
