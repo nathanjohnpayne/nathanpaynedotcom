@@ -137,22 +137,47 @@ describe('rendered Mermaid contrast', () => {
       ],
     });
   });
+
+  it('inspects class-styled treemap cells instead of assuming flowchart node markup', async () => {
+    const rendered = await renderSidebarMermaid([
+      {
+        type: 'mermaid',
+        title: 'Treemap contrast fixture',
+        description: 'The treemap leaf uses a low-contrast class and a translucent fill.',
+        content: [
+          'treemap-beta',
+          '"Root"',
+          '  "Low contrast": 10:::warning',
+          'classDef warning fill:#7bc67e,color:#fff,fill-opacity:0.5;',
+        ].join('\n'),
+      },
+    ]);
+    const document = new JSDOM(rendered.get(0)).window.document;
+
+    expect(renderedContrastFailures(document)).toEqual({
+      styledNodeCount: 1,
+      failures: [
+        expect.objectContaining({
+          label: 'Low contrast',
+          fill: '#7bc67e',
+          color: '#fff',
+          fillOpacity: '0.5',
+          ratio: null,
+        }),
+      ],
+    });
+  });
 });
 
 function renderedContrastFailures(document) {
   const failures = [];
-  let styledNodeCount = 0;
+  const styledNodes = findExplicitlyStyledNodes(document);
 
-  for (const node of document.querySelectorAll('svg.mermaid g.node')) {
-    const shape = node.querySelector('rect, polygon, path, circle, ellipse');
-    const label = node.querySelector('.nodeLabel');
-    const fill = styleProperty(shape?.getAttribute('style'), 'fill');
-    const color = styleProperty(label?.getAttribute('style'), 'color');
-    const fillOpacity = styleProperty(shape?.getAttribute('style'), 'fill-opacity');
-    const opacity = styleProperty(shape?.getAttribute('style'), 'opacity');
-    if (!fill && !color && !fillOpacity && !opacity) continue;
-
-    styledNodeCount += 1;
+  for (const { node, shape, label } of styledNodes) {
+    const fill = renderedProperty(shape, 'fill');
+    const color = renderedProperty(label, 'color') ?? renderedProperty(label, 'fill');
+    const fillOpacity = renderedProperty(shape, 'fill-opacity');
+    const opacity = renderedProperty(shape, 'opacity') ?? renderedProperty(node, 'opacity');
     const ratio =
       isFullyOpaque(fillOpacity) && isFullyOpaque(opacity) ? contrastRatio(color, fill) : null;
     if (ratio == null || ratio < MINIMUM_CONTRAST) {
@@ -160,7 +185,72 @@ function renderedContrastFailures(document) {
     }
   }
 
-  return { styledNodeCount, failures };
+  return { styledNodeCount: styledNodes.length, failures };
+}
+
+function findExplicitlyStyledNodes(document) {
+  const nodes = new Map();
+  const relevantProperties = ['fill', 'color', 'fill-opacity', 'opacity'];
+
+  for (const styledElement of document.querySelectorAll('svg.mermaid [style]')) {
+    if (!relevantProperties.some((property) => hasImportantStyle(styledElement, property))) continue;
+
+    const node = nearestShapeAndLabelGroup(styledElement);
+    if (node) nodes.set(node, node);
+  }
+
+  return [...nodes.values()].map((node) => {
+    const shapes = nodeShapes(node);
+    const labels = nodeLabels(node);
+    const shape =
+      shapes.find((candidate) =>
+        ['fill', 'fill-opacity', 'opacity'].some((property) =>
+          hasImportantStyle(candidate, property),
+        ),
+      ) ?? shapes[0];
+    const label =
+      labels.find((candidate) =>
+        ['color', 'fill', 'opacity'].some((property) => hasImportantStyle(candidate, property)),
+      ) ?? labels[0];
+
+    return { node, shape, label };
+  });
+}
+
+function nearestShapeAndLabelGroup(element) {
+  let group = element.closest('g');
+  while (group) {
+    const shape = nodeShapes(group)[0];
+    const label = nodeLabels(group)[0];
+    if (shape && label) return group;
+    group = group.parentElement?.closest('g');
+  }
+  return null;
+}
+
+function nodeShapes(node) {
+  return [...node.querySelectorAll('rect, polygon, path, circle, ellipse')].filter(
+    (shape) => !shape.closest('defs, clipPath, mask, g.label'),
+  );
+}
+
+function nodeLabels(node) {
+  return [
+    node.querySelector('.nodeLabel'),
+    node.querySelector('.treemapLabel'),
+    node.querySelector('text'),
+    node.querySelector('foreignObject'),
+  ].filter(Boolean);
+}
+
+function renderedProperty(element, property) {
+  return styleProperty(element?.getAttribute('style'), property) ?? element?.getAttribute(property);
+}
+
+function hasImportantStyle(element, property) {
+  return new RegExp(`(?:^|;)\\s*${property}\\s*:[^;]*!important\\s*(?:;|$)`, 'i').test(
+    element.getAttribute('style') ?? '',
+  );
 }
 
 function isFullyOpaque(value) {

@@ -64,6 +64,9 @@ describe('PR body contract', () => {
     const htmlBlockAttribute = validate(
       ['<div data-agent="', 'Authoring-Agent: codex', '">', '', '## Self-Review'].join('\n'),
     );
+    const commentClosingLine = validate(
+      ['<!-- hidden', '-->Authoring-Agent: codex', '', '## Self-Review'].join('\n'),
+    );
 
     expect(hiddenAuthor.status).toBe(1);
     expect(hiddenAuthor.stderr).toContain("missing a valid 'Authoring-Agent:' line");
@@ -73,6 +76,8 @@ describe('PR body contract', () => {
     expect(multilineInlineComment.stderr).toContain("missing a valid 'Authoring-Agent:' line");
     expect(htmlBlockAttribute.status).toBe(1);
     expect(htmlBlockAttribute.stderr).toContain("missing a valid 'Authoring-Agent:' line");
+    expect(commentClosingLine.status).toBe(1);
+    expect(commentClosingLine.stderr).toContain("missing a valid 'Authoring-Agent:' line");
   });
 
   it('keeps the trusted parser self-contained on a clean policy runner', () => {

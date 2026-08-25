@@ -96,6 +96,7 @@ function stripHtmlComments(line, setState, initialState) {
   let result = '';
   let cursor = 0;
   let inComment = initialState;
+  const discardLine = initialState || /^ {0,3}<!--/.test(line);
 
   while (cursor < line.length) {
     if (inComment) {
@@ -120,7 +121,7 @@ function stripHtmlComments(line, setState, initialState) {
   }
 
   setState(inComment);
-  return result;
+  return discardLine ? null : result;
 }
 
 function stripContainerPrefix(line) {
