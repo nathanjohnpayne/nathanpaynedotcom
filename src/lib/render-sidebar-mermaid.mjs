@@ -1,5 +1,6 @@
 import { toHtml } from 'hast-util-to-html';
 import rehypeMermaid from 'rehype-mermaid';
+import { VFile } from 'vfile';
 import {
   createMermaidFigure,
   mermaidOptions,
@@ -46,7 +47,7 @@ export async function renderSidebarMermaid(items, filePath = 'sidebar') {
     }),
   };
 
-  await render(tree, { path: filePath });
+  await render(tree, new VFile({ path: filePath }));
   finish(tree);
 
   if (tree.children.length !== diagrams.length) {

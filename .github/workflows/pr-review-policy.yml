@@ -26,25 +26,18 @@ jobs:
         with:
           node-version-file: .nvmrc
 
+      - name: Install trusted validator dependencies
+        run: npm ci --ignore-scripts
+
       - name: Check PR body contract
         env:
           PR_BODY: ${{ github.event.pull_request.body }}
         run: |
-          if [ -x scripts/validate-pr-body.sh ]; then
-            printf '%s\n' "$PR_BODY" | scripts/validate-pr-body.sh
-            exit
+          if [ ! -x scripts/validate-pr-body.sh ]; then
+            echo "Trusted PR body validator is unavailable on the default branch; refusing to weaken the contract."
+            exit 1
           fi
-
-          # Bootstrap for the PR that first adds the trusted default-branch
-          # validator. Future runs use the shared parser above.
-          printf '%s\n' "$PR_BODY" | grep -qiE '^[[:space:]]*Authoring-Agent:[[:space:]]*[A-Za-z0-9_-]+[[:space:]]*$' || {
-            echo "PR description must contain a valid 'Authoring-Agent:' line."
-            exit 1
-          }
-          printf '%s\n' "$PR_BODY" | grep -qiE '^## Self-Review[[:space:]]*$' || {
-            echo "PR description must contain a '## Self-Review' section."
-            exit 1
-          }
+          printf '%s\n' "$PR_BODY" | scripts/validate-pr-body.sh
 
   label-gate:
     name: Label Gate

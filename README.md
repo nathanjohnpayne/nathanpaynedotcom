@@ -182,6 +182,9 @@ At `max-width: 1023px`:
 # Install dependencies
 npm install
 
+# Install the Chromium binary used by Mermaid and OG rendering
+npx playwright install chromium
+
 # Optional local public-client env vars
 cp .env.example .env.local
 

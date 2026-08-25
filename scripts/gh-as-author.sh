@@ -66,6 +66,11 @@ if [ "$#" -eq 0 ]; then
   exit 1
 fi
 
+if [ "$1" != "gh" ]; then
+  echo "gh-as-author: only the gh executable may receive the verified author token." >&2
+  exit 1
+fi
+
 set +e
 gh_resolve_token_for_identity "$AUTHOR" "OP_PREFLIGHT_AUTHOR_PAT" "gh-as-author"
 RESOLVE_RC=$?
@@ -75,12 +80,12 @@ if [ "$RESOLVE_RC" -ne 0 ]; then
 fi
 TOKEN="$GH_RESOLVED_TOKEN"
 
-is_pr_create_command() {
+gh_command_path() {
   [ "${1:-}" = "gh" ] || return 1
   shift
 
-  local saw_pr=0
   local skip_value=0
+  local command_word_count=0
   local argument
   for argument in "$@"; do
     if [ "$skip_value" -eq 1 ]; then
@@ -91,27 +96,72 @@ is_pr_create_command() {
       -R|--repo|--hostname)
         skip_value=1
         ;;
-      -R?*|--repo=*|--hostname=*) ;;
-      pr)
-        [ "$saw_pr" -eq 0 ] || return 1
-        saw_pr=1
-        ;;
-      create|new)
-        [ "$saw_pr" -eq 1 ] && return 0
-        return 1
-        ;;
+      -R?*|--repo=*|--hostname=*|--help|--version) ;;
       -*) ;;
-      *) return 1 ;;
+      *)
+        printf '%s\n' "$argument"
+        command_word_count=$((command_word_count + 1))
+        [ "$command_word_count" -lt 2 ] || return 0
+        ;;
     esac
   done
 
-  return 1
+  [ "$command_word_count" -gt 0 ]
 }
 
-IS_PR_CREATE=0
-if is_pr_create_command "$@"; then
-  IS_PR_CREATE=1
+# Custom gh aliases are outside this wrapper's validated command grammar. An
+# alias can expand an innocent-looking `gh ship` into `gh pr create`, bypassing
+# the literal create/new detector and its PR-body validation. Reject configured
+# aliases before every wrapped write; callers must spell the built-in command.
+COMMAND_PATH="$(gh_command_path "$@" || true)"
+TOP_LEVEL_COMMAND="$(printf '%s\n' "$COMMAND_PATH" | sed -n '1p')"
+PR_SUBCOMMAND="$(printf '%s\n' "$COMMAND_PATH" | sed -n '2p')"
+if [ -n "$TOP_LEVEL_COMMAND" ]; then
+  set +e
+  ALIAS_LIST=$(unset GITHUB_TOKEN; GH_TOKEN="$TOKEN" gh alias list)
+  ALIAS_RC=$?
+  set -e
+  if [ "$ALIAS_RC" -ne 0 ]; then
+    echo "gh-as-author: could not inspect custom gh aliases; refusing the wrapped write fail-closed." >&2
+    exit 1
+  fi
+  if printf '%s\n' "$ALIAS_LIST" | awk -F: -v name="$TOP_LEVEL_COMMAND" '$1 == name { found = 1 } END { exit !found }'; then
+    echo "gh-as-author: custom gh alias '$TOP_LEVEL_COMMAND' is unsupported; invoke the literal built-in gh command so policy validation can inspect it." >&2
+    exit 1
+  fi
+
+  case "$TOP_LEVEL_COMMAND:$PR_SUBCOMMAND" in
+    extension:exec|extensions:exec|ext:exec)
+      echo "gh-as-author: gh extension exec is unsupported because an extension would inherit the author token." >&2
+      exit 1
+      ;;
+  esac
+
+  set +e
+  EXTENSION_LIST=$(unset GH_TOKEN GITHUB_TOKEN; gh extension list)
+  EXTENSION_RC=$?
+  set -e
+  if [ "$EXTENSION_RC" -ne 0 ]; then
+    echo "gh-as-author: could not inspect installed gh extensions; refusing the wrapped write fail-closed." >&2
+    exit 1
+  fi
+  if printf '%s\n' "$EXTENSION_LIST" | awk -F '\t' -v name="$TOP_LEVEL_COMMAND" '
+    {
+      extension = $1
+      sub(/^gh[[:space:]]+/, "", extension)
+      if (extension == name) found = 1
+    }
+    END { exit !found }
+  '; then
+    echo "gh-as-author: installed gh extension '$TOP_LEVEL_COMMAND' is unsupported because it would inherit the author token." >&2
+    exit 1
+  fi
 fi
+
+IS_PR_CREATE=0
+case "$TOP_LEVEL_COMMAND:$PR_SUBCOMMAND" in
+  pr:create|pr:new) IS_PR_CREATE=1 ;;
+esac
 
 if [ "$IS_PR_CREATE" -eq 1 ]; then
   PR_BODY=""
@@ -173,6 +223,8 @@ if [ "$IS_PR_CREATE" -eq 1 ]; then
         NORMALIZED_COMMAND+=("$argument" "$1")
         shift
         ;;
+      # A short-option cluster containing b or F could smuggle a body source
+      # past the dedicated -b/-F cases above, so reject the whole cluster.
       -[^-]*[bF]*)
         echo "gh-as-author: ambiguous clustered short option '$argument' contains a PR body flag; pass -b or -F separately." >&2
         exit 1

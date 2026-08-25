@@ -82,6 +82,8 @@ export function rehypeMermaidSvg() {
         // A role="img" makes the figure's descendants presentational, which
         // would hide the visible failure message from assistive technology.
         // Restore normal document semantics when Mermaid could not render.
+        // Delete all three attributes defensively: the cleanup is intentionally
+        // idempotent because a fallback may already lack any one of them.
         delete child.properties?.role;
         delete child.properties?.ariaLabel;
         delete child.properties?.ariaDescribedBy;

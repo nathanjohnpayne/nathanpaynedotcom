@@ -43,6 +43,14 @@ For larger changes, add a body explaining why, not what.
 
 Vitest and Playwright tests cover metadata, layout, interactions, and routes.
 
+Mermaid diagrams render through Playwright Chromium while Astro builds Markdown, including during `npm run dev`. Install that browser after installing packages:
+
+```bash
+npx playwright install chromium
+```
+
+On Linux, `npx playwright install --with-deps chromium` also installs required system libraries when the environment permits it. In a network-restricted environment, pre-provision the Playwright browser cache and point both installation and development commands at it with `PLAYWRIGHT_BROWSERS_PATH`. If the environment forbids launching Chromium entirely, Mermaid pages cannot be previewed or built there because the production pipeline intentionally has no client-side rendering fallback.
+
 ```bash
 npm run lint
 npm run test          # astro build && vitest run

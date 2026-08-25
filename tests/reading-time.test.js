@@ -1,5 +1,6 @@
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { JSDOM } from 'jsdom';
 import { describe, it, expect } from 'vitest';
 import { estimateReadingMinutes } from '../src/lib/reading-time';
 
@@ -13,6 +14,21 @@ describe('estimateReadingMinutes (src/lib/reading-time.ts)', () => {
       const source = readFileSync(resolve(relativePath), 'utf8');
       expect(source, relativePath).toContain('estimateReadingMinutes');
     }
+  });
+
+  it('renders the estimator result into the built OG route output', () => {
+    const sourcePath = resolve('src/content/blog/six-prs-one-bug-agent-failure-modes.md');
+    const routePath = resolve(
+      '.astro/test-artifacts/og-templates/blog/six-prs-one-bug-agent-failure-modes/index.html',
+    );
+    expect(existsSync(routePath), 'npm test must capture the private OG route output').toBe(true);
+
+    const markdown = readFileSync(sourcePath, 'utf8');
+    const body = markdown.replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n/, '');
+    const expected = `${estimateReadingMinutes(body)} min read`;
+    const document = new JSDOM(readFileSync(routePath, 'utf8')).window.document;
+
+    expect(document.querySelector('.og-meta')?.textContent).toContain(expected);
   });
 
   it('returns 1 for empty / nullish input', () => {

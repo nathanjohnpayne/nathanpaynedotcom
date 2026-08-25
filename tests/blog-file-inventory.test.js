@@ -1,6 +1,7 @@
 import { existsSync, mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
 import { blogSlugFromPath, findBlogMarkdownFiles } from '../scripts/lib/blog-file-inventory.mjs';
@@ -38,6 +39,39 @@ describe('blog file inventory', () => {
     expect(existsSync(resolve('src/pages/blog/[slug].astro'))).toBe(false);
     expect(existsSync(resolve('src/pages/og-templates/blog/[...slug].astro'))).toBe(true);
     expect(existsSync(resolve('src/pages/og-templates/blog/[slug].astro'))).toBe(false);
+  });
+
+  it('matches Astro slug generation for edge-case and collision-like filenames', async () => {
+    const astroEntry = import.meta.resolve('astro');
+    const astroUtils = await import(new URL('./content/utils.js', astroEntry));
+    const directory = mkdtempSync(join(tmpdir(), 'blog-slug-parity-'));
+    const filenames = [
+      'Unicode/Café Déjà Vu.md',
+      'Punctuation/Hello.World + Notes!.md',
+      'Casing/MiXeD-Case.md',
+      'Collisions/Hello World.md',
+      'Collisions/hello-world.md',
+      'Nested Index/INDEX.md',
+      'Nested Index/index.md',
+    ];
+
+    try {
+      for (const filename of filenames) {
+        const filePath = join(directory, filename);
+        mkdirSync(join(filePath, '..'), { recursive: true });
+        writeFileSync(filePath, 'fixture');
+
+        const astroSlug = astroUtils.getContentEntryIdAndSlug({
+          entry: pathToFileURL(filePath),
+          contentDir: pathToFileURL(`${directory}/`),
+          collection: '',
+        }).slug;
+
+        expect(blogSlugFromPath(filePath, directory), filename).toBe(astroSlug);
+      }
+    } finally {
+      rmSync(directory, { recursive: true, force: true });
+    }
   });
 
   it('includes nested published posts in sitemap lastmod values', () => {

@@ -23,7 +23,7 @@
  * @see Issue #683 — PDF links froze at the localhost render origin
  */
 
-import { readdir, mkdir, rm, stat } from 'node:fs/promises';
+import { cp, readdir, mkdir, rm, stat } from 'node:fs/promises';
 import { join, dirname, basename, resolve, sep } from 'node:path';
 import { createServer } from 'node:http';
 import { createReadStream } from 'node:fs';
@@ -118,12 +118,14 @@ export default function ogImages() {
   // the resolved config, and the resume PDF needs the production origin to
   // absolutize its links (#683).
   let siteUrl;
+  let projectRoot;
 
   return {
     name: 'og-images',
     hooks: {
       'astro:config:done': ({ config }) => {
         siteUrl = config.site;
+        projectRoot = fileURLToPath(config.root);
       },
       'astro:build:done': async ({ dir, logger }) => {
         // `dir` is a URL object. `dir.pathname` yields `/C:/path/...` on
@@ -132,6 +134,11 @@ export default function ogImages() {
         // See #173 (fix) and #171 (same fix applied to robots-sitemap).
         const distDir = fileURLToPath(dir);
         const ogTemplateDir = join(distDir, 'og-templates');
+        const captureDir = join(projectRoot, '.astro', 'test-artifacts', 'og-templates');
+
+        // A normal build must invalidate any prior test capture so a later
+        // focused Vitest run cannot accidentally inspect stale route output.
+        await rm(captureDir, { recursive: true, force: true });
 
         // Check if og-templates/ templates exist in the build output. A build
         // without them still needs the resume PDF below, so this only skips
@@ -145,6 +152,11 @@ export default function ogImages() {
           }
         } catch {
           logger.warn('No og-templates/ templates found in build output, skipping OG generation');
+        }
+
+        if (process.env.CAPTURE_OG_ROUTE_OUTPUT === '1' && templatePaths.length > 0) {
+          await mkdir(dirname(captureDir), { recursive: true });
+          await cp(ogTemplateDir, captureDir, { recursive: true });
         }
 
         // Start local server

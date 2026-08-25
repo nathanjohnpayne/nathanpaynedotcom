@@ -84,6 +84,16 @@ if [ "${1:-}" = "pr" ] && [ "${2:-}" = "view" ]; then
   exit 0
 fi
 
+if [ "${1:-}" = "alias" ] && [ "${2:-}" = "list" ]; then
+  printf '%s' "${GH_ALIAS_LIST:-}"
+  exit 0
+fi
+
+if [ "${1:-}" = "extension" ] && [ "${2:-}" = "list" ]; then
+  printf '%s' "${GH_EXTENSION_LIST:-}"
+  exit "${GH_EXTENSION_LIST_RC:-0}"
+fi
+
 exit "${GH_GENERIC_RC:-0}"
 STUB
 chmod +x "$STUB_DIR/gh"
@@ -109,6 +119,21 @@ elif ! grep -q $'GH_TOKEN=author-token GITHUB_TOKEN= gh\tpr\tmerge\t123\t--squas
   cat "$WORKDIR/calls.log" >&2
 else
   pass "merge happy path: verified author token, no keyring switch, ambient GITHUB_TOKEN cleared"
+fi
+
+reset_log
+NON_GH_MARKER="$WORKDIR/non-gh-ran"
+set +e
+OP_PREFLIGHT_AUTHOR_PAT="author-token" \
+  run_wrapper -- sh -c 'printf "%s" "$GH_TOKEN" > "$1"' sh "$NON_GH_MARKER" >/dev/null 2>&1
+rc=$?
+set -e
+if [ "$rc" -eq 0 ]; then
+  fail "non-gh boundary: arbitrary executable was accepted"
+elif [ -e "$NON_GH_MARKER" ]; then
+  fail "non-gh boundary: arbitrary executable received the author token"
+else
+  pass "non-gh boundary: arbitrary executable rejected before token exposure"
 fi
 
 reset_log
@@ -153,6 +178,74 @@ elif grep -q $'gh\tpr\tnew' "$WORKDIR/calls.log"; then
 else
   pass "pr new alias contract: invalid body blocked before write"
 fi
+
+reset_log
+set +e
+stderr_capture=$(OP_PREFLIGHT_AUTHOR_PAT="author-token" GH_ALIAS_LIST=$'ship: pr create\n' \
+  run_wrapper -- gh ship --title "t" --body "INVALID" 2>&1 >/dev/null)
+rc=$?
+set -e
+if [ "$rc" -ne 1 ]; then
+  fail "custom alias boundary: rc=$rc expected 1"
+elif ! echo "$stderr_capture" | grep -q "custom gh alias"; then
+  fail "custom alias boundary: missing actionable rejection"
+elif grep -q $'gh\tship\t' "$WORKDIR/calls.log"; then
+  fail "custom alias boundary: alias reached the wrapped write"
+else
+  pass "custom alias boundary: aliases are rejected before wrapped writes"
+fi
+
+reset_log
+set +e
+stderr_capture=$(OP_PREFLIGHT_AUTHOR_PAT="author-token" GH_EXTENSION_LIST=$'gh ship\texample/gh-ship\tv1.0.0\n' \
+  run_wrapper -- gh ship --title "t" --body "INVALID" 2>&1 >/dev/null)
+rc=$?
+set -e
+if [ "$rc" -ne 1 ]; then
+  fail "extension boundary: rc=$rc expected 1"
+elif ! echo "$stderr_capture" | grep -q "installed gh extension"; then
+  fail "extension boundary: missing actionable rejection"
+elif grep -q $'GH_TOKEN=author-token GITHUB_TOKEN= gh\tship\t' "$WORKDIR/calls.log"; then
+  fail "extension boundary: extension inherited the author token"
+elif ! grep -q $'GH_TOKEN= GITHUB_TOKEN= gh\textension\tlist' "$WORKDIR/calls.log"; then
+  fail "extension boundary: extension inventory did not clear credential variables"
+else
+  pass "extension boundary: installed extensions are rejected before receiving the author token"
+fi
+
+reset_log
+set +e
+stderr_capture=$(OP_PREFLIGHT_AUTHOR_PAT="author-token" GH_EXTENSION_LIST_RC=7 \
+  run_wrapper -- gh pr merge 123 2>&1 >/dev/null)
+rc=$?
+set -e
+if [ "$rc" -ne 1 ]; then
+  fail "extension inventory boundary: rc=$rc expected 1"
+elif ! echo "$stderr_capture" | grep -q "could not inspect installed gh extensions"; then
+  fail "extension inventory boundary: missing fail-closed diagnostic"
+elif grep -q $'GH_TOKEN=author-token GITHUB_TOKEN= gh\tpr\tmerge' "$WORKDIR/calls.log"; then
+  fail "extension inventory boundary: wrapped command ran after inventory failure"
+else
+  pass "extension inventory boundary: inspection failures block the wrapped command"
+fi
+
+for extension_command in extension extensions ext; do
+  reset_log
+  set +e
+  stderr_capture=$(OP_PREFLIGHT_AUTHOR_PAT="author-token" \
+    run_wrapper -- gh "$extension_command" exec ship --title "t" --body "INVALID" 2>&1 >/dev/null)
+  rc=$?
+  set -e
+  if [ "$rc" -ne 1 ]; then
+    fail "$extension_command exec boundary: rc=$rc expected 1"
+  elif ! echo "$stderr_capture" | grep -q "extension exec is unsupported"; then
+    fail "$extension_command exec boundary: missing actionable rejection"
+  elif grep -Fq $'GH_TOKEN=author-token GITHUB_TOKEN= gh\t'"$extension_command"$'\texec' "$WORKDIR/calls.log"; then
+    fail "$extension_command exec boundary: extension inherited the author token"
+  else
+    pass "$extension_command exec boundary: explicit extension execution is rejected before token exposure"
+  fi
+done
 
 reset_log
 set +e
