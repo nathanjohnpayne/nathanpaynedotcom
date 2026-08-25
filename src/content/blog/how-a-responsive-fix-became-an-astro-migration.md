@@ -33,14 +33,14 @@ pullquotes:
 sidebar:
   - type: mermaid
     title: "From mobile overflow fix to Astro migration"
-    description: "A mobile-overflow issue leads through a responsive fix, a same-afternoon Astro scaffold, and eleven phased ports to a same-day production deploy with type-safe frontmatter, generated Open Graph images, RSS, and a sitemap."
+    description: "A mobile-overflow issue leads through a responsive fix, a same-afternoon Astro scaffold, and eleven phased ports to a same-day close-out, delivering type-safe frontmatter, generated Open Graph images, RSS, and a sitemap."
     content: |
       graph TD
           A["Hand-rolled HTML<br/>7 pages, 1 stylesheet"] --> B["Issue #28<br/>Mobile overflow"]
           B --> C["PR #30 merged<br/>10:04am PT"]
           C --> D["PR #47 scaffold<br/>2:11pm PT"]
           D --> E["Phased ports<br/>10 phases, 8 PRs"]
-          E --> F["Phase 10 deploy<br/>verified 6:39pm PT"]
+          E --> F["Phase 10 closes<br/>6:39pm PT"]
           F --> G["Type-safe frontmatter,<br/>OG images, RSS, sitemap"]
           style A fill:#e8b4b4,stroke:#993d3d,color:#333
           style B fill:#e8b4b4,stroke:#993d3d,color:#333
@@ -49,7 +49,7 @@ sidebar:
           style E fill:#2c5f8a,stroke:#2c5f8a,color:#fff
           style F fill:#7bc67e,stroke:#4a8a4d,color:#333
           style G fill:#7bc67e,stroke:#4a8a4d,color:#333
-    caption: "The scaffold merged four hours after the responsive fix; the full phased migration was verified in production the same Wednesday."
+    caption: "The scaffold merged four hours after the responsive fix; the last of the eleven phases closed the same Wednesday."
 ---
 
 On April 8, 2026, the newest post on this site was broken for anyone reading it on a phone. A long URL pushed the layout wider than the viewport, code blocks refused to stay in their box, text would not break onto new lines, and the whole page wandered offscreen behind a horizontal scrollbar. I [filed an issue](https://github.com/nathanjohnpayne/nathanpaynedotcom/issues/28) that morning: make the blog post pages responsive.
@@ -103,19 +103,21 @@ Before the scaffold even merged, the whole sequence was scoped: eleven phase iss
 
 The reviews were not ceremony. Codex blocked three of the eight—#54, #62, and #63—with change requests before approving, taking three rounds on #63, and CodeRabbit commented on three. Phase 10, "Deploy and verify production," closed at 6:39pm Pacific—the same Wednesday the bug was filed.
 
+One caveat I owe the reader, because it is the sort of thing this post is otherwise checking other people's work on. Phase 10 carried a 25-item verification checklist: seven routes previewed, a Firebase emulator pass, visual diffs at three widths, OG and Rich Results checks, Lighthouse comparisons, a production smoke test. Not one of those boxes is ticked in the issue, and the issue carries no comments. So what the record proves is that the phase **closed** at 6:39pm, not that a verification ritual completed. The site is demonstrably on Astro today and every subsequent phase of work builds on it, but the close-out evidence for that specific evening is a closed issue and nothing more.
+
 | April 2026, Pacific time | Milestone |
 |---|---|
 | Apr 8, 7:54am | [Issue #28](https://github.com/nathanjohnpayne/nathanpaynedotcom/issues/28) filed: blog post overflows on mobile |
 | Apr 8, 10:04am | [PR #30](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/30) merges the responsive fix |
 | Apr 8, 1:50–1:55pm | Phase issues #35–#45 opened as a batch |
 | Apr 8, 2:11pm | [PR #47](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/47) merges the Phase 0 Astro scaffold |
-| Apr 8, 6:39pm | Phase 10 closes: production deploy verified |
+| Apr 8, 6:39pm | Phase 10, the last of the eleven, closes |
 | Apr 8, 7:31pm | Playwright responsive suite merges ([PR #70](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/70)) |
 | Apr 8, 7:54pm | Astro v5 to v6.1 ([PR #73](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/73)) |
 | Apr 9 | Blog template ([PR #76](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/76)) and index ([PR #77](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/77)) polish |
 | Apr 14 | The [LinkedIn crawler incident](https://github.com/nathanjohnpayne/nathanpaynedotcom/issues/163) and the SEO plumbing chain it set off |
 
-So the same-day claim has edges worth stating exactly: the scaffold landed the same afternoon as the fix; the full tracked migration, through verified production deploy, landed the same day; the polish and the SEO plumbing ran over the following week.
+So the same-day claim has edges worth stating exactly: the scaffold landed the same afternoon as the fix; all eleven tracked phases closed the same day; the polish and the SEO plumbing ran over the following week.
 
 ## What the SSG bought
 
@@ -147,7 +149,7 @@ Whether this ledger nets out positive is a judgement, not a measurement—I have
 
 A counterfactual runs underneath this whole story, and it deserves to be stated with the facts separated from the estimates.
 
-The facts: the tracked migration—scaffold through verified production deploy—ran inside one working day, across eight reviewed PRs. Claude Code did the authoring; every commit in those eight PRs carries its co-author trailer. Review came from three identities: `nathanpayne-claude`, `nathanpayne-codex`, and CodeRabbit. Cursor, a registered reviewer identity in this repo's policy, reviewed none of it.
+The facts: the tracked migration—scaffold through the last phase closing—ran inside one working day, across eight reviewed PRs. Claude Code did the authoring; every commit in those eight PRs carries its co-author trailer. Review came from three identities: `nathanpayne-claude`, `nathanpayne-codex`, and CodeRabbit. Cursor, a registered reviewer identity in this repo's policy, reviewed none of it.
 
 The estimate: had I done this by hand—learned Astro well enough to ship cleanly, ported the homepage, blog, and project pages, debugged the OG integration, written the Playwright suite, rewired the Firebase deploy, and propagated the documentation—my honest guess is somewhere between a long weekend and a vacation week of focused engineering time. That is an estimate of a migration that never ran, not a measurement; no manual baseline exists to compare against. But the decision was made against that estimate, and I do not have those weeks. Without agents, the likeliest world is the old chassis limping along with maybe two more posts in it before I stopped adding them.
 

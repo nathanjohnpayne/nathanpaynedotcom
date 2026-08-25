@@ -51,7 +51,7 @@ Source: `gh api repos/nathanjohnpayne/nathanpaynedotcom/pulls/47` → `.title`.
 - Elapsed PR #30 merge → Phase 10 close: **8h 34m 46s**. Elapsed issue #28 open → Phase 10 close: **10h 44m 43s**.
 - `2026-04-08` was a **Wednesday**.
 
-Corrected value: the tracked Phase 0–10 migration completed the same Wednesday it started, roughly eight and a half hours after the responsive fix merged. Later polish (blog Mondrian template #76, blog index #77, Apr 9; the SEO/OG plumbing chain #163–#175, Apr 14) ran over the following week and should be named separately if the post wants a longer arc.
+Corrected value: the tracked Phase 0–10 migration **closed out** the same Wednesday it started, roughly eight and a half hours after the responsive fix merged. Note the verb: closure, not verification—see §K1, which is a live correction to this row. Later polish (blog Mondrian template #76, blog index #77, Apr 9; the SEO/OG plumbing chain #163–#175, Apr 14) ran over the following week and should be named separately if the post wants a longer arc.
 Source: `gh api 'repos/nathanjohnpayne/nathanpaynedotcom/issues?state=all&since=2026-04-08T00:00:00Z&sort=created&direction=asc'`, filtered to `created_at < 2026-04-10`; `.number`, `.created_at`, `.closed_at` per row.
 
 ### A6—"Each phase was a single PR"
@@ -393,3 +393,26 @@ Source: `node -e` using `pathToFileURL`/`fileURLToPath` from `node:url`, run on 
 The five-step list edits **two** files: the new post's HTML and the blog index. Its fifth item is not an edit at all—it is the drift risk across the seven duplicated headers. Fusing the step count to the page count turned a duplication metric into a per-post edit count and overstated the workload being compared.
 Corrected in both places it appeared (the decision table's first row and the outcome paragraph) to state the three metrics separately: five steps, two files edited, drift risk spanning seven headers.
 Source: the five-step list in the post itself, read against §C1's tree listing.
+
+---
+
+## K. Round-2 addendum (PR #787, CodeRabbit external review)
+
+One `potential_issue` finding, and it lands on this ledger as much as on the post.
+
+### K1—Phase 10's closure is not production-verification evidence
+
+CodeRabbit flagged that "Phase 10 closes: production deploy verified" infers a verification event from an issue-closure timestamp. Checked, and it is correct—more starkly than the finding claims.
+
+Issue #45 "Phase 10: Deploy and verify production" carries a **25-item verification checklist**: seven routes previewed locally, a Firebase emulator pass over rewrite rules and cache and security headers, visual diffs at 393/768/1440px against pre-migration screenshots, OG and Twitter Card and Google Rich Results checks, four Lighthouse score comparisons, `/rss.xml` and `/sitemap-index.xml` checks, and a production smoke test over all seven routes.
+
+**All 25 boxes are unticked. The issue has zero comments.** It closed at `2026-04-09T01:39:22Z` with no recorded evidence of any kind.
+
+So the supported claim is exactly "Phase 10 closed at 6:39pm PT", and nothing stronger. This ledger's own §A5 said "completed", which was doing the same inferential work the post was, and is amended above.
+
+What *is* independently true: the site runs on Astro today, and every later phase of work in this repository builds on the Astro tree, so the migration plainly went live. What cannot be sourced is that a verification ritual happened on that specific evening.
+
+The post now states the gap explicitly rather than eliding it—the checklist, the unticked boxes, and the distinction between "closed" and "verified"—which is a better outcome than deleting the word "verified" and moving on. Corrected on five surfaces: the Mermaid node, the diagram `description`, the caption, the timeline row, and both prose sentences that carried "verified production deploy".
+Source: `gh api repos/nathanjohnpayne/nathanpaynedotcom/issues/45` → `.body` (checklist), `.closed_at`; checkbox tally `grep -cE '^\s*- \[x\]'` → **0**, `grep -cE '^\s*- \[ \]'` → **25**; `gh api .../issues/45/comments` → empty.
+
+**Method note for the remaining six audits.** This is the second time in one PR that a *primary source* turned out to be looser than it looked—§J3, where issue #173's "Windows-only" framing was incomplete, and this row, where an issue title promising "verify production" carried no verification. Reading an issue's **title** as evidence of what happened is the failure mode. Read the body and the checkbox state.
