@@ -1,5 +1,6 @@
 import { toHtml } from 'hast-util-to-html';
 import rehypeMermaid from 'rehype-mermaid';
+import { VFile } from 'vfile';
 import {
   createMermaidFigure,
   mermaidOptions,
@@ -9,7 +10,7 @@ import {
 const render = rehypeMermaid({ ...mermaidOptions, prefix: 'sidebar-mermaid' });
 const finish = rehypeMermaidSvg();
 
-/** Render all sidebar diagrams in one maintained rehype-mermaid pass. */
+/** Render sidebar Mermaid source to static SVG so readers need no Mermaid runtime. */
 export async function renderSidebarMermaid(items, filePath = 'sidebar') {
   const diagrams = items
     .map((item, index) => ({ item, index }))
@@ -46,7 +47,7 @@ export async function renderSidebarMermaid(items, filePath = 'sidebar') {
     }),
   };
 
-  await render(tree, { path: filePath });
+  await render(tree, new VFile({ path: filePath }));
   finish(tree);
 
   if (tree.children.length !== diagrams.length) {

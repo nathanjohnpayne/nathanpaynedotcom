@@ -125,7 +125,7 @@ Blog posts are recursively discovered as Markdown files in `src/content/blog/` w
 - **Sidebar content**—Mermaid diagrams, images, and text blocks
 - **Code syntax highlighting**—via Shiki with CSS variable theming
 - **Figure captions**—auto-numbered via custom Rehype plugin
-- **Mermaid diagrams**—rendered to accessible inline SVG at build time by `rehype-mermaid`
+- **Mermaid diagrams**—rendered to accessible inline SVG at build time by `rehype-mermaid`, so readers do not need Mermaid-capable browsers
 
 ### OG Images
 
@@ -181,6 +181,9 @@ At `max-width: 1023px`:
 ```bash
 # Install dependencies
 npm install
+
+# Install the build-time Chromium used to render static Mermaid SVGs and OG images
+npx playwright install chromium
 
 # Optional local public-client env vars
 cp .env.example .env.local
