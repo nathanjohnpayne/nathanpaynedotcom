@@ -103,7 +103,9 @@ Before the scaffold even merged, the whole sequence was scoped: eleven phase iss
 
 The reviews were not ceremony. Codex blocked three of the eight—#54, #62, and #63—with change requests before approving, taking three change-request rounds on #63 before approving it, and CodeRabbit commented on three. Phase 10, "Deploy and verify production," closed at 6:39pm Pacific—the same Wednesday the bug was filed.
 
-One caveat I owe the reader, because it is the sort of thing this post is otherwise checking other people's work on. Phase 10 carried a 25-item verification checklist: seven routes previewed, a Firebase emulator pass, visual diffs at three widths, OG and Rich Results checks, Lighthouse comparisons, a production smoke test. Not one of those boxes is ticked in the issue, and the issue carries no comments. So what the record proves is that the phase **closed** at 6:39pm, not that a verification ritual completed. The site is demonstrably on Astro today and every subsequent phase of work builds on it, but the close-out evidence for that specific evening is a closed issue and nothing more.
+One caveat I owe the reader, because it is the sort of thing this post is otherwise checking other people's work on. Phase 10 carried a 25-item verification checklist: seven routes previewed, a Firebase emulator pass, visual diffs at three widths, OG and Rich Results checks, Lighthouse comparisons, a production smoke test. Not one of those boxes is ticked in the issue, and the issue carries no comments. So what the record proves is that the phase **closed** at 6:39pm, not that a verification ritual completed.
+
+That leaves a hole in the middle of the timeline, and it is worth naming rather than papering over: **the moment the site actually went live on Astro is not in the record at all.** It plainly happened—the site runs on Astro today and every later phase of work builds on the Astro tree—but there is no deploy log, no smoke-test result, and no ticked checklist to date it. A migration case study that cannot evidence its own cutover is an awkward thing to write. It is also the honest state of the record, and the alternative is to let an issue-closure timestamp quietly stand in for a deployment.
 
 | April 2026, Pacific time | Milestone |
 |---|---|
@@ -112,6 +114,7 @@ One caveat I owe the reader, because it is the sort of thing this post is otherw
 | Apr 8, 1:50–1:55pm | Phase issues #35–#45 opened as a batch |
 | Apr 8, 2:11pm | [PR #47](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/47) merges the Phase 0 Astro scaffold |
 | Apr 8, 6:39pm | Phase 10, the last of the eleven, closes |
+| **Not recorded** | **The site actually going live on Astro.** No deploy log, smoke-test result, or ticked checklist survives for it. It plainly happened—every later phase of work builds on the Astro tree—but the date and time are not in the record |
 | Apr 8, 7:31pm | Playwright responsive suite merges ([PR #70](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/70)) |
 | Apr 8, 7:54pm | Astro v5 to v6.1 ([PR #73](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/73)) |
 | Apr 9 | Blog template ([PR #76](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/76)) and index ([PR #77](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/77)) polish |

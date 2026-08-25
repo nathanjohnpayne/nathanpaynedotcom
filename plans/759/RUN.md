@@ -1,7 +1,6 @@
 # Epic #759—Blog audit run state
 
-Working worktree: `.claude/worktrees/epic-759-blog-audits-5c2791` (branch `claude/epic-759-blog-audits-5c2791`).
-Update this table at every phase boundary. On resume, read this first and continue from the first incomplete row.
+Working worktree: `.claude/worktrees/epic-759-blog-audits-5c2791` (branch `claude/epic-759-blog-audits-5c2791`). Update this table at every phase boundary. On resume, read this first and continue from the first incomplete row.
 
 Phase legend: `0` shared evidence cache · `1` facts ledger · `2` Fable prose draft · `3` verify + land (branch/PR/review/merge) · `done` merged.
 
@@ -36,7 +35,7 @@ Deliberate. #740 calibrates the ledger format and the Fable handoff; #739/#741 r
 - 2026-08-25—Run initialised. Read AGENTS.md, rules/repo_rules.md, .ai_context.md, .github/review-policy.yml, epic #759. Preflight cached. Seven issue bodies fetched to `plans/759/issues/`.
 - 2026-08-25—**Phase 0 complete.** `plans/759/refs.json` holds 67 resolved references (nathanpaynedotcom 29, mergepath 28, friends-and-family-billing 9, swipewatch 1), each with type, title, author, created/closed/merged timestamps, merge commit, and the posts citing it. Zero unresolved.
   - Five `#NNN`-shaped tokens recorded as **rejected, not references**: `#333` (all seven posts), `#000`, `#224089`, `#323137`, `#333333`—all CSS hex colours. Do not re-litigate these.
-  - The bare-`#NNN` ambiguity hazard is confirmed real and near-total: 45 of the resolved numbers **also** resolve to a different, unrelated item in the other candidate repo (e.g. mergepath#70 "Add Playwright responsive test suite" vs nathanpaynedotcom#70; nathanpaynedotcom#668 vs mergepath#668). Every citation in the posts is fully URL-qualified, so each was resolved against the repo named in its own URL, and `bare_number_collision` records the near-miss.
+  - The bare-`#NNN` ambiguity hazard is confirmed real and near-total: 44 of the resolved numbers **also** resolve to a different, unrelated item in the other candidate repo (e.g. mergepath#70 "Add Playwright responsive test suite" vs nathanpaynedotcom#70; nathanpaynedotcom#668 vs mergepath#668). Every citation in the posts is fully URL-qualified, so each was resolved against the repo named in its own URL, and `bare_number_collision` records the near-miss.
   - Two citation-kind mismatches surfaced for the ledgers: `how-a-responsive-fix-became-an-astro-migration` links `/pull/173` but nathanpaynedotcom#173 is an **issue**; `html-mockups-as-spec` links `/pull/90` but nathanpaynedotcom#90 is an **issue**. Carry into the #740 and #741 ledgers respectively.
   - Local checkouts confirmed present for git-level facts: `~/GitHub/mergepath`, `~/GitHub/friends-and-family-billing`.
 - 2026-08-25—**#740 Phase 1 complete.** Ledger at `plans/759/how-a-responsive-fix-became-an-astro-migration-ledger.md` (335 lines, 8 sections A–H). Post baseline: 2,351 body words / 2,856 with frontmatter.
@@ -49,7 +48,7 @@ Deliberate. #740 calibrates the ledger format and the Fable handoff; #739/#741 r
   - One correction applied to the draft before landing: it returned **five** `keyTakeaways`, but `tests/blog-takeaways-cta.test.js` caps them at **2–4**. The two that both hung on the four-hour PR #30 → PR #47 interval were merged into one.
   - Verification: all 17 GitHub links resolve to the correct item kind (`/issues/N` for issues, `/pull/N` for PRs)—the §E1 defect where the post linked `/pull/173` at an issue is gone. Every figure traces to a SUPPORTED ledger row. No spaced em dashes. Prose soft-wrapped, one line per paragraph.
   - Gates green: `astro build` (37 pages, 18 OG images), `vitest run` (490 passed, 1 skipped, 40 files), `eslint .` clean, `lint-prose.mjs` exit 0 (warnings only, all sentence-case headings matching the repo-wide convention).
-  - Length: body 2,351 → 2,677 words, but 238 of the increase is the two new tables required by the acceptance criteria (the decision record and the milestone timeline). Prose-only is 2,351 → 2,439, up 3.7%. #740 carries no reduction target ("tighten opportunistically").
+  - Length at the time of the first commit: body 2,351 → 2,677 words. **Superseded—see the final-head accounting below.**
   - **Worktree note for later rows:** this worktree has no `node_modules`. Symlink the parent's (`ln -s ~/GitHub/nathanpaynedotcom/node_modules node_modules`) to run `astro build` / `vitest`, then **remove the symlink before committing**—`.gitignore` has `node_modules/` with a trailing slash, which does not match a symlink, so it shows up as untracked. Parent tree was verified against this lockfile (astro 7.2.4, @astrojs/markdown-remark 7.2.4) before use.
   - `plans/759/issues/` (raw `gh issue view` JSON dumps) is gitignored—noise in a diff, trivially refetched. `refs.json` is committed once here so the later six PRs read it without touching it.
 - 2026-08-25—**#740 PR [#787](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/787) opened**, 2,249 insertions, so above `external_review_threshold: 300` → Phase 4 routing.
@@ -92,10 +91,10 @@ Deliberate. #740 calibrates the ledger format and the Fable handoff; #739/#741 r
 
 ## BLOCKED: #740 is at a manual Phase 4b handoff
 
-**State as of 2026-08-25.** PR [#787](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/787) is open at HEAD `c101bcc`, complete, and green on every local gate. It is **not merged** and cannot be merged by this agent.
+**State as of 2026-08-25.** PR [#787](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/787) is open at HEAD `7e6e03e`, complete, and green on every local gate. It is **not merged** and cannot be merged by this agent.
 
 - All 21 bot findings across five Codex rounds are dispositioned. **No P0 or P1 was ever raised.** Twenty were fixed; one is rebutted on its thread. `scripts/review-feedback-accounting.sh` reports `status: clear`; every review thread is resolved.
-- Local gates green at `c101bcc`: `astro build` (37 pages, 18 OG images), `vitest run` (490 passed / 1 skipped), `eslint`, `lint-prose`.
+- Local gates green at `c101bcc`, the last commit that touches shipped content (`7e6e03e` is state-only, editing this file): `astro build` (37 pages, 18 OG images), `vitest run` (490 passed / 1 skipped), `eslint`, `lint-prose`.
 - The [handoff message](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/787#issuecomment-5417925265) is posted per REVIEW_POLICY.md § Handoff Message Format, suggesting `nathanpayne-codex`.
 
 **Why it is blocked.** `scripts/phase-4b-review.sh` returns exit 6 (barrier pending) every time: it wants a reviewer signal pinned to the *current* HEAD, and fixing a finding requires a commit, which moves the HEAD. Codex ran five rounds (the operator's cap)—0, 4, 5, 1, 7 findings—so convergence broke at round 5 and further rounds are not obviously terminating. CodeRabbit is unreliable here: rate-limited on first contact, and it edits its own root comments seconds after a disposition reply, which flips findings back to unaccounted (hit three times).
@@ -103,3 +102,21 @@ Deliberate. #740 calibrates the ledger format and the Fable handoff; #739/#741 r
 **What unblocks it.** A human takes the handoff to a `nathanpayne-codex` CLI session for an `APPROVED`, or merges directly. Branch protection wants one approving review and the authoring agent's own reviewer identity cannot supply it on a Phase 4 PR.
 
 **Do not start #739's Phase 3 until #787 merges.** Phase 1 for #739 may begin now—#740 was the calibration run and both the ledger format and the Fable handoff survived a full review cycle, which was the gate.
+
+---
+
+## Final length accounting for #740 (head `7e6e03e`)
+
+Recomputed at the reviewed head with the same body-only method as the baseline (`wc -w` over everything after the frontmatter). Earlier figures in the PR body and the handoff were measured at intermediate commits and are superseded.
+
+| Measure | Baseline | Final head | Change |
+| --- | ---: | ---: | ---: |
+| Body words, total | 2,351 | **3,065** | +714 (+30.4%) |
+| Table words | 0 | 302 | +302 |
+| Prose words, tables excluded | 2,351 | 2,763 | +412 (+17.5%) |
+
+Where the 714 words went, in rough order of size: the four-option decision record and the milestone timeline (302 words, both explicitly required by #740's acceptance criteria, and neither present in the original); the honest-gap paragraph naming the unrecorded production cutover (§K1, plus the milestone row itself); the separated telling of the reviewer-caught portability bug and the LinkedIn crawler incident as two distinct events (§E3, where the original conflated them into one wrong story); the facts-versus-estimates split in the agent-economics section; and the review record showing Codex blocking three of the eight phase PRs.
+
+#740 sets **no reduction target** for this post—the epic's compression table says "tighten opportunistically; no percentage target"—so the growth is not a criterion violation. It is still growth, and the reason is that the audit replaced four wrong or unprovable claims with correctly-evidenced ones, and correct evidence is longer than a confident sentence.
+
+**Skim claim, re-evaluated at the final text.** The 3–5 minute portfolio skim is carried by eight H2 headings that run problem → decision → pivot → delivery → benefit → cost → agents → lesson, plus two tables and the diagram. A reader taking only the headings, the decision table, and the milestone timeline gets the user problem, the consequential decision and its criteria, the material tradeoff, the agent collaboration model, and the outcome including its evidentiary gap. At roughly 200–250 wpm a skim of that furniture plus the opening and closing paragraphs lands inside the window; the 3,065-word figure is the deep-read length, which is the second reading mode the epic asks each post to support.
