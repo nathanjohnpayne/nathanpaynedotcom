@@ -1535,9 +1535,7 @@ body.blog-page {
   --accent: var(--red);
   /* Ink, not cream: `.nav-button:hover/:focus-visible` paints --accent as the
      background and --accent-contrast as the label, and cream on this plane is
-     2.56:1 — under AA for text this small. Ink is 6.54:1. Predates the
-     accent ramp (Swipe Watch and Mergepath already shipped it); the ramp just
-     spread it to two more pages, which is what surfaced it. */
+     2.56:1 — under AA for text this small. Ink is 6.54:1. */
   --accent-contrast: var(--ink);
   --accent-soft: color-mix(in srgb, var(--accent) 12%, transparent);
 }
@@ -1558,9 +1556,7 @@ body.blog-page {
   --accent: var(--blue);
   /* Ink, not cream: `.nav-button:hover/:focus-visible` paints --accent as the
      background and --accent-contrast as the label, and cream on this plane is
-     3.69:1 — under AA for text this small. Ink is 4.53:1. Predates the
-     accent ramp (Swipe Watch and Mergepath already shipped it); the ramp just
-     spread it to two more pages, which is what surfaced it. */
+     3.69:1 — under AA for text this small. Ink is 4.53:1. */
   --accent-contrast: var(--ink);
   --accent-soft: color-mix(in srgb, var(--accent) 12%, transparent);
 }
@@ -4298,7 +4294,12 @@ a:focus-visible {
   }
 
   .blog-sidebar-meta dt {
-    color: color-mix(in srgb, var(--accent-contrast) 62%, transparent);
+    /* Blue's AA-safe ink token is only just above 4.5:1, so diluting it with
+       transparency would put these small labels back below the threshold. */
+    color: var(--accent-contrast);
+  }
+  .blog-sidebar-topic {
+    color: var(--accent-contrast);
   }
   .blog-sidebar-meta dd {
     color: var(--accent-contrast);
