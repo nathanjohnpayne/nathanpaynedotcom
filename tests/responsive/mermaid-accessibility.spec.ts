@@ -79,29 +79,27 @@ test('Mermaid descriptions label diagrams without becoming duplicate navigable t
 test('every label line stays inside the node box Mermaid measured for it', async ({ page }) => {
   await page.goto('/blog/six-prs-one-bug-agent-failure-modes/');
 
-  const labels = await page
-    .locator('.mermaid-figure svg.mermaid g.node')
-    .evaluateAll((nodes) =>
-      nodes.flatMap((node) => {
-        const label = node.querySelector('g.label');
-        const shape = node.querySelector('rect, polygon, path, circle, ellipse');
-        if (!label || !shape) return [];
+  const labels = await page.locator('.mermaid-figure svg.mermaid g.node').evaluateAll((nodes) =>
+    nodes.flatMap((node) => {
+      const label = node.querySelector('g.label');
+      const shape = node.querySelector('rect, polygon, path, circle, ellipse');
+      if (!label || !shape) return [];
 
-        const labelBounds = label.getBoundingClientRect();
-        const shapeBounds = shape.getBoundingClientRect();
-        if (!labelBounds.height || !shapeBounds.height) return [];
+      const labelBounds = label.getBoundingClientRect();
+      const shapeBounds = shape.getBoundingClientRect();
+      if (!labelBounds.height || !shapeBounds.height) return [];
 
-        return [
-          {
-            text: label.textContent?.trim() ?? '',
-            lines: label.querySelectorAll('p').length,
-            breaks: label.querySelectorAll('br').length,
-            below: labelBounds.bottom - shapeBounds.bottom,
-            above: shapeBounds.top - labelBounds.top,
-          },
-        ];
-      }),
-    );
+      return [
+        {
+          text: label.textContent?.trim() ?? '',
+          lines: label.querySelectorAll('p').length,
+          breaks: label.querySelectorAll('br').length,
+          below: labelBounds.bottom - shapeBounds.bottom,
+          above: shapeBounds.top - labelBounds.top,
+        },
+      ];
+    }),
+  );
 
   expect(
     labels.filter((label) => label.lines > 1).length,

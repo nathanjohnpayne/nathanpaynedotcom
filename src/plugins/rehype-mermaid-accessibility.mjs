@@ -127,15 +127,19 @@ function splitLabelLines(node) {
   node.children = children;
 }
 
+function isLineBreak(node) {
+  return node.type === 'element' && node.tagName === 'br';
+}
+
 function hasLineBreak(node) {
   if (node.type !== 'element' || node.tagName !== 'p') return false;
-  return node.children.some((child) => child.type === 'element' && child.tagName === 'br');
+  return Array.isArray(node.children) && node.children.some(isLineBreak);
 }
 
 function paragraphPerLine(paragraph) {
   const lines = [[]];
   for (const child of paragraph.children) {
-    if (child.type === 'element' && child.tagName === 'br') lines.push([]);
+    if (isLineBreak(child)) lines.push([]);
     else lines[lines.length - 1].push(child);
   }
   return lines.map((children) => ({
