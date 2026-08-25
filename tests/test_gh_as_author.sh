@@ -141,6 +141,40 @@ else
 fi
 
 reset_log
+set +e
+stderr_capture=$(OP_PREFLIGHT_AUTHOR_PAT="author-token" \
+  run_wrapper -- gh pr create --title "t" \
+    --body $'Authoring-Agent: codex\n\n## Self-Review\n\n- Correctness: verified.' \
+    -bINVALID 2>&1 >/dev/null)
+rc=$?
+set -e
+if [ "$rc" -ne 1 ]; then
+  fail "pr create contract: attached -b form rc=$rc expected 1"
+elif grep -q $'gh\tpr\tcreate' "$WORKDIR/calls.log"; then
+  fail "pr create contract: attached invalid -b body bypassed validation"
+else
+  pass "pr create contract: attached -b body is validated as the effective body"
+fi
+
+reset_log
+INVALID_BODY_FILE="$WORKDIR/invalid-pr-body.md"
+printf '%s\n' 'INVALID' >"$INVALID_BODY_FILE"
+set +e
+stderr_capture=$(OP_PREFLIGHT_AUTHOR_PAT="author-token" \
+  run_wrapper -- gh pr create --title "t" \
+    --body $'Authoring-Agent: codex\n\n## Self-Review\n\n- Correctness: verified.' \
+    "-F$INVALID_BODY_FILE" 2>&1 >/dev/null)
+rc=$?
+set -e
+if [ "$rc" -ne 1 ]; then
+  fail "pr create contract: attached -F form rc=$rc expected 1"
+elif grep -q $'gh\tpr\tcreate' "$WORKDIR/calls.log"; then
+  fail "pr create contract: attached invalid -F body file bypassed validation"
+else
+  pass "pr create contract: attached -F body file is validated as the effective body"
+fi
+
+reset_log
 BODY_FILE="$WORKDIR/pr-body.md"
 printf '%s\n' 'Authoring-Agent: codex' '' '## Self-Review' '' '- Correctness: verified.' >"$BODY_FILE"
 OP_PREFLIGHT_AUTHOR_PAT="author-token" GH_CREATE_PR_URL="https://github.com/example/repo/pull/78" GH_VIEW_AUTHOR="nathanjohnpayne" \

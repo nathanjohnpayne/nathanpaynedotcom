@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { existsSync, readFileSync, readdirSync } from 'fs';
+import { existsSync, readFileSync } from 'fs';
 import { resolve } from 'path';
+import { blogSlugFromPath, findBlogMarkdownFiles } from '../scripts/lib/blog-file-inventory.mjs';
 import { parseFrontmatter } from '../scripts/lib/parse-frontmatter.mjs';
 
 /**
@@ -76,13 +77,12 @@ function overlapRatio(variant, canonical) {
   return shared.length / variantWords.length;
 }
 
-const posts = readdirSync(CONTENT_DIR)
-  .filter((name) => name.endsWith('.md'))
-  .map((name) => {
-    const raw = readFileSync(resolve(CONTENT_DIR, name), 'utf-8');
-    const data = parseFrontmatter(raw) ?? {};
-    return { name, slug: name.replace(/\.md$/, ''), data };
-  });
+const posts = findBlogMarkdownFiles(CONTENT_DIR).map((filePath) => {
+  const slug = blogSlugFromPath(filePath, CONTENT_DIR);
+  const raw = readFileSync(filePath, 'utf-8');
+  const data = parseFrontmatter(raw) ?? {};
+  return { name: `${slug}.md`, slug, data };
+});
 
 const publishedPosts = posts.filter((post) => post.data.draft !== true);
 

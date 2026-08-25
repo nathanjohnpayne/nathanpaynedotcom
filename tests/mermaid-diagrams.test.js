@@ -7,16 +7,28 @@ import {
   writeFileSync,
   rmSync,
 } from 'node:fs';
-import { dirname, join, resolve } from 'node:path';
+import { basename, dirname, join, relative, resolve, sep } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { JSDOM } from 'jsdom';
 import { describe, it, expect } from 'vitest';
+import { findFilesRecursively } from '../scripts/lib/blog-file-inventory.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const builtRoot = resolve(__dirname, '../dist');
 const builtBlogRoot = resolve(__dirname, '../dist/blog');
 const blogFixturePath = resolve(__dirname, '../src/content/blog/mermaid-fixture.md');
+
+function builtBlogPagePaths() {
+  return findFilesRecursively(
+    builtBlogRoot,
+    (filePath) => basename(filePath) === 'index.html' && dirname(filePath) !== builtBlogRoot,
+  );
+}
+
+function builtBlogSlug(pagePath) {
+  return relative(builtBlogRoot, dirname(pagePath)).split(sep).join('/');
+}
 
 function transformMermaid(tree, filePath = blogFixturePath) {
   return import('../src/plugins/remark-mermaid.mjs').then(({ default: remarkMermaid }) => {
@@ -175,40 +187,35 @@ describe('remark-mermaid plugin', () => {
 
     let diagramCount = 0;
 
-    for (const entry of readdirSync(builtBlogRoot, { withFileTypes: true })) {
-      if (!entry.isDirectory()) continue;
-
-      const pagePath = resolve(builtBlogRoot, entry.name, 'index.html');
-      if (!existsSync(pagePath)) continue;
-
+    for (const pagePath of builtBlogPagePaths()) {
+      const slug = builtBlogSlug(pagePath);
       const document = new JSDOM(readFileSync(pagePath, 'utf8')).window.document;
       const diagrams = document.querySelectorAll('.mermaid');
       diagramCount += diagrams.length;
 
       for (const diagram of diagrams) {
         const figure = diagram.closest('[role="img"]');
-        expect(figure, `${entry.name}: diagram must be wrapped by role=img`).not.toBeNull();
+        expect(figure, `${slug}: diagram must be wrapped by role=img`).not.toBeNull();
         expect(
           figure?.getAttribute('aria-label')?.trim(),
-          `${entry.name}: missing diagram title`,
+          `${slug}: missing diagram title`,
         ).toBeTruthy();
 
         const descriptionId = figure?.getAttribute('aria-describedby');
-        expect(descriptionId, `${entry.name}: missing aria-describedby`).toBeTruthy();
+        expect(descriptionId, `${slug}: missing aria-describedby`).toBeTruthy();
         expect(
           descriptionId ? document.getElementById(descriptionId)?.textContent.trim() : '',
-          `${entry.name}: missing relational description`,
+          `${slug}: missing relational description`,
         ).toBeTruthy();
         expect(
           descriptionId
             ? document.getElementById(descriptionId)?.getAttribute('aria-hidden')
             : null,
-          `${entry.name}: description is separately exposed to assistive technology`,
+          `${slug}: description is separately exposed to assistive technology`,
         ).toBe('true');
-        expect(
-          diagram.getAttribute('aria-hidden'),
-          `${entry.name}: raw Mermaid DSL is exposed`,
-        ).toBe('true');
+        expect(diagram.getAttribute('aria-hidden'), `${slug}: raw Mermaid DSL is exposed`).toBe(
+          'true',
+        );
       }
     }
 
@@ -222,34 +229,30 @@ describe('remark-mermaid plugin', () => {
 
     let diagramCount = 0;
 
-    for (const entry of readdirSync(builtBlogRoot, { withFileTypes: true })) {
-      if (!entry.isDirectory()) continue;
-
-      const pagePath = resolve(builtBlogRoot, entry.name, 'index.html');
-      if (!existsSync(pagePath)) continue;
-
+    for (const pagePath of builtBlogPagePaths()) {
+      const slug = builtBlogSlug(pagePath);
       const html = readFileSync(pagePath, 'utf8');
       const document = new JSDOM(html).window.document;
       const diagrams = document.querySelectorAll('svg.mermaid');
       diagramCount += diagrams.length;
 
-      expect(html, `${entry.name}: Mermaid still loads from the network`).not.toMatch(
+      expect(html, `${slug}: Mermaid still loads from the network`).not.toMatch(
         /cdn\.jsdelivr\.net\/npm\/mermaid/i,
       );
       expect(
         document.querySelectorAll('pre.mermaid'),
-        `${entry.name}: raw Mermaid source shipped instead of SVG`,
+        `${slug}: raw Mermaid source shipped instead of SVG`,
       ).toHaveLength(0);
 
       for (const diagram of diagrams) {
-        expect(diagram.getAttribute('aria-hidden'), `${entry.name}: SVG duplicates AX output`).toBe(
+        expect(diagram.getAttribute('aria-hidden'), `${slug}: SVG duplicates AX output`).toBe(
           'true',
         );
         expect(
           diagram.innerHTML.trim().length,
-          `${entry.name}: Mermaid emitted an empty SVG`,
+          `${slug}: Mermaid emitted an empty SVG`,
         ).toBeGreaterThan(0);
-        expect(diagram.hasAttribute('viewBox'), `${entry.name}: SVG has no rendered viewport`).toBe(
+        expect(diagram.hasAttribute('viewBox'), `${slug}: SVG has no rendered viewport`).toBe(
           true,
         );
       }

@@ -140,10 +140,23 @@ if [ "$IS_PR_CREATE" -eq 1 ]; then
       --body|-b) SKIP_NEXT="body" ;;
       --body-file|-F) SKIP_NEXT="body-file" ;;
       --body=*) PR_BODY="${argument#--body=}" ;;
+      -b?*) PR_BODY="${argument#-b}" ;;
       --body-file=*)
         body_file="${argument#--body-file=}"
         if [ "$body_file" = "-" ]; then
           echo "gh-as-author: --body-file - is unsupported because the body must be validated before the write; use a readable file path." >&2
+          exit 1
+        fi
+        if [ ! -r "$body_file" ]; then
+          echo "gh-as-author: PR body file is not readable: $body_file" >&2
+          exit 1
+        fi
+        PR_BODY="$(cat "$body_file")"
+        ;;
+      -F?*)
+        body_file="${argument#-F}"
+        if [ "$body_file" = "-" ]; then
+          echo "gh-as-author: -F- is unsupported because the body must be validated before the write; use a readable file path." >&2
           exit 1
         fi
         if [ ! -r "$body_file" ]; then

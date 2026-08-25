@@ -55,6 +55,23 @@ describe('Mermaid contrast checker', () => {
     ]);
   });
 
+  it('does not treat an apostrophe in an unquoted label as a string delimiter', () => {
+    const markdown = [
+      '```mermaid title="Example" description="Example relationship."',
+      "graph TD; A[It's ready] --> B; style A fill:#7bc67e,color:#fff;",
+      '```',
+    ].join('\n');
+
+    expect(findMermaidContrastFailures(markdown, 'example.md')).toEqual([
+      expect.objectContaining({
+        filePath: 'example.md',
+        line: 2,
+        fill: '#7bc67e',
+        color: '#fff',
+      }),
+    ]);
+  });
+
   it('removes a terminal semicolon from line-leading style values', () => {
     const markdown = [
       '```mermaid title="Example" description="Example relationship."',

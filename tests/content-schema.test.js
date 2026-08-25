@@ -1,17 +1,16 @@
 import { describe, it, expect } from 'vitest';
-import { readFileSync, readdirSync } from 'fs';
-import { resolve } from 'path';
+import { readFileSync } from 'fs';
+import { relative, resolve } from 'path';
+import { findBlogMarkdownFiles } from '../scripts/lib/blog-file-inventory.mjs';
 import { parseFrontmatter } from '../scripts/lib/parse-frontmatter.mjs';
 
 const configSource = readFileSync(resolve(__dirname, '../src/content.config.ts'), 'utf-8');
 
 const contentDir = resolve(__dirname, '../src/content/blog');
-const markdownFiles = readdirSync(contentDir)
-  .filter((f) => f.endsWith('.md'))
-  .map((f) => ({
-    name: f,
-    content: readFileSync(resolve(contentDir, f), 'utf-8'),
-  }));
+const markdownFiles = findBlogMarkdownFiles(contentDir).map((filePath) => ({
+  name: relative(contentDir, filePath),
+  content: readFileSync(filePath, 'utf-8'),
+}));
 
 function collectionSource(collectionName) {
   const startMatch = configSource.match(

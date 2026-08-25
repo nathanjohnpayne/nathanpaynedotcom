@@ -1,11 +1,12 @@
 #!/usr/bin/env node
 
-import { readFileSync, readdirSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import remarkParse from 'remark-parse';
 import { unified } from 'unified';
 import { isAlias, isMap, isScalar, isSeq, parseDocument } from 'yaml';
+import { findBlogMarkdownFiles as findMarkdownFiles } from './lib/blog-file-inventory.mjs';
 
 const MINIMUM_CONTRAST = 4.5;
 const scriptDirectory = dirname(fileURLToPath(import.meta.url));
@@ -88,7 +89,7 @@ function mermaidStatements(line) {
       continue;
     }
 
-    if (character === '"' || character === "'" || character === '`') {
+    if (character === '"' || character === '`') {
       quote = character;
       continue;
     }
@@ -273,13 +274,7 @@ export function findMermaidContrastFailures(markdown, filePath) {
 }
 
 export function findBlogMarkdownFiles(directory = blogDirectory) {
-  return readdirSync(directory, { withFileTypes: true })
-    .flatMap((entry) => {
-      const entryPath = join(directory, entry.name);
-      if (entry.isDirectory()) return findBlogMarkdownFiles(entryPath);
-      return entry.isFile() && entry.name.endsWith('.md') ? [entryPath] : [];
-    })
-    .sort();
+  return findMarkdownFiles(directory);
 }
 
 function displayPath(filePath) {
