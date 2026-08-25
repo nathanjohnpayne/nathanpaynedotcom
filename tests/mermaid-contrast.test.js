@@ -1,410 +1,107 @@
-import { spawnSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+import { JSDOM } from 'jsdom';
 import { describe, expect, it } from 'vitest';
+import { findFilesRecursively } from '../scripts/lib/blog-file-inventory.mjs';
+import { renderSidebarMermaid } from '../src/lib/render-sidebar-mermaid.mjs';
 
-import {
-  contrastRatio,
-  findBlogMarkdownFiles,
-  findMermaidContrastFailures,
-} from '../scripts/check-mermaid-contrast.mjs';
+const MINIMUM_CONTRAST = 4.5;
+const builtBlogRoot = resolve('dist/blog');
 
-describe('Mermaid contrast checker', () => {
-  it('computes WCAG relative-luminance contrast ratios', () => {
-    expect(contrastRatio('#fff', '#7bc67e')).toBeCloseTo(2.05, 2);
-    expect(contrastRatio('#333', '#7bc67e')).toBeCloseTo(6.15, 2);
-    expect(contrastRatio('#fff', '#993d3d')).toBeCloseTo(6.8, 2);
+describe('rendered Mermaid contrast', () => {
+  it('keeps every explicitly styled rendered node at WCAG AA contrast', () => {
+    const failures = [];
+    let styledNodeCount = 0;
+
+    for (const pagePath of findFilesRecursively(builtBlogRoot, (path) =>
+      path.endsWith('index.html'),
+    )) {
+      const document = new JSDOM(readFileSync(pagePath, 'utf8')).window.document;
+      const result = renderedContrastFailures(document);
+      styledNodeCount += result.styledNodeCount;
+      failures.push(...result.failures.map((failure) => ({ pagePath, ...failure })));
+    }
+
+    expect(
+      styledNodeCount,
+      'the check must exercise explicitly styled Mermaid nodes',
+    ).toBeGreaterThan(0);
+    expect(failures).toEqual([]);
   });
 
-  it('reports failing style declarations inside Mermaid fences', () => {
-    const markdown = [
-      '```mermaid title="Example" description="Example relationship."',
-      'graph TD',
-      '  A --> B',
-      '  style A fill:#7bc67e,stroke:#4a8a4d,color:#fff',
-      '  style B color:#FFFFFF,stroke:#993d3d,fill:#993D3D',
-      '```',
-    ].join('\n');
-
-    expect(findMermaidContrastFailures(markdown, 'example.md')).toEqual([
-      expect.objectContaining({
-        filePath: 'example.md',
-        line: 4,
-        fill: '#7bc67e',
-        color: '#fff',
-        ratio: expect.closeTo(2.05, 2),
-      }),
-    ]);
-  });
-
-  it('checks semicolon-delimited style directives without splitting quoted labels', () => {
-    const markdown = [
-      '```mermaid title="Example" description="Example relationship."',
-      'graph TD; A["A; label"] --> B; style A fill:#7bc67e,color:#fff;',
-      '```',
-    ].join('\n');
-
-    expect(findMermaidContrastFailures(markdown, 'example.md')).toEqual([
-      expect.objectContaining({
-        filePath: 'example.md',
-        line: 2,
-        fill: '#7bc67e',
-        color: '#fff',
-      }),
-    ]);
-  });
-
-  it('does not treat an apostrophe in an unquoted label as a string delimiter', () => {
-    const markdown = [
-      '```mermaid title="Example" description="Example relationship."',
-      "graph TD; A[It's ready] --> B; style A fill:#7bc67e,color:#fff;",
-      '```',
-    ].join('\n');
-
-    expect(findMermaidContrastFailures(markdown, 'example.md')).toEqual([
-      expect.objectContaining({
-        filePath: 'example.md',
-        line: 2,
-        fill: '#7bc67e',
-        color: '#fff',
-      }),
-    ]);
-  });
-
-  it('preserves quote and bracket state across multiline Markdown-string labels', () => {
-    const markdown = [
-      '```mermaid title="Example" description="Example relationship."',
-      'graph TD; A["`First line',
-      'second line`"]; style A fill:#7bc67e,color:#fff;',
-      '```',
-    ].join('\n');
-
-    expect(findMermaidContrastFailures(markdown, 'example.md')).toEqual([
-      expect.objectContaining({
-        filePath: 'example.md',
-        line: 3,
-        fill: '#7bc67e',
-        color: '#fff',
-      }),
-    ]);
-  });
-
-  it('removes a terminal semicolon from line-leading style values', () => {
-    const markdown = [
-      '```mermaid title="Example" description="Example relationship."',
-      'style A fill:#d4a84b,color:#fff;',
-      '```',
-    ].join('\n');
-
-    expect(findMermaidContrastFailures(markdown, 'example.md')).toEqual([
-      expect.objectContaining({
-        line: 2,
-        fill: '#d4a84b',
-        color: '#fff',
-        ratio: expect.closeTo(2.21, 2),
-      }),
-    ]);
-  });
-
-  it('refuses classDef declarations with an actionable failure', () => {
-    const markdown = [
-      '```mermaid title="Example" description="Example relationship."',
-      'graph TD; classDef warning fill:#7bc67e,color:#fff;',
-      '```',
-    ].join('\n');
-
-    expect(findMermaidContrastFailures(markdown, 'example.md')).toEqual([
+  it('validates classDef and semicolon syntax from Mermaid rendered output', async () => {
+    const rendered = await renderSidebarMermaid([
       {
-        filePath: 'example.md',
-        line: 2,
-        kind: 'unsupported-class-def',
+        type: 'mermaid',
+        title: 'Rendered contrast fixture',
+        description: 'A uses a class while B uses an inline style.',
+        content: [
+          'graph TD; A[Class styled] --> B[Inline styled];',
+          'classDef warning fill:#7bc67e,color:#fff;',
+          'class A warning;',
+          'style B fill:#993d3d,color:#fff;',
+        ].join('\n'),
       },
     ]);
-  });
+    const document = new JSDOM(rendered.get(0)).window.document;
 
-  it('ignores style-like prose and non-Mermaid fences', () => {
-    const markdown = [
-      'style A fill:#7bc67e,color:#fff',
-      '```text',
-      'style B fill:#7bc67e,color:#fff',
-      '```',
-      '~~~mermaid title="Passing" description="A passing example."',
-      'style C fill:#7bc67e,color:#333',
-      '~~~',
-    ].join('\n');
-
-    expect(findMermaidContrastFailures(markdown, 'example.md')).toEqual([]);
-  });
-
-  it('checks Mermaid content in frontmatter sidebars without scanning text sidebars', () => {
-    const markdown = [
-      '---',
-      'sidebar:',
-      '  - type: mermaid',
-      '    title: Example',
-      '    content: |',
-      '      graph TD',
-      '      style A fill:#d4a84b,stroke:#a07830,color:#fff',
-      '  - type: text',
-      '    content: |',
-      '      style B fill:#7bc67e,color:#fff',
-      '---',
-      '',
-      'Article body.',
-    ].join('\n');
-
-    expect(findMermaidContrastFailures(markdown, 'example.md')).toEqual([
-      expect.objectContaining({
-        filePath: 'example.md',
-        line: 7,
-        fill: '#d4a84b',
-        color: '#fff',
-      }),
-    ]);
-  });
-
-  it('checks quoted Mermaid sidebar types', () => {
-    const markdown = [
-      '---',
-      'sidebar:',
-      '  - type: "mermaid"',
-      '    content: |',
-      '      style A fill:#7bc67e,color:#fff',
-      "  - type: 'mermaid'",
-      '    content: |',
-      '      style B fill:#d4a84b,color:#fff',
-      '---',
-    ].join('\n');
-
-    expect(findMermaidContrastFailures(markdown, 'example.md')).toEqual([
-      expect.objectContaining({ line: 5, fill: '#7bc67e', color: '#fff' }),
-      expect.objectContaining({ line: 8, fill: '#d4a84b', color: '#fff' }),
-    ]);
-  });
-
-  it('checks an aliased Mermaid sidebar sequence', () => {
-    const markdown = [
-      '---',
-      'sharedSidebar: &shared',
-      '  - type: mermaid',
-      '    content: |',
-      '      style A fill:#7bc67e,color:#fff',
-      'sidebar: *shared',
-      '---',
-    ].join('\n');
-
-    expect(findMermaidContrastFailures(markdown, 'example.md')).toEqual([
-      expect.objectContaining({ line: 5, fill: '#7bc67e', color: '#fff' }),
-    ]);
-  });
-
-  it('checks aliased Mermaid sidebar items', () => {
-    const markdown = [
-      '---',
-      'sharedItem: &item',
-      '  type: mermaid',
-      '  content: |',
-      '    style A fill:#d4a84b,color:#fff',
-      'sidebar:',
-      '  - *item',
-      '---',
-    ].join('\n');
-
-    expect(findMermaidContrastFailures(markdown, 'example.md')).toEqual([
-      expect.objectContaining({ line: 5, fill: '#d4a84b', color: '#fff' }),
-    ]);
-  });
-
-  it('checks Mermaid sidebar items assembled with YAML merge keys', () => {
-    const markdown = [
-      '---',
-      'sharedItem: &item',
-      '  type: mermaid',
-      '  content: |',
-      '    style A fill:#7bc67e,color:#fff',
-      'sidebar:',
-      '  - <<: *item',
-      '---',
-    ].join('\n');
-
-    expect(findMermaidContrastFailures(markdown, 'example.md')).toEqual([
-      expect.objectContaining({ line: 5, fill: '#7bc67e', color: '#fff' }),
-    ]);
-  });
-
-  it('checks a sidebar supplied by a root YAML merge key', () => {
-    const markdown = [
-      '---',
-      'shared: &page',
-      '  sidebar:',
-      '    - type: mermaid',
-      '      content: |',
-      '        style A fill:#7bc67e,color:#fff',
-      '<<: *page',
-      '---',
-    ].join('\n');
-
-    expect(findMermaidContrastFailures(markdown, 'example.md')).toEqual([
-      expect.objectContaining({ line: 6, fill: '#7bc67e', color: '#fff' }),
-    ]);
-  });
-
-  it('checks frontmatter after a UTF-8 byte-order mark', () => {
-    const markdown = [
-      '\uFEFF---',
-      'sidebar:',
-      '  - type: mermaid',
-      '    content: |',
-      '      style A fill:#d4a84b,color:#fff',
-      '---',
-    ].join('\n');
-
-    expect(findMermaidContrastFailures(markdown, 'example.md')).toEqual([
-      expect.objectContaining({ line: 5, fill: '#d4a84b', color: '#fff' }),
-    ]);
-  });
-
-  it('checks Mermaid fences nested in blockquotes', () => {
-    const markdown = [
-      '> ```mermaid title="Example" description="Example relationship."',
-      '> graph TD',
-      '> style A fill:#7bc67e,color:#fff',
-      '> ```',
-    ].join('\n');
-
-    expect(findMermaidContrastFailures(markdown, 'example.md')).toEqual([
-      expect.objectContaining({ line: 3, fill: '#7bc67e', color: '#fff' }),
-    ]);
-  });
-
-  it('checks Mermaid fences that are list-item content', () => {
-    const markdown = [
-      '- ```mermaid title="Example" description="Example relationship."',
-      '  graph TD',
-      '  style A fill:#7bc67e,color:#fff',
-      '  ```',
-    ].join('\n');
-
-    expect(findMermaidContrastFailures(markdown, 'example.md')).toEqual([
-      expect.objectContaining({ line: 3, fill: '#7bc67e', color: '#fff' }),
-    ]);
-  });
-
-  it('does not treat Mermaid-looking text inside another fence as a diagram', () => {
-    const markdown = [
-      '````text',
-      '```mermaid',
-      'style A fill:#7bc67e,color:#fff',
-      '```',
-      '````',
-    ].join('\n');
-
-    expect(findMermaidContrastFailures(markdown, 'example.md')).toEqual([]);
-  });
-
-  it('fails closed when a style pair cannot be measured as hex colors', () => {
-    const markdown = [
-      '```mermaid title="Example" description="Example relationship."',
-      'style A fill:red,color:white',
-      '```',
-    ].join('\n');
-
-    expect(findMermaidContrastFailures(markdown, 'example.md')).toEqual([
-      expect.objectContaining({
-        line: 2,
-        fill: 'red',
-        color: 'white',
-        ratio: null,
-      }),
-    ]);
-  });
-
-  it('fails the command with actionable file, line, colors, and ratio output', () => {
-    const directory = mkdtempSync(join(tmpdir(), 'mermaid-contrast-'));
-    const fixture = join(directory, 'fixture.md');
-
-    try {
-      writeFileSync(
-        fixture,
-        '```mermaid title="Example" description="Example relationship."\n' +
-          'style A fill:#d4a84b,stroke:#a07830,color:#fff\n' +
-          '```\n',
-      );
-
-      const result = spawnSync(process.execPath, ['scripts/check-mermaid-contrast.mjs', fixture], {
-        encoding: 'utf8',
-      });
-
-      expect(result.status).toBe(1);
-      expect(result.stderr).toContain(`${fixture}:2`);
-      expect(result.stderr).toContain('#fff on #d4a84b');
-      expect(result.stderr).toContain('2.21:1');
-      expect(result.stderr).toContain('minimum 4.50:1');
-    } finally {
-      rmSync(directory, { force: true, recursive: true });
-    }
-  });
-
-  it('fails the command with actionable classDef guidance', () => {
-    const directory = mkdtempSync(join(tmpdir(), 'mermaid-contrast-'));
-    const fixture = join(directory, 'fixture.md');
-
-    try {
-      writeFileSync(
-        fixture,
-        '```mermaid title="Example" description="Example relationship."\n' +
-          'classDef warning fill:#7bc67e,color:#fff\n' +
-          '```\n',
-      );
-
-      const result = spawnSync(process.execPath, ['scripts/check-mermaid-contrast.mjs', fixture], {
-        encoding: 'utf8',
-      });
-
-      expect(result.status).toBe(1);
-      expect(result.stderr).toContain(`${fixture}:2`);
-      expect(result.stderr).toContain('classDef is unsupported');
-      expect(result.stderr).toContain('use explicit style directives');
-    } finally {
-      rmSync(directory, { force: true, recursive: true });
-    }
-  });
-
-  it('discovers Markdown files recursively under the blog directory', () => {
-    const directory = mkdtempSync(join(tmpdir(), 'mermaid-discovery-'));
-    const nestedDirectory = join(directory, 'nested', 'deeper');
-
-    try {
-      mkdirSync(nestedDirectory, { recursive: true });
-      writeFileSync(join(directory, 'root.md'), 'root');
-      writeFileSync(join(nestedDirectory, 'nested.md'), 'nested');
-      writeFileSync(join(nestedDirectory, 'ignored.mdx'), 'ignored');
-
-      expect(findBlogMarkdownFiles(directory)).toEqual([
-        join(nestedDirectory, 'nested.md'),
-        join(directory, 'root.md'),
-      ]);
-    } finally {
-      rmSync(directory, { force: true, recursive: true });
-    }
-  });
-
-  it('preserves the labeled 1921 palette swatches with accessible black labels', () => {
-    const article = readFileSync('src/content/blog/two-blues-one-composition.md', 'utf8');
-
-    expect(article.match(/style I1 fill:#E8784A,stroke:#9c4f2f,color:#000/g)).toHaveLength(2);
-    expect(article.match(/style I3 fill:#2080CA,stroke:#14527f,color:#000/g)).toHaveLength(2);
-    expect(contrastRatio('#000', '#E8784A')).toBeGreaterThanOrEqual(4.5);
-    expect(contrastRatio('#000', '#2080CA')).toBeGreaterThanOrEqual(4.5);
-  });
-
-  it('keeps every repository blog Mermaid style pair at WCAG AA contrast', () => {
-    const result = spawnSync(process.execPath, ['scripts/check-mermaid-contrast.mjs'], {
-      encoding: 'utf8',
+    expect(renderedContrastFailures(document)).toEqual({
+      styledNodeCount: 2,
+      failures: [
+        expect.objectContaining({
+          fill: '#7bc67e',
+          color: '#fff',
+          ratio: expect.closeTo(2.05, 2),
+        }),
+      ],
     });
-
-    expect(result.status, result.stderr).toBe(0);
-    expect(result.stderr).toBe('');
   });
 });
+
+function renderedContrastFailures(document) {
+  const failures = [];
+  let styledNodeCount = 0;
+
+  for (const node of document.querySelectorAll('svg.mermaid g.node')) {
+    const shape = node.querySelector('rect, polygon, path, circle, ellipse');
+    const label = node.querySelector('.nodeLabel');
+    const fill = styleProperty(shape?.getAttribute('style'), 'fill');
+    const color = styleProperty(label?.getAttribute('style'), 'color');
+    if (!fill || !color) continue;
+
+    styledNodeCount += 1;
+    const ratio = contrastRatio(color, fill);
+    if (ratio == null || ratio < MINIMUM_CONTRAST) {
+      failures.push({ label: label?.textContent.trim(), fill, color, ratio });
+    }
+  }
+
+  return { styledNodeCount, failures };
+}
+
+function styleProperty(style, property) {
+  const match = style?.match(new RegExp(`(?:^|;)\\s*${property}\\s*:\\s*([^;!\\s]+)`, 'i'));
+  return match?.[1];
+}
+
+function contrastRatio(first, second) {
+  const firstLuminance = relativeLuminance(first);
+  const secondLuminance = relativeLuminance(second);
+  if (firstLuminance == null || secondLuminance == null) return null;
+  return (
+    (Math.max(firstLuminance, secondLuminance) + 0.05) /
+    (Math.min(firstLuminance, secondLuminance) + 0.05)
+  );
+}
+
+function relativeLuminance(value) {
+  const match = value.match(/^#([\da-f]{3}|[\da-f]{6})$/i);
+  if (!match) return null;
+  const digits =
+    match[1].length === 3 ? [...match[1]].map((digit) => `${digit}${digit}`).join('') : match[1];
+  const channels = [0, 2, 4].map((offset) => {
+    const normalized = Number.parseInt(digits.slice(offset, offset + 2), 16) / 255;
+    return normalized <= 0.04045 ? normalized / 12.92 : ((normalized + 0.055) / 1.055) ** 2.4;
+  });
+  return 0.2126 * channels[0] + 0.7152 * channels[1] + 0.0722 * channels[2];
+}

@@ -81,12 +81,12 @@ jobs:
         run: scripts/lib/ensure-vale.sh --ci-only
 
       - name: Install Playwright's Chromium
-        # og-images.mjs (src/integrations/) drives Playwright at BUILD
-        # time to screenshot src/pages/og-templates/ into dist/og/*.png —
-        # `npm test` runs `astro build`, so the OG image generation step
-        # of the build needs a real Chromium available on the runner, not
-        # just the playwright npm package. `--with-deps` also pulls the
-        # OS-level shared libraries Chromium needs on the runner image.
+        # rehype-mermaid and og-images.mjs drive Playwright at BUILD time —
+        # Mermaid renders static SVG during Markdown processing and the OG
+        # integration screenshots templates into dist/og/*.png. `npm test`
+        # runs `astro build`, so both need a real Chromium available on the
+        # runner, not just the playwright npm package. `--with-deps` also
+        # pulls the OS-level shared libraries Chromium needs on the runner.
         # This is for the build's own Playwright use, not the separate
         # `npm run test:e2e` Playwright *test* suite (deliberately not run
         # here — see the note below).

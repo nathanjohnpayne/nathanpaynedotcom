@@ -79,7 +79,8 @@ The default 1921 register lives in `:root`; the homepage opts into a higher-chro
 │   ├── styles/
 │   │   └── global.css              # Global styles (tokens, grid, motion, responsive)
 │   ├── plugins/
-│   │   ├── remark-mermaid.mjs      # Mermaid diagram support
+│   │   ├── remark-mermaid.mjs      # Mermaid metadata contract
+│   │   ├── rehype-mermaid-accessibility.mjs # Accessible rendering adapter
 │   │   └── rehype-figure-captions.mjs  # Auto-numbered figure captions
 │   └── integrations/
 │       ├── og-images.mjs           # Build-time OG image generation (Playwright)

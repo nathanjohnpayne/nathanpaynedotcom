@@ -1,10 +1,16 @@
 // @ts-check
 import { defineConfig } from 'astro/config';
 import sitemap from '@astrojs/sitemap';
+import rehypeMermaid from 'rehype-mermaid';
 import { buildBlogLastmodMap } from './scripts/lib/sitemap-lastmod.mjs';
 import ogImages from './src/integrations/og-images.mjs';
 import robotsSitemap from './src/integrations/robots-sitemap.mjs';
 import remarkMermaid from './src/plugins/remark-mermaid.mjs';
+import {
+  mermaidOptions,
+  rehypeMermaidFigures,
+  rehypeMermaidSvg,
+} from './src/plugins/rehype-mermaid-accessibility.mjs';
 import rehypeFigureCaptions from './src/plugins/rehype-figure-captions.mjs';
 import rehypeColorChips from './src/plugins/rehype-color-chips.mjs';
 
@@ -41,7 +47,14 @@ export default defineConfig({
   },
   markdown: {
     remarkPlugins: [remarkMermaid],
-    rehypePlugins: [rehypeFigureCaptions, rehypeColorChips],
+    syntaxHighlight: { type: 'shiki', excludeLangs: ['mermaid'] },
+    rehypePlugins: [
+      rehypeMermaidFigures,
+      [rehypeMermaid, mermaidOptions],
+      rehypeMermaidSvg,
+      rehypeFigureCaptions,
+      rehypeColorChips,
+    ],
     shikiConfig: {
       theme: 'css-variables',
       transformers: [
