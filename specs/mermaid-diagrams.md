@@ -61,3 +61,8 @@ another collection requires deliberately widening this boundary.
     multiline labels require no site-owned grammar.
 13. Invalid Mermaid renders an intentional accessible fallback with no raw DSL,
     exception, or stack trace.
+14. A `<br/>` in a label renders exactly one line break, and every line of a
+    label stays inside the node box Mermaid measured for it. Because Mermaid
+    measures the label before the page is serialized, a rendered label must
+    carry no void HTML element that an HTML parser can read back as a second
+    break.

@@ -76,6 +76,48 @@ test('Mermaid descriptions label diagrams without becoming duplicate navigable t
   }
 });
 
+test('every label line stays inside the node box Mermaid measured for it', async ({ page }) => {
+  await page.goto('/blog/six-prs-one-bug-agent-failure-modes/');
+
+  const labels = await page
+    .locator('.mermaid-figure svg.mermaid g.node')
+    .evaluateAll((nodes) =>
+      nodes.flatMap((node) => {
+        const label = node.querySelector('g.label');
+        const shape = node.querySelector('rect, polygon, path, circle, ellipse');
+        if (!label || !shape) return [];
+
+        const labelBounds = label.getBoundingClientRect();
+        const shapeBounds = shape.getBoundingClientRect();
+        if (!labelBounds.height || !shapeBounds.height) return [];
+
+        return [
+          {
+            text: label.textContent?.trim() ?? '',
+            lines: label.querySelectorAll('p').length,
+            breaks: label.querySelectorAll('br').length,
+            below: labelBounds.bottom - shapeBounds.bottom,
+            above: shapeBounds.top - labelBounds.top,
+          },
+        ];
+      }),
+    );
+
+  expect(
+    labels.filter((label) => label.lines > 1).length,
+    'the assertion must exercise multiline labels',
+  ).toBeGreaterThan(0);
+
+  for (const label of labels) {
+    // Mermaid sizes the box for the lines it measured. A `br` that survives
+    // serialization is read back as two breaks and pushes the last line out
+    // through the bottom border (#788).
+    expect(label.breaks, `${label.text}: a doubled line break survived`).toBe(0);
+    expect(label.below, `${label.text}: label spills below its node box`).toBeLessThanOrEqual(1);
+    expect(label.above, `${label.text}: label spills above its node box`).toBeLessThanOrEqual(1);
+  }
+});
+
 test('static Mermaid diagrams remain visible in print without JavaScript', async ({ page }) => {
   await page.emulateMedia({ media: 'print' });
   await page.goto('/blog/two-blues-one-composition/');
