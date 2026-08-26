@@ -156,7 +156,7 @@ Counts are **words**, via `wc -w` over the whole file, the same method as the ep
 
 | Measure (words) | Baseline | Revised | Change |
 | --- | ---: | ---: | ---: |
-| Whole file (the epic's 4,463 baseline) | 4,463 | 4,273 | **−4.3%** |
+| Whole file (the epic's 4,463 baseline) | 4,463 | 4,295 | **−3.8%** |
 
 **Short of the 20–30% guidance, and deliberately so.** #744's own compression clause is the only one in the epic that carries a carve-out—"with chronology retained where it is evidence"—and after §A1 the chronology *is* the evidence. The corrected arc only works if the reader can see that all six PRs precede the issue, which needs the timestamped table, and that each PR was locally reasonable, which needs the per-PR sections.
 
@@ -271,4 +271,16 @@ Corrected, and the corrected sentence is better than either version. The invaria
 ### L2—The compression total was stale for the third time
 
 4,273 words, −4.3%. Every round changes it, because every round trades a shorter wrong claim for a longer right one. **Recompute this table as the last step before pushing, not when writing the section.**
+
+---
+
+## M. CodeRabbit round-2 addendum (PR #798)
+
+One finding, and it caught a **third** instance of the retracted thesis that both §J1 and §L1 missed.
+
+Line 185 still read: "no prompt, issue, or spec anywhere licensing the question 'should this boundary exist?'"—the same claim as §J1's and §L1's, in a third set of words. Corrected: nothing *in front of anyone* licensed the question, because the spec had answered it a day earlier in a document the PR did not cite and no reviewer had reason to open.
+
+**Three rounds, three instances, one claim.** §J1 fixed seven surfaces and asserted completeness. §L1 found an eighth and named the failure mode—grepping for remembered phrasing rather than for the claim. §M found a ninth **after** that lesson was written down, because the third instance shares no substring at all with the other two: "no written invariant", "nobody wrote down what correct meant", and "no prompt, issue, or spec anywhere licensing the question" are the same assertion in three vocabularies.
+
+The check that actually worked, and the one to use from here: **enumerate every sentence containing the subject noun**—`grep -oE '[^.]*invariant[^.]*\.'` returned all eight in the post—and read each one against the corrected position. Substring search for a claim cannot work when the claim has synonyms; noun enumeration is bounded and complete.
 
