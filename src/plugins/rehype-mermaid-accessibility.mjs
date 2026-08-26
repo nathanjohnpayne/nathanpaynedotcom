@@ -175,9 +175,18 @@ function isLineBreak(node) {
 function declaredWhiteSpace(node) {
   const style = node.properties?.style;
   if (typeof style !== 'string') return '';
-  // The last declaration is the one that wins, so read that one.
-  const declared = [...style.matchAll(/(?:^|;)\s*white-space:\s*([a-z-]+)/gi)].at(-1);
-  return declared?.[1].toLowerCase() ?? '';
+
+  const declarations = [
+    ...style.matchAll(/(?:^|;)\s*white-space:\s*([a-z-]+)\s*(!\s*important)?/gi),
+  ].map((match) => ({ value: match[1].toLowerCase(), important: Boolean(match[2]) }));
+
+  // Read the declaration that actually wins: `!important` outranks source
+  // order, so taking the last one unconditionally would misread
+  // `white-space: nowrap !important; white-space: break-spaces` as wrapping and
+  // leave the newline to collapse under the nowrap that really applies.
+  const winner =
+    declarations.findLast((declaration) => declaration.important) ?? declarations.at(-1);
+  return winner?.value ?? '';
 }
 
 /** The value that adds newline handling to `whiteSpace`, or '' when it has it. */

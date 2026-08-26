@@ -244,6 +244,12 @@ describe('rehype-mermaid integration', () => {
         broken('span', { style: 'white-space: nowrap !important' }),
         NOWRAP,
       ],
+      // `!important` outranks source order, so the effective value here is
+      // `nowrap` even though `break-spaces` is declared later.
+      importantOutranksOrder: [
+        element('span', [broken('p')]),
+        'white-space: nowrap !important; white-space: break-spaces; line-height: 1.5;',
+      ],
     };
 
     const rendered = Object.fromEntries(
@@ -280,6 +286,9 @@ describe('rehype-mermaid integration', () => {
     expect(rendered.importantOwnDeclaration).toContain(
       `<span style="white-space: nowrap !important; ${PRE}">A\nB</span>`,
     );
+    // Reading the last declaration instead of the winning one would misread
+    // this container as wrapping and leave the newline to collapse.
+    expect(rendered.importantOutranksOrder).toContain(`<p style="${PRE}">A\nB</p>`);
   });
 
   it('ships every built label break as a single line break', () => {
