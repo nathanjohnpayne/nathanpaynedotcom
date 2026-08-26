@@ -9,10 +9,12 @@ inside phrases it cut.
 
 Compares BEFORE and AFTER and fails on any change to:
 
-  * URLs, #NNN references, timestamps, numerals and code spans, compared by
+  * URLs (absolute and repository-relative), #NNN references, timestamps,
+    numerals including their sign, and inline code spans, compared by
     OCCURRENCE COUNT rather than distinct value, so a duplicate dropped from
     one of two mentions is still caught
-  * fenced code and Mermaid blocks, and Markdown table rows, byte-for-byte
+  * fenced code and Mermaid blocks, frontmatter `content: |` block scalars
+    (where sidebar diagrams live), and Markdown table rows, byte-for-byte
   * the frontmatter fields that automated tests pin as exact strings
 
 Numbers written as words are reported as an advisory note rather than a
@@ -24,6 +26,9 @@ commit.
 
     scripts/verify-brevity.py before.md after.md
     scripts/verify-brevity.py --quiet before.md after.md && git commit
+
+Advisory notes print even under --quiet, since suppressing them in the gate
+path would hide exactly what they exist to surface.
 """
 
 from __future__ import annotations
@@ -43,7 +48,7 @@ PINNED_FIELDS = ("title", "seoTitle", "shortTitle", "slug", "seoDescription")
 # pass does not see "across three platforms" as data, and dropping it loses a
 # count as surely as deleting a digit would.
 _WORD_NUMBERS = (
-    "one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|"
+    "zero|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|"
     "fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|thirty|forty|"
     "fifty|sixty|seventy|eighty|ninety|hundred|thousand|million|billion|"
     "first|second|third|fourth|fifth|sixth|seventh|eighth|ninth|tenth|"
@@ -53,10 +58,11 @@ _WORD_NUMBERS = (
 
 TOKEN_CLASSES = (
     ("URLs", r"https?://[^\s\)\]\"'>]+"),
+    ("relative links", r"\]\((/[^)\s]*)\)"),
     ("issue/PR refs", r"#\d{2,4}\b"),
     ("timestamps", r"\d{4}-\d{2}-\d{2}(?:T[\d:]+Z)?"),
-    ("numerals", r"\b\d[\d,.]*\b"),
-    ("code spans", r"`[^`\n]{2,}`"),
+    ("numerals", r"[+-]?\b\d[\d,.]*\b"),
+    ("code spans", r"`[^`\n]+`"),
 )
 
 # Advisory, never gating. "six PRs" is evidence and "one of the reasons" is
@@ -69,6 +75,9 @@ ADVISORY_CLASSES = (
 
 BLOCK_CLASSES = (
     ("code/mermaid blocks", r"```.*?```", re.S),
+    # Sidebar diagrams are stored in frontmatter as `type: mermaid` with a
+    # `content: |` block, which no backtick fence matches.
+    ("frontmatter block scalars", r"content:\s*\|\n(?:[ \t]+.*\n?)+", re.M),
     ("table rows", r"^\|.*$", re.M),
 )
 
@@ -101,7 +110,12 @@ def compare(before: str, after: str, quiet: bool) -> int:
         b, a = Counter(re.findall(pattern, before, re.I)), Counter(re.findall(pattern, after, re.I))
         lost = sorted(k for k in b if a[k] < b[k])
         added = sorted(k for k in a if b[k] < a[k])
-        if (lost or added) and not quiet:
+        if lost or added:
+            # Printed even under --quiet. The documented gate usage is
+            # `verify-brevity.py --quiet BEFORE AFTER && git commit`, and
+            # swallowing the advisory there would recreate the silent loss
+            # this class exists to expose. It still does not affect the exit
+            # status, so the gate keeps working.
             print(f"  note  {label}  ({sum(b.values())} -> {sum(a.values())})"
                   f"  lost={lost[:6]} added={added[:6]}")
             print("        advisory only -- check whether any of these carried a count")

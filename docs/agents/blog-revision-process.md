@@ -2,7 +2,7 @@
 
 How to revise a published blog post when its facts are under audit. Derived from epic #759, which audited all seven long-form posts; the worked examples are the facts ledgers in `plans/759/`.
 
-Applies to substantive revisions of `src/content/blog/*.md`. A typo fix does not need any of this.
+Applies to substantive revisions of any post in the blog collection, which `src/content.config.ts` loads with `pattern: '**/*.md'`—so `src/content/blog/**/*.md`, nested paths included, not only direct children. A typo fix does not need any of this.
 
 ## Two passes, in this order
 

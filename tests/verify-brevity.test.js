@@ -22,17 +22,30 @@ const x = 1;
 \`\`\`
 `;
 
-function paths(after) {
+const SIGNED = `---
+title: "Signed"
+seoDescription: "Pinned."
+sidebar:
+  - type: mermaid
+    content: |
+      graph TD
+          A["Authoring session"] --> B["Merge"]
+---
+
+The figure moved -3.8% and the run recorded zero rejections. See [the audit](/blog/some-post/) and the \`/\` separator.
+`;
+
+function paths(after, base) {
   const dir = mkdtempSync(join(tmpdir(), 'brevity-'));
   const a = join(dir, 'before.md');
   const b = join(dir, 'after.md');
-  writeFileSync(a, BEFORE);
+  writeFileSync(a, base ?? (after.includes('Authoring session') || after.includes('rejections') ? SIGNED : BEFORE));
   writeFileSync(b, after);
   return [a, b];
 }
 
-function run(after) {
-  const [a, b] = paths(after);
+function run(after, base) {
+  const [a, b] = paths(after, base);
   try {
     execFileSync('python3', [script, '--quiet', a, b]);
     return 0;
@@ -41,8 +54,8 @@ function run(after) {
   }
 }
 
-function output(after) {
-  const [a, b] = paths(after);
+function output(after, base) {
+  const [a, b] = paths(after, base);
   return execFileSync('python3', [script, a, b], { encoding: 'utf-8' });
 }
 
@@ -80,5 +93,36 @@ describe('verify-brevity', () => {
 
   it('fails when a code block changes', () => {
     expect(run(BEFORE.replace('const x = 1;', 'const x = 2;'))).toBe(1);
+  });
+
+  it('fails when a numeral loses its sign', () => {
+    // -3.8% and +3.8% are opposite claims; matching from the digit misses it.
+    expect(run(SIGNED.replace('-3.8%', '+3.8%'))).toBe(1);
+  });
+
+  it('fails when a one-character code span is dropped', () => {
+    expect(run(SIGNED.replace(' the `/` separator', ' the separator'))).toBe(1);
+  });
+
+  it('fails when a repository-relative link is removed', () => {
+    expect(run(SIGNED.replace('[the audit](/blog/some-post/)', 'the audit'))).toBe(1);
+  });
+
+  it('fails when a sidebar mermaid node label changes', () => {
+    expect(run(SIGNED.replace('Authoring session', 'Writing session'))).toBe(1);
+  });
+
+  it('reports the advisory even under --quiet', () => {
+    // The documented gate usage is `--quiet BEFORE AFTER && git commit`;
+    // suppressing the note there would hide the loss it exists to surface.
+    const after = BEFORE.replace(' across three platforms', '');
+    const [a, b] = paths(after);
+    const out = execFileSync('python3', [script, '--quiet', a, b], { encoding: 'utf-8' });
+    expect(out).toMatch(/note\s+spelled-out numbers/);
+  });
+
+  it('flags a dropped "zero" count as advisory', () => {
+    const after = SIGNED.replace('zero rejections', 'no rejections');
+    expect(output(after)).toMatch(/note\s+spelled-out numbers/);
   });
 });
