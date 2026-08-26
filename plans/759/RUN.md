@@ -12,7 +12,7 @@ Deliberate. #740 calibrates the ledger format and the Fable handoff; #739/#741 r
 |---|-------|------|---------------|-------------|--------|----|--------|
 | 0 | — | shared evidence cache | **0 complete** | `plans/759/refs.json` | `content/740-astro-migration-audit` | [#787](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/787) | done |
 | 1 | #740 | how-a-responsive-fix-became-an-astro-migration | **done** | `plans/759/how-a-responsive-fix-became-an-astro-migration-ledger.md` | `content/740-astro-migration-audit` | [#787](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/787) | **merged** `28e81a7` |
-| 2 | #739 | agent-approval-workflow-genesis-of-mergepath | 3 in progress | `plans/759/agent-approval-workflow-genesis-of-mergepath-ledger.md`  | `content/739-mergepath-genesis-audit` | — | in review |
+| 2 | #739 | agent-approval-workflow-genesis-of-mergepath | 3 in progress | `plans/759/agent-approval-workflow-genesis-of-mergepath-ledger.md` | `content/739-mergepath-genesis-audit` | [#791](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/791) | in review |
 | 3 | #741 | html-mockups-as-spec | not started | `plans/759/html-mockups-as-spec-ledger.md`  | — | — | pending |
 | 4 | #744 | six-prs-one-bug-agent-failure-modes | not started | `plans/759/six-prs-one-bug-agent-failure-modes-ledger.md`  | — | — | pending |
 | 5 | #745 | autofix-was-the-whole-cost | not started | `plans/759/autofix-was-the-whole-cost-ledger.md`  | — | — | pending |
@@ -135,3 +135,18 @@ Where the 714 words went, in rough order of size: the four-option decision recor
   4. Fill the PR cell in the table at creation time.
   5. Close up em dashes when writing; the blanket `replace(' — ','—')` sweep mangles table placeholder cells, so normalise prose lines only.
   6. Batch fix commits before running `phase-4b-review.sh`—every push re-opens its HEAD barrier.
+
+---
+
+## Operator guidance: compression is a guideline, not a gate
+
+Recorded 2026-08-26, from the operator in chat: **"If you think the length reduction ruins the post, you don't have to do it; it is a guideline."**
+
+This supersedes any reading of the epic's compression table as a target that must be hit. It applies to the four remaining posts that carry a 20–30% figure—#741, #744, #745, #743—as well as to #742, which carries none.
+
+How to apply it. Cut what is genuinely repetition: restated setup, implementation chronology that adds no decision, inventories the issue says not to lead with, and quoted config or code whose content the prose already carries. Do **not** cut evidence, decision records, tradeoffs, the boundary or provenance material the acceptance criteria require, or a correction that is longer than the wrong claim it replaces.
+
+The #739 experience is the cautionary case. Body prose reached −20.8% at first draft and then **drifted back to −17.9% across two review rounds**, because every round replaced a short wrong claim with a longer right one: naming which of two round limits was actually tested, attributing a rejection to the wrapper's contract rather than the hook, distinguishing Codex findings from CodeRabbit's. Chasing the percentage back down would have meant reinstating an error. Ledger §J documents it.
+
+State the accounting honestly in the PR body and the ledger either way, and say what was cut and what was kept. A documented miss is the sanctioned outcome; an undocumented one is not.
+

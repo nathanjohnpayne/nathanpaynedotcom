@@ -285,14 +285,16 @@ Measured at the revised head with `wc -w`, the same method as the epic's baselin
 
 | Measure | Baseline | Revised | Change |
 | --- | ---: | ---: | ---: |
-| Whole file (the epic's 4,418 baseline) | 4,418 | 3,609 | **−18.3%** |
-| Body prose, frontmatter excluded | 3,993 | 3,164 | **−20.8%** |
+| Whole file (the epic's 4,418 baseline) | 4,418 | 3,724 | **−15.7%** |
+| Body prose, frontmatter excluded | 3,993 | 3,279 | **−17.9%** |
 
-**The body meets the 20–30% target; the whole-file figure falls 1.7 points short of it, and the gap is entirely frontmatter.** Two things grew there, both required by the acceptance criteria. The `keyTakeaways` had to carry calibrated language the originals did not—"repeated observation, not controlled measurement" is longer than "measurably better", and that is the point of the change. The `description` and the diagram's `description` both gained the April-2026 snapshot boundary.
+**Neither figure reaches the 20–30% band, and after the review rounds the body no longer does either.** Two things grew there, both required by the acceptance criteria. The `keyTakeaways` had to carry calibrated language the originals did not—"repeated observation, not controlled measurement" is longer than "measurably better", and that is the point of the change. The `description` and the diagram's `description` both gained the April-2026 snapshot boundary.
 
 The body also absorbed three sections the acceptance criteria require and the original did not have: the enforcement-boundary table ("every enforcement claim names its boundary"), the corrected-numbers section with its pointer to this ledger ("a linked or embedded counting note"), and "Since the snapshot" ("a reader can tell historical behavior from current Mergepath behavior"). Net of those additions the surviving original prose is down considerably more than 20.8%.
 
-Per the epic's compression clause—"meet the 20–30% guidance, **or document why retained chronology or evidence earns the additional length**"—this row is that documentation. Cutting the remaining 1.7 points would mean deleting one of the three required sections above.
+Per the epic's compression clause—"meet the 20–30% guidance, **or document why retained chronology or evidence earns the additional length**"—this row is that documentation, and the operator has since confirmed in chat that the reduction is a guideline rather than a gate: if cutting would damage the post, do not cut.
+
+The gap widened rather than closed as review proceeded, and that is the substantive point. Every round added words for the same reason: a claim that had been short and wrong became longer and right. Naming which of two round limits was actually tested on PR #787 cost 40 words. Attributing a rejection to the wrapper's body contract rather than to the hook cost 60, and replaced a wrong one-clause aside with the clearest illustration of layered boundaries in the post. Distinguishing Codex findings from CodeRabbit's in one sequence cost 9. None of that is padding, and none of it can come out without putting an error back.
 
 What was actually removed, in rough order of size: the inline `mermaid` Phase 4a flow diagram from the body (the sidebar diagram plus the two-script prose carries it); the quoted `gh-pr-guard.sh` bash snippet and the `review-policy.yml` block (described in prose instead, with the `functions/**` omission retained because it is evidence); the component inventory in "What a consumer repo got", cut roughly in half; and the restatement of the lede's "no natural pause" argument at the top of the discovery section.
 
@@ -352,4 +354,30 @@ The row corrected "two dozen" to seven for April, then compared it to "122 files
 The runbook told the remaining audits to use `scratchpad/reflow.py`, which exists only in this session's scratchpad and would be invisible to a resumed agent. Corrected to name the canonical implementation and to state the transform rule inline, so the instruction survives without either.
 
 **Rule for the remaining five audits.** Four of six findings this round were in the ledger, not the prose. Audit the artifact as well as the post before pushing: the ledger is the input to every later audit, so an error there propagates further than one in the article.
+
+---
+
+## M. Codex round-2 addendum (PR #791)
+
+Four findings, all correct, all fixed. One of them is a rule I had written down after #787 and then failed to follow in the very next PR.
+
+### M1—The rejection came from the wrapper's contract, not from the hook
+
+The revision's "evidence after launch" said the *hook* refused a bolded `**Authoring-Agent:**` because "the check is line-anchored". Checked against the code: for a PR created through the required `scripts/gh-as-author.sh` path, `gh-pr-guard.sh` recognises the wrapper and steps aside (`_WRAPPER_CMDS` at line 1043, matched at 1219). The line-anchored match that actually rejected the body lives in the wrapper's contract—`scripts/lib/pr-body-contract.mjs:83`, `/^ {0,3}Authoring-Agent:\s*(.*?)\s*$/i`, with the error text emitted from `scripts/lib/pr-body-contract.sh:60`. The hook's own direct-invocation fallback does still use a substring `grep`, so attributing line-anchoring to "the hook" is wrong twice over.
+
+Corrected, and the correction improves the passage: the hook's job was to insist the write go through the wrapper at all, and the wrapper's job was to validate the body. Two components, two boundaries, one easily mistaken for the other—which is the section's entire thesis. Source: `scripts/hooks/gh-pr-guard.sh` lines 1043, 1219, 1375–1376; `scripts/lib/pr-body-contract.mjs:83`; `scripts/lib/pr-body-contract.sh:60`.
+
+### M2—The compression totals were stale
+
+§J's table was measured before the last prose edit and under-reported by 27 body words. Recomputed at this head and the discussion rewritten—see §J, which now also records that the gap *widened* through review, and why that is the correct outcome rather than a failure.
+
+### M3—The #787 round sequence was ambiguous across artifacts
+
+The post gave "0, 4, 5, 1, and 7 findings" while `plans/759/RUN.md` and the #740 ledger's §L both describe round three as "seven". Both are right about different populations: round three drew **5 Codex findings plus 2 from CodeRabbit**. The post now says "Codex findings" and names CodeRabbit's two, so the sequences reconcile instead of contradicting each other.
+
+### M4—`RUN.md` left the #791 PR cell empty
+
+The same defect Codex caught on #787 as §L4, where the fix was written into this file as a carry-forward rule—"fill the PR cell at the moment the PR is created, not in the log entry afterwards"—and then not followed in the next PR. The rule was right; following it needs to happen at PR-creation time, not at review time. Filled.
+
+**Note to self for the remaining five audits.** A rule recorded in `RUN.md` is not a rule followed. §L4 was written down, agreed with, and broken within one PR. The mechanical fix is to fill the table cell in the same command that creates the PR.
 
