@@ -64,11 +64,11 @@ Defensible form: *"a review that had been running since before the merge posted 
 
 **PARTLY WRONG—and the earlier version of this row was wrong about its own fact base. See §P.1.** The rate-limiting was real and broad: **seven of the eleven PRs drew a `rate limited by coderabbit.ai` notice**—#791, #792, #793, #794, #795 and #796 within twenty-two seconds of each other at batch open (`2026-07-29T04:12:23Z`–`04:12:45Z`), and #800 at `18:32:46Z`. An earlier pass counted two, because the marker sits ~100 characters into the body on #792 and #793 but behind a ~400-character `review_stack` block on the other five, and the matcher only caught the former.
 
-What does not survive is the claim about **effect**, and that is what the post rests on. Despite those seven notices CodeRabbit still posted **26 review objects across 8 of the 11 PRs** and produced **18 actionable inline finding threads**—every non-Codex thread in the entire population. And `#797`, the PR the post's whole argument turns on, carries **no rate-limit notice at all**; its `04:12:51Z` comment is a normal review-stack entry.
+What does not survive is the claim about **effect**, and that is what the post rests on. Despite those seven notices CodeRabbit still posted **26 review objects across 8 of the 11 PRs** and produced **18 actionable inline finding threads**—every non-Codex thread in the entire population. And `#797`, the PR the post's whole argument turns on, carries **no CodeRabbit-*authored* rate-limit notice**; its `04:12:51Z` comment is a normal review-stack entry. That is a statement about notices, not about rate limits: **§P.4 records a rate limit on `#797`**, reported in the Phase 4b review body at `01:19:33Z`. The matcher behind this row read issue comments only and never review bodies.
 
 Per-PR CodeRabbit review-object counts: `#789` 1, `#790` 4, `#791` 1, `#792` 0, `#793` 0, `#794` 2, `#795` 8, `#796` 3, `#797` 5, `#800` 2, `#810` 0.
 
-Corrected value: CodeRabbit hit its Fair Usage limit on seven of the eleven PRs, six of them within twenty-two seconds at batch open, and again *after* the batch closed (`#813`, opened `04:53:38Z`, drew one at `04:53:48Z`). It was throttled across most of the batch but **not absent** from it—the throttling did not stop it producing every inline finding in the population. And the causal claim specifically fails where the post needs it: no rate limit ever touched #797, and §A1 shows the session invoking that review directly. Source: `gh api --paginate .../issues/<N>/comments` for the eleven, filtered on the literal `rate limited by coderabbit.ai`; `.../pulls/<N>/reviews` filtered on `.user.login == "coderabbitai[bot]"`.
+Corrected value: CodeRabbit hit its Fair Usage limit on seven of the eleven PRs, six of them within twenty-two seconds at batch open, and again *after* the batch closed (`#813`, opened `04:53:38Z`, drew one at `04:53:48Z`). It was throttled across most of the batch but **not absent** from it—the throttling did not stop it producing every inline finding in the population. And the causal claim needs qualifying where the post leans on it: no CodeRabbit-authored notice was posted on #797, though §P.4 shows a rate limit on #797 recorded in a Phase 4b review body, and §P.2 has since withdrawn §A1's claim that the session's invocation is provable. Source: `gh api --paginate .../issues/<N>/comments` for the eleven, filtered on the literal `rate limited by coderabbit.ai`; `.../pulls/<N>/reviews` filtered on `.user.login == "coderabbitai[bot]"`.
 
 ### B4—"it was never briefed from the session's finding list"
 
@@ -196,7 +196,7 @@ Corrected value: **26 Phase 4b merge-gating reviews across the eleven PRs, 16 of
 
 > L68
 
-**WRONG on the count and on the cause.** CodeRabbit posted **five** review objects on `#797`: `2026-07-29T23:04:08Z`, `2026-07-30T01:48:19Z`, `02:01:58Z`, `04:00:35Z` (the review carrying the escape) and `04:02:05Z` (the acknowledgement wrapper). **Three** landed before the merge, not two. And no rate limit ever hit `#797` (§B3).
+**SUPERSEDED by §P.4—the WRONG verdict does not stand.** The post counted *large* reviews before the rate limits and said two; this row conceded "two of them substantial." Those are the same number, so the count was never wrong. The cause half fails too: §P.4 records a rate limit on `#797` in the Phase 4b review body. What remains true is the review-object arithmetic below. CodeRabbit posted **five** review objects on `#797`: `2026-07-29T23:04:08Z`, `2026-07-30T01:48:19Z`, `02:01:58Z`, `04:00:35Z` (the review carrying the escape) and `04:02:05Z` (the acknowledgement wrapper). **Three** landed before the merge, not two. A rate limit **is** recorded on `#797`—in the Phase 4b review body, not a CodeRabbit-authored notice (§P.4, correcting §B3).
 
 Defensible form: *"three CodeRabbit reviews before merge, two of them substantial, and a fourth that carried the escape."* Source: `gh api --paginate .../pulls/797/reviews` → `.submitted_at`, `.body`.
 
@@ -210,7 +210,7 @@ Defensible form: *"three CodeRabbit reviews before merge, two of them substantia
 
 > L68, L52
 
-**SUPPORTED, all three.** `#797` `.commits == 20`, `.additions == 2298`. Combined status on `76f0ded3c2b134f672ba660fef9acfd54fee4a3b` is `success`; its check runs are 14 `success`/`skipped` with zero failures or cancellations. The `03:46:44Z` `APPROVED` review names `76f0ded3c2b134f672ba660fef9acfd54fee4a3b`, which is `.head.sha`. Source: `.../pulls/797` → `.commits`, `.head.sha`; `.../commits/76f0ded3…/status`; `.../commits/76f0ded3…/check-runs`.
+**SUPPORTED, all three.** `#797` `.commits == 20`, `.additions == 2298`. Combined status on `76f0ded3c2b134f672ba660fef9acfd54fee4a3b` is `success`; its check runs were recorded here as 14 `success`/`skipped` with zero failures—**a superseded measurement: §P.4 finds 220 check runs including six failures**, all either superseded before merge or completed after it. The combined-status conclusion stands; the histogram was one page of a paginated endpoint and should not be cited. The `03:46:44Z` `APPROVED` review names `76f0ded3c2b134f672ba660fef9acfd54fee4a3b`, which is `.head.sha`. Source: `.../pulls/797` → `.commits`, `.head.sha`; `.../commits/76f0ded3…/status`; `.../commits/76f0ded3…/check-runs`.
 
 ### D5—"ten-plus briefed passes" / "The ten-plus passes on #797"
 
@@ -625,12 +625,15 @@ For L82 specifically, everything needed to retire the screenshot is already in t
 
 ## O. Verdict tally
 
+**Recomputed after §P.** The adversarial pass moved A1, B1 and B2 to UNPROVABLE (§P.2) and withdrew D2's WRONG verdict (§P.4); the counts below reflect that. A tally that predates its own file's corrections is worse than no tally, because it reads as the summary.
+
 | Verdict | Count | Entries |
 |---|---:|---|
 | **SUPPORTED** | 26 | B4, B5, B6, B8, C1, C2, C5, C6, C7, D1, D3, D4, D6, E3, F1, F2, F3, G2, H1, H2, H5, I3, I5, J1, J2, K3 |
-| **WRONG** | 17 | A1, B1, B2, B3, C3, C8, D2, E1 (= A2), E2 (the `#791` attribution), G1, K1, and the wrong half of the six split verdicts B7, H3, H4, I1, I2, J3 |
-| **UNPROVABLE** | 10 | C9, F5, J5, K2, and the unprovable half of the six split verdicts D5, E2 (verifier existence), I2, I4, J3, J4 |
+| **WRONG** | 13 | B3, C3, C8, E1 (= A2), E2 (the `#791` attribution), G1, K1, and the wrong half of the six split verdicts B7, H3, H4, I1, I2, J3 |
+| **UNPROVABLE** | 13 | A1, B1, B2 (all three moved down by §P.2), C9, F5, J5, K2, and the unprovable half of the six split verdicts D5, E2 (verifier existence), I2, I4, J3, J4 |
 | *Split verdicts* | 10 | B7, D5, E2, H3, H4, I1, I2, I4, J3, J4 carry more than one verdict and are counted under each |
+| *Superseded, no verdict* | 1 | D2, whose WRONG verdict §P.4 withdrew |
 | *New findings, no verdict* | 4 | A3 (routing), C4 (the escape sits inside the 122), F4 (an undispositioned seventh vacuous guard), I1's capacity-coupling reframe |
 
 Entry count: **54 numbered subsections across §§A–K**, plus the four-image table in §L and the 42-row standing-claims table in §M. Every figure retrieved `2026-08-26`.

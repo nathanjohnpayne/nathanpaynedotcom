@@ -3,7 +3,7 @@ title: "A Perfect Score on the Wrong Axis: 116 Review Findings, Zero Rejected, O
 seoTitle: "A Perfect Score on the Wrong Axis"
 shortTitle: "Perfect Score, Wrong Axis"
 description: "An eleven-PR review record held 134 finding threads and 122 recorded dispositions with zero rejections—and still shipped a P1, posted by CodeRabbit 94 seconds after the batch's last backlog merge. The rule the defect turned on had been raised in a blocking review on a sibling PR twelve hours earlier, then fixed and reference-validated there. The record measured closure, not coverage, and nothing carried knowledge across a PR boundary."
-seoDescription: "An AI review batch recorded 122 finding dispositions with zero rejections and still shipped a P1. Correlated verification keeps shared blind spots."
+seoDescription: "An AI review batch recorded 122 finding dispositions with zero rejections and still shipped a P1. Every brief was scoped to one diff, so nothing carried the rule across a PR boundary."
 category: "Agent Systems"
 author: "Nathan Payne"
 date: 2026-07-30
@@ -27,12 +27,12 @@ pullquotes:
 sidebar:
   - type: mermaid
     title: "Closure inside the session, and the knowledge that never crossed"
-    description: "The authoring session dispositions every raised thread and merges PR 797 clean, after which the escaped defect is posted and itself dispositioned, closing the record at 134 threads and 122 dispositions; a spec-derived pass on sibling PR 791 had named the same CommonMark rule twelve hours earlier, but every review was scoped to one diff, and an unbriefed CodeRabbit re-run posts the escape 94 seconds after the merge."
+    description: "The authoring session dispositions 122 of 134 raised threads and merges PR 797 clean, after which the escaped defect is posted and itself dispositioned, closing the record at 134 threads and 122 dispositions; a spec-derived pass on sibling PR 791 had named the same CommonMark rule twelve hours earlier, but every review was scoped to one diff, and an unbriefed CodeRabbit re-run posts the escape 94 seconds after the merge."
     content: |
       graph TD
           A["Authoring session"] --> B["134 finding threads<br/>(116 severity-badged)"]
-          B --> C["Fix verification briefed<br/>from the finding list"]
-          C --> D["Every raised thread<br/>dispositioned; none rejected"]
+          B --> C["Fix verification briefed<br/>from the finding list<br/>(author record)"]
+          C --> D["122 of 134 threads<br/>dispositioned; none rejected"]
           D --> E["#797 merges clean;<br/>the defect ships"]
           S["CommonMark spec"] --> F["Spec-derived pass on #791:<br/>P1 names the same rule,<br/>12 hours earlier"]
           F -->|"brief scoped to one diff"| X["Never applied to #797"]
@@ -48,12 +48,12 @@ sidebar:
           style X fill:#d4a84b,stroke:#a07830,color:#333
           style G fill:#7bc67e,stroke:#4a8a4d,color:#333
           style H fill:#7bc67e,stroke:#4a8a4d,color:#333
-    caption: "Two sources of review questions: briefs drawn from the session's own findings closed everything they were asked about; the spec-derived pass that named the escape's rule ran on the sibling PR and never reached this one."
+    caption: "Two sources of review questions: briefs drawn from the session's own findings—an author record, not visible on GitHub—closed what they were asked about; the spec-derived pass that named the escape's rule ran on the sibling PR and never reached this one."
 ---
 
 A team can resolve every issue anyone raises and still ship the bug. Closing everything you found and finding everything that is there are different achievements, and only the first leaves a record. When every reviewer works from the same list of concerns, they run out of new questions long before the code runs out of defects.
 
-On July 30, 2026, at 03:59:00 UTC, [PR #797](https://github.com/nathanjohnpayne/mergepath/pull/797) merged into [mergepath](https://github.com/nathanjohnpayne/mergepath)—the last of a backlog batch to merge after about twenty-four hours of continuous automated review. It went out clean: every required check green, every review finding dispositioned, the external reviewer's approval posted on the exact head.
+On July 30, 2026, at 03:59:00 UTC, [PR #797](https://github.com/nathanjohnpayne/mergepath/pull/797) merged into [mergepath](https://github.com/nathanjohnpayne/mergepath)—the last of a backlog batch to merge after about twenty-four hours of continuous automated review. It went out clean: every required check green, all but one review finding dispositioned, the external reviewer's approval posted on the exact head.
 
 At 04:00:34 UTC—ninety-four seconds after the merge—CodeRabbit posted [one more finding](https://github.com/nathanjohnpayne/mergepath/pull/797#discussion_r3679855498) on it. It opened: "Indented list/paragraph lines are blanked as code, and no test would catch it."
 
