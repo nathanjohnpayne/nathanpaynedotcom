@@ -47,7 +47,7 @@ The constraint the whole design hangs on: no generated output contains a claim t
 
 The enforcement mechanism sits between generation and the user. Every claim in a draft is parsed and traced back to its Experience Unit; a claim whose trace breaks is flagged inline in the editor and the export is disabled until the user resolves it—by editing the claim, removing it, or supplying a supporting Unit.
 
-An earlier version of this page said the model "can never quietly invent." That is a universal about LLM behavior, and nothing in the record verifies a universal: the validation layer has no adversarial evaluation in the repo, and no output is recorded as having reached a user. What the record supports is narrower and checkable: the validation layer is designed so that an ungrounded claim is held off the editor until the user resolves it. Whether that design holds under pressure is exactly what a V1 with real usage would have tested, and hasn't yet.
+An earlier version of this page said the model "can never quietly invent." That is a universal about LLM behavior, and nothing in the record verifies a universal: the validation layer has no adversarial evaluation in the repo, and no output is recorded as having reached a user. What the record supports is narrower and checkable: the validation layer is designed so that an ungrounded claim is flagged in the editor and blocks export until the user resolves it. Whether that design holds under pressure is exactly what a V1 with real usage would have tested, and hasn't yet.
 
 ## How it was built, and where it stopped
 
