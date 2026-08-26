@@ -4,7 +4,7 @@ Post source: `src/content/blog/two-blues-one-composition.md`, published `date: 2
 
 Verdicts: **SUPPORTED** · **WRONG** (corrected value given) · **UNPROVABLE** (defensible weaker form given).
 
-**Six-digit hex values are not issue numbers.** `plans/759/refs.json` → `rejected_not_references` already records `#000`, `#224089`, `#323137`, `#333333` and `#333` as confirmed non-references. Do not re-litigate them. The only real citations in this post are issues #497 and #498 and PRs #499, #500 and #504.
+**Six-digit hex values are not issue numbers.** `plans/759/refs.json` → `rejected_not_references` already records `#000`, `#224089`, `#323137`, `#333333` and `#333` as confirmed non-references. Do not re-litigate them. The real citations in this post are issues #497, #498, #501 and #502, and PRs #499, #500, #503 and #504. All eight are resolved in `refs.json`. (The revision added #501, #502 and #503 to carry the four-issue, four-PR chronology; an earlier version of this line listed only five.)
 
 **Method notes carried from #740, #739, #741 and #744.** An issue body is evidence of what someone believed at the time, not of what happened. A closure timestamp is not evidence of duration or success. Check chronology, do not assume it. Check what a review or an audit actually said, not that it exists. Count with the loosest correct matcher, then narrow. A figure quoted "as of `<date>`" must exclude observations after that date. Distinguish disprovable from unprovable. And when you assert something, grep for the *claim*, not for the phrasing you remember writing.
 
