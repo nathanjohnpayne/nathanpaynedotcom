@@ -99,8 +99,8 @@ may be removed later without affecting the other.
 2. Error-tracking alerts open GitHub Issues automatically. A signature proven to
    originate outside the site is therefore set to **suppressed**, never
    "resolved"—a resolved issue reopens on the next matching event and files a
-   *second* GitHub Issue. That is exactly how #714 became #797 three days later,
-   for one unchanged signature.
+   *second* GitHub Issue. That is exactly how #714, closed 2026-08-24, came back
+   as #797 on 2026-08-26 for one unchanged signature.
 3. Issue status is the right instrument here because it is scoped to the
    fingerprint group. A genuinely different exception gets its own fingerprint,
    so it forms its own issue and still alerts.
