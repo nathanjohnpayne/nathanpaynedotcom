@@ -114,6 +114,7 @@ for (const route of [
             text: (label.textContent ?? '').trim(),
             measured: host.height.baseVal.value,
             painted: scale ? content.getBoundingClientRect().height / scale : 0,
+            scale,
             breaks: label.querySelectorAll('br').length,
             below: labelBounds.bottom - shapeBounds.bottom,
             above: shapeBounds.top - labelBounds.top,
@@ -133,10 +134,16 @@ for (const route of [
       // Painting shorter is the same defect inverted: a break that stopped
       // breaking, or one that took the label's wrapping away with it (#789).
       expect(label.breaks, `${label.text}: a doubled line break survived`).toBe(0);
-      expect(label.painted, `${label.text}: painted a different height than measured`).toBeCloseTo(
-        label.measured,
-        0,
-      );
+      // Half a unit, held flat across viewports rather than scaled by `scale`.
+      // Dividing a viewport rect back into SVG units would amplify rounding if
+      // rects were integers, but Chromium's are subpixel: measured worst case
+      // is 0.008 units at scale 0.29, roughly 65x inside this bound. `scale` is
+      // reported so a failure says whether the diagram was scaled down.
+      expect(
+        Math.abs(label.painted - label.measured),
+        `${label.text}: painted ${label.painted.toFixed(2)} against a measured ` +
+          `${label.measured} at scale ${label.scale.toFixed(3)}`,
+      ).toBeLessThanOrEqual(0.5);
       expect(label.below, `${label.text}: label spills below its node box`).toBeLessThanOrEqual(1);
       expect(label.above, `${label.text}: label spills above its node box`).toBeLessThanOrEqual(1);
     }

@@ -165,7 +165,9 @@ describe('rehype-mermaid integration', () => {
     ]);
     // A newline only breaks the line when the element holding it says so.
     for (const label of labels) {
-      expect(label.getAttribute('style'), label.textContent).toMatch(/white-space:\s*pre\b/);
+      expect(label.getAttribute('style'), label.textContent).toMatch(
+        /white-space:\s*pre\s*!\s*important/,
+      );
     }
     expect(document.querySelector('svg.mermaid foreignObject br')).toBeNull();
   });
@@ -192,7 +194,7 @@ describe('rehype-mermaid integration', () => {
     const formatted = document.querySelector('svg.mermaid .nodeLabel strong');
 
     expect(formatted?.textContent).toBe('First line\nsecond line');
-    expect(formatted?.getAttribute('style')).toMatch(/white-space:\s*pre\b/);
+    expect(formatted?.getAttribute('style')).toMatch(/white-space:\s*pre\s*!\s*important/);
   });
 
   it('rewrites a label break wherever Mermaid puts it', () => {
