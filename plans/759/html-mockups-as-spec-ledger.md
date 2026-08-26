@@ -214,10 +214,10 @@ Measured with `wc -w`, the same method as the epic's baseline.
 
 | Measure | Baseline | Revised | Change |
 | --- | ---: | ---: | ---: |
-| Whole file (the epic's 4,131 baseline) | 4,131 | 3,797 | **−8.1%** |
-| Body prose, frontmatter excluded | 3,602 | 3,273 | **−9.1%** |
+| Whole file (the epic's 4,131 baseline) | 4,131 | 3,940 | **−4.6%** |
+| Body prose, frontmatter excluded | 3,602 | 3,416 | **−5.2%** |
 
-**Well short of the 20–30% guidance, and the raw figure understates the cutting that happened.** The revision carries roughly 900 words the original did not: the four-surface artifact table, the §A non-existence correction, the §B1 seam, the §C1 direct-commit correction, the case-series caveat, and the design-versus-production acceptance section. Every one of those is a named acceptance criterion for #741. Net of them, the surviving original prose is down by roughly a third.
+**Well short of the 20–30% guidance, and moving further from it with each review round.** The revision carries roughly 900 words the original did not: the four-surface artifact table, the §A non-existence correction, the §B1 seam, the §C1 direct-commit correction, the case-series caveat, and the design-versus-production acceptance section. Every one of those is a named acceptance criterion for #741. Net of them, the surviving original prose is down by roughly a third.
 
 What was actually cut: the inline duplicate of the sidebar Mermaid diagram; the "few things going on at once" enumeration, from four items to three plus a retraction; the four-step postscript, from four numbered paragraphs to one; the FFB narration and the 404 closer, both of which restated the thesis a third and fourth time; and the "what an HTML mock-up actually contains" section, folded into a single clause at the pivot.
 
@@ -242,4 +242,26 @@ Corrected in both places it appeared—§D4 itself and the post's FFB paragraph.
 The row treated "some got committed; most got deleted as part of the implementation PR" as a single WRONG verdict. Only the first half is disprovable. Git history is silent about untracked files, so it cannot establish when local scratch files were deleted or whether that coincided with the implementation PR—that half is **UNPROVABLE**, and calling it wrong overstated what the search showed.
 
 Split into two verdicts. The distinction matters for this post specifically, whose whole subject is what an absent artifact can and cannot be made to prove.
+
+---
+
+## L. Codex round-2 addendum (PR #796)
+
+Three findings, all correct.
+
+### L1—The Playwright responsive suite is not a blocking gate
+
+The revision listed "a Playwright suite that exercises the responsive breakpoints" among the gates that would stop a page failing production acceptance. It would not. `.github/workflows/build-and-test.yml` runs `npm test` and `npm run lint` and nothing else, and it says in its own comments that `npm run test:e2e` is "deliberately NOT in scope here" and remains a "manual/opt-in check".
+
+So a responsive regression can pass every blocking gate. Corrected, and the correction is better material than the overstatement was: the section's subject is that acceptance has boundaries, and here is one in this repository, named precisely. What *does* block: the rendered-SVG contrast test, the CSS assertions pinning the responsive invariants, and the SEO plumbing checks, all inside `npm test`. Source: `.github/workflows/build-and-test.yml` lines 95–115 and the comments at 91 and 117–122; `grep -rn 'test:e2e' .github/workflows/` returns only those comments.
+
+### L2—The compression figures were stale again
+
+Third time across this run. Recomputed at this commit; §J now carries the real numbers, and its framing changed from "the raw figure understates the cutting" to the plainer fact that the gap grows with each round.
+
+### L3—The artifact table had no outcome column
+
+§I.7 of this ledger specifies the table's columns and includes **outcome**; the table shipped without one. Added, and it earns its place—the honest outcomes are not uniformly happy: the 404 page was unreachable until PR #91 removed the Firebase rewrite and needed two follow-up PRs to meet the palette, and the FFB editor matched its mock-up but bypassed review to get there.
+
+**Pattern note.** All three findings are the drafting pass or I failing to satisfy an instruction this very ledger wrote down—the gate list, the recomputation, and the column spec. Writing the instruction is not executing it, which is now the third audit in a row to produce that lesson.
 
