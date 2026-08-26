@@ -2,7 +2,7 @@
 title: "A Perfect Score on the Wrong Axis: 116 Review Findings, Zero Rejected, One Escape"
 seoTitle: "A Perfect Score on the Wrong Axis"
 shortTitle: "Perfect Score, Wrong Axis"
-description: "An eleven-PR review record held 134 finding threads and 122 recorded dispositions with zero rejections—and still shipped a P1, posted by CodeRabbit 94 seconds after the final merge. The rule the defect turned on had been raised in a blocking review on a sibling PR twelve hours earlier, then fixed and reference-validated there. The record measured closure, not coverage, and nothing carried knowledge across a PR boundary."
+description: "An eleven-PR review record held 134 finding threads and 122 recorded dispositions with zero rejections—and still shipped a P1, posted by CodeRabbit 94 seconds after the batch's last backlog merge. The rule the defect turned on had been raised in a blocking review on a sibling PR twelve hours earlier, then fixed and reference-validated there. The record measured closure, not coverage, and nothing carried knowledge across a PR boundary."
 seoDescription: "An AI review batch recorded 122 finding dispositions with zero rejections and still shipped a P1. Correlated verification keeps shared blind spots."
 category: "Agent Systems"
 author: "Nathan Payne"
@@ -27,16 +27,17 @@ pullquotes:
 sidebar:
   - type: mermaid
     title: "Closure inside the session, and the knowledge that never crossed"
-    description: "The authoring session turns 134 finding threads into 122 dispositions and merges PR 797 clean; a spec-derived pass on sibling PR 791 had named the same CommonMark rule twelve hours earlier, but every review was scoped to one diff, and an unbriefed CodeRabbit re-run posts the escape 94 seconds after the merge."
+    description: "The authoring session dispositions every raised thread and merges PR 797 clean, after which the escaped defect is posted and itself dispositioned, closing the record at 134 threads and 122 dispositions; a spec-derived pass on sibling PR 791 had named the same CommonMark rule twelve hours earlier, but every review was scoped to one diff, and an unbriefed CodeRabbit re-run posts the escape 94 seconds after the merge."
     content: |
       graph TD
           A["Authoring session"] --> B["134 finding threads<br/>(116 severity-badged)"]
           B --> C["Fix verification briefed<br/>from the finding list"]
-          C --> D["122 dispositions: 111 addressed,<br/>9 deferred, 2 rebutted<br/>(12 threads unmarked)"]
+          C --> D["Every raised thread<br/>dispositioned; none rejected"]
           D --> E["#797 merges clean;<br/>the defect ships"]
           S["CommonMark spec"] --> F["Spec-derived pass on #791:<br/>P1 names the same rule,<br/>12 hours earlier"]
           F -->|"brief scoped to one diff"| X["Never applied to #797"]
           E --> G["Unbriefed re-run posts the<br/>escape 94 s after merge"]
+          G --> H["Escape dispositioned in 75 s;<br/>record closes at 134 threads,<br/>122 dispositions, zero rejected"]
           style A fill:#e8b4b4,stroke:#993d3d,color:#333
           style B fill:#e8b4b4,stroke:#993d3d,color:#333
           style C fill:#e8b4b4,stroke:#993d3d,color:#333
@@ -46,6 +47,7 @@ sidebar:
           style F fill:#b8ddb8,stroke:#4a8a4d,color:#333
           style X fill:#d4a84b,stroke:#a07830,color:#333
           style G fill:#7bc67e,stroke:#4a8a4d,color:#333
+          style H fill:#7bc67e,stroke:#4a8a4d,color:#333
     caption: "Two sources of review questions: briefs drawn from the session's own findings closed everything they were asked about; the spec-derived pass that named the escape's rule ran on the sibling PR and never reached this one."
 ---
 
