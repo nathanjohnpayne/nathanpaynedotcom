@@ -33,11 +33,11 @@ pullquotes:
 sidebar:
   - type: mermaid
     title: "Two palette registers across one site"
-    description: "Nathanpayne.com branches into a high-chroma 1930 register for the homepage and a softer 1921 register for interior pages, with distinct red, yellow, and blue values in each."
+    description: "Nathanpayne.com branches into a high-chroma register sampled from the 1930 reproduction for the homepage, and a softer register sampled from the 1921 reproduction for interior pages, with distinct red, yellow, and blue values in each. Both names refer to those two files, not to the paintings or to Mondrian's periods."
     content: |
       graph TD
-          SITE["nathanpayne.com"] --> HOME["Homepage<br/>1930 register"]
-          SITE --> INT["Interior pages<br/>1921 register"]
+          SITE["nathanpayne.com"] --> HOME["Homepage<br/>1930-scan register"]
+          SITE --> INT["Interior pages<br/>1921-scan register"]
           HOME --> H1["#DA2418"]
           HOME --> H2["#F0C800"]
           HOME --> H3["#0A5C9E"]
@@ -106,15 +106,15 @@ The honest answer was no. My site's colors had been verified against the live CS
 
 ![Composition with Red, Blue and Yellow, 1930. Piet Mondrian, oil on canvas, 45 × 45 cm. Kunsthaus Zürich, inventory 1987/0028, donated by Alfred Roth, 1987. No calibration reference is visible anywhere in this frame, and the file carries no embedded ICC profile—at plane scale the sampled red leans orange, the blue leans cyan, and the yellow carries ninety-six years of softening that no pop-culture reproduction shows.](/blog/two-blues-one-composition/img/composition-ii-red-blue-yellow-1930.jpg)
 
-The 1921 medians vindicated my poster. The museum file's blue medians `#0383E3` against the poster's `#028DE2`: nearly identical. The gray plane, `#DADFE5` against my `#DDE1E5`: inside the noise. The black plane, `#323137`—so the `#333333` token I have been running since the beginning sits within noise of *that canvas's* black. Whether it suits the 1930 canvas is a different question: that file's black plane medians far darker, `#151A1A`—another neutral reading, and so subject to the same isolation caveat—and the homepage black became one of the decision checkboxes below.
+The 1921 medians vindicated my poster. The museum file's blue medians `#0383E3` against the poster's `#028DE2`: nearly identical. The gray plane, `#DADFE5` against my `#DDE1E5`: inside the noise—though the methods note below withdraws this row, because that median turns out to be the canvas ground rather than a plane. The black plane, `#323137`—so the `#333333` token I have been running since the beginning sits within noise of *that canvas's* black. Whether it suits the 1930 canvas is a different question: that file's black plane medians far darker, `#151A1A`—another neutral reading, and so subject to the same isolation caveat—and the homepage black became one of the decision checkboxes below.
 
 The 1930 medians dismantled the model's own numbers. The red plane of the Kunsthaus reproduction medians `#DE2822`—visibly orange-leaning, with a real green channel, nothing like the pure `#DD0100` Claude had cited. Which means my brick `#C11D19`, the token that "matched neither era," was hue-correct against this reproduction all along and merely dark. The blue medians `#025D9E`, distinctly more cyan than the violet-leaning `#0A4A9F`. And the yellow medians `#EEDB6E`—soft, aged cadmium, nowhere near the `#F8D000` of pop-culture Mondrian, because ninety-six years of paint chemistry have opinions that posters do not.
 
-```mermaid title="Cited colors compared with museum-file medians" description="Each color recalled by the model—red, blue, and yellow—is paired with the median sampled from the corresponding museum reproduction, revealing material differences between citation and file."
+```mermaid title="Recalled colors compared with museum-file medians" description="Each color recalled by the model from memory, with no confirmed source—red, blue, and yellow—is paired with the median sampled from the corresponding museum reproduction, revealing material differences between citation and file."
 graph LR
-    MR["Cited red<br/>#DD0100"] -.->|"scan median"| CR["Sampled red<br/>#DE2822"]
-    MB["Cited blue<br/>#0A4A9F"] -.->|"scan median"| CB["Sampled blue<br/>#025D9E"]
-    MY["Cited yellow<br/>#F8D000"] -.->|"scan median"| CY["Sampled yellow<br/>#EEDB6E"]
+    MR["Recalled red<br/>#DD0100"] -.->|"scan median"| CR["Sampled red<br/>#DE2822"]
+    MB["Recalled blue<br/>#0A4A9F"] -.->|"scan median"| CB["Sampled blue<br/>#025D9E"]
+    MY["Recalled yellow<br/>#F8D000"] -.->|"scan median"| CY["Sampled yellow<br/>#EEDB6E"]
     style MR fill:#DD0100,stroke:#8a0100,color:#fff
     style CR fill:#DE2822,stroke:#8d1a16,color:#fff
     style MB fill:#0A4A9F,stroke:#062f66,color:#fff
@@ -152,7 +152,29 @@ def median_plane(path, hue_lo, hue_hi, s_min=0.18, v_min=0.25):
     return len(hit), '#%02X%02X%02X' % tuple(med)
 ```
 
-Hue windows: red 340°–25°, yellow 35°–75°, blue 180°–260°. On the committed files this reproduces every chromatic median above to within three 8-bit steps per channel—1930 red `#DE2923`, blue `#015D9D`, yellow `#ECD971`; 1921 blue `#0383E2`. The two near-neutral 1921 planes cannot be isolated by hue, and the function above does not isolate them either—so those two rows are **not** reproducible from what is published here, and the honest thing is to say so. Adding a value split to a low-saturation mask (`s < 0.12`, then banding on value) separates three neutral regions rather than two: a dark band returning `#35353B`, a mid band returning `#BABBBB`, and the canvas ground at `#DDE1E6`. The published black is within four steps of the dark band. The published gray is within three steps of **the ground**, not of the mid band—which suggests that measurement was reading the canvas rather than a gray plane. And the robustness the deleted pixel count was standing in for is better shown directly: the 1930 red median holds at `#DE2922`–`#DE2923` across every saturation threshold from 0.1 to 0.75.
+Hue windows: red 340°–25°, yellow 35°–75°, blue 180°–260°. On the committed files this reproduces every chromatic median above to within three 8-bit steps per channel—1930 red `#DE2923`, blue `#015D9D`, yellow `#ECD971`; 1921 blue `#0383E2`. The two near-neutral 1921 planes cannot be isolated by hue, so the function above does not reach them. They need a second rule, and stating it loosely is not enough—a reviewer running plausible bands got values one to two steps from mine, which is the tell that the rule rather than the file was doing the work. Here it is, executable, with the counts it produced on the committed file:
+
+```python
+def median_neutral(path, s_max, v_lo, v_hi):
+    # Median of low-saturation pixels inside one value band.
+    import colorsys, statistics
+    from PIL import Image
+    hit = []
+    for r, g, b in Image.open(path).convert("RGB").getdata():
+        _, s, v = colorsys.rgb_to_hsv(r / 255, g / 255, b / 255)
+        if s < s_max and v_lo <= v < v_hi:
+            hit.append((r, g, b))
+    med = tuple(int(statistics.median(c[i] for c in hit)) for i in range(3))
+    return "#%02X%02X%02X" % med, len(hit)
+
+# composition-large-blue-plane-1921.jpg, 996 x 1200 = 1,195,200 px
+# s_max = 0.12, whole image, no crop
+#   v in [0.00, 0.35)  ->  #36363B   n = 113,001
+#   v in [0.55, 0.85)  ->  #BBBCBD   n =  53,930
+#   v in [0.85, 1.01)  ->  #DDE1E6   n = 493,897
+```
+
+Three neutral regions, not two. The ground band alone is 493,897 pixels, 41% of the image, which is canvas rather than a plane. The published black `#323137` sits five steps from the dark band. **The published gray `#DADFE5` sits three steps from the ground and forty from the mid band**, so that measurement was reading canvas. And the robustness the deleted pixel count was standing in for is better shown directly: the 1930 red median holds at `#DE2922`–`#DE2923` across every saturation threshold from 0.1 to 0.75.
 
 What none of this measures is paint. Between canvas and number sit gallery lighting at capture, each museum's unrecorded imaging and color-management pipeline, downscaling and JPEG recompression for the web, ninety-six and one hundred five years of ageing and any restoration, and the display you are reading this on. Every median above is a property of a file, not of a painting. The tickets say the same thing in four words—"treat sampled values as hue anchors"—and the shipped palette below takes them at their word.
 
@@ -170,7 +192,21 @@ The agent does the plumbing. I ratify the judgment. Even "the agent" undersells 
 
 ## Auditing the shipped site
 
-The post-ship audit came back green where it matters, and it is reproducible: the source is `src/styles/global.css` at `8bebc31`, the commit PR #504 merged, and the artifact is what Astro's default CSS minifier—Lightning CSS, which ships inside Vite 8—makes of it. `#dde1e5` appears exactly once, as the token definition. The old `#223f89` is gone entirely. Plane-color `rgba()` literals: zero in source, and the artifact carries no `rgba()` notation at all, because the minifier hex-folds it.
+The post-ship audit came back green where it matters, and it is reproducible—with one distinction the first version of this post blurred. **The artifact Claude fetched on 2026-06-11 was the deployed `/_astro/global.XofGYe7g.css`. The artifact checked below is a local rebuild**, because the deployed file is long gone and hash-named files are not addressable after a redeploy. So this is reconstruction evidence, not shipped evidence, and it is labelled that way.
+
+Reconstructed 2026-08-26 from `src/styles/global.css` at `8bebc31`, the commit PR #504 merged, with Lightning CSS 1.32.0 (via Vite 8.0.16 inside Astro 7.2.4—Astro's default CSS minifier, not esbuild):
+
+```bash
+git checkout 8bebc31 && npx astro build
+# dist/_astro/global.CwkyM5F4.css
+# sha256 aaa523420b6dfc790d5ea219fb506d2bf5e2d043b0592d87b59120fc33134bd2
+grep -o 'dde1e5'      dist/_astro/global.CwkyM5F4.css | wc -l   # 1
+grep -o '223f89'      dist/_astro/global.CwkyM5F4.css | wc -l   # 0
+grep -o 'rgba('       dist/_astro/global.CwkyM5F4.css | wc -l   # 0
+grep -o 'color-mix('  dist/_astro/global.CwkyM5F4.css | wc -l   # 72
+```
+
+`#dde1e5` appears exactly once, as the token definition. The old `#223f89` is gone entirely. Plane-color `rgba()` literals: zero in source, and the artifact carries no `rgba()` notation at all, because the minifier hex-folds it.
 
 The `color-mix()` count is the source-versus-artifact gap this exercise kept finding: seventy-six calls in source, seventy-four in the artifact. This post originally said the minifier "precomputes two," which is mechanically impossible—all seventy-six take a `var()` custom property as their first color argument, and no minifier can resolve a custom property statically. What actually happens is duplicate-rule merging: two of the `color-mix()` declarations each appear twice in source and once after minification, which is why the source carries 76 and the shipped artifact 74. Both counts reproduce; only the explanation was wrong. The attribution matters too, because the count did not come from the two center tickets: it runs 6 at the pre-work baseline, 18 after #499, 21 after #500, and 76 after #503. The third refactor did most of it.
 
