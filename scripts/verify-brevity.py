@@ -64,18 +64,31 @@ _WORD_NUMBERS = (
 
 TOKEN_CLASSES = (
     ("URLs", r"https?://[^\s\)\]\"'>]+"),
-    ("relative links", r"\]\((/[^)\s]*)\)"),
+    ("relative links", r"\]\((?P<t>/[^)\s]*)\)"),
+    # A reference definition is the other half of `[text][id]`, and its
+    # destination is as load-bearing as an inline one. Matching only the
+    # inline form let `[p]: /blog/original/` be repointed silently.
+    ("reference link targets", r"(?m)^\[[^\]]+\]:[ \t]*(?P<t>/[^\s]*)"),
     ("issue/PR refs", r"#\d{2,4}\b"),
     # A clock time without its zone is a different instant, so the zone is
-    # part of the token when one is written.
-    ("timestamps", r"\d{4}-\d{2}-\d{2}(?:T[\d:]+Z)?"
+    # part of the token when one is written. That includes an ISO offset:
+    # `...T10:20:30+05:00` and `...-05:00` are ten hours apart, and stopping
+    # the ISO alternative at the date left the sign outside the comparison.
+    ("timestamps", r"\d{4}-\d{2}-\d{2}"
+                   r"(?:[T ]\d{2}:\d{2}(?::\d{2})?(?:\.\d+)?(?:Z|[+-]\d{2}:?\d{2})?)?"
                    r"|\b\d{1,2}:\d{2}\s*(?:[ap]\.?m\.?)?(?:\s+[A-Z][a-zA-Z]+)?"
                    r"|\b\d{1,2}\s*[ap]\.?m\.?(?:\s+[A-Z][a-zA-Z]+)?"),
     # The token carries whatever changes the claim: a currency symbol, a
     # sign, a percent, or a unit. `$4` and `EUR4` are different prices, `-3.8%`
     # and `+3.8%` opposite directions, `9px` and `8px` different grids.
-    ("numerals", r"(?<![A-Za-z0-9_.])[$\u20ac\u00a3]?[+-]?\d[\d,.]*(?:%|[A-Za-z]{1,3}\b)?"),
-    ("code spans", r"`[^`\n]+`"),
+    # Separators are only real between digits -- anchoring the tail on a digit
+    # keeps sentence punctuation out, so retightening "took 22, which" into
+    # "took 22. It" is not read as a changed value.
+    ("numerals", r"(?<![A-Za-z0-9_.])[$\u20ac\u00a3]?[+-]?\d(?:[\d,.]*\d)?(?:%|[A-Za-z]{1,3}\b)?"),
+    # Delimiters pair by length, as CommonMark specifies: a span holding a
+    # literal backtick opens with two or more, and assuming one delimiter
+    # captured a partial span and left the rest unprotected.
+    ("code spans", r"(?P<d>`+)(?:[^`]|(?!(?P=d))`+)+?(?P=d)(?!`)"),
 )
 
 # Advisory, never gating. "six PRs" is evidence and "one of the reasons" is
@@ -87,8 +100,13 @@ ADVISORY_CLASSES = (
 )
 
 BLOCK_CLASSES = (
-    # Both fence forms; Astro's Markdown parser accepts either.
-    ("code/mermaid blocks", r"(?:```.*?```|~~~.*?~~~)", re.S),
+    # Both fence forms; Astro's Markdown parser accepts either. The closing
+    # fence must use the opener's character and be at least as long, so a
+    # four-backtick block quoting a three-backtick line stays one block --
+    # hard-coding three delimiters ended the match early and left the
+    # remainder of the block unguarded.
+    ("code/mermaid blocks",
+     r"(?ms)^(?P<f>`{3,}|~{3,})[^\n]*\n.*?(?:^(?P=f)[`~]*[ \t]*$|\Z)", 0),
     # Sidebar diagrams live in frontmatter as a `- type: mermaid` item whose
     # title and description are as load-bearing as the content scalar -- the
     # description is the accessible text screen readers receive.
@@ -117,6 +135,36 @@ def field(text: str, name: str) -> str | None:
     return match.group(0) if match else None
 
 
+def _find(pattern: str, text: str, flags: int = 0) -> list[str]:
+    """Extract matches, preferring a `t` group when the pattern names one.
+
+    `re.findall` returns groups rather than whole matches once a pattern has
+    any, which the backreferences these patterns need would otherwise turn
+    into a comparison of bare delimiters. Matching on `group(0)` keeps the
+    whole token, while a `t` group lets a pattern say that only part of the
+    match is the value -- a link's destination, not its surrounding syntax.
+    """
+    out = []
+    for m in re.finditer(pattern, text, flags):
+        named = m.groupdict()
+        out.append(m.group("t") if named.get("t") is not None else m.group(0))
+    return out
+
+
+def _prose_words(text: str) -> int:
+    """Count words outside frontmatter, fences, diagrams and tables.
+
+    Whole-file word count is the metric the revision process documents as
+    misleading on evidence-heavy posts: tables and code are incompressible,
+    so counting them with the prose understates how deep a nominal target
+    actually cuts.
+    """
+    body = re.sub(r"\A---\n.*?\n---\n", "", text, flags=re.S)
+    for _label, pattern, flags in BLOCK_CLASSES:
+        body = re.sub(pattern, " ", body, flags=flags)
+    return len(body.split())
+
+
 def compare(before: str, after: str, quiet: bool) -> int:
     failures = []
 
@@ -128,7 +176,7 @@ def compare(before: str, after: str, quiet: bool) -> int:
             print(f"  {status}  {label}{detail}")
 
     for label, pattern in TOKEN_CLASSES:
-        b, a = Counter(re.findall(pattern, before)), Counter(re.findall(pattern, after))
+        b, a = Counter(_find(pattern, before)), Counter(_find(pattern, after))
         lost = sorted(k for k in b if a[k] < b[k])
         added = sorted(k for k in a if b[k] < a[k])
         detail = f"  ({sum(b.values())} -> {sum(a.values())})"
@@ -137,7 +185,7 @@ def compare(before: str, after: str, quiet: bool) -> int:
         report(not lost and not added, label, detail)
 
     for label, pattern in ADVISORY_CLASSES:
-        b, a = Counter(re.findall(pattern, before, re.I)), Counter(re.findall(pattern, after, re.I))
+        b, a = Counter(_find(pattern, before, re.I)), Counter(_find(pattern, after, re.I))
         lost = sorted(k for k in b if a[k] < b[k])
         added = sorted(k for k in a if b[k] < a[k])
         if lost or added:
@@ -151,7 +199,7 @@ def compare(before: str, after: str, quiet: bool) -> int:
             print("        advisory only -- check whether any of these carried a count")
 
     for label, pattern, flags in BLOCK_CLASSES:
-        same = re.findall(pattern, before, flags) == re.findall(pattern, after, flags)
+        same = _find(pattern, before, flags) == _find(pattern, after, flags)
         report(same, label)
 
     for name in PINNED_FIELDS:
@@ -160,8 +208,10 @@ def compare(before: str, after: str, quiet: bool) -> int:
 
     if not quiet:
         wb, wa = len(before.split()), len(after.split())
-        delta = (wa - wb) / wb * 100 if wb else 0.0
-        print(f"\n  words {wb} -> {wa}  ({delta:+.1f}%)")
+        pb, pa = _prose_words(before), _prose_words(after)
+        pd = (pa - pb) / pb * 100 if pb else 0.0
+        print(f"\n  words {wb} -> {wa}  (whole file, including tables and code)")
+        print(f"  prose {pb} -> {pa}  ({pd:+.1f}%)  <- the figure to report")
         print(f"  RESULT: {'PASS' if not failures else str(len(failures)) + ' FAILURE(S)'}")
 
     return 1 if failures else 0

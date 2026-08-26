@@ -200,4 +200,39 @@ describe('verify-brevity', () => {
     const after = SIGNED.replace('zero rejections', 'no rejections');
     expect(output(after)).toMatch(/note\s+spelled-out numbers/);
   });
+
+  it('fails when an ISO timestamp offset changes sign', () => {
+    const before = 'Merged at 2026-01-01T10:20:30+05:00 exactly.\n';
+    const after = 'Merged at 2026-01-01T10:20:30-05:00 exactly.\n';
+    expect(run(before, after)).toBe(1);
+  });
+
+  it('fails when content inside a four-backtick fence changes', () => {
+    const before = '````\n```\nalpha\n````\n';
+    const after = '````\n```\nbeta\n````\n';
+    expect(run(before, after)).toBe(1);
+  });
+
+  it('fails when a reference-style link destination is repointed', () => {
+    const before = '[post][p]\n\n[p]: /blog/original/\n';
+    const after = '[post][p]\n\n[p]: /blog/revised/\n';
+    expect(run(before, after)).toBe(1);
+  });
+
+  it('fails when a multi-backtick code span changes after an embedded backtick', () => {
+    const before = 'see ``alpha ` beta`` here\n';
+    const after = 'see ``alpha ` gamma`` here\n';
+    expect(run(before, after)).toBe(1);
+  });
+
+  it('allows sentence punctuation to change after a numeral', () => {
+    const before = 'The run took 22, which was long.\n';
+    const after = 'The run took 22. It was long.\n';
+    expect(run(before, after)).toBe(0);
+  });
+
+  it('reports prose word count separately from the whole file', () => {
+    expect(output(BEFORE)).toMatch(/prose \d+ -> \d+/);
+    expect(output(BEFORE)).toMatch(/whole file, including tables and code/);
+  });
 });
