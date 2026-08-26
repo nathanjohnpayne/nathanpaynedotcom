@@ -12,9 +12,9 @@ Deliberate. #740 calibrates the ledger format and the Fable handoff; #739/#741 r
 |---|-------|------|---------------|-------------|--------|----|--------|
 | 0 | — | shared evidence cache | **0 complete** | `plans/759/refs.json` | `content/740-astro-migration-audit` | [#787](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/787) | done |
 | 1 | #740 | how-a-responsive-fix-became-an-astro-migration | **done** | `plans/759/how-a-responsive-fix-became-an-astro-migration-ledger.md` | `content/740-astro-migration-audit` | [#787](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/787) | **merged** `28e81a7` |
-| 2 | #739 | agent-approval-workflow-genesis-of-mergepath | 3 review | `plans/759/agent-approval-workflow-genesis-of-mergepath-ledger.md` | `content/739-mergepath-genesis-audit` | [#791](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/791) | **manual 4b** |
-| 3 | #741 | html-mockups-as-spec | not started | `plans/759/html-mockups-as-spec-ledger.md`  | — | — | pending |
-| 4 | #744 | six-prs-one-bug-agent-failure-modes | not started | `plans/759/six-prs-one-bug-agent-failure-modes-ledger.md`  | — | — | pending |
+| 2 | #739 | agent-approval-workflow-genesis-of-mergepath | **done** | `plans/759/agent-approval-workflow-genesis-of-mergepath-ledger.md` | `content/739-mergepath-genesis-audit` | [#791](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/791) | **merged** `bef2a56` |
+| 3 | #741 | html-mockups-as-spec | 3 in progress | `plans/759/html-mockups-as-spec-ledger.md` | `content/741-html-mockups-audit` | [#796](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/796) | in review |
+| 4 | #744 | six-prs-one-bug-agent-failure-modes | **1 complete** | `plans/759/six-prs-one-bug-agent-failure-modes-ledger.md` | — | — | ledger done |
 | 5 | #745 | autofix-was-the-whole-cost | not started | `plans/759/autofix-was-the-whole-cost-ledger.md`  | — | — | pending |
 | 6 | #743 | perfect-score-wrong-axis | not started | `plans/759/perfect-score-wrong-axis-ledger.md`  | — | — | pending |
 | 7 | #742 | two-blues-one-composition | not started | `plans/759/two-blues-one-composition-ledger.md`  | — | — | pending |
@@ -167,3 +167,27 @@ State the accounting honestly in the PR body and the ledger either way, and say 
 **Ledger–post drift is the dominant defect class.** Eleven of the 24 inline findings were in the ledger, 11 in the prose, and 2 in this file. Four were claims an earlier round had already corrected elsewhere in the same file. Before pushing a fix, grep **both** artifacts for every instance of the claim—a review names the instances it happened to read, not the instances that exist.
 
 **Do not start #741's Phase 3 until #791 merges.** Phase 1 for #741 may begin now.
+
+---
+
+## #739 landed
+
+- 2026-08-26—**PR [#791](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/791) merged** as `bef2a56`; issue #739 closed. Squash-merged with `BREAK_GLASS_ADMIN=1 BREAK_GLASS_MERGE_STATE=1` on the operator's explicit chat instruction, because the manual Phase 4b `CHANGES_REQUESTED` stayed pinned to a superseded commit and kept `reviewDecision` red after the findings were addressed.
+- Reviewed across five automated Codex rounds, a manual Phase 4b review, and a CodeRabbit post-sync pass. **No P0 or P1 in any automated round.** Every finding dispositioned—fixed, or dismissed with reasoning on its thread.
+- **Two corrections came from the parallel 4b session and beat my own work.** Its check-script count of **71** is right and my 66 was wrong: my regex `check_[a-z_]+$` silently dropped every name containing a digit, such as `check_canonical_bugs_263caf3`. And it reverted my "pin the current HEAD in this table" change with better reasoning—pinning a mutable HEAD inside a file that is itself part of the commit is self-invalidating, since committing the `RUN.md` that names HEAD X makes the HEAD Y. **Count with the loosest correct matcher, then narrow; and never pin a HEAD in a tracked file.**
+- **Phantom test failure, diagnosed not reported.** `tests/mermaid-diagrams.test.js` failed on `autofix-was-the-whole-cost` and reproduced on a clean `main` checkout, which looked like main being red. It was a stale `node_modules/.astro` and `.vite` cache, shared because a single `node_modules` was symlinked across several worktrees. Clearing both directories made all 499 tests pass. **Clear the Astro and Vite caches before believing a cross-worktree test failure**—see the standing note in memory about stale worktree `node_modules`.
+
+---
+
+## #744 Phase 1 complete—the chronology inverts
+
+The brief predicted #744's six-PR chronology as the most likely place for evidence to contradict an issue's framing. **It does not: issue #744's framing is exactly right**, and the contradiction is between the issue and the *post*.
+
+All six PRs were opened **before** issue #159 existed. The last of them, #158, closed at `2026-04-04T16:16:41Z`; #159 was filed at `16:52:16Z`, thirty-six minutes later. Only #161, the fix, comes after. The post's opening—"I opened issue #159… Over roughly twenty hours, one agent opened six PRs trying to resolve it"—reverses cause and effect.
+
+The corrected arc is a better case study and the drafting pass should be built on it: an implementation ships (#144, TipTap), five more PRs chase symptoms with no written invariant, the failures force the problem to be **named** (#159), and a reframed brief to a different agent fixes it (#161). The missing artifact was a stated definition of correct, and its absence is precisely why six locally-reasonable PRs could each miss.
+
+Second substantive finding: the post credits `nathanpayne-codex` with flagging the invariant on **PR #146**. It did not—it **approved** #146 and reported the round-trip working, with zero blocking reviews and zero inline comments from either reviewer. The "reviewers saw it and it shipped anyway" beat is real but belongs to **#155**, which carries three `CHANGES_REQUESTED` rounds. Blocking rounds across the six total **seven**, not the post's "nine."
+
+Ledger: `plans/759/six-prs-one-bug-agent-failure-modes-ledger.md`.
+
