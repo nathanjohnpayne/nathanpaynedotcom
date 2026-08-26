@@ -47,7 +47,7 @@ The constraint the whole design hangs on: no generated output contains a claim t
 
 The enforcement mechanism sits between generation and the user. Every claim in a draft is parsed and traced back to its Experience Unit; a claim whose trace breaks is flagged inline in the editor and the export is disabled until the user resolves it—by editing the claim, removing it, or supplying a supporting Unit.
 
-An earlier version of this page said the model "can never quietly invent." That is a universal about LLM behavior, and nothing in the record verifies a universal: the validation layer has no adversarial evaluation in the repo, and no output is recorded as having reached a user. What the record supports is narrower and checkable: the validation layer is designed so that an ungrounded claim is flagged in the editor and blocks export until the user resolves it. Whether that design holds under pressure is exactly what a V1 with real usage would have tested, and hasn't yet.
+An earlier version of this page said the model "can never quietly invent." That is a universal about LLM behavior, and nothing in the record verifies a universal: the validation layer has no adversarial evaluation in the repo, and no output is recorded as having reached a user. What the record supports is narrower and checkable: the validation layer is designed so that an ungrounded claim is flagged in the editor and blocks export until the user resolves it. Whether that design holds under pressure is exactly what real usage would test, and no such test is recorded.
 
 ## How it was built, and where it stopped
 
@@ -61,6 +61,6 @@ So the pause has a date the commits set, not one an announcement set: active dev
 
 ## Status
 
-Paused before launch, with no public launch and no documented user. Matchline remains a single-user system with the author's own job search as V1's only customer, and public release decisions come after V1 has earned its keep on real outcomes—which it has not yet had the chance to do.
+Paused before launch, with no public launch and no documented user. Matchline remains a single-user system with the author's own job search as V1's only customer, and public release decisions come after V1 has earned its keep on real outcomes—none of which the repository records.
 
 There is no usage outcome to report, and that absence is the outcome so far: no live URL, and no user beyond the author recorded anywhere. Whether any application was ever generated or sent is not something the repository records either way—the silence is in the evidence, not a finding of zero. What exists is code across parsing, matching, and validation that was still being fixed and tuned into late July 2026, a validation design that has never been adversarially tested, and an eval pipeline built to make the next round of tuning cheap. The repository is public; the running product is not.
