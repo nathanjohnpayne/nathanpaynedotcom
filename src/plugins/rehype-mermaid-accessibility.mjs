@@ -130,6 +130,15 @@ export function rehypeMermaidSvg() {
  * away and lay the label out both shorter and wider than the box Mermaid
  * measured for it. So the inherited value decides, and often decides to do
  * nothing at all.
+ *
+ * Two details of the declaration itself are load-bearing, both measured:
+ * `white-space-collapse: preserve-breaks` keeps `nowrap`'s space collapsing,
+ * which plain `pre` would undo — `A["A  B<br/>C"]` paints 3.9px wider than
+ * Mermaid measured without it. And it is written `!important` so it still wins
+ * on a label that declares its own `white-space: … !important`, which otherwise
+ * beats an appended declaration on the same element and collapses the newline
+ * back to a space. The shorthand is emitted alongside the longhand so a browser
+ * too old for `white-space-collapse` still breaks the line.
  */
 function replaceLabelBreaks(node, inheritedWhiteSpace = '') {
   if (!Array.isArray(node.children)) return;
@@ -147,7 +156,11 @@ function replaceLabelBreaks(node, inheritedWhiteSpace = '') {
       // sensitive, and appended so it wins over what Mermaid already set.
       node.properties = {
         ...node.properties,
-        style: appendDeclaration(node.properties?.style, `white-space: ${preserving}`),
+        style: appendDeclaration(
+          node.properties?.style,
+          `white-space: ${preserving} !important`,
+          'white-space-collapse: preserve-breaks !important',
+        ),
       };
     }
   }
@@ -162,7 +175,9 @@ function isLineBreak(node) {
 function declaredWhiteSpace(node) {
   const style = node.properties?.style;
   if (typeof style !== 'string') return '';
-  return /(?:^|;)\s*white-space:\s*([a-z-]+)/i.exec(style)?.[1].toLowerCase() ?? '';
+  // The last declaration is the one that wins, so read that one.
+  const declared = [...style.matchAll(/(?:^|;)\s*white-space:\s*([a-z-]+)/gi)].at(-1);
+  return declared?.[1].toLowerCase() ?? '';
 }
 
 /** The value that adds newline handling to `whiteSpace`, or '' when it has it. */
@@ -171,9 +186,9 @@ function newlinePreservingValue(whiteSpace) {
   return whiteSpace === 'nowrap' ? 'pre' : 'pre-wrap';
 }
 
-function appendDeclaration(style, declaration) {
-  if (typeof style !== 'string' || style.trim() === '') return declaration;
-  return `${style.trim().replace(/;$/, '')}; ${declaration}`;
+function appendDeclaration(style, ...declarations) {
+  const existing = typeof style === 'string' ? style.trim().replace(/;$/, '') : '';
+  return [existing, ...declarations].filter(Boolean).join('; ');
 }
 
 export function createMermaidFigure({ sourceNode, title, description, descriptionId }) {

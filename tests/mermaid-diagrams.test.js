@@ -240,6 +240,10 @@ describe('rehype-mermaid integration', () => {
       ],
       wrappingContainer: [element('span', [broken('p')]), WRAPPING],
       undeclaredContainer: [element('span', [broken('p')]), undefined],
+      importantOwnDeclaration: [
+        broken('span', { style: 'white-space: nowrap !important' }),
+        NOWRAP,
+      ],
     };
 
     const rendered = Object.fromEntries(
@@ -255,18 +259,27 @@ describe('rehype-mermaid integration', () => {
       expect(html, `${name}: a void break element survived`).not.toContain('<br');
     }
 
-    // A non-wrapping container needs `pre`, which is its own rule plus newlines.
-    expect(rendered.paragraph).toContain('<p style="white-space: pre">A\nB</p>');
-    expect(rendered.noParagraph).toContain('<span style="white-space: pre">A\nB</span>');
+    // A non-wrapping container needs `pre`, which is its own rule plus
+    // newlines, and `preserve-breaks` to keep its space collapsing. Both are
+    // `!important` so a label declaring its own `white-space` cannot win.
+    const PRE = 'white-space: pre !important; white-space-collapse: preserve-breaks !important';
+    expect(rendered.paragraph).toContain(`<p style="${PRE}">A\nB</p>`);
+    expect(rendered.noParagraph).toContain(`<span style="${PRE}">A\nB</span>`);
     // An existing declaration is kept, and the new one is appended so it wins.
-    expect(rendered.nestedInline).toContain('<em style="color:#333; white-space: pre">A\nB</em>');
+    expect(rendered.nestedInline).toContain(`<em style="color:#333; ${PRE}">A\nB</em>`);
     // Consecutive breaks keep the blank line Mermaid measured the box for.
-    expect(rendered.consecutive).toContain('<p style="white-space: pre">a\n\nb</p>');
-    // `break-spaces` already honors newlines. Forcing `pre` would drop the
+    expect(rendered.consecutive).toContain(`<p style="${PRE}">a\n\nb</p>`);
+    // `break-spaces` already honors newlines. Forcing a value would drop the
     // wrapping Mermaid measured this label with, so nothing is added.
     expect(rendered.wrappingContainer).toContain('<p>A\nB</p>');
     // With nothing declared, wrapping is the default and must be preserved.
-    expect(rendered.undeclaredContainer).toContain('<p style="white-space: pre-wrap">A\nB</p>');
+    expect(rendered.undeclaredContainer).toContain(
+      '<p style="white-space: pre-wrap !important; white-space-collapse: preserve-breaks !important">A\nB</p>',
+    );
+    // A label declaring its own important white-space is still overridden.
+    expect(rendered.importantOwnDeclaration).toContain(
+      `<span style="white-space: nowrap !important; ${PRE}">A\nB</span>`,
+    );
   });
 
   it('ships every built label break as a single line break', () => {
