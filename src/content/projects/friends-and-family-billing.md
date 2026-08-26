@@ -31,14 +31,14 @@ Friends & Family Billing exists because that coordination problem—simple math 
 ## What the product does
 
 - Organizes monthly and annual shared costs with per-bill frequency toggling and derived amount previews.
-- Builds annual invoices with member name tokens, customizable email templates, and a live preview rendered by the same canonical renderer that builds the email.
+- Builds annual invoices with member name tokens, customizable email templates, and a live preview rendered by the same canonical renderer that builds the email's template body—the sent message wraps that body in envelope HTML the preview does not show.
 - Tracks payments with a settlement board showing per-member status, a four-state balance model (outstanding, partial, settled, overpaid), and a payment edit flow whose edits land in an append-only audit trail.
 - Generates shareable summaries via token-scoped links—each link carries the recipient's name, bill breakdown, and payment methods, accessible without login.
 - Supports dispute management with lifecycle-stage email notifications, evidence attachments, and resolution workflows with share-page integration.
 
 ## How it was built
 
-Friends & Family Billing has the longest continuous development history of anything in the portfolio. It started in February 2026 as a vanilla JavaScript single-page app—a 1,592-line `script.js` with working Firebase auth in the very first commit—and the current tree is React, Vite, and Vitest on Firebase, 581 commits later as of August 2026.
+Friends & Family Billing has one of the portfolio's longest development histories—Override's repository opens six days earlier, though this one's first commit imports a working app rather than a scaffold, so which is "oldest" depends on what you count. It started in February 2026 as a vanilla JavaScript single-page app—a 1,592-line `script.js` with working Firebase auth in the very first commit—and the current tree is React, Vite, and Vitest on Firebase, 581 commits later as of August 2026.
 
 The migration ran as five numbered phases shipped across eight PRs, not a single rewrite—by March the original script had grown into a 5,700-line `main.js`, and the plan was to replace it view by view while it kept running. Phase 0 scaffolded Vite, React, and Vitest alongside the legacy build. Phases 1 and 2 (shipped as 2a, 2b, and 2c) ported the shell, navigation, and core views—members, bills, settlement board, invoicing, review requests—with the two apps coexisting throughout. Phase 3 polished the dialogs: audit history, native dialog removal, test coverage. Phase 4 cut over—deleted the vanilla JS, ported the share page, and added code splitting.
 
@@ -54,6 +54,6 @@ The product is less about accounting complexity and more about social clarity. S
 
 Cloud sync is central to the idea. The share page means a household member can check their own balance, see exactly how it was calculated, and find the payment methods—without texting me. That self-service loop is the real product. The invoicing, settlement tracking, and dispute management are all in service of the same goal: removing me from the middle of a recurring conversation that doesn't need a human intermediary.
 
-The outcome is exactly as small as the problem. One household uses it—the eight people in the first paragraph—and nobody else ever has. There is no adoption number to report, and the product doesn't need one: it was built to end one recurring conversation, not to scale past it.
+The outcome is exactly as small as the problem. One household uses it—the eight people in the first paragraph—and nobody else ever has. That is the adoption number, and the product doesn't need a larger one: it was built to end one recurring conversation, not to scale past it.
 
 It's also the project that produced the ["Six PRs, One Bug"](/blog/six-prs-one-bug-agent-failure-modes/) blog post—a twenty-two-hour debugging arc on the invoice template parity bug, from the PR that introduced the bug to the one that fixed it. The household coordination tool is what the build produced. The case study is what the debugging produced.
