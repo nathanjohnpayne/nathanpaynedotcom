@@ -30,7 +30,7 @@ Verdicts: **SUPPORTED** · **WRONG** (corrected value given) · **UNPROVABLE** (
 
 The last of the six, #158, **closed 36 minutes before #159 was filed**. Only #161 comes after the issue.
 
-Corrected value, and it is a better story: the six PRs came first, each chasing a symptom without a stated invariant. Issue #159 is what happened *after* they failed—the moment the problem stopped being a series of tickets and got named as one. Then #161 fixed it. The post currently reads as though the issue kicked off the six attempts, which reverses the causal arrow and loses the actual product lesson.
+Corrected value, and it is a better story: the six PRs came first, each chasing a symptom with no invariant attached to the work or the review. Issue #159 is what happened *after* they failed—the moment the problem stopped being a series of tickets and got named as one. Then #161 fixed it. The post currently reads as though the issue kicked off the six attempts, which reverses the causal arrow and loses the actual product lesson.
 
 **That lesson was itself stated wrongly here, and the error propagated—see §M3.** The first version of this row said "nobody had written down what `correct` meant until six PRs had already shipped against it." That is false: the design spec `invoicing-tab-redesign.md` had written it down a day before #144, and #144's own kickoff prompt pointed at that spec. The defensible lesson is narrower and better: the definition existed, and for twenty-one hours nothing anyone was building or reviewing was attached to it. A correctness standard nobody cites is operationally absent without being missing.
 
