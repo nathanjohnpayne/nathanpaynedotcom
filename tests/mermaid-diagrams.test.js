@@ -1,9 +1,11 @@
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { basename, dirname, relative, resolve, sep } from 'node:path';
+import { toHtml } from 'hast-util-to-html';
 import { JSDOM } from 'jsdom';
 import { describe, expect, it } from 'vitest';
 import { findFilesRecursively } from '../scripts/lib/blog-file-inventory.mjs';
 import { renderSidebarMermaid } from '../src/lib/render-sidebar-mermaid.mjs';
+import { rehypeMermaidSvg } from '../src/plugins/rehype-mermaid-accessibility.mjs';
 
 const builtRoot = resolve('dist');
 const builtBlogRoot = resolve('dist/blog');
@@ -164,6 +166,68 @@ describe('rehype-mermaid integration', () => {
       ['Third line', 'fourth line'],
     ]);
     expect(document.querySelector('svg.mermaid foreignObject br')).toBeNull();
+  });
+
+  it('replaces a label break that Mermaid did not wrap in a paragraph', () => {
+    // Mermaid wraps every label in a paragraph today, so this shape is
+    // synthetic: it stands in for a future release that emits a break the
+    // paragraph split cannot reach (#789). The invariant is that no `br`
+    // reaches the serializer regardless of what wraps the label.
+    const element = (tagName, children, properties = {}) => ({
+      type: 'element',
+      tagName,
+      properties,
+      children,
+    });
+    const labelFigure = (inner) =>
+      element('figure', [element('svg', [element('foreignObject', [element('div', [inner])])])], {
+        className: ['mermaid-figure'],
+      });
+
+    const shapes = {
+      paragraph: element('span', [
+        element('p', [
+          { type: 'text', value: 'A' },
+          element('br', []),
+          { type: 'text', value: 'B' },
+        ]),
+      ]),
+      noParagraph: element('span', [
+        { type: 'text', value: 'A' },
+        element('br', []),
+        { type: 'text', value: 'B' },
+      ]),
+      nestedInline: element('span', [
+        element('p', [
+          { type: 'text', value: 'A' },
+          element('em', [
+            { type: 'text', value: 'x' },
+            element('br', []),
+            { type: 'text', value: 'y' },
+          ]),
+        ]),
+      ]),
+    };
+
+    const rendered = Object.fromEntries(
+      Object.entries(shapes).map(([name, inner]) => {
+        const tree = { type: 'root', children: [labelFigure(inner)] };
+        rehypeMermaidSvg()(tree);
+        return [name, toHtml(tree)];
+      }),
+    );
+
+    for (const [name, html] of Object.entries(rendered)) {
+      expect(html, `${name}: a doubled line break survived serialization`).not.toContain('</br>');
+      expect(html, `${name}: a void break element survived`).not.toContain('<br');
+    }
+
+    // A break inside a paragraph still becomes a second paragraph; a break the
+    // split cannot reach becomes an empty block box, which starts one new line
+    // from inside inline content.
+    expect(rendered.paragraph).toContain('<span><p>A</p><p>B</p></span>');
+    expect(rendered.noParagraph).toContain('<span>A<span style="display:block"></span>B</span>');
+    expect(rendered.nestedInline).toContain('<em>x<span style="display:block"></span>y</em>');
   });
 
   it('ships every built label break as a single line break', () => {

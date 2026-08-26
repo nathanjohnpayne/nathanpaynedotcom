@@ -99,13 +99,13 @@ export function rehypeMermaidSvg() {
       rendered.properties.className = [...new Set([...classNames(rendered), 'mermaid'])];
       rendered.properties.ariaHidden = 'true';
       rendered.properties.focusable = 'false';
-      splitLabelLines(rendered);
+      replaceLabelBreaks(rendered);
     });
   };
 }
 
 /**
- * Rewrite `<p>first<br>second</p>` label paragraphs as one paragraph per line.
+ * Replace every `br` in a rendered label with a break that survives HTML.
  *
  * Mermaid measures a `<br/>` label as two lines and sizes the node box to
  * match, but `hast-util-to-html` enters the SVG schema at `<svg>` and never
@@ -113,16 +113,35 @@ export function rehypeMermaidSvg() {
  * serializes as `<br></br>`, and an HTML parser reads that closing tag as a
  * second `<br>`. Every authored break then rendered as two, pushing the second
  * line onto a third line that overflowed the bottom of the node box (#788).
- * Sibling paragraphs carry no void element, so no serializer can double them,
- * and Mermaid's own `p{margin:0}` rule keeps one paragraph to one line height.
+ *
+ * The invariant this restores is that no `br` reaches the serializer, whatever
+ * Mermaid wrapped the label in. A break inside a paragraph becomes a second
+ * paragraph, which is the markup a two-line label wants and which Mermaid's own
+ * `p{margin:0}` rule keeps to exactly one line height. A break anywhere else—a
+ * label structure no current Mermaid release emits, but one a future release
+ * could (#789)—becomes an empty block box, which forces one line break from
+ * inside inline content without depending on its parent being a paragraph.
  */
-function splitLabelLines(node) {
+function replaceLabelBreaks(node) {
   if (!Array.isArray(node.children)) return;
 
   const children = [];
   for (const child of node.children) {
-    splitLabelLines(child);
-    children.push(...(hasLineBreak(child) ? paragraphPerLine(child) : [child]));
+    // Split before recursing: descending into a paragraph first would replace
+    // its breaks with block boxes before this level could see them.
+    if (isBrokenParagraph(child)) {
+      for (const line of paragraphPerLine(child)) {
+        replaceLabelBreaks(line);
+        children.push(line);
+      }
+      continue;
+    }
+    if (isLineBreak(child)) {
+      children.push(blockLineBreak());
+      continue;
+    }
+    replaceLabelBreaks(child);
+    children.push(child);
   }
   node.children = children;
 }
@@ -131,7 +150,7 @@ function isLineBreak(node) {
   return node.type === 'element' && node.tagName === 'br';
 }
 
-function hasLineBreak(node) {
+function isBrokenParagraph(node) {
   if (node.type !== 'element' || node.tagName !== 'p') return false;
   return Array.isArray(node.children) && node.children.some(isLineBreak);
 }
@@ -147,6 +166,19 @@ function paragraphPerLine(paragraph) {
     properties: { ...paragraph.properties },
     children,
   }));
+}
+
+/**
+ * An empty block box between two inline runs starts a new line, and unlike a
+ * `br` it is not void in either schema, so it cannot be doubled on the way out.
+ */
+function blockLineBreak() {
+  return {
+    type: 'element',
+    tagName: 'span',
+    properties: { style: 'display:block' },
+    children: [],
+  };
 }
 
 export function createMermaidFigure({ sourceNode, title, description, descriptionId }) {
