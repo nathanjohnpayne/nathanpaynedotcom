@@ -2,8 +2,8 @@
 title: "Six PRs, One Bug: What AI Agents Actually Get Wrong"
 seoTitle: "Six PRs, One Bug"
 shortTitle: "Six PRs, One Bug"
-description: "Editor, preview, and sent email disagreed in a billing app—and all six PRs shipped before anyone wrote down what correct meant. The chronology corrected against the public record, the review record reconciled, and the reframed brief that fixed it."
-seoDescription: "Six PRs shipped against a billing parity bug before anyone wrote down what correct meant. The fix came from a reframed brief to a second agent."
+description: "Editor, preview, and sent email disagreed in a billing app. The rule that would have caught it was sitting in a design spec the whole time—as prose, never as anything a reviewer could check. The chronology corrected against the public record, and the reframed brief that fixed it."
+seoDescription: "The rule that would have caught this billing parity bug sat in a design spec as prose, never as anything a review could check against."
 category: "Agent Systems"
 featured: true
 author: "Nathan Payne"
@@ -11,8 +11,8 @@ date: 2026-04-04
 tags: ["AI", "Engineering", "Product", "Systems", "Debugging"]
 image: "/og/blog/six-prs-one-bug-agent-failure-modes.png"
 keyTakeaways:
-  - "A product that emails people asking for money cannot afford three versions of the same message: editor, preview, and sent email have to agree at the level of meaning, and that requirement has to exist in writing before anyone—agent or reviewer—can build or check against it."
-  - "Six pull requests shipped against this bug before the invariant existed anywhere but in my head. Each was locally reasonable work; the missing artifact was a sentence saying what correct meant."
+  - "A product that emails people asking for money cannot afford three versions of the same message: editor, preview, and sent email have to agree at the level of meaning, and that agreement has to be checkable—not merely described somewhere."
+  - "The invariant was written down before any of this started, in the design spec, and it still lost. A constraint with a named function and checkable behavior beats an architectural intention stated as prose, every time an agent has to choose between them."
   - "Repeated failed fixes should change the task, not the patch. The fix came from a brief that required an audit of the failed attempts and banned the specific approaches they had used."
   - "When content crosses a format boundary, ask three questions: is the round-trip lossless, do all consumers produce equivalent output, and is the intermediate format necessary at all."
 pullquotes:
@@ -67,7 +67,7 @@ The first version of this post told the story in the order I remembered it: I fi
 | Apr 4, 04:56 | [PR #154](https://github.com/nathanjohnpayne/friends-and-family-billing/pull/154) | Orthogonal fix: editor recreated on every keystroke | Apr 4, 04:56 |
 | Apr 4, 05:01 | [PR #155](https://github.com/nathanjohnpayne/friends-and-family-billing/pull/155) | Orthogonal fix: legacy template migration | Apr 4, 05:37 |
 | Apr 4, 06:13 | [PR #158](https://github.com/nathanjohnpayne/friends-and-family-billing/pull/158) | Parity attempt: bridge extracted to `template-doc.js` | Apr 4, 16:16 |
-| **Apr 4, 16:52** | [**Issue #159**](https://github.com/nathanjohnpayne/friends-and-family-billing/issues/159) | **The bug named, the invariant written down** | Apr 4, 18:21 |
+| **Apr 4, 16:52** | [**Issue #159**](https://github.com/nathanjohnpayne/friends-and-family-billing/issues/159) | **The bug named, the invariant made checkable** | Apr 4, 18:21 |
 | Apr 4, 17:41 | [PR #161](https://github.com/nathanjohnpayne/friends-and-family-billing/pull/161) | The fix, authored under the Codex identity | Apr 4, 17:57 |
 
 That inversion is the story. First PR opened to fix merged is twenty-two hours and six minutes—"roughly twenty hours" was a fair round number for the arc, and exactly wrong about the order. [Issue #159](https://github.com/nathanjohnpayne/friends-and-family-billing/issues/159) was not the starting gun for six failed attempts. It was the concession the six forced: the moment a series of symptoms stopped being tickets and got named as one problem, with a written definition of correct attached. Nobody—not the agent, not the reviewers, not me—had that definition for the first twenty-one hours.
@@ -208,7 +208,7 @@ My session log adds figures the repository cannot: eighteen user prompts across 
 
 ## The moment the problem got a name
 
-Thirty-six minutes after [PR #158](https://github.com/nathanjohnpayne/friends-and-family-billing/pull/158) closed, I filed [issue #159](https://github.com/nathanjohnpayne/friends-and-family-billing/issues/159). It did three things nothing in the prior twenty-one hours had done: it treated editor, preview, and sent email as one problem instead of a stream of symptoms; it attached a known-good email as a concrete target; and it wrote down the invariant every later piece of work could be checked against. The issue stayed open for under ninety minutes, and the fix that closed it merged about sixty-five minutes after the filing.
+Thirty-six minutes after [PR #158](https://github.com/nathanjohnpayne/friends-and-family-billing/pull/158) closed, I filed [issue #159](https://github.com/nathanjohnpayne/friends-and-family-billing/issues/159). It did three things nothing in the prior twenty-one hours had done: it treated editor, preview, and sent email as one problem instead of a stream of symptoms; it attached a known-good email as a concrete target; and it turned the invariant from a line in a design document into a requirement later work could be checked against. The issue stayed open for under ninety minutes, and the fix that closed it merged about sixty-five minutes after the filing.
 
 ## The brief I gave the second agent
 
@@ -294,4 +294,4 @@ After the merge I turned the arc into standing rules for this repository. Each e
 
 **Invariants outrank backward compatibility.** When a spec carries both a new architecture and a compatibility requirement, it now states which wins: the new rendering path is the canonical path, and legacy format support is a migration concern, not an architectural peer. The cost: the compatibility work gets more expensive and more explicit up front—which is the point, because implicit is how the bridge got built.
 
-The bug itself was fixed about sixty-five minutes after it was named: what recipients see now matches what the preview shows and what the editor means, and the brief's required regression tests were aimed at keeping that whole class of defect closed rather than patching one instance of it. The expensive part was the twenty-one hours before the name existed, in which six pull requests of locally reasonable, individually reviewed work shipped against a correctness standard that lived only in my head. The agent did what it was asked at every step. The process failure was that nobody—me included—had written down what done meant, and no amount of louder symptom reporting substitutes for that sentence.
+The bug itself was fixed about sixty-five minutes after it was named: what recipients see now matches what the preview shows and what the editor means, and the brief's required regression tests were aimed at keeping that whole class of defect closed rather than patching one instance of it. The expensive part was the twenty-one hours before the name existed, in which six pull requests of locally reasonable, individually reviewed work shipped against a correctness standard nobody was checking. And the standard was not missing. It was in the design spec from the start, one sentence describing exactly the output model the bug violated. What it never was, until [issue #159](https://github.com/nathanjohnpayne/friends-and-family-billing/issues/159), was a requirement attached to any piece of work anyone reviewed. That is the process failure, and it is a harder one than "write it down": prose in a design document loses to a named function with checkable behavior, and no amount of louder symptom reporting closes the gap.

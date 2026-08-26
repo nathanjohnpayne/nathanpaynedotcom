@@ -154,7 +154,7 @@ Counting *all* review submissions instead gives 19. Neither is nine. If the figu
 
 | Measure | Baseline | Revised | Change |
 | --- | ---: | ---: | ---: |
-| Whole file (the epic's 4,463 baseline) | 4,463 | 4,162 | **−6.7%** |
+| Whole file (the epic's 4,463 baseline) | 4,463 | 4,227 | **−5.3%** |
 
 **Short of the 20–30% guidance, and deliberately so.** #744's own compression clause is the only one in the epic that carries a carve-out—"with chronology retained where it is evidence"—and after §A1 the chronology *is* the evidence. The corrected arc only works if the reader can see that all six PRs precede the issue, which needs the timestamped table, and that each PR was locally reasonable, which needs the per-PR sections.
 
@@ -172,7 +172,7 @@ The drafting pass proposed retitling the post from **"Six PRs, One Bug: What AI 
 
 **The retitle over-read the constraint.** "Not a spectacle of agent incompetence" governs the *treatment*, not the headline, and the revised body already satisfies it: every per-PR section argues the agent behaved reasonably given a symptom-shaped input, and the closing paragraph puts the process failure on the operator.
 
-**The original title survives the correction intact.** Its load-bearing word is "actually"—it claims the common assumption about *how* agents fail is wrong and the real thing is subtler, which is the same move the post makes. The failure mode it names is real and unaffected by the chronology fix: the agent patched the nearest plausible code path six times and never promoted a repeated local failure into a structural question. Correcting *why* that happened does not stop it being a thing agents get wrong.
+**The original title survives the correction intact.** Its load-bearing word is "actually"—it claims the common assumption about *how* agents fail is wrong and the real thing is subtler, which is the same move the post makes. The failure mode it names is real and unaffected by the chronology fix: across the three parity attempts the agent patched the nearest plausible code path and never promoted a repeated local failure into a structural question. Correcting *why* that happened does not stop it being a thing agents get wrong.
 
 **The blast radius was the deciding factor.** The title turned out to be referenced in seven places outside the post, and a first grep found only four:
 
@@ -193,3 +193,34 @@ Two findings from the exercise are worth keeping even though the change was reve
 **`tests/blog-pages.test.js` pins this post's `headline` and `seoDescription` as exact strings**, in two assertions each—a tighter contract than the other six posts carry. The `seoDescription` *is* revised here (the original described a chronology now known to be inverted), so that assertion is updated and the `headline` one is not. **The remaining three audits should check for a pinned assertion before editing frontmatter.**
 
 **Grep twice, on a distinctive fragment.** The first sweep matched only the em-dash form used in `related` labels and missed the colon form in the title, the resume component and the test. Search for the distinctive substring—"What AI Agents Actually Get Wrong"—not the whole formatted title.
+
+---
+
+## J. Codex round-1 addendum (PR #798)
+
+Three findings. The first one is the sharpest of this audit and it invalidated the revision's own thesis.
+
+### J1—The invariant *was* written down, in the spec, before any of this
+
+The revision made "nobody wrote down what correct meant" the central conclusion—in the `description`, the `seoDescription`, a `keyTakeaway`, the chronology table, and the closing paragraph. The same revision then quotes the pre-#144 design spec and calls its rendering requirement "essentially the invariant":
+
+> HTML is generated from JSON for Preview rendering. Email-safe HTML is generated from JSON for final outbound email rendering.
+
+That sentence predates #144 and describes exactly the output model the bug violated. So the article's own evidence contradicts its own thesis, in the same file.
+
+**The corrected lesson is better than the one it replaces.** The invariant existed as prose in a design document and still lost, because the competing requirement—backward compatibility with legacy plain-text templates—arrived with a named function and checkable behavior while the architectural intent arrived as a sentence. It never became a requirement attached to any piece of work anyone reviewed: not an acceptance criterion, not a PR checklist item, not a test. Issue #159's contribution was not writing it down; it was making it **checkable**.
+
+That is also what §B1 already implies and what the post's own #144 section already argues—"an agent optimizes for the constraint it can verify"—so the thesis was contradicting two of its own sections, not one.
+
+Reconciled across all seven surfaces. "Write it down" is the easy lesson; "prose in a design document loses to a named function with checkable behavior" is the true one.
+
+### J2—§I reinstated the classification §§A2–A3 correct
+
+The title rationale said the agent "patched the nearest plausible code path **six times**", which is the "six failed attempts" framing this ledger spends two sections dismantling. Scoped to the three parity attempts.
+
+### J3—The revised word count was off by one
+
+4,163, not 4,162. Corrected, and superseded again by the J1 rewrite: the file now stands at 4,227, −5.3%.
+
+**Pattern note, fourth audit running.** Every round on this PR and the last two has produced at least one finding where an artifact contradicts itself or its sibling. The reconciliation step—grep every claim across post and ledger before pushing—is the single highest-yield check in this workflow and I have now failed to run it thoroughly on four consecutive PRs.
+
