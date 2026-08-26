@@ -284,3 +284,20 @@ Line 185 still read: "no prompt, issue, or spec anywhere licensing the question 
 
 The check that actually worked, and the one to use from here: **enumerate every sentence containing the subject noun**—`grep -oE '[^.]*invariant[^.]*\.'` returned all eight in the post—and read each one against the corrected position. Substring search for a claim cannot work when the claim has synonyms; noun enumeration is bounded and complete.
 
+
+### M2—Round 3: the retracted thesis survived a fourth time, in a fourth vocabulary
+
+Codex round 3 (HEAD `6dbc53e`) found the "nobody had a definition of correctness" claim alive again at line 73, after three prior removals. §M's prescribed check—`grep -oE '[^.]*invariant[^.]*\.'`—returned eight sentences and cleared them all, because this instance never used the word *invariant*. It said **definition**.
+
+The enumeration has to run over the *claim's* vocabulary, not one noun of it. The working check is a disjunction: `invariant|definition|spec|written down|nobody|no one|nowhere|never stated|unstated|what correct`. Across 24 matched sentences that surfaced the survivor immediately.
+
+Round 3's other four findings, all confirmed and all fixed:
+
+| ID | Location | Finding | Correction |
+|---|---|---|---|
+| `3864326863` | `friends-and-family-billing.md`:45 | 22h06m is the arc through #161, not the six PRs | Six PRs end at #158 → **20h25m**; page now says "roughly twenty hours" |
+| `3864326872` | post:15 | keyTakeaway asserted a checkable constraint wins "every time"—a universal law from one confounded run the post elsewhere refuses to draw causally | Scoped to this arc; reframed as a reason to make intentions checkable |
+| `3864326880` | post:290 | "Every prompt in the first session described a symptom" excludes #144's kickoff, an implementation instruction | Qualified: "After the kickoff prompt that started the migration…" |
+| `3864326885` | post:270 | "every piece of HTML a recipient sees comes from `renderInvoiceTemplate`" overstates—the sent email carries envelope chrome (branded header, container, "Sent via" footer) the preview lacks, visible in the post's own screenshots | Narrowed to the **template body**; envelope HTML named as outside the renderer by design |
+
+Pattern worth carrying to the remaining audits: three of these five are **scope creep on a true claim**—a correct finding stated one quantifier too wide (*every* prompt, *every* piece of HTML, *every* time). The underlying facts held; the universals did not.
