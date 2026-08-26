@@ -39,7 +39,7 @@ Four steps, each with an input, an output, and a quality bar. The spec's step he
 
 The design defers everything else behind this loop: if all four steps work, Matchline is useful before any V2 layer ships on top.
 
-The spec budgets the full flow—paste a JD, get a validated, exportable résumé—at under 20 seconds at p95, with Experience Unit extraction alone budgeted at 8 seconds p50 and 20 at p95. Per-application LLM spend is budgeted at under $1 at p95, with a $0.75 target and an expected range of $0.50–$1.00. Both budgets exist for one reason: validation only works as a hard constraint if it is cheap enough to run on every generation. Nothing has run in production, so these remain budgets, not measurements.
+The spec budgets the full flow—paste a résumé, paste a JD, get a validated export—at under 20 seconds at p95, with Experience Unit extraction alone budgeted at 8 seconds p50 and 20 at p95. Per-application LLM spend is budgeted at under $1 at p95, with a $0.75 target and an expected range of $0.50–$1.00. Both budgets exist for one reason: validation only works as a hard constraint if it is cheap enough to run on every generation. Nothing has run in production, so these remain budgets, not measurements.
 
 ## Zero fabrication
 
@@ -63,4 +63,4 @@ So the pause has a date the commits set, not one an announcement set: active dev
 
 Paused before launch, and never shipped to users. Matchline remains a single-user system with the author's own job search as V1's only customer, and public release decisions come after V1 has earned its keep on real outcomes—which it has not yet had the chance to do.
 
-There is no usage outcome to report, and that absence is the outcome so far: no live URL, no users beyond the author, no shipped outputs. What exists is code across parsing, matching, and validation that was still being fixed and tuned into late July 2026, a validation design that has never been adversarially tested, and an eval pipeline built to make the next round of tuning cheap. The repository is public; the running product is not.
+There is no usage outcome to report, and that absence is the outcome so far: no live URL, and no user beyond the author recorded anywhere. Whether any application was ever generated or sent is not something the repository records either way—the silence is in the evidence, not a finding of zero. What exists is code across parsing, matching, and validation that was still being fixed and tuned into late July 2026, a validation design that has never been adversarially tested, and an eval pipeline built to make the next round of tuning cheap. The repository is public; the running product is not.
