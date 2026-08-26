@@ -109,7 +109,7 @@ The post omits the hook-command-grammar bug and the two timing/clock bugs. Corre
 
 Defensible form: name the boundary per control, as #739's acceptance criteria require, and say that the *combination* raises the cost of the wrong action rather than making it impossible. The break-glass path exists precisely so it is not impossible. Source: `scripts/hooks/gh-pr-guard.sh` (a PreToolUse hook, matched against the command string); `.github/review-policy.yml`; `.github/workflows/pr-review-policy.yml`.
 
-**Live corroboration from this very run.** Both boundaries behaved exactly as the table says while auditing #740: the client-side hook blocked a `gh pr create` whose body had `**Authoring-Agent:** claude` in bold (its check is `^Authoring-Agent:`, a line-anchored match), and the merge required **two** separate break-glass variables—`BREAK_GLASS_ADMIN=1` *and* `BREAK_GLASS_MERGE_STATE=1`—which the post does not mention. The post names only the first.
+**Live corroboration from this very run, corrected in §M1.** While auditing #740 a `gh pr create` was refused for writing `**Authoring-Agent:**` in bold—but the refusal came from the **author wrapper's body contract** (`scripts/lib/pr-body-contract.mjs:83`, line-anchored), not from the hook, which recognises the wrapper and steps aside. The merge separately required **two** break-glass variables, `BREAK_GLASS_ADMIN=1` and `BREAK_GLASS_MERGE_STATE=1`. Both facts are in the revision; see §M1 for the mechanism, which this row originally got wrong in the same way the post did.
 
 ### C2—The `external_review_threshold: 300` block and its paths
 
@@ -196,7 +196,7 @@ All five ran on `2026-04-15` between 18:01 and 18:19 UTC. PR mapping is **SUPPOR
 
 > "This means the 'runaway' scenario… does not naturally occur—Codex's review pattern is 'find everything at once,' not 'one finding per round.'"
 
-**UNPROVABLE from one run, and the repository has since falsified it.** #739's own issue flags the generalisation. The counter-evidence is now abundant and includes this epic: on nathanpaynedotcom PR #787, Codex returned **0, then 4, then 5, then 1, then 7 findings across five rounds on five successive heads**—the definition of one-or-more findings per round rather than everything at once. PR #66 above is a second counterexample: seven blocking rounds, six distinct new bugs. Defensible form: scope it to dry-run D—"in this run Codex returned both P1s in a single review"—and drop the model-wide claim. The `max_review_rounds` guard is not a rarely-fired safety belt; it fires. Source: dry-run D observation stands; counterexamples from `pulls/66/reviews` and nathanpaynedotcom PR #787's five Codex rounds.
+**UNPROVABLE from one run, and the repository has since falsified it.** #739's own issue flags the generalisation. The counter-evidence is now abundant and includes this epic: on nathanpaynedotcom PR #787, Codex returned **0, then 4, then 5, then 1, then 7 Codex findings across five rounds on five successive heads** (round three also drew two from CodeRabbit)—the definition of one-or-more findings per round rather than everything at once. PR #66 above is a second counterexample: seven blocking rounds, six distinct new bugs. **What this does not show is the `max_review_rounds` guard firing**—see §L2. #787 stopped at five because the operator set that budget, and round 3 was explicitly judged not to be the runaway case. The falsified assumption is that reviews converge in one round, not that the guard is rarely reached. Defensible form: scope it to dry-run D—"in this run Codex returned both P1s in a single review"—and drop the model-wide claim. Say nothing about whether the configured guard fires; no run in evidence shows it doing so. Source: dry-run D observation stands; counterexamples from `pulls/66/reviews` and nathanpaynedotcom PR #787's five Codex rounds.
 
 ### E4—"142–342 seconds average Codex response time per review round"
 
@@ -380,4 +380,32 @@ The post gave "0, 4, 5, 1, and 7 findings" while `plans/759/RUN.md` and the #740
 The same defect Codex caught on #787 as §L4, where the fix was written into this file as a carry-forward rule—"fill the PR cell at the moment the PR is created, not in the log entry afterwards"—and then not followed in the next PR. The rule was right; following it needs to happen at PR-creation time, not at review time. Filled.
 
 **Note to self for the remaining five audits.** A rule recorded in `RUN.md` is not a rule followed. §L4 was written down, agreed with, and broken within one PR. The mechanical fix is to fill the table cell in the same command that creates the PR.
+
+---
+
+## N. Codex round-3 addendum (PR #791)
+
+Five findings, all correct, all fixed. Two were this ledger contradicting its own later sections—the third round running where that has happened, and the reason §L's closing rule exists.
+
+### N1—§C1 still asserted the mechanism §M1 had corrected
+
+The "live corroboration" paragraph still credited the hook with the line-anchored check and mentioned one break-glass variable, while §M1 recorded the opposite on both points. Since the ledger is what later audits read, an uncorrected row propagates the wrong enforcement boundary. Rewritten to match §M1 and the shipped post.
+
+### N2—§E3 still concluded the runaway guard "fires"
+
+§L2 established that PR #787 stopped at an operator-set budget and that `max_review_rounds` never escalated; §E3's defensible form still ended "it fires." Corrected in both places in the row: the multi-round counterexample stays, the guard conclusion goes, and the row now says plainly that no run in evidence shows the configured guard firing.
+
+### N3—A PR of exactly 300 lines fell into neither lane
+
+"Under 300 gets self-review, anything larger needs external review" leaves 300 itself unclaimed. The policy defines the self-review lane as strictly `<` the threshold (`CLAUDE.md:52`, `AGENTS.md:42`), so 300 requires the outside opinion. The post now says so at the boundary.
+
+### N4—The boundary table over-claimed branch protection
+
+The table's own thesis is that every control has a reach, and then it described branch protection as binding "everyone, including the human" while the row two lines below documents `--admin` as the human's bypass. Qualified: branch protection binds everyone *until* an admin invokes the bypass the last row governs.
+
+### N5—The provenance sentence named only one source
+
+"Every figure above was recomputed against the GitHub API" is wrong for at least one figure in the list directly above it: the seven-check count comes from `git ls-tree` against the April snapshot (§B4). A revision publishing its provenance should not misstate it. Now names both the API and the repository's git history, with the check count called out as the git-derived example.
+
+**Pattern across three rounds.** Of fifteen findings on this PR, **eight were in this ledger rather than the post**, and every one of those was a row left contradicting a later correction. Fixing a claim in one place and leaving it standing in another is the single most common defect in this run. The remaining five audits should grep both artifacts for a claim before considering it corrected.
 
