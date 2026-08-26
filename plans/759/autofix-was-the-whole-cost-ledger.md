@@ -409,7 +409,7 @@ Corrected value: name the snapshot. Either "2,453 at `aff0c23^` → 1,343 at `e4
 
 > L179-L185
 
-**UNPROVABLE without a stated boundary, and the boundary is doing real work.** The "before" column counts two files; the "after" column counts four. Excluded from the "after" side but introduced by the migration—**figures corrected per §N.16: 22 Vale fixtures not 21, `scripts/lint-all.sh` at -3 not -4, and `package-lock.json -5` omitted from the original enumeration; with the real numbers the residue closes at 30 exactly**: `scripts/lib/ensure-vale.sh` (81 lines at #720, 93 today), the six added lines in `.github/workflows/build-and-test.yml`, and 21 Vale fixture files under `tests/fixtures/`. Including `ensure-vale.sh` alone moves the total to 1,424 and the reduction to 42%. Excluded from the "before" side but deleted by #721: 16 lines of `.ai_context.md`, 6 of `package.json`, and 4 of `scripts/lint-all.sh` (#721 deleted 2,483 lines across 6 files in total, of which 2,453 are the two counted files).
+**UNPROVABLE without a stated boundary, and the boundary is doing real work.** The "before" column counts two files; the "after" column counts four. Excluded from the "after" side but introduced by the migration—**figures corrected per §N.16: 22 Vale fixtures not 21, `scripts/lint-all.sh` at -3 not -4, and `package-lock.json -5` omitted from the original enumeration; with the real numbers the residue closes at 30 exactly**: `scripts/lib/ensure-vale.sh` (81 lines at #720, 93 today), the six added lines in `.github/workflows/build-and-test.yml`, and 22 Vale fixture files under `tests/fixtures/`. Including `ensure-vale.sh` alone—93 lines at the table's named `e42483b` after-snapshot, not the 81 it measures at `a37bb51`—moves the total to 1,436 and the reduction to about 41.5%. Excluded from the "before" side but deleted by #721: 16 lines of `.ai_context.md`, 6 of `package.json`, and 4 of `scripts/lint-all.sh` (#721 deleted 2,483 lines across 6 files in total, of which 2,453 are the two counted files).
 
 Defensible form: state the rule—"implementation and tests for the prose gate itself, excluding CI wiring and fixtures, on both sides"—and note that `ensure-vale.sh` is the largest excluded item. The post already models this honesty for the 509-line adapter; the same move applies one level out.
 
@@ -526,7 +526,7 @@ An independent verifier re-derived every figure in this ledger against the same 
 
 **N.3—§B1's understatement gap was doubled.** Peak 1,721 minus merged 1,513 is **208** script lines, not 404. The 256 test-line figure was right. This sat inside the corrected value of the ledger's second-most load-bearing row.
 
-**N.4—§B3's script delta was 8, not 5.** The ledger's own totals require it: 2,417 + 36 = 2,453, and 5 + 28 = 33.
+**N.4—§B3's script delta was 8, not 5.** The ledger's own totals require it: 2,417 + 36 = 2,453, and 8 + 28 = 36.
 
 **N.5—§A1 swapped two populations.** 113/256 review submissions is **44%**; 45% is the inline-findings share, 57/126.
 

@@ -1247,6 +1247,35 @@
         "other_title": "pr-review-policy.yml auto-comment: strip empty bullet from FILE_LIST rendering"
       }
     },
+    "nathanjohnpayne/nathanpaynedotcom#664": {
+      "additions": null,
+      "author": "nathanpayne-claude",
+      "base": null,
+      "changed_files": null,
+      "closed_at": "2026-08-22T16:19:22Z",
+      "commits": null,
+      "created_at": "2026-08-22T04:28:30Z",
+      "deletions": null,
+      "head": null,
+      "merge_commit_sha": null,
+      "merged": null,
+      "merged_at": null,
+      "number": 664,
+      "state": "closed",
+      "title": "Content: close up spaced em dashes in published prose (CMOS) and gate it in lint",
+      "type": "issue",
+      "url": "https://github.com/nathanjohnpayne/nathanpaynedotcom/issues/664",
+      "repo": "nathanjohnpayne/nathanpaynedotcom",
+      "resolved": true,
+      "cited_in": [
+        "autofix-was-the-whole-cost"
+      ],
+      "bare_number_collision": {
+        "other_repo": "nathanjohnpayne/mergepath",
+        "exists_there": true,
+        "other_title": "fix(resolve-pr-threads): guard verified-propagation against canonical-repo self-match"
+      }
+    },
     "nathanjohnpayne/nathanpaynedotcom#668": {
       "repo": "nathanjohnpayne/nathanpaynedotcom",
       "number": 668,
