@@ -64,17 +64,27 @@ _WORD_NUMBERS = (
 
 TOKEN_CLASSES = (
     ("URLs", r"https?://[^\s\)\]\"'>]+"),
-    ("relative links", r"\]\((?P<t>/[^)\s]*)\)"),
+    # An inline destination may carry an optional title: `](/path "Title")`.
+    ("relative links", r"\]\((?P<t>/[^)\s]*)(?:[ \t]+[\"'(][^)]*)?\)"),
     # A reference definition is the other half of `[text][id]`, and its
     # destination is as load-bearing as an inline one. Matching only the
     # inline form let `[p]: /blog/original/` be repointed silently.
     ("reference link targets", r"(?m)^\[[^\]]+\]:[ \t]*(?P<t>/[^\s]*)"),
-    ("issue/PR refs", r"#\d{2,4}\b"),
+    # Single digits count: dropping the `#` from `#5` leaves the numeral
+    # class unchanged, so a one-digit reference could vanish silently.
+    ("issue/PR refs", r"#\d{1,4}\b"),
     # A clock time without its zone is a different instant, so the zone is
     # part of the token when one is written. That includes an ISO offset:
     # `...T10:20:30+05:00` and `...-05:00` are ten hours apart, and stopping
     # the ISO alternative at the date left the sign outside the comparison.
-    ("timestamps", r"\d{4}-\d{2}-\d{2}"
+    # Month-name dates are the collection's dominant form; without them,
+    # "July 30, 2026" -> "August 30, 2026" leaves 30 and 2026 unchanged and
+    # moves the event a month with every protected token equal.
+    ("timestamps", r"\b(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?"
+                   r"|Jul(?:y)?|Aug(?:ust)?|Sep(?:t(?:ember)?)?|Oct(?:ober)?"
+                   r"|Nov(?:ember)?|Dec(?:ember)?)\.?\s+\d{1,2}(?:st|nd|rd|th)?"
+                   r"(?:,?\s+\d{4})?"
+                   r"|\d{4}-\d{2}-\d{2}"
                    r"(?:[T ]\d{2}:\d{2}(?::\d{2})?(?:\.\d+)?(?:Z|[+-]\d{2}:?\d{2})?)?"
                    r"|\b\d{1,2}:\d{2}\s*(?:[ap]\.?m\.?)?(?:\s+[A-Z][a-zA-Z]+)?"
                    r"|\b\d{1,2}\s*[ap]\.?m\.?(?:\s+[A-Z][a-zA-Z]+)?"),
@@ -84,7 +94,10 @@ TOKEN_CLASSES = (
     # Separators are only real between digits -- anchoring the tail on a digit
     # keeps sentence punctuation out, so retightening "took 22, which" into
     # "took 22. It" is not read as a changed value.
-    ("numerals", r"(?<![A-Za-z0-9_.])[$\u20ac\u00a3]?[+-]?\d(?:[\d,.]*\d)?(?:%|[A-Za-z]{1,3}\b)?"),
+    # A slash denominator is part of the rate: `$4/M` and `$4/B` differ by a
+    # factor of a thousand while every other token compares equal.
+    ("numerals", r"(?<![A-Za-z0-9_.])[$\u20ac\u00a3]?[+-]?\d(?:[\d,.]*\d)?"
+                 r"(?:%|[A-Za-z]{1,3}\b)?(?:/[A-Za-z]{1,6}\b)?"),
     # Delimiters pair by length, as CommonMark specifies: a span holding a
     # literal backtick opens with two or more, and assuming one delimiter
     # captured a partial span and left the rest unprotected.
@@ -105,19 +118,35 @@ BLOCK_CLASSES = (
     # four-backtick block quoting a three-backtick line stays one block --
     # hard-coding three delimiters ended the match early and left the
     # remainder of the block unguarded.
+    # CommonMark allows up to three spaces of indentation on both the opener
+    # and the closer, and this repo's parser honours that.
     ("code/mermaid blocks",
-     r"(?ms)^(?P<f>`{3,}|~{3,})[^\n]*\n.*?(?:^(?P=f)[`~]*[ \t]*$|\Z)", 0),
+     r"(?ms)^[ ]{0,3}(?P<f>`{3,}|~{3,})[^\n]*\n.*?(?:^[ ]{0,3}(?P=f)[`~]*[ \t]*$|\Z)", 0),
     # Sidebar diagrams live in frontmatter as a `- type: mermaid` item whose
     # title and description are as load-bearing as the content scalar -- the
     # description is the accessible text screen readers receive.
-    ("frontmatter mermaid items", r"^\s*-\s+type:\s*mermaid\s*\n(?:[ \t]+.*\n?)+", re.M),
+    # Matching the whole list item and filtering on the discriminator, rather
+    # than requiring `type:` to be the first key: the content schema accepts
+    # mapping keys in any order, so a diagram declared title-first was
+    # invisible to a pattern anchored on `- type:`.
+    ("frontmatter mermaid items", r"^[ \t]*-[ \t]+[^\n]*\n(?:[ \t]+[^\n]*\n?)*", re.M,
+     "type: mermaid"),
     # A GFM table is a header row, a delimiter row, and body rows. Matching
     # the whole construct catches tables written without the optional leading
     # pipe, which matching lines that merely contain a pipe does not -- that
     # false-positives on any prose sentence mentioning one.
     (
         "tables",
-        r"^[^\n]*\|[^\n]*\n[ \t]*\|?[ \t]*:?-+:?[ \t]*(?:\|[ \t]*:?-+:?[ \t]*)+\|?[ \t]*\n(?:[^\n]*\|[^\n]*\n?)*",
+        # A one-column table is a legal GFM table: `| State |` over `| --- |`.
+        # Requiring a second delimiter cell dropped the whole construct.
+        # Two legal delimiter shapes. With a leading pipe, one cell is enough
+        # -- `| State |` over `| --- |` is a one-column table. Without one, at
+        # least two cells are needed, or any prose line containing a dash
+        # would qualify.
+        r"^[^\n]*\|[^\n]*\n[ \t]*"
+        r"(?:\|[ \t]*:?-+:?[ \t]*(?:\|[ \t]*:?-+:?[ \t]*)*\|?"
+        r"|:?-+:?[ \t]*(?:\|[ \t]*:?-+:?[ \t]*)+\|?)"
+        r"[ \t]*\n(?:[^\n]*\|[^\n]*\n?)*",
         re.M,
     ),
 )
@@ -151,6 +180,25 @@ def _find(pattern: str, text: str, flags: int = 0) -> list[str]:
     return out
 
 
+def _blocks():
+    """Yield (label, pattern, flags, needle) for each block class.
+
+    A class may carry a fourth element: a substring the match must contain.
+    That lets a pattern match a whole YAML list item and then keep only the
+    items that declare the discriminator, instead of demanding the
+    discriminator be the item's first key.
+    """
+    for entry in BLOCK_CLASSES:
+        label, pattern, flags = entry[0], entry[1], entry[2]
+        needle = entry[3] if len(entry) > 3 else None
+        yield label, pattern, flags, needle
+
+
+def _find_block(pattern: str, text: str, flags: int, needle: str | None) -> list[str]:
+    out = _find(pattern, text, flags)
+    return [m for m in out if needle is None or needle in m]
+
+
 def _prose_words(text: str) -> int:
     """Count words outside frontmatter, fences, diagrams and tables.
 
@@ -160,7 +208,7 @@ def _prose_words(text: str) -> int:
     actually cuts.
     """
     body = re.sub(r"\A---\n.*?\n---\n", "", text, flags=re.S)
-    for _label, pattern, flags in BLOCK_CLASSES:
+    for _label, pattern, flags, _needle in _blocks():
         body = re.sub(pattern, " ", body, flags=flags)
     return len(body.split())
 
@@ -203,8 +251,9 @@ def compare(before: str, after: str, quiet: bool) -> int:
                   f"  lost={lost[:6]} added={added[:6]}")
             print("        advisory only -- check whether any of these carried a count")
 
-    for label, pattern, flags in BLOCK_CLASSES:
-        same = _find(pattern, before, flags) == _find(pattern, after, flags)
+    for label, pattern, flags, needle in _blocks():
+        same = (_find_block(pattern, before, flags, needle)
+                == _find_block(pattern, after, flags, needle))
         report(same, label)
 
     for name in PINNED_FIELDS:

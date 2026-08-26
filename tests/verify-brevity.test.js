@@ -241,4 +241,34 @@ describe('verify-brevity', () => {
     const after = 'Seventeen fixes shipped, and one revert.\n';
     expect(output(after, before)).not.toMatch(/note\s+spelled-out numbers/);
   });
+
+  it('fails when a titled relative link destination changes', () => {
+    expect(run('[x](/blog/a "T") end\n', '[x](/blog/b "T") end\n')).toBe(1);
+  });
+
+  it('fails when a single-digit issue reference loses its hash', () => {
+    expect(run('closed #5 today\n', 'closed 5 today\n')).toBe(1);
+  });
+
+  it('fails when a month-name date changes month', () => {
+    expect(run('On July 30, 2026 it merged\n', 'On August 30, 2026 it merged\n')).toBe(1);
+  });
+
+  it('fails when a slash denominator changes the rate', () => {
+    expect(run('costs $4/M tokens\n', 'costs $4/B tokens\n')).toBe(1);
+  });
+
+  it('fails when content inside an indented fence changes', () => {
+    expect(run('   ~~~\nalpha\n   ~~~\n', '   ~~~\nbeta\n   ~~~\n')).toBe(1);
+  });
+
+  it('fails when a mermaid item declared title-first changes', () => {
+    const mk = (label) =>
+      `x\nsidebar:\n  - title: "D"\n    type: mermaid\n    content: |\n      graph TD\n          A["${label}"]\n`;
+    expect(run(mk('one'), mk('two'))).toBe(1);
+  });
+
+  it('fails when a one-column table body cell changes', () => {
+    expect(run('| State |\n| --- |\n| Alpha |\n', '| State |\n| --- |\n| Beta |\n')).toBe(1);
+  });
 });
