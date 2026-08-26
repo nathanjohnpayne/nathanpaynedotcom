@@ -4,7 +4,7 @@ Post source: `src/content/blog/agent-approval-workflow-genesis-of-mergepath.md`.
 
 Verdicts: **SUPPORTED** · **WRONG** (corrected value given) · **UNPROVABLE** (defensible weaker form given).
 
-**Method note carried from #740.** An issue body is evidence of what someone believed at the time, not of what happened. Where a claim is mechanically checkable, it was checked against the mechanism. Three claims in the #740 audit failed that test; the ones that fail it here are §B1 (a PR count taken from memory rather than the API), §B4 (a check count), §B6 (a taxonomy that did not sum), and §E1 and §E4 (two timing figures).
+**Method note carried from #740.** An issue body is evidence of what someone believed at the time, not of what happened. Where a claim is mechanically checkable, it was checked against the mechanism. Three claims in the #740 audit failed that test; the ones that fail it here are §B1 (a PR count taken from memory rather than the API), §B4 (a check count), §B6 (a taxonomy that did not sum), §E1 and §E4 (two timing figures), and §F2—which is the #740 §K1 error itself, inferring duration and success from ticket-closure timestamps, committed again two posts after the rule against it was written down.
 
 ---
 
