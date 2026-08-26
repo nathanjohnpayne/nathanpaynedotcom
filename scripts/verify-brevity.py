@@ -61,7 +61,9 @@ TOKEN_CLASSES = (
     ("relative links", r"\]\((/[^)\s]*)\)"),
     ("issue/PR refs", r"#\d{2,4}\b"),
     ("timestamps", r"\d{4}-\d{2}-\d{2}(?:T[\d:]+Z)?|\b\d{1,2}:\d{2}\s*(?:[ap]\.?m\.?)?\b|\b\d{1,2}\s*[ap]\.?m\.?\b"),
-    ("numerals", r"[+-]?\b\d[\d,.]*\b"),
+    # Sign and percent belong to the token: dropping either reverses or
+    # rescales the claim while leaving a bare number behind.
+    ("numerals", r"(?<!\w)[+-]?\d[\d,.]*%?(?!\w)"),
     ("code spans", r"`[^`\n]+`"),
 )
 

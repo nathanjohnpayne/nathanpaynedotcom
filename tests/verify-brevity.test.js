@@ -113,6 +113,12 @@ describe('verify-brevity', () => {
     expect(run(BEFORE.replace('const x = 1;', 'const x = 2;'))).toBe(1);
   });
 
+  it('fails when a percent suffix is dropped', () => {
+    // -3.8% and -3.8 are different claims; matching only the bare number
+    // leaves the token count unchanged.
+    expect(run(SIGNED.replace('-3.8%', '-3.8'), SIGNED)).toBe(1);
+  });
+
   it('fails when a numeral loses its sign', () => {
     // -3.8% and +3.8% are opposite claims; matching from the digit misses it.
     expect(run(SIGNED.replace('-3.8%', '+3.8%'))).toBe(1);
