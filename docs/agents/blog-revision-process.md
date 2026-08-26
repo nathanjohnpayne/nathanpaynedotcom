@@ -34,6 +34,8 @@ Three rules that cost the most to learn:
 
 Run `scripts/verify-brevity.py BEFORE AFTER`. It fails on any change to URLs, `#NNN` references, timestamps, numerals or code spans (compared by occurrence count, not distinct value), to code, Mermaid or table blocks, or to the frontmatter fields tests pin as exact strings.
 
+**It does not catch swapped values.** The comparisons are global multisets, so an edit that exchanges two protected values between claims passes with every count unchanged: a date moved from one PR to another, two figures traded between rows. Catching that needs token-to-claim association, which this tool deliberately does not attempt. Read swaps yourself when a passage pairs values with subjects.
+
 It also reports numbers written as words as an **advisory note**. That cannot gate --- no regex separates "six PRs" from "one of the reasons" --- but it is what makes a dropped count visible at all. One pass silently dropped "across three platforms" and "the seventeen" inside phrases it cut. A numeral written as a word is invisible to a prose-focused edit and is still evidence.
 
 ## Defect classes worth grepping for

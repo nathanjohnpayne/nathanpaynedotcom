@@ -29,6 +29,12 @@ commit.
 
 Advisory notes print even under --quiet, since suppressing them in the gate
 path would hide exactly what they exist to surface.
+
+Known blind spot: comparisons are global multisets, so an edit that SWAPS two
+protected values between claims passes with every count unchanged. "PR #30
+merged at 10:04am; PR #47 at 2:11pm" becoming the reverse is invisible here.
+Catching that needs token-to-claim association, which is a different and much
+larger tool; this one is a cheap occurrence check by design.
 """
 
 from __future__ import annotations
