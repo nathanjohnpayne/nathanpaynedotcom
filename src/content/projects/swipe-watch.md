@@ -44,7 +44,7 @@ The content catalog is hand-curated, and the repo's own record of its growth nee
 
 The coin and unlock system came after the core swiping worked—two commits on the Friday evening, nineteen minutes apart. The initial build proved the interaction, but sessions felt finite: you'd swipe through the deck and stop. Earning coins by swiping and spending them to unlock curated discovery batches gave the deck a bottom worth reaching, and the end screen became a persistent coin bank with a spend mechanic instead of a dead-end "you're done" state.
 
-A dedicated pass the same evening made the swipe gesture discoverable, the card animations responsive, and the first session self-explanatory. A 21-line fix in April handled mobile card image scaling and badge clipping, which only surfaced on smaller viewports where the poster art cropped differently than expected.
+A dedicated pass the same evening added gesture hints, tuned the card animations, and built a first-run walkthrough. Whether any of that made the first session self-explanatory is not something the record can say. A 21-line fix in April handled mobile card image scaling and badge clipping, which only surfaced on smaller viewports where the poster art cropped differently than expected.
 
 ## Why it matters
 
