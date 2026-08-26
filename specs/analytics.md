@@ -90,3 +90,44 @@ may be removed later without affecting the other.
    both a résumé link and a `.social-row`, so clicking it intentionally records
    **both** `resume_link_clicked` (the location-agnostic résumé aggregate) and
    `social_link_clicked` with `platform: "resume"` (the social-stack breakdown).
+
+### Error Tracking
+
+1. Exception autocapture is enabled server-side through PostHog's remote
+   config, not in `posthog.astro`. The site ships no client-side `before_send`
+   filter, so every unhandled exception a browser reports is ingested.
+2. Error-tracking alerts open GitHub Issues automatically. A signature proven to
+   originate outside the site is therefore set to **suppressed**, never
+   "resolved"—a resolved issue reopens on the next matching event and files a
+   *second* GitHub Issue. That is exactly how #714 became #797 three days later,
+   for one unchanged signature.
+3. Issue status is the right instrument here because it is scoped to the
+   fingerprint group. A genuinely different exception gets its own fingerprint,
+   so it forms its own issue and still alerts.
+4. Ingestion-level **suppression rules are deliberately not used** for this.
+   PostHog restricts those filters to the exception type and message, because a
+   stack may still be minified client-side. The narrowest rule expressible would
+   therefore drop every `SyntaxError` carrying the message below—including a
+   real one, if the site ever shipped `?.` or `??` to a parser that could not
+   read it. Issue status costs the ingestion of a handful of events and keeps
+   the evidence queryable; a rule would silently discard both.
+5. One issue is suppressed: `SyntaxError: Unexpected token ?`. It is emitted by
+   an automated scanner, not by the site. The evidence is recorded here so the
+   finding is not re-derived from scratch a third time:
+   - The frame is `synthetic: true` with `resolve_failure: "This frame had no
+     source url or chunk id"`—a bare `window.onerror` report carrying no
+     filename.
+   - Every event reports line 96, column 61, identically, across five pages
+     whose HTML is entirely different. `/projects/` is 72 lines long, so it has
+     no line 96 for that frame to refer to.
+   - All events share one impossible device fingerprint: a 1024×768 viewport on
+     an 800×600 screen—a viewport larger than the screen containing it—under a
+     byte-identical Edge 122 / Windows 10 user agent, while the source IPs
+     rotate across countries.
+   - Every session is one `$pageview`, one `$exception` a second or two later,
+     and nothing further. No interaction, always a `$direct` referrer.
+   - Edge 122 supports both `?.` and `??`, so a genuine client on that version
+     would not fail to parse the site's inline scripts.
+6. To undo, set the issue back to `active` in
+   [error tracking](https://us.posthog.com/project/469428/error_tracking).
+   Suppression is not retroactive and drops nothing already stored.
