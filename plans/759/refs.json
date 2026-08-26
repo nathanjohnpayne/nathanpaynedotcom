@@ -1517,14 +1517,15 @@
       "title": "fix(lint): close Vale migration follow-ups",
       "url": "https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/725",
       "repo": "nathanjohnpayne/nathanpaynedotcom",
-      "type": "pull_request",
+      "type": "pull",
       "cited_in": [
         "autofix-was-the-whole-cost"
       ],
-      "resolved": "2026-08-26",
+      "resolved": true,
       "bare_number_collision": {
-        "checked": true,
-        "note": "resolved explicitly by repo-qualified key"
+        "other_repo": "nathanjohnpayne/mergepath",
+        "exists_there": true,
+        "other_title": "fix(724): flip stale visibility: private example in templated-propagation.md"
       }
     },
     "nathanjohnpayne/nathanpaynedotcom#73": {
