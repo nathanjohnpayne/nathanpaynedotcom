@@ -131,13 +131,19 @@ describe('base64-assembled mail links resolve at load (#790)', () => {
         // The failure this guards: href still '#' after load means the
         // assembly moved behind an interaction handler.
         expect(href, `${label} did not resolve at load — still inert`).not.toBe('#');
-        expect(href, `${label} resolved to a non-mailto destination`).toMatch(
-          new RegExp(`^mailto:${ADDRESS.replace('.', '\\.')}(\\?|$)`),
+        // Split and compared as strings rather than matched against a regex
+        // built from ADDRESS: `String.replace` with a string pattern escapes
+        // only the FIRST match, so a second dot in the address would silently
+        // become a wildcard.
+        expect(href.startsWith('mailto:'), `${label} resolved to a non-mailto destination`).toBe(
+          true,
         );
+        const [recipient, query] = href.slice('mailto:'.length).split('?');
+        expect(recipient, `${label} resolved to the wrong address`).toBe(ADDRESS);
 
         // A subject is optional, but an empty one is a broken assembly rather
         // than a deliberate omission.
-        const subject = new URL(href).searchParams.get('subject');
+        const subject = query === undefined ? null : new URLSearchParams(query).get('subject');
         if (subject !== null) {
           expect(subject.trim(), `${label} assembled an empty subject`).not.toBe('');
         }
