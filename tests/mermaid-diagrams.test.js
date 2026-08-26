@@ -138,6 +138,57 @@ describe('rehype-mermaid integration', () => {
     expect(document.body.textContent).toContain('second line');
   });
 
+  it('renders each authored label break as exactly one line', async () => {
+    const rendered = await renderSidebarMermaid([
+      {
+        type: 'mermaid',
+        title: 'Two-line labels',
+        description: 'A two-line label leads to another two-line label.',
+        content: 'graph TD\nA["First line<br/>second line"] --> B["Third line<br/>fourth line"]',
+      },
+    ]);
+    const html = rendered.get(0);
+
+    // `br` is void in HTML but not in SVG, so a serializer that never leaves
+    // the SVG schema inside foreignObject writes `<br></br>`—and every HTML
+    // parser reads that closing tag as a second break (#788).
+    expect(html, 'a doubled line break survived serialization').not.toContain('</br>');
+
+    const document = new JSDOM(html).window.document;
+    const labelLines = [...document.querySelectorAll('svg.mermaid .nodeLabel')].map((label) =>
+      [...label.querySelectorAll('p')].map((line) => line.textContent),
+    );
+
+    expect(labelLines).toEqual([
+      ['First line', 'second line'],
+      ['Third line', 'fourth line'],
+    ]);
+    expect(document.querySelector('svg.mermaid foreignObject br')).toBeNull();
+  });
+
+  it('ships every built label break as a single line break', () => {
+    expect(existsSync(builtBlogRoot), 'dist/blog must exist; run npm run build first').toBe(true);
+    let multilineLabelCount = 0;
+
+    for (const pagePath of builtBlogPagePaths()) {
+      const slug = builtBlogSlug(pagePath);
+      const html = readFileSync(pagePath, 'utf8');
+      const document = new JSDOM(html).window.document;
+
+      expect(html, `${slug}: a doubled Mermaid line break shipped`).not.toContain('</br>');
+      expect(
+        document.querySelectorAll('svg.mermaid foreignObject br'),
+        `${slug}: a label break can still be doubled by an HTML parser`,
+      ).toHaveLength(0);
+      multilineLabelCount += document.querySelectorAll('svg.mermaid .nodeLabel p + p').length;
+    }
+
+    expect(
+      multilineLabelCount,
+      'the assertion must exercise multiline built labels',
+    ).toBeGreaterThan(0);
+  });
+
   it('ships built diagrams as accessible static SVG', () => {
     expect(existsSync(builtBlogRoot), 'dist/blog must exist; run npm run build first').toBe(true);
     let diagramCount = 0;
@@ -189,7 +240,9 @@ describe('rehype-mermaid integration', () => {
 
     expect(paletteDocument.querySelector('[style*="fill:#DA2418" i]')).not.toBeNull();
     expect(paletteDocument.querySelector('.edge-pattern-dotted')).not.toBeNull();
-    expect(failureModesDocument.querySelector('svg.mermaid foreignObject br')).not.toBeNull();
+    expect(
+      failureModesDocument.querySelector('svg.mermaid foreignObject .nodeLabel p + p'),
+    ).not.toBeNull();
     expect(failureModesDocument.body.textContent).toContain('TipTap / ProseMirror');
     expect(failureModesDocument.body.textContent).toContain('Sent Email HTML');
   });
