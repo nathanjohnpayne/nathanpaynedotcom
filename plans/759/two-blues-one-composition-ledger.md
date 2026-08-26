@@ -27,7 +27,7 @@ Every figure below was re-measured from the two JPEGs committed at `public/blog/
 
 **SUPPORTED as measurements, WRONG as "the actual red."** My independent medians on the shipped file: red `#DE2922`, blue `#015D9D`, yellow `#ECD971`. Red and blue reproduce to within one 8-bit step per channel; yellow to within three. The red median is stable at `#DE2922`–`#DE2923` across every saturation threshold from 0.1 to 0.75, which is exactly the robustness the post claims for it.
 
-What does not survive is the word **actual**. These are medians of one downscaled, JPEG-recompressed, sRGB-tagged reproduction of a 45 × 45 cm painted surface, carrying gallery lighting, an unrecorded imaging pipeline, and ninety-six years of paint chemistry. Issue #498's own token table says as much—"treat sampled values as hue anchors"—and #742's acceptance criteria ask for exactly this substitution. Defensible form: "the median of the red plane in this reproduction is `#DE2822`." Source: `public/blog/two-blues-one-composition/img/composition-ii-red-blue-yellow-1930.jpg`; §J script.
+What does not survive is the word **actual**. These are medians of one downscaled, JPEG-recompressed, **untagged** reproduction (conventionally interpreted as sRGB—see §N.2) of a 45 × 45 cm painted surface, carrying gallery lighting, an unrecorded imaging pipeline, and ninety-six years of paint chemistry. Issue #498's own token table says as much—"treat sampled values as hue anchors"—and #742's acceptance criteria ask for exactly this substitution. Defensible form: "the median of the red plane in this reproduction is `#DE2822`." Source: `public/blog/two-blues-one-composition/img/composition-ii-red-blue-yellow-1930.jpg`; §J script.
 
 ### A2—The 1921 scan values
 
@@ -303,7 +303,7 @@ Defensible form, and note this one is cheap: the *code* can keep `[data-palette=
 
 > "The post reports medians (including 468,315 red pixels) without the source image version, download URL, hash, color profile, crop/mask rule, conversion space, sampling script, or uncertainty. A reader cannot reproduce the numbers."
 
-Both museum JPEGs are committed at `public/blog/two-blues-one-composition/img/`, both are sRGB-tagged, and a nine-line script reproduces every published median to within three 8-bit steps (§A1, §A2, §J). The missing pieces are the **hash, the profile, the mask rule and the script**—all publishable in a short methods note. The one figure that genuinely does not reproduce is the pixel count (§A3).
+Both museum JPEGs are committed at `public/blog/two-blues-one-composition/img/`, neither carries an embedded ICC profile (§N.2), and a nine-line script reproduces every published median to within three 8-bit steps (§A1, §A2, §J). The missing pieces are the **hash, the profile, the mask rule and the script**—all publishable in a short methods note. The one figure that genuinely does not reproduce is the pixel count (§A3).
 
 The acceptance criterion "Publish the sampling method and inputs" is therefore *satisfiable in full*, not a reason to soften the colour claims. Do not let the drafting pass hedge the medians into vagueness when they are the most solid evidence in the post.
 
@@ -428,7 +428,7 @@ An independent verifier re-derived every measurement here against the same shipp
 
 **N.8—§A3's threshold argument overstates.** A finer sweep places 468,315 between `s_min` 0.82 (498,357) and 0.83 (436,387). The UNPROVABLE verdict survives; the wording must be **"no *stated* rule produces it,"** not "no threshold does."
 
-**N.9—the tool named four times is not the repository's minifier.** `astro.config.mjs` sets no `vite.css.transformer`, so Astro minifies CSS with **esbuild**; `lightningcss` is only a transitive dependency. The conclusions survive against the real artifact, but #742 asks for the minifier version, so the drafting pass would otherwise publish the wrong one.
+**N.9—RETRACTED. This correction was itself wrong, and the post was right all along.** The minifier **is** Lightning CSS (`lightningcss` 1.32.0, shipped inside `vite` 8.0.16 inside `astro` 7.2.4), which Vite 8 uses for CSS minification by default. The empirical test is decisive and was available the whole time: Lightning CSS folds a custom property to `--surface:#f4efe5f5`, which is byte-for-byte what `dist/_astro/global.CwkyM5F4.css` contains, while esbuild leaves custom properties untouched and could not have produced that artifact. Two review rounds were spent unwinding this, and a rebuttal I posted was built on it. **The lesson is that a verification pass can introduce an error as easily as it removes one, and the artifact—not the reasoning—is the arbiter.**
 
 **N.10—§C4's "neither surface supports 'twice'" contradicts its own paragraph.** `git show 9d6139f:src/styles/global.css | grep -c '223f89'` returns **2**, which the preceding sentence already concedes. Keep UNPROVABLE, drop "neither surface": the source does return two, and it is the reconstructed artifact that returns three.
 
