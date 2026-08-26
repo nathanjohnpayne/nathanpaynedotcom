@@ -1,9 +1,11 @@
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { basename, dirname, relative, resolve, sep } from 'node:path';
+import { toHtml } from 'hast-util-to-html';
 import { JSDOM } from 'jsdom';
 import { describe, expect, it } from 'vitest';
 import { findFilesRecursively } from '../scripts/lib/blog-file-inventory.mjs';
 import { renderSidebarMermaid } from '../src/lib/render-sidebar-mermaid.mjs';
+import { rehypeMermaidSvg } from '../src/plugins/rehype-mermaid-accessibility.mjs';
 
 const builtRoot = resolve('dist');
 const builtBlogRoot = resolve('dist/blog');
@@ -155,15 +157,158 @@ describe('rehype-mermaid integration', () => {
     expect(html, 'a doubled line break survived serialization').not.toContain('</br>');
 
     const document = new JSDOM(html).window.document;
-    const labelLines = [...document.querySelectorAll('svg.mermaid .nodeLabel')].map((label) =>
-      [...label.querySelectorAll('p')].map((line) => line.textContent),
+    const labels = [...document.querySelectorAll('svg.mermaid .nodeLabel p')];
+
+    expect(labels.map((label) => label.textContent)).toEqual([
+      'First line\nsecond line',
+      'Third line\nfourth line',
+    ]);
+    // A newline only breaks the line when the element holding it says so.
+    for (const label of labels) {
+      expect(label.getAttribute('style'), label.textContent).toMatch(
+        /white-space:\s*pre\s*!\s*important/,
+      );
+    }
+    expect(document.querySelector('svg.mermaid foreignObject br')).toBeNull();
+  });
+
+  it('breaks a Markdown-string label that formats across the break', async () => {
+    // Mermaid renders a Markdown-string label as `<p><strong>first<br>second
+    // </strong></p>`, so the break sits inside the formatting rather than
+    // beside it. Rewriting the break itself reaches it; restructuring the
+    // paragraph around it does not (#789).
+    const rendered = await renderSidebarMermaid([
+      {
+        type: 'mermaid',
+        title: 'Formatted two-line label',
+        description: 'A bold two-line label leads to a plain one.',
+        content: 'graph TD\nA["`**First line<br/>second line**`"] --> B["Plain"]',
+      },
+    ]);
+    const html = rendered.get(0);
+
+    expect(html, 'a doubled line break survived serialization').not.toContain('</br>');
+    expect(html, 'a void break element survived').not.toContain('<br');
+
+    const document = new JSDOM(html).window.document;
+    const formatted = document.querySelector('svg.mermaid .nodeLabel strong');
+
+    expect(formatted?.textContent).toBe('First line\nsecond line');
+    expect(formatted?.getAttribute('style')).toMatch(/white-space:\s*pre\s*!\s*important/);
+  });
+
+  it('rewrites a label break wherever Mermaid puts it', () => {
+    // Some shapes here are synthetic: they stand in for label structures a
+    // future Mermaid release could emit but this one does not (#789). The
+    // invariant is that no `br` reaches the serializer and that whatever holds
+    // the resulting newline honors it, without taking away wrapping the
+    // container was measured with.
+    const NOWRAP = 'display: table-cell; white-space: nowrap; line-height: 1.5;';
+    const WRAPPING = 'display: table; white-space: break-spaces; line-height: 1.5; width: 200px;';
+
+    const element = (tagName, children, properties = {}) => ({
+      type: 'element',
+      tagName,
+      properties,
+      children,
+    });
+    const text = (value) => ({ type: 'text', value });
+    const labelFigure = (inner, containerStyle) =>
+      element(
+        'figure',
+        [
+          element('svg', [
+            element('foreignObject', [element('div', [inner], { style: containerStyle })]),
+          ]),
+        ],
+        { className: ['mermaid-figure'] },
+      );
+
+    const broken = (tagName, properties = {}) =>
+      element(tagName, [text('A'), element('br', []), text('B')], properties);
+
+    const shapes = {
+      paragraph: [element('span', [broken('p')]), NOWRAP],
+      noParagraph: [broken('span'), NOWRAP],
+      nestedInline: [
+        element('span', [element('p', [text('A'), broken('em', { style: 'color:#333' })])]),
+        NOWRAP,
+      ],
+      consecutive: [
+        element('span', [
+          element('p', [text('a'), element('br', []), element('br', []), text('b')]),
+        ]),
+        NOWRAP,
+      ],
+      wrappingContainer: [element('span', [broken('p')]), WRAPPING],
+      undeclaredContainer: [element('span', [broken('p')]), undefined],
+      importantOwnDeclaration: [
+        broken('span', { style: 'white-space: nowrap !important' }),
+        NOWRAP,
+      ],
+      // `!important` outranks source order, so the effective value here is
+      // `nowrap` even though `break-spaces` is declared later.
+      importantOutranksOrder: [
+        element('span', [broken('p')]),
+        'white-space: nowrap !important; white-space: break-spaces; line-height: 1.5;',
+      ],
+      // A raw label can declare `nowrap` inside a wrapping container, spelled
+      // with whitespace or a comment before the colon. Missing either spelling
+      // reads the container's `break-spaces`, adds nothing, and lets the
+      // browser collapse the newline under the `nowrap` that really applies.
+      spacedDeclaration: [
+        element('span', [broken('p', { style: 'white-space : nowrap' })]),
+        WRAPPING,
+      ],
+      commentedDeclaration: [
+        element('span', [broken('p', { style: 'white-space /* c */ : nowrap' })]),
+        WRAPPING,
+      ],
+    };
+
+    const rendered = Object.fromEntries(
+      Object.entries(shapes).map(([name, [inner, containerStyle]]) => {
+        const tree = { type: 'root', children: [labelFigure(inner, containerStyle)] };
+        rehypeMermaidSvg()(tree);
+        return [name, toHtml(tree)];
+      }),
     );
 
-    expect(labelLines).toEqual([
-      ['First line', 'second line'],
-      ['Third line', 'fourth line'],
-    ]);
-    expect(document.querySelector('svg.mermaid foreignObject br')).toBeNull();
+    for (const [name, html] of Object.entries(rendered)) {
+      expect(html, `${name}: a doubled line break survived serialization`).not.toContain('</br>');
+      expect(html, `${name}: a void break element survived`).not.toContain('<br');
+    }
+
+    // A non-wrapping container needs `pre`, which is its own rule plus
+    // newlines, and `preserve-breaks` to keep its space collapsing. Both are
+    // `!important` so a label declaring its own `white-space` cannot win.
+    const PRE = 'white-space: pre !important; white-space-collapse: preserve-breaks !important';
+    expect(rendered.paragraph).toContain(`<p style="${PRE}">A\nB</p>`);
+    expect(rendered.noParagraph).toContain(`<span style="${PRE}">A\nB</span>`);
+    // An existing declaration is kept, and the new one is appended so it wins.
+    expect(rendered.nestedInline).toContain(`<em style="color:#333; ${PRE}">A\nB</em>`);
+    // Consecutive breaks keep the blank line Mermaid measured the box for.
+    expect(rendered.consecutive).toContain(`<p style="${PRE}">a\n\nb</p>`);
+    // `break-spaces` already honors newlines. Forcing a value would drop the
+    // wrapping Mermaid measured this label with, so nothing is added.
+    expect(rendered.wrappingContainer).toContain('<p>A\nB</p>');
+    // With nothing declared, wrapping is the default and must be preserved.
+    expect(rendered.undeclaredContainer).toContain(
+      '<p style="white-space: pre-wrap !important; white-space-collapse: preserve-breaks !important">A\nB</p>',
+    );
+    // A label declaring its own important white-space is still overridden.
+    expect(rendered.importantOwnDeclaration).toContain(
+      `<span style="white-space: nowrap !important; ${PRE}">A\nB</span>`,
+    );
+    // Reading the last declaration instead of the winning one would misread
+    // this container as wrapping and leave the newline to collapse.
+    expect(rendered.importantOutranksOrder).toContain(`<p style="${PRE}">A\nB</p>`);
+    expect(rendered.spacedDeclaration).toContain(
+      `<p style="white-space : nowrap; ${PRE}">A\nB</p>`,
+    );
+    expect(rendered.commentedDeclaration).toContain(
+      `<p style="white-space /* c */ : nowrap; ${PRE}">A\nB</p>`,
+    );
   });
 
   it('ships every built label break as a single line break', () => {
@@ -180,7 +325,9 @@ describe('rehype-mermaid integration', () => {
         document.querySelectorAll('svg.mermaid foreignObject br'),
         `${slug}: a label break can still be doubled by an HTML parser`,
       ).toHaveLength(0);
-      multilineLabelCount += document.querySelectorAll('svg.mermaid .nodeLabel p + p').length;
+      multilineLabelCount += [...document.querySelectorAll('svg.mermaid .nodeLabel')].filter(
+        (label) => label.textContent.includes('\n'),
+      ).length;
     }
 
     expect(
@@ -241,8 +388,10 @@ describe('rehype-mermaid integration', () => {
     expect(paletteDocument.querySelector('[style*="fill:#DA2418" i]')).not.toBeNull();
     expect(paletteDocument.querySelector('.edge-pattern-dotted')).not.toBeNull();
     expect(
-      failureModesDocument.querySelector('svg.mermaid foreignObject .nodeLabel p + p'),
-    ).not.toBeNull();
+      [...failureModesDocument.querySelectorAll('svg.mermaid foreignObject .nodeLabel')].some(
+        (label) => label.textContent.includes('\n'),
+      ),
+    ).toBe(true);
     expect(failureModesDocument.body.textContent).toContain('TipTap / ProseMirror');
     expect(failureModesDocument.body.textContent).toContain('Sent Email HTML');
   });
