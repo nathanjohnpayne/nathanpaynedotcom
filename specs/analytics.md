@@ -95,7 +95,9 @@ may be removed later without affecting the other.
 
 1. Exception autocapture is enabled server-side through PostHog's remote
    config, not in `posthog.astro`. The site ships no client-side `before_send`
-   filter, so every unhandled exception a browser reports is ingested.
+   filter, so it discards nothing of its own: whenever PostHog initializes at
+   all (Initialization req. 3), an unhandled exception the browser reports is
+   eligible for ingestion.
 2. Error-tracking alerts open GitHub Issues automatically. A signature proven to
    originate outside the site is therefore set to **suppressed**, never
    "resolved"—a resolved issue reopens on the next matching event and files a
