@@ -122,7 +122,7 @@ The issue also attached a known-good sent email. That mattered—the job was nev
 
 ## What I said to the agent
 
-The prompts that drove the six PRs come from my session log, which I have not published. Unlike the timestamps and review counts elsewhere in this post, these excerpts are author records a reader cannot check. I quote them anyway, because for most of those twenty-two hours they were the only specification of the bug that existed anywhere.
+The prompts that drove the six PRs come from my session log, which I have not published. Unlike the timestamps and review counts elsewhere in this post, these excerpts are author records a reader cannot check. I quote them anyway, because for most of those twenty-two hours they were the only statement of the problem attached to the work—the design spec had described correct output all along, but nothing anyone was building or reviewing pointed at it.
 
 **Prompt 6** (first report, two screenshots):
 

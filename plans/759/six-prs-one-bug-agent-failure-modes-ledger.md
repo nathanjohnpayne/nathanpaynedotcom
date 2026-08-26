@@ -30,7 +30,9 @@ Verdicts: **SUPPORTED** · **WRONG** (corrected value given) · **UNPROVABLE** (
 
 The last of the six, #158, **closed 36 minutes before #159 was filed**. Only #161 comes after the issue.
 
-Corrected value, and it is a better story: the six PRs came first, each chasing a symptom without a stated invariant. Issue #159 is what happened *after* they failed—the moment the problem stopped being a series of tickets and got named as one. Then #161 fixed it. The post currently reads as though the issue kicked off the six attempts, which reverses the causal arrow and loses the actual product lesson: nobody had written down what "correct" meant until six PRs had already shipped against it.
+Corrected value, and it is a better story: the six PRs came first, each chasing a symptom without a stated invariant. Issue #159 is what happened *after* they failed—the moment the problem stopped being a series of tickets and got named as one. Then #161 fixed it. The post currently reads as though the issue kicked off the six attempts, which reverses the causal arrow and loses the actual product lesson.
+
+**That lesson was itself stated wrongly here, and the error propagated—see §M3.** The first version of this row said "nobody had written down what `correct` meant until six PRs had already shipped against it." That is false: the design spec `invoicing-tab-redesign.md` had written it down a day before #144, and #144's own kickoff prompt pointed at that spec. The defensible lesson is narrower and better: the definition existed, and for twenty-one hours nothing anyone was building or reviewing was attached to it. A correctness standard nobody cites is operationally absent without being missing.
 
 The post's own date is right—#159 was filed on April 4—and "roughly twenty hours" is fair for the whole arc: first PR opened to last PR closed is **22 h 06 m** (`2026-04-03T19:51:18Z` → `2026-04-04T17:57:49Z`). It is just not twenty hours *after* the issue. Source: `refs.json` → the nine FFB entries, `.created_at` / `.closed_at` / `.merged_at`.
 
@@ -156,7 +158,7 @@ Counts are **words**, via `wc -w` over the whole file, the same method as the ep
 
 | Measure (words) | Baseline | Revised | Change |
 | --- | ---: | ---: | ---: |
-| Whole file (the epic's 4,463 baseline) | 4,463 | 4,409 | **−1.2%** |
+| Whole file (the epic's 4,463 baseline) | 4,463 | 4,428 | **−0.8%** |
 
 **Short of the 20–30% guidance, and deliberately so.** (Recount this figure at final HEAD before merge—review rounds add words as often as they remove them; the −3.8% recorded here went stale twice.) #744's own compression clause is the only one in the epic that carries a carve-out—"with chronology retained where it is evidence"—and after §A1 the chronology *is* the evidence. The corrected arc only works if the reader can see that all six PRs precede the issue, which needs the timestamped table, and that each PR was locally reasonable, which needs the per-PR sections.
 
@@ -301,3 +303,16 @@ Round 3's other four findings, all confirmed and all fixed:
 | `3864326885` | post:270 | "every piece of HTML a recipient sees comes from `renderInvoiceTemplate`" overstates—the sent email carries envelope chrome (branded header, container, "Sent via" footer) the preview lacks, visible in the post's own screenshots | Narrowed to the **template body**; envelope HTML named as outside the renderer by design |
 
 Pattern worth carrying to the remaining audits: three of these five are **scope creep on a true claim**—a correct finding stated one quantifier too wide (*every* prompt, *every* piece of HTML, *every* time). The underlying facts held; the universals did not.
+
+### M3—Where the retracted thesis was actually coming from
+
+Five review rounds removed this claim from the post and it returned each time. Round 5 found why: **§A1 of this ledger still asserted it.** The ledger is the source the drafting pass reads, so every pass re-seeded the error from the corrected-value column of the very row meant to fix the chronology.
+
+The lesson generalizes past this post. A ledger row can be right about its headline finding and wrong in the sentence that explains why the finding matters, and only the headline gets checked. §A1's chronology correction—all six PRs precede #159—was correct through all five rounds. Its closing clause was not, and that clause is what a drafting pass actually lifts.
+
+Two rules for the remaining audits:
+
+1. **Audit the ledger's own prose against the ledger's own evidence.** A corrected value stated in a sentence is still a claim. §K established the design spec predates #144; §A1 contradicted it for five rounds without either row noticing.
+2. **When a claim survives removal, stop editing the post and go find its source.** Rounds 2 through 5 each removed an instance and each assumed it was the last. The recurrence was the signal, and treating it as five separate slips instead of one upstream defect cost four rounds.
+
+Instances removed, in order: "no written invariant" (round 1), "nobody wrote down what correct meant" (round 2), "no prompt, issue, or spec anywhere licensing the question" (round 2), "nobody had that definition for the first twenty-one hours" (round 3), "the only specification of the bug that existed anywhere" (round 5). Source: §A1 of this file, corrected above.
