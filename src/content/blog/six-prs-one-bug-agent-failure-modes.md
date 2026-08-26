@@ -2,7 +2,7 @@
 title: "Six PRs, One Bug: What AI Agents Actually Get Wrong"
 seoTitle: "Six PRs, One Bug"
 shortTitle: "Six PRs, One Bug"
-description: "Editor, preview, and sent email disagreed in a billing app. The rule that would have caught it was sitting in a design spec the whole time—as prose, never as anything a reviewer could check. The chronology corrected against the public record, and the reframed brief that fixed it."
+description: "Editor, preview, and sent email disagreed in a billing app. The rule that would have caught it was sitting in a design spec the whole time—as prose, never as anything a reviewer could check. This is the corrected chronology, and the reframed brief that finally fixed it."
 seoDescription: "The rule that would have caught this billing parity bug sat in a design spec as prose, never as anything a review could check against."
 category: "Agent Systems"
 featured: true
@@ -243,11 +243,18 @@ export function buildInvoiceTemplateEmailPayload(ctx, shareUrl) {
 }
 ```
 
-Both surfaces now consume it:
+Both surfaces now consume it. The preview call site:
 
 ```js
-previewEmailPayload = buildInvoiceTemplateEmailPayload(ctx, previewShareUrl);
-previewBodyHTML = previewEmailPayload.html || renderInvoiceTemplate(ctx, previewShareUrl);
+const previewEmailPayload = buildInvoiceTemplateEmailPayload(ctx, previewShareUrl);
+const previewBodyHTML =
+    previewEmailPayload.html || renderInvoiceTemplate(ctx, previewShareUrl);
+```
+
+And the send path, which builds its own payload from the same function:
+
+```js
+const payload = buildInvoiceTemplateEmailPayload(ctx, shareUrl);
 
 await queueEmail({
     to,

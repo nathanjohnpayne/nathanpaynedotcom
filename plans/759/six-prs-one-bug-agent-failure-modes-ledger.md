@@ -152,7 +152,9 @@ Counting *all* review submissions instead gives 19. Neither is nine. If the figu
 
 ## H. Compression accounting
 
-| Measure | Baseline | Revised | Change |
+Counts are **words**, via `wc -w` over the whole file, the same method as the epic's baseline.
+
+| Measure (words) | Baseline | Revised | Change |
 | --- | ---: | ---: | ---: |
 | Whole file (the epic's 4,463 baseline) | 4,463 | 4,227 | **−5.3%** |
 
