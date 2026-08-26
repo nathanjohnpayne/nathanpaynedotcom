@@ -235,4 +235,10 @@ describe('verify-brevity', () => {
     expect(output(BEFORE)).toMatch(/prose \d+ -> \d+/);
     expect(output(BEFORE)).toMatch(/whole file, including tables and code/);
   });
+
+  it('does not report a case change as a lost spelled-out number', () => {
+    const before = 'We shipped seventeen fixes and one revert.\n';
+    const after = 'Seventeen fixes shipped, and one revert.\n';
+    expect(output(after, before)).not.toMatch(/note\s+spelled-out numbers/);
+  });
 });

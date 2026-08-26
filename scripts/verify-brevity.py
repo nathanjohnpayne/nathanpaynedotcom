@@ -185,7 +185,12 @@ def compare(before: str, after: str, quiet: bool) -> int:
         report(not lost and not added, label, detail)
 
     for label, pattern in ADVISORY_CLASSES:
-        b, a = Counter(_find(pattern, before, re.I)), Counter(_find(pattern, after, re.I))
+        # Case-folded: the class is matched case-insensitively, so counting
+        # "Seventeen" and "seventeen" as different tokens reported a sentence
+        # moving to the start of a sentence as a lost count. This note prints
+        # even under --quiet, so a false one costs more than most.
+        b = Counter(t.lower() for t in _find(pattern, before, re.I))
+        a = Counter(t.lower() for t in _find(pattern, after, re.I))
         lost = sorted(k for k in b if a[k] < b[k])
         added = sorted(k for k in a if b[k] < a[k])
         if lost or added:
