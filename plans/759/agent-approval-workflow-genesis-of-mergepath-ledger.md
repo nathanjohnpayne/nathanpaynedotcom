@@ -234,7 +234,13 @@ It is a static prediction from reading the repository's own enforcement code, no
 
 ### F2—"the remaining four repos propagated cleanly in under ten minutes"
 
-**SUPPORTED, and comfortably.** Sub-issues #47 friends-and-family-billing, #49 device-platform-reporting, #50 overridebroadway and #48 device-source-of-truth closed at `23:33:17Z`, `23:33:22Z`, `23:33:29Z`, `23:33:35Z`—an **18-second** spread. Source: `gh api repos/nathanjohnpayne/mergepath/issues/{47,48,49,50}` → `.closed_at`.
+**WRONG—and this row was wrong in the first draft of this ledger, which is the point of recording it.** The four `closed_at` values (`23:33:17Z`, `23:33:22Z`, `23:33:29Z`, `23:33:35Z`, an 18-second spread) establish only that four issues were **closed together**. They say nothing about when propagation started, how long it ran, or whether it was clean. Four issues can sit open for days and be closed in one sweep, which appears to be what happened.
+
+Checked against the actual propagation pull requests, the claim does not survive: `device-platform-reporting#52` ran `2026-04-19T15:17:25Z → 15:28:02Z` and `overridebroadway#31` ran `15:17:43Z → 15:28:51Z`—**about eleven minutes each, on April 19**, three days after the tracking issues were closed. An earlier attempt, `device-platform-reporting#51`, ran nearly twelve hours.
+
+Corrected value: the tracking issues closed within eighteen seconds of one another; the identifiable propagation PRs landed on April 19 and took roughly eleven minutes each. "Under ten minutes" is not supported by either measure.
+
+**This is the §K1 failure from the #740 audit, repeated by me in this one**: inferring the duration and success of an event from the timestamp at which someone closed a ticket about it. Writing the rule down did not stop me applying the same reasoning two posts later. Source: `gh api repos/nathanjohnpayne/mergepath/issues/{47,48,49,50}` → `.closed_at`; `gh api 'repos/nathanjohnpayne/device-platform-reporting/pulls?state=all'` and the same for `overridebroadway`, filtered on propagation titles → `.created_at`/`.merged_at`. Source: `gh api repos/nathanjohnpayne/mergepath/issues/{47,48,49,50}` → `.closed_at`.
 
 ### F3—"propagation is implicitly a fresh-eyes code review"
 
@@ -256,7 +262,7 @@ It is a static prediction from reading the repository's own enforcement code, no
 
 | Claim | Source |
 |---|---|
-| The PR-creation guard requires `Authoring-Agent:` and `## Self-Review` | `scripts/hooks/gh-pr-guard.sh`; independently re-confirmed when it blocked a bolded `**Authoring-Agent:**` line during the #740 audit |
+| PR creation requires `Authoring-Agent:` and `## Self-Review` | The **wrapper's** contract, `scripts/lib/pr-body-contract.mjs:83`, enforces it; `scripts/hooks/gh-pr-guard.sh` enforces that the wrapper is used at all. Re-confirmed when a bolded `**Authoring-Agent:**` line was refused during the #740 audit—by the contract, not the hook (§M1) |
 | PR #60 was a docs-only change touching `.github/**`, merged 2026-04-15 | `refs.json` → `#60`, +60/−10 over 2 files |
 | PR #63 added a runtime label re-verify, +53/−0 in one file | `refs.json` → `#63` |
 | PR #76 was the consolidated back-port, +450/−102 over 3 files | `refs.json` → `#76` |
@@ -285,16 +291,30 @@ Measured at the revised head with `wc -w`, the same method as the epic's baselin
 
 | Measure | Baseline | Revised | Change |
 | --- | ---: | ---: | ---: |
-| Whole file (the epic's 4,418 baseline) | 4,418 | 3,724 | **−15.7%** |
-| Body prose, frontmatter excluded | 3,993 | 3,279 | **−17.9%** |
+| Whole file (the epic's 4,418 baseline) | 4,418 | 3,998 | **−9.5%** |
+| Body prose, frontmatter excluded | 3,993 | 3,553 | **−11.0%** |
 
-**Neither figure reaches the 20–30% band, and after the review rounds the body no longer does either.** Two things grew there, both required by the acceptance criteria. The `keyTakeaways` had to carry calibrated language the originals did not—"repeated observation, not controlled measurement" is longer than "measurably better", and that is the point of the change. The `description` and the diagram's `description` both gained the April-2026 snapshot boundary.
+**Neither figure reaches the 20–30% band, and the distance grew with every review round.** The first draft hit −20.8% on body prose. Five Codex rounds later it is −11.0%. Two things grew there, both required by the acceptance criteria. The `keyTakeaways` had to carry calibrated language the originals did not—"repeated observation, not controlled measurement" is longer than "measurably better", and that is the point of the change. The `description` and the diagram's `description` both gained the April-2026 snapshot boundary.
 
 The body also absorbed three sections the acceptance criteria require and the original did not have: the enforcement-boundary table ("every enforcement claim names its boundary"), the corrected-numbers section with its pointer to this ledger ("a linked or embedded counting note"), and "Since the snapshot" ("a reader can tell historical behavior from current Mergepath behavior"). Net of those additions the surviving original prose is down considerably more than 20.8%.
 
 Per the epic's compression clause—"meet the 20–30% guidance, **or document why retained chronology or evidence earns the additional length**"—this row is that documentation, and the operator has since confirmed in chat that the reduction is a guideline rather than a gate: if cutting would damage the post, do not cut.
 
-The gap widened rather than closed as review proceeded, and that is the substantive point. Every round added words for the same reason: a claim that had been short and wrong became longer and right. Naming which of two round limits was actually tested on PR #787 cost 40 words. Attributing a rejection to the wrapper's body contract rather than to the hook cost 60, and replaced a wrong one-clause aside with the clearest illustration of layered boundaries in the post. Distinguishing Codex findings from CodeRabbit's in one sequence cost 9. None of that is padding, and none of it can come out without putting an error back.
+The gap widened rather than closed as review proceeded, and that is the substantive point rather than an excuse. Across five rounds, twenty-three findings were accepted, and almost every fix cost words, always for the same reason: a claim that had been short and wrong became longer and right.
+
+The largest additions, with what each bought:
+
+| Correction | Cost | What the short version had been |
+|---|---:|---|
+| Separating the hook from the wrapper's body contract, in both places it is described | ~110 words | "the hook refuses it unless the body carries…"—wrong about which component does the work |
+| Distinguishing the Codex GitHub App from the `nathanpayne-codex` CLI identity | ~55 words | "Codex never posts an `APPROVED` review"—contradicted by this post's own #66 record |
+| Retracting the propagation-duration claim | ~50 words | "propagated cleanly in under ten minutes"—inferred from closure timestamps (§F2) |
+| Naming which of two round limits was tested on PR #787 | ~40 words | "the `max_review_rounds` guard… fires"—it did not (§L2) |
+| Qualifying branch protection and splitting the break-glass row | ~35 words | "binds everyone, including the human"—an admin walks past it |
+| Closing the exactly-300-lines gap | ~30 words | a PR of exactly 300 lines belonged to neither lane |
+| Dating the current-state figures | ~15 words | undated "today" figures that rot silently |
+
+Every one of those is a correction, not padding, and none can come out without putting an error back. A post whose subject is that unreviewed numbers ship is a poor place to trade accuracy for a word count.
 
 What was actually removed, in rough order of size: the inline `mermaid` Phase 4a flow diagram from the body (the sidebar diagram plus the two-script prose carries it); the quoted `gh-pr-guard.sh` bash snippet and the `review-policy.yml` block (described in prose instead, with the `functions/**` omission retained because it is evidence); the component inventory in "What a consumer repo got", cut roughly in half; and the restatement of the lede's "no natural pause" argument at the top of the discovery section.
 
@@ -428,4 +448,38 @@ Three findings, all correct, and all three of the same species: a correction app
 §N4 qualified the post's table and left this ledger's equivalent row unqualified. Both now carry the `--admin` caveat, and the hook row additionally notes that on the author-wrapper path it checks only that the wrapper was used.
 
 **What the exhaustive grep found that the review did not.** Acting on these three, a `grep` for every instance of each claim surfaced **five** sites, not three: the two Codex named in the post plus Rule 1's "a server rule binds everyone", and both ledger rows rather than one. All five are fixed. The lesson from §N was to grep both artifacts; the lesson from this round is to grep *before* replying to the finding, because a review names the instances it happened to read, not the instances that exist.
+
+---
+
+## P. Codex round-5 addendum (PR #791)—the round limit
+
+Six findings, all correct, all fixed. This is round five, the operator's cap for this PR, so the PR goes to a manual Phase 4b handoff rather than a sixth round.
+
+### P1—The compression table was stale again
+
+Third time. Recomputed at this head: 3,998 whole-file, 3,553 body. §J now carries the real figures and an itemised table of what each correction cost, because the pattern is the finding.
+
+### P2—§H still credited the hook with the body contract
+
+The "claims that stand as written" table had the pre-§M1 attribution. Corrected: the contract enforces the fields, the hook enforces that the wrapper is used.
+
+### P3—The break-glass row collapsed two boundaries
+
+`BREAK_GLASS_ADMIN` and `BREAK_GLASS_MERGE_STATE` are read by the local hook and never leave the machine; only the resulting `--admin` flag reaches GitHub and invokes the server-side bypass. The table listed them as one row spanning "local hook, then server", which is exactly the conflation the table exists to prevent. Split into two rows.
+
+### P4—"Under ten minutes" was wrong, and wrong in a way I had already written a rule about
+
+See §F2, now rewritten. Four issues closing within eighteen seconds shows four issues were closed together, not that work took eighteen seconds. Checked against the actual propagation PRs, `device-platform-reporting#52` and `overridebroadway#31` ran about **eleven minutes each on April 19**—three days after the tracking issues closed—and an earlier attempt ran nearly twelve hours.
+
+This is the **§K1 failure from the #740 audit**, committed again by me here: inferring an event's duration and success from the timestamp on a ticket about it. #740's ledger states the rule; #739's ledger broke it two posts later. A rule written down is not a rule applied.
+
+### P5—The "today" figures had no date
+
+The historical numbers are pinned to April 16; the current ones were not pinned to anything, so they would silently rot. Dated to August 26, 2026.
+
+### P6—"Codex never posts an `APPROVED` review" contradicted this post's own evidence
+
+True of the Codex **GitHub App**, false of the `nathanpayne-codex` CLI reviewer identity, which posts ordinary approvals—twice on PR #66, as this very post describes two sections later, and a third time on PR #65 per §D2. The post now distinguishes the bot from the identity and says why the conflation matters: a merge gate that waits on the App for a state it never emits waits forever.
+
+**Closing tally for this PR.** Twenty-three findings across five Codex rounds plus two from the reviewer pass. **No P0 or P1 in any round.** Ten of the twenty-three were in this ledger rather than the post. Four were corrections to claims that earlier rounds had already corrected somewhere else in the same file, and two—§F2 here and §L2 earlier—were repetitions of failure modes the #740 ledger had already named and I had already written rules against.
 
