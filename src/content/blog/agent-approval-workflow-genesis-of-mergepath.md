@@ -35,7 +35,7 @@ sidebar:
       graph TD
           A["Instruction files only<br/>(AGENTS.md, CLAUDE.md)"] --> B["GitHub branch rules<br/>(require PRs)"]
           B --> C["Self-review under<br/>separate identity"]
-          C --> D["External review for<br/>complex changes (>300 lines)"]
+          C --> D["External review for<br/>complex changes (300+ lines)"]
           D --> E["Automated external<br/>review via Codex App"]
           style A fill:#e8b4b4,stroke:#993d3d,color:#333
           style B fill:#d4a84b,stroke:#a07830,color:#333
@@ -67,7 +67,7 @@ Agents, like humans, would rather skip the PR entirely. I tried instruction file
 
 ## Adding teeth, and naming each boundary
 
-**The failure:** direct pushes to `main` despite the written rule. **The options:** write the rule more forcefully, enforce at the GitHub server, or enforce inside the agent's own session. **The decision:** enforce at both boundaries, because they fail differently. Branch protection—a server-side rule that binds everyone, including me—ended direct pushes outright. It also produced the next failure immediately: agents opened PRs with no description and no self-review, then merged them on their own approval. So a [PreToolUse hook](https://github.com/nathanjohnpayne/mergepath/blob/main/scripts/hooks/gh-pr-guard.sh) now intercepts every `gh pr create` in the local session and refuses it unless the PR body carries an `Authoring-Agent:` header and a `## Self-Review` section. It is a substring match, not a parser—but it runs before the API call, so a non-conforming PR is never created.
+**The failure:** direct pushes to `main` despite the written rule. **The options:** write the rule more forcefully, enforce at the GitHub server, or enforce inside the agent's own session. **The decision:** enforce at both boundaries, because they fail differently. Branch protection—a server-side rule that binds everyone, me included, short of an explicit administrator override—ended direct pushes outright. It also produced the next failure immediately: agents opened PRs with no description and no self-review, then merged them on their own approval. Two pieces answer that, and they are worth separating because I conflated them myself until a reviewer caught it. A [PreToolUse hook](https://github.com/nathanjohnpayne/mergepath/blob/main/scripts/hooks/gh-pr-guard.sh) intercepts every `gh pr create` in the local session and insists it go through the author wrapper. The wrapper's [body contract](https://github.com/nathanjohnpayne/mergepath/blob/main/scripts/lib/pr-body-contract.mjs) is what reads the PR body and refuses it unless there is an `Authoring-Agent:` header and a `## Self-Review` section. Neither is a parser—the contract is a line-anchored regex, the hook's own fallback a substring match—but both run before the API call, so a non-conforming PR is never created.
 
 **The tradeoff:** the hook is client-side. It binds only agents in a session that loads it; a different tool, a raw API call, or the GitHub web UI walks straight past it. The server rules are the backstop, and even they carry a designed hole: merging with `--admin` requires `BREAK_GLASS_ADMIN=1`, set explicitly by the human in chat. The wrong action is not impossible. It is expensive, and it leaves a record.
 
@@ -170,7 +170,7 @@ The April architecture is not today's. The template repo now stands at 459 PRs; 
 
 ## Four rules
 
-**1. Enforce, don't instruct—and name the boundary.** Instruction files are necessary for context and insufficient for compliance. If agents must open PRs, block direct pushes at the server. If PRs must carry self-reviews, refuse their creation locally. If complex changes need external review, block the merge with a server-visible label gate. Then be honest about each layer's reach: a local hook binds only sessions that load it, a server rule binds everyone, and a break-glass variable is a documented human exit.
+**1. Enforce, don't instruct—and name the boundary.** Instruction files are necessary for context and insufficient for compliance. If agents must open PRs, block direct pushes at the server. If PRs must carry self-reviews, refuse their creation locally. If complex changes need external review, block the merge with a server-visible label gate. Then be honest about each layer's reach: a local hook binds only sessions that load it, a server rule binds everyone short of an administrator override, and a break-glass variable is a documented human exit.
 
 **2. Identity-switch for reviews.** Review under a separate reviewer identity consistently beat same-conversation review across three agent platforms. That is repeated observation, not a controlled measurement, and I cannot explain the mechanism. The cost is one GitHub account per agent, and I have kept paying it.
 

@@ -100,8 +100,8 @@ The post omits the hook-command-grammar bug and the two timing/clock bugs. Corre
 
 | Control | Where it runs | What it actually binds |
 |---|---|---|
-| `gh-pr-guard.sh` PR-creation guard | **Client-side**, a Claude Code PreToolUse hook | Only agents running in a session that loads this hook. A different tool, a raw `curl` to the API, or the GitHub web UI bypasses it entirely. |
-| Branch protection | **GitHub server** | Everyone, including the human—the strongest boundary here. |
+| `gh-pr-guard.sh` PR-creation guard | **Client-side**, a Claude Code PreToolUse hook | Only agents running in a session that loads this hook. A different tool, a raw `curl` to the API, or the GitHub web UI bypasses it entirely. On the author-wrapper path it checks only that the wrapper is used; the body itself is validated by the wrapper's contract (§M1). |
+| Branch protection | **GitHub server** | Everyone, including the human, short of an explicit `--admin` override—the strongest boundary here, but not an absolute one (§N4). |
 | Required status checks / Label Gate | **GitHub server** | Everyone, subject to admin override. |
 | `scripts/ci/` checks | **CI** | Blocks the merge button, not the push. |
 | Reviewer identities | **Convention plus `block-self-approval`** | The job blocks self-approval; the author/reviewer split itself is convention. |
@@ -408,4 +408,24 @@ The table's own thesis is that every control has a reach, and then it described 
 "Every figure above was recomputed against the GitHub API" is wrong for at least one figure in the list directly above it: the seven-check count comes from `git ls-tree` against the April snapshot (§B4). A revision publishing its provenance should not misstate it. Now names both the API and the repository's git history, with the check count called out as the git-derived example.
 
 **Pattern across three rounds.** Of fifteen findings on this PR, **eight were in this ledger rather than the post**, and every one of those was a row left contradicting a later correction. Fixing a claim in one place and leaving it standing in another is the single most common defect in this run. The remaining five audits should grep both artifacts for a claim before considering it corrected.
+
+---
+
+## O. Codex round-4 addendum (PR #791)
+
+Three findings, all correct, and all three of the same species: a correction applied in one place and not the others. This is the pattern §N named at the end of round 3, and it recurred immediately in round 4—which is itself the finding worth carrying forward.
+
+### O1—The hook still validated the body earlier in the post
+
+§M1 corrected the "evidence after launch" paragraph but left the paragraph that first introduces the guard still saying the hook "refuses it unless the PR body carries" the required sections. Rewritten to separate the two components where they are first described, rather than only where they were caught: the hook insists on the wrapper, the wrapper's contract reads the body. The "substring match, not a parser" aside is now accurate about both—the contract is a line-anchored regex, the hook's fallback a substring match.
+
+### O2—The sidebar diagram still said `>300 lines`
+
+§N3 fixed the prose boundary and not the Mermaid node a skimmer reads first. Corrected to `300+ lines`.
+
+### O3—The ledger's own boundary table still over-claimed branch protection
+
+§N4 qualified the post's table and left this ledger's equivalent row unqualified. Both now carry the `--admin` caveat, and the hook row additionally notes that on the author-wrapper path it checks only that the wrapper was used.
+
+**What the exhaustive grep found that the review did not.** Acting on these three, a `grep` for every instance of each claim surfaced **five** sites, not three: the two Codex named in the post plus Rule 1's "a server rule binds everyone", and both ledger rows rather than one. All five are fixed. The lesson from §N was to grep both artifacts; the lesson from this round is to grep *before* replying to the finding, because a review names the instances it happened to read, not the instances that exist.
 
