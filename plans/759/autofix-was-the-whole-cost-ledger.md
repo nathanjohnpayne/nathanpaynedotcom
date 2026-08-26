@@ -244,13 +244,13 @@ Publishing that mapping turns "trust my ledger" into `gh api --paginate repos/�
 | #721 | 2 | 0 |
 | **Total** | **256** | **126** |
 
-Source: `gh api --paginate repos/nathanjohnpayne/nathanpaynedotcom/pulls/{668,678,681,682,686,720,721}/reviews | length` and `…/comments`, filtered `in_reply_to_id == null`.
+Source: `for n in 668 678 681 682 686 720 721; do gh api --paginate "repos/nathanjohnpayne/nathanpaynedotcom/pulls/$n/reviews" --jq 'length'; done | paste -sd+ - | bc` (brace expansion passes seven positional endpoints and `gh` accepts one) and `…/comments`, filtered `in_reply_to_id == null`.
 
 ### E6—"the Codex GitHub App and CodeRabbit, both reviewing every revision"
 
 > L111
 
-**WRONG as a statement about the arc.** On **#681, #682 and #721 neither bot posted a single review**, and on #678 each posted one. Both reviewed heavily only on #686 (17 and 27) and #720 (4 and 33). **Corrected per §N.8: neither bot reviewed *every push* on either PR**—#686 carries 32 commits against 17 Codex-App and 27 CodeRabbit reviews, #720 carries 28 against 4 and 33. The stacked-base explanation below is also withdrawn; all seven PRs have `base: main`, so the known CodeRabbit skip does not apply. Publish the histogram instead. ~~This matches the known behaviour that CodeRabbit skips stacked pull requests on a non-default base. Defensible form: *on the two long-running pull requests both bots reviewed every push; on the three short ones neither ran, and on #678 each posted exactly one.* Source: §E4's histogram.
+**WRONG as a statement about the arc.** On **#681, #682 and #721 neither bot posted a single review**, and on #678 each posted one. Both reviewed heavily only on #686 (17 and 27) and #720 (4 and 33). **Corrected per §N.8: neither bot reviewed *every push* on either PR**—#686 carries 32 commits against 17 Codex-App and 27 CodeRabbit reviews, #720 carries 28 against 4 and 33. The stacked-base explanation below is also withdrawn; all seven PRs have `base: main`, so the known CodeRabbit skip does not apply. Publish the histogram instead. ~~This matches the known behaviour that CodeRabbit skips stacked pull requests on a non-default base. Defensible form: on the two long-running pull requests both bots reviewed every push; on the three short ones neither ran, and on #678 each posted exactly one.~~ Source: §E4's histogram.
 
 ---
 
@@ -435,13 +435,13 @@ Defensible form: state the rule—"implementation and tests for the prose gate i
 
 > #745, "Evidence still to reconcile", bullet 3
 
-The ledger holds records for exactly four of the seven pull requests—#668, #678, #681, #682—and **none** for #686, #720 or #721. The issue frames #686 as the notable omission; two thirds of the arc's later work is missing as well, including the entire Vale migration. The post's own L133 gets this right ("It covers four of the pull requests in this arc"); the issue narrows it wrongly. Anything the drafting pass writes about ledger coverage should follow the post here, not the issue.
+The ledger holds records for exactly four of the seven pull requests—#668, #678, #681, #682—and **none** for #686, #720 or #721. The issue frames #686 as the notable omission; two thirds of the arc's later work is missing as well, including the entire Vale migration. The post's own L133 gets this right ("It covers four of the pull requests in this arc"). **Per §N.12 the issue is not wrong here**—its statement that the ledger "excludes the 24-round PR #686" is exactly correct; what it omits is that #720 and #721 are missing too. Anything the drafting pass writes about ledger coverage should follow the post, which is the fuller statement.
 
 ### J2—**REFRAMED.** #745 asks for classification buckets; it does not claim unrelated findings exist
 
 > #745, "Evidence still to reconcile", bullet 2
 
-§D1 classifies all 57. The residual bucket the issue anticipates—"unrelated findings"—is **empty**. Every finding on #686 concerns the em-dash gate: 42 name the fixer, 5 more sit in its whitespace machinery, 3 are prose detection, 3 are test harness, 2 are CodeQL alerts on the gate's own regex, 1 is a dependency note about the gate's parser. The honest correction runs the other way from the one the issue expects: the problem is not that unrelated work is inflating the 57, it is that "nearly all" overstates a real 74%.
+§D1 classifies all 57. The residual bucket the issue anticipates—"unrelated findings"—is **empty**. Every finding on #686 concerns the em-dash gate: 42 name the fixer, 6 more sit in its whitespace machinery (10, 12, 21, 36, 42, 49), 3 are prose detection, 3 are test harness, 2 are CodeQL alerts on the gate's own regex, 1 is a dependency note about the gate's parser—57 in total. The honest correction runs the other way from the one the issue expects: the problem is not that unrelated work is inflating the 57, it is that "nearly all" overstates a real 74%.
 
 ### J3—#745's "Already fixed—do not redo" list asserts a 4,014-word baseline and a "2,453 → 1,343" migration snapshot as verified. Both need footnotes.
 
@@ -449,7 +449,7 @@ The ledger holds records for exactly four of the seven pull requests—#668, #67
 
 The word count is 4,133, not 4,014—#780 landed after the issue was written. And the 2,453 → 1,343 pair, listed as verified on 2026-08-24, silently pairs a `#721^` "before" with a `#725` "after" (§I2). The issue's checkbox "The body explicitly explains that the 2,917/2,417 and 2,453/1,343 comparisons come from different snapshots" is true—but the post explains two of the four snapshots, and the two it leaves unexplained are the peak (§B1) and the Vale side (§I2).
 
-**Method note this audit adds to the four carried above: when a post's own text is more careful than the issue written about it, follow the post.** #745 is wrong about ledger coverage (§J1) and wrong about the finding residue (§J2) in ways the live post is not.
+**Method note this audit adds to the four carried above: when a post's own text is more careful than the issue written about it, follow the post.** #745 is not wrong about ledger coverage—§J1 is retracted per §N.12—and §J2 reports a classification the issue asked for rather than refuting a claim it made. The surviving form of this note is narrower: the post's L133 is fuller than the issue's framing.
 
 ---
 
@@ -472,7 +472,7 @@ Do not re-audit these.
 | $60.81 + $59.95 + $591.90 = $712.66 | exact | sidebar arithmetic |
 | $0.02 + $130.61 + $416.86 + $44.41 = $591.90; cache reads 70% | exact (70.43%) | sidebar arithmetic |
 | 848 M processed vs 1.78 M output reconciles with the Claude subtotals | 848.6 M / 1.7764 M | §F1 |
-| Nothing was invoiced; every session ran under a subscription | `billed_usd: 0.0` on every ledger record | `.mergepath/phase-4b-ledger.jsonl` |
+| Nothing was invoiced **for the four ledgered external-review runs**; the authoring sessions' subscription status is author-attested, not evidenced here | `billed_usd: 0.0` on every ledger record | `.mergepath/phase-4b-ledger.jsonl` |
 | 57 reader-facing pull quotes and key takeaways | 29 + 28 | frontmatter parse of `src/content/**/*.md` |
 | 174 cases, 149 matched, 25 differed, 18 lost, 7 gained | exact, all tabulated | issue #722 body |
 | Harness reproduced the legacy tool exactly | 0/174 mismatches | issue #722 body |
@@ -496,9 +496,9 @@ Do not re-audit these.
 
 4. **§D1 closes #745's biggest open criterion.** Replace "nearly all of the work that would not converge" with the counted form on all five surfaces plus `description` and `seoDescription`: **42 of 57 findings name the auto-fix path; 48 of 57 sit in the machinery that served it; three concern prose detection, three the test harness, two are CodeQL alerts, one a dependency note; none was unrelated.** Grep for the **claim**, not the phrasing—"nearly all of the work that would not converge", "nearly all of the churn", "most of the trust burden, and nearly all", and the mermaid node text are the same assertion in four wordings that share almost no substring. §J2 records that the issue's expected residue is empty; say so.
 
-5. **§F3 is the honest-accounting fix.** The sidebar's session map and the body's "two Codex CLI sessions associated with #686" contradict each other. Publish the five-row session ledger #745 asks for—session, model, work scope, token categories, floor or upper bound, priced or not—and identify which of the two #686 sessions ran on `gpt-5.3-codex-spark`. Add the raw quantities per §F2, or label the Codex subtotals author-attested and drop the rate table for them. The Claude subtotal is already reproducible (§F1) and the derivation should be shown, because it is the post's strongest evidentiary moment.
+5. **§F3 is the honest-accounting fix.** The sidebar's session map and the body's "two Codex CLI sessions associated with #686" describe different, unreconciled populations that can both be true (§N.11)—they do not contradict each other. Publish the five-row session ledger #745 asks for—session, model, work scope, token categories, floor or upper bound, priced or not—and identify which of the two #686 sessions ran on `gpt-5.3-codex-spark`. Add the raw quantities per §F2, or label the Codex subtotals author-attested and drop the rate table for them. The Claude subtotal is already reproducible (§F1) and the derivation should be shown, because it is the post's strongest evidentiary moment.
 
-6. **Fix the three population errors.** "127 items across 38 files" → **127 across 14 files**, with the counting rule (§G2). "zero times across all 38 content files" → **zero across the 37 files measured at `6358402`** (§G4), and note that the emphasis-wrapped construct now appears twice in this post as a code example. "About 250 matches" → name the glob, or use #664's classification (§G1).
+6. **Fix the three population errors.** "127 items across 38 files" → **127 across 14 files**, with the counting rule (§G2). "zero times across all 38 content files" → **zero across the 37 files measured at `6358402`** (§G4), and note that the emphasis-wrapped construct now appears **three times** in this post as a code example—once in a code span and twice in a fenced block (§G4). "About 250 matches" → name the glob, or use #664's classification (§G1).
 
 7. **§I2 and §I4.** Name the "after" snapshot as `e42483b` (#725) and state the inclusion rule per §I3. Relabel the table's first row "the bespoke tool" rather than "the rule itself".
 
