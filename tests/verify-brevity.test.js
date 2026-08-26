@@ -35,6 +35,24 @@ sidebar:
 The figure moved -3.8% and the run recorded zero rejections. See [the audit](/blog/some-post/) and the \`/\` separator.
 `;
 
+
+const CLOCK = `---
+title: >-
+  Original headline
+seoDescription: "Pinned."
+---
+
+The deploy ran at 10:04am Pacific and the shell piped through | to the next stage.
+
+Name | Count
+--- | ---:
+Alpha | 1
+
+~~~js
+const mode = "strict";
+~~~
+`;
+
 function paths(after, base) {
   const dir = mkdtempSync(join(tmpdir(), 'brevity-'));
   const a = join(dir, 'before.md');
@@ -119,6 +137,30 @@ describe('verify-brevity', () => {
     const [a, b] = paths(after);
     const out = execFileSync('python3', [script, '--quiet', a, b], { encoding: 'utf-8' });
     expect(out).toMatch(/note\s+spelled-out numbers/);
+  });
+
+  it('fails when a sidebar mermaid title changes', () => {
+    expect(run(SIGNED.replace('title: "Signed"', 'title: "Signed"').replace('graph TD', 'graph LR'))).toBe(1);
+  });
+
+  it('fails when a natural-language timestamp flips am to pm', () => {
+    expect(run(CLOCK.replace('10:04am', '10:04pm'), CLOCK)).toBe(1);
+  });
+
+  it('fails when a tilde-fenced code block changes', () => {
+    expect(run(CLOCK.replace('const mode = "strict"', 'const mode = "loose"'), CLOCK)).toBe(1);
+  });
+
+  it('fails when a table without a leading pipe changes', () => {
+    expect(run(CLOCK.replace('Alpha | 1', 'Beta | 1'), CLOCK)).toBe(1);
+  });
+
+  it('fails when a pinned block-scalar title changes', () => {
+    expect(run(CLOCK.replace('Original headline', 'Updated headline'), CLOCK)).toBe(1);
+  });
+
+  it('does not flag prose that merely contains a pipe', () => {
+    expect(run(CLOCK.replace('piped through', 'passed through'), CLOCK)).toBe(0);
   });
 
   it('flags a dropped "zero" count as advisory', () => {

@@ -60,7 +60,7 @@ TOKEN_CLASSES = (
     ("URLs", r"https?://[^\s\)\]\"'>]+"),
     ("relative links", r"\]\((/[^)\s]*)\)"),
     ("issue/PR refs", r"#\d{2,4}\b"),
-    ("timestamps", r"\d{4}-\d{2}-\d{2}(?:T[\d:]+Z)?"),
+    ("timestamps", r"\d{4}-\d{2}-\d{2}(?:T[\d:]+Z)?|\b\d{1,2}:\d{2}\s*(?:[ap]\.?m\.?)?\b|\b\d{1,2}\s*[ap]\.?m\.?\b"),
     ("numerals", r"[+-]?\b\d[\d,.]*\b"),
     ("code spans", r"`[^`\n]+`"),
 )
@@ -74,16 +74,33 @@ ADVISORY_CLASSES = (
 )
 
 BLOCK_CLASSES = (
-    ("code/mermaid blocks", r"```.*?```", re.S),
-    # Sidebar diagrams are stored in frontmatter as `type: mermaid` with a
-    # `content: |` block, which no backtick fence matches.
-    ("frontmatter block scalars", r"content:\s*\|\n(?:[ \t]+.*\n?)+", re.M),
-    ("table rows", r"^\|.*$", re.M),
+    # Both fence forms; Astro's Markdown parser accepts either.
+    ("code/mermaid blocks", r"(?:```.*?```|~~~.*?~~~)", re.S),
+    # Sidebar diagrams live in frontmatter as a `- type: mermaid` item whose
+    # title and description are as load-bearing as the content scalar -- the
+    # description is the accessible text screen readers receive.
+    ("frontmatter mermaid items", r"^\s*-\s+type:\s*mermaid\s*\n(?:[ \t]+.*\n?)+", re.M),
+    # A GFM table is a header row, a delimiter row, and body rows. Matching
+    # the whole construct catches tables written without the optional leading
+    # pipe, which matching lines that merely contain a pipe does not -- that
+    # false-positives on any prose sentence mentioning one.
+    (
+        "tables",
+        r"^[^\n]*\|[^\n]*\n[ \t]*\|?[ \t]*:?-+:?[ \t]*(?:\|[ \t]*:?-+:?[ \t]*)+\|?[ \t]*\n(?:[^\n]*\|[^\n]*\n?)*",
+        re.M,
+    ),
 )
 
 
 def field(text: str, name: str) -> str | None:
-    match = re.search(rf"^{re.escape(name)}:.*$", text, re.M)
+    """Return a frontmatter field including any block-scalar body.
+
+    `title: >-` followed by an indented value is a valid pinned field, and
+    comparing only the declaration line would miss every change to it.
+    """
+    match = re.search(
+        rf"^{re.escape(name)}:[^\n]*\n?(?:[ \t]+[^\n]*\n?)*", text, re.M
+    )
     return match.group(0) if match else None
 
 
