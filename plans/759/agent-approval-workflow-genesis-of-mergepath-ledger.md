@@ -1,10 +1,10 @@
 # Facts ledger—#739 `agent-approval-workflow-genesis-of-mergepath`
 
-Post source: `src/content/blog/agent-approval-workflow-genesis-of-mergepath.md` (3,993 body words; epic baseline 4,418 counts frontmatter). Published `2026-04-16`. Evidence repo: `nathanjohnpayne/mergepath`. Bare `#NNN` in this ledger means **mergepath** unless qualified. Cross-repo items are written in full. Shared cache: `plans/759/refs.json`.
+Post source: `src/content/blog/agent-approval-workflow-genesis-of-mergepath.md`. Published `2026-04-16`. **Pre-revision baselines: 3,993 body words, 4,418 whole-file** (the epic's figure, which counts frontmatter). Both are baselines, not current counts; §J carries the revised measurements. Evidence repo: `nathanjohnpayne/mergepath`. Bare `#NNN` in this ledger means **mergepath** unless qualified. Cross-repo items are written in full. Shared cache: `plans/759/refs.json`.
 
 Verdicts: **SUPPORTED** · **WRONG** (corrected value given) · **UNPROVABLE** (defensible weaker form given).
 
-**Method note carried from #740.** An issue body is evidence of what someone believed at the time, not of what happened. Where a claim is mechanically checkable, it was checked against the mechanism. Three claims in the #740 audit failed that test; two more fail it here (§B1, §D2).
+**Method note carried from #740.** An issue body is evidence of what someone believed at the time, not of what happened. Where a claim is mechanically checkable, it was checked against the mechanism. Three claims in the #740 audit failed that test; the ones that fail it here are §B1 (a PR count taken from memory rather than the API), §B4 (a check count), §B6 (a taxonomy that did not sum), and §E1 and §E4 (two timing figures).
 
 ---
 
@@ -52,13 +52,13 @@ Verdicts: **SUPPORTED** · **WRONG** (corrected value given) · **UNPROVABLE** (
 
 > L~128
 
-**SUPPORTED as a rough figure**, though it is nearly the repo's entire PR population at that date (32). Worth saying so: the Codex external-review project *was* substantially the whole repo's activity in that window, which is a stronger point than "roughly 30". Source: as B1.
+**WRONG.** Neither §B1 nor §B2 supports it: B1 counts the whole repository's PRs, and B2 counts project items without separating types. Queried directly, Project #2's 46 items break down as **37 issues and 9 pull requests**, all 9 created before the snapshot. The project tracked nine PRs, not thirty. The earlier gloss in this row—that the project "*was* substantially the whole repo's activity"—was the same unsupported inference dressed up as a stronger claim, and is withdrawn: nine of the repository's 32 PRs is a third, not substantially all. Corrected value: 46 tracked items across 5 phases, being 37 issues and 9 pull requests. Source: `gh api graphql` → `user(login:"nathanjohnpayne"){projectV2(number:2){items(first:100){nodes{type ...}}}}`, grouped by `.type` → `{ISSUE: 37, PULL_REQUEST: 9}`; all 9 PR items have `createdAt < 2026-04-17`.
 
 ### B4—"Roughly two dozen fail-closed CI checks in `scripts/ci/`"
 
 > "What the template actually is"
 
-**WRONG.** At the April-16 tree, `scripts/ci/` contained **seven** check scripts (`check_codex_scripts`, `check_dist_not_modified`, `check_duplicate_docs`, `check_no_forbidden_top_level_dirs`, `check_no_tool_folder_instructions`, `check_required_root_files`, `check_spec_test_alignment`) plus a `README.md`. "Roughly two dozen" is the *current* order of magnitude—the directory holds 122 files today. Corrected value: seven fail-closed CI checks as of the post's date. Source: `git -C ~/GitHub/mergepath ls-tree -r --name-only 2429e6bf -- scripts/ci` (the last commit before 2026-04-17).
+**WRONG.** At the April-16 tree, `scripts/ci/` contained **seven** check scripts (`check_codex_scripts`, `check_dist_not_modified`, `check_duplicate_docs`, `check_no_forbidden_top_level_dirs`, `check_no_tool_folder_instructions`, `check_required_root_files`, `check_spec_test_alignment`) plus a `README.md`. "Roughly two dozen" matches nothing at either date: counted the same way, the directory holds **66** check scripts today, out of 122 files in total, most of which are not checks. See §K2, where the same units error had survived into the revision. Corrected value: seven fail-closed CI checks as of the post's date. Source: `git -C ~/GitHub/mergepath ls-tree -r --name-only 2429e6bf -- scripts/ci` (the last commit before 2026-04-17).
 
 ### B5—"seventeen distinct template bugs"
 
@@ -295,4 +295,61 @@ The body also absorbed three sections the acceptance criteria require and the or
 Per the epic's compression clause—"meet the 20–30% guidance, **or document why retained chronology or evidence earns the additional length**"—this row is that documentation. Cutting the remaining 1.7 points would mean deleting one of the three required sections above.
 
 What was actually removed, in rough order of size: the inline `mermaid` Phase 4a flow diagram from the body (the sidebar diagram plus the two-script prose carries it); the quoted `gh-pr-guard.sh` bash snippet and the `review-policy.yml` block (described in prose instead, with the `functions/**` omission retained because it is evidence); the component inventory in "What a consumer repo got", cut roughly in half; and the restatement of the lede's "no natural pause" argument at the top of the discovery section.
+
+---
+
+## K. Reviewer-pass addendum (PR #791)
+
+Two findings from the `nathanpayne-claude` reviewer pass, both in the **"Since the snapshot"** section—the one part of a post about numerical precision whose figures had not been put in this ledger. Both are mine rather than the drafting pass's, which is the lesson: the current-state numbers need ledger rows exactly as much as the historical ones do.
+
+### K1—"has since passed 459 PRs"
+
+**WRONG.** 459 is the current total, not a threshold crossed. `repos/nathanjohnpayne/mergepath/pulls?state=all` paginates to exactly `page=459; rel="last"` at `per_page=1`. Corrected to "now stands at 459". Source: `gh api 'repos/nathanjohnpayne/mergepath/pulls?state=all&per_page=1' -i` → `Link` header.
+
+### K2—"`scripts/ci/` has grown from 7 scripts to 122 files"
+
+**WRONG—the two figures are not comparable, and crossing them inflates the growth.**
+
+| Measure | April 2026 | Today |
+|---|---:|---:|
+| Files in `scripts/ci/` | 8 | 122 |
+| Files matching `check_*` | 7 | 66 |
+
+The post's "7" was the check-script count and its "122" the total file count, reading as a 17× increase where the like-for-like figure is about 9×. Corrected to "the seven check scripts in `scripts/ci/` have become 66". §B4's "seven fail-closed CI checks" for April is unaffected—it counts checks, and it is right. Source: `git -C ~/GitHub/mergepath ls-tree -r --name-only {main,2429e6bf} -- scripts/ci`, total and `check_*`-matching counts.
+
+**Rule for the remaining five audits.** Any "as of today" or "since then" figure a revision *introduces* needs a ledger row before it ships. The historical claims get audited because the issue lists them; the new current-state claims have no such prompt, and this pass is where they get caught.
+
+---
+
+## L. Codex round-1 addendum (PR #791)
+
+Six findings, all correct, all fixed. **Four landed on this ledger rather than the post**, repeating the pattern round 5 of #787 showed: the evidence artifact drifts out of step with its own corrections, and it is the artifact that later audits read.
+
+### L1—The header presented a baseline as a current count
+
+"3,993 body words" described the *pre-revision* post while the header identified the current source. Both baselines are now labelled as such, pointing at §J for the revised figures.
+
+### L2—`max_review_rounds` did not fire on PR #787
+
+The sharpest finding of the round. The revision cited #787's 0/4/5/1/7 sequence as evidence that "the `max_review_rounds` guard is not a rarely-fired safety belt. It fires." It did not fire. #787 stopped at five rounds because **the operator set a five-round budget**, and `plans/759/RUN.md` records the opposite judgement about the configured guard: round 3 was explicitly reasoned about and found *not* to be the runaway case. Citing an operator cap as evidence that a configured guard fires conflates two different limits, in a post whose whole subject is naming which mechanism does what.
+
+The post now states which limit was tested and which was not. The surviving claim is the one the evidence carries: that reviews converging in a single round is the assumption dry-run D got wrong.
+
+### L3—The method note pointed at a SUPPORTED row
+
+It cited §D2 as a claim that failed the mechanical check; §D2 is classified SUPPORTED. Repointed at the rows that actually failed: §B1, §B4, §B6, §E1, §E4.
+
+### L4—§B3's "roughly 30 PRs" was unsupported
+
+Rewritten above. Project #2 holds **9** pull requests, not ~30, and this row's own gloss inflated the claim further before anyone ran the query.
+
+### L5—§B4 repeated the units error it was correcting
+
+The row corrected "two dozen" to seven for April, then compared it to "122 files today"—checks against files, the same mismatch §K2 caught in the post. Both now use the check-script definition: 7 then, 66 now.
+
+### L6—`RUN.md` pointed at a helper that is not in the repository
+
+The runbook told the remaining audits to use `scratchpad/reflow.py`, which exists only in this session's scratchpad and would be invisible to a resumed agent. Corrected to name the canonical implementation and to state the transform rule inline, so the instruction survives without either.
+
+**Rule for the remaining five audits.** Four of six findings this round were in the ledger, not the prose. Audit the artifact as well as the post before pushing: the ledger is the input to every later audit, so an error there propagates further than one in the article.
 
