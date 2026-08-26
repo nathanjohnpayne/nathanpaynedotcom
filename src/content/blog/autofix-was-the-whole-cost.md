@@ -105,7 +105,7 @@ word **—** next     →     word**—**next
 
 The dash is fixed. The bold is gone. With no spaces around them, those asterisks become literal characters on the page. The tool set out to correct punctuation and silently corrupted the formatting instead.
 
-So a tool that edits your files has to prove, after every edit, that it changed only what it meant to change. That proof was the real product: re-parse the document after each fix, compare the before and after structures, and reject the whole batch if anything moved. It was all-or-nothing by construction, and the construction is one line—at the peak commit, line 1,609 of the linter returns the untouched source unless the structure-preservation check accepts the candidate, so one unfixable dash in a configuration key abandoned every other fix in that file.
+So a tool that edits your files has to prove, after every edit, that it changed only what it meant to change. That proof was the real product: apply every candidate fix in a file, re-parse the result once, compare the before and after structures, and reject the whole batch if anything moved. It was all-or-nothing by construction, and the construction is one line—at the peak commit, line 1,609 of the linter returns the untouched source unless the structure-preservation check accepts the candidate, so one unfixable dash in a configuration key abandoned every other fix in that file.
 
 **Detecting a problem is cheap. Being trusted to change someone's work is expensive.** The gap shows up outside linting: recommending an action versus taking it, flagging a charge versus reversing it, drafting a reply versus sending it. The detection demo is a week. The permission to act is the product.
 
@@ -123,7 +123,7 @@ So the non-convergence evidence is the 22 rounds before the cut. Findings per ro
 
 Fifty-four findings. The series is not literally flat—the first eleven rounds average 2.55 findings and the last eleven 2.36—but that decline is even shallower than the padded 24-round series showed, so removing the two post-removal rounds makes the argument stronger, not weaker. The series dips and rebounds rather than approaching zero: round 20 produced five findings, more than round 3, and the last round before the cut still produced two.
 
-The reviewers' own language marks the churn. Twenty-nine of the 57 findings—all from the Codex App's 45—contain the phrase "fresh evidence beyond," the reviewer naming, in the finding's own body, the earlier fix it is re-opening. Half the findings on the pull request are follow-ons against ground a previous fix had already covered.
+The reviewers' own language marks the churn. Twenty-nine of the 57 findings—all from the Codex App's 45—name, in the finding's own body, the earlier fix they are re-opening. The matcher is a case-insensitive search for `fresh evidence beyond`; the exact-case literal returns 25, because four findings word it differently. Half the findings on the pull request are follow-ons against ground a previous fix had already covered.
 
 A gentle drift that never lands is not a long tail. Extrapolate two findings a round and the work does not finish—a burn-down chart that is not burning down. It costs one query. I should have been reading it from round six rather than round twenty-two, and the only reason I looked is that someone asked whether the work was converging. The honest answer was no, and the evidence had been in the record the whole time.
 

@@ -207,7 +207,7 @@ Source: `gh api --paginate repos/nathanjohnpayne/nathanpaynedotcom/pulls/686/com
 | #720 | none recorded | 10 |
 | #721 | none recorded | 1 |
 
-Publishing that mapping turns "trust my ledger" into `gh api --paginate repos/…/pulls/{n}/reviews --jq '[.[]|select(.user.login=="nathanpayne-codex")]|length'`. The token totals stay author-attested.
+Publishing that mapping turns "trust my ledger" into `gh api --paginate --slurp repos/…/pulls/{n}/reviews --jq '[.[][]|select(.user.login=="nathanpayne-codex")]|length'` (without `--slurp` each page stays a separate array and `--jq` runs once per page, emitting page-local counts rather than one total). The token totals stay author-attested.
 
 ### E2—"It never completed a ledgered external-review run, so none of its cost appears in that figure"
 
@@ -285,7 +285,7 @@ The Anthropic rate shape is also internally coherent: $5/M input with $10/M one-
 
 Worse for the reader: the body's "2.27 million fresh input tokens and 285,100 output tokens" is a **two-session** figure, while the $60.81 beside it is a **one-session** figure. They have different populations and the post presents them within six lines of each other as if they described the same work.
 
-Defensible form—and this is exactly the privacy-safe ledger #745's acceptance criteria ask for: a five-row table of session → model → work scope → token categories → floor-or-upper-bound → priced/unpriced, with the #686 pair identified by model. Without it, neither number can be checked and the two contradict.
+Defensible form—and this is exactly the privacy-safe ledger #745's acceptance criteria ask for: a five-row table of session → model → work scope → token categories → floor-or-upper-bound → priced/unpriced, with the #686 pair identified by model. Without it, neither number can be checked against the other—their populations differ and cannot be reconciled from the retained evidence, which is underdetermined rather than contradictory (§N.11).
 
 ### F4—"2.27 million fresh input tokens and 285,100 output tokens, of which 99,453 were reasoning tokens"; "1.78 million output tokens across 1,872 assistant turns"
 
@@ -297,7 +297,7 @@ Defensible form—and this is exactly the privacy-safe ledger #745's acceptance 
 
 > Sidebar L40
 
-**SUPPORTED, exactly.** Every loop in `.mergepath/phase-4b-ledger.jsonl` carries `tokens: {total: <n>, input: null, output: null, cache_creation: null, cache_read: null, reasoning: null, cost_usd: null, source: "codex-cli-stderr"}`. The nulls are the claim. Every record also carries `"billed_usd": 0.0`, which independently supports "nothing was invoiced". Source: `.mergepath/phase-4b-ledger.jsonl`, any `.loops[].tokens` object.
+**SUPPORTED for the `codex-cli-stderr` loops only—scoped per §N.7.** PR #765's loop carries `source: "claude-json-envelope"` with a populated output count and cost, so the claim holds for the #668/#678/#681/#682 loops and not universally. Each of those carries `tokens: {total: <n>, input: null, output: null, cache_creation: null, cache_read: null, reasoning: null, cost_usd: null, source: "codex-cli-stderr"}`. The nulls are the claim. Every record also carries `"billed_usd": 0.0`, which independently supports "nothing was invoiced". Source: `.mergepath/phase-4b-ledger.jsonl`, any `.loops[].tokens` object.
 
 ### F6—"Nobody approves 'spend 500,000 tokens re-reviewing an auto-fixer'"
 
@@ -502,7 +502,7 @@ Do not re-audit these.
 
 7. **§I2 and §I4.** Name the "after" snapshot as `e42483b` (#725) and state the inclusion rule per §I3. Relabel the table's first row "the bespoke tool" rather than "the rule itself".
 
-8. **§E6.** "Both reviewing every revision" is false for four of the seven PRs. Narrow it to #686 and #720, and add `github-advanced-security[bot]` as the third reviewer that contributed round 13 (§C1), or drop the enumeration of reviewers.
+8. **§E6.** "Both reviewing every revision" is false for four of the seven PRs. Do **not** narrow it to "both reviewed every push on #686 and #720"—§N.8 disproves that too: #686 carries 32 commits against 17 Codex-App and 27 CodeRabbit reviews, #720 carries 28 against 4 and 33. Publish the per-PR histogram instead, and add `github-advanced-security[bot]` as the third reviewer that contributed round 13 (§C1).
 
 9. **§E1's publishability.** `.mergepath/` is gitignored, so no reader can open the ledger. Publish the loop-count-to-API mapping in §E1's table; it makes 17 of the 18 numbers in that paragraph checkable from a public endpoint.
 
