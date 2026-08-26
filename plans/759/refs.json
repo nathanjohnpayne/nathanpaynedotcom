@@ -1334,6 +1334,35 @@
         "other_title": "pr-review-policy.yml auto-comment: strip empty bullet from FILE_LIST rendering"
       }
     },
+    "nathanjohnpayne/nathanpaynedotcom#664": {
+      "additions": null,
+      "author": "nathanpayne-claude",
+      "base": null,
+      "changed_files": null,
+      "closed_at": "2026-08-22T16:19:22Z",
+      "commits": null,
+      "created_at": "2026-08-22T04:28:30Z",
+      "deletions": null,
+      "head": null,
+      "merge_commit_sha": null,
+      "merged": null,
+      "merged_at": null,
+      "number": 664,
+      "state": "closed",
+      "title": "Content: close up spaced em dashes in published prose (CMOS) and gate it in lint",
+      "type": "issue",
+      "url": "https://github.com/nathanjohnpayne/nathanpaynedotcom/issues/664",
+      "repo": "nathanjohnpayne/nathanpaynedotcom",
+      "resolved": true,
+      "cited_in": [
+        "autofix-was-the-whole-cost"
+      ],
+      "bare_number_collision": {
+        "other_repo": "nathanjohnpayne/mergepath",
+        "exists_there": true,
+        "other_title": "fix(resolve-pr-threads): guard verified-propagation against canonical-repo self-match"
+      }
+    },
     "nathanjohnpayne/nathanpaynedotcom#668": {
       "repo": "nathanjohnpayne/nathanpaynedotcom",
       "number": 668,
@@ -1584,6 +1613,35 @@
         "other_repo": "nathanjohnpayne/mergepath",
         "exists_there": true,
         "other_title": "codex-review-request.sh / codex-review-check.sh don't detect the Codex usage-limit quota marker"
+      }
+    },
+    "nathanjohnpayne/nathanpaynedotcom#725": {
+      "additions": 165,
+      "author": "nathanjohnpayne",
+      "base": "main",
+      "changed_files": 7,
+      "closed_at": "2026-08-24T06:36:46Z",
+      "commits": 2,
+      "created_at": "2026-08-24T06:08:51Z",
+      "deletions": 9,
+      "head": "codex/issues-722-724-vale-followups",
+      "merge_commit_sha": "e42483b1c751bba47939cbd91091fd14ccfafb21",
+      "merged": true,
+      "merged_at": "2026-08-24T06:36:46Z",
+      "number": 725,
+      "state": "closed",
+      "title": "fix(lint): close Vale migration follow-ups",
+      "url": "https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/725",
+      "repo": "nathanjohnpayne/nathanpaynedotcom",
+      "type": "pull",
+      "cited_in": [
+        "autofix-was-the-whole-cost"
+      ],
+      "resolved": true,
+      "bare_number_collision": {
+        "other_repo": "nathanjohnpayne/mergepath",
+        "exists_there": true,
+        "other_title": "fix(724): flip stale visibility: private example in templated-propagation.md"
       }
     },
     "nathanjohnpayne/nathanpaynedotcom#73": {
