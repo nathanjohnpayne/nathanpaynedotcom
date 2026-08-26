@@ -12,7 +12,7 @@ Deliberate. #740 calibrates the ledger format and the Fable handoff; #739/#741 r
 |---|-------|------|---------------|-------------|--------|----|--------|
 | 0 | — | shared evidence cache | **0 complete** | `plans/759/refs.json` | `content/740-astro-migration-audit` | [#787](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/787) | done |
 | 1 | #740 | how-a-responsive-fix-became-an-astro-migration | **done** | `plans/759/how-a-responsive-fix-became-an-astro-migration-ledger.md` | `content/740-astro-migration-audit` | [#787](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/787) | **merged** `28e81a7` |
-| 2 | #739 | agent-approval-workflow-genesis-of-mergepath | 3 review | `plans/759/agent-approval-workflow-genesis-of-mergepath-ledger.md` | `content/739-mergepath-genesis-audit` | [#791](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/791) | **manual 4b**, HEAD `3f35ce1` |
+| 2 | #739 | agent-approval-workflow-genesis-of-mergepath | 3 review | `plans/759/agent-approval-workflow-genesis-of-mergepath-ledger.md` | `content/739-mergepath-genesis-audit` | [#791](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/791) | **manual 4b** |
 | 3 | #741 | html-mockups-as-spec | not started | `plans/759/html-mockups-as-spec-ledger.md`  | — | — | pending |
 | 4 | #744 | six-prs-one-bug-agent-failure-modes | not started | `plans/759/six-prs-one-bug-agent-failure-modes-ledger.md`  | — | — | pending |
 | 5 | #745 | autofix-was-the-whole-cost | not started | `plans/759/autofix-was-the-whole-cost-ledger.md`  | — | — | pending |
@@ -146,7 +146,7 @@ This supersedes any reading of the epic's compression table as a target that mus
 
 How to apply it. Cut what is genuinely repetition: restated setup, implementation chronology that adds no decision, inventories the issue says not to lead with, and quoted config or code whose content the prose already carries. Do **not** cut evidence, decision records, tradeoffs, the boundary or provenance material the acceptance criteria require, or a correction that is longer than the wrong claim it replaces.
 
-The #739 experience is the cautionary case. Body prose reached −20.8% at first draft and then **drifted back to −10.1% across five automated rounds and the manual Phase 4b correction**, because every round replaced a short wrong claim with a longer right one: naming which of two round limits was actually tested, attributing a rejection to the wrapper's contract rather than the hook, distinguishing Codex findings from CodeRabbit's, and publishing the raw observations behind the response-time statistic. Chasing the percentage back down would have meant reinstating an error. Ledger §J documents it.
+The #739 experience is the cautionary case. Body prose reached −20.8% at first draft and then **drifted back to −8.0% across five automated rounds, the manual Phase 4b correction, and the final CodeRabbit follow-up**, because every round replaced a short wrong claim with a longer right one: naming which of two round limits was actually tested, attributing a rejection to the wrapper's contract rather than the hook, distinguishing Codex findings from CodeRabbit's, publishing the raw observations behind the response-time statistic, and separating that population from the April 16 snapshot. Chasing the percentage back down would have meant reinstating an error. Ledger §J documents it.
 
 State the accounting honestly in the PR body and the ledger either way, and say what was cut and what was kept. A documented miss is the sanctioned outcome; an undocumented one is not.
 
@@ -158,6 +158,7 @@ State the accounting honestly in the PR body and the ledger either way, and say 
 
 - The automated audit produced **24 inline findings across five human-directed Codex rounds** (6, 4, 5, 3, 6), plus one PR-level P1 comment and two findings from the `nathanpayne-claude` reviewer pass. The inline rounds had no P0 or P1; the issue-level P1 remained in the universal lede at handoff because `review-feedback-accounting.sh` accounts for inline comments, not issue comments.
 - The manual review's five findings are corrected in the author response: the universal claim is scoped, all 18 response-time observations are linked, the diagram carries the full seven-stage progression, stale boundary descriptions agree, and the handoff accounting is stable.
+- CodeRabbit's post-sync pass raised four P2 findings: three were fixed, and the request to pin a mutable current HEAD in this file was dismissed because the next state commit would make it stale. Ledger §R records the dispositions.
 - Final validation on the merged-current branch: `npm run lint`; `npm run typecheck` (0 errors); `npm test` (42 files, 497 passed / 1 skipped); isolated-port `npm run test:e2e` (327 passed / 45 skipped). The updated article was also checked directly at 375, 768, and 1440 px: seven Mermaid nodes, no label spill, and no horizontal overflow at each width.
 - The original [handoff message](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/791#issuecomment-5419174028) remains the record of the transfer to `nathanpayne-codex`; this section supersedes its stale totals and head claim.
 
@@ -166,5 +167,3 @@ State the accounting honestly in the PR body and the ledger either way, and say 
 **Ledger–post drift is the dominant defect class.** Eleven of the 24 inline findings were in the ledger, 11 in the prose, and 2 in this file. Four were claims an earlier round had already corrected elsewhere in the same file. Before pushing a fix, grep **both** artifacts for every instance of the claim—a review names the instances it happened to read, not the instances that exist.
 
 **Do not start #741's Phase 3 until #791 merges.** Phase 1 for #741 may begin now.
-
-**Keep the HEAD in the table row current.** A resumed operator reads this table first and needs to know which commit is under review, and state-only commits move the HEAD without changing any content. Update the row's HEAD every time the branch is pushed, not only when the content changes.

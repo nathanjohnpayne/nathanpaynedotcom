@@ -313,10 +313,10 @@ Measured at the revised head with `wc -w`, the same method as the epic's baselin
 
 | Measure | Baseline | Revised | Change |
 | --- | ---: | ---: | ---: |
-| Whole file (the epic's 4,418 baseline) | 4,418 | 4,066 | **−8.0%** |
-| Body prose, frontmatter excluded | 3,993 | 3,589 | **−10.1%** |
+| Whole file (the epic's 4,418 baseline) | 4,418 | 4,151 | **−6.0%** |
+| Body prose, frontmatter excluded | 3,993 | 3,674 | **−8.0%** |
 
-**Neither figure reaches the 20–30% band, and the distance grew with every review round.** The first draft hit −20.8% on body prose. Five automated Codex rounds and the manual Phase 4b correction later it is −10.1%. Two things grew there, both required by the acceptance criteria. The `keyTakeaways` had to carry calibrated language the originals did not—"repeated observation, not controlled measurement" is longer than "measurably better", and that is the point of the change. The `description` and the diagram's `description` both gained the April-2026 snapshot boundary; the manual review added the local-guard and propagation stages the issue requires.
+**Neither figure reaches the 20–30% band, and the distance grew with every review round.** The first draft hit −20.8% on body prose. Five automated Codex rounds, the manual Phase 4b correction, and the final CodeRabbit follow-up later it is −8.0%. Two things grew there, both required by the acceptance criteria. The `keyTakeaways` had to carry calibrated language the originals did not—"repeated observation, not controlled measurement" is longer than "measurably better", and that is the point of the change. The `description` and the diagram's `description` both gained the April-2026 snapshot boundary; the manual review added the local-guard and propagation stages the issue requires; the follow-up separated an April 17 response population from the April 16 snapshot.
 
 The body also absorbed three sections the acceptance criteria require and the original did not have: the enforcement-boundary table ("every enforcement claim names its boundary"), the corrected-numbers section with its pointer to this ledger ("a linked or embedded counting note"), and "Since the snapshot" ("a reader can tell historical behavior from current Mergepath behavior"). Net of those additions the surviving original prose is down considerably more than 20.8%.
 
@@ -534,3 +534,11 @@ The handoff said 23 findings while displaying round counts that sum to 24, omitt
 ### Q6—The post-fix boundary grep found two more absolute phrases
 
 After applying the five review findings, a final grep for universal enforcement language found two nearby sentences the review had not named. "A non-conforming PR is never created" is now scoped to the guarded wrapper path, and the administrator-merge paragraph now names both local variables, the blocked-state condition, and the separate server-side `--admin` flag.
+
+---
+
+## R. CodeRabbit post-sync addendum (PR #791)
+
+CodeRabbit posted four P2 findings after the manual fixes were pushed and the branch was synchronized with current `main`. Three were correct and are fixed: §F2 now appears in the mechanical-failure inventory; the response-time population is separated from the April 16 snapshot because four observations come from PR #78 on April 17; and the multi-round conclusion is scoped to two observed runs rather than called routine.
+
+The fourth finding asked `RUN.md` to pin a current HEAD and update it after every state-only commit. That is dismissed because it recreates the self-invalidating handoff defect corrected in §Q5: the act of committing a new head value immediately makes the recorded value stale. The stable source of truth is the linked open PR, whose live head must be read before review or merge.
