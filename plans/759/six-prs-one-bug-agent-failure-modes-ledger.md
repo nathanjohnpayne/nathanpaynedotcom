@@ -147,3 +147,49 @@ Counting *all* review submissions instead gives 19. Neither is nine. If the figu
 4. **§B1 must be corrected, not dropped.** The "reviewers saw it and it shipped anyway" beat is real; it belongs to #155, where three blocking rounds are on the record. On #146 both reviewers approved and verified the round-trip.
 5. Where a row says **UNPROVABLE** (§C1, §D1, §D2, §E1, §E2), use its defensible form.
 6. Compression: the epic asks 20–30% from 4,463, "with chronology retained where it is evidence"—and after §A1 the chronology *is* the evidence, so retain it. Per the operator's guidance in `plans/759/RUN.md` the reduction is a guideline, not a gate.
+
+---
+
+## H. Compression accounting
+
+| Measure | Baseline | Revised | Change |
+| --- | ---: | ---: | ---: |
+| Whole file (the epic's 4,463 baseline) | 4,463 | 4,162 | **−6.7%** |
+
+**Short of the 20–30% guidance, and deliberately so.** #744's own compression clause is the only one in the epic that carries a carve-out—"with chronology retained where it is evidence"—and after §A1 the chronology *is* the evidence. The corrected arc only works if the reader can see that all six PRs precede the issue, which needs the timestamped table, and that each PR was locally reasonable, which needs the per-PR sections.
+
+What was cut: the duplicated inline copy of the sidebar Mermaid diagram; the "closed feedback loop" diagram, whose premise depended on the wrong §B1 claim and which stopped matching the record once #146 was corrected to an approval; four screenshot subsections collapsed into one run; and the over-explanation in the #144, prompts and brief sections.
+
+What was added, and is not removable: the chronology table (§A1), the inclusion rule (§A3), the blocking-round table (§B3), the semantic-parity definition (§D1), the rendering-path boundary (§D2), and the confounder list (§E1). Every one is a named acceptance criterion.
+
+Per the operator's guidance recorded in `plans/759/RUN.md`, the reduction is a guideline rather than a gate. Closing the remaining gap would mean deleting the chronology the issue explicitly says to keep.
+
+---
+
+## I. The title: considered, and kept
+
+The drafting pass proposed retitling the post from **"Six PRs, One Bug: What AI Agents Actually Get Wrong"** to "The Invariant Nobody Wrote Down", on the grounds that #744's positioning section rules out treating the PRs as "a spectacle of agent incompetence". I endorsed it, implemented it across eight files, and then reverted it. Recording why, because the reasoning is the useful part.
+
+**The retitle over-read the constraint.** "Not a spectacle of agent incompetence" governs the *treatment*, not the headline, and the revised body already satisfies it: every per-PR section argues the agent behaved reasonably given a symptom-shaped input, and the closing paragraph puts the process failure on the operator.
+
+**The original title survives the correction intact.** Its load-bearing word is "actually"—it claims the common assumption about *how* agents fail is wrong and the real thing is subtler, which is the same move the post makes. The failure mode it names is real and unaffected by the chronology fix: the agent patched the nearest plausible code path six times and never promoted a repeated local failure into a structural question. Correcting *why* that happened does not stop it being a thing agents get wrong.
+
+**The blast radius was the deciding factor.** The title turned out to be referenced in seven places outside the post, and a first grep found only four:
+
+| File | Reference |
+|---|---|
+| `src/content/projects/swipe-watch.md` | `related` link label |
+| `src/content/projects/override.md` | `related` link label |
+| `src/content/projects/device-source-of-truth.md` | `related` link label |
+| `src/content/projects/friends-and-family-billing.md` | `related` link label |
+| `src/content/projects/mergepath.md` | `related` label **and** an in-body prose link |
+| `src/components/resume/WritingSection.astro` | the `/resume` writing list |
+| `tests/blog-pages.test.js` | asserts the exact `headline` **and** the exact `seoDescription` |
+
+Spending that much churn, including a test assertion, on a framing judgement defensible either way was the wrong trade. **The rule: a correction the evidence forces is worth any blast radius; a taste change is worth roughly none.**
+
+Two findings from the exercise are worth keeping even though the change was reverted.
+
+**`tests/blog-pages.test.js` pins this post's `headline` and `seoDescription` as exact strings**, in two assertions each—a tighter contract than the other six posts carry. The `seoDescription` *is* revised here (the original described a chronology now known to be inverted), so that assertion is updated and the `headline` one is not. **The remaining three audits should check for a pinned assertion before editing frontmatter.**
+
+**Grep twice, on a distinctive fragment.** The first sweep matched only the em-dash form used in `related` labels and missed the colon form in the title, the resume component and the test. Search for the distinctive substring—"What AI Agents Actually Get Wrong"—not the whole formatted title.

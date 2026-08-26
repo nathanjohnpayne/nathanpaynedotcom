@@ -13,8 +13,8 @@ Deliberate. #740 calibrates the ledger format and the Fable handoff; #739/#741 r
 | 0 | — | shared evidence cache | **0 complete** | `plans/759/refs.json` | `content/740-astro-migration-audit` | [#787](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/787) | done |
 | 1 | #740 | how-a-responsive-fix-became-an-astro-migration | **done** | `plans/759/how-a-responsive-fix-became-an-astro-migration-ledger.md` | `content/740-astro-migration-audit` | [#787](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/787) | **merged** `28e81a7` |
 | 2 | #739 | agent-approval-workflow-genesis-of-mergepath | **done** | `plans/759/agent-approval-workflow-genesis-of-mergepath-ledger.md` | `content/739-mergepath-genesis-audit` | [#791](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/791) | **merged** `bef2a56` |
-| 3 | #741 | html-mockups-as-spec | 3 in progress | `plans/759/html-mockups-as-spec-ledger.md` | `content/741-html-mockups-audit` | [#796](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/796) | in review |
-| 4 | #744 | six-prs-one-bug-agent-failure-modes | **1 complete** | `plans/759/six-prs-one-bug-agent-failure-modes-ledger.md` | — | — | ledger done |
+| 3 | #741 | html-mockups-as-spec | **done** | `plans/759/html-mockups-as-spec-ledger.md` | `content/741-html-mockups-audit` | [#796](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/796) | **merged** `89e82c1` |
+| 4 | #744 | six-prs-one-bug-agent-failure-modes | 3 in progress | `plans/759/six-prs-one-bug-agent-failure-modes-ledger.md` | `content/744-six-prs-audit` | — | in review |
 | 5 | #745 | autofix-was-the-whole-cost | not started | `plans/759/autofix-was-the-whole-cost-ledger.md`  | — | — | pending |
 | 6 | #743 | perfect-score-wrong-axis | not started | `plans/759/perfect-score-wrong-axis-ledger.md`  | — | — | pending |
 | 7 | #742 | two-blues-one-composition | not started | `plans/759/two-blues-one-composition-ledger.md`  | — | — | pending |
