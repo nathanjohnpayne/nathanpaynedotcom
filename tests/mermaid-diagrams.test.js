@@ -252,6 +252,18 @@ describe('rehype-mermaid integration', () => {
         element('span', [broken('p')]),
         'white-space: nowrap !important; white-space: break-spaces; line-height: 1.5;',
       ],
+      // A raw label can declare `nowrap` inside a wrapping container, spelled
+      // with whitespace or a comment before the colon. Missing either spelling
+      // reads the container's `break-spaces`, adds nothing, and lets the
+      // browser collapse the newline under the `nowrap` that really applies.
+      spacedDeclaration: [
+        element('span', [broken('p', { style: 'white-space : nowrap' })]),
+        WRAPPING,
+      ],
+      commentedDeclaration: [
+        element('span', [broken('p', { style: 'white-space /* c */ : nowrap' })]),
+        WRAPPING,
+      ],
     };
 
     const rendered = Object.fromEntries(
@@ -291,6 +303,12 @@ describe('rehype-mermaid integration', () => {
     // Reading the last declaration instead of the winning one would misread
     // this container as wrapping and leave the newline to collapse.
     expect(rendered.importantOutranksOrder).toContain(`<p style="${PRE}">A\nB</p>`);
+    expect(rendered.spacedDeclaration).toContain(
+      `<p style="white-space : nowrap; ${PRE}">A\nB</p>`,
+    );
+    expect(rendered.commentedDeclaration).toContain(
+      `<p style="white-space /* c */ : nowrap; ${PRE}">A\nB</p>`,
+    );
   });
 
   it('ships every built label break as a single line break', () => {

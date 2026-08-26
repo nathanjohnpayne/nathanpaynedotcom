@@ -176,8 +176,15 @@ function declaredWhiteSpace(node) {
   const style = node.properties?.style;
   if (typeof style !== 'string') return '';
 
+  // A raw `style` attribute in a Markdown-string label survives Mermaid's
+  // sanitizer, so this reads author-written CSS, not just Mermaid's own. Strip
+  // comments and allow whitespace around the colon rather than pinning one
+  // spelling: `white-space : nowrap` and `white-space /* x */: nowrap` are both
+  // valid, and missing either would inherit the wrong value from the container.
   const declarations = [
-    ...style.matchAll(/(?:^|;)\s*white-space:\s*([a-z-]+)\s*(!\s*important)?/gi),
+    ...style
+      .replace(/\/\*[\s\S]*?\*\//g, ' ')
+      .matchAll(/(?:^|;)\s*white-space\s*:\s*([a-z-]+)\s*(!\s*important)?/gi),
   ].map((match) => ({ value: match[1].toLowerCase(), important: Boolean(match[2]) }));
 
   // Read the declaration that actually wins: `!important` outranks source
