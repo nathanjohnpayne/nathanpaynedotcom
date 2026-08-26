@@ -48,6 +48,16 @@ It also reports numbers written as words as an **advisory note**. That cannot ga
 
 **Semantically wrong citations.** A project page cited PR #178 for a fix delivered by #161. The number resolved, the repository was right, the link worked --- it was simply about something else. No link checker or reference cache catches this. Read the referenced PR and confirm it did the thing the sentence claims.
 
+## Dispositioning review feedback
+
+Fixing a finding is not dispositioning it. Both reviewers require a substantive reply on the thread **and** the thread resolved --- `scripts/review-feedback-accounting.sh` treats those as separate requirements, and an unaccounted finding blocks the next Codex review request entirely.
+
+Two asymmetries to know:
+
+**Codex threads do not resolve themselves.** Reply, then run `scripts/resolve-pr-threads.sh <PR> --repo <owner/repo> --resolve-actioned`.
+
+**CodeRabbit invalidates your reply by acknowledging your fix.** It edits its own root comment to append "Addressed in commit `<sha>`" several minutes after you push. That edit pushes the accounting floor above your reply, so a disposition that was already posted reads as stale. Re-reply above the new floor, then resolve. Expect this on every CodeRabbit finding you actually fixed --- it is the acknowledgement itself that causes it.
+
 ## Length
 
 State compression targets against **connective prose**, or not as a percentage at all. Whole-file targets misfire because evidence structures are incompressible by construction: on one post roughly 22% of the file was frontmatter, tables, diagrams, and code the acceptance criteria explicitly required, so a 20--30% whole-file target demanded a 26--39% cut to prose alone. Where an audit's own criteria mandate new evidence, the post gets longer; record that plainly rather than reporting a favourable number.
