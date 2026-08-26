@@ -53,6 +53,21 @@ function routeOf(file) {
 }
 
 /**
+ * Parse built markup without executing any of it.
+ *
+ * `DOMParser` never runs scripts, which is what makes it safe to parse a page
+ * here and separately decide what to execute. It is also why the queries below
+ * are DOM queries rather than regexes: an earlier revision matched `<script>`
+ * with `/<script\b([^>]*)>/` and CodeQL js/bad-tag-filter correctly objected
+ * that it misses `<SCRIPT>` — the same finding, for the same reason, that
+ * `tests/helpers/dom.js` documents at length. Case, attributes, and nesting
+ * are the parser's problem, not a pattern's.
+ */
+function parse(html) {
+  return new DOMParser().parseFromString(html, 'text/html');
+}
+
+/**
  * Inline script bodies, in document order, that a browser would execute.
  *
  * External (`src=`) and JSON-LD scripts are skipped because neither is
@@ -61,9 +76,9 @@ function routeOf(file) {
  * moves to a different script or switches from an id lookup to a class one.
  */
 function inlineScripts(html) {
-  return [...html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/g)]
-    .filter(([, attrs]) => !/\bsrc=/.test(attrs) && !/application\/ld\+json/.test(attrs))
-    .map(([, , body]) => body);
+  return [...parse(html).querySelectorAll('script')]
+    .filter((el) => !el.hasAttribute('src') && el.getAttribute('type') !== 'application/ld+json')
+    .map((el) => el.textContent);
 }
 
 /**
@@ -73,6 +88,14 @@ function inlineScripts(html) {
  * assertions read the DOM afterwards, so a script that mattered and threw
  * still fails the test — through the href it did not set, not through the
  * exception, which is the symptom a reader would actually see.
+ *
+ * `DOMContentLoaded` and `load` are then dispatched because `writeSanitizedDOM`
+ * finishes parsing before any of this runs, so both events have already passed
+ * by the time a script registers for them. #790 named
+ * `document.addEventListener('DOMContentLoaded', …)` as an acceptable place to
+ * assemble the href; without these two lines that implementation would read as
+ * an inert anchor and the guard would block a valid fix instead of the
+ * click-handler regression it targets.
  */
 function runPageScripts(html) {
   for (const body of inlineScripts(html)) {
@@ -82,11 +105,13 @@ function runPageScripts(html) {
       /* browser-equivalent: report and continue to the next script element */
     }
   }
+  document.dispatchEvent(new Event('DOMContentLoaded', { bubbles: true }));
+  window.dispatchEvent(new Event('load'));
 }
 
 const pages = htmlFiles(DIST)
   .map((file) => ({ route: routeOf(file), html: readFileSync(file, 'utf-8') }))
-  .filter(({ html }) => /<a\b[^>]*\bdata-u=/.test(html))
+  .filter(({ html }) => parse(html).querySelector('a[data-u]') !== null)
   .sort((a, b) => a.route.localeCompare(b.route));
 
 describe('base64-assembled mail links resolve at load (#790)', () => {
@@ -138,8 +163,12 @@ describe('base64-assembled mail links resolve at load (#790)', () => {
         expect(href.startsWith('mailto:'), `${label} resolved to a non-mailto destination`).toBe(
           true,
         );
+        // Decoded before comparing, so the assertion is about the destination
+        // rather than the encoding an assembly happened to choose.
         const [recipient, query] = href.slice('mailto:'.length).split('?');
-        expect(recipient, `${label} resolved to the wrong address`).toBe(ADDRESS);
+        expect(decodeURIComponent(recipient), `${label} resolved to the wrong address`).toBe(
+          ADDRESS,
+        );
 
         // A subject is optional, but an empty one is a broken assembly rather
         // than a deliberate omission.
