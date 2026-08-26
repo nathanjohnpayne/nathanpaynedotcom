@@ -1,6 +1,6 @@
 # Facts ledger—#739 `agent-approval-workflow-genesis-of-mergepath`
 
-Post source: `src/content/blog/agent-approval-workflow-genesis-of-mergepath.md`. Published `2026-04-16`. **Pre-revision baselines: 3,993 body words, 4,418 whole-file** (the epic's figure, which counts frontmatter). Both are baselines, not current counts; §J carries the revised measurements. Evidence repo: `nathanjohnpayne/mergepath`. Bare `#NNN` in this ledger means **mergepath** unless qualified. Cross-repo items are written in full. Shared cache: `plans/759/refs.json`.
+Post source: `src/content/blog/agent-approval-workflow-genesis-of-mergepath.md`. Published `2026-04-16`. **Pre-revision baselines: 3,993 body words, 4,418 whole-file** (the epic's figure, which counts frontmatter). Both are baselines, not current counts; §J carries the revised measurements. Evidence repo: `nathanjohnpayne/mergepath`. Bare `#NNN` in this ledger means **mergepath** unless qualified. Cross-repo items are written in full. Shared cache: `plans/759/refs.json`. Current-state figures were rechecked at **2026-08-26T01:35:03Z** unless a row gives a different timestamp.
 
 Verdicts: **SUPPORTED** · **WRONG** (corrected value given) · **UNPROVABLE** (defensible weaker form given).
 
@@ -20,7 +20,7 @@ Verdicts: **SUPPORTED** · **WRONG** (corrected value given) · **UNPROVABLE** (
 
 > "The numbers" section
 
-**WRONG, and internally inconsistent with A1.** The same post says six weeks in the lede and seven in the numbers. Neither matches the repo: three weeks. "Nine repositories" is also a **今日** figure, not an April one—see §C3. Corrected value: state one interval, tied to a named start event, and scope the repo count to the date. Source: as A1.
+**WRONG, and internally inconsistent with A1.** The same post says six weeks in the lede and seven in the numbers. Neither matches the repo: three weeks. "Nine repositories" is also a **current-state** figure, not an April one—see §C3. Corrected value: state one interval, tied to a named start event, and scope the repo count to the date. Source: as A1.
 
 ### A3—"The lessons cost me six weeks."
 
@@ -42,7 +42,7 @@ Verdicts: **SUPPORTED** · **WRONG** (corrected value given) · **UNPROVABLE** (
 
 > "The numbers" section
 
-**WRONG, and by a wide margin.** At the post's date the mergepath repository had **32 pull requests in total**, of which **30 were merged**. The repo did not pass 100 PRs until well after publication; it stands at 459 today. Corrected value: **32 pull requests opened and 30 merged** on the template repo as of 2026-04-16. Source: `gh api --paginate 'repos/nathanjohnpayne/mergepath/pulls?state=all&per_page=100&sort=created&direction=asc'`, filtered `created_at < "2026-04-17"` → 32 rows, 30 with a non-null `merged_at`. Total-ever count from the `Link: rel="last"` header at `per_page=1` → 459.
+**WRONG, and by a wide margin.** At the post's date the mergepath repository had **32 pull requests in total**, of which **30 were merged**. The repo did not pass 100 PRs until well after publication; it stood at 459 at the 2026-08-26 audit snapshot. Corrected value: **32 pull requests opened and 30 merged** on the template repo as of 2026-04-16. Source: `gh api --paginate 'repos/nathanjohnpayne/mergepath/pulls?state=all&per_page=100&sort=created&direction=asc'`, filtered `created_at < "2026-04-17"` → 32 rows, 30 with a non-null `merged_at`. Total-ever count from the `Link: rel="last"` header at `per_page=1` → 459.
 
 ### B2—"46 project items tracked across 5 phases in Project #2"
 
@@ -58,7 +58,7 @@ Verdicts: **SUPPORTED** · **WRONG** (corrected value given) · **UNPROVABLE** (
 
 > "What the template actually is"
 
-**WRONG.** At the April-16 tree, `scripts/ci/` contained **seven** check scripts (`check_codex_scripts`, `check_dist_not_modified`, `check_duplicate_docs`, `check_no_forbidden_top_level_dirs`, `check_no_tool_folder_instructions`, `check_required_root_files`, `check_spec_test_alignment`) plus a `README.md`. "Roughly two dozen" matches nothing at either date: counted the same way, the directory holds **66** check scripts today, out of 122 files in total, most of which are not checks. See §K2, where the same units error had survived into the revision. Corrected value: seven fail-closed CI checks as of the post's date. Source: `git -C ~/GitHub/mergepath ls-tree -r --name-only 2429e6bf -- scripts/ci` (the last commit before 2026-04-17).
+**WRONG.** At the April-16 tree, `scripts/ci/` contained **seven** check scripts (`check_codex_scripts`, `check_dist_not_modified`, `check_duplicate_docs`, `check_no_forbidden_top_level_dirs`, `check_no_tool_folder_instructions`, `check_required_root_files`, `check_spec_test_alignment`) plus a `README.md`. "Roughly two dozen" matches nothing at either date: counted the same way, the directory held **71** check scripts at the 2026-08-26 audit snapshot, out of 122 files in total, most of which are not checks. See §K2, where the same units error had survived into the revision. Corrected value: seven fail-closed CI checks as of the post's date. Source: `git -C ~/GitHub/mergepath ls-tree -r --name-only 2429e6bf -- scripts/ci` for the April tree and the same command against `origin/main` at the audit snapshot.
 
 ### B5—"seventeen distinct template bugs"
 
@@ -105,7 +105,8 @@ The post omits the hook-command-grammar bug and the two timing/clock bugs. Corre
 | Required status checks / Label Gate | **GitHub server** | Everyone, subject to admin override. |
 | `scripts/ci/` checks | **CI** | Blocks the merge button, not the push. |
 | Reviewer identities | **Convention plus `block-self-approval`** | The job blocks self-approval; the author/reviewer split itself is convention. |
-| `BREAK_GLASS_ADMIN` / `--admin` | **Client-side hook, then server** | Explicitly designed to be bypassable by the human. |
+| `BREAK_GLASS_ADMIN` / `BREAK_GLASS_MERGE_STATE` | **Client-side**, read by the local hook | They unlock the hook's refusal only and are never sent to GitHub. |
+| `--admin` on the merge | **GitHub server** | Invokes the server-side administrator bypass; explicitly designed for human use. |
 
 Defensible form: name the boundary per control, as #739's acceptance criteria require, and say that the *combination* raises the cost of the wrong action rather than making it impossible. The break-glass path exists precisely so it is not impossible. Source: `scripts/hooks/gh-pr-guard.sh` (a PreToolUse hook, matched against the command string); `.github/review-policy.yml`; `.github/workflows/pr-review-policy.yml`.
 
@@ -121,7 +122,7 @@ Defensible form: name the boundary per control, as #739's acceptance criteria re
 
 > L52, "The numbers"
 
-**SUPPORTED today, WRONG for the post's date.** `.mergepath-sync.yml` lists nine consumers today: matchline, nathanpaynedotcom, tadlockpsychiatry, device-source-of-truth, gaycruisebingo, friends-and-family-billing, device-platform-reporting, overridebroadway, swipewatch. In April 2026 the propagation set was **six** (sub-issues #45–#50), and three of today's nine—matchline, tadlockpsychiatry, gaycruisebingo—did not exist in that set. Corrected value: six downstream repositories as of April 2026; nine today. The post needs the date boundary #739 asks for. Source: `~/GitHub/mergepath/.mergepath-sync.yml`; `gh api repos/nathanjohnpayne/mergepath/issues/{45..50}` → titles.
+**SUPPORTED at the audit snapshot, WRONG for the post's date.** `.mergepath-sync.yml` lists nine consumers at 2026-08-26T01:35:03Z: matchline, nathanpaynedotcom, overridebroadway, device-source-of-truth, friends-and-family-billing, device-platform-reporting, swipewatch, tadlockpsychiatry, gaycruisebingo. In April 2026 the propagation set was **six** (sub-issues #45–#50), and three of the current nine—matchline, tadlockpsychiatry, gaycruisebingo—did not exist in that set. Corrected value: six downstream repositories as of April 2026; nine at the audit snapshot. The post needs the date boundary #739 asks for. Source: `git -C ~/GitHub/mergepath show origin/main:.mergepath-sync.yml`; `gh api repos/nathanjohnpayne/mergepath/issues/{45..50}` → titles.
 
 ### C4—Phase 4b described as "a manual CLI fallback"
 
@@ -202,7 +203,7 @@ All five ran on `2026-04-15` between 18:01 and 18:19 UTC. PR mapping is **SUPPOR
 
 > "The numbers"
 
-**WRONG as stated, and ambiguous in form—an average is one number, not a range.** Measured across every `@codex review` trigger in the Phase 4a era (mergepath PRs #55–#79), pairing each trigger with the next Codex signal of any kind (comment, review, or reaction):
+**WRONG as stated, and ambiguous in form—an average is one number, not a range.** Recomputed at **2026-08-26T01:35:03Z** across every `@codex review` trigger in the Phase 4a-era population (mergepath PRs #55–#79 inclusive), pairing each trigger with the earliest subsequent signal from `chatgpt-codex-connector[bot]`: an issue comment, a submitted review, or a reaction on the PR. PRs with no trigger contributed zero observations; zero-second self-matches were excluded. When an operator posted more than one trigger before the bot answered, each trigger pairs with that same next signal—visible on #64 and #78—because the API does not identify which trigger caused a response.
 
 | Statistic | Value |
 |---|---:|
@@ -214,7 +215,28 @@ All five ran on `2026-04-15` between 18:01 and 18:19 UTC. PR mapping is **SUPPOR
 
 Full set: 7, 13, 98, 113, 127, 131, 141, 149, 155, 156, 179, 180, 198, 210, 231, 301, 316, 703.
 
-Neither 142 nor 342 is a boundary of this population, and the true spread is far wider in both directions. Corrected value: "median 156 seconds across 18 triggered rounds, range 7–703 seconds", with the population named as #739's acceptance criteria require. Source: reproducible script over `issues/{n}/comments`, `pulls/{n}/reviews`, `issues/{n}/reactions` for n in 55..79, pairing each `@codex review` comment with the earliest subsequent Codex signal; zero-second self-matches excluded.
+| PR | Trigger (UTC) | Next Codex signal (UTC) | Signal | Seconds |
+|---:|---|---|---|---:|
+| 62 | [2026-04-15T02:37:10Z](https://github.com/nathanjohnpayne/mergepath/pull/62#issuecomment-4248730199) | [2026-04-15T02:41:01Z](https://github.com/nathanjohnpayne/mergepath/pull/62#pullrequestreview-4110456170) | review | 231 |
+| 62 | [2026-04-15T02:44:59Z](https://github.com/nathanjohnpayne/mergepath/pull/62#issuecomment-4248751053) | [2026-04-15T02:48:29Z](https://github.com/nathanjohnpayne/mergepath/pull/62) | 👍 reaction | 210 |
+| 63 | [2026-04-15T04:43:05Z](https://github.com/nathanjohnpayne/mergepath/pull/63#issuecomment-4249169408) | [2026-04-15T04:43:12Z](https://github.com/nathanjohnpayne/mergepath/pull/63#issuecomment-4249170149) | comment | 7 |
+| 64 | [2026-04-15T03:21:09Z](https://github.com/nathanjohnpayne/mergepath/pull/64#issuecomment-4248878747) | [2026-04-15T03:23:16Z](https://github.com/nathanjohnpayne/mergepath/pull/64#issuecomment-4248884681) | comment | 127 |
+| 64 | [2026-04-15T03:23:03Z](https://github.com/nathanjohnpayne/mergepath/pull/64#issuecomment-4248884079) | [2026-04-15T03:23:16Z](https://github.com/nathanjohnpayne/mergepath/pull/64#issuecomment-4248884681) | comment | 13 |
+| 65 | [2026-04-15T04:02:38Z](https://github.com/nathanjohnpayne/mergepath/pull/65#issuecomment-4248998630) | [2026-04-15T04:05:38Z](https://github.com/nathanjohnpayne/mergepath/pull/65#issuecomment-4249007553) | comment | 180 |
+| 65 | [2026-04-15T04:45:43Z](https://github.com/nathanjohnpayne/mergepath/pull/65#issuecomment-4249186416) | [2026-04-15T04:47:21Z](https://github.com/nathanjohnpayne/mergepath/pull/65#issuecomment-4249197990) | comment | 98 |
+| 69 | [2026-04-15T17:46:34Z](https://github.com/nathanjohnpayne/mergepath/pull/69#issuecomment-4254233177) | [2026-04-15T17:48:55Z](https://github.com/nathanjohnpayne/mergepath/pull/69) | 👍 reaction | 141 |
+| 72 | [2026-04-15T18:04:56Z](https://github.com/nathanjohnpayne/mergepath/pull/72#issuecomment-4254350027) | [2026-04-15T18:06:49Z](https://github.com/nathanjohnpayne/mergepath/pull/72#pullrequestreview-4115814149) | review | 113 |
+| 72 | [2026-04-15T18:08:11Z](https://github.com/nathanjohnpayne/mergepath/pull/72#issuecomment-4254368449) | [2026-04-15T18:11:10Z](https://github.com/nathanjohnpayne/mergepath/pull/72) | 👍 reaction | 179 |
+| 73 | [2026-04-15T18:07:42Z](https://github.com/nathanjohnpayne/mergepath/pull/73#issuecomment-4254365475) | [2026-04-15T18:10:18Z](https://github.com/nathanjohnpayne/mergepath/pull/73#pullrequestreview-4115837894) | review | 156 |
+| 73 | [2026-04-15T18:13:04Z](https://github.com/nathanjohnpayne/mergepath/pull/73#issuecomment-4254395170) | [2026-04-15T18:15:15Z](https://github.com/nathanjohnpayne/mergepath/pull/73#pullrequestreview-4115869685) | review | 131 |
+| 74 | [2026-04-15T18:10:03Z](https://github.com/nathanjohnpayne/mergepath/pull/74#issuecomment-4254379417) | [2026-04-15T18:12:38Z](https://github.com/nathanjohnpayne/mergepath/pull/74#pullrequestreview-4115853464) | review | 155 |
+| 74 | [2026-04-15T18:14:16Z](https://github.com/nathanjohnpayne/mergepath/pull/74#issuecomment-4254401733) | [2026-04-15T18:16:45Z](https://github.com/nathanjohnpayne/mergepath/pull/74) | 👍 reaction | 149 |
+| 78 | [2026-04-17T04:00:30Z](https://github.com/nathanjohnpayne/mergepath/pull/78#issuecomment-4265196065) | [2026-04-17T04:12:13Z](https://github.com/nathanjohnpayne/mergepath/pull/78#pullrequestreview-4125971172) | review | 703 |
+| 78 | [2026-04-17T04:08:55Z](https://github.com/nathanjohnpayne/mergepath/pull/78#issuecomment-4265232553) | [2026-04-17T04:12:13Z](https://github.com/nathanjohnpayne/mergepath/pull/78#pullrequestreview-4125971172) | review | 198 |
+| 78 | [2026-04-17T04:19:10Z](https://github.com/nathanjohnpayne/mergepath/pull/78#issuecomment-4265281699) | [2026-04-17T04:24:11Z](https://github.com/nathanjohnpayne/mergepath/pull/78#pullrequestreview-4126017920) | review | 301 |
+| 78 | [2026-04-17T04:27:44Z](https://github.com/nathanjohnpayne/mergepath/pull/78#issuecomment-4265320721) | [2026-04-17T04:33:00Z](https://github.com/nathanjohnpayne/mergepath/pull/78#pullrequestreview-4126046806) | review | 316 |
+
+Neither 142 nor 342 is a boundary of this population, and the true spread is far wider in both directions. Corrected value: "median 156 seconds across 18 trigger-to-signal observations, range 7–703 seconds", with the population named as #739's acceptance criteria require. Source: `gh api` over `issues/{n}/comments`, `pulls/{n}/reviews`, and `issues/{n}/reactions` for `n` in 55..79, using the pairing rule above; the table is the published observation set.
 
 ---
 
@@ -240,7 +262,7 @@ Checked against the actual propagation pull requests, the claim does not survive
 
 Corrected value: the tracking issues closed within eighteen seconds of one another; the identifiable propagation PRs landed on April 19 and took roughly eleven minutes each. "Under ten minutes" is not supported by either measure.
 
-**This is the §K1 failure from the #740 audit, repeated by me in this one**: inferring the duration and success of an event from the timestamp at which someone closed a ticket about it. Writing the rule down did not stop me applying the same reasoning two posts later. Source: `gh api repos/nathanjohnpayne/mergepath/issues/{47,48,49,50}` → `.closed_at`; `gh api 'repos/nathanjohnpayne/device-platform-reporting/pulls?state=all'` and the same for `overridebroadway`, filtered on propagation titles → `.created_at`/`.merged_at`. Source: `gh api repos/nathanjohnpayne/mergepath/issues/{47,48,49,50}` → `.closed_at`.
+**This is the §K1 failure from the #740 audit, repeated by me in this one**: inferring the duration and success of an event from the timestamp at which someone closed a ticket about it. Writing the rule down did not stop me applying the same reasoning two posts later. Source: `gh api repos/nathanjohnpayne/mergepath/issues/{47,48,49,50}` → `.closed_at`; `gh api 'repos/nathanjohnpayne/device-platform-reporting/pulls?state=all'` and the same for `overridebroadway`, filtered on propagation titles → `.created_at`/`.merged_at`.
 
 ### F3—"propagation is implicitly a fresh-eyes code review"
 
@@ -266,7 +288,7 @@ Corrected value: the tracking issues closed within eighteen seconds of one anoth
 | PR #60 was a docs-only change touching `.github/**`, merged 2026-04-15 | `refs.json` → `#60`, +60/−10 over 2 files |
 | PR #63 added a runtime label re-verify, +53/−0 in one file | `refs.json` → `#63` |
 | PR #76 was the consolidated back-port, +450/−102 over 3 files | `refs.json` → `#76` |
-| Codex posts no `APPROVED` review; it uses 👍 or a `COMMENTED` review | `.github/review-policy.yml` § codex; observed on every dry run |
+| The Codex GitHub App posts no `APPROVED` review; it uses 👍 or a `COMMENTED` review | `.github/review-policy.yml` § codex; observed on every dry run. The `nathanpayne-codex` CLI reviewer identity is distinct and does post ordinary approvals (§P6) |
 | Six downstream repos in the April propagation set | issues #45–#50 |
 | Project #2 holds 46 items | §B2 |
 
@@ -279,7 +301,7 @@ Corrected value: the tracking issues closed within eighteen seconds of one anoth
 3. **§B1 is the most quotable wrong number in the post.** "100+ PRs" is 32.
 4. Where a row says **UNPROVABLE**, use its defensible form. §G1 in particular: "measurably" must go, and the acceptance criteria explicitly permit recasting it as repeated observation.
 5. **Add the snapshot boundary.** §A4, §C3, §C4. A reader must be able to tell April-2026 behaviour from current behaviour.
-6. **§C1's table is the deliverable** for the "every enforcement claim names its boundary" criterion. The live corroboration in that row—two break-glass variables, and a line-anchored hook match—is fresh evidence from this epic's own run.
+6. **§C1's table is the deliverable** for the "every enforcement claim names its boundary" criterion. The live corroboration in that row—two local break-glass variables, the server-side `--admin` flag, and the wrapper body's line-anchored contract match—is fresh evidence from this epic's own run.
 7. **§B7 and §E3 are the "preserve the uncomfortable evidence" material** the issue asks for. A known P1 carried forward, and a model-behaviour generalisation the repo has since falsified, are stronger endings than a clean sweep.
 8. Compression target: 20–30% from 4,418. §B4, §D1's table, and the propagation chronology are the densest candidates; keep the decision evolution and the failures.
 
@@ -291,16 +313,16 @@ Measured at the revised head with `wc -w`, the same method as the epic's baselin
 
 | Measure | Baseline | Revised | Change |
 | --- | ---: | ---: | ---: |
-| Whole file (the epic's 4,418 baseline) | 4,418 | 3,998 | **−9.5%** |
-| Body prose, frontmatter excluded | 3,993 | 3,553 | **−11.0%** |
+| Whole file (the epic's 4,418 baseline) | 4,418 | 4,066 | **−8.0%** |
+| Body prose, frontmatter excluded | 3,993 | 3,589 | **−10.1%** |
 
-**Neither figure reaches the 20–30% band, and the distance grew with every review round.** The first draft hit −20.8% on body prose. Five Codex rounds later it is −11.0%. Two things grew there, both required by the acceptance criteria. The `keyTakeaways` had to carry calibrated language the originals did not—"repeated observation, not controlled measurement" is longer than "measurably better", and that is the point of the change. The `description` and the diagram's `description` both gained the April-2026 snapshot boundary.
+**Neither figure reaches the 20–30% band, and the distance grew with every review round.** The first draft hit −20.8% on body prose. Five automated Codex rounds and the manual Phase 4b correction later it is −10.1%. Two things grew there, both required by the acceptance criteria. The `keyTakeaways` had to carry calibrated language the originals did not—"repeated observation, not controlled measurement" is longer than "measurably better", and that is the point of the change. The `description` and the diagram's `description` both gained the April-2026 snapshot boundary; the manual review added the local-guard and propagation stages the issue requires.
 
 The body also absorbed three sections the acceptance criteria require and the original did not have: the enforcement-boundary table ("every enforcement claim names its boundary"), the corrected-numbers section with its pointer to this ledger ("a linked or embedded counting note"), and "Since the snapshot" ("a reader can tell historical behavior from current Mergepath behavior"). Net of those additions the surviving original prose is down considerably more than 20.8%.
 
 Per the epic's compression clause—"meet the 20–30% guidance, **or document why retained chronology or evidence earns the additional length**"—this row is that documentation, and the operator has since confirmed in chat that the reduction is a guideline rather than a gate: if cutting would damage the post, do not cut.
 
-The gap widened rather than closed as review proceeded, and that is the substantive point rather than an excuse. Across five rounds, twenty-three findings were accepted, and almost every fix cost words, always for the same reason: a claim that had been short and wrong became longer and right.
+The gap widened rather than closed as review proceeded, and that is the substantive point rather than an excuse. Across five rounds, twenty-four inline findings were dispositioned, and almost every accepted fix cost words, always for the same reason: a claim that had been short and wrong became longer and right. A separate PR-level P1 was missed at handoff and is recorded in §Q.
 
 The largest additions, with what each bought:
 
@@ -326,18 +348,18 @@ Two findings from the `nathanpayne-claude` reviewer pass, both in the **"Since t
 
 ### K1—"has since passed 459 PRs"
 
-**WRONG.** 459 is the current total, not a threshold crossed. `repos/nathanjohnpayne/mergepath/pulls?state=all` paginates to exactly `page=459; rel="last"` at `per_page=1`. Corrected to "now stands at 459". Source: `gh api 'repos/nathanjohnpayne/mergepath/pulls?state=all&per_page=1' -i` → `Link` header.
+**WRONG.** 459 is the total at the 2026-08-26T01:35:03Z audit snapshot, not a threshold crossed. `repos/nathanjohnpayne/mergepath/pulls?state=all` paginates to exactly `page=459; rel="last"` at `per_page=1`. Corrected to "now stands at 459". Source: `gh api 'repos/nathanjohnpayne/mergepath/pulls?state=all&per_page=1' -i` → `Link` header.
 
 ### K2—"`scripts/ci/` has grown from 7 scripts to 122 files"
 
 **WRONG—the two figures are not comparable, and crossing them inflates the growth.**
 
-| Measure | April 2026 | Today |
+| Measure | April 2026 | 2026-08-26 snapshot |
 |---|---:|---:|
 | Files in `scripts/ci/` | 8 | 122 |
-| Files matching `check_*` | 7 | 66 |
+| Files matching `check_*` | 7 | 71 |
 
-The post's "7" was the check-script count and its "122" the total file count, reading as a 17× increase where the like-for-like figure is about 9×. Corrected to "the seven check scripts in `scripts/ci/` have become 66". §B4's "seven fail-closed CI checks" for April is unaffected—it counts checks, and it is right. Source: `git -C ~/GitHub/mergepath ls-tree -r --name-only {main,2429e6bf} -- scripts/ci`, total and `check_*`-matching counts.
+The post's "7" was the check-script count and its "122" the total file count, reading as a 17× increase where the like-for-like figure is about 10×. Corrected to "the seven check scripts in `scripts/ci/` have become 71". §B4's "seven fail-closed CI checks" for April is unaffected—it counts checks, and it is right. Source: `git -C ~/GitHub/mergepath ls-tree -r --name-only {origin/main,2429e6bf} -- scripts/ci`, total and `check_*`-matching counts at the audit snapshot.
 
 **Rule for the remaining five audits.** Any "as of today" or "since then" figure a revision *introduces* needs a ledger row before it ships. The historical claims get audited because the issue lists them; the new current-state claims have no such prompt, and this pass is where they get caught.
 
@@ -367,7 +389,7 @@ Rewritten above. Project #2 holds **9** pull requests, not ~30, and this row's o
 
 ### L5—§B4 repeated the units error it was correcting
 
-The row corrected "two dozen" to seven for April, then compared it to "122 files today"—checks against files, the same mismatch §K2 caught in the post. Both now use the check-script definition: 7 then, 66 now.
+The row corrected "two dozen" to seven for April, then compared it to "122 files today"—checks against files, the same mismatch §K2 caught in the post. Both now use the check-script definition: 7 then, 71 at the audit snapshot.
 
 ### L6—`RUN.md` pointed at a helper that is not in the repository
 
@@ -481,5 +503,34 @@ The historical numbers are pinned to April 16; the current ones were not pinned 
 
 True of the Codex **GitHub App**, false of the `nathanpayne-codex` CLI reviewer identity, which posts ordinary approvals—twice on PR #66, as this very post describes two sections later, and a third time on PR #65 per §D2. The post now distinguishes the bot from the identity and says why the conflation matters: a merge gate that waits on the App for a state it never emits waits forever.
 
-**Closing tally for this PR.** Twenty-three findings across five Codex rounds plus two from the reviewer pass. **No P0 or P1 in any round.** Ten of the twenty-three were in this ledger rather than the post. Four were corrections to claims that earlier rounds had already corrected somewhere else in the same file, and two—§F2 here and §L2 earlier—were repetitions of failure modes the #740 ledger had already named and I had already written rules against.
+**Closing tally for the automated rounds.** There were **24 inline findings** across five Codex rounds—6 + 4 + 5 + 3 + 6—plus one separate PR-level P1 comment and two findings from the `nathanpayne-claude` reviewer pass. The inline rounds contained no P0 or P1; the PR-level P1 did, and it remained in the article at handoff. Of the 24 inline findings, 11 were in this ledger, 11 in the post, and 2 in `RUN.md`. Four were corrections to claims that earlier rounds had already corrected somewhere else in the same file, and two—§F2 here and §L2 earlier—were repetitions of failure modes the #740 ledger had already named and I had already written rules against.
 
+---
+
+## Q. Manual Phase 4b addendum (PR #791)
+
+The human explicitly set the preceding five-round budget, so the fifth automated round and manual handoff were the intended route rather than a runaway-rounds violation. The [`nathanpayne-codex` manual review](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/791#pullrequestreview-5025965954), pinned to `a5bfff4`, found five remaining issues; all five are corrected in the author response.
+
+### Q1—The universal enforcement claim survived its own `UNPROVABLE` verdict
+
+The post still said Mergepath routed "any AI agent" and "the human" down one path, even though §C1 and the post's boundary table document clients and administrator bypasses. The lede and key takeaway now say what the evidence supports: local controls bind participating sessions, GitHub controls bind repository actions subject to admin override, and no single layer binds every actor.
+
+### Q2—The response-time statistic had no published observations
+
+§E4 named a script and printed 18 durations without an audit timestamp, trigger/signal timestamps, or links to the observations. The row now fixes the population to PRs #55–#79, defines trigger and signal authors and exclusions, discloses the repeated-trigger pairing rule, and publishes all 18 linked pairs.
+
+### Q3—The diagram omitted two stages required by #739
+
+The five-node diagram jumped from instruction files to branch rules and ended at automated review. It now shows seven stages, adding the local guard and wrapper before server rules and propagation after automated review; its title now describes the broader review system rather than calling context and adoption stages enforcement.
+
+### Q4—Four stale boundary descriptions remained
+
+§C1 now separates the two local break-glass variables from server-side `--admin`; §H qualifies the no-`APPROVED` behavior to the Codex GitHub App; §I names the wrapper contract as line-anchored rather than the hook; and the post points to both local variables rather than a nonexistent shared last row.
+
+### Q5—The handoff accounting was arithmetically and procedurally stale
+
+The handoff said 23 findings while displaying round counts that sum to 24, omitted the issue-level P1 because the accounting helper tracks inline comments, and pinned `6e08d74` before the state-only `a5bfff4` commit made that claim stale. `RUN.md` now distinguishes 24 inline findings from the issue-level P1 and the two Claude findings, links the manual review, and avoids claiming that a mutable head is current.
+
+### Q6—The post-fix boundary grep found two more absolute phrases
+
+After applying the five review findings, a final grep for universal enforcement language found two nearby sentences the review had not named. "A non-conforming PR is never created" is now scoped to the guarded wrapper path, and the administrator-merge paragraph now names both local variables, the blocked-state condition, and the separate server-side `--admin` flag.

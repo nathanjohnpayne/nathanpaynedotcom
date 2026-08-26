@@ -12,7 +12,7 @@ Deliberate. #740 calibrates the ledger format and the Fable handoff; #739/#741 r
 |---|-------|------|---------------|-------------|--------|----|--------|
 | 0 | — | shared evidence cache | **0 complete** | `plans/759/refs.json` | `content/740-astro-migration-audit` | [#787](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/787) | done |
 | 1 | #740 | how-a-responsive-fix-became-an-astro-migration | **done** | `plans/759/how-a-responsive-fix-became-an-astro-migration-ledger.md` | `content/740-astro-migration-audit` | [#787](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/787) | **merged** `28e81a7` |
-| 2 | #739 | agent-approval-workflow-genesis-of-mergepath | 3 blocked | `plans/759/agent-approval-workflow-genesis-of-mergepath-ledger.md` | `content/739-mergepath-genesis-audit` | [#791](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/791) | **awaiting manual 4b** |
+| 2 | #739 | agent-approval-workflow-genesis-of-mergepath | 3 review | `plans/759/agent-approval-workflow-genesis-of-mergepath-ledger.md` | `content/739-mergepath-genesis-audit` | [#791](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/791) | **manual 4b** |
 | 3 | #741 | html-mockups-as-spec | not started | `plans/759/html-mockups-as-spec-ledger.md`  | — | — | pending |
 | 4 | #744 | six-prs-one-bug-agent-failure-modes | not started | `plans/759/six-prs-one-bug-agent-failure-modes-ledger.md`  | — | — | pending |
 | 5 | #745 | autofix-was-the-whole-cost | not started | `plans/759/autofix-was-the-whole-cost-ledger.md`  | — | — | pending |
@@ -146,23 +146,23 @@ This supersedes any reading of the epic's compression table as a target that mus
 
 How to apply it. Cut what is genuinely repetition: restated setup, implementation chronology that adds no decision, inventories the issue says not to lead with, and quoted config or code whose content the prose already carries. Do **not** cut evidence, decision records, tradeoffs, the boundary or provenance material the acceptance criteria require, or a correction that is longer than the wrong claim it replaces.
 
-The #739 experience is the cautionary case. Body prose reached −20.8% at first draft and then **drifted back to −17.9% across two review rounds**, because every round replaced a short wrong claim with a longer right one: naming which of two round limits was actually tested, attributing a rejection to the wrapper's contract rather than the hook, distinguishing Codex findings from CodeRabbit's. Chasing the percentage back down would have meant reinstating an error. Ledger §J documents it.
+The #739 experience is the cautionary case. Body prose reached −20.8% at first draft and then **drifted back to −10.1% across five automated rounds and the manual Phase 4b correction**, because every round replaced a short wrong claim with a longer right one: naming which of two round limits was actually tested, attributing a rejection to the wrapper's contract rather than the hook, distinguishing Codex findings from CodeRabbit's, and publishing the raw observations behind the response-time statistic. Chasing the percentage back down would have meant reinstating an error. Ledger §J documents it.
 
 State the accounting honestly in the PR body and the ledger either way, and say what was cut and what was kept. A documented miss is the sanctioned outcome; an undocumented one is not.
 
 ---
 
-## BLOCKED: #739 is at a manual Phase 4b handoff
+## #739 manual Phase 4b review
 
-**State as of 2026-08-26.** PR [#791](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/791) is open at HEAD `6e08d74`, complete, green on every local gate, and **not merged**.
+**State as of 2026-08-26.** PR [#791](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/791) is open and **not merged**. The author handoff targeted content head `6e08d74`; its state-only follow-up commit immediately made that mutable-head claim stale. The [`nathanpayne-codex` manual review](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/791#pullrequestreview-5025965954) requested five changes before approval.
 
-- **Twenty-three findings across five Codex rounds** (6, 4, 5, 3, 6) plus two from the `nathanpayne-claude` reviewer pass. **No P0 or P1 in any round.** 22 fixed, 1 rebutted, none outstanding. Accounting `clear`, every thread resolved.
-- Gates at this head: `astro build`, `vitest run` 491 passed / 1 skipped, `eslint`, `lint-prose`.
-- [Handoff message](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/791#issuecomment-5419174028) posted per REVIEW_POLICY.md § Handoff Message Format, suggesting `nathanpayne-codex`.
+- The automated audit produced **24 inline findings across five human-directed Codex rounds** (6, 4, 5, 3, 6), plus one PR-level P1 comment and two findings from the `nathanpayne-claude` reviewer pass. The inline rounds had no P0 or P1; the issue-level P1 remained in the universal lede at handoff because `review-feedback-accounting.sh` accounts for inline comments, not issue comments.
+- The manual review's five findings are corrected in the author response: the universal claim is scoped, all 18 response-time observations are linked, the diagram carries the full seven-stage progression, stale boundary descriptions agree, and the handoff accounting is stable.
+- Final validation on the merged-current branch: `npm run lint`; `npm run typecheck` (0 errors); `npm test` (42 files, 497 passed / 1 skipped); isolated-port `npm run test:e2e` (327 passed / 45 skipped). The updated article was also checked directly at 375, 768, and 1440 px: seven Mermaid nodes, no label spill, and no horizontal overflow at each width.
+- The original [handoff message](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/791#issuecomment-5419174028) remains the record of the transfer to `nathanpayne-codex`; this section supersedes its stale totals and head claim.
 
 **Two repeated failures worth carrying, both mine.** §F2 inferred propagation duration from the timestamps at which four tracking issues were closed—the identical reasoning #740's §K1 had already named. And §L4's "fill the PR cell at creation time" rule, written after #787, was broken in the very next PR. **Writing a rule into this file does not cause it to be followed.** For #741 onward, the mechanical fixes are: fill the table cell in the same step that creates the PR, and never treat a closure timestamp as evidence of duration or success.
 
-**Ledger–post drift is the dominant defect class.** Ten of twenty-three findings were in the ledger rather than the prose, and four were claims an earlier round had already corrected elsewhere in the same file. Before pushing a fix, grep **both** artifacts for every instance of the claim—a review names the instances it happened to read, not the instances that exist.
+**Ledger–post drift is the dominant defect class.** Eleven of the 24 inline findings were in the ledger, 11 in the prose, and 2 in this file. Four were claims an earlier round had already corrected elsewhere in the same file. Before pushing a fix, grep **both** artifacts for every instance of the claim—a review names the instances it happened to read, not the instances that exist.
 
 **Do not start #741's Phase 3 until #791 merges.** Phase 1 for #741 may begin now.
-

@@ -10,7 +10,7 @@ date: 2026-04-16
 tags: ["AI", "Engineering", "Product", "Systems", "Code Review"]
 image: "/og/blog/agent-approval-workflow-genesis-of-mergepath.png"
 keyTakeaways:
-  - "Instruction files give an agent context, not compliance. Layered controls give compliance—but name where each one runs, because the combination raises the cost of the wrong action rather than making it impossible."
+  - "Instruction files give an agent context, not compliance. Layered controls create enforceable checkpoints—but name where each one runs, because no single layer binds every actor and the combination raises the cost of the wrong action rather than making it impossible."
   - "Reviewing under a separate reviewer identity consistently beat same-conversation review across three agent platforms. That is repeated observation, not controlled measurement; the cost is one GitHub account per agent."
   - "Propagating reviewed code to a new repository is implicitly a fresh-eyes review: code the template's own review had cleared gave up seventeen more bugs the first time Codex read it downstream."
   - "Agent reliability is an infrastructure problem, not a capability problem. The agent that shipped clean code was the same model as the one that tried to push straight to main."
@@ -29,27 +29,31 @@ pullquotes:
     accent: red
 sidebar:
   - type: mermaid
-    title: "Five stages of agent review enforcement"
-    description: "The enforcement path as of April 2026: instruction files, then server-side branch rules, separate-identity self-review, threshold-triggered external review, and automated Codex review."
+    title: "Seven stages in the agent review system"
+    description: "The system's evolution as of April 2026: instruction files, a local guard and wrapper, server-side branch rules, separate-identity self-review, threshold-triggered external review, automated Codex review, and propagation."
     content: |
       graph TD
-          A["Instruction files only<br/>(AGENTS.md, CLAUDE.md)"] --> B["GitHub branch rules<br/>(require PRs)"]
-          B --> C["Self-review under<br/>separate identity"]
-          C --> D["External review for<br/>complex changes (300+ lines)"]
-          D --> E["Automated external<br/>review via Codex App"]
+          A["Instruction files only<br/>(AGENTS.md, CLAUDE.md)"] --> B["Local guard and wrapper<br/>(require a self-review section)"]
+          B --> C["GitHub branch rules<br/>(require PRs)"]
+          C --> D["Self-review under<br/>separate identity"]
+          D --> E["External review for<br/>complex changes (300+ lines)"]
+          E --> F["Automated external<br/>review via Codex App"]
+          F --> G["Propagation to<br/>downstream repositories"]
           style A fill:#e8b4b4,stroke:#993d3d,color:#333
           style B fill:#d4a84b,stroke:#a07830,color:#333
           style C fill:#d4a84b,stroke:#a07830,color:#333
           style D fill:#7bc67e,stroke:#4a8a4d,color:#333
-          style E fill:#2c5f8a,stroke:#2c5f8a,color:#fff
-    caption: "The five stages of agent review enforcement, as of April 2026"
+          style E fill:#7bc67e,stroke:#4a8a4d,color:#333
+          style F fill:#2c5f8a,stroke:#2c5f8a,color:#fff
+          style G fill:#2c5f8a,stroke:#2c5f8a,color:#fff
+    caption: "The seven-stage agent review system, as of April 2026"
 ---
 
 The rule was written down in every file the agents read: never push directly to `main`; every change goes through a pull request. They had all read it. Any of them could quote it back to me. And then one of them would push straight to `main` anyway—usually on a change small enough not to feel like it counted, usually right after I had said "just fix this quickly." Every time it happened, I became the review process: reading diffs after the fact, relaying feedback between sessions, deciding by hand whether output I had not inspected could be trusted. The agents were producing more; my confidence in what they produced was not keeping up.
 
 Two things were going on, and neither is really about AI. Review only happens when something forces a pause, and an agent left to itself never pauses—it goes from prompt to pushed commit with no point where anyone is expected to look. And a rule that exists only as a sentence in a document gets followed when following it is convenient. Human teams answered both problems long ago with tooling that refuses the wrong action instead of a handbook that describes it. That became the product hypothesis: agents need the same answer, for the same reason. Writing the rule more clearly does not work. Making the wrong action mechanically expensive, at a boundary you can name, does.
 
-[Mergepath](https://github.com/nathanjohnpayne/mergepath) (originally `ai_agent_repo_template`) is what that hypothesis turned into: a set of files you drop into a repository that route any AI agent working in it—and the human running it—down the same path. Canonical documentation, so each rule has exactly one home. Fail-closed CI checks. Multi-identity code review, where the GitHub account that writes a change is never the account that approves it. And, for changes big enough to need an outside opinion, automated external review through the OpenAI Codex GitHub App.
+[Mergepath](https://github.com/nathanjohnpayne/mergepath) (originally `ai_agent_repo_template`) is what that hypothesis turned into: a set of files you drop into a repository to layer a shared review path across participating AI agents and humans. Local controls bind the sessions that load them; GitHub controls bind repository actions, subject to an administrator override. Canonical documentation gives each rule exactly one home. Fail-closed CI checks block the merge. Multi-identity code review keeps the GitHub account that writes a change from approving it. And, for changes big enough to need an outside opinion, automated external review runs through the OpenAI Codex GitHub App.
 
 The mergepath repository was created on March 24, 2026, and this post describes it as of April 16, 2026—three weeks of daily use, by which point the template had been propagated to six production repositories. Several figures below have moved a long way since; a closing section says how. None of it was designed top-down. I am a product manager, not an engineer; the system grew bottom-up, and every major control was born from a specific failure I watched happen in real time.
 
@@ -67,9 +71,9 @@ Agents, like humans, would rather skip the PR entirely. I tried instruction file
 
 ## Adding teeth, and naming each boundary
 
-**The failure:** direct pushes to `main` despite the written rule. **The options:** write the rule more forcefully, enforce at the GitHub server, or enforce inside the agent's own session. **The decision:** enforce at both boundaries, because they fail differently. Branch protection—a server-side rule that binds everyone, me included, short of an explicit administrator override—ended direct pushes outright. It also produced the next failure immediately: agents opened PRs with no description and no self-review, then merged them on their own approval. Two pieces answer that, and they are worth separating because I conflated them myself until a reviewer caught it. A [PreToolUse hook](https://github.com/nathanjohnpayne/mergepath/blob/main/scripts/hooks/gh-pr-guard.sh) intercepts every `gh pr create` in the local session and insists it go through the author wrapper. The wrapper's [body contract](https://github.com/nathanjohnpayne/mergepath/blob/main/scripts/lib/pr-body-contract.mjs) is what reads the PR body and refuses it unless there is an `Authoring-Agent:` header and a `## Self-Review` section. Neither is a parser—the contract is a line-anchored regex, the hook's own fallback a substring match—but both run before the API call, so a non-conforming PR is never created.
+**The failure:** direct pushes to `main` despite the written rule. **The options:** write the rule more forcefully, enforce at the GitHub server, or enforce inside the agent's own session. **The decision:** enforce at both boundaries, because they fail differently. Branch protection—a server-side rule that binds everyone, me included, short of an explicit administrator override—ended direct pushes outright. It also produced the next failure immediately: agents opened PRs with no description and no self-review, then merged them on their own approval. Two pieces answer that, and they are worth separating because I conflated them myself until a reviewer caught it. A [PreToolUse hook](https://github.com/nathanjohnpayne/mergepath/blob/main/scripts/hooks/gh-pr-guard.sh) intercepts every `gh pr create` in the local session and insists it go through the author wrapper. The wrapper's [body contract](https://github.com/nathanjohnpayne/mergepath/blob/main/scripts/lib/pr-body-contract.mjs) is what reads the PR body and refuses it unless there is an `Authoring-Agent:` header and a `## Self-Review` section. Neither is a parser—the contract is a line-anchored regex, the hook's own fallback a substring match—but on that guarded wrapper path, both run before the API call and refuse a non-conforming PR.
 
-**The tradeoff:** the hook is client-side. It binds only agents in a session that loads it; a different tool, a raw API call, or the GitHub web UI walks straight past it. The server rules are the backstop, and even they carry a designed hole: merging with `--admin` requires `BREAK_GLASS_ADMIN=1`, set explicitly by the human in chat. The wrong action is not impossible. It is expensive, and it leaves a record.
+**The tradeoff:** the hook is client-side. It binds only agents in a session that loads it; a different tool, a raw API call, or the GitHub web UI walks straight past it. The server rules are the backstop, and even they carry a designed hole: the local hook allows an administrator merge only when the human explicitly sets `BREAK_GLASS_ADMIN=1` and, for a blocked merge state, `BREAK_GLASS_MERGE_STATE=1`; the resulting `--admin` flag invokes the server-side bypass. The wrong action is not impossible. It is expensive, and it leaves a record.
 
 That distinction—where a control runs, and whom it binds—matters more than any single control:
 
@@ -85,7 +89,7 @@ That distinction—where a control runs, and whom it binds—matters more than a
 
 No layer makes the wrong action impossible; the break-glass path exists precisely so that it is not. The combination raises its cost until the right action is cheaper.
 
-**Evidence after launch:** four months on, the layering still bites, and it bit in a way that shows why the layers are separate. While this post was being fact-checked, a `gh pr create` was refused because its body wrote `**Authoring-Agent:**` in bold. The refusal did not come from the hook: the hook's job there was to insist the write go through the author wrapper at all, and having seen the wrapper it stepped aside. What rejected the body was the wrapper's own contract check, whose match is line-anchored and so does not see a bolded header. Two components, two jobs, one of which is easy to mistake for the other. The authorized break-glass merge that same session needed both variables in the table's last row.
+**Evidence after launch:** four months on, the layering still bites, and it bit in a way that shows why the layers are separate. While this post was being fact-checked, a `gh pr create` was refused because its body wrote `**Authoring-Agent:**` in bold. The refusal did not come from the hook: the hook's job there was to insist the write go through the author wrapper at all, and having seen the wrapper it stepped aside. What rejected the body was the wrapper's own contract check, whose match is line-anchored and so does not see a bolded header. Two components, two jobs, one of which is easy to mistake for the other. The authorized break-glass merge that same session needed both local variables listed in the table above.
 
 ## The threshold: when self-review is not enough
 
@@ -161,13 +165,13 @@ Three weeks from the repository's creation:
 - **7 fail-closed CI checks** in `scripts/ci/`
 - **5 dry-run scenarios** validated on live infrastructure
 - **17 template bugs** found during propagation, plus 1 known P1 carried forward
-- **Median 156 seconds** Codex response time per triggered review round—range 7 to 703 seconds across all 18 triggered rounds on mergepath PRs #55 through #79
+- **Median 156 seconds** from a Codex trigger to the next bot signal—range 7 to 703 seconds across 18 trigger-to-signal observations on mergepath PRs #55 through #79
 
 Every figure above was recomputed for this revision, from the GitHub API and from the repository's own git history—the check-script count, for instance, comes from `git ls-tree` against the April snapshot rather than from any API; the queries, populations, timestamps, and exclusions live in the published [audit ledger](https://github.com/nathanjohnpayne/nathanpaynedotcom/blob/main/plans/759/agent-approval-workflow-genesis-of-mergepath-ledger.md). The first version of this post said "100+ PRs" over "six weeks" (elsewhere, seven). The repository says 32 over three. A post about enforcing review discipline shipped unreviewed numbers; the correction belongs in the record as much as the bugs do.
 
 ## Since the snapshot
 
-The April architecture is not today's. The figures in this section were measured on August 26, 2026, and will drift the moment another PR lands. The template repo now stands at 459 PRs; the seven check scripts in `scripts/ci/` have become 66; the consumer set grew from six repositories to nine. Phase 4b is no longer a manual fallback: `phase_4b_automation` now ships `enabled: true, mode: local`, running an external reviewer CLI headlessly and posting the verdict under the reviewer identity; the manual handoff is now the fallback. And dry-run D's comforting generalization is dead: multi-round reviews that surface new findings each round happen routinely—[PR #66](https://github.com/nathanjohnpayne/mergepath/pull/66) was already a counterexample, and a later PR in this site's own repository ([#787](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/787)) took five Codex rounds returning 0, 4, 5, 1, and 7 Codex findings—round three drawing a further two from CodeRabbit. To be exact about which limit that tested: #787 stopped at five because the operator set a five-round budget, not because the configured `max_review_rounds` guard escalated. The guard was never the thing under strain—the assumption that reviews converge in one round was.
+The April architecture is not today's. The figures in this section were measured on August 26, 2026, and will drift the moment another PR lands. The template repo now stands at 459 PRs; the seven check scripts in `scripts/ci/` have become 71; the consumer set grew from six repositories to nine. Phase 4b is no longer a manual fallback: `phase_4b_automation` now ships `enabled: true, mode: local`, running an external reviewer CLI headlessly and posting the verdict under the reviewer identity; the manual handoff is now the fallback. And dry-run D's comforting generalization is dead: multi-round reviews that surface new findings each round happen routinely—[PR #66](https://github.com/nathanjohnpayne/mergepath/pull/66) was already a counterexample, and a later PR in this site's own repository ([#787](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/787)) took five Codex rounds returning 0, 4, 5, 1, and 7 Codex findings—round three drawing a further two from CodeRabbit. To be exact about which limit that tested: #787 stopped at five because the operator set a five-round budget, not because the configured `max_review_rounds` guard escalated. The guard was never the thing under strain—the assumption that reviews converge in one round was.
 
 ## Four rules
 
