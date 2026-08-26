@@ -13,11 +13,11 @@ Deliberate. #740 calibrates the ledger format and the Fable handoff; #739/#741 r
 | 0 | — | shared evidence cache | **0 complete** | `plans/759/refs.json` | `content/740-astro-migration-audit` | [#787](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/787) | done |
 | 1 | #740 | how-a-responsive-fix-became-an-astro-migration | **done** | `plans/759/how-a-responsive-fix-became-an-astro-migration-ledger.md` | `content/740-astro-migration-audit` | [#787](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/787) | **merged** `28e81a7` |
 | 2 | #739 | agent-approval-workflow-genesis-of-mergepath | **done** | `plans/759/agent-approval-workflow-genesis-of-mergepath-ledger.md` | `content/739-mergepath-genesis-audit` | [#791](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/791) | **merged** `bef2a56` |
-| 3 | #741 | html-mockups-as-spec | 3 in progress | `plans/759/html-mockups-as-spec-ledger.md` | `content/741-html-mockups-audit` | [#796](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/796) | in review |
-| 4 | #744 | six-prs-one-bug-agent-failure-modes | **1 complete** | `plans/759/six-prs-one-bug-agent-failure-modes-ledger.md` | — | — | ledger done |
-| 5 | #745 | autofix-was-the-whole-cost | not started | `plans/759/autofix-was-the-whole-cost-ledger.md`  | — | — | pending |
-| 6 | #743 | perfect-score-wrong-axis | not started | `plans/759/perfect-score-wrong-axis-ledger.md`  | — | — | pending |
-| 7 | #742 | two-blues-one-composition | not started | `plans/759/two-blues-one-composition-ledger.md`  | — | — | pending |
+| 3 | #741 | html-mockups-as-spec | **done** | `plans/759/html-mockups-as-spec-ledger.md` | `content/741-html-mockups-audit` | [#796](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/796) | **merged** `89e82c1` |
+| 4 | #744 | six-prs-one-bug-agent-failure-modes | 3 review complete | `plans/759/six-prs-one-bug-agent-failure-modes-ledger.md` | `content/744-six-prs-audit` | [#798](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/798) | **5-round cap hit; manual 4b handoff posted; awaiting merge authorization** |
+| 5 | #745 | autofix-was-the-whole-cost | **1 complete (untracked on disk)** | `plans/759/autofix-was-the-whole-cost-ledger.md`  | — | — | ledger written; **7 verifier defects to fold in before Phase 2** |
+| 6 | #743 | perfect-score-wrong-axis | **1 complete (untracked on disk)** | `plans/759/perfect-score-wrong-axis-ledger.md`  | — | — | ledger written; issue framing contradicted, see below |
+| 7 | #742 | two-blues-one-composition | **1 complete (untracked on disk)** | `plans/759/two-blues-one-composition-ledger.md`  | — | — | ledger written; cleanest of the three |
 
 ## Constraints carried across every row
 
@@ -185,9 +185,39 @@ The brief predicted #744's six-PR chronology as the most likely place for eviden
 
 All six PRs were opened **before** issue #159 existed. The last of them, #158, closed at `2026-04-04T16:16:41Z`; #159 was filed at `16:52:16Z`, thirty-six minutes later. Only #161, the fix, comes after. The post's opening—"I opened issue #159… Over roughly twenty hours, one agent opened six PRs trying to resolve it"—reverses cause and effect.
 
-The corrected arc is a better case study and the drafting pass should be built on it: an implementation ships (#144, TipTap), five more PRs chase symptoms with no written invariant, the failures force the problem to be **named** (#159), and a reframed brief to a different agent fixes it (#161). The missing artifact was a stated definition of correct, and its absence is precisely why six locally-reasonable PRs could each miss.
+The corrected arc is a better case study and the drafting pass should be built on it: an implementation ships (#144, TipTap), three PRs chase the parity symptom with no invariant attached to the work or the review (#146, #153, #158) while two more fix orthogonal defects (#154, #155), the failures force the problem to be **named** (#159), and a reframed brief to a different agent fixes it (#161). The missing artifact was not a definition of correct—the design spec had carried one since before #144—but any link between that definition and the work under review, and that gap is precisely why six locally-reasonable PRs could each miss.
 
 Second substantive finding: the post credits `nathanpayne-codex` with flagging the invariant on **PR #146**. It did not—it **approved** #146 and reported the round-trip working, with zero blocking reviews and zero inline comments from either reviewer. The "reviewers saw it and it shipped anyway" beat is real but belongs to **#155**, which carries three `CHANGES_REQUESTED` rounds. Blocking rounds across the six total **seven**, not the post's "nine."
 
 Ledger: `plans/759/six-prs-one-bug-agent-failure-modes-ledger.md`.
 
+
+
+## Ledger hygiene—learned on #798, applies to every remaining audit
+
+**Three ledgers now live untracked on disk** (`#745`, `#743`, `#742`), excluded via `.git/info/exclude`. They were written while #744's branch was checked out, and a `git add -A` swept two of them into PR #798. Each belongs to its own PR. **Stage explicitly from here on—never `git add -A` in this worktree.**
+
+### The ledger is a source, so audit its prose too
+
+Five Codex rounds on #798 removed the same retracted claim five times, in five vocabularies sharing almost no substrings. Round 5 found the cause: §A1 of the ledger still asserted it, in the corrected-value column of the row meant to fix that very chronology. Every drafting pass re-seeded the error from the correction.
+
+Two rules, now in that ledger's §M3:
+
+1. **Audit the ledger's own prose against the ledger's own evidence.** A row can be right about its headline finding and wrong in the sentence explaining why it matters—and only the headline gets checked.
+2. **When a claim survives removal, stop editing the post and go find its source.** Rounds 2–5 each removed an instance and each assumed it was the last. The recurrence was the signal; treating it as five slips instead of one upstream defect cost four rounds.
+
+### Enumerate on the claim, not on one noun
+
+`grep -oE '[^.]*invariant[^.]*\.'` cleared the post twice while an instance saying *definition* survived. The check that works is a disjunction over the claim's whole vocabulary, run over **both** the post and the ledger.
+
+### Watch for quantifier scope creep
+
+Three of round 3's five findings were a true claim stated one quantifier too wide—*every* prompt, *every* piece of HTML, *every* time. The underlying facts held; the universals did not. Flag any universal that cannot be verified exhaustively.
+
+### Recount word counts at final HEAD
+
+The `#744` compression figure went stale twice mid-review. Review rounds add words about as often as they remove them. Recount immediately before merge, never trust a recorded value.
+
+### Fix the diagrams with the prose
+
+Narrowing a claim in prose left the adjacent Mermaid diagram asserting the retracted version—in its `description=`, which is the accessible text screen-reader users receive. When a claim changes, grep the diagram titles, descriptions and node labels for it too.

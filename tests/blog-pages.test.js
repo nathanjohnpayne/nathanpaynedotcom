@@ -73,7 +73,7 @@ describe('Blog Pages', () => {
 
     expect(title?.textContent).toBe('Six PRs, One Bug | Nathan Payne');
     expect(description?.getAttribute('content')).toBe(
-      'A billing email bug took six AI-authored PRs to diagnose because every fix stayed local instead of reframing the serialization layer.',
+      'The rule this billing parity bug violated sat in a design spec as prose, never as anything a review could check against.',
     );
     expect(canonical?.getAttribute('href')).toBe(
       'https://nathanpayne.com/blog/six-prs-one-bug-agent-failure-modes/',
@@ -94,7 +94,7 @@ describe('Blog Pages', () => {
     expect(posting).toBeDefined();
     expect(posting.headline).toBe('Six PRs, One Bug: What AI Agents Actually Get Wrong');
     expect(posting.description).toBe(
-      'A billing email bug took six AI-authored PRs to diagnose because every fix stayed local instead of reframing the serialization layer.',
+      'The rule this billing parity bug violated sat in a design spec as prose, never as anything a review could check against.',
     );
     expect(posting.image).toBe(
       'https://nathanpayne.com/og/blog/six-prs-one-bug-agent-failure-modes.png',
