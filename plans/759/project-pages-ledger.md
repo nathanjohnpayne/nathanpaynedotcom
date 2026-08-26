@@ -1,6 +1,6 @@
 # Facts ledger—the seven project pages
 
-Sources under audit: `src/content/projects/{device-source-of-truth,five-across,friends-and-family-billing,matchline,mergepath,override,swipe-watch}.md` (~6,200 words). Evidence repos: `~/GitHub/{device-source-of-truth,gaycruisebingo,friends-and-family-billing,matchline,mergepath,overridebroadway,swipewatch}`, each read at `origin/main`. Shared reference cache: `plans/759/refs.json` (67 resolved references; nothing added).
+Sources under audit: `src/content/projects/{device-source-of-truth,five-across,friends-and-family-billing,matchline,mergepath,override,swipe-watch}.md` (~6,200 words). Evidence repos: `~/GitHub/{device-source-of-truth,gaycruisebingo,friends-and-family-billing,matchline,mergepath,overridebroadway,swipewatch}`, each read at `origin/main`. Shared reference cache: `plans/759/refs.json` (70 resolved references at the time of this audit—67 cached in Phase 0 plus #501, #502 and #503 added during the #742 audit; nothing added here).
 
 Verdicts: **SUPPORTED** · **WRONG** (corrected value given) · **UNPROVABLE** (defensible weaker form given). A row marked **SPLIT** carries more than one verdict because the sentence makes more than one claim.
 
@@ -14,7 +14,7 @@ Line references are `slug:NN` against the file as it stands on `content/744-six-
 
 **M2—count with the loosest correct matcher, then narrow.** Two claims in this run flipped under narrowing. `git log -S"disagreement"` puts Override twelve days ahead of every other repo (`9f28a7e`, 2026-03-12); reading the diff shows the hit is the sentence "Code vs. docs **disagreement**: Trust the implementation first," which has nothing to do with reviewer-disagreement detection. Likewise `git log -S"strike"` in FFB returns a TipTap commit, because TipTap ships `strikethrough`. Both would have produced a wrong finding if the matcher had been trusted without reading the hit.
 
-**M3—"the page was right when it was written" is a distinct verdict from "the page is right."** Every "How it was built" narrative on the four original pages was written in a single commit, `300a433` (2026-04-13, PR #159, "feat(projects): expand narratives, rebuild metadata strip, add stack line"). Four numeric claims are frozen at that date. Three of them were accurate then. See §H10.
+**M3—"the page was right when it was written" is a distinct verdict from "the page is right."** Every "How it was built" narrative on the four original pages was written in a single commit, `300a433` (2026-04-13, PR #159, "feat(projects): expand narratives, rebuild metadata strip, add stack line"). Four numeric claims are frozen at that date. Three of them were accurate then. See §H7.
 
 **M4—a mental state is never in the record.** Two rows below (§G17, §F12) rest on inferred intent or an inferred reaction. The record shows behaviour and timestamps only.
 
@@ -108,7 +108,7 @@ Note against the prior run's framing: the sixteen keys at `specs/DST-TDI-001-Con
 
 > ":57 the [multi-agent code review pipeline](https://github.com/nathanjohnpayne/device-source-of-truth/blob/main/REVIEW_POLICY.md) … and the two-strike rule on bug fixes"
 
-**WRONG citation.** The linked document does not contain the rule. `git show origin/main:REVIEW_POLICY.md | grep -ni strike` returns nothing. The rule lives at `docs/agents/operating-rules.md:352`, headed `### Two-strike audit rule`: "If an agent has made **two or more failed fix attempts** on the same issue … the next attempt **must** begin with a written audit of all prior attempts." Mirrored at `docs/agents/shared-operating-rules.md:93`. Corrected value: cite `docs/agents/operating-rules.md`, or drop the two-strike item from a sentence anchored on `REVIEW_POLICY.md`. This is the same defect on `friends-and-family-billing.md:47` (§H7).
+**WRONG citation.** The linked document does not contain the rule. `git show origin/main:REVIEW_POLICY.md | grep -ni strike` returns nothing. The rule lives at `docs/agents/operating-rules.md:352`, headed `### Two-strike audit rule`: "If an agent has made **two or more failed fix attempts** on the same issue … the next attempt **must** begin with a written audit of all prior attempts." Mirrored at `docs/agents/shared-operating-rules.md:93`. Corrected value: cite `docs/agents/operating-rules.md`, or drop the two-strike item from a sentence anchored on `REVIEW_POLICY.md`. This is the same defect on `friends-and-family-billing.md:47` (§H2).
 
 ### A15—"CodeRabbit with domain-specific guidance"
 
@@ -120,7 +120,7 @@ Note against the prior run's framing: the sixteen keys at `specs/DST-TDI-001-Con
 
 > ":67 Development ended with my Disney tenure, and the deployed instance now runs entirely on synthetic seed data"
 
-**SUPPORTED in substance.** The last genuine product feature is `0821e80`, **2026-03-06** 14:27:26 −0800, "feat: add actionable resolution to alerts (Register Device / Create Key)" (+588 lines in `AlertsPage.tsx`); the last product-code commit of any kind is `e4c0098`, same day. 178 commits land after that date, but per `git log origin/main --since='2026-03-07' -- src functions packages` the only app-code changes among them are one demo scrub (2026-08-20), one security bound (#154), one Recharts build fix (#120), and lockfile bumps. The prior run cited this row as WRONG; on the evidence it is **SUPPORTED**—the six-month tail is Dependabot, template sync, CI and the synthetic scrub, none of which is development of the product. The one caveat worth a clause: the synthetic-data scrub itself (`6e002a7`, 2026-08-20, "feat(demo): replace real partner data with a synthetic dataset (#165)") postdates the tenure and is the reason the sentence's second half is true.
+**SPLIT—the development timeline is SUPPORTED, the tenure coincidence is UNPROVABLE.** The commit record establishes when product work stopped and says nothing about when the author's Disney tenure ended or whether the two coincided; this ledger treats comparable first-person tenure claims as UNPROVABLE elsewhere. The last genuine product feature is `0821e80`, **2026-03-06** 14:27:26 −0800, "feat: add actionable resolution to alerts (Register Device / Create Key)" (+588 lines in `AlertsPage.tsx`); the last product-code commit of any kind is `e4c0098`, same day. 178 commits land after that date, but per `git log origin/main --since='2026-03-07' -- src functions packages` the only app-code changes among them are one demo scrub (2026-08-20), one security bound (#154), one Recharts build fix (#120), and lockfile bumps. The prior run cited this row as WRONG; on the evidence it is **SUPPORTED**—the six-month tail is Dependabot, template sync, CI and the synthetic scrub, none of which is development of the product. The one caveat worth a clause: the synthetic-data scrub itself (`6e002a7`, 2026-08-20, "feat(demo): replace real partner data with a synthetic dataset (#165)") postdates the tenure and is the reason the sentence's second half is true.
 
 ### A17—synthetic seed data and Story Entertainment
 
@@ -556,7 +556,7 @@ The return type at `:17` is `{'outstanding'|'partial'|'settled'|'overpaid'|null}
 
 > ":48 Paused, deliberately. V1 was in active build … when Five Across took the summer—a live game with a hard sailing date beat a tool with a soft one."
 
-**SPLIT—the causal shape is SUPPORTED, the clean break is WRONG.** The Five Across repo opens 2026-07-07. Matchline's largest single burst of product work is **2026-07-06**, the day before: seventeen substantive commits (#350–#361, plus #354–#360) landing parsing, matching, validation and LLM-cost fixes. That is a strikingly clean handover and supports the sentence's shape.
+**SPLIT—the chronology is SUPPORTED, the causal claim is UNPROVABLE, the clean break is WRONG.** July 6 followed by July 7 establishes proximity, not that Five Across caused the pause or that a sailing date "beat" a soft target; Matchline's product work continuing to July 31 weakens the causal reading further.** The Five Across repo opens 2026-07-07. Matchline's largest single burst of product work is **2026-07-06**, the day before: seventeen substantive commits (#350–#361, plus #354–#360) landing parsing, matching, validation and LLM-cost fixes. That is a strikingly clean handover and supports the sentence's shape.
 
 But work did not stop. **`e20c077`, 2026-07-31 21:25:03 −0700, "eval: content-addressed stage cache so matching-layer tuning runs free (#391)"** is genuine matching-layer work landing twenty-four days into the Five Across summer. After that, only identity and CI plumbing (five commits on 2026-08-21). Corrected value: active development ends **2026-07-31**, not at the start of July. Defensible weaker form: "V1 was in active build until the end of July, when Five Across took the rest of the summer." Source: `git log origin/main --format='%h|%ad|%s' --date=iso --since=2026-07-01 | grep -viE '\|(deps|ci: bump|bump )' | grep -viE 'sync to mergepath|bulk sync'`.
 
@@ -610,7 +610,7 @@ But work did not stop. **`e20c077`, 2026-07-31 21:25:03 −0700, "eval: content-
 
 > ":36 Canonical documentation files (`AGENTS.md`, `CLAUDE.md`, `REVIEW_POLICY.md`, `rules/repo_rules.md`, `specs/`) that every agent reads before acting."
 
-**SUPPORTED on existence; the universal "every agent reads" is a policy, not an enforced fact.** All five paths are present on `origin/main`. The "reads before acting" is what `CLAUDE.md` instructs, and compliance is not measured. Defensible weaker form: "that every agent is instructed to read before acting."
+**SPLIT—existence is SUPPORTED, the reading universal is UNPROVABLE.** The files exist; that agents read them before acting is instructed and unmeasured, so the claim cannot be verified either way.** All five paths are present on `origin/main`. The "reads before acting" is what `CLAUDE.md` instructs, and compliance is not measured. Defensible weaker form: "that every agent is instructed to read before acting."
 
 ### E3—branch protection and the identity wrappers
 
@@ -622,7 +622,7 @@ But work did not stop. **`e20c077`, 2026-07-31 21:25:03 −0700, "eval: content-
 
 > ":38 each agent authors as `nathanjohnpayne` and reviews under a separate machine user (`nathanpayne-claude`, `nathanpayne-codex`, `nathanpayne-cursor`) so an agent never approves its own code."
 
-**SUPPORTED with a precision note.** The three identities are real and in use across the fleet. "Never approves its own code" is true at the *account* level, which is the level GitHub enforces; it is not true at the *agent* level, and the policy is candid about this—an authoring agent's own reviewer identity may approve under-threshold PRs, and only above-threshold work requires a cross-agent reviewer. Defensible weaker form: "so no agent approves a PR under the account that authored it."
+**SPLIT—the identities are SUPPORTED, the never-approves claim is WRONG as written.** The three identities are real and in use across the fleet. "Never approves its own code" holds at the *account* level, which is the level GitHub enforces, and fails at the *agent* level the sentence actually claims: the authoring agent's own reviewer identity approves under-threshold PRs by design. Reinterpreting "agent" as "account" rescues the mechanism, not the wording, and the policy is candid about this—an authoring agent's own reviewer identity may approve under-threshold PRs, and only above-threshold work requires a cross-agent reviewer. Defensible weaker form: "so no agent approves a PR under the account that authored it."
 
 ### E5—"any PR over 300 lines"
 
@@ -661,7 +661,7 @@ The second point is `scripts/merge-clearance-gate.sh:1207`, whose message string
 
 **SPLIT—five of six ship as files; one is a documented setting.** Verifiable in the tree: `.github/CODEOWNERS`, `SECURITY.md`, `.github/dependabot.yml`; **43 actions pinned to 40-character SHAs and zero pinned to a floating tag** (`grep -rhoE 'uses: [^@]+@[a-f0-9]{40}' .github/workflows/*.yml | wc -l` → 43; the `@vN` form → 0); and `permissions:` on **19 of 19** workflows, so "every workflow" is literally true here.
 
-**Secret scanning with push protection does not ship as a file.** It is a GitHub repository setting, recorded as a *requirement*: `docs/ontology/rules.md:448` `**R-197.** Public repos enable secret scanning and push protection. ● — REVIEW_POLICY.md § Template Usage`, and the PRD at `docs/projects/mergepath/prds/mergepath.md:2290-2291`. No script in `scripts/bootstrap-new-repo.sh` turns it on. Defensible weaker form: "…a documented secret-scanning and push-protection posture, plus Dependabot alerts…"—separating the settings from the files.
+**Secret scanning with push protection does not ship as a file—and neither do Dependabot *alerts*.** `.github/dependabot.yml` configures version updates; alerts are a separate repository setting, so this row carries at least two settings that a file cannot evidence.** It is a GitHub repository setting, recorded as a *requirement*: `docs/ontology/rules.md:448` `**R-197.** Public repos enable secret scanning and push protection. ● — REVIEW_POLICY.md § Template Usage`, and the PRD at `docs/projects/mergepath/prds/mergepath.md:2290-2291`. No script in `scripts/bootstrap-new-repo.sh` turns it on. Defensible weaker form: "…a documented secret-scanning and push-protection posture, plus Dependabot alerts…"—separating the settings from the files.
 
 ### E10 and E11—"27 fail-closed CI checks", stated twice
 
@@ -717,7 +717,7 @@ Scaffolding lives in the separate `scripts/bootstrap.sh` (guarded by `scripts/ci
 
 > ":57 It lets you tune every knob in `.github/review-policy.yml`—external review threshold, protected paths, CodeRabbit toggle, Codex GitHub App toggle and max rounds, eligible internal reviewers"
 
-**SUPPORTED on the knobs named.** `external_review_threshold:18`, `external_review_paths:26`, `coderabbit:189`, `codex:426` and `max_review_rounds:466` all exist in the policy file. "Every knob" is a universal that fails on a technicality—the file is 900-plus lines with many more keys than the playground exposes—but the enumerated five are the ones the sentence commits to. Defensible weaker form: "tune the knobs that decide routing."
+**SPLIT—the five named knobs are SUPPORTED, "every knob" is WRONG.** The ledger's own evidence falsifies it: the policy runs past 900 lines and the playground exposes a handful.** `external_review_threshold:18`, `external_review_paths:26`, `coderabbit:189`, `codex:426` and `max_review_rounds:466` all exist in the policy file. "Every knob" is a universal that fails on a technicality—the file is 900-plus lines with many more keys than the playground exposes—but the enumerated five are the ones the sentence commits to. Defensible weaker form: "tune the knobs that decide routing."
 
 ### E18—the live-data path
 
@@ -729,7 +729,7 @@ Scaffolding lives in the separate `scripts/bootstrap.sh` (guarded by `scripts/ci
 
 > ":59 To replay your real PRs, `scripts/policy-sim.sh` runs `gh pr list --state merged` …"
 
-**WRONG by omission—there is now a second, in-page path.** `ce604d8`, 2026-07-28, "feat(732): playground in-page live-data loader for public repos (#760)" added a repo loader that fetches straight from the GitHub REST API in the browser: `loadPublicRepo(slug, limit)` at `mergepath/playground/index.html:1558`, calling `/repos/{owner}/{repo}/pulls?state=closed` and then `/pulls/{n}/files`. The precedence chain is documented in the file at `:1199-1201`: "an in-page load (`livePRs`) beats the policy-sim.sh injected global (`window.__PRS`), which beats the synthetic sample." Corrected value: name both—`policy-sim.sh` for your own repo, and the in-page loader for any public one. This is the same commit that makes §E20 wrong.
+**The page is SUPPORTED; this row's own premise was WRONG.** The source sentence describes a valid way to replay PRs and never claims `policy-sim.sh` is the *only* live-data path—that word was this ledger's, not the page's, so the in-page loader falsifies nothing the page said. What follows is context, not a defect.** `ce604d8`, 2026-07-28, "feat(732): playground in-page live-data loader for public repos (#760)" added a repo loader that fetches straight from the GitHub REST API in the browser: `loadPublicRepo(slug, limit)` at `mergepath/playground/index.html:1558`, calling `/repos/{owner}/{repo}/pulls?state=closed` and then `/pulls/{n}/files`. The precedence chain is documented in the file at `:1199-1201`: "an in-page load (`livePRs`) beats the policy-sim.sh injected global (`window.__PRS`), which beats the synthetic sample." Corrected value: name both—`policy-sim.sh` for your own repo, and the in-page loader for any public one. This is the same commit that makes §E20 wrong.
 
 ### E20—"no backend, no build system, and no network calls"
 
@@ -755,7 +755,7 @@ Corrected value, and the CSP comment supplies the wording: "no backend and no bu
 
 > ":65 **100+ PRs** merged on the Mergepath repo itself, each one exercising the governance loop end-to-end."
 
-**SUPPORTED now, and it was not quite true when written—the inverse of §E10.** Today: **447** merged (`gh api -X GET search/issues -f q='repo:nathanjohnpayne/mergepath is:pr is:merged' --jq .total_count`). On 2026-05-13, when the sentence was authored, merged PRs stood at **94**; total PRs *opened* stood at 102, which is probably the number that was read. Corrected value: **"400+ PRs merged,"** which is both current and a far better figure than the one the page settles for. The "each one exercising the governance loop" clause is a universal that no query verifies, though the loop is CI-enforced.
+**SPLIT—the count is SUPPORTED, "each one exercising the governance loop" is UNPROVABLE.** No query verifies that universal, and CI enforcing some gates is not evidence that every merged PR ran the whole loop.** Today: **447** merged (`gh api -X GET search/issues -f q='repo:nathanjohnpayne/mergepath is:pr is:merged' --jq .total_count`). On 2026-05-13, when the sentence was authored, merged PRs stood at **94**; total PRs *opened* stood at 102, which is probably the number that was read. Corrected value: **"400+ PRs merged,"** which is both current and a far better figure than the one the page settles for. The "each one exercising the governance loop" clause is a universal that no query verifies, though the loop is CI-enforced.
 
 ### E23—the hook test suite
 
@@ -851,7 +851,7 @@ All five consumers receive the identical commit subject, "Add machine user revie
 
 **The `PreToolUse` hook**—Override is **fourth of six**: mergepath `61165ab` **2026-03-25 16:31:20**; nathanpaynedotcom 16:33:11; DST 16:33:28; **Override `1fd1204` 16:33:35**; FFB 16:33:44; swipewatch 16:34:19. Same subject everywhere: "Add review guardrails: PreToolUse hook, CLAUDE.md checklist, break-glass."
 
-**The escalation policy and the two-strike rule**—Override is **third of five**: mergepath `9436901` **2026-04-04 11:49:50**, "Add bug fix escalation policy to agent operating rules"; DST `cbd7070` 11:49:54; **Override `36dbedb` 11:49:55**; swipewatch `5311af8` 11:49:57; FFB `5a0f2d4` 11:49:59. Note that neither Override nor DST nor FFB nor swipewatch carries "two-strike" in `REVIEW_POLICY.md` at all—it lives in `docs/agents/operating-rules.md:352` (§A14, §H7).
+**The escalation policy and the two-strike rule**—Override is **third of five**: mergepath `9436901` **2026-04-04 11:49:50**, "Add bug fix escalation policy to agent operating rules"; DST `cbd7070` 11:49:54; **Override `36dbedb` 11:49:55**; swipewatch `5311af8` 11:49:57; FFB `5a0f2d4` 11:49:59. Note that neither Override nor DST nor FFB nor swipewatch carries "two-strike" in `REVIEW_POLICY.md` at all—it lives in `docs/agents/operating-rules.md:352` (§A14, §H2).
 
 **The disagreement detector**—Override is **second of six, tied last**: mergepath `f756289` 2026-05-13 20:54:32, "fix(ci): scope detect-disagreement to current HEAD + latest-per-reviewer (closes #259) (#260)"; every consumer, Override included, receives it in the same bulk sync on 2026-05-15 at 10:02:28–10:02:54. A loose `-S"disagreement"` matcher appears to put Override twelve days ahead (`9f28a7e`, 2026-03-12); reading the diff shows the hit is "Code vs. docs disagreement: Trust the implementation first," a documentation-precedence rule with no reviewer semantics. See §M2.
 
@@ -931,7 +931,7 @@ Corrected sequence: **45 at the initial commit, then +12, +11 and +12 to reach 8
 
 > ":43 Duplicate detection was manual; one commit removes a duplicate \"America's National Parks (Classic)\" tile that slipped through."
 
-**SUPPORTED exactly.** `83f15fe`, 2026-04-10T12:23:59−0700, "Remove duplicate America's National Parks (Classic) tile (#21)." One title removed (`app.js | 11 -----------`), string verbatim as quoted. The body records that ID 155 shared background and titleImage URLs with existing ID 10 and that it was "Flagged by CodeRabbit on PR #20"—so "detection was manual" is the one soft spot: it was caught by an automated reviewer on the PR that introduced it. Defensible weaker form: "there was no dedup check in the data; the one duplicate that slipped through was caught in review and removed."
+**SPLIT—the removal is SUPPORTED, "detection was manual" is WRONG.** CodeRabbit, an automated reviewer, flagged the duplicate on PR #20. `83f15fe`, 2026-04-10T12:23:59−0700, "Remove duplicate America's National Parks (Classic) tile (#21)." One title removed (`app.js | 11 -----------`), string verbatim as quoted. The body records that ID 155 shared background and titleImage URLs with existing ID 10 and that it was "Flagged by CodeRabbit on PR #20"—so "detection was manual" is the one soft spot: it was caught by an automated reviewer on the PR that introduced it. Defensible weaker form: "there was no dedup check in the data; the one duplicate that slipped through was caught in review and removed."
 
 ### G6—"built in a weekend"
 
@@ -1083,7 +1083,7 @@ The demo itself is a first-person biographical claim and may well be true; it si
 | override | about 75 commits | **76** | 171 | WRONG now, right then |
 | device-source-of-truth | well past two hundred | **228** | 332 | SUPPORTED, now understated |
 | friends-and-family-billing | well over four hundred | **432** | 581 | SUPPORTED, now understated |
-| swipe-watch | 80-title pool | **107** | 106 | **WRONG then and now** |
+| swipe-watch | 80-title pool | **106** | 106 | **WRONG then and now** |
 
 Reproduce with `git rev-list --count "$(git rev-list -1 --before=2026-04-14 origin/main)"` in each repo. The Swipe Watch row is the outlier and the most damaging: the pool passed 80 on 2026-04-10, three days before the sentence was written, so unlike the other three it was never accurate. The other three are the same defect at different stages of decay, and the fix is the same for all four—either restate them with a date, or phrase them so they age (an order of magnitude, or a floor the number will not fall below).
 
@@ -1135,3 +1135,30 @@ Row-count reconciliation, since some headings cover more than one row: §E10/E11
 6. **§B4**—the last-call beat fires on a port day in Marseille; the itinerary has one sea day and it is six days earlier.
 7. **§A2/A3**—350 questions across 15 sections is 100–150 across 16.
 8. **§E25**—the seven review rounds are the rounds that *found* the seventeen bugs, downstream, not rounds they survived on the template.
+
+---
+
+## Verdict corrections from the review of this ledger
+
+Codex reviewed this file and found **twelve** defects. They share one shape, and it is the shape this ledger exists to catch: **a SUPPORTED verdict on a claim the evidence only partly carries.** The auditor committed the overclaim it was auditing for.
+
+Seven verdicts are downgraded above, each at its own row rather than only here:
+
+| § | was | now | because |
+|---|---|---|---|
+| A16 tenure | SUPPORTED | SPLIT / UNPROVABLE | the commit record dates the work, not the tenure |
+| D8 pause | SPLIT | SPLIT + UNPROVABLE cause | July 6 before July 7 is proximity, not causation |
+| E-identities | SUPPORTED | SPLIT | "no agent approves its own code" fails at the agent level it claims |
+| E-docs | SUPPORTED | SPLIT | files existing does not establish that agents read them |
+| E-playground | SUPPORTED | SPLIT | "every knob" is falsified by this row's own evidence |
+| E-PR count | SUPPORTED | SPLIT | 447 merged does not prove each ran the governance loop |
+| G-duplicate | SUPPORTED | SPLIT | CodeRabbit caught it, so detection was not manual |
+
+**One row was wrong in the ledger's favour and is retracted.** The `policy-sim.sh` row marked the page WRONG for omitting a second live-data path. The page never claimed `policy-sim.sh` was the *only* such path—that word was this ledger's. The page was right and the row was not.
+
+**One figure was wrong in a summary table while the reconstruction beneath it was correct.** §G4 derives the Swipe Watch pool as 80, then +27 to 107, less one duplicate the same day, for a standing **106**. The summary table carried 107 for 2026-04-13, three days after the removal. The substantive finding survives untouched: 80 was never accurate at authoring time, unlike the other three counts, which were each correct the day they were written.
+
+**Three internal pointers had drifted.** The frozen-count analysis is §H7 and was cited as §H10; the two-strike defect is §H2 and was cited as §H7 twice. A reader following them landed on the wrong analysis.
+
+**And the header undercounted its own cache**: `refs.json` holds 70 entries, not 67—the three added during the #742 audit.
+
