@@ -2,8 +2,8 @@
 title: "1,513 Lines for One Dash: The Requirement Nobody Questioned"
 seoTitle: "1,513 Lines for One Dash"
 shortTitle: "The Requirement Nobody Questioned"
-description: "A one-sentence style rule grew to 1,721 lines of code and a 1,196-line test suite. Auto-fixing violations—never requested, never questioned—was 17% of the implementation and tests combined, and 42 of the 57 review findings named it. Cutting that capability ended the churn; a separate build-versus-buy decision then replaced the tool, with the migration proven rather than assumed."
-seoDescription: "One style rule drew 57 review findings—42 naming the never-requested auto-fix. It was 17% of the implementation and tests. Cutting it ended the churn."
+description: "A one-sentence style rule grew to 1,721 lines of code and a 1,196-line test suite. Auto-fixing violations—never requested, never questioned—was 17% of the implementation and tests combined, and 42 of the 57 review findings named it. Cutting that capability ended the rewrite-safety churn; a separate build-versus-buy decision then replaced the tool, with the migration proven rather than assumed."
+seoDescription: "One style rule drew 57 review findings—42 naming the never-requested auto-fix. It was 17% of the implementation and tests. Cutting it ended the rewrite-safety churn."
 category: "Agent Systems"
 author: "Nathan Payne"
 date: 2026-08-24
@@ -72,12 +72,12 @@ The first two rows bracket the removal. The third is slightly larger because fou
 
 What auto-fix produced instead of line count was most of the *trust burden*—and that claim is now counted rather than felt. Sort all 57 findings on [the hardening PR](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/686) by what their own text says: **42 name the auto-fix path outright**—the `--write` flag, the rewrite, the structure-preservation proof—and six more sit in the whitespace-context and HTML-depth machinery that existed only so the fixer knew what it was allowed to touch, for 48 of 57. The residue: three findings on prose detection, three on the test harness, two CodeQL alerts on the gate's own regexes, one dependency note. Not one was unrelated to the gate. Three in four findings named a capability that was 17% of the implementation and tests, four in five counting the machinery that served it. A capability can be a modest share of a codebase and still be the reason the project cannot finish.
 
-```mermaid title="Where the cost actually sat" description="Detecting the style violation was trivial. Deciding what counts as prose was legitimately hard. Automatically fixing violations required proving each edit was safe—17% of the implementation and tests combined, and 42 of the 57 review findings named it. Cutting the capability ended the rewrite-safety findings and the pull request merged within the hour."
+```mermaid title="Where the cost actually sat" description="Detecting the style violation was trivial. Deciding what counts as prose was legitimately hard. Automatically fixing violations required proving the combined edit was safe, once per file—17% of the implementation and tests combined, and 42 of the 57 review findings named it. Cutting the capability ended the rewrite-safety findings and the pull request merged within the hour."
 graph TD
     A["Requirement:<br/>no space beside an em dash"] --> B["Detect it<br/>~1 line"]
     A --> C["Know what counts as prose<br/>legitimately hard"]
     A --> D["Fix it automatically<br/>never requested, never questioned"]
-    D --> E["Prove every edit is safe"]
+    D --> E["Prove the combined edit is safe"]
     E --> F["17% of implementation and tests<br/>42 of 57 review findings"]
     D --> G["Cut this one capability"]
     G --> H["No further rewrite-safety findings<br/>merged within the hour"]
@@ -105,7 +105,7 @@ word **—** next     →     word**—**next
 
 The dash is fixed. The bold is gone. With no spaces around them, those asterisks become literal characters on the page. The tool set out to correct punctuation and silently corrupted the formatting instead.
 
-So a tool that edits your files has to prove, after every edit, that it changed only what it meant to change. That proof was the real product: apply every candidate fix in a file, re-parse the result once, compare the before and after structures, and reject the whole batch if anything moved. It was all-or-nothing by construction, and the construction is one line—at the peak commit, line 1,609 of the linter returns the untouched source unless the structure-preservation check accepts the candidate, so one unfixable dash in a configuration key abandoned every other fix in that file.
+So a tool that edits your files has to prove, after applying its edits, that it changed only what it meant to change. That proof was the real product: apply every candidate fix in a file, re-parse the result once, compare the before and after structures, and reject the whole batch if anything moved. It was all-or-nothing by construction, and the construction is one line—at the peak commit, line 1,609 of the linter returns the untouched source unless the structure-preservation check accepts the candidate, so one unfixable dash in a configuration key abandoned every other fix in that file.
 
 **Detecting a problem is cheap. Being trusted to change someone's work is expensive.** The gap shows up outside linting: recommending an action versus taking it, flagging a charge versus reversing it, drafting a reply versus sending it. The detection demo is a week. The permission to act is the product.
 
@@ -123,7 +123,7 @@ So the non-convergence evidence is the 22 rounds before the cut. Findings per ro
 
 Fifty-four findings. The series is not literally flat—the first eleven rounds average 2.55 findings and the last eleven 2.36—but that decline is even shallower than the padded 24-round series showed, so removing the two post-removal rounds makes the argument stronger, not weaker. The series dips and rebounds rather than approaching zero: round 20 produced five findings, more than round 3, and the last round before the cut still produced two.
 
-The reviewers' own language marks the churn. Twenty-nine of the 57 findings—all from the Codex App's 45—name, in the finding's own body, the earlier fix they are re-opening. The matcher is a case-insensitive search for `fresh evidence beyond`; the exact-case literal returns 25, because four findings word it differently. Half the findings on the pull request are follow-ons against ground a previous fix had already covered.
+The reviewers' own language marks the churn. Twenty-nine of the 57 findings—all from the Codex App's 45—name, in the finding's own body, the earlier fix they are re-opening. Two queries, two numbers, both reproducible against the 57 top-level findings: `grep -ic 'fresh evidence beyond'` returns **29**, and the exact-case longer literal `grep -c 'Fresh evidence beyond the resolved'` returns **25**, because four findings continue the sentence differently. Half the findings on the pull request are follow-ons against ground a previous fix had already covered.
 
 A gentle drift that never lands is not a long tail. Extrapolate two findings a round and the work does not finish—a burn-down chart that is not burning down. It costs one query. I should have been reading it from round six rather than round twenty-two, and the only reason I looked is that someone asked whether the work was converging. The honest answer was no, and the evidence had been in the record the whole time.
 
@@ -155,8 +155,11 @@ The authoring side comes from per-provider session telemetry, and the first vers
 |---|---|---|---|---|---|
 | Codex CLI | GPT-5.6 Sol | #686 hardening | combined #686 figures, below | upper bound—opened with unrelated backlog triage | $60.81, author-attested |
 | Codex CLI | GPT-5.6 Sol | Vale migration | total only | upper bound | $59.95, author-attested |
-| Codex CLI, two sessions | gpt-5.3-codex-spark | not separately recorded | totals only | — | excluded, no public API rate |
+| Codex CLI, session A | gpt-5.3-codex-spark | not separately recorded | totals only | — | excluded, no public API rate |
+| Codex CLI, session B | gpt-5.3-codex-spark | not separately recorded | totals only | — | excluded, no public API rate |
 | Claude Code | Claude Opus 5 | finishing #686, the migration, reviewing the Vale rollout, researching this post, unrelated work | full category splits | upper bound for this feature | $591.90, re-derivable |
+
+**Two of the issue's criteria cannot be met from what I kept, and saying so is more useful than implying otherwise.** The two Spark sessions have no per-session telemetry, so neither its work scope nor its token split is recoverable; they appear as separate rows with those cells empty rather than merged into one. And the two Codex dollar subtotals are **author-attested, not reproducible**: the fresh, cached, cache-write, cache-read and output quantities the issue asks for were never recorded per session, so no formula can rebuild them. The Claude subtotal is reproducible and its derivation is above.
 
 Two figures attach to those rows with care. The **2.27 million fresh input tokens and 285,100 output tokens** (99,453 of them reasoning) recorded for #686 are a *combined* figure across the two sessions associated with that pull request. The first is the GPT-5.6 Sol hardening session priced at $60.81 in the table above. The second is one of the two `gpt-5.3-codex-spark` sessions, which carry no retained per-session telemetry, so which of the pair it was—and therefore what it cost—is not recoverable from anything I kept. So the two-session token figure and the one-session $60.81 have different populations and cannot be checked against each other. The Claude session's **1.78 million output tokens across 1,872 assistant turns** are that provider's own counters. All are author-attested; none appears in a published artifact.
 
@@ -178,7 +181,7 @@ Report-only did not make detection consequence-free, though, and I got this wron
 
 ## The Second Decision, Which Was a Different Question
 
-Cutting auto-fix ended the churn. It did not address why I was maintaining a prose linter at all—a separate decision with a separate justification; conflating them makes "we replaced it with an off-the-shelf tool" sound like the fix for a convergence problem it had nothing to do with. The first decision stopped the bleeding. The second reduced what I owned.
+Cutting auto-fix ended the rewrite-safety churn. It did not address why I was maintaining a prose linter at all—a separate decision with a separate justification; conflating them makes "we replaced it with an off-the-shelf tool" sound like the fix for a convergence problem it had nothing to do with. The first decision stopped the bleeding. The second reduced what I owned.
 
 With auto-fixing gone, what remained was still 1,513 lines of custom code doing something a mature off-the-shelf tool already does: [Vale](https://vale.sh/), an open-source prose linter. I moved to it. The rule itself came from a style manual revised for over a century—[the Chicago Manual of Style](https://en.wikipedia.org/wiki/The_Chicago_Manual_of_Style) is in its eighteenth edition, and nobody writes their own. The tooling deserves the same instinct, and it took me 1,513 lines to apply it.
 

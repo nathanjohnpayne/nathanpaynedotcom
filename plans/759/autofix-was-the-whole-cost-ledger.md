@@ -81,7 +81,7 @@ The title survives either way—1,513 is a real, citable state (the tool as merg
 
 **SUPPORTED for the two snapshots it names, but the post has four states and names two.** 2,417 → 2,453 is +8 script lines and +28 test lines across `c41f4f0af909`, `c1769e4f35f8`, `ee3ec7fda5cb` and `bf1309acb533`, all inside #686 after the removal commit—so "later fixes landed on top of the cut" is literally right. The two unnamed states are the 2,917 peak (§B1) and the Vale-side snapshot (§I2). #745 asks for all four; §B's table supplies them.
 
-### B4—"a tool that edits your files has to prove, after every single edit, that it changed only what it meant to change… reject the whole batch if anything moved. It was also all-or-nothing—one unfixable dash in a configuration key meant every other fix in that file was abandoned too"
+### B4—*(corrected: the check runs once per file on the combined candidate, not after each edit—see the article body and the Phase 4b review on #803)* "a tool that edits your files has to prove, after applying its edits, that it changed only what it meant to change… reject the whole batch if anything moved. It was also all-or-nothing—one unfixable dash in a configuration key meant every other fix in that file was abandoned too"
 
 > L105
 
@@ -207,7 +207,14 @@ Source: `gh api --paginate repos/nathanjohnpayne/nathanpaynedotcom/pulls/686/com
 | #720 | none recorded | 10 |
 | #721 | none recorded | 1 |
 
-Publishing that mapping turns "trust my ledger" into `gh api --paginate --slurp repos/…/pulls/{n}/reviews --jq '[.[][]|select(.user.login=="nathanpayne-codex")]|length'` (without `--slurp` each page stays a separate array and `--jq` runs once per page, emitting page-local counts rather than one total). The token totals stay author-attested.
+Publishing that mapping turns "trust my ledger" into a command that runs as written:
+
+```bash
+gh api --paginate --slurp repos/nathanjohnpayne/nathanpaynedotcom/pulls/686/reviews \
+  | jq '[.[][] | select(.user.login == "nathanpayne-codex")] | length'
+```
+
+Two things make it runnable, and both were wrong in earlier revisions. Without `--slurp`, each page stays a separate array and the filter runs once per page, emitting page-local counts rather than one total. And `gh` **rejects `--slurp` together with `--jq`** ("the `--slurp` option is not supported with `--jq` or `--template`", verified on gh 2.97.0), so the filter has to be a standalone `jq` on the other side of a pipe. The token totals stay author-attested.
 
 ### E2—"It never completed a ledgered external-review run, so none of its cost appears in that figure"
 
@@ -244,7 +251,12 @@ Publishing that mapping turns "trust my ledger" into `gh api --paginate --slurp 
 | #721 | 2 | 0 |
 | **Total** | **256** | **126** |
 
-Source: `for n in 668 678 681 682 686 720 721; do gh api --paginate "repos/nathanjohnpayne/nathanpaynedotcom/pulls/$n/reviews" --jq 'length'; done | paste -sd+ - | bc` (brace expansion passes seven positional endpoints and `gh` accepts one) and `…/comments`, filtered `in_reply_to_id == null`.
+Source: ```bash
+for n in 668 678 681 682 686 720 721; do
+  gh api --paginate --slurp "repos/nathanjohnpayne/nathanpaynedotcom/pulls/$n/reviews" | jq '[.[][]] | length'
+done | paste -sd+ - | bc
+```
+Brace expansion cannot substitute for the loop: it passes seven positional endpoints and `gh` accepts one.
 
 ### E6—"the Codex GitHub App and CodeRabbit, both reviewing every revision"
 
@@ -502,7 +514,7 @@ Do not re-audit these.
 
 7. **§I2 and §I4.** Name the "after" snapshot as `e42483b` (#725) and state the inclusion rule per §I3. Relabel the table's first row "the bespoke tool" rather than "the rule itself".
 
-8. **§E6.** "Both reviewing every revision" is false for four of the seven PRs. Do **not** narrow it to "both reviewed every push on #686 and #720"—§N.8 disproves that too: #686 carries 32 commits against 17 Codex-App and 27 CodeRabbit reviews, #720 carries 28 against 4 and 33. Publish the per-PR histogram instead, and add `github-advanced-security[bot]` as the third reviewer that contributed round 13 (§C1).
+8. **§E6.** "Both reviewing every revision" is false. Neither bot posted a review on **three** of the seven PRs—#681, #682 and #721—and on #678 each posted exactly one (§N.20 corrects an earlier "four" here). Do **not** narrow it to "both reviewed every push on #686 and #720"—§N.8 disproves that too: #686 carries 32 commits against 17 Codex-App and 27 CodeRabbit reviews, #720 carries 28 against 4 and 33. Publish the per-PR histogram instead, and add `github-advanced-security[bot]` as the third reviewer that contributed round 13 (§C1).
 
 9. **§E1's publishability.** `.mergepath/` is gitignored, so no reader can open the ledger. Publish the loop-count-to-API mapping in §E1's table; it makes 17 of the 18 numbers in that paragraph checkable from a public endpoint.
 
