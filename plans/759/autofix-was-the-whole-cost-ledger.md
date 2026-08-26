@@ -1,6 +1,6 @@
 # Facts ledger—#745 `autofix-was-the-whole-cost`
 
-Post source: `src/content/blog/autofix-was-the-whole-cost.md`, published `2026-08-24` (frontmatter `date`), added to `main` in `fe29266` (PR #746, `2026-08-24T23:07:14Z`) and revised twice since—`c10e3a8` (#749, images and Mermaid) and `7b1937a` (#780, key takeaways). Pre-revision baselines by `wc -w`: **4,133 words whole-file**, **3,294 words body-only** (everything after the closing frontmatter `---`), 837 words of frontmatter. #745 quotes a 4,014-word baseline; that figure predates #780 and is 119 words stale. Evidence repo: **this repository**, `nathanjohnpayne/nathanpaynedotcom`. Bare `#NNN` means **nathanpaynedotcom** throughout—every number the post cites resolves here. Shared cache: `plans/759/refs.json`.
+Post source: `src/content/blog/autofix-was-the-whole-cost.md`, published `2026-08-24` (frontmatter `date`), added to `main` in `fe29266` (PR #746, `2026-08-24T23:07:14Z`) and revised twice since—`c10e3a8` (#749, images and Mermaid) and `7b1937a` (#780, key takeaways). Pre-revision baselines by `wc -w`: **4,133 words whole-file**, **3,294 words body-only** (everything after the closing frontmatter `---`), 839 words of frontmatter. #745 quotes a 4,014-word baseline; that figure predates #780 and is 119 words stale. Evidence repo: **this repository**, `nathanjohnpayne/nathanpaynedotcom`. Bare `#NNN` means **nathanpaynedotcom** throughout—every number the post cites resolves here. Shared cache: `plans/759/refs.json`.
 
 Verdicts: **SUPPORTED** · **WRONG** (corrected value given) · **UNPROVABLE** (defensible weaker form given).
 
@@ -30,7 +30,7 @@ Verdicts: **SUPPORTED** · **WRONG** (corrected value given) · **UNPROVABLE** (
 
 First open to last merge: `2026-08-22T04:46:12Z` → `2026-08-24T05:43:06Z` = **48 h 56 m 54 s**. "About 49 hours" is exact. #686's 30 h 12 m is exact. Source: `refs.json` → the seven nathanpaynedotcom entries, `.created_at` / `.merged_at`.
 
-The shape worth keeping: **#686 alone accounts for 62% of the arc's wall time and 45% of its review submissions.** Four of the seven PRs merged in under sixteen minutes each.
+The shape worth keeping: **#686 alone accounts for 62% of the arc's wall time, 44% of its review submissions (113/256) and 45% of its inline findings (57/126).** Four of the seven PRs merged in under sixteen minutes each.
 
 ### A2—"saved three weeks"
 
@@ -63,11 +63,11 @@ Reproduce any row with `git show "<sha>:scripts/lint-content-em-dash.mjs" | wc -
 
 > L50; and the title, "1,513 Lines for One Dash"
 
-**WRONG on the natural reading—the two figures are the post-removal state, presented in the sentence before the removal.** At its peak the tool was **1,721 lines with a 1,196-line test suite (2,917 total)**. 1,513/940 is what was left *after* auto-fix came out and the subsequent fixes landed. The lede therefore understates the thing it is about to describe cutting, by 404 script lines and 256 test lines.
+**WRONG on the natural reading—the two figures are the post-removal state, presented in the sentence before the removal.** At its peak the tool was **1,721 lines with a 1,196-line test suite (2,917 total)**. 1,513/940 is what was left *after* auto-fix came out and the subsequent fixes landed. The lede therefore understates the thing it is about to describe cutting, by 208 script lines and 256 test lines.
 
 Corrected value, and it is a better lede: enforcing one sentence of style guidance peaked at **1,721 lines of code and a 1,196-line test suite**; removing the capability nobody asked for took it to 1,505/912 in a single commit; it merged at 1,513/940. Source: `git show "147d9a7f10c0:scripts/lint-content-em-dash.mjs" | wc -l` → 1721; same for the test file → 1196.
 
-The title survives either way—1,513 is a real, citable state (the tool as merged, and the exact line count #721 deleted). It is low blast radius if the drafting pass wants to change it: **no test pins this post's `headline` or `seoDescription`**, unlike the #744 post. `tests/helpers/blog-editorial-order.js:5`, `tests/blog-chronology.test.js:29` and `tests/homepage-writing.test.js:119` pin the **slug**, so the slug must not change. `src/plugins/rehype-figure-captions.mjs:43-48` pins the three image paths and their dimensions.
+The title survives either way—1,513 is a real, citable state (the tool as merged, and the exact line count #721 deleted). It is low blast radius if the drafting pass wants to change it: **no test pins this post's `title`, `seoTitle` or `seoDescription`** (the blog schema in `src/content.config.ts` has no `headline` field), unlike the #744 post. `tests/helpers/blog-editorial-order.js:5`, `tests/blog-chronology.test.js:29` and `tests/homepage-writing.test.js:119` pin the **slug**, so the slug must not change. `src/plugins/rehype-figure-captions.mjs:43-48` pins the three image paths and their dimensions.
 
 ### B2—"the linter and its test suite fell from 2,917 lines to 2,417—a net reduction of 500 lines, or 17% of the implementation and tests combined. Taken separately it is 12.6% of the linter and 23.7% of the tests"
 
@@ -79,7 +79,7 @@ The title survives either way—1,513 is a real, citable state (the tool as merg
 
 > L64
 
-**SUPPORTED for the two snapshots it names, but the post has four states and names two.** 2,417 → 2,453 is +5 script lines and +28 test lines across `c41f4f0af909`, `c1769e4f35f8`, `ee3ec7fda5cb` and `bf1309acb533`, all inside #686 after the removal commit—so "later fixes landed on top of the cut" is literally right. The two unnamed states are the 2,917 peak (§B1) and the Vale-side snapshot (§I2). #745 asks for all four; §B's table supplies them.
+**SUPPORTED for the two snapshots it names, but the post has four states and names two.** 2,417 → 2,453 is +8 script lines and +28 test lines across `c41f4f0af909`, `c1769e4f35f8`, `ee3ec7fda5cb` and `bf1309acb533`, all inside #686 after the removal commit—so "later fixes landed on top of the cut" is literally right. The two unnamed states are the 2,917 peak (§B1) and the Vale-side snapshot (§I2). #745 asks for all four; §B's table supplies them.
 
 ### B4—"a tool that edits your files has to prove, after every single edit, that it changed only what it meant to change… reject the whole batch if anything moved. It was also all-or-nothing—one unfixable dash in a configuration key meant every other fix in that file was abandoned too"
 
@@ -125,7 +125,7 @@ So the post cites round 24's two findings as proof that the loop was not converg
 **Corrected values, and each is a stronger claim than the one it replaces:**
 
 - The non-converging series is **54 findings across 22 rounds**: `3 3 3 1 3 4 3 3 2 1 2 5 2 3 3 1 1 1 1 5 2 2`. First eleven rounds average **2.545**, last eleven average **2.364**—a *shallower* decline than the 2.75→2.0 the post reports, so the "does not converge" reading gets stronger, not weaker.
-- "Deleting it ended the loop in a single commit" is false as written and true in substance. After `abe3bfb62ea7` there were four more commits, two more review rounds and three more findings, and the PR merged **56 minutes later** (`2026-08-24T00:30:00Z`). The defensible—and better—form: *after the cut, not one further rewrite-safety finding was raised; the three remaining findings were all housekeeping about the removal itself, and the PR merged within the hour.*
+- "Deleting it ended the loop in a single commit" is false as written and true in substance. After `abe3bfb62ea7` there were four more commits, two more review rounds and three more findings, and the PR merged **56 minutes later** (`2026-08-24T00:30:00Z`). The defensible—and better—form: *after the cut, not one further rewrite-safety finding was raised; two of the three remaining findings were cleanup about the removal, the third was documentation debt from a dependency added after it, and the PR merged within the hour.*
 
 Source: `gh api --paginate repos/nathanjohnpayne/nathanpaynedotcom/pulls/686/comments --jq '.[]|{created_at,original_commit_id,pull_request_review_id}'`; `gh api repos/…/pulls/686/commits`; `refs.json` → `#686.merged_at`.
 
@@ -145,9 +145,9 @@ Source: `gh api --paginate repos/nathanjohnpayne/nathanpaynedotcom/pulls/686/com
 
 > L119
 
-**UNPROVABLE as an author's count, but there is a mechanically checkable proxy that lands on the same number, and the post should use it instead.** **29 of the 57 findings (51%)—and 29 of Codex's 45 (64%)—open with the literal phrase "Fresh evidence beyond the resolved `<X>` case is…"**, which is the reviewer explicitly stating that the finding is a follow-on against ground a previous fix had already been applied to. Findings 4, 5, 7, 14–21, 23, 24, 26–33, 40, 41, 46–50 and 53 in `created_at` order.
+**UNPROVABLE as an author's count, but there is a mechanically checkable proxy that lands on the same number, and the post should use it instead.** **29 of the 57 findings (51%)—and 29 of Codex's 45 (64%)—contain the phrase "fresh evidence beyond…" somewhere in the body** (case-insensitive; the wording varies, and it sits mid-body in 23 of the 29), which is the reviewer explicitly stating that the finding is a follow-on against ground a previous fix had already been applied to. Findings 4, 5, 7, 14–21, 23, 24, 26–33, 40, 41, 46–50 and 53 in `created_at` order.
 
-Defensible form: *the reviewer's own language marks it—half the findings on this pull request (29 of 57) begin by naming the earlier fix they are re-opening.* That converts "by my own count" into a one-line reproducible query, which is exactly what #745 asks for. Source: `gh api --paginate repos/…/pulls/686/comments`, grep bodies for `Fresh evidence beyond`.
+Defensible form: *the reviewer's own language marks it—half the findings on this pull request (29 of 57) name, in their own text, the earlier fix they are re-opening.* That converts "by my own count" into a one-line reproducible query, which is exactly what #745 asks for. Source: `gh api --paginate repos/…/pulls/686/comments`, grep bodies case-insensitively for `fresh evidence beyond` (case-sensitive returns 28, dropping finding 47).
 
 ---
 
@@ -161,23 +161,23 @@ Defensible form: *the reviewer's own language marks it—half the findings on th
 
 **Strict rule—the finding's own body names the fixer.** Match `--write`, `rewrit`, `structureIsPreserved`, `yamlShape`, "before editing", "permit fixes", "during YAML fixes", "deleting newlines", "removing the padding". **42 of 57 (73.7%).**
 
-**Subsystem rule—strict, plus findings in the whitespace-context/HTML-depth machinery that exists only so the fixer knows what it may touch** (findings 10, 12, 21, 42, 49). **47 of 57 (82.5%).**
+**Subsystem rule—strict, plus findings in the whitespace-context/HTML-depth machinery that exists only so the fixer knows what it may touch** (findings 10, 12, 21, 36, 42, 49). **48 of 57 (84.2%).**
 
 The residue, all 57 accounted for:
 
 | Category | n | Which |
 |---|---:|---|
 | Auto-fix / rewrite-safety, named in the body | 42 | strict rule above |
-| Same rewrite-safety subsystem, marker not in body | 5 | 10, 12, 21, 42, 49 |
+| Same rewrite-safety subsystem, marker not in body | 6 | 10, 12, 21, 36, 42, 49 |
 | Prose detection / classification | 3 | 11 (link-title scanning), 44, 45 (YAML mapping-key scanning) |
 | Test harness | 3 | 13, 38 (missing branch coverage), 55 (stale test comments) |
 | Security scanner (CodeQL regex backtracking) | 2 | 34, 35 |
 | Dependency documentation | 1 | 57 |
 | Unrelated to this feature | **0** | — |
 
-**Corrected value: 42 of 57 findings name the auto-fix path outright; 47 of 57 sit in the machinery that existed only to serve it. Three concern prose detection, three the test harness, two are CodeQL alerts, one is a dependency note. Nothing on the pull request was unrelated.** "Nearly all" overstates 74%; "three in four, and four in five counting the machinery that served it" is both accurate and more persuasive because it is countable.
+**Corrected value: 42 of 57 findings name the auto-fix path outright; 48 of 57 sit in the machinery that existed only to serve it. Three concern prose detection, three the test harness, two are CodeQL alerts, one is a dependency note. Nothing on the pull request was unrelated.** "Nearly all" overstates 74%; "three in four, and four in five counting the machinery that served it" is both accurate and more persuasive because it is countable.
 
-Source: `gh api --paginate repos/nathanjohnpayne/nathanpaynedotcom/pulls/686/comments`, filter `in_reply_to_id == null`, sort by `created_at`, apply the regex above to `.body`. The 42/57 split is stable under the exact matcher printed here; a looser matcher (any of `fix`, `preserv`, `round-trip`) inflates it to 53/57, which is why the strict form is the one to publish.
+Source: `gh api --paginate repos/nathanjohnpayne/nathanpaynedotcom/pulls/686/comments`, filter `in_reply_to_id == null`, sort by `created_at`, apply the regex above to `.body`. The 42/57 split is stable under the exact matcher printed here; the union of the strict matcher with a looser one (`fix` or `preserv`) reaches 54/57; `round-trip` matches nothing on the pull request. The strict form is the one to publish.
 
 ### D2—"a capability can be a modest share of a codebase and still be the reason the project cannot finish"
 
@@ -203,9 +203,9 @@ Source: `gh api --paginate repos/nathanjohnpayne/nathanpaynedotcom/pulls/686/com
 | #678 | 2 | 2 |
 | #681 | 1 | 1 |
 | #682 | 1 | 1 |
-| #686 | — (no record) | **0** |
-| #720 | — (no record) | 10 |
-| #721 | — (no record) | 1 |
+| #686 | none recorded | **0** |
+| #720 | none recorded | 10 |
+| #721 | none recorded | 1 |
 
 Publishing that mapping turns "trust my ledger" into `gh api repos/…/pulls/{n}/reviews --jq '[.[]|select(.user.login=="nathanpayne-codex")]|length'`. The token totals stay author-attested.
 
@@ -250,7 +250,7 @@ Source: `gh api --paginate repos/nathanjohnpayne/nathanpaynedotcom/pulls/{668,67
 
 > L111
 
-**WRONG as a statement about the arc.** On **#681, #682 and #721 neither bot posted a single review**, and on #678 each posted one. Both reviewed heavily only on #686 (17 and 27) and #720 (4 and 33). This matches the known behaviour that CodeRabbit skips stacked pull requests on a non-default base. Defensible form: *on the two long-running pull requests both bots reviewed every push; on the four short ones neither ran.* Source: §E4's histogram.
+**WRONG as a statement about the arc.** On **#681, #682 and #721 neither bot posted a single review**, and on #678 each posted one. Both reviewed heavily only on #686 (17 and 27) and #720 (4 and 33). This matches the known behaviour that CodeRabbit skips stacked pull requests on a non-default base. Defensible form: *on the two long-running pull requests both bots reviewed every push; on the three short ones neither ran, and on #678 each posted exactly one.* Source: §E4's histogram.
 
 ---
 
@@ -277,7 +277,7 @@ The Anthropic rate shape is also internally coherent: $5/M input with $10/M one-
 
 **UNPROVABLE, and #745 is right that it matters.** $60.81 and $59.95 are given as totals under three rates with no quantities, so no reader can reconstruct them. One constraint is derivable and worth stating: if the $60.81 session is one of the two associated with #686, its fresh input and output cannot exceed the body's 2.27 M and 285,100, which at $4/M and $20/M is $9.08 + $5.70 = **$14.78**. The remaining **$46.03 must be cached input—about 115 million cached tokens.** Defensible form: publish fresh-input / cached-input / output for each priced session, or state the subtotals as author-attested and drop the rate table, which currently implies a reproducibility the post does not provide.
 
-### F3—The five-session population does not close
+### F3—The five-session population does not close *(verdict downgraded to UNPROVABLE—see §N.11)*
 
 > Sidebar L36-L40 against body L137
 
@@ -431,13 +431,13 @@ Defensible form: state the rule—"implementation and tests for the prose gate i
 
 **#745 was written from the same unverified text this audit is checking, and three of its statements do not survive contact with the evidence.**
 
-### J1—#745 says the external-review ledger "excludes the 24-round PR #686". It excludes #720 and #721 too.
+### J1—**RETRACTED.** #745 is right about ledger coverage; the fuller statement is the post's own
 
 > #745, "Evidence still to reconcile", bullet 3
 
 The ledger holds records for exactly four of the seven pull requests—#668, #678, #681, #682—and **none** for #686, #720 or #721. The issue frames #686 as the notable omission; two thirds of the arc's later work is missing as well, including the entire Vale migration. The post's own L133 gets this right ("It covers four of the pull requests in this arc"); the issue narrows it wrongly. Anything the drafting pass writes about ledger coverage should follow the post here, not the issue.
 
-### J2—#745 says "the 57 findings on PR #686 are not categorized" and asks whether they separate into rewrite-safety versus "unrelated findings". There are none.
+### J2—**REFRAMED.** #745 asks for classification buckets; it does not claim unrelated findings exist
 
 > #745, "Evidence still to reconcile", bullet 2
 
@@ -459,8 +459,8 @@ Do not re-audit these.
 
 | Claim | Verified value | Source |
 |---|---|---|
-| #686 findings-per-round series, as printed | 24 groups, sum 57, exact order | `pulls/686/comments`, grouped by `pull_request_review_id` |
-| First twelve rounds average 2.75, last twelve 2.0 | exact on the 24-round series | §C1 (but see §C2 on the population) |
+| ~~#686 findings-per-round series, as printed~~ | **MOVED OUT—§C2 rejects the 24-round population. Publish the 22-round series.** | §C2 |
+| ~~First twelve rounds average 2.75, last twelve 2.0~~ | **MOVED OUT—§C2 replaces this with 2.545/2.364 over 22 rounds.** | §C2 |
 | Round 20 produced five findings, more than round 3 | 5 vs 3 | §C1 |
 | 2,917 → 2,417, net 500 lines, 17% | exact | `abe3bfb62ea7` |
 | 12.6% of the linter, 23.7% of the tests | 12.551%, 23.746% | `abe3bfb62ea7`, both files |
@@ -490,11 +490,11 @@ Do not re-audit these.
 
 1. Every number, date and causal claim must trace to a **SUPPORTED** row or to a corrected value in §§A-I. Where a row says **UNPROVABLE**, use its defensible form.
 
-2. **§C2 is the rewrite.** Rounds 23 and 24 are post-removal, so the post currently argues non-convergence from two housekeeping findings about the removal itself. Restate the series as **54 findings across 22 rounds**, keep the printed series truncated to 22, and replace the round-24 clause per §C4. Then use the corrected ending, which is stronger: after the cut, no further rewrite-safety finding was raised, the three remaining findings were all cleanup about the removal, and the PR merged 56 minutes later. Fix "eighteen rounds" to **sixteen** in all three places (§C3): the `keyTakeaways` entry at L13, L125, and L223.
+2. **§C2 is the rewrite.** Rounds 23 and 24 are post-removal, so the post currently argues non-convergence from two housekeeping findings about the removal itself. Restate the series as **54 findings across 22 rounds**, keep the printed series truncated to 22, and replace the round-24 clause per §C4. Then use the corrected ending, which is stronger: after the cut, no further rewrite-safety finding was raised, two of the three remaining findings were cleanup about the removal and the third was documentation debt from a dependency added after it, and the PR merged 56 minutes later. Fix "eighteen rounds" to **sixteen** in all three places (§C3): the `keyTakeaways` entry at L13, L125, and L223.
 
 3. **§B1 is the second rewrite.** The lede and the mermaid diagram present 1,513/940 as the pre-removal state. The peak was **1,721 lines and a 1,196-line test suite**. Publish §B's four-state table—it closes #745's LOC-provenance criterion in one artifact—and keep the title.
 
-4. **§D1 closes #745's biggest open criterion.** Replace "nearly all of the work that would not converge" with the counted form on all five surfaces plus `description` and `seoDescription`: **42 of 57 findings name the auto-fix path; 47 of 57 sit in the machinery that served it; three concern prose detection, three the test harness, two are CodeQL alerts, one a dependency note; none was unrelated.** Grep for the **claim**, not the phrasing—"nearly all of the work that would not converge", "nearly all of the churn", "most of the trust burden, and nearly all", and the mermaid node text are the same assertion in four wordings that share almost no substring. §J2 records that the issue's expected residue is empty; say so.
+4. **§D1 closes #745's biggest open criterion.** Replace "nearly all of the work that would not converge" with the counted form on all five surfaces plus `description` and `seoDescription`: **42 of 57 findings name the auto-fix path; 48 of 57 sit in the machinery that served it; three concern prose detection, three the test harness, two are CodeQL alerts, one a dependency note; none was unrelated.** Grep for the **claim**, not the phrasing—"nearly all of the work that would not converge", "nearly all of the churn", "most of the trust burden, and nearly all", and the mermaid node text are the same assertion in four wordings that share almost no substring. §J2 records that the issue's expected residue is empty; say so.
 
 5. **§F3 is the honest-accounting fix.** The sidebar's session map and the body's "two Codex CLI sessions associated with #686" contradict each other. Publish the five-row session ledger #745 asks for—session, model, work scope, token categories, floor or upper bound, priced or not—and identify which of the two #686 sessions ran on `gpt-5.3-codex-spark`. Add the raw quantities per §F2, or label the Codex subtotals author-attested and drop the rate table for them. The Claude subtotal is already reproducible (§F1) and the derivation should be shown, because it is the post's strongest evidentiary moment.
 
@@ -508,8 +508,58 @@ Do not re-audit these.
 
 10. **Align `seoDescription` with "17% of the implementation and tests".** L6 still reads "17% of the code", which #745 lists as an open acceptance criterion and which the body corrects twice. The mermaid node at L74 ("17% of the lines") has the same problem; the diagram's own `description` attribute already says it correctly.
 
-11. **Blast radius is low and the slug is not.** No test pins this post's `headline` or `seoDescription`. Three files pin the **slug** (`tests/helpers/blog-editorial-order.js:5`, `tests/blog-chronology.test.js:29`, `tests/homepage-writing.test.js:119`) and `src/plugins/rehype-figure-captions.mjs:43-48` pins the three image paths with dimensions. Change neither.
+11. **Blast radius is low and the slug is not.** No test pins this post's `title`, `seoTitle` or `seoDescription`—there is no `headline` field in the blog schema. Three files pin the **slug** (`tests/helpers/blog-editorial-order.js:5`, `tests/blog-chronology.test.js:29`, `tests/homepage-writing.test.js:119`) and `src/plugins/rehype-figure-captions.mjs:43-48` pins the three image paths with dimensions. Change neither.
 
-12. **Compression.** The baseline is **4,133 words**, not the 4,014 #745 quotes. Per the operator's guidance in `plans/759/RUN.md` the 20-30% reduction is a guideline, not a gate. The cuts that pay: the cost-and-capability explanation is given three times (L52, L66, L143) and the two-warnings paragraph appears verbatim in both the sidebar and L143. The additions §§B-D require—the four-state table, the finding classification, the session ledger—are named acceptance criteria and are not removable. Recompute the word count as the **last** step before pushing; it moved on every round of the last three audits.
+12. **Compression.** The baseline is **4,133 words**, not the 4,014 #745 quotes. Per the operator's guidance in `plans/759/RUN.md` the 20-30% reduction is a guideline, not a gate. The cuts that pay: the cost-and-capability explanation is given three times (L52, L66, L143) and the two-warnings paragraph is paraphrased across the sidebar and L143 rather than duplicated verbatim, so it needs merging rather than deleting. The additions §§B-D require—the four-state table, the finding classification, the session ledger—are named acceptance criteria and are not removable. Recompute the word count as the **last** step before pushing; it moved on every round of the last three audits.
 
 13. Before pushing, grep this post and this ledger for each corrected claim and confirm they agree. Four consecutive audits in this epic have produced at least one finding where an artifact contradicted itself or its sibling.
+
+---
+
+## N. Adversarial verification pass—21 defects, corrected
+
+An independent verifier re-derived every figure in this ledger against the same sources. **This section supersedes anything above that contradicts it.** The lesson from #744 applies with force: a ledger row can be right about its headline and wrong in the sentence a drafting pass actually lifts, so the ledger's own prose is evidence under audit.
+
+**N.1—§D1's classification accounted for 56 of 57.** Finding 36 (CodeRabbit, HTML implicit-`<p>`-close depth tracking) sat in no bucket. It belongs to the whitespace/HTML-depth machinery, so the subsystem figure is **48 of 57 (84.2%)**, not 47/57. Applied inline to §D1's rule, its residue table and its corrected value.
+
+**N.2—the "looser matcher inflates it to 53/57" sentence never reproduced.** `fix|preserv|round-trip` alone returns 39, *below* the strict 42; `round-trip` matches nothing on the PR. The union of strict and loose is 54/57.
+
+**N.3—§B1's understatement gap was doubled.** Peak 1,721 minus merged 1,513 is **208** script lines, not 404. The 256 test-line figure was right. This sat inside the corrected value of the ledger's second-most load-bearing row.
+
+**N.4—§B3's script delta was 8, not 5.** The ledger's own totals require it: 2,417 + 36 = 2,453, and 5 + 28 = 33.
+
+**N.5—§A1 swapped two populations.** 113/256 review submissions is **44%**; 45% is the inline-findings share, 57/126.
+
+**N.6—§C5's stated reproduction did not produce its stated set.** Case-sensitive `Fresh evidence beyond` returns 28, dropping finding 47. The "literal phrase" claim matches only 25. And the findings do not *open with* it: every comment opens with a P-badge title, and the phrase sits mid-body in 23 of the 29.
+
+**N.7—§F5's nulls claim was too broad.** PR #765's loop carries real values (`source: "claude-json-envelope"`, `output: 12559`, `cost_usd: 0.5516`). The nulls hold for the `codex-cli-stderr` loops—all of #668/#678/#681/#682—so the argument survives, but the rule must be scoped to that adapter. §E1, §E2 and §F5 must also give the absolute path `~/GitHub/nathanpaynedotcom/.mergepath/phase-4b-ledger.jsonl`.
+
+**N.8—§E6's proposed replacement was itself false.** #686 carries 32 commits against 17 Codex-App and 27 CodeRabbit reviews; #720 carries 28 commits against 4 Codex-App reviews. Neither bot reviewed every push on either PR. The stacked-base explanation is also wrong: all seven PRs have `base: main`.
+
+**N.9—§C2 and §D1 disagreed about the post-cut findings.** Finding 57 concerns a dependency *added* after the cut. Corrected inline in both places to two cleanup findings plus one documentation-debt finding.
+
+**N.10—§K listed two rows that §C2 rejects, under a "do not re-audit" heading.** Both struck and redirected to §C2.
+
+**N.11—§F3 claimed WRONG where the record is underdetermined.** The sidebar's one-session price and the body's two-session count can both hold if one of the two #686 sessions is in the unpriced `gpt-5.3-codex-spark` pair. Verdict is **UNPROVABLE**; the provable defect is narrower—a two-session token figure printed six lines from a one-session dollar figure.
+
+**N.12—§J1 asserted a contradiction that does not exist.** #745 says the ledger "excludes the 24-round PR #686," which is exactly right. Retracted.
+
+**N.13—§J2 refuted a claim #745 never made.** The issue requests classification buckets and does not assert the residual is populated.
+
+**N.14—§D1's line citations were wrong and undercounted.** `grep -n "nearly all"` returns **L5, L6, L13, L18, L52, L66, L68, L229**—eight surfaces. L68 is the Mermaid `description=` attribute.
+
+**N.15—§G1 substituted a figure no grep produces.** 260 is #664's hand classification, not a search result.
+
+**N.16—§I3's exclusion figures.** Vale fixtures are **22**, not 21; `pulls/721/files` shows `scripts/lint-all.sh` at **-3**, and the enumeration omits `package-lock.json -5`.
+
+**N.17—the header's word split was off by two.** 4,133 − 3,294 = **839** frontmatter words.
+
+**N.18—§J missed the largest #745 error.** Its "Already fixed—do not redo" block asserts "127 items across 38 content files"; §G2 proves 14. An error inside a do-not-redo block actively prevents the fix.
+
+**N.19—§L12's deduplication instruction pointed at a duplicate that is not there.** The two-warnings paragraph is paraphrased, not repeated verbatim.
+
+**N.20—§E6's coverage summary contradicted itself.** It established that neither bot reviewed #681, #682 or #721—**three** PRs—then recommended saying "the four short ones." Corrected to three, with #678 described separately as drawing one review from each bot.
+
+**N.21—the four-state LOC table's provenance is not reader-reproducible.** `147d9a7f10c0` and `abe3bfb62ea7` are reachable only from the deleted branch `claude/686-merge` and resolve in no fresh clone. Any published `git show "<sha>:…"` command must be accompanied by a `git fetch origin pull/686/head` step, or the snapshots must be re-anchored to commits reachable from `main`.
+
+**Rows the verifier independently confirmed—do not re-audit:** §A1's timestamps and 48h56m54s; §A3's 1m55s; §B's 2,917/2,417/2,453 table and §B2's percentages; §B4's line numbers; §C1's series and the three-reviewer split; §C2's core chronology; §C3's sixteen; §D2; §E1's ledger figures; §E3; §E4's 28/63/10; §E5's 256/126; §F1 and §F2 arithmetic; §G2's 127 across 14 files; §G3 and §G4; §H1 and §H2; §I1; §I2's 1,211 vs 1,343.

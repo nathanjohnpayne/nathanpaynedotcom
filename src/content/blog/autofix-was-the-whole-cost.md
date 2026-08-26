@@ -59,7 +59,7 @@ Written out, "enforce this style rule" meant:
 
 Here is what I got wrong the first time—and the wrong version is the more flattering story. I claimed auto-fix had produced *most of the code*. It had not. Across the commit that removed it, the linter and its test suite fell from 2,917 lines to 2,417—a net reduction of **500 lines, or 17% of the implementation and tests combined**. Taken separately it is 12.6% of the linter and 23.7% of the tests.
 
-All four states this story visits, each pinned to the commit that reproduces it via `git show "<sha>:scripts/lint-content-em-dash.mjs" | wc -l`, and the same for the test file:
+All four states this story visits, each pinned to the commit that reproduces it via `git show "<sha>:scripts/lint-content-em-dash.mjs" | wc -l`, and the same for the test file. The first two commits live on the pull request rather than on `main`, so a fresh clone needs `git fetch origin pull/686/head` before it can resolve them:
 
 | State | Commit | Script | Tests | Total |
 |---|---|---:|---:|---:|
@@ -145,7 +145,7 @@ The external-review lane keeps a per-run token ledger covering four of the seven
 | #720 | no record | 10 |
 | #721 | no record | 1 |
 
-`gh api repos/nathanjohnpayne/nathanpaynedotcom/pulls/<n>/reviews`, filtered to that login, reproduces the right-hand column. The token totals stay author-attested: the ledger's records for these four pull requests carry only combined totals, every per-category field null—and `billed_usd: 0.0` on every record, the receipt behind "nothing was invoiced."
+`gh api --paginate repos/nathanjohnpayne/nathanpaynedotcom/pulls/<n>/reviews`, filtered to that login, reproduces the right-hand column—`--paginate` is load-bearing, since #686 carries 113 review submissions and #720 carries 90, well past one page. The token totals stay author-attested: the ledger's records for these four pull requests carry only combined totals, every per-category field null—and `billed_usd: 0.0` on every record, the receipt behind "nothing was invoiced."
 
 Note which pull request the ledger does not cover. The 22-round story above is #686, and its zero in the table means it never entered the external-review lane; the 434,420 tokens belong to #668, the pull request that introduced the tool. The ledger is therefore a floor: it excludes the 28 reviews the Codex App posted across the arc, the 63 from CodeRabbit, the 10 external-review loops on the [Vale rollout](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/720), and every authoring session.
 
@@ -186,7 +186,7 @@ With auto-fixing gone, what remained was still 1,513 lines of custom code doing 
 
 The tempting summary is *1,513 lines became 7*—the em-dash rule in Vale is seven lines of configuration. That summary is false, and the false version is why most build-versus-buy posts are useless.
 
-The honest accounting, with both snapshots named. The "before" column is the legacy tool as merged, at `a37bb51`; the "after" is the Vale side at `e42483b`, [#725](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/725)'s merge—53 minutes after the old tool was deleted, once the migration follow-ups had landed, still before this post was published. The rule on both sides: the prose gate's own implementation and tests, excluding CI wiring and fixtures; the largest excluded item is the 81-line script that installs Vale, and counting it moves the reduction from 45% to 42%.
+The honest accounting, with both snapshots named. The "before" column is the legacy tool as merged, at `a37bb51`; the "after" is the Vale side at `e42483b`, [#725](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/725)'s merge—53 minutes after the old tool was deleted, once the migration follow-ups had landed, still before this post was published. The rule on both sides: the prose gate's own implementation and tests, excluding CI wiring and fixtures; the largest excluded item is the script that installs Vale, 93 lines at `e42483b`, and counting it moves the total from 1,343 to 1,436 and the reduction from 45% to about 41.5%.
 
 | | Before | After |
 |---|---|---|
@@ -219,7 +219,7 @@ So before approving the deletion I took all 174 test cases from the suite being 
 
 **149 matched. 25 differed**—18 the new tool no longer catches, 7 it now flags where the old one stayed quiet.
 
-Then the number that decides what any of that is worth: every affected pattern appeared **zero times** across the 37 content files as they stood at `6358402`, the commit the comparison ran against. So this was 18 capabilities retired, not 18 defects shipped—those were exactly the cases that could not converge. One footnote keeps the claim honest: the corpus reached 38 files when this post was added, and this post reintroduced one of the retired constructs—the emphasis-wrapped dash in the worked example above, twice, both inside code spans that render literally. Nothing is broken, but "zero occurrences" is a dated measurement, not a standing guarantee.
+Then the number that decides what any of that is worth: every affected pattern appeared **zero times** across the 37 content files as they stood at `6358402`, the commit the comparison ran against. So this was 18 capabilities retired, not 18 defects shipped—those were exactly the cases that could not converge. One footnote keeps the claim honest: the corpus reached 38 files when this post was added, and this post reintroduced one of the retired constructs—the emphasis-wrapped dash in the worked example above, three times—once in a code span and twice inside a fenced block—all of which render literally. Nothing is broken, but "zero occurrences" is a dated measurement, not a standing guarantee.
 
 And it is recorded. I wrote the full comparison into [an issue](https://github.com/nathanjohnpayne/nathanpaynedotcom/issues/722) before the merge—one minute and fifty-five seconds before it, which is as close as "before" gets—because the deletion destroyed the only artifact encoding the difference. A five-minute habit that turns "we think this was fine" into something a future decision can stand on.
 
