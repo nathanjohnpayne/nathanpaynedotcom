@@ -31,7 +31,11 @@ Corrected value: the mock-ups were local working files that were never committed
 
 > L~169
 
-**WRONG.** None got committed. §A1's history search finds no `mockups/` file ever added, in any branch, at any point. "Most got deleted" cannot be true of files that were never tracked. Corrected value: none of them were committed; they existed only on disk during the design decision. Source: as A1.
+**Two claims, two different verdicts—the row previously collapsed them.**
+
+"Some of mine got committed" is **WRONG**, and disprovably so: §A1's history search finds no `mockups/` file ever added, in any branch, at any point.
+
+"Most got deleted as part of the implementation PR" is **UNPROVABLE**, not wrong. Git history is silent about untracked files, so it cannot establish when—or whether—local scratch files were removed. The files were plainly deleted at some point, since they are not on disk; the *timing*, and the association with the implementation PR, are the author's recollection and nothing in the record touches them. Corrected value: none were committed. When they were deleted is not something this repository can answer, so say it as recollection or drop the timing. Source: as A1, plus the observation that a history search cannot speak to untracked files.
 
 ### A3—What evidence does survive
 
@@ -117,7 +121,7 @@ Corrected value: the 404 page shipped in commit `4076bf6`, which closed issue #9
 
 ### D4—"the markdown bridge… eventually took six PRs to undo"
 
-**SUPPORTED**, and cross-checked against the #744 evidence cluster: friends-and-family-billing PRs #144, #146, #153, #154, #155, #158 are the six, with #161 the reframed removal. Source: `refs.json` → the friends-and-family-billing entries.
+**WRONG as a characterisation, and it contradicts the #744 ledger shipping in this same commit.** That ledger's §A2 and §A3 classify the same set very differently: **#144 is the originating implementation** that introduced the bridge, **#154 and #155 are orthogonal fixes** the post itself says did not address this bug, and only **#146, #153 and #158** are attempts at the parity problem, with **#161** the reframed fix that removed it. Six PRs did not "undo" the bridge; one created it, two were unrelated, three failed to remove it, and a seventh succeeded. Corrected value: describe it as a bridge that took a session of six pull requests and a reframed brief to remove, or point at #744 and let that post carry the breakdown. Do not restate "six PRs to undo" in either artifact. Source: `refs.json` → the friends-and-family-billing entries.
 
 ---
 
@@ -218,4 +222,24 @@ Measured with `wc -w`, the same method as the epic's baseline.
 What was actually cut: the inline duplicate of the sidebar Mermaid diagram; the "few things going on at once" enumeration, from four items to three plus a retraction; the four-step postscript, from four numbered paragraphs to one; the FFB narration and the 404 closer, both of which restated the thesis a third and fourth time; and the "what an HTML mock-up actually contains" section, folded into a single clause at the pivot.
 
 Per the operator's guidance recorded in `plans/759/RUN.md`, the reduction is a **guideline rather than a gate**. Hitting 20% from here would mean deleting the artifact table or one of the three corrections, which is the trade #741 exists to prevent: this is the post whose central artifact turned out not to exist, and the fix for that is more evidence, not less.
+
+---
+
+## K. Codex round-1 addendum (PR #796)
+
+Two findings, both correct, both cross-artifact consistency failures—the defect class that dominated #791 as well.
+
+### K1—§D4 contradicted the #744 ledger shipping in the same commit
+
+§D4 marked "the markdown bridge took six PRs to undo" as SUPPORTED and cited the #744 evidence cluster as corroboration. That cluster says the opposite: #144 **created** the bridge, #154 and #155 are orthogonal, only #146/#153/#158 attempted the parity fix, and #161 removed it. Two ledgers in one commit, disagreeing about the same seven pull requests.
+
+Corrected in both places it appeared—§D4 itself and the post's FFB paragraph. Neither now says "six PRs to undo."
+
+**This is the strongest argument yet for a cross-ledger consistency check.** #791 produced ten findings of this shape *within* one ledger; this one crosses two files added by the same commit. Before pushing, grep every artifact in `plans/759/` for a claim, not just the one being edited.
+
+### K2—§A2 collapsed a disprovable claim and an unprovable one
+
+The row treated "some got committed; most got deleted as part of the implementation PR" as a single WRONG verdict. Only the first half is disprovable. Git history is silent about untracked files, so it cannot establish when local scratch files were deleted or whether that coincided with the implementation PR—that half is **UNPROVABLE**, and calling it wrong overstated what the search showed.
+
+Split into two verdicts. The distinction matters for this post specifically, whose whole subject is what an absent artifact can and cannot be made to prove.
 
