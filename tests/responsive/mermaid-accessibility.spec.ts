@@ -76,45 +76,79 @@ test('Mermaid descriptions label diagrams without becoming duplicate navigable t
   }
 });
 
-test('every label line stays inside the node box Mermaid measured for it', async ({ page }) => {
-  await page.goto('/blog/six-prs-one-bug-agent-failure-modes/');
+// Between them these cover both label containers Mermaid emits: the
+// non-wrapping one it gives a label with explicit breaks, and the wrapping one
+// it gives a label it decided may reflow.
+for (const route of [
+  '/blog/six-prs-one-bug-agent-failure-modes/',
+  '/blog/autofix-was-the-whole-cost/',
+]) {
+  test(`${route} paints every label at the height Mermaid measured`, async ({ page }) => {
+    await page.goto(route);
 
-  const labels = await page.locator('.mermaid-figure svg.mermaid g.node').evaluateAll((nodes) =>
-    nodes.flatMap((node) => {
-      const label = node.querySelector('g.label');
-      const shape = node.querySelector('rect, polygon, path, circle, ellipse');
-      if (!label || !shape) return [];
+    const labels = await page.locator('.mermaid-figure svg.mermaid g.node').evaluateAll((nodes) =>
+      nodes.flatMap((node) => {
+        const label = node.querySelector('g.label');
+        const shape = node.querySelector('rect, polygon, path, circle, ellipse');
+        if (!label || !shape) return [];
 
-      const labelBounds = label.getBoundingClientRect();
-      const shapeBounds = shape.getBoundingClientRect();
-      if (!labelBounds.height || !shapeBounds.height) return [];
+        const labelBounds = label.getBoundingClientRect();
+        const shapeBounds = shape.getBoundingClientRect();
+        if (!labelBounds.height || !shapeBounds.height) return [];
 
-      return [
-        {
-          text: label.textContent?.trim() ?? '',
-          lines: label.querySelectorAll('p').length,
-          breaks: label.querySelectorAll('br').length,
-          below: labelBounds.bottom - shapeBounds.bottom,
-          above: shapeBounds.top - labelBounds.top,
-        },
-      ];
-    }),
-  );
+        // Mermaid wrote the height it measured onto the foreignObject and sized
+        // the node box to match, so that attribute is the contract the painted
+        // label has to meet. Compare the two in the SVG's own units: rects come
+        // back in viewport pixels, so undo however far the diagram was scaled.
+        const host = label.querySelector('foreignObject');
+        const content = host?.firstElementChild;
+        if (!host || !content) return [];
 
-  expect(
-    labels.filter((label) => label.lines > 1).length,
-    'the assertion must exercise multiline labels',
-  ).toBeGreaterThan(0);
+        const viewBoxWidth = node.ownerSVGElement?.viewBox.baseVal.width ?? 0;
+        const scale = viewBoxWidth
+          ? (node.ownerSVGElement?.getBoundingClientRect().width ?? 0) / viewBoxWidth
+          : 1;
 
-  for (const label of labels) {
-    // Mermaid sizes the box for the lines it measured. A `br` that survives
-    // serialization is read back as two breaks and pushes the last line out
-    // through the bottom border (#788).
-    expect(label.breaks, `${label.text}: a doubled line break survived`).toBe(0);
-    expect(label.below, `${label.text}: label spills below its node box`).toBeLessThanOrEqual(1);
-    expect(label.above, `${label.text}: label spills above its node box`).toBeLessThanOrEqual(1);
-  }
-});
+        return [
+          {
+            text: (label.textContent ?? '').trim(),
+            measured: host.height.baseVal.value,
+            painted: scale ? content.getBoundingClientRect().height / scale : 0,
+            scale,
+            breaks: label.querySelectorAll('br').length,
+            below: labelBounds.bottom - shapeBounds.bottom,
+            above: shapeBounds.top - labelBounds.top,
+          },
+        ];
+      }),
+    );
+
+    expect(
+      labels.filter((label) => label.measured > 30).length,
+      'the assertion must exercise labels Mermaid measured as more than one line',
+    ).toBeGreaterThan(0);
+
+    for (const label of labels) {
+      // A `br` that survives serialization is read back as two breaks, so the
+      // label paints a line taller than the box Mermaid measured for it (#788).
+      // Painting shorter is the same defect inverted: a break that stopped
+      // breaking, or one that took the label's wrapping away with it (#789).
+      expect(label.breaks, `${label.text}: a doubled line break survived`).toBe(0);
+      // Half a unit, held flat across viewports rather than scaled by `scale`.
+      // Dividing a viewport rect back into SVG units would amplify rounding if
+      // rects were integers, but Chromium's are subpixel: measured worst case
+      // is 0.008 units at scale 0.29, roughly 65x inside this bound. `scale` is
+      // reported so a failure says whether the diagram was scaled down.
+      expect(
+        Math.abs(label.painted - label.measured),
+        `${label.text}: painted ${label.painted.toFixed(2)} against a measured ` +
+          `${label.measured} at scale ${label.scale.toFixed(3)}`,
+      ).toBeLessThanOrEqual(0.5);
+      expect(label.below, `${label.text}: label spills below its node box`).toBeLessThanOrEqual(1);
+      expect(label.above, `${label.text}: label spills above its node box`).toBeLessThanOrEqual(1);
+    }
+  });
+}
 
 test('static Mermaid diagrams remain visible in print without JavaScript', async ({ page }) => {
   await page.emulateMedia({ media: 'print' });

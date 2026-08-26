@@ -65,4 +65,5 @@ another collection requires deliberately widening this boundary.
     label stays inside the node box Mermaid measured for it. Because Mermaid
     measures the label before the page is serialized, a rendered label must
     carry no void HTML element that an HTML parser can read back as a second
-    break.
+    break. That holds for any label structure Mermaid emits, not only for a
+    break Mermaid wrapped in a paragraph.

@@ -99,13 +99,13 @@ export function rehypeMermaidSvg() {
       rendered.properties.className = [...new Set([...classNames(rendered), 'mermaid'])];
       rendered.properties.ariaHidden = 'true';
       rendered.properties.focusable = 'false';
-      splitLabelLines(rendered);
+      replaceLabelBreaks(rendered);
     });
   };
 }
 
 /**
- * Rewrite `<p>first<br>second</p>` label paragraphs as one paragraph per line.
+ * Turn every `br` in a rendered label into a newline no serializer can double.
  *
  * Mermaid measures a `<br/>` label as two lines and sizes the node box to
  * match, but `hast-util-to-html` enters the SVG schema at `<svg>` and never
@@ -113,40 +113,98 @@ export function rehypeMermaidSvg() {
  * serializes as `<br></br>`, and an HTML parser reads that closing tag as a
  * second `<br>`. Every authored break then rendered as two, pushing the second
  * line onto a third line that overflowed the bottom of the node box (#788).
- * Sibling paragraphs carry no void element, so no serializer can double them,
- * and Mermaid's own `p{margin:0}` rule keeps one paragraph to one line height.
+ *
+ * A text node cannot be doubled by any serializer, and a newline is the same
+ * forced break `br` was once the element holding it honors newlines. Rewriting
+ * the break rather than the structure around it keeps this independent of what
+ * Mermaid wrapped the label in: it holds for a break inside a paragraph, inside
+ * `<strong>` in a Markdown-string label, or inside no wrapper at all (#789), and
+ * it reproduces `br` geometry exactly — including the blank line that
+ * consecutive, leading, and trailing breaks are measured for, which
+ * restructuring the label into siblings loses.
+ *
+ * Which value honors newlines depends on the container, and Mermaid uses two.
+ * A label it decided must not wrap gets `white-space: nowrap`, where `pre` is
+ * the same rule plus newlines. A label it decided may wrap gets `break-spaces`,
+ * which already honors newlines — forcing `pre` there would take the wrapping
+ * away and lay the label out both shorter and wider than the box Mermaid
+ * measured for it. So the inherited value decides, and often decides to do
+ * nothing at all.
+ *
+ * Two details of the declaration itself are load-bearing, both measured:
+ * `white-space-collapse: preserve-breaks` keeps `nowrap`'s space collapsing,
+ * which plain `pre` would undo — `A["A  B<br/>C"]` paints 3.9px wider than
+ * Mermaid measured without it. And it is written `!important` so it still wins
+ * on a label that declares its own `white-space: … !important`, which otherwise
+ * beats an appended declaration on the same element and collapses the newline
+ * back to a space. The shorthand is emitted alongside the longhand so a browser
+ * too old for `white-space-collapse` still breaks the line.
  */
-function splitLabelLines(node) {
+function replaceLabelBreaks(node, inheritedWhiteSpace = '') {
   if (!Array.isArray(node.children)) return;
 
-  const children = [];
-  for (const child of node.children) {
-    splitLabelLines(child);
-    children.push(...(hasLineBreak(child) ? paragraphPerLine(child) : [child]));
+  const whiteSpace = declaredWhiteSpace(node) || inheritedWhiteSpace;
+
+  if (node.children.some(isLineBreak)) {
+    node.children = node.children.map((child) =>
+      isLineBreak(child) ? { type: 'text', value: '\n' } : child,
+    );
+    const preserving = newlinePreservingValue(whiteSpace);
+    if (preserving) {
+      // Declared on the element that holds the newline rather than on the
+      // container, so only text that replaced a break becomes whitespace
+      // sensitive, and appended so it wins over what Mermaid already set.
+      node.properties = {
+        ...node.properties,
+        style: appendDeclaration(
+          node.properties?.style,
+          `white-space: ${preserving} !important`,
+          'white-space-collapse: preserve-breaks !important',
+        ),
+      };
+    }
   }
-  node.children = children;
+
+  for (const child of node.children) replaceLabelBreaks(child, whiteSpace);
 }
 
 function isLineBreak(node) {
   return node.type === 'element' && node.tagName === 'br';
 }
 
-function hasLineBreak(node) {
-  if (node.type !== 'element' || node.tagName !== 'p') return false;
-  return Array.isArray(node.children) && node.children.some(isLineBreak);
+function declaredWhiteSpace(node) {
+  const style = node.properties?.style;
+  if (typeof style !== 'string') return '';
+
+  // A raw `style` attribute in a Markdown-string label survives Mermaid's
+  // sanitizer, so this reads author-written CSS, not just Mermaid's own. Strip
+  // comments and allow whitespace around the colon rather than pinning one
+  // spelling: `white-space : nowrap` and `white-space /* x */: nowrap` are both
+  // valid, and missing either would inherit the wrong value from the container.
+  const declarations = [
+    ...style
+      .replace(/\/\*[\s\S]*?\*\//g, ' ')
+      .matchAll(/(?:^|;)\s*white-space\s*:\s*([a-z-]+)\s*(!\s*important)?/gi),
+  ].map((match) => ({ value: match[1].toLowerCase(), important: Boolean(match[2]) }));
+
+  // Read the declaration that actually wins: `!important` outranks source
+  // order, so taking the last one unconditionally would misread
+  // `white-space: nowrap !important; white-space: break-spaces` as wrapping and
+  // leave the newline to collapse under the nowrap that really applies.
+  const winner =
+    declarations.findLast((declaration) => declaration.important) ?? declarations.at(-1);
+  return winner?.value ?? '';
 }
 
-function paragraphPerLine(paragraph) {
-  const lines = [[]];
-  for (const child of paragraph.children) {
-    if (isLineBreak(child)) lines.push([]);
-    else lines[lines.length - 1].push(child);
-  }
-  return lines.map((children) => ({
-    ...paragraph,
-    properties: { ...paragraph.properties },
-    children,
-  }));
+/** The value that adds newline handling to `whiteSpace`, or '' when it has it. */
+function newlinePreservingValue(whiteSpace) {
+  if (['pre', 'pre-wrap', 'pre-line', 'break-spaces'].includes(whiteSpace)) return '';
+  return whiteSpace === 'nowrap' ? 'pre' : 'pre-wrap';
+}
+
+function appendDeclaration(style, ...declarations) {
+  const existing = typeof style === 'string' ? style.trim().replace(/;$/, '') : '';
+  return [existing, ...declarations].filter(Boolean).join('; ');
 }
 
 export function createMermaidFigure({ sourceNode, title, description, descriptionId }) {
