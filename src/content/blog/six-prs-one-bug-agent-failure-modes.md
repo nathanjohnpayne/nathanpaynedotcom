@@ -146,7 +146,7 @@ The authoring was Claude Code on all six, and the fix was later authored under t
 
 ### PR #144: the implementation that created the bridge
 
-[PR #144](https://github.com/nathanjohnpayne/friends-and-family-billing/pull/144) introduced the TipTap WYSIWYG editor—the feature this arc is about, opened a full twenty-one hours before the issue existed. My kickoff prompt, from the same session log, was one line: "Read invoicing-tab-redesign.md and implement the plan." The design spec it pointed at was good. It chose TipTap JSON as canonical storage and described the derived output model plainly: "HTML is generated from JSON for Preview rendering. Email-safe HTML is generated from JSON for final outbound email rendering." That sentence is essentially the invariant. But the same spec also required backward compatibility: `buildInvoiceBody` had to handle both legacy plain-text templates and the new TipTap JSON document format.
+[PR #144](https://github.com/nathanjohnpayne/friends-and-family-billing/pull/144) introduced the TipTap WYSIWYG editor—the feature this arc is about, opened a full twenty-one hours before the issue existed. My kickoff prompt, from the same session log, was one line: "Read invoicing-tab-redesign.md and implement the plan." The [design spec](https://github.com/nathanjohnpayne/friends-and-family-billing/blob/main/docs/invoicing-tab-redesign.md) it pointed at was good. It chose TipTap JSON as canonical storage and described the derived output model plainly: "HTML is generated from JSON for Preview rendering. Email-safe HTML is generated from JSON for final outbound email rendering." That sentence is essentially the invariant. But the same spec also required backward compatibility: `buildInvoiceBody` had to handle both legacy plain-text templates and the new TipTap JSON document format.
 
 The agent satisfied both the simplest way available: flatten the new format into the old one via `docToPlainTextWithTokens()` and reuse the existing pipeline. That honors the spec's letter and defeats its intent, and it is not an unreasonable reading—the compatibility constraint had a named function and checkable behavior, while the architectural intent was a sentence. When a spec carries both, the constraint that can be verified wins. The structured document became a temporary format on its way back to plaintext, which is the bug, one day early.
 
@@ -269,18 +269,22 @@ The Cloud Function was updated to send trusted app-generated HTML when provided 
 
 "One rendering path" needs its boundary named, because stated baldly it overclaims. The editor still renders its own DOM directly from the document. The plain-text part of the email payload has its own builder, by design. And the preview keeps a fallback—`previewEmailPayload.html || renderInvoiceTemplate(...)`—which is a second call site into the renderer, not a second renderer. The claim the merged code supports is narrower still: the **template body** in both the preview and the sent email is produced by `renderInvoiceTemplate`, so text that is not bold in the editor cannot become bold in either place. The sent email wraps that body in envelope HTML the preview does not show—a branded header, a container, a "Sent via Friends & Family Billing" footer—which is visible in the screenshots above and is outside the renderer by design. That is the semantic parity [issue #159](https://github.com/nathanjohnpayne/friends-and-family-billing/issues/159) asked for, and it is a good deal narrower than "everything renders identically."
 
-```mermaid title="One canonical renderer for preview and email" description="The ProseMirror document still renders the editor DOM directly, while one canonical template renderer produces both preview HTML and sent-email HTML; the plain-text payload is built separately."
+```mermaid title="One canonical renderer for preview and email" description="The ProseMirror document still renders the editor DOM directly, while one canonical template renderer produces the body HTML for both the preview and the email; the sent email combines that body with separate envelope HTML supplying the branded header, container and footer, and the plain-text payload is built separately."
 graph LR
     A["TipTap / ProseMirror<br/>Document"] --> B["Editor DOM"]
     A --> C["Canonical Template<br/>Renderer"]
-    C --> D["Preview HTML"]
-    C --> E["Sent Email HTML"]
+    C --> D["Preview<br/>Body HTML"]
+    C --> E["Email<br/>Body HTML"]
+    E --> F["Sent Email<br/>(body + envelope)"]
+    G["Envelope HTML<br/>header, container, footer"] --> F
 
     style A fill:#2c5f8a,stroke:#2c5f8a,color:#fff
     style B fill:#7bc67e,stroke:#4a8a4d,color:#333
     style C fill:#7bc67e,stroke:#4a8a4d,color:#333
     style D fill:#7bc67e,stroke:#4a8a4d,color:#333
     style E fill:#7bc67e,stroke:#4a8a4d,color:#333
+    style F fill:#7bc67e,stroke:#4a8a4d,color:#333
+    style G fill:#e8e8e8,stroke:#999,color:#333
 ```
 
 ## What actually varied
