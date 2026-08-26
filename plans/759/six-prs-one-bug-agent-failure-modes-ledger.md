@@ -142,7 +142,7 @@ Counting *all* review submissions instead gives 19. Neither is nine. If the figu
 ## G. Instructions to the drafting pass
 
 1. Every number, date and causal claim must trace to a **SUPPORTED** row.
-2. **§A1 is the rewrite.** The six PRs precede the issue. Restructure the opening so the arc runs: an implementation ships (#144) → symptoms get chased across five more PRs → the failures force the problem to be named (#159) → a reframed brief to a different agent fixes it (#161). The post's own thesis is stronger this way: the missing artifact was a written invariant, and its absence is why six PRs could each be locally reasonable.
+2. **§A1 is the rewrite.** The six PRs precede the issue. Restructure the opening so the arc runs: an implementation ships (#144) → symptoms get chased across five more PRs → the failures force the problem to be named (#159) → a reframed brief to a different agent fixes it (#161). The post's own thesis is stronger this way: the invariant existed in the design spec but was never attached to any piece of work anyone reviewed, and that gap is why six PRs could each be locally reasonable. See §J1—this instruction originally said the artifact was missing, which the article's own evidence disproves.
 3. **§A2 and §A3 need the inclusion rule stated.** One originating implementation, three attempts, two orthogonal fixes—not "six failed attempts."
 4. **§B1 must be corrected, not dropped.** The "reviewers saw it and it shipped anyway" beat is real; it belongs to #155, where three blocking rounds are on the record. On #146 both reviewers approved and verified the round-trip.
 5. Where a row says **UNPROVABLE** (§C1, §D1, §D2, §E1, §E2), use its defensible form.
@@ -156,7 +156,7 @@ Counts are **words**, via `wc -w` over the whole file, the same method as the ep
 
 | Measure (words) | Baseline | Revised | Change |
 | --- | ---: | ---: | ---: |
-| Whole file (the epic's 4,463 baseline) | 4,463 | 4,227 | **−5.3%** |
+| Whole file (the epic's 4,463 baseline) | 4,463 | 4,273 | **−4.3%** |
 
 **Short of the 20–30% guidance, and deliberately so.** #744's own compression clause is the only one in the epic that carries a carve-out—"with chronology retained where it is evidence"—and after §A1 the chronology *is* the evidence. The corrected arc only works if the reader can see that all six PRs precede the issue, which needs the timestamped table, and that each PR was locally reasonable, which needs the per-PR sections.
 
@@ -251,4 +251,24 @@ OG images are build artifacts. `public/og/blog/` does not exist and never has; `
 The finding also surfaced an error it did not report. The same sentence credited the fix to "[the seventh PR](…/pull/178)". **PR #178 is not the fix.** It is "Fix: Unify invoicing Edit/Preview layout (#176)", opened `2026-04-06T19:44:46Z`—two days later, and about visual layout parity between Edit and Preview modes, not the rendering-path bug. The fix is **#161**, opened `2026-04-04T17:41:42Z`. Corrected.
 
 **This is the audit reaching outside its own post.** The project page is nominally #751–758 scope, but a wrong PR citation about the very arc this post documents is a correction the evidence forces, and §I's rule applies: a correction the evidence forces is worth any blast radius. Worth flagging that the surrounding project pages have never been audited and may carry more of these.
+
+---
+
+## L. Codex round-2 addendum (PR #798)
+
+Two findings, both correct.
+
+### L1—One instance of the retracted thesis survived
+
+§J1 reconciled "nobody wrote down what correct meant" across seven surfaces. It missed an eighth, in the #146 section: "there was no written invariant to see… absent a written standard, it confirms the diff against itself." The article therefore acknowledged the spec on line 149 and denied it on line 161.
+
+Corrected, and the corrected sentence is better than either version. The invariant existed, in a design document neither reviewer had reason to open, **because nothing in the PR referenced it**. Review confirms a diff against whatever standard the PR puts in front of it; when no standard is attached, it confirms the diff against itself. That is the actual mechanism, and it is more useful than "there was no standard."
+
+§I's drafting instruction carried the same retracted claim and is corrected too.
+
+**This is the fourth consecutive round on this PR where a claim was fixed in some places and left standing in others**, and the third time I have written down the grep-every-instance rule and then not executed it thoroughly. The failure mode is grepping for the *phrasing* I remember writing rather than for the *claim*. "no written invariant" and "nobody wrote down what correct meant" are the same assertion in words that share almost no substring.
+
+### L2—The compression total was stale for the third time
+
+4,273 words, −4.3%. Every round changes it, because every round trades a shorter wrong claim for a longer right one. **Recompute this table as the last step before pushing, not when writing the section.**
 

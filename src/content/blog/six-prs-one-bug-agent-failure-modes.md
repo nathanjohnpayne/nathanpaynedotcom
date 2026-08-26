@@ -158,7 +158,7 @@ The first version of this post claimed my automated reviewer flagged the round-t
 
 > External re-review: APPROVED. I re-reviewed the `invoice.js` fix for the two issue #145 findings. The balanced regex now leaves one-sided `**` as literal text, and `docToPlainTextWithTokens()` preserves bold-marked tokens as `**%token%**`, so the legacy plaintext fallback round-trips correctly. Verification in a clean worktree: exact round-trip repro cases, `npm ci`, `npm --prefix functions ci`, `npm test`, and `npm run build`.
 
-Zero blocking reviews on this PR, zero inline comments, from either reviewer identity; `nathanpayne-claude` approved as well. Nobody saw the invariant and waved it through—there was no written invariant to see. The reviewers verified that the patch did exactly what it claimed, and what it claimed was never the question. Review confirms a diff against a standard; absent a written standard, it confirms the diff against itself.
+Zero blocking reviews on this PR, zero inline comments, from either reviewer identity; `nathanpayne-claude` approved as well. Nobody saw the invariant and waved it through. The invariant existed—in a design document neither reviewer had reason to open, because nothing in this PR referenced it. The reviewers verified that the patch did exactly what it claimed, and what it claimed was never the question. Review confirms a diff against whatever standard the PR puts in front of it; when no standard is attached, it confirms the diff against itself.
 
 ### PR #153: one part semantic patch, one part visual patch
 
