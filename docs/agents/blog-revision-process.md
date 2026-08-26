@@ -48,6 +48,23 @@ It also reports numbers written as words as an **advisory note**. That cannot ga
 
 **Semantically wrong citations.** A project page cited PR #178 for a fix delivered by #161. The number resolved, the repository was right, the link worked --- it was simply about something else. No link checker or reference cache catches this. Read the referenced PR and confirm it did the thing the sentence claims.
 
+## A correction is not done when the reported line is fixed
+
+This is the dominant defect in audited revisions. Across three pull requests and eleven review rounds it accounted for more findings than every other cause combined, and the reviewers were mostly finding the residue of earlier fixes rather than defects in the original work.
+
+A claim lives in more places than the one a reviewer cites. Observed instances, all real:
+
+- A duration corrected in the body while the frontmatter `description` kept the old one.
+- A verdict downgraded from WRONG to UNPROVABLE in the heading while its closing sentence still asserted the contradiction.
+- A count corrected in one section while a summary bucket elsewhere kept the old figure, so the buckets totalled 56 of 57.
+- A claim retracted in an appendix while the drafting instruction that a later pass actually acts on kept telling the author to write it.
+- `--paginate` added to a reported command while the identical defect sat in the command on the next line.
+- A diagram node label left asserting a claim the prose beside it had just narrowed.
+
+**The rule.** When a claim changes, enumerate every surface that carries it before moving on: body prose, all frontmatter fields, `keyTakeaways`, pull quotes, sidebar content, diagram titles, diagram `description=` attributes, diagram node labels, summary tables, worked arithmetic, and any instruction addressed to a future pass. Grep for the *claim* in any wording, not the sentence you edited.
+
+**Check the fix itself.** Two defects in this series were introduced *by* corrections: an unclosed `~~` that rendered known-false text as ordinary prose directly beneath its own retraction, and a pagination fix that left brace expansion in place so the command still could not run. After editing, re-run whatever the edit touched: the linter, the command, the delimiter balance across the file.
+
 ## Dispositioning review feedback
 
 Fixing a finding is not dispositioning it. Both reviewers require a substantive reply on the thread **and** the thread resolved --- `scripts/review-feedback-accounting.sh` treats those as separate requirements, and an unaccounted finding blocks the next Codex review request entirely.
