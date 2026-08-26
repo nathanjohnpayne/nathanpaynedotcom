@@ -174,7 +174,7 @@ The drafting pass proposed retitling the post from **"Six PRs, One Bug: What AI 
 
 **The original title survives the correction intact.** Its load-bearing word is "actually"—it claims the common assumption about *how* agents fail is wrong and the real thing is subtler, which is the same move the post makes. The failure mode it names is real and unaffected by the chronology fix: across the three parity attempts the agent patched the nearest plausible code path and never promoted a repeated local failure into a structural question. Correcting *why* that happened does not stop it being a thing agents get wrong.
 
-**The blast radius was the deciding factor.** The title turned out to be referenced in seven places outside the post, and a first grep found only four:
+**The blast radius was the deciding factor.** The title turned out to be referenced in seven **files** outside the post, carrying nine references in total since `mergepath.md` and `blog-pages.test.js` each hold two, and a first grep found only four of those files:
 
 | File | Reference |
 |---|---|
@@ -223,4 +223,30 @@ The title rationale said the agent "patched the nearest plausible code path **si
 4,163, not 4,162. Corrected, and superseded again by the J1 rewrite: the file now stands at 4,227, −5.3%.
 
 **Pattern note, fourth audit running.** Every round on this PR and the last two has produced at least one finding where an artifact contradicts itself or its sibling. The reconciliation step—grep every claim across post and ledger before pushing—is the single highest-yield check in this workflow and I have now failed to run it thoroughly on four consecutive PRs.
+
+---
+
+## K. CodeRabbit addendum (PR #798)
+
+Four findings. Two fixed, two rebutted.
+
+### K1—`RUN.md`'s #744 row was missing its PR *(rebutted, already fixed)*
+
+The row carried `#798` before this review posted; the finding is pinned to an earlier commit. No change.
+
+### K2—§I mixed files and references *(fixed)*
+
+The prose said "seven places" while the table listed seven **files** carrying nine references, two of them doubled. Restated in files, with the reference count alongside, and the "first grep found only four" line scoped to files as well.
+
+### K3—Missing OG image at `public/og/blog/…` *(rebutted)*
+
+OG images are build artifacts. `public/og/blog/` does not exist and never has; `src/integrations/og-images.mjs` screenshots an Astro template at build time and writes into `dist/og/`, and the file is present there after a build. Nothing is missing. This is a recurring false positive from this reviewer on this repository.
+
+### K4—The FFB project page contradicted the corrected classification *(fixed, and it was worse than reported)*
+
+`src/content/projects/friends-and-family-billing.md` said "Six PRs across twenty hours failed to fix the parity bug", which is the "six failed attempts" framing §§A2–A3 dismantle. Corrected to name the roles.
+
+The finding also surfaced an error it did not report. The same sentence credited the fix to "[the seventh PR](…/pull/178)". **PR #178 is not the fix.** It is "Fix: Unify invoicing Edit/Preview layout (#176)", opened `2026-04-06T19:44:46Z`—two days later, and about visual layout parity between Edit and Preview modes, not the rendering-path bug. The fix is **#161**, opened `2026-04-04T17:41:42Z`. Corrected.
+
+**This is the audit reaching outside its own post.** The project page is nominally #751–758 scope, but a wrong PR citation about the very arc this post documents is a correction the evidence forces, and §I's rule applies: a correction the evidence forces is worth any blast radius. Worth flagging that the surrounding project pages have never been audited and may carry more of these.
 
