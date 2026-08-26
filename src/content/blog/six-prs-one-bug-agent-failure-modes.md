@@ -2,8 +2,8 @@
 title: "Six PRs, One Bug: What AI Agents Actually Get Wrong"
 seoTitle: "Six PRs, One Bug"
 shortTitle: "Six PRs, One Bug"
-description: "Editor, preview, and sent email disagreed in a billing app. The rule that would have caught it was sitting in a design spec the whole time—as prose, never as anything a reviewer could check. This is the corrected chronology, and the reframed brief that finally fixed it."
-seoDescription: "The rule that would have caught this billing parity bug sat in a design spec as prose, never as anything a review could check against."
+description: "Editor, preview, and sent email disagreed in a billing app. The rule it violated was sitting in a design spec the whole time—as prose, never as anything a reviewer could check. This is the corrected chronology, and the reframed brief that finally fixed it."
+seoDescription: "The rule this billing parity bug violated sat in a design spec as prose, never as anything a review could check against."
 category: "Agent Systems"
 featured: true
 author: "Nathan Payne"
@@ -39,7 +39,7 @@ sidebar:
           PR153 --> PR158["#158 attempt:<br/>bridge extracted"]
           PR144 --> PR154["#154 orthogonal:<br/>editor lifecycle"]
           PR144 --> PR155["#155 orthogonal:<br/>legacy migration"]
-          PR158 --> I159["Issue #159:<br/>invariant named"]
+          PR158 --> I159["Issue #159:<br/>invariant attached<br/>to the work"]
           I159 --> PR161["#161 fix:<br/>bridge removed"]
           style PR144 fill:#b35937,stroke:#b35937,color:#fff
           style PR146 fill:#e8b4b4,stroke:#993d3d,color:#333
@@ -138,7 +138,7 @@ The prompts that drove the six PRs come from my session log, which I have not pu
 
 > Given this is a simply single email template, maybe it is okay to sacrifice to get it right?
 
-By prompt 11 I was offering to throw the template away rather than keep watching the loop. The arc is recognizable to anyone who has run an agent for more than ten minutes: describe the bug, escalate to "you keep missing something," repeat yourself verbatim, end by questioning your own requirements. Notice what none of those prompts contain—not "Preview and email must use the same rendering path," not "the markdown bridge is the wrong architecture," not "audit your previous fixes first." I described symptoms with rising urgency and expected a structural diagnosis to emerge from them. Given what it was handed each time—a symptom—patching the nearest plausible code path was reasonable behavior, every time.
+By prompt 11 I was offering to throw the template away rather than keep watching the loop. The arc is recognizable to anyone who has run an agent for more than ten minutes: describe the bug, escalate to "you keep missing something," repeat yourself verbatim, end by questioning your own requirements. Notice what none of those prompts contain—not "Preview and email must use the same rendering path," not "the markdown bridge is the wrong architecture," not "audit your previous fixes first." I described symptoms with rising urgency and expected a structural diagnosis to emerge from them. Given what it was handed each time—a symptom—patching the nearest plausible code path was reasonable behavior on each of those occasions.
 
 ## Six pull requests, each locally reasonable
 
@@ -158,7 +158,7 @@ The first version of this post claimed my automated reviewer flagged the round-t
 
 > External re-review: APPROVED. I re-reviewed the `invoice.js` fix for the two issue #145 findings. The balanced regex now leaves one-sided `**` as literal text, and `docToPlainTextWithTokens()` preserves bold-marked tokens as `**%token%**`, so the legacy plaintext fallback round-trips correctly. Verification in a clean worktree: exact round-trip repro cases, `npm ci`, `npm --prefix functions ci`, `npm test`, and `npm run build`.
 
-Zero blocking reviews on this PR, zero inline comments, from either reviewer identity; `nathanpayne-claude` approved as well. Nobody saw the invariant and waved it through. The invariant existed—in a design document neither reviewer had reason to open, because nothing in this PR referenced it. The reviewers verified that the patch did exactly what it claimed, and what it claimed was never the question. Review confirms a diff against whatever standard the PR puts in front of it; when no standard is attached, it confirms the diff against itself.
+Zero blocking reviews on this PR, zero inline comments, from either reviewer identity; `nathanpayne-claude` approved as well. Neither review mentions or checks the invariant, because the PR did not attach it—what the record shows is two approvals and no inline comments, not what either reviewer had in mind. The invariant existed—in a design document neither reviewer had reason to open, because nothing in this PR referenced it. The reviewers verified that the patch did exactly what it claimed, and what it claimed was never the question. Review confirms a diff against whatever standard the PR puts in front of it; when no standard is attached, it confirms the diff against itself.
 
 ### PR #153: one part semantic patch, one part visual patch
 
@@ -204,7 +204,7 @@ Across the six PRs, the public record holds **seven** blocking review rounds:
 
 The first version of this post said nine. Counting blocking rounds gives seven; counting every review submission gives nineteen; no counting rule I can reconstruct gives nine. Seven, with the rule stated, is the number this post now carries.
 
-My session log adds figures the repository cannot: eighteen user prompts across the arc, and three automated stop-hook interventions between prompts—one of which flagged that the plaintext fallback was being derived from `editor.getText()` rather than from the renderer, the divergent-path problem stated by a machine. The log is unpublished, so those are author-counted records a reader cannot verify; everything else in this post traces to public timestamps and review states.
+My session log adds figures the repository cannot, and which a reader therefore cannot check—like the prompt excerpts above, these are author records with no public artifact behind them: eighteen user prompts across the arc, and three automated stop-hook interventions between prompts—one of which flagged that the plaintext fallback was being derived from `editor.getText()` rather than from the renderer, the divergent-path problem stated by a machine. The log is unpublished, so those are author-counted records a reader cannot verify; everything else in this post traces to public timestamps and review states.
 
 ## The moment the problem got a name
 
@@ -295,14 +295,16 @@ What the record does support is narrower and more useful. The framing was the va
 
 ## The rules I kept, and what they cost
 
+Two of the four below are written into this repository's policy and apply to every agent working in it. The other two are practice I follow; nothing enforces them. The distinction matters, because a rule with a home in a policy file is checkable in exactly the way the design spec's invariant was not, which is the whole subject of this post.
+
 After the merge I turned the arc into standing rules for this repository. Each earns its keep against a cost.
 
-**Two failed fixes change the task.** If two fix attempts on the same problem have failed, the third must begin with an audit of the prior PRs: what each assumed, and why the assumption was wrong, before any new code. The cost: on genuinely shallow bugs the audit is pure overhead, and the rule cannot tell you in advance which kind you have.
+**Two failed fixes change the task.** *(Repository policy: [Two-strike audit rule](https://github.com/nathanjohnpayne/nathanpaynedotcom/blob/main/docs/agents/operating-rules.md#two-strike-audit-rule).)* If two fix attempts on the same problem have failed, the third must begin with an audit of the prior PRs: what each assumed, and why the assumption was wrong, before any new code. The cost: on genuinely shallow bugs the audit is pure overhead, and the rule cannot tell you in advance which kind you have.
 
-**The serialization checklist.** When a change crosses a format boundary, review asks three questions: is the round-trip lossless, do all consumers of the format produce equivalent output, and is the intermediate format necessary at all. The questions are designed to surface exactly what stayed invisible here. Whether they would have changed the outcome at [PR #144](https://github.com/nathanjohnpayne/friends-and-family-billing/pull/144) is a counterfactual this record cannot test, so I will not claim it; they are standing practice now. The cost: a checklist only binds when the reviewer runs it against the architecture, and this arc shows reviewers faithfully verifying diffs while the architecture drifted.
+**The serialization checklist.** *(Repository policy: [Serialization layer review requirement](https://github.com/nathanjohnpayne/nathanpaynedotcom/blob/main/docs/agents/operating-rules.md#serialization-layer-review-requirement).)* When a change crosses a format boundary, review asks three questions: is the round-trip lossless, do all consumers of the format produce equivalent output, and is the intermediate format necessary at all. The questions are designed to surface exactly what stayed invisible here. Whether they would have changed the outcome at [PR #144](https://github.com/nathanjohnpayne/friends-and-family-billing/pull/144) is a counterfactual this record cannot test, so I will not claim it; they are standing practice now. The cost: a checklist only binds when the reviewer runs it against the architecture, and this arc shows reviewers faithfully verifying diffs while the architecture drifted.
 
-**Constraint-driven prompts for cross-layer bugs.** When a bug touches more than one layer, the prompt carries an explicit list of banned approaches derived from prior failures in this codebase—not abstract best practices. The cost: the extraction is operator work—the banned list here took reading six PRs—and an over-broad ban can exclude the right fix.
+**Constraint-driven prompts for cross-layer bugs.** *(Personal practice, not adopted policy.)* When a bug touches more than one layer, the prompt carries an explicit list of banned approaches derived from prior failures in this codebase—not abstract best practices. The cost: the extraction is operator work—the banned list here took reading six PRs—and an over-broad ban can exclude the right fix.
 
-**Invariants outrank backward compatibility.** When a spec carries both a new architecture and a compatibility requirement, it now states which wins: the new rendering path is the canonical path, and legacy format support is a migration concern, not an architectural peer. The cost: the compatibility work gets more expensive and more explicit up front—which is the point, because implicit is how the bridge got built.
+**Invariants outrank backward compatibility.** *(Personal practice, not adopted policy.)* When a spec carries both a new architecture and a compatibility requirement, it now states which wins: the new rendering path is the canonical path, and legacy format support is a migration concern, not an architectural peer. The cost: the compatibility work gets more expensive and more explicit up front—which is the point, because implicit is how the bridge got built.
 
 The bug itself was fixed about sixty-five minutes after it was named: what recipients see now matches what the preview shows and what the editor means, and the brief's required regression tests were aimed at keeping that whole class of defect closed rather than patching one instance of it. The expensive part was the twenty-one hours before the name existed, in which six pull requests of locally reasonable, individually reviewed work shipped against a correctness standard nobody was checking. And the standard was not missing. It was in the design spec from the start, one sentence describing exactly the output model the bug violated. What it never was, until [issue #159](https://github.com/nathanjohnpayne/friends-and-family-billing/issues/159), was a requirement attached to any piece of work anyone reviewed. That is the process failure, and it is a harder one than "write it down": prose in a design document loses to a named function with checkable behavior, and no amount of louder symptom reporting closes the gap.

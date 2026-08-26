@@ -158,9 +158,13 @@ Counts are **words**, via `wc -w` over the whole file, the same method as the ep
 
 | Measure (words) | Baseline | Revised | Change |
 | --- | ---: | ---: | ---: |
-| Whole file (the epic's 4,463 baseline) | 4,463 | 4,428 | **−0.8%** |
+| Whole file (the epic's 4,463 baseline) | 4,463 | 4,561 | **+2.2%** |
 
-**Short of the 20–30% guidance, and deliberately so.** (Recount this figure at final HEAD before merge—review rounds add words as often as they remove them; the −3.8% recorded here went stale twice.) #744's own compression clause is the only one in the epic that carries a carve-out—"with chronology retained where it is evidence"—and after §A1 the chronology *is* the evidence. The corrected arc only works if the reader can see that all six PRs precede the issue, which needs the timestamped table, and that each PR was locally reasonable, which needs the per-PR sections.
+**The post ended up 2.2% longer than it started, against guidance asking for 20–30% shorter. Stated plainly because the ledger's job is accuracy, not a favourable number.**
+
+The figure moved four times during review and in the end moved the wrong way: −3.8% → −2.1% → −1.2% → −0.8% → **+2.2%**. Every review round that corrected a claim also lengthened it, because a corrected claim is almost always a narrower claim, and narrowing costs words. "Nobody had a definition of correctness" is six words; the true version needs a sentence distinguishing a definition that existed from one attached to the work. The same trade recurred for the renderer scope, the duration endpoints, the adopted-rules classification and the session-log caveat.
+
+The compression clause was not met, and #744's carve-out—"with chronology retained where it is evidence"—only ever justified the shortfall, not the growth. What justifies the growth is that seven review rounds found real factual defects, and every fix cost words. That is the honest accounting; a reader can decide whether the trade was worth it. #744's own compression clause is the only one in the epic that carries a carve-out—"with chronology retained where it is evidence"—and after §A1 the chronology *is* the evidence. The corrected arc only works if the reader can see that all six PRs precede the issue, which needs the timestamped table, and that each PR was locally reasonable, which needs the per-PR sections.
 
 What was cut: the duplicated inline copy of the sidebar Mermaid diagram; the "closed feedback loop" diagram, whose premise depended on the wrong §B1 claim and which stopped matching the record once #146 was corrected to an approval; four screenshot subsections collapsed into one run; and the over-explanation in the #144, prompts and brief sections.
 
