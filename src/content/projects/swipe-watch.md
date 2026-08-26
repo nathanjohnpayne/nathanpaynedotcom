@@ -1,7 +1,7 @@
 ---
 title: "Swipe Watch"
 slug: "swipe-watch"
-description: "A swipe-based discovery experiment for Disney+ and Hulu that turns taste signals into a faster, more active recommendation loop."
+description: "A swipe-based discovery experiment for Disney+ and Hulu that makes recommendation training and watchlist building a game."
 kicker: "AI × Consumer × Streaming"
 order: 5
 screenshotAspect: "narrow"
@@ -34,7 +34,7 @@ Swipe Watch explores that gap. Instead of inferring taste from what people finis
 - Presents content cards from a pool of 106 titles as of April 2026, spanning Disney+ and Hulu—series, films, and specials.
 - Captures swipe-left (dismiss), swipe-right (interested), and save-to-watchlist signals as lightweight preference data.
 - Filters the pool through four discovery modes—Disney Vault, Streaming Originals, Nature & Discovery, and New & Trending. The modes aren't separate lists; they're read-time filters over the one flat pool, and the last is just a year predicate.
-- Deals sessions ten cards at a time and tracks swipe history so the system knows what a user has already seen and can avoid repeat presentations. Everything is device-local; there is no server.
+- Deals sessions ten cards at a time and tracks swipe history so the system knows what a user has already seen and can avoid repeat presentations. Session state and the coin bank are device-local and there is no application backend; the swipe events themselves are sent to analytics, which is the one thing that leaves the device.
 
 ## How it was built
 
