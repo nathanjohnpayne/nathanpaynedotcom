@@ -32,7 +32,7 @@ Source: `gh api --paginate repos/nathanjohnpayne/mergepath/issues/797/comments` 
 
 The post's thesis is that nobody in the session ever read a Markdown preprocessor against CommonMark. §E1 establishes that the session had already derived findings from CommonMark's block rules—including the exact "indented code cannot interrupt" rule the escape turned on—on a sibling PR in the same batch, **12 hours 13 minutes before `#797` merged**, and had validated the fix against a CommonMark reference implementation. The convergence diagnosis, as written, is contradicted by the batch's own record.
 
-**The replacement thesis is stronger, not weaker.** This batch is a *transfer* failure, not a coverage failure: the right knowledge existed inside the session, was spec-derived, was externally corrected, and was validated against `markdown-it-py`—and no review lane carried it across a PR boundary, because every brief was scoped to one diff. See §E1 for the full evidence and §M1 for how to write it.
+**The replacement thesis is stronger, not weaker.** This batch is a *transfer* failure, not a coverage failure: the right knowledge existed inside the session, was spec-derived, was externally corrected, and was validated against `markdown-it-py`—and no review lane carried it across a PR boundary, because every brief was scoped to one diff. See §E1 for the full evidence and §N.1 for how to write it.
 
 ### A3—the issue's third framing, on the volume footnote, is also incomplete
 
@@ -222,7 +222,7 @@ Defensible form: *"three CodeRabbit reviews before merge, two of them substantia
 
 > L52
 
-**SUPPORTED on both halves; the population wording needs the issue's glossary fix.** `#789`–`#797` is nine numbers, all pulls, all opened within **36 seconds** of each other (`2026-07-29T04:12:07Z` → `04:12:43Z`). `#797` merged `2026-07-30T03:59:00Z`, **23 h 46 m 53 s** after the first opened. `#797` was also the last of all eleven to merge. Full merge order: `#792` `2026-07-29T13:24:45Z`, `#793` `14:18:16Z`, `#789` `15:35:21Z`, `#790` `18:38:14Z`, `#794` `18:48:01Z`, `#791` `2026-07-30T00:41:52Z`, `#800` `00:42:06Z`, `#795` `03:36:12Z`, `#796` `03:49:30Z`, `#797` `03:59:00Z`, then the hotfix `#810` `04:28:05Z`.
+**SUPPORTED on both halves; the population wording needs the issue's glossary fix.** `#789`–`#797` is nine numbers, all pulls, all opened within **36 seconds** of each other (`2026-07-29T04:12:07Z` → `04:12:43Z`). `#797` merged `2026-07-30T03:59:00Z`, **23 h 46 m 53 s** after the first opened. `#797` was the last of the nine-PR batch to merge; the hotfix `#810` followed it at `04:28:05Z`. Full merge order: `#792` `2026-07-29T13:24:45Z`, `#793` `14:18:16Z`, `#789` `15:35:21Z`, `#790` `18:38:14Z`, `#794` `18:48:01Z`, `#791` `2026-07-30T00:41:52Z`, `#800` `00:42:06Z`, `#795` `03:36:12Z`, `#796` `03:49:30Z`, `#797` `03:59:00Z`, then the hotfix `#810` `04:28:05Z`.
 
 The friction the issue names is real: the post says "nine-PR" (L52), "Nine PRs went up as one batch… later joined by #800" (L76), "the ten batch PRs and the hotfix" (L58, L80), and "the eleven PRs of the batch" (L82). All are true of different sets; none is defined. Fix by defining the eleven once. Source: `gh api .../pulls/<N>` → `.created_at`, `.merged_at` for all eleven.
 
