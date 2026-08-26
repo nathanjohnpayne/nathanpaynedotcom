@@ -26,7 +26,7 @@ Matchline is built on two premises about the 2026 job market. First, anyone can 
 
 So Matchline inverts the usual order. Instead of generating a document from a résumé and a job description, it treats work history as a structured graph of capabilities, outcomes, and evidence—built once, refined over time—and uses AI to assemble that evidence against a specific opportunity. The model's job is selection, sequencing, and framing. A claim that doesn't trace to something the user has documented and approved is treated as a defect, and the product's central mechanism exists to catch it.
 
-One thing to know before the rest of the page: Matchline is paused and has never shipped to a user. The sections below separate what the [spec](https://github.com/nathanjohnpayne/matchline/blob/main/specs/matchline.md) designs, what the code does, and what never got the chance to happen.
+One thing to know before the rest of the page: Matchline is paused, with no public launch and no documented user. The sections below separate what the [spec](https://github.com/nathanjohnpayne/matchline/blob/main/specs/matchline.md) designs, what the code does, and what never got the chance to happen.
 
 ## The core loop
 
@@ -61,6 +61,6 @@ So the pause has a date the commits set, not one an announcement set: active dev
 
 ## Status
 
-Paused before launch, and never shipped to users. Matchline remains a single-user system with the author's own job search as V1's only customer, and public release decisions come after V1 has earned its keep on real outcomes—which it has not yet had the chance to do.
+Paused before launch, with no public launch and no documented user. Matchline remains a single-user system with the author's own job search as V1's only customer, and public release decisions come after V1 has earned its keep on real outcomes—which it has not yet had the chance to do.
 
 There is no usage outcome to report, and that absence is the outcome so far: no live URL, and no user beyond the author recorded anywhere. Whether any application was ever generated or sent is not something the repository records either way—the silence is in the evidence, not a finding of zero. What exists is code across parsing, matching, and validation that was still being fixed and tuned into late July 2026, a validation design that has never been adversarially tested, and an eval pipeline built to make the next round of tuning cheap. The repository is public; the running product is not.
