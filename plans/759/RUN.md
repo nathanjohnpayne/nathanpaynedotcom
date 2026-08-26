@@ -11,8 +11,8 @@ Deliberate. #740 calibrates the ledger format and the Fable handoff; #739/#741 r
 | # | Issue | Slug | Phase reached | Ledger path | Branch | PR | Status |
 |---|-------|------|---------------|-------------|--------|----|--------|
 | 0 | — | shared evidence cache | **0 complete** | `plans/759/refs.json` | `content/740-astro-migration-audit` | [#787](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/787) | done |
-| 1 | #740 | how-a-responsive-fix-became-an-astro-migration | 3 blocked | `plans/759/how-a-responsive-fix-became-an-astro-migration-ledger.md` | `content/740-astro-migration-audit` | [#787](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/787) | **awaiting manual 4b** |
-| 2 | #739 | agent-approval-workflow-genesis-of-mergepath | not started | `plans/759/agent-approval-workflow-genesis-of-mergepath-ledger.md`  | — | — | pending |
+| 1 | #740 | how-a-responsive-fix-became-an-astro-migration | **done** | `plans/759/how-a-responsive-fix-became-an-astro-migration-ledger.md` | `content/740-astro-migration-audit` | [#787](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/787) | **merged** `28e81a7` |
+| 2 | #739 | agent-approval-workflow-genesis-of-mergepath | 3 review | `plans/759/agent-approval-workflow-genesis-of-mergepath-ledger.md` | `content/739-mergepath-genesis-audit` | [#791](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/791) | **manual 4b** |
 | 3 | #741 | html-mockups-as-spec | not started | `plans/759/html-mockups-as-spec-ledger.md`  | — | — | pending |
 | 4 | #744 | six-prs-one-bug-agent-failure-modes | not started | `plans/759/six-prs-one-bug-agent-failure-modes-ledger.md`  | — | — | pending |
 | 5 | #745 | autofix-was-the-whole-cost | not started | `plans/759/autofix-was-the-whole-cost-ledger.md`  | — | — | pending |
@@ -120,3 +120,50 @@ Where the 714 words went, in rough order of size: the four-option decision recor
 #740 sets **no reduction target** for this post—the epic's compression table says "tighten opportunistically; no percentage target"—so the growth is not a criterion violation. It is still growth, and the reason is that the audit replaced four wrong or unprovable claims with correctly-evidenced ones, and correct evidence is longer than a confident sentence.
 
 **Skim claim, re-evaluated at the final text.** The 3–5 minute portfolio skim is carried by eight H2 headings that run problem → decision → pivot → delivery → benefit → cost → agents → lesson, plus two tables and the diagram. A reader taking only the headings, the decision table, and the milestone timeline gets the user problem, the consequential decision and its criteria, the material tradeoff, the agent collaboration model, and the outcome including its evidentiary gap. At roughly 200–250 wpm a skim of that furniture plus the opening and closing paragraphs lands inside the window; the 3,065-word figure is the deep-read length, which is the second reading mode the epic asks each post to support.
+
+---
+
+## #740 landed
+
+- 2026-08-25—**PR [#787](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/787) merged** as `28e81a7`; issue #740 closed. Squash-merged with `BREAK_GLASS_ADMIN=1 BREAK_GLASS_MERGE_STATE=1` on the repository owner's explicit chat instruction, because branch protection wants an approving review that no available identity could supply: the authoring agent's own reviewer identity cannot approve a Phase 4 PR, and the standing manual 4b review was `CHANGES_REQUESTED`. CI was 24 pass / 1 fail at merge, the single failure being `Label Gate` on the `needs-external-review` label, which cannot auto-clear while a change request stands.
+- **Final Phase 4b review** (`nathanpayne-codex`, `pullrequestreview-5025137358`) raised four P2 items, all verified and fixed in `33fe1f5`: the missing evidence-bounded production milestone; a collision count of 45 against an actual 44 and a self-invalidating head claim; the `plans/*.md` soft-wrap convention, which I had wrongly scoped to content only; and stale length figures measured at intermediate commits.
+- **Verified in the browser after merge.** Both new tables render (5-row decision record, 11-row milestone timeline including the "Not recorded" cutover row), the Mermaid diagram renders to inline SVG, 4 key takeaways, no horizontal overflow, no console errors.
+- **Carry into the remaining six:**
+  1. `plans/*.md` is inside the one-physical-line-per-paragraph rule. Write ledgers that way from the start; the canonical render-preserving implementation is mergepath's `scripts/lib/md_reflow.py`, driven by `scripts/lint-md-prose-wrap.sh --write`. The rule, if you are doing it by hand: join consecutive non-blank lines into one physical line per paragraph, leaving fenced blocks, tables, headings, list items and blockquotes untouched, and folding a lazy continuation onto its list item. Verify with a whitespace-normalised equality check—the transform must not change a single word.
+  2. Re-measure word counts at the **final** head before writing them into a PR body or handoff.
+  3. Grep the ledger and this file for every instance of a claim when a review corrects it—round 5 on #787 was five stale-copy findings.
+  4. Fill the PR cell in the table at creation time.
+  5. Close up em dashes when writing; the blanket `replace(' — ','—')` sweep mangles table placeholder cells, so normalise prose lines only.
+  6. Batch fix commits before running `phase-4b-review.sh`—every push re-opens its HEAD barrier.
+
+---
+
+## Operator guidance: compression is a guideline, not a gate
+
+Recorded 2026-08-26, from the operator in chat: **"If you think the length reduction ruins the post, you don't have to do it; it is a guideline."**
+
+This supersedes any reading of the epic's compression table as a target that must be hit. It applies to the four remaining posts that carry a 20–30% figure—#741, #744, #745, #743—as well as to #742, which carries none.
+
+How to apply it. Cut what is genuinely repetition: restated setup, implementation chronology that adds no decision, inventories the issue says not to lead with, and quoted config or code whose content the prose already carries. Do **not** cut evidence, decision records, tradeoffs, the boundary or provenance material the acceptance criteria require, or a correction that is longer than the wrong claim it replaces.
+
+The #739 experience is the cautionary case. Body prose reached −20.8% at first draft and then **drifted back to −8.0% across five automated rounds, the manual Phase 4b correction, and the final CodeRabbit follow-up**, because every round replaced a short wrong claim with a longer right one: naming which of two round limits was actually tested, attributing a rejection to the wrapper's contract rather than the hook, distinguishing Codex findings from CodeRabbit's, publishing the raw observations behind the response-time statistic, and separating that population from the April 16 snapshot. Chasing the percentage back down would have meant reinstating an error. Ledger §J documents it.
+
+State the accounting honestly in the PR body and the ledger either way, and say what was cut and what was kept. A documented miss is the sanctioned outcome; an undocumented one is not.
+
+---
+
+## #739 manual Phase 4b review
+
+**State as of 2026-08-26.** PR [#791](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/791) is open and **not merged**. The author handoff targeted content head `6e08d74`; its state-only follow-up commit immediately made that mutable-head claim stale. The [`nathanpayne-codex` manual review](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/791#pullrequestreview-5025965954) requested five changes before approval.
+
+- The automated audit produced **24 inline findings across five human-directed Codex rounds** (6, 4, 5, 3, 6), plus one PR-level P1 comment and two findings from the `nathanpayne-claude` reviewer pass. The inline rounds had no P0 or P1; the issue-level P1 remained in the universal lede at handoff because `review-feedback-accounting.sh` accounts for inline comments, not issue comments.
+- The manual review's five findings are corrected in the author response: the universal claim is scoped, all 18 response-time observations are linked, the diagram carries the full seven-stage progression, stale boundary descriptions agree, and the handoff accounting is stable.
+- CodeRabbit's post-sync pass raised four P2 findings: three were fixed, and the request to pin a mutable current HEAD in this file was dismissed because the next state commit would make it stale. Ledger §R records the dispositions.
+- Final validation on the merged-current branch: `npm run lint`; `npm run typecheck` (0 errors); `npm test` (42 files, 497 passed / 1 skipped); isolated-port `npm run test:e2e` (327 passed / 45 skipped). The updated article was also checked directly at 375, 768, and 1440 px: seven Mermaid nodes, no label spill, and no horizontal overflow at each width.
+- The original [handoff message](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/791#issuecomment-5419174028) remains the record of the transfer to `nathanpayne-codex`; this section supersedes its stale totals and head claim.
+
+**Two repeated failures worth carrying, both mine.** §F2 inferred propagation duration from the timestamps at which four tracking issues were closed—the identical reasoning #740's §K1 had already named. And §L4's "fill the PR cell at creation time" rule, written after #787, was broken in the very next PR. **Writing a rule into this file does not cause it to be followed.** For #741 onward, the mechanical fixes are: fill the table cell in the same step that creates the PR, and never treat a closure timestamp as evidence of duration or success.
+
+**Ledger–post drift is the dominant defect class.** Eleven of the 24 inline findings were in the ledger, 11 in the prose, and 2 in this file. Four were claims an earlier round had already corrected elsewhere in the same file. Before pushing a fix, grep **both** artifacts for every instance of the claim—a review names the instances it happened to read, not the instances that exist.
+
+**Do not start #741's Phase 3 until #791 merges.** Phase 1 for #741 may begin now.
