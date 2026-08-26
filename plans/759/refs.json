@@ -74,7 +74,7 @@
       "number": 153,
       "resolved": true,
       "type": "pull",
-      "title": "fix: resolve five InvoicingTab bugs (#148\u2013#152)",
+      "title": "fix: resolve five InvoicingTab bugs (#148–#152)",
       "author": "nathanjohnpayne",
       "state": "closed",
       "created_at": "2026-04-03T23:07:10Z",
@@ -1030,7 +1030,7 @@
       "bare_number_collision": {
         "other_repo": "nathanjohnpayne/mergepath",
         "exists_there": true,
-        "other_title": "[Decision] REVIEW_POLICY.md drift \u2014 template vs repos"
+        "other_title": "[Decision] REVIEW_POLICY.md drift — template vs repos"
       }
     },
     "nathanjohnpayne/nathanpaynedotcom#30": {
@@ -1059,7 +1059,7 @@
       "bare_number_collision": {
         "other_repo": "nathanjohnpayne/mergepath",
         "exists_there": true,
-        "other_title": "REVIEW_POLICY.md \u2014 Phase 4 rewrite + flow diagram"
+        "other_title": "REVIEW_POLICY.md — Phase 4 rewrite + flow diagram"
       }
     },
     "nathanjohnpayne/nathanpaynedotcom#47": {
@@ -1189,6 +1189,93 @@
         "other_title": "feat(review): request @codex by default + Playground checkbox (#486)"
       }
     },
+    "nathanjohnpayne/nathanpaynedotcom#501": {
+      "additions": null,
+      "author": "nathanjohnpayne",
+      "base": null,
+      "changed_files": null,
+      "closed_at": "2026-06-12T03:33:12Z",
+      "commits": null,
+      "created_at": "2026-06-12T03:05:25Z",
+      "deletions": null,
+      "head": null,
+      "merge_commit_sha": null,
+      "merged": null,
+      "merged_at": null,
+      "number": 501,
+      "state": "closed",
+      "title": "Contrast-color cleanup: route alpha-baked ink and veil colors through tokens",
+      "type": "issue",
+      "url": "https://github.com/nathanjohnpayne/nathanpaynedotcom/issues/501",
+      "repo": "nathanjohnpayne/nathanpaynedotcom",
+      "resolved": true,
+      "cited_in": [
+        "two-blues-one-composition"
+      ],
+      "bare_number_collision": {
+        "other_repo": "nathanjohnpayne/mergepath",
+        "exists_there": true,
+        "other_title": "feat(review): validate Codex findings and record 👍/👎 feedback (#487)"
+      }
+    },
+    "nathanjohnpayne/nathanpaynedotcom#502": {
+      "additions": null,
+      "author": "nathanjohnpayne",
+      "base": null,
+      "changed_files": null,
+      "closed_at": "2026-06-12T03:55:07Z",
+      "commits": null,
+      "created_at": "2026-06-12T03:07:49Z",
+      "deletions": null,
+      "head": null,
+      "merge_commit_sha": null,
+      "merged": null,
+      "merged_at": null,
+      "number": 502,
+      "state": "closed",
+      "title": "OG images render in 1921 register; decide whether home.png should carry 1930",
+      "type": "issue",
+      "url": "https://github.com/nathanjohnpayne/nathanpaynedotcom/issues/502",
+      "repo": "nathanjohnpayne/nathanpaynedotcom",
+      "resolved": true,
+      "cited_in": [
+        "two-blues-one-composition"
+      ],
+      "bare_number_collision": {
+        "other_repo": "nathanjohnpayne/mergepath",
+        "exists_there": true,
+        "other_title": "docs(coderabbit): audit best practices and align config (#491)"
+      }
+    },
+    "nathanjohnpayne/nathanpaynedotcom#503": {
+      "additions": 160,
+      "author": "nathanjohnpayne",
+      "base": "main",
+      "changed_files": 3,
+      "closed_at": "2026-06-12T03:33:11Z",
+      "commits": 1,
+      "created_at": "2026-06-12T03:23:38Z",
+      "deletions": 71,
+      "head": "codex/issue-501-contrast-token-cleanup",
+      "merge_commit_sha": "a3554abd4dcb0ade0ed82d1b8c3f7a501252dbad",
+      "merged": true,
+      "merged_at": "2026-06-12T03:33:11Z",
+      "number": 503,
+      "state": "closed",
+      "title": "Route alpha-baked ink and veil colors through tokens",
+      "type": "pull",
+      "url": "https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/503",
+      "repo": "nathanjohnpayne/nathanpaynedotcom",
+      "resolved": true,
+      "cited_in": [
+        "two-blues-one-composition"
+      ],
+      "bare_number_collision": {
+        "other_repo": "nathanjohnpayne/mergepath",
+        "exists_there": true,
+        "other_title": "fix(auto-merge): re-arm on synchronize when an approval exists (#495)"
+      }
+    },
     "nathanjohnpayne/nathanpaynedotcom#504": {
       "repo": "nathanjohnpayne/nathanpaynedotcom",
       "number": 504,
@@ -1273,7 +1360,7 @@
       "bare_number_collision": {
         "other_repo": "nathanjohnpayne/mergepath",
         "exists_there": true,
-        "other_title": "phase-4b: diff-budget omission guard residuals \u2014 allowlist provenance + rename-path eligibility (P1-class, found in #662 calibration)"
+        "other_title": "phase-4b: diff-budget omission guard residuals — allowlist provenance + rename-path eligibility (P1-class, found in #662 calibration)"
       }
     },
     "nathanjohnpayne/nathanpaynedotcom#678": {
@@ -1643,7 +1730,7 @@
       "bare_number_collision": {
         "other_repo": "nathanjohnpayne/mergepath",
         "exists_there": true,
-        "other_title": "Phase 6 \u2014 External PRD + shared docs"
+        "other_title": "Phase 6 — External PRD + shared docs"
       }
     },
     "nathanjohnpayne/nathanpaynedotcom#91": {
