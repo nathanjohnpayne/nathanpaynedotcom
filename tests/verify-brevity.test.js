@@ -53,6 +53,15 @@ const mode = "strict";
 ~~~
 `;
 
+
+const UNITS = `---
+title: "Units"
+seoDescription: "Pinned."
+---
+
+The grid line is 9px and the breakpoint 480px. Rates run $4/M. Deployed at 10:04am Pacific.
+`;
+
 function paths(after, base) {
   const dir = mkdtempSync(join(tmpdir(), 'brevity-'));
   const a = join(dir, 'before.md');
@@ -111,6 +120,24 @@ describe('verify-brevity', () => {
 
   it('fails when a code block changes', () => {
     expect(run(BEFORE.replace('const x = 1;', 'const x = 2;'))).toBe(1);
+  });
+
+  it('fails when a unit-bearing numeral changes', () => {
+    // 9px and 8px are different grids. An earlier percent fix used a
+    // trailing (?!\\w) that stopped these matching at all.
+    expect(run(UNITS.replace('9px', '8px'), UNITS)).toBe(1);
+  });
+
+  it('fails when a currency symbol changes', () => {
+    expect(run(UNITS.replace('$4/M', '\u20ac4/M'), UNITS)).toBe(1);
+  });
+
+  it('fails when a timestamp changes zone', () => {
+    expect(run(UNITS.replace('10:04am Pacific', '10:04am Eastern'), UNITS)).toBe(1);
+  });
+
+  it('still passes on a pure prose edit near protected tokens', () => {
+    expect(run(UNITS.replace('The grid line', 'The grid rule'), UNITS)).toBe(0);
   });
 
   it('fails when a percent suffix is dropped', () => {

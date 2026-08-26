@@ -60,10 +60,15 @@ TOKEN_CLASSES = (
     ("URLs", r"https?://[^\s\)\]\"'>]+"),
     ("relative links", r"\]\((/[^)\s]*)\)"),
     ("issue/PR refs", r"#\d{2,4}\b"),
-    ("timestamps", r"\d{4}-\d{2}-\d{2}(?:T[\d:]+Z)?|\b\d{1,2}:\d{2}\s*(?:[ap]\.?m\.?)?\b|\b\d{1,2}\s*[ap]\.?m\.?\b"),
-    # Sign and percent belong to the token: dropping either reverses or
-    # rescales the claim while leaving a bare number behind.
-    ("numerals", r"(?<!\w)[+-]?\d[\d,.]*%?(?!\w)"),
+    # A clock time without its zone is a different instant, so the zone is
+    # part of the token when one is written.
+    ("timestamps", r"\d{4}-\d{2}-\d{2}(?:T[\d:]+Z)?"
+                   r"|\b\d{1,2}:\d{2}\s*(?:[ap]\.?m\.?)?(?:\s+[A-Z][a-zA-Z]+)?"
+                   r"|\b\d{1,2}\s*[ap]\.?m\.?(?:\s+[A-Z][a-zA-Z]+)?"),
+    # The token carries whatever changes the claim: a currency symbol, a
+    # sign, a percent, or a unit. `$4` and `EUR4` are different prices, `-3.8%`
+    # and `+3.8%` opposite directions, `9px` and `8px` different grids.
+    ("numerals", r"(?<![A-Za-z0-9_.])[$\u20ac\u00a3]?[+-]?\d[\d,.]*(?:%|[A-Za-z]{1,3}\b)?"),
     ("code spans", r"`[^`\n]+`"),
 )
 
