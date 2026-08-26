@@ -12,7 +12,7 @@ Deliberate. #740 calibrates the ledger format and the Fable handoff; #739/#741 r
 |---|-------|------|---------------|-------------|--------|----|--------|
 | 0 | — | shared evidence cache | **0 complete** | `plans/759/refs.json` | `content/740-astro-migration-audit` | [#787](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/787) | done |
 | 1 | #740 | how-a-responsive-fix-became-an-astro-migration | **done** | `plans/759/how-a-responsive-fix-became-an-astro-migration-ledger.md` | `content/740-astro-migration-audit` | [#787](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/787) | **merged** `28e81a7` |
-| 2 | #739 | agent-approval-workflow-genesis-of-mergepath | 3 in progress | `plans/759/agent-approval-workflow-genesis-of-mergepath-ledger.md` | `content/739-mergepath-genesis-audit` | [#791](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/791) | in review |
+| 2 | #739 | agent-approval-workflow-genesis-of-mergepath | 3 blocked | `plans/759/agent-approval-workflow-genesis-of-mergepath-ledger.md` | `content/739-mergepath-genesis-audit` | [#791](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/791) | **awaiting manual 4b** |
 | 3 | #741 | html-mockups-as-spec | not started | `plans/759/html-mockups-as-spec-ledger.md`  | — | — | pending |
 | 4 | #744 | six-prs-one-bug-agent-failure-modes | not started | `plans/759/six-prs-one-bug-agent-failure-modes-ledger.md`  | — | — | pending |
 | 5 | #745 | autofix-was-the-whole-cost | not started | `plans/759/autofix-was-the-whole-cost-ledger.md`  | — | — | pending |
@@ -149,4 +149,20 @@ How to apply it. Cut what is genuinely repetition: restated setup, implementatio
 The #739 experience is the cautionary case. Body prose reached −20.8% at first draft and then **drifted back to −17.9% across two review rounds**, because every round replaced a short wrong claim with a longer right one: naming which of two round limits was actually tested, attributing a rejection to the wrapper's contract rather than the hook, distinguishing Codex findings from CodeRabbit's. Chasing the percentage back down would have meant reinstating an error. Ledger §J documents it.
 
 State the accounting honestly in the PR body and the ledger either way, and say what was cut and what was kept. A documented miss is the sanctioned outcome; an undocumented one is not.
+
+---
+
+## BLOCKED: #739 is at a manual Phase 4b handoff
+
+**State as of 2026-08-26.** PR [#791](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/791) is open at HEAD `6e08d74`, complete, green on every local gate, and **not merged**.
+
+- **Twenty-three findings across five Codex rounds** (6, 4, 5, 3, 6) plus two from the `nathanpayne-claude` reviewer pass. **No P0 or P1 in any round.** 22 fixed, 1 rebutted, none outstanding. Accounting `clear`, every thread resolved.
+- Gates at this head: `astro build`, `vitest run` 491 passed / 1 skipped, `eslint`, `lint-prose`.
+- [Handoff message](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/791#issuecomment-5419174028) posted per REVIEW_POLICY.md § Handoff Message Format, suggesting `nathanpayne-codex`.
+
+**Two repeated failures worth carrying, both mine.** §F2 inferred propagation duration from the timestamps at which four tracking issues were closed—the identical reasoning #740's §K1 had already named. And §L4's "fill the PR cell at creation time" rule, written after #787, was broken in the very next PR. **Writing a rule into this file does not cause it to be followed.** For #741 onward, the mechanical fixes are: fill the table cell in the same step that creates the PR, and never treat a closure timestamp as evidence of duration or success.
+
+**Ledger–post drift is the dominant defect class.** Ten of twenty-three findings were in the ledger rather than the prose, and four were claims an earlier round had already corrected elsewhere in the same file. Before pushing a fix, grep **both** artifacts for every instance of the claim—a review names the instances it happened to read, not the instances that exist.
+
+**Do not start #741's Phase 3 until #791 merges.** Phase 1 for #741 may begin now.
 
