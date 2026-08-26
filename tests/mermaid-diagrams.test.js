@@ -157,61 +157,94 @@ describe('rehype-mermaid integration', () => {
     expect(html, 'a doubled line break survived serialization').not.toContain('</br>');
 
     const document = new JSDOM(html).window.document;
-    const labelLines = [...document.querySelectorAll('svg.mermaid .nodeLabel')].map((label) =>
-      [...label.querySelectorAll('p')].map((line) => line.textContent),
-    );
+    const labels = [...document.querySelectorAll('svg.mermaid .nodeLabel p')];
 
-    expect(labelLines).toEqual([
-      ['First line', 'second line'],
-      ['Third line', 'fourth line'],
+    expect(labels.map((label) => label.textContent)).toEqual([
+      'First line\nsecond line',
+      'Third line\nfourth line',
     ]);
+    // A newline only breaks the line when the element holding it says so.
+    for (const label of labels) {
+      expect(label.getAttribute('style'), label.textContent).toMatch(/white-space:\s*pre\b/);
+    }
     expect(document.querySelector('svg.mermaid foreignObject br')).toBeNull();
   });
 
-  it('replaces a label break that Mermaid did not wrap in a paragraph', () => {
-    // Mermaid wraps every label in a paragraph today, so this shape is
-    // synthetic: it stands in for a future release that emits a break the
-    // paragraph split cannot reach (#789). The invariant is that no `br`
-    // reaches the serializer regardless of what wraps the label.
+  it('breaks a Markdown-string label that formats across the break', async () => {
+    // Mermaid renders a Markdown-string label as `<p><strong>first<br>second
+    // </strong></p>`, so the break sits inside the formatting rather than
+    // beside it. Rewriting the break itself reaches it; restructuring the
+    // paragraph around it does not (#789).
+    const rendered = await renderSidebarMermaid([
+      {
+        type: 'mermaid',
+        title: 'Formatted two-line label',
+        description: 'A bold two-line label leads to a plain one.',
+        content: 'graph TD\nA["`**First line<br/>second line**`"] --> B["Plain"]',
+      },
+    ]);
+    const html = rendered.get(0);
+
+    expect(html, 'a doubled line break survived serialization').not.toContain('</br>');
+    expect(html, 'a void break element survived').not.toContain('<br');
+
+    const document = new JSDOM(html).window.document;
+    const formatted = document.querySelector('svg.mermaid .nodeLabel strong');
+
+    expect(formatted?.textContent).toBe('First line\nsecond line');
+    expect(formatted?.getAttribute('style')).toMatch(/white-space:\s*pre\b/);
+  });
+
+  it('rewrites a label break wherever Mermaid puts it', () => {
+    // Some shapes here are synthetic: they stand in for label structures a
+    // future Mermaid release could emit but this one does not (#789). The
+    // invariant is that no `br` reaches the serializer and that whatever holds
+    // the resulting newline honors it, without taking away wrapping the
+    // container was measured with.
+    const NOWRAP = 'display: table-cell; white-space: nowrap; line-height: 1.5;';
+    const WRAPPING = 'display: table; white-space: break-spaces; line-height: 1.5; width: 200px;';
+
     const element = (tagName, children, properties = {}) => ({
       type: 'element',
       tagName,
       properties,
       children,
     });
-    const labelFigure = (inner) =>
-      element('figure', [element('svg', [element('foreignObject', [element('div', [inner])])])], {
-        className: ['mermaid-figure'],
-      });
+    const text = (value) => ({ type: 'text', value });
+    const labelFigure = (inner, containerStyle) =>
+      element(
+        'figure',
+        [
+          element('svg', [
+            element('foreignObject', [element('div', [inner], { style: containerStyle })]),
+          ]),
+        ],
+        { className: ['mermaid-figure'] },
+      );
+
+    const broken = (tagName, properties = {}) =>
+      element(tagName, [text('A'), element('br', []), text('B')], properties);
 
     const shapes = {
-      paragraph: element('span', [
-        element('p', [
-          { type: 'text', value: 'A' },
-          element('br', []),
-          { type: 'text', value: 'B' },
+      paragraph: [element('span', [broken('p')]), NOWRAP],
+      noParagraph: [broken('span'), NOWRAP],
+      nestedInline: [
+        element('span', [element('p', [text('A'), broken('em', { style: 'color:#333' })])]),
+        NOWRAP,
+      ],
+      consecutive: [
+        element('span', [
+          element('p', [text('a'), element('br', []), element('br', []), text('b')]),
         ]),
-      ]),
-      noParagraph: element('span', [
-        { type: 'text', value: 'A' },
-        element('br', []),
-        { type: 'text', value: 'B' },
-      ]),
-      nestedInline: element('span', [
-        element('p', [
-          { type: 'text', value: 'A' },
-          element('em', [
-            { type: 'text', value: 'x' },
-            element('br', []),
-            { type: 'text', value: 'y' },
-          ]),
-        ]),
-      ]),
+        NOWRAP,
+      ],
+      wrappingContainer: [element('span', [broken('p')]), WRAPPING],
+      undeclaredContainer: [element('span', [broken('p')]), undefined],
     };
 
     const rendered = Object.fromEntries(
-      Object.entries(shapes).map(([name, inner]) => {
-        const tree = { type: 'root', children: [labelFigure(inner)] };
+      Object.entries(shapes).map(([name, [inner, containerStyle]]) => {
+        const tree = { type: 'root', children: [labelFigure(inner, containerStyle)] };
         rehypeMermaidSvg()(tree);
         return [name, toHtml(tree)];
       }),
@@ -222,12 +255,18 @@ describe('rehype-mermaid integration', () => {
       expect(html, `${name}: a void break element survived`).not.toContain('<br');
     }
 
-    // A break inside a paragraph still becomes a second paragraph; a break the
-    // split cannot reach becomes an empty block box, which starts one new line
-    // from inside inline content.
-    expect(rendered.paragraph).toContain('<span><p>A</p><p>B</p></span>');
-    expect(rendered.noParagraph).toContain('<span>A<span style="display:block"></span>B</span>');
-    expect(rendered.nestedInline).toContain('<em>x<span style="display:block"></span>y</em>');
+    // A non-wrapping container needs `pre`, which is its own rule plus newlines.
+    expect(rendered.paragraph).toContain('<p style="white-space: pre">A\nB</p>');
+    expect(rendered.noParagraph).toContain('<span style="white-space: pre">A\nB</span>');
+    // An existing declaration is kept, and the new one is appended so it wins.
+    expect(rendered.nestedInline).toContain('<em style="color:#333; white-space: pre">A\nB</em>');
+    // Consecutive breaks keep the blank line Mermaid measured the box for.
+    expect(rendered.consecutive).toContain('<p style="white-space: pre">a\n\nb</p>');
+    // `break-spaces` already honors newlines. Forcing `pre` would drop the
+    // wrapping Mermaid measured this label with, so nothing is added.
+    expect(rendered.wrappingContainer).toContain('<p>A\nB</p>');
+    // With nothing declared, wrapping is the default and must be preserved.
+    expect(rendered.undeclaredContainer).toContain('<p style="white-space: pre-wrap">A\nB</p>');
   });
 
   it('ships every built label break as a single line break', () => {
@@ -244,7 +283,9 @@ describe('rehype-mermaid integration', () => {
         document.querySelectorAll('svg.mermaid foreignObject br'),
         `${slug}: a label break can still be doubled by an HTML parser`,
       ).toHaveLength(0);
-      multilineLabelCount += document.querySelectorAll('svg.mermaid .nodeLabel p + p').length;
+      multilineLabelCount += [...document.querySelectorAll('svg.mermaid .nodeLabel')].filter(
+        (label) => label.textContent.includes('\n'),
+      ).length;
     }
 
     expect(
@@ -305,8 +346,10 @@ describe('rehype-mermaid integration', () => {
     expect(paletteDocument.querySelector('[style*="fill:#DA2418" i]')).not.toBeNull();
     expect(paletteDocument.querySelector('.edge-pattern-dotted')).not.toBeNull();
     expect(
-      failureModesDocument.querySelector('svg.mermaid foreignObject .nodeLabel p + p'),
-    ).not.toBeNull();
+      [...failureModesDocument.querySelectorAll('svg.mermaid foreignObject .nodeLabel')].some(
+        (label) => label.textContent.includes('\n'),
+      ),
+    ).toBe(true);
     expect(failureModesDocument.body.textContent).toContain('TipTap / ProseMirror');
     expect(failureModesDocument.body.textContent).toContain('Sent Email HTML');
   });

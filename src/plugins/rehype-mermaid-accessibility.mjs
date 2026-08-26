@@ -105,7 +105,7 @@ export function rehypeMermaidSvg() {
 }
 
 /**
- * Replace every `br` in a rendered label with a break that survives HTML.
+ * Turn every `br` in a rendered label into a newline no serializer can double.
  *
  * Mermaid measures a `<br/>` label as two lines and sizes the node box to
  * match, but `hast-util-to-html` enters the SVG schema at `<svg>` and never
@@ -114,71 +114,66 @@ export function rehypeMermaidSvg() {
  * second `<br>`. Every authored break then rendered as two, pushing the second
  * line onto a third line that overflowed the bottom of the node box (#788).
  *
- * The invariant this restores is that no `br` reaches the serializer, whatever
- * Mermaid wrapped the label in. A break inside a paragraph becomes a second
- * paragraph, which is the markup a two-line label wants and which Mermaid's own
- * `p{margin:0}` rule keeps to exactly one line height. A break anywhere else—a
- * label structure no current Mermaid release emits, but one a future release
- * could (#789)—becomes an empty block box, which forces one line break from
- * inside inline content without depending on its parent being a paragraph.
+ * A text node cannot be doubled by any serializer, and a newline is the same
+ * forced break `br` was once the element holding it honors newlines. Rewriting
+ * the break rather than the structure around it keeps this independent of what
+ * Mermaid wrapped the label in: it holds for a break inside a paragraph, inside
+ * `<strong>` in a Markdown-string label, or inside no wrapper at all (#789), and
+ * it reproduces `br` geometry exactly — including the blank line that
+ * consecutive, leading, and trailing breaks are measured for, which
+ * restructuring the label into siblings loses.
+ *
+ * Which value honors newlines depends on the container, and Mermaid uses two.
+ * A label it decided must not wrap gets `white-space: nowrap`, where `pre` is
+ * the same rule plus newlines. A label it decided may wrap gets `break-spaces`,
+ * which already honors newlines — forcing `pre` there would take the wrapping
+ * away and lay the label out both shorter and wider than the box Mermaid
+ * measured for it. So the inherited value decides, and often decides to do
+ * nothing at all.
  */
-function replaceLabelBreaks(node) {
+function replaceLabelBreaks(node, inheritedWhiteSpace = '') {
   if (!Array.isArray(node.children)) return;
 
-  const children = [];
-  for (const child of node.children) {
-    // Split before recursing: descending into a paragraph first would replace
-    // its breaks with block boxes before this level could see them.
-    if (isBrokenParagraph(child)) {
-      for (const line of paragraphPerLine(child)) {
-        replaceLabelBreaks(line);
-        children.push(line);
-      }
-      continue;
+  const whiteSpace = declaredWhiteSpace(node) || inheritedWhiteSpace;
+
+  if (node.children.some(isLineBreak)) {
+    node.children = node.children.map((child) =>
+      isLineBreak(child) ? { type: 'text', value: '\n' } : child,
+    );
+    const preserving = newlinePreservingValue(whiteSpace);
+    if (preserving) {
+      // Declared on the element that holds the newline rather than on the
+      // container, so only text that replaced a break becomes whitespace
+      // sensitive, and appended so it wins over what Mermaid already set.
+      node.properties = {
+        ...node.properties,
+        style: appendDeclaration(node.properties?.style, `white-space: ${preserving}`),
+      };
     }
-    if (isLineBreak(child)) {
-      children.push(blockLineBreak());
-      continue;
-    }
-    replaceLabelBreaks(child);
-    children.push(child);
   }
-  node.children = children;
+
+  for (const child of node.children) replaceLabelBreaks(child, whiteSpace);
 }
 
 function isLineBreak(node) {
   return node.type === 'element' && node.tagName === 'br';
 }
 
-function isBrokenParagraph(node) {
-  if (node.type !== 'element' || node.tagName !== 'p') return false;
-  return Array.isArray(node.children) && node.children.some(isLineBreak);
+function declaredWhiteSpace(node) {
+  const style = node.properties?.style;
+  if (typeof style !== 'string') return '';
+  return /(?:^|;)\s*white-space:\s*([a-z-]+)/i.exec(style)?.[1].toLowerCase() ?? '';
 }
 
-function paragraphPerLine(paragraph) {
-  const lines = [[]];
-  for (const child of paragraph.children) {
-    if (isLineBreak(child)) lines.push([]);
-    else lines[lines.length - 1].push(child);
-  }
-  return lines.map((children) => ({
-    ...paragraph,
-    properties: { ...paragraph.properties },
-    children,
-  }));
+/** The value that adds newline handling to `whiteSpace`, or '' when it has it. */
+function newlinePreservingValue(whiteSpace) {
+  if (['pre', 'pre-wrap', 'pre-line', 'break-spaces'].includes(whiteSpace)) return '';
+  return whiteSpace === 'nowrap' ? 'pre' : 'pre-wrap';
 }
 
-/**
- * An empty block box between two inline runs starts a new line, and unlike a
- * `br` it is not void in either schema, so it cannot be doubled on the way out.
- */
-function blockLineBreak() {
-  return {
-    type: 'element',
-    tagName: 'span',
-    properties: { style: 'display:block' },
-    children: [],
-  };
+function appendDeclaration(style, declaration) {
+  if (typeof style !== 'string' || style.trim() === '') return declaration;
+  return `${style.trim().replace(/;$/, '')}; ${declaration}`;
 }
 
 export function createMermaidFigure({ sourceNode, title, description, descriptionId }) {
