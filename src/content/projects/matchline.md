@@ -32,7 +32,7 @@ One thing to know before the rest of the page: Matchline is paused, with no publ
 
 Four steps, each with an input, an output, and a quality bar. The spec's step headings and this list match one for one.
 
-1. **Career → Experience Units.** A pasted résumé, LinkedIn HTML, long-form prose, or uploaded artifacts (PRDs, decks, retros) feed an extraction pipeline that produces atomic, verifiable claims. Each Unit carries skills, tools, domains, metrics, and a confidence score, and the user reviews and approves before anything enters the graph.
+1. **Career → Experience Units.** A pasted résumé, LinkedIn HTML, long-form prose, or uploaded artifacts (PRDs, decks, retros) feed an extraction pipeline that produces atomic, verifiable claims. Each Unit carries skills, tools, domains, metrics, and a confidence score, and every Unit lands unapproved—review is the only path from the graph into matching.
 2. **Job → Requirement Units.** A pasted JD parses into structured requirements with priority, must-have flags, and signals like seniority, scope, and domain. Mostly deterministic parsing plus light LLM classification—cheaper than extraction, but the matches downstream are only as right as the requirements upstream.
 3. **Match Units to Requirements.** The matching engine scores each Experience Unit against each Requirement on semantic similarity, skill/tool/domain overlap, seniority and scope alignment, and recency, and outputs a side-by-side view with explainable scores. Gaps are surfaced, not hidden. The user approves or rejects each match.
 4. **Generate.** From approved matches only, the engine produces a tailored résumé and optional cover letter, with every claim tracing back to an approved Unit.
