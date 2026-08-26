@@ -127,7 +127,7 @@ So the post cites round 24's two findings as proof that the loop was not converg
 - The non-converging series is **54 findings across 22 rounds**: `3 3 3 1 3 4 3 3 2 1 2 5 2 3 3 1 1 1 1 5 2 2`. First eleven rounds average **2.545**, last eleven average **2.364**—a *shallower* decline than the 2.75→2.0 the post reports, so the "does not converge" reading gets stronger, not weaker.
 - "Deleting it ended the loop in a single commit" is false as written and true in substance. After `abe3bfb62ea7` there were four more commits, two more review rounds and three more findings, and the PR merged **56 minutes later** (`2026-08-24T00:30:00Z`). The defensible—and better—form: *after the cut, not one further rewrite-safety finding was raised; two of the three remaining findings were cleanup about the removal, the third was documentation debt from a dependency added after it, and the PR merged within the hour.*
 
-Source: `gh api --paginate repos/nathanjohnpayne/nathanpaynedotcom/pulls/686/comments --jq '.[]|{created_at,original_commit_id,pull_request_review_id}'`; `gh api repos/…/pulls/686/commits`; `refs.json` → `#686.merged_at`.
+Source: `gh api --paginate repos/nathanjohnpayne/nathanpaynedotcom/pulls/686/comments --jq '.[]|{created_at,original_commit_id,pull_request_review_id}'`; `gh api --paginate repos/…/pulls/686/commits`; `refs.json` → `#686.merged_at`.
 
 ### C3—"eighteen rounds after the series had already shown the same shape" / "reading it from round six instead of round twenty-four" / "would have ended this eighteen rounds earlier"
 
@@ -207,7 +207,7 @@ Source: `gh api --paginate repos/nathanjohnpayne/nathanpaynedotcom/pulls/686/com
 | #720 | none recorded | 10 |
 | #721 | none recorded | 1 |
 
-Publishing that mapping turns "trust my ledger" into `gh api repos/…/pulls/{n}/reviews --jq '[.[]|select(.user.login=="nathanpayne-codex")]|length'`. The token totals stay author-attested.
+Publishing that mapping turns "trust my ledger" into `gh api --paginate repos/…/pulls/{n}/reviews --jq '[.[]|select(.user.login=="nathanpayne-codex")]|length'`. The token totals stay author-attested.
 
 ### E2—"It never completed a ledgered external-review run, so none of its cost appears in that figure"
 
