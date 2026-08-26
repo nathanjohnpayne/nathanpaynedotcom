@@ -265,3 +265,23 @@ Third time across this run. Recomputed at this commit; §J now carries the real 
 
 **Pattern note.** All three findings are the drafting pass or I failing to satisfy an instruction this very ledger wrote down—the gate list, the recomputation, and the column spec. Writing the instruction is not executing it, which is now the third audit in a row to produce that lesson.
 
+---
+
+## M. Codex round-3 addendum (PR #796)
+
+Two findings, both correct, and the second changes what the post can claim about its own flagship example.
+
+### M1—The 404 outcome conflated reachability with the palette
+
+The outcome cell said the page "needed two follow-up PRs to meet the palette." §C2 of this ledger says otherwise and is right: **#91** removed the Firebase SPA rewrite, which is what made the page reachable at all, and **#92** alone changed the colors. Separated.
+
+### M2—The live blog index no longer matches Mockup B's transcription
+
+The outcome cell claimed the grid on `/blog/` "matches issue #75's transcription, 9px rules included." The 9px rules survive (`--line: 9px` at `global.css:57`), but the layout has drifted:
+
+`src/pages/blog/index.astro` renders **one post per row** via `getIndexGridRow(i)`, and `src/styles/global.css` gives row one a post column of `--col-post` (50%) and row two `--col-post-wide` (72%). So the featured post at index 0 **neither spans multiple rows nor is the largest cell**—row two's post is wider. Issue #75 specifies "featured post: largest cell (top-left), spanning multiple rows."
+
+The claim is corrected in the table, and the drift is now also **evidence in the body**, because it is the strongest possible support for the post's own thesis. §F4 argues a mock-up is a temporary decision aid rather than a durable spec. Here is that argument happening: the page moved off its mock-up, nothing caught it because the artifact to check against had been deleted, and the only reason the drift is detectable at all is the transcription in issue #75.
+
+A post arguing that deleted specs cannot serve as regression oracles, whose own flagship page silently drifted off its deleted spec, should say so. Source: `src/pages/blog/index.astro` lines 104–125; `src/lib/index-grid.ts` `getIndexGridRow`; `src/styles/global.css` lines 2387–2408 and 57.
+
