@@ -611,6 +611,31 @@ describe('Project Pages — screenshot aspect variants', () => {
     }
   });
 
+  it('the Five Across standings figure is tagged portrait and keeps its CLS reservation', () => {
+    // The standings share card is 1800x2250. At full column width a portrait
+    // image that tall swamps the prose around it, so rehype-figure-captions
+    // tags taller-than-wide figures and global.css caps their width.
+    setupDOM(readDistHtml('projects/five-across/index.html'));
+
+    const figure = document.querySelector('figure.blog-figure');
+    expect(figure, 'five-across: figure.blog-figure not found').not.toBeNull();
+    expect(figure.className).toContain('blog-figure-portrait');
+
+    // Width/height must survive the cap: they are what reserves the box before
+    // a lazy-loaded image arrives. A `width: auto` cap would drop the reservation.
+    const img = figure.querySelector('img');
+    expect(img.getAttribute('width')).toBe('1800');
+    expect(img.getAttribute('height')).toBe('2250');
+    expect(img.getAttribute('loading')).toBe('lazy');
+
+    const css = readdirSync(join(DIST, '_astro'))
+      .filter((file) => file.endsWith('.css'))
+      .map((file) => readFileSync(join(DIST, '_astro', file), 'utf8'))
+      .join('\n');
+    expect(css).toMatch(/\.blog-figure-portrait\s+img\s*\{[^}]*max-width:/);
+    expect(css).not.toMatch(/\.blog-figure-portrait\s+img\s*\{[^}]*width:\s*auto/);
+  });
+
   it('Mergepath, Matchline, Override, DST, and FFB use the wide screenshot variant', () => {
     const wideSlugs = [
       'mergepath',
