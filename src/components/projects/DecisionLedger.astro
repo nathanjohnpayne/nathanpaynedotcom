@@ -53,6 +53,23 @@ const STATUS_LABELS: Record<Decision['status'], string> = {
   revised: 'Revised',
   pending: 'Pending',
 };
+
+// `evidence` carries a different kind of thing when the status is `pending`.
+// For the other three it is what was observed after shipping; for `pending`
+// the schema contract makes it the validation boundary — why the evidence is
+// not in yet and what would resolve it. Labelling that "Observed" asserts an
+// observation that by definition has not happened, which is the one thing
+// this component exists to avoid (Codex P2, round 6).
+//
+// The treatment does not change: same exhibit plane, same accent label. Only
+// the word changes, because the four statuses have to stay peers and moving
+// `pending` to a lesser surface would make it read as an apology.
+const EVIDENCE_LABELS: Record<Decision['status'], string> = {
+  validated: 'Observed',
+  mixed: 'Observed',
+  revised: 'Observed',
+  pending: 'Validation boundary',
+};
 ---
 
 {
@@ -85,7 +102,7 @@ const STATUS_LABELS: Record<Decision['status'], string> = {
               <dd>{decision.rationale}</dd>
             </div>
             <div class="decision-ledger__observed">
-              <dt>Observed</dt>
+              <dt>{EVIDENCE_LABELS[decision.status]}</dt>
               <dd>{decision.evidence}</dd>
             </div>
           </dl>

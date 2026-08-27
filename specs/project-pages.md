@@ -188,6 +188,8 @@ The four statuses render as **peers**. `validated` must not read as success and 
 
 It must never restate `rationale`. `rationale` is why the choice was made; `evidence` is what happened afterward. If the two read alike, the row has no evidence—go find what actually happened, or mark the row `pending` and say what's missing.
 
+`DecisionLedger` labels the field accordingly: **Observed** for `validated`, `mixed` and `revised`, and **Validation boundary** for `pending`. The treatment is identical either way—same exhibit plane, same accent label—because the four statuses stay peers and demoting `pending` to a lesser surface would make it read as an apology. Only the word changes, because calling a validation boundary "Observed" asserts an observation that by definition has not happened.
+
 ### `constraints` are context, not vanity metrics
 
 Each `constraints` entry pairs a headline `value` with a one-line `label`. They exist to ground the decisions that follow in the real limits the project operated under—budget, headcount, a platform ceiling, a deadline—not to showcase a number that flatters the project. A constraint that reads as a brag rather than a boundary belongs in the prose, not this field.

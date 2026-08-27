@@ -743,10 +743,18 @@ describe('Project Pages — case-study components', () => {
       );
       if (declared.length === 0) continue;
 
+      // A draft project is excluded by getStaticPaths, so dist/ has no page
+      // to read and readDistHtml would throw ENOENT rather than fail with a
+      // useful message (Codex P2, round 6). The extension check below still
+      // applies to drafts — that one is about the source, not the render.
+      const isDraft = frontmatter.draft === true;
+
       expect(
         file.endsWith('.mdx'),
         `${file} declares ${declared.join(', ')} but is .md — those fields cannot render from a Markdown body. Convert it to .mdx and place the component(s), or remove the frontmatter.`,
       ).toBe(true);
+
+      if (isDraft) continue;
 
       // Assert the RENDERED page, not the source. A raw-source regex for
       // `<DecisionLedger` also matches the component inside a fenced code
@@ -790,6 +798,22 @@ describe('Project Pages — case-study components', () => {
     // empty outline, which is what pending means. The stylesheet below
     // therefore defines exactly three modifiers, not four.
     expect(source).toMatch(/status === 'pending'/);
+  });
+
+  it('DecisionLedger labels pending evidence as a boundary, not an observation', () => {
+    // `evidence` is required for every status, but it carries a different
+    // kind of claim when the status is `pending`: the schema contract makes
+    // it the validation boundary — why the evidence is not in yet — rather
+    // than something observed. Labelling that "Observed" asserts an
+    // observation that has not happened (Codex P2, round 6).
+    const source = componentSource('DecisionLedger');
+    expect(source, 'evidence label must vary by status').toMatch(/EVIDENCE_LABELS\[decision\.status\]/);
+    expect(source).toMatch(/pending:\s*'Validation boundary'/);
+    for (const status of ['validated', 'mixed', 'revised']) {
+      expect(source, `${status} must keep the Observed label`).toMatch(
+        new RegExp(`${status}:\\s*'Observed'`),
+      );
+    }
   });
 
   it('the four decision statuses render as visual peers', () => {
