@@ -14,10 +14,44 @@ Deliberate. #740 calibrates the ledger format and the Fable handoff; #739/#741 r
 | 1 | #740 | how-a-responsive-fix-became-an-astro-migration | **done** | `plans/759/how-a-responsive-fix-became-an-astro-migration-ledger.md` | `content/740-astro-migration-audit` | [#787](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/787) | **merged** `28e81a7` |
 | 2 | #739 | agent-approval-workflow-genesis-of-mergepath | **done** | `plans/759/agent-approval-workflow-genesis-of-mergepath-ledger.md` | `content/739-mergepath-genesis-audit` | [#791](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/791) | **merged** `bef2a56` |
 | 3 | #741 | html-mockups-as-spec | **done** | `plans/759/html-mockups-as-spec-ledger.md` | `content/741-html-mockups-audit` | [#796](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/796) | **merged** `89e82c1` |
-| 4 | #744 | six-prs-one-bug-agent-failure-modes | 3 review complete | `plans/759/six-prs-one-bug-agent-failure-modes-ledger.md` | `content/744-six-prs-audit` | [#798](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/798) | **5-round cap hit; manual 4b handoff posted; awaiting merge authorization** |
-| 5 | #745 | autofix-was-the-whole-cost | **1 complete (untracked on disk)** | `plans/759/autofix-was-the-whole-cost-ledger.md`  | — | — | ledger written; **7 verifier defects to fold in before Phase 2** |
-| 6 | #743 | perfect-score-wrong-axis | **1 complete (untracked on disk)** | `plans/759/perfect-score-wrong-axis-ledger.md`  | — | — | ledger written; issue framing contradicted, see below |
-| 7 | #742 | two-blues-one-composition | **1 complete (untracked on disk)** | `plans/759/two-blues-one-composition-ledger.md`  | — | — | ledger written; cleanest of the three |
+| 4 | #744 | six-prs-one-bug-agent-failure-modes | **done** | `plans/759/six-prs-one-bug-agent-failure-modes-ledger.md` | `content/744-six-prs-audit` | [#798](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/798) | **merged** `29d864e` |
+| 5 | #745 | autofix-was-the-whole-cost | **done** | `plans/759/autofix-was-the-whole-cost-ledger.md` | `content/745-autofix-audit` | [#803](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/803) | **merged** `6a016ef` |
+| 6 | #743 | perfect-score-wrong-axis | 3 in review | `plans/759/perfect-score-wrong-axis-ledger.md` | `content/743-perfect-score-audit` | [#805](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/805) | **open** — the last unmerged blog audit |
+| 7 | #742 | two-blues-one-composition | **done** | `plans/759/two-blues-one-composition-ledger.md` | `content/742-two-blues-audit` | [#806](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/806) | **merged** `44a7827` |
+
+### Brevity retrofits (pass 2 of the standard procedure)
+
+One pass for prose and facts, a separate pass for tightening, then the PR process. Applied to the four posts that merged before the two-pass order was set.
+
+| Post | PR | Status |
+|------|----|--------|
+| six-prs-one-bug-agent-failure-modes | [#799](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/799) | **merged** `06f3b96` |
+| how-a-responsive-fix-became-an-astro-migration | [#800](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/800) | **merged** `0ef7938` |
+| html-mockups-as-spec | [#801](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/801) | **merged** `c176326` |
+| agent-approval-workflow-genesis-of-mergepath | [#802](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/802) | **merged** `c6ac210` |
+
+### Project pages—full audit, one PR per page
+
+Shared evidence: `plans/759/project-pages-ledger.md` (151 rows, PR [#810](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/810), **merged** `0654c0a`).
+
+| Page | PR | Status |
+|------|----|--------|
+| override | [#811](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/811) | **merged** `eb92c02` |
+| mergepath | [#812](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/812) | **merged** `36bd72a` |
+| matchline | [#813](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/813) | **merged** `af1f55b` |
+| swipe-watch | [#814](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/814) | **open** |
+| five-across | [#815](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/815) | **merged** `8a1b80e` |
+| device-source-of-truth | [#816](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/816) | **merged** `0b8dd03` |
+| friends-and-family-billing | [#817](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/817) | **merged** `57d0272` |
+| matchline—approval gate follow-up | [#818](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/818) | **merged** `6173aca` |
+
+**#818 is a follow-up, not the seventh page.** Counting it as one is how a report of "all seven landed" was produced while `#814` was still open; the seventh page is swipe-watch.
+
+### Tooling
+
+| What | PR | Status |
+|------|----|--------|
+| `scripts/verify-brevity.py` + `docs/agents/blog-revision-process.md` | [#809](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/809) | **open** |
 
 ## Constraints carried across every row
 
@@ -221,3 +255,39 @@ The `#744` compression figure went stale twice mid-review. Review rounds add wor
 ### Fix the diagrams with the prose
 
 Narrowing a claim in prose left the adjacent Mermaid diagram asserting the retracted version—in its `description=`, which is the accessible text screen-reader users receive. When a claim changes, grep the diagram titles, descriptions and node labels for it too.
+
+## State as of 2026-08-26 evening
+
+**Merged:** six of seven blog audits (#740, #739, #741, #744, #745, #742), four brevity retrofits, the project-pages ledger, six of seven project pages, and the matchline approval-gate follow-up.
+
+**Open:** [#805](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/805) (the last blog audit), [#814](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/814) (swipe-watch, the last project page), [#809](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/809) (the brevity harness).
+
+### The defect that produced more findings than every other cause combined
+
+**A correction applied where a reviewer reported it, and nowhere else.** Across three blog PRs, seven project-page PRs and roughly fifteen review rounds, this outproduced every other cause. The surfaces it hides in, all observed in this run: frontmatter `description` and `seoDescription`; a Mermaid diagram's `description=` attribute, its node labels, and its caption; summary tables; worked arithmetic further down the same row; sibling files; the résumé mirror; a string pinned in a test; and the homepage card. One correction to the swipe-watch description needed **four** surfaces. One matchline sentence was fixed at line 48 and survived at line 50.
+
+**Grep for the claim, not the phrasing, and fix every hit before dispositioning.**
+
+### The second-order form of it, found on the ledger
+
+A verdict downgrades a claim correctly, and the "corrected value" beneath it restates the claim in gentler words. Five of #810's twelve round-2 findings were this: a causal attribution the row had just called unprovable, a qualifier applied to two settings of three, a coverage adjective swapped for a roster-sizing one. **The replacement is the part the next pass copies, so fixing the verdict alone fixes nothing.**
+
+### A reviewer can be right about the doubt and wrong about the half
+
+`#810` marked the matchline extraction row SUPPORTED on the strength of a NaN guard in a review UI. Codex was right that the guard could not carry the sentence, and wrong about which clause failed. Tracing it: the field list is solid—`resume.v1.schema.ts` is `.strict()` with `skills`, `tools`, `domains`, `metrics` and `confidence_score` all required. The *approval* clause was false: `functions/src/extraction/resume.ts:237` stamps every Unit `user_approved: false` at insertion, and approval gates entry into **matching** (`functions/src/matching/pipeline.ts:278`), not into the graph. Taking the finding at face value would have weakened a true claim and shipped the false one. Fixed in [#818](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/818) after the page had already merged.
+
+### Verification tooling is not exempt from audit
+
+`scripts/verify-brevity.py` took roughly twenty findings across four review rounds, every one a real hole in the tool meant to catch value corruption. The two with live consequences on this collection: `$4/M` → `$4/B` compared equal, because the slash denominator was outside the numeral token; and `July 30, 2026` → `August 30, 2026` compared equal, because month-name dates—the dominant form in these posts—were outside every class. Two rounds of fixes each introduced a regression that the existing tests caught before commit. **Test both directions every round: that each hole closes, and that the epic's already-merged brevity edits still pass.**
+
+### Rate limits
+
+The reviewer PAT (`nathanpayne-claude`, user ID 270731004) exhausts first and the `rate_limit` endpoint under-reports it. Route **reads** through `$OP_PREFLIGHT_AUTHOR_PAT` and reserve the reviewer PAT for replies and thread resolutions, which need reviewer attribution—`scripts/resolve-pr-threads.sh` verifies identity before mutating and will refuse the author token, correctly. Recovery took about nine minutes when it did trip.
+
+### CodeRabbit's edit floor
+
+CodeRabbit edits its root comment to append "Addressed in commit `<sha>`" seconds to minutes after a reply, which pushes the accounting floor above that reply and makes an already-posted disposition read as stale. A settle-and-sweep loop clears it: wait ~90s, resolve, re-check accounting, re-reply above the new floor if still unaccounted, repeat. On `#805` this cleared on the second pass.
+
+### Security thread—closed 2026-08-26
+
+The `device-source-of-truth` questionnaire blobs remain in git history and were **not** purged. Closed on the operator's decision after verifying current exposure: `private: true`, `forks_count: 0`, `network_count: 0` (so no fork-network snapshot exists), and collaborators limited to `nathanjohnpayne` plus the four agent bot accounts. Reachability is therefore bounded by repo access alone. **The residual is conditional, not live:** making the repository public again, or leaking a collaborator token, would re-expose the blobs, because history still contains them.
