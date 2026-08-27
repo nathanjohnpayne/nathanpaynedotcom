@@ -27,7 +27,7 @@ pullquotes:
 sidebar:
   - type: mermaid
     title: "Closure inside the session, and the knowledge that never crossed"
-    description: "The authoring session dispositions 122 of 134 raised threads and merges PR 797 clean, after which the escaped defect is posted and itself dispositioned, closing the record at 134 threads and 122 dispositions; a spec-derived pass on sibling PR 791 had named the same CommonMark rule twelve hours earlier, but every review was scoped to one diff, and an unbriefed CodeRabbit re-run posts the escape 94 seconds after the merge."
+    description: "The authoring session dispositions the threads raised before the merge and PR 797 merges clean; the escaped defect is posted afterwards and itself dispositioned, and only then does the record close at 134 threads and 122 dispositions, the escape among them; a spec-derived pass on sibling PR 791 had named the same CommonMark rule twelve hours earlier, but every review was scoped to one diff, and an unbriefed CodeRabbit re-run posts the escape 94 seconds after the merge."
     content: |
       graph TD
           A["Authoring session"] --> B["134 finding threads<br/>(116 severity-badged)"]

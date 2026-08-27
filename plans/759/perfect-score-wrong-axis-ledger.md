@@ -629,7 +629,7 @@ For L82 specifically, everything needed to retire the screenshot is already in t
 
 | Verdict | Count | Entries |
 |---|---:|---|
-| **SUPPORTED** | 26 | B4, B5, B6, B8, C1, C2, C5, C6, C7, D1, D3, D4, D6, E3, F1, F2, F3, G2, H1, H2, H5, I3, I5, J1, J2, K3 |
+| **SUPPORTED** | 34 | B4, B5, B6, B8, C1, C2, C5, C6, C7, D1, D3, D4, D6, E3, F1, F2, F3, G2, H1, H2, H5, I3, I5, J1, J2, K3, and the supported half of the eight split verdicts that carry one: B7, D5, H3, H4, I1, I2, I4, J4 |
 | **WRONG** | 13 | B3, C3, C8, E1 (= A2), E2 (the `#791` attribution), G1, K1, and the wrong half of the six split verdicts B7, H3, H4, I1, I2, J3 |
 | **UNPROVABLE** | 13 | A1, B1, B2 (all three moved down by §P.2), C9, F5, J5, K2, and the unprovable half of the six split verdicts D5, E2 (verifier existence), I2, I4, J3, J4 |
 | *Split verdicts* | 10 | B7, D5, E2, H3, H4, I1, I2, I4, J3, J4 carry more than one verdict and are counted under each |
