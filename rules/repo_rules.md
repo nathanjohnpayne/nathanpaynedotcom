@@ -52,17 +52,11 @@ The following tool config directories must contain only configuration—no instr
 These are pinned deliberately. Read this before bumping either one—including
 automated dependency PRs.
 
-- **`typescript` must stay below `6.1.0`, and the manifest enforces it.**
-  `package.json` declares `>=6.0.3 <6.1.0` rather than a caret range, so an
-  automated bump cannot silently cross the ceiling. Two peers constrain it and
-  the binding one is the tighter of the two: `@astrojs/check@0.9.10` (the latest
-  release) peers `typescript@^5.0.0 || ^6.0.0`, but `typescript-eslint@8.x` peers
-  `typescript@>=4.8.4 <6.1.0`. A caret range would have admitted `6.1.x`, which
-  satisfies `@astrojs/check` and still fails `npm ci` on `typescript-eslint`—the
-  same ERESOLVE class as #631, which TypeScript 7 caused outright. Do not widen
-  the range until *both* peers admit the wider version. Verify against the
-  versions this repo actually installs, not the registry's `latest`—a versionless
-  `npm view` reports the peer range of a release that may not be in the lockfile:
+- **`typescript` must stay below `6.1.0`. `package.json` holds the ceiling; nothing guards the ceiling itself.** The manifest declares `>=6.0.3 <6.1.0` rather than a caret range, so no *resolution* can cross it — but an edit to the range crosses it freely, and that is exactly what happened (see the breach note below). Read the declared range as a value under review, not as an enforcement mechanism. Two peers constrain it and the binding one is the tighter of the two: `@astrojs/check@0.9.10` (the latest release) peers `typescript@^5.0.0 || ^6.0.0`, but `typescript-eslint@8.x` peers `typescript@>=4.8.4 <6.1.0`. A caret range would have admitted `6.1.x`, which satisfies `@astrojs/check` and still fails `npm ci` on `typescript-eslint`—the same ERESOLVE class as #631, which TypeScript 7 caused outright. Do not widen the range until *both* peers admit the wider version.
+
+  **This guard has been breached once, and the breach is the reason to read this bullet before approving a dependency PR.** [#738](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/738), titled "bump the dev-dependencies group with 5 updates," widened the ceiling to `<7.1.0`—past a full major, and past the `typescript-eslint` peer that makes the ceiling binding. It merged because grouped Dependabot PRs auto-merge on approval here, and a range change inside a five-package group diff is not where a reviewer looks. Nothing broke at the time: the lockfile still resolved `6.0.3`, which satisfies both ranges, so every gate stayed green while the guard itself was gone. It was restored in #824, after an audit compared this rule against the manifest it claims to describe. The lesson is not "watch Dependabot"—it is that **a ceiling stated in prose and a ceiling declared in a manifest can diverge silently, and only a check that reads both will notice.** No such check exists yet; #825 tracks it, and until it lands this bullet is enforced by nothing but the next person to read it.
+
+  Verify against the versions this repo actually installs, not the registry's `latest`—a versionless `npm view` reports the peer range of a release that may not be in the lockfile:
 
   ```bash
   node -e 'const l=require("./package-lock.json").packages;
@@ -87,15 +81,13 @@ automated dependency PRs.
   than assumed:
 
   ```text
-  $ # package.json: astro ^7.2.2, @astrojs/markdown-remark 7.2.2
+  $ # observed 2026-08 at package.json: astro ^7.2.2, @astrojs/markdown-remark 7.2.2
   $ npm install --package-lock-only
   npm error Conflicting peer dependency: @astrojs/markdown-remark@7.2.4
   npm error   peerOptional @astrojs/markdown-remark@"7.2.4" from astro@7.2.4
   ```
 
-  `astro@7.2.4` is already published, so this is a live break, not a latent one.
-  Bump both entries in the same change, to the same version, or not at all. Do not
-  remove `@astrojs/markdown-remark` as "unused."
+  That transcript is a record of the break, not a description of the tree today: both entries are now pinned exact at `7.2.4` and resolve cleanly. It is kept because it shows the failure mode a caret on `astro` produces the moment the registry publishes a patch—the floating side pulls a newer `astro` whose exact optional peer no longer matches the pinned `@astrojs/markdown-remark`. Bump both entries in the same change, to the same version, or not at all. Do not remove `@astrojs/markdown-remark` as "unused."
 - **The current lockfile's missing `libc` metadata is accepted as bounded install waste, not a runtime-correctness risk (#644).** npm/cli [#8514](https://github.com/npm/cli/issues/8514) confirmed that old lockfiles without `libc` cause Linux installs to unpack both glibc and musl optional packages. npm fixed lockfile serialization in [#9025](https://github.com/npm/cli/pull/9025), released in npm 11.11.0; npm 12.0.2 writes the fields in a clean lockfile, but an in-place `npm install --package-lock-only` does not backfill missing package metadata.
 
   We measured the committed lockfile with npm 12.0.2 on glibc Ubuntu 24.04 x64. `npm ci` installed both sides of six native-package pairs, leaving 59,644 KiB (about 58.2 MiB) of unused musl packages. Sharp, Lightning CSS, Rolldown, the complete 35-page Astro build, and all 17 OG-image renders used working glibc binaries; the test suite also passed. The effect is therefore extra download and disk use, not the wrong binary being loaded in this repository's Linux build path.
