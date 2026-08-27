@@ -282,12 +282,28 @@ A verdict downgrades a claim correctly, and the "corrected value" beneath it res
 
 ### Rate limits
 
-The reviewer PAT (`nathanpayne-claude`, user ID 270731004) exhausts first and the `rate_limit` endpoint under-reports it. Route **reads** through `$OP_PREFLIGHT_AUTHOR_PAT` and reserve the reviewer PAT for replies and thread resolutions, which need reviewer attribution—`scripts/resolve-pr-threads.sh` verifies identity before mutating and will refuse the author token, correctly. Recovery took about nine minutes when it did trip.
+The reviewer PAT (`nathanpayne-claude`, user ID 270731004) exhausts first, and the `rate_limit` endpoint under-reports it—the authoritative signal is a `403` naming the user ID on a real call. Recovery took about nine minutes when it tripped.
+
+**The standing rule is unchanged:** review-loop reads belong on `$OP_PREFLIGHT_REVIEWER_PAT`, per `REVIEW_POLICY.md` § PAT lookup. PR comments, review threads and check state are reviewer commands, and routing them through the author token quietly converts a rate-limit problem into an identity switch.
+
+**Falling back to `$OP_PREFLIGHT_AUTHOR_PAT` for reads is an operator-authorized exception**, granted in chat on 2026-08-26 for this run when the reviewer credential was exhausted. It is not a replacement for the token split, and it does not extend to a later session without a fresh instruction. Prefer waiting out the window; use the fallback when waiting would block work the operator is waiting on.
+
+**Writes never move.** Replies and thread resolutions must stay on the reviewer identity: `scripts/resolve-pr-threads.sh` runs an identity check before any mutation and refuses the author token, which is correct—resolutions attributed to the author would misrepresent who cleared the finding.
 
 ### CodeRabbit's edit floor
 
 CodeRabbit edits its root comment to append "Addressed in commit `<sha>`" seconds to minutes after a reply, which pushes the accounting floor above that reply and makes an already-posted disposition read as stale. A settle-and-sweep loop clears it: wait ~90s, resolve, re-check accounting, re-reply above the new floor if still unaccounted, repeat. On `#805` this cleared on the second pass.
 
-### Security thread—closed 2026-08-26
+### Security thread—closed 2026-08-26, with the exposure stated correctly
 
-The `device-source-of-truth` questionnaire blobs remain in git history and were **not** purged. Closed on the operator's decision after verifying current exposure: `private: true`, `forks_count: 0`, `network_count: 0` (so no fork-network snapshot exists), and collaborators limited to `nathanjohnpayne` plus the four agent bot accounts. Reachability is therefore bounded by repo access alone. **The residual is conditional, not live:** making the repository public again, or leaking a collaborator token, would re-expose the blobs, because history still contains them.
+The `device-source-of-truth` questionnaire blobs remain in git history and were **not** purged. Closed on the operator's decision.
+
+**Current access is genuinely narrow, and verified:** `private: true`, `forks_count: 0`, `network_count: 0`, and collaborators limited to `nathanjohnpayne` plus the four agent bot accounts.
+
+**But those figures do not bound the past, and an earlier draft of this section wrongly said they did.** The repository was created `2026-02-24` and went private `2026-08-26`. The blobs were committed between `2026-02-24` and `2026-03-04`. They therefore sat in the history of a **public** repository for roughly six months. `network_count: 0` rules out GitHub-side forks only—a plain `git clone` during that window leaves no API-visible trace, so no retrievable figure can testify about it.
+
+The correct statement: **exposure during the public window is unknowable rather than zero.** Nothing indicates anyone cloned it. Going private stops all future access and was the right move. Neither fact reaches backwards.
+
+What follows from that, if it ever matters: going private is not remediation for a blob that was public for six months, only containment from here. Actual remediation is a history purge plus rotation of anything the blobs contain that functions as a credential or identifier. The operator has accepted the risk as it stands; this note exists so the reasoning behind that acceptance is accurate rather than reassuring.
+
+**Method note worth keeping.** The original close-out cited private/fork/network/collaborator counts as if they bounded total exposure. They bound *current* access. Asking "was this ever public while the data was present" is a separate question that current-state fields cannot answer, and it is the question that decides whether a residual is conditional or already realised.
