@@ -39,7 +39,7 @@ Shared evidence: `plans/759/project-pages-ledger.md` (151 rows, PR [#810](https:
 | override | [#811](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/811) | **merged** `eb92c02` |
 | mergepath | [#812](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/812) | **merged** `36bd72a` |
 | matchline | [#813](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/813) | **merged** `af1f55b` |
-| swipe-watch | [#814](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/814) | **open** |
+| swipe-watch | [#814](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/814) | **merged** `194c7df` |
 | five-across | [#815](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/815) | **merged** `8a1b80e` |
 | device-source-of-truth | [#816](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/816) | **merged** `0b8dd03` |
 | friends-and-family-billing | [#817](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/817) | **merged** `57d0272` |
@@ -258,9 +258,9 @@ Narrowing a claim in prose left the adjacent Mermaid diagram asserting the retra
 
 ## State as of 2026-08-26 evening
 
-**Merged:** six of seven blog audits (#740, #739, #741, #744, #745, #742), four brevity retrofits, the project-pages ledger, six of seven project pages, and the matchline approval-gate follow-up.
+**Merged:** all seven blog audits (#740, #739, #741, #744, #745, #742, #743), four brevity retrofits, the project-pages ledger, all seven project pages, the matchline approval-gate follow-up, and the post-merge recount ([#823](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/823), closing #822).
 
-**All seven blog audits and all seven project pages are merged.** The only PR still open is [#809](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/809), the brevity harness.
+**All seven blog audits and all seven project pages are merged.** Two PRs remain open: [#809](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/809), the brevity harness, and [#821](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/821), which is this update itself. **Any row above may be stale for exactly that reason**—a status file written from inside an open PR cannot record that PR's own merge, so verify against the API before resuming from a row rather than trusting it.
 
 **#805 took a second Fable pass after review had begun.** Its thesis changed mid-review—from correlated verification to knowledge-transfer failure—and only the metadata followed. The transfer argument appeared seven times, every one in `description`, `seoDescription`, a takeaway, or the diagram, and not once in the running prose, whose explanatory core still quoted the superseded diagnosis. Patching further would have kept producing contradictions, because the argument itself had never been rewritten. **When a thesis changes, the body needs rewriting, not the surfaces that describe it.**
 
