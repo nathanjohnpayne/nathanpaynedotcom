@@ -326,8 +326,8 @@ The second half of epic #759: issues #751–758. Runbook: `plans/759/portfolio-n
 |---|---|---|
 | 0 | Repair stale sources (#824, #821, issue annotations) | **complete**, do not redo |
 | 1 | Resolve component placement | **complete**—MDX chosen, see below |
-| 2 | Infrastructure (PR 1: schema, components, CSS, spec, tests) | in progress |
-| 3 | Seven pages, one PR each | not started |
+| 2 | Infrastructure (PR 1: schema, components, CSS, spec, tests) | **complete**—[#830](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/830) merged `949f5c2` |
+| 3 | Seven pages, one PR each | in progress—#752 in review, six to follow |
 | 4 | `/projects/` index | not started |
 | 5 | Close the epic | not started |
 
@@ -397,7 +397,9 @@ The runbook makes #752 the test of whether Stage 2 was right. Answering its five
 
 **Did the status vocabulary hold?** Yes, and the strongest evidence is that **all four appeared on one page**: three `validated`, one `mixed`, one `revised`, one `pending`. A calibration page that reached only for `validated` would have told us the other three were decorative. `revised` in particular earned its place—the frozen-deal decision is not a success or a failure, it is a design that changed at sea, and neither of the other labels fits it.
 
-**Did `evidence` stay concise?** Mostly. Five of six run one to three sentences. The `revised` record's is longer, because a revision has to carry the before and the after to mean anything. Acceptable here; worth resisting elsewhere.
+**Did `evidence` stay concise?** Less than the first draft of this answer claimed. Counted: **four of six** run one to three sentences. Two do not—the offline record at four, and the `revised` record at seven.
+
+Two things worth carrying rather than smoothing over. The `revised` record grew to seven **because of a later review round**, which required it to name the reformulation it had been hiding rather than assert the principle survived intact; the length is the honesty, and shortening it would restore the defect. And this paragraph originally said five of six, written mid-review and already stale by the time the fix landed—**a calibration figure written before the review loop closes will be wrong by the end of it.** Count at the final head, the same rule this epic already carries for word counts.
 
 **Does it improve a hiring-manager skim?** Yes—titles left, statuses right, dotted leaders between, and the six titles alone reconstruct the product argument. **But this page is the easy case and the gate should say so.** Five Across has the richest evidence in the portfolio. The real test of the ledger is Override, which has no behavioral evidence at all, and Matchline, which is mostly `pending`. A ledger that reads well only when the evidence is good is a ledger that flatters. Watch those two.
 

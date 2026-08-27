@@ -394,7 +394,7 @@ Second, the tension. **Eleven players bingoing on the embark card cannot be reco
 
 > ":56 of 517 sessions over ten days, 77% contained no mark at all"
 
-**SUPPORTED, re-derived here, exact.** PostHog project 503790, window 2026-07-14 → 2026-07-24: `SELECT count(DISTINCT $session_id) FROM events WHERE timestamp >= toDateTime('2026-07-14 00:00:00') AND timestamp < toDateTime('2026-07-25 00:00:00') AND $session_id IS NOT NULL AND $session_id != ''` returns **517** on the nose. "Ten days" does NOT reconcile with §B22's ten-day itinerary, and an earlier version of this row waved that away. The query window is **eleven** calendar days: it opens 2026-07-14, the day before embarkation. Calling the result a ten-day statistic was wrong (Codex P2 on #834).
+**SPLIT—the count is SUPPORTED and exact for the window queried; "over ten days" is WRONG.** PostHog project 503790, window 2026-07-14 → 2026-07-24: `SELECT count(DISTINCT $session_id) FROM events WHERE timestamp >= toDateTime('2026-07-14 00:00:00') AND timestamp < toDateTime('2026-07-25 00:00:00') AND $session_id IS NOT NULL AND $session_id != ''` returns **517** on the nose. "Ten days" does NOT reconcile with §B22's ten-day itinerary, and an earlier version of this row waved that away. The query window is **eleven** calendar days: it opens 2026-07-14, the day before embarkation. Calling the result a ten-day statistic was wrong (Codex P2 on #834).
 
 **Re-derived over the true ten days, 2026-07-15 → 2026-07-24:** `494` sessions and `813` `mark_square` events, against `517` and `820` over the eleven-day window. So the extra day carries 23 sessions and 7 marks—more session volume than the earlier note claimed. **A page saying "ten days" must use 494, not 517.**
 
@@ -484,7 +484,7 @@ The freeze instant is the weaker half. `frozenAt` 2026-07-23 23:00 Europe/Rome i
 
 > ":56 Zacaria Arab took the title on 16 bingos; Logan Murdock out-marked him, 129 squares to 124, and finished second because the board sorts bingos first—the rule, not volume, crowned the champion."
 
-**SPLIT—the pair of square counts is EXTERNALLY SOURCED; the ordering rule is SUPPORTED and exact.** The two counts are Firestore root aggregates ordered by `comparePlayers`, per #820, and PostHog is no substitute for them: its top five per-person mark totals are 134, 116, 112, 108 and 106, which neither match nor should, since they under-capture offline marks (§BM2) and include post-freeze ceremonial marks the standings exclude (§B34). The rule the sentence turns on is in the code and says what the page says. `src/game/logic.ts:692-694`, verbatim:
+**SPLIT—the pair of square counts is EXTERNALLY SOURCED; the ordering rule is SUPPORTED and exact.** The two counts are Firestore root aggregates ordered by `comparePlayers`, per #820, and PostHog is no substitute for them: its top five per-person mark totals are 134, 116, 112, 108 and 106, which neither match nor should, since they under-capture marks the database holds (§BM2, and §B27.1 on why that gap is directional corroboration rather than a demonstrated cause) and include post-freeze ceremonial marks the standings exclude (§B34). The rule the sentence turns on is in the code and says what the page says. `src/game/logic.ts:692-694`, verbatim:
 
 ```ts
 export function comparePlayers(a: Rankable, b: Rankable): number {
@@ -1275,7 +1275,7 @@ Reproduce with `git rev-list --count "$(git rev-list -1 --before=2026-04-14 orig
 | Page | SUPPORTED | WRONG | UNPROVABLE | SPLIT | EXT. SOURCED | Rows |
 |---|---|---|---|---|---|---|
 | §A `device-source-of-truth` | 15 | 5 | 2 | 2 | 0 | 24 |
-| §B `five-across` | 18 | 4 | 0 | 11 | 3 | 36 |
+| §B `five-across` | 17 | 4 | 0 | 12 | 3 | 36 |
 | §C `friends-and-family-billing` | 10 | 7 | 1 | 4 | 0 | 22 |
 | §D `matchline` | 7 | 0 | 3 | 2 | 0 | 12 |
 | §E `mergepath` | 14 | 8 | 0 | 5 | 0 | 27 |
