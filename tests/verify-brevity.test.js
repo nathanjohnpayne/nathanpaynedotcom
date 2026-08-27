@@ -430,4 +430,48 @@ describe('verify-brevity', () => {
   it('still pairs multi-backtick spans correctly after the rewrite', () => {
     expect(run('see ``alpha ` beta`` and `x` here\n', 'see ``alpha ` gamma`` and `x` here\n')).toBe(1);
   });
+
+  it('fails when a unit written as a separate word changes', () => {
+    expect(run('posted 94 seconds after merge\n', 'posted 94 minutes after merge\n')).toBe(1);
+  });
+
+  it('matches an uppercase URL scheme', () => {
+    expect(run('see HTTPS://example.com/a\n', 'see HTTPS://example.com/b\n')).toBe(1);
+  });
+
+  it('fails when a standalone month changes', () => {
+    expect(run('shipped in (April) that year\n', 'shipped in (May) that year\n')).toBe(1);
+  });
+
+  it('protects a pinned field whose key is quoted', () => {
+    const mk = (v) => `---\n"title": "${v}"\n---\nx\n`;
+    expect(run(mk('Alpha'), mk('Beta'))).toBe(1);
+  });
+
+  it('parses a destination containing balanced parentheses', () => {
+    expect(run('[a](/x_(y)/z) end\n', '[a](/x_(w)/z) end\n')).toBe(1);
+  });
+
+  it('matches an indented reference definition', () => {
+    expect(run('[p][k]\n\n   [k]: /blog/a\n', '[p][k]\n\n   [k]: /blog/b\n')).toBe(1);
+  });
+
+  it('does not treat escaped backticks as code delimiters', () => {
+    expect(run('The \\`alpha beta\\` phrase here\n', 'The \\`alpha\\` phrase here\n')).toBe(0);
+  });
+
+  it('matches a mermaid item whose sequence indicator is on its own line', () => {
+    const mk = (label) =>
+      `x\nsidebar:\n  -\n    type: mermaid\n    content: |\n      graph TD\n          A["${label}"]\n`;
+    expect(run(mk('one'), mk('two'))).toBe(1);
+  });
+
+  it('counts ordinary bullet lists as connective prose', () => {
+    // The mermaid class matches ANY list item and then filters on its
+    // discriminator. _prose_words applied the pattern without that filter, so
+    // every bullet vanished from the metric and a list edit reported no change.
+    const before = '---\ntitle: "T"\n---\n\n- alpha beta gamma delta\n- one two three\n';
+    const after = '---\ntitle: "T"\n---\n\n- alpha delta\n- one two three\n';
+    expect(output(after, before)).toMatch(/prose 9 -> 7\b/);
+  });
 });

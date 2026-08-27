@@ -73,15 +73,17 @@ _WORD_NUMBERS = (
 TOKEN_CLASSES = (
     # The token ends on the last character that can belong to a URL, so an
     # ordinary sentence break after one is prose, not a changed destination.
-    ("URLs", r"https?://[^\s\)\]\"'>]*[^\s\)\]\"'>.,;:!?]"),
+    ("URLs", r"(?i:https?)://[^\s\)\]\"'>]*[^\s\)\]\"'>.,;:!?]"),
     # Every inline destination, whatever its shape: root-relative,
     # path-relative, fragment-only, mailto or absolute. Enumerating the
     # shapes worth protecting kept leaving one out, so the class now takes
     # them all and the optional title stays outside the token.
+    # A destination may contain balanced parentheses -- `](/a_(b))` is one
+    # link to Remark, not a truncated one -- so one nested pair is allowed.
     ("link destinations",
-     r"\]\((?P<t>[^)\s]+)(?:[ \t]+[\"'(][^)]*)?\)"),
+     r"\]\((?P<t>(?:[^()\s]|\([^()\s]*\))+)(?:[ \t]+[\"'][^)]*)?\)"),
     # The other half of `[text][id]`, same reasoning: any destination shape.
-    ("reference link targets", r"(?m)^\[[^\]]+\]:[ \t]*(?P<t>\S+)"),
+    ("reference link targets", r"(?m)^[ ]{0,3}\[[^\]]+\]:[ \t]*(?P<t>\S+)"),
     # A bare frontmatter value is a destination with no Markdown syntax
     # around it -- `image: /og/blog/x.png` repoints silently otherwise.
     ("frontmatter paths",
@@ -99,6 +101,9 @@ TOKEN_CLASSES = (
     # Weekdays are date claims too: "the same Wednesday" moving to Thursday
     # shifts the event a day with every numeral unchanged.
     ("weekdays", r"\b(?:Mon|Tues?|Wed(?:nes)?|Thur?s?|Fri|Sat(?:ur)?|Sun)(?:day)?\b"),
+    # A month with no adjacent day is still a date claim: "(April)" becoming
+    # "(May)" moves an event a month with every numeral equal.
+    ("standalone months", r"\b(?:January|February|March|April|May|June|July|August|September|October|November|December)\b(?![ \u00a0]\d)"),
     ("timestamps", r"\b(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?"
                    r"|Jul(?:y)?|Aug(?:ust)?|Sep(?:t(?:ember)?)?|Oct(?:ober)?"
                    r"|Nov(?:ember)?|Dec(?:ember)?)\.?\s+\d{1,2}(?:st|nd|rd|th)?"
@@ -117,7 +122,16 @@ TOKEN_CLASSES = (
     # factor of a thousand while every other token compares equal.
     ("numerals", r"(?<![A-Za-z0-9_.])(?:[A-Z]{3})?[$\u20ac\u00a3]?[+-]?"
                  r"(?:\d(?:[\d,.]*\d)?|\.\d+)"
-                 r"(?:%|[A-Za-z]{1,3}\b)?(?:/[A-Za-z]{1,6}\b)?"),
+                 r"(?:%|[A-Za-z]{1,3}\b)?(?:/[A-Za-z]{1,6}\b)?"
+                 # A unit written as a separate word is part of the claim:
+                 # "94 seconds" becoming "94 minutes" is a factor of sixty
+                 # with the numeral unchanged, and that exact form recurs in
+                 # this collection.
+                 # Only units where a swap changes MAGNITUDE -- time and
+                 # data. Domain nouns like "findings" were tried here and
+                 # rejected ordinary prose movement: "7" becoming "7 findings"
+                 # is a different token but the same count.
+                 r"(?:[  ](?:nanosecond|microsecond|millisecond|second|minute|hour|day|week|month|year|byte|kilobyte|megabyte|gigabyte|terabyte)s?\b)?"),
     # Severity identifiers are factual claims in these posts: "a P1" becoming
     # "a P2" restates the finding's seriousness with no numeral change.
     ("severity identifiers", r"\bP[0-3]\b"),
@@ -167,7 +181,9 @@ BLOCK_CLASSES = (
     # Blank lines are legal inside a block scalar and do not end the item, so
     # the continuation accepts an empty line followed by more indented text.
     ("frontmatter mermaid items",
-     r"^(?P<ind>[ \t]*)-[ \t]+[^\n]*(?:\n|\Z)(?:(?![ \t]*-[ \t])[ \t]+[^\n]*(?:\n|\Z)|[ \t]*\n(?=[ \t]+\S))*", re.M,
+     # `- type: mermaid` and a bare `-` followed by an indented mapping are
+     # both valid YAML sequences and both reach the loader as the same object.
+     r"^(?P<ind>[ \t]*)-(?:[ \t]+[^\n]*)?(?:\n|\Z)(?:(?![ \t]*-(?:[ \t]|$))[ \t]+[^\n]*(?:\n|\Z)|[ \t]*\n(?=[ \t]+\S))*", re.M,
      r"type:[ \t]*[\"']?mermaid[\"']?"),
     # A GFM table is a header row, a delimiter row, and body rows. Matching
     # the whole construct catches tables written without the optional leading
@@ -199,7 +215,10 @@ def field(text: str, name: str) -> str | None:
     comparing only the declaration line would miss every change to it.
     """
     match = re.search(
-        rf"^{re.escape(name)}:[^\n]*\n?(?:[ \t]+[^\n]*\n?)*", text, re.M
+        # A pinned key may be quoted -- `"title": "Alpha"` is valid YAML, and
+        # matching only the bare form returned None for both files, so the
+        # comparison passed on any change to it.
+        rf"^[\"']?{re.escape(name)}[\"']?:[^\n]*\n?(?:[ \t]+[^\n]*\n?)*", text, re.M
     )
     return match.group(0) if match else None
 
@@ -216,8 +235,19 @@ def _code_spans(text: str) -> list[str]:
     """
     out: list[str] = []
     i, n = 0, len(text)
+
+    def escaped(pos: int) -> bool:
+        """True when the backtick at `pos` is escaped by an odd run of \\."""
+        k = pos - 1
+        while k >= 0 and text[k] == "\\":
+            k -= 1
+        return (pos - 1 - k) % 2 == 1
+
     while i < n:
-        if text[i] != "`":
+        # An escaped backtick is literal text to Remark, so treating it as a
+        # delimiter blocked a valid prose-only edit -- a false failure, which
+        # costs more here than a missed one: it rejects correct work.
+        if text[i] != "`" or escaped(i):
             i += 1
             continue
         j = i
@@ -289,8 +319,12 @@ def _prose_words(text: str) -> int:
     actually cuts.
     """
     body = re.sub(r"\A---\n.*?\n---\n", "", text, flags=re.S)
-    for _label, pattern, flags, _needle in _blocks():
-        body = re.sub(pattern, " ", body, flags=flags)
+    for _label, pattern, flags, needle in _blocks():
+        # Honour the discriminator. Without it the mermaid class -- which
+        # matches ANY list item and then filters -- stripped every bullet in
+        # the body, so an edit inside a list reported no prose change at all.
+        for match in _find_block(pattern, body, flags, needle):
+            body = body.replace(match, " ", 1)
     # Inline code is as incompressible as a fenced block, and a multiword
     # span counted as prose understates the reduction the same way tables did.
     for span in _code_spans(body):
