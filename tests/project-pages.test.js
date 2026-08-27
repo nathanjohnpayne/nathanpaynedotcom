@@ -68,7 +68,7 @@ const homepageProjectDescriptions = [
   'A financial operating system for Broadway productions—models capitalization and investor returns, manages ownership, and shares live deals with backers without spreadsheet or PDF workflows.',
   'A single web application that tracks partner-device hardware, DRM, codec support, and operational readiness across Disney+, Hulu, and ESPN.',
   'A career CRM for one person running a serious job search—turns work history into structured, reusable evidence, maps it against specific job requirements, and generates applications grounded in demonstrated work.',
-  'A swipe-based discovery experiment for Disney+ and Hulu that turns recommendation training and watchlist building into a game—built in vanilla JS over a weekend.',
+  'A swipe-based discovery experiment for Disney+ and Hulu that turns expressing taste and building a watchlist into a game—built in vanilla JS across three days.',
   'Cloud-synced shared-bill coordination for families and friend groups—turns recurring costs into clear annual invoices, payment tracking, and shareable summaries.',
 ];
 
@@ -609,6 +609,31 @@ describe('Project Pages — screenshot aspect variants', () => {
         `${slug} should not render mux-player`,
       ).toBeNull();
     }
+  });
+
+  it('the Five Across standings figure is tagged portrait and keeps its CLS reservation', () => {
+    // The standings share card is 1800x2250. At full column width a portrait
+    // image that tall swamps the prose around it, so rehype-figure-captions
+    // tags taller-than-wide figures and global.css caps their width.
+    setupDOM(readDistHtml('projects/five-across/index.html'));
+
+    const figure = document.querySelector('figure.blog-figure');
+    expect(figure, 'five-across: figure.blog-figure not found').not.toBeNull();
+    expect(figure.className).toContain('blog-figure-portrait');
+
+    // Width/height must survive the cap: they are what reserves the box before
+    // a lazy-loaded image arrives. A `width: auto` cap would drop the reservation.
+    const img = figure.querySelector('img');
+    expect(img.getAttribute('width')).toBe('1800');
+    expect(img.getAttribute('height')).toBe('2250');
+    expect(img.getAttribute('loading')).toBe('lazy');
+
+    const css = readdirSync(join(DIST, '_astro'))
+      .filter((file) => file.endsWith('.css'))
+      .map((file) => readFileSync(join(DIST, '_astro', file), 'utf8'))
+      .join('\n');
+    expect(css).toMatch(/\.blog-figure-portrait\s+img\s*\{[^}]*max-width:/);
+    expect(css).not.toMatch(/\.blog-figure-portrait\s+img\s*\{[^}]*width:\s*auto/);
   });
 
   it('Mergepath, Matchline, Override, DST, and FFB use the wide screenshot variant', () => {

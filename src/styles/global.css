@@ -3824,6 +3824,15 @@ svg.mermaid foreignObject {
   color: var(--ink-62);
 }
 
+/* Portrait figures (height > width, tagged by rehype-figure-captions) are held
+   to a narrower column than landscape ones. A full-width portrait image runs
+   taller than the viewport and pushes the surrounding prose apart; capping the
+   width keeps the figure scannable in place. */
+.blog-figure-portrait img {
+  max-width: min(100%, 30rem);
+  margin-inline: auto;
+}
+
 .blog-code-block {
   margin: 1rem 0 1.2rem;
   overflow-x: auto;
