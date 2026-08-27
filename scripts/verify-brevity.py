@@ -121,7 +121,7 @@ BLOCK_CLASSES = (
     # CommonMark allows up to three spaces of indentation on both the opener
     # and the closer, and this repo's parser honours that.
     ("code/mermaid blocks",
-     r"(?ms)^[ ]{0,3}(?P<f>`{3,}|~{3,})[^\n]*\n.*?(?:^[ ]{0,3}(?P=f)[`~]*[ \t]*$|\Z)", 0),
+     r"(?ms)^[ ]{0,3}(?P<f>(?P<fc>[`~])(?P=fc){2,})[^\n]*\n.*?(?:^[ ]{0,3}(?P=f)(?P=fc)*[ \t]*$|\Z)", 0),
     # Sidebar diagrams live in frontmatter as a `- type: mermaid` item whose
     # title and description are as load-bearing as the content scalar -- the
     # description is the accessible text screen readers receive.

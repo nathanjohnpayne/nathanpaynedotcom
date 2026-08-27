@@ -271,4 +271,9 @@ describe('verify-brevity', () => {
   it('fails when a one-column table body cell changes', () => {
     expect(run('| State |\n| --- |\n| Alpha |\n', '| State |\n| --- |\n| Beta |\n')).toBe(1);
   });
+
+  it('does not treat a mixed-delimiter line as a closing fence', () => {
+    const mk = (label) => '```\nalpha\n``~~\n' + label + '\n```\n';
+    expect(run(mk('beta'), mk('gamma'))).toBe(1);
+  });
 });
