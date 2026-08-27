@@ -336,7 +336,7 @@ The second half of epic #759: issues #751–758. Runbook: `plans/759/portfolio-n
 | # | Issue | Page | Ledger | Components | PR | Status |
 |---|-------|------|--------|-----------|----|--------|
 | 1 | — | infrastructure | — | all three | [#830](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/830) | **merged** `949f5c2` |
-| 2 | #752 | `five-across` | §B | decisions, constraints, learnings | [#834](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/834) | in review |
+| 2 | #752 | `five-across` | §B | decisions, constraints, learnings | [#834](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/834) | **manual 4b handoff posted** |
 | 3 | #757 | `swipe-watch` | §G | decisions, learnings | | not started |
 | 4 | #753 | `mergepath` | §E | decisions | | not started |
 | 5 | #754 | `override` | §F | decisions | | not started |
@@ -404,3 +404,13 @@ Two things worth carrying rather than smoothing over. The `revised` record grew 
 **Does it improve a hiring-manager skim?** Yes—titles left, statuses right, dotted leaders between, and the six titles alone reconstruct the product argument. **But this page is the easy case and the gate should say so.** Five Across has the richest evidence in the portfolio. The real test of the ledger is Override, which has no behavioral evidence at all, and Matchline, which is mostly `pending`. A ledger that reads well only when the evidence is good is a ledger that flatters. Watch those two.
 
 **No infrastructure change is required before page two.**
+
+### #834 went to a manual Phase 4b handoff, on the operator's instruction
+
+- 2026-08-27—**Five automated Codex rounds plus two CodeRabbit passes produced 17 findings. Every one was correct and every one was taken.** Accounting `clear` 17/17, no unresolved threads, and `codex-p1-gate.sh` exits 0 locally at head `f951bcc`. The [handoff](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/834#issuecomment-5445497067) is posted per REVIEW_POLICY.md § Handoff Message Format, suggesting `nathanpayne-codex`.
+- **The loop did not converge: 3, 1, 3, 4, 2.** The operator authorised one further round with a manual 4b if it did not clear; round 5 returned two more, so it did not. Worth recording *why* it did not, because the shape is reusable: almost every finding was an inconsistency **between artifacts I had corrected separately**, and several were introduced by the previous round's own fix. Fixing a claim in the page while the ledger kept asserting it; moving a verdict without moving the tally that sums it; a calibration figure that went stale because a later round lengthened the record it was counting. **A fix is not done when the reported instance is fixed—it is done when every artifact holding that claim agrees.**
+- **The single most useful finding was not about a number.** Codex read the `revised` decision record and observed that it rejected mulligans on the grounds that no board is negotiable, then described shipping a reshuffle and called the principle intact. The record was concealing the revision its own status exists to record. The repository settles it better than the page did: `specs/reshuffle.md:14` defines pristine as zero player-marked squares and `:12` tells authors to avoid the word mulligan for this feature, so the principle was reformulated—the deal is final *once you act on it*—not preserved.
+- **Two figures did not survive my own trace and never reached the page**: a post-freeze mark count I wrongly believed absent from the ledger (it was in §B34; my grep matched `:41` line references elsewhere and I concluded absence without opening the row), and a quotation from `src/editions.ts` that was accurate but unrecorded, added to §BM1 before it was allowed on the page.
+- **Carry into the remaining six pages.** Trace each figure to its row *and* read the sentence around it—existence and correct use are different checks, and three findings landed in that gap. Grep the claim across every artifact before dispositioning. Recompute derived tallies from their inputs rather than hand-adjusting. Write calibration figures at the final head, never mid-review.
+- **The Codex poller under-reported twice**, returning zero findings while the API held four and then two on the same head; once it died on a network error 90 seconds before Codex posted. **Read the API, not the poll result.**
+- **CodeRabbit's edit floor fired four times**, each amendment landing three to four seconds after a disposition reply. A settle-and-sweep of roughly 150 seconds then a re-reply cleared all four at once.
