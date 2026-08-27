@@ -87,7 +87,15 @@ The body uses standard Markdown, or MDX for a page whose body places a case-stud
 
 The expected structure for a project page is now the case-study shape: problem, then constraints, then decisions, then live evidence paired with learnings, then what it means. In practice that reads as prose on the problem, `<ConstraintStrip>`, prose on the decisions the project faced, `<DecisionLedger>`, prose on what actually happened once it shipped, `<LearningLedger>`, and closing prose on what the project demonstrates:
 
-```markdown
+```mdx
+---
+# ...frontmatter, including decisions / constraints / learnings...
+---
+
+import ConstraintStrip from '../../components/projects/ConstraintStrip.astro';
+import DecisionLedger from '../../components/projects/DecisionLedger.astro';
+import LearningLedger from '../../components/projects/LearningLedger.astro';
+
 ## The problem
 
 What was broken, missing, or worth building, and why it mattered.
@@ -110,6 +118,8 @@ Prose on live operation—platform behavior, the agent model, real limits.
 
 What the project demonstrates, in a sentence or two.
 ```
+
+**The imports are required, and only the ones the page actually places.** MDX does not put these components in scope on its own—the route supplies the *data* on `<Content />`, never the components—so a body that uses `<DecisionLedger>` without importing it fails the build on a missing reference. The paths are relative to the file, and `src/content/projects/<slug>.mdx` sits two levels below `src/`.
 
 The headings shown are illustrative, not prescribed text—say what the section needs to say.
 
@@ -189,10 +199,16 @@ A `learnings` entry is an `expected` / `observed` / `response` triple. `response
 These components render inside the body of an `.mdx` project page, authored as:
 
 ```mdx
+import ConstraintStrip from '../../components/projects/ConstraintStrip.astro';
+import DecisionLedger from '../../components/projects/DecisionLedger.astro';
+import LearningLedger from '../../components/projects/LearningLedger.astro';
+
 <DecisionLedger decisions={props.decisions} />
 <ConstraintStrip constraints={props.constraints} />
 <LearningLedger learnings={props.learnings} />
 ```
+
+Two halves, and they arrive by different routes. The **components** come from the page's own `import` statements—MDX does not put them in scope and the route does not supply them, so omitting an import fails the build on a missing reference. The **data** comes from the route, on `props`.
 
 Reach the field through `props.X`, never `frontmatter.X`. In MDX, `frontmatter` is the page's raw, unvalidated YAML—Zod has not run against it—so a field declared `.optional().default([])` in `src/content.config.ts` still reads as `undefined` on the `frontmatter` path when the key is absent from the file. `src/pages/projects/[slug].astro` forwards the Zod-validated values explicitly on `<Content decisions={data.decisions} constraints={data.constraints} learnings={data.learnings} />`; a body that instead reads a bare `decisions` throws a `ReferenceError`. See [plans/759/component-placement-decision.md](../plans/759/component-placement-decision.md) for the full evidence behind this.
 
