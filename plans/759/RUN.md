@@ -304,6 +304,8 @@ The `device-source-of-truth` questionnaire blobs remain in git history and were 
 
 The correct statement: **exposure during the public window is unknowable rather than zero.** Nothing indicates anyone cloned it. Going private stops all future access and was the right move. Neither fact reaches backwards.
 
-What follows from that, if it ever matters: going private is not remediation for a blob that was public for six months, only containment from here. Actual remediation is a history purge plus rotation of anything the blobs contain that functions as a credential or identifier. The operator has accepted the risk as it stands; this note exists so the reasoning behind that acceptance is accurate rather than reassuring.
+**Decision—closed 2026-08-26, no further action.** The operator reviewed the corrected assessment above, including the six-month public window, and accepted the risk. No history purge, no rotation, no sibling-repo sweep. This is a settled decision, not an open item: do not re-raise it in a later session absent new information, such as evidence of an actual clone or a change in what the blobs are understood to contain.
+
+Recorded only so the reasoning is accurate rather than reassuring: going private is containment from here, not remediation for what was already public. That distinction is what the operator accepted.
 
 **Method note worth keeping.** The original close-out cited private/fork/network/collaborator counts as if they bounded total exposure. They bound *current* access. Asking "was this ever public while the data was present" is a separate question that current-state fields cannot answer, and it is the question that decides whether a residual is conditional or already realised.
