@@ -92,5 +92,18 @@ const jsonLd = {
   related={data.related}
   jsonLd={jsonLd}
 >
-  <Content />
+  <!--
+    Forward the three case-study arrays as props rather than letting an
+    .mdx body read `frontmatter.*`. In MDX, `frontmatter` is the RAW YAML —
+    Zod has not run — so a field declared `.optional().default([])` reads
+    as `undefined` when the key is absent from the file. `props.*` is the
+    validated `data.*` with defaults applied. A page therefore authors
+    `<DecisionLedger decisions={props.decisions} />`; a bare identifier is
+    a ReferenceError. See plans/759/component-placement-decision.md.
+  -->
+  <Content
+    decisions={data.decisions}
+    constraints={data.constraints}
+    learnings={data.learnings}
+  />
 </ProjectLayout>

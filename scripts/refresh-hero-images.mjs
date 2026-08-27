@@ -75,7 +75,10 @@ async function main() {
   const projects = [];
   const skippedMuxBacked = [];
   for (const entry of entries) {
-    if (!entry.endsWith('.md')) continue;
+    // .mdx as well as .md — see the matching note in refresh-mux-gifs.mjs.
+    // A project converted to .mdx would otherwise drop out of the refresh
+    // set without any signal.
+    if (!entry.endsWith('.md') && !entry.endsWith('.mdx')) continue;
     const markdown = await readFile(join(projectsDir, entry), 'utf8');
     const data = parseFrontmatter(markdown);
     if (data?.heroRefresh !== 'github-social') continue;

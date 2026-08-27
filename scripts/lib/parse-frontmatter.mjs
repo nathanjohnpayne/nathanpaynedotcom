@@ -4,9 +4,14 @@
  *
  * Runtime frontmatter parsing happens inside Astro's Content Loader
  * (see `src/content.config.ts`). This helper exists only for the
- * prebuild step, which needs to read `src/content/projects/*.md`
+ * prebuild step, which needs to read `src/content/projects/*.{md,mdx}`
  * before Astro starts building, to decide whether to refresh GitHub
  * social images and Mux GIFs.
+ *
+ * `.mdx` needs no special handling: MDX puts its `import` statements
+ * after the frontmatter block, and FRONTMATTER_RE is anchored at the
+ * start of the file and stops at the first closing `---`, so it reads
+ * an `.mdx` header exactly as it reads an `.md` one.
  *
  * Previous implementations of this function in each script were
  * hand-rolled line-by-line splitters that only stripped double quotes

@@ -1,0 +1,51 @@
+---
+/**
+ * ConstraintStrip — the operating conditions a project was built under
+ * (#759). Context, not vanity metrics: "8 days / to launch",
+ * "Satellite / primary connectivity". A decision like offline-first
+ * persistence only reads as judgment once the reader knows the product
+ * was operated from a ship.
+ *
+ * Placed inside the body of an `.mdx` project page as
+ * `<ConstraintStrip constraints={props.constraints} />`. See the note in
+ * DecisionLedger.astro on why it is `props.*` and never `frontmatter.*`.
+ *
+ * A `<ul>` of spans rather than a `<dl>`: "8 days" is not a definition
+ * of "to launch". A `dl` would force either a false term/definition
+ * pairing or a visual flip that reads backward to a screen reader.
+ *
+ * Deliberately NOT a KPI row — the value type caps one step above body
+ * text, and the strip borrows MetadataStrip's dotted-divider chrome so
+ * it reads as context furniture rather than achievement tiles. See the
+ * "avoid dashboard cosplay" principle in
+ * plans/759/portfolio-case-study-component-plan.md §9.
+ */
+
+interface Constraint {
+  value: string;
+  label: string;
+}
+
+interface Props {
+  constraints?: Constraint[];
+}
+
+const { constraints } = Astro.props;
+
+// Normalized here so a page can place the component unconditionally and
+// an un-authored strip is a no-op.
+const items = constraints ?? [];
+---
+
+{
+  items.length > 0 && (
+    <ul class="constraint-strip" role="list" aria-label="Operating constraints">
+      {items.map((constraint) => (
+        <li>
+          <span class="constraint-strip__value">{constraint.value}</span>
+          <span class="constraint-strip__label">{constraint.label}</span>
+        </li>
+      ))}
+    </ul>
+  )
+}

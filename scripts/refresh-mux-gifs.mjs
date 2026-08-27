@@ -80,7 +80,12 @@ async function main() {
   const entries = await readdir(projectsDir);
   const projects = [];
   for (const entry of entries) {
-    if (!entry.endsWith('.md')) continue;
+    // .mdx as well as .md: the projects collection accepts both, and a
+    // case-study page converted to .mdx must not silently fall out of the
+    // refresh set. A miss here is invisible — the build stays green and
+    // serves a stale fallback frame indefinitely, which is exactly the
+    // failure the strict-error policy above exists to prevent.
+    if (!entry.endsWith('.md') && !entry.endsWith('.mdx')) continue;
     const markdown = await readFile(join(projectsDir, entry), 'utf8');
     const data = parseFrontmatter(markdown);
     if (data?.muxPlaybackId) projects.push({ file: entry, data });

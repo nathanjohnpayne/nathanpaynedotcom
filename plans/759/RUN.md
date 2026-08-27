@@ -62,7 +62,7 @@ Shared evidence: `plans/759/project-pages-ledger.md` (151 rows, PR [#810](https:
 - Fable subagents get the ledger, the issue's positioning + acceptance criteria, and the current post. No repo write access, no PR driving.
 - From issue three onward, also hand Fable the two most recent approved revisions as voice reference.
 - Review loop per PR: fire `scripts/codex-review-request.sh` immediately on push, in parallel with `scripts/coderabbit-wait.sh`. Disposition each finding (reply AND resolve) before moving on. Codex findings get `scripts/codex-record-feedback.sh` (posts reaction + ledger); CodeRabbit findings get `scripts/coderabbit-record-feedback.sh` (ledger only, never a reaction).
-- Out of scope for this run: portfolio issues #751–758.
+- Out of scope for **the blog run above**: portfolio issues #751–758. That exclusion scoped the seven blog audits and the project-page fact audit, both of which are complete. It does not scope the portfolio-narratives run, which is those eight issues and is tracked in its own section below.
 
 ## Log
 
@@ -311,3 +311,51 @@ The correct statement: **exposure during the public window is unknowable rather 
 Recorded only so the reasoning is accurate rather than reassuring: going private is containment from here, not remediation for what was already public. That distinction is what the operator accepted.
 
 **Method note worth keeping.** The original close-out cited private/fork/network/collaborator counts as if they bounded total exposure. They bound *current* access. Asking "was this ever public while the data was present" is a separate question that current-state fields cannot answer, and it is the question that decides whether a residual is conditional or already realised.
+
+---
+
+# Portfolio narratives—decision-record infrastructure, then one PR per page
+
+The second half of epic #759: issues #751–758. Runbook: `plans/759/portfolio-narratives-runbook.md`. Working worktree `.claude/worktrees/portfolio-narratives-runbook-fc3a84`, branch `claude/portfolio-narratives-runbook-fc3a84`.
+
+**Merge authority for this run is the standing override in the runbook's §C**, authorized by the repository owner in chat on 2026-08-27: up to five `@codex review` rounds, then break-glass merge, recording every unresolved finding here and filing one issue per finding. It supersedes the Phase 4 merge path in `CLAUDE.md` and `REVIEW_POLICY.md` for these PRs only.
+
+## Stage board
+
+| Stage | What | State |
+|---|---|---|
+| 0 | Repair stale sources (#824, #821, issue annotations) | **complete**, do not redo |
+| 1 | Resolve component placement | **complete**—MDX chosen, see below |
+| 2 | Infrastructure (PR 1: schema, components, CSS, spec, tests) | in progress |
+| 3 | Seven pages, one PR each | not started |
+| 4 | `/projects/` index | not started |
+| 5 | Close the epic | not started |
+
+## One PR per page
+
+| # | Issue | Page | Ledger | Components | PR | Status |
+|---|-------|------|--------|-----------|----|--------|
+| 1 | — | infrastructure | — | all three | | in progress |
+| 2 | #752 | `five-across` | §B | decisions, constraints, learnings | | not started |
+| 3 | #757 | `swipe-watch` | §G | decisions, learnings | | not started |
+| 4 | #753 | `mergepath` | §E | decisions | | not started |
+| 5 | #754 | `override` | §F | decisions | | not started |
+| 6 | #755 | `device-source-of-truth` | §A | decisions, constraints | | not started |
+| 7 | #756 | `matchline` | §D | decisions | | not started |
+| 8 | #758 | `friends-and-family-billing` | §C | decisions | | not started |
+| 9 | #751 | `/projects/` index | §H | none | | not started |
+
+Fill the PR cell in the same step that creates the PR. That rule is here because it has already been broken twice in this epic.
+
+**#752 is the calibration gate.** Before starting #757, answer here: was the schema expressive enough, is the ledger scannable at 375px, did the status vocabulary hold, did `evidence` stay concise, does the ledger actually improve a hiring-manager skim? A schema or component problem found on page one gets fixed in the shared infrastructure, never worked around locally.
+
+## Log
+
+- 2026-08-27—**Stage 1 complete. MDX chosen.** Full evidence in `plans/759/component-placement-decision.md`; the summary is that all five runbook checks passed, plus a sixth the Plan agent added.
+  - The Plan agent evaluated all three options and ranked MDX first. Its most useful contribution was not the ranking but the sixth check: MDX converts hast to estree, and both `rehype-color-chips` and `rehype-mermaid-accessibility` write `properties.style` as a **string** that `hast-util-to-estree` re-parses. Five Across's body has no code fence and no hex inline code, so the runbook's five checks would all have passed and the *next* project page would have been the discovery. Planting a fence and a chip proved the conversion clean.
+  - Check 3 was run as a byte-for-byte diff against a baseline build of the same commit rather than as a spot check. Normalizing only the timestamp OG cache-buster, **all seven blog posts and all six untouched `.md` project pages are identical.** That is a stronger claim than "figure captions still work," and it is the claim worth having.
+  - The spike ran in a throwaway worktree branched from `main` at `c239dda` and was deleted with `git worktree remove --force`. Nothing it produced was committed.
+  - **The finding that changed the design: in an MDX body, `frontmatter.X` is raw YAML and `props.X` is the Zod-parsed value.** A field declared `.optional().default([])` reads as `undefined` through `frontmatter` when the key is absent, because Zod has not run at that point. It reads as `[]` through `props`, but only if `[slug].astro` forwards it on `<Content />`; a bare identifier is a `ReferenceError`. So the route forwards the three fields and pages author `<DecisionLedger decisions={props.decisions} />`. This is the same defect class the runbook flagged for a `caseStudy: z.object({}).optional()` wrapper—worth recording that it defeats a flat top-level `.default([])` too, on the `frontmatter` path.
+  - **Five `.md`-only call sites, and the two dangerous ones are silent.** `tests/project-pages.test.js:279` fails loudly (`expected 6 to be 7`, the only test that broke). Lines 287 and 318 silently stop accent-ramp-checking a converted page. `scripts/refresh-mux-gifs.mjs:83` and `scripts/refresh-hero-images.mjs:78` silently skip one—both `prebuild` steps. Only `swipe-watch.md` carries `muxPlaybackId`, so converting Five Across breaks nothing, but converting Swipe Watch at page three would silently stop refreshing its Mux fallback GIF, which is the exact failure that script's own header warns about. All five widen in PR 1, not in the PR that first needs them.
+  - **`astro check` is already red on `main`**, 2 errors at `tests/responsive/mermaid-accessibility.spec.ts:107` and `:109` (`Property 'ownerSVGElement' does not exist on type 'HTMLElement'`). CI runs `npm test` and `npm run lint`, not `npm run typecheck`, which is why they survived. Not this workstream's to fix, but the runbook lists `npx astro check` as a per-PR gate and a gate listed as green should not be assumed green.
+  - `@astrojs/mdx` joins `astro` and `@astrojs/markdown-remark` in the exact-pin lockstep set, with a failure mode the existing bullet does not cover: mdx pins `@astrojs/markdown-remark` exact **per release**, so bumping the other two without it nests a second copy of the markdown pipeline. That is a silent duplicate, not the loud ERESOLVE of #630/#631.

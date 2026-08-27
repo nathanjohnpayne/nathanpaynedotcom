@@ -2228,6 +2228,424 @@ body.blog-page {
   text-decoration: underline;
 }
 
+/* ── Decision ledger (#759) ─────────────────────────────────────────
+   A vertically stacked record of consequential product decisions,
+   rendered inside .project-copy between prose sections. Three voices,
+   one per epistemic register: judgment (title/rationale) is full-ink
+   prose on the ground; observation (evidence) is an exhibit—a --paper
+   plane with a hairline frame and tabular numerals; framing facts
+   (context/rejected) reuse the .metadata-strip dt/dd voice so they
+   read as chrome. Accent appears in exactly two places—the status
+   marker and the Observed label—both via --accent-text (the AA-safe
+   45% accent/ink mix the in-content links already use), never raw
+   --accent, so the system holds on yellow and paper pages.
+
+   Skim contract: the __line (index · dotted leader · status) runs the
+   full canvas width; record bodies hang left at a ~72ch measure. The
+   leaders are the account-book idiom connecting the entry to its
+   status column, and statuses align down the right edge for a
+   single-pass scan.
+
+   Statuses render as four peers: identical type (same size, weight,
+   tracking, full ink) with a square marker whose FILL state—not hue,
+   not weight—encodes how the evidence resolved: filled (validated),
+   half (mixed), cored/redrawn (revised), empty (pending). No glyph is
+   a check or a warning; the fill grammar is the site's existing square
+   motif, and it recolors with the page accent.
+
+   Deliberately static: the ledger is evidence, not chrome. No
+   transitions or animations, so no motion tokens are consumed; any
+   future hover affordance takes --motion-hover / --ease-standard.
+
+   Source order matters: these rules must stay AFTER the .project-copy
+   list rules above, whose ol/ul inheritance they neutralize.
+   ────────────────────────────────────────────────────────────────── */
+
+/* Neutralize .project-copy's <ol> inheritance (decimal markers, the
+   1.4rem indent, the 0.7rem grid gap). The <ol> keeps role="list" in
+   markup since list-style: none drops VoiceOver list semantics. */
+.project-copy .decision-ledger {
+  list-style: none;
+  margin: 0.5rem 0 0;
+  padding: 0;
+  display: grid;
+  gap: clamp(2.2rem, 4.5vw, 3.1rem);
+  counter-reset: decision-record;
+}
+
+.project-copy .decision-ledger > li {
+  padding-left: 0;
+}
+
+.decision-ledger__record {
+  counter-increment: decision-record;
+  min-width: 0;
+}
+
+/* Ledger line: index · dotted leader · status. One structure at every
+   width—no collapse, no reflow ambiguity. The index is a CSS counter
+   so markup carries no ordinal. */
+.decision-ledger__line {
+  display: flex;
+  align-items: center;
+  gap: clamp(0.6rem, 1.4vw, 1rem);
+}
+
+.decision-ledger__line::before {
+  content: counter(decision-record, decimal-leading-zero);
+  font-family: var(--font-body);
+  font-size: clamp(0.72rem, 0.8vw, 0.8rem);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-62);
+}
+
+/* Decorative leader—<span aria-hidden="true"> in markup. */
+.decision-ledger__rule {
+  flex: 1 1 auto;
+  border-top: 1px dotted var(--rule);
+}
+
+/* Status token: all four statuses share IDENTICAL type—size, weight,
+   tracking, full ink. Peer treatment is the point (#759: failure
+   states are the credibility); only the marker's fill differs. */
+.decision-ledger__status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-family: var(--font-body);
+  font-size: clamp(0.66rem, 0.75vw, 0.72rem);
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: var(--ink);
+}
+
+/* Base marker = pending: an empty outline. Evidence not yet in. */
+.decision-ledger__status::before {
+  content: '';
+  flex: none;
+  width: 0.62rem;
+  height: 0.62rem;
+  border: 1px solid var(--accent-text);
+}
+
+/* Filled: observed evidence materially supports the decision. */
+.decision-ledger__status--validated::before {
+  background-color: var(--accent-text);
+}
+
+/* Half-filled: the evidence split. Left-half fill, not a diagonal—
+   the site's geometry is orthogonal. */
+.decision-ledger__status--mixed::before {
+  background-image: linear-gradient(90deg, var(--accent-text) 0 50%, transparent 50%);
+}
+
+/* Cored: the decision was redrawn inside the original bet's outline.
+   content-box clip leaves a paper ring between border and core. */
+.decision-ledger__status--revised::before {
+  background-color: var(--accent-text);
+  background-clip: content-box;
+  padding: 2px;
+}
+
+/* The decision itself—the primary skim object. Cormorant roman, NOT
+   italic: one register apart from the italic .project-copy h2 above
+   it, same family so it still reads as a heading. */
+.decision-ledger__title {
+  margin: 0.55rem 0 0;
+  max-width: 30ch;
+  font-family: var(--font-heading);
+  font-weight: var(--heading-weight);
+  font-size: clamp(1.35rem, 1.2rem + 0.6vw, 1.8rem);
+  line-height: 1.12;
+  letter-spacing: var(--heading-letter-spacing);
+  text-wrap: balance;
+}
+
+/* Record body: one <dl>, four labeled slots. Two-column only for the
+   context/rejected pair—two short labeled facts whose stack is
+   unambiguous. Why and Observed always span full measure. */
+.decision-ledger__body {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  column-gap: clamp(1rem, 2.5vw, 1.5rem);
+  row-gap: clamp(0.9rem, 2vw, 1.2rem);
+  margin: clamp(0.8rem, 1.8vw, 1.1rem) 0 0;
+  max-width: 72ch;
+}
+
+.decision-ledger__why,
+.decision-ledger__observed {
+  grid-column: 1 / -1;
+}
+
+/* Field labels share the .metadata-strip dt voice (#467: the fluid dt
+   eyebrows deliberately stay element-scoped, so the values are
+   restated here rather than aliased). */
+.decision-ledger__body dt {
+  margin-bottom: var(--sp-xs);
+  font-size: clamp(0.6rem, 0.7vw, 0.68rem);
+  font-weight: 500;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink-62);
+}
+
+.decision-ledger__body dd {
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: break-word;
+}
+
+/* Context / rejected: the metadata-strip dd voice—framing facts, not
+   content. Dotted divider between the pair, per the metadata idiom. */
+.decision-ledger__fact dd {
+  font-size: clamp(0.9rem, 0.9rem + 0.12vw, 0.98rem);
+  line-height: 1.45;
+  color: var(--ink);
+}
+
+.decision-ledger__fact--rejected {
+  border-left: 1px dotted var(--rule);
+  padding-left: clamp(1rem, 2.5vw, 1.5rem);
+}
+
+/* Rationale: argument. Plain prose on the ground—no frame, no plane.
+   The absence of a box is the treatment; see __observed below. */
+.decision-ledger__why dd {
+  font-size: clamp(0.95rem, 0.92rem + 0.14vw, 1.02rem);
+  line-height: 1.65;
+  color: var(--ink);
+}
+
+/* Evidence: observation, not argument—a different epistemic object,
+   so a different surface. A --paper exhibit plane with a hairline
+   frame and tabular numerals (the field is stat-heavy). The label
+   takes --accent-text: one of accent's two appearances in this
+   system, shared with .learning-ledger__cell--observed so
+   "observation" has a single treatment portfolio-wide. For status:
+   pending the box holds the validation boundary—same treatment;
+   the box is the observation record, not a success badge. */
+.decision-ledger__observed dt {
+  color: var(--accent-text);
+}
+
+.decision-ledger__observed dd {
+  background: var(--paper);
+  border: 1px solid var(--rule);
+  padding: clamp(0.75rem, 1.6vw, 1.05rem) clamp(0.85rem, 1.8vw, 1.2rem);
+  font-size: clamp(0.9rem, 0.88rem + 0.12vw, 0.97rem);
+  line-height: 1.6;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+}
+
+/* 768px matches --bp-tablet on :root. (#332) */
+@media (max-width: 768px) {
+  .decision-ledger__body {
+    grid-template-columns: 1fr;
+    row-gap: 0;
+  }
+
+  .decision-ledger__body > div {
+    margin-top: 0.9rem;
+  }
+
+  .decision-ledger__body > div:first-child {
+    margin-top: 0;
+  }
+
+  /* Stacked pair: the divider rotates from left to top. Label-above-
+     value groups stack without ambiguity—the desktop columns encode
+     no relationship the stack loses. */
+  .decision-ledger__fact--rejected {
+    border-left: none;
+    padding-left: 0;
+    border-top: 1px dotted var(--rule);
+    padding-top: 0.8rem;
+  }
+}
+
+/* ── Constraint strip (#759) ────────────────────────────────────────
+   Operating context (value + label), not a KPI row. The anti-dashboard
+   guarantee is the value size cap: clamp tops out at 1.2rem—one step
+   above body text, never display scale. Label sits under the value in
+   the metadata-strip dt voice, so the strip rhymes with the metadata
+   chrome at the top of the page rather than with marketing tiles.
+   Fixed column counts (4-up, 2×2 under --bp-tablet) instead of
+   auto-fit, so the dotted internal rules stay deterministic. */
+.project-copy .constraint-strip {
+  list-style: none;
+  margin: 0.5rem 0 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0;
+  border: 1px solid var(--rule);
+}
+
+/* Neutralize the .project-copy ul accent-square marker (#759: the
+   strip is chrome; the square motif stays reserved for prose lists
+   and the status marker). */
+.project-copy .constraint-strip li {
+  padding: clamp(0.65rem, 1.4vw, 0.9rem) clamp(0.75rem, 1.6vw, 1rem);
+  min-width: 0;
+}
+
+.project-copy .constraint-strip li::before {
+  content: none;
+}
+
+.constraint-strip li:not(:nth-child(4n + 1)) {
+  border-left: 1px dotted var(--rule);
+}
+
+/* A fifth-plus constraint wraps with a dotted top rule. */
+.constraint-strip li:nth-child(n + 5) {
+  border-top: 1px dotted var(--rule);
+}
+
+.constraint-strip__value {
+  display: block;
+  font-family: var(--font-body);
+  font-weight: 600;
+  font-size: clamp(1rem, 0.95rem + 0.3vw, 1.2rem);
+  line-height: 1.25;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+}
+
+.constraint-strip__label {
+  display: block;
+  margin-top: 0.2rem;
+  font-size: clamp(0.6rem, 0.7vw, 0.68rem);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink-62);
+}
+
+/* 768px matches --bp-tablet on :root. (#332) */
+@media (max-width: 768px) {
+  .project-copy .constraint-strip {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .constraint-strip li:not(:nth-child(4n + 1)) {
+    border-left: none;
+  }
+
+  .constraint-strip li:nth-child(2n) {
+    border-left: 1px dotted var(--rule);
+  }
+
+  .constraint-strip li:nth-child(n + 3) {
+    border-top: 1px dotted var(--rule);
+  }
+}
+
+/* ── Learning ledger (#759) ─────────────────────────────────────────
+   Expected → observed → response, as ruled rows. Three registers per
+   row: expected is the superseded belief (muted --ink-62—temporal
+   recession, not shame); observed is the exhibit (the same --paper
+   plane + tabular-nums + accent label as .decision-ledger__observed,
+   forming a continuous paper band down the middle column at desktop);
+   response is the action (full ink, medium weight—what changed, which
+   the field is required to say). Every cell carries its own label so
+   the phone stack loses nothing. Solid rules between rows, dotted
+   between columns—the file's table grammar. */
+.project-copy .learning-ledger {
+  list-style: none;
+  margin: 0.5rem 0 0;
+  padding: 0;
+  display: grid;
+  gap: 0;
+  border-top: 1px solid var(--rule);
+}
+
+.project-copy .learning-ledger > li {
+  padding-left: 0;
+}
+
+.learning-ledger__row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  border-bottom: 1px solid var(--rule);
+}
+
+.learning-ledger__cell {
+  min-width: 0;
+  padding: clamp(0.8rem, 1.8vw, 1.1rem) clamp(0.85rem, 1.8vw, 1.15rem);
+}
+
+.learning-ledger__cell + .learning-ledger__cell {
+  border-left: 1px dotted var(--rule);
+}
+
+.learning-ledger__label {
+  display: block;
+  margin-bottom: var(--sp-xs);
+  font-family: var(--font-body);
+  font-size: clamp(0.6rem, 0.7vw, 0.68rem);
+  font-weight: 500;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink-62);
+}
+
+.learning-ledger__cell p {
+  margin: 0;
+  font-size: clamp(0.88rem, 0.86rem + 0.12vw, 0.96rem);
+  line-height: 1.55;
+  overflow-wrap: break-word;
+}
+
+.learning-ledger__cell--expected p {
+  color: var(--ink-62);
+}
+
+.learning-ledger__cell--observed {
+  background: var(--paper);
+}
+
+.learning-ledger__cell--observed .learning-ledger__label {
+  color: var(--accent-text);
+}
+
+.learning-ledger__cell--observed p {
+  font-variant-numeric: tabular-nums;
+}
+
+.learning-ledger__cell--response p {
+  font-weight: 500;
+}
+
+/* 768px matches --bp-tablet on :root. (#332) */
+@media (max-width: 768px) {
+  .learning-ledger__row {
+    grid-template-columns: 1fr;
+    padding: 0.35rem 0;
+  }
+
+  .learning-ledger__cell {
+    padding: 0.65rem 0;
+  }
+
+  /* Stacked cells: column rules rotate to row rules; the observed
+     plane keeps horizontal padding because it paints a background. */
+  .learning-ledger__cell + .learning-ledger__cell {
+    border-left: none;
+    border-top: 1px dotted var(--rule);
+  }
+
+  .learning-ledger__cell--observed {
+    padding-left: 0.85rem;
+    padding-right: 0.85rem;
+  }
+}
+
 /* Project-detail footer now uses the shared .site-footer system (#434). */
 
 /* ── Responsive: metadata + layout ── */
