@@ -85,7 +85,7 @@ function run(after, base) {
   } catch (err) {
     const stderr = (err.stderr || '').toString();
     if (stderr.includes('Traceback') || stderr.includes('SyntaxError')) {
-      throw new Error(`verify-brevity crashed instead of reporting:\n${stderr}`);
+      throw new Error(`verify-brevity crashed instead of reporting:\n${stderr}`, { cause: err });
     }
     return err.status;
   }
