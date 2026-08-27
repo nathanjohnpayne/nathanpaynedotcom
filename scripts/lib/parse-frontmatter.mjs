@@ -4,7 +4,8 @@
  *
  * Runtime frontmatter parsing happens inside Astro's Content Loader
  * (see `src/content.config.ts`). This helper exists only for the
- * prebuild step, which needs to read `src/content/projects/*.{md,mdx}`
+ * prebuild step, which needs to read every project source under
+ * `src/content/projects/` — both extensions, nested paths included —
  * before Astro starts building, to decide whether to refresh GitHub
  * social images and Mux GIFs.
  *

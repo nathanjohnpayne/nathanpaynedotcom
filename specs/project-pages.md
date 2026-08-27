@@ -460,7 +460,7 @@ The project footer matches the blog footer pattern:
 ## File Locations
 
 ```
-src/content/projects/*.{md,mdx}           Project source files (frontmatter + body; .mdx only if the body places a case-study component)
+src/content/projects/**/*.{md,mdx}        Project source files (frontmatter + body; .mdx only if the body places a case-study component)
 src/content.config.ts                     Collection schema (Zod)
 src/pages/projects/[slug].astro           Dynamic route + JSON-LD; forwards decisions/constraints/learnings as props
 src/pages/projects/index.astro            Project index grid

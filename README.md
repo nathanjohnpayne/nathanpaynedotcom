@@ -71,7 +71,7 @@ The default 1921 register lives in `:root`; the homepage opts into a higher-chro
 │   │   └── OgCard.astro            # OG image card template
 │   ├── content/
 │   │   ├── blog/*.md               # Markdown blog posts with frontmatter
-│   │   ├── projects/*.md           # Project content collection
+│   │   ├── projects/**/*.{md,mdx}  # Project content collection
 │   │   ├── {bio,myself,experience,education,skills,certifications,resume}/
 │   │   │                           # Active resume and homepage content collections
 │   │   └── awards/                 # Dormant scaffold; restore collection wiring with first entry
