@@ -50,6 +50,14 @@ from pathlib import Path
 # a content decision, not a brevity edit.
 PINNED_FIELDS = ("title", "seoTitle", "shortTitle", "slug", "seoDescription")
 
+# Advisory rather than pinned. `tests/blog-pages.test.js:75` pins ONE post's
+# `description` byte-for-byte, and this script cannot tell which file it is
+# reading. Gating on it rejected three of the four brevity edits this repo
+# has already merged, all of which tightened `description` legitimately;
+# staying silent would let a change through that breaks a byte-exact
+# assertion. So it is surfaced and not failed, like the spelled-out numbers.
+ADVISORY_FIELDS = ("description",)
+
 # Numbers written as words. These are the reason this script exists: a prose
 # pass does not see "across three platforms" as data, and dropping it loses a
 # count as surely as deleting a digit would.
@@ -66,16 +74,17 @@ TOKEN_CLASSES = (
     # The token ends on the last character that can belong to a URL, so an
     # ordinary sentence break after one is prose, not a changed destination.
     ("URLs", r"https?://[^\s\)\]\"'>]*[^\s\)\]\"'>.,;:!?]"),
-    # An inline destination may carry an optional title: `](/path "Title")`.
-    ("relative links", r"\]\((?P<t>/[^)\s]*)(?:[ \t]+[\"'(][^)]*)?\)"),
-    # A reference definition is the other half of `[text][id]`, and its
-    # destination is as load-bearing as an inline one. Matching only the
-    # inline form let `[p]: /blog/original/` be repointed silently.
-    ("reference link targets", r"(?m)^\[[^\]]+\]:[ \t]*(?P<t>/[^\s]*)"),
-    # Path-relative destinations resolve to a real target too; only absolute
-    # URLs, root-relative paths and bare fragments are covered elsewhere.
-    ("path-relative links",
-     r"\]\((?P<t>(?!https?://|/|#|mailto:)[^)\s]+)(?:[ \t]+[\"'(][^)]*)?\)"),
+    # Every inline destination, whatever its shape: root-relative,
+    # path-relative, fragment-only, mailto or absolute. Enumerating the
+    # shapes worth protecting kept leaving one out, so the class now takes
+    # them all and the optional title stays outside the token.
+    ("link destinations",
+     r"\]\((?P<t>[^)\s]+)(?:[ \t]+[\"'(][^)]*)?\)"),
+    # The other half of `[text][id]`, same reasoning: any destination shape.
+    ("reference link targets", r"(?m)^\[[^\]]+\]:[ \t]*(?P<t>\S+)"),
+    # A bare frontmatter value is a destination with no Markdown syntax
+    # around it -- `image: /og/blog/x.png` repoints silently otherwise.
+    ("frontmatter paths", r"(?m)^[ \t]*[A-Za-z_][\w-]*:[ \t]*(?P<t>/\S+)[ \t]*$"),
     # Single digits count: dropping the `#` from `#5` leaves the numeral
     # class unchanged, so a one-digit reference could vanish silently.
     ("issue/PR refs", r"#\d{1,4}\b"),
@@ -86,6 +95,9 @@ TOKEN_CLASSES = (
     # Month-name dates are the collection's dominant form; without them,
     # "July 30, 2026" -> "August 30, 2026" leaves 30 and 2026 unchanged and
     # moves the event a month with every protected token equal.
+    # Weekdays are date claims too: "the same Wednesday" moving to Thursday
+    # shifts the event a day with every numeral unchanged.
+    ("weekdays", r"\b(?:Mon|Tues?|Wed(?:nes)?|Thur?s?|Fri|Sat(?:ur)?|Sun)(?:day)?\b"),
     ("timestamps", r"\b(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?"
                    r"|Jul(?:y)?|Aug(?:ust)?|Sep(?:t(?:ember)?)?|Oct(?:ober)?"
                    r"|Nov(?:ember)?|Dec(?:ember)?)\.?\s+\d{1,2}(?:st|nd|rd|th)?"
@@ -110,6 +122,9 @@ TOKEN_CLASSES = (
     # A version is evidence: "Astro v5 to v6.1" changing to v4 slips past the
     # numeral class, whose lookbehind rejects a digit preceded by a letter.
     ("versions", r"\bv\d+(?:\.\d+)*\b"),
+    # `1e6` -> `1e9` is a thousand-fold change that leaves the coefficient
+    # equal, and the lookbehind stops the exponent becoming its own token.
+    ("scientific notation", r"(?<![A-Za-z0-9_.])\d+(?:\.\d+)?[eE][+-]?\d+\b"),
     ("code spans", r"(?P<d>`+)(?:[^`]|(?!(?P=d))`+)+?(?P=d)(?!`)"),
 )
 
@@ -125,7 +140,8 @@ BLOCK_CLASSES = (
     # CommonMark indented code: a run of lines indented four or more spaces,
     # introduced by a blank line. The blank-line requirement is what keeps
     # this off list continuations and wrapped table rows.
-    ("indented code blocks", r"(?m)(?<=\n\n)(?:[ ]{4,}[^\n]*\n)+", 0),
+    # Four spaces or a tab: Remark emits a code node for either.
+    ("indented code blocks", r"(?m)(?<=\n\n)(?:(?:[ ]{4,}|\t)[^\n]*\n)+", 0),
     # Both fence forms; Astro's Markdown parser accepts either. The closing
     # fence must use the opener's character and be at least as long, so a
     # four-backtick block quoting a three-backtick line stays one block --
@@ -134,7 +150,7 @@ BLOCK_CLASSES = (
     # CommonMark allows up to three spaces of indentation on both the opener
     # and the closer, and this repo's parser honours that.
     ("code/mermaid blocks",
-     r"(?ms)^[ ]{0,3}(?P<f>(?P<fc>[`~])(?P=fc){2,})[^\n]*\n.*?(?:^[ ]{0,3}(?P=f)(?P=fc)*[ \t]*$|\Z)", 0),
+     r"(?ms)^(?:[ \t]*>[ \t]?)*[ ]{0,3}(?P<f>(?P<fc>[`~])(?P=fc){2,})[^\n]*\n.*?(?:^(?:[ \t]*>[ \t]?)*[ ]{0,3}(?P=f)(?P=fc)*[ \t]*$|\Z)", 0),
     # Sidebar diagrams live in frontmatter as a `- type: mermaid` item whose
     # title and description are as load-bearing as the content scalar -- the
     # description is the accessible text screen readers receive.
@@ -145,7 +161,7 @@ BLOCK_CLASSES = (
     # Blank lines are legal inside a block scalar and do not end the item, so
     # the continuation accepts an empty line followed by more indented text.
     ("frontmatter mermaid items",
-     r"^[ \t]*-[ \t]+[^\n]*\n(?:[ \t]+[^\n]*\n|[ \t]*\n(?=[ \t]+\S))*", re.M,
+     r"^(?P<ind>[ \t]*)-[ \t]+[^\n]*\n(?:(?![ \t]*-[ \t])[ \t]+[^\n]*\n|[ \t]*\n(?=[ \t]+\S))*", re.M,
      "type: mermaid"),
     # A GFM table is a header row, a delimiter row, and body rows. Matching
     # the whole construct catches tables written without the optional leading
@@ -159,10 +175,12 @@ BLOCK_CLASSES = (
         # -- `| State |` over `| --- |` is a one-column table. Without one, at
         # least two cells are needed, or any prose line containing a dash
         # would qualify.
-        r"^[^\n]*\|[^\n]*\n[ \t]*"
+        # A leading blockquote prefix is legal on every row; Remark still
+        # emits a table node.
+        r"^(?:[ \t]*>[ \t]?)*[^\n]*\|[^\n]*\n(?:[ \t]*>[ \t]?)*[ \t]*"
         r"(?:\|[ \t]*:?-+:?[ \t]*(?:\|[ \t]*:?-+:?[ \t]*)*\|?"
         r"|:?-+:?[ \t]*(?:\|[ \t]*:?-+:?[ \t]*)+\|?)"
-        r"[ \t]*\n(?:[^\n]*\|[^\n]*\n?)*",
+        r"[ \t]*\n(?:(?:[ \t]*>[ \t]?)*[^\n]*\|[^\n]*\n?)*",
         re.M,
     ),
 )
@@ -229,6 +247,9 @@ def _prose_words(text: str) -> int:
     # Inline code is as incompressible as a fenced block, and a multiword
     # span counted as prose understates the reduction the same way tables did.
     body = re.sub(r"(`+)(?:[^`]|(?!\1)`+)+?\1(?!`)", " ", body)
+    # Blockquoted prompts and transcripts are verbatim evidence, not prose a
+    # brevity pass may touch; counting them dilutes every reduction around them.
+    body = re.sub(r"(?m)^[ \t]*>.*$", " ", body)
     return len(body.split())
 
 
@@ -278,6 +299,11 @@ def compare(before: str, after: str, quiet: bool) -> int:
     for name in PINNED_FIELDS:
         same = field(before, name) == field(after, name)
         report(same, f"pinned field {name}")
+
+    for name in ADVISORY_FIELDS:
+        if field(before, name) != field(after, name):
+            print(f"  note  {name} changed  -- a test may pin this field "
+                  f"byte-for-byte; check the assertion still matches")
 
     if not quiet:
         wb, wa = len(before.split()), len(after.split())

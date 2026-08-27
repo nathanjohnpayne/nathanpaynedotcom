@@ -322,4 +322,52 @@ describe('verify-brevity', () => {
     const text = output(after, before);
     expect(text).toMatch(/prose \d+ -> \d+/);
   });
+
+  it('notes a description change without failing the gate', () => {
+    const mk = (d) => `---\ntitle: "T"\ndescription: "${d}"\n---\n\nBody text here.\n`;
+    expect(run(mk('Alpha gamma.'), mk('Alpha beta gamma.'))).toBe(0);
+    expect(output(mk('Alpha gamma.'), mk('Alpha beta gamma.'))).toMatch(/note\s+description changed/);
+  });
+
+  it('fails when a fragment-only link destination changes', () => {
+    expect(run('[a](#one) end\n', '[a](#two) end\n')).toBe(1);
+  });
+
+  it('fails when a mailto destination changes', () => {
+    expect(run('[m](mailto:a@x.com) e\n', '[m](mailto:b@x.com) e\n')).toBe(1);
+  });
+
+  it('fails when a bare frontmatter path is repointed', () => {
+    const mk = (p) => `---\nimage: ${p}\n---\nx\n`;
+    expect(run(mk('/og/blog/original.png'), mk('/og/blog/revised.png'))).toBe(1);
+  });
+
+  it('fails when a weekday claim changes', () => {
+    expect(run('closed the same Wednesday\n', 'closed the same Thursday\n')).toBe(1);
+  });
+
+  it('fails when a scientific-notation exponent changes', () => {
+    expect(run('held 1e6 records here\n', 'held 1e9 records here\n')).toBe(1);
+  });
+
+  it('fails when tab-indented code content changes', () => {
+    const mk = (v) => `text\n\n\tconst mode = "${v}"\n\nend\n`;
+    expect(run(mk('strict'), mk('loose'))).toBe(1);
+  });
+
+  it('fails when blockquoted fenced code changes', () => {
+    const mk = (v) => `q\n\n> ~~~\n> ${v}\n> ~~~\n`;
+    expect(run(mk('alpha'), mk('beta'))).toBe(1);
+  });
+
+  it('fails when a blockquoted table body cell changes', () => {
+    const mk = (v) => `q\n\n> Name | State\n> --- | ---\n> ${v} | 1\n`;
+    expect(run(mk('Alpha'), mk('Beta'))).toBe(1);
+  });
+
+  it('does not let a mermaid item swallow the next sidebar item', () => {
+    const mk = (b) =>
+      `x\nsidebar:\n  - type: mermaid\n    content: |\n      graph TD\n          A["one"]\n  - type: text\n    body: "${b}"\n`;
+    expect(run(mk('alpha gamma'), mk('alpha beta gamma'))).toBe(0);
+  });
 });
