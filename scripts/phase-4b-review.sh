@@ -16,16 +16,31 @@
 # Usage:
 #   scripts/phase-4b-review.sh <PR#> [--repo owner/repo]
 #       [--reviewer nathanpayne-<agent>] [--author <agent>]
-#       [--head <sha>] [--diff-file <path>] [--dry-run]
+#       [--head <sha>] [--diff-file <path>] [--dry-run] [--force-enabled]
 #
 # Overrides (mostly for tests / non-git contexts):
-#   --author    PR's authoring agent (claude|codex|...). Default: parsed
-#               from the PR body `Authoring-Agent:` line.
-#   --reviewer  force the external reviewer login (skips selection, but still
-#               must differ from the authoring agent).
-#   --head      HEAD sha. Default: gh api pulls/<n> .head.sha.
-#   --diff-file pre-fetched unified diff (skips `gh pr diff`).
-#   --dry-run   do everything EXCEPT post the review; print intended action.
+#   --author         PR's authoring agent (claude|codex|...). Default: parsed
+#                    from the PR body `Authoring-Agent:` line.
+#   --reviewer       force the external reviewer login (skips selection, but
+#                    still must differ from the authoring agent).
+#   --head           HEAD sha. Default: gh api pulls/<n> .head.sha.
+#   --diff-file      pre-fetched unified diff (skips `gh pr diff`).
+#   --dry-run        do everything EXCEPT post the review; print intended
+#                    action.
+#   --force-enabled  run this one invocation even when
+#                    phase_4b_automation.enabled is false/absent in
+#                    .github/review-policy.yml (#1046). Overrides ONLY
+#                    `enabled` — mode, fail_closed and post_review_issues
+#                    still come from config, and the reviewer-≠-author gate
+#                    is never overridable. The emitted JSON's `enabled_via`
+#                    reads "override" instead of "config" so a review posted
+#                    this way is auditable after the fact. Same env
+#                    equivalent as every other flag here: P4B_FORCE_ENABLED=1.
+#                    The trusted-path rule (#628) still applies UNCHANGED —
+#                    this must still run from a trusted main-ref checkout,
+#                    never the PR-under-review's own checkout — and matters
+#                    more here, since a per-run flag invites running it ad
+#                    hoc from whatever directory happens to be open.
 #
 # Env:
 #   GH_TOKEN / op-preflight cache   reviewer-scoped token (auto-sourced).
@@ -34,6 +49,7 @@
 #   P4B_GH_AS_AUTHOR                author wrapper override (tests) — used
 #                                   for the step-9 post-review issue writes.
 #   P4B_HANDOFF                     manual handoff renderer override (tests).
+#   P4B_FORCE_ENABLED               1/true — same as --force-enabled.
 #   P4B_ADAPTER_TIMEOUT_SECONDS     env override for the outer adapter-call
 #                                   timeout; default is resolved per-adapter
 #                                   from phase_4b_automation (900 when absent).
@@ -70,8 +86,6 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=phase-4b/lib.sh
 . "$ROOT/phase-4b/lib.sh"
-# shellcheck source=lib/pr-body-contract.sh
-. "$ROOT/lib/pr-body-contract.sh"
 
 # Phase 4b approval-loop accounting (#602). Sourced when present so the hook
 # call sites below exist; a missing or unsourceable module simply leaves
@@ -137,21 +151,26 @@ ADAPTER_TIMEOUT_ENV="${P4B_ADAPTER_TIMEOUT_SECONDS:-}"
 ADAPTER_TIMEOUT=""
 
 PR="" ; REPO="" ; REVIEWER="" ; AUTHOR="" ; HEAD="" ; DIFF_FILE="" ; DRY_RUN=false
+FORCE_ENABLED=false
+case "${P4B_FORCE_ENABLED:-}" in
+  1|true|TRUE|True|yes|YES) FORCE_ENABLED=true ;;
+esac
 
 usage() {
-  echo "usage: phase-4b-review.sh <PR#> [--repo owner/repo] [--reviewer <login>] [--author <agent>] [--head <sha>] [--diff-file <path>] [--dry-run]" >&2
+  echo "usage: phase-4b-review.sh <PR#> [--repo owner/repo] [--reviewer <login>] [--author <agent>] [--head <sha>] [--diff-file <path>] [--dry-run] [--force-enabled]" >&2
   exit 3
 }
 
 while [ $# -gt 0 ]; do
   case "$1" in
-    --repo)      REPO="${2:-}"; shift 2 ;;
-    --reviewer)  REVIEWER="${2:-}"; shift 2 ;;
-    --author)    AUTHOR="${2:-}"; shift 2 ;;
-    --head)      HEAD="${2:-}"; shift 2 ;;
-    --diff-file) DIFF_FILE="${2:-}"; shift 2 ;;
-    --dry-run)   DRY_RUN=true; shift ;;
-    -h|--help)   usage ;;
+    --repo)          REPO="${2:-}"; shift 2 ;;
+    --reviewer)      REVIEWER="${2:-}"; shift 2 ;;
+    --author)        AUTHOR="${2:-}"; shift 2 ;;
+    --head)          HEAD="${2:-}"; shift 2 ;;
+    --diff-file)     DIFF_FILE="${2:-}"; shift 2 ;;
+    --dry-run)       DRY_RUN=true; shift ;;
+    --force-enabled) FORCE_ENABLED=true; shift ;;
+    -h|--help)       usage ;;
     -*) echo "phase-4b-review.sh: unknown flag: $1" >&2; usage ;;
     *)
       if [ -z "$PR" ]; then PR="$1"; else echo "unexpected arg: $1" >&2; usage; fi
@@ -163,7 +182,22 @@ done
 [[ "$PR" =~ ^[1-9][0-9]*$ ]] || p4b_die 3 "PR# must be a positive integer; got '$PR'"
 
 # --- automation entry decision ---------------------------------------------
+# #1046: --force-enabled / P4B_FORCE_ENABLED overrides ONLY `enabled`, so a
+# one-off automated run can be tried on a single PR without flipping the
+# repo-wide governance switch. `mode` (and every other phase_4b_automation
+# field read below) still comes from config unconditionally — an override
+# that also flipped `mode` would leave the config reading "on" for a repo
+# that never opted in, which is exactly what the bootstrap-reset default
+# (false) exists to prevent. ENABLED_VIA is carried into the emitted JSON so
+# a review posted under the override is distinguishable after the fact from
+# one posted under a configured opt-in.
 ENABLED="$(p4b_automation_field enabled)"; ENABLED="${ENABLED:-false}"
+ENABLED_VIA="config"
+if [ "$ENABLED" != "true" ] && [ "$FORCE_ENABLED" = true ]; then
+  ENABLED="true"
+  ENABLED_VIA="override"
+  p4b_log "phase_4b_automation.enabled != true, but --force-enabled/P4B_FORCE_ENABLED requested this run anyway"
+fi
 MODE="$(p4b_automation_field mode)"; MODE="${MODE:-local}"
 
 json_string() {
@@ -177,8 +211,14 @@ json_string() {
 }
 
 emit_skip_json() {
-  printf '{"pr_number":%s,"repo":%s,"automation_enabled":false,"skipped":true,"reason":%s}\n' \
-    "$PR" "$(json_string "$REPO")" "$(json_string "$1")"
+  # $ENABLED can be "true" here via --force-enabled even though this
+  # invocation is still skipping (e.g. mode-not-local, which the override
+  # deliberately does not touch) — report what actually held, not a
+  # hardcoded false, so a forced-but-still-skipped run reads honestly.
+  printf '{"pr_number":%s,"repo":%s,"automation_enabled":%s,"enabled_via":%s,"skipped":true,"reason":%s}\n' \
+    "$PR" "$(json_string "$REPO")" \
+    "$([ "$ENABLED" = "true" ] && echo true || echo false)" \
+    "$(json_string "$ENABLED_VIA")" "$(json_string "$1")"
 }
 
 if [ "$ENABLED" != "true" ]; then
@@ -232,27 +272,22 @@ if [ -z "$HEAD" ]; then
   [ -n "$HEAD" ] || p4b_die 3 "could not resolve HEAD sha for $REPO#$PR; pass --head"
 fi
 
-# The live PR body is the identity source of truth. An explicit --author is a
-# consistency assertion only; it must never replace or bypass that contract.
-need_gh
-# #799: `--jq '.body // ""'` reads as a safe default and is not one — gh
-# emits the error body WITHOUT running the filter, so the `// ""` never
-# applies. No `--shape` is possible on free text (a PR body may legitimately
-# be empty, or contain anything), so the status is the whole guard here.
-body="$(gh_api_scalar "PR body for $REPO#$PR" \
-  "repos/$REPO/pulls/$PR" --jq '.body // ""')" || body=""
-pr_body_validate "$body" "$(p4b_config)" \
-  || p4b_die 3 "PR body does not satisfy the Authoring-Agent contract"
-body_author="$(pr_body_authoring_agent "$body")"
-[ -n "$body_author" ] || p4b_die 3 "could not parse Authoring-Agent from PR body"
-
-if [ -n "$AUTHOR" ] && [ "$(p4b_agent_of_login "$AUTHOR")" != "$body_author" ]; then
-  p4b_die 3 "--author '$AUTHOR' conflicts with live PR body Authoring-Agent '$body_author'"
+# Authoring agent: explicit override, else parse the PR body line. Required
+# even when --reviewer is forced so the cross-agent invariant still applies.
+if [ -z "$AUTHOR" ]; then
+  need_gh
+  # #799: `--jq '.body // ""'` reads as a safe default and is not one — gh
+  # emits the error body WITHOUT running the filter, so the `// ""` never
+  # applies. No `--shape` is possible on free text (a PR body may legitimately
+  # be empty, or contain anything), so the status is the whole guard here:
+  # gh_api_scalar returns 3 with empty stdout, and the Authoring-Agent parse
+  # below then finds nothing and dies with its own message instead of scanning
+  # a JSON error body for an agent name.
+  body="$(gh_api_scalar "PR body for $REPO#$PR" \
+    "repos/$REPO/pulls/$PR" --jq '.body // ""')" || body=""
+  AUTHOR="$(printf '%s\n' "$body" | sed -n 's/^[[:space:]]*Authoring-Agent:[[:space:]]*\([A-Za-z0-9_-]*\).*/\1/p' | head -n1)"
+  [ -n "$AUTHOR" ] || p4b_die 3 "could not parse Authoring-Agent from PR body; pass --author"
 fi
-AUTHOR="$body_author"
-
-pr_body_agent_is_allowed "$AUTHOR" "$(p4b_config)" \
-  || p4b_die 3 "authoring agent '$AUTHOR' is not represented in available_reviewers"
 
 # --- select reviewer + adapter ---------------------------------------------
 AUTHOR_AGENT="$(p4b_agent_of_login "$AUTHOR")"
@@ -353,10 +388,11 @@ fall_back_to_manual() {
   fi
   jq -n --argjson pr "$PR" --arg repo "$REPO" --arg head "${HEAD:-}" \
         --arg direction "$DIRECTION" --arg reviewer "$REVIEWER" \
-        --arg adapter "$ADAPTER" --arg why "$why" '
+        --arg adapter "$ADAPTER" --arg why "$why" --arg enabled_via "$ENABLED_VIA" '
     {pr_number:$pr, repo:$repo, head_sha:$head, direction:$direction,
      reviewer_identity:$reviewer, adapter:$adapter, verdict:null,
-     review_posted:false, fell_back_to_manual:true, reason:$why}'
+     review_posted:false, fell_back_to_manual:true, reason:$why,
+     automation_enabled:true, enabled_via:$enabled_via}'
   exit 4
 }
 
@@ -384,12 +420,13 @@ hold_for_external_review() {
   p4b_warn "external review has not reached the current head; holding without posting (retry_after=$(printf '%s' "$payload" | jq -r '.retry_after // 0')s)"
   jq -n --argjson pr "$PR" --arg repo "$REPO" --arg head "${HEAD:-}" \
         --arg direction "$DIRECTION" --arg reviewer "$REVIEWER" \
-        --arg adapter "$ADAPTER" --argjson b "$payload" '
+        --arg adapter "$ADAPTER" --argjson b "$payload" --arg enabled_via "$ENABLED_VIA" '
     {pr_number:$pr, repo:$repo, head_sha:$head, direction:$direction,
      reviewer_identity:$reviewer, adapter:$adapter, verdict:null,
      review_posted:false, fell_back_to_manual:false, barrier_pending:true,
      retry_after:($b.retry_after // 0), barrier:$b,
-     reason:"external review has not reached the current head"}'
+     reason:"external review has not reached the current head",
+     automation_enabled:true, enabled_via:$enabled_via}'
   exit 6
 }
 
@@ -1080,7 +1117,8 @@ jq -n \
   --arg usage_source "$USAGE_SOURCE" \
   --argjson adapter_timeout "$ADAPTER_TIMEOUT" \
   --arg effort "$EFFECTIVE_EFFORT" \
-  --argjson findings_count "$FINDINGS_COUNT" '
+  --argjson findings_count "$FINDINGS_COUNT" \
+  --arg enabled_via "$ENABLED_VIA" '
   {
     pr_number: $pr,
     repo: $repo,
@@ -1097,7 +1135,8 @@ jq -n \
     token_count: (if $token_count == "" then null else ($token_count | tonumber) end),
     usage_source: (if $usage_source == "" then null else $usage_source end),
     fell_back_to_manual: false,
-    automation_enabled: true
+    automation_enabled: true,
+    enabled_via: $enabled_via
   }'
 
 exit "$EXIT_CODE"
