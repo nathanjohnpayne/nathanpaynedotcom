@@ -16,7 +16,7 @@ Deliberate. #740 calibrates the ledger format and the Fable handoff; #739/#741 r
 | 3 | #741 | html-mockups-as-spec | **done** | `plans/759/html-mockups-as-spec-ledger.md` | `content/741-html-mockups-audit` | [#796](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/796) | **merged** `89e82c1` |
 | 4 | #744 | six-prs-one-bug-agent-failure-modes | **done** | `plans/759/six-prs-one-bug-agent-failure-modes-ledger.md` | `content/744-six-prs-audit` | [#798](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/798) | **merged** `29d864e` |
 | 5 | #745 | autofix-was-the-whole-cost | **done** | `plans/759/autofix-was-the-whole-cost-ledger.md` | `content/745-autofix-audit` | [#803](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/803) | **merged** `6a016ef` |
-| 6 | #743 | perfect-score-wrong-axis | 3 in review | `plans/759/perfect-score-wrong-axis-ledger.md` | `content/743-perfect-score-audit` | [#805](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/805) | **open** — the last unmerged blog audit |
+| 6 | #743 | perfect-score-wrong-axis | 3 in review | `plans/759/perfect-score-wrong-axis-ledger.md` | `content/743-perfect-score-audit` | [#805](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/805) | **open**—the last unmerged blog audit |
 | 7 | #742 | two-blues-one-composition | **done** | `plans/759/two-blues-one-composition-ledger.md` | `content/742-two-blues-audit` | [#806](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/806) | **merged** `44a7827` |
 
 ### Brevity retrofits (pass 2 of the standard procedure)
