@@ -421,11 +421,22 @@ describe('Project Pages — render', () => {
         }
       });
 
-      it('has a .project-copy container with an <h2>Overview</h2> heading', () => {
+      it('has a .project-copy container with section headings', () => {
+        // Was `toContain('Overview')`. That pinned the older Overview / What
+        // the product does / Why it matters shape, which issue #752 removes
+        // from Five Across and which most project pages are expected to leave
+        // behind as they are reworked into case studies. specs/project-pages.md
+        // § Body content structure now describes both shapes and mandates
+        // neither, so the assertion is that the body IS sectioned — the thing
+        // the layout actually depends on — not which words the sections use.
         const copy = document.querySelector('.project-copy');
         expect(copy, '.project-copy not found').not.toBeNull();
         const headings = Array.from(copy.querySelectorAll('h2')).map((h) => h.textContent.trim());
-        expect(headings).toContain('Overview');
+        expect(headings.length, `${slug}: .project-copy has no <h2> sections`).toBeGreaterThan(0);
+        expect(
+          headings.every((h) => h.length > 0),
+          `${slug}: an <h2> in .project-copy is empty`,
+        ).toBe(true);
       });
 
       it('renders the appropriate CTA actions for the project', () => {

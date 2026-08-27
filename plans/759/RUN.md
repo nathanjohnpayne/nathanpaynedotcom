@@ -336,7 +336,7 @@ The second half of epic #759: issues #751–758. Runbook: `plans/759/portfolio-n
 | # | Issue | Page | Ledger | Components | PR | Status |
 |---|-------|------|--------|-----------|----|--------|
 | 1 | — | infrastructure | — | all three | [#830](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/830) | in review |
-| 2 | #752 | `five-across` | §B | decisions, constraints, learnings | | not started |
+| 2 | #752 | `five-across` | §B | decisions, constraints, learnings | [#834](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/834) | in review |
 | 3 | #757 | `swipe-watch` | §G | decisions, learnings | | not started |
 | 4 | #753 | `mergepath` | §E | decisions | | not started |
 | 5 | #754 | `override` | §F | decisions | | not started |
@@ -386,3 +386,19 @@ Fill the PR cell in the same step that creates the PR. That rule is here because
   - **Round 6, the one worth remembering**: `DecisionLedger` labelled `evidence` "Observed" unconditionally, so a `pending` row rendered "Observed: Not yet validated…"—a self-contradiction on the page, in the component built to keep observation and argument apart. The label now varies by status; the treatment does not, because the four have to stay peers. Round 6 also caught that asserting rendered markup crashes on a draft, whose page `getStaticPaths` never emits.
 - **`gh api` without `--paginate` silently truncated the finding list once**, and the record script reported `not-found` for a finding that existed. Always paginate when collecting findings.
 - **CI note, expect it again.** `Codex P1 unresolved threads` failed twice while the disposition replies were still landing, both times after logging `review feedback accounting clear` and `Codex blocking-tier unresolved: 0`. The workflow computes a feedback fingerprint, then re-reads it immediately before publishing, and fails closed when a comment lands in the gap—which is exactly what posting replies during the run does. Running `scripts/codex-p1-gate.sh` locally against the same HEAD exits 0. **Finish dispositioning, then re-run the check; do not chase it mid-loop.**
+
+### The Stage 3 calibration gate—answered at #752, before page two
+
+The runbook makes #752 the test of whether Stage 2 was right. Answering its five questions honestly, because the point is to fix the shared infrastructure now rather than work around it six more times.
+
+**Was the schema expressive enough?** Yes, and I did not want a fourth field. Six decision records, four constraints and three learnings covered the page without strain, and nothing had to be smuggled into the wrong field. One thing the schema did *not* cover surfaced during PR 1 and was fixed there: `evidence` means something different under `pending`—the validation boundary rather than an observation—so the component now labels it "Validation boundary" instead of "Observed". That was a rendering fix, not a schema change; the field held.
+
+**Is the ledger scannable at 375px?** Yes. Verified on the real page, not a fixture: no horizontal overflow at 375, 768 or 1440, no console errors, the constraint strip collapsing to 2×2 and the decision body to a single labelled column. The one thing to watch is **decision titles**, which wrap to two lines past roughly forty characters against the 30ch cap. "The cutover is a decision, not a deploy" wraps at every width. Not a defect—the wrap is balanced and the title is still the biggest thing in the record—but the remaining six pages should aim shorter.
+
+**Did the status vocabulary hold?** Yes, and the strongest evidence is that **all four appeared on one page**: three `validated`, one `mixed`, one `revised`, one `pending`. A calibration page that reached only for `validated` would have told us the other three were decorative. `revised` in particular earned its place—the frozen-deal decision is not a success or a failure, it is a design that changed at sea, and neither of the other labels fits it.
+
+**Did `evidence` stay concise?** Mostly. Five of six run one to three sentences. The `revised` record's is longer, because a revision has to carry the before and the after to mean anything. Acceptable here; worth resisting elsewhere.
+
+**Does it improve a hiring-manager skim?** Yes—titles left, statuses right, dotted leaders between, and the six titles alone reconstruct the product argument. **But this page is the easy case and the gate should say so.** Five Across has the richest evidence in the portfolio. The real test of the ledger is Override, which has no behavioral evidence at all, and Matchline, which is mostly `pending`. A ledger that reads well only when the evidence is good is a ledger that flatters. Watch those two.
+
+**No infrastructure change is required before page two.**
