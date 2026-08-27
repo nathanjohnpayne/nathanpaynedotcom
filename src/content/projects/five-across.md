@@ -14,7 +14,7 @@ screenshotSecondary:
   height: 1550
 accent: "red"
 liveUrl: "https://fiveacross.app"
-githubUrl: "https://github.com/nathanjohnpayne/gaycruisebingo"
+githubUrl: "https://github.com/nathanjohnpayne/fiveacross"
 tags: ["Consumer", "Social", "PWA", "Live Ops"]
 status: "SHIPPED"
 metadata:
