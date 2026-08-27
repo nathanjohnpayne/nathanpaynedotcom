@@ -36,8 +36,9 @@ Stage 0 — Repair stale sources          §0.5   ✅ COMPLETE, do not redo
 
 Stage 1 — Resolve placement             §2
   [ ] Plan agent reported
-  [ ] approach chosen and recorded in plans/
-  [ ] STOP if no option is safe
+  [ ] MDX spike run in a THROWAWAY worktree, all 5 checks, worktree deleted
+  [ ] approach chosen; the 5 outcomes recorded in plans/
+  [ ] STOP only if NO option is safe (a failed spike is a completed stage)
 
 Stage 2 — Infrastructure                §4, PR 1
   [ ] PR 1 merged                        (schema, components, CSS, spec, tests)
@@ -180,9 +181,29 @@ Spawn a **Plan** subagent to settle this before any implementation. Its brief:
 > `astro@7.2.4` + `@astrojs/markdown-remark@7.2.4`, which `rules/repo_rules.md` pins exact
 > and requires to move together. Do not implement.
 
-**Prefer MDX unless inspection finds a concrete blocker, and there is one specific place to look.** MDX is the idiomatic Astro answer, `scripts/lint-prose.mjs` already accepts `.mdx`, and `extendMarkdownConfig` preserves the three existing plugins. What could kill it is the pin: `rules/repo_rules.md` § Toolchain Constraints pins `astro` and `@astrojs/markdown-remark` **exact and moving together**, because a floating range on either side breaks `npm ci` on an exact optional peer. Adding `@astrojs/mdx@<version>` to that tree is precisely the operation those pins exist to make dangerous. **Resolve that first—`npm install --package-lock-only` and read the result—before evaluating anything else.** If it resolves clean, take MDX. If it does not, do not fight it: fall back to (c) and design the Five Across IA as a two-band structure instead.
+**Prefer MDX, but it is not selected until a disposable spike proves it.** MDX is the idiomatic Astro answer, `scripts/lint-prose.mjs` already accepts `.mdx`, and `extendMarkdownConfig` is supposed to preserve the three existing plugins. What could kill it is the pin: `rules/repo_rules.md` § Toolchain Constraints pins `astro` and `@astrojs/markdown-remark` **exact and moving together**, because a floating range on either side breaks `npm ci` on an exact optional peer. Adding `@astrojs/mdx` to that tree is precisely the operation those pins exist to make dangerous.
 
-MDX also needs a `plans/` entry per `rules/repo_rules.md` ("Astro is the framework… no additional frameworks without a `plans/` entry"), the collection glob widened to `**/*.{md,mdx}`, and a check that the Mermaid adapter still rejects fences outside `src/content/blog/**`.
+### The MDX spike, and where it happens
+
+**The spike runs in a throwaway git worktree that is deleted afterward. Nothing it produces is committed, and none of it counts as Stage 2 implementation.** This matters because the first step mutates `package-lock.json`, and a lockfile edit sitting in the real branch before the placement decision is recorded is indistinguishable from having started the build. Create the worktree, run the gate, read the result, `git worktree remove` it, and only then record the decision.
+
+```bash
+git -C ~/GitHub/nathanpaynedotcom worktree add ~/GitHub/.nathanpaynedotcom-worktrees/mdx-spike main
+# …run the five checks below inside it…
+git -C ~/GitHub/nathanpaynedotcom worktree remove ~/GitHub/.nathanpaynedotcom-worktrees/mdx-spike --force
+```
+
+**All five must pass. A clean install proves package-tree compatibility, which is not the same claim as build stability—it is the cheapest check, not the sufficient one.**
+
+1. **Resolution.** `npm install --package-lock-only` with `@astrojs/mdx` added. Read the actual output; an ERESOLVE against the `astro` / `@astrojs/markdown-remark` optional peer is a hard stop.
+2. **It renders.** `npm ci`, add the MDX integration, convert one project entry to `.mdx` with a component imported and placed mid-body, and `astro build`. The page must build and the component must appear where it was placed—that is the whole reason MDX is a candidate.
+3. **The existing pipeline survives.** The three plugins in `src/plugins/` must still run over both `.md` and `.mdx`. Check a rendered blog post for figure captions and colour chips, not just the absence of a build error.
+4. **Prose lint sees it.** `node scripts/lint-prose.mjs` must actually lint the `.mdx` file. Its `MARKDOWN_EXTENSIONS` set includes `.mdx`, so this should hold—confirm it rather than assuming, by planting a spaced em dash and watching the gate fail.
+5. **The Mermaid restriction holds.** The adapter must still reject Mermaid fences outside `src/content/blog/**`. Plant one in the `.mdx` project entry; the build must fail. If MDX silently widens that surface, that is a regression in an invariant `rules/repo_rules.md` states explicitly.
+
+**If all five pass, take MDX.** Record the evidence—the five outcomes, not "it worked"—in a `plans/` entry, which `rules/repo_rules.md` requires for a framework-level addition anyway, plus the collection glob widening to `**/*.{md,mdx}`.
+
+**If any fails, do not fight it.** Fall back to (c), design the Five Across IA as a two-band structure, and record which check failed and why. A failed spike is a completed Stage 1, not a blocked one—the STOP condition is only for the case where *no* option is safe.
 
 ---
 
