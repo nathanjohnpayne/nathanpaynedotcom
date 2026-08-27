@@ -394,13 +394,33 @@ Second, the tension. **Eleven players bingoing on the embark card cannot be reco
 
 > ":56 of 517 sessions over ten days, 77% contained no mark at all"
 
-**SUPPORTED, re-derived here, exact.** PostHog project 503790, window 2026-07-14 → 2026-07-24: `SELECT count(DISTINCT $session_id) FROM events WHERE timestamp >= toDateTime('2026-07-14 00:00:00') AND timestamp < toDateTime('2026-07-25 00:00:00') AND $session_id IS NOT NULL AND $session_id != ''` returns **517** on the nose. "Ten days" reconciles with §B22's ten-day itinerary; the query window is eleven calendar days because it opens the day before embarkation, which adds 7 marks and no meaningful session volume.
+**SUPPORTED, re-derived here, exact.** PostHog project 503790, window 2026-07-14 → 2026-07-24: `SELECT count(DISTINCT $session_id) FROM events WHERE timestamp >= toDateTime('2026-07-14 00:00:00') AND timestamp < toDateTime('2026-07-25 00:00:00') AND $session_id IS NOT NULL AND $session_id != ''` returns **517** on the nose. "Ten days" does NOT reconcile with §B22's ten-day itinerary, and an earlier version of this row waved that away. The query window is **eleven** calendar days: it opens 2026-07-14, the day before embarkation. Calling the result a ten-day statistic was wrong (Codex P2 on #834).
+
+**Re-derived over the true ten days, 2026-07-15 → 2026-07-24:** `494` sessions and `813` `mark_square` events, against `517` and `820` over the eleven-day window. So the extra day carries 23 sessions and 7 marks—more session volume than the earlier note claimed. **A page saying "ten days" must use 494, not 517.**
+
+### B27.1—the like-for-like mark comparison
+
+Not a page claim yet; recorded because #834 needed it and the raw comparison it replaces was wrong.
+
+`820` PostHog marks and `845` Firestore standings squares are **not comparable**, because they cover different windows in two directions at once: the 820 includes the pre-embarkation day (§B27) and the post-freeze ceremonial marks the standings exclude by design (§B34, §B36), while the 845 includes neither. The raw 25-mark difference is therefore an artifact, and cannot corroborate anything.
+
+Re-derived, restricted to the scoring window—embarkation to the 23:00 freeze instant, which is `2026-07-23 21:00 UTC`:
+
+| Window | `mark_square` |
+|---|---:|
+| Ten days, 2026-07-15 → 2026-07-24 | **813** |
+| Of which **before** the freeze instant | **772** |
+| Of which **after**, on the ceremonial card | **41** |
+
+The 41 reproduces §B34's figure exactly, from an independent query, which is a useful check on both.
+
+**Like-for-like: 845 Firestore standings squares against 772 PostHog marks in the same window—a gap of 73.** The direction is unchanged and the magnitude is nearly three times the artifact it replaces, so the offline-queueing reading is *better* supported by the corrected comparison than by the raw one. Still corroboration rather than proof: nothing here demonstrates those 73 were queued offline, only that Firestore holds marks PostHog never logged.
 
 ### B28—"77% contained no mark at all"
 
 > ":56 77% contained no mark at all, people opening the app just to read the feed and check the standings"
 
-**SPLIT—the arithmetic is SUPPORTED and re-derived here; the motive clause is UNPROVABLE and is the page's own inference.** Sessions with no `mark_square` event: **398 of 517**, which is 76.98%, so 77% is correct and not rounded generously. What the number cannot carry is *why*—"opening the app just to read the feed and check the standings" is a reading of an absence, and the absence is equally consistent with a cold boot, a push notification, or a failed sign-in (§BM2 on `login_failed` under-capturing exactly that). The page states it as observation. Defensible weaker form: mark it as the inference it is, or support it with the feed and leaderboard `$pageview` paths within those 398 sessions, which is a query nobody has run.
+**SPLIT—the arithmetic is SUPPORTED and re-derived here; the motive clause is UNPROVABLE and is the page's own inference.** Sessions with no `mark_square` event: over the **true ten-day** window, 2026-07-15 → 2026-07-24, **379 of 494**, which is 76.7%. Over the eleven-day window an earlier version of this row used, 398 of 517, which is 76.98%. Both round to 77%, so the headline survives the §B27 correction and the counts beneath it do not—**a page saying ten days must use 379 of 494.** What the number cannot carry is *why*—"opening the app just to read the feed and check the standings" is a reading of an absence, and the absence is equally consistent with a cold boot, a push notification, or a failed sign-in (§BM2 on `login_failed` under-capturing exactly that). The page states it as observation. Defensible weaker form: mark it as the inference it is, or support it with the feed and leaderboard `$pageview` paths within those 398 sessions, which is a query nobody has run.
 
 ### B29—hearts and doubts each traced to one player
 
