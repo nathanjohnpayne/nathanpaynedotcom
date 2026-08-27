@@ -16,7 +16,7 @@ Deliberate. #740 calibrates the ledger format and the Fable handoff; #739/#741 r
 | 3 | #741 | html-mockups-as-spec | **done** | `plans/759/html-mockups-as-spec-ledger.md` | `content/741-html-mockups-audit` | [#796](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/796) | **merged** `89e82c1` |
 | 4 | #744 | six-prs-one-bug-agent-failure-modes | **done** | `plans/759/six-prs-one-bug-agent-failure-modes-ledger.md` | `content/744-six-prs-audit` | [#798](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/798) | **merged** `29d864e` |
 | 5 | #745 | autofix-was-the-whole-cost | **done** | `plans/759/autofix-was-the-whole-cost-ledger.md` | `content/745-autofix-audit` | [#803](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/803) | **merged** `6a016ef` |
-| 6 | #743 | perfect-score-wrong-axis | 3 in review | `plans/759/perfect-score-wrong-axis-ledger.md` | `content/743-perfect-score-audit` | [#805](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/805) | **open**—the last unmerged blog audit |
+| 6 | #743 | perfect-score-wrong-axis | **done** | `plans/759/perfect-score-wrong-axis-ledger.md` | `content/743-perfect-score-audit` | [#805](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/805) | **merged** `957b977` |
 | 7 | #742 | two-blues-one-composition | **done** | `plans/759/two-blues-one-composition-ledger.md` | `content/742-two-blues-audit` | [#806](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/806) | **merged** `44a7827` |
 
 ### Brevity retrofits (pass 2 of the standard procedure)
@@ -260,7 +260,9 @@ Narrowing a claim in prose left the adjacent Mermaid diagram asserting the retra
 
 **Merged:** six of seven blog audits (#740, #739, #741, #744, #745, #742), four brevity retrofits, the project-pages ledger, six of seven project pages, and the matchline approval-gate follow-up.
 
-**Open:** [#805](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/805) (the last blog audit), [#814](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/814) (swipe-watch, the last project page), [#809](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/809) (the brevity harness).
+**All seven blog audits and all seven project pages are merged.** The only PR still open is [#809](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/809), the brevity harness.
+
+**#805 took a second Fable pass after review had begun.** Its thesis changed mid-review—from correlated verification to knowledge-transfer failure—and only the metadata followed. The transfer argument appeared seven times, every one in `description`, `seoDescription`, a takeaway, or the diagram, and not once in the running prose, whose explanatory core still quoted the superseded diagnosis. Patching further would have kept producing contradictions, because the argument itself had never been rewritten. **When a thesis changes, the body needs rewriting, not the surfaces that describe it.**
 
 ### The defect that produced more findings than every other cause combined
 
