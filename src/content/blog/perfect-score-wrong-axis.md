@@ -27,12 +27,12 @@ pullquotes:
 sidebar:
   - type: mermaid
     title: "Closure inside the session, and the knowledge that never crossed"
-    description: "The authoring session dispositions the threads raised before the merge and PR 797 merges clean; the escaped defect is posted afterwards and itself dispositioned, and only then does the record close at 134 threads and 122 dispositions, the escape among them; a spec-derived pass on sibling PR 791 had named the same CommonMark rule twelve hours earlier, but every review was scoped to one diff, and an unbriefed CodeRabbit re-run posts the escape 94 seconds after the merge."
+    description: "The authoring session dispositions the threads raised before the merge, all but one CodeRabbit thread that never got a marker, and PR 797 merges clean; the escaped defect is posted afterwards and itself dispositioned, and only then does the record close at 134 threads and 122 dispositions, the escape among them; a spec-derived pass on sibling PR 791 had named the same CommonMark rule twelve hours earlier, but every review was scoped to one diff, and an unbriefed CodeRabbit re-run posts the escape 94 seconds after the merge."
     content: |
       graph TD
-          A["Authoring session"] --> B["134 finding threads<br/>(116 severity-badged)"]
+          A["Authoring session"] --> B["Findings raised on the batch<br/>as each PR is reviewed"]
           B --> C["Fix verification briefed<br/>from the finding list<br/>(author record)"]
-          C --> D["Every pre-merge thread<br/>dispositioned; none rejected"]
+          C --> D["Threads dispositioned as raised,<br/>one CodeRabbit thread unmarked;<br/>none rejected"]
           D --> E["#797 merges clean;<br/>the defect ships"]
           S["CommonMark spec"] --> F["Spec-derived pass on #791:<br/>P1 names the same rule,<br/>12 hours earlier"]
           F -->|"brief scoped to one diff"| X["Never applied to #797"]
