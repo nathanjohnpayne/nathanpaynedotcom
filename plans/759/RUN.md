@@ -335,7 +335,7 @@ The second half of epic #759: issues #751–758. Runbook: `plans/759/portfolio-n
 
 | # | Issue | Page | Ledger | Components | PR | Status |
 |---|-------|------|--------|-----------|----|--------|
-| 1 | — | infrastructure | — | all three | | in progress |
+| 1 | — | infrastructure | — | all three | [#830](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/830) | in review |
 | 2 | #752 | `five-across` | §B | decisions, constraints, learnings | | not started |
 | 3 | #757 | `swipe-watch` | §G | decisions, learnings | | not started |
 | 4 | #753 | `mergepath` | §E | decisions | | not started |

@@ -702,6 +702,36 @@ describe('Project Pages — case-study components', () => {
     }
   });
 
+  it('a project declaring case-study fields is .mdx, so they can actually render', () => {
+    // The schema accepts `decisions` / `constraints` / `learnings` on ANY
+    // project and [slug].astro forwards all three for every page, but only
+    // an .mdx body can PLACE a component. A .md page that authors twelve
+    // decision records therefore builds clean, passes the suite, and
+    // renders nothing — no error, no warning, no output.
+    //
+    // That is the natural mistake while reworking these pages one PR at a
+    // time: fill in the frontmatter, forget the conversion. Nothing else
+    // catches it, because the diff looks correct. Passes vacuously until
+    // the first page adopts a field.
+    const caseStudyFields = ['decisions', 'constraints', 'learnings'];
+    const sourceFiles = readdirSync(CONTENT).filter(
+      (f) => f.endsWith('.md') || f.endsWith('.mdx'),
+    );
+
+    for (const file of sourceFiles) {
+      const frontmatter = readProjectFrontmatter(file);
+      const declared = caseStudyFields.filter(
+        (field) => Array.isArray(frontmatter[field]) && frontmatter[field].length > 0,
+      );
+      if (declared.length === 0) continue;
+
+      expect(
+        file.endsWith('.mdx'),
+        `${file} declares ${declared.join(', ')} but is .md — those fields cannot render from a Markdown body. Convert the file to .mdx and place the component(s), or remove the frontmatter.`,
+      ).toBe(true);
+    }
+  });
+
   it('components carry no <style> block — styles live in global.css', () => {
     // Only OgCard.astro carries scoped styles, and it is a build-time OG
     // template. Everything else is styled from the single stylesheet.
