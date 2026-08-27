@@ -182,7 +182,7 @@ Note against the prior run's framing: the sixteen keys at `specs/DST-TDI-001-Con
 
 ### BM1—the repository was renamed; the product was not
 
-The GitHub repository `nathanjohnpayne/gaycruisebingo` was renamed `nathanjohnpayne/fiveacross` on 2026-08-27. **The rename covers the repository and nothing else,** and the arithmetic makes the point better than the assertion: the token `gaycruisebingo` occurs **958** times in that tree across 186 files (`git grep -io gaycruisebingo | wc -l`), and only **166** of those are the repository slug (`git grep -io nathanjohnpayne/gaycruisebingo | wc -l`). The other 792 name things the rename did not touch.
+The GitHub repository `nathanjohnpayne/gaycruisebingo` was renamed `nathanjohnpayne/fiveacross` on 2026-08-27. **The rename covers the repository and nothing else,** and the arithmetic makes the point better than the assertion: the token `gaycruisebingo` occurs **958** times in that tree across 186 files (`git grep -io gaycruisebingo 0395fd5 | wc -l`), and only **166** of those are the repository slug (`git grep -io nathanjohnpayne/gaycruisebingo 0395fd5 | wc -l`). **The ref is load-bearing and the commands are pinned to it.** `0395fd5` is the last commit before the rename propagated; at `origin/main` today the same commands return 795 and 14, because the rename rewrote the slug references it was supposed to. Unpinned, this row measures how far the rename has travelled rather than the thing it was written to establish (Phase 4b P3 on #834). The other 792 name things the rename did not touch.
 
 Three of them are live, and each is a different kind of thing:
 
@@ -198,10 +198,25 @@ The tree says so in its own words, at `src/editions.ts:37-43`: "It is an ENDORSE
 
 ### BM2—the #820 engagement cluster: one provenance chain for §B25–§B36
 
-Every figure in §B25–§B36, and the corrected §B15, entered `five-across.md` through PR **#820**, "content(five-across): replace the standings gap with the standings," merged 2026-08-27. That PR replaced a paragraph admitting the standings were unrecoverable, and it documents per-claim provenance in two tables. Neither source is a repository:
+Every figure in §B25–§B36 except the like-for-like pair in §B27.1, and the corrected §B15, entered `five-across.md` through PR **#820**, The 772 and 73 in §B27.1 were derived by this audit and first published by #834, not by #820, "content(five-across): replace the standings gap with the standings," merged 2026-08-27. That PR replaced a paragraph admitting the standings were unrecoverable, and it documents per-claim provenance in two tables. Neither source is a repository:
 
 - **Firestore**—the frozen production event `events/med-2026`, `frozenAt` 2026-07-23 23:00 Europe/Rome. Player-row root aggregates, `dayStats` per-card buckets, and `days/{n}/meta` first-bingo pins.
-- **PostHog**—project **503790** (`FiveAcross.app`), over 2026-07-14 → 2026-07-24.
+- **PostHog**—project **503790** (`FiveAcross.app`). #820 queried 2026-07-14 → 2026-07-24, **eleven** calendar days.
+
+**The declared window for this cluster is the Event's own ten days, 2026-07-15 → 2026-07-24 in `Europe/Rome`**, and every figure below is stated over it unless a row says otherwise. Three scopes were in play and the page mixed them (Phase 4b P2 on #834). The differences are small and real, so the window has to be declared rather than inferred:
+
+| Figure | 11-day (#820) | 10-day, project `America/Los_Angeles` | **10-day, Event `Europe/Rome`** |
+|---|---:|---:|---:|
+| Sessions | 517 | 494 | **499** |
+| Markless sessions | 398 | 379 | **384** |
+| `mark_square` | 820 | 813 | **813** |
+| Distinct markers | 13 | 12 | **12** |
+| `demand_proof` | 8 | 7 | **7** |
+| `heart_post` | 19 | 19 | **19** |
+| `reshuffle_card` | 7 | 7 | **7** |
+| Markers at 5+ mark-days | 9 of 13 | — | **9 of 12** |
+
+All three round the markless share to **77%**. The Rome window is chosen because the page describes the Event, and the Event keeps Rome time; the project's own timezone is an artifact of how PostHog was configured, not of the thing being measured. Rome bounds in UTC are `2026-07-14 22:00` to `2026-07-24 22:00`.
 
 **What this audit re-derived, and what it did not.** The PostHog half was re-run in this session through the PostHog MCP against project 503790, and every figure reproduced; those rows are **SUPPORTED**, with the query stated in the row so the next reader can repeat it rather than trust it. The Firestore half could not be reached—this session has no read path to the production project—so those rows are **EXTERNALLY SOURCED** per §M6: provenance named, not re-derived. No row below asserts a figure on the strength of #820's prose alone without saying that is what it is doing.
 
@@ -283,7 +298,18 @@ Every figure in §B25–§B36, and the corrected §B15, entered `five-across.md`
 
 > ":50 Live operations continued through the sailing itself—moderation hardening, feature drops, and fixes shipped mid-cruise through the auto-updating PWA while the game was being played."
 
-**SPLIT.** "Feature drops and fixes" **landed** during the sailing, which is SUPPORTED and then some: 80 commits land between 2026-07-15 and 2026-07-24 inclusive (`git log origin/main --format='%ad %h %s' --date=short --since=2026-07-15 --until=2026-07-25`), including `bd77418` "feat(easy-mix): blend embark-pool squares into main-day cards (#394)" and `833d57e` "feat(dealing): reshuffle a hard Day Card (3 per cruise, pristine cards only) (#383)", both on 2026-07-17. One limit on the word *shipped*: the log proves commits landed on `main`, not that they were deployed, reached the auto-updating PWA, or arrived while anyone was playing. No deployment record was found for that window. "Development continued through the sailing" is what the evidence carries; "shipped mid-cruise" needs a deploy log or an established automatic main-to-production path.
+**SPLIT, and the count was wrong on every rule.** "Feature drops and fixes" **landed** during the sailing, which is SUPPORTED and then some. The **80** this row published is not reproducible, including by its own stated command, which returns **88** today; `--since`/`--until` without offsets resolve against the runner's local timezone, so the figure moved with the machine (Phase 4b P2 on #834).
+
+**Pinned rule, and the numbers it gives.** Bounds are the Event's own ten days in Rome, `--since='2026-07-15T00:00:00+02:00' --until='2026-07-25T00:00:00+02:00'` on `origin/main`:
+
+| Counting rule | Commits |
+|---|---:|
+| Reachable (`git log`) | **98** |
+| First-parent (`git log --first-parent`) | **96** |
+
+**Use 96 and say the rule.** This repository lands work through squashed pull requests, so first-parent is the count of changes that landed; the reachable figure double-counts the commits inside merges. A page saying a bare number without the rule is unreproducible whichever number it picks.
+
+**There is no classification supporting "most were firefighting."** Nothing in this ledger or the repository partitions those 96 into fix and feature, and the qualifier should not be restated as if there were. What the record does carry is the weaker, checkable claim already in this row: mid-cruise commits **skew** to auth and PWA work. Among them, `bd77418` "feat(easy-mix): blend embark-pool squares into main-day cards (#394)" and `833d57e` "feat(dealing): reshuffle a hard Day Card (3 per cruise, pristine cards only) (#383)", both on 2026-07-17. One limit on the word *shipped*: the log proves commits landed on `main`, not that they were deployed, reached the auto-updating PWA, or arrived while anyone was playing. No deployment record was found for that window. "Development continued through the sailing" is what the evidence carries; "shipped mid-cruise" needs a deploy log or an established automatic main-to-production path.
 
 "Moderation hardening" is **weak in that window**: the moderation stack (server-authoritative auto-hide, Vision gate) all landed 2026-07-09, six days *before* embarkation. Mid-cruise commits skew to auth and PWA firefighting. Defensible weaker form: drop "moderation hardening" from the mid-cruise list, or move it to the pre-embarkation sentence where it belongs.
 
@@ -396,11 +422,11 @@ Second, the tension. **Eleven players bingoing on the embark card cannot be reco
 
 **SPLIT—the count is SUPPORTED and exact for the window queried; "over ten days" is WRONG.** PostHog project 503790, window 2026-07-14 → 2026-07-24: `SELECT count(DISTINCT $session_id) FROM events WHERE timestamp >= toDateTime('2026-07-14 00:00:00') AND timestamp < toDateTime('2026-07-25 00:00:00') AND $session_id IS NOT NULL AND $session_id != ''` returns **517** on the nose. "Ten days" does NOT reconcile with §B22's ten-day itinerary, and an earlier version of this row waved that away. The query window is **eleven** calendar days: it opens 2026-07-14, the day before embarkation. Calling the result a ten-day statistic was wrong (Codex P2 on #834).
 
-**Re-derived over the true ten days, 2026-07-15 → 2026-07-24:** `494` sessions and `813` `mark_square` events, against `517` and `820` over the eleven-day window. So the extra day carries 23 sessions and 7 marks—more session volume than the earlier note claimed. **A page saying "ten days" must use 494, not 517.**
+**Re-derived on the declared window (§BM2), the Event's ten days in `Europe/Rome`: `499` sessions and `813` `mark_square` events.** The same ten days bucketed in the project's own `America/Los_Angeles` give `494`; the eleven-day query gives `517`. **A page saying "ten days" must use 499, and must use the same window for every other PostHog figure it prints**—mixing a ten-day session count with eleven-day demand and marker counts is exactly the defect Phase 4b found on #834.
 
 ### B27.1—the like-for-like mark comparison
 
-Not a page claim yet; recorded because #834 needed it and the raw comparison it replaces was wrong.
+Derived by this audit rather than inherited from #820, and **now published**: #834 states the 845-against-772 comparison and the 73-mark gap in three places. Recorded here because the raw comparison it replaces was wrong.
 
 `820` PostHog marks and `845` Firestore standings squares are **not comparable**, because they cover different windows in two directions at once: the 820 includes the pre-embarkation day (§B27) and the post-freeze ceremonial marks the standings exclude by design (§B34, §B36), while the 845 includes neither. The raw 25-mark difference is therefore an artifact, and cannot corroborate anything.
 
@@ -420,13 +446,13 @@ The 41 reproduces §B34's figure exactly, from an independent query, which is a 
 
 > ":56 77% contained no mark at all, people opening the app just to read the feed and check the standings"
 
-**SPLIT—the arithmetic is SUPPORTED and re-derived here; the motive clause is UNPROVABLE and is the page's own inference.** Sessions with no `mark_square` event: over the **true ten-day** window, 2026-07-15 → 2026-07-24, **379 of 494**, which is 76.7%. Over the eleven-day window an earlier version of this row used, 398 of 517, which is 76.98%. Both round to 77%, so the headline survives the §B27 correction and the counts beneath it do not—**a page saying ten days must use 379 of 494.** What the number cannot carry is *why*—"opening the app just to read the feed and check the standings" is a reading of an absence, and the absence is equally consistent with a cold boot, a push notification, or a failed sign-in (§BM2 on `login_failed` under-capturing exactly that). The page states it as observation. Defensible weaker form: mark it as the inference it is, or support it with the feed and leaderboard `$pageview` paths within those 398 sessions, which is a query nobody has run.
+**SPLIT—the arithmetic is SUPPORTED and re-derived here; the motive clause is UNPROVABLE and is the page's own inference.** Sessions with no `mark_square` event: on the declared Rome ten-day window, **384 of 499**, which is 77.0%. The same ten days in the project timezone give 379 of 494 (76.7%); the eleven-day query gives 398 of 517 (76.98%). All three round to 77%, so the headline survives every scope and the counts beneath it do not—**a page saying ten days must use 384 of 499.** What the number cannot carry is *why*—"opening the app just to read the feed and check the standings" is a reading of an absence, and the absence is equally consistent with a cold boot, a push notification, or a failed sign-in (§BM2 on `login_failed` under-capturing exactly that). The page states it as observation. Defensible weaker form: mark it as the inference it is, or support it with the feed and leaderboard `$pageview` paths within those 398 sessions, which is a query nobody has run.
 
 ### B29—hearts and doubts each traced to one player
 
 > ":56 the social mechanics built for exactly that audience collapsed: hearts and doubts each traced to a single player"
 
-**SUPPORTED, re-derived here, and the record is starker than the page states.** Over the window, `heart_post` fires **19** times from **1** distinct person and `demand_proof` **8** times from **1**. Not "roughly one user"—one, in both cases, across ten days and sixteen players. This is the one row in the cluster where a stronger sentence is available than the one on the page: two mechanics with a full ten-day exposure and a single participant each. §B7 (hearts never count toward score) and §B8 (three claim modes) are the design rows this outcome bears on—the doubt mechanic is the honor system's escape hatch, and it was pulled once by one person.
+**SUPPORTED, re-derived here, and the record is starker than the page states.** On the declared Rome ten-day window, `heart_post` fires **19** times from **1** distinct person and `demand_proof` **7** times from **1**. The eleven-day query returns 8 demands; the eighth fell on 2026-07-14, before embarkation, on either clock. Not "roughly one user"—one, in both cases, across ten days and sixteen players. This is the one row in the cluster where a stronger sentence is available than the one on the page: two mechanics with a full ten-day exposure and a single participant each. §B7 (hearts never count toward score) and §B8 (three claim modes) are the design rows this outcome bears on—the doubt mechanic is the honor system's escape hatch, and it was pulled once by one person.
 
 ### B30—"7 of 48 reshuffles were spent"
 
@@ -440,13 +466,13 @@ The 41 reproduces §B34's figure exactly, from an independent query, which is a 
 
 **SPLIT—the roster and marker counts are EXTERNALLY SOURCED; "ten with a bingo" is SUPPORTED by independent corroboration; and the sentence splices two systems' denominators.** Sixteen players and fourteen markers are Firestore root aggregates (§BM2), unreachable here, and PostHog cannot substitute: its identified-person counts run *under* the roster (14 on `login`, 15 on `$identify`) while its total person count runs wildly over it (144 on `$pageview`), which is why #820 excluded them. Ten players with a bingo is the one figure in this row that two systems agree on: PostHog records exactly **10 distinct persons** firing `bingo` across the window.
 
-The splice is the finding. PostHog counts **13** markers, not fourteen—an under-capture consistent with the like-for-like 772-against-845 mark gap (§B27.1), not the raw 820-against-845 comparison, which §B27.1 shows is an artifact of mismatched windows—and the "nine on five or more days" in the very next clause is PostHog's, measured against those thirteen (§B32). *Nine of fourteen* and *nine of thirteen* are different claims, and the sentence as written takes its denominator from Firestore and its numerator from PostHog without saying so. Defensible form: keep each system's figures in its own clause, or state the nine against thirteen and name the source. This is the same class of defect as §C10—reproducing a rule's output without stating the rule—one layer down.
+The splice is the finding. PostHog counts **12** markers on the declared window, not fourteen (13 over the eleven-day query)—an under-capture consistent with the like-for-like 772-against-845 mark gap (§B27.1), not the raw 820-against-845 comparison, which §B27.1 shows is an artifact of mismatched windows—and the "nine on five or more days" in the very next clause is PostHog's, measured against those twelve (§B32). *Nine of fourteen* and *nine of twelve* are different claims, and the sentence as written takes its denominator from Firestore and its numerator from PostHog without saying so. Defensible form: keep each system's figures in its own clause, or state the nine against thirteen and name the source. This is the same class of defect as §C10—reproducing a rule's output without stating the rule—one layer down.
 
 ### B32—"nine on five or more days"
 
 > ":56 nine on five or more days"
 
-**SUPPORTED, re-derived here, and robust to the clock question.** Grouping `mark_square` by person and counting distinct mark-days returns **9 of 13** markers at five or more days under `Europe/Rome` bucketing and **9 of 13** under the project's own `America/Los_Angeles`—the figure does not move. The distribution behind it: 10, 9, 7, 7, 7, 7, 6, 5 and 5 days for the nine; 3, 1, 1 and 1 for the other four. See §B31 on the denominator the page pairs this with.
+**SUPPORTED, re-derived here, and robust to the clock question.** Grouping `mark_square` by person and counting distinct mark-days returns **9 of 12** markers at five or more days on the declared Rome ten-day window. The numerator is stable across every scope tested—nine under Rome and LA bucketing, on the ten-day and eleven-day windows alike—while the denominator moves with the window (12 on ten days, 13 on eleven). The distribution behind it: 10, 9, 7, 7, 7, 7, 6, 5 and 5 days for the nine; 3, 1, 1 and 1 for the other four. See §B31 on the denominator the page pairs this with.
 
 ### B33—"845 squares and 61 bingos, zero blackouts"
 
@@ -472,7 +498,7 @@ The percentage, re-derived here. The exact count depends on which boundary "the 
 
 PR `#820`'s 299 is the project-timezone reading; the Event's own clock gives 293. Both round to 36%. The freeze-bounded window—which is what the sentence literally asserts, since it names the freeze as the thing doing the pulling—gives 288 and rounds to **35%**. The claim is safe as written because "the final day" reads naturally as a calendar day; it would not survive a reader who took the freeze as defining the window. For completeness, **41** marks land after the 23:00 instant, on the ceremonial closing Day whose marks the standings exclude by design.
 
-The freeze instant is the weaker half. `frozenAt` 2026-07-23 23:00 Europe/Rome is Firestore's and unreachable here, and it is nine hours away from what the repository derives for this Event. `standingsFreezeAtFor` (`src/game/logic.ts:865-885`) resolves the Standings Freeze to a configured `EventDoc.standingsFreezeAt` when the document carries one, else to the first ceremonial Day's own `unlockAt`. The med-2026 seed configures no `standingsFreezeAt`, and its closing Day unlocks at `unlockAt0800Rome('2026-07-24')` (`src/data/seed.ts:299`)—**08:00 Rome on Day 10**, which `specs/d15-finale.md:8` names as the STANDARD shape: "those instants are **20:00 on Day 9** and **08:00 on Day 10**." The gap is not by itself an error—`frozenAt` is the stamp that a freeze happened and `standingsFreezeAt` the schedule, a distinction `src/domainTypes.d.ts:322-327` spells out at length, and the production document is not the seed—but nothing in the repository accounts for it, while the page presents 23:00 as a designed deadline. Before the rewrite restates the hour, establish whether the production Event carried a configured freeze, was frozen through an admin path, or had its closing Day edited in flight; §B19 records that in-flight data edits to a live Event are established practice here. Defensible weaker form if that cannot be settled: "the freeze on the last night," which the mark distribution supports on every reading above.
+The freeze instant is the weaker half. `frozenAt` 2026-07-23 23:00 Europe/Rome is Firestore's and unreachable here, and it is nine hours away from what the repository derives for this Event. `standingsFreezeAtFor` (`src/game/logic.ts:865-885`) resolves the Standings Freeze to a configured `EventDoc.standingsFreezeAt` when the document carries one, else to the first ceremonial Day's own `unlockAt`. The med-2026 seed configures no `standingsFreezeAt`, and its closing Day unlocks at `unlockAt0800Rome('2026-07-24')` (`src/data/seed.ts:299`)—**08:00 Rome on Day 10**, which `specs/d15-finale.md:8` names as the STANDARD shape: "those instants are **20:00 on Day 9** and **08:00 on Day 10**." The gap is not by itself an error—`frozenAt` is the stamp that a freeze happened and `standingsFreezeAt` the schedule, a distinction `src/domainTypes.d.ts:322-327` spells out at length, and the production document is not the seed—but nothing in the repository accounts for it. An earlier revision of the page presented 23:00 as a designed deadline; since the owner disposition below it carries the hour as an operating decision instead, with the derived 08:00 as its rejected alternative. Before the rewrite restates the hour, establish whether the production Event carried a configured freeze, was frozen through an admin path, or had its closing Day edited in flight; §B19 records that in-flight data edits to a live Event are established practice here. Defensible weaker form if that cannot be settled: "the freeze on the last night," which the mark distribution supports on every reading above.
 
 ### B35—"three cards claiming their first bingo hours before the deadline"
 
