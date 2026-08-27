@@ -62,6 +62,10 @@ const imageDimensions = {
     width: 2000,
     height: 1558,
   },
+  '/images/projects/five-across-final-standings.png': {
+    width: 1800,
+    height: 2250,
+  },
 };
 
 export default function rehypeFigureCaptions() {
@@ -97,11 +101,20 @@ export default function rehypeFigureCaptions() {
         img.properties.height = dims.height;
       }
 
+      // Taller-than-wide figures are capped narrower by `.blog-figure-portrait`
+      // in global.css. At full column width a portrait image runs longer than
+      // the viewport and swamps the prose around it, so the class exists to
+      // hold it to a readable size. Only measurable images qualify: without a
+      // dimension-map entry there is nothing to test the orientation against.
+      const isPortrait = dims ? dims.height > dims.width : false;
+
       // Build the <figure> element that replaces the <p>
       const figure = {
         type: 'element',
         tagName: 'figure',
-        properties: { className: ['blog-figure'] },
+        properties: {
+          className: isPortrait ? ['blog-figure', 'blog-figure-portrait'] : ['blog-figure'],
+        },
         children: [
           img,
           {
