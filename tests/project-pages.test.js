@@ -716,6 +716,25 @@ describe('Project Pages — case-study components', () => {
     }
   });
 
+  it('every project slug is unique across the collection', () => {
+    // getStaticPaths keys the route on `data.slug`, not on the file path, so
+    // two files in different directories declaring the same slug collide on
+    // one route. The filename-matches-slug convention makes that impossible
+    // while every project is flat — and stops protecting anything the moment
+    // one is nested, which the recursive glob allows (CodeRabbit, round 8).
+    const bySlug = new Map();
+    for (const file of projectSourceFiles()) {
+      const { slug } = readProjectFrontmatter(file);
+      bySlug.set(slug, [...(bySlug.get(slug) ?? []), file]);
+    }
+
+    const collisions = [...bySlug.entries()].filter(([, files]) => files.length > 1);
+    expect(
+      collisions,
+      `slug collisions: ${collisions.map(([slug, files]) => `${slug} <- ${files.join(', ')}`).join('; ')}`,
+    ).toEqual([]);
+  });
+
   it('a project declaring case-study fields also renders them', () => {
     // The schema accepts `decisions` / `constraints` / `learnings` on ANY
     // project and [slug].astro forwards all three for every page, but the

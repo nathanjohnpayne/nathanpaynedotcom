@@ -59,7 +59,7 @@ draft: false
 | Field | Type | Required | Purpose |
 |-------|------|----------|---------|
 | `title` | string | yes | Page title, hero heading, JSON-LD name |
-| `slug` | string | yes | URL path segment; must match filename |
+| `slug` | string | yes | URL path segment; must match filename, and must be unique across the whole collection. `getStaticPaths` keys the route on this field, not on the file path, so two files in different directories declaring the same `slug` collide on one route—see § Slug uniqueness |
 | `description` | string | yes | Hero deck text, meta description, JSON-LD |
 | `kicker` | string | yes | Source for the metadata table's `Topics` column (e.g., "AI × Finance × Theater" → renders as `AI · Finance · Theater`). Field name kept for frontmatter back-compat |
 | `order` | non-negative integer | yes | Position on the `/projects/` index grid (lower = first). Governs `/projects/` **only**—the homepage Builds grid is hand-authored markup and ignores this field. See § Canonical project ordering |
@@ -215,6 +215,14 @@ import LearningLedger from '../../components/projects/LearningLedger.astro';
 Two halves, and they arrive by different routes. The **components** come from the page's own `import` statements—MDX does not put them in scope and the route does not supply them, so omitting an import fails the build on a missing reference. The **data** comes from the route, on `props`. The `../../` depth shown is correct for a flat `src/content/projects/<slug>.mdx`; see § Body content structure for what a nested project would need.
 
 Reach the field through `props.X`, never `frontmatter.X`. In MDX, `frontmatter` is the page's raw, unvalidated YAML—Zod has not run against it—so a field declared `.optional().default([])` in `src/content.config.ts` still reads as `undefined` on the `frontmatter` path when the key is absent from the file. `src/pages/projects/[slug].astro` forwards the Zod-validated values explicitly on `<Content decisions={data.decisions} constraints={data.constraints} learnings={data.learnings} />`; a body that instead reads a bare `decisions` throws a `ReferenceError`. See [plans/759/component-placement-decision.md](../plans/759/component-placement-decision.md) for the full evidence behind this.
+
+### Slug uniqueness
+
+`slug` must be unique across the entire collection, and the collection is recursive.
+
+`src/pages/projects/[slug].astro` builds its routes from `params: { slug: project.data.slug }`, not from the file path, so `projects/a/deal.mdx` and `projects/b/deal.mdx` both declaring `slug: "deal"` resolve to the same `/projects/deal/` route. The filename convention—filename matches slug—makes that impossible in the flat layout every project uses today, because two files cannot share a name in one directory. It stops protecting anything the moment a project is nested.
+
+`tests/project-pages.test.js` asserts uniqueness, so a collision fails the suite rather than silently dropping a page.
 
 ---
 
