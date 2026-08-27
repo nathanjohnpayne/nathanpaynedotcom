@@ -71,7 +71,13 @@ async function downloadImage(url, destPath) {
 }
 
 async function main() {
-  const entries = await readdir(projectsDir);
+  // `recursive: true` because the projects collection glob is `**/*.{md,mdx}`
+  // and a nested project would otherwise never be seen: a flat readdir returns
+  // only the DIRECTORY name, which the extension filter below then skips. The
+  // miss is silent — the page still builds — which for this script means
+  // serving a stale fallback frame indefinitely, the exact outcome the strict
+  // error policy above exists to prevent (Codex P2 on #830).
+  const entries = await readdir(projectsDir, { recursive: true });
   const projects = [];
   const skippedMuxBacked = [];
   for (const entry of entries) {

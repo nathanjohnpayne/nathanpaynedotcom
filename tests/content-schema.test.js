@@ -76,18 +76,33 @@ describe('Content Schema', () => {
 
     // Each field is an array that is optional with a [] default — the shape
     // that makes an un-authored case study a no-op rather than a schema
-    // failure. Asserted per field rather than by counting occurrences of the
-    // `.optional().default([])` pattern: `related` already matches it, so a
-    // count would stay satisfied while one of the three lost its default.
-    for (const field of ['decisions', 'constraints', 'learnings']) {
-      expect(
-        projectsSource,
-        `${field} must be z.array(...).optional().default([])`,
-      ).toMatch(
-        new RegExp(
-          `${field}:\\s*z\\s*\\n\\s*\\.array\\([\\s\\S]*?\\)\\s*\\n\\s*\\.optional\\(\\)\\s*\\n\\s*\\.default\\(\\[\\]\\)`,
-        ),
-      );
+    // failure.
+    //
+    // Sliced per field rather than matched by regex across the whole
+    // collection. Two weaker forms were tried and both let a missing default
+    // through:
+    //   1. Counting `.optional().default([])` occurrences — `related` already
+    //      contributes one, so the count stays satisfied when one of the three
+    //      loses its default.
+    //   2. A per-field regex spanning `[\s\S]*?` from the field name — the lazy
+    //      quantifier walks past that field's own closing paren and matches the
+    //      `.optional().default([])` belonging to the NEXT array. Only the last
+    //      field in the sequence, `learnings`, actually fails when broken,
+    //      which is exactly the one a spot-check negative test picks.
+    // The slice makes the assertion structurally incapable of reaching a
+    // neighbouring field (Codex P2, round 3).
+    const fieldOrder = ['decisions', 'constraints', 'learnings'];
+    for (const [index, field] of fieldOrder.entries()) {
+      const start = projectsSource.indexOf(`${field}: z`);
+      expect(start, `${field} not found in the projects collection`).toBeGreaterThan(-1);
+
+      const next = fieldOrder[index + 1];
+      const end = next ? projectsSource.indexOf(`${next}: z`, start) : projectsSource.length;
+      const block = projectsSource.slice(start, end === -1 ? projectsSource.length : end);
+
+      expect(block, `${field} must be a z.array(...)`).toMatch(/^\w+: z\s*\n\s*\.array\(/);
+      expect(block, `${field} must be .optional()`).toContain('.optional()');
+      expect(block, `${field} must carry a .default([])`).toContain('.default([])');
     }
 
     // decisions: all five string sub-fields, plus the exact four-value

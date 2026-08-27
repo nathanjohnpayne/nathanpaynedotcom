@@ -716,31 +716,53 @@ describe('Project Pages — case-study components', () => {
     }
   });
 
-  it('a project declaring case-study fields is .mdx, so they can actually render', () => {
+  it('a project declaring case-study fields also renders them', () => {
     // The schema accepts `decisions` / `constraints` / `learnings` on ANY
-    // project and [slug].astro forwards all three for every page, but only
-    // an .mdx body can PLACE a component. A .md page that authors twelve
-    // decision records therefore builds clean, passes the suite, and
-    // renders nothing — no error, no warning, no output.
+    // project and [slug].astro forwards all three for every page, but the
+    // data only reaches a reader if an .mdx body PLACES the component. Two
+    // ways to author a page that builds clean, passes the suite, and shows
+    // nothing — no error, no warning, no output:
     //
-    // That is the natural mistake while reworking these pages one PR at a
-    // time: fill in the frontmatter, forget the conversion. Nothing else
-    // catches it, because the diff looks correct. Passes vacuously until
-    // the first page adopts a field.
-    const caseStudyFields = ['decisions', 'constraints', 'learnings'];
-    const sourceFiles = projectSourceFiles();
+    //   1. Declare the fields in a .md file. No body can place a component.
+    //   2. Declare them in .mdx and forget the component invocation.
+    //
+    // Both are the natural mistake while reworking these pages one PR at a
+    // time, and neither the build nor the diff can see either. Checking only
+    // the extension catches (1) and misses (2) (Codex P2, round 3).
+    // Vacuous until the first page adopts a field.
+    const FIELD_COMPONENTS = {
+      decisions: 'DecisionLedger',
+      constraints: 'ConstraintStrip',
+      learnings: 'LearningLedger',
+    };
 
-    for (const file of sourceFiles) {
-      const frontmatter = readProjectFrontmatter(file);
-      const declared = caseStudyFields.filter(
+    for (const file of projectSourceFiles()) {
+      const raw = readFileSync(join(CONTENT, file), 'utf-8');
+      const frontmatter = parseProjectFrontmatter(raw, file);
+      const declared = Object.keys(FIELD_COMPONENTS).filter(
         (field) => Array.isArray(frontmatter[field]) && frontmatter[field].length > 0,
       );
       if (declared.length === 0) continue;
 
       expect(
         file.endsWith('.mdx'),
-        `${file} declares ${declared.join(', ')} but is .md — those fields cannot render from a Markdown body. Convert the file to .mdx and place the component(s), or remove the frontmatter.`,
+        `${file} declares ${declared.join(', ')} but is .md — those fields cannot render from a Markdown body. Convert it to .mdx and place the component(s), or remove the frontmatter.`,
       ).toBe(true);
+
+      // Strip the frontmatter before searching, so a field NAME in the
+      // frontmatter can never be mistaken for a component invocation.
+      const body = raw.split(/^---$/m).slice(2).join('---');
+      for (const field of declared) {
+        const component = FIELD_COMPONENTS[field];
+        expect(
+          new RegExp(`<${component}\\b`).test(body),
+          `${file} declares ${field} but never places <${component}> in its body — the records would be authored and then silently dropped.`,
+        ).toBe(true);
+        expect(
+          new RegExp(`import\\s+${component}\\b`).test(body),
+          `${file} places <${component}> without importing it — MDX does not put it in scope, so the build fails on a missing reference.`,
+        ).toBe(true);
+      }
     }
   });
 

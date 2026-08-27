@@ -77,14 +77,17 @@ async function downloadGif(url, destPath) {
 }
 
 async function main() {
-  const entries = await readdir(projectsDir);
+  // `recursive: true` because the projects collection glob is `**/*.{md,mdx}`
+  // and a nested project would otherwise never be seen: a flat readdir returns
+  // only the DIRECTORY name, which the extension filter below then skips. The
+  // miss is silent — the page still builds — which for this script means
+  // serving a stale fallback frame indefinitely, the exact outcome the strict
+  // error policy above exists to prevent (Codex P2 on #830).
+  const entries = await readdir(projectsDir, { recursive: true });
   const projects = [];
   for (const entry of entries) {
-    // .mdx as well as .md: the projects collection accepts both, and a
-    // case-study page converted to .mdx must not silently fall out of the
-    // refresh set. A miss here is invisible — the build stays green and
-    // serves a stale fallback frame indefinitely, which is exactly the
-    // failure the strict-error policy above exists to prevent.
+    // Both extensions: the projects collection accepts .md and .mdx, and a
+    // case-study page converted to .mdx must not fall out of the refresh set.
     if (!entry.endsWith('.md') && !entry.endsWith('.mdx')) continue;
     const markdown = await readFile(join(projectsDir, entry), 'utf8');
     const data = parseFrontmatter(markdown);
