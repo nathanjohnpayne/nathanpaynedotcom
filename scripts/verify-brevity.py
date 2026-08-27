@@ -63,13 +63,19 @@ _WORD_NUMBERS = (
 )
 
 TOKEN_CLASSES = (
-    ("URLs", r"https?://[^\s\)\]\"'>]+"),
+    # The token ends on the last character that can belong to a URL, so an
+    # ordinary sentence break after one is prose, not a changed destination.
+    ("URLs", r"https?://[^\s\)\]\"'>]*[^\s\)\]\"'>.,;:!?]"),
     # An inline destination may carry an optional title: `](/path "Title")`.
     ("relative links", r"\]\((?P<t>/[^)\s]*)(?:[ \t]+[\"'(][^)]*)?\)"),
     # A reference definition is the other half of `[text][id]`, and its
     # destination is as load-bearing as an inline one. Matching only the
     # inline form let `[p]: /blog/original/` be repointed silently.
     ("reference link targets", r"(?m)^\[[^\]]+\]:[ \t]*(?P<t>/[^\s]*)"),
+    # Path-relative destinations resolve to a real target too; only absolute
+    # URLs, root-relative paths and bare fragments are covered elsewhere.
+    ("path-relative links",
+     r"\]\((?P<t>(?!https?://|/|#|mailto:)[^)\s]+)(?:[ \t]+[\"'(][^)]*)?\)"),
     # Single digits count: dropping the `#` from `#5` leaves the numeral
     # class unchanged, so a one-digit reference could vanish silently.
     ("issue/PR refs", r"#\d{1,4}\b"),
@@ -101,6 +107,9 @@ TOKEN_CLASSES = (
     # Delimiters pair by length, as CommonMark specifies: a span holding a
     # literal backtick opens with two or more, and assuming one delimiter
     # captured a partial span and left the rest unprotected.
+    # A version is evidence: "Astro v5 to v6.1" changing to v4 slips past the
+    # numeral class, whose lookbehind rejects a digit preceded by a letter.
+    ("versions", r"\bv\d+(?:\.\d+)*\b"),
     ("code spans", r"(?P<d>`+)(?:[^`]|(?!(?P=d))`+)+?(?P=d)(?!`)"),
 )
 
@@ -113,6 +122,10 @@ ADVISORY_CLASSES = (
 )
 
 BLOCK_CLASSES = (
+    # CommonMark indented code: a run of lines indented four or more spaces,
+    # introduced by a blank line. The blank-line requirement is what keeps
+    # this off list continuations and wrapped table rows.
+    ("indented code blocks", r"(?m)(?<=\n\n)(?:[ ]{4,}[^\n]*\n)+", 0),
     # Both fence forms; Astro's Markdown parser accepts either. The closing
     # fence must use the opener's character and be at least as long, so a
     # four-backtick block quoting a three-backtick line stays one block --
@@ -129,7 +142,10 @@ BLOCK_CLASSES = (
     # than requiring `type:` to be the first key: the content schema accepts
     # mapping keys in any order, so a diagram declared title-first was
     # invisible to a pattern anchored on `- type:`.
-    ("frontmatter mermaid items", r"^[ \t]*-[ \t]+[^\n]*\n(?:[ \t]+[^\n]*\n?)*", re.M,
+    # Blank lines are legal inside a block scalar and do not end the item, so
+    # the continuation accepts an empty line followed by more indented text.
+    ("frontmatter mermaid items",
+     r"^[ \t]*-[ \t]+[^\n]*\n(?:[ \t]+[^\n]*\n|[ \t]*\n(?=[ \t]+\S))*", re.M,
      "type: mermaid"),
     # A GFM table is a header row, a delimiter row, and body rows. Matching
     # the whole construct catches tables written without the optional leading
@@ -210,6 +226,9 @@ def _prose_words(text: str) -> int:
     body = re.sub(r"\A---\n.*?\n---\n", "", text, flags=re.S)
     for _label, pattern, flags, _needle in _blocks():
         body = re.sub(pattern, " ", body, flags=flags)
+    # Inline code is as incompressible as a fenced block, and a multiword
+    # span counted as prose understates the reduction the same way tables did.
+    body = re.sub(r"(`+)(?:[^`]|(?!\1)`+)+?\1(?!`)", " ", body)
     return len(body.split())
 
 

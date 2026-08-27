@@ -71,12 +71,21 @@ function paths(after, base) {
   return [a, b];
 }
 
+// Python exits 1 on an uncaught exception, which is also the verifier's
+// "evidence changed" status. Without separating them, a crash inside any
+// token class satisfies `expect(run(...)).toBe(1)` and the suite stays green
+// over a tool that never ran its check. A traceback on stderr is the
+// discriminator, and it is rethrown so the failure is loud.
 function run(after, base) {
   const [a, b] = paths(after, base);
   try {
-    execFileSync('python3', [script, '--quiet', a, b]);
+    execFileSync('python3', [script, '--quiet', a, b], { stdio: 'pipe' });
     return 0;
   } catch (err) {
+    const stderr = (err.stderr || '').toString();
+    if (stderr.includes('Traceback') || stderr.includes('SyntaxError')) {
+      throw new Error(`verify-brevity crashed instead of reporting:\n${stderr}`);
+    }
     return err.status;
   }
 }
@@ -275,5 +284,42 @@ describe('verify-brevity', () => {
   it('does not treat a mixed-delimiter line as a closing fence', () => {
     const mk = (label) => '```\nalpha\n``~~\n' + label + '\n```\n';
     expect(run(mk('beta'), mk('gamma'))).toBe(1);
+  });
+
+  it('fails when a version-prefixed numeral changes', () => {
+    expect(run('Astro v5 to v6.1 here\n', 'Astro v4 to v6.1 here\n')).toBe(1);
+  });
+
+  it('fails when a path-relative link destination changes', () => {
+    expect(run('[a](./notes/x.md) end\n', '[a](./notes/y.md) end\n')).toBe(1);
+  });
+
+  it('allows sentence punctuation to change after a URL', () => {
+    expect(run(
+      'see https://example.com, then more\n',
+      'see https://example.com. Then more\n',
+    )).toBe(0);
+  });
+
+  it('still fails when the URL itself changes', () => {
+    expect(run('see https://example.com/a here\n', 'see https://example.com/b here\n')).toBe(1);
+  });
+
+  it('fails when indented code block content changes', () => {
+    const mk = (v) => `text\n\n    const mode = "${v}"\n    more\n\nend\n`;
+    expect(run(mk('strict'), mk('loose'))).toBe(1);
+  });
+
+  it('fails when a mermaid item changes after a blank line', () => {
+    const mk = (label) =>
+      `x\nsidebar:\n  - type: mermaid\n    content: |\n      graph TD\n          A["one"]\n\n          B["${label}"]\n`;
+    expect(run(mk('two'), mk('three'))).toBe(1);
+  });
+
+  it('excludes inline code from the prose word count', () => {
+    const before = 'The `alpha beta` process was extremely slow.\n';
+    const after = 'The `alpha beta` process was slow.\n';
+    const text = output(after, before);
+    expect(text).toMatch(/prose \d+ -> \d+/);
   });
 });
