@@ -1,7 +1,8 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { existsSync, readFileSync, readdirSync } from 'fs';
-import { resolve, join } from 'path';
+import { resolve, join, relative } from 'path';
 import { extractFrontmatter, parseFrontmatter } from '@astrojs/markdown-remark';
+import { findFilesRecursively } from '../scripts/lib/blog-file-inventory.mjs';
 import { writeSanitizedDOM } from './helpers/dom.js';
 
 // Smoke tests for the content-collection-driven project detail pages.
@@ -107,6 +108,20 @@ const projectAccentRamp = ['red', 'yellow', 'paper', 'blue', 'black'];
 // Builds section. The SoftwareApplication JSON-LD entity is also
 // dropped on these pages (no `url:` to populate).
 const noLiveUrlSlugs = ['matchline'];
+
+// Every project source the collection would load, as paths relative to CONTENT.
+//
+// The glob in src/content.config.ts is `**/*.{md,mdx}` — recursive, and it
+// takes both extensions. A flat `readdirSync` filter therefore under-reports
+// on two independent axes, and both failures are silent: a nested project, or
+// (before #759) an .mdx one, simply drops out of whatever the caller was
+// enforcing. Mirror the glob here so the guards below cannot go quietly
+// out of sync with what actually ships.
+function projectSourceFiles() {
+  return findFilesRecursively(CONTENT, (filePath) => /\.mdx?$/.test(filePath)).map((filePath) =>
+    relative(CONTENT, filePath),
+  );
+}
 
 function readDistHtml(relativePath) {
   return readFileSync(resolve(DIST, relativePath), 'utf-8');
@@ -276,7 +291,14 @@ describe('Project Pages — routes', () => {
   });
 
   it('the collection source has the same number of non-draft projects as the index renders', () => {
-    const sourceFiles = readdirSync(CONTENT).filter((f) => f.endsWith('.md'));
+    // Of the four guards that enumerate project sources, this is the only one
+    // that fails LOUDLY when the enumeration drifts from the collection glob —
+    // it compares a count against the rendered index, so a missed file reads as
+    // `expected 6 to be 7`. The other three (raw palette fields, the accent
+    // ramp, and the case-study/.mdx guard) just stop covering the file they
+    // missed, in silence. That asymmetry is why all four share
+    // projectSourceFiles() rather than each filtering for themselves.
+    const sourceFiles = projectSourceFiles();
     const nonDraftSources = sourceFiles.filter(
       (file) => readProjectFrontmatter(file).draft !== true,
     );
@@ -284,7 +306,7 @@ describe('Project Pages — routes', () => {
   });
 
   it('project frontmatter does not carry raw palette color fields', () => {
-    const sourceFiles = readdirSync(CONTENT).filter((f) => f.endsWith('.md'));
+    const sourceFiles = projectSourceFiles();
 
     for (const file of sourceFiles) {
       const frontmatter = readProjectFrontmatter(file);
@@ -315,7 +337,7 @@ describe('Project Pages — routes', () => {
   });
 
   it('every project accent follows the canonical ramp for its order', () => {
-    const sourceFiles = readdirSync(CONTENT).filter((f) => f.endsWith('.md'));
+    const sourceFiles = projectSourceFiles();
 
     for (const file of sourceFiles) {
       const { order, accent } = readProjectFrontmatter(file);
@@ -651,6 +673,225 @@ describe('Project Pages — screenshot aspect variants', () => {
       expect(figure.className, `${slug} should use project-screenshot--wide`).toContain(
         'project-screenshot--wide',
       );
+    }
+  });
+});
+
+// ── Case-study components (#759) ────────────────────────────────────
+//
+// DecisionLedger / ConstraintStrip / LearningLedger are portfolio
+// infrastructure: one implementation shared by every project page that
+// needs decisions, constraints or learnings. No page consumes them yet
+// — PR 1 ships the system, and each page adopts it in its own PR — so
+// these assert the component source and the shipped stylesheet rather
+// than rendered markup. Render assertions against dist/ arrive with the
+// first page that adopts them.
+describe('Project Pages — case-study components', () => {
+  const COMPONENTS = resolve(__dirname, '../src/components/projects');
+  const componentNames = ['DecisionLedger', 'ConstraintStrip', 'LearningLedger'];
+
+  function componentSource(name) {
+    const path = join(COMPONENTS, `${name}.astro`);
+    expect(existsSync(path), `${name}.astro missing from src/components/projects/`).toBe(true);
+    return readFileSync(path, 'utf8');
+  }
+
+  function builtCss() {
+    return readdirSync(join(DIST, '_astro'))
+      .filter((file) => file.endsWith('.css'))
+      .map((file) => readFileSync(join(DIST, '_astro', file), 'utf8'))
+      .join('\n');
+  }
+
+  it('each component renders nothing when its array is empty or absent', () => {
+    // The empty guard lives in the component, not at the call site, so a
+    // page can place all three unconditionally and an un-authored field
+    // is a no-op. The `?? []` also absorbs `undefined` from a page that
+    // reached for `frontmatter.X` instead of `props.X` — in MDX those
+    // differ, and only `props.X` carries the schema's `.default([])`.
+    for (const name of componentNames) {
+      const source = componentSource(name);
+      expect(source, `${name}: must normalize a missing array`).toMatch(/\?\?\s*\[\]/);
+      expect(source, `${name}: must guard on length before rendering`).toMatch(/\.length > 0/);
+    }
+  });
+
+  it('every project slug is unique across the collection', () => {
+    // getStaticPaths keys the route on `data.slug`, not on the file path, so
+    // two files in different directories declaring the same slug collide on
+    // one route. The filename-matches-slug convention makes that impossible
+    // while every project is flat — and stops protecting anything the moment
+    // one is nested, which the recursive glob allows (CodeRabbit, round 8).
+    const bySlug = new Map();
+    for (const file of projectSourceFiles()) {
+      const { slug } = readProjectFrontmatter(file);
+      bySlug.set(slug, [...(bySlug.get(slug) ?? []), file]);
+    }
+
+    const collisions = [...bySlug.entries()].filter(([, files]) => files.length > 1);
+    expect(
+      collisions,
+      `slug collisions: ${collisions.map(([slug, files]) => `${slug} <- ${files.join(', ')}`).join('; ')}`,
+    ).toEqual([]);
+  });
+
+  it('a project declaring case-study fields also renders them', () => {
+    // The schema accepts `decisions` / `constraints` / `learnings` on ANY
+    // project and [slug].astro forwards all three for every page, but the
+    // data only reaches a reader if an .mdx body PLACES the component. Two
+    // ways to author a page that builds clean, passes the suite, and shows
+    // nothing — no error, no warning, no output:
+    //
+    //   1. Declare the fields in a .md file. No body can place a component.
+    //   2. Declare them in .mdx and forget the component invocation.
+    //
+    // Both are the natural mistake while reworking these pages one PR at a
+    // time, and neither the build nor the diff can see either. Checking only
+    // the extension catches (1) and misses (2) (Codex P2, round 3).
+    // Vacuous until the first page adopts a field.
+    const FIELD_COMPONENTS = {
+      decisions: { component: 'DecisionLedger', rootClass: 'decision-ledger' },
+      constraints: { component: 'ConstraintStrip', rootClass: 'constraint-strip' },
+      learnings: { component: 'LearningLedger', rootClass: 'learning-ledger' },
+    };
+
+    for (const file of projectSourceFiles()) {
+      const frontmatter = readProjectFrontmatter(file);
+      const declared = Object.keys(FIELD_COMPONENTS).filter(
+        (field) => Array.isArray(frontmatter[field]) && frontmatter[field].length > 0,
+      );
+      if (declared.length === 0) continue;
+
+      // A draft project is excluded by getStaticPaths, so dist/ has no page
+      // to read and readDistHtml would throw ENOENT rather than fail with a
+      // useful message (Codex P2, round 6). The extension check below still
+      // applies to drafts — that one is about the source, not the render.
+      const isDraft = frontmatter.draft === true;
+
+      expect(
+        file.endsWith('.mdx'),
+        `${file} declares ${declared.join(', ')} but is .md — those fields cannot render from a Markdown body. Convert it to .mdx and place the component(s), or remove the frontmatter.`,
+      ).toBe(true);
+
+      if (isDraft) continue;
+
+      // Assert the RENDERED page, not the source. A raw-source regex for
+      // `<DecisionLedger` also matches the component inside a fenced code
+      // example or a JSX comment — neither of which Astro executes — so the
+      // silent data-loss case would survive the guard meant to catch it
+      // (Codex P2, round 5). The built markup is the only evidence that a
+      // reader actually sees the records, and it subsumes the import check:
+      // a missing import fails the build outright.
+      const html = readDistHtml(`projects/${frontmatter.slug}/index.html`);
+      for (const field of declared) {
+        const { component, rootClass } = FIELD_COMPONENTS[field];
+        expect(
+          html.includes(`class="${rootClass}`),
+          `${file} declares ${field} but /projects/${frontmatter.slug}/ renders no .${rootClass} — place <${component}> in the body, or the records are authored and silently dropped.`,
+        ).toBe(true);
+      }
+    }
+  });
+
+  it('components carry no <style> block — styles live in global.css', () => {
+    // Only OgCard.astro carries scoped styles, and it is a build-time OG
+    // template. Everything else is styled from the single stylesheet.
+    //
+    // Scoped to the template half: the component frontmatter is JS and
+    // its doc comments discuss `<style>` in prose, which a whole-file
+    // match reads as a violation.
+    for (const name of componentNames) {
+      const source = componentSource(name);
+      const template = source.split(/^---$/m).slice(2).join('---');
+      expect(template.length, `${name}: could not isolate the template half`).toBeGreaterThan(0);
+      expect(template, `${name}: unexpected <style> block`).not.toMatch(/<style[\s>]/);
+    }
+  });
+
+  it('DecisionLedger maps every schema status, and pending takes the base marker', () => {
+    const source = componentSource('DecisionLedger');
+    for (const status of ['validated', 'mixed', 'revised', 'pending']) {
+      expect(source, `DecisionLedger: no label for status "${status}"`).toContain(`${status}:`);
+    }
+    // `pending` deliberately has NO modifier class: the base marker is an
+    // empty outline, which is what pending means. The stylesheet below
+    // therefore defines exactly three modifiers, not four.
+    expect(source).toMatch(/status === 'pending'/);
+  });
+
+  it('DecisionLedger labels pending evidence as a boundary, not an observation', () => {
+    // `evidence` is required for every status, but it carries a different
+    // kind of claim when the status is `pending`: the schema contract makes
+    // it the validation boundary — why the evidence is not in yet — rather
+    // than something observed. Labelling that "Observed" asserts an
+    // observation that has not happened (Codex P2, round 6).
+    const source = componentSource('DecisionLedger');
+    expect(source, 'evidence label must vary by status').toMatch(/EVIDENCE_LABELS\[decision\.status\]/);
+    expect(source).toMatch(/pending:\s*'Validation boundary'/);
+    for (const status of ['validated', 'mixed', 'revised']) {
+      expect(source, `${status} must keep the Observed label`).toMatch(
+        new RegExp(`${status}:\\s*'Observed'`),
+      );
+    }
+  });
+
+  it('the four decision statuses render as visual peers', () => {
+    // The load-bearing invariant of this component (#759): `validated`
+    // must not read as success and `mixed` / `revised` / `pending` must
+    // not read as error states. The statuses share one type treatment and
+    // differ ONLY in the fill of their square marker. A later edit that
+    // colors a status, bolds it, or shrinks it breaks the contract that
+    // makes the failure states credible rather than apologetic — so pin
+    // it here rather than trusting a comment.
+    const css = builtCss();
+    const modifiers = css.match(/\.decision-ledger__status--[a-z]+:{1,2}before\{[^}]*\}/g) ?? [];
+    expect(modifiers.length, 'expected exactly three status modifiers').toBe(3);
+
+    for (const rule of modifiers) {
+      expect(rule, `status modifier must not restyle type: ${rule}`).not.toMatch(
+        /(^|[;{])(color|font-size|font-weight|letter-spacing|text-transform):/,
+      );
+      // Every marker derives from the page accent, so the same status is
+      // a different color on a red page and a blue one and still reads as
+      // a peer. A literal hex would freeze one status against the ramp.
+      expect(rule, `status modifier must derive from --accent-text: ${rule}`).toContain(
+        'var(--accent-text)',
+      );
+      expect(rule, `status modifier must not hard-code a color: ${rule}`).not.toMatch(
+        /#[0-9a-fA-F]{3,8}\b/,
+      );
+    }
+  });
+
+  it('evidence is styled as observation, distinct from rationale', () => {
+    // Evidence and rationale are different epistemic objects — one is
+    // what happened, the other is why the choice was made — and the plan
+    // (§9) requires they not be interchangeable typographic blocks.
+    // Evidence gets an exhibit plane; rationale is prose on the ground.
+    const css = builtCss();
+
+    const observed = css.match(/\.decision-ledger__observed dd\{[^}]*\}/)?.[0];
+    expect(observed, '.decision-ledger__observed dd rule missing').toBeTruthy();
+    expect(observed).toMatch(/background:/);
+    expect(observed).toMatch(/border:/);
+
+    const why = css.match(/\.decision-ledger__why dd\{[^}]*\}/)?.[0];
+    expect(why, '.decision-ledger__why dd rule missing').toBeTruthy();
+    expect(why, 'rationale must not take the evidence plane').not.toMatch(/background:|border:/);
+  });
+
+  it('the case-study styles use motion and color tokens, never literals', () => {
+    // rules/repo_rules.md § Forbidden Patterns: no bare ms values, no
+    // bare easing keywords, no hard-coded palette hexes.
+    const css = builtCss();
+    const blocks =
+      css.match(/\.(decision-ledger|constraint-strip|learning-ledger)[a-z_-]*[^{]*\{[^}]*\}/g) ??
+      [];
+    expect(blocks.length, 'case-study CSS missing from the built bundle').toBeGreaterThan(10);
+
+    for (const rule of blocks) {
+      expect(rule, `hard-coded duration: ${rule}`).not.toMatch(/\d+ms/);
+      expect(rule, `hard-coded palette hex: ${rule}`).not.toMatch(/#[0-9a-fA-F]{3,8}\b/);
     }
   });
 });

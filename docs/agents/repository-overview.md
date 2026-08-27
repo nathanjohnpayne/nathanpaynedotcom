@@ -23,7 +23,7 @@ Astro pages, layouts, and content collections generate the full static site into
 | `src/layouts/OgCard.astro` | OG image card template (1200×630). |
 | `src/styles/global.css` | Shared styles—Mondrian homepage grid, project/blog pages, motion system, responsive, accessibility. |
 | `src/content/blog/**/*.md` | Recursively discovered Markdown blog posts with required editorial category, optional featured flag, and optional SEO-only title/description fields. |
-| `src/content/projects/*.md` | Markdown project source files—each file generates a project page and index entry. Optional `seoDescription` keeps search snippets concise without shortening on-page case-study copy. See `specs/project-pages.md` for authoring guide. |
+| `src/content/projects/**/*.{md,mdx}` | Recursively discovered project source files—each **non-draft** file generates a project page and index entry (`getStaticPaths` filters `draft: true`). `.mdx` only where the body places a case-study component mid-prose; plain `.md` is the default and stays valid, and `projects` is the only collection whose glob accepts `.mdx`. Optional `seoDescription` keeps search snippets concise without shortening on-page case-study copy. See `specs/project-pages.md` for authoring guide. |
 | `src/components/ProjectHero.astro` | Project hero header; `variant` prop covers wide/narrow screenshot layouts (#470). |
 | `src/components/MetadataStrip.astro` | Strip-only project metadata table (topics/format/focus/status); the screenshot surface is owned by `ProjectLayout`. |
 | `src/components/resume/*` | Resume section components and Logo.dev-backed company/school/issuer logo rendering. |

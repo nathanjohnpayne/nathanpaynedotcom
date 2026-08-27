@@ -1,0 +1,59 @@
+---
+/**
+ * LearningLedger — expected → observed → response, as ruled rows (#759).
+ *
+ * The third field must say what *changed*. "We were right" is not a
+ * response, and a ledger whose responses all confirm the expectation is
+ * a ledger with no learning in it. See specs/project-pages.md.
+ *
+ * Placed inside the body of an `.mdx` project page as
+ * `<LearningLedger learnings={props.learnings} />`. See the note in
+ * DecisionLedger.astro on why it is `props.*` and never `frontmatter.*`.
+ *
+ * Every cell carries its own label rather than relying on a header row,
+ * because the row collapses to a single column below --bp-tablet and a
+ * header row would leave the phone stack unlabelled. The `observed`
+ * cell reuses DecisionLedger's evidence treatment — a --paper plane with
+ * tabular numerals — so "white plane means something we measured" is a
+ * convention the reader learns once and carries across both components.
+ */
+
+interface Learning {
+  expected: string;
+  observed: string;
+  response: string;
+}
+
+interface Props {
+  learnings?: Learning[];
+}
+
+const { learnings } = Astro.props;
+
+// Normalized here so a page can place the component unconditionally and
+// an un-authored ledger is a no-op.
+const rows = learnings ?? [];
+---
+
+{
+  rows.length > 0 && (
+    <ol class="learning-ledger" role="list">
+      {rows.map((learning) => (
+        <li class="learning-ledger__row">
+          <div class="learning-ledger__cell learning-ledger__cell--expected">
+            <span class="learning-ledger__label">Expected</span>
+            <p>{learning.expected}</p>
+          </div>
+          <div class="learning-ledger__cell learning-ledger__cell--observed">
+            <span class="learning-ledger__label">Observed</span>
+            <p>{learning.observed}</p>
+          </div>
+          <div class="learning-ledger__cell learning-ledger__cell--response">
+            <span class="learning-ledger__label">Response</span>
+            <p>{learning.response}</p>
+          </div>
+        </li>
+      ))}
+    </ol>
+  )
+}

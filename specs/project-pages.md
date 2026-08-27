@@ -13,9 +13,11 @@ Specification for the content-collection-driven project detail pages.
 
 To add a new project, create a Markdown file in `src/content/projects/`. The filename becomes the URL slug—`my-project.md` renders at `/projects/my-project/`. The page, index entry, and JSON-LD are all generated from this single file.
 
+The collection accepts `.md` or `.mdx`. A page only needs `.mdx` if its body places `<DecisionLedger>`, `<ConstraintStrip>`, or `<LearningLedger>` (see § Decisions, constraints, and learnings)—MDX is the mechanism that lets those components render mid-body rather than only before or after the whole body. A plain `.md` project page is still entirely valid and remains the default; converting to `.mdx` is opt-in per page, not a migration every project has to make.
+
 ### Required files
 
-1. **Markdown source**: `src/content/projects/<slug>.md`
+1. **Markdown source**: `src/content/projects/<slug>.md` (or `<slug>.mdx`, if the body places a case-study component)
 2. **Hero image**: `public/images/projects/<slug>-hero.png` (or `.gif` for animated)
 
 ### Frontmatter template
@@ -57,7 +59,7 @@ draft: false
 | Field | Type | Required | Purpose |
 |-------|------|----------|---------|
 | `title` | string | yes | Page title, hero heading, JSON-LD name |
-| `slug` | string | yes | URL path segment; must match filename |
+| `slug` | string | yes | URL path segment; must match filename, and must be unique across the whole collection. `getStaticPaths` keys the route on this field, not on the file path, so two files in different directories declaring the same `slug` collide on one route—see § Slug uniqueness |
 | `description` | string | yes | Hero deck text, meta description, JSON-LD |
 | `kicker` | string | yes | Source for the metadata table's `Topics` column (e.g., "AI × Finance × Theater" → renders as `AI · Finance · Theater`). Field name kept for frontmatter back-compat |
 | `order` | non-negative integer | yes | Position on the `/projects/` index grid (lower = first). Governs `/projects/` **only**—the homepage Builds grid is hand-authored markup and ignores this field. See § Canonical project ordering |
@@ -74,11 +76,56 @@ draft: false
 | `stack` | string | no | Tech stack values separated by ` · ` (e.g., `"React · TypeScript · Vite · Firebase · Vitest"`). Rendered as a figcaption below the screenshot. Optional—projects without a stack field render without the caption |
 | `related` | array | no | Related links with `label` and `href` |
 | `muxPlaybackId` | non-empty string | no | Mux public Playback ID. When set, the hero renders a `<mux-background-video>` video and `screenshotSrc` is used as the JS-disabled fallback. Schema rejects blank / whitespace-only values so a stray empty string fails build-time rather than producing a broken URL. See "Adding a Mux video" below |
+| `decisions` | array | no | Case-study decision ledger entries, rendered mid-body by `<DecisionLedger>`. Each entry is `title`, `context`, `rejected`, `rationale`, `evidence`, `status`. Optional, defaults to `[]`. See § Decisions, constraints, and learnings for the field-level contract |
+| `constraints` | array | no | Constraint chips rendered mid-body by `<ConstraintStrip>`. Each entry pairs a headline `value` with a one-line `label` gloss. Optional, defaults to `[]` |
+| `learnings` | array | no | Learning ledger entries rendered mid-body by `<LearningLedger>`. Each entry is an `expected` / `observed` / `response` triple. Optional, defaults to `[]` |
 | `draft` | boolean | no | `true` to exclude from builds (default: `false`) |
 
 ### Body content structure
 
-The body uses standard Markdown. Section headings (`## Heading`) receive serif italic styling automatically. The expected sections are:
+The body uses standard Markdown, or MDX for a page whose body places a case-study component—see § Decisions, constraints, and learnings. Section headings (`## Heading`) receive serif italic styling automatically.
+
+The expected structure for a project page is now the case-study shape: problem, then constraints, then decisions, then live evidence paired with learnings, then what it means. In practice that reads as prose on the problem, `<ConstraintStrip>`, prose on the decisions the project faced, `<DecisionLedger>`, prose on what actually happened once it shipped, `<LearningLedger>`, and closing prose on what the project demonstrates:
+
+```mdx
+---
+# ...frontmatter, including decisions / constraints / learnings...
+---
+
+import ConstraintStrip from '../../components/projects/ConstraintStrip.astro';
+import DecisionLedger from '../../components/projects/DecisionLedger.astro';
+import LearningLedger from '../../components/projects/LearningLedger.astro';
+
+## The problem
+
+What was broken, missing, or worth building, and why it mattered.
+
+<ConstraintStrip constraints={props.constraints} />
+
+## The decisions
+
+Prose framing the forks the project faced.
+
+<DecisionLedger decisions={props.decisions} />
+
+## What happened
+
+Prose on live operation—platform behavior, the agent model, real limits.
+
+<LearningLedger learnings={props.learnings} />
+
+## What it means
+
+What the project demonstrates, in a sentence or two.
+```
+
+**The imports are required, and only the ones the page actually places.** MDX does not put these components in scope on its own—the route supplies the *data* on `<Content />`, never the components—so a body that uses `<DecisionLedger>` without importing it fails the build on a missing reference.
+
+**The paths are relative to the file, so they depend on where the file sits.** `../../` is right for `src/content/projects/<slug>.mdx`, the flat layout every project uses today. The collection glob is `**/*.{md,mdx}` and does accept a nested project, and `src/content/projects/<group>/<slug>.mdx` would need `../../../`. No path alias is configured in this repo; adding one is a repo-wide config change that would need its own discussion under [Framework Rules](../docs/agents/code-modification-rules.md#framework-rules). Getting the depth wrong fails the build on an unresolved module, so it costs one build cycle—unlike the frontmatter traps above, which are silent.
+
+The headings shown are illustrative, not prescribed text—say what the section needs to say.
+
+This shape supersedes the older Overview / What the product does / Why it matters structure below: issue #752 removes the older shape from Five Across, and most other project pages are expected to follow. The older shape is still valid for a page that has not been reworked into a case study—nothing forces a page to convert, and a page that never places a case-study component has no reason to:
 
 ```markdown
 ## Overview
@@ -96,6 +143,8 @@ Why this project exists. Build notes fold in here naturally
 rather than getting their own section.
 ```
 
+Neither shape is mandatory furniture. Both are conventions this site's project pages tend to follow, not headings enforced by the layout or the schema—a page can deviate from both where the material calls for it.
+
 Bullet lists get square markers colored with `--accent`. Horizontal rules between sections are generated from the `## Heading` CSS—no manual `---` needed.
 
 
@@ -109,6 +158,71 @@ A project whose product ships more than one front end can carry two captures ins
 `alt` is required, not optional: the primary derives its alt text from the project title, and a second image has no such fallback. `width` and `height` are the asset's intrinsic pixels and are also required—the companion is lazy-loaded and stacks *below* the primary on phones, so without an aspect-ratio box it would occupy zero height until fetched and then push the caption and the article down by a full frame. Assets in `public/` bypass Astro's image pipeline, so nothing can infer them at build time.
 
 Do not add per-image captions. Each capture is expected to carry its own identifying chrome; labelling them repeats what the images already say.
+
+---
+
+## Decisions, constraints, and learnings
+
+Three flat top-level frontmatter fields, added in epic #759: `decisions`, `constraints`, `learnings`. Each is optional and defaults to `[]`, and each renders through its own component—`DecisionLedger.astro`, `ConstraintStrip.astro`, `LearningLedger.astro`—placed inside the Markdown body of a project page that has converted to `.mdx`. See § Body content structure above for where they sit in the narrative, and § Component Architecture below for where they sit in the render chain.
+
+This section exists because seven project pages, authored by seven different agents, need to classify the same kind of situation the same way. A shared, precise vocabulary is what makes that possible.
+
+### The bar for a decision at all
+
+Not every implementation choice belongs in the ledger. The test: could a reasonable PM have chosen the rejected alternative, under the same constraints, without being wrong to? If no, what's on the page is implementation description, not a decision—cut it and find a real one. A decision worth recording is one where the rejected path was genuinely live, not a straw man invented to make the chosen path look inevitable.
+
+### Status: four peers, not a success and three failures
+
+| `status` | means |
+|---|---|
+| `validated` | Observed evidence materially supports the decision. |
+| `mixed` | Evidence supports part of it and exposes a real limitation—weak adoption, a contradictory signal, a benefit that arrived for a different reason than predicted. |
+| `revised` | Observed evidence caused the decision or its implementation to change. The change is the outcome. |
+| `pending` | The decision is real and consequential, but adequate outcome evidence does not yet exist. |
+
+The four statuses render as **peers**. `validated` must not read as success and the other three must not read as error states: a `revised` decision is not a failed one—the revision is the point of recording it—and a `pending` decision is not an unfinished one, it is a decision honestly marked as still awaiting its evidence.
+
+### `evidence` is required for every status, `pending` included
+
+`evidence` is not optional furniture that only `validated` rows carry. For a `pending` decision it carries the validation boundary: why the evidence is not in yet, and what would resolve it.
+
+It must never restate `rationale`. `rationale` is why the choice was made; `evidence` is what happened afterward. If the two read alike, the row has no evidence—go find what actually happened, or mark the row `pending` and say what's missing.
+
+`DecisionLedger` labels the field accordingly: **Observed** for `validated`, `mixed` and `revised`, and **Validation boundary** for `pending`. The treatment is identical either way—same exhibit plane, same accent label—because the four statuses stay peers and demoting `pending` to a lesser surface would make it read as an apology. Only the word changes, because calling a validation boundary "Observed" asserts an observation that by definition has not happened.
+
+### `constraints` are context, not vanity metrics
+
+Each `constraints` entry pairs a headline `value` with a one-line `label`. They exist to ground the decisions that follow in the real limits the project operated under—budget, headcount, a platform ceiling, a deadline—not to showcase a number that flatters the project. A constraint that reads as a brag rather than a boundary belongs in the prose, not this field.
+
+### `learnings`'s third field says what changed
+
+A `learnings` entry is an `expected` / `observed` / `response` triple. `response` must say what changed—an approach abandoned, a metric now tracked, a process added—never "we were right." An entry whose response is "nothing, we kept going" did not produce a learning and does not belong in the ledger.
+
+### Placement: `props.X`, not `frontmatter.X`
+
+These components render inside the body of an `.mdx` project page, authored as:
+
+```mdx
+import ConstraintStrip from '../../components/projects/ConstraintStrip.astro';
+import DecisionLedger from '../../components/projects/DecisionLedger.astro';
+import LearningLedger from '../../components/projects/LearningLedger.astro';
+
+<DecisionLedger decisions={props.decisions} />
+<ConstraintStrip constraints={props.constraints} />
+<LearningLedger learnings={props.learnings} />
+```
+
+Two halves, and they arrive by different routes. The **components** come from the page's own `import` statements—MDX does not put them in scope and the route does not supply them, so omitting an import fails the build on a missing reference. The **data** comes from the route, on `props`. The `../../` depth shown is correct for a flat `src/content/projects/<slug>.mdx`; see § Body content structure for what a nested project would need.
+
+Reach the field through `props.X`, never `frontmatter.X`. In MDX, `frontmatter` is the page's raw, unvalidated YAML—Zod has not run against it—so a field declared `.optional().default([])` in `src/content.config.ts` still reads as `undefined` on the `frontmatter` path when the key is absent from the file. `src/pages/projects/[slug].astro` forwards the Zod-validated values explicitly on `<Content decisions={data.decisions} constraints={data.constraints} learnings={data.learnings} />`; a body that instead reads a bare `decisions` throws a `ReferenceError`. See [plans/759/component-placement-decision.md](../plans/759/component-placement-decision.md) for the full evidence behind this.
+
+### Slug uniqueness
+
+`slug` must be unique across the entire collection, and the collection is recursive.
+
+`src/pages/projects/[slug].astro` builds its routes from `params: { slug: project.data.slug }`, not from the file path, so `projects/a/deal.mdx` and `projects/b/deal.mdx` both declaring `slug: "deal"` resolve to the same `/projects/deal/` route. The filename convention—filename matches slug—makes that impossible in the flat layout every project uses today, because two files cannot share a name in one directory. It stops protecting anything the moment a project is nested.
+
+`tests/project-pages.test.js` asserts uniqueness, so a collision fails the suite rather than silently dropping a page.
 
 ---
 
@@ -298,16 +412,20 @@ There is no `lightblue`. It existed as a second blue while the site ran two pale
           → <figure class="project-screenshot">
               → .project-screenshot__inner → <img>
               → <figcaption class="project-stack"> (optional, from the `stack` field)
+      → .project-copy → <slot /> → rendered body (<Content />)
+          → DecisionLedger / ConstraintStrip / LearningLedger
+            (optional, .mdx only, placed mid-body wherever the page author puts them)
 ```
 
-- **`src/pages/projects/[slug].astro`**: Dynamic route. Calls `getStaticPaths()` from the projects collection, generates JSON-LD, passes all frontmatter to `ProjectLayout`. Forwards the optional `stack` field through `stack={data.stack}`.
-- **`src/layouts/ProjectLayout.astro`**: Passes the semantic `accent` to `BaseLayout`, which emits `data-accent`. CSS derives `--accent`, text-safe accent color, page wash, and metadata gradient from that attribute. Renders `ProjectHero` with `variant={screenshotAspect}` (#470). Owns the `.metadata-surface` container that wraps `MetadataStrip` and the `<figure class="project-screenshot">`. The figure is rendered here (not in `MetadataStrip`) and contains the `<img>` plus a conditional `<figcaption class="project-stack">` when `stack` is present. The figcaption is a direct child of `<figure>` per HTML5 semantic rules.
+- **`src/pages/projects/[slug].astro`**: Dynamic route. Calls `getStaticPaths()` from the projects collection, generates JSON-LD, passes all frontmatter to `ProjectLayout`. Forwards the optional `stack` field through `stack={data.stack}`. Also forwards the Zod-validated `decisions`, `constraints`, and `learnings` on `<Content decisions={data.decisions} constraints={data.constraints} learnings={data.learnings} />`—see § Decisions, constraints, and learnings for why the body must read these as `props.X` rather than `frontmatter.X`.
+- **`src/layouts/ProjectLayout.astro`**: Passes the semantic `accent` to `BaseLayout`, which emits `data-accent`. CSS derives `--accent`, text-safe accent color, page wash, and metadata gradient from that attribute. Renders `ProjectHero` with `variant={screenshotAspect}` (#470). Owns the `.metadata-surface` container that wraps `MetadataStrip` and the `<figure class="project-screenshot">`. The figure is rendered here (not in `MetadataStrip`) and contains the `<img>` plus a conditional `<figcaption class="project-stack">` when `stack` is present. The figcaption is a direct child of `<figure>` per HTML5 semantic rules. The rendered body sits in `.project-copy` via `<slot />`—for an `.mdx` page, that body can include `DecisionLedger`, `ConstraintStrip`, and `LearningLedger` mid-prose.
 - **`src/components/ProjectHero.astro`**: Hero header for project pages; the `variant: "wide" | "narrow"` prop sets the `.project-hero--{variant}` wrapper class (#470 merged the former HeroWide/HeroNarrow twins—their markup was identical). No screenshot—the screenshot is rendered by `ProjectLayout` below the hero. The hero does not render the `kicker` tag row; that content lives in the `Topics` column of the metadata strip below.
 - **`src/components/MetadataStrip.astro`**: Strip-only—four `<dt>`/`<dd>` pairs for topics, format, focus, and status (in that visual order). Does not own the screenshot; does not accept `screenshotSrc`/`screenshotAlt`/`screenshotAspect` props. The `topics` value is derived in `ProjectLayout` from the project's `kicker` frontmatter (split on `×` and re-joined with ` · ` to match the metadata table's separator convention). The `status` value is the project's top-level `status` enum, rendered identically on the index card kicker and in the metadata strip—single short-form vocabulary across both surfaces. The strip is always rendered as a single 4-column horizontal row on desktop and collapses responsively (2×2 at ≤768px, 1-column at ≤480px) via `.metadata-strip--grid-4` media queries.
+- **`src/components/projects/DecisionLedger.astro`**, **`ConstraintStrip.astro`**, **`LearningLedger.astro`**: Case-study components authored into the Markdown body of an `.mdx` project page, each reading its field off `props` (`decisions`, `constraints`, `learnings`). Normalize internally (`decisions ?? []`) and render nothing when their array is empty, so the empty-state check lives in one place rather than at every call site. See § Decisions, constraints, and learnings for the field contract.
 
 ### Content collection schema
 
-Defined in `src/content.config.ts`. Uses Astro's glob loader and Zod validation. The `render()` function is imported from `astro:content` (not called on the entry):
+Defined in `src/content.config.ts`. Uses Astro's glob loader and Zod validation, with the loader pattern `**/*.{md,mdx}`—the `projects` collection is the only one that accepts `.mdx`, because it is the only one whose pages need to place a component mid-body. The `render()` function is imported from `astro:content` (not called on the entry):
 
 ```ts
 import { render } from 'astro:content';
@@ -316,7 +434,7 @@ const { Content } = await render(project);
 
 ### Index page
 
-`src/pages/projects/index.astro` queries the collection with `getCollection('projects')`, sorts by `data.order`, and renders a Mondrian-style grid. Adding a new `.md` file with valid frontmatter automatically adds it to the index.
+`src/pages/projects/index.astro` queries the collection with `getCollection('projects')`, sorts by `data.order`, and renders a Mondrian-style grid. Adding a new `.md` or `.mdx` file with valid frontmatter automatically adds it to the index.
 
 ---
 
@@ -350,13 +468,16 @@ The project footer matches the blog footer pattern:
 ## File Locations
 
 ```
-src/content/projects/*.md          Project source files (frontmatter + body)
-src/content.config.ts              Collection schema (Zod)
-src/pages/projects/[slug].astro    Dynamic route + JSON-LD
-src/pages/projects/index.astro     Project index grid
-src/layouts/ProjectLayout.astro    Layout wrapper (CSS props, hero, metadata, footer)
-src/components/ProjectHero.astro   Hero header, wide|narrow variant (no screenshot)
-src/components/MetadataStrip.astro 4-column metadata strip (topics/format/focus/status)
-src/styles/global.css              All project page styles (.metadata-strip, .project-screenshot, .project-stack)
-public/images/projects/            Hero screenshots
+src/content/projects/**/*.{md,mdx}        Project source files (frontmatter + body; .mdx only if the body places a case-study component)
+src/content.config.ts                     Collection schema (Zod)
+src/pages/projects/[slug].astro           Dynamic route + JSON-LD; forwards decisions/constraints/learnings as props
+src/pages/projects/index.astro            Project index grid
+src/layouts/ProjectLayout.astro           Layout wrapper (CSS props, hero, metadata, footer)
+src/components/ProjectHero.astro          Hero header, wide|narrow variant (no screenshot)
+src/components/MetadataStrip.astro        4-column metadata strip (topics/format/focus/status)
+src/components/projects/DecisionLedger.astro   Case-study decision ledger, reads props.decisions
+src/components/projects/ConstraintStrip.astro  Constraint chips, reads props.constraints
+src/components/projects/LearningLedger.astro   Learning ledger, reads props.learnings
+src/styles/global.css                     All project page styles (.metadata-strip, .project-screenshot, .project-stack)
+public/images/projects/                   Hero screenshots
 ```

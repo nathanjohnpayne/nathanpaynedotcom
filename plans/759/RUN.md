@@ -62,7 +62,7 @@ Shared evidence: `plans/759/project-pages-ledger.md` (151 rows, PR [#810](https:
 - Fable subagents get the ledger, the issue's positioning + acceptance criteria, and the current post. No repo write access, no PR driving.
 - From issue three onward, also hand Fable the two most recent approved revisions as voice reference.
 - Review loop per PR: fire `scripts/codex-review-request.sh` immediately on push, in parallel with `scripts/coderabbit-wait.sh`. Disposition each finding (reply AND resolve) before moving on. Codex findings get `scripts/codex-record-feedback.sh` (posts reaction + ledger); CodeRabbit findings get `scripts/coderabbit-record-feedback.sh` (ledger only, never a reaction).
-- Out of scope for this run: portfolio issues #751–758.
+- Out of scope for **the blog run above**: portfolio issues #751–758. That exclusion scoped the seven blog audits and the project-page fact audit, both of which are complete. It does not scope the portfolio-narratives run, which is those eight issues and is tracked in its own section below.
 
 ## Log
 
@@ -311,3 +311,78 @@ The correct statement: **exposure during the public window is unknowable rather 
 Recorded only so the reasoning is accurate rather than reassuring: going private is containment from here, not remediation for what was already public. That distinction is what the operator accepted.
 
 **Method note worth keeping.** The original close-out cited private/fork/network/collaborator counts as if they bounded total exposure. They bound *current* access. Asking "was this ever public while the data was present" is a separate question that current-state fields cannot answer, and it is the question that decides whether a residual is conditional or already realised.
+
+---
+
+# Portfolio narratives—decision-record infrastructure, then one PR per page
+
+The second half of epic #759: issues #751–758. Runbook: `plans/759/portfolio-narratives-runbook.md`. Working worktree `.claude/worktrees/portfolio-narratives-runbook-fc3a84`, branch `claude/portfolio-narratives-runbook-fc3a84`.
+
+**Merge authority for this run is the standing override in the runbook's §C**, authorized by the repository owner in chat on 2026-08-27: up to five `@codex review` rounds, then break-glass merge, recording every unresolved finding here and filing one issue per finding. It supersedes the Phase 4 merge path in `CLAUDE.md` and `REVIEW_POLICY.md` for these PRs only.
+
+## Stage board
+
+| Stage | What | State |
+|---|---|---|
+| 0 | Repair stale sources (#824, #821, issue annotations) | **complete**, do not redo |
+| 1 | Resolve component placement | **complete**—MDX chosen, see below |
+| 2 | Infrastructure (PR 1: schema, components, CSS, spec, tests) | in progress |
+| 3 | Seven pages, one PR each | not started |
+| 4 | `/projects/` index | not started |
+| 5 | Close the epic | not started |
+
+## One PR per page
+
+| # | Issue | Page | Ledger | Components | PR | Status |
+|---|-------|------|--------|-----------|----|--------|
+| 1 | — | infrastructure | — | all three | [#830](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/830) | in review |
+| 2 | #752 | `five-across` | §B | decisions, constraints, learnings | | not started |
+| 3 | #757 | `swipe-watch` | §G | decisions, learnings | | not started |
+| 4 | #753 | `mergepath` | §E | decisions | | not started |
+| 5 | #754 | `override` | §F | decisions | | not started |
+| 6 | #755 | `device-source-of-truth` | §A | decisions, constraints | | not started |
+| 7 | #756 | `matchline` | §D | decisions | | not started |
+| 8 | #758 | `friends-and-family-billing` | §C | decisions | | not started |
+| 9 | #751 | `/projects/` index | §H | none | | not started |
+
+Fill the PR cell in the same step that creates the PR. That rule is here because it has already been broken twice in this epic.
+
+**#752 is the calibration gate.** Before starting #757, answer here: was the schema expressive enough, is the ledger scannable at 375px, did the status vocabulary hold, did `evidence` stay concise, does the ledger actually improve a hiring-manager skim? A schema or component problem found on page one gets fixed in the shared infrastructure, never worked around locally.
+
+## Log
+
+- 2026-08-27—**Stage 1 complete. MDX chosen.** Full evidence in `plans/759/component-placement-decision.md`; the summary is that all five runbook checks passed, plus a sixth the Plan agent added.
+  - The Plan agent evaluated all three options and ranked MDX first. Its most useful contribution was not the ranking but the sixth check: MDX converts hast to estree, and both `rehype-color-chips` and `rehype-mermaid-accessibility` write `properties.style` as a **string** that `hast-util-to-estree` re-parses. Five Across's body has no code fence and no hex inline code, so the runbook's five checks would all have passed and the *next* project page would have been the discovery. Planting a fence and a chip proved the conversion clean.
+  - Check 3 was run as a byte-for-byte diff against a baseline build of the same commit rather than as a spot check. Normalizing only the timestamp OG cache-buster, **all seven blog posts and all six untouched `.md` project pages are identical.** That is a stronger claim than "figure captions still work," and it is the claim worth having.
+  - The spike ran in a throwaway worktree branched from `main` at `c239dda` and was deleted with `git worktree remove --force`. Nothing it produced was committed.
+  - **The finding that changed the design: in an MDX body, `frontmatter.X` is raw YAML and `props.X` is the Zod-parsed value.** A field declared `.optional().default([])` reads as `undefined` through `frontmatter` when the key is absent, because Zod has not run at that point. It reads as `[]` through `props`, but only if `[slug].astro` forwards it on `<Content />`; a bare identifier is a `ReferenceError`. So the route forwards the three fields and pages author `<DecisionLedger decisions={props.decisions} />`. This is the same defect class the runbook flagged for a `caseStudy: z.object({}).optional()` wrapper—worth recording that it defeats a flat top-level `.default([])` too, on the `frontmatter` path.
+  - **Five `.md`-only call sites, and the two dangerous ones are silent.** `tests/project-pages.test.js:279` fails loudly (`expected 6 to be 7`, the only test that broke). Lines 287 and 318 silently stop accent-ramp-checking a converted page. `scripts/refresh-mux-gifs.mjs:83` and `scripts/refresh-hero-images.mjs:78` silently skip one—both `prebuild` steps. Only `swipe-watch.md` carries `muxPlaybackId`, so converting Five Across breaks nothing, but converting Swipe Watch at page three would silently stop refreshing its Mux fallback GIF, which is the exact failure that script's own header warns about. All five widen in PR 1, not in the PR that first needs them.
+  - **`astro check` is already red on `main`**, 2 errors at `tests/responsive/mermaid-accessibility.spec.ts:107` and `:109` (`Property 'ownerSVGElement' does not exist on type 'HTMLElement'`). CI runs `npm test` and `npm run lint`, not `npm run typecheck`, which is why they survived. Not this workstream's to fix, but the runbook lists `npx astro check` as a per-PR gate and a gate listed as green should not be assumed green.
+  - `@astrojs/mdx` joins `astro` and `@astrojs/markdown-remark` in the exact-pin lockstep set, with a failure mode the existing bullet does not cover: mdx pins `@astrojs/markdown-remark` exact **per release**, so bumping the other two without it nests a second copy of the markdown pipeline. That is a silent duplicate, not the loud ERESOLVE of #630/#631.
+
+### PR [#830](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/830)—infrastructure, review record
+
+- 2026-08-27—**Opened at `d1d3e85`**, 18 files, +2,028/−44. Above `external_review_threshold`, so `needs-external-review` and the `nathanpayne-claude` pass posts `--comment` only.
+- **My own reviewer pass found two things before either bot reported**, both taken:
+  - **R1—a `.md` page can declare `decisions` and render nothing.** The schema accepts the three fields on any project and the route forwards them for every page, but only an `.mdx` body can *place* a component. A page that authors twelve records would build clean, pass the suite, and show nothing. That is the natural mistake while converting pages one PR at a time, and neither the build nor a diff can see it. Now guarded by a test that is vacuous today and fires on the first occurrence.
+  - **R2—the explanatory note in `[slug].astro` was an HTML comment in template position.** It did not in fact leak, checked against the built output, but Astro emits those in general and the note explains a `ReferenceError`. Switched to the expression form.
+- **The R2 fix broke the build on the first attempt.** The rewritten note quoted the comment delimiters it was describing, and the closing pair ended the comment early: `astro build` failed, `eslint` reported a parse error, 173 tests went red. Reworded to name the form rather than quote it. Recorded because the failure mode is invisible until you try it.
+- **Round 1: eight findings across both bots, four distinct issues, all four taken.**
+  1. **Pin `@astrojs/mdx` exact** (Codex P2 + CodeRabbit Major). The caret contradicted the toolchain rule *this same PR added*—`rules/repo_rules.md` says the three move as a triple while `package.json` let mdx drift alone. Both bots found it independently, which is a fair signal it was the real defect in the change. **A rule and the manifest it describes can disagree inside a single commit; the #738 lesson applies to the PR that writes the rule, not only to later ones.**
+  2. **Both spec MDX examples omitted their component imports** (Codex P2 + CodeRabbit Minor). The route supplies the *data*, never the components, so the first page to follow the example verbatim would have failed on a missing reference. My own temp verification had the imports and the spec did not—**the working proof and the documented recipe drifted, and only the recipe ships.**
+  3. **`.ai_context.md`** (Codex P1) still inventoried project sources as `.md`-only and omitted `@astrojs/mdx` from the load-bearing-dependency section—the section that exists precisely so a dependency no source file imports does not look removable.
+  4. **`docs/agents/code-modification-rules.md`** (Codex P1) documented the project frontmatter fields but not the three new ones, and agents are routed through that guide before editing content.
+- **CodeRabbit found a fifth on the fix commit**: the new guard used `readdirSync`, flat, while the collection glob is `**/*.{md,mdx}`, recursive. Correct—and **three older enumerations in the same file had the identical hole**, so a nested project would also have escaped the raw-palette check and the accent-ramp assertion. Of the four, only the count-versus-index test would have said anything. All four now share one `projectSourceFiles()` helper mirroring the glob on both extension and depth.
+- **Every guard added in this PR was negative-tested rather than trusted**: injecting `font-weight: 700` on a status modifier fails the four-peers test; removing one `.default([])` fails the schema test; planting `decisions` on a `.md` page fails the placement guard; planting a *nested* `.md` project fails it only after the recursive fix.
+- **Two resolver frictions worth carrying to the next eight PRs:**
+  - `resolve-pr-threads.sh --resolve-actioned` binds evidence to the file a finding is *anchored* to. A finding of the form "changing this file obliges updating that one" can never satisfy that gate, because the fix lands elsewhere. Both Codex P1s skipped as `not demonstrably actioned` until an explicit reply named the file and commit; then they resolved. Not a defect—the gate is fail-closed by design—but it is a predictable two-step on any documentation-coupling finding.
+  - **CodeRabbit's edit floor fired once, exactly as recorded.** It amended its root comment at `13:47:12Z`, seconds after the disposition reply, flipping the finding back to unaccounted. One re-reply above the new floor cleared it. Accounting then read `clear`, 8/8.
+- **Round 2 on `858ecb8`: 👍 from `chatgpt-codex-connector[bot]`, zero findings, after 215s.** Under the §C override a thumbs-up at any round ends the loop, so the review loop for #830 closed at two rounds rather than five.
+- **Rounds 3 to 6: eight more findings, all correct, all taken.** The loop ran past the §C five-round cap because the operator chose the Phase 4b route (2026-08-27), which needs a reviewer signal pinned to the *current* HEAD—and every fix commit moves the HEAD out from under it. That is the treadmill, and the way off it is to batch every remaining edit, including this file, into the commit before the round you intend to be last.
+  - **Round 3 caught a test that was verifying nothing.** The per-field schema assertion spanned `[\s\S]*?` from the field name, and the lazy quantifier walks past that field's own closing paren to match the `.optional().default([])` of the NEXT array. Breaking `decisions` or `constraints` still passed. Only `learnings`, last in the sequence, actually failed—**and `learnings` is the one the negative test had picked.** The test written to prove the guard confirmed the single case where it worked. Negative-test every member of a set, not a representative.
+  - Round 3 also found the recursion bug **in the two refresh scripts, one commit after fixing it in the tests**. Same defect class, same session, two files over.
+  - **Round 4**: the documented `../../` import depth is right for a flat project and wrong for a nested one, which the recursive glob accepts. Documented rather than aliased—an Astro path alias is a repo-wide config surface with no precedent here.
+  - **Round 5**: the placement guard searched raw MDX source, so a component sitting only in a fenced example satisfied it while rendering nothing. Now asserts the built page carries the component's root class, which no example or comment can fake, and which subsumes the import check.
+  - **Round 6, the one worth remembering**: `DecisionLedger` labelled `evidence` "Observed" unconditionally, so a `pending` row rendered "Observed: Not yet validated…"—a self-contradiction on the page, in the component built to keep observation and argument apart. The label now varies by status; the treatment does not, because the four have to stay peers. Round 6 also caught that asserting rendered markup crashes on a draft, whose page `getStaticPaths` never emits.
+- **`gh api` without `--paginate` silently truncated the finding list once**, and the record script reported `not-found` for a finding that existed. Always paginate when collecting findings.
+- **CI note, expect it again.** `Codex P1 unresolved threads` failed twice while the disposition replies were still landing, both times after logging `review feedback accounting clear` and `Codex blocking-tier unresolved: 0`. The workflow computes a feedback fingerprint, then re-reads it immediately before publishing, and fails closed when a comment lands in the gap—which is exactly what posting replies during the run does. Running `scripts/codex-p1-gate.sh` locally against the same HEAD exits 0. **Finish dispositioning, then re-run the check; do not chase it mid-loop.**

@@ -1,5 +1,6 @@
 // @ts-check
 import { defineConfig } from 'astro/config';
+import mdx from '@astrojs/mdx';
 import sitemap from '@astrojs/sitemap';
 import rehypeMermaid from 'rehype-mermaid';
 import { buildBlogLastmodMap } from './scripts/lib/sitemap-lastmod.mjs';
@@ -22,6 +23,13 @@ const sitemapLastmod = buildBlogLastmodMap();
 export default defineConfig({
   site: SITE,
   integrations: [
+    // MDX lets a project page place a frontmatter-driven component at an
+    // arbitrary point inside its body, which a single `<slot />` cannot do.
+    // It inherits `markdown` below via extendMarkdownConfig (the default),
+    // so the three plugins in src/plugins/ and the Shiki transformer run
+    // over .mdx as well as .md — verified byte-for-byte against a build
+    // without it. See plans/759/component-placement-decision.md.
+    mdx(),
     sitemap({
       serialize(item) {
         const pathname = new URL(item.url).pathname;

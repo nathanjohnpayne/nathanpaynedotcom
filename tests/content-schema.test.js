@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'fs';
 import { relative, resolve } from 'path';
-import { findBlogMarkdownFiles } from '../scripts/lib/blog-file-inventory.mjs';
+import { findBlogMarkdownFiles, findFilesRecursively } from '../scripts/lib/blog-file-inventory.mjs';
 import { parseFrontmatter } from '../scripts/lib/parse-frontmatter.mjs';
 
 const configSource = readFileSync(resolve(__dirname, '../src/content.config.ts'), 'utf-8');
@@ -9,6 +9,17 @@ const configSource = readFileSync(resolve(__dirname, '../src/content.config.ts')
 const contentDir = resolve(__dirname, '../src/content/blog');
 const markdownFiles = findBlogMarkdownFiles(contentDir).map((filePath) => ({
   name: relative(contentDir, filePath),
+  content: readFileSync(filePath, 'utf-8'),
+}));
+
+// `projects` accepts .md AND .mdx (see src/content.config.ts's glob pattern
+// comment, epic #759) — glob both here rather than reusing
+// findBlogMarkdownFiles, which is hardcoded to `.md` only.
+const projectsDir = resolve(__dirname, '../src/content/projects');
+const projectFiles = findFilesRecursively(projectsDir, (filePath) =>
+  /\.mdx?$/.test(filePath),
+).map((filePath) => ({
+  name: relative(projectsDir, filePath),
   content: readFileSync(filePath, 'utf-8'),
 }));
 
@@ -51,6 +62,92 @@ describe('Content Schema', () => {
 
     expect(projectsSource).not.toContain('const blog');
     expect(projectsSource).toContain('seoDescription: z.string().optional()');
+  });
+
+  it('projects schema declares decisions, constraints, and learnings as flat, optional, defaulted arrays', () => {
+    const projectsSource = collectionSource('projects');
+    const blogSource = collectionSource('blog');
+
+    // Flat top-level fields on `projects` only — never on `blog`.
+    for (const field of ['decisions', 'constraints', 'learnings']) {
+      expect(projectsSource).toContain(`${field}: z`);
+      expect(blogSource).not.toContain(`${field}: z`);
+    }
+
+    // Each field is an array that is optional with a [] default — the shape
+    // that makes an un-authored case study a no-op rather than a schema
+    // failure.
+    //
+    // Sliced per field rather than matched by regex across the whole
+    // collection. Two weaker forms were tried and both let a missing default
+    // through:
+    //   1. Counting `.optional().default([])` occurrences — `related` already
+    //      contributes one, so the count stays satisfied when one of the three
+    //      loses its default.
+    //   2. A per-field regex spanning `[\s\S]*?` from the field name — the lazy
+    //      quantifier walks past that field's own closing paren and matches the
+    //      `.optional().default([])` belonging to the NEXT array. Only the last
+    //      field in the sequence, `learnings`, actually fails when broken,
+    //      which is exactly the one a spot-check negative test picks.
+    // The slice makes the assertion structurally incapable of reaching a
+    // neighbouring field (Codex P2, round 3).
+    const fieldOrder = ['decisions', 'constraints', 'learnings'];
+    for (const [index, field] of fieldOrder.entries()) {
+      const start = projectsSource.indexOf(`${field}: z`);
+      expect(start, `${field} not found in the projects collection`).toBeGreaterThan(-1);
+
+      const next = fieldOrder[index + 1];
+      const end = next ? projectsSource.indexOf(`${next}: z`, start) : projectsSource.length;
+      const block = projectsSource.slice(start, end === -1 ? projectsSource.length : end);
+
+      expect(block, `${field} must be a z.array(...)`).toMatch(/^\w+: z\s*\n\s*\.array\(/);
+      expect(block, `${field} must be .optional()`).toContain('.optional()');
+      expect(block, `${field} must carry a .default([])`).toContain('.default([])');
+    }
+
+    // decisions: all five string sub-fields, plus the exact four-value
+    // status enum (all six required, `evidence` and `status` included).
+    for (const subfield of ['title', 'context', 'rejected', 'rationale', 'evidence']) {
+      expect(projectsSource).toContain(`${subfield}: z.string().trim().min(1)`);
+    }
+    expect(projectsSource).toContain(
+      "status: z.enum(['validated', 'mixed', 'revised', 'pending'])",
+    );
+
+    // constraints: value + label.
+    expect(projectsSource).toContain('value: z.string().trim().min(1)');
+    expect(projectsSource).toContain('label: z.string().trim().min(1)');
+
+    // learnings: expected + observed + response.
+    expect(projectsSource).toContain('expected: z.string().trim().min(1)');
+    expect(projectsSource).toContain('observed: z.string().trim().min(1)');
+    expect(projectsSource).toContain('response: z.string().trim().min(1)');
+  });
+
+  it('every project file that declares decisions has well-formed decision records', () => {
+    expect(projectFiles.length).toBeGreaterThan(0);
+
+    const validStatuses = ['validated', 'mixed', 'revised', 'pending'];
+    const requiredKeys = ['title', 'context', 'rejected', 'rationale', 'evidence', 'status'];
+
+    for (const file of projectFiles) {
+      const fm = parseFrontmatter(file.content);
+      const decisions = fm?.decisions;
+      // No project has adopted decisions yet (epic #759 lands the field
+      // ahead of any page authoring it) — zero records is not a failure,
+      // only a malformed record among files that DO declare it is.
+      if (!decisions) continue;
+
+      expect(Array.isArray(decisions), `${file.name}: decisions must be an array`).toBe(true);
+      decisions.forEach((decision, index) => {
+        for (const key of requiredKeys) {
+          expect(decision?.[key], `${file.name}: decisions[${index}].${key} missing`).toBeTruthy();
+        }
+        expect(validStatuses, `${file.name}: decisions[${index}].status invalid`).toContain(
+          decision.status,
+        );
+      });
+    }
   });
 
   it('all blog markdown files have required frontmatter fields', () => {

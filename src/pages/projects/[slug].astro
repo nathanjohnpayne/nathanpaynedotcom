@@ -92,5 +92,23 @@ const jsonLd = {
   related={data.related}
   jsonLd={jsonLd}
 >
-  <Content />
+  {/*
+    Forward the three case-study arrays as props rather than letting an
+    .mdx body read `frontmatter.*`. In MDX, `frontmatter` is the RAW YAML —
+    Zod has not run — so a field declared `.optional().default([])` reads
+    as `undefined` when the key is absent from the file. `props.*` is the
+    validated `data.*` with defaults applied. A page therefore authors
+    `<DecisionLedger decisions={props.decisions} />`; a bare identifier is
+    a ReferenceError. See plans/759/component-placement-decision.md.
+
+    A JSX-style expression comment rather than an HTML one: `<!-- -->` in
+    an Astro template is emitted to the output in general (BaseLayout
+    ships several to every page), and an internal note about
+    ReferenceErrors has no business reaching a reader.
+  */}
+  <Content
+    decisions={data.decisions}
+    constraints={data.constraints}
+    learnings={data.learnings}
+  />
 </ProjectLayout>

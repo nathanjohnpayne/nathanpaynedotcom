@@ -1,0 +1,113 @@
+---
+/**
+ * DecisionLedger — a vertically stacked record of consequential product
+ * decisions on a project case-study page (#759).
+ *
+ * Portfolio infrastructure, deliberately not a per-project variant: any
+ * project whose issue asks for decisions, tradeoffs, scope choices,
+ * rejected alternatives or platform bets uses this one component. Named
+ * DecisionLedger rather than DecisionRecords because
+ * docs/agents/decision-records.md is an existing, unrelated propagated
+ * process doc about PR/issue disposition records.
+ *
+ * Placed INSIDE the Markdown body of an `.mdx` project page, between
+ * prose sections, as `<DecisionLedger decisions={props.decisions} />`.
+ * `props.*`, never `frontmatter.*`: in an MDX body `frontmatter` is the
+ * raw YAML that Zod has not validated, so the schema's `.default([])`
+ * does not apply there. src/pages/projects/[slug].astro forwards the
+ * validated arrays on `<Content />`. See
+ * plans/759/component-placement-decision.md.
+ *
+ * Styles live in src/styles/global.css (`.decision-ledger*`), like every
+ * other component in this repo — only OgCard.astro carries a <style>
+ * block, and it is a build-time OG template.
+ */
+
+interface Decision {
+  title: string;
+  context: string;
+  rejected: string;
+  rationale: string;
+  evidence: string;
+  status: 'validated' | 'mixed' | 'revised' | 'pending';
+}
+
+interface Props {
+  decisions?: Decision[];
+}
+
+const { decisions } = Astro.props;
+
+// Normalize here rather than at every call site, so a page can place the
+// component unconditionally and an un-authored ledger is a no-op. The
+// `?? []` also absorbs `undefined` from a page that reached for
+// `frontmatter.decisions` instead of `props.decisions`.
+const records = decisions ?? [];
+
+// `pending` has no modifier: the base marker is an empty outline, which
+// IS pending — evidence not yet in. The other three modify that outline
+// by fill state, never by hue, so the four render as peers.
+const STATUS_LABELS: Record<Decision['status'], string> = {
+  validated: 'Validated',
+  mixed: 'Mixed',
+  revised: 'Revised',
+  pending: 'Pending',
+};
+
+// `evidence` carries a different kind of thing when the status is `pending`.
+// For the other three it is what was observed after shipping; for `pending`
+// the schema contract makes it the validation boundary — why the evidence is
+// not in yet and what would resolve it. Labelling that "Observed" asserts an
+// observation that by definition has not happened, which is the one thing
+// this component exists to avoid (Codex P2, round 6).
+//
+// The treatment does not change: same exhibit plane, same accent label. Only
+// the word changes, because the four statuses have to stay peers and moving
+// `pending` to a lesser surface would make it read as an apology.
+const EVIDENCE_LABELS: Record<Decision['status'], string> = {
+  validated: 'Observed',
+  mixed: 'Observed',
+  revised: 'Observed',
+  pending: 'Validation boundary',
+};
+---
+
+{
+  records.length > 0 && (
+    <ol class="decision-ledger" role="list">
+      {records.map((decision) => (
+        <li class="decision-ledger__record">
+          <div class="decision-ledger__line">
+            <span class="decision-ledger__rule" aria-hidden="true" />
+            <span
+              class={`decision-ledger__status${
+                decision.status === 'pending' ? '' : ` decision-ledger__status--${decision.status}`
+              }`}
+            >
+              {STATUS_LABELS[decision.status]}
+            </span>
+          </div>
+          <h3 class="decision-ledger__title">{decision.title}</h3>
+          <dl class="decision-ledger__body">
+            <div class="decision-ledger__fact">
+              <dt>Context</dt>
+              <dd>{decision.context}</dd>
+            </div>
+            <div class="decision-ledger__fact decision-ledger__fact--rejected">
+              <dt>Rejected</dt>
+              <dd>{decision.rejected}</dd>
+            </div>
+            <div class="decision-ledger__why">
+              <dt>Why</dt>
+              <dd>{decision.rationale}</dd>
+            </div>
+            <div class="decision-ledger__observed">
+              <dt>{EVIDENCE_LABELS[decision.status]}</dt>
+              <dd>{decision.evidence}</dd>
+            </div>
+          </dl>
+        </li>
+      ))}
+    </ol>
+  )
+}

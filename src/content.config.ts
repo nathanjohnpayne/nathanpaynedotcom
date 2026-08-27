@@ -3,7 +3,12 @@ import { glob } from 'astro/loaders';
 import { BLOG_CATEGORIES } from './lib/blog-order';
 
 const projects = defineCollection({
-  loader: glob({ pattern: '**/*.md', base: './src/content/projects' }),
+  // `projects` is the only collection that takes .mdx. A case-study page
+  // interleaves DecisionLedger / ConstraintStrip / LearningLedger between
+  // runs of body prose, and MDX is the only mechanism that can place a
+  // component mid-body. Every other collection stays narrowed to .md so
+  // the wider surface is opt-in per collection rather than repo-wide.
+  loader: glob({ pattern: '**/*.{md,mdx}', base: './src/content/projects' }),
   schema: z.object({
     title: z.string(),
     slug: z.string(),
@@ -73,6 +78,68 @@ const projects = defineCollection({
     // fallback and as the OG image source. Rejects empty strings so a
     // blank frontmatter value is a schema error, not a broken URL.
     muxPlaybackId: z.string().trim().min(1).optional(),
+
+    // Case-study structured content — DecisionLedger / ConstraintStrip /
+    // LearningLedger, epic #759. Flat top-level fields, deliberately NOT a
+    // `caseStudy: z.object({...}).optional()` wrapper: the blog precedent
+    // (`keyTakeaways`, `pullquotes`, `sidebar` above) is flat, and an
+    // `.optional()` wrapper defeats every inner `.default([])` anyway —
+    // Zod never runs the inner schema (or its defaults) when the outer
+    // key is absent, so `data.caseStudy?.learnings` would come back
+    // `undefined` despite the default.
+    //
+    // Even flat, `.default([])` is a property of the Zod-validated
+    // `data.*`, not of the file. In an MDX body, `frontmatter.X` is the
+    // RAW YAML — Zod has not run — so an absent key still reads as
+    // `undefined` there. `props.X` is the validated value, forwarded
+    // explicitly by src/pages/projects/[slug].astro on
+    // `<Content decisions={data.decisions} .../>`; a body reads
+    // `props.decisions`, never a bare `decisions` (a ReferenceError).
+    // See plans/759/component-placement-decision.md.
+    decisions: z
+      .array(
+        z.object({
+          title: z.string().trim().min(1),
+          context: z.string().trim().min(1),
+          rejected: z.string().trim().min(1),
+          rationale: z.string().trim().min(1),
+          // Required for every status, `pending` included — not weakened
+          // to optional. For a `pending` decision this field IS the
+          // validation boundary: why the evidence isn't in yet and what
+          // would resolve it. It must never restate `rationale` — rationale
+          // is why the choice was made, evidence is what happened after.
+          evidence: z.string().trim().min(1),
+          status: z.enum(['validated', 'mixed', 'revised', 'pending']),
+        }),
+      )
+      .optional()
+      .default([]),
+
+    // Constraint chips for ConstraintStrip: `value` is the headline
+    // figure/spec, `label` the one-line gloss beneath it.
+    constraints: z
+      .array(
+        z.object({
+          value: z.string().trim().min(1),
+          label: z.string().trim().min(1),
+        }),
+      )
+      .optional()
+      .default([]),
+
+    // Expected/observed/response triples for LearningLedger — what was
+    // expected going in, what actually happened, and how the approach
+    // changed in response.
+    learnings: z
+      .array(
+        z.object({
+          expected: z.string().trim().min(1),
+          observed: z.string().trim().min(1),
+          response: z.string().trim().min(1),
+        }),
+      )
+      .optional()
+      .default([]),
   }),
 });
 
