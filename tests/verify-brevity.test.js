@@ -378,4 +378,16 @@ describe('verify-brevity', () => {
       `x\nsidebar:\n  - type: mermaid\n    content: |\n      graph TD\n          A["one"]\n  - type: text\n    body: "${b}"\n`;
     expect(run(mk('alpha gamma'), mk('alpha beta gamma'))).toBe(0);
   });
+
+  it('fails when a five-digit issue reference loses its hash', () => {
+    expect(run('closed #10000 today\n', 'closed 10000 today\n')).toBe(1);
+  });
+
+  it('fails when a currency-code prefix changes', () => {
+    expect(run('costs EUR4 total\n', 'costs USD4 total\n')).toBe(1);
+  });
+
+  it('fails when an indented code block at end-of-file changes', () => {
+    expect(run('text\n\n    const mode = "strict"', 'text\n\n    const mode = "loose"')).toBe(1);
+  });
 });

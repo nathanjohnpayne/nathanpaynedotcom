@@ -87,7 +87,7 @@ TOKEN_CLASSES = (
     ("frontmatter paths", r"(?m)^[ \t]*[A-Za-z_][\w-]*:[ \t]*(?P<t>/\S+)[ \t]*$"),
     # Single digits count: dropping the `#` from `#5` leaves the numeral
     # class unchanged, so a one-digit reference could vanish silently.
-    ("issue/PR refs", r"#\d{1,4}\b"),
+    ("issue/PR refs", r"#\d+\b"),
     # A clock time without its zone is a different instant, so the zone is
     # part of the token when one is written. That includes an ISO offset:
     # `...T10:20:30+05:00` and `...-05:00` are ten hours apart, and stopping
@@ -114,7 +114,7 @@ TOKEN_CLASSES = (
     # "took 22. It" is not read as a changed value.
     # A slash denominator is part of the rate: `$4/M` and `$4/B` differ by a
     # factor of a thousand while every other token compares equal.
-    ("numerals", r"(?<![A-Za-z0-9_.])[$\u20ac\u00a3]?[+-]?\d(?:[\d,.]*\d)?"
+    ("numerals", r"(?<![A-Za-z0-9_.])(?:[A-Z]{3})?[$\u20ac\u00a3]?[+-]?\d(?:[\d,.]*\d)?"
                  r"(?:%|[A-Za-z]{1,3}\b)?(?:/[A-Za-z]{1,6}\b)?"),
     # Delimiters pair by length, as CommonMark specifies: a span holding a
     # literal backtick opens with two or more, and assuming one delimiter
@@ -141,7 +141,9 @@ BLOCK_CLASSES = (
     # introduced by a blank line. The blank-line requirement is what keeps
     # this off list continuations and wrapped table rows.
     # Four spaces or a tab: Remark emits a code node for either.
-    ("indented code blocks", r"(?m)(?<=\n\n)(?:(?:[ ]{4,}|\t)[^\n]*\n)+", 0),
+    # `(?:\n|\Z)` rather than `\n`: a file whose final line has no terminal
+    # newline would otherwise be matched only up to the previous line.
+    ("indented code blocks", r"(?m)(?<=\n\n)(?:(?:[ ]{4,}|\t)[^\n]*(?:\n|\Z))+", 0),
     # Both fence forms; Astro's Markdown parser accepts either. The closing
     # fence must use the opener's character and be at least as long, so a
     # four-backtick block quoting a three-backtick line stays one block --
@@ -161,7 +163,7 @@ BLOCK_CLASSES = (
     # Blank lines are legal inside a block scalar and do not end the item, so
     # the continuation accepts an empty line followed by more indented text.
     ("frontmatter mermaid items",
-     r"^(?P<ind>[ \t]*)-[ \t]+[^\n]*\n(?:(?![ \t]*-[ \t])[ \t]+[^\n]*\n|[ \t]*\n(?=[ \t]+\S))*", re.M,
+     r"^(?P<ind>[ \t]*)-[ \t]+[^\n]*(?:\n|\Z)(?:(?![ \t]*-[ \t])[ \t]+[^\n]*(?:\n|\Z)|[ \t]*\n(?=[ \t]+\S))*", re.M,
      "type: mermaid"),
     # A GFM table is a header row, a delimiter row, and body rows. Matching
     # the whole construct catches tables written without the optional leading
