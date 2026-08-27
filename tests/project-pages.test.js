@@ -731,14 +731,13 @@ describe('Project Pages — case-study components', () => {
     // the extension catches (1) and misses (2) (Codex P2, round 3).
     // Vacuous until the first page adopts a field.
     const FIELD_COMPONENTS = {
-      decisions: 'DecisionLedger',
-      constraints: 'ConstraintStrip',
-      learnings: 'LearningLedger',
+      decisions: { component: 'DecisionLedger', rootClass: 'decision-ledger' },
+      constraints: { component: 'ConstraintStrip', rootClass: 'constraint-strip' },
+      learnings: { component: 'LearningLedger', rootClass: 'learning-ledger' },
     };
 
     for (const file of projectSourceFiles()) {
-      const raw = readFileSync(join(CONTENT, file), 'utf-8');
-      const frontmatter = parseProjectFrontmatter(raw, file);
+      const frontmatter = readProjectFrontmatter(file);
       const declared = Object.keys(FIELD_COMPONENTS).filter(
         (field) => Array.isArray(frontmatter[field]) && frontmatter[field].length > 0,
       );
@@ -749,18 +748,19 @@ describe('Project Pages — case-study components', () => {
         `${file} declares ${declared.join(', ')} but is .md — those fields cannot render from a Markdown body. Convert it to .mdx and place the component(s), or remove the frontmatter.`,
       ).toBe(true);
 
-      // Strip the frontmatter before searching, so a field NAME in the
-      // frontmatter can never be mistaken for a component invocation.
-      const body = raw.split(/^---$/m).slice(2).join('---');
+      // Assert the RENDERED page, not the source. A raw-source regex for
+      // `<DecisionLedger` also matches the component inside a fenced code
+      // example or a JSX comment — neither of which Astro executes — so the
+      // silent data-loss case would survive the guard meant to catch it
+      // (Codex P2, round 5). The built markup is the only evidence that a
+      // reader actually sees the records, and it subsumes the import check:
+      // a missing import fails the build outright.
+      const html = readDistHtml(`projects/${frontmatter.slug}/index.html`);
       for (const field of declared) {
-        const component = FIELD_COMPONENTS[field];
+        const { component, rootClass } = FIELD_COMPONENTS[field];
         expect(
-          new RegExp(`<${component}\\b`).test(body),
-          `${file} declares ${field} but never places <${component}> in its body — the records would be authored and then silently dropped.`,
-        ).toBe(true);
-        expect(
-          new RegExp(`import\\s+${component}\\b`).test(body),
-          `${file} places <${component}> without importing it — MDX does not put it in scope, so the build fails on a missing reference.`,
+          html.includes(`class="${rootClass}`),
+          `${file} declares ${field} but /projects/${frontmatter.slug}/ renders no .${rootClass} — place <${component}> in the body, or the records are authored and silently dropped.`,
         ).toBe(true);
       }
     }
