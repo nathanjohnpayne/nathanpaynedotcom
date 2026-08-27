@@ -84,7 +84,8 @@ TOKEN_CLASSES = (
     ("reference link targets", r"(?m)^\[[^\]]+\]:[ \t]*(?P<t>\S+)"),
     # A bare frontmatter value is a destination with no Markdown syntax
     # around it -- `image: /og/blog/x.png` repoints silently otherwise.
-    ("frontmatter paths", r"(?m)^[ \t]*[A-Za-z_][\w-]*:[ \t]*(?P<t>/\S+)[ \t]*$"),
+    ("frontmatter paths",
+     r"(?m)^[ \t]*[\"']?[A-Za-z_][\w-]*[\"']?:[ \t]*(?P<t>/\S+)[ \t]*$"),
     # Single digits count: dropping the `#` from `#5` leaves the numeral
     # class unchanged, so a one-digit reference could vanish silently.
     ("issue/PR refs", r"#\d+\b"),
@@ -114,8 +115,12 @@ TOKEN_CLASSES = (
     # "took 22. It" is not read as a changed value.
     # A slash denominator is part of the rate: `$4/M` and `$4/B` differ by a
     # factor of a thousand while every other token compares equal.
-    ("numerals", r"(?<![A-Za-z0-9_.])(?:[A-Z]{3})?[$\u20ac\u00a3]?[+-]?\d(?:[\d,.]*\d)?"
+    ("numerals", r"(?<![A-Za-z0-9_.])(?:[A-Z]{3})?[$\u20ac\u00a3]?[+-]?"
+                 r"(?:\d(?:[\d,.]*\d)?|\.\d+)"
                  r"(?:%|[A-Za-z]{1,3}\b)?(?:/[A-Za-z]{1,6}\b)?"),
+    # Severity identifiers are factual claims in these posts: "a P1" becoming
+    # "a P2" restates the finding's seriousness with no numeral change.
+    ("severity identifiers", r"\bP[0-3]\b"),
     # Delimiters pair by length, as CommonMark specifies: a span holding a
     # literal backtick opens with two or more, and assuming one delimiter
     # captured a partial span and left the rest unprotected.
@@ -164,7 +169,7 @@ BLOCK_CLASSES = (
     # the continuation accepts an empty line followed by more indented text.
     ("frontmatter mermaid items",
      r"^(?P<ind>[ \t]*)-[ \t]+[^\n]*(?:\n|\Z)(?:(?![ \t]*-[ \t])[ \t]+[^\n]*(?:\n|\Z)|[ \t]*\n(?=[ \t]+\S))*", re.M,
-     "type: mermaid"),
+     r"type:[ \t]*[\"']?mermaid[\"']?"),
     # A GFM table is a header row, a delimiter row, and body rows. Matching
     # the whole construct catches tables written without the optional leading
     # pipe, which matching lines that merely contain a pipe does not -- that
@@ -232,7 +237,11 @@ def _blocks():
 
 def _find_block(pattern: str, text: str, flags: int, needle: str | None) -> list[str]:
     out = _find(pattern, text, flags)
-    return [m for m in out if needle is None or needle in m]
+    if needle is None:
+        return out
+    # A regex, not a substring: YAML accepts `type: "mermaid"` as readily as
+    # `type: mermaid`, and a literal match missed the quoted form.
+    return [m for m in out if re.search(needle, m)]
 
 
 def _prose_words(text: str) -> int:
@@ -252,6 +261,9 @@ def _prose_words(text: str) -> int:
     # Blockquoted prompts and transcripts are verbatim evidence, not prose a
     # brevity pass may touch; counting them dilutes every reduction around them.
     body = re.sub(r"(?m)^[ \t]*>.*$", " ", body)
+    # Alt text is the accessible description of an image, not connective
+    # prose -- the same reasoning that keeps a diagram's description pinned.
+    body = re.sub(r"!\[[^\]]*\]\([^)]*\)", " ", body)
     return len(body.split())
 
 

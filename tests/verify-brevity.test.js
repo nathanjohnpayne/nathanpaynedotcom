@@ -325,10 +325,12 @@ describe('verify-brevity', () => {
   });
 
   it('excludes inline code from the prose word count', () => {
+    // Asserted exactly, not by shape: a regex that accepts any two numbers
+    // passes whether or not the span was excluded, which is the whole claim.
+    // `The <code> process was extremely slow.` -> 5 prose words, then 4.
     const before = 'The `alpha beta` process was extremely slow.\n';
     const after = 'The `alpha beta` process was slow.\n';
-    const text = output(after, before);
-    expect(text).toMatch(/prose \d+ -> \d+/);
+    expect(output(after, before)).toMatch(/prose 5 -> 4\b/);
   });
 
   it('notes a description change without failing the gate', () => {
@@ -389,5 +391,29 @@ describe('verify-brevity', () => {
 
   it('fails when an indented code block at end-of-file changes', () => {
     expect(run('text\n\n    const mode = "strict"', 'text\n\n    const mode = "loose"')).toBe(1);
+  });
+
+  it('fails when a decimal without a leading zero changes', () => {
+    expect(run('grew by .5 points\n', 'grew by .7 points\n')).toBe(1);
+  });
+
+  it('fails when a severity identifier changes', () => {
+    expect(run('raised a P1 here\n', 'raised a P2 here\n')).toBe(1);
+  });
+
+  it('matches a mermaid item whose discriminator is quoted', () => {
+    const mk = (label) =>
+      `x\nsidebar:\n  - type: "mermaid"\n    content: |\n      graph TD\n          A["${label}"]\n`;
+    expect(run(mk('one'), mk('two'))).toBe(1);
+  });
+
+  it('fails when a quoted frontmatter key is repointed', () => {
+    const mk = (p) => `---\n"image": ${p}\n---\nx\n`;
+    expect(run(mk('/og/a.png'), mk('/og/b.png'))).toBe(1);
+  });
+
+  it('excludes image alt text from the prose word count', () => {
+    const doc = '---\ntitle: "T"\n---\n\n![a very long alt text here](/img/x.png)\n\nBody words here now.\n';
+    expect(output(doc, doc)).toMatch(/prose 4 -> 4\b/);
   });
 });
