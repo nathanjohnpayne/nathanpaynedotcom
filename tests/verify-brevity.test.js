@@ -27,6 +27,7 @@ title: "Signed"
 seoDescription: "Pinned."
 sidebar:
   - type: mermaid
+    title: "Handover"
     content: |
       graph TD
           A["Authoring session"] --> B["Merge"]
@@ -181,8 +182,15 @@ describe('verify-brevity', () => {
     expect(out).toMatch(/note\s+spelled-out numbers/);
   });
 
+  // CodeQL js/identity-replacement caught this replacing the string with
+  // itself, so the assertion only ever exercised the diagram content and the
+  // item's title -- the thing the test is named for -- went unchecked.
   it('fails when a sidebar mermaid title changes', () => {
-    expect(run(SIGNED.replace('title: "Signed"', 'title: "Signed"').replace('graph TD', 'graph LR'))).toBe(1);
+    expect(run(SIGNED.replace('title: "Handover"', 'title: "The handover"'))).toBe(1);
+  });
+
+  it('fails when sidebar mermaid content changes', () => {
+    expect(run(SIGNED.replace('graph TD', 'graph LR'))).toBe(1);
   });
 
   it('fails when a natural-language timestamp flips am to pm', () => {
