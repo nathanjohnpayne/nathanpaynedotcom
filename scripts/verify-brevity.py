@@ -130,7 +130,6 @@ TOKEN_CLASSES = (
     # `1e6` -> `1e9` is a thousand-fold change that leaves the coefficient
     # equal, and the lookbehind stops the exponent becoming its own token.
     ("scientific notation", r"(?<![A-Za-z0-9_.])\d+(?:\.\d+)?[eE][+-]?\d+\b"),
-    ("code spans", r"(?P<d>`+)(?:[^`]|(?!(?P=d))`+)+?(?P=d)(?!`)"),
 )
 
 # Advisory, never gating. "six PRs" is evidence and "one of the reasons" is
@@ -205,6 +204,43 @@ def field(text: str, name: str) -> str | None:
     return match.group(0) if match else None
 
 
+def _code_spans(text: str) -> list[str]:
+    """Return inline code spans, pairing delimiters by run length.
+
+    A scanner, not a regex. The backreference form this replaces backtracked
+    exponentially on a long run of backticks -- measured doubling roughly
+    every two characters (0.2s at 38 backticks, 0.77s at 42), so a post
+    containing ~60 consecutive backticks would hang the gate. CodeQL alert 26.
+    Posts in this collection discuss Markdown fences, so that input is
+    reachable rather than theoretical.
+    """
+    out: list[str] = []
+    i, n = 0, len(text)
+    while i < n:
+        if text[i] != "`":
+            i += 1
+            continue
+        j = i
+        while j < n and text[j] == "`":
+            j += 1
+        run, k, closed = j - i, j, False
+        while k < n:
+            if text[k] == "`":
+                m = k
+                while m < n and text[m] == "`":
+                    m += 1
+                if m - k == run:
+                    out.append(text[i:m])
+                    i, closed = m, True
+                    break
+                k = m
+            else:
+                k += 1
+        if not closed:
+            i = j
+    return out
+
+
 def _find(pattern: str, text: str, flags: int = 0) -> list[str]:
     """Extract matches, preferring a `t` group when the pattern names one.
 
@@ -257,7 +293,8 @@ def _prose_words(text: str) -> int:
         body = re.sub(pattern, " ", body, flags=flags)
     # Inline code is as incompressible as a fenced block, and a multiword
     # span counted as prose understates the reduction the same way tables did.
-    body = re.sub(r"(`+)(?:[^`]|(?!\1)`+)+?\1(?!`)", " ", body)
+    for span in _code_spans(body):
+        body = body.replace(span, " ", 1)
     # Blockquoted prompts and transcripts are verbatim evidence, not prose a
     # brevity pass may touch; counting them dilutes every reduction around them.
     body = re.sub(r"(?m)^[ \t]*>.*$", " ", body)
@@ -285,6 +322,15 @@ def compare(before: str, after: str, quiet: bool) -> int:
         if lost or added:
             detail += f"  lost={lost[:4]} added={added[:4]}"
         report(not lost and not added, label, detail)
+
+    # Scanned rather than matched -- see _code_spans for why.
+    b, a = Counter(_code_spans(before)), Counter(_code_spans(after))
+    lost = sorted(k for k in b if a[k] < b[k])
+    added = sorted(k for k in a if b[k] < a[k])
+    detail = f"  ({sum(b.values())} -> {sum(a.values())})"
+    if lost or added:
+        detail += f"  lost={lost[:4]} added={added[:4]}"
+    report(not lost and not added, "code spans", detail)
 
     for label, pattern in ADVISORY_CLASSES:
         # Case-folded: the class is matched case-insensitively, so counting

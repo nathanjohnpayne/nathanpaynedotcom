@@ -416,4 +416,18 @@ describe('verify-brevity', () => {
     const doc = '---\ntitle: "T"\n---\n\n![a very long alt text here](/img/x.png)\n\nBody words here now.\n';
     expect(output(doc, doc)).toMatch(/prose 4 -> 4\b/);
   });
+
+  it('does not backtrack exponentially on a long run of backticks', () => {
+    // CodeQL alert 26. The regex this replaced doubled roughly every two
+    // backticks -- 0.77s at 42, unusable past ~60. A post discussing Markdown
+    // fences can contain such a run, so this is reachable input, not theory.
+    const doc = 'text\n\n' + '`'.repeat(2000) + 'x\n';
+    const started = Date.now();
+    expect(run(doc, doc)).toBe(0);
+    expect(Date.now() - started).toBeLessThan(5000);
+  });
+
+  it('still pairs multi-backtick spans correctly after the rewrite', () => {
+    expect(run('see ``alpha ` beta`` and `x` here\n', 'see ``alpha ` gamma`` and `x` here\n')).toBe(1);
+  });
 });
