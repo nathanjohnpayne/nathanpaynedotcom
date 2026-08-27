@@ -1,7 +1,7 @@
 ---
 title: "Swipe Watch"
 slug: "swipe-watch"
-description: "A swipe-based discovery experiment for Disney+ and Hulu that makes recommendation training and watchlist building a game."
+description: "A swipe-based discovery experiment for Disney+ and Hulu that makes expressing taste and building a watchlist a game."
 kicker: "AI × Consumer × Streaming"
 order: 5
 screenshotAspect: "narrow"
@@ -42,7 +42,7 @@ The core build is thirteen commits in vanilla JavaScript across three days—a T
 
 The content catalog is hand-curated, and the repo's own record of its growth needs a correction, because one commit subject is wrong: the commit titled "Add 20 new content tiles" adds eleven—twelve of the names in its body were poster-format upgrades to tiles already in the pool, mis-listed as new. The corrected sequence runs 45 titles in the initial commit, +12 that Friday, then +11 and +12 that Saturday to reach 80 on February 28. The pool sat there for six weeks until PR #20 added 27 more on April 10, and PR #21 removed a duplicate "America's National Parks (Classic)" tile the same day—flagged by CodeRabbit in review, since nothing in the data enforces uniqueness—leaving the pool at 106, where it stands. Each batch followed a documented poster guide that specifies image handling, content types, and format standards, the same taxonomy the four discovery modes filter against.
 
-The coin and unlock system came after the core swiping worked—two commits on the Friday evening, nineteen minutes apart. The initial build proved the interaction, but sessions felt finite: you'd swipe through the deck and stop. Earning coins by swiping and spending them to unlock curated discovery batches gave the deck a bottom worth reaching, and the end screen became a persistent coin bank with a spend mechanic instead of a dead-end "you're done" state.
+The coin and unlock system came after the core swiping worked—two commits on the Friday evening, nineteen minutes apart. The initial build proved the interaction, but sessions felt finite: you'd swipe through the deck and stop. Earning coins by swiping and spending them to unlock curated discovery batches was meant to give the deck a bottom worth reaching, and the end screen became a persistent coin bank with a spend mechanic instead of a dead-end "you're done" state. Whether it did is not something the record shows.
 
 A dedicated pass the same evening added gesture hints, tuned the card animations, and built a first-run walkthrough. Whether any of that made the first session self-explanatory is not something the record can say. A 21-line fix in April handled mobile card image scaling and badge clipping, which only surfaced on smaller viewports where the poster art cropped differently than expected.
 
