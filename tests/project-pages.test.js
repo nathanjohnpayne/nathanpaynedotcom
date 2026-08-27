@@ -1,7 +1,8 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { existsSync, readFileSync, readdirSync } from 'fs';
-import { resolve, join } from 'path';
+import { resolve, join, relative } from 'path';
 import { extractFrontmatter, parseFrontmatter } from '@astrojs/markdown-remark';
+import { findFilesRecursively } from '../scripts/lib/blog-file-inventory.mjs';
 import { writeSanitizedDOM } from './helpers/dom.js';
 
 // Smoke tests for the content-collection-driven project detail pages.
@@ -107,6 +108,20 @@ const projectAccentRamp = ['red', 'yellow', 'paper', 'blue', 'black'];
 // Builds section. The SoftwareApplication JSON-LD entity is also
 // dropped on these pages (no `url:` to populate).
 const noLiveUrlSlugs = ['matchline'];
+
+// Every project source the collection would load, as paths relative to CONTENT.
+//
+// The glob in src/content.config.ts is `**/*.{md,mdx}` — recursive, and it
+// takes both extensions. A flat `readdirSync` filter therefore under-reports
+// on two independent axes, and both failures are silent: a nested project, or
+// (before #759) an .mdx one, simply drops out of whatever the caller was
+// enforcing. Mirror the glob here so the guards below cannot go quietly
+// out of sync with what actually ships.
+function projectSourceFiles() {
+  return findFilesRecursively(CONTENT, (filePath) => /\.mdx?$/.test(filePath)).map((filePath) =>
+    relative(CONTENT, filePath),
+  );
+}
 
 function readDistHtml(relativePath) {
   return readFileSync(resolve(DIST, relativePath), 'utf-8');
@@ -276,15 +291,14 @@ describe('Project Pages — routes', () => {
   });
 
   it('the collection source has the same number of non-draft projects as the index renders', () => {
-    // The projects collection glob is `**/*.{md,mdx}` (epic #759 converts pages to
-    // .mdx individually so they can place components mid-body). This filter has to
-    // match that glob everywhere it appears in this file: this test fails loudly
-    // the moment a page converts (`expected 6 to be 7`), but the same `.md`-only
-    // filter below—`project frontmatter does not carry raw palette color fields`
-    // and `every project accent follows the canonical ramp for its order`—fails
-    // silently instead, quietly dropping the converted page out of coverage rather
-    // than erroring. Widen all three together now, not one at a time as pages convert.
-    const sourceFiles = readdirSync(CONTENT).filter((f) => f.endsWith('.md') || f.endsWith('.mdx'));
+    // Of the four guards that enumerate project sources, this is the only one
+    // that fails LOUDLY when the enumeration drifts from the collection glob —
+    // it compares a count against the rendered index, so a missed file reads as
+    // `expected 6 to be 7`. The other three (raw palette fields, the accent
+    // ramp, and the case-study/.mdx guard) just stop covering the file they
+    // missed, in silence. That asymmetry is why all four share
+    // projectSourceFiles() rather than each filtering for themselves.
+    const sourceFiles = projectSourceFiles();
     const nonDraftSources = sourceFiles.filter(
       (file) => readProjectFrontmatter(file).draft !== true,
     );
@@ -292,7 +306,7 @@ describe('Project Pages — routes', () => {
   });
 
   it('project frontmatter does not carry raw palette color fields', () => {
-    const sourceFiles = readdirSync(CONTENT).filter((f) => f.endsWith('.md') || f.endsWith('.mdx'));
+    const sourceFiles = projectSourceFiles();
 
     for (const file of sourceFiles) {
       const frontmatter = readProjectFrontmatter(file);
@@ -323,7 +337,7 @@ describe('Project Pages — routes', () => {
   });
 
   it('every project accent follows the canonical ramp for its order', () => {
-    const sourceFiles = readdirSync(CONTENT).filter((f) => f.endsWith('.md') || f.endsWith('.mdx'));
+    const sourceFiles = projectSourceFiles();
 
     for (const file of sourceFiles) {
       const { order, accent } = readProjectFrontmatter(file);
@@ -714,9 +728,7 @@ describe('Project Pages — case-study components', () => {
     // catches it, because the diff looks correct. Passes vacuously until
     // the first page adopts a field.
     const caseStudyFields = ['decisions', 'constraints', 'learnings'];
-    const sourceFiles = readdirSync(CONTENT).filter(
-      (f) => f.endsWith('.md') || f.endsWith('.mdx'),
-    );
+    const sourceFiles = projectSourceFiles();
 
     for (const file of sourceFiles) {
       const frontmatter = readProjectFrontmatter(file);
