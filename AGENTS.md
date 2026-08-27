@@ -11,6 +11,7 @@ Agent instructions are organized into focused sub-files under `docs/agents/`. Re
 5. **[Testing Requirements](docs/agents/testing-requirements.md)** --- Coverage expectations, test deletion policy
 6. **[Deployment Process](docs/agents/deployment-process.md)** --- Build/deploy flow, 1Password-backed auth
 7. **[Prose Line-Wrapping](docs/agents/prose-line-wrapping.md)** --- Soft-wrap Markdown prose; repository scope is listed in Documentation Rules
+8. **[Blog Revision Process](docs/agents/blog-revision-process.md)** --- Two-pass order for audited posts, facts ledgers, brevity verification
 
 ## Code Review Policy
 
