@@ -32,7 +32,7 @@ sidebar:
       graph TD
           A["Authoring session"] --> B["134 finding threads<br/>(116 severity-badged)"]
           B --> C["Fix verification briefed<br/>from the finding list<br/>(author record)"]
-          C --> D["122 of 134 threads<br/>dispositioned; none rejected"]
+          C --> D["Every pre-merge thread<br/>dispositioned; none rejected"]
           D --> E["#797 merges clean;<br/>the defect ships"]
           S["CommonMark spec"] --> F["Spec-derived pass on #791:<br/>P1 names the same rule,<br/>12 hours earlier"]
           F -->|"brief scoped to one diff"| X["Never applied to #797"]
