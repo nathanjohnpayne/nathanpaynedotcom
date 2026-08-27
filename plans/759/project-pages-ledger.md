@@ -1282,7 +1282,7 @@ Reproduce with `git rev-list --count "$(git rev-list -1 --before=2026-04-14 orig
 | §F `override` | 6 | 7 | 0 | 1 | 0 | 14 |
 | §G `swipe-watch` | 10 | 6 | 1 | 1 | 0 | 18 |
 | §H cross-page | 3 | 5 | 0 | 2 | 0 | 10 |
-| **Total** | **83** | **42** | **7** | **28** | **3** | **163** |
+| **Total** | **82** | **42** | **7** | **29** | **3** | **163** |
 
 A **SPLIT** row is counted once, in its own column, not split across the other three; the row text names which half carries which verdict. WRONG rows count each restated instance separately, because each is a separate edit: §E10 and §E11 are one number stated twice, §G1–G3 are one number stated three times, and §H1–H2 re-count the Override and two-strike defects at the cross-page level where the fix has to be coordinated across files. Deduplicated to distinct underlying facts, the WRONG count is 36.
 
