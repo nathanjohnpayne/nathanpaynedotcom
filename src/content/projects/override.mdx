@@ -1,0 +1,109 @@
+---
+title: "Override"
+slug: "override"
+description: "A Broadway financial operating platform: one maintained deal model—capitalization, waterfall, cap table—shared with investors through a read-only deal room."
+seoDescription: "A Broadway financial operating system for capitalization, investor returns, ownership, and read-only deal rooms—one maintained model instead of spreadsheet drift."
+kicker: "AI × Finance × Theater"
+order: 2
+screenshotAspect: "wide"
+screenshotSrc: "/images/projects/override-hero.png"
+accent: "paper"
+liveUrl: "https://overridebroadway.com"
+githubUrl: "https://github.com/nathanjohnpayne/overridebroadway"
+tags: ["Finance", "Theater", "React", "Firebase"]
+status: "SHIPPED"
+metadata:
+  format: "Financial operating system"
+  focus: "Capitalization, ownership, and investor workflows"
+stack: "Next.js · TypeScript · Tailwind · Firebase · Recharts · Vitest"
+constraints:
+  - value: "6 days"
+    label: "scaffold to the whole-app commit"
+  - value: "No backend"
+    label: "static export, no Cloud Functions"
+  - value: "No producer"
+    label: "involved in the build"
+  - value: "1 deal room"
+    label: "in production, a demonstration"
+decisions:
+  - title: "Two waterfalls, not a generic split"
+    context: "Broadway distributes profit two ways: recoup-first, where investors are repaid in full before anyone shares profit, and share-from-dollar-one, where profit sharing runs alongside recoupment. Override implements both as named waterfall types, with eleven royalty participants whose default rates are calibrated to published Broadway deal structures—the book writer's 4.5% annotated to the industry's standard production contract."
+    rejected: "A generic configurable profit-share—one parameterized split engine that would also serve film finance, real-estate syndication, or any LP structure, and would have made the product sellable outside a single industry."
+    rationale: "The product's claim is that a producer recognizes their own deal in it. Naming the industry's two structures and defaulting the royalties to its published norms is that claim made concrete; a generic engine would hand the domain translation back to the user, which is the spreadsheet problem with a better interface."
+    evidence: "Fit is the untested half. A documented calibration against a real production's published economics says the arithmetic holds; no real capitalization has ever been modeled in Override, so nothing yet says whether producers recognize their deals in the two named types. Only a producer structuring an actual deal resolves it."
+    status: "pending"
+  - title: "Derive the phase from the economics"
+    context: "A producer's screen shows which phase the waterfall is in—pre-revenue, in recoupment, post-recoup with profit sharing, or closed. The badge needs a source of truth."
+    rejected: "Reading the profit-sharing toggle the producer just clicked—one field, already on the form, and the obvious source."
+    rationale: "The phase function reads the deal's post-recoup investor split instead: profit sharing is on when investors keep less than the whole post-recoup pool. The badge reports the economic condition of the deal rather than a UI flag that can be set independently of it, and the file states that rule in its own comments."
+    evidence: "The separation is partial, and the repository says so itself. The distribution math one file over still consults the toggle, and the divergence reaches the investor: switch the toggle off and leave the split at its 0.5 default—nothing clamps it—and the badge reads \"Post-Recoup · Profit Sharing Active\" while the deal room's headline term shows an investor pool of 50% of distributable profit, for a deal in which the engine computes the investors' post-recoup share as zero. The reference doc records this as a known inconsistency with the instruction to preserve the behavior; the architecture doc lists it first among current risks. What stands is a documented inconsistency, kept on purpose."
+    status: "mixed"
+  - title: "The token is the credential"
+    context: "Prospective investors need to see a deal before they commit money to it, and the moment a producer shares terms is the worst moment to ask a prospect to create an account."
+    rejected: "A login-gated investor portal—the standard answer for financial data, and the one that tells the producer who actually looked."
+    rationale: "The deal room lives at a URL carrying a token, and the mechanism is route placement: the page sits outside the authenticated route group, so it never receives the auth guard at all, and the database rule allows a read on any active deal room. Nothing stands between a link-holder and the numbers, which is exactly the trade being made."
+    evidence: "No link has been sent to an outside investor, so the trade has never been priced. Its cost is already legible in the rule itself: the only revocation is deactivating the room, which kills the link for everyone at once, and the view event is keyed to the token rather than the viewer, so opening it identifies nobody."
+    status: "pending"
+  - title: "Investors see a snapshot"
+    context: "A deal room shows a model the producer is still working on. The question is whether the investor's view tracks the working model or a version the producer chose to publish."
+    rejected: "Live-syncing the investor's view to the producer's model—what a reader would assume a live deal room means, and the more impressive demo."
+    rationale: "The deal room captures the deal inputs at creation, and later edits do not propagate until the producer explicitly republishes. Nobody watches a number change under them mid-consideration, no draft leaks, and sharing terms stays a deliberate act each time rather than a side effect of editing."
+    evidence: "The staleness signal is the wrong one. The investor is shown the date the room was first shared, captioned as the structure the model was run against—but that field is written once at creation and never moves, and no file on the investor's route reads the timestamp a republish updates. So a refreshed snapshot arrives under its original date. Unexercised in both directions: no investor has held one of these links, so neither the protection nor the staleness has been observed."
+    status: "pending"
+related:
+  - label: "Blog: Agent Approval Workflow and the Genesis of Mergepath"
+    href: "/blog/agent-approval-workflow-genesis-of-mergepath/"
+  - label: "Project: Mergepath"
+    href: "/projects/mergepath/"
+  - label: "Project: Friends & Family Billing"
+    href: "/projects/friends-and-family-billing/"
+---
+
+import ConstraintStrip from '../../components/projects/ConstraintStrip.astro';
+import DecisionLedger from '../../components/projects/DecisionLedger.astro';
+
+## The problem
+
+I invest in Broadway productions. The first position I tracked arrived as documents: a term sheet PDF, a cap-table spreadsheet, a subscription agreement by email. Three months later the cap table and the term sheet disagreed. Nobody was wrong—the documents were snapshots, and a snapshot stops being true the moment anything changes.
+
+A Broadway deal is a living model circulated as dead paper. The fix is not a better document but one maintained model every document-shaped question can be asked of—built for the producer's side of the table by someone who sits on the investor's side.
+
+## The name
+
+The override, as I learned the word, is the producer's percentage taken off the top, a share that comes out before investors see a distribution. The product is named after a line in the waterfall: opaque outside the industry, immediately legible to any producer who has negotiated one. That is my reading rather than a provable fact, and it is the bet—a tool named Override claims to know where the money goes.
+
+## Two seats
+
+The producer, the general partner, needs control and auditability: every output should trace to an input they set. The prospective investor needs the opposite surface—assumptions they can follow, outcomes they can compare, no account to create, and candour about the odds, because the deal room's own disclosures tell a backer that only 20–25% of Broadway musicals fully recoup. The shipped dashboard takes both seats literally: its primary control is a My Productions / My Investments toggle, filtering to productions flagged as a personal investment. Both sides of the table, in one product, in the commit that first carried it.
+
+<ConstraintStrip constraints={props.constraints} />
+
+## The decisions
+
+These are trust decisions wearing engineering clothes: which surface is the source of truth, who gets to see a number, and what the software refuses to let drift. Each had a defensible opposite.
+
+The deal room shows aggregate capitalization, never individual investor records, so co-investors cannot see each other. The property is asserted in eleven places and enforced in none: what makes it true is one argument at one call site, where the component passes the stored form value rather than the bridged object holding every investor's name and amount. It holds in production, where the only active deal room's investor array is empty. The rule covers investor records; where a producer uploads production-level agreements, their URLs ride in the token-readable document.
+
+![The eight headline terms a prospective investor sees on opening a deal-room link, with no account: the capitalization, the waterfall type, the post-recoup investor pool, and the breakeven the model computes. This is the demonstration room, and its producer note calls every figure a placeholder.](/images/projects/override-deal-terms.png)
+
+<DecisionLedger decisions={props.decisions} />
+
+## Checking the money
+
+How does anyone know the money is right? The honest answer is a calibration, not a test suite. The day the engine was built, its documentation recorded a check against Hadestown's published economics—947 seats, 93% occupancy, a $155 average ticket, a $530K weekly nut, 14% royalties. Re-run today, the shipped engine still reproduces it: $1,046,283 weekly gross, 57.0% breakeven, recoupment in week 37. Nothing runs that check in CI, and nothing would catch it drifting.
+
+The suite is real and it is not the proof. Eighty-six tests pass, but only eight touch the engine; the three files where the money lives have no direct test, and the phase function has none at all. Exactly two assertions check money against the inputs, both pool percentages, and the ones that look like proof check the engine against its own output. The tests arrived five weeks after the engine.
+
+The boundary is real too. Five files, no React and no Firebase import in any of them, and the weekly pipeline and the waterfall allocation exist only there—though display totals and percentages are re-derived in the UI in at least six places, one component recomputing by hand a result it already holds. A producer configures rates, splits, the waterfall type, scenario parameters, and which sections an investor sees. The engine fixes the order of the weekly deductions, the GP's carve coming out of the investor pool rather than the creative pool, and the cap table bridged in at computation time so the deal form cannot hold stale investor data. None of it is policed by machinery—no lint rule, no import restriction, no CI check. It holds because rules files say so and reviewers read them.
+
+![A rule the engine fixes rather than the producer, per hundred dollars of post-recoup profit: the GP's carve comes out of the investor pool, not the creative pool, so the limited partners absorb it and the creative share is untouched. The callout is the model declining to flatter the deal—this demonstration never recoups, so the split describes a structure that never pays out.](/images/projects/override-profit-split.png)
+
+The application arrived in a single commit titled "Updates via Claude Code," six days after the scaffold; only six of 173 commits ever touch the source, and the product window closed at six weeks. Everything since is review and dependency apparatus. The repo's rules call the three engine files its highest-risk zone, while the automated review gate watches auth and payments directories that do not exist here—the judgment lives in prose, the machine gate aims elsewhere.
+
+## The deal it has not run
+
+Override has never run a real deal. The scope of that claim is the repository, its commit history, and all 138 issues and pull requests down to every review comment: no real capitalization managed in it, no outside investor admitted, no deal-room link sent to a backer. The only deal room in production is a demonstration built with sample figures, and the closest thing to adoption in the record is me—an issue about slow dashboard loads names five productions in my own account. One instrument could sharpen the boundary: every deal-room load fires an analytics event keyed to the token, and that log has never been queried.
+
+The direction is documented rather than implied. The product's own requirements doc describes a wedge—financial modeling as the entry point, expanding into capitalization management, investor CRM, document workflows and investor reporting—and labels the expansion planned, not yet implemented. The code agrees: `saveScenario()`, `getScenarios()` and `deleteScenario()` sit in the data layer with a subcollection and a security rule provisioned for them, and zero call sites anywhere. The investor-facing read-only view is built; the accounting platform is not.
+
+The bet was never that Broadway deserves bespoke software. It is that the drifted cap table had a cause—a producer and a backer each holding a version of the deal, with no way to know it was the same one—and that shared understanding between the two seats is a property of one maintained model rather than of better documents. That is what a first real deal would test.

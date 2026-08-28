@@ -1343,6 +1343,28 @@ This is a different surface from §F3, which audited a prose sentence at `:44` t
 
 **Per §M6 this licenses nothing to be rewritten on the page**, and the audit was not re-derived here. §F35 already establishes what the product does with the figure: it is a disclosure rendered at `DealRoomView.tsx:538`, not the input to the risk labels. The page should quote the shipped disclosure and attach no external figure to it—the product's claim is what is under audit, not Broadway's base rate.
 
+### F38—the snapshot date the investor sees is the one that never moves
+
+> "A Deal Room can go stale, and nothing on the investor's side says so."
+
+**WRONG as written, and the corrected form is a sharper finding than the claim it replaces.** The investor is shown a date—twice. `src/app/deal-room/DealRoomView.tsx:346` renders `Shared {new Date(dealRoom.createdAt).toLocaleDateString(…)}` in the header, and `:453` renders "Modeled against the snapshotted deal structure · {new Date(dealRoom.createdAt).toLocaleDateString()}" above the financial model. So the page must not say the investor gets no freshness signal.
+
+**But both read `createdAt`, and `createdAt` is the field a republish does not touch.** `updateDealRoom` (`src/lib/firestore.ts:363-366`) writes `updatedAt: serverTimestamp()` on every call, and "Update Snapshot" routes through it (§F23). `createdAt` is written once, at creation (`:337`). And `git grep -c 'updatedAt' d652b86 -- src/app/deal-room/` returns **zero**—no file on the investor route reads the field that moves. The consequence: after a producer republishes, the investor sees **the new numbers under the original share date**, beside a caption asserting those numbers are the snapshotted structure. The single on-screen freshness signal is the one guaranteed to be stale.
+
+**Corroborated in production.** The one active deal room (§F39) carries `createdAt` 2026-06-30T16:22:36.980Z and `updatedAt` 2026-06-30T16:23:33.119Z—57 seconds apart, so it was in fact updated after creation—and the investor view renders the earlier of the two. Corrected value for the page: the investor is shown the date the room was first shared, and that date does not move when the producer republishes, so it cannot distinguish a fresh snapshot from an old one.
+
+### F39—the aggregate-only invariant, checked against the production database
+
+> "No individual investor data reaches the deal room."
+
+**SUPPORTED, and this row records the one check §F24 could not make from the tree.** §F24 establishes that the property is asserted in eleven places, enforced by none, and held in practice by a single argument at a single call site. Whether it *holds in the live data* is a different question and is answerable.
+
+Read at 2026-08-28 through the Firestore REST API under the repository's own `firebase-deployer` service account, resolved via `scripts/op-preflight.sh --mode deploy` (read-only; `GET /v1/projects/soyouthinkyouwant/databases/(default)/documents/dealRooms`): the `dealRooms` collection holds **exactly one document**, `isActive: true`, and its `dealInputs.investors` field is `{"arrayValue": {}}`—an empty array. So the "`DealInputs.investors` is always `[]` in Firestore" invariant (`rules/repo_rules.md:43`, PRD §3.5.3) holds in production and not only in the specification.
+
+Two things the same read establishes for §F31 and for the constraint strip. The single deal room is a **demonstration**: its `production.name` is "The Show - Demo!" and its `config.producerNote` reads, verbatim, "This is a demonstration deal room created with sample figures for illustration only. All numbers, investors, and documents shown here are fictional placeholders." And it is the **only** one—there is no second, non-demonstration deal room anywhere in the collection. That is the strongest available form of the validation boundary: not merely that the repository records no external use, but that the production database contains exactly one deal room and its author labelled it fictional.
+
+**No figure from that document may reach the page.** It is illustrative by its own note, but the page has no need of it and §F14's hypothetical is being cut rather than replaced.
+
 ## §G `swipe-watch`
 
 ### GM1—the evidence repository is `swipewatch`, and issue #757 says otherwise

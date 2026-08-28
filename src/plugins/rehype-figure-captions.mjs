@@ -66,6 +66,17 @@ const imageDimensions = {
     width: 1800,
     height: 2250,
   },
+  // Override: live deal-room captures at a 1280x1000 viewport, 2x DPR. The
+  // room is the public no-auth investor route, and the one in production is a
+  // demonstration whose own producer note labels every figure a placeholder.
+  '/images/projects/override-deal-terms.png': {
+    width: 2016,
+    height: 536,
+  },
+  '/images/projects/override-profit-split.png': {
+    width: 1984,
+    height: 770,
+  },
   // Swipe Watch: live-prototype captures at a 390x844 viewport, 2x DPR.
   '/images/projects/swipe-watch-card.png': {
     width: 780,
