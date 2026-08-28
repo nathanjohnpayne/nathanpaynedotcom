@@ -327,7 +327,7 @@ The second half of epic #759: issues #751–758. Runbook: `plans/759/portfolio-n
 | 0 | Repair stale sources (#824, #821, issue annotations) | **complete**, do not redo |
 | 1 | Resolve component placement | **complete**—MDX chosen, see below |
 | 2 | Infrastructure (PR 1: schema, components, CSS, spec, tests) | **complete**—[#830](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/830) merged `949f5c2` |
-| 3 | Seven pages, one PR each | in progress—#752 in review, six to follow |
+| 3 | Seven pages, one PR each | in progress—#752 merged, #757 in review, five to follow |
 | 4 | `/projects/` index | not started |
 | 5 | Close the epic | not started |
 
@@ -336,8 +336,8 @@ The second half of epic #759: issues #751–758. Runbook: `plans/759/portfolio-n
 | # | Issue | Page | Ledger | Components | PR | Status |
 |---|-------|------|--------|-----------|----|--------|
 | 1 | — | infrastructure | — | all three | [#830](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/830) | **merged** `949f5c2` |
-| 2 | #752 | `five-across` | §B | decisions, constraints, learnings | [#834](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/834) | **manual 4b handoff posted** |
-| 3 | #757 | `swipe-watch` | §G | decisions, learnings | | not started |
+| 2 | #752 | `five-across` | §B | decisions, constraints, learnings | [#834](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/834) | **merged** `44c0a59` |
+| 3 | #757 | `swipe-watch` | §G | decisions, constraints, learnings | [#836](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/836) | in review—Codex round 1 taken, 4b barrier pending |
 | 4 | #753 | `mergepath` | §E | decisions | | not started |
 | 5 | #754 | `override` | §F | decisions | | not started |
 | 6 | #755 | `device-source-of-truth` | §A | decisions, constraints | | not started |
@@ -414,3 +414,11 @@ Two things worth carrying rather than smoothing over. The `revised` record grew 
 - **Carry into the remaining six pages.** Trace each figure to its row *and* read the sentence around it—existence and correct use are different checks, and three findings landed in that gap. Grep the claim across every artifact before dispositioning. Recompute derived tallies from their inputs rather than hand-adjusting. Write calibration figures at the final head, never mid-review.
 - **The Codex poller under-reported twice**, returning zero findings while the API held four and then two on the same head; once it died on a network error 90 seconds before Codex posted. **Read the API, not the poll result.**
 - **CodeRabbit's edit floor fired four times**, each amendment landing three to four seconds after a disposition reply. A settle-and-sweep of roughly 150 seconds then a re-reply cleared all four at once.
+
+- 2026-08-27—**Page two (#757, swipe-watch) opened as [#836](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/836).** Five decisions, four constraints, three learnings. The #820 delta audit added §GM1, §GM2 and §G19–§G25; this PR added §G26, §G27 and §G28 and corrected §G19 and §G25.
+  - **A false claim was live on five surfaces, and a correction pass is what put it there.** The page said the app builds a watchlist. It does not: three localStorage keys, none holding a title, and two controls labelled "watchlist" writing an in-memory counter the next session zeroes. `git log -L` dates the wording to `194c7df`, PR #814—the audit-driven correction pass—which traded a vague claim for a false one on two surfaces in one commit, while this ledger was open on the same file. A test fixture pinned a third surface. This is §M's "correction applied where a reviewer reported it, and nowhere else", committed by the correction itself.
+  - **Executing the screenshot criterion found a defect that reading the stylesheet did not.** Rather than waive #757's "annotated screenshots at realistic mobile sizes", the prototype was captured at 390px. `.card-description` declares a two-line clamp *and* `flex: 1`; the box lands between 2.0 and 3.4 lines, so some cards paint an ellipsis with a third line beneath it and 3 of 40 sampled cards lose synopsis text outright (§G26). Filed against swipewatch, not fixed here. The lesson generalises: a criterion that reads like asset-production can be evidence-production.
+  - **Codex round 1 returned six P2s and every one was real.** Two changed what the page asserts. The three screenshots were unregistered in `rehype-figure-captions`, so they rendered with no CLS reservation and no portrait cap—and the existing assertion was slug-specific to five-across and structurally could not catch it, so it was generalised to every project page and verified to fail when an entry is removed. The categorical "every session ever recorded has coins in it" was retired: the initial commit carries a Firebase hosting deploy cache and the GA4 snippet, so a pre-coin production window existed, live and instrumented, for 3 d 10 h (§G28). The before-period is unexamined, not absent.
+  - **A success criterion was refuted by its own supporting screenshot.** The reconstruction said users would swipe "without instruction" while the walkthrough naming all three gestures sat further down the same page. Now explicitly post-onboarding, with discoverability marked unobservable by construction.
+  - **One finding was closed by running the query rather than narrowing the claim.** `/issues/{N}/comments` excludes PR review bodies and inline review comments; both were queried across all 84 swipewatch pull requests for the demo terms, returning zero matches. The no-artifact claim now holds by execution at every layer.
+  - Codex round 2 timed out at 600 s with no review on the new HEAD (exit 4), the documented route to Phase 4b. The 4b run then returned exit 6—HEAD barrier pending, not an error—awaiting Codex on `efc23f9`.
