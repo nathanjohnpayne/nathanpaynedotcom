@@ -351,6 +351,161 @@ else
   bad "gh-pr-guard has $guard_exit2 explicit parser exit-2 guards, expected 2"
 fi
 
+# --- 12. the contract's own verdicts, including the #1132 bypass -------------
+# A workflow assertion alone cannot see a parser regression, and "rejects the
+# fenced body" alone is satisfied by a gate that rejects everything -- so the
+# valid body is asserted to PASS in the same block.
+POLICY="$ROOT/.github/review-policy.yml"
+FENCED_SR=$'Authoring-Agent: claude\n\nSome PR.\n\n```\n## Self-Review\n```\n'
+VALID_BODY=$'Authoring-Agent: claude\n\n## Self-Review\n\n- Correctness: verified.\n'
+UNKNOWN_AGENT=$'Authoring-Agent: nobody\n\n## Self-Review\n\n- ok.\n'
+TWO_AGENTS=$'Authoring-Agent: claude\nAuthoring-Agent: codex\n\n## Self-Review\n\n- ok.\n'
+
+if pr_body_validate "$FENCED_SR" "$POLICY" >/dev/null 2>&1; then
+  bad "a ## Self-Review heading inside a code fence was ACCEPTED (the #1132 bypass)"
+else
+  ok "a ## Self-Review heading inside a code fence is rejected"
+fi
+
+if pr_body_validate "$VALID_BODY" "$POLICY" >/dev/null 2>&1; then
+  ok "a well-formed body is accepted (the rejections are not blanket)"
+else
+  bad "a well-formed body was rejected — the gate would block every PR"
+fi
+
+if pr_body_validate "$UNKNOWN_AGENT" "$POLICY" >/dev/null 2>&1; then
+  bad "an unknown Authoring-Agent was accepted"
+else
+  ok "an unknown Authoring-Agent is rejected"
+fi
+
+if pr_body_validate "$TWO_AGENTS" "$POLICY" >/dev/null 2>&1; then
+  bad "two Authoring-Agent lines were accepted"
+else
+  ok "two Authoring-Agent lines are rejected"
+fi
+
+# --- 13. the policy argument's failure modes must be honest ------------------
+# Before #1132 an unreadable policy rejected EVERY body while reporting
+# "unknown Authoring-Agent" -- blaming the author for a repo misconfiguration
+# no PR edit could fix. It must still fail closed, but say what actually broke.
+unreadable_out=$(pr_body_validate "$VALID_BODY" "/nonexistent/review-policy.yml" 2>&1 || true)
+if pr_body_validate "$VALID_BODY" "/nonexistent/review-policy.yml" >/dev/null 2>&1; then
+  bad "an unreadable policy file ACCEPTED a body — the gate fails open"
+else
+  ok "an unreadable policy file still fails closed"
+fi
+if printf '%s\n' "$unreadable_out" | grep -qF 'unknown Authoring-Agent'; then
+  bad "an unreadable policy is still reported as 'unknown Authoring-Agent' (blames the author)"
+else
+  ok "an unreadable policy is not misreported as an unknown agent"
+fi
+if printf '%s\n' "$unreadable_out" | grep -qiE 'configuration problem|could be derived'; then
+  ok "an unreadable policy names itself as the cause"
+else
+  bad "an unreadable policy gives no actionable diagnostic: $unreadable_out"
+fi
+
+# The empty-policy case is a DELIBERATE fail-open for callers that want only
+# the structural checks. It is pinned here so it stays a documented choice
+# rather than drifting into an accident, and so any gate that starts passing
+# "" is caught by the assertion below it.
+if pr_body_validate "$UNKNOWN_AGENT" "" >/dev/null 2>&1; then
+  ok "an empty policy arg deliberately skips the agent allow-list (documented fail-open)"
+else
+  bad "the empty-policy contract changed; update the exit-status docs in pr-body-contract.sh"
+fi
+if grep -qF 'pr_body_validate "$BODY" "$ROOT/.github/review-policy.yml"' "$ROOT/scripts/validate-pr-body.sh"; then
+  ok "the gate entrypoint passes a concrete policy path, so the fail-open is unreachable from CI"
+else
+  bad "scripts/validate-pr-body.sh must pass an absolute policy path, or the agent check silently disables"
+fi
+
+# --- 12. the REQUIRED Self-Review gate uses the parser, not a line grep ------
+# The server-side gate is the ONLY backstop for a PR created through the web UI
+# or the REST API, where the local gh-as-author wrapper never runs. A
+# line-based `grep -qE '^## Self-Review'` is satisfied by a heading inside a
+# fenced code block, so the required check passed bodies the parser rejects
+# (#1132).
+PRP=".github/workflows/pr-review-policy.yml"
+prp_job=$(awk '/^  self-review-check:/{f=1;next} /^  [a-z-]+:$/{f=0} f' "$ROOT/$PRP")
+# Live YAML only: the job's comments explain what it does and does not use, and
+# comments are readable as either half of an assertion — a positive one goes
+# green on prose describing a deleted option, a negative one fires on prose
+# documenting the pattern it forbids.
+prp_live=$(printf '%s\n' "$prp_job" | grep -vE '^[[:space:]]*#')
+
+if printf '%s\n' "$prp_live" | grep -qE "grep -q[A-Za-z]*[[:space:]]+.\^## Self-Review"; then
+  bad "$PRP still gates Self-Review with a line grep (a fenced heading defeats it)"
+else
+  ok "the Self-Review gate no longer relies on a line grep"
+fi
+if printf '%s\n' "$prp_live" | grep -qF 'pr-body-contract.mjs'; then
+  ok "the Self-Review gate routes through the markdown-aware parser"
+else
+  bad "$PRP does not call the parser; the gate cannot see fenced headings"
+fi
+# Scope guard: this gate checks the HEADING only. Enforcing the identity
+# contract here is a POLICY change (#1137) and must be a deliberate edit to
+# this assertion, not a silent widening.
+if printf '%s\n' "$prp_live" | grep -qF -- '--has-self-review'; then
+  ok "the gate asks only the heading question; the identity contract is not bundled in"
+else
+  bad "$PRP no longer passes --has-self-review; widening this required check is a policy change"
+fi
+# The gate must call an interface the DEFAULT BRANCH already provides: the
+# validator is loaded from there, so a flag added in the same PR that uses it
+# does not exist when the gate runs and the required check fails `usage:` on
+# its own PR.
+if printf '%s\n' "$prp_live" | grep -qF -- '--self-review-only'; then
+  bad "$PRP calls --self-review-only, a flag added in this same change; the gate loads the validator from the default branch and will fail usage: on its own PR"
+else
+  ok "the gate uses no flag introduced alongside it (no bootstrap window)"
+fi
+if printf '%s\n' "$prp_live" | grep -qF 'uses: actions/checkout@'; then
+  if printf '%s\n' "$prp_live" | grep -qF 'ref: ${{ github.event.repository.default_branch }}'; then
+    ok "the gate checks the validator out from the TRUSTED default branch"
+  else
+    bad "$PRP checks out without pinning ref to default_branch — a PR could edit its own validator"
+  fi
+  if printf '%s\n' "$prp_live" | grep -qF 'persist-credentials: false'; then
+    ok "the trusted validator checkout does not persist credentials"
+  else
+    bad "$PRP trusted checkout must set persist-credentials: false (#548)"
+  fi
+else
+  bad "$PRP self-review-check has no checkout, so it cannot run the trusted validator"
+fi
+if printf '%s\n' "$prp_live" | grep -qF 'node-version-file'; then
+  bad "$PRP uses node-version-file; canonical workflows must not depend on a consumer-owned .nvmrc"
+else
+  ok "the gate pins Node by literal version, not a consumer-owned .nvmrc"
+fi
+
+# --- 13. the heading semantics the gate now enforces -------------------------
+FENCED_SR=$'Authoring-Agent: claude\n\ntext\n\n```\n## Self-Review\n```\n'
+REAL_SR=$'Authoring-Agent: claude\n\n## Self-Review\n\n- Correctness: verified.\n'
+NO_SR=$'Authoring-Agent: claude\n\nno heading at all\n'
+pr_body_has_self_review "$FENCED_SR" >/dev/null 2>&1 \
+  && bad "a ## Self-Review heading inside a code fence was ACCEPTED (the #1132 bypass)" \
+  || ok "a ## Self-Review heading inside a code fence is rejected"
+pr_body_has_self_review "$REAL_SR" >/dev/null 2>&1 \
+  && ok "a real ## Self-Review heading is accepted (the rejection is not blanket)" \
+  || bad "a real ## Self-Review heading was rejected — the gate would block every PR"
+pr_body_has_self_review "$NO_SR" >/dev/null 2>&1 \
+  && bad "a body with no heading was accepted" \
+  || ok "a body with no ## Self-Review heading is rejected"
+
+# The narrowed gate must NOT enforce the identity contract. A body with no
+# Authoring-Agent line at all has to pass, or this PR is silently carrying a
+# policy change it does not claim to.
+NO_AGENT=$'## Self-Review\n\n- no Authoring-Agent line anywhere.\n'
+if printf '%s\n' "$NO_AGENT" | node "$ROOT/scripts/lib/pr-body-contract.mjs" --has-self-review >/dev/null 2>&1; then
+  ok "the gate's question accepts a body with no Authoring-Agent (scope is the heading alone)"
+else
+  bad "the gate's question rejected a body with no Authoring-Agent; it has silently widened to the identity contract"
+fi
+
 echo
 echo "test_pr_body_contract_parity: $pass passed, $fail failed"
 [ "$fail" -eq 0 ]
