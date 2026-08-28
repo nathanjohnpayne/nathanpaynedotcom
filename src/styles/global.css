@@ -2442,18 +2442,6 @@ body.blog-page {
   padding-left: clamp(1rem, 2.5vw, 1.5rem);
 }
 
-/* Standfirst: the tension in one line, under the title. Only rendered
-   under the assertion anatomy, where `context` is authored short and the
-   body's first slot carries what was chosen instead. */
-.decision-ledger__standfirst {
-  margin: 0.5rem 0 0;
-  max-width: 46ch;
-  font-size: clamp(0.95rem, 0.92rem + 0.14vw, 1.02rem);
-  line-height: 1.55;
-  color: var(--ink-62);
-  text-wrap: pretty;
-}
-
 /* Cost: what the choice gave up. Full measure, and marked with an accent
    rule rather than a box — the boxed plane stays unique to evidence, so
    the two read as different kinds of claim: one is a consequence accepted
