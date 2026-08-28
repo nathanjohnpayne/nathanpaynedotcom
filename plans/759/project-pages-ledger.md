@@ -1096,6 +1096,8 @@ Two corrections to §G1 while it is open. The stale "80 titles" survives at **ei
 
 **Five of the six actions are day-one; the sixth is not (Codex P2, PR #836).** `git show 2ca43ff:app.js` carries `like`, `dislike`, `super_like`, `onboarding` and `restart`; `unlock_mode` appears only at `7909892` and could not have predated the economy it reports on (§G8). Any page sentence of the form "six actions wired in the first commit" is therefore false, and four such sentences shipped before this was caught.
 
+**The six custom actions are not the whole of what GA4 holds (Codex P2, PR #836).** A gtag property records `session_start` and `first_visit` on its own, with no custom wiring, so **return behaviour is derivable from an export even though nothing here was built to ask for it**. Any claim that the instrument "never captured return visits" is therefore false; the supported form is that no *custom* action tracked returns. This narrows what §G21 and the page can say is unmeasurable: time on a card and kept-versus-flagged are genuinely outside the instrument, return behaviour is inside it and simply unqueried.
+
 **The prototype has exactly one instrument.** GA4 measurement ID `G-0SFL3RGC0H`, loaded at `index.html:13-18` and fired through `trackEvent(action, label, value)` at `app.js:1497-1514`. Six actions exist and no others; `specs/analytics.md` enumerates the same six:
 
 | Action | Fires at | `event_label` | `value` | Hypothesis it bears on |
