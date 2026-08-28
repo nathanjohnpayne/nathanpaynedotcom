@@ -20,7 +20,7 @@ constraints:
   - value: "6 days"
     label: "scaffold to the whole-app commit"
   - value: "Static export"
-    label: "no server code, no Cloud Functions"
+    label: "every calculation runs in the browser"
   - value: "Investor's seat"
     label: "the only domain access"
   - value: "1 deal room"
@@ -116,7 +116,7 @@ One correctness call is worth naming here rather than in the ledger, because it 
 
 That calibration, not the test suite, is what stands behind the arithmetic. Eighty-six tests pass, but only eight touch the engine and every one enters through the same file, so the weekly pipeline, the phase function and the ownership rollup have no direct test at all. Two assertions check money against the inputs, both of them pool percentages; the ones that look like proof check the engine against its own output.
 
-What does hold the money together is structural. The engine is five files with no React and no Firebase import in any of them, so the weekly pipeline and the waterfall allocation exist in exactly one place—and the investor's deal room computes its numbers by running the producer's own function, which is why the two can never quietly disagree. A producer configures rates, splits, the waterfall type, scenario parameters and which sections an investor sees. The engine fixes the order of the weekly deductions, the GP's carve coming out of the investor pool rather than the creative pool, and the cap table bridged in at computation time so the deal form cannot hold stale investor data. Nothing polices that division—no lint rule, no import restriction, no CI check. It holds because the rules files say so and reviewers read them.
+What does hold the money together is structural. The engine is five files with no React and no Firebase import in any of them, so the weekly pipeline and the waterfall allocation exist in exactly one place. There is also nowhere else for them to run: the app is a static export with no server and no Cloud Functions, so every call site of the model is a component and every number on every screen is computed on the device looking at it. Firebase stores the deal inputs and calculates nothing. The producer's model recomputes as they type; the investor's deal room recomputes the same function against the snapshot in their own browser, which is why the two cannot quietly disagree. A producer configures rates, splits, the waterfall type, scenario parameters and which sections an investor sees. The engine fixes the order of the weekly deductions, the GP's carve coming out of the investor pool rather than the creative pool, and the cap table bridged in at computation time so the deal form cannot hold stale investor data. Nothing polices that division—no lint rule, no import restriction, no CI check. It holds because the rules files say so and reviewers read them.
 
 Most of the code is agent-written, and all of it arrived in a single commit six days after the scaffold; just six commits in the repository's history have ever touched the source. The interesting part is where that model leaves a gap, because it is the kind an agent does not catch: the repo's rules name the three engine files as its highest-risk zone, while the automated review gate watches auth and payments directories that do not exist in this repository. The judgment lives in prose and the machine gate aims elsewhere.
 
