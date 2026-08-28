@@ -69,9 +69,13 @@ const imageDimensions = {
   // Override: live deal-room captures at a 1280x1000 viewport, 2x DPR. The
   // room is the public no-auth investor route, and the one in production is a
   // demonstration whose own producer note labels every figure a placeholder.
-  '/images/projects/override-deal-terms.png': {
+  '/images/projects/override-scenarios.png': {
     width: 2016,
-    height: 536,
+    height: 808,
+  },
+  '/images/projects/override-profit-split.png': {
+    width: 1984,
+    height: 770,
   },
   '/images/projects/override-waterfall.png': {
     width: 1984,
