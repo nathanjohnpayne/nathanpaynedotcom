@@ -28,7 +28,7 @@ constraints:
 decisions:
   - title: "Enforce at boundaries that can refuse"
     lens: "Enforcement"
-    context: "The no-direct-push rule was in every instruction file every agent read, and all of them could quote it back. It was followed when convenient—and skipped, usually on a change small enough not to feel like it counted, with every lapse landing on me."
+    context: "The no-direct-push rule was in every instruction file the agents are told to read, and each of them could quote it back when asked. It was followed when convenient—and skipped, usually on a change small enough not to feel like it counted, with every lapse landing on me."
     chosen: "Enforce at boundaries that can be named, and state what each one binds: a server-side branch rule that stops the push, a local hook that refuses a malformed pull request before the API call, CI that fails closed. Where a layer does not bind, the documentation says so rather than implying coverage."
     rejected: "Writing the rule more forcefully—more emphasis, more files, more repetition. It is free, it is the natural first move, and it had already been given every chance to work."
     rationale: "A written rule depends on being remembered at the moment it is least convenient. A refusal does not. Agents, like people, comply with mechanism far more reliably than with prose."
@@ -56,7 +56,7 @@ decisions:
   - title: "Route non-convergence to a person, not to more automation"
     lens: "Convergence"
     context: "The external-review round budget was two, set on the assumption that a review converges in a round or so. Meanwhile the automated external leg is capable of posting an approval on its own."
-    chosen: "Raise the budget to ten and make Codex the primary reviewer on every pull request, with CodeRabbit invoked only for complex changes—and send every non-converging review to the human tiebreaker, never to the automated leg."
+    chosen: "Raise the budget to ten and make Codex the primary reviewer on every pull request, with CodeRabbit invoked on the complex changes a classifier identifies, and on anything the classifier cannot read—and send every non-converging review to the human tiebreaker, never to the automated leg."
     rejected: "Keeping the budget at two, or handing a runaway review to the automated external reviewer for a fresh verdict—both defensible readings of the loop being stuck meaning the reviewer should change."
     rationale: "The automated leg can approve. A review that never converged, routed there, would merge with nobody having adjudicated the disagreement—and non-convergence is exactly the condition a human tiebreaker exists for."
     cost: "A review can now run to ten rounds before a person sees it. And a review still running at round ten has stopped being a review of that pull request and become evidence that its scope was too broad—which the budget does not say."
@@ -66,7 +66,7 @@ decisions:
     lens: "Evaluation"
     context: "Routing rules are the thing you least want to learn by shipping. A review threshold or a protected path is a policy whose effect arrives one pull request at a time, after the configuration is already live."
     chosen: "A single-file page—the screenshot above—that replays real pull requests against a draft policy, so the routing consequences of a threshold or a path pattern are visible before the YAML is committed."
-    rejected: "Editing the YAML and finding out on the next pull request—which is how most teams tune review policy, and works, at the price of learning each mistake in production."
+    rejected: "Editing the YAML and finding out on the next pull request. It works, at the price of learning each mistake in production."
     rationale: "A policy file is a product decision wearing configuration syntax. The instinct that transfers straight from product work is not shipping a rule whose effect on real traffic nobody has looked at."
     cost: "It simulates the routing, not the reviewers. It can say which pull requests would escalate under a draft policy, and nothing at all about whether the review that fires is any good."
     evidence: "No shipped policy change traces to a playground run yet. The one documented retune—the CodeRabbit wait, raised from 300 to 1,245 seconds—came from mined latency data, not from the simulator. What resolves this is one configuration change made because the replay showed the old routing was wrong."
@@ -94,7 +94,7 @@ import LearningLedger from '../../components/projects/LearningLedger.astro';
 
 ## The operator was the review process
 
-Mergepath exists because one person was operating three agent platforms—Claude Code, Codex, Cursor—across a growing fleet of repositories, and the one rule that mattered was being followed only when convenient. Every change goes through a pull request: the rule was in every file the agents read, and all of them could quote it back. One of them would push straight to `main` anyway, usually on a change small enough not to feel like it counted.
+Mergepath exists because one person was operating three agent platforms—Claude Code, Codex, Cursor—across a growing fleet of repositories, and the one rule that mattered was being followed only when convenient. Every change goes through a pull request: the rule was in every instruction file the agents are told to read, and each of them could quote it back when asked. One of them would push straight to `main` anyway, usually on a change small enough not to feel like it counted.
 
 Every time, I became the review process—reading diffs after the fact, relaying feedback between sessions, vetting uninspected output by hand. The agents produced more; my confidence did not keep up. That gap is the product problem.
 
@@ -120,7 +120,7 @@ The easy description of Mergepath is an inventory—seven fail-closed CI checks 
 
 Adoption and impact are different claims, and this section keeps them apart.
 
-Adoption is real and bounded. The hub has merged 470 pull requests as of 2026-08-28, each through the path it prescribes. The fleet stands at nine repositories—the hub plus eight consumers—and it got there by shrinking: a consumer was archived in August 2026 and retired from the propagation manifest, which is the honest shape of a fleet that retires things. The stress test came in July 2026: 134 review-finding threads across a 24-hour, eleven-PR record, counted as of 2026-08-26 and dissected in [A Perfect Score on the Wrong Axis](/blog/perfect-score-wrong-axis/). And the sharpest single result cuts against the hub rather than for it: seventeen template bugs, catalogued in [`mergepath#75`](https://github.com/nathanjohnpayne/mergepath/issues/75), in code the template's own review had cleared—surfaced downstream, across seven external-review rounds per pull request, once propagation dropped the same files into unfamiliar codebases. Review found the least where the files were most familiar.
+Adoption is real and bounded. The hub has merged 470 pull requests as of 2026-08-28. Whether every one of them ran the whole loop is not something the record establishes—the count is a count. The fleet stands at nine repositories—the hub plus eight consumers—and it got there by shrinking: a consumer was archived in August 2026 and retired from the propagation manifest, which is the honest shape of a fleet that retires things. The stress test came in July 2026: 134 review-finding threads across a 24-hour, eleven-PR record, counted as of 2026-08-26 and dissected in [A Perfect Score on the Wrong Axis](/blog/perfect-score-wrong-axis/). And the sharpest single result cuts against the hub rather than for it. Propagation dropped files the template's own review had cleared into two unfamiliar codebases, and seven external-review rounds per pull request went on surfacing bugs in them. [`mergepath#75`](https://github.com/nathanjohnpayne/mergepath/issues/75) catalogues seventeen, a headline its own itemisation does not reproduce, so treat the number as the catalogue's rather than as a count anyone has reconciled. Review found the least where the files were most familiar.
 
 The adoption boundary was built to be falsifiable, and it falsifies the flattering reading: the repository has been public and marked as a GitHub template since 2026-03-24 and has zero forks. All eight consumers are my own repositories. The `mergepath` name is reserved on npm and PyPI against squatting; nothing installable has ever been published.
 
