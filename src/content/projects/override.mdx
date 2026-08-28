@@ -1,8 +1,8 @@
 ---
 title: "Override"
 slug: "override"
-description: "Broadway financing without the spreadsheet archaeology—one maintained model for a production's capitalization, its waterfall, and what its investors are shown."
-seoDescription: "A Broadway financial operating system for capitalization, investor returns, ownership, and read-only deal rooms—one maintained model instead of spreadsheet drift."
+description: "A working model of a Broadway deal—capitalization, waterfall, scenarios and investor outcomes in one place."
+seoDescription: "A Broadway financial platform: model a production's capitalization and waterfall, run scenarios, and share deal terms with investors through a read-only deal room."
 kicker: "AI × Finance × Theater"
 order: 2
 screenshotAspect: "wide"
@@ -48,7 +48,7 @@ decisions:
     rejected: "A single projected outcome, which is what a term sheet and most investor decks already show, and what a producer is usually asked to supply."
     rationale: "The interesting question was never what the deal projects. It was what happens when an assumption changes. A single number invites a belief it has not earned; a range you can move is something you can interrogate."
     cost: "Three cases is a frame the producer cannot leave. The array is fixed at Bear, Base and Bull with no add and no remove, so a producer who models a dozen cases has to collapse them into three."
-    evidence: "Override became an interactive model rather than a better way to present a deal. The persistence layer for saving custom cases was built and never wired up, so the three-case ceiling is a choice the code is still holding open."
+    evidence: "Override became an interactive model rather than a better way to present a deal. The three-case frame kept that exploration legible, at the cost of flexibility for producers who model many more."
     status: "mixed"
   - title: "Build a product, not a SaaS business"
     lens: "Scope"
@@ -78,7 +78,7 @@ Broadway investing supplied both. The first position I tracked arrived as three 
 
 Three things were wrong with that, and they are different problems. The work was **manual**—ownership, recoupment and investor outcomes recalculated by hand every time anything moved. The deal was **hard to understand**, its economics spread across documents that took domain knowledge to interpret. And it was **static**: every artifact described one state of the deal, so I could read what the producers expected to happen and had no way to ask what happened to my position if they were wrong.
 
-Products like Carta had shown me what the alternative looks like—complicated ownership structures made legible and interactive by software. Broadway financing has all the same ingredients: ownership, capitalization, waterfalls, returns. It just hadn't had that done to it, at least not anywhere I could see from the investor's side. So the question became: what would this experience be like if the deal itself were software?
+Products like Carta had shown me what the alternative looks like—complicated ownership structures made legible and interactive by software. Broadway financing has all the same ingredients: ownership, capitalization, waterfalls, returns. I hadn't encountered anything like that from the investor's side. So the question became: what would this experience be like if the deal itself were software?
 
 Override is that question, built. It is also the substrate for a second one—whether I could learn an unfamiliar, specialised domain deeply enough to build credible software for it, and how much of that an AI workflow could carry. The two ran together: I learned the domain by trying to model it, and learned the tooling by trying to ship it.
 
@@ -88,7 +88,7 @@ I named it after a line in the waterfall. The override, as I learned the word, i
 
 **Structure the deal.** A producer sets the capitalization and unit price, the weekly operating nut, the house terms, eleven royalty participants and the waterfall structure. First-time users can walk it as a guided stepper; experienced ones get every section at once, which is the default. The producer and the prospective investor are both first-class here—the dashboard's primary control is a My Productions / My Investments toggle, because I built this from the side of the table that only ever sees the second view.
 
-**Model the outcome.** Broadway money moves in a fixed order, and the order is the product. Gross box office less credit-card fees and the house's cut gives adjusted gross; eleven royalty participants take their share of that, pooled or at fixed rates, with a running offset that applies only while the show is still recouping; then the weekly nut, then the general partner's fee. What survives is operating profit, and only then does the waterfall run. Two structures ship. Under recoup-first, investors are repaid in full before anyone shares profit, and in the week the show crosses its capitalization the engine splits that week's profit at the crossing point rather than treating the whole week as one side of the line. Under share-from-dollar-one, profit sharing runs alongside recoupment from the first performance. Around both sit per-investor returns, an approximate IRR, breakeven occupancy, and a sensitivity grid that re-runs the model across a matrix of occupancy rates and run lengths.
+**Model the outcome.** Broadway money moves in a fixed order, and the order is the product. Gross box office less credit-card fees and the house's cut gives adjusted gross; eleven royalty participants take their share; then the weekly nut, then the general partner's fee. What survives is operating profit, and only then does the waterfall run. Two structures ship. Under recoup-first, investors are repaid in full before anyone shares profit, and in the week the show crosses its capitalization the engine splits that week's profit at the crossing point rather than treating the whole week as one side of the line. Under share-from-dollar-one, profit sharing runs alongside recoupment from the first performance. Around both sit per-investor returns, an approximate IRR, breakeven occupancy, and a sensitivity grid that re-runs the model across a matrix of occupancy rates and run lengths.
 
 ![The weekly cascade as an investor sees it, computed by the same engine the producer's own model runs: gross box office down through credit-card fees and the house, royalties and the weekly nut to operating profit, then the GP's management fee, then what reaches investor recoupment.](/images/projects/override-waterfall.png)
 
@@ -113,9 +113,9 @@ The test suite is less reassuring than its green tick suggests. Eighty-six tests
 
 Which is roughly how a real flaw survived. A producer's screen shows which phase the waterfall is in, and the obvious source is the profit-sharing toggle they just clicked. The phase function reads the deal's post-recoup investor split instead, so the badge reports the economic condition rather than a flag that can be set independently of it—the right instinct, incompletely applied. The distribution math one file over still consults the toggle, so turn the toggle off without changing the split and the badge reads "Profit Sharing Active" while the engine pays investors nothing, and the deal room shows a prospective backer a 50% investor pool for that same deal. The repository records it as a known inconsistency and says to preserve the behaviour. Two sources of truth for one economic question is exactly the failure a financial tool cannot afford.
 
-What does hold is structural. The engine is five files with no React and no Firebase import in any of them, and there is nowhere else for them to run: the app is a static export, so every number on every screen is computed on the device looking at it and Firebase calculates nothing. A producer configures the rates, the splits, the waterfall type and what an investor sees; the engine fixes the order of the weekly deductions, the GP's carve coming out of the investor pool rather than the creative pool, and the cap table bridged in at computation time so the deal form cannot hold stale investor data. Nothing polices that division—no lint rule, no import restriction, no CI check. It holds because the rules files say so and reviewers read them.
+What does hold is structural. The financial engine is five files with no React and no Firebase import in any of them, sealed off from both the interface and the database—a producer configures the rates and the splits, and the engine fixes the order the money moves in. But that boundary exists by convention, not enforcement. No lint rule, no import restriction, no CI check polices it; it holds because the rules files say so and reviewers read them.
 
-Most of the code is agent-written, and the whole application arrived in a single commit six days after the scaffold. The gap worth naming is the kind an agent does not catch: the repo's rules name the three engine files as its highest-risk zone, while the automated review gate watches auth and payments directories that do not exist in this repository. The judgment lives in prose and the machine gate aims elsewhere.
+Most of the code is agent-written, and the whole application arrived in a single commit six days after the scaffold. The gap worth naming is the kind an agent does not catch: the repo's rules name the three engine files as its highest-risk zone, while the automated review gate watches auth and payments directories that do not exist in this repository. Which is the same failure twice, one level apart—Override knew the financial rule and did not enforce a single source of truth for it; the agent workflow knew where the risky code lived and did not enforce review there. The judgment lives in prose and the machine gate aims elsewhere.
 
 ## What I learned
 
