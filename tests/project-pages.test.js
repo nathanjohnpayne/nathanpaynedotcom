@@ -65,7 +65,7 @@ const canonicalProjectCards = [
 
 const homepageProjectDescriptions = [
   'Live multiplayer bingo that turns a group trip into a shared game—daily themed cards, offline-first marking, and a choreographed finale, live-operated through a nine-night cruise at sea.',
-  'A deterministic repository standard that keeps humans and AI coding agents aligned—the enforcement layer underneath every other project on this site.',
+  'A repository standard for the gap between what a fleet of AI coding agents can produce and what one operator can responsibly stand behind.',
   'A financial operating system for Broadway productions—models capitalization and investor returns, manages ownership, and shares a read-only deal room with backers instead of spreadsheet and PDF workflows.',
   'A single web application that tracks partner-device hardware, DRM, codec support, and operational readiness across Disney+, Hulu, and ESPN.',
   'A career CRM for one person running a serious job search—turns work history into structured, reusable evidence, maps it against specific job requirements, and generates applications grounded in demonstrated work.',
@@ -264,7 +264,7 @@ describe('Project Pages — routes', () => {
     const metaDescription = description?.getAttribute('content');
 
     expect(metaDescription).toBe(
-      'A repository standard for reliable AI-agent development: canonical docs, CI guardrails, multi-identity review, Codex review, and downstream propagation.',
+      'A repository standard for AI-agent development: independent review identities, fail-closed gates, and cross-repo propagation—with the failures on the record.',
     );
     expect(webPage.description).toBe(metaDescription);
     expect(webPage.keywords).toBe('Infrastructure, AI Tooling, GitHub Actions, Bash');

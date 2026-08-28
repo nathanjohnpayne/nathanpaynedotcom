@@ -1,0 +1,143 @@
+---
+title: "Mergepath"
+slug: "mergepath"
+description: "A repository standard for the gap between what a fleet of AI coding agents can produce and what one operator can responsibly stand behind."
+seoDescription: "A repository standard for AI-agent development: independent review identities, fail-closed gates, and cross-repo propagation—with the failures on the record."
+kicker: "AI × Infrastructure × Tooling"
+order: 1
+screenshotAspect: "wide"
+screenshotSrc: "/images/projects/mergepath.png"
+accent: "yellow"
+liveUrl: "https://htmlpreview.github.io/?https://raw.githubusercontent.com/nathanjohnpayne/mergepath/main/mergepath/playground/index.html"
+githubUrl: "https://github.com/nathanjohnpayne/mergepath"
+tags: ["Infrastructure", "AI Tooling", "GitHub Actions", "Bash"]
+status: "SHIPPED"
+metadata:
+  format: "Repository standard"
+  focus: "Agent governance, code review, and CI enforcement"
+stack: "Bash · GitHub Actions · 1Password · Claude Code · Codex · Cursor · CodeRabbit"
+constraints:
+  - value: "1 operator"
+    label: "where every escalation lands"
+  - value: "3 platforms"
+    label: "Claude, Codex, Cursor"
+  - value: "9 repositories"
+    label: "the hub plus eight consumers"
+  - value: "0 forks"
+    label: "public and forkable since March 2026"
+decisions:
+  - title: "Enforce at boundaries that can refuse"
+    lens: "Enforcement"
+    context: "The no-direct-push rule was in every instruction file every agent read, and all of them could quote it back. It was followed when convenient—and skipped, usually on a change small enough not to feel like it counted, with every lapse landing on me."
+    chosen: "Enforce at boundaries that can be named, and state what each one binds: a server-side branch rule that stops the push, a local hook that refuses a malformed pull request before the API call, CI that fails closed. Where a layer does not bind, the documentation says so rather than implying coverage."
+    rejected: "Writing the rule more forcefully—more emphasis, more files, more repetition. It is free, it is the natural first move, and it had already been given every chance to work."
+    rationale: "A written rule depends on being remembered at the moment it is least convenient. A refusal does not. Agents, like people, comply with mechanism far more reliably than with prose."
+    cost: "Every change in the fleet pays the same choreography regardless of size—pull request, self-review, identity switch, review, gates—and the gates fail closed on formality as readily as on substance. One pull request was refused because its body wrote the required header in bold."
+    evidence: "The layering still bites four months on, and the boundary that binds everyone is the thinnest in practice. A 2026-07-28 audit of the fleet's branch protections found most consumers not requiring the checks that run on them—and a GitHub job gates a merge only when branch protection lists it, so a red check did not stop a merge there. The local and CI layers held; the server layer was largely unconfigured."
+    status: "mixed"
+  - title: "Make independence an account, not a prompt"
+    lens: "Independence"
+    context: "Same-conversation self-review hits diminishing returns: an agent will not question an assumption that felt correct when it made it, because the review's blind spots are the authorship's blind spots."
+    chosen: "Every agent authors under one shared human identity and reviews under its own machine account, so no pull request is approved by the account that authored it and every review carries a byline the record can audit."
+    rejected: "A review checklist inside the same session—cheaper by three GitHub accounts and all their credential plumbing, and genuinely useful: even crude same-chat review finds real bugs."
+    rationale: "Across three agent platforms, the separate reviewer identity kept producing findings the authoring session had not. Making the separation an account made it mechanical rather than situational—an agent cannot forget to be independent."
+    cost: "One GitHub account per agent, each with its own token, signing key and credential plumbing—and the plumbing is exactly where it broke. In August 2026 a 1Password item repurposed from one identity to another silently sent an agent's reviews out under the CI robot's byline: three reviews on this site's own repository, `nathanpaynedotcom#668`."
+    evidence: "Repeated observation across three platforms, not controlled measurement—no comparison arm, no defect ledger. The failure produced a mechanism: a per-repo deny-list of accounts that must never hold an approval, checked across the whole pull request rather than the current commit, because GitHub counts an approval from any account with write access and a narrower scope would let a non-reviewer approve and then push past it."
+    status: "mixed"
+  - title: "Mirror byte-for-byte, and declare every divergence"
+    lens: "Propagation"
+    context: "One standard, eight consumer repositories, and the old default of letting each repo's copy drift until a weekly audit caught it. One operating-rules file had already drifted into nine mutually incompatible copies across the fleet."
+    chosen: "Propagation as a system with three declared modes: canonical paths mirrored byte-for-byte (137 as of 2026-08-28), kit directories that require the template files but allow local additions (five), and templated paths rendered per consumer from its declared facts (two)—with every intentional divergence recorded in a per-repo registry with a written reason."
+    rejected: "Hand-maintained per-repo copies, or a shared dependency the consumers install—the package-manager answer, which versions cleanly and also lets a consumer pin an old version and quietly stop receiving the standard."
+    rationale: "A standard that eight repositories apply differently is eight standards. Making the canonical copy the only copy turns drift from a weekly discovery into a reviewable diff, and divergence from an accident into a declaration."
+    cost: "Verbatim mirroring makes a consumer's own hardening invisible to the hub. On 2026-08-28 a propagation wave mirrored the hub's weaker pull-request gate over a stronger one this site's repository had built independently—and the only thing that caught the loss was a test the consumer kept outside the mirror."
+    evidence: "`mergepath#1132`, opened and fixed the same day by `#1136`. The registry that exists to prevent exactly this is, across all eight consumers, empty: seven carry no override file at all and the eighth declares only a schema version, so the fleet's consistency currently rests on nobody having diverged rather than on divergence being recorded. The August byline incident ran the same asymmetry the other way—the hub was already corrected when a consumer failed five and a half hours later, because no consumer had synced the fix yet. The repository's own phrasing is the sharpest on record: a canonical fix is not shipped until it reaches the consumers."
+    status: "mixed"
+  - title: "Route non-convergence to a person, not to more automation"
+    lens: "Convergence"
+    context: "The external-review round budget was two, set on the assumption that a review converges in a round or so. Meanwhile the automated external leg is capable of posting an approval on its own."
+    chosen: "Raise the budget to ten and make Codex the primary reviewer on every pull request, with CodeRabbit invoked only for complex changes—and send every non-converging review to the human tiebreaker, never to the automated leg."
+    rejected: "Keeping the budget at two, or handing a runaway review to the automated external reviewer for a fresh verdict—both defensible readings of the loop being stuck meaning the reviewer should change."
+    rationale: "The automated leg can approve. A review that never converged, routed there, would merge with nobody having adjudicated the disagreement—and non-convergence is exactly the condition a human tiebreaker exists for."
+    cost: "A review can now run to ten rounds before a person sees it. And a review still running at round ten has stopped being a review of that pull request and become evidence that its scope was too broad—which the budget does not say."
+    evidence: "One pull request drew four review rounds, and rounds two and three each surfaced a genuine defect the previous round's fix had introduced; escalation at round three would have ended the review while it was still finding real problems. The budget moved from two to ten by explicit change, `mergepath#1084`, which is the revision."
+    status: "revised"
+  - title: "Replay the policy before you trust it"
+    lens: "Evaluation"
+    context: "Routing rules are the thing you least want to learn by shipping. A review threshold or a protected path is a policy whose effect arrives one pull request at a time, after the configuration is already live."
+    chosen: "A single-file page—the screenshot above—that replays real pull requests against a draft policy, so the routing consequences of a threshold or a path pattern are visible before the YAML is committed."
+    rejected: "Editing the YAML and finding out on the next pull request—which is how most teams tune review policy, and works, at the price of learning each mistake in production."
+    rationale: "A policy file is a product decision wearing configuration syntax. The instinct that transfers straight from product work is not shipping a rule whose effect on real traffic nobody has looked at."
+    cost: "It simulates the routing, not the reviewers. It can say which pull requests would escalate under a draft policy, and nothing at all about whether the review that fires is any good."
+    evidence: "No shipped policy change traces to a playground run yet. The one documented retune—the CodeRabbit wait, raised from 300 to 1,245 seconds—came from mined latency data, not from the simulator. What resolves this is one configuration change made because the replay showed the old routing was wrong."
+    status: "pending"
+learnings:
+  - expected: "Closing the administrator escape hatch would harden the fleet. A gate an administrator can walk around is a speed bump rather than a gate, and the hub's own enforcement record already showed merges reaching `main` without the approval the policy required."
+    observed: "With the escape closed on the hub, `mergepath#1121` sat blocked on 2026-08-27 with all thirty-six review threads resolved, feedback accounting clear and a cross-agent approval in place, because a rate-limit exhaustion made a gate exit with a usage error instead of a verdict. The gate's own log read `unresolved: 0`, and nobody had the authority to act on what it said."
+    response: "On 2026-08-28 the owner declined the hardening and disabled admin enforcement on the hub, making the fleet uniform: the escape stays, by recorded decision, because a deadlock with no recourse was judged a worse failure than an auditable bypass. The weekly audit keeps reporting the gap, so the trade stays visible instead of settled."
+related:
+  - label: "Blog: Agent Approval Workflow and the Genesis of Mergepath"
+    href: "/blog/agent-approval-workflow-genesis-of-mergepath/"
+  - label: "Blog: Six PRs, One Bug—What AI Agents Actually Get Wrong"
+    href: "/blog/six-prs-one-bug-agent-failure-modes/"
+  - label: "Blog: A Perfect Score on the Wrong Axis"
+    href: "/blog/perfect-score-wrong-axis/"
+  - label: "Project: Five Across"
+    href: "/projects/five-across/"
+  - label: "Project: Override"
+    href: "/projects/override/"
+---
+
+import ConstraintStrip from '../../components/projects/ConstraintStrip.astro';
+import DecisionLedger from '../../components/projects/DecisionLedger.astro';
+import LearningLedger from '../../components/projects/LearningLedger.astro';
+
+## The operator was the review process
+
+Mergepath exists because one person was operating three agent platforms—Claude Code, Codex, Cursor—across a growing fleet of repositories, and the one rule that mattered was being followed only when convenient. Every change goes through a pull request: the rule was in every file the agents read, and all of them could quote it back. One of them would push straight to `main` anyway, usually on a change small enough not to feel like it counted.
+
+Every time, I became the review process—reading diffs after the fact, relaying feedback between sessions, vetting uninspected output by hand. The agents produced more; my confidence did not keep up. That gap is the product problem.
+
+The origin story is told in [Agent Approval Workflow and the Genesis of Mergepath](/blog/agent-approval-workflow-genesis-of-mergepath/). This page is about the decisions that came after the problem had a name, and what each has cost since.
+
+## Six actors, one system
+
+The repository names six roles, and the system owes each something different. The **operator** owns every repository and every setting the automation cannot change, and is where every escalation terminates. The **author identity** is the single account that authors and merges every change, so what landed carries one name. The **authoring agent** declares itself on each pull request—and the repository is careful to call that a declaration rather than proof of who wrote the branch.
+
+Each **reviewer agent** posts under its own machine account and never merges. The **CI service account** holds write access because CI needs it, and is barred from ever holding an approval. And the **human tiebreaker** is a working role rather than an org-chart courtesy, because the escalation triggers are mechanical: a finding re-flagged after a rebuttal, or a round counter past its budget, escalates automatically. Nobody has to decide whether a disagreement is worth raising.
+
+These are the boundaries the system operates inside.
+
+<ConstraintStrip constraints={props.constraints} />
+
+## The decisions
+
+The easy description of Mergepath is an inventory—seven fail-closed CI checks in April 2026, twenty-seven by mid-May, seventy-two as of 2026-08-28, seventy-one of them wired into the lint workflow across eighty invocations—and the inventory is the least useful description, because a count says nothing about judgment. Every mechanism in it exists because a specific failure happened while the fleet was live, and one principle runs under most of them: clearance is bound to the exact commit reviewed, and a content-changing push voids it. What follows are the five decisions a reasonable person could have made differently, and what each cost.
+
+<DecisionLedger decisions={props.decisions} />
+
+## What the record shows
+
+Adoption and impact are different claims, and this section keeps them apart.
+
+Adoption is real and bounded. The hub has merged 470 pull requests as of 2026-08-28, each through the path it prescribes. The fleet stands at nine repositories—the hub plus eight consumers—and it got there by shrinking: a consumer was archived in August 2026 and retired from the propagation manifest, which is the honest shape of a fleet that retires things. The stress test came in July 2026: 134 review-finding threads across a 24-hour, eleven-PR record, counted as of 2026-08-26 and dissected in [A Perfect Score on the Wrong Axis](/blog/perfect-score-wrong-axis/). And the sharpest single result cuts against the hub rather than for it: seventeen template bugs, catalogued in [`mergepath#75`](https://github.com/nathanjohnpayne/mergepath/issues/75), in code the template's own review had cleared—surfaced downstream, across seven external-review rounds per pull request, once propagation dropped the same files into unfamiliar codebases. Review found the least where the files were most familiar.
+
+The adoption boundary was built to be falsifiable, and it falsifies the flattering reading: the repository has been public and marked as a GitHub template since 2026-03-24 and has zero forks. All eight consumers are my own repositories. The `mergepath` name is reserved on npm and PyPI against squatting; nothing installable has ever been published.
+
+Impact is where the record goes quiet, and that should be said plainly: there is no measure of what the gates save. No savings claim exists anywhere in the repository, and no manual baseline was ever recorded, so there is nothing to subtract from. The two measurement systems that do exist both measure cost—how long external review takes, and the latency budgets the CI suite must stay under. The bootstrap wizard stands up a new repository by performing fifty wrapped operations across four stages, and `--dry-run` performs none of them, printing each one instead; fifty is a count of what is automated, not a measure of time saved, because nobody timed the manual path. What the record supports is three columns—what the gates catch, what they miss, what they cost—and this page stays inside them.
+
+## The premise the fleet does not yet meet
+
+The premise this page used to open with had three clauses: written conventions are not enough, branch protection is mandatory, and review is performed by a different identity than the one that authored the change. The repository measured the middle clause against its own fleet, and it does not hold.
+
+The mechanism is in the repository's architecture decision record on enforcement posture: a GitHub Actions job gates a merge only when branch protection lists it as a required status check. Absent that listing, the job still runs and still goes red—and the pull request merges anyway. On 2026-07-28 the audit found eight of the ten repositories then in the fleet enforcing zero of the five canonical required checks, three of them with no protection on `main` at all, and the hub itself enforcing two of five. That is a dated snapshot, not current state. But the gap it measured is still open: the record is a recommendation awaiting the owner's acceptance rather than a decision anyone has taken—"every repository requires all five" has never itself been settled—and the remediation is deliberately undone, so the weekly audit keeps reporting the drift. Visible rather than silent is a real posture, and a lesser one than closed.
+
+So the honest statement is narrower than the premise: the gates run everywhere and fail closed where they are required, and they are required in fewer places than the standard's own tooling would like. A page that presented this system as infallible automation would be describing a different system.
+
+<LearningLedger learnings={props.learnings} />
+
+## What it bought the other projects
+
+Six of the seven projects on this site are consumers of this standard; the seventh is Mergepath itself. What the standard bought them is that their pages get to be about their products: features shipped mid-sailing on Five Across landed as reviewed pull requests, and Override's agent-written engine moved through the same multi-identity review path as everything else in the fleet. Those pages spend a line on governance and the rest on the product. This page is where that line gets audited.
+
+One disclosure belongs at the end, because it is this page's own validation boundary: the pull request that ships it will merge through the system it describes. That proves the choreography runs. It proves nothing else—a system approving its own description is exactly the evidence this standard was built to distrust.

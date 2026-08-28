@@ -338,7 +338,7 @@ The second half of epic #759: issues #751–758. Runbook: `plans/759/portfolio-n
 | 1 | — | infrastructure | — | all three | [#830](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/830) | **merged** `949f5c2` |
 | 2 | #752 | `five-across` | §B | decisions, constraints, learnings | [#834](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/834) | **merged** `44c0a59` |
 | 3 | #757 | `swipe-watch` | §G | decisions, constraints, learnings | [#836](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/836), [#839](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/839) | **merged** `512b4af`, `6011e2c`—#836 ran **9 Codex triggers, 7 reviews, 38 findings** all dispositioned, past the §C ceiling under explicit human authorisation (see log); #839 was the follow-up tightening pass |
-| 4 | #753 | `mergepath` | §E | decisions | | not started |
+| 4 | #753 | `mergepath` | §E | decisions, constraints, learnings | | in progress |
 | 5 | #754 | `override` | §F | decisions | [#840](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/840), [#841](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/841), [#842](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/842), [#843](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/843), [#844](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/844), [#845](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/845) | **merged** `64f6a89`, `e88d4da`, `bce8858`, `c455f5a`, `71c4f57`, `962f558`—one build plus five operator-directed passes; see log |
 | 6 | #755 | `device-source-of-truth` | §A | decisions, constraints | | not started |
 | 7 | #756 | `matchline` | §D | decisions | | not started |

@@ -865,7 +865,7 @@ sha=$(git rev-list -1 --before=2026-05-14 origin/main)
 git ls-tree -r --name-only $sha scripts/ci/ | grep -c '/check_'   # → 27
 ```
 
-For scale, at the page's first authoring (2026-04-16) the count was 7. Corrected value: **71 fail-closed checks, 70 of them wired into `repo_lint.yml` across 85 invocations**. Both instances must change together—see §H4.
+For scale, at the page's first authoring (2026-04-16) the count was 7. Corrected value at the time of this audit: 71 fail-closed checks, 70 wired into `repo_lint.yml` across 85 invocations. Both instances must change together—see §H4. **SUPERSEDED 2026-08-28—see §E28: 72 on disk, 71 wired, 80 invocations, and the 85 was a counting defect** (the matcher counted comment lines as invocations). Do not copy 71/70/85 out of this row.
 
 ### E12—`op-preflight.sh`
 
@@ -877,7 +877,7 @@ For scale, at the page's first authoring (2026-04-16) the count was 7. Corrected
 
 > ":47 `scripts/sync-to-downstream.sh` reads a `.mergepath-sync.yml` manifest that declares which paths are *canonical* (mirrored byte-for-byte) and which are *kit* directories … along with which of the nine consumer repos opt in."
 
-**SUPPORTED, and nine is exact.** `.mergepath-sync.yml:122` `consumers:` lists precisely nine: `matchline`, `nathanpaynedotcom`, `overridebroadway`, `device-source-of-truth`, `friends-and-family-billing`, `device-platform-reporting`, `swipewatch`, `tadlockpsychiatry`, `gaycruisebingo`. Path types: **127** entries `type: canonical`, **7** `type: kit`.
+**SUPPORTED when written; every figure in this row is SUPERSEDED 2026-08-28—see §E31 (eight consumers) and §E33 (137 canonical, 5 kit, and a third `templated` type this row does not know about). Do not copy nine, 127 or seven out of this row.** As of the audit below, nine was exact. `.mergepath-sync.yml:122` `consumers:` lists precisely nine: `matchline`, `nathanpaynedotcom`, `overridebroadway`, `device-source-of-truth`, `friends-and-family-billing`, `device-platform-reporting`, `swipewatch`, `tadlockpsychiatry`, `gaycruisebingo`. Path types: **127** entries `type: canonical`, **7** `type: kit`.
 
 ### E15—the propagation flags
 
@@ -983,7 +983,601 @@ What the bugs actually survived on the template was **one PR with five review ob
 
 > ":70 **10 repositories** in the Mergepath fleet—the hub plus nine consumers, including Override, Device Source of Truth, Friends & Family Billing, Swipe Watch, and this site."
 
-**SUPPORTED.** Nine consumers in `.mergepath-sync.yml` (§E13) plus the hub is ten, and all five named repos are on the list.
+**SUPPORTED when written; SUPERSEDED 2026-08-28—see §E31.** Nine consumers in `.mergepath-sync.yml` (§E13) plus the hub was ten, and all five named repos are on the list. **The fleet is now nine repositories: the hub plus eight consumers.** `device-platform-reporting` was archived on 2026-08-26 and dropped from the manifest by `be07b42` (#1116). Do not copy "ten" out of this row.
+
+### Delta audit for #753—rows added 2026-08-28
+
+Thirty rows covering the claims #753 puts on the Mergepath page that §E1–§E27 do not reach: the counts re-derived at a fixed SHA with an as-of, the identity and actor model, the routing configuration as it stands today, the propagation regression tracked in `mergepath#1132`, exact-head clearance, the reply/resolve split in the feedback accounting gate, the bounds on adoption, the impact question #753 AC 6 asks, and the first pass this ledger has ever made over the 2,439-line PRD at `~/GitHub/docs/projects/mergepath/prds/mergepath.md`. Everything below was read at **`3d961050e203e8b7a55bb551e89aa4da834356f6`** in `~/GitHub/mergepath` (short `3d96105`, 2026-08-28 12:44:40 −0700, subject "fix(policy): make the Self-Review gate markdown-aware, nothing more (#1136)"), against `nathanpaynedotcom` at **`da6b69c285aa126e9ac3ff415ef88992b039a626`**. **Every command in these rows is written against those literal SHAs rather than `origin/main`**, per the #820 finding that a moving ref makes a row unreproducible; the tree was materialised with `git archive 3d961050e203e8b7a55bb551e89aa4da834356f6 | tar -x -C <dir>` so the scripts could be *run* rather than read. Note the pinned SHA is itself the merge commit of `mergepath#1136`, which lands three hours before this audit; several rows below turn on that.
+
+Seven rows correct a number the page currently states. Three—§E40, §E37 and §E52—change what the page can claim, and the first two are cases where a hypothesis handed to this audit as settled turned out to be false at this SHA. §E52 is the row to read first: the page's own second premise, that branch protection is mandatory, is contradicted by a measurement the repository took of itself.
+
+### E28—the CI check counts, re-derived with an as-of
+
+> ":40 seventy-one at an August 2026 count … seventy of them wired into `repo_lint.yml`"
+
+**WRONG by one on both figures, and §E10's counting method was defective.** At the pinned SHA there are **72** `check_*` files in `scripts/ci/`, **71** distinct checks wired as real `run:` steps in `.github/workflows/repo_lint.yml`, and **80** invocation steps (seven checks run more than once with different arguments: `check_git_identity_hygiene` four times, and `check_coderabbit_wait`, `check_doc_ownership`, `check_merge_clearance_gate`, `check_no_token_in_output`, `check_phase_4b_accounting`, `check_phase_4b_automation` twice each). One file is unwired, `check_op_firebase_deploy_integration`, and it is unwired *by declaration* rather than by oversight—`repo_lint.yml:350` carries `# WIRED-EXEMPT: check_op_firebase_deploy_integration — opt-in`, a marker `scripts/ci/check_ci_scripts_wired:157-162` parses.
+
+§E10's third figure, 85 invocations, came from `grep -cE 'run:\s*\./scripts/ci/check_'`, which also matches six comment lines that use `run: ./scripts/ci/check_X` as a *worked example* of the wiring rule (`repo_lint.yml:6`, `:19`, `:22`, `:28`, `:225`). The loose matcher returns 86 here; the disciplined one returns 80. Anchoring on `^[[:space:]]*run:` is the fix.
+
+The best figure for the page is the one the repository computes about itself, because it cannot drift from the tree:
+
+```bash
+S=3d961050e203e8b7a55bb551e89aa4da834356f6
+git -C ~/GitHub/mergepath archive "$S" | tar -x -C /tmp/mp && cd /tmp/mp
+./scripts/ci/check_ci_scripts_wired
+# check_ci_scripts_wired: PASS (72 check_* scripts, all wired or exempt)
+```
+
+Reproduce the three figures separately:
+
+```bash
+S=3d961050e203e8b7a55bb551e89aa4da834356f6; cd ~/GitHub/mergepath
+git ls-tree -r --name-only "$S" scripts/ci/ | grep -c '/check_'                                   # 72
+git show "${S}:.github/workflows/repo_lint.yml" \
+  | grep -oE '^[[:space:]]*run:[[:space:]]*\./scripts/ci/check_[A-Za-z0-9_]+' \
+  | grep -oE 'check_[A-Za-z0-9_]+' | sort -u | wc -l                                              # 71
+git show "${S}:.github/workflows/repo_lint.yml" \
+  | grep -cE '^[[:space:]]*run:[[:space:]]*\./scripts/ci/check_'                                   # 80
+```
+
+Corrected value, and it must carry the date: **"72 fail-closed checks as of 2026-08-28, 71 of them wired into `repo_lint.yml` across 80 invocations, and one exempted by name."** Per §H7 this decays; the form that ages is the one the page already uses—a dated series (7 in April 2026, 27 in mid-May, 72 on 2026-08-28) plus the self-checking gate, which is a shape rather than a number.
+
+### E29—merged PRs on the hub
+
+> ":62 The Mergepath repo itself has 447 merged PRs as of August 2026"
+
+**WRONG, and decaying fast enough that only a floor is safe.** **470** merged as of **2026-08-28T20:09:55Z**; 484 PRs opened in total. §E22 recorded 447 and the #753 brief carried 469, so the figure moved twice inside the audit window.
+
+```bash
+date -u '+%Y-%m-%dT%H:%M:%SZ'
+GH_TOKEN="$OP_PREFLIGHT_REVIEWER_PAT" gh api -X GET search/issues \
+  -f q='repo:nathanjohnpayne/mergepath is:pr is:merged' --jq .total_count      # 470
+```
+
+Corrected value: **"more than 450 merged PRs on the hub (470 on 2026-08-28)."** A floor plus a parenthetical as-of survives the next month; a bare "470" does not, and a bare "447" is already false.
+
+### E30—the fleet-wide throughput figure, and what it is not
+
+**SUPPORTED as arithmetic, UNPROVABLE as an adoption claim.** Across the nine repositories on the standard, **2,260** PRs have merged as of **2026-08-28T20:18:00Z**: mergepath 470, fiveacross 457, nathanpaynedotcom 452, friends-and-family-billing 282, matchline 197, device-source-of-truth 138, overridebroadway 113, tadlockpsychiatry 84, swipewatch 67.
+
+```bash
+GH_TOKEN="$OP_PREFLIGHT_REVIEWER_PAT" gh api -X GET search/issues -f q='
+  repo:nathanjohnpayne/mergepath repo:nathanjohnpayne/matchline
+  repo:nathanjohnpayne/nathanpaynedotcom repo:nathanjohnpayne/overridebroadway
+  repo:nathanjohnpayne/device-source-of-truth repo:nathanjohnpayne/friends-and-family-billing
+  repo:nathanjohnpayne/swipewatch repo:nathanjohnpayne/tadlockpsychiatry
+  repo:nathanjohnpayne/fiveacross is:pr is:merged' --jq .total_count           # 2260
+```
+
+**It is not an adoption figure and the page must not present it as one.** Adoption is eight consumers, all owned by one person (§E46). The 2,260 counts every PR each repo ever merged, including PRs that predate its adoption of the standard, Dependabot bumps, and propagation mirrors—so it measures *throughput that has since passed through the gates*, not uptake. Defensible form if the page wants it: "the fleet has merged over two thousand PRs (2,260 on 2026-08-28)," framed as volume, never as reach.
+
+### E31—the consumer list is eight, not nine, and it shrank
+
+> ":46 which of the nine consumer repos opt in"; ":68 The fleet stands at ten repositories—the hub plus nine consumers"; ":74 all nine consumers are my own repos"
+
+**WRONG in three places on the page, and §E27 and §H9 are now stale.** `.mergepath-sync.yml` names **eight** consumers at the pinned SHA—`matchline` (:123), `nathanpaynedotcom` (:128), `overridebroadway` (:139), `device-source-of-truth` (:148), `friends-and-family-billing` (:153), `swipewatch` (:169), `tadlockpsychiatry` (:174), `fiveacross` (:184). The fleet is **nine repositories**: the hub plus eight.
+
+`device-platform-reporting` was archived and made private on 2026-08-26 and dropped from every live propagation surface by `be07b42`, "chore(sync): drop device-platform-reporting as a consumer and sweep target (#1116)", merged 2026-08-27T05:22:18Z. `gh api repos/nathanjohnpayne/device-platform-reporting --jq '{archived,private}'` returns `{"archived":true,"private":true}`. #1116's own body states the reason plainly: an archived repo is read-only, and `scripts/sync-to-downstream.sh` does a `git push` followed by `gh pr create --repo <consumer>`, both of which GitHub rejects—so leaving it enrolled would have broken the next propagation wave outright. The PR body records the new population directly: "wave 4 is now `swipewatch` alone; the fan-out population is 8, not 9."
+
+```bash
+S=3d961050e203e8b7a55bb551e89aa4da834356f6
+git -C ~/GitHub/mergepath show "${S}:.mergepath-sync.yml" \
+  | awk '/^consumers:/{f=1;next} /^[a-z_]+:/{f=0} f&&/^  - name: /{print $3}'   # 8 names
+```
+
+Corrected value: **"eight consumer repos"** and **"nine repositories—the hub plus eight consumers."** This is the most interesting count on the page because it moved *down*, which is the honest shape of a fleet that retires repositories: the standard's reach is not monotonic, and a page that says "ten and growing" would be asserting a trend the record contradicts.
+
+### E32—`gaycruisebingo` in the manifest
+
+**The hypothesis is REFUTED; the manifest is current.** The consumer entry is `fiveacross` at `.mergepath-sync.yml:184-185` (`repo: nathanjohnpayne/fiveacross`), and the CJS/ESM templated lanes name `fiveacross` too (`:1784`, `:1799`). The three surviving `gaycruisebingo` tokens—`:27`, `:1965`, `:2003`—are all inside explanatory comments narrating past incidents (the #744 scrub, a byte-identical-copy note, a residual-drift note), which is exactly the register §BM1 says to leave alone. There is no finding here.
+
+```bash
+S=3d961050e203e8b7a55bb551e89aa4da834356f6
+git -C ~/GitHub/mergepath show "${S}:.mergepath-sync.yml" | grep -n 'gaycruisebingo\|fiveacross'
+```
+
+### E33—the propagation path counts, and the type the page does not know about
+
+> ":46 which paths are *canonical* (mirrored byte-for-byte—127 of them) and which are *kit* directories (seven …)"
+
+**WRONG on both numbers, and the dichotomy is wrong as well: there is a third path type.** Parsing the `paths:` block structurally (lines 263–1815) yields **144** entries: **137 canonical**, **5 kit**, **2 templated**. §E13's "127 / 7" used a naive `grep -c`, which counts two comment lines apiece (`:23` narrates both type names, `:76` shows `#     type: kit` as a worked example); the honest kit figure was five then and is five now.
+
+The five kit directories are `.github/ISSUE_TEMPLATE/` (:1592), `scripts/phase-4b/` (:1600), `scripts/ci/` (:1611), `scripts/gh-projects/` (:1723) and `scripts/workflow/` (:1733).
+
+**`type: templated` is a distinct third mode and the page should carry it**, because it is the mechanism that makes verbatim mirroring safe. A templated path is rendered per consumer from that consumer's declared `facts:` rather than copied byte-for-byte: `examples/eslint.config.js` → `eslint.config.js` for the five ESM consumers (:1790-1799), and `examples/eslint.config.cjs.js` → `eslint.config.js` for the three CJS ones (:1804-1811). The manifest's own comment at `:26-32` states why the third mode has to exist: a verbatim mirror "would clobber a consumer's corrected copy on the next wave—the exact content the gaycruisebingo scrub had to remove (#744). If one of these ever genuinely must be shared, it MUST be `type: templated` … never verbatim," and `scripts/ci/check_sync_manifest` (check 8) fails a canonical or kit entry for any denylisted path.
+
+```bash
+S=3d961050e203e8b7a55bb551e89aa4da834356f6; cd ~/GitHub/mergepath
+for t in canonical kit templated; do
+  printf '%s ' "$t"; git show "${S}:.mergepath-sync.yml" | grep -cE "^    type: $t\$"
+done                                                                            # 137 5 2
+```
+
+Corrected value: **"137 canonical paths mirrored byte-for-byte, five kit directories, and two templated paths rendered per consumer from its declared facts"**—as of 2026-08-28.
+
+### E34—the GitHub identities, derived from the repository
+
+**SUPPORTED, and it is five logins, not four.** #753 asks for this to come from the repo rather than from `~/GitHub/CLAUDE.md`, and `.github/review-policy.yml` states all of it:
+
+| Role | Key | Login(s) | Line |
+|---|---|---|---|
+| Author | `author_identity` | `nathanjohnpayne` | :132 |
+| Reviewer agents | `available_reviewers` | `nathanpayne-claude`, `nathanpayne-cursor`, `nathanpayne-codex` | :88-91 |
+| Default external reviewer | `default_external_reviewer` | `nathanpayne-codex` | :125 |
+| CI service account | `non_reviewer_identities` | `nathanpayne-robot` | :116-117 |
+
+There is **no `available_authoring_agents:` key**, and this matters for anyone re-deriving the model: `scripts/lib/pr-body-contract.sh:17-19` says so outright—"There is no `available_authoring_agents:` key; the two lists are the same list, read through a prefix"—and `pr_body_available_authoring_agents()` at `:30-40` derives the allowed `Authoring-Agent:` slugs (`claude`, `cursor`, `codex`) by stripping `nathanpayne-` off each reviewer. The same file flags the coupling as "deliberate and load-bearing": a consumer whose reviewers do not carry that prefix derives an empty list.
+
+Three third-party bot logins appear in the policy and are not identities the system owns: `coderabbitai[bot]` (:223), `chatgpt-codex-connector[bot]` (:396), `github-advanced-security[bot]` (:661).
+
+```bash
+S=3d961050e203e8b7a55bb551e89aa4da834356f6
+git -C ~/GitHub/mergepath show "${S}:.github/review-policy.yml" \
+  | grep -nE '^(author_identity|default_external_reviewer):|^  - nathanpayne-'
+```
+
+### E35—the actor model, and where the human tiebreaker is written down
+
+**SUPPORTED, and the repository names every role #753 AC 2 asks for—the PRD is not needed for this.** Six roles, each with a primary source in the tree:
+
+- **Operator / repo owner.** The human at the keyboard who owns every repository in the fleet; every consumer's `repo:` field is `nathanjohnpayne/…` (§E46).
+- **Author identity.** `author_identity: nathanjohnpayne` (`.github/review-policy.yml:132`). `REVIEW_POLICY.md:56` states the rule: "The author identity (`nathanjohnpayne`) is always the one that merges to the target branch."
+- **Authoring agent.** Declared per PR in the `Authoring-Agent:` field, validated against the prefix-derived allow-list (§E34). `AGENTS.md:70` "Author code as nathanjohnpayne. File a PR."
+- **Reviewer agent.** One of `available_reviewers`, posting under its own login. `REVIEW_POLICY.md:55` "An agent **never** reviews its own code under the same identity that authored it"; `:57` "Reviewer identities only post review comments, request changes, and approve PRs. They do not merge."
+- **CI service account.** `nathanpayne-robot`. `REVIEW_POLICY.md:52`: "It holds no reviewer standing and must never post a review … deliberately absent from `reviewer_pat_item_for()` in `scripts/op-preflight.sh` so `--agent robot` cannot resolve a reviewer PAT."
+- **Human tiebreaker.** `AGENTS.md:98`, verbatim: "If the internal reviewer and external reviewer disagree on whether code is ready to merge, the human is the tiebreaker. Surface both positions clearly and wait." `REVIEW_POLICY.md:163` adds the review-independence corollary—"an unregistered human reviewer remains the documented tiebreaker"—and `REVIEW_POLICY.md:506` explains why the automated leg must not absorb this case: disagreement and runaway "are review-did-not-converge outcomes and take the human-tiebreaker route instead; routing them here would let the automated leg approve a review that never converged."
+
+The escalation triggers are mechanical rather than discretionary, which is what makes the role real: `AGENTS.md:100` names **repeat-after-rebuttal** (Codex re-flags a finding after a rebuttal reply) and **runaway rounds** (the counter exceeds `codex.max_review_rounds`) as automatic escalations to the human.
+
+### E36—as-of dates for §E26 and §E27
+
+**Supplied, not re-derived.** Both figures need a date and both have one available.
+
+**§E26's 134 review-finding threads: as of 2026-08-26.** The sibling blog states its own retrieval date at `src/content/blog/perfect-score-wrong-axis.md:92`: "Every count was retrieved on 2026-08-26 via `gh api --paginate` over three endpoints per PR: `pulls/<N>/comments`, `pulls/<N>/reviews`, `issues/<N>/comments`." The window the counts cover is closed and fixed—the eleven PRs are `#789`–`#797`, `#800` and `#810`—so the figure is stable in a way the counts in §E28–§E31 are not; it can only move if someone comments on a merged PR from July. One housekeeping note for whoever cites it: §E26 places the per-PR itemisation at `perfect-score-wrong-axis.md:98`, and at `da6b69c` it sits at **`:106`**; `:97` now holds the summary table's own 134 row. The blog was revised after §E26 was written and the line reference drifted with it.
+
+**§E27's fleet size: as of 2026-08-28, and the number has changed—see §E31.** Ten was correct while `.mergepath-sync.yml` named nine consumers; it is nine repositories at the pinned SHA. Any fleet count on the page needs `.mergepath-sync.yml` and a date, because this one moved within two days of §E27 being written.
+
+### E37—what `mergepath#1132` actually is
+
+**SPLIT, and the pre-draft description on issue #753 is closer than the brief's.** The issue is titled "Self-Review Required is a line-based grep: a fenced heading passes it, and Authoring-Agent is unvalidated server-side," opened by `nathanjohnpayne` 2026-08-28T04:19:40Z, closed 2026-08-28T19:44:42Z. It carries two distinct claims and only one of them is a propagation regression.
+
+**The pre-existing defect is not a regression at all, and is fleet-wide.** The required `Self-Review Required` check in `.github/workflows/pr-review-policy.yml` was a line-based `grep -qE '^## Self-Review'`, so a `## Self-Review` heading inside a fenced code block satisfied it, and `Authoring-Agent:` was never inspected server-side. The issue dates the grep to the initial commit: `git log -S"grep -qE '^## Self-Review'" -- .github/workflows/pr-review-policy.yml` returns `b9734df`, the 2026-03-24 seed. Because `pr-review-policy.yml` is a canonical path, every consumer had always carried the same weak gate.
+
+**The genuine propagation regression is real, and it is precisely characterised.** `nathanjohnpayne/nathanpaynedotcom` had independently built a stronger local version of that job—`setup-node` plus `actions/checkout` plus a call to its own `scripts/validate-pr-body.sh`, running the markdown-aware parser. That repo is where `pr-body-contract.mjs` originated. `mergepath#1121` ported the *parser* upstream but never wired it into the *workflow*, and the `mergepath@e7d5c17` propagation wave of 2026-08-28 ~03:22Z then mirrored the hub's canonical **weaker** job over the consumer's stronger one. The consequence, from the issue body: `Build and Test` on that repo's `main` "was green at `44c0a590`, red at `5626892a` (the sync commit, 03:24:59Z) and red on every commit since," and the repo's `CLAUDE.md` guarantee that the required check "validates the live PR body on open and edit, regardless of how the PR was created" was, for those hours, false there.
+
+**So the shape of the incident is: a verbatim canonical mirror overwrote a consumer's hardened workflow, and the consumer's own local test is what caught it.** `tests/pr-body-contract.test.js` is consumer-local and not synced; it failed on exactly the assertions covering `setup-node` and the validator call. The issue is explicit that this "was correctly reporting a real loss of enforcement, not drift."
+
+**And the fix is the pinned SHA.** `mergepath#1136`, "fix(policy): make the Self-Review gate markdown-aware, nothing more," merged 2026-08-28T19:44:40Z with merge commit **`3d961050e203e8b7a55bb551e89aa4da834356f6`**—two seconds before the issue closed. It replaces the grep with `node scripts/lib/pr-body-contract.mjs --has-self-review`, checking the validator out from the **default branch** rather than the PR head so a PR cannot rewrite the gate that judges it (`.github/workflows/pr-review-policy.yml:18-29`). The title's "nothing more" is load-bearing: server-side `Authoring-Agent:` validation was deliberately *not* added and is tracked separately in #1137 (`:44-46`).
+
+**A decision record can be built on this, and the sharpest reading is the one `REVIEW_POLICY.md:82` already states about a different incident: "a canonical fix is not shipped until it reaches the consumers."** Here the same asymmetry runs the other way—a canonical *file* reached the consumers and destroyed a local improvement. The page-relevant claim is not "propagation is dangerous" but the narrower, true one: verbatim mirroring makes a consumer's independent hardening invisible to the hub, and the only thing that caught it was a test the consumer kept outside the mirror.
+
+```bash
+GH_TOKEN="$OP_PREFLIGHT_REVIEWER_PAT" gh issue view 1132 --repo nathanjohnpayne/mergepath \
+  --json title,state,createdAt,closedAt,body
+GH_TOKEN="$OP_PREFLIGHT_REVIEWER_PAT" gh pr view 1136 --repo nathanjohnpayne/mergepath \
+  --json mergedAt,mergeCommit,files --jq '{mergedAt,sha:.mergeCommit.oid,files:[.files[].path]}'
+```
+
+### E38—the two known-red items on `nathanpaynedotcom`'s `main`
+
+**SPLIT, and half the brief's framing is WRONG.** Both were executed at `da6b69c` in this worktree.
+
+**`tests/pr-body-contract.test.js` is down to one failing test, not two, and the repair already landed.** `aacf5a8`, "bulk sync to mergepath@3d96105," brought the #1136 fix into this repo, so the assertion on `actions/setup-node@` now passes. What still fails is a different test entirely—`uses the same parser in Phase 4b and enforces it on every PR event path` (`tests/pr-body-contract.test.js:140-146`), which asserts `phase4b` contains `pr_body_validate "$body" "$(p4b_config)"`. It does not: `scripts/phase-4b-review.sh:246` sources the contract library and `:291` calls only `pr_body_authoring_agent "$body"`. Two of that test's assertions are stale against the shipped design—the workflow now calls `scripts/lib/pr-body-contract.mjs` directly rather than `scripts/validate-pr-body.sh` (`:144`), which the fix's own comment at `pr-review-policy.yml:47-54` explains was deliberate, to avoid a bootstrap trap where a flag added in the same PR does not yet exist on the default branch. Run: `./node_modules/.bin/vitest run tests/pr-body-contract.test.js` → `1 failed | 10 passed (11)`.
+
+**`npx astro check` genuinely reports 2 errors—but they are NOT from mergepath sync.** Both are `ts(2339) Property 'ownerSVGElement' does not exist on type 'SVGElement | HTMLElement'` at `tests/responsive/mermaid-accessibility.spec.ts:107` and `:109`. That path appears **nowhere** in `.mergepath-sync.yml`, and its entire history is consumer-local: `8de60c5` (2026-08-22, #663), `4a5e4a4` (2026-08-22, #673), `6ed9d1e` (2026-08-24, #729), `298db6d` (2026-08-25, #788), `71f150d` (2026-08-25, #793)—all `nathanpaynedotcom` issue numbers, all predating the 2026-08-28 sync. And the sync commit is small enough to check exhaustively: `git show --stat aacf5a8` touches exactly four files—`.github/workflows/pr-review-policy.yml`, `scripts/lib/pr-body-contract.sh`, `scripts/validate-pr-body.sh`, `tests/test_pr_body_contract_parity.sh`—none of them TypeScript, none of them config. Attributing these errors to propagation is wrong, and `mergepath#1132` never mentions `astro check` at all.
+
+### E39—the routing configuration as it stands at the pinned SHA
+
+**SUPPORTED, confirming §E5 and §E6 rather than re-deriving them.** `.github/review-policy.yml` is now **1,017 lines** (§E17 called it "900-plus"; still true, now understated).
+
+- `external_review_threshold: 300` (`:18`), and the comparison is still `>=` at both enforcement points: `.github/workflows/agent-review.yml:580` `let needsExternal = totalChanges >= threshold || touchesProtected;` and `scripts/merge-clearance-gate.sh:1241` `if [ "$LINES_CHANGED" -ge "$THRESHOLD" ]`. §E5's correction to "300 lines or more" stands.
+- `external_review_paths` (`:26-31`) are five globs: `src/auth/**`, `src/payments/**`, `**/*secret*`, `**/*credential*`, `.github/**`.
+- `codex.enabled: true` (`:456`).
+- `phase_4b_automation.enabled: true` (`:821`), `mode: local` (`:827`), `max_review_rounds: 2` (`:832`). §E6's correction stands unchanged.
+- `phase_4b_default: complex-changes` (`:780`), which is what makes §E40 matter.
+
+```bash
+S=3d961050e203e8b7a55bb551e89aa4da834356f6
+git -C ~/GitHub/mergepath show "${S}:.github/review-policy.yml" \
+  | grep -nE '^external_review_threshold:|^phase_4b_default:|^  (enabled|mode|max_review_rounds):'
+```
+
+### E40—`phase-4b-classifier.sh` is executed today, and the page says it is not
+
+> ":38 It is written and configured—`phase_4b_default: complex-changes` is set—but nothing in the repository executes it today: the references that remain are comments, the propagation manifest and a test."
+
+**WRONG at the pinned SHA. This is the decaying negative claim, and it has decayed.** `scripts/coderabbit-should-invoke.sh:486` resolves `CLASSIFIER="$SCRIPT_DIR/phase-4b-classifier.sh"` and `:498-505` executes it—`CLS_OUT=$("$CLASSIFIER" "$PR_NUM" --detect-only --repo "$REPO")`—on the live CodeRabbit-invocation path. The wiring landed in `42195b6`, "feat(review-policy): gate Phase 2.5 on complexity, raise the Codex budget to 10 (#1084)," 2026-08-27 20:01:44 −0700, merged 2026-08-28T03:01:45Z: **fourteen hours before the pinned SHA, and after the sentence on the page was written.**
+
+It is not a dormant path. `.github/review-policy.yml:218` sets `coderabbit.invoke: complex-changes`, and `AGENTS.md:74` binds every agent to it: "Phase 2.5 (CodeRabbit) runs only when `scripts/coderabbit-should-invoke.sh <PR#>` exits 0 (#1084). Run it rather than judging complexity yourself." So the classifier now adjudicates the CodeRabbit decision on **every** PR in the fleet.
+
+Executed rather than read, per the §F21 standard. Running the decider against a real PR returns the classifier's own verdict as its reason:
+
+```bash
+S=3d961050e203e8b7a55bb551e89aa4da834356f6
+git -C ~/GitHub/mergepath archive "$S" | tar -x -C /tmp/mp && cd /tmp/mp
+GH_TOKEN="$OP_PREFLIGHT_REVIEWER_PAT" bash scripts/coderabbit-should-invoke.sh 1136 \
+  --repo nathanjohnpayne/mergepath --json
+# {"pr_number":1136,"decision":"invoke",
+#  "reason":"classifier matched a Phase 4b trigger (complex change)",
+#  "invoke_mode":"complex-changes","coderabbit_enabled":"true"}
+```
+
+And the classifier itself runs standalone against a constructed fixture, emitting the JSON recommendation its header advertises:
+
+```bash
+cd /tmp/mp
+printf '{"body":"Authoring-Agent: claude\\n\\n## Self-Review\\n","files":[{"filename":"README.md","patch":"@@ -1 +1 @@\\n-a\\n+b"}]}' > /tmp/fx.json
+mkdir -p /tmp/pol/.github && echo 'phase_4b_default: complex-changes' > /tmp/pol/.github/review-policy.yml
+MERGEPATH_REVIEW_POLICY_PATH=/tmp/pol/.github/review-policy.yml \
+  bash scripts/phase-4b-classifier.sh 99999 --fixture /tmp/fx.json
+# {"match": false, "triggers": [], "recommendation": "fallback-only", … "files_inspected": 1}
+```
+
+Corrected value: **the classifier is on the live path.** Its Phase 4b proactive-trigger role is unchanged (§E7 stands), but a second consumer now reuses the same taxonomy to decide whether CodeRabbit runs at all—`coderabbit-should-invoke.sh:481-485` states the design reason: "Reusing that classifier rather than inventing a second notion of 'complex' is the point … a second threshold would drift from it." The "capability built and not wired up" sentence must be deleted, not softened.
+
+### E41—CodeRabbit is now selective and Codex is universal, which inverts the page's framing
+
+> ":38 CodeRabbit is wired in as an advisory second-opinion pass"
+
+**SUPPORTED as written, but the mechanism changed under it and the page's emphasis is now backwards.** As of `#1084` the two external reviewers have swapped roles relative to how the page describes them.
+
+- **CodeRabbit is gated.** `coderabbit.invoke: complex-changes` (`.github/review-policy.yml:218`) means it is invoked only when the classifier matches a trigger (§E40). §E8 already refuted "on every PR" on rate-limit and stacked-PR grounds; there is now a policy knob that declines to invoke it by design.
+- **Codex is universal.** `codex.request_by_default: true` (`:479`), with the block's own comment at `:463-464`: "Request `@codex review` on EVERY PR, not only the ones that meet the external-review threshold or touch a protected path (#486)."
+- **The Codex round budget went 2 → 10.** `codex.max_review_rounds: 10` (`:505`), and the comment at `:503-504` gives the rationale in the repo's own words: "Raised 2 -> 10 (#1084). Codex is now the primary reviewer on every PR." `REVIEW_POLICY.md:476` confirms the guard: "The round counter exceeds `codex.max_review_rounds` (10 since #1084). The 11th round trips this guard."
+
+The decision procedure is deliberately a script rather than agent judgement, and `coderabbit-should-invoke.sh:27-29` says why: "'is this PR complex enough for CodeRabbit' must be reproducible across sessions and agents, and must be answerable the same way in CI as at the keyboard." Every ambiguous input—unreadable config, unknown mode, missing or failing classifier—resolves to *invoke* (`:41-45`), because "skipping wrongly silently drops a review round, while invoking wrongly costs time." That fail-open-toward-more-review posture is page-worthy on its own.
+
+### E42—the August 2026 byline incident: the line moved, and the primary evidence is on this site's repo
+
+> ":36 `REVIEW_POLICY.md` itself records an August 2026 incident in which a repurposed 1Password item silently sent Codex's reviews out under the CI robot's byline."
+
+**SUPPORTED, with a corrected citation and a real date.** §E3 cited `REVIEW_POLICY.md:51`; at the pinned SHA the passage is at **`REVIEW_POLICY.md:82`**, inside a block quote under the PAT lookup table, opening: "**A 1Password item ID is not a stable identity.**"
+
+The record, quoted: "On 2026-08-21 the item `o6ekjxjjl5gq6rmcneomrjahpu` was repurposed from Codex to the robot and Codex was recreated at `etak327mpz4drd4byxszfex4vm`; every row above still pointed at the old ID, so `--agent codex` silently resolved a **robot** token." The named root cause is worth the page's space: "the robot PAT was created that day by repurposing the existing Codex 1Password item rather than minting a fresh one, so the id every doc and lookup already named silently changed identity while nothing referencing it changed—mint a new item for a new identity, never repurpose one."
+
+**And the incident is verifiable against GitHub, not only against the doc.** The passage names where the bad reviews landed—`nathanjohnpayne/nathanpaynedotcom#668`—and they are still there:
+
+```bash
+GH_TOKEN="$OP_PREFLIGHT_REVIEWER_PAT" gh api \
+  repos/nathanjohnpayne/nathanpaynedotcom/pulls/668/reviews --paginate \
+  --jq '[.[]|select(.user.login=="nathanpayne-robot")]
+        | {count:length, first:.[0].submitted_at, last:.[-1].submitted_at}'
+# {"count":3,"first":"2026-08-22T04:46:19Z","last":"2026-08-22T04:50:20Z"}
+```
+
+Three reviews by `nathanpayne-robot`, all now `DISMISSED`. Corrected value for the page: the date is **2026-08-21/22**—the item was repurposed on the 21st and the wrong-byline reviews posted at 04:46–04:50 UTC on the 22nd, which the doc dates as "roughly five and a half hours later."
+
+**The causal chain is the propagation one, and it is the same lesson as §E37 from the other side.** `REVIEW_POLICY.md:82` again: "The correction landed here the same day, but `scripts/op-preflight.sh` is a canonical manifest path and no consumer had synced it when a Codex session resolved the robot token roughly five and a half hours later … **a canonical fix is not shipped until it reaches the consumers.**" The hub was already correct when the consumer failed. That sentence is the strongest single line the record offers about what a hub-and-spoke standard actually costs.
+
+### E43—the mechanism the byline incident produced
+
+**SUPPORTED, and it belongs on the page because it closes the loop §E42 opens.** The incident is not just a scar; it produced a gate. `.github/review-policy.yml:116-117` declares `non_reviewer_identities: [nathanpayne-robot]`, and `REVIEW_POLICY.md:44-50` (headed "Non-reviewer identities (#1080)") states the problem it solves: "Service accounts hold repo write access because CI needs it. GitHub counts an approval from **any** account with write access toward `required_approving_review_count`, and it offers nothing to tell a service account from a person—both are `type: \"User\"`. So an account that exists to run CI can satisfy branch protection, and no GitHub-side setting prevents it."
+
+`scripts/merge-clearance-gate.sh` now "fails closed when any listed identity holds a latest-state `APPROVED` review **anywhere on the PR**." Three design notes in that passage are page-relevant: it is a deny-list rather than an allow-list because "an allow-list would have to answer 'is this login a human?' … and that question has no reliable answer from the API"; it is deliberately **not** HEAD-pinned (see §E44); and an absent key makes the check inert, so "a repo that has not adopted the key is unaffected rather than broken, and also unprotected." The last clause is the honest one—the protection is opt-in per repo.
+
+Note for the page: the same PR family added `block-self-approval` to `.github/workflows/agent-review.yml:1030`, which `REVIEW_POLICY.md:163` says "always blocks an allow-listed agent reviewer whose native GitHub account also authored the PR." That is the enforcement §E4 found missing at the agent level; it now exists for Phase 4, which "requires exactly one well-formed `Authoring-Agent:` declaration that maps to an allow-listed reviewer other than the approver."
+
+### E44—exact-head clearance, and the one place it is deliberately not applied
+
+**SPLIT. HEAD-pinning is a first-class, named, enforced concept—but "reviews are pinned to an exact HEAD SHA" is not a universal, and the exception is deliberate.** #753 AC 4 asks the page to describe this.
+
+The repository defines the term rather than merely practising it. `CONTEXT.md:89`: "**HEAD-pinned**: The property that a signal or gate counts only when bound to the exact current commit. The antonym failure is a stale clearance riding a new HEAD." And `CONTEXT.md:87` defines what it protects: "**Clearance**: The HEAD-pinned state in which the external reviewer has affirmatively accepted this exact commit; a content-changing push voids it … _Avoid_: treating a label, a stale approval, or reviewer silence as clearance—silence is never implicit approval."
+
+Enforcement, with the mechanism in each case:
+
+- `scripts/merge-clearance-gate.sh`—`CONTEXT.md:95` calls it "the HEAD-pinned canonical check that fails closed when clearance is not satisfied on the merge HEAD."
+- `scripts/coderabbit-wait.sh`—a three-rung freshness test (`REVIEW_POLICY.md:275`) in which "an exact SHA match wins outright: a review whose commit is the current `HEAD_SHA` counts regardless of its timestamp," and a summary naming a different commit "is a verdict about that other commit and never clears this head, however recently CodeRabbit edited it."
+- `codex-record-feedback.sh --scan`—`REVIEW_POLICY.md:296`: "collects only the current HEAD's CodeRabbit inline findings (bot-authored AND `commit_id`/`original_commit_id` == HEAD)."
+- The propagation lane's `mergepath-propagation-lane verified-head=<sha>` marker, read by `lane_verified()` (`REVIEW_POLICY.md:411`), where "label events remain untrusted (not head-pinned proof)."
+- Phase 4b posts its verdict pinned to the reviewed HEAD, and head drift is one of the fail-closed paths back to the manual handoff (`.github/review-policy.yml:806-809`).
+
+**The exception, and it is reasoned.** `REVIEW_POLICY.md:46`: the non-reviewer-identity assertion (§E43) fires "**anywhere on the PR**—deliberately not just on the current HEAD," because "whether an approval from an earlier commit still counts toward branch protection is decided by `dismiss_stale_reviews`, which the gate cannot read; HEAD-pinning the check would let a non-reviewer approve and then push to slip past it."
+
+Defensible form for the page: clearance is bound to the exact commit reviewed, and a content-changing push voids it—except where a wider scope is strictly safer, as with the CI-account deny-list. Do not write "every check is HEAD-pinned."
+
+### E45—reply and resolve are two requirements with two different enforcers
+
+> The page does not yet say this; #753 will want it.
+
+**SUPPORTED, and proved by execution rather than by the docs.** The two are not the same requirement and are not enforced by the same thing.
+
+**Reply is enforced by `scripts/review-feedback-accounting.sh` (897 lines), and thread resolution is explicitly *not* accepted as evidence.** `REVIEW_POLICY.md:340`, verbatim: "Thread resolution, merge-state fields, a helper's reported success count, and a zero exit from an unrelated command are not disposition evidence." The code matches the doc—the script never asks GitHub about resolution state at all:
+
+```bash
+cd /tmp/mp
+grep -c 'isResolved\|reviewThreads' scripts/review-feedback-accounting.sh    # 0
+grep -n 'in_reply_to_id' scripts/review-feedback-accounting.sh              # 362, 389, 390
+```
+
+What it does accept is narrow: `:389-390` requires `(.in_reply_to_id != null) and (.in_reply_to_id == $root)`—an actual reply whose `in_reply_to_id` names the finding root—and `REVIEW_POLICY.md:340` adds that "an ordinary reply's `created_at` must be strictly later than the finding's latest raise or edit because GitHub's one-second timestamp precision cannot order a same-second reply and edit."
+
+**An unaccounted finding genuinely blocks the next review request, and the block is a hard exit.** `scripts/codex-review-request.sh:1093-1115` defines `run_feedback_accounting_gate()`, which runs the accounting script before the trigger is posted and, on exit 1, calls `die 6 "review feedback is unaccounted; disposition every finding before requesting another Codex review"`. Confirmed on the live path, read-only:
+
+```bash
+cd /tmp/mp
+GH_TOKEN="$OP_PREFLIGHT_REVIEWER_PAT" bash scripts/review-feedback-accounting.sh \
+  1136 nathanjohnpayne/mergepath
+# {"status":"clear","repo":"nathanjohnpayne/mergepath","pr_number":1136,
+#  "posted":0,"accounted":0,"missing_count":0,"findings":[],"missing":[]}
+```
+
+**Resolve is enforced somewhere else entirely—by GitHub, not by the repo.** `REVIEW_POLICY.md:303`: "CodeRabbit's advisory status does **not** override GitHub branch protection's `required_conversation_resolution` gate." So the page can say, accurately: a reviewer's finding needs a substantive reply on the thread *and* the thread resolved, and the two are checked by different systems—one a repository script that refuses to count resolution, one a platform setting that does not read replies. Neither substitutes for the other, which is exactly why both get missed.
+
+### E46—there is no external adopter, and the bound is tight
+
+> ":74 nobody outside this fleet runs the standard—all nine consumers are my own repos"
+
+**SUPPORTED on the substance, WRONG on the count (eight—§E31), and the bound can be stated much more sharply than "nobody."** Every consumer's `repo:` field is `nathanjohnpayne/…`; the count of consumer repos under any other owner is zero:
+
+```bash
+S=3d961050e203e8b7a55bb551e89aa4da834356f6
+git -C ~/GitHub/mergepath show "${S}:.mergepath-sync.yml" \
+  | grep -E '^    repo: ' | grep -vc 'nathanjohnpayne/'                      # 0
+```
+
+The hub is public and marked a template, which makes the absence of uptake a measured fact rather than an assumption. As of 2026-08-28T20:20Z: `is_template: true`, `visibility: public`, created 2026-03-24T19:08:51Z, **0 forks**, **4 stargazers**, 0 watchers.
+
+```bash
+GH_TOKEN="$OP_PREFLIGHT_REVIEWER_PAT" gh api repos/nathanjohnpayne/mergepath \
+  --jq '{visibility,is_template,forks_count,stargazers_count,subscribers_count}'
+```
+
+Defensible form, and it is stronger than the current sentence because it is falsifiable: the repository has been public and forkable since March 2026 and has zero forks; all eight consumers are the author's own.
+
+### E47—`packaging/` is a name reservation, not distribution
+
+**SUPPORTED, and the repo says so itself, so the page can be blunt.** `packaging/README.md:1-5`: "Placeholder package scaffolds reserving the `mergepath` name on public registries. See issues #92 (npm) and #93 (PyPI) for the squatting-prevention rationale. Both packages publish at version `0.0.0` and carry nothing but a README. They will be replaced with real artifacts when the project cuts a first release."
+
+Both are genuinely published, and both are empty. `packaging/npm/package.json:2-3` and `packaging/pypi/pyproject.toml:6-7` both declare `mergepath` at `0.0.0`. `npm view mergepath version time.created` → `0.0.0`, `2026-05-02T03:50:17.452Z`. PyPI carries one release, `0.0.0`, uploaded `2026-05-02T03:56:18.888217Z`, whose own summary field reads "Name reservation for the Mergepath umbrella project. No runtime code."
+
+So there is no distribution channel and the page must not imply one. It is also not evidence of adoption in either direction: the npm package recorded 9 downloads in the month to 2026-08-27, which for a README-only `0.0.0` package is registry noise, not users. The honest sentence is that the name is reserved on npm and PyPI against squatting, and nothing installable has ever been published.
+
+### E48—the security-baseline counts
+
+> ":40 all forty-three GitHub Actions pinned to commit SHAs, and least-privilege `permissions:` blocks on all nineteen workflows"
+
+**SPLIT—nineteen is right, forty-three is now WRONG.** At the pinned SHA there are **46** `uses:` references pinned to 40-character SHAs and **zero** pinned to a floating `@vN` tag, across **19** workflow files, **19** of which carry a `permissions:` block. §E9's other findings stand: `.github/CODEOWNERS`, `SECURITY.md` and `.github/dependabot.yml` are all present, and secret scanning with push protection remains a repository setting recorded as a requirement rather than a shipped file.
+
+```bash
+S=3d961050e203e8b7a55bb551e89aa4da834356f6; cd ~/GitHub/mergepath
+for f in $(git ls-tree -r --name-only "$S" .github/workflows/); do git show "${S}:$f"; done \
+  | grep -coE 'uses: [^@]+@[a-f0-9]{40}'                                     # 46
+for f in $(git ls-tree -r --name-only "$S" .github/workflows/); do git show "${S}:$f"; done \
+  | grep -coE 'uses: [^@]+@v[0-9]+'                                          # 0
+git ls-tree -r --name-only "$S" .github/workflows/ | wc -l                    # 19
+```
+
+Corrected value: **46 actions pinned to commit SHAs, none to a floating tag, and `permissions:` on all nineteen workflows**, as of 2026-08-28. Both the pin count and the workflow count decay; the shape that does not is "every action pinned to a SHA, every workflow carrying a `permissions:` block," which is what `check_*` gates actually enforce.
+
+### E49—the portfolio slugs against the consumer list
+
+**SUPPORTED, and the page's "underneath every other project on this site" is exactly true.** Seven project pages live in `src/content/projects/`; six map to consumers and the seventh is the hub.
+
+| Portfolio slug | Consumer repo | Status |
+|---|---|---|
+| `device-source-of-truth` | `nathanjohnpayne/device-source-of-truth` | consumer |
+| `five-across` | `nathanjohnpayne/fiveacross` | consumer (repo renamed 2026-08-27) |
+| `friends-and-family-billing` | `nathanjohnpayne/friends-and-family-billing` | consumer |
+| `matchline` | `nathanjohnpayne/matchline` | consumer |
+| `override` | `nathanjohnpayne/overridebroadway` | consumer |
+| `swipe-watch` | `nathanjohnpayne/swipewatch` | consumer |
+| `mergepath` | `nathanjohnpayne/mergepath` | **the hub, not a consumer** |
+
+Two consumers have no portfolio page: `nathanpaynedotcom` (this site) and `tadlockpsychiatry`. So the mapping is 6 of 7 slugs → consumers, plus 2 consumers outside the portfolio, plus the hub = the nine repositories of §E31.
+
+One thing the current page gets wrong by omission: `:68` names Override, Device Source of Truth, Friends & Family Billing, Swipe Watch and this site, and leaves out **Matchline and Five Across**, both consumers and both portfolio projects. If the page is going to enumerate, it should enumerate all of them or say "including" and pick fewer.
+
+### E50—the corrected sibling pages contradict nothing on this page
+
+**SUPPORTED—checked and clean, recorded so it is not re-opened.** `device-source-of-truth.md:49` ("the machine-user review system arrived by template propagation on March 24, 2026, eighteen days after the last product feature") is consistent with §A13 and §F43. `friends-and-family-billing.md:49` describes the shared pipeline without attributing its origin. `matchline.md:19-20`, `override.mdx:64-65` and `five-across.mdx:101-102` carry `related:` links only. No sibling page asserts anything about Mergepath that `mergepath.md` contradicts, in either direction.
+
+**One thing a sibling now carries that this page could use.** `friends-and-family-billing.md:49` records that "the no-direct-push rule landed on April 2; a commit went straight to `main` the next day, and issue #145 is the after-action record." That is a documented bypass of the standard's central rule, one day after it landed, already verified on a corrected page—material for §E51's "what they cost" column, and it is not currently on the Mergepath page.
+
+### E51—the impact question, and whether the page's own disclaimer survives
+
+> ":74 there is no measure of what they save, only of what they catch, what they miss, and what they cost."
+
+**SUPPORTED. The boundary stands, and the search that tested it was not cheap.** #753 AC 6 asks for impact separated from adoption, "quantified only where the record supports it," and the record supports nothing on the savings side.
+
+**There is no savings language anywhere in the repository.** A sweep for "saved", "time saved", "faster than", "reduces … time", "manual steps" and "afternoon" across `docs/audits/`, `README.md`, `REVIEW_POLICY.md`, `AGENTS.md` and `scripts/bootstrap-new-repo.sh` returns **zero hits**. There is no recorded manual baseline anywhere—no before-time for a repo bootstrap, no coordination cost measured before the standard existed—so there is nothing to subtract from.
+
+**The two measurement systems that do exist both measure cost.** `docs/audits/codex-latency-2026-07.md` is a real, reproducible study (`scripts/audit-codex-latency.sh`, n=100 for the headline pair) and its findings are about how long the gates take and how often they fail to respond: trigger→verdict p50 3m37s / p90 7m6s / p99 10m30s / max 13m50s; "~19% of all historical `@codex review` triggers drew a 'To use Codex here, create a Codex account…' not-connected marker instead of a review"; the `*/15` and `*/5` gate crons do not run at their configured cadence because "GitHub throttles scheduled events so hard that the median gap between consecutive scheduled runs is ~96–98 minutes for both workflows." `scripts/repo-lint-latency-report.sh` is the same posture applied to CI: it defines budgets (`P50_MAX=300`, `P95_MAX=480`, `DEEP_P95_MAX=720` seconds) that the lint suite must stay under. Both are "what they cost." Neither is "what they save."
+
+**The one number that could look like a savings figure, executed rather than assumed.** The page says `--dry-run` "produces a complete do-it-yourself runbook with zero side effects," and that a bootstrap replaces "an afternoon of copy-paste-and-customize." Running it end to end at the pinned SHA produces a complete four-stage runbook and exits 0, with **50 wrapped side-effect steps**: template-mirror 16, github-infra 19, firebase-and-codereview 5, board-and-summary 10, plus a numbered manual follow-up list.
+
+```bash
+S=3d961050e203e8b7a55bb551e89aa4da834356f6
+git -C ~/GitHub/mergepath archive "$S" | tar -x -C /tmp/mp && cd /tmp/mp
+git init -q -b main . && git add -f README.md \
+  && git -c user.email=a@b -c user.name=a -c commit.gpgsign=false commit -q -m pin
+BOOTSTRAP_SKIP_TOOL_CHECK=1 BOOTSTRAP_SKIP_MERGEPATH_GUARD=1 BOOTSTRAP_AUTO_CONFIRM=1 \
+  bash scripts/bootstrap-new-repo.sh audit-probe-repo --dry-run \
+  --description x --visibility private --firebase none --codex-app n --project new \
+  </dev/null | grep -c '^\[DRY-RUN\]'                                        # 50
+rm -rf ~/GitHub/audit-probe-repo   # the dry run creates this; see below
+```
+
+**Fifty steps is a real, reproducible figure, and it is still not a savings measure.** It counts what the wizard automates, not what a human would otherwise have done—nobody ever timed the manual path, and "an afternoon" is an unmeasured author estimate. The page may say the wizard performs fifty wrapped operations across four stages, as of 2026-08-28; it may not convert that into time saved.
+
+**And "zero side effects" is not literally true, which the same run demonstrates.** `--dry-run` creates the target directory and writes `.bootstrap-log` and `.bootstrap-state` into it. Every *wrapped* effect is suppressed—the `rsync`, the `git init`, the `git commit`, every `gh` call are all printed as `[DRY-RUN] …` and not executed—so the claim is true of the target repo's content and false of the target directory's existence. Defensible weaker form: "`--dry-run` performs none of the operations, printing each one instead"—which is both accurate and the thing the reader cares about.
+
+**So the page's self-assessment holds and should be kept.** Correct the count in the same sentence (§E31: eight consumers, not nine) and leave the claim itself alone. It is the most defensible sentence on the page.
+
+### E52—branch protection is not enforced on most of the fleet, and the page's own premise turns on it
+
+> ":32 The operating premise is three clauses: written conventions are not enough, **branch protection is mandatory**, and review is performed by a different identity than the one that authored the change."
+
+**SPLIT, and this is the most consequential row in this delta.** As a statement of what the standard *holds*, the clause is fine. As a description of what is *in force across the fleet*, the repository's own architecture decision record contradicts it, and it does so with a measurement.
+
+`docs/architecture/0002-branch-protection-enforcement-posture.md:29`, verbatim: **"on 2026-07-28 the audit exited 3 on all ten repos in the fleet, eight enforced zero of the five, and three (`nathanpaynedotcom`, `overridebroadway`, `gaycruisebingo`) had no protection on `main` at all. mergepath itself enforced two of five."** The five are the canonical required checks encoded in `CANONICAL_REQUIRED_CHECKS` in `scripts/audit-branch-protection.sh`, and `:27` states the mechanism that makes the gap matter: "A GitHub Actions job only gates a merge when it is listed as a **required status check** in the repository's branch protection. Absent that listing the job still runs and still goes red—and the PR merges anyway."
+
+**The gap is still open at the pinned SHA.** The ADR's own status line (`:5`) reads "Decision recommendation—recorded 2026-07-28 under #774, awaiting the repository owner's acceptance," and `:7` says the settings half "is an owner-authorised settings change on live repositories … and has deliberately not been done. Until it is, the audit will report drift every week, which is the intended behaviour: the gap is now visible instead of silent."
+
+**And on the day of the pinned SHA the posture was made weaker on purpose, with reasoning the page should not flatten.** `:64` records that `enforce_admins` was **declined by the owner on 2026-08-28** and "disabled on `mergepath` `main` at 2026-08-28T02:49Z; the other eight repos already had it off, so the fleet is now uniform rather than hub-special." The stated reason is a trade between two real failures: keeping the admin escape costs you #427/#428, two admin merges past a required check; removing it cost `mergepath#1121`, which on 2026-08-27 "sat `BLOCKED` with all 36 review threads resolved, feedback accounting clear, and a cross-agent `APPROVED` in place, because three `Codex P1 unresolved threads` check-runs had failed with `rc=2`—a config/usage error, not a gate verdict—after the GitHub App installation rate limit was exhausted repo-wide by 411 workflow runs in 16 minutes. The gate's own log read `Codex blocking-tier unresolved: 0`." The ADR is candid that `scripts/hooks/gh-pr-guard.sh`'s `BREAK_GLASS_MERGE_STATE=1` requirement "is a local control rather than a server-side one and does not constrain a web-UI merge; it is a speed bump and is described here as one, not as a replacement for `enforce_admins`."
+
+**What the page may say.** That branch protection is the standard's second premise and that the fleet does not yet meet it—`.mergepath-sync.yml`'s repos were measured on 2026-07-28 with eight of ten enforcing none of the five canonical required checks, the hub enforcing two, and the remediation still an unaccepted recommendation. That every gate on this page runs and goes red regardless, and that on most consumers a red gate does not stop a merge. And that the admin bypass is retained fleet-wide by an explicit 2026-08-28 owner decision, because an outage-induced deadlock was judged the worse and more frequent failure. **What the page may not say** is that branch protection is in force, or imply that the CI described in §E28 blocks anything outside the hub. This belongs in "The price," and it is a sharper item than anything currently there.
+
+```bash
+S=3d961050e203e8b7a55bb551e89aa4da834356f6
+git -C ~/GitHub/mergepath show \
+  "${S}:docs/architecture/0002-branch-protection-enforcement-posture.md" \
+  | sed -n '5,7p;27,29p;64p'
+```
+
+Two cautions for whoever writes this. The 2026-07-28 measurement is a **snapshot**, and it names ten repos and `gaycruisebingo`, both of which predate §E31 and the rename—cite it as a dated finding, never as current state. And the ADR is a *recommendation*, so "the standard requires all five everywhere" is itself not yet a settled decision; `:31` says so outright: "That constant has never been backed by an explicit decision … 'every repo should require all five' has been an implicit consequence of a list in a script rather than a position anyone took on the record."
+
+### E53—the PRD, never before processed by this ledger: what it is and how stale
+
+**EXTERNALLY SOURCED as a specification, and WRONG wherever it describes current behaviour.** `~/GitHub/docs/projects/mergepath/prds/mergepath.md` is 2,439 lines. Its header (`:11-13`) reads `**Status:** Approved — living document` / `**Last Updated:** 2026-07-01`, and its footer (`:2393-2395`) `**Document Version:** 1.5` / `**Reference implementation:** mergepath (current main)` / `**Last Reviewed:** 2026-07-01`.
+
+**The gap is 204 commits.** `git -C ~/GitHub/mergepath rev-list --count 3d961050e203e8b7a55bb551e89aa4da834356f6 --since=2026-07-01` → **204**. The PRD's highest issue reference is #774; the tree at the pinned SHA references #1080, #1084, #1094, #1101, #1132, #1136 and #1137.
+
+**The date in the header is wrong on the document's own terms.** `git -C ~/GitHub/docs log -3 --format='%h %ci %s' -- projects/mergepath/prds/mergepath.md` shows two content edits after v1.5 with no version bump and no date change: `a219367` 2026-07-28 and `5b5452f` 2026-08-21.
+
+Defensible characterisation for anyone citing it: **the PRD is a faithful snapshot of the design as of 2026-07-01 whose architecture and vocabulary still hold, and effectively every load-bearing number, config value, enforcement claim and Phase 4 exit-code contract in it has since been superseded.** Per §M1 the tree wins, and §E54 enumerates where.
+
+**What it is genuinely useful for.** The actor model—but §E35 derives the same model from the tree, which is both current and citable, so the page should use §E35. For the record, the PRD does name the escalation-of-last-resort role and calls it the **tiebreaker**: `:1387` "The human (`nathanjohnpayne`) can approve PRs because they are the tiebreaker and may need to self-approve in escalated scenarios," and `:1794-1800` "§ Disagreement and Tiebreaking … `nathanjohnpayne` (the human) is the tiebreaker and makes the final decision." The tree corroborates it at `AGENTS.md:98` and `REVIEW_POLICY.md:852`. The PRD does **not** model two roles the tree now enforces: the declared CI non-reviewer (§E43) and the repository owner as a distinct authority for settings and credential decisions (§E52).
+
+### E54—the PRD's claims about current behaviour that the tree refutes
+
+**WRONG, fifteen ways, and it is the §F7 pattern exactly: a spec section that says "enforced" where nothing enforces.** Enumerated so the page cannot pick one up by accident. Every left-hand cite is `prds/mergepath.md`; every right-hand cite is the tree at `3d96105`.
+
+| # | PRD claim | Tree |
+|---|---|---|
+| 1 | `:1560-1569` publishes a copy-pastable `git config user.name` / `user.email` identity switcher with an `@…example` address | `REVIEW_POLICY.md:1060` "Commit identity is **not** switched per session, and never per repository"; `:1069` "This policy deliberately publishes no copy-pastable identity setter with placeholder values"; `scripts/ci/check_git_identity_hygiene` fails on the instruction shape (§E55) |
+| 2 | `:195-197`, `:762` Phase 4b automation ships "disabled-by-default", `enabled: false` | `.github/review-policy.yml:821` `enabled: true` since 2026-07-02 (§E39) |
+| 3 | `:245` "48 `scripts/ci/check_*` scripts as of v1.5 … plus two inline steps" | 72 on disk, 71 wired, 1 exempt (§E28) |
+| 4 | `:256` `rules/repo_rules.md` "must be kept in lockstep with" `repo_lint.yml` | `rules/repo_rules.md:33-56` lists 24 of 72; nothing checks the inventory—`check_ci_scripts_wired` asserts script↔workflow wiring only |
+| 5 | `:588`, `:1244` the gates are "enforced by branch protection" | §E52 |
+| 6 | `:801` "The `Authoring-Agent:` line is **required**—CI checks for it" | `.github/workflows/pr-review-policy.yml:44-46` "**no claim is made about `Authoring-Agent:`**—widening this required check to the identity contract is a separate change, tracked in #1137" (§E37) |
+| 7 | `:801` "The `## Self-Review` section must be filled in for the PR to merge" | `:62` checks only that a real heading exists; contents are never inspected |
+| 8 | `:1185-1188`, `:252` `check_duplicate_docs` parses `AGENTS.md` and blocks | `scripts/ci/check_duplicate_docs:9-10` "Currently warning-only (does not block merge)"; always `exit 0`; never opens `AGENTS.md` |
+| 9 | `:1164-1167` `check_dist_not_modified` "compares committed `dist/` files against the build output" | `:58` is `git diff … HEAD~1 HEAD -- "$dir/"`; no build is ever run, and only the most recent commit is inspected |
+| 10 | `:1121-1122` tool-folder checks read config files and allow JSON settings | `scripts/ci/check_no_tool_folder_instructions:79` scans `*.md`, `*.txt`, `*.mdc` only—JSON is never opened, so the PRD's own "INVALID `.claude/config.json`" example at `:1021-1028` passes |
+| 11 | `:708-769` the config exhibit's values | six are stale: `coderabbit.max_wait_seconds` 300→1245, `codex.max_review_rounds` 2→10, `codex.review_timeout_seconds` 600→840, `codex.ack_wait_seconds` 60→30, `phase_4b_automation.enabled` false→true, and GHAS is now a live `code_scanning:` block at `:714-719` |
+| 12 | `:1733` `codex-review-request.sh` posts the trigger "or relies on the auto-review" | `AGENTS.md:78` "**Codex must be explicitly invoked** … Its on-open auto-review is best-effort and frequently does NOT fire … running `scripts/codex-review-request.sh` to post the trigger is **mandatory on EVERY round**—the first one included" |
+| 13 | `:1740`, `:175-176` escalation routes to Phase 4b | `REVIEW_POLICY.md:422` "**Disagreement and runaway do NOT route here** … Dispatching the automated 4b leg for them is unsound: that leg can post an `APPROVED`" (§E35) |
+| 14 | `:1381-1386`, `:1090` `block-self-approval` "prevents same agent from approving own code" | `scripts/self-approval-detector.cjs:146` returns `{action:'allow', reason:'under-threshold-agent-approval'}`—same-agent approval is permitted below threshold by design, which is the majority path and exactly what §E4 records |
+| 15 | `:690-702`, `:2367-2381` thirteen workflows | nineteen (§E48); six are absent from both PRD tables |
+
+Two more the page should not lean on either way: `:2292` calls signed commits "deferred", while `REVIEW_POLICY.md:117-131` ships an SSH signing-key inventory for all five identities with live GitHub key IDs; and `:2289` blames absent branch protection on "requires GitHub Pro (free plan)", which is a different account of §E52 than the ADR gives.
+
+One caveat on the strongest of these. `scripts/self-approval-detector.cjs:18-20` adds a limit the PRD does not carry and the page should: "A syntactically valid declaration is evidence of the policy claim, **not proof of who authored the branch.** Create-time claim authentication remains #928." The `Authoring-Agent:` field is a declaration, not an attestation.
+
+### E55—the byline incident's exact misconfiguration is still live inside the hub
+
+**WRONG, and it is a working instance of the failure §E37 and §E42 both describe.** `docs/projects/mergepath/prds/mergepath.md` is a generated mirror of the docs-repo PRD, carried into the hub by a *second* sync engine (`.mergepath-project-docs.yml` + `scripts/project-doc-sync.sh`, distinct from `.mergepath-sync.yml` and running the other direction for specs). Its provenance header pins `source_ref: a219367`, a docs-repo commit of 2026-07-28.
+
+The canonical moved on 2026-08-21—`5b5452f`, "fix(mergepath prd): correct the codex PAT item id and add the robot row"—which is the correction the byline incident forced. **The mirror never received it.** At the pinned SHA, `docs/projects/mergepath/prds/mergepath.md:1623` still reads:
+
+```
+| Codex | `nathanpayne-codex` | `o6ekjxjjl5gq6rmcneomrjahpu` | ... | op://Private/o6ekjxjjl5gq6rmcneomrjahpu/token |
+```
+
+`o6ekjxjjl5gq6rmcneomrjahpu` is the **CI robot's** 1Password item; Codex is `etak327mpz4drd4byxszfex4vm`. That is the precise substitution that made `--agent codex` resolve a robot token and post three reviews under the CI byline on `nathanpaynedotcom#668` (§E42). The mirror also drops the `nathanpayne-robot` row the correction added, and the PRD's own text at `:336` asks for exactly the check that would have caught it: "Drift checks should report stale generated mirrors with the source path and source ref."
+
+```bash
+S=3d961050e203e8b7a55bb551e89aa4da834356f6
+git -C ~/GitHub/mergepath show "${S}:docs/projects/mergepath/prds/mergepath.md" | sed -n '6p;1623p'
+git -C ~/GitHub/docs log -1 --format='%h %ci %s' -- projects/mergepath/prds/mergepath.md
+```
+
+**This is the row that turns §E37 and §E42 from two anecdotes into a pattern, and the page should use it that way.** Three incidents, one shape: a fix lands at the canonical source and does not reach the copy that gets read. `REVIEW_POLICY.md:82` names it—"a canonical fix is not shipped until it reaches the consumers"—and here the unreached copy is inside the hub itself, three months later, still naming the wrong credential. Do **not** write that anyone was harmed by this instance; nothing in the record says the mirror was ever read. Write that the mechanism the standard exists to prevent is demonstrably still running, inside the repository that defines it.
+
+### E56—the PRD's four problem statements
+
+**Four, confirmed, and two of them are page-usable as written.** `## Problem Statement` at `prds/mergepath.md:51` carries exactly four `###` subsections.
+
+1. **`:53` The Configuration Drift Problem.** `:62` "This fragmentation creates **configuration drift**: instructions diverge, behavioral rules conflict, and agents make decisions based on incomplete or contradictory information." **CORROBORATED, but the named mechanism is the wrong one.** The PRD blames per-tool config files (`:57-60`), and the file it names, `.cursor/rules.json`, does not exist in the tree. The tree's dated instances are all *canonical-doc* drift instead, and they are better: `scripts/ci/check_doc_ownership:17-18` records that "`docs/agents/operating-rules.md` sat in that gap for the whole life of the fleet and **drifted into nine mutually incompatible copies** before anyone had to name its class." Use the nine copies, not the tool folders.
+2. **`:70` The Human-Agent Alignment Problem.** `:74-78`, on scattered instructions and unclear precedence. **PARTLY CORROBORATED, PARTLY SILENT.** The precedence answer is real and visible—`AGENTS.md:1-28` is an index, `CLAUDE.md` is three lines, `docs/agents/code-review-requirements.md` is a thin pointer. But the specific failure the PRD blames, a tool folder contradicting `AGENTS.md`, appears nowhere in the repository's incident record. Every dated drift incident is canonical-to-canonical or hub-to-consumer. Do not assert the tool-folder version.
+3. **`:80` The Governance and Review Problem.** `:82` "GitHub's native model assumes human reviewers." **CORROBORATED and sharpened by the tree**—`REVIEW_POLICY.md:44`: "GitHub counts an approval from **any** account with write access toward `required_approving_review_count`, and it offers nothing to tell a service account from a person—both are `type: \"User\"`." That is the best one-sentence statement of the problem anywhere in either document, and it is in the tree rather than the PRD. Its fourth bullet, `:87` "Automated enforcement of review thresholds and protected paths," is the claim §E52 refutes.
+4. **`:90` The Deploy and Runtime Secret Problem.** `:92-98`, on non-interactive Firebase/GCP deploys and runtime secrets. **CORROBORATED, and the least-drifted section of the PRD**: `scripts/firebase/op-firebase-deploy`, `scripts/gcloud/gcloud`, `docs/architecture/0001-onepassword-access-model.md`, and a live headless proof at `.github/workflows/onepassword-headless-proof.yml` all exist and do what `:1646-1648` describes. §E12 already covers `op-preflight.sh`; this is the framing around it.
+
+### E58—the divergence registry is fleet-wide empty, and the one incident it exists to prevent happened on a path it covers
+
+> The page does not yet say this; #753's propagation decision record will want it. Added by the coordinator during the #753 facts pass, 2026-08-28, after §E37 and §E33 made the question obvious.
+
+**SUPPORTED, and it is the sharpest available cost for the propagation decision.** `.sync-overrides.yml` is the per-repo registry that keeps an intentional divergence alive through a propagation wave: a `skip_paths` entry names a manifest-declared path the canonical mirror must not overwrite, and `examples/.sync-overrides.yml:8-9` states the design intent—"Every entry needs a `reason` field for audit-trail. Drift without a documented reason is the failure mode this file exists to prevent."
+
+**Across the eight consumers, the registry carries zero entries.** Seven of the eight have no `.sync-overrides.yml` at all at their current `origin/main`; the eighth, `fiveacross`, has the file and its entire non-comment content is `version: 1`. Read at each consumer's own `origin/main` after `git fetch`, 2026-08-28: `matchline` `5ac5c8f`, `nathanpaynedotcom` `da6b69c`, `overridebroadway` `99940ad`, `device-source-of-truth` `c9f66f0`, `friends-and-family-billing` `d70aa8ac`, `swipewatch` `f3377b7`, `tadlockpsychiatry` `a4d4986`, `fiveacross` `df6cd87`.
+
+```bash
+for r in matchline nathanpaynedotcom overridebroadway device-source-of-truth \
+         friends-and-family-billing swipewatch tadlockpsychiatry fiveacross; do
+  git -C ~/GitHub/$r fetch origin main --quiet
+  git -C ~/GitHub/$r cat-file -e "origin/main:.sync-overrides.yml" 2>/dev/null \
+    && echo "$r: $(git -C ~/GitHub/$r show "origin/main:.sync-overrides.yml" | grep -c 'reason:') reasons" \
+    || echo "$r: absent"
+done
+```
+
+**And the path #1132 destroyed is one the registry could have covered.** `.github/workflows/pr-review-policy.yml` is a manifest-declared canonical path (`.mergepath-sync.yml:1403-1405`, `type: canonical`, `consumers: all`), so it is exactly the kind of entry `skip_paths` accepts—the validator rejects a skip naming a path the manifest does not declare, and this one is declared. `nathanpaynedotcom`'s stronger local version of that job was an intentional divergence that was never written down as one, and the 2026-08-28 wave mirrored the hub's weaker job over it (§E37).
+
+**State it as mechanism and absence, not as blame.** What is established is that the escape hatch exists, that it is declared on no consumer in the fleet, and that the divergence it would have protected was never registered. What is *not* established is that anyone should have foreseen the need, or that a skip entry was the right answer here rather than porting the improvement upstream—which is what `#1136` actually did. The honest page sentence is that a mechanism for declaring divergence exists and is unused, so in practice the fleet's consistency rests on nobody having diverged rather than on divergence being recorded.
+
+**One consumer did use it, and it left the fleet.** `device-platform-reporting/.sync-overrides.yml` carries a single `skip_paths` entry for `eslint.config.js`, with a written reason naming the template gap it works around and the condition for removing it. That repo was archived on 2026-08-26 and dropped as a consumer (§E31), so the registry's only real-world use is no longer in the fleet. Worth knowing before anyone writes that the mechanism has never been used—it has, once.
+
+### E57—material in the tree the ledger does not carry
+
+**SUPPORTED, recorded because #753 will plausibly reach for some of it and none of it has a row.** All verified present at the pinned SHA.
+
+- **`CONTEXT.md`**—a 301-line ubiquitous-language glossary at the repo root, absent from the PRD's own root-file table. `:3` "This file is the domain's ubiquitous language—what each term is, which competing names to avoid, and one entry per sense where a word is overloaded." Every entry carries an explicit `_Avoid_:` clause. It is where §E44's definitions of *clearance* and *HEAD-pinned* come from.
+- **`docs/ontology/`**—the rule corpus formalized. `docs/ontology/README.md:3-7`: `rules.md` documents "every normative rule of Mergepath … with a stable ID (**R-1…R-203** for the review pipeline, **G-1…G-383** for structure, governance, the CodeRabbit configuration posture, and deployment)"; `mergepath-rules.ttl` is "an OWL ontology formalizing a core subset … as axioms whose violation a reasoner detects"; `fixtures/` holds "nineteen individuals each deliberately breaking one encoded rule." Gated by `.github/workflows/owl-rules-check.yml` + `scripts/owl-rules-check.py`, deliberately hub-local. `:9` keeps it honest: "All three are **derived models**: on any divergence, `REVIEW_POLICY.md`, `AGENTS.md`, `rules/repo_rules.md` … win."
+- **`docs/agents/shared-operating-rules.md`**—the fleet-wide canonical core, and the answer to the nine-copies drift. `AGENTS.md:26`: "one canonical file mirrored to every repo, so a new fleet-wide rule lands by editing it at the canonical source, not by editing every repo's index again."
+- **`scripts/ci/check_doc_ownership`**—a declared three-class taxonomy (`canonical` / `per-repo-owned` / `hub-only`) in `.mergepath-sync.yml`'s `doc_ownership:` block, with a deliberate omission worth quoting: "`bootstrap-seeded` is deliberately NOT a class: bootstrap describes initial delivery, not durable ownership."
+- **`scripts/ci/check_git_identity_hygiene`**—the #777 gate. `rules/repo_rules.md:54` is the longest rule in the repo, and its last clause is the interesting one: "The static scan covers Markdown because **a documented snippet an agent executes is a writer like any other.**" That is a genuinely unusual threat model and it is why §E54 row 1 exists.
+- **`.mergepath-project-docs.yml` + `scripts/project-doc-sync.sh`**—a second, asymmetric sync engine. PRDs flow docs-repo → owning repo; implementation specs flow owning repo → docs-repo. The page currently describes one propagation system; there are two, and the second is the one that drifted (§E55).
+- **`repo_lint.yml` is no longer one unconditional suite.** Three jobs: `scope` (:64) classifies the changed-file set via `scripts/ci/repo-lint-scope.sh`, `lint_fast` (:113) runs sequentially, and `deep_safety` (:814) runs only `if: needs.scope.outputs.deep == 'true'`. `repo-lint-scope.sh:33-41` fails closed to full deep CI on an unavailable or invalid dependency graph. Anyone writing "every check runs on every commit" should not.
+- **Two merge gates with no §E row**—the Review Feedback Accounting Gate (§E45) and the CodeRabbit Severity Gate (`.github/workflows/coderabbit-severity-gate.yml`, required-check name "CodeRabbit unresolved blocking findings"), whose tier ladder is heuristic because `.github/review-policy.yml:378-380` notes "CodeRabbit has no numeric P-scale."
+- **`specs/` is a live surface**, not a template pattern: ten real specs at the pinned SHA, including `review_feedback_accounting.md`, `repo_lint_execution.md` and `required_check_publisher.md`.
+- **The measurement→retune loop**, which is the closest thing on record to the standard improving itself. `.github/review-policy.yml:230-237` raised the CodeRabbit wait 300s → 1245s on mined data: "p50 414s / p90 861s / p99 1136s / max 1219s (n=142)—committed extract `docs/audits/data/review-latency-2026-07/`. The prior 300s sat below even the p50, so on MORE THAN HALF of PRs the wait timed out before CodeRabbit reviewed." §E51 is the right home for the framing: this is still cost measurement, and it is the one place where measuring the cost demonstrably changed the system.
+
+### E59—the bolded-header refusal, and which component actually refused
+
+> Decision record 1's evidence: "a pull request creation was refused because its body wrote the required header in bold."
+
+**SUPPORTED, and the mechanism matters more than the anecdote.** The primary source is this site's own blog post, `src/content/blog/agent-approval-workflow-genesis-of-mergepath.md:92`, in a paragraph headed "Evidence after launch": "While this post was being fact-checked, a `gh pr create` was refused because its body wrote `**Authoring-Agent:**` in bold. The refusal did not come from the hook: its job was to route the write through the author wrapper, and having seen the wrapper it stepped aside. What rejected the body was the wrapper's own contract check, whose line-anchored match does not see a bolded header."
+
+**Do not attribute the refusal to the hook.** The blog post corrects exactly that conflation, and the same distinction is live in the tree: `#1136`—the pinned SHA—replaced the server-side gate's line-based `grep` with a markdown-aware parser precisely because a line-anchored matcher gets headings wrong in both directions. A page sentence that says "the hook refused it" reproduces the error the source is warning about. Safe form: the layered contract refused a well-intentioned pull request over formatting, which is the cost of a mechanical gate stated in one incident.
+
+### E60—"#1080 took four rounds", derived from the API rather than taken on report
+
+> Decision record 4's evidence: one pull request took four rounds, and rounds two and three each found a defect the previous round's fix had introduced.
+
+**SUPPORTED, and independently derived here rather than copied from the policy's own prose.** `REVIEW_POLICY.md:862` states it as the rationale for raising the budget: "#1080 took four rounds, and rounds 2 and 3 each found a genuine defect that the previous round's fix had introduced. Escalating at the 3rd round would have stopped that review while it was still finding P1s."
+
+The round count checks out against GitHub, and the check is worth recording because the obvious query gives the wrong answer. Counting **review objects** from the Codex App returns **2**, not four—the App posts a review only when it has findings and signals a clean round with a 👍 reaction instead, so review objects undercount rounds by exactly the number of clean ones. Counting **triggers** returns four:
+
+```bash
+GH_TOKEN="$OP_PREFLIGHT_REVIEWER_PAT" gh api --paginate \
+  repos/nathanjohnpayne/mergepath/issues/1080/comments \
+  --jq '[.[]|select(.body|test("^@codex review"))]|length'          # 4
+GH_TOKEN="$OP_PREFLIGHT_REVIEWER_PAT" gh api --paginate \
+  repos/nathanjohnpayne/mergepath/pulls/1080/reviews \
+  --jq '[.[]|select(.user.login=="chatgpt-codex-connector[bot]")]|length'   # 2
+```
+
+Two Codex reviews, at 06:46:50Z and 07:04:12Z on 2026-08-22, plus a `+1` reaction on the PR issue; `nathanpayne-claude` posted 18 reviews and CodeRabbit 7 across the same pull request. #1080 is "fix(merge-gate): reject approvals from declared non-reviewer identities," merged 2026-08-22T07:53:13Z—which is the same pull request that shipped the deny-list in §E43. A page using both facts should not imply they are two independent data points.
+
+### E61—the ADR's own citation for the admin escape does not survive reading
+
+> `docs/architecture/0002-branch-protection-enforcement-posture.md:64`: "the grounds that #427 and #428 were both admin merges past a required check."
+
+**WRONG, and it is the §F7 pattern inside the very document §E52 relies on.** Neither artifact is a pull request and neither describes an administrator bypass. Both are **issues**, and both record an **auto-merge** escape:
+
+- `mergepath#427`—"Merge-gate escape: Dependabot dev-deps PR auto-merged without reviewer-identity approval (matchline#245)"
+- `mergepath#428`—"Merge-gate escape: external-review PR merged without CLI-identity APPROVED + Codex review on merge HEAD (nathanpaynedotcom#405)"
+
+Neither body contains the string `admin`, `--admin` or `enforce_admins`; both instead point at `#359`, "Auto-merge can bypass explicit external-review handoff." The escapes are real and the ADR's *conclusion*—that an escape hatch has a demonstrated cost—stands on them. What does not stand is the specific mechanism the ADR names: these are automation merging without the required approval, not a human overriding a red required check.
+
+```bash
+for n in 427 428; do
+  GH_TOKEN="$OP_PREFLIGHT_REVIEWER_PAT" gh api repos/nathanjohnpayne/mergepath/issues/$n \
+    --jq '"\(.number) [\(if .pull_request then "PR" else "ISSUE" end)] \(.title)"'
+done
+```
+
+**Consequence for the page: do not cite #427 and #428 as admin merges.** The learning record about `enforce_admins` holds without them—its observed and response halves are independently verified (`#1121` merged 2026-08-28T02:48:47Z, thirteen seconds before the `enforce_admins` disable the ADR timestamps at 02:49Z)—and citing two issues for a mechanism their own titles contradict would import this defect onto a public page. §E52 is otherwise unaffected: the 2026-07-28 measurement, the required-status-check mechanism and the recommendation status were each read directly and are correct.
 
 ---
 
@@ -1737,7 +2331,7 @@ What this licenses and what it does not: it supports a page claim that mobile ca
 
 > `mergepath.md:42` "Roughly 27 fail-closed CI checks in `scripts/ci/`"; `mergepath.md:66` "**~27 fail-closed CI checks** enforced on every push and PR"
 
-**The same wrong number in a prose bullet and in the numbers list.** Both were correct on 2026-05-13 and both are now off by a factor of 2.6 (71 on disk, 70 wired, 85 invocations—§E10). A page that states a figure twice will drift twice; note for Phase 2 that the numbers list at `:63-70` and the feature bullets at `:36-43` overlap on this figure and on nothing else.
+**The same wrong number in a prose bullet and in the numbers list.** Both were correct on 2026-05-13 and both are now off by a factor of 2.7 (**72 on disk, 71 wired, 80 invocations as of 2026-08-28—§E28**, which supersedes the 71/70/85 §E10 recorded). A page that states a figure twice will drift twice; note for Phase 2 that the numbers list at `:63-70` and the feature bullets at `:36-43` overlap on this figure and on nothing else.
 
 ### H5—"80-title pool", stated three times on one page
 
@@ -1776,7 +2370,7 @@ Reproduce with `git rev-list --count "$(git rev-list -1 --before=2026-04-14 orig
 
 > `mergepath.md:70` "**10 repositories** in the Mergepath fleet—the hub plus nine consumers, including Override, Device Source of Truth, Friends & Family Billing, Swipe Watch, and this site"; the four consumer pages each describe the pipeline as theirs
 
-**Consistent, and worth stating as verified.** All nine consumers in `.mergepath-sync.yml` check out, all five named repos are among them, and every consumer page that claims the pipeline genuinely runs it. The only cross-page defect in this cluster is the *attribution* (§H1), not the membership.
+**Consistent when written; the membership figure is SUPERSEDED 2026-08-28—see §E31 (eight consumers, nine repositories).** All nine consumers then in `.mergepath-sync.yml` check out, all five named repos are among them, and every consumer page that claims the pipeline genuinely runs it. The only cross-page defect in this cluster is the *attribution* (§H1), not the membership.
 
 ### H10—every cross-link resolves
 
@@ -1794,13 +2388,15 @@ Reproduce with `git rev-list --count "$(git rev-list -1 --before=2026-04-14 orig
 | §B `five-across` | 17 | 4 | 0 | 12 | 3 | 36 |
 | §C `friends-and-family-billing` | 10 | 7 | 1 | 4 | 0 | 22 |
 | §D `matchline` | 7 | 0 | 3 | 2 | 0 | 12 |
-| §E `mergepath` | 14 | 8 | 0 | 5 | 0 | 27 |
+| §E `mergepath` | 29 | 15 | 0 | 17 | 0 | 61 |
 | §F `override` | 6 | 7 | 0 | 1 | 0 | 14 |
 | §G `swipe-watch` | 10 | 6 | 1 | 1 | 0 | 18 |
 | §H cross-page | 3 | 5 | 0 | 2 | 0 | 10 |
-| **Total** | **82** | **42** | **7** | **29** | **3** | **163** |
+| **Total** | **97** | **49** | **7** | **41** | **3** | **197** |
 
 A **SPLIT** row is counted once, in its own column, not split across the other three; the row text names which half carries which verdict. WRONG rows count each restated instance separately, because each is a separate edit: §E10 and §E11 are one number stated twice, §G1–G3 are one number stated three times, and §H1–H2 re-count the Override and two-strike defects at the cross-page level where the fix has to be coordinated across files. Deduplicated to distinct underlying facts, the WRONG count is 36.
+
+**The §E row was miscounted too, in exactly the shape §B was, and it is corrected above.** It read 14/8/0/5 against a section whose twenty-seven original rows actually resolve **11 SUPPORTED, 7 WRONG, 0 UNPROVABLE, 9 SPLIT**—and, as with §B, the wrong distribution summed to the right row total, so arithmetic checking could never have caught it. That is now the second section found miscounted out of the two anyone has recounted, which is the more useful statistic: the remaining six section rows have still never been re-verified against their sections and should not be treated as audited. The §E row above is 11/7/0/9 for §E1–§E27 plus 18/8/0/8 for the #753 delta (§E28–§E61), counted by reading each row's verdict word rather than by adding to the previous figure. §E53 carries both EXTERNALLY SOURCED and WRONG and is filed as SPLIT under this table's own more-than-one-verdict rule.
 
 **The §B row was itself miscounted before this pass, and the totals inherited it.** It read 13/5/0/6 against a section whose rows actually resolved 14 SUPPORTED, 4 WRONG, 1 UNPROVABLE, 5 SPLIT—one SUPPORTED filed as WRONG and §B15's UNPROVABLE filed as SPLIT, an error that preserved the row total of 24 and so survived arithmetic checking. It is corrected above alongside the twelve new rows; the pre-run totals should have read 79/42/8/22. The other seven section rows were **not** re-verified against their sections in this pass, and given that this one was wrong, they should not be treated as audited. Dedup drops from 37 to 36 because §B15 was among the WRONG instances counted and is now SUPPORTED.
 
@@ -1810,7 +2406,7 @@ Row-count reconciliation, since some headings cover more than one row: §E10/E11
 
 1. **§G1/G4**—80 is 106, and the growth sequence runs backwards. Three instances plus stale repo docs.
 2. **§F6–F12**—six of seven primacy attributions on the Override page are inverted; §F13 supplies the true replacement fact.
-3. **§E10/E11**—27 CI checks is 71, stated twice.
+3. ~~**§E10/E11**—27 CI checks is 71, stated twice.~~ **Closed.** The page carries the dated series and one instance only; the current figure is **72 on disk / 71 wired / 80 invocations as of 2026-08-28** (§E28), not 71/70/85.
 4. ~~**§B15**—"16 bingos across 124 squares" is wireframe fixture data for an invented player, committed four days before the cruise sailed.~~ **Superseded 2026-08-27.** §B15 is SUPPORTED, the line was committed on disembarkation morning, and the page keeps the figures. Its replacement on this list was **§B34 with §B26**, and **both are now settled** (2026-08-27, owner decisions recorded in their rows). §B34: the freeze was moved forward during the sailing, so 23:00 is an operating decision rather than the designed instant, and the page carries it as a decision record with the derived 08:00 as its rejected alternative. §B26: the eleven-versus-ten contradiction is unresolved and stays unresolved, printed on the page as a disagreement between two records rather than reconciled. **Neither is a blocker; do not send a later pass back through them.**
 5. **§C4/C5/C7**—six phases is five, the list omits Phase 3, and Phase 4's cutover was reverted within four days.
 6. **§B4**—the last-call beat fires on a port day in Marseille; the itinerary has one sea day and it is six days earlier.
