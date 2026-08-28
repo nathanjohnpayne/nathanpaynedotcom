@@ -1,0 +1,140 @@
+---
+title: "Swipe Watch"
+slug: "swipe-watch"
+description: "A swipe-based discovery experiment for Disney+ and Hulu that makes expressing taste a game."
+kicker: "AI × Consumer × Streaming"
+order: 5
+screenshotAspect: "narrow"
+screenshotSrc: "/images/projects/swipe-watch-hero.gif"
+muxPlaybackId: "wNCRY97981o2uDAJrJ3ExPeK379yldRRFJgUIgSYz00k"
+accent: "red"
+liveUrl: "https://swipewatch.web.app"
+githubUrl: "https://github.com/nathanjohnpayne/swipewatch"
+tags: ["Consumer", "Streaming", "Vanilla JS"]
+status: "EXPERIMENT"
+metadata:
+  format: "Interaction prototype"
+  focus: "Discovery, recommendations, and interaction design"
+stack: "Vanilla JavaScript · Firebase Hosting"
+constraints:
+  - value: "3 days"
+    label: "core build"
+  - value: "106 titles"
+    label: "hand-curated"
+  - value: "6 actions"
+    label: "instrumented"
+  - value: "No backend"
+    label: "device-local"
+decisions:
+  - title: "No stack until the feel earns one"
+    context: "The question was whether a swipe feels like a natural way to express taste in a streaming catalog. The default way to build a card UI is a framework scaffold—React, a bundler, a build pipeline—before the first card ever moves."
+    rejected: "A framework scaffold. Every larger project in this portfolio uses one, and for anything meant to outlive a prototype it is the right call."
+    rationale: "Interaction feel was the entire question, so everything between an edit and a reload was overhead. Vanilla JavaScript, no framework, no build step, no bundler: Firebase Hosting serves the repo root as-is, because there is no build output to serve. If the swipe felt wrong, the total loss was thirteen commits."
+    evidence: "The constraint never had to be unwound. The initial commit—12 files, 2,875 lines—already carried a working swipe UI, a 45-title pool, session management, and analytics. Template tooling arrived a month later with test and lint dependencies and still no build script and no runtime dependency; the one later behavioral fix, mobile poster scaling and badge clipping, was 21 lines in two files."
+    status: "validated"
+  - title: "Instrument on day one"
+    context: "Most three-day prototypes ship no analytics, and a feel test scored by demo does not strictly need any. This one was an argument about signal density, made by a product that emits signals."
+    rejected: "Shipping without analytics—defensible for a prototype whose test was going to be hands-on—or a fuller product-analytics stack with cohorts and retention built in."
+    rationale: "If the pitch is that a swipe is a denser preference signal than a completed view, the prototype should at least capture its own swipes. The instrument was minimal: Google Analytics, one measurement ID, six tracked actions—like, dislike, super-like, onboarding completion, restart, unlock—wired through one tracking function in the first commit."
+    evidence: "The instrument outlived the experiment and was never consumed. It still fires on the live site today, and no figure from it was ever published—nothing in the repository, its six specs, or its 90 issues and pull requests quotes a single number back. And the taxonomy never captured time on a card, saved titles, or return visits, so the questions the experiment cared most about sat outside the instrument from day one."
+    status: "mixed"
+  - title: "Curate real titles by hand"
+    context: "A taste test only works if the cards are things people already have opinions about. Real Disney+ and Hulu titles with real key art meant format work—a poster guide covering image handling, content types, and format standards—and manual data entry with no schema behind it."
+    rejected: "Placeholder content or a scraped dump—faster, uniform art, nothing to maintain, and fine for testing card physics. Wrong for testing whether anyone means their swipes."
+    rationale: "Recognition is what makes a swipe a preference instead of a reflex. The pool started at 45 titles in the initial commit and was curated in batches to 80 within the build week, each batch aligned to the taxonomy the four discovery modes filter against."
+    evidence: "Hand curation was cheap to start and error-prone to grow. Nothing in the data enforces uniqueness; the one duplicate tile, shipped in the pool's last expansion, was caught by CodeRabbit in review rather than by the data model, and a growth commit's own subject miscounts its contents—\"Add 20 new content tiles\" adds eleven. The pool has stood at 106 since April 2026."
+    status: "mixed"
+  - title: "Let the prototype fake its payoff"
+    context: "The loop being tested ends in a payoff—swipe, and the recommendations get better—and the back half of that loop was out of scope by design: no ML, no personalization, signals written and never read. A prototype that says nothing after a swipe is testing a different, deader product."
+    rejected: "Honest copy—\"signal recorded\" after a swipe, a plain session summary at the end—which keeps every reaction to the prototype interpretable, at the cost of demoing a loop with a visible hole in it."
+    rationale: "The shipped copy simulates the missing half. A toast says \"Learning your taste…\", the end screen deals headings like \"Recommendations Refined\" and \"Your Taste Profile Updated\" and tells everyone \"Based on your swipes, we've refined your recommendations.\" None of it is true—the only thing a swipe changes is that the title stops being dealt—but the product demos as the thing it proposes rather than the fraction it implements."
+    evidence: "The cost landed on the evidence, not the demo. Because the prototype simulates its payoff, every reaction it collects—the executive demo included—is a reaction to the idea of the product rather than to its mechanism, and nothing in the record can separate the two. The live site is byte-identical to the audited commit, so this is still what every visitor is told."
+    status: "mixed"
+  - title: "Give the deck a bottom"
+    context: "The initial build proved the swipe, but sessions had a hard floor: swipe through the deck and hit a dead-end \"you're done\" screen. Three days and ten hours after the first commit, two commits nineteen minutes apart replaced it—swipes earn coins, 25 coins unlock a curated discovery batch, and the end screen became a persistent coin bank with a spend mechanic."
+    rejected: "Keeping the prototype single-variable. A one-question experiment stays cleaner without a second untested mechanic layered on—and holding the economy back would have preserved the baseline a retention claim needs."
+    rationale: "A deck with a bottom worth reaching gives a session a reason to continue and a return visit a reason to exist. The price was legible—one coin per swipe makes an unlock cost exactly 25 swipes—and it was cheap to build on counters that already existed."
+    evidence: "Pending by construction. The retention claim is a before-and-after and there is no before: no flag, variant, or cohort exists anywhere in the tree, so every session ever recorded is a session with coins in it. Whether it did is not something the record shows, and resolving it requires the holdout that was never run. The mechanic's honest shape is also worth stating: a paywall priced in swipes, in front of a filter—an unlock opens one of four read-time views over the same flat pool and adds no title the pool did not already hold."
+    status: "pending"
+learnings:
+  - expected: "A save gesture implies a watchlist—the shipped UI promises one twice, labeling swipe-up \"Add to main watchlist\" and swipe-right \"Add to training watchlist.\""
+    observed: "No watchlist exists. The app persists exactly three pieces of local state—seen titles, the coin bank, an onboarding flag—and none holds a saved title; swipe-up increments an in-memory counter the next session zeroes. A save event reaches analytics, and nothing on the device remembers what was saved."
+    response: "The claim came off this site. An earlier correction pass had introduced \"building a watchlist\" into the page description and the homepage card; this rewrite withdraws it everywhere, and the body now claims only what the code supports—the gesture captures a save-for-later signal."
+  - expected: "Six instrumented actions from the first commit would let the experiment be scored later, whenever someone pulled the numbers."
+    observed: "Neither hypothesis is answerable from that instrument even with the data in hand. The swipe claim is comparative and its comparator—viewing history—is not in the system, so the analytics could count swipes but never show they beat the alternative; the coin claim is a before-and-after with no before. And the pull never happened: not one figure from the property appears anywhere in the repository or its 90 issues and pull requests."
+    response: "This page reports validation boundaries instead of results, and defines the bar for personalization in terms no export of the existing data can meet—a comparator and a baseline—so a future read of the property is scoped as bounding usage, never as settling the bet."
+  - expected: "A prototype this small would still leave enough of a record to score itself—specs, an issue trail, a stated bar for success."
+    observed: "The record preserves the build precisely and the experiment design not at all. All six specs arrived in one template-conformance commit 31 days after the core build, each restating behavior that had already shipped, and no hypothesis, success criterion, or rejected alternative appears anywhere in the repository or its 90 issues and pull requests."
+    response: "The hypothesis and success criteria on this page are stated now, in retrospect, and labeled as reconstruction—because a criterion written after the evidence, which the evidence happens to meet, is not a criterion the experiment was run against."
+related:
+  - label: "Blog: Six PRs, One Bug—What AI Agents Actually Get Wrong"
+    href: "/blog/six-prs-one-bug-agent-failure-modes/"
+  - label: "Project: Device Source of Truth"
+    href: "/projects/device-source-of-truth/"
+---
+
+import ConstraintStrip from '../../components/projects/ConstraintStrip.astro';
+import DecisionLedger from '../../components/projects/DecisionLedger.astro';
+import LearningLedger from '../../components/projects/LearningLedger.astro';
+
+## The problem
+
+Discovery on a streaming service is passive. The system learns taste from what you finish watching, and finishing is a 30-minute commitment—so the signal is expensive, sparse, and late. You scroll, you hover, you sometimes press play, and only the last of those teaches the recommender anything. I worked on the platforms that run Disney+ and Hulu, where that gap is structural.
+
+Swipe Watch is the gap made concrete: deal real titles as cards and let taste cost a gesture instead of a viewing session. Swipe left to dismiss, right for interested, up to flag a title for later. Sessions deal ten cards at a time from a hand-curated pool of 106 Disney+ and Hulu titles—series, films, specials—viewed through four discovery modes: Disney Vault, Streaming Originals, Nature & Discovery, and New & Trending. The modes are not separate lists; they are read-time filters over one flat pool, and the last is just a year predicate. Session state lives on the device and there is no application backend—the swipe events go to analytics, the one thing that leaves the phone.
+
+## The hypothesis, stated late
+
+Everything in this section is reconstruction, and that needs saying plainly. The repository records no hypothesis, no success criteria, and no rejected alternatives—not in its tree, not in its six specs, not anywhere in its 90 issues and pull requests. The specs exist, but all six arrived in a single template-conformance commit 31 days after the core build, and each one restates behavior that had already shipped; a spec written a month after the code is the tree describing itself, not a design the tree was built to. So what follows is the bet as I can state it now, in retrospect—and a criterion written after the evidence, which the evidence happens to meet, is not a criterion the experiment was run against. Nothing on this page grades the prototype against these criteria and calls the result a pass.
+
+The primary hypothesis: lower-cost preference actions generate denser intent signal than completed viewing history—many cheap reactions beat one expensive one. The target user is a streaming subscriber who browses more than they commit. The expected behavior: dealt ten cards, they swipe the deck without instruction and reach for the save gesture when a title genuinely tempts them. Success would have looked like unprompted full sessions and return visits; failure like stalled decks and one-and-done curiosity. The instrument—six analytics actions, wired in from the first commit—could have counted sessions and swipes, but it never captured time on a card, which titles anyone kept, or a return visit as such, so even these reconstructed criteria were only ever half-measurable.
+
+A secondary hypothesis arrived three days later and is scored separately below, because the two fail differently: coins and unlocks were meant to address session completion and return motivation. That claim is a before-and-after; the swipe claim is a comparison. Neither borrows the other's support.
+
+These are the conditions the record shows the experiment ran under.
+
+<ConstraintStrip constraints={props.constraints} />
+
+## The decisions
+
+A prototype's fidelity should match the narrowest question it can answer, and the narrow question here was feel: does swiping through a streaming catalog feel like expressing taste? Feel is answerable at prototype fidelity—it needs real titles, real art, and card physics, and it needs nothing else. Two harder questions were priced out and stayed out: whether the swipe signal actually beats viewing history, which needs a comparator this system does not contain, and whether anything here retains users, which needs a baseline this system never had. The core build is thirteen commits across three calendar days—a Tuesday, then a contiguous Friday-into-Saturday stretch—inside a five-day window. Three days is a count of the commit record, not a measure of effort: the first commit already ships its script tag at version 1.3, and whatever versions 1.0 through 1.2 were, the repository cannot date them.
+
+A dedicated pass on the second evening handled the part interaction prototypes usually skip: a gesture demo animation, an idle-card pulse, continuous swipe-overlay feedback, a progress bar synced to the card exit, a post-swipe toast. Whether any of it made the first session self-explanatory is not something the record can say.
+
+![The card deal on the live prototype at 390 pixels wide: poster art, a SERIES badge, a two-line synopsis, and three controls—dismiss, save, like. The progress line reads "1 of 10 recommendations," though the deck is a shuffled slice of one flat pool and nothing about it is recommended.](/images/projects/swipe-watch-card.png)
+
+Capturing that card at a real phone width turned up a defect the stylesheet reads as correct. The synopsis is meant to clamp at two lines with an ellipsis, and a `flex: 1` on the same element resizes the box against the rest of the card; the two rules disagree. Sampling forty cards on the live site, the description box lands anywhere between two and 3.4 lines: on some cards the clamp's ellipsis is followed by a third line rendered below it, so the ellipsis announces a truncation that did not happen, and on three of the forty the synopsis is cut with no ellipsis and no affordance at all. No card's source text contains an ellipsis, so every one on screen is the clamp's. It is a small bug, and a fair illustration of what a three-day prototype defers: the interaction was checked by hand and by demo, never by measurement, and this is the kind of thing measurement finds. The one behavioral bug that did surface earlier—poster art cropping and a badge clipping on small viewports—closed in a 21-line fix that April.
+
+<DecisionLedger decisions={props.decisions} />
+
+## What the record shows
+
+Start with what the record is. The prototype was instrumented from its first commit—Google Analytics, six tracked actions: like, dislike, super-like, onboarding completion, restart, unlock—and the instrument is still live: fetched in late August 2026, the deployed site is byte-identical to the audited commit, and every swipe still fires an event. What no record anywhere contains is a read. Not one figure from that property was ever published—in the repository, its specs, or any of its 90 issues and pull requests—and this page will not be the first to invent one. The honest posture has three parts: the data exists, it has never been read, and no number from it appears here.
+
+Even read, the data could not settle either hypothesis, and for different reasons—which is why this page keeps them apart. The swipe hypothesis is comparative: a swipe is a denser preference signal than viewing history. The comparator is not in the system—this prototype observes no viewing history of any kind—so the analytics could at most report how many swipes happened, never that they beat the alternative. The coin hypothesis is a before-and-after: the mechanic lengthened sessions or brought people back. There is no before. The economy shipped three days and ten hours after the first commit, no flag, variant, or cohort exists anywhere in the tree, and every session ever recorded has coins in it. The comparison that claim needs was never available to be run, at any point, by anyone.
+
+The one piece of qualitative evidence is a demo. I demoed Swipe Watch to Disney's EVP of Product, and a demo is what the record contains: no artifact in the repository or its 90 issues and pull requests mentions it, and the résumé line that repeats it traces to this same single source rather than corroborating it. Its ceiling as evidence is worth stating exactly—one demo, one room, one stakeholder, of a prototype whose own copy simulates the personalization it does not perform. However the room received it, that is qualitative stakeholder feedback about the idea: useful for deciding whether the question deserves a real test, structurally incapable of being that test. It does not confirm the user hypothesis, and this page does not enlist it to.
+
+The save gesture deserves the same exactness. Two controls in the shipped UI promise a watchlist—swipe-up is labeled "Add to main watchlist," swipe-right "Add to training watchlist"—and no watchlist exists. The app persists exactly three pieces of local state—seen titles, the coin bank, an onboarding flag—and none of them holds a saved title; the save counter is in-memory and zeroed when the next session starts. What the gesture actually does is fire a save-for-later event to analytics. That is a real signal, and it is the strongest claim the code supports. An earlier revision of this page said "building a watchlist"; that claim is withdrawn.
+
+![The end-of-session screen on the live prototype: the heading "Recommendations Refined," the line "Based on your swipes, we've refined your recommendations," a coin bank standing at ten, and a session tally of four liked, three super liked, three skipped. The super-like total is a count, not a list—nothing in the app records which titles they were.](/images/projects/swipe-watch-end-screen.png)
+
+The only behavioral numbers this page can stand behind are about the page, not the app, and they are small. Over the 74 days this site's own analytics cover—June 14 through August 26, 2026, a window that opens fifteen weeks after the prototype shipped—this page recorded 18 pageviews across 14 sessions from 13 people, and exactly three clicks left it for the prototype: two to the live app, one to the repository. Those counts are unfiltered—my own visits are inside them, and bot traffic cannot be excluded—so they loosely bound the audience of this write-up and say nothing about how anyone used the app. Even that small number nearly came out wrong: the outbound-click events carry a project-attribution property that is null on every one of them, so the obvious query returns zero clicks rather than three, and only the page path recovers the truth. An instrument answering confidently in the wrong units is this project's whole evidence problem in miniature.
+
+<LearningLedger learnings={props.learnings} />
+
+## Not a recommendation engine
+
+Swipe Watch is not a recommendation engine, and the boundary is mechanical rather than rhetorical. There is no ML backend, no collaborative filtering, no personalization. The app makes no network calls at all beyond loading poster art and firing the analytics beacon; the "recommendation" logic is a mode filter, a seen-title exclusion, a shuffle, and a slice of ten. The preference signals are write-only—nothing in the app ever reads them back—so personalization is not merely absent but impossible with the current data model.
+
+The shipped product says otherwise, and the gap is recorded in the decision ledger above rather than smoothed over here. The live app tells its user "Learning your taste…" after a swipe and "Based on your swipes, we've refined your recommendations" at the end of a session, and nothing behind those strings exists. That was the cost of demoing the loop whole, and it is the single biggest reason the qualitative evidence is capped where it is: a prototype that simulates the payoff it is testing for collects reactions to the idea, not to the thing.
+
+![The first-run walkthrough on the live prototype, which makes four promises the build does not keep: "Swipe a few titles to personalize your recommendations," "We'll learn your taste as you swipe," "Get more recommendations like this" under Swipe Right, and "Add to your watchlist" under Swipe Up.](/images/projects/swipe-watch-onboarding.png)
+
+## The operating model
+
+The build predates the operating model the rest of this portfolio runs on. The core thirteen commits were direct pushes—not one of them carries a pull-request marker; the repository's first pull request, swipewatch#1, was merged 21 days after the initial commit, and it is the review policy itself. From there the prototype was brought under the same agent-run process as everything else. Template conformance added tests, lint, and the six retrospective specs. Automated review earned its keep at least once: nothing in the hand-entered catalog enforces uniqueness, and the one duplicate tile that shipped in the pool's final expansion was caught by CodeRabbit in review of swipewatch#20—not by the data model, and not by me—and removed in swipewatch#21. The one post-build behavioral bug ran issue-to-PR, swipewatch#29 to swipewatch#30, and closed in 21 lines. Ninety issues and pull requests now stand against thirteen core commits, which is the honest shape of a prototype: the building was fast and unreviewed, and the process arrived with the maintenance.
+
+## The bar for building more
+
+What would justify building the back half—actual personalization? Not a bigger demo, and not this record. Three things, in order. First, the read that has never happened: pull the analytics property and bound how much the prototype was actually used, because six months of unread telemetry is a question the experiment has already half-answered by silence. Second, a save gesture with consequences: a persisted watchlist, so the save-for-later signal has a follow-through that can be measured instead of a label that promises one. Third, the comparator the current system lacks: some measure of the same users' viewing-history signal to put beside their swipe signal, because "denser than viewing history" is unfalsifiable inside a system that observes no viewing. Until those exist, the swipe stays what the record shows it to be—an interaction that was built, shipped, instrumented, and demoed, whose central claim remains precisely as open as the day it was made.

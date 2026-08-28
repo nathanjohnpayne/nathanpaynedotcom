@@ -69,7 +69,7 @@ const homepageProjectDescriptions = [
   'A financial operating system for Broadway productions—models capitalization and investor returns, manages ownership, and shares live deals with backers without spreadsheet or PDF workflows.',
   'A single web application that tracks partner-device hardware, DRM, codec support, and operational readiness across Disney+, Hulu, and ESPN.',
   'A career CRM for one person running a serious job search—turns work history into structured, reusable evidence, maps it against specific job requirements, and generates applications grounded in demonstrated work.',
-  'A swipe-based discovery experiment for Disney+ and Hulu that turns expressing taste and building a watchlist into a game—built in vanilla JS across three days.',
+  'A swipe-based discovery experiment for Disney+ and Hulu that turns expressing taste into a game—built in vanilla JS across three days.',
   'Cloud-synced shared-bill coordination for families and friend groups—turns recurring costs into clear annual invoices, payment tracking, and shareable summaries.',
 ];
 
