@@ -67,10 +67,6 @@ const imageDimensions = {
     height: 2250,
   },
   // Swipe Watch: live-prototype captures at a 390x844 viewport, 2x DPR.
-  '/images/projects/swipe-watch-onboarding.png': {
-    width: 780,
-    height: 1688,
-  },
   '/images/projects/swipe-watch-card.png': {
     width: 780,
     height: 1688,
