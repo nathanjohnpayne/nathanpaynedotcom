@@ -114,6 +114,14 @@ describe('Content Schema', () => {
       "status: z.enum(['validated', 'mixed', 'revised', 'pending'])",
     );
 
+    // The assertion anatomy's three fields are OPTIONAL by contract, not by
+    // accident: five-across and swipe-watch author the original shape and
+    // must keep validating. Asserting `.optional()` on each is what stops a
+    // later edit from making one required and silently breaking two pages.
+    for (const subfield of ['lens', 'chosen', 'cost']) {
+      expect(projectsSource).toContain(`${subfield}: z.string().trim().min(1).optional()`);
+    }
+
     // constraints: value + label.
     expect(projectsSource).toContain('value: z.string().trim().min(1)');
     expect(projectsSource).toContain('label: z.string().trim().min(1)');
@@ -128,7 +136,10 @@ describe('Content Schema', () => {
     expect(projectFiles.length).toBeGreaterThan(0);
 
     const validStatuses = ['validated', 'mixed', 'revised', 'pending'];
-    const requiredKeys = ['title', 'context', 'rejected', 'rationale', 'evidence', 'status'];
+    // `rejected` left this list in #754: under the encountered/decided anatomy
+    // the alternative often belongs inside `rationale`. Records on the original
+    // shape still owe it, which the per-record branch below enforces.
+    const requiredKeys = ['title', 'context', 'rationale', 'evidence', 'status'];
 
     for (const file of projectFiles) {
       const fm = parseFrontmatter(file.content);
@@ -142,6 +153,23 @@ describe('Content Schema', () => {
       decisions.forEach((decision, index) => {
         for (const key of requiredKeys) {
           expect(decision?.[key], `${file.name}: decisions[${index}].${key} missing`).toBeTruthy();
+        }
+        // The assertion anatomy is all-or-nothing per record. `chosen` is what
+        // switches the component's layout, and a record that switches without
+        // stating what the choice cost is the exact shape this anatomy exists
+        // to prevent — a decision presented as free.
+        if (decision?.chosen) {
+          expect(
+            decision?.cost,
+            `${file.name}: decisions[${index}] declares chosen without cost`,
+          ).toBeTruthy();
+        } else {
+          // A record on the original shape still owes its rejected path —
+          // that anatomy has no other slot for the alternative.
+          expect(
+            decision?.rejected,
+            `${file.name}: decisions[${index}] has neither chosen nor rejected`,
+          ).toBeTruthy();
         }
         expect(validStatuses, `${file.name}: decisions[${index}].status invalid`).toContain(
           decision.status,

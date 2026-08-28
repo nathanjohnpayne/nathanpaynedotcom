@@ -1365,6 +1365,42 @@ Two things the same read establishes for §F31 and for the constraint strip. The
 
 **No figure from that document may reach the page.** It is illustrative by its own note, but the page has no need of it and §F14's hypothetical is being cut rather than replaced.
 
+### F40—three scenarios, editable, and you cannot add a fourth
+
+> "Bear, Base and Bull are editable and re-run the model live—and three is all you get."
+
+**SUPPORTED on both halves, and the second half is the load-bearing one.** `ProductionHubClient.tsx:387` initialises `const [scenarios, setScenarios] = useState<Scenario[]>(DEFAULT_SCENARIOS)`, and `:607-609` is the only mutator: `updateScenario(index, field, value)` maps over the existing array and replaces one field of one entry. There is **no add, no remove and no append anywhere in the component**—the array's length is fixed at whatever `DEFAULT_SCENARIOS` holds. Editing is live rather than on submit: `:487-490` recomputes `scenarioOutputs` in a `useMemo` over `scenarios.map(s => runScenario(dealInputs, s))`, and `:492-494` recomputes the sensitivity grid the same way, so a producer changing an occupancy rate sees the model re-run without an explicit action. `:429` re-seeds all three from the deal's own average ticket price when the deal inputs load.
+
+**The ceiling is confirmed from the other direction by §F34.** `saveScenario()`, `getScenarios()` and `deleteScenario()` exist in `src/lib/firestore.ts` with a `scenarios/{scenarioId}` subcollection and a matching security rule at `firestore.rules:25-29`, and **zero call sites anywhere in the application**. So the persistence layer for custom scenarios is built and nothing reaches it: a producer can move Bear, Base and Bull, and cannot create a fourth case or keep one.
+
+Defensible for the page, and it is a genuine product cost rather than an implementation note: the interface commits a producer to three named cases in a domain where a deal is often modelled across many more. The three-case frame is what makes the comparison legible; it is also the thing a producer with a dozen cases cannot express.
+
+
+### F41—Carta as a reference point
+
+> "Products like Carta showed me how software could make complicated ownership structures legible."
+
+**UNPROVABLE from any written source, and the page must carry it in the first person.** `git grep -in 'carta|angellist|angel list|cap table software' d652b86 -- src docs specs rules README.md AGENTS.md` returns **zero**. So does a recursive case-insensitive search of `~/GitHub/docs/projects/overridebroadway/` for `carta`, `angellist` and `film finance`—the PRD and ARCHITECTURE.md are both silent. There is no competitive analysis, no comparables section and no positioning document anywhere in the record.
+
+**Worth recording because a prior instruction asserted otherwise.** The #754 task brief stated that "the PRD already carries the competitive framing that matters (Carta, AngelList SPV, film finance ledger, as UX references)." It does not. A later session should not go looking for that section; it has been searched for.
+
+Defensible form: the author's own account of what gave him a reference point, written as such. It is the §G17 register—biographical, unfalsifiable here, contradicted by nothing—and it must not be phrased as market positioning, which would be a claim about the product's category rather than about his reasoning.
+
+### F42—the build was agent-directed from the first commit, and the domain was written down for the agent
+
+> "Override was where I learned what AI coding tools could do against a real domain, and the way I learned the domain was by encoding it."
+
+**SUPPORTED on the mechanism, first-person on the motivation, and the split matters.**
+
+**What the record shows.** `git log d652b86 --diff-filter=A --format='%h %ad %s' --date=short -- CLAUDE.md AGENTS.md .claude` returns `478a7ed`, 2026-02-24, as the commit that **created `CLAUDE.md`**—the same commit that carried the entire application (§F30). The agent-instruction file and the product came into existence together; the instructions were not retrofitted onto a hand-built codebase. That commit's subject is "Updates via Claude Code." Across the whole history, `git log d652b86 --format='%s' | grep -ci 'claude\|codex\|agent'` returns **30** of 173.
+
+**The domain was in the instruction file on day one.** `git show 478a7ed:CLAUDE.md` line 575 reads: "These figures are derived from publicly reported Broadway financials (Hadestown, Come From Away, Dear Evan Hansen, Wicked, Hamilton) and industry standards (APC, Dramatists Guild, Loeb & Loeb)." The same file carries the Hadestown calibration that still reproduces exactly against the shipped engine (§F26). So the artifact that directs the agent is also where the domain research was recorded, sourced to five named productions and three named industry authorities. That is the strongest evidence in the repository for domain acquisition as a deliberate method rather than a claim, and it is checkable.
+
+**What is not in the record.** That *learning the tooling* was an original motivation, rather than a description arrived at afterward, is the author's own account. §M4 applies: the record shows behaviour and timestamps. The page may state the motivation in the first person and must not present it as something the repository establishes. What the repository does establish is the method and its shape.
+
+**Do not upgrade this into a competence claim.** Runbook invariant 9 stands: the page may describe what was done and what it produced, and may not assert that the author is good at directing agents.
+
+
 ## §G `swipe-watch`
 
 ### GM1—the evidence repository is `swipewatch`, and issue #757 says otherwise

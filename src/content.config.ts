@@ -100,9 +100,29 @@ const projects = defineCollection({
       .array(
         z.object({
           title: z.string().trim().min(1),
+          // The editorial filter this decision answers to — rendered as an
+          // eyebrow beside the record's index. Optional: a page that does not
+          // organise its decisions around a thesis simply omits it.
+          lens: z.string().trim().min(1).optional(),
           context: z.string().trim().min(1),
-          rejected: z.string().trim().min(1),
+          // What was actually chosen. Presence of this field switches the
+          // record to the assertion anatomy — Tension / Chosen / Over / Why /
+          // Cost — where `context` reads as a one-line standfirst under the
+          // title rather than as a body field. Absent, the record renders the
+          // original Context / Rejected / Why / Evidence shape, which is what
+          // five-across and swipe-watch author against.
+          chosen: z.string().trim().min(1).optional(),
+          // Optional since #754: under the encountered/decided anatomy the
+          // rejected path often reads better inside `rationale` than as its
+          // own slot ("the obvious answer would be X, but that is not
+          // actually better"). five-across and swipe-watch author it.
+          rejected: z.string().trim().min(1).optional(),
           rationale: z.string().trim().min(1),
+          // What the choice gave up, stated as the uncomfortable consequence
+          // rather than as "added complexity" — a sentence that could follow
+          // almost any decision is not a cost. Optional for the same reason
+          // `chosen` is.
+          cost: z.string().trim().min(1).optional(),
           // Required for every status, `pending` included — not weakened
           // to optional. For a `pending` decision this field IS the
           // validation boundary: why the evidence isn't in yet and what
