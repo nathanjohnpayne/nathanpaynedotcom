@@ -19,17 +19,17 @@ stack: "Next.js · TypeScript · Tailwind · Firebase · Recharts · Vitest"
 constraints:
   - value: "6 days"
     label: "scaffold to the whole-app commit"
-  - value: "No backend"
-    label: "static export, no Cloud Functions"
+  - value: "Static export"
+    label: "no server code, no Cloud Functions"
   - value: "No producer"
     label: "involved in the build"
   - value: "1 deal room"
     label: "in production, a demonstration"
 decisions:
   - title: "Two waterfalls, not a generic split"
-    context: "Broadway distributes profit two ways: recoup-first, where investors are repaid in full before anyone shares profit, and share-from-dollar-one, where profit sharing runs alongside recoupment. Override implements both as named waterfall types, with eleven royalty participants whose default rates are calibrated to published Broadway deal structures—the book writer's 4.5% annotated to the industry's standard production contract."
+    context: "Override models two named Broadway structures: recoup-first, where investors are repaid in full before anyone shares profit, and share-from-dollar-one, where profit sharing runs alongside recoupment. Both ship as waterfall types, with eleven royalty participants whose default rates are calibrated to published Broadway deal structures—the book writer's 4.5% annotated to the industry's standard production contract."
     rejected: "A generic configurable profit-share—one parameterized split engine that would also serve film finance, real-estate syndication, or any LP structure, and would have made the product sellable outside a single industry."
-    rationale: "The product's claim is that a producer recognizes their own deal in it. Naming the industry's two structures and defaulting the royalties to its published norms is that claim made concrete; a generic engine would hand the domain translation back to the user, which is the spreadsheet problem with a better interface."
+    rationale: "The product's claim is that a producer recognizes their own deal in it. Naming those structures and defaulting the royalties to published norms is that claim made concrete; a generic engine would hand the domain translation back to the user, which is the spreadsheet problem with a better interface."
     evidence: "Fit is the untested half. A documented calibration against a real production's published economics says the arithmetic holds; nothing in the record shows a real capitalization modeled in it, so nothing yet says whether producers recognize their deals in the two named types. Only a producer structuring an actual deal resolves it."
     status: "pending"
   - title: "Derive the phase from the economics"
@@ -92,7 +92,7 @@ The deal room shows aggregate capitalization, never individual investor records,
 
 How does anyone know the money is right? The honest answer is a calibration, not a test suite. The day the engine was built, its documentation recorded a check against Hadestown's published economics—947 seats, 93% occupancy, a $155 average ticket, a $530K weekly nut, 14% royalties. Re-run today, the shipped engine still reproduces it: $1,046,283 weekly gross, 57.0% breakeven, recoupment in week 37. Nothing runs that check in CI, and nothing would catch it drifting.
 
-The suite is real and it is not the proof. Eighty-six tests pass, but only eight touch the engine; the three files where the money lives have no direct test, and the phase function has none at all. Exactly two assertions check money against the inputs, both pool percentages, and the ones that look like proof check the engine against its own output. The tests arrived five weeks after the engine.
+The suite is real and it is not the proof. Eighty-six tests pass, but only eight touch the engine, and every one of them enters through the same file: the weekly pipeline, the phase function and the ownership rollup have no direct test at all. Exactly two assertions check money against the inputs, both pool percentages, and the ones that look like proof check the engine against its own output. The tests arrived five weeks after the engine.
 
 The boundary is real too. Five files, no React and no Firebase import in any of them, and the weekly pipeline and the waterfall allocation exist only there—though display totals and percentages are re-derived in the UI in at least six places, one component recomputing by hand a result it already holds. A producer configures rates, splits, the waterfall type, scenario parameters, and which sections an investor sees. The engine fixes the order of the weekly deductions, the GP's carve coming out of the investor pool rather than the creative pool, and the cap table bridged in at computation time so the deal form cannot hold stale investor data. None of it is policed by machinery—no lint rule, no import restriction, no CI check. It holds because rules files say so and reviewers read them.
 
@@ -104,6 +104,6 @@ The application arrived in a single commit titled "Updates via Claude Code," six
 
 Override has never run a real deal. The scope of that claim is the repository, its commit history, and all 138 issues and pull requests down to every review comment: no real capitalization managed in it, no outside investor admitted, no deal-room link sent to a backer. The only deal room in production is a demonstration built with sample figures, and the closest thing to adoption in the record is me—an issue about slow dashboard loads names five productions in my own account. One instrument could sharpen the boundary: every deal-room load fires an analytics event keyed to the token, and I have never queried that log.
 
-The direction is documented rather than implied. The product's own requirements doc describes a wedge—financial modeling as the entry point, expanding into capitalization management, investor CRM, document workflows and investor reporting—and labels the expansion planned, not yet implemented. The code agrees: `saveScenario()`, `getScenarios()` and `deleteScenario()` sit in the data layer with a subcollection and a security rule provisioned for them, and zero call sites anywhere. The investor-facing read-only view is built; the accounting platform is not.
+The direction is documented rather than implied. The product's own requirements doc describes a wedge: financial modeling as the entry point, expanding outward from there. Part of that expansion shipped—the cap table, investor statuses and document storage are all in the product. The rest the roadmap lists as planned and not yet implemented: lead CRM, a signing workflow, investor reporting, payments and distributions, multi-production portfolio views. The code agrees on where the edge sits: `saveScenario()`, `getScenarios()` and `deleteScenario()` sit in the data layer with a subcollection and a security rule provisioned for them, and zero call sites anywhere. The investor-facing read-only view is built; the accounting platform is not.
 
 The bet was never that Broadway deserves bespoke software. It is that the drifted cap table had a cause—a producer and a backer each holding a version of the deal, with no way to know it was the same one—and that shared understanding between the two seats is a property of one maintained model rather than of better documents. That is what a first real deal would test.
