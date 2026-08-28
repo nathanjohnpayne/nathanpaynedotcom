@@ -24,6 +24,8 @@ Line references are `slug:NN` against the file as it stands on `content/744-six-
 
 **M6—EXTERNALLY SOURCED is not UNPROVABLE.** UNPROVABLE in this ledger means *the repository does not substantiate this*, and it licenses a rewrite: the row hands Phase 2 a defensible weaker form because the claim as written cannot be stood behind. EXTERNALLY SOURCED means something narrower and much less damning—the figure has a named source, that source is a production system rather than one of the seven evidence repositories, and **this audit did not re-derive it**. It licenses nothing to be rewritten. A row so marked is a pointer to where the number lives and a statement of what was and was not checked here, so that a later session can promote it to SUPPORTED by re-deriving it rather than re-litigating it. The §B25–§B36 cluster uses both verdicts side by side and the split is exactly the tooling boundary: its PostHog figures were re-run in this session and are SUPPORTED, its Firestore figures could not be reached and are EXTERNALLY SOURCED. Never use UNPROVABLE for a figure whose source is known and simply out of reach—that is the word that gets a true sentence deleted.
 
+**M7—a reproduction command is run by strangers, so it must not write to a path it did not create.** Three separate P1 findings on PR #848 were all this one defect in the ledger's own commands, escalating each time a fix was too clever. The first ran an unconditional `rm -rf ~/GitHub/audit-probe-repo` to clean up after a bootstrap dry run, which would delete a reviewer's checkout of that name. The second replaced it with a guard that deleted the directory when it held nothing but `.bootstrap-*` files—which is exactly what an *interrupted* run leaves behind, so the guard destroyed the state it existed to protect. The third found that every extraction block wrote into a fixed `/tmp/mp` and then ran `git init` and a commit inside it, so a `/tmp/mp` belonging to another task would be extracted over and committed. `mkdir -p` does not establish that this run created the directory. **The rule: allocate with `mktemp -d` and carry the path in a variable; never delete anything the reader might own.** Every extraction block in this file now opens `MP="$(mktemp -d)"`, later blocks continue with `cd "$MP"`, and the one cleanup step prints its path and removes nothing. The general form is that a guard deciding *when* destruction is safe is a harder problem than not destroying anything, and the ledger has no reason to solve the harder one.
+
 ---
 
 ## §A `device-source-of-truth`
@@ -1003,7 +1005,7 @@ The best figure for the page is the one the repository computes about itself, be
 
 ```bash
 S=3d961050e203e8b7a55bb551e89aa4da834356f6
-mkdir -p /tmp/mp && git -C ~/GitHub/mergepath archive "$S" | tar -x -C /tmp/mp && cd /tmp/mp
+MP="$(mktemp -d)" && git -C ~/GitHub/mergepath archive "$S" | tar -x -C "$MP" && cd "$MP"
 ./scripts/ci/check_ci_scripts_wired
 # check_ci_scripts_wired: PASS (72 check_* scripts, all wired or exempt)
 ```
@@ -1194,7 +1196,7 @@ Executed rather than read, per the §F21 standard. Running the decider against a
 
 ```bash
 S=3d961050e203e8b7a55bb551e89aa4da834356f6
-mkdir -p /tmp/mp && git -C ~/GitHub/mergepath archive "$S" | tar -x -C /tmp/mp && cd /tmp/mp
+MP="$(mktemp -d)" && git -C ~/GitHub/mergepath archive "$S" | tar -x -C "$MP" && cd "$MP"
 GH_TOKEN="$OP_PREFLIGHT_REVIEWER_PAT" bash scripts/coderabbit-should-invoke.sh 1136 \
   --repo nathanjohnpayne/mergepath --json
 # {"pr_number":1136,"decision":"invoke",
@@ -1205,11 +1207,12 @@ GH_TOKEN="$OP_PREFLIGHT_REVIEWER_PAT" bash scripts/coderabbit-should-invoke.sh 1
 And the classifier itself runs standalone against a constructed fixture, emitting the JSON recommendation its header advertises:
 
 ```bash
-cd /tmp/mp
-printf '{"body":"Authoring-Agent: claude\\n\\n## Self-Review\\n","files":[{"filename":"README.md","patch":"@@ -1 +1 @@\\n-a\\n+b"}]}' > /tmp/fx.json
-mkdir -p /tmp/pol/.github && echo 'phase_4b_default: complex-changes' > /tmp/pol/.github/review-policy.yml
-MERGEPATH_REVIEW_POLICY_PATH=/tmp/pol/.github/review-policy.yml \
-  bash scripts/phase-4b-classifier.sh 99999 --fixture /tmp/fx.json
+cd "$MP"   # $MP from the extraction block above
+FX="$(mktemp -d)"
+printf '{"body":"Authoring-Agent: claude\\n\\n## Self-Review\\n","files":[{"filename":"README.md","patch":"@@ -1 +1 @@\\n-a\\n+b"}]}' > "$FX/fx.json"
+mkdir -p "$FX/pol/.github" && echo 'phase_4b_default: complex-changes' > "$FX/pol/.github/review-policy.yml"
+MERGEPATH_REVIEW_POLICY_PATH="$FX/pol/.github/review-policy.yml" \
+  bash scripts/phase-4b-classifier.sh 99999 --fixture "$FX/fx.json"
 # {"match": false, "triggers": [], "recommendation": "fallback-only", … "files_inspected": 1}
 ```
 
@@ -1284,7 +1287,7 @@ Defensible form for the page: clearance is bound to the exact commit reviewed, a
 **Reply is enforced by `scripts/review-feedback-accounting.sh` (897 lines), and thread resolution is explicitly *not* accepted as evidence.** `REVIEW_POLICY.md:340`, verbatim: "Thread resolution, merge-state fields, a helper's reported success count, and a zero exit from an unrelated command are not disposition evidence." The code matches the doc—the script never asks GitHub about resolution state at all:
 
 ```bash
-cd /tmp/mp
+cd "$MP"   # $MP from the extraction block above
 grep -c 'isResolved\|reviewThreads' scripts/review-feedback-accounting.sh    # 0
 grep -n 'in_reply_to_id' scripts/review-feedback-accounting.sh              # 362, 389, 390
 ```
@@ -1294,7 +1297,7 @@ What it does accept is narrow: `:389-390` requires `(.in_reply_to_id != null) an
 **An unaccounted finding genuinely blocks the next review request, and the block is a hard exit.** `scripts/codex-review-request.sh:1093-1115` defines `run_feedback_accounting_gate()`, which runs the accounting script before the trigger is posted and, on exit 1, calls `die 6 "review feedback is unaccounted; disposition every finding before requesting another Codex review"`. Confirmed on the live path, read-only:
 
 ```bash
-cd /tmp/mp
+cd "$MP"   # $MP from the extraction block above
 GH_TOKEN="$OP_PREFLIGHT_REVIEWER_PAT" bash scripts/review-feedback-accounting.sh \
   1136 nathanjohnpayne/mergepath
 # {"status":"clear","repo":"nathanjohnpayne/mergepath","pr_number":1136,
@@ -1387,7 +1390,7 @@ One thing the current page gets wrong by omission: `:68` names Override, Device 
 
 ```bash
 S=3d961050e203e8b7a55bb551e89aa4da834356f6
-mkdir -p /tmp/mp && git -C ~/GitHub/mergepath archive "$S" | tar -x -C /tmp/mp && cd /tmp/mp
+MP="$(mktemp -d)" && git -C ~/GitHub/mergepath archive "$S" | tar -x -C "$MP" && cd "$MP"
 git init -q -b main . && git add -f README.md \
   && git -c user.email=a@b -c user.name=a -c commit.gpgsign=false commit -q -m pin
 BOOTSTRAP_SKIP_TOOL_CHECK=1 BOOTSTRAP_SKIP_MERGEPATH_GUARD=1 BOOTSTRAP_AUTO_CONFIRM=1 \
