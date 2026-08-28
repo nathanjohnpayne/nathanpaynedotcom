@@ -105,6 +105,14 @@ describe('rehype-mermaid integration', () => {
     await expect(
       validateMermaidMetadata({ type: 'root', children: [{ ...code }] }, resolve('src/pages/about.md')),
     ).rejects.toThrow(/only supported in src\/content\/blog and src\/content\/projects/i);
+    // An unsupported collection must not smuggle a supported one inside itself.
+    // Matching `src/content/…` anywhere in the path let this through.
+    await expect(
+      validateMermaidMetadata(
+        { type: 'root', children: [{ ...code }] },
+        resolve('src/content/resume/src/content/projects/unchecked.md'),
+      ),
+    ).rejects.toThrow(/only supported in src\/content\/blog and src\/content\/projects/i);
   });
 
   it('requires separated title and description attributes', async () => {

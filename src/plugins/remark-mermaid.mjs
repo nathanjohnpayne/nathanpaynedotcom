@@ -27,14 +27,23 @@ export default function remarkMermaidMetadata() {
 // accepted for that collection. Every other collection and every standalone
 // Markdown page still rejects, because the diagram CSS, the contrast test and
 // the accessibility spec are only wired for these two.
-const SUPPORTED_CONTENT_PATHS = [
-  /(^|\/)src\/content\/blog\/(?:[^/]+\/)*[^/]+\.md$/,
-  /(^|\/)src\/content\/projects\/(?:[^/]+\/)*[^/]+\.mdx?$/,
+const SUPPORTED_COLLECTION_PATHS = [
+  /^blog\/(?:[^/]+\/)*[^/]+\.md$/,
+  /^projects\/(?:[^/]+\/)*[^/]+\.mdx?$/,
 ];
+
+// Matched against the path that follows the FIRST `src/content/` segment, not
+// any of them. Anchoring on the last, or on `(^|/)src/content/…` anywhere in
+// the string, lets an unsupported collection smuggle a supported one inside
+// itself — `src/content/resume/src/content/projects/x.md` would pass.
+const CONTENT_ROOT = 'src/content/';
 
 function assertSupportedContentFile(file) {
   const filePath = String(file?.path ?? file?.history?.at(-1) ?? '').replaceAll('\\', '/');
-  if (!SUPPORTED_CONTENT_PATHS.some((pattern) => pattern.test(filePath))) {
+  const rootIndex = filePath.indexOf(CONTENT_ROOT);
+  const collectionPath =
+    rootIndex === -1 ? '' : filePath.slice(rootIndex + CONTENT_ROOT.length);
+  if (!collectionPath || !SUPPORTED_COLLECTION_PATHS.some((p) => p.test(collectionPath))) {
     throw new Error(
       `Mermaid code fences are only supported in src/content/blog and src/content/projects (received ${filePath || 'an unknown source'})`,
     );
