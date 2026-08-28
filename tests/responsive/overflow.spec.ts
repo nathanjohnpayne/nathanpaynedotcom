@@ -6,6 +6,7 @@ const routes = [
   '/blog/six-prs-one-bug-agent-failure-modes/',
   '/projects/device-source-of-truth/',
   '/projects/friends-and-family-billing/',
+  '/projects/mergepath/',
   '/projects/override/',
   '/projects/swipe-watch/',
 ];
