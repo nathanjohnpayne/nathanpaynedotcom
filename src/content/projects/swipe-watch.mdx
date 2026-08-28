@@ -27,21 +27,30 @@ constraints:
     label: 'device-local'
 decisions:
   - title: 'No stack until the feel earns one'
+    lens: 'Fidelity'
     context: 'The question was whether a swipe feels like a natural way to express taste in a streaming catalog. The default way to build a card UI is a framework scaffold—React, a bundler, a build pipeline—before the first card ever moves.'
+    chosen: 'Vanilla JavaScript, no framework, no build step. Firebase Hosting serves the repo root as-is, because there is no build output to serve.'
     rejected: 'A framework scaffold. The larger application projects in this portfolio use one, and for anything meant to outlive a prototype it is usually the right call.'
-    rationale: 'Interaction feel was the entire question, so everything between an edit and a reload was overhead. Vanilla JavaScript, no framework, no build step: Firebase Hosting serves the repo root as-is, because there is no build output to serve. If the swipe felt wrong, the total loss was thirteen commits.'
+    rationale: 'Interaction feel was the entire question, so everything between an edit and a reload was overhead. If the swipe felt wrong, the total loss was thirteen commits.'
+    cost: "The prototype cannot grow into the product. Everything the scaffold would have supplied—types, components, a build step—is still missing, so the route from here is a rewrite rather than an extension, and the thing still running today is the throwaway."
     evidence: 'The constraint never had to be unwound. The first commit already carried a working swipe UI, session management and analytics, and the prototype still runs on it today with no build script and no runtime dependency.'
     status: 'validated'
   - title: 'Let the prototype fake its payoff'
+    lens: 'Interpretability'
     context: 'The loop being tested ends in a payoff—swipe, and the recommendations get better—and the back half of that loop was out of scope by design: no ML, no personalization. A prototype that says nothing after a swipe is testing a different, deader product.'
+    chosen: 'Copy that simulates the missing half, so the product demos as the thing it proposes rather than the fraction it implements.'
     rejected: 'Honest copy—a plain session summary instead of a promise—which keeps every reaction interpretable, at the cost of demoing a loop with a visible hole in it.'
-    rationale: 'The shipped copy simulates the missing half, so the product demos as the thing it proposes rather than the fraction it implements. That is what makes a prototype worth showing to someone who has to imagine the finished version.'
-    evidence: 'The cost landed on the evidence rather than the demo. Because the prototype simulates its payoff, a reaction to it cannot be separated from a reaction to the idea—which is the ceiling on what any demo of this thing can establish.'
+    rationale: 'A prototype has to be shown to people who must imagine the finished version. Demoing the fraction asks them to imagine it anyway, and gives them less to react to while doing it.'
+    cost: "Every reaction becomes uninterpretable. A response to the prototype cannot be separated from a response to the idea, because what people are reacting to is a payoff the software does not produce—and that is a ceiling on what any demo of this thing can establish, permanently."
+    evidence: "It demoed as the thing it proposes, which is what let the signal-density argument land in a conversation with Disney's EVP of Product. That is my own account of a conversation rather than a measurement, and by construction it could not have been one."
     status: 'mixed'
   - title: 'Give the deck a bottom'
+    lens: 'Loop'
     context: 'The first build proved the swipe and then stopped: work through ten cards and you hit a dead end. Preference gathering that ends in a wall gathers preferences once.'
+    chosen: 'An economy. Swipes earn coins and coins unlock further discovery modes, so the end of a deck becomes a reason to keep going rather than a wall.'
     rejected: 'Keeping the prototype single-variable. A one-question experiment stays cleaner without a second untested mechanic layered on, and holding the economy back would have widened the coin-free baseline.'
-    rationale: 'Swipes earn coins and coins unlock discovery modes, which turns the end of a deck into a reason to keep going. The price was legible—one coin per swipe makes an unlock cost exactly 25 swipes—and it was cheap to build on counters that already existed.'
+    rationale: 'The price was legible—one coin per swipe makes an unlock cost exactly 25 swipes—and it was cheap to build on counters that already existed.'
+    cost: "Adding a second mechanic compromised the baseline for the first. A coin-free production window does exist, but it is short and has never been examined, so whether the swipe alone sustains attention is now a question the prototype cannot answer about itself."
     evidence: "Unresolved by construction. Whether the loop sustains engagement is a before-and-after question, and no flag, variant or cohort was ever set up to answer it. The mechanic's honest shape is also worth stating: an unlock opens another view over the same catalog rather than adding titles to it."
     status: 'pending'
 related:
