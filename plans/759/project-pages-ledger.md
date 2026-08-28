@@ -1315,14 +1315,14 @@ git -C ~/GitHub/mergepath show "${S}:.mergepath-sync.yml" \
   | grep -E '^    repo: ' | grep -vc 'nathanjohnpayne/'                      # 0
 ```
 
-The hub is public and marked a template, which makes the absence of uptake a measured fact rather than an assumption. As of 2026-08-28T20:20Z: `is_template: true`, `visibility: public`, created 2026-03-24T19:08:51Z, **0 forks**, **4 stargazers**, 0 watchers.
+The hub is public and marked a template. **That does not make the absence of uptake measurable, and the row originally overclaimed it**: GitHub's `forks_count` does not observe a **Use this template** instantiation or a plain `git clone`, so zero forks bounds one adoption path and is blind to the two most likely others. What *is* conclusive is the manifest—every consumer under any other owner is zero—and that is a statement about the fleet, not about the world. As of 2026-08-28T20:20Z: `is_template: true`, `visibility: public`, created 2026-03-24T19:08:51Z, **0 forks**, **4 stargazers**, 0 watchers.
 
 ```bash
 GH_TOKEN="$OP_PREFLIGHT_REVIEWER_PAT" gh api repos/nathanjohnpayne/mergepath \
   --jq '{visibility,is_template,forks_count,stargazers_count,subscribers_count}'
 ```
 
-Defensible form, and it is stronger than the current sentence because it is falsifiable: the repository has been public and forkable since March 2026 and has zero forks; all eight consumers are the author's own.
+Defensible form: all eight consumers are the author's own, and the repository has been public and forkable since March 2026 with zero forks—stated as the one adoption signal GitHub exposes, never as proof that nobody has taken the template.
 
 ### E47—`packaging/` is a name reservation, not distribution
 
@@ -1394,7 +1394,17 @@ BOOTSTRAP_SKIP_TOOL_CHECK=1 BOOTSTRAP_SKIP_MERGEPATH_GUARD=1 BOOTSTRAP_AUTO_CONF
   bash scripts/bootstrap-new-repo.sh audit-probe-repo --dry-run \
   --description x --visibility private --firebase none --codex-app n --project new \
   </dev/null | grep -c '^\[DRY-RUN\]'                                        # 50
-rm -rf ~/GitHub/audit-probe-repo   # the dry run creates this; see below
+
+# The dry run creates ~/GitHub/audit-probe-repo (see below). Remove it ONLY if
+# this run created it — an unconditional `rm -rf` would destroy a pre-existing
+# checkout of that name, uncommitted work included.
+probe=~/GitHub/audit-probe-repo
+if [ -d "$probe" ] && [ ! -e "$probe/.git" ] \
+   && [ -z "$(ls -A "$probe" | grep -v '^\.bootstrap-' || true)" ]; then
+  rm -rf "$probe"
+else
+  echo "left in place, inspect and remove by hand: $probe"
+fi
 ```
 
 **Fifty steps is a real, reproducible figure, and it is still not a savings measure.** It counts what the wizard automates, not what a human would otherwise have done—nobody ever timed the manual path, and "an afternoon" is an unmeasured author estimate. The page may say the wizard performs fifty wrapped operations across four stages, as of 2026-08-28; it may not convert that into time saved.
@@ -1501,14 +1511,23 @@ git -C ~/GitHub/docs log -1 --format='%h %ci %s' -- projects/mergepath/prds/merg
 
 **Across the eight consumers, the registry carries zero entries.** Seven of the eight have no `.sync-overrides.yml` at all at their current `origin/main`; the eighth, `fiveacross`, has the file and its entire non-comment content is `version: 1`. Read at each consumer's own `origin/main` after `git fetch`, 2026-08-28: `matchline` `5ac5c8f`, `nathanpaynedotcom` `da6b69c`, `overridebroadway` `99940ad`, `device-source-of-truth` `c9f66f0`, `friends-and-family-billing` `d70aa8ac`, `swipewatch` `f3377b7`, `tadlockpsychiatry` `a4d4986`, `fiveacross` `df6cd87`.
 
+Pinned to the eight SHAs above, so the row stays reproducible after any consumer changes its override file. The `${sha}:path` form is braced deliberately—zsh reads a bare `"$sha:path"` as a history modifier and silently drops the path.
+
 ```bash
-for r in matchline nathanpaynedotcom overridebroadway device-source-of-truth \
-         friends-and-family-billing swipewatch tadlockpsychiatry fiveacross; do
-  git -C ~/GitHub/$r fetch origin main --quiet
-  git -C ~/GitHub/$r cat-file -e "origin/main:.sync-overrides.yml" 2>/dev/null \
-    && echo "$r: $(git -C ~/GitHub/$r show "origin/main:.sync-overrides.yml" | grep -c 'reason:') reasons" \
+while read -r r sha; do
+  git -C ~/GitHub/$r cat-file -e "${sha}:.sync-overrides.yml" 2>/dev/null \
+    && echo "$r: $(git -C ~/GitHub/$r show "${sha}:.sync-overrides.yml" | grep -c 'reason:') reasons" \
     || echo "$r: absent"
-done
+done <<'PINS'
+matchline 5ac5c8fcc
+nathanpaynedotcom da6b69c28
+overridebroadway 99940ad47
+device-source-of-truth c9f66f07a
+friends-and-family-billing d70aa8ac9
+swipewatch f3377b792
+tadlockpsychiatry a4d49863e
+fiveacross df6cd87b5
+PINS
 ```
 
 **And the path #1132 destroyed is one the registry could have covered.** `.github/workflows/pr-review-policy.yml` is a manifest-declared canonical path (`.mergepath-sync.yml:1403-1405`, `type: canonical`, `consumers: all`), so it is exactly the kind of entry `skip_paths` accepts—the validator rejects a skip naming a path the manifest does not declare, and this one is declared. `nathanpaynedotcom`'s stronger local version of that job was an intentional divergence that was never written down as one, and the 2026-08-28 wave mirrored the hub's weaker job over it (§E37).
