@@ -76,7 +76,7 @@ draft: false
 | `stack` | string | no | Tech stack values separated by ` · ` (e.g., `"React · TypeScript · Vite · Firebase · Vitest"`). Rendered as a figcaption below the screenshot. Optional—projects without a stack field render without the caption |
 | `related` | array | no | Related links with `label` and `href` |
 | `muxPlaybackId` | non-empty string | no | Mux public Playback ID. When set, the hero renders a `<mux-background-video>` video and `screenshotSrc` is used as the JS-disabled fallback. Schema rejects blank / whitespace-only values so a stray empty string fails build-time rather than producing a broken URL. See "Adding a Mux video" below |
-| `decisions` | array | no | Case-study decision ledger entries, rendered mid-body by `<DecisionLedger>`. Each entry is `title`, `context`, `rejected`, `rationale`, `evidence`, `status`. Optional, defaults to `[]`. See § Decisions, constraints, and learnings for the field-level contract |
+| `decisions` | array | no | Case-study decision ledger entries, rendered mid-body by `<DecisionLedger>`. Each entry is `title`, `context`, `rejected`, `rationale`, `evidence`, `status`, plus the optional `lens`, `chosen` and `cost` that switch the record to the assertion anatomy. Optional, defaults to `[]`. See § Decisions, constraints, and learnings for the field-level contract |
 | `constraints` | array | no | Constraint chips rendered mid-body by `<ConstraintStrip>`. Each entry pairs a headline `value` with a one-line `label` gloss. Optional, defaults to `[]` |
 | `learnings` | array | no | Learning ledger entries rendered mid-body by `<LearningLedger>`. Each entry is an `expected` / `observed` / `response` triple. Optional, defaults to `[]` |
 | `draft` | boolean | no | `true` to exclude from builds (default: `false`) |
@@ -189,6 +189,21 @@ The four statuses render as **peers**. `validated` must not read as success and 
 It must never restate `rationale`. `rationale` is why the choice was made; `evidence` is what happened afterward. If the two read alike, the row has no evidence—go find what actually happened, or mark the row `pending` and say what's missing.
 
 `DecisionLedger` labels the field accordingly: **Observed** for `validated`, `mixed` and `revised`, and **Validation boundary** for `pending`. The treatment is identical either way—same exhibit plane, same accent label—because the four statuses stay peers and demoting `pending` to a lesser surface would make it read as an apology. Only the word changes, because calling a validation boundary "Observed" asserts an observation that by definition has not happened.
+
+### Two anatomies, and `chosen` is the switch
+
+A decision record renders one of two ways, and the page chooses by authoring or omitting `chosen`.
+
+**The original shape**—`title` / `context` / `rejected` / `rationale` / `evidence`—reads as a record: here is the situation, here is what was not done, here is the reasoning, here is what happened. `five-across` and `swipe-watch` author against it.
+
+**The assertion shape** adds `lens`, `chosen` and `cost`, and re-reads the same record as an argument: an eyebrow naming the editorial filter the decision answers to, a title that asserts rather than labels, `context` compressed to a one-line standfirst under it, then **Chosen / Over / Why / Cost**, then the evidence. `override` authors against it.
+
+The three added fields are optional so the switch is per page and per record, and so the two pages that shipped against the original shape keep rendering it unchanged. Two rules bind anything using the assertion shape:
+
+- **A title that names a feature is not an assertion.** "Deal Rooms" and "Scenario modeling" describe surfaces; "Let investors read before they sign up" and "Show three scenarios, not one forecast" describe positions. A reader skimming only the titles should come away with the product's philosophy.
+- **`cost` is the uncomfortable consequence, not the implementation burden.** "Increased complexity" follows almost every software decision and therefore says nothing. The cost is what the product cannot now do: a bespoke waterfall provision it cannot model, a producer's dozen cases collapsed into three, a link that exposes the deal to whoever holds it. `tests/content-schema.test.js` enforces the pairing — a record that declares `chosen` without `cost` fails, because a decision presented as free is the shape this anatomy exists to prevent.
+
+`cost` and `evidence` are different claims and both can appear. `cost` is what was knowingly given up at the time; `evidence` is what happened afterward, or under `pending`, the validation boundary. The component marks them differently—`cost` takes an accent rule, `evidence` keeps the boxed exhibit plane—so the two do not read as one.
 
 ### `constraints` are context, not vanity metrics
 

@@ -874,6 +874,33 @@ describe('Project Pages — case-study components', () => {
     expect(source).toMatch(/status === 'pending'/);
   });
 
+  // The assertion anatomy (#754) is gated on `chosen` so the two pages that
+  // shipped against the original shape keep rendering it. That gate is the
+  // thing worth testing: a component change that dropped the fallback would
+  // leave five-across and swipe-watch with empty Chosen/Cost slots, and no
+  // existing assertion would notice.
+  it('DecisionLedger switches anatomy on `chosen` and keeps the original labels without it', () => {
+    const source = componentSource('DecisionLedger');
+    for (const token of ['What I encountered', 'Context', 'Over', 'Rejected']) {
+      expect(source, `DecisionLedger: no "${token}" label`).toContain(`'${token}'`);
+    }
+    for (const slot of ['<dt>Cost</dt>', '<dt>What I decided</dt>']) {
+      expect(source, `DecisionLedger: no ${slot}`).toContain(slot);
+    }
+    // Both halves of each ternary must be present — the fallback is the guard.
+    expect(source).toMatch(/decision\.chosen \? 'What I encountered' : 'Context'/);
+    expect(source).toMatch(/decision\.chosen \? 'Over' : 'Rejected'/);
+    // The outcome slot reverts to the status label when a record is `pending`,
+    // so a decision with no outcome yet cannot claim one.
+    expect(source).toMatch(/decision\.status !== 'pending' \? 'What it changed'/);
+    // These render only when authored, so an un-migrated record emits no slot.
+    for (const gate of ['cost', 'lens', 'rejected', 'chosen']) {
+      expect(source, `DecisionLedger: ${gate} is not conditionally rendered`).toMatch(
+        new RegExp(`\\{decision\\.${gate} &&`),
+      );
+    }
+  });
+
   it('DecisionLedger labels pending evidence as a boundary, not an observation', () => {
     // `evidence` is required for every status, but it carries a different
     // kind of claim when the status is `pending`: the schema contract makes

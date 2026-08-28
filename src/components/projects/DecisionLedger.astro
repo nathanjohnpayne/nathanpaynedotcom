@@ -25,9 +25,12 @@
 
 interface Decision {
   title: string;
+  lens?: string;
   context: string;
-  rejected: string;
+  chosen?: string;
+  rejected?: string;
   rationale: string;
+  cost?: string;
   evidence: string;
   status: 'validated' | 'mixed' | 'revised' | 'pending';
 }
@@ -78,6 +81,7 @@ const EVIDENCE_LABELS: Record<Decision['status'], string> = {
       {records.map((decision) => (
         <li class="decision-ledger__record">
           <div class="decision-ledger__line">
+            {decision.lens && <span class="decision-ledger__lens">{decision.lens}</span>}
             <span class="decision-ledger__rule" aria-hidden="true" />
             <span
               class={`decision-ledger__status${
@@ -89,20 +93,34 @@ const EVIDENCE_LABELS: Record<Decision['status'], string> = {
           </div>
           <h3 class="decision-ledger__title">{decision.title}</h3>
           <dl class="decision-ledger__body">
-            <div class="decision-ledger__fact">
-              <dt>Context</dt>
+            <div class={`decision-ledger__fact${decision.rejected ? '' : ' decision-ledger__fact--wide'}`}>
+              <dt>{decision.chosen ? 'What I encountered' : 'Context'}</dt>
               <dd>{decision.context}</dd>
             </div>
-            <div class="decision-ledger__fact decision-ledger__fact--rejected">
-              <dt>Rejected</dt>
-              <dd>{decision.rejected}</dd>
-            </div>
+            {decision.rejected && (
+              <div class="decision-ledger__fact decision-ledger__fact--rejected">
+                <dt>{decision.chosen ? 'Over' : 'Rejected'}</dt>
+                <dd>{decision.rejected}</dd>
+              </div>
+            )}
+            {decision.chosen && (
+              <div class="decision-ledger__decided">
+                <dt>What I decided</dt>
+                <dd>{decision.chosen}</dd>
+              </div>
+            )}
             <div class="decision-ledger__why">
               <dt>Why</dt>
               <dd>{decision.rationale}</dd>
             </div>
+            {decision.cost && (
+              <div class="decision-ledger__cost">
+                <dt>Cost</dt>
+                <dd>{decision.cost}</dd>
+              </div>
+            )}
             <div class="decision-ledger__observed">
-              <dt>{EVIDENCE_LABELS[decision.status]}</dt>
+              <dt>{decision.chosen && decision.status !== 'pending' ? 'What it changed' : EVIDENCE_LABELS[decision.status]}</dt>
               <dd>{decision.evidence}</dd>
             </div>
           </dl>
