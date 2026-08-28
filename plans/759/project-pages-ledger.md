@@ -1048,7 +1048,9 @@ All five consumers receive the identical commit subject, "Add machine user revie
 
 **F8 is the one partial exception**, and the page should keep it. "Custom financial modeling review guidance" is genuinely Override's own: `.coderabbit.yml:35` "Financial modeling engine. Verify arithmetic correctness in", `:52` "Deal-room components display financial terms and negotiation". Every consumer got a domain-specific config, but this one is Override's domain and Override's file. The claim to drop is that Override *added CodeRabbit*; the claim to keep is that Override wrote the financial review guidance.
 
-**F12—"before being extracted into a template"** is the load-bearing error, and it reverses the direction of travel. The template repo's initial commit (2026-03-24 12:08:47) *precedes* every Override adoption above, so nothing was extracted from Override into it. Corrected direction: the template was built, and Override received the fan-out along with four siblings.
+**F12—"before being extracted into a template"** is the load-bearing error **for the six artifacts above**, and for those it reverses the direction of travel: the template repo's initial commit (2026-03-24 12:08:47) precedes every Override adoption in the tables above, so the machine users, the pipeline, the hook, the escalation rules, the two-strike rule and CodeRabbit were not extracted from Override. Corrected direction for those six: the template was built, and Override received the fan-out along with four siblings.
+
+**This row previously read "nothing was extracted from Override into it." That was wrong—see §F43.** Mergepath's initial commit is a seed, and a substantial part of it is Override's work from the preceding week: `pr-review-policy.yml`, `pr-audit.yml` and the `docs/agents/` layout. Extraction ran *both* ways, a week apart, and this row recorded only one of them.
 
 ### F13—what Override genuinely originated
 
@@ -1070,7 +1072,7 @@ mergepath's initial commit is `b9734df`, 2026-03-24 12:08:47. Override's review 
 
 ### Delta audit for #754—rows added 2026-08-28
 
-Twenty-five rows covering the claims #754 puts on the Override page that §F1–§F14 do not reach: the domain vocabulary, the two personas, the wedge and its unbuilt roadmap, the waterfall engine, the deal-room credential and snapshot model, the purity and test coverage of `src/lib/model/`, PRD §7's seven "enforced" invariants, the constraint strip, the validation boundary, and the configurable-versus-enforced split. Everything below was read at **`d652b8660b886603cb7b44bb5d4b6fd67e64beac`** in `~/GitHub/overridebroadway` (`git fetch origin main` 2026-08-28; short form `d652b86`, subject "bulk sync to mergepath@e7d5c17", 2026-08-27T20:13:32−0700). **Every command in these rows is written against that literal SHA rather than `origin/main`**, per the #820 finding that a moving ref makes a row unreproducible. The specification under audit is `~/GitHub/docs/projects/overridebroadway/prds/overridebroadway.md` (v1.0, 2026-03-31, 498 lines) plus `ARCHITECTURE.md` in the same directory; that directory's `specs/` is empty and the five real specs live in the product repo. Per §M1 the tree wins wherever the two disagree, and it disagrees in six places below. One caution for anyone re-running these: this repo's paths trip the zsh `$var:path` trap recorded in the machine notes—brace as `git show "${S}:path"` or the path is silently dropped and you get the whole commit.
+Twenty-nine rows covering the claims #754 puts on the Override page that §F1–§F14 do not reach: the domain vocabulary, the two personas, the wedge and its unbuilt roadmap, the waterfall engine, the deal-room credential and snapshot model, the purity and test coverage of `src/lib/model/`, PRD §7's seven "enforced" invariants, the constraint strip, the validation boundary, and the configurable-versus-enforced split. Everything below was read at **`d652b8660b886603cb7b44bb5d4b6fd67e64beac`** in `~/GitHub/overridebroadway` (`git fetch origin main` 2026-08-28; short form `d652b86`, subject "bulk sync to mergepath@e7d5c17", 2026-08-27T20:13:32−0700). **Every command in these rows is written against that literal SHA rather than `origin/main`**, per the #820 finding that a moving ref makes a row unreproducible. The specification under audit is `~/GitHub/docs/projects/overridebroadway/prds/overridebroadway.md` (v1.0, 2026-03-31, 498 lines) plus `ARCHITECTURE.md` in the same directory; that directory's `specs/` is empty and the five real specs live in the product repo. Per §M1 the tree wins wherever the two disagree, and it disagrees in six places below. One caution for anyone re-running these: this repo's paths trip the zsh `$var:path` trap recorded in the machine notes—brace as `git show "${S}:path"` or the path is silently dropped and you get the whole commit.
 
 ### F15—the name
 
@@ -1399,6 +1401,29 @@ Defensible form: the author's own account of what gave him a reference point, wr
 **What is not in the record.** That *learning the tooling* was an original motivation, rather than a description arrived at afterward, is the author's own account. §M4 applies: the record shows behaviour and timestamps. The page may state the motivation in the first person and must not present it as something the repository establishes. What the repository does establish is the method and its shape.
 
 **Do not upgrade this into a competence claim.** Runbook invariant 9 stands: the page may describe what was done and what it produced, and may not assert that the author is good at directing agents.
+
+
+### F43—extraction ran both ways, and §F12 recorded only one
+
+> §F12, as first written: "nothing was extracted from Override into it."
+
+**WRONG, and the row that was wrong is one this audit relied on.** The claim was inferred from timestamps alone—mergepath's initial commit precedes every consumer adoption, therefore nothing flowed the other way—without opening the commit. Opening it refutes the inference.
+
+**Mergepath's initial commit is a seed, not a from-scratch build.** `b9734df`, 2026-03-24 12:08:47, subject "Initial commit: AI agent repo template with machine user review system", carries `.github/workflows/pr-review-policy.yml`, `.github/workflows/pr-audit.yml` and a populated `docs/agents/` directory. Override had built all three in the preceding week:
+
+| Artifact | Override | Mergepath seed | Relationship |
+|---|---|---|---|
+| `pr-review-policy.yml` | `a26d0b4`, **2026-03-17 21:50:59**, 124 lines | 128 lines | **75 identical unique lines, 34 differing.** Derived. |
+| `pr-audit.yml` | `a26d0b4`, same commit, 97 lines | 186 lines | 14 identical unique lines. Expanded from it. |
+| `docs/agents/` layout | `88cc6fe`, **2026-03-23 11:59:55** | 2026-03-24 12:08:47 | Override's, **one day earlier** |
+
+Reproduce with `git -C ~/GitHub/overridebroadway show 88cc6fe:.github/workflows/pr-review-policy.yml` against `git -C ~/GitHub/mergepath show b9734df:.github/workflows/pr-review-policy.yml`, then `comm -12` the sorted unique lines.
+
+**So both directions are real and they are a week apart.** Override wrote the review *policy* and its first CI enforcement 2026-03-17 to 03-23 (§F13 already records this) and mergepath was seeded from that on 03-24. The six artifacts in §F6–§F11 then fanned out from mergepath to five consumers at 12:28 the same day, and later ones followed—the hook 03-25, the escalation rules 04-04, CodeRabbit 04-07, the disagreement detector in May. §F6–§F11 are unaffected and remain correct.
+
+**What hid it.** The seed commit's subject calls the repo an "AI agent repo template", which reads as a fresh start rather than a lift, so a timestamp comparison alone produces exactly the wrong inference. The repository was later renamed to mergepath, which further separates the artifact from its origin. A "first commit" is not evidence of first authorship—open it.
+
+**Consequence for the pages, and it is the reverse of what this ledger implied.** `src/content/projects/mergepath.md:78` reads "Mergepath is that infrastructure, extracted from the projects that needed it first." **That sentence is accurate and needs no correction.** It was flagged as a defect during the #754 sweep on the strength of §F12; the flag is withdrawn. Do not "fix" it, and do not let a later pass narrow it into something the record does not support—the honest specific version is that the review policy and its first CI enforcement came out of Override, which is §F13, not that the machine users or the pipeline did.
 
 
 ## §G `swipe-watch`
