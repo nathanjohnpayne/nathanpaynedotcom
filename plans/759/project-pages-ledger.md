@@ -1086,7 +1086,7 @@ Issue #757's "Source and evidence" block reads, verbatim: "Evidence repo: this r
 
 Read the issue's way, all five resolve—silently, to the wrong artifact. Any `#NNN` that reaches the page must be qualified `swipewatch#NN`, the way `mergepath.md:64` qualifies `mergepath#75`. `plans/759/refs.json` does not cover them: it holds exactly one swipewatch entry, `nathanjohnpayne/swipewatch#33`, cited by a blog post and by no row in §G.
 
-**The ref is load-bearing and every command in this section carries it.** §G1–§G18 were written against a bare `origin/main`, which is the defect §BM1 records: unpinned, those counts measure the repository's present rather than the thing the row was written to establish. Every one of them was re-run here pinned to **`7909892`** (`origin/main` at 2026-08-27T10:39:42−0700) and every count reproduces—106 titles and 106 ids inside the pool, 110 `id:` file-wide, and the growth ladder 45 → 57 → 68 → 80 → 107 → 106 across the twelve commits that touch `app.js`. Pin; do not repeat the unpinned form.
+**The ref is load-bearing and every command in this section carries it**—which was asserted before it was true. Four commands in §G1 and §G4 still read `origin/main` when this was written and have been repinned to `7909892` (Codex P2, PR #836). The hazard is live rather than theoretical: a fix to the card-synopsis defect in §G26 is in flight against that repository, so an unpinned re-run would now measure a different tree. §G1–§G18 were written against a bare `origin/main`, which is the defect §BM1 records: unpinned, those counts measure the repository's present rather than the thing the row was written to establish. Every one of them was re-run here pinned to **`7909892`** (`origin/main` at 2026-08-27T10:39:42−0700) and every count reproduces—106 titles and 106 ids inside the pool, 110 `id:` file-wide, and the growth ladder 45 → 57 → 68 → 80 → 107 → 106 across the twelve commits that touch `app.js`. Pin; do not repeat the unpinned form.
 
 Two corrections to §G1 while it is open. The stale "80 titles" survives at **eight** sites in the swipewatch tree, not the three that row names: `POSTER_GUIDE.md:230`, `README.md:17`, `:35`, `:90`, `:92`, `:280`, and `docs/agents/operating-rules.md:6`, `:26`. `README.md:17` additionally carries a stale split, "45 Disney+ and 35 Hulu titles," which no longer sums to the pool either.
 
@@ -1124,9 +1124,9 @@ Never captured, anywhere: elapsed time on a card (§G14), which titles a person 
 **WRONG, and wrong in three places. The pool is 106.** Two independent matchers over the `contentData` array (`app.js:4` through `:1151`) agree exactly:
 
 ```bash
-git show origin/main:app.js | awk 'NR>=4 && NR<=1151' | grep -cE '^[[:space:]]*title:'   # 106
-git show origin/main:app.js | awk 'NR>=4 && NR<=1151' | grep -cE '^[[:space:]]*id:'      # 106
-git show origin/main:app.js | awk 'NR>=4 && NR<=1151' | grep -cE '^    \{'                # 106
+git show 7909892:app.js | awk 'NR>=4 && NR<=1151' | grep -cE '^[[:space:]]*title:'   # 106
+git show 7909892:app.js | awk 'NR>=4 && NR<=1151' | grep -cE '^[[:space:]]*id:'      # 106
+git show 7909892:app.js | awk 'NR>=4 && NR<=1151' | grep -cE '^    \{'                # 106
 ```
 
 A whole-file `id:` count returns 110; the four extras are `DISCOVERY_MODES` entries at `:1171, 1177, 1183, 1189`, outside the pool—which is precisely the kind of loose match that has to be narrowed. There are **no duplicates** (`sort | uniq -d` on both keys returns empty) and the pool is **one flat list**, not grouped, so no title is counted twice. Modes are read-time filters over the same array (`app.js:1215-1218`), and a title can match more than one filter without being in the pool twice.
@@ -1140,7 +1140,7 @@ The pool has been 106 since **2026-04-10**, three days *before* the page's narra
 **WRONG twice over: the ordering is inverted and the first number is the commit's own error.** Only twelve commits ever touched `app.js`. Running the count at each:
 
 ```bash
-for sha in $(git log origin/main --reverse --format='%H' -- app.js); do
+for sha in $(git log 7909892 --reverse --format='%H' -- app.js); do
   n=$(git show "$sha":app.js | grep -cE '^[[:space:]]*title:')
   printf "%3s  %s\n" "$n" "$(git log -1 --format='%h %ad %s' --date=format:'%Y-%m-%d %a' $sha)"
 done
@@ -1215,7 +1215,7 @@ Corrected sequence: **45 at the initial commit, then +12, +11 and +12 to reach 8
 
 > ":41 in vanilla JavaScript—no framework, no build step, no bundler"
 
-**SUPPORTED with a distinction worth keeping straight.** At the initial commit there is no `package.json` at all—12 files, zero tooling. Today `package.json` exists (added `7e456e3`, 2026-03-31, "Conform to ai_agent_repo_template"—template propagation, not app work) with `test: vitest run` and `lint: eslint .` and five dev-only dependencies. There is **no `build` script**, **no bundler config** (`git ls-tree -r --name-only origin/main | grep -iE 'vite\.|webpack|rollup|esbuild|parcel|babel|tsconfig'` → empty) and **no runtime dependency**. The strongest proof is `firebase.json`, which serves `"public": "."`—the raw repo root, with no build output directory. The claim stands; only "no tooling at all" would overstate it.
+**SUPPORTED with a distinction worth keeping straight.** At the initial commit there is no `package.json` at all—12 files, zero tooling. Today `package.json` exists (added `7e456e3`, 2026-03-31, "Conform to ai_agent_repo_template"—template propagation, not app work) with `test: vitest run` and `lint: eslint .` and five dev-only dependencies. There is **no `build` script**, **no bundler config** (`git ls-tree -r --name-only 7909892 | grep -iE 'vite\.|webpack|rollup|esbuild|parcel|babel|tsconfig'` → empty) and **no runtime dependency**. The strongest proof is `firebase.json`, which serves `"public": "."`—the raw repo root, with no build output directory. The claim stands; only "no tooling at all" would overstate it.
 
 ### G13—"(genres, moods, trending)"
 
@@ -1347,7 +1347,7 @@ What this licenses and what it does not: it supports a page claim that mobile ca
 
 ### G27—the build predates the process, and the first pull request is the review policy
 
-**SUPPORTED, verified here because the draft asserted it and no §G row carried it.** The initial commit is `2ca43ff`, 2026-02-24T10:00:42−0800. **None of the first thirteen commits carries a `(#N)` marker**—`git log --reverse --format='%s' | head -13 | grep -c '(#[0-9]'` returns 0—so the entire core build was pushed straight to the default branch with no pull request and no review. The repository's first pull request, `nathanjohnpayne/swipewatch#1` "Add code review policy and enforcement workflows," was created 2026-03-18T04:53:37Z and merged 2026-03-18T04:55:42Z: **21 days (21.5) after the initial commit**, and it is the review policy itself. The ordering is the finding—the prototype was built first and governed afterwards, and the first thing the process brought was the rule that the building had not followed. Note this is the same shape §F13 records for Override, one repo over and three weeks later, and the same shape §B-side note at `REVIEW_POLICY.md` calls "practice preceded written policy." Cite as `swipewatch#1` per §GM1, never bare.
+**SUPPORTED, verified here because the draft asserted it and no §G row carried it.** The initial commit is `2ca43ff`, 2026-02-24T10:00:42−0800. **None of the first thirteen commits carries a `(#N)` marker**—`git log --reverse --format='%s' | head -13 | grep -c '(#[0-9]'` returns 0—so the entire core build was pushed straight to the default branch **with no pull-request review**. That is the supported claim and the limit of it (Codex P2, PR #836): pair review, an offline walkthrough or any review conducted outside GitHub would leave an identical commit history, so "unreviewed" overstates what the absence of markers can show. The repository's first pull request, `nathanjohnpayne/swipewatch#1` "Add code review policy and enforcement workflows," was created 2026-03-18T04:53:37Z and merged 2026-03-18T04:55:42Z: **21 days (21.5) after the initial commit**, and it is the review policy itself. The ordering is the finding—the prototype was built first and governed afterwards, and the first thing the process brought was the rule that the building had not followed. Note this is the same shape §F13 records for Override, one repo over and three weeks later, and the same shape §B-side note at `REVIEW_POLICY.md` calls "practice preceded written policy." Cite as `swipewatch#1` per §GM1, never bare.
 
 ### G28—a pre-coin production window existed, and it was live, instrumented, and never read
 
