@@ -140,6 +140,47 @@ assert_rc_contains "wrapper substring spoof still blocked" 2 "token-verifying wr
 ## Self-Review
 - ok"'
 
+# --- `gh pr new` is a working alias for `gh pr create` -----------------------
+# gh 2.97: `gh pr new --help` prints the create help and lists `new` under
+# ALIASES. Before the alias was canonicalized, PR_SUBCOMMAND="new" matched no
+# guarded branch, so the "Not a covered command? Allow." path exited 0 and the
+# create guard never ran -- no Authoring-Agent check, no ## Self-Review check,
+# no byline verification. A complete bypass reachable by typing a documented
+# alias, so these cases are the regression fence around it.
+assert_rc_contains "gh pr new is guarded like gh pr create" 2 "guarded GitHub write" \
+  'gh pr new --title "t" --body "Authoring-Agent: claude
+
+## Self-Review
+- ok"'
+
+# The diagnostic must name the CANONICAL command, or an operator reading it
+# goes looking for a `gh pr new` rule that does not exist.
+assert_rc_contains "blocked gh pr new reports itself as gh pr create" 2 "gh pr create" \
+  'gh pr new --title "t" --body "b"'
+
+# Global flags may precede the subcommand; the alias must still resolve.
+assert_rc_contains "gh --repo o/r pr new is guarded" 2 "guarded GitHub write" \
+  'gh --repo owner/repo pr new --title "t" --body "b"'
+
+# Non-write pr subcommands must stay allowed: canonicalizing `new` must not
+# widen the guard onto reads.
+assert_rc_contains "gh pr view stays allowed" 0 "" 'gh pr view 123'
+
+# The compound-command scan runs BEFORE the main token walk and dispatches on
+# `parent:tok`. Canonicalizing the alias in the walk alone left `pr:new`
+# unlabelled there, so a compound counted two gh commands and zero guarded
+# writes: the scan passed, the walk classified only the leading read, and the
+# whole tool call was allowed. Found independently by CodeRabbit and Codex.
+assert_rc_contains "gh pr new in a compound is guarded" 2 "compound gh command contains a guarded write" \
+  'gh pr view 1 && gh pr new --title "t" --body "b"'
+
+assert_rc_contains "gh pr new after an issue write is guarded" 2 "compound gh command contains a guarded write" \
+  'gh issue close 1 && gh pr new --title "t" --body "b"'
+
+# Control: a compound of pure reads must still be allowed, or the fix above
+# would be over-blocking rather than closing a hole.
+assert_rc_contains "compound of reads stays allowed" 0 "" 'gh pr view 1 && gh pr view 2'
+
 # #466: a path-qualified gh (e.g. /usr/bin/gh) must NOT bypass the guard.
 # Before the fix the quick-exit grep only matched bare `gh`, so a
 # path-qualified write skipped the hook entirely (exit 0).
@@ -190,6 +231,9 @@ assert_rc_contains "author wrapper pr new alias allowed" 0 "" \
 
 ## Self-Review
 - ok"'
+
+assert_rc_contains "author wrapper shell-wrapped pr create blocked" 2 "direct gh pr create" \
+  'scripts/gh-as-author.sh -- bash -c "gh pr create --title t --body INVALID"'
 
 assert_rc_contains "author wrapper defers inline body validation to runtime wrapper" 0 "" \
   'scripts/gh-as-author.sh -- gh pr create --title "t" --body "Authoring-Agent: claude"'
@@ -284,6 +328,18 @@ assert_rc_contains "cross-agent approve allowed" 0 "" \
 
 assert_rc_contains "commented author decoy cannot bypass same-agent approval" 2 "self-approve detected" \
   'GH_AS_REVIEWER_IDENTITY=nathanpayne-codex scripts/gh-as-reviewer.sh -- gh pr review 123 --approve --body "lgtm"' "CLEAN" "" "nathanpayne-codex" $'<!-- Authoring-Agent: claude -->\nAuthoring-Agent: codex' "5000" "0"
+
+# The strict Authoring-Agent body contract belongs to the shared author lane.
+# Dependabot and external contributors do not use that template; a registered
+# reviewer must still be able to approve their PRs.
+assert_rc_contains "markerless Dependabot PR can receive reviewer approval" 0 "" \
+  'GH_AS_REVIEWER_IDENTITY=nathanpayne-codex scripts/gh-as-reviewer.sh -- gh pr review 123 --approve --body "lgtm"' "CLEAN" "" "nathanpayne-codex" "" "5000" "0" "dependabot/npm_and_yarn/pkg" "dependabot[bot]"
+
+assert_rc_contains "markerless external-contributor PR can receive reviewer approval" 0 "" \
+  'GH_AS_REVIEWER_IDENTITY=nathanpayne-codex scripts/gh-as-reviewer.sh -- gh pr review 123 --approve --body "lgtm"' "CLEAN" "" "nathanpayne-codex" "" "5000" "0" "contributor/fix" "outside-contributor"
+
+assert_rc_contains "markerless shared-author PR still fails closed" 2 "exactly one visible Authoring-Agent" \
+  'GH_AS_REVIEWER_IDENTITY=nathanpayne-codex scripts/gh-as-reviewer.sh -- gh pr review 123 --approve --body "lgtm"' "CLEAN" "" "nathanpayne-codex" "" "5000" "0" "feature/fix" "nathanjohnpayne"
 
 # --- #671: the self-approve sub-guard resolves the reviewer the same way
 # the wrapper will (GH_AS_REVIEWER_IDENTITY, then MERGEPATH_AGENT, then
@@ -387,6 +443,16 @@ assert_rc_contains "inline MERGEPATH_AGENT before env -i does not unlock approve
   'MERGEPATH_AGENT=codex env -i scripts/gh-as-reviewer.sh -- gh pr review 123 --approve --body "lgtm"' "CLEAN" "" "nathanpayne-claude" "Authoring-Agent: claude" "5000" "0"
 
 ORIG_DIR="$(pwd)"
+mkdir -p "$WORKDIR/repo-custom-shared-author/.github"
+cat >"$WORKDIR/repo-custom-shared-author/.github/review-policy.yml" <<'YML'
+author_identity: custom-owner
+external_review_threshold: 300
+YML
+cd "$WORKDIR/repo-custom-shared-author"
+assert_rc_contains "policy-defined custom shared author is not treated as external" 2 "self-approve detected" \
+  'scripts/gh-as-reviewer.sh -- gh pr review 123 --approve --body "lgtm"' "CLEAN" "" "nathanpayne-claude" "Authoring-Agent: claude" "5000" "0" "feature/fix" "custom-owner"
+cd "$ORIG_DIR"
+
 mkdir -p "$WORKDIR/repo-with-policy/.github"
 cat >"$WORKDIR/repo-with-policy/.github/review-policy.yml" <<'YML'
 external_review_threshold: 500

@@ -32,6 +32,8 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 . "$ROOT/scripts/lib/gh-token-resolver.sh"
 # shellcheck source=lib/pr-body-contract.sh
 . "$ROOT/scripts/lib/pr-body-contract.sh"
+# shellcheck source=lib/gh-command-classifier.sh
+. "$ROOT/scripts/lib/gh-command-classifier.sh"
 
 AUTHOR="${GH_AS_AUTHOR_IDENTITY:-nathanjohnpayne}"
 
@@ -76,46 +78,20 @@ fi
 TOKEN="$GH_RESOLVED_TOKEN"
 
 is_pr_create_command() {
-  [ "${1:-}" = "gh" ] || return 1
-  shift
-
-  local saw_pr=0
-  local skip_value=0
-  local argument
-  for argument in "$@"; do
-    if [ "$skip_value" -eq 1 ]; then
-      skip_value=0
-      continue
-    fi
-    case "$argument" in
-      -R|--repo|--hostname)
-        skip_value=1
-        ;;
-      -R?*|--repo=*|--hostname=*) ;;
-      pr)
-        [ "$saw_pr" -eq 0 ] || return 1
-        saw_pr=1
-        ;;
-      create|new)
-        [ "$saw_pr" -eq 1 ] && return 0
-        return 1
-        ;;
-      -*) ;;
-      *) return 1 ;;
-    esac
-  done
-
-  return 1
+  gh_is_pr_create_command "$@"
 }
 
 IS_PR_CREATE=0
+PR_CREATE_VERB_INDEX=-1
 if is_pr_create_command "$@"; then
   IS_PR_CREATE=1
+  PR_CREATE_VERB_INDEX=$GH_PR_CREATE_VERB_INDEX
 fi
 
 if [ "$IS_PR_CREATE" -eq 1 ]; then
   PR_BODY=""
   NORMALIZED_COMMAND=()
+  COMMAND_INDEX=0
 
   read_pr_body_file() {
     local body_file="$1"
@@ -134,7 +110,17 @@ if [ "$IS_PR_CREATE" -eq 1 ]; then
   while [ "$#" -gt 0 ]; do
     argument="$1"
     shift
+    if [ "$COMMAND_INDEX" -le "$PR_CREATE_VERB_INDEX" ]; then
+      NORMALIZED_COMMAND+=("$argument")
+      COMMAND_INDEX=$((COMMAND_INDEX + 1))
+      continue
+    fi
+    COMMAND_INDEX=$((COMMAND_INDEX + 1))
     case "$argument" in
+      -e|--editor|-w|--web)
+        echo "gh-as-author: interactive PR creation mode '$argument' is unsupported because it can mutate the body after validation." >&2
+        exit 1
+        ;;
       --body|-b)
         if [ "$#" -eq 0 ]; then
           echo "gh-as-author: PR creation flag is missing its body value." >&2
@@ -173,7 +159,15 @@ if [ "$IS_PR_CREATE" -eq 1 ]; then
         NORMALIZED_COMMAND+=("$argument" "$1")
         shift
         ;;
-      -[^-]*[bF]*)
+      # ATTACHED value for another value-taking short option. `-tbug` is
+      # `-t bug`, not a clustered `-b`; the catch-all below would otherwise
+      # reject valid creates whose title/label/head merely contains b or F.
+      # Letters are gh's value-taking pr-create shorthands EXCEPT -b/-F, which
+      # are body flags handled above.
+      -[TtalpmBHr]?*)
+        NORMALIZED_COMMAND+=("$argument")
+        ;;
+      -[^-]*[bF][^-]*)
         echo "gh-as-author: ambiguous clustered short option '$argument' contains a PR body flag; pass -b or -F separately." >&2
         exit 1
         ;;
