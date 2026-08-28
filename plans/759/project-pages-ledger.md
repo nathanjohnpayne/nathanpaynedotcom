@@ -987,7 +987,7 @@ What the bugs actually survived on the template was **one PR with five review ob
 
 ### Delta audit for #753—rows added 2026-08-28
 
-Thirty-four rows (§E28–§E61) covering the claims #753 puts on the Mergepath page that §E1–§E27 do not reach: the counts re-derived at a fixed SHA with an as-of, the identity and actor model, the routing configuration as it stands today, the propagation regression tracked in `mergepath#1132`, exact-head clearance, the reply/resolve split in the feedback accounting gate, the bounds on adoption, the impact question #753 AC 6 asks, and the first pass this ledger has ever made over the 2,439-line PRD at `~/GitHub/docs/projects/mergepath/prds/mergepath.md`. Everything below was read at **`3d961050e203e8b7a55bb551e89aa4da834356f6`** in `~/GitHub/mergepath` (short `3d96105`, 2026-08-28 12:44:40 −0700, subject "fix(policy): make the Self-Review gate markdown-aware, nothing more (#1136)"), against `nathanpaynedotcom` at **`da6b69c285aa126e9ac3ff415ef88992b039a626`**. **Every command in these rows is written against those literal SHAs rather than `origin/main`**, per the #820 finding that a moving ref makes a row unreproducible; the tree was materialised with `git archive 3d961050e203e8b7a55bb551e89aa4da834356f6 | tar -x -C <dir>` so the scripts could be *run* rather than read. Note the pinned SHA is itself the merge commit of `mergepath#1136`, which lands three hours before this audit; several rows below turn on that.
+Thirty-five rows (§E28–§E62) covering the claims #753 puts on the Mergepath page that §E1–§E27 do not reach: the counts re-derived at a fixed SHA with an as-of, the identity and actor model, the routing configuration as it stands today, the propagation regression tracked in `mergepath#1132`, exact-head clearance, the reply/resolve split in the feedback accounting gate, the bounds on adoption, the impact question #753 AC 6 asks, and the first pass this ledger has ever made over the 2,439-line PRD at `~/GitHub/docs/projects/mergepath/prds/mergepath.md`. Everything below was read at **`3d961050e203e8b7a55bb551e89aa4da834356f6`** in `~/GitHub/mergepath` (short `3d96105`, 2026-08-28 12:44:40 −0700, subject "fix(policy): make the Self-Review gate markdown-aware, nothing more (#1136)"), against `nathanpaynedotcom` at **`da6b69c285aa126e9ac3ff415ef88992b039a626`**. **Every command in these rows is written against those literal SHAs rather than `origin/main`**, per the #820 finding that a moving ref makes a row unreproducible; the tree was materialised with `git archive 3d961050e203e8b7a55bb551e89aa4da834356f6 | tar -x -C <dir>` so the scripts could be *run* rather than read. Note the pinned SHA is itself the merge commit of `mergepath#1136`, which lands three hours before this audit; several rows below turn on that.
 
 Six rows correct a number the page currently states—§E28, §E29, §E31, §E33, §E46 and §E48, with §E31 and §E46 both landing on the consumer count. Three—§E40, §E37 and §E52—change what the page can claim, and the first two are cases where a hypothesis handed to this audit as settled turned out to be false at this SHA. §E52 is the row to read first: the page's own second premise, that branch protection is mandatory, is contradicted by a measurement the repository took of itself.
 
@@ -1379,7 +1379,7 @@ One thing the current page gets wrong by omission: `:68` names Override, Device 
 
 **SUPPORTED. The boundary stands, and the search that tested it was not cheap.** #753 AC 6 asks for impact separated from adoption, "quantified only where the record supports it," and the record supports nothing on the savings side.
 
-**There is no savings language anywhere in the repository.** A sweep for "saved", "time saved", "faster than", "reduces … time", "manual steps" and "afternoon" across `docs/audits/`, `README.md`, `REVIEW_POLICY.md`, `AGENTS.md` and `scripts/bootstrap-new-repo.sh` returns **zero hits**. There is no recorded manual baseline anywhere—no before-time for a repo bootstrap, no coordination cost measured before the standard existed—so there is nothing to subtract from.
+**PARTLY WRONG—see §E62.** This row's sweep missed `scripts/phase-4b/`, which computes a `human_minutes_saved_estimate`. The sweep as run: for "saved", "time saved", "faster than", "reduces … time", "manual steps" and "afternoon" across `docs/audits/`, `README.md`, `REVIEW_POLICY.md`, `AGENTS.md` and `scripts/bootstrap-new-repo.sh`, returning **zero hits**—but those five paths are not the repository, and the sweep's own narrowness is what produced the absolute. There is no recorded manual baseline anywhere—no before-time for a repo bootstrap, no coordination cost measured before the standard existed—so there is nothing to subtract from.
 
 **The two measurement systems that do exist both measure cost.** `docs/audits/codex-latency-2026-07.md` is a real, reproducible study (`scripts/audit-codex-latency.sh`, n=100 for the headline pair) and its findings are about how long the gates take and how often they fail to respond: trigger→verdict p50 3m37s / p90 7m6s / p99 10m30s / max 13m50s; "~19% of all historical `@codex review` triggers drew a 'To use Codex here, create a Codex account…' not-connected marker instead of a review"; the `*/15` and `*/5` gate crons do not run at their configured cadence because "GitHub throttles scheduled events so hard that the median gap between consecutive scheduled runs is ~96–98 minutes for both workflows." `scripts/repo-lint-latency-report.sh` is the same posture applied to CI: it defines budgets (`P50_MAX=300`, `P95_MAX=480`, `DEEP_P95_MAX=720` seconds) that the lint suite must stay under. Both are "what they cost." Neither is "what they save."
 
@@ -1531,6 +1531,33 @@ done
 - **Two merge gates with no §E row**—the Review Feedback Accounting Gate (§E45) and the CodeRabbit Severity Gate (`.github/workflows/coderabbit-severity-gate.yml`, required-check name "CodeRabbit unresolved blocking findings"), whose tier ladder is heuristic because `.github/review-policy.yml:378-380` notes "CodeRabbit has no numeric P-scale."
 - **`specs/` is a live surface**, not a template pattern: ten real specs at the pinned SHA, including `review_feedback_accounting.md`, `repo_lint_execution.md` and `required_check_publisher.md`.
 - **The measurement→retune loop**, which is the closest thing on record to the standard improving itself. `.github/review-policy.yml:230-237` raised the CodeRabbit wait 300s → 1245s on mined data: "p50 414s / p90 861s / p99 1136s / max 1219s (n=142)—committed extract `docs/audits/data/review-latency-2026-07/`. The prior 300s sat below even the p50, so on MORE THAN HALF of PRs the wait timed out before CodeRabbit reviewed." §E51 is the right home for the framing: this is still cost measurement, and it is the one place where measuring the cost demonstrably changed the system.
+
+### E62—the repository does compute a savings figure, and §E51's sweep missed it
+
+> §E51, as first written: "There is no savings language anywhere in the repository." The page built on it: "No savings claim exists anywhere in the repository."
+
+**WRONG, found by Codex on review round 2 of PR #848, and it is the §E51 sweep's own scope that produced the error.** `scripts/phase-4b/accounting.sh` computes a savings estimate and emits it in its aggregate record:
+
+```text
+575            human_minutes_saved_estimate:
+576              (if $approved == 0 then null
+577               else [ $approved * $mlow, $approved * $mhigh ]
+578               end)
+```
+
+The multipliers are hardcoded at `:97-98`—`P4B_ACCT_HUMAN_MINUTES_LOW=30` and `P4B_ACCT_HUMAN_MINUTES_HIGH=180`—and the figure is rendered for humans at `:1301` as "Human shuttle avoided | **~30 min – 3 h** (manual Phase 4b handoff, per REVIEW_POLICY.md § Phase 4b Triggers)."
+
+```bash
+S=3d961050e203e8b7a55bb551e89aa4da834356f6
+git -C ~/GitHub/mergepath show "${S}:scripts/phase-4b/accounting.sh" \
+  | grep -nE 'HUMAN_MINUTES|human_minutes_saved|Human shuttle avoided'
+```
+
+**What this does and does not overturn.** It overturns the absolute: a savings claim does exist, it is named, and it ships in a script rather than in prose—which is exactly why a sweep over docs and one bootstrap script could not see it. It does **not** overturn §E51's substance. The figure is an assumption multiplied by a count: the 30 and the 180 are constants nobody measured, `$approved` is the number of auto-approved pull requests, and the product is labelled `_estimate` in its own field name. There is still no recorded manual baseline anywhere, so the 30–180 minutes has nothing behind it but the range's author.
+
+**Defensible form for the page, and it is sharper than the absolute it replaces:** the repository computes one savings figure, an estimated range of human minutes avoided derived by multiplying auto-approved pull requests by a hardcoded 30-to-180-minute constant. That is an assumption wearing arithmetic, not a measurement, and it is the whole of what the record offers on the savings side.
+
+**Method note.** §E51 stated an absolute over a five-path sweep and the row said so plainly, which is what let a reviewer refute it in one command. An absolute is only as wide as its search; write the search into the row so the next reader can see where it stops.
 
 ### E59—the bolded-header refusal, and which component actually refused
 
@@ -2388,15 +2415,15 @@ Reproduce with `git rev-list --count "$(git rev-list -1 --before=2026-04-14 orig
 | §B `five-across` | 17 | 4 | 0 | 12 | 3 | 36 |
 | §C `friends-and-family-billing` | 10 | 7 | 1 | 4 | 0 | 22 |
 | §D `matchline` | 7 | 0 | 3 | 2 | 0 | 12 |
-| §E `mergepath` | 29 | 15 | 0 | 17 | 0 | 61 |
+| §E `mergepath` | 29 | 16 | 0 | 17 | 0 | 62 |
 | §F `override` | 6 | 7 | 0 | 1 | 0 | 14 |
 | §G `swipe-watch` | 10 | 6 | 1 | 1 | 0 | 18 |
 | §H cross-page | 3 | 5 | 0 | 2 | 0 | 10 |
-| **Total** | **97** | **49** | **7** | **41** | **3** | **197** |
+| **Total** | **97** | **50** | **7** | **41** | **3** | **198** |
 
 A **SPLIT** row is counted once, in its own column, not split across the other three; the row text names which half carries which verdict. WRONG rows count each restated instance separately, because each is a separate edit: §E10 and §E11 are one number stated twice, §G1–G3 are one number stated three times, and §H1–H2 re-count the Override and two-strike defects at the cross-page level where the fix has to be coordinated across files. Deduplicated to distinct underlying facts, the WRONG count is 36.
 
-**The §E row was miscounted too, in exactly the shape §B was, and it is corrected above.** It read 14/8/0/5 against a section whose twenty-seven original rows actually resolve **11 SUPPORTED, 7 WRONG, 0 UNPROVABLE, 9 SPLIT**—and, as with §B, the wrong distribution summed to the right row total, so arithmetic checking could never have caught it. That is now the second section found miscounted out of the two anyone has recounted, which is the more useful statistic: the remaining six section rows have still never been re-verified against their sections and should not be treated as audited. The §E row above is 11/7/0/9 for §E1–§E27 plus 18/8/0/8 for the #753 delta (§E28–§E61), counted by reading each row's verdict word rather than by adding to the previous figure. §E53 carries both EXTERNALLY SOURCED and WRONG and is filed as SPLIT under this table's own more-than-one-verdict rule.
+**The §E row was miscounted too, in exactly the shape §B was, and it is corrected above.** It read 14/8/0/5 against a section whose twenty-seven original rows actually resolve **11 SUPPORTED, 7 WRONG, 0 UNPROVABLE, 9 SPLIT**—and, as with §B, the wrong distribution summed to the right row total, so arithmetic checking could never have caught it. That is now the second section found miscounted out of the two anyone has recounted, which is the more useful statistic: the remaining six section rows have still never been re-verified against their sections and should not be treated as audited. The §E row above is 11/7/0/9 for §E1–§E27 plus 18/9/0/8 for the #753 delta (§E28–§E62), counted by reading each row's verdict word rather than by adding to the previous figure. §E53 carries both EXTERNALLY SOURCED and WRONG and is filed as SPLIT under this table's own more-than-one-verdict rule.
 
 **The §B row was itself miscounted before this pass, and the totals inherited it.** It read 13/5/0/6 against a section whose rows actually resolved 14 SUPPORTED, 4 WRONG, 1 UNPROVABLE, 5 SPLIT—one SUPPORTED filed as WRONG and §B15's UNPROVABLE filed as SPLIT, an error that preserved the row total of 24 and so survived arithmetic checking. It is corrected above alongside the twelve new rows; the pre-run totals should have read 79/42/8/22. The other seven section rows were **not** re-verified against their sections in this pass, and given that this one was wrong, they should not be treated as audited. Dedup drops from 37 to 36 because §B15 was among the WRONG instances counted and is now SUPPORTED.
 
