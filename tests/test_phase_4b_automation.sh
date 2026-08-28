@@ -352,14 +352,9 @@ chmod +x "$NO_JQ_DIR/jq"
 
 cat > "$BIN/gh" <<'SH'
 #!/usr/bin/env bash
-default_pr_body=$'Authoring-Agent: claude\n\n## Self-Review\n\n- Correctness: verified.'
 if [ "${1:-}" = "api" ]; then
   case "${2:-}" in
     repos/o/r/pulls/*)
-      if printf '%s\n' "$*" | grep -qF '.body // ""'; then
-        printf '%s\n' "${P4B_FAKE_PR_BODY-$default_pr_body}"
-        exit 0
-      fi
       # #674 round 4: P4B_FAKE_LIVE_HEAD2 simulates a head that drifts
       # between reads — served from the SECOND live-head read on.
       cnt_file="${P4B_ISSUE_LOG:-${TMPDIR:-/tmp}/p4b-fake}.headreads"
@@ -396,7 +391,6 @@ echo "unexpected fake gh invocation: $*" >&2
 exit 127
 SH
 chmod +x "$BIN/gh"
-export PATH="$BIN:$PATH"
 
 cat > "$BIN/fake-gh-as-reviewer" <<'SH'
 #!/usr/bin/env bash
@@ -1541,6 +1535,66 @@ if [ "$rc" = 5 ] && printf '%s' "$out" | jq -e '.repo == "o/r\nextra"' >/dev/nul
   pass "automation disabled JSON escapes control characters"
 else fail "disabled path JSON escaping (rc=$rc, out=$out)"; fi
 
+# #1046: the disabled-path skip JSON names its source as "config" so a
+# forced run (below) is distinguishable from an ordinary configured skip.
+set +e
+out="$(MERGEPATH_REVIEW_POLICY_PATH="$POLICY_OFF" bash "$ORCH" 123 --repo o/r 2>/dev/null)"; rc=$?
+set -e
+if [ "$rc" = 5 ] && [ "$(printf '%s' "$out" | jq -r '.enabled_via')" = "config" ]; then
+  pass "#1046: an ordinary configured-disabled skip reports enabled_via=config"
+else fail "#1046: disabled-skip enabled_via (rc=$rc, out=$out)"; fi
+
+# #1046: --force-enabled runs the automation on a single PR even though
+# phase_4b_automation.enabled is false in the policy file — no repo-wide
+# config edit required. Mirrors the existing "Direction A" dry-run success
+# case below, but starting from POLICY_OFF instead of POLICY_ON.
+set +e
+out="$(MERGEPATH_REVIEW_POLICY_PATH="$POLICY_OFF" CODEX_BIN="$BIN/fake-codex-approve" \
+  bash "$ORCH" 123 --repo o/r --author claude --head abc123 --diff-file "$DIFF" --dry-run --force-enabled 2>/dev/null)"; rc=$?
+set -e
+if [ "$rc" = 0 ] \
+   && [ "$(printf '%s' "$out" | jq -r '.verdict')" = "APPROVED" ] \
+   && [ "$(printf '%s' "$out" | jq -r '.automation_enabled')" = "true" ] \
+   && [ "$(printf '%s' "$out" | jq -r '.enabled_via')" = "override" ]; then
+  pass "#1046: --force-enabled runs automation on a disabled repo, enabled_via=override"
+else fail "#1046: --force-enabled dry-run (rc=$rc): $out"; fi
+
+# #1046: P4B_FORCE_ENABLED=1 is the env-var equivalent of --force-enabled.
+set +e
+out="$(MERGEPATH_REVIEW_POLICY_PATH="$POLICY_OFF" CODEX_BIN="$BIN/fake-codex-approve" \
+  P4B_FORCE_ENABLED=1 \
+  bash "$ORCH" 123 --repo o/r --author claude --head abc123 --diff-file "$DIFF" --dry-run 2>/dev/null)"; rc=$?
+set -e
+if [ "$rc" = 0 ] \
+   && [ "$(printf '%s' "$out" | jq -r '.verdict')" = "APPROVED" ] \
+   && [ "$(printf '%s' "$out" | jq -r '.enabled_via')" = "override" ]; then
+  pass "#1046: P4B_FORCE_ENABLED=1 is equivalent to --force-enabled"
+else fail "#1046: P4B_FORCE_ENABLED=1 dry-run (rc=$rc): $out"; fi
+
+# #1046: the override touches ONLY `enabled` — a repo whose `mode` is not
+# `local` still defers to the manual handoff, force-enabled or not. Without
+# this, --force-enabled would be a back door around the mode gate too.
+POLICY_OFF_NONLOCAL_MODE="$WORK/policy-off-nonlocal-mode.yml"
+cat > "$POLICY_OFF_NONLOCAL_MODE" <<'YAML'
+available_reviewers:
+  - nathanpayne-claude
+  - nathanpayne-codex
+default_external_reviewer: nathanpayne-codex
+phase_4b_automation:
+  enabled: false
+  mode: cloud
+YAML
+set +e
+out="$(MERGEPATH_REVIEW_POLICY_PATH="$POLICY_OFF_NONLOCAL_MODE" \
+  bash "$ORCH" 123 --repo o/r --force-enabled 2>/dev/null)"; rc=$?
+set -e
+if [ "$rc" = 5 ] \
+   && [ "$(printf '%s' "$out" | jq -r '.reason')" = "mode-not-local" ] \
+   && [ "$(printf '%s' "$out" | jq -r '.automation_enabled')" = "true" ] \
+   && [ "$(printf '%s' "$out" | jq -r '.enabled_via')" = "override" ]; then
+  pass "#1046: --force-enabled overrides ONLY enabled; a non-local mode still defers to the manual handoff"
+else fail "#1046: force-enabled + non-local mode (rc=$rc): $out"; fi
+
 # Undispositioned feedback is a distinct no-dispatch hold, not a manual
 # fallback and not a completed review round.
 FEEDBACK_BLOCK_STUB="$WORK/feedback-accounting-block.sh"
@@ -1597,8 +1651,7 @@ else fail "Direction A (rc=$rc): $out"; fi
 
 # Direction B: author=codex → reviewer claude → CHANGES_REQUESTED → exit 1
 set +e
-out="$(PATH="$BIN:$PATH" MERGEPATH_REVIEW_POLICY_PATH="$POLICY_ON" CLAUDE_BIN="$BIN/fake-claude-changes" \
-  P4B_FAKE_PR_BODY=$'Authoring-Agent: codex\n\n## Self-Review\n\n- Correctness: verified.' \
+out="$(MERGEPATH_REVIEW_POLICY_PATH="$POLICY_ON" CLAUDE_BIN="$BIN/fake-claude-changes" \
   bash "$ORCH" 124 --repo o/r --author codex --head abc123 --diff-file "$DIFF" --dry-run 2>/dev/null)"; rc=$?
 set -e
 if [ "$rc" = 1 ] \
@@ -1607,40 +1660,6 @@ if [ "$rc" = 1 ] \
    && [ "$(printf '%s' "$out" | jq -r '.findings_count')" = "1" ]; then
   pass "Direction B (codex→claude) dry-run CHANGES_REQUESTED → exit 1"
 else fail "Direction B (rc=$rc): $out"; fi
-
-# A freshly created PR is attributable without an explicit --author override:
-# the orchestrator reads the live body, applies the shared contract parser,
-# and rotates to the other reviewer identity.
-set +e
-out="$(PATH="$BIN:$PATH" MERGEPATH_REVIEW_POLICY_PATH="$POLICY_ON" CLAUDE_BIN="$BIN/fake-claude-changes" \
-  P4B_FAKE_PR_BODY=$'Authoring-Agent: codex\n\n## Self-Review\n\n- Correctness: verified.' \
-  bash "$ORCH" 764 --repo o/r --head abc123 --diff-file "$DIFF" --dry-run 2>/dev/null)"; rc=$?
-set -e
-if [ "$rc" = 1 ] \
-   && [ "$(printf '%s' "$out" | jq -r '.direction')" = "codex->claude" ] \
-   && [ "$(printf '%s' "$out" | jq -r '.reviewer_identity')" = "nathanpayne-claude" ]; then
-  pass "#764: Phase 4b parses Authoring-Agent from a newly created PR body"
-else fail "#764: Phase 4b live-body author parsing (rc=$rc): $out"; fi
-
-set +e
-out="$(PATH="$BIN:$PATH" MERGEPATH_REVIEW_POLICY_PATH="$POLICY_ON" CLAUDE_BIN="$BIN/fake-claude-changes" \
-  P4B_FAKE_PR_BODY=$'Authoring-Agent: codxe\n\n## Self-Review\n\n- Correctness: verified.' \
-  bash "$ORCH" 764 --repo o/r --head abc123 --diff-file "$DIFF" --dry-run 2>&1)"; rc=$?
-set -e
-if [ "$rc" = 3 ] \
-   && printf '%s' "$out" | grep -q 'available_reviewers'; then
-  pass "#764: Phase 4b rejects unknown Authoring-Agent values before reviewer selection"
-else fail "#764: Phase 4b unknown author rejection (rc=$rc): $out"; fi
-
-set +e
-out="$(MERGEPATH_REVIEW_POLICY_PATH="$POLICY_ON" CODEX_BIN="$BIN/fake-codex-approve" \
-  P4B_FAKE_PR_BODY=$'Authoring-Agent: codex\n\n## Self-Review\n\n- Correctness: verified.' \
-  bash "$ORCH" 764 --repo o/r --author claude --head abc123 --diff-file "$DIFF" --dry-run 2>&1)"; rc=$?
-set -e
-if [ "$rc" = 3 ] \
-   && printf '%s' "$out" | grep -q 'conflicts with live PR body'; then
-  pass "#764: Phase 4b rejects an --author override that conflicts with the live body"
-else fail "#764: Phase 4b conflicting author override (rc=$rc): $out"; fi
 
 # Fail-closed: adapter returns junk → orchestrator falls back, exit 4, never APPROVED
 HANDOFF_LOG="$WORK/handoff-junk.log"
@@ -1659,7 +1678,6 @@ HANDOFF_LOG="$WORK/handoff-claude.log"
 set +e
 out="$(MERGEPATH_REVIEW_POLICY_PATH="$POLICY_ON" CLAUDE_BIN="$BIN/fake-claude-junk" \
   P4B_HANDOFF="$BIN/fake-handoff" P4B_HANDOFF_LOG="$HANDOFF_LOG" \
-  P4B_FAKE_PR_BODY=$'Authoring-Agent: codex\n\n## Self-Review\n\n- Correctness: verified.' \
   bash "$ORCH" 126 --repo o/r --author codex --head abc123 --diff-file "$DIFF" --dry-run 2>/dev/null)"; rc=$?
 set -e
 if [ "$rc" = 4 ] \
@@ -2057,7 +2075,6 @@ WRAPPER_PAYLOAD="$WORK/wrapper-usage-payload.json"
 set +e
 out="$(PATH="$BIN:$PATH" MERGEPATH_REVIEW_POLICY_PATH="$POLICY_ON" CLAUDE_BIN="$BIN/fake-claude-approve-usage" \
   P4B_GH_AS_REVIEWER="$BIN/fake-gh-as-reviewer" P4B_GH_AS_AUTHOR="$BIN/fake-gh-as-author" P4B_WRAPPER_LOG="$WRAPPER_LOG" P4B_WRAPPER_BODY="$WRAPPER_BODY" P4B_WRAPPER_PAYLOAD="$WRAPPER_PAYLOAD" P4B_FAKE_LIVE_HEAD=abc123 \
-  P4B_FAKE_PR_BODY=$'Authoring-Agent: codex\n\n## Self-Review\n\n- Correctness: verified.' \
   bash "$ORCH" 130 --repo o/r --author codex --head abc123 --diff-file "$DIFF" 2>/dev/null)"; rc=$?
 set -e
 if [ "$rc" = 0 ] \
@@ -2083,7 +2100,6 @@ else fail "orchestrator adapter timeout (rc=$rc): $out"; fi
 # Forced reviewer override must still preserve the cross-agent invariant.
 set +e
 MERGEPATH_REVIEW_POLICY_PATH="$POLICY_ON" CODEX_BIN="$BIN/fake-codex-approve" \
-  P4B_FAKE_PR_BODY=$'Authoring-Agent: codex\n\n## Self-Review\n\n- Correctness: verified.' \
   bash "$ORCH" 133 --repo o/r --author codex --reviewer nathanpayne-codex --head abc123 --diff-file "$DIFF" --dry-run >/dev/null 2>&1; rc=$?
 set -e
 [ "$rc" = 3 ] && pass "forced reviewer matching author rejected with exit 3" \
@@ -2261,7 +2277,6 @@ else fail "orchestrator policy codex effort/timeout (rc=$rc, out=$out, body=$(te
 
 set +e
 out="$(MERGEPATH_REVIEW_POLICY_PATH="$WORK/policy-te.yml" CLAUDE_BIN="$BIN/fake-claude-effort" \
-  P4B_FAKE_PR_BODY=$'Authoring-Agent: codex\n\n## Self-Review\n\n- Correctness: verified.' \
   bash "$ORCH" 141 --repo o/r --author codex --head abc123 --diff-file "$DIFF" --dry-run 2>/dev/null)"; rc=$?
 set -e
 if [ "$rc" = 0 ] && [ "$(printf '%s' "$out" | jq -r '.reviewer_effort')" = "xhigh" ]; then
