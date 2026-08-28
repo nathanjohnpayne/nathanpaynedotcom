@@ -101,7 +101,7 @@ Every Mermaid diagram is authored with a short accessible title and a relational
 
 Every explicit Mermaid node fill and label color uses three- or six-digit hex colors whose WCAG contrast ratio is at least 4.5:1. Tests measure the rendered SVG rather than parsing Mermaid source syntax.
 
-Mermaid is supported only in blog posts under `src/content/blog/**/*.md`. The globally registered metadata adapter rejects Mermaid fences in every other content collection and Markdown page.
+Mermaid is supported in blog posts under `src/content/blog/**/*.md` and in project pages under `src/content/projects/**/*.{md,mdx}` (#753). The globally registered metadata adapter rejects Mermaid fences in every other content collection and Markdown page. Adding a third collection means extending three things together, not one: the adapter's allow-list, the rendered-contrast sweep in `tests/mermaid-contrast.test.js`, and the route list in `tests/responsive/mermaid-accessibility.spec.ts`. A collection allowed in the adapter but absent from the other two ships diagrams nothing checks.
 
 ### Credential Hygiene
 - This repo should not contain API keys, service-account JSON, or ADC credentials. Public client identifiers (GA Measurement ID, Logo.dev publishable token, PostHog `phc_`) are public-by-design but still env-injected via `.env.tpl`/`op inject` and never hardcoded; anything that can read or manage data is a secret and likewise never committed.

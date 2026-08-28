@@ -3715,6 +3715,17 @@ svg.mermaid foreignObject {
   overflow: visible;
 }
 
+/* Mermaid measures every label at its configured 14px/1.5 and draws the node
+   box to match. The label itself paints inside a foreignObject, so whatever
+   the surrounding collection styles `p` as wins: project pages set a larger
+   body scale than the blog and painted labels ~28% taller than their own
+   boxes (#753). Pin the label back to the metrics Mermaid measured against. */
+svg.mermaid foreignObject p {
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+
 /* Sidebar items: mermaid diagrams, images */
 .mermaid-figure {
   margin: 0;
@@ -3725,6 +3736,10 @@ svg.mermaid foreignObject {
   width: 100%;
   max-width: 100%;
   height: auto;
+  /* Mermaid writes its own natural width as an inline max-width, so a diagram
+     narrower than the column renders narrow. Centre it rather than leaving it
+     against the left margin with dead space beside it. */
+  margin-inline: auto;
 }
 
 .mermaid-fallback {

@@ -21,11 +21,22 @@ export default function remarkMermaidMetadata() {
   };
 }
 
+// Collections whose bodies may carry an inline Mermaid fence. Blog posts load
+// with `pattern: '**/*.md'` so only `.md` can exist there; project pages load
+// `**/*.{md,mdx}` and the case-study pages are `.mdx`, so both extensions are
+// accepted for that collection. Every other collection and every standalone
+// Markdown page still rejects, because the diagram CSS, the contrast test and
+// the accessibility spec are only wired for these two.
+const SUPPORTED_CONTENT_PATHS = [
+  /(^|\/)src\/content\/blog\/(?:[^/]+\/)*[^/]+\.md$/,
+  /(^|\/)src\/content\/projects\/(?:[^/]+\/)*[^/]+\.mdx?$/,
+];
+
 function assertSupportedContentFile(file) {
   const filePath = String(file?.path ?? file?.history?.at(-1) ?? '').replaceAll('\\', '/');
-  if (!/(^|\/)src\/content\/blog\/(?:[^/]+\/)*[^/]+\.md$/.test(filePath)) {
+  if (!SUPPORTED_CONTENT_PATHS.some((pattern) => pattern.test(filePath))) {
     throw new Error(
-      `Mermaid code fences are only supported in src/content/blog Markdown files (received ${filePath || 'an unknown source'})`,
+      `Mermaid code fences are only supported in src/content/blog and src/content/projects (received ${filePath || 'an unknown source'})`,
     );
   }
 }

@@ -7,6 +7,9 @@ import { renderSidebarMermaid } from '../src/lib/render-sidebar-mermaid.mjs';
 
 const MINIMUM_CONTRAST = 4.5;
 const builtBlogRoot = resolve('dist/blog');
+// Project pages carry Mermaid too (#753); an explicit node fill there is held
+// to the same 4.5:1 rule, so the contrast sweep has to see both collections.
+const builtProjectRoot = resolve('dist/projects');
 
 describe('rendered Mermaid contrast', () => {
   it('keeps every explicitly styled rendered node at WCAG AA contrast', () => {
@@ -15,8 +18,9 @@ describe('rendered Mermaid contrast', () => {
 
     expect(existsSync(builtBlogRoot), 'dist/blog must exist; run npm run build first').toBe(true);
 
-    for (const pagePath of findFilesRecursively(builtBlogRoot, (path) =>
-      path.endsWith('index.html'),
+    const roots = [builtBlogRoot, builtProjectRoot].filter((root) => existsSync(root));
+    for (const pagePath of roots.flatMap((root) =>
+      findFilesRecursively(root, (path) => path.endsWith('index.html')),
     )) {
       const document = new JSDOM(readFileSync(pagePath, 'utf8')).window.document;
       const result = renderedContrastFailures(document);

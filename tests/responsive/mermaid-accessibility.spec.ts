@@ -82,6 +82,9 @@ test('Mermaid descriptions label diagrams without becoming duplicate navigable t
 for (const route of [
   '/blog/six-prs-one-bug-agent-failure-modes/',
   '/blog/autofix-was-the-whole-cost/',
+  // Project pages carry Mermaid since #753; the accessibility contract is the
+  // same one, so the route list has to include the collection that uses it.
+  '/projects/mergepath/',
 ]) {
   test(`${route} paints every label at the height Mermaid measured`, async ({ page }) => {
     await page.goto(route);

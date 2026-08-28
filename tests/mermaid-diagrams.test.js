@@ -9,17 +9,28 @@ import { rehypeMermaidSvg } from '../src/plugins/rehype-mermaid-accessibility.mj
 
 const builtRoot = resolve('dist');
 const builtBlogRoot = resolve('dist/blog');
+// Mermaid is supported in two collections (#753), so the built-output
+// assertions below scan both. Scanning only dist/blog would leave every
+// project-page diagram uncovered by the label-break, accessibility and
+// client-JS checks the moment one is authored.
+const builtDiagramRoots = [builtBlogRoot, resolve('dist/projects')];
 const blogFixturePath = resolve('src/content/blog/mermaid-fixture.md');
 
 function builtBlogPagePaths() {
-  return findFilesRecursively(
-    builtBlogRoot,
-    (filePath) => basename(filePath) === 'index.html' && dirname(filePath) !== builtBlogRoot,
-  );
+  return builtDiagramRoots
+    .filter((root) => existsSync(root))
+    .flatMap((root) =>
+      findFilesRecursively(
+        root,
+        (filePath) => basename(filePath) === 'index.html' && dirname(filePath) !== root,
+      ),
+    );
 }
 
 function builtBlogSlug(pagePath) {
-  return relative(builtBlogRoot, dirname(pagePath)).split(sep).join('/');
+  const root = builtDiagramRoots.find((candidate) => pagePath.startsWith(candidate + sep));
+  const base = root ?? builtBlogRoot;
+  return `${basename(base)}/${relative(base, dirname(pagePath)).split(sep).join('/')}`;
 }
 
 async function validateMermaidMetadata(tree, filePath = blogFixturePath) {
@@ -54,7 +65,7 @@ describe('rehype-mermaid integration', () => {
     expect(code).toEqual({ type: 'code', lang: 'javascript', value: 'const x = 1;' });
   });
 
-  it('accepts nested blog content but rejects unsupported collections', async () => {
+  it('accepts nested blog content and project pages but rejects unsupported collections', async () => {
     const code = {
       type: 'code',
       lang: 'mermaid',
@@ -68,12 +79,32 @@ describe('rehype-mermaid integration', () => {
         resolve('src/content/blog/nested/deeper/example.md'),
       ),
     ).resolves.toBeUndefined();
+    // Project pages carry the case-study diagrams (#753). Both extensions are
+    // accepted because that collection loads `**/*.{md,mdx}` and the converted
+    // pages are `.mdx`.
     await expect(
       validateMermaidMetadata(
         { type: 'root', children: [{ ...code }] },
-        resolve('src/content/projects/example.md'),
+        resolve('src/content/projects/example.mdx'),
       ),
-    ).rejects.toThrow(/only supported in src\/content\/blog/i);
+    ).resolves.toBeUndefined();
+    await expect(
+      validateMermaidMetadata(
+        { type: 'root', children: [{ ...code }] },
+        resolve('src/content/projects/nested/example.md'),
+      ),
+    ).resolves.toBeUndefined();
+    // Every other collection still rejects — the diagram CSS, the contrast
+    // test and the accessibility spec are wired for blog and projects only.
+    await expect(
+      validateMermaidMetadata(
+        { type: 'root', children: [{ ...code }] },
+        resolve('src/content/resume/projects/example.md'),
+      ),
+    ).rejects.toThrow(/only supported in src\/content\/blog and src\/content\/projects/i);
+    await expect(
+      validateMermaidMetadata({ type: 'root', children: [{ ...code }] }, resolve('src/pages/about.md')),
+    ).rejects.toThrow(/only supported in src\/content\/blog and src\/content\/projects/i);
   });
 
   it('requires separated title and description attributes', async () => {

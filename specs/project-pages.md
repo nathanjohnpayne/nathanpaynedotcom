@@ -119,6 +119,14 @@ Prose on live operation—platform behavior, the agent model, real limits.
 What the project demonstrates, in a sentence or two.
 ```
 
+### Diagrams
+
+A project page body may carry a Mermaid diagram, on the same contract the blog uses: a fenced ```mermaid block with whitespace-separated `title="..." description="..."` metadata, both required. The description is the accessible text a screen reader receives, so it states the relationships or the conclusion the diagram carries, never a list of its nodes.
+
+Two things bound this. **Keep node labels short.** Mermaid measures a label in its own font and sizes the node box to that measurement, and the site paints in Inter, which is wider; a long label escapes its box rather than being clipped, which is the deliberate trade recorded in `global.css` (#746). **Every explicit node fill needs 4.5:1 against its own label color**, measured on the rendered SVG by `tests/mermaid-contrast.test.js`. `--blue` fails that bar against both ink and paper and is not usable as a node fill.
+
+`tests/responsive/mermaid-accessibility.spec.ts` asserts that every label paints at the height Mermaid measured. Any project route carrying a diagram belongs in its route list.
+
 **The imports are required, and only the ones the page actually places.** MDX does not put these components in scope on its own—the route supplies the *data* on `<Content />`, never the components—so a body that uses `<DecisionLedger>` without importing it fails the build on a missing reference.
 
 **The paths are relative to the file, so they depend on where the file sits.** `../../` is right for `src/content/projects/<slug>.mdx`, the flat layout every project uses today. The collection glob is `**/*.{md,mdx}` and does accept a nested project, and `src/content/projects/<group>/<slug>.mdx` would need `../../../`. No path alias is configured in this repo; adding one is a repo-wide config change that would need its own discussion under [Framework Rules](../docs/agents/code-modification-rules.md#framework-rules). Getting the depth wrong fails the build on an unresolved module, so it costs one build cycle—unlike the frontmatter traps above, which are silent.
