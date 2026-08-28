@@ -4251,6 +4251,45 @@ svg.mermaid foreignObject {
   margin-inline: auto;
 }
 
+/* Two figures set side by side, so an interaction and its result read as one
+   before/after rather than as two screenshots a section apart. Each keeps its
+   own caption and its width/height reservation. The portrait cap is lifted
+   inside a pair because the column is already halved, and both are held to a
+   common height so a tall capture beside a short one does not read as ragged.
+   Below the tablet breakpoint the pair stacks, which is the single-column
+   behaviour the figures already have on their own. */
+.figure-pair {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  align-items: start;
+}
+
+.figure-pair .blog-figure {
+  margin: 1rem 0 1.25rem;
+}
+
+.figure-pair .blog-figure-portrait img,
+.figure-pair .blog-figure img {
+  max-width: 100%;
+  max-height: 26rem;
+  width: auto;
+  margin-inline: auto;
+}
+
+@media (max-width: 768px) {
+  .figure-pair {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+
+  .figure-pair .blog-figure-portrait img,
+  .figure-pair .blog-figure img {
+    max-height: none;
+    max-width: min(100%, 30rem);
+  }
+}
+
 .blog-code-block {
   margin: 1rem 0 1.2rem;
   overflow-x: auto;

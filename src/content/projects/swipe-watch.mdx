@@ -54,8 +54,6 @@ related:
 import ConstraintStrip from '../../components/projects/ConstraintStrip.astro';
 import DecisionLedger from '../../components/projects/DecisionLedger.astro';
 
-![Swipe interaction: a Disney+ title card with dismiss, save and like controls, dealt ten to a session.](/images/projects/swipe-watch-card.png)
-
 ## The hypothesis
 
 Streaming recommendations learn from expensive signals. A start, a finish, an abandon—each one costs the viewer a real commitment of attention, and the system has to wait for it. That makes preference data sparse and late: you browse for ten minutes and teach the recommender nothing until you actually commit.
@@ -74,7 +72,13 @@ Then the first version revealed its own gap. Sessions deal ten cards, and when t
 
 That is the meaningful product change on this project—not a feature added to a list, but a response to watching the core mechanic run out of room.
 
+<div class="figure-pair">
+
+![Swipe interaction: a Disney+ title card with dismiss, save and like controls, dealt ten to a session.](/images/projects/swipe-watch-card.png)
+
 ![The second loop: the end-of-session screen, where swipes have banked ten coins toward unlocking another discovery mode.](/images/projects/swipe-watch-end-screen.png)
+
+</div>
 
 <DecisionLedger decisions={props.decisions} />
 
