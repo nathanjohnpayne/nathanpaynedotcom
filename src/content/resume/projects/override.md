@@ -1,6 +1,6 @@
 ---
 name: "Override – Broadway Financial Operating System"
-tech: ["Next.js", "TypeScript", "Tailwind", "Zod", "Firebase", "Vitest"]
+tech: ["Next.js", "TypeScript", "Tailwind", "Firebase", "Recharts", "Vitest"]
 url: "https://overridebroadway.com"
 order: 3
 ---
