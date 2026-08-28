@@ -20,7 +20,7 @@ constraints:
   - value: "9 repos"
     label: "the hub plus eight consumers"
   - value: "470 PRs"
-    label: "merged on the hub, not proof each ran the loop"
+    label: "merged on the hub by 2026-08-28, not proof each ran the loop"
   - value: "0 forks"
     label: "public and forkable since March 2026"
   - value: "No baseline"
@@ -104,12 +104,12 @@ The origin story is told in [Agent Approval Workflow and the Genesis of Mergepat
 
 Five machine roles and one human, and the whole design is in which of them may do what. An authoring agent writes the change but opens it under one shared human identity, so what lands carries a single name rather than an agent's. Two gates stand between that pull request and the merge, and the reviewer agent behind the second one holds its own account precisely so that approving and authoring cannot be the same hand. The CI service account that runs the checks may never hold an approval at all, because GitHub counts an approval from any account with write access and offers nothing to tell a robot from a person. The human tiebreaker is a working role rather than a courtesy: the triggers that summon it are mechanical, so a finding re-flagged after a rebuttal, or a round counter past its budget, escalates on its own. Nobody has to decide whether a disagreement is worth raising.
 
-```mermaid title="Who may author, approve, merge and escalate" description="An authoring agent opens a pull request under one shared human identity, so what lands carries a single name. Two machine gates stand between that pull request and the merge: branch rules with CI, and a reviewer agent on its own account that can approve but never merge. The CI service account runs those checks and may never hold an approval at all. A finding re-flagged after a rebuttal, or a round counter past its budget, routes to the human tiebreaker rather than back into the automation. Only the author identity merges."
+```mermaid title="Who may author, approve, merge and escalate" description="An authoring agent opens a pull request under one shared human identity, so what lands carries a single name. Two machine gates stand between that pull request and the merge: branch rules with CI, which fail closed only where a repository actually lists them as required, and a reviewer agent on its own account that can approve but never merge. The CI service account runs those checks and may never hold an approval at all. A finding re-flagged after a rebuttal, or a round counter past its budget, routes to the human tiebreaker rather than back into the automation. Only the author identity merges."
 flowchart TD
     AG["Authoring agent"]
     PR["Pull request<br/>one shared identity"]
     BOT["CI service account<br/>never approves"]
-    GATE["Branch rules + CI<br/>fails closed"]
+    GATE["Branch rules + CI<br/>fails closed where required"]
     RV["Reviewer agent<br/>own account<br/>never merges"]
     HT["Human tiebreaker"]
     MERGE["Merge<br/>author identity"]
