@@ -69,7 +69,7 @@ const homepageProjectDescriptions = [
   'A financial operating system for Broadway productions—models capitalization and investor returns, manages ownership, and shares live deals with backers without spreadsheet or PDF workflows.',
   'A single web application that tracks partner-device hardware, DRM, codec support, and operational readiness across Disney+, Hulu, and ESPN.',
   'A career CRM for one person running a serious job search—turns work history into structured, reusable evidence, maps it against specific job requirements, and generates applications grounded in demonstrated work.',
-  'A swipe-based discovery experiment for Disney+ and Hulu that turns expressing taste and building a watchlist into a game—built in vanilla JS across three days.',
+  'A swipe-based discovery experiment for Disney+ and Hulu that turns expressing taste into a game—built in vanilla JS across three days of one week.',
   'Cloud-synced shared-bill coordination for families and friend groups—turns recurring costs into clear annual invoices, payment tracking, and shareable summaries.',
 ];
 
@@ -667,6 +667,50 @@ describe('Project Pages — screenshot aspect variants', () => {
       .join('\n');
     expect(css).toMatch(/\.blog-figure-portrait\s+img\s*\{[^}]*max-width:/);
     expect(css).not.toMatch(/\.blog-figure-portrait\s+img\s*\{[^}]*width:\s*auto/);
+  });
+
+  it('every inline project-page figure is registered in the dimension map', () => {
+    // rehype-figure-captions only stamps width/height and the portrait cap on
+    // images it can measure, and its `imageDimensions` map is hand-maintained.
+    // An unregistered image renders at full column width with no CLS
+    // reservation — invisible in a diff, visible only as a layout shift in the
+    // browser. The five-across assertion above is slug-specific and so could
+    // not catch three Swipe Watch captures shipping unregistered (Codex P2 on
+    // PR #836); this one generalises it to every project page.
+    const slugs = readdirSync(join(DIST, 'projects'), { withFileTypes: true })
+      .filter((entry) => entry.isDirectory())
+      .map((entry) => entry.name);
+    expect(slugs.length).toBeGreaterThan(0);
+
+    let figuresChecked = 0;
+    for (const slug of slugs) {
+      setupDOM(readDistHtml(`projects/${slug}/index.html`));
+
+      for (const img of document.querySelectorAll('figure.blog-figure img')) {
+        const src = img.getAttribute('src');
+        const width = Number(img.getAttribute('width'));
+        const height = Number(img.getAttribute('height'));
+
+        expect(
+          width,
+          `${slug}: ${src} has no width — add it to imageDimensions`,
+        ).toBeGreaterThan(0);
+        expect(
+          height,
+          `${slug}: ${src} has no height — add it to imageDimensions`,
+        ).toBeGreaterThan(0);
+
+        if (height > width) {
+          expect(
+            img.closest('figure').className,
+            `${slug}: ${src} is portrait and must carry blog-figure-portrait`,
+          ).toContain('blog-figure-portrait');
+        }
+        figuresChecked += 1;
+      }
+    }
+
+    expect(figuresChecked).toBeGreaterThan(0);
   });
 
   it('Mergepath, Matchline, Override, DST, and FFB use the wide screenshot variant', () => {
