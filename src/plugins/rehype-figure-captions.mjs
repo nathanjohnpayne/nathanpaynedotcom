@@ -73,7 +73,7 @@ const imageDimensions = {
   },
   '/images/projects/swipe-watch-end-screen.png': {
     width: 780,
-    height: 1688,
+    height: 1010,
   },
 };
 
