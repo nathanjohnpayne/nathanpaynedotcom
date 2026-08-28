@@ -247,6 +247,9 @@ Bind every Fable B to these:
 - CMOS em dashes, closed up, no surrounding spaces.
 - Soft-wrap: one physical line per paragraph.
 - The decision count its own issue specifies, each with a real rejected alternative. A decision without a credible alternative is implementation description—cut it and pick another.
+- **Author records in the assertion anatomy** (#754, #846): `lens` / `context` as what I encountered / `chosen` as what I decided / `rationale` as why / `cost` / `evidence`. `rejected` is now optional, because under this shape the alternative often reads better inside the reasoning. All three pages carrying records use it; the four remaining pages should too.
+- **`cost` is the uncomfortable consequence, and it is required whenever `chosen` is present**—`tests/content-schema.test.js` fails a record that declares one without the other. "Increased implementation complexity" follows almost every software decision and is therefore not a cost. The cost is what the product cannot now do. If a record genuinely gave up nothing, leave it on the original anatomy rather than inventing one; the optional fields exist for exactly that case, and inventing a cost to satisfy a schema is the failure this structure exists to prevent.
+- **Titles assert, they do not label.** "Deal Rooms" and "Scenario modeling" name surfaces; "Let investors read before they sign up" and "Show three scenarios, not one forecast" name positions. A reader skimming only the titles should come away with the product's argument.
 
 ### Mechanical workers
 
