@@ -1003,7 +1003,7 @@ The best figure for the page is the one the repository computes about itself, be
 
 ```bash
 S=3d961050e203e8b7a55bb551e89aa4da834356f6
-git -C ~/GitHub/mergepath archive "$S" | tar -x -C /tmp/mp && cd /tmp/mp
+mkdir -p /tmp/mp && git -C ~/GitHub/mergepath archive "$S" | tar -x -C /tmp/mp && cd /tmp/mp
 ./scripts/ci/check_ci_scripts_wired
 # check_ci_scripts_wired: PASS (72 check_* scripts, all wired or exempt)
 ```
@@ -1049,7 +1049,7 @@ GH_TOKEN="$OP_PREFLIGHT_REVIEWER_PAT" gh api -X GET search/issues -f q='
   repo:nathanjohnpayne/fiveacross is:pr is:merged' --jq .total_count           # 2260
 ```
 
-**It is not an adoption figure and the page must not present it as one.** Adoption is eight consumers, all owned by one person (§E46). The 2,260 counts every PR each repo ever merged, including PRs that predate its adoption of the standard, Dependabot bumps, and propagation mirrors—so it measures *throughput that has since passed through the gates*, not uptake. Defensible form if the page wants it: "the fleet has merged over two thousand PRs (2,260 on 2026-08-28)," framed as volume, never as reach.
+**It is not an adoption figure and the page must not present it as one.** Adoption is eight consumers, all owned by one person (§E46). The 2,260 counts every PR each repo ever merged, including PRs that predate its adoption of the standard, Dependabot bumps, and propagation mirrors—so it is **lifetime merged-PR volume across the repositories that are in the fleet today**, and explicitly not a count of PRs the gates ever saw. The pre-adoption PRs cannot be gated throughput by definition, and this row previously said they were. Defensible form if the page wants it: "the fleet has merged over two thousand PRs (2,260 on 2026-08-28)," framed as volume, never as reach.
 
 ### E31—the consumer list is eight, not nine, and it shrank
 
@@ -1194,7 +1194,7 @@ Executed rather than read, per the §F21 standard. Running the decider against a
 
 ```bash
 S=3d961050e203e8b7a55bb551e89aa4da834356f6
-git -C ~/GitHub/mergepath archive "$S" | tar -x -C /tmp/mp && cd /tmp/mp
+mkdir -p /tmp/mp && git -C ~/GitHub/mergepath archive "$S" | tar -x -C /tmp/mp && cd /tmp/mp
 GH_TOKEN="$OP_PREFLIGHT_REVIEWER_PAT" bash scripts/coderabbit-should-invoke.sh 1136 \
   --repo nathanjohnpayne/mergepath --json
 # {"pr_number":1136,"decision":"invoke",
@@ -1387,7 +1387,7 @@ One thing the current page gets wrong by omission: `:68` names Override, Device 
 
 ```bash
 S=3d961050e203e8b7a55bb551e89aa4da834356f6
-git -C ~/GitHub/mergepath archive "$S" | tar -x -C /tmp/mp && cd /tmp/mp
+mkdir -p /tmp/mp && git -C ~/GitHub/mergepath archive "$S" | tar -x -C /tmp/mp && cd /tmp/mp
 git init -q -b main . && git add -f README.md \
   && git -c user.email=a@b -c user.name=a -c commit.gpgsign=false commit -q -m pin
 BOOTSTRAP_SKIP_TOOL_CHECK=1 BOOTSTRAP_SKIP_MERGEPATH_GUARD=1 BOOTSTRAP_AUTO_CONFIRM=1 \
@@ -1395,16 +1395,10 @@ BOOTSTRAP_SKIP_TOOL_CHECK=1 BOOTSTRAP_SKIP_MERGEPATH_GUARD=1 BOOTSTRAP_AUTO_CONF
   --description x --visibility private --firebase none --codex-app n --project new \
   </dev/null | grep -c '^\[DRY-RUN\]'                                        # 50
 
-# The dry run creates ~/GitHub/audit-probe-repo (see below). Remove it ONLY if
-# this run created it — an unconditional `rm -rf` would destroy a pre-existing
-# checkout of that name, uncommitted work included.
-probe=~/GitHub/audit-probe-repo
-if [ -d "$probe" ] && [ ! -e "$probe/.git" ] \
-   && [ -z "$(ls -A "$probe" | grep -v '^\.bootstrap-' || true)" ]; then
-  rm -rf "$probe"
-else
-  echo "left in place, inspect and remove by hand: $probe"
-fi
+# The dry run creates ~/GitHub/audit-probe-repo (see below). This block does
+# NOT delete it: the path may hold a pre-existing checkout, or an earlier
+# interrupted run's resumable .bootstrap-state. Inspect and remove by hand.
+echo "dry run left a directory behind, remove it yourself once you have looked: ~/GitHub/audit-probe-repo"
 ```
 
 **Fifty steps is a real, reproducible figure, and it is still not a savings measure.** It counts what the wizard automates, not what a human would otherwise have done—nobody ever timed the manual path, and "an afternoon" is an unmeasured author estimate. The page may say the wizard performs fifty wrapped operations across four stages, as of 2026-08-28; it may not convert that into time saved.
