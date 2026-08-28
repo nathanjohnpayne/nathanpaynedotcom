@@ -106,10 +106,10 @@ const projects = defineCollection({
           lens: z.string().trim().min(1).optional(),
           context: z.string().trim().min(1),
           // What was actually chosen. Presence of this field switches the
-          // record to the assertion anatomy — Tension / Chosen / Over / Why /
-          // Cost — where `context` reads as a one-line standfirst under the
-          // title rather than as a body field. Absent, the record renders the
-          // original Context / Rejected / Why / Evidence shape, which is what
+          // record to the assertion anatomy — What I encountered / What I
+          // decided / Why / Cost / What it changed — relabelling `context`
+          // and `evidence` in place. Absent, the record renders the original
+          // Context / Rejected / Why / Evidence shape, which is what
           // five-across and swipe-watch author against.
           chosen: z.string().trim().min(1).optional(),
           // Optional since #754: under the encountered/decided anatomy the

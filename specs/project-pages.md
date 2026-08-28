@@ -196,14 +196,14 @@ A decision record renders one of two ways, and the page chooses by authoring or 
 
 **The original shape**—`title` / `context` / `rejected` / `rationale` / `evidence`—reads as a record: here is the situation, here is what was not done, here is the reasoning, here is what happened. `five-across` and `swipe-watch` author against it.
 
-**The assertion shape** adds `lens`, `chosen` and `cost`, and re-reads the same record as an argument: an eyebrow naming the editorial filter the decision answers to, a title that asserts rather than labels, `context` compressed to a one-line standfirst under it, then **Chosen / Over / Why / Cost**, then the evidence. `override` authors against it.
+**The assertion shape** adds `lens`, `chosen` and `cost`, and re-reads the same record as an argument: an eyebrow naming the editorial filter the decision answers to, a title that asserts rather than labels, then **What I encountered / What I decided / Why / Cost / What it changed**. It relabels `context` and `evidence` in place rather than moving them—`rejected` becomes an optional **Over** slot, because under this shape the alternative often reads better inside the reasoning. `override` authors against it.
 
 The three added fields are optional so the switch is per page and per record, and so the two pages that shipped against the original shape keep rendering it unchanged. Two rules bind anything using the assertion shape:
 
 - **A title that names a feature is not an assertion.** "Deal Rooms" and "Scenario modeling" describe surfaces; "Let investors read before they sign up" and "Show three scenarios, not one forecast" describe positions. A reader skimming only the titles should come away with the product's philosophy.
 - **`cost` is the uncomfortable consequence, not the implementation burden.** "Increased complexity" follows almost every software decision and therefore says nothing. The cost is what the product cannot now do: a bespoke waterfall provision it cannot model, a producer's dozen cases collapsed into three, a link that exposes the deal to whoever holds it. `tests/content-schema.test.js` enforces the pairing — a record that declares `chosen` without `cost` fails, because a decision presented as free is the shape this anatomy exists to prevent.
 
-`cost` and `evidence` are different claims and both can appear. `cost` is what was knowingly given up at the time; `evidence` is what happened afterward, or under `pending`, the validation boundary. The component marks them differently—`cost` takes an accent rule, `evidence` keeps the boxed exhibit plane—so the two do not read as one.
+`cost` and `evidence` are different claims and both can appear. `cost` is what was knowingly given up at the time; `evidence` is what happened afterward, or under `pending`, the validation boundary. The component marks them differently—`cost` takes an accent rule, `evidence` keeps the boxed exhibit plane—so the two do not read as one. Under `pending` the outcome slot reverts to **Validation boundary**, so a decision with no outcome yet cannot appear to claim one.
 
 ### `constraints` are context, not vanity metrics
 
