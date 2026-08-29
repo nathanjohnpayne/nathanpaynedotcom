@@ -10,6 +10,13 @@ export const mermaidOptions = {
     themeVariables: {
       fontFamily: 'Inter, sans-serif',
       fontSize: '14px',
+      // An edge label sits on top of the connector it annotates and needs an
+      // opaque ground, or the line runs through the text. Mermaid's default is
+      // a pale lilac that reads as a highlighter stripe on this site's paper.
+      // It has to be set here rather than in global.css: Mermaid injects an
+      // id-scoped stylesheet whose specificity beats any selector we can write.
+      // Matches --surface, the plane every diagram is rendered against.
+      edgeLabelBackground: '#f4efe5',
     },
   },
   errorFallback(element) {

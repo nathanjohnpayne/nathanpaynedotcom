@@ -99,7 +99,7 @@ automated dependency PRs.
 
 ## Content Invariants
 
-- **Mermaid labels must meet WCAG AA contrast.** Every explicitly styled blog Mermaid node must use measurable three- or six-digit hex fill and label colors with a contrast ratio of at least 4.5:1. Tests enforce this from rendered SVG, so Mermaid owns the grammar for `style`, `classDef`, semicolons, quoted labels, and multiline labels.
+- **Mermaid labels must meet WCAG AA contrast.** Every explicitly styled Mermaid node, in any collection that supports Mermaid, must use measurable three- or six-digit hex fill and label colors with a contrast ratio of at least 4.5:1. Tests enforce this from rendered SVG, so Mermaid owns the grammar for `style`, `classDef`, semicolons, quoted labels, and multiline labels.
 
 ## CI Enforcement
 

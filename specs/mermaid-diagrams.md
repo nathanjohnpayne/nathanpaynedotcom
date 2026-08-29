@@ -29,11 +29,17 @@ description rather than raw source, an exception, or a stack trace.
 
 ## Supported Content Boundary
 
-Mermaid is intentionally supported only in blog posts under
-`src/content/blog/**/*.md`, including their body fences and typed sidebar items.
-Astro registers the metadata adapter globally, so it fails the build when a
-Mermaid fence appears in another content collection or Markdown page. Supporting
-another collection requires deliberately widening this boundary.
+Mermaid is supported in blog posts under `src/content/blog/**/*.md`, including
+their body fences and typed sidebar items, and in project pages under
+`src/content/projects/**/*.{md,mdx}` (#753). Astro registers the metadata
+adapter globally, so it fails the build when a Mermaid fence appears in any
+other content collection or Markdown page.
+
+Widening this boundary again means moving three things together, not one: the
+adapter's allow-list in `src/plugins/remark-mermaid.mjs`, the rendered-contrast
+sweep in `tests/mermaid-contrast.test.js`, and the route list in
+`tests/responsive/mermaid-accessibility.spec.ts`. A collection the adapter
+accepts but those two do not scan ships diagrams nothing checks.
 
 ## Acceptance Criteria
 
@@ -53,7 +59,8 @@ another collection requires deliberately widening this boundary.
 8. Mermaid fences without both `title` and `description` fail the build.
 9. Static diagrams fit their figure at narrow and desktop widths and remain
    readable in print with JavaScript disabled.
-10. Mermaid fences outside `src/content/blog/**/*.md` fail the build.
+10. Mermaid fences outside `src/content/blog/**/*.md` and
+    `src/content/projects/**/*.{md,mdx}` fail the build.
 11. Rendering does not post-process or reserialize completed page HTML.
 12. Explicit node fill and label colors are validated from rendered SVG at a
     WCAG contrast ratio of at least 4.5:1. Because validation happens after
