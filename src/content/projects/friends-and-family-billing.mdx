@@ -29,10 +29,10 @@ decisions:
   - title: "Make the link the credential"
     lens: "Access"
     context: "A household member checks their bill a handful of times a year. An account—password, recovery, sign-in—prices that rare act absurdly, and the person paying is the one I least wanted to burden. The token link predates the React app entirely, and no ADR, spec, or pull request ever records an account model being weighed against it."
-    chosen: "A recipient holds a URL and nothing else. The link's token is hashed to key a world-readable cache document containing that member's view, including equivalent summaries for any linked household members; every link expires—a year by default, with 7-, 30-, and 90-day options—revocation deletes the cached document outright, and minting a link through the share dialog prunes that member to their five most recent."
+    chosen: "A recipient holds a URL and nothing else. Opening it presents that member's view, including equivalent summaries for any linked household members, and the application gives each link a lifecycle with expiry, revocation, and pruning controls. The access mechanism itself is omitted while remediation remains open."
     rationale: "The recipient's four needs—an amount, its derivation, a way to pay, a way to object—are all read-and-request acts. None requires an identity, and all of them die behind a login screen. This was product judgment, not a documented deliberation, and I would rather say so than invent a record."
-    cost: "Whoever holds the link is the recipient. The security rules do not bound that read—expiry and revocation live in the application, not the rules—and a leaked link shows that household's names, amounts, payment handles, postal address, and phone. The raw token is also stored server-side so a sent link can be re-copied, which means the credential exists at rest."
-    evidence: "The mechanism holds where it was built and leaks where it was not: the share dialog's No-expiry option silently mints the 365-day default, so a never-expiring link is unreachable through the product's own UI; the security-rules file has no test suite at all; and an expired link's cached document survives until revocation or pruning deletes it."
+    cost: "Whoever holds the link is treated as the recipient. The data-layer rules do not fully enforce the application's intended expiry and revocation model, so a leaked link can expose the intended member's view, including linked household members."
+    evidence: "The product exposes expiry, revocation, and pruning controls, but the deployed data-layer rule does not fully enforce the application's intended possession boundary. The credential derivation, storage layout, lookup path, and bypass behavior are deliberately omitted while that gap remains open."
     status: "mixed"
   - title: "The coordinator doesn't keep the change"
     lens: "Settlement"
@@ -79,11 +79,11 @@ That loop holds two users with different needs. The coordinator needs accuracy a
 
 ## One link is the recipient's whole year
 
-A household member's entire relationship with this product is a URL. Its token is hashed with SHA-256 to key a cached document containing that member's view, including equivalent summaries for any linked household members, and the page is built around one choice: show the arithmetic, not just the answer. Every bill renders its derivation inline—`$300.00/mo ÷ 8 members = $37.50/mo · ×12 = $450.00/yr`—and nothing in that line is recomputed for display: each figure reads from the canonical fields the billing math wrote, so the page cannot imply a rounding the calculation never took. The invoice email carries a greeting, a total, and the link—the email asks, the page explains.
+A household member's entire relationship with this product is a no-login link. Opening it loads a member-scoped view, including equivalent summaries for any linked household members, and the page is built around one choice: show the arithmetic, not just the answer. Every bill renders its derivation inline—`$300.00/mo ÷ 8 members = $37.50/mo · ×12 = $450.00/yr`—and nothing in that line is recomputed for display: each figure reads from the canonical fields the billing math wrote, so the page cannot imply a rounding the calculation never took. The invoice email carries a greeting, a total, and the link—the email asks, the page explains.
 
 A link can grant four things, none requiring an account: question a specific charge, approve or reject the resolution I propose, confirm or deny receipt of a refund, and request a fresh link when theirs has died. The first three are per-link scopes rather than universal rights—a link minted without them opens to a summary and no controls. They cannot record a payment—no such control or write scope exists. The recipient sees, questions, and confirms; only the coordinator posts money.
 
-The question path shows the mechanism under a no-login page. "Question This Charge" posts to a Cloud Function rather than writing the database directly, and the function adds an authorization check the security rules never make—it rejects the dispute unless the token's member is actually on that bill—then rate-limits per token, writes a server-side audit entry, and emails me the question with a deep link into my review queue. Six of the seven Cloud Functions exist to serve someone who has no account.
+The question path stays inside the no-login product. "Question This Charge" submits a scoped review request, rate-limits it, writes a server-side audit entry, and emails me the question with a deep link into my review queue. Six of the seven Cloud Functions exist to serve someone who has no account.
 
 Three coordination steps are verifiably gone. The recipient learns their amount and its derivation without asking me. I learn that the link was opened, without asking—every link carries a visit count and a last-viewed date I can read back. It counts visits through the app, not people: a forwarded link and a second look are the same signal. And a dead link moves the request into the product: the expired page offers "Request New Link," and the system emails me, but I still have to mint and deliver the replacement. A fourth step is not gone: nothing sends on its own—there is no scheduler in this codebase. Once a year I still open a dialog and press Send, per member. The product removed the explaining and the checking; it routed the asking without automating the sending.
 
@@ -134,19 +134,19 @@ Both sent messages share an envelope that restyles the body—one more reason th
 
 ## The intended application boundary is possession, not identity
 
-No record weighs links against accounts—no ADR, spec, or pull request carries that deliberation. The tradeoff was my product judgment, and the honest way to explain it is to show the mechanism.
+No record weighs links against accounts—no ADR, spec, or pull request carries that deliberation. The tradeoff was my product judgment, and the honest claim is narrower than the implementation detail.
 
-The rule guarding the public share document does not bound the read at all: no authentication term, no expiry comparison, no revocation check. The boundary the design intends is possession of the token—a 256-bit preimage problem rather than an access-control decision—with the application, not the rule, enforcing expiry and revocation, once in the browser and again in the Cloud Function. Intended is the operative word. A boundary the data layer does not hold is one the application is asserting on its behalf, and that is a gap in the product rather than a subtlety of the design.
+The design intends link possession to stand in for identity, with the application responsible for expiry and revocation. The deployed data-layer rule does not fully enforce that model. Because the product is live and the gap remains open, the credential derivation, storage layout, lookup path, and bypass behavior are deliberately omitted here; the remediation belongs in the product repository.
 
-The strongest half of the design is revocation: it deletes the cached document. That matters because the read rule is unconditional—flipping a flag would not stop a direct reader; removing the document does. Minting a link through the share dialog also prunes that member to five, deleting the rest—though the Invoicing tab's preview-link button writes its document directly and skips that path, so a sixth can outlive the prune.
+Revocation and managed-link pruning are real, reachable controls, but they do not make the data-layer mismatch disappear. The security claim this page can support is narrower: the application has a deliberate no-login model and lifecycle controls, while enforcement below the application remains incomplete.
 
-The limits sit next to that. An expired link's cached document is refused by the application, but expiry alone does not delete it; later revocation or pruning still can. The raw token is stored server-side—deliberately, so a sent link can be re-copied—guarded by owner-only rules rather than by not existing. The token rides in the query string, so it survives in hosting logs, browser history, and whatever message carried it. And the no-login visitor is not anonymous to me: every server-side resolution records the caller's IP into an audit log only I can read.
+That gap changes the privacy cost. A leaked link can expose the intended member's view, including linked household members, and server-side resolutions record the visitor's IP in an owner-visible audit log. The page can state those consequences without publishing the live lookup recipe.
 
 ## What the record shows, and what it does not
 
 The repository holds no usage record—no seed data, no exported dataset, and analytics that instrument sign-in and nothing else. One household has used this product; the only numbers that could substantiate how much live in the running system's per-link view counters, not in the source. What the repository can show is the mechanism and the care taken with it, not adoption.
 
-One real datum survives, as a test fixture: one member's 2026 annual summary of $1,069.76, already paid—the exact strings from the debugging arc's reference screenshot, preserved to pin a renderer.
+One test fixture has production-derived provenance. Because its exact content concerns a real person, this page does not identify the household member, reproduce the amount, or characterize the payment status. The fixture is not evidence of adoption or aggregate outcomes.
 
 ## What it demonstrates
 
