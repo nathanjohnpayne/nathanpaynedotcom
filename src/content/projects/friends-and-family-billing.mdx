@@ -1,0 +1,151 @@
+---
+title: "Friends & Family Billing"
+slug: "friends-and-family-billing"
+description: "A cloud-synced billing tool that turns recurring shared costs into clear invoices, payment tracking, and shareable summaries."
+seoDescription: "A household billing tool built around one question: how do you show someone what they owe, and why, without making them create an account? Token-scoped share links, a four-state balance model, and what the parity fix did not fix."
+kicker: "AI × Utility × Finance"
+order: 6
+screenshotAspect: "wide"
+screenshotSrc: "/images/projects/friends-and-family-billing-hero-v2.png"
+accent: "yellow"
+liveUrl: "https://friends-and-family-billing.web.app"
+githubUrl: "https://github.com/nathanjohnpayne/friends-and-family-billing"
+tags: ["Utility", "Finance", "React", "Firebase"]
+status: "SHIPPED"
+metadata:
+  format: "Household coordination tool"
+  focus: "Recurring shared costs and the adjustments around them"
+stack: "React · JavaScript · Vite · Firebase · Vitest · Playwright"
+constraints:
+  - value: "1 household"
+    label: "the only users there have ever been, on my own account—the repo cannot corroborate it"
+  - value: "No accounts"
+    label: "recipients hold a link; possession is the whole credential"
+  - value: "No scheduler"
+    label: "the coordinator still presses Send, per member, once a year"
+  - value: "365 days"
+    label: "the default link life, and what the dialog's No-expiry option silently mints"
+decisions:
+  - title: "Make the link the credential"
+    lens: "Access"
+    context: "A household member checks their bill a handful of times a year. An account—password, recovery, sign-in—prices that rare act absurdly, and the person paying is the one I least wanted to burden. The token link predates the React app entirely, and no ADR, spec, or pull request ever records an account model being weighed against it."
+    chosen: "A recipient holds a URL and nothing else. The link's token is hashed to key a world-readable cache document scoped to that one member; every link expires—a year by default, with 7-, 30-, and 90-day options—revocation deletes the cached document outright, and minting a new link prunes each member to their five most recent."
+    rationale: "The recipient's four needs—an amount, its derivation, a way to pay, a way to object—are all read-and-request acts. None requires an identity, and all of them die behind a login screen. This was product judgment, not a documented deliberation, and I would rather say so than invent a record."
+    cost: "Whoever holds the link is the recipient. The read rule is `allow read: if true`—expiry and revocation live in the application, not the rules—and a leaked link shows that household's names, amounts, payment handles, postal address, and phone. The raw token is also stored server-side so a sent link can be re-copied, which means the credential exists at rest."
+    evidence: "The mechanism holds where it was built and leaks where it was not: the share dialog's No-expiry option silently mints the 365-day default, so a never-expiring link is unreachable through the product's own UI; the security-rules file has no test suite at all; and an expired link's cached document survives until revocation or pruning deletes it."
+    status: "mixed"
+  - title: "The coordinator doesn't keep the change"
+    lens: "Settlement"
+    context: "The vanilla-JS app had exactly three balance states—outstanding, partial, settled—and no overpaid branch. But a service credit applied after someone has already paid creates a real position: the household is holding money that belongs to a member, and a three-state model has nowhere to put it."
+    chosen: "A fourth state, overpaid, added in the React port on 2026-03-21—in a Phase 2a commit, not an ADR. What forces it to exist is ADR-0004, which bans the write-off: an overpayment must be discharged, by refund or carry-forward, never absorbed."
+    rejected: "The write-off. Letting the coordinator quietly keep small overpayments is what most informal arrangements do, and ADR-0004 removes the option deliberately—it records the absence of any forgive-credit action as intentional."
+    rationale: "Between people who share a phone plan, the money that flows back is what decides whether the system is trusted. A model that can say settled but cannot say overpaid converts the household's error into the coordinator's gain and calls it even."
+    cost: "The fourth state is not self-clearing. It opens a disposition the coordinator must close, and behind that one badge came a subsystem—credit adjustments, refund events, a refund-notice service, a refunds scope on share links, a Cloud Function for the recipient to confirm receipt, and five ADRs settling how credit moves."
+    evidence: "The state never got a place in either audience's navigation. The settlement board has no Overpaid filter chip—its counts omit the state, and an overpaid household is reachable only under All—and the share page never imports the status badge at all: the person whose money it is sees two states, a green settled and a red amount due."
+    status: "mixed"
+  - title: "Fix the rendering model, not the preview"
+    lens: "Parity"
+    context: "The invoice template rendered three ways: the TipTap editor drew its own DOM with unresolved token pills, the preview ran one markdown pipeline, and the sent email ran another. Six pull requests shipped in one session on this surface—the migration that introduced the divergence, three attempts at the bug itself, two orthogonal fixes—across roughly twenty hours, without closing it."
+    chosen: "PR #161 introduced a canonical renderer—its docstring names it the single source of truth for the Invoicing preview and template email HTML—bypassed the plain-text bridge on that path, and left behind regression tests in a required check: the preview's DOM and the test email's payload must be the same HTML."
+    rationale: "The issue behind the fix banned the alternative in writing: do not fix this by making Preview merely look closer while the sent HTML stays different. The sent email is the source of truth, so the renderer had to become one thing rather than three things reconciled."
+    cost: "The fix landed on the surface that was being watched. The settlement board's real Email Invoice action sends plain text with no HTML field, so the invoice a household member receives still renders through the bridge and the markdown fallback—#161 never touched that file. Before the fix, the test email and the invoice rendered identically; after it, the proven surface and the real one diverged, and the divergence has stood since April 2026."
+    evidence: "The regression tests are real, required, and guard exactly what they name. One asserts the payload builder uses the canonical renderer; the stronger one clicks Send test email and asserts the queued HTML equals the preview's DOM. Nothing compares the preview to the invoice email, and no end-to-end test touches a sent message at all."
+    status: "mixed"
+  - title: "Rewrite the brief, rotate the agent"
+    lens: "Method"
+    context: "Nine of the arc's ten pull requests carry the same authoring-agent trailer: claude. Three parity attempts by the same agent had converged on the same move—make the surfaces look closer—and the third had just merged when I stopped asking for a fourth."
+    chosen: "A new brief, thirty-six minutes after the last failed fix merged, restating the task as an invariant—one canonical rendering model, the same template content producing the same result in editor, preview, and sent email—with a written non-goal banning the approach that had failed three times, addressed to a different agent by name: its root-cause section opens with \"Codex should verify these.\" The fix that held is the arc's only pull request authored by codex."
+    rationale: "A fourth same-agent attempt inherits the blind spots of the first three. And the rotation is in the record as a written instruction rather than an inferred intention—which is the only reason this card gets to claim it was designed."
+    cost: "The ban binds exactly one reading of one brief. No repo rule, no CI check, no lint, and no test enforces the non-goal; its force was spent the moment the agent it addressed finished reading it. Nothing stops the next session from doing precisely what it forbids."
+    evidence: "The brief's own definition of done had four clauses. The two that became automated checks—preview matches the sent test email, the reference rendering reproduced—held and still hold. The two that stayed prose—the editor accurately reflecting final output, regression tests spanning all three surfaces—were not met at merge and are not met today."
+    status: "mixed"
+related:
+  - label: "Blog: Six PRs, One Bug—What AI Agents Actually Get Wrong"
+    href: "/blog/six-prs-one-bug-agent-failure-modes/"
+  - label: "Project: Override"
+    href: "/projects/override/"
+---
+
+import ConstraintStrip from '../../components/projects/ConstraintStrip.astro';
+import DecisionLedger from '../../components/projects/DecisionLedger.astro';
+
+## The math was never the problem
+
+My husband and I split T-Mobile, Apple One, and 1Password across a household of eight people. Every year the same thing happened: someone would ask how much they owed, I would open a spreadsheet, re-derive the math from three billing cadences, and text them a number. Then someone else would ask, and I would do it again.
+
+The arithmetic was trivial. The product problem was the coordination wrapped around it—calculate, explain, ask, remind, verify, repeat—and its social texture: asking for money feels awkward, checking feels intrusive, and both jobs default to whoever set the thing up.
+
+That loop holds two users with different needs. The coordinator needs accuracy and an auditable record—I am the one vouching for the numbers. A recipient needs an amount, the arithmetic behind it, a way to pay, and a way to object, with no account in the way. Friends & Family Billing holds those two jobs apart.
+
+## One link is the recipient's whole year
+
+A household member's entire relationship with this product is a URL. Its token is hashed with SHA-256 to key a cached document scoped to that one member, and the page it opens is built around one choice: show the arithmetic, not just the answer. Every bill renders its derivation inline—`$300.00/mo ÷ 8 members = $37.50/mo · ×12 = $450.00/yr`—and nothing in that line is recomputed for display: each figure reads from the canonical fields the billing math wrote, so the page cannot imply a rounding the calculation never took. The invoice email, by contrast, carries a greeting, a total, and the link—the email asks, the page explains.
+
+A recipient can do four things there, none requiring an account: question a specific charge, approve or reject the resolution I propose, confirm or deny receipt of a refund, and request a fresh link when theirs has died. They cannot record a payment—no such control or write scope exists. The recipient sees, questions, and confirms; only the coordinator posts money.
+
+The question path shows the mechanism under a no-login page. "Question This Charge" posts to a Cloud Function rather than writing the database directly, and the function adds an authorization check the security rules never make—it rejects the dispute unless the token's member is actually on that bill—then rate-limits per token, writes a server-side audit entry, and emails me the question with a deep link into my review queue. Six of the seven Cloud Functions exist to serve someone who has no account.
+
+Three coordination steps are verifiably gone. The recipient learns their amount and its derivation without asking me. I learn whether they have looked without asking—every link carries a visit count and a last-viewed date I can read back. And a dead link recovers itself: the expired page offers "Request New Link," and the system emails me the request. A fourth step is not gone: nothing sends on its own—there is no scheduler in this codebase. Once a year I still open a dialog and press Send, per member. The product removed the explaining and the checking, not the asking.
+
+<ConstraintStrip constraints={props.constraints} />
+
+## The decisions
+
+Four decisions carry the argument, and all four read mixed—real support beside a real limitation. Two are about money and access: who may see a household's numbers, and what the model owes the person who overpaid. Two come from the weeks the rendering model broke, told in [Six PRs, One Bug](/blog/six-prs-one-bug-agent-failure-modes/): what the fix actually fixed, and how the work was run differently after three fixes had failed.
+
+<DecisionLedger decisions={props.decisions} />
+
+The last two records share one exhibit, the sharpest fact on this page. The parity fix consolidated rendering onto a canonical renderer for the preview and the test send. The invoice a household member actually receives never joined them: its dialog sends plain text with no HTML field, so production invoices still render through the bridge and the fallback the fix exists to have displaced—and I verified against the current tree that the fixing pull request never touched the sending file.
+
+```mermaid title="Three render paths, one template" description="One invoice template renders along three paths. The editor draws its own document with unresolved token pills and was never meant to match the output. The canonical renderer, added by the 2026 parity fix, produces the preview and the test send, and a required regression test holds those two together. The invoice email a household member actually receives takes the third path, through the plain-text bridge into a markdown fallback, which the fix never reached—so the tested surfaces and the real one have diverged since April 2026."
+flowchart TD
+    DOC["Template doc"]
+    ED["Editor DOM<br/>token pills"]
+    CAN["Canonical renderer"]
+    PV["Preview"]
+    TE["Test email"]
+    BR["Plain-text bridge"]
+    MD["Markdown fallback"]
+    INV["Invoice email"]
+
+    DOC --> ED
+    DOC --> CAN
+    CAN --> PV
+    CAN --> TE
+    DOC --> BR
+    BR --> MD
+    MD --> INV
+
+    style DOC fill:#fffdf8,stroke:#11100d,stroke-width:1.5px,color:#11100d
+    style ED fill:#dde1e5,stroke:#11100d,stroke-width:1.5px,color:#11100d
+    style CAN fill:#e3d477,stroke:#11100d,stroke-width:1.5px,color:#11100d
+    style PV fill:#e3d477,stroke:#11100d,stroke-width:1.5px,color:#11100d
+    style TE fill:#e3d477,stroke:#11100d,stroke-width:1.5px,color:#11100d
+    style BR fill:#e8784a,stroke:#11100d,stroke-width:1.5px,color:#11100d
+    style MD fill:#e8784a,stroke:#11100d,stroke-width:1.5px,color:#11100d
+    style INV fill:#11100d,stroke:#11100d,stroke-width:1.5px,color:#fffdf8
+```
+
+![The Invoicing tab's two surfaces, captured from the repository's own end-to-end harness against invented household data. Edit holds the template as authored, tokens still unresolved pills; Preview resolves them against one member and is what the canonical renderer produces. The two are not meant to match and never did, which is why the fix had to consolidate the rendering model rather than make one screen resemble another. The payment handle is a placeholder.](/images/projects/friends-and-family-billing-editor-preview.png)
+
+Both sent messages share an envelope that restyles the body—one more reason the parity claim is about the markup, never the pixels.
+
+## The boundary is possession, not identity
+
+No record weighs links against accounts—no ADR, spec, or pull request carries that deliberation. The tradeoff was my product judgment, and the honest way to explain it is to show the mechanism.
+
+The rule guarding the public share document is `allow read: if true`. No authentication term, no expiry comparison, no revocation check; as written it even permits enumerating the collection. What stands between the world and a household's numbers is possession of the token—a 256-bit preimage problem, not an access-control decision—and the application enforces expiry and revocation itself, once in the browser and again in the Cloud Function.
+
+The strongest half of the design is what revocation does: it deletes the cached document. That matters because the read rule is unconditional—flipping a flag would not stop a direct reader; removing the document does. Minting a new link also prunes each member to their five most recent, deleting the rest.
+
+The limits sit next to that. An expired link's cached document is refused by the application but never deleted. The raw token is stored server-side—deliberately, so a sent link can be re-copied—guarded by owner-only rules rather than by not existing. The token rides in the query string, so it survives in hosting logs, browser history, and whatever message carried it. And the no-login visitor is not anonymous to me: every server-side resolution records the caller's IP into an audit log only I can read.
+
+## What the record shows, and what it does not
+
+The repository holds no usage record—no seed data, no exported dataset, and analytics that instrument sign-in and nothing else. One household has used this product; the only numbers that could substantiate how much live in the running system's per-link view counters, not in the source. What the repository can show is the mechanism and the care taken with it, not adoption.
+
+One real datum survives, as a test fixture: one member's 2026 annual summary of $1,069.76, already paid—the exact strings from the debugging arc's reference screenshot, preserved to pin a renderer. It is the only trace of real use the source carries.
+
+## What it demonstrates
+
+The product ended one recurring conversation, on my own account of it. What the record demonstrates is narrower. The brief that ended the rendering arc defined done in four clauses; the two turned into automated checks have held since April 2026, and the two that stayed prose—an editor that reflects final output, tests spanning every surface—were not met at merge and are not met today. The invoice email's divergence is the same finding from the other side: the surface with a check stayed fixed; the surface without one drifted the day the fix landed. An invariant that is prose is an invariant nobody reviews.

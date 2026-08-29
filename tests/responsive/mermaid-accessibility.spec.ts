@@ -85,6 +85,7 @@ for (const route of [
   // Project pages carry Mermaid since #753; the accessibility contract is the
   // same one, so the route list has to include the collection that uses it.
   '/projects/mergepath/',
+  '/projects/friends-and-family-billing/',
 ]) {
   test(`${route} paints every label at the height Mermaid measured`, async ({ page }) => {
     await page.goto(route);

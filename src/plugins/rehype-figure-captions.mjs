@@ -81,6 +81,15 @@ const imageDimensions = {
     width: 1984,
     height: 1488,
   },
+  // Friends & Family Billing: the Invoicing tab's two surfaces, composed side
+  // by side. Captured from the repository's own E2E harness (VITE_E2E_MODE with
+  // the `seedPage` fixture) at a 1180x900 viewport, so the data is the fixture's
+  // invented household; the fixture's real payment handle is replaced with a
+  // placeholder because this capture is published.
+  '/images/projects/friends-and-family-billing-editor-preview.png': {
+    width: 2000,
+    height: 655,
+  },
   // Swipe Watch: live-prototype captures at a 390x844 viewport, 2x DPR.
   '/images/projects/swipe-watch-card.png': {
     width: 780,
