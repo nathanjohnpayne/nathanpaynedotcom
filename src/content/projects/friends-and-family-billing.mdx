@@ -71,7 +71,7 @@ import DecisionLedger from '../../components/projects/DecisionLedger.astro';
 
 ## The math was never the problem
 
-My husband and I split T-Mobile, Apple One, and 1Password across a household of eight people. Every year the same thing happened: someone would ask how much they owed, I would open a spreadsheet, re-derive the math from three billing cadences, and text them a number. Then someone else would ask, and I would do it again.
+My husband and I split T-Mobile, Apple One, and 1Password across a household of eight people. Every year, someone would ask how much they owed, I would open a spreadsheet, re-derive the math from three billing cadences, and text them a number. Then someone else would ask, and I would do it again.
 
 The arithmetic was trivial. The product problem was the coordination wrapped around it—calculate, explain, ask, remind, verify, repeat—and its social texture: asking for money feels awkward, checking feels intrusive, and both jobs default to whoever set the thing up.
 
@@ -79,7 +79,7 @@ That loop holds two users with different needs. The coordinator needs accuracy a
 
 ## One link is the recipient's whole year
 
-A household member's entire relationship with this product is a URL. Its token is hashed with SHA-256 to key a cached document scoped to that one member, and the page it opens is built around one choice: show the arithmetic, not just the answer. Every bill renders its derivation inline—`$300.00/mo ÷ 8 members = $37.50/mo · ×12 = $450.00/yr`—and nothing in that line is recomputed for display: each figure reads from the canonical fields the billing math wrote, so the page cannot imply a rounding the calculation never took. The invoice email, by contrast, carries a greeting, a total, and the link—the email asks, the page explains.
+A household member's entire relationship with this product is a URL. Its token is hashed with SHA-256 to key a cached document scoped to that one member, and the page is built around one choice: show the arithmetic, not just the answer. Every bill renders its derivation inline—`$300.00/mo ÷ 8 members = $37.50/mo · ×12 = $450.00/yr`—and nothing in that line is recomputed for display: each figure reads from the canonical fields the billing math wrote, so the page cannot imply a rounding the calculation never took. The invoice email carries a greeting, a total, and the link—the email asks, the page explains.
 
 A recipient can do four things there, none requiring an account: question a specific charge, approve or reject the resolution I propose, confirm or deny receipt of a refund, and request a fresh link when theirs has died. They cannot record a payment—no such control or write scope exists. The recipient sees, questions, and confirms; only the coordinator posts money.
 
@@ -91,11 +91,11 @@ Three coordination steps are verifiably gone. The recipient learns their amount 
 
 ## The decisions
 
-Four decisions carry the argument, and all four read mixed—real support beside a real limitation. Two are about money and access: who may see a household's numbers, and what the model owes the person who overpaid. Two come from the weeks the rendering model broke, told in [Six PRs, One Bug](/blog/six-prs-one-bug-agent-failure-modes/): what the fix actually fixed, and how the work was run differently after three fixes had failed.
+Four decisions carry the argument, all four mixed—real support beside a real limitation. Two are about money and access: who may see a household's numbers, and what the model owes the person who overpaid. Two come from the weeks the rendering model broke, told in [Six PRs, One Bug](/blog/six-prs-one-bug-agent-failure-modes/): what the fix actually fixed, and how the work was run differently after three fixes had failed.
 
 <DecisionLedger decisions={props.decisions} />
 
-The last two records share one exhibit, the sharpest fact on this page. The parity fix consolidated rendering onto a canonical renderer for the preview and the test send. The invoice a household member actually receives never joined them: its dialog sends plain text with no HTML field, so production invoices still render through the bridge and the fallback the fix exists to have displaced—and I verified against the current tree that the fixing pull request never touched the sending file.
+The last two records share one exhibit, the sharpest fact on this page. The parity fix consolidated rendering onto a canonical renderer for the preview and the test send. The invoice a household member actually receives never joined them: its dialog sends plain text with no HTML field, so production invoices still render through the bridge and the fallback the fix exists to have displaced—and the fixing pull request never touched the sending file.
 
 ```mermaid title="Three render paths, one template" description="One invoice template renders along three paths. The editor draws its own document with unresolved token pills and was never meant to match the output. The canonical renderer, added by the 2026 parity fix, produces the preview and the test send, and a required regression test holds those two together. The invoice email a household member actually receives takes the third path, through the plain-text bridge into a markdown fallback, which the fix never reached—so the tested surfaces and the real one have diverged since April 2026."
 flowchart TD
@@ -136,7 +136,7 @@ No record weighs links against accounts—no ADR, spec, or pull request carries 
 
 The rule guarding the public share document is `allow read: if true`. No authentication term, no expiry comparison, no revocation check; as written it even permits enumerating the collection. What stands between the world and a household's numbers is possession of the token—a 256-bit preimage problem, not an access-control decision—and the application enforces expiry and revocation itself, once in the browser and again in the Cloud Function.
 
-The strongest half of the design is what revocation does: it deletes the cached document. That matters because the read rule is unconditional—flipping a flag would not stop a direct reader; removing the document does. Minting a new link also prunes each member to their five most recent, deleting the rest.
+The strongest half of the design is revocation: it deletes the cached document. That matters because the read rule is unconditional—flipping a flag would not stop a direct reader; removing the document does. Minting a new link also prunes each member to their five most recent, deleting the rest.
 
 The limits sit next to that. An expired link's cached document is refused by the application but never deleted. The raw token is stored server-side—deliberately, so a sent link can be re-copied—guarded by owner-only rules rather than by not existing. The token rides in the query string, so it survives in hosting logs, browser history, and whatever message carried it. And the no-login visitor is not anonymous to me: every server-side resolution records the caller's IP into an audit log only I can read.
 
@@ -144,7 +144,7 @@ The limits sit next to that. An expired link's cached document is refused by the
 
 The repository holds no usage record—no seed data, no exported dataset, and analytics that instrument sign-in and nothing else. One household has used this product; the only numbers that could substantiate how much live in the running system's per-link view counters, not in the source. What the repository can show is the mechanism and the care taken with it, not adoption.
 
-One real datum survives, as a test fixture: one member's 2026 annual summary of $1,069.76, already paid—the exact strings from the debugging arc's reference screenshot, preserved to pin a renderer. It is the only trace of real use the source carries.
+One real datum survives, as a test fixture: one member's 2026 annual summary of $1,069.76, already paid—the exact strings from the debugging arc's reference screenshot, preserved to pin a renderer.
 
 ## What it demonstrates
 
