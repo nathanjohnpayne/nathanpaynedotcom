@@ -148,16 +148,29 @@ describe('PR body contract', () => {
     const author = readFileSync('scripts/gh-as-author.sh', 'utf8');
 
     // Phase 4b reads the body to attribute it, so it can pick a reviewer whose
-    // agent differs from the author's. What matters is that it reaches the
-    // Authoring-Agent line through the shared library rather than a local
-    // regex, which would pick a marker out of an HTML comment (#1121). It
-    // parses; it does not validate, because a body that reached Phase 4b has
-    // already passed the two gates asserted below.
+    // agent differs from the author's. It must reach the Authoring-Agent line
+    // through the shared library rather than a local regex, which would pick a
+    // marker out of an HTML comment (#1121).
     expect(phase4b).toContain('. "$ROOT/lib/pr-body-contract.sh"');
     expect(phase4b).toContain('pr_body_authoring_agent "$body"');
-    // And it does not validate. Asserted on executable lines only, so a future
-    // comment mentioning the function does not satisfy this by accident.
-    expect(stripShellComments(phase4b)).not.toContain('pr_body_validate');
+
+    // And it VALIDATES before trusting that identity (mergepath#1141).
+    //
+    // This assertion was previously inverted, on the reasoning that a body
+    // reaching Phase 4b "has already passed the two gates asserted below".
+    // That premise does not hold, and the comment twenty lines down says so
+    // itself: the required per-event check "makes no claim about
+    // `Authoring-Agent:`". Only the author wrapper validates that field, and
+    // only at PR CREATION — so a body edited afterwards reaches Phase 4b with
+    // an unvalidated agent.
+    //
+    // Measured against mergepath without the call: `Authoring-Agent: nobody`
+    // is accepted and a reviewer is selected —
+    //   [phase-4b] ... direction=nobody->codex  reviewer=nathanpayne-codex
+    // With it, the same body dies at the contract with "unknown
+    // Authoring-Agent 'nobody' (expected an agent represented in
+    // available_reviewers)".
+    expect(stripShellComments(phase4b)).toContain('pr_body_validate');
 
     // Full validation — the Authoring-Agent allow-list and the Self-Review
     // section together — runs at PR creation through the author wrapper, and is
