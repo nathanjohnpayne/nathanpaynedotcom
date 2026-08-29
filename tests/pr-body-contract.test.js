@@ -17,6 +17,12 @@ function validate(body, ...arguments_) {
   });
 }
 
+// Drop whole-line shell comments so an absence assertion is about what the
+// script runs, not about what it mentions.
+function stripShellComments(source) {
+  return source.replace(/^[ \t]*#.*$/gm, '');
+}
+
 describe('PR body contract', () => {
   it('accepts a complete body and returns the Phase 4b authoring agent', () => {
     const result = validate(validBody, '--print-author');
@@ -149,6 +155,9 @@ describe('PR body contract', () => {
     // already passed the two gates asserted below.
     expect(phase4b).toContain('. "$ROOT/lib/pr-body-contract.sh"');
     expect(phase4b).toContain('pr_body_authoring_agent "$body"');
+    // And it does not validate. Asserted on executable lines only, so a future
+    // comment mentioning the function does not satisfy this by accident.
+    expect(stripShellComments(phase4b)).not.toContain('pr_body_validate');
 
     // Full validation — the Authoring-Agent allow-list and the Self-Review
     // section together — runs at PR creation through the author wrapper, and is
