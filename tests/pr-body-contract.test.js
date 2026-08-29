@@ -17,6 +17,12 @@ function validate(body, ...arguments_) {
   });
 }
 
+// Drop whole-line shell comments so an absence assertion is about what the
+// script runs, not about what it mentions.
+function stripShellComments(source) {
+  return source.replace(/^[ \t]*#.*$/gm, '');
+}
+
 describe('PR body contract', () => {
   it('accepts a complete body and returns the Phase 4b authoring agent', () => {
     const result = validate(validBody, '--print-author');
@@ -135,13 +141,38 @@ describe('PR body contract', () => {
     expect(result.stderr).toContain("missing a valid 'Authoring-Agent:' line");
   });
 
-  it('uses the same parser in Phase 4b and enforces it on every PR event path', () => {
+  it('routes every PR-body check through the one shared contract library', () => {
     const phase4b = readFileSync('scripts/phase-4b-review.sh', 'utf8');
     const workflow = readFileSync('.github/workflows/pr-review-policy.yml', 'utf8');
+    const validateScript = readFileSync('scripts/validate-pr-body.sh', 'utf8');
+    const author = readFileSync('scripts/gh-as-author.sh', 'utf8');
 
+    // Phase 4b reads the body to attribute it, so it can pick a reviewer whose
+    // agent differs from the author's. What matters is that it reaches the
+    // Authoring-Agent line through the shared library rather than a local
+    // regex, which would pick a marker out of an HTML comment (#1121). It
+    // parses; it does not validate, because a body that reached Phase 4b has
+    // already passed the two gates asserted below.
     expect(phase4b).toContain('. "$ROOT/lib/pr-body-contract.sh"');
-    expect(phase4b).toContain('pr_body_validate "$body" "$(p4b_config)"');
-    expect(workflow).toContain('scripts/validate-pr-body.sh');
+    expect(phase4b).toContain('pr_body_authoring_agent "$body"');
+    // And it does not validate. Asserted on executable lines only, so a future
+    // comment mentioning the function does not satisfy this by accident.
+    expect(stripShellComments(phase4b)).not.toContain('pr_body_validate');
+
+    // Full validation — the Authoring-Agent allow-list and the Self-Review
+    // section together — runs at PR creation through the author wrapper, and is
+    // reachable standalone through the validator script.
+    expect(author).toContain('pr_body_validate "$PR_BODY"');
+    expect(validateScript).toContain('pr_body_validate "$BODY"');
+
+    // The required check that runs on every PR event is deliberately narrower:
+    // it asks the markdown-aware parser one question and makes no claim about
+    // `Authoring-Agent:`, because the validator is loaded from the default
+    // branch and widening this gate is tracked separately (mergepath#1137).
+    // Assert the call the workflow actually makes — `validate-pr-body.sh`
+    // appears in that file only inside a comment, so matching its name proved
+    // nothing and let this test read as broader than the gate really is.
+    expect(workflow).toContain('node scripts/lib/pr-body-contract.mjs --has-self-review');
     expect(workflow).toMatch(/pull_request:\s*\n\s*types: \[opened, edited, synchronize,/);
   });
 });
