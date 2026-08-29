@@ -137,9 +137,9 @@ The easy description of Mergepath is an inventory—seven fail-closed CI checks 
 
 <DecisionLedger decisions={props.decisions} />
 
-`mergepath#1080` is the pull request the round budget was raised for. Four rounds were requested in ninety minutes; the two that returned findings returned them on code the previous round's fix had just introduced.
+`mergepath#1080` is the pull request the round budget was raised for. Four rounds were requested in ninety minutes. Only the two that returned findings are drawn below, and both returned them on code the previous round's fix had just introduced.
 
-```mermaid title="One pull request, reviewed until it stopped producing findings" description="A change pushed at 06:12 on 2026-08-22 drew four requested review rounds in the ninety minutes before it merged. Two of them returned findings, three each, and both landed on code the previous round's fix had just introduced: the review at 06:46 carried two blocking findings, the one at 07:04 carried one. A fix followed each, and the pull request cleared and merged at 07:41."
+```mermaid title="The two review rounds that returned findings" description="A change pushed at 06:12 on 2026-08-22 drew four requested review rounds in the ninety minutes before it merged. This shows the two that returned findings; the other two returned none on the record and are omitted. Both findings rounds landed on code the previous round's fix had just introduced — the review at 06:46 carried two blocking findings, the one at 07:04 carried one — and a fix followed each before the pull request merged at 07:41."
 flowchart TD
     S["change pushed<br/>06:12"]
     R2["review 06:46<br/>3 findings, 2 blocking"]
@@ -164,7 +164,7 @@ Adoption is measurable. Impact is not, and holding those apart is most of what t
 
 The fleet got to nine repositories by shrinking: a consumer was archived in August 2026 and retired from the manifest. The stress test came in July 2026: 134 review-finding threads across a 24-hour, eleven-PR record, dissected in [A Perfect Score on the Wrong Axis](/blog/perfect-score-wrong-axis/). And the sharpest result cuts against the hub rather than for it. Propagation dropped files the template's own review had already cleared into two unfamiliar codebases, and seven external-review rounds per pull request went on finding bugs in them. Review found the least where the files were most familiar.
 
-Propagation reports its own state, and it reports a fleet permanently catching up. A read-only audit at the end of August found the same eighteen paths adrift on all eight consumers, identical set, no exceptions:
+Propagation reports its own state, and it reports a fleet permanently catching up. A read-only audit at the end of August found the same eighteen manifest paths adrift on all eight consumers, identical set, no exceptions. A directory entry such as `scripts/ci/` counts as one path however many files inside it moved:
 
 ```text
 $ scripts/sync-to-downstream.sh --audit
@@ -174,7 +174,7 @@ nathanpaynedotcom (nathanjohnpayne/nathanpaynedotcom)
   ✗ tests/test_approval_merge_continuation.sh  drift: 996 diff line(s)
   ✗ scripts/merge-clearance-gate.sh            drift: 78 diff line(s)
   ✗ scripts/ci/                                drift: 3 file(s) drifted
-  … 14 more, and the same eighteen on all seven other consumers
+  … 14 more paths, and the same eighteen on all seven other consumers
 ```
 
 That is the mechanism working, not failing: drift is a reviewable diff rather than a weekly discovery. It is also the standing cost of a hub, which is always ahead of everything downstream of it.
