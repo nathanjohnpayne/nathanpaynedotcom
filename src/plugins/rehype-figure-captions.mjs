@@ -81,6 +81,21 @@ const imageDimensions = {
     width: 1984,
     height: 1488,
   },
+  // Friends & Family Billing: the Invoicing tab's two surfaces, captured from
+  // the repository's own E2E harness (VITE_E2E_MODE with the `seedPage`
+  // fixture), so the data is the fixture's invented household and the payment
+  // handle is a placeholder. Cropped to the message body and kept as two
+  // stacked figures rather than one side-by-side composite: composed, the pair
+  // was 2000px wide and rendered 233px at a 375px viewport, giving each pane
+  // ~117px and its UI text about 1.5 CSS pixels (#858 Codex round 6).
+  '/images/projects/friends-and-family-billing-edit.png': {
+    width: 894,
+    height: 428,
+  },
+  '/images/projects/friends-and-family-billing-preview.png': {
+    width: 926,
+    height: 490,
+  },
   // Swipe Watch: live-prototype captures at a 390x844 viewport, 2x DPR.
   '/images/projects/swipe-watch-card.png': {
     width: 780,
