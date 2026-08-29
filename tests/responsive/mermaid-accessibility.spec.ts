@@ -89,42 +89,48 @@ for (const route of [
   test(`${route} paints every label at the height Mermaid measured`, async ({ page }) => {
     await page.goto(route);
 
-    const labels = await page.locator('.mermaid-figure svg.mermaid g.node').evaluateAll((nodes) =>
-      nodes.flatMap((node) => {
-        const label = node.querySelector('g.label');
-        const shape = node.querySelector('rect, polygon, path, circle, ellipse');
-        if (!label || !shape) return [];
+    // `evaluateAll` widens its handles to `SVGElement | HTMLElement`, and
+    // `ownerSVGElement` lives only on the SVG half, so the callback has to name
+    // what the selector already guarantees: a `g.node` inside `svg.mermaid` is
+    // an `SVGGElement`. Untyped, the two reads below fail `astro check`.
+    const labels = await page
+      .locator('.mermaid-figure svg.mermaid g.node')
+      .evaluateAll((nodes: SVGGElement[]) =>
+        nodes.flatMap((node) => {
+          const label = node.querySelector('g.label');
+          const shape = node.querySelector('rect, polygon, path, circle, ellipse');
+          if (!label || !shape) return [];
 
-        const labelBounds = label.getBoundingClientRect();
-        const shapeBounds = shape.getBoundingClientRect();
-        if (!labelBounds.height || !shapeBounds.height) return [];
+          const labelBounds = label.getBoundingClientRect();
+          const shapeBounds = shape.getBoundingClientRect();
+          if (!labelBounds.height || !shapeBounds.height) return [];
 
-        // Mermaid wrote the height it measured onto the foreignObject and sized
-        // the node box to match, so that attribute is the contract the painted
-        // label has to meet. Compare the two in the SVG's own units: rects come
-        // back in viewport pixels, so undo however far the diagram was scaled.
-        const host = label.querySelector('foreignObject');
-        const content = host?.firstElementChild;
-        if (!host || !content) return [];
+          // Mermaid wrote the height it measured onto the foreignObject and sized
+          // the node box to match, so that attribute is the contract the painted
+          // label has to meet. Compare the two in the SVG's own units: rects come
+          // back in viewport pixels, so undo however far the diagram was scaled.
+          const host = label.querySelector('foreignObject');
+          const content = host?.firstElementChild;
+          if (!host || !content) return [];
 
-        const viewBoxWidth = node.ownerSVGElement?.viewBox.baseVal.width ?? 0;
-        const scale = viewBoxWidth
-          ? (node.ownerSVGElement?.getBoundingClientRect().width ?? 0) / viewBoxWidth
-          : 1;
+          const viewBoxWidth = node.ownerSVGElement?.viewBox.baseVal.width ?? 0;
+          const scale = viewBoxWidth
+            ? (node.ownerSVGElement?.getBoundingClientRect().width ?? 0) / viewBoxWidth
+            : 1;
 
-        return [
-          {
-            text: (label.textContent ?? '').trim(),
-            measured: host.height.baseVal.value,
-            painted: scale ? content.getBoundingClientRect().height / scale : 0,
-            scale,
-            breaks: label.querySelectorAll('br').length,
-            below: labelBounds.bottom - shapeBounds.bottom,
-            above: shapeBounds.top - labelBounds.top,
-          },
-        ];
-      }),
-    );
+          return [
+            {
+              text: (label.textContent ?? '').trim(),
+              measured: host.height.baseVal.value,
+              painted: scale ? content.getBoundingClientRect().height / scale : 0,
+              scale,
+              breaks: label.querySelectorAll('br').length,
+              below: labelBounds.bottom - shapeBounds.bottom,
+              above: shapeBounds.top - labelBounds.top,
+            },
+          ];
+        }),
+      );
 
     expect(
       labels.filter((label) => label.measured > 30).length,
