@@ -683,7 +683,7 @@ The return type at `:17` is `{'outstanding'|'partial'|'settled'|'overpaid'|null}
 
 > ":36 Generates shareable summaries via token-scoped links—each link carries the recipient's name, bill breakdown, and payment methods, accessible without login."
 
-**SUPPORTED at the product-behaviour level, all four elements.** The implementation generates per-recipient links, builds a member-scoped projection carrying the recipient's name, bill breakdown and enabled payment methods, and exposes the share route outside the login gate. The credential format, lookup derivation, storage identifiers and rule details are deliberately withheld from this public ledger while the live product's data-layer authorization gap remains open. The evidence was verified in the product repository and reported privately to its owner.
+**SUPPORTED at the product-behaviour level, all four elements.** The implementation generates per-recipient links, builds a member-scoped projection carrying the recipient's name, bill breakdown and enabled payment methods, and exposes the share route outside the login gate. The credential format, lookup derivation, storage identifiers and rule details are not repeated in the current ledger while the live product's data-layer authorization gap remains open; §C29 records why that is risk reduction rather than containment. The evidence was verified in the product repository and reported privately to its owner.
 
 ### C19—dispute management
 
@@ -719,7 +719,7 @@ Read §C40 first. It is the row that reshapes the restructure: the invoice email
 
 > Issue #758 AC 2: "Show the end-to-end recipient journey."
 
-**SUPPORTED at the recipient-journey level.** A recipient opens a no-login link, the application loads a member-scoped billing projection through either its cache or its server-side resolver, and the share page renders the result. A successful application load records best-effort access metadata; cases that require additional validation take the server path. **The credential format, lookup derivation, document key, storage identifiers and branch conditions are deliberately withheld from this public ledger for the reason given in §C29.**
+**SUPPORTED at the recipient-journey level.** A recipient opens a no-login link, the application loads a member-scoped billing projection through either its cache or its server-side resolver, and the share page renders the result. A successful application load records best-effort access metadata; cases that require additional validation take the server path. **The credential format, lookup derivation, document key, storage identifiers and branch conditions are not repeated in the current ledger for the reason and history caveat given in §C29.**
 
 The payload is built by `buildPublicShareData` (`src/lib/share.js:155-234`) and is scope-gated field by field. Always present: `memberName`, `memberId`, `billingYearId`, `year`, `scopes`, `ownerId` (`:187-194`). Under `summary:read`: the member's own bill list with per-bill `name`, `logo`, `website`, `monthlyAmount`, `billingFrequency`, `canonicalAmount`, `splitCount`, `monthlyShare`, `annualShare` (`:111-122`); the linked household members' equivalent summaries (`:198`); a `paymentSummary` of `combinedAnnualTotal`, `combinedMonthlyTotal`, `totalPaid`, `balanceRemaining` (`:199-204`); and, when non-zero, itemised `serviceCredits` (`:209-212`). Under `paymentMethods:read`: the enabled payment methods with QR-code blobs stripped to a `hasQrCode` flag (`:215-221`). Under `usageCharges:read`: the member's own deferred charges with a running total (`:223-225`). Under `payments:read`: a member-safe payment history of `id`, `date`, `amount`, `method`, with the free-text `note` deliberately excluded (`:229-231`, `:365-379`).
 
@@ -737,13 +737,13 @@ By contrast the **email** carries no derivation at all—only the greeting, the 
 
 **SPLIT: four recipient actions are SUPPORTED; "a recipient can self-report or mark a payment" is WRONG—no such control exists.** The actions reachable without an account, all in `src/app/views/ShareView.jsx`: open a review request on a specific bill ("Question This Charge", `:1022-1107`, gated on `disputes:create`); approve or reject the coordinator's proposed resolution of a review request (`:965-979`, gated on `disputes:read`); confirm or deny receipt of a refund ("Confirm Receipt" / "I Have Not Received It", `:836-845`, gated on `refunds:read`); and request a replacement link when the current one is dead ("Request New Link", `:321-325`). Passive affordances: expand payment history (`:752-755`), view a payment-method QR code (`:673-679`), copy a handle or address (`:641`, `:647`, `:653`, `:661`), open an evidence attachment (`:1015-1017`).
 
-There is no path by which a recipient records a payment. The share projection grants no payment-write capability, the recipient interface contains no such control, and the coordinator records every payment by hand. Data-layer details for the live unauthenticated surface are withheld under §C29. Defensible form for the page: the recipient can see, question and confirm; only the coordinator can post money.
+There is no path by which a recipient records a payment. The share projection grants no payment-write capability, the recipient interface contains no such control, and the coordinator records every payment by hand. Data-layer details for the live unauthenticated surface are not repeated in the current tree under §C29. Defensible form for the page: the recipient can see, question and confirm; only the coordinator can post money.
 
 ### C26—the dispute path, and what happens next
 
-**SUPPORTED at the product-behaviour level, with an enforcement limitation deliberately withheld.** The share-page form submits a scoped review request, rate-limits it, records a server-side audit entry, and emails the coordinator the member's message, any proposed correction, and a link to the review queue. The data layer does not fully enforce the same authorization boundary. Because that gap affects a live product and remains unresolved, the exact write path, rule clauses, missing checks and source locations are omitted under §C29.
+**SUPPORTED at the product-behaviour level, with implementation detail omitted from the current tree.** The share-page form submits a scoped review request, rate-limits it, records a server-side audit entry, and emails the coordinator the member's message, any proposed correction, and a link to the review queue. The data layer does not fully enforce the same authorization boundary. Because that gap affects a live product and remains unresolved, the current tree does not repeat the exact write path, rule clauses, missing checks or source locations. §C29 records that earlier public commits remain retrievable and this prose edit is not containment.
 
-The sharing spec's dispute-submission route has drifted from the tree and tests. Per §M1 the implementation wins. The current application path and credential transport are withheld under §C29; only the high-level behaviour above should be copied out.
+The sharing spec's dispute-submission route has drifted from the tree and tests. Per §M1 the implementation wins. The current tree does not repeat the application path or credential transport under §C29; only the high-level behaviour above should be copied out.
 
 ### C27—the point where the product removes a human coordination step
 
@@ -753,17 +753,17 @@ Verifiable. **(1)** The recipient learns their own amount and its derivation wit
 
 Not verifiable, and the page must not assert it: **the product does not send anything on its own.** There is no scheduler—`git grep -n "onSchedule\|pubsub\|scheduler\|cron" d70aa8ac9fca414777985bb7dc74faa0462690e6 -- functions src` returns zero, and the seven exported Cloud Functions are `getEvidenceUrl`, `processMailQueue`, `requestShareLink`, `resolveShareToken`, `submitDispute`, `submitDisputeDecision`, `submitRefundConfirmation`. The coordinator still opens a dialog and presses Send, per member, once a year. What is removed is the *explaining* and the *checking*, not the *asking*. A useful framing the record does support: six of the seven Cloud Functions exist to serve someone who has no account.
 
-### C28—share-link storage details are withheld
+### C28—share-link storage details are not repeated in the current tree
 
-**WRONG if the page says only a one-way representation is stored.** The live product retains material that lets the coordinator recreate a link already sent, and a test enforces that behaviour. The exact material, storage layout, lookup derivation and implementation references are withheld from this public ledger while the data-layer authorization gap in §C29 remains open. This affects how strongly the page can describe protection at rest, but the page does not need the underlying recipe.
+**WRONG if the page says only a one-way representation is stored.** The live product retains material that lets the coordinator recreate a link already sent, and a test enforces that behaviour. The exact material, storage layout, lookup derivation and implementation references are not repeated in the current ledger while the data-layer authorization gap in §C29 remains open. §C29 records the public-history limit of that choice. This affects how strongly the page can describe protection at rest, but the page does not need the underlying recipe.
 
 ### C29—what the read rule actually permits
 
 **SPLIT: the application intends link possession to be the boundary, but the deployed data-layer rule does not fully enforce the application's expiry and revocation checks.**
 
-> **Redacted, deliberately.** This row originally quoted the rule, named the storage surface and described the bypass. Those details are removed because the product is live, holds real household financial data, the flaw is unremediated, and this ledger sits in a public repository. **The remediation belongs in the product repository and has been escalated to its owner**; implementation detail can return only after that fix lands.
+> **Removed from the current tree, not from history.** This row originally quoted the rule, named the storage surface and described the bypass. Parent and earlier commits remain retrievable from this public repository, so ordinary line deletion does not contain that disclosure; this edit only stops the current page and ledger from repeating it. **The actual remediation belongs in the product repository and has been escalated to its owner.** Rewriting public Git history would be a separate destructive operation and was not undertaken here.
 
-This audit established the mismatch by reading the pinned rule and application paths; it did not probe the deployed project. The page may state the product judgment—a no-login possession boundary chosen for usability—and that its data-layer enforcement is incomplete. It must not publish the credential derivation, lookup recipe, storage identifiers, bypass procedure or post-expiry retrieval behaviour.
+This audit established the mismatch by reading the pinned rule and application paths; it did not probe the deployed project. Current rendered surfaces may state the product judgment—a no-login possession boundary chosen for usability—and that its data-layer enforcement is incomplete. They should not reintroduce the credential derivation, lookup recipe, storage identifiers, bypass procedure or post-expiry retrieval behaviour. That publishing rule reduces rediscovery; it does not retroactively make the earlier commits private.
 
 ### C30—expiry is enforced in two places, neither of them the rules, and the dialog's "No expiry" option does not do what it says
 
@@ -781,19 +781,19 @@ Corrected value for the page: every link the product mints expires, and the shor
 
 Rotation is automatic as well as manual, **on the share-dialog path only**. Creation prunes older active links per member and year in the same atomic operation, so sending a member a new invoice quietly retires an older link after the configured cap.
 
-Expiry has a known data-layer asymmetry that is part of the remediation in §C29. The retrieval details are withheld here for the same reason.
+Expiry has a known data-layer asymmetry that is part of the remediation in §C29. The current tree does not repeat the retrieval details for the same reason.
 
 ### C32—what a leaked link exposes
 
 **SUPPORTED, and the blast radius is narrower than a reader would assume.** A leaked link exposes the intended member's household view—including linked members—and no other household's data: `buildPublicShareData` is scoped to a `memberId` plus that member's `linkedMembers` (`src/lib/share.js:156-171`). Other households' names, amounts and payments are absent from the document by construction. What it does expose, for that household: the member's and linked members' names and avatars, the bills they are on with each bill's full monthly amount and the number of people splitting it, their annual and monthly shares, the household's total paid and balance, itemised service credits with free-text reasons, deferred usage charges with descriptions, the household's payment history as date/method/amount, and the coordinator's enabled payment methods including handles, URLs, a payee name, a postal address and a phone number where configured (`ShareView.jsx:630-669`). The free-text payment `note` is deliberately excluded (`src/lib/share.js:348`), and QR-code image blobs are stripped to a `hasQrCode` flag and fetched separately (`:216-220`).
 
-Transport and lookup details are withheld while §C29 remains open. One privacy fact can still be stated without publishing that recipe: server-side resolutions record the visitor's IP address in the coordinator's audit log, so the unauthenticated visitor is not anonymous to the person who sent the link.
+Transport and lookup details are not repeated in the current tree while §C29 remains open. One privacy fact can still be stated without restating that recipe: server-side resolutions record the visitor's IP address in the coordinator's audit log, so the unauthenticated visitor is not anonymous to the person who sent the link.
 
 ### C33—whether the usability/privacy tradeoff was ever evaluated
 
 **UNPROVABLE, and the honest answer is that no such record exists.** Issue #758 AC 8 asks the page to explain "how usability/privacy tradeoffs were evaluated." The artifact establishes the *outcome* thoroughly and the *evaluation* nowhere.
 
-What exists: a one-line README feature bullet describing no-login share links, a one-line security bullet characterising the storage mechanism, and `specs/sharing.md`, which is 74 lines of acceptance criteria describing what the mechanism does and contains no rationale, no alternative and no rejected option. The implementation wording from those bullets is withheld under §C29. Eight ADRs live in `docs/adr/`; not one of them concerns share access, authentication, or the no-login decision. The two share-link pull requests that might have carried a rationale—`#65` "Persist share link… set 1-year defaults" and `#181` "share link lifecycle"—are implementation write-ups; `#181`'s Self-Review §Security discusses rate limiting and input validation and never touches the account-versus-link question.
+What exists: a one-line README feature bullet describing no-login share links, a one-line security bullet characterising the storage mechanism, and `specs/sharing.md`, which is 74 lines of acceptance criteria describing what the mechanism does and contains no rationale, no alternative and no rejected option. The current ledger does not repeat the implementation wording from those bullets under §C29. Eight ADRs live in `docs/adr/`; not one of them concerns share access, authentication, or the no-login decision. The two share-link pull requests that might have carried a rationale—`#65` "Persist share link… set 1-year defaults" and `#181` "share link lifecycle"—are implementation write-ups; `#181`'s Self-Review §Security discusses rate limiting and input validation and never touches the account-versus-link question.
 
 ```bash
 S=d70aa8ac9fca414777985bb7dc74faa0462690e6; cd ~/GitHub/friends-and-family-billing
@@ -894,7 +894,7 @@ So the four-state model is a coordinator instrument. The recipient is shown a bi
 
 ### C40—decision record 3: the invoice a household member receives does not use the canonical renderer
 
-**WRONG as the page and the companion blog currently frame it. `renderInvoiceTemplate` governs the Invoicing tab's Preview and the "Send test email" button. It does not govern the invoice email a household member receives, it never did, and PR #161 never touched that file.**
+**WRONG at audit time and still wrong in the companion blog; corrected on the current project page.** At audit time the page and blog both implied that `renderInvoiceTemplate` governed the invoice email a household member receives. It governs the Invoicing tab's Preview and the "Send test email" button; it does not govern the recipient invoice, it never did, and PR #161 never touched that file. The current MDX page now states that boundary explicitly, while blog follow-up #857 remains open.
 
 The Cloud Function chooses its renderer on one condition (`functions/index.js:1280-1282`):
 
@@ -929,7 +929,7 @@ There is a second, sharper way to state it. Before #161 the test email and the i
 
 **Two earlier rows are corrected inline rather than left to contradict this evidence.** §C11 now narrows the unification to Preview and the test email and states that the recipient invoice remained on the bridge. §C20's headline now changes from SUPPORTED to SPLIT: the invoice builder and preview are supported, while the preview-to-recipient parity claim is wrong. Both rows now carry the invoice-email boundary before anything is copied out of them.
 
-Corrected value the page may state: one canonical renderer produces the template body for the Invoicing tab's preview and for the test send; the invoice email itself still renders from the plain-text bridge. Do not write that the recipient's email comes from the same renderer as the preview. If the page wants the stronger claim, the repository has to earn it first.
+Corrected value now carried by the page: one canonical renderer produces the template body for the Invoicing tab's preview and for the test send; the invoice email itself still renders from the plain-text bridge. Do not write that the recipient's email comes from the same renderer as the preview. If the product wants the stronger claim, its repository has to earn it first.
 
 ### C41—the editor was never on the canonical path
 
