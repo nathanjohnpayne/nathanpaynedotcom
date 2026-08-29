@@ -29,10 +29,10 @@ decisions:
   - title: "Make the link the credential"
     lens: "Access"
     context: "A household member checks their bill a handful of times a year. An account—password, recovery, sign-in—prices that rare act absurdly, and the person paying is the one I least wanted to burden. The token link predates the React app entirely, and no ADR, spec, or pull request ever records an account model being weighed against it."
-    chosen: "A recipient holds a URL and nothing else. Opening it presents that member's view, including equivalent summaries for any linked household members, and the application gives each link a lifecycle with expiry, revocation, and pruning controls. The access mechanism itself is omitted while remediation remains open."
+    chosen: "A recipient holds a URL and nothing else. Opening it presents that member's view, including equivalent summaries for any linked household members, and the application gives each link a lifecycle with expiry, revocation, and pruning controls. The current page does not repeat the access mechanism while remediation remains open; earlier public commits remain retrievable."
     rationale: "The recipient's four needs—an amount, its derivation, a way to pay, a way to object—are all read-and-request acts. None requires an identity, and all of them die behind a login screen. This was product judgment, not a documented deliberation, and I would rather say so than invent a record."
     cost: "Whoever holds the link is treated as the recipient. The data-layer rules do not fully enforce the application's intended expiry and revocation model, so a leaked link can expose the intended member's view, including linked household members."
-    evidence: "The product exposes expiry, revocation, and pruning controls, but the deployed data-layer rule does not fully enforce the application's intended possession boundary. The credential derivation, storage layout, lookup path, and bypass behavior are deliberately omitted while that gap remains open."
+    evidence: "The product exposes expiry, revocation, and pruning controls, but the deployed data-layer rule does not fully enforce the application's intended possession boundary. The current page does not repeat the credential derivation, storage layout, lookup path, or bypass behavior while that gap remains open; this reduces repetition but does not contain earlier public history."
     status: "mixed"
   - title: "The coordinator doesn't keep the change"
     lens: "Settlement"
@@ -136,7 +136,7 @@ Both sent messages share an envelope that restyles the body—one more reason th
 
 No record weighs links against accounts—no ADR, spec, or pull request carries that deliberation. The tradeoff was my product judgment, and the honest claim is narrower than the implementation detail.
 
-The design intends link possession to stand in for identity, with the application responsible for expiry and revocation. The deployed data-layer rule does not fully enforce that model. Because the product is live and the gap remains open, the credential derivation, storage layout, lookup path, and bypass behavior are deliberately omitted here; the remediation belongs in the product repository.
+The design intends link possession to stand in for identity, with the application responsible for expiry and revocation. The deployed data-layer rule does not fully enforce that model. Because the product is live and the gap remains open, the current page does not repeat the credential derivation, storage layout, lookup path, or bypass behavior; the remediation belongs in the product repository. Earlier public commits remain retrievable, so removing that detail from the current page reduces repetition and is not containment.
 
 Revocation and managed-link pruning are real, reachable controls, but they do not make the data-layer mismatch disappear. The security claim this page can support is narrower: the application has a deliberate no-login model and lifecycle controls, while enforcement below the application remains incomplete.
 
