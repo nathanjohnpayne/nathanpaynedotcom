@@ -178,6 +178,395 @@ Note against the prior run's framing: the sixteen keys at `specs/DST-TDI-001-Con
 
 **SUPPORTED,** and consistent with A16: no product development since 2026-03-06, deployed instance on synthetic data.
 
+### Delta audit for #755—rows added 2026-08-29
+
+Twenty-four rows (§A25–§A48) covering the claims the #755 restructure needs and §A1–§A24 do not reach: who the product actually models, the five ingestion paths and the one shape they share, the AI trust boundary tested as five separate claims, what freshness means and what acts on it, the evidence behind each candidate decision record, the outcome record, and the surviving frontmatter and cross-surface vocabulary. Everything in the product repository was read at **`c9f66f07a243491eef3295ac8ed32e4fe97610d5`** in `~/GitHub/device-source-of-truth` (short `c9f66f0`, 2026-08-28 12:50:41 −0700, subject "bulk sync to mergepath@3d96105", the routine propagation commit), which is that repository's `origin/main` at the time of this audit; the local checkout's `HEAD` was two commits *behind* it, so every command below reads the object database at the literal SHA rather than the working tree. The site repository was read at **`d3105842170cc22ad89abcb040861af625435936`**. **Every command in these rows carries one of those two literal SHAs rather than `origin/main` or `HEAD`**, per the #820 finding that a moving ref makes a row unreproducible. Four evidence sources sit outside that header and are labelled where they appear: **live GitHub API reads** (§A25), carrying an as-of UTC timestamp in the row; **two anonymous HTTP GETs**, one of the published `githubUrl` and one of the deployed product's root URL (§A25), which read public endpoints and no data; **the résumé vault** at `~/GitHub/docs/job-search/` (§A28, §A44), which is not a git-pinned surface in this audit; and **commits outside the pin's first-parent product history** cited by SHA in §A41, all of them ancestors of the pin.
+
+Read §A25 and §A28 first. §A25 is the row that reshapes the restructure: the repository the page links as "View on GitHub" is **private**, so that CTA returns 404 for every reader, and the deployed product behind "View Live Product" serves a shell and then a domain-restricted login wall—both of the page's evidence CTAs are dead ends, and AC 8's confidentiality requirement turns out to rest on that privacy rather than on the scrub. §A28 is the one that needs a human: the page, the résumé and the repository's own README give a reader three different provenance stories for the same artifact, and one of them is contradicted by the record. Six rows **correct a claim a current surface states**: §A31 corrects the supporting sentence inside §A1 (the verdict stands, the sentence does not); §A40 corrects the page's `332`/`178` commit arithmetic; §A41 corrects the page's "plus one substantive change"; §A35 narrows the page's "mandatory cost disclosure"; §A42 corrects the page's `ADK` vocabulary against what the deployed demo renders; and §A28 corrects the résumé line mirrored on two surfaces. Seven rows **change what the page can claim** and should be read before any decision-record card is drafted: §A29 (the ticket's four personas are not modelled), §A30 (a shipped page states figures no data produced), §A33 and §A34 (what "actionable exception" concretely covers, and what is dead), §A36 (confidence gates one subsystem and decorates the other), §A45 (the validation boundary), and §A48 (the decision-record adjudication). §A27 is a method finding that invalidated two of this audit's own sweeps before it was caught, and it is written down so the next session does not repeat it. The remaining rows are new SUPPORTED material, most of which has never appeared on any surface.
+
+### A25—the repository is private, and both page CTAs are dead ends for a reader
+
+> ":11 githubUrl: \"https://github.com/nathanjohnpayne/device-source-of-truth\"" and ":10 liveUrl: \"https://device-source-of-truth.web.app\""
+
+**WRONG as a reader-facing claim on `githubUrl`; SUPPORTED-but-misleading on `liveUrl`.** The evidence repository is **private**. As of **2026-08-29T19:44:23Z** the API returns `{"archived":false,"default_branch":"main","private":true,"visibility":"private"}`, and as of **2026-08-29T19:44:46Z** an anonymous GET of the published `githubUrl` returns **HTTP 404**, as does every deep link into it—`specs/DST-047-questionnaire-intake-ai-extraction.md` and `REVIEW_POLICY.md` both 404. The template renders "View on GitHub" as a primary CTA on a portfolio page whose audience is hiring managers; for every one of them it resolves to GitHub's 404 page.
+
+```bash
+eval "$(/opt/homebrew/bin/brew shellenv)" && \
+  GH_TOKEN="$OP_PREFLIGHT_REVIEWER_PAT" gh api repos/nathanjohnpayne/device-source-of-truth \
+  --jq '{visibility, private, archived}'
+curl -s -o /dev/null -w '%{http_code}\n' https://github.com/nathanjohnpayne/device-source-of-truth
+curl -s -o /dev/null -w '%{http_code}\n' https://device-source-of-truth.web.app
+```
+
+`liveUrl` returns **HTTP 200** and serves a 3,301-byte SPA shell whose `<meta name="description">` reads "Story Entertainment's system of record for partner device data—hardware specs, certifications, telemetry, and deployment intelligence." Past the shell the application is domain-restricted: `functions/src/middleware/auth.ts:23` sets `const ALLOWED_DOMAINS = ['@disney.com', '@disneystreaming.com', '@nathanpayne.com'];`, with a matching client-side guard in `src/hooks/useAuth.tsx`, and the comment at `:22` records why the third entry exists—"synthetic-data demo instance remains reachable now that the Disney tenure has ended." A reader can reach the login screen and no further.
+
+Two consequences bind the restructure. **AC 9's screenshots stop being decoration and become the only evidence a reader can actually see**, because neither CTA lets them verify anything themselves. And **AC 8's confidentiality is currently held by the repository's privacy setting, not by the synthetic scrub**—see §A26. The page may say the deployed instance is a synthetic-data demo behind a restricted login; it may not present either CTA as something the reader can open, and it should not deep-link `specs/` paths that 404.
+
+### A26—real partner identities survive in `specs/`, and the scrub never claimed to reach them
+
+**SUPPORTED, and the boundary is exactly where the scrub commit says it is—not one line further.** `6e002a7` (2026-08-20, "feat(demo): replace real partner data with a synthetic dataset (#165)") enumerates its own scope in its body, and the scope is three things: the **deployed data** ("Wiped every Firestore collection (11,098 documents) and all 12 Storage objects, then seeded 1,150 synthetic documents"), the **shipped source** ("Real partner names removed from shipped code"—`functions/src/routes/partnerAliases.ts`, `functions/src/services/seedFieldOptions.ts`, `src/pages/TelemetryUploadPage.tsx`, `src/pages/PartnerDetailPage.tsx`), and `mappings/` (the real CSV exports and four real questionnaire workbooks, deleted). **`specs/` is not in that list, and the specs still name real partners.**
+
+At the pin, `specs/DST-038-partner-key-registry.md:150-157` is a table mapping **seven named commercial operators** to their real partner-key inventories, and `DST-046` repeats the same set while `DST-047` names real device codenames and real uploaded questionnaire filenames. One live operator-named literal also survives in shipped code at `functions/src/services/questionnaireParser.ts:127`. **The operator names, partner keys, codenames and filenames are deliberately not reproduced in this ledger**, which lives in a public repository while their source repository is private (§A25); anyone with access can read them at the cited paths. Counting them needs no names: see the command below.
+
+```bash
+S=c9f66f07a243491eef3295ac8ed32e4fe97610d5; cd ~/GitHub/device-source-of-truth
+git show --stat --format='%h %ad %s' --date=iso 6e002a7 | head -5
+# Read the operator table directly rather than grepping for the names, so the
+# pattern itself does not carry them. Needs repo access; §A25.
+git show "${S}:specs/DST-038-partner-key-registry.md" | sed -n '150,157p'
+git grep -nIiE 'disney|hulu|espn' "$S" -- README.md CONTRIBUTING.md docs specs
+```
+
+None of this is publicly exposed today, because of §A25. That is the whole of the protection, and it is one settings toggle deep. **The page may say the deployed instance runs entirely on synthetic data—§A17 established that and it holds. The page may not say the repository contains no real partner data, must not quote or paraphrase any spec content that names a partner, an operator, a device codename or a questionnaire filename, and must not add a deep link into `specs/`.** The synthetic replacements are safe to describe and to screenshot: `scripts/synthetic/dataset.mjs:32-46` defines fourteen invented operators (`Northwind Cable`, `Brightloom Telecom`, `Solstice Media Group`, `Quillon TVs` and so on), `:52-55` invented silicon vendors and OEMs, and `:54` the fictional group's own kit name.
+
+### A27—method: `git grep -E` does not honor `\b`, and it fails silently
+
+**A method finding, recorded because it invalidated two sweeps in this audit before it was caught.** `git grep -nIiE '\bOperator\b'` against the pin returns **zero hits** for a token that demonstrably occurs; dropping the `\b` returns the files. (The real sweep used operator names, withheld here per §A26; the behaviour is a property of the matcher, not of the token.) Git's `-E` compiles POSIX ERE, in which `\b` is undefined, so the pattern matches nothing and the command exits non-zero exactly as a genuine no-match does. There is no warning and no distinguishable signal.
+
+```bash
+S=c9f66f07a243491eef3295ac8ed32e4fe97610d5; cd ~/GitHub/device-source-of-truth
+# Substitute any token you know occurs; the point is the matcher, not the word.
+git grep -cIiE '\bTOKEN\b' "$S" -- specs   # zero hits, exit 1 — \b is undefined in ERE
+git grep -cIiE 'TOKEN'     "$S" -- specs   # the real count
+```
+
+The first confidentiality sweep in this audit used `\b(disney|hulu|espn)\b` and returned nothing, which read as a clean result and was very nearly written up as one. The correct reading was that the matcher was broken. This is §M2 ("count with the loosest correct matcher, then narrow") arriving through a different door: the matcher was not merely too narrow, it was inert. **Never use `\b` in a `git grep` pattern. Anchor with an explicit character class, use `-w`, or pipe through GNU `grep -P`, and always run a positive control against a token known to be present before trusting a zero-hit sweep.**
+
+### A28—the page, the résumé and the repository give three different provenance stories
+
+**SPLIT, and the reconciliation is a judgment about employment facts this audit cannot make. What it can establish is that the three surfaces disagree and that one of them is contradicted by the record.**
+
+The **project page** frames DST as Disney work: `:65` "This is the partner-engineering work I spent a decade doing at Disney" and `:59` "Development ended with my Disney tenure." The **résumé**, verbatim-identical on both of its surfaces, frames it as something else: "A standalone web application for partner-device intelligence… **An independent build, distinct from the internal production system referenced in my Disney experience**" (`~/GitHub/docs/job-search/nathan-payne-resume.md:103` and `src/content/resume/projects/device-source-of-truth.md`, the two matching byte-for-byte). A third framing appears in one tailored variant: `~/GitHub/docs/job-search/nba/nathan-payne-resume-nba.md:65` calls it a "**personal reimplementation of the Disney partner-device data system**," which is neither of the other two.
+
+The repository record contradicts the résumé's version directly. `README.md:3` opens "**Internal Disney Streaming platform** that consolidates NCP/ADK partner device data"; `CONTRIBUTING.md:5` reads "Device Source of Truth (DST) is an **internal Disney Streaming tool that manages real partner device data used across engineering teams**"; `docs/agents/repository-overview.md:4` repeats it; authentication was restricted to `@disney.com` and `@disneystreaming.com` until the 2026-08-20 scrub added a third domain; and the scrub commit's own body states that "The deployed instance held **real Disney partner device data**—partner records, device inventory, telemetry, and 12 uploaded partner questionnaires." An independent build distinct from the internal production system does not hold that system's real data behind that employer's SSO domain.
+
+```bash
+S=c9f66f07a243491eef3295ac8ed32e4fe97610d5; cd ~/GitHub/device-source-of-truth
+git show "${S}:README.md" | sed -n '3p'
+git show "${S}:CONTRIBUTING.md" | sed -n '5p'
+git log -1 --format=%B 6e002a7 | sed -n '4,10p'
+diff <(sed -n '103p' ~/GitHub/docs/job-search/nathan-payne-resume.md) \
+     <(git show d3105842170cc22ad89abcb040861af625435936:src/content/resume/projects/device-source-of-truth.md | tail -1)
+```
+
+**This is the highest-stakes open question on the page and it needs the human, not a drafting agent.** Per §M4 the record shows text and timestamps, never intent, so this row does not guess why the résumé sentence was written—a deliberate confidentiality or IP hedge is an entirely plausible reason and would not make the sentence accurate. What the restructure cannot do is leave the two live: a reader arriving from the résumé is told DST is an independent build, and the page then tells them it is the decade of work at Disney. **Until that is settled, the page may not assert either provenance more strongly than it does today, and whichever wording is chosen must be applied to the page, `src/content/resume/projects/device-source-of-truth.md`, the canonical résumé, and the NBA variant in the same change.**
+
+### A29—the four personas the ticket names are not modelled; the product has three roles
+
+> Issue #755: "partner engineering, certification, support, and platform teams answer high-consequence questions"
+
+**WRONG as a statement about the artifact; defensible only as a statement about the domain.** The product models **three permission roles and no teams**: `functions/src/types/index.ts:88` and `src/lib/types.ts:82` both declare `export type UserRole = 'viewer' | 'editor' | 'admin';`, and `functions/src/routes/users.ts:8` pins the same three as `VALID_ROLES`. There is no team, department, persona or function attribute anywhere on the user record, no per-persona view, and no per-persona permission. Users enter only by Google OAuth auto-provisioning at `role: 'viewer'` (`functions/src/middleware/auth.ts:72`), and `specs/DST-054-user-role-management.md` is explicit that the story "does **not** deliver user invitation, user deletion, or manual user creation."
+
+The role split is real but lopsided. Of the fifty `requireRole(...)` call sites across the API, **forty are `requireRole('admin')` alone and ten are `requireRole('editor', 'admin')`**; `viewer` gates nothing, because read routes carry no role guard at all beyond authentication.
+
+```bash
+S=c9f66f07a243491eef3295ac8ed32e4fe97610d5; cd ~/GitHub/device-source-of-truth
+git grep -hoIE "requireRole\('[a-z]+'(, '[a-z]+')?\)" "$S" -- functions/src | sort | uniq -c
+git grep -nI "export type UserRole" "$S" -- functions/src src
+```
+
+The ten `editor`-reachable routes are exactly the intake and authoring surface: create/update a device (`devices.ts:236`, `:297`), create/update a partner (`partners.ts:127`, `:167`), write a device spec (`deviceSpecs.ts:76`), upload a questionnaire and trigger or retry its extraction (`questionnaireIntake.ts:174`, `:617`, `:693`), run a tier simulation (`tiers.ts:213`), and bulk-import specs (`upload.ts:369`). **Everything that commits imported data to the registry is `admin`-only**, which is the finding §A37 turns into a decision record.
+
+The only persona vocabulary anywhere in the shipped product is two strings on one page: `src/pages/ReadinessPage.tsx:88` "Certification team onboarded and trained" and `:98` "Tier definitions reviewed and approved by P&D PM"—and see §A30 for what that page is. Defensible weaker form for AC 1 and AC 2: name the roles the product enforces (a viewer who can read everything, an editor who can stage intake, an admin who alone can commit it) and describe partner engineering, certification, support and platform teams as the *audience the questions come from*, never as modelled personas with distinct views.
+
+### A30—a shipped admin page states figures that no data produced
+
+**SUPPORTED, and it is a trap for the drafting agent.** `src/pages/ReadinessPage.tsx` renders a five-item launch-readiness checklist in which three of the five items carry **hardcoded string literals presented as measured values**: `:79` `value: '1,247 devices imported'`, `:86` `value: 'Last upload: 2 warnings'`, `:101` `value: '84% coverage (target: 80%)'`. Their `status` fields are literals too (`'pass'`, `'warn'`, `'pass'`); nothing is computed, no API is called, and the only dynamic items are the two `manual: true` toggles, which persist to `localStorage` (`:30-40`).
+
+The page ships and is routed: `src/App.tsx:83` lazy-loads it, `:228-229` mounts it at `admin/readiness` behind `<AdminRoute>`, and `src/components/layout/AppShell.tsx:149` puts it in the navigation.
+
+```bash
+S=c9f66f07a243491eef3295ac8ed32e4fe97610d5; cd ~/GitHub/device-source-of-truth
+git grep -nI "1,247 devices imported\|84% coverage\|Last upload: 2 warnings" "$S" -- src
+git show "${S}:src/App.tsx" | sed -n '226,231p'
+```
+
+**`1,247` and `84%` must not appear on the page, in a `constraints` chip, or in a screenshot caption.** They are UI copy in a mock, not measurements—and `1,247` is precisely the kind of figure a drafting agent reaches for when AC 6 asks for coverage. AC 9 asks for screenshots demonstrating enterprise UX quality; `/admin/readiness` is the one screen in the product that must **not** be screenshotted, because its figures would be read as outcome evidence and there is none (§A45).
+
+### A31—correcting §A1's supporting sentence: the repository does state a device count
+
+> §A1: "No artifact in the repo states a device count."
+
+**WRONG**—that supporting sentence, not §A1's verdict. **§A1's verdict of UNPROVABLE on "hundreds of partner devices" stands, and this row does not disturb it—only the reasoning underneath it.** Re-derived from scratch at the pin, three artifacts state device counts. `src/pages/ReadinessPage.tsx:79` states `1,247 devices imported` (a hardcoded literal, per §A30). `specs/DST-044-amendment-version-registry.md:25` mentions four ADK labels "across 45 devices in the AllModels inventory," which §A1 itself cites two sentences after asserting no artifact states a count. `specs/DST-038-partner-key-registry.md:233` states that the partner-key source file "parses all 47 rows," a partner-key count rather than a device count but the same class of figure. And `scripts/synthetic/dataset.mjs` defines the deployed dataset's own scale, which §A1 correctly bounds at 26–78.
+
+```bash
+S=c9f66f07a243491eef3295ac8ed32e4fe97610d5; cd ~/GitHub/device-source-of-truth
+git grep -nIE '[0-9,]+ (devices|rows|partners)' "$S" -- specs src/pages scripts/synthetic | head
+```
+
+The corrected supporting sentence: *no artifact states the size of Disney's production device estate, and the counts the repository does carry are a hardcoded UI literal, a spec's incidental observation about one version label, and the synthetic dataset's own scale—none of which bounds the real fleet.* The practical rule for the restructure is unchanged and now better grounded: **the page may name the source systems and the device categories; it may not name a magnitude, and it may not reach for `1,247`, `45` or `47` to supply one.**
+
+### A32—five ingestion paths, and the one shape all of them share
+
+**SUPPORTED, and this is the workflow map AC 2 asks for.** §A22 established four *sources*; the artifact has five *paths*, and the extra one matters because it is where the two Datadog-derived feeds diverge. Mounted at `functions/src/index.ts:63-80`: **AllModels device inventory** via `POST /api/upload/migration` (`upload.ts:56`); **Airtable intake requests** via `POST /api/intake/preview` then `POST /api/intake/import` (`intake.ts:110`, `:351`); **Datadog partner-key mappings** via the `partnerKeys.ts` import routes; **Datadog telemetry** via the `telemetry.ts` preview/commit pair; and **partner Excel questionnaires** via `POST /api/questionnaire-intake` (`questionnaireIntake.ts:174`).
+
+The shape they share is the story. **Every one of them is a two-step preview-then-commit, and every commit step is `requireRole('admin')`.** `intake.ts:110` and `:351` are both admin-only; `upload.ts:56` is admin-only; the telemetry commit is admin-only; and the questionnaire path stages to `questionnaireStagedDevices`/`questionnaireStagedFields` and commits only through `POST /:id/approve` (`questionnaireIntake.ts:1197`, admin-only, §A37). Nothing in the product writes an imported record to the registry without a human looking at a preview of it first.
+
+```bash
+S=c9f66f07a243491eef3295ac8ed32e4fe97610d5; cd ~/GitHub/device-source-of-truth
+git grep -nI "app.use('/api" "$S" -- functions/src/index.ts
+for r in upload intake telemetry partnerKeys questionnaireIntake; do
+  echo "-- $r"; git show "${S}:functions/src/routes/${r}.ts" | grep -nE "^router\.(post|put|patch)"
+done
+```
+
+That single sentence—*five feeds, one gate*—does more work than the source-system list does, and no surface currently says it.
+
+### A33—"actionable exception" means exactly three alert types, of which two are generated and two are resolvable
+
+**SUPPORTED, with the counts.** `functions/src/types/index.ts:92` and `src/lib/types.ts:86` both declare `export type AlertType = 'unregistered_device' | 'new_partner_key' | 'inactive_key';`. Two of the three are generated, both by the telemetry upload path and nothing else: `functions/src/routes/telemetry.ts:415` writes `type: 'new_partner_key'` and `:447` writes `type: 'unregistered_device'`. Two of the three carry an in-page resolution control: `src/pages/AlertsPage.tsx:667` renders the Register Device path for `unregistered_device` and `:678` the Create Key path for `new_partner_key`.
+
+What makes them *actionable* rather than merely clickable is that resolving one closes it. Creating the partner key auto-dismisses every matching open alert server-side: `functions/src/routes/partnerKeys.ts:598-619` queries `.where('type', '==', 'new_partner_key')`, dismisses the matches, and logs `Auto-dismissed new_partner_key alerts` with the affected ids; `AlertsPage.tsx:93` and `:291` carry the comment "Backend auto-dismissed matching new_partner_key alerts; update local state."
+
+```bash
+S=c9f66f07a243491eef3295ac8ed32e4fe97610d5; cd ~/GitHub/device-source-of-truth
+git grep -nI "type: 'new_partner_key'\|type: 'unregistered_device'\|type: 'inactive_key'" "$S" -- functions src scripts
+git show "${S}:functions/src/routes/partnerKeys.ts" | sed -n '596,620p'
+```
+
+Concrete form the page can use: an exception is a telemetry row the registry cannot explain—a device id with no device record, or a partner key not in the registry—surfaced as a work item with the control that creates the missing record, and closed automatically when that record exists. **The page may not describe exceptions as spanning the whole import surface**: the questionnaire, Airtable and AllModels paths raise no alerts at all, they surface their exceptions inline in their own import previews (§A32, §A39).
+
+### A34—`inactive_key` is a declared alert type that nothing ever creates
+
+**SUPPORTED, and it is dead.** `inactive_key` is the third member of the `AlertType` union, is labelled "Inactive Key" at `src/pages/AlertsPage.tsx:22`, is styled `'info'` at `:28`, is given an icon at `:34`, and is offered as a filter at `:52` (`const ALERT_TYPES: AlertType[] = ['unregistered_device', 'new_partner_key', 'inactive_key'];`). **No code path anywhere writes it.** The only two writers of the `alerts` collection are `telemetry.ts:413-415` and `:445-447`, and they write the other two types; the synthetic seeder writes three alert documents at `scripts/synthetic/seed.mjs:432`, `:454` and `:475`, and they are `unregistered_device`, `new_partner_key` and `unregistered_device`. It also has no resolution control—`AlertsPage.tsx` branches on the other two types only.
+
+```bash
+S=c9f66f07a243491eef3295ac8ed32e4fe97610d5; cd ~/GitHub/device-source-of-truth
+git grep -nI "inactive_key" "$S" -- functions src scripts packages
+git grep -nI "collection('alerts')" "$S" -- functions/src scripts
+```
+
+The honest count is therefore **two alert types in service, a third declared and never emitted**. Nobody asked for this row; it exists because "three alert types" is the number a drafting agent would take from the enum, and the number that would survive review is two.
+
+### A35—cost disclosure shipped, is mandatory in the interface, and is not a server-side gate
+
+> ":45 The pipeline that shipped runs AI-assisted extraction with mandatory cost disclosure"
+
+**SPLIT: "shipped" and "mandatory" are SUPPORTED; read as an enforced control or as a computed estimate, the claim is WRONG on both counts.**
+
+It shipped, against a spec header that denies it—`specs/DST-050-questionnaire-ai-cost-disclosure.md:3-4` still carries `tested: false` / `reason: "implementation pending"`, and this is a second clean instance of §M1 alongside §A18. The modal is placed at both DST-047 trigger points: `src/pages/QuestionnaireUploadPage.tsx:291` and `src/pages/QuestionnaireDetailPage.tsx:720`. It is mandatory in the sense the spec intended—`QuestionnaireUploadPage.tsx:294-296` sets `onClose={() => {}}` and `dismissable={false}` with a single footer action, `Got It — Continue Upload`, so there is no cancel and no opt-out. That is genuinely different from the DST-042 variant on the CSV paths (`IntakeImportPage.tsx:860`, `PartnerKeyRegistryPage.tsx:806`), which sits behind an opt-in checkbox defaulting to off (`IntakeImportPage.tsx:157` `useState(false)`).
+
+Two narrowings the page must respect. **It discloses no estimate.** The body text is qualitative: extraction "uses the Anthropic API and will incur usage costs billed to your organization's API account. Costs scale with the number of devices in the file—most questionnaires are a few cents or less." Nothing counts tokens, computes a per-run figure, displays a running total or enforces a budget; `git grep -nIiE 'estimatedCost|costEstimate|costUsd|budget'` over `src functions packages` returns nothing. **And it is a client-side courtesy, not a gate.** Acknowledgement is recorded at `QuestionnaireUploadPage.tsx:137` as `sessionStorage.setItem('dst_questionnaire_ai_disclosed', 'true')`—browser session scope, never sent to the server—and the extraction routes (`questionnaireIntake.ts:174`, `:617`, `:693`) check role and nothing else. An API client calling `trigger-extraction` directly never encounters it.
+
+```bash
+S=c9f66f07a243491eef3295ac8ed32e4fe97610d5; cd ~/GitHub/device-source-of-truth
+git show "${S}:src/pages/QuestionnaireUploadPage.tsx" | sed -n '136,140p;291,315p'
+git grep -nIiE 'estimatedCost|costEstimate|costUsd|budget' "$S" -- src functions packages
+```
+
+Defensible form: *before the first extraction in a session the interface states that the run will bill the organization's Anthropic account and roughly what it costs, with no way to proceed without acknowledging it and no way to opt out—the disclosure is a design commitment enforced in the interface, not in the API.* That is a better sentence than the current one, and it is true.
+
+### A36—confidence is computed in two subsystems with different semantics and different powers
+
+**SPLIT, and conflating the two would be the single easiest error to make on this page.**
+
+**In the questionnaire extraction pipeline, confidence gates nothing.** The model is asked for it—`functions/src/services/questionnaireExtractor.ts:313` instructs the response schema to carry "confidence: float 0.0-1.0" per question-answer pair—and it is stored verbatim on the staged field at `:712` as `aiConfidence: result.confidence`. Every consumer is presentational: `src/pages/QuestionnaireReviewPage.tsx:728` renders `<ConfidenceBadge value={f.aiConfidence} />`, `:1400-1402` colour-codes the row at `>= 0.85` and `< 0.75`, and `:1447` prints `confidence: {Math.round(field.aiConfidence * 100)}%`. `aiConfidence` appears nowhere in `functions/src` except that one write. It does not auto-approve a field, does not auto-reject one, and is not consulted by the sign-off guards in §A37.
+
+**In the CSV import disambiguation pass, confidence does gate.** `functions/src/services/aiImportFramework.ts:25-26` sets `AUTO_RESOLVE_THRESHOLD = 0.90` and `VERIFY_THRESHOLD = 0.75`, mirrored in `aiDisambiguate.ts:25-26`; the prompt at `aiImportFramework.ts:308-310` instructs "0.90+ → auto-resolve", "0.75–0.89 → suggest but flag for human verification", "Below 0.75 → set needs_human = true and provide a clear question"; and `aiDisambiguate.ts:225-226` turns the number into a resolution source, `confidence >= AUTO_RESOLVE_THRESHOLD ? 'ai_auto' : 'ai_suggested'`. A row resolved `ai_auto` stops generating a clarification question. It does **not** skip the import preview—that path is still the two-step admin confirm of §A32—so what auto-resolve removes is the question, never the confirmation.
+
+```bash
+S=c9f66f07a243491eef3295ac8ed32e4fe97610d5; cd ~/GitHub/device-source-of-truth
+git grep -nI 'aiConfidence' "$S" -- functions/src src packages
+git show "${S}:functions/src/services/aiImportFramework.ts" | sed -n '25,26p;305,316p'
+```
+
+Note the two subsystems do not even share thresholds: the review UI's colour breaks are 0.85/0.75, the disambiguation gate's are 0.90/0.75. **The page may say the model reports its own confidence per extracted field and that the number is shown to the reviewer rather than trusted to decide; it may say that on the CSV paths a high-confidence normalization resolves without asking. It may not say confidence gates extraction, and it may not say human review is triggered by low confidence—review is unconditional.**
+
+### A37—human sign-off is enforced server-side, by four named guards
+
+**SUPPORTED, and this is the strongest single fact on the page.** `POST /api/questionnaire-intake/:id/approve` (`functions/src/routes/questionnaireIntake.ts:1197`) is `requireRole('admin')` and is the only path by which extracted questionnaire data reaches the device registry. Before it writes anything it refuses on four conditions, each with its own status code and message:
+
+- `409` when any intake partner is still unreviewed—`` `${pendingPartners.length} intake partner(s) still pending review` `` (`:1218-1223`, multi-partner jobs).
+- `422` `Partner must be assigned before approval` when a single-partner job has no resolved submitter (`:1226-1230`).
+- `409` `All devices must be approved or rejected before sign-off` when any staged device is still `reviewStatus === 'pending'` (`:1234-1239`).
+- `409` `` Device "…" has N unresolved conflicts `` when an approved device still has a staged field with `conflictStatus == 'conflicts_with_existing'` and `resolution == 'pending'` (`:1244-1258`).
+
+```bash
+S=c9f66f07a243491eef3295ac8ed32e4fe97610d5; cd ~/GitHub/device-source-of-truth
+git show "${S}:functions/src/routes/questionnaireIntake.ts" | sed -n '1197,1260p'
+git show "${S}:functions/src/routes/questionnaireIntake.ts" | grep -nE "^router\.(post|patch|put)"
+```
+
+The staging model backs it up: every mutation of staged data between extraction and sign-off is `requireRole('admin')` (`:862`, `:890`, `:925`, `:956`, `:985`, `:1106`), while triggering and retrying extraction is `requireRole('editor', 'admin')` (`:617`, `:693`). The role boundary and the workflow boundary are the same line. **"Extraction proposes; a human signs" is not a design intention on this page—it is four HTTP refusals, and the page can quote them.** `specs/DST-048-questionnaire-admin-review-sign-off.md:24` states the intent in the author's own words: "so that no questionnaire data enters the database without my explicit review."
+
+### A38—freshness: what stale means, where it is computed, and that nothing acts on it
+
+**SUPPORTED with four precisions §A18 does not reach.** *(1) What defines stale.* `src/lib/format.ts:40-49`: `no_data` when `lastTelemetryAt` is null or unparseable, `fresh` under 48 hours, `aging` under 7 days, `stale` beyond that. *(2) Not configurable.* Those two thresholds are literals inside the function (`:44-45`), it takes no threshold argument, and no settings surface, environment variable or Firestore document overrides them. The separate `ACTIVE_DEVICES_WINDOW_DAYS = 28` (`packages/contracts/src/index.ts:133`) is the telemetry *coverage* window the badge labels, not a staleness threshold—`FreshnessBadge.tsx:51` takes it as a prop default and it never reaches `getFreshnessState`. *(3) Computed, not stored.* The server stores one timestamp, `lastTelemetryAt`, written at `functions/src/routes/telemetry.ts:388`; the state is derived in the browser at render time from `Date.now()` (`format.ts:42`). No freshness state is persisted anywhere. *(4) Display-only.* `getFreshnessState` has no callers in `functions/src`; no alert type keys off it (§A33), no route filters on it, no export excludes stale rows, nothing emails anyone.
+
+```bash
+S=c9f66f07a243491eef3295ac8ed32e4fe97610d5; cd ~/GitHub/device-source-of-truth
+git show "${S}:src/lib/format.ts" | sed -n '40,49p'
+git grep -nI 'getFreshnessState' "$S" -- src functions
+```
+
+That is a real product position and a defensible one: the system tells you how old the answer is and then lets you decide, rather than hiding aged data or blocking on it. It is also exactly the *rejected alternative* a decision record needs, and the record should state the cost honestly—a badge nobody looks at changes nothing, and the product has no mechanism that makes anyone look.
+
+### A39—the staleness rule that does bite is in the telemetry upload, not the badge
+
+**SUPPORTED, and nobody asked for this row—it is the better half of the freshness story.** A second, unrelated staleness concept lives in the telemetry import and it *refuses writes*. During preview, a row whose `snapshotDate` predates the stored record's is marked `upsertStatus = 'stale'` and carries the warning "Existing record has a newer snapshot (…). Uploading this row would overwrite newer data with older data." (`functions/src/routes/telemetry.ts:130-135`). At commit, that row is **skipped unless the admin has explicitly overridden it by index**: `:322-331` counts it as no-change and `continue`s when `snapshotDate < existingData.snapshotDate && !staleOverrideSet.has(i + 1)`, and `:333-340` increments `staleOverwrittenCount` only when the override is present. The override arrives per row in the request body (`:217`, `:225`), and the counts are logged and returned (`:380`, `:482`).
+
+```bash
+S=c9f66f07a243491eef3295ac8ed32e4fe97610d5; cd ~/GitHub/device-source-of-truth
+git show "${S}:functions/src/routes/telemetry.ts" | sed -n '126,140p;316,342p'
+```
+
+This is a genuinely live rejected alternative—last-write-wins is what almost every CSV importer does, and it is one line—declined in favour of refusing the write and making a human take responsibility per row. **Between §A38 and §A39 the honest freshness decision record is not "we added a badge"; it is that the product refuses to let an older snapshot silently overwrite a newer one, and separately refuses to hide age from the reader.** The first half enforces, the second half informs, and saying so is more interesting than either alone.
+
+### A40—the page's commit arithmetic is stale at the pin
+
+> ":61 Of the 332 commits on main as of late August 2026, the 178 after March 6 are dependency bumps, template synchronization, CI work, and small fixes"
+
+**WRONG, and self-dating.** At the pin—which *is* late August 2026, 2026-08-28—the counts are **339** and **185**, not 332 and 178. §A6 computed 332 correctly at the earlier ref it read; the page then reprinted it under a date qualifier the pin falsifies, which is §M3 in its ordinary form.
+
+```bash
+S=c9f66f07a243491eef3295ac8ed32e4fe97610d5; cd ~/GitHub/device-source-of-truth
+git rev-list --count "$S"                              # 339
+git rev-list --count --since='2026-03-07' "$S"         # 185
+```
+
+Corrected value: **339 total, 185 after 2026-03-06, as of `c9f66f0` (2026-08-28)**. The figure moves every time Dependabot lands, so the defensible weaker form is the better choice for a page nobody will re-audit: state the shape without the raw count—the last product feature landed 2026-03-06, and everything since is dependency, template, CI and security work—or, if a number is wanted, pin it to an explicit date in the prose.
+
+### A41—"plus one substantive change" undercounts the post-tenure tail by at least three
+
+> ":61 …and small fixes—plus one substantive change: an August 20, 2026 commit replaced the real partner data with an invented dataset"
+
+**WRONG. Re-derived from scratch at the pin rather than restated from §A16, whose enumeration was made at an earlier ref and predates two of these.** Twenty-four commits after 2026-03-06 touch `src`, `functions` or `packages`, and at least four are substantive product-code changes, three of them security work:
+
+- `91ca7f6` (2026-08-04, #154) "bound partner similarity input and replace the blanket 50mb body limit"—new `functions/src/middleware/bodyLimits.ts` (+194) plus a new `inputLimits` service and two test files, 12 files.
+- `6e002a7` (2026-08-20, #165) the synthetic scrub—the one the page names.
+- `bfaf374` (2026-08-26, #175) "scope CORS, rate-limit /api, pin workflow permissions"—`functions/src/middleware/rateLimit.ts` (+119), `functions/src/index.ts`, and `src/pages/QuestionnaireDetailPage.tsx` (+57), 11 files, +701/−15.
+- `a655527` (2026-08-26, #177/#178, PR #182) "bound volumetric blast radius and close the pre-auth IP-gate gap"—`rateLimit.ts` (+253), `auth.ts`, `index.ts`, 7 files, +576/−27.
+
+```bash
+S=c9f66f07a243491eef3295ac8ed32e4fe97610d5; cd ~/GitHub/device-source-of-truth
+git log --format='%h %ad %s' --date=short --since='2026-03-07' "$S" -- src functions packages
+for c in 91ca7f6 6e002a7 bfaf374 a655527; do git show --stat --format='%h %ad %s' --date=short "$c" | head -14; done
+```
+
+Corrected value: **the post-feature tail is dependency bumps, template synchronization and CI work, plus the synthetic-data scrub and three rounds of security hardening**. This is worth getting right rather than trimming: it is the only evidence on the page that the archived system is still being maintained to a standard, and `bfaf374` also means the "no product code after March 6" framing needs the caveat that a UI file changed in August as part of that work.
+
+### A42—the deployed demo says SEK where the page says ADK
+
+**SUPPORTED, and it collides directly with AC 9.** The page uses "ADK" five times (`:27`, `:34`, `:53`, `:55`, `:57`) as the version vocabulary. The scrub renamed the user-facing term: `scripts/synthetic/dataset.mjs:54-58` explains that SEK ("Story Entertainment Kit") is the fictional group's integration kit and that "the `liveAdkVersion` schema field keeps its name… only the values users actually see change." The rendered labels follow—`src/pages/DashboardPage.tsx:268` "SEK Version Adoption", `src/pages/DeviceDetailPage.tsx:184` and `:460` "SEK Version", `src/components/shared/VersionInput.tsx:14` `label = 'Live SEK Version'` with placeholder `'e.g. SEK 3.1.1'`, `src/components/onboarding/WelcomeModal.tsx:16` "all NCP/SEK partner devices", and `src/lib/types.ts:188` `VersionPlatform = 'NCP' | 'SEK' | 'DEV' | 'UNKNOWN'`. Field *keys* stay `liveAdkVersion`/`adkVersion` for schema back-compat, so the mismatch is display-only—which is exactly the half a screenshot captures.
+
+```bash
+S=c9f66f07a243491eef3295ac8ed32e4fe97610d5; cd ~/GitHub/device-source-of-truth
+git grep -nI 'SEK' "$S" -- src/pages src/components src/lib
+git show "${S}:scripts/synthetic/dataset.mjs" | sed -n '52,62p'
+```
+
+**Every screenshot taken from the deployed instance will read "SEK Version" beside prose that says "ADK version."** The page must either caption the difference explicitly—which doubles as the AC 8 synthetic-data signal, since "SEK" and "Story Entertainment" are the tells that the data is invented—or avoid the version screens. It must not silently mix the two vocabularies.
+
+### A43—frontmatter, field by field
+
+**SUPPORTED throughout; three fields need a decision rather than a correction.** Audited against `specs/project-pages.md` § Frontmatter field reference at the site pin.
+
+- `title`, `slug`, `githubUrl`, `screenshotAspect: "wide"`, `screenshotSrc`—valid. `slug` matches the filename; `public/images/projects/device-source-of-truth-hero.png` exists; `wide` is asserted for this slug by `tests/project-pages.test.js:717-731`.
+- `order: 3` / `accent: "blue"`—**correct and coupled.** The ramp is `red → yellow → paper → blue → black`, `accent = RAMP[order % 5]`, so `RAMP[3] = blue`; the spec's own table at § Current project accents lists Device Source of Truth at order 3 as `blue`. A reorder recolours it, and the test suite fails on any mismatch.
+- `status: "ARCHIVED"`—§A24, unchanged.
+- `stack: "React · TypeScript · Vite · Tailwind · Zod · Firebase · Express · Vitest"`—**all eight verified at the pin**: React 19.2.8, TypeScript 5.9.3, Vite 8.2.2, Tailwind 4.3.1, Zod 4.3.6, Firebase 12.18.0, Vitest 4.1.11 (root `package.json`), Express 5.1.0 (`functions/package.json`).
+- `liveUrl`—resolves, with the caveat in §A25.
+- `description` and `kicker: "AI × Enterprise × Data"`—the description repeats the "across Disney+, Hulu, and ESPN" formulation carried by three other surfaces (§A44); AC 10 asks for it to be realigned, and §A28 governs how.
+- `tags: ["Enterprise", "Data", "React", "Firebase"]`—no schema constraint; `React` and `Firebase` duplicate `stack`.
+- `related`—both targets exist (`src/content/blog/six-prs-one-bug-agent-failure-modes.md`, `src/content/projects/swipe-watch.mdx`); see §A47 on the first.
+- **Absent and required by the plan:** `decisions` and `constraints`. Both default to `[]`, and per § Placement the components render only from an `.mdx` body reading `props.X`. **The page is `.md` today; AC 5's decision records and the planned `<ConstraintStrip>` require converting it to `device-source-of-truth.mdx`.** That conversion is what #758 did for `friends-and-family-billing`, and the same three imports are needed.
+
+```bash
+P=d3105842170cc22ad89abcb040861af625435936
+cd ~/GitHub/nathanpaynedotcom/.claude/worktrees/ffb-case-study-rewrite-fe37e5
+git show "${P}:src/content/projects/device-source-of-truth.md" | sed -n '1,23p'
+git ls-tree -r --name-only "$P" -- public/images/projects | grep device-source
+```
+
+### A44—cross-surface sweep: every surface carrying a claim this page makes
+
+**Six surfaces carry DST claims, and four of them carry the same sentence.** Swept on what the claims *mean*, not on phrasing, per the #757 finding that a claim survives substring removal.
+
+| Surface | What it asserts | Needs to change? |
+|---|---|---|
+| `src/content/projects/device-source-of-truth.md` | the page itself | yes—the restructure |
+| `src/pages/index.astro:193` | "tracks partner-device hardware, DRM, codec support, and operational readiness across Disney+, Hulu, and ESPN" | yes if the deck changes—**and the string is pinned verbatim by `tests/project-pages.test.js:70`** |
+| `src/pages/og-templates/projects/device-source-of-truth.astro` | `description` duplicating the page's `description` verbatim; `meta="Enterprise · Data · React · Firebase"` | yes if `description`, `kicker` or `tags` change |
+| `src/content/resume/projects/device-source-of-truth.md` | "An independent build, distinct from the internal production system…" | **yes—§A28** |
+| `~/GitHub/docs/job-search/nathan-payne-resume.md:103` | byte-identical to the mirror above | **yes—§A28, and the two must stay verbatim-identical** |
+| `~/GitHub/docs/job-search/nba/…-nba.md:65` | "personal reimplementation of the Disney partner-device data system" | **yes—§A28, third framing** |
+
+Three tests pin DST strings and will fail on an unsynchronized edit: `tests/project-pages.test.js:50`, `:60` and `:70` (slug list, card title/href, and the homepage description verbatim); `tests/resume.test.js:259` and `:268` (the résumé link href and its exact label, "Device Source of Truth – Partner Device Intelligence Platform", note the en dash); `tests/responsive/overflow.spec.ts:7` (the page is in the responsive sweep, so new wide content—tables, diagrams, code—must scroll inside its own container).
+
+```bash
+P=d3105842170cc22ad89abcb040861af625435936
+cd ~/GitHub/nathanpaynedotcom/.claude/worktrees/ffb-case-study-rewrite-fe37e5
+git grep -nIl 'device-source-of-truth\|Device Source of Truth' "$P" -- src tests
+grep -rnIi 'device source of truth' ~/GitHub/docs/job-search/
+```
+
+The claim to sweep on is not the string "Disney+, Hulu, and ESPN"—it is *which streaming services these devices serve*, and it appears in the page `description`, the homepage card, the OG card and both résumé surfaces. No artifact in the evidence repository substantiates Hulu or ESPN; the repository's own vocabulary is "Disney Streaming NCP/ADK ecosystem" and one questionnaire field reads "RAM available to Disney+ app" (`mappings/adk_questionnaire_fields.md:47`). Treat the three-service enumeration as **UNPROVABLE** and, given §A25 and §A28, as the wrong thing to lead with in any case.
+
+### A45—there is no outcome record, and the validation boundary
+
+**UNPROVABLE, definitively, and the absence is itself the finding.** No artifact in the evidence repository records adoption, time saved, error reduction, coverage or throughput. There is no usage report, no retrospective, no launch note, no adoption metric, and no ticket describing a production question answered with the tool. The only figures that look like outcomes are the three hardcoded literals in `ReadinessPage.tsx` (§A30), and they measure nothing.
+
+The sharper version of the absence: **the instrumentation to measure adoption shipped and the measurements did not.** `src/lib/analytics.ts` declares a forty-plus-member `AnalyticsEvent` union—`device_search`, `spec_form_save`, `questionnaire_upload`, `telemetry_upload`, `alert_dismiss`, `readiness_declare`, `onboarding_complete` and the rest—wired to Firebase Analytics through `src/lib/firebase.ts:31-38`. The events exist; nothing in the repository reports what they recorded, and the deployed instance has been synthetic since 2026-08-20, so anything they record now is demo traffic.
+
+```bash
+S=c9f66f07a243491eef3295ac8ed32e4fe97610d5; cd ~/GitHub/device-source-of-truth
+git show "${S}:src/lib/analytics.ts" | sed -n '1,45p'
+git grep -nIiE 'time saved|hours saved|adoption|users onboarded|went live' "$S" -- README.md DEPLOYMENT.md .ai_context.md docs specs plans bugs
+```
+
+**Validation-boundary sentence, for the page to use verbatim:**
+
+> The workflows shipped and the deployed instance runs them end to end, but no artifact records a team adopting the tool or a production question answered with it. Development stopped on 6 March 2026, before any adoption period, and the usage events the application emits were never reported against—so the claim this page can stand behind is that the design decisions were made and built, not that they were validated in use.
+
+Every decision record on this page therefore carries `status: pending` unless it can point to a change the *record itself* forced—which two of them can; see §A48.
+
+### A46—commit authorship is not evidence of agent share
+
+**UNPROVABLE from the commit record, and the obvious metric points the wrong way.** Authorship across the pin's history: 274 commits by "Nathan Payne", 55 by `dependabot[bot]`, 5 by `nathanjohnpayne`, 4 by `nathanpayne-codex`, 1 by `nathanpayne-claude`. Read naively that says agents wrote five of 339 commits, which is false—the governing convention is that agents commit under the human author identity, so the byline is uninformative about who wrote the diff.
+
+```bash
+S=c9f66f07a243491eef3295ac8ed32e4fe97610d5; cd ~/GitHub/device-source-of-truth
+git log --format='%an' "$S" | sort | uniq -c | sort -rn
+git ls-tree -r --name-only "$S" -- .claude .codex .cursor docs/agents
+```
+
+What *is* in the record for AC 7 is the operating structure, not a share: sixteen agent-facing rule documents under `docs/agents/` plus per-agent configuration (`.claude/settings.json`, `.codex/hooks.json`, three `.cursor/rules/*.mdc`), the machine-user review pipeline that arrived by template propagation on 2026-03-24 (§A13), CodeRabbit carrying device-domain instructions (§A15), and the two-strike audit rule at `docs/agents/operating-rules.md:358`—re-verified at the pin, still absent from `REVIEW_POLICY.md`, so §A14's correction holds. **The page may describe how agent work was governed and reviewed; it may not quantify how much of the code agents wrote, and it must not cite commit authorship as evidence either way.**
+
+### A47—the related blog post is topical, not evidential
+
+> ":19-20 label: \"Blog: Six PRs, One Bug—What AI Agents Actually Get Wrong\""
+
+**SUPPORTED as a related link; WRONG if the page presents it as documenting DST's own agent work.** The post is about Friends & Family Billing: its `description` reads "Editor, preview, and sent email disagreed in a **billing app**," and `friends-and-family-billing.mdx:94` builds two of its four decision records out of it. Four project pages list it (`device-source-of-truth.md:20`, `friends-and-family-billing.mdx:64`, `mergepath.mdx:82`, `swipe-watch.mdx:58`), so on this page it is the portfolio's general Agent Systems pointer rather than a DST claim—which is fine, and worth knowing before AC 10 prompts anyone to "align related links."
+
+```bash
+P=d3105842170cc22ad89abcb040861af625435936
+cd ~/GitHub/nathanpaynedotcom/.claude/worktrees/ffb-case-study-rewrite-fe37e5
+git grep -nI 'six-prs-one-bug' "$P" -- src/content/projects
+git show "${P}:src/content/blog/six-prs-one-bug-agent-failure-modes.md" | sed -n '1,6p'
+```
+
+The two-strike rule the page cites at `:49` *is* DST-local (`docs/agents/operating-rules.md:358`), and it is also the rule the post's third key takeaway describes, so the thematic link is real. The page must not narrate the post's bug as a DST incident.
+
+### A48—which decision records have real evidence, and which would be implementation description
+
+**The adjudication AC 5 needs.** Measured against `specs/project-pages.md` § The bar for a decision at all—could a reasonable PM have chosen the rejected alternative without being wrong to?—and § `evidence` is required for every status.
+
+**The four that hold.**
+
+1. **Extraction proposes; a human signs.** Rejected alternative genuinely live: auto-commit above a confidence threshold, which the *same codebase does* on the CSV paths (§A36), so the road not taken here was actually taken elsewhere by the same author. Evidence: the four server-side refusals in §A37, and the deliberate demotion of model confidence to a badge in §A36. `status: validated`—the evidence is what the code refuses, not an outcome.
+2. **An older snapshot does not silently win.** Rejected alternative: last-write-wins, the default of nearly every CSV importer. Evidence: §A39's preview warning, the per-row override set, and `staleOverwrittenCount` being counted and returned rather than hidden. `status: validated`. Cost, which the record must state: an import can no longer be a single unattended action.
+3. **Freshness is shown, never enforced.** Rejected alternative: hide or block on aged data, which is what a system claiming to be a source of truth is usually built to do. Evidence per §A38: thresholds fixed at 48 hours and 7 days, computed in the browser, stored nowhere, consulted by nothing. `status: pending`—§A45's boundary is the evidence, and the honest cost is that a badge nobody is required to look at changes nothing.
+4. **Aliases resolve; they do not merge.** Rejected alternative: deduplicate the partner records, which is the obvious fix for one operator appearing under several names. Evidence: §A20's contextual resolver and the resolution chain at `functions/src/services/partnerResolver.ts:113` (exact → alias → Jaro-Winkler ≥ 0.90), which keeps every raw name resolvable to a canonical partner without destroying either. `status: validated`. **Authoring warning: the worked example must come from the synthetic dataset, never from `specs/DST-046`—§A26.**
+
+**A fifth, if five are wanted:** *cost is disclosed before it is incurred, and there is no opt-out*. The rejected alternative is DST-042's opt-in checkbox, which the same author shipped on the CSV paths and deliberately declined here; `specs/DST-050…:34-38` argues the reasoning out in writing, which is rare. `status: mixed`, and the record must carry §A35's narrowing—the control is in the interface, not the API, and the disclosure is qualitative.
+
+**The candidates that do not clear the bar.**
+
+- *Shared schema / `@dst/contracts`*—§A8 supports the facts, but no reasonable PM chooses "let client and server drift" once `f38569d` has happened. It is a correct engineering response to a bug, not a decision with a live alternative. It belongs in prose.
+- *Actionable exceptions*—as built it is implementation description: two alert types with a modal each (§A33), and a third that does not exist (§A34). Promote it only if the record is written about *scope*—why only telemetry raises alerts while four other import paths surface exceptions inline—and that reasoning is nowhere in the repository, so it would be invented.
+- *Dependency-aware intake (DST-049)*—the spec mislabels itself as DST-047 in its own H1 (§A12, re-verified at the pin), and no artifact records the alternative being weighed.
+- *Queue/retry*—§A10 established that fire-and-forget was replaced by Cloud Tasks. That is a `revised` record on paper, but the revision is a correctness fix rather than a product decision, and the page already tells it well in prose.
+- *Synthetic demo boundary*—genuinely consequential, and the reason it is not a decision record is that it is a **confidentiality requirement** (AC 8) that must be prominent in its own right. Demoting it into one card among five is the opposite of prominent. §A25, §A26 and §A42 supply what it needs to say.
 ---
 
 ## §B `five-across`
