@@ -3218,7 +3218,7 @@ Reproduce with `git rev-list --count "$(git rev-list -1 --before=2026-04-14 orig
 
 | Page | SUPPORTED | WRONG | UNPROVABLE | SPLIT | EXT. SOURCED | Rows |
 |---|---|---|---|---|---|---|
-| §A `device-source-of-truth` | 26 | 10 | 4 | 6 | 1 | 47 † |
+| §A `device-source-of-truth` | 26 | 10 | 4 | 6 | 1 | 50 † |
 | §B `five-across` | 17 | 4 | 0 | 12 | 3 | 36 |
 | §C `friends-and-family-billing` | 20 | 12 | 3 | 16 | 0 | 51 |
 | §D `matchline` | 7 | 0 | 3 | 2 | 0 | 12 |
@@ -3226,9 +3226,9 @@ Reproduce with `git rev-list --count "$(git rev-list -1 --before=2026-04-14 orig
 | §F `override` | 6 | 7 | 0 | 1 | 0 | 14 |
 | §G `swipe-watch` | 10 | 6 | 1 | 1 | 0 | 18 |
 | §H cross-page | 3 | 5 | 0 | 2 | 0 | 10 |
-| **Total** | **118** | **60** | **11** | **57** | **4** | **250** † |
+| **Total** | **118** | **60** | **11** | **57** | **4** | **253** † |
 
-† **§A additionally carries three rows that record no verdict**, and they are excluded from its counts rather than forced into one: `A27` is a method finding (`git grep -E` silently ignores `\b`), `A44` is the cross-surface sweep, and `A48` is the decision-record adjudication AC 5 needs. Counting them would put §A at 49 rows against 46 verdicts. The discrepancy is stated here because a section row that sums correctly while being wrong is a defect this ledger has shipped twice (§B and §E), and a row that visibly does not sum is the safer failure.
+† **The `Rows` column counts rows; §A's verdict columns do not sum to it.** §A holds **50 rows of which 47 carry a verdict**: `A27` is a method finding (`git grep -E` silently ignores `\b`), `A44` is the cross-surface sweep, and `A48` is the decision-record adjudication AC 5 needs. None records a verdict, and forcing one on them would be worse than the gap. So §A reads 26+10+4+6+1 = **47 verdicts across 50 rows**, and the corpus is **250 verdicts across 253 rows**. Every other section sums exactly. An earlier revision of this footnote said 49 rows against 46 verdicts, which was true before `A49` and `A50` were added and stale the moment they were—caught independently by both reviewers on `#873`. A tally corrected in one place goes stale the next time the thing it counts changes; recount from the file.
 
 A **SPLIT** row is counted once, in its own column, not split across the other three; the row text names which half carries which verdict. WRONG rows count each restated instance separately, because each is a separate edit: §E10 and §E11 are one number stated twice, §G1–G3 are one number stated three times, and §H1–H2 re-count the Override and two-strike defects at the cross-page level where the fix has to be coordinated across files. Deduplicated to distinct underlying facts, the WRONG count is 37; §C51's household-framing correction is the new fact added after the earlier count of 36.
 
