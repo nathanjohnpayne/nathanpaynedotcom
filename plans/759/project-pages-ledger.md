@@ -777,7 +777,7 @@ git show "${S}:firestore.rules" | sed -n '54,68p'
 
 **SPLIT: "the read is bounded by token possession" is SUPPORTED; "the boundary is enforced by the security rules" is WRONG—the rule bounds nothing beyond knowing the document id, and it grants `list` as well as `get`.** `firestore.rules:73-74`, verbatim:
 
-```
+```text
 match /publicShares/{tokenHash} {
   allow read: if true;
 ```
