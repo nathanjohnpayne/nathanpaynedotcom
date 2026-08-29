@@ -626,11 +626,11 @@ Durations, all computable from `refs.json`:
 
 > ":45 [PR #161](…)—prompted as a failed-fix investigation rather than another incremental patch—removed the bridge entirely and unified Preview and email onto a single canonical renderer."
 
-**SPLIT: the unification is SUPPORTED, "removed the bridge entirely" is WRONG.**
+**SPLIT: unifying Preview with the test email is SUPPORTED; "removed the bridge entirely" and unifying Preview with the recipient invoice are WRONG.**
 
-Unification is real. #161 introduces `renderInvoiceTemplate(ctx, shareUrl)`, whose docstring reads "Canonical HTML renderer for invoice templates. This is the single source of truth for the Invoicing preview and template email HTML"—now `src/lib/invoice.js:458`, with `buildInvoiceTemplateEmailPayload()` at `:470`. It removed the separate `renderPreviewHTML()` path and changed `processMailQueue` to prefer the client-supplied canonical HTML over `simpleMarkdownToHtml(body)`.
+The narrower unification is real. #161 introduces `renderInvoiceTemplate(ctx, shareUrl)`, whose docstring reads "Canonical HTML renderer for invoice templates. This is the single source of truth for the Invoicing preview and template email HTML"—now `src/lib/invoice.js:458`, with `buildInvoiceTemplateEmailPayload()` at `:470`. It removed the separate `renderPreviewHTML()` path and changed `processMailQueue` to prefer client-supplied canonical HTML over `simpleMarkdownToHtml(body)`. Only the test-send path supplies that HTML; §C40 establishes that the recipient invoice does not.
 
-The bridge survives. `docToPlainTextWithTokens` is on `origin/main` today at **`src/lib/template-doc.js:94`**, re-exported at `src/lib/invoice.js:208`, and still called at `src/lib/invoice.js:487`, `src/app/views/Manage/InvoicingTab.jsx:73` and `:118`. `simpleMarkdownToHtml` also survives in `functions/index.js` as a fallback. No bridge file was deleted in #161 or since. Corrected value: "**bypassed** the bridge for the canonical path and unified Preview and email onto a single renderer."
+The bridge survives. `docToPlainTextWithTokens` is on `origin/main` today at **`src/lib/template-doc.js:94`**, re-exported at `src/lib/invoice.js:208`, and still called at `src/lib/invoice.js:487`, `src/app/views/Manage/InvoicingTab.jsx:73` and `:118`. `simpleMarkdownToHtml` also survives in `functions/index.js` as a fallback. No bridge file was deleted in #161 or since. Corrected value: "**bypassed** the bridge for the Preview and test-send path and unified those two surfaces onto a single renderer; the recipient invoice remained on the bridge."
 
 ### C12—"prompted as a failed-fix investigation"
 
@@ -677,7 +677,7 @@ const STATUS_CONFIG = {
 };
 ```
 
-The return type at `:17` is `{'outstanding'|'partial'|'settled'|'overpaid'|null}`, and the settlement board's sort order and filter chips carry all four (`src/app/components/SettlementBoard.jsx:109`). A decoy exists and should not be mistaken for support: `bd50bad` (2026-04-05) is literally titled "three-state balance model," but its three states are owes-money (red) / settled-at-zero (grey "Paid") / credit-overpaid (green)—a colour convention across screens, not the `outstanding`/`partial`/`settled` triple. Corrected value: **four-state (outstanding, partial, settled, overpaid)**.
+The return type at `:17` is `{'outstanding'|'partial'|'settled'|'overpaid'|null}`, and the settlement board's sort order carries all four (`src/app/components/SettlementBoard.jsx:109`). Its filter chips expose only All, Outstanding, Partial and Settled (`:121-126`), so Overpaid is reachable only under All. A decoy exists and should not be mistaken for support: `bd50bad` (2026-04-05) is literally titled "three-state balance model," but its three states are owes-money (red) / settled-at-zero (grey "Paid") / credit-overpaid (green)—a colour convention across screens, not the `outstanding`/`partial`/`settled` triple. Corrected value: **four-state (outstanding, partial, settled, overpaid)**.
 
 ### C18—token-scoped share links
 
@@ -695,7 +695,7 @@ The return type at `:17` is `{'outstanding'|'partial'|'settled'|'overpaid'|null}
 
 > ":34 Builds annual invoices with member name tokens, customizable email templates, and a live preview that renders exactly what the recipient will see."
 
-**SUPPORTED, with a caveat the page itself resolves two paragraphs later.** `src/lib/invoice.js` (`buildInvoiceSubject`, `buildInvoiceBody`, `renderInvoiceTemplate`); name tokens `%first_name%`/`%last_name%`/`%full_name%` in `src/lib/template-doc.js`; live preview at `src/app/views/Manage/InvoicingTab.jsx:196-197`. "Renders exactly what the recipient will see" is true only after #161; the linked blog post is about the year the sentence was false. Defensible weaker form: "a live preview rendered by the same canonical renderer that builds the email."
+**SPLIT—the invoice builder, name tokens and live preview are SUPPORTED, but "renders exactly what the recipient will see" is WRONG at the pinned SHA.** `src/lib/invoice.js` supplies the builder and renderer; `src/lib/template-doc.js` supplies `%first_name%`/`%last_name%`/`%full_name%`; and `src/app/views/Manage/InvoicingTab.jsx:196-197` supplies the live preview. The canonical renderer produces that preview and the test-send body, while the settlement board's recipient invoice remains on the plain-text bridge described in §C40. Defensible weaker form: "a live preview rendered by the same canonical renderer used for the test email body; the recipient invoice remains on a separate path."
 
 ### C21—stack line
 
@@ -713,7 +713,7 @@ The return type at `:17` is `{'outstanding'|'partial'|'settled'|'overpaid'|null}
 
 Twenty-eight rows (§C23–§C50) covering the claims the #758 restructure needs and §C1–§C22 do not reach: the end-to-end recipient journey, the token-scoped no-login boundary read past the mechanism, the real scope of the payment audit trail, the evidence behind each of the four planned decision records, the household-outcome record, and the surviving frontmatter. Everything in the product repository was read at **`d70aa8ac9fca414777985bb7dc74faa0462690e6`** in `~/GitHub/friends-and-family-billing` (short `d70aa8a`, 2026-08-28 12:51:26 −0700, subject "bulk sync to mergepath@3d96105", the routine propagation commit), which is that repository's `origin/main` at the time of this audit; the local checkout's `HEAD` was seven commits behind it, so every command below reads the object database at the literal SHA rather than the working tree. The site repository was read at **`582b91d4db70abff8287307d7e6502ae41d6a268`**. **Every command in these rows carries one of those two literal SHAs rather than `origin/main` or `HEAD`**, per the #820 finding that a moving ref makes a row unreproducible. Four evidence sources are outside that header and are labelled where they appear: **live GitHub API reads** (§C38 note, §C43, §C44, §C45, §C46), each carrying its own as-of UTC timestamp in the row; **the four published parity screenshots** in the site repository's `public/` tree, read as images (§C47, §C50); **the résumé vault** at `~/GitHub/docs/job-search/` (§C50), which is not a git-pinned surface in this audit; and **one HTTP GET of the live product's root URL** (§C49), which reads a public page and no data. Nothing here touched production Firestore.
 
-Read §C40 first. It is the row that reshapes the restructure: the invoice email a household member actually receives is not produced by the canonical renderer, was never touched by the fix that the page and its companion blog present as the resolution, and still runs through `simpleMarkdownToHtml`—the function the arc exists to have displaced. §C41, §C43, §C46 and §C47 are its supporting rows, and §C50 carries it out to the blog post and the blog post's Mermaid diagram. Five rows **correct a claim a current surface states**: §C38 corrects the supporting evidence inside §C17 (the verdict stands, the citation does not); §C40 and §C41 narrow the page's "same canonical renderer" bullet and the blog's §270 paragraph; §C30 corrects the share dialog's own "No expiry" option; §C50 corrects the blog diagram. Six rows **change what the page can claim** and should be read before any decision-record card is drafted: §C33 (the privacy tradeoff was never evaluated in writing), §C35 ("append-only" is enforced by nothing but the code), §C36 (the account alternative has no record at all), §C37 (the four-state decision happened in the React port, not in an ADR), §C46 (the brief's own definition of done was not met on two clauses), and §C48 (the validation boundary). The remaining rows are new SUPPORTED material the page can use, and most of it has never appeared on any surface.
+Read §C40 first. It is the row that reshapes the restructure: the invoice email a household member actually receives is not produced by the canonical renderer, was never touched by the fix that the page and its companion blog present as the resolution, and still runs through `simpleMarkdownToHtml`—the function the arc exists to have displaced. §C41, §C43, §C46 and §C47 are its supporting rows, and §C50 carries it out to the blog post and the blog post's Mermaid diagram. Five rows **identified claims that a current surface stated at audit time**: §C38 found the bad supporting evidence inside §C17, now corrected inline; §C40 and §C41 narrowed the page's "same canonical renderer" bullet, now corrected in the MDX page, and the blog's §270 paragraph, still tracked in #857; §C30 corrected the share dialog's own "No expiry" option; §C50 found the blog diagram. Six rows **change what the page can claim** and should be read before any decision-record card is drafted: §C33 (the privacy tradeoff was never evaluated in writing), §C35 ("append-only" is enforced by nothing but the code), §C36 (the account alternative has no record at all), §C37 (the four-state decision happened in the React port, not in an ADR), §C46 (the brief's own definition of done was not met on two clauses), and §C48 (the validation boundary). The remaining rows are new SUPPORTED material the page can use, and most of it has never appeared on any surface.
 
 ### C23—what a share link actually delivers, end to end
 
@@ -737,13 +737,13 @@ By contrast the **email** carries no derivation at all—only the greeting, the 
 
 **SPLIT: four recipient actions are SUPPORTED; "a recipient can self-report or mark a payment" is WRONG—no such control exists.** The actions reachable without an account, all in `src/app/views/ShareView.jsx`: open a review request on a specific bill ("Question This Charge", `:1022-1107`, gated on `disputes:create`); approve or reject the coordinator's proposed resolution of a review request (`:965-979`, gated on `disputes:read`); confirm or deny receipt of a refund ("Confirm Receipt" / "I Have Not Received It", `:836-845`, gated on `refunds:read`); and request a replacement link when the current one is dead ("Request New Link", `:321-325`). Passive affordances: expand payment history (`:752-755`), view a payment-method QR code (`:673-679`), copy a handle or address (`:641`, `:647`, `:653`, `:661`), open an evidence attachment (`:1015-1017`).
 
-There is no path by which a recipient records a payment. No write scope for payments exists in `buildShareScopes` (`src/lib/share.js:23-29`), no unauthenticated write to the billing-year document is permitted by `firestore.rules` (the only unauthenticated writes anywhere in the file are dispute create/update at `:19-43` and the `accessCount`/`lastAccessedAt` bump at `:82-84`), and `ShareView.jsx` contains no such control. The coordinator records every payment by hand through `BillingYearService.recordPayment` (`src/lib/BillingYearService.js:799`). Defensible form for the page: the recipient can see, question and confirm; only the coordinator can post money.
+There is no path by which a recipient records a payment. The share projection grants no payment-write capability, the recipient interface contains no such control, and the coordinator records every payment by hand. Data-layer details for the live unauthenticated surface are withheld under §C29. Defensible form for the page: the recipient can see, question and confirm; only the coordinator can post money.
 
 ### C26—the dispute path, and what happens next
 
-**SUPPORTED, and the "what happens next" is automated.** The share-page form POSTs to the `submitDispute` Cloud Function (`src/app/views/ShareView.jsx:1037-1047`) rather than writing Firestore directly, even though `firestore.rules:19-28` would permit the direct write. The function validates the submitted share credential, requires the `disputes:create` scope, and adds an authorisation check the rules do not make: `functions/index.js:643-646` rejects with "You are not assigned to this bill." unless the credential's member is in that bill's member list. It rate-limits per credential (`:656-665`), writes the dispute, appends a server-side audit entry (`:681-688`), and then emails the coordinator a subject of the form `Review Request—{billName} from {memberName}` with the message, any proposed correction, and a deep link to `/app/manage/reviews` (`:690-700`).
+**SUPPORTED at the product-behaviour level, with an enforcement limitation deliberately withheld.** The share-page form submits a scoped review request, rate-limits it, records a server-side audit entry, and emails the coordinator the member's message, any proposed correction, and a link to the review queue. The data layer does not fully enforce the same authorization boundary. Because that gap affects a live product and remains unresolved, the exact write path, rule clauses, missing checks and source locations are omitted under §C29.
 
-Note the spec has drifted here: `specs/sharing.md:48` still describes the dispute form as calling `addDoc`. The tree and the test both say otherwise—`tests/react/views/ShareView.test.jsx:570` is titled "POSTs to /submitDispute with correct fields and shows success message" and `:534` explicitly asserts `addDoc` was **not** called. Per §M1 the tree wins. The sharing spec also names an obsolete route shape; the current credential transport is deliberately withheld under §C29.
+The sharing spec's dispute-submission route has drifted from the tree and tests. Per §M1 the implementation wins. The current application path and credential transport are withheld under §C29; only the high-level behaviour above should be copied out.
 
 ### C27—the point where the product removes a human coordination step
 
@@ -801,7 +801,7 @@ git grep -niE "without (an )?account|no.login|no account|friction|privacy|tradeo
   -- specs docs README.md AGENTS.md rules .ai_context.md
 ```
 
-Six hits, none of them an evaluation. Defensible weaker form for the page: state the tradeoff as the author's own product judgment and show the *mechanism* that implements it—expiry, revocation, pruning to five, scope gating, the member-safe projections that strip notes and QR blobs, and the CF-side "you are not assigned to this bill" check. That is a real answer to "how was this taken seriously," and it does not require asserting a deliberation that left no trace. Do not write that the tradeoff "was evaluated."
+Six hits, none of them an evaluation. Defensible weaker form for the page: state the tradeoff as the author's own product judgment and show the *mechanism* that implements it—expiry, revocation, pruning to five, scope gating, member-safe projections that strip notes and QR blobs, and application-side authorization and rate limiting. That is a real answer to "how was this taken seriously," and it does not require asserting a deliberation that left no trace. Do not write that the tradeoff "was evaluated."
 
 ### C34—the audit trail's actual scope
 
@@ -865,9 +865,9 @@ So the page's long-standing "three-state" line was true of the app it described 
 
 Drafting note: the strongest decision-record material in this repository is **`ADR-0004`**, not the state count. It has a live rejected alternative, a stated reason, and an observable consequence in the code.
 
-### C38—§C17's supporting evidence is wrong on the filter chips
+### C38—§C17's filter-chip correction
 
-**§C17's verdict is SUPPORTED and stands—four states—but one of its two citations is WRONG, and this row re-derives both from scratch rather than restating the old one.** §C17 wrote: "the settlement board's sort order and filter chips carry all four (`src/app/components/SettlementBoard.jsx:109`)." The sort order does. The filter chips do not.
+**§C17's original three-state claim remains WRONG, while its corrected four-state value is SUPPORTED; its original filter-chip citation was also WRONG.** §C17 now records the corrected boundary: the sort order carries all four states; the filter chips do not. This row re-derives both from scratch.
 
 `src/app/components/SettlementBoard.jsx:121-126`, verbatim:
 
@@ -927,7 +927,7 @@ git show d70aa8ac9fca414777985bb7dc74faa0462690e6:src/app/components/EmailInvoic
 
 There is a second, sharper way to state it. Before #161 the test email and the invoice email rendered identically—`InvoicingTab` at `f98cb3a:419` sent `body: rawText` with no `html`, exactly like `EmailInvoiceDialog`. #161 gave the test email canonical HTML and left the invoice email where it was. **The fix closed the gap on the surface where the bug was observed and opened a new one between the test email and the real invoice.** That divergence has stood since 2026-04-04.
 
-**Two rows already in this file are superseded here, and per §M5.1 they are named rather than left to contradict.** §C11's second half—"unified Preview and email onto a single renderer," carried through into its own corrected value—is true of the preview and the test email and false of the invoice email; its first half, that the bridge survives, is not merely SUPPORTED but understated. §C20's caveat, "'Renders exactly what the recipient will see' is true only after #161," is WRONG at the pinned SHA: what the preview renders exactly is the test email, and what the recipient sees is `wrapEmailHtml(simpleMarkdownToHtml(body))`. Neither row's headline verdict changes; both need the invoice-email boundary added before anything is copied out of them.
+**Two earlier rows are corrected inline rather than left to contradict this evidence.** §C11 now narrows the unification to Preview and the test email and states that the recipient invoice remained on the bridge. §C20's headline now changes from SUPPORTED to SPLIT: the invoice builder and preview are supported, while the preview-to-recipient parity claim is wrong. Both rows now carry the invoice-email boundary before anything is copied out of them.
 
 Corrected value the page may state: one canonical renderer produces the template body for the Invoicing tab's preview and for the test send; the invoice email itself still renders from the plain-text bridge. Do not write that the recipient's email comes from the same renderer as the preview. If the page wants the stronger claim, the repository has to earn it first.
 
@@ -935,13 +935,13 @@ Corrected value the page may state: one canonical renderer produces the template
 
 **WRONG as a decision-record title. "One canonical renderer for editor, preview and email" describes the brief, not the shipment.** The editor is TipTap/ProseMirror rendering its own DOM: `InvoicingTab.jsx:319-348` mounts `<TemplateEditor content={bodyDoc}>` and the preview is a separate branch at `:359-366` that injects `previewBodyHTML`, built at `:196-197` from `buildInvoiceTemplateEmailPayload`. The two never share a render. They cannot: the editor shows unresolved token pills (`data-token-id="first_name"` and friends, asserted at `tests/e2e/invoicing-editor.spec.js:39-42`), and the renderer resolves those tokens against a member context.
 
-The companion blog already states the narrow version correctly—"The editor still renders its own DOM directly from the document" (`six-prs-one-bug-agent-failure-modes.md:270`)—and the project page does not currently claim otherwise. The risk is entirely in the *new* decision-record card the outline proposes. Retitle it: **one canonical renderer for preview and email body**, with the editor named as a deliberate third surface whose job is authoring, not fidelity. Two surfaces, not three, and the invariant is semantic rather than visual—`#159`'s own wording, "Text that is not bold in the editor must not become bold in Preview or sent email."
+The companion blog already states the narrow version correctly—"The editor still renders its own DOM directly from the document" (`six-prs-one-bug-agent-failure-modes.md:270`)—and the project page does not currently claim otherwise. The risk is entirely in the *new* decision-record card the outline proposes. Retitle it: **one canonical renderer for preview and test-email body**, with the editor named as a deliberate third surface whose job is authoring, not fidelity. Two surfaces, not three, and the invariant is semantic rather than visual—`#159`'s own wording, "Text that is not bold in the editor must not become bold in Preview or sent email."
 
 ### C42—the envelope claim on the page, verified, plus what the envelope also does
 
-**SUPPORTED, and it does more than the page says.** The page currently reads: "a live preview rendered by the same canonical renderer that builds the email's template body—the sent message wraps that body in envelope HTML the preview does not show." `wrapEmailHtml` (`functions/index.js:1100-1129`) is that envelope: a full `<!DOCTYPE html>` document, a purple-gradient header band containing "Friends &amp; Family Billing", a 600px white container, the body, and a footer reading "Sent via Friends &amp; Family Billing". All three are visible in the published screenshots (§C47).
+**SUPPORTED for the shared envelope, with different body inputs.** The page now reads: "Both sent messages share an envelope that restyles the body—one more reason the parity claim is about the markup, never the pixels." `wrapEmailHtml` (`functions/index.js:1100-1129`) is that envelope: a full `<!DOCTYPE html>` document, a purple-gradient header band containing "Friends &amp; Family Billing", a 600px white container, the body, and a footer reading "Sent via Friends &amp; Family Billing". The test email wraps canonical HTML; the recipient invoice wraps the separately rendered plain-text body described in §C40. Sharing the envelope does not imply sharing the body renderer. All three envelope elements are visible in the published screenshots (§C47).
 
-The addition the page does not make: the envelope also carries a `<style>` block that **restyles the canonical body**—`.body p { margin: 0 0 1em 0; }`, `.body a { color: #6E78D6; text-decoration: underline; }`, `.body h2`, `.body ul`, `.body li`, `.body pre, .body code`. So even for the template body, preview and email agree on the HTML and not on its presentation; the preview renders under the app's stylesheet and the email under the envelope's. That is a further reason to keep the parity claim semantic. Nothing tests `wrapEmailHtml`—`git grep -n 'wrapEmailHtml\|simpleMarkdownToHtml' d70aa8ac9fca414777985bb7dc74faa0462690e6 -- tests` returns zero.
+The addition the page does not make: the envelope also carries a `<style>` block that **restyles the canonical body**—`.body p { margin: 0 0 1em 0; }`, `.body a { color: #6E78D6; text-decoration: underline; }`, `.body h2`, `.body ul`, `.body li`, `.body pre, .body code`. So even for the test-email body, preview and test email agree on the HTML and not on its presentation; the preview renders under the app's stylesheet and the email under the envelope's. That is a further reason to keep the parity claim semantic. Nothing tests `wrapEmailHtml`—`git grep -n 'wrapEmailHtml\|simpleMarkdownToHtml' d70aa8ac9fca414777985bb7dc74faa0462690e6 -- tests` returns zero.
 
 ### C43—regression proof: what exists, what it covers, and whether it gates merges
 
@@ -1039,14 +1039,14 @@ Both images also confirm §C42 visually: the purple gradient header, the white c
 
 ### C50—cross-surface sweep
 
-**SPLIT: the parity claim is WRONG on six surfaces beyond this page, one of them a Mermaid diagram and its `description=` attribute; the description sentence is SUPPORTED but duplicated verbatim on seven, one of which a test pins.** Swept on meaning across the whole vocabulary, not on the phrasing, per the #757 finding.
+**SPLIT: at audit time the parity claim was WRONG on six surfaces beyond this page, one of them a Mermaid diagram and its `description=` attribute; the description sentence is SUPPORTED but duplicated verbatim on seven, one of which a test pins.** The page and this ledger's §C11, §C20 and §C42 rows are now corrected; the companion blog and its ledger remain tracked in #857. Swept on meaning across the whole vocabulary, not on the phrasing, per the #757 finding.
 
 **The parity claim (§C40, §C41).** Surfaces that assert or imply that the sent email is produced by the canonical renderer:
 
-| Surface | Line | What it says | Needs to change |
+| Surface | Line | What it said at audit time | Disposition |
 |---|---|---|---|
-| `src/content/projects/friends-and-family-billing.md` | :33 bullet 2 | "a live preview rendered by the same canonical renderer that builds the email's template body" | Yes—"the email" reads as the invoice |
-| `src/content/projects/friends-and-family-billing.md` | body ¶5 | "#161 … bypassed the bridge and unified Preview and email onto a single canonical renderer" | Yes—the bridge is still the invoice path |
+| `src/content/projects/friends-and-family-billing.mdx` | former :33 bullet 2 | "a live preview rendered by the same canonical renderer that builds the email's template body" | Corrected in #858 to Preview and test email |
+| `src/content/projects/friends-and-family-billing.mdx` | former body ¶5 | "#161 … bypassed the bridge and unified Preview and email onto a single canonical renderer" | Corrected in #858 to Preview and test send, with the invoice path named separately |
 | `src/content/blog/six-prs-one-bug-agent-failure-modes.md` | :256-266 | code block presenting the `html: payload.html` call as the winning change—it is `InvoicingTab`'s test-email call | Yes, or label it |
 | `src/content/blog/six-prs-one-bug-agent-failure-modes.md` | :268 | "The Cloud Function now sends trusted app-generated HTML when provided" | Accurate as written—"when provided" is load-bearing and the post should keep it |
 | `src/content/blog/six-prs-one-bug-agent-failure-modes.md` | :270 | "the **template body** in both the preview and the sent email is produced by `renderInvoiceTemplate`" | Yes—already narrowed once, still one step too wide |
@@ -2806,13 +2806,13 @@ Reproduce with `git rev-list --count "$(git rev-list -1 --before=2026-04-14 orig
 |---|---|---|---|---|---|---|
 | §A `device-source-of-truth` | 15 | 5 | 2 | 2 | 0 | 24 |
 | §B `five-across` | 17 | 4 | 0 | 12 | 3 | 36 |
-| §C `friends-and-family-billing` | 21 | 12 | 3 | 15 | 0 | 51 |
+| §C `friends-and-family-billing` | 20 | 12 | 3 | 16 | 0 | 51 |
 | §D `matchline` | 7 | 0 | 3 | 2 | 0 | 12 |
 | §E `mergepath` | 29 | 16 | 0 | 17 | 0 | 62 |
 | §F `override` | 6 | 7 | 0 | 1 | 0 | 14 |
 | §G `swipe-watch` | 10 | 6 | 1 | 1 | 0 | 18 |
 | §H cross-page | 3 | 5 | 0 | 2 | 0 | 10 |
-| **Total** | **108** | **55** | **9** | **52** | **3** | **227** |
+| **Total** | **107** | **55** | **9** | **53** | **3** | **227** |
 
 A **SPLIT** row is counted once, in its own column, not split across the other three; the row text names which half carries which verdict. WRONG rows count each restated instance separately, because each is a separate edit: §E10 and §E11 are one number stated twice, §G1–G3 are one number stated three times, and §H1–H2 re-count the Override and two-strike defects at the cross-page level where the fix has to be coordinated across files. Deduplicated to distinct underlying facts, the WRONG count is 36.
 
