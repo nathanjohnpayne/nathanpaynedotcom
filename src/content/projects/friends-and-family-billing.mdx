@@ -20,7 +20,7 @@ constraints:
   - value: "1 household"
     label: "the only users there have ever been, on my own account—the repo cannot corroborate it"
   - value: "No accounts"
-    label: "recipients hold a link; possession is the whole credential"
+    label: "recipients hold a link; possession is the credential the design intends"
   - value: "No scheduler"
     label: "the coordinator still presses Send, per member, once a year"
   - value: "365 days"
@@ -57,7 +57,7 @@ decisions:
     chosen: "A new brief, thirty-six minutes after the last failed fix merged, restating the task as an invariant—one canonical rendering model, the same template content producing the same result in editor, preview, and sent email—with a written non-goal banning the approach that had failed three times, addressed to a different agent by name: its root-cause section opens with \"Codex should verify these.\" The fix that held is the arc's only pull request authored by codex."
     rationale: "A fourth same-agent attempt inherits the blind spots of the first three. And the rotation is in the record as a written instruction rather than an inferred intention—which is the only reason this card gets to claim it was designed."
     cost: "The ban binds exactly one reading of one brief. No repo rule, no CI check, no lint, and no test enforces the non-goal; its force was spent the moment the agent it addressed finished reading it. Nothing stops the next session from doing precisely what it forbids."
-    evidence: "The brief's own definition of done had four clauses. The two that became automated checks—preview matches the sent test email, the reference rendering reproduced—held and still hold. The two that stayed prose—the editor accurately reflecting final output, regression tests spanning all three surfaces—were not met at merge and are not met today."
+    evidence: "The brief's own definition of done had four clauses. Two were met and still hold: the preview matching the sent test email, which became an automated check, and the reference rendering reproduced, which was confirmed by eye and is asserted by no test. The two that stayed prose—the editor accurately reflecting final output, regression tests spanning all three surfaces—were not met at merge and are not met today."
     status: "mixed"
 related:
   - label: "Blog: Six PRs, One Bug—What AI Agents Actually Get Wrong"
@@ -81,17 +81,17 @@ That loop holds two users with different needs. The coordinator needs accuracy a
 
 A household member's entire relationship with this product is a URL. Its token is hashed with SHA-256 to key a cached document scoped to that one member, and the page is built around one choice: show the arithmetic, not just the answer. Every bill renders its derivation inline—`$300.00/mo ÷ 8 members = $37.50/mo · ×12 = $450.00/yr`—and nothing in that line is recomputed for display: each figure reads from the canonical fields the billing math wrote, so the page cannot imply a rounding the calculation never took. The invoice email carries a greeting, a total, and the link—the email asks, the page explains.
 
-A recipient can do four things there, none requiring an account: question a specific charge, approve or reject the resolution I propose, confirm or deny receipt of a refund, and request a fresh link when theirs has died. They cannot record a payment—no such control or write scope exists. The recipient sees, questions, and confirms; only the coordinator posts money.
+A link can grant four things, none requiring an account: question a specific charge, approve or reject the resolution I propose, confirm or deny receipt of a refund, and request a fresh link when theirs has died. The first three are per-link scopes rather than universal rights—a link minted without them opens to a summary and no controls. They cannot record a payment—no such control or write scope exists. The recipient sees, questions, and confirms; only the coordinator posts money.
 
 The question path shows the mechanism under a no-login page. "Question This Charge" posts to a Cloud Function rather than writing the database directly, and the function adds an authorization check the security rules never make—it rejects the dispute unless the token's member is actually on that bill—then rate-limits per token, writes a server-side audit entry, and emails me the question with a deep link into my review queue. Six of the seven Cloud Functions exist to serve someone who has no account.
 
-Three coordination steps are verifiably gone. The recipient learns their amount and its derivation without asking me. I learn whether they have looked without asking—every link carries a visit count and a last-viewed date I can read back. And a dead link recovers itself: the expired page offers "Request New Link," and the system emails me the request. A fourth step is not gone: nothing sends on its own—there is no scheduler in this codebase. Once a year I still open a dialog and press Send, per member. The product removed the explaining and the checking, not the asking.
+Three coordination steps are verifiably gone. The recipient learns their amount and its derivation without asking me. I learn that the link was opened, without asking—every link carries a visit count and a last-viewed date I can read back. It counts visits through the app, not people: a forwarded link and a second look are the same signal. And a dead link recovers itself: the expired page offers "Request New Link," and the system emails me the request. A fourth step is not gone: nothing sends on its own—there is no scheduler in this codebase. Once a year I still open a dialog and press Send, per member. The product removed the explaining and the checking, not the asking.
 
 <ConstraintStrip constraints={props.constraints} />
 
 ## The decisions
 
-Four decisions carry the argument, all four mixed—real support beside a real limitation. Two are about money and access: who may see a household's numbers, and what the model owes the person who overpaid. Two come from the weeks the rendering model broke, told in [Six PRs, One Bug](/blog/six-prs-one-bug-agent-failure-modes/): what the fix actually fixed, and how the work was run differently after three fixes had failed.
+Four decisions carry the argument, all four mixed—real support beside a real limitation. Two are about money and access: who may see a household's numbers, and what the model owes the person who overpaid. Two come from the day the rendering model broke, told in [Six PRs, One Bug](/blog/six-prs-one-bug-agent-failure-modes/): what the fix actually fixed, and how the work was run differently after three fixes had failed.
 
 <DecisionLedger decisions={props.decisions} />
 
@@ -148,4 +148,4 @@ One real datum survives, as a test fixture: one member's 2026 annual summary of 
 
 ## What it demonstrates
 
-The product ended one recurring conversation, on my own account of it. What the record demonstrates is narrower. The brief that ended the rendering arc defined done in four clauses; the two turned into automated checks have held since April 2026, and the two that stayed prose—an editor that reflects final output, tests spanning every surface—were not met at merge and are not met today. The invoice email's divergence is the same finding from the other side: the surface with a check stayed fixed; the surface without one drifted the day the fix landed. An invariant that is prose is an invariant nobody reviews.
+The product ended one recurring conversation, on my own account of it. What the record demonstrates is narrower. The brief that ended the rendering arc defined done in four clauses. Two were met and have held since April 2026, though only one of them became a check that would catch a regression. The two that stayed prose—an editor that reflects final output, tests spanning every surface—were not met at merge and are not met today. The invoice email's divergence is the same finding from the other side: the surface with a check stayed fixed; the surface without one drifted the day the fix landed. An invariant that is prose is an invariant nobody reviews.
