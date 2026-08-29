@@ -138,9 +138,24 @@ describe('PR body contract', () => {
   it('uses the same parser in Phase 4b and enforces it on every PR event path', () => {
     const phase4b = readFileSync('scripts/phase-4b-review.sh', 'utf8');
     const workflow = readFileSync('.github/workflows/pr-review-policy.yml', 'utf8');
+    const validateScript = readFileSync('scripts/validate-pr-body.sh', 'utf8');
+    const author = readFileSync('scripts/gh-as-author.sh', 'utf8');
 
+    // Phase 4b reads the body to attribute it, so it can pick a reviewer whose
+    // agent differs from the author's. What matters is that it reaches the
+    // Authoring-Agent line through the shared library rather than a local
+    // regex, which would pick a marker out of an HTML comment (#1121). It
+    // parses; it does not validate, because a body that reached Phase 4b has
+    // already passed the two gates asserted below.
     expect(phase4b).toContain('. "$ROOT/lib/pr-body-contract.sh"');
-    expect(phase4b).toContain('pr_body_validate "$body" "$(p4b_config)"');
+    expect(phase4b).toContain('pr_body_authoring_agent "$body"');
+
+    // Validation is the contract's other half, and it runs wherever a body is
+    // written or changed: at creation through the author wrapper, and on every
+    // PR event through the policy workflow. Assert both call sites, so dropping
+    // either one fails here instead of silently failing open.
+    expect(author).toContain('pr_body_validate "$PR_BODY"');
+    expect(validateScript).toContain('pr_body_validate "$BODY"');
     expect(workflow).toContain('scripts/validate-pr-body.sh');
     expect(workflow).toMatch(/pull_request:\s*\n\s*types: \[opened, edited, synchronize,/);
   });
