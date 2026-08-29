@@ -86,6 +86,7 @@ for (const route of [
   // same one, so the route list has to include the collection that uses it.
   '/projects/mergepath/',
   '/projects/friends-and-family-billing/',
+  '/projects/device-source-of-truth/',
 ]) {
   test(`${route} paints every label at the height Mermaid measured`, async ({ page }) => {
     await page.goto(route);

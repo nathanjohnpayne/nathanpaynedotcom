@@ -567,6 +567,31 @@ The two-strike rule the page cites at `:49` *is* DST-local (`docs/agents/operati
 - *Dependency-aware intake (DST-049)*—the spec mislabels itself as DST-047 in its own H1 (§A12, re-verified at the pin), and no artifact records the alternative being weighed.
 - *Queue/retry*—§A10 established that fire-and-forget was replaced by Cloud Tasks. That is a `revised` record on paper, but the revision is a correctness fix rather than a product decision, and the page already tells it well in prose.
 - *Synthetic demo boundary*—genuinely consequential, and the reason it is not a decision record is that it is a **confidentiality requirement** (AC 8) that must be prominent in its own right. Demoting it into one card among five is the opposite of prominent. §A25, §A26 and §A42 supply what it needs to say.
+### A49—the synthetic dataset's own headcount, and the ADK/SEK rename in the code's words
+
+**SUPPORTED, added because the #755 draft asserted a number no §A row carried.** The draft wrote "fourteen fictional operators"; §A17 establishes the synthetic dataset without counting it, and §A26's **seven** is a count of the *real* operators surviving in `specs/`—a different set, and the one distinction this page cannot afford to blur in either direction. Verified rather than cut:
+
+```bash
+S=c9f66f07a243491eef3295ac8ed32e4fe97610d5; cd ~/GitHub/device-source-of-truth
+git show "${S}:scripts/synthetic/dataset.mjs" | sed -n '32,47p'   # export const PARTNERS
+```
+
+`scripts/synthetic/dataset.mjs:32` exports `PARTNERS` with exactly **fourteen** entries: Northwind Cable, Brightloom Telecom, Solstice Media Group, Solstice Nordics, Harborlight Broadband, Kestrelnet TV, Calderwood Networks, Fernvale Fibre, Auroral Communications, Tidewater Digital, Glassford Media, Vantara Group, Quillon TVs, Meadowlark Telecom. These are safe to publish; they are the invented set. The same file exports four invented chipsets, five OEMs and four operating systems.
+
+Two lines in it are worth quoting on the page rather than paraphrasing. `:4`—"Every name in this file is invented. There are no real partners, operators..."—is the dataset asserting its own synthetic status in the source, which is stronger than the page asserting it. And `:54` states the §A42 mechanism in the code's own words: "SEK ("Story Entertainment Kit") is the fictional streaming group's device integration kit. The `liveAdkVersion` schema field keeps its name, because it is a `@dst/contracts` field carried by every stored device; only the values users actually see change."
+
+**That last line settles what §A42 left open.** The ADK→SEK difference is a *display-layer rename only*: the stored schema field is still `liveAdkVersion` in `@dst/contracts`, so the page's ADK vocabulary describes the data model correctly while every screenshot correctly shows SEK. The two are not in conflict, and the page should say which layer each word belongs to rather than choosing one.
+### A50—the provenance, settled by the owner: a fork with the data replaced
+
+**EXTERNALLY SOURCED (§M6), and it resolves §A28 rather than picking a side.** §A28 recorded three surfaces telling three stories and said the question needed the owner. He answered it in two passes on 2026-08-29, and the second is the precise one: **"I forked a Disney system and added synthetic data to it for a portfolio demo."**
+
+That is neither of the framings §A28 was choosing between, and it explains the evidence §A28 found contradictory:
+
+- The repository record reads as an internal Disney system (`README.md:3`, `CONTRIBUTING.md:5`, `@disney.com` SSO, the scrub commit's "real Disney partner device data") **because the fork inherited it.** Those files were not written to describe a portfolio artifact and were never rewritten to.
+- Real partner identities survive in `specs/` (§A26) **for the same reason**: a fork carries the history it forked from, and the scrub `6e002a7` scoped itself to deployed data, shipped source and `mappings/`, which is exactly where a data-replacement pass would stop.
+- The résumé's "an independent build, distinct from the internal production system" was the hedge §A28 suspected. It is now corrected on all three primary surfaces to a fork framing; **ten tailored résumé variants still carry the old wording** and are the owner's call, not this audit's.
+
+**What the page may now say:** the system is his Disney partner-engineering work; the public artifact is a fork of it with the records replaced by invented data. **What it may not say:** that this is the production instance, or that it was rebuilt independently. The distinction is load-bearing for AC 8—a fork explains why the repository must stay private, which a from-scratch reimplementation would not.
 ---
 
 ## §B `five-across`
@@ -3193,7 +3218,7 @@ Reproduce with `git rev-list --count "$(git rev-list -1 --before=2026-04-14 orig
 
 | Page | SUPPORTED | WRONG | UNPROVABLE | SPLIT | EXT. SOURCED | Rows |
 |---|---|---|---|---|---|---|
-| §A `device-source-of-truth` | 15 | 5 | 2 | 2 | 0 | 24 |
+| §A `device-source-of-truth` | 26 | 10 | 4 | 6 | 1 | 47 † |
 | §B `five-across` | 17 | 4 | 0 | 12 | 3 | 36 |
 | §C `friends-and-family-billing` | 20 | 12 | 3 | 16 | 0 | 51 |
 | §D `matchline` | 7 | 0 | 3 | 2 | 0 | 12 |
@@ -3201,7 +3226,9 @@ Reproduce with `git rev-list --count "$(git rev-list -1 --before=2026-04-14 orig
 | §F `override` | 6 | 7 | 0 | 1 | 0 | 14 |
 | §G `swipe-watch` | 10 | 6 | 1 | 1 | 0 | 18 |
 | §H cross-page | 3 | 5 | 0 | 2 | 0 | 10 |
-| **Total** | **107** | **55** | **9** | **53** | **3** | **227** |
+| **Total** | **118** | **60** | **11** | **57** | **4** | **250** † |
+
+† **§A additionally carries three rows that record no verdict**, and they are excluded from its counts rather than forced into one: `A27` is a method finding (`git grep -E` silently ignores `\b`), `A44` is the cross-surface sweep, and `A48` is the decision-record adjudication AC 5 needs. Counting them would put §A at 49 rows against 46 verdicts. The discrepancy is stated here because a section row that sums correctly while being wrong is a defect this ledger has shipped twice (§B and §E), and a row that visibly does not sum is the safer failure.
 
 A **SPLIT** row is counted once, in its own column, not split across the other three; the row text names which half carries which verdict. WRONG rows count each restated instance separately, because each is a separate edit: §E10 and §E11 are one number stated twice, §G1–G3 are one number stated three times, and §H1–H2 re-count the Override and two-strike defects at the cross-page level where the fix has to be coordinated across files. Deduplicated to distinct underlying facts, the WRONG count is 37; §C51's household-framing correction is the new fact added after the earlier count of 36.
 

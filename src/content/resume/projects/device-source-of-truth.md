@@ -5,4 +5,4 @@ url: "https://device-source-of-truth.web.app"
 order: 4
 ---
 
-A standalone web application for partner-device intelligence—managing device hardware, DRM, codec support, and operational readiness across Disney+, Hulu, and ESPN by converting fragmented questionnaire data into structured, queryable records with role-based access and domain-restricted auth. An independent build, distinct from the internal production system referenced in my Disney experience.
+A fork of the internal Disney Streaming platform I built to consolidate partner-device data—hardware, DRM, codec support, and operational readiness—converting fragmented intake feeds (questionnaires, telemetry, spreadsheets) into structured, queryable records behind role-gated, preview-then-commit imports. The fork runs entirely on data invented for it, so it can be shown; the production records and the repository remain private.
