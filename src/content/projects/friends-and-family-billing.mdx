@@ -97,7 +97,7 @@ Four decisions carry the argument, all four mixed—real support beside a real l
 
 The last two records share one exhibit, the sharpest fact on this page. The parity fix consolidated rendering onto a canonical renderer for the preview and the test send. The invoice a household member actually receives never joined them: its dialog sends plain text with no HTML field, so production invoices still render through the bridge and the fallback the fix exists to have displaced—and the fixing pull request never touched the sending file.
 
-```mermaid title="Three render paths, one template" description="One invoice template renders along three paths. The editor draws its own document with unresolved token pills and was never meant to match the output. The canonical renderer, added by the 2026 parity fix, produces the preview and the test send, and a required regression test holds those two together. The invoice email a household member actually receives takes the third path, through the plain-text bridge into a markdown fallback, which the fix never reached—so the tested surfaces and the real one have diverged since April 2026."
+```mermaid title="Three render paths, one template" description="One invoice template renders along three paths. The editor draws its own document and shows tokens unresolved, so it never matched the output on screen; the brief's ask that it reflect final output was never delivered. The canonical renderer, added by the 2026 parity fix, produces the preview and the test send, and a required regression test holds those two together. The invoice email a household member actually receives takes the third path, through the plain-text bridge into a markdown fallback, which the fix never reached—so the tested surfaces and the real one have diverged since April 2026."
 flowchart TD
     DOC["Template doc"]
     ED["Editor DOM<br/>token pills"]
@@ -126,7 +126,9 @@ flowchart TD
     style INV fill:#11100d,stroke:#11100d,stroke-width:1.5px,color:#fffdf8
 ```
 
-![The Invoicing tab's two surfaces, captured from the repository's own end-to-end harness against invented household data. Edit holds the template as authored, tokens still unresolved pills; Preview resolves them against one member and is what the canonical renderer produces. The editor deliberately leaves tokens unresolved, so the two never matched on screen—but the brief that ended the parity arc asked for an editor that reflects final output, and that clause was never delivered. The payment handle is a placeholder.](/images/projects/friends-and-family-billing-editor-preview.png)
+![Edit mode, from the repository's own end-to-end harness against invented household data. The template as authored: `First Name`, `Billing Year`, `Household Total` and `Share Link` are unresolved token pills, and Payment Methods is a block placeholder rather than a list.](/images/projects/friends-and-family-billing-edit.png)
+
+![The same template in Preview, which is what the canonical renderer produces. Every token above is resolved against one member—`Hi John,` and `$780.00`—and Payment Methods has expanded into the configured options. The editor deliberately leaves tokens unresolved, so these two never matched on screen; what the brief asked for and did not get was an editor that reflects the final output. The payment handle is a placeholder.](/images/projects/friends-and-family-billing-preview.png)
 
 Both sent messages share an envelope that restyles the body—one more reason the parity claim is about the markup, never the pixels.
 
@@ -148,4 +150,4 @@ One real datum survives, as a test fixture: one member's 2026 annual summary of 
 
 ## What it demonstrates
 
-The product ended one recurring conversation, on my own account of it. What the record demonstrates is narrower. The brief that ended the rendering arc defined done in four clauses. Two were met and have held since April 2026, though only one of them became a check that would catch a regression. The two that stayed prose—an editor that reflects final output, tests spanning every surface—were not met at merge and are not met today. The invoice email's divergence is the same finding from the other side: the surface with a check stayed fixed; the surface without one drifted the day the fix landed. An invariant that is prose is an invariant nobody reviews.
+The product ended one recurring conversation, on my own account of it. What the record demonstrates is narrower. The brief that ended the rendering arc defined done in four clauses. Two were met and have held since April 2026, though only one of them became a check that would catch a regression. The two that stayed prose—an editor that reflects final output, tests spanning every surface—were not met at merge and are not met today. The invoice email's divergence is the same finding from the other side, and the direction matters: the checked surfaces moved to the canonical renderer while the invoice path was never touched and stayed on the bridge. Nothing drifted. The gap opened because one half moved and the half nobody was checking did not. An invariant that is prose is an invariant nobody reviews.
