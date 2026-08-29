@@ -13,12 +13,12 @@ githubUrl: "https://github.com/nathanjohnpayne/friends-and-family-billing"
 tags: ["Utility", "Finance", "React", "Firebase"]
 status: "SHIPPED"
 metadata:
-  format: "Household coordination tool"
+  format: "Shared-cost coordination tool"
   focus: "Recurring shared costs and the adjustments around them"
 stack: "React · JavaScript · Vite · Firebase · Vitest · Playwright"
 constraints:
-  - value: "1 household"
-    label: "the only users there have ever been, on my own account—the repo cannot corroborate it"
+  - value: "9 people"
+    label: "one group, five households, no shared budget—the only users there have ever been, on my own account"
   - value: "No accounts"
     label: "recipients hold a link; possession is the credential the design intends"
   - value: "No scheduler"
@@ -71,7 +71,7 @@ import DecisionLedger from '../../components/projects/DecisionLedger.astro';
 
 ## The math was never the problem
 
-My husband and I split T-Mobile, Apple One, and 1Password across a household of eight people. Every year, someone would ask how much they owed, I would open a spreadsheet, re-derive the math from three billing cadences, and text them a number. Then someone else would ask, and I would do it again.
+My husband and I split T-Mobile, Apple One, and 1Password with my parents, my sister's family, and two friends—nine people in five households, which is the detail the product's name was carrying all along. Every year, someone would ask how much they owed, I would open a spreadsheet, re-derive the math from three billing cadences, and text them a number. Then someone else would ask, and I would do it again.
 
 The arithmetic was trivial. The product problem was the coordination wrapped around it—calculate, explain, ask, remind, verify, repeat—and its social texture: asking for money feels awkward, checking feels intrusive, and both jobs default to whoever set the thing up.
 
@@ -144,7 +144,7 @@ That gap changes the privacy cost. A leaked link can expose the intended member'
 
 ## What the record shows, and what it does not
 
-The repository holds no usage record—no seed data, no exported dataset, and analytics that instrument sign-in and nothing else. One household has used this product; the only numbers that could substantiate how much live in the running system's per-link view counters, not in the source. What the repository can show is the mechanism and the care taken with it, not adoption.
+The repository holds no usage record—no seed data, no exported dataset, and analytics that instrument sign-in and nothing else. One group of nine has used this product; the only numbers that could substantiate how much live in the running system's per-link view counters, not in the source. What the repository can show is the mechanism and the care taken with it, not adoption.
 
 One test fixture has production-derived provenance. Because its exact content concerns a real person, this page does not identify the household member, reproduce the amount, or characterize the payment status. The fixture is not evidence of adoption or aggregate outcomes.
 
