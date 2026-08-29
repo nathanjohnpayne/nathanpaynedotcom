@@ -50,6 +50,8 @@ It also reports numbers written as words as an **advisory note**. That cannot ga
 
 **Semantically wrong citations.** A project page cited PR #178 for a fix delivered by #161. The number resolved, the repository was right, the link worked --- it was simply about something else. No link checker or reference cache catches this. Read the referenced PR and confirm it did the thing the sentence claims.
 
+**A retraction's replacement can invert the claim.** Every class above is about *scope* --- a claim stated too wide, or corrected in one place and left standing in another. This one is about *direction*. A page said a parity fix left its checked and unchecked surfaces in sync; the correction replaced that with the unchecked surface having "drifted the day the fix landed" --- on a page that elsewhere establishes the fix never touched that surface at all. Nothing drifted. The checked half moved to the new renderer and the unchecked half stayed exactly where it was. Overstatement and inversion are different errors, and the second is the harder one to catch, because the replacement now carries a caveat and reads as the careful version. Re-read a replacement against the evidence that forced the retraction, not against the sentence it replaces.
+
 ## A correction is not done when the reported line is fixed
 
 This is the dominant defect in audited revisions. Across three pull requests and eleven review rounds it accounted for more findings than every other cause combined, and the reviewers were mostly finding the residue of earlier fixes rather than defects in the original work.
@@ -75,7 +77,11 @@ Two asymmetries to know:
 
 **Codex threads do not resolve themselves.** Reply, then run `scripts/resolve-pr-threads.sh <PR> --repo <owner/repo> --resolve-actioned`.
 
+**A cleared gate can still show red.** After every finding is replied to and resolved, `Codex P1 unresolved threads` may keep failing because the rollup still counts a superseded run from before the dispositions landed. Run `scripts/codex-p1-gate.sh <PR> <owner/repo>` locally first: if it exits 0 on the same head the check ran against, the check is stale rather than wrong, and `gh run rerun --failed` against that specific run id clears it. Re-running the newest run does not, because the newest run already passed.
+
 **CodeRabbit invalidates your reply by acknowledging your fix.** It edits its own root comment to append "Addressed in commit `<sha>`" several minutes after you push. That edit pushes the accounting floor above your reply, so a disposition that was already posted reads as stale. Re-reply above the new floor, then resolve. Expect this on every CodeRabbit finding you actually fixed --- it is the acknowledgement itself that causes it.
+
+Poll the comment's `updated_at` until it holds still before re-replying, and give it a wide window: on one thread the edit landed four seconds after a disposition, and again three minutes after that, so six stable polls at fifteen seconds was not enough and ten was. Replying into a moving floor just adds a second stale reply.
 
 ## Length
 
