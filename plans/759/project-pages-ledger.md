@@ -1023,7 +1023,7 @@ Both images also confirm §C42 visually: the purple gradient header, the white c
 3. **The one real usage counter is in production and was not read.** The product stores per-link access metadata and server-side audit entries for some resolution paths (§C27, §C35). This audit did not touch production. If the author wants a defensible self-service number for the page, that is where it lives, and reading it would be a legitimate follow-up—the counter measures visits rather than people, and the server-side audit path does not observe every application load.
 4. **One test fixture has production-derived provenance.** Because its exact content concerns a real person, this public ledger deliberately does not quote the strings, identify the household member, reproduce the amount or characterise the payment status. The fixture is not evidence of adoption or aggregate outcomes.
 
-**Validation-boundary sentence, written for the page to use verbatim:** *The repository holds no usage record—no seed data, no exported dataset, and analytics that instrument sign-in and nothing else. One household has used this product; the only numbers that could substantiate how much live in the running system's per-link view counters, not in the source. What the repository can show is the mechanism and the care taken with it, not adoption.*
+**Validation-boundary sentence, written for the page to use verbatim—CORRECTED 2026-08-29, see §C51.** The clause "One household has used this product" was wrong on both the count and the grouping, and because this sentence exists to be copied verbatim it reached the published page unaltered. Use this version and no earlier one: *The repository holds no usage record—no seed data, no exported dataset, and analytics that instrument sign-in and nothing else. One group of nine has used this product; the only numbers that could substantiate how much live in the running system's per-link view counters, not in the source. What the repository can show is the mechanism and the care taken with it, not adoption.*
 
 ### C49—the frontmatter that survives the restructure
 
@@ -1031,7 +1031,7 @@ Both images also confirm §C42 visually: the purple gradient header, the white c
 
 - `description: "A cloud-synced billing tool that turns recurring shared costs into clear invoices, payment tracking, and shareable summaries."`—all four clauses hold. Cloud-synced: Firestore with a save queue (`src/lib/SaveQueue.js`). Invoices: `src/lib/invoice.js`. Payment tracking: the payments ledger plus the settlement board. Shareable summaries: §C23. **This exact sentence is duplicated verbatim in the OG template** (§C50).
 - `kicker: "AI × Utility × Finance"`—a house convention, not a product claim: six of the seven project pages open with "AI ×" (`device-source-of-truth`, `friends-and-family-billing`, `matchline`, `mergepath`, `override`, `swipe-watch`; only `five-across` does not). There is no AI in the product—no model call anywhere in `src/` or `functions/`—so "AI" here refers to how it was built, consistent with its siblings. Leave it alone; do not turn it into a sentence.
-- `metadata.format: "Household coordination tool"`—SUPPORTED. `metadata.focus: "Shared subscriptions and recurring group expenses"`—narrow but true; the product also handles ad-hoc usage charges, service credits, refunds and year carry-forward (`ADR-0005`, `ADR-0004`, `ADR-0006`), none of which is a subscription. "Recurring shared costs and the adjustments around them" would be more accurate if the field is being touched anyway.
+- `metadata.format: "Household coordination tool"`—**SUPPORTED when written; SUPERSEDED 2026-08-29, see §C51.** It was supported against the framing that the users are one household, which §C51 refutes. The field now reads `Shared-cost coordination tool`; do not restore the old value from this row. `metadata.focus: "Shared subscriptions and recurring group expenses"`—narrow but true; the product also handles ad-hoc usage charges, service credits, refunds and year carry-forward (`ADR-0005`, `ADR-0004`, `ADR-0006`), none of which is a subscription. "Recurring shared costs and the adjustments around them" would be more accurate if the field is being touched anyway.
 - `stack`—re-verified against §C21 at the new SHA; unchanged and still correct.
 - `related`—both targets exist: `src/content/blog/six-prs-one-bug-agent-failure-modes.md` and `src/content/projects/override.mdx`. Override reciprocates at `override.mdx:66-67`. The body's third link, `/blog/agent-approval-workflow-genesis-of-mergepath/`, also resolves.
 - `liveUrl`—reachable. `curl -sS -o /dev/null -w '%{http_code}' -L https://friends-and-family-billing.web.app` returned **200** with `<title>Friends & Family Billing</title>` at **2026-08-29T03:03Z**. The page behind it is the SPA's login gate; a reader clicking through sees a sign-in screen, which is worth knowing before the page invites them to.
@@ -2806,13 +2806,13 @@ Reproduce with `git rev-list --count "$(git rev-list -1 --before=2026-04-14 orig
 |---|---|---|---|---|---|---|
 | §A `device-source-of-truth` | 15 | 5 | 2 | 2 | 0 | 24 |
 | §B `five-across` | 17 | 4 | 0 | 12 | 3 | 36 |
-| §C `friends-and-family-billing` | 21 | 11 | 3 | 15 | 0 | 50 |
+| §C `friends-and-family-billing` | 21 | 12 | 3 | 15 | 0 | 51 |
 | §D `matchline` | 7 | 0 | 3 | 2 | 0 | 12 |
 | §E `mergepath` | 29 | 16 | 0 | 17 | 0 | 62 |
 | §F `override` | 6 | 7 | 0 | 1 | 0 | 14 |
 | §G `swipe-watch` | 10 | 6 | 1 | 1 | 0 | 18 |
 | §H cross-page | 3 | 5 | 0 | 2 | 0 | 10 |
-| **Total** | **108** | **54** | **9** | **52** | **3** | **226** |
+| **Total** | **108** | **55** | **9** | **52** | **3** | **227** |
 
 A **SPLIT** row is counted once, in its own column, not split across the other three; the row text names which half carries which verdict. WRONG rows count each restated instance separately, because each is a separate edit: §E10 and §E11 are one number stated twice, §G1–G3 are one number stated three times, and §H1–H2 re-count the Override and two-strike defects at the cross-page level where the fix has to be coordinated across files. Deduplicated to distinct underlying facts, the WRONG count is 36.
 
