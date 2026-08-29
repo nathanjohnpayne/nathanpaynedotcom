@@ -755,7 +755,7 @@ Note the spec has drifted here: `specs/sharing.md:48` still describes the disput
 
 **SPLIT—three removals are verifiable in code, one candidate is not, and the page must not claim the biggest one.**
 
-Verifiable. **(1)** The recipient learns their own amount and its derivation without asking anyone: §C23 and §C24 together. **(2)** The coordinator learns whether the recipient looked, without asking: `publicShares` carries `accessCount` and `lastAccessedAt` (`src/lib/share.js:53-54`), the share page bumps them on every visit (`ShareView.jsx:217-220`), and the coordinator reads them back in the Manage Links tab, rendered as a last-viewed date (`src/app/components/ShareLinkDialog.jsx:79-92`, `:14-18`). **(3)** A dead link recovers itself: an expired or revoked link renders a "Request New Link" button (`ShareView.jsx:321-325`) that POSTs to the `requestShareLink` Cloud Function, which emails the coordinator "{memberName} tried to access their {year} billing summary but the link has expired or been revoked" (`functions/index.js:554`) and rate-limits to one request per token per 24 hours. That loop—"my link is broken, text Nathan"—is removed end to end, and no surface currently says so.
+Verifiable. **(1)** The recipient learns their own amount and its derivation without asking anyone: §C23 and §C24 together. **(2)** The coordinator learns that the link was opened through the application, without asking—**not that the recipient in particular looked**, since the counter counts visits rather than people and a direct read that bypasses `ShareView` never increments it: `publicShares` carries `accessCount` and `lastAccessedAt` (`src/lib/share.js:53-54`), the share page bumps them on every visit (`ShareView.jsx:217-220`), and the coordinator reads them back in the Manage Links tab, rendered as a last-viewed date (`src/app/components/ShareLinkDialog.jsx:79-92`, `:14-18`). **(3)** A dead link recovers itself: an expired or revoked link renders a "Request New Link" button (`ShareView.jsx:321-325`) that POSTs to the `requestShareLink` Cloud Function, which emails the coordinator "{memberName} tried to access their {year} billing summary but the link has expired or been revoked" (`functions/index.js:554`) and rate-limits to one request per token per 24 hours. That loop—"my link is broken, text Nathan"—is removed end to end, and no surface currently says so.
 
 Not verifiable, and the page must not assert it: **the product does not send anything on its own.** There is no scheduler—`git grep -n "onSchedule\|pubsub\|scheduler\|cron" d70aa8ac9fca414777985bb7dc74faa0462690e6 -- functions src` returns zero, and the seven exported Cloud Functions are `getEvidenceUrl`, `processMailQueue`, `requestShareLink`, `resolveShareToken`, `submitDispute`, `submitDisputeDecision`, `submitRefundConfirmation`. The coordinator still opens a dialog and presses Send, per member, once a year. What is removed is the *explaining* and the *checking*, not the *asking*. A useful framing the record does support: six of the seven Cloud Functions exist to serve someone who has no account.
 
@@ -775,7 +775,7 @@ git show "${S}:firestore.rules" | sed -n '54,68p'
 
 ### C29—what the read rule actually permits
 
-**SPLIT: "the read is bounded by token possession" is SUPPORTED; "the boundary is enforced by the security rules" is WRONG—the read rule on the public share document carries no condition that bounds it.**
+**SPLIT: "possession of the token is the boundary the application intends" is SUPPORTED; "the read is bounded by token possession" and "the boundary is enforced by the security rules" are both WRONG—the read rule on the public share document carries no condition that bounds it, and a client that bypasses the application is not held by the intent.**
 
 > **Redacted, deliberately.** This row originally quoted the rule verbatim and worked through what it permits beyond a single-document fetch. Both were removed after Codex flagged them on `nathanpaynedotcom#858`: the product is live, holds real household financial data, the flaw is unremediated, and this ledger sits in a public repository. Read `firestore.rules` in the product repository if you need the specifics. **The remediation belongs in that repository and has been escalated to its owner**; when it lands, this row can be restored in full.
 
@@ -799,7 +799,7 @@ Corrected value for the page: every link the product mints expires, and the shor
 
 **SUPPORTED on all three counts, and this is the strongest half of the security story.** Revocation is a first-class UI action: the share dialog's "Manage Links" tab lists every link for a member with a status of `active`, `expired` or `revoked` (`src/app/components/ShareLinkDialog.jsx:48-99`), and `handleRevoke` (`:131-140`) sets `revoked: true` on `shareTokens/{hash}` **and deletes `publicShares/{hash}`**. The delete is what matters: because the read rule is unconditional (§C29), flipping a boolean would not stop a direct reader, and removing the document does.
 
-Rotation is automatic as well as manual. Every link creation prunes: `createAndPruneShareLink` keeps the five most recent active links per member and year and, in the same atomic `writeBatch`, revokes the rest and deletes their public documents (`src/lib/ShareLinkService.js:18`, `:103-114`). So sending a member a new invoice quietly retires their sixth-oldest link.
+Rotation is automatic as well as manual, **on the share-dialog path only**. Creation through `createAndPruneShareLink` prunes: it keeps the five most recent active links per member and year and, in the same atomic `writeBatch`, revokes the rest and deletes their public documents (`src/lib/ShareLinkService.js:18`, `:103-114`). So sending a member a new invoice quietly retires their sixth-oldest link.
 
 One asymmetry the page should not paper over: **expiry does not delete the cached document.** Only revocation and pruning do. An expired link's `publicShares` document remains present and world-readable to anyone holding the hash; it is the application, not the data layer, that refuses to render it.
 
@@ -2810,13 +2810,13 @@ Reproduce with `git rev-list --count "$(git rev-list -1 --before=2026-04-14 orig
 |---|---|---|---|---|---|---|
 | §A `device-source-of-truth` | 15 | 5 | 2 | 2 | 0 | 24 |
 | §B `five-across` | 17 | 4 | 0 | 12 | 3 | 36 |
-| §C `friends-and-family-billing` | 10 | 7 | 1 | 4 | 0 | 22 |
+| §C `friends-and-family-billing` | 21 | 11 | 3 | 15 | 0 | 50 |
 | §D `matchline` | 7 | 0 | 3 | 2 | 0 | 12 |
 | §E `mergepath` | 29 | 16 | 0 | 17 | 0 | 62 |
 | §F `override` | 6 | 7 | 0 | 1 | 0 | 14 |
 | §G `swipe-watch` | 10 | 6 | 1 | 1 | 0 | 18 |
 | §H cross-page | 3 | 5 | 0 | 2 | 0 | 10 |
-| **Total** | **97** | **50** | **7** | **41** | **3** | **198** |
+| **Total** | **108** | **54** | **9** | **52** | **3** | **226** |
 
 A **SPLIT** row is counted once, in its own column, not split across the other three; the row text names which half carries which verdict. WRONG rows count each restated instance separately, because each is a separate edit: §E10 and §E11 are one number stated twice, §G1–G3 are one number stated three times, and §H1–H2 re-count the Override and two-strike defects at the cross-page level where the fix has to be coordinated across files. Deduplicated to distinct underlying facts, the WRONG count is 36.
 
