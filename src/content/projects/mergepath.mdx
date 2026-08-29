@@ -137,14 +137,14 @@ The easy description of Mergepath is an inventory—seven fail-closed CI checks 
 
 <DecisionLedger decisions={props.decisions} />
 
-`mergepath#1080` is the pull request the round budget was raised for. Four rounds were requested in ninety minutes. Only the two that returned findings are drawn below, and both returned them on code the previous round's fix had just introduced.
+`mergepath#1080` is the pull request the round budget was raised for. Four rounds were requested between 06:15 and 07:12, and it merged at 07:53. Only the two that returned findings are drawn below, and both returned them on code the previous round's fix had just introduced.
 
-```mermaid title="The two review rounds that returned findings" description="A change pushed at 06:12 on 2026-08-22 drew four requested review rounds in the ninety minutes before it merged. This shows the two that returned findings; the other two returned none on the record and are omitted. Both findings rounds landed on code the previous round's fix had just introduced — the review at 06:46 carried two blocking findings, the one at 07:04 carried one — and a fix followed each before the pull request merged at 07:41."
+```mermaid title="The two review rounds that returned findings" description="A change pushed at 06:12 on 2026-08-22 drew four requested review rounds before it merged an hour and a half later. This shows the two that returned findings; the other two returned none on the record and are omitted. Both findings rounds landed on code the previous round's fix had just introduced — the review at 06:46 carried two blocking findings, the one at 07:04 carried one — and a fix followed each before the pull request merged at 07:53."
 flowchart TD
     S["change pushed<br/>06:12"]
     R2["review 06:46<br/>3 findings, 2 blocking"]
     R3["review 07:04<br/>3 findings, 1 blocking"]
-    M["cleared and merged<br/>07:41"]
+    M["merged<br/>07:53"]
 
     S -->|fix 06:32| R2
     R2 -->|fix 06:53| R3
@@ -164,7 +164,7 @@ Adoption is measurable. Impact is not, and holding those apart is most of what t
 
 The fleet got to nine repositories by shrinking: a consumer was archived in August 2026 and retired from the manifest. The stress test came in July 2026: 134 review-finding threads across a 24-hour, eleven-PR record, dissected in [A Perfect Score on the Wrong Axis](/blog/perfect-score-wrong-axis/). And the sharpest result cuts against the hub rather than for it. Propagation dropped files the template's own review had already cleared into two unfamiliar codebases, and seven external-review rounds per pull request went on finding bugs in them. Review found the least where the files were most familiar.
 
-Propagation reports its own state, and it reports a fleet permanently catching up. A read-only audit at the end of August found the same eighteen manifest paths adrift on all eight consumers, identical set, no exceptions. A directory entry such as `scripts/ci/` counts as one path however many files inside it moved:
+Propagation reports its own state. A read-only audit on 2026-08-28 found the same eighteen manifest paths adrift on all eight consumers, identical set, no exceptions. A directory entry such as `scripts/ci/` counts as one path however many files inside it moved:
 
 ```text
 $ scripts/sync-to-downstream.sh --audit
@@ -177,7 +177,7 @@ nathanpaynedotcom (nathanjohnpayne/nathanpaynedotcom)
   … 14 more paths, and the same eighteen on all seven other consumers
 ```
 
-That is the mechanism working, not failing: drift is a reviewable diff rather than a weekly discovery. It is also the standing cost of a hub, which is always ahead of everything downstream of it.
+That is the mechanism working rather than failing: drift is a reviewable diff instead of a weekly discovery. It is a snapshot, not a steady state—a bulk sync closes the gap, and several in this repository's history have. What the snapshot shows is how wide it opens between waves.
 
 What none of it measures is what the gates save. No manual baseline was ever recorded, so there is nothing to subtract from; the one savings figure the repository computes multiplies auto-approved pull requests by a hardcoded thirty-to-180-minute constant that nobody measured. The two real measurement systems both measure cost—how long external review takes, and the latency budget the CI suite has to stay inside.
 
