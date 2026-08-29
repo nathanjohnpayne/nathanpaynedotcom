@@ -775,16 +775,13 @@ git show "${S}:firestore.rules" | sed -n '54,68p'
 
 ### C29—what the read rule actually permits
 
-**SPLIT: "the read is bounded by token possession" is SUPPORTED; "the boundary is enforced by the security rules" is WRONG—the rule bounds nothing beyond knowing the document id, and it grants `list` as well as `get`.** `firestore.rules:73-74`, verbatim:
+**SPLIT: "the read is bounded by token possession" is SUPPORTED; "the boundary is enforced by the security rules" is WRONG—the read rule on the public share document carries no condition that bounds it.**
 
-```text
-match /publicShares/{tokenHash} {
-  allow read: if true;
-```
+> **Redacted, deliberately.** This row originally quoted the rule verbatim and worked through what it permits beyond a single-document fetch. Both were removed after Codex flagged them on `nathanpaynedotcom#858`: the product is live, holds real household financial data, the flaw is unremediated, and this ledger sits in a public repository. Read `firestore.rules` in the product repository if you need the specifics. **The remediation belongs in that repository and has been escalated to its owner**; when it lands, this row can be restored in full.
 
-There is no `request.auth` term, no `expiresAt` comparison, no `revoked` check, and no rate limit on the read path. Expiry and revocation are evaluated by the *application*—`isShareTokenStale` in the browser (`src/app/views/ShareView.jsx:196`) and the same two checks server-side in the Cloud Function (`functions/index.js:156-167`)—not by the rule that governs the document. A client that skips `ShareView` and reads the document directly gets whatever is in it.
+What the row still asserts, and what the page rests on: the rule carries no `request.auth` term, no `expiresAt` comparison, no `revoked` check, and no rate limit on the read path. Expiry and revocation are evaluated by the *application*—`isShareTokenStale` in the browser (`src/app/views/ShareView.jsx:196`) and the same two checks server-side in the Cloud Function (`functions/index.js:156-167`)—not by the rule that governs the document. A client that skips `ShareView` and reads the document directly gets whatever is in it.
 
-Two consequences worth stating carefully. First, in Firestore a `read` allow on a wildcard document path covers both `get` and `list`, so **as written the rule permits an unauthenticated client to enumerate the whole `publicShares` collection**, not merely to fetch one document by hash. This audit read the rule and did not test it against the deployed project, deliberately; the claim here is about what the rule permits, which is checkable from the file alone. Second, `firestore.rules` has no test suite at all—`git grep -n 'rules-unit-testing\|firestore.rules' d70aa8ac9fca414777985bb7dc74faa0462690e6 -- tests package.json scripts` returns exactly one hit, the deploy target in `package.json:21`. The rules file is deployed and never exercised.
+This audit read the rule and deliberately did not test it against the deployed project; the claim is about what the file permits, which is checkable from the file alone. Separately, `firestore.rules` has no test suite at all—`git grep -n 'rules-unit-testing\|firestore.rules' d70aa8ac9fca414777985bb7dc74faa0462690e6 -- tests package.json scripts` returns exactly one hit, the deploy target in `package.json:21`. The rules file is deployed and never exercised.
 
 This is not a reason for the page to avoid the security section; it is the material for it. The honest sentence is that the design deliberately trades an authentication boundary for a possession boundary, and that the possession boundary is a 256-bit-preimage problem rather than an access-control decision.
 
