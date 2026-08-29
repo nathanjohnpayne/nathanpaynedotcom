@@ -1068,6 +1068,24 @@ Two further site surfaces are structural rather than prose and constrain the res
 
 **Artifacts for AC 9.** The four parity screenshots already exist in `public/blog/six-prs-one-bug-agent-failure-modes/img/` and are already published, so the page can reference them with no new asset work—but they show three surfaces *disagreeing* plus a target, not five surfaces agreeing, and two of them are `[Test]` emails (§C47). No settlement-board or share-page screenshot exists in this repository at all; the product repository holds nineteen images at `.github/screenshots/`, four of them the invoice-bug set already published here and fifteen others (`01-settled-pill.jpeg`, `02-payment-history.jpeg`, `03-share-links-new.jpeg`, `04-share-links-manage.jpeg`, `09-history-modal.jpg` and the rest) that would have to be copied across and checked for household data first. One caution before republishing anything from that set: the published email screenshots already expose the author's Venmo, Cash App and PayPal handles in the clear, and the Apple Cash and Zelle values are blurred rather than removed. The same handles and a phone number sit unredacted in a public test fixture at `tests/react/lib/invoice.test.js:802-806`—worth a separate issue in the product repository, and out of scope for this page.
 
+
+### C51—the household framing was wrong in both halves, corrected by the author
+
+> ":74 My husband and I split T-Mobile, Apple One, and 1Password across a household of eight people."
+
+**WRONG on the count and on the grouping. §C1 called this UNPROVABLE from repository artifacts and told the page to treat it as autobiography; the author has now supplied the autobiography, and it refutes the sentence twice.**
+
+The eight came from `README.md:269-273`, the worked example §C1 identified as illustrative documentation rather than a record of who uses the product. The real figure is **nine people**, and they are not one household. Supplied by the repository owner on 2026-08-29 and refined twice in the same exchange, which is why the count is exact rather than hedged: the author and his husband (one household, two people); his sister and her family (one household, three people); his parents, in a household separate from the sister's (one household, two people); and two friends, **each in a household of their own**. **Nine people in five households.** An intermediate draft of this row said "four or five" because the friends' arrangement had not yet been stated; it had to be asked rather than inferred, and the page carried "separate households" without a count until it was.
+
+Two consequences beyond the opening sentence, both of which the page carried:
+
+- The `constraints` chip read `1 household`, and the §C48 validation-boundary sentence read "One household has used this product." Both asserted the same wrong grouping in the same wrong words. Corrected to `9 people` and "One group of nine has used this product." **§C48's sentence was written to be quoted verbatim and was quoted verbatim, which is exactly how a defect in an evidence artifact reaches a published page unaltered.**
+- `metadata.format` read `Household coordination tool`, which §C49 passed as SUPPORTED. It was supported against the old framing and is not against the corrected one; now `Shared-cost coordination tool`.
+
+**The product's own vocabulary is untouched and should stay.** `buildPublicShareData`, the settlement board and the UI all model the billing group as a *household*, and the page keeps that word wherever it describes the product. What was wrong is the autobiographical claim that the nine people *are* one household, not the data model that calls a billing group one.
+
+The correction also supplies something the page had been missing: **the product is called Friends & Family Billing because the group is family and friends across households.** The name encodes the fact the page got wrong, and the opening now says so.
+
 ---
 
 ## §D `matchline`
