@@ -150,13 +150,25 @@ describe('PR body contract', () => {
     expect(phase4b).toContain('. "$ROOT/lib/pr-body-contract.sh"');
     expect(phase4b).toContain('pr_body_authoring_agent "$body"');
 
-    // Validation is the other half of the contract, and it runs wherever a body
-    // is written or changed: at creation through the author wrapper, and on
-    // every PR event through the policy workflow. Assert both call sites, so
-    // dropping either one fails here rather than silently failing open.
+    // Full contract validation runs at creation, through the author wrapper,
+    // and in the standalone validator that shares its parser. Pin both, so
+    // dropping either fails here rather than failing open.
     expect(author).toContain('pr_body_validate "$PR_BODY"');
     expect(validateScript).toContain('pr_body_validate "$BODY"');
-    expect(workflow).toContain('scripts/validate-pr-body.sh');
+
+    // The policy workflow runs on every PR event but enforces only the
+    // Self-Review section: `--has-self-review` is the sole mode
+    // pr-body-contract.mjs exposes, and the workflow's own comment states it
+    // makes "no claim about `Authoring-Agent:`" (mergepath#1137). Assert the
+    // executable step, not the file name — `scripts/validate-pr-body.sh`
+    // appears in that workflow only inside a comment, so asserting the name
+    // passed while nothing ran (Codex P1 on #862).
+    //
+    // The consequence is worth stating where someone will read it: nothing
+    // re-validates `Authoring-Agent:` after creation. Editing it away leaves
+    // this test, the workflow and the merge gates green. Phase 4b used to
+    // catch that and the guard was reverted by propagation — see #861.
+    expect(workflow).toContain('scripts/lib/pr-body-contract.mjs --has-self-review');
     expect(workflow).toMatch(/pull_request:\s*\n\s*types: \[opened, edited, synchronize,/);
   });
 });
