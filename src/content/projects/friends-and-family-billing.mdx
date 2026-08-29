@@ -2,7 +2,7 @@
 title: "Friends & Family Billing"
 slug: "friends-and-family-billing"
 description: "A cloud-synced billing tool that turns recurring shared costs into clear invoices, payment tracking, and shareable summaries."
-seoDescription: "A household billing tool built around one question: how do you show someone what they owe, and why, without making them create an account? Token-scoped share links, a four-state balance model, and what the parity fix did not fix."
+seoDescription: "A household billing tool built on one question: how do you show someone what they owe, and why, without making them create an account?"
 kicker: "AI × Utility × Finance"
 order: 6
 screenshotAspect: "wide"
@@ -29,7 +29,7 @@ decisions:
   - title: "Make the link the credential"
     lens: "Access"
     context: "A household member checks their bill a handful of times a year. An account—password, recovery, sign-in—prices that rare act absurdly, and the person paying is the one I least wanted to burden. The token link predates the React app entirely, and no ADR, spec, or pull request ever records an account model being weighed against it."
-    chosen: "A recipient holds a URL and nothing else. The link's token is hashed to key a world-readable cache document scoped to that one member; every link expires—a year by default, with 7-, 30-, and 90-day options—revocation deletes the cached document outright, and minting a new link prunes each member to their five most recent."
+    chosen: "A recipient holds a URL and nothing else. The link's token is hashed to key a world-readable cache document scoped to that one member; every link expires—a year by default, with 7-, 30-, and 90-day options—revocation deletes the cached document outright, and minting a link through the share dialog prunes that member to their five most recent."
     rationale: "The recipient's four needs—an amount, its derivation, a way to pay, a way to object—are all read-and-request acts. None requires an identity, and all of them die behind a login screen. This was product judgment, not a documented deliberation, and I would rather say so than invent a record."
     cost: "Whoever holds the link is the recipient. The security rules do not bound that read—expiry and revocation live in the application, not the rules—and a leaked link shows that household's names, amounts, payment handles, postal address, and phone. The raw token is also stored server-side so a sent link can be re-copied, which means the credential exists at rest."
     evidence: "The mechanism holds where it was built and leaks where it was not: the share dialog's No-expiry option silently mints the 365-day default, so a never-expiring link is unreachable through the product's own UI; the security-rules file has no test suite at all; and an expired link's cached document survives until revocation or pruning deletes it."
@@ -126,7 +126,7 @@ flowchart TD
     style INV fill:#11100d,stroke:#11100d,stroke-width:1.5px,color:#fffdf8
 ```
 
-![The Invoicing tab's two surfaces, captured from the repository's own end-to-end harness against invented household data. Edit holds the template as authored, tokens still unresolved pills; Preview resolves them against one member and is what the canonical renderer produces. The two are not meant to match and never did, which is why the fix had to consolidate the rendering model rather than make one screen resemble another. The payment handle is a placeholder.](/images/projects/friends-and-family-billing-editor-preview.png)
+![The Invoicing tab's two surfaces, captured from the repository's own end-to-end harness against invented household data. Edit holds the template as authored, tokens still unresolved pills; Preview resolves them against one member and is what the canonical renderer produces. The editor deliberately leaves tokens unresolved, so the two never matched on screen—but the brief that ended the parity arc asked for an editor that reflects final output, and that clause was never delivered. The payment handle is a placeholder.](/images/projects/friends-and-family-billing-editor-preview.png)
 
 Both sent messages share an envelope that restyles the body—one more reason the parity claim is about the markup, never the pixels.
 
@@ -134,9 +134,9 @@ Both sent messages share an envelope that restyles the body—one more reason th
 
 No record weighs links against accounts—no ADR, spec, or pull request carries that deliberation. The tradeoff was my product judgment, and the honest way to explain it is to show the mechanism.
 
-The rule guarding the public share document does not bound the read at all: no authentication term, no expiry comparison, no revocation check. What stands between the world and a household's numbers is possession of the token—a 256-bit preimage problem, not an access-control decision—and the application enforces expiry and revocation itself, once in the browser and again in the Cloud Function.
+The rule guarding the public share document does not bound the read at all: no authentication term, no expiry comparison, no revocation check. The boundary the design intends is possession of the token—a 256-bit preimage problem rather than an access-control decision—with the application, not the rule, enforcing expiry and revocation, once in the browser and again in the Cloud Function. Intended is the operative word. A boundary the data layer does not hold is one the application is asserting on its behalf, and that is a gap in the product rather than a subtlety of the design.
 
-The strongest half of the design is revocation: it deletes the cached document. That matters because the read rule is unconditional—flipping a flag would not stop a direct reader; removing the document does. Minting a new link also prunes each member to their five most recent, deleting the rest.
+The strongest half of the design is revocation: it deletes the cached document. That matters because the read rule is unconditional—flipping a flag would not stop a direct reader; removing the document does. Minting a link through the share dialog also prunes that member to five, deleting the rest—though the Invoicing tab's preview-link button writes its document directly and skips that path, so a sixth can outlive the prune.
 
 The limits sit next to that. An expired link's cached document is refused by the application but never deleted. The raw token is stored server-side—deliberately, so a sent link can be re-copied—guarded by owner-only rules rather than by not existing. The token rides in the query string, so it survives in hosting logs, browser history, and whatever message carried it. And the no-login visitor is not anonymous to me: every server-side resolution records the caller's IP into an audit log only I can read.
 
