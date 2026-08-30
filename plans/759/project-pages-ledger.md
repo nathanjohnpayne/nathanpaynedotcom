@@ -329,7 +329,7 @@ git grep -nI "type: 'new_partner_key'\|type: 'unregistered_device'\|type: 'inact
 git show "${S}:functions/src/routes/partnerKeys.ts" | sed -n '596,620p'
 ```
 
-Concrete form the page can use: an exception is a telemetry row the registry cannot explain—a device id with no device record, or a partner key not in the registry—surfaced as a work item with the control that creates the missing record, and closed automatically when that record exists. **The page may not describe exceptions as spanning the whole import surface**: the questionnaire, Airtable and AllModels paths raise no alerts at all, they surface their exceptions inline in their own import previews (§A32, §A39).
+Concrete form the page can use: an exception is a telemetry row the registry cannot explain—a device id with no device record, or a partner key not in the registry—surfaced as a work item with the control that creates the missing record. **The automatic close is `new_partner_key` only**—`partnerKeys.ts:598-619` is the sole auto-dismiss path in the codebase; `devices.ts` never touches the `alerts` collection, so registering a device leaves its alert open for the manual dismiss route at `alerts.ts:68`. An earlier version of this sentence generalized the partner-key behaviour to both types and the page inherited it; caught by Codex on `#873`. **The page may not describe exceptions as spanning the whole import surface**: the questionnaire, Airtable and AllModels paths raise no alerts at all, they surface their exceptions inline in their own import previews (§A32, §A39).
 
 ### A34—`inactive_key` is a declared alert type that no audited code path creates
 
@@ -485,7 +485,7 @@ git ls-tree -r --name-only "$P" -- public/images/projects | grep device-source
 
 ### A44—cross-surface sweep: every surface carrying a claim this page makes
 
-**Six surfaces carry DST claims, and four of them carry the same sentence.** Swept on what the claims *mean*, not on phrasing, per the #757 finding that a claim survives substring removal.
+**Six surfaces carry DST claims, and four of them carry the same sentence.** Swept on what the claims *mean*, not on phrasing, per the #757 finding that a claim survives substring removal. **Scope note added after the fact:** this table inventories the surfaces the *page rewrite* had to keep in sync, and its three résumé rows are a sample rather than the full set—the provenance correction in §A50 ultimately reached seventeen résumé surfaces, thirteen of which are tailored variants this table never listed. Read §A50 for the résumé inventory; read this table for what a page edit must not desynchronize.
 
 | Surface | What it asserts | Needs to change? |
 |---|---|---|
@@ -598,7 +598,7 @@ That is neither of the framings §A28 was choosing between, and it explains the 
 
 - The repository record reads as an internal Disney system (`README.md:3`, `CONTRIBUTING.md:5`, `@disney.com` SSO, the scrub commit's "real Disney partner device data") **because the fork inherited it.** Those files were not written to describe a portfolio artifact and were never rewritten to.
 - Real partner identities survive in `specs/` (§A26) **for the same reason**: a fork carries the history it forked from, and the scrub `6e002a7` scoped itself to deployed data, shipped source and `mappings/`, which is exactly where a data-replacement pass would stop.
-- The résumé's "an independent build, distinct from the internal production system" was the hedge §A28 suspected. It is now corrected on all three primary surfaces to a fork framing; **ten tailored résumé variants still carry the old wording** and are the owner's call, not this audit's.
+- The résumé's "an independent build, distinct from the internal production system" was the hedge §A28 suspected. It is now corrected to a fork framing across **all seventeen résumé surfaces**—the `src/content/resume/` mirror plus sixteen files in the docs vault, committed there as `43eb5f9`—so no surface retains the hedge. (This row first said three primary surfaces were fixed while ten tailored variants still carried the old wording, which was true for about an hour on 2026-08-29 and stale once the owner asked for the rest; Codex caught the residue on `#873`. Verified by sweep: zero files under `job-search/` match the old phrasing.)
 
 **What the page may now say:** the system is his Disney partner-engineering work; the public artifact is a fork of it with the records replaced by invented data. **What it may not say:** that this is the production instance, or that it was rebuilt independently. The distinction is load-bearing for AC 8—a fork explains why the repository must stay private, which a from-scratch reimplementation would not.
 ---
