@@ -38,7 +38,7 @@ screenshotSecondary:                # optional—a second capture shown beside t
   height: 1550
 accent: "red"                      # = RAMP[order % 5]; order 5 → red. See Accent ramp
 liveUrl: "https://example.com"     # optional—omit on pre-launch projects
-githubUrl: "https://github.com/you/repo"
+githubUrl: "https://github.com/you/repo"  # optional—omit when the repository is private
 tags: ["Tag1", "Tag2", "Tag3"]
 status: "SHIPPED"                  # one of: SHIPPED | EXPERIMENT | IN PROGRESS | PAUSED | ARCHIVED
 metadata:
@@ -68,7 +68,7 @@ draft: false
 | `screenshotSecondary` | object | no | A companion capture rendered beside `screenshotSrc`—see § Paired screenshots. All four keys are required when the field is present: `src`, `alt`, `width`, `height` |
 | `accent` | enum | yes | Semantic accent token for the project. One of `red`, `yellow`, `paper`, `blue`, `black`. Not a free choice—it must be `RAMP[order % 5]` per the Accent ramp below, enforced by `tests/project-pages.test.js`. CSS derives the actual palette values, text-safe color, page wash, and metadata gradient from this token |
 | `liveUrl` | non-empty string | no | URL for "View Live Product" CTA. Omit on pre-launch projects (status `IN PROGRESS`)—the CTA, the index card "Live ↗" link, the homepage Builds "Live ↗" link, and the `SoftwareApplication` JSON-LD entity are all suppressed when this field is missing |
-| `githubUrl` | string | yes | URL for "View on GitHub" CTA |
+| `githubUrl` | non-empty string | no | URL for "View on GitHub" CTA. **Omit when the repository is private**—a private repo returns GitHub's 404 to every reader but the owner, so the CTA is suppressed rather than published as a dead link. Same suppression mechanics as `liveUrl` above (#874). **One exception:** a project setting `heroRefresh: 'github-social'` must supply it regardless, because that refresh reads this URL's social preview; the schema rejects the pairing rather than letting the hero go silently stale. |
 | `tags` | string[] | yes | Category/technology tags |
 | `status` | enum | yes | Project lifecycle status. One of `SHIPPED`, `EXPERIMENT`, `IN PROGRESS`, `PAUSED`, `ARCHIVED`. Drives both the project-card kicker on `/projects/` and the Status column in the detail-page metadata table—single source of truth, single short-form vocabulary across both surfaces. See #274, #285 |
 | `metadata.format` | string | yes | Metadata strip: product-type label (e.g., "Internal platform tool"). The tech stack lives in the separate `stack` field—this field is for product category |

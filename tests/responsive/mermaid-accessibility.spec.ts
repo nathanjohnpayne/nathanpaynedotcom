@@ -76,17 +76,40 @@ test('Mermaid descriptions label diagrams without becoming duplicate navigable t
   }
 });
 
-// Between them these cover both label containers Mermaid emits: the
+// Every route carrying a Mermaid diagram gets the label-parity assertions
+// below. Between them these cover both label containers Mermaid emits: the
 // non-wrapping one it gives a label with explicit breaks, and the wrapping one
-// it gives a label it decided may reflow.
-for (const route of [
+// it gives a label it decided may reflow. Project pages carry Mermaid since
+// #753 and the accessibility contract is the same one, so the list includes
+// that collection too.
+const MERMAID_ROUTES = [
   '/blog/six-prs-one-bug-agent-failure-modes/',
   '/blog/autofix-was-the-whole-cost/',
-  // Project pages carry Mermaid since #753; the accessibility contract is the
-  // same one, so the route list has to include the collection that uses it.
   '/projects/mergepath/',
   '/projects/friends-and-family-billing/',
-]) {
+  '/projects/device-source-of-truth/',
+];
+
+// The fixture-coverage assertion — "this route actually exercises a label
+// Mermaid measured as more than one line" — can only hold where the diagram
+// contains a wrapped label, so it is a subset rather than the whole list.
+// `/projects/device-source-of-truth/` is deliberately outside it: its
+// five-feed diagram uses short single-line labels by design ("Excel
+// questionnaire", "Device registry"), whose tallest measures 21 against this
+// assertion's threshold of 30. Adding the route to the coverage list without
+// checking that failed the suite, which CI does not run (build-and-test
+// installs Chromium for the *build's* Playwright, not `npm run test:e2e`), so
+// it took a reviewer to catch it (#873). Before adding a route here, measure:
+// the built page's `<foreignObject height="...">` values are the same numbers
+// this test reads.
+const MULTILINE_LABEL_ROUTES = new Set([
+  '/blog/six-prs-one-bug-agent-failure-modes/',
+  '/blog/autofix-was-the-whole-cost/',
+  '/projects/mergepath/',
+  '/projects/friends-and-family-billing/',
+]);
+
+for (const route of MERMAID_ROUTES) {
   test(`${route} paints every label at the height Mermaid measured`, async ({ page }) => {
     await page.goto(route);
 
@@ -133,10 +156,16 @@ for (const route of [
         }),
       );
 
-    expect(
-      labels.filter((label) => label.measured > 30).length,
-      'the assertion must exercise labels Mermaid measured as more than one line',
-    ).toBeGreaterThan(0);
+    expect(labels.length, 'the route must render at least one Mermaid node label').toBeGreaterThan(
+      0,
+    );
+
+    if (MULTILINE_LABEL_ROUTES.has(route)) {
+      expect(
+        labels.filter((label) => label.measured > 30).length,
+        'the assertion must exercise labels Mermaid measured as more than one line',
+      ).toBeGreaterThan(0);
+    }
 
     for (const label of labels) {
       // A `br` that survives serialization is read back as two breaks, so the

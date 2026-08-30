@@ -34,7 +34,9 @@ const softwareApp = data.liveUrl
       },
       "description": seoDescription,
       "keywords": data.tags.join(', '),
-      "sameAs": [data.githubUrl],
+      // A private-repo project has no public repository to point at, so the
+      // key is omitted rather than emitting `sameAs: [undefined]` (#874).
+      ...(data.githubUrl ? { "sameAs": [data.githubUrl] } : {}),
     }]
   : [];
 

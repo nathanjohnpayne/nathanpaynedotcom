@@ -1,0 +1,166 @@
+---
+title: "Device Source of Truth"
+slug: "device-source-of-truth"
+description: "One system of record for partner-device hardware, DRM, codec support, and operational readiness—built inside Disney Streaming, forked and reseeded with invented data to show publicly."
+seoDescription: "An enterprise workflow case study: five ingestion feeds behind one admin-gated commit path, and AI extraction that proposes while a human signs—demonstrated on synthetic data."
+kicker: "AI × Enterprise × Data"
+order: 3
+screenshotAspect: "wide"
+screenshotSrc: "/images/projects/device-source-of-truth-hero.png"
+accent: "blue"
+liveUrl: "https://device-source-of-truth.web.app"
+tags: ["Enterprise", "Data", "React", "Firebase"]
+status: "ARCHIVED"
+metadata:
+  format: "Internal platform tool"
+  focus: "Partner platforms and device support"
+stack: "React · TypeScript · Vite · Tailwind · Zod · Firebase · Express · Vitest"
+constraints:
+  - value: "9 days"
+    label: "the \"Starting Over\" reset to the last product feature, 2026-02-25 to 2026-03-06"
+  - value: "5 feeds"
+    label: "every ingestion path previews before it commits, and every one of those commits is admin-only"
+  - value: "3 roles"
+    label: "viewer, editor, admin—forty of the API's fifty role guards are admin-only"
+  - value: "Private repo"
+    label: "the repository stays private and the demo stops at a restricted login—screenshots carry the evidence"
+decisions:
+  - title: "Extraction proposes; a human signs"
+    lens: "Trust"
+    context: "The heaviest intake is a partner's Excel questionnaire—commonly 100–150 answered questions across sixteen sections, mapped onto a 260-field device model. AI extraction reads the workbook in 30-pair batches and returns a proposed value and a self-reported confidence for every field, and the obvious next step is to let a high enough confidence commit the record."
+    chosen: "Confidence decides nothing here. The number is stored once and rendered as a badge for the reviewer; review is unconditional, and the only path by which extracted data reaches the registry is an admin-only approve route that refuses to commit until every intake partner is reviewed, a partner is assigned, every device is approved or rejected, and every conflict with existing registry data is resolved."
+    rejected: "Auto-commit above a threshold. Not a straw man, and the parallel is worth stating precisely: on the CSV path the same codebase does let confidence decide, auto-resolving a name match at 0.90 without asking anyone—I set that threshold, then gave the number no power at all here. That path still lands in an admin-confirmed preview, so what I declined on the heavier feed was letting confidence settle anything, rather than merely declining to skip a gate."
+    rationale: "A CSV mapping resolved wrong mislabels one row, and the import preview still fronts it. A questionnaire field committed wrong becomes the registry's answer about a device's DRM or codec support—the exact answer this system exists to make trustworthy. The spec says it without hedging: no questionnaire data enters the database without my explicit review."
+    cost: "Intake cannot run unattended. Every questionnaire waits on an admin walking a four-step wizard, so throughput is bounded by one reviewer's attention—the labor the AI saves is capped at drafting, because deciding still costs a human pass over every device."
+    evidence: "Not validated in use, and the page should not pretend otherwise: no artifact records a questionnaire passing this gate. What is verifiable is that the gate is real rather than advisory—four server-side refusals on the approve route, each with its own status code: a 409 for an unreviewed intake partner, a 422 for an unassigned partner, a 409 for any device still pending review, a 409 for an approved device with unresolved conflicts. The stored confidence value has exactly one consumer, the review screen; nothing in the server reads the model's certainty at all. What would resolve it is a reviewer working a real intake queue and either catching an extraction error or resenting the wizard."
+    status: "pending"
+  - title: "An older snapshot does not silently win"
+    lens: "Integrity"
+    context: "Telemetry arrives as CSV snapshots, and snapshots arrive out of order—a re-upload of last month's export is one careless click from overwriting this month's record. Nearly every importer resolves this with last-write-wins, because last-write-wins is what you get for free."
+    chosen: "The preview marks any row whose snapshot date predates the stored record and warns that committing it would overwrite newer data with older. At commit those rows are skipped unless the admin overrides them—per row, by index—and the count of stale rows overwritten is tallied and returned in the result rather than buried."
+    rejected: "Last-write-wins, the one-line default. It is right most of the time, which is what makes it dangerous: the corruption only shows the day someone re-uploads an old export."
+    rationale: "A registry that a well-formed file can silently regress is not a source of truth; it is a cache with better branding. If older data is going to replace newer data, a person should have to say so, row by row, and the record should show that they did."
+    cost: "Backfilling history stopped being a single action. A stale row is not queued for anyone—the commit counts it as no-change and moves on—so an unattended import still finishes, quietly minus the rows it declined. Loading older snapshots on purpose means overriding them one at a time, by row index, and the only sign anything was skipped is a count in the response nobody is required to read."
+    evidence: "Not validated in use. The warning, the per-row override set and the returned stale-overwrite count all shipped in the commit path, so the system counts the exact number of times a human chose to let an older snapshot win and reports it back—but no artifact records that counter being read against a real import. What would resolve it is a stale upload actually arriving and the count showing whether the guard caught it or people clicked through."
+    status: "pending"
+  - title: "Freshness is shown, never enforced"
+    lens: "Freshness"
+    context: "The registry's answers age on partner upload cadence, and a system calling itself a source of truth is usually built to do something about that—hide stale devices, block the query, force a refresh before answering."
+    chosen: "A badge, and only a badge: fresh under 48 hours, aging under seven days, stale beyond. Two thresholds hardcoded in one client function, computed in the browser at render time from the stored telemetry timestamp, persisted nowhere, consulted by nothing else."
+    rejected: "Enforcement—excluding stale records from queries and exports, alerting on age, or gating answers on a re-import."
+    rationale: "The reader's question is rarely whether the data is current; it is how old it is and whether that matters for this decision. Nine-day-old telemetry is disqualifying for an incident and fine for a planning meeting. The system knows the age; only the reader knows the stakes."
+    cost: "A badge nobody is required to look at changes nothing. No alert fires on staleness, no export excludes it, no workflow blocks on it—the product carries no mechanism that makes anyone act on age."
+    evidence: "The staleness function has zero callers in the server code, so display is verifiably its whole job. Whether showing age without enforcing it changes how people treat aged data is adoption evidence, and no artifact records a team using the badge at all; development stopped on 6 March 2026."
+    status: "pending"
+  - title: "Aliases resolve; they do not merge"
+    lens: "Identity"
+    context: "The same commercial operator arrives under different names depending on the feed—the telemetry export, the key mapping, and the questionnaire header each have their own idea of what a partner is called. The clean-database instinct is deduplication: pick a canonical name, merge the records, delete the variants."
+    chosen: "An alias registry in front of the partner records. Resolution runs a chain—exact match, then registered alias, then fuzzy similarity at 0.90—with each hit tagged direct or contextual, because some raw names only resolve correctly given the feed they arrived in, and an unmatched name on CSV import creates a partner rather than failing the file."
+    rationale: "The variant names are not errors to clean; they are what the next export will say again. Merge the records and the next import recreates the duplicate. Keep every raw name resolvable to a canonical partner and the mess stays at the boundary instead of settling into the registry."
+    cost: "The ambiguity is managed forever instead of eliminated once. Every consumer of partner data goes through the resolver, the alias rules are one more registry an admin maintains by hand, and the product can never show a naive flat partner list with nothing standing in front of it."
+    evidence: "Not validated in use. The chain shipped in the import path with each resolution typed direct or contextual, and partner auto-creation landed as its own March 2026 commit; no artifact measures what resolution saved operationally. What would resolve it is a season of real exports arriving under drifting names, and whether the alias registry absorbed them or became one more thing to maintain by hand."
+    status: "pending"
+  - title: "Cost is acknowledged before it is spent"
+    lens: "Disclosure"
+    context: "Extraction bills the organization's Anthropic account, and the person clicking upload is not the person paying. The CSV import paths already had a disclosure pattern I shipped earlier: a modal behind an opt-in checkbox, default off."
+    chosen: "On the questionnaire path the disclosure cannot be declined: before the first extraction of a session, a modal with no cancel and no dismissal states that the run bills the organization's API account and that most questionnaires cost a few cents, and the only control is an acknowledgement. The spec records the refusal of the opt-in pattern in writing."
+    rejected: "Reusing the opt-in checkbox. On the CSV paths the model merely supplements rule-based normalization, so declining AI degrades gracefully; here extraction is the normalization—there is no fallback of equivalent quality—so the spec judged the opt-in inappropriate."
+    rationale: "If the spend cannot honestly be optional then neither can the click, so what is left is not consent but disclosure—the cost stated before it is incurred, each session, to the person about to incur it. The acknowledgement records that they were told, not that they agreed, and calling it consent would claim a refusal this modal does not offer."
+    cost: "The interruption can never be suppressed—once per session, every session, an admin who has read it a hundred times reads it again—and what they acknowledge is qualitative: the modal computes no estimate, counts no tokens, and enforces no budget."
+    evidence: "Not validated in use: no artifact records anyone meeting this modal in the course of real work, and development stopped on 6 March 2026 with no adoption recorded after it. What is verifiable is where the commitment stops—the acknowledgement lives in browser session storage and is never sent to the server, and the extraction routes check role and nothing else, so an API caller never encounters the disclosure at all. It is an interface commitment, honestly kept, and not an API gate. What would resolve it is a season of real extraction spend, and whether the modal changed what anyone did or became one more thing to click past."
+    status: "pending"
+related:
+  - label: "Blog: Six PRs, One Bug—What AI Agents Actually Get Wrong"
+    href: "/blog/six-prs-one-bug-agent-failure-modes/"
+  - label: "Project: Mergepath"
+    href: "/projects/mergepath/"
+  - label: "Project: Swipe Watch"
+    href: "/projects/swipe-watch/"
+---
+
+import ConstraintStrip from '../../components/projects/ConstraintStrip.astro';
+import DecisionLedger from '../../components/projects/DecisionLedger.astro';
+
+## The answer depended on who you asked
+
+Can this device support Dolby Vision? Which partners are still running an ADK build that just went end-of-life? When a partner replaces its whole OS stack—Amazon moving Fire TV to Vega OS—which devices are affected, and what is their certification status? Inside Disney Streaming those questions arrive constantly, from partner engineering, certification, support, and platform teams, and every one of them is answerable. The trouble was where the answers lived.
+
+They lived in Airtable, in Datadog, in partner-submitted Excel questionnaires, and in spreadsheets maintained by different teams on different cadences. What the fragmentation cost is my testimony rather than the repository's: support tickets that should have been lookups, launch timelines that slipped during reconciliation, and partner conversations held without a shared factual foundation.
+
+Device Source of Truth is the internal Disney Streaming answer: one system that imports from every source, normalizes against a shared schema, and turns loose operational memory into a queryable, auditable record. This is the partner-engineering work I spent a decade doing at Disney, and DST is the tool I wanted to exist before I sat down to build it. **What is on this page is a fork of that system, running on data I invented for it.** Not a reimplementation written from memory, and not the production instance either: the same codebase, with the real records replaced. It does not model those four teams as personas; it enforces three roles—a viewer reads everything, an editor authors device and partner records directly and stages the imports, an admin alone commits an import or deletes anything—and forty of the API's fifty role guards are admin-only, the codebase's clearest statement of where the risk lives.
+
+## Five feeds, one gate
+
+Five feeds land in the registry: an AllModels CSV of the device inventory, Airtable intake requests, partner-key mappings exported from Datadog, telemetry snapshots from Datadog, and the partner's Excel questionnaire—a workbook commonly carrying 100–150 answered questions across sixteen sections, mapped onto a 260-field device model, with AI extraction reading it in 30-pair batches. Extraction shipped fire-and-forget once and was rebuilt as an idempotent per-device task queue with retry and stale-job recovery.
+
+The feeds share one shape, and the shape is the judgment: every path is a two-step preview-then-commit, and every commit requires the admin role. Nothing in the interface writes an imported record without a human having reviewed a preview of it. For four of the five feeds that is a workflow rather than a server-side invariant—the commit routes check the admin role and then import the rows they are handed, so an admin calling the API directly is not made to look at anything first. The questionnaire path is the exception, and it is why that one carries the page's strongest fact: it stages to its own collections and the approve route refuses until every staged record has been reviewed. No single screen announces the rule; it is only visible across the import surface as a whole—hence a diagram rather than a screenshot.
+
+```mermaid title="Five feeds, one gate" description="Every ingestion path stages what it imports into a preview before anything is written—the questionnaire feed passing through AI extraction first—and the only route from any preview into the device registry is a commit that requires the admin role. In the interface no imported record becomes authoritative without a human having reviewed it, and on the questionnaire feed the server enforces that."
+flowchart TD
+    Q["Excel questionnaire"]
+    X["AI extraction"]
+    AM["AllModels CSV"]
+    AT["Airtable intake"]
+    PK["Partner keys"]
+    TM["Telemetry"]
+    PV["Preview, per feed"]
+    AD["Admin commit"]
+    REG["Device registry"]
+
+    Q --> X
+    X --> PV
+    AM --> PV
+    AT --> PV
+    PK --> PV
+    TM --> PV
+    PV --> AD
+    AD --> REG
+
+    style Q fill:#fffdf8,stroke:#11100d,stroke-width:1.5px,color:#11100d
+    style AM fill:#fffdf8,stroke:#11100d,stroke-width:1.5px,color:#11100d
+    style AT fill:#fffdf8,stroke:#11100d,stroke-width:1.5px,color:#11100d
+    style PK fill:#fffdf8,stroke:#11100d,stroke-width:1.5px,color:#11100d
+    style TM fill:#fffdf8,stroke:#11100d,stroke-width:1.5px,color:#11100d
+    style X fill:#dde1e5,stroke:#11100d,stroke-width:1.5px,color:#11100d
+    style PV fill:#e3d477,stroke:#11100d,stroke-width:1.5px,color:#11100d
+    style AD fill:#e8784a,stroke:#11100d,stroke-width:1.5px,color:#11100d
+    style REG fill:#11100d,stroke:#11100d,stroke-width:1.5px,color:#fffdf8
+```
+
+What the registry cannot explain becomes a work item. A telemetry row naming a device the registry does not hold, or a partner key it does not know, raises an alert carrying the control that creates the missing record. The two halves close differently: creating a partner key auto-dismisses every matching alert server-side, while an unregistered device is registered and its alert then dismissed by hand. Two alert types are in service, both raised by telemetry uploads; a third is declared, labelled, and filterable, and nothing in the audited code writes it. The other feeds raise no alerts—they surface their exceptions inline, in their own previews.
+
+![The exception queue on the deployed demo: fifteen alerts, every one of the two types the system actually emits—Unregistered Device and New Partner Key, both raised by telemetry uploads. Each alert carries its own remedy—Register Device, Create Key, or Dismiss—and a dismissed row keeps its reason and the actor who dismissed it, so a closed exception still explains itself.](/images/projects/device-source-of-truth-alerts.png)
+
+Under the workflow sits a contract discipline, and the record shows when it was bought rather than who bought it. Five and a half hours after the "Starting Over" commit deleted the one-day-old first scaffold, a commit titled "Fix client/server contract misalignments across 14 integration points" recorded the drift; the durable fix was a shared contracts package—Zod schemas and typed DTOs both sides validate against. Whether agents wrote the code that drifted is not something the commit record can say, so this page does not claim it.
+
+<ConstraintStrip constraints={props.constraints} />
+
+## The decisions
+
+The AI trust boundary is where this product argues with the defaults, and the same codebase draws the line twice, differently. On the CSV disambiguation paths, a name the model resolves at 0.90 confidence stops asking its clarification question—though it still rides the preview-then-commit rail. On the questionnaire path, the model reports a confidence per extracted field and the number decides nothing: it colors the review screen, and review is unconditional. Extraction was allowed to be the labor and never the authority. The records below price that position and the others like it.
+
+<DecisionLedger decisions={props.decisions} />
+
+![The sign-off gate on the deployed demo, running synthetic Story Entertainment data: a four-step wizard—Assign Partner, Review Devices, Resolve Conflicts, Sign Off—holding three intake partners at pending review, zero confirmed, zero rejected. Each extracted device carries its own Approve and Reject controls, a 44-fields-extracted count, and the registry's verdict on whether it matches an existing record—here, "No match—New device." The server enforces what the wizard shows: the approve route refuses with a named error while any of this is unresolved.](/images/projects/device-source-of-truth-signoff.png)
+
+![A device detail on the deployed demo, wearing its own doubts: the freshness badge reads "Updated 9 days ago" against a 28-day telemetry window—past the seven-day threshold, so the record presents as stale instead of being hidden. An Unmapped warning flags an unrecognized SEK version, a second warning notes no questionnaire on file, and certification sits In Review with the note "Awaiting partner sign-off on the HDCP output matrix," above per-section spec completeness. SEK is the synthetic dataset's renaming of the production ADK vocabulary—only rendered labels changed.](/images/projects/device-source-of-truth-freshness.png)
+
+## Nothing real is on display
+
+Everything in those screenshots is invented. Forking a working internal system is the cheap half; making it safe to show is the rest, and the seam is visible in what the scrub reached and what it did not. The deployed instance has run entirely on synthetic seed data since an August 20, 2026 scrub replaced the real records: fourteen fictional operators—Northwind Cable, Brightloom Telecom, Quillon TVs—under a fictional streaming group named Story Entertainment, every seeded document carrying a synthetic marker. The dataset's header opens "Every name in this file is invented"—no real partners, operators, OEMs, chipsets, or device models, and nothing derived from a real partner submission. Where production said ADK, the demo says SEK, the invented "Story Entertainment Kit"—a display-layer rename, not a data change: the schema field keeps its name, and "only the values users actually see change." SEK on a screenshot is itself the tell that the data is fake.
+
+The boundary runs deeper than the demo, and it is why this page's evidence is screenshots. The repository is private and stays private: its specs and history still carry real partner identities that a scrub of deployed data does not reach. So this page offers no repository link at all, rather than pointing a reader at a 404 only its owner can pass; the one button it does carry stops at a domain-restricted login. The captures above are the inspectable evidence: real workflows running on invented data.
+
+## What the record shows, and what it does not
+
+The workflows shipped and the deployed instance runs them end to end, but no artifact records a team adopting the tool or a production question answered with it. Development stopped on 6 March 2026 and nothing records an adoption period after it, and the usage events the application emits were never reported against—so the claim this page can stand behind is that the design decisions were made and built, not that they were validated in use.
+
+The instrumentation shipped and the measurements did not. The application declares an analytics union of more than forty events—device search, questionnaire upload, alert dismissal, and more—wired to Firebase Analytics, and nothing in the repository reports what any of them recorded. Since the scrub, whatever they record is demo traffic.
+
+The commit record since March 6 has a precise shape: dependency bumps, template synchronization, and CI work, plus the synthetic-data scrub and three rounds of security hardening through August 2026—input bounds, then CORS scoping and rate limiting, then volumetric limits. Not adoption evidence—but the one outcome-shaped fact here: an archived tool still hardened rather than left to rot.
+
+How the work was run is in the record; how much of it agents wrote is not—agents commit under the human author identity, so bylines are uninformative, and I will not pretend otherwise. What the record does hold is the governance: sixteen agent-facing rule documents plus per-agent configuration for three platforms; the shared [Mergepath](/projects/mergepath/) review pipeline, which arrived finished by template propagation eighteen days after the last product feature and so governs the maintenance tail, not the build; CodeRabbit carrying device-domain review guidance; and a two-strike rule that forces any third attempt at the same bug to open with a written audit of the first two.
+
+## What it demonstrates
+
+With no adoption on record, the demonstration is the decisions themselves: a human signature made non-negotiable exactly where a wrong commit would poison the registry, and machine resolution permitted where a wrong guess costs one question; a registry that refuses to let older data silently replace newer; age shown to the reader and never enforced on them; identity resolved rather than scrubbed. All of it is built rather than described—though built is not the same as enforced, and the page has already said which is which: the sign-off gate is refused by the server, the other four feeds couple preview to commit in the interface, and the freshness badge deliberately enforces nothing at all. What there is sits behind a login a reader cannot pass, so the page shows it the only way it can: running, on data invented to be shown.

@@ -96,6 +96,25 @@ const imageDimensions = {
     width: 926,
     height: 490,
   },
+  // Device Source of Truth: live captures of the deployed demo instance at a
+  // 1316x913 viewport, top-cropped to the region each caption argues about.
+  // The instance runs entirely on the synthetic Story Entertainment dataset
+  // (ledger §A17) — every partner, device and submitter shown is invented, and
+  // the repository itself is private (§A25), which is why these screenshots
+  // carry the page's evidentiary weight: a reader can reach neither the source
+  // nor the running app.
+  '/images/projects/device-source-of-truth-signoff.png': {
+    width: 1316,
+    height: 660,
+  },
+  '/images/projects/device-source-of-truth-alerts.png': {
+    width: 1316,
+    height: 800,
+  },
+  '/images/projects/device-source-of-truth-freshness.png': {
+    width: 1316,
+    height: 470,
+  },
   // Swipe Watch: live-prototype captures at a 390x844 viewport, 2x DPR.
   '/images/projects/swipe-watch-card.png': {
     width: 780,
