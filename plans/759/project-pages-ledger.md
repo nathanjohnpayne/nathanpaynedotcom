@@ -305,7 +305,7 @@ The corrected supporting sentence: *no artifact states the size of Disney's prod
 
 **SUPPORTED, and this is the workflow map AC 2 asks for.** §A22 established four *sources*; the artifact has five *paths*, and the extra one matters because it is where the two Datadog-derived feeds diverge. Mounted at `functions/src/index.ts:63-80`: **AllModels device inventory** via `POST /api/upload/migration` (`upload.ts:56`); **Airtable intake requests** via `POST /api/intake/preview` then `POST /api/intake/import` (`intake.ts:110`, `:351`); **Datadog partner-key mappings** via the `partnerKeys.ts` import routes; **Datadog telemetry** via the `telemetry.ts` preview/commit pair; and **partner Excel questionnaires** via `POST /api/questionnaire-intake` (`questionnaireIntake.ts:174`).
 
-The shape they share is the story. **Every one of them is a two-step preview-then-commit, and every commit step is `requireRole('admin')`.** `intake.ts:110` and `:351` are both admin-only; `upload.ts:56` is admin-only; the telemetry commit is admin-only; and the questionnaire path stages to `questionnaireStagedDevices`/`questionnaireStagedFields` and commits only through `POST /:id/approve` (`questionnaireIntake.ts:1197`, admin-only, §A37). Nothing in the product writes an imported record to the registry without a human looking at a preview of it first.
+The shape they share is the story. **Every one of them is a two-step preview-then-commit, and every commit step is `requireRole('admin')`.** `intake.ts:110` and `:351` are both admin-only; `upload.ts:56` is admin-only; the telemetry commit is admin-only; and the questionnaire path stages to `questionnaireStagedDevices`/`questionnaireStagedFields` and commits only through `POST /:id/approve` (`questionnaireIntake.ts:1197`, admin-only, §A37). Nothing in the product's *interface* writes an imported record to the registry without a human looking at a preview of it first—and the qualifier is load-bearing. **Four of the five commits are coupled to their preview by the client, not the server.** `POST /api/intake/import` (`intake.ts:351`) reads `const { rows, fileName } = req.body`—client-supplied rows, admin role checked, no stored preview consulted—so an admin calling it directly is never made to preview anything. Only the questionnaire path enforces the coupling server-side, staging to `questionnaireStagedDevices`/`questionnaireStagedFields` and refusing approval until they are reviewed (§A37), which is precisely why §A37 and not this row is the page's strongest fact. **The page may say the interface enforces preview-then-commit; it may not say the system makes a direct commit impossible.** Caught by Codex on `#873`.
 
 ```bash
 S=c9f66f07a243491eef3295ac8ed32e4fe97610d5; cd ~/GitHub/device-source-of-truth
@@ -479,7 +479,7 @@ git show "${S}:scripts/synthetic/dataset.mjs" | sed -n '52,62p'
 ```bash
 P=d3105842170cc22ad89abcb040861af625435936
 cd ~/GitHub/nathanpaynedotcom/.claude/worktrees/ffb-case-study-rewrite-fe37e5
-git show "${P}:src/content/projects/device-source-of-truth.md" | sed -n '1,23p'
+git show "${P}:src/content/projects/device-source-of-truth.md" | sed -n '1,23p'  # .md, not .mdx: at this pin the page had not been converted yet
 git ls-tree -r --name-only "$P" -- public/images/projects | grep device-source
 ```
 
@@ -489,7 +489,7 @@ git ls-tree -r --name-only "$P" -- public/images/projects | grep device-source
 
 | Surface | What it asserts | Needs to change? |
 |---|---|---|
-| `src/content/projects/device-source-of-truth.md` | the page itself | yes—the restructure |
+| `src/content/projects/device-source-of-truth.mdx` | the page itself | yes—the restructure |
 | `src/pages/index.astro:193` | "tracks partner-device hardware, DRM, codec support, and operational readiness across Disney+, Hulu, and ESPN" | yes if the deck changes—**and the string is pinned verbatim by `tests/project-pages.test.js:70`** |
 | `src/pages/og-templates/projects/device-source-of-truth.astro` | `description` duplicating the page's `description` verbatim; `meta="Enterprise · Data · React · Firebase"` | yes if `description`, `kicker` or `tags` change |
 | `src/content/resume/projects/device-source-of-truth.md` | "An independent build, distinct from the internal production system…" | **yes—§A28** |
@@ -525,7 +525,7 @@ git grep -nIiE 'time saved|hours saved|adoption|users onboarded|went live' "$S" 
 
 Every decision record on this page therefore carries `status: pending`, with one exception, and the exception is not the one an earlier version of this row named. That version allowed `validated` where a record "can point to a change the *record itself* forced," and §A48 used it to license three. It does not survive the spec: a change the record forced is still implementation, and `validated` asks for what happened afterward. Withdrawn, along with §A48's three prescriptions.
 
-The one record that is not `pending` is the cost-disclosure record, at `mixed`. `specs/project-pages.md` defines `mixed` as evidence supporting part of the decision while exposing a real limitation, and the limitation there is evidenced in the artifact rather than missing from it: §A35 establishes that the acknowledgement lives in `sessionStorage` and never reaches the server, and that the extraction routes check role and nothing else, so an API caller never meets the disclosure at all. That is an observation about what the decision produced, and it is narrower than the decision intended.
+**There is no exception. All five records are `pending`,** and the second attempt to carve one out failed for the same reason as the first. That attempt kept the cost-disclosure record at `mixed`, arguing that §A35's `sessionStorage` and API-bypass findings are a limitation the evidence *exposes* rather than evidence that is missing. The spec closes it: `DecisionLedger` labels the `evidence` field **Observed** for `validated`, `mixed` and `revised` alike, and `specs/project-pages.md` says in terms that calling a validation boundary "Observed" asserts an observation that by definition has not happened. Where the disclosure stops is a fact about the artifact, not an observation of the decision in use—nobody ever met that modal in the course of real work. Codex raised it twice, on `#873`; the first rebuttal was mine and it was wrong.
 
 ### A46—commit authorship is not evidence of agent share
 
@@ -567,7 +567,7 @@ The two-strike rule the page cites at `:49` *is* DST-local (`docs/agents/operati
 3. **Freshness is shown, never enforced.** Rejected alternative: hide or block on aged data, which is what a system claiming to be a source of truth is usually built to do. Evidence per §A38: thresholds fixed at 48 hours and 7 days, computed in the browser, stored nowhere, consulted by nothing. `status: pending`—§A45's boundary is the evidence, and the honest cost is that a badge nobody is required to look at changes nothing.
 4. **Aliases resolve; they do not merge.** Rejected alternative: deduplicate the partner records, which is the obvious fix for one operator appearing under several names. Evidence: §A20's contextual resolver and the resolution chain at `functions/src/services/partnerResolver.ts:113` (exact → alias → Jaro-Winkler ≥ 0.90), which keeps every raw name resolvable to a canonical partner without destroying either. `status: pending`—the chain shipped and is the sole path for partner data, but what resolution saved operationally was never measured. **Authoring warning: the worked example must come from the synthetic dataset, never from `specs/DST-046`—§A26.**
 
-**A fifth, if five are wanted:** *cost is disclosed before it is incurred, and there is no opt-out*. The rejected alternative is DST-042's opt-in checkbox, which the same author shipped on the CSV paths and deliberately declined here; `specs/DST-050…:34-38` argues the reasoning out in writing, which is rare. `status: mixed`, and the record must carry §A35's narrowing—the control is in the interface, not the API, and the disclosure is qualitative.
+**A fifth, if five are wanted:** *cost is disclosed before it is incurred, and there is no opt-out*. The rejected alternative is DST-042's opt-in checkbox, which the same author shipped on the CSV paths and deliberately declined here; `specs/DST-050…:34-38` argues the reasoning out in writing, which is rare. `status: pending`—**not `mixed`**, which two drafts of this row prescribed. §A35's narrowing must still be carried (the control is in the interface, not the API, and the disclosure is qualitative), but that narrowing is a fact about what shipped, and `mixed` renders it under the label **Observed**. Nobody met the modal in real work, so there is nothing observed to report; see §A45.
 
 **The candidates that do not clear the bar.**
 

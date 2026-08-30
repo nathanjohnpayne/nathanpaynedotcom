@@ -47,7 +47,12 @@ const projects = defineCollection({
     // suppressed on the detail page, the project card, and the homepage
     // Builds section. When present, must be a non-empty string.
     liveUrl: z.string().trim().min(1).optional(),
-    githubUrl: z.string(),
+    // Optional, on the same terms as `liveUrl` above: a project whose
+    // repository is private has no repository a reader can open, so the
+    // "View on GitHub" CTA is suppressed rather than publishing a link
+    // that returns GitHub's 404 to everyone who is not the owner (#874).
+    // When present, must be a non-empty string.
+    githubUrl: z.string().trim().min(1).optional(),
     tags: z.array(z.string()),
     // Status drives both the project-card kicker on /projects/ and the
     // Status column in the detail-page metadata table — single source of

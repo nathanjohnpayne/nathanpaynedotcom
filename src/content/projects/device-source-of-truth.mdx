@@ -9,7 +9,6 @@ screenshotAspect: "wide"
 screenshotSrc: "/images/projects/device-source-of-truth-hero.png"
 accent: "blue"
 liveUrl: "https://device-source-of-truth.web.app"
-githubUrl: "https://github.com/nathanjohnpayne/device-source-of-truth"
 tags: ["Enterprise", "Data", "React", "Firebase"]
 status: "ARCHIVED"
 metadata:
@@ -24,7 +23,7 @@ constraints:
   - value: "3 roles"
     label: "viewer, editor, admin—forty of the API's fifty role guards are admin-only"
   - value: "Private repo"
-    label: "the GitHub link 404s for readers and the demo stops at a restricted login—screenshots carry the evidence"
+    label: "the repository stays private and the demo stops at a restricted login—screenshots carry the evidence"
 decisions:
   - title: "Extraction proposes; a human signs"
     lens: "Trust"
@@ -68,8 +67,8 @@ decisions:
     rejected: "Reusing the opt-in checkbox. On the CSV paths the model merely supplements rule-based normalization, so declining AI degrades gracefully; here extraction is the normalization—there is no fallback of equivalent quality—so the spec judged the opt-in inappropriate."
     rationale: "If the spend cannot honestly be optional, the honest control left is consent to it—costs disclosed and acknowledged before they are incurred, each session, by the person about to incur them."
     cost: "The interruption can never be suppressed—once per session, every session, an admin who has read it a hundred times reads it again—and what they acknowledge is qualitative: the modal computes no estimate, counts no tokens, and enforces no budget."
-    evidence: "The acknowledgement lives in browser session storage and is never sent to the server; the extraction routes check role and nothing else, so an API caller never encounters the disclosure. It is an interface commitment, honestly kept—not an API gate."
-    status: "mixed"
+    evidence: "Not validated in use: no artifact records anyone meeting this modal in the course of real work, and development stopped before any adoption period. What is verifiable is where the commitment stops—the acknowledgement lives in browser session storage and is never sent to the server, and the extraction routes check role and nothing else, so an API caller never encounters the disclosure at all. It is an interface commitment, honestly kept, and not an API gate. What would resolve it is a season of real extraction spend, and whether the modal changed what anyone did or became one more thing to click past."
+    status: "pending"
 related:
   - label: "Blog: Six PRs, One Bug—What AI Agents Actually Get Wrong"
     href: "/blog/six-prs-one-bug-agent-failure-modes/"
@@ -94,9 +93,9 @@ Device Source of Truth is the internal Disney Streaming answer: one system that 
 
 Five feeds land in the registry: an AllModels CSV of the device inventory, Airtable intake requests, partner-key mappings exported from Datadog, telemetry snapshots from Datadog, and the partner's Excel questionnaire—a workbook commonly carrying 100–150 answered questions across sixteen sections, mapped onto a 260-field device model, with AI extraction reading it in 30-pair batches. Extraction shipped fire-and-forget once and was rebuilt as an idempotent per-device task queue with retry and stale-job recovery.
 
-The feeds share one shape, and the shape is the judgment: every path is a two-step preview-then-commit, and every commit requires the admin role. Nothing writes an imported record without a human having reviewed a preview of it. No single screen announces that rule; it is only visible across the import surface as a whole—hence a diagram rather than a screenshot.
+The feeds share one shape, and the shape is the judgment: every path is a two-step preview-then-commit, and every commit requires the admin role. Nothing in the interface writes an imported record without a human having reviewed a preview of it. For four of the five feeds that is a workflow rather than a server-side invariant—the commit routes check the admin role and then import the rows they are handed, so an admin calling the API directly is not made to look at anything first. The questionnaire path is the exception, and it is why that one carries the page's strongest fact: it stages to its own collections and the approve route refuses until every staged record has been reviewed. No single screen announces the rule; it is only visible across the import surface as a whole—hence a diagram rather than a screenshot.
 
-```mermaid title="Five feeds, one gate" description="Every ingestion path stages what it imports into a preview before anything is written—the questionnaire feed passing through AI extraction first—and the only route from any preview into the device registry is a commit that requires the admin role. No imported record becomes authoritative without a human having reviewed it."
+```mermaid title="Five feeds, one gate" description="Every ingestion path stages what it imports into a preview before anything is written—the questionnaire feed passing through AI extraction first—and the only route from any preview into the device registry is a commit that requires the admin role. In the interface no imported record becomes authoritative without a human having reviewed it, and on the questionnaire feed the server enforces that."
 flowchart TD
     Q["Excel questionnaire"]
     X["AI extraction"]
@@ -150,7 +149,7 @@ The AI trust boundary is where this product argues with the defaults, and the sa
 
 Everything in those screenshots is invented. Forking a working internal system is the cheap half; making it safe to show is the rest, and the seam is visible in what the scrub reached and what it did not. The deployed instance has run entirely on synthetic seed data since an August 20, 2026 scrub replaced the real records: fourteen fictional operators—Northwind Cable, Brightloom Telecom, Quillon TVs—under a fictional streaming group named Story Entertainment, every seeded document carrying a synthetic marker. The dataset's header opens "Every name in this file is invented"—no real partners, operators, OEMs, chipsets, or device models, and nothing derived from a real partner submission. Where production said ADK, the demo says SEK, the invented "Story Entertainment Kit"—a display-layer rename, not a data change: the schema field keeps its name, and "only the values users actually see change." SEK on a screenshot is itself the tell that the data is fake.
 
-The boundary runs deeper than the demo, and it is why this page's evidence is screenshots. The repository is private and stays private: its specs and history still carry real partner identities that a scrub of deployed data does not reach. Both of this page's buttons are therefore dead ends for a reader—View on GitHub resolves to a 404, and the live instance stops at a domain-restricted login. The captures above are the inspectable evidence: real workflows running on invented data.
+The boundary runs deeper than the demo, and it is why this page's evidence is screenshots. The repository is private and stays private: its specs and history still carry real partner identities that a scrub of deployed data does not reach. So this page offers no repository link at all, rather than pointing a reader at a 404 only its owner can pass; the one button it does carry stops at a domain-restricted login. The captures above are the inspectable evidence: real workflows running on invented data.
 
 ## What the record shows, and what it does not
 

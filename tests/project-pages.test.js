@@ -108,6 +108,10 @@ const projectAccentRamp = ['red', 'yellow', 'paper', 'blue', 'black'];
 // Builds section. The SoftwareApplication JSON-LD entity is also
 // dropped on these pages (no `url:` to populate).
 const noLiveUrlSlugs = ['matchline'];
+// `device-source-of-truth` is a private repository, so its "View on GitHub"
+// CTA is suppressed rather than rendering a button that 404s for every
+// reader but the owner (#874). Same exception shape as `noLiveUrlSlugs`.
+const noGithubUrlSlugs = ['device-source-of-truth'];
 
 // Every project source the collection would load, as paths relative to CONTENT.
 //
@@ -451,7 +455,11 @@ describe('Project Pages — render', () => {
         } else {
           expect(actions).toContain('View Live Product');
         }
-        expect(actions).toContain('View on GitHub');
+        if (noGithubUrlSlugs.includes(slug)) {
+          expect(actions).not.toContain('View on GitHub');
+        } else {
+          expect(actions).toContain('View on GitHub');
+        }
       });
 
       it('emits a JSON-LD graph; SoftwareApplication present iff project has a live URL', () => {
@@ -691,14 +699,12 @@ describe('Project Pages — screenshot aspect variants', () => {
         const width = Number(img.getAttribute('width'));
         const height = Number(img.getAttribute('height'));
 
-        expect(
-          width,
-          `${slug}: ${src} has no width — add it to imageDimensions`,
-        ).toBeGreaterThan(0);
-        expect(
-          height,
-          `${slug}: ${src} has no height — add it to imageDimensions`,
-        ).toBeGreaterThan(0);
+        expect(width, `${slug}: ${src} has no width — add it to imageDimensions`).toBeGreaterThan(
+          0,
+        );
+        expect(height, `${slug}: ${src} has no height — add it to imageDimensions`).toBeGreaterThan(
+          0,
+        );
 
         if (height > width) {
           expect(
@@ -908,7 +914,9 @@ describe('Project Pages — case-study components', () => {
     // than something observed. Labelling that "Observed" asserts an
     // observation that has not happened (Codex P2, round 6).
     const source = componentSource('DecisionLedger');
-    expect(source, 'evidence label must vary by status').toMatch(/EVIDENCE_LABELS\[decision\.status\]/);
+    expect(source, 'evidence label must vary by status').toMatch(
+      /EVIDENCE_LABELS\[decision\.status\]/,
+    );
     expect(source).toMatch(/pending:\s*'Validation boundary'/);
     for (const status of ['validated', 'mixed', 'revised']) {
       expect(source, `${status} must keep the Observed label`).toMatch(

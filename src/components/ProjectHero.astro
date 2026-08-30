@@ -18,7 +18,9 @@
  * - `breadcrumbLabel`: current-page (third) crumb; first two crumbs are
  *   fixed (home → Projects).
  * - `liveUrl` (optional): external product link — first CTA when present.
- * - `githubUrl`: repository link — always rendered.
+ * - `githubUrl` (optional): repository link. Omitted for private
+ *   repositories, where the CTA is suppressed rather than rendering a
+ *   button that 404s for every reader but the owner (#874).
  */
 import Breadcrumbs from './Breadcrumbs.astro';
 
@@ -28,7 +30,7 @@ interface Props {
   deck: string;
   breadcrumbLabel: string;
   liveUrl?: string;
-  githubUrl: string;
+  githubUrl?: string;
 }
 
 const { variant, title, deck, breadcrumbLabel, liveUrl, githubUrl } = Astro.props;
@@ -51,7 +53,9 @@ const { variant, title, deck, breadcrumbLabel, liveUrl, githubUrl } = Astro.prop
         {liveUrl && (
           <a class="nav-button" href={liveUrl} target="_blank" rel="noopener noreferrer">View Live Product</a>
         )}
-        <a class="nav-button" href={githubUrl} target="_blank" rel="noopener noreferrer">View on GitHub</a>
+        {githubUrl && (
+          <a class="nav-button" href={githubUrl} target="_blank" rel="noopener noreferrer">View on GitHub</a>
+        )}
       </div>
     </div>
   </div>
@@ -71,14 +75,16 @@ const { variant, title, deck, breadcrumbLabel, liveUrl, githubUrl } = Astro.prop
         });
       }
     }
-    const githubBtn = document.querySelector('.project-actions a[href="' + heroGithubUrl + '"]');
-    if (githubBtn) {
-      githubBtn.addEventListener('click', function () {
-        window.posthog?.capture('project_github_link_clicked', {
-          project_title: heroTitle,
-          url: heroGithubUrl
+    if (heroGithubUrl) {
+      const githubBtn = document.querySelector('.project-actions a[href="' + heroGithubUrl + '"]');
+      if (githubBtn) {
+        githubBtn.addEventListener('click', function () {
+          window.posthog?.capture('project_github_link_clicked', {
+            project_title: heroTitle,
+            url: heroGithubUrl
+          });
         });
-      });
+      }
     }
   })();
 </script>
