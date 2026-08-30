@@ -40,7 +40,7 @@ decisions:
     chosen: "The preview marks any row whose snapshot date predates the stored record and warns that committing it would overwrite newer data with older. At commit those rows are skipped unless the admin overrides them—per row, by index—and the count of stale rows overwritten is tallied and returned in the result rather than buried."
     rejected: "Last-write-wins, the one-line default. It is right most of the time, which is what makes it dangerous: the corruption only shows the day someone re-uploads an old export."
     rationale: "A registry that a well-formed file can silently regress is not a source of truth; it is a cache with better branding. If older data is going to replace newer data, a person should have to say so, row by row, and the record should show that they did."
-    cost: "A telemetry import stopped being an unattended action. Stale rows queue on a human decision, and loading history in bulk now means explicitly overriding every stale row instead of just loading the files."
+    cost: "Backfilling history stopped being a single action. A stale row is not queued for anyone—the commit counts it as no-change and moves on—so an unattended import still finishes, quietly minus the rows it declined. Loading older snapshots on purpose means overriding them one at a time, by row index, and the only sign anything was skipped is a count in the response nobody is required to read."
     evidence: "Not validated in use. The warning, the per-row override set and the returned stale-overwrite count all shipped in the commit path, so the system counts the exact number of times a human chose to let an older snapshot win and reports it back—but that counter has never been read against real imports. What would resolve it is a stale upload actually arriving and the count showing whether the guard caught it or people clicked through."
     status: "pending"
   - title: "Freshness is shown, never enforced"
@@ -50,7 +50,7 @@ decisions:
     rejected: "Enforcement—excluding stale records from queries and exports, alerting on age, or gating answers on a re-import."
     rationale: "The reader's question is rarely whether the data is current; it is how old it is and whether that matters for this decision. Nine-day-old telemetry is disqualifying for an incident and fine for a planning meeting. The system knows the age; only the reader knows the stakes."
     cost: "A badge nobody is required to look at changes nothing. No alert fires on staleness, no export excludes it, no workflow blocks on it—the product carries no mechanism that makes anyone act on age."
-    evidence: "The staleness function has zero callers in the server code, so display is verifiably its whole job. Whether showing age without enforcing it changes how people treat aged data is adoption evidence, and development stopped before any team used the badge in anger."
+    evidence: "The staleness function has zero callers in the server code, so display is verifiably its whole job. Whether showing age without enforcing it changes how people treat aged data is adoption evidence, and no artifact records a team using the badge at all; development stopped on 6 March 2026."
     status: "pending"
   - title: "Aliases resolve; they do not merge"
     lens: "Identity"
@@ -67,7 +67,7 @@ decisions:
     rejected: "Reusing the opt-in checkbox. On the CSV paths the model merely supplements rule-based normalization, so declining AI degrades gracefully; here extraction is the normalization—there is no fallback of equivalent quality—so the spec judged the opt-in inappropriate."
     rationale: "If the spend cannot honestly be optional, the honest control left is consent to it—costs disclosed and acknowledged before they are incurred, each session, by the person about to incur them."
     cost: "The interruption can never be suppressed—once per session, every session, an admin who has read it a hundred times reads it again—and what they acknowledge is qualitative: the modal computes no estimate, counts no tokens, and enforces no budget."
-    evidence: "Not validated in use: no artifact records anyone meeting this modal in the course of real work, and development stopped before any adoption period. What is verifiable is where the commitment stops—the acknowledgement lives in browser session storage and is never sent to the server, and the extraction routes check role and nothing else, so an API caller never encounters the disclosure at all. It is an interface commitment, honestly kept, and not an API gate. What would resolve it is a season of real extraction spend, and whether the modal changed what anyone did or became one more thing to click past."
+    evidence: "Not validated in use: no artifact records anyone meeting this modal in the course of real work, and development stopped on 6 March 2026 with no adoption recorded after it. What is verifiable is where the commitment stops—the acknowledgement lives in browser session storage and is never sent to the server, and the extraction routes check role and nothing else, so an API caller never encounters the disclosure at all. It is an interface commitment, honestly kept, and not an API gate. What would resolve it is a season of real extraction spend, and whether the modal changed what anyone did or became one more thing to click past."
     status: "pending"
 related:
   - label: "Blog: Six PRs, One Bug—What AI Agents Actually Get Wrong"
@@ -131,7 +131,7 @@ What the registry cannot explain becomes a work item. A telemetry row naming a d
 
 ![The exception queue on the deployed demo: fifteen alerts, every one of the two types the system actually emits—Unregistered Device and New Partner Key, both raised by telemetry uploads. Each alert carries its own remedy—Register Device, Create Key, or Dismiss—and a dismissed row keeps its reason and the actor who dismissed it, so a closed exception still explains itself.](/images/projects/device-source-of-truth-alerts.png)
 
-Under the workflow sits a contract discipline that exists because agents built this. Five and a half hours after the "Starting Over" commit deleted the one-day-old first scaffold, a commit titled "Fix client/server contract misalignments across 14 integration points" recorded the drift; the durable fix was a shared contracts package—Zod schemas and typed DTOs both sides validate against—the invariant that matters when an AI agent writes both sides of the wire.
+Under the workflow sits a contract discipline, and the record shows when it was bought rather than who bought it. Five and a half hours after the "Starting Over" commit deleted the one-day-old first scaffold, a commit titled "Fix client/server contract misalignments across 14 integration points" recorded the drift; the durable fix was a shared contracts package—Zod schemas and typed DTOs both sides validate against. Whether agents wrote the code that drifted is not something the commit record can say, so this page does not claim it.
 
 <ConstraintStrip constraints={props.constraints} />
 
@@ -153,7 +153,7 @@ The boundary runs deeper than the demo, and it is why this page's evidence is sc
 
 ## What the record shows, and what it does not
 
-The workflows shipped and the deployed instance runs them end to end, but no artifact records a team adopting the tool or a production question answered with it. Development stopped on 6 March 2026, before any adoption period, and the usage events the application emits were never reported against—so the claim this page can stand behind is that the design decisions were made and built, not that they were validated in use.
+The workflows shipped and the deployed instance runs them end to end, but no artifact records a team adopting the tool or a production question answered with it. Development stopped on 6 March 2026 and nothing records an adoption period after it, and the usage events the application emits were never reported against—so the claim this page can stand behind is that the design decisions were made and built, not that they were validated in use.
 
 The instrumentation shipped and the measurements did not. The application declares an analytics union of more than forty events—device search, questionnaire upload, alert dismissal, and more—wired to Firebase Analytics, and nothing in the repository reports what any of them recorded. Since the scrub, whatever they record is demo traffic.
 
@@ -163,4 +163,4 @@ How the work was run is in the record; how much of it agents wrote is not—agen
 
 ## What it demonstrates
 
-With no adoption period, the demonstration is the decisions themselves: a human signature made non-negotiable exactly where a wrong commit would poison the registry, and machine resolution permitted where a wrong guess costs one question; a registry that refuses to let older data silently replace newer; age shown to the reader and never enforced on them; identity resolved rather than scrubbed. All of it is enforced in code, behind a login a reader cannot pass—so the page shows the enforcement the only way it can: running, on data invented to be shown.
+With no adoption on record, the demonstration is the decisions themselves: a human signature made non-negotiable exactly where a wrong commit would poison the registry, and machine resolution permitted where a wrong guess costs one question; a registry that refuses to let older data silently replace newer; age shown to the reader and never enforced on them; identity resolved rather than scrubbed. All of it is enforced in code, behind a login a reader cannot pass—so the page shows the enforcement the only way it can: running, on data invented to be shown.
