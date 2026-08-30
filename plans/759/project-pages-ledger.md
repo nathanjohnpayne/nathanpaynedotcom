@@ -1513,7 +1513,7 @@ The correction also supplies something the page had been missing: **the product 
 
 ### C52—the settlement board surfaces the overpaid state as a stat, and cannot filter to it
 
-**PARTLY WRONG, corrected on the live product.** §C's earlier row and the page both said the board's "counts omit the state." Read against the running application on 2026-08-30 (coordinator session, 2026 billing year), that is too strong in one direction and right in the other. The board **does** carry a headline tile, `OWED TO MEMBERS` / *Unresolved credits*, so the existence of a debt to a member is visible at a glance. What it has no way to do is **find** one: the filter row renders exactly `All`, `Outstanding`, `Partial`, `Settled`, plus a `Linked Groups` count—no `Overpaid` chip—so an overpaid household is reachable only by scrolling `All`.
+**SPLIT, and corrected on the live product.** The row carries two verdicts: the page's "counts omit the state" is **WRONG**, and "no `Overpaid` filter chip" is **SUPPORTED**. §C's earlier row and the page both said the board's "counts omit the state." Read against the running application on 2026-08-30 (coordinator session, 2026 billing year), that is too strong in one direction and right in the other. The board **does** carry a headline tile, `OWED TO MEMBERS` / *Unresolved credits*, so the existence of a debt to a member is visible at a glance. What it has no way to do is **find** one: the filter row renders exactly `All`, `Outstanding`, `Partial`, `Settled`, plus a `Linked Groups` count—no `Overpaid` chip—so an overpaid household is reachable only by scrolling `All`.
 
 The corrected claim, now on the page: the state is modelled, summarized, and unnavigable. The share page's half of the finding is unchanged—it never imports the status badge, so the member sees `settled` or an amount due.
 
@@ -3247,15 +3247,15 @@ Reproduce with `git rev-list --count "$(git rev-list -1 --before=2026-04-14 orig
 |---|---|---|---|---|---|---|
 | §A `device-source-of-truth` | 26 | 10 | 4 | 6 | 1 | 50 † |
 | §B `five-across` | 17 | 4 | 0 | 12 | 3 | 36 |
-| §C `friends-and-family-billing` | 20 | 12 | 3 | 16 | 0 | 51 |
+| §C `friends-and-family-billing` | 20 | 12 | 3 | 17 | 1 | 53 |
 | §D `matchline` | 7 | 0 | 3 | 2 | 0 | 12 |
 | §E `mergepath` | 29 | 16 | 0 | 17 | 0 | 62 |
 | §F `override` | 6 | 7 | 0 | 1 | 0 | 14 |
 | §G `swipe-watch` | 10 | 6 | 1 | 1 | 0 | 18 |
 | §H cross-page | 3 | 5 | 0 | 2 | 0 | 10 |
-| **Total** | **118** | **60** | **11** | **57** | **4** | **253** † |
+| **Total** | **118** | **60** | **11** | **58** | **5** | **255** † |
 
-† **The `Rows` column counts rows; §A's verdict columns do not sum to it.** §A holds **50 rows of which 47 carry a verdict**: `A27` is a method finding (on this audit's machine, `git grep -E` silently ignored `\b`—a platform-dependent trap, see the row), `A44` is the cross-surface sweep, and `A48` is the decision-record adjudication AC 5 needs. None records a verdict, and forcing one on them would be worse than the gap. So §A reads 26+10+4+6+1 = **47 verdicts across 50 rows**, and the corpus is **250 verdicts across 253 rows**. Every other section sums exactly. An earlier revision of this footnote said 49 rows against 46 verdicts, which was true before `A49` and `A50` were added and stale the moment they were—caught independently by both reviewers on `#873`. A tally corrected in one place goes stale the next time the thing it counts changes; recount from the file.
+† **The `Rows` column counts rows; §A's verdict columns do not sum to it.** §A holds **50 rows of which 47 carry a verdict**: `A27` is a method finding (on this audit's machine, `git grep -E` silently ignored `\b`—a platform-dependent trap, see the row), `A44` is the cross-surface sweep, and `A48` is the decision-record adjudication AC 5 needs. None records a verdict, and forcing one on them would be worse than the gap. So §A reads 26+10+4+6+1 = **47 verdicts across 50 rows**, and the corpus is **252 verdicts across 255 rows**. Every other section sums exactly. An earlier revision of this footnote said 49 rows against 46 verdicts, which was true before `A49` and `A50` were added and stale the moment they were—caught independently by both reviewers on `#873`. A tally corrected in one place goes stale the next time the thing it counts changes; recount from the file. It went stale again on `#882`, which added `C52` and `C53` without touching this table—caught by Codex.
 
 A **SPLIT** row is counted once, in its own column, not split across the other three; the row text names which half carries which verdict. WRONG rows count each restated instance separately, because each is a separate edit: §E10 and §E11 are one number stated twice, §G1–G3 are one number stated three times, and §H1–H2 re-count the Override and two-strike defects at the cross-page level where the fix has to be coordinated across files. Deduplicated to distinct underlying facts, the WRONG count is 37; §C51's household-framing correction is the new fact added after the earlier count of 36.
 
