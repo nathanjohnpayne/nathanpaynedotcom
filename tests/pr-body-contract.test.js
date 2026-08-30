@@ -185,30 +185,20 @@ describe('PR body contract', () => {
     // Assert the call the workflow actually makes, matched against
     // comment-stripped source: `scripts/validate-pr-body.sh` is also named in
     // the comment above the step, so matching raw source would pass on that
-    // mention alone whether or not the step invokes anything.
+    // mention alone whether or not the step invokes anything. That false
+    // positive is the reason this assertion targets the invocation and not the
+    // script name, and it is still live -- the comment is still there.
     //
-    // TRANSITIONAL, and deliberately so. mergepath#1139 reroutes this gate
-    // through the shared entrypoint, replacing the direct parser call with
-    // `scripts/validate-pr-body.sh --self-review-only`. This repo has not
-    // received that wave yet, so its workflow still calls the parser directly.
-    // Both invocations are accepted for exactly as long as that migration is in
-    // flight, because the test and the workflow cannot change in the same
-    // commit here — the workflow arrives by propagation, not by hand.
-    //
-    // Drop the `.mjs` arm as soon as the wave lands: keeping it would let the
-    // gate silently regress to the old path and this assertion would not
-    // notice.
-    const selfReviewGate = stripShellComments(workflow);
-    const invokesParserDirectly = selfReviewGate.includes(
-      'node scripts/lib/pr-body-contract.mjs --has-self-review',
-    );
-    const invokesSharedEntrypoint = selfReviewGate.includes(
+    // The mergepath#1139 wave has landed here (mergepath@2e255194), so the
+    // gate now runs the shared entrypoint and the direct
+    // `scripts/lib/pr-body-contract.mjs` call is gone from the workflow. The
+    // transitional arm that accepted either invocation existed only to let the
+    // verbatim mirror land without a local commit, and it is removed on
+    // schedule: keeping it would let the gate regress to the old path with
+    // this assertion still green.
+    expect(stripShellComments(workflow)).toContain(
       'scripts/validate-pr-body.sh --self-review-only',
     );
-    expect(
-      invokesParserDirectly || invokesSharedEntrypoint,
-      'the required PR-event gate must invoke the self-review check through one of the two documented paths',
-    ).toBe(true);
     expect(workflow).toMatch(/pull_request:\s*\n\s*types: \[opened, edited, synchronize,/);
   });
 });
