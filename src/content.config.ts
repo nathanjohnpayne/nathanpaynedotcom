@@ -9,163 +9,180 @@ const projects = defineCollection({
   // component mid-body. Every other collection stays narrowed to .md so
   // the wider surface is opt-in per collection rather than repo-wide.
   loader: glob({ pattern: '**/*.{md,mdx}', base: './src/content/projects' }),
-  schema: z.object({
-    title: z.string(),
-    slug: z.string(),
-    description: z.string(),
-    seoDescription: z.string().optional(),
-    kicker: z.string(),
-    // Non-negative integer: `accent` is derived as RAMP[order % 5], so a
-    // fractional or negative value has no position in that walk. YAML numeric
-    // spellings such as `1` and `1.0` both reach Zod as the integer-valued
-    // number 1; the ramp assertion parses frontmatter the same way.
-    order: z.number().int().nonnegative(),
-    screenshotAspect: z.enum(['wide', 'narrow']),
-    screenshotSrc: z.string(),
-    // A companion capture rendered BESIDE `screenshotSrc` (side by side above
-    // --bp-tablet, stacked below). For a platform that ships more than one
-    // front end, one shot per Edition says more than either alone. `alt` is
-    // required rather than optional so a second image cannot reach the page
-    // without alt text — the primary derives its own from the project title.
-    screenshotSecondary: z
-      .object({
-        src: z.string().trim().min(1),
-        alt: z.string().trim().min(1),
-        // Intrinsic pixel dimensions, required rather than optional. The
-        // companion is `loading="lazy"` and stacks BELOW the primary on phones,
-        // so without an aspect-ratio box it occupies zero height until fetched
-        // and then shoves the stack caption and the whole article down by a
-        // full frame (Codex P2 on #785). Assets in `public/` are not processed
-        // by Astro, so nothing can infer these at build time.
-        width: z.number().int().positive(),
-        height: z.number().int().positive(),
-      })
-      .optional(),
-    accent: z.enum(['red', 'yellow', 'black', 'blue', 'paper']),
-    // Optional: in-progress projects (status "IN PROGRESS") may not have
-    // a deployed app yet. When omitted, the "View Live Product" CTA is
-    // suppressed on the detail page, the project card, and the homepage
-    // Builds section. When present, must be a non-empty string.
-    liveUrl: z.string().trim().min(1).optional(),
-    // Optional, on the same terms as `liveUrl` above: a project whose
-    // repository is private has no repository a reader can open, so the
-    // "View on GitHub" CTA is suppressed rather than publishing a link
-    // that returns GitHub's 404 to everyone who is not the owner (#874).
-    // When present, must be a non-empty string.
-    githubUrl: z.string().trim().min(1).optional(),
-    tags: z.array(z.string()),
-    // Status drives both the project-card kicker on /projects/ and the
-    // Status column in the detail-page metadata table — single source of
-    // truth, single short-form vocabulary across both surfaces. See #274.
-    status: z.enum(['SHIPPED', 'EXPERIMENT', 'IN PROGRESS', 'PAUSED', 'ARCHIVED']),
-    metadata: z.object({
-      format: z.string(),
-      focus: z.string(),
+  schema: z
+    .object({
+      title: z.string(),
+      slug: z.string(),
+      description: z.string(),
+      seoDescription: z.string().optional(),
+      kicker: z.string(),
+      // Non-negative integer: `accent` is derived as RAMP[order % 5], so a
+      // fractional or negative value has no position in that walk. YAML numeric
+      // spellings such as `1` and `1.0` both reach Zod as the integer-valued
+      // number 1; the ramp assertion parses frontmatter the same way.
+      order: z.number().int().nonnegative(),
+      screenshotAspect: z.enum(['wide', 'narrow']),
+      screenshotSrc: z.string(),
+      // A companion capture rendered BESIDE `screenshotSrc` (side by side above
+      // --bp-tablet, stacked below). For a platform that ships more than one
+      // front end, one shot per Edition says more than either alone. `alt` is
+      // required rather than optional so a second image cannot reach the page
+      // without alt text — the primary derives its own from the project title.
+      screenshotSecondary: z
+        .object({
+          src: z.string().trim().min(1),
+          alt: z.string().trim().min(1),
+          // Intrinsic pixel dimensions, required rather than optional. The
+          // companion is `loading="lazy"` and stacks BELOW the primary on phones,
+          // so without an aspect-ratio box it occupies zero height until fetched
+          // and then shoves the stack caption and the whole article down by a
+          // full frame (Codex P2 on #785). Assets in `public/` are not processed
+          // by Astro, so nothing can infer these at build time.
+          width: z.number().int().positive(),
+          height: z.number().int().positive(),
+        })
+        .optional(),
+      accent: z.enum(['red', 'yellow', 'black', 'blue', 'paper']),
+      // Optional: in-progress projects (status "IN PROGRESS") may not have
+      // a deployed app yet. When omitted, the "View Live Product" CTA is
+      // suppressed on the detail page, the project card, and the homepage
+      // Builds section. When present, must be a non-empty string.
+      liveUrl: z.string().trim().min(1).optional(),
+      // Optional, on the same terms as `liveUrl` above: a project whose
+      // repository is private has no repository a reader can open, so the
+      // "View on GitHub" CTA is suppressed rather than publishing a link
+      // that returns GitHub's 404 to everyone who is not the owner (#874).
+      // When present, must be a non-empty string.
+      githubUrl: z.string().trim().min(1).optional(),
+      tags: z.array(z.string()),
+      // Status drives both the project-card kicker on /projects/ and the
+      // Status column in the detail-page metadata table — single source of
+      // truth, single short-form vocabulary across both surfaces. See #274.
+      status: z.enum(['SHIPPED', 'EXPERIMENT', 'IN PROGRESS', 'PAUSED', 'ARCHIVED']),
+      metadata: z.object({
+        format: z.string(),
+        focus: z.string(),
+      }),
+      stack: z.string().optional(),
+      related: z
+        .array(
+          z.object({
+            label: z.string(),
+            href: z.string(),
+          }),
+        )
+        .optional()
+        .default([]),
+      draft: z.boolean().default(false),
+
+      // Opt-in: refresh `screenshotSrc` on each build from the GitHub
+      // social preview of `githubUrl`. See scripts/refresh-hero-images.mjs.
+      heroRefresh: z.enum(['github-social']).optional(),
+
+      // Mux Playback ID. When set, the project page renders a MUX video
+      // in the hero slot; `screenshotSrc` still serves as the JS-disabled
+      // fallback and as the OG image source. Rejects empty strings so a
+      // blank frontmatter value is a schema error, not a broken URL.
+      muxPlaybackId: z.string().trim().min(1).optional(),
+
+      // Case-study structured content — DecisionLedger / ConstraintStrip /
+      // LearningLedger, epic #759. Flat top-level fields, deliberately NOT a
+      // `caseStudy: z.object({...}).optional()` wrapper: the blog precedent
+      // (`keyTakeaways`, `pullquotes`, `sidebar` above) is flat, and an
+      // `.optional()` wrapper defeats every inner `.default([])` anyway —
+      // Zod never runs the inner schema (or its defaults) when the outer
+      // key is absent, so `data.caseStudy?.learnings` would come back
+      // `undefined` despite the default.
+      //
+      // Even flat, `.default([])` is a property of the Zod-validated
+      // `data.*`, not of the file. In an MDX body, `frontmatter.X` is the
+      // RAW YAML — Zod has not run — so an absent key still reads as
+      // `undefined` there. `props.X` is the validated value, forwarded
+      // explicitly by src/pages/projects/[slug].astro on
+      // `<Content decisions={data.decisions} .../>`; a body reads
+      // `props.decisions`, never a bare `decisions` (a ReferenceError).
+      // See plans/759/component-placement-decision.md.
+      decisions: z
+        .array(
+          z.object({
+            title: z.string().trim().min(1),
+            // The editorial filter this decision answers to — rendered as an
+            // eyebrow beside the record's index. Optional: a page that does not
+            // organise its decisions around a thesis simply omits it.
+            lens: z.string().trim().min(1).optional(),
+            context: z.string().trim().min(1),
+            // What was actually chosen. Presence of this field switches the
+            // record to the assertion anatomy — What I encountered / What I
+            // decided / Why / Cost / What it changed — relabelling `context`
+            // and `evidence` in place. Absent, the record renders the original
+            // Context / Rejected / Why / Evidence shape, which is what
+            // five-across and swipe-watch author against.
+            chosen: z.string().trim().min(1).optional(),
+            // Optional since #754: under the encountered/decided anatomy the
+            // rejected path often reads better inside `rationale` than as its
+            // own slot ("the obvious answer would be X, but that is not
+            // actually better"). five-across and swipe-watch author it.
+            rejected: z.string().trim().min(1).optional(),
+            rationale: z.string().trim().min(1),
+            // What the choice gave up, stated as the uncomfortable consequence
+            // rather than as "added complexity" — a sentence that could follow
+            // almost any decision is not a cost. Optional for the same reason
+            // `chosen` is.
+            cost: z.string().trim().min(1).optional(),
+            // Required for every status, `pending` included — not weakened
+            // to optional. For a `pending` decision this field IS the
+            // validation boundary: why the evidence isn't in yet and what
+            // would resolve it. It must never restate `rationale` — rationale
+            // is why the choice was made, evidence is what happened after.
+            evidence: z.string().trim().min(1),
+            status: z.enum(['validated', 'mixed', 'revised', 'pending']),
+          }),
+        )
+        .optional()
+        .default([]),
+
+      // Constraint chips for ConstraintStrip: `value` is the headline
+      // figure/spec, `label` the one-line gloss beneath it.
+      constraints: z
+        .array(
+          z.object({
+            value: z.string().trim().min(1),
+            label: z.string().trim().min(1),
+          }),
+        )
+        .optional()
+        .default([]),
+
+      // Expected/observed/response triples for LearningLedger — what was
+      // expected going in, what actually happened, and how the approach
+      // changed in response.
+      learnings: z
+        .array(
+          z.object({
+            expected: z.string().trim().min(1),
+            observed: z.string().trim().min(1),
+            response: z.string().trim().min(1),
+          }),
+        )
+        .optional()
+        .default([]),
+    })
+    // `githubUrl` is optional so a private-repo project can suppress its dead
+    // CTA (#874), but `heroRefresh: 'github-social'` refreshes the hero from
+    // that URL's GitHub social preview. Without it,
+    // scripts/refresh-hero-images.mjs warns and skips, so the build stays green
+    // while the hero silently goes stale forever. While the field was globally
+    // required that pairing was unrepresentable; now it has to be rejected here.
+    .superRefine((data, ctx) => {
+      if (data.heroRefresh === 'github-social' && !data.githubUrl) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['githubUrl'],
+          message:
+            "heroRefresh: 'github-social' requires githubUrl — it is the URL the refresh reads.",
+        });
+      }
     }),
-    stack: z.string().optional(),
-    related: z
-      .array(
-        z.object({
-          label: z.string(),
-          href: z.string(),
-        }),
-      )
-      .optional()
-      .default([]),
-    draft: z.boolean().default(false),
-
-    // Opt-in: refresh `screenshotSrc` on each build from the GitHub
-    // social preview of `githubUrl`. See scripts/refresh-hero-images.mjs.
-    heroRefresh: z.enum(['github-social']).optional(),
-
-    // Mux Playback ID. When set, the project page renders a MUX video
-    // in the hero slot; `screenshotSrc` still serves as the JS-disabled
-    // fallback and as the OG image source. Rejects empty strings so a
-    // blank frontmatter value is a schema error, not a broken URL.
-    muxPlaybackId: z.string().trim().min(1).optional(),
-
-    // Case-study structured content — DecisionLedger / ConstraintStrip /
-    // LearningLedger, epic #759. Flat top-level fields, deliberately NOT a
-    // `caseStudy: z.object({...}).optional()` wrapper: the blog precedent
-    // (`keyTakeaways`, `pullquotes`, `sidebar` above) is flat, and an
-    // `.optional()` wrapper defeats every inner `.default([])` anyway —
-    // Zod never runs the inner schema (or its defaults) when the outer
-    // key is absent, so `data.caseStudy?.learnings` would come back
-    // `undefined` despite the default.
-    //
-    // Even flat, `.default([])` is a property of the Zod-validated
-    // `data.*`, not of the file. In an MDX body, `frontmatter.X` is the
-    // RAW YAML — Zod has not run — so an absent key still reads as
-    // `undefined` there. `props.X` is the validated value, forwarded
-    // explicitly by src/pages/projects/[slug].astro on
-    // `<Content decisions={data.decisions} .../>`; a body reads
-    // `props.decisions`, never a bare `decisions` (a ReferenceError).
-    // See plans/759/component-placement-decision.md.
-    decisions: z
-      .array(
-        z.object({
-          title: z.string().trim().min(1),
-          // The editorial filter this decision answers to — rendered as an
-          // eyebrow beside the record's index. Optional: a page that does not
-          // organise its decisions around a thesis simply omits it.
-          lens: z.string().trim().min(1).optional(),
-          context: z.string().trim().min(1),
-          // What was actually chosen. Presence of this field switches the
-          // record to the assertion anatomy — What I encountered / What I
-          // decided / Why / Cost / What it changed — relabelling `context`
-          // and `evidence` in place. Absent, the record renders the original
-          // Context / Rejected / Why / Evidence shape, which is what
-          // five-across and swipe-watch author against.
-          chosen: z.string().trim().min(1).optional(),
-          // Optional since #754: under the encountered/decided anatomy the
-          // rejected path often reads better inside `rationale` than as its
-          // own slot ("the obvious answer would be X, but that is not
-          // actually better"). five-across and swipe-watch author it.
-          rejected: z.string().trim().min(1).optional(),
-          rationale: z.string().trim().min(1),
-          // What the choice gave up, stated as the uncomfortable consequence
-          // rather than as "added complexity" — a sentence that could follow
-          // almost any decision is not a cost. Optional for the same reason
-          // `chosen` is.
-          cost: z.string().trim().min(1).optional(),
-          // Required for every status, `pending` included — not weakened
-          // to optional. For a `pending` decision this field IS the
-          // validation boundary: why the evidence isn't in yet and what
-          // would resolve it. It must never restate `rationale` — rationale
-          // is why the choice was made, evidence is what happened after.
-          evidence: z.string().trim().min(1),
-          status: z.enum(['validated', 'mixed', 'revised', 'pending']),
-        }),
-      )
-      .optional()
-      .default([]),
-
-    // Constraint chips for ConstraintStrip: `value` is the headline
-    // figure/spec, `label` the one-line gloss beneath it.
-    constraints: z
-      .array(
-        z.object({
-          value: z.string().trim().min(1),
-          label: z.string().trim().min(1),
-        }),
-      )
-      .optional()
-      .default([]),
-
-    // Expected/observed/response triples for LearningLedger — what was
-    // expected going in, what actually happened, and how the approach
-    // changed in response.
-    learnings: z
-      .array(
-        z.object({
-          expected: z.string().trim().min(1),
-          observed: z.string().trim().min(1),
-          response: z.string().trim().min(1),
-        }),
-      )
-      .optional()
-      .default([]),
-  }),
 });
 
 const blog = defineCollection({
