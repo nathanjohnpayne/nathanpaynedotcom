@@ -96,6 +96,14 @@ const imageDimensions = {
     width: 926,
     height: 490,
   },
+  // The coordinator's expanded household row on the live product, cropped to a
+  // single household — the page's own and its one linked member — so the board's
+  // other members are not published alongside what each of them owes. Captured
+  // at a 1316px viewport and cropped to the derivation block.
+  '/images/projects/friends-and-family-billing-household.png': {
+    width: 707,
+    height: 335,
+  },
   // Device Source of Truth: live captures of the deployed demo instance at a
   // 1316x913 viewport, top-cropped to the region each caption argues about.
   // The instance runs entirely on the synthetic Story Entertainment dataset

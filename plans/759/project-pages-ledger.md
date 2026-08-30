@@ -1511,6 +1511,22 @@ Two consequences beyond the opening sentence, both of which the page carried:
 
 The correction also supplies something the page had been missing: **the product is called Friends & Family Billing because the group is family and friends across households.** The name encodes the fact the page got wrong, and the opening now says so.
 
+### C52—the settlement board surfaces the overpaid state as a stat, and cannot filter to it
+
+**PARTLY WRONG, corrected on the live product.** §C's earlier row and the page both said the board's "counts omit the state." Read against the running application on 2026-08-30 (coordinator session, 2026 billing year), that is too strong in one direction and right in the other. The board **does** carry a headline tile, `OWED TO MEMBERS` / *Unresolved credits*, so the existence of a debt to a member is visible at a glance. What it has no way to do is **find** one: the filter row renders exactly `All`, `Outstanding`, `Partial`, `Settled`, plus a `Linked Groups` count—no `Overpaid` chip—so an overpaid household is reachable only by scrolling `All`.
+
+The corrected claim, now on the page: the state is modelled, summarized, and unnavigable. The share page's half of the finding is unchanged—it never imports the status badge, so the member sees `settled` or an amount due.
+
+**Method note.** This row is observation of a running instance, not a repository read, so it carries no pin. It is the same class of evidence as §A25's live API reads and is labelled here for the same reason.
+
+### C53—the household exhibit's provenance, and what was deliberately not captured
+
+**EXTERNALLY SOURCED (§M6), and recorded because the page publishes it.** `friends-and-family-billing-household.png` is a crop of the live coordinator dashboard, captured 2026-08-30 from the owner's authenticated session with the owner's explicit approval to use real data.
+
+**It is cropped to one household on purpose.** The full settlement board names four other members beside each one's annual total, paid total, and settlement status, with profile photographs. Those people are not the page's author and did not consent to a public portfolio page; the crop is bounded to the author's own household and its one linked member, which is the author's own financial information. The board-level screenshot was captured and is deliberately not published.
+
+**Three exhibits the page wanted and does not have.** The recipient share view, the question/resolution flow, and the overpaid state were all scoped and are all unavailable at this pin. The first two require a live share token, which is a bearer credential—the browser tooling refused to return one, correctly. The third does not exist to photograph: every household on the instance reads `Settled` and `OWED TO MEMBERS` reads `None`, so no overpaid state is present in production data. Capturing any of the three needs either a freshly minted share link (a production write, the owner's call) or an `__E2E_SHARE__` injection seam in `ShareView.jsx`, which the repository does not have—its E2E harness covers auth and billing state only, and the share view loads through `getDoc` on `publicShares` and a `resolveShareToken` Cloud Function.
+
 ---
 
 ## §D `matchline`
