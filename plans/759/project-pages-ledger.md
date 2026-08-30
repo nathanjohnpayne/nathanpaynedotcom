@@ -219,15 +219,18 @@ git grep -nIiE 'disney|hulu|espn' "$S" -- README.md CONTRIBUTING.md docs specs
 
 None of this is publicly exposed today, because of §A25. That is the whole of the protection, and it is one settings toggle deep. **The page may say the deployed instance runs entirely on synthetic data—§A17 established that and it holds. The page may not say the repository contains no real partner data, must not quote or paraphrase any spec content that names a partner, an operator, a device codename or a questionnaire filename, and must not add a deep link into `specs/`.** The synthetic replacements are safe to describe and to screenshot: `scripts/synthetic/dataset.mjs:32-46` defines fourteen invented operators (`Northwind Cable`, `Brightloom Telecom`, `Solstice Media Group`, `Quillon TVs` and so on), `:52-55` invented silicon vendors and OEMs, and `:54` the fictional group's own kit name.
 
-### A27—method: `git grep -E` does not honor `\b`, and it fails silently
+### A27—method: `\b` in `git grep -E` is platform-dependent, and where it fails it fails silently
 
-**A method finding, recorded because it invalidated two sweeps in this audit before it was caught.** `git grep -nIiE '\bOperator\b'` against the pin returns **zero hits** for a token that demonstrably occurs; dropping the `\b` returns the files. (The real sweep used operator names, withheld here per §A26; the behaviour is a property of the matcher, not of the token.) Git's `-E` compiles POSIX ERE, in which `\b` is undefined, so the pattern matches nothing and the command exits non-zero exactly as a genuine no-match does. There is no warning and no distinguishable signal.
+**A method finding, recorded because it invalidated two sweeps in this audit before it was caught.** On the machine this audit ran on—macOS, Apple Git 2.50.1—`git grep -nIiE '\bOperator\b'` against the pin returns **zero hits** for a token that demonstrably occurs; dropping the `\b` returns the files. (The real sweep used operator names, withheld here per §A26; the behaviour is a property of the matcher, not of the token.) `\b` is undefined in POSIX ERE, so an implementation is free to match nothing, and BSD's does; the command then exits non-zero exactly as a genuine no-match does, with no warning and no distinguishable signal.
+
+**This is platform-dependent, and the first version of this row said otherwise.** It generalized one machine's behaviour into a property of `git grep -E`, which is the same over-wide-claim defect this audit exists to catch—caught by Codex on `#873`, reporting that the identical pattern on Linux with Git 2.43.0 returns four matches, glibc having long supported `\b` as a GNU extension. So a zero-hit result here is evidence of nothing until you know which regex implementation ran it. **Use `-w`, which is documented, portable, and needs no escape**; `-P` also works where Git was built with PCRE. Both were verified to return the same counts as the bare-token sweep on this machine.
 
 ```bash
 S=c9f66f07a243491eef3295ac8ed32e4fe97610d5; cd ~/GitHub/device-source-of-truth
 # Substitute any token you know occurs; the point is the matcher, not the word.
-git grep -cIiE '\bTOKEN\b' "$S" -- specs   # zero hits, exit 1 — \b is undefined in ERE
-git grep -cIiE 'TOKEN'     "$S" -- specs   # the real count
+git grep -cIiE '\bTOKEN\b' "$S" -- specs   # BSD ERE: zero hits, exit 1. glibc: matches.
+git grep -cIiwE 'TOKEN'    "$S" -- specs   # -w is portable, and is what a sweep should use
+git grep -cIiE  'TOKEN'    "$S" -- specs   # unanchored, for comparison
 ```
 
 The first confidentiality sweep in this audit used `\b(disney|hulu|espn)\b` and returned nothing, which read as a clean result and was very nearly written up as one. The correct reading was that the matcher was broken. This is §M2 ("count with the loosest correct matcher, then narrow") arriving through a different door: the matcher was not merely too narrow, it was inert. **Never use `\b` in a `git grep` pattern. Anchor with an explicit character class, use `-w`, or pipe through GNU `grep -P`, and always run a positive control against a token known to be present before trusting a zero-hit sweep.**
@@ -267,7 +270,7 @@ git grep -nI "export type UserRole" "$S" -- functions/src src
 
 The ten `editor`-reachable routes are exactly the intake and authoring surface: create/update a device (`devices.ts:236`, `:297`), create/update a partner (`partners.ts:127`, `:167`), write a device spec (`deviceSpecs.ts:76`), upload a questionnaire and trigger or retry its extraction (`questionnaireIntake.ts:174`, `:617`, `:693`), run a tier simulation (`tiers.ts:213`), and bulk-import specs (`upload.ts:369`). **Everything that commits imported data to the registry is `admin`-only**, which is the finding §A37 turns into a decision record.
 
-The only persona vocabulary anywhere in the shipped product is two strings on one page: `src/pages/ReadinessPage.tsx:88` "Certification team onboarded and trained" and `:98` "Tier definitions reviewed and approved by P&D PM"—and see §A30 for what that page is. Defensible weaker form for AC 1 and AC 2: name the roles the product enforces (a viewer who can read everything, an editor who can stage intake, an admin who alone can commit it) and describe partner engineering, certification, support and platform teams as the *audience the questions come from*, never as modelled personas with distinct views.
+The only persona vocabulary anywhere in the shipped product is two strings on one page: `src/pages/ReadinessPage.tsx:88` "Certification team onboarded and trained" and `:98` "Tier definitions reviewed and approved by P&D PM"—and see §A30 for what that page is. Defensible weaker form for AC 1 and AC 2: name the roles the product enforces (a viewer who can read everything, an editor who can author device and partner records directly as well as stage imports, an admin who alone commits an import or deletes anything) and describe partner engineering, certification, support and platform teams as the *audience the questions come from*, never as modelled personas with distinct views.
 
 ### A30—a shipped admin page states figures that no data produced
 
@@ -326,9 +329,9 @@ git show "${S}:functions/src/routes/partnerKeys.ts" | sed -n '596,620p'
 
 Concrete form the page can use: an exception is a telemetry row the registry cannot explain—a device id with no device record, or a partner key not in the registry—surfaced as a work item with the control that creates the missing record, and closed automatically when that record exists. **The page may not describe exceptions as spanning the whole import surface**: the questionnaire, Airtable and AllModels paths raise no alerts at all, they surface their exceptions inline in their own import previews (§A32, §A39).
 
-### A34—`inactive_key` is a declared alert type that nothing ever creates
+### A34—`inactive_key` is a declared alert type that no audited code path creates
 
-**SUPPORTED, and it is dead.** `inactive_key` is the third member of the `AlertType` union, is labelled "Inactive Key" at `src/pages/AlertsPage.tsx:22`, is styled `'info'` at `:28`, is given an icon at `:34`, and is offered as a filter at `:52` (`const ALERT_TYPES: AlertType[] = ['unregistered_device', 'new_partner_key', 'inactive_key'];`). **No code path anywhere writes it.** The only two writers of the `alerts` collection are `telemetry.ts:413-415` and `:445-447`, and they write the other two types; the synthetic seeder writes three alert documents at `scripts/synthetic/seed.mjs:432`, `:454` and `:475`, and they are `unregistered_device`, `new_partner_key` and `unregistered_device`. It also has no resolution control—`AlertsPage.tsx` branches on the other two types only.
+**SUPPORTED as a statement about the pinned tree.** `inactive_key` is the third member of the `AlertType` union, is labelled "Inactive Key" at `src/pages/AlertsPage.tsx:22`, is styled `'info'` at `:28`, is given an icon at `:34`, and is offered as a filter at `:52` (`const ALERT_TYPES: AlertType[] = ['unregistered_device', 'new_partner_key', 'inactive_key'];`). **No code path in the audited tree writes it.** The only two writers of the `alerts` collection are `telemetry.ts:413-415` and `:445-447`, and they write the other two types; the synthetic seeder writes three alert documents at `scripts/synthetic/seed.mjs:432`, `:454` and `:475`, and they are `unregistered_device`, `new_partner_key` and `unregistered_device`. It also has no resolution control—`AlertsPage.tsx` branches on the other two types only.
 
 ```bash
 S=c9f66f07a243491eef3295ac8ed32e4fe97610d5; cd ~/GitHub/device-source-of-truth
@@ -336,7 +339,7 @@ git grep -nI "inactive_key" "$S" -- functions src scripts packages
 git grep -nI "collection('alerts')" "$S" -- functions/src scripts
 ```
 
-The honest count is therefore **two alert types in service, a third declared and never emitted**. Nobody asked for this row; it exists because "three alert types" is the number a drafting agent would take from the enum, and the number that would survive review is two.
+The honest count is therefore **two alert types in service, a third declared and written by nothing in the audited tree**. Not *never emitted*: this row searches `functions`, `src`, `scripts` and `packages` at one pin, which cannot speak to prior revisions or to alert documents any earlier build may have written. The stronger form stood in an earlier draft of this row and on the page, and Codex caught it on `#873`. Nobody asked for this row; it exists because "three alert types" is the number a drafting agent would take from the enum, and the number that would survive review is two.
 
 ### A35—cost disclosure shipped, is mandatory in the interface, and is not a server-side gate
 

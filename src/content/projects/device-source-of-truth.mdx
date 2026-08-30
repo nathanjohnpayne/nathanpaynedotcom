@@ -20,7 +20,7 @@ constraints:
   - value: "9 days"
     label: "the \"Starting Over\" reset to the last product feature, 2026-02-25 to 2026-03-06"
   - value: "5 feeds"
-    label: "every ingestion path previews before it commits, and every commit is admin-only"
+    label: "every ingestion path previews before it commits, and every one of those commits is admin-only"
   - value: "3 roles"
     label: "viewer, editor, admin—forty of the API's fifty role guards are admin-only"
   - value: "Private repo"
@@ -88,7 +88,7 @@ Can this device support Dolby Vision? Which partners are still running an ADK bu
 
 They lived in Airtable, in Datadog, in partner-submitted Excel questionnaires, and in spreadsheets maintained by different teams on different cadences. What the fragmentation cost is my testimony rather than the repository's: support tickets that should have been lookups, launch timelines that slipped during reconciliation, and partner conversations held without a shared factual foundation.
 
-Device Source of Truth is the internal Disney Streaming answer: one system that imports from every source, normalizes against a shared schema, and turns loose operational memory into a queryable, auditable record. This is the partner-engineering work I spent a decade doing at Disney, and DST is the tool I wanted to exist before I sat down to build it. **What is on this page is a fork of that system, running on data I invented for it.** Not a reimplementation written from memory, and not the production instance either: the same codebase, with the real records replaced. It does not model those four teams as personas; it enforces three roles—a viewer reads everything, an editor stages intake, an admin alone commits—and forty of the API's fifty role guards are admin-only, the codebase's clearest statement of where the risk lives.
+Device Source of Truth is the internal Disney Streaming answer: one system that imports from every source, normalizes against a shared schema, and turns loose operational memory into a queryable, auditable record. This is the partner-engineering work I spent a decade doing at Disney, and DST is the tool I wanted to exist before I sat down to build it. **What is on this page is a fork of that system, running on data I invented for it.** Not a reimplementation written from memory, and not the production instance either: the same codebase, with the real records replaced. It does not model those four teams as personas; it enforces three roles—a viewer reads everything, an editor authors device and partner records directly and stages the imports, an admin alone commits an import or deletes anything—and forty of the API's fifty role guards are admin-only, the codebase's clearest statement of where the risk lives.
 
 ## Five feeds, one gate
 
@@ -128,7 +128,7 @@ flowchart TD
     style REG fill:#11100d,stroke:#11100d,stroke-width:1.5px,color:#fffdf8
 ```
 
-What the registry cannot explain becomes a work item. A telemetry row naming a device the registry does not hold, or a partner key it does not know, raises an alert carrying the control that creates the missing record, and creating it auto-dismisses the matching alerts server-side. Two alert types are in service, both raised by telemetry uploads; a third is declared, labelled, and filterable, and has never once been emitted. The other feeds raise no alerts—they surface their exceptions inline, in their own previews.
+What the registry cannot explain becomes a work item. A telemetry row naming a device the registry does not hold, or a partner key it does not know, raises an alert carrying the control that creates the missing record, and creating it auto-dismisses the matching alerts server-side. Two alert types are in service, both raised by telemetry uploads; a third is declared, labelled, and filterable, and nothing in the audited code writes it. The other feeds raise no alerts—they surface their exceptions inline, in their own previews.
 
 ![The exception queue on the deployed demo: fifteen alerts, every one of the two types the system actually emits—Unregistered Device and New Partner Key, both raised by telemetry uploads. Each alert carries its own remedy—Register Device, Create Key, or Dismiss—and a dismissed row keeps its reason and the actor who dismissed it, so a closed exception still explains itself.](/images/projects/device-source-of-truth-alerts.png)
 
