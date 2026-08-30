@@ -182,10 +182,33 @@ describe('PR body contract', () => {
     // it asks the markdown-aware parser one question and makes no claim about
     // `Authoring-Agent:`, because the validator is loaded from the default
     // branch and widening this gate is tracked separately (mergepath#1137).
-    // Assert the call the workflow actually makes — `validate-pr-body.sh`
-    // appears in that file only inside a comment, so matching its name proved
-    // nothing and let this test read as broader than the gate really is.
-    expect(workflow).toContain('node scripts/lib/pr-body-contract.mjs --has-self-review');
+    // Assert the call the workflow actually makes, matched against
+    // comment-stripped source: `scripts/validate-pr-body.sh` is also named in
+    // the comment above the step, so matching raw source would pass on that
+    // mention alone whether or not the step invokes anything.
+    //
+    // TRANSITIONAL, and deliberately so. mergepath#1139 reroutes this gate
+    // through the shared entrypoint, replacing the direct parser call with
+    // `scripts/validate-pr-body.sh --self-review-only`. This repo has not
+    // received that wave yet, so its workflow still calls the parser directly.
+    // Both invocations are accepted for exactly as long as that migration is in
+    // flight, because the test and the workflow cannot change in the same
+    // commit here — the workflow arrives by propagation, not by hand.
+    //
+    // Drop the `.mjs` arm as soon as the wave lands: keeping it would let the
+    // gate silently regress to the old path and this assertion would not
+    // notice.
+    const selfReviewGate = stripShellComments(workflow);
+    const invokesParserDirectly = selfReviewGate.includes(
+      'node scripts/lib/pr-body-contract.mjs --has-self-review',
+    );
+    const invokesSharedEntrypoint = selfReviewGate.includes(
+      'scripts/validate-pr-body.sh --self-review-only',
+    );
+    expect(
+      invokesParserDirectly || invokesSharedEntrypoint,
+      'the required PR-event gate must invoke the self-review check through one of the two documented paths',
+    ).toBe(true);
     expect(workflow).toMatch(/pull_request:\s*\n\s*types: \[opened, edited, synchronize,/);
   });
 });
