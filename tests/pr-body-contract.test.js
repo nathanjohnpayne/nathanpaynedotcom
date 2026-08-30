@@ -182,10 +182,23 @@ describe('PR body contract', () => {
     // it asks the markdown-aware parser one question and makes no claim about
     // `Authoring-Agent:`, because the validator is loaded from the default
     // branch and widening this gate is tracked separately (mergepath#1137).
-    // Assert the call the workflow actually makes — `validate-pr-body.sh`
-    // appears in that file only inside a comment, so matching its name proved
-    // nothing and let this test read as broader than the gate really is.
-    expect(workflow).toContain('node scripts/lib/pr-body-contract.mjs --has-self-review');
+    // Assert the call the workflow actually makes, matched against
+    // comment-stripped source: `scripts/validate-pr-body.sh` is also named in
+    // the comment above the step, so matching raw source would pass on that
+    // mention alone whether or not the step invokes anything. That false
+    // positive is the reason this assertion targets the invocation and not the
+    // script name, and it is still live -- the comment is still there.
+    //
+    // The mergepath#1139 wave has landed here (mergepath@2e255194), so the
+    // gate now runs the shared entrypoint and the direct
+    // `scripts/lib/pr-body-contract.mjs` call is gone from the workflow. The
+    // transitional arm that accepted either invocation existed only to let the
+    // verbatim mirror land without a local commit, and it is removed on
+    // schedule: keeping it would let the gate regress to the old path with
+    // this assertion still green.
+    expect(stripShellComments(workflow)).toContain(
+      'scripts/validate-pr-body.sh --self-review-only',
+    );
     expect(workflow).toMatch(/pull_request:\s*\n\s*types: \[opened, edited, synchronize,/);
   });
 });
