@@ -255,6 +255,12 @@ describe.skipIf(!valeAvailable)('Vale prose lint', () => {
     expect(alerts.map((alert) => alert.Line)).toEqual([3, 6, 7, 8]);
   });
 
+  // Unlike every other case here, this one lints the *whole repository*, so its
+  // runtime scales with how much prose the repo holds rather than with fixture
+  // size — currently ~2MB of Markdown, a quarter of it one audit ledger. That
+  // takes ~2.5s locally and tipped past Vitest's 5s default on the slower CI
+  // runner (#873). The explicit timeout is generous enough that a regression
+  // has to be a real hang, not another few pages of prose.
   it('emits complete machine-readable output for the whole repository', () => {
     const result = spawnSync(process.execPath, ['scripts/lint-prose.mjs', '--output=JSON'], {
       encoding: 'utf8',
@@ -263,7 +269,7 @@ describe.skipIf(!valeAvailable)('Vale prose lint', () => {
 
     expect([0, 1]).toContain(result.status);
     expect(() => JSON.parse(result.stdout)).not.toThrow();
-  });
+  }, 60_000);
 
   it.each(frontmatterCases)('reports the known frontmatter violation in %s', (name, line) => {
     const fixture = `tests/fixtures/vale-frontmatter/${name}`;
