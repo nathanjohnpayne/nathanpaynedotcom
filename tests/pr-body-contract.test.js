@@ -182,10 +182,19 @@ describe('PR body contract', () => {
     // it asks the markdown-aware parser one question and makes no claim about
     // `Authoring-Agent:`, because the validator is loaded from the default
     // branch and widening this gate is tracked separately (mergepath#1137).
-    // Assert the call the workflow actually makes — `validate-pr-body.sh`
-    // appears in that file only inside a comment, so matching its name proved
-    // nothing and let this test read as broader than the gate really is.
-    expect(workflow).toContain('node scripts/lib/pr-body-contract.mjs --has-self-review');
+    //
+    // Assert the call the workflow actually makes. mergepath#1139 rerouted this
+    // gate through the shared entrypoint: the step now runs
+    // `scripts/validate-pr-body.sh --self-review-only` and no longer invokes the
+    // parser directly, so the old `.mjs` assertion could only fail.
+    //
+    // Still matched against comment-stripped source, because the reason the
+    // earlier revision targeted the `.mjs` call still holds — `validate-pr-body.sh`
+    // is also named in the comment above the step, and matching raw source would
+    // pass on that mention alone whether or not the step invokes anything.
+    expect(stripShellComments(workflow)).toContain(
+      'scripts/validate-pr-body.sh --self-review-only',
+    );
     expect(workflow).toMatch(/pull_request:\s*\n\s*types: \[opened, edited, synchronize,/);
   });
 });
