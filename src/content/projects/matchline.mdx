@@ -1,8 +1,8 @@
 ---
 title: "Matchline"
 slug: "matchline"
-description: "A career CRM that turns work history into approved evidence, then blocks any generated claim it cannot trace back to that evidence. Paused before launch, with the measurement finally trustworthy and the accuracy not yet there."
-seoDescription: "A career CRM built on a zero-fabrication constraint: every claim in a generated application must trace to an Experience Unit the user approved. Paused pre-launch at 51% extraction accuracy against an 80% bar."
+description: "A career CRM that turns work history into approved evidence, then blocks any generated claim it cannot trace back to that evidence. Paused before launch, one measurement short of knowing whether the matching worked."
+seoDescription: "A career CRM where every generated claim must trace to evidence the user approved. Paused pre-launch at 51% extraction accuracy against an 80% bar."
 kicker: "AI × Product × Career Tools"
 order: 4
 status: "PAUSED"
@@ -56,7 +56,7 @@ decisions:
     chosen: "Stop Matchline and ship the game, then spend the one remaining Matchline session on measurement infrastructure rather than features."
     rejected: "Push Matchline to a usable V1 first, on the argument that a tool this close to working should not be abandoned mid-flight."
     rationale: "A date someone else set is not negotiable and a date I set is. The reasoning here is mine and the record can only corroborate its shape, not its cause: the commit timestamps establish that one project stopped and another started, and nothing in them establishes why."
-    cost: "Matchline stopped one measurement short of knowing whether it works. The instruments were finally cheap and trustworthy, the accuracy was not yet there, and the run that would have told the difference was never made."
+    cost: "Matchline stopped one measurement short of knowing whether it works. The instruments were finally cheap, the accuracy was not yet there, and the run that would have shown whether the repair worked was never made."
     evidence: "The largest burst of product work in the repository is twelve commits inside sixty-one minutes on 2026-07-06. The Five Across repository is created the following day. Twenty-five days later a single commit lands the eval stage cache, and that is the last product commit in the repository."
     status: "mixed"
 related:
@@ -199,7 +199,9 @@ It runs in continuous integration against the Firestore emulator, and a passing 
 
 Agents authored the implementation and independent agent identities reviewed it, under the enforcement system documented in [Mergepath](/projects/mergepath/). The reviews materially changed the product: they caught a seniority scorer that was zeroing every Experience Unit because extraction emits verbs where the ladder matched nouns, a schema converter silently returning an empty object that had disabled model-input validation across four subsystems at once, and a matching rerun that discarded the user's rejections. On that last one my own first reply to the reviewer was wrong, cited a test that did not cover the case, and the reviewer pushed back a second time before it was fixed.
 
-The active work ends on a date the commits set: the evening of 2026-07-31, Pacific, when the eval stage cache landed. As of 2026-08-31, everything in the repository after that date is automated—dependency bumps and template syncs, none of it touching the product. A development build is deployed behind a sign-in wall and is not linked here, because it predates the work described on this page by three months.
+The active work ends on a date the commits set: the evening of 2026-07-31, Pacific, when the eval stage cache landed. As of 2026-08-31, twenty-six commits have landed after it—thirteen dependency bumps, eight repository-template syncs, and five identity and continuous-integration fixes—and not one of them touches the product. That is the durable fact, rather than any particular count: the automated commits keep arriving and the product ones stopped.
+
+A development build is deployed behind a sign-in wall and is not linked here. It dates from 2026-05-02, which is before the June and July work this page rests on—the noise that stopped the tuning, the measurement repair, and the eval cache are all absent from it. The April material, including the adversarial fixture, is in there.
 
 ## What would restart it
 

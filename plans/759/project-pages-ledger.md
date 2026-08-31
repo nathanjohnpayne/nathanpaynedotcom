@@ -1707,7 +1707,7 @@ Consequence for the page: resume/kill criteria authored for #756 are a **commitm
 
 ### D22—no ADRs, and zero `## Path taken` records
 
-**ABSENT, control-verified.** `docs/architecture/` contains one file, `README.md`, explaining how to add an ADR; no ADR has ever been added. `docs/agents/decision-records.md` is a mergepath-propagated *process* document, not a set of decisions, and it locates decisions on GitHub issues and PR bodies (`:15-19`). `git log origin/main --grep='Path taken'` returns **0**; the control, `--grep='Self-Review'`, returns **62**, so the search works. The PR template ships the stub at `.github/pull_request_template.md:23-24` and it was never filled in.
+**ABSENT, control-verified, and the stronger claim is now earned rather than assumed.** `docs/architecture/` contains one file at the pin, `README.md`, explaining how to add an ADR. That establishes the current tree only; "no ADR has ever been added" is a claim about history, and an ADR could have been added and later deleted or renamed. Searched—`git log --all --diff-filter=A --name-only -- 'docs/architecture/*'` returns exactly one file ever added on any ref, `docs/architecture/README.md`, in `f3df8d0` (2026-04-22, the bootstrap commit from the template). So the directory has held its README and nothing else for the repository's whole life. Codex raised the gap on `#885`; the history search closes it rather than narrowing the verdict. `docs/agents/decision-records.md` is a mergepath-propagated *process* document, not a set of decisions, and it locates decisions on GitHub issues and PR bodies (`:15-19`). `git log origin/main --grep='Path taken'` returns **0**; the control, `--grep='Self-Review'`, returns **62**, so the search works. The PR template ships the stub at `.github/pull_request_template.md:23-24` and it was never filled in.
 
 The decision record in this repository is squash-merge commit messages and code docstrings. The page may cite those; it may not claim a decision-record practice.
 
@@ -1738,7 +1738,15 @@ Cost constraints, all from `tests/eval/README.md`: one 4-cell × 3-sample run co
 
 ### D25—the 80/80 bar is cited to a spec section that does not exist
 
-**WRONG, in the repository rather than on the page—recorded so no surface inherits it.** `tests/eval/scoring.ts:8` and `tests/eval/README.md:5` both cite "`specs/matchline.md § Success metrics`." Control: `grep -c 'Zero fabrication' specs/matchline.md` → 1, so the file reads. Then `grep -c '80' specs/matchline.md` → **0**, and `grep -ic 'success metric'` → **0**. The section does not exist and the string `80` does not appear. `tests/eval/run.ts:58` gives the real provenance—"80/80 **PRD** bar"—and the PRD is in the sibling docs vault. Two further dangling references, same class: `specs/matchline.md:7` and `:17-20` (plus `README.md:13-14`, `plans/matchline-implementation-plan.md:5`) cite `~/GitHub/docs/projects/matchline/matchline-prd.md`, which does not exist—the file is at `prds/matchline.md`; and `tests/eval/README.md:78` cites `memory/matchline_budget_ceilings.md`, which does not exist. **Not page material**; recorded because a future audit will otherwise re-derive it.
+**WRONG, in the repository rather than on the page—recorded so no surface inherits it.** `tests/eval/scoring.ts:8` and `tests/eval/README.md:5` both cite "`specs/matchline.md § Success metrics`." Re-run at the audit pin rather than against the working tree, which this section's preamble requires and an earlier revision of this row did not do—caught by Codex on `#885`, and the finding survives the correction:
+
+```bash
+git show origin/main:specs/matchline.md | grep -c 'Zero fabrication'   # → 1  (control)
+git show origin/main:specs/matchline.md | grep -c '80'                 # → 0
+git show origin/main:specs/matchline.md | grep -ci 'success metric'    # → 0
+```
+
+The control reads at the pin, so the two zeros are real: the section does not exist and the string `80` does not appear anywhere in the spec. `tests/eval/run.ts:58` gives the real provenance—"80/80 **PRD** bar"—and the PRD is in the sibling docs vault. Two further dangling references, same class: `specs/matchline.md:7` and `:17-20` (plus `README.md:13-14`, `plans/matchline-implementation-plan.md:5`) cite `~/GitHub/docs/projects/matchline/matchline-prd.md`, which does not exist—the file is at `prds/matchline.md`; and `tests/eval/README.md:78` cites `memory/matchline_budget_ceilings.md`, which does not exist. **Not page material**; recorded because a future audit will otherwise re-derive it.
 
 ### D26—method: two subagent counts were inflated, in the same shape as §D6's "seventeen"
 

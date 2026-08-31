@@ -1052,8 +1052,13 @@ describe('Matchline — audited claims stay retracted (#756)', () => {
     // The corrected state: a deployment exists, it is gated, it is stale, and
     // this page does not link it. All four clauses, or the retraction is only
     // a deletion.
-    expect(source(), 'the deployed build must be disclosed, gated, stale and unlinked').toMatch(
-      /deployed behind a sign-in wall and is not linked here, because it predates/i,
+    expect(source(), 'the deployed build must be disclosed, gated and unlinked').toMatch(
+      /deployed behind a sign-in wall and is not linked here/i,
+    );
+    // Scoped, per Codex on #885: the May build predates the June/July work but
+    // not the April material, so the staleness claim names which work is absent.
+    expect(source(), 'the staleness claim must be scoped to the later work').toMatch(
+      /It dates from 2026-05-02, which is before the June and July work/,
     );
     expect(frontmatter().liveUrl, 'disclosure must not become a liveUrl').toBeUndefined();
   });
