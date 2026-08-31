@@ -134,7 +134,12 @@ const projects = defineCollection({
             // validation boundary: why the evidence isn't in yet and what
             // would resolve it. It must never restate `rationale` — rationale
             // is why the choice was made, evidence is what happened after.
-            evidence: z.string().trim().min(1),
+            // Optional since #883. A `pending` record may omit it when the page
+            // states the validation boundary once for the whole set and this
+            // record has nothing decision-specific to add — see
+            // specs/project-pages.md. Present means non-empty; the field must
+            // never be filler that restates what was built.
+            evidence: z.string().trim().min(1).optional(),
             status: z.enum(['validated', 'mixed', 'revised', 'pending']),
           }),
         )

@@ -105,11 +105,15 @@ describe('Content Schema', () => {
       expect(block, `${field} must carry a .default([])`).toContain('.default([])');
     }
 
-    // decisions: all five string sub-fields, plus the exact four-value
-    // status enum (all six required, `evidence` and `status` included).
-    for (const subfield of ['title', 'context', 'rejected', 'rationale', 'evidence']) {
+    // decisions: the string sub-fields, plus the exact four-value status enum.
+    for (const subfield of ['title', 'context', 'rejected', 'rationale']) {
       expect(projectsSource).toContain(`${subfield}: z.string().trim().min(1)`);
     }
+    // `evidence` became optional in #883: a `pending` record may omit it when
+    // the page states the validation boundary once for the whole set and the
+    // record has nothing decision-specific to add (specs/project-pages.md).
+    // Optional, but never empty when present.
+    expect(projectsSource).toContain('evidence: z.string().trim().min(1).optional()');
     expect(projectsSource).toContain(
       "status: z.enum(['validated', 'mixed', 'revised', 'pending'])",
     );
@@ -139,7 +143,10 @@ describe('Content Schema', () => {
     // `rejected` left this list in #754: under the encountered/decided anatomy
     // the alternative often belongs inside `rationale`. Records on the original
     // shape still owe it, which the per-record branch below enforces.
-    const requiredKeys = ['title', 'context', 'rationale', 'evidence', 'status'];
+    // `evidence` left this list in #883 — see the schema assertion above. A
+    // record that carries it must still carry a non-empty string, which the
+    // per-record branch below enforces.
+    const requiredKeys = ['title', 'context', 'rationale', 'status'];
 
     for (const file of projectFiles) {
       const fm = parseFrontmatter(file.content);
@@ -174,6 +181,22 @@ describe('Content Schema', () => {
         expect(validStatuses, `${file.name}: decisions[${index}].status invalid`).toContain(
           decision.status,
         );
+        // `evidence` is optional only for `pending` (#883). The other three
+        // statuses assert an observation, and the field IS the observation —
+        // omitting it there would claim an outcome with nothing behind it.
+        // Present at any status, it must not be empty.
+        if (decision.status !== 'pending') {
+          expect(
+            decision?.evidence,
+            `${file.name}: decisions[${index}] is ${decision.status} without evidence`,
+          ).toBeTruthy();
+        }
+        if ('evidence' in (decision ?? {})) {
+          expect(
+            String(decision.evidence).trim(),
+            `${file.name}: decisions[${index}].evidence present but empty`,
+          ).not.toBe('');
+        }
       });
     }
   });

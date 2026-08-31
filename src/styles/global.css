@@ -2270,6 +2270,14 @@ body.blog-page {
   padding: 0;
   display: grid;
   gap: clamp(2.2rem, 4.5vw, 3.1rem);
+}
+
+/* The counter resets on the page container, not on the list, so a page may
+   split its records into several `<DecisionLedger>` calls and interleave
+   exhibits between them without the numbering restarting at 01. Six of the
+   seven project pages render a single ledger, for which this is identical to
+   resetting on the list itself. */
+.project-copy {
   counter-reset: decision-record;
 }
 

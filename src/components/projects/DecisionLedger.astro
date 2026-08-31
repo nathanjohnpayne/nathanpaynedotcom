@@ -31,7 +31,7 @@ interface Decision {
   rejected?: string;
   rationale: string;
   cost?: string;
-  evidence: string;
+  evidence?: string;
   status: 'validated' | 'mixed' | 'revised' | 'pending';
 }
 
@@ -119,10 +119,12 @@ const EVIDENCE_LABELS: Record<Decision['status'], string> = {
                 <dd>{decision.cost}</dd>
               </div>
             )}
-            <div class="decision-ledger__observed">
-              <dt>{decision.chosen && decision.status !== 'pending' ? 'What it changed' : EVIDENCE_LABELS[decision.status]}</dt>
-              <dd>{decision.evidence}</dd>
-            </div>
+            {decision.evidence && (
+              <div class="decision-ledger__observed">
+                <dt>{decision.chosen && decision.status !== 'pending' ? 'What it changed' : EVIDENCE_LABELS[decision.status]}</dt>
+                <dd>{decision.evidence}</dd>
+              </div>
+            )}
           </dl>
         </li>
       ))}
