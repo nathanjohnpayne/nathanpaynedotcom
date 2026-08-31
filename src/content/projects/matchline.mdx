@@ -1,7 +1,7 @@
 ---
 title: "Matchline"
 slug: "matchline"
-description: "A career CRM that turns work history into approved evidence, then blocks the export when a generated claim fails to trace back to it. Paused before launch, with the instruments rebuilt and never turned back on the product."
+description: "A career CRM that turns work history into approved evidence, then blocks the export when a generated claim fails to trace back to it. Paused before launch, with the instruments rebuilt but never turned back on in the product."
 seoDescription: "A career CRM where a claim that fails to trace to approved evidence blocks the export. Paused pre-launch at 51% extraction accuracy against an 80% bar."
 kicker: "AI × Product × Career Tools"
 order: 4
@@ -30,7 +30,7 @@ decisions:
     rejected: "Score each claim's confidence and show the risky ones in a warning banner—the standard pattern, and the one that lets a user ship anyway on a deadline."
     rationale: "A warning transfers the judgment to the person least able to make it: someone under time pressure, looking at prose that sounds like their own. Blocking is only defensible if the thing being blocked is genuinely disqualifying, and an unprovable claim in a job application is."
     cost: "The tool is most obstructive exactly when the user is in a hurry. It also cannot ship a claim that is true but undocumented—if the user has not written the evidence down, their real accomplishment is unusable, so the product taxes the honest case and the careless one identically."
-    evidence: "The gate is real in code and pinned by a fixture whose only job is to break it. What that proves is that the orchestration blocks fabrication; the language-model checks underneath are mocked in that test, so the detector's own reliability is unmeasured, and no generated output has reached a user."
+    evidence: "The gate is real in code and pinned by a fixture whose only job is to break it. What that proves is that the orchestration blocks fabrication; the language-model checks underneath are mocked in that test, so the detector's own reliability is unmeasured, and no use of a generated output by a user is recorded anywhere."
     status: "pending"
   - title: "Build for one user and refuse to generalize"
     lens: "Scope"
@@ -47,7 +47,7 @@ decisions:
     chosen: "Stop tuning the matcher and repair the measurement instead: replace the absolute 0.30 similarity threshold with relative best-match mapping and a 0.10 sanity floor, then build a content-addressed stage cache so a tuning run replays unchanged stages for free."
     rejected: "Keep tuning against the noisy metric and average more samples, which is cheaper in engineering time and was affordable within the cap."
     rationale: "A metric whose run-to-run noise exceeds its effect size cannot tell you whether a change helped. Averaging buys precision at a per-run cost, and the cost was binding: one run at three samples was $2.06 against a $25 monthly cap, so the budget bought about twelve tuning runs a month."
-    cost: "The last two working weeks produced no user-visible change. The product is paused with better instruments and the same accuracy, and the work that would have shown up in a demo is exactly the work that did not get done."
+    cost: "The last two working weeks produced no user-visible change. The product is paused with better instruments and its last recorded accuracy unchanged—nothing measured it after the repair—and the work that would have shown up in a demo is exactly the work that did not get done."
     evidence: "Both changes landed and both are sound in mechanism: pairs that had been flickering across the old threshold now map stably, and a content-addressed cache does remove the cost of replaying unchanged stages. Neither was ever measured. The commit that made the mapping change projected a threefold noise reduction in its subject line and closed its body with 'eval validation to follow'—and the validation run never happened. Product work continued for another eight weeks—twelve commits in one hour on 2026-07-06 among them—but no run was made against the repaired metric, and the next commit to touch the evaluation harness at all was the stage cache that ended the project. So the decision to repair the instrument is supported by the noise that provoked it, and the claim that the instrument is now better rests on design rather than on a reading."
     status: "mixed"
   - title: "A deadline someone else depends on wins"
@@ -124,12 +124,13 @@ export const ExtractedUnitV1Schema = z
 
 Approval is not in that list, deliberately: the extractor is barred from returning it, and the server stamps every extracted Unit unapproved. For anything the model proposes, review is the only path into matching, and the filter that enforces it runs server-side at all three places evidence is consumed. A user can also type a Unit by hand, and those arrive pre-approved and marked `user_confirmed`—a Unit the user wrote is already the user's own assertion, so there is nothing for review to add.
 
-```mermaid title="The core loop, and where approval sits in it" description="A pasted resume is extracted into Experience Units, each of which lands unapproved. For extracted Units, human review is the only path from the graph into matching; Units the user types by hand arrive pre-approved instead. Separately, a job description is parsed into requirements. The matching engine scores approved Units against those requirements and surfaces requirements with no qualifying evidence as gaps rather than hiding them. Generation draws only on approved matches, and a traceability check sits between the generated draft and export: a claim that cannot be traced back to an approved Unit blocks the export until the user resolves it."
+```mermaid title="The core loop, and where approval sits in it" description="A pasted resume is extracted into Experience Units, each of which is written to the capability graph already, but unapproved. Human review flips that approval flag in place. The gate is not on the way into the graph but on the way out of it: a server-side filter passes only approved Units into matching, so an unapproved Unit sits in the store and is never read. Units the user types by hand arrive pre-approved instead. Separately, a job description is parsed into requirements. The matching engine scores approved Units against those requirements and surfaces requirements with no qualifying evidence as gaps rather than hiding them. Generation draws only on approved matches, and a traceability check sits between the generated draft and export: a claim that cannot be traced back to an approved Unit blocks the export until the user resolves it."
 flowchart TD
     R["Pasted résumé"]
-    U["Experience Units<br/>unapproved"]
-    REV["Human review"]
-    G["Capability graph<br/>approved only"]
+    U["Experience Units<br/>written unapproved"]
+    G["Capability graph<br/>approved and not"]
+    REV["Human review<br/>flips approval"]
+    GATE["approved-only filter"]
     JD["Job description"]
     REQ["Requirements"]
     M["Matching<br/>scores + gaps"]
@@ -137,21 +138,23 @@ flowchart TD
     V["Traceability check"]
     X["Export"]
 
-    R --> U --> REV --> G
+    R --> U --> G
+    REV --> G
+    G --> GATE --> M
     JD --> REQ
-    G --> M
     REQ --> M
     M --> GEN --> V
     V -->|every claim traces| X
     V -.->|a claim does not| GEN
 
-    style REV fill:#e8784a,stroke:#11100d,stroke-width:1.5px,color:#11100d
+    style GATE fill:#e8784a,stroke:#11100d,stroke-width:1.5px,color:#11100d
     style V fill:#e8784a,stroke:#11100d,stroke-width:1.5px,color:#11100d
+    style REV fill:#fffdf8,stroke:#11100d,stroke-width:1.5px,color:#11100d
     style G fill:#fffdf8,stroke:#11100d,stroke-width:1.5px,color:#11100d
     style X fill:#11100d,stroke:#11100d,stroke-width:1.5px,color:#fffdf8
 ```
 
-The two orange nodes are the whole product. Everything else is plumbing that a competent team would build the same way; those two are where the thesis lives. Requirements with no qualifying evidence are surfaced as gaps in the same list as the matches rather than hidden behind a tab—the gaps are the point, not an embarrassment to bury.
+The two orange nodes are the whole product. Note where the first one sits: unapproved Units are written to the graph immediately, and the gate is a read filter on the way out rather than a lock on the way in—which is why the audit calls it a read gate and not a write gate. Everything else is plumbing that a competent team would build the same way; those two are where the thesis lives. Requirements with no qualifying evidence are surfaced as gaps in the same list as the matches rather than hidden behind a tab—the gaps are the point, not an embarrassment to bury.
 
 ## The decisions
 
