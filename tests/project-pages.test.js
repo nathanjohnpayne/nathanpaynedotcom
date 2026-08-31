@@ -68,7 +68,7 @@ const homepageProjectDescriptions = [
   'A repository standard for the gap between what a fleet of AI coding agents can produce and what one operator can responsibly stand behind.',
   'A financial operating system for Broadway productions—models capitalization and investor returns, manages ownership, and shares a read-only deal room with backers instead of spreadsheet and PDF workflows.',
   'A single web application that tracks partner-device hardware, DRM, codec support, and operational readiness—built inside Disney Streaming, and demonstrated publicly on synthetic data.',
-  'A career CRM for one person running a serious job search—turns work history into structured, reusable evidence, maps it against specific job requirements, and generates applications grounded in demonstrated work.',
+  'A career CRM for one person running a serious job search—turns work history into approved evidence, maps it against a specific job’s requirements, and blocks any generated claim it can’t trace back.',
   'A swipe-based discovery experiment for Disney+ and Hulu that turns expressing taste into a game—built in vanilla JS across three days of one week.',
   'Cloud-synced shared-bill coordination for families and friend groups—turns recurring costs into clear annual invoices, payment tracking, and shareable summaries.',
 ];
@@ -227,8 +227,14 @@ describe('Project Pages — routes', () => {
     expect(links.map((link) => link.getAttribute('href'))).toEqual(
       canonicalProjectCards.map((card) => card.href),
     );
-    expect(matchlineDescription).toContain('generates applications grounded in demonstrated work');
+    // #756 recast the card around the gate and the paused state. The negative
+    // assertions pin retracted copy: 'what the user has actually done' was the
+    // pre-#813 wording, and the four-input ingestion list was never true — only
+    // the pasted-resume path is implemented.
+    expect(matchlineDescription).toContain('blocks any generated claim it cannot trace back');
+    expect(matchlineDescription).toContain('Paused before launch');
     expect(matchlineDescription).not.toContain('what the user has actually done');
+    expect(matchlineDescription).not.toContain('LinkedIn');
   });
 
   it('the projects index structured data exposes projects as an ItemList', () => {
@@ -983,5 +989,79 @@ describe('Project Pages — case-study components', () => {
       expect(rule, `hard-coded duration: ${rule}`).not.toMatch(/\d+ms/);
       expect(rule, `hard-coded palette hex: ${rule}`).not.toMatch(/#[0-9a-fA-F]{3,8}\b/);
     }
+  });
+});
+
+// #756 — the Matchline audit corrected six claims that had each been published.
+// A corrected claim is only fixed while nothing reintroduces it, and the last
+// three project-page PRs each shipped a claim that had been fixed on one
+// surface and left standing on another. These pin the retractions by claim
+// rather than by sentence, so a reworded reintroduction still fails.
+describe('Matchline — audited claims stay retracted (#756)', () => {
+  const source = () => readFileSync(join(CONTENT, 'matchline.mdx'), 'utf-8');
+  const frontmatter = () => readProjectFrontmatter('matchline.mdx');
+  const rendered = () => readDistHtml('projects/matchline/index.html');
+
+  it('does not reassert ingestion paths that were never built', () => {
+    // Only the pasted-resume path is implemented. LinkedIn HTML and long-form
+    // prose are deferred in `src/routes/Onboarding.tsx`; uploaded artifacts
+    // (PRDs, decks, retros) appear in neither the matchline code nor its spec.
+    // The page may name them as absent — it may not list them as inputs.
+    for (const surface of [source(), rendered()]) {
+      expect(surface).not.toMatch(/LinkedIn HTML,? (?:or )?long-form/i);
+      expect(surface).not.toMatch(/uploaded artifacts \(PRDs/i);
+    }
+    // The page may still name them, and does — as absent. Pin that reading so
+    // the negative assertions above cannot be satisfied by deleting the row.
+    expect(source(), 'the deferred inputs must stay on the page, labelled').toMatch(
+      /LinkedIn HTML and long-form prose as inputs \| \*\*Deferred\*\*/,
+    );
+  });
+
+  it('does not claim the validation layer is untested against fabrication', () => {
+    // A #813 over-correction replaced an unprovable universal with a false
+    // negative, on two surfaces at once. `tests/fixtures/expected-asset-traces/
+    // adversarial-fabrication.json` exists and runs in CI.
+    for (const surface of [source(), rendered()]) {
+      expect(surface).not.toMatch(/no adversarial (?:evaluation|test)/i);
+      expect(surface).not.toMatch(/never been adversarially tested/i);
+    }
+  });
+
+  it('does not claim no deployment exists', () => {
+    // A build is deployed and publicly reachable behind a sign-in wall. The
+    // page's position is that it is stale and unlinked, not that it is absent.
+    for (const surface of [source(), rendered()]) {
+      expect(surface).not.toMatch(/the running product is not\b/i);
+    }
+  });
+
+  it('dates the pause by the last product commit, not by a commit count', () => {
+    // "N commits since X" is stale on arrival: dependency bumps and template
+    // syncs keep landing. The durable claim names the last product commit and
+    // carries an as-of date, the way #850 dated the Mergepath fleet count.
+    const surface = source();
+    expect(surface).not.toMatch(/five commits, all on/i);
+    expect(surface).not.toMatch(/seventeen substantive commits/i);
+    expect(surface, 'the burst is twelve commits, PRs #350-#361').toMatch(/twelve commits/);
+    expect(surface, 'commit-count claims need an as-of date').toMatch(/As of 2026-08-31/i);
+  });
+
+  it('keeps the wordmark legible by leaving order and accent alone', () => {
+    // #784: the hero SVG hardcodes a near-white fill and is only visible
+    // because `[data-accent='black']` paints the surface dark. `accent` is
+    // derived from `order`, so a reorder turns the mark invisible with no
+    // test failure — this asserts the coupling that keeps it readable.
+    const data = frontmatter();
+    expect(data.order).toBe(4);
+    expect(data.accent).toBe('black');
+    expect(projectAccentRamp[data.order % projectAccentRamp.length]).toBe('black');
+    expect(data.screenshotSrc).toBe('/images/projects/matchline-wordmark.svg');
+  });
+
+  it('publishes no liveUrl while the only deployment is stale', () => {
+    const data = frontmatter();
+    expect(data.liveUrl).toBeUndefined();
+    expect(data.githubUrl).toBe('https://github.com/nathanjohnpayne/matchline');
   });
 });
