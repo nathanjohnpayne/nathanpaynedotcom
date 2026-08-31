@@ -32,7 +32,7 @@ decisions:
     chosen: "A recipient holds a URL and nothing else. Opening it presents that member's view, including equivalent summaries for any linked household members, and the application gives each link a lifecycle: expiry, revocation, and pruning, with a visit count and last-viewed date against every link."
     rationale: "The recipient's four needs—an amount, its derivation, a way to pay, a way to object—are all read-and-request acts. None of them requires an identity, and putting an identity in front of them is what would have killed them: a person who checks a bill once a year does not create an account, they just never look. This was product judgment, not a documented deliberation, and I would rather say so than invent a record."
     cost: "Whoever holds the link is treated as the recipient. The data-layer rules do not fully enforce the application's intended expiry and revocation model, so a leaked link can expose the intended member's view, including linked household members."
-    evidence: "What the artifact shows is that the mechanism is real: the link management view carries a per-link visit count and last-viewed date, which is how I learn a link was opened instead of asking. What it does not show is adoption—the repository holds no usage record, and that no recipient has ever created an account is my testimony, not a measurement. Against both: the deployed data-layer rule does not fully enforce the boundary the application intends, so the design's safety currently rests on the application layer alone."
+    evidence: "Link management became part of the coordinator's workflow: every link carries a lifecycle, a visit count and a last-viewed date, so I can see that someone opened their bill without asking them whether they did. The weakness is enforcement—expiry and revocation live in the application, and the deployed data-layer rule does not fully back them."
     status: "mixed"
   - title: "The coordinator doesn't keep the change"
     lens: "Settlement"
@@ -91,9 +91,13 @@ Three decisions carry the argument, all three mixed—real support beside a real
 
 ## What broke
 
-Three things, and none of them is the arithmetic.
+All three decisions left the same gap between the model and the surface that mattered.
 
-**The renderer was unified on the surfaces being watched.** The parity fix consolidated the preview and the test send onto a canonical renderer. The invoice a household member actually receives never joined them: its dialog sends plain text with no HTML field, so production invoices still render through the bridge and the fallback the fix exists to have displaced, and the fixing pull request never touched the sending file. The divergence has stood since April 2026.
+- **Rendering.** The preview and the test send share a canonical renderer. The invoice a household member actually receives does not: its dialog sends plain text with no HTML field, and the pull request that unified the other two never touched the file that sends it. The divergence has stood since April 2026.
+- **Settlement.** Overpayment exists in the model and in a subsystem behind it. The coordinator gets an `Owed to members` tile but no `Overpaid` filter to reach the household, and the share page carries no badge at all for the person whose money it is.
+- **Access.** Expiry, revocation and pruning exist in the application. The deployed data-layer rule does not fully enforce them, so a leaked link can expose the intended member's view and the design's safety rests on the application layer alone.
+
+Different layers, one failure: the invariant stops just before the boundary where it would have mattered.
 
 ```mermaid title="Three render paths, one template" description="One invoice template renders along three paths. The editor draws its own document and shows tokens unresolved, so it never matched the output on screen; the brief's ask that it reflect final output was never delivered. The canonical renderer, added by the 2026 parity fix, produces the preview and the test send, and a required regression test holds those two together. The invoice email a household member actually receives takes the third path, through the plain-text bridge into a markdown fallback, which the fix never reached—so the tested surfaces and the real one have diverged since April 2026."
 flowchart TD
@@ -124,15 +128,7 @@ flowchart TD
     style INV fill:#11100d,stroke:#11100d,stroke-width:1.5px,color:#fffdf8
 ```
 
-![The invoice template as the editor draws it, captured from the repository's own end-to-end harness against invented data. `First Name`, `Billing Year`, `Household Total` and `Share Link` are unresolved token pills and Payment Methods is a placeholder block—none of it resolved, because the editor renders its own document rather than the output. That is the gap the brief asked to close and did not. Of its four clauses, one became an automated check and holds—preview and test send producing the same HTML, guarded by two required tests that both watch that one pairing. A second was met by eye, matching a known-good reference, and no test asserts it. The remaining two stayed prose—an editor reflecting final output, tests spanning every surface—and were not met at merge or since.](/images/projects/friends-and-family-billing-edit.png)
-
-**The overpaid state is modelled, summarized, and unnavigable.** The fourth balance state exists, ADR-0004 bans absorbing it, and a whole subsystem stands behind it—credit adjustments, refund events, a refund-notice service, a Cloud Function for the recipient to confirm receipt. The coordinator can see *that* a credit is outstanding, from an `Owed to members` tile. What neither audience can do is reach it: there is no `Overpaid` filter, so the household is findable only by scrolling everything, and the share page carries no status badge at all for the person whose money it is.
-
-**The access boundary is enforced above the data layer, not in it.** The design intends link possession to stand in for identity, with the application responsible for expiry and revocation. Those controls are real and reachable. The deployed data-layer rule does not fully enforce them, so a leaked link can expose the intended member's view, including linked household members, and server-side resolutions record the visitor's IP in an owner-visible audit log. Remediation is open and belongs in the product repository, which is why this page states the consequence and not the recipe.
-
-## What the record shows, and what it does not
-
-The repository holds no usage record—no seed data, no exported dataset, and analytics that instrument sign-in and nothing else. One group of nine has used this product; the only numbers that could substantiate how much live in the running system's per-link view counters, not in the source. What the repository can show is the mechanism and the care taken with it, not adoption.
+![The template as the editor draws it, from the repository's own end-to-end harness on invented data: tokens unresolved, payment methods a placeholder block. The editor renders its own document rather than the output, which is the one clause of the brief that asked for an editor reflecting final output—still unmet.](/images/projects/friends-and-family-billing-edit.png)
 
 ## What I learned
 
