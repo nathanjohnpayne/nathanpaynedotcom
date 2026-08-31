@@ -1022,6 +1022,17 @@ describe('Matchline — audited claims stay retracted (#756)', () => {
     expect(rendered(), 'the retraction must survive into the rendered page').toMatch(
       /never existed/i,
     );
+    // The resume mirror is a fifth surface and carried the retracted pre-#813
+    // grounding claim in its own wording ("what the candidate has actually
+    // done") for four rounds, because the guards only ever read the page.
+    // Caught by Codex on #885.
+    const resumeMirror = readFileSync(
+      resolve(__dirname, '../src/content/resume/projects/matchline.md'),
+      'utf-8',
+    );
+    expect(resumeMirror, 'the resume mirror must not reassert the broad grounding claim').not.toMatch(
+      /grounded in what the (?:candidate|user) has actually done/i,
+    );
   });
 
   it('does not claim the validation layer is untested against fabrication', () => {

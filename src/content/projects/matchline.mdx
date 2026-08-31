@@ -122,9 +122,9 @@ export const ExtractedUnitV1Schema = z
   .strict();
 ```
 
-Approval is not in that list, deliberately: the extractor is barred from returning it, and the server stamps every extracted Unit unapproved. Review is the only path from the graph into matching, and the filter that enforces it runs server-side at all three places evidence is consumed.
+Approval is not in that list, deliberately: the extractor is barred from returning it, and the server stamps every extracted Unit unapproved. For anything the model proposes, review is the only path into matching, and the filter that enforces it runs server-side at all three places evidence is consumed. A user can also type a Unit by hand, and those arrive pre-approved and marked `user_confirmed`—a Unit the user wrote is already the user's own assertion, so there is nothing for review to add.
 
-```mermaid title="The core loop, and where approval sits in it" description="A pasted resume is extracted into Experience Units, each of which lands unapproved. Human review is the only path from the graph into matching. Separately, a job description is parsed into requirements. The matching engine scores approved Units against those requirements and surfaces requirements with no qualifying evidence as gaps rather than hiding them. Generation draws only on approved matches, and a traceability check sits between the generated draft and export: a claim that cannot be traced back to an approved Unit blocks the export until the user resolves it."
+```mermaid title="The core loop, and where approval sits in it" description="A pasted resume is extracted into Experience Units, each of which lands unapproved. For extracted Units, human review is the only path from the graph into matching; Units the user types by hand arrive pre-approved instead. Separately, a job description is parsed into requirements. The matching engine scores approved Units against those requirements and surfaces requirements with no qualifying evidence as gaps rather than hiding them. Generation draws only on approved matches, and a traceability check sits between the generated draft and export: a claim that cannot be traced back to an approved Unit blocks the export until the user resolves it."
 flowchart TD
     R["Pasted résumé"]
     U["Experience Units<br/>unapproved"]
@@ -163,7 +163,7 @@ The quality bar was 80% extraction accuracy and 80% match accuracy. Neither was 
 
 The scorer first compared generated summaries to hand-labelled ones with string equality, and language models paraphrase, so the metric collapsed to 3.3%. Token overlap lifted it to 34%. A coefficient that gives full credit when the labelled set is covered by a longer generated one lifted it to 50.3%. Only then did a real system change—expanding the matching vocabulary from roughly 220 entries to 415—move it, by a single point, to 51.3%.
 
-```mermaid title="Extraction accuracy: three ruler changes and one system change" description="Extraction accuracy rose from 3.3 percent to 51.3 percent across four measurements, against an 80 percent target that was never reached. Three of those four measurements came from different definitions of the scoring metric rather than from any change to the product: string equality scored 3.3 percent, token overlap 34 percent, and a coverage coefficient 50.3 percent. Only the last step was a change to the system itself, an expansion of the matching vocabulary, and it added a single point to reach 51.3 percent."
+```mermaid title="Extraction accuracy: two ruler changes and one system change" description="Extraction accuracy rose from 3.3 percent to 51.3 percent across four measurements, against an 80 percent target that was never reached. Three of those four measurements came from different definitions of the scoring metric rather than from any change to the product: string equality scored 3.3 percent, token overlap 34 percent, and a coverage coefficient 50.3 percent. Only the last step was a change to the system itself, an expansion of the matching vocabulary, and it added a single point to reach 51.3 percent."
 flowchart LR
     A["3.3%<br/>string equality"]
     B["34%<br/>token overlap"]
