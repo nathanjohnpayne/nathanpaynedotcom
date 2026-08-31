@@ -68,7 +68,7 @@ const homepageProjectDescriptions = [
   'A repository standard for the gap between what a fleet of AI coding agents can produce and what one operator can responsibly stand behind.',
   'A financial operating system for Broadway productions—models capitalization and investor returns, manages ownership, and shares a read-only deal room with backers instead of spreadsheet and PDF workflows.',
   'A single web application that tracks partner-device hardware, DRM, codec support, and operational readiness—built inside Disney Streaming, and demonstrated publicly on synthetic data.',
-  'A career CRM for one person running a serious job search—turns work history into approved evidence, maps it against a specific job’s requirements, and blocks any generated claim it can’t trace back.',
+  'A career CRM for one person running a serious job search—turns work history into approved evidence, maps it against a specific job’s requirements, and blocks the export when a claim doesn’t trace back.',
   'A swipe-based discovery experiment for Disney+ and Hulu that turns expressing taste into a game—built in vanilla JS across three days of one week.',
   'Cloud-synced shared-bill coordination for families and friend groups—turns recurring costs into clear annual invoices, payment tracking, and shareable summaries.',
 ];
@@ -231,7 +231,7 @@ describe('Project Pages — routes', () => {
     // assertions pin retracted copy: 'what the user has actually done' was the
     // pre-#813 wording, and the four-input ingestion list was never true — only
     // the pasted-resume path is implemented.
-    expect(matchlineDescription).toContain('blocks any generated claim it cannot trace back');
+    expect(matchlineDescription).toContain('blocks the export when a generated claim fails to trace back');
     expect(matchlineDescription).toContain('Paused before launch');
     expect(matchlineDescription).not.toContain('what the user has actually done');
     expect(matchlineDescription).not.toContain('LinkedIn');

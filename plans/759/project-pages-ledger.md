@@ -1659,7 +1659,14 @@ It is enforced, not merely present: `tests/validation-fabrication.integration.te
 
 ### D16—the eval harness never loads the adversarial fixture
 
-**SUPPORTED, and it qualifies §D15 rather than undoing it.** `tests/eval/runForFixture.ts:4-14` documents the harness pipeline and its two metrics: `unitSetAccuracy` (extraction) and `topKOverlap` (match). `tests/eval/loadFixtures.ts` exports `loadExpectedUnits` (`:115`) and `loadExpectedMatches` (`:133`) and **no loader for `expected-asset-traces/`**—that directory appears only in a docstring (`loadFixtures.ts:26`) and the README's layout diagram (`tests/eval/README.md:121`). Generation and validation are not in the eval loop at all. The adversarial pin is carried by the integration test, not by the harness whose numbers get quoted.
+**SUPPORTED, control-verified per §M9, and it qualifies §D15 rather than undoing it.** `tests/eval/runForFixture.ts:4-14` documents the harness pipeline and its two metrics: `unitSetAccuracy` (extraction) and `topKOverlap` (match). The control and the target run the same search over the same paths:
+
+```bash
+git grep -n 'expected-units\|expected-matches' origin/main -- tests/eval/   # control → loader path constants at loadFixtures.ts:121 and :140
+git grep -n 'expected-asset-traces'          origin/main -- tests/eval/   # target  → 2 hits, both prose
+```
+
+The control finds the two directories the harness does load, as literal path constants it passes to its loader. The target's only two hits are a docstring (`loadFixtures.ts:26`) and a layout diagram (`README.md:121`)—**no loader for `expected-asset-traces/`**—that directory appears only in a docstring (`loadFixtures.ts:26`) and the README's layout diagram (`tests/eval/README.md:121`). Generation and validation are not in the eval loop at all. The adversarial pin is carried by the integration test, not by the harness whose numbers get quoted.
 
 ### D17—the largest day is twelve commits, not seventeen, and §D6 is the source of the error
 
@@ -2394,7 +2401,7 @@ One thing the current page gets wrong by omission: `:68` names Override, Device 
 
 ### E50—the corrected sibling pages contradict nothing on this page
 
-**SUPPORTED—checked and clean, recorded so it is not re-opened.** `device-source-of-truth.md:49` ("the machine-user review system arrived by template propagation on March 24, 2026, eighteen days after the last product feature") is consistent with §A13 and §F43. `friends-and-family-billing.md:49` describes the shared pipeline without attributing its origin. `matchline.md:19-20`, `override.mdx:64-65` and `five-across.mdx:101-102` carry `related:` links only. No sibling page asserts anything about Mergepath that `mergepath.md` contradicts, in either direction.
+**SUPPORTED—checked and clean, recorded so it is not re-opened.** `device-source-of-truth.md:49` ("the machine-user review system arrived by template propagation on March 24, 2026, eighteen days after the last product feature") is consistent with §A13 and §F43. `friends-and-family-billing.md:49` describes the shared pipeline without attributing its origin. `matchline.mdx:62-66` (`matchline.md:19-20` before the `#756` rename to `.mdx`), `override.mdx:64-65` and `five-across.mdx:101-102` carry `related:` links only. No sibling page asserts anything about Mergepath that `mergepath.md` contradicts, in either direction.
 
 **One thing a sibling now carries that this page could use.** `friends-and-family-billing.md:49` records that "the no-direct-push rule landed on April 2; a commit went straight to `main` the next day, and issue #145 is the after-action record." That is a documented bypass of the standard's central rule, one day after it landed, already verified on a corrected page—material for §E51's "what they cost" column, and it is not currently on the Mergepath page.
 
