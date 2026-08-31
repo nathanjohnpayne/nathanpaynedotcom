@@ -95,11 +95,63 @@ LinkedIn and long-form ingestion were deferred. Uploaded PRDs, decks and retrosp
 
 ## The evidence model
 
-An Experience Unit is the product's atom: one claim, carrying the skills, tools, domains and metrics that support it, a confidence score, and an approval state. Every extracted Unit arrives unapproved, and review is the only path from the graph into matching.
+An Experience Unit is the product's atom. It is not a sentence about a job—it is one claim with the structure that makes the claim checkable, and the schema is strict about it, so the model cannot return a Unit that is missing its evidence:
 
-The second half of the loop maps that evidence onto a specific job. Requirements are parsed from the posting and scored against the approved Units, and requirements with no qualifying evidence are shown in place rather than hidden—the gaps are the point, not an embarrassment to bury.
+```ts
+export const ExtractedUnitV1Schema = z
+  .object({
+    raw_text: z.string().trim().min(1),
+    normalized_summary: z.string().trim().min(1),
+    unit_type: UnitTypeSchema,
 
-Then the gate. Every claim in a generated draft is traced back to its Unit, and a claim whose trace breaks is flagged inline and blocks export until the user resolves it.
+    skills: z.array(z.string().trim().min(1)),
+    tools: z.array(z.string().trim().min(1)),
+    domains: z.array(z.string().trim().min(1)),
+    seniority_signals: z.array(z.string().trim().min(1)),
+    scope_signals: z.array(z.string().trim().min(1)),
+    business_outcomes: z.array(z.string().trim().min(1)),
+    metrics: z.array(MetricSchema),
+
+    evidence_type: EvidenceTypeSchema,
+    // Prompt says "below 0.50 should not be emitted" — enforce at
+    // schema level too so a hallucination flood is rejected.
+    confidence_score: z.number().min(0.5).max(1),
+
+    date_range: DateRangeSchema.optional(),
+  })
+  .strict();
+```
+
+Approval is not in that list, deliberately: the extractor is barred from returning it, and the server stamps every extracted Unit unapproved. Review is the only path from the graph into matching, and the filter that enforces it runs server-side at all three places evidence is consumed.
+
+```mermaid title="The core loop, and where approval sits in it" description="A pasted resume is extracted into Experience Units, each of which lands unapproved. Human review is the only path from the graph into matching. Separately, a job description is parsed into requirements. The matching engine scores approved Units against those requirements and surfaces requirements with no qualifying evidence as gaps rather than hiding them. Generation draws only on approved matches, and a traceability check sits between the generated draft and export: a claim that cannot be traced back to an approved Unit blocks the export until the user resolves it."
+flowchart TD
+    R["Pasted résumé"]
+    U["Experience Units<br/>unapproved"]
+    REV["Human review"]
+    G["Capability graph<br/>approved only"]
+    JD["Job description"]
+    REQ["Requirements"]
+    M["Matching<br/>scores + gaps"]
+    GEN["Generated draft"]
+    V["Traceability check"]
+    X["Export"]
+
+    R --> U --> REV --> G
+    JD --> REQ
+    G --> M
+    REQ --> M
+    M --> GEN --> V
+    V -->|every claim traces| X
+    V -.->|a claim does not| GEN
+
+    style REV fill:#e8784a,stroke:#11100d,stroke-width:1.5px,color:#11100d
+    style V fill:#e8784a,stroke:#11100d,stroke-width:1.5px,color:#11100d
+    style G fill:#fffdf8,stroke:#11100d,stroke-width:1.5px,color:#11100d
+    style X fill:#11100d,stroke:#11100d,stroke-width:1.5px,color:#fffdf8
+```
+
+The two orange nodes are the whole product. Everything else is plumbing that a competent team would build the same way; those two are where the thesis lives. Requirements with no qualifying evidence are surfaced as gaps in the same list as the matches rather than hidden behind a tab—the gaps are the point, not an embarrassment to bury.
 
 ## The decisions
 
