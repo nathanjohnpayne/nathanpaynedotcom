@@ -190,9 +190,11 @@ Not every implementation choice belongs in the ledger. The test: could a reasona
 
 The four statuses render as **peers**. `validated` must not read as success and the other three must not read as error states: a `revised` decision is not a failed one—the revision is the point of recording it—and a `pending` decision is not an unfinished one, it is a decision honestly marked as still awaiting its evidence.
 
-### `evidence` is required for every status, `pending` included
+### `evidence` carries what happened, and may be omitted only when nothing did
 
-`evidence` is not optional furniture that only `validated` rows carry. For a `pending` decision it carries the validation boundary: why the evidence is not in yet, and what would resolve it.
+`evidence` is not optional furniture that only `validated` rows carry. For a `pending` decision it carries the validation boundary: why the evidence is not in yet, and what would resolve it. A `validated`, `mixed` or `revised` record must always carry it—those statuses assert an observation, and the field is the observation.
+
+**A `pending` record may omit it, and only under one condition:** the page states the validation boundary once for the whole set, and this record has nothing decision-specific to add. The test is whether the field would say anything a reader could not infer from the global caveat plus the record's own `chosen`. If it would only confirm that the thing was built, delete it—a **Validation boundary** heading that carries implementation evidence teaches the reader that the heading means nothing, and the cost is paid by the records where the boundary is real. Omission is the exception; a page where most records skip it has a global-caveat problem, not a per-record one.
 
 It must never restate `rationale`. `rationale` is why the choice was made; `evidence` is what happened afterward. If the two read alike, the row has no evidence—go find what actually happened, or mark the row `pending` and say what's missing.
 
