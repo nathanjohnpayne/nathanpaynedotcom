@@ -1012,9 +1012,12 @@ describe('Matchline — audited claims stay retracted (#756)', () => {
       expect(surface).not.toMatch(/uploaded artifacts \(PRDs/i);
     }
     // The page may still name them, and does — as absent. Pin that reading so
-    // the negative assertions above cannot be satisfied by deleting the row.
+    // the negative assertions above cannot be satisfied by deleting the sentence.
     expect(source(), 'the deferred inputs must stay on the page, labelled').toMatch(
-      /LinkedIn HTML and long-form prose as inputs \| \*\*Deferred\*\*/,
+      /LinkedIn and long-form ingestion were deferred/,
+    );
+    expect(source(), 'the never-existed input must stay retracted in the open').toMatch(
+      /never existed—an earlier version of this page listed them as inputs/,
     );
   });
 
