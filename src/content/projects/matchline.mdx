@@ -43,7 +43,7 @@ decisions:
     status: "pending"
   - title: "Fix the ruler before trusting the measurement"
     lens: "Method"
-    context: "Match accuracy was the number the whole matching layer was being tuned against, and across three samples of a single fixture it spread from 12.5% to 25.0% and averaged 18.1%. The spread was wider than any improvement being measured."
+    context: "Match accuracy was the number the whole matching layer was being tuned against. One run reported 18.1%, across a spread of 12.5% to 25.0% over three samples of a single fixture. The spread was wider than any improvement being measured."
     chosen: "Stop tuning the matcher and repair the measurement instead: replace the absolute 0.30 similarity threshold with relative best-match mapping and a 0.10 sanity floor, then build a content-addressed stage cache so a tuning run replays unchanged stages for free."
     rejected: "Keep tuning against the noisy metric and average more samples, which is cheaper in engineering time and was affordable within the cap."
     rationale: "A metric whose run-to-run noise exceeds its effect size cannot tell you whether a change helped. Averaging buys precision at a per-run cost, and the cost was binding: one run at three samples was $2.06 against a $25 monthly cap, so the budget bought about twelve tuning runs a month."
@@ -185,7 +185,7 @@ flowchart LR
 
 Read that sequence again. Four measurements, three steps between them—and two of those three steps changed the ruler rather than the product. The metric was defined three ways before anything about the system moved, and when the system finally did move, it bought one point.
 
-Match accuracy went from 4.2% to 16.7% on that same vocabulary work, and then stopped being legible at all. Three samples of one fixture spread from 12.5% to 25.0%, averaging 18.1%—eight to thirteen points of noise, against a target improvement smaller than the noise. Averaging it away costs money, and money was binding: a single run cost $2.06 against a $25 monthly cap, about twelve runs a month.
+Match accuracy went from 4.2% to 16.7% on that same vocabulary work, and then stopped being legible at all. One run reported 18.1%, and three samples of that one fixture spread from 12.5% to 25.0%—eight to thirteen points of noise, against a target improvement smaller than the noise. Averaging it away costs money, and money was binding: a single run cost $2.06 against a $25 monthly cap, about twelve runs a month.
 
 So the last working sessions went into the instrument rather than the product.
 
