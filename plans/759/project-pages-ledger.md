@@ -2,7 +2,7 @@
 
 Sources under audit: `src/content/projects/{device-source-of-truth,five-across,friends-and-family-billing,matchline,mergepath,override,swipe-watch}.md` (~6,200 words). Evidence repos: `~/GitHub/{device-source-of-truth,fiveacross,friends-and-family-billing,matchline,mergepath,overridebroadway,swipewatch}`, each read at `origin/main`. The Five Across evidence checkout was `~/GitHub/gaycruisebingo` when the §B rows below were first written; the **repository** was renamed on 2026-08-27 and that path no longer exists. The rename covers the repository and nothing else—see §BM1 before swapping any other occurrence of that token. Shared reference cache: `plans/759/refs.json` (70 resolved references at the time of this audit—67 cached in Phase 0 plus #501, #502 and #503 added during the #742 audit; nothing added here).
 
-Verdicts: **SUPPORTED** · **WRONG** (corrected value given) · **UNPROVABLE** (defensible weaker form given) · **EXTERNALLY SOURCED** (provenance recorded, not re-derived here—see §M6). A row marked **SPLIT** carries more than one verdict because the sentence makes more than one claim.
+Verdicts: **SUPPORTED** · **WRONG** (corrected value given) · **UNPROVABLE** (defensible weaker form given) · **EXTERNALLY SOURCED** (provenance recorded, not re-derived here—see §M6) · **ABSENT** (the artifact a ticket asks for is not in the repository, and a §M9 control proves the search would have found it). **ABSENT is not UNPROVABLE**: UNPROVABLE says the repository does not substantiate a claim the page makes, ABSENT says the repository does not contain a thing a ticket asked the page to add, which is a finding the page can state rather than a claim it must weaken. A row marked **SPLIT** carries more than one verdict because the sentence makes more than one claim.
 
 Line references are `slug:NN` against the file as it stands on `content/744-six-prs-audit`. Commands assume `cd` into the named repo.
 
@@ -27,6 +27,10 @@ Line references are `slug:NN` against the file as it stands on `content/744-six-
 **M7—a reproduction command is run by strangers, so it must not write to a path it did not create.** Three separate P1 findings on PR #848 were all this one defect in the ledger's own commands, escalating each time a fix was too clever. The first ran an unconditional `rm -rf ~/GitHub/audit-probe-repo` to clean up after a bootstrap dry run, which would delete a reviewer's checkout of that name. The second replaced it with a guard that deleted the directory when it held nothing but `.bootstrap-*` files—which is exactly what an *interrupted* run leaves behind, so the guard destroyed the state it existed to protect. The third found that every extraction block wrote into a fixed `/tmp/mp` and then ran `git init` and a commit inside it, so a `/tmp/mp` belonging to another task would be extracted over and committed. `mkdir -p` does not establish that this run created the directory. **The rule: allocate with `mktemp -d` and carry the path in a variable; never delete anything the reader might own.** Every extraction block in this file now opens `MP="$(mktemp -d)"`, later blocks continue with `cd "$MP"`, and the one cleanup step prints its path and removes nothing. The general form is that a guard deciding *when* destruction is safe is a harder problem than not destroying anything, and the ledger has no reason to solve the harder one.
 
 **M8—every reproduction block assumes a sibling clone, and says which one.** The blocks in this ledger open `cd ~/GitHub/<repo>` for four different repositories—`device-source-of-truth`, `friends-and-family-billing`, `mergepath` and `nathanpaynedotcom`—because most rows audit a repository *other* than the one the ledger lives in. Substitute your own checkout path; the `cd` names the target, and that is the load-bearing part. **Do not "fix" these to `git rev-parse --show-toplevel`.** That resolves to whatever checkout the reader is standing in, which for anyone reading this file is `nathanpaynedotcom`, so the command would silently search the wrong repository and return a clean no-match—the §A27 failure mode wearing different clothes. Suggested on `#873` and declined for that reason. Note also that `device-source-of-truth` and `friends-and-family-billing` are private (§A25), so re-running a §A block at all requires access, not just a path.
+
+**M9—an absence claim needs a control, and the control goes in the row.** A zero-hit search proves nothing until the same search, run the same way, finds a known positive: a typo in a path, a case-sensitivity mismatch, a pathspec that silently excludes the tree, or a repo read at the wrong ref all return zero and look identical to "it is not there." Every row in this file asserting that something is absent must name the control it ran and its hit count. §D14, §D20, §D22 and §D25 each do—`extractFromResume` returns five files before the ingestion sweep returns none, `zero fabrication` returns four before the discovery sweep returns none, `--grep='Self-Review'` returns 62 before `--grep='Path taken'` returns 0, and `Zero fabrication` returns 1 in the spec before `80` returns 0. The same discipline applies to a test asserting a retraction: a guard that cannot fail is not a guard, so #756's retraction tests were run against a deliberately reintroduced claim, reworded, and all four failed as intended before being kept.
+
+**M10—a count that reaches a page is re-derived by the auditor.** Two counts returned by delegated evidence sweeps in the #756 run did not survive a direct re-count, both inflated, both by conflating occurrences with entities: 89 trailer occurrences across 82 commits, and a case-insensitive 66 that swept config mentions into a reviewer count of 45. That is the same error that produced §D6's "seventeen substantive commits" out of two overlapping PR ranges. Delegated sweeps are good at finding evidence and are not the authority on how much of it there is. See §D26.
 
 ---
 
@@ -1611,6 +1615,207 @@ But work did not stop. **`e20c077`, 2026-07-31 21:25:03 −0700, "eval: content-
 
 **UNPROVABLE from the repo, and consistent with everything else in it.** No user records exist to count. The claim is autobiographical; the corroborating facts—single-user architecture, no live URL, private product—are all SUPPORTED elsewhere. No correction proposed.
 
+### Delta audit for #756—rows added 2026-08-31
+
+Eighteen rows (§D13–§D30) covering the claims the #756 restructure needs and §D1–§D12 do not reach: the Unit schema and the graph-write path §D10 left unsettled, the ingestion inputs, the evaluation record, the deployment state, the corrected commit arithmetic, the agent-collaboration counts, and the discovery and release evidence the ticket asks for and the repository does not contain. Everything in the product repository was read at **`06ba5fc6eb86cdbb834267b4723ae8d6bd09d253`** in `~/GitHub/matchline` (short `06ba5fc`, 2026-08-31 01:58:31 UTC, subject "deps: bump the dev-dependencies group across 1 directory with 3 updates (#420)"), which is that repository's `origin/main` at the time of this audit; the local checkout's `HEAD` was eleven commits behind, so every command below reads the object database at `origin/main` rather than the working tree. Two evidence sources sit outside that pin and are labelled where they appear: **anonymous HTTP GETs of the deployed product** (§D19), which read a public endpoint and no data, and **the résumé vault** at `~/GitHub/docs/job-search/` (§D30), which is not a git-pinned surface in this audit.
+
+Read §D13 and §D19 first. §D13 settles the row the second review round recorded and did not action, and it settles it **against** the page: the schema and the approval gate hold, and two clauses of the same sentence do not. §D19 is the row that changes the page's ending—a build of the product **is** deployed and publicly reachable, which the page had denied. Five rows **correct a claim a current surface states**: §D14 (three of four named ingestion inputs do not exist), §D15 (the page asserted the absence of adversarial evaluation that exists, on two surfaces), §D17 (the seventeen-commit burst is twelve), §D18 (the commit-count sentence is stale by construction), and §D19. Three rows **record that the ticket asks for evidence the repository does not carry**: §D20 (no discovery evidence of any kind), §D21 (no resume, kill, or release criteria), §D22 (no ADRs and zero `## Path taken` records). §D26 is a method row: this audit's own subagent returned two inflated counts that a direct re-count contradicted, and the shape of the inflation is the same double-count that produced §D6's "seventeen."
+
+### D13—the Unit schema and the graph-write path, settling the row §E-extraction left open
+
+> The second review round: "One finding is recorded and not actioned. §E-extraction is marked SUPPORTED on the strength of a NaN guard in a unit-review UI… Treat that row as unverified until someone does."
+
+**SPLIT—settled, and it splits three ways.** The row referred to is §D10; the second-round summary miscited it as "§E-extraction."
+
+**SUPPORTED—the five fields are required, not optional.** `src/types/capability.ts:45-54` declares `skills: string[]`, `tools: string[]`, `domains: string[]`, `metrics: Metric[]`, `confidence_score: number`, none optional, mirrored server-side at `functions/src/types/capability.ts:97-143`. Enforcement is at the extraction boundary, not merely declared: `functions/src/prompts/extraction/resume.v1.schema.ts:94-117` is a `.strict()` Zod contract with the arrays required and no `.default()`. Two caveats: the arrays may be **empty** (`z.array(...)` with no `.min(1)`), so "each Unit carries skills" is true at the type level and not at the value level; and `confidence_score` is bounded `[0.5, 1]` in code (`:111-112`, "below 0.50 should not be emitted—enforce at schema level too") against `[0, 1]` in `specs/matchline.md:49`. **Code and spec disagree on the range.**
+
+**SUPPORTED—approval precedes graph insertion, server-side and in triplicate.** `functions/src/extraction/resume.ts:289` stamps `user_approved: false`, and the model cannot set it: the field is on the server-stamped exclusion list in the schema docstring (`resume.v1.schema.ts:15`) and in the prompt (`resume.v1.md:32`), and `.strict()` would reject a response that tried. The consumption gate is `.where("user_approved", "==", true)` at three separate server boundaries—`functions/src/matching/pipeline.ts:271-279`, `functions/src/generation/pipeline.ts:506`, `functions/src/validation/validate.ts:415`—backed by a composite index at `firestore.indexes.json:14-19`.
+
+**CONTRADICTED as written—"every Unit lands unapproved" is false on the manual path.** `src/services/experienceUnits-state.ts:322`: `user_approved: input.user_approved ?? true`, with the interface comment at `:285` reading "Defaults to true—manual entries are pre-approved," `confidence_score: input.confidence_score ?? 1.0` at `:321`, and `evidence_type: "user_confirmed"`. Reached from the "Add Unit manually" modal (`src/routes/UnitReview/ManualAddForm.tsx`), which is production UI—not a seed, fixture, import path, or test. Corrected value: **"every *extracted* Unit lands unapproved."** The spirit survives, since a hand-typed Unit is already the user's own assertion, but the universal does not.
+
+**And the gate is a read gate, not a write gate.** `firestore.rules:83-91` is one wildcard rule per collection constraining ownership only; the sole field-level guard, `isValidUnitMatchWrite` (`:70-81`), short-circuits for every collection but `unitMatches`. Nothing at the rules layer stops an authenticated client writing `user_approved: true` on its own Unit—and the client does exactly that by design, via `setApproval()` (`src/services/experienceUnits.ts:253-260`), a direct client-SDK `updateDoc`. The type-level protection is real but is application code: `EditableFields` omits the approval fields with a runtime assert at `:217`. The rules file itself notes the deeper limit at `:46-58`—admin-SDK writes bypass rules entirely.
+
+### D14—the four ingestion inputs are one ingestion input
+
+> ":35 A pasted résumé, LinkedIn HTML, long-form prose, or uploaded artifacts (PRDs, decks, retros) feed an extraction pipeline"
+
+**WRONG—one of four is implemented, and the fourth is not even specified.** Pasted résumé is real end to end: `src/routes/Onboarding.tsx` → `src/services/extraction.ts` → `functions/src/callables/extractFromResume.ts` (accepting `{ text: string }` at `:23-25`) → `functions/src/extraction/resume.ts`. LinkedIn HTML and long-form prose exist only as `UnitSourceType` members (`src/types/capability.ts:3`) and `<option>` values in the edit form (`src/routes/UnitReview/InlineEditForm.tsx:47-48`), which relabel an existing Unit's provenance; `src/routes/Onboarding.tsx:16-17` states the position outright—"LinkedIn HTML / long-form context paste flows are deferred—the underlying extraction pipeline is text-only at V1 anyway." There is one extraction prompt and one extraction callable, and no HTML parsing anywhere in `src/` or `functions/`.
+
+**Uploaded artifacts (PRDs, decks, retros) appear in neither the code nor the spec.** Method, per §M9: the absence search was run against a known positive first—`git grep -l 'extractFromResume' origin/main -- src functions/src` returns five files, so the search works. Then `git grep -nEi 'input[^>]*type=.file|FileReader|multipart|formidable|pdf-parse|pptx|docx|\.accept\b' origin/main -- src functions/src` returns seven hits, **all of them about résumé *export*** (`AssetFormat = "pdf" | "docx" | "txt" | "json"`, `src/types/crm.ts:69`), none about ingestion. `git grep -nEi 'deck|retro|upload' origin/main -- specs/matchline.md` returns **zero**. The only `retro` hits repo-wide are the literal string `"Q3 retro doc"` typed as a free-text `source_ref` in two test files.
+
+The spec's own wording is weaker than the page's and is worth quoting, because it means résumé-only *satisfies* the spec: `specs/matchline.md:42-44`, "The user can import their career via **at least one of**: pasted resume text, pasted LinkedIn profile HTML (browser view-source), pasted or typed long-form career context." Corrected value: name the pasted résumé as the implemented path, and the other two as deferred with the code comment as the source. The fourth should be retracted rather than silently dropped—it was published.
+
+### D15—the page asserts the absence of an adversarial evaluation that exists, twice
+
+> ":50 the validation layer has no adversarial evaluation in the repo"; ":66 a validation design that has never been adversarially tested"
+
+**WRONG on both surfaces, and this is residue from the #813 correction rather than a defect in the original page.** `tests/fixtures/expected-asset-traces/adversarial-fabrication.json` is a hand-labelled adversarial fixture: `labeled_by: nathanjohnpayne`, `labeled_at: 2026-04-26`, a planted `adversarial_fabricated_claim` (x86/Arm hybrid CPU roadmaps, a 100-million-VM fleet, 40% throughput on SAP HANA, $400M in contracts displacing AWS), four enumerated `untraceable_claims` each with its reason, and `expected_validation_status: "failed"`. Its `notes` field states its own purpose: "This is the test that proves the validator catches what it claims to. Without it, the 80/80 metrics could trend high while the system still leaks fabrications."
+
+It is enforced, not merely present: `tests/validation-fabrication.integration.test.ts` pins it against the Firestore emulator and runs in CI via `package.json:13` (`npm run test:rules`, under `firebase emulators:exec`).
+
+**The surviving narrower claim.** The test's own docstring (`:23-25`) says the LLM sub-checks are mocked because "the integration boundary is Firestore, not the LLM API." So the orchestration provably blocks an untraceable claim; the detector's reliability under real inputs is unmeasured. That is the defensible form, and it is not what either sentence said.
+
+**Shape of the defect, for the record.** #813 correctly removed an unprovable universal ("the model can never quietly invent") and replaced it with a false negative, on two surfaces at once. The replacement is the part that ships, and it was not audited.
+
+### D16—the eval harness never loads the adversarial fixture
+
+**SUPPORTED, control-verified per §M9, and it qualifies §D15 rather than undoing it.** `tests/eval/runForFixture.ts:4-14` documents the harness pipeline and its two metrics: `unitSetAccuracy` (extraction) and `topKOverlap` (match). The control and the target run the same search over the same paths:
+
+```bash
+git grep -n 'expected-units\|expected-matches' origin/main -- tests/eval/   # control → loader path constants at loadFixtures.ts:121 and :140
+git grep -n 'expected-asset-traces'          origin/main -- tests/eval/   # target  → 2 hits, both prose
+```
+
+The control finds the two directories the harness does load, as literal path constants it passes to its loader. The target's only two hits are a docstring (`loadFixtures.ts:26`) and a layout diagram (`README.md:121`)—**no loader for `expected-asset-traces/`**—that directory appears only in a docstring (`loadFixtures.ts:26`) and the README's layout diagram (`tests/eval/README.md:121`). Generation and validation are not in the eval loop at all. The adversarial pin is carried by the integration test, not by the harness whose numbers get quoted.
+
+### D17—the largest day is twelve commits, not seventeen, and §D6 is the source of the error
+
+> ":56 The largest single day of product work in the repo's history is 2026-07-06: seventeen substantive commits"
+
+**WRONG, and the ledger produced the error.** §D6 wrote "seventeen substantive commits (**#350–#361, plus #354–#360**)"—`#354–#360` is a subset of `#350–#361`, counted twice. `#350–#361` inclusive is **twelve** PRs, and twelve is the correct figure.
+
+Derivation, classifying by changed paths rather than by subject line: of the **28** commits dated 2026-07-06, exactly **twelve** touch `src/`, `functions/`, `tests/`, or `specs/`, and they map to PRs #350–#361 with no gaps and no extras. They land in a **61-minute window**, 14:06:47 to 15:07:22 −0700. The other sixteen are thirteen Dependabot bumps, one `ci(deps)` policy pin, one CodeRabbit config pin (`d2b3f9d`), and one mergepath bulk sync. Corrected value: **twelve commits inside sixty-one minutes, PRs #350–#361.**
+
+### D18—"five commits, all on 2026-08-21" is stale, and the claim shape is stale by construction
+
+> ":58 After that commit, only identity and CI plumbing has landed: five commits, all on 2026-08-21."
+
+**WRONG at this pin, and structurally unfixable in that form.** As of `06ba5fc` (2026-08-31), **26** commits have landed after `e20c077`: **13** Dependabot dependency bumps, **8** mergepath bulk syncs, and **5** identity/CI commits on 2026-08-21. The sentence was true when written and decayed without anyone touching the page, because automated commits keep arriving—any claim of the form "N commits since X" is stale on arrival.
+
+**The durable replacement is the last product commit.** `e20c077` is the last commit in the repository touching application source; its eight files are all under `tests/eval/`. The one later commit a path heuristic flags, `0cf546f` (2026-08-21), touches exactly one file, `tests/test_op_preflight_check.sh`—a shell test for a credential script, which is identity plumbing. Corrected value: name `e20c077` as the last product commit, describe everything after it by kind rather than by count, and carry an as-of date, per §H4's cross-surface rule and the #850 precedent for dating a fleet count.
+
+### D19—a build of the product is deployed, publicly reachable, and three months stale
+
+> ":50 No live URL until V1 ships. The repository is public; the running product is not."; ":66 The repository is public; the running product is not."
+
+**WRONG as written; §D8 marked the second clause UNPROVABLE and it is now settled the other way.** `.firebaserc` on `origin/main` names project `matchline-dev`. Anonymous `GET https://matchline-dev.web.app/` returns **HTTP 200** with `<title>Matchline</title>` and a 555-byte Vite SPA shell; `https://matchline-dev.firebaseapp.com/` returns the same. Rendering the page returns a real sign-in wall—"match|line / From what you've done to what's next. / Continue with Google / … / Sign in". So a running deployment exists and is publicly reachable; the project ID needed to find it is in the public repository.
+
+**And it predates the record the page describes.** `GET` on the bundle `/assets/index-I4dldhGu.js` returns `last-modified: Sat, 02 May 2026 03:48:27 GMT` (710,671 bytes). The repository head on that date is `b7a199e`, 2026-05-01, "feat(sign-in): Google SSO as primary path (#208)". Every commit the page's evaluation and decision material rests on—the June measurement work, the July fixes, `e20c077`—landed **after** that build and is not in it.
+
+Corrected value: what is not public is the **data**, gated by sign-in and by `firestore.rules`' `isOwner()`; what does not exist is a **production** deployment. The page's `liveUrl` omission is correct and now has a reason worth stating: linking a three-month-old dev build would show a reader an older product than the page describes. As-of: 2026-08-31 16:53 UTC.
+
+### D20—there is no discovery evidence in the repository, of any kind
+
+**ABSENT, control-verified—and UNPROVABLE would be the wrong verdict here.** The ticket asks the page to "add the discovery evidence behind the thesis." There is none.
+
+Method: control first. `git grep -ci 'zero fabrication' origin/main -- specs docs README.md BRAND.md` returns hits in four files, so the search reaches the documentation surface. Then `user interview`, `competitive analysis`, `market siz`, `willingness to pay`, `persona`, `jobs to be done`, `customer discovery`, and named competitors (`Teal`, `Jobscan`, `Huntr`, `Simplify`, `Rezi`) return **zero** substantive hits. The three apparent hits are false positives and are named so this row is reproducible: `competitive analysis` is a synonym entry at `functions/src/matching/ontology/skills.seed.json:28`; `competitors` appears in a synthetic fixture résumé; `Teal` matched `s`**`teal`** inside `scripts/phase-4b/lib.sh`.
+
+**The page's thesis is not written down anywhere in `~/GitHub/matchline` at `06ba5fc`**—not the polish-versus-credibility framing, not the defensible-specificity claim. The scope is the point: `#756` then writes that thesis down for the first time, in `nathanpaynedotcom`, which is why the page must present it as a premise it is articulating rather than one it is citing. A historical absence in the product repository and a new claim on a portfolio page are different things, and this row is only about the first. What exists is three unsourced negative-space statements (`README.md:7-8`, `specs/matchline.md:22-27` § Non-goals, `BRAND.md:8-11`) and one argued fragment: `functions/src/validation/specificity.denyList.ts:15-20` justifies its thirteen banned phrases on the grounds that "they appear in resume tropes regardless of role" and "survive traceability… but tell the reader nothing." That is the thesis in its most testable form and its justification is the author's intuition, with no corpus study behind it.
+
+**The n=1 that does exist is inferential.** `tests/fixtures/jds/README.md:12-15`: "Prefer JDs from Nathan's actual prospect list… those are the most accurate signal for match-accuracy scoring." Plus `README.md:10-11` ("V1 has exactly one user and one goal") and the phase milestones written in the first person. The design is visibly driven by one real job search; nothing records what was observed during it. The page must state the absence rather than dress the inference as research.
+
+### D21—no resume, kill, or release criteria exist; the phase-exit criteria are a different thing
+
+**ABSENT at the audit pin, control-verified per §M9.** The scope matters here more than in the neighbouring rows: this verdict is about `~/GitHub/matchline` at `06ba5fc`, and `#756` authors resume and kill criteria into `nathanpaynedotcom` while this row is being written. The two are different repositories, and the row would read as self-contradicting without the pin. Control first: `git grep -ci 'exit criteria' origin/main -- plans docs specs README.md` returns hits in `plans/matchline-implementation-plan.md` and `plans/matchline-sprint-0.md`, so the search reaches the planning surface where release criteria would live if they existed. Then `kill`, `sunset`, `shelve`, `go/no-go`, `release criteria`, `launch checklist`, `public launch` and `resume` (product sense) return nothing product-related across the same paths. **Nothing in the repository states that the project is paused, why, or what would restart it.**
+
+What exists is four sets of criteria for *finishing the build*: `plans/matchline-sprint-0.md:53-58`, and `plans/matchline-implementation-plan.md:78-84` (Phase 0), `:131-136` (Phase 1—"Full-flow p95 under 20 s; per-application LLM cost under $1… Zero fabrication: QA cannot produce a generated output with an un-sourced claim"), `:165-170` (Phase 2—"Nathan uses the product for one real application without editing any fabricated claims out"), and `:192-197` (Phase 3—"Matchline is Nathan's primary tool for the search, not abandoned for a spreadsheet. / Ten serious applications through the product. / Match accuracy ≥ 80%"). Phases 2 and 3 have no evidence of being met.
+
+Consequence for the page: resume/kill criteria authored for #756 are a **commitment made now**, not a record recovered from the repository, and must be labelled as such. Stating them as found evidence would be the failure mode this ledger exists to catch.
+
+### D22—no ADRs, and zero `## Path taken` records
+
+**ABSENT, control-verified, and the stronger claim is now earned rather than assumed.** `docs/architecture/` contains one file at the pin, `README.md`, explaining how to add an ADR. That establishes the current tree only; "no ADR has ever been added" is a claim about history, and an ADR could have been added and later deleted or renamed. Searched—`git log --all --diff-filter=A --name-only -- 'docs/architecture/*'` returns exactly one file ever added on any ref, `docs/architecture/README.md`, in `f3df8d0` (2026-04-22, the bootstrap commit from the template). So the directory has held its README and nothing else for the repository's whole life. Codex raised the gap on `#885`; the history search closes it rather than narrowing the verdict. `docs/agents/decision-records.md` is a mergepath-propagated *process* document, not a set of decisions, and it locates decisions on GitHub issues and PR bodies (`:15-19`). `git log origin/main --grep='Path taken'` returns **0**; the control, `--grep='Self-Review'`, returns **62**, so the search works. The PR template ships the stub at `.github/pull_request_template.md:23-24` and it was never filled in.
+
+The decision record in this repository is squash-merge commit messages and code docstrings. The page may cite those; it may not claim a decision-record practice.
+
+### D23—four decisions with genuinely live rejected alternatives
+
+**SUPPORTED as a candidate inventory, and it is no longer an audit of what the page publishes.** The #756 editorial pass cut the ledger from six decisions to four, and the published four are now *zero fabrication as a gate*, *single-user scope*, *fix the ruler*, and *a deadline someone else depends on wins* (`matchline.mdx:26-61`). Only the fourth candidate below overlaps them. The evidence for the published four lives elsewhere in this section and is mapped here so no published decision is unaudited: the gate rests on §D13 and §D15, single-user scope on §D21's phase-exit criteria and §D12, the measurement repair on §D24, and the prioritization on §D17 and §D29. The four rows below are the strongest decisions *available in the repository*, three of which the page did not use—kept because a later revision may want them, not because they describe the current page. Flagged by Codex on `#885`. Offered against `specs/project-pages.md` § The bar for a decision at all.
+
+1. **Rejection beats approval on carry-forward, over last-write-wins.** `functions/src/matching/pipeline.ts:397-445`. Decides whether a user's rejection survives a rerun. The rejected path was the incumbent behaviour, and the fix took three review rounds—`:397-401` records that the author's own round-1 reply cited a test (#82) that did not cover the case.
+2. **`jaccard(empty, empty)` = 0.5 neutral, not 1.0.** `60a8c18` (2026-04-26) with `functions/src/matching/score.ts:217-222`. Overturned the spec's own stated behaviour; the 1.0 reading flattened `rule_score` to ~0.74 ± 0.03 across every pair. The commit carries a before/after top-24 ranking trace.
+3. **Deterministic template rationales, LLM deferred.** `functions/src/matching/rationale.ts:9-15`, with the falsification condition named in advance. The spec permitted the LLM path (`specs/matchline.md:172-173`). Caveat: the "plan's risk register (#2)" it cites is not in `plans/matchline-implementation-plan.md`.
+4. **Relative best-match with a 0.10 sanity floor over a 0.30 absolute threshold.** `552e421` (2026-06-03). Buys measurement stability at the cost of admitting weaker pairings; the commit is explicit that 0.10 "only rejects wholly-unrelated garbage."
+
+**Three candidates that fail the bar and must not be dressed as decisions:** the Firestore-over-Postgres choice (`specs/matchline.md:284-308` states a migration-path discipline with no rejected alternative and no rationale for Firestore); the seven matching weights (`:147-159`, the most consequential numbers in the product, given without derivation or sensitivity analysis); and the model strategy (`:209-215`, stated, never argued).
+
+### D24—the evaluation record, and what the numbers mean
+
+**SUPPORTED, with the metric-revision history attached, because the figures are not comparable without it.**
+
+`tests/eval/scoring.ts:11-23` records extraction accuracy at **3.3% → 34% → 50.3%** across three revisions **of the metric**: `===` (collapsed under paraphrase), `tokenJaccard` (penalised the verbosity asymmetry between runtime and labelled summaries), then `tokenOverlapCoefficient`. `e2ef272` (2026-04-27) then expanded the ontology seeds—skills 105→215, tools 87→138, domains 30→62, i.e. **222 → 415** entries—and measured **extraction 50.3% → 51.3%, match 4.2% → 16.7%**, with its own commit message conceding "Known gap. Extraction accuracy at 51.3% (target 80%) and match accuracy at 16.7% (target 80%)."
+
+`edc5328` (2026-06-03) records the noise that stopped the tuning: "this run **18.1%**, range **12.5-25.0%**, vs #254's stable 25.0%," and `552e421` the same day gives the magnitude as "~**8-13pp** of pure noise." **Read carefully: 18.1% is the run figure and 12.5–25.0 the range across three samples—they are not three sample values.**
+
+**And the "~3x" in `552e421`'s subject line is a projection, not a measurement.** The subject reads "relative best-match mapping cuts match-accuracy noise ~3x," but the body ends "**Eval validation to follow in the PR**," and no eval run confirming it is recorded anywhere afterwards. **Be careful with the sequence, because an earlier revision of this row got it wrong and the page inherited the error:** `552e421` is 2026-06-03 and `e20c077` is 2026-07-31, and product work did *not* stop between them—the twelve-commit burst of 2026-07-06 (§D17) and `f75aa2a` on 2026-06-30 both intervene. `e20c077` is the next commit to touch `tests/eval/`, not the next product commit. Caught by Codex on `#885`. What the commit substantiates is the mechanism (threshold 0.30 → a 0.10 sanity floor, so pairs in the 0.15–0.30 band map stably instead of flickering) and the noise it was responding to. **No surface may state that noise fell threefold.** Caught by Codex on `#885`, against an earlier draft of the page that did. The same caution applies to the stage cache: `tests/eval/README.md:24-26` states it "removes most of" the per-run cost, which is a design property of a content-addressed cache and is not a recorded before/after either.
+
+Cost constraints, all from `tests/eval/README.md`: one 4-cell × 3-sample run costs **$2.06** against a **$25/mo** Anthropic cap (#177), "about 12 tuning runs a month" (`:24-26`); a daily full run at the PRD's $0.75/flow target is "$75/run—~$2,250/month run daily, roughly **45×** the combined **$50/mo** LLM cap" (`:73-78`). **That multiplier is computed for the 10×10 corpus #137 targets—100 flows—and not for what is on disk.** The fixtures are ten résumés × **eleven** JDs, so a full run of the current set is 110 flows: $82.50/run, ~$2,475/month, ≈49.5×. Any surface quoting 45× must say which corpus it means, or quote the per-run figure instead. Caught by Codex on `#885`. Labelled `expected-matches` pairs: **four**. The 80/80 gate is still advisory: `:133`, "#137: populate the 10×10 corpus; flip the 80/80 CI gate to blocking; needs more user input"—unchecked, while the two prior sub-issues are marked shipped.
+
+**Last recorded values, and they are from different months:** extraction **51.3%** (2026-04-27), match **18.1%** (2026-06-03). A page stating them must not imply a single run produced both.
+
+### D25—the 80/80 bar is cited to a spec section that does not exist
+
+**WRONG, in the repository rather than on the page—recorded so no surface inherits it.** `tests/eval/scoring.ts:8` and `tests/eval/README.md:5` both cite "`specs/matchline.md § Success metrics`." Re-run at the audit pin rather than against the working tree, which this section's preamble requires and an earlier revision of this row did not do—caught by Codex on `#885`, and the finding survives the correction:
+
+```bash
+git show origin/main:specs/matchline.md | grep -c 'Zero fabrication'   # → 1  (control)
+git show origin/main:specs/matchline.md | grep -c '80'                 # → 0
+git show origin/main:specs/matchline.md | grep -ci 'success metric'    # → 0
+```
+
+The control reads at the pin, so the two zeros are real: the section does not exist and the string `80` does not appear anywhere in the spec. `tests/eval/run.ts:58` gives the real provenance—"80/80 **PRD** bar"—and the PRD is in the sibling docs vault. Two further dangling references, same class: `specs/matchline.md:7` and `:17-20` (plus `README.md:13-14`, `plans/matchline-implementation-plan.md:5`) cite `~/GitHub/docs/projects/matchline/matchline-prd.md`, which does not exist—the file is at `prds/matchline.md`; and `tests/eval/README.md:78` cites `memory/matchline_budget_ceilings.md`, which does not exist. **Not page material**; recorded because a future audit will otherwise re-derive it.
+
+### D26—method: two subagent counts were inflated, in the same shape as §D6's "seventeen"
+
+**Method row.** This audit delegated two evidence sweeps. Both returned useful material; two of the returned counts did not survive a direct re-count, and the divergence is worth writing down because the shape recurs.
+
+| Claim returned | Re-counted | Why they differ |
+|---|---|---|
+| "89 commits carry `Authoring-Agent:`" | **82 commits** | `git log --grep` counts commits; scanning bodies counts **occurrences**. Squash merges concatenate bodies, so the trailer appears 89 times across 82 commits (88 `claude`, 1 `codex`). |
+| "66 commits reference CodeRabbit" | **45 commits** | 66 is the case-insensitive count, which sweeps in `coderabbit.max_wait_seconds` and `.coderabbit.yml` config mentions. 45 is the case-sensitive count of commits referencing the reviewer. |
+
+Both are occurrence-versus-entity conflations—the same error that produced §D6's "seventeen" from an overlapping PR range. **Rule: a count that reaches a page is re-derived by the auditor, not quoted from a delegated sweep.** Verified counts at `06ba5fc`: `Authoring-Agent:` **82**, `## Self-Review` **62**, Codex P0–P3 **56**, CodeRabbit **45**.
+
+### D27—agent review demonstrably overrode the author, and the human was not the gate
+
+**SUPPORTED, and both halves must ship together.** Named defects the review caught, each cited in the code that fixes it: the seniority scorer zeroing every Unit because extraction emits verbs while the ladder matched nouns (`functions/src/matching/score.ts:203-204`, "Codex P1 review on PR #103"); a Zod-to-JSON-Schema converter silently returning `{}` on every tool call, removing input validation from extraction, parsing, generation and validation at once (`functions/src/llm/zodToolSchema.ts:13`); the carry-forward bug at `functions/src/matching/pipeline.ts:397-401`, where the reviewer's second round overrode the author's incorrect rebuttal. `d2fbadf` records two findings **declined** with rationale, which distinguishes judged review from compliance.
+
+**The caveat is load-bearing.** `.github/pull_request_template.md:3-17`: "**Merge disposition—default: full automation.** This PR proceeds author → review → merge with no human checkpoint." The human wrote the spec, the plan and the fixture labels and arbitrates reviewer disagreement (`AGENTS.md:57-59`), and was not the line-by-line reviewer. A page citing the commit counts as oversight without this sentence overstates the mechanism.
+
+### D28—the publishable artifact, and the two fixtures that must not be published
+
+**SUPPORTED, with a privacy finding.** The publication-ready artifact is `tests/fixtures/expected-asset-traces/adversarial-fabrication.json` (23 lines): it contains Nathan's own *negative* career facts ("Nathan has worked on streaming devices, not VMs"), names Google, AWS and SAP HANA only as JD-derived terms, and needs no redaction.
+
+**Two fixtures carry employer-internal material and must not reach a published surface.** They are named here; their contents deliberately are not. `tests/fixtures/resumes/nathan-2026.txt` carries several internal codebase names, a platform-scale figure, a team performance metric stated against its quarterly target, and a named legal proceeding with the jurisdictions it ran in. `tests/fixtures/prompts/extraction/nathan-ncp-migration.json` carries one of the same codebase names with two product metrics attached.
+
+**This row previously quoted all of it, and that was the defect it exists to prevent.** This repository is public, so an audit row reproducing the material verbatim republishes it—and the ledger's own history keeps it after the redaction. Caught by Codex as a P1 on `#885`. The rule this row now follows, and every future row must: **cite the path and characterise the category; never quote the payload.** An auditor does not need the figures to act. **And there is no privacy to appeal to:** the matchline repository is public (§D8), so the fixture itself is world-readable and this redaction narrows what *this* page and *this* audit republish, not what exists. That the material is already public is a separate finding and a real one—it is recorded here and belongs in its own issue rather than this PR. Prior rows in this file that name a system by its internal codename predate this rule and are not swept here; the sweep is its own issue. This is the same exposure class as §A26 and the #882 redaction; the contact-PII convention at `tests/fixtures/resumes/README.md:22-39` is real and was followed, and it does not cover employer metrics. `tests/fixtures/expected-matches/nathan-2026__google-compute-spm-2026.json` is the strongest decision-loop artifact and needs a third-party-JD-text decision before publication: its twelve requirements are derived from a real Google posting including near-verbatim qualifications boilerplate.
+
+### D29—the deployed sign-in wall, the Five Across repo date, and the author/committer question
+
+**Three small SUPPORTED items the page depends on.**
+
+The **Five Across repository** was created `2026-07-07T17:10:14Z` (`gh api repos/nathanjohnpayne/fiveacross --jq .created_at`; the repo was later renamed from `gaycruisebingo`, per §BM1, and `repos/nathanjohnpayne/five-across` 404s). The 07-06 burst closes at 22:07:22Z, so "opens the next day" holds with about nineteen hours between them.
+
+**`e20c077`'s date is not ambiguous.** `%aI` is `2026-07-31T21:25:03-07:00`; `%cI` is `2026-08-01T04:25:03Z`. Same instant, two zones; the GitHub API reports the UTC form, which is why a reader checking it sees 08-01. There is no author-versus-committer discrepancy to resolve—only a zone to name. A page stating 2026-07-31 should say Pacific.
+
+**Monthly cadence, re-derived by changed paths** (§D7's figures came from a leaky subject-line filter that let `chore(deps)`, `security(deps)`, `ci(deps)` and `sync: bulk reconcile` through):
+
+| Month | product | infra/docs | dependency | template sync | total |
+|---|---|---|---|---|---|
+| 2026-04 | 66 | 12 | 9 | 0 | 87 |
+| 2026-05 | 8 | 3 | 5 | 5 | 21 |
+| 2026-06 | 8 | 1 | 8 | 7 | 24 |
+| 2026-07 | 13 | 1 | 34 | 4 | 52 |
+| 2026-08 | 0 | 5 | 13 | 8 | 26 |
+
+§D7's verdict (the status label is accurate) stands; its figures should not be quoted.
+
+### D30—cross-surface sweep: every surface carrying a Matchline claim
+
+**Five surfaces**, so a claim change is not applied to one and left standing on the others—the defect §H4 names and the one the last three PRs each shipped.
+
+| Surface | Carries |
+|---|---|
+| `src/content/projects/matchline.mdx` | the page: `description`, `seoDescription`, body prose, constraint strip, decision titles |
+| `src/pages/og-templates/projects/matchline.astro` | the social card's `description`, near-duplicating the page's |
+| `src/pages/index.astro` | the homepage Builds card (hand-authored markup; does not read frontmatter) |
+| `src/pages/projects/index.astro` | the index card—reads `project.data.description`, so it follows frontmatter automatically |
+| `src/content/resume/projects/matchline.md` | the résumé mirror, plus its canonical twin at `~/GitHub/docs/job-search/nathan-payne-resume.md:97` |
+
+**The two résumé surfaces had already drifted, and only one of them is in this repository.** The site mirror ended "In progress; paused summer 2026 to ship Five Across"; the vault canonical at `~/GitHub/docs/job-search/nathan-payne-resume.md:97` ends "In progress." Beyond the drift, the mirror's clause asserted as fact the causal claim §D6 downgraded to sequence, which is why #756 corrected it to "Paused before launch in mid-2026."
+
+**The vault half is deliberately not changed here.** It lives in a different repository, and #756's scope is this one. The two are required to match verbatim (#850), so they are now drifted in a second way and the entry needs one edit in the vault to settle: the canonical line should take the mirror's corrected wording. No test pins this pair, and none is added here—closing it means a cross-repo check, which is its own issue.
+
 ---
 
 ## §E `mergepath`
@@ -2196,7 +2401,7 @@ One thing the current page gets wrong by omission: `:68` names Override, Device 
 
 ### E50—the corrected sibling pages contradict nothing on this page
 
-**SUPPORTED—checked and clean, recorded so it is not re-opened.** `device-source-of-truth.md:49` ("the machine-user review system arrived by template propagation on March 24, 2026, eighteen days after the last product feature") is consistent with §A13 and §F43. `friends-and-family-billing.md:49` describes the shared pipeline without attributing its origin. `matchline.md:19-20`, `override.mdx:64-65` and `five-across.mdx:101-102` carry `related:` links only. No sibling page asserts anything about Mergepath that `mergepath.md` contradicts, in either direction.
+**SUPPORTED—checked and clean, recorded so it is not re-opened.** `device-source-of-truth.md:49` ("the machine-user review system arrived by template propagation on March 24, 2026, eighteen days after the last product feature") is consistent with §A13 and §F43. `friends-and-family-billing.md:49` describes the shared pipeline without attributing its origin. `matchline.mdx:62-66` (`matchline.md:19-20` before the `#756` rename to `.mdx`), `override.mdx:64-65` and `five-across.mdx:101-102` carry `related:` links only. No sibling page asserts anything about Mergepath that `mergepath.md` contradicts, in either direction.
 
 **One thing a sibling now carries that this page could use.** `friends-and-family-billing.md:49` records that "the no-direct-push rule landed on April 2; a commit went straight to `main` the next day, and issue #145 is the after-action record." That is a documented bypass of the standard's central rule, one day after it landed, already verified on a corrected page—material for §E51's "what they cost" column, and it is not currently on the Mergepath page.
 
@@ -3249,25 +3454,28 @@ Reproduce with `git rev-list --count "$(git rev-list -1 --before=2026-04-14 orig
 
 ## Summary
 
-| Page | SUPPORTED | WRONG | UNPROVABLE | SPLIT | EXT. SOURCED | Rows |
-|---|---|---|---|---|---|---|
-| §A `device-source-of-truth` | 26 | 10 | 4 | 6 | 1 | 50 † |
-| §B `five-across` | 17 | 4 | 0 | 12 | 3 | 36 |
-| §C `friends-and-family-billing` | 20 | 12 | 3 | 17 | 1 | 53 |
-| §D `matchline` | 7 | 0 | 3 | 2 | 0 | 12 |
-| §E `mergepath` | 29 | 16 | 0 | 17 | 0 | 62 |
-| §F `override` | 6 | 7 | 0 | 1 | 0 | 14 |
-| §G `swipe-watch` | 10 | 6 | 1 | 1 | 0 | 18 |
-| §H cross-page | 3 | 5 | 0 | 2 | 0 | 10 |
-| **Total** | **118** | **60** | **11** | **58** | **5** | **255** † |
+| Page | SUPPORTED | WRONG | UNPROVABLE | SPLIT | EXT. SOURCED | ABSENT | Rows |
+|---|---|---|---|---|---|---|---|
+| §A `device-source-of-truth` | 26 | 10 | 4 | 6 | 1 | 0 | 50 † |
+| §B `five-across` | 17 | 4 | 0 | 12 | 3 | 0 | 36 |
+| §C `friends-and-family-billing` | 20 | 12 | 3 | 17 | 1 | 0 | 53 |
+| §D `matchline` | 12 | 6 | 3 | 4 | 0 | 3 | 30 ‡ |
+| §E `mergepath` | 29 | 16 | 0 | 17 | 0 | 0 | 62 |
+| §F `override` | 6 | 7 | 0 | 1 | 0 | 0 | 14 |
+| §G `swipe-watch` | 10 | 6 | 1 | 1 | 0 | 0 | 18 |
+| §H cross-page | 3 | 5 | 0 | 2 | 0 | 0 | 10 |
+| **Total** | **123** | **66** | **11** | **60** | **5** | **3** | **273** †‡ |
 
-† **The `Rows` column counts rows; §A's verdict columns do not sum to it.** §A holds **50 rows of which 47 carry a verdict**: `A27` is a method finding (on this audit's machine, `git grep -E` silently ignored `\b`—a platform-dependent trap, see the row), `A44` is the cross-surface sweep, and `A48` is the decision-record adjudication AC 5 needs. None records a verdict, and forcing one on them would be worse than the gap. So §A reads 26+10+4+6+1 = **47 verdicts across 50 rows**, and the corpus is **252 verdicts across 255 rows**. Every other section sums exactly. An earlier revision of this footnote said 49 rows against 46 verdicts, which was true before `A49` and `A50` were added and stale the moment they were—caught independently by both reviewers on `#873`. A tally corrected in one place goes stale the next time the thing it counts changes; recount from the file. It went stale again on `#882`, which added `C52` and `C53` without touching this table—caught by Codex.
+† **The `Rows` column counts rows; §A's verdict columns do not sum to it.** §A holds **50 rows of which 47 carry a verdict**: `A27` is a method finding (on this audit's machine, `git grep -E` silently ignored `\b`—a platform-dependent trap, see the row), `A44` is the cross-surface sweep, and `A48` is the decision-record adjudication AC 5 needs. None records a verdict, and forcing one on them would be worse than the gap. So §A reads 26+10+4+6+1 = **47 verdicts across 50 rows**, and the corpus is **268 verdicts across 273 rows**—§A contributing three verdict-free rows and §D two (§D26, §D30), five in total, per the ‡ footnote. (This sentence read 252 across 255 until `#885`, which added eighteen §D rows and did not recount it—the third time this footnote has gone stale the moment the thing it counts changed, and caught by CodeRabbit this time.) Every other section sums exactly. An earlier revision of this footnote said 49 rows against 46 verdicts, which was true before `A49` and `A50` were added and stale the moment they were—caught independently by both reviewers on `#873`. A tally corrected in one place goes stale the next time the thing it counts changes; recount from the file. It went stale again on `#882`, which added `C52` and `C53` without touching this table—caught by Codex.
+
+
+‡ **§D was recounted on `#885`, and it is the fourth section to be re-verified.** The #756 delta added eighteen rows (§D13–§D30) and the earlier revision of this table did not move—it still read 12 rows against a section that had grown to 30, so every aggregate omitted the delta entirely. Caught by Codex. §D now reads **30 rows of which 28 carry a verdict**: §D26 is a method finding (delegated counts inflated by conflating occurrences with entities) and §D30 is the cross-surface sweep, and neither records one. The delta's own eighteen resolve 6 SUPPORTED, 6 WRONG, 0 UNPROVABLE, 1 SPLIT, 3 ABSENT, plus those two verdict-free rows. **§D1–§D12 resolve 6 / 0 / 3 / 3 / 0**, not the 7 / 0 / 3 / 2 the inherited row claimed—§D9 is SPLIT and had been filed as SUPPORTED, which is the §B and §E error a third time. Caught by Codex on `#885` after this footnote's own first recount missed it. Counted by reading each row's verdict word rather than by adding to the previous figure, per the §E lesson above. The sections never re-verified are now §F, §G and §H.
 
 A **SPLIT** row is counted once, in its own column, not split across the other three; the row text names which half carries which verdict. WRONG rows count each restated instance separately, because each is a separate edit: §E10 and §E11 are one number stated twice, §G1–G3 are one number stated three times, and §H1–H2 re-count the Override and two-strike defects at the cross-page level where the fix has to be coordinated across files. Deduplicated to distinct underlying facts, the WRONG count is 37; §C51's household-framing correction is the new fact added after the earlier count of 36.
 
-**The §E row was miscounted too, in exactly the shape §B was, and it is corrected above.** It read 14/8/0/5 against a section whose twenty-seven original rows actually resolve **11 SUPPORTED, 7 WRONG, 0 UNPROVABLE, 9 SPLIT**—and, as with §B, the wrong distribution summed to the right row total, so arithmetic checking could never have caught it. §B and §E were both miscounted when first recounted; §C has since been fully recounted as well, and its inherited summary had omitted the delta-audit rows. The remaining four sections—§D, §F, §G and §H—have still never been re-verified against their sections and should not be treated as audited. (§A was recounted on `#873`, by reading each row's verdict word: **50 rows, 47 verdict-bearing**.) The §E row above is 11/7/0/9 for §E1–§E27 plus 18/9/0/8 for the #753 delta (§E28–§E62), counted by reading each row's verdict word rather than by adding to the previous figure. §E53 carries both EXTERNALLY SOURCED and WRONG and is filed as SPLIT under this table's own more-than-one-verdict rule.
+**The §E row was miscounted too, in exactly the shape §B was, and it is corrected above.** It read 14/8/0/5 against a section whose twenty-seven original rows actually resolve **11 SUPPORTED, 7 WRONG, 0 UNPROVABLE, 9 SPLIT**—and, as with §B, the wrong distribution summed to the right row total, so arithmetic checking could never have caught it. §B and §E were both miscounted when first recounted; §C has since been fully recounted as well, and its inherited summary had omitted the delta-audit rows. The remaining sections had still never been re-verified against their sections at that time; §D has since been recounted on `#885` (see ‡), leaving §F, §G and §H. (§A was recounted on `#873`, by reading each row's verdict word: **50 rows, 47 verdict-bearing**.) The §E row above is 11/7/0/9 for §E1–§E27 plus 18/9/0/8 for the #753 delta (§E28–§E62), counted by reading each row's verdict word rather than by adding to the previous figure. §E53 carries both EXTERNALLY SOURCED and WRONG and is filed as SPLIT under this table's own more-than-one-verdict rule.
 
-**The §B row was itself miscounted before this pass, and the totals inherited it.** It read 13/5/0/6 against a section whose rows actually resolved 14 SUPPORTED, 4 WRONG, 1 UNPROVABLE, 5 SPLIT—one SUPPORTED filed as WRONG and §B15's UNPROVABLE filed as SPLIT, an error that preserved the row total of 24 and so survived arithmetic checking. It is corrected above alongside the twelve new rows; the pre-run totals should have read 79/42/8/22. The other section rows were **not** re-verified against their sections in this pass, and given that this one was wrong, they should not be treated as audited. (**Updated 2026-08-30:** §C, §E and §A have since been recounted as well, so the sections never checked are the remaining four—§D, §F, §G and §H.) At this stage dedup dropped from 37 to 36 because §B15 was among the WRONG instances counted and is now SUPPORTED; §C51 later added a new distinct fact, bringing the current deduplicated count back to 37.
+**The §B row was itself miscounted before this pass, and the totals inherited it.** It read 13/5/0/6 against a section whose rows actually resolved 14 SUPPORTED, 4 WRONG, 1 UNPROVABLE, 5 SPLIT—one SUPPORTED filed as WRONG and §B15's UNPROVABLE filed as SPLIT, an error that preserved the row total of 24 and so survived arithmetic checking. It is corrected above alongside the twelve new rows; the pre-run totals should have read 79/42/8/22. The other section rows were **not** re-verified against their sections in this pass, and given that this one was wrong, they should not be treated as audited. (**Updated 2026-08-31:** §C, §E, §A and now §D have been recounted, so the sections never checked are §F, §G and §H.) At this stage dedup dropped from 37 to 36 because §B15 was among the WRONG instances counted and is now SUPPORTED; §C51 later added a new distinct fact, bringing the current deduplicated count back to 37.
 
 Row-count reconciliation, since some headings cover more than one row: §E10/E11, §E13/E14 and §G1/G2/G3 each carry their IDs in one heading, and §F6–F12 carries seven under a single heading because the seven attributions share one paragraph and one correction.
 
