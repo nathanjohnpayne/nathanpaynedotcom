@@ -1,7 +1,7 @@
 ---
 title: "Friends & Family Billing"
 slug: "friends-and-family-billing"
-description: "A cloud-synced billing tool that turns recurring shared costs into clear invoices, payment tracking, and shareable summaries."
+description: "Shared billing that shows the math, tracks the money, and takes the awkward checking out of splitting recurring costs."
 seoDescription: "A household billing tool built on one question: how do you show someone what they owe, and why, without making them create an account?"
 kicker: "AI × Utility × Finance"
 order: 6
@@ -30,7 +30,7 @@ decisions:
     lens: "Access"
     context: "A household member checks their bill a handful of times a year. An account—password, recovery, sign-in—prices that rare act absurdly, and the person paying is the one I least wanted to burden. The token link predates the React app entirely, and no ADR, spec, or pull request ever records an account model being weighed against it."
     chosen: "A recipient holds a URL and nothing else. Opening it presents that member's view, including equivalent summaries for any linked household members, and the application gives each link a lifecycle: expiry, revocation, and pruning, with a visit count and last-viewed date against every link."
-    rationale: "The recipient's four needs—an amount, its derivation, a way to pay, a way to object—are all read-and-request acts. None of them requires an identity, and putting an identity in front of them is what would have killed them: a person who checks a bill once a year does not create an account, they just never look. This was product judgment, not a documented deliberation, and I would rather say so than invent a record."
+    rationale: "The recipient's four needs—an amount, its derivation, a way to pay, a way to object—are all read-and-request acts. None of them requires an identity, and putting an identity in front of them is what would have killed them: a person who checks a bill once a year does not create an account, they just never look."
     cost: "Whoever holds the link is treated as the recipient. The data-layer rules do not fully enforce the application's intended expiry and revocation model, so a leaked link can expose the intended member's view, including linked household members."
     evidence: "Link management became part of the coordinator's workflow: every link carries a lifecycle, a visit count and a last-viewed date, so I can see that someone opened their bill without asking them whether they did. The weakness is enforcement—expiry and revocation live in the application, and the deployed data-layer rule does not fully back them."
     status: "mixed"
@@ -49,7 +49,7 @@ decisions:
     chosen: "PR #161 introduced a canonical renderer—its docstring names it the single source of truth for the Invoicing preview and template email HTML—bypassed the plain-text bridge on that path, and left behind regression tests in a required check: the preview's DOM and the test email's payload must be the same HTML."
     rationale: "The sent email is the source of truth, so the renderer had to become one thing rather than three things reconciled. Making Preview merely look closer was the failure mode, not the fix."
     cost: "The fix landed on the surface being watched. Before it, the test email and the invoice rendered identically; after it, the proven surface and the real one diverged—and the pull request that unified the first two never touched the file that sends the third."
-    evidence: "The method change is in the record rather than inferred: thirty-six minutes after the third failure merged, a new brief restated the task as an invariant, banned in writing the approach that had failed three times, and addressed a different agent by name. Nine of the arc's ten pull requests carry the authoring trailer claude; the one that held carries codex. What it bought is two required tests that guard exactly what they name—the payload builder uses the canonical renderer, and the queued test-send HTML equals the preview's DOM. Neither compares anything to the invoice email."
+    evidence: "After the third failed attempt I rewrote the brief as an invariant, banned in writing the approach that had failed three times, and moved the task to a different agent. That produced the canonical renderer and two required tests—and both tests guard the preview against the test send. Neither checks the invoice people actually receive, so the tests encode the same incomplete definition of parity the fix did. [Six PRs, One Bug](/blog/six-prs-one-bug-agent-failure-modes/) has the chronology."
     status: "mixed"
 related:
   - label: "Blog: Six PRs, One Bug—What AI Agents Actually Get Wrong"
@@ -128,7 +128,7 @@ flowchart TD
     style INV fill:#11100d,stroke:#11100d,stroke-width:1.5px,color:#fffdf8
 ```
 
-![The template as the editor draws it, from the repository's own end-to-end harness on invented data: tokens unresolved, payment methods a placeholder block. The editor renders its own document rather than the output, which is the one clause of the brief that asked for an editor reflecting final output—still unmet.](/images/projects/friends-and-family-billing-edit.png)
+Three paths out of one template. The two the parity fix unified are the two anyone tested; the third is the one that reaches a person.
 
 ## What I learned
 
