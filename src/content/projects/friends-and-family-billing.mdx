@@ -1,7 +1,7 @@
 ---
 title: "Friends & Family Billing"
 slug: "friends-and-family-billing"
-description: "A cloud-synced billing tool that turns recurring shared costs into clear invoices, payment tracking, and shareable summaries."
+description: "Shared billing that shows the math, tracks the money, and takes the awkward checking out of splitting recurring costs."
 seoDescription: "A household billing tool built on one question: how do you show someone what they owe, and why, without making them create an account?"
 kicker: "AI × Utility × Finance"
 order: 6
@@ -29,10 +29,10 @@ decisions:
   - title: "Make the link the credential"
     lens: "Access"
     context: "A household member checks their bill a handful of times a year. An account—password, recovery, sign-in—prices that rare act absurdly, and the person paying is the one I least wanted to burden. The token link predates the React app entirely, and no ADR, spec, or pull request ever records an account model being weighed against it."
-    chosen: "A recipient holds a URL and nothing else. Opening it presents that member's view, including equivalent summaries for any linked household members, and the application gives each link a lifecycle with expiry, revocation, and pruning controls. The current page does not repeat the access mechanism while remediation remains open; earlier public commits remain retrievable."
-    rationale: "The recipient's four needs—an amount, its derivation, a way to pay, a way to object—are all read-and-request acts. None requires an identity, and all of them die behind a login screen. This was product judgment, not a documented deliberation, and I would rather say so than invent a record."
+    chosen: "A recipient holds a URL and nothing else. Opening it presents that member's view, including equivalent summaries for any linked household members, and the application gives each link a lifecycle: expiry, revocation, and pruning, with a visit count and last-viewed date against every link."
+    rationale: "The recipient's four needs—an amount, its derivation, a way to pay, a way to object—are all read-and-request acts. None of them requires an identity, and putting an identity in front of them is what would have killed them: a person who checks a bill once a year does not create an account, they just never look."
     cost: "Whoever holds the link is treated as the recipient. The data-layer rules do not fully enforce the application's intended expiry and revocation model, so a leaked link can expose the intended member's view, including linked household members."
-    evidence: "The product exposes expiry, revocation, and pruning controls, but the deployed data-layer rule does not fully enforce the application's intended possession boundary. The current page does not repeat the credential derivation, storage layout, lookup path, or bypass behavior while that gap remains open; this reduces repetition but does not contain earlier public history."
+    evidence: "Link management became part of the coordinator's workflow: every link carries a lifecycle, a visit count and a last-viewed date, so I can see that someone opened their bill without asking them whether they did. The weakness is enforcement—expiry and revocation live in the application, and the deployed data-layer rule does not fully back them."
     status: "mixed"
   - title: "The coordinator doesn't keep the change"
     lens: "Settlement"
@@ -41,23 +41,15 @@ decisions:
     rejected: "The write-off. Letting the coordinator quietly keep small overpayments is what most informal arrangements do, and ADR-0004 removes the option deliberately—it records the absence of any forgive-credit action as intentional."
     rationale: "Between people who share a phone plan, the money that flows back is what decides whether the system is trusted. A model that can say settled but cannot say overpaid converts the household's error into the coordinator's gain and calls it even."
     cost: "The fourth state is not self-clearing. It opens a disposition the coordinator must close, and behind that one badge came a subsystem—credit adjustments, refund events, a refund-notice service, a refunds scope on share links, a Cloud Function for the recipient to confirm receipt, and five ADRs settling how credit moves."
-    evidence: "The state never got a place in either audience's navigation. The settlement board has no Overpaid filter chip—its counts omit the state, and an overpaid household is reachable only under All—and the share page never imports the status badge at all: the person whose money it is sees two states, a green settled and a red amount due."
+    evidence: "Modelling the state was not the same as surfacing it. The board does carry a headline Owed to members tile, so the coordinator can see that a debt exists at all; what it has no way to do is find it. The filter row runs All, Outstanding, Partial, Settled—no Overpaid chip—so an overpaid household is reachable only by scrolling All. And the share page never imports the status badge, so the person whose money it is sees two states: a green settled, or a red amount due. The money is modelled correctly and shown to nobody who would act on it."
     status: "mixed"
   - title: "Fix the rendering model, not the preview"
     lens: "Parity"
-    context: "The invoice template rendered three ways: the TipTap editor drew its own DOM with unresolved token pills, the preview ran one markdown pipeline, and the sent email ran another. Six pull requests shipped in one session on this surface—the migration that introduced the divergence, three attempts at the bug itself, two orthogonal fixes—across roughly twenty hours, without closing it."
+    context: "The invoice template rendered three ways: the editor drew its own DOM with unresolved token pills, the preview ran one markdown pipeline, and the sent email ran another. Six pull requests shipped in one session on this surface across roughly twenty hours without closing it, and the three attempts at the bug itself had all converged on the same move—make the surfaces look closer."
     chosen: "PR #161 introduced a canonical renderer—its docstring names it the single source of truth for the Invoicing preview and template email HTML—bypassed the plain-text bridge on that path, and left behind regression tests in a required check: the preview's DOM and the test email's payload must be the same HTML."
-    rationale: "The issue behind the fix banned the alternative in writing: do not fix this by making Preview merely look closer while the sent HTML stays different. The sent email is the source of truth, so the renderer had to become one thing rather than three things reconciled."
-    cost: "The fix landed on the surface that was being watched. The settlement board's real Email Invoice action sends plain text with no HTML field, so the invoice a household member receives still renders through the bridge and the markdown fallback—#161 never touched that file. Before the fix, the test email and the invoice rendered identically; after it, the proven surface and the real one diverged, and the divergence has stood since April 2026."
-    evidence: "The regression tests are real, required, and guard exactly what they name. One asserts the payload builder uses the canonical renderer; the stronger one clicks Send test email and asserts the queued HTML equals the preview's DOM. Nothing compares the preview to the invoice email, and no end-to-end test touches a sent message at all."
-    status: "mixed"
-  - title: "Rewrite the brief, rotate the agent"
-    lens: "Method"
-    context: "Nine of the arc's ten pull requests carry the same authoring-agent trailer: claude. Three parity attempts by the same agent had converged on the same move—make the surfaces look closer—and the third had just merged when I stopped asking for a fourth."
-    chosen: "A new brief, thirty-six minutes after the last failed fix merged, restating the task as an invariant—one canonical rendering model, the same template content producing the same result in editor, preview, and sent email—with a written non-goal banning the approach that had failed three times, addressed to a different agent by name: its root-cause section opens with \"Codex should verify these.\" The fix that held is the arc's only pull request authored by codex."
-    rationale: "A fourth same-agent attempt inherits the blind spots of the first three. And the rotation is in the record as a written instruction rather than an inferred intention—which is the only reason this card gets to claim it was designed."
-    cost: "The ban binds exactly one reading of one brief. No repo rule, no CI check, no lint, and no test enforces the non-goal; its force was spent the moment the agent it addressed finished reading it. Nothing stops the next session from doing precisely what it forbids."
-    evidence: "The brief's own definition of done had four clauses. Two were met and still hold: the preview matching the sent test email, which became an automated check, and the reference rendering reproduced, which was confirmed by eye and is asserted by no test. The two that stayed prose—the editor accurately reflecting final output, regression tests spanning all three surfaces—were not met at merge and are not met today."
+    rationale: "The sent email is the source of truth, so the renderer had to become one thing rather than three things reconciled. Making Preview merely look closer was the failure mode, not the fix."
+    cost: "The fix landed on the surface being watched. Before it, the test email and the invoice rendered identically; after it, the proven surface and the real one diverged—and the pull request that unified the first two never touched the file that sends the third."
+    evidence: "After the third failed attempt I rewrote the brief as an invariant, banned in writing the approach that had failed three times, and moved the task to a different agent. That produced the canonical renderer and two required tests—and both tests guard the preview against the test send. Neither checks the invoice people actually receive, so the tests encode the same incomplete definition of parity the fix did. [Six PRs, One Bug](/blog/six-prs-one-bug-agent-failure-modes/) has the chronology."
     status: "mixed"
 related:
   - label: "Blog: Six PRs, One Bug—What AI Agents Actually Get Wrong"
@@ -87,15 +79,25 @@ The question path stays inside the no-login product. "Question This Charge" subm
 
 Three coordination steps are verifiably gone. The recipient learns their amount and its derivation without asking me. I learn that the link was opened, without asking—every link carries a visit count and a last-viewed date I can read back. It counts visits through the app, not people: a forwarded link and a second look are the same signal. And a dead link moves the request into the product: the expired page offers "Request New Link," and the system emails me, but I still have to mint and deliver the replacement. A fourth step is not gone: nothing sends on its own—there is no scheduler in this codebase. Once a year I still open a dialog and press Send, per member. The product removed the explaining and the checking; it routed the asking without automating the sending.
 
+![My own share of the 2026 bills, from the live product. Each line shows its derivation and not just its result—`$300.00 / month × 12 ÷ 8 members = $450.00`—and every figure is read from the field the billing math wrote, not recomputed for display, so the page cannot imply a rounding the calculation never took. This is the same derivation a recipient's link renders. The capture stops at my own subtotal: the rows below it belong to another member, and my approval to publish covers my data and nobody else's.](/images/projects/friends-and-family-billing-household.png)
+
 <ConstraintStrip constraints={props.constraints} />
 
 ## The decisions
 
-Four decisions carry the argument, all four mixed—real support beside a real limitation. Two are about money and access: who may see a household's numbers, and what the model owes the person who overpaid. Two come from the day the rendering model broke, told in [Six PRs, One Bug](/blog/six-prs-one-bug-agent-failure-modes/): what the fix actually fixed, and how the work was run differently after three fixes had failed.
+Three decisions carry the argument, all three mixed—real support beside a real limitation. Two are about the money: who may see a household's numbers without an account, and what the model owes the person who overpaid. The third is the day the rendering model broke, told at length in [Six PRs, One Bug](/blog/six-prs-one-bug-agent-failure-modes/).
 
 <DecisionLedger decisions={props.decisions} />
 
-The last two records share one exhibit, the sharpest fact on this page. The parity fix consolidated rendering onto a canonical renderer for the preview and the test send. The invoice a household member actually receives never joined them: its dialog sends plain text with no HTML field, so production invoices still render through the bridge and the fallback the fix exists to have displaced—and the fixing pull request never touched the sending file.
+## What broke
+
+All three decisions left the same gap between the model and the surface that mattered.
+
+- **Rendering.** The preview and the test send share a canonical renderer. The invoice a household member actually receives does not: its dialog sends plain text with no HTML field, and the pull request that unified the other two never touched the file that sends it. The divergence has stood since April 2026.
+- **Settlement.** Overpayment exists in the model and in a subsystem behind it. The coordinator gets an `Owed to members` tile but no `Overpaid` filter to reach the household, and the share page carries no badge at all for the person whose money it is.
+- **Access.** Expiry, revocation and pruning exist in the application. The deployed data-layer rule does not fully enforce them, so a leaked link can expose the intended member's view and the design's safety rests on the application layer alone.
+
+Different layers, one failure: the invariant stops just before the boundary where it would have mattered.
 
 ```mermaid title="Three render paths, one template" description="One invoice template renders along three paths. The editor draws its own document and shows tokens unresolved, so it never matched the output on screen; the brief's ask that it reflect final output was never delivered. The canonical renderer, added by the 2026 parity fix, produces the preview and the test send, and a required regression test holds those two together. The invoice email a household member actually receives takes the third path, through the plain-text bridge into a markdown fallback, which the fix never reached—so the tested surfaces and the real one have diverged since April 2026."
 flowchart TD
@@ -126,28 +128,12 @@ flowchart TD
     style INV fill:#11100d,stroke:#11100d,stroke-width:1.5px,color:#fffdf8
 ```
 
-![Edit mode, from the repository's own end-to-end harness against invented household data. The template as authored: `First Name`, `Billing Year`, `Household Total` and `Share Link` are unresolved token pills, and Payment Methods is a block placeholder rather than a list.](/images/projects/friends-and-family-billing-edit.png)
+Three paths out of one template. The two the parity fix unified are the two anyone tested; the third is the one that reaches a person.
 
-![The same template in Preview, which is what the canonical renderer produces. Every token above is resolved against one member—`Hi John,` and `$780.00`—and Payment Methods has expanded into the configured options. The editor deliberately leaves tokens unresolved, so these two never matched on screen; what the brief asked for and did not get was an editor that reflects the final output. The payment handle is a placeholder.](/images/projects/friends-and-family-billing-preview.png)
+## What I learned
 
-Both sent messages share an envelope that restyles the body—one more reason the parity claim is about the markup, never the pixels.
+The product did not make splitting a phone plan mathematically easier. The arithmetic was always a division. What it removed was the explaining and the checking—and it removed those by showing the derivation instead of the answer, so the question a recipient would have asked is answered before they ask it. It routed the asking without automating the sending, which is the right place to stop: nothing here should decide on its own that a friend owes money.
 
-## The intended application boundary is possession, not identity
+The harder lesson is that getting the model right is not the same as getting it seen. I modelled overpayment correctly, refused on principle to let the coordinator absorb it, and then left the coordinator scrolling for it and the recipient with no sign of it at all. I unified the renderer and missed the one path that reaches a person's inbox. Both are the same failure at different layers: correctness that stops before the surface someone actually looks at.
 
-No record weighs links against accounts—no ADR, spec, or pull request carries that deliberation. The tradeoff was my product judgment, and the honest claim is narrower than the implementation detail.
-
-The design intends link possession to stand in for identity, with the application responsible for expiry and revocation. The deployed data-layer rule does not fully enforce that model. Because the product is live and the gap remains open, the current page does not repeat the credential derivation, storage layout, lookup path, or bypass behavior; the remediation belongs in the product repository. Earlier public commits remain retrievable, so removing that detail from the current page reduces repetition and is not containment.
-
-Revocation and managed-link pruning are real, reachable controls, but they do not make the data-layer mismatch disappear. The security claim this page can support is narrower: the application has a deliberate no-login model and lifecycle controls, while enforcement below the application remains incomplete.
-
-That gap changes the privacy cost. A leaked link can expose the intended member's view, including linked household members, and server-side resolutions record the visitor's IP in an owner-visible audit log. The page can state those consequences without publishing the live lookup recipe.
-
-## What the record shows, and what it does not
-
-The repository holds no usage record—no seed data, no exported dataset, and analytics that instrument sign-in and nothing else. One group of nine has used this product; the only numbers that could substantiate how much live in the running system's per-link view counters, not in the source. What the repository can show is the mechanism and the care taken with it, not adoption.
-
-One test fixture has production-derived provenance. Because its exact content concerns a real person, this page does not identify the household member, reproduce the amount, or characterize the payment status. The fixture is not evidence of adoption or aggregate outcomes.
-
-## What it demonstrates
-
-The product ended one recurring conversation, on my own account of it. What the record demonstrates is narrower. The brief that ended the rendering arc defined done in four clauses. Two were met and have held since April 2026, though only one of them became a check that would catch a regression. The two that stayed prose—an editor that reflects final output, tests spanning every surface—were not met at merge and are not met today. The invoice email's divergence is the same finding from the other side, and the direction matters: the checked surfaces moved to the canonical renderer while the invoice path was never touched and stayed on the bridge. Nothing drifted. The gap opened because one half moved and the half nobody was checking did not. An invariant that is prose is an invariant nobody reviews.
+In a product moving money between people who know each other, that is the whole job. The household does not experience the balance state or the canonical renderer. It experiences an amount, an explanation, and whether the arrangement still feels fair a year later.

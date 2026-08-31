@@ -1511,6 +1511,26 @@ Two consequences beyond the opening sentence, both of which the page carried:
 
 The correction also supplies something the page had been missing: **the product is called Friends & Family Billing because the group is family and friends across households.** The name encodes the fact the page got wrong, and the opening now says so.
 
+### C52—the settlement board surfaces the overpaid state as a stat, and cannot filter to it
+
+**SPLIT, and corrected on the live product.** The row carries two verdicts: the page's "counts omit the state" is **WRONG**, and "no `Overpaid` filter chip" is **SUPPORTED**. §C's earlier row and the page both said the board's "counts omit the state." Read against the running application on 2026-08-30 (coordinator session, 2026 billing year), that is too strong in one direction and right in the other. The board **does** carry a headline tile, `OWED TO MEMBERS` / *Unresolved credits*, so the existence of a debt to a member is visible at a glance. What it has no way to do is **find** one: the filter row renders exactly `All`, `Outstanding`, `Partial`, `Settled`, plus a `Linked Groups` count—no `Overpaid` chip—so an overpaid household is reachable only by scrolling `All`.
+
+The corrected claim, now on the page: the state is modelled, summarized, and unnavigable. The share page's half of the finding is unchanged—it never imports the status badge, so the member sees `settled` or an amount due.
+
+**Method note.** This row is observation of a running instance, not a repository read, so it carries no pin. It is the same class of evidence as §A25's live API reads and is labelled here for the same reason.
+
+### C53—the household exhibit's provenance, and what was deliberately not captured
+
+**EXTERNALLY SOURCED (§M6), and recorded because the page publishes it.** `friends-and-family-billing-household.png` is a crop of the live coordinator dashboard, captured 2026-08-30 from the owner's authenticated session with the owner's explicit approval to use real data.
+
+**The crop is bounded to the author's own rows, and the first attempt was not.** As published it stops at `Total (Nathan Payne)`: three bill derivations and one subtotal, all the author's own figures. Nothing else appears—no other member's name, photograph, annual charge, paid amount or settlement status, and not the combined household total, which is partly another person's money.
+
+**The first version of this crop was wider, and this row described it.** It ran to the household block and published the linked member's name, photograph, annual charge, paid amount and settlement status, and this row classified that as "the author's own financial information." It is not: owner approval covers the owner's data and does not reach another person's finances. Codex raised it as a P1 and CodeRabbit as a Major, independently, on `#882`; the asset and its caption were redacted and this paragraph is the third surface, corrected after Codex noticed the row still described the old crop.
+
+**What is deliberately not published.** The full settlement board names four other members beside each one's annual total, paid total and settlement status, with profile photographs. That board-level capture was taken and is not published. **Note that the page's hero image `friends-and-family-billing-hero-v2.png` predates this row and does publish three of them**—the owner has been told and has kept it; that is recorded here so the audit trail does not read as if the boundary were clean.
+
+**Three exhibits the page wanted and does not have.** The recipient share view, the question/resolution flow, and the overpaid state were all scoped and are all unavailable at this pin. The first two require a live share token, which is a bearer credential—the browser tooling refused to return one, correctly. The third does not exist to photograph: every household on the instance reads `Settled` and `OWED TO MEMBERS` reads `None`, so no overpaid state is present in production data. Capturing any of the three needs either a freshly minted share link (a production write, the owner's call) or an `__E2E_SHARE__` injection seam in `ShareView.jsx`, which the repository does not have—its E2E harness covers auth and billing state only, and the share view loads through `getDoc` on `publicShares` and a `resolveShareToken` Cloud Function.
+
 ---
 
 ## §D `matchline`
@@ -3231,15 +3251,15 @@ Reproduce with `git rev-list --count "$(git rev-list -1 --before=2026-04-14 orig
 |---|---|---|---|---|---|---|
 | §A `device-source-of-truth` | 26 | 10 | 4 | 6 | 1 | 50 † |
 | §B `five-across` | 17 | 4 | 0 | 12 | 3 | 36 |
-| §C `friends-and-family-billing` | 20 | 12 | 3 | 16 | 0 | 51 |
+| §C `friends-and-family-billing` | 20 | 12 | 3 | 17 | 1 | 53 |
 | §D `matchline` | 7 | 0 | 3 | 2 | 0 | 12 |
 | §E `mergepath` | 29 | 16 | 0 | 17 | 0 | 62 |
 | §F `override` | 6 | 7 | 0 | 1 | 0 | 14 |
 | §G `swipe-watch` | 10 | 6 | 1 | 1 | 0 | 18 |
 | §H cross-page | 3 | 5 | 0 | 2 | 0 | 10 |
-| **Total** | **118** | **60** | **11** | **57** | **4** | **253** † |
+| **Total** | **118** | **60** | **11** | **58** | **5** | **255** † |
 
-† **The `Rows` column counts rows; §A's verdict columns do not sum to it.** §A holds **50 rows of which 47 carry a verdict**: `A27` is a method finding (on this audit's machine, `git grep -E` silently ignored `\b`—a platform-dependent trap, see the row), `A44` is the cross-surface sweep, and `A48` is the decision-record adjudication AC 5 needs. None records a verdict, and forcing one on them would be worse than the gap. So §A reads 26+10+4+6+1 = **47 verdicts across 50 rows**, and the corpus is **250 verdicts across 253 rows**. Every other section sums exactly. An earlier revision of this footnote said 49 rows against 46 verdicts, which was true before `A49` and `A50` were added and stale the moment they were—caught independently by both reviewers on `#873`. A tally corrected in one place goes stale the next time the thing it counts changes; recount from the file.
+† **The `Rows` column counts rows; §A's verdict columns do not sum to it.** §A holds **50 rows of which 47 carry a verdict**: `A27` is a method finding (on this audit's machine, `git grep -E` silently ignored `\b`—a platform-dependent trap, see the row), `A44` is the cross-surface sweep, and `A48` is the decision-record adjudication AC 5 needs. None records a verdict, and forcing one on them would be worse than the gap. So §A reads 26+10+4+6+1 = **47 verdicts across 50 rows**, and the corpus is **252 verdicts across 255 rows**. Every other section sums exactly. An earlier revision of this footnote said 49 rows against 46 verdicts, which was true before `A49` and `A50` were added and stale the moment they were—caught independently by both reviewers on `#873`. A tally corrected in one place goes stale the next time the thing it counts changes; recount from the file. It went stale again on `#882`, which added `C52` and `C53` without touching this table—caught by Codex.
 
 A **SPLIT** row is counted once, in its own column, not split across the other three; the row text names which half carries which verdict. WRONG rows count each restated instance separately, because each is a separate edit: §E10 and §E11 are one number stated twice, §G1–G3 are one number stated three times, and §H1–H2 re-count the Override and two-strike defects at the cross-page level where the fix has to be coordinated across files. Deduplicated to distinct underlying facts, the WRONG count is 37; §C51's household-framing correction is the new fact added after the earlier count of 36.
 

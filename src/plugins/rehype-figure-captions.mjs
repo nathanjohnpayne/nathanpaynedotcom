@@ -96,6 +96,16 @@ const imageDimensions = {
     width: 926,
     height: 490,
   },
+  // The coordinator's per-bill derivation on the live product, cropped to the
+  // author's OWN share only. The board names four other members beside what each
+  // owes, and the household block names a linked member: owner approval covers
+  // the owner's data and nobody else's, so the crop stops at `Total (Nathan
+  // Payne)` — no other person's name, photograph, amount or settlement status
+  // is published (#882, raised independently by both reviewers).
+  '/images/projects/friends-and-family-billing-household.png': {
+    width: 707,
+    height: 101,
+  },
   // Device Source of Truth: live captures of the deployed demo instance at a
   // 1316x913 viewport, top-cropped to the region each caption argues about.
   // The instance runs entirely on the synthetic Story Entertainment dataset
