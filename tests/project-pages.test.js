@@ -1019,6 +1019,9 @@ describe('Matchline — audited claims stay retracted (#756)', () => {
     expect(source(), 'the never-existed input must stay retracted in the open').toMatch(
       /never existed—an earlier version of this page listed them as inputs/,
     );
+    expect(rendered(), 'the retraction must survive into the rendered page').toMatch(
+      /never existed/i,
+    );
   });
 
   it('does not claim the validation layer is untested against fabrication', () => {
@@ -1029,6 +1032,15 @@ describe('Matchline — audited claims stay retracted (#756)', () => {
       expect(surface).not.toMatch(/no adversarial (?:evaluation|test)/i);
       expect(surface).not.toMatch(/never been adversarially tested/i);
     }
+    // And assert the corrected state, so deleting the section cannot satisfy
+    // the negatives above: the fixture runs in CI, and the mocked-model limit
+    // that keeps it from proving detector reliability ships with it.
+    expect(source(), 'the adversarial fixture must be described as running in CI').toMatch(
+      /runs in continuous integration/i,
+    );
+    expect(source(), 'the mocked-model limitation must ship with the claim').toMatch(
+      /model checks are mocked/i,
+    );
   });
 
   it('does not claim no deployment exists', () => {
@@ -1037,6 +1049,13 @@ describe('Matchline — audited claims stay retracted (#756)', () => {
     for (const surface of [source(), rendered()]) {
       expect(surface).not.toMatch(/the running product is not\b/i);
     }
+    // The corrected state: a deployment exists, it is gated, it is stale, and
+    // this page does not link it. All four clauses, or the retraction is only
+    // a deletion.
+    expect(source(), 'the deployed build must be disclosed, gated, stale and unlinked').toMatch(
+      /deployed behind a sign-in wall and is not linked here, because it predates/i,
+    );
+    expect(frontmatter().liveUrl, 'disclosure must not become a liveUrl').toBeUndefined();
   });
 
   it('dates the pause by the last product commit, not by a commit count', () => {

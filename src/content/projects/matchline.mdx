@@ -46,10 +46,10 @@ decisions:
     context: "Match accuracy was the number the whole matching layer was being tuned against, and across three samples of a single fixture it spread from 12.5% to 25.0% and averaged 18.1%. The spread was wider than any improvement being measured."
     chosen: "Stop tuning the matcher and repair the measurement instead: replace the absolute 0.30 similarity threshold with relative best-match mapping and a 0.10 sanity floor, then build a content-addressed stage cache so a tuning run replays unchanged stages for free."
     rejected: "Keep tuning against the noisy metric and average more samples, which is cheaper in engineering time and was affordable within the cap."
-    rationale: "A metric whose run-to-run noise exceeds its effect size cannot tell you whether a change helped. Averaging buys precision at a per-run cost, against a monthly cap that had already priced daily full runs at roughly forty-five times the budget."
+    rationale: "A metric whose run-to-run noise exceeds its effect size cannot tell you whether a change helped. Averaging buys precision at a per-run cost, and the cost was binding: one run at three samples was $2.06 against a $25 monthly cap, so the budget bought about twelve tuning runs a month."
     cost: "The last two working weeks produced no user-visible change. The product is paused with better instruments and the same accuracy, and the work that would have shown up in a demo is exactly the work that did not get done."
-    evidence: "Both changes landed and did what they claimed—the mapping fix cut match-accuracy noise by about three times, and the stage cache removed most of the per-run cost that had capped tuning at roughly twelve runs a month. Then the work stopped, so the cheaper instrument was never spent on the tuning it was built to enable."
-    status: "validated"
+    evidence: "Both changes landed and both are sound in mechanism: pairs that had been flickering across the old threshold now map stably, and a content-addressed cache does remove the cost of replaying unchanged stages. Neither was ever measured. The commit that made the mapping change projected a threefold noise reduction in its subject line and closed its body with 'eval validation to follow'—and the validation run never happened, because the next commit was the last one. So the decision to repair the instrument is supported by the noise that provoked it, and the claim that the instrument is now better rests on design rather than on a reading."
+    status: "mixed"
   - title: "A deadline someone else depends on wins"
     lens: "Prioritization"
     context: "In early July two projects wanted the same summer. One was this: a single-user tool, no launch date, nobody waiting. The other was Five Across, a live multiplayer bingo game for a nine-night cruise, with a sailing date that could not move and players who would either have it or not."
@@ -163,7 +163,7 @@ The quality bar was 80% extraction accuracy and 80% match accuracy. Neither was 
 
 The scorer first compared generated summaries to hand-labelled ones with string equality, and language models paraphrase, so the metric collapsed to 3.3%. Token overlap lifted it to 34%. A coefficient that gives full credit when the labelled set is covered by a longer generated one lifted it to 50.3%. Only then did a real system change—expanding the matching vocabulary from roughly 220 entries to 415—move it, by a single point, to 51.3%.
 
-```mermaid title="Extraction accuracy: three ruler changes and one system change" description="Extraction accuracy rose from 3.3 percent to 51.3 percent across four measurements, against an 80 percent target that was never reached. The first three increases came from redefining the scoring metric rather than changing the product: string equality scored 3.3 percent, token overlap 34 percent, and a coverage coefficient 50.3 percent. Only the fourth step was a change to the system itself, an expansion of the matching vocabulary, and it added a single point to reach 51.3 percent."
+```mermaid title="Extraction accuracy: three ruler changes and one system change" description="Extraction accuracy rose from 3.3 percent to 51.3 percent across four measurements, against an 80 percent target that was never reached. Three of those four measurements came from different definitions of the scoring metric rather than from any change to the product: string equality scored 3.3 percent, token overlap 34 percent, and a coverage coefficient 50.3 percent. Only the last step was a change to the system itself, an expansion of the matching vocabulary, and it added a single point to reach 51.3 percent."
 flowchart LR
     A["3.3%<br/>string equality"]
     B["34%<br/>token overlap"]
@@ -183,7 +183,7 @@ flowchart LR
     style T fill:#11100d,stroke:#11100d,stroke-width:1.5px,color:#fffdf8
 ```
 
-Read that sequence again: three of the four increases were changes to the ruler, not to the product. Only the orange step moved the system, and it bought one point.
+Read that sequence again. Four measurements, three steps between them—and two of those three steps changed the ruler rather than the product. The metric was defined three ways before anything about the system moved, and when the system finally did move, it bought one point.
 
 Match accuracy went from 4.2% to 16.7% on that same vocabulary work, and then stopped being legible at all. Three samples of one fixture spread from 12.5% to 25.0%, averaging 18.1%—eight to thirteen points of noise, against a target improvement smaller than the noise. Averaging it away costs money, and money was binding: a single run cost $2.06 against a $25 monthly cap, about twelve runs a month.
 
