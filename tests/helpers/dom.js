@@ -1,3 +1,7 @@
+import { readFileSync, readdirSync } from 'node:fs';
+import { dirname, join, relative, resolve, sep } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
 /**
  * Shared DOM setup for the tests that read built pages out of `dist/`.
  *
@@ -82,4 +86,131 @@ export function writeSanitizedDOM(rawHtml) {
   document.write(serializeDoctype(parsed.doctype) + parsed.documentElement.outerHTML);
   document.close();
   return document;
+}
+
+/**
+ * ## Reading the build
+ *
+ * Four suites assert against `dist/` and each used to resolve its own paths at
+ * module load with no existence guard, so running `vitest` without a build
+ * first threw `ENOENT` during collection: the file failed to collect rather
+ * than failing an assertion, and the error named an absolute path but not the
+ * step that produces it (#794).
+ *
+ * `npm test` is `astro build && vitest run`, so the build is not an optional
+ * prerequisite a reader can forget — which is why a bespoke guard in one of
+ * the four was declined on #792. Doing it once for all four is the version
+ * that does not make the shared convention less legible.
+ */
+
+/** Absolute path to the build output every `readBuilt*` helper reads from. */
+export const DIST = resolve(dirname(fileURLToPath(import.meta.url)), '../../dist');
+
+/** Appended to every missing-build error, so the fix is in the message. */
+const BUILD_HINT = 'Run `npm test` (which builds first) or `npm run build` before `vitest run`.';
+
+/**
+ * Rethrow an `ENOENT` as an error that names the route and the build step.
+ * Anything else propagates untouched — a permissions error is not a missing
+ * build and must not be reported as one.
+ *
+ * @param {NodeJS.ErrnoException} error
+ * @param {string} what Human-readable description of what was being read.
+ * @returns {never}
+ */
+function rethrowAsMissingBuild(error, what) {
+  if (error.code !== 'ENOENT') throw error;
+  throw new Error(`${what} is not in the build (looked under ${DIST}). ${BUILD_HINT}`);
+}
+
+/**
+ * Read one built page out of `dist/`.
+ *
+ * @param {string} relativePath Path under `dist/`, e.g. `'index.html'` or
+ *   `'blog/some-slug/index.html'`.
+ * @returns {string} The built markup.
+ */
+export function readBuiltPage(relativePath) {
+  try {
+    return readFileSync(resolve(DIST, relativePath), 'utf-8');
+  } catch (error) {
+    return rethrowAsMissingBuild(error, `dist/${relativePath}`);
+  }
+}
+
+/**
+ * Absolute paths of every built `.html` file under `dist/`, or under one
+ * subdirectory of it.
+ *
+ * @param {string} [subdir] Path under `dist/`; defaults to the whole build.
+ * @returns {string[]}
+ */
+export function builtPagePaths(subdir = '.') {
+  const root = resolve(DIST, subdir);
+  const walk = (dir) => {
+    let entries;
+    try {
+      entries = readdirSync(dir, { withFileTypes: true });
+    } catch (error) {
+      return rethrowAsMissingBuild(error, `dist/${relative(DIST, dir) || '.'}`);
+    }
+    const found = [];
+    for (const entry of entries) {
+      const full = join(dir, entry.name);
+      if (entry.isDirectory()) found.push(...walk(full));
+      else if (entry.name.endsWith('.html')) found.push(full);
+    }
+    return found;
+  };
+  return walk(root);
+}
+
+/**
+ * Route label for a built file, for readable assertion messages:
+ * `dist/blog/x/index.html` → `/blog/x/`, `dist/index.html` → `/`.
+ *
+ * @param {string} absolutePath
+ * @returns {string}
+ */
+export function builtRoute(absolutePath) {
+  const rel = relative(DIST, absolutePath).split(sep).join('/');
+  return `/${rel.replace(/(^|\/)index\.html$/, '$1')}`;
+}
+
+/**
+ * Every built page under `dist/` (or one subdirectory), read and labelled,
+ * sorted by route so assertion output is stable across filesystems.
+ *
+ * @param {string} [subdir] Path under `dist/`; defaults to the whole build.
+ * @returns {{ route: string, path: string, html: string }[]}
+ */
+export function builtPages(subdir = '.') {
+  return builtPagePaths(subdir)
+    .map((path) => ({ route: builtRoute(path), path, html: readFileSync(path, 'utf-8') }))
+    .sort((a, b) => a.route.localeCompare(b.route));
+}
+
+/**
+ * The build's single emitted stylesheet, read out of `dist/_astro/`.
+ *
+ * The filename is content-hashed, so it has to be discovered rather than
+ * named. A build that emits none is reported the same way a missing build is:
+ * as the build step that did not run, not as a `TypeError` from resolving
+ * `undefined`.
+ *
+ * @returns {string} The stylesheet source.
+ */
+export function readBuiltStylesheet() {
+  const astroDir = resolve(DIST, '_astro');
+  let entries;
+  try {
+    entries = readdirSync(astroDir);
+  } catch (error) {
+    return rethrowAsMissingBuild(error, 'dist/_astro');
+  }
+  const cssFile = entries.find((name) => name.endsWith('.css'));
+  if (!cssFile) {
+    throw new Error(`No stylesheet emitted into dist/_astro. ${BUILD_HINT}`);
+  }
+  return readFileSync(resolve(astroDir, cssFile), 'utf-8');
 }
