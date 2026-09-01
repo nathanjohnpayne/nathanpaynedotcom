@@ -30,7 +30,7 @@ Verdicts: **SUPPORTED** · **WRONG** (corrected value given) · **UNPROVABLE** (
 
 The last of the six, #158, **closed 36 minutes before #159 was filed**. Only #161 comes after the issue.
 
-Corrected value, and it is a better story: the six PRs came first, each chasing a symptom with no invariant attached to the work or the review. Issue #159 is what happened *after* they failed—the moment the problem stopped being a series of tickets and got named as one. Then #161 fixed it. The post currently reads as though the issue kicked off the six attempts, which reverses the causal arrow and loses the actual product lesson.
+Corrected value, and it is a better story: the six PRs came first, each chasing a symptom with no invariant attached to the work or the review. Issue #159 is what happened *after* they failed—the moment the problem stopped being a series of tickets and got named as one. Then #161 fixed it **on the preview and the test email's HTML body**; the recipient invoice was never on that path (§N). The post currently reads as though the issue kicked off the six attempts, which reverses the causal arrow and loses the actual product lesson.
 
 **That lesson was itself stated wrongly here, and the error propagated—see §M3.** The first version of this row said "nobody had written down what `correct` meant until six PRs had already shipped against it." That is false: the design spec `invoicing-tab-redesign.md` had written it down a day before #144, and #144's own kickoff prompt pointed at that spec. The defensible lesson is narrower and better: the definition existed, and for twenty-one hours nothing anyone was building or reviewing was attached to it. A correctness standard nobody cites is operationally absent without being missing.
 
@@ -106,11 +106,13 @@ Counting *all* review submissions instead gives 19. Neither is nine. If the figu
 
 ### D1—"Editor = Preview = Sent email"
 
-**UNPROVABLE as stated, because it reads as byte or visual equality.** The final architecture still renders the editor DOM separately and shares a renderer only between preview and sent-email HTML; the payload additionally has separate HTML and text builders. Defensible form: state it as semantic/content parity—the same document model produces all three, and text that is not bold in the editor is not bold anywhere downstream—and name which outputs legitimately differ. Issue #159's own "Expected behavior" section is written this way and is the better source: "Text that is not bold in the editor must not become bold in Preview or sent email." Source: `gh api repos/.../issues/159` → `.body`, § Expected behavior.
+**UNPROVABLE as stated, because it reads as byte or visual equality—and the corrected value below is itself wrong, see §N.** The final architecture still renders the editor DOM separately and shares a renderer only between the preview and the **test** email; the recipient's invoice is on neither, and the payload additionally has separate HTML and text builders. Defensible form: state it as semantic/content parity—the same document model produces all three, and text that is not bold in the editor is not bold anywhere downstream—and name which outputs legitimately differ. **The clause "the same document model produces all three" does not survive §C40 of `plans/759/project-pages-ledger.md`:** the recipient invoice is produced by the plain-text bridge, so it is three surfaces and two renderers. Issue #159's own "Expected behavior" section is written this way and is the better source: "Text that is not bold in the editor must not become bold in Preview or sent email." Source: `gh api repos/.../issues/159` → `.body`, § Expected behavior.
 
 ### D2—"One semantic rendering path"
 
 **UNPROVABLE without a stated boundary.** The preview code retains a fallback (`previewEmailPayload.html || renderInvoiceTemplate(...)`), which is a second path by construction. Defensible form: define the boundary—which surfaces share the canonical renderer and where the fallback legitimately remains—and verify it against the merged code rather than the diagram.
+
+> **The boundary this row asked for is narrower than the boundary the revision drew (§N, 2026-09-01).** The renderer is shared by the Invoicing tab's preview and its `[Test]` send. It is **not** on the path of the invoice a household member receives, and never was. Read `plans/759/project-pages-ledger.md` §C40 before writing this boundary anywhere.
 
 ---
 
@@ -136,7 +138,7 @@ Counting *all* review submissions instead gives 19. Neither is nine. If the figu
 | #154 fixed `useEditor` recreating the editor on every keystroke | `#154.title` |
 | #155 converted bold, italic and links in legacy templates | `#155.title` |
 | #158 extracted `template-doc.js` | `#158.title` |
-| #161 was authored under the Codex identity and fixed rendering parity | `#161.title` |
+| #161 was authored under the Codex identity and fixed rendering parity **on the preview and the test email** | `#161.title`; scope corrected per §N—the recipient invoice was never on the canonical path |
 | The whole arc spans roughly twenty hours | 22 h 06 m, §A1 |
 
 ---
@@ -144,10 +146,10 @@ Counting *all* review submissions instead gives 19. Neither is nine. If the figu
 ## G. Instructions to the drafting pass
 
 1. Every number, date and causal claim must trace to a **SUPPORTED** row.
-2. **§A1 is the rewrite.** The six PRs precede the issue. Restructure the opening so the arc runs: an implementation ships (#144) → symptoms get chased across five more PRs → the failures force the problem to be named (#159) → a reframed brief to a different agent fixes it (#161). The post's own thesis is stronger this way: the invariant existed in the design spec but was never attached to any piece of work anyone reviewed, and that gap is why six PRs could each be locally reasonable. See §J1—this instruction originally said the artifact was missing, which the article's own evidence disproves.
+2. **§A1 is the rewrite.** The six PRs precede the issue. Restructure the opening so the arc runs: an implementation ships (#144) → symptoms get chased across five more PRs → the failures force the problem to be named (#159) → a reframed brief to a different agent fixes it on the surface it was reported from (#161). **Do not write that #161 fixed parity outright**—§N establishes it reached the preview and the test email's HTML body only. The post's own thesis is stronger this way: the invariant existed in the design spec but was never attached to any piece of work anyone reviewed, and that gap is why six PRs could each be locally reasonable. See §J1—this instruction originally said the artifact was missing, which the article's own evidence disproves.
 3. **§A2 and §A3 need the inclusion rule stated.** One originating implementation, three attempts, two orthogonal fixes—not "six failed attempts."
 4. **§B1 must be corrected, not dropped.** The "reviewers saw it and it shipped anyway" beat is real; it belongs to #155, where three blocking rounds are on the record. On #146 both reviewers approved and verified the round-trip.
-5. Where a row says **UNPROVABLE** (§C1, §D1, §D2, §E1, §E2), use its defensible form.
+5. Where a row says **UNPROVABLE** (§C1, §D1, §D2, §E1, §E2), use its defensible form—**except §D1 and §D2, whose defensible forms are themselves superseded by §N.** Take the boundary from §N, not from those rows: the canonical renderer reaches the preview and the test email's HTML body, and nothing else.
 6. Compression: the epic asks 20–30% from 4,463, "with chronology retained where it is evidence"—and after §A1 the chronology *is* the evidence, so retain it. Per the operator's guidance in `plans/759/RUN.md` the reduction is a guideline, not a gate.
 
 ---
@@ -158,11 +160,11 @@ Counts are **words**, via `wc -w` over the whole file, the same method as the ep
 
 | Measure (words) | Baseline | Revised | Change |
 | --- | ---: | ---: | ---: |
-| Whole file (the epic's 4,463 baseline) | 4,463 | 4,561 | **+2.2%** |
+| Whole file (the epic's 4,463 baseline) | 4,463 | 4,692 | **+5.1%** |
 
-**The post ended up 2.2% longer than it started, against guidance asking for 20–30% shorter. Stated plainly because the ledger's job is accuracy, not a favourable number.**
+**The post ended up 5.1% longer than it started, against guidance asking for 20–30% shorter. Stated plainly because the ledger's job is accuracy, not a favourable number.**
 
-The figure moved four times during review and in the end moved the wrong way: −3.8% → −2.1% → −1.2% → −0.8% → **+2.2%**. Every review round that corrected a claim also lengthened it, because a corrected claim is almost always a narrower claim, and narrowing costs words. "Nobody had a definition of correctness" is six words; the true version needs a sentence distinguishing a definition that existed from one attached to the work. The same trade recurred for the renderer scope, the duration endpoints, the adopted-rules classification and the session-log caveat.
+The figure moved five times during review and in the end moved the wrong way: −3.8% → −2.1% → −1.2% → −0.8% → +2.2% → **+5.1%**, the last step being the #857 correction, which added a boundary the post had been asserting past. Every review round that corrected a claim also lengthened it, because a corrected claim is almost always a narrower claim, and narrowing costs words. "Nobody had a definition of correctness" is six words; the true version needs a sentence distinguishing a definition that existed from one attached to the work. The same trade recurred for the renderer scope, the duration endpoints, the adopted-rules classification and the session-log caveat.
 
 The compression clause was not met, and #744's carve-out—"with chronology retained where it is evidence"—only ever justified the shortfall, not the growth. What justifies the growth is that seven review rounds found real factual defects, and every fix cost words. That is the honest accounting; a reader can decide whether the trade was worth it. #744's own compression clause is the only one in the epic that carries a carve-out—"with chronology retained where it is evidence"—and after §A1 the chronology *is* the evidence. The corrected arc only works if the reader can see that all six PRs precede the issue, which needs the timestamped table, and that each PR was locally reasonable, which needs the per-PR sections.
 
@@ -276,7 +278,7 @@ Corrected, and the corrected sentence is better than either version. The invaria
 
 ### L2—The compression total was stale for the third time
 
-4,273 words, −4.3%. Every round changes it, because every round trades a shorter wrong claim for a longer right one. **Recompute this table as the last step before pushing, not when writing the section.**
+4,273 words, −4.3% at the time. Every round changes it, because every round trades a shorter wrong claim for a longer right one. **Recompute this table as the last step before pushing, not when writing the section.** It went stale a fourth time in #857: see §H's table, now 4,692 / +5.1%.
 
 ---
 
@@ -304,7 +306,7 @@ Round 3's other four findings, all confirmed and all fixed:
 | `3864326863` | `friends-and-family-billing.md`:45 | 22h06m is the arc through #161, not the six PRs | Six PRs end at #158 → **20h25m**; page now says "roughly twenty hours" |
 | `3864326872` | post:15 | keyTakeaway asserted a checkable constraint wins "every time"—a universal law from one confounded run the post elsewhere refuses to draw causally | Scoped to this arc; reframed as a reason to make intentions checkable |
 | `3864326880` | post:290 | "Every prompt in the first session described a symptom" excludes #144's kickoff, an implementation instruction | Qualified: "After the kickoff prompt that started the migration…" |
-| `3864326885` | post:270 | "every piece of HTML a recipient sees comes from `renderInvoiceTemplate`" overstates—the sent email carries envelope chrome (branded header, container, "Sent via" footer) the preview lacks, visible in the post's own screenshots | Narrowed to the **template body**; envelope HTML named as outside the renderer by design |
+| `3864326885` | post:270 | "every piece of HTML a recipient sees comes from `renderInvoiceTemplate`" overstates—the sent email carries envelope chrome (branded header, container, "Sent via" footer) the preview lacks, visible in the post's own screenshots | Narrowed to the **template body**; envelope HTML named as outside the renderer by design. **Correct but one step short—see §N and `plans/759/project-pages-ledger.md` §C40:** the narrowing kept "the sent email," which reads as the recipient invoice, and that surface never used the renderer at all |
 
 Pattern worth carrying to the remaining audits: three of these five are **scope creep on a true claim**—a correct finding stated one quantifier too wide (*every* prompt, *every* piece of HTML, *every* time). The underlying facts held; the universals did not.
 
@@ -320,3 +322,27 @@ Two rules for the remaining audits:
 2. **When a claim survives removal, stop editing the post and go find its source.** Rounds 2 through 5 each removed an instance and each assumed it was the last. The recurrence was the signal, and treating it as five separate slips instead of one upstream defect cost four rounds.
 
 Instances removed, in order: "no written invariant" (round 1), "nobody wrote down what correct meant" (round 2), "no prompt, issue, or spec anywhere licensing the question" (round 2), "nobody had that definition for the first twenty-one hours" (round 3), "the only specification of the bug that existed anywhere" (round 5). Source: §A1 of this file, corrected above.
+
+---
+
+## N. Post-publication correction (#857)—the invoice email was never on the canonical path
+
+Filed as #857 out of the #758 delta evidence audit. The companion project page was corrected under #758; the blog carried the same claim on three surfaces and was out of that issue's scope.
+
+**The finding.** `functions/index.js:1280-1282` picks a renderer on one condition:
+
+```js
+const htmlBody = wrapEmailHtml(typeof html === "string" && html.trim()
+  ? html
+  : simpleMarkdownToHtml(body));
+```
+
+An email carries canonical HTML only if its producer supplies an `html` field, and exactly one producer does: `InvoicingTab.jsx:420-426`, the `[Test]` send—the same call the post printed as "the send path." The settlement board's per-member "Email Invoice" action (`EmailInvoiceDialog.jsx:142`) passes `{ to, subject, body: finalBody, uid }` and no `html`, so the real invoice still renders through `docToPlainTextWithTokens` into `simpleMarkdownToHtml`. Verified directly against `friends-and-family-billing@d70aa8ac9fca414777985bb7dc74faa0462690e6` rather than taken from the source ledger.
+
+Sharper: before #161 the test email and the invoice email rendered identically. #161 gave the test email canonical HTML and left the invoice email on the bridge, so the fix closed the gap where the bug was observed and opened a new one between the test email and the real invoice. That divergence has stood since 2026-04-04.
+
+**Surfaces corrected—seven, not the three the issue listed.** The issue named the code block, the `:270` paragraph, and the body Mermaid block; four more turned up in review, which is the finding. (1) The code block is labelled as the `[Test]` send. (2) The `:270` paragraph names the surface the renderer never reached. (3) The body Mermaid—`title=`, `description=`, node labels—shows both paths sharing one envelope. (4) The frontmatter **sidebar diagram description** and (5) its **`#161 fix` node** both said the bridge was removed. (6) The **conclusion** said "what recipients see now matches what the preview shows." (7) The **`:235` statement** that "the fix removed it," which also needed scoping to the HTML body, since the payload's plain-text part is still built through the bridge. The `description=` is the accessible text screen-reader users receive and is a surface in its own right, per `docs/agents/blog-revision-process.md`.
+
+**What stays as written.** `:268`—"The Cloud Function now sends trusted app-generated HTML **when provided**." Accurate; "when provided" is load-bearing, and the revision now follows it to its consequence instead of leaving it as a qualifier a reader skims.
+
+**The lesson.** This claim had already been narrowed once, in round 3 (`3864326885`), and the narrowing was correct as far as it went. It replaced "every piece of HTML a recipient sees" with "the template body ... in both the preview and the sent email"—fixing the quantifier while leaving the wrong surface in the sentence. Enumerating the claim's vocabulary would have caught it; enumerating the reported sentence did not. That is `blog-revision-process.md` § "A correction is not done when the reported line is fixed," and this row is the second instance of it in this one claim.

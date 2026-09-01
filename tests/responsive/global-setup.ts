@@ -43,7 +43,15 @@ import { fileURLToPath } from 'node:url';
  *
  * ## What this does NOT establish
  *
- * It proves the server is serving *this* `dist/`. It cannot prove `dist/`
+ * It proves every file in this `dist/` is served identically. It does **not**
+ * prove the server has nothing *else*: a sibling build that still carries a
+ * `public/` asset this checkout deleted passes, because the loop only asks for
+ * files the local build has. Enumerating a remote static server's file list
+ * over HTTP is not possible without a manifest it does not publish, so this is
+ * a stated limit rather than a fixable one — relevant only to specs asserting
+ * that something is absent (Codex P2, PR #914).
+ *
+ * It also cannot prove `dist/`
  * reflects the current sources. On the managed path that is covered, because
  * `webServer` builds before serving. Under `E2E_BASE_URL` there is no build in
  * the loop, so a stale `dist/` and a server started from it agree with each
@@ -113,7 +121,19 @@ async function fetchWithDeadline(url: string, ms: number): Promise<Response> {
 }
 
 export default async function globalSetup(): Promise<void> {
-  const baseURL = process.env.E2E_BASE_URL ?? `http://localhost:${process.env.E2E_PORT ?? 4321}`;
+  // Trailing slash stripped before routes are appended. `E2E_BASE_URL` is a
+  // base URL and a trailing slash is the conventional way to write one, while
+  // every route below already starts with `/`, so raw concatenation requests
+  // `http://host//blog/` (Codex P2, PR #914).
+  //
+  // Tested rather than assumed, and the reported 404 did not reproduce: both
+  // `astro preview` and Python's `http.server` return 200 for the doubled
+  // slash. Normalizing anyway — it costs one `replace`, it is what a base URL
+  // means, and the escape hatch should not depend on every server being
+  // lenient about a slash the caller had no reason to think mattered.
+  const baseURL = (
+    process.env.E2E_BASE_URL ?? `http://localhost:${process.env.E2E_PORT ?? 4321}`
+  ).replace(/\/+$/, '');
   const dist = resolve(dirname(fileURLToPath(import.meta.url)), '../../dist');
 
   let files: string[];
