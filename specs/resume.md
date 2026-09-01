@@ -164,11 +164,18 @@ The three pre-2016 roles—AJ+ (2013–2016), Current TV (2012–2013), and CNN
 role, years, and the most transferable accomplishment. The two Disney entries
 (7 and 4 bullets) and BAMTech keep full weight.
 
-**What the compression guarantees, and what it does not.** Two things are
-guaranteed, and both are checkable: every role keeps its full date range, and
-the **CNN Magic Wall** stays on the page—it is the most memorable line on the
-résumé. Past those two, the compressed bodies drop specific facts and not
-merely words. That is the intended trade, not a defect:
+**What the compression guarantees, and what it does not.** Three things are
+guaranteed, and all three are checkable in `tests/resume.test.js`:
+
+1. Every role keeps its **full date range**.
+2. The **CNN Magic Wall** stays on the page—it is the most memorable line on
+   the résumé.
+3. Every compact entry still carries a **real accomplishment**, not a dated
+   one-liner. The test asserts a minimum body length for exactly this reason,
+   so a compact body cannot be reduced to company, role, and years.
+
+Past those three, the compressed bodies drop specific facts and not merely
+words. That is the intended trade, not a defect:
 
 - `ajplus.md` no longer names the Adobe CQ CMS publishing pipeline or its
   syndication to YouTube and Comcast Xfinity.
@@ -188,14 +195,15 @@ least of that space.
 
 An earlier revision of this section read "compression is emphasis, never
 erasure." It over-claimed (#735): the sentence promises something about every
-fact, while what this section guarantees—and what the acceptance criteria
-below test—is the date ranges and the Magic Wall line. The scoped statement is
-the honest one, and it is the one a reader can check.
+fact, while what this section guarantees—and what the tests check—is the three
+items above. The scoped statement is the honest one, and it is the one a reader
+can check.
 
 The flag is reversible in the sense given above: unset `compact: true` and the
 entry renders at full weight. That restores the *layout*, not the prose. The
-dropped facts are an editorial decision recorded here, and undoing them means
-re-authoring those bodies from the canonical resume on both surfaces.
+dropped facts are an editorial decision recorded here. Undoing one means
+copying it back from the canonical resume, which still holds every omitted
+fact—the canonical is the source and needs no edit.
 
 ## Downloadable PDF
 
@@ -358,10 +366,18 @@ icon-library dependency.
 The content is authored **verbatim** from the canonical resume—
 `job-search/nathan-payne-resume.md` in the private `nathanjohnpayne/docs`
 repository, which is the single source document, not a directory of
-variants—not paraphrased. The contract is about *fidelity*, not *completeness*: every
-sentence that appears on the page appears as the canonical writes it, and the
-page may carry less than the canonical does. It never carries something the
-canonical does not say, and it never rewords what it does.
+variants—not paraphrased. The contract binds the **collection-backed bodies**—the `myself`, `experience`,
+`education`, `certifications`, and `resumeProjects` entries—and it is about
+*fidelity*, not *completeness*: a sentence in those bodies appears as the
+canonical writes it, and they may carry less than the canonical does, but never
+something it does not say and never a rewording of what it does.
+
+**The sidebar highlight cards are deliberately outside it.** They are marquee
+metrics composed in `src/pages/resume.astro`, condensed to fit a card: the NCP
+card reads "Conceived and secured an $18.1M investment in NCPv3" where the
+canonical reads "Conceived and secured **approval for** an $18.1M investment in
+NCPv3." That is a paraphrase by design, and scoping the contract this way is
+what keeps it from classifying the shipped implementation as drift.
 
 The three compact pre-2016 bodies are where that distinction is load-bearing:
 they omit facts the canonical retains (see *Experience density* above, which
