@@ -109,6 +109,18 @@ function runCheck({
       mkdirSync(binDir, { recursive: true });
       for (const [binName, target] of Object.entries(bins)) {
         if (target === null) continue;
+        // npm writes Windows companions as cmd-shim WRAPPERS — regular files
+        // that name their target — not as symlinks. Modelling them as links
+        // would test a shape npm never produces, and would not exercise the
+        // content check that stops a tampered companion.
+        if (binName.endsWith('.cmd') || binName.endsWith('.ps1')) {
+          writeFileSync(
+            join(binDir, binName),
+            `@ECHO off\r\n"%~dp0\\..\\${target}" %*\r\n`,
+            'utf-8',
+          );
+          continue;
+        }
         // A real symlink, because that is what npm writes on POSIX and what the
         // guard now requires there — a regular file naming its target was the
         // hole CodeRabbit found (a wrapper could name astro.js and then run
@@ -756,6 +768,22 @@ describe('check-deploy-deps.sh', () => {
 
     expect(result.status).toBe(1);
     expect(result.output).toContain('.bin/bogus.cmd');
+  });
+
+  it('reports a companion that names something other than the declared bin', () => {
+    // Codex on #906. Exempting a companion on its NAME alone reopened the hole
+    // one suffix over: on Windows `npm run build` executes astro.cmd, not
+    // astro, so a tampered companion beside a correct bare shim is the command
+    // that actually runs.
+    const result = runCheck({
+      packages: { 'node_modules/astro': { version: '7.2.9', bin: { astro: 'astro.js' } } },
+      installed: { astro: '7.2.9' },
+      bins: { astro: 'astro/astro.js', 'astro.cmd': 'evil/hack.js' },
+    });
+
+    expect(result.status).toBe(1);
+    expect(result.output).toContain('.bin/astro.cmd');
+    expect(result.output).toContain('points elsewhere');
   });
 
   it('still reports a package absent from the lockfile entirely', () => {
