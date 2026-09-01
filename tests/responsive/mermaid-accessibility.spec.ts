@@ -17,11 +17,19 @@ test('Mermaid descriptions label diagrams without becoming duplicate navigable t
   const diagramBounds = await page.locator('.blog-prose .mermaid-figure svg').evaluateAll((svgs) =>
     svgs.map((svg) => {
       const bounds = svg.getBoundingClientRect();
-      const containerBounds = svg.closest('.mermaid-figure')?.getBoundingClientRect();
+      const figure = svg.closest('.mermaid-figure');
+      const containerBounds = figure?.getBoundingClientRect();
       return {
         width: bounds.width,
         height: bounds.height,
         containerWidth: containerBounds?.width ?? 0,
+        // Below the stacked breakpoint the figure holds a wide diagram at the
+        // width Mermaid drew it and scrolls, rather than scaling its 14px
+        // labels down with the graphic (#894), so a diagram may legitimately
+        // be wider than the box it sits in.
+        scrollableWidth: figure?.scrollWidth ?? 0,
+        pageWidth: document.documentElement.clientWidth,
+        pageScrollWidth: document.documentElement.scrollWidth,
       };
     }),
   );
@@ -29,7 +37,12 @@ test('Mermaid descriptions label diagrams without becoming duplicate navigable t
   for (const bounds of diagramBounds) {
     expect(bounds.width).toBeGreaterThan(0);
     expect(bounds.height).toBeGreaterThan(0);
-    expect(bounds.width).toBeLessThanOrEqual(bounds.containerWidth + 1);
+    // What has to hold is containment, not fit: whatever the diagram's width,
+    // the overflow it creates belongs to the figure and never to the page.
+    expect(bounds.width).toBeLessThanOrEqual(
+      Math.max(bounds.containerWidth, bounds.scrollableWidth) + 1,
+    );
+    expect(bounds.pageScrollWidth).toBeLessThanOrEqual(bounds.pageWidth + 1);
   }
 
   const accessibleMetadata = await figures.evaluateAll((visibleFigures) =>
