@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { spawnSync } from 'node:child_process';
-import { copyFileSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 
@@ -16,16 +16,29 @@ const scriptPath = resolve(rootDir, 'scripts/check-deploy-deps.sh');
  * `packages` is the lockfile's `packages` map. `installed` maps a package name
  * to the version to write into its manifest, or `null` to leave it uninstalled.
  */
-function runCheck({ packages, installed, env = {}, omitLock = false, omitModules = false } = {}) {
+function runCheck({
+  packages,
+  installed,
+  env = {},
+  omitLock = false,
+  omitModules = false,
+  rawLock,
+  extraneous = {},
+  gitCommitThenDirty = false,
+} = {}) {
   const workDir = mkdtempSync(join(tmpdir(), 'check-deploy-deps-test-'));
   try {
     mkdirSync(join(workDir, 'scripts'));
     copyFileSync(scriptPath, join(workDir, 'scripts/check-deploy-deps.sh'));
 
     if (!omitLock) {
+      // `rawLock` writes the file verbatim, for the malformed shapes that the
+      // normal `packages` path cannot express — a v1 tree, a null map, an array.
       writeFileSync(
         join(workDir, 'package-lock.json'),
-        JSON.stringify({ lockfileVersion: 3, packages: { '': { name: 'sandbox' }, ...packages } }),
+        JSON.stringify(
+          rawLock ?? { lockfileVersion: 3, packages: { '': { name: 'sandbox' }, ...packages } },
+        ),
         'utf-8',
       );
     }
@@ -38,6 +51,30 @@ function runCheck({ packages, installed, env = {}, omitLock = false, omitModules
         mkdirSync(dir, { recursive: true });
         writeFileSync(join(dir, 'package.json'), JSON.stringify({ name, version }), 'utf-8');
       }
+    }
+
+    for (const [name, version] of Object.entries(extraneous)) {
+      const dir = join(workDir, 'node_modules', name);
+      mkdirSync(dir, { recursive: true });
+      writeFileSync(join(dir, 'package.json'), JSON.stringify({ name, version }), 'utf-8');
+    }
+
+    if (gitCommitThenDirty) {
+      // The committed-lockfile check only engages inside a git repo, so this
+      // arm builds a real one: commit the lockfile, then modify the working
+      // copy the way a bare `npm install` would.
+      const git = (...args) =>
+        spawnSync('git', args, { cwd: workDir, encoding: 'utf-8', env: { ...process.env } });
+      git('init', '-q');
+      git('config', 'user.email', 'test@example.com');
+      git('config', 'user.name', 'test');
+      git('config', 'commit.gpgsign', 'false');
+      git('add', 'package-lock.json');
+      git('commit', '-q', '-m', 'lock');
+      const lockPath = join(workDir, 'package-lock.json');
+      const committed = JSON.parse(readFileSync(lockPath, 'utf-8'));
+      committed.packages['node_modules/astro'].version = '9.9.9';
+      writeFileSync(lockPath, JSON.stringify(committed), 'utf-8');
     }
 
     // spawnSync rather than execFileSync: the guard writes its refusal AND its
@@ -167,6 +204,91 @@ describe('check-deploy-deps.sh', () => {
     expect(result.output).toContain('DEPLOY_ALLOW_DEP_DRIFT=1');
   });
 
+  it('refuses while package-lock.json has uncommitted changes', () => {
+    // Codex P1 on #903. CI built this SHA from the COMMITTED lockfile. A
+    // working copy modified by a bare `npm install` matches the tree that same
+    // install produced, so a naive comparison passes against a dependency set
+    // CI never tested — the guard agreeing with itself instead of with CI.
+    const result = runCheck({
+      packages: { 'node_modules/astro': { version: '7.2.9' } },
+      installed: { astro: '7.2.9' },
+      gitCommitThenDirty: true,
+    });
+
+    expect(result.status).toBe(1);
+    expect(result.output).toContain('uncommitted changes');
+  });
+
+  it('reports an absent optional package that targets this host', () => {
+    // Codex P2 on #903. Exempting every absent optional also exempts one that
+    // DOES target this machine — a missing sharp or Astro compiler binding
+    // changes the build while the guard reports a match.
+    const result = runCheck({
+      packages: {
+        'node_modules/host-binding': {
+          version: '1.0.0',
+          optional: true,
+          os: [process.platform],
+          cpu: [process.arch],
+        },
+      },
+      installed: {},
+    });
+
+    expect(result.status).toBe(1);
+    expect(result.output).toContain('host-binding');
+  });
+
+  it('exempts an absent optional package constrained to a different host', () => {
+    const result = runCheck({
+      packages: {
+        'node_modules/other-host': {
+          version: '1.0.0',
+          optional: true,
+          os: ['sunos'],
+          cpu: ['mips'],
+        },
+        'node_modules/astro': { version: '7.2.9' },
+      },
+      installed: { astro: '7.2.9' },
+    });
+
+    expect(result.status).toBe(0);
+  });
+
+  it('exempts an absent optional package with no os/cpu constraints at all', () => {
+    // Unconstrained entries are usually transitive deps of a platform-specific
+    // parent — the wasm32 fallbacks pull in @emnapi/* and tslib, none of them
+    // constrained. Treating "unconstrained" as "targets this host" flagged
+    // eleven packages on a clean tree. A guard that is noisy when correct gets
+    // switched off, so absence of proof is not proof of applicability.
+    const result = runCheck({
+      packages: {
+        'node_modules/unconstrained-helper': { version: '1.0.0', optional: true },
+        'node_modules/astro': { version: '7.2.9' },
+      },
+      installed: { astro: '7.2.9' },
+    });
+
+    expect(result.status).toBe(0);
+  });
+
+  it('reports a package installed but absent from the lockfile', () => {
+    // Codex P2 on #903. The version loop only looks at what the lockfile knows
+    // about, so a `--no-save` install or a leftover from a removed dependency
+    // is invisible to it. `npm ci` deletes node_modules outright, so CI never
+    // has one.
+    const result = runCheck({
+      packages: { 'node_modules/astro': { version: '7.2.9' } },
+      installed: { astro: '7.2.9' },
+      extraneous: { 'ghost-package': '9.9.9' },
+    });
+
+    expect(result.status).toBe(1);
+    expect(result.output).toContain('ghost-package');
+    expect(result.output).toContain('not in lockfile');
+  });
+
   it('refuses when node_modules is missing entirely', () => {
     const result = runCheck({
       packages: { 'node_modules/astro': { version: '7.2.9' } },
@@ -176,6 +298,39 @@ describe('check-deploy-deps.sh', () => {
     expect(result.status).toBe(1);
     expect(result.output).toContain('node_modules');
     expect(result.output).toContain('npm ci');
+  });
+
+  // A guard that fails open is worse than no guard: it also reports that it
+  // passed. Every shape below made the original version print "safe to build"
+  // over an empty node_modules, because `lock.packages ?? {}` turned "cannot
+  // read this" into "nothing to check". Found by CodeRabbit on #903.
+  it.each([
+    {
+      shape: 'a lockfileVersion 1 tree, which keys packages under "dependencies"',
+      rawLock: { lockfileVersion: 1, dependencies: { astro: { version: '7.2.9' } } },
+    },
+    { shape: 'a null packages map', rawLock: { lockfileVersion: 3, packages: null } },
+    // typeof [] === 'object', and Object.entries([]) is happily empty, so an
+    // array slips past a naive object check and verifies nothing.
+    { shape: 'an array in place of the packages map', rawLock: { lockfileVersion: 3, packages: [] } },
+  ])('refuses $shape rather than verifying nothing', ({ rawLock }) => {
+    const result = runCheck({ rawLock, installed: {} });
+
+    expect(result.status).toBe(1);
+    expect(result.output).toContain('cannot verify dependencies');
+  });
+
+  it('refuses a lockfile that parses but declares no installable packages', () => {
+    // The same failure one step later: a well-formed map containing only the
+    // root entry checks zero packages, and an empty drift report is
+    // indistinguishable from a clean one unless the count is asserted.
+    const result = runCheck({
+      rawLock: { lockfileVersion: 3, packages: { '': { name: 'sandbox' } } },
+      installed: {},
+    });
+
+    expect(result.status).toBe(1);
+    expect(result.output).toContain('cannot verify dependencies');
   });
 
   it('refuses when there is no lockfile to compare against', () => {
