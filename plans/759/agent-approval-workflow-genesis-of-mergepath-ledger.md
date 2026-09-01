@@ -313,8 +313,8 @@ Measured at the revised head with `wc -w`, the same method as the epic's baselin
 
 | Measure | Baseline | Revised | Change |
 | --- | ---: | ---: | ---: |
-| Whole file (the epic's 4,418 baseline) | 4,418 | 4,151 | **−6.0%** |
-| Body prose, frontmatter excluded | 3,993 | 3,674 | **−8.0%** |
+| Whole file (the epic's 4,418 baseline) | 4,418 | 4,141 | **−6.3%** |
+| Body prose, frontmatter excluded | 3,993 | 3,667 | **−8.2%** |
 
 **Neither figure reaches the 20–30% band, and the distance grew with every review round.** The first draft hit −20.8% on body prose. Five automated Codex rounds, the manual Phase 4b correction, and the final CodeRabbit follow-up later it is −8.0%. Two things grew there, both required by the acceptance criteria. The `keyTakeaways` had to carry calibrated language the originals did not—"repeated observation, not controlled measurement" is longer than "measurably better", and that is the point of the change. The `description` and the diagram's `description` both gained the April-2026 snapshot boundary; the manual review added the local-guard and propagation stages the issue requires; the follow-up separated an April 17 response population from the April 16 snapshot.
 
@@ -409,7 +409,7 @@ Four findings, all correct, all fixed. One of them is a rule I had written down 
 
 The revision's "evidence after launch" said the *hook* refused a bolded `**Authoring-Agent:**` because "the check is line-anchored". Checked against the code: the line-anchored match that actually rejected the body lives in the wrapper's contract—`scripts/lib/pr-body-contract.mjs:270`, `/^Authoring-Agent:\s*(.*?)\s*$/i`, with the error text emitted from `scripts/lib/pr-body-contract.sh:60`. Attributing line-anchoring to the hook is wrong; the hook's check is a case-insensitive substring `grep`.
 
-Corrected, and the correction improves the passage: the hook's job was to insist the write go through the wrapper at all, and the wrapper's job was to validate the body. Two components, two boundaries, one easily mistaken for the other—which is the section's entire thesis. Source: `scripts/hooks/gh-pr-guard.sh` lines 1043, 1219, 1375–1376; `scripts/lib/pr-body-contract.mjs:270`; `scripts/lib/pr-body-contract.sh:60`.
+Corrected, and the correction improves the passage: two components, two boundaries, one easily mistaken for the other—which is the section's entire thesis. **§S corrects the division this sentence originally drew:** at the pinned commit the hook insisted on the wrapper *and* checked the command text, and the wrapper validated nothing. Both layers were live by the time of the event above, and the hook passed the bolded header because its check is a substring `grep`, not because it had stepped aside. Source: `scripts/hooks/gh-pr-guard.sh` lines 1043, 1219, 1375–1376; `scripts/lib/pr-body-contract.mjs:270`; `scripts/lib/pr-body-contract.sh:60`.
 
 ### M2—The compression totals were stale
 
