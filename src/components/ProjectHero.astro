@@ -18,11 +18,18 @@
  * - `breadcrumbLabel`: current-page (third) crumb; first two crumbs are
  *   fixed (home → Projects).
  * - `liveUrl` (optional): external product link — first CTA when present.
+ * - `liveLabel` (optional): label for that CTA. Defaults to the canonical
+ *   "View Live Product". A project whose live link opens a demonstration
+ *   rather than the product overrides it from frontmatter, so the button
+ *   agrees with the project's own STATUS instead of contradicting it.
  * - `githubUrl` (optional): repository link. Omitted for private
  *   repositories, where the CTA is suppressed rather than rendering a
  *   button that 404s for every reader but the owner (#874).
  */
 import Breadcrumbs from './Breadcrumbs.astro';
+
+/** Canonical live-CTA label. Every project uses it unless it says otherwise. */
+const DEFAULT_LIVE_LABEL = 'View Live Product';
 
 interface Props {
   variant: 'wide' | 'narrow';
@@ -30,10 +37,12 @@ interface Props {
   deck: string;
   breadcrumbLabel: string;
   liveUrl?: string;
+  liveLabel?: string;
   githubUrl?: string;
 }
 
-const { variant, title, deck, breadcrumbLabel, liveUrl, githubUrl } = Astro.props;
+const { variant, title, deck, breadcrumbLabel, liveUrl, liveLabel, githubUrl } = Astro.props;
+const liveCtaLabel = liveLabel || DEFAULT_LIVE_LABEL;
 ---
 
 <header class={`project-hero project-hero--${variant}`}>
@@ -51,7 +60,7 @@ const { variant, title, deck, breadcrumbLabel, liveUrl, githubUrl } = Astro.prop
       <p class="deck deck--inset">{deck}</p>
       <div class="project-actions">
         {liveUrl && (
-          <a class="nav-button" href={liveUrl} target="_blank" rel="noopener noreferrer">View Live Product</a>
+          <a class="nav-button" href={liveUrl} target="_blank" rel="noopener noreferrer">{liveCtaLabel}</a>
         )}
         {githubUrl && (
           <a class="nav-button" href={githubUrl} target="_blank" rel="noopener noreferrer">View on GitHub</a>

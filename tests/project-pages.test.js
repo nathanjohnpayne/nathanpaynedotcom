@@ -103,15 +103,29 @@ const projectIndexAccentRows = canonicalProjectCards.map((_, i) =>
 // is unaffected. See specs/project-pages.md § Accent ramp.
 const projectAccentRamp = ['red', 'yellow', 'paper', 'blue', 'black'];
 
-// Projects without a deployed live URL — the "View Live Product" CTA
+// Projects without a deployed live URL — the live CTA
 // is suppressed on the detail page, the project card, and the homepage
 // Builds section. The SoftwareApplication JSON-LD entity is also
 // dropped on these pages (no `url:` to populate).
-const noLiveUrlSlugs = ['matchline'];
+//
+// Empty today. `matchline` sat here from #756 through #885 because its only
+// deployment was the stale 2026-05-02 build the page declined to link. That
+// build was superseded on 2026-08-31, so the exception is gone rather than
+// merely unused — restore an entry here only when a project genuinely has no
+// reachable deployment.
+const noLiveUrlSlugs = [];
 // `device-source-of-truth` is a private repository, so its "View on GitHub"
 // CTA is suppressed rather than rendering a button that 404s for every
 // reader but the owner (#874). Same exception shape as `noLiveUrlSlugs`.
 const noGithubUrlSlugs = ['device-source-of-truth'];
+
+// The live CTA's canonical label, and the projects that override it. DST is
+// ARCHIVED and its live link opens a synthetic-data demonstration rather than
+// the internal product, so "View Live Product" would ask a reader to reconcile
+// two states that only look contradictory. Overrides are enumerated here so an
+// unannounced relabel of any other project fails.
+const DEFAULT_LIVE_LABEL = 'View Live Product';
+const liveCtaLabels = { 'device-source-of-truth': 'View Demo' };
 
 // Every project source the collection would load, as paths relative to CONTENT.
 //
@@ -125,6 +139,16 @@ function projectSourceFiles() {
   return findFilesRecursively(CONTENT, (filePath) => /\.mdx?$/.test(filePath)).map((filePath) =>
     relative(CONTENT, filePath),
   );
+}
+
+// Resolve a slug back to the source file that declares it. Matched on the
+// frontmatter `slug` rather than the filename: the two agree today, but the
+// collection keys on the field, so a rename would otherwise silently point an
+// assertion at the wrong project's frontmatter.
+function projectSourceFor(slug) {
+  const file = projectSourceFiles().find((f) => readProjectFrontmatter(f).slug === slug);
+  if (!file) throw new Error(`no project source declares slug "${slug}"`);
+  return file;
 }
 
 function readDistHtml(relativePath) {
@@ -481,17 +505,84 @@ describe('Project Pages — render', () => {
         );
         // The "Back to Projects" / "Back to Homepage" footer actions also
         // share the .nav-button class, so filter to the hero CTAs by
-        // checking for the canonical labels we render in HeroWide/Narrow.
+        // checking for the canonical labels we render in ProjectHero.
+        const liveLabel = liveCtaLabels[slug] ?? DEFAULT_LIVE_LABEL;
         if (noLiveUrlSlugs.includes(slug)) {
-          expect(actions).not.toContain('View Live Product');
+          expect(actions).not.toContain(DEFAULT_LIVE_LABEL);
         } else {
-          expect(actions).toContain('View Live Product');
+          expect(actions).toContain(liveLabel);
+          // An overridden label must REPLACE the default, not sit beside it.
+          if (liveLabel !== DEFAULT_LIVE_LABEL) {
+            expect(actions).not.toContain(DEFAULT_LIVE_LABEL);
+          }
         }
         if (noGithubUrlSlugs.includes(slug)) {
           expect(actions).not.toContain('View on GitHub');
         } else {
           expect(actions).toContain('View on GitHub');
         }
+      });
+
+      it('marks lifecycle in the STATUS cell and nowhere else', () => {
+        // The lifecycle glyph completes a site-wide grammar (homepage Builds
+        // row → /projects/ card kicker → this cell). It stays in the STATUS
+        // cell alone so lifecycle never competes with project identity: not
+        // beside the h1, not in the breadcrumb, not on the hero CTA, and not
+        // in two places at once.
+        const marked = [...document.querySelectorAll('.state-marker')];
+        expect(marked.length, `${slug}: expected exactly one lifecycle mark`).toBe(1);
+
+        const cell = marked[0];
+        expect(cell.tagName, 'state is metadata, not a control').toBe('DD');
+        expect(cell.classList.contains('metadata-strip__status')).toBe(true);
+
+        const item = cell.closest('.metadata-strip__item');
+        expect(item, `${slug}: the mark is not inside a metadata-strip cell`).not.toBeNull();
+        expect(item.querySelector('dt').textContent.trim()).toBe('Status');
+
+        // The forbidden neighbours, checked by containment rather than by
+        // absence-of-class alone: a mark added to any of them would be inside
+        // one of these subtrees.
+        for (const sel of ['h1', '.breadcrumbs', '.project-actions', '.project-hero__header > *']) {
+          for (const region of document.querySelectorAll(sel)) {
+            expect(
+              region.querySelector('.state-marker'),
+              `${slug}: lifecycle mark leaked into ${sel}`,
+            ).toBeNull();
+          }
+        }
+
+        // The three sibling cells stay unmarked.
+        const others = [...document.querySelectorAll('.metadata-strip__item')].filter(
+          (el) => el !== item,
+        );
+        expect(others.length).toBe(3);
+        for (const other of others) {
+          expect(
+            other.querySelector('.state-marker'),
+            `${slug}: ${other.querySelector('dt').textContent.trim()} cell gained a mark`,
+          ).toBeNull();
+        }
+      });
+
+      it('selects the marker modifier its frontmatter status calls for', () => {
+        // The expected mapping is written out here rather than imported from
+        // src/lib/lifecycle-marker.ts on purpose: a test that reads the same
+        // table the page reads cannot catch that table being wrong.
+        const expected = {
+          SHIPPED: 'state-marker--shipped',
+          ARCHIVED: 'state-marker--archived',
+          PAUSED: 'state-marker--paused',
+          EXPERIMENT: 'state-marker--experiment',
+          'IN PROGRESS': 'state-marker--in-progress',
+        };
+        const status = readProjectFrontmatter(projectSourceFor(slug)).status;
+        const cell = document.querySelector('.metadata-strip__status');
+        expect(cell.textContent.trim(), `${slug}: cell text must be the status word`).toBe(status);
+        expect(
+          [...cell.classList].find((c) => c.startsWith('state-marker--')),
+          `${slug}: wrong mark for ${status}`,
+        ).toBe(expected[status]);
       });
 
       it('emits a JSON-LD graph; SoftwareApplication present iff project has a live URL', () => {
@@ -521,6 +612,38 @@ describe('Project Pages — render', () => {
       });
     });
   }
+
+  it('keeps ARCHIVED and PAUSED on visibly different marks across detail pages', () => {
+    // The cored ring exists precisely so a closed history does not read as a
+    // project merely set down. If both collapsed to the bare outline the word
+    // would carry the whole signal — which is the defect the mark fixes.
+    const markFor = (slug) => {
+      setupDOM(readDistHtml(`projects/${slug}/index.html`));
+      const cell = document.querySelector('.metadata-strip__status');
+      return [...cell.classList].find((c) => c.startsWith('state-marker--')) ?? 'state-marker--none';
+    };
+    expect(markFor('device-source-of-truth')).not.toBe(markFor('matchline'));
+  });
+
+  it('reuses the /projects/ marker geometry rather than a detail-page variant', () => {
+    // Same primitive, no per-surface size override. `.state-marker` is em-sized
+    // so it tracks whatever type it sits in; a `.metadata-strip__status` rule
+    // that set width/height/font-size on the mark would break the shared
+    // grammar the glyph exists to complete.
+    const css = readFileSync(resolve(__dirname, '../src/styles/global.css'), 'utf-8');
+    const block = css.match(/\.metadata-strip__status\s*\{([^}]*)\}/);
+    expect(block, 'no .metadata-strip__status rule found').not.toBeNull();
+    for (const prop of ['width', 'height', 'font-size', 'transform', 'gap']) {
+      expect(
+        new RegExp(`(^|[;\\s])${prop}\\s*:`).test(block[1]),
+        `.metadata-strip__status must not set ${prop} — it would diverge from /projects/`,
+      ).toBe(false);
+    }
+    expect(
+      /\.metadata-strip__status::before\s*\{/.test(css),
+      '.metadata-strip__status::before must not restyle the shared mark',
+    ).toBe(false);
+  });
 });
 
 describe('Project Pages — screenshot aspect variants', () => {
@@ -1082,22 +1205,30 @@ describe('Matchline — audited claims stay retracted (#756)', () => {
 
   it('does not claim no deployment exists', () => {
     // A build is deployed and publicly reachable behind a sign-in wall. The
-    // page's position is that it is stale and unlinked, not that it is absent.
+    // page's position was that it was stale and unlinked; since the 2026-08-31
+    // redeploy it is current and linked. What must never come back is the
+    // claim that no deployment exists at all.
     for (const surface of [source(), rendered()]) {
       expect(surface).not.toMatch(/the running product is not\b/i);
     }
-    // The corrected state: a deployment exists, it is gated, it is stale, and
-    // this page does not link it. All four clauses, or the retraction is only
-    // a deletion.
-    expect(source(), 'the deployed build must be disclosed, gated and unlinked').toMatch(
-      /deployed behind a sign-in wall and is not linked here/i,
+    // The corrected state: a deployment exists, it is gated, it is current,
+    // and this page links it. All four clauses, or the retraction is only a
+    // deletion.
+    expect(source(), 'the deployed build must still be disclosed as gated').toMatch(
+      /deployed behind a sign-in wall/i,
     );
-    // Scoped, per Codex on #885: the May build predates the June/July work but
-    // not the April material, so the staleness claim names which work is absent.
-    expect(source(), 'the staleness claim must be scoped to the later work').toMatch(
+    expect(source(), 'the page must say the CTA points at that build').toMatch(
+      /button above goes to it/i,
+    );
+    expect(source(), 'the redeploy must be dated the way the stale build was').toMatch(
+      /redeployed on the evening of 2026-08-31/,
+    );
+    // The superseded staleness claim must not survive alongside the link — a
+    // page that links the build and still calls it a May build is worse than
+    // either state on its own.
+    expect(source(), 'the superseded staleness claim must be gone').not.toMatch(
       /It dates from 2026-05-02, which is before the June and July work/,
     );
-    expect(frontmatter().liveUrl, 'disclosure must not become a liveUrl').toBeUndefined();
   });
 
   it('dates the pause by the last product commit, not by a commit count', () => {
@@ -1111,7 +1242,7 @@ describe('Matchline — audited claims stay retracted (#756)', () => {
     // the forensic chronology out of the prioritization record, so there is no
     // corrected value left to pin. The negative above is what matters: the
     // overcount must not come back, whether or not a count is stated.
-    expect(surface, 'commit-count claims need an as-of date').toMatch(/As of 2026-08-31/i);
+    expect(surface, 'commit-count claims need an as-of date').toMatch(/as of 2026-09-01/i);
   });
 
   it('keeps the wordmark legible by leaving order and accent alone', () => {
@@ -1126,10 +1257,56 @@ describe('Matchline — audited claims stay retracted (#756)', () => {
     expect(data.screenshotSrc).toBe('/images/projects/matchline-wordmark.svg');
   });
 
-  it('publishes no liveUrl while the only deployment is stale', () => {
+  it('publishes the dev instance now that the deployment is current', () => {
+    // Inverts the #885 assertion. The liveUrl was withheld while the only
+    // deployment predated the work this page rests on; the 2026-08-31 redeploy
+    // removed that reason, so both hero CTAs and the index card link render.
     const data = frontmatter();
-    expect(data.liveUrl).toBeUndefined();
+    expect(data.liveUrl).toBe('https://matchline-dev.web.app/');
     expect(data.githubUrl).toBe('https://github.com/nathanjohnpayne/matchline');
+  });
+
+  it('styles the subsection heading and decision list it introduced', () => {
+    // Matchline is the first project body to use an h3 or a bold-label
+    // criteria list — every page before it was flat at h2 with free-standing
+    // bullets. Without these rules the h3 falls back to the UA default and
+    // the list keeps a rhythm that put a label further from its own bullets
+    // than from the next group.
+    const css = readFileSync(resolve(__dirname, '../src/styles/global.css'), 'utf-8');
+    expect(source(), 'the restart section should carry an h3 subhead').toMatch(/^### /m);
+    expect(css, '.project-copy h3 must be styled').toMatch(/^\.project-copy h3 \{/m);
+
+    // The tightened rhythm is scoped to a paragraph that is nothing but a
+    // bold label. Globalizing it re-tightens Friends & Family Billing's list,
+    // which is introduced by a sentence and followed by a conclusion and
+    // reads worse at 6px/14px. Pin the guard, not just the effect.
+    for (const selector of [
+      '.project-copy p:has(> strong:only-child) + ul',
+      '.project-copy p:has(> strong:only-child) + ul + p',
+      '.project-copy p:has(> strong:only-child) + ul li',
+    ]) {
+      expect(css, `${selector} must stay scoped to labelled lists`).toContain(`${selector} {`);
+    }
+    expect(css, 'the unscoped list indent must stay at its original value').toMatch(
+      /\.project-copy ul li \{\n\s*position: relative;\n\s*padding-left: 1rem;/,
+    );
+  });
+
+  it('says why the pause is expected to end, in the terms the repository sets', () => {
+    // The restart passage is the only place the page asserts that product
+    // work resumed. It has to name what actually broke and what actually runs,
+    // or it is a mood rather than a claim.
+    const surface = source();
+    expect(surface, 'the restart must name the two engines that came back up').toMatch(
+      /résumé extraction and JD parsing run end to end/i,
+    );
+    expect(surface, 'the edge failure must be named, not summarized').toMatch(
+      /missing Cloud Run invoker bindings/,
+    );
+    expect(surface, 'the credential failure must be named').toMatch(/trailing newlines/);
+    // And the status must not quietly follow the prose — the project stays
+    // PAUSED until a real application has gone through it end to end.
+    expect(frontmatter().status).toBe('PAUSED');
   });
 });
 

@@ -17,6 +17,7 @@ Astro pages, layouts, and content collections generate the full static site into
 | `src/pages/rss.xml.ts` | RSS feed endpoint (via `@astrojs/rss`). |
 | `src/pages/404.astro` | Custom error page. |
 | `src/lib/blog-order.ts` | Shared blog category vocabulary and editorial comparator (featured, then category, then date). |
+| `src/lib/lifecycle-marker.ts` | Shared project-status → `.state-marker` modifier vocabulary. Every surface that shows lifecycle (homepage Builds row, `/projects/` card kicker, detail-page STATUS cell) imports it; a second copy of the mapping fails `tests/lifecycle-marker.test.js`. |
 | `src/layouts/BaseLayout.astro` | Base wrapper—SEO meta, Open Graph tags, JSON-LD, GA4 snippet, font preconnects. |
 | `src/layouts/BlogPost.astro` | Blog post layout (three-column Mondrian-inspired grid with sidebar). |
 | `src/layouts/ProjectLayout.astro` | Project page layout. |
@@ -25,7 +26,7 @@ Astro pages, layouts, and content collections generate the full static site into
 | `src/content/blog/**/*.md` | Recursively discovered Markdown blog posts with required editorial category, optional featured flag, and optional SEO-only title/description fields. |
 | `src/content/projects/**/*.{md,mdx}` | Recursively discovered project source files—each **non-draft** file generates a project page and index entry (`getStaticPaths` filters `draft: true`). `.mdx` only where the body places a case-study component mid-prose; plain `.md` is the default and stays valid, and `projects` is the only collection whose glob accepts `.mdx`. Optional `seoDescription` keeps search snippets concise without shortening on-page case-study copy. See `specs/project-pages.md` for authoring guide. |
 | `src/components/ProjectHero.astro` | Project hero header; `variant` prop covers wide/narrow screenshot layouts (#470). |
-| `src/components/MetadataStrip.astro` | Strip-only project metadata table (topics/format/focus/status); the screenshot surface is owned by `ProjectLayout`. |
+| `src/components/MetadataStrip.astro` | Strip-only project metadata table (topics/format/focus/status); the STATUS cell alone carries the lifecycle mark, and the screenshot surface is owned by `ProjectLayout`. |
 | `src/components/resume/*` | Resume section components and Logo.dev-backed company/school/issuer logo rendering. |
 | `src/components/posthog.astro` | PostHog analytics bootstrap; no-ops when `PUBLIC_POSTHOG_PROJECT_TOKEN` is unset. |
 | `src/content.config.ts` | Content Collections schema definition (Zod-validated frontmatter). |

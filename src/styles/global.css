@@ -1019,8 +1019,10 @@ html[data-fonts-pending] .panel-label {
    Built as CSS boxes rather than Unicode glyphs so stroke weight and optical
    size match the site's other geometry exactly, and so the marks stay
    orthogonal; a circle would break the composition's own logic. Sized in `em`
-   so one primitive serves the dense homepage row and the larger index card
-   without a per-surface override.
+   so one primitive serves the dense homepage row, the larger index card, and
+   the project detail page's STATUS cell without a per-surface override — the
+   mark is a constant 0.72 of whatever label it sits beside. The status → mark
+   mapping is shared too; see src/lib/lifecycle-marker.ts.
 
    The fills are the decision ledger's, reused so state reads the same way
    wherever it appears. Note the two axes are NOT the same: the ledger marks a
@@ -1859,6 +1861,30 @@ body.blog-page {
   color: var(--ink);
 }
 
+/* STATUS cell — the one place lifecycle appears on a detail page. Title,
+   breadcrumb, and the hero CTA stay clear of it so lifecycle never competes
+   with project identity.
+
+   Deliberately declaration-free apart from the shrink-to-fit box: every visual
+   property comes from `.state-marker`, unmodified. The primitive is `em`-sized
+   so it tracks whatever type it sits in, and a detail page is not a reason to
+   draw a bigger mark — the mark-to-label ratio here is the same 0.72 it is on
+   /projects/. The mark also inherits `currentcolor` from `.metadata-strip dd`
+   above, so it cannot be keyed to a token the label is not: on any accent
+   surface, if the word is legible the mark is. Adding size, color, or
+   alignment here is how the two surfaces would drift apart.
+
+   `flex` rather than the primitive's `inline-flex` is the one exception, and
+   it is a containing-box choice, not a mark choice — the mark's box, gap, and
+   fill are untouched. An inline-level box in this cell sits on a line box and
+   picks up the parent strut's descender, which made the STATUS cell one pixel
+   taller than the `dd` it replaced and grew the whole strip on the two pages
+   where STATUS is the tallest cell in its row. Block-level keeps the cell's
+   box byte-for-byte what it was and adds only the mark. */
+.metadata-strip__status {
+  display: flex;
+}
+
 /* Project screenshot — figure container below the metadata strip.
    Wide variant fills the content width; narrow variant centers a
    phone-sized image. The inner wrapper constrains width so the
@@ -2184,6 +2210,26 @@ body.blog-page {
   margin-top: 0;
 }
 
+/* One register below the italic h2, and upright rather than italic, so a
+   subsection reads as subordinate to the rule-separated section above it
+   instead of competing with it. No border-top for the same reason — the
+   rule is what marks a top-level section break. Mirrors .blog-prose > h3,
+   which solves the identical problem on the other long-form surface.
+   First used by the Matchline page; every project page before it was flat
+   at h2, so an unstyled h3 would have fallen back to the browser default.
+   The size floor is 1.15rem rather than blog's 1.08rem: a project h3 can
+   follow bold inline labels in body copy, and at 1.08rem the heading read
+   as the quieter of the two. */
+.project-copy h3 {
+  margin-top: 2.5rem;
+  margin-bottom: 0.75rem;
+  font-family: var(--font-heading);
+  font-weight: var(--heading-weight);
+  font-size: clamp(1.15rem, 1.45vw, 1.36rem);
+  line-height: 1.1;
+  letter-spacing: var(--heading-letter-spacing);
+}
+
 .project-copy p {
   font-size: clamp(0.95rem, 0.92rem + 0.14vw, 1.02rem);
   line-height: 1.65;
@@ -2224,6 +2270,13 @@ body.blog-page {
   padding-left: 1rem;
 }
 
+/* Criteria sit closer to their square marker than free-standing bullets do,
+   so the list reads as attached to the label above it. 0.72rem is the floor:
+   the marker is 0.42rem wide at left 0, and anything tighter crowds it. */
+.project-copy p:has(> strong:only-child) + ul li {
+  padding-left: 0.72rem;
+}
+
 .project-copy ol li {
   padding-left: 0.4rem;
 }
@@ -2236,6 +2289,29 @@ body.blog-page {
   width: 0.42rem;
   height: 0.42rem;
   background: var(--accent);
+}
+
+/* A labelled list is one unit with the label that introduces it.
+   `.project-copy` is a grid, so its 1.2rem row gap is the floor every child
+   sits on and only a negative margin gets below it — without these rules a
+   bold label sat FURTHER from its own list (27px, gap + the ul's 0.5rem)
+   than from the next label (19px, gap alone), which is what made the bullets
+   read as detached from what they belong to. Now: 6px label-to-list, 14px
+   list-to-next-label (a group break, still well under the 32px between
+   paragraphs), and the h3 takes the only section-sized gap.
+
+   Scoped by `:has(> strong:only-child)` to a paragraph that is nothing BUT a
+   bold label, which is the decision-framework shape ("Resume it when:"). A
+   list introduced by an ordinary sentence, or followed by a conclusion that
+   is not part of it, keeps the normal rhythm — Friends & Family Billing has
+   exactly that shape and reads worse at 6/14. `ul + p` must stay after
+   `p + p`: equal specificity, so source order decides. */
+.project-copy p:has(> strong:only-child) + ul {
+  margin-top: -0.8rem;
+}
+
+.project-copy p:has(> strong:only-child) + ul + p {
+  margin-top: -0.32rem;
 }
 
 /* Use the same contrast-corrected color the in-content links use. */

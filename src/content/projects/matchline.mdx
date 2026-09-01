@@ -10,6 +10,7 @@ status: "PAUSED"
 screenshotAspect: "wide"
 screenshotSrc: "/images/projects/matchline-wordmark.svg"
 accent: "black"
+liveUrl: "https://matchline-dev.web.app/"
 githubUrl: "https://github.com/nathanjohnpayne/matchline"
 tags: ["AI", "Product", "Career Tools", "React", "Firebase"]
 metadata:
@@ -57,7 +58,7 @@ decisions:
     rejected: "Push Matchline to a usable V1 first, on the argument that a tool this close to working should not be abandoned mid-flight."
     rationale: "A date someone else set is not negotiable and a date I set is. The reasoning here is mine and the record can only corroborate its shape, not its cause: the commit timestamps establish that one project stopped and another started, and nothing in them establishes why."
     cost: "The instruments were finally cheap, the accuracy was not yet there, and the run that would have shown whether the repair worked was never made. Knowing whether matching works needs more than that one run—a finished corpus, and a real application end to end—but the run was the next step, and it is the step that did not happen."
-    evidence: "Product work stopped the day before the Five Across repository was created, apart from one final session spent on the evaluation cache. That cache is the last product commit in Matchline."
+    evidence: "Product work stopped the day before the Five Across repository was created, apart from one final session spent on the evaluation cache. That cache closed the phase; the next product commit lands a month later."
     status: "mixed"
 related:
   - label: "Project: Mergepath"
@@ -211,19 +212,34 @@ It runs in continuous integration against the Firestore emulator, and a passing 
 
 Agents authored the implementation and independent agent identities reviewed it, under the enforcement system documented in [Mergepath](/projects/mergepath/). The reviews materially changed the product: they caught a seniority scorer that was zeroing every Experience Unit because extraction emits verbs where the ladder matched nouns, a schema converter silently returning an empty object that had disabled model-input validation across four subsystems at once, and a matching rerun that discarded the user's rejections. On that last one my own first reply to the reviewer was wrong, cited a test that did not cover the case, and the reviewer pushed back a second time before it was fixed.
 
-The active work ends on a date the commits set: the evening of 2026-07-31, Pacific, when the eval stage cache landed. Automated maintenance has continued since—dependency bumps and repository-template syncs—and as of 2026-08-31 none of it touches the product. That is the durable distinction: maintenance kept moving and product development stopped.
+The pause has a date the commits set: the evening of 2026-07-31, Pacific, when the eval stage cache landed. For the month after that only maintenance moved—dependency bumps and repository-template syncs, none of it touching the product. Product commits resumed on 2026-08-31 and, as of 2026-09-01, are still landing; what they fixed is the subject of the next section.
 
-A development build is deployed behind a sign-in wall and is not linked here. It dates from 2026-05-02, which is before the June and July work this page rests on—the noise that stopped the tuning, the measurement repair, and the eval cache are all absent from it. The April material, including the adversarial fixture, is in there.
+A development build is deployed behind a sign-in wall, and the "View Live Product" button above goes to it. It was redeployed on the evening of 2026-08-31 and now carries the June and July work this page rests on, rather than the 2026-05-02 build it served until then. Signing in with a new account gets an empty instance—every document is scoped to its `owner_uid`—so the link shows the shell, not the corpus.
 
 ## What would restart it
 
-I never wrote these down while the project was live, and that is its own finding: the repository has exit criteria for finishing V1 and none for deciding whether to carry on with it. Criteria for building, not for deciding. So here they are now.
+I never wrote these criteria down while the project was live, which is itself a finding: the repository had exit criteria for finishing V1, but none for deciding whether to continue. Criteria for building, not for deciding.
 
-**Resume it** when the evaluation corpus is finished and labelled, the measurement is trustworthy enough that a change larger than the noise is visible, and one real application has gone through the product end to end—the condition the second build phase set for itself and never met.
+**Resume it when:**
 
-**Kill it** if matching stays fundamentally poor after a full tuning cycle on the cheap instruments, which would mean the approach is wrong rather than untuned. Or if I finish a job search without reaching for it: the product's own success metric was that it would be the primary tool rather than abandoned for a spreadsheet, and a builder who does not use their own tool under real pressure has answered the question.
+- The evaluation corpus is finished and labelled.
+- Measurement is trustworthy enough to distinguish improvement from noise.
+- One real application has gone through the product end to end—the condition the second build phase set for itself and never met.
 
-As of September 2026 that second condition is live rather than hypothetical. Five Across took the summer and a European vacation took what was left of it, and the job search this was built for has now resumed in earnest. So I am picking it back up—which means the product is about to be tested against the only bar that was ever going to settle it, by the user it was built for, under real pressure.
+**Kill it when:**
+
+- Matching remains fundamentally poor after a full tuning cycle on the cheap evaluation infrastructure. At that point, the approach is wrong rather than merely untuned.
+- I complete a job search without reaching for it. The product's success metric was becoming my primary tool rather than another system abandoned for a spreadsheet. If I do not use it under real pressure, that answers the question.
+
+### Where it stands
+
+As of September 2026, the conditions for revisiting the project are becoming real rather than hypothetical. The job search it was built for has resumed, giving Matchline the real-world test it never received.
+
+Writing this page also exposed three stacked production failures: missing Cloud Run invoker bindings blocked CORS preflights, trailing newlines in both provider secrets broke authentication, and extraction held a sixty-second timeout against three long model calls. With those fixed, résumé extraction and JD parsing run end to end—and expose a worse problem: the matching ontology fails on out-of-domain requirements, so `jaccard()` zeros 45% of the score before fit is considered.
+
+The eval harness can now route tuning runs through a subscription CLI instead of the metered Anthropic cap that had limited testing to roughly twelve runs a month.
+
+**The project remains paused.** But the infrastructure now works, the cost of experimentation is low, and the job search provides the test it was built for. The next step is a deliberate restart against the criteria above—not continued development by inertia.
 
 ## What I learned
 
