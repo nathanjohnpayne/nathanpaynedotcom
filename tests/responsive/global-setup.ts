@@ -86,7 +86,21 @@ function routeOf(dist: string, file: string): string {
  */
 async function fetchWithDeadline(url: string, ms: number): Promise<Response> {
   try {
-    return await fetch(url, { signal: AbortSignal.timeout(ms) });
+    // `Accept-Encoding: identity` asks for the raw representation, so the
+    // bytes hashed here are the bytes on the wire rather than whatever the
+    // client reconstructed.
+    //
+    // Measured, because the reason to want it is not the obvious one: Node's
+    // fetch decodes `gzip` transparently, so against a gzipping server the
+    // digests already MATCH (verified — same SHA-256 with and without this
+    // header). Transparent decoding preserves equality rather than breaking
+    // it. What the header buys is independence from that decoding being both
+    // present and correct for whatever encoding a server picks, which is worth
+    // one header on a check whose whole value is not reporting fiction.
+    return await fetch(url, {
+      signal: AbortSignal.timeout(ms),
+      headers: { 'Accept-Encoding': 'identity' },
+    });
   } catch (error) {
     const reason =
       error instanceof Error && error.name === 'TimeoutError'
