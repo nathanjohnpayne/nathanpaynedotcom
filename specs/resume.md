@@ -178,8 +178,10 @@ merely words. That is the intended trade, not a defect:
   Anything*, *The Gavin Newsom Show*, and *The War Room with Jennifer
   Granholm*.
 
-Every one of those facts is still in the canonical resume under
-`~/GitHub/docs/job-search/`, verified against it rather than assumed; see
+Every one of those facts is still in the canonical resume—
+`job-search/nathan-payne-resume.md` in the private `nathanjohnpayne/docs`
+repository, checked out locally at `~/GitHub/docs/`—verified against that file
+rather than assumed; see
 *Content fidelity* below for which document is the source. The page is a
 three-page document and the pre-2016 roles are the ones whose detail earns the
 least of that space.
@@ -353,8 +355,10 @@ icon-library dependency.
 
 ## Content fidelity
 
-The content is authored **verbatim** from the canonical resume—not
-paraphrased. The contract is about *fidelity*, not *completeness*: every
+The content is authored **verbatim** from the canonical resume—
+`job-search/nathan-payne-resume.md` in the private `nathanjohnpayne/docs`
+repository, which is the single source document, not a directory of
+variants—not paraphrased. The contract is about *fidelity*, not *completeness*: every
 sentence that appears on the page appears as the canonical writes it, and the
 page may carry less than the canonical does. It never carries something the
 canonical does not say, and it never rewords what it does.
