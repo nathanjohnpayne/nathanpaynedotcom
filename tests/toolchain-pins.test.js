@@ -40,7 +40,10 @@ import { resolve } from 'node:path';
 const rootDir = resolve(__dirname, '..');
 const rulesPath = resolve(rootDir, 'rules/repo_rules.md');
 
-const rulesText = readFileSync(rulesPath, 'utf-8');
+// Newlines are normalized before matching: .gitattributes pins `eol=lf` only
+// for *.svg, so a Windows checkout with core.autocrlf=true hands this file CRLF
+// and an \n-anchored fence pattern would throw on a perfectly valid block.
+const rulesText = readFileSync(rulesPath, 'utf-8').replace(/\r\n/g, '\n');
 const manifest = JSON.parse(readFileSync(resolve(rootDir, 'package.json'), 'utf-8'));
 const lockfile = JSON.parse(readFileSync(resolve(rootDir, 'package-lock.json'), 'utf-8'));
 
@@ -84,7 +87,12 @@ function upperBound(range) {
     for (const term of clause.split(/\s+/).filter(Boolean)) {
       const caret = term.match(/^\^(\d+)\.(\d+)\.(\d+)(?:[-+].*)?$/);
       const less = term.match(/^<(\d+)\.(\d+)\.(\d+)(?:[-+].*)?$/);
-      const open = /^(?:>=?|=)?\d+\.\d+\.\d+(?:[-+].*)?$/.test(term);
+      // An exact peer (`6.0.3`, `=6.0.3`) is a *bounded* range: it admits one
+      // version and nothing above it. Folding it in with `>=` would report it
+      // as unbounded and admit any declared ceiling — the silent widening this
+      // whole file exists to catch.
+      const exact = term.match(/^=?(\d+)\.(\d+)\.(\d+)(?:[-+].*)?$/);
+      const floor = /^>=?\d+\.\d+\.\d+(?:[-+].*)?$/.test(term);
 
       let termBound = null;
       if (caret) {
@@ -95,15 +103,18 @@ function upperBound(range) {
         else termBound = [0, 0, patch + 1];
       } else if (less) {
         termBound = less.slice(1, 4).map(Number);
-      } else if (!open) {
+      } else if (exact) {
+        const [major, minor, patch] = exact.slice(1, 4).map(Number);
+        termBound = [major, minor, patch + 1]; // exclusive upper for a single version
+      } else if (!floor) {
         throw new Error(
           `Unsupported semver range term "${term}" in "${range}". ` +
             'tests/toolchain-pins.test.js only parses the forms this repo uses ' +
             '(^x.y.z, <x.y.z, >=x.y.z, ||). Extend the parser rather than loosening it.',
         );
       }
-      // A recognized `>=x.y.z` or bare version leaves termBound null: it is a
-      // floor, not a ceiling, and contributes nothing to the upper bound.
+      // A recognized `>=x.y.z` / `>x.y.z` leaves termBound null: it is a floor,
+      // not a ceiling, and contributes nothing to the upper bound.
 
       // Terms within a clause are ANDed: the tightest ceiling wins.
       if (termBound && (bound === null || compare(termBound, bound) < 0)) bound = termBound;
@@ -129,11 +140,21 @@ const fmt = (bound) => (bound === null ? 'unbounded' : bound.join('.'));
 
 describe('toolchain pins (#825)', () => {
   it('declares a parseable pin block with the fields the rest of this suite reads', () => {
-    expect(Object.keys(pins.devDependencies ?? {}).length).toBeGreaterThan(0);
     expect(pins.typescriptPeerCeilingSources).toEqual(expect.arrayContaining(['typescript-eslint']));
     expect(pins.markdownProcessorLockstep).toEqual(
       expect.arrayContaining(['astro', '@astrojs/markdown-remark', '@astrojs/mdx']),
     );
+  });
+
+  it('records every protected package in the block, so none can drop out of coverage', () => {
+    // The per-package assertions below are generated FROM the block, so an
+    // entry deleted from it silently deletes its own coverage while every
+    // other assertion keeps passing. This is the floor that prevents that.
+    const required = ['typescript', ...pins.markdownProcessorLockstep];
+    expect(
+      Object.keys(pins.devDependencies ?? {}).sort(),
+      'a pin dropped out of the block would take its own check with it',
+    ).toEqual(expect.arrayContaining(required.sort()));
   });
 
   describe('package.json agrees with the pin block', () => {
@@ -235,12 +256,16 @@ describe('toolchain pins (#825)', () => {
     it('the lockfile holds no second @astrojs/markdown-remark nested under @astrojs/mdx', () => {
       // The failure this section calls silent: two Markdown processors in one
       // tree, no ERESOLVE, no error, every other gate still green.
-      const nestedPaths = Object.keys(lockfile.packages ?? {}).filter((path) =>
-        path.startsWith('node_modules/@astrojs/mdx/node_modules/'),
-      );
-      expect(nestedPaths, `nested packages under @astrojs/mdx: ${nestedPaths.join(', ')}`).toEqual(
-        [],
-      );
+      //
+      // Matched on the exact path rather than the directory prefix. mdx nesting
+      // some unrelated transitive dependency is ordinary npm behaviour and says
+      // nothing about the Markdown processor, so reddening a required check over
+      // it would be a false positive on a gate that has to stay trustworthy.
+      const nested = 'node_modules/@astrojs/mdx/node_modules/@astrojs/markdown-remark';
+      expect(
+        Object.keys(lockfile.packages ?? {}),
+        `${nested} exists: two Markdown processors in one tree`,
+      ).not.toContain(nested);
     });
   });
 });
