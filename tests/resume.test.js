@@ -981,10 +981,15 @@ describe('Resume — skim weighting', () => {
     //    asserted syntactically, so the enforceable version is the specific
     //    fact specs/resume.md says each compact role retains — which is what
     //    the spec actually promises, and is closed rather than open-ended.
+    //
+    //    Pin the whole distinguishing phrase, not the striking token in it:
+    //    `$335K` alone passes a body that says AJ+ merely *managed* a $335K
+    //    budget, which drops the guaranteed fact (annual vendor savings) while
+    //    keeping the number (Codex, #916).
     for (const [company, marker] of [
-      ['AJ+', '$335K'],
-      ['Current TV', 'three nightly shows'],
-      ['CNN', 'Magic Wall'],
+      ['AJ+', '$335K in annual vendor savings'],
+      ['Current TV', 'launching three nightly shows within 30 days'],
+      ['CNN', 'Conceptualized and led the CNN Magic Wall'],
     ]) {
       const prose = byCompany[company].querySelector('.resume-prose');
       expect(prose, `${company}: compact entry has no .resume-prose body`).toBeTruthy();

@@ -171,10 +171,12 @@ guaranteed, and all three are checkable in `tests/resume.test.js`:
 2. The **CNN Magic Wall** stays on the page—it is the most memorable line on
    the résumé.
 3. Every compact entry still carries **its** accomplishment, not a dated
-   one-liner: AJ+ keeps the **$335K** in annual vendor savings, Current TV the
-   **three nightly shows** launched within 30 days, CNN the **Magic Wall**. The
-   test pins those three strings, plus a minimum body length so an entry cannot
-   be reduced to the marker alone. "A real accomplishment" is not something a
+   one-liner. The test pins the whole distinguishing phrase for each—`$335K in
+   annual vendor savings`, `launching three nightly shows within 30 days`,
+   `Conceptualized and led the CNN Magic Wall`—plus a minimum body length so an
+   entry cannot be reduced to the phrase alone. The phrase and not the striking
+   token in it: pinning `$335K` by itself passes a body saying AJ+ merely
+   *managed* a $335K budget, which keeps the number and drops the fact. "A real accomplishment" is not something a
    test can recognise; the specific fact each role retains is, which is why the
    guarantee is written as three named facts rather than a quality bar.
 
