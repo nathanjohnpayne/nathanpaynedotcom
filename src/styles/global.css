@@ -1088,9 +1088,17 @@ html[data-fonts-pending] .panel-label {
 }
 
 /* Route into the projects index, below the seven rows. A paper control rather
-   than a bare link, matching the other .nav-button actions on the site. */
+   than a bare link, matching the other .nav-button actions on the site.
+
+   The vertical space is the point: at 14px above and 5px below it sat closer to
+   the STACK ribbon than to the list it belongs to, so it read as part of the
+   footer block — or worse, as an eighth project row. Both gaps are opened so it
+   reads as the list's deliberate endpoint. The margin-bottom lives here rather
+   than on .stack-ribbon so the ribbon's own spacing is untouched wherever else
+   it appears. Left-aligned and unwidened by intent. */
 .projects-index-cta {
-  margin-top: 0.85rem;
+  margin-top: 1.5rem;
+  margin-bottom: 0.9rem;
   font-size: clamp(0.68rem, 0.8vw, 0.78rem);
   padding: 0.42rem 0.7rem;
 }
