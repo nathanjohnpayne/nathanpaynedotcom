@@ -182,7 +182,12 @@ describe('Project Pages — routes', () => {
     expect(deckText).toMatch(/^Every one of these began as a real problem/);
     const problemAt = deckText.indexOf('real problem');
     const decisionAt = deckText.indexOf('decisions are the part worth reading');
-    const outcomeAt = deckText.indexOf('shipped; every other card says');
+    // The outcome beat no longer counts the shipped projects. Once every card
+    // carried a lifecycle marker the tally was redundant with the grid, and
+    // counting it read as defending the portfolio's success rate. The beat
+    // itself survives — the cards still account for their own state — so AC1's
+    // ordering is unchanged and only this anchor moved.
+    const outcomeAt = deckText.indexOf('where the project stands');
     const agentAt = deckText.indexOf('I build with AI agents');
     for (const [label, at] of Object.entries({ problemAt, decisionAt, outcomeAt, agentAt })) {
       expect(at, `deck is missing its ${label} beat`).toBeGreaterThan(-1);
@@ -252,7 +257,7 @@ describe('Project Pages — routes', () => {
     // Since #751 the index renders `cardDescription`, not the hero deck. The
     // retraction assertions below still apply — the card is a public surface
     // and must not reassert what the #756 audit removed.
-    expect(matchlineDescription).toContain('51% extraction accuracy against an 80% bar');
+    expect(matchlineDescription).toContain('51.3% extraction accuracy against an 80% bar');
     expect(matchlineDescription).toContain('Paused');
     expect(matchlineDescription).not.toContain('what the user has actually done');
     expect(matchlineDescription).not.toContain('LinkedIn');
