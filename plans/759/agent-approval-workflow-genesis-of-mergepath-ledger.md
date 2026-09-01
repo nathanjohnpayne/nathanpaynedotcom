@@ -461,7 +461,7 @@ Three findings, all correct, and all three of the same species: a correction app
 
 ### O1—The hook still validated the body earlier in the post
 
-§M1 corrected the "evidence after launch" paragraph but left the paragraph that first introduces the guard still saying the hook "refuses it unless the PR body carries" the required sections. Rewritten to separate the two components where they are first described. **§S reverses this one:** the original wording was right that the hook reads the body, and the rewrite moved a real hook responsibility onto the wrapper. See §S.
+§M1 corrected the "evidence after launch" paragraph but left the paragraph that first introduces the guard still saying the hook "refuses it unless the PR body carries" the required sections. Rewritten to separate the two components where they are first described. **§S qualifies this one:** in *mergepath's* copy the original wording was right that the hook inspects the create for the markers—though it greps the raw command text, never a parsed body—and the rewrite moved a real hook responsibility onto the wrapper. In *this* repository's copy the rewrite was correct. See §S for the divergence.
 
 ### O2—The sidebar diagram still said `>300 lines`
 
@@ -485,7 +485,7 @@ Third time. Recomputed at this head: 3,998 whole-file, 3,553 body. §J now carri
 
 ### P2—§H still credited the hook with the body contract
 
-The "claims that stand as written" table had the pre-§M1 attribution. Corrected to credit the wrapper's contract. **§S corrects it again:** both components check the body, and at the commit the post cites only the hook did.
+The "claims that stand as written" table had the pre-§M1 attribution. Corrected to credit the wrapper's contract. **§S corrects it again:** at the mergepath commit the post cites, only the hook inspected the create, and it did so by grepping the command text rather than reading a body; in this repository the wrapper's contract owns it. Name the repository.
 
 ### P3—The break-glass row collapsed two boundaries
 
@@ -572,7 +572,7 @@ Two true observations, joined by a wrong mechanism.
 
 `scripts/lib/pr-body-contract.{sh,mjs}` **does not exist at the pinned commit**—`GET /contents/scripts/lib?ref=7878830` does not list it. The wrapper there is 133 lines and greps clean for `Authoring-Agent` and `Self-Review`; on `main` today it is 241 lines and calls `pr_body_validate`. The wrapper's line-anchored contract is therefore a **later** layer, and §M1 was reading it back into a commit that predates it.
 
-That also explains the bolded-header rejection §M1 was written to explain, and explains it better. The hook's `grep -qi 'Authoring-Agent:'` matches the marker inside `**…**` and passes the body (row 3 above, observed). The wrapper's `/^ {0,3}Authoring-Agent:\s*(.*?)\s*$/i` does not. Both layers were live by then, and a bolded header is the precise input that separates them—so the refusal came from the wrapper, exactly as §M1 said, but not because the hook had stepped aside.
+**Everything above is about mergepath, and the bolded-header rejection did not happen there.** It happened in this repository, whose copy had already gained the author-wrapper early exit—so the hook stepped aside and never reached a grep, and the wrapper's `/^ {0,3}Authoring-Agent:\s*(.*?)\s*$/i` rejected the body. §M1's account was right, including the mechanism. The table below is where the two repositories are separated; an earlier draft of this section carried the mergepath explanation into the event account and was wrong for it.
 
 ### Corrected value
 
