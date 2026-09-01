@@ -947,13 +947,44 @@ describe('Resume — skim weighting', () => {
     // AJ+, Current TV, CNN — the three flagged in #618. Disney NCP, Disney
     // Streaming, and BAMTech keep full weight.
     expect(compact.length).toBe(3);
-    const texts = compact.map((e) => e.textContent.replace(/\s+/g, ' ').trim());
-    // Compression must not erase the decade: the full CNN range still prints.
-    expect(texts.join(' ')).toContain('2002–2012');
-    for (const t of texts) {
-      // Compact is a density decision, not a deletion — each entry still
-      // carries a real accomplishment, not just a dated one-liner.
-      expect(t.length).toBeGreaterThan(120);
+
+    // specs/resume.md § Experience density advertises three guarantees, so
+    // check all three PER ENTRY. An earlier version joined the three entries
+    // and asserted one date range across the lot, which passed while AJ+ or
+    // Current TV lost its years; and it measured `textContent`, which
+    // includes the company, role, location and dates, so a body replaced with
+    // filler cleared the length floor on the heading alone (#735, Codex).
+    const byCompany = Object.fromEntries(
+      compact.map((entry) => [
+        entry.querySelector('.resume-entry__title').textContent.split('–').pop().trim(),
+        entry,
+      ]),
+    );
+
+    // 1. Every role keeps its full date range — each one, not the set.
+    for (const [company, range] of [
+      ['AJ+', '2013–2016'],
+      ['Current TV', '2012–2013'],
+      ['CNN', '2002–2012'],
+    ]) {
+      const entry = byCompany[company];
+      expect(entry, `no compact entry for ${company}`).toBeTruthy();
+      expect(
+        entry.querySelector('.resume-entry__meta').textContent,
+        `${company}: date range missing from the meta line`,
+      ).toContain(range);
+    }
+
+    // 2. Each entry still carries a real accomplishment. Measured on the BODY,
+    //    so heading text cannot satisfy the floor on the body's behalf.
+    for (const entry of compact) {
+      const company = entry.querySelector('.resume-entry__title').textContent.split('–').pop().trim();
+      const prose = entry.querySelector('.resume-prose');
+      expect(prose, `${company}: compact entry has no .resume-prose body`).toBeTruthy();
+      expect(
+        prose.textContent.replace(/\s+/g, ' ').trim().length,
+        `${company}: compact body is a dated one-liner, not an accomplishment`,
+      ).toBeGreaterThan(120);
     }
   });
 
