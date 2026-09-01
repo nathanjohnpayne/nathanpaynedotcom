@@ -21,6 +21,23 @@ const projectStatus = Object.fromEntries(
   projectEntries.map((project) => [project.data.slug, project.data.status]),
 );
 const statusOf = (slug: string) => projectStatus[slug] ?? '';
+// Lifecycle marker, borrowing the decision ledger's geometry so state reads the
+// same way in both places: filled = done, outline = not running, half = partial.
+// The paper grammar this keeps distinct — underlined/arrowed text navigates, an
+// outlined rectangle is a control, glyph + uppercase text is state — is why the
+// label carries no border of its own (#892).
+const STATUS_MARKER: Record<string, string> = {
+  SHIPPED: 'shipped',
+  ARCHIVED: 'archived',
+  PAUSED: 'paused',
+  EXPERIMENT: 'experiment',
+  'IN PROGRESS': 'in-progress',
+};
+const statusClass = (slug: string) => {
+  const status = statusOf(slug);
+  const modifier = STATUS_MARKER[status];
+  return modifier ? `p-status p-status--${modifier}` : 'p-status';
+};
 
 const latestPost = chronologicalPosts[0];
 
@@ -171,7 +188,7 @@ const homepageJsonLd = {
         <div class="panel-content">
           <div class="content-inner">
             <h2>Selected Projects</h2>
-            <p>Products I built with AI agents under a review system I designed. They span consumer, enterprise, finance, and developer tooling; the case studies focus on the decisions, tradeoffs, and evidence behind them.</p>
+            <p>Built with AI agents under a review system I designed, these span consumer, enterprise, finance, and developer tooling. The case studies focus on the decisions, tradeoffs, and evidence behind them.</p>
             {/* Builds grid — hand-authored, NOT generated from the projects
                 collection, so the `order` field on the project source files has
                 no effect here. This is a *selected* set: the heading says so, and
@@ -185,56 +202,56 @@ const homepageJsonLd = {
               <div class="project-item">
                 <div class="p-head">
                   <a class="p-name p-name-link" href="/projects/five-across/" aria-label="Read the Five Across project page">Five Across<span class="link-arrow" aria-hidden="true">→</span></a>
-                  <span class="p-status">{statusOf('five-across')}</span>
+                  <span class={statusClass('five-across')}>{statusOf('five-across')}</span>
                 </div>
                 <p>A multiplayer bingo game built for a nine-night cruise, with daily themed cards, offline-first marking, live standings, and a choreographed finale.</p>
               </div>
               <div class="project-item">
                 <div class="p-head">
                   <a class="p-name p-name-link" href="/projects/mergepath/" aria-label="Read the Mergepath project page">Mergepath<span class="link-arrow" aria-hidden="true">→</span></a>
-                  <span class="p-status">{statusOf('mergepath')}</span>
+                  <span class={statusClass('mergepath')}>{statusOf('mergepath')}</span>
                 </div>
                 <p>A repository standard for the gap between what a fleet of AI coding agents can produce and what one operator can responsibly stand behind.</p>
               </div>
               <div class="project-item">
                 <div class="p-head">
                   <a class="p-name p-name-link" href="/projects/override/" aria-label="Read the Override project page">Override<span class="link-arrow" aria-hidden="true">→</span></a>
-                  <span class="p-status">{statusOf('override')}</span>
+                  <span class={statusClass('override')}>{statusOf('override')}</span>
                 </div>
                 <p>A financial operating system for Broadway productions—models capitalization and investor returns, manages ownership, and shares a read-only deal room with backers instead of spreadsheet and PDF workflows.</p>
               </div>
               <div class="project-item">
                 <div class="p-head">
                   <a class="p-name p-name-link" href="/projects/device-source-of-truth/" aria-label="Read the Device Source of Truth project page">Device Source of Truth<span class="link-arrow" aria-hidden="true">→</span></a>
-                  <span class="p-status">{statusOf('device-source-of-truth')}</span>
+                  <span class={statusClass('device-source-of-truth')}>{statusOf('device-source-of-truth')}</span>
                 </div>
                 <p>A single web application that tracks partner-device hardware, DRM, codec support, and operational readiness—unifying fragmented device data while keeping consequential changes behind human review.</p>
               </div>
               <div class="project-item">
                 <div class="p-head">
                   <a class="p-name p-name-link" href="/projects/matchline/" aria-label="Read the Matchline project page">Matchline<span class="link-arrow" aria-hidden="true">→</span></a>
-                  <span class="p-status">{statusOf('matchline')}</span>
+                  <span class={statusClass('matchline')}>{statusOf('matchline')}</span>
                 </div>
                 <p>A career CRM for one person running a serious job search—turns work history into approved evidence, maps it against a specific job&rsquo;s requirements, and blocks the export when a claim doesn&rsquo;t trace back.</p>
               </div>
               <div class="project-item">
                 <div class="p-head">
                   <a class="p-name p-name-link" href="/projects/swipe-watch/" aria-label="Read the Swipe Watch project page">Swipe Watch<span class="link-arrow" aria-hidden="true">→</span></a>
-                  <span class="p-status">{statusOf('swipe-watch')}</span>
+                  <span class={statusClass('swipe-watch')}>{statusOf('swipe-watch')}</span>
                 </div>
                 <p>A swipe-based discovery experiment for Disney+ and Hulu that turns expressing taste into a game—built in vanilla JS across three days of one week.</p>
               </div>
               <div class="project-item">
                 <div class="p-head">
                   <a class="p-name p-name-link" href="/projects/friends-and-family-billing/" aria-label="Read the Friends and Family Billing project page">Friends &amp; Family Billing<span class="link-arrow" aria-hidden="true">→</span></a>
-                  <span class="p-status">{statusOf('friends-and-family-billing')}</span>
+                  <span class={statusClass('friends-and-family-billing')}>{statusOf('friends-and-family-billing')}</span>
                 </div>
                 <p>Shared billing for recurring household costs—showing recipients the arithmetic, tracking settlement, and handling questions without requiring an account.</p>
               </div>
             </div>
             {/* The homepage lists every project but never made the richer index
                 an obvious destination (#892). */}
-            <a class="p-link projects-index-cta" href="/projects/">View all projects and case studies<span class="link-arrow" aria-hidden="true">→</span></a>
+            <a class="nav-button projects-index-cta" href="/projects/">View all projects<span class="link-arrow" aria-hidden="true">→</span></a>
             <div class="stack-ribbon">
               <span class="eyebrow stack-label">Stack</span>
               <span class="stack-items">Bash · TypeScript · Vanilla JS · React · Next.js · Vite · Tailwind CSS · Zod · Vitest · Playwright · Firebase · Cloudflare Workers · Express · GitHub Actions · PostHog · Anthropic · OpenAI · Claude Code · Codex · Cursor · CodeRabbit</span>

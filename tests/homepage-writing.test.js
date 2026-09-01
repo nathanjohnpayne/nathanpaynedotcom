@@ -193,12 +193,40 @@ describe('Homepage Builds grid mirrors the projects collection (#892)', () => {
     expect(new Set(rows.map((r) => r.status)).size, 'expected mixed lifecycle states').toBeGreaterThan(1);
   });
 
+  it('keeps status as metadata, not as a control', () => {
+    // The paper carries three grammars and they must not blur: underlined or
+    // arrowed text navigates, an outlined rectangle is a control, glyph +
+    // uppercase text is state. A boxed status pill beside a link reads as a
+    // tiny button and is not one (#892).
+    setupDOM(readDistHtml('index.html'));
+    const panel = document.querySelector('[data-panel="projects"]');
+    const statuses = [...panel.querySelectorAll('.p-status')];
+    expect(statuses.length).toBeGreaterThan(0);
+    for (const status of statuses) {
+      expect(status.tagName, 'a status must not be a link or a button').toBe('SPAN');
+      expect(
+        status.classList.contains('nav-button'),
+        'status must not take the control treatment',
+      ).toBe(false);
+      // Each state carries a marker modifier so the glyph, not just the word,
+      // distinguishes it — including ARCHIVED from PAUSED.
+      const modifier = [...status.classList].find((c) => c.startsWith('p-status--'));
+      expect(modifier, `no state marker on "${status.textContent?.trim()}"`).toBeTruthy();
+    }
+    const modifiers = statuses.map((s) => [...s.classList].find((c) => c.startsWith('p-status--')));
+    expect(new Set(modifiers).size, 'expected distinct state markers').toBeGreaterThan(1);
+  });
+
   it('offers a route into the projects index', () => {
     setupDOM(readDistHtml('index.html'));
     const panel = document.querySelector('[data-panel="projects"]');
     const cta = panel.querySelector('.projects-index-cta');
     expect(cta, 'no CTA into /projects/').not.toBeNull();
     expect(cta?.getAttribute('href')).toBe('/projects/');
-    expect(cta?.textContent).toContain('View all projects and case studies');
+    expect(cta?.textContent).toContain('View all projects');
+    // A paper control, not a bare link: the site's grammar reserves the outlined
+    // rectangle for actions, and this is one. Status labels deliberately do NOT
+    // take this treatment — see .p-status in global.css.
+    expect(cta?.classList.contains('nav-button'), 'CTA should use the paper control style').toBe(true);
   });
 });

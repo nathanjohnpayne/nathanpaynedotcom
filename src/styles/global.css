@@ -1010,29 +1010,70 @@ html[data-fonts-pending] .panel-label {
   margin-bottom: 0.22rem;
 }
 
-/* Lifecycle status on a Builds row (#892). The homepage presented all seven
+/* Lifecycle state on a Builds row (#892). The homepage presented all seven
    projects identically, which reads as equivalent shipped work; /projects/ is
-   precise about this and the homepage was not. Sits inside .p-head's existing
-   flex row so the label costs no row height — the homepage composition is
-   deliberately denser than the projects index and should stay that way. */
+   precise about this and the homepage was not.
+
+   Deliberately NOT boxed. The paper carries three distinct grammars and the
+   distinction is worth protecting: underlined or arrowed text navigates, an
+   outlined rectangle is a control, and glyph + uppercase text is state. An
+   outlined status pill sitting beside a link read as a tiny button — it looked
+   pressable and is not. Status is metadata, so it is set as metadata.
+
+   The marker geometry is the decision ledger's, reused so state reads the same
+   way in both places: filled is done, an empty outline is not running, a
+   half-fill is partial. It sits inside .p-head's existing flex row, so the
+   label costs no row height. */
 .p-status {
-  font-family: var(--font-mono, monospace);
-  font-size: 0.6rem;
-  letter-spacing: 0.1em;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.32rem;
+  font-size: 0.62rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
-  padding: 0.1rem 0.35rem;
-  border: 1px solid currentColor;
-  opacity: 0.72;
   white-space: nowrap;
+  color: color-mix(in srgb, currentcolor 68%, transparent);
 }
 
-/* Route into the projects index, below the seven rows. */
+.p-status::before {
+  content: '';
+  flex: none;
+  width: 0.5rem;
+  height: 0.5rem;
+  border: 1px solid currentcolor;
+}
+
+/* Filled: the work landed and is running. */
+.p-status--shipped::before {
+  background-color: currentcolor;
+}
+
+/* Half-filled: a deliberate partial — an experiment, not a product.
+   Left-half fill, not a diagonal; the site's geometry is orthogonal. */
+.p-status--experiment::before {
+  background-image: linear-gradient(90deg, currentcolor 0 50%, transparent 50%);
+}
+
+/* Cored: built, then set down. The outline of the original bet survives with
+   a paper ring inside it, which is the ledger's `revised` treatment and the
+   right reading for a project that ran and stopped. Distinguishes ARCHIVED
+   from PAUSED, which would otherwise share one glyph. */
+.p-status--archived::before {
+  background-color: currentcolor;
+  background-clip: content-box;
+  padding: 1px;
+}
+
+/* PAUSED and IN PROGRESS keep the bare outline: nothing is running yet. */
+
+/* Route into the projects index, below the seven rows. A paper control rather
+   than a bare link, matching the other .nav-button actions on the site. */
 .projects-index-cta {
-  display: inline-block;
-  margin-top: 0.7rem;
-  font-size: 0.85rem;
+  margin-top: 0.85rem;
+  font-size: clamp(0.68rem, 0.8vw, 0.78rem);
+  padding: 0.42rem 0.7rem;
 }
-
 
 .p-name {
   font-family: var(--font-heading);

@@ -214,7 +214,7 @@ describe('Project Pages — routes', () => {
     // for a paused project and an experiment, and put the method in the lead
     // where /projects/ puts the decisions.
     expect(panel.querySelector('.content-inner > p')?.textContent).toBe(
-      'Products I built with AI agents under a review system I designed. They span consumer, enterprise, finance, and developer tooling; the case studies focus on the decisions, tradeoffs, and evidence behind them.',
+      'Built with AI agents under a review system I designed, these span consumer, enterprise, finance, and developer tooling. The case studies focus on the decisions, tradeoffs, and evidence behind them.',
     );
     expect(
       projectItems.map((item) =>
