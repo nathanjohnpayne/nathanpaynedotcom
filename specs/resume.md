@@ -147,10 +147,17 @@ The `resumeProjects` collection must remain separate from the existing
 
 ## Experience density
 
-Vertical space tracks relevance, and **layout controls density, not prose**
-(#618). An experience entry may set `compact: true` in frontmatter; the
-`ExperienceSection` then renders it with the `resume-entry--compact` modifier
-(tighter gaps, a stepped-down title, a 52px rather than 72px logo tile).
+Vertical space tracks relevance. Two separate mechanisms produce it, and
+conflating them is the mistake this section used to invite:
+
+1. **The `compact` flag, which is layout only** (#618). An experience entry may
+   set `compact: true` in frontmatter; the `ExperienceSection` then renders it
+   with the `resume-entry--compact` modifier (tighter gaps, a stepped-down
+   title, a 52px rather than 72px logo tile). It touches no copy, and flipping
+   it back restores full weight without editing a word.
+2. **A one-time prose compression of the three pre-2016 bodies**, applied by
+   hand in #617/#618. This is an edit to the content files, not a rendering
+   mode, and it is **not** what the flag reverses.
 
 The three pre-2016 roles—AJ+ (2013–2016), Current TV (2012–2013), and CNN
 (2002–2012)—are compact, and their bodies are one to two lines each: company,
@@ -183,8 +190,10 @@ fact, while what this section guarantees—and what the acceptance criteria
 below test—is the date ranges and the Magic Wall line. The scoped statement is
 the honest one, and it is the one a reader can check.
 
-The flag is reversible; flipping it back restores full weight without touching
-the copy.
+The flag is reversible in the sense given above: unset `compact: true` and the
+entry renders at full weight. That restores the *layout*, not the prose. The
+dropped facts are an editorial decision recorded here, and undoing them means
+re-authoring those bodies from the canonical resume on both surfaces.
 
 ## Downloadable PDF
 
@@ -345,7 +354,20 @@ icon-library dependency.
 ## Content fidelity
 
 The content is authored **verbatim** from the canonical resume—not
-paraphrased. In particular:
+paraphrased. The contract is about *fidelity*, not *completeness*: every
+sentence that appears on the page appears as the canonical writes it, and the
+page may carry less than the canonical does. It never carries something the
+canonical does not say, and it never rewords what it does.
+
+The three compact pre-2016 bodies are where that distinction is load-bearing:
+they omit facts the canonical retains (see *Experience density* above, which
+names them). Those omissions are accepted, not drift. Drift would be a
+*divergent* sentence—the failure mode #850 recorded, where the canonical said
+one thing and the mirror said another—and nothing in this repository compares
+the two surfaces automatically, so it is worth knowing which failure you are
+looking at.
+
+In particular:
 
 - The CSP-PO certification is attributed to **Scrum Alliance** (the
   credentialing body), not the training provider.
