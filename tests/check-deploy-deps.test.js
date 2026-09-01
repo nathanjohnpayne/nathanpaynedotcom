@@ -695,6 +695,41 @@ describe('check-deploy-deps.sh', () => {
     expect(result.status).toBe(0);
   });
 
+  it('version-checks an installed optional even when it cannot prove why npm installed it', () => {
+    // Codex P2 on #903, and a regression from the P1 fix in the round before.
+    // Excusing an unprovable package's ABSENCE is right; skipping its version
+    // comparison is not. "Do not judge why it is here" is not "do not check
+    // what it is".
+    const result = runCheck({
+      packages: {
+        'node_modules/wasm-fallback': { version: '1.0.0', optional: true },
+        'node_modules/astro': { version: '7.2.9' },
+      },
+      installed: { 'wasm-fallback': '0.9.0', astro: '7.2.9' },
+    });
+
+    expect(result.status).toBe(1);
+    expect(result.output).toContain('wasm-fallback');
+    expect(result.output).toContain('0.9.0');
+  });
+
+  it('reports an executable in .bin that no locked package declares', () => {
+    // Codex P2 on #903. Invisible to everything else: the shim loop iterates
+    // DECLARED names, and the recursive package scan skips dot-directories.
+    // `npm run` puts .bin at the front of PATH, so a stale shim runs in
+    // preference to anything else — including the plain `node` calls this
+    // package.json makes in prebuild.
+    const result = runCheck({
+      packages: { 'node_modules/astro': { version: '7.2.9', bin: { astro: 'astro.js' } } },
+      installed: { astro: '7.2.9' },
+      bins: { astro: 'astro/astro.js', 'totally-stale': 'astro/astro.js' },
+    });
+
+    expect(result.status).toBe(1);
+    expect(result.output).toContain('.bin/totally-stale');
+    expect(result.output).toContain('undeclared shim');
+  });
+
   it('still reports a package absent from the lockfile entirely', () => {
     // The guarantee that survives: an extraneous package needs no prediction
     // about npm at all, so removing the symmetric check does not weaken it.

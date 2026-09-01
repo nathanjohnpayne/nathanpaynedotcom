@@ -319,7 +319,11 @@ for (const [path, meta] of Object.entries(packages)) {
   // direction has no such fallback, so it is not attempted. An extraneous
   // package NOT in the lockfile is still reported, further down — that needs
   // no prediction at all.
-  if (!installsHere) continue;
+  // ...but that judgement gates ABSENCE only. "Do not judge why it is here"
+  // is not "do not check what it is": an earlier version continued past the
+  // comparison below too, so an unconstrained optional installed at the
+  // WRONG version passed silently. A present package is always version-
+  // checked; only its absence is excused.
 
   let installed;
   try {
@@ -456,6 +460,20 @@ const binDir = "node_modules/.bin";
       expected.get(binName).targets.push({ path, rel });
     }
   }
+
+  // An executable in .bin that no locked package declares is invisible to
+  // everything else here: the loop below iterates declared names, and the
+  // recursive package scan skips dot-directories. `npm run` puts .bin at the
+  // front of PATH, so a stale shim left there runs in preference to anything
+  // else — including the plain `node` calls this package.json makes in
+  // prebuild. `npm ci` recreates .bin from the lockfile and would not have it.
+  try {
+    for (const entry of readdirSync(binDir, { withFileTypes: true })) {
+      if (entry.name.startsWith(".")) continue;
+      if (expected.has(entry.name)) continue;
+      rows.push([`.bin/${entry.name}`, "(not in lockfile)", "undeclared shim"].join("\t"));
+    }
+  } catch {}
 
   for (const [binName, { version, targets }] of expected) {
     const shim = `${binDir}/${binName}`;
