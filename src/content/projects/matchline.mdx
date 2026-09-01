@@ -47,7 +47,7 @@ decisions:
     rejected: "Keep tuning against the noisy metric and average more samples, which is cheaper in engineering time and was affordable within the cap."
     rationale: "A metric whose run-to-run noise exceeds its effect size cannot tell you whether a change helped. Averaging buys precision at a per-run cost, and the cost was binding: one run at three samples was $2.06 against a $25 monthly cap, so the budget bought about twelve tuning runs a month."
     cost: "The last two working weeks produced no user-visible change. The product is paused with better instruments and its last recorded accuracy unchanged—nothing measured it after the repair—and the work that would have shown up in a demo is exactly the work that did not get done."
-    evidence: "Both repairs landed and neither was measured. Eight more weeks of product work followed, and nobody ran the repaired metric in any of them. So the project stopped with a better-designed instrument rather than with evidence that the instrument was better."
+    evidence: "Both repairs landed and neither was measured. Eight weeks of product work separate them—the mapping fix in early June, the cache in the final session at the end of July—and nobody ran the repaired metric in any of it. So the project stopped with a better-designed instrument rather than with evidence that the instrument was better."
     status: "mixed"
   - title: "A deadline someone else depends on wins"
     lens: "Prioritization"
@@ -56,7 +56,7 @@ decisions:
     rejected: "Push Matchline to a usable V1 first, on the argument that a tool this close to working should not be abandoned mid-flight."
     rationale: "A date someone else set is not negotiable and a date I set is. The reasoning here is mine and the record can only corroborate its shape, not its cause: the commit timestamps establish that one project stopped and another started, and nothing in them establishes why."
     cost: "The instruments were finally cheap, the accuracy was not yet there, and the run that would have shown whether the repair worked was never made. Knowing whether matching works needs more than that one run—a finished corpus, and a real application end to end—but the run was the next step, and it is the step that did not happen."
-    evidence: "Product work stopped the day Five Across began, apart from one final session spent on the evaluation cache. That cache is the last product commit in Matchline."
+    evidence: "Product work stopped the day before the Five Across repository was created, apart from one final session spent on the evaluation cache. That cache is the last product commit in Matchline."
     status: "mixed"
 related:
   - label: "Project: Mergepath"
@@ -130,7 +130,7 @@ Here is one, from the repository's own evaluation corpus—a hand-labelled Unit 
   <div><dt>Tools</dt><dd>—</dd></div>
 </dl>
 
-That is the unit of currency. Not "led a pivot"—a specific pivot, with the calls that informed it and the two numbers that moved, decomposed so the matcher can ask whether *this* claim answers *that* requirement. The fixture carries the four fields the scorer compares; a Unit written by the extractor in production also carries metrics, seniority and scope signals, an evidence type and a confidence score, all stamped server-side.
+That is the unit of currency. Not "led a pivot"—a specific pivot, with the calls that informed it and the two numbers that moved, decomposed so the matcher can ask whether *this* claim answers *that* requirement. The fixture carries the four fields the scorer compares; a Unit the extractor returns in production also carries metrics, seniority and scope signals, an evidence type and a confidence score, all produced by the model and validated server-side against the contract above.
 
 Approval is not in that list, deliberately: the extractor is barred from returning it, and the server stamps every extracted Unit unapproved. For anything the model proposes, review is the only path into matching, and the filter that enforces it runs server-side at all three places evidence is consumed. A user can also type a Unit by hand, and those arrive pre-approved and marked `user_confirmed`—a Unit the user wrote is already the user's own assertion, so there is nothing for review to add.
 

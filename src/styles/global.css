@@ -2558,7 +2558,7 @@ body.blog-page {
   font-size: 0.75rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: color-mix(in srgb, currentColor 62%, transparent);
+  color: color-mix(in srgb, currentcolor 62%, transparent);
 }
 
 .project-copy .unit-exhibit dd {
