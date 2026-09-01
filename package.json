@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "astro dev",
     "prebuild": "node scripts/refresh-hero-images.mjs && node scripts/refresh-mux-gifs.mjs",
+    "og:refresh": "node scripts/refresh-og-references.mjs",
     "build": "astro build",
     "preview": "astro preview",
     "test": "astro build && vitest run",

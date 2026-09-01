@@ -79,7 +79,7 @@ styles/                     Repository-owned Vale rules for prose linting
                              Runs on every PR + push to main: npm ci, npm test
                              (astro build && vitest run), npm run lint (#632, #563)
 docs/                       Extended documentation (agent processes)
-screenshots/og/             Checked-in OG image screenshots
+screenshots/og/             Checked-in OG card references (see below)
 .github/screenshots/        PR, issue, and generated audit screenshot evidence
 AGENTS.md                   Agent instructions index
 REVIEW_POLICY.md            Multi-identity review workflow
@@ -88,5 +88,19 @@ DEPLOYMENT.md               Deploy instructions
 CONTRIBUTING.md             Contribution guidelines
 .ai_context.md              Supplemental AI agent context
 ```
+
+### `screenshots/og/`—OG card references
+
+A convenience for humans and agents reading the repo: look at a social card without running a build. **Not a build input.** `dist/og/**` is generated at build time and is what actually ships, so a stale reference misleads a reviewer rather than serving a wrong card to a visitor.
+
+Refresh it after changing an OG template, adding a page, or editing copy that a card renders:
+
+```bash
+npm run build && npm run og:refresh
+```
+
+`npm run og:refresh` mirrors every card in `dist/og/**` into `screenshots/og/`, flattening `dist/og/<section>/<slug>.png` to `<section>-<slug>.png`, and deletes references whose template no longer exists. `--dry-run` reports without writing.
+
+**Do not diff these as bytes.** PNG encoding varies between runs, so every file differs byte-wise from a freshly built counterpart even when the rendered card is identical—`cmp` reports drift everywhere and is useless as a staleness check. Whether a card *should* have changed is a human read (#876).
 
 ---
