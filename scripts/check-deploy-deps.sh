@@ -58,11 +58,19 @@ fi
 #
 # Skipped outside a git repo (the test sandboxes, a tarball export): there is no
 # committed state to disagree with, so there is nothing this check could learn.
-if git rev-parse --git-dir >/dev/null 2>&1 && git ls-files --error-unmatch package-lock.json >/dev/null 2>&1; then
-  if ! git diff --quiet HEAD -- package-lock.json 2>/dev/null; then
+# Asks HEAD, not the index. `git ls-files` reads the index, so a lockfile
+# staged for removal makes it fail and skips this guard entirely — after which
+# a regenerated, now-untracked lockfile and its matching node_modules sail
+# through the comparison below against versions CI never built from.
+if git rev-parse --git-dir >/dev/null 2>&1 && git rev-parse --verify HEAD >/dev/null 2>&1; then
+  if ! git cat-file -e HEAD:package-lock.json 2>/dev/null ||
+     ! git diff --quiet HEAD -- package-lock.json 2>/dev/null; then
     {
       echo ""
-      echo "⚠  Refusing to deploy: package-lock.json has uncommitted changes."
+      echo "⚠  Refusing to deploy: package-lock.json does not match HEAD."
+      echo ""
+      echo "   Either it has uncommitted changes, or HEAD carries no lockfile"
+      echo "   at all — deleted, or staged for removal."
       echo ""
       echo "   CI built this SHA from the committed lockfile. Your node_modules"
       echo "   matches this modified one, so the version check below would pass"
@@ -107,7 +115,7 @@ NODE_ERR_FILE="$(mktemp)"
 trap 'rm -f "$NODE_ERR_FILE"' EXIT
 
 REPORT="$(node --input-type=module -e '
-import { readFileSync, existsSync, readdirSync } from "node:fs";
+import { readFileSync, existsSync, readdirSync, statSync } from "node:fs";
 
 const lock = JSON.parse(readFileSync("package-lock.json", "utf8"));
 
@@ -141,8 +149,20 @@ const constraintAllows = (constraint, actual) => {
 // perfectly clean tree. A guard that is noisy when correct gets switched off,
 // so the burden of proof sits here: no constraint means not provable, which
 // means exempt.
+// glibc vs musl. Node reports a glibc version only when it linked against one,
+// so its absence on Linux means musl. Off Linux the field is meaningless, and a
+// package declaring one cannot be targeting this host at all.
+const hostLibc = () => {
+  if (process.platform !== "linux") return null;
+  return process.report?.getReport?.()?.header?.glibcVersionRuntime ? "glibc" : "musl";
+};
+
 const targetsThisHost = (meta) => {
-  if (meta.os === undefined && meta.cpu === undefined) return false;
+  if (meta.os === undefined && meta.cpu === undefined && meta.libc === undefined) return false;
+  if (meta.libc !== undefined) {
+    const libc = hostLibc();
+    if (libc === null || !constraintAllows(meta.libc, libc)) return false;
+  }
   return constraintAllows(meta.os, process.platform) && constraintAllows(meta.cpu, process.arch);
 };
 
@@ -191,11 +211,26 @@ for (const [path, meta] of Object.entries(packages)) {
 // never has one. Top level and one scope deep is where a hand-run install
 // lands; walking the whole nested tree would cost more than it catches.
 const installedTopLevel = [];
+// A symlink is NOT isDirectory() in a Dirent — npm and pnpm both link workspace
+// and `npm link`ed packages, so testing isDirectory() alone skips exactly the
+// hand-installed cases this scan exists to catch. statSync follows the link; a
+// broken one throws and is simply not a package.
+const isPackageDir = (path, entry) => {
+  if (entry.name.startsWith(".")) return false;
+  if (entry.isDirectory()) return true;
+  if (!entry.isSymbolicLink()) return false;
+  try {
+    return statSync(path).isDirectory();
+  } catch {
+    return false;
+  }
+};
+
 for (const entry of readdirSync("node_modules", { withFileTypes: true })) {
-  if (!entry.isDirectory() || entry.name.startsWith(".")) continue;
+  if (!isPackageDir(`node_modules/${entry.name}`, entry)) continue;
   if (entry.name.startsWith("@")) {
     for (const scoped of readdirSync(`node_modules/${entry.name}`, { withFileTypes: true })) {
-      if (scoped.isDirectory() && !scoped.name.startsWith("."))
+      if (isPackageDir(`node_modules/${entry.name}/${scoped.name}`, scoped))
         installedTopLevel.push(`${entry.name}/${scoped.name}`);
     }
   } else {

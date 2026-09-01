@@ -1,6 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import { spawnSync } from 'node:child_process';
-import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  copyFileSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 
@@ -25,6 +33,8 @@ function runCheck({
   rawLock,
   extraneous = {},
   gitCommitThenDirty = false,
+  gitStageRemoval = false,
+  symlinked = {},
 } = {}) {
   const workDir = mkdtempSync(join(tmpdir(), 'check-deploy-deps-test-'));
   try {
@@ -57,6 +67,30 @@ function runCheck({
       const dir = join(workDir, 'node_modules', name);
       mkdirSync(dir, { recursive: true });
       writeFileSync(join(dir, 'package.json'), JSON.stringify({ name, version }), 'utf-8');
+    }
+
+    if (gitStageRemoval) {
+      // `git ls-files` reads the index, so staging the lockfile for removal
+      // made the original guard skip itself entirely. HEAD still has the file,
+      // which is what the comparison must be against.
+      const git = (...args) =>
+        spawnSync('git', args, { cwd: workDir, encoding: 'utf-8', env: { ...process.env } });
+      git('init', '-q');
+      git('config', 'user.email', 'test@example.com');
+      git('config', 'user.name', 'test');
+      git('config', 'commit.gpgsign', 'false');
+      git('add', '-A');
+      git('commit', '-q', '-m', 'init');
+      git('rm', '--cached', '-q', 'package-lock.json');
+    }
+
+    for (const [name, version] of Object.entries(symlinked)) {
+      // npm and pnpm link workspace and `npm link`ed packages. A Dirent for a
+      // symlink is NOT isDirectory(), so an entry like this was skipped.
+      const target = join(workDir, `__linked-${name}`);
+      mkdirSync(target, { recursive: true });
+      writeFileSync(join(target, 'package.json'), JSON.stringify({ name, version }), 'utf-8');
+      symlinkSync(target, join(workDir, 'node_modules', name));
     }
 
     if (gitCommitThenDirty) {
@@ -287,6 +321,55 @@ describe('check-deploy-deps.sh', () => {
     expect(result.status).toBe(1);
     expect(result.output).toContain('ghost-package');
     expect(result.output).toContain('not in lockfile');
+  });
+
+  it('refuses when HEAD carries no lockfile, even though one exists on disk', () => {
+    // CodeRabbit on #903. `git ls-files --error-unmatch` reads the INDEX, so
+    // staging the lockfile for removal made it fail and skipped the guard
+    // outright — after which a regenerated, now-untracked lockfile and its
+    // matching node_modules pass a comparison CI never made.
+    const result = runCheck({
+      packages: { 'node_modules/astro': { version: '7.2.9' } },
+      installed: { astro: '7.2.9' },
+      gitStageRemoval: true,
+    });
+
+    expect(result.status).toBe(1);
+    expect(result.output).toContain('does not match HEAD');
+  });
+
+  it('reports a symlinked package absent from the lockfile', () => {
+    const result = runCheck({
+      packages: { 'node_modules/astro': { version: '7.2.9' } },
+      installed: { astro: '7.2.9' },
+      symlinked: { 'ghost-link': '9.9.9' },
+    });
+
+    expect(result.status).toBe(1);
+    expect(result.output).toContain('ghost-link');
+    expect(result.output).toContain('not in lockfile');
+  });
+
+  it('exempts an absent optional package whose libc cannot match this host', () => {
+    // A libc constraint is meaningful only on Linux. On any other platform a
+    // package declaring one cannot be targeting this host, so its absence is
+    // not drift. Guarded so the suite does not depend on the runner's libc.
+    const result = runCheck({
+      packages: {
+        'node_modules/musl-only': {
+          version: '1.0.0',
+          optional: true,
+          os: ['linux'],
+          cpu: [process.arch],
+          libc: ['musl'],
+        },
+        'node_modules/astro': { version: '7.2.9' },
+      },
+      installed: { astro: '7.2.9' },
+    });
+
+    if (process.platform === 'linux') return;
+    expect(result.status).toBe(0);
   });
 
   it('refuses when node_modules is missing entirely', () => {
