@@ -2,7 +2,7 @@
 title: "Six PRs, One Bug: What AI Agents Actually Get Wrong"
 seoTitle: "Six PRs, One Bug"
 shortTitle: "Six PRs, One Bug"
-description: "Editor, preview, and sent email disagreed in a billing app. The rule they violated sat in a design spec the whole time—as prose, never as anything a reviewer could check. The corrected chronology, and the reframed brief that fixed it."
+description: "Editor, preview, and sent email disagreed in a billing app. The rule they violated sat in a design spec the whole time—as prose, never as anything a reviewer could check. The corrected chronology, and the reframed brief that fixed the surface it was reported from."
 seoDescription: "The rule this billing parity bug violated sat in a design spec as prose, never as anything a review could check against."
 category: "Agent Systems"
 featured: true

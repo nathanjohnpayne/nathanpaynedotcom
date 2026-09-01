@@ -30,7 +30,7 @@ Verdicts: **SUPPORTED** · **WRONG** (corrected value given) · **UNPROVABLE** (
 
 The last of the six, #158, **closed 36 minutes before #159 was filed**. Only #161 comes after the issue.
 
-Corrected value, and it is a better story: the six PRs came first, each chasing a symptom with no invariant attached to the work or the review. Issue #159 is what happened *after* they failed—the moment the problem stopped being a series of tickets and got named as one. Then #161 fixed it. The post currently reads as though the issue kicked off the six attempts, which reverses the causal arrow and loses the actual product lesson.
+Corrected value, and it is a better story: the six PRs came first, each chasing a symptom with no invariant attached to the work or the review. Issue #159 is what happened *after* they failed—the moment the problem stopped being a series of tickets and got named as one. Then #161 fixed it **on the preview and the test email's HTML body**; the recipient invoice was never on that path (§N). The post currently reads as though the issue kicked off the six attempts, which reverses the causal arrow and loses the actual product lesson.
 
 **That lesson was itself stated wrongly here, and the error propagated—see §M3.** The first version of this row said "nobody had written down what `correct` meant until six PRs had already shipped against it." That is false: the design spec `invoicing-tab-redesign.md` had written it down a day before #144, and #144's own kickoff prompt pointed at that spec. The defensible lesson is narrower and better: the definition existed, and for twenty-one hours nothing anyone was building or reviewing was attached to it. A correctness standard nobody cites is operationally absent without being missing.
 
@@ -146,7 +146,7 @@ Counting *all* review submissions instead gives 19. Neither is nine. If the figu
 ## G. Instructions to the drafting pass
 
 1. Every number, date and causal claim must trace to a **SUPPORTED** row.
-2. **§A1 is the rewrite.** The six PRs precede the issue. Restructure the opening so the arc runs: an implementation ships (#144) → symptoms get chased across five more PRs → the failures force the problem to be named (#159) → a reframed brief to a different agent fixes it (#161). The post's own thesis is stronger this way: the invariant existed in the design spec but was never attached to any piece of work anyone reviewed, and that gap is why six PRs could each be locally reasonable. See §J1—this instruction originally said the artifact was missing, which the article's own evidence disproves.
+2. **§A1 is the rewrite.** The six PRs precede the issue. Restructure the opening so the arc runs: an implementation ships (#144) → symptoms get chased across five more PRs → the failures force the problem to be named (#159) → a reframed brief to a different agent fixes it on the surface it was reported from (#161). **Do not write that #161 fixed parity outright**—§N establishes it reached the preview and the test email's HTML body only. The post's own thesis is stronger this way: the invariant existed in the design spec but was never attached to any piece of work anyone reviewed, and that gap is why six PRs could each be locally reasonable. See §J1—this instruction originally said the artifact was missing, which the article's own evidence disproves.
 3. **§A2 and §A3 need the inclusion rule stated.** One originating implementation, three attempts, two orthogonal fixes—not "six failed attempts."
 4. **§B1 must be corrected, not dropped.** The "reviewers saw it and it shipped anyway" beat is real; it belongs to #155, where three blocking rounds are on the record. On #146 both reviewers approved and verified the round-trip.
 5. Where a row says **UNPROVABLE** (§C1, §D1, §D2, §E1, §E2), use its defensible form—**except §D1 and §D2, whose defensible forms are themselves superseded by §N.** Take the boundary from §N, not from those rows: the canonical renderer reaches the preview and the test email's HTML body, and nothing else.
@@ -160,11 +160,11 @@ Counts are **words**, via `wc -w` over the whole file, the same method as the ep
 
 | Measure (words) | Baseline | Revised | Change |
 | --- | ---: | ---: | ---: |
-| Whole file (the epic's 4,463 baseline) | 4,463 | 4,687 | **+5.0%** |
+| Whole file (the epic's 4,463 baseline) | 4,463 | 4,692 | **+5.1%** |
 
-**The post ended up 5.0% longer than it started, against guidance asking for 20–30% shorter. Stated plainly because the ledger's job is accuracy, not a favourable number.**
+**The post ended up 5.1% longer than it started, against guidance asking for 20–30% shorter. Stated plainly because the ledger's job is accuracy, not a favourable number.**
 
-The figure moved five times during review and in the end moved the wrong way: −3.8% → −2.1% → −1.2% → −0.8% → +2.2% → **+5.0%**, the last step being the #857 correction, which added a boundary the post had been asserting past. Every review round that corrected a claim also lengthened it, because a corrected claim is almost always a narrower claim, and narrowing costs words. "Nobody had a definition of correctness" is six words; the true version needs a sentence distinguishing a definition that existed from one attached to the work. The same trade recurred for the renderer scope, the duration endpoints, the adopted-rules classification and the session-log caveat.
+The figure moved five times during review and in the end moved the wrong way: −3.8% → −2.1% → −1.2% → −0.8% → +2.2% → **+5.1%**, the last step being the #857 correction, which added a boundary the post had been asserting past. Every review round that corrected a claim also lengthened it, because a corrected claim is almost always a narrower claim, and narrowing costs words. "Nobody had a definition of correctness" is six words; the true version needs a sentence distinguishing a definition that existed from one attached to the work. The same trade recurred for the renderer scope, the duration endpoints, the adopted-rules classification and the session-log caveat.
 
 The compression clause was not met, and #744's carve-out—"with chronology retained where it is evidence"—only ever justified the shortfall, not the growth. What justifies the growth is that seven review rounds found real factual defects, and every fix cost words. That is the honest accounting; a reader can decide whether the trade was worth it. #744's own compression clause is the only one in the epic that carries a carve-out—"with chronology retained where it is evidence"—and after §A1 the chronology *is* the evidence. The corrected arc only works if the reader can see that all six PRs precede the issue, which needs the timestamped table, and that each PR was locally reasonable, which needs the per-PR sections.
 
@@ -278,7 +278,7 @@ Corrected, and the corrected sentence is better than either version. The invaria
 
 ### L2—The compression total was stale for the third time
 
-4,273 words, −4.3% at the time. Every round changes it, because every round trades a shorter wrong claim for a longer right one. **Recompute this table as the last step before pushing, not when writing the section.** It went stale a fourth time in #857: see §H's table, now 4,687 / +5.0%.
+4,273 words, −4.3% at the time. Every round changes it, because every round trades a shorter wrong claim for a longer right one. **Recompute this table as the last step before pushing, not when writing the section.** It went stale a fourth time in #857: see §H's table, now 4,692 / +5.1%.
 
 ---
 
