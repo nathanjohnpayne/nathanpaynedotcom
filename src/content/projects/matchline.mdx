@@ -1,7 +1,7 @@
 ---
 title: "Matchline"
 slug: "matchline"
-description: "A career CRM that turns work history into approved evidence, then blocks the export when a generated claim fails to trace back to it. Paused before launch, with the instruments rebuilt but never turned back on in the product."
+description: "A career CRM that turns work history into approved evidence, then blocks the export when a generated claim fails to trace back to it. Paused before launch, after rebuilding the measurement system but before running it against the product again."
 seoDescription: "A career CRM where a claim that fails to trace to approved evidence blocks the export. Paused pre-launch at 51% extraction accuracy against an 80% bar."
 kicker: "AI × Product × Career Tools"
 order: 4
@@ -39,7 +39,6 @@ decisions:
     rejected: "Build the multi-user foundation first, on the usual reasoning that retrofitting tenancy is expensive and doing it up front is cheap."
     rationale: "The open question was never whether the architecture could hold more users. It was whether evidence-grounded generation produces an application a person would actually send, which one user can answer and a thousand cannot answer any better."
     cost: "Every validation signal the product can generate is self-generated. The only customer is also the author, the evaluation corpus is drawn from his own prospect list, and there is no reading of the results that separates a product that works from a product its builder is willing to tolerate."
-    evidence: "Unsettled, and the record shows exactly where it stopped: the phase whose exit condition was one real application sent through the product has no evidence of being met, and neither does the phase after it."
     status: "pending"
   - title: "Fix the ruler before trusting the measurement"
     lens: "Method"
@@ -48,7 +47,7 @@ decisions:
     rejected: "Keep tuning against the noisy metric and average more samples, which is cheaper in engineering time and was affordable within the cap."
     rationale: "A metric whose run-to-run noise exceeds its effect size cannot tell you whether a change helped. Averaging buys precision at a per-run cost, and the cost was binding: one run at three samples was $2.06 against a $25 monthly cap, so the budget bought about twelve tuning runs a month."
     cost: "The last two working weeks produced no user-visible change. The product is paused with better instruments and its last recorded accuracy unchanged—nothing measured it after the repair—and the work that would have shown up in a demo is exactly the work that did not get done."
-    evidence: "Both changes landed and both are sound in mechanism: pairs that had been flickering across the old threshold now map stably, and a content-addressed cache does remove the cost of replaying unchanged stages. Neither was ever measured. The commit that made the mapping change projected a threefold noise reduction in its subject line and closed its body with 'eval validation to follow'—and the validation run never happened. Product work continued for another eight weeks—twelve commits in one hour on 2026-07-06 among them—but no run was made against the repaired metric, and the next commit to touch the evaluation harness at all was the stage cache that ended the project. So the decision to repair the instrument is supported by the noise that provoked it, and the claim that the instrument is now better rests on design rather than on a reading."
+    evidence: "Both repairs landed and neither was measured. Eight weeks of product work separate them—the mapping fix in early June, the cache in the final session at the end of July—and nobody ran the repaired metric in any of it. So the project stopped with a better-designed instrument rather than with evidence that the instrument was better."
     status: "mixed"
   - title: "A deadline someone else depends on wins"
     lens: "Prioritization"
@@ -57,7 +56,7 @@ decisions:
     rejected: "Push Matchline to a usable V1 first, on the argument that a tool this close to working should not be abandoned mid-flight."
     rationale: "A date someone else set is not negotiable and a date I set is. The reasoning here is mine and the record can only corroborate its shape, not its cause: the commit timestamps establish that one project stopped and another started, and nothing in them establishes why."
     cost: "The instruments were finally cheap, the accuracy was not yet there, and the run that would have shown whether the repair worked was never made. Knowing whether matching works needs more than that one run—a finished corpus, and a real application end to end—but the run was the next step, and it is the step that did not happen."
-    evidence: "The largest burst of product work in the repository is twelve commits inside sixty-one minutes on 2026-07-06. The Five Across repository is created the following day. Twenty-four days later a single commit lands the eval stage cache, and that is the last product commit in the repository."
+    evidence: "Product work stopped the day before the Five Across repository was created, apart from one final session spent on the evaluation cache. That cache is the last product commit in Matchline."
     status: "mixed"
 related:
   - label: "Project: Mergepath"
@@ -122,6 +121,17 @@ export const ExtractedUnitV1Schema = z
   .strict();
 ```
 
+Here is one, from the repository's own evaluation corpus—a hand-labelled Unit for a synthetic candidate, quoted as the fixture stores it:
+
+<dl class="unit-exhibit">
+  <div><dt>Claim</dt><dd>Led Threadline B2B pivot from D2C-brand-as-customer to factory-as-customer, ran 38 customer development calls in six weeks; ARR per logo doubled, monthly churn dropped from 4.1% to 1.8%</dd></div>
+  <div><dt>Skills</dt><dd>customer development · go-to-market strategy · pricing strategy · founder-led sales</dd></div>
+  <div><dt>Domains</dt><dd>b2b saas · founder operations</dd></div>
+  <div><dt>Tools</dt><dd>—</dd></div>
+</dl>
+
+That is the unit of currency. Not "led a pivot"—a specific pivot, with the calls that informed it and the two numbers that moved, decomposed so the matcher can ask whether *this* claim answers *that* requirement. The fixture carries the four fields the scorer compares; a Unit the extractor returns in production also carries metrics, seniority and scope signals, an evidence type and a confidence score, all produced by the model and validated server-side against the contract above.
+
 Approval is not in that list, deliberately: the extractor is barred from returning it, and the server stamps every extracted Unit unapproved. For anything the model proposes, review is the only path into matching, and the filter that enforces it runs server-side at all three places evidence is consumed. A user can also type a Unit by hand, and those arrive pre-approved and marked `user_confirmed`—a Unit the user wrote is already the user's own assertion, so there is nothing for review to add.
 
 ```mermaid title="The core loop, and where approval sits in it" description="A pasted resume is extracted into Experience Units, each of which is written to the capability graph already, but unapproved. Human review flips that approval flag in place. The gate is not on the way into the graph but on the way out of it: a server-side filter passes only approved Units into matching, so an unapproved Unit sits in the store and is never read. Units the user types by hand arrive pre-approved instead. Separately, a job description is parsed into requirements. The matching engine scores approved Units against those requirements and surfaces requirements with no qualifying evidence as gaps rather than hiding them. Generation draws only on approved matches, and a traceability check sits between the generated draft and export: a claim that cannot be traced back to an approved Unit blocks the export until the user resolves it."
@@ -167,17 +177,17 @@ The quality bar was 80% extraction accuracy and 80% match accuracy. Neither was 
 The scorer first compared generated summaries to hand-labelled ones with string equality, and language models paraphrase, so the metric collapsed to 3.3%. Token overlap lifted it to 34%. A coefficient that gives full credit when the labelled set is covered by a longer generated one lifted it to 50.3%. Only then did a real system change—expanding the matching vocabulary from roughly 220 entries to 415—move it, by a single point, to 51.3%.
 
 ```mermaid title="Extraction accuracy: two ruler changes and one system change" description="Extraction accuracy rose from 3.3 percent to 51.3 percent across four measurements, against an 80 percent target that was never reached. Three of those four measurements came from different definitions of the scoring metric rather than from any change to the product: string equality scored 3.3 percent, token overlap 34 percent, and a coverage coefficient 50.3 percent. Only the last step was a change to the system itself, an expansion of the matching vocabulary, and it added a single point to reach 51.3 percent."
-flowchart LR
+flowchart TD
     A["3.3%<br/>string equality"]
     B["34%<br/>token overlap"]
     C["50.3%<br/>coverage coefficient"]
     D["51.3%<br/>vocabulary expansion"]
-    T["80% target<br/>never reached"]
+    T["80%<br/>the target"]
 
-    A -->|changed the ruler| B
-    B -->|changed the ruler| C
-    C -->|changed the system| D
-    D -.-> T
+    A -->|CHANGED THE RULER| B
+    B -->|CHANGED THE RULER| C
+    C -->|CHANGED THE SYSTEM| D
+    D -.->|never reached| T
 
     style A fill:#fffdf8,stroke:#11100d,stroke-width:1.5px,color:#11100d
     style B fill:#fffdf8,stroke:#11100d,stroke-width:1.5px,color:#11100d
@@ -185,8 +195,6 @@ flowchart LR
     style D fill:#e8784a,stroke:#11100d,stroke-width:1.5px,color:#11100d
     style T fill:#11100d,stroke:#11100d,stroke-width:1.5px,color:#fffdf8
 ```
-
-Read that sequence again. Four measurements, three steps between them—and two of those three steps changed the ruler rather than the product. The metric was defined three ways before anything about the system moved, and when the system finally did move, it bought one point.
 
 Match accuracy went from 4.2% to 16.7% on that same vocabulary work, and then stopped being legible at all. One run reported 18.1%, and three samples of that one fixture spread from 12.5% to 25.0%—eight to thirteen points of noise, against a target improvement smaller than the noise. Averaging it away costs money, and money was binding: a single run cost $2.06 against a $25 monthly cap, about twelve runs a month.
 
@@ -202,17 +210,19 @@ It runs in continuous integration against the Firestore emulator, and a passing 
 
 Agents authored the implementation and independent agent identities reviewed it, under the enforcement system documented in [Mergepath](/projects/mergepath/). The reviews materially changed the product: they caught a seniority scorer that was zeroing every Experience Unit because extraction emits verbs where the ladder matched nouns, a schema converter silently returning an empty object that had disabled model-input validation across four subsystems at once, and a matching rerun that discarded the user's rejections. On that last one my own first reply to the reviewer was wrong, cited a test that did not cover the case, and the reviewer pushed back a second time before it was fixed.
 
-The active work ends on a date the commits set: the evening of 2026-07-31, Pacific, when the eval stage cache landed. As of 2026-08-31, twenty-six commits have landed after it—thirteen dependency bumps, eight repository-template syncs, and five identity and continuous-integration fixes—and not one of them touches the product. That is the durable fact, rather than any particular count: the automated commits keep arriving and the product ones stopped.
+The active work ends on a date the commits set: the evening of 2026-07-31, Pacific, when the eval stage cache landed. Automated maintenance has continued since—dependency bumps and repository-template syncs—and as of 2026-08-31 none of it touches the product. That is the durable distinction: maintenance kept moving and product development stopped.
 
 A development build is deployed behind a sign-in wall and is not linked here. It dates from 2026-05-02, which is before the June and July work this page rests on—the noise that stopped the tuning, the measurement repair, and the eval cache are all absent from it. The April material, including the adversarial fixture, is in there.
 
 ## What would restart it
 
-Nothing in the repository says the project is paused, why, or what would restart it. What it has is exit criteria for finishing V1, which is a different thing: criteria for building, not for deciding. So the following are authored now rather than recovered from the record.
+I never wrote these down while the project was live, and that is its own finding: the repository has exit criteria for finishing V1 and none for deciding whether to carry on with it. Criteria for building, not for deciding. So here they are now.
 
 **Resume it** when the evaluation corpus is finished and labelled, the measurement is trustworthy enough that a change larger than the noise is visible, and one real application has gone through the product end to end—the condition the second build phase set for itself and never met.
 
 **Kill it** if matching stays fundamentally poor after a full tuning cycle on the cheap instruments, which would mean the approach is wrong rather than untuned. Or if I finish a job search without reaching for it: the product's own success metric was that it would be the primary tool rather than abandoned for a spreadsheet, and a builder who does not use their own tool under real pressure has answered the question.
+
+As of September 2026 that second condition is live rather than hypothetical. Five Across took the summer and a European vacation took what was left of it, and the job search this was built for has now resumed in earnest. So I am picking it back up—which means the product is about to be tested against the only bar that was ever going to settle it, by the user it was built for, under real pressure.
 
 ## What I learned
 
