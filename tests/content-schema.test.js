@@ -154,7 +154,11 @@ describe('Content Schema', () => {
     let labelled = 0;
     for (const file of projectFiles) {
       const fm = parseFrontmatter(file.content);
-      if (!fm?.liveLabel) continue;
+      // Presence, not truthiness. `liveLabel: ""` and a bare `liveLabel:`
+      // (which YAML reads as null) are declarations, and they are precisely
+      // the ones the assertions below exist to reject — a truthiness skip
+      // waved through every value this block is meant to catch.
+      if (!fm || !('liveLabel' in fm)) continue;
       labelled += 1;
       expect(typeof fm.liveLabel, `${file.name}: liveLabel must be a string`).toBe('string');
       expect(fm.liveLabel.trim().length, `${file.name}: liveLabel must be non-empty`).toBeGreaterThan(0);
@@ -163,6 +167,21 @@ describe('Content Schema', () => {
     // Control: the loop above is vacuous if nothing declares the field, and a
     // vacuous loop passes no matter how broken the schema is.
     expect(labelled, 'no project declares liveLabel — the checks above ran on nothing').toBe(1);
+
+    // And a control on the predicate itself: a declared-but-falsy label has to
+    // reach the assertions rather than be skipped past them. Asserted against
+    // the real parser, so it stays true if that parser ever changes how it
+    // represents an empty scalar.
+    for (const declared of ['liveLabel: ""', 'liveLabel:']) {
+      const fm = parseFrontmatter(`---\ntitle: x\n${declared}\n---\n`);
+      expect(
+        fm && 'liveLabel' in fm,
+        `${declared} must count as declared, or the checks above skip it`,
+      ).toBe(true);
+      expect(Boolean(fm.liveLabel), `${declared} is falsy, which is why presence is the test`).toBe(
+        false,
+      );
+    }
   });
 
   it('every project file that declares decisions has well-formed decision records', () => {
