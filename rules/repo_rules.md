@@ -127,13 +127,38 @@ The guard runs inside `npm test`, so it reports as `build-and-test`—one of the
 
 ## CI Enforcement
 
-The following checks are implemented in `scripts/ci/` and must pass before any commit is merged:
+The structural checks live in `scripts/ci/` and are wired into `.github/workflows/repo_lint.yml`, which reports as the required `lint` check. **That workflow is the list; this file does not restate it.**
 
-1. `check_required_root_files`—Verifies README.md, AGENTS.md, DEPLOYMENT.md, CONTRIBUTING.md, and .ai_context.md all exist at repository root
-2. `check_no_tool_folder_instructions`—Verifies .claude/ and .cursor/ contain no plain .md or .txt instruction files
-3. `check_no_forbidden_top_level_dirs`—Verifies no forbidden top-level directories exist (e.g., tool-instructions/, ai-rules/, agent-config/)
-4. `check_dist_not_modified`—Verifies dist/ files were not directly modified (exits cleanly if dist/ does not exist)
-5. `check_spec_test_alignment`—Verifies every file in specs/ has a corresponding test file in tests/ (skips if specs/ is empty)
-6. `check_duplicate_docs`—Verifies no documentation topic is duplicated between root files and tool folders
-7. `check_review_policy_exists` (inline in repo_lint.yml)—Verifies .github/review-policy.yml and REVIEW_POLICY.md both exist
-8. `check_codex_scripts`—Verifies `scripts/codex-review-request.sh` and `scripts/codex-review-check.sh` exist and are executable. Required for `CLAUDE.md` step 8 Phase 4a (automated external review via the OpenAI Codex GitHub App)—missing either script silently forces callers to Phase 4b fallback.
+An earlier revision of this section enumerated eight checks as though they were the complete set. They were, once. By the time #849 measured it there were 72 scripts on disk, and the discrepancy was invisible to a numeric grep, because the count was never written as a numeral—it was implied by a Markdown list running `1.` to `8.` A list of that size, kept by hand, in a file whose whole purpose is to be trusted by agents that read it before acting, will go stale again the same way.
+
+Two checks keep the workflow and the directory in agreement in both directions, which is what makes the workflow citable as the list and a copy here unnecessary: `check_ci_scripts_wired` fails when a `scripts/ci/check_*` exists with no `run:` step in the workflow, and the inline `check_ci_kit_integrity` step fails when a wired step names a script that is not on disk.
+
+Enumerate the current set rather than reading a count out of this file:
+
+```bash
+ls scripts/ci | grep '^check_'                                    # scripts on disk
+grep -oE 'run: \./scripts/ci/check_[A-Za-z0-9_]+' \
+  .github/workflows/repo_lint.yml | sed 's|.*/||' | sort -u       # wired steps
+```
+
+As of 2026-09-01 that is 72 scripts, all 72 wired, plus three checks implemented inline in the workflow with no script of their own: `check_review_policy_exists`, `check_governance_files`, and `check_ci_kit_integrity`. Treat those figures as a reading taken on a date, not as a rule—the commands are the answer.
+
+`scripts/ci/README.md` annotates a subset of the checks with what each one covers and why it exists. It is a guide to the interesting ones, not an inventory either; its own closing line still points back here for "the full list," which is the circular reference #849 surfaced.
+
+### Which checks enforce the rules above
+
+This mapping is the part worth keeping in this file, because it goes stale only when one of *these* rules changes—not when an unrelated check is added elsewhere:
+
+| Rule in this file | Enforced by |
+|---|---|
+| Structure invariants—the five required root files | `check_required_root_files` |
+| No instruction files in `.claude/` or `.cursor/` | `check_no_tool_folder_instructions` |
+| No new top-level directories | `check_no_forbidden_top_level_dirs` |
+| `dist/` is build output, never edited in place | `check_dist_not_modified` |
+| Every file in `specs/` has a corresponding test | `check_spec_test_alignment` |
+| No duplicate documentation across canonical docs | `check_duplicate_docs` |
+| `.github/review-policy.yml` and `REVIEW_POLICY.md` both exist | `check_review_policy_exists` (inline in `repo_lint.yml`) |
+| Phase 4a helper scripts present and executable | `check_codex_scripts` |
+| Toolchain pins match `package.json` and the lockfile's peer ranges | `tests/toolchain-pins.test.js`, which runs under `npm test` and so reports as `build-and-test`, deliberately—see the Toolchain Constraints note above and #825 |
+
+Not every rule in this file has an automated enforcer, and the table does not pretend otherwise. "Never push directly to `main`" is carried by branch protection and the `gh-pr-guard.sh` hook rather than by a `scripts/ci/` check; the motion-token and Mermaid-contrast rules are covered by the Vitest suite for the surfaces it renders, not by a repo-wide scan. Read a blank row as "held by convention and review," which is a weaker guarantee than a check and should be treated as one.
