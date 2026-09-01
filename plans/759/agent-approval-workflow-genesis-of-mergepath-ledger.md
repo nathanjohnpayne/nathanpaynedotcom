@@ -100,7 +100,7 @@ The post omits the hook-command-grammar bug and the two timing/clock bugs. Corre
 
 | Control | Where it runs | What it actually binds |
 |---|---|---|
-| `gh-pr-guard.sh` PR-creation guard | **Client-side**, a Claude Code PreToolUse hook | Only agents running in a session that loads this hook. A different tool, a raw `curl` to the API, or the GitHub web UI bypasses it entirely. On the author-wrapper path it checks only that the wrapper is used; the body itself is validated by the wrapper's contract (§M1). |
+| `gh-pr-guard.sh` PR-creation guard | **Client-side**, a Claude Code PreToolUse hook | Only agents running in a session that loads this hook. A different tool, a raw `curl` to the API, or the GitHub web UI bypasses it entirely. **At mergepath `7878830`**, the commit the post links, it checked both that the wrapper was used and that the command text carried the two markers; **in this repository at `435fadc`, and at mergepath `88b9c6014b83`**, it checks only the routing and exits before the marker grep, leaving the body to the wrapper's contract (§S). |
 | Branch protection | **GitHub server** | Everyone, including the human, short of an explicit `--admin` override—the strongest boundary here, but not an absolute one (§N4). |
 | Required status checks / Label Gate | **GitHub server** | Everyone, subject to admin override. |
 | `scripts/ci/` checks | **CI** | Blocks the merge button, not the push. |
@@ -110,7 +110,7 @@ The post omits the hook-command-grammar bug and the two timing/clock bugs. Corre
 
 Defensible form: name the boundary per control, as #739's acceptance criteria require, and say that the *combination* raises the cost of the wrong action rather than making it impossible. The break-glass path exists precisely so it is not impossible. Source: `scripts/hooks/gh-pr-guard.sh` (a PreToolUse hook, matched against the command string); `.github/review-policy.yml`; `.github/workflows/pr-review-policy.yml`.
 
-**Live corroboration from this very run, corrected in §M1.** While auditing #740 a `gh pr create` was refused for writing `**Authoring-Agent:**` in bold—but the refusal came from the **author wrapper's body contract** (`scripts/lib/pr-body-contract.mjs:83`, line-anchored), not from the hook, which recognises the wrapper and steps aside. The merge separately required **two** break-glass variables, `BREAK_GLASS_ADMIN=1` and `BREAK_GLASS_MERGE_STATE=1`. Both facts are in the revision; see §M1 for the mechanism, which this row originally got wrong in the same way the post did.
+**Live corroboration from this very run (§M1; mechanism re-confirmed in §S after two wrong turns).** While auditing #740 a `gh pr create` was refused for writing `**Authoring-Agent:**` in bold—the refusal came from the **author wrapper's body contract**, `scripts/lib/pr-body-contract.mjs:83` **in this repository** at `435fadc`, line-anchored as `/^ {0,3}Authoring-Agent:\s*(.*?)\s*$/i`. The hook stepped aside: this repo's `scripts/hooks/gh-pr-guard.sh:3101-3104` exits on `WRAPPER_KIND=author` before its marker grep. The merge separately required **two** break-glass variables, `BREAK_GLASS_ADMIN=1` and `BREAK_GLASS_MERGE_STATE=1`. Both facts are in the revision; see §M1 for the mechanism, which this row originally got wrong in the same way the post did.
 
 ### C2—The `external_review_threshold: 300` block and its paths
 
@@ -284,7 +284,7 @@ Corrected value: the tracking issues closed within eighteen seconds of one anoth
 
 | Claim | Source |
 |---|---|
-| PR creation requires `Authoring-Agent:` and `## Self-Review` | The **wrapper's** contract, `scripts/lib/pr-body-contract.mjs:83`, enforces it; `scripts/hooks/gh-pr-guard.sh` enforces that the wrapper is used at all. Re-confirmed when a bolded `**Authoring-Agent:**` line was refused during the #740 audit—by the contract, not the hook (§M1) |
+| PR creation requires `Authoring-Agent:` and `## Self-Review` | **Owner depends on the repository and the commit, so both are named.** In **mergepath @ `88b9c6014b83`** the wrapper's line-anchored match in `scripts/lib/pr-body-contract.mjs:270` enforces it—`/^Authoring-Agent:\s*(.*?)\s*$/i`—and `scripts/hooks/gh-pr-guard.sh` enforces that the wrapper is used, exiting before its own marker grep on that path. **At the pinned commit `7878830`** the hook's grep was the only check and the wrapper had none. The bolded-header refusal during the #740 audit came from the wrapper, because a substring grep passes a bolded marker (§S) |
 | PR #60 was a docs-only change touching `.github/**`, merged 2026-04-15 | `refs.json` → `#60`, +60/−10 over 2 files |
 | PR #63 added a runtime label re-verify, +53/−0 in one file | `refs.json` → `#63` |
 | PR #76 was the consolidated back-port, +450/−102 over 3 files | `refs.json` → `#76` |
@@ -313,10 +313,10 @@ Measured at the revised head with `wc -w`, the same method as the epic's baselin
 
 | Measure | Baseline | Revised | Change |
 | --- | ---: | ---: | ---: |
-| Whole file (the epic's 4,418 baseline) | 4,418 | 4,151 | **−6.0%** |
-| Body prose, frontmatter excluded | 3,993 | 3,674 | **−8.0%** |
+| Whole file (the epic's 4,418 baseline) | 4,418 | 4,203 | **−4.9%** |
+| Body prose, frontmatter excluded | 3,993 | 3,713 | **−7.0%** |
 
-**Neither figure reaches the 20–30% band, and the distance grew with every review round.** The first draft hit −20.8% on body prose. Five automated Codex rounds, the manual Phase 4b correction, and the final CodeRabbit follow-up later it is −8.0%. Two things grew there, both required by the acceptance criteria. The `keyTakeaways` had to carry calibrated language the originals did not—"repeated observation, not controlled measurement" is longer than "measurably better", and that is the point of the change. The `description` and the diagram's `description` both gained the April-2026 snapshot boundary; the manual review added the local-guard and propagation stages the issue requires; the follow-up separated an April 17 response population from the April 16 snapshot.
+**Neither figure reaches the 20–30% band, and the distance grew with every review round.** The first draft hit −20.8% on body prose. Five automated Codex rounds, the manual Phase 4b correction, and the final CodeRabbit follow-up later it is −7.0%. Two things grew there, both required by the acceptance criteria. The `keyTakeaways` had to carry calibrated language the originals did not—"repeated observation, not controlled measurement" is longer than "measurably better", and that is the point of the change. The `description` and the diagram's `description` both gained the April-2026 snapshot boundary; the manual review added the local-guard and propagation stages the issue requires; the follow-up separated an April 17 response population from the April 16 snapshot.
 
 The body also absorbed three sections the acceptance criteria require and the original did not have: the enforcement-boundary table ("every enforcement claim names its boundary"), the corrected-numbers section with its pointer to this ledger ("a linked or embedded counting note"), and "Since the snapshot" ("a reader can tell historical behavior from current Mergepath behavior"). Net of those additions the surviving original prose is down considerably more than 20.8%.
 
@@ -328,8 +328,9 @@ The largest additions, with what each bought:
 
 | Correction | Cost | What the short version had been |
 |---|---:|---|
-| Separating the hook from the wrapper's body contract, in both places it is described | ~110 words | "the hook refuses it unless the body carries…"—wrong about which component does the work |
+| Separating the hook from the wrapper's body contract, in both places it is described | ~110 words | "the hook refuses it unless the body carries…"—recorded here as wrong about which component does the work. **§S supersedes that verdict:** at the pinned commit the original wording was right, and this separation is what moved a real hook responsibility onto the wrapper |
 | Distinguishing the Codex GitHub App from the `nathanpayne-codex` CLI identity | ~55 words | "Codex never posts an `APPROVED` review"—contradicted by this post's own #66 record |
+| **Post-publication (#835): the two-repository correction**—naming which copy of the hook each claim describes, and the probe evidence behind it | **~281 words** | "The wrapper's body contract refuses any PR body lacking…"—attributed the hook's check to the wrapper, and did so without saying which repository's hook |
 | Retracting the propagation-duration claim | ~50 words | "propagated cleanly in under ten minutes"—inferred from closure timestamps (§F2) |
 | Naming which of two round limits was tested on PR #787 | ~40 words | "the `max_review_rounds` guard… fires"—it did not (§L2) |
 | Qualifying branch protection and splitting the break-glass row | ~35 words | "binds everyone, including the human"—an admin walks past it |
@@ -405,9 +406,11 @@ Four findings, all correct, all fixed. One of them is a rule I had written down 
 
 ### M1—The rejection came from the wrapper's contract, not from the hook
 
-The revision's "evidence after launch" said the *hook* refused a bolded `**Authoring-Agent:**` because "the check is line-anchored". Checked against the code: for a PR created through the required `scripts/gh-as-author.sh` path, `gh-pr-guard.sh` recognises the wrapper and steps aside (`_WRAPPER_CMDS` at line 1043, matched at 1219). The line-anchored match that actually rejected the body lives in the wrapper's contract—`scripts/lib/pr-body-contract.mjs:83`, `/^ {0,3}Authoring-Agent:\s*(.*?)\s*$/i`, with the error text emitted from `scripts/lib/pr-body-contract.sh:60`. The hook's own direct-invocation fallback does still use a substring `grep`, so attributing line-anchoring to "the hook" is wrong twice over.
+> **Confirmed, after §S briefly retracted it (2026-09-01).** This row is right about the repository the event happened in. §S mistakenly generalised a probe of *mergepath's* copy of the hook to *this* repository's copy, which had already gained the author-wrapper early exit. Read §S for why the two differ before citing either.
 
-Corrected, and the correction improves the passage: the hook's job was to insist the write go through the wrapper at all, and the wrapper's job was to validate the body. Two components, two boundaries, one easily mistaken for the other—which is the section's entire thesis. Source: `scripts/hooks/gh-pr-guard.sh` lines 1043, 1219, 1375–1376; `scripts/lib/pr-body-contract.mjs:83`; `scripts/lib/pr-body-contract.sh:60`.
+The revision's "evidence after launch" said the *hook* refused a bolded `**Authoring-Agent:**` because "the check is line-anchored". Checked against the code **in this repository, which is where the refusal happened**: the line-anchored match lives in the wrapper's contract—`scripts/lib/pr-body-contract.mjs:83` at `435fadc`, `/^ {0,3}Authoring-Agent:\s*(.*?)\s*$/i`, with the error text emitted from `scripts/lib/pr-body-contract.sh:60`. The hook stepped aside first: `gh-pr-guard.sh:3101-3104` at the same commit exits on `WRAPPER_KIND=author` before reaching its marker grep. Attributing the line-anchoring to the hook is wrong.
+
+Corrected, and the correction improves the passage: the hook's job was to insist the write go through the wrapper at all, and the wrapper's job was to validate the body. Two components, two boundaries, one easily mistaken for the other—which is the section's entire thesis. **This holds for this repository at the time of the event**; mergepath's copy at the commit the post links behaved differently, and §S is where that divergence is recorded. Source, all at `435fadc` in this repository: `scripts/hooks/gh-pr-guard.sh:3101-3104`; `scripts/lib/pr-body-contract.mjs:83`; `scripts/lib/pr-body-contract.sh:60`.
 
 ### M2—The compression totals were stale
 
@@ -459,7 +462,7 @@ Three findings, all correct, and all three of the same species: a correction app
 
 ### O1—The hook still validated the body earlier in the post
 
-§M1 corrected the "evidence after launch" paragraph but left the paragraph that first introduces the guard still saying the hook "refuses it unless the PR body carries" the required sections. Rewritten to separate the two components where they are first described, rather than only where they were caught: the hook insists on the wrapper, the wrapper's contract reads the body. The "substring match, not a parser" aside is now accurate about both—the contract is a line-anchored regex, the hook's fallback a substring match.
+§M1 corrected the "evidence after launch" paragraph but left the paragraph that first introduces the guard still saying the hook "refuses it unless the PR body carries" the required sections. Rewritten to separate the two components where they are first described. **§S qualifies this one:** in *mergepath's* copy the original wording was right that the hook inspects the create for the markers—though it greps the raw command text, never a parsed body—and the rewrite moved a real hook responsibility onto the wrapper. In *this* repository's copy the rewrite was correct. See §S for the divergence.
 
 ### O2—The sidebar diagram still said `>300 lines`
 
@@ -467,7 +470,7 @@ Three findings, all correct, and all three of the same species: a correction app
 
 ### O3—The ledger's own boundary table still over-claimed branch protection
 
-§N4 qualified the post's table and left this ledger's equivalent row unqualified. Both now carry the `--admin` caveat, and the hook row additionally notes that on the author-wrapper path it checks only that the wrapper was used.
+§N4 qualified the post's table and left this ledger's equivalent row unqualified. Both now carry the `--admin` caveat, and the hook row additionally notes that on the author-wrapper path it checks only that the wrapper was used. **That last clause is true of this repository's copy and false of mergepath @ `7878830`, where the hook also greps the command text—see §S.**
 
 **What the exhaustive grep found that the review did not.** Acting on these three, a `grep` for every instance of each claim surfaced **five** sites, not three: the two Codex named in the post plus Rule 1's "a server rule binds everyone", and both ledger rows rather than one. All five are fixed. The lesson from §N was to grep both artifacts; the lesson from this round is to grep *before* replying to the finding, because a review names the instances it happened to read, not the instances that exist.
 
@@ -483,7 +486,7 @@ Third time. Recomputed at this head: 3,998 whole-file, 3,553 body. §J now carri
 
 ### P2—§H still credited the hook with the body contract
 
-The "claims that stand as written" table had the pre-§M1 attribution. Corrected: the contract enforces the fields, the hook enforces that the wrapper is used.
+The "claims that stand as written" table had the pre-§M1 attribution. Corrected to credit the wrapper's contract. **§S corrects it again:** at the mergepath commit the post cites, only the hook inspected the create, and it did so by grepping the command text rather than reading a body; in this repository the wrapper's contract owns it. Name the repository.
 
 ### P3—The break-glass row collapsed two boundaries
 
@@ -525,7 +528,7 @@ The five-node diagram jumped from instruction files to branch rules and ended at
 
 ### Q4—Four stale boundary descriptions remained
 
-§C1 now separates the two local break-glass variables from server-side `--admin`; §H qualifies the no-`APPROVED` behavior to the Codex GitHub App; §I names the wrapper contract as line-anchored rather than the hook; and the post points to both local variables rather than a nonexistent shared last row.
+§C1 now separates the two local break-glass variables from server-side `--admin`; §H qualifies the no-`APPROVED` behavior to the Codex GitHub App; §I names the wrapper contract as line-anchored rather than the hook (correct as far as it goes—see §S for what it displaced); and the post points to both local variables rather than a nonexistent shared last row.
 
 ### Q5—The handoff accounting was arithmetically and procedurally stale
 
@@ -542,3 +545,68 @@ After applying the five review findings, a final grep for universal enforcement 
 CodeRabbit posted four P2 findings after the manual fixes were pushed and the branch was synchronized with current `main`. Three were correct and are fixed: §F2 now appears in the mechanical-failure inventory; the response-time population is separated from the April 16 snapshot because four observations come from PR #78 on April 17; and the multi-round conclusion is scoped to two observed runs rather than called routine.
 
 The fourth finding asked `RUN.md` to pin a current HEAD and update it after every state-only commit. That is dismissed because it recreates the self-invalidating handoff defect corrected in §Q5: the act of committing a new head value immediately makes the recorded value stale. The stable source of truth is the linked open PR, whose live head must be read before review or merge.
+
+## S. Post-publication correction (#835)—who owns the PR-body contract
+
+Filed as #835 after an outbound-link audit for #831 / PR #832: the paragraph at `:74` attributed the hook's body contract to the wrapper. Its **citation was correct** and pointed at real code doing what the sentence described; only the prose around it was wrong, which is the kind of error a reader spot-checking the link comes away reassured by.
+
+**What this row supersedes is narrow, and worth stating precisely, because an earlier draft of it over-reached.** §M1, §O1 and §P2 moved the body contract off the hook and onto the wrapper. For **this** repository, where the bolded-header event happened, that is correct and §M1's mechanism stands. What those rows got wrong is the *scope*: they described the division as though it held everywhere, and the post's citation points at **mergepath**, where at that commit the hook did inspect the create. So the supersession is of the unqualified attribution, not of §M1's account of the event.
+
+### What was actually verified
+
+Not read, but executed. The hook from the pinned commit the post cites (`787883024456260426b869a772059c52b754aeed`) was fed the JSON Claude Code feeds it, with six wrapper-routed `gh pr create` commands. All six were executed; none is a derived example:
+
+| Body, routed through `scripts/gh-as-author.sh` | Verdict |
+|---|---|
+| Both markers present | ALLOW |
+| Neither marker | **BLOCK**—"PR description is missing required sections per REVIEW_POLICY.md" |
+| `**Authoring-Agent:**` bolded, `## Self-Review` present | ALLOW |
+| `Authoring-Agent:` present, no `## Self-Review` | **BLOCK**—same message |
+| `--body-file` pointing at a fully conforming file | **BLOCK**—the markers are not in the command string |
+| Markers parked in `--title`, body conforming to nothing | ALLOW—the grep does not care which argument they are in |
+
+So **mergepath's** hook, at that commit, enforces the markers on the wrapper path rather than stepping aside. Note what it actually inspects: `grep -qi` over `$COMMAND`, the whole shell command string, never a parsed body. It is a command-text check standing in for a body check, and the last two rows above are that distinction made visible: a conforming `--body-file` is refused, and markers parked in `--title` beside a nonconforming body are accepted. (This repository's own hook is newer and carries an author-wrapper early exit that restores `--body-file`, which is how every PR in this series was created.) The hook's own header comment says the same thing in one sentence: `gh pr create` "blocks unless the command is routed through `scripts/gh-as-author.sh` **and** the command text includes `Authoring-Agent:` and `## Self-Review`."
+
+### Why §M1 looked right
+
+Two true observations, joined by a wrong mechanism.
+
+`scripts/lib/pr-body-contract.{sh,mjs}` **does not exist at the pinned commit**—`GET /contents/scripts/lib?ref=7878830` does not list it. The wrapper there is 133 lines and greps clean for `Authoring-Agent` and `Self-Review`; at mergepath `88b9c6014b83` it is 241 lines and calls `pr_body_validate`. The wrapper's line-anchored contract is therefore a **later** layer, and §M1 was reading it back into a commit that predates it.
+
+**Everything above is about mergepath, and the bolded-header rejection did not happen there.** It happened in this repository, whose copy had already gained the author-wrapper early exit—so the hook stepped aside and never reached a grep, and the wrapper's `/^ {0,3}Authoring-Agent:\s*(.*?)\s*$/i` rejected the body. §M1's account was right, including the mechanism. The table below is where the two repositories are separated; an earlier draft of this section carried the mergepath explanation into the event account and was wrong for it.
+
+### Corrected value
+
+At the mergepath commit the post cites: the hook insists on the wrapper **and** greps the command text for the two markers; the wrapper verifies an author token before the write and re-reads the created PR's author afterward. Identity, not content. That is what `:74` should say, and now does.
+
+### The two-repository finding, which is why this claim keeps flipping
+
+**An earlier revision of this section got the fact-check event wrong, and got it wrong by generalising the probe above to a repository it was never run against.** Codex caught it on PR #917 round 6.
+
+`scripts/hooks/gh-pr-guard.sh` exists in **both** repositories and they have evolved differently:
+
+| | mergepath @ `7878830` | nathanpaynedotcom @ `435fadc` (2026-08-24) |
+|---|---|---|
+| author-wrapper path | checks the command text for both markers | `:3101-3104` exits on `WRAPPER_KIND=author` **before** the grep |
+| wrapper body contract | none—`scripts/lib/pr-body-contract.*` does not exist | `pr-body-contract.mjs:83`, `/^ {0,3}Authoring-Agent:\s*(.*?)\s*$/i` |
+
+The post's `:74` link points at the first. **The bolded-header refusal happened under the second**: `plans/759/RUN.md:69` dates this run to 2026-08-25, and `435fadc` is an ancestor of `main`. So the hook stepped aside and the wrapper's anchored contract rejected the body—which is exactly what §M1 said before this section retracted it.
+
+The retraction also broke two citations by "fixing" them against the wrong artifact. `pr-body-contract.mjs:83` and the `^ {0,3}` prefix were correct for this repository; they were changed to mergepath `main`'s `:270` and a bare `^Authoring-Agent:`, which describe a different file at a different time. Both are restored.
+
+**What made the error survive a probe.** The absence check was `grep -c gh_is_pr_create_command`, a token belonging to a *later* hardening of the early exit. This repository's copy implements the same exit as a plain `[ "$WRAPPER_KIND" = "author" ]` test, so the grep returned 0 and read as "no early exit" when the exit was four lines further down. A zero-hit search is only evidence once the same search has found a known positive.
+
+### Corrected value
+
+State the repository and the commit, every time. "The hook" is not one artifact:
+
+- **mergepath @ `7878830`**—hook greps the command text on the wrapper path; wrapper does identity only.
+- **nathanpaynedotcom @ `435fadc`**—hook steps aside on the wrapper path; wrapper's line-anchored contract owns the body.
+
+Do not write that the hook only routes and the wrapper only validates, or the reverse, **without naming which copy and when**. Both have been true, in different repositories, at overlapping times.
+
+### The lesson this one carries
+
+The defect class is the one `docs/agents/blog-revision-process.md` calls "a retraction's replacement can invert the claim," and it survived five review rounds because each round checked the replacement against the sentence it replaced rather than against the evidence. §M1 corrected a real error and overshot; §O1 then propagated the overshoot to the paragraph that introduces the guard, and §P2 propagated it into the "claims that stand as written" table—which is the table a later audit trusts most. Three rounds of tidy, self-consistent restatement, all downstream of one unverified mechanism.
+
+What would have caught it at §M1 is what caught it here: running the component instead of reading it. A six-case probe against the pinned commit takes a minute and answers the question that source-reading kept answering plausibly and wrongly. **With one caveat this section then demonstrated at its own expense:** a probe answers for the artifact you ran it against, and this one was run against mergepath while the event under discussion happened here. Running the right component matters as much as running one.
