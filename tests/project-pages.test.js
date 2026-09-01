@@ -107,7 +107,13 @@ const projectAccentRamp = ['red', 'yellow', 'paper', 'blue', 'black'];
 // is suppressed on the detail page, the project card, and the homepage
 // Builds section. The SoftwareApplication JSON-LD entity is also
 // dropped on these pages (no `url:` to populate).
-const noLiveUrlSlugs = ['matchline'];
+//
+// Empty today. `matchline` sat here from #756 through #885 because its only
+// deployment was the stale 2026-05-02 build the page declined to link. That
+// build was superseded on 2026-08-31, so the exception is gone rather than
+// merely unused — restore an entry here only when a project genuinely has no
+// reachable deployment.
+const noLiveUrlSlugs = [];
 // `device-source-of-truth` is a private repository, so its "View on GitHub"
 // CTA is suppressed rather than rendering a button that 404s for every
 // reader but the owner (#874). Same exception shape as `noLiveUrlSlugs`.
@@ -1082,22 +1088,30 @@ describe('Matchline — audited claims stay retracted (#756)', () => {
 
   it('does not claim no deployment exists', () => {
     // A build is deployed and publicly reachable behind a sign-in wall. The
-    // page's position is that it is stale and unlinked, not that it is absent.
+    // page's position was that it was stale and unlinked; since the 2026-08-31
+    // redeploy it is current and linked. What must never come back is the
+    // claim that no deployment exists at all.
     for (const surface of [source(), rendered()]) {
       expect(surface).not.toMatch(/the running product is not\b/i);
     }
-    // The corrected state: a deployment exists, it is gated, it is stale, and
-    // this page does not link it. All four clauses, or the retraction is only
-    // a deletion.
-    expect(source(), 'the deployed build must be disclosed, gated and unlinked').toMatch(
-      /deployed behind a sign-in wall and is not linked here/i,
+    // The corrected state: a deployment exists, it is gated, it is current,
+    // and this page links it. All four clauses, or the retraction is only a
+    // deletion.
+    expect(source(), 'the deployed build must still be disclosed as gated').toMatch(
+      /deployed behind a sign-in wall/i,
     );
-    // Scoped, per Codex on #885: the May build predates the June/July work but
-    // not the April material, so the staleness claim names which work is absent.
-    expect(source(), 'the staleness claim must be scoped to the later work').toMatch(
+    expect(source(), 'the page must say the CTA points at that build').toMatch(
+      /button above goes to it/i,
+    );
+    expect(source(), 'the redeploy must be dated the way the stale build was').toMatch(
+      /redeployed on the evening of 2026-08-31/,
+    );
+    // The superseded staleness claim must not survive alongside the link — a
+    // page that links the build and still calls it a May build is worse than
+    // either state on its own.
+    expect(source(), 'the superseded staleness claim must be gone').not.toMatch(
       /It dates from 2026-05-02, which is before the June and July work/,
     );
-    expect(frontmatter().liveUrl, 'disclosure must not become a liveUrl').toBeUndefined();
   });
 
   it('dates the pause by the last product commit, not by a commit count', () => {
@@ -1111,7 +1125,7 @@ describe('Matchline — audited claims stay retracted (#756)', () => {
     // the forensic chronology out of the prioritization record, so there is no
     // corrected value left to pin. The negative above is what matters: the
     // overcount must not come back, whether or not a count is stated.
-    expect(surface, 'commit-count claims need an as-of date').toMatch(/As of 2026-08-31/i);
+    expect(surface, 'commit-count claims need an as-of date').toMatch(/as of 2026-09-01/i);
   });
 
   it('keeps the wordmark legible by leaving order and accent alone', () => {
@@ -1126,10 +1140,30 @@ describe('Matchline — audited claims stay retracted (#756)', () => {
     expect(data.screenshotSrc).toBe('/images/projects/matchline-wordmark.svg');
   });
 
-  it('publishes no liveUrl while the only deployment is stale', () => {
+  it('publishes the dev instance now that the deployment is current', () => {
+    // Inverts the #885 assertion. The liveUrl was withheld while the only
+    // deployment predated the work this page rests on; the 2026-08-31 redeploy
+    // removed that reason, so both hero CTAs and the index card link render.
     const data = frontmatter();
-    expect(data.liveUrl).toBeUndefined();
+    expect(data.liveUrl).toBe('https://matchline-dev.web.app/');
     expect(data.githubUrl).toBe('https://github.com/nathanjohnpayne/matchline');
+  });
+
+  it('says why the pause is expected to end, in the terms the repository sets', () => {
+    // The restart passage is the only place the page asserts that product
+    // work resumed. It has to name what actually broke and what actually runs,
+    // or it is a mood rather than a claim.
+    const surface = source();
+    expect(surface, 'the restart must name the two engines that came back up').toMatch(
+      /résumé extraction and JD parsing now run end to end/i,
+    );
+    expect(surface, 'the edge failure must be named, not summarized').toMatch(
+      /lacked public invoker bindings/,
+    );
+    expect(surface, 'the credential failure must be named').toMatch(/trailing newline/);
+    // And the status must not quietly follow the prose — the project stays
+    // PAUSED until a real application has gone through it end to end.
+    expect(frontmatter().status).toBe('PAUSED');
   });
 });
 
