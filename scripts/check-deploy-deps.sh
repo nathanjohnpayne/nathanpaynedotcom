@@ -245,10 +245,29 @@ const resolveDep = (parentPath, dep) => {
 // built even though the entry carries no platform constraints to prove it.
 const requiredPaths = new Set();
 for (const [path, meta] of Object.entries(packages)) {
-  if (!path.startsWith("node_modules/") || !isInstalled(path)) continue;
-  const deps = { ...(meta.dependencies ?? {}), ...(meta.optionalDependencies ?? {}) };
+  // The root project is keyed "" and is always "installed". Its own
+  // dependencies and optionalDependencies are what npm installs at top level,
+  // so skipping it left every direct optional dependency looking unrequired.
+  const isRoot = path === "";
+  if (!isRoot && (!path.startsWith("node_modules/") || !isInstalled(path))) continue;
+  // peerDependencies count when not marked optional: an installed parent
+  // imports them directly, so a tree without them differs from what npm ci
+  // produces. peerDependenciesMeta[name].optional exempts one.
+  const peerMeta = meta.peerDependenciesMeta ?? {};
+  const requiredPeers = Object.fromEntries(
+    Object.entries(meta.peerDependencies ?? {}).filter(([n]) => !peerMeta[n]?.optional),
+  );
+  const deps = {
+    ...(meta.dependencies ?? {}),
+    ...(meta.optionalDependencies ?? {}),
+    ...requiredPeers,
+  };
   for (const dep of Object.keys(deps)) {
-    const resolved = resolveDep(path, dep);
+    const resolved = isRoot
+      ? packages[`node_modules/${dep}`]
+        ? `node_modules/${dep}`
+        : null
+      : resolveDep(path, dep);
     if (resolved) requiredPaths.add(resolved);
   }
 }
@@ -267,22 +286,31 @@ for (const [path, meta] of Object.entries(packages)) {
   const manifest = `${path}/package.json`;
   checked++;
 
+  // Would a clean `npm ci` put this package here? Decided once, above the
+  // present/absent split, because BOTH directions are drift: an applicable
+  // package that is absent, and an inapplicable one that is present.
+  //
+  // Two ways it applies: the lockfile proves it targets this host, or it
+  // carries no constraints at all AND something installed requires it.
+  // Unconstrained-and-unrequired stays exempt — the lockfile carries every
+  // platform binary and npm installs only the one for this host, so exempting those is
+  // what keeps a clean tree quiet.
+  const unconstrained =
+    meta.os === undefined && meta.cpu === undefined && meta.libc === undefined;
+  const installsHere =
+    !meta.optional || targetsThisHost(meta) || (unconstrained && requiredPaths.has(path));
+
   if (!existsSync(manifest)) {
-    // Absent optional deps are usually the normal case: the lockfile carries
-    // every platform binary and npm installs only this hosts. But exempting
-    // ALL of them also exempts a package that DOES target this host — a
-    // missing sharp or Astro compiler binding changes the build while the
-    // guard reports a match. So the exemption is narrowed to packages this
-    // host could not install, using the lockfiles own os/cpu/libc constraints.
-    // Exempt unless it could actually install here. Two ways it could: the
-    // lockfile proves it targets this host, or it carries no constraints at
-    // all AND something installed requires it. Unconstrained-and-unrequired
-    // stays exempt, which is what keeps a clean tree quiet.
-    const unconstrained =
-      meta.os === undefined && meta.cpu === undefined && meta.libc === undefined;
-    const installsHere = targetsThisHost(meta) || (unconstrained && requiredPaths.has(path));
-    if (meta.optional && !installsHere) continue;
+    if (!installsHere) continue;
     rows.push([name, meta.version, "(not installed)"].join("\t"));
+    continue;
+  }
+
+  if (!installsHere) {
+    // Present, but a clean npm ci would not install it — a stale leftover
+    // reachable only from absent foreign-platform parents. Node still resolves
+    // it, so the local build differs from the one CI made.
+    rows.push([name, meta.version, "(present; npm ci would omit)"].join("\t"));
     continue;
   }
 
@@ -444,15 +472,22 @@ const binDir = "node_modules/.bin";
       continue;
     }
 
-    // npm writes a symlink on unix and a shell wrapper on windows; a wrapper is
-    // a regular file that NAMES its target, so accept either form.
+    // On POSIX npm writes a real symlink, so the resolved target IS the test.
+    // The previous substring fallback accepted any regular file that merely
+    // mentioned the target path — a wrapper naming it and then running
+    // arbitrary commands passed, and npm run build would execute those. Kept
+    // only for win32, where npm genuinely writes wrappers.
+    const allowWrapperText = process.platform === "win32";
     let wrapperText = "";
-    try {
-      wrapperText = readFileSync(shim, "utf8");
-    } catch {}
+    if (allowWrapperText) {
+      try {
+        wrapperText = readFileSync(shim, "utf8");
+      } catch {}
+    }
 
     let matched = false;
     let anyDeclaredPresent = false;
+    let matchedTarget = null;
     for (const { path, rel } of targets) {
       let wanted;
       try {
@@ -461,10 +496,26 @@ const binDir = "node_modules/.bin";
         continue;
       }
       anyDeclaredPresent = true;
-      if (shimTarget === wanted || wrapperText.includes(rel.replace(/^\.\//, ""))) {
+      if (
+        shimTarget === wanted ||
+        (allowWrapperText && wrapperText.includes(rel.replace(/^\.\//, "")))
+      ) {
         matched = true;
+        matchedTarget = wanted;
         break;
       }
+    }
+
+    // npm ci recreates executable modes. Without the bit the symlink resolves
+    // and every version matches, but running it fails with status 126 and the
+    // build dies after the guard called the tree safe.
+    if (matched && matchedTarget && process.platform !== "win32") {
+      try {
+        if (!(statSync(matchedTarget).mode & 0o111)) {
+          rows.push([`.bin/${binName}`, version, "(target not executable)"].join("\t"));
+          continue;
+        }
+      } catch {}
     }
 
     if (!anyDeclaredPresent) {

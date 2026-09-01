@@ -8,6 +8,7 @@ import {
   rmSync,
   symlinkSync,
   writeFileSync,
+  chmodSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
@@ -70,7 +71,14 @@ function runCheck({
         const declared = packages?.[`node_modules/${name}`]?.bin;
         if (declared) {
           const rels = typeof declared === 'string' ? [declared] : Object.values(declared);
-          for (const rel of rels) writeFileSync(join(dir, rel), '#!/usr/bin/env node\n', 'utf-8');
+          for (const rel of rels) {
+            const binPath = join(dir, rel);
+            writeFileSync(binPath, '#!/usr/bin/env node\n', 'utf-8');
+            // Executable, because npm ci recreates these modes and the guard
+            // now rejects a target it could not run — a fixture without the bit
+            // exercises that failure instead of the case it means to test.
+            chmodSync(binPath, 0o755);
+          }
         }
       }
     }
@@ -101,9 +109,13 @@ function runCheck({
       mkdirSync(binDir, { recursive: true });
       for (const [binName, target] of Object.entries(bins)) {
         if (target === null) continue;
-        // The guard accepts a wrapper that NAMES its target, which is how npm
-        // writes shims on windows — so the fixture writes the declared path in.
-        writeFileSync(join(binDir, binName), `#!/bin/sh\n# ${target}\n`, 'utf-8');
+        // A real symlink, because that is what npm writes on POSIX and what the
+        // guard now requires there — a regular file naming its target was the
+        // hole CodeRabbit found (a wrapper could name astro.js and then run
+        // anything). `target` is a path relative to node_modules, stated
+        // explicitly so a fixture can point a shim at something other than the
+        // declared bin.
+        symlinkSync(join(workDir, 'node_modules', target), join(binDir, binName));
       }
     }
 
@@ -224,7 +236,10 @@ describe('check-deploy-deps.sh', () => {
     // packages. A drifted binary that is actually being linked into the build
     // is exactly as dangerous as a drifted direct dependency.
     const result = runCheck({
-      packages: { 'node_modules/esbuild-darwin-arm64': { version: '0.21.5', optional: true } },
+      packages: {
+        '': { name: 'sandbox', optionalDependencies: { 'esbuild-darwin-arm64': '0.21.5' } },
+        'node_modules/esbuild-darwin-arm64': { version: '0.21.5', optional: true },
+      },
       installed: { 'esbuild-darwin-arm64': '0.19.0' },
     });
 
@@ -594,9 +609,12 @@ describe('check-deploy-deps.sh', () => {
     // Codex P2 on #903. Checking only that realpath succeeds accepts a stale
     // file or a symlink to any other executable, while `npm run build` runs it.
     const result = runCheck({
-      packages: { 'node_modules/astro': { version: '7.2.9', bin: { astro: 'astro.js' } } },
-      installed: { astro: '7.2.9' },
-      bins: { astro: 'somewhere-else.js' },
+      packages: {
+        'node_modules/astro': { version: '7.2.9', bin: { astro: 'astro.js' } },
+        'node_modules/decoy': { version: '1.0.0', bin: { decoy: 'somewhere-else.js' } },
+      },
+      installed: { astro: '7.2.9', decoy: '1.0.0' },
+      bins: { astro: 'decoy/somewhere-else.js' },
     });
 
     expect(result.status).toBe(1);
@@ -614,10 +632,65 @@ describe('check-deploy-deps.sh', () => {
         'node_modules/playwright': { version: '1.62.1', bin: { playwright: 'cli.js' } },
       },
       installed: { '@playwright/test': '1.62.1', playwright: '1.62.1' },
-      bins: { playwright: 'cli.js' },
+      bins: { playwright: '@playwright/test/cli.js' },
     });
 
     expect(result.status).toBe(0);
+  });
+
+  it('reports a required peer dependency of an installed parent', () => {
+    // Codex P2 on #903. An installed parent imports its non-optional peers
+    // directly, so a tree without them differs from what npm ci produces.
+    const result = runCheck({
+      packages: {
+        'node_modules/parent-pkg': {
+          version: '1.0.0',
+          peerDependencies: { 'peer-pkg': '^1.0.0' },
+        },
+        'node_modules/peer-pkg': { version: '1.0.0', optional: true },
+      },
+      installed: { 'parent-pkg': '1.0.0' },
+    });
+
+    expect(result.status).toBe(1);
+    expect(result.output).toContain('peer-pkg');
+  });
+
+  it('exempts a peer dependency the lockfile marks optional', () => {
+    const result = runCheck({
+      packages: {
+        'node_modules/parent-pkg': {
+          version: '1.0.0',
+          peerDependencies: { 'peer-pkg': '^1.0.0' },
+          peerDependenciesMeta: { 'peer-pkg': { optional: true } },
+        },
+        'node_modules/peer-pkg': { version: '1.0.0', optional: true },
+      },
+      installed: { 'parent-pkg': '1.0.0' },
+    });
+
+    expect(result.status).toBe(0);
+  });
+
+  it('reports an installed optional that a clean install would omit', () => {
+    // Codex P2 on #903. Applicability was only consulted when the manifest was
+    // missing, so a stale foreign-platform package sitting in the tree was
+    // never questioned — and node still resolves it.
+    const result = runCheck({
+      packages: {
+        'node_modules/foreign-pkg': {
+          version: '1.0.0',
+          optional: true,
+          os: ['sunos'],
+          cpu: ['mips'],
+        },
+        'node_modules/astro': { version: '7.2.9' },
+      },
+      installed: { 'foreign-pkg': '1.0.0', astro: '7.2.9' },
+    });
+
+    expect(result.status).toBe(1);
+    expect(result.output).toContain('npm ci would omit');
   });
 
   it('accepts a present .bin shim', () => {
@@ -626,7 +699,7 @@ describe('check-deploy-deps.sh', () => {
       installed: { astro: '7.2.9' },
       // The shim has to name the declared target now, not merely exist — that
       // is the whole point of the target check.
-      bins: { astro: 'astro.js' },
+      bins: { astro: 'astro/astro.js' },
     });
 
     expect(result.status).toBe(0);
