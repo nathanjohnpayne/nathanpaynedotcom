@@ -141,21 +141,28 @@ const fmt = (bound) => (bound === null ? 'unbounded' : bound.join('.'));
 
 describe('toolchain pins (#825)', () => {
   it('declares a parseable pin block with the fields the rest of this suite reads', () => {
-    expect(pins.typescriptPeerCeilingSources).toEqual(expect.arrayContaining(['typescript-eslint']));
     expect(pins.markdownProcessorLockstep).toEqual(
       expect.arrayContaining(['astro', '@astrojs/markdown-remark', '@astrojs/mdx']),
     );
   });
 
   it('records every protected package in the block, so none can drop out of coverage', () => {
-    // The per-package assertions below are generated FROM the block, so an
-    // entry deleted from it silently deletes its own coverage while every
-    // other assertion keeps passing. This is the floor that prevents that.
-    const required = ['typescript', ...pins.markdownProcessorLockstep];
+    // Every list here is BOTH the source of truth and the thing that generates
+    // the assertions below, so an entry deleted from one silently deletes its
+    // own coverage while everything else keeps passing. This is the floor.
     expect(
-      Object.keys(pins.devDependencies ?? {}).sort(),
+      Object.keys(pins.devDependencies ?? {}),
       'a pin dropped out of the block would take its own check with it',
-    ).toEqual(expect.arrayContaining(required.sort()));
+    ).toEqual(expect.arrayContaining(['typescript', ...pins.markdownProcessorLockstep]));
+
+    // Both ceiling sources, not just the tighter one. Which peer is binding
+    // changes as they move: `@astrojs/check` ceilings at 7.0.0 today and
+    // `typescript-eslint` at 6.1.0, but the rules bullet's warning cuts both
+    // ways — consulting only one is what makes an unsafe bump look safe.
+    expect(
+      pins.typescriptPeerCeilingSources,
+      'dropping a ceiling source removes the only check that reads it',
+    ).toEqual(expect.arrayContaining(['@astrojs/check', 'typescript-eslint']));
   });
 
   describe('package.json agrees with the pin block', () => {
@@ -167,6 +174,27 @@ describe('toolchain pins (#825)', () => {
           `package.json declares ${name} as "${manifest.devDependencies?.[name]}" but ` +
             `rules/repo_rules.md § Toolchain Constraints pins it at "${declared}". ` +
             'Change both together, or neither.',
+        ).toBe(declared);
+      });
+    }
+  });
+
+  describe("the lockfile's copy of the root manifest agrees too", () => {
+    // package-lock.json mirrors the root manifest under packages[""], so a
+    // declared range lives on THREE surfaces. #886's restoration missed this
+    // one: package.json said <6.1.0 while the lockfile still said <7.1.0, and
+    // any lockfile-reading audit got the old ceiling. Caught by Codex on this
+    // PR, which is the same lesson one level down — a value written in more
+    // than one place needs a check that reads every place.
+    const root = lockfile.packages?.[''] ?? {};
+
+    for (const [name, declared] of Object.entries(pins.devDependencies)) {
+      it(`${name} is mirrored as "${declared}"`, () => {
+        expect(
+          root.devDependencies?.[name],
+          `package-lock.json packages[""] declares ${name} as ` +
+            `"${root.devDependencies?.[name]}" but the pin block says "${declared}". ` +
+            'Run `npm install --package-lock-only` after editing package.json.',
         ).toBe(declared);
       });
     }
