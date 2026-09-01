@@ -1,7 +1,5 @@
 import { describe, it, expect, beforeAll } from 'vitest';
-import { readFileSync } from 'fs';
-import { resolve } from 'path';
-import { writeSanitizedDOM } from './helpers/dom.js';
+import { readBuiltPage, writeSanitizedDOM } from './helpers/dom.js';
 
 /**
  * Cal.com scheduling link in the Connect panel (#620).
@@ -13,13 +11,12 @@ import { writeSanitizedDOM } from './helpers/dom.js';
  * a JS-disabled reader gets.
  */
 
-const DIST = resolve(__dirname, '../dist');
 const BOOKING_URL = 'https://cal.com/nathanpayne';
 
 let link;
 
 beforeAll(() => {
-  const raw = readFileSync(resolve(DIST, 'index.html'), 'utf-8');
+  const raw = readBuiltPage('index.html');
   // Scripts are removed on a detached document and the doctype preserved by
   // the shared helper — see tests/helpers/dom.js for why both matter.
   writeSanitizedDOM(raw);
