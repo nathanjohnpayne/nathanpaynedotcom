@@ -127,13 +127,45 @@ The guard runs inside `npm test`, so it reports as `build-and-test`—one of the
 
 ## CI Enforcement
 
-The following checks are implemented in `scripts/ci/` and must pass before any commit is merged:
+The structural checks live in `scripts/ci/` and are wired into `.github/workflows/repo_lint.yml`, which reports as the required `lint` check. **That workflow is the list; this file does not restate it.**
 
-1. `check_required_root_files`—Verifies README.md, AGENTS.md, DEPLOYMENT.md, CONTRIBUTING.md, and .ai_context.md all exist at repository root
-2. `check_no_tool_folder_instructions`—Verifies .claude/ and .cursor/ contain no plain .md or .txt instruction files
-3. `check_no_forbidden_top_level_dirs`—Verifies no forbidden top-level directories exist (e.g., tool-instructions/, ai-rules/, agent-config/)
-4. `check_dist_not_modified`—Verifies dist/ files were not directly modified (exits cleanly if dist/ does not exist)
-5. `check_spec_test_alignment`—Verifies every file in specs/ has a corresponding test file in tests/ (skips if specs/ is empty)
-6. `check_duplicate_docs`—Verifies no documentation topic is duplicated between root files and tool folders
-7. `check_review_policy_exists` (inline in repo_lint.yml)—Verifies .github/review-policy.yml and REVIEW_POLICY.md both exist
-8. `check_codex_scripts`—Verifies `scripts/codex-review-request.sh` and `scripts/codex-review-check.sh` exist and are executable. Required for `CLAUDE.md` step 8 Phase 4a (automated external review via the OpenAI Codex GitHub App)—missing either script silently forces callers to Phase 4b fallback.
+An earlier revision of this section enumerated eight checks as though they were the complete set. They were, once. By the time #849 measured it there were 72 scripts on disk, and the discrepancy was invisible to a numeric grep, because the count was never written as a numeral—it was implied by a Markdown list running `1.` to `8.` A list of that size, kept by hand, in a file whose whole purpose is to be trusted by agents that read it before acting, will go stale again the same way.
+
+Two checks are meant to keep the workflow and the directory in agreement in both directions: `check_ci_scripts_wired` fails when a `scripts/ci/check_*` exists with no `run:` step, and the inline `check_ci_kit_integrity` step fails when a wired step names a script that is not on disk.
+
+**Only the first direction is enforced here.** `check_ci_kit_integrity` early-exits with `SKIP (consumer checkout)` when `scripts/sync-to-downstream.sh` is absent, and it is absent in this repository—that script lives in the mergepath hub. Each wired step also soft-passes when its backing script is missing, by design, to survive kit skew during a sync wave. So deleting a wired `check_*` from `scripts/ci/` here leaves a stale `run:` entry in the workflow and the required `lint` check green. Script-to-wire is enforced; wire-to-script is not, on this side.
+
+Enumerate the current set rather than reading a count out of this file. Anchor the pattern to a real `run:` line—the workflow header documents the wiring convention with a literal `run: ./scripts/ci/check_X` example, and an unanchored grep counts that placeholder as a wired check:
+
+```bash
+ls scripts/ci | grep '^check_'                                      # scripts on disk
+grep -oE '^[[:space:]]*run: \./scripts/ci/check_[A-Za-z0-9_]+' \
+  .github/workflows/repo_lint.yml | sed 's|.*/||' | sort -u         # wired steps
+grep -n 'WIRED-EXEMPT' .github/workflows/repo_lint.yml              # deliberate exemptions
+```
+
+As of 2026-09-01 that is **72 scripts on disk, 71 wired, and one deliberate exemption**: `check_op_firebase_deploy_integration`, marked `WIRED-EXEMPT` at `repo_lint.yml:350` as opt-in. Three further checks are implemented inline in the workflow with no script of their own: `check_review_policy_exists`, `check_governance_files`, and `check_ci_kit_integrity`. Treat those figures as a reading taken on a date, not as a rule—the commands are the answer.
+
+An earlier revision of this section reported "72 wired" from an unanchored grep. It was wrong twice in opposite directions—counting the `check_X` placeholder and missing the exempt script—and the two errors cancelled to a number that matched the disk count exactly, which is what made it look verified.
+
+`scripts/ci/README.md` annotates a subset of the checks with what each one covers and why it exists. It is a guide to the interesting ones, not an inventory either; its own closing line still points back here for "the full list," which is the circular reference #849 surfaced.
+
+### Which checks enforce the rules above
+
+This is a **curated inventory of the checks closest to this file's own invariants**, not a complete rule-to-enforcer mapping. Some rows—spec/test alignment, the review-policy file pair, the Phase 4a helper scripts—describe checks whose underlying rule is not stated in the sections above; they are kept because an agent reading this file is the one most likely to trip them. Those rows track their checks rather than this file's rules, so they can go stale when a check changes.
+
+**Read the strength column before trusting a row.** A check that runs is not the same as a rule that is enforced, and three of these are weaker than their names suggest:
+
+| Rule in this file | Check | Strength |
+|---|---|---|
+| Structure invariants—the five required root files | `check_required_root_files` | **Blocks** |
+| No instruction files in `.claude/` or `.cursor/` | `check_no_tool_folder_instructions` | **Blocks** |
+| Every file in `specs/` has a corresponding test | `check_spec_test_alignment` | **Blocks** |
+| `.github/review-policy.yml` and `REVIEW_POLICY.md` both exist | `check_review_policy_exists` (inline) | **Blocks** |
+| Phase 4a helper scripts present and executable | `check_codex_scripts` | **Blocks** |
+| Toolchain pins match `package.json` and the lockfile's peer ranges | `tests/toolchain-pins.test.js` | **Blocks**, and reports as `build-and-test` rather than `lint` deliberately—see the Toolchain Constraints note above and #825 |
+| No new top-level directories | `check_no_forbidden_top_level_dirs` | **Partial.** Hard-fails on exactly two names, `vendor` and `node_modules/.cache/custom`. Any other undeclared top-level directory emits `WARN` and exits 0, so the general rule above is convention, not a gate |
+| `dist/` is build output, never edited in place | `check_dist_not_modified` | **Not enforced in practice.** It compares `HEAD~1..HEAD`, and the `lint_fast` job that runs it checks out at `actions/checkout`'s default depth of 1, so `HEAD~1` does not resolve and the check reports `SKIP (not enough commits to compare)`. Even with history it would read the last commit, not the PR diff |
+| No duplicate documentation across canonical docs | `check_duplicate_docs` | **Advisory.** It scans tool-folder files against a fixed topic list, prints `WARN` for each hit, and exits 0 unconditionally. It cannot see conflicting duplication between canonical documents, which is what the rule above is actually about |
+
+Rules with no row at all are held by convention and review, which is weaker still. "Never push directly to `main`" is carried by **branch protection alone** on the push itself: `gh-pr-guard.sh` gates selected `gh pr` and `gh issue` writes and exits early on a command with no `gh` token, so a plain `git push origin main` never reaches it. The server rejects the update; nothing local does. The motion-token rule has no repo-wide scan, and Mermaid contrast is covered by the Vitest suite for the surfaces it renders. Absence from this table is not evidence a rule is unenforced elsewhere, but it is evidence that nothing here enforces it.
