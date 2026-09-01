@@ -672,25 +672,40 @@ describe('check-deploy-deps.sh', () => {
     expect(result.status).toBe(0);
   });
 
-  it('reports an installed optional that a clean install would omit', () => {
-    // Codex P2 on #903. Applicability was only consulted when the manifest was
-    // missing, so a stale foreign-platform package sitting in the tree was
-    // never questioned — and node still resolves it.
+  it('accepts an installed optional this model cannot prove applicable', () => {
+    // Codex P1 on #903, reversing a check added the round before. Reporting a
+    // PRESENT package as one npm would not have installed requires predicting
+    // npm exactly, and this model cannot: @img/sharp-wasm32 and
+    // @napi-rs/wasm-runtime are optional with no os/cpu constraints, declared
+    // only by wasm32 parents that are themselves optional and
+    // platform-specific. npm omits them on darwin and hoists them on linux, so
+    // the symmetric check exited 1 on a clean `npm ci` tree on the platform CI
+    // runs on.
+    //
+    // The absent direction stays safe because exempting is conservative. The
+    // present direction has no such fallback, so it is not attempted.
     const result = runCheck({
       packages: {
-        'node_modules/foreign-pkg': {
-          version: '1.0.0',
-          optional: true,
-          os: ['sunos'],
-          cpu: ['mips'],
-        },
+        'node_modules/wasm-fallback': { version: '1.0.0', optional: true },
         'node_modules/astro': { version: '7.2.9' },
       },
-      installed: { 'foreign-pkg': '1.0.0', astro: '7.2.9' },
+      installed: { 'wasm-fallback': '1.0.0', astro: '7.2.9' },
+    });
+
+    expect(result.status).toBe(0);
+  });
+
+  it('still reports a package absent from the lockfile entirely', () => {
+    // The guarantee that survives: an extraneous package needs no prediction
+    // about npm at all, so removing the symmetric check does not weaken it.
+    const result = runCheck({
+      packages: { 'node_modules/astro': { version: '7.2.9' } },
+      installed: { astro: '7.2.9' },
+      extraneous: { 'ghost-package': '9.9.9' },
     });
 
     expect(result.status).toBe(1);
-    expect(result.output).toContain('npm ci would omit');
+    expect(result.output).toContain('not in lockfile');
   });
 
   it('accepts a present .bin shim', () => {

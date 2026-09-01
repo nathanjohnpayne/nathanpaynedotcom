@@ -306,13 +306,20 @@ for (const [path, meta] of Object.entries(packages)) {
     continue;
   }
 
-  if (!installsHere) {
-    // Present, but a clean npm ci would not install it — a stale leftover
-    // reachable only from absent foreign-platform parents. Node still resolves
-    // it, so the local build differs from the one CI made.
-    rows.push([name, meta.version, "(present; npm ci would omit)"].join("\t"));
-    continue;
-  }
+  // NOT symmetric, deliberately. Reporting a PRESENT package as one npm would
+  // not have installed requires predicting npm exactly, and this model cannot.
+  // @img/sharp-wasm32 and @napi-rs/wasm-runtime are optional with no os/cpu
+  // constraints, declared only by wasm32 parents that are themselves optional
+  // and platform-specific. npm omits them on darwin and hoists them on linux —
+  // so the symmetric check exited 1 on a clean `npm ci` tree on the very
+  // platform CI runs, which is the worst possible failure for this guard.
+  //
+  // The absent direction is safe because exempting is conservative: a package
+  // this model cannot prove applicable is simply not reported. The present
+  // direction has no such fallback, so it is not attempted. An extraneous
+  // package NOT in the lockfile is still reported, further down — that needs
+  // no prediction at all.
+  if (!installsHere) continue;
 
   let installed;
   try {
