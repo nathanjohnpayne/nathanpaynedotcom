@@ -251,7 +251,7 @@ const previewBodyHTML =
     previewEmailPayload.html || renderInvoiceTemplate(ctx, previewShareUrl);
 ```
 
-And the send path, which builds its own payload from the same function:
+And the **test-email** send in the Invoicing tab, which builds its own payload from the same function. Note which send this is—the button beside the preview, whose subject the same handler prefixes with `[Test]`:
 
 ```js
 const payload = buildInvoiceTemplateEmailPayload(ctx, shareUrl);
@@ -267,24 +267,31 @@ await queueEmail({
 
 The Cloud Function now sends trusted app-generated HTML when provided instead of re-parsing markdown. The winning change did not get more sophisticated about formatting; it got simpler about boundaries.
 
-"One rendering path" needs its boundary named, because stated baldly it overclaims. The editor still renders its own DOM directly from the document. The plain-text part of the email payload has its own builder, by design. The preview keeps a fallback—`previewEmailPayload.html || renderInvoiceTemplate(...)`—a second call site into the renderer, not a second renderer. The claim the merged code supports is narrower: the **template body** in both the preview and the sent email is produced by `renderInvoiceTemplate`, so text that is not bold in the editor cannot become bold in either place. The sent email wraps that body in envelope HTML the preview does not show—a branded header, a container, a "Sent via Friends & Family Billing" footer—visible in the screenshots above and outside the renderer by design. That is the semantic parity [issue #159](https://github.com/nathanjohnpayne/friends-and-family-billing/issues/159) asked for, and it is much narrower than "everything renders identically."
+"When provided" is the whole hinge, and it is worth following where it leads. An email carries canonical HTML only if its producer supplies an `html` field, and in the entire application exactly one producer does: the `[Test]` send above. The settlement board's per-member "Email Invoice" action passes `{ to, subject, body, uid }` and no `html`, so **the invoice a household member actually receives still renders through the markdown bridge**—`docToPlainTextWithTokens` into `simpleMarkdownToHtml`, the function this whole arc exists to have displaced. PR #161 never touched that file; `git show --stat` lists eight, and `EmailInvoiceDialog.jsx` is not among them.
 
-```mermaid title="One canonical renderer for preview and email" description="The ProseMirror document still renders the editor DOM directly, while one canonical template renderer produces the body HTML for both the preview and the email; the sent email combines that body with separate envelope HTML supplying the branded header, container and footer, and the plain-text payload is built separately."
-graph LR
+There is a sharper way to say it. Before #161 the test email and the invoice email rendered identically—both sent `body` with no `html`. #161 gave the test email canonical HTML and left the invoice email where it was. The fix closed the gap on the surface where the bug was observed and opened a new one between the test email and the real invoice, and that divergence has stood since 2026-04-04. I did not find this while writing the post; a later evidence audit did, which is the uncomfortable part—the post shipped asserting a parity its own screenshots could not have shown.
+
+"One rendering path" needs its boundary named, because stated baldly it overclaims. The editor still renders its own DOM directly from the document. The plain-text part of the email payload has its own builder, by design. The preview keeps a fallback—`previewEmailPayload.html || renderInvoiceTemplate(...)`—a second call site into the renderer, not a second renderer. The claim the merged code supports is narrower still: the **template body** in the preview and in the **test email** is produced by `renderInvoiceTemplate`, so text that is not bold in the editor cannot become bold in either place. Two surfaces, not three, and neither of them is the recipient's invoice. That email wraps its body in envelope HTML the preview does not show—a branded header, a container, a "Sent via Friends & Family Billing" footer—visible in the screenshots above and outside the renderer by design. That is the semantic parity [issue #159](https://github.com/nathanjohnpayne/friends-and-family-billing/issues/159) asked for, on the two surfaces it reached, and it is much narrower than "everything renders identically." Evidence and commands: `plans/759/project-pages-ledger.md` §C40.
+
+```mermaid title="Two rendering paths: the canonical renderer, and the bridge the invoice still takes" description="The ProseMirror document renders the editor DOM directly and also feeds one canonical template renderer, which produces the body for the Invoicing tab preview and for the test email. The recipient invoice does not use that renderer: the same document goes through a plain-text bridge that the Cloud Function converts with simpleMarkdownToHtml. Both sent messages are wrapped in the same envelope HTML, so they share an envelope while their bodies come from different renderers."
+graph TD
     A["TipTap / ProseMirror<br/>Document"] --> B["Editor DOM"]
     A --> C["Canonical Template<br/>Renderer"]
-    C --> D["Preview<br/>Body HTML"]
-    C --> E["Email<br/>Body HTML"]
-    E --> F["Sent Email<br/>(body + envelope)"]
-    G["Envelope HTML<br/>header, container, footer"] --> F
+    A --> H["Plain-text bridge<br/>then simpleMarkdownToHtml"]
+    C --> D["Preview"]
+    C --> E["Test Email<br/>(body + envelope)"]
+    H --> J["Invoice Email<br/>(body + envelope)"]
+    G["Envelope HTML"] --> E
+    G --> J
 
     style A fill:#2c5f8a,stroke:#2c5f8a,color:#fff
     style B fill:#7bc67e,stroke:#4a8a4d,color:#333
     style C fill:#7bc67e,stroke:#4a8a4d,color:#333
     style D fill:#7bc67e,stroke:#4a8a4d,color:#333
     style E fill:#7bc67e,stroke:#4a8a4d,color:#333
-    style F fill:#7bc67e,stroke:#4a8a4d,color:#333
     style G fill:#e8e8e8,stroke:#999,color:#333
+    style H fill:#e8b4b4,stroke:#993d3d,color:#333
+    style J fill:#e8b4b4,stroke:#993d3d,color:#333
 ```
 
 ## What actually varied

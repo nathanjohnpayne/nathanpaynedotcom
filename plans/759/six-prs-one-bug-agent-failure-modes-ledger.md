@@ -112,6 +112,8 @@ Counting *all* review submissions instead gives 19. Neither is nine. If the figu
 
 **UNPROVABLE without a stated boundary.** The preview code retains a fallback (`previewEmailPayload.html || renderInvoiceTemplate(...)`), which is a second path by construction. Defensible form: define the boundary—which surfaces share the canonical renderer and where the fallback legitimately remains—and verify it against the merged code rather than the diagram.
 
+> **The boundary this row asked for is narrower than the boundary the revision drew (§N, 2026-09-01).** The renderer is shared by the Invoicing tab's preview and its `[Test]` send. It is **not** on the path of the invoice a household member receives, and never was. Read `plans/759/project-pages-ledger.md` §C40 before writing this boundary anywhere.
+
 ---
 
 ## E. Causal and universal claims
@@ -304,7 +306,7 @@ Round 3's other four findings, all confirmed and all fixed:
 | `3864326863` | `friends-and-family-billing.md`:45 | 22h06m is the arc through #161, not the six PRs | Six PRs end at #158 → **20h25m**; page now says "roughly twenty hours" |
 | `3864326872` | post:15 | keyTakeaway asserted a checkable constraint wins "every time"—a universal law from one confounded run the post elsewhere refuses to draw causally | Scoped to this arc; reframed as a reason to make intentions checkable |
 | `3864326880` | post:290 | "Every prompt in the first session described a symptom" excludes #144's kickoff, an implementation instruction | Qualified: "After the kickoff prompt that started the migration…" |
-| `3864326885` | post:270 | "every piece of HTML a recipient sees comes from `renderInvoiceTemplate`" overstates—the sent email carries envelope chrome (branded header, container, "Sent via" footer) the preview lacks, visible in the post's own screenshots | Narrowed to the **template body**; envelope HTML named as outside the renderer by design |
+| `3864326885` | post:270 | "every piece of HTML a recipient sees comes from `renderInvoiceTemplate`" overstates—the sent email carries envelope chrome (branded header, container, "Sent via" footer) the preview lacks, visible in the post's own screenshots | Narrowed to the **template body**; envelope HTML named as outside the renderer by design. **Correct but one step short—see §N and `plans/759/project-pages-ledger.md` §C40:** the narrowing kept "the sent email," which reads as the recipient invoice, and that surface never used the renderer at all |
 
 Pattern worth carrying to the remaining audits: three of these five are **scope creep on a true claim**—a correct finding stated one quantifier too wide (*every* prompt, *every* piece of HTML, *every* time). The underlying facts held; the universals did not.
 
@@ -320,3 +322,27 @@ Two rules for the remaining audits:
 2. **When a claim survives removal, stop editing the post and go find its source.** Rounds 2 through 5 each removed an instance and each assumed it was the last. The recurrence was the signal, and treating it as five separate slips instead of one upstream defect cost four rounds.
 
 Instances removed, in order: "no written invariant" (round 1), "nobody wrote down what correct meant" (round 2), "no prompt, issue, or spec anywhere licensing the question" (round 2), "nobody had that definition for the first twenty-one hours" (round 3), "the only specification of the bug that existed anywhere" (round 5). Source: §A1 of this file, corrected above.
+
+---
+
+## N. Post-publication correction (#857)—the invoice email was never on the canonical path
+
+Filed as #857 out of the #758 delta evidence audit. The companion project page was corrected under #758; the blog carried the same claim on three surfaces and was out of that issue's scope.
+
+**The finding.** `functions/index.js:1280-1282` picks a renderer on one condition:
+
+```js
+const htmlBody = wrapEmailHtml(typeof html === "string" && html.trim()
+  ? html
+  : simpleMarkdownToHtml(body));
+```
+
+An email carries canonical HTML only if its producer supplies an `html` field, and exactly one producer does: `InvoicingTab.jsx:420-426`, the `[Test]` send—the same call the post printed as "the send path." The settlement board's per-member "Email Invoice" action (`EmailInvoiceDialog.jsx:142`) passes `{ to, subject, body: finalBody, uid }` and no `html`, so the real invoice still renders through `docToPlainTextWithTokens` into `simpleMarkdownToHtml`. Verified directly against `friends-and-family-billing@d70aa8ac9fca414777985bb7dc74faa0462690e6` rather than taken from the source ledger.
+
+Sharper: before #161 the test email and the invoice email rendered identically. #161 gave the test email canonical HTML and left the invoice email on the bridge, so the fix closed the gap where the bug was observed and opened a new one between the test email and the real invoice. That divergence has stood since 2026-04-04.
+
+**Surfaces corrected.** The code block is now labelled as the `[Test]` send; the paragraph that read "the preview and the sent email" now says "the preview and the test email" and states plainly which surface the renderer never reached; and the Mermaid block—`title=`, `description=`, and node labels—now shows both paths, the canonical renderer feeding the preview and test email and the plain-text bridge feeding the recipient invoice, sharing one envelope. The `description=` is the accessible text screen-reader users receive and is a surface in its own right, per `docs/agents/blog-revision-process.md`.
+
+**What stays as written.** `:268`—"The Cloud Function now sends trusted app-generated HTML **when provided**." Accurate; "when provided" is load-bearing, and the revision now follows it to its consequence instead of leaving it as a qualifier a reader skims.
+
+**The lesson.** This claim had already been narrowed once, in round 3 (`3864326885`), and the narrowing was correct as far as it went. It replaced "every piece of HTML a recipient sees" with "the template body ... in both the preview and the sent email"—fixing the quantifier while leaving the wrong surface in the sentence. Enumerating the claim's vocabulary would have caught it; enumerating the reported sentence did not. That is `blog-revision-process.md` § "A correction is not done when the reported line is fixed," and this row is the second instance of it in this one claim.
