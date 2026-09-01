@@ -154,13 +154,13 @@ An earlier revision of this section reported "72 wired" from an unanchored grep.
 
 This is a **curated inventory of the checks closest to this file's own invariants**, not a complete rule-to-enforcer mapping. Some rows—spec/test alignment, the review-policy file pair, the Phase 4a helper scripts—describe checks whose underlying rule is not stated in the sections above; they are kept because an agent reading this file is the one most likely to trip them. Those rows track their checks rather than this file's rules, so they can go stale when a check changes.
 
-**Read the strength column before trusting a row.** A check that runs is not the same as a rule that is enforced, and three of these are weaker than their names suggest:
+**Read the strength column before trusting a row.** A check that runs is not the same as a rule that is enforced, and five of these nine are weaker than their names suggest—which is the single most useful thing this section can tell an agent:
 
 | Rule in this file | Check | Strength |
 |---|---|---|
 | Structure invariants—the five required root files | `check_required_root_files` | **Blocks** |
-| No instruction files in `.claude/` or `.cursor/` | `check_no_tool_folder_instructions` | **Blocks** |
-| Every file in `specs/` has a corresponding test | `check_spec_test_alignment` | **Blocks** |
+| No instruction files in `.claude/` or `.cursor/` | `check_no_tool_folder_instructions` | **Partial.** Blocks a plain `.md`/`.txt` anywhere else in those folders, but skips `.claude/worktrees/**` (worktree checkouts, which are whole repositories) and `.cursor/plans/*.md`. A file placed in either passes |
+| Every file in `specs/` has a corresponding test | `check_spec_test_alignment` | **Partial.** Blocks for non-exempt Markdown specs. It walks `*.md` only, skips `example_spec.md` unconditionally, and honours a `tested: false` frontmatter exemption when a `reason:` accompanies it—so "every file" is wider than what is enforced |
 | `.github/review-policy.yml` and `REVIEW_POLICY.md` both exist | `check_review_policy_exists` (inline) | **Blocks** |
 | Phase 4a helper scripts present and executable | `check_codex_scripts` | **Blocks** |
 | Toolchain pins match `package.json` and the lockfile's peer ranges | `tests/toolchain-pins.test.js` | **Blocks**, and reports as `build-and-test` rather than `lint` deliberately—see the Toolchain Constraints note above and #825 |
