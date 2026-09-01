@@ -1,7 +1,11 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { existsSync, readFileSync, readdirSync } from 'fs';
-import { resolve, join } from 'path';
-import { blogSlugFromPath, findBlogMarkdownFiles } from '../scripts/lib/blog-file-inventory.mjs';
+import { existsSync, readFileSync } from 'fs';
+import { resolve } from 'path';
+import {
+  blogSlugFromPath,
+  findBlogMarkdownFiles,
+  findFilesRecursively,
+} from '../scripts/lib/blog-file-inventory.mjs';
 import { parseFrontmatter } from '../scripts/lib/parse-frontmatter.mjs';
 import { EXPECTED_BLOG_EDITORIAL_ORDER } from './helpers/blog-editorial-order.js';
 import { writeSanitizedDOM } from './helpers/dom.js';
@@ -146,9 +150,12 @@ describe('Homepage Builds grid mirrors the projects collection (#892)', () => {
   const CONTENT = resolve(__dirname, '../src/content/projects');
 
   function projectFrontmatter() {
-    return readdirSync(CONTENT)
-      .filter((file) => /\.mdx?$/.test(file))
-      .map((file) => parseFrontmatter(readFileSync(join(CONTENT, file), 'utf-8')))
+    // The collection glob is `**/*.{md,mdx}` — recursive, both extensions. A
+    // flat readdir silently drops a nested project, which would make this
+    // helper reject a legitimate homepage row as unpublished. Reuse the shared
+    // inventory walker rather than re-deriving the traversal here.
+    return findFilesRecursively(CONTENT, (filePath) => /\.mdx?$/.test(filePath))
+      .map((filePath) => parseFrontmatter(readFileSync(filePath, 'utf-8')))
       .filter((data) => data.draft !== true)
       .sort((a, b) => a.order - b.order);
   }

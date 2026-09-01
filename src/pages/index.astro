@@ -20,7 +20,21 @@ const projectEntries = await getCollection('projects', ({ data }) => !data.draft
 const projectStatus = Object.fromEntries(
   projectEntries.map((project) => [project.data.slug, project.data.status]),
 );
-const statusOf = (slug: string) => projectStatus[slug] ?? '';
+// Fail closed rather than degrade. A hard-coded slug that is renamed or marked
+// draft would otherwise render a row with an empty status pointing at a page
+// `[slug].astro` no longer generates — a dead link and a missing state, both
+// silent. The build is the right place to notice (#893).
+const statusOf = (slug: string) => {
+  const status = projectStatus[slug];
+  if (!status) {
+    throw new Error(
+      `Homepage Builds grid lists "${slug}", which is not a published project. ` +
+        `Remove the row, or un-draft/rename the entry in src/content/projects/. ` +
+        `Published: ${Object.keys(projectStatus).sort().join(', ')}`,
+    );
+  }
+  return status;
+};
 // Lifecycle marker, borrowing the decision ledger's geometry so state reads the
 // same way in both places: filled = done, outline = not running, half = partial.
 // The paper grammar this keeps distinct — underlined/arrowed text navigates, an
@@ -188,7 +202,7 @@ const homepageJsonLd = {
         <div class="panel-content">
           <div class="content-inner">
             <h2>Selected Projects</h2>
-            <p>Built with AI agents, these span consumer, enterprise, finance, and developer tooling. The case studies focus on the decisions, tradeoffs, and evidence behind them.</p>
+            <p>The projects span consumer, enterprise, finance, and developer tooling. The case studies focus on the decisions, tradeoffs, and evidence behind them; I built each with AI agents under a review system I designed.</p>
             {/* Builds grid — hand-authored, NOT generated from the projects
                 collection, so the `order` field on the project source files has
                 no effect here. This is a *selected* set: the heading says so, and
