@@ -2184,6 +2184,26 @@ body.blog-page {
   margin-top: 0;
 }
 
+/* One register below the italic h2, and upright rather than italic, so a
+   subsection reads as subordinate to the rule-separated section above it
+   instead of competing with it. No border-top for the same reason — the
+   rule is what marks a top-level section break. Mirrors .blog-prose > h3,
+   which solves the identical problem on the other long-form surface.
+   First used by the Matchline page; every project page before it was flat
+   at h2, so an unstyled h3 would have fallen back to the browser default.
+   The size floor is 1.15rem rather than blog's 1.08rem: a project h3 can
+   follow bold inline labels in body copy, and at 1.08rem the heading read
+   as the quieter of the two. */
+.project-copy h3 {
+  margin-top: 2.5rem;
+  margin-bottom: 0.75rem;
+  font-family: var(--font-heading);
+  font-weight: var(--heading-weight);
+  font-size: clamp(1.15rem, 1.45vw, 1.36rem);
+  line-height: 1.1;
+  letter-spacing: var(--heading-letter-spacing);
+}
+
 .project-copy p {
   font-size: clamp(0.95rem, 0.92rem + 0.14vw, 1.02rem);
   line-height: 1.65;
@@ -2224,6 +2244,13 @@ body.blog-page {
   padding-left: 1rem;
 }
 
+/* Criteria sit closer to their square marker than free-standing bullets do,
+   so the list reads as attached to the label above it. 0.72rem is the floor:
+   the marker is 0.42rem wide at left 0, and anything tighter crowds it. */
+.project-copy p:has(> strong:only-child) + ul li {
+  padding-left: 0.72rem;
+}
+
 .project-copy ol li {
   padding-left: 0.4rem;
 }
@@ -2236,6 +2263,29 @@ body.blog-page {
   width: 0.42rem;
   height: 0.42rem;
   background: var(--accent);
+}
+
+/* A labelled list is one unit with the label that introduces it.
+   `.project-copy` is a grid, so its 1.2rem row gap is the floor every child
+   sits on and only a negative margin gets below it — without these rules a
+   bold label sat FURTHER from its own list (27px, gap + the ul's 0.5rem)
+   than from the next label (19px, gap alone), which is what made the bullets
+   read as detached from what they belong to. Now: 6px label-to-list, 14px
+   list-to-next-label (a group break, still well under the 32px between
+   paragraphs), and the h3 takes the only section-sized gap.
+
+   Scoped by `:has(> strong:only-child)` to a paragraph that is nothing BUT a
+   bold label, which is the decision-framework shape ("Resume it when:"). A
+   list introduced by an ordinary sentence, or followed by a conclusion that
+   is not part of it, keeps the normal rhythm — Friends & Family Billing has
+   exactly that shape and reads worse at 6/14. `ul + p` must stay after
+   `p + p`: equal specificity, so source order decides. */
+.project-copy p:has(> strong:only-child) + ul {
+  margin-top: -0.8rem;
+}
+
+.project-copy p:has(> strong:only-child) + ul + p {
+  margin-top: -0.32rem;
 }
 
 /* Use the same contrast-corrected color the in-content links use. */

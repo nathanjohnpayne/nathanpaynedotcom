@@ -1149,18 +1149,44 @@ describe('Matchline — audited claims stay retracted (#756)', () => {
     expect(data.githubUrl).toBe('https://github.com/nathanjohnpayne/matchline');
   });
 
+  it('styles the subsection heading and decision list it introduced', () => {
+    // Matchline is the first project body to use an h3 or a bold-label
+    // criteria list — every page before it was flat at h2 with free-standing
+    // bullets. Without these rules the h3 falls back to the UA default and
+    // the list keeps a rhythm that put a label further from its own bullets
+    // than from the next group.
+    const css = readFileSync(resolve(__dirname, '../src/styles/global.css'), 'utf-8');
+    expect(source(), 'the restart section should carry an h3 subhead').toMatch(/^### /m);
+    expect(css, '.project-copy h3 must be styled').toMatch(/^\.project-copy h3 \{/m);
+
+    // The tightened rhythm is scoped to a paragraph that is nothing but a
+    // bold label. Globalizing it re-tightens Friends & Family Billing's list,
+    // which is introduced by a sentence and followed by a conclusion and
+    // reads worse at 6px/14px. Pin the guard, not just the effect.
+    for (const selector of [
+      '.project-copy p:has(> strong:only-child) + ul',
+      '.project-copy p:has(> strong:only-child) + ul + p',
+      '.project-copy p:has(> strong:only-child) + ul li',
+    ]) {
+      expect(css, `${selector} must stay scoped to labelled lists`).toContain(`${selector} {`);
+    }
+    expect(css, 'the unscoped list indent must stay at its original value').toMatch(
+      /\.project-copy ul li \{\n\s*position: relative;\n\s*padding-left: 1rem;/,
+    );
+  });
+
   it('says why the pause is expected to end, in the terms the repository sets', () => {
     // The restart passage is the only place the page asserts that product
     // work resumed. It has to name what actually broke and what actually runs,
     // or it is a mood rather than a claim.
     const surface = source();
     expect(surface, 'the restart must name the two engines that came back up').toMatch(
-      /résumé extraction and JD parsing now run end to end/i,
+      /résumé extraction and JD parsing run end to end/i,
     );
     expect(surface, 'the edge failure must be named, not summarized').toMatch(
-      /lacked public invoker bindings/,
+      /missing Cloud Run invoker bindings/,
     );
-    expect(surface, 'the credential failure must be named').toMatch(/trailing newline/);
+    expect(surface, 'the credential failure must be named').toMatch(/trailing newlines/);
     // And the status must not quietly follow the prose — the project stays
     // PAUSED until a real application has gone through it end to end.
     expect(frontmatter().status).toBe('PAUSED');
