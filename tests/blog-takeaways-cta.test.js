@@ -10,10 +10,10 @@
  *      wrapping — plus a single availability CTA with distinct PostHog events.
  */
 import { describe, it, expect } from 'vitest';
-import { readFileSync, readdirSync } from 'fs';
+import { readFileSync } from 'fs';
 import { resolve } from 'path';
 import { blogSlugFromPath, findBlogMarkdownFiles } from '../scripts/lib/blog-file-inventory.mjs';
-import { writeSanitizedDOM } from './helpers/dom.js';
+import { readBuiltPage, readBuiltStylesheet, writeSanitizedDOM } from './helpers/dom.js';
 
 const configSource = readFileSync(resolve(__dirname, '../src/content.config.ts'), 'utf-8');
 
@@ -56,15 +56,12 @@ function stringList(raw, key) {
 
 const publishedPosts = sourcePosts.filter((p) => scalar(p.raw, 'draft') !== 'true');
 
-const blogRoot = resolve(__dirname, '../dist/blog');
 const builtPosts = publishedPosts.map(({ slug }) => ({
   slug,
-  html: readFileSync(resolve(blogRoot, slug, 'index.html'), 'utf-8'),
+  html: readBuiltPage(`blog/${slug}/index.html`),
 }));
 
-const astroDir = resolve(__dirname, '../dist/_astro');
-const cssFile = readdirSync(astroDir).find((f) => f.endsWith('.css'));
-const css = readFileSync(resolve(astroDir, cssFile), 'utf-8');
+const css = readBuiltStylesheet();
 
 function setupDOM(html) {
   // Scripts are removed on a detached document and the doctype preserved by

@@ -2,9 +2,9 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { readFileSync } from 'fs';
 import { resolve } from 'path';
 import { execSync } from 'child_process';
-import { writeSanitizedDOM } from './helpers/dom.js';
+import { readBuiltPage, writeSanitizedDOM } from './helpers/dom.js';
 
-const rawHtml = readFileSync(resolve(__dirname, '../dist/index.html'), 'utf-8');
+const rawHtml = readBuiltPage('index.html');
 
 // Read the inline script bodies so the assertions below can inspect them.
 // Script 0 = GA config, Script 1 = panel interaction IIFE. This is extraction,
