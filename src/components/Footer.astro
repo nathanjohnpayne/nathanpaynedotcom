@@ -18,6 +18,13 @@
 interface FooterLink {
   href: string;
   label: string;
+  /**
+   * Marks an off-site destination. Renders `target="_blank" rel="noopener"`
+   * per operating-rules.md § Coding Conventions. The flag is explicit rather
+   * than inferred from the href, because an inference would silently start
+   * opening new tabs the first time an internal link gained a protocol.
+   */
+  external?: boolean;
 }
 
 interface Props {
@@ -46,7 +53,11 @@ const classList = [
   <p class="site-footer__attribution">{attribution} &middot; San Francisco</p>
   <nav class="site-footer__nav" aria-label="Footer navigation">
     {links.map((link) => (
-      <a class="nav-button" href={link.href}>{link.label}</a>
+      <a
+        class="nav-button"
+        href={link.href}
+        {...(link.external ? { target: "_blank", rel: "noopener" } : {})}
+      >{link.label}</a>
     ))}
   </nav>
 </footer>
