@@ -66,7 +66,7 @@ may be removed later without affecting the other.
 | `donation_link_clicked` | Click on a Community-panel `.effort-link` | `organization` |
 | `writing_link_clicked` | Click on a `.writing-list` link in the About panel | `href` |
 | `project_page_viewed` | A project detail page loads | `project_slug`, `project_title`, `project_status` |
-| `project_live_link_clicked` | "View Live Product" button click | `project_title`, `url` |
+| `project_live_link_clicked` | Live-CTA button click—labelled "View Live Product" by default, or the project's own `liveLabel` (Device Source of Truth uses "View Demo"). The event and its properties do not vary with the label | `project_title`, `url` |
 | `project_github_link_clicked` | "View on GitHub" button click | `project_title`, `url` |
 | `blog_post_viewed` | A blog post page loads | `post_title`, `tags`, `reading_time` |
 | `blog_cta_clicked` | Click on a `.blog-cta__link` in the end-of-post block | `cta`, `post_title` |

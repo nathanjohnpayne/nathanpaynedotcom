@@ -1,4 +1,21 @@
 ---
+/**
+ * MetadataStrip — the four-column TOPICS | FORMAT | FOCUS | STATUS row that
+ * opens a project detail page.
+ *
+ * The STATUS cell — and only the STATUS cell — carries the lifecycle marker.
+ * Lifecycle already lives in this cell, so the mark completes a site-wide
+ * grammar (homepage Builds row, /projects/ card kicker, here) rather than
+ * adding decoration; putting it beside the title, in the breadcrumb, or on the
+ * CTA would make lifecycle compete with project identity. It also fills a cell
+ * that read under-filled beside its three neighbours.
+ *
+ * The mark is `em`-sized by `.state-marker`, so it tracks whatever type it sits
+ * in and is deliberately NOT enlarged here: the marker-to-label ratio on this
+ * page is the same 0.72em it is on /projects/.
+ */
+import { stateMarkerClass } from '../lib/lifecycle-marker';
+
 interface Props {
   topics: string;
   format: string;
@@ -24,6 +41,6 @@ const { topics, format, focus, status } = Astro.props;
   </div>
   <div class="metadata-strip__item">
     <dt>Status</dt>
-    <dd>{status}</dd>
+    <dd class={stateMarkerClass(status, 'metadata-strip__status')}>{status}</dd>
   </div>
 </dl>

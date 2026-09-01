@@ -41,6 +41,7 @@ interface Props {
   muxPlaybackId?: string;
   slug: string;
   liveUrl?: string;
+  liveLabel?: string;
   githubUrl?: string;
   status: string;
   metadata: {
@@ -71,6 +72,7 @@ const {
   muxPlaybackId,
   slug,
   liveUrl,
+  liveLabel,
   githubUrl,
   status,
   metadata,
@@ -114,6 +116,7 @@ const topics = kicker.split(/\s*×\s*/).join(' · ');
         deck={deck}
         breadcrumbLabel={breadcrumbLabel}
         liveUrl={liveUrl}
+        liveLabel={liveLabel}
         githubUrl={githubUrl}
       />
 

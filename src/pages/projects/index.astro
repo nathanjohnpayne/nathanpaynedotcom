@@ -4,6 +4,7 @@ import { getCollection } from 'astro:content';
 import Footer from '../../components/Footer.astro';
 import Breadcrumbs from '../../components/Breadcrumbs.astro';
 import { getIndexGridRow } from '../../lib/index-grid';
+import { stateMarkerClass } from '../../lib/lifecycle-marker';
 
 const PROJECTS_TITLE = 'Projects';
 const PROJECTS_PAGE_TITLE = `${PROJECTS_TITLE} | Nathan Payne`;
@@ -16,21 +17,13 @@ const PROJECTS_OG_DESCRIPTION =
 const allProjects = await getCollection('projects', ({ data }) => !data.draft);
 const projects = allProjects.sort((a, b) => a.data.order - b.data.order);
 
-// Lifecycle marker on the status kicker. Same primitive the homepage and the
-// decision ledgers use, so a reader who learns the vocabulary on one surface
-// carries it to the others (#892). Position and type are unchanged — the
-// kicker gains a mark, nothing else.
-const STATUS_MARKER: Record<string, string> = {
-  SHIPPED: 'shipped',
-  ARCHIVED: 'archived',
-  PAUSED: 'paused',
-  EXPERIMENT: 'experiment',
-  'IN PROGRESS': 'in-progress',
-};
-const statusClass = (status: string) => {
-  const modifier = STATUS_MARKER[status];
-  return `post-meta project-status state-marker${modifier ? ` state-marker--${modifier}` : ''}`;
-};
+// Lifecycle marker on the status kicker. Same primitive the homepage, the
+// detail-page STATUS cell, and the decision ledgers use, so a reader who learns
+// the vocabulary on one surface carries it to the others (#892). Position and
+// type are unchanged — the kicker gains a mark, nothing else. The status → mark
+// mapping lives in src/lib/lifecycle-marker.ts.
+const statusClass = (status: string) =>
+  stateMarkerClass(status, 'post-meta', 'project-status');
 // Spelled out because it reads mid-sentence in the meta description and the
 // CollectionPage JSON-LD below. Falls back to the numeral above nine, which the
 // portfolio is nowhere near and would be a pleasant problem to have.

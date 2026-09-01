@@ -103,7 +103,7 @@ const projectIndexAccentRows = canonicalProjectCards.map((_, i) =>
 // is unaffected. See specs/project-pages.md § Accent ramp.
 const projectAccentRamp = ['red', 'yellow', 'paper', 'blue', 'black'];
 
-// Projects without a deployed live URL — the "View Live Product" CTA
+// Projects without a deployed live URL — the live CTA
 // is suppressed on the detail page, the project card, and the homepage
 // Builds section. The SoftwareApplication JSON-LD entity is also
 // dropped on these pages (no `url:` to populate).
@@ -119,6 +119,14 @@ const noLiveUrlSlugs = [];
 // reader but the owner (#874). Same exception shape as `noLiveUrlSlugs`.
 const noGithubUrlSlugs = ['device-source-of-truth'];
 
+// The live CTA's canonical label, and the projects that override it. DST is
+// ARCHIVED and its live link opens a synthetic-data demonstration rather than
+// the internal product, so "View Live Product" would ask a reader to reconcile
+// two states that only look contradictory. Overrides are enumerated here so an
+// unannounced relabel of any other project fails.
+const DEFAULT_LIVE_LABEL = 'View Live Product';
+const liveCtaLabels = { 'device-source-of-truth': 'View Demo' };
+
 // Every project source the collection would load, as paths relative to CONTENT.
 //
 // The glob in src/content.config.ts is `**/*.{md,mdx}` — recursive, and it
@@ -131,6 +139,16 @@ function projectSourceFiles() {
   return findFilesRecursively(CONTENT, (filePath) => /\.mdx?$/.test(filePath)).map((filePath) =>
     relative(CONTENT, filePath),
   );
+}
+
+// Resolve a slug back to the source file that declares it. Matched on the
+// frontmatter `slug` rather than the filename: the two agree today, but the
+// collection keys on the field, so a rename would otherwise silently point an
+// assertion at the wrong project's frontmatter.
+function projectSourceFor(slug) {
+  const file = projectSourceFiles().find((f) => readProjectFrontmatter(f).slug === slug);
+  if (!file) throw new Error(`no project source declares slug "${slug}"`);
+  return file;
 }
 
 function readDistHtml(relativePath) {
@@ -487,17 +505,84 @@ describe('Project Pages — render', () => {
         );
         // The "Back to Projects" / "Back to Homepage" footer actions also
         // share the .nav-button class, so filter to the hero CTAs by
-        // checking for the canonical labels we render in HeroWide/Narrow.
+        // checking for the canonical labels we render in ProjectHero.
+        const liveLabel = liveCtaLabels[slug] ?? DEFAULT_LIVE_LABEL;
         if (noLiveUrlSlugs.includes(slug)) {
-          expect(actions).not.toContain('View Live Product');
+          expect(actions).not.toContain(DEFAULT_LIVE_LABEL);
         } else {
-          expect(actions).toContain('View Live Product');
+          expect(actions).toContain(liveLabel);
+          // An overridden label must REPLACE the default, not sit beside it.
+          if (liveLabel !== DEFAULT_LIVE_LABEL) {
+            expect(actions).not.toContain(DEFAULT_LIVE_LABEL);
+          }
         }
         if (noGithubUrlSlugs.includes(slug)) {
           expect(actions).not.toContain('View on GitHub');
         } else {
           expect(actions).toContain('View on GitHub');
         }
+      });
+
+      it('marks lifecycle in the STATUS cell and nowhere else', () => {
+        // The lifecycle glyph completes a site-wide grammar (homepage Builds
+        // row → /projects/ card kicker → this cell). It stays in the STATUS
+        // cell alone so lifecycle never competes with project identity: not
+        // beside the h1, not in the breadcrumb, not on the hero CTA, and not
+        // in two places at once.
+        const marked = [...document.querySelectorAll('.state-marker')];
+        expect(marked.length, `${slug}: expected exactly one lifecycle mark`).toBe(1);
+
+        const cell = marked[0];
+        expect(cell.tagName, 'state is metadata, not a control').toBe('DD');
+        expect(cell.classList.contains('metadata-strip__status')).toBe(true);
+
+        const item = cell.closest('.metadata-strip__item');
+        expect(item, `${slug}: the mark is not inside a metadata-strip cell`).not.toBeNull();
+        expect(item.querySelector('dt').textContent.trim()).toBe('Status');
+
+        // The forbidden neighbours, checked by containment rather than by
+        // absence-of-class alone: a mark added to any of them would be inside
+        // one of these subtrees.
+        for (const sel of ['h1', '.breadcrumbs', '.project-actions', '.project-hero__header > *']) {
+          for (const region of document.querySelectorAll(sel)) {
+            expect(
+              region.querySelector('.state-marker'),
+              `${slug}: lifecycle mark leaked into ${sel}`,
+            ).toBeNull();
+          }
+        }
+
+        // The three sibling cells stay unmarked.
+        const others = [...document.querySelectorAll('.metadata-strip__item')].filter(
+          (el) => el !== item,
+        );
+        expect(others.length).toBe(3);
+        for (const other of others) {
+          expect(
+            other.querySelector('.state-marker'),
+            `${slug}: ${other.querySelector('dt').textContent.trim()} cell gained a mark`,
+          ).toBeNull();
+        }
+      });
+
+      it('selects the marker modifier its frontmatter status calls for', () => {
+        // The expected mapping is written out here rather than imported from
+        // src/lib/lifecycle-marker.ts on purpose: a test that reads the same
+        // table the page reads cannot catch that table being wrong.
+        const expected = {
+          SHIPPED: 'state-marker--shipped',
+          ARCHIVED: 'state-marker--archived',
+          PAUSED: 'state-marker--paused',
+          EXPERIMENT: 'state-marker--experiment',
+          'IN PROGRESS': 'state-marker--in-progress',
+        };
+        const status = readProjectFrontmatter(projectSourceFor(slug)).status;
+        const cell = document.querySelector('.metadata-strip__status');
+        expect(cell.textContent.trim(), `${slug}: cell text must be the status word`).toBe(status);
+        expect(
+          [...cell.classList].find((c) => c.startsWith('state-marker--')),
+          `${slug}: wrong mark for ${status}`,
+        ).toBe(expected[status]);
       });
 
       it('emits a JSON-LD graph; SoftwareApplication present iff project has a live URL', () => {
@@ -527,6 +612,38 @@ describe('Project Pages — render', () => {
       });
     });
   }
+
+  it('keeps ARCHIVED and PAUSED on visibly different marks across detail pages', () => {
+    // The cored ring exists precisely so a closed history does not read as a
+    // project merely set down. If both collapsed to the bare outline the word
+    // would carry the whole signal — which is the defect the mark fixes.
+    const markFor = (slug) => {
+      setupDOM(readDistHtml(`projects/${slug}/index.html`));
+      const cell = document.querySelector('.metadata-strip__status');
+      return [...cell.classList].find((c) => c.startsWith('state-marker--')) ?? 'state-marker--none';
+    };
+    expect(markFor('device-source-of-truth')).not.toBe(markFor('matchline'));
+  });
+
+  it('reuses the /projects/ marker geometry rather than a detail-page variant', () => {
+    // Same primitive, no per-surface size override. `.state-marker` is em-sized
+    // so it tracks whatever type it sits in; a `.metadata-strip__status` rule
+    // that set width/height/font-size on the mark would break the shared
+    // grammar the glyph exists to complete.
+    const css = readFileSync(resolve(__dirname, '../src/styles/global.css'), 'utf-8');
+    const block = css.match(/\.metadata-strip__status\s*\{([^}]*)\}/);
+    expect(block, 'no .metadata-strip__status rule found').not.toBeNull();
+    for (const prop of ['width', 'height', 'font-size', 'transform', 'gap']) {
+      expect(
+        new RegExp(`(^|[;\\s])${prop}\\s*:`).test(block[1]),
+        `.metadata-strip__status must not set ${prop} — it would diverge from /projects/`,
+      ).toBe(false);
+    }
+    expect(
+      /\.metadata-strip__status::before\s*\{/.test(css),
+      '.metadata-strip__status::before must not restyle the shared mark',
+    ).toBe(false);
+  });
 });
 
 describe('Project Pages — screenshot aspect variants', () => {
