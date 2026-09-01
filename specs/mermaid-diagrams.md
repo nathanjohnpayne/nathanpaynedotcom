@@ -57,8 +57,18 @@ accepts but those two do not scan ships diagrams nothing checks.
 7. Every diagram has a non-empty accessible name and a relational text
    description whose referenced element exists in the rendered page.
 8. Mermaid fences without both `title` and `description` fail the build.
-9. Static diagrams fit their figure at narrow and desktop widths and remain
-   readable in print with JavaScript disabled.
+9. Static diagrams stay legible in every column they render in, at narrow and
+   desktop widths alike, and no diagram label paints below the site's smallest
+   intentional type—the 0.56rem `.eyebrow`, taken as an 8.9px floor. A column
+   too narrow to clear that floor holds the diagram at the width Mermaid drew
+   it and scrolls inside the figure rather than scaling the labels down with
+   the graphic: the article column below the stacked breakpoint (#894), the
+   blog sidebar at every width it is visible at (#897). Containment, not fit,
+   is what has to hold—the overflow belongs to the figure and never to the
+   page, and a figure that scrolls is reachable by keyboard. Print is the
+   exception and keeps fitting to the column, because paper cannot scroll; the
+   scroll rules are `@media screen` for that reason. Diagrams remain readable
+   in print with JavaScript disabled.
 10. Mermaid fences outside `src/content/blog/**/*.md` and
     `src/content/projects/**/*.{md,mdx}` fail the build.
 11. Rendering does not post-process or reserialize completed page HTML.

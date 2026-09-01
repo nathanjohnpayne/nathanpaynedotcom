@@ -3908,8 +3908,9 @@ svg.mermaid foreignObject p {
    scrollbar they have no use for.
 
    1024px is where the desktop composition and its sidebar take over, so
-   nothing above it moves. The sidebar's own diagrams are display: none below
-   that breakpoint and never reach this rule at all.
+   nothing above it moves in the article column. The sidebar's own diagrams are
+   display: none below that breakpoint and never reach this rule at all — they
+   are contained by the rule that follows it, on the same mechanism.
 
    `screen` is load-bearing, not decoration. A printed page is roughly 816px
    wide and so matches this width query, but paper cannot scroll: the diagram
@@ -3927,6 +3928,53 @@ svg.mermaid foreignObject p {
        — see publishNaturalWidth in
        src/plugins/rehype-mermaid-accessibility.mjs. The 0px fallback leaves an
        SVG that arrived without one behaving exactly as it does today. */
+    min-width: var(--mermaid-natural-width, 0px);
+  }
+}
+
+/* The blog sidebar needs the same containment at every width it is visible at,
+   which is the opposite half of the viewport from the rule above (#897).
+
+   The sidebar column is 238px inside its .blog-sidebar-item, and unlike the
+   article column it does not grow with the viewport — 238px at 1024px and
+   238px at 2560px. With the type pinned at 14px, a diagram only clears the
+   8.9px `.eyebrow` floor there if it was drawn narrower than ~374px, and four
+   of the six sidebar diagrams were not: measured at 1280x900, a 976px diagram
+   painted 3.4px, and 540px, 548px and 640px diagrams painted 6.2px, 6.1px and
+   5.2px. So the sidebar is not a narrow case of the article column, it is a
+   column no wide diagram can ever be legible in.
+
+   The scroll container is the figure and not .blog-sidebar-item, whose own
+   `overflow-x: auto` could never fire while the SVG was held at `width: 100%`.
+   The figure is what carries `tabindex="0"` from the build (see
+   createMermaidFigure), so it is the scroll region a keyboard can reach; the
+   item's overflow-x stays as the outer guard for a long unbroken word in a
+   `type: text` sidebar item, which is content the figure never holds.
+
+   No width bound, deliberately. This rule depends on the diagram being in the
+   sidebar, not on the viewport being wide, and .blog-sidebar is already
+   display: none below --bp-stack — a min-width query here would restate that
+   breakpoint in a third place and go stale the moment the sidebar's own one
+   moved.
+
+   `screen` is load-bearing here for the mirror image of the reason it is above.
+   The blog @media print block does not hide the sidebar, and `min-width` beats
+   `max-width` when the two disagree, so an unscoped rule would override that
+   block's `max-width: 100% !important` and print the 976px diagram past the
+   right margin. Verified by emulating print rather than assumed.
+
+   The article column keeps scaling at desktop on purpose. Its widest diagrams
+   render 0.69–0.73 there and paint 9.7–10.2px — above the floor, and a whole
+   diagram a reader can see at once beats a legible one they have to scroll.
+   The floor is what decides between the two, and only the sidebar crosses it. */
+@media screen {
+  .blog-sidebar-item .mermaid-figure {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .blog-sidebar-item .mermaid-figure svg.mermaid {
+    /* Same build-time custom property as the rule above, same 0px fallback. */
     min-width: var(--mermaid-natural-width, 0px);
   }
 }
@@ -3974,10 +4022,16 @@ svg.mermaid foreignObject p {
   overflow-x: auto;
 }
 
-.blog-sidebar-item .mermaid {
-  font-size: 0.65rem;
-}
-
+/* No font-size here. A `.blog-sidebar-item .mermaid { font-size: 0.65rem }`
+   sat in this spot and set nothing: Mermaid injects an id-scoped stylesheet
+   (`#sidebar-mermaid-0 { … }`) whose specificity beats any class selector we
+   can write, and the label `p` is pinned at 14px above regardless. Measured
+   before removing it — neutralising the declaration in the built page changed
+   no computed font size and no element's geometry. It was worth removing
+   rather than leaving: it read as the sidebar's diagram type scale, which is
+   the exact question #897 was about, and it answered it wrongly. Diagram type
+   is 14px everywhere; what changes per column is the scale the graphic is
+   painted at, which the rules above govern. */
 .blog-sidebar-item img {
   width: 100%;
   height: auto;

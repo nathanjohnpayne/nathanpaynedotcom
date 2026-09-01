@@ -23,10 +23,12 @@ test('Mermaid descriptions label diagrams without becoming duplicate navigable t
         width: bounds.width,
         height: bounds.height,
         containerWidth: containerBounds?.width ?? 0,
-        // Below the stacked breakpoint the figure holds a wide diagram at the
-        // width Mermaid drew it and scrolls, rather than scaling its 14px
-        // labels down with the graphic (#894), so a diagram may legitimately
-        // be wider than the box it sits in.
+        // In a column too narrow to paint a wide diagram's 14px labels above
+        // the legibility floor, the figure holds the diagram at the width
+        // Mermaid drew it and scrolls rather than scaling the labels down with
+        // the graphic — the article column below the stacked breakpoint
+        // (#894), the blog sidebar at any width (#897). So a diagram may
+        // legitimately be wider than the box it sits in.
         scrollableWidth: figure?.scrollWidth ?? 0,
         pageWidth: document.documentElement.clientWidth,
         pageScrollWidth: document.documentElement.scrollWidth,

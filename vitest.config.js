@@ -7,7 +7,7 @@ export default defineConfig({
     // Several suites parse every built page with JSDOM, which is slow enough
     // that the 5s default was already marginal under parallel load — the
     // failures it produced were timeouts, never assertions. #894 added a suite
-    // that drives a real Chromium (tests/mermaid-mobile-legibility.test.js),
+    // that drives a real Chromium (tests/mermaid-legibility.test.js),
     // which tightened that margin further: measured over three full runs, the
     // 5s default failed on every one of them, and this ceiling on none.
     // The hook ceiling is separate because tearing a browser down is the one

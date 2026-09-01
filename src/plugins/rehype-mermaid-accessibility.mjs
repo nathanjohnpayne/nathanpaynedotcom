@@ -275,14 +275,15 @@ export function createMermaidFigure({ sourceNode, title, description, descriptio
       role: 'img',
       ariaLabel: title,
       ariaDescribedBy: [descriptionId],
-      // Below the stacked breakpoint the figure is a horizontal scroll
-      // container (#894), and a scroll container a keyboard cannot reach is
-      // content a keyboard user cannot read. The tab stop is unconditional
-      // for the same reason Astro's code blocks ship one unconditionally: no
-      // stylesheet can tell the build which diagrams will overflow which
-      // column. The figure already carries its own accessible name, so the
-      // region announces as the diagram it scrolls rather than as bare
-      // scrollable furniture.
+      // The figure is a horizontal scroll container in the article column
+      // below the stacked breakpoint (#894) and in the blog sidebar at every
+      // width the sidebar is visible at (#897), and a scroll container a
+      // keyboard cannot reach is content a keyboard user cannot read. The tab
+      // stop is unconditional for the same reason Astro's code blocks ship one
+      // unconditionally: no stylesheet can tell the build which diagrams will
+      // overflow which column. The figure already carries its own accessible
+      // name, so the region announces as the diagram it scrolls rather than as
+      // bare scrollable furniture.
       tabIndex: 0,
     },
     children: [
