@@ -110,7 +110,8 @@ function upperBound(range) {
         throw new Error(
           `Unsupported semver range term "${term}" in "${range}". ` +
             'tests/toolchain-pins.test.js only parses the forms this repo uses ' +
-            '(^x.y.z, <x.y.z, >=x.y.z, ||). Extend the parser rather than loosening it.',
+            '(^x.y.z, <x.y.z, >x.y.z, >=x.y.z, x.y.z, =x.y.z, and || unions). ' +
+            'Extend the parser rather than loosening it.',
         );
       }
       // A recognized `>=x.y.z` / `>x.y.z` leaves termBound null: it is a floor,
