@@ -381,6 +381,68 @@ describe('check-deploy-deps.sh', () => {
     expect(result.status).toBe(0);
   });
 
+  it('reports a required child of an installed optional parent', () => {
+    // Codex P2 on #903, and a hole in the exemption added the round before. A
+    // required child of an installed optional parent inherits `optional: true`
+    // in the lockfile while carrying no platform constraints, so it looks
+    // exactly like a foreign-platform straggler. Real shape: sharp ->
+    // @img/colour, where deleting the child makes `import("sharp")` throw
+    // ERR_MODULE_NOT_FOUND while the guard reported a clean tree.
+    const result = runCheck({
+      packages: {
+        'node_modules/parent-pkg': {
+          version: '1.0.0',
+          optional: true,
+          os: [process.platform],
+          cpu: [process.arch],
+          dependencies: { 'child-pkg': '1.0.0' },
+        },
+        'node_modules/child-pkg': { version: '1.0.0', optional: true },
+      },
+      installed: { 'parent-pkg': '1.0.0' },
+    });
+
+    expect(result.status).toBe(1);
+    expect(result.output).toContain('child-pkg');
+  });
+
+  it('still exempts an unconstrained optional whose parent is not installed', () => {
+    // The other half. Children of absent foreign-platform parents must stay
+    // exempt, or the eleven-package false-positive returns by another route.
+    const result = runCheck({
+      packages: {
+        'node_modules/foreign-parent': {
+          version: '1.0.0',
+          optional: true,
+          os: ['sunos'],
+          cpu: ['mips'],
+          dependencies: { 'orphan-child': '1.0.0' },
+        },
+        'node_modules/orphan-child': { version: '1.0.0', optional: true },
+        'node_modules/astro': { version: '7.2.9' },
+      },
+      installed: { astro: '7.2.9' },
+    });
+
+    expect(result.status).toBe(0);
+  });
+
+  it('rejects a symlink standing in for a locked package', () => {
+    // Codex P2 on #903. A locked path replaced by a symlink into a local tree
+    // passes the version check whenever that manifest carries the locked
+    // version, and the extraneous scan skips it because the path IS in the
+    // lockfile. `npm ci` installs the registry artifact, so the contents can
+    // differ arbitrarily.
+    const result = runCheck({
+      packages: { 'node_modules/zod': { version: '4.3.6' } },
+      symlinked: { zod: '4.3.6' },
+    });
+
+    expect(result.status).toBe(1);
+    expect(result.output).toContain('zod');
+    expect(result.output).toContain('symlink');
+  });
+
   it('reports a symlinked package absent from the lockfile', () => {
     const result = runCheck({
       packages: { 'node_modules/astro': { version: '7.2.9' } },

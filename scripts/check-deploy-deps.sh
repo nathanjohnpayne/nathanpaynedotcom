@@ -130,7 +130,7 @@ NODE_ERR_FILE="$(mktemp)"
 trap 'rm -f "$NODE_ERR_FILE"' EXIT
 
 REPORT="$(node --input-type=module -e '
-import { readFileSync, existsSync, readdirSync, statSync } from "node:fs";
+import { readFileSync, existsSync, readdirSync, statSync, lstatSync } from "node:fs";
 
 const lock = JSON.parse(readFileSync("package-lock.json", "utf8"));
 
@@ -181,6 +181,29 @@ const targetsThisHost = (meta) => {
   return constraintAllows(meta.os, process.platform) && constraintAllows(meta.cpu, process.arch);
 };
 
+const manifestPath = (path) => `${path}/package.json`;
+const isInstalled = (path) => existsSync(manifestPath(path));
+
+// An unconstrained optional entry is exempt when absent — that rule is what
+// keeps the guard quiet on a clean tree (see above). But it has a hole: a
+// REQUIRED child of an installed optional parent inherits `optional: true` in
+// the lockfile while carrying no platform constraints of its own, so it looks
+// exactly like a foreign-platform straggler and gets exempted. sharp ->
+// @img/colour is exactly that shape here, and deleting the child makes
+// `import("sharp")` fail with ERR_MODULE_NOT_FOUND while the guard reports a
+// clean tree — a false pass on the library that renders every OG image.
+//
+// So applicability is traced from parents that are actually installed: if
+// something present on disk lists a package in its `dependencies`, that
+// package is required here regardless of an inherited optional flag. Children
+// of absent foreign-platform parents are still exempt, because their parent is
+// not installed to require them.
+const requiredByInstalled = new Set();
+for (const [path, meta] of Object.entries(packages)) {
+  if (!path.startsWith("node_modules/") || !isInstalled(path)) continue;
+  for (const dep of Object.keys(meta.dependencies ?? {})) requiredByInstalled.add(dep);
+}
+
 const rows = [];
 let checked = 0;
 
@@ -202,7 +225,7 @@ for (const [path, meta] of Object.entries(packages)) {
     // missing sharp or Astro compiler binding changes the build while the
     // guard reports a match. So the exemption is narrowed to packages this
     // host could not install, using the lockfiles own os/cpu/libc constraints.
-    if (meta.optional && !targetsThisHost(meta)) continue;
+    if (meta.optional && !targetsThisHost(meta) && !requiredByInstalled.has(name)) continue;
     rows.push([name, meta.version, "(not installed)"].join("\t"));
     continue;
   }
@@ -212,6 +235,17 @@ for (const [path, meta] of Object.entries(packages)) {
     installed = JSON.parse(readFileSync(manifest, "utf8")).version;
   } catch {
     rows.push([name, meta.version, "(unreadable manifest)"].join("\t"));
+    continue;
+  }
+
+  // A locked path replaced by a symlink into a local tree passes the version
+  // check whenever that trees manifest carries the locked version, and the
+  // extraneous scan skips it too because the path IS in the lockfile. The CI
+  // `npm ci` installs the registry artifact, so the contents can differ
+  // arbitrarily. Only entries the lockfile itself marks `link: true` are
+  // legitimately symlinks, and those are skipped earlier.
+  if (lstatSync(path).isSymbolicLink()) {
+    rows.push([name, meta.version, "(symlink, not the locked artifact)"].join("\t"));
     continue;
   }
 
