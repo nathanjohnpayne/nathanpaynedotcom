@@ -26,31 +26,10 @@
  * arrival instead of being quietly exempt.
  */
 import { describe, it, expect } from 'vitest';
-import { readFileSync, readdirSync } from 'fs';
-import { resolve, join, relative, sep } from 'path';
-import { writeSanitizedDOM } from './helpers/dom.js';
-
-const DIST = resolve(__dirname, '../dist');
+import { builtPages, writeSanitizedDOM } from './helpers/dom.js';
 
 /** The address the assembly must produce, and must never ship contiguously. */
 const ADDRESS = 'hire@nathanpayne.com';
-
-/** Recursively collect built HTML files under `dir`. */
-function htmlFiles(dir) {
-  const found = [];
-  for (const entry of readdirSync(dir, { withFileTypes: true })) {
-    const full = join(dir, entry.name);
-    if (entry.isDirectory()) found.push(...htmlFiles(full));
-    else if (entry.name.endsWith('.html')) found.push(full);
-  }
-  return found;
-}
-
-/** Route label for a built file, for readable assertion messages. */
-function routeOf(file) {
-  const rel = relative(DIST, file).split(sep).join('/');
-  return `/${rel.replace(/(^|\/)index\.html$/, '$1')}`;
-}
 
 /**
  * Parse built markup without executing any of it.
@@ -109,10 +88,10 @@ function runPageScripts(html) {
   window.dispatchEvent(new Event('load'));
 }
 
-const pages = htmlFiles(DIST)
-  .map((file) => ({ route: routeOf(file), html: readFileSync(file, 'utf-8') }))
-  .filter(({ html }) => parse(html).querySelector('a[data-u]') !== null)
-  .sort((a, b) => a.route.localeCompare(b.route));
+// `builtPages` walks dist/, labels each file with its route and sorts by it —
+// the dist/-walking this file used to do inline, now shared with the other
+// three dist-reading suites (#794).
+const pages = builtPages().filter(({ html }) => parse(html).querySelector('a[data-u]') !== null);
 
 describe('base64-assembled mail links resolve at load (#790)', () => {
   it('covers the homepage and the blog posts, so the suite cannot go vacuous', () => {
