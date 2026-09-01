@@ -227,19 +227,38 @@ describe('Resume — page structure', () => {
     expect(proj.querySelectorAll('h3.resume-entry__title').length).toBe(7);
   });
 
-  it('opens Projects with a Built with Agents lead — tag, intro, and /projects/ index link (Writing pattern)', () => {
+  it('opens Projects with a Selected Projects lead — tag, intro, and /projects/ index link (Writing pattern)', () => {
     const proj = document.querySelector('.resume-projects');
     expect(proj, 'projects section missing').not.toBeNull();
     const lead = proj.querySelector('.resume-projects__lead');
     expect(lead, 'projects lead missing').not.toBeNull();
-    expect(lead.querySelector('strong')?.textContent).toBe('Built with Agents');
+    expect(lead.querySelector('strong')?.textContent).toBe('Selected Projects');
     const link = lead.querySelector('a');
     expect(link.getAttribute('href')).toBe('/projects/');
     expect(link.textContent).toContain('nathanpayne.com/projects');
     const desc = proj.querySelector('.resume-projects__desc');
     expect(desc, 'projects intro missing').not.toBeNull();
-    expect(desc.textContent).toContain('systems design exercise—from first commit to deploy.');
-    expect(desc.textContent).not.toContain('built with AI agents');
+    // The method no longer heads the section, and "from first commit to deploy"
+    // was specifically wrong for a project that never launched.
+    expect(desc.textContent).toContain('consumer, enterprise, finance, and developer tooling');
+    expect(desc.textContent).toContain('decisions, tradeoffs, and evidence');
+    expect(desc.textContent).not.toContain('systems design exercise');
+    expect(desc.textContent).not.toContain('first commit to deploy');
+    // Lifecycle status is looked up from the `projects` collection, so the two
+    // surfaces cannot disagree. Plain text rather than the site's marker
+    // geometry: this section prints to PDF and is parsed by applicant tracking
+    // systems, where portability beats extending the visual language.
+    const statuses = [...proj.querySelectorAll('.resume-entry__status')].map((s) =>
+      s.textContent.replace(/[—\s]+/g, ' ').trim(),
+    );
+    expect(statuses.length, 'every resume project should carry a status').toBe(
+      proj.querySelectorAll('.resume-entry').length,
+    );
+    for (const status of statuses) {
+      expect(['SHIPPED', 'ARCHIVED', 'PAUSED', 'EXPERIMENT', 'IN PROGRESS']).toContain(status);
+    }
+    expect(new Set(statuses).size, 'expected mixed lifecycle states').toBeGreaterThan(1);
+
     // The lead precedes the first project entry.
     const firstEntry = proj.querySelector('.resume-entry');
     expect(
