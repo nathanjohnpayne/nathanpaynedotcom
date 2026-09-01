@@ -468,9 +468,23 @@ const binDir = "node_modules/.bin";
   // else — including the plain `node` calls this package.json makes in
   // prebuild. `npm ci` recreates .bin from the lockfile and would not have it.
   try {
+    // npm writes THREE files per declared bin on Windows — `astro`, `astro.cmd`
+    // and `astro.ps1` — via cmd-shim, which creates and chmods all three
+    // together. `expected` is keyed by the bare name, so the companions would
+    // read as undeclared and both deploy aliases would refuse immediately after
+    // the `npm ci` this script tells you to run. Two other paths here already
+    // branch on win32; this one was the odd one out.
+    const WINDOWS_SHIM_SUFFIXES = [".cmd", ".ps1"];
+    const isDeclaredShim = (fileName) => {
+      if (expected.has(fileName)) return true;
+      return WINDOWS_SHIM_SUFFIXES.some(
+        (suffix) => fileName.endsWith(suffix) && expected.has(fileName.slice(0, -suffix.length)),
+      );
+    };
+
     for (const entry of readdirSync(binDir, { withFileTypes: true })) {
       if (entry.name.startsWith(".")) continue;
-      if (expected.has(entry.name)) continue;
+      if (isDeclaredShim(entry.name)) continue;
       rows.push([`.bin/${entry.name}`, "(not in lockfile)", "undeclared shim"].join("\t"));
     }
   } catch {}

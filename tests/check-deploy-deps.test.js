@@ -730,6 +730,34 @@ describe('check-deploy-deps.sh', () => {
     expect(result.output).toContain('undeclared shim');
   });
 
+  it('accepts npm\'s Windows companion shims for a declared bin', () => {
+    // Codex post-merge on #903. npm writes THREE files per declared bin on
+    // Windows — astro, astro.cmd, astro.ps1 — via cmd-shim, all created and
+    // chmodded together. Keyed only by the bare name, the companions read as
+    // undeclared and both deploy aliases would refuse immediately after the
+    // `npm ci` this very script tells you to run.
+    const result = runCheck({
+      packages: { 'node_modules/astro': { version: '7.2.9', bin: { astro: 'astro.js' } } },
+      installed: { astro: '7.2.9' },
+      bins: { astro: 'astro/astro.js', 'astro.cmd': 'astro/astro.js', 'astro.ps1': 'astro/astro.js' },
+    });
+
+    expect(result.status).toBe(0);
+  });
+
+  it('still reports a .cmd companion whose base name is undeclared', () => {
+    // The exemption must not become "anything ending .cmd passes" — that would
+    // hand back the hole the undeclared-shim scan was added to close.
+    const result = runCheck({
+      packages: { 'node_modules/astro': { version: '7.2.9', bin: { astro: 'astro.js' } } },
+      installed: { astro: '7.2.9' },
+      bins: { astro: 'astro/astro.js', 'bogus.cmd': 'astro/astro.js' },
+    });
+
+    expect(result.status).toBe(1);
+    expect(result.output).toContain('.bin/bogus.cmd');
+  });
+
   it('still reports a package absent from the lockfile entirely', () => {
     // The guarantee that survives: an extraneous package needs no prediction
     // about npm at all, so removing the symmetric check does not weaken it.
