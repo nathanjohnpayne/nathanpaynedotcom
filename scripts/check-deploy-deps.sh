@@ -149,15 +149,34 @@ if (packages === null || typeof packages !== "object" || Array.isArray(packages)
 
 // npm records these as either a bare value or a list, and negates with a
 // leading "!". Absent means unconstrained, which means it targets every host.
+// Mirrors npm-install-checks rather than approximating it, because both
+// halves of the approximation were wrong in opposite directions.
+//
+//   ["any", "!linux"]      an early "any" return ignored the later exclusion
+//   ["darwin", "!win32"]   "not excluded" alone passed on linux, but npm also
+//                          requires one positive entry to match
+//
+// Both mistakes report a package npm would never install here, which fails a
+// clean deploy rather than letting a bad one through — the noisy direction,
+// and the one that gets a guard switched off.
 const constraintAllows = (constraint, actual) => {
   if (constraint === undefined) return true;
   const values = Array.isArray(constraint) ? constraint : [constraint];
-  // npm reads "any" as matching every host, so a literal comparison against
-  // process.platform would classify a host-compatible package as foreign.
-  if (values.includes("any")) return true;
-  const negated = values.filter((v) => v.startsWith("!")).map((v) => v.slice(1));
-  if (negated.length > 0) return !negated.includes(actual);
-  return values.includes(actual);
+  if (values.length === 0) return true;
+
+  const negated = [];
+  const positive = [];
+  for (const value of values) {
+    if (value.startsWith("!")) negated.push(value.slice(1));
+    else positive.push(value);
+  }
+
+  // An explicit exclusion wins outright, whatever else is listed.
+  if (negated.includes(actual)) return false;
+  // With only exclusions, "not excluded" is the whole test.
+  if (positive.length === 0) return true;
+  // Otherwise one positive has to match; npm reads "any" as matching each host.
+  return positive.includes("any") || positive.includes(actual);
 };
 
 // Only ever claims true when the lockfile SAYS so. An entry with no os/cpu of
@@ -344,8 +363,13 @@ for (const path of installedPaths) {
 // same bin name and npm picks one, so "points at a different package" is
 // ambiguous rather than wrong. What is unambiguous is a shim that does not
 // resolve at all.
+// No outer existence gate on the directory. An absent node_modules/.bin is not
+// "nothing to check" — it is every shim missing at once, and `npm run build`
+// would then resolve astro from PATH or fail outright while the guard reported
+// a clean tree. The per-shim lstat below already reports absence correctly, so
+// the loop simply runs.
 const binDir = "node_modules/.bin";
-if (existsSync(binDir)) {
+{
   for (const [path, meta] of Object.entries(packages)) {
     if (!path.startsWith("node_modules/")) continue;
     // Nested entries shim into their parent, not the root .bin.

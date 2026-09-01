@@ -490,6 +490,60 @@ describe('check-deploy-deps.sh', () => {
     expect(result.output).toContain('shim missing');
   });
 
+  // Both reviewers landed on this independently. The approximation was wrong in
+  // two opposite ways, and both report a package npm would never install here —
+  // failing a clean deploy rather than passing a bad one.
+  it.each([
+    { os: ['any', '!' + process.platform], why: 'an early "any" must not override a later exclusion' },
+    { os: ['__other__', '!__nothost__'], why: 'a positive list must actually match, not merely not-exclude' },
+  ])('exempts an absent optional whose constraints npm would reject ($why)', ({ os }) => {
+    const result = runCheck({
+      packages: {
+        'node_modules/foreign': { version: '1.0.0', optional: true, os, cpu: [process.arch] },
+        'node_modules/astro': { version: '7.2.9' },
+      },
+      installed: { astro: '7.2.9' },
+    });
+
+    expect(result.status).toBe(0);
+  });
+
+  it('reports an absent optional that npm would install on this host', () => {
+    // The other direction, so the rule above cannot be satisfied by exempting
+    // everything: an exclusion that does not name this host, plus a positive
+    // entry that does, is installable here and its absence is drift.
+    const result = runCheck({
+      packages: {
+        'node_modules/host-pkg': {
+          version: '1.0.0',
+          optional: true,
+          os: [process.platform, '!__nothost__'],
+          cpu: [process.arch],
+        },
+      },
+      installed: {},
+    });
+
+    expect(result.status).toBe(1);
+    expect(result.output).toContain('host-pkg');
+  });
+
+  it('reports every expected shim when node_modules/.bin does not exist at all', () => {
+    // An absent .bin is not "nothing to check" — it is every shim missing at
+    // once, and `npm run build` would resolve astro from PATH or fail while the
+    // guard reported a clean tree. `bins: null` omits the directory entirely
+    // rather than creating an empty one.
+    const result = runCheck({
+      packages: { 'node_modules/astro': { version: '7.2.9', bin: { astro: 'astro.js' } } },
+      installed: { astro: '7.2.9' },
+      bins: null,
+    });
+
+    expect(result.status).toBe(1);
+    expect(result.output).toContain('.bin/astro');
+    expect(result.output).toContain('shim missing');
+  });
+
   it('accepts a present .bin shim', () => {
     const result = runCheck({
       packages: { 'node_modules/astro': { version: '7.2.9', bin: { astro: 'astro.js' } } },
