@@ -100,7 +100,7 @@ The post omits the hook-command-grammar bug and the two timing/clock bugs. Corre
 
 | Control | Where it runs | What it actually binds |
 |---|---|---|
-| `gh-pr-guard.sh` PR-creation guard | **Client-side**, a Claude Code PreToolUse hook | Only agents running in a session that loads this hook. A different tool, a raw `curl` to the API, or the GitHub web UI bypasses it entirely. **At the pinned commit** it checked both that the wrapper was used and that the command text carried the two markers; **on current `main`** it checks only the routing and exits before the marker grep, leaving the body to the wrapper's contract (§S). |
+| `gh-pr-guard.sh` PR-creation guard | **Client-side**, a Claude Code PreToolUse hook | Only agents running in a session that loads this hook. A different tool, a raw `curl` to the API, or the GitHub web UI bypasses it entirely. **At mergepath `7878830`**, the commit the post links, it checked both that the wrapper was used and that the command text carried the two markers; **in this repository at `435fadc`, and at mergepath `88b9c6014b83`**, it checks only the routing and exits before the marker grep, leaving the body to the wrapper's contract (§S). |
 | Branch protection | **GitHub server** | Everyone, including the human, short of an explicit `--admin` override—the strongest boundary here, but not an absolute one (§N4). |
 | Required status checks / Label Gate | **GitHub server** | Everyone, subject to admin override. |
 | `scripts/ci/` checks | **CI** | Blocks the merge button, not the push. |
@@ -284,7 +284,7 @@ Corrected value: the tracking issues closed within eighteen seconds of one anoth
 
 | Claim | Source |
 |---|---|
-| PR creation requires `Authoring-Agent:` and `## Self-Review` | **Owner depends on the commit, and this row is about current `main`:** the wrapper's line-anchored match in `scripts/lib/pr-body-contract.mjs` enforces it—`/^Authoring-Agent:\s*(.*?)\s*$/i` at **`:270`**, not the `:83` earlier rows cite, and `scripts/hooks/gh-pr-guard.sh` enforces that the wrapper is used, exiting before its own marker grep on that path. **At the pinned commit `7878830`** the hook's grep was the only check and the wrapper had none. The bolded-header refusal during the #740 audit came from the wrapper, because a substring grep passes a bolded marker (§S) |
+| PR creation requires `Authoring-Agent:` and `## Self-Review` | **Owner depends on the repository and the commit, so both are named.** In **mergepath @ `88b9c6014b83`** the wrapper's line-anchored match in `scripts/lib/pr-body-contract.mjs:270` enforces it—`/^Authoring-Agent:\s*(.*?)\s*$/i`—and `scripts/hooks/gh-pr-guard.sh` enforces that the wrapper is used, exiting before its own marker grep on that path. **At the pinned commit `7878830`** the hook's grep was the only check and the wrapper had none. The bolded-header refusal during the #740 audit came from the wrapper, because a substring grep passes a bolded marker (§S) |
 | PR #60 was a docs-only change touching `.github/**`, merged 2026-04-15 | `refs.json` → `#60`, +60/−10 over 2 files |
 | PR #63 added a runtime label re-verify, +53/−0 in one file | `refs.json` → `#63` |
 | PR #76 was the consolidated back-port, +450/−102 over 3 files | `refs.json` → `#76` |
@@ -313,7 +313,7 @@ Measured at the revised head with `wc -w`, the same method as the epic's baselin
 
 | Measure | Baseline | Revised | Change |
 | --- | ---: | ---: | ---: |
-| Whole file (the epic's 4,418 baseline) | 4,418 | 4,187 | **−5.2%** |
+| Whole file (the epic's 4,418 baseline) | 4,418 | 4,202 | **−4.9%** |
 | Body prose, frontmatter excluded | 3,993 | 3,713 | **−7.0%** |
 
 **Neither figure reaches the 20–30% band, and the distance grew with every review round.** The first draft hit −20.8% on body prose. Five automated Codex rounds, the manual Phase 4b correction, and the final CodeRabbit follow-up later it is −7.0%. Two things grew there, both required by the acceptance criteria. The `keyTakeaways` had to carry calibrated language the originals did not—"repeated observation, not controlled measurement" is longer than "measurably better", and that is the point of the change. The `description` and the diagram's `description` both gained the April-2026 snapshot boundary; the manual review added the local-guard and propagation stages the issue requires; the follow-up separated an April 17 response population from the April 16 snapshot.
@@ -330,6 +330,7 @@ The largest additions, with what each bought:
 |---|---:|---|
 | Separating the hook from the wrapper's body contract, in both places it is described | ~110 words | "the hook refuses it unless the body carries…"—recorded here as wrong about which component does the work. **§S supersedes that verdict:** at the pinned commit the original wording was right, and this separation is what moved a real hook responsibility onto the wrapper |
 | Distinguishing the Codex GitHub App from the `nathanpayne-codex` CLI identity | ~55 words | "Codex never posts an `APPROVED` review"—contradicted by this post's own #66 record |
+| **Post-publication (#835): the two-repository correction**—naming which copy of the hook each claim describes, and the probe evidence behind it | **~281 words** | "The wrapper's body contract refuses any PR body lacking…"—attributed the hook's check to the wrapper, and did so without saying which repository's hook |
 | Retracting the propagation-duration claim | ~50 words | "propagated cleanly in under ten minutes"—inferred from closure timestamps (§F2) |
 | Naming which of two round limits was tested on PR #787 | ~40 words | "the `max_review_rounds` guard… fires"—it did not (§L2) |
 | Qualifying branch protection and splitting the break-glass row | ~35 words | "binds everyone, including the human"—an admin walks past it |
@@ -469,7 +470,7 @@ Three findings, all correct, and all three of the same species: a correction app
 
 ### O3—The ledger's own boundary table still over-claimed branch protection
 
-§N4 qualified the post's table and left this ledger's equivalent row unqualified. Both now carry the `--admin` caveat, and the hook row additionally notes that on the author-wrapper path it checks only that the wrapper was used.
+§N4 qualified the post's table and left this ledger's equivalent row unqualified. Both now carry the `--admin` caveat, and the hook row additionally notes that on the author-wrapper path it checks only that the wrapper was used. **That last clause is true of this repository's copy and false of mergepath @ `7878830`, where the hook also greps the command text—see §S.**
 
 **What the exhaustive grep found that the review did not.** Acting on these three, a `grep` for every instance of each claim surfaced **five** sites, not three: the two Codex named in the post plus Rule 1's "a server rule binds everyone", and both ledger rows rather than one. All five are fixed. The lesson from §N was to grep both artifacts; the lesson from this round is to grep *before* replying to the finding, because a review names the instances it happened to read, not the instances that exist.
 
@@ -570,7 +571,7 @@ So **mergepath's** hook, at that commit, enforces the markers on the wrapper pat
 
 Two true observations, joined by a wrong mechanism.
 
-`scripts/lib/pr-body-contract.{sh,mjs}` **does not exist at the pinned commit**—`GET /contents/scripts/lib?ref=7878830` does not list it. The wrapper there is 133 lines and greps clean for `Authoring-Agent` and `Self-Review`; on `main` today it is 241 lines and calls `pr_body_validate`. The wrapper's line-anchored contract is therefore a **later** layer, and §M1 was reading it back into a commit that predates it.
+`scripts/lib/pr-body-contract.{sh,mjs}` **does not exist at the pinned commit**—`GET /contents/scripts/lib?ref=7878830` does not list it. The wrapper there is 133 lines and greps clean for `Authoring-Agent` and `Self-Review`; at mergepath `88b9c6014b83` it is 241 lines and calls `pr_body_validate`. The wrapper's line-anchored contract is therefore a **later** layer, and §M1 was reading it back into a commit that predates it.
 
 **Everything above is about mergepath, and the bolded-header rejection did not happen there.** It happened in this repository, whose copy had already gained the author-wrapper early exit—so the hook stepped aside and never reached a grep, and the wrapper's `/^ {0,3}Authoring-Agent:\s*(.*?)\s*$/i` rejected the body. §M1's account was right, including the mechanism. The table below is where the two repositories are separated; an earlier draft of this section carried the mergepath explanation into the event account and was wrong for it.
 
