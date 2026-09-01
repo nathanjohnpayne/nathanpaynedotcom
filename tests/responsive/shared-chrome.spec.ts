@@ -20,7 +20,9 @@ import { test, expect, type Page } from '@playwright/test';
  * Every invariant is checked at all four target breakpoints (320/375/800/1440)
  * so mobile/tablet-only regressions are caught too (per #440).
  *
- * Run: `npm run test:e2e` (reuses a dev server on :4321 if one is running).
+ * Run: `npm run test:e2e`. Playwright builds and serves the site itself and
+ * will not adopt a server it did not start (#875); if :4321 is busy, run on
+ * another port with `E2E_PORT=4400 npm run test:e2e`.
  * There are no baselines to update — the assertions are the contract.
  */
 
