@@ -17,7 +17,8 @@ import { findFilesRecursively } from '../../scripts/lib/blog-file-inventory.mjs'
  * grepping for evidence that someone else ran it.
  */
 
-const SRC = resolve(__dirname, '../../src');
+const ROOT = resolve(__dirname, '../..');
+const SRC = resolve(ROOT, 'src');
 
 /** Code files only: `.css` defines the classes, `.md` frontmatter uses the vocabulary. */
 const isCode = (file) => /\.(astro|ts|js|mjs)$/.test(file);
@@ -38,6 +39,19 @@ export const SINGLE_SOURCES = [
     declares: (source) =>
       /['"`](?:Agent Systems|Building This Site)['"`]/.test(source) ||
       /BLOG_CATEGORIES\s*=/.test(source),
+    // One sample per BRANCH of the predicate above, so a branch that stops
+    // matching is caught even while the others still fire.
+    samples: [
+      "const c = ['Agent Systems'];",
+      'const c = ["Building This Site"];',
+      'const c = [`Agent Systems`];',
+      'export const BLOG_CATEGORIES = [];',
+    ],
+    counterSamples: [
+      "import { BLOG_CATEGORIES } from './lib/blog-order';",
+      'category: z.enum(BLOG_CATEGORIES),',
+      'const category = post.data.category;',
+    ],
     importers: ['content.config.ts', 'pages/index.astro', 'pages/blog/index.astro'],
   },
   {
@@ -50,12 +64,29 @@ export const SINGLE_SOURCES = [
     declares: (source) =>
       /grid-row--(?:[1-4]|overflow-[ab])/.test(source) &&
       /accent-(?:red|yellow|paper|blue|black)/.test(source),
+    // A conjunction, so the samples vary the SHAPE (object, tuple, renamed
+    // keys) while the counter-samples hold one half without the other.
+    samples: [
+      "{ rowClass: 'grid-row--1', accentClasses: ['accent-red'] }",
+      "[['grid-row--overflow-a', ['accent-blue']]]",
+      "{ cls: 'grid-row--4', tints: ['accent-yellow'] }",
+    ],
+    counterSamples: [
+      '<div class="grid-row--rss">',
+      "const t = { rowClass: 'data-table__row', accentClasses: ['muted'] };",
+      'class="accent-red"',
+    ],
     importers: ['pages/projects/index.astro', 'pages/blog/index.astro'],
   },
   {
     module: 'src/lib/lifecycle-marker.ts',
     label: 'status → marker mapping',
     declares: (source) => /STATUS_MARKER\s*[:=]|state-marker--\$\{/.test(source),
+    samples: ['const STATUS_MARKER = {};', 'const c = `state-marker--${status}`;'],
+    counterSamples: [
+      "import { stateMarkerClass } from '../lib/lifecycle-marker';",
+      '<span class="state-marker">',
+    ],
     importers: ['pages/index.astro', 'pages/projects/index.astro', 'components/MetadataStrip.astro'],
   },
 ];
@@ -66,6 +97,38 @@ const importSpecifier = (modulePath) =>
 /** The residue sweep: nothing outside the module may declare its vocabulary. */
 export function assertSoleDeclaration(entry) {
   const own = entry.module.replace(/^src\//, '');
+
+  // Controls for the PREDICATE, before the sweep relies on it.
+  //
+  // The sweep excludes the canonical module and then asserts an empty offender
+  // list, so a `declares` that matches nothing — mistyped, or left behind when
+  // the vocabulary was renamed — passes while every duplicate goes invisible.
+  // The importer control below proves the WALK reaches the right files; these
+  // prove the PREDICATE can tell a declaration from a use.
+  //
+  // Matching the canonical module is necessary but NOT sufficient: `declares`
+  // is a disjunction for two of the three entries, so one dead branch hides
+  // behind a live one. The samples exercise the branches individually.
+  expect(
+    entry.declares(readFileSync(resolve(ROOT, entry.module), 'utf-8')),
+    `${entry.label}: declares() does not match ${entry.module} itself, so the sweep ` +
+      'below would report zero offenders no matter what src/ contains.',
+  ).toBe(true);
+
+  for (const sample of entry.samples) {
+    expect(
+      entry.declares(sample),
+      `${entry.label}: declares() misses a known declaration — ${sample}`,
+    ).toBe(true);
+  }
+
+  for (const sample of entry.counterSamples) {
+    expect(
+      entry.declares(sample),
+      `${entry.label}: declares() false-positives on a non-declaration — ${sample}`,
+    ).toBe(false);
+  }
+
   const offenders = walkSrc()
     .filter((file) => file !== own)
     .filter((file) => entry.declares(readFileSync(resolve(SRC, file), 'utf-8')))
