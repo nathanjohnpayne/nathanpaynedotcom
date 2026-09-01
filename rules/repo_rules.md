@@ -125,18 +125,6 @@ The guard runs inside `npm test`, so it reports as `build-and-test`—one of the
 
 - **Mermaid labels must meet WCAG AA contrast.** Every explicitly styled Mermaid node, in any collection that supports Mermaid, must use measurable three- or six-digit hex fill and label colors with a contrast ratio of at least 4.5:1. Tests enforce this from rendered SVG, so Mermaid owns the grammar for `style`, `classDef`, semicolons, quoted labels, and multiline labels.
 
-## Shared Single Sources
-
-- **A `src/lib/` module documented as a shared single source must be the only place `src/` declares its vocabulary. That rule is carried by review, not by CI, and the distinction is deliberate.** The `.ai_context.md` Key Entry Points table is where the claim is made: a `src/lib/` row whose purpose begins **Shared** carries it. Three modules do today—`blog-order.ts`, `index-grid.ts`, and `lifecycle-marker.ts`.
-
-  `tests/shared-single-sources.test.js` enforces the part that is a closed question: the documented set and the registry in `tests/helpers/single-source-guard.js` name the same modules, each module exists, and every surface the registry names actually imports it. Adding a row without a registry entry fails, and so does the reverse—a rule nobody can find from the docs is its own kind of drift.
-
-  **It does not check that no other file re-declares the vocabulary, and should not be extended to.** #910 tried, across five review rounds, and the attempt is worth recording because the failure was structural rather than a matter of effort. "No equivalent declaration exists elsewhere" is a semantic negative, and deciding it over source text needs a parser: each fix surfaced the next thing raw text cannot see—template literals, tuples, renamed keys, CRLF, path separators, prose comments, block comments, commented-out imports, executable MDX. Thirteen findings across five rounds, every one legitimate. The guard reached 313 lines over 91 lines of guarded module before it was cut back.
-
-  The error was generalizing #825. That guard works because both sides are **closed data**—a version range in two files, settled by string equality—and the lesson does not carry to an open-ended search of a source tree. When deciding whether an invariant can be enforced, ask first whether both sides are enumerable. If they are not, state the rule and say it is unenforced. A scan that claims universal duplicate detection while missing a copy written as a tuple is worse than a documented rule, because it converts "someone has to look" into "CI has this covered."
-
-  Two consequences follow. `tests/lifecycle-marker.test.js` keeps its own residue scan, which predates #910 and is scoped to one vocabulary it understands—it is not a general contract and does not claim to be. And the sweep, where one exists, covers `src/` and not `tests/`: a test that restates a vocabulary is how a source change gets detected, and it only works by staying independent (#737/#912).
-
 ## CI Enforcement
 
 The structural checks live in `scripts/ci/` and are wired into `.github/workflows/repo_lint.yml`, which reports as the required `lint` check. **That workflow is the list; this file does not restate it.**
@@ -166,13 +154,13 @@ An earlier revision of this section reported "72 wired" from an unanchored grep.
 
 This is a **curated inventory of the checks closest to this file's own invariants**, not a complete rule-to-enforcer mapping. Some rows—spec/test alignment, the review-policy file pair, the Phase 4a helper scripts—describe checks whose underlying rule is not stated in the sections above; they are kept because an agent reading this file is the one most likely to trip them. Those rows track their checks rather than this file's rules, so they can go stale when a check changes.
 
-**Read the strength column before trusting a row.** A check that runs is not the same as a rule that is enforced, and three of these are weaker than their names suggest:
+**Read the strength column before trusting a row.** A check that runs is not the same as a rule that is enforced, and five of these nine are weaker than their names suggest—which is the single most useful thing this section can tell an agent:
 
 | Rule in this file | Check | Strength |
 |---|---|---|
 | Structure invariants—the five required root files | `check_required_root_files` | **Blocks** |
-| No instruction files in `.claude/` or `.cursor/` | `check_no_tool_folder_instructions` | **Blocks** |
-| Every file in `specs/` has a corresponding test | `check_spec_test_alignment` | **Blocks** |
+| No instruction files in `.claude/` or `.cursor/` | `check_no_tool_folder_instructions` | **Partial.** Blocks a plain `.md`/`.txt` anywhere else in those folders, but skips `.claude/worktrees/**` (worktree checkouts, which are whole repositories) and `.cursor/plans/*.md`. A file placed in either passes |
+| Every file in `specs/` has a corresponding test | `check_spec_test_alignment` | **Partial.** Blocks for non-exempt Markdown specs. It walks `*.md` only, skips `example_spec.md` unconditionally, and honours a `tested: false` frontmatter exemption when a `reason:` accompanies it—so "every file" is wider than what is enforced |
 | `.github/review-policy.yml` and `REVIEW_POLICY.md` both exist | `check_review_policy_exists` (inline) | **Blocks** |
 | Phase 4a helper scripts present and executable | `check_codex_scripts` | **Blocks** |
 | Toolchain pins match `package.json` and the lockfile's peer ranges | `tests/toolchain-pins.test.js` | **Blocks**, and reports as `build-and-test` rather than `lint` deliberately—see the Toolchain Constraints note above and #825 |

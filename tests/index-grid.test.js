@@ -1,17 +1,16 @@
 import { describe, expect, it } from 'vitest';
 import { getIndexGridRow } from '../src/lib/index-grid';
 
-// The six-row index geometry is shared by two surfaces: /projects/ and /blog/.
-// `.ai_context.md` calls it a single source, and until #910 nothing tested it
-// at all — neither the geometry nor the claim. The "only copy" half is enforced
-// centrally in tests/shared-single-sources.test.js; this file covers behaviour.
+// `src/lib/index-grid.ts` is a 20-line function shared by /projects/ and
+// /blog/, and it had no tests at all (#910). Both indexes render from it, so a
+// regression here is visible on two pages at once.
 
 const CYCLE = 6;
 
-// The prescribed palette, stated here rather than derived from the module, so a
-// regression in any row's accents fails. Codex caught the first version
-// asserting only rowClass and then comparing accents against another call into
-// the same table — which cannot detect row 2 turning from blue to red.
+// The prescribed palette, stated here rather than read back from the module.
+// Deriving the expectation from the thing under test only proves it is
+// self-consistent, which it is by construction — row 2 turning from blue to red
+// would pass.
 const OPENING_ROWS = [
   { rowClass: 'grid-row--1', accentClasses: ['accent-red', 'accent-paper'] },
   { rowClass: 'grid-row--2', accentClasses: ['accent-blue'] },
@@ -54,8 +53,7 @@ describe('index grid geometry', () => {
   });
 
   it('leaves every non-boundary row on its prescribed accents', () => {
-    // Compared against the table above, not against another call, so the
-    // override cannot leak into mid-cycle rows unnoticed.
+    // So the later-cycle override cannot leak into mid-cycle rows unnoticed.
     for (const index of [1, 2, 3, 4, 5, 7, 8, 11, 13]) {
       expect([...getIndexGridRow(index).accentClasses], `row ${index}`).toEqual(
         OPENING_ROWS[index % CYCLE].accentClasses,
