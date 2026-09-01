@@ -15,6 +15,14 @@ const projects = defineCollection({
       slug: z.string(),
       description: z.string(),
       seoDescription: z.string().optional(),
+      // The /projects index card line. `description` serves the detail-page
+      // hero deck, the meta description and the JSON-LD, where a fuller
+      // paragraph earns its length; a card in a seven-up grid wants one
+      // reason to open the page. Sharing one field made every hero edit a
+      // card edit, and pushed the card spread to 107-244 characters (#751).
+      // Falls back to `description` when absent, so a project that wants one
+      // line on both surfaces simply omits it.
+      cardDescription: z.string().optional(),
       kicker: z.string(),
       // Non-negative integer: `accent` is derived as RAMP[order % 5], so a
       // fractional or negative value has no position in that walk. YAML numeric

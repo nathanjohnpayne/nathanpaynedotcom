@@ -7,12 +7,26 @@ import { getIndexGridRow } from '../../lib/index-grid';
 
 const PROJECTS_TITLE = 'Projects';
 const PROJECTS_PAGE_TITLE = `${PROJECTS_TITLE} | Nathan Payne`;
-const PROJECTS_HEADING = 'Built with Agents';
-const PROJECTS_DESCRIPTION = 'Projects from a product manager—each one a real problem turned into a systems design exercise.';
-const PROJECTS_OG_DESCRIPTION = 'Each one a real problem turned into a systems design exercise—from first commit to deploy.';
+const PROJECTS_HEADING = 'Products—and the decisions behind them';
+const PROJECTS_DESCRIPTION =
+  'Seven products a product manager built end to end—the problem each one started as, what got built, what got refused, and what the evidence said afterward.';
+const PROJECTS_OG_DESCRIPTION =
+  'The problem each one started as, what got built, what got refused, and what the evidence said afterward.';
 
 const allProjects = await getCollection('projects', ({ data }) => !data.draft);
 const projects = allProjects.sort((a, b) => a.data.order - b.data.order);
+
+// Status tally for the deck. Derived rather than written, because a hand-typed
+// count is wrong the first time a project changes state and nothing catches it
+// — the failure mode this epic spent #885 correcting on the Matchline page.
+const shippedCount = projects.filter((project) => project.data.status === 'SHIPPED').length;
+// Spelled out because it reads mid-sentence in the deck. Falls back to the
+// numeral above nine, which the portfolio is nowhere near and would be a
+// pleasant problem to have.
+const NUMBER_WORDS = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine'];
+const asWord = (n) => NUMBER_WORDS[n] ?? String(n);
+const shippedWord = asWord(shippedCount);
+const totalWord = asWord(projects.length);
 
 const jsonLd = {
   "@context": "https://schema.org",
@@ -71,7 +85,7 @@ const jsonLd = {
       <header class="hero">
         <Breadcrumbs items={[{ label: "Nathan Payne", href: "/" }, { label: PROJECTS_TITLE }]} />
         <h1>{PROJECTS_HEADING}</h1>
-        <p class="deck">Every build started as a real problem. Each one became a systems design exercise&mdash;from first commit to deploy, on top of an enforcement system I designed to make agent output reliable. The infrastructure behind these projects is documented in <a href="/blog/agent-approval-workflow-genesis-of-mergepath/" class="p-link">Agent Approval Workflow and the Genesis of Mergepath</a>.</p>
+        <p class="deck">Every one of these began as a real problem&mdash;mine, or one I watched up close. The decisions are the part worth reading: what got built, what got refused, and what the evidence said once it was running. Of the {totalWord}, {shippedWord} shipped and are live; the rest are archived, paused, or an experiment, and each says which and why. I build with AI agents under a review system I designed and <a href="/blog/agent-approval-workflow-genesis-of-mergepath/" class="p-link">documented here</a>. The agents are leverage; the product decisions are the point.</p>
       </header>
 
       {/* ── Project Grid ──
@@ -91,10 +105,10 @@ const jsonLd = {
               <p class="post-meta">{project.data.status}</p>
               <p class="post-meta">{project.data.tags.join(' · ')}</p>
               <h2 class="post-title"><a href={`/projects/${project.data.slug}/`}>{project.data.title}</a></h2>
-              <p class="post-desc">{project.data.description}</p>
+              <p class="post-desc">{project.data.cardDescription ?? project.data.description}</p>
               {project.data.liveUrl && (
                 <div class="tag-row">
-                  <a href={project.data.liveUrl} target="_blank" rel="noopener noreferrer" class="tag">Live &nearr;</a>
+                  <a href={project.data.liveUrl} target="_blank" rel="noopener noreferrer" class="tag">View &nearr;</a>
                 </div>
               )}
             </article>
@@ -113,10 +127,17 @@ const jsonLd = {
       </div>
 
       {/* ── Footer ── */}
+      {/* AC7: a hiring reader who has finished the grid needs somewhere to go
+          that is not the browser Back button. Same two destinations the
+          homepage availability block offers, in the same order. */}
       <Footer
         attribution="Nathan Payne"
         variant="grid"
-        links={[{ href: "/", label: "← Back to Homepage" }]}
+        links={[
+          { href: "/resume/", label: "Résumé →" },
+          { href: "https://cal.com/nathanpayne", label: "Book time →" },
+          { href: "/", label: "← Back to Homepage" },
+        ]}
       />
     </div>
   </main>

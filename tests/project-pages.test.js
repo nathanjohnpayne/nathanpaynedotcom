@@ -154,7 +154,7 @@ describe('Project Pages — routes', () => {
     }
   });
 
-  it('the projects index keeps the route title while branding the H1 as Built with Agents', () => {
+  it('the projects index leads with product and decisions, not with the method (#751)', () => {
     setupDOM(readDistHtml('projects/index.html'));
 
     const title = document.querySelector('title');
@@ -166,18 +166,33 @@ describe('Project Pages — routes', () => {
     const deck = document.querySelector('.hero .deck');
 
     expect(title?.textContent).toBe('Projects | Nathan Payne');
-    expect(heading?.textContent).toBe('Built with Agents');
+    expect(heading?.textContent).toBe('Products—and the decisions behind them');
     expect(breadcrumb?.textContent).toContain('Projects');
     expect(canonical?.getAttribute('href')).toBe('https://nathanpayne.com/projects/');
     expect(ogTitle?.getAttribute('content')).toBe('Projects | Nathan Payne');
     expect(ogDescription?.getAttribute('content')).toBe(
-      'Each one a real problem turned into a systems design exercise—from first commit to deploy.',
+      'The problem each one started as, what got built, what got refused, and what the evidence said afterward.',
     );
+    // AC1 orders the deck: problem, then decisions, then outcomes, then the
+    // agent leverage last. AC2 keeps agent collaboration present but demoted
+    // from the value proposition — pinned by the ordering assertions below
+    // rather than by the exact sentence, so the copy can be edited without
+    // silently losing the structure the ticket asked for.
     const deckText = deck?.textContent?.replace(/\s+/g, ' ').trim();
-    expect(deckText).toBe(
-      'Every build started as a real problem. Each one became a systems design exercise—from first commit to deploy, on top of an enforcement system I designed to make agent output reliable. The infrastructure behind these projects is documented in Agent Approval Workflow and the Genesis of Mergepath.',
-    );
-    expect(deckText).not.toContain('built with AI agents');
+    expect(deckText).toMatch(/^Every one of these began as a real problem/);
+    const problemAt = deckText.indexOf('real problem');
+    const decisionAt = deckText.indexOf('decisions are the part worth reading');
+    const outcomeAt = deckText.indexOf('shipped and are live');
+    const agentAt = deckText.indexOf('I build with AI agents');
+    for (const [label, at] of Object.entries({ problemAt, decisionAt, outcomeAt, agentAt })) {
+      expect(at, `deck is missing its ${label} beat`).toBeGreaterThan(-1);
+    }
+    expect(problemAt).toBeLessThan(decisionAt);
+    expect(decisionAt).toBeLessThan(outcomeAt);
+    expect(outcomeAt).toBeLessThan(agentAt);
+    // AC2: the method may appear, but not as the thing being sold.
+    expect(deckText).toMatch(/The agents are leverage; the product decisions are the point\./);
+    expect(deckText).not.toMatch(/^Built with/);
   });
 
   it('the homepage Projects panel keeps wayfinding labels while promoting the Built with Agents heading', () => {
@@ -231,8 +246,11 @@ describe('Project Pages — routes', () => {
     // assertions pin retracted copy: 'what the user has actually done' was the
     // pre-#813 wording, and the four-input ingestion list was never true — only
     // the pasted-resume path is implemented.
-    expect(matchlineDescription).toContain('blocks the export when a generated claim fails to trace back');
-    expect(matchlineDescription).toContain('Paused before launch');
+    // Since #751 the index renders `cardDescription`, not the hero deck. The
+    // retraction assertions below still apply — the card is a public surface
+    // and must not reassert what the #756 audit removed.
+    expect(matchlineDescription).toContain('51% extraction accuracy against an 80% bar');
+    expect(matchlineDescription).toContain('Paused');
     expect(matchlineDescription).not.toContain('what the user has actually done');
     expect(matchlineDescription).not.toContain('LinkedIn');
   });
@@ -1104,5 +1122,128 @@ describe('Matchline — audited claims stay retracted (#756)', () => {
     const data = frontmatter();
     expect(data.liveUrl).toBeUndefined();
     expect(data.githubUrl).toBe('https://github.com/nathanjohnpayne/matchline');
+  });
+});
+
+// #751 — the index is the thesis page for the portfolio. These pin the four
+// things the ticket asked for that nothing else guards: the canonical order,
+// the card line being a proof point rather than a product summary, the length
+// balance that keeps one card from dominating, and a hiring reader's route out.
+describe('Projects index — portfolio thesis (#751)', () => {
+  const cardLine = (data) => data.cardDescription ?? data.description;
+
+  it('keeps the canonical editorial order and does not sort by status, date or name', () => {
+    // AC4. The order is editorial and `order` is also what derives each project
+    // page's accent (RAMP[order % 5]), so a re-sort silently re-colors pages —
+    // including one whose hero art is only legible on its current accent (#784).
+    const orders = projectSourceFiles()
+      .map((file) => readProjectFrontmatter(file))
+      .map((data) => ({ order: data.order, title: data.title, status: data.status }))
+      .sort((a, b) => a.order - b.order);
+
+    expect(orders.map((p) => p.title)).toEqual(canonicalProjectCards.map((c) => c.title));
+    expect(orders.map((p) => p.order)).toEqual([0, 1, 2, 3, 4, 5, 6]);
+
+    // Explicitly assert the order is NOT any of the mechanical sorts, so a
+    // future "tidy-up" that happens to produce one of them fails here.
+    const byTitle = [...orders].sort((a, b) => a.title.localeCompare(b.title)).map((p) => p.title);
+    const byStatus = [...orders].sort((a, b) => a.status.localeCompare(b.status)).map((p) => p.title);
+    expect(orders.map((p) => p.title)).not.toEqual(byTitle);
+    expect(orders.map((p) => p.title)).not.toEqual(byStatus);
+  });
+
+  it('gives every card a proof point, not a stack summary', () => {
+    // AC3. A card line earns its place by naming a decision, a constraint or an
+    // outcome. The cheapest reliable signal that it has NOT is a technology
+    // roster, which is what `stack` is for and what these cards used to repeat.
+    const stackish =
+      /\b(React|TypeScript|Vite|Tailwind|Firebase|Next\.js|Astro|Vitest|vanilla JS)\b/;
+    for (const file of projectSourceFiles()) {
+      const data = readProjectFrontmatter(file);
+      const line = cardLine(data);
+      expect(line, `${file} has no card line`).toBeTruthy();
+      expect(line, `${file} card line reads as a stack summary`).not.toMatch(stackish);
+      expect(line.length, `${file} card line is too short to carry a proof point`).toBeGreaterThan(90);
+    }
+  });
+
+  it('keeps card lines within one length band so no card dominates by volume', () => {
+    // AC5. The ticket named Mergepath; by the time it was implemented the
+    // outlier was Matchline at 244 characters against a 107-character floor.
+    // Pin the band rather than the culprit.
+    const lengths = projectSourceFiles().map((file) => cardLine(readProjectFrontmatter(file)).length);
+    const shortest = Math.min(...lengths);
+    const longest = Math.max(...lengths);
+    expect(longest).toBeLessThanOrEqual(200);
+    expect(shortest).toBeGreaterThanOrEqual(120);
+    expect(longest / shortest, 'one card is dominating the grid by copy volume').toBeLessThan(1.6);
+  });
+
+  it('does not let a card contradict the status it renders beside', () => {
+    // AC6. Status honesty: a paused or archived project must not read as if it
+    // is running. Cheap directional check — these verbs assert live operation.
+    const runningVerbs = /\b(is live|in production today|runs daily|currently serves)\b/i;
+    for (const file of projectSourceFiles()) {
+      const data = readProjectFrontmatter(file);
+      if (['PAUSED', 'ARCHIVED'].includes(data.status)) {
+        expect(cardLine(data), `${file} is ${data.status} but its card reads as running`).not.toMatch(
+          runningVerbs,
+        );
+      }
+    }
+  });
+
+  it('offers a hiring reader the résumé and a booking link from the index', () => {
+    // AC7. Before #751 the only way out of the grid was Back to Homepage.
+    setupDOM(readDistHtml('projects/index.html'));
+    const footerLinks = [...document.querySelectorAll('.site-footer a')].map((a) => ({
+      href: a.getAttribute('href'),
+      text: a.textContent?.replace(/[→\s]+/g, ' ').trim(),
+    }));
+    expect(footerLinks.some((l) => l.href === '/resume/')).toBe(true);
+    expect(footerLinks.some((l) => l.href === 'https://cal.com/nathanpayne')).toBe(true);
+    expect(footerLinks.some((l) => l.href === '/')).toBe(true);
+  });
+
+  it('renders the card line, not the hero deck, on the index', () => {
+    // The two fields were one until #751; this pins the split so a future edit
+    // to a page's hero deck cannot silently rewrite its index card again.
+    setupDOM(readDistHtml('projects/index.html'));
+    const matchline = [...document.querySelectorAll('.blog-grid .post-card')].find(
+      (card) => card.querySelector('.post-title a')?.textContent === 'Matchline',
+    );
+    const data = readProjectFrontmatter('matchline.mdx');
+    expect(data.cardDescription, 'matchline should exercise the split').toBeTruthy();
+    expect(data.cardDescription).not.toBe(data.description);
+    expect(matchline?.querySelector('.post-desc')?.textContent).toBe(data.cardDescription);
+  });
+});
+
+// #751 follow-up: "Live ↗" read as a contradiction beside ARCHIVED, because it
+// is ambiguous between "the demo is reachable" and "the product is operational".
+// Status carries lifecycle truth; the CTA only says a link exists.
+describe('Projects index — CTA vocabulary does not compete with status (#751)', () => {
+  it('labels the outbound project link View, not Live', () => {
+    setupDOM(readDistHtml('projects/index.html'));
+    const ctas = [...document.querySelectorAll('.blog-grid .tag-row a')];
+    expect(ctas.length, 'expected at least one project CTA').toBeGreaterThan(0);
+    for (const cta of ctas) {
+      const label = cta.textContent?.replace(/[↗\s]+/g, ' ').trim();
+      expect(label, 'CTA must not assert liveness beside a lifecycle status').not.toMatch(/live/i);
+      expect(label).toBe('View');
+    }
+  });
+
+  it('still renders a CTA only where a liveUrl exists', () => {
+    setupDOM(readDistHtml('projects/index.html'));
+    const withCta = [...document.querySelectorAll('.blog-grid .post-card')]
+      .filter((card) => card.querySelector('.tag-row a'))
+      .map((card) => card.querySelector('.post-title a')?.textContent);
+    const expected = projectSourceFiles()
+      .map((file) => readProjectFrontmatter(file))
+      .filter((data) => data.liveUrl)
+      .sort((a, b) => a.order - b.order)
+      .map((data) => data.title);
+    expect(withCta).toEqual(expected);
   });
 });
