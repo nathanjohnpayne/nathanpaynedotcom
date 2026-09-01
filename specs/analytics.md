@@ -113,9 +113,10 @@ may be removed later without affecting the other.
    real one, if the site ever shipped `?.` or `??` to a parser that could not
    read it. Issue status costs the ingestion of a handful of events and keeps
    the evidence queryable; a rule would silently discard both.
-5. One issue is suppressed: `SyntaxError: Unexpected token ?`. It is emitted by
-   an automated scanner, not by the site. The evidence is recorded here so the
-   finding is not re-derived from scratch a third time:
+5. Two issues are suppressed, both from the same emitter. The first is
+   `SyntaxError: Unexpected token ?`, emitted by an automated scanner, not by
+   the site. The evidence is recorded here so the finding is not re-derived
+   from scratch a third time:
    - The frame is `synthetic: true` with `resolve_failure: "This frame had no
      source url or chunk id"`—a bare `window.onerror` report carrying no
      filename.
@@ -130,6 +131,27 @@ may be removed later without affecting the other.
      and nothing further. No interaction, always a `$direct` referrer.
    - Edge 122 supports both `?.` and `??`, so a genuine client on that version
      would not fail to parse the site's inline scripts.
-6. To undo, set the issue back to `active` in
+6. A second issue is suppressed on the same evidence: `SyntaxError: Unexpected
+   token .`, six events over two sessions on 2026-08-28 and 2026-08-29 (#837).
+   It is a distinct fingerprint, so it grouped separately and filed its own
+   GitHub Issue exactly as requirement 3 says it should. What identifies the
+   emitter is that the device fingerprint is not distinct at all:
+   - The screen/viewport pair and the user-agent string are byte-identical to
+     the signature above—a 1024×768 viewport on an 800×600 screen, under the
+     same Edge 122 / Windows 10 UA—from two OVH hosting ranges that PostHog
+     geolocates to different countries. Across 180 days these two issues are
+     the only `$exception` events the project has recorded, and every event
+     under both carries that one impossible fingerprint.
+   - `stacktrace.type` is `resolved`, but the frame list is empty, so nothing
+     resolves and no source can be attributed. This is recorded as observed
+     rather than inherited: it differs from the `?` signature, whose synthetic
+     frame at least reported a line and column to disprove.
+   - Each session is one `$pageview`, then a burst of two to four identical
+     `$exception` events inside half a second, then nothing. No interaction,
+     always a `$direct` referrer.
+   - The two pages hit, `/projects/five-across/` and `/projects/override/`,
+     ship the same inline scripts as every other page, and no client outside
+     this fingerprint has reported a parse error on any of them.
+7. To undo either one, set the issue back to `active` in
    [error tracking](https://us.posthog.com/project/469428/error_tracking).
    Suppression is not retroactive and drops nothing already stored.
