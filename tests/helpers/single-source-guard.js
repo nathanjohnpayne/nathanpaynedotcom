@@ -23,7 +23,20 @@ const SRC = resolve(ROOT, 'src');
 /** Code files only: `.css` defines the classes, `.md` frontmatter uses the vocabulary. */
 const isCode = (file) => /\.(astro|ts|js|mjs)$/.test(file);
 
-const walkSrc = () => findFilesRecursively(SRC, isCode).map((file) => relative(SRC, file));
+/**
+ * Repo-relative path with forward slashes on every platform.
+ *
+ * `findFilesRecursively` joins with `node:path`, so `relative()` hands back
+ * backslashes on Windows while the registry below is written with slashes.
+ * Every comparison here is exact — `file !== own` to exclude the module,
+ * `toContain(surface)` for the importer control — so unnormalized separators
+ * would not merely miss a duplicate: they would report the canonical module
+ * as its own offender and fail the importer control, on a clean checkout.
+ * Same class as the CRLF gap #908 hit, in a repo where #906 was a Windows fix.
+ */
+export const toPosix = (path) => path.split('\\').join('/');
+
+const walkSrc = () => findFilesRecursively(SRC, isCode).map((file) => toPosix(relative(SRC, file)));
 
 /**
  * Every `src/lib/` module that `.ai_context.md` documents as a shared single

@@ -1,10 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { existsSync, readFileSync } from 'fs';
-import { resolve } from 'path';
+import { resolve, win32 } from 'path';
 import {
   SINGLE_SOURCES,
   assertImportersUseIt,
   assertSoleDeclaration,
+  toPosix,
 } from './helpers/single-source-guard.js';
 
 /**
@@ -62,6 +63,21 @@ describe('shared single-source modules (#910)', () => {
         'Add the missing registry entry (module, label, declares, importers) or the ' +
         'missing table row.',
     ).toEqual([...documented].sort());
+  });
+
+  it('compares paths in one separator style on every platform', () => {
+    // CodeRabbit: `findFilesRecursively` joins with node:path, so `relative()`
+    // yields backslashes on Windows while the registry uses slashes. Every
+    // comparison in the guard is exact, so unnormalized separators would fail
+    // a clean Windows checkout — reporting each canonical module as its own
+    // offender. Asserted against a real win32 path rather than the host's,
+    // so this holds on the macOS and Linux runners that will actually run it.
+    const windowsRelative = win32.relative('C:\\repo\\src', 'C:\\repo\\src\\pages\\index.astro');
+    expect(windowsRelative, 'the fixture is not exercising backslashes').toContain('\\');
+    expect(toPosix(windowsRelative)).toBe('pages/index.astro');
+    expect(toPosix('lib/index-grid.ts'), 'posix paths must pass through unchanged').toBe(
+      'lib/index-grid.ts',
+    );
   });
 
   it('every documented shared module exists on disk', () => {
