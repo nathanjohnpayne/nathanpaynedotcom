@@ -11,6 +11,17 @@ const chronologicalPosts = [...publishedPosts].sort(
 );
 const editorialPosts = [...publishedPosts].sort(compareBlogPosts);
 
+// The Builds grid below is hand-authored markup (see the comment above it), so
+// its sequence is maintained by hand against the canonical order. Its lifecycle
+// labels are NOT: they are looked up from each project's own frontmatter, so a
+// status change on a project page reaches this surface without anyone
+// remembering to come here. #892.
+const projectEntries = await getCollection('projects', ({ data }) => !data.draft);
+const projectStatus = Object.fromEntries(
+  projectEntries.map((project) => [project.data.slug, project.data.status]),
+);
+const statusOf = (slug: string) => projectStatus[slug] ?? '';
+
 const latestPost = chronologicalPosts[0];
 
 // The Mondrian About panel has finite room, so the list is capped and the
@@ -159,58 +170,71 @@ const homepageJsonLd = {
         <div class="panel-label" tabindex="0" role="button" aria-label="Open Projects section">Projects</div>
         <div class="panel-content">
           <div class="content-inner">
-            <h2>Built with Agents</h2>
-            <p>Every project started as a real problem and shipped end-to-end—Claude Code, Codex, and Cursor—within a multi-agent review system I designed to catch the failure modes agents miss.</p>
+            <h2>Selected Projects</h2>
+            <p>Products I built with AI agents under a review system I designed. They span consumer, enterprise, finance, and developer tooling; the case studies focus on the decisions, tradeoffs, and evidence behind them.</p>
             {/* Builds grid — hand-authored, NOT generated from the projects
                 collection, so the `order` field on the project source files has
-                no effect here. The sequence below must match that field; both are
-                the owner-confirmed ordering recorded in specs/project-pages.md
-                § Canonical project ordering. Reorder both surfaces together or
-                they silently diverge — nothing in the build catches it. */}
+                no effect here. This is a *selected* set: the heading says so, and
+                a project may be omitted here while still appearing on /projects/.
+                What must hold is the relative order — whatever subset is listed
+                follows the canonical sequence in specs/project-pages.md
+                § Canonical project ordering. Lifecycle labels are looked up from
+                frontmatter rather than typed, so only the sequence is by hand.
+                Guarded by tests/homepage-writing.test.js (#892). */}
             <div class="project-list">
               <div class="project-item">
                 <div class="p-head">
                   <a class="p-name p-name-link" href="/projects/five-across/" aria-label="Read the Five Across project page">Five Across<span class="link-arrow" aria-hidden="true">→</span></a>
+                  <span class="p-status">{statusOf('five-across')}</span>
                 </div>
-                <p>Live multiplayer bingo that turns a group trip into a shared game—daily themed cards, offline-first marking, and a choreographed finale, live-operated through a nine-night cruise at sea.</p>
+                <p>A multiplayer bingo game built for a nine-night cruise, with daily themed cards, offline-first marking, live standings, and a choreographed finale.</p>
               </div>
               <div class="project-item">
                 <div class="p-head">
                   <a class="p-name p-name-link" href="/projects/mergepath/" aria-label="Read the Mergepath project page">Mergepath<span class="link-arrow" aria-hidden="true">→</span></a>
+                  <span class="p-status">{statusOf('mergepath')}</span>
                 </div>
                 <p>A repository standard for the gap between what a fleet of AI coding agents can produce and what one operator can responsibly stand behind.</p>
               </div>
               <div class="project-item">
                 <div class="p-head">
                   <a class="p-name p-name-link" href="/projects/override/" aria-label="Read the Override project page">Override<span class="link-arrow" aria-hidden="true">→</span></a>
+                  <span class="p-status">{statusOf('override')}</span>
                 </div>
                 <p>A financial operating system for Broadway productions—models capitalization and investor returns, manages ownership, and shares a read-only deal room with backers instead of spreadsheet and PDF workflows.</p>
               </div>
               <div class="project-item">
                 <div class="p-head">
                   <a class="p-name p-name-link" href="/projects/device-source-of-truth/" aria-label="Read the Device Source of Truth project page">Device Source of Truth<span class="link-arrow" aria-hidden="true">→</span></a>
+                  <span class="p-status">{statusOf('device-source-of-truth')}</span>
                 </div>
-                <p>A single web application that tracks partner-device hardware, DRM, codec support, and operational readiness—built inside Disney Streaming, and demonstrated publicly on synthetic data.</p>
+                <p>A single web application that tracks partner-device hardware, DRM, codec support, and operational readiness—unifying fragmented device data while keeping consequential changes behind human review.</p>
               </div>
               <div class="project-item">
                 <div class="p-head">
                   <a class="p-name p-name-link" href="/projects/matchline/" aria-label="Read the Matchline project page">Matchline<span class="link-arrow" aria-hidden="true">→</span></a>
+                  <span class="p-status">{statusOf('matchline')}</span>
                 </div>
                 <p>A career CRM for one person running a serious job search—turns work history into approved evidence, maps it against a specific job&rsquo;s requirements, and blocks the export when a claim doesn&rsquo;t trace back.</p>
               </div>
               <div class="project-item">
                 <div class="p-head">
                   <a class="p-name p-name-link" href="/projects/swipe-watch/" aria-label="Read the Swipe Watch project page">Swipe Watch<span class="link-arrow" aria-hidden="true">→</span></a>
+                  <span class="p-status">{statusOf('swipe-watch')}</span>
                 </div>
                 <p>A swipe-based discovery experiment for Disney+ and Hulu that turns expressing taste into a game—built in vanilla JS across three days of one week.</p>
               </div>
               <div class="project-item">
                 <div class="p-head">
                   <a class="p-name p-name-link" href="/projects/friends-and-family-billing/" aria-label="Read the Friends and Family Billing project page">Friends &amp; Family Billing<span class="link-arrow" aria-hidden="true">→</span></a>
+                  <span class="p-status">{statusOf('friends-and-family-billing')}</span>
                 </div>
-                <p>Cloud-synced shared-bill coordination for families and friend groups—turns recurring costs into clear annual invoices, payment tracking, and shareable summaries.</p>
+                <p>Shared billing for recurring household costs—showing recipients the arithmetic, tracking settlement, and handling questions without requiring an account.</p>
               </div>
             </div>
+            {/* The homepage lists every project but never made the richer index
+                an obvious destination (#892). */}
+            <a class="p-link projects-index-cta" href="/projects/">View all projects and case studies<span class="link-arrow" aria-hidden="true">→</span></a>
             <div class="stack-ribbon">
               <span class="eyebrow stack-label">Stack</span>
               <span class="stack-items">Bash · TypeScript · Vanilla JS · React · Next.js · Vite · Tailwind CSS · Zod · Vitest · Playwright · Firebase · Cloudflare Workers · Express · GitHub Actions · PostHog · Anthropic · OpenAI · Claude Code · Codex · Cursor · CodeRabbit</span>

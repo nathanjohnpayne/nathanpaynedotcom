@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { existsSync, readFileSync } from 'fs';
-import { resolve } from 'path';
+import { existsSync, readFileSync, readdirSync } from 'fs';
+import { resolve, join } from 'path';
 import { blogSlugFromPath, findBlogMarkdownFiles } from '../scripts/lib/blog-file-inventory.mjs';
 import { parseFrontmatter } from '../scripts/lib/parse-frontmatter.mjs';
 import { EXPECTED_BLOG_EDITORIAL_ORDER } from './helpers/blog-editorial-order.js';
@@ -41,6 +41,10 @@ function postLinks() {
     (a) =>
       (a.getAttribute('href') || '').startsWith('/blog/') && a.getAttribute('href') !== '/blog/',
   );
+}
+
+function readDistHtml(relativePath) {
+  return readFileSync(resolve(DIST, relativePath), 'utf-8');
 }
 
 function setupDOM(rawHtml) {
@@ -126,5 +130,75 @@ describe('homepage Writing block (#523)', () => {
     expect(last?.textContent.replace(/→/g, '').replace(/\s+/g, ' ').trim()).toBe(
       'View all writing',
     );
+  });
+});
+
+// #892 — the homepage Builds grid is hand-authored markup that mirrors the
+// projects collection. These guard the two things that can silently drift.
+//
+// Deliberately NOT pinned: which projects appear. The section is headed
+// "Selected Projects" precisely so a project can be left out here while still
+// appearing on /projects/, so a test demanding all seven would fight the
+// surface's own intent. What is pinned is that whatever subset is shown keeps
+// the canonical relative order, and that each row's status matches the
+// frontmatter it mirrors.
+describe('Homepage Builds grid mirrors the projects collection (#892)', () => {
+  const CONTENT = resolve(__dirname, '../src/content/projects');
+
+  function projectFrontmatter() {
+    return readdirSync(CONTENT)
+      .filter((file) => /\.mdx?$/.test(file))
+      .map((file) => parseFrontmatter(readFileSync(join(CONTENT, file), 'utf-8')))
+      .filter((data) => data.draft !== true)
+      .sort((a, b) => a.order - b.order);
+  }
+
+  function homepageRows() {
+    setupDOM(readDistHtml('index.html'));
+    const panel = document.querySelector('[data-panel="projects"]');
+    return [...panel.querySelectorAll('.project-item')].map((item) => ({
+      href: item.querySelector('.p-name-link')?.getAttribute('href'),
+      title: item.querySelector('.p-name-link')?.textContent?.replace('→', '').trim(),
+      status: item.querySelector('.p-status')?.textContent?.trim(),
+    }));
+  }
+
+  it('lists a subset of the canonical order, in canonical order', () => {
+    const canonical = projectFrontmatter().map((data) => `/projects/${data.slug}/`);
+    const shown = homepageRows().map((row) => row.href);
+
+    expect(shown.length, 'the grid should list at least one project').toBeGreaterThan(0);
+    for (const href of shown) {
+      expect(canonical, `${href} is not a published project`).toContain(href);
+    }
+    // Subsequence check: omission is allowed, reordering is not.
+    const positions = shown.map((href) => canonical.indexOf(href));
+    const ascending = [...positions].sort((a, b) => a - b);
+    expect(positions, 'homepage rows are out of canonical order').toEqual(ascending);
+    expect(new Set(shown).size, 'a project is listed twice').toBe(shown.length);
+  });
+
+  it('labels every row with the status from that project’s frontmatter', () => {
+    const statusBySlug = Object.fromEntries(
+      projectFrontmatter().map((data) => [`/projects/${data.slug}/`, data.status]),
+    );
+    const rows = homepageRows();
+    for (const row of rows) {
+      expect(row.status, `${row.href} has no status label`).toBeTruthy();
+      expect(row.status, `${row.href} status disagrees with its frontmatter`).toBe(
+        statusBySlug[row.href],
+      );
+    }
+    // The whole point of the labels: the grid must not read as uniformly shipped.
+    expect(new Set(rows.map((r) => r.status)).size, 'expected mixed lifecycle states').toBeGreaterThan(1);
+  });
+
+  it('offers a route into the projects index', () => {
+    setupDOM(readDistHtml('index.html'));
+    const panel = document.querySelector('[data-panel="projects"]');
+    const cta = panel.querySelector('.projects-index-cta');
+    expect(cta, 'no CTA into /projects/').not.toBeNull();
+    expect(cta?.getAttribute('href')).toBe('/projects/');
+    expect(cta?.textContent).toContain('View all projects and case studies');
   });
 });

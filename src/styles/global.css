@@ -1010,6 +1010,30 @@ html[data-fonts-pending] .panel-label {
   margin-bottom: 0.22rem;
 }
 
+/* Lifecycle status on a Builds row (#892). The homepage presented all seven
+   projects identically, which reads as equivalent shipped work; /projects/ is
+   precise about this and the homepage was not. Sits inside .p-head's existing
+   flex row so the label costs no row height — the homepage composition is
+   deliberately denser than the projects index and should stay that way. */
+.p-status {
+  font-family: var(--font-mono, monospace);
+  font-size: 0.6rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 0.1rem 0.35rem;
+  border: 1px solid currentColor;
+  opacity: 0.72;
+  white-space: nowrap;
+}
+
+/* Route into the projects index, below the seven rows. */
+.projects-index-cta {
+  display: inline-block;
+  margin-top: 0.7rem;
+  font-size: 0.85rem;
+}
+
+
 .p-name {
   font-family: var(--font-heading);
   font-size: 1.15rem;
