@@ -100,7 +100,7 @@ The post omits the hook-command-grammar bug and the two timing/clock bugs. Corre
 
 | Control | Where it runs | What it actually binds |
 |---|---|---|
-| `gh-pr-guard.sh` PR-creation guard | **Client-side**, a Claude Code PreToolUse hook | Only agents running in a session that loads this hook. A different tool, a raw `curl` to the API, or the GitHub web UI bypasses it entirely. On the author-wrapper path it checks **both** that the wrapper is used and that the body carries the two markers—it does not step aside for the body (§S, correcting §M1). |
+| `gh-pr-guard.sh` PR-creation guard | **Client-side**, a Claude Code PreToolUse hook | Only agents running in a session that loads this hook. A different tool, a raw `curl` to the API, or the GitHub web UI bypasses it entirely. **At the pinned commit** it checked both that the wrapper was used and that the command text carried the two markers; **on current `main`** it checks only the routing and exits before the marker grep, leaving the body to the wrapper's contract (§S). |
 | Branch protection | **GitHub server** | Everyone, including the human, short of an explicit `--admin` override—the strongest boundary here, but not an absolute one (§N4). |
 | Required status checks / Label Gate | **GitHub server** | Everyone, subject to admin override. |
 | `scripts/ci/` checks | **CI** | Blocks the merge button, not the push. |
@@ -284,7 +284,7 @@ Corrected value: the tracking issues closed within eighteen seconds of one anoth
 
 | Claim | Source |
 |---|---|
-| PR creation requires `Authoring-Agent:` and `## Self-Review` | **Both** components enforce it today, and only the hook did at the commit this post cites: `scripts/hooks/gh-pr-guard.sh` (substring `grep`, on the wrapper path) and, added later, the wrapper's `scripts/lib/pr-body-contract.mjs:83` (line-anchored). The bolded-header refusal during the #740 audit came from the second, because the first passes it (§S) |
+| PR creation requires `Authoring-Agent:` and `## Self-Review` | **Owner depends on the commit, and this row is about current `main`:** the wrapper's `scripts/lib/pr-body-contract.mjs:83` (line-anchored) enforces it, and `scripts/hooks/gh-pr-guard.sh` enforces that the wrapper is used, exiting before its own marker grep on that path. **At the pinned commit `7878830`** the hook's grep was the only check and the wrapper had none. The bolded-header refusal during the #740 audit came from the wrapper, because a substring grep passes a bolded marker (§S) |
 | PR #60 was a docs-only change touching `.github/**`, merged 2026-04-15 | `refs.json` → `#60`, +60/−10 over 2 files |
 | PR #63 added a runtime label re-verify, +53/−0 in one file | `refs.json` → `#63` |
 | PR #76 was the consolidated back-port, +450/−102 over 3 files | `refs.json` → `#76` |
@@ -561,8 +561,10 @@ Not read, but executed. The hook from the pinned commit the post cites (`7878830
 | Neither marker | **BLOCK**—"PR description is missing required sections per REVIEW_POLICY.md" |
 | `**Authoring-Agent:**` bolded, `## Self-Review` present | ALLOW |
 | `Authoring-Agent:` present, no `## Self-Review` | **BLOCK**—same message |
+| `--body-file` pointing at a fully conforming file | **BLOCK**—the markers are not in the command string |
+| Markers parked in `--title`, body conforming to nothing | ALLOW—the grep does not care which argument they are in |
 
-So the hook enforces the body **on the wrapper path**. It does not recognise the wrapper and step aside, and its check is not a "direct-invocation fallback." The hook's own header comment says the same thing in one sentence: `gh pr create` "blocks unless the command is routed through `scripts/gh-as-author.sh` **and** the command text includes `Authoring-Agent:` and `## Self-Review`."
+So the hook enforces the markers **on the wrapper path**. It does not recognise the wrapper and step aside, and its check is not a "direct-invocation fallback." Note what it actually inspects: `grep -qi` over `$COMMAND`, the whole shell command string, never a parsed body. It is a command-text check standing in for a body check, and the last two rows above are that distinction made visible: a conforming `--body-file` is refused, and markers parked in `--title` beside a nonconforming body are accepted. (This repository's own hook is newer and carries an author-wrapper early exit that restores `--body-file`, which is how every PR in this series was created.) The hook's own header comment says the same thing in one sentence: `gh pr create` "blocks unless the command is routed through `scripts/gh-as-author.sh` **and** the command text includes `Authoring-Agent:` and `## Self-Review`."
 
 ### Why §M1 looked right
 
