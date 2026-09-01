@@ -31,7 +31,7 @@ pullquotes:
 sidebar:
   - type: mermaid
     title: "Six PRs by role, then the issue, then the fix"
-    description: "One implementation introduces a lossy markdown bridge; three attempts patch the bridge and two orthogonal fixes land beside it; the accumulated failures get named in issue 159, and pull request 161 removes the bridge."
+    description: "One implementation introduces a lossy markdown bridge; three attempts patch the bridge and two orthogonal fixes land beside it; the accumulated failures get named in issue 159, and pull request 161 takes the preview and the test email off the bridge. The invoice a recipient receives stays on it."
     content: |
       graph TD
           PR144["#144 implementation:<br/>TipTap editor,<br/>markdown bridge kept"] --> PR146["#146 attempt:<br/>balanced token regex"]
@@ -40,7 +40,7 @@ sidebar:
           PR144 --> PR154["#154 orthogonal:<br/>editor lifecycle"]
           PR144 --> PR155["#155 orthogonal:<br/>legacy migration"]
           PR158 --> I159["Issue #159:<br/>invariant attached<br/>to the work"]
-          I159 --> PR161["#161 fix:<br/>bridge removed"]
+          I159 --> PR161["#161 fix:<br/>bridge removed for<br/>preview + test email"]
           style PR144 fill:#b35937,stroke:#b35937,color:#fff
           style PR146 fill:#e8b4b4,stroke:#993d3d,color:#333
           style PR153 fill:#e8b4b4,stroke:#993d3d,color:#333
@@ -312,4 +312,4 @@ After the merge I turned the arc into standing rules, each earning its keep agai
 
 **Invariants outrank backward compatibility.** *(Personal practice, not adopted policy.)* When a spec carries both a new architecture and a compatibility requirement, it now states which wins: the new rendering path is canonical, and legacy format support is a migration concern, not an architectural peer. The cost: the compatibility work gets more expensive and more explicit up front—which is the point, because implicit is how the bridge got built.
 
-The bug was fixed about sixty-five minutes after it was named: what recipients see now matches what the preview shows and what the editor means, and the brief's regression tests were aimed at keeping the whole class of defect closed, not patching one instance. The expensive part was the twenty-one hours before the name existed, in which six pull requests of locally reasonable, individually reviewed work shipped against a correctness standard nobody was checking. And the standard was not missing. It was in the design spec from the start, one sentence describing exactly the output model the bug violated. What it never was, until [issue #159](https://github.com/nathanjohnpayne/friends-and-family-billing/issues/159), was a requirement attached to any piece of work anyone reviewed. That is the process failure, and it is harder than "write it down": prose in a design document loses to a named function with checkable behavior, and no amount of louder symptom reporting closes the gap.
+The bug was fixed about sixty-five minutes after it was named—on the surface where it was reported. The preview and the test email now agree with what the editor means, and the brief's regression tests were aimed at keeping the whole class of defect closed rather than patching one instance. What a recipient sees still does not: the invoice email was never on the canonical path, and a later evidence audit is what established that, not this fix. The expensive part was the twenty-one hours before the name existed, in which six pull requests of locally reasonable, individually reviewed work shipped against a correctness standard nobody was checking. And the standard was not missing. It was in the design spec from the start, one sentence describing exactly the output model the bug violated. What it never was, until [issue #159](https://github.com/nathanjohnpayne/friends-and-family-billing/issues/159), was a requirement attached to any piece of work anyone reviewed. That is the process failure, and it is harder than "write it down": prose in a design document loses to a named function with checkable behavior, and no amount of louder symptom reporting closes the gap.
