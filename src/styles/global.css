@@ -3776,7 +3776,6 @@ svg.mermaid foreignObject p {
   line-height: 1.5;
 }
 
-
 /* Sidebar items: mermaid diagrams, images */
 .mermaid-figure {
   margin: 0;
@@ -3791,6 +3790,44 @@ svg.mermaid foreignObject p {
      narrower than the column renders narrow. Centre it rather than leaving it
      against the left margin with dead space beside it. */
   margin-inline: auto;
+}
+
+/* Below --bp-stack the column is narrower than the diagrams were drawn for,
+   and `width: 100%` on an SVG carrying a viewBox scales the graphic instead of
+   reflowing it: the labels pinned at 14px above shrink with everything else.
+   A 937px diagram in a 262px column painted its type at 3.9px — a quarter of
+   the site's smallest intentional label, the 0.56rem `.eyebrow` (#894).
+
+   So below that breakpoint the diagram is held at the width Mermaid drew it
+   and the figure scrolls instead, the way the code blocks on the same pages
+   already do. `min-width` rather than `width` makes the treatment
+   self-selecting: it only bites on a diagram whose natural width exceeds the
+   column, so the vertical diagrams that already fit — Matchline's measurement
+   chart, Mergepath's review loop — render exactly as they do now, with no
+   scrollbar they have no use for.
+
+   1024px is where the desktop composition and its sidebar take over, so
+   nothing above it moves. The sidebar's own diagrams are display: none below
+   that breakpoint and never reach this rule at all.
+
+   `screen` is load-bearing, not decoration. A printed page is roughly 816px
+   wide and so matches this width query, but paper cannot scroll: the diagram
+   would print at 937px inside a 691px column and lose everything past the
+   right margin. Measured before scoping this. Print keeps the fit-to-column
+   behavior the @media print block below already spells out. */
+@media screen and (max-width: 1023px) {
+  .mermaid-figure {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .mermaid-figure svg.mermaid {
+    /* Written at build time from the rendered viewBox, which CSS cannot read
+       — see publishNaturalWidth in
+       src/plugins/rehype-mermaid-accessibility.mjs. The 0px fallback leaves an
+       SVG that arrived without one behaving exactly as it does today. */
+    min-width: var(--mermaid-natural-width, 0px);
+  }
 }
 
 .mermaid-fallback {

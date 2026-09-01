@@ -89,11 +89,14 @@ export function rehypeMermaidSvg() {
         // A role="img" makes the figure's descendants presentational, which
         // would hide the visible failure message from assistive technology.
         // Restore normal document semantics when Mermaid could not render.
-        // Delete all three attributes defensively: the cleanup is intentionally
-        // idempotent because a fallback may already lack any one of them.
+        // Delete all four attributes defensively: the cleanup is intentionally
+        // idempotent because a fallback may already lack any one of them. The
+        // tab stop goes with them — a fallback is a paragraph of text that
+        // never scrolls, so there is nothing there for a keyboard to reach.
         delete child.properties?.role;
         delete child.properties?.ariaLabel;
         delete child.properties?.ariaDescribedBy;
+        delete child.properties?.tabIndex;
         return;
       }
 
@@ -106,9 +109,58 @@ export function rehypeMermaidSvg() {
       rendered.properties.className = [...new Set([...classNames(rendered), 'mermaid'])];
       rendered.properties.ariaHidden = 'true';
       rendered.properties.focusable = 'false';
+      publishNaturalWidth(rendered);
       replaceLabelBreaks(rendered);
     });
   };
+}
+
+/**
+ * Publish the width Mermaid drew the diagram at as a custom property.
+ *
+ * `width: 100%` on an SVG carrying a `viewBox` scales the whole graphic rather
+ * than reflowing it, so a 937px diagram in a 262px column paints its pinned
+ * 14px labels at 3.9px (#894). The fix is to stop scaling a diagram past the
+ * point where its labels stay legible, which needs the diagram's own natural
+ * width — and CSS cannot read a `viewBox`. The build can, so it writes the
+ * number out as `--mermaid-natural-width` and the stylesheet consumes it.
+ *
+ * The `viewBox` is the authority: it is the coordinate space every label was
+ * measured in, and `rehypeMermaidSvg`'s own accessibility assertions already
+ * require it. Mermaid also writes the same number as an inline `max-width`, so
+ * that is read as a fallback for an SVG that somehow arrives without a viewBox.
+ * When neither is readable nothing is written, and the diagram keeps exactly
+ * the behavior it has today — the stylesheet's `var()` fallback covers it.
+ */
+function publishNaturalWidth(node) {
+  const width = naturalWidth(node);
+  if (!width) return;
+
+  node.properties.style = appendDeclaration(
+    node.properties.style,
+    `--mermaid-natural-width: ${width}px`,
+  );
+}
+
+function naturalWidth(node) {
+  // `viewBox="min-x min-y width height"`, comma or whitespace separated.
+  const viewBox = node.properties?.viewBox;
+  if (typeof viewBox === 'string') {
+    const parts = viewBox.trim().split(/[\s,]+/);
+    const width = Number(parts[2]);
+    if (parts.length === 4 && Number.isFinite(width) && width > 0) return width;
+  }
+
+  const style = node.properties?.style;
+  if (typeof style === 'string') {
+    const match = style
+      .replace(/\/\*[\s\S]*?\*\//g, ' ')
+      .match(/(?:^|;)\s*max-width\s*:\s*([\d.]+)px/i);
+    const width = match ? Number(match[1]) : Number.NaN;
+    if (Number.isFinite(width) && width > 0) return width;
+  }
+
+  return 0;
 }
 
 /**
@@ -223,6 +275,15 @@ export function createMermaidFigure({ sourceNode, title, description, descriptio
       role: 'img',
       ariaLabel: title,
       ariaDescribedBy: [descriptionId],
+      // Below the stacked breakpoint the figure is a horizontal scroll
+      // container (#894), and a scroll container a keyboard cannot reach is
+      // content a keyboard user cannot read. The tab stop is unconditional
+      // for the same reason Astro's code blocks ship one unconditionally: no
+      // stylesheet can tell the build which diagrams will overflow which
+      // column. The figure already carries its own accessible name, so the
+      // region announces as the diagram it scrolls rather than as bare
+      // scrollable furniture.
+      tabIndex: 0,
     },
     children: [
       sourceNode,

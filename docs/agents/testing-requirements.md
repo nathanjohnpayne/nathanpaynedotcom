@@ -4,6 +4,8 @@ Vitest smoke tests cover SEO metadata, blog rendering, responsive behavior, cont
 
 **Enforced in CI (`.github/workflows/build-and-test.yml`, #632):** every pull request and every push to `main` runs `npm ci` (plain, no `--legacy-peer-deps`—see #631), `npm test` (`astro build && vitest run`), and `npm run lint`. The test suite inspects rendered Mermaid SVG for the blog label-contrast contract; lint runs ESLint and Vale prose checks. Any failure blocks the PR. `npm run test:e2e` (Playwright) is intentionally NOT part of this required job—see the workflow file for why—and stays a manual/local check for now. Dependabot auto-merge (`.github/workflows/dependabot-auto-merge.yml`) waits on this job's `build-and-test` check succeeding on the PR's current HEAD, in addition to the existing structural `lint` check, before it will merge.
 
+**Timeouts are set explicitly (`vitest.config.js`, #891/#894).** `testTimeout: 20_000` and `hookTimeout: 60_000`, not the 5s default. Several suites parse every built page with JSDOM and one drives a real Chromium, so under concurrent load the 5s ceiling produced failures that were always timeouts and never assertions—on a rotating set of unrelated tests, which is the tell. If you see a suite fail somewhere unexpected, check the duration before you go looking for a defect: a failure at five-plus seconds is almost certainly contention, and one at a couple of hundred milliseconds is almost certainly real.
+
 **Run before any PR (locally, in addition to CI):**
 
 ```bash
