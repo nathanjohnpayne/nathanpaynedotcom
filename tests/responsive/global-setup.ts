@@ -1,6 +1,6 @@
-import { readFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import { readFileSync, readdirSync } from 'node:fs';
 import { dirname, join, relative, resolve, sep } from 'node:path';
-import { readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 /**
@@ -21,31 +21,56 @@ import { fileURLToPath } from 'node:url';
  * against a build that has nothing to do with the branch under test. On #873
  * that produced two reported findings that were simply false.
  *
- * ## Why every built page is compared, not one fingerprint
+ * ## Why every built FILE is compared, not one fingerprint
  *
- * An earlier revision compared only the hashed `/_astro/` asset names on the
- * homepage. That is too weak, and in exactly the case this suite cares about:
- * a sibling checkout whose only difference is Markdown content ships identical
- * CSS and JS, so the asset names match while every route the specs exercise
- * comes from the wrong build (Codex P1, PR #914).
+ * This has been narrowed twice, both times by review.
  *
- * Comparing the built HTML directly has no such gap. `astro preview` serves
- * `dist/` as static files, so a served page is byte-identical to its file, and
- * any difference at all — one word in one post — is caught.
+ * The first revision compared only the hashed `/_astro/` asset names on the
+ * homepage. Too weak in exactly the case this suite cares about: a sibling
+ * checkout differing only in Markdown ships identical CSS and JS, so the names
+ * match while every route the specs exercise comes from the wrong build.
+ *
+ * The second compared every built HTML page, which still discarded every
+ * non-HTML output. A checkout differing only in a `public/` asset produces
+ * byte-identical HTML, because the asset URL is stable — and
+ * `swipe-watch-mux-fallback.spec.ts` loads exactly such a URL
+ * (`/images/projects/swipe-watch-hero.gif`). So the binary could still come
+ * from the wrong checkout.
+ *
+ * Every file under `dist/` is now compared, by SHA-256 of its bytes.
+ * `astro preview` serves `dist/` as static files, so a served path is
+ * byte-identical to its file and any difference at all is caught.
+ *
+ * ## What this does NOT establish
+ *
+ * It proves the server is serving *this* `dist/`. It cannot prove `dist/`
+ * reflects the current sources. On the managed path that is covered, because
+ * `webServer` builds before serving. Under `E2E_BASE_URL` there is no build in
+ * the loop, so a stale `dist/` and a server started from it agree with each
+ * other and the suite runs against pre-change code (Codex P2, PR #914). Build
+ * before you point this at an external preview.
  */
 
-/** Absolute paths of every built HTML file under `dist/`. */
-function builtPages(dir: string): string[] {
+/** Absolute paths of every file under `dist/`, HTML and otherwise. */
+function builtFiles(dir: string): string[] {
   const found: string[] = [];
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
     const full = join(dir, entry.name);
-    if (entry.isDirectory()) found.push(...builtPages(full));
-    else if (entry.name.endsWith('.html')) found.push(full);
+    if (entry.isDirectory()) found.push(...builtFiles(full));
+    else found.push(full);
   }
   return found;
 }
 
-/** `dist/blog/x/index.html` → `/blog/x/`; `dist/index.html` → `/`. */
+/** SHA-256 of a buffer, so a large PDF or GIF is compared without a diff. */
+function digest(bytes: Buffer | Uint8Array): string {
+  return createHash('sha256').update(bytes).digest('hex');
+}
+
+/**
+ * `dist/blog/x/index.html` → `/blog/x/`; `dist/index.html` → `/`; every other
+ * file keeps its own path (`dist/images/a.gif` → `/images/a.gif`).
+ */
 function routeOf(dist: string, file: string): string {
   const rel = relative(dist, file).split(sep).join('/');
   return `/${rel.replace(/(^|\/)index\.html$/, '$1')}`;
@@ -77,9 +102,9 @@ export default async function globalSetup(): Promise<void> {
   const baseURL = process.env.E2E_BASE_URL ?? `http://localhost:${process.env.E2E_PORT ?? 4321}`;
   const dist = resolve(dirname(fileURLToPath(import.meta.url)), '../../dist');
 
-  let pages: string[];
+  let files: string[];
   try {
-    pages = builtPages(dist);
+    files = builtFiles(dist);
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
     throw new Error(
@@ -89,29 +114,27 @@ export default async function globalSetup(): Promise<void> {
     );
   }
 
-  if (pages.length === 0) {
-    throw new Error(`${dist} contains no built HTML. Rebuild before running the e2e suite.`);
+  if (files.length === 0) {
+    throw new Error(`${dist} is empty. Rebuild before running the e2e suite.`);
   }
 
   const mismatches: string[] = [];
-  for (const file of pages) {
+  for (const file of files) {
     const route = routeOf(dist, file);
-    const onDisk = readFileSync(file, 'utf-8');
+    const onDisk = readFileSync(file);
     const response = await fetchWithDeadline(`${baseURL}${route}`, 15_000);
     if (!response.ok) {
       mismatches.push(`  ${route}: served ${response.status}, but this build has it`);
       continue;
     }
-    const served = await response.text();
-    if (served !== onDisk) {
-      const servedBytes = Buffer.byteLength(served);
-      const diskBytes = Buffer.byteLength(onDisk);
-      // Equal lengths with unequal content is the common case for a content
+    const served = Buffer.from(await response.arrayBuffer());
+    if (digest(served) !== digest(onDisk)) {
+      // Equal lengths with unequal bytes is the common case for a content
       // edit, and reporting only sizes there reads as a false positive.
       const detail =
-        servedBytes === diskBytes
-          ? `same length (${diskBytes} bytes), different content`
-          : `${servedBytes} bytes served, ${diskBytes} on disk`;
+        served.byteLength === onDisk.byteLength
+          ? `same length (${onDisk.byteLength} bytes), different content`
+          : `${served.byteLength} bytes served, ${onDisk.byteLength} on disk`;
       mismatches.push(`  ${route}: ${detail}`);
     }
   }
@@ -121,7 +144,7 @@ export default async function globalSetup(): Promise<void> {
     throw new Error(
       [
         `${baseURL} is serving a DIFFERENT build than ${dist}.`,
-        `${mismatches.length} of ${pages.length} built pages do not match:`,
+        `${mismatches.length} of ${files.length} built files do not match:`,
         '',
         ...mismatches.slice(0, 10),
         mismatches.length > 10 ? `  ...and ${mismatches.length - 10} more` : '',
@@ -133,6 +156,10 @@ export default async function globalSetup(): Promise<void> {
         '',
         'Then either stop it and rerun, or rebuild this checkout (`npx astro build`)',
         'if the server is one you started here from a stale build.',
+        '',
+        'Note: this proves the server is serving THIS dist/. It cannot prove dist/',
+        'matches your current sources — under E2E_BASE_URL nothing rebuilds, so',
+        'build before pointing the suite at an external preview.',
       ]
         .filter(Boolean)
         .join('\n'),
