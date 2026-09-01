@@ -39,7 +39,6 @@ decisions:
     rejected: "Build the multi-user foundation first, on the usual reasoning that retrofitting tenancy is expensive and doing it up front is cheap."
     rationale: "The open question was never whether the architecture could hold more users. It was whether evidence-grounded generation produces an application a person would actually send, which one user can answer and a thousand cannot answer any better."
     cost: "Every validation signal the product can generate is self-generated. The only customer is also the author, the evaluation corpus is drawn from his own prospect list, and there is no reading of the results that separates a product that works from a product its builder is willing to tolerate."
-    evidence: "Unsettled, and the record shows exactly where it stopped: the phase whose exit condition was one real application sent through the product has no evidence of being met, and neither does the phase after it."
     status: "pending"
   - title: "Fix the ruler before trusting the measurement"
     lens: "Method"
@@ -178,17 +177,17 @@ The quality bar was 80% extraction accuracy and 80% match accuracy. Neither was 
 The scorer first compared generated summaries to hand-labelled ones with string equality, and language models paraphrase, so the metric collapsed to 3.3%. Token overlap lifted it to 34%. A coefficient that gives full credit when the labelled set is covered by a longer generated one lifted it to 50.3%. Only then did a real system change—expanding the matching vocabulary from roughly 220 entries to 415—move it, by a single point, to 51.3%.
 
 ```mermaid title="Extraction accuracy: two ruler changes and one system change" description="Extraction accuracy rose from 3.3 percent to 51.3 percent across four measurements, against an 80 percent target that was never reached. Three of those four measurements came from different definitions of the scoring metric rather than from any change to the product: string equality scored 3.3 percent, token overlap 34 percent, and a coverage coefficient 50.3 percent. Only the last step was a change to the system itself, an expansion of the matching vocabulary, and it added a single point to reach 51.3 percent."
-flowchart LR
+flowchart TD
     A["3.3%<br/>string equality"]
     B["34%<br/>token overlap"]
     C["50.3%<br/>coverage coefficient"]
     D["51.3%<br/>vocabulary expansion"]
-    T["80% target<br/>never reached"]
+    T["80%<br/>the target"]
 
-    A -->|changed the ruler| B
-    B -->|changed the ruler| C
-    C -->|changed the system| D
-    D -.-> T
+    A -->|CHANGED THE RULER| B
+    B -->|CHANGED THE RULER| C
+    C -->|CHANGED THE SYSTEM| D
+    D -.->|never reached| T
 
     style A fill:#fffdf8,stroke:#11100d,stroke-width:1.5px,color:#11100d
     style B fill:#fffdf8,stroke:#11100d,stroke-width:1.5px,color:#11100d
@@ -211,7 +210,7 @@ It runs in continuous integration against the Firestore emulator, and a passing 
 
 Agents authored the implementation and independent agent identities reviewed it, under the enforcement system documented in [Mergepath](/projects/mergepath/). The reviews materially changed the product: they caught a seniority scorer that was zeroing every Experience Unit because extraction emits verbs where the ladder matched nouns, a schema converter silently returning an empty object that had disabled model-input validation across four subsystems at once, and a matching rerun that discarded the user's rejections. On that last one my own first reply to the reviewer was wrong, cited a test that did not cover the case, and the reviewer pushed back a second time before it was fixed.
 
-The active work ends on a date the commits set: the evening of 2026-07-31, Pacific, when the eval stage cache landed. As of 2026-08-31, twenty-six commits have landed after it—thirteen dependency bumps, eight repository-template syncs, and five identity and continuous-integration fixes—and not one of them touches the product. That is the durable fact, rather than any particular count: the automated commits keep arriving and the product ones stopped.
+The active work ends on a date the commits set: the evening of 2026-07-31, Pacific, when the eval stage cache landed. Automated maintenance has continued since—dependency bumps and repository-template syncs—and as of 2026-08-31 none of it touches the product. That is the durable distinction: maintenance kept moving and product development stopped.
 
 A development build is deployed behind a sign-in wall and is not linked here. It dates from 2026-05-02, which is before the June and July work this page rests on—the noise that stopped the tuning, the measurement repair, and the eval cache are all absent from it. The April material, including the adversarial fixture, is in there.
 
