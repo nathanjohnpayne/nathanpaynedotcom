@@ -31,7 +31,7 @@ pullquotes:
 sidebar:
   - type: mermaid
     title: "Six PRs by role, then the issue, then the fix"
-    description: "One implementation introduces a lossy markdown bridge; three attempts patch the bridge and two orthogonal fixes land beside it; the accumulated failures get named in issue 159, and pull request 161 takes the preview and the test email off the bridge. The invoice a recipient receives stays on it."
+    description: "One implementation introduces a lossy markdown bridge; three attempts patch the bridge and two orthogonal fixes land beside it; the accumulated failures get named in issue 159, and pull request 161 takes the HTML body of the preview and the test email off the bridge. The plain-text part and the invoice a recipient receives stay on it."
     content: |
       graph TD
           PR144["#144 implementation:<br/>TipTap editor,<br/>markdown bridge kept"] --> PR146["#146 attempt:<br/>balanced token regex"]
@@ -40,7 +40,7 @@ sidebar:
           PR144 --> PR154["#154 orthogonal:<br/>editor lifecycle"]
           PR144 --> PR155["#155 orthogonal:<br/>legacy migration"]
           PR158 --> I159["Issue #159:<br/>invariant attached<br/>to the work"]
-          I159 --> PR161["#161 fix:<br/>bridge removed for<br/>preview + test email"]
+          I159 --> PR161["#161 fix:<br/>bridge removed from the<br/>preview + test email HTML"]
           style PR144 fill:#b35937,stroke:#b35937,color:#fff
           style PR146 fill:#e8b4b4,stroke:#993d3d,color:#333
           style PR153 fill:#e8b4b4,stroke:#993d3d,color:#333
@@ -232,7 +232,7 @@ Every line maps to the record—the CSS patch in [#153](https://github.com/natha
 
 ## What the fix changed
 
-Lined up side by side, the prior attempts shared one assumption: every one preserved the markdown bridge. The fix removed it from the preview and the test email—not, as it turns out, from the path the recipient's invoice takes, which is the subject of the correction below. The core addition is a canonical renderer for invoice templates:
+Lined up side by side, the prior attempts shared one assumption: every one preserved the markdown bridge. The fix removed it from the **HTML body** of the preview and the test email. Not from the plain-text part, which that same payload still builds through the bridge, and not from the path the recipient's invoice takes—the subject of the correction below. The core addition is a canonical renderer for invoice templates:
 
 ```js
 export function buildInvoiceTemplateEmailPayload(ctx, shareUrl) {

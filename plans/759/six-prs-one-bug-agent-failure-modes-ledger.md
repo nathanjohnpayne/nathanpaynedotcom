@@ -149,7 +149,7 @@ Counting *all* review submissions instead gives 19. Neither is nine. If the figu
 2. **§A1 is the rewrite.** The six PRs precede the issue. Restructure the opening so the arc runs: an implementation ships (#144) → symptoms get chased across five more PRs → the failures force the problem to be named (#159) → a reframed brief to a different agent fixes it (#161). The post's own thesis is stronger this way: the invariant existed in the design spec but was never attached to any piece of work anyone reviewed, and that gap is why six PRs could each be locally reasonable. See §J1—this instruction originally said the artifact was missing, which the article's own evidence disproves.
 3. **§A2 and §A3 need the inclusion rule stated.** One originating implementation, three attempts, two orthogonal fixes—not "six failed attempts."
 4. **§B1 must be corrected, not dropped.** The "reviewers saw it and it shipped anyway" beat is real; it belongs to #155, where three blocking rounds are on the record. On #146 both reviewers approved and verified the round-trip.
-5. Where a row says **UNPROVABLE** (§C1, §D1, §D2, §E1, §E2), use its defensible form.
+5. Where a row says **UNPROVABLE** (§C1, §D1, §D2, §E1, §E2), use its defensible form—**except §D1 and §D2, whose defensible forms are themselves superseded by §N.** Take the boundary from §N, not from those rows: the canonical renderer reaches the preview and the test email's HTML body, and nothing else.
 6. Compression: the epic asks 20–30% from 4,463, "with chronology retained where it is evidence"—and after §A1 the chronology *is* the evidence, so retain it. Per the operator's guidance in `plans/759/RUN.md` the reduction is a guideline, not a gate.
 
 ---
@@ -160,11 +160,11 @@ Counts are **words**, via `wc -w` over the whole file, the same method as the ep
 
 | Measure (words) | Baseline | Revised | Change |
 | --- | ---: | ---: | ---: |
-| Whole file (the epic's 4,463 baseline) | 4,463 | 4,561 | **+2.2%** |
+| Whole file (the epic's 4,463 baseline) | 4,463 | 4,670 | **+4.6%** |
 
-**The post ended up 2.2% longer than it started, against guidance asking for 20–30% shorter. Stated plainly because the ledger's job is accuracy, not a favourable number.**
+**The post ended up 4.6% longer than it started, against guidance asking for 20–30% shorter. Stated plainly because the ledger's job is accuracy, not a favourable number.**
 
-The figure moved four times during review and in the end moved the wrong way: −3.8% → −2.1% → −1.2% → −0.8% → **+2.2%**. Every review round that corrected a claim also lengthened it, because a corrected claim is almost always a narrower claim, and narrowing costs words. "Nobody had a definition of correctness" is six words; the true version needs a sentence distinguishing a definition that existed from one attached to the work. The same trade recurred for the renderer scope, the duration endpoints, the adopted-rules classification and the session-log caveat.
+The figure moved five times during review and in the end moved the wrong way: −3.8% → −2.1% → −1.2% → −0.8% → +2.2% → **+4.6%**, the last step being the #857 correction, which added a boundary the post had been asserting past. Every review round that corrected a claim also lengthened it, because a corrected claim is almost always a narrower claim, and narrowing costs words. "Nobody had a definition of correctness" is six words; the true version needs a sentence distinguishing a definition that existed from one attached to the work. The same trade recurred for the renderer scope, the duration endpoints, the adopted-rules classification and the session-log caveat.
 
 The compression clause was not met, and #744's carve-out—"with chronology retained where it is evidence"—only ever justified the shortfall, not the growth. What justifies the growth is that seven review rounds found real factual defects, and every fix cost words. That is the honest accounting; a reader can decide whether the trade was worth it. #744's own compression clause is the only one in the epic that carries a carve-out—"with chronology retained where it is evidence"—and after §A1 the chronology *is* the evidence. The corrected arc only works if the reader can see that all six PRs precede the issue, which needs the timestamped table, and that each PR was locally reasonable, which needs the per-PR sections.
 
@@ -278,7 +278,7 @@ Corrected, and the corrected sentence is better than either version. The invaria
 
 ### L2—The compression total was stale for the third time
 
-4,273 words, −4.3%. Every round changes it, because every round trades a shorter wrong claim for a longer right one. **Recompute this table as the last step before pushing, not when writing the section.**
+4,273 words, −4.3% at the time. Every round changes it, because every round trades a shorter wrong claim for a longer right one. **Recompute this table as the last step before pushing, not when writing the section.** It went stale a fourth time in #857: see §J's table, now 4,670 / +4.6%.
 
 ---
 
@@ -341,7 +341,7 @@ An email carries canonical HTML only if its producer supplies an `html` field, a
 
 Sharper: before #161 the test email and the invoice email rendered identically. #161 gave the test email canonical HTML and left the invoice email on the bridge, so the fix closed the gap where the bug was observed and opened a new one between the test email and the real invoice. That divergence has stood since 2026-04-04.
 
-**Surfaces corrected.** The code block is now labelled as the `[Test]` send; the paragraph that read "the preview and the sent email" now says "the preview and the test email" and states plainly which surface the renderer never reached; and the Mermaid block—`title=`, `description=`, and node labels—now shows both paths, the canonical renderer feeding the preview and test email and the plain-text bridge feeding the recipient invoice, sharing one envelope. The `description=` is the accessible text screen-reader users receive and is a surface in its own right, per `docs/agents/blog-revision-process.md`.
+**Surfaces corrected—seven, not the three the issue listed.** The issue named the code block, the `:270` paragraph, and the body Mermaid block; four more turned up in review, which is the finding. (1) The code block is labelled as the `[Test]` send. (2) The `:270` paragraph names the surface the renderer never reached. (3) The body Mermaid—`title=`, `description=`, node labels—shows both paths sharing one envelope. (4) The frontmatter **sidebar diagram description** and (5) its **`#161 fix` node** both said the bridge was removed. (6) The **conclusion** said "what recipients see now matches what the preview shows." (7) The **`:235` statement** that "the fix removed it," which also needed scoping to the HTML body, since the payload's plain-text part is still built through the bridge. The `description=` is the accessible text screen-reader users receive and is a surface in its own right, per `docs/agents/blog-revision-process.md`.
 
 **What stays as written.** `:268`—"The Cloud Function now sends trusted app-generated HTML **when provided**." Accurate; "when provided" is load-bearing, and the revision now follows it to its consequence instead of leaving it as a qualifier a reader skims.
 
