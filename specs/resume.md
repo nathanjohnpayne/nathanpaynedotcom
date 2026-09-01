@@ -170,9 +170,13 @@ guaranteed, and all three are checkable in `tests/resume.test.js`:
 1. Every role keeps its **full date range**.
 2. The **CNN Magic Wall** stays on the page—it is the most memorable line on
    the résumé.
-3. Every compact entry still carries a **real accomplishment**, not a dated
-   one-liner. The test asserts a minimum body length for exactly this reason,
-   so a compact body cannot be reduced to company, role, and years.
+3. Every compact entry still carries **its** accomplishment, not a dated
+   one-liner: AJ+ keeps the **$335K** in annual vendor savings, Current TV the
+   **three nightly shows** launched within 30 days, CNN the **Magic Wall**. The
+   test pins those three strings, plus a minimum body length so an entry cannot
+   be reduced to the marker alone. "A real accomplishment" is not something a
+   test can recognise; the specific fact each role retains is, which is why the
+   guarantee is written as three named facts rather than a quality bar.
 
 Past those three, the compressed bodies drop specific facts and not merely
 words. That is the intended trade, not a defect:

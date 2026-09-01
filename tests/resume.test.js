@@ -975,14 +975,25 @@ describe('Resume — skim weighting', () => {
       ).toContain(range);
     }
 
-    // 2. Each entry still carries a real accomplishment. Measured on the BODY,
-    //    so heading text cannot satisfy the floor on the body's behalf.
-    for (const entry of compact) {
-      const company = entry.querySelector('.resume-entry__title').textContent.split('–').pop().trim();
-      const prose = entry.querySelector('.resume-prose');
+    // 2. Each entry still carries its actual accomplishment. A length floor
+    //    alone is not this guarantee: 121 characters of generic responsibility
+    //    clears it (Codex, #916). "A recognizable accomplishment" cannot be
+    //    asserted syntactically, so the enforceable version is the specific
+    //    fact specs/resume.md says each compact role retains — which is what
+    //    the spec actually promises, and is closed rather than open-ended.
+    for (const [company, marker] of [
+      ['AJ+', '$335K'],
+      ['Current TV', 'three nightly shows'],
+      ['CNN', 'Magic Wall'],
+    ]) {
+      const prose = byCompany[company].querySelector('.resume-prose');
       expect(prose, `${company}: compact entry has no .resume-prose body`).toBeTruthy();
+      const text = prose.textContent.replace(/\s+/g, ' ').trim();
+      expect(text, `${company}: compact body dropped its named accomplishment`).toContain(marker);
+      // The floor stays as a second signal: it catches a body reduced to the
+      // marker alone, which the substring check would happily accept.
       expect(
-        prose.textContent.replace(/\s+/g, ' ').trim().length,
+        text.length,
         `${company}: compact body is a dated one-liner, not an accomplishment`,
       ).toBeGreaterThan(120);
     }
