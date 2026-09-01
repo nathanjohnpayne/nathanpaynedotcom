@@ -15,7 +15,8 @@ describe('deploy entrypoint contract', () => {
     const deployScript = packageJson.scripts.deploy;
 
     expect(deployScript).toBe(
-      'scripts/check-deploy-env.sh && npm run build && op-firebase-deploy && scripts/cf-cache-purge.sh',
+      'scripts/check-deploy-env.sh && scripts/check-deploy-deps.sh && npm run build && ' +
+        'op-firebase-deploy && scripts/cf-cache-purge.sh',
     );
     expect(deployScript).not.toMatch(/\bfirebase\s+deploy\b/);
   });
@@ -41,6 +42,36 @@ describe('deploy entrypoint contract', () => {
     }
   });
 
+  it('gates both deploy aliases on the dependency check, before the build', () => {
+    // `astro build` cannot fail on a stale dependency either — it builds
+    // whatever is installed and exits 0. CI never sees it, because CI runs
+    // `npm ci`. This is the only point in the chain that compares the two, and
+    // like the env check it has to run before the build so a drifted checkout
+    // costs seconds rather than a full Playwright OG-image pass.
+    for (const alias of ['deploy', 'deploy:hosting']) {
+      const script = packageJson.scripts[alias];
+
+      expect(
+        script.indexOf('scripts/check-deploy-deps.sh'),
+        `${alias} must run the dependency drift check`,
+      ).toBeGreaterThanOrEqual(0);
+      expect(
+        script.indexOf('scripts/check-deploy-deps.sh'),
+        `${alias} must run the dependency drift check before the build`,
+      ).toBeLessThan(script.indexOf('npm run build'));
+    }
+  });
+
+  it('ships the dependency check as an executable repo script', () => {
+    const checkPath = resolve(rootDir, 'scripts/check-deploy-deps.sh');
+
+    expect(existsSync(checkPath), 'scripts/check-deploy-deps.sh is missing').toBe(true);
+    expect(
+      statSync(checkPath).mode & 0o111,
+      'scripts/check-deploy-deps.sh is not executable',
+    ).toBeGreaterThan(0);
+  });
+
   it('ships the client env check as an executable repo script', () => {
     const checkPath = resolve(rootDir, 'scripts/check-deploy-env.sh');
 
@@ -61,6 +92,9 @@ describe('deploy entrypoint contract', () => {
     ]) {
       expect(doc, `${label} does not mention the client env check`).toContain(
         'scripts/check-deploy-env.sh',
+      );
+      expect(doc, `${label} does not mention the dependency drift check`).toContain(
+        'scripts/check-deploy-deps.sh',
       );
       expect(
         /worktree/i.test(doc),

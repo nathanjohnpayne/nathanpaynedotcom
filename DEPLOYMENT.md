@@ -408,7 +408,7 @@ env key from the public `stream.mux.com` URL at runtime.
 
 ## Deployment Steps
 
-All deploys use `op-firebase-deploy` for keyless, non-interactive service account impersonation. **Never run `firebase deploy` directly.** The package `deploy` script is the full production deploy entry point: it checks the client env vars via `scripts/check-deploy-env.sh`, builds, calls the PATH-provided `op-firebase-deploy` helper, then purges Cloudflare via `scripts/cf-cache-purge.sh`.
+All deploys use `op-firebase-deploy` for keyless, non-interactive service account impersonation. **Never run `firebase deploy` directly.** The package `deploy` script is the full production deploy entry point: it checks the client env vars via `scripts/check-deploy-env.sh`, checks installed dependencies against the lockfile via `scripts/check-deploy-deps.sh`, builds, calls the PATH-provided `op-firebase-deploy` helper, then purges Cloudflare via `scripts/cf-cache-purge.sh`.
 
 ```bash
 # Full deploy (build, deploy, then purge Cloudflare)
@@ -434,6 +434,8 @@ npm run deploy:hosting
 > If you do deploy by hand, follow it with `scripts/cf-cache-purge.sh`. Then verify against the live URL rather than the deploy log—a clean deploy plus a warm edge is indistinguishable from one that reached users.
 >
 > **Deploy from the main checkout, not a worktree.** Both aliases run `scripts/check-deploy-env.sh` before the build and refuse to deploy when a `PUBLIC_*` client var is missing or still an unresolved `op://` reference. Only `~/GitHub/nathanpaynedotcom` has `.env.local`—`scripts/bootstrap.sh` writes it there and it is gitignored, so no worktree ever gets one.
+>
+> **Deploy from a checkout installed off the lockfile.** Both aliases also run `scripts/check-deploy-deps.sh` before the build, which compares every installed package against `package-lock.json` and refuses on any mismatch. The deploy builds from what is installed here; CI builds from `npm ci`. When those disagree, CI stays green on a SHA whose local build is broken, and the deploy publishes the broken one and reports success—`astro build` exits 0 either way. That is #900: `astro@7.2.4` against a lockfile pinning `7.2.9` dropped the inline styles rehype plugins write and shipped ~4px Mermaid labels for a fix that had already merged and gone green. `npm ls` does not catch this, because `7.2.4` satisfies the range in `package.json`; only the lockfile pins what CI actually built. Break-glass override: `DEPLOY_ALLOW_DEP_DRIFT=1`.
 >
 > Without that check, a worktree deploy publishes a degraded site and reports success: `astro build` bakes each `PUBLIC_*` var into the HTML, and every consumer degrades gracefully when one is absent, so nothing fails. That is what shipped once already—`/resume` fell back to styled initials instead of Logo.dev brand marks, and PostHog and GA4 stopped loading site-wide, all from one build with no `.env.local`.
 >

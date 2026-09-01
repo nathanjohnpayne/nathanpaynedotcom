@@ -16,6 +16,8 @@ afterwards.
 
 **Deploy from the main checkout, not a worktree.** Both aliases run `scripts/check-deploy-env.sh` first, which refuses the deploy when a `PUBLIC_*` client var is missing or still an unresolved `op://` reference. Only `~/GitHub/nathanpaynedotcom` has `.env.local`; it is gitignored, so no worktree has one. Without the check, a worktree deploy succeeds and publishes a site with no Logo.dev brand marks on `/resume` and no PostHog or GA4 anywhere—every `PUBLIC_*` consumer degrades gracefully by design, so the build has nothing to fail on. Break-glass override: `DEPLOY_ALLOW_MISSING_PUBLIC_ENV=1`.
 
+**Deploy from a checkout installed off the lockfile.** Both aliases also run `scripts/check-deploy-deps.sh`, which compares every installed package against `package-lock.json` and refuses the deploy on any mismatch. The deploy builds from whatever is installed in the checkout; CI builds from `npm ci`. When those two disagree, CI is green on a SHA whose local build is broken, and the deploy ships the broken one and reports success—`astro build` exits 0 either way. The signature is CI green on the same SHA that a clean local build fails: that is dependency drift, never a broken `main`. `npm ls` will not catch it, because a drifted version usually still satisfies the range in `package.json`; the lockfile is the only artifact pinning what CI built against. Fix with `npm ci`. Break-glass override: `DEPLOY_ALLOW_DEP_DRIFT=1`.
+
 **Merging a PR deploys nothing.** There is no deploy workflow in `.github/workflows/`—deploys are manual. After merging a change that should be visible on the site, run a deploy alias yourself.
 
 **Verify against the live URL, not the deploy log.** Fetch the changed page or
