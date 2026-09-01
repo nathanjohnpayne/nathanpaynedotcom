@@ -125,6 +125,16 @@ The guard runs inside `npm test`, so it reports as `build-and-test`—one of the
 
 - **Mermaid labels must meet WCAG AA contrast.** Every explicitly styled Mermaid node, in any collection that supports Mermaid, must use measurable three- or six-digit hex fill and label colors with a contrast ratio of at least 4.5:1. Tests enforce this from rendered SVG, so Mermaid owns the grammar for `style`, `classDef`, semicolons, quoted labels, and multiline labels.
 
+## Shared Single Sources
+
+- **A `src/lib/` module documented as a shared single source must be the only place `src/` declares its vocabulary, and that claim must be backed by a registry entry.** The `.ai_context.md` Key Entry Points table is where a module is declared shared: a `src/lib/` row whose purpose begins **Shared** carries the claim. `tests/shared-single-sources.test.js` enforces it by *running* a residue sweep over `src/` for every such row, and requires `tests/helpers/single-source-guard.js` to hold a matching entry naming what a declaration of that vocabulary looks like and which surfaces must import it. Adding a row without an entry fails; adding an entry without a row fails too, because a guard nobody can find from the docs is its own kind of drift.
+
+  Three modules carry the claim today: `blog-order.ts`, `index-grid.ts`, and `lifecycle-marker.ts`. Before #910 only `lifecycle-marker.ts` enforced it—`blog-order.ts` had behavioural tests and no duplicate guard, and `index-grid.ts` had no tests at all despite being imported by exactly the two index pages whose geometry it exists to keep identical. That is the #825 failure one directory over: a claim stated in prose with nothing reading both sides.
+
+  The guard has **one** implementation, deliberately. The per-module suites cover behaviour and must not re-declare their own residue walks; `tests/lifecycle-marker.test.js` carried one until #910 and it had already drifted from the shared version, which strips comment lines and normalizes path separators where the copy did neither.
+
+  The sweep covers `src/` and **not** `tests/`, also deliberately. A test that restates a vocabulary is not a second copy—it is how a change to the source gets detected, and it only works by staying independent. `tests/content-schema.test.js` keeps the blog-category literal on purpose for that reason (#737/#912), as does the six-row palette in `tests/index-grid.test.js`. Scanning `tests/` would flag both and push authors toward the imports that make those assertions vacuous.
+
 ## CI Enforcement
 
 The following checks are implemented in `scripts/ci/` and must pass before any commit is merged:

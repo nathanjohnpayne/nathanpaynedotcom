@@ -1,13 +1,20 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'fs';
-import { relative, resolve } from 'path';
-import { findFilesRecursively } from '../scripts/lib/blog-file-inventory.mjs';
+import { resolve } from 'path';
 import { STATUS_MARKER, stateMarkerClass } from '../src/lib/lifecycle-marker';
 
 // The lifecycle marker vocabulary is shared by three surfaces: the homepage
 // Builds row, the /projects/ card kicker, and the project detail page's STATUS
-// cell. It used to be a copy-pasted literal per surface. These tests cover the
-// module and, more importantly, guard against the copies coming back.
+// cell. It used to be a copy-pasted literal per surface.
+//
+// This file covers the module's behaviour. The "no second copy in src/" guard
+// that used to live here now runs from the registry in
+// tests/helpers/single-source-guard.js, which applies it to all three shared
+// modules through one implementation — and on a pipeline this copy did not
+// have, since it neither stripped comment lines nor normalized path separators
+// (#910). Keeping both would have been two guards to maintain and two places
+// for them to diverge, in a change whose whole point is that there should be
+// one.
 
 const SRC = resolve(__dirname, '../src');
 
@@ -60,35 +67,4 @@ describe('lifecycle marker vocabulary', () => {
     expect(stateMarkerClass('SHIPPED')).toBe('state-marker state-marker--shipped');
   });
 
-  it('is the only place src/ declares a status→marker mapping', () => {
-    // The residue guard. Every surface that shows lifecycle must import this
-    // module; a second literal is how two surfaces start disagreeing about
-    // what ARCHIVED looks like without failing a build.
-    const offenders = findFilesRecursively(SRC, (f) => /\.(astro|ts|js|mjs)$/.test(f))
-      .filter((f) => relative(SRC, f) !== 'lib/lifecycle-marker.ts')
-      .filter((f) => /STATUS_MARKER\s*[:=]|state-marker--\$\{/.test(readFileSync(f, 'utf-8')))
-      .map((f) => relative(SRC, f));
-    expect(offenders, 'status→marker mapping duplicated outside lifecycle-marker.ts').toEqual([]);
-  });
-
-  it('every surface that renders a lifecycle status imports the shared helper', () => {
-    // The control for the guard above: prove the search can find something.
-    // A zero-hit assertion on "no duplicates" is worthless if the same walk
-    // never reaches these files in the first place.
-    const surfaces = [
-      'pages/index.astro',
-      'pages/projects/index.astro',
-      'components/MetadataStrip.astro',
-    ];
-    const walked = findFilesRecursively(SRC, (f) => /\.(astro|ts|js|mjs)$/.test(f)).map((f) =>
-      relative(SRC, f),
-    );
-    for (const surface of surfaces) {
-      expect(walked, `the residue walk never reached ${surface}`).toContain(surface);
-      expect(
-        readFileSync(resolve(SRC, surface), 'utf-8'),
-        `${surface} does not import the shared marker vocabulary`,
-      ).toMatch(/from '[./]*lib\/lifecycle-marker'/);
-    }
-  });
 });
