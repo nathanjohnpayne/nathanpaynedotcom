@@ -11,6 +11,48 @@ const chronologicalPosts = [...publishedPosts].sort(
 );
 const editorialPosts = [...publishedPosts].sort(compareBlogPosts);
 
+// The Builds grid below is hand-authored markup (see the comment above it), so
+// its sequence is maintained by hand against the canonical order. Its lifecycle
+// labels are NOT: they are looked up from each project's own frontmatter, so a
+// status change on a project page reaches this surface without anyone
+// remembering to come here. #892.
+const projectEntries = await getCollection('projects', ({ data }) => !data.draft);
+const projectStatus = Object.fromEntries(
+  projectEntries.map((project) => [project.data.slug, project.data.status]),
+);
+// Fail closed rather than degrade. A hard-coded slug that is renamed or marked
+// draft would otherwise render a row with an empty status pointing at a page
+// `[slug].astro` no longer generates — a dead link and a missing state, both
+// silent. The build is the right place to notice (#893).
+const statusOf = (slug: string) => {
+  const status = projectStatus[slug];
+  if (!status) {
+    throw new Error(
+      `Homepage Builds grid lists "${slug}", which is not a published project. ` +
+        `Remove the row, or un-draft/rename the entry in src/content/projects/. ` +
+        `Published: ${Object.keys(projectStatus).sort().join(', ')}`,
+    );
+  }
+  return status;
+};
+// Lifecycle marker, borrowing the decision ledger's geometry so state reads the
+// same way in both places: filled = done, outline = not running, half = partial.
+// The paper grammar this keeps distinct — underlined/arrowed text navigates, an
+// outlined rectangle is a control, glyph + uppercase text is state — is why the
+// label carries no border of its own (#892).
+const STATUS_MARKER: Record<string, string> = {
+  SHIPPED: 'shipped',
+  ARCHIVED: 'archived',
+  PAUSED: 'paused',
+  EXPERIMENT: 'experiment',
+  'IN PROGRESS': 'in-progress',
+};
+const statusClass = (slug: string) => {
+  const status = statusOf(slug);
+  const modifier = STATUS_MARKER[status];
+  return modifier ? `p-status state-marker state-marker--${modifier}` : 'p-status state-marker';
+};
+
 const latestPost = chronologicalPosts[0];
 
 // The Mondrian About panel has finite room, so the list is capped and the
@@ -106,11 +148,11 @@ const homepageJsonLd = {
             <div class="about-blocks">
               <div class="about-block">
                 <span class="eyebrow about-label">Context</span>
-                <p>Over the past ten years, I have built the streaming platforms behind Disney+, Hulu, and ESPN. I started at MLB.com and BAMTECH, joined Disney through the 2017 acquisition, and have spent the last five years leading the Native Client Platform across PlayStation, Xbox, Amazon Fire TV, Linux set-top boxes, and smart TVs.</p>
+                <p>Over the past ten years, I’ve worked on the streaming platforms behind Disney+, Hulu, and ESPN. I started at MLB.com and BAMTECH, joined Disney through the 2017 acquisition, and have spent the last five years leading the Native Client Platform across PlayStation, Xbox, Amazon Fire TV, Linux set-top boxes, and smart TVs.</p>
               </div>
               <div class="about-block">
                 <span class="eyebrow about-label">Approach</span>
-                <p>The work that matters most is usually at the seam between systems—where a codec mismatch, a certification gap, or a failed-fix loop becomes a support burden at scale. I treat operational ambiguity as a product problem.</p>
+                <p>The work that interests me is usually hiding at a boundary—between systems, between sources of truth, or between what a product claims and what it can actually prove. A codec mismatch, an ambiguous financial rule, and an AI agent that knows a policy but doesn’t follow it are versions of the same product problem: uncertainty that somebody eventually has to resolve. I like turning that ambiguity into something explicit enough to design, test, and operate.</p>
               </div>
               {/* NOW absorbed the former RÉSUMÉ section in #659. Its opening
                   line ("Open to new platform & product roles") restated the
@@ -159,58 +201,71 @@ const homepageJsonLd = {
         <div class="panel-label" tabindex="0" role="button" aria-label="Open Projects section">Projects</div>
         <div class="panel-content">
           <div class="content-inner">
-            <h2>Built with Agents</h2>
-            <p>Every project started as a real problem and shipped end-to-end—Claude Code, Codex, and Cursor—within a multi-agent review system I designed to catch the failure modes agents miss.</p>
+            <h2>Selected Projects</h2>
+            <p>The projects span consumer, enterprise, finance, and developer tooling. The case studies focus on the decisions, tradeoffs, and evidence behind them; I built each with AI agents under a review system I designed.</p>
             {/* Builds grid — hand-authored, NOT generated from the projects
                 collection, so the `order` field on the project source files has
-                no effect here. The sequence below must match that field; both are
-                the owner-confirmed ordering recorded in specs/project-pages.md
-                § Canonical project ordering. Reorder both surfaces together or
-                they silently diverge — nothing in the build catches it. */}
+                no effect here. This is a *selected* set: the heading says so, and
+                a project may be omitted here while still appearing on /projects/.
+                What must hold is the relative order — whatever subset is listed
+                follows the canonical sequence in specs/project-pages.md
+                § Canonical project ordering. Lifecycle labels are looked up from
+                frontmatter rather than typed, so only the sequence is by hand.
+                Guarded by tests/homepage-writing.test.js (#892). */}
             <div class="project-list">
               <div class="project-item">
                 <div class="p-head">
                   <a class="p-name p-name-link" href="/projects/five-across/" aria-label="Read the Five Across project page">Five Across<span class="link-arrow" aria-hidden="true">→</span></a>
+                  <span class={statusClass('five-across')}>{statusOf('five-across')}</span>
                 </div>
-                <p>Live multiplayer bingo that turns a group trip into a shared game—daily themed cards, offline-first marking, and a choreographed finale, live-operated through a nine-night cruise at sea.</p>
+                <p>A multiplayer bingo game built for a nine-night cruise, with daily themed cards, offline-first marking, live standings, and a choreographed finale.</p>
               </div>
               <div class="project-item">
                 <div class="p-head">
                   <a class="p-name p-name-link" href="/projects/mergepath/" aria-label="Read the Mergepath project page">Mergepath<span class="link-arrow" aria-hidden="true">→</span></a>
+                  <span class={statusClass('mergepath')}>{statusOf('mergepath')}</span>
                 </div>
                 <p>A repository standard for the gap between what a fleet of AI coding agents can produce and what one operator can responsibly stand behind.</p>
               </div>
               <div class="project-item">
                 <div class="p-head">
                   <a class="p-name p-name-link" href="/projects/override/" aria-label="Read the Override project page">Override<span class="link-arrow" aria-hidden="true">→</span></a>
+                  <span class={statusClass('override')}>{statusOf('override')}</span>
                 </div>
                 <p>A financial operating system for Broadway productions—models capitalization and investor returns, manages ownership, and shares a read-only deal room with backers instead of spreadsheet and PDF workflows.</p>
               </div>
               <div class="project-item">
                 <div class="p-head">
                   <a class="p-name p-name-link" href="/projects/device-source-of-truth/" aria-label="Read the Device Source of Truth project page">Device Source of Truth<span class="link-arrow" aria-hidden="true">→</span></a>
+                  <span class={statusClass('device-source-of-truth')}>{statusOf('device-source-of-truth')}</span>
                 </div>
-                <p>A single web application that tracks partner-device hardware, DRM, codec support, and operational readiness—built inside Disney Streaming, and demonstrated publicly on synthetic data.</p>
+                <p>A single web application that tracks partner-device hardware, DRM, codec support, and operational readiness—unifying fragmented device data while keeping consequential changes behind human review.</p>
               </div>
               <div class="project-item">
                 <div class="p-head">
                   <a class="p-name p-name-link" href="/projects/matchline/" aria-label="Read the Matchline project page">Matchline<span class="link-arrow" aria-hidden="true">→</span></a>
+                  <span class={statusClass('matchline')}>{statusOf('matchline')}</span>
                 </div>
                 <p>A career CRM for one person running a serious job search—turns work history into approved evidence, maps it against a specific job&rsquo;s requirements, and blocks the export when a claim doesn&rsquo;t trace back.</p>
               </div>
               <div class="project-item">
                 <div class="p-head">
                   <a class="p-name p-name-link" href="/projects/swipe-watch/" aria-label="Read the Swipe Watch project page">Swipe Watch<span class="link-arrow" aria-hidden="true">→</span></a>
+                  <span class={statusClass('swipe-watch')}>{statusOf('swipe-watch')}</span>
                 </div>
                 <p>A swipe-based discovery experiment for Disney+ and Hulu that turns expressing taste into a game—built in vanilla JS across three days of one week.</p>
               </div>
               <div class="project-item">
                 <div class="p-head">
                   <a class="p-name p-name-link" href="/projects/friends-and-family-billing/" aria-label="Read the Friends and Family Billing project page">Friends &amp; Family Billing<span class="link-arrow" aria-hidden="true">→</span></a>
+                  <span class={statusClass('friends-and-family-billing')}>{statusOf('friends-and-family-billing')}</span>
                 </div>
-                <p>Cloud-synced shared-bill coordination for families and friend groups—turns recurring costs into clear annual invoices, payment tracking, and shareable summaries.</p>
+                <p>Shared billing for recurring household costs—showing recipients the arithmetic, tracking settlement, and handling questions without requiring an account.</p>
               </div>
             </div>
+            {/* The homepage lists every project but never made the richer index
+                an obvious destination (#892). */}
+            <a class="nav-button projects-index-cta" href="/projects/">View all projects<span class="link-arrow" aria-hidden="true">→</span></a>
             <div class="stack-ribbon">
               <span class="eyebrow stack-label">Stack</span>
               <span class="stack-items">Bash · TypeScript · Vanilla JS · React · Next.js · Vite · Tailwind CSS · Zod · Vitest · Playwright · Firebase · Cloudflare Workers · Express · GitHub Actions · PostHog · Anthropic · OpenAI · Claude Code · Codex · Cursor · CodeRabbit</span>

@@ -64,13 +64,13 @@ const canonicalProjectCards = [
 ];
 
 const homepageProjectDescriptions = [
-  'Live multiplayer bingo that turns a group trip into a shared game—daily themed cards, offline-first marking, and a choreographed finale, live-operated through a nine-night cruise at sea.',
+  'A multiplayer bingo game built for a nine-night cruise, with daily themed cards, offline-first marking, live standings, and a choreographed finale.',
   'A repository standard for the gap between what a fleet of AI coding agents can produce and what one operator can responsibly stand behind.',
   'A financial operating system for Broadway productions—models capitalization and investor returns, manages ownership, and shares a read-only deal room with backers instead of spreadsheet and PDF workflows.',
-  'A single web application that tracks partner-device hardware, DRM, codec support, and operational readiness—built inside Disney Streaming, and demonstrated publicly on synthetic data.',
+  'A single web application that tracks partner-device hardware, DRM, codec support, and operational readiness—unifying fragmented device data while keeping consequential changes behind human review.',
   'A career CRM for one person running a serious job search—turns work history into approved evidence, maps it against a specific job’s requirements, and blocks the export when a claim doesn’t trace back.',
   'A swipe-based discovery experiment for Disney+ and Hulu that turns expressing taste into a game—built in vanilla JS across three days of one week.',
-  'Cloud-synced shared-bill coordination for families and friend groups—turns recurring costs into clear annual invoices, payment tracking, and shareable summaries.',
+  'Shared billing for recurring household costs—showing recipients the arithmetic, tracking settlement, and handling questions without requiring an account.',
 ];
 
 // The canonical six-row Mondrian sequence from #733. Its geometry cycles, but
@@ -195,7 +195,7 @@ describe('Project Pages — routes', () => {
     expect(deckText).not.toMatch(/^Built with/);
   });
 
-  it('the homepage Projects panel keeps wayfinding labels while promoting the Built with Agents heading', () => {
+  it('the homepage Projects panel keeps wayfinding labels while leading with Selected Projects', () => {
     setupDOM(readDistHtml('index.html'));
 
     expect(document.body.getAttribute('data-palette')).toBe('1930');
@@ -209,9 +209,12 @@ describe('Project Pages — routes', () => {
     expect(panelLabel?.textContent).toBe('Projects');
     expect(panelLabel?.getAttribute('aria-label')).toBe('Open Projects section');
     expect(panel.querySelector('.content-inner > .eyebrow')).toBeNull();
-    expect(panel.querySelector('h2')?.textContent).toBe('Built with Agents');
+    expect(panel.querySelector('h2')?.textContent).toBe('Selected Projects');
+    // #892: the old intro claimed all seven "shipped end-to-end", which is false
+    // for a paused project and an experiment, and put the method in the lead
+    // where /projects/ puts the decisions.
     expect(panel.querySelector('.content-inner > p')?.textContent).toBe(
-      'Every project started as a real problem and shipped end-to-end—Claude Code, Codex, and Cursor—within a multi-agent review system I designed to catch the failure modes agents miss.',
+      'The projects span consumer, enterprise, finance, and developer tooling. The case studies focus on the decisions, tradeoffs, and evidence behind them; I built each with AI agents under a review system I designed.',
     );
     expect(
       projectItems.map((item) =>

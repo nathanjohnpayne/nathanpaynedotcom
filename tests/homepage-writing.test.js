@@ -1,7 +1,11 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { existsSync, readFileSync } from 'fs';
 import { resolve } from 'path';
-import { blogSlugFromPath, findBlogMarkdownFiles } from '../scripts/lib/blog-file-inventory.mjs';
+import {
+  blogSlugFromPath,
+  findBlogMarkdownFiles,
+  findFilesRecursively,
+} from '../scripts/lib/blog-file-inventory.mjs';
 import { parseFrontmatter } from '../scripts/lib/parse-frontmatter.mjs';
 import { EXPECTED_BLOG_EDITORIAL_ORDER } from './helpers/blog-editorial-order.js';
 import { writeSanitizedDOM } from './helpers/dom.js';
@@ -41,6 +45,10 @@ function postLinks() {
     (a) =>
       (a.getAttribute('href') || '').startsWith('/blog/') && a.getAttribute('href') !== '/blog/',
   );
+}
+
+function readDistHtml(relativePath) {
+  return readFileSync(resolve(DIST, relativePath), 'utf-8');
 }
 
 function setupDOM(rawHtml) {
@@ -126,5 +134,133 @@ describe('homepage Writing block (#523)', () => {
     expect(last?.textContent.replace(/→/g, '').replace(/\s+/g, ' ').trim()).toBe(
       'View all writing',
     );
+  });
+});
+
+// #892 — the homepage Builds grid is hand-authored markup that mirrors the
+// projects collection. These guard the two things that can silently drift.
+//
+// Deliberately NOT pinned: which projects appear. The section is headed
+// "Selected Projects" precisely so a project can be left out here while still
+// appearing on /projects/, so a test demanding all seven would fight the
+// surface's own intent. What is pinned is that whatever subset is shown keeps
+// the canonical relative order, and that each row's status matches the
+// frontmatter it mirrors.
+describe('Homepage Builds grid mirrors the projects collection (#892)', () => {
+  const CONTENT = resolve(__dirname, '../src/content/projects');
+
+  function projectFrontmatter() {
+    // The collection glob is `**/*.{md,mdx}` — recursive, both extensions. A
+    // flat readdir silently drops a nested project, which would make this
+    // helper reject a legitimate homepage row as unpublished. Reuse the shared
+    // inventory walker rather than re-deriving the traversal here.
+    return findFilesRecursively(CONTENT, (filePath) => /\.mdx?$/.test(filePath))
+      .map((filePath) => parseFrontmatter(readFileSync(filePath, 'utf-8')))
+      .filter((data) => data.draft !== true)
+      .sort((a, b) => a.order - b.order);
+  }
+
+  function homepageRows() {
+    setupDOM(readDistHtml('index.html'));
+    const panel = document.querySelector('[data-panel="projects"]');
+    return [...panel.querySelectorAll('.project-item')].map((item) => ({
+      href: item.querySelector('.p-name-link')?.getAttribute('href'),
+      title: item.querySelector('.p-name-link')?.textContent?.replace('→', '').trim(),
+      status: item.querySelector('.p-status')?.textContent?.trim(),
+    }));
+  }
+
+  it('lists a subset of the canonical order, in canonical order', () => {
+    const canonical = projectFrontmatter().map((data) => `/projects/${data.slug}/`);
+    const shown = homepageRows().map((row) => row.href);
+
+    expect(shown.length, 'the grid should list at least one project').toBeGreaterThan(0);
+    for (const href of shown) {
+      expect(canonical, `${href} is not a published project`).toContain(href);
+    }
+    // Subsequence check: omission is allowed, reordering is not.
+    const positions = shown.map((href) => canonical.indexOf(href));
+    const ascending = [...positions].sort((a, b) => a - b);
+    expect(positions, 'homepage rows are out of canonical order').toEqual(ascending);
+    expect(new Set(shown).size, 'a project is listed twice').toBe(shown.length);
+  });
+
+  it('labels every row with the status from that project’s frontmatter', () => {
+    const statusBySlug = Object.fromEntries(
+      projectFrontmatter().map((data) => [`/projects/${data.slug}/`, data.status]),
+    );
+    const rows = homepageRows();
+    for (const row of rows) {
+      expect(row.status, `${row.href} has no status label`).toBeTruthy();
+      expect(row.status, `${row.href} status disagrees with its frontmatter`).toBe(
+        statusBySlug[row.href],
+      );
+    }
+    // The whole point of the labels: the grid must not read as uniformly shipped.
+    expect(new Set(rows.map((r) => r.status)).size, 'expected mixed lifecycle states').toBeGreaterThan(1);
+  });
+
+  it('keeps status as metadata, not as a control', () => {
+    // The paper carries three grammars and they must not blur: underlined or
+    // arrowed text navigates, an outlined rectangle is a control, glyph +
+    // uppercase text is state. A boxed status pill beside a link reads as a
+    // tiny button and is not one (#892).
+    setupDOM(readDistHtml('index.html'));
+    const panel = document.querySelector('[data-panel="projects"]');
+    const statuses = [...panel.querySelectorAll('.p-status')];
+    expect(statuses.length).toBeGreaterThan(0);
+    for (const status of statuses) {
+      expect(status.tagName, 'a status must not be a link or a button').toBe('SPAN');
+      expect(
+        status.classList.contains('nav-button'),
+        'status must not take the control treatment',
+      ).toBe(false);
+      // Each state carries a marker modifier so the glyph, not just the word,
+      // distinguishes it — including ARCHIVED from PAUSED.
+      expect(
+        status.classList.contains('state-marker'),
+        `no state marker on "${status.textContent?.trim()}"`,
+      ).toBe(true);
+    }
+    const modifiers = statuses.map((s) => [...s.classList].find((c) => c.startsWith('state-marker--')));
+    expect(new Set(modifiers).size, 'expected distinct state markers').toBeGreaterThan(1);
+  });
+
+  it('uses the same lifecycle marker vocabulary on the projects index', () => {
+    // One grammar across surfaces (#892): a reader who learns □ PAUSED on the
+    // homepage should meet the same mark on /projects/. The index keeps its own
+    // position and type — it gains the marker, nothing else.
+    setupDOM(readDistHtml('projects/index.html'));
+    const kickers = [...document.querySelectorAll('.blog-grid .project-status')];
+    expect(kickers.length, 'no marked status kickers on the index').toBeGreaterThan(0);
+    for (const kicker of kickers) {
+      expect(kicker.classList.contains('post-meta'), 'the index kicker keeps its type').toBe(true);
+      expect(kicker.classList.contains('state-marker'), 'the index kicker gains the marker').toBe(true);
+      expect(kicker.tagName, 'state is metadata, not a control').toBe('P');
+    }
+    // ARCHIVED and PAUSED must not collapse to the same mark — the whole reason
+    // the cored variant exists.
+    const byText = Object.fromEntries(
+      kickers.map((k) => [
+        k.textContent.trim(),
+        [...k.classList].find((c) => c.startsWith('state-marker--')) ?? 'state-marker--outline',
+      ]),
+    );
+    if (byText.ARCHIVED && byText.PAUSED) {
+      expect(byText.ARCHIVED, 'ARCHIVED and PAUSED share a mark').not.toBe(byText.PAUSED);
+    }
+  });
+
+  it('offers a route into the projects index', () => {
+    setupDOM(readDistHtml('index.html'));
+    const panel = document.querySelector('[data-panel="projects"]');
+    const cta = panel.querySelector('.projects-index-cta');
+    expect(cta, 'no CTA into /projects/').not.toBeNull();
+    expect(cta?.getAttribute('href')).toBe('/projects/');
+    expect(cta?.textContent).toContain('View all projects');
+    // A paper control, not a bare link: the site's grammar reserves the outlined
+    // rectangle for actions, and this is one. Status labels deliberately do NOT
+    // take this treatment — see .p-status in global.css.
+    expect(cta?.classList.contains('nav-button'), 'CTA should use the paper control style').toBe(true);
   });
 });

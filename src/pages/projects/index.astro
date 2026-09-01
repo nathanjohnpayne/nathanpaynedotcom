@@ -20,6 +20,22 @@ const projects = allProjects.sort((a, b) => a.data.order - b.data.order);
 // count is wrong the first time a project changes state and nothing catches it
 // — the failure mode this epic spent #885 correcting on the Matchline page.
 const shippedCount = projects.filter((project) => project.data.status === 'SHIPPED').length;
+
+// Lifecycle marker on the status kicker. Same primitive the homepage and the
+// decision ledgers use, so a reader who learns the vocabulary on one surface
+// carries it to the others (#892). Position and type are unchanged — the
+// kicker gains a mark, nothing else.
+const STATUS_MARKER: Record<string, string> = {
+  SHIPPED: 'shipped',
+  ARCHIVED: 'archived',
+  PAUSED: 'paused',
+  EXPERIMENT: 'experiment',
+  'IN PROGRESS': 'in-progress',
+};
+const statusClass = (status: string) => {
+  const modifier = STATUS_MARKER[status];
+  return `post-meta project-status state-marker${modifier ? ` state-marker--${modifier}` : ''}`;
+};
 // Spelled out because it reads mid-sentence in the deck. Falls back to the
 // numeral above nine, which the portfolio is nowhere near and would be a
 // pleasant problem to have.
@@ -106,7 +122,7 @@ const jsonLd = {
                   card anatomy beats avoiding the apparent redundancy of
                   multiple cards saying SHIPPED. See #285. The previous
                   hide-when-LIVE rule from #277/#280 was reversed. */}
-              <p class="post-meta">{project.data.status}</p>
+              <p class={statusClass(project.data.status)}>{project.data.status}</p>
               <p class="post-meta">{project.data.tags.join(' · ')}</p>
               <h2 class="post-title"><a href={`/projects/${project.data.slug}/`}>{project.data.title}</a></h2>
               <p class="post-desc">{project.data.cardDescription ?? project.data.description}</p>
