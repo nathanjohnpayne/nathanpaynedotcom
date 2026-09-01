@@ -110,7 +110,7 @@ The post omits the hook-command-grammar bug and the two timing/clock bugs. Corre
 
 Defensible form: name the boundary per control, as #739's acceptance criteria require, and say that the *combination* raises the cost of the wrong action rather than making it impossible. The break-glass path exists precisely so it is not impossible. Source: `scripts/hooks/gh-pr-guard.sh` (a PreToolUse hook, matched against the command string); `.github/review-policy.yml`; `.github/workflows/pr-review-policy.yml`.
 
-**Live corroboration from this very run, corrected in §M1 and re-corrected in §S.** While auditing #740 a `gh pr create` was refused for writing `**Authoring-Agent:**` in bold—the refusal came from the **author wrapper's body contract** (`scripts/lib/pr-body-contract.mjs:83`, line-anchored). The hook did not step aside; its substring `grep` simply matches `Authoring-Agent:` inside the bold markers and passed the body on (§S). The merge separately required **two** break-glass variables, `BREAK_GLASS_ADMIN=1` and `BREAK_GLASS_MERGE_STATE=1`. Both facts are in the revision; see §M1 for the mechanism, which this row originally got wrong in the same way the post did.
+**Live corroboration from this very run, corrected in §M1 and re-corrected in §S.** While auditing #740 a `gh pr create` was refused for writing `**Authoring-Agent:**` in bold—the refusal came from the **author wrapper's body contract** (`scripts/lib/pr-body-contract.mjs:270`, line-anchored). The hook did not step aside; its substring `grep` simply matches `Authoring-Agent:` inside the bold markers and passed the body on (§S). The merge separately required **two** break-glass variables, `BREAK_GLASS_ADMIN=1` and `BREAK_GLASS_MERGE_STATE=1`. Both facts are in the revision; see §M1 for the mechanism, which this row originally got wrong in the same way the post did.
 
 ### C2—The `external_review_threshold: 300` block and its paths
 
@@ -284,7 +284,7 @@ Corrected value: the tracking issues closed within eighteen seconds of one anoth
 
 | Claim | Source |
 |---|---|
-| PR creation requires `Authoring-Agent:` and `## Self-Review` | **Owner depends on the commit, and this row is about current `main`:** the wrapper's `scripts/lib/pr-body-contract.mjs:83` (line-anchored) enforces it, and `scripts/hooks/gh-pr-guard.sh` enforces that the wrapper is used, exiting before its own marker grep on that path. **At the pinned commit `7878830`** the hook's grep was the only check and the wrapper had none. The bolded-header refusal during the #740 audit came from the wrapper, because a substring grep passes a bolded marker (§S) |
+| PR creation requires `Authoring-Agent:` and `## Self-Review` | **Owner depends on the commit, and this row is about current `main`:** the wrapper's line-anchored match in `scripts/lib/pr-body-contract.mjs` enforces it—`/^Authoring-Agent:\s*(.*?)\s*$/i` at **`:270`**, not the `:83` earlier rows cite, and `scripts/hooks/gh-pr-guard.sh` enforces that the wrapper is used, exiting before its own marker grep on that path. **At the pinned commit `7878830`** the hook's grep was the only check and the wrapper had none. The bolded-header refusal during the #740 audit came from the wrapper, because a substring grep passes a bolded marker (§S) |
 | PR #60 was a docs-only change touching `.github/**`, merged 2026-04-15 | `refs.json` → `#60`, +60/−10 over 2 files |
 | PR #63 added a runtime label re-verify, +53/−0 in one file | `refs.json` → `#63` |
 | PR #76 was the consolidated back-port, +450/−102 over 3 files | `refs.json` → `#76` |
@@ -328,7 +328,7 @@ The largest additions, with what each bought:
 
 | Correction | Cost | What the short version had been |
 |---|---:|---|
-| Separating the hook from the wrapper's body contract, in both places it is described | ~110 words | "the hook refuses it unless the body carries…"—wrong about which component does the work |
+| Separating the hook from the wrapper's body contract, in both places it is described | ~110 words | "the hook refuses it unless the body carries…"—recorded here as wrong about which component does the work. **§S supersedes that verdict:** at the pinned commit the original wording was right, and this separation is what moved a real hook responsibility onto the wrapper |
 | Distinguishing the Codex GitHub App from the `nathanpayne-codex` CLI identity | ~55 words | "Codex never posts an `APPROVED` review"—contradicted by this post's own #66 record |
 | Retracting the propagation-duration claim | ~50 words | "propagated cleanly in under ten minutes"—inferred from closure timestamps (§F2) |
 | Naming which of two round limits was tested on PR #787 | ~40 words | "the `max_review_rounds` guard… fires"—it did not (§L2) |
@@ -407,9 +407,9 @@ Four findings, all correct, all fixed. One of them is a rule I had written down 
 
 > **Partly superseded by §S (2026-09-01).** The conclusion below—that the line-anchored match lives in the wrapper's contract—holds. The mechanism does not: the hook does **not** step aside on the wrapper path, and its body `grep` is not a "direct-invocation fallback." Read §S before copying anything out of this row.
 
-The revision's "evidence after launch" said the *hook* refused a bolded `**Authoring-Agent:**` because "the check is line-anchored". Checked against the code: the line-anchored match that actually rejected the body lives in the wrapper's contract—`scripts/lib/pr-body-contract.mjs:83`, `/^ {0,3}Authoring-Agent:\s*(.*?)\s*$/i`, with the error text emitted from `scripts/lib/pr-body-contract.sh:60`. Attributing line-anchoring to the hook is wrong; the hook's check is a case-insensitive substring `grep`.
+The revision's "evidence after launch" said the *hook* refused a bolded `**Authoring-Agent:**` because "the check is line-anchored". Checked against the code: the line-anchored match that actually rejected the body lives in the wrapper's contract—`scripts/lib/pr-body-contract.mjs:270`, `/^Authoring-Agent:\s*(.*?)\s*$/i`, with the error text emitted from `scripts/lib/pr-body-contract.sh:60`. Attributing line-anchoring to the hook is wrong; the hook's check is a case-insensitive substring `grep`.
 
-Corrected, and the correction improves the passage: the hook's job was to insist the write go through the wrapper at all, and the wrapper's job was to validate the body. Two components, two boundaries, one easily mistaken for the other—which is the section's entire thesis. Source: `scripts/hooks/gh-pr-guard.sh` lines 1043, 1219, 1375–1376; `scripts/lib/pr-body-contract.mjs:83`; `scripts/lib/pr-body-contract.sh:60`.
+Corrected, and the correction improves the passage: the hook's job was to insist the write go through the wrapper at all, and the wrapper's job was to validate the body. Two components, two boundaries, one easily mistaken for the other—which is the section's entire thesis. Source: `scripts/hooks/gh-pr-guard.sh` lines 1043, 1219, 1375–1376; `scripts/lib/pr-body-contract.mjs:270`; `scripts/lib/pr-body-contract.sh:60`.
 
 ### M2—The compression totals were stale
 
@@ -553,7 +553,7 @@ This row supersedes the mechanism in §M1, §O1 and §P2. Those rounds moved the
 
 ### What was actually verified
 
-Not read, but executed. The hook from the pinned commit the post cites (`787883024456260426b869a772059c52b754aeed`) was fed the JSON Claude Code feeds it, with four wrapper-routed `gh pr create` commands:
+Not read, but executed. The hook from the pinned commit the post cites (`787883024456260426b869a772059c52b754aeed`) was fed the JSON Claude Code feeds it, with six wrapper-routed `gh pr create` commands. All six were executed; none is a derived example:
 
 | Body, routed through `scripts/gh-as-author.sh` | Verdict |
 |---|---|
@@ -588,4 +588,4 @@ Do not write that the hook only routes and the wrapper only validates **without 
 
 The defect class is the one `docs/agents/blog-revision-process.md` calls "a retraction's replacement can invert the claim," and it survived five review rounds because each round checked the replacement against the sentence it replaced rather than against the evidence. §M1 corrected a real error and overshot; §O1 then propagated the overshoot to the paragraph that introduces the guard, and §P2 propagated it into the "claims that stand as written" table—which is the table a later audit trusts most. Three rounds of tidy, self-consistent restatement, all downstream of one unverified mechanism.
 
-What would have caught it at §M1 is what caught it here: running the component instead of reading it. A four-case probe against the pinned commit takes a minute and answers the question that source-reading kept answering plausibly and wrongly.
+What would have caught it at §M1 is what caught it here: running the component instead of reading it. A six-case probe against the pinned commit takes a minute and answers the question that source-reading kept answering plausibly and wrongly.
