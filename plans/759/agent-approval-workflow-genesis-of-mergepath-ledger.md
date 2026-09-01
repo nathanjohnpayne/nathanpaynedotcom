@@ -328,7 +328,7 @@ The largest additions, with what each bought:
 
 | Correction | Cost | What the short version had been |
 |---|---:|---|
-| Separating the hook from the wrapper's body contract, in both places it is described | ~110 words | "the hook refuses it unless the body carries…"—recorded here as wrong about which component does the work. **§S supersedes that verdict:** at the pinned commit the original wording was right, and this separation is what moved a real hook responsibility onto the wrapper |
+| Separating the hook from the wrapper's body contract, in both places it is described | ~110 words | "the hook refuses it unless the body carries…"—recorded here as wrong about which component does the work. **§S supersedes that verdict, but only in part:** at mergepath `7878830` the original wording was right about *which component* did the work—the hook, not the wrapper—and this separation moved a real hook responsibility away from it. The original was still wrong about *what it inspects*: the hook greps the command text and never reads a body, so "unless the body carries" promised a guarantee the code did not make |
 | Distinguishing the Codex GitHub App from the `nathanpayne-codex` CLI identity | ~55 words | "Codex never posts an `APPROVED` review"—contradicted by this post's own #66 record |
 | **Post-publication (#835): the two-repository correction**—naming which copy of the hook each claim describes, and the probe evidence behind it | **~281 words** | "The wrapper's body contract refuses any PR body lacking…"—attributed the hook's check to the wrapper, and did so without saying which repository's hook |
 | Retracting the propagation-duration claim | ~50 words | "propagated cleanly in under ten minutes"—inferred from closure timestamps (§F2) |
@@ -548,7 +548,7 @@ The fourth finding asked `RUN.md` to pin a current HEAD and update it after ever
 
 ## S. Post-publication correction (#835)—who owns the PR-body contract
 
-Filed as #835 after an outbound-link audit for #831 / PR #832: the paragraph at `:74` attributed the hook's body contract to the wrapper. Its **citation was correct** and pointed at real code doing what the sentence described; only the prose around it was wrong, which is the kind of error a reader spot-checking the link comes away reassured by.
+Filed as #835 after an outbound-link audit for #831 / PR #832: the paragraph at `:74` attributed the hook's body contract to the wrapper. Its **citation was correct** and pointed at the real marker check—which the hook, not the wrapper, owned at that commit. The prose was wrong twice over: about which component ran the check, and about it reading a body at all. That is the kind of error a reader spot-checking the link comes away reassured by, because the code at the other end does something close enough to the sentence to pass a glance.
 
 **What this row supersedes is narrow, and worth stating precisely, because an earlier draft of it over-reached.** §M1, §O1 and §P2 moved the body contract off the hook and onto the wrapper. For **this** repository, where the bolded-header event happened, that is correct and §M1's mechanism stands. What those rows got wrong is the *scope*: they described the division as though it held everywhere, and the post's citation points at **mergepath**, where at that commit the hook did inspect the create. So the supersession is of the unqualified attribution, not of §M1's account of the event.
 
