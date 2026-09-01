@@ -36,7 +36,7 @@ const STATUS_MARKER: Record<string, string> = {
 const statusClass = (slug: string) => {
   const status = statusOf(slug);
   const modifier = STATUS_MARKER[status];
-  return modifier ? `p-status p-status--${modifier}` : 'p-status';
+  return modifier ? `p-status state-marker state-marker--${modifier}` : 'p-status state-marker';
 };
 
 const latestPost = chronologicalPosts[0];

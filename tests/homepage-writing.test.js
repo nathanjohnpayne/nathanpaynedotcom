@@ -210,11 +210,38 @@ describe('Homepage Builds grid mirrors the projects collection (#892)', () => {
       ).toBe(false);
       // Each state carries a marker modifier so the glyph, not just the word,
       // distinguishes it — including ARCHIVED from PAUSED.
-      const modifier = [...status.classList].find((c) => c.startsWith('p-status--'));
-      expect(modifier, `no state marker on "${status.textContent?.trim()}"`).toBeTruthy();
+      expect(
+        status.classList.contains('state-marker'),
+        `no state marker on "${status.textContent?.trim()}"`,
+      ).toBe(true);
     }
-    const modifiers = statuses.map((s) => [...s.classList].find((c) => c.startsWith('p-status--')));
+    const modifiers = statuses.map((s) => [...s.classList].find((c) => c.startsWith('state-marker--')));
     expect(new Set(modifiers).size, 'expected distinct state markers').toBeGreaterThan(1);
+  });
+
+  it('uses the same lifecycle marker vocabulary on the projects index', () => {
+    // One grammar across surfaces (#892): a reader who learns □ PAUSED on the
+    // homepage should meet the same mark on /projects/. The index keeps its own
+    // position and type — it gains the marker, nothing else.
+    setupDOM(readDistHtml('projects/index.html'));
+    const kickers = [...document.querySelectorAll('.blog-grid .project-status')];
+    expect(kickers.length, 'no marked status kickers on the index').toBeGreaterThan(0);
+    for (const kicker of kickers) {
+      expect(kicker.classList.contains('post-meta'), 'the index kicker keeps its type').toBe(true);
+      expect(kicker.classList.contains('state-marker'), 'the index kicker gains the marker').toBe(true);
+      expect(kicker.tagName, 'state is metadata, not a control').toBe('P');
+    }
+    // ARCHIVED and PAUSED must not collapse to the same mark — the whole reason
+    // the cored variant exists.
+    const byText = Object.fromEntries(
+      kickers.map((k) => [
+        k.textContent.trim(),
+        [...k.classList].find((c) => c.startsWith('state-marker--')) ?? 'state-marker--outline',
+      ]),
+    );
+    if (byText.ARCHIVED && byText.PAUSED) {
+      expect(byText.ARCHIVED, 'ARCHIVED and PAUSED share a mark').not.toBe(byText.PAUSED);
+    }
   });
 
   it('offers a route into the projects index', () => {

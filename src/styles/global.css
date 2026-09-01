@@ -1010,24 +1010,69 @@ html[data-fonts-pending] .panel-label {
   margin-bottom: 0.22rem;
 }
 
-/* Lifecycle state on a Builds row (#892). The homepage presented all seven
-   projects identically, which reads as equivalent shipped work; /projects/ is
-   precise about this and the homepage was not.
+/* ── Lifecycle state marker ─────────────────────────────────────────────
+   One geometry, every surface that shows lifecycle state (#892). The rule it
+   encodes: color is composition, geometry carries state, words provide
+   precision. The Mondrian fields on /projects/ are deliberately nonsemantic,
+   so state is carried monochrome — by the shape of a mark, not a hue.
 
-   Deliberately NOT boxed. The paper carries three distinct grammars and the
-   distinction is worth protecting: underlined or arrowed text navigates, an
-   outlined rectangle is a control, and glyph + uppercase text is state. An
-   outlined status pill sitting beside a link read as a tiny button — it looked
-   pressable and is not. Status is metadata, so it is set as metadata.
+   Built as CSS boxes rather than Unicode glyphs so stroke weight and optical
+   size match the site's other geometry exactly, and so the marks stay
+   orthogonal; a circle would break the composition's own logic. Sized in `em`
+   so one primitive serves the dense homepage row and the larger index card
+   without a per-surface override.
 
-   The marker geometry is the decision ledger's, reused so state reads the same
-   way in both places: filled is done, an empty outline is not running, a
-   half-fill is partial. It sits inside .p-head's existing flex row, so the
-   label costs no row height. */
-.p-status {
+   The fills are the decision ledger's, reused so state reads the same way
+   wherever it appears. Note the two axes are NOT the same: the ledger marks a
+   *decision's* evidence (validated / mixed / revised / pending), these mark a
+   *project's* lifecycle. Shared vocabulary, different subject. */
+.state-marker {
   display: inline-flex;
   align-items: center;
-  gap: 0.32rem;
+  gap: 0.42em;
+}
+
+.state-marker::before {
+  content: '';
+  flex: none;
+  width: 0.72em;
+  height: 0.72em;
+  border: 1px solid currentcolor;
+}
+
+/* Filled: the work landed and is running. */
+.state-marker--shipped::before {
+  background-color: currentcolor;
+}
+
+/* Half-filled: a deliberate partial — an experiment, not a product. Left-half
+   fill, not a diagonal; the site's geometry is orthogonal. */
+.state-marker--experiment::before {
+  background-image: linear-gradient(90deg, currentcolor 0 50%, transparent 50%);
+}
+
+/* Cored: built, then set down. The outline of the original bet survives with a
+   paper ring inside it — closed history rather than unfinished, which is the
+   distinction between an archived project and a paused one. Without this they
+   would share the bare outline and the word would carry the whole signal. */
+.state-marker--archived::before {
+  background-color: currentcolor;
+  background-clip: content-box;
+  padding: 0.1em;
+}
+
+/* PAUSED and IN PROGRESS keep the bare outline: nothing is running yet. */
+
+/* Homepage Builds row. Deliberately NOT boxed: the paper keeps three grammars
+   apart — underlined or arrowed text navigates, an outlined rectangle is a
+   control, glyph plus uppercase text is state. A boxed status beside a link
+   read as a tiny button and is not one. Sits inside .p-head's existing flex
+   row, so the label costs no row height. */
+.p-status {
+  /* Extra separation from the title's arrow: at this size "→ ■" briefly reads
+     as a sequence — "Five Across leads to shipped" — rather than a link
+     followed by independent metadata. .p-head's own gap is not enough. */
+  margin-left: 0.55rem;
   font-size: 0.62rem;
   font-weight: 600;
   letter-spacing: 0.14em;
@@ -1036,36 +1081,11 @@ html[data-fonts-pending] .panel-label {
   color: color-mix(in srgb, currentcolor 68%, transparent);
 }
 
-.p-status::before {
-  content: '';
-  flex: none;
-  width: 0.5rem;
-  height: 0.5rem;
-  border: 1px solid currentcolor;
+/* Projects index card. Position and type are unchanged — this is the existing
+   .post-meta kicker; it gains only the marker. */
+.project-status {
+  display: inline-flex;
 }
-
-/* Filled: the work landed and is running. */
-.p-status--shipped::before {
-  background-color: currentcolor;
-}
-
-/* Half-filled: a deliberate partial — an experiment, not a product.
-   Left-half fill, not a diagonal; the site's geometry is orthogonal. */
-.p-status--experiment::before {
-  background-image: linear-gradient(90deg, currentcolor 0 50%, transparent 50%);
-}
-
-/* Cored: built, then set down. The outline of the original bet survives with
-   a paper ring inside it, which is the ledger's `revised` treatment and the
-   right reading for a project that ran and stopped. Distinguishes ARCHIVED
-   from PAUSED, which would otherwise share one glyph. */
-.p-status--archived::before {
-  background-color: currentcolor;
-  background-clip: content-box;
-  padding: 1px;
-}
-
-/* PAUSED and IN PROGRESS keep the bare outline: nothing is running yet. */
 
 /* Route into the projects index, below the seven rows. A paper control rather
    than a bare link, matching the other .nav-button actions on the site. */
@@ -1182,7 +1202,11 @@ a:focus-visible .link-arrow,
 
    See #356 for the design discussion. */
 .panel--yellow .content-inner h2 {
-  font-size: clamp(1.2rem, min(3vw, 3vh), 1.5rem);
+  /* Nudged up ~13% (#892): at the previous scale the section heading sat too
+     close to the project titles below it, so it did not clearly read as the
+     heading for the whole panel. The Projects panel is the only yellow one,
+     so this rule is effectively scoped to it. */
+  font-size: clamp(1.35rem, min(3.4vw, 3.4vh), 1.7rem);
   letter-spacing: var(--heading-letter-spacing);
   margin-bottom: var(--sp-sm);
   line-height: 1.05;
@@ -1714,7 +1738,11 @@ body.blog-page {
 
 .nav-button:hover,
 .nav-button:focus-visible {
-  background: var(--accent);
+  /* `--accent` is set per project page and on the 404, but NOT on the homepage
+     panels. Without a fallback the background stayed transparent while the
+     colour fell through to cream — cream text on cream paper, an invisible
+     control (#892). Ink is the correct inverse on any surface. */
+  background: var(--accent, var(--ink));
   color: var(--accent-contrast, var(--cream));
   transform: translateY(calc(var(--shift-small) * -1));
 }
