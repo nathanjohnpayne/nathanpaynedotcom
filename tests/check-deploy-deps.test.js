@@ -36,6 +36,7 @@ function runCheck({
   gitStageRemoval = false,
   symlinked = {},
   nested = {},
+  bins = null,
 } = {}) {
   const workDir = mkdtempSync(join(tmpdir(), 'check-deploy-deps-test-'));
   try {
@@ -83,6 +84,15 @@ function runCheck({
       git('add', '-A');
       git('commit', '-q', '-m', 'init');
       git('rm', '--cached', '-q', 'package-lock.json');
+    }
+
+    if (bins) {
+      const binDir = join(workDir, 'node_modules', '.bin');
+      mkdirSync(binDir, { recursive: true });
+      for (const [binName, target] of Object.entries(bins)) {
+        if (target === null) continue;
+        writeFileSync(join(binDir, binName), '#!/bin/sh\n', 'utf-8');
+      }
     }
 
     for (const [relPath, version] of Object.entries(nested)) {
@@ -422,6 +432,89 @@ describe('check-deploy-deps.sh', () => {
         'node_modules/astro': { version: '7.2.9' },
       },
       installed: { astro: '7.2.9' },
+    });
+
+    expect(result.status).toBe(0);
+  });
+
+  it('reports a required child missing at its nested locked path', () => {
+    // Codex P2 on #903, and a bug in my own previous fix: the required-child
+    // set was keyed by bare name while nested entries are keyed
+    // `parent/node_modules/child`, so a missing nested child was exempted
+    // while an unrelated hoisted one would have matched.
+    const result = runCheck({
+      packages: {
+        'node_modules/parent-pkg': {
+          version: '1.0.0',
+          optional: true,
+          os: [process.platform],
+          cpu: [process.arch],
+          dependencies: { 'child-pkg': '1.0.0' },
+        },
+        'node_modules/parent-pkg/node_modules/child-pkg': { version: '1.0.0', optional: true },
+      },
+      installed: { 'parent-pkg': '1.0.0' },
+    });
+
+    expect(result.status).toBe(1);
+    expect(result.output).toContain('parent-pkg/node_modules/child-pkg');
+  });
+
+  it('treats an "any" platform constraint as matching this host', () => {
+    // npm reads ["any"] as every host. A literal comparison against
+    // process.platform classified such a package as foreign, so its absence
+    // was exempted even though `npm ci` would install it.
+    const result = runCheck({
+      packages: {
+        'node_modules/any-host-pkg': { version: '1.0.0', optional: true, os: ['any'], cpu: ['any'] },
+      },
+      installed: {},
+    });
+
+    expect(result.status).toBe(1);
+    expect(result.output).toContain('any-host-pkg');
+  });
+
+  it('reports a missing .bin shim for a locked top-level package', () => {
+    // Codex P2 on #903. `npm run build` resolves astro through
+    // node_modules/.bin/astro, so a missing shim breaks the build while every
+    // manifest version still matches.
+    const result = runCheck({
+      packages: { 'node_modules/astro': { version: '7.2.9', bin: { astro: 'astro.js' } } },
+      installed: { astro: '7.2.9' },
+      bins: {},
+    });
+
+    expect(result.status).toBe(1);
+    expect(result.output).toContain('.bin/astro');
+    expect(result.output).toContain('shim missing');
+  });
+
+  it('accepts a present .bin shim', () => {
+    const result = runCheck({
+      packages: { 'node_modules/astro': { version: '7.2.9', bin: { astro: 'astro.js' } } },
+      installed: { astro: '7.2.9' },
+      bins: { astro: 'present' },
+    });
+
+    expect(result.status).toBe(0);
+  });
+
+  it('does not expect a root .bin shim for a nested package', () => {
+    // npm shims nested packages into their parent's .bin, not the root one.
+    // Expecting them at the root reported three packages on a clean npm ci
+    // tree, which is how a guard earns being switched off.
+    const result = runCheck({
+      packages: {
+        'node_modules/astro': { version: '7.2.9' },
+        'node_modules/astro/node_modules/esbuild': {
+          version: '0.28.1',
+          bin: { esbuild: 'bin/esbuild' },
+        },
+      },
+      installed: { astro: '7.2.9' },
+      nested: { 'astro/node_modules/esbuild': '0.28.1' },
+      bins: {},
     });
 
     expect(result.status).toBe(0);

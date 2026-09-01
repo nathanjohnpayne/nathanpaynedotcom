@@ -130,7 +130,7 @@ NODE_ERR_FILE="$(mktemp)"
 trap 'rm -f "$NODE_ERR_FILE"' EXIT
 
 REPORT="$(node --input-type=module -e '
-import { readFileSync, existsSync, readdirSync, statSync, lstatSync } from "node:fs";
+import { readFileSync, existsSync, readdirSync, statSync, lstatSync, realpathSync } from "node:fs";
 
 const lock = JSON.parse(readFileSync("package-lock.json", "utf8"));
 
@@ -152,6 +152,9 @@ if (packages === null || typeof packages !== "object" || Array.isArray(packages)
 const constraintAllows = (constraint, actual) => {
   if (constraint === undefined) return true;
   const values = Array.isArray(constraint) ? constraint : [constraint];
+  // npm reads "any" as matching every host, so a literal comparison against
+  // process.platform would classify a host-compatible package as foreign.
+  if (values.includes("any")) return true;
   const negated = values.filter((v) => v.startsWith("!")).map((v) => v.slice(1));
   if (negated.length > 0) return !negated.includes(actual);
   return values.includes(actual);
@@ -198,10 +201,17 @@ const isInstalled = (path) => existsSync(manifestPath(path));
 // package is required here regardless of an inherited optional flag. Children
 // of absent foreign-platform parents are still exempt, because their parent is
 // not installed to require them.
-const requiredByInstalled = new Set();
+// Keyed by locked PATH, not bare name. npm resolves a dependency either into
+// the parent own node_modules or to a hoisted copy, and the lockfile keys both
+// forms by full path — so a bare name would exempt a missing
+// parent/node_modules/child while matching an unrelated hoisted child.
+const requiredPaths = new Set();
 for (const [path, meta] of Object.entries(packages)) {
   if (!path.startsWith("node_modules/") || !isInstalled(path)) continue;
-  for (const dep of Object.keys(meta.dependencies ?? {})) requiredByInstalled.add(dep);
+  for (const dep of Object.keys(meta.dependencies ?? {})) {
+    requiredPaths.add(`${path}/node_modules/${dep}`);
+    requiredPaths.add(`node_modules/${dep}`);
+  }
 }
 
 const rows = [];
@@ -225,7 +235,7 @@ for (const [path, meta] of Object.entries(packages)) {
     // missing sharp or Astro compiler binding changes the build while the
     // guard reports a match. So the exemption is narrowed to packages this
     // host could not install, using the lockfiles own os/cpu/libc constraints.
-    if (meta.optional && !targetsThisHost(meta) && !requiredByInstalled.has(name)) continue;
+    if (meta.optional && !targetsThisHost(meta) && !requiredPaths.has(path)) continue;
     rows.push([name, meta.version, "(not installed)"].join("\t"));
     continue;
   }
@@ -320,6 +330,54 @@ for (const path of installedPaths) {
   // Reported by path, not bare name: `parent/node_modules/ghost` and a hoisted
   // `ghost` are different installs and the message has to say which one.
   rows.push([path.replace(/^node_modules\//, ""), "(not in lockfile)", version].join("\t"));
+}
+
+// The build runs through node_modules/.bin, not through package directories:
+// `npm run build` resolves astro via .bin/astro. A shim that is missing or
+// dangling therefore breaks or changes the build while every manifest version
+// still matches — a clean tree by every other measure.
+//
+// Deliberately narrow, after measuring. Only TOP-LEVEL locked packages are
+// considered: npm shims nested packages into the parent own .bin, not the root
+// one, and expecting them at the root reported three packages on a clean npm ci
+// tree. Ownership is not asserted either — several packages can declare the
+// same bin name and npm picks one, so "points at a different package" is
+// ambiguous rather than wrong. What is unambiguous is a shim that does not
+// resolve at all.
+const binDir = "node_modules/.bin";
+if (existsSync(binDir)) {
+  for (const [path, meta] of Object.entries(packages)) {
+    if (!path.startsWith("node_modules/")) continue;
+    // Nested entries shim into their parent, not the root .bin.
+    if (path.lastIndexOf("/node_modules/") !== -1) continue;
+    if (!isInstalled(path) || !meta.bin) continue;
+
+    const names =
+      typeof meta.bin === "string" ? [path.slice("node_modules/".length)] : Object.keys(meta.bin);
+
+    for (const binName of names) {
+      const shim = `${binDir}/${binName}`;
+      // lstat, not exists: existsSync follows the link, so a dangling shim
+      // reports as absent and the diagnostic sends the reader looking for the
+      // wrong thing. The two failures need different words.
+      let entryPresent = true;
+      try {
+        lstatSync(shim);
+      } catch {
+        entryPresent = false;
+      }
+
+      if (!entryPresent) {
+        rows.push([`.bin/${binName}`, meta.version, "(shim missing)"].join("\t"));
+        continue;
+      }
+      try {
+        realpathSync(shim);
+      } catch {
+        rows.push([`.bin/${binName}`, meta.version, "(shim dangling)"].join("\t"));
+      }
+    }
+  }
 }
 
 if (checked === 0) {
