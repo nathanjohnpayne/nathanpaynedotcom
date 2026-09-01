@@ -16,11 +16,6 @@ const PROJECTS_OG_DESCRIPTION =
 const allProjects = await getCollection('projects', ({ data }) => !data.draft);
 const projects = allProjects.sort((a, b) => a.data.order - b.data.order);
 
-// Status tally for the deck. Derived rather than written, because a hand-typed
-// count is wrong the first time a project changes state and nothing catches it
-// — the failure mode this epic spent #885 correcting on the Matchline page.
-const shippedCount = projects.filter((project) => project.data.status === 'SHIPPED').length;
-
 // Lifecycle marker on the status kicker. Same primitive the homepage and the
 // decision ledgers use, so a reader who learns the vocabulary on one surface
 // carries it to the others (#892). Position and type are unchanged — the
@@ -36,12 +31,14 @@ const statusClass = (status: string) => {
   const modifier = STATUS_MARKER[status];
   return `post-meta project-status state-marker${modifier ? ` state-marker--${modifier}` : ''}`;
 };
-// Spelled out because it reads mid-sentence in the deck. Falls back to the
-// numeral above nine, which the portfolio is nowhere near and would be a
-// pleasant problem to have.
+// Spelled out because it reads mid-sentence in the meta description and the
+// CollectionPage JSON-LD below. Falls back to the numeral above nine, which the
+// portfolio is nowhere near and would be a pleasant problem to have.
 const NUMBER_WORDS = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine'];
 const asWord = (n: number) => NUMBER_WORDS[n] ?? String(n);
-const shippedWord = asWord(shippedCount);
+// Derived rather than written, because a hand-typed count is wrong the first
+// time a project is added or drafted and nothing catches it — the failure mode
+// this epic spent #885 correcting on the Matchline page.
 const totalWord = asWord(projects.length);
 // Meta description and CollectionPage JSON-LD share the deck's derived count,
 // so a drafted or added project cannot leave a stale number on a search surface
@@ -105,7 +102,7 @@ const jsonLd = {
       <header class="hero">
         <Breadcrumbs items={[{ label: "Nathan Payne", href: "/" }, { label: PROJECTS_TITLE }]} />
         <h1>{PROJECTS_HEADING}</h1>
-        <p class="deck">Every one of these began as a real problem&mdash;mine, or one I watched up close. The decisions are the part worth reading: what got built, what got refused, and what the evidence said once it was running. Of the {totalWord}, {shippedWord} shipped; every other card says where it stands, and why. I build with AI agents under a review system I designed and <a href="/blog/agent-approval-workflow-genesis-of-mergepath/" class="p-link">documented here</a>. The agents are leverage; the product decisions are the point.</p>
+        <p class="deck">Every one of these began as a real problem&mdash;mine, or one I watched up close. The decisions are the part worth reading: what got built, what got refused, and what the evidence said once it was running. Each card says where the project stands, and why. I build with AI agents under a review system I designed and <a href="/blog/agent-approval-workflow-genesis-of-mergepath/" class="p-link">documented here</a>. The agents are leverage; the product decisions are the point.</p>
       </header>
 
       {/* ── Project Grid ──
