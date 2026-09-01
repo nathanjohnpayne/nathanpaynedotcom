@@ -2,6 +2,7 @@
 import BaseLayout from '../layouts/BaseLayout.astro';
 import { getCollection, getEntry, render } from 'astro:content';
 import { compareBlogPosts } from '../lib/blog-order';
+import { stateMarkerClass } from '../lib/lifecycle-marker';
 
 // One published collection feeds two deliberately different surfaces (#627):
 // the Writing list is editorial, while Latest Post remains chronological.
@@ -39,19 +40,10 @@ const statusOf = (slug: string) => {
 // same way in both places: filled = done, outline = not running, half = partial.
 // The paper grammar this keeps distinct — underlined/arrowed text navigates, an
 // outlined rectangle is a control, glyph + uppercase text is state — is why the
-// label carries no border of its own (#892).
-const STATUS_MARKER: Record<string, string> = {
-  SHIPPED: 'shipped',
-  ARCHIVED: 'archived',
-  PAUSED: 'paused',
-  EXPERIMENT: 'experiment',
-  'IN PROGRESS': 'in-progress',
-};
-const statusClass = (slug: string) => {
-  const status = statusOf(slug);
-  const modifier = STATUS_MARKER[status];
-  return modifier ? `p-status state-marker state-marker--${modifier}` : 'p-status state-marker';
-};
+// label carries no border of its own (#892). The status → mark mapping is
+// shared with /projects/ and the detail-page STATUS cell; see
+// src/lib/lifecycle-marker.ts for why it is one module rather than three copies.
+const statusClass = (slug: string) => stateMarkerClass(statusOf(slug), 'p-status');
 
 const latestPost = chronologicalPosts[0];
 

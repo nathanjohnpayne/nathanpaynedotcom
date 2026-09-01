@@ -116,7 +116,8 @@ The `resumeProjects` collection must remain separate from the existing
 - **Each Projects entry carries its lifecycle status** after the name
   (`.resume-entry__status`), rendered as plain uppercase text—`SHIPPED`,
   `ARCHIVED`, `PAUSED`, `EXPERIMENT`, `IN PROGRESS`. **Not** the
-  `.state-marker` geometry the homepage and `/projects/` use: this section
+  `.state-marker` geometry the homepage, `/projects/`, and the project
+  detail page's STATUS cell use: this section
   prints to PDF and is parsed by applicant tracking systems, where
   portability beats extending the visual language.
 

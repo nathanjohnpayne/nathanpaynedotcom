@@ -52,10 +52,19 @@ const projects = defineCollection({
         .optional(),
       accent: z.enum(['red', 'yellow', 'black', 'blue', 'paper']),
       // Optional: in-progress projects (status "IN PROGRESS") may not have
-      // a deployed app yet. When omitted, the "View Live Product" CTA is
+      // a deployed app yet. When omitted, the live CTA (see liveLabel) is
       // suppressed on the detail page, the project card, and the homepage
       // Builds section. When present, must be a non-empty string.
       liveUrl: z.string().trim().min(1).optional(),
+      // Label for the `liveUrl` CTA. Defaults to "View Live Product", which is
+      // right when the link opens the product itself. It is wrong when the
+      // link opens a demonstration instead — Device Source of Truth is
+      // ARCHIVED and its live button reaches a synthetic-data demo behind a
+      // restricted login, so "View Live Product" asks the reader to reconcile
+      // two apparently conflicting states. "View Demo" makes ARCHIVED read
+      // correctly: development ended, an inspectable demonstration remains.
+      // Per-project because the accuracy of the word is a per-project fact.
+      liveLabel: z.string().trim().min(1).optional(),
       // Optional, on the same terms as `liveUrl` above: a project whose
       // repository is private has no repository a reader can open, so the
       // "View on GitHub" CTA is suppressed rather than publishing a link
@@ -193,6 +202,16 @@ const projects = defineCollection({
           path: ['githubUrl'],
           message:
             "heroRefresh: 'github-social' requires githubUrl — it is the URL the refresh reads.",
+        });
+      }
+      // Same shape of guard: `liveLabel` names a button that only `liveUrl`
+      // renders, so the pairing without it is dead frontmatter that reads as a
+      // shipped label. Rejected rather than ignored.
+      if (data.liveLabel && !data.liveUrl) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['liveLabel'],
+          message: 'liveLabel requires liveUrl — it labels the CTA that liveUrl renders.',
         });
       }
     }),

@@ -1019,8 +1019,10 @@ html[data-fonts-pending] .panel-label {
    Built as CSS boxes rather than Unicode glyphs so stroke weight and optical
    size match the site's other geometry exactly, and so the marks stay
    orthogonal; a circle would break the composition's own logic. Sized in `em`
-   so one primitive serves the dense homepage row and the larger index card
-   without a per-surface override.
+   so one primitive serves the dense homepage row, the larger index card, and
+   the project detail page's STATUS cell without a per-surface override — the
+   mark is a constant 0.72 of whatever label it sits beside. The status → mark
+   mapping is shared too; see src/lib/lifecycle-marker.ts.
 
    The fills are the decision ledger's, reused so state reads the same way
    wherever it appears. Note the two axes are NOT the same: the ledger marks a
@@ -1857,6 +1859,30 @@ body.blog-page {
   font-size: clamp(0.9rem, 0.9rem + 0.12vw, 0.98rem);
   line-height: 1.45;
   color: var(--ink);
+}
+
+/* STATUS cell — the one place lifecycle appears on a detail page. Title,
+   breadcrumb, and the hero CTA stay clear of it so lifecycle never competes
+   with project identity.
+
+   Deliberately declaration-free apart from the shrink-to-fit box: every visual
+   property comes from `.state-marker`, unmodified. The primitive is `em`-sized
+   so it tracks whatever type it sits in, and a detail page is not a reason to
+   draw a bigger mark — the mark-to-label ratio here is the same 0.72 it is on
+   /projects/. The mark also inherits `currentcolor` from `.metadata-strip dd`
+   above, so it cannot be keyed to a token the label is not: on any accent
+   surface, if the word is legible the mark is. Adding size, color, or
+   alignment here is how the two surfaces would drift apart.
+
+   `flex` rather than the primitive's `inline-flex` is the one exception, and
+   it is a containing-box choice, not a mark choice — the mark's box, gap, and
+   fill are untouched. An inline-level box in this cell sits on a line box and
+   picks up the parent strut's descender, which made the STATUS cell one pixel
+   taller than the `dd` it replaced and grew the whole strip on the two pages
+   where STATUS is the tallest cell in its row. Block-level keeps the cell's
+   box byte-for-byte what it was and adds only the mark. */
+.metadata-strip__status {
+  display: flex;
 }
 
 /* Project screenshot — figure container below the metadata strip.

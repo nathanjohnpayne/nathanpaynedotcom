@@ -136,6 +136,35 @@ describe('Content Schema', () => {
     expect(projectsSource).toContain('response: z.string().trim().min(1)');
   });
 
+  it('the live CTA label is optional, non-empty, and useless without liveUrl', () => {
+    const projectsSource = collectionSource('projects');
+    expect(projectsSource, 'liveLabel must be optional and non-empty when present').toContain(
+      'liveLabel: z.string().trim().min(1).optional()',
+    );
+    // `liveLabel` names a button only `liveUrl` renders. Without the guard the
+    // pairing is dead frontmatter that reads, to anyone editing the file, like
+    // a shipped label.
+    expect(projectsSource, 'liveLabel without liveUrl must be rejected').toMatch(
+      /if\s*\(data\.liveLabel\s*&&\s*!data\.liveUrl\)/,
+    );
+
+    // And the same rule against the real files, so the guard is not just
+    // asserted in source.
+    expect(projectFiles.length).toBeGreaterThan(0);
+    let labelled = 0;
+    for (const file of projectFiles) {
+      const fm = parseFrontmatter(file.content);
+      if (!fm?.liveLabel) continue;
+      labelled += 1;
+      expect(typeof fm.liveLabel, `${file.name}: liveLabel must be a string`).toBe('string');
+      expect(fm.liveLabel.trim().length, `${file.name}: liveLabel must be non-empty`).toBeGreaterThan(0);
+      expect(fm.liveUrl, `${file.name}: liveLabel without liveUrl`).toBeTruthy();
+    }
+    // Control: the loop above is vacuous if nothing declares the field, and a
+    // vacuous loop passes no matter how broken the schema is.
+    expect(labelled, 'no project declares liveLabel — the checks above ran on nothing').toBe(1);
+  });
+
   it('every project file that declares decisions has well-formed decision records', () => {
     expect(projectFiles.length).toBeGreaterThan(0);
 
