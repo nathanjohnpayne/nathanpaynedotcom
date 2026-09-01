@@ -549,7 +549,7 @@ The fourth finding asked `RUN.md` to pin a current HEAD and update it after ever
 
 Filed as #835 after an outbound-link audit for #831 / PR #832: the paragraph at `:74` attributed the hook's body contract to the wrapper. Its **citation was correct** and pointed at real code doing what the sentence described; only the prose around it was wrong, which is the kind of error a reader spot-checking the link comes away reassured by.
 
-This row supersedes the mechanism in §M1, §O1 and §P2. Those rounds moved the body contract off the hook and onto the wrapper; the move was one step too far.
+**What this row supersedes is narrow, and worth stating precisely, because an earlier draft of it over-reached.** §M1, §O1 and §P2 moved the body contract off the hook and onto the wrapper. For **this** repository, where the bolded-header event happened, that is correct and §M1's mechanism stands. What those rows got wrong is the *scope*: they described the division as though it held everywhere, and the post's citation points at **mergepath**, where at that commit the hook did inspect the create. So the supersession is of the unqualified attribution, not of §M1's account of the event.
 
 ### What was actually verified
 
