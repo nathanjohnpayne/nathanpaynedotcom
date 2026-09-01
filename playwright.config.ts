@@ -65,7 +65,17 @@ export default defineConfig({
   webServer: EXTERNAL_BASE_URL
     ? undefined
     : {
-        command: `npm run build && npm run preview -- --port ${PORT}`,
+        /**
+         * `npx astro build`, not `npm run build` (Codex P2, #914).
+         *
+         * `npm run build` fires the repository's `prebuild`, which refreshes
+         * hero images and Mux GIFs over the network and exits nonzero when a
+         * fetch fails. With server reuse now always off, every default
+         * `npm run test:e2e` would take that path, so an offline run — or an
+         * `image.mux.com` blip — would abort the suite before a single spec
+         * ran. `npm test` already builds this way for the same reason.
+         */
+        command: `npx astro build && npx astro preview --port ${PORT}`,
         url: BASE_URL,
         /**
          * Playwright owns the server (#875).
