@@ -1081,7 +1081,10 @@ describe('Matchline — audited claims stay retracted (#756)', () => {
     const surface = source();
     expect(surface).not.toMatch(/five commits, all on/i);
     expect(surface).not.toMatch(/seventeen substantive commits/i);
-    expect(surface, 'the burst is twelve commits, PRs #350-#361').toMatch(/twelve commits/);
+    // The page no longer states a burst count at all — the #756 follow-up cut
+    // the forensic chronology out of the prioritization record, so there is no
+    // corrected value left to pin. The negative above is what matters: the
+    // overcount must not come back, whether or not a count is stated.
     expect(surface, 'commit-count claims need an as-of date').toMatch(/As of 2026-08-31/i);
   });
 
