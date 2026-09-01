@@ -313,7 +313,7 @@ Measured at the revised head with `wc -w`, the same method as the epic's baselin
 
 | Measure | Baseline | Revised | Change |
 | --- | ---: | ---: | ---: |
-| Whole file (the epic's 4,418 baseline) | 4,418 | 4,202 | **−4.9%** |
+| Whole file (the epic's 4,418 baseline) | 4,418 | 4,203 | **−4.9%** |
 | Body prose, frontmatter excluded | 3,993 | 3,713 | **−7.0%** |
 
 **Neither figure reaches the 20–30% band, and the distance grew with every review round.** The first draft hit −20.8% on body prose. Five automated Codex rounds, the manual Phase 4b correction, and the final CodeRabbit follow-up later it is −7.0%. Two things grew there, both required by the acceptance criteria. The `keyTakeaways` had to carry calibrated language the originals did not—"repeated observation, not controlled measurement" is longer than "measurably better", and that is the point of the change. The `description` and the diagram's `description` both gained the April-2026 snapshot boundary; the manual review added the local-guard and propagation stages the issue requires; the follow-up separated an April 17 response population from the April 16 snapshot.

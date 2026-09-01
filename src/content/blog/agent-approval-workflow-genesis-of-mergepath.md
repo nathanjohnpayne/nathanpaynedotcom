@@ -30,10 +30,10 @@ pullquotes:
 sidebar:
   - type: mermaid
     title: "Seven stages in the agent review system"
-    description: "The system's evolution as of April 2026: instruction files, a local guard and wrapper that check the command text for the required markers rather than parsing a body, server-side branch rules, separate-identity self-review, threshold-triggered external review, automated Codex review, and propagation."
+    description: "The system's evolution as of April 2026: instruction files, then a local hook that greps the command text for the required markers while its companion wrapper verifies the author identity, server-side branch rules, separate-identity self-review, threshold-triggered external review, automated Codex review, and propagation."
     content: |
       graph TD
-          A["Instruction files only<br/>(AGENTS.md, CLAUDE.md)"] --> B["Local guard and wrapper<br/>(marker check on the command)"]
+          A["Instruction files only<br/>(AGENTS.md, CLAUDE.md)"] --> B["Local hook greps the command;<br/>wrapper verifies identity"]
           B --> C["GitHub branch rules<br/>(require PRs)"]
           C --> D["Self-review under<br/>separate identity"]
           D --> E["External review for<br/>complex changes (300+ lines)"]
