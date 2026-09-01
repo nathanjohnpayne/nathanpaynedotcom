@@ -160,11 +160,11 @@ Counts are **words**, via `wc -w` over the whole file, the same method as the ep
 
 | Measure (words) | Baseline | Revised | Change |
 | --- | ---: | ---: | ---: |
-| Whole file (the epic's 4,463 baseline) | 4,463 | 4,670 | **+4.6%** |
+| Whole file (the epic's 4,463 baseline) | 4,463 | 4,687 | **+5.0%** |
 
-**The post ended up 4.6% longer than it started, against guidance asking for 20–30% shorter. Stated plainly because the ledger's job is accuracy, not a favourable number.**
+**The post ended up 5.0% longer than it started, against guidance asking for 20–30% shorter. Stated plainly because the ledger's job is accuracy, not a favourable number.**
 
-The figure moved five times during review and in the end moved the wrong way: −3.8% → −2.1% → −1.2% → −0.8% → +2.2% → **+4.6%**, the last step being the #857 correction, which added a boundary the post had been asserting past. Every review round that corrected a claim also lengthened it, because a corrected claim is almost always a narrower claim, and narrowing costs words. "Nobody had a definition of correctness" is six words; the true version needs a sentence distinguishing a definition that existed from one attached to the work. The same trade recurred for the renderer scope, the duration endpoints, the adopted-rules classification and the session-log caveat.
+The figure moved five times during review and in the end moved the wrong way: −3.8% → −2.1% → −1.2% → −0.8% → +2.2% → **+5.0%**, the last step being the #857 correction, which added a boundary the post had been asserting past. Every review round that corrected a claim also lengthened it, because a corrected claim is almost always a narrower claim, and narrowing costs words. "Nobody had a definition of correctness" is six words; the true version needs a sentence distinguishing a definition that existed from one attached to the work. The same trade recurred for the renderer scope, the duration endpoints, the adopted-rules classification and the session-log caveat.
 
 The compression clause was not met, and #744's carve-out—"with chronology retained where it is evidence"—only ever justified the shortfall, not the growth. What justifies the growth is that seven review rounds found real factual defects, and every fix cost words. That is the honest accounting; a reader can decide whether the trade was worth it. #744's own compression clause is the only one in the epic that carries a carve-out—"with chronology retained where it is evidence"—and after §A1 the chronology *is* the evidence. The corrected arc only works if the reader can see that all six PRs precede the issue, which needs the timestamped table, and that each PR was locally reasonable, which needs the per-PR sections.
 
@@ -278,7 +278,7 @@ Corrected, and the corrected sentence is better than either version. The invaria
 
 ### L2—The compression total was stale for the third time
 
-4,273 words, −4.3% at the time. Every round changes it, because every round trades a shorter wrong claim for a longer right one. **Recompute this table as the last step before pushing, not when writing the section.** It went stale a fourth time in #857: see §J's table, now 4,670 / +4.6%.
+4,273 words, −4.3% at the time. Every round changes it, because every round trades a shorter wrong claim for a longer right one. **Recompute this table as the last step before pushing, not when writing the section.** It went stale a fourth time in #857: see §H's table, now 4,687 / +5.0%.
 
 ---
 
