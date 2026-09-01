@@ -147,20 +147,69 @@ The `resumeProjects` collection must remain separate from the existing
 
 ## Experience density
 
-Vertical space tracks relevance, and **layout controls density, not prose**
-(#618). An experience entry may set `compact: true` in frontmatter; the
-`ExperienceSection` then renders it with the `resume-entry--compact` modifier
-(tighter gaps, a stepped-down title, a 52px rather than 72px logo tile).
+Vertical space tracks relevance. Two separate mechanisms produce it, and
+conflating them is the mistake this section used to invite:
+
+1. **The `compact` flag, which is layout only** (#618). An experience entry may
+   set `compact: true` in frontmatter; the `ExperienceSection` then renders it
+   with the `resume-entry--compact` modifier (tighter gaps, a stepped-down
+   title, a 52px rather than 72px logo tile). It touches no copy, and flipping
+   it back restores full weight without editing a word.
+2. **A one-time prose compression of the three pre-2016 bodies**, applied by
+   hand in #617/#618. This is an edit to the content files, not a rendering
+   mode, and it is **not** what the flag reverses.
 
 The three pre-2016 roles—AJ+ (2013–2016), Current TV (2012–2013), and CNN
 (2002–2012)—are compact, and their bodies are one to two lines each: company,
 role, years, and the most transferable accomplishment. The two Disney entries
-(7 and 4 bullets) and BAMTech keep full weight. Compression is emphasis, never
-erasure: every role keeps its full date range, and the **CNN Magic Wall** stays
-on the page—it is the most memorable line on the résumé.
+(7 and 4 bullets) and BAMTech keep full weight.
 
-The flag is reversible; flipping it back restores full weight without touching
-the copy.
+**What the compression guarantees, and what it does not.** Three things are
+guaranteed, and all three are checkable in `tests/resume.test.js`:
+
+1. Every role keeps its **full date range**.
+2. The **CNN Magic Wall** stays on the page—it is the most memorable line on
+   the résumé.
+3. Every compact entry still carries **its** accomplishment, not a dated
+   one-liner. The test pins the whole distinguishing phrase for each—`$335K in
+   annual vendor savings`, `launching three nightly shows within 30 days`,
+   `Conceptualized and led the CNN Magic Wall`—plus a minimum body length so an
+   entry cannot be reduced to the phrase alone. The phrase and not the striking
+   token in it: pinning `$335K` by itself passes a body saying AJ+ merely
+   *managed* a $335K budget, which keeps the number and drops the fact. "A real accomplishment" is not something a
+   test can recognise; the specific fact each role retains is, which is why the
+   guarantee is written as three named facts rather than a quality bar.
+
+Past those three, the compressed bodies drop specific facts and not merely
+words. That is the intended trade, not a defect:
+
+- `ajplus.md` no longer names the Adobe CQ CMS publishing pipeline or its
+  syndication to YouTube and Comcast Xfinity.
+- `cnn.md` keeps the $2M project capital budgets and drops the $60M operating
+  budget they were managed against.
+- `current-tv.md` says "three nightly shows" in place of *Joy Behar: Say
+  Anything*, *The Gavin Newsom Show*, and *The War Room with Jennifer
+  Granholm*.
+
+Every one of those facts is still in the canonical resume—
+`job-search/nathan-payne-resume.md` in the private `nathanjohnpayne/docs`
+repository, checked out locally at `~/GitHub/docs/`—verified against that file
+rather than assumed; see
+*Content fidelity* below for which document is the source. The page is a
+three-page document and the pre-2016 roles are the ones whose detail earns the
+least of that space.
+
+An earlier revision of this section read "compression is emphasis, never
+erasure." It over-claimed (#735): the sentence promises something about every
+fact, while what this section guarantees—and what the tests check—is the three
+items above. The scoped statement is the honest one, and it is the one a reader
+can check.
+
+The flag is reversible in the sense given above: unset `compact: true` and the
+entry renders at full weight. That restores the *layout*, not the prose. The
+dropped facts are an editorial decision recorded here. Undoing one means
+copying it back from the canonical resume, which still holds every omitted
+fact—the canonical is the source and needs no edit.
 
 ## Downloadable PDF
 
@@ -320,8 +369,31 @@ icon-library dependency.
 
 ## Content fidelity
 
-The content is authored **verbatim** from the canonical resume—not
-paraphrased. In particular:
+The content is authored **verbatim** from the canonical resume—
+`job-search/nathan-payne-resume.md` in the private `nathanjohnpayne/docs`
+repository, which is the single source document, not a directory of
+variants—not paraphrased. The contract binds the **collection-backed bodies**—the `myself`, `experience`,
+`education`, `certifications`, and `resumeProjects` entries—and it is about
+*fidelity*, not *completeness*: a sentence in those bodies appears as the
+canonical writes it, and they may carry less than the canonical does, but never
+something it does not say and never a rewording of what it does.
+
+**The sidebar highlight cards are deliberately outside it.** They are marquee
+metrics composed in `src/pages/resume.astro`, condensed to fit a card: the NCP
+card reads "Conceived and secured an $18.1M investment in NCPv3" where the
+canonical reads "Conceived and secured **approval for** an $18.1M investment in
+NCPv3." That is a paraphrase by design, and scoping the contract this way is
+what keeps it from classifying the shipped implementation as drift.
+
+The three compact pre-2016 bodies are where that distinction is load-bearing:
+they omit facts the canonical retains (see *Experience density* above, which
+names them). Those omissions are accepted, not drift. Drift would be a
+*divergent* sentence—the failure mode #850 recorded, where the canonical said
+one thing and the mirror said another—and nothing in this repository compares
+the two surfaces automatically, so it is worth knowing which failure you are
+looking at.
+
+In particular:
 
 - The CSP-PO certification is attributed to **Scrum Alliance** (the
   credentialing body), not the training provider.
