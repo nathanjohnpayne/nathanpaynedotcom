@@ -272,6 +272,24 @@ describe('Content Schema', () => {
     expect(featured.map((file) => file.name)).toEqual(['six-prs-one-bug-agent-failure-modes.md']);
   });
 
+  // The literal below is deliberately NOT an import of `BLOG_CATEGORIES` from
+  // `src/lib/blog-order.ts`, the array `src/content.config.ts` builds its
+  // `z.enum` from (#737). Importing it would make this assertion restate the
+  // schema instead of checking anything: a third category added to that array
+  // would be accepted here the moment it was declared, and every published
+  // post would satisfy an enum widened in the same edit.
+  //
+  // The two assertions have different subjects, and both are wanted. The enum
+  // itself is pinned by `tests/blog-order.test.js` ("uses one ranked category
+  // vocabulary"), which fails when the production array changes. This one is
+  // about the *content*: no post carries a category outside the pair the
+  // editorial surfaces are built for. Keeping it independent is what makes
+  // widening the vocabulary a two-file decision rather than a one-line one.
+  //
+  // The wiring between the schema and the enum — that `content.config.ts`
+  // imports `BLOG_CATEGORIES` rather than duplicating the strings — is covered
+  // above, by source assertion, so nothing here depends on this literal to
+  // catch a drifting schema.
   it('assigns every published post to one of the two editorial categories', () => {
     const allowedCategories = ['Agent Systems', 'Building This Site'];
 
