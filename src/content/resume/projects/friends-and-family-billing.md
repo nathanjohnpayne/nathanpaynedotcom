@@ -5,4 +5,4 @@ url: "https://friends-and-family-billing.web.app"
 order: 7
 ---
 
-Cloud-synced shared-bill tool for recurring group expenses, annual invoices, payment tracking, and shareable summaries. Source of the "Six PRs, One Bug" AI-debugging case study.
+Shared billing for recurring household costs that shows recipients the arithmetic, tracks settlement, and handles questions without requiring an account. Built for nine people across five households.

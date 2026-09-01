@@ -8,9 +8,21 @@
  * Section/heading scaffolding via the shared ResumeSection wrapper (#471).
  */
 import ResumeSection from './ResumeSection.astro';
-import { render } from 'astro:content';
+import { getCollection, render } from 'astro:content';
 
 const { entries } = Astro.props;
+
+// Lifecycle status, looked up by slug from the `projects` collection rather
+// than restated here — a resume entry's id is its project slug. Rendered as
+// plain text, not the site's marker geometry: this section also prints to PDF
+// and is read by applicant tracking systems, where portability beats extending
+// the visual language.
+const projectStatus = Object.fromEntries(
+  (await getCollection('projects', ({ data }) => !data.draft)).map((project) => [
+    project.data.slug,
+    project.data.status,
+  ]),
+);
 const sorted = [...entries].sort((a, b) => a.data.order - b.data.order);
 const rendered = await Promise.all(
   sorted.map(async (entry) => ({ entry, Content: (await render(entry)).Content })),
@@ -23,11 +35,12 @@ function displayUrl(url: string): string {
 ---
 
 <ResumeSection type="projects" heading="Projects"><p class="resume-projects__lead">
-    <strong>Built with Agents</strong> –
+    <strong>Selected Projects</strong> –
     <a href="/projects/">nathanpayne.com/projects <span class="link-arrow" aria-hidden="true">→</span></a>
   </p>
   <p class="resume-projects__desc">
-    Each one a real problem turned into a systems design exercise—from first commit to deploy.
+    Products across consumer, enterprise, finance, and developer tooling. Built with AI agents;
+    case studies focus on the decisions, tradeoffs, and evidence behind them.
   </p>
   {rendered.map(({ entry, Content }) => {
     const d = entry.data;
@@ -37,6 +50,9 @@ function displayUrl(url: string): string {
       <article class="resume-entry">
         <h3 class="resume-entry__title">
           <a href={projectHref}>{d.name}</a>
+          {projectStatus[entry.id] && (
+            <span class="resume-entry__status"> &mdash; {projectStatus[entry.id]}</span>
+          )}
         </h3>
         <p class="resume-entry__tech">{d.tech.join(' · ')}</p>
         {link && (

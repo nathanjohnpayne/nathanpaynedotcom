@@ -5,4 +5,4 @@ url: "https://device-source-of-truth.web.app"
 order: 4
 ---
 
-A fork of the internal Disney Streaming platform I built to consolidate partner-device data—hardware, DRM, codec support, and operational readiness—converting fragmented intake feeds (questionnaires, telemetry, spreadsheets) into structured, queryable records behind role-gated, preview-then-commit imports. The fork runs entirely on data invented for it, so it can be shown; the production records and the repository remain private.
+Device intelligence platform that unified five fragmented partner-data feeds into one registry, with AI-assisted questionnaire extraction and human authority over consequential commits. Public fork uses entirely synthetic data; production data and repository remain private.

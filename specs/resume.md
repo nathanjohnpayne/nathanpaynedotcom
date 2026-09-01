@@ -103,10 +103,29 @@ The `resumeProjects` collection must remain separate from the existing
   deliberate—see *Styling* below; the resume must not move when the blog
   layout does.
 - **Projects** opens with the same compact lead pattern before its entries:
-  a bold **Built with Agents** tag, a link to the project index
-  (nathanpayne.com/projects → `/projects/`), and a one-line intro
-  (`.resume-projects__lead` / `.resume-projects__desc`, sharing the Writing
-  lead styling).
+  a bold **Selected Projects** tag, a link to the project index
+  (nathanpayne.com/projects → `/projects/`), and a two-line intro naming the
+  domains before the method (`.resume-projects__lead` /
+  `.resume-projects__desc`, sharing the Writing lead styling). The tag read
+  **Built with Agents** until the portfolio work subordinated the
+  implementation method to the product across `/projects/` and the homepage;
+  the retired framing, and the retired "systems design exercise—from first
+  commit to deploy" intro, are both pinned as negative assertions in
+  `tests/resume.test.js` so they cannot return. That intro was also
+  specifically wrong for a project that never launched.
+- **Each Projects entry carries its lifecycle status** after the name
+  (`.resume-entry__status`), rendered as plain uppercase text—`SHIPPED`,
+  `ARCHIVED`, `PAUSED`, `EXPERIMENT`, `IN PROGRESS`. **Not** the
+  `.state-marker` geometry the homepage and `/projects/` use: this section
+  prints to PDF and is parsed by applicant tracking systems, where
+  portability beats extending the visual language.
+
+  The value is **looked up from the `projects` collection by slug**, not
+  authored in `src/content/resume/projects/`—a résumé entry's id is its
+  project slug. A project's status therefore has exactly one source, and the
+  résumé cannot drift from the project page. `tests/resume.test.js` asserts
+  every entry carries one, that each is a valid lifecycle value, and that the
+  set is mixed.
 
 ## Semantics & structure
 
