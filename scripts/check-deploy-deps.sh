@@ -468,10 +468,59 @@ const binDir = "node_modules/.bin";
   // else — including the plain `node` calls this package.json makes in
   // prebuild. `npm ci` recreates .bin from the lockfile and would not have it.
   try {
+    // npm writes THREE files per declared bin on Windows — `astro`, `astro.cmd`
+    // and `astro.ps1` — via cmd-shim, which creates and chmods all three
+    // together. `expected` is keyed by the bare name, so the companions would
+    // read as undeclared and both deploy aliases would refuse immediately after
+    // the `npm ci` this script tells you to run. Two other paths here already
+    // branch on win32; this one was the odd one out.
+    // Exempting a companion on its NAME alone reopens the hole this scan
+    // exists to close, one suffix over: on Windows `npm run build` executes
+    // astro.cmd, not astro, so a stale or tampered companion beside a correct
+    // bare shim would be the command that actually runs. A companion is
+    // therefore held to the same standard as the shim it accompanies — it has
+    // to reference one of the declared targets of its base name.
+    const WINDOWS_SHIM_SUFFIXES = [".cmd", ".ps1"];
+
+    const companionBase = (fileName) => {
+      for (const suffix of WINDOWS_SHIM_SUFFIXES) {
+        if (!fileName.endsWith(suffix)) continue;
+        const base = fileName.slice(0, -suffix.length);
+        if (expected.has(base)) return base;
+      }
+      return null;
+    };
+
+    // cmd-shim writes a wrapper that NAMES its target, so the contents are the
+    // only thing to check — there is no link to resolve.
+    const companionNamesTarget = (fileName, base) => {
+      let text = "";
+      try {
+        text = readFileSync(`${binDir}/${fileName}`, "utf8");
+      } catch {
+        return false;
+      }
+      return expected
+        .get(base)
+        .targets.some(({ rel }) => text.includes(rel.replace(/^\.\//, "")));
+    };
+
     for (const entry of readdirSync(binDir, { withFileTypes: true })) {
       if (entry.name.startsWith(".")) continue;
       if (expected.has(entry.name)) continue;
-      rows.push([`.bin/${entry.name}`, "(not in lockfile)", "undeclared shim"].join("\t"));
+
+      const base = companionBase(entry.name);
+      if (base === null) {
+        rows.push([`.bin/${entry.name}`, "(not in lockfile)", "undeclared shim"].join("\t"));
+        continue;
+      }
+      if (!companionNamesTarget(entry.name, base)) {
+        rows.push([
+          `.bin/${entry.name}`,
+          expected.get(base).version,
+          "(companion shim points elsewhere)",
+        ].join("\t"));
+      }
     }
   } catch {}
 
