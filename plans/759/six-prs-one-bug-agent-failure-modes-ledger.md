@@ -106,7 +106,7 @@ Counting *all* review submissions instead gives 19. Neither is nine. If the figu
 
 ### D1—"Editor = Preview = Sent email"
 
-**UNPROVABLE as stated, because it reads as byte or visual equality.** The final architecture still renders the editor DOM separately and shares a renderer only between preview and sent-email HTML; the payload additionally has separate HTML and text builders. Defensible form: state it as semantic/content parity—the same document model produces all three, and text that is not bold in the editor is not bold anywhere downstream—and name which outputs legitimately differ. Issue #159's own "Expected behavior" section is written this way and is the better source: "Text that is not bold in the editor must not become bold in Preview or sent email." Source: `gh api repos/.../issues/159` → `.body`, § Expected behavior.
+**UNPROVABLE as stated, because it reads as byte or visual equality—and the corrected value below is itself wrong, see §N.** The final architecture still renders the editor DOM separately and shares a renderer only between the preview and the **test** email; the recipient's invoice is on neither, and the payload additionally has separate HTML and text builders. Defensible form: state it as semantic/content parity—the same document model produces all three, and text that is not bold in the editor is not bold anywhere downstream—and name which outputs legitimately differ. **The clause "the same document model produces all three" does not survive §C40 of `plans/759/project-pages-ledger.md`:** the recipient invoice is produced by the plain-text bridge, so it is three surfaces and two renderers. Issue #159's own "Expected behavior" section is written this way and is the better source: "Text that is not bold in the editor must not become bold in Preview or sent email." Source: `gh api repos/.../issues/159` → `.body`, § Expected behavior.
 
 ### D2—"One semantic rendering path"
 
@@ -138,7 +138,7 @@ Counting *all* review submissions instead gives 19. Neither is nine. If the figu
 | #154 fixed `useEditor` recreating the editor on every keystroke | `#154.title` |
 | #155 converted bold, italic and links in legacy templates | `#155.title` |
 | #158 extracted `template-doc.js` | `#158.title` |
-| #161 was authored under the Codex identity and fixed rendering parity | `#161.title` |
+| #161 was authored under the Codex identity and fixed rendering parity **on the preview and the test email** | `#161.title`; scope corrected per §N—the recipient invoice was never on the canonical path |
 | The whole arc spans roughly twenty hours | 22 h 06 m, §A1 |
 
 ---

@@ -232,7 +232,7 @@ Every line maps to the record—the CSS patch in [#153](https://github.com/natha
 
 ## What the fix changed
 
-Lined up side by side, the prior attempts shared one assumption: every one preserved the markdown bridge. The fix removed it. The core addition is a canonical renderer for invoice templates:
+Lined up side by side, the prior attempts shared one assumption: every one preserved the markdown bridge. The fix removed it from the preview and the test email—not, as it turns out, from the path the recipient's invoice takes, which is the subject of the correction below. The core addition is a canonical renderer for invoice templates:
 
 ```js
 export function buildInvoiceTemplateEmailPayload(ctx, shareUrl) {
