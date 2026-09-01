@@ -182,7 +182,7 @@ describe('Project Pages — routes', () => {
     expect(deckText).toMatch(/^Every one of these began as a real problem/);
     const problemAt = deckText.indexOf('real problem');
     const decisionAt = deckText.indexOf('decisions are the part worth reading');
-    const outcomeAt = deckText.indexOf('shipped; the rest are');
+    const outcomeAt = deckText.indexOf('shipped; every other card says');
     const agentAt = deckText.indexOf('I build with AI agents');
     for (const [label, at] of Object.entries({ problemAt, decisionAt, outcomeAt, agentAt })) {
       expect(at, `deck is missing its ${label} beat`).toBeGreaterThan(-1);

@@ -22,7 +22,7 @@ const projects = defineCollection({
       // card edit, and pushed the card spread to 107-244 characters (#751).
       // Falls back to `description` when absent, so a project that wants one
       // line on both surfaces simply omits it.
-      cardDescription: z.string().optional(),
+      cardDescription: z.string().trim().min(1).optional(),
       kicker: z.string(),
       // Non-negative integer: `accent` is derived as RAMP[order % 5], so a
       // fractional or negative value has no position in that walk. YAML numeric
