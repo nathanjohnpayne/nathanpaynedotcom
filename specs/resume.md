@@ -155,9 +155,33 @@ Vertical space tracks relevance, and **layout controls density, not prose**
 The three pre-2016 roles—AJ+ (2013–2016), Current TV (2012–2013), and CNN
 (2002–2012)—are compact, and their bodies are one to two lines each: company,
 role, years, and the most transferable accomplishment. The two Disney entries
-(7 and 4 bullets) and BAMTech keep full weight. Compression is emphasis, never
-erasure: every role keeps its full date range, and the **CNN Magic Wall** stays
-on the page—it is the most memorable line on the résumé.
+(7 and 4 bullets) and BAMTech keep full weight.
+
+**What the compression guarantees, and what it does not.** Two things are
+guaranteed, and both are checkable: every role keeps its full date range, and
+the **CNN Magic Wall** stays on the page—it is the most memorable line on the
+résumé. Past those two, the compressed bodies drop specific facts and not
+merely words. That is the intended trade, not a defect:
+
+- `ajplus.md` no longer names the Adobe CQ CMS publishing pipeline or its
+  syndication to YouTube and Comcast Xfinity.
+- `cnn.md` keeps the $2M project capital budgets and drops the $60M operating
+  budget they were managed against.
+- `current-tv.md` says "three nightly shows" in place of *Joy Behar: Say
+  Anything*, *The Gavin Newsom Show*, and *The War Room with Jennifer
+  Granholm*.
+
+Every one of those facts is still in the canonical resume under
+`~/GitHub/docs/job-search/`, verified against it rather than assumed; see
+*Content fidelity* below for which document is the source. The page is a
+three-page document and the pre-2016 roles are the ones whose detail earns the
+least of that space.
+
+An earlier revision of this section read "compression is emphasis, never
+erasure." It over-claimed (#735): the sentence promises something about every
+fact, while what this section guarantees—and what the acceptance criteria
+below test—is the date ranges and the Magic Wall line. The scoped statement is
+the honest one, and it is the one a reader can check.
 
 The flag is reversible; flipping it back restores full weight without touching
 the copy.
