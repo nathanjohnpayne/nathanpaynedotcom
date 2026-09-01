@@ -424,4 +424,21 @@ describe('check-deploy-deps.sh', () => {
     expect(result.status).toBe(1);
     expect(result.output).toContain('package-lock.json');
   });
+
+  it('honours the break-glass on the missing-lockfile path too', () => {
+    // Codex P2 on #903. This refusal used to `exit 1` directly, so the
+    // documented override worked for malformed lockfiles and for version drift
+    // but not for the most drastic case of all — a break-glass that silently
+    // does not cover the condition someone reaching for it is most likely
+    // hitting.
+    const result = runCheck({
+      packages: {},
+      installed: {},
+      omitLock: true,
+      env: { DEPLOY_ALLOW_DEP_DRIFT: '1' },
+    });
+
+    expect(result.status).toBe(0);
+    expect(result.output).toContain('DEPLOY_ALLOW_DEP_DRIFT=1');
+  });
 });

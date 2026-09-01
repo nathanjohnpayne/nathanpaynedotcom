@@ -46,7 +46,22 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT_DIR"
 
 if [[ ! -f package-lock.json ]]; then
-  echo "⚠  package-lock.json not found at ${ROOT_DIR}; cannot verify dependencies." >&2
+  {
+    echo ""
+    echo "⚠  Refusing to deploy: package-lock.json not found at ${ROOT_DIR}."
+    echo ""
+    echo "   There is nothing to verify the installed tree against."
+    echo ""
+  } >&2
+  # Routed through the same override as every other refusal here. An early
+  # `exit 1` would make DEPLOY_ALLOW_DEP_DRIFT=1 work for malformed lockfiles
+  # and version drift but not for a missing one — a documented break-glass
+  # that silently does not cover its most drastic case.
+  if [[ "${DEPLOY_ALLOW_DEP_DRIFT:-}" == "1" ]]; then
+    echo "   DEPLOY_ALLOW_DEP_DRIFT=1 set — continuing anyway." >&2
+    echo "" >&2
+    exit 0
+  fi
   exit 1
 fi
 
