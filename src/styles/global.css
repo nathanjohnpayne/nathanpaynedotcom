@@ -2530,6 +2530,49 @@ body.blog-page {
    chrome at the top of the page rather than with marketing tiles.
    Fixed column counts (4-up, 2×2 under --bp-tablet) instead of
    auto-fit, so the dotted internal rules stay deterministic. */
+/* Experience Unit exhibit (#756 follow-up). One real Unit quoted from the
+   matchline evaluation corpus, rendered as a labelled record so the reader
+   sees what the schema above actually produces. Chrome, not prose: the
+   default dl spacing is neutralized, and the label column collapses above
+   the value on phones rather than squeezing it. */
+.project-copy .unit-exhibit {
+  margin: 1.25rem 0 0;
+  border: 1px solid var(--rule);
+  display: grid;
+}
+
+.project-copy .unit-exhibit > div {
+  display: grid;
+  grid-template-columns: minmax(6rem, 9rem) 1fr;
+  gap: clamp(0.5rem, 2vw, 1.25rem);
+  padding: clamp(0.65rem, 1.4vw, 0.9rem) clamp(0.75rem, 1.6vw, 1rem);
+  min-width: 0;
+}
+
+.project-copy .unit-exhibit > div + div {
+  border-top: 1px dotted var(--rule);
+}
+
+.project-copy .unit-exhibit dt {
+  margin: 0;
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, currentColor 62%, transparent);
+}
+
+.project-copy .unit-exhibit dd {
+  margin: 0;
+  min-width: 0;
+}
+
+@media (max-width: 34rem) {
+  .project-copy .unit-exhibit > div {
+    grid-template-columns: 1fr;
+    gap: 0.2rem;
+  }
+}
+
 .project-copy .constraint-strip {
   list-style: none;
   margin: 0.5rem 0 0;
