@@ -182,7 +182,7 @@ describe('Project Pages — routes', () => {
     expect(deckText).toMatch(/^Every one of these began as a real problem/);
     const problemAt = deckText.indexOf('real problem');
     const decisionAt = deckText.indexOf('decisions are the part worth reading');
-    const outcomeAt = deckText.indexOf('shipped and are live');
+    const outcomeAt = deckText.indexOf('shipped; the rest are');
     const agentAt = deckText.indexOf('I build with AI agents');
     for (const [label, at] of Object.entries({ problemAt, decisionAt, outcomeAt, agentAt })) {
       expect(at, `deck is missing its ${label} beat`).toBeGreaterThan(-1);
@@ -1136,8 +1136,12 @@ describe('Projects index — portfolio thesis (#751)', () => {
     // AC4. The order is editorial and `order` is also what derives each project
     // page's accent (RAMP[order % 5]), so a re-sort silently re-colors pages —
     // including one whose hero art is only legible on its current accent (#784).
+    // `/projects/` filters `!data.draft`; mirror that here or a legitimately
+    // drafted project fails these exact assertions while the rendered index
+    // stays correct.
     const orders = projectSourceFiles()
       .map((file) => readProjectFrontmatter(file))
+      .filter((data) => data.draft !== true)
       .map((data) => ({ order: data.order, title: data.title, status: data.status }))
       .sort((a, b) => a.order - b.order);
 
@@ -1160,6 +1164,7 @@ describe('Projects index — portfolio thesis (#751)', () => {
       /\b(React|TypeScript|Vite|Tailwind|Firebase|Next\.js|Astro|Vitest|vanilla JS)\b/;
     for (const file of projectSourceFiles()) {
       const data = readProjectFrontmatter(file);
+      if (data.draft === true) continue;
       const line = cardLine(data);
       expect(line, `${file} has no card line`).toBeTruthy();
       expect(line, `${file} card line reads as a stack summary`).not.toMatch(stackish);
@@ -1171,7 +1176,10 @@ describe('Projects index — portfolio thesis (#751)', () => {
     // AC5. The ticket named Mergepath; by the time it was implemented the
     // outlier was Matchline at 244 characters against a 107-character floor.
     // Pin the band rather than the culprit.
-    const lengths = projectSourceFiles().map((file) => cardLine(readProjectFrontmatter(file)).length);
+    const lengths = projectSourceFiles()
+      .map((file) => readProjectFrontmatter(file))
+      .filter((data) => data.draft !== true)
+      .map((data) => cardLine(data).length);
     const shortest = Math.min(...lengths);
     const longest = Math.max(...lengths);
     expect(longest).toBeLessThanOrEqual(200);
@@ -1241,7 +1249,7 @@ describe('Projects index — CTA vocabulary does not compete with status (#751)'
       .map((card) => card.querySelector('.post-title a')?.textContent);
     const expected = projectSourceFiles()
       .map((file) => readProjectFrontmatter(file))
-      .filter((data) => data.liveUrl)
+      .filter((data) => data.draft !== true && data.liveUrl)
       .sort((a, b) => a.order - b.order)
       .map((data) => data.title);
     expect(withCta).toEqual(expected);
