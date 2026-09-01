@@ -24,6 +24,20 @@ const SRC = resolve(ROOT, 'src');
 const isCode = (file) => /\.(astro|ts|js|mjs)$/.test(file);
 
 /**
+ * The sweep walks `src/` and nothing else, deliberately.
+ *
+ * A test that restates a vocabulary is not a second copy — it is how you detect
+ * the source changing, and it only works by staying independent. #737/#912 make
+ * that explicit for the blog categories: `tests/content-schema.test.js` holds
+ * the literal pair on purpose, because importing `BLOG_CATEGORIES` would let a
+ * widened enum satisfy the assertion the moment it was widened. The same is
+ * true of the six-row palette restated in `tests/index-grid.test.js`.
+ *
+ * Scanning `tests/` would flag both and push people toward exactly the imports
+ * that make those assertions vacuous.
+ */
+
+/**
  * Repo-relative path with forward slashes on every platform.
  *
  * `findFilesRecursively` joins with `node:path`, so `relative()` hands back
@@ -35,6 +49,32 @@ const isCode = (file) => /\.(astro|ts|js|mjs)$/.test(file);
  * Same class as the CRLF gap #908 hit, in a repo where #906 was a Windows fix.
  */
 export const toPosix = (path) => path.split('\\').join('/');
+
+/**
+ * Drop whole-line comments before a predicate reads the source.
+ *
+ * Codex: a `src/` file that merely DISCUSSES a vocabulary in prose — say
+ * `// rows run grid-row--1 through grid-row--4, accent-red first` — trips a
+ * raw-text predicate and reds a required gate over a sentence. A guard that
+ * fails a correct tree gets deleted, which is the same reason the Windows
+ * path bug mattered.
+ *
+ * Whole-line only, and deliberately not a comment parser. Stripping trailing
+ * `//` mid-line means deciding whether it sits inside a string, and a regex
+ * that gets that wrong eats real code — turning a loud false positive into a
+ * silent false negative. Silent failure is this PR's entire subject, so the
+ * trade only goes one way: a prose line that opens with a comment marker is
+ * safe to drop, anything else is left for the predicate to judge. A
+ * commented-out copy is dropped too, correctly — it declares nothing.
+ */
+export const stripCommentLines = (source) =>
+  source
+    .split('\n')
+    .filter((line) => !/^\s*(?:\/\/|\/\*|\*|<!--)/.test(line))
+    .join('\n');
+
+/** Single entry point, so samples and the sweep go through the same pipeline. */
+export const declaresIn = (entry, source) => entry.declares(stripCommentLines(source));
 
 const walkSrc = () => findFilesRecursively(SRC, isCode).map((file) => toPosix(relative(SRC, file)));
 
@@ -64,6 +104,8 @@ export const SINGLE_SOURCES = [
       "import { BLOG_CATEGORIES } from './lib/blog-order';",
       'category: z.enum(BLOG_CATEGORIES),',
       'const category = post.data.category;',
+      "// 'Agent Systems' remains the first category",
+      ' * The vocabulary is `Agent Systems` and `Building This Site`.',
     ],
     importers: ['content.config.ts', 'pages/index.astro', 'pages/blog/index.astro'],
   },
@@ -88,6 +130,8 @@ export const SINGLE_SOURCES = [
       '<div class="grid-row--rss">',
       "const t = { rowClass: 'data-table__row', accentClasses: ['muted'] };",
       'class="accent-red"',
+      '// rows run grid-row--1 through grid-row--4, accent-red first',
+      ' * grid-row--overflow-a carries accent-blue.',
     ],
     importers: ['pages/projects/index.astro', 'pages/blog/index.astro'],
   },
@@ -123,28 +167,28 @@ export function assertSoleDeclaration(entry) {
   // is a disjunction for two of the three entries, so one dead branch hides
   // behind a live one. The samples exercise the branches individually.
   expect(
-    entry.declares(readFileSync(resolve(ROOT, entry.module), 'utf-8')),
+    declaresIn(entry, readFileSync(resolve(ROOT, entry.module), 'utf-8')),
     `${entry.label}: declares() does not match ${entry.module} itself, so the sweep ` +
       'below would report zero offenders no matter what src/ contains.',
   ).toBe(true);
 
   for (const sample of entry.samples) {
     expect(
-      entry.declares(sample),
+      declaresIn(entry, sample),
       `${entry.label}: declares() misses a known declaration — ${sample}`,
     ).toBe(true);
   }
 
   for (const sample of entry.counterSamples) {
     expect(
-      entry.declares(sample),
+      declaresIn(entry, sample),
       `${entry.label}: declares() false-positives on a non-declaration — ${sample}`,
     ).toBe(false);
   }
 
   const offenders = walkSrc()
     .filter((file) => file !== own)
-    .filter((file) => entry.declares(readFileSync(resolve(SRC, file), 'utf-8')))
+    .filter((file) => declaresIn(entry, readFileSync(resolve(SRC, file), 'utf-8')))
     .map((file) => `src/${file}`);
 
   expect(offenders, `${entry.label} declared outside ${entry.module}`).toEqual([]);
