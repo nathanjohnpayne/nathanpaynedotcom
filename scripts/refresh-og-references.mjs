@@ -24,6 +24,11 @@
  * its name. The flattening is mechanical so the mapping stays predictable —
  * the one hand-abbreviated legacy name is replaced by its full slug.
  *
+ * **The flatten is not injective**, and the script refuses rather than guesses:
+ * `blog/foo/bar.png` and `blog/foo-bar.png` both map to `blog-foo-bar.png`, so
+ * a nested route could silently overwrite a sibling's reference while the run
+ * still reported success. Collisions abort before anything is copied.
+ *
  * Usage:
  *   npm run build && node scripts/refresh-og-references.mjs
  *   node scripts/refresh-og-references.mjs --dry-run
@@ -66,7 +71,27 @@ if (built.length === 0) {
   process.exit(1);
 }
 
-const expected = new Set(built.map(flatten));
+// Detect collisions before writing anything. Two source paths flattening to
+// one reference name would leave a missing card behind a successful-looking
+// run, which is the same misleading-reviewer failure this script exists to fix.
+const byName = new Map();
+for (const relPath of built) {
+  const name = flatten(relPath);
+  byName.set(name, [...(byName.get(name) ?? []), relPath]);
+}
+const collisions = [...byName.entries()].filter(([, sources]) => sources.length > 1);
+if (collisions.length > 0) {
+  console.error('[refresh-og-references] flattened-name collisions; nothing was written:');
+  for (const [name, sources] of collisions) {
+    console.error(`  ${name} <- ${sources.join(', ')}`);
+  }
+  console.error(
+    '  Rename one of the source routes, or teach flatten() an unambiguous encoding.',
+  );
+  process.exit(1);
+}
+
+const expected = new Set(byName.keys());
 mkdirSync(TARGET, { recursive: true });
 
 let written = 0;
