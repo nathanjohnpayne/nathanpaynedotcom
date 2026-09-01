@@ -140,8 +140,8 @@ may be removed later without affecting the other.
      the signature above—a 1024×768 viewport on an 800×600 screen, under the
      same Edge 122 / Windows 10 UA—from two OVH hosting ranges that PostHog
      geolocates to different countries. Across 180 days these two issues are
-     the only `$exception` events the project has recorded, and every one of
-     the twelve carries that one impossible fingerprint.
+     the only `$exception` events the project has recorded, and every event
+     under both carries that one impossible fingerprint.
    - `stacktrace.type` is `resolved`, but the frame list is empty, so nothing
      resolves and no source can be attributed. This is recorded as observed
      rather than inherited: it differs from the `?` signature, whose synthetic
