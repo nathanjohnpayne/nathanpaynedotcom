@@ -47,17 +47,25 @@ const rulesText = readFileSync(rulesPath, 'utf-8').replace(/\r\n/g, '\n');
 const manifest = JSON.parse(readFileSync(resolve(rootDir, 'package.json'), 'utf-8'));
 const lockfile = JSON.parse(readFileSync(resolve(rootDir, 'package-lock.json'), 'utf-8'));
 
-const PIN_BLOCK = /<!--\s*toolchain-pins:begin[\s\S]*?-->\s*```json\n([\s\S]*?)\n```\s*<!--\s*toolchain-pins:end\s*-->/;
+const PIN_BLOCK =
+  /<!--\s*toolchain-pins:begin[\s\S]*?-->\s*```json\n([\s\S]*?)\n```\s*<!--\s*toolchain-pins:end\s*-->/g;
 
 function readPinBlock() {
-  const match = rulesText.match(PIN_BLOCK);
-  if (!match) {
+  // Exactly one, not "the first one". A second block would make the file
+  // ambiguous about which pins are authoritative, and taking the first match
+  // silently answers that question the wrong way — an added block above the
+  // documented one would redirect every assertion and leave the block the
+  // prose points at unchecked. That is this section's own failure mode
+  // reproduced inside its guard, so it is an error rather than a preference.
+  const matches = [...rulesText.matchAll(PIN_BLOCK)];
+  if (matches.length !== 1) {
     throw new Error(
-      'rules/repo_rules.md has no toolchain-pins block. Expected a fenced ```json block ' +
-        'between <!-- toolchain-pins:begin --> and <!-- toolchain-pins:end -->.',
+      `rules/repo_rules.md must contain exactly one toolchain-pins block; found ${matches.length}. ` +
+        'Expected a fenced ```json block between <!-- toolchain-pins:begin --> and ' +
+        '<!-- toolchain-pins:end -->.',
     );
   }
-  return JSON.parse(match[1]);
+  return JSON.parse(matches[0][1]);
 }
 
 const pins = readPinBlock();
