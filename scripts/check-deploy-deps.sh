@@ -223,9 +223,8 @@ for (const [path, meta] of Object.entries(packages)) {
 // The loop above only ever looks at packages the lockfile knows about, so a
 // package installed with --no-save, or left behind after a dependency was
 // removed, is invisible to it. `npm ci` deletes node_modules outright, so CI
-// never has one. Top level and one scope deep is where a hand-run install
-// lands; walking the whole nested tree would cost more than it catches.
-const installedTopLevel = [];
+// never has one.
+const installedPaths = [];
 // A symlink is NOT isDirectory() in a Dirent — npm and pnpm both link workspace
 // and `npm link`ed packages, so testing isDirectory() alone skips exactly the
 // hand-installed cases this scan exists to catch. statSync follows the link; a
@@ -241,26 +240,52 @@ const isPackageDir = (path, entry) => {
   }
 };
 
-for (const entry of readdirSync("node_modules", { withFileTypes: true })) {
-  if (!isPackageDir(`node_modules/${entry.name}`, entry)) continue;
-  if (entry.name.startsWith("@")) {
-    for (const scoped of readdirSync(`node_modules/${entry.name}`, { withFileTypes: true })) {
-      if (isPackageDir(`node_modules/${entry.name}/${scoped.name}`, scoped))
-        installedTopLevel.push(`${entry.name}/${scoped.name}`);
-    }
-  } else {
-    installedTopLevel.push(entry.name);
+// Recursive, because the lockfile keys nested installs by their full path
+// (`node_modules/parent/node_modules/child`), so a nested package can be
+// compared exactly like a hoisted one — there is no ambiguity to be noisy
+// about. It matters because Node resolves a nested copy ahead of the hoisted
+// one, so an obsolete package left under a parent changes the build while a
+// top-level-only scan reports a clean tree.
+const collectInstalled = (dir) => {
+  let entries;
+  try {
+    entries = readdirSync(dir, { withFileTypes: true });
+  } catch {
+    return;
   }
-}
 
-for (const name of installedTopLevel) {
-  if (packages[`node_modules/${name}`]) continue;
-  if (!existsSync(`node_modules/${name}/package.json`)) continue;
+  for (const entry of entries) {
+    const path = `${dir}/${entry.name}`;
+    if (!isPackageDir(path, entry)) continue;
+
+    if (entry.name.startsWith("@")) {
+      // A scope directory is not itself a package; its children are.
+      for (const scoped of readdirSync(path, { withFileTypes: true })) {
+        const scopedPath = `${path}/${scoped.name}`;
+        if (!isPackageDir(scopedPath, scoped)) continue;
+        installedPaths.push(scopedPath);
+        collectInstalled(`${scopedPath}/node_modules`);
+      }
+      continue;
+    }
+
+    installedPaths.push(path);
+    collectInstalled(`${path}/node_modules`);
+  }
+};
+
+collectInstalled("node_modules");
+
+for (const path of installedPaths) {
+  if (packages[path]) continue;
+  if (!existsSync(`${path}/package.json`)) continue;
   let version = "unknown";
   try {
-    version = JSON.parse(readFileSync(`node_modules/${name}/package.json`, "utf8")).version;
+    version = JSON.parse(readFileSync(`${path}/package.json`, "utf8")).version;
   } catch {}
-  rows.push([name, "(not in lockfile)", version].join("\t"));
+  // Reported by path, not bare name: `parent/node_modules/ghost` and a hoisted
+  // `ghost` are different installs and the message has to say which one.
+  rows.push([path.replace(/^node_modules\//, ""), "(not in lockfile)", version].join("\t"));
 }
 
 if (checked === 0) {

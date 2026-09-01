@@ -35,6 +35,7 @@ function runCheck({
   gitCommitThenDirty = false,
   gitStageRemoval = false,
   symlinked = {},
+  nested = {},
 } = {}) {
   const workDir = mkdtempSync(join(tmpdir(), 'check-deploy-deps-test-'));
   try {
@@ -82,6 +83,16 @@ function runCheck({
       git('add', '-A');
       git('commit', '-q', '-m', 'init');
       git('rm', '--cached', '-q', 'package-lock.json');
+    }
+
+    for (const [relPath, version] of Object.entries(nested)) {
+      const dir = join(workDir, 'node_modules', ...relPath.split('/'));
+      mkdirSync(dir, { recursive: true });
+      writeFileSync(
+        join(dir, 'package.json'),
+        JSON.stringify({ name: relPath.split('/').pop(), version }),
+        'utf-8',
+      );
     }
 
     for (const [name, version] of Object.entries(symlinked)) {
@@ -336,6 +347,38 @@ describe('check-deploy-deps.sh', () => {
 
     expect(result.status).toBe(1);
     expect(result.output).toContain('does not match HEAD');
+  });
+
+  it('reports an extraneous package nested under another package', () => {
+    // Codex P2 on #903. Node resolves a nested copy ahead of the hoisted one,
+    // so an obsolete package left under a parent changes the build while a
+    // top-level-only scan reports a clean tree. The lockfile keys nested
+    // installs by full path, so this compares exactly like a hoisted one.
+    const result = runCheck({
+      packages: { 'node_modules/astro': { version: '7.2.9' } },
+      installed: { astro: '7.2.9' },
+      nested: { 'astro/node_modules/nested-ghost': '6.6.6' },
+    });
+
+    expect(result.status).toBe(1);
+    expect(result.output).toContain('astro/node_modules/nested-ghost');
+    expect(result.output).toContain('not in lockfile');
+  });
+
+  it('accepts a nested package the lockfile declares at that exact path', () => {
+    // The other half: npm legitimately nests a package when versions conflict,
+    // and the lockfile records it at its full path. Reporting those would make
+    // the guard fail on every correct tree.
+    const result = runCheck({
+      packages: {
+        'node_modules/astro': { version: '7.2.9' },
+        'node_modules/astro/node_modules/js-yaml': { version: '4.3.1' },
+      },
+      installed: { astro: '7.2.9' },
+      nested: { 'astro/node_modules/js-yaml': '4.3.1' },
+    });
+
+    expect(result.status).toBe(0);
   });
 
   it('reports a symlinked package absent from the lockfile', () => {
