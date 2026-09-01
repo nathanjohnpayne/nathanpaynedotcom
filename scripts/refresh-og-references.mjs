@@ -92,7 +92,10 @@ if (collisions.length > 0) {
 }
 
 const expected = new Set(byName.keys());
-mkdirSync(TARGET, { recursive: true });
+// --dry-run is documented as reporting without writing, and creating the
+// target directory is a write — the one the flag is least likely to be
+// forgiven for, since it leaves a new empty directory in the working tree.
+if (!dryRun) mkdirSync(TARGET, { recursive: true });
 
 let written = 0;
 let added = 0;
