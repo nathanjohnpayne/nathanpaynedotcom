@@ -133,32 +133,37 @@ An earlier revision of this section enumerated eight checks as though they were 
 
 Two checks keep the workflow and the directory in agreement in both directions, which is what makes the workflow citable as the list and a copy here unnecessary: `check_ci_scripts_wired` fails when a `scripts/ci/check_*` exists with no `run:` step in the workflow, and the inline `check_ci_kit_integrity` step fails when a wired step names a script that is not on disk.
 
-Enumerate the current set rather than reading a count out of this file:
+Enumerate the current set rather than reading a count out of this file. Anchor the pattern to a real `run:` line—the workflow header documents the wiring convention with a literal `run: ./scripts/ci/check_X` example, and an unanchored grep counts that placeholder as a wired check:
 
 ```bash
-ls scripts/ci | grep '^check_'                                    # scripts on disk
-grep -oE 'run: \./scripts/ci/check_[A-Za-z0-9_]+' \
-  .github/workflows/repo_lint.yml | sed 's|.*/||' | sort -u       # wired steps
+ls scripts/ci | grep '^check_'                                      # scripts on disk
+grep -oE '^[[:space:]]*run: \./scripts/ci/check_[A-Za-z0-9_]+' \
+  .github/workflows/repo_lint.yml | sed 's|.*/||' | sort -u         # wired steps
+grep -n 'WIRED-EXEMPT' .github/workflows/repo_lint.yml              # deliberate exemptions
 ```
 
-As of 2026-09-01 that is 72 scripts, all 72 wired, plus three checks implemented inline in the workflow with no script of their own: `check_review_policy_exists`, `check_governance_files`, and `check_ci_kit_integrity`. Treat those figures as a reading taken on a date, not as a rule—the commands are the answer.
+As of 2026-09-01 that is **72 scripts on disk, 71 wired, and one deliberate exemption**: `check_op_firebase_deploy_integration`, marked `WIRED-EXEMPT` at `repo_lint.yml:350` as opt-in. Three further checks are implemented inline in the workflow with no script of their own: `check_review_policy_exists`, `check_governance_files`, and `check_ci_kit_integrity`. Treat those figures as a reading taken on a date, not as a rule—the commands are the answer.
+
+An earlier revision of this section reported "72 wired" from an unanchored grep. It was wrong twice in opposite directions—counting the `check_X` placeholder and missing the exempt script—and the two errors cancelled to a number that matched the disk count exactly, which is what made it look verified.
 
 `scripts/ci/README.md` annotates a subset of the checks with what each one covers and why it exists. It is a guide to the interesting ones, not an inventory either; its own closing line still points back here for "the full list," which is the circular reference #849 surfaced.
 
 ### Which checks enforce the rules above
 
-This mapping is the part worth keeping in this file, because it goes stale only when one of *these* rules changes—not when an unrelated check is added elsewhere:
+This mapping is the part worth keeping in this file, because it goes stale only when one of *these* rules changes—not when an unrelated check is added elsewhere.
 
-| Rule in this file | Enforced by |
-|---|---|
-| Structure invariants—the five required root files | `check_required_root_files` |
-| No instruction files in `.claude/` or `.cursor/` | `check_no_tool_folder_instructions` |
-| No new top-level directories | `check_no_forbidden_top_level_dirs` |
-| `dist/` is build output, never edited in place | `check_dist_not_modified` |
-| Every file in `specs/` has a corresponding test | `check_spec_test_alignment` |
-| No duplicate documentation across canonical docs | `check_duplicate_docs` |
-| `.github/review-policy.yml` and `REVIEW_POLICY.md` both exist | `check_review_policy_exists` (inline in `repo_lint.yml`) |
-| Phase 4a helper scripts present and executable | `check_codex_scripts` |
-| Toolchain pins match `package.json` and the lockfile's peer ranges | `tests/toolchain-pins.test.js`, which runs under `npm test` and so reports as `build-and-test`, deliberately—see the Toolchain Constraints note above and #825 |
+**Read the strength column before trusting a row.** A check that runs is not the same as a rule that is enforced, and three of these are weaker than their names suggest:
 
-Not every rule in this file has an automated enforcer, and the table does not pretend otherwise. "Never push directly to `main`" is carried by branch protection and the `gh-pr-guard.sh` hook rather than by a `scripts/ci/` check; the motion-token and Mermaid-contrast rules are covered by the Vitest suite for the surfaces it renders, not by a repo-wide scan. Read a blank row as "held by convention and review," which is a weaker guarantee than a check and should be treated as one.
+| Rule in this file | Check | Strength |
+|---|---|---|
+| Structure invariants—the five required root files | `check_required_root_files` | **Blocks** |
+| No instruction files in `.claude/` or `.cursor/` | `check_no_tool_folder_instructions` | **Blocks** |
+| Every file in `specs/` has a corresponding test | `check_spec_test_alignment` | **Blocks** |
+| `.github/review-policy.yml` and `REVIEW_POLICY.md` both exist | `check_review_policy_exists` (inline) | **Blocks** |
+| Phase 4a helper scripts present and executable | `check_codex_scripts` | **Blocks** |
+| Toolchain pins match `package.json` and the lockfile's peer ranges | `tests/toolchain-pins.test.js` | **Blocks**, and reports as `build-and-test` rather than `lint` deliberately—see the Toolchain Constraints note above and #825 |
+| No new top-level directories | `check_no_forbidden_top_level_dirs` | **Partial.** Hard-fails on exactly two names, `vendor` and `node_modules/.cache/custom`. Any other undeclared top-level directory emits `WARN` and exits 0, so the general rule above is convention, not a gate |
+| `dist/` is build output, never edited in place | `check_dist_not_modified` | **Not enforced in practice.** It compares `HEAD~1..HEAD`, and the `lint_fast` job that runs it checks out at `actions/checkout`'s default depth of 1, so `HEAD~1` does not resolve and the check reports `SKIP (not enough commits to compare)`. Even with history it would read the last commit, not the PR diff |
+| No duplicate documentation across canonical docs | `check_duplicate_docs` | **Advisory.** It scans tool-folder files against a fixed topic list, prints `WARN` for each hit, and exits 0 unconditionally. It cannot see conflicting duplication between canonical documents, which is what the rule above is actually about |
+
+Rules with no row at all are held by convention and review, which is weaker still. "Never push directly to `main`" is carried by branch protection and the `gh-pr-guard.sh` hook rather than by any `scripts/ci/` check; the motion-token rule has no repo-wide scan, and Mermaid contrast is covered by the Vitest suite for the surfaces it renders. Absence from this table is not evidence a rule is unenforced elsewhere, but it is evidence that nothing here enforces it.
