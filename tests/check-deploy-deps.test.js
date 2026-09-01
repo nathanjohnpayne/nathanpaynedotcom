@@ -62,6 +62,16 @@ function runCheck({
         const dir = join(workDir, 'node_modules', name);
         mkdirSync(dir, { recursive: true });
         writeFileSync(join(dir, 'package.json'), JSON.stringify({ name, version }), 'utf-8');
+
+        // Create the files the lockfile declares as this package's bins. The
+        // guard compares a shim against its declared target, so a fixture that
+        // omits the target exercises "declared bin missing" rather than the
+        // case it means to test.
+        const declared = packages?.[`node_modules/${name}`]?.bin;
+        if (declared) {
+          const rels = typeof declared === 'string' ? [declared] : Object.values(declared);
+          for (const rel of rels) writeFileSync(join(dir, rel), '#!/usr/bin/env node\n', 'utf-8');
+        }
       }
     }
 
@@ -91,7 +101,9 @@ function runCheck({
       mkdirSync(binDir, { recursive: true });
       for (const [binName, target] of Object.entries(bins)) {
         if (target === null) continue;
-        writeFileSync(join(binDir, binName), '#!/bin/sh\n', 'utf-8');
+        // The guard accepts a wrapper that NAMES its target, which is how npm
+        // writes shims on windows — so the fixture writes the declared path in.
+        writeFileSync(join(binDir, binName), `#!/bin/sh\n# ${target}\n`, 'utf-8');
       }
     }
 
@@ -544,11 +556,77 @@ describe('check-deploy-deps.sh', () => {
     expect(result.output).toContain('shim missing');
   });
 
+  it('reports an absent unconstrained package that an installed parent requires', () => {
+    // Codex P2 on #903. astro declares sharp in optionalDependencies with no
+    // platform constraints. A plain `npm ci` installs it, so a tree without it
+    // differs from what CI built — but the entry carries nothing to prove it
+    // targets this host, so it was exempted.
+    const result = runCheck({
+      packages: {
+        'node_modules/astro': { version: '7.2.9', optionalDependencies: { sharp: '0.35.4' } },
+        'node_modules/sharp': { version: '0.35.4', optional: true },
+      },
+      installed: { astro: '7.2.9' },
+    });
+
+    expect(result.status).toBe(1);
+    expect(result.output).toContain('sharp');
+  });
+
+  it('does not require a hoisted copy when the nested one is what resolves', () => {
+    // Codex P2 on #903, and the noisy direction. Adding every candidate
+    // location marked a hoisted entry required even when a clean tree
+    // legitimately has only the nested copy. Resolution is nearest-first.
+    const result = runCheck({
+      packages: {
+        'node_modules/parent-pkg': { version: '1.0.0', dependencies: { 'dep-pkg': '2.0.0' } },
+        'node_modules/parent-pkg/node_modules/dep-pkg': { version: '2.0.0' },
+        'node_modules/dep-pkg': { version: '1.0.0', optional: true, os: ['sunos'], cpu: ['mips'] },
+      },
+      installed: { 'parent-pkg': '1.0.0' },
+      nested: { 'parent-pkg/node_modules/dep-pkg': '2.0.0' },
+    });
+
+    expect(result.status).toBe(0);
+  });
+
+  it('reports a shim that resolves to something other than its declared bin', () => {
+    // Codex P2 on #903. Checking only that realpath succeeds accepts a stale
+    // file or a symlink to any other executable, while `npm run build` runs it.
+    const result = runCheck({
+      packages: { 'node_modules/astro': { version: '7.2.9', bin: { astro: 'astro.js' } } },
+      installed: { astro: '7.2.9' },
+      bins: { astro: 'somewhere-else.js' },
+    });
+
+    expect(result.status).toBe(1);
+    expect(result.output).toContain('.bin/astro');
+  });
+
+  it('accepts one shim when several packages declare the same bin name', () => {
+    // @playwright/test and playwright both declare "playwright"; npm writes a
+    // single shim pointing at whichever it chose. Checking each package
+    // independently flagged the one npm did not pick — a false positive on a
+    // clean tree, which is how a guard earns being switched off.
+    const result = runCheck({
+      packages: {
+        'node_modules/@playwright/test': { version: '1.62.1', bin: { playwright: 'cli.js' } },
+        'node_modules/playwright': { version: '1.62.1', bin: { playwright: 'cli.js' } },
+      },
+      installed: { '@playwright/test': '1.62.1', playwright: '1.62.1' },
+      bins: { playwright: 'cli.js' },
+    });
+
+    expect(result.status).toBe(0);
+  });
+
   it('accepts a present .bin shim', () => {
     const result = runCheck({
       packages: { 'node_modules/astro': { version: '7.2.9', bin: { astro: 'astro.js' } } },
       installed: { astro: '7.2.9' },
-      bins: { astro: 'present' },
+      // The shim has to name the declared target now, not merely exist — that
+      // is the whole point of the target check.
+      bins: { astro: 'astro.js' },
     });
 
     expect(result.status).toBe(0);

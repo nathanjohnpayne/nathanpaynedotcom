@@ -224,12 +224,32 @@ const isInstalled = (path) => existsSync(manifestPath(path));
 // the parent own node_modules or to a hoisted copy, and the lockfile keys both
 // forms by full path — so a bare name would exempt a missing
 // parent/node_modules/child while matching an unrelated hoisted child.
+// Resolved the way node resolves: nearest node_modules first, then each
+// ancestor. Adding every candidate location instead marks a hoisted entry
+// required even when the clean tree legitimately has only the nested copy —
+// which blocks a correct deploy, the noisy direction.
+const resolveDep = (parentPath, dep) => {
+  let scope = parentPath;
+  while (scope) {
+    const candidate = `${scope}/node_modules/${dep}`;
+    if (packages[candidate]) return candidate;
+    const cut = scope.lastIndexOf("/node_modules/");
+    if (cut === -1) break;
+    scope = scope.slice(0, cut);
+  }
+  return packages[`node_modules/${dep}`] ? `node_modules/${dep}` : null;
+};
+
+// optionalDependencies count too. astro declares sharp there, unconstrained;
+// a plain `npm ci` installs it, so a tree missing it differs from what CI
+// built even though the entry carries no platform constraints to prove it.
 const requiredPaths = new Set();
 for (const [path, meta] of Object.entries(packages)) {
   if (!path.startsWith("node_modules/") || !isInstalled(path)) continue;
-  for (const dep of Object.keys(meta.dependencies ?? {})) {
-    requiredPaths.add(`${path}/node_modules/${dep}`);
-    requiredPaths.add(`node_modules/${dep}`);
+  const deps = { ...(meta.dependencies ?? {}), ...(meta.optionalDependencies ?? {}) };
+  for (const dep of Object.keys(deps)) {
+    const resolved = resolveDep(path, dep);
+    if (resolved) requiredPaths.add(resolved);
   }
 }
 
@@ -254,7 +274,14 @@ for (const [path, meta] of Object.entries(packages)) {
     // missing sharp or Astro compiler binding changes the build while the
     // guard reports a match. So the exemption is narrowed to packages this
     // host could not install, using the lockfiles own os/cpu/libc constraints.
-    if (meta.optional && !targetsThisHost(meta) && !requiredPaths.has(path)) continue;
+    // Exempt unless it could actually install here. Two ways it could: the
+    // lockfile proves it targets this host, or it carries no constraints at
+    // all AND something installed requires it. Unconstrained-and-unrequired
+    // stays exempt, which is what keeps a clean tree quiet.
+    const unconstrained =
+      meta.os === undefined && meta.cpu === undefined && meta.libc === undefined;
+    const installsHere = targetsThisHost(meta) || (unconstrained && requiredPaths.has(path));
+    if (meta.optional && !installsHere) continue;
     rows.push([name, meta.version, "(not installed)"].join("\t"));
     continue;
   }
@@ -370,36 +397,80 @@ for (const path of installedPaths) {
 // the loop simply runs.
 const binDir = "node_modules/.bin";
 {
+  // Grouped by bin NAME, not by package. Several locked packages can declare
+  // the same bin — @playwright/test and playwright both declare "playwright" —
+  // and npm writes exactly one shim, pointing at whichever it chose. Checking
+  // each package independently flags the one npm did not pick, which is a
+  // false positive on a perfectly clean tree. So the acceptable targets for a
+  // shim are the declared binaries of EVERY installed package declaring that
+  // name, and only a shim matching none of them is wrong.
+  const expected = new Map();
   for (const [path, meta] of Object.entries(packages)) {
     if (!path.startsWith("node_modules/")) continue;
-    // Nested entries shim into their parent, not the root .bin.
+    // Nested packages shim into their parent .bin, not the root one.
     if (path.lastIndexOf("/node_modules/") !== -1) continue;
     if (!isInstalled(path) || !meta.bin) continue;
 
-    const names =
-      typeof meta.bin === "string" ? [path.slice("node_modules/".length)] : Object.keys(meta.bin);
+    const bin =
+      typeof meta.bin === "string"
+        ? { [path.slice("node_modules/".length)]: meta.bin }
+        : meta.bin;
 
-    for (const binName of names) {
-      const shim = `${binDir}/${binName}`;
-      // lstat, not exists: existsSync follows the link, so a dangling shim
-      // reports as absent and the diagnostic sends the reader looking for the
-      // wrong thing. The two failures need different words.
-      let entryPresent = true;
+    for (const [binName, rel] of Object.entries(bin)) {
+      if (!expected.has(binName)) expected.set(binName, { version: meta.version, targets: [] });
+      expected.get(binName).targets.push({ path, rel });
+    }
+  }
+
+  for (const [binName, { version, targets }] of expected) {
+    const shim = `${binDir}/${binName}`;
+
+    let entryPresent = true;
+    try {
+      lstatSync(shim);
+    } catch {
+      entryPresent = false;
+    }
+    if (!entryPresent) {
+      rows.push([`.bin/${binName}`, version, "(shim missing)"].join("\t"));
+      continue;
+    }
+
+    let shimTarget;
+    try {
+      shimTarget = realpathSync(shim);
+    } catch {
+      rows.push([`.bin/${binName}`, version, "(shim dangling)"].join("\t"));
+      continue;
+    }
+
+    // npm writes a symlink on unix and a shell wrapper on windows; a wrapper is
+    // a regular file that NAMES its target, so accept either form.
+    let wrapperText = "";
+    try {
+      wrapperText = readFileSync(shim, "utf8");
+    } catch {}
+
+    let matched = false;
+    let anyDeclaredPresent = false;
+    for (const { path, rel } of targets) {
+      let wanted;
       try {
-        lstatSync(shim);
+        wanted = realpathSync(`${path}/${rel}`);
       } catch {
-        entryPresent = false;
-      }
-
-      if (!entryPresent) {
-        rows.push([`.bin/${binName}`, meta.version, "(shim missing)"].join("\t"));
         continue;
       }
-      try {
-        realpathSync(shim);
-      } catch {
-        rows.push([`.bin/${binName}`, meta.version, "(shim dangling)"].join("\t"));
+      anyDeclaredPresent = true;
+      if (shimTarget === wanted || wrapperText.includes(rel.replace(/^\.\//, ""))) {
+        matched = true;
+        break;
       }
+    }
+
+    if (!anyDeclaredPresent) {
+      rows.push([`.bin/${binName}`, version, "(declared bin missing)"].join("\t"));
+    } else if (!matched) {
+      rows.push([`.bin/${binName}`, version, "(shim points elsewhere)"].join("\t"));
     }
   }
 }
