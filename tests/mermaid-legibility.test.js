@@ -51,6 +51,29 @@ const VIEWPORTS = [
   { name: 'desktop', width: 1280, height: 900 },
 ];
 
+/**
+ * The two page widths print has to be checked at, because the trap is two-sided.
+ *
+ * Paper cannot scroll, so both containment rules are scoped `@media screen` and
+ * print keeps fitting the diagram to its column. What makes that scoping easy to
+ * lose is that a print page has a width like any other, and either kind of width
+ * query can match it. #894 found a narrow one: a printed page is roughly 816px,
+ * so a bare `max-width: 1023px` matches it, and `min-width` beats the print
+ * block's `max-width` and turns a scrollable diagram into a clipped one. #897 is
+ * the same trap mirrored — an unscoped sidebar rule, or one bounded
+ * `min-width: 1024px`, matches a print render at a wide viewport instead.
+ *
+ * So print is measured at both a letter page and a desktop-width one. A suite
+ * that checked only one of them would keep passing while the other regressed.
+ */
+const PRINT_VIEWPORTS = [
+  // US Letter at 96dpi, the page #894's measurement was taken against.
+  { name: 'letter', width: 816, height: 1056 },
+  // Where a wide-viewport print render — the shape Chromium's own print
+  // emulation produces — would catch a `min-width` rule that forgot `screen`.
+  { name: 'desktop', width: 1280, height: 900 },
+];
+
 // The smallest type the site sets on purpose is the `.eyebrow` label at
 // 0.56rem. A diagram label painting below that is smaller than anything a
 // reader is ever intentionally asked to read here, which is the floor #894's
@@ -124,6 +147,11 @@ const routes = routesWithDiagrams();
 // launching Chromium per arm would double the slowest hook in the suite for
 // nothing.
 const readings = new Map();
+// Print is read into its own map rather than folded into `readings` under a
+// third viewport name, because the assertions differ in kind: on screen a wide
+// diagram must stay scrollable, and on paper the same diagram must instead have
+// been fitted to its column. Sharing a map would invite one loop over both.
+const printReadings = new Map();
 let server;
 let browser;
 
@@ -145,6 +173,23 @@ beforeAll(async () => {
         waitUntil: 'domcontentloaded',
       });
       readings.set(`${viewport.name}|${route}`, await page.evaluate(readDiagrams));
+    }
+    await page.close();
+  }
+
+  // Same pages, same reader, print media emulated. Chromium applies the print
+  // stylesheet without producing a PDF, so `getBoundingClientRect` reports what
+  // the print rules actually resolve to.
+  for (const viewport of PRINT_VIEWPORTS) {
+    const page = await browser.newPage({
+      viewport: { width: viewport.width, height: viewport.height },
+    });
+    await page.emulateMedia({ media: 'print' });
+    for (const route of routes) {
+      await page.goto(`http://127.0.0.1:${started.port}${route}`, {
+        waitUntil: 'domcontentloaded',
+      });
+      printReadings.set(`${viewport.name}|${route}`, await page.evaluate(readDiagrams));
     }
     await page.close();
   }
@@ -251,5 +296,50 @@ describe('Mermaid coverage of the two narrow columns', () => {
       `no visible ${subject.container} diagram is wider than its column at ${subject.viewport} ` +
         `width, so that arm no longer exercises the container ${subject.issue} was filed about`,
     ).not.toHaveLength(0);
+  });
+});
+
+describe.each(PRINT_VIEWPORTS)('Mermaid diagrams printed at $name width', (viewport) => {
+  /** Every diagram on the printed page, across all routes. */
+  const printedDiagrams = () =>
+    routes.flatMap((route) =>
+      printReadings.get(`${viewport.name}|${route}`).diagrams.map((d) => ({ ...d, route })),
+    );
+
+  it('exercises a diagram whose natural width exceeds its printed column', () => {
+    // Without this the arm passes on a page whose diagrams all happen to fit,
+    // proving nothing about the rule it exists to hold — the same vacuity guard
+    // the screen arms carry.
+    const tooWide = printedDiagrams().filter((d) => d.naturalWidth > d.columnWidth + 1);
+
+    expect(
+      tooWide.map((d) => `${d.route} — ${d.title}`),
+      'no printed diagram is naturally wider than its column, so the containment ' +
+        'assertions below are vacuous',
+    ).not.toHaveLength(0);
+  });
+
+  it.each(routes)('%s fits every diagram inside the printed page', (route) => {
+    const reading = printReadings.get(`${viewport.name}|${route}`);
+
+    expect(
+      reading.pageOverflow,
+      `${route}: the printed page overflows horizontally by ${reading.pageOverflow}px, so the ` +
+        'overflowing edge is cropped at the paper margin',
+    ).toBeLessThanOrEqual(1);
+
+    for (const diagram of reading.diagrams) {
+      // The whole contract in one line. Paper cannot scroll, so a diagram held
+      // wider than its column is not scrollable — it is clipped. Either
+      // containment rule leaking past `@media screen` shows up here and nowhere
+      // else: #894's `max-width: 1023px` matches an 816px page, and an unscoped
+      // or `min-width: 1024px` sidebar rule matches a 1280px one.
+      expect(
+        diagram.renderedWidth,
+        `${route} — ${diagram.title} (${diagram.container}): printed ` +
+          `${diagram.renderedWidth.toFixed(0)}px into a ${diagram.columnWidth}px column, so ` +
+          `${(diagram.renderedWidth - diagram.columnWidth).toFixed(0)}px is cropped off the page`,
+      ).toBeLessThanOrEqual(diagram.columnWidth + 1);
+    }
   });
 });
