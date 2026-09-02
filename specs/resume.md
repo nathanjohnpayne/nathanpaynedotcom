@@ -247,6 +247,36 @@ recruiter-legible filename, for "attach your resume" forms and ATS pipelines
   explicitly, alongside the contact line, project links, and the two section
   leads. The printed text is byte-identical before and after #683; only the
   link targets changed.
+- **Nothing in the printed content may be positioned (#923).** Chromium writes
+  each printed page's text into the PDF content stream in *paint* order, and a
+  `position: relative`/`absolute` element paints in step 8 of the painting
+  algorithm (CSS 2.1 Appendix E)—after every non-positioned block and inline
+  in the same stacking context. So a positioned element that prints is written
+  after all of its page's other text, and the file's reading order stops
+  matching the résumé's while every pixel stays identical. That is what an ATS
+  parser, assistive tech, `pdftotext -raw`, and copy-paste get.
+
+  The bullet marker is the rule this cost. `.resume-prose ul li::before` was an
+  absolutely-positioned square, which forced `position: relative` onto every
+  `.resume-prose li`; the four Disney Streaming 2018–2021 bullets were
+  therefore written six sections late, after Five Across, and read as
+  belonging to Projects. The marker is now a **float** pulled back into the
+  gutter by a negative left margin, so the list item stays unpositioned. A
+  float was chosen over an inline-block because an inline-block's own advance
+  width has to be cancelled by a compensating margin and the two round to
+  layout units independently, shifting every bullet's text by a subpixel; a
+  float sits outside the line box and moves nothing. Its geometry comes from
+  `--bullet-size` / `--bullet-gutter` / `--bullet-offset` on `.resume-prose`,
+  which is also where print re-tunes the gutter and the drop.
+
+  `--bullet-offset` must stay smaller than the first line box: `li` is not a
+  block formatting context, so a taller float would escape the item and
+  shorten the next bullet's lines.
+
+  `.resume-cta`, `.resume-canvas-sidebar-inner`, and
+  `.resume-writing__essays li` are also positioned, and are all hidden in
+  print—so they are outside this rule, and un-hiding any of them in print
+  means giving it the same treatment first.
 - The PDF is an asset, not a route—`@astrojs/sitemap` does not list it.
 - The on-page affordance is `.resume-download` inside `.resume-actions`, placed
   after the header contact block and hidden in `@media print`. Clicking it
@@ -431,6 +461,14 @@ In particular:
     text of the generated `Nathan-Payne-Resume.pdf`.
 8a. No link annotation in the generated PDF points at `127.0.0.1` or
     `localhost`, and every one carries an `http(s):` or `mailto:` scheme.
+8e. The PDF's **content stream**—not its rendered pages—carries the résumé in
+    the page's own order: every Experience role is followed by its own
+    bullets before the next role begins, the sections and Projects entries
+    follow `/resume/`, each bullet is written exactly once, and the document
+    is three pages. Read with `tests/helpers/pdf-stream-text.js`, which
+    decodes the stream directly because both `pdftotext` without `-raw` and a
+    page-image comparison reconstruct order from coordinates and so pass on a
+    file whose reading order is wrong.
 9. The visible header title is a single role title equal to the JSON-LD
    `jobTitle`; the summary is 55–75 words naming Disney+/Hulu/ESPN and the
    AI-augmented focus up front.

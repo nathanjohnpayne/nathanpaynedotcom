@@ -1,0 +1,360 @@
+import { inflateSync } from 'node:zlib';
+
+/**
+ * Read the text out of a PDF **in content-stream order** — the order the
+ * bytes are written into the file, not the order a renderer paints them onto
+ * the page.
+ *
+ * ## Why this exists, and why `pdftotext` would not have caught the bug
+ *
+ * A PDF has two orders, and they are allowed to disagree. The *visual* order
+ * is recovered from each glyph's coordinates, and that is what a page image
+ * and what `pdftotext` (without `-raw`) show. The *stream* order is the
+ * sequence the text-showing operators appear in, and it is what every
+ * consumer that reads the file rather than looks at it gets: ATS parsers,
+ * `pdftotext -raw`, assistive tech, and copy-paste in most viewers.
+ *
+ * Chromium writes each printed page's text into the stream in **paint**
+ * order. So a CSS rule that changes paint order — `position: relative` puts
+ * an element in step 8 of the painting algorithm (CSS 2.1 Appendix E), after
+ * every non-positioned block and inline in the same stacking context —
+ * silently reorders the document for those consumers while leaving the
+ * rendered page pixel-identical. That is #923: the résumé's bullets were
+ * emitted after all of their page's other text, which moved the four Disney
+ * Streaming 2018–2021 bullets six sections past the role they belong to.
+ *
+ * A test that compares page images, or one that reads `pdftotext` output,
+ * passes on that PDF. Only stream order fails. Hence this module.
+ *
+ * ## Scope, deliberately narrow
+ *
+ * This is not a general PDF parser and must not grow into one. It handles
+ * exactly the shape Chromium's `printToPDF` emits for this site, and asserts
+ * that shape rather than degrading quietly when it changes:
+ *
+ * - classic cross-reference layout, so every object is addressable as
+ *   `N 0 obj` in the file (no object streams to unpack);
+ * - `/Length` always a direct integer, so stream extents never require
+ *   resolving another object;
+ * - `/FlateDecode` as the only filter;
+ * - one-byte character codes mapped through a `/ToUnicode` CMap that uses
+ *   `beginbfchar` only.
+ *
+ * Anything else throws. A loud failure is the point: a silent one would let a
+ * reordering regression through as an empty extraction, which is the failure
+ * mode that makes an absence check worthless.
+ */
+
+/** Fonts subset by Chromium map single bytes; a 2-byte CMap would need more. */
+const CODE_BYTES = 1;
+
+/**
+ * Byte offsets of every `N 0 obj` header, keyed by object number.
+ *
+ * Matching is anchored to a preceding newline so the digits of a stream's
+ * binary payload cannot be mistaken for an object header.
+ *
+ * @param {string} latin1 whole file decoded 1:1 as bytes
+ * @returns {Map<number, number>} object number → offset of the byte after `obj`
+ */
+function indexObjects(latin1) {
+  const index = new Map();
+  const re = /(?:^|[\r\n])(\d+) 0 obj/g;
+  let m;
+  while ((m = re.exec(latin1)) !== null) {
+    index.set(Number(m[1]), m.index + m[0].length);
+  }
+  return index;
+}
+
+/**
+ * The dictionary text and (if present) the decompressed stream of one object.
+ *
+ * @param {Buffer} buf
+ * @param {string} latin1
+ * @param {Map<number, number>} index
+ * @param {number} num
+ * @returns {{ dict: string, stream: string | null }}
+ */
+function readObject(buf, latin1, index, num) {
+  const start = index.get(num);
+  if (start === undefined) throw new Error(`pdf: object ${num} not found`);
+
+  const streamAt = latin1.indexOf('stream', start);
+  const endObjAt = latin1.indexOf('endobj', start);
+  if (endObjAt < 0) throw new Error(`pdf: object ${num} has no endobj`);
+
+  // `stream` after this object's `endobj` belongs to a later object.
+  if (streamAt < 0 || streamAt > endObjAt) {
+    return { dict: latin1.slice(start, endObjAt), stream: null };
+  }
+
+  const dict = latin1.slice(start, streamAt);
+  const length = dict.match(/\/Length\s+(\d+)(?!\s+\d+\s+R)/);
+  if (!length) {
+    throw new Error(
+      `pdf: object ${num} has no direct /Length — this reader does not resolve ` +
+        `indirect stream lengths (see the module header for its scope).`,
+    );
+  }
+  if (!/\/Filter\s*\/FlateDecode/.test(dict)) {
+    throw new Error(`pdf: object ${num} is not /FlateDecode — unsupported filter`);
+  }
+
+  // Skip the EOL that must follow the `stream` keyword (CRLF or LF).
+  let dataAt = streamAt + 'stream'.length;
+  if (latin1[dataAt] === '\r') dataAt += 1;
+  if (latin1[dataAt] === '\n') dataAt += 1;
+
+  const raw = buf.subarray(dataAt, dataAt + Number(length[1]));
+  return { dict, stream: inflateSync(raw).toString('latin1') };
+}
+
+/**
+ * Page object numbers, in document order, from the page-tree root's `/Kids`.
+ *
+ * @param {string} latin1
+ * @returns {number[]}
+ */
+function pageObjectNumbers(latin1) {
+  const kids = latin1.match(/\/Kids\s*\[([^\]]*)\]/);
+  if (!kids) throw new Error('pdf: no /Kids array — cannot establish page order');
+  const nums = [...kids[1].matchAll(/(\d+)\s+0\s+R/g)].map((m) => Number(m[1]));
+  if (nums.length === 0) throw new Error('pdf: /Kids array is empty');
+  return nums;
+}
+
+/**
+ * A UTF-16BE hex destination, as text.
+ *
+ * A code may map to more than one unit — a ligature expanding back into its
+ * letters, for example — so this is a string, not a character.
+ *
+ * @param {string} hex
+ * @returns {string}
+ */
+function utf16beFromHex(hex) {
+  let text = '';
+  for (let i = 0; i + 4 <= hex.length; i += 4) {
+    text += String.fromCharCode(parseInt(hex.slice(i, i + 4), 16));
+  }
+  return text;
+}
+
+/**
+ * Character-code → text mapping from a `/ToUnicode` CMap stream.
+ *
+ * Chromium's subsets use both sections: `beginbfchar` for one-off codes and
+ * `beginbfrange` for runs of codes whose destinations are consecutive (the
+ * duplicate glyphs a subset picks up for `f`, `j`, `q` and friends). Both
+ * `bfrange` forms are decoded — a consecutive destination, and an explicit
+ * array of destinations — and anything else throws, so a font whose codes
+ * went unmapped can never be mistaken for a font with no text.
+ *
+ * @param {string} cmap
+ * @returns {Map<number, string>}
+ */
+function parseToUnicode(cmap) {
+  const map = new Map();
+
+  // Each section states how many entries it holds. Checking the decoded count
+  // against it is what keeps an unrecognised entry form from silently
+  // dropping characters — the failure this reader must never have, since a
+  // dropped character reads as absent text rather than as a broken reader.
+  const expectCount = (declared, decoded, section) => {
+    if (Number(declared) !== decoded) {
+      throw new Error(
+        `pdf: /ToUnicode declared ${declared} ${section} entries but ${decoded} were decoded`,
+      );
+    }
+  };
+
+  for (const block of cmap.matchAll(/(\d+)\s+beginbfchar([\s\S]*?)endbfchar/g)) {
+    let seen = 0;
+    for (const pair of block[2].matchAll(/<([0-9A-Fa-f]+)>\s*<([0-9A-Fa-f]*)>/g)) {
+      seen += 1;
+      map.set(parseInt(pair[1], 16), utf16beFromHex(pair[2]));
+    }
+    expectCount(block[1], seen, 'bfchar');
+  }
+
+  for (const block of cmap.matchAll(/(\d+)\s+beginbfrange([\s\S]*?)endbfrange/g)) {
+    const entries = /<([0-9A-Fa-f]+)>\s*<([0-9A-Fa-f]+)>\s*(?:<([0-9A-Fa-f]*)>|\[([^\]]*)\])/g;
+    let seen = 0;
+    for (const range of block[2].matchAll(entries)) {
+      seen += 1;
+      const lo = parseInt(range[1], 16);
+      const hi = parseInt(range[2], 16);
+      if (range[3] !== undefined) {
+        // Consecutive destinations: the last UTF-16 unit increments per code.
+        const base = utf16beFromHex(range[3]);
+        const head = base.slice(0, -1);
+        const tail = base.charCodeAt(base.length - 1);
+        for (let code = lo; code <= hi; code += 1) {
+          map.set(code, head + String.fromCharCode(tail + (code - lo)));
+        }
+      } else {
+        const dsts = [...range[4].matchAll(/<([0-9A-Fa-f]*)>/g)].map((d) => utf16beFromHex(d[1]));
+        for (let code = lo; code <= hi && code - lo < dsts.length; code += 1) {
+          map.set(code, dsts[code - lo]);
+        }
+      }
+    }
+    expectCount(block[1], seen, 'bfrange');
+  }
+
+  if (map.size === 0) throw new Error('pdf: /ToUnicode CMap yielded no mappings');
+  return map;
+}
+
+/**
+ * The `/Font` resource dictionary of a page: PDF font name → object number.
+ *
+ * @param {string} pageDict
+ * @returns {Map<string, number>}
+ */
+function pageFontRefs(pageDict) {
+  const fonts = new Map();
+  const block = pageDict.match(/\/Font\s*<<([\s\S]*?)>>/);
+  if (!block) return fonts;
+  for (const ref of block[1].matchAll(/\/(\w+)\s+(\d+)\s+0\s+R/g)) {
+    fonts.set(ref[1], Number(ref[2]));
+  }
+  return fonts;
+}
+
+/**
+ * Walk one page's content stream and return its text in emission order.
+ *
+ * Spacing in a Chromium-generated PDF is carried by positioning operators as
+ * often as by space glyphs, so the text this returns is not word-for-word
+ * what a reader sees. Callers must compare it whitespace-insensitively —
+ * `normalizeForOrder` below is the intended way. Order, which is the whole
+ * point, is exact.
+ *
+ * A `BT` (begin-text) block starts a new line, which keeps the output roughly
+ * line-shaped and readable in a failure message.
+ *
+ * @param {string} content decompressed content stream
+ * @param {Map<string, Map<number, string>>} cmaps font name → code map
+ * @returns {string}
+ */
+function decodeContentStream(content, cmaps) {
+  let out = '';
+  let current = null;
+
+  // Text-showing operators, plus the two operators that change what they
+  // mean: `Tf` selects the font whose CMap decodes the codes, `BT` starts a
+  // new text object.
+  const re = /BT\b|\/(\w+)\s+[\d.]+\s+Tf|<([0-9A-Fa-f]*)>\s*Tj|\[([^\]]*)\]\s*TJ/g;
+  let m;
+  while ((m = re.exec(content)) !== null) {
+    if (m[0] === 'BT') {
+      out += '\n';
+    } else if (m[1] !== undefined) {
+      current = cmaps.get(m[1]) ?? null;
+    } else if (m[2] !== undefined) {
+      out += decodeHex(m[2], current);
+    } else {
+      // A TJ array interleaves strings with kerning numbers; the numbers only
+      // move the pen, so only the strings contribute text.
+      for (const str of m[3].matchAll(/<([0-9A-Fa-f]*)>/g)) {
+        out += decodeHex(str[1], current);
+      }
+    }
+  }
+  return out;
+}
+
+/**
+ * @param {string} hex
+ * @param {Map<number, string> | null} cmap
+ * @returns {string}
+ */
+function decodeHex(hex, cmap) {
+  if (!cmap) return '';
+  let text = '';
+  for (let i = 0; i + CODE_BYTES * 2 <= hex.length; i += CODE_BYTES * 2) {
+    text += cmap.get(parseInt(hex.slice(i, i + CODE_BYTES * 2), 16)) ?? '';
+  }
+  return text;
+}
+
+/**
+ * Every page's text, in content-stream order, one string per page.
+ *
+ * @param {Buffer} buf the raw PDF
+ * @returns {string[]}
+ */
+export function pdfPagesInStreamOrder(buf) {
+  const latin1 = buf.toString('latin1');
+  if (latin1.includes('/Encrypt')) throw new Error('pdf: encrypted documents are not supported');
+  if (/\/Type\s*\/ObjStm/.test(latin1)) {
+    throw new Error('pdf: object streams are not supported by this reader');
+  }
+
+  const index = indexObjects(latin1);
+  const cmapCache = new Map();
+
+  return pageObjectNumbers(latin1).map((pageNum) => {
+    const page = readObject(buf, latin1, index, pageNum);
+
+    const cmaps = new Map();
+    for (const [name, fontNum] of pageFontRefs(page.dict)) {
+      if (!cmapCache.has(fontNum)) {
+        const font = readObject(buf, latin1, index, fontNum);
+        const ref = font.dict.match(/\/ToUnicode\s+(\d+)\s+0\s+R/);
+        cmapCache.set(
+          fontNum,
+          ref ? parseToUnicode(readObject(buf, latin1, index, Number(ref[1])).stream) : null,
+        );
+      }
+      const cmap = cmapCache.get(fontNum);
+      if (cmap) cmaps.set(name, cmap);
+    }
+
+    const ref = page.dict.match(/\/Contents\s+(\d+)\s+0\s+R/);
+    if (!ref) throw new Error(`pdf: page object ${pageNum} has no /Contents reference`);
+    const content = readObject(buf, latin1, index, Number(ref[1])).stream;
+    if (content === null) throw new Error(`pdf: page object ${pageNum} /Contents is not a stream`);
+
+    return decodeContentStream(content, cmaps);
+  });
+}
+
+/**
+ * The whole document's text in content-stream order, pages concatenated.
+ *
+ * @param {Buffer} buf
+ * @returns {string}
+ */
+export function pdfTextInStreamOrder(buf) {
+  return pdfPagesInStreamOrder(buf).join('\n');
+}
+
+/**
+ * Strip everything that only affects appearance, so an order comparison is
+ * about order.
+ *
+ * Whitespace goes entirely: Chromium emits some inter-word gaps as space
+ * glyphs and some as pen movements, so the same visible sentence can extract
+ * with or without its spaces depending on whether it is set in bold.
+ *
+ * Quotes and dashes fold to ASCII, and the fold is wider than the characters
+ * the source actually contains, because a `/ToUnicode` CMap reports whatever
+ * codepoint the subsetted font assigned its glyph — not the one the HTML was
+ * authored with. This résumé's bold face maps its apostrophe to U+02BC
+ * MODIFIER LETTER APOSTROPHE, so `Disney’s` in the page extracts as `Disneyʼs`
+ * from the PDF. Folding both to `'` lets an expected string be written in
+ * plain characters and compared against either.
+ *
+ * @param {string} text
+ * @returns {string}
+ */
+export function normalizeForOrder(text) {
+  return text
+    .replace(/[‘’‚‛ʻʼʽ′]/g, "'")
+    .replace(/[“”„‟″]/g, '"')
+    .replace(/[‐‑‒–—―]/g, '-')
+    .replace(/\s+/g, '');
+}

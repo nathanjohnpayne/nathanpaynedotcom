@@ -11,6 +11,7 @@ import {
 import { resolve, join } from 'path';
 import { tmpdir } from 'os';
 import { writeSanitizedDOM } from './helpers/dom.js';
+import { pdfPagesInStreamOrder, normalizeForOrder } from './helpers/pdf-stream-text.js';
 
 // Smoke tests for the content-collection-driven /resume page.
 // See specs/resume.md and issue #394.
@@ -660,6 +661,189 @@ describe('Resume — downloadable PDF', () => {
         `URL suffix in @media print — every project title will print its own ` +
         `/projects/<slug>/ URL after the name (#683).`,
     ).toBe(true);
+  });
+});
+
+/**
+ * PDF reading order (#923).
+ *
+ * A PDF carries two orders and they are allowed to disagree. The visual one
+ * is reconstructed from glyph coordinates — it is what the page image shows,
+ * and it was never wrong here. The stream one is the sequence the text is
+ * written in, and it is what an ATS parser, assistive tech, `pdftotext -raw`,
+ * and copy-paste all read.
+ *
+ * Chromium writes each printed page's text in PAINT order, so a CSS rule that
+ * changes paint order reorders the document for those readers while leaving
+ * every pixel identical. `.resume-prose li` used to carry `position: relative`
+ * (it was the containing block for the absolutely-positioned bullet square),
+ * which puts a list item in step 8 of the painting algorithm — after every
+ * non-positioned block and inline on the page. Every bullet was therefore
+ * emitted after all of its page's other text. On page 1 that is invisible,
+ * because the Disney NCP bullets end the page anyway; on page 2 it moved the
+ * four Disney Streaming 2018–2021 bullets past six sections, so they read as
+ * belonging to the Projects section.
+ *
+ * These assertions therefore have to read the stream, not the picture — see
+ * tests/helpers/pdf-stream-text.js. They were built against the shipped
+ * pre-fix PDF and fail on it, which is the only evidence that they can fail
+ * at all.
+ */
+describe('Resume — PDF reading order', () => {
+  const PDF_PATH = resolve(DIST, 'Nathan-Payne-Resume.pdf');
+
+  /** Content-stream text of the whole PDF, normalized for order comparison. */
+  let stream;
+  /** Per-page content-stream text, for the pagination assertion. */
+  let pages;
+
+  beforeAll(() => {
+    pages = pdfPagesInStreamOrder(readFileSync(PDF_PATH));
+    stream = normalizeForOrder(pages.join('\n'));
+  });
+
+  beforeEach(() => {
+    setupDOM(readDist('resume/index.html'));
+  });
+
+  /**
+   * Walk `landmarks` through the stream, each one required at or after the
+   * end of the previous match. Returns the first landmark that is missing or
+   * out of sequence, or null when the whole run is in order.
+   */
+  function firstOutOfOrder(landmarks) {
+    let cursor = 0;
+    for (const { label, text } of landmarks) {
+      const needle = normalizeForOrder(text);
+      const at = stream.indexOf(needle, cursor);
+      if (at < 0) {
+        const anywhere = stream.indexOf(needle);
+        return {
+          label,
+          reason: anywhere < 0 ? 'missing from the PDF entirely' : 'appears earlier than it should',
+        };
+      }
+      cursor = at + needle.length;
+    }
+    return null;
+  }
+
+  it('extracts real text from the PDF', () => {
+    // Positive control. Every assertion below is "A comes before B", and a
+    // reader that returned nothing would satisfy none of them for the right
+    // reason — it would throw, or vacuously report everything missing. Prove
+    // the extraction works before trusting a single ordering result.
+    expect(pages.length, 'no pages extracted from the PDF').toBeGreaterThan(0);
+    expect(stream.length, 'the PDF extracted as (almost) no text').toBeGreaterThan(5000);
+    expect(stream, 'a known line of the resume is missing from the extracted text').toContain(
+      normalizeForOrder('Conceptualized and led the CNN Magic Wall'),
+    );
+  });
+
+  it('writes the Disney Streaming 2018–2021 bullets with their own role', () => {
+    // The reported symptom, stated exactly: the role summary is followed by
+    // its four bullets, and the next role follows all four — not the other
+    // way round, with the bullets stranded two sections later next to a
+    // project. Pinned as literal copy rather than derived from the DOM, so
+    // this reads as the bug report it came from.
+    const outOfOrder = firstOutOfOrder([
+      {
+        label: 'Disney Streaming role title',
+        text: 'Senior Technical Project Manager, Lead – Disney Streaming',
+      },
+      {
+        label: 'Disney Streaming role summary',
+        text: 'Led front-end engineering teams that built and launched Disney+ across connected devices.',
+      },
+      {
+        label: 'bullet 1',
+        text: 'Brought Disney+ from concept to launch across living-room platforms',
+      },
+      {
+        label: 'bullet 2',
+        text: 'Led PlayStation prototyping that produced the first-to-launch living-room Disney+ experience.',
+      },
+      { label: 'bullet 3', text: 'Rebuilt the Disney+ app for MVPD set-top boxes' },
+      { label: 'bullet 4', text: 'Led Hulu through its PlayStation 5 launch.' },
+      {
+        label: 'the next role (MLB Advanced Media)',
+        text: 'Technical Project Manager – MLB Advanced Media / BAMTech Media',
+      },
+    ]);
+    expect(
+      outOfOrder,
+      outOfOrder &&
+        `${outOfOrder.label} ${outOfOrder.reason} in the PDF's content stream. The Disney ` +
+          `Streaming bullets have come away from their role — check for a positioned ` +
+          `element inside the printed content, which paints (and so is written) after ` +
+          `everything non-positioned on its page (#923).`,
+    ).toBeNull();
+  });
+
+  it('writes every experience role and its bullets in the order the page has them', () => {
+    // The general form of the same guarantee, derived from the built page
+    // rather than pinned: whatever the resume says, the PDF must say it in
+    // that order. This is what keeps the fix from being specific to one role.
+    const landmarks = [];
+    for (const entry of document.querySelectorAll('.resume-experience .resume-entry')) {
+      const title = entry.querySelector('.resume-entry__title').textContent.trim();
+      landmarks.push({ label: `role "${title}"`, text: title });
+      for (const li of entry.querySelectorAll('.resume-prose li')) {
+        const text = li.textContent.replace(/\s+/g, ' ').trim();
+        landmarks.push({ label: `bullet under "${title}": ${text.slice(0, 48)}…`, text });
+      }
+    }
+    // Guard the derivation itself: an empty or single-item list would make
+    // the ordering check pass without checking anything.
+    expect(landmarks.length, 'no experience landmarks derived from the page').toBeGreaterThan(10);
+
+    const outOfOrder = firstOutOfOrder(landmarks);
+    expect(
+      outOfOrder,
+      outOfOrder &&
+        `${outOfOrder.label} ${outOfOrder.reason}. The PDF's content stream must follow ` +
+          `the same order as /resume/ (#923).`,
+    ).toBeNull();
+  });
+
+  it('writes the sections in the order the page composes them', () => {
+    // specs/resume.md fixes the section order; the print sheet hides some
+    // chrome but reorders nothing, so the printed sections must appear in
+    // that same sequence with the Projects entries nested in their own order.
+    const sections = ['Summary', 'Skills', 'Experience', 'Education', 'Certifications', 'Projects'];
+    const projectTitles = Array.from(
+      document.querySelectorAll('.resume-projects .resume-entry__title'),
+    ).map((el) => el.textContent.replace(/\s+/g, ' ').trim());
+    expect(projectTitles.length, 'no project titles found on the page').toBeGreaterThan(1);
+
+    const outOfOrder = firstOutOfOrder([
+      ...sections.map((text) => ({ label: `section "${text}"`, text })),
+      ...projectTitles.map((text) => ({ label: `project "${text}"`, text })),
+    ]);
+    expect(
+      outOfOrder,
+      outOfOrder && `${outOfOrder.label} ${outOfOrder.reason} in the PDF's content stream (#923).`,
+    ).toBeNull();
+  });
+
+  it('writes each bullet exactly once', () => {
+    // The fix must not have been a duplicate-and-hide. Counting occurrences
+    // is the cheap proof that the bullets moved rather than multiplied.
+    for (const li of document.querySelectorAll('.resume-experience .resume-prose li')) {
+      const needle = normalizeForOrder(li.textContent);
+      const count = stream.split(needle).length - 1;
+      expect(count, `bullet appears ${count}× in the PDF: ${li.textContent.slice(0, 60)}`).toBe(1);
+    }
+  });
+
+  it('still lands on three pages', () => {
+    // specs/resume.md § Print targets three balanced pages, calibrated in
+    // #420. Paint order is not supposed to move a single line, so a change in
+    // page count alongside a reading-order fix means something else moved.
+    expect(
+      pages.length,
+      'the resume PDF is no longer three pages — see specs/resume.md § Print',
+    ).toBe(3);
   });
 });
 
