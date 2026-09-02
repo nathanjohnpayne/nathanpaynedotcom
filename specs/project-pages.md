@@ -67,6 +67,7 @@ draft: false
 | `screenshotAspect` | `"wide"` \| `"narrow"` | yes | Layout variant—see below |
 | `screenshotSrc` | string | yes | Path to hero image in `public/` |
 | `screenshotSecondary` | object | no | A companion capture rendered beside `screenshotSrc`—see § Paired screenshots. All four keys are required when the field is present: `src`, `alt`, `width`, `height` |
+| `screenshotDarkSurface` | boolean | no | Opt in when the hero art itself needs a dark figure surface to be legible—see § Dark screenshot surface. A property of the artwork, not of `accent` |
 | `accent` | enum | yes | Semantic accent token for the project. One of `red`, `yellow`, `paper`, `blue`, `black`. Not a free choice—it must be `RAMP[order % 5]` per the Accent ramp below, enforced by `tests/project-pages.test.js`. CSS derives the actual palette values, text-safe color, page wash, and metadata gradient from this token |
 | `liveUrl` | non-empty string | no | URL for the live CTA, labelled "View Live Product" unless `liveLabel` overrides it. Omit on pre-launch projects (status `IN PROGRESS`)—the CTA, the index card "Live ↗" link, the homepage Builds "Live ↗" link, and the `SoftwareApplication` JSON-LD entity are all suppressed when this field is missing |
 | `liveLabel` | non-empty string | no | Overrides the live CTA's label. The default "View Live Product" is right when the link opens the product; it is wrong when the link opens a demonstration instead, and the mismatch is loudest beside a non-SHIPPED status. Device Source of Truth is `ARCHIVED` and its live link reaches a synthetic-data demo behind a restricted login, so it sets `View Demo`—which makes `ARCHIVED` read as what it is: development ended, an inspectable demonstration remains. The schema rejects `liveLabel` without `liveUrl`, since it would label a button nothing renders |
@@ -425,6 +426,16 @@ accent = RAMP[order % 5]
 The sequence is a single-direction walk—warm, bright, neutral, cool, dark—so the portfolio reads as a progression rather than a rotation, and adding a project extends the walk instead of requiring a fresh judgment call about which color is still free. The ramp keys off `order`, not file position or publication date, so a reorder re-colors the affected projects rather than silently breaking the sequence. `tests/project-pages.test.js` asserts every project's `accent` matches `RAMP[order % 5]`, so a new project that picks its own color fails the suite.
 
 There is no `lightblue`. It existed as a second blue while the site ran two palette registers in one composition; PR #500 made 1921 the `:root` default and left `--lightblue: var(--blue)` behind as an alias that resolved identically in both registers. The alias and its `data-accent` scope were removed once the duplication was confirmed—the two blues the site still runs are the 1921 and 1930 registers, one per room, not two tokens inside one register. See [Two Blues, One Composition](/blog/two-blues-one-composition/).
+
+### Dark screenshot surface
+
+Some hero art is only legible on a dark background, independent of the project's accent. Matchline is the case: `screenshotSrc` is a wordmark SVG with a near-white fill, rendered inline in the screenshot slot rather than a screenshot, so it needs a dark figure surface to be visible at all.
+
+That legibility need is a property of the artwork, not of the accent—but the accent is itself derived from `order` per the ramp above, which is editorial and can move. Coupling the two used to be exactly the bug: the dark surface was keyed on `[data-accent='black']`, so it only survived because Matchline's `order: 4` happened to land on that ramp slot, and a reorder would have silently rendered a white wordmark on cream with no test failure to catch it (#784).
+
+`screenshotDarkSurface: true` in frontmatter ties the treatment to the content entry instead, so it travels with the artwork through any reorder. `ProjectLayout.astro` adds a `.project-screenshot--dark-surface` modifier class to the figure when set; `global.css` keys the dark background off that class rather than `data-accent`. The color itself still derives from `--accent`—`color-mix(in srgb, var(--accent) 22%, var(--ink))`—so the surface keeps the project's own hue, just darkened enough for contrast, rather than going flat black regardless of accent.
+
+This flag is deliberately narrow: it only controls background/border-color and the `.project-stack` caption's text color. The wordmark-specific centering and sizing (constraining an inline `<svg>` to `56rem` and dropping its border) is a separate concern keyed on the actual `<svg>` in the DOM via `:has()`, not on this flag—a wide screenshot can opt into the dark surface without being a wordmark (a near-black raster capture, say), and the two properties should not be re-coupled the same way accent and artwork were.
 
 ### Current project accents
 

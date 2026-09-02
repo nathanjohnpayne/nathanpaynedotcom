@@ -1997,6 +1997,30 @@ body.blog-page {
   border: 1px solid var(--rule, color-mix(in srgb, var(--ink) 12%, transparent));
 }
 
+/* SVG wordmark treatment (Codex P2 on #922): centers an inline `<svg>` hero
+   mark in its inner wrapper and constrains it so it breathes rather than
+   stretching to the full content column, and drops the raster-screenshot
+   border above since there's no photographic edge to soften on a wordmark.
+   Keyed on `:has()` finding the actual inline `<svg>` `ProjectMuxPlayer`
+   renders (see its own comment on why SVGs are inlined rather than
+   `<img src>`), not on `--dark-surface` or the accent: those two properties
+   are independent — a wide screenshot can need a dark backdrop without being
+   a wordmark (a near-black raster capture, say), and a wordmark wants this
+   sizing whether or not its surface happens to be dark. Scoped to `--wide`:
+   unscoped it also matched `--narrow`, where its 56rem cap beat the narrow
+   variant's own 320px cap on equal specificity by sheer source order, and a
+   wordmark rendered at full content width — this is exactly the Five Across
+   collision described above, one level less coarse (content-keyed here
+   instead of accent-keyed), so the same scoping guard still applies. */
+.project-screenshot--wide:has(> .project-screenshot__inner > svg) .project-screenshot__inner {
+  max-width: 56rem;
+  margin: 0 auto;
+  padding: clamp(2rem, 6vw, 4rem) clamp(1rem, 4vw, 2.5rem);
+}
+.project-screenshot--wide .project-screenshot__inner > svg {
+  border: none;
+}
+
 /* Opt-in (`screenshotDarkSurface: true` in frontmatter, #784) dark figure
    surface for hero art that isn't legible on the ordinary page wash.
    Matchline is the load-bearing case: it renders a white-fill wordmark SVG
@@ -2017,29 +2041,10 @@ body.blog-page {
    with the artwork through any reorder. The color itself still derives from
    `--accent` — mixed mostly with `--ink` so it stays dark regardless of
    which accent the project carries — so the project's own hue still comes
-   through, just darkened enough for contrast.
-
-   The width/padding override below is the WORDMARK treatment specifically —
-   center the SVG in its inner wrapper and constrain it so it breathes rather
-   than stretching to the full content column — so it is scoped to `--wide`.
-   Unscoped it also matched `--narrow`, where its 56rem cap beat the narrow
-   variant's own 320px cap on equal specificity by sheer source order, and a
-   dark-surface phone screenshot rendered at full content width. Matchline
-   was the only dark-surface project until Five Across, so the collision had
-   never fired. The border on the inner img is suppressed because there's no
-   raster screenshot edge to soften on the wordmark. */
+   through, just darkened enough for contrast. */
 .project-screenshot--dark-surface {
   background: color-mix(in srgb, var(--accent) 22%, var(--ink));
   border-top-color: color-mix(in srgb, var(--accent) 22%, var(--ink));
-}
-.project-screenshot--dark-surface.project-screenshot--wide .project-screenshot__inner {
-  max-width: 56rem;
-  margin: 0 auto;
-  padding: clamp(2rem, 6vw, 4rem) clamp(1rem, 4vw, 2.5rem);
-}
-.project-screenshot--dark-surface.project-screenshot--wide img,
-.project-screenshot--dark-surface.project-screenshot--wide .project-screenshot__inner > svg {
-  border: none;
 }
 .project-screenshot--dark-surface .project-stack {
   color: color-mix(in srgb, var(--cream) 78%, transparent);
