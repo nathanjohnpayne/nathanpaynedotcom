@@ -763,6 +763,37 @@ describe('Resume — PDF reading order', () => {
     return null;
   }
 
+  /**
+   * Every print-visible piece of the Experience section, in DOM order: each
+   * role title followed by that role's summary paragraphs and bullets.
+   *
+   * Shared by the within-Experience test and the whole-page section-order
+   * test. Deriving it in only the first of those was itself a blind spot: a
+   * print rule that positioned every `.resume-entry` would move the whole
+   * section after Education, Projects and Writing while preserving the order
+   * *within* it — so the dedicated test passed, and the global one passed too
+   * because it never placed any experience content between the Experience and
+   * Education headings (Codex, #924).
+   */
+  function experienceLandmarks() {
+    const marks = [];
+    for (const entry of document.querySelectorAll('.resume-experience .resume-entry')) {
+      const title = entry.querySelector('.resume-entry__title').textContent.trim();
+      marks.push({ label: `role "${title}"`, text: title });
+      // Paragraphs AND bullets, in document order. Recording only the title
+      // and the `<li>`s left every role summary except Disney's — which the
+      // pinned test covers — free to detach from its entry undetected
+      // (Codex, #924), which is the exact defect this PR is about. A summary
+      // is not a lesser part of a role than its bullets.
+      for (const el of entry.querySelectorAll('.resume-prose p, .resume-prose li')) {
+        const text = el.textContent.replace(/\s+/g, ' ').trim();
+        const kind = el.tagName === 'P' ? 'summary' : 'bullet';
+        marks.push({ label: `${kind} under "${title}": ${text.slice(0, 48)}…`, text });
+      }
+    }
+    return marks;
+  }
+
   it('extracts real text from the PDF', () => {
     // Positive control. Every assertion below is "A comes before B", and a
     // reader that returned nothing would satisfy none of them for the right
@@ -819,21 +850,7 @@ describe('Resume — PDF reading order', () => {
     // The general form of the same guarantee, derived from the built page
     // rather than pinned: whatever the resume says, the PDF must say it in
     // that order. This is what keeps the fix from being specific to one role.
-    const landmarks = [];
-    for (const entry of document.querySelectorAll('.resume-experience .resume-entry')) {
-      const title = entry.querySelector('.resume-entry__title').textContent.trim();
-      landmarks.push({ label: `role "${title}"`, text: title });
-      // Paragraphs AND bullets, in document order. Recording only the title
-      // and the `<li>`s left every role summary except Disney's — which the
-      // pinned test above covers — free to detach from its entry undetected
-      // (Codex, #924), which is the exact defect this PR is about. A summary
-      // is not a lesser part of a role than its bullets.
-      for (const el of entry.querySelectorAll('.resume-prose p, .resume-prose li')) {
-        const text = el.textContent.replace(/\s+/g, ' ').trim();
-        const kind = el.tagName === 'P' ? 'summary' : 'bullet';
-        landmarks.push({ label: `${kind} under "${title}": ${text.slice(0, 48)}…`, text });
-      }
-    }
+    const landmarks = experienceLandmarks();
     // Guard the derivation itself: an empty or single-item list would make
     // the ordering check pass without checking anything.
     expect(landmarks.length, 'no experience landmarks derived from the page').toBeGreaterThan(10);
@@ -872,8 +889,15 @@ describe('Resume — PDF reading order', () => {
       .filter(Boolean);
     expect(projectParts.length, 'no project content found on the page').toBeGreaterThan(6);
 
+    // Section headings alone would not notice a whole section moving: the
+    // Experience entries could all paint after Writing, in order, with the
+    // headings untouched. Each section's own content is therefore threaded
+    // between its heading and the next one.
+    const [beforeExperience, afterExperience] = [sections.slice(0, 3), sections.slice(3)];
     const outOfOrder = firstOutOfOrder([
-      ...sections.map((text) => ({ label: `section "${text}"`, text, exact: true })),
+      ...beforeExperience.map((text) => ({ label: `section "${text}"`, text, exact: true })),
+      ...experienceLandmarks(),
+      ...afterExperience.map((text) => ({ label: `section "${text}"`, text, exact: true })),
       ...projectParts.map((text) => ({ label: `project content "${text.slice(0, 48)}…"`, text })),
       // Writing collapses to its lead line in print, but the heading prints.
       { label: 'section "Writing"', text: 'Writing', exact: true },

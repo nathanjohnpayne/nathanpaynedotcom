@@ -385,6 +385,23 @@ function decodeContentStream(content, fonts) {
     );
   }
 
+  // Every `Tf` in the stream must be one this scanner recognises. Widening the
+  // operand grammar fixes the cases we can foresee — a signed size, a name
+  // with a hyphen — but the failure mode is the problem, not the instance: an
+  // unmatched `Tf` does not throw, it leaves the previous font selected and
+  // decodes the following glyphs through the wrong CMap into plausible text
+  // (Codex, #924). Counting closes the class instead of chasing it.
+  const tfTotal = (content.match(/(?:^|\s)Tf(?=\s|$)/g) || []).length;
+  const tfMatched = (
+    content.match(new RegExp(String.raw`/` + PDF_NAME + String.raw`\s+[+-]?[\d.]+\s+Tf`, 'g')) || []
+  ).length;
+  if (tfMatched !== tfTotal) {
+    throw new Error(
+      `pdf: ${tfTotal - tfMatched} of ${tfTotal} Tf operators use a form this reader does not ` +
+        `parse; an unrecognised font selection would silently decode through the previous font`,
+    );
+  }
+
   let out = '';
   let current = null;
   // The PDF graphics state — which includes the text state, and so the
@@ -407,7 +424,7 @@ function decodeContentStream(content, fonts) {
   const re = new RegExp(
     String.raw`(?:^|[\s])([qQ])(?=[\s]|$)|BT\b|/(` +
       PDF_NAME +
-      String.raw`)\s+[\d.]+\s+Tf|<([0-9A-Fa-f\s]*)>\s*Tj|\[([^\]]*)\]\s*TJ`,
+      String.raw`)\s+[+-]?[\d.]+\s+Tf|<([0-9A-Fa-f\s]*)>\s*Tj|\[([^\]]*)\]\s*TJ`,
     'g',
   );
   let m;
