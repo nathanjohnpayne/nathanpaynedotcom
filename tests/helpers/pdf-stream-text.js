@@ -37,15 +37,27 @@ import { inflateSync } from 'node:zlib';
  * - `/Length` always a direct integer, so stream extents never require
  *   resolving another object;
  * - `/FlateDecode` as the only filter;
- * - one-byte character codes mapped through a `/ToUnicode` CMap that uses
- *   `beginbfchar` only.
+ * - a flat page tree, reached through the document catalog;
+ * - text shown by hex strings only, never by literal `(...)` strings;
+ * - one-byte character codes, as declared by each `/ToUnicode` CMap's own
+ *   `begincodespacerange`, mapped through `beginbfchar` and `beginbfrange`.
  *
  * Anything else throws. A loud failure is the point: a silent one would let a
- * reordering regression through as an empty extraction, which is the failure
- * mode that makes an absence check worthless.
+ * reordering regression through as an empty or truncated extraction, and every
+ * assertion built on this reader would then pass for the wrong reason. Each
+ * constraint above is therefore checked in code rather than assumed in a
+ * comment — including the ones today's output could not violate.
  */
 
-/** Fonts subset by Chromium map single bytes; a 2-byte CMap would need more. */
+/**
+ * Character codes this reader decodes, in bytes.
+ *
+ * Chromium's subsets are one-byte, and every CMap declares that width in its
+ * `begincodespacerange`. `parseToUnicode` reads the declaration and rejects
+ * anything wider rather than trusting this constant: a two-byte CMap would
+ * not fail here, it would decode each glyph pair as one wrong single-byte
+ * code and return plausible-looking garbage.
+ */
 const CODE_BYTES = 1;
 
 /**
@@ -111,16 +123,42 @@ function readObject(buf, latin1, index, num) {
 }
 
 /**
- * Page object numbers, in document order, from the page-tree root's `/Kids`.
+ * Page object numbers, in document order.
  *
+ * Resolved through the document catalog — `/Type /Catalog` → `/Pages` → that
+ * object's `/Kids` — rather than by matching the first `/Kids` in the file.
+ * Chromium emits exactly one `/Kids` array for this document, so the two
+ * agree today, but only the catalog route says *why* an array is the page
+ * order instead of assuming the first one found is.
+ *
+ * A nested page tree is rejected rather than walked: every kid must be a
+ * `/Type /Page`. Walking would be more code for a shape this generator does
+ * not produce, and silently returning intermediate nodes as pages is exactly
+ * the quiet wrong answer this module refuses to give.
+ *
+ * @param {Buffer} buf
  * @param {string} latin1
+ * @param {Map<number, number>} index
  * @returns {number[]}
  */
-function pageObjectNumbers(latin1) {
-  const kids = latin1.match(/\/Kids\s*\[([^\]]*)\]/);
-  if (!kids) throw new Error('pdf: no /Kids array — cannot establish page order');
+function pageObjectNumbers(buf, latin1, index) {
+  const catalog = latin1.match(/\/Type\s*\/Catalog[\s\S]{0,2000}?\/Pages\s+(\d+)\s+0\s+R/);
+  if (!catalog) throw new Error('pdf: no /Type /Catalog with a /Pages reference');
+
+  const root = readObject(buf, latin1, index, Number(catalog[1]));
+  const kids = root.dict.match(/\/Kids\s*\[([^\]]*)\]/);
+  if (!kids) throw new Error('pdf: the page-tree root has no /Kids array');
+
   const nums = [...kids[1].matchAll(/(\d+)\s+0\s+R/g)].map((m) => Number(m[1]));
-  if (nums.length === 0) throw new Error('pdf: /Kids array is empty');
+  if (nums.length === 0) throw new Error('pdf: the page tree root /Kids array is empty');
+
+  for (const num of nums) {
+    if (!/\/Type\s*\/Page(?![a-zA-Z])/.test(readObject(buf, latin1, index, num).dict)) {
+      throw new Error(
+        `pdf: object ${num} under /Kids is not a /Page — nested page trees are not supported`,
+      );
+    }
+  }
   return nums;
 }
 
@@ -155,6 +193,19 @@ function utf16beFromHex(hex) {
  * @returns {Map<number, string>}
  */
 function parseToUnicode(cmap) {
+  // The CMap states its own code width. Reading it is what makes CODE_BYTES
+  // an assertion rather than an assumption — a wider codespace decodes to
+  // convincing nonsense instead of failing, which is the one outcome this
+  // reader must never produce.
+  const codespace = cmap.match(/begincodespacerange\s*<([0-9A-Fa-f]+)>\s*<([0-9A-Fa-f]+)>/);
+  if (!codespace) throw new Error('pdf: /ToUnicode CMap declares no codespace range');
+  const width = codespace[1].length / 2;
+  if (width !== CODE_BYTES || codespace[2].length / 2 !== CODE_BYTES) {
+    throw new Error(
+      `pdf: /ToUnicode CMap uses ${width}-byte codes; this reader decodes ${CODE_BYTES}-byte codes only`,
+    );
+  }
+
   const map = new Map();
 
   // Each section states how many entries it holds. Checking the decoded count
@@ -240,6 +291,17 @@ function pageFontRefs(pageDict) {
  * @returns {string}
  */
 function decodeContentStream(content, cmaps) {
+  // Only hex strings are decoded below, so a literal-string text operator —
+  // `(text) Tj`, or a literal inside a TJ array, where a `)` would also
+  // terminate the array match early and drop the rest of the line — would
+  // contribute nothing and say nothing. Chromium emits hex for this document;
+  // reject the other form rather than quietly returning short text.
+  if (/\)\s*T[Jj]/.test(content)) {
+    throw new Error(
+      'pdf: content stream uses literal-string text operators, which this reader does not decode',
+    );
+  }
+
   let out = '';
   let current = null;
 
@@ -296,7 +358,7 @@ export function pdfPagesInStreamOrder(buf) {
   const index = indexObjects(latin1);
   const cmapCache = new Map();
 
-  return pageObjectNumbers(latin1).map((pageNum) => {
+  return pageObjectNumbers(buf, latin1, index).map((pageNum) => {
     const page = readObject(buf, latin1, index, pageNum);
 
     const cmaps = new Map();
