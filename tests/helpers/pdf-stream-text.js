@@ -335,7 +335,18 @@ function pageFontRefs(pageDict) {
  *   PDF font name → that font's code map and its own code width
  * @returns {string}
  */
-function decodeContentStream(content, fonts) {
+function decodeContentStream(rawContent, fonts) {
+  // A PDF comment runs from `%` to the end of the line and is not executed.
+  // Left in place, `% <0041> Tj` would have appended a glyph that is not on
+  // the page, and a bare `q`, `Q` or `Tf` in a comment would have corrupted
+  // the tracked state for the real text after it (Codex, #924) — fabricated
+  // text, which is worse than missing text because nothing looks wrong.
+  //
+  // Safe to strip before the guards rather than after: hex strings hold only
+  // hex digits and whitespace, and literal strings — the one place a `%` could
+  // legitimately sit mid-token — are rejected outright a few lines below.
+  const content = rawContent.replace(/%[^\r\n]*/g, '');
+
   // Only hex strings are decoded below, so any literal string would be lost:
   // `(text) Tj` contributes nothing, and a literal nested in a TJ array —
   // `[(foo) -10 <4142>] TJ` — is worse, because a `)` or `]` inside it also

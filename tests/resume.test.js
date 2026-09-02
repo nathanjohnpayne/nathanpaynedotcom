@@ -864,48 +864,89 @@ describe('Resume — PDF reading order', () => {
     ).toBeNull();
   });
 
-  it('writes the sections in the order the page composes them', () => {
-    // specs/resume.md fixes the section order; the print sheet hides some
-    // chrome but reorders nothing, so the printed sections must appear in
-    // that same sequence with the Projects entries nested in their own order.
-    // All seven printed sections. Writing sits AFTER the project entries, so it
-    // is appended below rather than listed here — leaving it out entirely let a
-    // Writing heading that moved above Projects pass (Codex, #924).
-    const sections = ['Summary', 'Skills', 'Experience', 'Education', 'Certifications', 'Projects'];
-    // Every print-visible part of each project entry, in DOM order — not the
-    // titles alone. Walking titles only left a project's tech line, URL or
-    // description free to detach and be painted after Writing while the test
-    // still passed, which is the same defect for Projects that the role
-    // summaries had for Experience (Codex, #924).
-    const projectParts = Array.from(document.querySelectorAll('.resume-projects .resume-entry'))
-      .flatMap((entry) =>
-        Array.from(
-          entry.querySelectorAll(
-            '.resume-entry__title, .resume-entry__tech, .resume-entry__link, .resume-prose p',
-          ),
-        ),
-      )
-      .map((el) => el.textContent.replace(/\s+/g, ' ').trim())
-      .filter(Boolean);
-    expect(projectParts.length, 'no project content found on the page').toBeGreaterThan(6);
+  /**
+   * Selectors the print cascade hides, read out of the emitted stylesheet
+   * rather than listed here.
+   *
+   * The point of deriving them is that the list cannot drift: whatever
+   * `@media print` hides is what the PDF omits, so a newly hidden element
+   * stops being expected in the PDF without anyone remembering to update a
+   * test.
+   */
+  function printHiddenSelectors() {
+    const astroDir = resolve(DIST, '_astro');
+    const css = readdirSync(astroDir)
+      .filter((f) => f.endsWith('.css'))
+      .map((f) => readFileSync(join(astroDir, f), 'utf-8'))
+      .find((c) => c.includes('@media print'));
+    expect(css, 'no emitted stylesheet has an @media print block').toBeTruthy();
+    const block = css.slice(css.indexOf('@media print'));
+    const selectors = [];
+    for (const rule of block.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+      if (/display:\s*none/.test(rule[2])) selectors.push(rule[1].trim().replace(/\s+/g, ' '));
+    }
+    return selectors.join(',');
+  }
 
-    // Section headings alone would not notice a whole section moving: the
-    // Experience entries could all paint after Writing, in order, with the
-    // headings untouched. Each section's own content is therefore threaded
-    // between its heading and the next one.
-    const [beforeExperience, afterExperience] = [sections.slice(0, 3), sections.slice(3)];
-    const outOfOrder = firstOutOfOrder([
-      ...beforeExperience.map((text) => ({ label: `section "${text}"`, text, exact: true })),
-      ...experienceLandmarks(),
-      ...afterExperience.map((text) => ({ label: `section "${text}"`, text, exact: true })),
-      ...projectParts.map((text) => ({ label: `project content "${text.slice(0, 48)}…"`, text })),
-      // Writing collapses to its lead line in print, but the heading prints.
-      { label: 'section "Writing"', text: 'Writing', exact: true },
-      { label: 'the Writing lead', text: 'The AI-Augmented PM' },
-    ]);
+  /**
+   * Every printed text block of the résumé, in DOM order.
+   *
+   * This is the general form of the ordering contract, and it replaced four
+   * successive approximations of it — section headings, then role summaries,
+   * then project bodies, then Experience inside the global check — each of
+   * which left the next section's body unguarded (Codex, #924). Rather than
+   * naming sections, it walks the printed subtree and takes the outermost
+   * element that directly contributes text, so a section added later is
+   * covered without touching this test.
+   *
+   * `<h2>` landmarks are matched as whole lines; everything else as a
+   * substring, since wrapped prose spans several emitted lines.
+   */
+  function printedTextBlocks() {
+    const hidden = printHiddenSelectors();
+    const blocks = [];
+
+    const walk = (el) => {
+      if (el.matches(hidden)) return;
+      // An element that directly contains text is the outermost block for it;
+      // recursing further would re-collect its own inline children, whose text
+      // the cursor has already passed.
+      const ownText = Array.from(el.childNodes).some(
+        (n) => n.nodeType === 3 && n.textContent.trim().length > 0,
+      );
+      if (ownText) {
+        const text = el.textContent.replace(/\s+/g, ' ').trim();
+        if (text) {
+          blocks.push({
+            label: `${el.tagName.toLowerCase()}.${el.className || '—'}: ${text.slice(0, 44)}…`,
+            text,
+            exact: el.tagName === 'H2',
+          });
+        }
+        return;
+      }
+      for (const child of el.children) walk(child);
+    };
+
+    walk(document.querySelector('.resume-canvas-content'));
+    return blocks;
+  }
+
+  it('writes every printed block in the order the page composes it', () => {
+    // The whole contract in one assertion: the PDF's content stream carries
+    // the résumé in the page's own order, block for block. Section headings,
+    // role summaries, bullets, skills rows, certifications, project tech
+    // lines, URLs and descriptions all participate, because all of them are
+    // things that a positioned element could detach.
+    const blocks = printedTextBlocks();
+    expect(blocks.length, 'no printed blocks derived from the page').toBeGreaterThan(60);
+
+    const outOfOrder = firstOutOfOrder(blocks);
     expect(
       outOfOrder,
-      outOfOrder && `${outOfOrder.label} ${outOfOrder.reason} in the PDF's content stream (#923).`,
+      outOfOrder &&
+        `${outOfOrder.label} ${outOfOrder.reason}. The PDF's content stream must follow ` +
+          `the same order as /resume/ (#923).`,
     ).toBeNull();
   });
 
