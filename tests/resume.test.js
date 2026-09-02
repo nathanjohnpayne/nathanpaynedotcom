@@ -792,9 +792,15 @@ describe('Resume — PDF reading order', () => {
     for (const entry of document.querySelectorAll('.resume-experience .resume-entry')) {
       const title = entry.querySelector('.resume-entry__title').textContent.trim();
       landmarks.push({ label: `role "${title}"`, text: title });
-      for (const li of entry.querySelectorAll('.resume-prose li')) {
-        const text = li.textContent.replace(/\s+/g, ' ').trim();
-        landmarks.push({ label: `bullet under "${title}": ${text.slice(0, 48)}…`, text });
+      // Paragraphs AND bullets, in document order. Recording only the title
+      // and the `<li>`s left every role summary except Disney's — which the
+      // pinned test above covers — free to detach from its entry undetected
+      // (Codex, #924), which is the exact defect this PR is about. A summary
+      // is not a lesser part of a role than its bullets.
+      for (const el of entry.querySelectorAll('.resume-prose p, .resume-prose li')) {
+        const text = el.textContent.replace(/\s+/g, ' ').trim();
+        const kind = el.tagName === 'P' ? 'summary' : 'bullet';
+        landmarks.push({ label: `${kind} under "${title}": ${text.slice(0, 48)}…`, text });
       }
     }
     // Guard the derivation itself: an empty or single-item list would make
@@ -868,15 +874,25 @@ describe('Resume — PDF reading order', () => {
     for (const stream of pdfPageContentStreams(readFileSync(PDF_PATH))) {
       // `rg` sets an RGB fill, `g` a grayscale one; `re … f` fills a rect.
       // Uppercase `RG`/`G` are stroke colours and deliberately not tracked.
+      // `q` saves the graphics state and `Q` restores it, and the fill colour
+      // is part of that state. Tracking colour linearly meant a rectangle
+      // painted after a pop was judged by the popped scope's colour — which
+      // in the direction that matters could report a genuinely white marker
+      // as dark, letting the #925 regression through the test written to
+      // catch it (Codex, #926).
       const ops =
-        /([\d.]+) ([\d.]+) ([\d.]+) rg|(?:^|\s)([\d.]+) g(?![a-zA-Z])|[-\d.]+ [-\d.]+ ([\d.]+) ([\d.]+) re\s+f(?![a-zA-Z*])/g;
+        /(?:^|\s)([qQ])(?=\s|$)|([\d.]+) ([\d.]+) ([\d.]+) rg|(?:^|\s)([\d.]+) g(?![a-zA-Z])|[-\d.]+ [-\d.]+ ([\d.]+) ([\d.]+) re\s+f(?![a-zA-Z*])/g;
       let fill = null;
+      const fillStack = [];
       let op;
       while ((op = ops.exec(stream)) !== null) {
-        if (op[1] !== undefined) fill = [op[1], op[2], op[3]].map(Number);
-        else if (op[4] !== undefined) fill = [Number(op[4])];
+        if (op[1] === 'q') fillStack.push(fill);
+        else if (op[1] === 'Q') {
+          if (fillStack.length > 0) fill = fillStack.pop();
+        } else if (op[2] !== undefined) fill = [op[2], op[3], op[4]].map(Number);
+        else if (op[5] !== undefined) fill = [Number(op[5])];
         else {
-          const [w, h] = [Number(op[5]), Number(op[6])];
+          const [w, h] = [Number(op[6]), Number(op[7])];
           // Small and near-square: not the page background (~701x941) and not
           // a link underline (1 unit tall).
           if (w > 0 && w <= 12 && h > 0 && h <= 12 && Math.abs(w - h) <= 1) {

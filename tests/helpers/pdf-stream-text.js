@@ -176,10 +176,20 @@ function pageObjectNumbers(buf, latin1, index) {
  * A code may map to more than one unit — a ligature expanding back into its
  * letters, for example — so this is a string, not a character.
  *
+ * The length is validated rather than truncated to a multiple of four. An
+ * empty destination (`<>`) used to yield an empty mapping and an odd-length
+ * one a short mapping, and `decodeHex` then treated either as a successful
+ * decode — a glyph mapping to nothing, silently (Codex, #926).
+ *
  * @param {string} hex
  * @returns {string}
  */
 function utf16beFromHex(hex) {
+  if (hex.length === 0 || hex.length % 4 !== 0) {
+    throw new Error(
+      `pdf: /ToUnicode destination <${hex}> is not a whole number of UTF-16 code units`,
+    );
+  }
   let text = '';
   for (let i = 0; i + 4 <= hex.length; i += 4) {
     text += String.fromCharCode(parseInt(hex.slice(i, i + 4), 16));
@@ -343,25 +353,58 @@ function decodeContentStream(content, fonts) {
     );
   }
 
+  // A Form XObject moves its content into a separate stream and leaves only
+  // `/X1 Do` behind on the page. This scanner does not follow `Do`, so any
+  // text inside a form would vanish while the positive control and the
+  // landmarks elsewhere in the document stayed green (Codex, #924). Chromium
+  // emits no XObjects at all for this page — verified: zero `/XObject`, zero
+  // `/Subtype /Form`, zero `Do` — so rejecting is honest, and following would
+  // be untested code guarding an untaken path.
+  if (/\/\w+\s+Do(?![a-zA-Z0-9])/.test(content)) {
+    throw new Error(
+      'pdf: content stream invokes an XObject (`Do`), whose contents this reader does not follow',
+    );
+  }
+
   let out = '';
   let current = null;
+  // The PDF graphics state — which includes the text state, and so the
+  // selected font — is saved by `q` and restored by `Q`. Tracking the font
+  // linearly meant a `Q` that should have restored an outer font left the
+  // inner one selected, decoding later codes through the wrong CMap into
+  // plausible but wrong text (Codex, #924). This document never shows text
+  // after a pop without an intervening `Tf`, so the two strategies agree on
+  // it today — measured: 15 pops would change the font, 0 text operators
+  // disagree — but "agrees today" is not the guarantee this reader offers.
+  const fontStack = [];
 
-  // Text-showing operators, plus the two operators that change what they
-  // mean: `Tf` selects the font whose CMap decodes the codes, `BT` starts a
-  // new text object.
-  const re = /BT\b|\/(\w+)\s+[\d.]+\s+Tf|<([0-9A-Fa-f]*)>\s*Tj|\[([^\]]*)\]\s*TJ/g;
+  // Text-showing operators, plus the operators that change what they mean:
+  // `Tf` selects the font whose CMap decodes the codes, `BT` starts a new
+  // text object, and `q`/`Q` push and pop the graphics state.
+  //
+  // Hex strings may legally contain whitespace (`<41 42> Tj`), which an
+  // earlier revision did not match and therefore dropped in silence
+  // (Codex, #926); the character class admits it and `decodeHex` strips it.
+  const re =
+    /(?:^|[\s])([qQ])(?=[\s]|$)|BT\b|\/(\w+)\s+[\d.]+\s+Tf|<([0-9A-Fa-f\s]*)>\s*Tj|\[([^\]]*)\]\s*TJ/g;
   let m;
   while ((m = re.exec(content)) !== null) {
-    if (m[0] === 'BT') {
+    if (m[1] === 'q') {
+      fontStack.push(current);
+    } else if (m[1] === 'Q') {
+      // An unbalanced `Q` leaves the state as-is rather than throwing: the
+      // page's own outermost scope is not this stream's to balance.
+      if (fontStack.length > 0) current = fontStack.pop();
+    } else if (m[0] === 'BT') {
       out += '\n';
-    } else if (m[1] !== undefined) {
-      current = fonts.get(m[1]) ?? null;
     } else if (m[2] !== undefined) {
-      out += decodeHex(m[2], current);
+      current = fonts.get(m[2]) ?? null;
+    } else if (m[3] !== undefined) {
+      out += decodeHex(m[3], current);
     } else {
       // A TJ array interleaves strings with kerning numbers; the numbers only
       // move the pen, so only the strings contribute text.
-      for (const str of m[3].matchAll(/<([0-9A-Fa-f]*)>/g)) {
+      for (const str of m[4].matchAll(/<([0-9A-Fa-f\s]*)>/g)) {
         out += decodeHex(str[1], current);
       }
     }
@@ -388,7 +431,9 @@ function decodeContentStream(content, fonts) {
  * @param {{ map: Map<number, string>, codeBytes: number } | null} font
  * @returns {string}
  */
-function decodeHex(hex, font) {
+function decodeHex(rawHex, font) {
+  // Whitespace inside the delimiters is legal and carries no data.
+  const hex = rawHex.replace(/\s+/g, '');
   if (hex.length === 0) return '';
   if (!font) {
     throw new Error('pdf: text shown with no current font, so its codes cannot be decoded');
