@@ -15,6 +15,7 @@ import {
   pdfPagesInStreamOrder,
   pdfPageContentStreams,
   normalizeForOrder,
+  stripPdfComments,
 } from './helpers/pdf-stream-text.js';
 
 // Smoke tests for the content-collection-driven /resume page.
@@ -780,15 +781,19 @@ describe('Resume — PDF reading order', () => {
     for (const entry of document.querySelectorAll('.resume-experience .resume-entry')) {
       const title = entry.querySelector('.resume-entry__title').textContent.trim();
       marks.push({ label: `role "${title}"`, text: title });
-      // Paragraphs AND bullets, in document order. Recording only the title
-      // and the `<li>`s left every role summary except Disney's — which the
-      // pinned test covers — free to detach from its entry undetected
-      // (Codex, #924), which is the exact defect this PR is about. A summary
-      // is not a lesser part of a role than its bullets.
-      for (const el of entry.querySelectorAll('.resume-prose p, .resume-prose li')) {
-        const text = el.textContent.replace(/\s+/g, ' ').trim();
-        const kind = el.tagName === 'P' ? 'summary' : 'bullet';
-        marks.push({ label: `${kind} under "${title}": ${text.slice(0, 48)}…`, text });
+      // Summaries AND bullets, in document order. Recording only the title and
+      // the `<li>`s left every role summary except Disney's — which the pinned
+      // test covers — free to detach from its entry undetected (Codex, #924),
+      // which is the exact defect this PR is about. A summary is not a lesser
+      // part of a role than its bullets.
+      const prose = entry.querySelector('.resume-prose');
+      if (prose) {
+        for (const block of outermostTextBlocks(prose, null)) {
+          marks.push({
+            label: `body under "${title}": ${block.text.slice(0, 44)}…`,
+            text: block.text,
+          });
+        }
       }
     }
     return marks;
@@ -878,13 +883,42 @@ describe('Resume — PDF reading order', () => {
     const css = readdirSync(astroDir)
       .filter((f) => f.endsWith('.css'))
       .map((f) => readFileSync(join(astroDir, f), 'utf-8'))
-      .find((c) => c.includes('@media print'));
+      .filter((c) => c.includes('@media print'))
+      .join('\n');
     expect(css, 'no emitted stylesheet has an @media print block').toBeTruthy();
-    const block = css.slice(css.indexOf('@media print'));
+    // EVERY `@media print` block, each bounded by brace depth. Two bugs live
+    // here, and the second was hidden by the first (CodeRabbit, #924):
+    //
+    // 1. `css.slice(css.indexOf('@media print'))` runs to end-of-file, so every
+    //    later `display: none` — screen-only hides included — joined the
+    //    hidden list. `printedTextBlocks` skips those elements, so a detached
+    //    block goes unchecked: a false pass, in the test written to prevent
+    //    one.
+    // 2. Astro concatenates component styles, so the sheet holds several
+    //    `@media print` blocks and the first belongs to the BLOG. Bounding the
+    //    slice correctly but keeping `indexOf` yielded a 432-character block
+    //    with one irrelevant rule in it, and the résumé's own hides — the
+    //    breadcrumbs among them — vanished from the list.
+    //
+    // Reading to end-of-file accidentally papered over the wrong-block bug by
+    // sweeping up the résumé rules too. Both are fixed by taking all blocks.
     const selectors = [];
-    for (const rule of block.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
-      if (/display:\s*none/.test(rule[2])) selectors.push(rule[1].trim().replace(/\s+/g, ' '));
+    for (const at of css.matchAll(/@media print\s*\{/g)) {
+      const open = at.index + at[0].length - 1;
+      let depth = 0;
+      let end = open;
+      for (; end < css.length; end += 1) {
+        if (css[end] === '{') depth += 1;
+        else if (css[end] === '}' && --depth === 0) break;
+      }
+      for (const rule of css.slice(open + 1, end).matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+        if (/display:\s*none/.test(rule[2])) selectors.push(rule[1].trim().replace(/\s+/g, ' '));
+      }
     }
+    expect(
+      selectors.length,
+      'no display:none rules found in any @media print block',
+    ).toBeGreaterThan(0);
     return selectors.join(',');
   }
 
@@ -902,15 +936,15 @@ describe('Resume — PDF reading order', () => {
    * `<h2>` landmarks are matched as whole lines; everything else as a
    * substring, since wrapped prose spans several emitted lines.
    */
-  function printedTextBlocks() {
-    const hidden = printHiddenSelectors();
+  function outermostTextBlocks(root, hidden) {
     const blocks = [];
-
     const walk = (el) => {
-      if (el.matches(hidden)) return;
-      // An element that directly contains text is the outermost block for it;
-      // recursing further would re-collect its own inline children, whose text
-      // the cursor has already passed.
+      if (hidden && el.matches(hidden)) return;
+      // An element that directly contains text is the outermost block for it.
+      // Recursing further would re-collect its own children — an inline
+      // `<strong>`, or a `<p>` nested inside a loose Markdown `<li>` — whose
+      // text the cursor has already passed, so the walk would then report it
+      // as out of order (CodeRabbit, #924).
       const ownText = Array.from(el.childNodes).some(
         (n) => n.nodeType === 3 && n.textContent.trim().length > 0,
       );
@@ -927,9 +961,18 @@ describe('Resume — PDF reading order', () => {
       }
       for (const child of el.children) walk(child);
     };
-
-    walk(document.querySelector('.resume-canvas-content'));
+    walk(root);
     return blocks;
+  }
+
+  function printedTextBlocks() {
+    // From `.resume-canvas`, not `.resume-canvas-content`: the print cascade
+    // keeps the header — the name, title and contact line all print — so a
+    // walk that started at the content column could not notice header text
+    // being emitted after the sections (Codex, #924). The margin, metadata
+    // panel, sidebar and footer are all in the derived hide list, so starting
+    // higher costs nothing.
+    return outermostTextBlocks(document.querySelector('.resume-canvas'), printHiddenSelectors());
   }
 
   it('writes every printed block in the order the page composes it', () => {
@@ -979,7 +1022,12 @@ describe('Resume — PDF reading order', () => {
     // A presence check passes on it. So track the fill colour in force at each
     // square and require black.
     const squares = [];
-    for (const stream of pdfPageContentStreams(readFileSync(PDF_PATH))) {
+    for (const raw of pdfPageContentStreams(readFileSync(PDF_PATH))) {
+      // `1 g % 0 g` before a white rectangle would otherwise have its
+      // commented-out `0 g` executed and classify an invisible marker as
+      // visible — the exact regression this test exists to catch (Codex,
+      // #924). Same sanitisation the text scanner applies.
+      const stream = stripPdfComments(raw);
       // `rg` sets an RGB fill, `g` a grayscale one; `re … f` fills a rect.
       // Uppercase `RG`/`G` are stroke colours and deliberately not tracked.
       // `q` saves the graphics state and `Q` restores it, and the fill colour

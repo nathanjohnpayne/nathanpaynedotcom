@@ -345,7 +345,7 @@ function decodeContentStream(rawContent, fonts) {
   // Safe to strip before the guards rather than after: hex strings hold only
   // hex digits and whitespace, and literal strings — the one place a `%` could
   // legitimately sit mid-token — are rejected outright a few lines below.
-  const content = rawContent.replace(/%[^\r\n]*/g, '');
+  const content = stripPdfComments(rawContent);
 
   // Only hex strings are decoded below, so any literal string would be lost:
   // `(text) Tj` contributes nothing, and a literal nested in a TJ array —
@@ -396,6 +396,18 @@ function decodeContentStream(rawContent, fonts) {
     );
   }
 
+  // An inline image is `BI … ID <arbitrary bytes> EI`, and those bytes are not
+  // operators. Scanned as if they were, image data containing `<0041> Tj`
+  // would append text no reader renders — fabricated content that could
+  // satisfy a landmark (Codex, #924). Skipping it needs a real lexer for the
+  // `ID`/`EI` boundary; rejecting it needs one line, and this document has no
+  // inline images.
+  if (/(?:^|\s)BI(?=\s)/.test(content)) {
+    throw new Error(
+      'pdf: content stream contains an inline image (`BI`), whose data this reader cannot skip',
+    );
+  }
+
   // Every `Tf` in the stream must be one this scanner recognises. Widening the
   // operand grammar fixes the cases we can foresee — a signed size, a name
   // with a hyphen — but the failure mode is the problem, not the instance: an
@@ -415,6 +427,18 @@ function decodeContentStream(rawContent, fonts) {
 
   let out = '';
   let current = null;
+  // Marked-content spans carrying `/ActualText`: the string a conforming
+  // extractor reports INSTEAD of the glyphs inside the span. Chromium uses it
+  // here for the apostrophe — `/Span<</ActualText <FEFF2019>>> BDC … EMC`
+  // around a glyph whose own ToUnicode says U+02BC — so ignoring it made this
+  // reader disagree with the very consumers whose reading order it models
+  // (Codex, #924). Applying it is what makes `Disney's` extract as `Disney’s`
+  // rather than `Disneyʼs`.
+  //
+  // A stack, because BDC/EMC nest. Only spans that declare ActualText
+  // suppress their glyphs; the rest are transparent.
+  const marked = [];
+  const suppressed = () => marked.some((entry) => entry !== null);
   // The PDF graphics state — which includes the text state, and so the
   // selected font — is saved by `q` and restored by `Q`. Tracking the font
   // linearly meant a `Q` that should have restored an outer font left the
@@ -435,7 +459,8 @@ function decodeContentStream(rawContent, fonts) {
   const re = new RegExp(
     String.raw`(?:^|[\s])([qQ])(?=[\s]|$)|BT\b|/(` +
       PDF_NAME +
-      String.raw`)\s+[+-]?[\d.]+\s+Tf|<([0-9A-Fa-f\s]*)>\s*Tj|\[([^\]]*)\]\s*TJ`,
+      String.raw`)\s+[+-]?[\d.]+\s+Tf|<([0-9A-Fa-f\s]*)>\s*Tj|\[([^\]]*)\]\s*TJ` +
+      String.raw`|/ActualText\s*<([0-9A-Fa-f\s]*)>[^]*?BDC|(?:^|\s)(BDC|EMC)(?=\s|$)`,
     'g',
   );
   let m;
@@ -446,21 +471,47 @@ function decodeContentStream(rawContent, fonts) {
       // An unbalanced `Q` leaves the state as-is rather than throwing: the
       // page's own outermost scope is not this stream's to balance.
       if (fontStack.length > 0) current = fontStack.pop();
+    } else if (m[5] !== undefined) {
+      // A marked-content span WITH replacement text. The leading U+FEFF is a
+      // byte-order mark, not content.
+      const actual = utf16beFromHex(m[5].replace(/\s+/g, '')).replace(/^\uFEFF/, '');
+      if (!suppressed()) out += actual;
+      marked.push(actual);
+    } else if (m[6] === 'BDC') {
+      marked.push(null); // a span with no ActualText — transparent
+    } else if (m[6] === 'EMC') {
+      marked.pop();
     } else if (m[0] === 'BT') {
       out += '\n';
     } else if (m[2] !== undefined) {
       current = fonts.get(m[2]) ?? null;
     } else if (m[3] !== undefined) {
-      out += decodeHex(m[3], current);
+      if (!suppressed()) out += decodeHex(m[3], current);
     } else {
       // A TJ array interleaves strings with kerning numbers; the numbers only
       // move the pen, so only the strings contribute text.
       for (const str of m[4].matchAll(/<([0-9A-Fa-f\s]*)>/g)) {
-        out += decodeHex(str[1], current);
+        if (!suppressed()) out += decodeHex(str[1], current);
       }
     }
   }
   return out;
+}
+
+/**
+ * Remove PDF comments — `%` to end of line — from a content stream.
+ *
+ * Exported because the graphics scanner in `tests/resume.test.js` reads raw
+ * streams from `pdfPageContentStreams` and needs the same sanitisation: a
+ * comment like `1 g % 0 g` before a white rectangle would otherwise have its
+ * commented-out `0 g` executed and classify an invisible marker as visible
+ * (Codex, #924).
+ *
+ * @param {string} content
+ * @returns {string}
+ */
+export function stripPdfComments(content) {
+  return content.replace(/%[^\r\n]*/g, '');
 }
 
 /**
@@ -601,13 +652,18 @@ export function pdfTextInStreamOrder(buf) {
  * glyphs and some as pen movements, so the same visible sentence can extract
  * with or without its spaces depending on whether it is set in bold.
  *
- * Quotes and dashes fold to ASCII, and the fold is wider than the characters
- * the source actually contains, because a `/ToUnicode` CMap reports whatever
- * codepoint the subsetted font assigned its glyph — not the one the HTML was
+ * Quotes and dashes fold to ASCII, and the fold is deliberately wider than the
+ * characters the source contains, because a `/ToUnicode` CMap reports whatever
+ * codepoint the subsetted font assigned a glyph — not the one the HTML was
  * authored with. This résumé's bold face maps its apostrophe to U+02BC
- * MODIFIER LETTER APOSTROPHE, so `Disney’s` in the page extracts as `Disneyʼs`
- * from the PDF. Folding both to `'` lets an expected string be written in
- * plain characters and compared against either.
+ * MODIFIER LETTER APOSTROPHE, and reading the CMap alone extracted `Disneyʼs`
+ * where the page says `Disney’s`.
+ *
+ * Applying `/ActualText` removed that particular discrepancy — Chromium marks
+ * those spans with the real U+2019 and the decoder now honours it — so the
+ * fold is no longer load-bearing for the apostrophe. It stays because the
+ * general point holds: a subset font may report any codepoint it likes for a
+ * glyph, and an expected string should be writable in plain characters.
  *
  * @param {string} text
  * @returns {string}
