@@ -701,9 +701,26 @@ describe('Resume — PDF reading order', () => {
   /** Per-page content-stream text, for the pagination assertion. */
   let pages;
 
+  /**
+   * The same text as `stream`, split at the emitted line boundaries, with each
+   * line's start offset into `stream`. `normalizeForOrder` strips whitespace
+   * including the newlines, so the concatenation of the normalized lines IS
+   * `stream` — which lets a landmark be matched against a WHOLE line rather
+   * than as a substring anywhere.
+   */
+  let lines;
+
   beforeAll(() => {
     pages = pdfPagesInStreamOrder(readFileSync(PDF_PATH));
     stream = normalizeForOrder(pages.join('\n'));
+    lines = [];
+    let offset = 0;
+    for (const raw of pages.join('\n').split('\n')) {
+      const text = normalizeForOrder(raw);
+      if (text.length === 0) continue;
+      lines.push({ text, offset });
+      offset += text.length;
+    }
   });
 
   beforeEach(() => {
@@ -714,17 +731,31 @@ describe('Resume — PDF reading order', () => {
    * Walk `landmarks` through the stream, each one required at or after the
    * end of the previous match. Returns the first landmark that is missing or
    * out of sequence, or null when the whole run is in order.
+   *
+   * A landmark marked `exact` must match a COMPLETE emitted line rather than
+   * appear as a substring. Section headings need that: searching for
+   * `Projects` as a substring also matches the `Selected Projects` lead that
+   * follows it, so the assertion passed whether or not the heading itself was
+   * there — establishing neither its presence nor its position (Codex, #924).
+   * Prose landmarks stay substring matches, since a wrapped paragraph or
+   * bullet spans several emitted lines.
    */
   function firstOutOfOrder(landmarks) {
     let cursor = 0;
-    for (const { label, text } of landmarks) {
+    for (const { label, text, exact } of landmarks) {
       const needle = normalizeForOrder(text);
-      const at = stream.indexOf(needle, cursor);
+      let at;
+      if (exact) {
+        const line = lines.find((l) => l.offset >= cursor && l.text === needle);
+        at = line ? line.offset : -1;
+      } else {
+        at = stream.indexOf(needle, cursor);
+      }
       if (at < 0) {
-        const anywhere = stream.indexOf(needle);
+        const anywhere = exact ? lines.some((l) => l.text === needle) : stream.indexOf(needle) >= 0;
         return {
           label,
-          reason: anywhere < 0 ? 'missing from the PDF entirely' : 'appears earlier than it should',
+          reason: anywhere ? 'appears earlier than it should' : 'missing from the PDF entirely',
         };
       }
       cursor = at + needle.length;
@@ -830,10 +861,10 @@ describe('Resume — PDF reading order', () => {
     expect(projectTitles.length, 'no project titles found on the page').toBeGreaterThan(1);
 
     const outOfOrder = firstOutOfOrder([
-      ...sections.map((text) => ({ label: `section "${text}"`, text })),
+      ...sections.map((text) => ({ label: `section "${text}"`, text, exact: true })),
       ...projectTitles.map((text) => ({ label: `project "${text}"`, text })),
       // Writing collapses to its lead line in print, but the heading prints.
-      { label: 'section "Writing"', text: 'Writing' },
+      { label: 'section "Writing"', text: 'Writing', exact: true },
       { label: 'the Writing lead', text: 'The AI-Augmented PM' },
     ]);
     expect(

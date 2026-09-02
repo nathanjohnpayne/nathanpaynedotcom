@@ -64,6 +64,19 @@ import { inflateSync } from 'node:zlib';
 const SUPPORTED_CODE_BYTES = [1, 2];
 
 /**
+ * Characters that may appear in a PDF name, as a regex fragment.
+ *
+ * A name is any run of regular characters — everything except whitespace and
+ * the delimiters `()<>[]{}/%`. `\w+` is narrower than that and excludes legal
+ * names like `/F-1`: a `Tf` selecting one would not have matched at all, and
+ * the previously selected font would have stayed current and decoded the
+ * following glyphs through the wrong CMap (Codex, #924). Chromium names these
+ * `F4`…`F30` today, so this is latent — but a missed `Tf` is silent, which is
+ * the one thing this reader must not be.
+ */
+const PDF_NAME = String.raw`[^\s/<>\[\]{}()%]+`;
+
+/**
  * Byte offsets of every `N 0 obj` header, keyed by object number.
  *
  * Matching is anchored to a preceding newline so the digits of a stream's
@@ -298,7 +311,8 @@ function pageFontRefs(pageDict) {
   const fonts = new Map();
   const block = pageDict.match(/\/Font\s*<<([\s\S]*?)>>/);
   if (!block) return fonts;
-  for (const ref of block[1].matchAll(/\/(\w+)\s+(\d+)\s+0\s+R/g)) {
+  const nameRef = new RegExp(String.raw`/(` + PDF_NAME + String.raw`)\s+(\d+)\s+0\s+R`, 'g');
+  for (const ref of block[1].matchAll(nameRef)) {
     fonts.set(ref[1], Number(ref[2]));
   }
   return fonts;
@@ -347,7 +361,12 @@ function decodeContentStream(content, fonts) {
   // The operator regex below matches neither, so a stream using them would
   // skip those strings and return truncated text (CodeRabbit, #924). Chromium
   // emits neither here; reject rather than silently shorten.
-  if (/<[0-9A-Fa-f]*>\s*["']/.test(content)) {
+  //
+  // The hex class admits whitespace for the same reason the `Tj`/`TJ`
+  // branches do: `<41 42> '` is legal, and a guard that only recognised
+  // contiguous hex would miss exactly the case it exists to catch, letting
+  // the main scanner drop the text in silence (Codex, #924).
+  if (/<[0-9A-Fa-f\s]*>\s*["']/.test(content)) {
     throw new Error(
       'pdf: content stream uses the \' or " show-text operator, which this reader does not decode',
     );
@@ -385,8 +404,12 @@ function decodeContentStream(content, fonts) {
   // Hex strings may legally contain whitespace (`<41 42> Tj`), which an
   // earlier revision did not match and therefore dropped in silence
   // (Codex, #926); the character class admits it and `decodeHex` strips it.
-  const re =
-    /(?:^|[\s])([qQ])(?=[\s]|$)|BT\b|\/(\w+)\s+[\d.]+\s+Tf|<([0-9A-Fa-f\s]*)>\s*Tj|\[([^\]]*)\]\s*TJ/g;
+  const re = new RegExp(
+    String.raw`(?:^|[\s])([qQ])(?=[\s]|$)|BT\b|/(` +
+      PDF_NAME +
+      String.raw`)\s+[\d.]+\s+Tf|<([0-9A-Fa-f\s]*)>\s*Tj|\[([^\]]*)\]\s*TJ`,
+    'g',
+  );
   let m;
   while ((m = re.exec(content)) !== null) {
     if (m[1] === 'q') {
