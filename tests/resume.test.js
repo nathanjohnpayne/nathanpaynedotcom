@@ -855,14 +855,26 @@ describe('Resume — PDF reading order', () => {
     // is appended below rather than listed here — leaving it out entirely let a
     // Writing heading that moved above Projects pass (Codex, #924).
     const sections = ['Summary', 'Skills', 'Experience', 'Education', 'Certifications', 'Projects'];
-    const projectTitles = Array.from(
-      document.querySelectorAll('.resume-projects .resume-entry__title'),
-    ).map((el) => el.textContent.replace(/\s+/g, ' ').trim());
-    expect(projectTitles.length, 'no project titles found on the page').toBeGreaterThan(1);
+    // Every print-visible part of each project entry, in DOM order — not the
+    // titles alone. Walking titles only left a project's tech line, URL or
+    // description free to detach and be painted after Writing while the test
+    // still passed, which is the same defect for Projects that the role
+    // summaries had for Experience (Codex, #924).
+    const projectParts = Array.from(document.querySelectorAll('.resume-projects .resume-entry'))
+      .flatMap((entry) =>
+        Array.from(
+          entry.querySelectorAll(
+            '.resume-entry__title, .resume-entry__tech, .resume-entry__link, .resume-prose p',
+          ),
+        ),
+      )
+      .map((el) => el.textContent.replace(/\s+/g, ' ').trim())
+      .filter(Boolean);
+    expect(projectParts.length, 'no project content found on the page').toBeGreaterThan(6);
 
     const outOfOrder = firstOutOfOrder([
       ...sections.map((text) => ({ label: `section "${text}"`, text, exact: true })),
-      ...projectTitles.map((text) => ({ label: `project "${text}"`, text })),
+      ...projectParts.map((text) => ({ label: `project content "${text.slice(0, 48)}…"`, text })),
       // Writing collapses to its lead line in print, but the heading prints.
       { label: 'section "Writing"', text: 'Writing', exact: true },
       { label: 'the Writing lead', text: 'The AI-Augmented PM' },

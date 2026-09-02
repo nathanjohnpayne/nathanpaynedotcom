@@ -379,7 +379,7 @@ function decodeContentStream(content, fonts) {
   // emits no XObjects at all for this page — verified: zero `/XObject`, zero
   // `/Subtype /Form`, zero `Do` — so rejecting is honest, and following would
   // be untested code guarding an untaken path.
-  if (/\/\w+\s+Do(?![a-zA-Z0-9])/.test(content)) {
+  if (new RegExp(String.raw`/` + PDF_NAME + String.raw`\s+Do(?![a-zA-Z0-9])`).test(content)) {
     throw new Error(
       'pdf: content stream invokes an XObject (`Do`), whose contents this reader does not follow',
     );
