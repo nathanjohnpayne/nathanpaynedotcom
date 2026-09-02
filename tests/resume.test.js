@@ -814,6 +814,9 @@ describe('Resume — PDF reading order', () => {
     // specs/resume.md fixes the section order; the print sheet hides some
     // chrome but reorders nothing, so the printed sections must appear in
     // that same sequence with the Projects entries nested in their own order.
+    // All seven printed sections. Writing sits AFTER the project entries, so it
+    // is appended below rather than listed here — leaving it out entirely let a
+    // Writing heading that moved above Projects pass (Codex, #924).
     const sections = ['Summary', 'Skills', 'Experience', 'Education', 'Certifications', 'Projects'];
     const projectTitles = Array.from(
       document.querySelectorAll('.resume-projects .resume-entry__title'),
@@ -823,6 +826,9 @@ describe('Resume — PDF reading order', () => {
     const outOfOrder = firstOutOfOrder([
       ...sections.map((text) => ({ label: `section "${text}"`, text })),
       ...projectTitles.map((text) => ({ label: `project "${text}"`, text })),
+      // Writing collapses to its lead line in print, but the heading prints.
+      { label: 'section "Writing"', text: 'Writing' },
+      { label: 'the Writing lead', text: 'The AI-Augmented PM' },
     ]);
     expect(
       outOfOrder,

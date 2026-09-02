@@ -105,7 +105,12 @@ function readObject(buf, latin1, index, num) {
   }
 
   const dict = latin1.slice(start, streamAt);
-  const length = dict.match(/\/Length\s+(\d+)(?!\s+\d+\s+R)/);
+  // `(?!\d)` first, so the digits cannot backtrack out of the indirect-length
+  // guard: on `/Length 123 0 R` a greedy `\d+` with only the `\s+\d+\s+R`
+  // lookahead gives up `3`, and `12` then satisfies the lookahead because the
+  // next character is a digit rather than a space. The reader would inflate a
+  // truncated prefix instead of reporting an unsupported shape (Codex, #924).
+  const length = dict.match(/\/Length\s+(\d+)(?!\d)(?!\s+\d+\s+R)/);
   if (!length) {
     throw new Error(
       `pdf: object ${num} has no direct /Length — this reader does not resolve ` +
@@ -360,16 +365,38 @@ function decodeContentStream(content, fonts) {
  * one-byte simple font with a two-byte composite one, and reading either at
  * the other's width produces text rather than an error.
  *
+ * Every way this can fail throws, and none of them returns short text. An
+ * earlier version fell back to `''` for a string shown with no current font
+ * and for a code absent from the font's CMap, and let the loop bound discard a
+ * trailing partial code — three silent truncations in the one function whose
+ * output every ordering assertion is built on (Codex, #924). The real document
+ * exercises none of them: 8,813 glyphs, zero unmapped, zero fontless, zero
+ * partial. That is what makes throwing safe as well as correct.
+ *
  * @param {string} hex
  * @param {{ map: Map<number, string>, codeBytes: number } | null} font
  * @returns {string}
  */
 function decodeHex(hex, font) {
-  if (!font) return '';
+  if (hex.length === 0) return '';
+  if (!font) {
+    throw new Error('pdf: text shown with no current font, so its codes cannot be decoded');
+  }
   const stride = font.codeBytes * 2;
+  if (hex.length % stride !== 0) {
+    throw new Error(
+      `pdf: hex string of ${hex.length / 2} bytes is not a whole number of ` +
+        `${font.codeBytes}-byte codes`,
+    );
+  }
   let text = '';
-  for (let i = 0; i + stride <= hex.length; i += stride) {
-    text += font.map.get(parseInt(hex.slice(i, i + stride), 16)) ?? '';
+  for (let i = 0; i < hex.length; i += stride) {
+    const code = parseInt(hex.slice(i, i + stride), 16);
+    const glyph = font.map.get(code);
+    if (glyph === undefined) {
+      throw new Error(`pdf: code 0x${hex.slice(i, i + stride)} is absent from the font's CMap`);
+    }
+    text += glyph;
   }
   return text;
 }
