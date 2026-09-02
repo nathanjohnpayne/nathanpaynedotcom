@@ -11,7 +11,11 @@ import {
 import { resolve, join } from 'path';
 import { tmpdir } from 'os';
 import { writeSanitizedDOM } from './helpers/dom.js';
-import { pdfPagesInStreamOrder, normalizeForOrder } from './helpers/pdf-stream-text.js';
+import {
+  pdfPagesInStreamOrder,
+  pdfPageContentStreams,
+  normalizeForOrder,
+} from './helpers/pdf-stream-text.js';
 
 // Smoke tests for the content-collection-driven /resume page.
 // See specs/resume.md and issue #394.
@@ -834,6 +838,52 @@ describe('Resume — PDF reading order', () => {
       const count = stream.split(needle).length - 1;
       expect(count, `bullet appears ${count}× in the PDF: ${li.textContent.slice(0, 60)}`).toBe(1);
     }
+  });
+
+  it('paints a visible bullet marker into the PDF for every bullet', () => {
+    // #925. The markers are CSS backgrounds on `.resume-prose ul li::before`,
+    // and the generator rendered with `printBackground: false` — Chrome's
+    // "Background graphics" unchecked. Every printed bullet carried its indent
+    // and nothing in it, and the print sheet's `background: #000 !important`
+    // for them had never once had an effect.
+    //
+    // Counting the squares is NOT enough, and that is the whole subtlety of
+    // this test: `printBackground: false` does not omit the rectangle, it
+    // paints it WHITE. The pre-fix file has all eleven `6 6 re f` operators at
+    // exactly the coordinates the fixed one does, each preceded by `1 1 1 rg`.
+    // A presence check passes on it. So track the fill colour in force at each
+    // square and require black.
+    const squares = [];
+    for (const stream of pdfPageContentStreams(readFileSync(PDF_PATH))) {
+      // `rg` sets an RGB fill, `g` a grayscale one; `re … f` fills a rect.
+      // Uppercase `RG`/`G` are stroke colours and deliberately not tracked.
+      const ops =
+        /([\d.]+) ([\d.]+) ([\d.]+) rg|(?:^|\s)([\d.]+) g(?![a-zA-Z])|[-\d.]+ [-\d.]+ ([\d.]+) ([\d.]+) re\s+f(?![a-zA-Z*])/g;
+      let fill = null;
+      let op;
+      while ((op = ops.exec(stream)) !== null) {
+        if (op[1] !== undefined) fill = [op[1], op[2], op[3]].map(Number);
+        else if (op[4] !== undefined) fill = [Number(op[4])];
+        else {
+          const [w, h] = [Number(op[5]), Number(op[6])];
+          // Small and near-square: not the page background (~701x941) and not
+          // a link underline (1 unit tall).
+          if (w > 0 && w <= 12 && h > 0 && h <= 12 && Math.abs(w - h) <= 1) {
+            squares.push({ w, h, visible: fill !== null && fill.every((c) => c < 0.5) });
+          }
+        }
+      }
+    }
+
+    const bullets = document.querySelectorAll('.resume-prose ul li').length;
+    expect(bullets, 'no bullets on the page to look for').toBeGreaterThan(0);
+    expect(squares.length, `the PDF has no marker rectangle for every bullet`).toBe(bullets);
+    expect(
+      squares.filter((sq) => !sq.visible).length,
+      `${squares.filter((sq) => !sq.visible).length} of ${squares.length} bullet markers are ` +
+        `painted in a light fill, so they do not show on paper — check printBackground in ` +
+        `src/integrations/resume-pdf.mjs (#925).`,
+    ).toBe(0);
   });
 
   it('still lands on three pages', () => {

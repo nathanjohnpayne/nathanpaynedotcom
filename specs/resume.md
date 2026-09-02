@@ -277,6 +277,29 @@ recruiter-legible filename, for "attach your resume" forms and ATS pipelines
   `.resume-writing__essays li` are also positioned, and are all hidden in
   print—so they are outside this rule, and un-hiding any of them in print
   means giving it the same treatment first.
+- **`printBackground: true` in the generator, and it is load-bearing (#925).**
+  Chromium's default—and this generator's setting until #925—is Chrome's
+  "Background graphics" unchecked, which does not omit a background but paints
+  it **white**. The bullet markers are CSS backgrounds on `.resume-prose ul
+  li::before`, so every printed bullet carried its indent and an invisible
+  square, and the print sheet's `background: #000 !important` for them had
+  never once had an effect. The pre-fix file contains all eleven `6 6 re f`
+  operators at the same coordinates as the fixed one, each preceded by
+  `1 1 1 rg`—which is why a test that merely counts the rectangles passes on
+  it, and why `tests/resume.test.js` checks the fill colour in force at each.
+
+  The marker stays a background rather than becoming a border: border widths
+  floor to whole device pixels while box dimensions round, so a border-drawn
+  square comes out 4×4 (four sides at `calc(size / 2)`) or 5×6 (one full-width
+  `border-left`) where the background paints 6×6.
+
+  Enabling the flag is contained rather than merely convenient, and that was
+  measured, not argued: with it on, the rendered PDF pages differ from the
+  previous file **only** in the 9px marker column (pages 1 and 2; page 3 has no
+  bullets and is pixel-identical). The print cascade leaves nothing else for it
+  to paint—`html`, `body.resume-page`, `.resume-canvas`, the header and the
+  content column are forced to `#fff !important`, and every tinted surface is
+  hidden outright.
 - The PDF is an asset, not a route—`@astrojs/sitemap` does not list it.
 - The on-page affordance is `.resume-download` inside `.resume-actions`, placed
   after the header contact block and hidden in `@media print`. Clicking it
@@ -363,7 +386,9 @@ icon-library dependency.
   print and the reserved padding reclaimed; the bold section titles carry the
   separation. This buys vertical space toward the three-page fit.
 - Forces black-on-white regardless of screen colors (text, bullet `::before`
-  squares, and link underlines/borders all forced to `#000`). Resume links
+  squares, and link underlines/borders all forced to `#000`). The bullet-square
+  half of that only began to have an effect in #925, when the generator started
+  passing `printBackground: true`—see *Downloadable PDF* above. Resume links
   print with a real underline (`text-decoration` + `text-underline-offset`)
   rather than a `border-bottom`, so the rule clears descenders.
 - `page-break-inside: avoid` on each work entry, project, certification, and
@@ -461,6 +486,9 @@ In particular:
     text of the generated `Nathan-Payne-Resume.pdf`.
 8a. No link annotation in the generated PDF points at `127.0.0.1` or
     `localhost`, and every one carries an `http(s):` or `mailto:` scheme.
+8f. Every bullet on the page has a marker rectangle in the PDF that is
+    painted in a dark fill. Counting the rectangles is not this criterion:
+    `printBackground: false` emitted every one of them in white (#925).
 8e. The PDF's **content stream**—not its rendered pages—carries the résumé in
     the page's own order: every Experience role is followed by its own
     bullets before the next role begins, the sections and Projects entries

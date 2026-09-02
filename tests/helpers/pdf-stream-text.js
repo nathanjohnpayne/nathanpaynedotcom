@@ -39,8 +39,10 @@ import { inflateSync } from 'node:zlib';
  * - `/FlateDecode` as the only filter;
  * - a flat page tree, reached through the document catalog;
  * - text shown by hex strings only, never by literal `(...)` strings;
- * - one-byte character codes, as declared by each `/ToUnicode` CMap's own
- *   `begincodespacerange`, mapped through `beginbfchar` and `beginbfrange`.
+ * - one- or two-byte character codes, at the width each `/ToUnicode` CMap
+ *   declares in its own `begincodespacerange` (uniform within a font, and read
+ *   per font — a macOS build and a Linux CI build of the same page do not
+ *   agree on this), mapped through `beginbfchar` and `beginbfrange`.
  *
  * Anything else throws. A loud failure is the point: a silent one would let a
  * reordering regression through as an empty or truncated extraction, and every
@@ -50,15 +52,16 @@ import { inflateSync } from 'node:zlib';
  */
 
 /**
- * Character codes this reader decodes, in bytes.
+ * Character-code widths, in bytes, that this reader decodes.
  *
- * Chromium's subsets are one-byte, and every CMap declares that width in its
- * `begincodespacerange`. `parseToUnicode` reads the declaration and rejects
- * anything wider rather than trusting this constant: a two-byte CMap would
- * not fail here, it would decode each glyph pair as one wrong single-byte
- * code and return plausible-looking garbage.
+ * The width is **per font and read from that font's own CMap**, never assumed.
+ * An earlier revision hardcoded one byte, which was true of every font in a
+ * macOS build and false on CI, where Chromium subsets some faces as composite
+ * fonts with two-byte codes. Guessing here does not fail loudly: a two-byte
+ * CMap read as one-byte decodes each glyph pair as one wrong code and returns
+ * plausible-looking garbage — the one outcome this module must never produce.
  */
-const CODE_BYTES = 1;
+const SUPPORTED_CODE_BYTES = [1, 2];
 
 /**
  * Byte offsets of every `N 0 obj` header, keyed by object number.
@@ -190,19 +193,31 @@ function utf16beFromHex(hex) {
  * went unmapped can never be mistaken for a font with no text.
  *
  * @param {string} cmap
- * @returns {Map<number, string>}
+ * @returns {{ map: Map<number, string>, codeBytes: number }}
  */
 function parseToUnicode(cmap) {
-  // The CMap states its own code width. Reading it is what makes CODE_BYTES
-  // an assertion rather than an assumption — a wider codespace decodes to
-  // convincing nonsense instead of failing, which is the one outcome this
-  // reader must never produce.
-  const codespace = cmap.match(/begincodespacerange\s*<([0-9A-Fa-f]+)>\s*<([0-9A-Fa-f]+)>/);
-  if (!codespace) throw new Error('pdf: /ToUnicode CMap declares no codespace range');
-  const width = codespace[1].length / 2;
-  if (width !== CODE_BYTES || codespace[2].length / 2 !== CODE_BYTES) {
+  // Every code width in the CMap's own codespace declaration. A CMap may list
+  // several ranges; this reader requires them to agree, because a mixed-width
+  // codespace needs range-by-range decoding and silently reading it at one
+  // width would return convincing nonsense.
+  const widths = new Set();
+  for (const block of cmap.matchAll(/begincodespacerange([\s\S]*?)endcodespacerange/g)) {
+    for (const range of block[1].matchAll(/<([0-9A-Fa-f]+)>\s*<([0-9A-Fa-f]+)>/g)) {
+      widths.add(range[1].length / 2);
+      widths.add(range[2].length / 2);
+    }
+  }
+  if (widths.size === 0) throw new Error('pdf: /ToUnicode CMap declares no codespace range');
+  if (widths.size > 1) {
     throw new Error(
-      `pdf: /ToUnicode CMap uses ${width}-byte codes; this reader decodes ${CODE_BYTES}-byte codes only`,
+      `pdf: /ToUnicode CMap mixes ${[...widths].sort().join('- and ')}-byte codes, which this reader does not decode`,
+    );
+  }
+  const codeBytes = [...widths][0];
+  if (!SUPPORTED_CODE_BYTES.includes(codeBytes)) {
+    throw new Error(
+      `pdf: /ToUnicode CMap uses ${codeBytes}-byte codes; this reader decodes ` +
+        `${SUPPORTED_CODE_BYTES.join('- or ')}-byte codes only`,
     );
   }
 
@@ -255,7 +270,7 @@ function parseToUnicode(cmap) {
   }
 
   if (map.size === 0) throw new Error('pdf: /ToUnicode CMap yielded no mappings');
-  return map;
+  return { map, codeBytes };
 }
 
 /**
@@ -287,18 +302,28 @@ function pageFontRefs(pageDict) {
  * line-shaped and readable in a failure message.
  *
  * @param {string} content decompressed content stream
- * @param {Map<string, Map<number, string>>} cmaps font name → code map
+ * @param {Map<string, { map: Map<number, string>, codeBytes: number }>} fonts
+ *   PDF font name → that font's code map and its own code width
  * @returns {string}
  */
-function decodeContentStream(content, cmaps) {
-  // Only hex strings are decoded below, so a literal-string text operator —
-  // `(text) Tj`, or a literal inside a TJ array, where a `)` would also
-  // terminate the array match early and drop the rest of the line — would
-  // contribute nothing and say nothing. Chromium emits hex for this document;
-  // reject the other form rather than quietly returning short text.
-  if (/\)\s*T[Jj]/.test(content)) {
+function decodeContentStream(content, fonts) {
+  // Only hex strings are decoded below, so any literal string would be lost:
+  // `(text) Tj` contributes nothing, and a literal nested in a TJ array —
+  // `[(foo) -10 <4142>] TJ` — is worse, because a `)` or `]` inside it also
+  // terminates the array match early and drops the rest of the line.
+  //
+  // The guard is therefore "no literal string anywhere in the stream", not
+  // "no `) Tj`": an earlier version matched only a literal immediately before
+  // the operator and let the nested case through (Codex, #924). Chromium
+  // writes no `(` at all in these streams — verified, 0 across all three — so
+  // this is conservative in the safe direction. Rejecting a stream that turns
+  // out to contain a parenthesis for some other reason is a loud failure that
+  // gets looked at; decoding one that contains a literal string is a quiet
+  // truncation that every ordering assertion above would then run on.
+  if (content.includes('(')) {
     throw new Error(
-      'pdf: content stream uses literal-string text operators, which this reader does not decode',
+      'pdf: content stream contains a literal string, which this reader does not decode ' +
+        '(only hex strings are; a literal would be silently dropped)',
     );
   }
 
@@ -314,7 +339,7 @@ function decodeContentStream(content, cmaps) {
     if (m[0] === 'BT') {
       out += '\n';
     } else if (m[1] !== undefined) {
-      current = cmaps.get(m[1]) ?? null;
+      current = fonts.get(m[1]) ?? null;
     } else if (m[2] !== undefined) {
       out += decodeHex(m[2], current);
     } else {
@@ -329,15 +354,22 @@ function decodeContentStream(content, cmaps) {
 }
 
 /**
+ * Decode one hex string with the current font's own code width.
+ *
+ * The stride is the font's, not a constant: the same document can mix a
+ * one-byte simple font with a two-byte composite one, and reading either at
+ * the other's width produces text rather than an error.
+ *
  * @param {string} hex
- * @param {Map<number, string> | null} cmap
+ * @param {{ map: Map<number, string>, codeBytes: number } | null} font
  * @returns {string}
  */
-function decodeHex(hex, cmap) {
-  if (!cmap) return '';
+function decodeHex(hex, font) {
+  if (!font) return '';
+  const stride = font.codeBytes * 2;
   let text = '';
-  for (let i = 0; i + CODE_BYTES * 2 <= hex.length; i += CODE_BYTES * 2) {
-    text += cmap.get(parseInt(hex.slice(i, i + CODE_BYTES * 2), 16)) ?? '';
+  for (let i = 0; i + stride <= hex.length; i += stride) {
+    text += font.map.get(parseInt(hex.slice(i, i + stride), 16)) ?? '';
   }
   return text;
 }
@@ -361,7 +393,7 @@ export function pdfPagesInStreamOrder(buf) {
   return pageObjectNumbers(buf, latin1, index).map((pageNum) => {
     const page = readObject(buf, latin1, index, pageNum);
 
-    const cmaps = new Map();
+    const fonts = new Map();
     for (const [name, fontNum] of pageFontRefs(page.dict)) {
       if (!cmapCache.has(fontNum)) {
         const font = readObject(buf, latin1, index, fontNum);
@@ -371,8 +403,8 @@ export function pdfPagesInStreamOrder(buf) {
           ref ? parseToUnicode(readObject(buf, latin1, index, Number(ref[1])).stream) : null,
         );
       }
-      const cmap = cmapCache.get(fontNum);
-      if (cmap) cmaps.set(name, cmap);
+      const decoded = cmapCache.get(fontNum);
+      if (decoded) fonts.set(name, decoded);
     }
 
     const ref = page.dict.match(/\/Contents\s+(\d+)\s+0\s+R/);
@@ -380,7 +412,32 @@ export function pdfPagesInStreamOrder(buf) {
     const content = readObject(buf, latin1, index, Number(ref[1])).stream;
     if (content === null) throw new Error(`pdf: page object ${pageNum} /Contents is not a stream`);
 
-    return decodeContentStream(content, cmaps);
+    return decodeContentStream(content, fonts);
+  });
+}
+
+/**
+ * Each page's raw, decompressed content stream, in page order.
+ *
+ * Text is what this module is mostly for, but the résumé's bullet markers are
+ * not text — they are filled rectangles, painted from a CSS background — and
+ * whether they reach the file at all is its own regression (#925). Exposing
+ * the streams lets a test count them without this module growing an opinion
+ * about what a marker looks like.
+ *
+ * @param {Buffer} buf
+ * @returns {string[]}
+ */
+export function pdfPageContentStreams(buf) {
+  const latin1 = buf.toString('latin1');
+  const index = indexObjects(latin1);
+  return pageObjectNumbers(buf, latin1, index).map((pageNum) => {
+    const page = readObject(buf, latin1, index, pageNum);
+    const ref = page.dict.match(/\/Contents\s+(\d+)\s+0\s+R/);
+    if (!ref) throw new Error(`pdf: page object ${pageNum} has no /Contents reference`);
+    const content = readObject(buf, latin1, index, Number(ref[1])).stream;
+    if (content === null) throw new Error(`pdf: page object ${pageNum} /Contents is not a stream`);
+    return content;
   });
 }
 
