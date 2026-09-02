@@ -332,6 +332,17 @@ function decodeContentStream(content, fonts) {
     );
   }
 
+  // `Tj` and `TJ` are not the only show-text operators: `'` moves to the next
+  // line and shows a string, and `"` does the same with word/char spacing.
+  // The operator regex below matches neither, so a stream using them would
+  // skip those strings and return truncated text (CodeRabbit, #924). Chromium
+  // emits neither here; reject rather than silently shorten.
+  if (/<[0-9A-Fa-f]*>\s*["']/.test(content)) {
+    throw new Error(
+      'pdf: content stream uses the \' or " show-text operator, which this reader does not decode',
+    );
+  }
+
   let out = '';
   let current = null;
 
@@ -425,10 +436,18 @@ export function pdfPagesInStreamOrder(buf) {
       if (!cmapCache.has(fontNum)) {
         const font = readObject(buf, latin1, index, fontNum);
         const ref = font.dict.match(/\/ToUnicode\s+(\d+)\s+0\s+R/);
-        cmapCache.set(
-          fontNum,
-          ref ? parseToUnicode(readObject(buf, latin1, index, Number(ref[1])).stream) : null,
-        );
+        let decoded = null;
+        if (ref) {
+          // A /ToUnicode that resolves to a non-stream object would reach
+          // parseToUnicode as null and surface as an opaque TypeError on
+          // `cmap.matchAll` (CodeRabbit, #924). Name it instead.
+          const cmap = readObject(buf, latin1, index, Number(ref[1])).stream;
+          if (cmap === null) {
+            throw new Error(`pdf: /ToUnicode object ${ref[1]} for font ${name} is not a stream`);
+          }
+          decoded = parseToUnicode(cmap);
+        }
+        cmapCache.set(fontNum, decoded);
       }
       const decoded = cmapCache.get(fontNum);
       if (decoded) fonts.set(name, decoded);

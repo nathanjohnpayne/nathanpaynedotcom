@@ -839,7 +839,12 @@ describe('Resume — PDF reading order', () => {
   it('writes each bullet exactly once', () => {
     // The fix must not have been a duplicate-and-hide. Counting occurrences
     // is the cheap proof that the bullets moved rather than multiplied.
-    for (const li of document.querySelectorAll('.resume-experience .resume-prose li')) {
+    const items = document.querySelectorAll('.resume-experience .resume-prose li');
+    // Without this the loop below makes every assertion, so an empty NodeList
+    // passes the test having checked nothing (CodeRabbit, #924) — the same
+    // vacuous-pass shape the positive-control test above exists to prevent.
+    expect(items.length, 'no experience bullets found on the page').toBeGreaterThan(0);
+    for (const li of items) {
       const needle = normalizeForOrder(li.textContent);
       const count = stream.split(needle).length - 1;
       expect(count, `bullet appears ${count}× in the PDF: ${li.textContent.slice(0, 60)}`).toBe(1);
