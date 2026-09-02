@@ -1997,53 +1997,62 @@ body.blog-page {
   border: 1px solid var(--rule, color-mix(in srgb, var(--ink) 12%, transparent));
 }
 
-/* Black-accent projects get a black figure surface. Matchline is the load-
-   bearing case: it renders a white-fill wordmark SVG in the screenshot slot
-   rather than a screenshot, so the dark surface is what makes the mark
-   visible at all.
-
-   Five Across used to ride along here — its phone shot is a near-black app,
-   and the surface continued that artwork past the 320px image cap. The
-   accent ramp moved it to red, so it now sits on the ordinary page wash and
-   the treatment no longer applies. That was reviewed and accepted: the phone
-   capture reads as a device on the cream field and does not need the slab.
-
-   Note the coupling this leaves behind. The surface is keyed on the ACCENT
-   but is really a property of the ARTWORK, and Matchline keeps it only
-   because `order: 4` happens to land on black. A reorder that moves Matchline
-   off black would silently render a white wordmark on cream. If that day
-   comes, key this off the figure rather than off `data-accent` — do not
-   restore the accent to work around it.
-
-   The width/padding override below is the WORDMARK treatment specifically —
-   center the SVG in its inner wrapper and constrain it so it breathes rather
-   than stretching to the full content column — so it is scoped to `--wide`.
-   Unscoped it also matched `--narrow`, where its 56rem cap beat the narrow
+/* SVG wordmark treatment (Codex P2 on #922): centers an inline `<svg>` hero
+   mark in its inner wrapper and constrains it so it breathes rather than
+   stretching to the full content column, and drops the raster-screenshot
+   border above since there's no photographic edge to soften on a wordmark.
+   Keyed on `:has()` finding the actual inline `<svg>` `ProjectMuxPlayer`
+   renders (see its own comment on why SVGs are inlined rather than
+   `<img src>`), not on `--dark-surface` or the accent: those two properties
+   are independent — a wide screenshot can need a dark backdrop without being
+   a wordmark (a near-black raster capture, say), and a wordmark wants this
+   sizing whether or not its surface happens to be dark. Scoped to `--wide`:
+   unscoped it also matched `--narrow`, where its 56rem cap beat the narrow
    variant's own 320px cap on equal specificity by sheer source order, and a
-   black-accent phone screenshot rendered at full content width. Matchline was
-   the only black project until Five Across, so the collision had never fired.
-   The border on the inner img is suppressed because there's no raster
-   screenshot edge to soften on the wordmark. */
-[data-accent='black'] .project-screenshot {
-  background: var(--ink);
-  border-top-color: var(--ink);
-}
-[data-accent='black'] .project-screenshot--wide .project-screenshot__inner {
+   wordmark rendered at full content width — this is exactly the Five Across
+   collision described above, one level less coarse (content-keyed here
+   instead of accent-keyed), so the same scoping guard still applies. */
+.project-screenshot--wide:has(> .project-screenshot__inner > svg) .project-screenshot__inner {
   max-width: 56rem;
   margin: 0 auto;
   padding: clamp(2rem, 6vw, 4rem) clamp(1rem, 4vw, 2.5rem);
 }
-[data-accent='black'] .project-screenshot--wide img,
-[data-accent='black'] .project-screenshot--wide .project-screenshot__inner > svg {
+.project-screenshot--wide .project-screenshot__inner > svg {
   border: none;
 }
-[data-accent='black'] .project-stack {
+
+/* Opt-in (`screenshotDarkSurface: true` in frontmatter, #784) dark figure
+   surface for hero art that isn't legible on the ordinary page wash.
+   Matchline is the load-bearing case: it renders a white-fill wordmark SVG
+   in the screenshot slot rather than a screenshot, so the dark surface is
+   what makes the mark visible at all.
+
+   Five Across used to need this too — its phone shot is a near-black app,
+   and the surface continued that artwork past the 320px image cap. Its
+   accent moved to red on a reorder and the treatment was dropped: the phone
+   capture reads fine as a device on the cream field and doesn't need the
+   slab. That was reviewed and accepted at the time.
+
+   This used to be keyed on `[data-accent='black']` — the accent, not the
+   artwork — so it only survived by coincidence: Matchline keeps its dark
+   surface only because `order: 4` happened to land on black, and a reorder
+   would have silently dropped it to a white wordmark on cream. `#784`. The
+   flag above ties the surface to the content entry instead, so it travels
+   with the artwork through any reorder. The color itself still derives from
+   `--accent` — mixed mostly with `--ink` so it stays dark regardless of
+   which accent the project carries — so the project's own hue still comes
+   through, just darkened enough for contrast. */
+.project-screenshot--dark-surface {
+  background: color-mix(in srgb, var(--accent) 22%, var(--ink));
+  border-top-color: color-mix(in srgb, var(--accent) 22%, var(--ink));
+}
+.project-screenshot--dark-surface .project-stack {
   color: color-mix(in srgb, var(--cream) 78%, transparent);
 }
-[data-accent='black'] .project-stack__label {
+.project-screenshot--dark-surface .project-stack__label {
   color: color-mix(in srgb, var(--cream) 62%, transparent);
 }
-[data-accent='black'] .project-stack__value {
+.project-screenshot--dark-surface .project-stack__value {
   color: color-mix(in srgb, var(--cream) 92%, transparent);
 }
 

@@ -1245,16 +1245,21 @@ describe('Matchline — audited claims stay retracted (#756)', () => {
     expect(surface, 'commit-count claims need an as-of date').toMatch(/as of 2026-09-01/i);
   });
 
-  it('keeps the wordmark legible by leaving order and accent alone', () => {
-    // #784: the hero SVG hardcodes a near-white fill and is only visible
-    // because `[data-accent='black']` paints the surface dark. `accent` is
-    // derived from `order`, so a reorder turns the mark invisible with no
-    // test failure — this asserts the coupling that keeps it readable.
+  it('keeps the wordmark legible independent of order or accent', () => {
+    // #784: the hero SVG hardcodes a near-white fill and needs a dark figure
+    // surface to be visible at all. That treatment used to be keyed on
+    // `[data-accent='black']`, so it only survived because `order: 4`
+    // happened to land on black — a reorder would have silently dropped it.
+    // `screenshotDarkSurface` ties the surface to this content entry instead
+    // (see `.project-screenshot--dark-surface` in global.css), so it stays
+    // in place regardless of what order or accent ramp position Matchline
+    // ends up at.
     const data = frontmatter();
-    expect(data.order).toBe(4);
-    expect(data.accent).toBe('black');
-    expect(projectAccentRamp[data.order % projectAccentRamp.length]).toBe('black');
+    expect(data.screenshotDarkSurface).toBe(true);
     expect(data.screenshotSrc).toBe('/images/projects/matchline-wordmark.svg');
+    expect(rendered(), 'the built page must carry the dark-surface modifier class').toMatch(
+      /class="project-screenshot project-screenshot--wide project-screenshot--dark-surface"/,
+    );
   });
 
   it('publishes the dev instance now that the deployment is current', () => {
