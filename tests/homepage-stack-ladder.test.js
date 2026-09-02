@@ -185,6 +185,20 @@ describe('Selected Projects STACK ladder (#930)', () => {
     });
   });
 
+  it('orders the queries after the rule they override', () => {
+    // The `display: none` block and the `@container` rules that undo it have
+    // equal specificity, so the tiers reappear on source order alone. Moving
+    // the queries above the hiding rule collapses every viewport to rung 6 —
+    // short rather than wrapped, so nothing would look broken enough to
+    // notice. This is the assertion that notices.
+    const hidesAt = SOURCE_CSS.indexOf("data-stack-tier='10'] {\n  display: none;");
+    const firstQueryAt = SOURCE_CSS.indexOf('@container stack (');
+
+    expect(hidesAt, 'the hiding rule should be findable').toBeGreaterThan(-1);
+    expect(firstQueryAt, 'the container queries should be findable').toBeGreaterThan(-1);
+    expect(firstQueryAt).toBeGreaterThan(hidesAt);
+  });
+
   it('hides every droppable tier until its own query admits it', () => {
     const hidden = SOURCE_CSS.match(
       /((?:\.stack-item\[data-stack-tier='\d+'\],?\s*)+)\{\s*display: none;/,

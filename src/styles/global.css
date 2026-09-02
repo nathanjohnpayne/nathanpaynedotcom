@@ -1324,6 +1324,19 @@ a:focus-visible .link-arrow,
    letter-spacing makes every rung ~7% narrower in `em`, so thresholds set here
    are conservative there — at worst one item short, never a wrap.
 
+   That ~1% of slack absorbs rounding and the two typographies, and nothing
+   else. `em` tracks font-SIZE, not font-FAMILY, so a fallback family
+   measurably wider than Inter can overflow it and wrap until the webfont
+   lands. That is transient, it self-corrects when the font loads (container
+   queries re-evaluate), and it is no worse than the wrapping list this
+   replaces — but it is why the slack is not tuned any thinner.
+
+   The failure mode if `@container` is unsupported is the good one: the
+   `display: none` below still applies, nothing re-shows the higher tiers, and
+   every viewport gets rung 6 — short, never wrapped. Note also that the
+   queries re-show tiers at equal specificity to that rule, so they win on
+   source order alone. Keep them after it.
+
    Six is the floor and it is editorial, not a fit guarantee: below ~37em of
    ribbon (phones) it wraps, because a shorter line would stop showing range.
    Change an item's `tier` in src/pages/index.astro, not the order — the array
