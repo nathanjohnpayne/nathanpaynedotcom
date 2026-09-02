@@ -50,6 +50,13 @@ const projects = defineCollection({
           height: z.number().int().positive(),
         })
         .optional(),
+      // Opt-in: some hero art (a wordmark/logo standing in for a screenshot)
+      // is only legible on a dark surface, independent of the project's
+      // accent — which is itself derived from `order` and can change on a
+      // reorder (#784). The flag ties the dark treatment to the ARTWORK; the
+      // shade itself still derives from --accent (see global.css), so the
+      // project's own color still comes through, just darkened for contrast.
+      screenshotDarkSurface: z.boolean().optional(),
       accent: z.enum(['red', 'yellow', 'black', 'blue', 'paper']),
       // Optional: in-progress projects (status "IN PROGRESS") may not have
       // a deployed app yet. When omitted, the live CTA (see liveLabel) is

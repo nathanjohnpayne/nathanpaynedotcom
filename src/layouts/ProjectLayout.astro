@@ -38,6 +38,7 @@ interface Props {
   screenshotAspect: 'wide' | 'narrow';
   screenshotSrc: string;
   screenshotSecondary?: { src: string; alt: string; width: number; height: number };
+  screenshotDarkSurface?: boolean;
   muxPlaybackId?: string;
   slug: string;
   liveUrl?: string;
@@ -69,6 +70,7 @@ const {
   screenshotAspect,
   screenshotSrc,
   screenshotSecondary,
+  screenshotDarkSurface,
   muxPlaybackId,
   slug,
   liveUrl,
@@ -130,7 +132,7 @@ const topics = kicker.split(/\s*×\s*/).join(' · ');
         <figure
           class={`project-screenshot project-screenshot--${screenshotAspect}${
             screenshotSecondary ? ' project-screenshot--pair' : ''
-          }`}
+          }${screenshotDarkSurface ? ' project-screenshot--dark-surface' : ''}`}
         >
           <div class="project-screenshot__inner">
             <ProjectMuxPlayer
