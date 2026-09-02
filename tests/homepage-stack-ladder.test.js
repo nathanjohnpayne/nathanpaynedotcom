@@ -15,7 +15,7 @@ import { writeSanitizedDOM } from './helpers/dom.js';
 // 2560x1330 — see the PR). What is checkable statically, and what actually
 // drifts, is the pair the browser cannot re-derive: that the five rungs still
 // fall out of the one DOM order, and that the CSS still expresses the ladder in
-// rem against the ribbon's own container.
+// em against the line's own container.
 
 const DIST = resolve(__dirname, '../dist');
 const SOURCE_CSS = readFileSync(resolve(__dirname, '../src/styles/global.css'), 'utf-8');
@@ -23,18 +23,23 @@ const SOURCE_CSS = readFileSync(resolve(__dirname, '../src/styles/global.css'), 
 // Read the built stylesheet too: a rule the author wrote is not the same as a
 // rule that survived Vite's minifier, and container queries are new enough here
 // to be worth proving on both sides (the same reasoning as #640).
+// Every emitted stylesheet, not the first one readdirSync happens to return:
+// its order is not guaranteed and Astro is free to split CSS into more than one
+// chunk. Picking one would make the dist assertions fail for the wrong reason —
+// "the rule did not survive the build" when the truth is "we read the wrong
+// file" — which is the failure that wastes the most time to diagnose.
 const astroDir = resolve(DIST, '_astro');
-const builtCss = readFileSync(
-  resolve(astroDir, readdirSync(astroDir).find((f) => f.endsWith('.css'))),
-  'utf-8',
-);
+const builtCss = readdirSync(astroDir)
+  .filter((f) => f.endsWith('.css'))
+  .map((f) => readFileSync(resolve(astroDir, f), 'utf-8'))
+  .join('\n');
 
 // Lightning CSS rewrites both halves of this feature into equivalent shorter
 // forms: `container-type` + `container-name` collapse to the `container`
 // shorthand, and `min-width:` becomes the range form `width>=`. Re-expanding
 // them is pure re-serialization, so the dist assertions below still prove the
 // authored rule survived the build rather than matching a looser pattern. Same
-// reasoning as the aspect-ratio normalizer in tests/responsive-layout.js (#640).
+// reasoning as the aspect-ratio normalizer in tests/responsive-layout.test.js (#640).
 function normalizeContainerSyntax(cssText) {
   return cssText
     .replace(/container:\s*([\w-]+)\s*\/\s*inline-size/g, 'container-name: $1; container-type: inline-size')
