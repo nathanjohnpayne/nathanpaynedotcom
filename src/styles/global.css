@@ -1288,6 +1288,103 @@ a:focus-visible .link-arrow,
   margin-top: var(--sp-xs);
 }
 
+/* Selected Projects STACK degradation ladder (#930).
+   ------------------------------------------------------------------
+   The Builds panel's usable width is set by the Mondrian square, and that
+   square is sized from viewport HEIGHT (0.95 × the viewport, capped at
+   --mondrian-max-width). So the ribbon is ~583px at 1440×900 and ~897px at
+   2560×1330, and no single hand-picked list is one line on both: measured in
+   this typography, ten items need 776px and nine need 697px. Rather than pick
+   a list and let it wrap for the ~42% of this site's desktop pageviews too
+   short to hold it, the markup ships all ten and the container drops the ones
+   that would not fit.
+
+   The container is `.stack-items` itself, and the thresholds are in `em`.
+   Both halves of that matter:
+
+   - Querying the element the text lives in means the query reads the width the
+     text actually gets. No media query has to restate the square's geometry,
+     and the ladder holds in the stacked (<=1023px) layout, where the panel is
+     full width and the square is gone entirely.
+   - `em` in a container query resolves against the QUERY CONTAINER's font-size
+     — here, the items' own. That is what makes one set of thresholds correct
+     under two typographies: the stacked layout re-sizes this line fluidly
+     (0.68rem → 0.78rem) and retunes its letter-spacing, and an absolute
+     threshold calibrated on the desktop values admits rung 9 at an iPad's
+     706px ribbon, where the larger stacked type needs 721px and wraps. In `em`
+     the threshold moves with the type. It also means a reader's larger default
+     font moves text and threshold together, which `px` would not.
+
+   Thresholds are each rung's measured width plus ~0.5em of slack. Desktop
+   widths at root 16px, Inter loaded, and the same rungs in `em`:
+     6 items 399.7px (36.74em) ·  7 items 458.0px (42.10em)
+     8 items 590.9px (54.31em) ·  9 items 697.5px (64.11em)
+    10 items 776.0px (71.32em)
+   The desktop values are the binding ones: the stacked layout's tighter
+   letter-spacing makes every rung ~7% narrower in `em`, so thresholds set here
+   are conservative there — at worst one item short, never a wrap.
+
+   That ~1% of slack absorbs rounding and the two typographies, and nothing
+   else. `em` tracks font-SIZE, not font-FAMILY, so a fallback family
+   measurably wider than Inter can overflow it and wrap until the webfont
+   lands. That is transient, it self-corrects when the font loads (container
+   queries re-evaluate), and it is no worse than the wrapping list this
+   replaces — but it is why the slack is not tuned any thinner.
+
+   The failure mode if `@container` is unsupported is the good one: the
+   `display: none` below still applies, nothing re-shows the higher tiers, and
+   every viewport gets rung 6 — short, never wrapped. Note also that the
+   queries re-show tiers at equal specificity to that rule, so they win on
+   source order alone. Keep them after it.
+
+   Six is the floor and it is editorial, not a fit guarantee: below ~37em of
+   ribbon (phones) it wraps, because a shorter line would stop showing range.
+   Change an item's `tier` in src/pages/index.astro, not the order — the array
+   is in render order and every rung is a subsequence of it, which is what
+   keeps the five rungs from reordering as they shorten. */
+.stack-items {
+  container-type: inline-size;
+  container-name: stack;
+}
+
+/* The separator is generated, so hiding an item takes its separator with it.
+   The first item is tier 6 and never hides, so every visible item that draws a
+   separator always has a visible item in front of it. */
+.stack-item:not(:first-child)::before {
+  content: ' · ';
+}
+
+.stack-item[data-stack-tier='7'],
+.stack-item[data-stack-tier='8'],
+.stack-item[data-stack-tier='9'],
+.stack-item[data-stack-tier='10'] {
+  display: none;
+}
+
+@container stack (min-width: 42.6em) {
+  .stack-item[data-stack-tier='7'] {
+    display: inline;
+  }
+}
+
+@container stack (min-width: 54.9em) {
+  .stack-item[data-stack-tier='8'] {
+    display: inline;
+  }
+}
+
+@container stack (min-width: 64.7em) {
+  .stack-item[data-stack-tier='9'] {
+    display: inline;
+  }
+}
+
+@container stack (min-width: 72em) {
+  .stack-item[data-stack-tier='10'] {
+    display: inline;
+  }
+}
+
 .impact-items {
   word-spacing: 0.08em;
 }

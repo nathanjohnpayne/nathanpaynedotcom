@@ -47,6 +47,37 @@ const statusClass = (slug: string) => stateMarkerClass(statusOf(slug), 'p-status
 
 const latestPost = chronologicalPosts[0];
 
+// Selected Projects STACK, as a degradation ladder rather than one fixed list
+// (#930). The Builds panel's usable width is set by the Mondrian square, and
+// that square is sized from viewport HEIGHT, not width — so the same list is
+// comfortably one line on a 1440p display and two lines on a laptop. `tier` is
+// the shortest rung an item survives to; the container queries on
+// `.stack-items` in global.css drop the highest tiers first as the line
+// narrows. Read the array in order and the ladder falls out of it: every
+// shorter rung is this sequence with the over-tier items removed, so one DOM
+// order renders all five rungs and nothing reorders on the way down.
+//
+//   10  TypeScript React Firebase "Cloudflare Workers" Playwright
+//       "GitHub Actions" Anthropic OpenAI "Claude Code" Codex
+//    9  drops Playwright        8  drops GitHub Actions
+//    7  drops Cloudflare Workers        6  drops OpenAI
+//
+// The floor is editorial, not a fit guarantee: six items need ~37em, and a
+// ribbon narrower than that (phones) wraps. Six is the point below which the
+// line stops showing range, which is the only thing it is here to do.
+const stackLadder = [
+  { label: 'TypeScript', tier: 6 },
+  { label: 'React', tier: 6 },
+  { label: 'Firebase', tier: 6 },
+  { label: 'Cloudflare Workers', tier: 8 },
+  { label: 'Playwright', tier: 10 },
+  { label: 'GitHub Actions', tier: 9 },
+  { label: 'Anthropic', tier: 6 },
+  { label: 'OpenAI', tier: 7 },
+  { label: 'Claude Code', tier: 6 },
+  { label: 'Codex', tier: 6 },
+];
+
 // The Mondrian About panel has finite room, so the list is capped and the
 // "View all writing" link carries the remainder. Category + featured
 // frontmatter keep this curated sequence in the collection rather than a
@@ -258,9 +289,15 @@ const homepageJsonLd = {
             {/* The homepage lists every project but never made the richer index
                 an obvious destination (#892). */}
             <a class="nav-button projects-index-cta" href="/projects/">View all projects<span class="link-arrow" aria-hidden="true">→</span></a>
+            {/* Rendered from the stackLadder array, not typed out, so the five
+                rungs cannot drift apart. The map output must stay whitespace-free
+                on one line: the ` · ` separators are ::before pseudo-elements, and
+                markup whitespace between the spans would double the space before
+                each one. Which items are visible is decided by container queries
+                on .stack-items, not here. #930. */}
             <div class="stack-ribbon">
               <span class="eyebrow stack-label">Stack</span>
-              <span class="stack-items">Bash · TypeScript · Vanilla JS · React · Next.js · Vite · Tailwind CSS · Zod · Vitest · Playwright · Firebase · Cloudflare Workers · Express · GitHub Actions · PostHog · Anthropic · OpenAI · Claude Code · Codex · Cursor · CodeRabbit</span>
+              <span class="stack-items">{stackLadder.map((item) => <span class="stack-item" data-stack-tier={item.tier}>{item.label}</span>)}</span>
             </div>
           </div>
         </div>
