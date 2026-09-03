@@ -87,9 +87,25 @@ describe('About panel section rhythm (#659)', () => {
     // on screen, which is how the first pass of #659 shipped a 1.67:1 gap
     // believing it was 3:1. These offsets are the leading contribution
     // measured in Chromium at 1440x960; they are stable for this pair of
-    // fonts at these sizes.
-    const INK_ABOVE = 3.9;
-    const INK_BELOW = 6.4;
+    // fonts at these sizes, but NOT across a change to .about-block p's
+    // line-height — half the paragraph's leading sits on each side of the
+    // label, so raising it feeds straight into this ratio.
+    //
+    // The -0.25 / +1.0 are that feed, measured ink-to-ink in Chromium when
+    // the leading went 1.5 -> 1.55 alongside the widening to 37rem. It lands
+    // one-sided in the direction that hurts: the space below a label grew a
+    // full pixel while the space above it shrank, taking this assertion from
+    // 2.99 to 2.63 against a 2.5 floor. Rendered, the three labels these
+    // tokens actually govern sit at 4.29 (APPROACH), 3.00 (NOW) and 4.16
+    // (WRITING) — NOW is the one to watch. CONTEXT is deliberately absent:
+    // it is the first flex child, so the space above it comes from .lead's
+    // margin-bottom rather than --about-space-above-label, and it does not
+    // move with this assertion (it renders 3.44).
+    //
+    // Anyone raising the leading again re-measures both constants first;
+    // there is roughly one more step like this before the floor bites.
+    const INK_ABOVE = 3.9 - 0.25;
+    const INK_BELOW = 6.4 + 1.0;
 
     expect((above + INK_ABOVE) / (below + INK_BELOW)).toBeGreaterThanOrEqual(2.5);
   });
@@ -120,10 +136,16 @@ describe('About panel section rhythm (#659)', () => {
   it('caps prose and rules at one shared measure', () => {
     // Declared in rem, not ch, because the cap is shared: `ch` resolves
     // against the using element's font-size, which is what left the hairlines
-    // ~265px right of the prose they separate. 33rem renders ~73 characters;
-    // the browser check in the PR is what pins the character count and the
-    // matching right edges.
-    expect(CSS).toMatch(/--about-measure:\s*33rem;/);
+    // ~265px right of the prose they separate. 37rem averages 72.7 characters
+    // per line where 33rem averaged 65.3; the browser check in the PR is what
+    // pins the character count and the matching right edges, and it has to be
+    // run with the About panel OPEN — about-focus gives the prose a 767px
+    // column, the closed composition only 599px, and a measure read in the
+    // closed state reports a bound that does not exist.
+    //
+    // The bound on this token is legibility, not layout: 41.25rem still fits
+    // the panel, it just runs the average to 80.8 and the longest line to 93.
+    expect(CSS).toMatch(/--about-measure:\s*37rem;/);
     expect(CSS).toMatch(/\.about-block \{[^}]*max-width:\s*var\(--about-measure\);/);
   });
 
