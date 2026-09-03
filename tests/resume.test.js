@@ -12,6 +12,7 @@ import { resolve, join } from 'path';
 import { tmpdir } from 'os';
 import { writeSanitizedDOM } from './helpers/dom.js';
 import { PROJECTS_HEADING } from '../src/lib/section-propositions';
+import { parseFrontmatter } from '../scripts/lib/parse-frontmatter.mjs';
 import {
   pdfTextInEmissionOrder,
   pdfPageCount,
@@ -408,11 +409,14 @@ describe('Resume — page structure', () => {
     // collection file whose `name:` matches the rendered heading rather than
     // from an href. Still derived, still one source.
     const dir = resolve(__dirname, '../src/content/resume/projects');
+    // Parsed, not regexed: `name: 'Five Across—…'` and an unquoted scalar are
+    // both valid YAML that Astro renders fine, and a regex tied to one spelling
+    // would fail a required check over harmless formatting (Codex, PR #946).
     const bySlug = Object.fromEntries(
       readdirSync(dir)
         .filter((f) => f.endsWith('.md'))
         .map((f) => [
-          readFileSync(join(dir, f), 'utf-8').match(/^name:\s*"([^"]+)"/m)[1],
+          parseFrontmatter(readFileSync(join(dir, f), 'utf-8')).name,
           f.replace(/\.md$/, ''),
         ]),
     );
@@ -475,15 +479,16 @@ describe('Resume — page structure', () => {
     // listed here: a project that gains or loses a URL changes this test's
     // expectation automatically, and a regression to `??` fails it.
     const dir = resolve(__dirname, '../src/content/resume/projects');
-    const files = readdirSync(dir).filter((f) => f.endsWith('.md'));
+    // Parsed rather than pattern-matched, for the reason given above.
+    const parsed = readdirSync(dir)
+      .filter((f) => f.endsWith('.md'))
+      .map((f) => ({ file: f, data: parseFrontmatter(readFileSync(join(dir, f), 'utf-8')) }));
     for (const entry of document.querySelectorAll('.resume-projects .resume-entry')) {
       const name = entry.querySelector('.resume-entry__title').textContent.trim();
-      const file = files.find((f) =>
-        readFileSync(join(dir, f), 'utf-8').includes(`name: "${name}"`),
-      );
-      expect(file, `no collection entry named "${name}"`).toBeTruthy();
-      const front = readFileSync(join(dir, file), 'utf-8').split('---')[1];
-      const field = (name) => front.match(new RegExp(`^${name}:\\s*"([^"]+)"`, 'm'))?.[1];
+      const match = parsed.find((p) => p.data.name === name);
+      expect(match, `no collection entry named "${name}"`).toBeTruthy();
+      const { file } = match;
+      const field = (key) => match.data[key];
       // Live app first, repository second — the order the frontmatter is read in.
       const expected = [field('url'), field('repo')].filter(Boolean);
       expect(expected.length, `${name} declares no destination at all`).toBeGreaterThan(0);

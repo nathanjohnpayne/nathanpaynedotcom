@@ -245,12 +245,15 @@ recruiter-legible filename, for "attach your resume" forms and ATS pipelines
   suffix: project **titles** matched that selector for the first time once
   their hrefs became absolute, printing a redundant `/projects/<slug>/` after
   every name, so `.resume-entry__title` joined the suppression list. **Both
-  halves of that are now gone (#947).** The title is no longer a link at all,
-  and project destination links left the list in the other direction: they read
-  `Live` and `GitHub` rather than their own URLs, so the suffix is the only
-  thing that gives a printed résumé a working address for them. What remains
-  suppressed is the contact line and the two section leads—links whose
-  visible text already is their URL, which is the rule the list encodes.
+  halves of that are now gone (#947), and neither by way of the suffix.** The
+  title is no longer a link at all. The destination row is not suppressed but
+  hidden outright—`display: none` in the same `@media print` block—so neither
+  its links nor any generated suffix reaches paper, and **per-project addresses
+  are deliberately omitted from the printed résumé**: the projects-index route
+  in the section lead is what survives. See § Projects for that trade and its
+  measurement. What the suppression list still holds is the contact line and
+  the two section leads—links whose visible text already is their URL, which is
+  the rule the list encodes.
 - **Nothing in the printed content may be positioned (#923).** Chromium writes
   each printed page's text into the PDF content stream in *paint* order, and a
   `position: relative`/`absolute` element paints in step 8 of the painting

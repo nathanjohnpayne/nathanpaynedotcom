@@ -25,6 +25,7 @@ import ResumeSection from './ResumeSection.astro';
 import { getCollection, render } from 'astro:content';
 import { stateMarkerClass } from '../../lib/lifecycle-marker';
 import { PROJECTS_HEADING } from '../../lib/section-propositions';
+import { liveLinkLabel } from '../../lib/live-link-label';
 
 const { entries } = Astro.props;
 
@@ -60,25 +61,6 @@ const projectStatus = Object.fromEntries(
   Object.entries(projectMeta).map(([slug, meta]) => [slug, meta.status]),
 );
 
-/**
- * What to call a project's live URL: `Live` for a running product, `Demo` for
- * something deployed to be shown rather than used (#947).
- *
- * Derived from the `liveLabel` a project already declares for its detail-page
- * CTA, not authored again here. Today exactly one project sets it: Device
- * Source of Truth, whose public fork runs on entirely synthetic data, says
- * "View Demo" — so the résumé says `Demo`. Everything else, Override included,
- * leaves it unset and reads `Live`.
- *
- * That is the point of deriving rather than authoring: the call about what a
- * URL leads to is made once, on the project, and both surfaces follow it. A
- * résumé-local Live/Demo list would be a second place to state the same fact,
- * free to drift from the first — and the résumé would then be able to
- * contradict the CTA on the page it links to.
- */
-function liveLinkLabel(slug: string): string {
-  return /demo/i.test(projectMeta[slug]?.liveLabel ?? '') ? 'Demo' : 'Live';
-}
 const sorted = [...entries].sort((a, b) => a.data.order - b.data.order);
 const rendered = await Promise.all(
   sorted.map(async (entry) => ({ entry, Content: (await render(entry)).Content })),
@@ -118,9 +100,9 @@ const rendered = await Promise.all(
                 href={d.url}
                 target="_blank"
                 rel="noopener"
-                aria-label={`${d.name} — ${liveLinkLabel(entry.id).toLowerCase()}`}
+                aria-label={`${d.name} — ${liveLinkLabel(projectMeta[entry.id]?.liveLabel).toLowerCase()}`}
               >
-                {liveLinkLabel(entry.id)} <span class="link-arrow" aria-hidden="true">&nearr;</span>
+                {liveLinkLabel(projectMeta[entry.id]?.liveLabel)} <span class="link-arrow" aria-hidden="true">&nearr;</span>
               </a>
             )}
             {d.url && d.repo && <span class="resume-entry__link-sep" aria-hidden="true"> · </span>}
