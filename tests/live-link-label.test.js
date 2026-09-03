@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vitest';
-import { readFileSync, readdirSync } from 'fs';
-import { resolve, join } from 'path';
+import { readFileSync } from 'fs';
+import { resolve } from 'path';
+import { findFilesRecursively } from '../scripts/lib/blog-file-inventory.mjs';
+import { parseFrontmatter } from '../scripts/lib/parse-frontmatter.mjs';
 import { liveLinkLabel } from '../src/lib/live-link-label';
 
 // #947. The résumé's destination row and the project detail page's live CTA
@@ -39,10 +41,17 @@ describe('live link label', () => {
   it('agrees with every liveLabel the projects collection actually declares', () => {
     // The control against real data: whatever is authored today must produce a
     // label, and a project that sets an override must never read "Live".
+    //
+    // Discovered the way the collection loads — `**/*.{md,mdx}`, recursive,
+    // both extensions — and parsed rather than regexed. A `readdirSync` over
+    // the root for `.mdx` only would let a nested or `.md` project declare a
+    // `liveLabel` that never enters this control, and the control would go on
+    // reporting green off the one root-level override that does (CodeRabbit and
+    // Codex both, PR #946). A check that cannot see the input it exists to
+    // check is worse than no check.
     const dir = resolve(__dirname, '../src/content/projects');
-    const declared = readdirSync(dir)
-      .filter((f) => f.endsWith('.mdx'))
-      .map((f) => readFileSync(join(dir, f), 'utf-8').match(/^liveLabel:\s*["']?([^"'\n]+)/m)?.[1])
+    const declared = findFilesRecursively(dir, (f) => /\.mdx?$/.test(f))
+      .map((f) => parseFrontmatter(readFileSync(f, 'utf-8')).liveLabel)
       .filter(Boolean);
     expect(declared.length, 'no project declares a liveLabel — this check proves nothing').toBeGreaterThan(0);
     for (const override of declared) {
