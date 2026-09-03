@@ -635,10 +635,19 @@ html[data-fonts-pending] .panel-label {
    reader sees is the margin PLUS the half-leading of both line boxes, and
    leading alone contributes ~7px on each side of a label; the space below is
    therefore mostly supplied for free, and nearly all the *margin* has to go
-   above to balance it. Measured ink-to-ink at 1440x960 the four labels land
-   at 2.93x to 3.32x, against the 2.5x floor the issue sets. Judging these two
-   values by their ratio to each other is the mistake this change made once
-   already — tests/about-panel.test.js asserts the ink axis for that reason.
+   above to balance it. Judging these two values by their ratio to each other
+   is the mistake this change made once already — tests/about-panel.test.js
+   asserts the ink axis for that reason.
+
+   That the leading is an input here and not a bystander is the thing to carry
+   forward. Raising .about-block p from 1.5 to 1.55 below moved this ratio
+   from 2.99 to 2.63 on the test's axis, because the extra half-leading lands
+   almost entirely on the small side; measured ink-to-ink at 1440x960 the
+   labels now sit at 4.29x (APPROACH), 3.00x (NOW) and 4.16x (WRITING),
+   against the 2.5x floor the issue sets. NOW is the tightest and the one to
+   re-measure. These two tokens and that line-height are one system: a change
+   to either without reading the other is how #659 shipped a 1.67:1 gap
+   believing it was 3:1.
 
    Not the 32px / 10px the issue opens with: the about-focus grid track is
    sized from the panel's measured content height (--cell-h-about) inside a
@@ -651,15 +660,35 @@ html[data-fonts-pending] .panel-label {
 
    ── The measure ───────────────────────────────────────────────────────────
    One measure for the whole panel — prose, the bracketed article list and the
-   WRITING hairline all stop at the same right edge. 33rem is ~56ch at the
-   panel's 0.94rem body size and renders ~73 characters. Expressed in rem, not
-   ch, precisely because it is shared: `ch` resolves against the font-size of
+   WRITING hairline all stop at the same right edge. Expressed in rem, not ch,
+   precisely because it is shared: `ch` resolves against the font-size of
    whichever element uses it, so the rules would have landed ~35px right of
-   the prose they separate. */
+   the prose they separate.
+
+   37rem is 592px, up from the 33rem/528px #659 set. Measure this in the
+   about-focus state and nowhere else — that is the only desktop state where
+   the prose is on screen, and it is a different grid from the closed
+   composition. In about-focus the red panel spans grid columns 2–4 of a
+   7fr template, so the prose has 767px to work with at the 1154px
+   composition an 1880x1215 window produces; in the closed state the same
+   panel is only 599px wide, and a cap read there looks bounded when it is
+   not. Both numbers below were taken with the panel open.
+
+   Measured at 1880x1215, 37rem takes the four About paragraphs from an
+   average of 65.3 characters per line to 72.7, and leaves 176px of cream to
+   the right of the prose (33rem left 240px).
+
+   Why 37rem and not a round +25% (41.25rem): the panel has the room — 660px
+   fits inside 767px with 108px of cream still to spare — so this is a
+   legibility bound, not a layout one. 41.25rem runs the average to 80.8
+   characters and the longest line to 93, past the ~83 that #659 pulled back
+   from. 37rem is the widest value that keeps every line inside the 70–80
+   band. Going wider is a one-token change and needs no grid work; it just
+   re-opens the measure question #659 answered. */
 .about-blocks {
   --about-space-above-label: 1.25rem;
   --about-space-below-label: 0.1rem;
-  --about-measure: 33rem;
+  --about-measure: 37rem;
 
   display: flex;
   flex-direction: column;
@@ -674,7 +703,8 @@ html[data-fonts-pending] .panel-label {
    the content before the timestamp, and it matches what Community and Builds
    draw above their own ribbons. The ribbon is a sibling of .about-block, so
    the block's measure cap does not reach it; without this the rule would run
-   the full column width and overshoot the prose it closes by ~63px. */
+   the full column width and overshoot the prose it closes by ~176px in
+   about-focus at a 1154px composition. */
 .about-blocks .now-ribbon {
   margin-top: 0;
   max-width: var(--about-measure);
@@ -682,16 +712,34 @@ html[data-fonts-pending] .panel-label {
 
 /* The measure cap lives on the block, not on the paragraph, so every rule
    inside a section — the WRITING hairline, the article list's left bracket —
-   ends where the prose ends. Lines ran to ~83 characters before #659. */
+   ends where the prose ends. */
 .about-block {
   max-width: var(--about-measure);
 }
 
 .about-block p {
   margin-bottom: 0;
-  /* Leading tracks the measure. 1.58 was set for the old ~83-character line;
-     at ~73 the eye needs less vertical help finding the next line start. */
-  line-height: 1.5;
+  /* Leading tracks the measure. #659 set 1.5 for a ~73-character line, down
+     from the 1.58 an older ~83-character line carried; widening to 37rem puts
+     lines back at 72–83, so this moves with it.
+
+     Judged on APPROACH and NOW, the two seven- and eight-line paragraphs —
+     the short ones look fine at any of these values and decide nothing. At
+     1.5 APPROACH reads as a slab; at 1.55 the line return stops costing
+     anything. It is not airy at 1.55 because the intra-paragraph gap stays
+     visibly tighter than the gap to the next eyebrow, so each section still
+     reads as one block. That margin is what 1.58 would start to spend, which
+     is why this stops at 1.55 rather than restoring the pre-#659 value.
+
+     The vertical cost is real but small, and it was the reason to hold at 1.5
+     until it was measured: about-focus sizes grid track 2 to the JS-measured
+     --cell-h-about inside a fixed min(95vw, 95vh) composition, so leading
+     comes out of the bands below. At 1880x1215 the panel goes 916px -> 931px
+     and the two bottom tracks absorb it, 77.5px -> 71.7px and 122.7px ->
+     113.5px, against minmax floors of 32px and 54.4px. Nothing collapses and
+     nothing clips. Raising this much further does start trading against those
+     floors — check them, not just the prose. */
+  line-height: 1.55;
 }
 
 /* The résumé link closes NOW as the tail of its last sentence rather than as
