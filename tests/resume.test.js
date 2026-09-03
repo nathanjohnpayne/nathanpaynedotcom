@@ -13,6 +13,7 @@ import { tmpdir } from 'os';
 import { writeSanitizedDOM } from './helpers/dom.js';
 import { PROJECTS_HEADING } from '../src/lib/section-propositions';
 import { parseFrontmatter } from '../scripts/lib/parse-frontmatter.mjs';
+import { liveLinkLabel } from '../src/lib/live-link-label';
 import {
   pdfTextInEmissionOrder,
   pdfPageCount,
@@ -498,22 +499,36 @@ describe('Resume — page structure', () => {
         `${name} does not render its declared destinations in order`,
       ).toEqual(expected);
       // Generic labels, not URLs: the row says where it goes, not its address.
-      // The live label is Live or Demo, and which one is NOT decided here — it
-      // is read off the same `liveLabel` the project's own detail-page CTA
-      // uses, so the two surfaces cannot disagree about whether a URL leads to
-      // a running product or a demonstration.
+      // Which word the live link gets is NOT decided here. It comes from the
+      // project's own detail-page CTA, so the two surfaces cannot disagree
+      // about what a URL opens.
+      //
+      // The CTA is located by its href rather than by its wording: `liveLabel`
+      // is free text, so keying off "View ..." would miss a valid `Open
+      // Sandbox` and fail a required check on a page that renders correctly
+      // (Codex, PR #946). `liveLinkLabel` then does the shortening — the same
+      // function the component uses, deliberately. Its derivation is covered
+      // independently by tests/live-link-label.test.js; what THIS assertion
+      // adds is that the component applies it to the collection's real data and
+      // that both rendered surfaces end up agreeing.
       let liveWord = null;
       if (field('url')) {
-        // The detail page's own live CTA — the "View ..." button that is not
-        // the GitHub one. Read from the built page, so this compares two
-        // rendered surfaces rather than two copies of the same intention.
         const slug = file.replace(/\.md$/, '');
         const projectPage = readDist(`projects/${slug}/index.html`);
-        const cta = [...projectPage.matchAll(/>(View [^<]+)</g)]
-          .map((m) => m[1])
-          .find((label) => !/github/i.test(label));
-        expect(cta, `no live CTA found on /projects/${slug}/`).toBeTruthy();
-        liveWord = /demo/i.test(cta) ? 'Demo' : 'Live';
+        const projectSrc = readFileSync(
+          resolve(__dirname, `../src/content/projects/${slug}.mdx`),
+          'utf-8',
+        );
+        const { liveUrl, liveLabel } = parseFrontmatter(projectSrc);
+        expect(liveUrl, `/projects/${slug}/ declares no liveUrl`).toBeTruthy();
+        const escaped = liveUrl.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const cta = new RegExp(`href="${escaped}"[^>]*>([^<]+)<`).exec(projectPage)?.[1];
+        expect(cta, `no live CTA found on /projects/${slug}/ for ${liveUrl}`).toBeTruthy();
+        expect(
+          cta.trim(),
+          `/projects/${slug}/ CTA does not match its declared liveLabel`,
+        ).toBe((liveLabel ?? 'View Live Product').trim());
+        liveWord = liveLinkLabel(liveLabel);
       }
       expect(
         anchors.map((a) => a.textContent.replace(/[↗\s]+/g, ' ').trim()),
