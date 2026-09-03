@@ -643,11 +643,17 @@ html[data-fonts-pending] .panel-label {
    forward. Raising .about-block p from 1.5 to 1.55 below moved this ratio
    from 2.99 to 2.63 on the test's axis, because the extra half-leading lands
    almost entirely on the small side; measured ink-to-ink at 1440x960 the
-   labels now sit at 4.29x (APPROACH), 3.00x (NOW) and 4.16x (WRITING),
-   against the 2.5x floor the issue sets. NOW is the tightest and the one to
-   re-measure. These two tokens and that line-height are one system: a change
-   to either without reading the other is how #659 shipped a 1.67:1 gap
-   believing it was 3:1.
+   labels now sit at 3.44x (CONTEXT), 4.29x (APPROACH), 3.00x (NOW) and 4.16x
+   (WRITING), against the 2.5x floor the issue sets. NOW is the tightest and
+   the one to re-measure. These two tokens and that line-height are one
+   system: a change to either without reading the other is how #659 shipped a
+   1.67:1 gap believing it was 3:1.
+
+   CONTEXT is in that list but is not governed by it. It is the first flex
+   child, so the space above it comes from .lead's own 24px margin-bottom and
+   not from --about-space-above-label; only the other three respond to the
+   token. Retuning the rhythm and expecting all four labels to move is the
+   trap here.
 
    Not the 32px / 10px the issue opens with: the about-focus grid track is
    sized from the panel's measured content height (--cell-h-about) inside a
@@ -670,9 +676,9 @@ html[data-fonts-pending] .panel-label {
    the prose is on screen, and it is a different grid from the closed
    composition. In about-focus the red panel spans grid columns 2–4 of a
    7fr template, so the prose has 767px to work with at the 1154px
-   composition an 1880x1215 window produces; in the closed state the same
-   panel is only 599px wide, and a cap read there looks bounded when it is
-   not. Both numbers below were taken with the panel open.
+   composition an 1880x1215 window produces; in the closed state that same
+   column is only 599px, and a cap read there looks bounded when it is not.
+   Both numbers below were taken with the panel open.
 
    Measured at 1880x1215, 37rem takes the four About paragraphs from an
    average of 65.3 characters per line to 72.7, and leaves 176px of cream to
@@ -720,8 +726,9 @@ html[data-fonts-pending] .panel-label {
 .about-block p {
   margin-bottom: 0;
   /* Leading tracks the measure. #659 set 1.5 for a ~73-character line, down
-     from the 1.58 an older ~83-character line carried; widening to 37rem puts
-     lines back at 72–83, so this moves with it.
+     from the 1.58 an older ~83-character line carried; widening to 37rem
+     takes the average back to 72.7 with the longest line at 83, so this
+     moves with it.
 
      Judged on APPROACH and NOW, the two seven- and eight-line paragraphs —
      the short ones look fine at any of these values and decide nothing. At

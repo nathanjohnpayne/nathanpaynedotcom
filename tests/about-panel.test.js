@@ -95,10 +95,15 @@ describe('About panel section rhythm (#659)', () => {
     // the leading went 1.5 -> 1.55 alongside the widening to 37rem. It lands
     // one-sided in the direction that hurts: the space below a label grew a
     // full pixel while the space above it shrank, taking this assertion from
-    // 2.99 to 2.63 against a 2.5 floor. Per label the rendered ratios are
-    // 4.29 (APPROACH), 3.00 (NOW) and 4.16 (WRITING) — NOW is the one to
-    // watch. Anyone raising the leading again re-measures both constants
-    // first; there is roughly one more step like this before the floor bites.
+    // 2.99 to 2.63 against a 2.5 floor. Rendered, the three labels these
+    // tokens actually govern sit at 4.29 (APPROACH), 3.00 (NOW) and 4.16
+    // (WRITING) — NOW is the one to watch. CONTEXT is deliberately absent:
+    // it is the first flex child, so the space above it comes from .lead's
+    // margin-bottom rather than --about-space-above-label, and it does not
+    // move with this assertion (it renders 3.44).
+    //
+    // Anyone raising the leading again re-measures both constants first;
+    // there is roughly one more step like this before the floor bites.
     const INK_ABOVE = 3.9 - 0.25;
     const INK_BELOW = 6.4 + 1.0;
 
