@@ -108,7 +108,30 @@ jobs:
       # events can only upload a handoff artifact; the trusted workflow_run
       # relay owns the write.
       issues: write
-      pull-requests: read
+      # `pull-requests: write`, not just `issues: write`, is what authorises
+      # this job's same-repository archive POST (#881). The endpoint is
+      # `repos/{repo}/issues/{n}/comments`, but every write here targets a
+      # PULL REQUEST, and for a GitHub App installation token — which
+      # `secrets.GITHUB_TOKEN` is — GitHub routes that endpoint by the
+      # target's kind: `issues` covers real issues, `pull-requests` covers
+      # pull requests. The shared REST path makes `issues: write` look
+      # sufficient; it is not, and the run log makes it look granted, because
+      # the token really does carry `Issues: write`.
+      #
+      # This is the SECOND time this scope has been diagnosed here.
+      # `codex-feedback-archive-relay.yml` carries the same finding and the
+      # same fix; the relay was corrected and this job was not, so the
+      # archive silently never worked on the same-repository path — zero
+      # archive records exist on any recent PR. The failure is not confined
+      # to this job either: the gate below fails closed on
+      # `ARCHIVE_RESULT: failure`, so a scope that reads as already-granted
+      # turns the REQUIRED `Codex P1 unresolved threads` context red.
+      #
+      # Only the `edited`/`deleted` paths reach the POST, which is why this
+      # looked event- and actor-specific for so long: every run that attempts
+      # the write fails, and every run that appears to succeed skipped it.
+      # scripts/ci/check_workflow_pr_comment_scope enforces the rule now.
+      pull-requests: write
       # See the workflow-level permissions block above (#1101): this job
       # calls scripts/codex-p1-gate.sh too, so it needs the same grant —
       # a job-level permissions block replaces rather than merges with the

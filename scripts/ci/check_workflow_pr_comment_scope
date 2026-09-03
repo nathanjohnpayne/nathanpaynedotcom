@@ -1,0 +1,139 @@
+#!/usr/bin/env bash
+# check_workflow_pr_comment_scope — a workflow that POSTs a PR comment must
+# declare `pull-requests: write`, not merely `issues: write`.
+#
+# Why this exists (#881, and #881 is the second occurrence):
+#
+# `POST repos/{repo}/issues/{n}/comments` is the only REST path for commenting
+# on both issues and pull requests, but for a GitHub App installation token —
+# which `secrets.GITHUB_TOKEN` is — GitHub authorises it by the TARGET's kind:
+# the `issues` scope covers real issues, `pull-requests` covers pull requests.
+# A workflow that comments on PRs with `issues: write` + `pull-requests: read`
+# gets `403 Resource not accessible by integration`.
+#
+# That failure is unusually expensive to diagnose, which is why it is worth a
+# gate rather than a comment:
+#   - the run log prints `Issues: write`, so the scope reads as granted;
+#   - the endpoint path says `issues`, so the code reads as correct;
+#   - only the branches that actually POST fail, so it looks event-specific or
+#     actor-specific, and the runs that appear to succeed never attempted the
+#     write at all.
+# `codex-feedback-archive-relay.yml` diagnosed this once and fixed itself;
+# `codex-p1-gate.yml` had the identical bug and kept it, leaving a REQUIRED
+# check red across the repo. A rule written in one workflow's comments does
+# not reach the workflow next to it. This does.
+#
+# Both sides are enumerable, which is what makes this checkable rather than
+# advisory: the set of workflows containing a PR-comment POST, and the
+# `pull-requests:` scope each one declares.
+
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+WORKFLOW_DIR="$ROOT/.github/workflows"
+SELF_TEST="$ROOT/tests/test_check_workflow_pr_comment_scope.sh"
+
+# Run the unit suite first, so the NEGATIVE cases execute in CI rather than
+# only on the author's machine. A gate that has only ever been observed
+# passing is indistinguishable from one that cannot fail; this one is asserted
+# to reject the exact #881 shape before it is trusted to accept the tree.
+#
+# The suite drives this script against scratch repo roots. Those roots have no
+# tests/ directory, so the inner invocations terminate naturally — the env
+# guard makes that explicit rather than incidental, and keeps a future scratch
+# fixture that DOES ship a tests/ dir from recursing.
+if [ -f "$SELF_TEST" ] && [ -z "${CHECK_WORKFLOW_PR_COMMENT_SCOPE_SELFTEST:-}" ]; then
+  if ! CHECK_WORKFLOW_PR_COMMENT_SCOPE_SELFTEST=1 bash "$SELF_TEST"; then
+    echo "check_workflow_pr_comment_scope: ERROR (self-test failed)" >&2
+    exit 1
+  fi
+fi
+
+if [ ! -d "$WORKFLOW_DIR" ]; then
+  echo "check_workflow_pr_comment_scope: SKIP (no .github/workflows)"
+  exit 0
+fi
+
+python3 - "$WORKFLOW_DIR" <<'PY'
+import os, re, sys
+
+workflow_dir = sys.argv[1]
+
+# A POST to the issues-comments endpoint. Matches the `gh api --method POST`
+# form this repo uses and the bare REST path, so a rewrite to curl or to
+# actions/github-script still trips it.
+POST_RE = re.compile(
+    r"""(--method\s+POST[^\n]*issues/[^\n]*/comments"""
+    r"""|issues/\$\{?[A-Za-z_][A-Za-z0-9_]*\}?/comments[^\n]*--method\s+POST"""
+    r"""|createComment\s*\()""",
+    re.VERBOSE,
+)
+
+# `gh pr comment` / `gh issue comment` on a PR need the same scope.
+CLI_RE = re.compile(r"\bgh\s+(pr|issue)\s+comment\b")
+
+failures = []
+checked = []
+
+for name in sorted(os.listdir(workflow_dir)):
+    if not name.endswith((".yml", ".yaml")):
+        continue
+    path = os.path.join(workflow_dir, name)
+    with open(path, encoding="utf-8") as handle:
+        raw = handle.read()
+
+    # Strip comment-only lines so the prose ABOUT this rule (including this
+    # check's own explanation, quoted in workflow comments) cannot register as
+    # a PR-comment write. Without this the guard flags the very files that
+    # document it — a false positive that would train people to ignore it.
+    code = "\n".join(
+        line for line in raw.splitlines() if not line.lstrip().startswith("#")
+    )
+
+    if not (POST_RE.search(code) or CLI_RE.search(code)):
+        continue
+
+    checked.append(name)
+
+    # `permissions:` may appear at workflow level and per job; any of them
+    # granting write satisfies the rule for that file. A job-level block
+    # REPLACES rather than merges with the workflow default, so a file with a
+    # write at either level still needs a human to confirm placement — this
+    # gate catches the total absence, which is the failure that has actually
+    # happened twice.
+    if re.search(r"^\s*pull-requests:\s*write\s*$", code, re.MULTILINE):
+        continue
+
+    declares_issues_write = bool(
+        re.search(r"^\s*issues:\s*write\s*$", code, re.MULTILINE)
+    )
+    failures.append((name, declares_issues_write))
+
+if not checked:
+    print("check_workflow_pr_comment_scope: no workflow posts PR comments")
+    sys.exit(0)
+
+print(
+    "check_workflow_pr_comment_scope: %d workflow(s) post PR comments: %s"
+    % (len(checked), ", ".join(checked))
+)
+
+if failures:
+    for name, issues_write in failures:
+        detail = (
+            "declares `issues: write` but not `pull-requests: write`"
+            if issues_write
+            else "declares neither `issues: write` nor `pull-requests: write`"
+        )
+        print(f"  FAIL: {name} posts a PR comment and {detail}", file=sys.stderr)
+    print(
+        "\n  POST /repos/{repo}/issues/{n}/comments is authorised by the TARGET's\n"
+        "  kind for a GITHUB_TOKEN: `issues` covers issues, `pull-requests`\n"
+        "  covers pull requests. Add `pull-requests: write` to the permissions\n"
+        "  block of the job that posts. See #881.",
+        file=sys.stderr,
+    )
+    sys.exit(1)
+
+print("  PASS: every PR-commenting workflow declares pull-requests: write")
+PY
