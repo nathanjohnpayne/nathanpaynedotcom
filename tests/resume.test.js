@@ -503,93 +503,107 @@ describe('Resume — page structure', () => {
     );
   });
 
-  it('shows every destination a project has, live app before repository', () => {
-    // #947. The card resolved `d.url ?? d.repo`, so a project with both showed
-    // only the app and its public repo was unreachable from the résumé. The
-    // expectation is read out of the collection's own frontmatter rather than
-    // listed here: a project that gains or loses a URL changes this test's
-    // expectation automatically, and a regression to `??` fails it.
-    const dir = resolve(__dirname, '../src/content/resume/projects');
-    // Parsed rather than pattern-matched, for the reason given above.
-    const parsed = readdirSync(dir)
+  it('exposes exactly the destinations its canonical project declares', () => {
+    // #947. The contract is bidirectional, and it was not always. It used to
+    // derive the expectation from the RÉSUMÉ entry and check the canonical
+    // project only where a `url` was already present — so a wrong URL failed,
+    // and a MISSING one passed. Mergepath demonstrated it: `mergepath.mdx`
+    // declared a `liveUrl` the résumé entry never carried, the destination row
+    // showed GitHub alone, and this test was green (Codex, PR #946).
+    //
+    // The canonical project is now the source of the expectation in both
+    // directions: every `liveUrl` and `githubUrl` it declares must appear on
+    // the résumé, at the same address, in that order — and a destination the
+    // canonical project does not have is not required. No opt-out: there are
+    // no deliberate omissions today, and inventing a mechanism for a
+    // hypothetical one would reopen the hole this closes.
+    const resumeDir = resolve(__dirname, '../src/content/resume/projects');
+    const resumeEntries = readdirSync(resumeDir)
       .filter((f) => f.endsWith('.md'))
-      .map((f) => ({ file: f, data: parseFrontmatter(readFileSync(join(dir, f), 'utf-8')) }));
-    for (const entry of document.querySelectorAll('.resume-projects .resume-entry')) {
+      .map((f) => ({ file: f, data: parseFrontmatter(readFileSync(join(resumeDir, f), 'utf-8')) }));
+
+    // Discovered by DECLARED slug through the same recursive `**/*.{md,mdx}`
+    // inventory the collection loads with — never by basename, extension or
+    // directory, all of which this PR has already had to unlearn.
+    const canonical = findFilesRecursively(
+      resolve(__dirname, '../src/content/projects'),
+      (f) => /\.mdx?$/.test(f),
+    ).map((f) => parseFrontmatter(readFileSync(f, 'utf-8')));
+
+    const entries = [...document.querySelectorAll('.resume-projects .resume-entry')];
+    expect(entries.length, 'no résumé project entries found').toBeGreaterThan(0);
+
+    let withLive = 0;
+    for (const entry of entries) {
       const name = entry.querySelector('.resume-entry__title').textContent.trim();
-      const match = parsed.find((p) => p.data.name === name);
-      expect(match, `no collection entry named "${name}"`).toBeTruthy();
-      const { file } = match;
-      const field = (key) => match.data[key];
-      // Live app first, repository second — the order the frontmatter is read in.
-      const expected = [field('url'), field('repo')].filter(Boolean);
-      expect(expected.length, `${name} declares no destination at all`).toBeGreaterThan(0);
+      const match = resumeEntries.find((r) => r.data.name === name);
+      expect(match, `no résumé collection entry named "${name}"`).toBeTruthy();
+      const slug = match.file.replace(/\.md$/, '');
+      const project = canonical.find((c) => c.slug === slug);
+      expect(project, `no canonical project declares slug "${slug}"`).toBeTruthy();
+
+      // The expectation comes from the canonical project, live app first.
+      const expected = [project.liveUrl, project.githubUrl].filter(Boolean);
+      expect(
+        expected.length,
+        `canonical project "${slug}" declares no destination at all`,
+      ).toBeGreaterThan(0);
+
       const anchors = [...entry.querySelectorAll('.resume-entry__link a')];
       expect(
         anchors.map((a) => a.getAttribute('href')),
-        `${name} does not render its declared destinations in order`,
+        `${name} does not expose exactly its canonical destinations, in order — ` +
+          `a canonical liveUrl or githubUrl missing from the résumé fails here`,
       ).toEqual(expected);
-      // Generic labels, not URLs: the row says where it goes, not its address.
-      // Which word the live link gets is NOT decided here. It comes from the
-      // project's own detail-page CTA, so the two surfaces cannot disagree
-      // about what a URL opens.
-      //
-      // The CTA is located by its href rather than by its wording: `liveLabel`
-      // is free text, so keying off "View ..." would miss a valid `Open
-      // Sandbox` and fail a required check on a page that renders correctly
-      // (Codex, PR #946). `liveLinkLabel` then does the shortening — the same
-      // function the component uses, deliberately. Its derivation is covered
-      // independently by tests/live-link-label.test.js; what THIS assertion
-      // adds is that the component applies it to the collection's real data and
-      // that both rendered surfaces end up agreeing.
+
+      // And the résumé's own frontmatter must carry the same addresses, so the
+      // two collections cannot drift behind an identical render.
+      expect(
+        [match.data.url, match.data.repo].filter(Boolean),
+        `${slug}: résumé frontmatter disagrees with the canonical project`,
+      ).toEqual(expected);
+
+      // Labels: generic words, not URLs. Which word the live link gets is not
+      // decided here — it comes from the project's own detail-page CTA, so the
+      // two surfaces cannot disagree about what a URL opens. The CTA is located
+      // by href rather than wording (`liveLabel` is free text), and read via
+      // textContent so an escaped label like `View R&D Demo` compares cleanly.
       let liveWord = null;
-      if (field('url')) {
-        const slug = file.replace(/\.md$/, '');
-        const projectPage = readDist(`projects/${slug}/index.html`);
-        // Discovered by its DECLARED slug, not by its path. The collection
-        // globs `**/*.{md,mdx}` and the route keys on `project.data.slug`
-        // (src/pages/projects/[slug].astro), so a project may be renamed or
-        // nested while keeping its slug and the site still builds — a filename
-        // or extension assumption here would fail a required check on a layout
-        // Astro accepts (Codex, PR #946, twice).
-        const source = findFilesRecursively(
-          resolve(__dirname, '../src/content/projects'),
-          (f) => /\.mdx?$/.test(f),
-        )
-          .map((f) => ({ path: f, data: parseFrontmatter(readFileSync(f, 'utf-8')) }))
-          .find((c) => c.data.slug === slug);
-        expect(source, `no project source declares slug "${slug}"`).toBeTruthy();
-        const { liveUrl, liveLabel } = source.data;
-        expect(liveUrl, `/projects/${slug}/ declares no liveUrl`).toBeTruthy();
-        // Parsed, not regexed out of the markup: a label like `View R&D Demo`
-        // serializes as `View R&amp;D Demo`, and comparing that to the raw
-        // frontmatter would reject a page that renders correctly (Codex,
-        // PR #946). textContent gives the decoded string either way.
-        const projectDom = new JSDOM(projectPage).window.document;
-        const ctaEl = projectDom.querySelector(`a[href="${liveUrl}"]`);
-        expect(ctaEl, `no live CTA found on /projects/${slug}/ for ${liveUrl}`).not.toBeNull();
+      if (project.liveUrl) {
+        withLive += 1;
+        const projectDom = new JSDOM(readDist(`projects/${slug}/index.html`)).window.document;
+        const ctaEl = projectDom.querySelector(`a[href="${project.liveUrl}"]`);
+        expect(
+          ctaEl,
+          `no live CTA found on /projects/${slug}/ for ${project.liveUrl}`,
+        ).not.toBeNull();
         expect(
           ctaEl.textContent.trim(),
           `/projects/${slug}/ CTA does not match its declared liveLabel`,
-        ).toBe((liveLabel ?? 'View Live Product').trim());
-        liveWord = liveLinkLabel(liveLabel);
+        ).toBe((project.liveLabel ?? 'View Live Product').trim());
+        liveWord = liveLinkLabel(project.liveLabel);
       }
       expect(
         anchors.map((a) => a.textContent.replace(/[↗\s]+/g, ' ').trim()),
         `${name} should label its destinations ${liveWord ?? '(none)'} / GitHub`,
-      ).toEqual(expected.map((href) => (href === field('url') ? liveWord : 'GitHub')));
+      ).toEqual(expected.map((href) => (href === project.liveUrl ? liveWord : 'GitHub')));
+
       for (const a of anchors) {
         expect(a.getAttribute('target'), `${name} link should open in a new tab`).toBe('_blank');
         expect(a.getAttribute('rel'), `${name} link missing rel=noopener`).toBe('noopener');
-        // The label alone is not a name; the accessible name must say which
-        // project it belongs to, since seven rows all read "Live · GitHub".
+        // Seven rows all read "Live · GitHub", so the label alone is not a
+        // name; the accessible name has to say which project it belongs to.
         expect(a.getAttribute('aria-label'), `${name} link missing an accessible name`).toContain(
           name,
         );
       }
     }
-    // The control: prove the walk actually reached projects carrying two
-    // destinations, so the ordering assertion above is not vacuously true.
-    const withBoth = [...document.querySelectorAll('.resume-projects .resume-entry')].filter(
+
+    // Controls. The loop asserts equality per entry, which a page rendering no
+    // destinations at all would satisfy only if every canonical project also
+    // declared none — so pin that the fixture actually exercises both branches.
+    expect(withLive, 'no canonical project declares a liveUrl — the live-label branch never ran').toBeGreaterThan(0);
+    const withBoth = entries.filter(
       (e) => e.querySelectorAll('.resume-entry__link a').length === 2,
     );
     expect(withBoth.length, 'no project renders two destinations').toBeGreaterThan(0);
