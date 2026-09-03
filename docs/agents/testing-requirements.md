@@ -8,6 +8,26 @@ Vitest smoke tests cover SEO metadata, blog rendering, responsive behavior, cont
 
 **Playwright owns its own server, and will not adopt one it did not start (`playwright.config.ts`, #875).** `reuseExistingServer` is `false`. It used to be `!process.env.CI`, which locally accepted any listener on :4321 as the server under test—and worktrees under `.claude/worktrees/` are separate checkouts with separate `dist/` trees, so a sibling session's preview got adopted and the suite reported on a build unrelated to the branch. Green or red, both fiction; #875 records two false findings shipped that way. A busy port is now a startup error naming the URL. Two escape hatches, in preference order: `E2E_PORT=4400 npm run test:e2e` runs a second checkout on its own port, and `E2E_BASE_URL=http://localhost:4450 npm run test:e2e` points the suite at a server it does not manage—needed under an agent session's preview manager, where `astro preview` daemonizes and Playwright reports "Process from config.webServer exited early". Either way `tests/responsive/global-setup.ts` runs first and compares **every file** in `dist/`—HTML and assets alike, by SHA-256—against what the server returns for its path, so an adopted server on the wrong build fails before the first spec instead of reporting on it. The breadth is deliberate and was narrowed twice under review: an asset-name fingerprint passes a sibling checkout differing only in Markdown, and an HTML-only comparison passes one differing only in a `public/` asset—which `swipe-watch-mux-fallback.spec.ts` actually loads. One caveat it cannot cover: the check proves the server is serving *this* `dist/`, not that `dist/` matches your sources. The managed path builds first; under `E2E_BASE_URL` nothing does, so build before pointing the suite at an external preview.
 
+## PDF test dependencies
+
+`tests/resume.test.js` needs two PDF command-line tools, and will fail with an install hint rather than skip if either is missing. Skipping would quietly drop the only coverage of two regressions that are invisible to every other kind of check.
+
+```bash
+# macOS
+brew install poppler mupdf-tools
+
+# Debian / Ubuntu (this is what CI installs)
+sudo apt-get install -y poppler-utils mupdf-tools
+```
+
+**Poppler (`pdftotext`, `pdfinfo`)** is the oracle for reading order, #923. The résumé PDF renders correctly but Chromium writes each page's text in *paint* order, so a CSS change can reorder the document for everything that reads the file rather than looks at it—ATS parsers, assistive tech, copy-paste—with every pixel identical. `pdftotext -raw` reports content-stream order and exposes that. `pdftotext` **without** `-raw` reconstructs order from glyph coordinates, reports the visual order, and passes on a broken file; so does any page-image comparison. The `-raw` flag is the entire point of using it.
+
+**MuPDF (`mutool`)** renders pages for the bullet-marker check, #925, where the markers existed in the file but were painted white. That one is about what is on the page, so the test renders and looks for ink.
+
+Neither tool is a runtime or build dependency, and nothing ships from them—they are test oracles only. The repository deliberately does **not** parse PDFs itself: an earlier version of this coverage grew a 677-line Chromium-specific PDF interpreter (`/ToUnicode` CMaps, font code widths, graphics state, marked-content replacement text) and eleven rounds of review found new ways for it to be quietly wrong about content. See `tests/helpers/pdf-oracle.js`.
+
+`tests/fixtures/known-bad-resume-pre-923.pdf` is the résumé exactly as published with both defects. Every ordering and marker assertion runs against it as well as against the fresh build and **requires it to fail**—a check that passes on the broken artifact is not a check. Do not regenerate or repair that fixture.
+
 **Run before any PR (locally, in addition to CI):**
 
 ```bash

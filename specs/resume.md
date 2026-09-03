@@ -247,6 +247,60 @@ recruiter-legible filename, for "attach your resume" forms and ATS pipelines
   explicitly, alongside the contact line, project links, and the two section
   leads. The printed text is byte-identical before and after #683; only the
   link targets changed.
+- **Nothing in the printed content may be positioned (#923).** Chromium writes
+  each printed page's text into the PDF content stream in *paint* order, and a
+  `position: relative`/`absolute` element paints in step 8 of the painting
+  algorithm (CSS 2.1 Appendix E)—after every non-positioned block and inline
+  in the same stacking context. So a positioned element that prints is written
+  after all of its page's other text, and the file's reading order stops
+  matching the résumé's while every pixel stays identical. That is what an ATS
+  parser, assistive tech, `pdftotext -raw`, and copy-paste get.
+
+  The bullet marker is the rule this cost. `.resume-prose ul li::before` was an
+  absolutely-positioned square, which forced `position: relative` onto every
+  `.resume-prose li`; the four Disney Streaming 2018–2021 bullets were
+  therefore written six sections late, after Five Across, and read as
+  belonging to Projects. The marker is now a **float** pulled back into the
+  gutter by a negative left margin, so the list item stays unpositioned. A
+  float was chosen over an inline-block because an inline-block's own advance
+  width has to be cancelled by a compensating margin and the two round to
+  layout units independently, shifting every bullet's text by a subpixel; a
+  float sits outside the line box and moves nothing. Its geometry comes from
+  `--bullet-size` / `--bullet-gutter` / `--bullet-offset` on `.resume-prose`,
+  which is also where print re-tunes the gutter and the drop.
+
+  `--bullet-offset` must stay smaller than the first line box: `li` is not a
+  block formatting context, so a taller float would escape the item and
+  shorten the next bullet's lines.
+
+  `.resume-cta`, `.resume-canvas-sidebar-inner`, and
+  `.resume-writing__essays li` are also positioned, and are all hidden in
+  print—so they are outside this rule, and un-hiding any of them in print
+  means giving it the same treatment first.
+- **`printBackground: true` in the generator, and it is load-bearing (#925).**
+  Chromium's default—and this generator's setting until #925—is Chrome's
+  "Background graphics" unchecked, which does not omit a background but paints
+  it **white**. The bullet markers are CSS backgrounds on `.resume-prose ul
+  li::before`, so every printed bullet carried its indent and an invisible
+  square, and the print sheet's `background: #000 !important` for them had
+  never once had an effect. The pre-fix file contains all eleven `6 6 re f`
+  operators at the same coordinates as the fixed one, each preceded by
+  `1 1 1 rg`—which is why a test that merely counts the rectangles passes on
+  it, and why `tests/resume.test.js` renders the pages with MuPDF and looks for
+  ink in the marker column instead of reading the file's operators.
+
+  The marker stays a background rather than becoming a border: border widths
+  floor to whole device pixels while box dimensions round, so a border-drawn
+  square comes out 4×4 (four sides at `calc(size / 2)`) or 5×6 (one full-width
+  `border-left`) where the background paints 6×6.
+
+  Enabling the flag is contained rather than merely convenient, and that was
+  measured, not argued: with it on, the rendered PDF pages differ from the
+  previous file **only** in the 9px marker column (pages 1 and 2; page 3 has no
+  bullets and is pixel-identical). The print cascade leaves nothing else for it
+  to paint—`html`, `body.resume-page`, `.resume-canvas`, the header and the
+  content column are forced to `#fff !important`, and every tinted surface is
+  hidden outright.
 - The PDF is an asset, not a route—`@astrojs/sitemap` does not list it.
 - The on-page affordance is `.resume-download` inside `.resume-actions`, placed
   after the header contact block and hidden in `@media print`. Clicking it
@@ -333,7 +387,9 @@ icon-library dependency.
   print and the reserved padding reclaimed; the bold section titles carry the
   separation. This buys vertical space toward the three-page fit.
 - Forces black-on-white regardless of screen colors (text, bullet `::before`
-  squares, and link underlines/borders all forced to `#000`). Resume links
+  squares, and link underlines/borders all forced to `#000`). The bullet-square
+  half of that only began to have an effect in #925, when the generator started
+  passing `printBackground: true`—see *Downloadable PDF* above. Resume links
   print with a real underline (`text-decoration` + `text-underline-offset`)
   rather than a `border-bottom`, so the rule clears descenders.
 - `page-break-inside: avoid` on each work entry, project, certification, and
@@ -431,6 +487,19 @@ In particular:
     text of the generated `Nathan-Payne-Resume.pdf`.
 8a. No link annotation in the generated PDF points at `127.0.0.1` or
     `localhost`, and every one carries an `http(s):` or `mailto:` scheme.
+8f. Every bullet on the page renders a **visible** marker in the PDF. Counting
+    rectangles is not this criterion: `printBackground: false` emitted every
+    one of them in white (#925), so the check renders the page with MuPDF and
+    looks for ink.
+8e. The PDF's **content stream**—not its rendered pages—carries the résumé in
+    the page's own order: every Experience role is followed by its own summary
+    and bullets before the next role begins, every printed block follows
+    `/resume/`, each bullet appears exactly once, and the document is three
+    pages. Read with `pdftotext -raw`, because ordinary extraction and page
+    images both reconstruct order from coordinates and so pass on a file whose
+    reading order is wrong. Every one of these assertions also runs against
+    `tests/fixtures/known-bad-resume-pre-923.pdf` and is required to FAIL on
+    it.
 9. The visible header title is a single role title equal to the JSON-LD
    `jobTitle`; the summary is 55–75 words naming Disney+/Hulu/ESPN and the
    AI-augmented focus up front.
