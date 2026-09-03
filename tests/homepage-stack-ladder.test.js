@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll } from 'vitest';
-import { readFileSync, readdirSync } from 'fs';
+import { readFileSync } from 'fs';
 import { resolve } from 'path';
-import { writeSanitizedDOM } from './helpers/dom.js';
+import { readBuiltStylesheet, writeSanitizedDOM } from './helpers/dom.js';
 
 // Guards the Selected Projects STACK degradation ladder (#930).
 //
@@ -23,16 +23,10 @@ const SOURCE_CSS = readFileSync(resolve(__dirname, '../src/styles/global.css'), 
 // Read the built stylesheet too: a rule the author wrote is not the same as a
 // rule that survived Vite's minifier, and container queries are new enough here
 // to be worth proving on both sides (the same reasoning as #640).
-// Every emitted stylesheet, not the first one readdirSync happens to return:
-// its order is not guaranteed and Astro is free to split CSS into more than one
-// chunk. Picking one would make the dist assertions fail for the wrong reason —
-// "the rule did not survive the build" when the truth is "we read the wrong
-// file" — which is the failure that wastes the most time to diagnose.
-const astroDir = resolve(DIST, '_astro');
-const builtCss = readdirSync(astroDir)
-  .filter((f) => f.endsWith('.css'))
-  .map((f) => readFileSync(resolve(astroDir, f), 'utf-8'))
-  .join('\n');
+// Every emitted stylesheet, not the first one readdirSync happens to return.
+// The shared helper owns that rule now (#932) so there is one implementation
+// rather than a copy per suite.
+const builtCss = readBuiltStylesheet();
 
 // Lightning CSS rewrites both halves of this feature into equivalent shorter
 // forms: `container-type` + `container-name` collapse to the `container`

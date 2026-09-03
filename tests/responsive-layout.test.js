@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { readFileSync, readdirSync } from 'fs';
+import { readFileSync } from 'fs';
 import { resolve } from 'path';
-import { writeSanitizedDOM } from './helpers/dom.js';
+import { readBuiltStylesheet, writeSanitizedDOM } from './helpers/dom.js';
 
 const rawHtml = readFileSync(resolve(__dirname, '../dist/index.html'), 'utf-8');
 
@@ -10,10 +10,10 @@ const rawHtml = readFileSync(resolve(__dirname, '../dist/index.html'), 'utf-8');
 const inlineScripts = [...rawHtml.matchAll(/<script>([\s\S]*?)<\/script>/g)].map((m) => m[1]);
 const panelScript = inlineScripts.find((s) => s.includes('section_view')) || '';
 
-// Astro hashes CSS into dist/_astro/*.css
-const astroDir = resolve(__dirname, '../dist/_astro');
-const cssFile = readdirSync(astroDir).find((f) => f.endsWith('.css'));
-const css = readFileSync(resolve(astroDir, cssFile), 'utf-8');
+// Astro content-hashes CSS into dist/_astro/*.css, so the shared helper
+// discovers the filenames and reads every emitted chunk rather than the first
+// one readdirSync returns (#932).
+const css = readBuiltStylesheet();
 
 // Authored stylesheet. Vite 8's minifier collapses `aspect-ratio: 1 / 1` to the
 // equivalent `aspect-ratio:1`, so the "did the author write this rule"

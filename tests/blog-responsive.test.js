@@ -1,13 +1,13 @@
 import { describe, it, expect } from 'vitest';
-import { readFileSync, readdirSync } from 'fs';
+import { readFileSync } from 'fs';
 import { dirname, relative, resolve, sep } from 'path';
 import { findFilesRecursively } from '../scripts/lib/blog-file-inventory.mjs';
-import { writeSanitizedDOM } from './helpers/dom.js';
+import { readBuiltStylesheet, writeSanitizedDOM } from './helpers/dom.js';
 
-// Astro hashes CSS into dist/_astro/*.css
-const astroDir = resolve(__dirname, '../dist/_astro');
-const cssFile = readdirSync(astroDir).find((f) => f.endsWith('.css'));
-const css = readFileSync(resolve(astroDir, cssFile), 'utf-8');
+// Astro content-hashes CSS into dist/_astro/*.css, so the shared helper
+// discovers the filenames and reads every emitted chunk rather than the first
+// one readdirSync returns (#932).
+const css = readBuiltStylesheet();
 
 // Authored stylesheet. Vite 8's minifier rewrites some declarations into
 // equivalent shorter serializations (e.g. `@media (max-width: 480px)` →
