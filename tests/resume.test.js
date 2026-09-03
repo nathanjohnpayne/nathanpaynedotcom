@@ -9,7 +9,7 @@ import {
   writeFileSync,
   rmSync,
 } from 'fs';
-import { resolve, join, basename } from 'path';
+import { resolve, join } from 'path';
 import { tmpdir } from 'os';
 import { writeSanitizedDOM } from './helpers/dom.js';
 import { PROJECTS_HEADING } from '../src/lib/section-propositions';
@@ -545,15 +545,20 @@ describe('Resume — page structure', () => {
       if (field('url')) {
         const slug = file.replace(/\.md$/, '');
         const projectPage = readDist(`projects/${slug}/index.html`);
-        // Discovered, not assumed: the collection takes .md and .mdx and globs
-        // recursively, so a hard-coded root-level `${slug}.mdx` would fail a
-        // required check on a project Astro builds happily (Codex, PR #946).
-        const srcPath = findFilesRecursively(
+        // Discovered by its DECLARED slug, not by its path. The collection
+        // globs `**/*.{md,mdx}` and the route keys on `project.data.slug`
+        // (src/pages/projects/[slug].astro), so a project may be renamed or
+        // nested while keeping its slug and the site still builds — a filename
+        // or extension assumption here would fail a required check on a layout
+        // Astro accepts (Codex, PR #946, twice).
+        const source = findFilesRecursively(
           resolve(__dirname, '../src/content/projects'),
           (f) => /\.mdx?$/.test(f),
-        ).find((f) => basename(f).replace(/\.mdx?$/, '') === slug);
-        expect(srcPath, `no project source found for slug "${slug}"`).toBeTruthy();
-        const { liveUrl, liveLabel } = parseFrontmatter(readFileSync(srcPath, 'utf-8'));
+        )
+          .map((f) => ({ path: f, data: parseFrontmatter(readFileSync(f, 'utf-8')) }))
+          .find((c) => c.data.slug === slug);
+        expect(source, `no project source declares slug "${slug}"`).toBeTruthy();
+        const { liveUrl, liveLabel } = source.data;
         expect(liveUrl, `/projects/${slug}/ declares no liveUrl`).toBeTruthy();
         // Parsed, not regexed out of the markup: a label like `View R&D Demo`
         // serializes as `View R&amp;D Demo`, and comparing that to the raw
