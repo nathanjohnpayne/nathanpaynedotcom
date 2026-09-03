@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, writeFileSync, rmSync, readdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
-import { readBuiltStylesheet } from './helpers/dom.js';
+import { join, resolve } from 'node:path';
+import { DIST, builtPages, readBuiltStylesheet } from './helpers/dom.js';
 
 // Guards readBuiltStylesheet() against the single-chunk assumption (#932).
 //
@@ -89,15 +89,48 @@ describe('readBuiltStylesheet (#932)', () => {
     expect(() => readBuiltStylesheet(empty)).toThrow(empty);
   });
 
-  it('keeps the short dist/_astro wording for the default', () => {
-    // The absolute build path is already in the hint, so repeating it in the
-    // subject would be noise for the case every caller actually hits.
-    expect(() => readBuiltStylesheet(join(dir, 'nope'))).not.toThrow(/^dist\/_astro/);
-  });
+  // There is deliberately no assertion here that the default keeps its short
+  // `dist/_astro` wording. Reaching that branch's error path needs the real
+  // dist/_astro to be missing, and the only way to arrange that is to move or
+  // delete the shared build output — which vitest's parallel suites are all
+  // reading. An earlier revision asserted it by passing a custom directory and
+  // checking the message did NOT start with `dist/_astro`, which exercised the
+  // other branch entirely and could not have failed. A test that cannot fail
+  // is worse than no test: it reports coverage that does not exist.
 
   it('reads the real build through the default argument', () => {
     // The seam exists for the tests above; this is what every caller actually
     // invokes, so it has to keep working with no argument at all.
     expect(readBuiltStylesheet()).toContain(':root');
+  });
+
+  it('only concatenates while every built page loads every chunk', () => {
+    // Concatenating is right today and would stop being right the moment Astro
+    // route-scopes CSS: a suite could then satisfy an assertion from a chunk
+    // its own page never loads, and report a rule the page does not have. That
+    // is a false green, which is worse than the bug this PR fixed.
+    //
+    // The property that makes concatenation equivalent to "what this page
+    // loads" is that every page links every emitted chunk. It holds now — one
+    // chunk, linked by all 37 pages — so rather than leave the assumption
+    // implicit, this fails the moment it stops holding. See #935 for reading
+    // each page's own <link> set instead, which is what the split would need.
+    const emitted = new Set(
+      readdirSync(resolve(DIST, '_astro')).filter((f) => f.endsWith('.css')),
+    );
+    expect(emitted.size, 'no stylesheet emitted').toBeGreaterThan(0);
+
+    for (const { route, html } of builtPages()) {
+      const linked = new Set(
+        [...html.matchAll(/href="\/_astro\/([^"]+\.css)"/g)].map((m) => m[1]),
+      );
+      // Pages with no stylesheet at all are not the case this guards.
+      if (linked.size === 0) continue;
+      expect(
+        [...emitted].filter((chunk) => !linked.has(chunk)),
+        `${route} does not link every emitted stylesheet, so concatenating them ` +
+          'no longer matches what this page loads — see #935',
+      ).toEqual([]);
+    }
   });
 });
