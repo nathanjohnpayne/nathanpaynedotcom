@@ -166,7 +166,15 @@ describe('Content Schema', () => {
     }
     // Control: the loop above is vacuous if nothing declares the field, and a
     // vacuous loop passes no matter how broken the schema is.
-    expect(labelled, 'no project declares liveLabel — the checks above ran on nothing').toBe(1);
+    // A control, not a census: it must prove the loop ran, and it must not
+    // need editing when a project legitimately gains or drops the field. It
+    // asserted `toBe(1)` and broke the moment a second project declared one
+    // (#947), which is the hand-maintained-figure failure this repo keeps
+    // finding elsewhere.
+    expect(
+      labelled,
+      'no project declares liveLabel — the checks above ran on nothing',
+    ).toBeGreaterThan(0);
 
     // And a control on the predicate itself: a declared-but-falsy label has to
     // reach the assertions rather than be skipped past them. Asserted against

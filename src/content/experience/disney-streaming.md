@@ -11,7 +11,7 @@ website: "disneyplus.com"
 
 Led front-end engineering teams that built and launched Disney+ across connected devices.
 
-- Brought Disney+ from concept to launch across living-room platforms, coordinating engineering, design, product, QA, and release stakeholders.
-- Led PlayStation prototyping that produced the first-to-launch living-room Disney+ experience.
-- Rebuilt the Disney+ app for MVPD set-top boxes, recreating the full product experience on constrained operator hardware.
+- Brought Disney+ from concept to launch across living-room platforms, coordinating with engineering, design, product, QA, and release stakeholders.
+- Led PlayStation prototyping that produced the first living-room Disney+ experience to launch.
+- Rebuilt the Disney+ app for MVPD set-top boxes, recreating the full product experience on constrained hardware from operators.
 - Led Hulu through its PlayStation 5 launch.

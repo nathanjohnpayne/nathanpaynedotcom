@@ -6140,19 +6140,52 @@ body.resume-page {
   margin-bottom: 0.05rem;
 }
 
-.resume-projects .resume-entry__title a {
-  color: inherit;
-  text-decoration: none;
-  border-bottom: 1px solid color-mix(in srgb, var(--resume-link) 35%, transparent);
-  transition:
-    color var(--motion-hover) var(--ease-standard),
-    border-color var(--motion-hover) var(--ease-standard);
-}
+/* The project name carries no link of its own (#947): it is the entry's
+   identity, set as typography, and every destination lives in the row below
+   it. Nothing styles it here — `.resume-entry__title` above already does. */
 
-.resume-projects .resume-entry__title a:hover,
-.resume-projects .resume-entry__title a:focus-visible {
-  color: var(--resume-link);
-  border-bottom-color: var(--resume-link);
+/* Lifecycle status kicker (#944) — the résumé's surface of the mark defined at
+   `.state-marker` above, joining the homepage Builds row, the /projects/ card
+   kicker, and the detail page's STATUS cell.
+
+   Above the `<h3>`, not after the name, and the /projects/ card is the
+   precedent rather than a new arrangement: `.project-status` sits over
+   `.post-title` there in exactly this shape. Trailing the name is the obvious
+   placement and it does not survive the longest entry — "Device Source of
+   Truth – Partner Device Intelligence Platform" fills 549 of the content
+   column's 632px on its own, so a status after it wraps to a line by itself at
+   every viewport width. A line of its own by design cannot be pushed onto one,
+   and the project name gets the full measure back.
+
+   Metadata, not a badge. The three-grammar rule the homepage `.p-status`
+   states — underlined or arrowed text navigates, an outlined rectangle is a
+   control, glyph plus uppercase text is state — is why this carries no box of
+   its own. All three grammars now stack in one entry and stay distinguishable:
+   this mark is state, the name below it is neither (#947 made it typography
+   rather than a link), and the row below that navigates. A box here would read
+   as a control sitting on top of a heading, which is the one thing none of the
+   three parts is. Same reason it takes no status-specific color: geometry
+   carries state, hue is composition.
+
+   Subordinate on purpose. The status used to render inline at the `<h3>`'s own
+   Cormorant clamp (1.12–1.4rem), so a lifecycle word competed with the project
+   name at the project name's own weight; at 0.62rem of Inter it reads as
+   annotation, and the mark tracks it because `.state-marker` sizes in `em`.
+
+   `white-space: nowrap` holds the glyph and its word together; `.state-marker`
+   is `inline-flex`, so a break between them was possible without it. The
+   `inline-flex` also keeps the box shrink-to-fit, so the kicker's own width is
+   the label rather than the column — the same reason `.project-status`
+   restates that display value on the index card. */
+.resume-entry__status {
+  margin-bottom: 0.2rem;
+  font-family: var(--font-body);
+  font-size: 0.62rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: var(--ink-62);
 }
 
 .resume-entry__tech {
@@ -6238,12 +6271,20 @@ body.resume-page {
   color: color-mix(in srgb, var(--ink) 82%, transparent);
 }
 
-/* The gap to the first project entry lives here because
-   .resume-entry:first-of-type zeroes its own top margin. */
-.resume-projects__desc {
-  margin-bottom: 1.5rem;
+/* The label now stands between the description and the first entry, so it
+   carries the gap that used to hang off `.resume-projects__desc`
+   (.resume-entry:first-of-type zeroes its own top margin, so one of these has
+   to). Writing's label needs no equivalent: its own list follows immediately
+   and `.resume-writing__essays` opens the gap there. */
+.resume-projects__label {
+  /* Matched to Writing's label→first-essay gap (0.4rem, opened by
+     `.resume-writing__essays`) so the two sections read as one grammar rather
+     than as a pattern and a near-miss. It was 1.1rem, which set the Projects
+     label further from its list than the Writing label sits from its own. */
+  margin-bottom: 0.4rem;
 }
 
+.resume-projects__label,
 .resume-writing__label {
   margin-top: 0.7rem;
   font-size: clamp(0.74rem, 0.9vw, 0.82rem);
@@ -6459,6 +6500,30 @@ body.resume-page {
     background: #000 !important;
   }
 
+  /* Lifecycle marks (#944). The `color: #000 !important` rule above already
+     resolves their `currentcolor` fills and borders to black, but three of the
+     four marks ARE backgrounds — filled for SHIPPED, cored for ARCHIVED,
+     half-filled for EXPERIMENT — and Chrome's print dialog leaves "Background
+     graphics" OFF by default. Without this they all print as the bare outline
+     PAUSED uses, and four distinguishable states collapse into one. That is
+     the #925 bullet-marker failure again, one rule over. The word survives
+     either way, but a mark that cannot be told from its neighbour is worse
+     than no mark at all.
+
+     `printBackground: true` in the PDF generator paints the same fills, so for
+     the DOWNLOADABLE file the two are redundant — removing either one alone
+     leaves it unchanged, measured both ways. This one exists for the path no
+     build artifact exercises: a reader pressing Cmd-P on /resume/. That
+     redundancy is also why the PDF cannot serve as this rule's test, and why
+     tests/resume.test.js asserts the stylesheet directly.
+
+     The 1px border is not a background, so the outline itself always prints —
+     which is why PAUSED needs nothing here. */
+  .resume-canvas .state-marker::before {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
   /* Drop the screen border-bottom underline in favor of a real underline with
      a small offset so it clears descenders, and force it black (issue #420
      R-05). */
@@ -6493,13 +6558,8 @@ body.resume-page {
      nathanpayne.com/projects) — suppress this to avoid duplication. (The
      essay list is hidden in print; see the Writing-collapse rule below.)
 
-     Project TITLES are suppressed too: the title is a name, not a URL, and
-     each entry already prints its live/repo URL on the very next line via
-     .resume-entry__link — so appending /projects/<slug>/ after the name is
-     both redundant and a second, less useful destination. This used to hold
-     implicitly, because the title href was root-relative and so never matched
-     [href^='http']. Since #683 absolutizes every link before the PDF is
-     written, that accident is gone and the intent has to be stated. */
+     Neither the project title nor the destination row appears in that list
+     any more, and for different reasons — see the note under it. */
   .resume-canvas a[href^='http']::after {
     content: ' (' attr(href) ')';
     font-size: 0.85em;
@@ -6507,21 +6567,55 @@ body.resume-page {
   }
 
   .resume-contact a[href^='http']::after,
-  .resume-entry__title a[href^='http']::after,
-  .resume-entry__link a[href^='http']::after,
   .resume-projects__lead a[href^='http']::after,
   .resume-writing__lead a[href^='http']::after {
     content: '';
   }
+
+  /* Why the two project selectors left that list (#947), since #683 had put
+     one of them there and the reasoning no longer holds:
+
+     - `.resume-entry__title` was suppressed because a title is a name, not a
+       URL, and #683's absolutizing made it start matching [href^='http'].
+       The title is no longer a link at all, so there is nothing to suppress.
+     - `.resume-entry__link` was briefly exempt, then unexempted so its URLs
+       would print, and is now moot: the row is hidden in print outright (see
+       the collapse block below), so the suffix never renders either way.
+
+     What the list still holds is links whose visible text already IS their
+     URL — the contact line and the two section leads. That is the rule it
+     encodes, and both removals are consistent with it rather than exceptions
+     to it. */
 
   /* Writing collapses to just its lead line in print. The section is
      link-driven — a blog CTA plus three essay links — and those links are
      dead on paper, so only the "The AI-Augmented PM / nathanpayne.com/blog"
      lead prints; the blurb, the "Selected essays" label, and the essay list
      are hidden. This also drops the page-tail the essay list used to push
-     past the bottom margin. The Projects intro collapses the same way: its
-     "Built with Agents / nathanpayne.com/projects" lead prints, the blurb is hidden. */
+     past the bottom margin.
+
+     Projects collapses the same way, and its lead line is the proposition plus
+     the index URL — "Products—and the decisions behind them /
+     nathanpayne.com/projects". The blurb and the "Selected projects:" label
+     are hidden: unlike Writing's, the Projects entries themselves DO print, so
+     the label would be a third near-duplicate line under a section already
+     titled "Projects" — a line this three-page budget has better uses for. The
+     label earns its place on screen, where it opens the list; on paper the
+     list opens itself.
+
+     `.resume-entry__link` is hidden for the same reason the essay list is, and
+     it is the newest of these (#947). A destination row is only useful where it
+     can be followed: "Live ↗ · GitHub ↗" says nothing on paper without its
+     URLs, and printing fourteen full URLs to fix that cost roughly ten lines
+     and a fourth page. Paper keeps five routes without them — nathanpayne.com,
+     /projects, /blog, github.com/nathanjohnpayne and the LinkedIn handle, all
+     in the contact line and the section leads — so every project remains two
+     addresses away rather than one. Screen keeps the row, where it is one
+     click. Measured: hiding it returns the file to three pages at 54/46/38
+     lines. */
   .resume-projects__desc,
+  .resume-projects__label,
+  .resume-entry__link,
   .resume-writing__desc,
   .resume-writing__label,
   .resume-writing__essays {
@@ -6676,6 +6770,16 @@ body.resume-page {
   .resume-cert__meta,
   .resume-entry__tech {
     font-size: 9pt;
+  }
+
+  /* Below the 9pt subordinate labels above: the kicker is an annotation over a
+     12pt heading, and at 9pt it reads as a second title line. 7.5pt uppercase
+     Inter with the letterspacing eased off stays legible in hard copy, and the
+     word extracts at any size. */
+  .resume-entry__status {
+    font-size: 7.5pt;
+    letter-spacing: 0.1em;
+    margin-bottom: 0.05rem;
   }
   .resume-projects__lead,
   .resume-writing__lead {

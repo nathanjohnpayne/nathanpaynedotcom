@@ -122,10 +122,21 @@ const noGithubUrlSlugs = ['device-source-of-truth'];
 // The live CTA's canonical label, and the projects that override it. DST is
 // ARCHIVED and its live link opens a synthetic-data demonstration rather than
 // the internal product, so "View Live Product" would ask a reader to reconcile
-// two states that only look contradictory. Overrides are enumerated here so an
-// unannounced relabel of any other project fails.
+// two states that only look contradictory. Mergepath's live URL is an
+// htmlpreview render of the policy playground — a thing to look at, not a
+// product to use — and it carried the default label until #947, where the
+// résumé began deriving its own Live/Demo wording from this same field and the
+// overclaim became visible on two surfaces at once.
+//
+// Enumerated deliberately, and kept that way. A relabel is a change to what the
+// site CLAIMS about a project, so it should cost a test edit and be visible in
+// a diff; deriving this from frontmatter would let the claim move silently,
+// which is the opposite of what this table is for. It failing is it working.
 const DEFAULT_LIVE_LABEL = 'View Live Product';
-const liveCtaLabels = { 'device-source-of-truth': 'View Demo' };
+const liveCtaLabels = {
+  'device-source-of-truth': 'View Demo',
+  mergepath: 'View Demo',
+};
 
 // Every project source the collection would load, as paths relative to CONTENT.
 //
