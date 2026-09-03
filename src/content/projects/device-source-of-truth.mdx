@@ -76,11 +76,11 @@ import DecisionLedger from '../../components/projects/DecisionLedger.astro';
 
 ## The answer depended on who you asked
 
-Can this device support Dolby Vision? Which partners are still running an ADK build that just went end-of-life? When a partner replaces its whole OS stack—Amazon moving Fire TV to Vega OS—which devices are affected, and what is their certification status? Inside Disney Streaming those questions arrive constantly, from partner engineering, certification, support, and platform teams, and every one of them is answerable. The trouble was where the answers lived.
+Can this device support Dolby Vision? Which partners are still running an ADK build that just went end-of-life? When a partner replaces its whole OS stack—Amazon moving Fire TV to Vega OS—which devices are affected, and what is their certification status? Inside Disney those questions arrive constantly, from partner engineering, certification, support, and platform teams, and every one of them is answerable. The trouble was where the answers lived.
 
 They lived in Airtable, in Datadog, in partner-submitted Excel questionnaires, and in spreadsheets maintained by different teams on different cadences. What the fragmentation cost is my testimony rather than the repository's: support tickets that should have been lookups, launch timelines that slipped during reconciliation, and partner conversations held without a shared factual foundation.
 
-Device Source of Truth is the internal Disney Streaming answer: one system that imports from every source, normalizes against a shared schema, and turns loose operational memory into a queryable, auditable record. This is the partner-engineering work I spent a decade doing at Disney, and DST is the tool I wanted to exist before I sat down to build it. **What is on this page is a fork of that system, running on data I invented for it.** Not a reimplementation written from memory, and not the production instance either: the same codebase, with the real records replaced.
+Device Source of Truth is the internal Disney answer: one system that imports from every source, normalizes against a shared schema, and turns loose operational memory into a queryable, auditable record. This is the partner-engineering work I spent a decade doing at Disney, and DST is the tool I wanted to exist before I sat down to build it. **What is on this page is a fork of that system, running on data I invented for it.** Not a reimplementation written from memory, and not the production instance either: the same codebase, with the real records replaced.
 
 ## Five feeds, one gate
 
