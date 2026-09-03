@@ -15,9 +15,15 @@
  * named three consumers of a four-consumer module.
  *
  * So the string lives here and both surfaces import it. `PROJECTS_HEADING` is
- * the `<h1>` of `src/pages/projects/index.astro`; it also feeds that page's
- * meta description, `CollectionPage` JSON-LD, and OG image alt text, so it was
- * already a value with more than one reader before the résumé became another.
+ * the `<h1>` of `src/pages/projects/index.astro`, the `name` of that page's
+ * `ItemList` JSON-LD node, and its OG image alt text — three readers before the
+ * résumé became a fourth.
+ *
+ * It is NOT the page's meta description, and NOT the `CollectionPage` node's
+ * name or description: those are built from `PROJECTS_DESCRIPTION` and
+ * `PROJECTS_PAGE_TITLE`, which are derived separately and do not move when this
+ * string does. An earlier revision of this comment claimed otherwise and would
+ * have had an editor expect those fields to follow a copy change here.
  *
  * Writing has no index page of its own to quote — `/blog/` is the destination,
  * and "The AI-Augmented PM" is the publication's name rather than a headline

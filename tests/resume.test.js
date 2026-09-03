@@ -243,9 +243,18 @@ describe('Resume — page structure', () => {
     // The proposition slot holds the CLAIM, not the label. It used to hold
     // "Selected Projects" — the label, standing where the claim belongs, which
     // is why the section asserted nothing about itself and had no label row.
-    // The em dash is inside the bold and unspaced (CMOS), so the URL reads as
-    // an interruptive continuation of the claim rather than a second column.
-    expect(lead.querySelector('strong')?.textContent).toBe(`${PROJECTS_HEADING}—`);
+    // The proposition is the claim alone, and the separator before the URL is a
+    // middle dot rather than an em dash — because this proposition already
+    // CONTAINS one ("Products—and the decisions behind them"), and a second em
+    // dash in the same line stops marking a break and starts looking like a
+    // typo. Writing's proposition has no internal dash and takes the closed em
+    // dash instead; see the grammar test below for why that is consistency
+    // rather than an exception.
+    expect(lead.querySelector('strong')?.textContent).toBe(PROJECTS_HEADING);
+    expect(
+      lead.textContent.replace(/\s+/g, ' '),
+      'the Projects proposition should be separated from its URL by a middle dot',
+    ).toContain(`${PROJECTS_HEADING} · nathanpayne.com/projects`);
     const link = lead.querySelector('a');
     expect(link.getAttribute('href')).toBe('/projects/');
     expect(link.textContent).toContain('nathanpayne.com/projects');
@@ -300,14 +309,6 @@ describe('Resume — page structure', () => {
       const label = section.querySelector(`.${ns}__label`);
       expect(lead, `${ns} has no proposition line`).not.toBeNull();
       expect(lead.querySelector('strong'), `${ns} proposition is not set as the claim`).not.toBeNull();
-      expect(
-        lead.querySelector('strong').textContent,
-        `${ns} proposition should close on an unspaced em dash (CMOS), joining it to the URL`,
-      ).toMatch(/—$/);
-      expect(
-        lead.textContent.replace(/\s+/g, ' '),
-        `${ns} has a space around the em dash before its URL`,
-      ).not.toMatch(/\s—|—\s/);
       expect(lead.querySelector('a[href]'), `${ns} proposition carries no canonical URL`).not.toBeNull();
       expect(desc, `${ns} has no description`).not.toBeNull();
       expect(label, `${ns} has no selected-items label`).not.toBeNull();
@@ -320,6 +321,26 @@ describe('Resume — page structure', () => {
           a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING,
           `${ns} grammar is out of order`,
         ).toBeTruthy();
+      }
+
+      // The one part of the grammar the two sections deliberately do NOT share.
+      // CMOS consistency is using punctuation for its function, not forcing one
+      // mark into two different constructions: Writing's proposition is a plain
+      // noun phrase, so a closed em dash makes the URL an interruptive
+      // continuation of it. Projects' proposition already contains an em dash,
+      // and a second one in the same line reads as a typo rather than a break —
+      // so it takes a middle dot, the site's own separator elsewhere.
+      const flat = lead.textContent.replace(/\s+/g, ' ').trim();
+      if (ns === 'resume-writing') {
+        expect(lead.querySelector('strong').textContent, 'Writing closes on an em dash').toMatch(
+          /—$/,
+        );
+        expect(flat, 'Writing should not space its em dash').not.toMatch(/\s—|—\s/);
+      } else {
+        expect(lead.querySelector('strong').textContent, 'Projects states the claim alone').not.toMatch(
+          /—$/,
+        );
+        expect(flat, 'Projects separates its URL with a middle dot').toMatch(/ · /);
       }
     }
   });
