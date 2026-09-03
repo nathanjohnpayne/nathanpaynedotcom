@@ -329,7 +329,6 @@ describe('Resume — page structure', () => {
       ]),
     );
     expect(byHref.size).toBe(7);
-    const seen = new Set();
     for (const [href, status] of byHref) {
       const page = readDist(`${href.replace(/^\/|\/$/g, '')}/index.html`);
       const canonical = /class="[^"]*metadata-strip__status[^"]*"[^>]*>([^<]+)</.exec(page);
@@ -340,11 +339,14 @@ describe('Resume — page structure', () => {
       // The mark, not just the word: same status must select the same modifier.
       const modifier = [...status.classList].find((c) => c.startsWith('state-marker--'));
       expect(page, `${href} does not carry ${modifier}`).toContain(modifier);
-      seen.add(status.textContent.trim());
     }
-    expect(seen, 'expected the four canonical lifecycle states across the seven projects').toEqual(
-      new Set(['SHIPPED', 'ARCHIVED', 'PAUSED', 'EXPERIMENT']),
-    );
+    // Deliberately no assertion on WHICH states appear. Every value here is
+    // derived from the project pages, and pinning today's mix — four SHIPPED,
+    // one each of ARCHIVED, PAUSED, EXPERIMENT — would be the one
+    // hand-maintained figure in a check whose whole point is that nothing is
+    // restated. Flipping a project's lifecycle is a legitimate content edit and
+    // must not fail a résumé test. That the résumé shows a mixed set at all is
+    // asserted where it belongs, on the résumé's own markup, above.
   });
 
   it('confines lifecycle marks to the Projects section', () => {
