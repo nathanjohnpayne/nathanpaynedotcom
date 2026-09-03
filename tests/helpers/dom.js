@@ -191,26 +191,42 @@ export function builtPages(subdir = '.') {
 }
 
 /**
- * The build's single emitted stylesheet, read out of `dist/_astro/`.
+ * Every stylesheet the build emitted into `dist/_astro/`, concatenated.
  *
- * The filename is content-hashed, so it has to be discovered rather than
+ * The filenames are content-hashed, so they have to be discovered rather than
  * named. A build that emits none is reported the same way a missing build is:
  * as the build step that did not run, not as a `TypeError` from resolving
  * `undefined`.
  *
- * @returns {string} The stylesheet source.
+ * ALL of them, not the first one `readdirSync` returns (#932). Astro emits a
+ * single chunk today, so taking the first happened to be right — but the order
+ * is not guaranteed and nothing pins the chunk count. The day either changes,
+ * every caller's assertions start failing as "this rule did not survive the
+ * build" when the truth is "we read the wrong file", and that misdiagnosis
+ * points at the build system instead of at this line. Concatenating costs
+ * nothing while the count is one and removes the failure mode entirely.
+ *
+ * Callers match against the result, so concatenation is safe: a rule is in the
+ * built CSS if it is in any emitted chunk. They are joined with a newline so
+ * two files cannot fuse into a token that appears in neither.
+ *
+ * @param {string} [astroDir] Directory to read; defaults to `dist/_astro`.
+ *   Present so the multi-chunk behaviour can be exercised against a temp
+ *   directory — the real build emits one chunk, so a test pointed at `dist/`
+ *   passes whether or not this function reads all of them, and would not have
+ *   caught the bug it now guards.
+ * @returns {string} The emitted stylesheet source, all chunks.
  */
-export function readBuiltStylesheet() {
-  const astroDir = resolve(DIST, '_astro');
+export function readBuiltStylesheet(astroDir = resolve(DIST, '_astro')) {
   let entries;
   try {
     entries = readdirSync(astroDir);
   } catch (error) {
     return rethrowAsMissingBuild(error, 'dist/_astro');
   }
-  const cssFile = entries.find((name) => name.endsWith('.css'));
-  if (!cssFile) {
-    throw new Error(`No stylesheet emitted into dist/_astro. ${BUILD_HINT}`);
+  const cssFiles = entries.filter((name) => name.endsWith('.css')).sort();
+  if (cssFiles.length === 0) {
+    throw new Error(`No stylesheet emitted into ${astroDir}. ${BUILD_HINT}`);
   }
-  return readFileSync(resolve(astroDir, cssFile), 'utf-8');
+  return cssFiles.map((name) => readFileSync(resolve(astroDir, name), 'utf-8')).join('\n');
 }
