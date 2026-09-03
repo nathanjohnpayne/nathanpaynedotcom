@@ -79,6 +79,22 @@ describe('readBuiltStylesheet (#932)', () => {
     expect(() => readBuiltStylesheet(join(dir, 'does-not-exist'))).toThrow(/is not in the build/);
   });
 
+  it('names the directory it actually tried to read', () => {
+    // Both error paths used to say `dist/_astro` regardless of the argument,
+    // which sends a reader to a path the call never touched.
+    const missing = join(dir, 'nope');
+    expect(() => readBuiltStylesheet(missing)).toThrow(missing);
+
+    const empty = givenAstroDir({ 'index.hash.js': '' });
+    expect(() => readBuiltStylesheet(empty)).toThrow(empty);
+  });
+
+  it('keeps the short dist/_astro wording for the default', () => {
+    // The absolute build path is already in the hint, so repeating it in the
+    // subject would be noise for the case every caller actually hits.
+    expect(() => readBuiltStylesheet(join(dir, 'nope'))).not.toThrow(/^dist\/_astro/);
+  });
+
   it('reads the real build through the default argument', () => {
     // The seam exists for the tests above; this is what every caller actually
     // invokes, so it has to keep working with no argument at all.

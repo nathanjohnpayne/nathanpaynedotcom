@@ -218,15 +218,20 @@ export function builtPages(subdir = '.') {
  * @returns {string} The emitted stylesheet source, all chunks.
  */
 export function readBuiltStylesheet(astroDir = resolve(DIST, '_astro')) {
+  // Name the directory actually read. The default keeps its short `dist/_astro`
+  // wording — an absolute path there is noise, since the hint already says
+  // where the build goes — but a caller-supplied directory has to appear
+  // verbatim, or the error points at a path the call never touched.
+  const label = astroDir === resolve(DIST, '_astro') ? 'dist/_astro' : astroDir;
   let entries;
   try {
     entries = readdirSync(astroDir);
   } catch (error) {
-    return rethrowAsMissingBuild(error, 'dist/_astro');
+    return rethrowAsMissingBuild(error, label);
   }
   const cssFiles = entries.filter((name) => name.endsWith('.css')).sort();
   if (cssFiles.length === 0) {
-    throw new Error(`No stylesheet emitted into ${astroDir}. ${BUILD_HINT}`);
+    throw new Error(`No stylesheet emitted into ${label}. ${BUILD_HINT}`);
   }
   return cssFiles.map((name) => readFileSync(resolve(astroDir, name), 'utf-8')).join('\n');
 }
