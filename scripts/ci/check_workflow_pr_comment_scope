@@ -134,18 +134,31 @@ PR_TRIGGERS = {
     "workflow_run",
 }
 
-# A POST to the issues-comments endpoint, in any spelling gh accepts. `-X` is
-# the documented short alias for `--method`, and `-f`/`-F` switch gh to POST on
-# their own, so matching only a literal `--method POST` left three ways to
-# recreate the bug (Codex, #936). Run bodies are whitespace-normalised first so
-# a line-broken command still matches.
+# A POST to a comments endpoint, in any spelling gh accepts. `-X` is the
+# documented short alias for `--method`, and the field flags switch gh to POST
+# on their own — in BOTH their short (`-f`/`-F`) and long (`--field`/
+# `--raw-field`) forms. Matching only a literal `--method POST` left several
+# ways to recreate the bug (Codex and CodeRabbit, #936). Run bodies are
+# whitespace-normalised and continuations joined first, so a line-broken
+# command still matches.
+POST_FLAG = r"(?:--method\s+POST|-X\s+POST|--raw-field\s|--field\s|\s-f\s|\s-F\s)"
 ISSUE_COMMENTS_PATH = r"issues/[^\s\"']+/comments"
 REST_POST_RE = re.compile(
-    r"gh\s+api\b[^\n]*?(?:--method\s+POST|-X\s+POST|\s-f\s|\s-F\s)[^\n]*?" + ISSUE_COMMENTS_PATH
-    + r"|gh\s+api\b[^\n]*?" + ISSUE_COMMENTS_PATH
-    + r"[^\n]*?(?:--method\s+POST|-X\s+POST|\s-f\s|\s-F\s)"
+    r"gh\s+api\b[^\n]*?" + POST_FLAG + r"[^\n]*?" + ISSUE_COMMENTS_PATH
+    + r"|gh\s+api\b[^\n]*?" + ISSUE_COMMENTS_PATH + r"[^\n]*?" + POST_FLAG
 )
 SCRIPT_POST_RE = re.compile(r"(?:issues|rest\.issues)\.createComment\s*\(")
+
+# The pull-request REVIEW-comment endpoint. Unlike the issues path this one is
+# unambiguous — `pulls/{n}/comments` only ever targets a pull request — so it
+# requires `pull-requests: write` regardless of the workflow's triggers.
+# Missed entirely by the first two revisions (CodeRabbit, #936).
+PULLS_COMMENTS_PATH = r"pulls/[^\s\"']+/comments"
+REVIEW_COMMENT_RE = re.compile(
+    r"gh\s+api\b[^\n]*?" + POST_FLAG + r"[^\n]*?" + PULLS_COMMENTS_PATH
+    + r"|gh\s+api\b[^\n]*?" + PULLS_COMMENTS_PATH + r"[^\n]*?" + POST_FLAG
+    + r"|(?:pulls|rest\.pulls)\.createReviewComment\s*\("
+)
 GH_PR_COMMENT_RE = re.compile(r"\bgh\s+pr\s+comment\b")
 GH_ISSUE_COMMENT_RE = re.compile(r"\bgh\s+issue\s+comment\b")
 
@@ -204,8 +217,9 @@ for name in sorted(os.listdir(workflow_dir)):
             continue
         text = step_text(job)
 
-        # Unambiguously a pull request.
-        certain = bool(GH_PR_COMMENT_RE.search(text))
+        # Unambiguously a pull request: `gh pr comment`, or the
+        # pulls/{n}/comments review-comment endpoint.
+        certain = bool(GH_PR_COMMENT_RE.search(text) or REVIEW_COMMENT_RE.search(text))
         # The issues endpoint: a PR only when this workflow can receive one.
         ambiguous = bool(
             REST_POST_RE.search(text)

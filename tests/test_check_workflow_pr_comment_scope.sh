@@ -188,6 +188,50 @@ jobs:
             "repos/$REPO/issues/$pr/comments" \
             --input p.json'
 
+expect "--field implying POST is recognised" 1 'on:
+  pull_request:
+jobs:
+  poster:
+    permissions:
+      issues: write
+    steps:
+      - run: gh api "repos/$REPO/issues/$pr/comments" --field body=hello'
+
+expect "--raw-field implying POST is recognised" 1 'on:
+  pull_request:
+jobs:
+  poster:
+    permissions:
+      issues: write
+    steps:
+      - run: gh api "repos/$REPO/issues/$pr/comments" --raw-field body=hello'
+
+# ── The pull-request REVIEW-comment endpoint. pulls/{n}/comments only ever
+# targets a PR, so it requires the scope regardless of trigger — and it was
+# missed entirely by the first two revisions of this check.
+expect "the pulls review-comment endpoint is recognised" 1 'on:
+  schedule:
+    - cron: "0 0 * * *"
+jobs:
+  poster:
+    permissions:
+      issues: write
+    steps:
+      - run: gh api --method POST "repos/$REPO/pulls/$pr/comments" --input p.json'
+
+expect "pulls.createReviewComment is recognised" 1 'on:
+  schedule:
+    - cron: "0 0 * * *"
+jobs:
+  poster:
+    permissions:
+      issues: write
+    steps:
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.pulls.createReviewComment({pull_number: 1})'
+
 expect "github-script createComment is recognised" 1 'on:
   pull_request:
 jobs:
