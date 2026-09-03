@@ -5952,6 +5952,19 @@ body.resume-page {
   background: var(--resume-link);
 }
 
+/* Forced-colors mode (Windows High Contrast and friends) replaces author
+   background colours with the canvas colour, which would erase a square that
+   is painted entirely by `background` — the marker would vanish exactly where
+   contrast matters most. System colour keywords are honoured rather than
+   overridden, so repainting it as `CanvasText` keeps it visible against
+   whatever canvas the user has chosen. Screen and print rendering are
+   untouched: the query matches neither (CodeRabbit, #924). */
+@media (forced-colors: active) {
+  .resume-prose ul li::before {
+    background: CanvasText;
+  }
+}
+
 .resume-prose strong {
   font-weight: 700;
 }
