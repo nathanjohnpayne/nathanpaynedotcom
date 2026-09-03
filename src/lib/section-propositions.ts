@@ -14,10 +14,18 @@
  * repo keeps re-finding, most recently in an agent-doc surface inventory that
  * named three consumers of a four-consumer module.
  *
- * So the string lives here and both surfaces import it. `PROJECTS_HEADING` is
+ * So the string lives here and every surface imports it. `PROJECTS_HEADING` is
  * the `<h1>` of `src/pages/projects/index.astro`, the `name` of that page's
- * `ItemList` JSON-LD node, and its OG image alt text — three readers before the
- * résumé became a fourth.
+ * `ItemList` JSON-LD node, its OG image alt text, the heading rendered into the
+ * projects OG card (`src/pages/og-templates/projects.astro`), and the résumé's
+ * Projects proposition.
+ *
+ * That OG card was the one copy this module missed on its first pass: a
+ * hard-coded duplicate in a template nobody edits, which would have shipped
+ * stale share artwork after a copy change and produced no error anywhere
+ * (Codex, PR #946). `tests/section-propositions.test.js` now fails on any
+ * literal copy of the string under `src/`, so a sixth consumer has to import
+ * it rather than retype it.
  *
  * It is NOT the page's meta description, and NOT the `CollectionPage` node's
  * name or description: those are built from `PROJECTS_DESCRIPTION` and
