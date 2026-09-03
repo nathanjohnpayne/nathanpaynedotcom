@@ -542,12 +542,14 @@ describe('Resume — page structure', () => {
       const project = canonical.find((c) => c.slug === slug);
       expect(project, `no canonical project declares slug "${slug}"`).toBeTruthy();
 
-      // The expectation comes from the canonical project, live app first.
+      // The expectation comes from the canonical project, live app first. It
+      // may legitimately be EMPTY: `liveUrl` and `githubUrl` are both optional,
+      // and an undeployed project with a private repository has neither, in
+      // which case the component correctly renders no destination row. The
+      // equality below then asserts exactly that, so requiring at least one
+      // here would fail a required check on a valid project (Codex, PR #946).
+      // The fixture-level controls at the end keep the loop from going vacuous.
       const expected = [project.liveUrl, project.githubUrl].filter(Boolean);
-      expect(
-        expected.length,
-        `canonical project "${slug}" declares no destination at all`,
-      ).toBeGreaterThan(0);
 
       const anchors = [...entry.querySelectorAll('.resume-entry__link a')];
       expect(

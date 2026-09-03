@@ -6558,13 +6558,8 @@ body.resume-page {
      nathanpayne.com/projects) — suppress this to avoid duplication. (The
      essay list is hidden in print; see the Writing-collapse rule below.)
 
-     Project TITLES are suppressed too: the title is a name, not a URL, and
-     each entry already prints its live/repo URL on the very next line via
-     .resume-entry__link — so appending /projects/<slug>/ after the name is
-     both redundant and a second, less useful destination. This used to hold
-     implicitly, because the title href was root-relative and so never matched
-     [href^='http']. Since #683 absolutizes every link before the PDF is
-     written, that accident is gone and the intent has to be stated. */
+     Neither the project title nor the destination row appears in that list
+     any more, and for different reasons — see the note under it. */
   .resume-canvas a[href^='http']::after {
     content: ' (' attr(href) ')';
     font-size: 0.85em;
@@ -6577,12 +6572,20 @@ body.resume-page {
     content: '';
   }
 
-  /* `.resume-entry__link` is not in that list, and no longer needs to be: the
-     row is hidden in print outright (see the collapse block below), so the
-     suffix never renders either way. It was briefly exempt-then-unexempted
-     while the row still printed. The project name lost its own link in the
-     same change (#947), which is why its former exemption is gone rather than
-     merely unused. */
+  /* Why the two project selectors left that list (#947), since #683 had put
+     one of them there and the reasoning no longer holds:
+
+     - `.resume-entry__title` was suppressed because a title is a name, not a
+       URL, and #683's absolutizing made it start matching [href^='http'].
+       The title is no longer a link at all, so there is nothing to suppress.
+     - `.resume-entry__link` was briefly exempt, then unexempted so its URLs
+       would print, and is now moot: the row is hidden in print outright (see
+       the collapse block below), so the suffix never renders either way.
+
+     What the list still holds is links whose visible text already IS their
+     URL — the contact line and the two section leads. That is the rule it
+     encodes, and both removals are consistent with it rather than exceptions
+     to it. */
 
   /* Writing collapses to just its lead line in print. The section is
      link-driven — a blog CTA plus three essay links — and those links are
