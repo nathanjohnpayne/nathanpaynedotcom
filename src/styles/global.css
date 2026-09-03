@@ -6160,8 +6160,12 @@ body.resume-page {
    Metadata, not a badge. The three-grammar rule the homepage `.p-status`
    states — underlined or arrowed text navigates, an outlined rectangle is a
    control, glyph plus uppercase text is state — is why this carries no box of
-   its own directly above a heading that IS a link. Same reason it takes no
-   status-specific color: geometry carries state, hue is composition.
+   its own. All three grammars now stack in one entry and stay distinguishable:
+   this mark is state, the name below it is neither (#947 made it typography
+   rather than a link), and the row below that navigates. A box here would read
+   as a control sitting on top of a heading, which is the one thing none of the
+   three parts is. Same reason it takes no status-specific color: geometry
+   carries state, hue is composition.
 
    Subordinate on purpose. The status used to render inline at the `<h3>`'s own
    Cormorant clamp (1.12–1.4rem), so a lifecycle word competed with the project
