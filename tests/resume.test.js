@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, beforeAll } from 'vitest';
+import { JSDOM } from 'jsdom';
 import {
   existsSync,
   readFileSync,
@@ -8,11 +9,12 @@ import {
   writeFileSync,
   rmSync,
 } from 'fs';
-import { resolve, join } from 'path';
+import { resolve, join, basename } from 'path';
 import { tmpdir } from 'os';
 import { writeSanitizedDOM } from './helpers/dom.js';
 import { PROJECTS_HEADING } from '../src/lib/section-propositions';
 import { parseFrontmatter } from '../scripts/lib/parse-frontmatter.mjs';
+import { findFilesRecursively } from '../scripts/lib/blog-file-inventory.mjs';
 import { liveLinkLabel } from '../src/lib/live-link-label';
 import {
   pdfTextInEmissionOrder,
@@ -29,6 +31,34 @@ import {
 // `astro build && vitest run`, so dist/ is always fresh.
 
 const DIST = resolve(__dirname, '../dist');
+
+// Pull every balanced @media print { ... } block out of a minified
+// stylesheet. A stylesheet can carry more than one — the blog's
+// end-of-post print rules (#622) sit ahead of the resume's — so each
+// assertion below selects the block it cares about by content rather
+// than assuming the first one is the resume's.
+function printBlockRanges(css) {
+  const ranges = [];
+  let i = css.indexOf('@media print');
+  while (i !== -1) {
+    let depth = 0;
+    const start = css.indexOf('{', i);
+    for (let j = start; j < css.length; j++) {
+      if (css[j] === '{') depth++;
+      else if (css[j] === '}' && --depth === 0) {
+        ranges.push([i, j + 1]);
+        break;
+      }
+    }
+    i = css.indexOf('@media print', i + 1);
+  }
+  return ranges;
+}
+
+function printBlocks(css) {
+  return printBlockRanges(css).map(([from, to]) => css.slice(from, to));
+}
+
 const CONTENT = resolve(__dirname, '../src/content');
 const RESUME_HTML = resolve(DIST, 'resume/index.html');
 
@@ -515,17 +545,25 @@ describe('Resume — page structure', () => {
       if (field('url')) {
         const slug = file.replace(/\.md$/, '');
         const projectPage = readDist(`projects/${slug}/index.html`);
-        const projectSrc = readFileSync(
-          resolve(__dirname, `../src/content/projects/${slug}.mdx`),
-          'utf-8',
-        );
-        const { liveUrl, liveLabel } = parseFrontmatter(projectSrc);
+        // Discovered, not assumed: the collection takes .md and .mdx and globs
+        // recursively, so a hard-coded root-level `${slug}.mdx` would fail a
+        // required check on a project Astro builds happily (Codex, PR #946).
+        const srcPath = findFilesRecursively(
+          resolve(__dirname, '../src/content/projects'),
+          (f) => /\.mdx?$/.test(f),
+        ).find((f) => basename(f).replace(/\.mdx?$/, '') === slug);
+        expect(srcPath, `no project source found for slug "${slug}"`).toBeTruthy();
+        const { liveUrl, liveLabel } = parseFrontmatter(readFileSync(srcPath, 'utf-8'));
         expect(liveUrl, `/projects/${slug}/ declares no liveUrl`).toBeTruthy();
-        const escaped = liveUrl.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-        const cta = new RegExp(`href="${escaped}"[^>]*>([^<]+)<`).exec(projectPage)?.[1];
-        expect(cta, `no live CTA found on /projects/${slug}/ for ${liveUrl}`).toBeTruthy();
+        // Parsed, not regexed out of the markup: a label like `View R&D Demo`
+        // serializes as `View R&amp;D Demo`, and comparing that to the raw
+        // frontmatter would reject a page that renders correctly (Codex,
+        // PR #946). textContent gives the decoded string either way.
+        const projectDom = new JSDOM(projectPage).window.document;
+        const ctaEl = projectDom.querySelector(`a[href="${liveUrl}"]`);
+        expect(ctaEl, `no live CTA found on /projects/${slug}/ for ${liveUrl}`).not.toBeNull();
         expect(
-          cta.trim(),
+          ctaEl.textContent.trim(),
           `/projects/${slug}/ CTA does not match its declared liveLabel`,
         ).toBe((liveLabel ?? 'View Live Product').trim());
         liveWord = liveLinkLabel(liveLabel);
@@ -694,32 +732,6 @@ describe('Resume — print stylesheet', () => {
       : [];
   });
 
-  // Pull every balanced @media print { ... } block out of a minified
-  // stylesheet. A stylesheet can carry more than one — the blog's
-  // end-of-post print rules (#622) sit ahead of the resume's — so each
-  // assertion below selects the block it cares about by content rather
-  // than assuming the first one is the resume's.
-  function printBlockRanges(css) {
-    const ranges = [];
-    let i = css.indexOf('@media print');
-    while (i !== -1) {
-      let depth = 0;
-      const start = css.indexOf('{', i);
-      for (let j = start; j < css.length; j++) {
-        if (css[j] === '{') depth++;
-        else if (css[j] === '}' && --depth === 0) {
-          ranges.push([i, j + 1]);
-          break;
-        }
-      }
-      i = css.indexOf('@media print', i + 1);
-    }
-    return ranges;
-  }
-
-  function printBlocks(css) {
-    return printBlockRanges(css).map(([from, to]) => css.slice(from, to));
-  }
 
   /**
    * The stylesheet with every @media print block cut out — i.e. everything the
@@ -959,14 +971,19 @@ describe('Resume — downloadable PDF', () => {
     // row is hidden outright, the way the essay list already was, and every
     // project stays reachable through the section lead instead.
     const astroDir = resolve(DIST, '_astro');
-    const printBlocks = readdirSync(astroDir)
+    // Balanced blocks, not a slice to EOF. A slice would also match a
+    // `display: none` that had been moved OUT of @media print into the base
+    // cascade below it — which hides the row on SCREEN too, taking every
+    // project destination with it, while this test went on passing and the PDF
+    // assertions passed as well (a base rule hides it in print by definition).
+    // Codex, PR #946.
+    const blocks = readdirSync(astroDir)
       .filter((f) => f.endsWith('.css'))
       .map((f) => readFileSync(join(astroDir, f), 'utf-8'))
-      .filter((css) => css.includes('@media print'))
-      .map((css) => css.slice(css.indexOf('@media print')));
-    expect(printBlocks.length, 'no @media print block found in the emitted CSS').toBeGreaterThan(0);
+      .flatMap(printBlocks);
+    expect(blocks.length, 'no @media print block found in the emitted CSS').toBeGreaterThan(0);
 
-    const hidden = printBlocks.some((block) =>
+    const hidden = blocks.some((block) =>
       [...block.matchAll(/([^{}]+)\{([^{}]*)\}/g)].some(
         ([, sel, decls]) =>
           /\.resume-entry__link(?![_a-zA-Z-])/.test(sel) && /display:\s*none/.test(decls),
