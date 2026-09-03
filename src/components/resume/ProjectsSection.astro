@@ -64,15 +64,17 @@ const projectStatus = Object.fromEntries(
  * What to call a project's live URL: `Live` for a running product, `Demo` for
  * something deployed to be shown rather than used (#947).
  *
- * Derived from the `liveLabel` the project already declares for its detail-page
- * CTA, not authored again here. Device Source of Truth's public fork runs on
- * entirely synthetic data and Override has never run a real capitalization;
- * both say "View Demo" on their own pages, and a résumé that called either one
- * "Live" would overclaim on the surface where overclaiming costs the most —
- * and would undo the lifecycle precision the kicker above it just added.
+ * Derived from the `liveLabel` a project already declares for its detail-page
+ * CTA, not authored again here. Today exactly one project sets it: Device
+ * Source of Truth, whose public fork runs on entirely synthetic data, says
+ * "View Demo" — so the résumé says `Demo`. Everything else, Override included,
+ * leaves it unset and reads `Live`.
  *
- * One authored signal, two surfaces. A résumé-local Live/Demo list would be a
- * second place to state the same fact, free to drift from the first.
+ * That is the point of deriving rather than authoring: the call about what a
+ * URL leads to is made once, on the project, and both surfaces follow it. A
+ * résumé-local Live/Demo list would be a second place to state the same fact,
+ * free to drift from the first — and the résumé would then be able to
+ * contradict the CTA on the page it links to.
  */
 function liveLinkLabel(slug: string): string {
   return /demo/i.test(projectMeta[slug]?.liveLabel ?? '') ? 'Demo' : 'Live';
