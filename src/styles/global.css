@@ -79,6 +79,12 @@
   --sp-sm: var(--su); /* 0.42rem — base step */
   --sp-md: calc(var(--su) * 1.5); /* 0.63rem — block separation */
   --sp-lg: calc(var(--su) * 2); /* 0.84rem — section-level gaps */
+  /* Space above a panel's closing ribbon — STACK, SCOPE, LATEST POST, LAST
+     UPDATED. Off the --su scale deliberately: it equals
+     --about-space-above-label, because About sets this gap with a flex gap on
+     its container and the other three have to match what it produces. See
+     § Panel-closing ribbons. */
+  --ribbon-space-above: 1.25rem;
   --grid-border: #1a1814;
   --cream: #f5f0e4;
   /* Per-plane tuned mobile-panel veils; intentionally distinct from --cream. */
@@ -1094,13 +1100,13 @@ html[data-fonts-pending] .panel-label {
 
    The vertical space is the point: at 14px above and 5px below it sat closer to
    the STACK ribbon than to the list it belongs to, so it read as part of the
-   footer block — or worse, as an eighth project row. Both gaps are opened so it
-   reads as the list's deliberate endpoint. The margin-bottom lives here rather
-   than on .stack-ribbon so the ribbon's own spacing is untouched wherever else
-   it appears. Left-aligned and unwidened by intent. */
+   footer block — or worse, as an eighth project row. The gap above is opened
+   here so it reads as the list's deliberate endpoint; the gap below is now the
+   ribbon's own --ribbon-space-above, which is slightly wider than the 0.9rem
+   this used to carry, so the separation this comment is about only improved.
+   Left-aligned and unwidened by intent. */
 .projects-index-cta {
   margin-top: 1.5rem;
-  margin-bottom: 0.9rem;
   font-size: clamp(0.68rem, 0.8vw, 0.78rem);
   padding: 0.42rem 0.7rem;
 }
@@ -1273,19 +1279,36 @@ a:focus-visible .link-arrow,
   padding-bottom: clamp(0.42rem, min(1.8vw, 1.8vh), 0.9rem);
 }
 
+/* Panel-closing ribbons.
+   ------------------------------------------------------------------
+   Four panels end the same way: a hairline, a small-caps label, and a line of
+   values. They were built alike and spaced by accident of what preceded them —
+   Builds took ~19px from its CTA's margin-bottom and About ~20px from a flex
+   gap, while Community and Connect got the 5px tight-label step, because the
+   element above each has no bottom margin at all.
+
+   The ribbon owns the space above itself now, so the gap no longer depends on
+   what it follows. That is what fixes it rather than papering over it: a
+   margin-bottom on the neighbour COLLAPSES with this margin-top for ordinary
+   block siblings (Community, Connect), so the pair yields the larger of the
+   two and not their sum — which is why the neighbour-side fix produced 14.4px
+   there while Builds, whose CTA is an inline-block and so does not collapse,
+   got 19.4px from the same declaration.
+
+   .blog-callout joins the list rather than repeating it; its rule was
+   byte-identical. About is the one exception and keeps its own override —
+   its ribbon is a flex child, so the container's gap already provides this
+   space and a margin here would add to it. */
 .stack-ribbon,
 .impact-ribbon,
-.now-ribbon {
+.now-ribbon,
+.blog-callout {
   display: flex;
   flex-direction: column;
   gap: 0.08rem;
-  margin-top: var(--sp-xs);
+  margin-top: var(--ribbon-space-above);
   padding-top: var(--sp-2xs);
   border-top: 1px solid var(--rule);
-}
-
-.impact-ribbon {
-  margin-top: var(--sp-xs);
 }
 
 /* Selected Projects STACK degradation ladder (#930).
@@ -1401,15 +1424,6 @@ a:focus-visible .link-arrow,
   letter-spacing: 0.1em;
   word-spacing: 0.05em;
   color: var(--ink-50);
-}
-
-.blog-callout {
-  display: flex;
-  flex-direction: column;
-  gap: 0.08rem;
-  margin-top: var(--sp-xs);
-  padding-top: var(--sp-2xs);
-  border-top: 1px solid var(--rule);
 }
 
 /* .blog-callout-label typography moved to the shared .eyebrow utility
