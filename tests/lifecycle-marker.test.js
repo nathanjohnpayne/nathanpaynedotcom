@@ -4,10 +4,11 @@ import { relative, resolve } from 'path';
 import { findFilesRecursively } from '../scripts/lib/blog-file-inventory.mjs';
 import { STATUS_MARKER, stateMarkerClass } from '../src/lib/lifecycle-marker';
 
-// The lifecycle marker vocabulary is shared by three surfaces: the homepage
-// Builds row, the /projects/ card kicker, and the project detail page's STATUS
-// cell. It used to be a copy-pasted literal per surface. These tests cover the
-// module and, more importantly, guard against the copies coming back.
+// The lifecycle marker vocabulary is shared by four surfaces: the homepage
+// Builds row, the /projects/ card kicker, the project detail page's STATUS
+// cell, and the résumé's Projects kicker (#944). It used to be a copy-pasted
+// literal per surface. These tests cover the module and, more importantly,
+// guard against the copies coming back.
 
 const SRC = resolve(__dirname, '../src');
 
@@ -79,6 +80,7 @@ describe('lifecycle marker vocabulary', () => {
       'pages/index.astro',
       'pages/projects/index.astro',
       'components/MetadataStrip.astro',
+      'components/resume/ProjectsSection.astro',
     ];
     const walked = findFilesRecursively(SRC, (f) => /\.(astro|ts|js|mjs)$/.test(f)).map((f) =>
       relative(SRC, f),

@@ -34,7 +34,7 @@ collections are:
 | `experience` | `src/content/experience/` | one `.md` per role | Six entries. Bullets / paragraph in the body. Optional `compact: true`—see *Experience density* below. |
 | `education` | `src/content/education/` | one `.md` | One entry (George Mason). |
 | `certifications` | `src/content/certifications/` | one `.md` per cert | Three entries. |
-| `resumeProjects` | `src/content/resume/projects/` | one `.md` per project | Six entries. **Distinct from `projects`** (reserved for `/projects`). |
+| `resumeProjects` | `src/content/resume/projects/` | one `.md` per project | Seven entries. **Distinct from `projects`** (reserved for `/projects`). |
 | `awards` (future) | `src/content/awards/` | one `.md`/`.yaml` per award | Dormant scaffold; deliberately not registered until the first entry exists, so an empty loader cannot pollute build logs (#654). |
 
 The `resumeProjects` collection must remain separate from the existing
@@ -113,20 +113,19 @@ The `resumeProjects` collection must remain separate from the existing
   commit to deploy" intro, are both pinned as negative assertions in
   `tests/resume.test.js` so they cannot return. That intro was also
   specifically wrong for a project that never launched.
-- **Each Projects entry carries its lifecycle status** after the name
-  (`.resume-entry__status`), rendered as plain uppercase text—`SHIPPED`,
-  `ARCHIVED`, `PAUSED`, `EXPERIMENT`, `IN PROGRESS`. **Not** the
-  `.state-marker` geometry the homepage, `/projects/`, and the project
-  detail page's STATUS cell use: this section
-  prints to PDF and is parsed by applicant tracking systems, where
-  portability beats extending the visual language.
+- **Each Projects entry opens with its lifecycle status** as a kicker (`.resume-entry__status`) above the `<h3>`—uppercase `SHIPPED`, `ARCHIVED`, `PAUSED`, `EXPERIMENT`, or `IN PROGRESS`, carrying the `.state-marker` geometry the homepage, `/projects/`, and the detail page's STATUS cell use (#944). Every entry carries one, including the four that say `SHIPPED`: consistent entry anatomy beats avoiding apparent redundancy, which is the call #285 already made for the index cards.
 
-  The value is **looked up from the `projects` collection by slug**, not
-  authored in `src/content/resume/projects/`—a résumé entry's id is its
-  project slug. A project's status therefore has exactly one source, and the
-  résumé cannot drift from the project page. `tests/resume.test.js` asserts
-  every entry carries one, that each is a valid lifecycle value, and that the
-  set is mixed.
+  The word must stay real text. The mark is a `::before` box and contributes no characters, so `SHIPPED` and `ARCHIVED` survive copy/paste, screen readers, PDF text extraction, and ATS parsing exactly as they did before the mark existed. **This is the whole of the constraint, and an earlier revision of this spec mistook it for a wider one:** it forbade the geometry outright, on the grounds that a PDF-bound, ATS-parsed section should not extend the visual language. Portability was never at odds with the mark, only with replacing the word by one—and #925 had since turned on `printBackground: true`, so CSS-painted marks reach the generated file at all.
+
+  **Above the name, not after it, and the reason is measurement rather than taste.** "Device Source of Truth – Partner Device Intelligence Platform" fills 549 of the content column's 632px unaided, so a trailing status wraps to a line of its own at every viewport width—a stray `ARCHIVED` hanging under a heading. A kicker cannot be pushed onto a second line, and it returns the full measure to the project name. It also matches the `/projects/` card, where `.project-status` already sits over `.post-title`.
+
+  **Subordinate by type, not by color.** 0.62rem Inter (7.5pt in print) against the heading's Cormorant clamp; no status-specific hue, no pill, no border, not interactive—the site's three-grammar rule holds, so glyph plus uppercase text is state and nothing here reads as a control. The mark is `em`-sized by `.state-marker`, so it tracks that type without a per-surface override.
+
+  **Print needs one extra declaration, and it is load-bearing.** Three of the four marks *are* backgrounds—filled, cored, half-filled—and Chrome's print dialog leaves "Background graphics" off by default, which would collapse all four to the bare outline `PAUSED` uses. `@media print` therefore sets `print-color-adjust: exact` on `.resume-canvas .state-marker::before`. Verified against a control: with the property reverted to `economy`, the same page renders every mark as an identical empty square. The generator's own `printBackground: true` also paints them into the downloadable file, so the two mechanisms are redundant *there* and neither is provable from it—which is why `tests/resume.test.js` asserts the stylesheet rule directly, and separately asserts that the marks reach the PDF inked.
+
+  The value is **looked up from the `projects` collection by slug**, not authored in `src/content/resume/projects/`—a résumé entry's id is its project slug. A project's status therefore has exactly one source, and the résumé cannot drift from the project page. The status → modifier mapping is likewise imported from `src/lib/lifecycle-marker.ts`, and `tests/lifecycle-marker.test.js` fails the build if any surface declares a second one. `tests/resume.test.js` asserts every entry carries a status, that each matches the value its own project page renders, that the set covers all four canonical states, that the kicker precedes its heading, and that no lifecycle mark appears anywhere else on the page.
+
+- **Lifecycle marks are confined to the Projects section.** Not experience entries, not the Disney bullets, not Skills, Writing, Education, Certifications, or the availability CTA. The vocabulary means one thing—product/project lifecycle state—and it keeps that precision only by not spreading to metadata that is not lifecycle.
 
 ## Semantics & structure
 

@@ -104,20 +104,39 @@ export function pdfPageCount(pdfPath) {
 /** Render DPI. Fixed so the geometry below is stable. */
 const DPI = 150;
 
+/** CSS pixels → rendered device pixels. CSS px are ¾ of a PDF point. */
+const devicePx = (css) => Math.round(((css * 0.75) / 72) * DPI);
+
 /**
- * Bullet-marker geometry, derived from the two values the print stylesheet
- * pins rather than from measured pixel positions:
+ * Marker-column geometry, derived from the values the print stylesheet pins
+ * rather than from measured pixel positions:
  *
  * - the page margin, `@page { margin: 0.6in }` (and `RESUME_PDF_MARGIN`);
- * - `--bullet-size: 0.36rem` = 5.76 CSS px, and CSS px are ¾ of a PDF point.
+ * - `--bullet-size: 0.36rem` = 5.76 CSS px;
+ * - `.state-marker::before` = `0.72em` of the 7.5pt (10 CSS px) status kicker,
+ *   plus its 1px border on each side. The border adds to the box because the
+ *   `box-sizing: border-box` reset selects `*`, which does not match a
+ *   pseudo-element.
  *
- * The marker is pulled fully into the gutter by a negative left margin, so it
- * starts at the page margin — which is also where non-bullet text starts. That
- * is why the check below looks for SOLID ink rather than any ink: a glyph stem
- * is a stroke a pixel or two wide, a marker is a filled square.
+ * The bullet marker is pulled fully into the gutter by a negative left margin,
+ * so it starts at the page margin — which is also where non-bullet text starts,
+ * and where the lifecycle kicker's own mark starts. That is why the checks
+ * below look for SOLID ink rather than any ink: a glyph stem is a stroke a
+ * pixel or two wide, both marks are filled or bordered squares.
+ *
+ * **Two populations now share this column** (#944), and they are separated by
+ * size: 9 device px for a bullet against 14 for a lifecycle mark. Measured on
+ * the built file, bullets render 7–10 px tall and lifecycle marks 15–16, so
+ * classifying each run by whichever nominal height it is nearer has about five
+ * pixels of clearance on both sides. Before #944 this file had one population
+ * and no bound, and an unbounded count silently reported 15 bullets for 11.
  */
 const MARKER_X = Math.round(0.6 * DPI);
-const MARKER_SIZE = Math.round(((0.36 * 16 * 0.75) / 72) * DPI);
+const MARKER_SIZE = devicePx(0.36 * 16);
+const STATUS_MARK_SIZE = devicePx(0.72 * 10 + 2);
+
+/** Runs at or above this height are lifecycle marks, below it are bullets. */
+const MARK_SPLIT = (MARKER_SIZE + STATUS_MARK_SIZE) / 2;
 
 /**
  * Parse a binary PGM (`P5`) into `{ width, height, pixel(x, y) }`.
@@ -137,17 +156,14 @@ function readPgm(buf) {
 }
 
 /**
- * How many bullet markers are actually **visible** on each rendered page.
+ * Render every page to a greyscale bitmap and hand each one to `perPage`.
  *
- * Counts solid-ink squares in the marker column: rows where the whole column
- * is dark, grouped into runs, keeping runs about as tall as the marker is
- * wide. A white marker — #925, where `printBackground: false` painted the
- * rectangles in white — contributes nothing, which is the point.
- *
+ * @template T
  * @param {string} pdfPath
- * @returns {number[]} visible markers, one entry per page
+ * @param {(page: ReturnType<typeof readPgm>) => T} perPage
+ * @returns {T[]} one entry per page, in page order
  */
-export function visibleMarkersPerPage(pdfPath) {
+function eachRenderedPage(pdfPath, perPage) {
   const dir = mkdtempSync(join(tmpdir(), 'resume-pdf-'));
   try {
     run('mutool', [
@@ -164,31 +180,92 @@ export function visibleMarkersPerPage(pdfPath) {
     return readdirSync(dir)
       .filter((f) => f.endsWith('.pgm'))
       .sort((a, b) => Number(a.match(/\d+/)[0]) - Number(b.match(/\d+/)[0]))
-      .map((file) => {
-        const page = readPgm(readFileSync(join(dir, file)));
-        // Inset by a pixel so antialiasing at the marker's edge cannot decide
-        // the answer either way.
-        const from = MARKER_X + 1;
-        const to = MARKER_X + MARKER_SIZE - 1;
-        const solidRows = [];
-        for (let y = 0; y < page.height; y += 1) {
-          let solid = true;
-          for (let x = from; x < to && solid; x += 1) solid = page.pixel(x, y) < 100;
-          if (solid) solidRows.push(y);
-        }
-        let markers = 0;
-        let run = 0;
-        for (let i = 0; i < solidRows.length; i += 1) {
-          run = i > 0 && solidRows[i] === solidRows[i - 1] + 1 ? run + 1 : 1;
-          // Count the run once, when it first gets tall enough to be a marker
-          // rather than a stroke.
-          if (run === MARKER_SIZE - 4) markers += 1;
-        }
-        return markers;
-      });
+      .map((file) => perPage(readPgm(readFileSync(join(dir, file)))));
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
+}
+
+/**
+ * Vertical runs of solid ink in the marker column, as `{ top, height }`.
+ *
+ * A row counts when every pixel across `width` is dark. Inset by a pixel at
+ * each edge so antialiasing cannot decide the answer either way.
+ *
+ * @param {ReturnType<typeof readPgm>} page
+ * @param {number} width  columns from the page margin that must all be dark
+ */
+function solidRuns(page, width) {
+  const from = MARKER_X + 1;
+  const to = MARKER_X + width - 1;
+  const runs = [];
+  let top = null;
+  for (let y = 0; y <= page.height; y += 1) {
+    let solid = y < page.height;
+    for (let x = from; x < to && solid; x += 1) solid = page.pixel(x, y) < 100;
+    if (solid && top === null) top = y;
+    else if (!solid && top !== null) {
+      runs.push({ top, height: y - top });
+      top = null;
+    }
+  }
+  // Anything shorter than this is a glyph stem crossing the column, not a mark.
+  return runs.filter((r) => r.height >= MARKER_SIZE - 4);
+}
+
+/**
+ * How many bullet markers are actually **visible** on each rendered page.
+ *
+ * A white marker — #925, where `printBackground: false` painted the rectangles
+ * in white — contributes nothing, which is the point. Runs at or above
+ * `MARK_SPLIT` are the lifecycle kicker's marks sharing the same column and are
+ * not bullets; see the geometry note above.
+ *
+ * @param {string} pdfPath
+ * @returns {number[]} visible bullet markers, one entry per page
+ */
+export function visibleMarkersPerPage(pdfPath) {
+  return eachRenderedPage(
+    pdfPath,
+    (page) => solidRuns(page, MARKER_SIZE).filter((r) => r.height < MARK_SPLIT).length,
+  );
+}
+
+/**
+ * How many lifecycle marks are painted with their **fill** on each rendered
+ * page (#944).
+ *
+ * Presence is not the invariant here; ink is. Three of the four marks are CSS
+ * *backgrounds* — filled for `SHIPPED`, cored for `ARCHIVED`, half-filled for
+ * `EXPERIMENT` — and only the 1px outline is a border, so a renderer that
+ * drops backgrounds leaves every mark at the right size in the right place and
+ * collapses four states into one, with nothing missing from the file. That is
+ * the #925 shape again and it needs the #925 answer: ask the rendered page for
+ * ink rather than the file for rectangles.
+ *
+ * **What this can and cannot fail on.** Two mechanisms paint those backgrounds
+ * into the generated PDF — `printBackground: true` in the generator and
+ * `print-color-adjust: exact` in the résumé's `@media print` — and either one
+ * alone is sufficient, so removing just one leaves this count unchanged. It is
+ * an end-state assertion about the shipped file, not a guard for either
+ * property; the stylesheet rule is asserted directly in resume.test.js
+ * § print stylesheet. Nor does it prove the four variants stay distinguishable
+ * from one another — that was verified by rendering the page with the property
+ * reverted to `economy`, which produced four identical outlines.
+ *
+ * Only `SHIPPED` runs dark across the mark's full width: `ARCHIVED` holds a
+ * paper ring inside its border and `EXPERIMENT` leaves its right half blank,
+ * so both fall to the same thin border rows a hollow `PAUSED` gives.
+ *
+ * @param {string} pdfPath
+ * @returns {number[]} filled lifecycle marks, one entry per page
+ */
+export function filledLifecycleMarksPerPage(pdfPath) {
+  return eachRenderedPage(
+    pdfPath,
+    (page) =>
+      solidRuns(page, STATUS_MARK_SIZE).filter((r) => r.height >= STATUS_MARK_SIZE - 3).length,
+  );
 }
 
 /**

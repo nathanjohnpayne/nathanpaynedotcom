@@ -6155,6 +6155,46 @@ body.resume-page {
   border-bottom-color: var(--resume-link);
 }
 
+/* Lifecycle status kicker (#944) — the résumé's surface of the mark defined at
+   `.state-marker` above, joining the homepage Builds row, the /projects/ card
+   kicker, and the detail page's STATUS cell.
+
+   Above the `<h3>`, not after the name, and the /projects/ card is the
+   precedent rather than a new arrangement: `.project-status` sits over
+   `.post-title` there in exactly this shape. Trailing the name is the obvious
+   placement and it does not survive the longest entry — "Device Source of
+   Truth – Partner Device Intelligence Platform" fills 549 of the content
+   column's 632px on its own, so a status after it wraps to a line by itself at
+   every viewport width. A line of its own by design cannot be pushed onto one,
+   and the project name gets the full measure back.
+
+   Metadata, not a badge. The three-grammar rule the homepage `.p-status`
+   states — underlined or arrowed text navigates, an outlined rectangle is a
+   control, glyph plus uppercase text is state — is why this carries no box of
+   its own directly above a heading that IS a link. Same reason it takes no
+   status-specific color: geometry carries state, hue is composition.
+
+   Subordinate on purpose. The status used to render inline at the `<h3>`'s own
+   Cormorant clamp (1.12–1.4rem), so a lifecycle word competed with the project
+   name at the project name's own weight; at 0.62rem of Inter it reads as
+   annotation, and the mark tracks it because `.state-marker` sizes in `em`.
+
+   `white-space: nowrap` holds the glyph and its word together; `.state-marker`
+   is `inline-flex`, so a break between them was possible without it. The
+   `inline-flex` also keeps the box shrink-to-fit, so the kicker's own width is
+   the label rather than the column — the same reason `.project-status`
+   restates that display value on the index card. */
+.resume-entry__status {
+  margin-bottom: 0.2rem;
+  font-family: var(--font-body);
+  font-size: 0.62rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: var(--ink-62);
+}
+
 .resume-entry__tech {
   margin-top: 0.25rem;
   font-size: clamp(0.8rem, 0.78rem + 0.1vw, 0.88rem);
@@ -6459,6 +6499,30 @@ body.resume-page {
     background: #000 !important;
   }
 
+  /* Lifecycle marks (#944). The `color: #000 !important` rule above already
+     resolves their `currentcolor` fills and borders to black, but three of the
+     four marks ARE backgrounds — filled for SHIPPED, cored for ARCHIVED,
+     half-filled for EXPERIMENT — and Chrome's print dialog leaves "Background
+     graphics" OFF by default. Without this they all print as the bare outline
+     PAUSED uses, and four distinguishable states collapse into one. That is
+     the #925 bullet-marker failure again, one rule over. The word survives
+     either way, but a mark that cannot be told from its neighbour is worse
+     than no mark at all.
+
+     `printBackground: true` in the PDF generator paints the same fills, so for
+     the DOWNLOADABLE file the two are redundant — removing either one alone
+     leaves it unchanged, measured both ways. This one exists for the path no
+     build artifact exercises: a reader pressing Cmd-P on /resume/. That
+     redundancy is also why the PDF cannot serve as this rule's test, and why
+     tests/resume.test.js asserts the stylesheet directly.
+
+     The 1px border is not a background, so the outline itself always prints —
+     which is why PAUSED needs nothing here. */
+  .resume-canvas .state-marker::before {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
   /* Drop the screen border-bottom underline in favor of a real underline with
      a small offset so it clears descenders, and force it black (issue #420
      R-05). */
@@ -6676,6 +6740,16 @@ body.resume-page {
   .resume-cert__meta,
   .resume-entry__tech {
     font-size: 9pt;
+  }
+
+  /* Below the 9pt subordinate labels above: the kicker is an annotation over a
+     12pt heading, and at 9pt it reads as a second title line. 7.5pt uppercase
+     Inter with the letterspacing eased off stays legible in hard copy, and the
+     word extracts at any size. */
+  .resume-entry__status {
+    font-size: 7.5pt;
+    letter-spacing: 0.1em;
+    margin-bottom: 0.05rem;
   }
   .resume-projects__lead,
   .resume-writing__lead {

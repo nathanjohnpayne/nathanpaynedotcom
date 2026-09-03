@@ -9,14 +9,32 @@
  */
 import ResumeSection from './ResumeSection.astro';
 import { getCollection, render } from 'astro:content';
+import { stateMarkerClass } from '../../lib/lifecycle-marker';
 
 const { entries } = Astro.props;
 
 // Lifecycle status, looked up by slug from the `projects` collection rather
-// than restated here — a resume entry's id is its project slug. Rendered as
-// plain text, not the site's marker geometry: this section also prints to PDF
-// and is read by applicant tracking systems, where portability beats extending
-// the visual language.
+// than restated here — a resume entry's id is its project slug.
+//
+// Carries the site's `.state-marker` geometry (#944), which this section used
+// to withhold on the grounds that a PDF-bound, ATS-parsed page should not
+// extend the visual language. That reasoning was aimed at the wrong risk: the
+// mark is a `::before` box, so it adds no characters to the DOM or to the
+// PDF's text layer, and the status *word* is unchanged either way. What the
+// résumé actually lacked was the fourth surface of a vocabulary the homepage,
+// /projects/, and the detail-page STATUS cell already speak.
+//
+// It renders as a kicker ABOVE the <h3>, which is the /projects/ card anatomy
+// (`<p class="post-meta project-status">` over `<h2 class="post-title">`)
+// rather than a new arrangement. Trailing the name was the obvious placement
+// and it does not survive the longest entry: "Device Source of Truth – Partner
+// Device Intelligence Platform" already fills 549 of the content column's 632
+// px, so any status after it wraps to a line of its own — a stray "ARCHIVED"
+// under a heading, at every viewport width. On its own line by design, the
+// mark cannot be pushed off one, and the project name gets the full measure
+// back. Every entry carries the kicker, including the four that say the same
+// word: consistent card anatomy beats avoiding apparent redundancy, which is
+// the call #285 already made for the index cards.
 const projectStatus = Object.fromEntries(
   (await getCollection('projects', ({ data }) => !data.draft)).map((project) => [
     project.data.slug,
@@ -48,11 +66,13 @@ function displayUrl(url: string): string {
     const projectHref = `/projects/${entry.id}/`;
     return (
       <article class="resume-entry">
+        {projectStatus[entry.id] && (
+          <p class={stateMarkerClass(projectStatus[entry.id], 'resume-entry__status')}>
+            {projectStatus[entry.id]}
+          </p>
+        )}
         <h3 class="resume-entry__title">
           <a href={projectHref}>{d.name}</a>
-          {projectStatus[entry.id] && (
-            <span class="resume-entry__status"> &mdash; {projectStatus[entry.id]}</span>
-          )}
         </h3>
         <p class="resume-entry__tech">{d.tech.join(' · ')}</p>
         {link && (

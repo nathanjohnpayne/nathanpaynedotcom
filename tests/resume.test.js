@@ -15,6 +15,7 @@ import {
   pdfTextInEmissionOrder,
   pdfPageCount,
   visibleMarkersPerPage,
+  filledLifecycleMarksPerPage,
   normalizeForOrder,
 } from './helpers/pdf-oracle.js';
 
@@ -251,11 +252,9 @@ describe('Resume — page structure', () => {
     expect(desc.textContent).not.toContain('systems design exercise');
     expect(desc.textContent).not.toContain('first commit to deploy');
     // Lifecycle status is looked up from the `projects` collection, so the two
-    // surfaces cannot disagree. Plain text rather than the site's marker
-    // geometry: this section prints to PDF and is parsed by applicant tracking
-    // systems, where portability beats extending the visual language.
+    // surfaces cannot disagree.
     const statuses = [...proj.querySelectorAll('.resume-entry__status')].map((s) =>
-      s.textContent.replace(/[—\s]+/g, ' ').trim(),
+      s.textContent.trim(),
     );
     expect(statuses.length, 'every resume project should carry a status').toBe(
       proj.querySelectorAll('.resume-entry').length,
@@ -295,6 +294,81 @@ describe('Resume — page structure', () => {
       'Swipe Watch – Content Discovery Prototype',
       'Friends & Family Billing – Shared-Bill Coordination',
     ]);
+  });
+
+  it('opens each project with a lifecycle kicker carrying the shared marker', () => {
+    // #944. Three separable claims, because they fail separately: the kicker
+    // precedes its heading, it carries the site's marker vocabulary, and the
+    // word is real text rather than something only the mark conveys.
+    const entries = [...document.querySelectorAll('.resume-projects .resume-entry')];
+    expect(entries.length).toBe(7);
+    for (const entry of entries) {
+      const status = entry.querySelector('.resume-entry__status');
+      const title = entry.querySelector('.resume-entry__title');
+      expect(status, `no lifecycle kicker in "${title.textContent.trim()}"`).not.toBeNull();
+      expect(
+        status.compareDocumentPosition(title) & Node.DOCUMENT_POSITION_FOLLOWING,
+        'the kicker should precede the project heading, not trail the name',
+      ).toBeTruthy();
+      expect(status.classList.contains('state-marker'), 'kicker missing the shared mark').toBe(true);
+      // Real text, not a glyph standing in for one. The mark is drawn by a
+      // ::before, so the element's own text content is the whole word — this is
+      // what survives copy/paste, a screen reader, and an ATS parser.
+      expect(status.textContent.trim()).toMatch(/^[A-Z ]+$/);
+    }
+  });
+
+  it('takes every lifecycle value from the projects collection, unmodified', () => {
+    // The résumé must not grow a status mapping of its own. Read the canonical
+    // value straight out of each project's own page and require a match; a
+    // résumé-local table would drift from it silently.
+    const byHref = new Map(
+      [...document.querySelectorAll('.resume-projects .resume-entry')].map((entry) => [
+        entry.querySelector('.resume-entry__title a').getAttribute('href'),
+        entry.querySelector('.resume-entry__status'),
+      ]),
+    );
+    expect(byHref.size).toBe(7);
+    const seen = new Set();
+    for (const [href, status] of byHref) {
+      const page = readDist(`${href.replace(/^\/|\/$/g, '')}/index.html`);
+      const canonical = /class="[^"]*metadata-strip__status[^"]*"[^>]*>([^<]+)</.exec(page);
+      expect(canonical, `no STATUS cell found on ${href}`).not.toBeNull();
+      expect(status.textContent.trim(), `${href} disagrees with its project page`).toBe(
+        canonical[1].trim(),
+      );
+      // The mark, not just the word: same status must select the same modifier.
+      const modifier = [...status.classList].find((c) => c.startsWith('state-marker--'));
+      expect(page, `${href} does not carry ${modifier}`).toContain(modifier);
+      seen.add(status.textContent.trim());
+    }
+    expect(seen, 'expected the four canonical lifecycle states across the seven projects').toEqual(
+      new Set(['SHIPPED', 'ARCHIVED', 'PAUSED', 'EXPERIMENT']),
+    );
+  });
+
+  it('confines lifecycle marks to the Projects section', () => {
+    // The vocabulary means product/project lifecycle state and keeps that
+    // precision only by staying out of employment history, skills, education,
+    // certifications, writing, and the availability CTA.
+    const all = [...document.querySelectorAll('.state-marker')];
+    // The positive control first: a page with no marks at all would satisfy
+    // the stray check below for entirely the wrong reason.
+    expect(all.length, 'no lifecycle marks on the page — the walk found nothing').toBeGreaterThan(
+      0,
+    );
+    const strays = all.filter((el) => !el.closest('.resume-projects')).map((el) => el.className);
+    expect(strays, 'lifecycle marks outside the Projects section').toEqual([]);
+    // And the second control, for the filter itself: prove `.closest` can
+    // report a stray, by asking it about an element genuinely outside.
+    const outside = document.querySelector('.resume-experience .resume-entry__title');
+    expect(
+      outside.closest('.resume-projects'),
+      'the stray filter cannot detect anything',
+    ).toBeNull();
+    expect(all.length, 'expected exactly one mark per project entry').toBe(
+      document.querySelectorAll('.resume-projects .resume-entry').length,
+    );
   });
 
   it('renders three Certifications; CSP-PO is attributed to Scrum Alliance', () => {
@@ -468,6 +542,31 @@ describe('Resume — print stylesheet', () => {
     expect(block, 'no @media print block found').toBeTruthy();
     expect(block).toContain('#000'); // forced black text
     expect(block).toContain('break-inside:avoid'); // keep entries/projects/certs whole
+  });
+
+  it('forces the lifecycle marks to print their fills regardless of "Background graphics"', () => {
+    // #944, and the one guard here that the built PDF cannot supply. Three of
+    // the four marks are CSS backgrounds — filled SHIPPED, cored ARCHIVED,
+    // half-filled EXPERIMENT — and only the 1px outline is a border, so with
+    // Chrome's print default of "Background graphics: off" all four render as
+    // the same empty square: right size, right place, vocabulary gone.
+    //
+    // The generator sets `printBackground: true`, which paints them in the
+    // downloadable file whether or not this property is present. That makes
+    // the file useless as an oracle for it, and it is why this asserts the
+    // stylesheet: the reader pressing Cmd-P on /resume/ is a path no build
+    // artifact exercises. The property's effect was verified separately, by
+    // rendering the same page with it reverted to `economy` — every mark came
+    // out an identical outline.
+    const block = allPrintBlocks().find((b) => b.includes('state-marker'));
+    expect(block, 'no @media print block referencing .state-marker').toBeTruthy();
+    expect(block, 'the lifecycle marks are not pinned to print their fills').toMatch(
+      /print-color-adjust:\s*exact/,
+    );
+    // Scoped to the résumé: this is a print concession the other three
+    // surfaces have never needed, and a site-wide `exact` would opt every
+    // tinted surface into printing.
+    expect(block).toContain('resume-canvas');
   });
 
   it('applies the 8.5in page width only inside @media print', () => {
@@ -906,6 +1005,45 @@ describe('Resume — PDF reading order and markers', () => {
     expect(
       visibleMarkersPerPage(KNOWN_BAD_PDF).reduce((a, b) => a + b, 0),
       'the known-bad fixture shows visible markers, so this check does not discriminate',
+    ).toBe(0);
+  });
+
+  it('paints the lifecycle marks with their fills, not as bare outlines', () => {
+    // #944. The end-state invariant for the downloadable file: the marks are
+    // inked on paper, so the four states are told apart there and not only on
+    // screen.
+    //
+    // Two independent mechanisms produce that ink, and this asserts the
+    // result rather than either one. `printBackground: true` in the generator
+    // and `print-color-adjust: exact` in @media print each suffice on their
+    // own — measured, by removing each in turn and rebuilding: the marks
+    // survived both times, while removing `printBackground` alone took every
+    // BULLET marker out (#925's failure, which has no such second mechanism).
+    // So do not read this test as the guard for either property. The stylesheet
+    // rule has its own assertion in § print stylesheet, where it can actually
+    // fail.
+    //
+    // SHIPPED is the only variant that runs solid across the full mark: the
+    // cored ARCHIVED and half-filled EXPERIMENT leave paper inside their
+    // borders, exactly like a hollow PAUSED. Hence the count comes from the
+    // page's own SHIPPED entries rather than from all seven marks.
+    const shipped = document.querySelectorAll('#projects .state-marker--shipped').length;
+    expect(shipped, 'no SHIPPED lifecycle marks on the page to look for').toBeGreaterThan(0);
+
+    const built = filledLifecycleMarksPerPage(BUILT_PDF);
+    expect(
+      built.reduce((a, b) => a + b, 0),
+      `the rendered PDF shows ${built} filled lifecycle marks for ${shipped} SHIPPED ` +
+        `projects — check both printBackground in src/integrations/resume-pdf.mjs and ` +
+        `print-color-adjust on .resume-canvas .state-marker::before in @media print (#944).`,
+    ).toBe(shipped);
+
+    // The control. The fixture predates the kicker, so a counter that fired on
+    // anything mark-shaped — a bullet, a glyph — would light up here.
+    expect(
+      filledLifecycleMarksPerPage(KNOWN_BAD_PDF).reduce((a, b) => a + b, 0),
+      'the known-bad fixture reports lifecycle marks it does not contain, so this ' +
+        'check does not discriminate',
     ).toBe(0);
   });
 
