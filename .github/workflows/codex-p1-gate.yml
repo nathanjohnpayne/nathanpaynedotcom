@@ -130,7 +130,12 @@ jobs:
       # Only the `edited`/`deleted` paths reach the POST, which is why this
       # looked event- and actor-specific for so long: every run that attempts
       # the write fails, and every run that appears to succeed skipped it.
-      # scripts/ci/check_workflow_pr_comment_scope enforces the rule now.
+      #
+      # THIS FILE IS MANIFEST-CANONICAL — synced verbatim from mergepath. The
+      # same one-word bug is in the hub's copy, so the next sync reverts this
+      # unless it is fixed upstream first. Kept here as a deliberate stopgap so
+      # the archive works in the meantime; the durable fix is a mergepath
+      # change, tracked with the reviewer-feedback noise it exposes.
       pull-requests: write
       # See the workflow-level permissions block above (#1101): this job
       # calls scripts/codex-p1-gate.sh too, so it needs the same grant —
