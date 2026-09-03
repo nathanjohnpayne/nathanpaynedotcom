@@ -17,7 +17,7 @@ Astro pages, layouts, and content collections generate the full static site into
 | `src/pages/rss.xml.ts` | RSS feed endpoint (via `@astrojs/rss`). |
 | `src/pages/404.astro` | Custom error page. |
 | `src/lib/blog-order.ts` | Shared blog category vocabulary and editorial comparator (featured, then category, then date). |
-| `src/lib/lifecycle-marker.ts` | Shared project-status → `.state-marker` modifier vocabulary. Every surface that shows lifecycle (homepage Builds row, `/projects/` card kicker, detail-page STATUS cell) imports it; a second copy of the mapping fails `tests/lifecycle-marker.test.js`. |
+| `src/lib/lifecycle-marker.ts` | Shared project-status → `.state-marker` modifier vocabulary. Every surface that shows lifecycle (homepage Builds row, `/projects/` card kicker, detail-page STATUS cell, and the résumé's Projects kicker) imports it; a second copy of the mapping fails `tests/lifecycle-marker.test.js`, which also pins that list of consumers so this row cannot silently fall behind it. |
 | `src/layouts/BaseLayout.astro` | Base wrapper—SEO meta, Open Graph tags, JSON-LD, GA4 snippet, font preconnects. |
 | `src/layouts/BlogPost.astro` | Blog post layout (three-column Mondrian-inspired grid with sidebar). |
 | `src/layouts/ProjectLayout.astro` | Project page layout. |
