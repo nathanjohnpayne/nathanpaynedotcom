@@ -1,7 +1,8 @@
 ---
-name: "Friends & Family Billing – Shared-Bill Coordination"
+name: "Friends & Family Billing—Shared-Bill Coordination"
 tech: ["React", "JavaScript", "Vite", "Firebase", "Vitest", "Playwright"]
 url: "https://friends-and-family-billing.web.app"
+repo: "https://github.com/nathanjohnpayne/friends-and-family-billing"
 order: 7
 ---
 

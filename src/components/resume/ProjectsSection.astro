@@ -2,14 +2,29 @@
 /**
  * ProjectsSection — selected projects from the `resumeProjects` collection
  * (distinct from `projects`). Opens with a compact lead linking the /projects
- * index (the WritingSection tag/intro/link pattern), then each entry: <h3>
- * name, an inline tech list, a link (live URL or repo) using the site's →
- * arrow convention, and the markdown body rendered with render().
+ * index (the WritingSection tag/intro/link pattern), then each entry, in a
+ * fixed anatomy: lifecycle kicker, name, tech list, destinations, description.
  * Section/heading scaffolding via the shared ResumeSection wrapper (#471).
+ *
+ * The section follows the same grammar as Writing (#947): heading,
+ * proposition plus canonical URL, description, selected-items label, items.
+ * The proposition slot used to hold "Selected Projects" — the LABEL, standing
+ * where the claim belongs — which is why the section had no label row and
+ * asserted nothing about itself. It now quotes the /projects/ headline from
+ * src/lib/section-propositions.ts, so the résumé says about that page what the
+ * page says about itself, and cannot drift from it.
+ *
+ * The name is deliberately NOT a link (#947). It is the entry's identity and
+ * reads as typography; the row beneath it is where every destination lives, so
+ * one line answers "where can I go from here" instead of the answer being
+ * split between a heading that happens to be clickable and a row that is.
+ * `.resume-projects__lead` still routes to the /projects/ index, which is how
+ * a reader reaches the case studies.
  */
 import ResumeSection from './ResumeSection.astro';
 import { getCollection, render } from 'astro:content';
 import { stateMarkerClass } from '../../lib/lifecycle-marker';
+import { PROJECTS_HEADING } from '../../lib/section-propositions';
 
 const { entries } = Astro.props;
 
@@ -27,7 +42,7 @@ const { entries } = Astro.props;
 // It renders as a kicker ABOVE the <h3>, which is the /projects/ card anatomy
 // (`<p class="post-meta project-status">` over `<h2 class="post-title">`)
 // rather than a new arrangement. Trailing the name was the obvious placement
-// and it does not survive the longest entry: "Device Source of Truth – Partner
+// and it does not survive the longest entry: "Device Source of Truth—Partner
 // Device Intelligence Platform" already fills 549 of the content column's 632
 // px, so any status after it wraps to a line of its own — a stray "ARCHIVED"
 // under a heading, at every viewport width. On its own line by design, the
@@ -35,35 +50,56 @@ const { entries } = Astro.props;
 // back. Every entry carries the kicker, including the four that say the same
 // word: consistent card anatomy beats avoiding apparent redundancy, which is
 // the call #285 already made for the index cards.
-const projectStatus = Object.fromEntries(
+const projectMeta = Object.fromEntries(
   (await getCollection('projects', ({ data }) => !data.draft)).map((project) => [
     project.data.slug,
-    project.data.status,
+    { status: project.data.status, liveLabel: project.data.liveLabel },
   ]),
 );
+const projectStatus = Object.fromEntries(
+  Object.entries(projectMeta).map(([slug, meta]) => [slug, meta.status]),
+);
+
+/**
+ * What to call a project's live URL: `Live` for a running product, `Demo` for
+ * something deployed to be shown rather than used (#947).
+ *
+ * Derived from the `liveLabel` the project already declares for its detail-page
+ * CTA, not authored again here. Device Source of Truth's public fork runs on
+ * entirely synthetic data and Override has never run a real capitalization;
+ * both say "View Demo" on their own pages, and a résumé that called either one
+ * "Live" would overclaim on the surface where overclaiming costs the most —
+ * and would undo the lifecycle precision the kicker above it just added.
+ *
+ * One authored signal, two surfaces. A résumé-local Live/Demo list would be a
+ * second place to state the same fact, free to drift from the first.
+ */
+function liveLinkLabel(slug: string): string {
+  return /demo/i.test(projectMeta[slug]?.liveLabel ?? '') ? 'Demo' : 'Live';
+}
 const sorted = [...entries].sort((a, b) => a.data.order - b.data.order);
 const rendered = await Promise.all(
   sorted.map(async (entry) => ({ entry, Content: (await render(entry)).Content })),
 );
 
-/** Strip the scheme and any trailing slash for the displayed link text. */
-function displayUrl(url: string): string {
-  return url.replace(/^https?:\/\//i, '').replace(/\/$/, '');
-}
 ---
 
 <ResumeSection type="projects" heading="Projects"><p class="resume-projects__lead">
-    <strong>Selected Projects</strong> –
-    <a href="/projects/">nathanpayne.com/projects <span class="link-arrow" aria-hidden="true">→</span></a>
+    <strong>{PROJECTS_HEADING}—</strong><a href="/projects/">nathanpayne.com/projects <span class="link-arrow" aria-hidden="true">→</span></a>
   </p>
   <p class="resume-projects__desc">
     Products across consumer, enterprise, finance, and developer tooling. Built with AI agents;
     case studies focus on the decisions, tradeoffs, and evidence behind them.
   </p>
+  <p class="resume-projects__label">Selected projects:</p>
   {rendered.map(({ entry, Content }) => {
     const d = entry.data;
-    const link = d.url ?? d.repo;
-    const projectHref = `/projects/${entry.id}/`;
+    // Both destinations when both exist, live app first (#947). This was
+    // `d.url ?? d.repo`, which silently dropped the repo from every project
+    // that also had a live site — five of the seven, once the missing repo and
+    // app URLs were added to the collection. A résumé reader who wants the code
+    // and a reader who wants the running product are different readers, and the
+    // card had been answering only the second.
     return (
       <article class="resume-entry">
         {projectStatus[entry.id] && (
@@ -71,13 +107,26 @@ function displayUrl(url: string): string {
             {projectStatus[entry.id]}
           </p>
         )}
-        <h3 class="resume-entry__title">
-          <a href={projectHref}>{d.name}</a>
-        </h3>
+        <h3 class="resume-entry__title">{d.name}</h3>
         <p class="resume-entry__tech">{d.tech.join(' · ')}</p>
-        {link && (
+        {(d.url || d.repo) && (
           <p class="resume-entry__link">
-            <a href={link} target="_blank" rel="noopener">{displayUrl(link)} <span class="link-arrow" aria-hidden="true">→</span></a>
+            {d.url && (
+              <a
+                href={d.url}
+                target="_blank"
+                rel="noopener"
+                aria-label={`${d.name} — ${liveLinkLabel(entry.id).toLowerCase()}`}
+              >
+                {liveLinkLabel(entry.id)} <span class="link-arrow" aria-hidden="true">&nearr;</span>
+              </a>
+            )}
+            {d.url && d.repo && <span class="resume-entry__link-sep" aria-hidden="true"> · </span>}
+            {d.repo && (
+              <a href={d.repo} target="_blank" rel="noopener" aria-label={`${d.name} — source on GitHub`}>
+                GitHub <span class="link-arrow" aria-hidden="true">&nearr;</span>
+              </a>
+            )}
           </p>
         )}
         <div class="resume-prose">

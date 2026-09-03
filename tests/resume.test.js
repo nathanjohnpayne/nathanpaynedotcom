@@ -11,6 +11,7 @@ import {
 import { resolve, join } from 'path';
 import { tmpdir } from 'os';
 import { writeSanitizedDOM } from './helpers/dom.js';
+import { PROJECTS_HEADING } from '../src/lib/section-propositions';
 import {
   pdfTextInEmissionOrder,
   pdfPageCount,
@@ -234,12 +235,17 @@ describe('Resume — page structure', () => {
     expect(proj.querySelectorAll('h3.resume-entry__title').length).toBe(7);
   });
 
-  it('opens Projects with a Selected Projects lead — tag, intro, and /projects/ index link (Writing pattern)', () => {
+  it('opens Projects on the section grammar: proposition, URL, description, label', () => {
     const proj = document.querySelector('.resume-projects');
     expect(proj, 'projects section missing').not.toBeNull();
     const lead = proj.querySelector('.resume-projects__lead');
     expect(lead, 'projects lead missing').not.toBeNull();
-    expect(lead.querySelector('strong')?.textContent).toBe('Selected Projects');
+    // The proposition slot holds the CLAIM, not the label. It used to hold
+    // "Selected Projects" — the label, standing where the claim belongs, which
+    // is why the section asserted nothing about itself and had no label row.
+    // The em dash is inside the bold and unspaced (CMOS), so the URL reads as
+    // an interruptive continuation of the claim rather than a second column.
+    expect(lead.querySelector('strong')?.textContent).toBe(`${PROJECTS_HEADING}—`);
     const link = lead.querySelector('a');
     expect(link.getAttribute('href')).toBe('/projects/');
     expect(link.textContent).toContain('nathanpayne.com/projects');
@@ -264,36 +270,91 @@ describe('Resume — page structure', () => {
     }
     expect(new Set(statuses).size, 'expected mixed lifecycle states').toBeGreaterThan(1);
 
-    // The lead precedes the first project entry.
+    // The selected-items label, and the order of the whole grammar:
+    // proposition → description → label → items.
+    const label = proj.querySelector('.resume-projects__label');
+    expect(label, 'projects selected-items label missing').not.toBeNull();
+    expect(label.textContent.trim()).toBe('Selected projects:');
     const firstEntry = proj.querySelector('.resume-entry');
-    expect(
-      lead.compareDocumentPosition(firstEntry) & Node.DOCUMENT_POSITION_FOLLOWING,
-      'lead should render before the first project entry',
-    ).toBeTruthy();
+    const order = [lead, desc, label, firstEntry];
+    for (let i = 0; i < order.length - 1; i += 1) {
+      expect(
+        order[i].compareDocumentPosition(order[i + 1]) & Node.DOCUMENT_POSITION_FOLLOWING,
+        `section grammar out of order at position ${i}`,
+      ).toBeTruthy();
+    }
   });
 
-  it('links each resume project title to its matching project page', () => {
+  it('gives Writing and Projects the same section grammar', () => {
+    // #947. The two sections are the only ones built from a proposition and a
+    // canonical URL, and they should read as one pattern rather than two
+    // near-misses. Asserted structurally — same parts, same order — rather
+    // than by pinning either section's copy, which is asserted elsewhere.
+    for (const [section, ns] of [
+      [document.querySelector('.resume-projects'), 'resume-projects'],
+      [document.querySelector('.resume-writing'), 'resume-writing'],
+    ]) {
+      expect(section, `${ns} section missing`).not.toBeNull();
+      const lead = section.querySelector(`.${ns}__lead`);
+      const desc = section.querySelector(`.${ns}__desc`);
+      const label = section.querySelector(`.${ns}__label`);
+      expect(lead, `${ns} has no proposition line`).not.toBeNull();
+      expect(lead.querySelector('strong'), `${ns} proposition is not set as the claim`).not.toBeNull();
+      expect(
+        lead.querySelector('strong').textContent,
+        `${ns} proposition should close on an unspaced em dash (CMOS), joining it to the URL`,
+      ).toMatch(/—$/);
+      expect(
+        lead.textContent.replace(/\s+/g, ' '),
+        `${ns} has a space around the em dash before its URL`,
+      ).not.toMatch(/\s—|—\s/);
+      expect(lead.querySelector('a[href]'), `${ns} proposition carries no canonical URL`).not.toBeNull();
+      expect(desc, `${ns} has no description`).not.toBeNull();
+      expect(label, `${ns} has no selected-items label`).not.toBeNull();
+      expect(label.textContent.trim()).toMatch(/^Selected .+:$/);
+      for (const [a, b] of [
+        [lead, desc],
+        [desc, label],
+      ]) {
+        expect(
+          a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING,
+          `${ns} grammar is out of order`,
+        ).toBeTruthy();
+      }
+    }
+  });
+
+  it('sets each project name as typography, not as a link', () => {
+    // #947. The name is the entry's identity; every destination lives in the
+    // row beneath it, so one line answers "where can I go from here" instead
+    // of that answer being split between a clickable heading and a link row.
+    // Pinned as a negative assertion because a linked title is the obvious
+    // thing to reintroduce.
     const proj = document.querySelector('.resume-projects');
-    const links = Array.from(proj.querySelectorAll('h3.resume-entry__title a'));
-    expect(links.length).toBe(7);
-    expect(links.map((link) => link.getAttribute('href'))).toEqual([
-      '/projects/five-across/',
-      '/projects/mergepath/',
-      '/projects/override/',
-      '/projects/device-source-of-truth/',
-      '/projects/matchline/',
-      '/projects/swipe-watch/',
-      '/projects/friends-and-family-billing/',
+    const titles = [...proj.querySelectorAll('h3.resume-entry__title')];
+    expect(titles.length).toBe(7);
+    for (const title of titles) {
+      expect(
+        title.querySelector('a'),
+        `"${title.textContent.trim()}" is a link; the project name should be typography`,
+      ).toBeNull();
+    }
+    expect(titles.map((t) => t.textContent.trim())).toEqual([
+      'Five Across—Live Multiplayer Social Bingo Platform',
+      'Mergepath—Agent Governance Infrastructure',
+      'Override—Broadway Financial Operating System',
+      'Device Source of Truth—Partner Device Intelligence Platform',
+      'Matchline—AI Career CRM',
+      'Swipe Watch—Content Discovery Prototype',
+      'Friends & Family Billing—Shared-Bill Coordination',
     ]);
-    expect(links.map((link) => link.textContent.trim())).toEqual([
-      'Five Across – Live Multiplayer Social Bingo Platform',
-      'Mergepath – Agent Governance Infrastructure',
-      'Override – Broadway Financial Operating System',
-      'Device Source of Truth – Partner Device Intelligence Platform',
-      'Matchline – AI Career CRM',
-      'Swipe Watch – Content Discovery Prototype',
-      'Friends & Family Billing – Shared-Bill Coordination',
-    ]);
+    // The control for the negative assertion: prove the walk can see a link
+    // inside this section at all, so "no link in the title" is a real finding
+    // rather than a selector that matches nothing.
+    expect(
+      proj.querySelector('.resume-entry__link a'),
+      'no links found anywhere in the section — the negative assertion is vacuous',
+    ).not.toBeNull();
   });
 
   it('opens each project with a lifecycle kicker carrying the shared marker', () => {
@@ -322,15 +383,28 @@ describe('Resume — page structure', () => {
     // The résumé must not grow a status mapping of its own. Read the canonical
     // value straight out of each project's own page and require a match; a
     // résumé-local table would drift from it silently.
+    // The name is no longer a link (#947), so the slug comes from the
+    // collection file whose `name:` matches the rendered heading rather than
+    // from an href. Still derived, still one source.
+    const dir = resolve(__dirname, '../src/content/resume/projects');
+    const bySlug = Object.fromEntries(
+      readdirSync(dir)
+        .filter((f) => f.endsWith('.md'))
+        .map((f) => [
+          readFileSync(join(dir, f), 'utf-8').match(/^name:\s*"([^"]+)"/m)[1],
+          f.replace(/\.md$/, ''),
+        ]),
+    );
     const byHref = new Map(
-      [...document.querySelectorAll('.resume-projects .resume-entry')].map((entry) => [
-        entry.querySelector('.resume-entry__title a').getAttribute('href'),
-        entry.querySelector('.resume-entry__status'),
-      ]),
+      [...document.querySelectorAll('.resume-projects .resume-entry')].map((entry) => {
+        const name = entry.querySelector('.resume-entry__title').textContent.trim();
+        expect(bySlug[name], `no collection entry named "${name}"`).toBeTruthy();
+        return [`projects/${bySlug[name]}`, entry.querySelector('.resume-entry__status')];
+      }),
     );
     expect(byHref.size).toBe(7);
     for (const [href, status] of byHref) {
-      const page = readDist(`${href.replace(/^\/|\/$/g, '')}/index.html`);
+      const page = readDist(`${href}/index.html`);
       const canonical = /class="[^"]*metadata-strip__status[^"]*"[^>]*>([^<]+)</.exec(page);
       expect(canonical, `no STATUS cell found on ${href}`).not.toBeNull();
       expect(status.textContent.trim(), `${href} disagrees with its project page`).toBe(
@@ -371,6 +445,104 @@ describe('Resume — page structure', () => {
     expect(all.length, 'expected exactly one mark per project entry').toBe(
       document.querySelectorAll('.resume-projects .resume-entry').length,
     );
+  });
+
+  it('shows every destination a project has, live app before repository', () => {
+    // #947. The card resolved `d.url ?? d.repo`, so a project with both showed
+    // only the app and its public repo was unreachable from the résumé. The
+    // expectation is read out of the collection's own frontmatter rather than
+    // listed here: a project that gains or loses a URL changes this test's
+    // expectation automatically, and a regression to `??` fails it.
+    const dir = resolve(__dirname, '../src/content/resume/projects');
+    const files = readdirSync(dir).filter((f) => f.endsWith('.md'));
+    for (const entry of document.querySelectorAll('.resume-projects .resume-entry')) {
+      const name = entry.querySelector('.resume-entry__title').textContent.trim();
+      const file = files.find((f) =>
+        readFileSync(join(dir, f), 'utf-8').includes(`name: "${name}"`),
+      );
+      expect(file, `no collection entry named "${name}"`).toBeTruthy();
+      const front = readFileSync(join(dir, file), 'utf-8').split('---')[1];
+      const field = (name) => front.match(new RegExp(`^${name}:\\s*"([^"]+)"`, 'm'))?.[1];
+      // Live app first, repository second — the order the frontmatter is read in.
+      const expected = [field('url'), field('repo')].filter(Boolean);
+      expect(expected.length, `${name} declares no destination at all`).toBeGreaterThan(0);
+      const anchors = [...entry.querySelectorAll('.resume-entry__link a')];
+      expect(
+        anchors.map((a) => a.getAttribute('href')),
+        `${name} does not render its declared destinations in order`,
+      ).toEqual(expected);
+      // Generic labels, not URLs: the row says where it goes, not its address.
+      // The live label is Live or Demo, and which one is NOT decided here — it
+      // is read off the same `liveLabel` the project's own detail-page CTA
+      // uses, so the two surfaces cannot disagree about whether a URL leads to
+      // a running product or a demonstration.
+      let liveWord = null;
+      if (field('url')) {
+        // The detail page's own live CTA — the "View ..." button that is not
+        // the GitHub one. Read from the built page, so this compares two
+        // rendered surfaces rather than two copies of the same intention.
+        const slug = file.replace(/\.md$/, '');
+        const projectPage = readDist(`projects/${slug}/index.html`);
+        const cta = [...projectPage.matchAll(/>(View [^<]+)</g)]
+          .map((m) => m[1])
+          .find((label) => !/github/i.test(label));
+        expect(cta, `no live CTA found on /projects/${slug}/`).toBeTruthy();
+        liveWord = /demo/i.test(cta) ? 'Demo' : 'Live';
+      }
+      expect(
+        anchors.map((a) => a.textContent.replace(/[↗\s]+/g, ' ').trim()),
+        `${name} should label its destinations ${liveWord ?? '(none)'} / GitHub`,
+      ).toEqual(expected.map((href) => (href === field('url') ? liveWord : 'GitHub')));
+      for (const a of anchors) {
+        expect(a.getAttribute('target'), `${name} link should open in a new tab`).toBe('_blank');
+        expect(a.getAttribute('rel'), `${name} link missing rel=noopener`).toBe('noopener');
+        // The label alone is not a name; the accessible name must say which
+        // project it belongs to, since seven rows all read "Live · GitHub".
+        expect(a.getAttribute('aria-label'), `${name} link missing an accessible name`).toContain(
+          name,
+        );
+      }
+    }
+    // The control: prove the walk actually reached projects carrying two
+    // destinations, so the ordering assertion above is not vacuously true.
+    const withBoth = [...document.querySelectorAll('.resume-projects .resume-entry')].filter(
+      (e) => e.querySelectorAll('.resume-entry__link a').length === 2,
+    );
+    expect(withBoth.length, 'no project renders two destinations').toBeGreaterThan(0);
+  });
+
+  it('describes NCPv3 as a runtime that retired the parallel Rust app', () => {
+    // #947. The superseded wording said NCPv3 extended the JavaScript stack
+    // "without requiring a parallel Rust implementation" — describing avoided
+    // work, when the Rust app already existed and was retired. Pinned as a
+    // negative assertion so the corrected claim cannot silently revert, on both
+    // surfaces that carry it.
+    const bullet = [...document.querySelectorAll('.resume-experience .resume-prose li')].find((li) =>
+      li.textContent.includes('NCPv3'),
+    );
+    expect(bullet, 'no NCPv3 experience bullet found').not.toBeNull();
+    expect(bullet.textContent).toContain('retiring the parallel Rust app');
+    expect(bullet.textContent).toContain('consolidating two codebases and two teams into one');
+    expect(bullet.textContent).toContain('app teams choosing to build on the shared runtime');
+    expect(bullet.textContent).not.toContain('without requiring a parallel');
+
+    const highlight = [...document.querySelectorAll('.resume-highlight')].find((h) =>
+      h.textContent.includes('NCPv3'),
+    );
+    expect(highlight, 'no NCPv3 highlight card found').not.toBeNull();
+    expect(highlight.textContent).toContain('retiring the parallel Rust app');
+    expect(highlight.textContent).not.toContain('without requiring a parallel');
+  });
+
+  it('states the current review policy on the PR-pipeline bullet', () => {
+    // #947. The metric alone read as a finished result; the policy sentence is
+    // what makes it a live process with a direction of travel.
+    const bullet = [...document.querySelectorAll('.resume-experience .resume-prose li')].find((li) =>
+      li.textContent.includes('PR review pipeline'),
+    );
+    expect(bullet, 'no PR-pipeline bullet found').not.toBeNull();
+    expect(bullet.textContent).toContain('exceeding the 30% Q2 OKR target');
+    expect(bullet.textContent).toContain('AI review plus two human reviewers, moving toward AI plus one');
   });
 
   it('renders three Certifications; CSP-PO is attributed to Scrum Alliance', () => {
@@ -739,34 +911,36 @@ describe('Resume — downloadable PDF', () => {
     expect(hidden, '.resume-actions is not hidden inside @media print').toBe(true);
   });
 
-  it('does not append the URL after project titles in print', () => {
-    // The print sheet appends ' (' attr(href) ')' to descriptive-text links
-    // matching a[href^='http']. Project titles were exempt only by accident —
-    // their href was root-relative, so it never matched. #683 absolutizes
-    // every href before the PDF is written, which dragged all seven titles
-    // into that selector and printed a redundant /projects/<slug>/ after each
-    // name. The suppression is now explicit; this keeps it that way.
+  it('hides the project destination row in print, and keeps the routes that survive', () => {
+    // #947. A destination row is only useful where it can be followed. On
+    // paper "Live ↗ · GitHub ↗" says nothing without its URLs, and printing
+    // fourteen full URLs to fix that cost ~10 lines and a fourth page — so the
+    // row is hidden outright, the way the essay list already was, and every
+    // project stays reachable through the section lead instead.
     const astroDir = resolve(DIST, '_astro');
-    const withPrint = readdirSync(astroDir)
+    const printBlocks = readdirSync(astroDir)
       .filter((f) => f.endsWith('.css'))
       .map((f) => readFileSync(join(astroDir, f), 'utf-8'))
-      .filter((css) => css.includes('@media print'));
-    const suppressed = withPrint.some((css) => {
-      const printBlock = css.slice(css.indexOf('@media print'));
-      // The selector must appear in a rule whose content resolves to empty.
-      // Matched loosely against BUILT css: the minifier drops the quotes in
-      // [href^=http] and collapses ::after to :after, and the selector is one
-      // of several grouped before the shared { content: '' } block.
-      return /\.resume-entry__title a\[href\^=['"]?http['"]?\]::?after[^{]*\{[^}]*content:\s*(''|"")/.test(
-        printBlock,
-      );
-    });
-    expect(
-      suppressed,
-      `.resume-entry__title links are not exempted from the a[href^='http']::after ` +
-        `URL suffix in @media print — every project title will print its own ` +
-        `/projects/<slug>/ URL after the name (#683).`,
-    ).toBe(true);
+      .filter((css) => css.includes('@media print'))
+      .map((css) => css.slice(css.indexOf('@media print')));
+    expect(printBlocks.length, 'no @media print block found in the emitted CSS').toBeGreaterThan(0);
+
+    const hidden = printBlocks.some((block) =>
+      [...block.matchAll(/([^{}]+)\{([^{}]*)\}/g)].some(
+        ([, sel, decls]) =>
+          /\.resume-entry__link(?![_a-zA-Z-])/.test(sel) && /display:\s*none/.test(decls),
+      ),
+    );
+    expect(hidden, '.resume-entry__link is not hidden in @media print (#947)').toBe(true);
+
+    // What paper keeps instead. Without this the rule above is a silent
+    // deletion of every route to the work rather than a considered trade.
+    const printed = pdfTextInEmissionOrder(resolve(DIST, 'Nathan-Payne-Resume.pdf'));
+    for (const route of ['nathanpayne.com/projects', 'nathanpayne.com/blog', 'github.com/nathanjohnpayne']) {
+      expect(printed, `the PDF no longer carries ${route}`).toContain(route);
+    }
+    // And the row's own URLs are genuinely gone, not merely unstyled.
+    expect(printed, 'a per-project URL still reaches the PDF').not.toContain('fiveacross.app');
   });
 });
 
@@ -938,7 +1112,7 @@ describe('Resume — PDF reading order and markers', () => {
         ['bullet 1', 'Brought Disney+ from concept to launch across living-room platforms'],
         [
           'bullet 2',
-          'Led PlayStation prototyping that produced the first-to-launch living-room Disney+ experience.',
+          'Led PlayStation prototyping that produced the first living-room Disney+ experience to launch.',
         ],
         ['bullet 3', 'Rebuilt the Disney+ app for MVPD set-top boxes'],
         ['bullet 4', 'Led Hulu through its PlayStation 5 launch.'],

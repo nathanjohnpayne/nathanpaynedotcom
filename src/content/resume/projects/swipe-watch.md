@@ -1,7 +1,8 @@
 ---
-name: "Swipe Watch – Content Discovery Prototype"
+name: "Swipe Watch—Content Discovery Prototype"
 tech: ["Vanilla JavaScript", "Firebase Hosting"]
 url: "https://swipewatch.web.app"
+repo: "https://github.com/nathanjohnpayne/swipewatch"
 order: 6
 ---
 

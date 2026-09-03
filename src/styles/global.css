@@ -6140,20 +6140,9 @@ body.resume-page {
   margin-bottom: 0.05rem;
 }
 
-.resume-projects .resume-entry__title a {
-  color: inherit;
-  text-decoration: none;
-  border-bottom: 1px solid color-mix(in srgb, var(--resume-link) 35%, transparent);
-  transition:
-    color var(--motion-hover) var(--ease-standard),
-    border-color var(--motion-hover) var(--ease-standard);
-}
-
-.resume-projects .resume-entry__title a:hover,
-.resume-projects .resume-entry__title a:focus-visible {
-  color: var(--resume-link);
-  border-bottom-color: var(--resume-link);
-}
+/* The project name carries no link of its own (#947): it is the entry's
+   identity, set as typography, and every destination lives in the row below
+   it. Nothing styles it here — `.resume-entry__title` above already does. */
 
 /* Lifecycle status kicker (#944) — the résumé's surface of the mark defined at
    `.state-marker` above, joining the homepage Builds row, the /projects/ card
@@ -6278,12 +6267,20 @@ body.resume-page {
   color: color-mix(in srgb, var(--ink) 82%, transparent);
 }
 
-/* The gap to the first project entry lives here because
-   .resume-entry:first-of-type zeroes its own top margin. */
-.resume-projects__desc {
-  margin-bottom: 1.5rem;
+/* The label now stands between the description and the first entry, so it
+   carries the gap that used to hang off `.resume-projects__desc`
+   (.resume-entry:first-of-type zeroes its own top margin, so one of these has
+   to). Writing's label needs no equivalent: its own list follows immediately
+   and `.resume-writing__essays` opens the gap there. */
+.resume-projects__label {
+  /* Matched to Writing's label→first-essay gap (0.4rem, opened by
+     `.resume-writing__essays`) so the two sections read as one grammar rather
+     than as a pattern and a near-miss. It was 1.1rem, which set the Projects
+     label further from its list than the Writing label sits from its own. */
+  margin-bottom: 0.4rem;
 }
 
+.resume-projects__label,
 .resume-writing__label {
   margin-top: 0.7rem;
   font-size: clamp(0.74rem, 0.9vw, 0.82rem);
@@ -6571,21 +6568,47 @@ body.resume-page {
   }
 
   .resume-contact a[href^='http']::after,
-  .resume-entry__title a[href^='http']::after,
-  .resume-entry__link a[href^='http']::after,
   .resume-projects__lead a[href^='http']::after,
   .resume-writing__lead a[href^='http']::after {
     content: '';
   }
+
+  /* `.resume-entry__link` is not in that list, and no longer needs to be: the
+     row is hidden in print outright (see the collapse block below), so the
+     suffix never renders either way. It was briefly exempt-then-unexempted
+     while the row still printed. The project name lost its own link in the
+     same change (#947), which is why its former exemption is gone rather than
+     merely unused. */
 
   /* Writing collapses to just its lead line in print. The section is
      link-driven — a blog CTA plus three essay links — and those links are
      dead on paper, so only the "The AI-Augmented PM / nathanpayne.com/blog"
      lead prints; the blurb, the "Selected essays" label, and the essay list
      are hidden. This also drops the page-tail the essay list used to push
-     past the bottom margin. The Projects intro collapses the same way: its
-     "Built with Agents / nathanpayne.com/projects" lead prints, the blurb is hidden. */
+     past the bottom margin.
+
+     Projects collapses the same way, and its lead line is the proposition plus
+     the index URL — "Products—and the decisions behind them /
+     nathanpayne.com/projects". The blurb and the "Selected projects:" label
+     are hidden: unlike Writing's, the Projects entries themselves DO print, so
+     the label would be a third near-duplicate line under a section already
+     titled "Projects" — a line this three-page budget has better uses for. The
+     label earns its place on screen, where it opens the list; on paper the
+     list opens itself.
+
+     `.resume-entry__link` is hidden for the same reason the essay list is, and
+     it is the newest of these (#947). A destination row is only useful where it
+     can be followed: "Live ↗ · GitHub ↗" says nothing on paper without its
+     URLs, and printing fourteen full URLs to fix that cost roughly ten lines
+     and a fourth page. Paper keeps five routes without them — nathanpayne.com,
+     /projects, /blog, github.com/nathanjohnpayne and the LinkedIn handle, all
+     in the contact line and the section leads — so every project remains two
+     addresses away rather than one. Screen keeps the row, where it is one
+     click. Measured: hiding it returns the file to three pages at 54/46/38
+     lines. */
   .resume-projects__desc,
+  .resume-projects__label,
+  .resume-entry__link,
   .resume-writing__desc,
   .resume-writing__label,
   .resume-writing__essays {

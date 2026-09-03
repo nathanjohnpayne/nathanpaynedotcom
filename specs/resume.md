@@ -102,22 +102,22 @@ The `resumeProjects` collection must remain separate from the existing
   entry, and it is screen-only. The parallel `.resume-cta` namespace is
   deliberate—see *Styling* below; the resume must not move when the blog
   layout does.
-- **Projects** opens with the same compact lead pattern before its entries:
-  a bold **Selected Projects** tag, a link to the project index
-  (nathanpayne.com/projects → `/projects/`), and a two-line intro naming the
-  domains before the method (`.resume-projects__lead` /
-  `.resume-projects__desc`, sharing the Writing lead styling). The tag read
-  **Built with Agents** until the portfolio work subordinated the
-  implementation method to the product across `/projects/` and the homepage;
-  the retired framing, and the retired "systems design exercise—from first
-  commit to deploy" intro, are both pinned as negative assertions in
-  `tests/resume.test.js` so they cannot return. That intro was also
-  specifically wrong for a project that never launched.
+- **Projects and Writing share one section grammar** (#947), and it is the reason both open the way they do:
+
+  > section heading → proposition + canonical URL → description → selected-items label → the items
+
+  Projects: the `/projects/` headline, `nathanpayne.com/projects →`, the domains-and-method intro, **Selected projects:**, the entries. Writing: **The AI-Augmented PM**, `nathanpayne.com/blog →`, the blurb, **Selected essays:**, the essay list. Classes are paired per part (`.resume-projects__lead` / `.resume-writing__lead`, and likewise `__desc` and `__label`), following how the two sections were already styled rather than introducing a shared name. `tests/resume.test.js` asserts the grammar structurally on both sections—same parts, same order—separately from either section's copy.
+
+  **The proposition slot holds the claim, not the label.** Projects previously put **Selected Projects** there, which is why it had no label row and said nothing about itself. The proposition is now the `/projects/` page's own `<h1>`, imported from `src/lib/section-propositions.ts` and used by both surfaces, so the résumé says about that page exactly what the page says about itself and a copy edit to one cannot silently leave the other behind. Writing keeps its proposition authored in the component: `/blog/` is a destination rather than an index with a headline to quote, and "The AI-Augmented PM" is the publication's name.
+
+  The Projects tag read **Built with Agents** until the portfolio work subordinated the implementation method to the product across `/projects/` and the homepage; the retired framing, and the retired "systems design exercise—from first commit to deploy" intro, are both pinned as negative assertions in `tests/resume.test.js` so they cannot return. That intro was also specifically wrong for a project that never launched.
+
+  **In print both sections shed their link-driven parts.** Writing collapses to its lead line entirely—blurb, label, and essay list—because the links are dead on paper. Projects keeps its entries and drops the blurb, the label, and **the per-entry destination row**: `Live ↗ · GitHub ↗` says nothing without its URLs, and printing all fourteen cost about ten lines and a fourth page. Paper keeps five routes regardless—nathanpayne.com, `/projects`, `/blog`, the GitHub profile and the LinkedIn handle, all in the contact line and the section leads—so every project stays two addresses away rather than one, and the file stays three pages at 54/46/38 lines. `tests/resume.test.js` asserts the row is hidden AND that those routes survive, so the rule cannot degrade into a silent deletion of every path to the work.
 - **Each Projects entry opens with its lifecycle status** as a kicker (`.resume-entry__status`) above the `<h3>`—uppercase `SHIPPED`, `ARCHIVED`, `PAUSED`, `EXPERIMENT`, or `IN PROGRESS`, carrying the `.state-marker` geometry the homepage, `/projects/`, and the detail page's STATUS cell use (#944). **Five states, four marks:** `PAUSED` and `IN PROGRESS` deliberately share the bare outline, because neither is running yet and the distinction between them is not one a mark should carry—see `src/lib/lifecycle-marker.ts`, which keeps both as named hooks so the emitted class still says which state produced the outline. Nothing on this page is `IN PROGRESS` today; the résumé renders whatever the collection holds and does not narrow the enum. Every entry carries one, including the four that say `SHIPPED`: consistent entry anatomy beats avoiding apparent redundancy, which is the call #285 already made for the index cards.
 
   The word must stay real text. The mark is a `::before` box and contributes no characters, so `SHIPPED` and `ARCHIVED` survive copy/paste, screen readers, PDF text extraction, and ATS parsing exactly as they did before the mark existed. **This is the whole of the constraint, and an earlier revision of this spec mistook it for a wider one:** it forbade the geometry outright, on the grounds that a PDF-bound, ATS-parsed section should not extend the visual language. Portability was never at odds with the mark, only with replacing the word by one—and #925 had since turned on `printBackground: true`, so CSS-painted marks reach the generated file at all.
 
-  **Above the name, not after it, and the reason is measurement rather than taste.** "Device Source of Truth – Partner Device Intelligence Platform" fills 549 of the content column's 632px unaided, so a trailing status wraps to a line of its own at every viewport width—a stray `ARCHIVED` hanging under a heading. A kicker cannot be pushed onto a second line, and it returns the full measure to the project name. It also matches the `/projects/` card, where `.project-status` already sits over `.post-title`.
+  **Above the name, not after it, and the reason is measurement rather than taste.** "Device Source of Truth—Partner Device Intelligence Platform" fills 549 of the content column's 632px unaided, so a trailing status wraps to a line of its own at every viewport width—a stray `ARCHIVED` hanging under a heading. A kicker cannot be pushed onto a second line, and it returns the full measure to the project name. It also matches the `/projects/` card, where `.project-status` already sits over `.post-title`.
 
   **Subordinate by type, not by color.** 0.62rem Inter (7.5pt in print) against the heading's Cormorant clamp; no status-specific hue, no pill, no border, not interactive—the site's three-grammar rule holds, so glyph plus uppercase text is state and nothing here reads as a control. The mark is `em`-sized by `.state-marker`, so it tracks that type without a per-surface override.
 
@@ -242,10 +242,13 @@ recruiter-legible filename, for "attach your resume" forms and ATS pipelines
 - Absolutizing interacts with the print sheet's `a[href^='http']::after` URL
   suffix: project **titles** matched that selector for the first time once
   their hrefs became absolute, printing a redundant `/projects/<slug>/` after
-  every name. `.resume-entry__title` is therefore in the suppression list
-  explicitly, alongside the contact line, project links, and the two section
-  leads. The printed text is byte-identical before and after #683; only the
-  link targets changed.
+  every name, so `.resume-entry__title` joined the suppression list. **Both
+  halves of that are now gone (#947).** The title is no longer a link at all,
+  and project destination links left the list in the other direction: they read
+  `Live` and `GitHub` rather than their own URLs, so the suffix is the only
+  thing that gives a printed résumé a working address for them. What remains
+  suppressed is the contact line and the two section leads—links whose
+  visible text already is their URL, which is the rule the list encodes.
 - **Nothing in the printed content may be positioned (#923).** Chromium writes
   each printed page's text into the PDF content stream in *paint* order, and a
   `position: relative`/`absolute` element paints in step 8 of the painting
@@ -359,8 +362,11 @@ icon-library dependency.
 - In-content links and the header contact links use the site's `--blue`
   accent (via `--resume-link`), with the `→` arrow convention on the project
   and writing links.
-- Each project title links to its matching `/projects/<slug>/` detail page
-  while preserving the existing live/repo link.
+- **Each project entry has a fixed anatomy** (#947), top to bottom: lifecycle kicker, name, tech list, destinations, description.
+
+  The **name is not a link.** It is the entry's identity and is set as typography; every destination lives in the row beneath it, so a single line answers "where can I go from here" rather than that answer being split between a heading that happens to be clickable and a row that is. The case studies are reached through `.resume-projects__lead`, which routes to the `/projects/` index. `tests/resume.test.js` pins the absence, with a control proving the section contains links at all.
+
+  The **destinations row** shows every URL the entry declares—`Live` for `url`, `GitHub` for `repo`, live product first, `·`-separated, each with the `↗` external-link arrow (the site's existing convention for leaving the site, distinct from the `→` used by the internal `/projects/` lead). Labels rather than URLs, so seven rows stay one line each. The rendered set is asserted against the collection's own frontmatter rather than a list in the test, and since the visible label names no address, each link carries an `aria-label` naming its project—seven rows otherwise all read "Live · GitHub".
 - Skills render as inline `·`-joined lists.
 - Any transition uses the `--motion-*`/`--ease-*` tokens (no bare `ms`/`ease`).
 

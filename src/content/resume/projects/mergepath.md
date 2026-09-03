@@ -1,5 +1,5 @@
 ---
-name: "Mergepath – Agent Governance Infrastructure"
+name: "Mergepath—Agent Governance Infrastructure"
 tech: ["Bash", "Python", "GitHub Actions", "1Password", "Claude Code", "Codex", "Cursor", "CodeRabbit"]
 repo: "https://github.com/nathanjohnpayne/mergepath"
 order: 2

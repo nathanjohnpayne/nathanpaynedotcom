@@ -1,5 +1,5 @@
 ---
-name: "Device Source of Truth – Partner Device Intelligence Platform"
+name: "Device Source of Truth—Partner Device Intelligence Platform"
 tech: ["React", "TypeScript", "Vite", "Tailwind", "Zod", "Firebase", "Express", "Vitest"]
 url: "https://device-source-of-truth.web.app"
 order: 4
