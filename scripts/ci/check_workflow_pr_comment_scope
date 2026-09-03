@@ -1,31 +1,42 @@
 #!/usr/bin/env bash
-# check_workflow_pr_comment_scope — a workflow that POSTs a PR comment must
-# declare `pull-requests: write`, not merely `issues: write`.
+# check_workflow_pr_comment_scope — a job that POSTs a comment on a PULL
+# REQUEST must have `pull-requests: write` in its EFFECTIVE permissions.
 #
-# Why this exists (#881, and #881 is the second occurrence):
+# Why this exists (#881, which was the second occurrence):
 #
 # `POST repos/{repo}/issues/{n}/comments` is the only REST path for commenting
 # on both issues and pull requests, but for a GitHub App installation token —
 # which `secrets.GITHUB_TOKEN` is — GitHub authorises it by the TARGET's kind:
-# the `issues` scope covers real issues, `pull-requests` covers pull requests.
-# A workflow that comments on PRs with `issues: write` + `pull-requests: read`
-# gets `403 Resource not accessible by integration`.
+# `issues` covers real issues, `pull-requests` covers pull requests. A job that
+# comments on PRs with `issues: write` + `pull-requests: read` gets
+# `403 Resource not accessible by integration`.
 #
-# That failure is unusually expensive to diagnose, which is why it is worth a
-# gate rather than a comment:
+# That failure is unusually expensive to diagnose, which is why it earns a gate:
 #   - the run log prints `Issues: write`, so the scope reads as granted;
 #   - the endpoint path says `issues`, so the code reads as correct;
-#   - only the branches that actually POST fail, so it looks event-specific or
-#     actor-specific, and the runs that appear to succeed never attempted the
-#     write at all.
+#   - only the branches that actually POST fail, so it looks event- or
+#     actor-specific, and the runs that appear to succeed never attempted it.
 # `codex-feedback-archive-relay.yml` diagnosed this once and fixed itself;
 # `codex-p1-gate.yml` had the identical bug and kept it, leaving a REQUIRED
-# check red across the repo. A rule written in one workflow's comments does
-# not reach the workflow next to it. This does.
+# check red repo-wide. A rule in one workflow's comments does not reach the
+# workflow beside it.
 #
-# Both sides are enumerable, which is what makes this checkable rather than
-# advisory: the set of workflows containing a PR-comment POST, and the
-# `pull-requests:` scope each one declares.
+# The rule is deliberately narrow in both directions, because a permission gate
+# that is wrong either way causes harm:
+#
+#   - UNDER-granting is the #881 bug. Caught by comparing the posting job's
+#     effective permissions, not the file's — a job block REPLACES the workflow
+#     default, so a workflow-level grant does not authorise a job that
+#     re-declares `pull-requests: read`.
+#   - OVER-granting is the opposite harm, and demanding `pull-requests: write`
+#     from a workflow that only ever comments on real issues would cause it.
+#     The target's kind cannot be read off the command text, so an
+#     issues-endpoint write is only required to hold the scope when the
+#     workflow can actually be handling a pull request — i.e. it has a PR
+#     trigger. `gh pr comment` is unambiguous and always requires it.
+#
+# Both sides are enumerable — the jobs containing a comment write, and each
+# one's effective scope — which is what makes this a gate rather than a note.
 
 set -euo pipefail
 
@@ -34,14 +45,12 @@ WORKFLOW_DIR="$ROOT/.github/workflows"
 SELF_TEST="$ROOT/tests/test_check_workflow_pr_comment_scope.sh"
 
 # Run the unit suite first, so the NEGATIVE cases execute in CI rather than
-# only on the author's machine. A gate that has only ever been observed
-# passing is indistinguishable from one that cannot fail; this one is asserted
-# to reject the exact #881 shape before it is trusted to accept the tree.
+# only on the author's machine. A gate only ever observed passing cannot be
+# distinguished from one that cannot fail.
 #
-# The suite drives this script against scratch repo roots. Those roots have no
-# tests/ directory, so the inner invocations terminate naturally — the env
-# guard makes that explicit rather than incidental, and keeps a future scratch
-# fixture that DOES ship a tests/ dir from recursing.
+# The suite drives this script against scratch repo roots, which have no tests/
+# directory, so inner invocations terminate naturally. The env guard makes that
+# explicit rather than incidental.
 if [ -f "$SELF_TEST" ] && [ -z "${CHECK_WORKFLOW_PR_COMMENT_SCOPE_SELFTEST:-}" ]; then
   if ! CHECK_WORKFLOW_PR_COMMENT_SCOPE_SELFTEST=1 bash "$SELF_TEST"; then
     echo "check_workflow_pr_comment_scope: ERROR (self-test failed)" >&2
@@ -54,23 +63,124 @@ if [ ! -d "$WORKFLOW_DIR" ]; then
   exit 0
 fi
 
+# Structure is parsed, never grepped. Regexing YAML rejected valid spellings
+# (`pull-requests: "write"`, a trailing comment, flow mappings) and could not
+# attribute a write to its job — both flagged in review on #936. yq is the
+# repo's standard parser and is present on GitHub-hosted runners; PyYAML is the
+# fallback. With neither, this SKIPS loudly rather than falling back to a
+# grep that would reintroduce the bugs the parse exists to avoid.
+if command -v yq >/dev/null 2>&1; then
+  PARSER=yq
+elif python3 -c 'import yaml' >/dev/null 2>&1; then
+  PARSER=pyyaml
+else
+  echo "check_workflow_pr_comment_scope: SKIP (needs yq or PyYAML to parse workflow structure; refusing to grep)" >&2
+  exit 0
+fi
+
+export PARSER
 python3 - "$WORKFLOW_DIR" <<'PY'
-import os, re, sys
+import json, os, re, subprocess, sys
 
 workflow_dir = sys.argv[1]
+parser = os.environ["PARSER"]
 
-# A POST to the issues-comments endpoint. Matches the `gh api --method POST`
-# form this repo uses and the bare REST path, so a rewrite to curl or to
-# actions/github-script still trips it.
-POST_RE = re.compile(
-    r"""(--method\s+POST[^\n]*issues/[^\n]*/comments"""
-    r"""|issues/\$\{?[A-Za-z_][A-Za-z0-9_]*\}?/comments[^\n]*--method\s+POST"""
-    r"""|createComment\s*\()""",
-    re.VERBOSE,
+
+def load(path):
+    """Workflow as a dict, or None when it cannot be parsed."""
+    if parser == "yq":
+        out = subprocess.run(
+            ["yq", "-o=json", ".", path], capture_output=True, text=True
+        )
+        if out.returncode != 0 or not out.stdout.strip():
+            return None
+        return json.loads(out.stdout)
+    import yaml
+
+    with open(path, encoding="utf-8") as handle:
+        return yaml.safe_load(handle)
+
+
+# YAML 1.1 parsers read a bare `on:` key as the boolean true. yq keeps it a
+# string; PyYAML does not, so both spellings are accepted.
+def triggers(doc):
+    node = doc.get("on", doc.get(True))
+    if isinstance(node, dict):
+        return set(node)
+    if isinstance(node, list):
+        return set(node)
+    if isinstance(node, str):
+        return {node}
+    return set()
+
+
+PR_TRIGGERS = {
+    "pull_request",
+    "pull_request_target",
+    "pull_request_review",
+    "pull_request_review_comment",
+    # issue_comment fires for issues AND pull requests, and the kind is only
+    # known at runtime from `github.event.issue.pull_request`. A workflow that
+    # takes it may be handling a PR, so it is treated as PR context.
+    "issue_comment",
+    # workflow_run inherits its subject from the upstream workflow, which this
+    # check cannot follow. Counted as PR context because the relay pattern —
+    # a privileged workflow reacting to a PR-triggered one — is exactly what
+    # it is for, and codex-feedback-archive-relay.yml is the case in hand: it
+    # posts the same PR comments as the job this gate was written for. A
+    # workflow_run job that only ever comments on real issues would be asked
+    # for a scope it does not need; no such job exists here, and the
+    # under-grant this prevents has cost more than that over-grant would.
+    "workflow_run",
+}
+
+# A POST to the issues-comments endpoint, in any spelling gh accepts. `-X` is
+# the documented short alias for `--method`, and `-f`/`-F` switch gh to POST on
+# their own, so matching only a literal `--method POST` left three ways to
+# recreate the bug (Codex, #936). Run bodies are whitespace-normalised first so
+# a line-broken command still matches.
+ISSUE_COMMENTS_PATH = r"issues/[^\s\"']+/comments"
+REST_POST_RE = re.compile(
+    r"gh\s+api\b[^\n]*?(?:--method\s+POST|-X\s+POST|\s-f\s|\s-F\s)[^\n]*?" + ISSUE_COMMENTS_PATH
+    + r"|gh\s+api\b[^\n]*?" + ISSUE_COMMENTS_PATH
+    + r"[^\n]*?(?:--method\s+POST|-X\s+POST|\s-f\s|\s-F\s)"
 )
+SCRIPT_POST_RE = re.compile(r"(?:issues|rest\.issues)\.createComment\s*\(")
+GH_PR_COMMENT_RE = re.compile(r"\bgh\s+pr\s+comment\b")
+GH_ISSUE_COMMENT_RE = re.compile(r"\bgh\s+issue\s+comment\b")
 
-# `gh pr comment` / `gh issue comment` on a PR need the same scope.
-CLI_RE = re.compile(r"\bgh\s+(pr|issue)\s+comment\b")
+
+def step_text(job):
+    """Every run body and inline script in a job, whitespace-normalised."""
+    chunks = []
+    for step in job.get("steps") or []:
+        if not isinstance(step, dict):
+            continue
+        if isinstance(step.get("run"), str):
+            chunks.append(step["run"])
+        with_block = step.get("with")
+        if isinstance(with_block, dict) and isinstance(with_block.get("script"), str):
+            chunks.append(with_block["script"])
+    # Join a backslash-continued or bare line break into one logical line.
+    text = "\n".join(chunks)
+    text = re.sub(r"\\\s*\n\s*", " ", text)
+    return re.sub(r"[ \t]+", " ", text)
+
+
+def effective_permissions(doc, job):
+    """A job block REPLACES the workflow default; it does not merge with it."""
+    perms = job.get("permissions", doc.get("permissions"))
+    if isinstance(perms, str):
+        # `permissions: write-all` / `read-all` / `{}`.
+        return {"__shorthand__": perms}
+    return perms if isinstance(perms, dict) else {}
+
+
+def grants_write(perms, scope):
+    if perms.get("__shorthand__") == "write-all":
+        return True
+    return str(perms.get(scope, "")).strip().strip("\"'") == "write"
+
 
 failures = []
 checked = []
@@ -79,61 +189,68 @@ for name in sorted(os.listdir(workflow_dir)):
     if not name.endswith((".yml", ".yaml")):
         continue
     path = os.path.join(workflow_dir, name)
-    with open(path, encoding="utf-8") as handle:
-        raw = handle.read()
-
-    # Strip comment-only lines so the prose ABOUT this rule (including this
-    # check's own explanation, quoted in workflow comments) cannot register as
-    # a PR-comment write. Without this the guard flags the very files that
-    # document it — a false positive that would train people to ignore it.
-    code = "\n".join(
-        line for line in raw.splitlines() if not line.lstrip().startswith("#")
-    )
-
-    if not (POST_RE.search(code) or CLI_RE.search(code)):
+    doc = load(path)
+    if not isinstance(doc, dict):
+        print(f"  WARN: {name} did not parse; skipping", file=sys.stderr)
         continue
 
-    checked.append(name)
-
-    # `permissions:` may appear at workflow level and per job; any of them
-    # granting write satisfies the rule for that file. A job-level block
-    # REPLACES rather than merges with the workflow default, so a file with a
-    # write at either level still needs a human to confirm placement — this
-    # gate catches the total absence, which is the failure that has actually
-    # happened twice.
-    if re.search(r"^\s*pull-requests:\s*write\s*$", code, re.MULTILINE):
+    pr_context = bool(triggers(doc) & PR_TRIGGERS)
+    jobs = doc.get("jobs")
+    if not isinstance(jobs, dict):
         continue
 
-    declares_issues_write = bool(
-        re.search(r"^\s*issues:\s*write\s*$", code, re.MULTILINE)
-    )
-    failures.append((name, declares_issues_write))
+    for job_name, job in jobs.items():
+        if not isinstance(job, dict):
+            continue
+        text = step_text(job)
+
+        # Unambiguously a pull request.
+        certain = bool(GH_PR_COMMENT_RE.search(text))
+        # The issues endpoint: a PR only when this workflow can receive one.
+        ambiguous = bool(
+            REST_POST_RE.search(text)
+            or SCRIPT_POST_RE.search(text)
+            or GH_ISSUE_COMMENT_RE.search(text)
+        )
+
+        if not certain and not (ambiguous and pr_context):
+            continue
+
+        checked.append(f"{name}:{job_name}")
+        perms = effective_permissions(doc, job)
+        if grants_write(perms, "pull-requests"):
+            continue
+        failures.append((name, job_name, grants_write(perms, "issues")))
 
 if not checked:
-    print("check_workflow_pr_comment_scope: no workflow posts PR comments")
+    print("check_workflow_pr_comment_scope: no job posts a pull-request comment")
     sys.exit(0)
 
 print(
-    "check_workflow_pr_comment_scope: %d workflow(s) post PR comments: %s"
+    "check_workflow_pr_comment_scope: %d job(s) post PR comments: %s"
     % (len(checked), ", ".join(checked))
 )
 
 if failures:
-    for name, issues_write in failures:
+    for name, job_name, issues_write in failures:
         detail = (
-            "declares `issues: write` but not `pull-requests: write`"
+            "has `issues: write` but not `pull-requests: write`"
             if issues_write
-            else "declares neither `issues: write` nor `pull-requests: write`"
+            else "has neither `issues: write` nor `pull-requests: write`"
         )
-        print(f"  FAIL: {name} posts a PR comment and {detail}", file=sys.stderr)
+        print(
+            f"  FAIL: {name} job `{job_name}` posts a PR comment and {detail}",
+            file=sys.stderr,
+        )
     print(
         "\n  POST /repos/{repo}/issues/{n}/comments is authorised by the TARGET's\n"
         "  kind for a GITHUB_TOKEN: `issues` covers issues, `pull-requests`\n"
-        "  covers pull requests. Add `pull-requests: write` to the permissions\n"
-        "  block of the job that posts. See #881.",
+        "  covers pull requests. Add `pull-requests: write` to THAT job's\n"
+        "  permissions block — a job block replaces the workflow default rather\n"
+        "  than merging with it. See #881.",
         file=sys.stderr,
     )
     sys.exit(1)
 
-print("  PASS: every PR-commenting workflow declares pull-requests: write")
+print("  PASS: every PR-commenting job has pull-requests: write in effect")
 PY
