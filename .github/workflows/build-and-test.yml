@@ -80,6 +80,19 @@ jobs:
         # when the binary is not installed.
         run: scripts/lib/ensure-vale.sh --ci-only
 
+      - name: Install Poppler and MuPDF
+        # The resume PDF tests use these as independent PDF oracles rather
+        # than parsing PDFs themselves (#924):
+        #   pdftotext -raw  reading order in CONTENT-STREAM order (#923) —
+        #                   Poppler's default mode reconstructs order from
+        #                   glyph coordinates and so passes on the broken file
+        #   pdfinfo         page count
+        #   mutool draw     page rendering, for bullet-marker visibility (#925)
+        # Neither is on ubuntu-latest by default. The helper fails loudly with
+        # an install hint if a binary is missing, so a runner without them
+        # produces a clear error rather than silently skipped coverage.
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends poppler-utils mupdf-tools
+
       - name: Install Playwright's Chromium
         # rehype-mermaid and og-images.mjs drive Playwright at BUILD time —
         # Mermaid renders static SVG during Markdown processing and the OG

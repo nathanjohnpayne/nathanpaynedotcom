@@ -286,7 +286,8 @@ recruiter-legible filename, for "attach your resume" forms and ATS pipelines
   never once had an effect. The pre-fix file contains all eleven `6 6 re f`
   operators at the same coordinates as the fixed one, each preceded by
   `1 1 1 rg`—which is why a test that merely counts the rectangles passes on
-  it, and why `tests/resume.test.js` checks the fill colour in force at each.
+  it, and why `tests/resume.test.js` renders the pages with MuPDF and looks for
+  ink in the marker column instead of reading the file's operators.
 
   The marker stays a background rather than becoming a border: border widths
   floor to whole device pixels while box dimensions round, so a border-drawn
@@ -486,17 +487,19 @@ In particular:
     text of the generated `Nathan-Payne-Resume.pdf`.
 8a. No link annotation in the generated PDF points at `127.0.0.1` or
     `localhost`, and every one carries an `http(s):` or `mailto:` scheme.
-8f. Every bullet on the page has a marker rectangle in the PDF that is
-    painted in a dark fill. Counting the rectangles is not this criterion:
-    `printBackground: false` emitted every one of them in white (#925).
+8f. Every bullet on the page renders a **visible** marker in the PDF. Counting
+    rectangles is not this criterion: `printBackground: false` emitted every
+    one of them in white (#925), so the check renders the page with MuPDF and
+    looks for ink.
 8e. The PDF's **content stream**—not its rendered pages—carries the résumé in
-    the page's own order: every Experience role is followed by its own
-    bullets before the next role begins, the sections and Projects entries
-    follow `/resume/`, each bullet is written exactly once, and the document
-    is three pages. Read with `tests/helpers/pdf-stream-text.js`, which
-    decodes the stream directly because both `pdftotext` without `-raw` and a
-    page-image comparison reconstruct order from coordinates and so pass on a
-    file whose reading order is wrong.
+    the page's own order: every Experience role is followed by its own summary
+    and bullets before the next role begins, every printed block follows
+    `/resume/`, each bullet appears exactly once, and the document is three
+    pages. Read with `pdftotext -raw`, because ordinary extraction and page
+    images both reconstruct order from coordinates and so pass on a file whose
+    reading order is wrong. Every one of these assertions also runs against
+    `tests/fixtures/known-bad-resume-pre-923.pdf` and is required to FAIL on
+    it.
 9. The visible header title is a single role title equal to the JSON-LD
    `jobTitle`; the summary is 55–75 words naming Disney+/Hulu/ESPN and the
    AI-augmented focus up front.
