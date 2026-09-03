@@ -5885,21 +5885,84 @@ body.resume-page {
   padding: 0;
 }
 
+/* Bullet geometry as tokens rather than literals: the marker's offsets are
+   all derived from the gutter its list item reserves, and print re-tunes the
+   gutter and the drop together (see the @media print block). */
+.resume-prose {
+  --bullet-size: 0.36rem;
+  --bullet-gutter: 1rem;
+  --bullet-offset: 0.55em;
+}
+
 .resume-prose li {
-  position: relative;
-  padding-left: 1rem;
+  padding-left: var(--bullet-gutter);
   font-size: clamp(0.94rem, 0.92rem + 0.12vw, 1.02rem);
   line-height: 1.55;
 }
 
+/* The square marker is a float pulled back into the gutter, and deliberately
+   NOT `position: absolute` against a `position: relative` list item.
+
+   The positioned version rendered identically and broke the PDF (#923). A
+   relatively positioned element with `z-index: auto` paints in the
+   positioned-descendants step of the painting algorithm (CSS 2.1 Appendix E,
+   step 8) — after every non-positioned block and inline in the same stacking
+   context — and Chromium writes each printed page's text into the PDF content
+   stream in paint order. Every bullet in the document was therefore emitted
+   after all of its page's non-bullet text. On page 1 that is invisible,
+   because the Disney NCP bullets are the last thing on the page anyway; on
+   page 2 it moved the four Disney Streaming 2018–2021 bullets past six
+   sections, so they extracted after Five Across and read as belonging to
+   Projects. The pixels were right and the reading order — what an ATS parser,
+   a screen reader, and copy-paste all get — was wrong.
+
+   A float keeps the list item unpositioned, so its text paints in document
+   order. It also leaves the text metrics untouched, which an inline-block
+   marker does not: an inline-block's own advance width has to be cancelled by
+   a compensating margin, and the two round to layout units independently, so
+   the sum lands ~1/64px off zero and shifts every bullet's text by a subpixel.
+   The float is outside the line box entirely. Its right margin edge sits left
+   of the content edge, so it shortens no line box; text starts at the content
+   edge and wrapped lines are unmoved.
+
+   `--bullet-offset` is a drop from the list item's content top, so it must
+   stay smaller than the first line box, or the float would escape the item
+   (`li` is not a block formatting context) and shorten the next bullet's
+   lines. At 0.55em against a 1.55 line-height there is room to spare.
+
+   The reordering fix moves nothing: the resume page and the print cascade are
+   pixel-identical to the positioned version, and only the order in which the
+   text is written changed. (The PDF's rendered pages do differ from the
+   previously published file, but for an unrelated reason shipped alongside
+   this — #925, the bullet markers now actually print. That change is in the
+   generator, not here.) */
 .resume-prose ul li::before {
   content: '';
-  position: absolute;
-  top: 0.55em;
-  left: 0;
-  width: 0.36rem;
-  height: 0.36rem;
+  float: left;
+  width: var(--bullet-size);
+  height: var(--bullet-size);
+  margin: var(--bullet-offset) 0 0 calc(-1 * var(--bullet-gutter));
+  /* Stays a background. It is the only way to paint this square at exactly
+     this size: border widths floor to whole device pixels while box
+     dimensions round, so a border-drawn square comes out 4×4 (four sides at
+     calc(size/2)) or 5×6 (a single full-width border-left) where the
+     background paints 6×6. What made the square vanish from the PDF was not
+     the background — it was `printBackground: false` in the generator, which
+     is where #925 is fixed. */
   background: var(--resume-link);
+}
+
+/* Forced-colors mode (Windows High Contrast and friends) replaces author
+   background colours with the canvas colour, which would erase a square that
+   is painted entirely by `background` — the marker would vanish exactly where
+   contrast matters most. System colour keywords are honoured rather than
+   overridden, so repainting it as `CanvasText` keeps it visible against
+   whatever canvas the user has chosen. Screen and print rendering are
+   untouched: the query matches neither (CodeRabbit, #924). */
+@media (forced-colors: active) {
+  .resume-prose ul li::before {
+    background: CanvasText;
+  }
 }
 
 .resume-prose strong {
@@ -6389,6 +6452,9 @@ body.resume-page {
     color: #000 !important;
   }
 
+  /* This rule had never had an effect before #925: the generator rendered
+     with `printBackground: false`, so the square it forces to black was not
+     painted into the PDF at all. It is load-bearing now. */
   .resume-prose ul li::before {
     background: #000 !important;
   }
@@ -6526,15 +6592,18 @@ body.resume-page {
     display: block;
     margin-top: 0.2rem;
   }
+  /* Print re-tunes the bullet gutter and the marker's drop from the line-box
+     top. Both are the tokens the marker's margins are built from, so the two
+     values live here and the marker rule itself is not restated. */
+  .resume-prose {
+    --bullet-gutter: 0.8rem;
+    --bullet-offset: 0.5em;
+  }
   .resume-prose li {
-    padding-left: 0.8rem;
     margin-top: 0.14rem;
   }
   .resume-prose li:first-child {
     margin-top: 0;
-  }
-  .resume-prose ul li::before {
-    top: 0.5em;
   }
   .resume-skills__list {
     gap: 0.24rem;

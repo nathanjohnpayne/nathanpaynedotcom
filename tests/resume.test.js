@@ -11,6 +11,12 @@ import {
 import { resolve, join } from 'path';
 import { tmpdir } from 'os';
 import { writeSanitizedDOM } from './helpers/dom.js';
+import {
+  pdfTextInEmissionOrder,
+  pdfPageCount,
+  visibleMarkersPerPage,
+  normalizeForOrder,
+} from './helpers/pdf-oracle.js';
 
 // Smoke tests for the content-collection-driven /resume page.
 // See specs/resume.md and issue #394.
@@ -660,6 +666,256 @@ describe('Resume — downloadable PDF', () => {
         `URL suffix in @media print — every project title will print its own ` +
         `/projects/<slug>/ URL after the name (#683).`,
     ).toBe(true);
+  });
+});
+
+/**
+ * PDF reading order (#923) and marker visibility (#925).
+ *
+ * A PDF carries two orders and they are allowed to disagree. The visual one is
+ * reconstructed from glyph coordinates — it is what a page image shows, and it
+ * was never wrong here. The stream one is the sequence the text is written in,
+ * and it is what every consumer that reads the file rather than looks at it
+ * gets: ATS parsers, assistive tech, copy-paste.
+ *
+ * Chromium writes each printed page's text in PAINT order, so a CSS rule that
+ * changes paint order reorders the document for those readers while leaving
+ * every pixel identical. `.resume-prose li` used to carry `position: relative`
+ * as the containing block for its absolutely-positioned bullet square, which
+ * puts a list item in step 8 of the painting algorithm — after every
+ * non-positioned block and inline on the page. On page 1 that is invisible,
+ * because the Disney NCP bullets end the page anyway; on page 2 it moved the
+ * four Disney Streaming 2018–2021 bullets past six sections.
+ *
+ * ## The oracles, and the control
+ *
+ * `pdftotext -raw` (Poppler) reports content-stream order; Poppler's default
+ * mode and any page-image comparison report visual order and pass on the
+ * broken file. MuPDF renders the pages for the marker check. Neither this file
+ * nor tests/helpers/pdf-oracle.js decodes any PDF itself.
+ *
+ * Every check here runs against BOTH the freshly built PDF and
+ * `tests/fixtures/known-bad-resume-pre-923.pdf` — the résumé exactly as it was
+ * published with both defects — and the fixture is required to FAIL. Asserting
+ * against a good file proves the assertions run; asserting against the broken
+ * one proves they discriminate.
+ */
+describe('Resume — PDF reading order and markers', () => {
+  const BUILT_PDF = resolve(DIST, 'Nathan-Payne-Resume.pdf');
+  const KNOWN_BAD_PDF = resolve(__dirname, 'fixtures/known-bad-resume-pre-923.pdf');
+
+  /** Content-stream-order text of each PDF, normalized, read once. */
+  const emitted = {};
+
+  beforeAll(() => {
+    emitted.built = normalizeForOrder(pdfTextInEmissionOrder(BUILT_PDF));
+    emitted.knownBad = normalizeForOrder(pdfTextInEmissionOrder(KNOWN_BAD_PDF));
+  });
+
+  beforeEach(() => {
+    setupDOM(readDist('resume/index.html'));
+  });
+
+  /**
+   * Walk `landmarks` through `text`, each required at or after the end of the
+   * previous match. Returns the first landmark that is missing or out of
+   * sequence, or null when the whole run is in order.
+   */
+  function firstOutOfOrder(text, landmarks) {
+    let cursor = 0;
+    for (const { label, value } of landmarks) {
+      const needle = normalizeForOrder(value);
+      const at = text.indexOf(needle, cursor);
+      if (at < 0) {
+        return {
+          label,
+          reason:
+            text.indexOf(needle) < 0 ? 'missing from the PDF entirely' : 'appears out of sequence',
+        };
+      }
+      cursor = at + needle.length;
+    }
+    return null;
+  }
+
+  /** Assert a landmark run holds for the built PDF and fails for the fixture. */
+  function expectOrder(landmarks, what) {
+    const broke = firstOutOfOrder(emitted.built, landmarks);
+    expect(
+      broke,
+      broke &&
+        `${broke.label} ${broke.reason}. ${what} — the PDF's content stream must follow ` +
+          `the same order as /resume/ (#923).`,
+    ).toBeNull();
+
+    // The control. Without it this assertion proves only that it runs.
+    expect(
+      firstOutOfOrder(emitted.knownBad, landmarks),
+      `${what}: this run also passes on the known-bad fixture, so it does not ` +
+        `discriminate. See tests/fixtures/README-known-bad-resume.md.`,
+    ).not.toBeNull();
+  }
+
+  /** Text of every print-visible block under `root`, in DOM order. */
+  function printedBlocks(root, hidden) {
+    const blocks = [];
+    const walk = (el) => {
+      if (hidden && el.matches(hidden)) return;
+      // The outermost element that directly contributes text. Recursing past
+      // it would re-collect an inline `<strong>`, or a `<p>` nested inside a
+      // loose Markdown `<li>`, whose text the cursor has already passed.
+      const ownText = Array.from(el.childNodes).some(
+        (n) => n.nodeType === 3 && n.textContent.trim().length > 0,
+      );
+      if (ownText) {
+        const text = el.textContent.replace(/\s+/g, ' ').trim();
+        if (text)
+          blocks.push({ label: `${el.tagName.toLowerCase()}: ${text.slice(0, 44)}…`, value: text });
+        return;
+      }
+      for (const child of el.children) walk(child);
+    };
+    walk(root);
+    return blocks;
+  }
+
+  /**
+   * Selectors the print cascade hides, read out of the emitted stylesheet so
+   * the list cannot drift: whatever `@media print` hides is what the PDF
+   * omits. Every print block is scanned — Astro concatenates component styles,
+   * so the sheet holds several and the first belongs to the blog.
+   */
+  function printHiddenSelectors() {
+    const astroDir = resolve(DIST, '_astro');
+    const css = readdirSync(astroDir)
+      .filter((f) => f.endsWith('.css'))
+      .map((f) => readFileSync(join(astroDir, f), 'utf-8'))
+      .filter((c) => c.includes('@media print'))
+      .join('\n');
+    const selectors = [];
+    for (const at of css.matchAll(/@media print\s*\{/g)) {
+      const open = at.index + at[0].length - 1;
+      let depth = 0;
+      let end = open;
+      for (; end < css.length; end += 1) {
+        if (css[end] === '{') depth += 1;
+        else if (css[end] === '}' && --depth === 0) break;
+      }
+      for (const rule of css.slice(open + 1, end).matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+        if (/display:\s*none/.test(rule[2])) selectors.push(rule[1].trim().replace(/\s+/g, ' '));
+      }
+    }
+    expect(
+      selectors.length,
+      'no display:none rules found in any @media print block',
+    ).toBeGreaterThan(0);
+    return selectors.join(',');
+  }
+
+  it('extracts substantial real text from the PDF', () => {
+    // Positive control. Every assertion below is "A before B", and an empty
+    // extraction would satisfy none of them for the right reason.
+    expect(emitted.built.length, 'the PDF extracted as (almost) no text').toBeGreaterThan(5000);
+    expect(emitted.built, 'a known line of the résumé is missing').toContain(
+      normalizeForOrder('Conceptualized and led the CNN Magic Wall'),
+    );
+  });
+
+  it('writes the Disney Streaming 2018–2021 bullets with their own role', () => {
+    // The reported symptom, pinned as literal copy: the role summary is
+    // followed by its four bullets, and the next role follows all four.
+    expectOrder(
+      [
+        [
+          'Disney Streaming role title',
+          'Senior Technical Project Manager, Lead – Disney Streaming',
+        ],
+        [
+          'role summary',
+          'Led front-end engineering teams that built and launched Disney+ across connected devices.',
+        ],
+        ['bullet 1', 'Brought Disney+ from concept to launch across living-room platforms'],
+        [
+          'bullet 2',
+          'Led PlayStation prototyping that produced the first-to-launch living-room Disney+ experience.',
+        ],
+        ['bullet 3', 'Rebuilt the Disney+ app for MVPD set-top boxes'],
+        ['bullet 4', 'Led Hulu through its PlayStation 5 launch.'],
+        [
+          'the next role (MLB Advanced Media)',
+          'Technical Project Manager – MLB Advanced Media / BAMTech Media',
+        ],
+      ].map(([label, value]) => ({ label, value })),
+      'The Disney Streaming bullets have come away from their role',
+    );
+  });
+
+  it('writes every experience role with its own summary and bullets', () => {
+    // The general form, derived from the built page rather than pinned:
+    // whatever the résumé says, the PDF must say it in that order.
+    const landmarks = [];
+    for (const entry of document.querySelectorAll('.resume-experience .resume-entry')) {
+      const title = entry.querySelector('.resume-entry__title').textContent.trim();
+      landmarks.push({ label: `role "${title}"`, value: title });
+      const prose = entry.querySelector('.resume-prose');
+      if (prose) landmarks.push(...printedBlocks(prose, null));
+    }
+    expect(landmarks.length, 'no experience landmarks derived from the page').toBeGreaterThan(10);
+    expectOrder(landmarks, 'An experience role came apart from its body');
+  });
+
+  it('writes every printed block in the order the page composes it', () => {
+    // The whole contract in one assertion, from `.resume-canvas` so the header
+    // participates too: headings, summaries, bullets, skills rows,
+    // certifications, project tech lines, URLs and descriptions are all things
+    // a positioned element could detach.
+    const blocks = printedBlocks(document.querySelector('.resume-canvas'), printHiddenSelectors());
+    expect(blocks.length, 'no printed blocks derived from the page').toBeGreaterThan(60);
+    expectOrder(blocks, 'The printed document came out of order');
+  });
+
+  it('writes each experience bullet exactly once', () => {
+    // The fix must not have been a duplicate-and-hide.
+    const bullets = document.querySelectorAll('.resume-experience .resume-prose li');
+    expect(bullets.length, 'no experience bullets found on the page').toBeGreaterThan(10);
+    for (const li of bullets) {
+      const needle = normalizeForOrder(li.textContent);
+      const count = emitted.built.split(needle).length - 1;
+      expect(count, `bullet appears ${count}× in the PDF: ${li.textContent.slice(0, 60)}`).toBe(1);
+    }
+  });
+
+  it('paints a visible bullet marker for every bullet', () => {
+    // #925. The markers are CSS backgrounds, and the generator rendered with
+    // `printBackground: false` — which does not omit the rectangle, it paints
+    // it WHITE. So this asks the rendered page whether there is ink where a
+    // marker belongs, rather than asking the file whether a rectangle exists:
+    // the known-bad fixture has all eleven rectangles, at the same
+    // coordinates, and shows none of them.
+    const expected = document.querySelectorAll('.resume-prose ul li').length;
+    expect(expected, 'no bullets on the page to look for').toBeGreaterThan(0);
+
+    const built = visibleMarkersPerPage(BUILT_PDF);
+    expect(
+      built.reduce((a, b) => a + b, 0),
+      `the rendered PDF shows ${built} markers for ${expected} bullets — check ` +
+        `printBackground in src/integrations/resume-pdf.mjs (#925).`,
+    ).toBe(expected);
+
+    // The control.
+    expect(
+      visibleMarkersPerPage(KNOWN_BAD_PDF).reduce((a, b) => a + b, 0),
+      'the known-bad fixture shows visible markers, so this check does not discriminate',
+    ).toBe(0);
+  });
+
+  it('still lands on three pages', () => {
+    // specs/resume.md § Print targets three balanced pages, calibrated in
+    // #420. Paint order is not supposed to move a single line.
+    expect(
+      pdfPageCount(BUILT_PDF),
+      'the résumé PDF is no longer three pages — see specs/resume.md § Print',
+    ).toBe(3);
   });
 });
 

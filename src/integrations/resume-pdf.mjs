@@ -137,7 +137,23 @@ export async function generateResumePdf({ browser, baseUrl, siteUrl, outputPath,
     await page.pdf({
       path: outputPath,
       format: 'Letter',
-      printBackground: false,
+      // Chrome's "Background graphics", on. Off is the browser default and was
+      // the setting here until #925, where it turned out to be silently
+      // dropping the resume's bullet markers: the squares are CSS backgrounds
+      // on `.resume-prose ul li::before`, so every printed bullet carried its
+      // indent and nothing in it, and the print sheet's `background: #000`
+      // override for them had never once had an effect.
+      //
+      // Turning it on is safe here rather than merely convenient, because the
+      // print cascade leaves almost nothing for it to paint: `@media print`
+      // forces `html`, `body.resume-page`, `.resume-canvas`, the header and
+      // the content column to `#fff !important`, and hides every tinted
+      // surface outright — the accent margin, the metadata panel, the sidebar
+      // highlights, the action row, the CTA, the footer, and the company
+      // logos. What is left is white paper and the bullet squares. Verified
+      // rather than reasoned: with this flag flipped, the rendered pages
+      // differ from the previous file only in the marker column.
+      printBackground: true,
       margin: {
         top: RESUME_PDF_MARGIN,
         right: RESUME_PDF_MARGIN,
