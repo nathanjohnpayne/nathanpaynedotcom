@@ -214,7 +214,7 @@ const homepageJsonLd = {
               <div class="now-ribbon">
                 <div class="ribbon-row">
                   <span class="eyebrow now-ribbon-label">Last updated</span>
-                  <a href="/blog/" class="ribbon-exit" data-panel="about">View all writing<span class="link-arrow" aria-hidden="true">→</span></a>
+                  <a href="/blog/" class="ribbon-exit">View all writing<span class="link-arrow" aria-hidden="true">→</span></a>
                 </div>
                 <span class="now-ribbon-date">{nowEntry.data.lastUpdated}</span>
               </div>
@@ -305,7 +305,7 @@ const homepageJsonLd = {
             <div class="stack-ribbon">
               <div class="ribbon-row">
                 <span class="eyebrow stack-label">Stack</span>
-                <a href="/projects/" class="ribbon-exit" data-panel="projects">View all projects<span class="link-arrow" aria-hidden="true">→</span></a>
+                <a href="/projects/" class="ribbon-exit">View all projects<span class="link-arrow" aria-hidden="true">→</span></a>
               </div>
               <span class="stack-items">{stackLadder.map((item) => <span class="stack-item" data-stack-tier={item.tier}>{item.label}</span>)}</span>
             </div>
@@ -492,7 +492,7 @@ const homepageJsonLd = {
               <div class="blog-callout">
                 <div class="ribbon-row">
                   <span class="eyebrow blog-callout-label">Latest Post</span>
-                  <a href="/blog/" class="ribbon-exit" data-panel="connect">View all writing<span class="link-arrow" aria-hidden="true">→</span></a>
+                  <a href="/blog/" class="ribbon-exit">View all writing<span class="link-arrow" aria-hidden="true">→</span></a>
                 </div>
                 <a href={`/blog/${latestPost.id}/`} class="blog-callout-link">{latestPost.data.title}<span class="link-arrow" aria-hidden="true">→</span></a>
               </div>
@@ -1062,10 +1062,18 @@ const homepageJsonLd = {
       // article clicks and wayfinding clicks answer different questions, and
       // while the About exit lived inside .writing-list the one index click
       // per quarter was landing in the article-click event.
+      //
+      // The panel name is read off the containing .panel rather than from a
+      // data-panel on the link itself. `data-panel` identifies panels — the
+      // grid's own state machine and the Playwright suite both select on it
+      // ([data-panel="about"]), and a second element carrying the same value
+      // makes that selector ambiguous: Playwright's locator is strict and
+      // throws, while document.querySelector silently takes whichever comes
+      // first. Deriving it also keeps one source of truth for the name.
       document.querySelectorAll('.ribbon-exit').forEach(function (el) {
         el.addEventListener('click', function () {
           window.posthog?.capture('index_link_clicked', {
-            panel: el.dataset.panel || 'unknown',
+            panel: el.closest('.panel')?.dataset.panel || 'unknown',
             href: el.getAttribute('href') || ''
           });
         });

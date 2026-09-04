@@ -468,8 +468,27 @@ describe('PostHog', () => {
     expect(calls.map((c) => c.href).sort()).toEqual(['/blog/', '/blog/', '/projects/']);
     expect(
       calls.some((c) => c.panel === 'unknown'),
-      'an exit is missing data-panel',
+      'an exit is not inside a [data-panel] .panel container',
     ).toBe(false);
+  });
+
+  it('keeps [data-panel] unique to panel containers', () => {
+    // The exits carried their own data-panel until Codex caught it on #975.
+    // It duplicated the value on the containing <article>, which is what the
+    // grid's state machine and the Playwright suite select on — and
+    // Playwright's locator is strict, so [data-panel="about"] threw instead
+    // of asserting, while document.querySelector here silently took the
+    // first match and every Vitest suite stayed green. Asserting uniqueness
+    // rather than the absence of one attribute on one element: any future
+    // element borrowing the name breaks the same selector.
+    for (const name of ['about', 'projects', 'connect', 'community']) {
+      const matches = document.querySelectorAll(`[data-panel="${name}"]`);
+      expect(matches.length, `[data-panel="${name}"] should match exactly one element`).toBe(1);
+      expect(
+        matches[0].classList.contains('panel'),
+        `[data-panel="${name}"] should be the panel container`,
+      ).toBe(true);
+    }
   });
 
   it('keeps writing_link_clicked to article links only', () => {
