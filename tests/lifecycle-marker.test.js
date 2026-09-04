@@ -418,19 +418,6 @@ describe('lifecycle marker — declarations', () => {
   const FILL_PROPERTIES = ['background-color', 'background-image', 'background-clip', 'padding'];
 
   /**
-   * Properties that change what `1em` resolves to on the element the mark
-   * hangs off — and therefore the mark's rendered size, since
-   * `.state-marker::before` is `calc(0.72em + 2px)` square.
-   *
-   * A surface may set these: `.resume-entry__status` sizing its own kicker is
-   * how the mark comes to track that label, which is the whole design. A
-   * *modifier* may not, because then one state's mark is a different size from
-   * its neighbours' and the vocabulary stops being one vocabulary — the #959
-   * failure arriving through the element instead of through the pseudo-element.
-   */
-  const EM_BASIS_PROPERTIES = ['font-size', 'font', 'zoom'];
-
-  /**
    * The exact property set each modifier carries, and the exact value of each.
    *
    * `paused` and `in-progress` carry none: the bare outline the base rule
@@ -611,10 +598,10 @@ describe('lifecycle marker — declarations', () => {
    * So a rule is **collected broadly and rejected narrowly**: any `::before`
    * rule whose selector names the class at all is picked up, and
    * `expectUnqualified` then requires it to be the bare primitive. The
-   * modifier-size rule below is the one place that needs to know which compound
-   * a selector subjects, and it asks `subject` for that; everything keyed on the
-   * mark class stays deliberately broad, because the two holes in a row here
-   * both came from trying to be clever about the subject.
+   * modifier-element rule below is the one place that needs to know which
+   * compound a selector subjects, and it asks `subject` for that; everything
+   * keyed on the mark class stays deliberately broad, because the two holes in a
+   * row here both came from trying to be clever about the subject.
    *
    * The trade is a selector naming the mark as an ANCESTOR of some other
    * element's `::before`, which this rejects. Nothing is nested inside the mark
@@ -622,11 +609,10 @@ describe('lifecycle marker — declarations', () => {
    * cannot occur here, and failing loudly on one is the safe direction.
    *
    * Scoped to `::before` deliberately. The mark is a pseudo-element; the
-   * element itself carries the status word and each surface legitimately styles
-   * it (`.p-status`, `.metadata-strip__status`, `.resume-entry__status`), so
-   * policing the element would be asserting a rule the vocabulary does not have
-   * — except for the one property that reaches the mark anyway, which is what
-   * `EM_BASIS_PROPERTIES` is for.
+   * element itself carries the status word and each *surface* legitimately
+   * styles it (`.p-status`, `.metadata-strip__status`, `.resume-entry__status`),
+   * so policing the element in general would be asserting a rule the vocabulary
+   * does not have. A *modifier* is the exception, and has its own check below.
    */
   function targeting(className, rules = screenRules()) {
     return rules.filter((rule) => rule.before && rule.classes.includes(className));
@@ -634,6 +620,24 @@ describe('lifecycle marker — declarations', () => {
 
   /** The declarations of every rule targeting a class, in cascade order. */
   const declarationsFor = (className) => targeting(className).flatMap((rule) => rule.declarations);
+
+  /**
+   * Every declaration a modifier makes on the status ELEMENT rather than on its
+   * mark, as `selector { property: value }`.
+   *
+   * A named predicate rather than a loop inside its own assertion, so the
+   * fixture block at the end of this file can run it over a stylesheet built to
+   * carry the defect.
+   */
+  const modifierElementDeclarations = (rules) =>
+    rules
+      .filter((rule) => !rule.before)
+      .filter((rule) => rule.subject.some((name) => MODIFIER_CLASSES.includes(name)))
+      .flatMap((rule) =>
+        rule.declarations.map(
+          ({ property, value }) => `${rule.selector} { ${property}: ${value} }`,
+        ),
+      );
 
   const properties = (declarations) =>
     declarations.map((declaration) => declaration.property).sort();
@@ -804,7 +808,7 @@ describe('lifecycle marker — declarations', () => {
     ).toBeGreaterThan(0);
   });
 
-  it('leaves the mark size to the label it sits beside, not to one state', () => {
+  it('gives a modifier nothing to say about the element the mark hangs off', () => {
     // The second of #967's recorded limits, and the one the old extractor could
     // not have closed. Every check above is scoped to `::before`, because the
     // mark IS a pseudo-element and the element carries the status word each
@@ -815,24 +819,29 @@ describe('lifecycle marker — declarations', () => {
     // again, arriving through the element.
     //
     // Rejecting it needs the distinction a token regex cannot make. A SURFACE
-    // may set these — `.resume-entry__status { font-size: 7.5pt }` is how the
-    // mark comes to track that kicker — so the rule cannot be "no font-size
-    // near a mark class"; it has to be "no font-size on a compound a modifier
+    // may set `font-size` — `.resume-entry__status { font-size: 7.5pt }` is how
+    // the mark comes to track that kicker — so the rule cannot be "no font-size
+    // near a mark class"; it has to be "nothing on a compound a modifier
     // narrows". `subjectClassNames` answers that off the selector AST.
-    const offenders = [];
-    for (const rule of allRules()) {
-      if (rule.before) continue;
-      if (!rule.subject.some((name) => MODIFIER_CLASSES.includes(name))) continue;
-      for (const { property, value } of rule.declarations) {
-        if (EM_BASIS_PROPERTIES.includes(property)) {
-          offenders.push(`${rule.selector} { ${property}: ${value} }`);
-        }
-      }
-    }
+    //
+    // **Nothing, rather than a list of the properties that reach the mark.**
+    // `font-size`, `font` and `zoom` are what #967 recorded, and `transform:
+    // scale()` and `color` reach it too — the first scales the box, the second
+    // recolours a border and two fills that are all `currentcolor`. Enumerating
+    // them is the failure mode this whole PR is about: five rounds of closing
+    // one case and leaving the shape. The closed version is the division of
+    // labour stated one level out. On the `::before`, a variant owns fill and
+    // nothing else. On the ELEMENT, a variant owns nothing at all: the element
+    // belongs to the surface, which sizes and positions its own label, and to
+    // the primitive, which sets `display` / `align-items` / `gap` on bare
+    // `.state-marker`. A state that needs to say something has two right
+    // places to say it, and the failure message names both.
     expect(
-      offenders,
-      'a lifecycle modifier resizes the element the mark hangs off, so that one ' +
-        'state renders at a different size from the rest of the vocabulary',
+      modifierElementDeclarations(allRules()),
+      'a lifecycle modifier declares something on the status ELEMENT rather than ' +
+        'on its mark, so one state can differ from the rest of the vocabulary in ' +
+        'size, colour or position — put it on .state-marker::before if it belongs ' +
+        'to that state, or on .state-marker if it belongs to every state',
     ).toEqual([]);
   });
 
@@ -1062,6 +1071,58 @@ describe('lifecycle marker — declarations', () => {
         subjects(':is(.p-status, .state-marker--shipped){font-size:1.1em}')[0],
         'a modifier inside :is() was not read as the subject',
       ).toContain('state-marker--shipped');
+    });
+
+    it('rejects whatever a modifier says on the element, not a list of properties', () => {
+      // The point of the rule being closed. `font-size` is what #967 recorded;
+      // `transform` scales the same box and `color` recolours a border and two
+      // fills that are all `currentcolor`. None of them is enumerated, and all
+      // of them are rejected — which is what stops this becoming another list
+      // that closes one case and leaves the shape.
+      const declarations = (css) => modifierElementDeclarations(analyze(css).rules);
+      for (const declaration of [
+        'font-size:1.1em',
+        'font:700 1.1em/1 Inter',
+        'zoom:1.2',
+        'transform:scale(1.2)',
+        'color:#888',
+        'letter-spacing:.2em',
+      ]) {
+        expect(
+          declarations(`.state-marker--shipped{${declaration}}`).length,
+          `a modifier declaring ${declaration} on the element was not rejected`,
+        ).toBe(1);
+      }
+      // Compound, and behind an at-rule: a modifier may not narrow the element
+      // at any width either.
+      expect(
+        declarations('.resume-entry__status.state-marker--shipped{font-size:1.1em}').length,
+        'a modifier narrowing a surface compound was not rejected',
+      ).toBe(1);
+      expect(
+        declarations('@media (min-width:700px){.state-marker--shipped{font-size:1.1em}}').length,
+        'a modifier element rule behind a media query was not rejected',
+      ).toBe(1);
+
+      // And the three shapes that must keep passing: the primitive's own
+      // element rule, a surface sizing its own label, and a modifier that is
+      // not the subject.
+      expect(
+        declarations('.state-marker{display:inline-flex;gap:.42em}'),
+        "the primitive's own element rule was rejected",
+      ).toEqual([]);
+      expect(
+        declarations('.resume-entry__status{font-size:7.5pt}'),
+        'a surface sizing its own status label was rejected',
+      ).toEqual([]);
+      expect(
+        declarations('.state-marker--shipped + .p-status{font-size:1.1em}'),
+        'a sibling of a modifier was rejected',
+      ).toEqual([]);
+      expect(
+        declarations('.state-marker--shipped::before{background-color:currentcolor}'),
+        "a modifier's own mark rule was rejected as an element rule",
+      ).toEqual([]);
     });
 
     it('reads every literal form a surface argument can take, and refuses the rest', () => {
