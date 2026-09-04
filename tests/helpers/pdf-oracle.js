@@ -249,13 +249,17 @@ export function visibleMarkersPerPage(pdfPath) {
  * #959 made the box `border-box`, so the padding eats into the fill and all
  * four are one size again — and one window does again what two had to.
  *
- * The window is deliberately not wide enough to swallow a geometry change —
- * `scale(1.25)` on a 14 px mark lands on 17 and misses it, which is the size
- * regression #958 found. A mark that drifts out of it stops being found, which fails the signature
+ * The window is deliberately not wide enough to swallow a geometry change, in
+ * either direction: `scale(1.25)` on a 14 px mark lands on 17 and `scaleY(0.8)`
+ * lands on 11, and both miss it. Collapsing two windows into one is where that
+ * symmetry is easy to lose — the first attempt kept detection's slack as
+ * classification's on both bounds, which re-admitted the scaled mark #958 had
+ * closed, and the second fixed the ceiling and left the floor a pixel loose
+ * (Codex, PR #963). A mark that drifts out of it stops being found, which fails the signature
  * comparison rather than passing quietly — and the declarations themselves are
  * asserted against the emitted stylesheet in resume.test.js § print stylesheet.
  */
-const MARK_MIN = STATUS_MARK_SIZE - 3;
+const MARK_MIN = STATUS_MARK_SIZE - 2;
 const MARK_MAX = STATUS_MARK_SIZE + 2;
 
 /**
