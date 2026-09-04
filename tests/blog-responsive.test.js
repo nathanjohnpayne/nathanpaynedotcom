@@ -3,6 +3,7 @@ import { readFileSync } from 'fs';
 import { dirname, relative, resolve, sep } from 'path';
 import { findFilesRecursively } from '../scripts/lib/blog-file-inventory.mjs';
 import { readBuiltStylesheet, writeSanitizedDOM } from './helpers/dom.js';
+import { printBlocks } from './helpers/print-css.js';
 
 // Astro content-hashes CSS into dist/_astro/*.css, so the shared helper
 // discovers the filenames and reads every emitted chunk rather than the first
@@ -147,6 +148,58 @@ describe('Blog Responsive Layout', () => {
       expect(css).toMatch(
         /@media print\{[\s\S]*?\.blog-postscript\{display:\s*none\s*!important\}/,
       );
+    });
+
+    it('pins the takeaway markers to print their fills, and leaves the panel out of it', () => {
+      // The markers are CSS backgrounds, and Chrome's print dialog leaves
+      // "Background graphics" off by default, so `background: #000 !important`
+      // alone had never reached paper — four squares per post, absent from
+      // every printed copy while the text and the indent survived (#953). The
+      // defect is invisible to every other kind of check here: no build
+      // artifact renders a blog post, so the assertion is against the emitted
+      // stylesheet, which is where #950 put the same claim for the lifecycle
+      // marks (tests/helpers/print-css.js explains why).
+      //
+      // The panel half is the decision, not a leftover. `print-color-adjust`
+      // is inherited, so `.blog-takeaways` would reach the markers below it
+      // and print an identical page — measured at the same four squares, the
+      // same 506 differing pixels, the same coordinates. All it would add is
+      // the panel's own `background: #fff`, which is the paper. What makes the
+      // block read as a panel on paper is its border, and a border is not a
+      // background, so it prints either way. The wider rule therefore buys no
+      // ink and costs scope: `exact` on a content block inherits to every
+      // future descendant, which is the "too wide" cost #950 had to rule out.
+      const blocks = printBlocks(css).filter((b) => b.includes('blog-takeaways'));
+      expect(blocks.length, 'no @media print block styles the takeaways').toBeGreaterThan(0);
+
+      // Every block and every selector in a comma-joined list, not the first
+      // match: a second blog print block sits behind a `.find()` and is never
+      // reached, and a selector merged into an existing list is invisible to a
+      // whole-block match. Same blind spot as #956.
+      const pinned = blocks.flatMap((block) =>
+        [...block.matchAll(/([^{}]+)\{[^{}]*print-color-adjust[^{}]*\}/g)]
+          .flatMap((m) => m[1].split(','))
+          .map((sel) => sel.trim())
+          .filter((sel) => sel.includes('blog-takeaways')),
+      );
+
+      // Control: "the panel does not declare it" is worthless as a lone
+      // assertion — an empty result satisfies it while meaning the scan
+      // matched nothing. Requiring the marker rule to be found is what makes
+      // the panel's absence evidence instead of silence.
+      expect(
+        pinned,
+        'the takeaway markers are not pinned to print their fills; without ' +
+          'print-color-adjust the background beside it never reaches paper (#953)',
+      ).toHaveLength(1);
+
+      // Single colon: the minifier emits the legacy `:before` form.
+      expect(
+        pinned[0],
+        `${pinned[0]} is not the marker — the panel prints as a bordered block, ` +
+          'not as a plane, so print-color-adjust belongs to the square whose fill ' +
+          'is a background and to nothing that contains it',
+      ).toMatch(/^\.blog-takeaways__list li::?before$/);
     });
   });
 

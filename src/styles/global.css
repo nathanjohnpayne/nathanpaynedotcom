@@ -4543,6 +4543,21 @@ svg.mermaid foreignObject p {
     display: none !important;
   }
 
+  /* The panel does NOT opt into printing its background, and that is a
+     decision rather than an omission (#953).
+
+     `print-color-adjust` is inherited, so setting it here would reach the
+     markers below and print the same page — measured: the same four squares,
+     the same 506 differing pixels, at the same coordinates as the narrow rule.
+     What the panel form would add is this `background: #fff`, which is the
+     paper, so it paints nothing. What makes this read as a panel on paper is
+     the border, and a border is not a background: blanking it moves 12,068 px
+     in the default render, so it is already printing either way.
+
+     So the wider rule buys no ink and costs scope — `exact` on a content block
+     inherits to every future descendant, which is the "too wide" cost #950 had
+     to rule out before unscoping the lifecycle rule. The property belongs to
+     the thing whose fill is a background. */
   .blog-takeaways {
     background: #fff !important;
     border: 1pt solid #000;
@@ -4556,8 +4571,15 @@ svg.mermaid foreignObject p {
     color: #000 !important;
   }
 
+  /* The square is a background, and Chrome's print dialog leaves "Background
+     graphics" off by default — so `background: #000` alone had never reached
+     paper on the path a reader actually takes. Same defect class as #925 and
+     #950, on a rule neither of them touched: four markers per post, missing
+     from every printed copy while the text and indent survived (#953). */
   .blog-takeaways__list li::before {
     background: #000 !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
   }
 
   .mermaid-figure {
@@ -6535,9 +6557,25 @@ body.resume-page {
 
   /* This rule had never had an effect before #925: the generator rendered
      with `printBackground: false`, so the square it forces to black was not
-     painted into the PDF at all. It is load-bearing now. */
+     painted into the PDF at all. It is load-bearing now — for the FILE.
+
+     `print-color-adjust: exact` is what carries it to the other printed
+     output, the one no build artifact exercises: a reader pressing Cmd-P,
+     where Chrome leaves "Background graphics" off by default and the
+     background is therefore not painted at all. #925 fixed the generator and
+     stopped there, so all eleven markers reached the downloadable PDF and none
+     of them reached the printed page — text and indent intact, the list no
+     longer reading as a list (#953).
+
+     Narrow by intent, like the lifecycle rule one block over: the property
+     belongs to the 6px square whose fill is a background, not to the canvas
+     that contains it. The rest of this cascade already forces white paper and
+     black text, so `exact` here paints bullets and nothing else — measured, at
+     11 of 11 markers on pages 1 and 2, page 3 pixel-identical. */
   .resume-prose ul li::before {
     background: #000 !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
   }
 
   /* Lifecycle marks: the `color: #000 !important` rule above resolves their

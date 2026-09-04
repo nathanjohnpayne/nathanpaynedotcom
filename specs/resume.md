@@ -125,7 +125,9 @@ The `resumeProjects` collection must remain separate from the existing
 
   **Print needs one extra declaration, and it is not this page's.** Three of the four marks *are* backgrounds—filled for `SHIPPED`, cored for `ARCHIVED`, half-filled for `EXPERIMENT`—and Chrome's print dialog leaves "Background graphics" off by default, which would collapse all four to the bare outline `PAUSED` uses. `@media print` therefore sets `print-color-adjust: exact` on `.state-marker::before`. Verified against a control: with the property reverted to `economy`, the same page renders every mark as an identical empty square.
 
-  That rule was scoped to `.resume-canvas .state-marker::before` when #944 introduced it, on the reasoning that the other three surfaces had never needed the concession and a site-wide `exact` would opt every tinted plane into printing. #950 unscoped it: `print-color-adjust` applies to the element it is set on, and that element is the 0.72em mark—so the narrow selector was buying nothing and costing the homepage, `/projects/`, and the detail page their vocabulary on paper. The résumé's print cascade now declares no `print-color-adjust` of its own, which `tests/resume.test.js` asserts, and the rule itself moved to `tests/lifecycle-marker.test.js` § print fidelity, alongside the vocabulary it belongs to.
+  That rule was scoped to `.resume-canvas .state-marker::before` when #944 introduced it, on the reasoning that the other three surfaces had never needed the concession and a site-wide `exact` would opt every tinted plane into printing. #950 unscoped it: `print-color-adjust` applies to the element it is set on, and that element is the 0.72em mark—so the narrow selector was buying nothing and costing the homepage, `/projects/`, and the detail page their vocabulary on paper. The rule itself moved to `tests/lifecycle-marker.test.js` § print fidelity, alongside the vocabulary it belongs to.
+
+  The résumé's own print cascade may declare `print-color-adjust` for exactly one thing, and it is not the mark: the bullet marker (see *`printBackground: true` in the generator* below). `tests/resume.test.js` asserts that set by enumeration rather than by absence—every print block, every selector in a comma-joined list, exactly one match and it is `.resume-prose ul li::before`. **Absence was the earlier form of that assertion and it could not survive this page needing the property for something else** (#953): "declares none" reads as a policy when what it guards is a residue copy of the lifecycle rule drifting back onto one surface, and the moment a second, legitimate `exact` rule exists the two claims stop being the same sentence. Reading the first block that mentions `resume-canvas` was the other half of the same weakness—a later résumé-specific block sits behind that lookup and is never reached (#956).
 
   The generator's own `printBackground: true` also paints them into the downloadable file, so the two mechanisms are redundant *there* and neither is provable from it—which is why the stylesheet rule is asserted directly, and `tests/resume.test.js` separately asserts that the marks reach the PDF inked. **That last assertion is content-dependent and the others deliberately are not (#948).** Only `SHIPPED` runs solid across the whole mark, so the ink oracle can count nothing on a page with no `SHIPPED` entry—and requiring one would make a lifecycle value mandatory in content, which the next paragraph forbids. So the checks that do not need one carry the weight: the print declaration above, each variant's own fill, and the `0.72em` box plus 1px border the oracle's geometry is derived from, all asserted against the emitted stylesheet. What no longer has a guard when nothing is `SHIPPED` is only the end-state claim that the fills reach the generated file; closing that would take a synthetic render, and this repository has already refused to own a Chromium-shaped PDF apparatus once.
 
@@ -314,6 +316,29 @@ recruiter-legible filename, for "attach your resume" forms and ATS pipelines
   to paint—`html`, `body.resume-page`, `.resume-canvas`, the header and the
   content column are forced to `#fff !important`, and every tinted surface is
   hidden outright.
+
+  **The flag fixes the file and only the file, so the print sheet also sets
+  `print-color-adjust: exact` on the marker (#953).** `printBackground` is a
+  parameter of *this generator*; the other printed output is a reader pressing
+  Cmd-P on `/resume/`, where Chrome leaves "Background graphics" off and no
+  build artifact exists to notice. Between #925 and #953 the downloadable PDF
+  carried all eleven markers and the printed page carried none—text and indent
+  intact, the list no longer reading as a list. That is the same sentence #944
+  wrote about the lifecycle marks one rule over, and the reason
+  `tests/resume.test.js` asserts the *stylesheet* here: the generated file
+  cannot distinguish a marker that prints because the CSS asks for it from one
+  that prints because `printBackground` painted it anyway.
+
+  The rule is narrow for the same reason #950's is: `print-color-adjust`
+  applies to the element it is set on, and that element is the 6px square. The
+  rest of this cascade already forces white paper and black text, so `exact`
+  there paints bullets and nothing else. Measured the same way #950 was—each
+  route rendered to PDF with `printBackground: false`, with and without the
+  rule, rasterised at 150dpi and diffed pixel by pixel: the two rasters differ
+  in exactly 11 solid squares in the bullet gutter, 7 on page 1 and 4 on page
+  2, and are pixel-identical on page 3 and everywhere else. Eleven is the whole
+  population—the page has exactly eleven `.resume-prose ul li`, the same count
+  as the `6 6 re f` operators above.
 - The PDF is an asset, not a route—`@astrojs/sitemap` does not list it.
 - The on-page affordance is `.resume-download` inside `.resume-actions`, placed
   after the header contact block and hidden in `@media print`. Clicking it
