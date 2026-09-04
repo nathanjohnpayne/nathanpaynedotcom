@@ -16,11 +16,12 @@ import { PROJECTS_HEADING } from '../src/lib/section-propositions';
 import { parseFrontmatter } from '../scripts/lib/parse-frontmatter.mjs';
 import { findFilesRecursively } from '../scripts/lib/blog-file-inventory.mjs';
 import { liveLinkLabel } from '../src/lib/live-link-label';
+import { STATUS_MARKER } from '../src/lib/lifecycle-marker';
 import {
   pdfTextInEmissionOrder,
   pdfPageCount,
   visibleMarkersPerPage,
-  filledLifecycleMarksPerPage,
+  lifecycleMarkSignaturesPerPage,
   normalizeForOrder,
 } from './helpers/pdf-oracle.js';
 import {
@@ -890,20 +891,29 @@ describe('Resume — print stylesheet', () => {
   });
 
   it('declares the mark fills, and the geometry the PDF ink oracle measures', () => {
-    // #948, answering a gap the PDF ink assertion cannot close on its own.
-    // That assertion counts fully-solid marks in the rendered file, so it can
-    // only run while the page carries a SHIPPED entry — and which lifecycle
-    // states appear is ordinary content. Two of the failures it would otherwise
-    // be the only guard for are not content-dependent at all, and belong here:
+    // #948. The declarations the PDF oracle reads, pinned where they can fail
+    // without a render. Two failures live here rather than in the ink
+    // assertion, and both would otherwise be invisible until something else
+    // broke:
     //
-    //   1. A broken variant selector. Delete the `--shipped` fill and the
-    //      print-color-adjust rule above still passes, `printBackground` still
-    //      paints backgrounds, and every mark prints as the same outline.
+    //   1. A broken variant selector. Delete the `--shipped` fill and nothing
+    //      upstream objects — `printBackground` still paints backgrounds and
+    //      `print-color-adjust` still forces them — while every mark prints as
+    //      the same outline. The ink assertion does catch this, and catching it
+    //      twice is the point: this one names the rule, in the file that
+    //      declares it, without needing a rendered page to say so.
     //   2. Drifted geometry. `STATUS_MARK_SIZE` in tests/helpers/pdf-oracle.js
     //      is DERIVED from these declarations — 0.72em of the 7.5pt kicker plus
-    //      a 1px border each side. Change them and the oracle measures the
-    //      wrong column, which is the failure mode where a counter reports a
-    //      confident number about the wrong thing.
+    //      a 1px border each side — and the classifier's size window is built
+    //      around it. Change them and the oracle looks at the wrong column,
+    //      which is the failure mode where a check reports a confident answer
+    //      about the wrong thing.
+    //
+    // Note what the border-plus-box derivation does NOT cover: `--archived`
+    // also carries `padding: 0.1em`, which grows its box for the same reason
+    // the border does, so that one mark renders larger than its three peers.
+    // That is a shipped inconsistency rather than a test problem (#959); the
+    // oracle's window is wide enough for both it and a corrected version.
     //
     // Read from the screen cascade, not a print block: these are the base
     // declarations both surfaces inherit.
@@ -1388,10 +1398,10 @@ describe('Resume — PDF reading order and markers', () => {
     ).toBe(0);
   });
 
-  it('paints the lifecycle marks with their fills, not as bare outlines', () => {
-    // #944. The end-state invariant for the downloadable file: the marks are
-    // inked on paper, so the four states are told apart there and not only on
-    // screen.
+  it('paints each lifecycle mark as the variant it declares', () => {
+    // #944, reshaped in #957. The end-state invariant for the downloadable
+    // file: the marks are inked on paper, so the four states are told apart
+    // there and not only on screen.
     //
     // Two independent mechanisms produce that ink, and this asserts the
     // result rather than either one. `printBackground: true` in the generator
@@ -1403,56 +1413,69 @@ describe('Resume — PDF reading order and markers', () => {
     // rule has its own assertion in § print stylesheet, where it can actually
     // fail.
     //
-    // SHIPPED is the only variant that runs solid across the full mark: the
-    // cored ARCHIVED and half-filled EXPERIMENT leave paper inside their
-    // borders, exactly like a hollow PAUSED. Hence the count comes from the
-    // page's own SHIPPED entries rather than from all seven marks.
-    //
-    // The floor below is the page carrying marks AT ALL, not carrying a SHIPPED
-    // one (#948). Requiring SHIPPED made one lifecycle value effectively
-    // mandatory in content: specs/resume.md deliberately pins no mix and calls a
-    // lifecycle flip an ordinary edit, so the last SHIPPED project moving to
-    // another state would have failed a required check with every mark rendered
-    // correctly. What the floor has to catch is the section or its kicker
-    // disappearing, which is what would otherwise make the equality below a
-    // vacuous 0 === 0 — and a mark count catches that without pinning a value.
-    //
-    // When the page genuinely carries no SHIPPED entry the equality is 0 === 0
-    // and this assertion stops discriminating. That is a real loss, and the
-    // response to it was to move what CAN be checked without a SHIPPED entry
-    // out of here rather than to claim the loss away (Codex, PR #951). Four
-    // things then still fail on their own, none of them content-dependent:
-    // `printBackground` (the bullet-marker test above, #925), the
-    // `print-color-adjust` rule, the per-variant fills, and the mark geometry
-    // this oracle's constants are derived from — the last three in § print
-    // stylesheet. What no longer has a guard in that state is only the
-    // end-state claim itself, that the fills reach the generated file; closing
-    // that would need a synthetic render, which means Chromium inside the unit
-    // suite, and the file's own history says a Chromium-shaped PDF apparatus
-    // here is the trade to refuse.
-    const marks = document.querySelectorAll('#projects .state-marker').length;
+    // **It compares signatures, not a count, and that is what makes it
+    // content-independent.** The oracle used to count marks running solid edge
+    // to edge, which only SHIPPED does — so the assertion could only run while
+    // the page carried a SHIPPED project. #948 removed the floor that made one
+    // mandatory, because specs/resume.md deliberately pins no lifecycle mix and
+    // calls a flip an ordinary content edit; what that left was an equality
+    // that went `0 === 0` on a page with no SHIPPED entry (#957). Reading each
+    // mark's own signature closes it: whatever states the page holds, every
+    // mark owes the one its class declares. Drop the backgrounds and every
+    // filled variant reads hollow and fails here. On a page whose marks are
+    // ALREADY all hollow, dropping them changes nothing about the file, and
+    // passing is then correct rather than vacuous.
+    const marks = [...document.querySelectorAll('#projects .state-marker')];
     expect(
-      marks,
+      marks.length,
       'no lifecycle marks on the page at all — the Projects kicker is gone, and ' +
-        'every count below would be 0 for that reason rather than a rendering one',
+        'every signature below would be missing for that reason rather than a rendering one',
     ).toBeGreaterThan(0);
-    const shipped = document.querySelectorAll('#projects .state-marker--shipped').length;
 
-    const built = filledLifecycleMarksPerPage(BUILT_PDF);
+    // What each variant is drawn as, keyed by the modifier `stateMarkerClass`
+    // emits. PAUSED and IN PROGRESS share the bare outline by design, and a
+    // status with no modifier falls through to the same outline — so the map is
+    // over the four MARKS, and every modifier the vocabulary can emit has to
+    // land in it. A fifth variant with a fill of its own would otherwise be
+    // silently expected to look hollow.
+    const SIGNATURE = {
+      shipped: 'solid',
+      archived: 'cored',
+      experiment: 'half',
+      paused: 'hollow',
+      'in-progress': 'hollow',
+    };
     expect(
-      built.reduce((a, b) => a + b, 0),
-      `the rendered PDF shows ${built} filled lifecycle marks for ${shipped} SHIPPED ` +
-        `projects — check both printBackground in src/integrations/resume-pdf.mjs and ` +
-        `print-color-adjust on .resume-canvas .state-marker::before in @media print (#944).`,
-    ).toBe(shipped);
+      Object.values(STATUS_MARKER).filter((modifier) => !(modifier in SIGNATURE)),
+      'a lifecycle modifier has no expected mark signature — see src/lib/lifecycle-marker.ts',
+    ).toEqual([]);
 
-    // The control. The fixture predates the kicker, so a counter that fired on
-    // anything mark-shaped — a bullet, a glyph — would light up here.
+    const declared = marks.map((el) => {
+      const modifier = [...el.classList]
+        .find((c) => c.startsWith('state-marker--'))
+        ?.replace('state-marker--', '');
+      return modifier ? SIGNATURE[modifier] : 'hollow';
+    });
+
     expect(
-      filledLifecycleMarksPerPage(KNOWN_BAD_PDF).reduce((a, b) => a + b, 0),
+      lifecycleMarkSignaturesPerPage(BUILT_PDF).flat(),
+      `the rendered PDF does not paint the marks the page declares — check both ` +
+        `printBackground in src/integrations/resume-pdf.mjs and print-color-adjust on the ` +
+        `lifecycle mark in @media print (#944)`,
+    ).toEqual(declared);
+
+    // The control. The fixture predates the kicker entirely, so a classifier
+    // that fired on anything mark-shaped — a bullet, a glyph, a rule — would
+    // light up here. It is the same control the count had, and it still only
+    // proves the oracle does not over-report; that the oracle can FAIL is
+    // established by the § print stylesheet assertions on the declarations it
+    // reads, and was verified directly by reverting each variant's fill in turn
+    // and watching this comparison fail on that variant alone (#957).
+    expect(
+      lifecycleMarkSignaturesPerPage(KNOWN_BAD_PDF).flat(),
       'the known-bad fixture reports lifecycle marks it does not contain, so this ' +
         'check does not discriminate',
-    ).toBe(0);
+    ).toEqual([]);
   });
 
   it('still lands on three pages', () => {

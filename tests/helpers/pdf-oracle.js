@@ -232,40 +232,179 @@ export function visibleMarkersPerPage(pdfPath) {
 }
 
 /**
- * How many lifecycle marks are painted with their **fill** on each rendered
- * page (#944).
+ * Nominal mark box, and the slack the classifier allows around it.
+ *
+ * Three sources of slack, all measured against the built file rather than
+ * assumed: antialiasing puts the left edge on `MARKER_X` or `MARKER_X + 1`
+ * depending on the fill; `STATUS_MARK_SIZE` is a rounded derivation, not a
+ * measurement; and the cored `ARCHIVED` variant is genuinely **larger than the
+ * other three** — `padding: 0.1em` adds to the box for the same reason its
+ * border does, since the `box-sizing: border-box` reset selects `*` and does
+ * not match a pseudo-element. Measured on the built résumé: 14 device px for
+ * `PAUSED` and `EXPERIMENT`, 15 for `SHIPPED`, 17 for `ARCHIVED`.
+ *
+ * The window is deliberately not wide enough to swallow a geometry change. A
+ * mark that drifts out of it stops being found, which fails the signature
+ * comparison rather than passing quietly — and the declarations themselves are
+ * asserted against the emitted stylesheet in resume.test.js § print stylesheet.
+ */
+const MARK_MIN = STATUS_MARK_SIZE - 3;
+const MARK_MAX = STATUS_MARK_SIZE + 6;
+
+/**
+ * Is every pixel across the mark column dark on this row?
+ *
+ * The width is the mark's, not the bullet's, and that is what makes this a
+ * lifecycle-mark detector rather than a marker detector: a bullet is 9 device
+ * px wide against the mark's 14, both starting at the page margin, so a
+ * bullet's rows leave the last five columns on paper and never satisfy this.
+ * Inset by a pixel at each edge, like `solidRuns`, so antialiasing at the
+ * border cannot decide the answer.
+ *
+ * @param {ReturnType<typeof readPgm>} page
+ * @param {number} y
+ * @returns {boolean}
+ */
+function markRow(page, y) {
+  if (y < 0 || y >= page.height) return false;
+  for (let x = MARKER_X + 1; x < MARKER_X + STATUS_MARK_SIZE - 1; x += 1) {
+    if (page.pixel(x, y) >= 100) return false;
+  }
+  return true;
+}
+
+/**
+ * The dark span containing the mark column on one row, as `[from, to)`.
+ *
+ * Walks outward from inside the column rather than assuming an edge, because
+ * the left edge lands on a different pixel for a filled mark than for a hollow
+ * one and the cored variant is wider than both.
+ *
+ * @param {ReturnType<typeof readPgm>} page
+ * @param {number} y
+ * @returns {{ from: number, to: number }}
+ */
+function darkSpan(page, y) {
+  let from = MARKER_X + 1;
+  while (from > 0 && page.pixel(from - 1, y) < 100) from -= 1;
+  let to = MARKER_X + STATUS_MARK_SIZE - 1;
+  while (to < page.width && page.pixel(to, y) < 100) to += 1;
+  return { from, to };
+}
+
+/**
+ * The mark box opening at row `top`, or `null` if nothing closes into one.
+ *
+ * A mark is a rectangle, so it is found by requiring one: a fully-dark row that
+ * opens it, a fully-dark row that closes it at a plausible height, and the same
+ * horizontal extent on both. `SHIPPED` satisfies this with every row between
+ * them dark too; the other three satisfy it with a top and bottom border and
+ * paper in between. Bold text at the page margin can produce a stray fully-dark
+ * row — the built résumé has one — and is rejected here because nothing closes
+ * it.
+ *
+ * @param {ReturnType<typeof readPgm>} page
+ * @param {number} top
+ * @returns {{ top: number, bottom: number, from: number, to: number } | null}
+ */
+function markBoxAt(page, top) {
+  const span = darkSpan(page, top);
+  const width = span.to - span.from;
+  if (width < MARK_MIN || width > MARK_MAX) return null;
+  for (let height = MARK_MIN; height <= MARK_MAX; height += 1) {
+    const bottom = top + height - 1;
+    if (!markRow(page, bottom) || markRow(page, bottom + 1)) continue;
+    const closing = darkSpan(page, bottom);
+    if (Math.abs(closing.from - span.from) > 1 || Math.abs(closing.to - span.to) > 1) continue;
+    return { top, bottom, from: span.from, to: span.to };
+  }
+  return null;
+}
+
+/**
+ * Which of the four marks this box is painted as, read off its middle row.
+ *
+ * The CSS draws four signatures and they separate cleanly in ink, so the
+ * classifier reads the signature rather than counting one of them:
+ *
+ * | Variant      | Middle row                    | Dark runs |
+ * |--------------|-------------------------------|-----------|
+ * | `SHIPPED`    | solid edge to edge            | 1         |
+ * | `ARCHIVED`   | border, paper ring, fill, ring, border | 3  |
+ * | `EXPERIMENT` | left half filled, then paper  | 2, first wide |
+ * | `PAUSED`     | border, paper, border         | 2, first thin |
+ *
+ * `EXPERIMENT` and a hollow mark are told apart by how much of the row the
+ * first run covers — 43% against 7% on the built file, so the third of the
+ * width used here sits in a gap neither is near.
+ *
+ * @param {ReturnType<typeof readPgm>} page
+ * @param {{ top: number, bottom: number, from: number, to: number }} box
+ * @returns {'solid' | 'cored' | 'half' | 'hollow' | 'unrecognised'}
+ */
+function markSignature(page, box) {
+  const middle = Math.round((box.top + box.bottom) / 2);
+  const runs = [];
+  let start = null;
+  for (let x = box.from; x <= box.to; x += 1) {
+    const dark = x < box.to && page.pixel(x, middle) < 100;
+    if (dark && start === null) start = x;
+    else if (!dark && start !== null) {
+      runs.push(x - start);
+      start = null;
+    }
+  }
+  if (runs.length === 1) return 'solid';
+  if (runs.length === 3) return 'cored';
+  if (runs.length === 2) return runs[0] * 3 >= box.to - box.from ? 'half' : 'hollow';
+  return 'unrecognised';
+}
+
+/**
+ * How each lifecycle mark is actually **painted** on each rendered page
+ * (#944, #957).
  *
  * Presence is not the invariant here; ink is. Three of the four marks are CSS
  * *backgrounds* — filled for `SHIPPED`, cored for `ARCHIVED`, half-filled for
  * `EXPERIMENT` — and only the 1px outline is a border, so a renderer that
  * drops backgrounds leaves every mark at the right size in the right place and
  * collapses four states into one, with nothing missing from the file. That is
- * the #925 shape again and it needs the #925 answer: ask the rendered page for
- * ink rather than the file for rectangles.
+ * the #925 shape and it needs the #925 answer: ask the rendered page for ink
+ * rather than the file for rectangles.
  *
- * **What this can and cannot fail on.** Two mechanisms paint those backgrounds
+ * **Why this reports signatures rather than a count.** It used to count the
+ * marks that ran solid edge to edge, which only `SHIPPED` does — so the
+ * assertion built on it could only run while the page carried a `SHIPPED`
+ * project, and specs/resume.md deliberately pins no lifecycle mix (#948, #957).
+ * Classifying each mark instead removes the coupling completely: whatever
+ * states the page holds, every mark owes its own signature, and a page of
+ * nothing but hollow marks asserts that they are hollow rather than asserting
+ * nothing. A renderer that drops the backgrounds turns every filled variant
+ * hollow and fails — and on a page where every variant is *already* hollow it
+ * changes nothing about the file, so passing is correct rather than vacuous.
+ *
+ * **What it still cannot fail on.** Two mechanisms paint those backgrounds
  * into the generated PDF — `printBackground: true` in the generator and
- * `print-color-adjust: exact` in the résumé's `@media print` — and either one
- * alone is sufficient, so removing just one leaves this count unchanged. It is
- * an end-state assertion about the shipped file, not a guard for either
- * property; the stylesheet rule is asserted directly in resume.test.js
- * § print stylesheet. Nor does it prove the four variants stay distinguishable
- * from one another — that was verified by rendering the page with the property
- * reverted to `economy`, which produced four identical outlines.
- *
- * Only `SHIPPED` runs dark across the mark's full width: `ARCHIVED` holds a
- * paper ring inside its border and `EXPERIMENT` leaves its right half blank,
- * so both fall to the same thin border rows a hollow `PAUSED` gives.
+ * `print-color-adjust: exact` in `@media print` — and either alone suffices,
+ * so removing just one leaves these signatures unchanged. This is an assertion
+ * about the shipped file, not a guard for either property; the stylesheet rule
+ * has its own assertion in resume.test.js § print stylesheet.
  *
  * @param {string} pdfPath
- * @returns {number[]} filled lifecycle marks, one entry per page
+ * @returns {string[][]} one array of signatures per page, in reading order
  */
-export function filledLifecycleMarksPerPage(pdfPath) {
-  return eachRenderedPage(
-    pdfPath,
-    (page) =>
-      solidRuns(page, STATUS_MARK_SIZE).filter((r) => r.height >= STATUS_MARK_SIZE - 3).length,
-  );
+export function lifecycleMarkSignaturesPerPage(pdfPath) {
+  return eachRenderedPage(pdfPath, (page) => {
+    const signatures = [];
+    for (let y = 0; y < page.height; y += 1) {
+      if (!markRow(page, y) || markRow(page, y - 1)) continue;
+      const box = markBoxAt(page, y);
+      if (!box) continue;
+      signatures.push(markSignature(page, box));
+      y = box.bottom;
+    }
+    return signatures;
+  });
 }
 
 /**
