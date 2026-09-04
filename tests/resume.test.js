@@ -943,8 +943,14 @@ describe('Resume — print stylesheet', () => {
     expect(rule('.state-marker--archived'), 'ARCHIVED lost its cored fill').toMatch(
       /background-color:\s*currentcolor/i,
     );
+    // The stop, not merely that a gradient is there. A gradient drifted to any
+    // other stop still renders as two runs with a wide first one, and the PDF
+    // classifier deliberately reads that window coarsely so a pixel of
+    // antialiasing cannot fail a required check — which left "half filled"
+    // pinned by neither check (Codex, PR #958). It is an exact value, so it
+    // belongs where it can be compared exactly.
     expect(rule('.state-marker--experiment'), 'EXPERIMENT lost its half fill').toMatch(
-      /background-image:\s*linear-gradient/i,
+      /background-image:\s*linear-gradient\(90deg,\s*currentcolor\s+0\s+50%,\s*[^,)]+\s+50%\)/i,
     );
   });
 

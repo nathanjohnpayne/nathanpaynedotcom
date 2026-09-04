@@ -1157,7 +1157,7 @@ html[data-fonts-pending] .panel-label {
    Asserted in tests/lifecycle-marker.test.js, not in the résumé PDF: the
    generator sets `printBackground: true`, which paints the same fills, so the
    built file cannot tell the two mechanisms apart (tests/helpers/pdf-oracle.js
-   § filledLifecycleMarksPerPage). The path this rule exists for — a reader
+   § lifecycleMarkSignaturesPerPage). The path this rule exists for — a reader
    pressing Cmd-P — is one no build artifact exercises. */
 @media print {
   .state-marker::before {

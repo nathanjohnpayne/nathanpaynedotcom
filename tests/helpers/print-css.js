@@ -8,7 +8,7 @@ import { readBuiltStylesheet } from './dom.js';
  * artifact to read. The résumé PDF is the only printed output this repo
  * builds, and the generator writes it with `printBackground: true`, which
  * paints backgrounds whether or not the stylesheet asks for them; see
- * tests/helpers/pdf-oracle.js § filledLifecycleMarksPerPage for why that makes
+ * tests/helpers/pdf-oracle.js § lifecycleMarkSignaturesPerPage for why that makes
  * the file blind to exactly the rules asserted here.
  *
  * Lifted out of tests/resume.test.js in #950, when a second test file needed

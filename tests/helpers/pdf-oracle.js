@@ -252,6 +252,19 @@ const MARK_MIN = STATUS_MARK_SIZE - 3;
 const MARK_MAX = STATUS_MARK_SIZE + 6;
 
 /**
+ * How much of a two-run mark's middle row the first run covers, per variant.
+ *
+ * Measured on the built résumé: 43% for the half-filled `EXPERIMENT` against 7%
+ * for a hollow `PAUSED`. The half window is closed at both ends on purpose —
+ * see `markSignature` — and the gap between `HOLLOW_MAX` and `HALF_MIN` is
+ * where a drifted gradient lands, reported as `unrecognised` rather than
+ * rounded to whichever variant is nearer.
+ */
+const HOLLOW_MAX = 1 / 5;
+const HALF_MIN = 1 / 3;
+const HALF_MAX = 2 / 3;
+
+/**
  * Is every pixel across the mark column dark on this row?
  *
  * The width is the mark's, not the bullet's, and that is what makes this a
@@ -331,12 +344,32 @@ function markBoxAt(page, top) {
  * |--------------|-------------------------------|-----------|
  * | `SHIPPED`    | solid edge to edge            | 1         |
  * | `ARCHIVED`   | border, paper ring, fill, ring, border | 3  |
- * | `EXPERIMENT` | left half filled, then paper  | 2, first wide |
+ * | `EXPERIMENT` | left half filled, then paper  | 2, first ~half |
  * | `PAUSED`     | border, paper, border         | 2, first thin |
  *
- * `EXPERIMENT` and a hollow mark are told apart by how much of the row the
- * first run covers — 43% against 7% on the built file, so the third of the
- * width used here sits in a gap neither is near.
+ * The two-run cases are told apart by how much of the row the first run
+ * covers, and `EXPERIMENT` is bounded on **both** sides rather than given a
+ * floor. A floor alone accepts a gradient that has drifted to any larger stop —
+ * an 80% fill covers 74% of the box and would still have read as "half", while
+ * the companion stylesheet assertion only requires *a* `linear-gradient`, so
+ * both checks would pass on a mark that is no longer half filled (Codex,
+ * PR #958). Measured on the built file: 43% for `EXPERIMENT` against 7% for a
+ * hollow mark, with the nominal figure 50% — the left border is inside the run
+ * and the right border is not, which very nearly cancels.
+ *
+ * A two-run mark that lands outside both windows is reported as
+ * `unrecognised` rather than rounded to the nearer variant.
+ *
+ * **The half window is coarse on purpose, and it is not where the 50% stop is
+ * pinned.** The gradient percentage does not map onto the box linearly enough
+ * to bound tightly: measured, a 50% stop fills 43% of the box and an 80% stop
+ * fills 57%, because the left border is inside the run and the fill's right
+ * edge loses a pixel to antialiasing. A window tight enough to reject 80%
+ * would sit within a pixel of the nominal value and could fail a required
+ * check on a rendering difference. So the exact stop is asserted against the
+ * emitted stylesheet in resume.test.js § print stylesheet, where it compares
+ * exactly, and this window does the job a render check can do robustly:
+ * telling a half-filled mark from a hollow, solid or cored one.
  *
  * @param {ReturnType<typeof readPgm>} page
  * @param {{ top: number, bottom: number, from: number, to: number }} box
@@ -356,7 +389,11 @@ function markSignature(page, box) {
   }
   if (runs.length === 1) return 'solid';
   if (runs.length === 3) return 'cored';
-  if (runs.length === 2) return runs[0] * 3 >= box.to - box.from ? 'half' : 'hollow';
+  if (runs.length === 2) {
+    const covered = runs[0] / (box.to - box.from);
+    if (covered >= HALF_MIN && covered <= HALF_MAX) return 'half';
+    if (covered <= HOLLOW_MAX) return 'hollow';
+  }
   return 'unrecognised';
 }
 
