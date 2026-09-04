@@ -255,7 +255,23 @@ describe('lifecycle marker — declarations', () => {
   };
 
   /** The `::before` / `:before` tail; the minifier emits the legacy form. */
-  const PSEUDO = /::?before$/;
+  const PSEUDO = /::?before(?![\w-])/;
+
+  /**
+   * Every class name anywhere in a selector, as whole tokens.
+   *
+   * Anywhere, including inside `:is()` and `:where()`. Reading only the last
+   * compound and dropping everything from its first `:` reduced
+   * `.resume :is(.state-marker--paused)::before` to an empty string, so the
+   * rule was not collected at all and a fill or geometry override behind a
+   * functional pseudo-class passed the whole suite (CodeRabbit, PR #964).
+   *
+   * Whole tokens, so `.state-marker` does not match `.state-marker--shipped`:
+   * the two are different class names, and the base rule's expectations are not
+   * the variants'.
+   */
+  const classesIn = (selector) =>
+    [...selector.matchAll(/\.(-?[_a-zA-Z][\w-]*)/g)].map((match) => match[1]);
 
   /** Every rule in the screen cascade, with its selector list split out. */
   function screenRules() {
@@ -277,11 +293,17 @@ describe('lifecycle marker — declarations', () => {
    * passed while a surface overrode the primitive (CodeRabbit and Codex,
    * PR #964).
    *
-   * So the match is on the last compound selector — the part after the final
-   * combinator, with any pseudo-class tail dropped — and it asks whether that
-   * compound carries the class. `.state-marker` therefore does not match
-   * `.state-marker--shipped::before`, since the compound's class list holds the
-   * modifier and not the primitive.
+   * So a rule is **collected broadly and rejected narrowly**: any `::before`
+   * rule whose selector names the class at all is picked up, and
+   * `expectUnqualified` then requires it to be the bare primitive. Working out
+   * which compound a selector really targets is what produced two holes in a
+   * row — exact equality missed descendants and compounds, reading the last
+   * compound missed `:is()` — while the broad form has none to miss.
+   *
+   * The trade is a selector naming the mark as an ANCESTOR of some other
+   * element's `::before`, which this rejects. Nothing is nested inside the mark
+   * — it is a leaf pseudo-element on the status element — so that selector
+   * cannot occur here, and failing loudly on one is the safe direction.
    *
    * Scoped to `::before` deliberately. The mark is a pseudo-element; the
    * element itself carries the status word and each surface legitimately styles
@@ -293,12 +315,7 @@ describe('lifecycle marker — declarations', () => {
     for (const rule of screenRules()) {
       for (const selector of rule.selectors) {
         if (!PSEUDO.test(selector)) continue;
-        const compound = selector
-          .split(/[\s>+~]+/)
-          .pop()
-          .replace(PSEUDO, '')
-          .split(':')[0];
-        if (!compound.split('.').filter(Boolean).includes(className)) continue;
+        if (!classesIn(selector).includes(className)) continue;
         found.push({ selector, body: rule.body });
       }
     }
