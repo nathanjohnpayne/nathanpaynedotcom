@@ -1,7 +1,10 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'fs';
 import { relative, resolve } from 'path';
-import { findBlogMarkdownFiles, findFilesRecursively } from '../scripts/lib/blog-file-inventory.mjs';
+import {
+  findBlogMarkdownFiles,
+  findFilesRecursively,
+} from '../scripts/lib/blog-file-inventory.mjs';
 import { parseFrontmatter } from '../scripts/lib/parse-frontmatter.mjs';
 
 const configSource = readFileSync(resolve(__dirname, '../src/content.config.ts'), 'utf-8');
@@ -16,12 +19,12 @@ const markdownFiles = findBlogMarkdownFiles(contentDir).map((filePath) => ({
 // comment, epic #759) — glob both here rather than reusing
 // findBlogMarkdownFiles, which is hardcoded to `.md` only.
 const projectsDir = resolve(__dirname, '../src/content/projects');
-const projectFiles = findFilesRecursively(projectsDir, (filePath) =>
-  /\.mdx?$/.test(filePath),
-).map((filePath) => ({
-  name: relative(projectsDir, filePath),
-  content: readFileSync(filePath, 'utf-8'),
-}));
+const projectFiles = findFilesRecursively(projectsDir, (filePath) => /\.mdx?$/.test(filePath)).map(
+  (filePath) => ({
+    name: relative(projectsDir, filePath),
+    content: readFileSync(filePath, 'utf-8'),
+  }),
+);
 
 function collectionSource(collectionName) {
   const startMatch = configSource.match(
@@ -161,7 +164,10 @@ describe('Content Schema', () => {
       if (!fm || !('liveLabel' in fm)) continue;
       labelled += 1;
       expect(typeof fm.liveLabel, `${file.name}: liveLabel must be a string`).toBe('string');
-      expect(fm.liveLabel.trim().length, `${file.name}: liveLabel must be non-empty`).toBeGreaterThan(0);
+      expect(
+        fm.liveLabel.trim().length,
+        `${file.name}: liveLabel must be non-empty`,
+      ).toBeGreaterThan(0);
       expect(fm.liveUrl, `${file.name}: liveLabel without liveUrl`).toBeTruthy();
     }
     // Control: the loop above is vacuous if nothing declares the field, and a

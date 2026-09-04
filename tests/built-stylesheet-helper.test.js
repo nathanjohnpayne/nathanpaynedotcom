@@ -115,15 +115,11 @@ describe('readBuiltStylesheet (#932)', () => {
     // chunk, linked by all 37 pages — so rather than leave the assumption
     // implicit, this fails the moment it stops holding. See #935 for reading
     // each page's own <link> set instead, which is what the split would need.
-    const emitted = new Set(
-      readdirSync(resolve(DIST, '_astro')).filter((f) => f.endsWith('.css')),
-    );
+    const emitted = new Set(readdirSync(resolve(DIST, '_astro')).filter((f) => f.endsWith('.css')));
     expect(emitted.size, 'no stylesheet emitted').toBeGreaterThan(0);
 
     for (const { route, html } of builtPages()) {
-      const linked = new Set(
-        [...html.matchAll(/href="\/_astro\/([^"]+\.css)"/g)].map((m) => m[1]),
-      );
+      const linked = new Set([...html.matchAll(/href="\/_astro\/([^"]+\.css)"/g)].map((m) => m[1]));
       // Pages with no stylesheet at all are not the case this guards.
       if (linked.size === 0) continue;
       expect(

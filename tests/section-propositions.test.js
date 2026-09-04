@@ -32,7 +32,11 @@ describe('section propositions', () => {
   it('reaches the surfaces that render it', () => {
     // The control for the guard above: a zero-hit search proves nothing unless
     // the same walk demonstrably reaches the files that should import it.
-    const consumers = ['pages/projects/index.astro', 'pages/og-templates/projects.astro', 'components/resume/ProjectsSection.astro'];
+    const consumers = [
+      'pages/projects/index.astro',
+      'pages/og-templates/projects.astro',
+      'components/resume/ProjectsSection.astro',
+    ];
     const walked = findFilesRecursively(SRC, (f) => /\.(astro|ts|js|mjs)$/.test(f)).map((f) =>
       relative(SRC, f),
     );

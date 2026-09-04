@@ -631,7 +631,9 @@ describe('Project Pages — render', () => {
     const markFor = (slug) => {
       setupDOM(readDistHtml(`projects/${slug}/index.html`));
       const cell = document.querySelector('.metadata-strip__status');
-      return [...cell.classList].find((c) => c.startsWith('state-marker--')) ?? 'state-marker--none';
+      return (
+        [...cell.classList].find((c) => c.startsWith('state-marker--')) ?? 'state-marker--none'
+      );
     };
     expect(markFor('device-source-of-truth')).not.toBe(markFor('matchline'));
   });
@@ -1190,9 +1192,10 @@ describe('Matchline — audited claims stay retracted (#756)', () => {
       resolve(__dirname, '../src/content/resume/projects/matchline.md'),
       'utf-8',
     );
-    expect(resumeMirror, 'the resume mirror must not reassert the broad grounding claim').not.toMatch(
-      /grounded in what the (?:candidate|user) has actually done/i,
-    );
+    expect(
+      resumeMirror,
+      'the resume mirror must not reassert the broad grounding claim',
+    ).not.toMatch(/grounded in what the (?:candidate|user) has actually done/i);
   });
 
   it('does not claim the validation layer is untested against fabrication', () => {
@@ -1352,7 +1355,9 @@ describe('Projects index — portfolio thesis (#751)', () => {
     // Explicitly assert the order is NOT any of the mechanical sorts, so a
     // future "tidy-up" that happens to produce one of them fails here.
     const byTitle = [...orders].sort((a, b) => a.title.localeCompare(b.title)).map((p) => p.title);
-    const byStatus = [...orders].sort((a, b) => a.status.localeCompare(b.status)).map((p) => p.title);
+    const byStatus = [...orders]
+      .sort((a, b) => a.status.localeCompare(b.status))
+      .map((p) => p.title);
     expect(orders.map((p) => p.title)).not.toEqual(byTitle);
     expect(orders.map((p) => p.title)).not.toEqual(byStatus);
   });
@@ -1369,7 +1374,9 @@ describe('Projects index — portfolio thesis (#751)', () => {
       const line = cardLine(data);
       expect(line, `${file} has no card line`).toBeTruthy();
       expect(line, `${file} card line reads as a stack summary`).not.toMatch(stackish);
-      expect(line.length, `${file} card line is too short to carry a proof point`).toBeGreaterThan(90);
+      expect(line.length, `${file} card line is too short to carry a proof point`).toBeGreaterThan(
+        90,
+      );
     }
   });
 
@@ -1395,9 +1402,10 @@ describe('Projects index — portfolio thesis (#751)', () => {
     for (const file of projectSourceFiles()) {
       const data = readProjectFrontmatter(file);
       if (['PAUSED', 'ARCHIVED'].includes(data.status)) {
-        expect(cardLine(data), `${file} is ${data.status} but its card reads as running`).not.toMatch(
-          runningVerbs,
-        );
+        expect(
+          cardLine(data),
+          `${file} is ${data.status} but its card reads as running`,
+        ).not.toMatch(runningVerbs);
       }
     }
   });

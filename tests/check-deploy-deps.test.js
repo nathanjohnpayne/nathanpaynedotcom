@@ -505,7 +505,12 @@ describe('check-deploy-deps.sh', () => {
     // was exempted even though `npm ci` would install it.
     const result = runCheck({
       packages: {
-        'node_modules/any-host-pkg': { version: '1.0.0', optional: true, os: ['any'], cpu: ['any'] },
+        'node_modules/any-host-pkg': {
+          version: '1.0.0',
+          optional: true,
+          os: ['any'],
+          cpu: ['any'],
+        },
       },
       installed: {},
     });
@@ -533,8 +538,14 @@ describe('check-deploy-deps.sh', () => {
   // two opposite ways, and both report a package npm would never install here —
   // failing a clean deploy rather than passing a bad one.
   it.each([
-    { os: ['any', '!' + process.platform], why: 'an early "any" must not override a later exclusion' },
-    { os: ['__other__', '!__nothost__'], why: 'a positive list must actually match, not merely not-exclude' },
+    {
+      os: ['any', '!' + process.platform],
+      why: 'an early "any" must not override a later exclusion',
+    },
+    {
+      os: ['__other__', '!__nothost__'],
+      why: 'a positive list must actually match, not merely not-exclude',
+    },
   ])('exempts an absent optional whose constraints npm would reject ($why)', ({ os }) => {
     const result = runCheck({
       packages: {
@@ -742,7 +753,7 @@ describe('check-deploy-deps.sh', () => {
     expect(result.output).toContain('undeclared shim');
   });
 
-  it('accepts npm\'s Windows companion shims for a declared bin', () => {
+  it("accepts npm's Windows companion shims for a declared bin", () => {
     // Codex post-merge on #903. npm writes THREE files per declared bin on
     // Windows — astro, astro.cmd, astro.ps1 — via cmd-shim, all created and
     // chmodded together. Keyed only by the bare name, the companions read as
@@ -751,7 +762,11 @@ describe('check-deploy-deps.sh', () => {
     const result = runCheck({
       packages: { 'node_modules/astro': { version: '7.2.9', bin: { astro: 'astro.js' } } },
       installed: { astro: '7.2.9' },
-      bins: { astro: 'astro/astro.js', 'astro.cmd': 'astro/astro.js', 'astro.ps1': 'astro/astro.js' },
+      bins: {
+        astro: 'astro/astro.js',
+        'astro.cmd': 'astro/astro.js',
+        'astro.ps1': 'astro/astro.js',
+      },
     });
 
     expect(result.status).toBe(0);
@@ -904,7 +919,10 @@ describe('check-deploy-deps.sh', () => {
     { shape: 'a null packages map', rawLock: { lockfileVersion: 3, packages: null } },
     // typeof [] === 'object', and Object.entries([]) is happily empty, so an
     // array slips past a naive object check and verifies nothing.
-    { shape: 'an array in place of the packages map', rawLock: { lockfileVersion: 3, packages: [] } },
+    {
+      shape: 'an array in place of the packages map',
+      rawLock: { lockfileVersion: 3, packages: [] },
+    },
   ])('refuses $shape rather than verifying nothing', ({ rawLock }) => {
     const result = runCheck({ rawLock, installed: {} });
 

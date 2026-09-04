@@ -197,7 +197,8 @@ function findExplicitlyStyledNodes(document) {
   const relevantProperties = ['fill', 'color', 'fill-opacity', 'opacity'];
 
   for (const styledElement of document.querySelectorAll('svg.mermaid [style]')) {
-    if (!relevantProperties.some((property) => hasImportantStyle(styledElement, property))) continue;
+    if (!relevantProperties.some((property) => hasImportantStyle(styledElement, property)))
+      continue;
 
     const node = nearestShapeAndLabelGroup(styledElement);
     if (node) nodes.set(node, node);

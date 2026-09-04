@@ -157,9 +157,7 @@ describe('About panel section rhythm (#659)', () => {
     expect(CSS).toMatch(/\.stack-ribbon,\n\.impact-ribbon,\n\.now-ribbon \{/);
     // The ribbon is a sibling of .about-block, so the block's cap does not
     // reach it — without this the rule overshoots the prose it closes.
-    expect(CSS).toMatch(
-      /\.about-blocks \.now-ribbon \{[^}]*max-width:\s*var\(--about-measure\);/,
-    );
+    expect(CSS).toMatch(/\.about-blocks \.now-ribbon \{[^}]*max-width:\s*var\(--about-measure\);/);
   });
 
   it('rests the panel links without an underline and takes it on hover', () => {

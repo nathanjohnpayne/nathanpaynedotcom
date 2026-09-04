@@ -41,8 +41,7 @@ const CONTENT_ROOT = 'src/content/';
 function assertSupportedContentFile(file) {
   const filePath = String(file?.path ?? file?.history?.at(-1) ?? '').replaceAll('\\', '/');
   const rootIndex = filePath.indexOf(CONTENT_ROOT);
-  const collectionPath =
-    rootIndex === -1 ? '' : filePath.slice(rootIndex + CONTENT_ROOT.length);
+  const collectionPath = rootIndex === -1 ? '' : filePath.slice(rootIndex + CONTENT_ROOT.length);
   if (!collectionPath || !SUPPORTED_COLLECTION_PATHS.some((p) => p.test(collectionPath))) {
     throw new Error(
       `Mermaid code fences are only supported in src/content/blog and src/content/projects (received ${filePath || 'an unknown source'})`,

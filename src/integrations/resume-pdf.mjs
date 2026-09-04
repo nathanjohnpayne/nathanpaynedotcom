@@ -116,7 +116,7 @@ export async function generateResumePdf({ browser, baseUrl, siteUrl, outputPath,
   if (!siteUrl) {
     throw new Error(
       'generateResumePdf: siteUrl is required — pass the `site` value from astro.config.mjs. ' +
-        'Without it the PDF\'s links would be frozen at the localhost render origin (#683).',
+        "Without it the PDF's links would be frozen at the localhost render origin (#683).",
     );
   }
   const context = await browser.newContext();

@@ -103,7 +103,10 @@ describe('rehype-mermaid integration', () => {
       ),
     ).rejects.toThrow(/only supported in src\/content\/blog and src\/content\/projects/i);
     await expect(
-      validateMermaidMetadata({ type: 'root', children: [{ ...code }] }, resolve('src/pages/about.md')),
+      validateMermaidMetadata(
+        { type: 'root', children: [{ ...code }] },
+        resolve('src/pages/about.md'),
+      ),
     ).rejects.toThrow(/only supported in src\/content\/blog and src\/content\/projects/i);
     // An unsupported collection must not smuggle a supported one inside itself.
     // Matching `src/content/…` anywhere in the path let this through.
