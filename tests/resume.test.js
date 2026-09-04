@@ -23,7 +23,12 @@ import {
   filledLifecycleMarksPerPage,
   normalizeForOrder,
 } from './helpers/pdf-oracle.js';
-import { builtPrintBlocks, printBlocks, withoutPrintBlocks } from './helpers/print-css.js';
+import {
+  builtPrintBlocks,
+  printBlocks,
+  printColorAdjustRules,
+  withoutPrintBlocks,
+} from './helpers/print-css.js';
 
 // Smoke tests for the content-collection-driven /resume page.
 // See specs/resume.md and issue #394.
@@ -813,25 +818,75 @@ describe('Resume — print stylesheet', () => {
     expect(block).toContain('break-inside:avoid'); // keep entries/projects/certs whole
   });
 
-  it('leaves the lifecycle marks to the shared primitive, and declares no print-color-adjust', () => {
-    // The rule that makes those marks print their fills under "Background
-    // graphics: off" was `.resume-canvas .state-marker::before` from #944
-    // until #950 unscoped it to `.state-marker::before`. The résumé still
-    // depends on it; it is asserted, with the reasoning, in
-    // tests/lifecycle-marker.test.js § print fidelity.
+  it('declares print-color-adjust for the bullet markers and for nothing else on this page', () => {
+    // Two rules in one, because they are the same rule read in both
+    // directions: exactly one thing in the résumé cascade may pin itself to
+    // print a background, and it is the bullet marker.
     //
-    // What belongs here is the residue guard. The lifecycle mark is the only
-    // thing on this page that ever needed the property, so the résumé's own
-    // print cascade should now declare none at all — and a surface-scoped copy
-    // coming back would not fail a build, it would just let this page's marks
-    // start drifting from the other three surfaces'.
-    const block = allPrintBlocks().find((b) => b.includes('resume-canvas'));
-    expect(block, 'no @media print block found for the résumé').toBeTruthy();
+    // What must be there (#953). `.resume-prose ul li::before` paints a 6px
+    // square as a `background`, and Chrome's print dialog leaves "Background
+    // graphics" off by default, so the `background: #000 !important` beside it
+    // had never reached paper. #925 fixed the generated PDF by turning on
+    // `printBackground`, which is why no artifact this repo builds can see the
+    // gap — the file has had all eleven markers since, and the printed page
+    // had none.
+    //
+    // What must NOT be there. The rule that makes the lifecycle marks print
+    // their fills was `.resume-canvas .state-marker::before` from #944 until
+    // #950 unscoped it to `.state-marker::before`; it is asserted, with the
+    // reasoning, in tests/lifecycle-marker.test.js § print fidelity. A
+    // surface-scoped copy coming back here would not fail a build — it would
+    // just let this page's marks start drifting from the other three
+    // surfaces'. So any résumé-scoped `print-color-adjust` selector that is
+    // not the bullet marker fails, whatever it targets.
+    //
+    // Every print block, and every selector inside a comma-joined list, not
+    // the first block that mentions `resume-canvas` (#956). A second
+    // résumé-specific block added later sits behind a `.find()` and is never
+    // reached, and a residue copy merged into an existing selector list is
+    // invisible to a whole-block `toMatch`. Both flattenings live in
+    // printColorAdjustRules, which documents why.
+    const blocks = allPrintBlocks();
+    expect(blocks.length, 'no @media print block found').toBeGreaterThan(0);
+
+    // Selector-substring scoping, because "belongs to the résumé" is a claim
+    // about the selector and not about which block it was written in — a
+    // residue rule can be authored anywhere in the cascade and still target
+    // this page. The complementary check, that nothing anywhere narrows the
+    // lifecycle rule to a surface, is tests/lifecycle-marker.test.js's.
+    const resumeScoped = printColorAdjustRules(blocks).filter((rule) =>
+      rule.selector.includes('resume-'),
+    );
+
+    // Control: the "nothing else" half of this test proves nothing on its own
+    // — an empty result would satisfy it while meaning the scan matched no
+    // rules at all. Requiring the one rule that IS expected is what makes a
+    // clean result evidence rather than silence.
     expect(
-      block,
-      'the résumé print cascade declares its own print-color-adjust; that rule ' +
-        'belongs to .state-marker::before, not to one surface (#950)',
-    ).not.toMatch(/print-color-adjust/);
+      resumeScoped,
+      'the résumé bullet markers are not pinned to print their fills; without ' +
+        'print-color-adjust the background beside it never reaches paper (#953)',
+    ).toHaveLength(1);
+
+    // Single colon: the minifier emits the legacy `:before` form.
+    expect(
+      resumeScoped[0].selector,
+      `${resumeScoped[0].selector} is not the bullet marker — a print-color-adjust ` +
+        'anywhere else in the résumé cascade is either a residue copy of the lifecycle ' +
+        'rule, which belongs to .state-marker::before and not to one surface (#950), or ' +
+        'a new decision that has not been made here',
+    ).toMatch(/^\.resume-prose ul li::?before$/);
+
+    // The value, not just the property. `economy` is the initial value, so a
+    // rule flipped to it is a rule that has been switched off — the marker
+    // stops reaching paper exactly as it did before #953, while a scan that
+    // only looked for the property would still find this rule and pass.
+    // (Codex, #961.)
+    expect(
+      resumeScoped[0].value,
+      'the bullet-marker rule declares print-color-adjust but not `exact`, which ' +
+        'leaves Chrome omitting the background again (#953)',
+    ).toBe('exact');
   });
 
   it('declares the mark fills, and the geometry the PDF ink oracle measures', () => {

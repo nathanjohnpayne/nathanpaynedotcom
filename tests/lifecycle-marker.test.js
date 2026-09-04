@@ -138,11 +138,16 @@ describe('lifecycle marker — print fidelity', () => {
     // above exists to prevent, in a different medium: one surface quietly
     // disagreeing with the others about what ARCHIVED looks like.
     //
-    // Too wide — `exact` on a page, a shell or a wildcard — and it stops being
-    // a property of the mark and becomes a print-cascade decision for pages
-    // that have no print cascade, which is the cost #950 had to rule out
-    // before unscoping. `print-color-adjust` affects the element it is set on,
-    // so keeping the selector on the 0.72em mark is what bounds it.
+    // Too wide — this rule's own selector list growing a page, a shell or a
+    // wildcard alongside the mark — and it stops being a property of the mark
+    // and becomes a print-cascade decision for pages that have no print
+    // cascade, which is the cost #950 had to rule out before unscoping.
+    //
+    // What this does NOT guard: a SEPARATE `print-color-adjust: exact` rule
+    // elsewhere in the print cascade, targeting something that is not the
+    // mark. That is deliberate — the bullet-marker fix (#953) adds exactly
+    // such a rule, and a test that failed on it would be asserting a
+    // site-wide policy this one has no standing to set.
     //
     // Every print block, not the first one that mentions the mark: a second,
     // narrower copy added later would sit behind the correct one and never be
