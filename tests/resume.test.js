@@ -431,6 +431,129 @@ describe('Resume — page structure', () => {
     ).not.toBeNull();
   });
 
+  it('joins each experience role to its organization with a closed em dash', () => {
+    // Role—organization is one construction, not two things in a list and not
+    // a range, so CMOS closes the dash. The heading is assembled from two
+    // frontmatter fields in ExperienceSection, so it is not greppable as a
+    // literal string in any content file — it has to be read off the page.
+    const titles = [...document.querySelectorAll('.resume-experience h3.resume-entry__title')].map(
+      (h) => h.textContent.replace(/\s+/g, ' ').trim(),
+    );
+    expect(titles).toEqual([
+      'Senior Product Manager—Disney Entertainment and ESPN Product & Technology',
+      'Senior Technical Project Manager, Lead—Disney Streaming',
+      'Technical Project Manager—MLB Advanced Media / BAMTech Media',
+      'Director of Information Technology—AJ+',
+      'Senior Systems Architect—Current TV',
+      'Systems Architect / Support Roles—CNN',
+    ]);
+    for (const title of titles) {
+      expect(title, `"${title}" spaces its em dash`).not.toMatch(/\s—|—\s/);
+    }
+  });
+
+  it('holds every heading em dash to the word it closes, adding no characters', () => {
+    // An em dash is a break opportunity on BOTH sides, so a narrow column can
+    // start a line with the bare mark — measured in Chrome at 320px, 360px and
+    // 414px before the guard. `.em-dash-joint` is `white-space: nowrap`, so
+    // only the break AFTER the dash survives. The span must add nothing: this
+    // page is ATS-parsed and printed to PDF, and a heading that reads
+    // differently to a machine than to an eye is the defect being avoided.
+    const titles = [...document.querySelectorAll('.resume-canvas h3.resume-entry__title')];
+    expect(titles.length, 'no résumé headings found').toBe(14);
+    let dashed = 0;
+    for (const title of titles) {
+      const joints = [...title.querySelectorAll('.em-dash-joint')];
+      if (!title.textContent.includes('—')) {
+        expect(joints, `"${title.textContent.trim()}" has no em dash but carries a joint`).toEqual(
+          [],
+        );
+        continue;
+      }
+      dashed += 1;
+      expect(joints.length, `"${title.textContent.trim()}" should carry one joint`).toBe(1);
+      expect(joints[0].textContent, 'the joint should close on the em dash').toMatch(/—$/);
+      expect(joints[0].textContent, 'the joint should hold one word, not a phrase').not.toMatch(
+        / /,
+      );
+      // The em dash appears once, inside the joint — never loose in the heading.
+      expect(
+        title.textContent.split('—').length - 1,
+        `"${title.textContent.trim()}" carries more than one em dash`,
+      ).toBe(1);
+    }
+    // Control for the two negative assertions above: the walk has to have seen
+    // both kinds of heading, or "no joint where none is due" is vacuous.
+    expect(dashed, 'no em-dashed heading found').toBe(13);
+    expect(
+      titles.filter((t) => !t.textContent.includes('—')).length,
+      'no dashless heading found — the "no joint" branch never ran',
+    ).toBe(1);
+  });
+
+  it('keeps experience metadata on middle dots and its year range on an en dash', () => {
+    // The other two marks in the same entry, pinned beside the em dash they
+    // are most likely to be swept into: a range is an en dash and a metadata
+    // list is a middle dot, and neither is a dash separator.
+    const metas = [...document.querySelectorAll('.resume-experience .resume-entry__meta')].map(
+      (p) => p.textContent.replace(/\s+/g, ' ').trim(),
+    );
+    expect(metas.length, 'no experience meta lines found').toBe(6);
+    for (const meta of metas) {
+      expect(meta, `"${meta}" lost its en-dashed year range`).toMatch(
+        /(?:19|20)\d{2}–(?:(?:19|20)\d{2}|Present)/,
+      );
+      expect(meta, `"${meta}" separates metadata with a dash`).not.toMatch(/ [-–—] /);
+      expect(meta, `"${meta}" is not middle-dot separated`).toMatch(/ · /);
+    }
+  });
+
+  it('renders no spaced en or em dash, in text or in an accessible name', () => {
+    // The house style keeps one mark per function — closed em dash for
+    // role—organization and name—descriptor, en dash for ranges, middle dot
+    // for metadata, → / ↗ for navigation — and a spaced dash is none of them.
+    // Both channels are swept because a reader can meet either: the visible
+    // text, and the strings only a screen reader or a social card ever shows.
+    // Code comments are not copy, so <script> and <style> are dropped; the
+    // JSON-LD block stays, because its `description` IS a published string.
+    const scan = document.documentElement.cloneNode(true);
+    for (const el of scan.querySelectorAll('style, script:not([type="application/ld+json"])')) {
+      el.remove();
+    }
+    const text = scan.textContent.replace(/\s+/g, ' ');
+    const attrs = [];
+    for (const el of scan.querySelectorAll('[aria-label], [alt], [content], [title]')) {
+      for (const name of ['aria-label', 'alt', 'content', 'title']) {
+        const value = el.getAttribute(name);
+        if (value) attrs.push(`${name}="${value.replace(/\s+/g, ' ')}"`);
+      }
+    }
+
+    // Controls. Each channel has to be carrying a known string, or the
+    // absences below are a search that looked nowhere and found nothing.
+    expect(text, 'the text channel came back empty').toContain(
+      'Senior Product Manager—Disney Entertainment and ESPN Product & Technology',
+    );
+    expect(
+      attrs.filter((v) => v.includes('Five Across—Live Multiplayer Social Bingo Platform')),
+      'the attribute channel came back empty',
+    ).not.toEqual([]);
+
+    const spaced = /[ \u00a0][–—][ \u00a0]/;
+    expect(text.match(spaced)?.[0] ?? null, 'a spaced dash survives in the page text').toBeNull();
+    expect(
+      attrs.filter((v) => spaced.test(v)),
+      'a spaced dash survives in an attribute',
+    ).toEqual([]);
+
+    // The one spaced hyphen on the page is an official credential name, which
+    // is exempt from mechanical normalization — pinned so it is not "cleaned
+    // up" later, and so its exemption is a decision rather than an oversight.
+    expect(text, "Scrum Alliance's credential name has been restyled").toContain(
+      'Certified Scrum Professional - Product Owner (CSP-PO)',
+    );
+  });
+
   it('opens each project with a lifecycle kicker carrying the shared marker', () => {
     // #944. Three separable claims, because they fail separately: the kicker
     // precedes its heading, it carries the site's marker vocabulary, and the
@@ -1341,10 +1464,7 @@ describe('Resume — PDF reading order and markers', () => {
     // followed by its four bullets, and the next role follows all four.
     expectOrder(
       [
-        [
-          'Disney Streaming role title',
-          'Senior Technical Project Manager, Lead – Disney Streaming',
-        ],
+        ['Disney Streaming role title', 'Senior Technical Project Manager, Lead—Disney Streaming'],
         [
           'role summary',
           'Led front-end engineering teams that built and launched Disney+ across connected devices.',
@@ -1358,7 +1478,7 @@ describe('Resume — PDF reading order and markers', () => {
         ['bullet 4', 'Led Hulu through its PlayStation 5 launch.'],
         [
           'the next role (MLB Advanced Media)',
-          'Technical Project Manager – MLB Advanced Media / BAMTech Media',
+          'Technical Project Manager—MLB Advanced Media / BAMTech Media',
         ],
       ].map(([label, value]) => ({ label, value })),
       'The Disney Streaming bullets have come away from their role',
@@ -1803,7 +1923,7 @@ describe('Resume — skim weighting', () => {
     // filler cleared the length floor on the heading alone (#735, Codex).
     const byCompany = Object.fromEntries(
       compact.map((entry) => [
-        entry.querySelector('.resume-entry__title').textContent.split('–').pop().trim(),
+        entry.querySelector('.resume-entry__title').textContent.split('—').pop().trim(),
         entry,
       ]),
     );

@@ -2,7 +2,7 @@
 /**
  * ExperienceSection — work history, most-recent-first (by `order`). Each
  * entry: a head row with a CompanyLogo (decorative) centered beside an <h3>
- * "Role – Company" + a meta line (team · location · year range), then the
+ * "Role—Company" + a meta line (team · location · year range), then the
  * markdown body (intro paragraph + bullets) below at full width so it wraps
  * under the logo. Rendered with render().
  *
@@ -15,6 +15,7 @@
 import ResumeSection from './ResumeSection.astro';
 import { render } from 'astro:content';
 import CompanyLogo from './CompanyLogo.astro';
+import { emDashJoint } from '../../lib/em-dash-joint';
 
 const { entries } = Astro.props;
 const sorted = [...entries].sort((a, b) => a.data.order - b.data.order);
@@ -28,12 +29,15 @@ const rendered = await Promise.all(
     const d = entry.data;
     const range = `${d.startYear}–${d.endYear ?? 'Present'}`;
     const meta = [d.team, d.location, range].filter(Boolean).join(' · ');
+    // Role—organization is one construction, so the dash is closed. Split so
+    // the dash cannot start a line at phone widths; see src/lib/em-dash-joint.
+    const heading = emDashJoint(`${d.title}—${d.company}`);
     return (
       <article class={`resume-entry resume-entry--logo${d.compact ? ' resume-entry--compact' : ''}`}>
         <div class="resume-entry__head">
           <CompanyLogo name={d.company} website={d.website} logo={d.logo} size={d.compact ? 52 : 72} />
           <div class="resume-entry__headings">
-            <h3 class="resume-entry__title">{d.title} – {d.company}</h3>
+            <h3 class="resume-entry__title">{heading.head}<span class="em-dash-joint">{heading.joint}</span>{heading.tail}</h3>
             <p class="resume-entry__meta">{meta}</p>
           </div>
         </div>
