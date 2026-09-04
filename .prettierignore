@@ -22,7 +22,14 @@ firebase.json
 .firebaserc
 
 # Markdown (authored content + synced docs) and YAML are not auto-formatted here.
+# `*.md` does not match `.mdx`, and project bodies are the one collection that
+# accepts it — an .mdx body places DecisionLedger / ConstraintStrip /
+# LearningLedger between prose sections, so it carries the same markup
+# tag-wrapping hazard as the .astro note below, and the same exact-output tests
+# (tests/project-pages.test.js) would catch it. Listing it keeps that intent at
+# the ignore layer instead of resting on the format glob happening to omit it.
 *.md
+*.mdx
 *.yml
 *.yaml
 
