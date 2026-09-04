@@ -250,7 +250,7 @@ const jsonLd = {
         </article>
 
         {/* ── End-of-post block (#622) ──────────────────────────────
-             Prev/next by date + a one-line availability CTA. Sits after
+             Prev/next by date + the author footer. Sits after
              a rule so it reads as a separate beat from the post's closing
              line, and is hidden in @media print. ───────────────────── */}
         <div class="blog-postscript">
@@ -412,7 +412,8 @@ const jsonLd = {
 
     // End-of-post block (#622). The mailto href is assembled here so the
     // address never ships in the static HTML (same pattern as the homepage
-    // availability line); the <noscript> line covers JS-disabled readers.
+    // `.availability-signal` line); the <noscript> line covers JS-disabled
+    // readers.
     (function () {
       const mailto = document.getElementById('blog-cta-mailto');
       if (mailto) {
