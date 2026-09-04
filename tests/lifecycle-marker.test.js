@@ -494,6 +494,18 @@ describe('lifecycle marker — declarations', () => {
       valueOf(base, 'border'),
       'the 1px outline the oracle adds to the mark box is gone',
     ).toMatch(/^1px(\s|$)/i);
+
+    // And no fill. The invariant read from the other side: a fill on the BASE
+    // applies to every state, so `background-color: currentcolor` here makes
+    // `--paused` and `--in-progress` solid while their own rules still declare
+    // nothing and pass (CodeRabbit, PR #964). Matched by prefix so the
+    // `background` shorthand and any `background-*` longhand are covered, not
+    // only the three the variants use.
+    expect(
+      properties(base).filter((name) => name.startsWith('background') || name === 'padding'),
+      'the base mark rule declares a fill, which every state then inherits — fill ' +
+        'belongs to the variants, geometry to the primitive',
+    ).toEqual([]);
   });
 
   it('expects every modifier the vocabulary can emit', () => {
