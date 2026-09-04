@@ -281,8 +281,12 @@ const jsonLd = {
             </nav>
           )}
 
-          {/* Author footer. One line, three links, no pitch—an
+          {/* Author footer. One sentence, three links, no pitch—an
               unsubtle CTA undercuts the credibility the post just built.
+              The line wraps: `.blog-cta__line` is `flex-wrap: wrap`, so the
+              byline takes a row and the links the next at desktop width, and
+              more of both on a phone. It read as one row while the lede was
+              five words.
               The lede was an availability statement until #969: "Open to
               senior product/platform roles." directly after an essay
               reframes the author from someone with something to say into
@@ -291,6 +295,14 @@ const jsonLd = {
               the block for what it is. The class namespace stays
               `blog-cta`—`blog_cta_clicked` and `.blog-cta__link` are the
               analytics contract (specs/analytics.md).
+              The byline names Nathan rather than reading `author` off the
+              post, and the three links are his. That is correct only while
+              every post is his, so the assumption is asserted rather than
+              assumed—see the author invariant in
+              tests/blog-takeaways-cta.test.js. Templating just the name
+              would be worse than not templating it: a guest would get their
+              own name over someone else's bio and contact links. A real
+              guest post needs the block designed, not interpolated.
               The mailto is assembled client-side from base64 fragments so
               the address never appears in the static HTML, matching the
               homepage contact line; <noscript> carries the fallback. */}

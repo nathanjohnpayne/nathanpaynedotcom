@@ -213,6 +213,47 @@ describe('Blog end-of-post block (#622)', () => {
     }
   });
 
+  it('holds every post to the one author the footer names', () => {
+    // The footer's byline is a literal, and so are the résumé and contact
+    // links beside it. Before #969 the block claimed no authorship at all,
+    // so a guest post cost nothing; now it names Nathan under an
+    // aria-label that says "About the author". The assumption is only safe
+    // while it is true, and nothing about a guest post would fail on its
+    // own — the page would simply attribute someone else's essay to Nathan
+    // and point the reader at Nathan's résumé.
+    //
+    // Templating the name out of `author` is not the fix and this test is
+    // not asking for it: the rest of the sentence and all three links are
+    // Nathan's, so a guest would get their own name over someone else's
+    // bio. A real guest post needs the block designed. This fails first and
+    // says so.
+    const DEFAULT_AUTHOR = 'Nathan Payne';
+
+    // The schema default covers posts that omit the field, so it is half of
+    // the invariant, not context. Matched rather than searched-for, so a
+    // renamed field fails here instead of silently checking nothing.
+    const declared = configSource.match(/author:\s*z\.string\(\)\.default\('([^']*)'\)/);
+    expect(
+      declared,
+      'no `author` default found in src/content.config.ts — did the field move?',
+    ).not.toBeNull();
+    expect(declared[1], 'the schema default no longer matches the byline in BlogPost.astro').toBe(
+      DEFAULT_AUTHOR,
+    );
+
+    for (const post of sourcePosts) {
+      const author = scalar(post.raw, 'author');
+      // Absent is fine: Zod supplies the default asserted above.
+      if (author === undefined) continue;
+      expect(
+        author.replace(/^["']|["']$/g, ''),
+        `${post.slug}: authored by someone the end-of-post byline does not name. ` +
+          "The footer, its résumé link, and its contact links are all Nathan's — " +
+          'design the block for a second author rather than relaxing this.',
+      ).toBe(DEFAULT_AUTHOR);
+    }
+  });
+
   it('captures distinct PostHog events for the CTA, prev/next, and the post view', () => {
     for (const post of builtPosts) {
       expect(post.html).toContain("capture('blog_post_viewed'");
