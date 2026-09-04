@@ -350,12 +350,11 @@ function markBoxAt(page, top) {
  * The two-run cases are told apart by how much of the row the first run
  * covers, and `EXPERIMENT` is bounded on **both** sides rather than given a
  * floor. A floor alone accepts a gradient that has drifted to any larger stop —
- * an 80% fill covers 74% of the box and would still have read as "half", while
- * the companion stylesheet assertion only requires *a* `linear-gradient`, so
- * both checks would pass on a mark that is no longer half filled (Codex,
- * PR #958). Measured on the built file: 43% for `EXPERIMENT` against 7% for a
- * hollow mark, with the nominal figure 50% — the left border is inside the run
- * and the right border is not, which very nearly cancels.
+ * an 80% stop covers 57% of the box, measured, and would still have read as
+ * "half", while the companion stylesheet assertion only required *a*
+ * `linear-gradient` — so both checks passed on a mark that is no longer half
+ * filled (Codex, PR #958). Measured on the built file: 43% for `EXPERIMENT`
+ * against 7% for a hollow mark.
  *
  * A two-run mark that lands outside both windows is reported as
  * `unrecognised` rather than rounded to the nearer variant.

@@ -949,8 +949,18 @@ describe('Resume — print stylesheet', () => {
     // antialiasing cannot fail a required check — which left "half filled"
     // pinned by neither check (Codex, PR #958). It is an exact value, so it
     // belongs where it can be compared exactly.
+    //
+    // The second stop is matched as a colour token and ONE position, not as
+    // any run of characters. `[^,)]+` there admitted a second position ahead
+    // of the terminal one — `#0000 80% 50%` is valid syntax the minifier can
+    // emit, the browser clamps the descending stop into a broad transition
+    // rather than a crisp half, and the raster classifier reads that as `half`
+    // too, so it would have passed both checks again (Codex, PR #958). The
+    // colour alternation is deliberately narrow for the same reason: if the
+    // minifier ever emits a form neither branch covers, this fails loudly
+    // instead of quietly widening.
     expect(rule('.state-marker--experiment'), 'EXPERIMENT lost its half fill').toMatch(
-      /background-image:\s*linear-gradient\(90deg,\s*currentcolor\s+0\s+50%,\s*[^,)]+\s+50%\)/i,
+      /background-image:\s*linear-gradient\(\s*90deg\s*,\s*currentcolor\s+0\s+50%\s*,\s*(?:#[0-9a-f]{3,8}|transparent)\s+50%\s*\)/i,
     );
   });
 
