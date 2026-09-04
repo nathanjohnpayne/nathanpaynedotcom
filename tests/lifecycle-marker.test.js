@@ -3,7 +3,8 @@ import { readFileSync } from 'fs';
 import { relative, resolve } from 'path';
 import { findFilesRecursively } from '../scripts/lib/blog-file-inventory.mjs';
 import { STATUS_MARKER, stateMarkerClass } from '../src/lib/lifecycle-marker';
-import { allPrintBlocks, emittedStylesheets, withoutPrintBlocks } from './helpers/print-css.js';
+import { readBuiltStylesheet } from './helpers/dom.js';
+import { builtPrintBlocks, withoutPrintBlocks } from './helpers/print-css.js';
 
 // The lifecycle marker vocabulary is shared by four surfaces: the homepage
 // Builds row, the /projects/ card kicker, the project detail page's STATUS
@@ -116,14 +117,11 @@ describe('lifecycle marker vocabulary', () => {
  * project detail pages were rendered to PDF with `printBackground: false`,
  * with and without the rule. The two rasters differ in exactly the six mark
  * squares whose fill is a background and are pixel-identical everywhere else,
- * across all 60+ printed pages.
+ * across all 60 printed pages (3 + 3 + 16 + 11 + 10 + 17).
  */
 describe('lifecycle marker — print fidelity', () => {
   it('pins the marks to print their fills, on every surface', () => {
-    const stylesheets = emittedStylesheets();
-    expect(stylesheets.length, 'no emitted CSS found in dist/_astro').toBeGreaterThan(0);
-
-    const block = allPrintBlocks().find((b) => b.includes('state-marker'));
+    const block = builtPrintBlocks().find((b) => b.includes('state-marker'));
     expect(block, 'no @media print block sets anything on .state-marker').toBeTruthy();
     expect(block, 'the lifecycle marks are not pinned to print their fills').toMatch(
       /print-color-adjust:\s*exact/,
@@ -150,7 +148,7 @@ describe('lifecycle marker — print fidelity', () => {
     // narrower copy added later would sit behind the correct one and never be
     // reached by a `.find()`. That is how the duplicate this fix removed got
     // in — see the status→modifier residue guard above, same failure mode.
-    const rules = allPrintBlocks().flatMap((block) =>
+    const rules = builtPrintBlocks().flatMap((block) =>
       [...block.matchAll(/([^{}]*)\{[^{}]*print-color-adjust:\s*exact[^{}]*\}/g)]
         .map((m) => m[1].trim())
         .filter((sel) => sel.includes('state-marker')),
@@ -158,31 +156,35 @@ describe('lifecycle marker — print fidelity', () => {
     expect(rules, 'no @media print rule pins the marks to print their fills').toHaveLength(1);
 
     for (const selector of rules[0].split(',').map((sel) => sel.trim())) {
+      // Exact, not a prefix. A pattern like /^\.state-marker[^\s]*::?before$/
+      // reads as "starts with the primitive" and passes
+      // `.state-marker.resume-entry__status::before` — a compound qualifier is
+      // a per-surface narrowing with no descendant combinator to give it away,
+      // so a whitespace-token count does not see it either. It also passes
+      // `.state-marker--shipped::before`, which would print one state's fill
+      // and leave the other three collapsed. Both are the regression this test
+      // exists for. (Codex, #952.)
+      //
       // Single colon: the minifier emits the legacy `:before` form.
-      expect(selector, `${selector} does not target the mark`).toMatch(
-        /^\.state-marker[^\s]*::?before$/,
-      );
-      // No ancestor qualifier: a leading `.resume-canvas `, `.p-status ` or
-      // `body.projects-page ` would put the mark back on one surface.
-      expect(selector.split(/\s+/), `${selector} is scoped to one surface`).toHaveLength(1);
+      expect(
+        selector,
+        `${selector} is not the bare primitive — a qualifier here, whether an ` +
+          'ancestor, a second class, or a --modifier, puts the mark back on one surface',
+      ).toMatch(/^\.state-marker::?before$/);
     }
   });
 
   it('does not leak print-color-adjust into the screen cascade', () => {
     // The screen never needs it, and a copy outside @media print is how the
     // rule survives someone deleting the print block it was meant to live in.
-    for (const css of stylesheetsWithMarks()) {
-      expect(
-        withoutPrintBlocks(css),
-        'print-color-adjust on .state-marker escaped @media print',
-      ).not.toMatch(/\.state-marker[^{}]*\{[^{}]*print-color-adjust/);
-    }
+    const screenCascade = withoutPrintBlocks(readBuiltStylesheet());
+    // Control: a "no match" result means nothing unless the same string is
+    // where the mark rules actually live.
+    expect(screenCascade, 'the screen cascade does not declare .state-marker at all').toContain(
+      '.state-marker',
+    );
+    expect(screenCascade, 'print-color-adjust on .state-marker escaped @media print').not.toMatch(
+      /\.state-marker[^{}]*\{[^{}]*print-color-adjust/,
+    );
   });
 });
-
-/** Emitted stylesheets that actually carry the mark rules — the positive control. */
-function stylesheetsWithMarks() {
-  const sheets = emittedStylesheets().filter((css) => css.includes('.state-marker'));
-  expect(sheets.length, 'no emitted stylesheet declares .state-marker at all').toBeGreaterThan(0);
-  return sheets;
-}

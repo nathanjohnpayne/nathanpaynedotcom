@@ -1143,7 +1143,7 @@ html[data-fonts-pending] .panel-label {
    rather than argued: rendering `/`, `/projects/`, and the four detail pages to
    PDF with `printBackground: false`, with and without this rule, the two rasters
    differ in exactly the six mark squares whose fill is a background (SHIPPED ×4,
-   ARCHIVED, EXPERIMENT) and are pixel-identical everywhere else — across all 60+
+   ARCHIVED, EXPERIMENT) and are pixel-identical everywhere else — across all 60
    printed pages, including the 16 of /projects/five-across/. So this does not
    commit the homepage or /projects/ to a print cascade, and does not presuppose
    that anyone prints them; it keeps one vocabulary from meaning different things

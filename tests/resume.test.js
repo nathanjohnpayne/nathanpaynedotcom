@@ -23,7 +23,7 @@ import {
   filledLifecycleMarksPerPage,
   normalizeForOrder,
 } from './helpers/pdf-oracle.js';
-import { printBlocks, withoutPrintBlocks } from './helpers/print-css.js';
+import { builtPrintBlocks, printBlocks, withoutPrintBlocks } from './helpers/print-css.js';
 
 // Smoke tests for the content-collection-driven /resume page.
 // See specs/resume.md and issue #394.
@@ -732,7 +732,6 @@ describe('Resume — print stylesheet', () => {
           .map((f) => readFileSync(join(astroDir, f), 'utf-8'))
       : [];
   });
-
 
   /** All @media print blocks across every emitted stylesheet. */
   function allPrintBlocks() {
@@ -1458,18 +1457,14 @@ describe('Resume — contact actions', () => {
   });
 
   describe('none of it reaches paper', () => {
-    /** Every emitted stylesheet's `@media print` block, from the rule onward. */
-    function printBlocks() {
-      const astroDir = resolve(DIST, '_astro');
-      return readdirSync(astroDir)
-        .filter((f) => f.endsWith('.css'))
-        .map((f) => readFileSync(join(astroDir, f), 'utf-8'))
-        .filter((css) => css.includes('@media print'))
-        .map((css) => css.slice(css.indexOf('@media print')));
-    }
-
     it('hides .resume-cta inside @media print', () => {
-      const blocks = printBlocks();
+      // Was a local `printBlocks()` that sliced each stylesheet from its FIRST
+      // `@media print` to end of file. #950 gave this file an imported
+      // `printBlocks(css)`, so the two shared a name and disagreed about
+      // arity; the shared `builtPrintBlocks()` is what the local one was
+      // approximating, and it returns balanced blocks rather than a tail that
+      // also carries every screen rule written after the first print block.
+      const blocks = builtPrintBlocks();
       expect(blocks.length, 'no emitted stylesheet has an @media print block').toBeGreaterThan(0);
       expect(
         blocks.some((b) => /\.resume-cta[^{]*\{[^}]*display:\s*none/.test(b)),
