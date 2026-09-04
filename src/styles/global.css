@@ -1126,6 +1126,46 @@ html[data-fonts-pending] .panel-label {
 
 /* PAUSED and IN PROGRESS keep the bare outline: nothing is running yet. */
 
+/* Print fidelity belongs to the primitive, not to one surface (#950).
+   Three of the four marks ARE backgrounds — filled for SHIPPED, cored for
+   ARCHIVED, half-filled for EXPERIMENT — and only the 1px outline is a border,
+   so with Chrome's print dialog leaving "Background graphics" OFF by default
+   they all come out as the empty square PAUSED uses: right size, right place,
+   vocabulary gone. That is the #925 bullet-marker failure again, one rule over.
+   The word survives either way, but a mark that cannot be told from its
+   neighbour is worse than no mark at all.
+
+   This lived at `.resume-canvas .state-marker::before` from #944 until #950,
+   scoped there on the reasoning that a site-wide `exact` would opt every tinted
+   surface into printing. That reasoning does not apply to this selector.
+   `print-color-adjust` affects the element it is set on, and the element here is
+   the 0.72em mark — not the page, not the shell, not any tinted plane. Measured
+   rather than argued: rendering `/`, `/projects/`, and the four detail pages to
+   PDF with `printBackground: false`, with and without this rule, the two rasters
+   differ in exactly the six mark squares whose fill is a background (SHIPPED ×4,
+   ARCHIVED, EXPERIMENT) and are pixel-identical everywhere else — across all 60+
+   printed pages, including the 16 of /projects/five-across/. So this does not
+   commit the homepage or /projects/ to a print cascade, and does not presuppose
+   that anyone prints them; it keeps one vocabulary from meaning different things
+   on different surfaces, which is the same reason the status → modifier mapping
+   lives in one module (src/lib/lifecycle-marker.ts).
+
+   The 1px border is not a background, so the outline always prints — which is
+   why PAUSED and IN PROGRESS need nothing here, and why /projects/matchline/
+   renders byte-identical with the rule and without it.
+
+   Asserted in tests/lifecycle-marker.test.js, not in the résumé PDF: the
+   generator sets `printBackground: true`, which paints the same fills, so the
+   built file cannot tell the two mechanisms apart (tests/helpers/pdf-oracle.js
+   § filledLifecycleMarksPerPage). The path this rule exists for — a reader
+   pressing Cmd-P — is one no build artifact exercises. */
+@media print {
+  .state-marker::before {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}
+
 /* Homepage Builds row. Deliberately NOT boxed: the paper keeps three grammars
    apart — underlined or arrowed text navigates, an outlined rectangle is a
    control, glyph plus uppercase text is state. A boxed status beside a link
@@ -6500,29 +6540,11 @@ body.resume-page {
     background: #000 !important;
   }
 
-  /* Lifecycle marks (#944). The `color: #000 !important` rule above already
-     resolves their `currentcolor` fills and borders to black, but three of the
-     four marks ARE backgrounds — filled for SHIPPED, cored for ARCHIVED,
-     half-filled for EXPERIMENT — and Chrome's print dialog leaves "Background
-     graphics" OFF by default. Without this they all print as the bare outline
-     PAUSED uses, and four distinguishable states collapse into one. That is
-     the #925 bullet-marker failure again, one rule over. The word survives
-     either way, but a mark that cannot be told from its neighbour is worse
-     than no mark at all.
-
-     `printBackground: true` in the PDF generator paints the same fills, so for
-     the DOWNLOADABLE file the two are redundant — removing either one alone
-     leaves it unchanged, measured both ways. This one exists for the path no
-     build artifact exercises: a reader pressing Cmd-P on /resume/. That
-     redundancy is also why the PDF cannot serve as this rule's test, and why
-     tests/resume.test.js asserts the stylesheet directly.
-
-     The 1px border is not a background, so the outline itself always prints —
-     which is why PAUSED needs nothing here. */
-  .resume-canvas .state-marker::before {
-    -webkit-print-color-adjust: exact;
-    print-color-adjust: exact;
-  }
+  /* Lifecycle marks: the `color: #000 !important` rule above resolves their
+     `currentcolor` fills and borders to black, and the `print-color-adjust`
+     that makes those fills survive "Background graphics: off" is on the shared
+     primitive — see `.state-marker::before` and its own @media print block
+     (#944, unscoped in #950). Nothing résumé-specific is needed here. */
 
   /* Drop the screen border-bottom underline in favor of a real underline with
      a small offset so it clears descenders, and force it black (issue #420
