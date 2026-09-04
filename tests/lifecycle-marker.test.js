@@ -125,17 +125,18 @@ function splitArguments(text) {
  * modelled; the SURFACES control below is what would catch a blanking that ate
  * a real call, and it is asserted before anything is concluded from the result.
  */
-function withoutComments(source) {
+function blank(source, { strings = false } = {}) {
   let out = '';
   let quote = null;
   for (let index = 0; index < source.length; index += 1) {
     const character = source[index];
     if (quote) {
-      out += character;
+      const closing = character === quote;
+      out += strings && !closing ? ' ' : character;
       if (character === '\\') {
-        out += source[index + 1] ?? '';
+        out += strings ? ' ' : (source[index + 1] ?? '');
         index += 1;
-      } else if (character === quote) quote = null;
+      } else if (closing) quote = null;
       continue;
     }
     if (character === "'" || character === '"' || character === '`') {
@@ -156,6 +157,27 @@ function withoutComments(source) {
   }
   return out;
 }
+
+/** `source` with every comment replaced by spaces, offsets preserved. */
+const withoutComments = (source) => blank(source);
+
+/**
+ * `source` with comments AND the contents of every string literal blanked.
+ *
+ * Used only to FIND call sites, never to read their arguments. Helper text
+ * quoted in a string literal — a doc example, a rendered snippet — was scanned
+ * as a real call, and its `surfaceClass` argument failed the lint on code that
+ * invokes nothing (Codex, PR #973). The quote characters survive so the paren
+ * scan still balances; only what is inside them goes.
+ *
+ * The remaining limit is deliberate and stated rather than papered over: helper
+ * text in Astro TEMPLATE markup is not inside a string literal and would still
+ * be scanned. Telling markup from code needs an Astro parser, which is a larger
+ * dependency decision than #967 authorised — and the failure is a LOUD one
+ * asking for a string literal, not a silent miss, which is the direction this
+ * file takes everywhere it cannot be exact.
+ */
+const withoutCommentsOrStrings = (source) => blank(source, { strings: true });
 
 /**
  * A complete string literal in any of the three forms, and nothing else.
@@ -204,8 +226,12 @@ function callSites() {
     // The module's own `export function stateMarkerClass(status, ...base)` is a
     // declaration, not a call, and its parameter list is not a surface list.
     if (name === MARKER_MODULE) continue;
-    const source = withoutComments(readFileSync(file, 'utf-8'));
-    for (const call of source.matchAll(/\bstateMarkerClass\s*\(/g)) {
+    const raw = readFileSync(file, 'utf-8');
+    // Two masks over the same offsets: call sites are FOUND in the one with
+    // string contents blanked, so quoted helper text is not a call; arguments
+    // are READ from the one that keeps them, so a real literal survives.
+    const source = withoutComments(raw);
+    for (const call of withoutCommentsOrStrings(raw).matchAll(/\bstateMarkerClass\s*\(/g)) {
       const close = matchingParen(source, call.index + call[0].length - 1);
       sites.push({
         file: name,
@@ -517,20 +543,55 @@ describe('lifecycle marker — declarations', () => {
    */
   const UNCONDITIONAL_AT_RULES = new Set(['layer']);
 
-  /** Every class name under a selector node, escapes decoded. */
-  function classNamesIn(node) {
+  /**
+   * `[class~="x"]` and friends: the same targeting written as an attribute.
+   *
+   * `[class~="state-marker--shipped"]::before` selects exactly what
+   * `.state-marker--shipped::before` does, and a ClassSelector-only walk sees
+   * no lifecycle class in it at all (Codex, PR #973). The two exact matchers
+   * name their classes literally and are read as such; every other matcher is a
+   * predicate over the whole attribute string, so it is treated as matching
+   * ANY class rather than modelled — broad collection, the same trade
+   * `targeting` already makes, and the built stylesheet carries no `class`
+   * attribute selector for it to over-collect.
+   *
+   * @param {object} node An `AttributeSelector`.
+   * @returns {{exact: string[]} | {any: true} | null} null if not on `class`.
+   */
+  function classAttributeSelector(node) {
+    if (csstree.ident.decode(node.name.name).toLowerCase() !== 'class') return null;
+    const operand = node.value ? (node.value.value ?? node.value.name ?? '') : '';
+    if (node.matcher === '~=' || node.matcher === '=') {
+      return { exact: String(operand).split(/\s+/).filter(Boolean) };
+    }
+    return { any: true };
+  }
+
+  /**
+   * Every class name a selector names literally, escapes decoded, plus whether
+   * it also selects on the `class` attribute in a way no literal name covers.
+   */
+  function classesIn(node) {
     const names = [];
+    let anyClass = false;
     csstree.walk(node, {
-      visit: 'ClassSelector',
       enter(child) {
-        // `.state-marker\,y` is a class literally named `state-marker,y`, not
-        // `state-marker` — the shape the old token regex read as the primitive
-        // because it stopped at the backslash. Decoding is the parser's job and
-        // it has an API for it.
-        names.push(csstree.ident.decode(child.name));
+        if (child.type === 'ClassSelector') {
+          // `.state-marker\,y` is a class literally named `state-marker,y`, not
+          // `state-marker` — the shape the old token regex read as the primitive
+          // because it stopped at the backslash. Decoding is the parser's job
+          // and it has an API for it.
+          names.push(csstree.ident.decode(child.name));
+          return;
+        }
+        if (child.type !== 'AttributeSelector') return;
+        const attribute = classAttributeSelector(child);
+        if (!attribute) return;
+        if (attribute.any) anyClass = true;
+        else names.push(...attribute.exact);
       },
     });
-    return names;
+    return { names, anyClass };
   }
 
   /**
@@ -560,7 +621,7 @@ describe('lifecycle marker — declarations', () => {
    * either as a subject would reject `.p-status:not(.state-marker--shipped)` as
    * a modifier rule, which is the reverse of what it means.
    */
-  const SUBJECT_PSEUDOS = new Set(['is', 'where']);
+  const SUBJECT_PSEUDOS = new Set(['is', 'where', 'nth-child', 'nth-last-child']);
 
   /** The nodes after a selector's last combinator — the compound it subjects. */
   function subjectCompound(selector) {
@@ -596,17 +657,62 @@ describe('lifecycle marker — declarations', () => {
     for (const node of subjectCompound(selector)) {
       if (node.type === 'ClassSelector') {
         names.push(csstree.ident.decode(node.name));
-      } else if (
-        node.type === 'PseudoClassSelector' &&
-        SUBJECT_PSEUDOS.has(csstree.ident.decode(node.name).toLowerCase())
-      ) {
-        for (const child of node.children ?? []) {
-          if (child.type !== 'SelectorList') continue;
-          for (const inner of child.children) names.push(...subjectClassNames(inner));
-        }
+        continue;
       }
+      if (node.type === 'AttributeSelector') {
+        const attribute = classAttributeSelector(node);
+        if (attribute && !attribute.any) names.push(...attribute.exact);
+        continue;
+      }
+      if (
+        node.type !== 'PseudoClassSelector' ||
+        !SUBJECT_PSEUDOS.has(csstree.ident.decode(node.name).toLowerCase())
+      ) {
+        continue;
+      }
+      // `:nth-child(1 of .state-marker--shipped)` puts its selector list under
+      // an `Nth` node rather than beside the pseudo's own children, so a walk
+      // that only reads direct `SelectorList` children finds nothing and the
+      // rule gets an empty subject (Codex, PR #973). The lists are collected
+      // wherever they sit.
+      csstree.walk(node, {
+        visit: 'SelectorList',
+        enter(list) {
+          for (const inner of list.children) names.push(...subjectClassNames(inner));
+        },
+      });
     }
     return names;
+  }
+
+  /**
+   * Does the subject compound select on `class` in a way no literal name
+   * covers — `[class*="state-marker--"]`, or a bare `[class]`?
+   *
+   * The modifier-element rule keys on named classes, so without this an
+   * attribute predicate over the class string is a subject the rule cannot see.
+   * Answered broadly, on the same trade as `targeting`: an unmodelled predicate
+   * counts as possibly-a-modifier rather than as definitely-not.
+   */
+  function subjectAnyClass(selector) {
+    for (const node of subjectCompound(selector)) {
+      if (node.type === 'AttributeSelector' && classAttributeSelector(node)?.any) return true;
+      if (
+        node.type !== 'PseudoClassSelector' ||
+        !SUBJECT_PSEUDOS.has(csstree.ident.decode(node.name).toLowerCase())
+      ) {
+        continue;
+      }
+      let found = false;
+      csstree.walk(node, {
+        visit: 'SelectorList',
+        enter(list) {
+          for (const inner of list.children) if (subjectAnyClass(inner)) found = true;
+        },
+      });
+      if (found) return true;
+    }
+    return false;
   }
 
   /**
@@ -654,6 +760,29 @@ describe('lifecycle marker — declarations', () => {
    * known to reject anything.
    */
   function analyze(css) {
+    // Decoded, and only for standard properties: `f\6f nt-size` is a real
+    // `font-size` that css-tree stores in its source spelling, while a custom
+    // property is case-sensitive and its name is its identity (Codex, PR #973).
+    const declarationsOf = (nodes) =>
+      nodes.map((child) => ({
+        property: child.property.startsWith('--')
+          ? child.property
+          : csstree.ident.decode(child.property).toLowerCase(),
+        value: csstree.generate(child.value).trim(),
+      }));
+    const entry = (selector, declarations, conditional) => {
+      const { names, anyClass } = classesIn(selector);
+      return {
+        selector: csstree.generate(selector),
+        classes: names,
+        anyClass,
+        subject: subjectClassNames(selector),
+        subjectAnyClass: subjectAnyClass(selector),
+        before: targetsBefore(selector),
+        declarations,
+        conditional,
+      };
+    };
     const errors = [];
     const ast = csstree.parse(css, {
       // Collected rather than thrown. css-tree is tolerant by default and
@@ -673,6 +802,21 @@ describe('lifecycle marker — declarations', () => {
       enter(node) {
         if (node.type === 'Atrule') {
           atRules.push(csstree.ident.decode(node.name).toLowerCase());
+          // Declarations sitting DIRECTLY inside a group rule that is itself
+          // inside a style rule belong to the enclosing selectors, under the
+          // group's condition: `.state-marker--shipped::before { @media (…) {
+          // padding: 9px } }`. css-tree stores them under the `Atrule` block,
+          // so the outer rule reads as empty and no conditional rule is created
+          // for them at all — the declaration checks and the conditional-mark
+          // check both pass on a real override (Codex, PR #973).
+          const grouped = (node.block?.children.toArray() ?? []).filter(
+            (child) => child.type === 'Declaration',
+          );
+          if (!grouped.length || !enclosing.length) return;
+          const conditional = atRules.some((name) => !UNCONDITIONAL_AT_RULES.has(name));
+          for (const selector of enclosing[enclosing.length - 1]) {
+            rules.push(entry(selector, declarationsOf(grouped), conditional));
+          }
           return;
         }
         if (node.type !== 'Rule') return;
@@ -682,19 +826,9 @@ describe('lifecycle marker — declarations', () => {
           enclosing.push([]);
           return;
         }
-        const declarations = node.block.children
-          .toArray()
-          .filter((child) => child.type === 'Declaration')
-          // Decoded, and only for standard properties: `f\6f nt-size` is a real
-          // `font-size` that css-tree stores in its source spelling, while a
-          // custom property is case-sensitive and its name is its identity
-          // (Codex, PR #973).
-          .map((child) => ({
-            property: child.property.startsWith('--')
-              ? child.property
-              : csstree.ident.decode(child.property).toLowerCase(),
-            value: csstree.generate(child.value).trim(),
-          }));
+        const declarations = declarationsOf(
+          node.block.children.toArray().filter((child) => child.type === 'Declaration'),
+        );
         const parents = enclosing.length ? enclosing[enclosing.length - 1] : [];
         const resolved = [];
         for (const selector of node.prelude.children) {
@@ -702,16 +836,7 @@ describe('lifecycle marker — declarations', () => {
             resolved.push(resolveNesting(selector, parent));
           }
         }
-        for (const selector of resolved) {
-          rules.push({
-            selector: csstree.generate(selector),
-            classes: classNamesIn(selector),
-            subject: subjectClassNames(selector),
-            before: targetsBefore(selector),
-            declarations,
-            conditional,
-          });
-        }
+        for (const selector of resolved) rules.push(entry(selector, declarations, conditional));
         enclosing.push(resolved);
       },
       leave(node) {
@@ -766,7 +891,9 @@ describe('lifecycle marker — declarations', () => {
    * does not have. A *modifier* is the exception, and has its own check below.
    */
   function targeting(className, rules = screenRules()) {
-    return rules.filter((rule) => rule.before && rule.classes.includes(className));
+    return rules.filter(
+      (rule) => rule.before && (rule.anyClass || rule.classes.includes(className)),
+    );
   }
 
   /** The declarations of every rule targeting a class, in cascade order. */
@@ -783,7 +910,10 @@ describe('lifecycle marker — declarations', () => {
   const modifierElementDeclarations = (rules) =>
     rules
       .filter((rule) => !rule.before)
-      .filter((rule) => rule.subject.some((name) => MODIFIER_CLASSES.includes(name)))
+      .filter(
+        (rule) =>
+          rule.subjectAnyClass || rule.subject.some((name) => MODIFIER_CLASSES.includes(name)),
+      )
       .flatMap((rule) =>
         rule.declarations.map(
           ({ property, value }) => `${rule.selector} { ${property}: ${value} }`,
@@ -1150,6 +1280,13 @@ describe('lifecycle marker — declarations', () => {
       // An escape is valid in a pseudo-element identifier too, and css-tree
       // keeps the source spelling there as well.
       'an escaped pseudo-element name': '.state-marker--shipped::be\\66 ore{padding:9px}',
+      // The same targeting written as an attribute rather than a class, which a
+      // ClassSelector-only walk does not see at all (Codex, PR #973). The two
+      // exact matchers name their class literally; the predicate forms are
+      // treated as matching anything, so they are collected too.
+      'a class-token attribute selector': '[class~="state-marker--shipped"]::before{padding:9px}',
+      'an exact class attribute selector': '[class="state-marker--shipped"]::before{padding:9px}',
+      'a substring class attribute selector': '[class*="state-marker--"]::before{padding:9px}',
     };
 
     for (const [shape, css] of Object.entries(QUALIFIED)) {
@@ -1157,8 +1294,13 @@ describe('lifecycle marker — declarations', () => {
         const { rules, unreadable, errors } = analyze(PRIMITIVE + css);
         expect(errors, 'the fixture did not parse').toEqual([]);
         expect(unreadable, 'the fixture prelude did not parse').toEqual([]);
+        // The same predicate `targeting()` uses, so a shape that names the
+        // class only through a class-attribute predicate counts too.
         const qualified = rules
-          .filter((rule) => rule.before && rule.classes.includes('state-marker--shipped'))
+          .filter(
+            (rule) =>
+              rule.before && (rule.anyClass || rule.classes.includes('state-marker--shipped')),
+          )
           .map(({ selector }) => selector)
           .filter((selector) => !/^\.state-marker--shipped::?before$/.test(selector));
         expect(qualified.length, `an override behind ${shape} was not collected`).toBe(1);
@@ -1207,6 +1349,79 @@ describe('lifecycle marker — declarations', () => {
         errors.length,
         'a nested rule with no & parsed silently, so the shape would be skipped rather than reported',
       ).toBeGreaterThan(0);
+    });
+
+    it('attributes a nested group rule to the selectors it sits inside', () => {
+      // Valid nesting puts declarations directly inside a group rule:
+      // `.state-marker--shipped::before { @media (…) { padding: 9px } }`.
+      // css-tree stores them under the `Atrule` block, so the outer rule reads
+      // as empty and no conditional rule is created for them either — the
+      // declaration checks and the conditional-mark check both passed on a real
+      // override (Codex, PR #973).
+      const { rules, errors } = analyze(
+        `${PRIMITIVE}.state-marker--shipped::before{@media (min-width:700px){padding:9px}}`,
+      );
+      expect(errors, 'the fixture did not parse').toEqual([]);
+      const grouped = rules.filter(
+        (rule) =>
+          rule.conditional &&
+          rule.before &&
+          rule.classes.includes('state-marker--shipped') &&
+          rule.declarations.some(({ property }) => property === 'padding'),
+      );
+      expect(
+        grouped.map(({ selector }) => selector),
+        'a declaration inside a nested group rule was attributed to nothing',
+      ).toEqual(['.state-marker--shipped::before']);
+    });
+
+    it('reaches the subject inside an nth-child selector list', () => {
+      // `:nth-child(1 of .state-marker--shipped)` selects an element that
+      // carries the modifier, but css-tree puts the list under an `Nth` node
+      // rather than beside the pseudo's own children, so a direct-child walk
+      // found nothing and the rule got an empty subject (Codex, PR #973).
+      const subjects = (css) => analyze(css).rules.map((rule) => rule.subject);
+      for (const pseudo of ['nth-child', 'nth-last-child']) {
+        expect(
+          subjects(`:${pseudo}(1 of .state-marker--shipped){font-size:1.1em}`)[0],
+          `a modifier inside :${pseudo}() was not read as the subject`,
+        ).toContain('state-marker--shipped');
+      }
+      // And the attribute forms of the same thing.
+      expect(
+        subjects('[class~="state-marker--shipped"]{font-size:1.1em}')[0],
+        'a class-token attribute selector was not read as the subject',
+      ).toContain('state-marker--shipped');
+      expect(
+        analyze('[class*="state-marker--"]{font-size:1.1em}').rules[0].subjectAnyClass,
+        'a predicate over the class attribute was not treated as possibly-a-modifier',
+      ).toBe(true);
+      expect(
+        analyze('.resume-entry__status{font-size:7.5pt}').rules[0].subjectAnyClass,
+        'a plain surface class was treated as a class-attribute predicate',
+      ).toBe(false);
+    });
+
+    it('does not read helper text quoted in a string literal as a call site', () => {
+      // A doc example or a rendered snippet is not an invocation, and treating
+      // one as an unreadable call fails the required suite on code that calls
+      // nothing (Codex, PR #973).
+      const quoted = `const example = "stateMarkerClass(status, surfaceClass)";`;
+      expect(
+        withoutCommentsOrStrings(quoted).includes('stateMarkerClass('),
+        'helper text inside a string literal was left in the call-site scan',
+      ).toBe(false);
+      // The quotes themselves survive, so the paren scan still balances, and a
+      // real call on the same line is still found at its own offset.
+      const mixed = `const s = "x)"; const c = stateMarkerClass(status, 'p-status');`;
+      const masked = withoutCommentsOrStrings(mixed);
+      expect(masked.indexOf('stateMarkerClass(')).toBe(mixed.indexOf('stateMarkerClass('));
+      expect(
+        readSurfaceArguments(
+          withoutComments(mixed).slice(withoutComments(mixed).indexOf('stateMarkerClass(')),
+        ),
+        'masking string contents lost a real literal argument',
+      ).toEqual([{ readable: true, classes: ['p-status'] }]);
     });
 
     it('does not read an unrelated escaped class name as the primitive', () => {
