@@ -6112,6 +6112,18 @@ body.resume-page {
   line-height: 1.14;
 }
 
+/* Holds a closed em dash to the word it closes (specs/resume.md § Dash
+   punctuation). An em dash is a break opportunity on BOTH sides, so without a
+   guard a role—organization heading starts a line with the bare mark at
+   ordinary phone widths — measured in Chrome at 320px, 360px and 414px. Only
+   the word before the dash is held, so the break AFTER it, which is the one
+   that reads correctly, still happens. A span rather than a word joiner
+   because this page is ATS-parsed and printed to PDF: the nowrap run adds no
+   characters to the text layer. Composed in src/lib/em-dash-joint.ts. */
+.em-dash-joint {
+  white-space: nowrap;
+}
+
 .resume-entry__meta {
   margin-top: 0.32rem;
   font-size: clamp(0.8rem, 0.78rem + 0.1vw, 0.9rem);
@@ -6222,7 +6234,7 @@ body.resume-page {
    precedent rather than a new arrangement: `.project-status` sits over
    `.post-title` there in exactly this shape. Trailing the name is the obvious
    placement and it does not survive the longest entry — "Device Source of
-   Truth – Partner Device Intelligence Platform" fills 549 of the content
+   Truth—Partner Device Intelligence Platform" fills 549 of the content
    column's 632px on its own, so a status after it wraps to a line by itself at
    every viewport width. A line of its own by design cannot be pushed onto one,
    and the project name gets the full measure back.

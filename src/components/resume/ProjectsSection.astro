@@ -26,6 +26,7 @@ import { getCollection, render } from 'astro:content';
 import { stateMarkerClass } from '../../lib/lifecycle-marker';
 import { PROJECTS_HEADING } from '../../lib/section-propositions';
 import { liveLinkLabel } from '../../lib/live-link-label';
+import { emDashJoint } from '../../lib/em-dash-joint';
 
 const { entries } = Astro.props;
 
@@ -78,12 +79,22 @@ const rendered = await Promise.all(
   <p class="resume-projects__label">Selected projects:</p>
   {rendered.map(({ entry, Content }) => {
     const d = entry.data;
+    // Name—descriptor, closed, and split for the same reason the Experience
+    // heading is: an em dash may start a line otherwise (src/lib/em-dash-joint).
+    const heading = emDashJoint(d.name);
     // Both destinations when both exist, live app first (#947). This was
     // `d.url ?? d.repo`, which silently dropped the repo from every project
     // that also had a live site — five of the seven, once the missing repo and
     // app URLs were added to the collection. A résumé reader who wants the code
     // and a reader who wants the running product are different readers, and the
     // card had been answering only the second.
+    //
+    // Each row's accessible name joins the project to its destination with the
+    // site's `·`, not an em dash: every `d.name` already closes on one
+    // ("Five Across—Live Multiplayer Social Bingo Platform"), and a second in
+    // the same string reads as a typo rather than a break. That is the call the
+    // section lead already makes against the same collision (specs/resume.md
+    // § Dash punctuation), and it matches the `·` the visible row shows.
     return (
       <article class="resume-entry">
         {projectStatus[entry.id] && (
@@ -91,7 +102,7 @@ const rendered = await Promise.all(
             {projectStatus[entry.id]}
           </p>
         )}
-        <h3 class="resume-entry__title">{d.name}</h3>
+        <h3 class="resume-entry__title">{heading.head}{heading.joint && <span class="em-dash-joint">{heading.joint}</span>}{heading.tail}</h3>
         <p class="resume-entry__tech">{d.tech.join(' · ')}</p>
         {(d.url || d.repo) && (
           <p class="resume-entry__link">
@@ -100,14 +111,14 @@ const rendered = await Promise.all(
                 href={d.url}
                 target="_blank"
                 rel="noopener"
-                aria-label={`${d.name} — ${liveLinkLabel(projectMeta[entry.id]?.liveLabel).toLowerCase()}`}
+                aria-label={`${d.name} · ${liveLinkLabel(projectMeta[entry.id]?.liveLabel).toLowerCase()}`}
               >
                 {liveLinkLabel(projectMeta[entry.id]?.liveLabel)} <span class="link-arrow" aria-hidden="true">&nearr;</span>
               </a>
             )}
             {d.url && d.repo && <span class="resume-entry__link-sep" aria-hidden="true"> · </span>}
             {d.repo && (
-              <a href={d.repo} target="_blank" rel="noopener" aria-label={`${d.name} — source on GitHub`}>
+              <a href={d.repo} target="_blank" rel="noopener" aria-label={`${d.name} · source on GitHub`}>
                 GitHub <span class="link-arrow" aria-hidden="true">&nearr;</span>
               </a>
             )}

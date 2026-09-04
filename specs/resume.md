@@ -154,6 +154,20 @@ The `resumeProjects` collection must remain separate from the existing
   and a dedicated one-line meta/OG description.
 - A `Person` + `ProfilePage` JSON-LD graph is emitted.
 
+## Dash punctuation
+
+One mark per function, CMOS-aligned, and the page is swept for the spaced dash that is none of them (`tests/resume.test.js` § *renders no spaced en or em dash*—text and accessible names both, since a reader can meet either).
+
+- **Closed em dash** for a single construction split across two parts: role—organization in each Experience `<h3>` (`Senior Product Manager—Disney Entertainment and ESPN Product & Technology`, composed by `ExperienceSection` from `title` and `company`), and project name—descriptor in each Projects `<h3>` (`Five Across—Live Multiplayer Social Bingo Platform`, authored in `src/content/resume/projects/`). Also the meta/OG description and `og:image:alt`. No spaces, ever.
+- **En dash** for ranges—`2021–2026` in the Experience meta line, and any other numeric range.
+- **Middle dot** for metadata lists: the Experience meta line (`team · location · range`), each project's tech row, the contact line, the destination row, and the Projects section lead. It is also what joins a project's name to its destination in that row's `aria-label`, for the reason § Projects gives for the lead: the name already closes on an em dash, and a second in the same string reads as a typo rather than a break.
+- **`→` / `↗`** for navigation—internal or continuation, and external destination respectively. These are the navigation vocabulary, not punctuation, and the sweep does not touch them.
+- **Official names keep their canonical styling.** `Certified Scrum Professional - Product Owner (CSP-PO)` is Scrum Alliance's name for the credential, spaced hyphen included; it is pinned as a positive assertion so the exemption stays a decision rather than an oversight.
+
+The Projects and Writing section leads differ from each other on the separator between proposition and URL. That is the same rule applied to two different constructions, not an exception to it—see § Projects.
+
+**The closed dash is held to the word it closes.** An em dash is a break opportunity on *both* sides (UAX #14 class B2), so a narrow column will start a line with the bare mark—`Senior Product Manager` / `—Disney Entertainment and ESPN…`, measured in Chrome at 320px, 360px and 414px. Each `<h3>` is therefore split by `src/lib/em-dash-joint.ts` into head, a `white-space: nowrap` `.em-dash-joint` span holding the last word plus the dash, and tail; only the break *after* the dash survives, which is the one that reads correctly. **A span rather than a word joiner, and that choice is the point:** U+2060 would do the same job and would also put an invisible character into the text layer of a document whose whole purpose is to be machine-read—ATS parsers, PDF extraction, copy-paste. A nowrap run adds nothing, so `tests/em-dash-joint.test.js` can assert head + joint + tail reassembles to the heading exactly, and `tests/resume.test.js` can assert on the rendered page that every dashed heading carries exactly one joint and every dashless one carries none.
+
 ## Experience density
 
 Vertical space tracks relevance. Two separate mechanisms produce it, and
