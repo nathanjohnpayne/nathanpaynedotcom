@@ -394,19 +394,45 @@ describe('PostHog', () => {
     expect(capture).toHaveBeenCalledWith('booking_link_clicked');
   });
 
-  it('captures resume_link_clicked from the Connect social-stack résumé row (and still social_link_clicked)', () => {
+  // #972 removed the Connect "Elsewhere" résumé row, and with it the only
+  // element that was both a résumé link and a .social-row. That row fired
+  // resume_link_clicked and social_link_clicked {platform:"resume"} together
+  // — deliberately, and documented as Behavior #3 — so the coverage that
+  // used to pin the double-fire now pins its absence, from the action-row
+  // link that replaced it as Connect's résumé affordance.
+  it('captures resume_link_clicked from the Connect action-row résumé link, and nothing else', () => {
     const capture = vi.fn();
     window.posthog = { capture };
     new Function(posthogHomepageScript)();
 
     document
-      .querySelector('.social-row--resume')
+      .querySelector('.availability-resume')
       .dispatchEvent(new MouseEvent('click', { bubbles: true }));
 
-    // Connect "Elsewhere" résumé row is both a résumé link and a .social-row,
-    // so it fires both events (see specs/analytics.md Behavior #3).
     expect(capture).toHaveBeenCalledWith('resume_link_clicked');
-    expect(capture).toHaveBeenCalledWith('social_link_clicked', { platform: 'resume' });
+    expect(
+      capture.mock.calls.filter((c) => c[0] === 'social_link_clicked'),
+      'the action-row résumé link is not a .social-row and must not report as one',
+    ).toHaveLength(0);
+  });
+
+  it('no longer emits social_link_clicked with an on-site platform', () => {
+    const capture = vi.fn();
+    window.posthog = { capture };
+    new Function(posthogHomepageScript)();
+
+    const rows = [...document.querySelectorAll('.social-row')];
+    // Control: a zero-hit sweep proves nothing if the sweep found no rows.
+    expect(rows.length, 'no .social-row elements found — the sweep below is vacuous').toBe(6);
+    for (const row of rows) {
+      row.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    }
+
+    const platforms = capture.mock.calls
+      .filter((c) => c[0] === 'social_link_clicked')
+      .map((c) => c[1].platform)
+      .sort();
+    expect(platforms).toEqual(['bluesky', 'github', 'instagram', 'linkedin', 'threads', 'x']);
   });
 
   // #659 folded the RÉSUMÉ section into NOW, so the About-panel résumé link

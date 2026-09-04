@@ -86,10 +86,17 @@ may be removed later without affecting the other.
    focus (or clears it) records no event and emits no per-panel phantom opens.
 2. Clearing `data-focus` (panel close) resets the dedupe latch so re-opening
    the same panel records a fresh `homepage_panel_opened`.
-3. The Connect "Elsewhere" social-stack résumé row (`.social-row--resume`) is
-   both a résumé link and a `.social-row`, so clicking it intentionally records
-   **both** `resume_link_clicked` (the location-agnostic résumé aggregate) and
-   `social_link_clicked` with `platform: "resume"` (the social-stack breakdown).
+3. `resume_link_clicked` and `social_link_clicked` no longer overlap. Until
+   #972 the Connect "Elsewhere" list carried a résumé row (`.social-row--resume`)
+   that was both a résumé link and a `.social-row`, so a click on it
+   deliberately recorded both events—the location-agnostic résumé aggregate and
+   the social-stack breakdown, which answer different questions. #972 removed
+   that row along with the Blog one, because "Elsewhere" is off-site and both
+   were on this site. Every `.social-row` now points off `nathanpayne.com`, so
+   no `social_link_clicked` carries an on-site `platform`, and the two résumé
+   links that remain (Connect's action row and the About panel's NOW exit
+   line) are not `.social-row`s. Comparing `resume_link_clicked` counts across
+   that change means comparing a figure that had a third source before it.
 
 ### Error Tracking
 
