@@ -89,7 +89,7 @@ async function sampleLinks(page: Page): Promise<Sample[]> {
       });
     });
     return out;
-  }) as Promise<Sample[]>;
+  });
 }
 
 function over(foreground: ParsedColor, background: ParsedColor): ParsedColor {
@@ -112,18 +112,18 @@ function planeOf(sample: Sample): ParsedColor {
   return base;
 }
 
-function measure(sample: Sample): { ratio: number; plane: ParsedColor } {
+function contrastOf(sample: Sample): number {
   const plane = planeOf(sample);
   const ink = parseComputedColor(sample.rawInk);
   expect(ink, `Unable to parse ink color: ${sample.rawInk}`).not.toBeNull();
   const composited = over({ ...ink!, a: ink!.a * sample.opacity }, plane);
-  return { ratio: contrastRatio(composited, plane), plane };
+  return contrastRatio(composited, plane);
 }
 
 function assertAllClearAA(samples: Sample[], state: string): void {
   expect(samples.length, `no links sampled in ${state}`).toBeGreaterThan(0);
   const failures = samples
-    .map((sample) => ({ sample, ...measure(sample) }))
+    .map((sample) => ({ sample, ratio: contrastOf(sample) }))
     .filter(({ ratio }) => ratio < AA_TEXT)
     .map(
       ({ sample, ratio }) =>
@@ -144,10 +144,8 @@ test.describe('Home panel interactive text contrast', () => {
     expect(parseComputedColor('not a color')).toBeNull();
   });
 
-  test('every rendered link clears 4.5:1 on the plane it is shown against', async ({
-    page,
-  }, testInfo) => {
-    const width = testInfo.project.use.viewport?.width ?? 0;
+  test('every rendered link clears 4.5:1 on the plane it is shown against', async ({ page }) => {
+    const width = page.viewportSize()?.width ?? 0;
     await page.goto('/');
     await page.addStyleTag({ content: KILL_MOTION });
 
@@ -170,7 +168,7 @@ test.describe('Home panel interactive text contrast', () => {
     }
   });
 
-  test('a color-mix() ink is actually exercised by a page reading', async ({ page }, testInfo) => {
+  test('a color-mix() ink is actually exercised by a page reading', async ({ page }) => {
     // The other half of the parser control. The literal above proves the
     // color(srgb ...) branch is CORRECT; this proves it is REACHED, so the
     // guard cannot quietly become dead code that nothing on this page takes.
@@ -181,7 +179,7 @@ test.describe('Home panel interactive text contrast', () => {
     // values left on those planes belong to labels and rules, which are not
     // what the AA sweep measures. The open parchment state is where a measured
     // link ink is a color-mix() — .blog-callout-link's 72% --ink-warm.
-    const width = testInfo.project.use.viewport?.width ?? 0;
+    const width = page.viewportSize()?.width ?? 0;
     test.skip(width < STACK_BREAKPOINT, 'no panel opens below --bp-stack; see the note above');
 
     await page.goto('/');
