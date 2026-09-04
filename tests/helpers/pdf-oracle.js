@@ -113,10 +113,12 @@ const devicePx = (css) => Math.round(((css * 0.75) / 72) * DPI);
  *
  * - the page margin, `@page { margin: 0.6in }` (and `RESUME_PDF_MARGIN`);
  * - `--bullet-size: 0.36rem` = 5.76 CSS px;
- * - `.state-marker::before` = `0.72em` of the 7.5pt (10 CSS px) status kicker,
- *   plus its 1px border on each side. The border adds to the box because the
- *   `box-sizing: border-box` reset selects `*`, which does not match a
- *   pseudo-element.
+ * - `.state-marker::before` = `calc(0.72em + 2px)` of the 7.5pt (10 CSS px)
+ *   status kicker: 0.72em of mark plus its 1px border on each side. The rule
+ *   sets `box-sizing: border-box` and restates the border in the width for
+ *   that reason — the `*` reset does not match a pseudo-element, so without it
+ *   a variant's own padding grew the box rather than eating into its fill
+ *   (#959).
  *
  * The bullet marker is pulled fully into the gutter by a negative left margin,
  * so it starts at the page margin — which is also where non-bullet text starts,
@@ -234,39 +236,31 @@ export function visibleMarkersPerPage(pdfPath) {
 /**
  * Nominal mark box, and the slack the classifier allows around it.
  *
- * Three sources of slack, all measured against the built file rather than
+ * Two sources of slack, both measured against the built file rather than
  * assumed: antialiasing puts the left edge on `MARKER_X` or `MARKER_X + 1`
- * depending on the fill; `STATUS_MARK_SIZE` is a rounded derivation, not a
- * measurement; and the cored `ARCHIVED` variant is genuinely **larger than the
- * other three** — `padding: 0.1em` adds to the box for the same reason its
- * border does, since the `box-sizing: border-box` reset selects `*` and does
- * not match a pseudo-element. Measured on the built résumé: 14 device px for
- * `PAUSED` and `EXPERIMENT`, 15 for `SHIPPED`, 17 for `ARCHIVED`.
+ * depending on the fill, and `STATUS_MARK_SIZE` is a rounded derivation rather
+ * than a measurement. Measured on the built résumé, all four variants:
+ * 15×14 solid, 14×14 cored, 14×15 hollow, 14×13 half.
  *
- * The window is deliberately not wide enough to swallow a geometry change. A
- * mark that drifts out of it stops being found, which fails the signature
+ * There used to be a third, and one window per variant to carry it: the cored
+ * mark rendered 17×17 because its `padding: 0.1em` grew the box, and the
+ * detection window had to be wide enough to find it while every other variant
+ * was held to a narrower one so it could not spend the same slack (#948, #958).
+ * #959 made the box `border-box`, so the padding eats into the fill and all
+ * four are one size again — and one window does again what two had to.
+ *
+ * The window is deliberately not wide enough to swallow a geometry change, in
+ * either direction: `scale(1.25)` on a 14 px mark lands on 17 and `scaleY(0.8)`
+ * lands on 11, and both miss it. Collapsing two windows into one is where that
+ * symmetry is easy to lose — the first attempt kept detection's slack as
+ * classification's on both bounds, which re-admitted the scaled mark #958 had
+ * closed, and the second fixed the ceiling and left the floor a pixel loose
+ * (Codex, PR #963). A mark that drifts out of it stops being found, which fails the signature
  * comparison rather than passing quietly — and the declarations themselves are
  * asserted against the emitted stylesheet in resume.test.js § print stylesheet.
  */
-const MARK_MIN = STATUS_MARK_SIZE - 3;
-const MARK_MAX = STATUS_MARK_SIZE + 6;
-
-/**
- * The window every variant EXCEPT the cored one has to sit in.
- *
- * `MARK_MAX` above is wide only to admit `ARCHIVED`, whose padding grows its
- * box (#959). Detection has to use the wide window — a mark outside it is not
- * found at all — but letting the other three spend that slack means a mark
- * scaled half again its size still classifies (Codex, PR #958). So the wide
- * allowance is spent once, by the variant that needs it, and the rest are held
- * to the nominal box. Measured on the built résumé: 15×14 solid, 14×15 hollow,
- * 14×13 half, 17×17 cored.
- *
- * When #959 lands and the cored mark is the same size as its peers, this and
- * `MARK_MAX` collapse back into one window.
- */
-const TIGHT_MIN = STATUS_MARK_SIZE - 2;
-const TIGHT_MAX = STATUS_MARK_SIZE + 2;
+const MARK_MIN = STATUS_MARK_SIZE - 2;
+const MARK_MAX = STATUS_MARK_SIZE + 2;
 
 /**
  * How much of the middle row a lone dark run has to cover to be `solid`.
@@ -308,17 +302,6 @@ const HALF_MAX = 2 / 3;
  */
 const EDGE_MAX = 1 / 4;
 const CORE_MIN = 1 / 2;
-
-/**
- * The cored variant's own size ceiling.
- *
- * `MARK_MAX` is detection-only slack; a cored mark that spends it on a
- * thickened border rather than on its padding is not a cored mark (Codex,
- * PR #958). Measured 17 px against the nominal 14, so this is the padded box
- * plus the same two pixels every other variant gets — and it disappears with
- * `TIGHT_MAX` when #959 lands.
- */
-const CORED_MAX = STATUS_MARK_SIZE + 5;
 
 /**
  * Is every pixel across the mark column dark on this row?
@@ -448,10 +431,13 @@ function markSignature(page, box) {
   // because #959 makes it so. Everything else is held to the tight window, or
   // the slack that exists for one variant silently covers a size regression in
   // another (Codex, PR #958).
+  // A classified mark still has to be the right size. Detection allows a few
+  // pixels of slack for antialiasing and rounding; spending them on a
+  // thickened border or a `transform` is not a mark (Codex, PR #958). One
+  // window covers all four variants since #959.
   if (signature === 'unrecognised') return signature;
   const height = box.bottom - box.top + 1;
-  const ceiling = signature === 'cored' ? CORED_MAX : TIGHT_MAX;
-  const nominal = (n) => n >= TIGHT_MIN && n <= ceiling;
+  const nominal = (n) => n >= MARK_MIN && n <= MARK_MAX;
   return nominal(width) && nominal(height) ? signature : 'unrecognised';
 
   function read() {
