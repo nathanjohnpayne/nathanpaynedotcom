@@ -33,7 +33,6 @@ import { contrastRatio, parseComputedColor, type ParsedColor } from '../helpers/
  * Run: `npm run test:e2e` (see the note in shared-chrome.spec.ts on ports).
  */
 
-const STACK_BREAKPOINT = 1024; // --bp-stack
 const AA_TEXT = 4.5;
 const PANELS = ['panel--red', 'panel--yellow', 'panel--black', 'panel--blue'] as const;
 
@@ -48,6 +47,25 @@ type Sample = {
 
 const KILL_MOTION =
   '*, *::before, *::after { transition: none !important; animation: none !important }';
+
+/**
+ * Which layout the page is actually in, asked of the browser in the same terms
+ * the stylesheet asks it (`--bp-stack: 1024px`).
+ *
+ * Deliberately not derived from a viewport number. `testInfo.project.use.viewport`
+ * is config that can drift from what is rendering, and `page.viewportSize()`
+ * returns `null` for a context with no explicit viewport — which, collapsed to a
+ * width of 0, would silently select the stack branch and skip every desktop
+ * assertion. A gap in coverage that reports as a pass is the failure mode this
+ * whole spec exists to prevent, so the question is put to `matchMedia` instead:
+ * no null, no fallback, and no breakpoint restated away from the one in the CSS.
+ */
+async function readLayout(page: Page): Promise<{ isStack: boolean; width: number }> {
+  return page.evaluate(() => ({
+    isStack: window.matchMedia('(max-width: 1023px)').matches,
+    width: window.innerWidth,
+  }));
+}
 
 /**
  * Collect every rendered link inside the grid with the raw computed strings
@@ -145,11 +163,11 @@ test.describe('Home panel interactive text contrast', () => {
   });
 
   test('every rendered link clears 4.5:1 on the plane it is shown against', async ({ page }) => {
-    const width = page.viewportSize()?.width ?? 0;
     await page.goto('/');
     await page.addStyleTag({ content: KILL_MOTION });
+    const { isStack, width } = await readLayout(page);
 
-    if (width < STACK_BREAKPOINT) {
+    if (isStack) {
       // The real phone state: all four panels closed, all content visible.
       expect(await page.locator('.panel.is-open').count(), 'a panel opened in stack mode').toBe(0);
       assertAllClearAA(await sampleLinks(page), `stack ${width}px`);
@@ -179,11 +197,10 @@ test.describe('Home panel interactive text contrast', () => {
     // values left on those planes belong to labels and rules, which are not
     // what the AA sweep measures. The open parchment state is where a measured
     // link ink is a color-mix() — .blog-callout-link's 72% --ink-warm.
-    const width = page.viewportSize()?.width ?? 0;
-    test.skip(width < STACK_BREAKPOINT, 'no panel opens below --bp-stack; see the note above');
-
     await page.goto('/');
     await page.addStyleTag({ content: KILL_MOTION });
+    const { isStack } = await readLayout(page);
+    test.skip(isStack, 'no panel opens below --bp-stack; see the note above');
 
     const seen: string[] = [];
     for (const panel of PANELS) {
