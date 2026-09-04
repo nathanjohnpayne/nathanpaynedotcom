@@ -277,6 +277,7 @@ describe('PostHog', () => {
       'social_link_clicked',
       'donation_link_clicked',
       'writing_link_clicked',
+      'index_link_clicked',
     ]) {
       expect(posthogHomepageScript).toContain(evt);
     }
@@ -414,6 +415,50 @@ describe('PostHog', () => {
       capture.mock.calls.filter((c) => c[0] === 'social_link_clicked'),
       'the action-row résumé link is not a .social-row and must not report as one',
     ).toHaveLength(0);
+  });
+
+  it('captures index_link_clicked from every panel exit, with its panel and href', () => {
+    const capture = vi.fn();
+    window.posthog = { capture };
+    new Function(posthogHomepageScript)();
+
+    const exits = [...document.querySelectorAll('.ribbon-exit')];
+    // Control: the sweep below says nothing if it swept nothing. Three panels
+    // exit to an index — Projects, About, Connect (#975).
+    expect(exits.length, 'expected three .ribbon-exit links').toBe(3);
+    for (const exit of exits) {
+      exit.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    }
+
+    const calls = capture.mock.calls.filter((c) => c[0] === 'index_link_clicked').map((c) => c[1]);
+    expect(calls.map((c) => c.panel).sort()).toEqual(['about', 'connect', 'projects']);
+    expect(calls.map((c) => c.href).sort()).toEqual(['/blog/', '/blog/', '/projects/']);
+    expect(
+      calls.some((c) => c.panel === 'unknown'),
+      'an exit is missing data-panel',
+    ).toBe(false);
+  });
+
+  it('keeps writing_link_clicked to article links only', () => {
+    const capture = vi.fn();
+    window.posthog = { capture };
+    new Function(posthogHomepageScript)();
+
+    // The About exit sat inside .writing-list until #975, so its one click
+    // per quarter landed in the article-click event. It reports as
+    // index_link_clicked now and must not double-report.
+    document
+      .querySelector('[data-panel="about"] .ribbon-exit')
+      .dispatchEvent(new MouseEvent('click', { bubbles: true }));
+
+    expect(capture.mock.calls.filter((c) => c[0] === 'writing_link_clicked')).toHaveLength(0);
+
+    const article = document.querySelector('.writing-list__posts a');
+    expect(article, 'no article link found — the assertion below is vacuous').not.toBeNull();
+    article.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    expect(capture).toHaveBeenCalledWith('writing_link_clicked', {
+      href: article.getAttribute('href'),
+    });
   });
 
   it('no longer emits social_link_clicked with an on-site platform', () => {

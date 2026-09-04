@@ -196,21 +196,26 @@ const homepageJsonLd = {
               <div class="about-block about-block--writing">
                 <span class="eyebrow about-label">Writing</span>
                 <p>Selected writing on shipping software with AI coding agents—scope, review, and the decisions that don’t show up in the diff.</p>
-                {/* .writing-list wraps the post list AND the exit link so the
-                    two read as one block while carrying different treatments:
-                    the posts are bracketed by the left rule, the exit sits
-                    below a hairline in the eyebrow voice (#659). */}
+                {/* .writing-list wraps the post list alone. It also held the
+                    exit link until #975, so that the two read as one block
+                    (#659); the exit now sits on the ribbon below with every
+                    other panel's, which is the same idea carried further —
+                    one voice for "leaves this panel", in one place. Keeping
+                    it here would also keep it inside the .writing-list a
+                    selector that captures article clicks. */}
                 <div class="writing-list">
                   <ul class="writing-list__posts">
                     {writingLinks.map((link) => (
                       <li><a href={link.href} class="p-name-link writing-link">{link.title}</a></li>
                     ))}
                   </ul>
-                  <a href="/blog/" class="writing-list__all">View all writing<span class="link-arrow" aria-hidden="true">→</span></a>
                 </div>
               </div>
               <div class="now-ribbon">
-                <span class="eyebrow now-ribbon-label">Last updated</span>
+                <div class="ribbon-row">
+                  <span class="eyebrow now-ribbon-label">Last updated</span>
+                  <a href="/blog/" class="ribbon-exit" data-panel="about">View all writing<span class="link-arrow" aria-hidden="true">→</span></a>
+                </div>
                 <span class="now-ribbon-date">{nowEntry.data.lastUpdated}</span>
               </div>
             </div>
@@ -286,17 +291,22 @@ const homepageJsonLd = {
                 <p>Shared billing for recurring household costs—showing recipients the arithmetic, tracking settlement, and handling questions without requiring an account.</p>
               </div>
             </div>
-            {/* The homepage lists every project but never made the richer index
-                an obvious destination (#892). */}
-            <a class="nav-button projects-index-cta" href="/projects/">View all projects<span class="link-arrow" aria-hidden="true">→</span></a>
             {/* Rendered from the stackLadder array, not typed out, so the five
                 rungs cannot drift apart. The map output must stay whitespace-free
                 on one line: the ` · ` separators are ::before pseudo-elements, and
                 markup whitespace between the spans would double the space before
                 each one. Which items are visible is decided by container queries
-                on .stack-items, not here. #930. */}
+                on .stack-items, not here. #930. The index link moved here from a
+                bordered .nav-button above the ribbon (#892); every panel exit
+                now sits on the footer's eyebrow row. The button was added to
+                make the index an obvious destination and did not: over 90 days
+                /projects/ took 1 of its 82 views from this page. Wayfinding,
+                at wayfinding weight. */}
             <div class="stack-ribbon">
-              <span class="eyebrow stack-label">Stack</span>
+              <div class="ribbon-row">
+                <span class="eyebrow stack-label">Stack</span>
+                <a href="/projects/" class="ribbon-exit" data-panel="projects">View all projects<span class="link-arrow" aria-hidden="true">→</span></a>
+              </div>
               <span class="stack-items">{stackLadder.map((item) => <span class="stack-item" data-stack-tier={item.tier}>{item.label}</span>)}</span>
             </div>
           </div>
@@ -476,12 +486,13 @@ const homepageJsonLd = {
                 trailing link when the title wraps. On the eyebrow row it
                 also sits at label scale, which is where a category's home
                 belongs. Narrow widths wrap it under the eyebrow, above the
-                title. */}
+                title. #975 made .ribbon-row / .ribbon-exit the shared
+                control for all three panel exits — see global.css. */}
             {latestPost && (
               <div class="blog-callout">
-                <div class="blog-callout__row">
+                <div class="ribbon-row">
                   <span class="eyebrow blog-callout-label">Latest Post</span>
-                  <a href="/blog/" class="writing-list__all blog-callout__all">View all writing<span class="link-arrow" aria-hidden="true">→</span></a>
+                  <a href="/blog/" class="ribbon-exit" data-panel="connect">View all writing<span class="link-arrow" aria-hidden="true">→</span></a>
                 </div>
                 <a href={`/blog/${latestPost.id}/`} class="blog-callout-link">{latestPost.data.title}<span class="link-arrow" aria-hidden="true">→</span></a>
               </div>
@@ -1046,7 +1057,22 @@ const homepageJsonLd = {
         });
       });
 
-      // Writing link clicked (About panel)
+      // Index link clicked (the footer eyebrow row on the Projects, About,
+      // and Connect panels). Separate from writing_link_clicked on purpose:
+      // article clicks and wayfinding clicks answer different questions, and
+      // while the About exit lived inside .writing-list the one index click
+      // per quarter was landing in the article-click event.
+      document.querySelectorAll('.ribbon-exit').forEach(function (el) {
+        el.addEventListener('click', function () {
+          window.posthog?.capture('index_link_clicked', {
+            panel: el.dataset.panel || 'unknown',
+            href: el.getAttribute('href') || ''
+          });
+        });
+      });
+
+      // Writing link clicked (About panel) — article links only; the exit
+      // link left .writing-list in #975 and reports as index_link_clicked.
       document.querySelectorAll('.writing-list a').forEach(function (el) {
         el.addEventListener('click', function () {
           window.posthog?.capture('writing_link_clicked', {

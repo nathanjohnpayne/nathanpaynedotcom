@@ -37,13 +37,13 @@ describe('Blog Pages', () => {
     // Scoped to that link, not to a[href="/blog/"]: the About panel carries
     // its own /blog/ link ("View all writing →", #619), so a bare href
     // selector identifies neither.
-    const blogLink = document.querySelector('.blog-callout__all[href="/blog/"]');
+    const blogLink = document.querySelector('.blog-callout .ribbon-exit[href="/blog/"]');
     expect(blogLink, 'Connect panel has no path to the blog index').not.toBeNull();
     expect(blogLink.textContent.replace(/→/g, '').replace(/\s+/g, ' ').trim()).toBe(
       'View all writing',
     );
     expect(
-      blogLink.closest('.blog-callout__row'),
+      blogLink.closest('.ribbon-row'),
       'the index link is not on the Latest Post eyebrow row',
     ).not.toBeNull();
   });

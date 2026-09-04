@@ -101,8 +101,8 @@ describe('Connect "Elsewhere" list (#972)', () => {
     // Two paths to one destination reading differently is how a reader
     // concludes they are two destinations.
     const text = (el) => el.textContent.replace(/→/g, '').replace(/\s+/g, ' ').trim();
-    const writingPanelLink = document.querySelector('.writing-list .writing-list__all');
-    const connectLink = document.querySelector('.blog-callout__all');
+    const writingPanelLink = document.querySelector('[data-panel="about"] .ribbon-exit');
+    const connectLink = document.querySelector('.blog-callout .ribbon-exit');
 
     expect(writingPanelLink, 'Writing panel lost its index link').not.toBeNull();
     expect(connectLink, 'Connect has no path to the blog index').not.toBeNull();

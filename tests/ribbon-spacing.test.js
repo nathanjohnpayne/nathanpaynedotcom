@@ -81,7 +81,15 @@ describe('space above each panel-closing ribbon', () => {
         /margin-bottom:\s*var\(--ribbon-space-above\)/,
       );
     }
-    expect(rule('.projects-index-cta')).not.toMatch(/margin-bottom/);
+    // #975 retired .projects-index-cta with the button it sized; the Projects
+    // exit is a .ribbon-exit on the ribbon row now. Asserting the rule is
+    // absent rather than deleting the line: `rule()` returns undefined for a
+    // selector that is not there, and `undefined` satisfies `.not.toMatch`,
+    // so the old assertion would have kept passing over a deleted rule and
+    // said nothing.
+    expect(SOURCE_CSS, '.projects-index-cta should be gone from the stylesheet').not.toMatch(
+      /\.projects-index-cta/,
+    );
 
     // The override that restated the old shared value verbatim is gone: it read
     // as a difference and was not one.

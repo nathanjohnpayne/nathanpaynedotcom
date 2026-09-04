@@ -64,7 +64,8 @@ may be removed later without affecting the other.
 | `resume_link_clicked` | Click on a résumé link in the Connect/About panels | — |
 | `social_link_clicked` | Click on a `.social-row` link | `platform` |
 | `donation_link_clicked` | Click on a Community-panel `.effort-link` | `organization` |
-| `writing_link_clicked` | Click on a `.writing-list` link in the About panel | `href` |
+| `writing_link_clicked` | Click on a `.writing-list` link in the About panel—article links only | `href` |
+| `index_link_clicked` | Click on a `.ribbon-exit` index link on the Projects, About, or Connect footer ribbon | `panel`, `href` |
 | `project_page_viewed` | A project detail page loads | `project_slug`, `project_title`, `project_status` |
 | `project_live_link_clicked` | Live-CTA button click—labelled "View Live Product" by default, or the project's own `liveLabel` (Device Source of Truth uses "View Demo"). The event and its properties do not vary with the label | `project_title`, `url` |
 | `project_github_link_clicked` | "View on GitHub" button click | `project_title`, `url` |
@@ -97,6 +98,16 @@ may be removed later without affecting the other.
    links that remain (Connect's action row and the About panel's NOW exit
    line) are not `.social-row`s. Comparing `resume_link_clicked` counts across
    that change means comparing a figure that had a third source before it.
+
+4. `index_link_clicked` and `writing_link_clicked` are deliberately separate.
+   Until #975 the About panel's "View all writing" link sat inside
+   `.writing-list`, so it matched the `.writing-list a` selector and its
+   clicks were recorded as article clicks—9 article clicks to 1 index click
+   over 90 days, in one figure. The exit moved to the footer ribbon with the
+   Projects and Connect exits, and wayfinding is now counted on its own,
+   carrying which `panel` it left from. `writing_link_clicked` counts before
+   and after that change are not comparable: the earlier figure includes
+   index clicks.
 
 ### Error Tracking
 
