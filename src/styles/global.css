@@ -863,7 +863,14 @@ html[data-fonts-pending] .panel-label {
    It is separated by voice and by gap, not by a rule of its own. The panel
    holds exactly one horizontal rule and it belongs above LAST UPDATED — two
    rules 40px apart banded this line into a strip. */
-.writing-list .writing-list__all {
+/* Scoped to the two containers that use it rather than left bare: the
+   descendant selector is what gives these declarations the specificity to
+   beat the generic link rules, so unscoping .writing-list__all would change
+   which rule wins, not just where it applies. .blog-callout joins the
+   selector in #972 so the Latest Post footer's index link is the same
+   control as the Writing panel's, not a copy of it. */
+.writing-list .writing-list__all,
+.blog-callout .writing-list__all {
   display: block;
   margin-top: 0.75rem;
   font-family: var(--font-body);
@@ -882,7 +889,9 @@ html[data-fonts-pending] .panel-label {
 }
 
 .writing-list .writing-list__all:hover,
-.writing-list .writing-list__all:focus-visible {
+.writing-list .writing-list__all:focus-visible,
+.blog-callout .writing-list__all:hover,
+.blog-callout .writing-list__all:focus-visible {
   color: var(--ink);
 }
 
@@ -993,14 +1002,6 @@ html[data-fonts-pending] .panel-label {
     var(--github-green-4) 76%,
     var(--github-green-2) 100%
   );
-}
-.social-row--blog::after {
-  background: linear-gradient(90deg, var(--red) 0%, var(--yellow) 54%, var(--blue) 100%);
-}
-.social-row--resume::after {
-  /* Reversed Mondrian (blue→yellow→red) — an internal site destination
-     like Blog, distinguished from Blog's red→yellow→blue bar. */
-  background: linear-gradient(90deg, var(--blue) 0%, var(--yellow) 54%, var(--red) 100%);
 }
 .social-row--bluesky::after {
   background: linear-gradient(
@@ -1414,6 +1415,27 @@ a:focus-visible .link-arrow,
   border-top: 1px solid var(--rule);
 }
 
+/* Latest Post eyebrow row (#972): label left, blog-index link right. The
+   parent .blog-callout is the column flex above, so this row is one of its
+   two children and the post title keeps its own line. flex-wrap drops the
+   link under the eyebrow on a narrow panel rather than letting the two
+   collide. Baseline alignment, not center: the two sit at different sizes,
+   and their baselines are what the eye lines up. */
+.blog-callout__row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+/* The shared control carries margin-top for the Writing panel, where it
+   follows a list. Here it is a flex item on the eyebrow's own row, and that
+   margin would push it off the baseline it is aligned to. */
+.blog-callout .blog-callout__all {
+  margin-top: 0;
+}
+
 /* Selected Projects STACK degradation ladder (#930).
    ------------------------------------------------------------------
    The Builds panel's usable width is set by the Mondrian square, and that
@@ -1562,6 +1584,32 @@ a:focus-visible .link-arrow,
 
 .panel--blue.is-open .blog-callout-link {
   color: var(--ink-50);
+}
+
+/* The index link does NOT take the 55% blue-contrast the eyebrow beside it
+   uses. That level is for static labels; this is an interactive control, and
+   the shared .writing-list__all rule sets the floor at 4.5:1 for exactly this
+   reason. Against the closed panel's blue plane the parchment ink the link
+   inherits measures 2.2:1, and its .link-arrow — var(--blue) by default —
+   resolves to the panel's own background and disappears outright at 1.0:1.
+   Full --blue-contrast on both, matching .availability-signal .p-link, the
+   panel's other interactive control.
+
+   Written as :not(.is-open) rather than as a .panel--blue pair with a
+   .panel--blue.is-open pair reverting it. An open panel is parchment
+   (--panel-open-bg), where the shared control's own ink and blue arrow are
+   already right, so the correct open-state rule is *no rule*: this one stops
+   matching and the link falls back to .blog-callout .writing-list__all. The
+   reverting form has to restate rgba(23, 19, 15, 0.72) as a literal — a
+   second copy of a value that lives in the shared rule — and then depends on
+   winning a specificity duel against its own sibling to undo it.
+
+   It also covers stack mode without a second rule: at <=1023px the panel is
+   blue with content always visible, and if it is ever opened there the
+   parchment case follows the same branch. */
+.panel--blue:not(.is-open) .blog-callout__all,
+.panel--blue:not(.is-open) .blog-callout__all .link-arrow {
+  color: var(--blue-contrast);
 }
 
 .effort-list {
@@ -5298,7 +5346,8 @@ a:focus-visible {
   .stack-label,
   .impact-label,
   .now-ribbon-label,
-  .writing-list .writing-list__all {
+  .writing-list .writing-list__all,
+  .blog-callout .writing-list__all {
     font-size: clamp(0.56rem, 0.52rem + 0.2vw, 0.64rem);
     letter-spacing: 0.15em;
   }

@@ -404,6 +404,12 @@ const homepageJsonLd = {
                 } catch (_e) { /* leave href as "#" — noscript covers the fallback */ }
               })();
             </script>
+            {/* Elsewhere is off-site only (#972). Blog and Résumé used to sit
+                in this list, which made the label a lie: both are on this
+                site, Résumé is already in the action row above, and the blog
+                is reachable from the Writing panel and the Latest Post
+                footer below. Only add a row here for a destination that
+                leaves nathanpayne.com. */}
             <span class="eyebrow connect-label">Elsewhere</span>
             <div class="social-stack">
               <a href="https://www.linkedin.com/in/nathanpayne/" target="_blank" rel="noopener" class="social-row social-row--linkedin">
@@ -422,26 +428,6 @@ const homepageJsonLd = {
                   </svg>
                 </span>
                 <span class="s-label">GitHub</span>
-                <span class="s-arrow">→</span>
-              </a>
-              <a href="/blog/" class="social-row social-row--blog">
-                <span class="s-icon" aria-hidden="true">
-                  <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                    <path d="M6.75 3h10.5A2.25 2.25 0 0 1 19.5 5.25v15.01a.75.75 0 0 1-1.147.637L12 17.092l-6.353 3.806a.75.75 0 0 1-1.147-.637V5.25A2.25 2.25 0 0 1 6.75 3Z"></path>
-                    <path d="M8.25 7.5h7.5v1.5h-7.5zM8.25 11.25h5.25v1.5h-5.25z" fill="#dde1e5"></path>
-                  </svg>
-                </span>
-                <span class="s-label">Blog</span>
-                <span class="s-arrow">→</span>
-              </a>
-              <a href="/resume/" class="social-row social-row--resume">
-                <span class="s-icon" aria-hidden="true">
-                  <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                    <path d="M6.75 2.5h6.69c.6 0 1.17.24 1.59.66l3.31 3.31c.42.42.66.99.66 1.59V19.5a2.25 2.25 0 0 1-2.25 2.25H6.75A2.25 2.25 0 0 1 4.5 19.5V4.75A2.25 2.25 0 0 1 6.75 2.5Z"></path>
-                    <path d="M8.25 8h4v1.4h-4zM8.25 11.4h7.5v1.4h-7.5zM8.25 14.8h7.5v1.4h-7.5z" fill="#dde1e5"></path>
-                  </svg>
-                </span>
-                <span class="s-label">Résumé</span>
                 <span class="s-arrow">→</span>
               </a>
               <a href="https://bsky.app/profile/nathanpayne.bsky.social" target="_blank" rel="noopener" class="social-row social-row--bluesky">
@@ -483,9 +469,20 @@ const homepageJsonLd = {
                 <span class="s-arrow">→</span>
               </a>
             </div>
+            {/* Latest Post (#972). The index link rides the eyebrow row
+                rather than the title line: every panel footer here is
+                hairline, eyebrow, one content line, and a second link on the
+                content line turns the callout into a list and orphans the
+                trailing link when the title wraps. On the eyebrow row it
+                also sits at label scale, which is where a category's home
+                belongs. Narrow widths wrap it under the eyebrow, above the
+                title. */}
             {latestPost && (
               <div class="blog-callout">
-                <span class="eyebrow blog-callout-label">Latest Post</span>
+                <div class="blog-callout__row">
+                  <span class="eyebrow blog-callout-label">Latest Post</span>
+                  <a href="/blog/" class="writing-list__all blog-callout__all">View all writing<span class="link-arrow" aria-hidden="true">→</span></a>
+                </div>
                 <a href={`/blog/${latestPost.id}/`} class="blog-callout-link">{latestPost.data.title}<span class="link-arrow" aria-hidden="true">→</span></a>
               </div>
             )}
@@ -1017,14 +1014,14 @@ const homepageJsonLd = {
         });
       });
 
-      // Resume link clicked — all résumé links in the Connect and About
-      // panels: the About-panel NOW exit line, the Connect availability link,
-      // and the Connect "Elsewhere" social-stack row. The social row also matches
-      // .social-row below, so it intentionally fires both resume_link_clicked
-      // (location-agnostic résumé aggregate) and social_link_clicked
-      // {platform:"resume"} (social-stack row breakdown) — they answer
-      // different questions.
-      document.querySelectorAll('.availability-resume, .about-resume-link, .social-row--resume').forEach(function (el) {
+      // Resume link clicked — both résumé links on the page: the
+      // About-panel NOW exit line and the Connect action row. The Connect
+      // "Elsewhere" social-stack row was a third until #972 removed it, and
+      // with it the one row that matched .social-row below and so fired both
+      // resume_link_clicked and social_link_clicked {platform:"resume"}.
+      // Nothing double-fires now, and no .social-row carries an on-site
+      // destination.
+      document.querySelectorAll('.availability-resume, .about-resume-link').forEach(function (el) {
         el.addEventListener('click', function () {
           window.posthog?.capture('resume_link_clicked');
         });
