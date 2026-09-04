@@ -66,6 +66,27 @@ function readDist(relativePath) {
   return readFileSync(resolve(DIST, relativePath), 'utf-8');
 }
 
+/**
+ * A destination URL as the site actually stores and renders it (#948).
+ *
+ * `liveUrl` and `githubUrl` are `z.string().trim()` in src/content.config.ts,
+ * so ` https://example.com ` is schema-valid, is accepted, and renders trimmed.
+ * Frontmatter read straight off disk has not been through that schema, and an
+ * href read back out of the DOM has not either — the `resumeProjects` schema
+ * does not trim its `url` / `repo`. Normalising both ends here is what keeps a
+ * required check from failing an entry the site renders correctly; comparing
+ * the raw scalars did exactly that, including in the CTA lookup.
+ *
+ * Returns `null` for anything absent or whitespace-only, so `.filter(Boolean)`
+ * downstream reads the same on both sides of every comparison.
+ *
+ * @param {unknown} value
+ * @returns {string | null}
+ */
+function destinationUrl(value) {
+  return (typeof value === 'string' && value.trim()) || null;
+}
+
 function setupDOM(rawHtml) {
   // Scripts are removed on a detached document and the doctype preserved by
   // the shared helper — see tests/helpers/dom.js for why both matter.
@@ -549,11 +570,16 @@ describe('Resume — page structure', () => {
       // equality below then asserts exactly that, so requiring at least one
       // here would fail a required check on a valid project (Codex, PR #946).
       // The fixture-level controls at the end keep the loop from going vacuous.
-      const expected = [project.liveUrl, project.githubUrl].filter(Boolean);
+      // Read through `destinationUrl`, which trims: the schema does, so a
+      // canonical URL authored with surrounding whitespace renders clean and
+      // must compare clean (#948).
+      const liveHref = destinationUrl(project.liveUrl);
+      const repoHref = destinationUrl(project.githubUrl);
+      const expected = [liveHref, repoHref].filter(Boolean);
 
       const anchors = [...entry.querySelectorAll('.resume-entry__link a')];
       expect(
-        anchors.map((a) => a.getAttribute('href')),
+        anchors.map((a) => destinationUrl(a.getAttribute('href'))),
         `${name} does not expose exactly its canonical destinations, in order — ` +
           `a canonical liveUrl or githubUrl missing from the résumé fails here`,
       ).toEqual(expected);
@@ -561,7 +587,7 @@ describe('Resume — page structure', () => {
       // And the résumé's own frontmatter must carry the same addresses, so the
       // two collections cannot drift behind an identical render.
       expect(
-        [match.data.url, match.data.repo].filter(Boolean),
+        [destinationUrl(match.data.url), destinationUrl(match.data.repo)].filter(Boolean),
         `${slug}: résumé frontmatter disagrees with the canonical project`,
       ).toEqual(expected);
 
@@ -571,24 +597,33 @@ describe('Resume — page structure', () => {
       // by href rather than wording (`liveLabel` is free text), and read via
       // textContent so an escaped label like `View R&D Demo` compares cleanly.
       let liveWord = null;
-      if (project.liveUrl) {
+      if (liveHref) {
         withLive += 1;
         const projectDom = new JSDOM(readDist(`projects/${slug}/index.html`)).window.document;
-        const ctaEl = projectDom.querySelector(`a[href="${project.liveUrl}"]`);
-        expect(
-          ctaEl,
-          `no live CTA found on /projects/${slug}/ for ${project.liveUrl}`,
-        ).not.toBeNull();
+        // Located by scanning normalised hrefs rather than by an attribute
+        // selector on the raw scalar: the page renders the schema-trimmed URL,
+        // so a selector built from untrimmed frontmatter matches nothing (#948).
+        // Still the first match in document order, as the selector was.
+        const ctaEl = [...projectDom.querySelectorAll('a[href]')].find(
+          (a) => destinationUrl(a.getAttribute('href')) === liveHref,
+        );
+        expect(ctaEl, `no live CTA found on /projects/${slug}/ for ${liveHref}`).toBeTruthy();
         expect(
           ctaEl.textContent.trim(),
           `/projects/${slug}/ CTA does not match its declared liveLabel`,
         ).toBe((project.liveLabel ?? 'View Live Product').trim());
         liveWord = liveLinkLabel(project.liveLabel);
       }
+      // Built from the two destination ROLES, in the order the component
+      // renders them — not by matching each href back against `liveUrl`.
+      // Nothing requires the two addresses to differ, and a project pointing
+      // both fields at one URL renders `<live word>` then `GitHub` correctly,
+      // while href equality mapped both anchors to the live word and failed the
+      // second (#948).
       expect(
         anchors.map((a) => a.textContent.replace(/[↗\s]+/g, ' ').trim()),
         `${name} should label its destinations ${liveWord ?? '(none)'} / GitHub`,
-      ).toEqual(expected.map((href) => (href === project.liveUrl ? liveWord : 'GitHub')));
+      ).toEqual([...(liveHref ? [liveWord] : []), ...(repoHref ? ['GitHub'] : [])]);
 
       for (const a of anchors) {
         expect(a.getAttribute('target'), `${name} link should open in a new tab`).toBe('_blank');
@@ -1282,8 +1317,29 @@ describe('Resume — PDF reading order and markers', () => {
     // cored ARCHIVED and half-filled EXPERIMENT leave paper inside their
     // borders, exactly like a hollow PAUSED. Hence the count comes from the
     // page's own SHIPPED entries rather than from all seven marks.
+    //
+    // The floor below is the page carrying marks AT ALL, not carrying a SHIPPED
+    // one (#948). Requiring SHIPPED made one lifecycle value effectively
+    // mandatory in content: specs/resume.md deliberately pins no mix and calls a
+    // lifecycle flip an ordinary edit, so the last SHIPPED project moving to
+    // another state would have failed a required check with every mark rendered
+    // correctly. What the floor has to catch is the section or its kicker
+    // disappearing, which is what would otherwise make the equality below a
+    // vacuous 0 === 0 — and a mark count catches that without pinning a value.
+    //
+    // When the page genuinely carries no SHIPPED entry the equality is 0 === 0
+    // and this assertion stops discriminating. That is a real loss and it is
+    // bounded: both mechanisms that paint the fills are asserted directly and
+    // content-independently elsewhere — `print-color-adjust` in § print
+    // stylesheet, and `printBackground` by the bullet-marker test above, which
+    // fails outright without it (#925) and has no lifecycle dependency at all.
+    const marks = document.querySelectorAll('#projects .state-marker').length;
+    expect(
+      marks,
+      'no lifecycle marks on the page at all — the Projects kicker is gone, and ' +
+        'every count below would be 0 for that reason rather than a rendering one',
+    ).toBeGreaterThan(0);
     const shipped = document.querySelectorAll('#projects .state-marker--shipped').length;
-    expect(shipped, 'no SHIPPED lifecycle marks on the page to look for').toBeGreaterThan(0);
 
     const built = filledLifecycleMarksPerPage(BUILT_PDF);
     expect(
