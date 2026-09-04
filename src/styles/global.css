@@ -1098,8 +1098,16 @@ html[data-fonts-pending] .panel-label {
 .state-marker::before {
   content: '';
   flex: none;
-  width: 0.72em;
-  height: 0.72em;
+  /* border-box so a variant's own padding stays INSIDE the mark (#959). The
+     `*` reset does not match pseudo-elements, so `--archived`'s 0.1em ring
+     grew its box instead of eating into its fill and it rendered 17 device px
+     against its peers' 14 — one mark visibly larger than the vocabulary it
+     belongs to, on all four surfaces. The width restates the border because
+     the box now includes it: 0.72em of mark, 1px of outline each side, which
+     is the size all four have always rendered except the cored one. */
+  box-sizing: border-box;
+  width: calc(0.72em + 2px);
+  height: calc(0.72em + 2px);
   border: 1px solid currentcolor;
 }
 

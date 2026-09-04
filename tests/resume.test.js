@@ -909,11 +909,12 @@ describe('Resume — print stylesheet', () => {
     //      which is the failure mode where a check reports a confident answer
     //      about the wrong thing.
     //
-    // Note what the border-plus-box derivation does NOT cover: `--archived`
-    // also carries `padding: 0.1em`, which grows its box for the same reason
-    // the border does, so that one mark renders larger than its three peers.
-    // That is a shipped inconsistency rather than a test problem (#959); the
-    // oracle's window is wide enough for both it and a corrected version.
+    // `box-sizing` is part of the geometry and is asserted with it (#959).
+    // Without it the box is content-box, the `*` reset does not reach a
+    // pseudo-element, and a variant's own padding grows the mark instead of
+    // eating into its fill — which is how `--archived` came to render 17
+    // device px against its peers' 14. The width restates the border for the
+    // same reason: under border-box it has to be inside the declared size.
     //
     // Read from the screen cascade, not a print block: these are the base
     // declarations both surfaces inherit.
@@ -925,11 +926,15 @@ describe('Resume — print stylesheet', () => {
 
     const geometry = rule('.state-marker');
     expect(geometry, 'no .state-marker::before rule in the screen cascade').toBeTruthy();
+    expect(
+      geometry,
+      'the mark box is not border-box, so a variant padding grows it (#959)',
+    ).toMatch(/box-sizing:\s*border-box/);
     expect(geometry, 'mark width drifted from what the PDF oracle measures').toMatch(
-      /width:\s*0?\.72em/,
+      /width:\s*calc\(\s*0?\.72em\s*\+\s*2px\s*\)/,
     );
     expect(geometry, 'mark height drifted from what the PDF oracle measures').toMatch(
-      /height:\s*0?\.72em/,
+      /height:\s*calc\(\s*0?\.72em\s*\+\s*2px\s*\)/,
     );
     expect(geometry, 'the 1px outline the oracle adds to the mark box is gone').toMatch(
       /border:\s*1px/,
