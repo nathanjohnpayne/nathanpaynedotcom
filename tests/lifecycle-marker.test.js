@@ -273,14 +273,82 @@ describe('lifecycle marker — declarations', () => {
   const classesIn = (selector) =>
     [...selector.matchAll(/\.(-?[_a-zA-Z][\w-]*)/g)].map((match) => match[1]);
 
-  /** Every rule in the screen cascade, with its selector list split out. */
-  function screenRules() {
-    const screen = withoutPrintBlocks(readBuiltStylesheet());
-    return [...screen.matchAll(/([^{}]+)\{([^{}]*)\}/g)].map(([, selectors, body]) => ({
-      selectors: selectors.split(',').map((selector) => selector.trim()),
+  /**
+   * Split a selector list on its TOP-LEVEL commas only.
+   *
+   * `:is(.state-marker--shipped, .resume-entry__status)::before` is one
+   * selector, and splitting it blindly produced two fragments — the first
+   * without a `::before`, the second without the mark class — so neither was
+   * collected and a per-surface override passed everything (Codex, PR #964).
+   */
+  function topLevelSelectors(list) {
+    const parts = [];
+    let depth = 0;
+    let current = '';
+    for (const character of list) {
+      if (character === '(') depth += 1;
+      else if (character === ')') depth -= 1;
+      if (character === ',' && depth === 0) {
+        parts.push(current);
+        current = '';
+      } else current += character;
+    }
+    return [...parts, current].map((selector) => selector.trim()).filter(Boolean);
+  }
+
+  /** `[from, to)` of every balanced `@…{ … }` block, at any nesting depth. */
+  function atRuleRanges(css) {
+    const ranges = [];
+    for (const at of css.matchAll(/@[\w-]+/g)) {
+      const start = css.indexOf('{', at.index);
+      if (start === -1) continue;
+      if (ranges.some(([from, to]) => at.index > from && at.index < to)) continue;
+      let depth = 0;
+      for (let j = start; j < css.length; j += 1) {
+        if (css[j] === '{') depth += 1;
+        else if (css[j] === '}' && (depth -= 1) === 0) {
+          ranges.push([at.index, j + 1]);
+          break;
+        }
+      }
+    }
+    return ranges;
+  }
+
+  /**
+   * The screen cascade, split into what applies unconditionally and what sits
+   * behind an at-rule.
+   *
+   * A rule extracted out of `@media (min-width: 700px)` reads identically to an
+   * unconditional one, so a fill moved under a breakpoint satisfied every
+   * declaration check while the mark was a bare outline on every narrower
+   * viewport — and the résumé PDF, rendered wide, would not have caught it
+   * either (Codex, PR #964). The print block is already gone by this point and
+   * has its own tests; anything else conditional is rejected below.
+   */
+  function screenCascade() {
+    const css = withoutPrintBlocks(readBuiltStylesheet());
+    const ranges = atRuleRanges(css);
+    let unconditional = '';
+    let cursor = 0;
+    for (const [from, to] of ranges) {
+      unconditional += css.slice(cursor, from);
+      cursor = to;
+    }
+    return {
+      unconditional: unconditional + css.slice(cursor),
+      conditional: ranges.map(([from, to]) => css.slice(from, to)).join('\n'),
+    };
+  }
+
+  /** Every rule in a stretch of CSS, with its selector list split out. */
+  const rulesIn = (css) =>
+    [...css.matchAll(/([^{}]+)\{([^{}]*)\}/g)].map(([, selectors, body]) => ({
+      selectors: topLevelSelectors(selectors),
       body,
     }));
-  }
+
+  const screenRules = () => rulesIn(screenCascade().unconditional);
 
   /**
    * Every `::before` rule that TARGETS one mark class, however it is qualified.
@@ -310,9 +378,9 @@ describe('lifecycle marker — declarations', () => {
    * it (`.p-status`, `.metadata-strip__status`, `.resume-entry__status`), so
    * policing the element would be asserting a rule the vocabulary does not have.
    */
-  function targeting(className) {
+  function targeting(className, rules = screenRules()) {
     const found = [];
-    for (const rule of screenRules()) {
+    for (const rule of rules) {
       for (const selector of rule.selectors) {
         if (!PSEUDO.test(selector)) continue;
         if (!classesIn(selector).includes(className)) continue;
@@ -453,6 +521,85 @@ describe('lifecycle marker — declarations', () => {
       ).toEqual([]);
     });
   }
+
+  it('defines the marks unconditionally, not behind a media query', () => {
+    // A required fill moved under `@media (min-width: 700px)` reads exactly
+    // like an unconditional one to a rule extractor, so every declaration check
+    // above would pass while the mark rendered as a bare outline on every
+    // narrower viewport. The résumé PDF would not catch it either — it renders
+    // at one wide page size (Codex, PR #964).
+    //
+    // The @media print block is exempt by construction: it is stripped before
+    // any of this, and has its own assertions in § print fidelity.
+    const conditional = rulesIn(screenCascade().conditional);
+    const classNames = [
+      'state-marker',
+      ...Object.values(STATUS_MARKER).map((modifier) => `state-marker--${modifier}`),
+    ];
+    const marks = classNames.flatMap((className) =>
+      targeting(className, conditional).map(({ selector }) => selector),
+    );
+    expect(
+      marks,
+      'a lifecycle mark is defined behind an at-rule, so it is one viewport away ' +
+        'from being a different mark',
+    ).toEqual([]);
+
+    // The control: prove the same walk reaches conditional rules at all,
+    // otherwise the empty result above means only that nothing was parsed.
+    expect(
+      rulesIn(screenCascade().conditional).length,
+      'the at-rule walk found no conditional rules anywhere in the stylesheet',
+    ).toBeGreaterThan(0);
+  });
+
+  it('leaves the mark pseudo-element to the primitive, on every surface class', () => {
+    // The marks sit on an element that also carries a per-surface class, and
+    // the mark IS that element's `::before` — so `.p-status::before` restyles
+    // it without ever naming `.state-marker` (Codex, PR #964). The checks above
+    // all key on the mark class and cannot see that.
+    //
+    // The surface classes are read from the `stateMarkerClass()` call sites
+    // rather than listed here, so a fifth surface is covered when it is added
+    // rather than when someone remembers this test.
+    const aliases = new Set();
+    for (const file of findFilesRecursively(SRC, (f) => /\.(astro|ts|js|mjs)$/.test(f))) {
+      const source = readFileSync(file, 'utf-8');
+      for (const call of source.matchAll(/stateMarkerClass\(/g)) {
+        // Walked to the MATCHING paren, not the first one. A call site can
+        // nest — `stateMarkerClass(statusOf(slug), 'p-status')` — and stopping
+        // at the first `)` dropped that surface silently, which is the same
+        // class of parsing shortcut this whole round is about.
+        let depth = 0;
+        let end = call.index + call[0].length - 1;
+        for (; end < source.length; end += 1) {
+          if (source[end] === '(') depth += 1;
+          else if (source[end] === ')' && (depth -= 1) === 0) break;
+        }
+        const args = source.slice(call.index + call[0].length, end);
+        for (const literal of args.matchAll(/'([^']+)'/g)) aliases.add(literal[1]);
+      }
+    }
+    // Controls for a derived list. Non-empty, or the loop below is vacuous —
+    // and a known positive, because "found nothing" and "there is nothing to
+    // find" arrive as the same empty set.
+    expect(
+      aliases.size,
+      'no surface classes found at any stateMarkerClass() call site',
+    ).toBeGreaterThan(0);
+    expect(
+      [...aliases].sort(),
+      'the call-site walk missed a surface it is known to cover',
+    ).toContain('p-status');
+
+    for (const alias of aliases) {
+      expect(
+        targeting(alias).map(({ selector }) => selector),
+        `${alias}::before restyles the lifecycle mark from one surface; the mark ` +
+          'is .state-marker::before and belongs to the primitive',
+      ).toEqual([]);
+    }
+  });
 
   it('can see a declaration at all', () => {
     // The control for every negative above. `paused` and `in-progress` assert
