@@ -23,7 +23,12 @@ import {
   filledLifecycleMarksPerPage,
   normalizeForOrder,
 } from './helpers/pdf-oracle.js';
-import { builtPrintBlocks, printBlocks, withoutPrintBlocks } from './helpers/print-css.js';
+import {
+  builtPrintBlocks,
+  printBlocks,
+  printColorAdjustRules,
+  withoutPrintBlocks,
+} from './helpers/print-css.js';
 
 // Smoke tests for the content-collection-driven /resume page.
 // See specs/resume.md and issue #394.
@@ -839,16 +844,18 @@ describe('Resume — print stylesheet', () => {
     // the first block that mentions `resume-canvas` (#956). A second
     // résumé-specific block added later sits behind a `.find()` and is never
     // reached, and a residue copy merged into an existing selector list is
-    // invisible to a whole-block `toMatch`. Both are the same blind spot the
-    // lifecycle test's own residue guard exists for.
+    // invisible to a whole-block `toMatch`. Both flattenings live in
+    // printColorAdjustRules, which documents why.
     const blocks = allPrintBlocks();
     expect(blocks.length, 'no @media print block found').toBeGreaterThan(0);
 
-    const resumeScoped = blocks.flatMap((block) =>
-      [...block.matchAll(/([^{}]+)\{[^{}]*print-color-adjust[^{}]*\}/g)]
-        .flatMap((m) => m[1].split(','))
-        .map((sel) => sel.trim())
-        .filter((sel) => sel.includes('resume-')),
+    // Selector-substring scoping, because "belongs to the résumé" is a claim
+    // about the selector and not about which block it was written in — a
+    // residue rule can be authored anywhere in the cascade and still target
+    // this page. The complementary check, that nothing anywhere narrows the
+    // lifecycle rule to a surface, is tests/lifecycle-marker.test.js's.
+    const resumeScoped = printColorAdjustRules(blocks).filter((rule) =>
+      rule.selector.includes('resume-'),
     );
 
     // Control: the "nothing else" half of this test proves nothing on its own
@@ -863,12 +870,23 @@ describe('Resume — print stylesheet', () => {
 
     // Single colon: the minifier emits the legacy `:before` form.
     expect(
-      resumeScoped[0],
-      `${resumeScoped[0]} is not the bullet marker — a print-color-adjust anywhere ` +
-        'else in the résumé cascade is either a residue copy of the lifecycle rule, ' +
-        'which belongs to .state-marker::before and not to one surface (#950), or a ' +
-        'new decision that has not been made here',
+      resumeScoped[0].selector,
+      `${resumeScoped[0].selector} is not the bullet marker — a print-color-adjust ` +
+        'anywhere else in the résumé cascade is either a residue copy of the lifecycle ' +
+        'rule, which belongs to .state-marker::before and not to one surface (#950), or ' +
+        'a new decision that has not been made here',
     ).toMatch(/^\.resume-prose ul li::?before$/);
+
+    // The value, not just the property. `economy` is the initial value, so a
+    // rule flipped to it is a rule that has been switched off — the marker
+    // stops reaching paper exactly as it did before #953, while a scan that
+    // only looked for the property would still find this rule and pass.
+    // (Codex, #961.)
+    expect(
+      resumeScoped[0].value,
+      'the bullet-marker rule declares print-color-adjust but not `exact`, which ' +
+        'leaves Chrome omitting the background again (#953)',
+    ).toBe('exact');
   });
 
   it('declares the mark fills, and the geometry the PDF ink oracle measures', () => {

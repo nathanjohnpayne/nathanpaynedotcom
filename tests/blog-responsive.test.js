@@ -3,7 +3,7 @@ import { readFileSync } from 'fs';
 import { dirname, relative, resolve, sep } from 'path';
 import { findFilesRecursively } from '../scripts/lib/blog-file-inventory.mjs';
 import { readBuiltStylesheet, writeSanitizedDOM } from './helpers/dom.js';
-import { printBlocks } from './helpers/print-css.js';
+import { printBlocks, printColorAdjustRules } from './helpers/print-css.js';
 
 // Astro content-hashes CSS into dist/_astro/*.css, so the shared helper
 // discovers the filenames and reads every emitted chunk rather than the first
@@ -175,12 +175,10 @@ describe('Blog Responsive Layout', () => {
       // Every block and every selector in a comma-joined list, not the first
       // match: a second blog print block sits behind a `.find()` and is never
       // reached, and a selector merged into an existing list is invisible to a
-      // whole-block match. Same blind spot as #956.
-      const pinned = blocks.flatMap((block) =>
-        [...block.matchAll(/([^{}]+)\{[^{}]*print-color-adjust[^{}]*\}/g)]
-          .flatMap((m) => m[1].split(','))
-          .map((sel) => sel.trim())
-          .filter((sel) => sel.includes('blog-takeaways')),
+      // whole-block match. Same blind spot as #956; both flattenings live in
+      // printColorAdjustRules, which documents why.
+      const pinned = printColorAdjustRules(blocks).filter((rule) =>
+        rule.selector.includes('blog-takeaways'),
       );
 
       // Control: "the panel does not declare it" is worthless as a lone
@@ -195,11 +193,20 @@ describe('Blog Responsive Layout', () => {
 
       // Single colon: the minifier emits the legacy `:before` form.
       expect(
-        pinned[0],
-        `${pinned[0]} is not the marker — the panel prints as a bordered block, ` +
-          'not as a plane, so print-color-adjust belongs to the square whose fill ' +
-          'is a background and to nothing that contains it',
+        pinned[0].selector,
+        `${pinned[0].selector} is not the marker — the panel prints as a bordered ` +
+          'block, not as a plane, so print-color-adjust belongs to the square whose ' +
+          'fill is a background and to nothing that contains it',
       ).toMatch(/^\.blog-takeaways__list li::?before$/);
+
+      // The value, not just the property: `economy` is the initial value, so a
+      // rule flipped to it is switched off, and a property-only scan would
+      // still find it and pass. (Codex, #961.)
+      expect(
+        pinned[0].value,
+        'the takeaway-marker rule declares print-color-adjust but not `exact`, ' +
+          'which leaves Chrome omitting the background again (#953)',
+      ).toBe('exact');
     });
   });
 
