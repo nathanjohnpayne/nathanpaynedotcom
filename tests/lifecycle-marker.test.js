@@ -110,7 +110,7 @@ describe('lifecycle marker vocabulary', () => {
  * generates is the résumé PDF, and it is written with `printBackground: true`,
  * which paints the same fills on its own — so the file is identical whether or
  * not this rule exists (tests/helpers/pdf-oracle.js
- * § filledLifecycleMarksPerPage). The path the rule exists for is a reader
+ * § lifecycleMarkSignaturesPerPage). The path the rule exists for is a reader
  * pressing Cmd-P, which produces nothing to read back.
  *
  * The effect itself was measured, not assumed: `/`, `/projects/` and the four
