@@ -1015,90 +1015,6 @@ describe('Resume — print stylesheet', () => {
     ).toBe('exact');
   });
 
-  it('declares the mark fills, and the geometry the PDF ink oracle measures', () => {
-    // #948. The declarations the PDF oracle reads, pinned where they can fail
-    // without a render. Two failures live here rather than in the ink
-    // assertion, and both would otherwise be invisible until something else
-    // broke:
-    //
-    //   1. A broken variant selector. Delete the `--shipped` fill and nothing
-    //      upstream objects — `printBackground` still paints backgrounds and
-    //      `print-color-adjust` still forces them — while every mark prints as
-    //      the same outline. The ink assertion does catch this, and catching it
-    //      twice is the point: this one names the rule, in the file that
-    //      declares it, without needing a rendered page to say so.
-    //   2. Drifted geometry. `STATUS_MARK_SIZE` in tests/helpers/pdf-oracle.js
-    //      is DERIVED from these declarations — 0.72em of the 7.5pt kicker plus
-    //      a 1px border each side — and the classifier's size window is built
-    //      around it. Change them and the oracle looks at the wrong column,
-    //      which is the failure mode where a check reports a confident answer
-    //      about the wrong thing.
-    //
-    // `box-sizing` is part of the geometry and is asserted with it (#959).
-    // Without it the box is content-box, the `*` reset does not reach a
-    // pseudo-element, and a variant's own padding grows the mark instead of
-    // eating into its fill — which is how `--archived` came to render 17
-    // device px against its peers' 14. The width restates the border for the
-    // same reason: under border-box it has to be inside the declared size.
-    //
-    // Read from the screen cascade, not a print block: these are the base
-    // declarations both surfaces inherit.
-    const screen = cssFiles.map(withoutPrintBlocks).join('\n');
-    const rule = (selector) => {
-      const match = new RegExp(`\\${selector}::?before\\{([^}]*)\\}`).exec(screen);
-      return match?.[1] ?? null;
-    };
-
-    const geometry = rule('.state-marker');
-    expect(geometry, 'no .state-marker::before rule in the screen cascade').toBeTruthy();
-    expect(
-      geometry,
-      'the mark box is not border-box, so a variant padding grows it (#959)',
-    ).toMatch(/box-sizing:\s*border-box/);
-    expect(geometry, 'mark width drifted from what the PDF oracle measures').toMatch(
-      /width:\s*calc\(\s*0?\.72em\s*\+\s*2px\s*\)/,
-    );
-    expect(geometry, 'mark height drifted from what the PDF oracle measures').toMatch(
-      /height:\s*calc\(\s*0?\.72em\s*\+\s*2px\s*\)/,
-    );
-    expect(geometry, 'the 1px outline the oracle adds to the mark box is gone').toMatch(
-      /border:\s*1px/,
-    );
-
-    // The three fills, by variant. PAUSED and IN PROGRESS correctly declare
-    // none — the bare outline is their mark.
-    expect(rule('.state-marker--shipped'), 'SHIPPED lost its solid fill').toMatch(
-      /background-color:\s*currentcolor/i,
-    );
-    expect(rule('.state-marker--archived'), 'ARCHIVED lost its cored fill').toMatch(
-      /background-color:\s*currentcolor/i,
-    );
-    // The stop, not merely that a gradient is there. A gradient drifted to any
-    // other stop still renders as two runs with a wide first one, and the PDF
-    // classifier deliberately reads that window coarsely so a pixel of
-    // antialiasing cannot fail a required check — which left "half filled"
-    // pinned by neither check (Codex, PR #958). It is an exact value, so it
-    // belongs where it can be compared exactly.
-    //
-    // The second stop is matched as a colour token and ONE position, not as
-    // any run of characters. `[^,)]+` there admitted a second position ahead
-    // of the terminal one — `#0000 80% 50%` is valid syntax the minifier can
-    // emit, the browser clamps the descending stop into a broad transition
-    // rather than a crisp half, and the raster classifier reads that as `half`
-    // too, so it would have passed both checks again (Codex, PR #958). The
-    // colour alternation is deliberately narrow for the same reason: if the
-    // minifier ever emits a form neither branch covers, this fails loudly
-    // instead of quietly widening.
-    //
-    // And it is narrow specifically to ALPHA-ZERO forms. Accepting any hex let
-    // an opaque colour through — `#ff0 50%` is a visibly yellow half, and the
-    // greyscale PDF oracle reads bright yellow as paper, so it reports `half`
-    // and neither check objects (Codex, PR #958).
-    expect(rule('.state-marker--experiment'), 'EXPERIMENT lost its half fill').toMatch(
-      /background-image:\s*linear-gradient\(\s*90deg\s*,\s*currentcolor\s+0\s+50%\s*,\s*(?:transparent|#0{4}|#0{8})\s+50%\s*\)/i,
-    );
-  });
-
   it('applies the 8.5in page width only inside @media print', () => {
     // The 8.5in constraint must not appear anywhere in the base (screen)
     // cascade — meaning outside EVERY @media print block, not merely before
@@ -1558,8 +1474,8 @@ describe('Resume — PDF reading order and markers', () => {
     // survived both times, while removing `printBackground` alone took every
     // BULLET marker out (#925's failure, which has no such second mechanism).
     // So do not read this test as the guard for either property. The stylesheet
-    // rule has its own assertion in § print stylesheet, where it can actually
-    // fail.
+    // rule has its own assertion in lifecycle-marker.test.js § print fidelity,
+    // where it can actually fail.
     //
     // **It compares signatures, not a count, and that is what makes it
     // content-independent.** The oracle used to count marks running solid edge
@@ -1616,8 +1532,8 @@ describe('Resume — PDF reading order and markers', () => {
     // that fired on anything mark-shaped — a bullet, a glyph, a rule — would
     // light up here. It is the same control the count had, and it still only
     // proves the oracle does not over-report; that the oracle can FAIL is
-    // established by the § print stylesheet assertions on the declarations it
-    // reads, and was verified directly by reverting each variant's fill in turn
+    // established by lifecycle-marker.test.js § declarations, which pins the
+    // declarations this reads, and was verified directly by reverting each variant's fill in turn
     // and watching this comparison fail on that variant alone (#957).
     expect(
       lifecycleMarkSignaturesPerPage(KNOWN_BAD_PDF).flat(),
