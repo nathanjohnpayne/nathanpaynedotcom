@@ -61,9 +61,13 @@ describe('About panel section rhythm (#659)', () => {
   });
 
   it('gives "View all writing" a treatment it shares with no article link', () => {
-    const all = document.querySelector('.writing-list__all');
-    expect(all, '.writing-list__all missing').not.toBeNull();
+    // The exit link moved out of .writing-list onto the ribbon row in #975,
+    // where every panel exit now lives. Scoped to this panel, since three
+    // .ribbon-exit links exist on the page.
+    const all = document.querySelector('[data-panel="about"] .ribbon-exit');
+    expect(all, 'About panel .ribbon-exit missing').not.toBeNull();
     expect(all.getAttribute('href')).toBe('/blog/');
+    expect(all.closest('.ribbon-row'), 'the exit is not on the ribbon row').not.toBeNull();
 
     const articleClasses = new Set(
       [...document.querySelectorAll('.writing-list__posts a')].flatMap((a) =>
@@ -153,7 +157,7 @@ describe('About panel section rhythm (#659)', () => {
     // Two rules 40px apart banded the exit link into a strip. The exit link
     // is differentiated by voice; the panel's one rule closes the content
     // before the timestamp, matching Community's and Builds' ribbons.
-    expect(CSS).not.toMatch(/\.writing-list \.writing-list__all \{[^}]*border-top:/);
+    expect(CSS).not.toMatch(/\.ribbon-row \.ribbon-exit \{[^}]*border-top:/);
     expect(CSS).toMatch(/\.stack-ribbon,\n\.impact-ribbon,\n\.now-ribbon \{/);
     // The ribbon is a sibling of .about-block, so the block's cap does not
     // reach it — without this the rule overshoots the prose it closes.
