@@ -1577,18 +1577,18 @@ a:focus-visible .link-arrow,
    rule above is the one that governs it — the 50-55% the labels beside it
    use is for static text. Per plane, closed:
 
-     red     parchment ink 2.6:1  ->  --cream         4.4:1
+     red     parchment ink 2.6:1  ->  --paper         4.95:1
      yellow  parchment ink 5.8:1  (already clear; the arrow is not)
-     blue    parchment ink 2.2:1  ->  --blue-contrast 6.3:1
+     blue    parchment ink 2.2:1  ->  --blue-contrast 6.28:1
 
-   Red does not reach 4.5:1 and cannot: the 1930 --red (#da2418) puts pure
-   white at 4.95:1, so every legible treatment on that plane is within a
-   whisker of the floor, and anything that clears it comfortably is not in
-   this palette. --cream is what .about-resume-link — the same panel's other
-   interactive exit — already uses, measuring 4.35:1 beside this link's 4.4.
-   Matching it keeps the two exits one voice rather than inventing a brighter
-   color for one of them. Raising the floor on red is a palette question
-   about --red itself, not about this control.
+   Red is the tight one. The 1930 --red (#da2418) puts even pure white at
+   4.95:1, so the floor is only just reachable there and only with --paper;
+   --cream, which .about-resume-link uses on this plane, measures 4.35:1 and
+   misses. This link takes --paper and clears it. That does leave the two
+   red-panel exits a step apart in brightness — the résumé link beside it is
+   still cream at 4.35:1, which is pre-existing and untouched here. Bringing
+   it up is #977; the alternative, matching it by staying at 4.35:1, would
+   have meant this control failing the floor its own shared rule declares.
 
    The .link-arrow is the sharper problem and it is easy to miss: it is
    var(--blue) by default, so on the blue plane it resolves to the panel's
@@ -1612,7 +1612,7 @@ a:focus-visible .link-arrow,
    state machine continuing to agree. */
 .panel--red:not(.is-open) .ribbon-exit,
 .panel--red:not(.is-open) .ribbon-exit .link-arrow {
-  color: var(--cream);
+  color: var(--paper);
 }
 
 .panel--yellow:not(.is-open) .ribbon-exit .link-arrow {
