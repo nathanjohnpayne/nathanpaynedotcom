@@ -23,6 +23,7 @@ import {
   filledLifecycleMarksPerPage,
   normalizeForOrder,
 } from './helpers/pdf-oracle.js';
+import { builtPrintBlocks, printBlocks, withoutPrintBlocks } from './helpers/print-css.js';
 
 // Smoke tests for the content-collection-driven /resume page.
 // See specs/resume.md and issue #394.
@@ -32,32 +33,11 @@ import {
 
 const DIST = resolve(__dirname, '../dist');
 
-// Pull every balanced @media print { ... } block out of a minified
-// stylesheet. A stylesheet can carry more than one — the blog's
-// end-of-post print rules (#622) sit ahead of the resume's — so each
-// assertion below selects the block it cares about by content rather
-// than assuming the first one is the resume's.
-function printBlockRanges(css) {
-  const ranges = [];
-  let i = css.indexOf('@media print');
-  while (i !== -1) {
-    let depth = 0;
-    const start = css.indexOf('{', i);
-    for (let j = start; j < css.length; j++) {
-      if (css[j] === '{') depth++;
-      else if (css[j] === '}' && --depth === 0) {
-        ranges.push([i, j + 1]);
-        break;
-      }
-    }
-    i = css.indexOf('@media print', i + 1);
-  }
-  return ranges;
-}
-
-function printBlocks(css) {
-  return printBlockRanges(css).map(([from, to]) => css.slice(from, to));
-}
+// The @media print parser lives in ./helpers/print-css.js — a stylesheet
+// carries several print blocks (the blog's #622 rules, this file's #420
+// cascade, the lifecycle primitive's #950 rule), so each assertion below
+// selects the block it cares about by content rather than assuming the first
+// one is the resume's.
 
 const CONTENT = resolve(__dirname, '../src/content');
 const RESUME_HTML = resolve(DIST, 'resume/index.html');
@@ -798,23 +778,6 @@ describe('Resume — print stylesheet', () => {
       : [];
   });
 
-
-  /**
-   * The stylesheet with every @media print block cut out — i.e. everything the
-   * screen cascade actually sees. Slicing at the FIRST print block instead
-   * would silently stop guarding every line after it, which is what happened
-   * when #622 added a second print block ahead of the resume's.
-   */
-  function withoutPrintBlocks(css) {
-    let out = '';
-    let cursor = 0;
-    for (const [from, to] of printBlockRanges(css)) {
-      out += css.slice(cursor, from);
-      cursor = to;
-    }
-    return out + css.slice(cursor);
-  }
-
   /** All @media print blocks across every emitted stylesheet. */
   function allPrintBlocks() {
     return cssFiles.flatMap(printBlocks);
@@ -837,29 +800,25 @@ describe('Resume — print stylesheet', () => {
     expect(block).toContain('break-inside:avoid'); // keep entries/projects/certs whole
   });
 
-  it('forces the lifecycle marks to print their fills regardless of "Background graphics"', () => {
-    // #944, and the one guard here that the built PDF cannot supply. Three of
-    // the four marks are CSS backgrounds — filled SHIPPED, cored ARCHIVED,
-    // half-filled EXPERIMENT — and only the 1px outline is a border, so with
-    // Chrome's print default of "Background graphics: off" all four render as
-    // the same empty square: right size, right place, vocabulary gone.
+  it('leaves the lifecycle marks to the shared primitive, and declares no print-color-adjust', () => {
+    // The rule that makes those marks print their fills under "Background
+    // graphics: off" was `.resume-canvas .state-marker::before` from #944
+    // until #950 unscoped it to `.state-marker::before`. The résumé still
+    // depends on it; it is asserted, with the reasoning, in
+    // tests/lifecycle-marker.test.js § print fidelity.
     //
-    // The generator sets `printBackground: true`, which paints them in the
-    // downloadable file whether or not this property is present. That makes
-    // the file useless as an oracle for it, and it is why this asserts the
-    // stylesheet: the reader pressing Cmd-P on /resume/ is a path no build
-    // artifact exercises. The property's effect was verified separately, by
-    // rendering the same page with it reverted to `economy` — every mark came
-    // out an identical outline.
-    const block = allPrintBlocks().find((b) => b.includes('state-marker'));
-    expect(block, 'no @media print block referencing .state-marker').toBeTruthy();
-    expect(block, 'the lifecycle marks are not pinned to print their fills').toMatch(
-      /print-color-adjust:\s*exact/,
-    );
-    // Scoped to the résumé: this is a print concession the other three
-    // surfaces have never needed, and a site-wide `exact` would opt every
-    // tinted surface into printing.
-    expect(block).toContain('resume-canvas');
+    // What belongs here is the residue guard. The lifecycle mark is the only
+    // thing on this page that ever needed the property, so the résumé's own
+    // print cascade should now declare none at all — and a surface-scoped copy
+    // coming back would not fail a build, it would just let this page's marks
+    // start drifting from the other three surfaces'.
+    const block = allPrintBlocks().find((b) => b.includes('resume-canvas'));
+    expect(block, 'no @media print block found for the résumé').toBeTruthy();
+    expect(
+      block,
+      'the résumé print cascade declares its own print-color-adjust; that rule ' +
+        'belongs to .state-marker::before, not to one surface (#950)',
+    ).not.toMatch(/print-color-adjust/);
   });
 
   it('declares the mark fills, and the geometry the PDF ink oracle measures', () => {
@@ -1620,18 +1579,14 @@ describe('Resume — contact actions', () => {
   });
 
   describe('none of it reaches paper', () => {
-    /** Every emitted stylesheet's `@media print` block, from the rule onward. */
-    function printBlocks() {
-      const astroDir = resolve(DIST, '_astro');
-      return readdirSync(astroDir)
-        .filter((f) => f.endsWith('.css'))
-        .map((f) => readFileSync(join(astroDir, f), 'utf-8'))
-        .filter((css) => css.includes('@media print'))
-        .map((css) => css.slice(css.indexOf('@media print')));
-    }
-
     it('hides .resume-cta inside @media print', () => {
-      const blocks = printBlocks();
+      // Was a local `printBlocks()` that sliced each stylesheet from its FIRST
+      // `@media print` to end of file. #950 gave this file an imported
+      // `printBlocks(css)`, so the two shared a name and disagreed about
+      // arity; the shared `builtPrintBlocks()` is what the local one was
+      // approximating, and it returns balanced blocks rather than a tail that
+      // also carries every screen rule written after the first print block.
+      const blocks = builtPrintBlocks();
       expect(blocks.length, 'no emitted stylesheet has an @media print block').toBeGreaterThan(0);
       expect(
         blocks.some((b) => /\.resume-cta[^{]*\{[^}]*display:\s*none/.test(b)),
