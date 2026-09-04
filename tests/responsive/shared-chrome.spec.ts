@@ -1,4 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
+import { contrastRatio, parseComputedColor, type ParsedColor } from '../helpers/contrast';
 
 /**
  * Visual-regression guardrails for the #429 shared-chrome refactor (#440).
@@ -50,53 +51,6 @@ async function hoverBackground(page: Page, selector: string): Promise<string> {
   );
 }
 
-type ParsedColor = {
-  r: number;
-  g: number;
-  b: number;
-  a: number;
-};
-
-function parseComputedColor(value: string): ParsedColor | null {
-  const commaRgb = value.match(
-    /^rgba?\(\s*([\d.]+),\s*([\d.]+),\s*([\d.]+)(?:,\s*([\d.]+))?\s*\)$/,
-  );
-  if (commaRgb) {
-    return {
-      r: Math.round(Number(commaRgb[1])),
-      g: Math.round(Number(commaRgb[2])),
-      b: Math.round(Number(commaRgb[3])),
-      a: commaRgb[4] === undefined ? 1 : Number(commaRgb[4]),
-    };
-  }
-
-  const spaceRgb = value.match(
-    /^rgb\(\s*([\d.]+)\s+([\d.]+)\s+([\d.]+)(?:\s*\/\s*([\d.]+))?\s*\)$/,
-  );
-  if (spaceRgb) {
-    return {
-      r: Math.round(Number(spaceRgb[1])),
-      g: Math.round(Number(spaceRgb[2])),
-      b: Math.round(Number(spaceRgb[3])),
-      a: spaceRgb[4] === undefined ? 1 : Number(spaceRgb[4]),
-    };
-  }
-
-  const srgb = value.match(
-    /^color\(srgb\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)(?:\s*\/\s*([\d.]+))?\s*\)$/,
-  );
-  if (srgb) {
-    return {
-      r: Math.round(Number(srgb[1]) * 255),
-      g: Math.round(Number(srgb[2]) * 255),
-      b: Math.round(Number(srgb[3]) * 255),
-      a: srgb[4] === undefined ? 1 : Number(srgb[4]),
-    };
-  }
-
-  return null;
-}
-
 function extractComputedColor(value: string): string | null {
   return value.match(/color\(srgb\s+[^)]+\)|rgba?\([^)]+\)/)?.[0] ?? null;
 }
@@ -120,23 +74,6 @@ function expectInkShadow(value: string): void {
   expect(color!.g).toBe(16);
   expect(color!.b).toBe(13);
   expect([0.1, 0.12].some((alpha) => Math.abs(color!.a - alpha) < 0.001)).toBe(true);
-}
-
-function relativeLuminance({ r, g, b }: ParsedColor): number {
-  const channel = (value: number) => {
-    const srgb = value / 255;
-    return srgb <= 0.04045 ? srgb / 12.92 : ((srgb + 0.055) / 1.055) ** 2.4;
-  };
-
-  return 0.2126 * channel(r) + 0.7152 * channel(g) + 0.0722 * channel(b);
-}
-
-function contrastRatio(foreground: ParsedColor, background: ParsedColor): number {
-  const foregroundLuminance = relativeLuminance(foreground);
-  const backgroundLuminance = relativeLuminance(background);
-  const lighter = Math.max(foregroundLuminance, backgroundLuminance);
-  const darker = Math.min(foregroundLuminance, backgroundLuminance);
-  return (lighter + 0.05) / (darker + 0.05);
 }
 
 function compositeColor(foreground: ParsedColor, background: ParsedColor): ParsedColor {

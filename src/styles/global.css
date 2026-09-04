@@ -1554,8 +1554,16 @@ a:focus-visible .link-arrow,
   color: color-mix(in srgb, var(--blue-contrast) 55%, transparent);
 }
 
+/* The Latest Post title is a link, not a label, and it took the label ink on
+   both planes: 55% --blue-contrast closed (3.02:1) and --ink-50 open (3.33:1),
+   the only interactive text on the page that failed the 4.5:1 floor in both
+   states (#979). It inherited the label treatment by sitting in a ribbon next
+   to labels. Full --blue-contrast is what the .ribbon-exit one line above it
+   already uses on this plane, so the two controls in this footer now agree.
+
+   The label beside it keeps its 55% and still recedes against the title. */
 .panel--blue .blog-callout-link {
-  color: color-mix(in srgb, var(--blue-contrast) 55%, transparent);
+  color: var(--blue-contrast);
 }
 
 /* When Connect panel is expanded, revert to dark text on cream bg */
@@ -1567,8 +1575,14 @@ a:focus-visible .link-arrow,
   color: var(--ink-50);
 }
 
+/* Open, the ribbon is parchment and the same distinction applies: --ink-50 is
+   the label voice .blog-callout-label keeps, so the title steps up to the 72%
+   warm ink the .ribbon-exit uses at this scale. Tokenized rather than restating
+   .ribbon-exit's rgba(23, 19, 15, 0.72) literal — #469 collapsed that family of
+   near-duplicate warm inks onto --ink-warm, and .panel--yellow .stack-label
+   already sets 72% of it this way. */
 .panel--blue.is-open .blog-callout-link {
-  color: var(--ink-50);
+  color: color-mix(in srgb, var(--ink-warm) 72%, transparent);
 }
 
 /* A closed panel shows its own plane, and the shared control's ink is tuned
@@ -1583,12 +1597,11 @@ a:focus-visible .link-arrow,
 
    Red is the tight one. The 1930 --red (#da2418) puts even pure white at
    4.95:1, so the floor is only just reachable there and only with --paper;
-   --cream, which .about-resume-link uses on this plane, measures 4.35:1 and
-   misses. This link takes --paper and clears it. That does leave the two
-   red-panel exits a step apart in brightness — the résumé link beside it is
-   still cream at 4.35:1, which is pre-existing and untouched here. Bringing
-   it up is #977; the alternative, matching it by staying at 4.35:1, would
-   have meant this control failing the floor its own shared rule declares.
+   --cream measures 4.35:1 and misses. This link takes --paper and clears it.
+   #975 left that a step apart in brightness from the six other links on the
+   plane, which were still cream; #977 brought them up to --paper too, in the
+   rule below this one, so the plane now carries one interactive foreground
+   rather than two near-identical off-whites.
 
    The .link-arrow is the sharper problem and it is easy to miss: it is
    var(--blue) by default, so on the blue plane it resolves to the panel's
@@ -1612,6 +1625,22 @@ a:focus-visible .link-arrow,
    state machine continuing to agree. */
 .panel--red:not(.is-open) .ribbon-exit,
 .panel--red:not(.is-open) .ribbon-exit .link-arrow {
+  color: var(--paper);
+}
+
+/* The rest of the red plane's interactive text, on the same foreground (#977).
+   Six links — the résumé link and five article titles — inherited --cream from
+   .panel--red and measured 4.35:1, under the 4.5:1 floor they owe as controls,
+   while the exit above them sat at --paper and 4.95:1. Same kind of control,
+   same plane, so the same ink; --paper is not a preference here but the only
+   foreground this red admits, as the note above explains.
+
+   Anchors only. Neither arrow inherits from this rule and neither is meant to:
+   .about-resume-link's is set explicitly twice over (var(--blue) site-wide,
+   var(--cream) in stack mode), and .writing-link carries none by design.
+   Arrow color across the home page is #978's, deliberately not touched here. */
+.panel--red:not(.is-open) .about-resume-link,
+.panel--red:not(.is-open) .writing-link {
   color: var(--paper);
 }
 
@@ -5404,10 +5433,11 @@ a:focus-visible {
     border-left-color: color-mix(in srgb, var(--veil-on-red) 28%, transparent);
   }
 
-  /* Dark-blue arrow is near-invisible on the red mobile base; keep it
-     cream (matching the link text) so the affordance stays legible. The
-     ribbon exit's arrow is handled with its link in the :not(.is-open)
-     rule above, so only the résumé link is left here. */
+  /* Dark-blue arrow is near-invisible on the red mobile base; cream keeps the
+     affordance legible. It no longer matches the link text — #977 moved that
+     to --paper and left this alone on purpose, because arrow color across the
+     home page is #978's to set. The ribbon exit's arrow is handled with its
+     link in the :not(.is-open) rule above, so only the résumé link is here. */
   .panel--red .about-resume-link .link-arrow {
     color: var(--cream);
   }
