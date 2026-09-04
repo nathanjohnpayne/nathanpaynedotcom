@@ -4428,7 +4428,7 @@ svg.mermaid foreignObject p {
 }
 
 /* ── End-of-post block (#622) ───────────────────────────────────────
-   Prev/next navigation + the availability CTA, separated from the post's
+   Prev/next navigation + the author footer, separated from the post's
    closing line by a rule so the ending keeps its beat. Screen only —
    hidden in the blog print rules below.
    ────────────────────────────────────────────────────────────────── */
@@ -4542,9 +4542,9 @@ svg.mermaid foreignObject p {
 }
 
 /* ── Blog post — print ──────────────────────────────────────────────
-   The end-of-post block is navigation and a CTA: neither survives paper,
-   so it is dropped. The takeaways are content, so they print — as black
-   on white, kept whole on one page. (#621, #622)
+   The end-of-post block is navigation and the author footer: neither
+   survives paper, so it is dropped. The takeaways are content, so they
+   print — as black on white, kept whole on one page. (#621, #622)
    ────────────────────────────────────────────────────────────────── */
 @media print {
   .blog-postscript {

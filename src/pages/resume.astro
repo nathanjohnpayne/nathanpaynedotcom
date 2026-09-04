@@ -251,9 +251,12 @@ const jsonLd = {
         <ProjectsSection entries={resumeProjects} />
         <WritingSection />
 
-        {/* Availability CTA (#702). Mirrors the end-of-post block in
-            src/layouts/BlogPost.astro, minus its Résumé link — the reader is
-            already on the résumé. Kept on the parallel .resume-cta namespace
+        {/* Availability CTA (#702). Takes its shape from the end-of-post
+            block in src/layouts/BlogPost.astro, minus its Résumé link — the
+            reader is already on the résumé. The two ledes diverged in #969:
+            that block carries a byline now, because an availability line
+            after an essay reads as a pitch; here the reader came for exactly
+            that fact, so it stays. Kept on the parallel .resume-cta namespace
             rather than reusing .blog-cta, per specs/resume.md § Styling: the
             resume must not move when the blog layout does. Screen-only —
             @media print hides it, so it stays out of the generated PDF. */}
