@@ -12,7 +12,7 @@ The site runs two analytics systems in parallel during the PostHog transition:
 - **Google Analytics 4 (gtag)**—fires a `section_view` event once per panel on
   first hover on hover-capable (fine-pointer) devices.
 - **PostHog**—product analytics + autocapture + session replay, loaded
-  site-wide, with twelve custom conversion/engagement events instrumented
+  site-wide, with nineteen custom conversion/engagement events instrumented
   across the homepage, project pages, blog, and resume.
 
 GA4 is retained for continuity; PostHog is the forward-looking system. Either

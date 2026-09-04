@@ -268,6 +268,39 @@ describe('PostHog', () => {
     expect(posthogHomepageScript).not.toContain('window.posthog.capture');
   });
 
+  it("states an event count in the spec that matches the spec's own table", () => {
+    // The prose said "twelve" while the table listed nineteen. It had drifted
+    // long before this test — each PR that adds an event updates the table it
+    // is editing and not the sentence four screens above it, and nothing
+    // failed. Derived from the table rather than hardcoded, so adding an event
+    // fails this once, on the number, instead of going quietly stale again.
+    const spec = readFileSync(resolve(__dirname, '../specs/analytics.md'), 'utf-8');
+
+    const table = spec.match(/\| Event \| Trigger \| Properties \|\n\|[-| ]+\|\n((?:\|.*\n)+)/);
+    expect(table, 'no event table found in specs/analytics.md').not.toBeNull();
+    const rowCount = table[1].trim().split('\n').length;
+    expect(rowCount, 'event table looks empty').toBeGreaterThan(10);
+
+    const words = {
+      12: 'twelve',
+      13: 'thirteen',
+      14: 'fourteen',
+      15: 'fifteen',
+      16: 'sixteen',
+      17: 'seventeen',
+      18: 'eighteen',
+      19: 'nineteen',
+      20: 'twenty',
+    };
+    const expected = words[rowCount];
+    expect(expected, `no spelling on file for ${rowCount} — extend the map`).toBeDefined();
+    expect(
+      spec,
+      `specs/analytics.md prose should say "${expected} custom conversion/engagement events" ` +
+        `to match its own table of ${rowCount}`,
+    ).toContain(`${expected} custom conversion/engagement events`);
+  });
+
   it('wires the homepage conversion events', () => {
     for (const evt of [
       'homepage_panel_opened',
