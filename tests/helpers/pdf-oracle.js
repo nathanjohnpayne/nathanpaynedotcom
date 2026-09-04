@@ -293,6 +293,34 @@ const HALF_MIN = 1 / 3;
 const HALF_MAX = 2 / 3;
 
 /**
+ * How wide a run may be and still be read as a border rather than a fill, and
+ * how much of the row a cored mark's centre band has to hold.
+ *
+ * Every signature but `solid` is border, something, border, and until #958's
+ * review the something was the only part checked. That let a fill on the side
+ * the classification did not look at pass as its unfilled neighbour: a
+ * right-half gradient on a hollow mark leaves the left border thin and reads
+ * `hollow`, and a thickened border on a cored one still yields three runs and
+ * reads `cored`. So every run is now checked, not the deciding one.
+ *
+ * Measured edges on the built résumé are 1-2 px against boxes of 14-17, so a
+ * quarter of the row is comfortably above them and well below any fill.
+ */
+const EDGE_MAX = 1 / 4;
+const CORE_MIN = 1 / 2;
+
+/**
+ * The cored variant's own size ceiling.
+ *
+ * `MARK_MAX` is detection-only slack; a cored mark that spends it on a
+ * thickened border rather than on its padding is not a cored mark (Codex,
+ * PR #958). Measured 17 px against the nominal 14, so this is the padded box
+ * plus the same two pixels every other variant gets — and it disappears with
+ * `TIGHT_MAX` when #959 lands.
+ */
+const CORED_MAX = STATUS_MARK_SIZE + 5;
+
+/**
  * Is every pixel across the mark column dark on this row?
  *
  * The width is the mark's, not the bullet's, and that is what makes this a
@@ -420,15 +448,21 @@ function markSignature(page, box) {
   // because #959 makes it so. Everything else is held to the tight window, or
   // the slack that exists for one variant silently covers a size regression in
   // another (Codex, PR #958).
-  if (signature === 'cored' || signature === 'unrecognised') return signature;
+  if (signature === 'unrecognised') return signature;
   const height = box.bottom - box.top + 1;
-  const nominal = (n) => n >= TIGHT_MIN && n <= TIGHT_MAX;
+  const ceiling = signature === 'cored' ? CORED_MAX : TIGHT_MAX;
+  const nominal = (n) => n >= TIGHT_MIN && n <= ceiling;
   return nominal(width) && nominal(height) ? signature : 'unrecognised';
 
   function read() {
+    const edge = (run) => run <= EDGE_MAX * width;
     if (runs.length === 1) return runs[0] / width >= SOLID_MIN ? 'solid' : 'unrecognised';
-    if (runs.length === 3) return 'cored';
+    if (runs.length === 3) {
+      const cored = edge(runs[0]) && edge(runs[2]) && runs[1] >= CORE_MIN * width;
+      return cored ? 'cored' : 'unrecognised';
+    }
     if (runs.length === 2) {
+      if (!edge(runs[1])) return 'unrecognised';
       const covered = runs[0] / width;
       if (covered >= HALF_MIN && covered <= HALF_MAX) return 'half';
       if (covered <= HOLLOW_MAX) return 'hollow';
