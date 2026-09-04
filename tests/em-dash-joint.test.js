@@ -40,8 +40,12 @@ describe('emDashJoint (src/lib/em-dash-joint.ts)', () => {
       'Senior Systems Architect—Current TV',
       'Systems Architect / Support Roles—CNN',
       'Five Across—Live Multiplayer Social Bingo Platform',
-      'Friends & Family Billing—Shared-Bill Coordination',
+      'Mergepath—Agent Governance Infrastructure',
+      'Override—Broadway Financial Operating System',
+      'Device Source of Truth—Partner Device Intelligence Platform',
       'Matchline—AI Career CRM',
+      'Swipe Watch—Content Discovery Prototype',
+      'Friends & Family Billing—Shared-Bill Coordination',
     ]) {
       const { head, joint, tail } = emDashJoint(text);
       expect(head + joint + tail, text).toBe(text);
