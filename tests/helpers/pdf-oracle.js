@@ -257,7 +257,8 @@ export function visibleMarkersPerPage(pdfPath) {
  * closed, and the second fixed the ceiling and left the floor a pixel loose
  * (Codex, PR #963). A mark that drifts out of it stops being found, which fails the signature
  * comparison rather than passing quietly — and the declarations themselves are
- * asserted against the emitted stylesheet in resume.test.js § print stylesheet.
+ * asserted against the emitted stylesheet in lifecycle-marker.test.js
+ * § declarations.
  */
 const MARK_MIN = STATUS_MARK_SIZE - 2;
 const MARK_MAX = STATUS_MARK_SIZE + 2;
@@ -405,7 +406,7 @@ function markBoxAt(page, top) {
  * edge loses a pixel to antialiasing. A window tight enough to reject 80%
  * would sit within a pixel of the nominal value and could fail a required
  * check on a rendering difference. So the exact stop is asserted against the
- * emitted stylesheet in resume.test.js § print stylesheet, where it compares
+ * emitted stylesheet in lifecycle-marker.test.js § declarations, where it compares
  * exactly, and this window does the job a render check can do robustly:
  * telling a half-filled mark from a hollow, solid or cored one.
  *
@@ -485,7 +486,7 @@ function markSignature(page, box) {
  * `print-color-adjust: exact` in `@media print` — and either alone suffices,
  * so removing just one leaves these signatures unchanged. This is an assertion
  * about the shipped file, not a guard for either property; the stylesheet rule
- * has its own assertion in resume.test.js § print stylesheet.
+ * has its own assertion in lifecycle-marker.test.js § print fidelity.
  *
  * @param {string} pdfPath
  * @returns {string[][]} one array of signatures per page, in reading order
