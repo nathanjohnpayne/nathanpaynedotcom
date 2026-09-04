@@ -296,10 +296,18 @@ describe('lifecycle marker — declarations', () => {
     return [...parts, current].map((selector) => selector.trim()).filter(Boolean);
   }
 
-  /** `[from, to)` of every balanced `@…{ … }` block, at any nesting depth. */
+  /**
+   * `[from, to)` of every balanced CONDITIONAL `@…{ … }` block.
+   *
+   * `@layer` is excluded: it groups rules for cascade ordering and applies at
+   * every viewport, so treating it as conditional would reject a
+   * behaviour-preserving refactor — a false failure, which is worse here than
+   * a missed one (Codex, PR #964). `@media`, `@supports` and `@container` all
+   * gate on something and stay in.
+   */
   function atRuleRanges(css) {
     const ranges = [];
-    for (const at of css.matchAll(/@[\w-]+/g)) {
+    for (const at of css.matchAll(/@(?!layer\b)[\w-]+/g)) {
       const start = css.indexOf('{', at.index);
       if (start === -1) continue;
       if (ranges.some(([from, to]) => at.index > from && at.index < to)) continue;
