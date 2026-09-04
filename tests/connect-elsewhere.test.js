@@ -15,7 +15,21 @@ import { readBuiltPage, writeSanitizedDOM } from './helpers/dom.js';
  * a category check alone cannot notice a row that quietly disappears.
  */
 
-const SITE_HOSTS = ['nathanpayne.com', 'www.nathanpayne.com'];
+const SITE_DOMAIN = 'nathanpayne.com';
+
+/**
+ * True for the apex and for every subdomain under it.
+ *
+ * Membership in a fixed host list is not the same question: a first-party
+ * subdomain like `social.nathanpayne.com` is not in such a list, so a row
+ * pointing there would read as off-site and pass — which is the invariant
+ * inverted, since that row does not leave the site. Suffix-matched on a
+ * leading dot so `notnathanpayne.com` stays off-site.
+ */
+function isOnSite(hostname) {
+  const host = hostname.toLowerCase();
+  return host === SITE_DOMAIN || host.endsWith(`.${SITE_DOMAIN}`);
+}
 
 let stack;
 let rows;
@@ -48,7 +62,7 @@ describe('Connect "Elsewhere" list (#972)', () => {
       const label = row.querySelector('.s-label')?.textContent.trim() ?? row.className;
       expect(href, `${label}: Elsewhere row is not an absolute URL`).toMatch(/^https?:\/\//);
       expect(
-        SITE_HOSTS.includes(new URL(href).hostname),
+        isOnSite(new URL(href).hostname),
         `${label} points at ${href}, which is this site — Elsewhere is off-site only`,
       ).toBe(false);
       expect(row.getAttribute('target'), `${label}: off-site row should open in a new tab`).toBe(
@@ -57,6 +71,19 @@ describe('Connect "Elsewhere" list (#972)', () => {
       expect(row.getAttribute('rel') ?? '', `${label}: off-site row needs rel=noopener`).toContain(
         'noopener',
       );
+    }
+  });
+
+  it('classifies the apex and its subdomains as on-site, and lookalikes as off-site', () => {
+    // The sweep above reports "off-site" by asking this function. A sweep
+    // over six rows that all pass proves nothing about a classifier that
+    // answers false to everything, so it is exercised directly on the cases
+    // the rows do not currently cover.
+    for (const host of ['nathanpayne.com', 'www.nathanpayne.com', 'social.nathanpayne.com']) {
+      expect(isOnSite(host), `${host} should count as on-site`).toBe(true);
+    }
+    for (const host of ['github.com', 'notnathanpayne.com', 'nathanpayne.com.evil.test']) {
+      expect(isOnSite(host), `${host} should count as off-site`).toBe(false);
     }
   });
 

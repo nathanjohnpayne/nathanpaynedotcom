@@ -1586,6 +1586,32 @@ a:focus-visible .link-arrow,
   color: var(--ink-50);
 }
 
+/* The index link does NOT take the 55% blue-contrast the eyebrow beside it
+   uses. That level is for static labels; this is an interactive control, and
+   the shared .writing-list__all rule sets the floor at 4.5:1 for exactly this
+   reason. Against the closed panel's blue plane the parchment ink the link
+   inherits measures 2.2:1, and its .link-arrow — var(--blue) by default —
+   resolves to the panel's own background and disappears outright at 1.0:1.
+   Full --blue-contrast on both, matching .availability-signal .p-link, the
+   panel's other interactive control.
+
+   Written as :not(.is-open) rather than as a .panel--blue pair with a
+   .panel--blue.is-open pair reverting it. An open panel is parchment
+   (--panel-open-bg), where the shared control's own ink and blue arrow are
+   already right, so the correct open-state rule is *no rule*: this one stops
+   matching and the link falls back to .blog-callout .writing-list__all. The
+   reverting form has to restate rgba(23, 19, 15, 0.72) as a literal — a
+   second copy of a value that lives in the shared rule — and then depends on
+   winning a specificity duel against its own sibling to undo it.
+
+   It also covers stack mode without a second rule: at <=1023px the panel is
+   blue with content always visible, and if it is ever opened there the
+   parchment case follows the same branch. */
+.panel--blue:not(.is-open) .blog-callout__all,
+.panel--blue:not(.is-open) .blog-callout__all .link-arrow {
+  color: var(--blue-contrast);
+}
+
 .effort-list {
   gap: var(--sp-2xs);
 }
