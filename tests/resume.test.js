@@ -460,7 +460,7 @@ describe('Resume — page structure', () => {
     // page is ATS-parsed and printed to PDF, and a heading that reads
     // differently to a machine than to an eye is the defect being avoided.
     const titles = [...document.querySelectorAll('.resume-canvas h3.resume-entry__title')];
-    expect(titles.length, 'no résumé headings found').toBe(14);
+    expect(titles.length, 'no résumé headings found').toBeGreaterThan(10);
     let dashed = 0;
     for (const title of titles) {
       const joints = [...title.querySelectorAll('.em-dash-joint')];
@@ -482,13 +482,15 @@ describe('Resume — page structure', () => {
         `"${title.textContent.trim()}" carries more than one em dash`,
       ).toBe(1);
     }
-    // Control for the two negative assertions above: the walk has to have seen
-    // both kinds of heading, or "no joint where none is due" is vacuous.
-    expect(dashed, 'no em-dashed heading found').toBe(13);
+    // Controls: the walk has to have seen both kinds of heading, or one of the
+    // two branches never ran and its assertion is vacuous. Counted rather than
+    // pinned — adding a role or a project is a content edit, not a regression
+    // in how the dash is held.
+    expect(dashed, 'no em-dashed heading found').toBeGreaterThan(0);
     expect(
       titles.filter((t) => !t.textContent.includes('—')).length,
       'no dashless heading found — the "no joint" branch never ran',
-    ).toBe(1);
+    ).toBeGreaterThan(0);
   });
 
   it('keeps experience metadata on middle dots and its year range on an en dash', () => {

@@ -102,7 +102,7 @@ const rendered = await Promise.all(
             {projectStatus[entry.id]}
           </p>
         )}
-        <h3 class="resume-entry__title">{heading.head}<span class="em-dash-joint">{heading.joint}</span>{heading.tail}</h3>
+        <h3 class="resume-entry__title">{heading.head}{heading.joint && <span class="em-dash-joint">{heading.joint}</span>}{heading.tail}</h3>
         <p class="resume-entry__tech">{d.tech.join(' · ')}</p>
         {(d.url || d.repo) && (
           <p class="resume-entry__link">
