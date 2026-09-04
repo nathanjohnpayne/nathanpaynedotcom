@@ -382,13 +382,22 @@ const education = defineCollection({
 
 // Selected projects for the resume. Distinct from `projects` (see note
 // above). Description lives in the markdown body; `order` sorts the list.
+//
+// `url` / `repo` are the résumé's copy of the canonical project's `liveUrl` /
+// `githubUrl`, and they are trimmed on the same terms those are (#948). Without
+// it this collection was the one place surrounding whitespace survived into a
+// rendered `href` — and Unicode whitespace such as NBSP is not stripped by URL
+// parsing, so ` https://example.com ` in an href resolves as a relative path on
+// this site instead of opening the product. `.min(1)` then rejects a
+// whitespace-only value rather than rendering an empty destination (Codex,
+// PR #951).
 const resumeProjects = defineCollection({
   loader: glob({ pattern: '**/*.md', base: './src/content/resume/projects' }),
   schema: z.object({
     name: z.string(),
     tech: z.array(z.string()),
-    url: z.string().optional(),
-    repo: z.string().optional(),
+    url: z.string().trim().min(1).optional(),
+    repo: z.string().trim().min(1).optional(),
     order: z.number(),
   }),
 });
