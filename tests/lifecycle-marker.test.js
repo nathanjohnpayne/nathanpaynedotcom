@@ -221,59 +221,95 @@ describe('lifecycle marker — declarations', () => {
   const FILL_PROPERTIES = ['background-color', 'background-image', 'background-clip', 'padding'];
 
   /**
-   * The exact property set each modifier carries, and the values that are not
-   * free. `paused` and `in-progress` carry none: the bare outline the base
-   * rule already draws IS their mark, so anything at all is a defect there.
+   * The exact property set each modifier carries, and the exact value of each.
+   *
+   * `paused` and `in-progress` carry none: the bare outline the base rule
+   * already draws IS their mark, so anything at all is a defect there.
+   *
+   * Values are compared as whole values, not searched for inside the rule.
+   * `padding: .1em` as a substring also matches `padding: .1em .2em`, which
+   * keeps the property set identical, produces an asymmetric core, and stays
+   * inside the PDF classifier's centre-row tolerance — passing every check
+   * while being wrong (Codex, PR #964).
    */
   const VARIANTS = {
-    shipped: {
-      properties: ['background-color'],
-      values: [[/background-color:\s*currentcolor/i, 'SHIPPED lost its solid fill']],
-    },
+    shipped: { 'background-color': /^currentcolor$/i },
     archived: {
-      properties: ['background-color', 'background-clip', 'padding'],
-      values: [
-        [/background-color:\s*currentcolor/i, 'ARCHIVED lost its cored fill'],
-        [/background-clip:\s*content-box/i, 'ARCHIVED fills its whole box, so it has no ring'],
-        [/padding:\s*0?\.1em/i, 'ARCHIVED lost the padding that IS its ring'],
-      ],
+      'background-color': /^currentcolor$/i,
+      'background-clip': /^content-box$/i,
+      padding: /^0?\.1em$/i,
     },
+    // The stop, not merely that a gradient is there, and the second stop as a
+    // colour token and ONE position. A drifted stop still renders as two runs
+    // with a wide first one and the classifier reads that window coarsely on
+    // purpose, so `linear-gradient` alone pinned nothing; `[^,)]+` admitted
+    // `#0000 80% 50%`, which the minifier really does emit; and any hex
+    // admitted `#ff0`, a visibly yellow half that a greyscale oracle reads as
+    // paper. All three passed both checks at the time (Codex, PR #958).
     experiment: {
-      properties: ['background-image'],
-      // The stop, not merely that a gradient is there, and the second stop as a
-      // colour token and ONE position. A drifted stop still renders as two runs
-      // with a wide first one and the classifier reads that window coarsely on
-      // purpose, so `linear-gradient` alone pinned nothing; `[^,)]+` admitted
-      // `#0000 80% 50%`, which the minifier really does emit; and any hex
-      // admitted `#ff0`, a visibly yellow half that a greyscale oracle reads as
-      // paper. All three passed both checks at the time (Codex, PR #958).
-      values: [
-        [
-          /background-image:\s*linear-gradient\(\s*90deg\s*,\s*currentcolor\s+0\s+50%\s*,\s*(?:transparent|#0{4}|#0{8})\s+50%\s*\)/i,
-          'EXPERIMENT lost its half fill',
-        ],
-      ],
+      'background-image':
+        /^linear-gradient\(\s*90deg\s*,\s*currentcolor\s+0\s+50%\s*,\s*(?:transparent|#0{4}|#0{8})\s+50%\s*\)$/i,
     },
-    paused: { properties: [], values: [] },
-    'in-progress': { properties: [], values: [] },
+    paused: {},
+    'in-progress': {},
   };
 
-  /**
-   * Every declaration the screen cascade makes for one selector, from EVERY
-   * rule that names it rather than the first.
-   *
-   * Both halves matter. Selector lists are split so a grouped rule counts, and
-   * later rules are concatenated so a second block adding a forbidden property
-   * cannot hide behind a correct first one — which is the same residue shape
-   * the print-fidelity test above guards with its `.flatMap`.
-   */
-  function declarationsFor(selector) {
+  /** The `::before` / `:before` tail; the minifier emits the legacy form. */
+  const PSEUDO = /::?before$/;
+
+  /** Every rule in the screen cascade, with its selector list split out. */
+  function screenRules() {
     const screen = withoutPrintBlocks(readBuiltStylesheet());
-    return [...screen.matchAll(/([^{}]+)\{([^{}]*)\}/g)]
-      .filter(([, selectors]) => selectors.split(',').some((sel) => sel.trim() === selector))
-      .map(([, , body]) => body)
-      .join(';');
+    return [...screen.matchAll(/([^{}]+)\{([^{}]*)\}/g)].map(([, selectors, body]) => ({
+      selectors: selectors.split(',').map((selector) => selector.trim()),
+      body,
+    }));
   }
+
+  /**
+   * Every `::before` rule that TARGETS one mark class, however it is qualified.
+   *
+   * An exact selector comparison was the first version of this and it had the
+   * hole both reviewers found independently: `.resume-canvas
+   * .state-marker--archived::before` and `.p-status.state-marker--shipped::before`
+   * are rules that change the mark, and neither is equal to the bare selector,
+   * so their declarations were simply not collected and every assertion below
+   * passed while a surface overrode the primitive (CodeRabbit and Codex,
+   * PR #964).
+   *
+   * So the match is on the last compound selector — the part after the final
+   * combinator, with any pseudo-class tail dropped — and it asks whether that
+   * compound carries the class. `.state-marker` therefore does not match
+   * `.state-marker--shipped::before`, since the compound's class list holds the
+   * modifier and not the primitive.
+   *
+   * Scoped to `::before` deliberately. The mark is a pseudo-element; the
+   * element itself carries the status word and each surface legitimately styles
+   * it (`.p-status`, `.metadata-strip__status`, `.resume-entry__status`), so
+   * policing the element would be asserting a rule the vocabulary does not have.
+   */
+  function targeting(className) {
+    const found = [];
+    for (const rule of screenRules()) {
+      for (const selector of rule.selectors) {
+        if (!PSEUDO.test(selector)) continue;
+        const compound = selector
+          .split(/[\s>+~]+/)
+          .pop()
+          .replace(PSEUDO, '')
+          .split(':')[0];
+        if (!compound.split('.').filter(Boolean).includes(className)) continue;
+        found.push({ selector, body: rule.body });
+      }
+    }
+    return found;
+  }
+
+  /** The declarations of every rule targeting a class, in cascade order. */
+  const declarationsFor = (className) =>
+    targeting(className)
+      .map((rule) => rule.body)
+      .join(';');
 
   const properties = (body) =>
     body
@@ -282,11 +318,39 @@ describe('lifecycle marker — declarations', () => {
       .filter(Boolean)
       .sort();
 
+  /** One property's whole value, or null unless it is declared exactly once. */
+  function valueOf(body, property) {
+    const matches = body
+      .split(';')
+      .map((declaration) => declaration.split(':'))
+      .filter(([name]) => name.trim().toLowerCase() === property)
+      .map((parts) => parts.slice(1).join(':').trim());
+    return matches.length === 1 ? matches[0] : null;
+  }
+
+  /**
+   * Every mark selector has to be the bare primitive, on the same reasoning as
+   * the print-fidelity test above: a qualifier — an ancestor, a second class, a
+   * pseudo-class — is a per-surface narrowing, and one surface disagreeing with
+   * the others about what a state looks like is the defect the shared module
+   * exists to prevent. Collecting qualified rules above is what lets this
+   * reject them here rather than silently ignore them.
+   */
+  function expectUnqualified(className) {
+    for (const { selector } of targeting(className)) {
+      expect(
+        selector,
+        `${selector} qualifies the mark; geometry and fill belong to the bare ` +
+          '.state-marker primitive, not to one surface',
+      ).toMatch(new RegExp(`^\\.${className.replace(/[-]/g, '\\-')}::?before$`));
+    }
+  }
+
   it('gives the base rule the geometry, and states the box-sizing that keeps it', () => {
     // `STATUS_MARK_SIZE` in tests/helpers/pdf-oracle.js is derived from these
-    // three values — 0.72em of the résumé's 7.5pt kicker plus a 1px border each
-    // side — and the classifier's size window is built around it, so a drift
-    // here points the oracle at the wrong column.
+    // values — 0.72em of the résumé's 7.5pt kicker plus a 1px border each side
+    // — and the classifier's size window is built around it, so a drift here
+    // points the oracle at the wrong column.
     //
     // `box-sizing` belongs with them rather than reading as boilerplate. The
     // `*` reset does not match a pseudo-element, so without it the box is
@@ -295,26 +359,31 @@ describe('lifecycle marker — declarations', () => {
     // 22% larger than its peers on every surface (#959). The width restates the
     // border for the same reason: under border-box it has to be inside the
     // declared size.
-    const base =
-      declarationsFor('.state-marker::before') || declarationsFor('.state-marker:before');
+    const base = declarationsFor('state-marker');
     expect(base, 'no .state-marker::before rule in the screen cascade').toBeTruthy();
-    expect(base, 'the mark box is not border-box, so a variant padding grows it (#959)').toMatch(
-      /box-sizing:\s*border-box/,
+    expectUnqualified('state-marker');
+    expect(
+      valueOf(base, 'box-sizing'),
+      'the mark box is not border-box, so a variant padding grows it (#959)',
+    ).toMatch(/^border-box$/i);
+    expect(valueOf(base, 'width'), 'mark width drifted from what the PDF oracle measures').toMatch(
+      /^calc\(\s*0?\.72em\s*\+\s*2px\s*\)$/i,
     );
-    expect(base, 'mark width drifted from what the PDF oracle measures').toMatch(
-      /width:\s*calc\(\s*0?\.72em\s*\+\s*2px\s*\)/,
-    );
-    expect(base, 'mark height drifted from what the PDF oracle measures').toMatch(
-      /height:\s*calc\(\s*0?\.72em\s*\+\s*2px\s*\)/,
-    );
-    expect(base, 'the 1px outline the oracle adds to the mark box is gone').toMatch(
-      /border:\s*1px/,
-    );
+    expect(
+      valueOf(base, 'height'),
+      'mark height drifted from what the PDF oracle measures',
+    ).toMatch(/^calc\(\s*0?\.72em\s*\+\s*2px\s*\)$/i);
+    // The shorthand's first component is its width, and the width is the only
+    // part the oracle's box derivation depends on.
+    expect(
+      valueOf(base, 'border'),
+      'the 1px outline the oracle adds to the mark box is gone',
+    ).toMatch(/^1px(\s|$)/i);
   });
 
   it('expects every modifier the vocabulary can emit', () => {
     // The coverage guard. A new lifecycle state adds a modifier through
-    // STATUS_MARKER, and without this the table below would simply not mention
+    // STATUS_MARKER, and without this the table above would simply not mention
     // it — the enumeration would still pass while enumerating less than all of
     // it, which is the failure mode an exhaustive check is for.
     expect(
@@ -324,22 +393,27 @@ describe('lifecycle marker — declarations', () => {
   });
 
   for (const [modifier, expected] of Object.entries(VARIANTS)) {
-    it(`declares exactly ${expected.properties.length || 'no'} fill propert${
-      expected.properties.length === 1 ? 'y' : 'ies'
+    const names = Object.keys(expected);
+    it(`declares exactly ${names.length || 'no'} fill propert${
+      names.length === 1 ? 'y' : 'ies'
     } for --${modifier}`, () => {
-      const selector = `.state-marker--${modifier}`;
-      const body = declarationsFor(`${selector}::before`) || declarationsFor(`${selector}:before`);
+      const className = `state-marker--${modifier}`;
+      const body = declarationsFor(className);
+
+      expectUnqualified(className);
 
       // Exactly the expected set: must-carry and must-not-carry in one
       // assertion. A missing fill collapses that state into another; an extra
       // property is either a fill the state should not have or a geometry
       // override the base rule owns.
       expect(properties(body), `--${modifier} does not declare exactly its own fill`).toEqual(
-        [...expected.properties].sort(),
+        [...names].sort(),
       );
 
-      for (const [pattern, message] of expected.values) {
-        expect(body, message).toMatch(pattern);
+      for (const [property, pattern] of Object.entries(expected)) {
+        expect(valueOf(body, property), `--${modifier} declares the wrong ${property}`).toMatch(
+          pattern,
+        );
       }
 
       // And nothing outside the fill vocabulary, stated separately so the
@@ -360,9 +434,9 @@ describe('lifecycle marker — declarations', () => {
     // an EMPTY property set, and an extractor that silently found nothing would
     // satisfy that for entirely the wrong reason — so prove the same lookup
     // returns declarations for a selector that has them.
-    const shipped =
-      declarationsFor('.state-marker--shipped::before') ||
-      declarationsFor('.state-marker--shipped:before');
-    expect(properties(shipped), 'the extractor found no declarations anywhere').not.toEqual([]);
+    expect(
+      properties(declarationsFor('state-marker--shipped')),
+      'the extractor found no declarations anywhere',
+    ).not.toEqual([]);
   });
 });
