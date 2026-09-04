@@ -959,8 +959,13 @@ describe('Resume — print stylesheet', () => {
     // colour alternation is deliberately narrow for the same reason: if the
     // minifier ever emits a form neither branch covers, this fails loudly
     // instead of quietly widening.
+    //
+    // And it is narrow specifically to ALPHA-ZERO forms. Accepting any hex let
+    // an opaque colour through — `#ff0 50%` is a visibly yellow half, and the
+    // greyscale PDF oracle reads bright yellow as paper, so it reports `half`
+    // and neither check objects (Codex, PR #958).
     expect(rule('.state-marker--experiment'), 'EXPERIMENT lost its half fill').toMatch(
-      /background-image:\s*linear-gradient\(\s*90deg\s*,\s*currentcolor\s+0\s+50%\s*,\s*(?:#[0-9a-f]{3,8}|transparent)\s+50%\s*\)/i,
+      /background-image:\s*linear-gradient\(\s*90deg\s*,\s*currentcolor\s+0\s+50%\s*,\s*(?:transparent|#0{4}|#0{8})\s+50%\s*\)/i,
     );
   });
 

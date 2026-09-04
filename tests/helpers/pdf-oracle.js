@@ -252,6 +252,34 @@ const MARK_MIN = STATUS_MARK_SIZE - 3;
 const MARK_MAX = STATUS_MARK_SIZE + 6;
 
 /**
+ * The window every variant EXCEPT the cored one has to sit in.
+ *
+ * `MARK_MAX` above is wide only to admit `ARCHIVED`, whose padding grows its
+ * box (#959). Detection has to use the wide window — a mark outside it is not
+ * found at all — but letting the other three spend that slack means a mark
+ * scaled half again its size still classifies (Codex, PR #958). So the wide
+ * allowance is spent once, by the variant that needs it, and the rest are held
+ * to the nominal box. Measured on the built résumé: 15×14 solid, 14×15 hollow,
+ * 14×13 half, 17×17 cored.
+ *
+ * When #959 lands and the cored mark is the same size as its peers, this and
+ * `MARK_MAX` collapse back into one window.
+ */
+const TIGHT_MIN = STATUS_MARK_SIZE - 2;
+const TIGHT_MAX = STATUS_MARK_SIZE + 2;
+
+/**
+ * How much of the middle row a lone dark run has to cover to be `solid`.
+ *
+ * `SHIPPED` is filled edge to edge and measures 100%. Counting runs alone
+ * accepted a single narrow band as solid — a fill inset from transparent side
+ * borders leaves exactly that, with the top and bottom rows still closing a
+ * valid box (Codex, PR #958). The name of the signature is a claim about the
+ * whole row, so it is checked against the whole row.
+ */
+const SOLID_MIN = 0.9;
+
+/**
  * How much of a two-run mark's middle row the first run covers, per variant.
  *
  * Measured on the built résumé: 43% for the half-filled `EXPERIMENT` against 7%
@@ -386,14 +414,27 @@ function markSignature(page, box) {
       start = null;
     }
   }
-  if (runs.length === 1) return 'solid';
-  if (runs.length === 3) return 'cored';
-  if (runs.length === 2) {
-    const covered = runs[0] / (box.to - box.from);
-    if (covered >= HALF_MIN && covered <= HALF_MAX) return 'half';
-    if (covered <= HOLLOW_MAX) return 'hollow';
+  const width = box.to - box.from;
+  const signature = read();
+  // The cored variant is the one allowed to be larger than nominal, and only
+  // because #959 makes it so. Everything else is held to the tight window, or
+  // the slack that exists for one variant silently covers a size regression in
+  // another (Codex, PR #958).
+  if (signature === 'cored' || signature === 'unrecognised') return signature;
+  const height = box.bottom - box.top + 1;
+  const nominal = (n) => n >= TIGHT_MIN && n <= TIGHT_MAX;
+  return nominal(width) && nominal(height) ? signature : 'unrecognised';
+
+  function read() {
+    if (runs.length === 1) return runs[0] / width >= SOLID_MIN ? 'solid' : 'unrecognised';
+    if (runs.length === 3) return 'cored';
+    if (runs.length === 2) {
+      const covered = runs[0] / width;
+      if (covered >= HALF_MIN && covered <= HALF_MAX) return 'half';
+      if (covered <= HOLLOW_MAX) return 'hollow';
+    }
+    return 'unrecognised';
   }
-  return 'unrecognised';
 }
 
 /**
