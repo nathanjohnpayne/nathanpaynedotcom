@@ -337,12 +337,20 @@ describe('lifecycle marker — declarations', () => {
    * reject them here rather than silently ignore them.
    */
   function expectUnqualified(className) {
+    // Compared against the two literal forms rather than a regex built from
+    // the class name. Interpolating into a pattern needs escaping, escaping
+    // one metacharacter is the incomplete-sanitization shape CodeQL objects to
+    // as a technique rather than as one bad pattern (alert 28) — and `-` does
+    // not need escaping outside a character class in the first place. Two
+    // string comparisons sidestep the question, which is the same answer
+    // tests/helpers/dom.js reached about script stripping.
+    const bare = [`.${className}::before`, `.${className}:before`];
     for (const { selector } of targeting(className)) {
       expect(
-        selector,
+        bare,
         `${selector} qualifies the mark; geometry and fill belong to the bare ` +
           '.state-marker primitive, not to one surface',
-      ).toMatch(new RegExp(`^\\.${className.replace(/[-]/g, '\\-')}::?before$`));
+      ).toContain(selector);
     }
   }
 
