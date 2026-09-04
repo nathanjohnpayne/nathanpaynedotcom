@@ -351,6 +351,20 @@ describe('lifecycle marker — declarations', () => {
   const screenRules = () => rulesIn(screenCascade().unconditional);
 
   /**
+   * Every rule in the stylesheet, conditional or not.
+   *
+   * The surface-alias check needs this rather than the unconditional set: a
+   * `.p-status::before` override that is ALSO behind a media query fell between
+   * the two scans, because the conditional one looked only for mark classes and
+   * the alias one looked only at unconditional rules (Codex, PR #964). A
+   * surface may not restyle the mark at any width.
+   */
+  const allRules = () => {
+    const cascade = screenCascade();
+    return [...rulesIn(cascade.unconditional), ...rulesIn(cascade.conditional)];
+  };
+
+  /**
    * Every `::before` rule that TARGETS one mark class, however it is qualified.
    *
    * An exact selector comparison was the first version of this and it had the
@@ -594,7 +608,7 @@ describe('lifecycle marker — declarations', () => {
 
     for (const alias of aliases) {
       expect(
-        targeting(alias).map(({ selector }) => selector),
+        targeting(alias, allRules()).map(({ selector }) => selector),
         `${alias}::before restyles the lifecycle mark from one surface; the mark ` +
           'is .state-marker::before and belongs to the primitive',
       ).toEqual([]);
