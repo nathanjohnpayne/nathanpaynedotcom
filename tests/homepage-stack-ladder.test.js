@@ -36,7 +36,10 @@ const builtCss = readBuiltStylesheet();
 // reasoning as the aspect-ratio normalizer in tests/responsive-layout.test.js (#640).
 function normalizeContainerSyntax(cssText) {
   return cssText
-    .replace(/container:\s*([\w-]+)\s*\/\s*inline-size/g, 'container-name: $1; container-type: inline-size')
+    .replace(
+      /container:\s*([\w-]+)\s*\/\s*inline-size/g,
+      'container-name: $1; container-type: inline-size',
+    )
     .replace(/\(width>=\s*([\d.]+)em\)/g, '(min-width: $1em)');
 }
 
@@ -208,10 +211,9 @@ describe('Selected Projects STACK ladder (#930)', () => {
     expect(hiddenTiers).toEqual(['7', '8', '9', '10']);
 
     hiddenTiers.forEach((tier) => {
-      expect(
-        normalizedBuiltCss,
-        `tier ${tier} is hidden with nothing to bring it back`,
-      ).toMatch(new RegExp(`@container stack[^{]*\\{[^}]*data-stack-tier=.?${tier}.?\\]`));
+      expect(normalizedBuiltCss, `tier ${tier} is hidden with nothing to bring it back`).toMatch(
+        new RegExp(`@container stack[^{]*\\{[^}]*data-stack-tier=.?${tier}.?\\]`),
+      );
     });
   });
 });

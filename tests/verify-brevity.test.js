@@ -36,7 +36,6 @@ sidebar:
 The figure moved -3.8% and the run recorded zero rejections. See [the audit](/blog/some-post/) and the \`/\` separator.
 `;
 
-
 const CLOCK = `---
 title: >-
   Original headline
@@ -54,7 +53,6 @@ const mode = "strict";
 ~~~
 `;
 
-
 const UNITS = `---
 title: "Units"
 seoDescription: "Pinned."
@@ -67,7 +65,10 @@ function paths(after, base) {
   const dir = mkdtempSync(join(tmpdir(), 'brevity-'));
   const a = join(dir, 'before.md');
   const b = join(dir, 'after.md');
-  writeFileSync(a, base ?? (after.includes('Authoring session') || after.includes('rejections') ? SIGNED : BEFORE));
+  writeFileSync(
+    a,
+    base ?? (after.includes('Authoring session') || after.includes('rejections') ? SIGNED : BEFORE),
+  );
   writeFileSync(b, after);
   return [a, b];
 }
@@ -303,10 +304,9 @@ describe('verify-brevity', () => {
   });
 
   it('allows sentence punctuation to change after a URL', () => {
-    expect(run(
-      'see https://example.com, then more\n',
-      'see https://example.com. Then more\n',
-    )).toBe(0);
+    expect(
+      run('see https://example.com, then more\n', 'see https://example.com. Then more\n'),
+    ).toBe(0);
   });
 
   it('still fails when the URL itself changes', () => {
@@ -336,7 +336,9 @@ describe('verify-brevity', () => {
   it('notes a description change without failing the gate', () => {
     const mk = (d) => `---\ntitle: "T"\ndescription: "${d}"\n---\n\nBody text here.\n`;
     expect(run(mk('Alpha gamma.'), mk('Alpha beta gamma.'))).toBe(0);
-    expect(output(mk('Alpha gamma.'), mk('Alpha beta gamma.'))).toMatch(/note\s+description changed/);
+    expect(output(mk('Alpha gamma.'), mk('Alpha beta gamma.'))).toMatch(
+      /note\s+description changed/,
+    );
   });
 
   it('fails when a fragment-only link destination changes', () => {
@@ -413,7 +415,8 @@ describe('verify-brevity', () => {
   });
 
   it('excludes image alt text from the prose word count', () => {
-    const doc = '---\ntitle: "T"\n---\n\n![a very long alt text here](/img/x.png)\n\nBody words here now.\n';
+    const doc =
+      '---\ntitle: "T"\n---\n\n![a very long alt text here](/img/x.png)\n\nBody words here now.\n';
     expect(output(doc, doc)).toMatch(/prose 4 -> 4\b/);
   });
 
@@ -428,7 +431,9 @@ describe('verify-brevity', () => {
   });
 
   it('still pairs multi-backtick spans correctly after the rewrite', () => {
-    expect(run('see ``alpha ` beta`` and `x` here\n', 'see ``alpha ` gamma`` and `x` here\n')).toBe(1);
+    expect(run('see ``alpha ` beta`` and `x` here\n', 'see ``alpha ` gamma`` and `x` here\n')).toBe(
+      1,
+    );
   });
 
   it('fails when a unit written as a separate word changes', () => {

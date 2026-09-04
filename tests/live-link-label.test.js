@@ -53,7 +53,10 @@ describe('live link label', () => {
     const declared = findFilesRecursively(dir, (f) => /\.mdx?$/.test(f))
       .map((f) => parseFrontmatter(readFileSync(f, 'utf-8')).liveLabel)
       .filter(Boolean);
-    expect(declared.length, 'no project declares a liveLabel — this check proves nothing').toBeGreaterThan(0);
+    expect(
+      declared.length,
+      'no project declares a liveLabel — this check proves nothing',
+    ).toBeGreaterThan(0);
     for (const override of declared) {
       const label = liveLinkLabel(override);
       expect(label.length, `${override} produced an empty label`).toBeGreaterThan(0);

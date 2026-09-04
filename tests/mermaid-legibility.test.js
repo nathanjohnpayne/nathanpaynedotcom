@@ -287,8 +287,7 @@ describe('Mermaid coverage of the two narrow columns', () => {
     const viewport = VIEWPORTS.find((candidate) => candidate.name === subject.viewport);
     const tooWide = diagramsAt(viewport).filter(
       (diagram) =>
-        diagram.container === subject.container &&
-        diagram.naturalWidth > diagram.columnWidth + 1,
+        diagram.container === subject.container && diagram.naturalWidth > diagram.columnWidth + 1,
     );
 
     expect(

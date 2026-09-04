@@ -216,7 +216,10 @@ describe('toolchain pins (#825)', () => {
     for (const peer of pins.typescriptPeerCeilingSources) {
       it(`${peer} admits the declared range`, () => {
         const entry = lockEntry(peer);
-        expect(entry, `${peer} is not installed at the top level of package-lock.json`).toBeTruthy();
+        expect(
+          entry,
+          `${peer} is not installed at the top level of package-lock.json`,
+        ).toBeTruthy();
 
         const peerRange = entry.peerDependencies?.typescript;
         expect(

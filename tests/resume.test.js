@@ -348,8 +348,14 @@ describe('Resume — page structure', () => {
       const desc = section.querySelector(`.${ns}__desc`);
       const label = section.querySelector(`.${ns}__label`);
       expect(lead, `${ns} has no proposition line`).not.toBeNull();
-      expect(lead.querySelector('strong'), `${ns} proposition is not set as the claim`).not.toBeNull();
-      expect(lead.querySelector('a[href]'), `${ns} proposition carries no canonical URL`).not.toBeNull();
+      expect(
+        lead.querySelector('strong'),
+        `${ns} proposition is not set as the claim`,
+      ).not.toBeNull();
+      expect(
+        lead.querySelector('a[href]'),
+        `${ns} proposition carries no canonical URL`,
+      ).not.toBeNull();
       expect(desc, `${ns} has no description`).not.toBeNull();
       expect(label, `${ns} has no selected-items label`).not.toBeNull();
       expect(label.textContent.trim()).toMatch(/^Selected .+:$/);
@@ -377,9 +383,10 @@ describe('Resume — page structure', () => {
         );
         expect(flat, 'Writing should not space its em dash').not.toMatch(/\s—|—\s/);
       } else {
-        expect(lead.querySelector('strong').textContent, 'Projects states the claim alone').not.toMatch(
-          /—$/,
-        );
+        expect(
+          lead.querySelector('strong').textContent,
+          'Projects states the claim alone',
+        ).not.toMatch(/—$/);
         expect(flat, 'Projects separates its URL with a middle dot').toMatch(/ · /);
       }
     }
@@ -432,7 +439,9 @@ describe('Resume — page structure', () => {
         status.compareDocumentPosition(title) & Node.DOCUMENT_POSITION_FOLLOWING,
         'the kicker should precede the project heading, not trail the name',
       ).toBeTruthy();
-      expect(status.classList.contains('state-marker'), 'kicker missing the shared mark').toBe(true);
+      expect(status.classList.contains('state-marker'), 'kicker missing the shared mark').toBe(
+        true,
+      );
       // Real text, not a glyph standing in for one. The mark is drawn by a
       // ::before, so the element's own text content is the whole word — this is
       // what survives copy/paste, a screen reader, and an ATS parser.
@@ -533,9 +542,8 @@ describe('Resume — page structure', () => {
     // Discovered by DECLARED slug through the same recursive `**/*.{md,mdx}`
     // inventory the collection loads with — never by basename, extension or
     // directory, all of which this PR has already had to unlearn.
-    const canonical = findFilesRecursively(
-      resolve(__dirname, '../src/content/projects'),
-      (f) => /\.mdx?$/.test(f),
+    const canonical = findFilesRecursively(resolve(__dirname, '../src/content/projects'), (f) =>
+      /\.mdx?$/.test(f),
     ).map((f) => parseFrontmatter(readFileSync(f, 'utf-8')));
 
     const entries = [...document.querySelectorAll('.resume-projects .resume-entry')];
@@ -629,7 +637,10 @@ describe('Resume — page structure', () => {
     // Controls. The loop asserts equality per entry, which a page rendering no
     // destinations at all would satisfy only if every canonical project also
     // declared none — so pin that the fixture actually exercises both branches.
-    expect(withLive, 'no canonical project declares a liveUrl — the live-label branch never ran').toBeGreaterThan(0);
+    expect(
+      withLive,
+      'no canonical project declares a liveUrl — the live-label branch never ran',
+    ).toBeGreaterThan(0);
     const withBoth = entries.filter(
       (e) => e.querySelectorAll('.resume-entry__link a').length === 2,
     );
@@ -642,8 +653,8 @@ describe('Resume — page structure', () => {
     // work, when the Rust app already existed and was retired. Pinned as a
     // negative assertion so the corrected claim cannot silently revert, on both
     // surfaces that carry it.
-    const bullet = [...document.querySelectorAll('.resume-experience .resume-prose li')].find((li) =>
-      li.textContent.includes('NCPv3'),
+    const bullet = [...document.querySelectorAll('.resume-experience .resume-prose li')].find(
+      (li) => li.textContent.includes('NCPv3'),
     );
     expect(bullet, 'no NCPv3 experience bullet found').not.toBeNull();
     expect(bullet.textContent).toContain('retiring the parallel Rust app');
@@ -662,12 +673,14 @@ describe('Resume — page structure', () => {
   it('states the current review policy on the PR-pipeline bullet', () => {
     // #947. The metric alone read as a finished result; the policy sentence is
     // what makes it a live process with a direction of travel.
-    const bullet = [...document.querySelectorAll('.resume-experience .resume-prose li')].find((li) =>
-      li.textContent.includes('PR review pipeline'),
+    const bullet = [...document.querySelectorAll('.resume-experience .resume-prose li')].find(
+      (li) => li.textContent.includes('PR review pipeline'),
     );
     expect(bullet, 'no PR-pipeline bullet found').not.toBeNull();
     expect(bullet.textContent).toContain('exceeding the 30% Q2 OKR target');
-    expect(bullet.textContent).toContain('AI review plus two human reviewers, moving toward AI plus one');
+    expect(bullet.textContent).toContain(
+      'AI review plus two human reviewers, moving toward AI plus one',
+    );
   });
 
   it('renders three Certifications; CSP-PO is attributed to Scrum Alliance', () => {
@@ -1068,7 +1081,11 @@ describe('Resume — downloadable PDF', () => {
     // What paper keeps instead. Without this the rule above is a silent
     // deletion of every route to the work rather than a considered trade.
     const printed = pdfTextInEmissionOrder(resolve(DIST, 'Nathan-Payne-Resume.pdf'));
-    for (const route of ['nathanpayne.com/projects', 'nathanpayne.com/blog', 'github.com/nathanjohnpayne']) {
+    for (const route of [
+      'nathanpayne.com/projects',
+      'nathanpayne.com/blog',
+      'github.com/nathanjohnpayne',
+    ]) {
       expect(printed, `the PDF no longer carries ${route}`).toContain(route);
     }
     // And the row's own URLs are genuinely gone, not merely unstyled.

@@ -197,7 +197,10 @@ describe('Homepage Builds grid mirrors the projects collection (#892)', () => {
       );
     }
     // The whole point of the labels: the grid must not read as uniformly shipped.
-    expect(new Set(rows.map((r) => r.status)).size, 'expected mixed lifecycle states').toBeGreaterThan(1);
+    expect(
+      new Set(rows.map((r) => r.status)).size,
+      'expected mixed lifecycle states',
+    ).toBeGreaterThan(1);
   });
 
   it('keeps status as metadata, not as a control', () => {
@@ -222,7 +225,9 @@ describe('Homepage Builds grid mirrors the projects collection (#892)', () => {
         `no state marker on "${status.textContent?.trim()}"`,
       ).toBe(true);
     }
-    const modifiers = statuses.map((s) => [...s.classList].find((c) => c.startsWith('state-marker--')));
+    const modifiers = statuses.map((s) =>
+      [...s.classList].find((c) => c.startsWith('state-marker--')),
+    );
     expect(new Set(modifiers).size, 'expected distinct state markers').toBeGreaterThan(1);
   });
 
@@ -235,7 +240,9 @@ describe('Homepage Builds grid mirrors the projects collection (#892)', () => {
     expect(kickers.length, 'no marked status kickers on the index').toBeGreaterThan(0);
     for (const kicker of kickers) {
       expect(kicker.classList.contains('post-meta'), 'the index kicker keeps its type').toBe(true);
-      expect(kicker.classList.contains('state-marker'), 'the index kicker gains the marker').toBe(true);
+      expect(kicker.classList.contains('state-marker'), 'the index kicker gains the marker').toBe(
+        true,
+      );
       expect(kicker.tagName, 'state is metadata, not a control').toBe('P');
     }
     // ARCHIVED and PAUSED must not collapse to the same mark — the whole reason
@@ -261,6 +268,8 @@ describe('Homepage Builds grid mirrors the projects collection (#892)', () => {
     // A paper control, not a bare link: the site's grammar reserves the outlined
     // rectangle for actions, and this is one. Status labels deliberately do NOT
     // take this treatment — see .p-status in global.css.
-    expect(cta?.classList.contains('nav-button'), 'CTA should use the paper control style').toBe(true);
+    expect(cta?.classList.contains('nav-button'), 'CTA should use the paper control style').toBe(
+      true,
+    );
   });
 });
