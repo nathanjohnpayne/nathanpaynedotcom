@@ -110,6 +110,54 @@ function splitArguments(text) {
 }
 
 /**
+ * `source` with every comment replaced by spaces, offsets preserved.
+ *
+ * Two things go wrong without it, and only one of them is loud: a
+ * `stateMarkerClass(...)` written inside a comment is scanned as a call, and —
+ * the dangerous one — a comment INSIDE a call ends the argument scan early.
+ * a call whose first argument is followed by a block comment containing a `)`
+ * closes on the comment's paren, yields an empty surface list, and never trips
+ * the unreadable check, so that surface is silently unpoliced (Codex, PR #973).
+ * The fixture below writes that call out; it cannot be written in this comment.
+ *
+ * Blanking rather than deleting keeps every offset, so the call sites are found
+ * at the positions they occupy in the file. Regular-expression literals are not
+ * modelled; the SURFACES control below is what would catch a blanking that ate
+ * a real call, and it is asserted before anything is concluded from the result.
+ */
+function withoutComments(source) {
+  let out = '';
+  let quote = null;
+  for (let index = 0; index < source.length; index += 1) {
+    const character = source[index];
+    if (quote) {
+      out += character;
+      if (character === '\\') {
+        out += source[index + 1] ?? '';
+        index += 1;
+      } else if (character === quote) quote = null;
+      continue;
+    }
+    if (character === "'" || character === '"' || character === '`') {
+      quote = character;
+      out += character;
+      continue;
+    }
+    const block = character === '/' && source[index + 1] === '*';
+    const line = character === '/' && source[index + 1] === '/';
+    if (block || line) {
+      const end = block ? source.indexOf('*/', index + 2) : source.indexOf('\n', index);
+      const stop = end === -1 ? source.length : end + (block ? 2 : 0);
+      out += ' '.repeat(stop - index);
+      index = stop - 1;
+      continue;
+    }
+    out += character;
+  }
+  return out;
+}
+
+/**
  * A complete string literal in any of the three forms, and nothing else.
  *
  * `$` is excluded from the template-literal form so `` `x-${y}` `` cannot pass
@@ -124,8 +172,15 @@ const SURFACE_LITERAL = /^(?:'([^'\\\n]*)'|"([^"\\\n]*)"|`([^`\\$\n]*)`)$/;
  *
  * Argument 0 is the status and is dropped; the rest are the `...base` classes.
  *
+ * Each readable argument yields a class **list**, not one name. `stateMarkerClass(status,
+ * 'post-meta project-status')` is what `/projects/` would look like written as
+ * one argument, and the helper joins base strings with spaces either way — so
+ * reading the literal whole recorded an alias no element ever carries, and the
+ * declared-versus-rendered cross-check then failed on behaviourally identical
+ * code (Codex, PR #973).
+ *
  * @param {string} callText `stateMarkerClass(` through its matching `)`.
- * @returns {({readable: true, value: string} | {readable: false, text: string})[]}
+ * @returns {({readable: true, classes: string[]} | {readable: false, text: string})[]}
  */
 function readSurfaceArguments(callText) {
   const open = callText.indexOf('(');
@@ -135,9 +190,9 @@ function readSurfaceArguments(callText) {
     .slice(1)
     .map((text) => {
       const literal = text.match(SURFACE_LITERAL);
-      return literal
-        ? { readable: true, value: literal[1] ?? literal[2] ?? literal[3] }
-        : { readable: false, text };
+      if (!literal) return { readable: false, text };
+      const value = literal[1] ?? literal[2] ?? literal[3];
+      return { readable: true, classes: value.split(/\s+/).filter(Boolean) };
     });
 }
 
@@ -149,7 +204,7 @@ function callSites() {
     // The module's own `export function stateMarkerClass(status, ...base)` is a
     // declaration, not a call, and its parameter list is not a surface list.
     if (name === MARKER_MODULE) continue;
-    const source = readFileSync(file, 'utf-8');
+    const source = withoutComments(readFileSync(file, 'utf-8'));
     for (const call of source.matchAll(/\bstateMarkerClass\s*\(/g)) {
       const close = matchingParen(source, call.index + call[0].length - 1);
       sites.push({
@@ -478,39 +533,115 @@ describe('lifecycle marker — declarations', () => {
     return names;
   }
 
-  /** Does this selector target a `::before` (or the legacy `:before`)? */
+  /**
+   * Does this selector target a `::before` (or the legacy `:before`)?
+   *
+   * The name is decoded first. `::be\66 ore` is a real `::before` and css-tree
+   * keeps its source spelling, so a raw comparison reads it as some other
+   * pseudo-element and drops the rule out of every check below (Codex, PR #973).
+   */
   function targetsBefore(selector) {
     let found = false;
     csstree.walk(selector, {
       enter(node) {
         const pseudo = node.type === 'PseudoElementSelector' || node.type === 'PseudoClassSelector';
-        if (pseudo && node.name.toLowerCase() === 'before') found = true;
+        if (pseudo && csstree.ident.decode(node.name).toLowerCase() === 'before') found = true;
       },
     });
     return found;
   }
 
   /**
-   * The classes on the compound the selector actually SUBJECTS — everything
-   * after its last combinator.
+   * Functional pseudo-classes whose arguments can BE the subject.
    *
-   * This is the distinction the regex could not make and the reason the
-   * modifier-size rule below was recorded as a limit rather than patched
-   * (#967). In `.resume-entry__status.state-marker--shipped` the rule is
-   * modifier-scoped; in `.state-marker--shipped + .p-status` the subject is a
-   * sibling that has nothing to do with the mark. Reading the last compound
-   * was itself a hole once — it dropped everything after the first `:` and
-   * reduced `:is(.state-marker--paused)` to nothing — but that was a string
-   * operation guessing at structure. Here the combinators are AST nodes and
-   * `:is()` carries a parsed `SelectorList` its classes are read out of.
+   * `:is()` and `:where()` say the subject may be any of these. `:not()` says
+   * the opposite — a class inside it is one the subject definitely does not
+   * carry — and `:has()`'s argument is a descendant, not the subject. Reading
+   * either as a subject would reject `.p-status:not(.state-marker--shipped)` as
+   * a modifier rule, which is the reverse of what it means.
    */
-  function subjectClassNames(selector) {
+  const SUBJECT_PSEUDOS = new Set(['is', 'where']);
+
+  /** The nodes after a selector's last combinator — the compound it subjects. */
+  function subjectCompound(selector) {
     const parts = selector.children.toArray();
     let subject = 0;
     parts.forEach((node, index) => {
       if (node.type === 'Combinator') subject = index + 1;
     });
-    return parts.slice(subject).flatMap(classNamesIn);
+    return parts.slice(subject);
+  }
+
+  /**
+   * The classes on the compound the selector actually SUBJECTS.
+   *
+   * This is the distinction the regex could not make and the reason the
+   * modifier-element rule below was recorded as a limit rather than patched
+   * (#967). In `.resume-entry__status.state-marker--shipped` the rule is
+   * modifier-scoped; in `.state-marker--shipped + .p-status` the subject is a
+   * sibling that has nothing to do with the mark. Reading the last compound was
+   * itself a hole once — it dropped everything after the first `:` and reduced
+   * `:is(.state-marker--paused)` to nothing — but that was a string operation
+   * guessing at structure. Here the combinators are AST nodes.
+   *
+   * The recursion into `:is()` / `:where()` takes each argument's OWN subject
+   * rather than every class inside it. A functional selector has no top-level
+   * combinator, so collecting the lot made `:is(.state-marker--shipped +
+   * .p-status)` read as modifier-scoped when its subject is the sibling — and
+   * the unwrapped form of exactly that selector is asserted to pass a few tests
+   * down (Codex, PR #973).
+   */
+  function subjectClassNames(selector) {
+    const names = [];
+    for (const node of subjectCompound(selector)) {
+      if (node.type === 'ClassSelector') {
+        names.push(csstree.ident.decode(node.name));
+      } else if (
+        node.type === 'PseudoClassSelector' &&
+        SUBJECT_PSEUDOS.has(csstree.ident.decode(node.name).toLowerCase())
+      ) {
+        for (const child of node.children ?? []) {
+          if (child.type !== 'SelectorList') continue;
+          for (const inner of child.children) names.push(...subjectClassNames(inner));
+        }
+      }
+    }
+    return names;
+  }
+
+  /**
+   * A nested selector, rewritten as the selector it actually means.
+   *
+   * CSS nesting splits one selector across two rules, and neither half carries
+   * what the other needs: in `.state-marker--shipped { &::before { padding } }`
+   * the outer rule names the modifier and has no `::before`, the inner rule has
+   * the `::before` and names no class, so a collector reading each rule's own
+   * selector sees neither and a state-specific geometry override passes every
+   * check (Codex, PR #973).
+   *
+   * Resolving is structural: each `&` is replaced by the parent selector's own
+   * nodes, and a nested selector with no `&` at all gets the parent prepended as
+   * a descendant, which is what the nesting spec says it means. Substituted
+   * directly rather than wrapped in `:is()` — `:is()` takes the specificity of
+   * its most specific argument, so the two are equivalent here, and the wrapper
+   * would make a resolved `.state-marker::before` read as qualified.
+   */
+  function resolveNesting(selector, parent) {
+    if (!parent) return selector;
+    const resolved = csstree.clone(selector);
+    let nested = false;
+    csstree.walk(resolved, {
+      enter(node, item, list) {
+        if (node.type !== 'NestingSelector' || !list) return;
+        nested = true;
+        list.replace(item, csstree.clone(parent).children);
+      },
+    });
+    if (nested) return resolved;
+    const descendant = csstree.clone(parent);
+    descendant.children.appendData({ type: 'Combinator', name: ' ' });
+    for (const child of csstree.clone(selector).children) descendant.children.appendData(child);
+    return descendant;
   }
 
   /**
@@ -533,27 +664,45 @@ describe('lifecycle marker — declarations', () => {
     });
     const rules = [];
     const unreadable = [];
-    const stack = [];
+    const atRules = [];
+    // The enclosing rule's RESOLVED selectors, so a rule nested two deep
+    // resolves against what its parent already resolved to rather than against
+    // the parent's literal `&`.
+    const enclosing = [];
     csstree.walk(ast, {
       enter(node) {
         if (node.type === 'Atrule') {
-          stack.push(node.name.toLowerCase());
+          atRules.push(csstree.ident.decode(node.name).toLowerCase());
           return;
         }
         if (node.type !== 'Rule') return;
-        const conditional = stack.some((name) => !UNCONDITIONAL_AT_RULES.has(name));
+        const conditional = atRules.some((name) => !UNCONDITIONAL_AT_RULES.has(name));
         if (node.prelude.type !== 'SelectorList') {
           unreadable.push(csstree.generate(node.prelude));
+          enclosing.push([]);
           return;
         }
         const declarations = node.block.children
           .toArray()
           .filter((child) => child.type === 'Declaration')
+          // Decoded, and only for standard properties: `f\6f nt-size` is a real
+          // `font-size` that css-tree stores in its source spelling, while a
+          // custom property is case-sensitive and its name is its identity
+          // (Codex, PR #973).
           .map((child) => ({
-            property: child.property.toLowerCase(),
+            property: child.property.startsWith('--')
+              ? child.property
+              : csstree.ident.decode(child.property).toLowerCase(),
             value: csstree.generate(child.value).trim(),
           }));
+        const parents = enclosing.length ? enclosing[enclosing.length - 1] : [];
+        const resolved = [];
         for (const selector of node.prelude.children) {
+          for (const parent of parents.length ? parents : [null]) {
+            resolved.push(resolveNesting(selector, parent));
+          }
+        }
+        for (const selector of resolved) {
           rules.push({
             selector: csstree.generate(selector),
             classes: classNamesIn(selector),
@@ -563,9 +712,11 @@ describe('lifecycle marker — declarations', () => {
             conditional,
           });
         }
+        enclosing.push(resolved);
       },
       leave(node) {
-        if (node.type === 'Atrule') stack.pop();
+        if (node.type === 'Atrule') atRules.pop();
+        else if (node.type === 'Rule') enclosing.pop();
       },
     });
     return { rules, unreadable, errors };
@@ -893,7 +1044,7 @@ describe('lifecycle marker — declarations', () => {
 
     const declared = new Set(
       sites.flatMap(({ surfaces }) =>
-        surfaces.filter((surface) => surface.readable).map(({ value }) => value),
+        surfaces.filter((surface) => surface.readable).flatMap(({ classes }) => classes),
       ),
     );
     const rendered = renderedSurfaceClasses();
@@ -990,8 +1141,15 @@ describe('lifecycle marker — declarations', () => {
       'an escaped class name': '.state-marker\\-\\-shipped::before{padding:9px}',
       'a hex-escaped class name': '.state-marker\\2d \\2d shipped::before{padding:9px}',
       // Nor this one. A nested rule has no selector of its own in the flat
-      // text, so a top-level `{...}` scan never reached it.
+      // text, so a top-level `{...}` scan never reached it — and the second
+      // form is the one that survived the first fix, because the modifier is on
+      // the OUTER rule and the `::before` on the inner, so neither half names
+      // both (Codex, PR #973).
       'CSS nesting': '.resume{color:red;& .state-marker--shipped::before{padding:9px}}',
+      'a nested rule two deep': '.resume{& .card{& .state-marker--shipped::before{padding:9px}}}',
+      // An escape is valid in a pseudo-element identifier too, and css-tree
+      // keeps the source spelling there as well.
+      'an escaped pseudo-element name': '.state-marker--shipped::be\\66 ore{padding:9px}',
     };
 
     for (const [shape, css] of Object.entries(QUALIFIED)) {
@@ -1006,6 +1164,50 @@ describe('lifecycle marker — declarations', () => {
         expect(qualified.length, `an override behind ${shape} was not collected`).toBe(1);
       });
     }
+
+    it('resolves a nested & against its parent, and attributes what it says', () => {
+      // The nesting shape that survived the first fix: the modifier is on the
+      // OUTER rule and the `::before` on the inner, so a collector reading each
+      // rule's own selector sees a modifier with no pseudo-element and a
+      // pseudo-element with no modifier, and the stray geometry belongs to
+      // neither (Codex, PR #973).
+      //
+      // Not in the table above, because resolving it produces the BARE
+      // primitive selector rather than a qualified one — `.state-marker--shipped
+      // { &::before { … } }` simply IS `.state-marker--shipped::before { … }`.
+      // So `expectUnqualified` is right to accept it and the declaration checks
+      // are what reject it, which is the same treatment the unnested form gets.
+      const { rules, errors } = analyze(
+        `${PRIMITIVE}.state-marker--shipped{&::before{padding:9px}}`,
+      );
+      expect(errors, 'the fixture did not parse').toEqual([]);
+      const mark = rules.filter(
+        (rule) => rule.before && rule.classes.includes('state-marker--shipped'),
+      );
+      expect(
+        mark.map(({ selector }) => selector),
+        'the nested & did not resolve to its parent',
+      ).toEqual(['.state-marker--shipped::before', '.state-marker--shipped::before']);
+      expect(
+        mark.flatMap((rule) => rule.declarations.map(({ property }) => property)).sort(),
+        'the nested declaration was not attributed to the mark',
+      ).toEqual(['background-color', 'padding']);
+    });
+
+    it('refuses to read a nested rule it cannot parse rather than skipping it', () => {
+      // css-tree 3.2.1 does not accept a nested rule whose selector starts with
+      // `.` and carries no `&` — the CSS-nesting spec allows it, the parser
+      // reads it as a malformed declaration. That is a real gap, and the point
+      // is where it lands: `analyze` collects the parse error, and the "reads
+      // the whole stylesheet" control asserts there are none, so a stylesheet
+      // containing this shape fails loudly instead of being half-read.
+      // "Found nothing" and "could not look" stay apart even at the parser.
+      const { errors } = analyze('.resume{.state-marker--shipped::before{padding:9px}}');
+      expect(
+        errors.length,
+        'a nested rule with no & parsed silently, so the shape would be skipped rather than reported',
+      ).toBeGreaterThan(0);
+    });
 
     it('does not read an unrelated escaped class name as the primitive', () => {
       // The other direction, and the reason the escaped forms above are not
@@ -1071,6 +1273,24 @@ describe('lifecycle marker — declarations', () => {
         subjects(':is(.p-status, .state-marker--shipped){font-size:1.1em}')[0],
         'a modifier inside :is() was not read as the subject',
       ).toContain('state-marker--shipped');
+      // A functional selector has no TOP-LEVEL combinator, so collecting every
+      // class inside it made the wrapped form of the sibling selector two lines
+      // up read as modifier-scoped — a false failure on the exact shape this
+      // test asserts must pass unwrapped (Codex, PR #973).
+      expect(
+        subjects(':is(.state-marker--shipped + .p-status){font-size:1.1em}')[0],
+        'a modifier inside :is() was read as the subject when its own subject is the sibling',
+      ).not.toContain('state-marker--shipped');
+      // `:not()` says the subject does NOT carry the class, and `:has()`'s
+      // argument is a descendant. Reading either as a subject inverts them.
+      expect(
+        subjects('.p-status:not(.state-marker--shipped){font-size:1.1em}')[0],
+        'a class inside :not() was read as the subject',
+      ).not.toContain('state-marker--shipped');
+      expect(
+        subjects('.p-status:has(.state-marker--shipped){font-size:1.1em}')[0],
+        'a descendant inside :has() was read as the subject',
+      ).not.toContain('state-marker--shipped');
     });
 
     it('rejects whatever a modifier says on the element, not a list of properties', () => {
@@ -1129,16 +1349,28 @@ describe('lifecycle marker — declarations', () => {
       // #967's third recorded limit, filed as #968. Single quotes were the only
       // form the old scan read.
       const surfacesOf = (call) => readSurfaceArguments(call);
-      expect(surfacesOf("stateMarkerClass(status, 'a')")).toEqual([{ readable: true, value: 'a' }]);
-      expect(surfacesOf('stateMarkerClass(status, "b")')).toEqual([{ readable: true, value: 'b' }]);
-      expect(surfacesOf('stateMarkerClass(status, `c`)')).toEqual([{ readable: true, value: 'c' }]);
+      expect(surfacesOf("stateMarkerClass(status, 'a')")).toEqual([
+        { readable: true, classes: ['a'] },
+      ]);
+      expect(surfacesOf('stateMarkerClass(status, "b")')).toEqual([
+        { readable: true, classes: ['b'] },
+      ]);
+      expect(surfacesOf('stateMarkerClass(status, `c`)')).toEqual([
+        { readable: true, classes: ['c'] },
+      ]);
+      // One literal carrying two classes is what the helper joins anyway, so it
+      // has to read as two aliases or the rendered cross-check fails on code
+      // that behaves identically.
+      expect(surfacesOf("stateMarkerClass(status, 'post-meta project-status')")).toEqual([
+        { readable: true, classes: ['post-meta', 'project-status'] },
+      ]);
       expect(surfacesOf("stateMarkerClass(statusOf(slug), 'd', 'e')")).toEqual([
-        { readable: true, value: 'd' },
-        { readable: true, value: 'e' },
+        { readable: true, classes: ['d'] },
+        { readable: true, classes: ['e'] },
       ]);
       // A comma inside a literal is not an argument boundary.
       expect(surfacesOf("stateMarkerClass(status, 'f,g')")).toEqual([
-        { readable: true, value: 'f,g' },
+        { readable: true, classes: ['f,g'] },
       ]);
       // And everything else is unreadable, which fails the lint above rather
       // than contributing nothing and looking like no surface at all.
@@ -1148,6 +1380,37 @@ describe('lifecycle marker — declarations', () => {
       expect(surfacesOf('stateMarkerClass(status, `x-${y}`)')).toEqual([
         { readable: false, text: '`x-${y}`' },
       ]);
+    });
+
+    it('blanks comments before scanning, in both directions', () => {
+      // A block comment carrying a `)` closed the argument scan early, which
+      // produced an EMPTY surface list — no alias, and no unreadable argument
+      // to fail on either, so the surface went unpoliced silently. And a call
+      // written inside a comment was scanned as a real one (Codex, PR #973).
+      const inCall = `const c = stateMarkerClass(statusFor(slug) /${'*'} ) ${'*'}/, 'new-surface');`;
+      expect(
+        readSurfaceArguments(
+          withoutComments(inCall).slice(withoutComments(inCall).indexOf('stateMarkerClass(')),
+        ),
+        'a block comment inside the call truncated its argument list',
+      ).toEqual([{ readable: true, classes: ['new-surface'] }]);
+
+      const inComment = `// stateMarkerClass(status, surfaceClass)\nconst x = 1;`;
+      expect(
+        withoutComments(inComment).includes('stateMarkerClass('),
+        'a call written inside a comment was left in the scanned source',
+      ).toBe(false);
+
+      // Offsets are preserved, so a call after a comment is still found where
+      // it actually sits.
+      const after = `/${'*'} note ${'*'}/ stateMarkerClass(status, 'p-status')`;
+      expect(withoutComments(after).indexOf('stateMarkerClass(')).toBe(
+        after.indexOf('stateMarkerClass('),
+      );
+      // And a comment marker inside a string literal is not a comment.
+      expect(withoutComments(`const u = 'https://x/y'; // gone`).trim()).toBe(
+        "const u = 'https://x/y';",
+      );
     });
   });
 });
