@@ -109,7 +109,7 @@ const homepageJsonLd = {
       "@id": "https://nathanpayne.com/#website",
       "url": "https://nathanpayne.com/",
       "name": "Nathan Payne",
-      "description": "Nathan Payne is a product manager working at the intersection of AI coding agents and shipped software. Based in San Francisco. Open to new roles and collaborations.",
+      "description": "Product manager working with AI coding agents and platform products. Previously led product work for the device platform behind Disney+, Hulu, and ESPN.",
       "publisher": {
         "@id": "https://nathanpayne.com/#person"
       }
@@ -119,7 +119,7 @@ const homepageJsonLd = {
       "@id": "https://nathanpayne.com/#webpage",
       "url": "https://nathanpayne.com/",
       "name": "Nathan Payne | Product Manager · AI Agents · San Francisco",
-      "description": "Nathan Payne is a product manager working at the intersection of AI coding agents and shipped software. Based in San Francisco. Open to new roles and collaborations.",
+      "description": "Product manager working with AI coding agents and platform products. Previously led product work for the device platform behind Disney+, Hulu, and ESPN.",
       "isPartOf": {
         "@id": "https://nathanpayne.com/#website"
       },
@@ -156,7 +156,7 @@ const homepageJsonLd = {
 
 <BaseLayout
   title="Nathan Payne | Product Manager · AI Agents · San Francisco"
-  description="Product manager working at the intersection of AI coding agents and shipped software. Based in San Francisco. Open to new roles and collaborations."
+  description="Product manager working with AI coding agents and platform products. Previously led product work for the device platform behind Disney+, Hulu, and ESPN."
   dataPalette="1930"
   jsonLd={homepageJsonLd}
 >
@@ -171,7 +171,7 @@ const homepageJsonLd = {
             <div class="about-blocks">
               <div class="about-block">
                 <span class="eyebrow about-label">Context</span>
-                <p>Over the past ten years, I’ve worked on the streaming platforms behind Disney+, Hulu, and ESPN. I started at MLB.com and BAMTECH, joined Disney through the 2017 acquisition, and have spent the last five years leading the Native Client Platform across PlayStation, Xbox, Amazon Fire TV, Linux set-top boxes, and smart TVs.</p>
+                <p>Over the past ten years, I worked on the streaming platforms behind Disney+, Hulu, and ESPN. I started at MLB.com and BAMTECH, joined Disney through the 2017 acquisition, and spent the last five years leading the Native Client Platform across PlayStation, Xbox, Amazon Fire TV, Linux set-top boxes, and smart TVs.</p>
               </div>
               <div class="about-block">
                 <span class="eyebrow about-label">Approach</span>
@@ -349,6 +349,13 @@ const homepageJsonLd = {
           <div class="content-inner">
             <h2>Connect</h2>
             {/* ── Availability signal ──────────────────────────────────
+                 Contact affordances only. The line opened with "Open to new
+                 roles and collaborations." until #969: availability is a
+                 site-level fact, and the NOW paragraph above already states
+                 it once, with the kind of role attached. The class name is
+                 unchanged—analytics events and tests key off
+                 `.availability-signal`, `#availability-mailto`, and
+                 `.availability-booking` (specs/analytics.md).
                  The mailto address is assembled client-side from base64
                  fragments so the string `hire@nathanpayne.com` never
                  appears in the static HTML (protects against the simplest
@@ -357,8 +364,6 @@ const homepageJsonLd = {
                  synchronously after the element is parsed, so the window
                  between page paint and href assembly is negligible. */}
             <p class="availability-signal">
-              Open to new roles and collaborations.
-              {' '}
               <a
                 id="availability-mailto"
                 class="availability-mailto p-link"

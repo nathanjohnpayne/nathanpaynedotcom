@@ -95,11 +95,15 @@ The `resumeProjects` collection must remain separate from the existing
   flush with those dividers at both ends, so the card reads as closing the
   page rather than hanging off the essay list. It must be a pseudo-element:
   the card's own `border` draws its box, so a `border-top` would thicken that
-  edge instead of ruling off the space above it. It mirrors
-  the end-of-post block in `src/layouts/BlogPost.astro` (`.blog-cta`, #622)
+  edge instead of ruling off the space above it. It takes its shape from the
+  end-of-post block in `src/layouts/BlogPost.astro` (`.blog-cta`, #622)
   **minus that block's Résumé link**, since the reader is already on the
-  résumé. It is a sibling of the sections, not a section: no `id`, no ToC
-  entry, and it is screen-only. The parallel `.resume-cta` namespace is
+  résumé. The two ledes diverged in #969: the blog block now carries a
+  byline, because an availability line directly after an essay reframes the
+  author from someone with something to say into someone looking for work.
+  On the résumé the reader came for exactly that fact, so the lede stays. It
+  is a sibling of the sections, not a section: no `id`, no ToC entry, and it
+  is screen-only. The parallel `.resume-cta` namespace is
   deliberate—see *Styling* below; the resume must not move when the blog
   layout does.
 - **Projects and Writing share one section grammar** (#947), and it is the reason both open the way they do:

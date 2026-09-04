@@ -7,7 +7,13 @@
  *      post cannot ship without one.
  *   2. Every post ends on prev/next navigation computed from the collection
  *      in date order — omitting the missing side at the ends rather than
- *      wrapping — plus a single availability CTA with distinct PostHog events.
+ *      wrapping — plus a single author footer with distinct PostHog events.
+ *
+ * The footer's lede was an availability statement until #969; the assertions
+ * below pin the byline that replaced it and the aria-label that names the
+ * block, and they check the old lede is gone rather than only checking the
+ * new one is present — a block carrying both would satisfy a present-only
+ * assertion and would be the exact regression #969 exists to prevent.
  */
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'fs';
@@ -179,14 +185,23 @@ describe('Blog end-of-post block (#622)', () => {
     }
   });
 
-  it('renders one availability CTA per post with resume, email, and scheduling affordances', () => {
+  it('renders one author footer per post with a byline, resume, email, and scheduling affordances', () => {
     for (const post of builtPosts) {
       setupDOM(post.html);
       const ctas = document.querySelectorAll('.blog-cta');
-      expect(ctas.length, `${post.slug}: expected exactly one CTA`).toBe(1);
+      expect(ctas.length, `${post.slug}: expected exactly one footer`).toBe(1);
 
       const cta = ctas[0];
-      expect(cta.textContent).toContain('Open to senior product/platform roles');
+      expect(cta.getAttribute('aria-label'), `${post.slug}: footer aria-label`).toBe(
+        'About the author',
+      );
+      expect(cta.querySelector('.blog-cta__lede')?.textContent.replace(/\s+/g, ' ').trim()).toBe(
+        'Nathan Payne is a product manager writing about AI, software, and product development.',
+      );
+      expect(
+        cta.textContent,
+        `${post.slug}: the availability lede came back — #969 moved it off the post footer`,
+      ).not.toContain('Open to senior product/platform roles');
       expect(cta.querySelector('a[href="/resume/"][data-cta="resume"]')).not.toBeNull();
       expect(
         cta.querySelector('a[href="https://cal.com/nathanpayne"][data-cta="schedule"]'),

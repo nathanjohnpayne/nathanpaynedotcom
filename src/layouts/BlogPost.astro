@@ -281,14 +281,22 @@ const jsonLd = {
             </nav>
           )}
 
-          {/* Availability CTA. One line, three links, no pitch — an
+          {/* Author footer. One line, three links, no pitch—an
               unsubtle CTA undercuts the credibility the post just built.
+              The lede was an availability statement until #969: "Open to
+              senior product/platform roles." directly after an essay
+              reframes the author from someone with something to say into
+              someone looking for work. The links are unchanged; the
+              sentence above them is now a byline, and the aria-label names
+              the block for what it is. The class namespace stays
+              `blog-cta`—`blog_cta_clicked` and `.blog-cta__link` are the
+              analytics contract (specs/analytics.md).
               The mailto is assembled client-side from base64 fragments so
               the address never appears in the static HTML, matching the
-              homepage availability line; <noscript> carries the fallback. */}
-          <aside class="blog-cta" aria-label="Availability">
+              homepage contact line; <noscript> carries the fallback. */}
+          <aside class="blog-cta" aria-label="About the author">
             <p class="blog-cta__line">
-              <span class="blog-cta__lede">Open to senior product/platform roles.</span>
+              <span class="blog-cta__lede">Nathan Payne is a product manager writing about AI, software, and product development.</span>
               <a class="blog-cta__link" href="/resume/" data-cta="resume"
                 >Résumé<span class="link-arrow" aria-hidden="true">→</span></a
               >
