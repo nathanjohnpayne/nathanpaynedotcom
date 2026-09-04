@@ -66,6 +66,34 @@ function readDist(relativePath) {
   return readFileSync(resolve(DIST, relativePath), 'utf-8');
 }
 
+/**
+ * A destination URL read out of FRONTMATTER, as its schema stores it (#948).
+ *
+ * Every URL field in play — `liveUrl` / `githubUrl` on `projects`, `url` /
+ * `repo` on `resumeProjects` — is `z.string().trim()`, so ` https://example.com `
+ * is schema-valid, is accepted, and renders trimmed. Frontmatter parsed
+ * straight off disk has not been through that, and comparing the raw scalar
+ * failed a required check on an entry the site renders correctly.
+ *
+ * **Frontmatter only, deliberately.** Rendered `href`s are compared EXACTLY
+ * against the value this returns, never normalised themselves. Trimming the
+ * DOM side too would have hidden the defect it is there to catch: Unicode
+ * whitespace such as NBSP is `trim()`-able but is not stripped by URL parsing,
+ * so an untrimmed href resolves as a relative path on this site rather than
+ * opening the product, and both sides would have agreed anyway (Codex,
+ * PR #951). Reading the schema and asserting the render is what makes the
+ * schema's trim load-bearing rather than assumed.
+ *
+ * Returns `null` for anything absent or whitespace-only, so `.filter(Boolean)`
+ * downstream reads the same on both sides of every comparison.
+ *
+ * @param {unknown} value
+ * @returns {string | null}
+ */
+function frontmatterUrl(value) {
+  return (typeof value === 'string' && value.trim()) || null;
+}
+
 function setupDOM(rawHtml) {
   // Scripts are removed on a detached document and the doctype preserved by
   // the shared helper — see tests/helpers/dom.js for why both matter.
@@ -549,7 +577,14 @@ describe('Resume — page structure', () => {
       // equality below then asserts exactly that, so requiring at least one
       // here would fail a required check on a valid project (Codex, PR #946).
       // The fixture-level controls at the end keep the loop from going vacuous.
-      const expected = [project.liveUrl, project.githubUrl].filter(Boolean);
+      // Read through `frontmatterUrl`, which trims because the schema does, so
+      // a canonical URL authored with surrounding whitespace renders clean and
+      // must compare clean (#948). The rendered hrefs below are NOT normalised:
+      // they are held to the trimmed value exactly, which is what proves the
+      // schema actually trimmed rather than assuming it.
+      const liveHref = frontmatterUrl(project.liveUrl);
+      const repoHref = frontmatterUrl(project.githubUrl);
+      const expected = [liveHref, repoHref].filter(Boolean);
 
       const anchors = [...entry.querySelectorAll('.resume-entry__link a')];
       expect(
@@ -561,7 +596,7 @@ describe('Resume — page structure', () => {
       // And the résumé's own frontmatter must carry the same addresses, so the
       // two collections cannot drift behind an identical render.
       expect(
-        [match.data.url, match.data.repo].filter(Boolean),
+        [frontmatterUrl(match.data.url), frontmatterUrl(match.data.repo)].filter(Boolean),
         `${slug}: résumé frontmatter disagrees with the canonical project`,
       ).toEqual(expected);
 
@@ -571,24 +606,34 @@ describe('Resume — page structure', () => {
       // by href rather than wording (`liveLabel` is free text), and read via
       // textContent so an escaped label like `View R&D Demo` compares cleanly.
       let liveWord = null;
-      if (project.liveUrl) {
+      if (liveHref) {
         withLive += 1;
         const projectDom = new JSDOM(readDist(`projects/${slug}/index.html`)).window.document;
-        const ctaEl = projectDom.querySelector(`a[href="${project.liveUrl}"]`);
-        expect(
-          ctaEl,
-          `no live CTA found on /projects/${slug}/ for ${project.liveUrl}`,
-        ).not.toBeNull();
+        // Located by scanning hrefs rather than by an attribute selector built
+        // from the raw scalar: the page renders the schema-trimmed URL, so a
+        // selector built from untrimmed frontmatter matched nothing (#948). The
+        // comparison is still exact — the scan replaces the selector, not the
+        // equality — and still takes the first match in document order.
+        const ctaEl = [...projectDom.querySelectorAll('a[href]')].find(
+          (a) => a.getAttribute('href') === liveHref,
+        );
+        expect(ctaEl, `no live CTA found on /projects/${slug}/ for ${liveHref}`).toBeTruthy();
         expect(
           ctaEl.textContent.trim(),
           `/projects/${slug}/ CTA does not match its declared liveLabel`,
         ).toBe((project.liveLabel ?? 'View Live Product').trim());
         liveWord = liveLinkLabel(project.liveLabel);
       }
+      // Built from the two destination ROLES, in the order the component
+      // renders them — not by matching each href back against `liveUrl`.
+      // Nothing requires the two addresses to differ, and a project pointing
+      // both fields at one URL renders `<live word>` then `GitHub` correctly,
+      // while href equality mapped both anchors to the live word and failed the
+      // second (#948).
       expect(
         anchors.map((a) => a.textContent.replace(/[↗\s]+/g, ' ').trim()),
         `${name} should label its destinations ${liveWord ?? '(none)'} / GitHub`,
-      ).toEqual(expected.map((href) => (href === project.liveUrl ? liveWord : 'GitHub')));
+      ).toEqual([...(liveHref ? [liveWord] : []), ...(repoHref ? ['GitHub'] : [])]);
 
       for (const a of anchors) {
         expect(a.getAttribute('target'), `${name} link should open in a new tab`).toBe('_blank');
@@ -815,6 +860,55 @@ describe('Resume — print stylesheet', () => {
     // surfaces have never needed, and a site-wide `exact` would opt every
     // tinted surface into printing.
     expect(block).toContain('resume-canvas');
+  });
+
+  it('declares the mark fills, and the geometry the PDF ink oracle measures', () => {
+    // #948, answering a gap the PDF ink assertion cannot close on its own.
+    // That assertion counts fully-solid marks in the rendered file, so it can
+    // only run while the page carries a SHIPPED entry — and which lifecycle
+    // states appear is ordinary content. Two of the failures it would otherwise
+    // be the only guard for are not content-dependent at all, and belong here:
+    //
+    //   1. A broken variant selector. Delete the `--shipped` fill and the
+    //      print-color-adjust rule above still passes, `printBackground` still
+    //      paints backgrounds, and every mark prints as the same outline.
+    //   2. Drifted geometry. `STATUS_MARK_SIZE` in tests/helpers/pdf-oracle.js
+    //      is DERIVED from these declarations — 0.72em of the 7.5pt kicker plus
+    //      a 1px border each side. Change them and the oracle measures the
+    //      wrong column, which is the failure mode where a counter reports a
+    //      confident number about the wrong thing.
+    //
+    // Read from the screen cascade, not a print block: these are the base
+    // declarations both surfaces inherit.
+    const screen = cssFiles.map(withoutPrintBlocks).join('\n');
+    const rule = (selector) => {
+      const match = new RegExp(`\\${selector}::?before\\{([^}]*)\\}`).exec(screen);
+      return match?.[1] ?? null;
+    };
+
+    const geometry = rule('.state-marker');
+    expect(geometry, 'no .state-marker::before rule in the screen cascade').toBeTruthy();
+    expect(geometry, 'mark width drifted from what the PDF oracle measures').toMatch(
+      /width:\s*0?\.72em/,
+    );
+    expect(geometry, 'mark height drifted from what the PDF oracle measures').toMatch(
+      /height:\s*0?\.72em/,
+    );
+    expect(geometry, 'the 1px outline the oracle adds to the mark box is gone').toMatch(
+      /border:\s*1px/,
+    );
+
+    // The three fills, by variant. PAUSED and IN PROGRESS correctly declare
+    // none — the bare outline is their mark.
+    expect(rule('.state-marker--shipped'), 'SHIPPED lost its solid fill').toMatch(
+      /background-color:\s*currentcolor/i,
+    );
+    expect(rule('.state-marker--archived'), 'ARCHIVED lost its cored fill').toMatch(
+      /background-color:\s*currentcolor/i,
+    );
+    expect(rule('.state-marker--experiment'), 'EXPERIMENT lost its half fill').toMatch(
+      /background-image:\s*linear-gradient/i,
+    );
   });
 
   it('applies the 8.5in page width only inside @media print', () => {
@@ -1282,8 +1376,36 @@ describe('Resume — PDF reading order and markers', () => {
     // cored ARCHIVED and half-filled EXPERIMENT leave paper inside their
     // borders, exactly like a hollow PAUSED. Hence the count comes from the
     // page's own SHIPPED entries rather than from all seven marks.
+    //
+    // The floor below is the page carrying marks AT ALL, not carrying a SHIPPED
+    // one (#948). Requiring SHIPPED made one lifecycle value effectively
+    // mandatory in content: specs/resume.md deliberately pins no mix and calls a
+    // lifecycle flip an ordinary edit, so the last SHIPPED project moving to
+    // another state would have failed a required check with every mark rendered
+    // correctly. What the floor has to catch is the section or its kicker
+    // disappearing, which is what would otherwise make the equality below a
+    // vacuous 0 === 0 — and a mark count catches that without pinning a value.
+    //
+    // When the page genuinely carries no SHIPPED entry the equality is 0 === 0
+    // and this assertion stops discriminating. That is a real loss, and the
+    // response to it was to move what CAN be checked without a SHIPPED entry
+    // out of here rather than to claim the loss away (Codex, PR #951). Four
+    // things then still fail on their own, none of them content-dependent:
+    // `printBackground` (the bullet-marker test above, #925), the
+    // `print-color-adjust` rule, the per-variant fills, and the mark geometry
+    // this oracle's constants are derived from — the last three in § print
+    // stylesheet. What no longer has a guard in that state is only the
+    // end-state claim itself, that the fills reach the generated file; closing
+    // that would need a synthetic render, which means Chromium inside the unit
+    // suite, and the file's own history says a Chromium-shaped PDF apparatus
+    // here is the trade to refuse.
+    const marks = document.querySelectorAll('#projects .state-marker').length;
+    expect(
+      marks,
+      'no lifecycle marks on the page at all — the Projects kicker is gone, and ' +
+        'every count below would be 0 for that reason rather than a rendering one',
+    ).toBeGreaterThan(0);
     const shipped = document.querySelectorAll('#projects .state-marker--shipped').length;
-    expect(shipped, 'no SHIPPED lifecycle marks on the page to look for').toBeGreaterThan(0);
 
     const built = filledLifecycleMarksPerPage(BUILT_PDF);
     expect(
