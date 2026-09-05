@@ -103,15 +103,17 @@ Both surfaces also take an **optional `caption`**, and it is a different kind of
 
 **Write a caption only when it adds information the diagram's title and the surrounding prose do not carry, or when the diagram's visual form would otherwise imply a materially different claim from the one the surrounding prose makes.** The second clause is narrow on purpose (#996): it licenses a *correction to a misreading the figure itself generates*, never a summary and never context that merely happens to be useful. "Someone might skim this" is not a reason: a figure is always read out of the flow, so that argument would admit every redundant caption and bar nothing.
 
+The sentence above is the rule. The table illustrates how it applies and does not override it: a case that matches both a **No** row and a **Yes** row is a caption only if the material-misreading clause is genuinely met, because every corrective caption necessarily repeats something the prose also says.
+
 | Case | Caption |
 |---|---|
-| Restates the title, the description, or an adjacent paragraph | No |
+| Restates the title, the description, or an adjacent paragraph, and the figure asserts nothing beyond the prose | No |
 | Useful context that already sits immediately above or below the figure | No |
 | "A reader might meet the figure out of the flow" | No |
 | The diagram's shape asserts something materially stronger or other than the prose claims | **Yes** |
-| A qualification that governs how to read *this figure* specifically | **Yes** |
+| A qualification that governs how to read *this figure*, correcting a claim the figure's own form makes | **Yes** |
 
-The two cases that produced this rule diverge under it, which is how you can tell it is doing work. `html-mockups-as-spec` draws two loops side by side (the visual grammar of a controlled comparison) while the post says the attempts were sequential and establish no measured property; that caption is a correction to an inference the figure creates, and it stays. `six-prs-one-bug-agent-failure-modes` had a caption that, once a causal error in it was fixed, said exactly what the paragraph above it said, and the diagram made no contradictory claim of its own; that one was cut and stays cut.
+The two cases that produced this rule diverge under it, which is how you can tell it is doing work. `html-mockups-as-spec` sets a closed red cycle beside a green path that terminates in success—`A → B → C → A` against `D → E → F → G`—while the post says the attempts were sequential and establish no measured property. The asymmetry is the point: a futile loop next to a path that arrives asserts a controlled result more strongly than two like-shaped loops would, so that caption corrects an inference the figure's own geometry creates, and it stays. Because the correction has to reach the reader who *focuses* the diagram as well as the one who reads past it, the same qualification is repeated in that fence's `description=`. `six-prs-one-bug-agent-failure-modes` had a caption that, once a causal error in it was fixed, said exactly what the paragraph above it said, and the diagram made no contradictory claim of its own; that one was cut and stays cut.
 
 This is a judgement, not a check. Nothing in CI can ask whether a diagram's shape overstates its prose, so the rule lives here and is applied in review, which is where both of its founding cases were in fact caught.
 
