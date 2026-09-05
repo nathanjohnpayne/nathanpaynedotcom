@@ -1,16 +1,23 @@
 import { visit } from 'unist-util-visit';
 
 /**
- * Rehype plugin that wraps standalone images in <figure> elements
- * with auto-numbered captions derived from alt text.
+ * Rehype plugin that wraps standalone images in <figure> elements with a
+ * caption derived from alt text.
  *
  * Transforms:
  *   <p><img src="..." alt="Alt text" /></p>
  * Into:
  *   <figure class="blog-figure">
  *     <img src="..." alt="Alt text" loading="lazy" />
- *     <figcaption><strong>Figure N:</strong> Alt text</figcaption>
+ *     <figcaption>Alt text</figcaption>
  *   </figure>
+ *
+ * The `Figure N:` label is NOT applied here (#998). It is applied by
+ * `rehype-figure-numbers.mjs`, which runs after this plugin and numbers images
+ * and Mermaid diagrams in one document-order sequence. A counter local to this
+ * plugin could only ever number the figures this plugin makes, which is the
+ * defect #998 describes: an article whose screenshots are numbered around an
+ * unnumbered diagram.
  */
 // Static dimension map for CLS prevention (measured via sips)
 const imageDimensions = {
@@ -138,8 +145,6 @@ const imageDimensions = {
 
 export default function rehypeFigureCaptions() {
   return (tree) => {
-    let figureCount = 0;
-
     visit(tree, 'element', (node, index, parent) => {
       if (!parent || index === undefined) return;
 
@@ -155,8 +160,6 @@ export default function rehypeFigureCaptions() {
 
       const img = children[0];
       const alt = img.properties?.alt || '';
-
-      figureCount++;
 
       // Add loading="lazy" and dimensions to the image
       img.properties = img.properties || {};
@@ -189,15 +192,7 @@ export default function rehypeFigureCaptions() {
             type: 'element',
             tagName: 'figcaption',
             properties: {},
-            children: [
-              {
-                type: 'element',
-                tagName: 'strong',
-                properties: {},
-                children: [{ type: 'text', value: `Figure ${figureCount}:` }],
-              },
-              { type: 'text', value: ` ${alt}` },
-            ],
+            children: [{ type: 'text', value: alt }],
           },
         ],
       };

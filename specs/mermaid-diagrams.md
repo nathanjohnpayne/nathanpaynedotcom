@@ -44,9 +44,17 @@ contract rather than a markup preference:
     <svg aria-hidden="true">…</svg>
     <span id="…" class="mermaid-figure__description" aria-hidden="true">…</span>
   </div>
-  <figcaption class="mermaid-figure__caption">Visible contextual caption</figcaption>
+  <figcaption class="mermaid-figure__figcaption">
+    <strong class="figure-label">Figure N:</strong>
+    <span class="mermaid-figure__caption">Visible contextual caption</span>
+  </figcaption>
 </figure>
 ```
+
+The `Figure N` label is structural metadata added by `rehype-figure-numbers.mjs`,
+not part of this contract; an article diagram carries one whether or not it has a
+caption, and a blog sidebar diagram carries none. See `specs/figure-numbering.md`.
+An uncaptioned article diagram's figcaption holds the label alone.
 
 The inner element is the diagram: it exposes the title as its accessible name
 and the description through `aria-describedby`, holds the tab stop, and is the

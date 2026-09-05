@@ -4400,7 +4400,16 @@ svg.mermaid foreignObject p {
    diagram it captions. See createMermaidFigure in
    src/plugins/rehype-mermaid-accessibility.mjs. */
 .mermaid-figure {
-  margin: 0;
+  /* Bottom margin only, and only because the figure now ends in a `Figure N`
+     label (#998). At `margin: 0` the label sat flush against the paragraph
+     below it and read as the paragraph's first line rather than as the
+     figure's last — measured at 0px to the next `<p>`, against the 20px an
+     image figure leaves. It matches `.blog-figure`'s 1.25rem so the two clear
+     their prose identically. No top margin: the diagram's relationship to the
+     paragraph that introduces it is unchanged, and widening that gap would be
+     an aesthetic change this issue did not ask for. Reset in the sidebar
+     below, where the item's own padding does this job. */
+  margin: 0 0 1.25rem;
   /* The figure is a grid item on project pages (`.project-copy` is a grid), and
      a grid item's `min-width: auto` resolves to its min-content size — here the
      `min-width: var(--mermaid-natural-width)` a wide diagram carries below the
@@ -4556,30 +4565,54 @@ svg.mermaid foreignObject p {
    is 14px everywhere; what changes per column is the scale the graphic is
    painted at — governed by the article rule above, and by #986's ceiling on
    what may reach this column at all. */
+/* The sidebar item supplies its own padding, and a sidebar diagram carries no
+   figure label to clear (#998). */
+.blog-sidebar-item .mermaid-figure {
+  margin-bottom: 0;
+}
+
 .blog-sidebar-item img {
   width: 100%;
   height: auto;
   display: block;
 }
 
-/* One caption, one appearance, two surfaces (#989).
+/* A diagram's <figcaption> is typed as a peer of a screenshot's (#998).
 
-   `.mermaid-figure__caption` is the <figcaption> a diagram carries in either
-   column — the sidebar's `caption` frontmatter field and a body fence's
-   `caption=` produce the same element. `.blog-sidebar-caption` is the <p> that
-   still serves `image` and `text` sidebar items, which have no figure to put a
-   caption in. They are joined here rather than written twice because the point
-   of the change was to stop "caption" meaning two different things; a reader
-   who splits this rule is reintroducing exactly that.
+   It carries the `Figure N` label and, when the author wrote one, the caption —
+   and the label is the whole reason the two now match. #989 deliberately set a
+   diagram's caption a step smaller than `.blog-figure figcaption`, reasoning
+   that a screenshot caption is read first while a diagram already carries its
+   title in the prose above it. That reasoning was about captions. Once both
+   surfaces carry the same structural label, typing them apart would say the two
+   figures sit at different levels of the document, which is the inconsistency
+   #998 exists to remove. Same size, same colour, same offset as
+   `.blog-figure figcaption`.
 
-   The sidebar's values are the shared ones, so the sidebar's appearance is
-   unchanged. In the wider article column the caption is a shade smaller than
-   `.blog-figure figcaption`, which is the numbered caption a screenshot gets;
-   that is deliberate. A screenshot caption is the figure's title and is read
-   first, and a diagram already carries its own title in the prose above it, so
-   its caption is the quieter of the two. */
+   `.blog-sidebar-caption` is the <p> that still serves `image` and `text`
+   sidebar items, which have no figure to put a caption in. It keeps the smaller
+   sidebar scale, and so does a sidebar diagram's figcaption — see the override
+   below. A sidebar figure is not an article figure and carries no number. */
+.mermaid-figure__figcaption,
+.blog-figure figcaption {
+  margin-top: 0.55rem;
+  font-size: clamp(0.74rem, 0.88vw, 0.84rem);
+  color: var(--ink-62);
+  line-height: 1.4;
+}
+
+/* The label is the shared primitive, so it is styled once for both figure
+   types rather than inheriting `strong` twice. */
+.figure-label {
+  font-weight: 700;
+}
+
+/* The sidebar column is 192–238px and its diagrams are not article figures, so
+   its figcaption keeps the sidebar's own quieter scale rather than the article
+   column's. Scoped to the container rather than given its own class: the
+   element is the same element, and only the column it sits in differs. */
 .blog-sidebar-caption,
-.mermaid-figure__caption {
+.blog-sidebar-item .mermaid-figure__figcaption {
   margin-top: 0.4rem;
   font-size: clamp(0.68rem, 0.78vw, 0.76rem);
   color: color-mix(in srgb, var(--ink) 55%, transparent);
@@ -5102,11 +5135,8 @@ svg.mermaid foreignObject p {
   border: 1px solid var(--rule);
 }
 
-.blog-figure figcaption {
-  margin-top: 0.55rem;
-  font-size: clamp(0.74rem, 0.88vw, 0.84rem);
-  color: var(--ink-62);
-}
+/* Typography shared with `.mermaid-figure__figcaption`, declared with it above
+   so the two cannot drift apart while both carry a `Figure N` label (#998). */
 
 /* Portrait figures (height > width, tagged by rehype-figure-captions) are held
    to a narrower column than landscape ones. A full-width portrait image runs

@@ -50,7 +50,7 @@ A caveat the first version of this post skipped: these attempts were sequential,
 
 The pattern: prose, diagrams, and screenshots asked the agent to interpret a description and write code to match. An HTML file asked it to read a file and produce one that resembled it. The second framing worked.
 
-```mermaid title="Prose iteration loop versus mockup-first loop" description="Describing a design in prose cycles through tweaks and mismatch; building and approving a standalone mockup creates a direct specification that the live page can match. The two were tried in sequence rather than compared under control, so this is a case series and not a measured result." caption="Not a controlled comparison: the two paths were tried in sequence, and prompts, context and target all moved between rounds."
+```mermaid title="Prose iteration loop versus mockup-first path" description="Describing a design in prose cycles through tweaks and mismatch; building and approving a standalone mockup creates a direct specification that the live page can match. The two were tried in sequence rather than compared under control, so this is a case series and not a measured result." caption="Not a controlled comparison: the two paths were tried in sequence, and prompts, context and target all moved between rounds."
 graph TD
     A["Describe the design<br/>in prose"] --> B["Claude tweaks the<br/>existing page"]
     B --> C["Result does not match<br/>what's in my head"]

@@ -626,7 +626,12 @@ describe('rehype-mermaid integration', () => {
         const graphic = figure.querySelector('.mermaid-figure__graphic');
         const descriptionId = graphic?.getAttribute('aria-describedby');
         const svg = figure.querySelector('svg.mermaid');
-        const caption = figure.querySelector('figcaption');
+        // The caption is the span, not the figcaption (#998). Since every
+        // article diagram now carries a figcaption for its `Figure N` label,
+        // reading the figcaption here would count a label-only figure as
+        // captioned and turn the per-surface guards below into a count of
+        // diagrams — passing on a site where no diagram had a caption at all.
+        const caption = figure.querySelector('.mermaid-figure__caption');
         expect(graphic, `${slug}: missing graphic element`).not.toBeNull();
         expect(graphic?.getAttribute('role'), `${slug}: missing image role`).toBe('img');
         expect(graphic?.getAttribute('aria-label')?.trim(), `${slug}: missing title`).toBeTruthy();
