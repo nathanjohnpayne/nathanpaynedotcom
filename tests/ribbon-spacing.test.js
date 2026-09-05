@@ -67,12 +67,11 @@ describe('space above each panel-closing ribbon', () => {
     // .blog-callout was a byte-identical copy of this rule. Sharing the
     // selector list is what stops the fourth ribbon drifting from the other
     // three again.
-    // .domains-ribbon joined the list in #984 rather than taking a rule of its
-    // own: it is the same footer line as .stack-ribbon under a build switch, so
-    // a second declaration is exactly the drift this shared selector prevents.
-    const body = rule(
-      '.stack-ribbon,\n.domains-ribbon,\n.impact-ribbon,\n.now-ribbon,\n.blog-callout',
-    );
+    // .domains-ribbon joined the list in #984, when it was one of two footer
+    // lines behind a build switch; #991 settled that on DOMAINS and .stack-ribbon
+    // left the list with the branch. It stays in the SHARED rule rather than
+    // taking one of its own, which is the drift this selector exists to prevent.
+    const body = rule('.domains-ribbon,\n.impact-ribbon,\n.now-ribbon,\n.blog-callout');
     expect(body).toMatch(/margin-top:\s*var\(--ribbon-space-above\)/);
     expect(body).toMatch(/border-top:\s*1px solid var\(--rule\)/);
   });
