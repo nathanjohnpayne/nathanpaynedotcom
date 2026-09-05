@@ -67,6 +67,31 @@ describe('Content Schema', () => {
     expect(projectsSource).toContain('seoDescription: z.string().optional()');
   });
 
+  it('blog sidebar mermaid items reject an empty caption', () => {
+    // A sidebar Mermaid item's caption is the same visible `<figcaption>` a body
+    // fence's `caption=` produces (#989), and a fence rejects an empty one, so
+    // the two surfaces reject the same authoring mistake. Sliced to the mermaid
+    // arm of the discriminated union: the `image` and `text` arms keep the
+    // looser `z.string().optional()`, because their caption is still a sibling
+    // `<p>` the layout drops when falsy.
+    const blogSource = collectionSource('blog');
+    const sidebarSource = blogSource.slice(blogSource.indexOf('sidebar: z'));
+    const mermaidStart = sidebarSource.indexOf("type: z.literal('mermaid')");
+    const imageStart = sidebarSource.indexOf("type: z.literal('image')");
+
+    expect(mermaidStart, 'the mermaid sidebar variant must be in the union').toBeGreaterThan(-1);
+    expect(imageStart, 'the image sidebar variant must follow it').toBeGreaterThan(mermaidStart);
+
+    const mermaidItem = sidebarSource.slice(mermaidStart, imageStart);
+    expect(mermaidItem, 'a mermaid sidebar caption must reject an empty string').toContain(
+      'caption: z.string().trim().min(1).optional()',
+    );
+    expect(
+      sidebarSource.slice(imageStart),
+      'the image and text variants keep the looser caption',
+    ).toContain('caption: z.string().optional()');
+  });
+
   it('projects schema declares decisions, constraints, and learnings as flat, optional, defaulted arrays', () => {
     const projectsSource = collectionSource('projects');
     const blogSource = collectionSource('blog');

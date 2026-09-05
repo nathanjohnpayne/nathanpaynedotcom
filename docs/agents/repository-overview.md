@@ -30,8 +30,8 @@ Astro pages, layouts, and content collections generate the full static site into
 | `src/components/resume/*` | Resume section components and Logo.dev-backed company/school/issuer logo rendering. |
 | `src/components/posthog.astro` | PostHog analytics bootstrap; no-ops when `PUBLIC_POSTHOG_PROJECT_TOKEN` is unset. |
 | `src/content.config.ts` | Content Collections schema definition (Zod-validated frontmatter). |
-| `src/plugins/remark-mermaid.mjs` | Mermaid metadata contract—requires accessible title/description fields and rejects fences on unsupported Markdown surfaces. |
-| `src/plugins/rehype-mermaid-accessibility.mjs` | Accessibility wrapper and clean render-error fallback around `rehype-mermaid`. |
+| `src/plugins/remark-mermaid.mjs` | Mermaid metadata contract—requires accessible title/description fields, accepts an optional visible `caption`, and rejects fences on unsupported Markdown surfaces. |
+| `src/plugins/rehype-mermaid-accessibility.mjs` | Accessibility wrapper and clean render-error fallback around `rehype-mermaid`; builds the `<figure>` / `role="img"` graphic / `<figcaption>` contract both diagram surfaces share. |
 | `src/plugins/rehype-figure-captions.mjs` | Rehype plugin—wraps images in `<figure>` with auto-numbered `<figcaption>`. |
 | `src/plugins/rehype-color-chips.mjs` | Rehype plugin—renders constrained inline color chips from markdown markup. |
 | `src/integrations/og-images.mjs` | Astro integration—build-time OG image generation via Playwright screenshots. |

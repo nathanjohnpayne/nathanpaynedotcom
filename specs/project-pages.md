@@ -124,7 +124,7 @@ What the project demonstrates, in a sentence or two.
 
 ### Diagrams
 
-A project page body may carry a Mermaid diagram, on the same contract the blog uses: a fenced ```mermaid block with whitespace-separated `title="..." description="..."` metadata, both required. The description is the accessible text a screen reader receives, so it states the relationships or the conclusion the diagram carries, never a list of its nodes.
+A project page body may carry a Mermaid diagram, on the same contract the blog uses: a fenced ```mermaid block with whitespace-separated `title="..." description="..."` metadata, both required, plus an optional `caption="..."`. The description is the accessible text a screen reader receives, so it states the relationships or the conclusion the diagram carries, never a list of its nodes. The caption is the visible one—a `<figcaption>` under the diagram, for context the title and the prose do not already carry (#989).
 
 Two things bound this. **Keep node labels short.** Mermaid measures a label in its own font and sizes the node box to that measurement, and the site paints in Inter, which is wider; a long label escapes its box rather than being clipped, which is the deliberate trade recorded in `global.css` (#746). **Every explicit node fill needs 4.5:1 against its own label color**, measured on the rendered SVG by `tests/mermaid-contrast.test.js`. `--blue` fails that bar against both ink and paper and is not usable as a node fill.
 

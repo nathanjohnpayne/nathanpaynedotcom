@@ -2,6 +2,7 @@ import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { basename, dirname, relative, resolve, sep } from 'node:path';
 import { toHtml } from 'hast-util-to-html';
 import { JSDOM } from 'jsdom';
+import { VFile } from 'vfile';
 import { describe, expect, it } from 'vitest';
 import { findFilesRecursively } from '../scripts/lib/blog-file-inventory.mjs';
 import {
@@ -40,6 +41,73 @@ function builtBlogSlug(pagePath) {
 async function validateMermaidMetadata(tree, filePath = blogFixturePath) {
   const { default: remarkMermaid } = await import('../src/plugins/remark-mermaid.mjs');
   remarkMermaid()(tree, { path: filePath });
+}
+
+/**
+ * A body fence rendered the way the site renders one, end to end.
+ *
+ * `renderMermaidFigures` is the sidebar's entry point and builds the figure
+ * from a typed item; a body fence instead travels remark → `rehypeMermaidFigures`
+ * → `rehype-mermaid` → `rehypeMermaidSvg`, and the caption has to survive every
+ * hop of that path (#989). Exercising the real chain is the only way to catch a
+ * property the remark plugin writes and the rehype plugin never reads.
+ */
+async function renderBodyFence(meta) {
+  const [{ default: remarkMermaid }, { rehypeMermaidFigures, mermaidOptions }, rehypeMermaid] =
+    await Promise.all([
+      import('../src/plugins/remark-mermaid.mjs'),
+      import('../src/plugins/rehype-mermaid-accessibility.mjs'),
+      import('rehype-mermaid').then((module) => module.default),
+    ]);
+
+  const code = { type: 'code', lang: 'mermaid', meta, value: 'graph TD\nA --> B' };
+  remarkMermaid()({ type: 'root', children: [code] }, { path: blogFixturePath });
+
+  // The hProperties remark writes are what Astro's mdast-to-hast step copies
+  // onto the emitted `<pre>`; this is that step, kept to the two nodes the
+  // rehype plugin actually reads.
+  const tree = {
+    type: 'root',
+    children: [
+      {
+        type: 'element',
+        tagName: 'pre',
+        properties: { ...code.data.hProperties },
+        children: [
+          {
+            type: 'element',
+            tagName: 'code',
+            properties: { className: ['language-mermaid'], ...code.data.hProperties },
+            children: [{ type: 'text', value: code.value }],
+          },
+        ],
+      },
+    ],
+  };
+
+  rehypeMermaidFigures()(tree);
+  await rehypeMermaid(mermaidOptions)(tree, new VFile({ path: blogFixturePath }));
+  rehypeMermaidSvg()(tree);
+  return toHtml(tree);
+}
+
+/** The caption's element, class and placement — not its id or its graphic. */
+function captionShape(html) {
+  const figure = new JSDOM(html).window.document.querySelector('.mermaid-figure');
+  const caption = figure?.querySelector('figcaption');
+
+  return {
+    tagName: caption?.tagName ?? null,
+    className: caption?.getAttribute('class') ?? null,
+    text: caption?.textContent ?? null,
+    insideGraphic: Boolean(caption?.closest('.mermaid-figure__graphic')),
+    parentIsFigure: caption?.parentElement === figure,
+    // The sibling it must not be confused with: the hidden description stays
+    // inside the graphic on both surfaces.
+    descriptionInsideGraphic: Boolean(
+      figure?.querySelector('.mermaid-figure__description')?.closest('.mermaid-figure__graphic'),
+    ),
+  };
 }
 
 describe('rehype-mermaid integration', () => {
@@ -137,6 +205,137 @@ describe('rehype-mermaid integration', () => {
     }
   });
 
+  /**
+   * The visible caption, and the line between it and the two hidden fields.
+   *
+   * `title` and `description` are accessibility metadata — the diagram's
+   * accessible name and its `aria-describedby` target — and neither reaches a
+   * sighted reader. `caption` is the third attribute and the only visible one
+   * (#989). A sidebar item has taken one since the field existed; a body fence
+   * could not, which made the wider column the one that could not carry a
+   * caption. The assertions below hold the grammar, the DOM contract, and the
+   * fact that the two surfaces now emit the same element.
+   */
+  describe('the visible caption', () => {
+    const fence = (meta) => ({
+      type: 'root',
+      children: [{ type: 'code', lang: 'mermaid', meta, value: 'graph TD\nA --> B' }],
+    });
+
+    it('parses an optional caption alongside the required metadata', async () => {
+      const tree = fence(
+        'title="Example flow" description="A leads directly to B." caption="B follows A, once."',
+      );
+
+      await validateMermaidMetadata(tree);
+
+      expect(tree.children[0].data.hProperties).toEqual({
+        dataMermaidTitle: 'Example flow',
+        dataMermaidDescription: 'A leads directly to B.',
+        dataMermaidCaption: 'B follows A, once.',
+      });
+    });
+
+    it('writes no caption property when the fence carries none', async () => {
+      const tree = fence('title="Example flow" description="A leads directly to B."');
+
+      await validateMermaidMetadata(tree);
+
+      // Absent rather than empty: an empty string would reach the figure
+      // builder indistinguishable from an authored caption.
+      expect(tree.children[0].data.hProperties).not.toHaveProperty('dataMermaidCaption');
+    });
+
+    it('rejects an empty caption and any attribute outside the three', async () => {
+      await expect(
+        validateMermaidMetadata(fence('title="T" description="D." caption=""')),
+      ).rejects.toThrow(/caption=.*must not be empty/i);
+      // The grammar widened by exactly one name. A typo still fails rather than
+      // being carried through to the figure as an unknown property.
+      await expect(
+        validateMermaidMetadata(fence('title="T" description="D." captions="Two of them"')),
+      ).rejects.toThrow(/title=.*description=/i);
+      await expect(
+        validateMermaidMetadata(fence('title="T" description="D." caption="A" caption="B"')),
+      ).rejects.toThrow(/title=.*description=/i);
+    });
+
+    it('renders a body fence caption as a figcaption outside the image', async () => {
+      const html = await renderBodyFence(
+        'title="Captioned flow" description="A leads directly to B." ' +
+          'caption="Drawn before the bridge was removed."',
+      );
+      const document = new JSDOM(html).window.document;
+      const figure = document.querySelector('.mermaid-figure');
+      const graphic = figure?.querySelector('.mermaid-figure__graphic');
+      const caption = figure?.querySelector('figcaption');
+
+      expect(graphic?.getAttribute('role')).toBe('img');
+      expect(graphic?.getAttribute('aria-label')).toBe('Captioned flow');
+      expect(graphic?.getAttribute('tabindex')).toBe('0');
+      expect(figure?.hasAttribute('role')).toBe(false);
+      expect(caption?.textContent).toBe('Drawn before the bridge was removed.');
+      // The one placement that matters: inside the role="img" element the
+      // caption would be presentational, and the whole point is that it is not.
+      expect(caption?.closest('.mermaid-figure__graphic')).toBeNull();
+      expect(caption?.parentElement).toBe(figure);
+      // And it is not folded into the accessible name or the description.
+      expect(graphic?.getAttribute('aria-label')).not.toContain('Drawn before');
+      expect(document.querySelector('.mermaid-figure__description')?.textContent).not.toContain(
+        'Drawn before',
+      );
+    });
+
+    it('renders a body fence without a caption exactly as it does today', async () => {
+      const html = await renderBodyFence('title="Plain flow" description="A leads directly to B."');
+      const document = new JSDOM(html).window.document;
+
+      expect(document.querySelector('figcaption')).toBeNull();
+      expect(document.querySelector('.mermaid-figure__graphic')?.getAttribute('role')).toBe('img');
+      expect(document.querySelector('svg.mermaid')).not.toBeNull();
+    });
+
+    it('gives the sidebar and the body the same caption element', async () => {
+      const sidebar = await renderMermaidFigures([
+        {
+          type: 'mermaid',
+          title: 'Captioned flow',
+          description: 'A leads directly to B.',
+          content: 'graph TD\nA --> B',
+          caption: 'Drawn before the bridge was removed.',
+        },
+      ]);
+      const body = await renderBodyFence(
+        'title="Captioned flow" description="A leads directly to B." ' +
+          'caption="Drawn before the bridge was removed."',
+      );
+
+      // Unifying the two surfaces is the point of the change: a `caption`
+      // frontmatter field and a `caption=` fence attribute are one thing.
+      // Compared as a shape rather than as bytes — the ids and the rendered
+      // SVG differ between the two renderers, and neither is the contract.
+      expect(captionShape(sidebar.get(0))).toEqual(captionShape(body));
+    });
+
+    it('emits no figcaption for a caption that is only whitespace', async () => {
+      // Neither authoring surface can produce this — the fence grammar rejects
+      // an empty `caption=` and the sidebar schema rejects a blank one — so this
+      // holds `createMermaidFigure`'s own contract rather than an authored case.
+      // An empty `<figcaption>` is a landing place with nothing to read in it.
+      const rendered = await renderMermaidFigures([
+        {
+          type: 'mermaid',
+          title: 'Blank caption',
+          description: 'A leads directly to B.',
+          content: 'graph TD\nA --> B',
+          caption: '   \n  ',
+        },
+      ]);
+
+      expect(new JSDOM(rendered.get(0)).window.document.querySelector('figcaption')).toBeNull();
+    });
+  });
+
   it('renders malformed Mermaid as a clean, accessible fallback', async () => {
     const rendered = await renderMermaidFigures([
       {
@@ -148,10 +347,12 @@ describe('rehype-mermaid integration', () => {
     ]);
     const document = new JSDOM(rendered.get(0)).window.document;
     const figure = document.querySelector('.mermaid-figure');
+    const graphic = document.querySelector('.mermaid-figure__graphic');
 
-    expect(figure?.getAttribute('role')).toBeNull();
-    expect(figure?.getAttribute('aria-label')).toBeNull();
-    expect(figure?.getAttribute('aria-describedby')).toBeNull();
+    expect(graphic?.getAttribute('role')).toBeNull();
+    expect(graphic?.getAttribute('aria-label')).toBeNull();
+    expect(graphic?.getAttribute('aria-describedby')).toBeNull();
+    expect(graphic?.getAttribute('tabindex')).toBeNull();
     expect(figure?.textContent).toContain('Diagram unavailable');
     expect(figure?.textContent).toContain('Broken flow');
     expect(figure?.textContent).toContain('A was intended to lead to B.');
@@ -263,9 +464,17 @@ describe('rehype-mermaid integration', () => {
       element(
         'figure',
         [
-          element('svg', [
-            element('foreignObject', [element('div', [inner], { style: containerStyle })]),
-          ]),
+          // The SVG hangs off the graphic wrapper, which is where
+          // `rehypeMermaidSvg` looks for it (#989).
+          element(
+            'div',
+            [
+              element('svg', [
+                element('foreignObject', [element('div', [inner], { style: containerStyle })]),
+              ]),
+            ],
+            { className: ['mermaid-figure__graphic'] },
+          ),
         ],
         { className: ['mermaid-figure'] },
       );
@@ -385,6 +594,7 @@ describe('rehype-mermaid integration', () => {
   it('ships built diagrams as accessible static SVG', () => {
     expect(existsSync(builtBlogRoot), 'dist/blog must exist; run npm run build first').toBe(true);
     let diagramCount = 0;
+    let captionCount = 0;
 
     for (const pagePath of builtBlogPagePaths()) {
       const slug = builtBlogSlug(pagePath);
@@ -402,10 +612,15 @@ describe('rehype-mermaid integration', () => {
       ).toHaveLength(0);
 
       for (const figure of figures) {
-        const descriptionId = figure.getAttribute('aria-describedby');
+        const graphic = figure.querySelector('.mermaid-figure__graphic');
+        const descriptionId = graphic?.getAttribute('aria-describedby');
         const svg = figure.querySelector('svg.mermaid');
-        expect(figure.getAttribute('role'), `${slug}: missing image role`).toBe('img');
-        expect(figure.getAttribute('aria-label')?.trim(), `${slug}: missing title`).toBeTruthy();
+        const caption = figure.querySelector('figcaption');
+        expect(graphic, `${slug}: missing graphic element`).not.toBeNull();
+        expect(graphic?.getAttribute('role'), `${slug}: missing image role`).toBe('img');
+        expect(graphic?.getAttribute('aria-label')?.trim(), `${slug}: missing title`).toBeTruthy();
+        expect(graphic?.getAttribute('tabindex'), `${slug}: unreachable scroll region`).toBe('0');
+        expect(figure.getAttribute('role'), `${slug}: the figure must not be the image`).toBeNull();
         expect(
           descriptionId ? document.getElementById(descriptionId)?.textContent.trim() : '',
           `${slug}: missing description`,
@@ -414,10 +629,29 @@ describe('rehype-mermaid integration', () => {
         expect(svg?.getAttribute('aria-hidden'), `${slug}: duplicate SVG semantics`).toBe('true');
         expect(svg?.getAttribute('focusable')).toBe('false');
         expect(svg?.hasAttribute('viewBox'), `${slug}: missing responsive viewport`).toBe(true);
+        // A visible caption inside the role="img" element would be
+        // presentational — announced as part of the diagram's name at best,
+        // and not at all at worst (#989).
+        if (caption) {
+          captionCount += 1;
+          expect(caption.textContent?.trim(), `${slug}: empty caption`).toBeTruthy();
+          expect(
+            caption.closest('.mermaid-figure__graphic'),
+            `${slug}: caption is inside the graphic`,
+          ).toBeNull();
+          expect(
+            graphic?.getAttribute('aria-label'),
+            `${slug}: caption absorbed into the accessible name`,
+          ).not.toBe(caption.textContent?.trim());
+        }
       }
     }
 
     expect(diagramCount, 'the assertion must exercise built diagrams').toBeGreaterThan(0);
+    // The caption arm is only a check while some built page actually carries
+    // one. Two sidebar diagrams do; if both were unauthored the arm above
+    // would pass by never running.
+    expect(captionCount, 'the assertion must exercise a built caption').toBeGreaterThan(0);
   });
 
   it('preserves the representative production syntax surface', () => {

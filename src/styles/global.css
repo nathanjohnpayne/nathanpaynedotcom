@@ -4384,9 +4384,38 @@ svg.mermaid foreignObject p {
   line-height: 1.5;
 }
 
-/* Sidebar items: mermaid diagrams, images */
+/* Mermaid diagrams, in either column: the blog sidebar, the article column, and
+   a project page's copy column all render the same figure.
+
+   A diagram is two elements, and which one a rule belongs on is decided by the
+   accessibility contract rather than by convenience (#989). `.mermaid-figure`
+   is the semantic <figure>: it holds the graphic and, when the author wrote
+   one, a visible <figcaption>. `.mermaid-figure__graphic` is the diagram — it
+   carries role="img", the accessible name, the tab stop, and the horizontal
+   scroll in the article column below the stacked breakpoint. Its descendants
+   are presentational, so nothing a sighted reader reads may live inside it.
+
+   Practically that means the scroll container is the inner element: a caption
+   sitting in a box that scrolls sideways would slide out from under the
+   diagram it captions. See createMermaidFigure in
+   src/plugins/rehype-mermaid-accessibility.mjs. */
 .mermaid-figure {
   margin: 0;
+  /* The figure is a grid item on project pages (`.project-copy` is a grid), and
+     a grid item's `min-width: auto` resolves to its min-content size — here the
+     `min-width: var(--mermaid-natural-width)` a wide diagram carries below the
+     stacked breakpoint. That inflated the whole column to the diagram's natural
+     width, pushing every paragraph and heading in it past the viewport.
+
+     It did not arise while `.mermaid-figure` was itself the scroll container:
+     an item with overflow other than `visible` has an automatic minimum size of
+     zero, so the figure was exempt by accident. Moving the scroll onto
+     `.mermaid-figure__graphic` (#989) moved that exemption one element down and
+     left the grid item without it, so the exemption is now declared rather than
+     inherited from an overflow value. Inert for a block-level figure, which is
+     what the blog article column has — `min-width: auto` and `0` mean the same
+     thing there, which is why the blog never showed this. */
+  min-width: 0;
 }
 
 .mermaid-figure svg.mermaid {
@@ -4427,7 +4456,7 @@ svg.mermaid foreignObject p {
    right margin. Measured before scoping this. Print keeps the fit-to-column
    behavior the @media print block below already spells out. */
 @media screen and (max-width: 1023px) {
-  .mermaid-figure {
+  .mermaid-figure__graphic {
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
   }
@@ -4533,7 +4562,24 @@ svg.mermaid foreignObject p {
   display: block;
 }
 
-.blog-sidebar-caption {
+/* One caption, one appearance, two surfaces (#989).
+
+   `.mermaid-figure__caption` is the <figcaption> a diagram carries in either
+   column — the sidebar's `caption` frontmatter field and a body fence's
+   `caption=` produce the same element. `.blog-sidebar-caption` is the <p> that
+   still serves `image` and `text` sidebar items, which have no figure to put a
+   caption in. They are joined here rather than written twice because the point
+   of the change was to stop "caption" meaning two different things; a reader
+   who splits this rule is reintroducing exactly that.
+
+   The sidebar's values are the shared ones, so the sidebar's appearance is
+   unchanged. In the wider article column the caption is a shade smaller than
+   `.blog-figure figcaption`, which is the numbered caption a screenshot gets;
+   that is deliberate. A screenshot caption is the figure's title and is read
+   first, and a diagram already carries its own title in the prose above it, so
+   its caption is the quieter of the two. */
+.blog-sidebar-caption,
+.mermaid-figure__caption {
   margin-top: 0.4rem;
   font-size: clamp(0.68rem, 0.78vw, 0.76rem);
   color: color-mix(in srgb, var(--ink) 55%, transparent);

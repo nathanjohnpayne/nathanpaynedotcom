@@ -269,7 +269,15 @@ const blog = defineCollection({
             content: z.string(),
             title: z.string().trim().min(1),
             description: z.string().trim().min(1),
-            caption: z.string().optional(),
+            // Optional, and never empty when present. A body fence's `caption=`
+            // rejects an empty value rather than rendering the fence as though
+            // the attribute were never typed, and since #989 the two surfaces
+            // render the same `<figcaption>` from the same field — so they
+            // reject the same authoring mistake. `image` and `text` items keep
+            // the looser shape: their caption is still a sibling `<p>` the
+            // layout drops when falsy, and tightening it would reject content
+            // for a reason that has nothing to do with this change.
+            caption: z.string().trim().min(1).optional(),
           }),
           z.object({
             type: z.literal('image'),

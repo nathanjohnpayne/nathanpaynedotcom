@@ -13,11 +13,21 @@ test('Mermaid descriptions label diagrams without becoming duplicate navigable t
   await expect(figures.locator('svg[aria-hidden="true"][focusable="false"]')).toHaveCount(
     figureCount,
   );
+  // The figure is the semantic container; the element inside it is the image
+  // (#989). Asserted from both sides so a regression that moved the role back
+  // onto the figure fails here rather than in whatever it silently hides.
+  await expect(figures.locator('.mermaid-figure__graphic[role="img"][tabindex="0"]')).toHaveCount(
+    figureCount,
+  );
+  await expect(page.locator('.mermaid-figure[role="img"]')).toHaveCount(0);
 
   const diagramBounds = await page.locator('.blog-prose .mermaid-figure svg').evaluateAll((svgs) =>
     svgs.map((svg) => {
       const bounds = svg.getBoundingClientRect();
-      const figure = svg.closest('.mermaid-figure');
+      // The scroll container is the graphic, not the figure that wraps it and
+      // its caption (#989) — a caption in a sideways-scrolling box would slide
+      // out from under the diagram it captions.
+      const figure = svg.closest('.mermaid-figure__graphic');
       const containerBounds = figure?.getBoundingClientRect();
       return {
         width: bounds.width,
@@ -51,7 +61,8 @@ test('Mermaid descriptions label diagrams without becoming duplicate navigable t
 
   const accessibleMetadata = await figures.evaluateAll((visibleFigures) =>
     visibleFigures.map((figure) => ({
-      title: figure.getAttribute('aria-label')?.trim() ?? '',
+      title:
+        figure.querySelector('.mermaid-figure__graphic')?.getAttribute('aria-label')?.trim() ?? '',
       description: figure.querySelector('.mermaid-figure__description')?.textContent?.trim() ?? '',
     })),
   );
@@ -221,5 +232,129 @@ test('static Mermaid diagrams remain visible in print without JavaScript', async
     const bounds = await diagram.boundingBox();
     expect(bounds?.width ?? 0).toBeGreaterThan(0);
     expect(bounds?.height ?? 0).toBeGreaterThan(0);
+  }
+});
+
+/**
+ * The visible caption (#989).
+ *
+ * A diagram's `title` and `description` are accessibility metadata and reach no
+ * sighted reader; the caption is the one visible field, and it is a real
+ * `<figcaption>` sitting outside the `role="img"` element rather than inside it.
+ * That placement is the whole contract: inside, its contents would be
+ * presentational and the caption would be readable only as part of the image's
+ * name. The assertions below hold both halves — the caption is painted under the
+ * diagram, and assistive technology reaches it exactly once, on its own terms.
+ *
+ * The route is chosen because the only captioned diagrams the built site
+ * currently carries are blog `sidebar` items, and the sidebar is `display: none`
+ * below the desktop composition's 1024px breakpoint. So this runs on the Desktop
+ * project and skips on the three phone/tablet ones, where there is no caption on
+ * screen to assert anything about. The skip is width-derived rather than
+ * project-named so a new viewport lands on the right side of it by itself.
+ */
+test('a diagram caption is painted under its figure and announced exactly once', async ({
+  page,
+}) => {
+  test.skip(
+    (page.viewportSize()?.width ?? 0) < 1024,
+    'the only captioned diagrams live in the blog sidebar, which is display:none below 1024px',
+  );
+  await page.goto('/blog/agent-approval-workflow-genesis-of-mergepath/');
+
+  const captions = page.locator('.mermaid-figure:visible .mermaid-figure__caption');
+  const captionCount = await captions.count();
+  expect(captionCount, 'the route must exercise at least one captioned diagram').toBeGreaterThan(0);
+
+  const placements = await captions.evaluateAll((elements) =>
+    elements.map((caption) => {
+      const figure = caption.closest('.mermaid-figure');
+      const graphic = figure?.querySelector('.mermaid-figure__graphic');
+      const captionBox = caption.getBoundingClientRect();
+      const graphicBox = graphic?.getBoundingClientRect();
+
+      return {
+        tagName: caption.tagName,
+        text: (caption.textContent ?? '').trim(),
+        parentIsFigure: caption.parentElement === figure,
+        insideGraphic: Boolean(caption.closest('.mermaid-figure__graphic')),
+        painted: captionBox.width > 0 && captionBox.height > 0,
+        // "Under the diagram" measured rather than assumed: source order alone
+        // would still pass if a stylesheet floated the caption over the SVG.
+        belowGraphic: captionBox.top >= (graphicBox?.bottom ?? 0) - 1,
+        // The graphic is the horizontal scroll container in a narrow column, so
+        // the caption must not be in it — it would slide out from under the
+        // diagram it captions.
+        graphicScrolls: graphic ? graphic.scrollWidth > graphic.clientWidth + 1 : false,
+        title: graphic?.getAttribute('aria-label')?.trim() ?? '',
+        description:
+          figure?.querySelector('.mermaid-figure__description')?.textContent?.trim() ?? '',
+      };
+    }),
+  );
+
+  const session = await page.context().newCDPSession(page);
+  const { nodes } = await session.send('Accessibility.getFullAXTree');
+
+  for (const placement of placements) {
+    expect(placement.tagName, 'the caption must be a real figcaption').toBe('FIGCAPTION');
+    expect(placement.text, 'the caption must carry text').not.toBe('');
+    expect(placement.painted, `${placement.text}: caption paints nothing`).toBe(true);
+    expect(placement.belowGraphic, `${placement.text}: caption is not under the diagram`).toBe(
+      true,
+    );
+    expect(placement.parentIsFigure, `${placement.text}: caption is not the figure's own`).toBe(
+      true,
+    );
+    // The one placement that would break it: inside role="img" the caption's
+    // contents are presentational.
+    expect(placement.insideGraphic, `${placement.text}: caption sits inside the image`).toBe(false);
+
+    // Exactly once, and as itself. A caption folded into the diagram's
+    // accessible name or description would announce as part of the image
+    // instead of as the document text it is.
+    const spoken = nodes.filter((node) => !node.ignored && node.name?.value === placement.text);
+    expect(spoken, `${placement.text}: not announced exactly once`).toHaveLength(1);
+    expect(spoken[0].role?.value, `${placement.text}: announced as the wrong thing`).toBe(
+      'StaticText',
+    );
+    expect(placement.title, `${placement.text}: absorbed into the accessible name`).not.toContain(
+      placement.text,
+    );
+    expect(
+      placement.description,
+      `${placement.text}: absorbed into the accessible description`,
+    ).not.toContain(placement.text);
+
+    const diagram = nodes.find(
+      (node) => node.role?.value === 'image' && node.name?.value === placement.title,
+    );
+    expect(diagram, `${placement.title}: the diagram lost its accessible name`).toBeDefined();
+    expect(diagram?.description?.value, `${placement.title}: description changed`).toBe(
+      placement.description,
+    );
+  }
+
+  // Print keeps the caption with the figure it belongs to. `.mermaid-figure`
+  // sets `break-inside: avoid`, which is what stops a page break landing
+  // between the diagram and the line explaining it.
+  await page.emulateMedia({ media: 'print' });
+  const printed = await captions.evaluateAll((elements) =>
+    elements.map((caption) => {
+      const figure = caption.closest('.mermaid-figure');
+      const box = caption.getBoundingClientRect();
+      return {
+        text: (caption.textContent ?? '').trim(),
+        painted: box.width > 0 && box.height > 0,
+        breakInside: figure ? getComputedStyle(figure).breakInside : '',
+      };
+    }),
+  );
+  expect(printed.length, 'the print arm must exercise a caption').toBeGreaterThan(0);
+  for (const caption of printed) {
+    expect(caption.painted, `${caption.text}: caption does not print`).toBe(true);
+    expect(caption.breakInside, `${caption.text}: figure may break away from its caption`).toBe(
+      'avoid',
+    );
   }
 });

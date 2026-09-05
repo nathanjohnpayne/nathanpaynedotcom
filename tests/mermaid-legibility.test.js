@@ -129,7 +129,12 @@ function readDiagrams() {
       const viewBoxWidth = svg.viewBox.baseVal.width;
       if (!bounds.width || !viewBoxWidth) return [];
 
-      const figure = svg.closest('.mermaid-figure');
+      // The graphic, not the figure that wraps it and its caption (#989). Every
+      // containment reading below belongs to the graphic: it is the element
+      // that carries role="img", the tab stop, and the horizontal scroll, and
+      // a caption inside a sideways-scrolling box would slide out from under
+      // the diagram it captions.
+      const graphic = svg.closest('.mermaid-figure__graphic');
       const label = svg.querySelector('.nodeLabel p') ?? svg.querySelector('.nodeLabel');
       // The scale the browser applied to the whole graphic. Every length inside
       // the SVG — type included — is multiplied by it.
@@ -137,7 +142,7 @@ function readDiagrams() {
 
       return [
         {
-          title: figure?.getAttribute('aria-label') ?? '(untitled)',
+          title: graphic?.getAttribute('aria-label') ?? '(untitled)',
           // The two narrow columns are contained by different rules and were
           // fixed by different issues, so the coverage assertions name them
           // apart rather than counting diagrams in bulk.
@@ -150,10 +155,22 @@ function readDiagrams() {
           // if that pin ever moves.
           declaredType: label ? Number.parseFloat(getComputedStyle(label).fontSize) : 0,
           paintedType: label ? Number.parseFloat(getComputedStyle(label).fontSize) * scale : 0,
-          columnWidth: figure?.clientWidth ?? 0,
-          scrollableWidth: figure?.scrollWidth ?? 0,
+          columnWidth: graphic?.clientWidth ?? 0,
+          scrollableWidth: graphic?.scrollWidth ?? 0,
           // A tab stop of any non-negative index makes the region reachable.
-          tabIndex: figure?.tabIndex ?? -1,
+          tabIndex: graphic?.tabIndex ?? -1,
+          // The figure and the box it was placed in. `pageOverflow` cannot see a
+          // figure that outgrows its column inside an ancestor with
+          // `overflow-x: hidden` — `.project-detail` has one, so a project page
+          // clips the excess and reports a page that does not scroll while the
+          // diagram is both too wide and unscrollable. Measured while adding the
+          // caption (#989): moving the scroll container from the figure onto the
+          // graphic took away the automatic minimum size of zero that the figure
+          // had as a grid item, and `.project-copy` is a grid — every heading and
+          // paragraph in the column went 177px past the viewport, and this suite
+          // stayed green.
+          figureWidth: graphic?.parentElement?.clientWidth ?? 0,
+          placedInWidth: graphic?.parentElement?.parentElement?.clientWidth ?? 0,
         },
       ];
     }),
@@ -281,6 +298,19 @@ describe.each(VIEWPORTS)('Mermaid diagrams at $name width', (viewport) => {
     ).toBeLessThanOrEqual(1);
 
     for (const diagram of reading.diagrams) {
+      // The figure stays inside the box it was placed in, whatever the diagram
+      // does inside the figure. This is the assertion `pageOverflow` cannot
+      // make: a project page's `.project-detail` sets `overflow-x: hidden`, so
+      // a figure that outgrew its column would clip rather than scroll the page
+      // — the diagram unreachable, the column's own prose pushed off-viewport,
+      // and the page reporting no overflow at all (#989).
+      expect(
+        diagram.figureWidth,
+        `${route} — ${diagram.title}: the figure measures ${diagram.figureWidth}px inside a ` +
+          `${diagram.placedInWidth}px column, so what does not fit is clipped rather than ` +
+          'scrolled',
+      ).toBeLessThanOrEqual(diagram.placedInWidth + 1);
+
       // A diagram held wider than its column has to be scrollable, or the part
       // that does not fit is simply unreachable.
       if (diagram.renderedWidth > diagram.columnWidth + 1) {

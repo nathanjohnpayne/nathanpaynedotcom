@@ -3,6 +3,7 @@ import rehypeMermaid from 'rehype-mermaid';
 import { VFile } from 'vfile';
 import {
   createMermaidFigure,
+  GRAPHIC_CLASS,
   mermaidOptions,
   naturalWidth,
   rehypeMermaidSvg,
@@ -118,6 +119,12 @@ async function renderFigures(items, filePath) {
         },
         title: item.title,
         description: item.description,
+        // The sidebar's `caption` field and a body fence's `caption=` are now
+        // one thing rendered by one element (#989). The layout no longer emits
+        // a `<p class="blog-sidebar-caption">` beside a `type: mermaid` item;
+        // it still does for `image` and `text`, which have no figure to put a
+        // `<figcaption>` in.
+        caption: item.caption,
         descriptionId: `sidebar-mermaid-description-${index + 1}`,
       });
     }),
@@ -162,17 +169,24 @@ function figureHtml(tree, diagrams) {
  * replaced it with a visible failure message, which is a paragraph of text that
  * fits any column.
  *
- * The message names the `caption` because a body fence has no field for one and
- * the loss is otherwise silent: an author following this remedy deletes a
- * frontmatter block whose `title` and `description` both survive as fence
- * attributes and whose `caption` does not. Three of the four diagrams #986 moved
- * had captions that restated their surrounding prose and were dropped; one
- * carried a detail that had to be checked against the body first. That check is
- * the author's to make, but they have to know it is there to make it.
+ * The message names all three attributes because the move is now lossless.
+ * Until #989 a body fence took `title=` and `description=` and had nowhere to
+ * put a `caption`, so an author following this remedy silently dropped one —
+ * three of the four diagrams #986 moved lost captions that restated their
+ * surrounding prose, and a fourth carried a detail that had to be folded into
+ * the body by hand. A fence now takes `caption=` too, so the remedy is a
+ * transcription rather than a judgement call.
  */
 function assertFitsSidebar(figures, diagrams, filePath) {
   const tooWide = figures.flatMap((figure, position) => {
-    const svg = figure.children?.find(
+    // The figure holds the graphic wrapper, and the wrapper holds the SVG
+    // (#989). The figure's other child, when there is one, is the caption.
+    const graphic = figure.children?.find(
+      (candidate) =>
+        candidate.type === 'element' &&
+        (candidate.properties?.className ?? []).includes(GRAPHIC_CLASS),
+    );
+    const svg = graphic?.children?.find(
       (candidate) => candidate.type === 'element' && candidate.tagName === 'svg',
     );
     const width = svg ? naturalWidth(svg) : 0;
@@ -188,7 +202,7 @@ function assertFitsSidebar(figures, diagrams, filePath) {
       `(a ${SIDEBAR_COLUMN_PX}px column scales a ${SIDEBAR_LABEL_PX}px label below the ` +
       `${MIN_LEGIBLE_PX}px legibility floor past that width). Move it into the post body as a ` +
       '```mermaid fence, where the article column can render it whole, or redraw it narrower. ' +
-      'A fence takes title= and description= but has no caption, so fold anything the caption ' +
-      'says that the prose does not into the prose. See #986.',
+      'A fence takes title=, description= and caption=, so every field moves with the diagram. ' +
+      'See #986 and #989.',
   );
 }

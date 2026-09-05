@@ -1,5 +1,9 @@
 const TITLE_PROPERTY = 'dataMermaidTitle';
 const DESCRIPTION_PROPERTY = 'dataMermaidDescription';
+const CAPTION_PROPERTY = 'dataMermaidCaption';
+
+/** The class on the element that is the diagram, as distinct from the figure. */
+export const GRAPHIC_CLASS = 'mermaid-figure__graphic';
 
 export const mermaidOptions = {
   strategy: 'inline-svg',
@@ -43,19 +47,17 @@ export function rehypeMermaidFigures(options = {}) {
   return (tree) => {
     let diagramIndex = 0;
     walkChildren(tree, (child, index, parent) => {
-      if (
-        parent.type === 'element' &&
-        parent.tagName === 'figure' &&
-        classNames(parent).includes('mermaid-figure')
-      ) {
-        return;
-      }
+      // The `pre` sits inside the graphic wrapper once wrapped, not directly
+      // inside the figure (#989), so the idempotence guard names that element.
+      if (parent.type === 'element' && classNames(parent).includes(GRAPHIC_CLASS)) return;
       if (!isMermaidPre(child)) return;
 
       const code = child.children.find((candidate) => candidate.type === 'element');
       const title = metadataValue(child, TITLE_PROPERTY) || metadataValue(code, TITLE_PROPERTY);
       const description =
         metadataValue(child, DESCRIPTION_PROPERTY) || metadataValue(code, DESCRIPTION_PROPERTY);
+      const caption =
+        metadataValue(child, CAPTION_PROPERTY) || metadataValue(code, CAPTION_PROPERTY);
       if (!title || !description) {
         throw new Error('Mermaid code blocks require accessible title and description metadata');
       }
@@ -68,6 +70,7 @@ export function rehypeMermaidFigures(options = {}) {
         sourceNode: child,
         title,
         description,
+        caption,
         descriptionId: `${descriptionPrefix}-${diagramIndex}`,
       });
     });
@@ -81,26 +84,35 @@ export function rehypeMermaidSvg() {
       if (child.type !== 'element' || child.tagName !== 'figure') return;
       if (!classNames(child).includes('mermaid-figure')) return;
 
-      const fallback = child.children.find(
+      // Everything below belongs to the graphic, not to the figure: the figure
+      // is the semantic container that also holds the visible caption, and the
+      // `role="img"` element inside it is the diagram itself (#989).
+      const graphic = child.children.find(
+        (candidate) =>
+          candidate.type === 'element' && classNames(candidate).includes(GRAPHIC_CLASS),
+      );
+      if (!graphic) return;
+
+      const fallback = graphic.children.find(
         (candidate) =>
           candidate.type === 'element' && classNames(candidate).includes('mermaid-fallback'),
       );
       if (fallback) {
-        // A role="img" makes the figure's descendants presentational, which
-        // would hide the visible failure message from assistive technology.
-        // Restore normal document semantics when Mermaid could not render.
-        // Delete all four attributes defensively: the cleanup is intentionally
-        // idempotent because a fallback may already lack any one of them. The
-        // tab stop goes with them — a fallback is a paragraph of text that
-        // never scrolls, so there is nothing there for a keyboard to reach.
-        delete child.properties?.role;
-        delete child.properties?.ariaLabel;
-        delete child.properties?.ariaDescribedBy;
-        delete child.properties?.tabIndex;
+        // A role="img" makes its descendants presentational, which would hide
+        // the visible failure message from assistive technology. Restore normal
+        // document semantics when Mermaid could not render. Delete all four
+        // attributes defensively: the cleanup is intentionally idempotent
+        // because a fallback may already lack any one of them. The tab stop
+        // goes with them — a fallback is a paragraph of text that never
+        // scrolls, so there is nothing there for a keyboard to reach.
+        delete graphic.properties?.role;
+        delete graphic.properties?.ariaLabel;
+        delete graphic.properties?.ariaDescribedBy;
+        delete graphic.properties?.tabIndex;
         return;
       }
 
-      const rendered = child.children.find(
+      const rendered = graphic.children.find(
         (candidate) => candidate.type === 'element' && candidate.tagName === 'svg',
       );
       if (!rendered) return;
@@ -275,43 +287,81 @@ function appendDeclaration(style, ...declarations) {
   return [existing, ...declarations].filter(Boolean).join('; ');
 }
 
-export function createMermaidFigure({ sourceNode, title, description, descriptionId }) {
+/**
+ * The site's accessible figure contract, shared by both surfaces that draw one.
+ *
+ * Two elements, and the split between them is the whole point (#989). The inner
+ * `.mermaid-figure__graphic` is the diagram: it carries `role="img"`, the
+ * accessible name, the `aria-describedby` target, the tab stop, and — in the
+ * article column below the stacked breakpoint — the horizontal scroll. Its
+ * descendants are presentational, which is exactly right for a graphic and its
+ * hidden description, and exactly wrong for anything a sighted reader reads.
+ *
+ * The outer `<figure>` is the semantic container, and it is what makes a visible
+ * caption possible at all. A `<figcaption>` inside the `role="img"` element
+ * would be presentational — announced, if at all, only as part of the image's
+ * name. Outside it, the caption is an ordinary paragraph of the document that
+ * assistive technology reaches once, on its own terms, and that the diagram's
+ * accessible name and description do not absorb. An author who wants the caption
+ * in the accessible name repeats it in `title=` or `description=`; nothing here
+ * does that for them.
+ *
+ * The tab stop is unconditional for the same reason Astro's code blocks ship one
+ * unconditionally: no stylesheet can tell the build which diagrams will overflow
+ * which column, and a scroll container a keyboard cannot reach is content a
+ * keyboard user cannot read (#894). The graphic carries its own accessible name,
+ * so the region announces as the diagram it scrolls rather than as bare
+ * scrollable furniture. It was also a scroll container in the blog sidebar until
+ * #986; a sidebar figure never scrolls now, and the stop costs a keyboard user
+ * one keypress and costs a misjudged width nothing.
+ */
+export function createMermaidFigure({ sourceNode, title, description, descriptionId, caption }) {
+  // Both authoring surfaces already reject an empty caption — the fence grammar
+  // in `parseMermaidMetadata`, the `sidebar` schema in `src/content.config.ts`.
+  // Normalising here too keeps this function's own contract single-valued: an
+  // absent caption and a blank one produce the same figure, so no caller can
+  // ship an empty `<figcaption>` for a reader to land on.
+  const captionText = typeof caption === 'string' ? caption.trim() : '';
+
   return {
     type: 'element',
     tagName: 'figure',
-    properties: {
-      className: ['mermaid-figure'],
-      role: 'img',
-      ariaLabel: title,
-      ariaDescribedBy: [descriptionId],
-      // The figure is a horizontal scroll container in the article column below
-      // the stacked breakpoint (#894), and a scroll container a keyboard cannot
-      // reach is content a keyboard user cannot read. The tab stop is
-      // unconditional for the same reason Astro's code blocks ship one
-      // unconditionally: no stylesheet can tell the build which diagrams will
-      // overflow which column. The figure already carries its own accessible
-      // name, so the region announces as the diagram it scrolls rather than as
-      // bare scrollable furniture.
-      //
-      // It was also a scroll container in the blog sidebar until #986, which is
-      // why the reasoning above once named two columns. It now names one, and
-      // the attribute stays unconditional anyway — a sidebar figure never
-      // scrolls, so its tab stop is a stop on a diagram that fits, which costs a
-      // keyboard user one keypress and costs a misjudged width nothing.
-      tabIndex: 0,
-    },
+    properties: { className: ['mermaid-figure'] },
     children: [
-      sourceNode,
       {
         type: 'element',
-        tagName: 'span',
+        tagName: 'div',
         properties: {
-          id: descriptionId,
-          className: ['mermaid-figure__description'],
-          ariaHidden: 'true',
+          className: [GRAPHIC_CLASS],
+          role: 'img',
+          ariaLabel: title,
+          ariaDescribedBy: [descriptionId],
+          tabIndex: 0,
         },
-        children: [{ type: 'text', value: description }],
+        children: [
+          sourceNode,
+          {
+            type: 'element',
+            tagName: 'span',
+            properties: {
+              id: descriptionId,
+              className: ['mermaid-figure__description'],
+              ariaHidden: 'true',
+            },
+            children: [{ type: 'text', value: description }],
+          },
+        ],
       },
+      ...(captionText
+        ? [
+            {
+              type: 'element',
+              tagName: 'figcaption',
+              properties: { className: ['mermaid-figure__caption'] },
+              children: [{ type: 'text', value: captionText }],
+            },
+          ]
+        : []),
     ],
   };
 }

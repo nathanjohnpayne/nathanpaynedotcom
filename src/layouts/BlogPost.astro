@@ -381,7 +381,12 @@ const jsonLd = {
                 {item.type === 'text' && (
                   <p class="blog-sidebar-text">{item.content}</p>
                 )}
-                {item.caption && (
+                {/* A mermaid item's caption is rendered by the figure itself,
+                    as a real <figcaption> inside it — the same element a body
+                    fence's caption= produces (#989). Emitting a sibling <p>
+                    here as well would ship it twice. `image` and `text` items
+                    have no figure to put a caption in and keep the <p>. */}
+                {item.type !== 'mermaid' && item.caption && (
                   <p class="blog-sidebar-caption">{item.caption}</p>
                 )}
               </div>
