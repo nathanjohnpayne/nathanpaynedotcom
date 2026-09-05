@@ -3,7 +3,7 @@ import { resolve } from 'node:path';
 import { JSDOM } from 'jsdom';
 import { describe, expect, it } from 'vitest';
 import { findFilesRecursively } from '../scripts/lib/blog-file-inventory.mjs';
-import { renderSidebarMermaid } from '../src/lib/render-sidebar-mermaid.mjs';
+import { renderMermaidFigures } from '../src/lib/render-sidebar-mermaid.mjs';
 
 const MINIMUM_CONTRAST = 4.5;
 const builtBlogRoot = resolve('dist/blog');
@@ -36,7 +36,7 @@ describe('rendered Mermaid contrast', () => {
   });
 
   it('validates classDef and semicolon syntax from Mermaid rendered output', async () => {
-    const rendered = await renderSidebarMermaid([
+    const rendered = await renderMermaidFigures([
       {
         type: 'mermaid',
         title: 'Rendered contrast fixture',
@@ -64,7 +64,7 @@ describe('rendered Mermaid contrast', () => {
   });
 
   it('rejects explicit node styles missing either measurable fill or label color', async () => {
-    const rendered = await renderSidebarMermaid([
+    const rendered = await renderMermaidFigures([
       {
         type: 'mermaid',
         title: 'Incomplete contrast fixture',
@@ -88,7 +88,7 @@ describe('rendered Mermaid contrast', () => {
   });
 
   it('measures the effective last rendered declaration for a repeated property', async () => {
-    const rendered = await renderSidebarMermaid([
+    const rendered = await renderMermaidFigures([
       {
         type: 'mermaid',
         title: 'Repeated style fixture',
@@ -115,7 +115,7 @@ describe('rendered Mermaid contrast', () => {
   });
 
   it('rejects opacity that makes an otherwise high-contrast node transparent', async () => {
-    const rendered = await renderSidebarMermaid([
+    const rendered = await renderMermaidFigures([
       {
         type: 'mermaid',
         title: 'Transparent contrast fixture',
@@ -143,7 +143,7 @@ describe('rendered Mermaid contrast', () => {
   });
 
   it('inspects class-styled treemap cells instead of assuming flowchart node markup', async () => {
-    const rendered = await renderSidebarMermaid([
+    const rendered = await renderMermaidFigures([
       {
         type: 'mermaid',
         title: 'Treemap contrast fixture',

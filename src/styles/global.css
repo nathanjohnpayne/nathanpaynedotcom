@@ -4410,8 +4410,10 @@ svg.mermaid foreignObject p {
 
    1024px is where the desktop composition and its sidebar take over, so
    nothing above it moves in the article column. The sidebar's own diagrams are
-   display: none below that breakpoint and never reach this rule at all — they
-   are contained by the rule that follows it, on the same mechanism.
+   display: none below that breakpoint and never reach this rule at all. Above
+   it they are governed by nothing further: since #986 a diagram wide enough to
+   need containment is not in the sidebar, and one narrow enough to be there
+   fits its column unaided. See the note that follows this rule.
 
    `screen` is load-bearing, not decoration. A printed page is roughly 816px
    wide and so matches this width query, but paper cannot scroll: the diagram
@@ -4433,52 +4435,37 @@ svg.mermaid foreignObject p {
   }
 }
 
-/* The blog sidebar needs the same containment at every width it is visible at,
-   which is the opposite half of the viewport from the rule above (#897).
+/* The blog sidebar fits its diagram to its column, and never scrolls (#986).
 
-   The sidebar column is 238px inside its .blog-sidebar-item, and unlike the
-   article column it does not grow with the viewport — 238px at 1024px and
-   238px at 2560px. With the type pinned at 14px, a diagram only clears the
-   8.9px `.eyebrow` floor there if it was drawn narrower than ~374px, and four
-   of the six sidebar diagrams were not: measured at 1280x900, a 976px diagram
-   painted 3.4px, and 540px, 548px and 640px diagrams painted 6.2px, 6.1px and
-   5.2px. So the sidebar is not a narrow case of the article column, it is a
-   column no wide diagram can ever be legible in.
+   #897 held a sidebar diagram at natural width and scrolled the figure, on the
+   reasoning that scrolling beats scaling a label below the 8.9px floor. Both
+   halves of that were true and the conclusion was still wrong, because it was a
+   choice between two options when there were three. The sidebar column is 192px
+   at the narrowest width it is visible at and 238px at the widest — it does not
+   grow with the viewport the way the article column does — so a diagram drawn
+   wider than about 302px is not merely awkward there, it cannot be read there at
+   any viewport. The 976px one showed a fifth of itself behind a scrollbar.
 
-   The scroll container is the figure and not .blog-sidebar-item, whose own
-   `overflow-x: auto` could never fire while the SVG was held at `width: 100%`.
-   The figure is what carries `tabindex="0"` from the build (see
-   createMermaidFigure), so it is the scroll region a keyboard can reach; the
-   item's overflow-x stays as the outer guard for a long unbroken word in a
-   `type: text` sidebar item, which is content the figure never holds.
+   The third option is the article column, which is 528–636px. A diagram too wide
+   for the sidebar is authored into the body instead, and the build refuses one
+   that is not — see SIDEBAR_MAX_NATURAL_WIDTH_PX in
+   src/lib/render-sidebar-mermaid.mjs, which fails with the measured width rather
+   than letting an unreadable diagram ship. So this rule has nothing left to
+   contain: every diagram that reaches the sidebar was drawn narrow enough to
+   scale into it above the floor, and the base `width: 100%` is all it needs.
 
-   No width bound, deliberately. This rule depends on the diagram being in the
-   sidebar, not on the viewport being wide, and .blog-sidebar is already
-   display: none below --bp-stack — a min-width query here would restate that
-   breakpoint in a third place and go stale the moment the sidebar's own one
-   moved.
+   Deleted rather than narrowed, and that is the point worth keeping. A
+   `min-width` bounded to the diagrams that still fit would be inert on every one
+   of them — a rule that fires on nothing, describing a containment strategy this
+   surface no longer uses. `.blog-sidebar-item` keeps its own `overflow-x: auto`
+   as the outer guard for a long unbroken word in a `type: text` item, which is
+   content the figure never holds.
 
-   `screen` is load-bearing here for the mirror image of the reason it is above.
-   The blog @media print block does not hide the sidebar, and `min-width` beats
-   `max-width` when the two disagree, so an unscoped rule would override that
-   block's `max-width: 100% !important` and print the 976px diagram past the
-   right margin. Verified by emulating print rather than assumed.
-
-   The article column keeps scaling at desktop on purpose. Its widest diagrams
-   render 0.69–0.73 there and paint 9.7–10.2px — above the floor, and a whole
-   diagram a reader can see at once beats a legible one they have to scroll.
-   The floor is what decides between the two, and only the sidebar crosses it. */
-@media screen {
-  .blog-sidebar-item .mermaid-figure {
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-  }
-
-  .blog-sidebar-item .mermaid-figure svg.mermaid {
-    /* Same build-time custom property as the rule above, same 0px fallback. */
-    min-width: var(--mermaid-natural-width, 0px);
-  }
-}
+   Nothing print-scoped is needed here for the same reason. #894's article-column
+   rule still carries `@media screen` because it still holds a diagram wider than
+   the page it prints on; the sidebar's fit-to-column behavior is what print
+   wanted all along, so there is no longer a screen-only rule here for a print
+   render at any width to match by accident. */
 
 .mermaid-fallback {
   padding: 1rem;
@@ -4532,7 +4519,8 @@ svg.mermaid foreignObject p {
    rather than leaving: it read as the sidebar's diagram type scale, which is
    the exact question #897 was about, and it answered it wrongly. Diagram type
    is 14px everywhere; what changes per column is the scale the graphic is
-   painted at, which the rules above govern. */
+   painted at — governed by the article rule above, and by #986's ceiling on
+   what may reach this column at all. */
 .blog-sidebar-item img {
   width: 100%;
   height: auto;
