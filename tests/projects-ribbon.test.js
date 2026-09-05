@@ -307,6 +307,16 @@ beforeAll(async () => {
       viewport: { width: viewport.width, height: viewport.height },
     });
     await page.goto(`http://127.0.0.1:${started.port}/`, { waitUntil: 'load' });
+    // Every reading here is a TEXT WIDTH, so it is a measurement of the font
+    // family and not only of its size — and `load` does not mean the webfonts
+    // have arrived. Inter is served `font-display: swap`, so a slow Google
+    // Fonts response leaves the ribbon set in the fallback stack, which is
+    // measurably wider; the ladder's own thresholds in global.css carry a note
+    // about exactly that. Without this the line-count, ratio and clearance
+    // assertions would turn on network timing rather than on the typography
+    // the page ships (Codex, PR #985). `document.fonts.ready` also settles
+    // before the page's own `measureContentHeights()`, which is gated on it.
+    await page.evaluate(() => document.fonts.ready);
     // Transitions and animations are killed before anything is read: a hidden
     // browser pane freezes the animation clock, and a property read mid-
     // transition then reports its start value forever. Same guard, and the
