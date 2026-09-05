@@ -28,28 +28,6 @@ pullquotes:
   - text: "You start by describing a bug, escalate to 'you keep missing something,' and end by questioning your own requirements."
     label: "What I said to the agent"
     accent: red
-sidebar:
-  - type: mermaid
-    title: "Six PRs by role, then the issue, then the fix"
-    description: "One implementation introduces a lossy markdown bridge; three attempts patch the bridge and two orthogonal fixes land beside it; the accumulated failures get named in issue 159, and pull request 161 takes the HTML body of the preview and the test email off the bridge. The plain-text part and the invoice a recipient receives stay on it."
-    content: |
-      graph TD
-          PR144["#144 implementation:<br/>TipTap editor,<br/>markdown bridge kept"] --> PR146["#146 attempt:<br/>balanced token regex"]
-          PR146 --> PR153["#153 attempt:<br/>marks + CSS"]
-          PR153 --> PR158["#158 attempt:<br/>bridge extracted"]
-          PR144 --> PR154["#154 orthogonal:<br/>editor lifecycle"]
-          PR144 --> PR155["#155 orthogonal:<br/>legacy migration"]
-          PR158 --> I159["Issue #159:<br/>invariant attached<br/>to the work"]
-          I159 --> PR161["#161 fix:<br/>bridge removed from the<br/>preview + test email HTML"]
-          style PR144 fill:#b35937,stroke:#b35937,color:#fff
-          style PR146 fill:#e8b4b4,stroke:#993d3d,color:#333
-          style PR153 fill:#e8b4b4,stroke:#993d3d,color:#333
-          style PR158 fill:#e8b4b4,stroke:#993d3d,color:#333
-          style PR154 fill:#d4a84b,stroke:#a07830,color:#333
-          style PR155 fill:#d4a84b,stroke:#a07830,color:#333
-          style I159 fill:#2c5f8a,stroke:#2c5f8a,color:#fff
-          style PR161 fill:#7bc67e,stroke:#4a8a4d,color:#333
-    caption: "Six PRs by role, the issue that finally named the bug, and the fix"
 ---
 
 [Friends & Family Billing](/projects/friends-and-family-billing/) exists to send one kind of email: an invoice asking my friends and family for money. In early April 2026 it could not be trusted to send it. The template editor showed one version of the message, Preview a second, and the email that arrived a third—text turning bold that nobody had bolded, spacing no two surfaces agreed on. [Issue #159](https://github.com/nathanjohnpayne/friends-and-family-billing/issues/159) names bold and spacing as the two regressions, and the product consequence outranks both: a billing tool that cannot show you what it is about to send is untrustworthy at exactly the moment it asks someone to pay.
@@ -143,6 +121,25 @@ By prompt 11 I was offering to throw the template away rather than keep watching
 ## Six pull requests, each locally reasonable
 
 Claude Code authored all six; the fix came later under the Codex identity—the rotation is visible in [PR #161](https://github.com/nathanjohnpayne/friends-and-family-billing/pull/161)'s title prefix. But the per-PR record is not a story about agent incompetence. Each PR is competent inside its frame; what no PR could supply was the frame.
+
+```mermaid title="Six PRs by role, then the issue, then the fix" description="One implementation introduces a lossy markdown bridge; three attempts patch the bridge and two orthogonal fixes land beside it; the accumulated failures get named in issue 159, and pull request 161 takes the HTML body of the preview and the test email off the bridge. The plain-text part and the invoice a recipient receives stay on it."
+graph TD
+    PR144["#144 implementation:<br/>TipTap editor,<br/>markdown bridge kept"] --> PR146["#146 attempt:<br/>balanced token regex"]
+    PR146 --> PR153["#153 attempt:<br/>marks + CSS"]
+    PR153 --> PR158["#158 attempt:<br/>bridge extracted"]
+    PR144 --> PR154["#154 orthogonal:<br/>editor lifecycle"]
+    PR144 --> PR155["#155 orthogonal:<br/>legacy migration"]
+    PR158 --> I159["Issue #159:<br/>invariant attached<br/>to the work"]
+    I159 --> PR161["#161 fix:<br/>bridge removed from the<br/>preview + test email HTML"]
+    style PR144 fill:#b35937,stroke:#b35937,color:#fff
+    style PR146 fill:#e8b4b4,stroke:#993d3d,color:#333
+    style PR153 fill:#e8b4b4,stroke:#993d3d,color:#333
+    style PR158 fill:#e8b4b4,stroke:#993d3d,color:#333
+    style PR154 fill:#d4a84b,stroke:#a07830,color:#333
+    style PR155 fill:#d4a84b,stroke:#a07830,color:#333
+    style I159 fill:#2c5f8a,stroke:#2c5f8a,color:#fff
+    style PR161 fill:#7bc67e,stroke:#4a8a4d,color:#333
+```
 
 ### PR #144: the implementation that created the bridge
 

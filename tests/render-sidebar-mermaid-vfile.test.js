@@ -17,11 +17,11 @@ vi.mock('rehype-mermaid', () => ({
   },
 }));
 
-import { renderSidebarMermaid } from '../src/lib/render-sidebar-mermaid.mjs';
+import { renderMermaidFigures } from '../src/lib/render-sidebar-mermaid.mjs';
 
-describe('static sidebar Mermaid rendering', () => {
+describe('static Mermaid figure rendering', () => {
   it('passes a real VFile to the build-time transformer and returns SVG', async () => {
-    const output = await renderSidebarMermaid(
+    const output = await renderMermaidFigures(
       [
         {
           type: 'mermaid',

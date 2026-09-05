@@ -10,14 +10,24 @@
  * 976px diagram painted 3.4px (#897). A suite that measured only one viewport
  * would have passed straight over the other defect, so this one measures both.
  *
+ * The two columns answer the problem differently, and #986 is why. The article
+ * column contains a wide diagram — it holds it at natural width and scrolls the
+ * figure — because it is wide enough (528–636px) that most diagrams fit outright
+ * and the rest stay legible scaled. The sidebar cannot do either: it is 192–238px
+ * and barely grows with the viewport, so a wide diagram there is unreadable
+ * scaled and a fifth-visible scrolled. It therefore holds no wide diagram at all.
+ * The build refuses one, and a diagram that needs the room is authored into the
+ * post body instead. So the sidebar arm below asserts the absence of a
+ * horizontal scrollbar where it once asserted the presence of a working one.
+ *
  * Every diagram on every built page goes through the same rule, so the routes
  * are discovered by scanning dist rather than named here.
  *
  * These assertions are deliberately about what a reader sees, not about which
  * declaration produced it: a diagram may scroll, or scale, or be re-authored
- * narrow, as long as its type lands above the floor and the overflow stays
- * inside the figure. The one implementation fact they do pin is that a figure
- * a mouse can scroll is a figure a keyboard can reach.
+ * narrow, or move to a wider column, as long as its type lands above the floor
+ * and the overflow stays inside the figure. The one implementation fact they do
+ * pin is that a figure a mouse can scroll is a figure a keyboard can reach.
  *
  * This is the only Vitest suite that drives a real browser, which is worth a
  * word. The measurement has no cheaper form: the defect is a used width, and
@@ -45,6 +55,11 @@ const DIST = resolve('dist');
  * already targets and the one #894's measurements were taken at. The desktop is
  * where the blog sidebar exists at all — it is `display: none` below the
  * stacked breakpoint — and is the width #897 was filed against.
+ *
+ * Not 1024px, though that is where the desktop composition starts and where
+ * both columns are narrowest. Three article-column diagrams predating #986 paint
+ * below the floor there, so adding it is a fix rather than a widening — #987.
+ * The sidebar-column assertion reads 1024px on its own for a different question.
  */
 const VIEWPORTS = [
   { name: 'phone', width: 375, height: 812 },
@@ -59,18 +74,23 @@ const VIEWPORTS = [
  * lose is that a print page has a width like any other, and either kind of width
  * query can match it. #894 found a narrow one: a printed page is roughly 816px,
  * so a bare `max-width: 1023px` matches it, and `min-width` beats the print
- * block's `max-width` and turns a scrollable diagram into a clipped one. #897 is
- * the same trap mirrored — an unscoped sidebar rule, or one bounded
+ * block's `max-width` and turns a scrollable diagram into a clipped one. #897
+ * was the same trap mirrored — an unscoped sidebar rule, or one bounded
  * `min-width: 1024px`, matches a print render at a wide viewport instead.
  *
- * So print is measured at both a letter page and a desktop-width one. A suite
- * that checked only one of them would keep passing while the other regressed.
+ * Only the narrow trap has a live rule behind it now: #986 deleted the sidebar's
+ * containment entirely, so there is no wide-viewport screen rule left to leak.
+ * The desktop page stays measured anyway. It costs one page load, and what it
+ * guards is a shape of mistake rather than a particular declaration — the next
+ * containment rule written for a wide column would reintroduce it the same way,
+ * and a suite that stopped looking would not say so.
  */
 const PRINT_VIEWPORTS = [
   // US Letter at 96dpi, the page #894's measurement was taken against.
   { name: 'letter', width: 816, height: 1056 },
   // Where a wide-viewport print render — the shape Chromium's own print
   // emulation produces — would catch a `min-width` rule that forgot `screen`.
+  // Nothing on the site declares one today; see the note above.
   { name: 'desktop', width: 1280, height: 900 },
 ];
 
@@ -154,6 +174,9 @@ const readings = new Map();
 const printReadings = new Map();
 let server;
 let browser;
+// Hoisted so the sidebar-column assertion can open its own 1024px page; see there
+// for why that width is read separately rather than added to VIEWPORTS.
+let port;
 
 beforeAll(async () => {
   expect(existsSync(DIST), 'dist must exist; run npm run build first').toBe(true);
@@ -162,6 +185,7 @@ beforeAll(async () => {
   const { chromium } = await import('playwright');
   const started = await serveStatic(DIST);
   server = started.server;
+  port = started.port;
   browser = await chromium.launch();
 
   for (const viewport of VIEWPORTS) {
@@ -274,27 +298,108 @@ describe.each(VIEWPORTS)('Mermaid diagrams at $name width', (viewport) => {
   });
 });
 
-describe('Mermaid coverage of the two narrow columns', () => {
+describe('Mermaid coverage of the article column', () => {
   // The generic coverage assertion above is satisfied by any wide diagram, and
   // at desktop an article-column one can satisfy it alone — so it would keep
-  // passing with every sidebar diagram removed or hidden, leaving the desktop
-  // arm measuring nothing #897 was about. Same exposure in reverse at phone
-  // width. Name each container against the viewport where it is the narrow one.
-  it.each([
-    { container: 'sidebar', viewport: 'desktop', issue: '#897' },
-    { container: 'article', viewport: 'phone', issue: '#894' },
-  ])('measures a $container diagram wider than its column at $viewport width', (subject) => {
-    const viewport = VIEWPORTS.find((candidate) => candidate.name === subject.viewport);
+  // passing with every wide diagram removed or hidden, leaving the phone arm
+  // measuring nothing #894 was about.
+  //
+  // This used to be an `it.each` over two containers. The sidebar row is gone
+  // because #986 inverted what it was guarding: it asserted that a sidebar
+  // diagram wider than its column *exists*, so that the scroll containment
+  // #897 added would not be measured vacuously, and there is no longer any
+  // such containment to measure. The sidebar's contract is now the opposite
+  // one, and it is asserted below rather than here.
+  it('measures an article diagram wider than its column at phone width', () => {
+    const viewport = VIEWPORTS.find((candidate) => candidate.name === 'phone');
     const tooWide = diagramsAt(viewport).filter(
       (diagram) =>
-        diagram.container === subject.container && diagram.naturalWidth > diagram.columnWidth + 1,
+        diagram.container === 'article' && diagram.naturalWidth > diagram.columnWidth + 1,
     );
 
     expect(
       tooWide.map((diagram) => `${diagram.route} — ${diagram.title}`),
-      `no visible ${subject.container} diagram is wider than its column at ${subject.viewport} ` +
-        `width, so that arm no longer exercises the container ${subject.issue} was filed about`,
+      'no visible article diagram is wider than its column at phone width, so that arm no ' +
+        'longer exercises the container #894 was filed about',
     ).not.toHaveLength(0);
+  });
+});
+
+describe('Mermaid in the blog sidebar', () => {
+  /**
+   * Every sidebar diagram visible at a desktop width, across all routes.
+   *
+   * The sidebar is `display: none` below the stacked breakpoint, so the phone
+   * arm reads none of these and the desktop arm reads all of them.
+   */
+  const sidebarDiagrams = () =>
+    diagramsAt(VIEWPORTS.find((candidate) => candidate.name === 'desktop')).filter(
+      (diagram) => diagram.container === 'sidebar',
+    );
+
+  it('renders a sidebar diagram at all', () => {
+    // The two assertions that follow are both satisfied by an empty sidebar, so
+    // without this the whole describe passes on a site that has quietly stopped
+    // putting diagrams there — which is the failure mode #986's own fix could
+    // produce if the ceiling were ever set low enough to exclude everything.
+    expect(
+      sidebarDiagrams().map((diagram) => `${diagram.route} — ${diagram.title}`),
+      'no diagram renders in the blog sidebar, so these assertions are vacuous',
+    ).not.toHaveLength(0);
+  });
+
+  it('never scrolls a sidebar diagram sideways', () => {
+    // The contract #986 replaced #897 with. The sidebar column does not grow
+    // with the viewport, so a diagram too wide for it is unreadable there at
+    // every width — the 976px one showed a fifth of itself. A diagram that
+    // reaches the sidebar now was drawn narrow enough to scale into it above the
+    // legibility floor, which the arms above assert separately; here the claim
+    // is only that nothing is hiding behind a horizontal scrollbar.
+    for (const diagram of sidebarDiagrams()) {
+      expect(
+        diagram.scrollableWidth,
+        `${diagram.route} — ${diagram.title}: a ${diagram.naturalWidth.toFixed(0)}px diagram ` +
+          `renders ${diagram.renderedWidth.toFixed(0)}px into a ${diagram.columnWidth}px sidebar ` +
+          'figure, so it can only be read by scrolling. It belongs in the post body as a ' +
+          '```mermaid fence',
+      ).toBeLessThanOrEqual(diagram.columnWidth + 1);
+    }
+  });
+
+  it('is no narrower than the column width the build assumes', async () => {
+    // The build refuses a sidebar diagram wider than SIDEBAR_MAX_NATURAL_WIDTH_PX,
+    // and that ceiling is derived from SIDEBAR_COLUMN_PX — a width measured off
+    // the built site, because `.blog-sidebar` is an `fr` track whose used width
+    // the grid definition does not state. A measured constant goes stale in
+    // silence, and this one would go stale in the dangerous direction: a
+    // narrower sidebar makes the ceiling too generous, and the first symptom is
+    // an unreadable diagram shipping.
+    //
+    // 1024px is the width to check it at — the sidebar's narrowest, since that
+    // is where the three-column composition takes over. It is deliberately a
+    // reading of its own rather than a third entry in VIEWPORTS: adding one
+    // would run the legibility arms there too, where three article-column
+    // diagrams predating #986 paint below the floor. That is #987, and it is a
+    // separate fix.
+    const { SIDEBAR_COLUMN_PX } = await import('../src/lib/render-sidebar-mermaid.mjs');
+    const route = routes.find((candidate) =>
+      readings.get(`desktop|${candidate}`).diagrams.some((d) => d.container === 'sidebar'),
+    );
+
+    const page = await browser.newPage({ viewport: { width: 1024, height: 900 } });
+    await page.goto(`http://127.0.0.1:${port}${route}`, { waitUntil: 'domcontentloaded' });
+    const measured = await page.evaluate(
+      () => document.querySelector('.blog-sidebar-item .mermaid-figure')?.clientWidth ?? 0,
+    );
+    await page.close();
+
+    expect(
+      measured,
+      `the sidebar figure measures ${measured}px at a 1024px viewport, but the build derives its ` +
+        `width ceiling from ${SIDEBAR_COLUMN_PX}px (see SIDEBAR_COLUMN_PX in ` +
+        'src/lib/render-sidebar-mermaid.mjs). Re-measure and update it, or a diagram the build ' +
+        'accepts will paint below the legibility floor',
+    ).toBeGreaterThanOrEqual(SIDEBAR_COLUMN_PX);
   });
 });
 

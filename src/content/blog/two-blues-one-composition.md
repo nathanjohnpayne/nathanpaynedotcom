@@ -30,27 +30,6 @@ pullquotes:
   - text: "The agent does the plumbing. I ratify the judgment."
     label: "Four decisions, one evening"
     accent: red
-sidebar:
-  - type: mermaid
-    title: "Two palette registers across one site"
-    description: "Nathanpayne.com branches into a high-chroma register sampled from the 1930 reproduction for the homepage, and a softer register sampled from the 1921 reproduction for interior pages, with distinct red, yellow, and blue values in each. Both names refer to those two files, not to the paintings or to Mondrian's periods."
-    content: |
-      graph TD
-          SITE["nathanpayne.com"] --> HOME["Homepage<br/>1930-scan register"]
-          SITE --> INT["Interior pages<br/>1921-scan register"]
-          HOME --> H1["#DA2418"]
-          HOME --> H2["#F0C800"]
-          HOME --> H3["#0A5C9E"]
-          INT --> I1["#E8784A"]
-          INT --> I2["#E3D477"]
-          INT --> I3["#2080CA"]
-          style H1 fill:#DA2418,stroke:#8a1610,color:#fff
-          style H2 fill:#F0C800,stroke:#a08600,color:#333
-          style H3 fill:#0A5C9E,stroke:#063a64,color:#fff
-          style I1 fill:#E8784A,stroke:#9c4f2f,color:#000
-          style I2 fill:#E3D477,stroke:#998e4a,color:#333
-          style I3 fill:#2080CA,stroke:#14527f,color:#000
-    caption: "One register per room: the homepage opts into 1930; every interior page defaults to 1921. No page mixes."
 ---
 
 On June 11, 2026, I handed Claude two screenshots of my [projects page](/projects/) and one sentence: scrutinize this layout against Mondrian colors and design principles. The page quotes Mondrian openly—black lattice, colored planes, cream field—and I wanted to know how well the quotation held up. I expected adjectives. What I got back was a Python script, a measurement—two different blues in one composition, one of which I had put there on purpose—and, once the argument settled, a product problem sharper than the one I asked about: one interface mixing two visual registers, each color's defensible pedigree doing nothing for the coherence of the whole. By the end of one evening the work had produced sampled medians from two museum digitizations, four issues and four pull requests, one palette architecture, and a correction record in which the most confidently wrong source was not my CSS and not my screenshots. It was the model.
@@ -78,6 +57,24 @@ Provenance is invisible at render time. Coherence is the only thing that survive
 ## The page is the unit of consistency
 
 The resolution was not to pick a winner. It was to notice that the unit of compositional consistency is the viewport, not the site. A museum hangs a 1921 canvas and a 1930 canvas in different rooms, and nobody calls that incoherent. So the site got rooms: the homepage keeps the high-chroma 1930 register, and every interior page—projects, blog, resume, anything added later—moves to the softer 1921 register. No page mixes. That is the entire rule.
+
+```mermaid title="Two palette registers across one site" description="Nathanpayne.com branches into a high-chroma register sampled from the 1930 reproduction for the homepage, and a softer register sampled from the 1921 reproduction for interior pages, with distinct red, yellow, and blue values in each. Both names refer to those two files, not to the paintings or to Mondrian's periods."
+graph LR
+    SITE["nathanpayne.com"] --> HOME["Homepage<br/>1930-scan register"]
+    SITE --> INT["Interior pages<br/>1921-scan register"]
+    HOME --> H1["#DA2418"]
+    HOME --> H2["#F0C800"]
+    HOME --> H3["#0A5C9E"]
+    INT --> I1["#E8784A"]
+    INT --> I2["#E3D477"]
+    INT --> I3["#2080CA"]
+    style H1 fill:#DA2418,stroke:#8a1610,color:#fff
+    style H2 fill:#F0C800,stroke:#a08600,color:#333
+    style H3 fill:#0A5C9E,stroke:#063a64,color:#fff
+    style I1 fill:#E8784A,stroke:#9c4f2f,color:#000
+    style I2 fill:#E3D477,stroke:#998e4a,color:#333
+    style I3 fill:#2080CA,stroke:#14527f,color:#000
+```
 
 The functional logic runs the same direction. The homepage is a poster: high impact, low text, the place where the instant "Mondrian" recognition needs to land. The 1930 primaries earn their chroma there. Blog and project pages are reading surfaces, and 1921's quieter cerulean, vermilion, and lemon sit next to body text without shouting at it. The conceit is honest: finished statement out front, working-period palette where the process and the writing live. Form maps to content.
 

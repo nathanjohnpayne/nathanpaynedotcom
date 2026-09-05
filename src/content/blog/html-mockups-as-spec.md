@@ -30,26 +30,6 @@ pullquotes:
   - text: "Visual acceptance and production acceptance are different bars. The 3.1 MB hero image on this post is the gap between them, live."
     label: "Beyond resemblance"
     accent: red
-sidebar:
-  - type: mermaid
-    title: "Prose iteration loop versus mockup-first loop"
-    description: "Describing a design in prose cycles through tweaks and mismatch; building and approving a standalone mockup creates a direct specification that the live page can match."
-    content: |
-      graph TD
-          A["Describe the design<br/>in prose"] --> B["Claude tweaks the<br/>existing page"]
-          B --> C["Result does not match<br/>what's in my head"]
-          C --> A
-          D["Ask Claude to build a<br/>standalone HTML mock-up"] --> E["Approve, refine,<br/>iterate the mock-up"]
-          E --> F["Hand mock-up + live page<br/>to Claude: 'match this'"]
-          F --> G["Live page now matches<br/>the mock-up"]
-          style A fill:#e8b4b4,stroke:#993d3d,color:#333
-          style B fill:#e8b4b4,stroke:#993d3d,color:#333
-          style C fill:#993d3d,stroke:#993d3d,color:#fff
-          style D fill:#b8ddb8,stroke:#4a8a4d,color:#333
-          style E fill:#b8ddb8,stroke:#4a8a4d,color:#333
-          style F fill:#b8ddb8,stroke:#4a8a4d,color:#333
-          style G fill:#7bc67e,stroke:#4a8a4d,color:#333
-    caption: "Two loops: describing the design (top) and prototyping the design (bottom)"
 ---
 
 I am not an engineer. I am a product manager, and for the first month of working on nathanpayne.com with Claude Code, design intent kept losing something on the way to the shipped page. I knew the look—the homepage is a Mondrian grid, and I wanted the rest of the site in that idiom—but I could not get "more Mondrian, less LinkedIn" to land as a CSS diff. The loss was not in what the agent could build. It was in the artifact carrying the intent.
@@ -69,6 +49,23 @@ The third move: annotated screenshots—arrows, red boxes, notes like "this colu
 A caveat the first version of this post skipped: these attempts were sequential, not controlled. Prompts, context, my idea of the target, and iteration counts all changed between rounds; the medium was never the only variable. This is a case series—four surfaces where switching the artifact coincided with the work landing—not a measured property of coding agents.
 
 The pattern: prose, diagrams, and screenshots asked the agent to interpret a description and write code to match. An HTML file asked it to read a file and produce one that resembled it. The second framing worked.
+
+```mermaid title="Prose iteration loop versus mockup-first loop" description="Describing a design in prose cycles through tweaks and mismatch; building and approving a standalone mockup creates a direct specification that the live page can match."
+graph TD
+    A["Describe the design<br/>in prose"] --> B["Claude tweaks the<br/>existing page"]
+    B --> C["Result does not match<br/>what's in my head"]
+    C --> A
+    D["Ask Claude to build a<br/>standalone HTML mock-up"] --> E["Approve, refine,<br/>iterate the mock-up"]
+    E --> F["Hand mock-up + live page<br/>to Claude: 'match this'"]
+    F --> G["Live page now matches<br/>the mock-up"]
+    style A fill:#e8b4b4,stroke:#993d3d,color:#333
+    style B fill:#e8b4b4,stroke:#993d3d,color:#333
+    style C fill:#993d3d,stroke:#993d3d,color:#fff
+    style D fill:#b8ddb8,stroke:#4a8a4d,color:#333
+    style E fill:#b8ddb8,stroke:#4a8a4d,color:#333
+    style F fill:#b8ddb8,stroke:#4a8a4d,color:#333
+    style G fill:#7bc67e,stroke:#4a8a4d,color:#333
+```
 
 ## The pivot: build the mock-up first
 

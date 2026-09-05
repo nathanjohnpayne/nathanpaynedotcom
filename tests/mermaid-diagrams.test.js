@@ -4,7 +4,11 @@ import { toHtml } from 'hast-util-to-html';
 import { JSDOM } from 'jsdom';
 import { describe, expect, it } from 'vitest';
 import { findFilesRecursively } from '../scripts/lib/blog-file-inventory.mjs';
-import { renderSidebarMermaid } from '../src/lib/render-sidebar-mermaid.mjs';
+import {
+  renderMermaidFigures,
+  renderSidebarMermaid,
+  SIDEBAR_MAX_NATURAL_WIDTH_PX,
+} from '../src/lib/render-sidebar-mermaid.mjs';
 import { rehypeMermaidSvg } from '../src/plugins/rehype-mermaid-accessibility.mjs';
 
 const builtRoot = resolve('dist');
@@ -134,7 +138,7 @@ describe('rehype-mermaid integration', () => {
   });
 
   it('renders malformed Mermaid as a clean, accessible fallback', async () => {
-    const rendered = await renderSidebarMermaid([
+    const rendered = await renderMermaidFigures([
       {
         type: 'mermaid',
         title: 'Broken flow',
@@ -159,7 +163,7 @@ describe('rehype-mermaid integration', () => {
   });
 
   it('lets Mermaid handle semicolons, quotes, multiline labels, styles, and classDef', async () => {
-    const rendered = await renderSidebarMermaid([
+    const rendered = await renderMermaidFigures([
       {
         type: 'mermaid',
         title: 'Syntax surface',
@@ -183,7 +187,7 @@ describe('rehype-mermaid integration', () => {
   });
 
   it('renders each authored label break as exactly one line', async () => {
-    const rendered = await renderSidebarMermaid([
+    const rendered = await renderMermaidFigures([
       {
         type: 'mermaid',
         title: 'Two-line labels',
@@ -219,7 +223,7 @@ describe('rehype-mermaid integration', () => {
     // </strong></p>`, so the break sits inside the formatting rather than
     // beside it. Rewriting the break itself reaches it; restructuring the
     // paragraph around it does not (#789).
-    const rendered = await renderSidebarMermaid([
+    const rendered = await renderMermaidFigures([
       {
         type: 'mermaid',
         title: 'Formatted two-line label',
@@ -447,6 +451,68 @@ describe('rehype-mermaid integration', () => {
     for (const relativePath of clientJavaScript) {
       expect(readFileSync(resolve(builtRoot, relativePath), 'utf8')).not.toMatch(/mermaid/i);
     }
+  });
+
+  /**
+   * The sidebar's width ceiling, exercised from both sides (#986).
+   *
+   * Both fixtures are the same graph with a different node count, so the only
+   * thing that varies between the two cases is the width Mermaid draws — not the
+   * shape, the labels, or the styling. One row of small nodes is the cheapest
+   * way to buy width in Mermaid, which makes the pair a dial rather than two
+   * unrelated diagrams.
+   *
+   * The narrow case is the control and is not optional. A test that only proved
+   * the throw would pass just as well if `assertFitsSidebar` rejected every
+   * diagram it was handed, which is the one failure that would empty the sidebar
+   * without anyone noticing — the built-page suite treats an empty sidebar as
+   * vacuous rather than as a pass, but this is where it would start.
+   */
+  describe('the blog sidebar width ceiling', () => {
+    const row = (count) =>
+      [
+        'graph LR',
+        ...Array.from({ length: count }, (_, index) => `    N${index} --> N${index + 1}`),
+      ].join('\n');
+
+    const sidebarItem = (content) => [
+      {
+        type: 'mermaid',
+        title: 'Ceiling fixture',
+        description: 'A chain of nodes, drawn wide enough or narrow enough to test the ceiling.',
+        content,
+      },
+    ];
+
+    it('renders a diagram narrow enough for the sidebar', async () => {
+      const rendered = await renderSidebarMermaid(sidebarItem(row(1)));
+      const svg = new JSDOM(rendered.get(0)).window.document.querySelector('svg.mermaid');
+      const width = Number(svg?.getAttribute('viewBox')?.split(/[\s,]+/)[2]);
+
+      // Asserted, not assumed: a fixture that had drifted over the ceiling would
+      // otherwise turn this control into a second copy of the case below.
+      expect(width).toBeLessThanOrEqual(SIDEBAR_MAX_NATURAL_WIDTH_PX);
+      expect(rendered.get(0)).toContain('<svg');
+    });
+
+    it('refuses a diagram too wide to read in the sidebar', async () => {
+      // Names the width, the ceiling, and where the diagram should go instead —
+      // the message is the whole remedy an author gets, so it is part of the
+      // contract rather than incidental text.
+      await expect(renderSidebarMermaid(sidebarItem(row(12)), 'post.md')).rejects.toThrow(
+        /post\.md.*Ceiling fixture.*\d+px.*ceiling.*body.*mermaid fence/s,
+      );
+    });
+
+    it('renders a too-wide diagram through the policy-free renderer', async () => {
+      // The split #986 made: the ceiling belongs to the sidebar surface, not to
+      // the renderer. Three suites fixture wide diagrams for reasons that have
+      // nothing to do with placement — a treemap draws wide because that is what
+      // a treemap does — and this is what keeps the ceiling from reaching them.
+      const rendered = await renderMermaidFigures(sidebarItem(row(12)));
+
+      expect(rendered.get(0)).toContain('<svg');
+    });
   });
 
   it('keeps custom Mermaid grammar and the old post-build renderer deleted', () => {
