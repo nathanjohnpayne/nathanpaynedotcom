@@ -310,14 +310,28 @@ test('a diagram caption is painted under its figure and announced exactly once',
     // contents are presentational.
     expect(placement.insideGraphic, `${placement.text}: caption sits inside the image`).toBe(false);
 
-    // Exactly once, and as itself. A caption folded into the diagram's
-    // accessible name or description would announce as part of the image
-    // instead of as the document text it is.
-    const spoken = nodes.filter((node) => !node.ignored && node.name?.value === placement.text);
-    expect(spoken, `${placement.text}: not announced exactly once`).toHaveLength(1);
-    expect(spoken[0].role?.value, `${placement.text}: announced as the wrong thing`).toBe(
-      'StaticText',
-    );
+    // Exactly once, and as itself. The caption reaches the tree as one run of
+    // document text, and nothing else takes it as its own name — a caption
+    // folded into the diagram would announce as part of the image instead of
+    // as the text it is.
+    //
+    // A `figure` node named by its own `figcaption` is exempt, and the
+    // exemption is a statement about HTML rather than a hedge: naming the
+    // figure is what a `figcaption` is for, and a screen reader announcing the
+    // figure on entry and reading its caption inside is the pairing working,
+    // not the text arriving twice. Chrome prunes that node on this page today
+    // and the assertion should not turn red the day it stops.
+    const named = nodes.filter((node) => !node.ignored && node.name?.value === placement.text);
+    expect(
+      named.filter((node) => node.role?.value === 'StaticText'),
+      `${placement.text}: not announced exactly once as document text`,
+    ).toHaveLength(1);
+    expect(
+      named
+        .map((node) => node.role?.value)
+        .filter((role) => role !== 'StaticText' && role !== 'figure'),
+      `${placement.text}: something other than its own figure is named by the caption`,
+    ).toEqual([]);
     expect(placement.title, `${placement.text}: absorbed into the accessible name`).not.toContain(
       placement.text,
     );
