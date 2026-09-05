@@ -21,7 +21,13 @@ const builtBlogRoot = resolve('dist/blog');
 const builtDiagramRoots = [builtBlogRoot, resolve('dist/projects')];
 const blogFixturePath = resolve('src/content/blog/mermaid-fixture.md');
 
-function builtBlogPagePaths() {
+// Named for what they walk, not for the collection they started in. Both scan
+// `builtDiagramRoots` — blog AND projects — and were called `builtBlog…` from
+// before #753 widened them. A Phase 4b reviewer read the old name as the
+// behaviour and filed a P1 saying the body-caption guard below could never see
+// the project page carrying the only body-fence caption, which is the misreading
+// the name invites (#995). The claim was false and the name was not.
+function builtDiagramPagePaths() {
   return builtDiagramRoots
     .filter((root) => existsSync(root))
     .flatMap((root) =>
@@ -32,7 +38,7 @@ function builtBlogPagePaths() {
     );
 }
 
-function builtBlogSlug(pagePath) {
+function builtDiagramSlug(pagePath) {
   const root = builtDiagramRoots.find((candidate) => pagePath.startsWith(candidate + sep));
   const base = root ?? builtBlogRoot;
   return `${basename(base)}/${relative(base, dirname(pagePath)).split(sep).join('/')}`;
@@ -570,8 +576,8 @@ describe('rehype-mermaid integration', () => {
     expect(existsSync(builtBlogRoot), 'dist/blog must exist; run npm run build first').toBe(true);
     let multilineLabelCount = 0;
 
-    for (const pagePath of builtBlogPagePaths()) {
-      const slug = builtBlogSlug(pagePath);
+    for (const pagePath of builtDiagramPagePaths()) {
+      const slug = builtDiagramSlug(pagePath);
       const html = readFileSync(pagePath, 'utf8');
       const document = new JSDOM(html).window.document;
 
@@ -594,10 +600,15 @@ describe('rehype-mermaid integration', () => {
   it('ships built diagrams as accessible static SVG', () => {
     expect(existsSync(builtBlogRoot), 'dist/blog must exist; run npm run build first').toBe(true);
     let diagramCount = 0;
-    let captionCount = 0;
+    // Counted per surface, not in bulk (#994). Both were once satisfiable by the
+    // sidebar alone: the body could not carry a caption until #989, and no body
+    // fence carried one until #994, so a guard that only asked "did any caption
+    // ship" would have gone on passing with the body surface uncovered.
+    let sidebarCaptions = 0;
+    let bodyCaptions = 0;
 
-    for (const pagePath of builtBlogPagePaths()) {
-      const slug = builtBlogSlug(pagePath);
+    for (const pagePath of builtDiagramPagePaths()) {
+      const slug = builtDiagramSlug(pagePath);
       const html = readFileSync(pagePath, 'utf8');
       const document = new JSDOM(html).window.document;
       const figures = document.querySelectorAll('.mermaid-figure');
@@ -633,7 +644,8 @@ describe('rehype-mermaid integration', () => {
         // presentational — announced as part of the diagram's name at best,
         // and not at all at worst (#989).
         if (caption) {
-          captionCount += 1;
+          if (figure.closest('.blog-sidebar-item')) sidebarCaptions += 1;
+          else bodyCaptions += 1;
           expect(caption.textContent?.trim(), `${slug}: empty caption`).toBeTruthy();
           expect(
             caption.closest('.mermaid-figure__graphic'),
@@ -649,9 +661,11 @@ describe('rehype-mermaid integration', () => {
 
     expect(diagramCount, 'the assertion must exercise built diagrams').toBeGreaterThan(0);
     // The caption arm is only a check while some built page actually carries
-    // one. Two sidebar diagrams do; if both were unauthored the arm above
-    // would pass by never running.
-    expect(captionCount, 'the assertion must exercise a built caption').toBeGreaterThan(0);
+    // one, and it has to be checked on both surfaces: the point of #989 was that
+    // they emit the same element, and a count that lumped them together could
+    // not tell one of them going dark from the other carrying both.
+    expect(sidebarCaptions, 'the assertion must exercise a sidebar caption').toBeGreaterThan(0);
+    expect(bodyCaptions, 'the assertion must exercise a body-fence caption').toBeGreaterThan(0);
   });
 
   it('preserves the representative production syntax surface', () => {
