@@ -831,7 +831,16 @@ describe('lifecycle marker — declarations', () => {
     let nested = false;
     csstree.walk(resolved, {
       enter(node, item, list) {
-        if (node.type !== 'NestingSelector' || !list) return;
+        // `&` under a style rule and `:scope` under `@scope` are the same
+        // thing wearing different syntax: a placeholder for the enclosing
+        // selector. `@scope (.state-marker--shipped) { :scope::before { … } }`
+        // names no modifier class in the inner rule, so the collector saw
+        // nothing (Codex, PR #973).
+        const placeholder =
+          node.type === 'NestingSelector' ||
+          (node.type === 'PseudoClassSelector' &&
+            csstree.ident.decode(node.name).toLowerCase() === 'scope');
+        if (!placeholder || !list) return;
         nested = true;
         list.replace(item, csstree.clone(parent).children);
       },
@@ -841,6 +850,47 @@ describe('lifecycle marker — declarations', () => {
     descendant.children.appendData({ type: 'Combinator', name: ' ' });
     for (const child of csstree.clone(selector).children) descendant.children.appendData(child);
     return descendant;
+  }
+
+  /**
+   * The scoping root of an `@scope (<root>) [to (<limit>)]`, as selector nodes.
+   *
+   * Returns `null` when the prelude cannot be read, which `analyze` records as
+   * unreadable rather than as "no root" — an at-rule whose root is unknown must
+   * not quietly become an unscoped one.
+   *
+   * The limit is deliberately ignored: `to (<limit>)` bounds where the scope
+   * ENDS, which can only ever narrow what the rules inside match. Narrower is
+   * the safe direction for a check that collects broadly and rejects narrowly.
+   */
+  function scopeRoot(atrule) {
+    const prelude = atrule.prelude ? csstree.generate(atrule.prelude) : '';
+    const open = prelude.indexOf('(');
+    if (open === -1) return null;
+    let depth = 0;
+    let close = -1;
+    for (let index = open; index < prelude.length; index += 1) {
+      if (prelude[index] === '(') depth += 1;
+      else if (prelude[index] === ')' && (depth -= 1) === 0) {
+        close = index;
+        break;
+      }
+    }
+    if (close === -1) return null;
+    const inner = prelude.slice(open + 1, close).trim();
+    if (!inner) return null;
+    let parsed;
+    const errors = [];
+    try {
+      parsed = csstree.parse(inner, {
+        context: 'selectorList',
+        onParseError: (error) => errors.push(error),
+      });
+    } catch {
+      return null;
+    }
+    if (errors.length || parsed?.type !== 'SelectorList') return null;
+    return parsed.children.toArray();
   }
 
   /**
@@ -899,10 +949,14 @@ describe('lifecycle marker — declarations', () => {
     // resolves against what its parent already resolved to rather than against
     // the parent's literal `&`.
     const enclosing = [];
+    // Parallel to `atRules`: did this at-rule push an `enclosing` frame?
+    const scoped = [];
     csstree.walk(ast, {
       enter(node) {
         if (node.type === 'Atrule') {
           atRules.push(csstree.ident.decode(node.name).toLowerCase());
+          // One frame per at-rule, so the pops stay in lockstep with atRules.
+          scoped.push(false);
           // Declarations sitting DIRECTLY inside a group rule that is itself
           // inside a style rule belong to the enclosing selectors, under the
           // group's condition: `.state-marker--shipped::before { @media (…) {
@@ -910,6 +964,16 @@ describe('lifecycle marker — declarations', () => {
           // so the outer rule reads as empty and no conditional rule is created
           // for them at all — the declaration checks and the conditional-mark
           // check both pass on a real override (Codex, PR #973).
+          // `@scope (<root>)` establishes an enclosing selector for the rules
+          // inside it, exactly as a style rule does for nested ones — so its
+          // root joins the same stack and `:scope` resolves against it.
+          if (csstree.ident.decode(node.name).toLowerCase() === 'scope') {
+            const root = scopeRoot(node);
+            if (root === null) unreadable.push(csstree.generate(node.prelude ?? node));
+            enclosing.push(root ?? []);
+            scoped[scoped.length - 1] = true;
+            return;
+          }
           const grouped = (node.block?.children.toArray() ?? []).filter(
             (child) => child.type === 'Declaration',
           );
@@ -941,8 +1005,10 @@ describe('lifecycle marker — declarations', () => {
         enclosing.push(resolved);
       },
       leave(node) {
-        if (node.type === 'Atrule') atRules.pop();
-        else if (node.type === 'Rule') enclosing.pop();
+        if (node.type === 'Atrule') {
+          atRules.pop();
+          if (scoped.pop()) enclosing.pop();
+        } else if (node.type === 'Rule') enclosing.pop();
       },
     });
     return { rules, unreadable, errors };
@@ -1301,6 +1367,28 @@ describe('lifecycle marker — declarations', () => {
       'a surface class is asked for at a call site but appears on no rendered mark',
     ).toEqual([]);
 
+    // And the same containment the OTHER way, which is what closes the
+    // dropped-call-site class rather than chasing the masker's blind spots
+    // (Codex, PR #973).
+    //
+    // The masker is not a JavaScript lexer and cannot become one here: these
+    // are `.astro` files, so a regex-literal heuristic misfires on markup —
+    // `</div>` reads as a regex opener under the standard
+    // previous-significant-character test, which was measured breaking this
+    // very control before it was reverted. So the guarantee is moved off the
+    // scanner and onto the build: every surface class that actually reaches a
+    // rendered mark must also be named at a call site. A call site the masker
+    // eats now fails HERE, by name, instead of silently shrinking the alias
+    // set — and the residue it cannot cover is bounded by construction, since
+    // a surface that renders nowhere has no element for a `::before` override
+    // to reach.
+    expect(
+      [...rendered].filter((alias) => !declared.has(alias)).sort(),
+      'a surface class renders on a mark but is named at no stateMarkerClass() call site — ' +
+        'either a call site was missed by the source scan, or the class is applied somewhere ' +
+        'that bypasses the shared helper',
+    ).toEqual([]);
+
     for (const alias of new Set([...declared, ...rendered])) {
       expect(
         targeting(alias, allRules()).map(({ selector }) => selector),
@@ -1629,6 +1717,39 @@ describe('lifecycle marker — declarations', () => {
         subjects(':not(:is(.state-marker--shipped)){font-size:1.1em}')[0],
         ':is() nested inside :not() was read as requiring the modifier',
       ).not.toContain('state-marker--shipped');
+    });
+
+    it('resolves :scope against its @scope root', () => {
+      // `@scope (<root>) { :scope::before { … } }` names no modifier class in
+      // the inner rule, so the collector saw nothing at all (Codex, PR #973).
+      // `:scope` is `&` in different syntax, and the root joins the same
+      // enclosing stack a style rule uses for nesting.
+      const { rules, errors, unreadable } = analyze(
+        `${PRIMITIVE}@scope (.state-marker--shipped){:scope::before{padding:9px}}`,
+      );
+      expect(errors, 'the fixture did not parse').toEqual([]);
+      expect(unreadable, 'the scope root was not readable').toEqual([]);
+      // Like the `&::before` nesting case, resolving produces the BARE
+      // selector, so `expectUnqualified` accepts it and the declaration checks
+      // are what reject the stray geometry.
+      const scoped = rules.filter(
+        (rule) => rule.before && rule.classes.includes('state-marker--shipped'),
+      );
+      expect(
+        scoped.map(({ selector }) => selector),
+        'a :scope override inside @scope was not attributed to its root',
+      ).toEqual(['.state-marker--shipped::before', '.state-marker--shipped::before']);
+      expect(
+        scoped.flatMap((rule) => rule.declarations.map(({ property }) => property)).sort(),
+        'the scoped declaration was not attributed to the mark',
+      ).toEqual(['background-color', 'padding']);
+      // A scope root the extractor cannot read is reported, not treated as an
+      // absent one — an at-rule whose root is unknown must not quietly become
+      // an unscoped rule.
+      expect(
+        analyze('@scope { :scope::before { padding: 9px } }').unreadable.length,
+        'an unreadable @scope prelude was silently treated as having no root',
+      ).toBeGreaterThan(0);
     });
 
     it('does not read an unrelated escaped class name as the primitive', () => {
