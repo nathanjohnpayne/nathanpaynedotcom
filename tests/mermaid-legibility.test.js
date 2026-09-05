@@ -422,11 +422,27 @@ describe('Mermaid in the blog sidebar', () => {
     // those and made 1024px a real viewport, so the reading is already taken
     // and this reads it rather than loading the page a second time.
     const { SIDEBAR_COLUMN_PX } = await import('../src/lib/render-sidebar-mermaid.mjs');
-    const measured = Math.min(
-      ...diagramsAt(VIEWPORTS.find((candidate) => candidate.name === 'desktop-narrow'))
-        .filter((diagram) => diagram.container === 'sidebar')
-        .map((diagram) => diagram.columnWidth),
-    );
+    const widths = diagramsAt(VIEWPORTS.find((candidate) => candidate.name === 'desktop-narrow'))
+      .filter((diagram) => diagram.container === 'sidebar')
+      .map((diagram) => diagram.columnWidth);
+
+    // Asserted before the reduction, because `Math.min()` of nothing is
+    // `Infinity`, which would clear any floor this comparison could name. The
+    // sibling assertion above proves a sidebar diagram renders at `desktop`,
+    // and a responsive change could hide it at 1024px alone — leaving the arm
+    // that matters reading an empty set and reporting success. "Nothing was
+    // measured" has to fail here, not pass; it is the same distinction the
+    // suite's other vacuity guards draw, and the reduction is where an empty
+    // read stops looking empty. #986's version queried the DOM directly and
+    // returned 0 for this, which failed by luck of the sentinel rather than by
+    // design.
+    expect(
+      widths.length,
+      'no sidebar diagram renders at 1024px, so the column-staleness check has nothing to ' +
+        'measure and cannot tell a correct SIDEBAR_COLUMN_PX from a stale one',
+    ).toBeGreaterThan(0);
+
+    const measured = Math.min(...widths);
 
     expect(
       measured,
