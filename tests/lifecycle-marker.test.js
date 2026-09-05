@@ -213,6 +213,17 @@ function blank(source, { strings = false } = {}) {
     const frame = stack[stack.length - 1];
 
     if (frame && frame.kind === 'string') {
+      // A `'` or `"` literal cannot span a newline in JavaScript, so an
+      // unterminated one at end-of-line was never a string — it was an
+      // apostrophe. Without this, one word of Astro prose (`<dt>Nathan's
+      // topics</dt>`) opens a frame that swallows every call after it, and the
+      // call-site walk reports a file as having no call at all. Under-scanning,
+      // and silent: the surface simply vanishes from the declared set.
+      if (character === '\n' && frame.quote !== '`') {
+        stack.pop();
+        out += character;
+        continue;
+      }
       if (character === '\\') {
         // Two characters either way, so offsets survive.
         out += strings ? '  ' : character + (source[index + 1] ?? '');
@@ -349,6 +360,21 @@ function callSites() {
     }
   }
   return sites;
+}
+
+/**
+ * Every surface class, from BOTH derivations — the call sites and the build.
+ *
+ * Shared so the print cascade is policed against the same list as the screen
+ * one. A `@media print{.p-status::before{…}}` override is a per-surface
+ * narrowing of the mark exactly as its screen counterpart is, and print is the
+ * medium the résumé PDF renders in.
+ */
+function surfaceAliases() {
+  const declared = callSites().flatMap(({ surfaces }) =>
+    surfaces.filter((surface) => surface.readable).flatMap(({ classes }) => classes),
+  );
+  return new Set([...declared, ...renderedSurfaceClasses()]);
 }
 
 /**
@@ -1207,10 +1233,37 @@ describe('lifecycle marker — declarations', () => {
   const properties = (declarations) =>
     declarations.map((declaration) => declaration.property).sort();
 
-  /** One property's whole value, or null unless it is declared exactly once. */
+  /**
+   * One property's whole value, following the cascade: the LAST declaration
+   * wins, as it does in the browser.
+   *
+   * This used to return null unless the property was declared exactly once,
+   * which turned every duplicate into a `null` that failed the value matcher
+   * with a message about the wrong thing — "the mark box is not border-box"
+   * when the box-sizing was fine and merely declared twice. Two ordinary
+   * situations produce that: a fallback pair
+   * (`background-color:#000;background-color:currentcolor`), and
+   * `readBuiltStylesheet()` concatenating every emitted chunk, which is safe
+   * for the substring matchers in other suites and not for a file that counts.
+   *
+   * Duplication is still a defect here — it is just reported as itself, by
+   * `expectDeclaredOnce` below, rather than smuggled through a value matcher.
+   */
   function valueOf(declarations, property) {
     const matches = declarations.filter((declaration) => declaration.property === property);
-    return matches.length === 1 ? matches[0].value : null;
+    return matches.length ? matches[matches.length - 1].value : null;
+  }
+
+  /** No property may be declared twice across the rules collected for a class. */
+  function expectDeclaredOnce(className, declarations) {
+    const seen = new Map();
+    for (const { property } of declarations) seen.set(property, (seen.get(property) ?? 0) + 1);
+    expect(
+      [...seen].filter(([, count]) => count > 1).map(([property]) => property),
+      `${className} declares a property more than once across the rules that target it — ` +
+        'either the stylesheet carries a fallback pair, or the build emitted the same rule in ' +
+        'more than one chunk and readBuiltStylesheet() concatenated them',
+    ).toEqual([]);
   }
 
   /**
@@ -1264,6 +1317,7 @@ describe('lifecycle marker — declarations', () => {
     const base = declarationsFor(MARK_PRIMITIVE);
     expect(base.length, 'no .state-marker::before rule in the screen cascade').toBeGreaterThan(0);
     expectUnqualified(MARK_PRIMITIVE);
+    expectDeclaredOnce(MARK_PRIMITIVE, base);
     expect(
       valueOf(base, 'box-sizing'),
       'the mark box is not border-box, so a variant padding grows it (#959)',
@@ -1285,13 +1339,31 @@ describe('lifecycle marker — declarations', () => {
     // And no fill. The invariant read from the other side: a fill on the BASE
     // applies to every state, so `background-color: currentcolor` here makes
     // `--paused` and `--in-progress` solid while their own rules still declare
-    // nothing and pass (CodeRabbit, PR #964). Matched by prefix so the
-    // `background` shorthand and any `background-*` longhand are covered, not
-    // only the three the variants use.
+    // nothing and pass (CodeRabbit, PR #964).
+    //
+    // Stated as the CLOSED set the primitive may declare, not as a list of the
+    // fills it may not. The prefix filter this replaces named `background*` and
+    // `padding` and claimed to close the family — it did not:
+    // `box-shadow: inset 0 0 0 1em currentcolor` fills every mark solid,
+    // collapsing all four states into the SHIPPED shape, and passed every check
+    // in this file. So did `mask-image` and `outline`. That is the same
+    // list-of-past-mistakes shape the variant rules were closed against, left
+    // standing on the one rule that reaches all four states at once.
+    const ALLOWED_ON_BASE = [
+      'content',
+      'flex',
+      'box-sizing',
+      'width',
+      'height',
+      'border',
+      'display',
+      'vertical-align',
+    ];
     expect(
-      properties(base).filter((name) => name.startsWith('background') || name === 'padding'),
-      'the base mark rule declares a fill, which every state then inherits — fill ' +
-        'belongs to the variants, geometry to the primitive',
+      properties(base).filter((name) => !ALLOWED_ON_BASE.includes(name)),
+      'the base mark rule declares something outside the geometry the primitive owns — ' +
+        'anything it declares reaches all four states at once, so a fill or a shadow here ' +
+        'collapses the vocabulary into one shape',
     ).toEqual([]);
   });
 
@@ -1315,6 +1387,7 @@ describe('lifecycle marker — declarations', () => {
       const body = declarationsFor(className);
 
       expectUnqualified(className);
+      expectDeclaredOnce(className, body);
 
       // Exactly the expected set: must-carry and must-not-carry in one
       // assertion. A missing fill collapses that state into another; an extra
@@ -1511,6 +1584,69 @@ describe('lifecycle marker — declarations', () => {
           'is .state-marker::before and belongs to the primitive',
       ).toEqual([]);
     }
+  });
+
+  it('lets the print cascade say only what print fidelity needs', () => {
+    // The gap between the two sections. § declarations strips `@media print`
+    // before parsing, and § print fidelity only inspects rules that declare
+    // `print-color-adjust` — so a mark override inside a print block was
+    // invisible to BOTH. `@media print{.state-marker--shipped::before{
+    // padding:9px}}` changed the cored ring on paper and nothing failed.
+    //
+    // That gap matters more than a screen-cascade one, not less: print is the
+    // medium the résumé PDF is actually rendered in, and the raster classifier
+    // in tests/helpers/pdf-oracle.js reads exactly these marks.
+    //
+    // So the print cascade gets the same treatment, with one exemption: the
+    // properties § print fidelity exists to require.
+    const PRINT_ONLY = ['print-color-adjust', '-webkit-print-color-adjust'];
+    const printed = analyze(builtPrintBlocks().join('\n')).rules;
+    // Mark classes AND surface classes: `.p-status::before` narrows the mark
+    // from one surface without naming it, in the print cascade exactly as in
+    // the screen one.
+    // Mark classes AND surface classes: `.p-status::before` narrows the mark
+    // from one surface without naming it, in the print cascade exactly as in
+    // the screen one.
+    //
+    // Scoped to `::before` for the same reason `targeting()` is. The status
+    // ELEMENT is the surface's, and a surface legitimately restyles its own
+    // label on paper — `.resume-entry__status` really is in this block. What a
+    // surface may not do is reach the mark.
+    const policed = [...MARK_CLASSES, ...surfaceAliases()];
+    const marks = printed.filter(
+      (rule) => rule.before && rule.classes.some((name) => policed.includes(name)),
+    );
+
+    // Control first: the print cascade really does carry the primitive's rule,
+    // so an empty offender list below means "nothing else", not "nothing read".
+    expect(
+      marks.map(({ selector }) => selector),
+      'the print cascade carries no lifecycle mark rule at all, so the scan below is vacuous',
+    ).not.toEqual([]);
+
+    expect(
+      marks.filter((rule) => rule.bare !== MARK_PRIMITIVE).map(({ selector }) => selector),
+      'a lifecycle mark is narrowed inside @media print; the print rule belongs to the bare ' +
+        '.state-marker::before primitive, which is the whole point of #950',
+    ).toEqual([]);
+
+    expect(
+      marks.flatMap((rule) =>
+        rule.declarations
+          .map(({ property }) => property)
+          .filter((property) => !PRINT_ONLY.includes(property)),
+      ),
+      'the print cascade declares something other than print-color-adjust on the mark — ' +
+        'geometry and fill belong to the screen cascade, where every other check can see them',
+    ).toEqual([]);
+
+    // And the element side of the same rule: a MODIFIER may say nothing about
+    // the status element on paper either, which is what keeps one state from
+    // printing at a different size than the rest.
+    expect(
+      modifierElementDeclarations(printed),
+      'a lifecycle modifier declares something on the status element inside @media print',
+    ).toEqual([]);
   });
 
   it('can see a declaration at all', () => {
