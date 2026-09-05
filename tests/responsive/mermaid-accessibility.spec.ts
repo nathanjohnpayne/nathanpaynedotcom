@@ -246,21 +246,18 @@ test('static Mermaid diagrams remain visible in print without JavaScript', async
  * name. The assertions below hold both halves — the caption is painted under the
  * diagram, and assistive technology reaches it exactly once, on its own terms.
  *
- * The route is chosen because the only captioned diagrams the built site
- * currently carries are blog `sidebar` items, and the sidebar is `display: none`
- * below the desktop composition's 1024px breakpoint. So this runs on the Desktop
- * project and skips on the three phone/tablet ones, where there is no caption on
- * screen to assert anything about. The skip is width-derived rather than
- * project-named so a new viewport lands on the right side of it by itself.
+ * The route carries a captioned BODY fence, which is what makes this runnable at
+ * every viewport (#994). It used to point at a sidebar item and skip below
+ * 1024px, because the sidebar is `display: none` there and no body fence carried
+ * a caption — so the one width where the caption's placement is load-bearing was
+ * the one width the test never saw. Below the stacked breakpoint
+ * `.mermaid-figure__graphic` becomes a horizontal scroll container, and the
+ * caption has to stay with the column while the diagram scrolls under it.
  */
 test('a diagram caption is painted under its figure and announced exactly once', async ({
   page,
 }) => {
-  test.skip(
-    (page.viewportSize()?.width ?? 0) < 1024,
-    'the only captioned diagrams live in the blog sidebar, which is display:none below 1024px',
-  );
-  await page.goto('/blog/agent-approval-workflow-genesis-of-mergepath/');
+  await page.goto('/blog/six-prs-one-bug-agent-failure-modes/');
 
   const captions = page.locator('.mermaid-figure:visible .mermaid-figure__caption');
   const captionCount = await captions.count();
@@ -286,6 +283,11 @@ test('a diagram caption is painted under its figure and announced exactly once',
         // the caption must not be in it — it would slide out from under the
         // diagram it captions.
         graphicScrolls: graphic ? graphic.scrollWidth > graphic.clientWidth + 1 : false,
+        // Measured together so the assertion can say "the caption kept the
+        // column's width while the diagram overflowed it" rather than inferring
+        // it from the DOM position alone.
+        captionWidth: captionBox.width,
+        figureWidth: figure?.getBoundingClientRect().width ?? 0,
         title: graphic?.getAttribute('aria-label')?.trim() ?? '',
         description:
           figure?.querySelector('.mermaid-figure__description')?.textContent?.trim() ?? '',
@@ -295,6 +297,7 @@ test('a diagram caption is painted under its figure and announced exactly once',
 
   const session = await page.context().newCDPSession(page);
   const { nodes } = await session.send('Accessibility.getFullAXTree');
+  let scrollingCaptions = 0;
 
   for (const placement of placements) {
     expect(placement.tagName, 'the caption must be a real figcaption').toBe('FIGCAPTION');
@@ -309,18 +312,38 @@ test('a diagram caption is painted under its figure and announced exactly once',
     // The one placement that would break it: inside role="img" the caption's
     // contents are presentational.
     expect(placement.insideGraphic, `${placement.text}: caption sits inside the image`).toBe(false);
+    // The narrow-column case the skip used to hide (#994): the graphic overflows
+    // its box and scrolls, and the caption stays at the column's width.
+    if (placement.graphicScrolls) {
+      scrollingCaptions += 1;
+      expect(
+        Math.abs(placement.captionWidth - placement.figureWidth),
+        `${placement.text}: caption is ${placement.captionWidth}px inside a ` +
+          `${placement.figureWidth}px figure whose diagram scrolls`,
+      ).toBeLessThanOrEqual(1);
+    }
 
     // Exactly once, and as itself. The caption reaches the tree as one run of
     // document text, and nothing else takes it as its own name — a caption
     // folded into the diagram would announce as part of the image instead of
     // as the text it is.
     //
-    // A `figure` node named by its own `figcaption` is exempt, and the
-    // exemption is a statement about HTML rather than a hedge: naming the
-    // figure is what a `figcaption` is for, and a screen reader announcing the
-    // figure on entry and reading its caption inside is the pairing working,
-    // not the text arriving twice. Chrome prunes that node on this page today
-    // and the assertion should not turn red the day it stops.
+    // Two roles are exempt, and both exemptions are statements about how the
+    // tree is built rather than hedges.
+    //
+    // `figure` — naming the figure is what a `figcaption` is for, and a screen
+    // reader announcing the figure on entry and reading its caption inside is
+    // the pairing working, not the text arriving twice.
+    //
+    // `InlineTextBox` — Chromium hangs one of these under a `StaticText` per
+    // painted line. They are layout, not announcements. This one is here
+    // because moving the test onto a body fence (#994) surfaced it: in the
+    // 238px sidebar the caption wrapped, so every box carried a fragment and
+    // none matched the whole string, and the assertion passed by accident of
+    // column width. In the article column the caption fits one line, the single
+    // box carries the entire caption, and the filter caught it. A test whose
+    // result depends on where the text happens to wrap is not measuring what it
+    // says it measures.
     const named = nodes.filter((node) => !node.ignored && node.name?.value === placement.text);
     expect(
       named.filter((node) => node.role?.value === 'StaticText'),
@@ -329,7 +352,7 @@ test('a diagram caption is painted under its figure and announced exactly once',
     expect(
       named
         .map((node) => node.role?.value)
-        .filter((role) => role !== 'StaticText' && role !== 'figure'),
+        .filter((role) => !['StaticText', 'InlineTextBox', 'figure'].includes(role ?? '')),
       `${placement.text}: something other than its own figure is named by the caption`,
     ).toEqual([]);
     expect(placement.title, `${placement.text}: absorbed into the accessible name`).not.toContain(
@@ -347,6 +370,17 @@ test('a diagram caption is painted under its figure and announced exactly once',
     expect(diagram?.description?.value, `${placement.title}: description changed`).toBe(
       placement.description,
     );
+  }
+
+  // The scrolling arm above is the reason this test stopped skipping, so it may
+  // not go quiet. Below the stacked breakpoint this route's captioned diagram is
+  // drawn far wider than the 262px column and must scroll; at desktop it fits,
+  // and there is nothing there to assert.
+  if ((page.viewportSize()?.width ?? 0) < 1024) {
+    expect(
+      scrollingCaptions,
+      'below 1024px the route must exercise a caption beside a scrolling diagram',
+    ).toBeGreaterThan(0);
   }
 
   // Print keeps the caption with the figure it belongs to. `.mermaid-figure`

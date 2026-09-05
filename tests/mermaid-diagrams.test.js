@@ -594,7 +594,12 @@ describe('rehype-mermaid integration', () => {
   it('ships built diagrams as accessible static SVG', () => {
     expect(existsSync(builtBlogRoot), 'dist/blog must exist; run npm run build first').toBe(true);
     let diagramCount = 0;
-    let captionCount = 0;
+    // Counted per surface, not in bulk (#994). Both were once satisfiable by the
+    // sidebar alone: the body could not carry a caption until #989, and no body
+    // fence carried one until #994, so a guard that only asked "did any caption
+    // ship" would have gone on passing with the body surface uncovered.
+    let sidebarCaptions = 0;
+    let bodyCaptions = 0;
 
     for (const pagePath of builtBlogPagePaths()) {
       const slug = builtBlogSlug(pagePath);
@@ -633,7 +638,8 @@ describe('rehype-mermaid integration', () => {
         // presentational — announced as part of the diagram's name at best,
         // and not at all at worst (#989).
         if (caption) {
-          captionCount += 1;
+          if (figure.closest('.blog-sidebar-item')) sidebarCaptions += 1;
+          else bodyCaptions += 1;
           expect(caption.textContent?.trim(), `${slug}: empty caption`).toBeTruthy();
           expect(
             caption.closest('.mermaid-figure__graphic'),
@@ -649,9 +655,11 @@ describe('rehype-mermaid integration', () => {
 
     expect(diagramCount, 'the assertion must exercise built diagrams').toBeGreaterThan(0);
     // The caption arm is only a check while some built page actually carries
-    // one. Two sidebar diagrams do; if both were unauthored the arm above
-    // would pass by never running.
-    expect(captionCount, 'the assertion must exercise a built caption').toBeGreaterThan(0);
+    // one, and it has to be checked on both surfaces: the point of #989 was that
+    // they emit the same element, and a count that lumped them together could
+    // not tell one of them going dark from the other carrying both.
+    expect(sidebarCaptions, 'the assertion must exercise a sidebar caption').toBeGreaterThan(0);
+    expect(bodyCaptions, 'the assertion must exercise a body-fence caption').toBeGreaterThan(0);
   });
 
   it('preserves the representative production syntax surface', () => {
