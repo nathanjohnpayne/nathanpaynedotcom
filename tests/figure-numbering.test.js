@@ -148,14 +148,23 @@ describe('one figure sequence across images and diagrams (#998)', () => {
   });
 
   it('is idempotent about figures it has already numbered', () => {
-    // Rehype plugins run once per document, but a figure that gained a second
-    // label would be a silent doubling rather than a crash, so the shape is
-    // asserted rather than assumed.
+    // Run twice, because once proves nothing about idempotency (Codex P2). A
+    // figure that gained a second label would be a silent doubling rather than
+    // a crash, which is the whole reason the guard exists — so the test has to
+    // reach the second pass to mean anything.
     const tree = { type: 'root', children: [imageFigure('one'), mermaidFigure('')] };
     rehypeFigureNumbers()(tree);
     const afterFirst = labelsOf(tree);
+    const afterFirstShape = JSON.stringify(tree);
+
+    rehypeFigureNumbers()(tree);
 
     expect(afterFirst).toEqual(['Figure 1:', 'Figure 2']);
+    expect(labelsOf(tree), 'a second pass added labels').toEqual(afterFirst);
+    // Whole-tree comparison rather than a label count: a second pass that
+    // renumbered in place, or appended an empty figcaption, would leave the
+    // count untouched.
+    expect(JSON.stringify(tree), 'a second pass changed the tree').toBe(afterFirstShape);
   });
 });
 

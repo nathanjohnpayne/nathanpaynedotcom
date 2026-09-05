@@ -36,6 +36,9 @@
  * change the answer silently.
  */
 
+/** The one class both figure types label with, so the guard has one thing to look for. */
+const LABEL_CLASS = 'figure-label';
+
 const FIGURE_KINDS = [
   { className: 'blog-figure', label: labelImageFigure },
   { className: 'mermaid-figure', label: labelMermaidFigure },
@@ -51,6 +54,15 @@ export default function rehypeFigureNumbers() {
       const classes = classNames(node);
       const kind = FIGURE_KINDS.find((candidate) => classes.includes(candidate.className));
       if (!kind) return;
+      // A figure that already carries a label is skipped rather than labelled
+      // again, and it does not consume a number either — running twice must be
+      // indistinguishable from running once, not merely non-doubling. Rehype
+      // plugins run once per document, so this guards a registration mistake
+      // rather than a normal path; the reason it is here is that the failure
+      // would be a second `Figure N` prepended silently rather than a crash.
+      // `rehypeMermaidFigures` carries the same kind of guard for the same
+      // reason (#989).
+      if (alreadyLabelled(node)) return;
 
       figureNumber += 1;
       kind.label(node, figureNumber);
@@ -112,11 +124,20 @@ function labelMermaidFigure(node, figureNumber) {
   });
 }
 
+/** Whether this figure has been through the numbering pass already. */
+function alreadyLabelled(node) {
+  let found = false;
+  visitElements(node, (child) => {
+    if (classNames(child).includes(LABEL_CLASS)) found = true;
+  });
+  return found;
+}
+
 function strong(value) {
   return {
     type: 'element',
     tagName: 'strong',
-    properties: { className: ['figure-label'] },
+    properties: { className: [LABEL_CLASS] },
     children: [{ type: 'text', value }],
   };
 }

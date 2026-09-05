@@ -2,7 +2,7 @@
 
 ## Summary
 
-Every substantive visual in an article carries a `Figure N` label, and images and Mermaid diagrams share one sequence in document order (#998). A screenshot and a diagram are different visual primitives — one presents an artifact, the other an explanatory model — and they stay visually distinct. They are not different *document* primitives: both are things a reader refers to by number, so numbering the screenshots around an unnumbered diagram tells the reader the diagram is furniture.
+Every substantive visual in an article carries a `Figure N` label, and images and Mermaid diagrams share one sequence in document order (#998). A screenshot and a diagram are different visual primitives: one presents an artifact, the other an explanatory model, and they stay visually distinct. They are not different *document* primitives: both are things a reader refers to by number, so numbering the screenshots around an unnumbered diagram tells the reader the diagram is furniture.
 
 **Shared hierarchy; differentiated presentation.**
 
@@ -10,13 +10,13 @@ Every substantive visual in an article carries a `Figure N` label, and images an
 
 `src/plugins/rehype-figure-numbers.mjs` runs last among the figure plugins, after `rehypeFigureCaptions` has built the image figures and `rehypeMermaidSvg` has finished the diagrams, and walks the finished tree once. Numbers are generated from document order and never authored in Markdown.
 
-One pass rather than a counter per producer. Two counters that happen to agree are not a shared sequence: the moment a diagram lands between two images neither producer can see the other, and `six-prs-one-bug-agent-failure-modes` is that case — its first figure in document order is a diagram, so every image number on the page depends on a figure a per-type counter never sees.
+One pass rather than a counter per producer. Two counters that happen to agree are not a shared sequence: the moment a diagram lands between two images neither producer can see the other, and `six-prs-one-bug-agent-failure-modes` is that case: its first figure in document order is a diagram, so every image number on the page depends on a figure a per-type counter never sees.
 
 ## Where the label goes
 
 An image figure is unchanged: `<figcaption><strong class="figure-label">Figure N:</strong> alt text</figcaption>`.
 
-A diagram gets the same label in the same place and nothing else of the image figure — no frame, no ground, no border:
+A diagram gets the same label in the same place and nothing else of the image figure. No frame, no ground, no border:
 
 ```html
 <figure class="mermaid-figure">
@@ -36,7 +36,7 @@ The label lives inside the `<figcaption>` because a `<figure>` may hold only one
 
 A blog `sidebar` Mermaid item is not an article figure. The sidebar is `display: none` below 1024px, so numbering one would make an article's figure sequence gain and lose an entry with viewport width, and two posts carry their only diagram there.
 
-No exclusion rule is written for this. Sidebar items render through `src/lib/render-sidebar-mermaid.mjs` and are interpolated into the layout as HTML, so they never enter the Markdown tree the numbering plugin walks — the scoping is a property of the pipeline rather than a filter that could be got wrong. It is asserted anyway, because a future sidebar rendered through Markdown would change the answer with nothing else to notice.
+No exclusion rule is written for this. Sidebar items render through `src/lib/render-sidebar-mermaid.mjs` and are interpolated into the layout as HTML, so they never enter the Markdown tree the numbering plugin walks, so the scoping is a property of the pipeline rather than a filter that could be got wrong. It is asserted anyway, because a future sidebar rendered through Markdown would change the answer with nothing else to notice.
 
 ## Acceptance Criteria
 
