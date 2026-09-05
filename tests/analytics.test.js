@@ -3,6 +3,7 @@ import { readFileSync } from 'fs';
 import { resolve } from 'path';
 import { execSync } from 'child_process';
 import { readBuiltPage, writeSanitizedDOM } from './helpers/dom.js';
+import { PROJECTS_RIBBON } from '../src/lib/projects-ribbon';
 
 const rawHtml = readBuiltPage('index.html');
 
@@ -470,6 +471,28 @@ describe('PostHog', () => {
       calls.some((c) => c.panel === 'unknown'),
       'an exit is not inside a [data-panel] .panel container',
     ).toBe(false);
+  });
+
+  it('reports the Projects exit whichever footer line the build switch selected', () => {
+    // #984 rebuilds the Projects footer's eyebrow row in two branches, and the
+    // exit link is inside both. The sweep above would still pass on a build
+    // that lost it — three exits would become two and `.sort()` would report a
+    // shorter list, but only this assertion says which panel went missing and
+    // which branch it went missing from.
+    const capture = vi.fn();
+    window.posthog = { capture };
+    new Function(posthogHomepageScript)();
+
+    const ribbon = PROJECTS_RIBBON === 'domains' ? '.domains-ribbon' : '.stack-ribbon';
+    const exit = document.querySelector(`[data-panel="projects"] ${ribbon} .ribbon-exit`);
+    expect(exit, `no .ribbon-exit inside ${ribbon}`).not.toBeNull();
+
+    exit.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+
+    expect(capture).toHaveBeenCalledWith('index_link_clicked', {
+      panel: 'projects',
+      href: '/projects/',
+    });
   });
 
   it('keeps [data-panel] unique to panel containers', () => {

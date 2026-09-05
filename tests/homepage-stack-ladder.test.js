@@ -2,8 +2,15 @@ import { describe, it, expect, beforeAll } from 'vitest';
 import { readFileSync } from 'fs';
 import { resolve } from 'path';
 import { readBuiltStylesheet, writeSanitizedDOM } from './helpers/dom.js';
+import { PROJECTS_RIBBON, STACK_CAP } from '../src/lib/projects-ribbon';
 
 // Guards the Selected Projects STACK degradation ladder (#930).
+//
+// #984 put the ribbon behind a build switch. The CSS half of the ladder ships
+// in either mode and is asserted unconditionally — the rules are what a flip
+// back to 'stack' has to land on, so letting them rot while 'domains' is the
+// default would make the switch one-way in practice. The DOM half is asserted
+// against whichever line the build actually rendered.
 //
 // The ribbon's usable width is set by the Mondrian square, and that square is
 // sized from viewport HEIGHT — so one fixed list is one line on some desktops
@@ -93,29 +100,14 @@ function shippedItems() {
   }));
 }
 
-describe('Selected Projects STACK ladder (#930)', () => {
-  beforeAll(() => {
-    writeSanitizedDOM(readFileSync(resolve(DIST, 'index.html'), 'utf-8'));
-  });
-
-  it('ships every rung-10 item once, in order, inside the one ribbon', () => {
-    const ribbons = document.querySelectorAll('.stack-ribbon .stack-items');
-    expect(ribbons.length, 'STACK is a single ribbon on the homepage').toBe(1);
-    expect(shippedItems().map((item) => item.label)).toEqual(EXPECTED_RUNGS[10]);
-  });
-
-  it.each([10, 9, 8, 7, 6])('renders the commissioned rung %i', (rung) => {
-    const visible = shippedItems()
-      .filter((item) => item.tier <= rung)
-      .map((item) => item.label);
-
-    expect(visible).toEqual(EXPECTED_RUNGS[rung]);
-  });
+describe('Selected Projects STACK ladder — the rules (#930)', () => {
+  // Unconditional in both modes. These are what a flip back to `stack` lands
+  // on, so they are checked whether or not this build renders the ribbon.
 
   it('keeps every rung a subsequence of the one above it', () => {
     // This is the property that makes one DOM order enough. Without it a rung
-    // could hold the right items in the wrong places, and each assertion above
-    // would still pass on its own.
+    // could hold the right items in the wrong places, and a per-rung membership
+    // check would still pass on each of them.
     const rungs = [10, 9, 8, 7, 6];
     for (let i = 1; i < rungs.length; i += 1) {
       const shorter = EXPECTED_RUNGS[rungs[i]];
@@ -133,8 +125,11 @@ describe('Selected Projects STACK ladder (#930)', () => {
   it('never hides the first item, so no separator is ever orphaned', () => {
     // The ` · ` separators are ::before pseudo-elements on every item but the
     // first. Hiding a leading item would leave the new first item drawing a
-    // separator with nothing in front of it.
-    expect(shippedItems()[0].tier).toBe(6);
+    // separator with nothing in front of it. The rung-6 floor is what
+    // guarantees a visible item is always in front of a drawn separator, so
+    // the floor is read off the commissioned table rather than off the page —
+    // under 'domains' there is no page half to read.
+    expect(EXPECTED_RUNGS[6][0]).toBe(EXPECTED_RUNGS[10][0]);
     expect(SOURCE_CSS).toMatch(/\.stack-item:not\(:first-child\)::before \{\s*content: ' · ';/);
   });
 
@@ -215,5 +210,35 @@ describe('Selected Projects STACK ladder (#930)', () => {
         new RegExp(`@container stack[^{]*\\{[^}]*data-stack-tier=.?${tier}.?\\]`),
       );
     });
+  });
+});
+
+describe('Selected Projects STACK ladder — what the build rendered (#930, #984)', () => {
+  beforeAll(() => {
+    writeSanitizedDOM(readFileSync(resolve(DIST, 'index.html'), 'utf-8'));
+  });
+
+  it.runIf(PROJECTS_RIBBON === 'stack')(
+    'ships exactly the capped rung, in ladder order, inside the one ribbon',
+    () => {
+      // #984 caps the ladder server-side at STACK_CAP, so the shipped list is
+      // the rung the cap names rather than all ten. Derived from EXPECTED_RUNGS
+      // — the hand-written table above — and not from the page's own array.
+      const ribbons = document.querySelectorAll('.stack-ribbon .stack-items');
+      expect(ribbons.length, 'STACK is a single ribbon on the homepage').toBe(1);
+      expect(EXPECTED_RUNGS[STACK_CAP], `no commissioned rung ${STACK_CAP}`).toBeDefined();
+      expect(shippedItems().map((item) => item.label)).toEqual(EXPECTED_RUNGS[STACK_CAP]);
+      // Every shipped item is at or under the cap, so nothing on the page
+      // depends on a container query to appear.
+      expect(shippedItems().every((item) => item.tier <= STACK_CAP)).toBe(true);
+    },
+  );
+
+  it.runIf(PROJECTS_RIBBON !== 'stack')('renders no STACK ribbon at all', () => {
+    // Not "renders DOMAINS instead" — that is tests/projects-ribbon.test.js's
+    // assertion. This one is about the branch that did not run: a leftover
+    // .stack-ribbon would put two content lines in one footer.
+    expect(document.querySelectorAll('.stack-ribbon')).toHaveLength(0);
+    expect(document.querySelectorAll('.stack-item')).toHaveLength(0);
   });
 });

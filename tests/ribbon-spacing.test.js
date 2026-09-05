@@ -6,11 +6,12 @@ import { readBuiltStylesheet } from './helpers/dom.js';
 // Guards the space above each panel's closing ribbon (#929 follow-up).
 //
 // Four panels end the same way: a hairline, a small-caps label, and a line of
-// values — STACK, SCOPE, LATEST POST, and About's LAST UPDATED. They are built
-// alike and were spaced by whatever happened to sit above them. Builds got
-// ~19px from its CTA's margin-bottom and About ~20px from a flex gap, both by
-// accident of their neighbours; Community and Connect got the 5px tight-label
-// step, because the element above each has no bottom margin at all.
+// values — STACK (or, under #984's build switch, DOMAINS), SCOPE, LATEST POST,
+// and About's LAST UPDATED. They are built alike and were spaced by whatever
+// happened to sit above them: Builds got ~19px from its CTA's margin-bottom and
+// About ~20px from a flex gap, both by accident of their neighbours; Community
+// and Connect got the 5px tight-label step, because the element above each has
+// no bottom margin at all.
 //
 // The ribbon owns the space now, which is the part that matters and the part
 // these assertions pin. Spacing it from the neighbour instead does not work:
@@ -66,7 +67,12 @@ describe('space above each panel-closing ribbon', () => {
     // .blog-callout was a byte-identical copy of this rule. Sharing the
     // selector list is what stops the fourth ribbon drifting from the other
     // three again.
-    const body = rule('.stack-ribbon,\n.impact-ribbon,\n.now-ribbon,\n.blog-callout');
+    // .domains-ribbon joined the list in #984 rather than taking a rule of its
+    // own: it is the same footer line as .stack-ribbon under a build switch, so
+    // a second declaration is exactly the drift this shared selector prevents.
+    const body = rule(
+      '.stack-ribbon,\n.domains-ribbon,\n.impact-ribbon,\n.now-ribbon,\n.blog-callout',
+    );
     expect(body).toMatch(/margin-top:\s*var\(--ribbon-space-above\)/);
     expect(body).toMatch(/border-top:\s*1px solid var\(--rule\)/);
   });
