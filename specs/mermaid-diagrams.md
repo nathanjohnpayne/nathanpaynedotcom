@@ -117,6 +117,18 @@ accepts but those two do not scan ships diagrams nothing checks.
    outgrows the column it is placed in, and a graphic that scrolls is reachable
    by keyboard.
 
+   That range is not ordered by viewport, and the diagrams a scaled column has
+   to be checked against are the ones that width decides. The column is 528px at
+   1024px, 636px at 1280px and 632px above that, so it is **narrowest at the
+   viewport where the desktop composition begins**, not at the widest or the
+   smallest. Every diagram in it must clear the floor at 528px, which caps an
+   article diagram at about 830px of natural width before it has to scroll,
+   scale further, or be redrawn. Three diagrams sat at 8.17–8.47px there while
+   the suite sampled 375px and 1280px only and stayed green (#987), so the
+   viewports a legibility check samples are part of this criterion, not an
+   implementation detail of it: a column whose width is not monotonic in the
+   viewport is not bounded by measuring the ends of the range.
+
    Both halves of that are asserted, because the page is not the only thing that
    can absorb the excess: a project page's `.project-detail` sets
    `overflow-x: hidden`, so a figure wider than its column clips there instead
