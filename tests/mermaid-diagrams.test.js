@@ -21,7 +21,13 @@ const builtBlogRoot = resolve('dist/blog');
 const builtDiagramRoots = [builtBlogRoot, resolve('dist/projects')];
 const blogFixturePath = resolve('src/content/blog/mermaid-fixture.md');
 
-function builtBlogPagePaths() {
+// Named for what they walk, not for the collection they started in. Both scan
+// `builtDiagramRoots` — blog AND projects — and were called `builtBlog…` from
+// before #753 widened them. A Phase 4b reviewer read the old name as the
+// behaviour and filed a P1 saying the body-caption guard below could never see
+// the project page carrying the only body-fence caption, which is the misreading
+// the name invites (#995). The claim was false and the name was not.
+function builtDiagramPagePaths() {
   return builtDiagramRoots
     .filter((root) => existsSync(root))
     .flatMap((root) =>
@@ -32,7 +38,7 @@ function builtBlogPagePaths() {
     );
 }
 
-function builtBlogSlug(pagePath) {
+function builtDiagramSlug(pagePath) {
   const root = builtDiagramRoots.find((candidate) => pagePath.startsWith(candidate + sep));
   const base = root ?? builtBlogRoot;
   return `${basename(base)}/${relative(base, dirname(pagePath)).split(sep).join('/')}`;
@@ -570,8 +576,8 @@ describe('rehype-mermaid integration', () => {
     expect(existsSync(builtBlogRoot), 'dist/blog must exist; run npm run build first').toBe(true);
     let multilineLabelCount = 0;
 
-    for (const pagePath of builtBlogPagePaths()) {
-      const slug = builtBlogSlug(pagePath);
+    for (const pagePath of builtDiagramPagePaths()) {
+      const slug = builtDiagramSlug(pagePath);
       const html = readFileSync(pagePath, 'utf8');
       const document = new JSDOM(html).window.document;
 
@@ -601,8 +607,8 @@ describe('rehype-mermaid integration', () => {
     let sidebarCaptions = 0;
     let bodyCaptions = 0;
 
-    for (const pagePath of builtBlogPagePaths()) {
-      const slug = builtBlogSlug(pagePath);
+    for (const pagePath of builtDiagramPagePaths()) {
+      const slug = builtDiagramSlug(pagePath);
       const html = readFileSync(pagePath, 'utf8');
       const document = new JSDOM(html).window.document;
       const figures = document.querySelectorAll('.mermaid-figure');
