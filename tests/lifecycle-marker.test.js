@@ -62,10 +62,50 @@ const MARK_CLASSES = [MARK_PRIMITIVE, ...MODIFIER_CLASSES];
  * message asking for a literal, not a miss.
  */
 
+/**
+ * Characters after which a `/` opens a REGEX rather than dividing.
+ *
+ * `>` and `<` are in the set because an arrow-function head ends in `>`:
+ * `(v) => /a,b/.test(v)` puts a regex straight after one (CodeRabbit, PR #973).
+ */
+const EXPRESSION_POSITION = '(,=:[!&|?{;+-*%~^<>';
+
+/**
+ * End index of the regex literal starting at `start`, or -1 if there is none.
+ *
+ * Shared by both scanners below, which is the point: `splitArguments` learned
+ * to lex regexes and `matchingParen` did not, so `/[(]/` still unbalanced the
+ * call's parentheses and the whole invocation was reported unreadable — a false
+ * failure on a call whose surfaces are all literal (Codex, PR #973). One lexer,
+ * both callers.
+ *
+ * Both callers read JavaScript expression context — the text inside a call's
+ * parentheses — so the previous-significant-character test is sound here. It is
+ * deliberately NOT used by `blank()`, which reads whole `.astro` files where
+ * `</div>` would read as a regex opener.
+ */
+function regexEnd(source, start, previous) {
+  if (source[start] !== '/') return -1;
+  if (previous !== '' && !EXPRESSION_POSITION.includes(previous)) return -1;
+  let escaped = false;
+  let inClass = false;
+  for (let index = start + 1; index < source.length; index += 1) {
+    const character = source[index];
+    if (escaped) escaped = false;
+    else if (character === '\\') escaped = true;
+    else if (character === '[') inClass = true;
+    else if (character === ']') inClass = false;
+    else if (character === '\n') return -1;
+    else if (character === '/' && !inClass) return index;
+  }
+  return -1;
+}
+
 /** Index of the `)` matching the `(` at `openIndex`, or -1. */
 function matchingParen(source, openIndex) {
   let depth = 0;
   let quote = null;
+  let seen = '';
   for (let index = openIndex; index < source.length; index += 1) {
     const character = source[index];
     if (quote) {
@@ -73,9 +113,18 @@ function matchingParen(source, openIndex) {
       else if (character === quote) quote = null;
       continue;
     }
+    if (character === '/') {
+      const end = regexEnd(source, index, seen.replace(/\s+$/, '').slice(-1));
+      if (end !== -1) {
+        index = end;
+        seen = '/';
+        continue;
+      }
+    }
     if (character === "'" || character === '"' || character === '`') quote = character;
     else if (character === '(') depth += 1;
     else if (character === ')' && (depth -= 1) === 0) return index;
+    seen += character;
   }
   return -1;
 }
@@ -110,30 +159,11 @@ function splitArguments(text) {
       continue;
     }
     if (character === '/') {
-      const previous = current.replace(/\s+$/, '').slice(-1);
-      // Expression position: a `/` here opens a regex rather than dividing.
-      if (previous === '' || '(,=:[!&|?{;+-*%~^'.includes(previous)) {
-        let scan = index + 1;
-        let escaped = false;
-        let inClass = false;
-        let closed = -1;
-        for (; scan < text.length; scan += 1) {
-          const c = text[scan];
-          if (escaped) escaped = false;
-          else if (c === '\\') escaped = true;
-          else if (c === '[') inClass = true;
-          else if (c === ']') inClass = false;
-          else if (c === '\n') break;
-          else if (c === '/' && !inClass) {
-            closed = scan;
-            break;
-          }
-        }
-        if (closed !== -1) {
-          current += text.slice(index, closed + 1);
-          index = closed;
-          continue;
-        }
+      const closed = regexEnd(text, index, current.replace(/\s+$/, '').slice(-1));
+      if (closed !== -1) {
+        current += text.slice(index, closed + 1);
+        index = closed;
+        continue;
       }
     }
     if (character === "'" || character === '"' || character === '`') quote = character;
@@ -617,8 +647,15 @@ describe('lifecycle marker — declarations', () => {
    * as conditional. `@layer` groups rules for cascade ordering and applies at
    * every viewport; treating it as conditional is the false failure round 5
    * found (Codex, PR #964).
+   *
+   * `@scope` is here for a related reason and a sharper consequence. It narrows
+   * by DOM POSITION, not by viewport or capability, so a mark inside it is not
+   * "one viewport away from being a different mark" — and its rules resolve to
+   * ordinary selectors through `:scope`, so leaving it conditional dropped them
+   * out of `screenRules()` entirely and a scoped `::before` override bypassed
+   * every fill and geometry check (CodeRabbit, PR #973).
    */
-  const UNCONDITIONAL_AT_RULES = new Set(['layer']);
+  const UNCONDITIONAL_AT_RULES = new Set(['layer', 'scope']);
 
   /**
    * `[class~="x"]` and friends: the same targeting written as an attribute.
@@ -939,6 +976,13 @@ describe('lifecycle marker — declarations', () => {
     const prelude = atrule.prelude ? csstree.generate(atrule.prelude) : '';
     const open = prelude.indexOf('(');
     if (open === -1) return null;
+    // Both halves of the prelude are optional: `@scope to (.limit)` declares a
+    // LIMIT and an implicit root. Taking the first parenthesised group returned
+    // the limit as though it were the root, rewrote `:scope::before` against it,
+    // and rejected a rule that targets the implicit root rather than the mark
+    // (Codex and CodeRabbit, PR #973). Anything before the first `(` means the
+    // root was omitted, which is reported rather than guessed at.
+    if (prelude.slice(0, open).trim() !== '') return null;
     let depth = 0;
     let close = -1;
     for (let index = open; index < prelude.length; index += 1) {
@@ -1815,6 +1859,29 @@ describe('lifecycle marker — declarations', () => {
         analyze('@scope { :scope::before { padding: 9px } }').unreadable.length,
         'an unreadable @scope prelude was silently treated as having no root',
       ).toBeGreaterThan(0);
+
+      // `@scope` narrows by DOM position, not by viewport, so its rules must
+      // reach the UNCONDITIONAL set — otherwise `screenRules()` drops them and
+      // the fill and geometry checks never see a scoped override at all.
+      expect(
+        analyze(`${PRIMITIVE}@scope (.state-marker--shipped){:scope::before{padding:9px}}`)
+          .rules.filter((rule) => rule.before && rule.classes.includes('state-marker--shipped'))
+          .every((rule) => rule.conditional === false),
+        'a rule inside @scope was classified conditional and would be dropped from screenRules()',
+      ).toBe(true);
+
+      // Both halves of the prelude are optional, and `to (…)` is the LIMIT.
+      // Reading it as the root rewrote `:scope` against the wrong selector and
+      // rejected a rule targeting the implicit root.
+      const rootless = analyze('@scope to (.state-marker--shipped){:scope::before{padding:9px}}');
+      expect(
+        rootless.unreadable.length,
+        'a rootless @scope had its LIMIT read as the root',
+      ).toBeGreaterThan(0);
+      expect(
+        rootless.rules.filter((rule) => rule.classes.includes('state-marker--shipped')).length,
+        'a rootless @scope resolved :scope against its limit',
+      ).toBe(0);
     });
 
     it('reads an escaped bare selector as bare, and still checks what it declares', () => {
@@ -2042,6 +2109,17 @@ describe('lifecycle marker — declarations', () => {
       expect(surfacesOf("stateMarkerClass(total / count > 1 ? a : b, 'y')")).toEqual([
         { readable: true, classes: ['y'] },
       ]);
+      // An arrow-function head ends in `>`, so a regex straight after one is
+      // still in expression position (CodeRabbit, PR #973).
+      expect(
+        surfacesOf("stateMarkerClass((v) => /a,b/.test(v) ? 'SHIPPED' : status, 'z')"),
+      ).toEqual([{ readable: true, classes: ['z'] }]);
+      // And the boundary scan needs the same lexer, or a regex containing an
+      // unbalanced paren never finds the call's closing one and the whole
+      // invocation reads as unreadable (Codex, PR #973).
+      expect(
+        surfacesOf("stateMarkerClass(/[(]/.test(value) ? 'SHIPPED' : status, 'p-status')"),
+      ).toEqual([{ readable: true, classes: ['p-status'] }]);
     });
 
     it('blanks comments before scanning, in both directions', () => {
