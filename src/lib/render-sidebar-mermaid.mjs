@@ -161,6 +161,14 @@ function figureHtml(tree, diagrams) {
  * that failed to render has no SVG and is skipped — `errorFallback` has already
  * replaced it with a visible failure message, which is a paragraph of text that
  * fits any column.
+ *
+ * The message names the `caption` because a body fence has no field for one and
+ * the loss is otherwise silent: an author following this remedy deletes a
+ * frontmatter block whose `title` and `description` both survive as fence
+ * attributes and whose `caption` does not. Three of the four diagrams #986 moved
+ * had captions that restated their surrounding prose and were dropped; one
+ * carried a detail that had to be checked against the body first. That check is
+ * the author's to make, but they have to know it is there to make it.
  */
 function assertFitsSidebar(figures, diagrams, filePath) {
   const tooWide = figures.flatMap((figure, position) => {
@@ -180,6 +188,7 @@ function assertFitsSidebar(figures, diagrams, filePath) {
       `(a ${SIDEBAR_COLUMN_PX}px column scales a ${SIDEBAR_LABEL_PX}px label below the ` +
       `${MIN_LEGIBLE_PX}px legibility floor past that width). Move it into the post body as a ` +
       '```mermaid fence, where the article column can render it whole, or redraw it narrower. ' +
-      'See #986.',
+      'A fence takes title= and description= but has no caption, so fold anything the caption ' +
+      'says that the prose does not into the prose. See #986.',
   );
 }
