@@ -901,15 +901,6 @@ html[data-fonts-pending] .panel-label {
   color: var(--ink);
 }
 
-/* Blue arrow matches the Builds .p-name-link convention. Only the two
-   navigational exits out of the panel carry one now — the résumé link and
-   this one — so the arrow means "leaves this panel" again (#659). */
-.ribbon-exit .link-arrow,
-.about-resume-link .link-arrow {
-  color: var(--blue);
-  font-weight: 700;
-}
-
 /* Bind the résumé link's final word to its arrow. The arrow is an
    inline-block (atomic inline box), so the browser allows a line break right
    before it; on a line that wraps, that lets the arrow orphan by itself.
@@ -1250,6 +1241,10 @@ html[data-fonts-pending] .panel-label {
    `text-decoration: none`, so the underline cleanly stops at the link
    text and the arrow can be transformed independently on hover.
 
+   This block owns the arrow's LAYOUT and hover motion, which every arrow on
+   the site shares. WHICH links carry one, and in what color, is a separate
+   and editorial question — see § Accent arrows immediately below (#978).
+
    .s-arrow (Connect social rows) is a sibling of .link-arrow that keeps
    its own bespoke layout (margin-left: auto inside a flex tile) but joins
    the same hover-translate selector group so the convention is uniform.
@@ -1276,6 +1271,120 @@ html[data-fonts-pending] .panel-label {
   margin-left: 0.18em;
   text-decoration: none;
   transition: transform var(--motion-hover) var(--ease-standard);
+}
+
+/* ── Accent arrows: what carries one, and in what color (#659, #978) ───────
+   THE RULE: an accent arrow marks a prominent navigational ACTION or a
+   LINKED ENTITY. Not every inline or list link.
+
+   The set below is that rule written out. It is editorial and cannot be
+   derived from structure, which is exactly why it drifted: kept as two
+   hand-maintained allow-lists in two places, it disagreed with itself and
+   with the sentence above it — that comment still claimed only the two panel
+   exits carried an arrow, long after project titles and Community org links
+   had one. One list now, here, beside the sentence, with the per-plane color
+   attached below it, pinned by tests/responsive/home-panel-contrast.spec.ts.
+
+     prominent action  .about-resume-link, .availability-mailto,
+                       .availability-booking, .availability-resume
+     exit action       .ribbon-exit (About, Projects, Connect)
+     linked entity     .p-name.p-name-link (project titles), .effort-link
+                       (organizations), .blog-callout-link (Latest Post)
+
+   Two absences, neither an omission:
+
+   - .writing-link. The five article titles share .p-name-link with the
+     résumé link, which is why project titles are named here as
+     .p-name.p-name-link and not by the class all three carry. The compact
+     article list is meant to read as a list; arrows would make it a stack of
+     buttons. "Any link that leaves the panel" was considered and rejected —
+     almost every link leaves its panel, so the rule collapses into "this is a
+     link" and the arrow stops meaning anything (#978).
+   - .social-row, which carries .s-arrow: a list-row affordance, deliberately
+     a different element with its own layout and opacity ramp (see above).
+
+   Every class named here is homepage-only, so the .link-arrow spans on the
+   résumé and blog pages keep inheriting their link's color, untouched.
+
+   font-weight rides with the color because it was the same omission: the two
+   old lists set both, and .blog-callout-link — on neither — got neither, so
+   its arrow rendered at 400 beside siblings at 700. Splitting the two would
+   mean consolidating the color while keeping a second list for the weight. */
+.about-resume-link .link-arrow,
+.availability-mailto .link-arrow,
+.availability-booking .link-arrow,
+.availability-resume .link-arrow,
+.ribbon-exit .link-arrow,
+.p-name.p-name-link .link-arrow,
+.effort-link .link-arrow,
+.blog-callout-link .link-arrow {
+  color: var(--arrow-accent);
+  font-weight: 700;
+}
+
+/* The accent, per plane. Blue cannot be it everywhere: on the blue plane it
+   resolves to the panel's own background and disappears outright at 1.00:1,
+   and on red it is near-invisible at 1.40:1. So the convention is not "the
+   blue arrow marks an exit" but "the ACCENT arrow marks a prominent action or
+   a linked entity", with the accent chosen per plane — the shape #975 already
+   gave .ribbon-exit, generalized to every arrow.
+
+   The floor is 3:1, not 4.5:1. Every arrow is
+   <span class="link-arrow" aria-hidden="true">→</span> beside link text that
+   names the control, so WCAG 1.4.3's text requirement does not independently
+   apply to it; 1.4.11's 3:1 is the conservative implementation floor.
+
+   Among colors that clear it, the tie-breaker is the one that best preserves
+   "accent" as a distinct visual role — NOT the highest ratio. An arrow that
+   matches its plane's body ink has collapsed into body text and stopped
+   meaning anything, which is the failure this rule exists to fix.
+
+     plane            body ink          accent             ratio
+     parchment/open   --ink-warm        --blue              5.15
+     red              --paper           --paper             4.95   (see below)
+     yellow           --ink-warm        --blue              4.27
+     black            --cream           --blue-contrast    11.49
+     blue             --blue-contrast   --cream             6.08
+
+   black held the one genuine contrast failure: --blue on the rendered #333
+   measures 1.83:1. --veil-on-black clears at 10.35 but is another warm
+   off-white — effectively the body ink — so it fails the tie-breaker despite
+   passing the floor. On blue, --blue-contrast clears higher at 6.28 but IS
+   the body ink there, and --paper at 6.91 is barely separable from it.
+
+   red is a known limitation, not a choice, recorded so the next reader does
+   not re-litigate it: blue fails outright, every remaining option is a
+   near-white, and so the accent cannot be kept distinct on this plane with
+   the current palette. --paper matches the body ink and is the best available.
+
+   Two consequences worth stating, because both look like mistakes:
+   - yellow's .ribbon-exit arrow moves here from --ink-warm, LOWERING it from
+     11.51 to 4.27. Intended. It clears the floor and stops reading as body ink.
+   - the project-title arrows already sat at 4.27 and must not be darkened
+     toward 4.5. That would trade a compliant arrow for a heavier one and
+     flatten the accent that carries the meaning.
+
+   Yellow's closed accent is the same --blue as parchment and is still written
+   out. It is a decision, not a fallthrough, and stating it keeps a future
+   change to the open-state accent from silently moving the closed plane. */
+.panel {
+  --arrow-accent: var(--blue);
+}
+
+.panel--red:not(.is-open) {
+  --arrow-accent: var(--paper);
+}
+
+.panel--yellow:not(.is-open) {
+  --arrow-accent: var(--blue);
+}
+
+.panel--black:not(.is-open) {
+  --arrow-accent: var(--blue-contrast);
+}
+
+.panel--blue:not(.is-open) {
+  --arrow-accent: var(--cream);
 }
 
 a:hover .link-arrow,
@@ -1358,12 +1467,6 @@ a:focus-visible .link-arrow,
   text-decoration: underline;
   text-decoration-thickness: 1px;
   text-underline-offset: 2px;
-}
-
-.panel--yellow .p-name-link .link-arrow,
-.panel--black .effort-link .link-arrow {
-  color: var(--blue);
-  font-weight: 700;
 }
 
 .panel--yellow .project-list {
@@ -1592,7 +1695,7 @@ a:focus-visible .link-arrow,
    use is for static text. Per plane, closed:
 
      red     parchment ink 2.6:1  ->  --paper         4.95:1
-     yellow  parchment ink 5.8:1  (already clear; the arrow is not)
+     yellow  parchment ink 5.8:1  (already clear, so no rule here)
      blue    parchment ink 2.2:1  ->  --blue-contrast 6.28:1
 
    Red is the tight one. The 1930 --red (#da2418) puts even pure white at
@@ -1603,11 +1706,13 @@ a:focus-visible .link-arrow,
    rule below this one, so the plane now carries one interactive foreground
    rather than two near-identical off-whites.
 
-   The .link-arrow is the sharper problem and it is easy to miss: it is
-   var(--blue) by default, so on the blue plane it resolves to the panel's
-   own background and disappears outright at 1.0:1, and on red it is
-   near-invisible. Each plane gives it a color that survives there. Yellow
-   keeps the dark ink and only moves the arrow.
+   These rules govern the exit link's TEXT only. #975 gave each of them a
+   matching .link-arrow declaration, because a blue arrow disappears into the
+   blue plane and is near-invisible on red; #978 moved every arrow on the page
+   onto one rule and one per-plane accent, so those declarations live in
+   § Accent arrows now and this block no longer mentions the arrow at all.
+   Yellow lost its rule here entirely as a result — its exit text was already
+   clear at 5.8:1 and only the arrow had needed one.
 
    Written as :not(.is-open) rather than per-panel pairs reverted by
    .is-open pairs. An open panel is parchment, where the shared control is
@@ -1623,8 +1728,7 @@ a:focus-visible .link-arrow,
    on :not(.is-open) states the actual condition — the panel is showing its
    own color — instead of depending on the breakpoint and the visibility
    state machine continuing to agree. */
-.panel--red:not(.is-open) .ribbon-exit,
-.panel--red:not(.is-open) .ribbon-exit .link-arrow {
+.panel--red:not(.is-open) .ribbon-exit {
   color: var(--paper);
 }
 
@@ -1635,21 +1739,15 @@ a:focus-visible .link-arrow,
    same plane, so the same ink; --paper is not a preference here but the only
    foreground this red admits, as the note above explains.
 
-   Anchors only. Neither arrow inherits from this rule and neither is meant to:
-   .about-resume-link's is set explicitly twice over (var(--blue) site-wide,
-   var(--cream) in stack mode), and .writing-link carries none by design.
-   Arrow color across the home page is #978's, deliberately not touched here. */
+   Anchors only, and no arrow inherits from it: .about-resume-link's takes
+   --arrow-accent from the accent-arrow rule, and .writing-link carries none by
+   design. See § Accent arrows (#978). */
 .panel--red:not(.is-open) .about-resume-link,
 .panel--red:not(.is-open) .writing-link {
   color: var(--paper);
 }
 
-.panel--yellow:not(.is-open) .ribbon-exit .link-arrow {
-  color: var(--ink-warm);
-}
-
-.panel--blue:not(.is-open) .ribbon-exit,
-.panel--blue:not(.is-open) .ribbon-exit .link-arrow {
+.panel--blue:not(.is-open) .ribbon-exit {
   color: var(--blue-contrast);
 }
 
@@ -5431,15 +5529,6 @@ a:focus-visible {
      color as the ribbon hairline so both rules read as one system. */
   .panel--red .writing-list__posts {
     border-left-color: color-mix(in srgb, var(--veil-on-red) 28%, transparent);
-  }
-
-  /* Dark-blue arrow is near-invisible on the red mobile base; cream keeps the
-     affordance legible. It no longer matches the link text — #977 moved that
-     to --paper and left this alone on purpose, because arrow color across the
-     home page is #978's to set. The ribbon exit's arrow is handled with its
-     link in the :not(.is-open) rule above, so only the résumé link is here. */
-  .panel--red .about-resume-link .link-arrow {
-    color: var(--cream);
   }
 
   .panel--yellow .stack-label,

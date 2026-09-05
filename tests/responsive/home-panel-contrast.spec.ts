@@ -43,6 +43,20 @@ type Sample = {
   rawInk: string;
   rawPlane: string[];
   opacity: number;
+  /** The trailing glyph this link carries, if any. */
+  arrow: { kind: 'link-arrow' | 's-arrow'; rawInk: string; opacity: number } | null;
+  /**
+   * The panel's declared --arrow-accent, resolved to a computed color, or
+   * `null` when the panel declares none.
+   *
+   * The null is load-bearing and must not be collapsed into "some color". An
+   * undeclared custom property paints as `inherit`, so a probe would report
+   * the panel's own text ink — which is a plausible-looking value that makes
+   * "this arrow did not come from the accent rule" and "there is no accent
+   * rule" indistinguishable, and would have made the social-row assertion
+   * below fail for the wrong stated reason.
+   */
+  declaredAccent: string | null;
 };
 
 const KILL_MOTION =
@@ -97,6 +111,34 @@ async function sampleLinks(page: Page): Promise<Sample[]> {
         if (!Number.isNaN(value)) opacity *= value;
       }
 
+      const glyph = anchor.querySelector<HTMLElement>('.link-arrow, .s-arrow');
+      let arrow: Sample['arrow'] = null;
+      if (glyph) {
+        let glyphOpacity = 1;
+        for (let node: Element | null = glyph; node; node = node.parentElement) {
+          const value = Number.parseFloat(getComputedStyle(node).opacity);
+          if (!Number.isNaN(value)) glyphOpacity *= value;
+        }
+        arrow = {
+          kind: glyph.classList.contains('s-arrow') ? 's-arrow' : 'link-arrow',
+          rawInk: getComputedStyle(glyph).color,
+          opacity: glyphOpacity,
+        };
+      }
+
+      // Resolve the panel's --arrow-accent the way the browser would, by
+      // painting it onto a throwaway span inside that panel. Reading the raw
+      // custom-property value would return the unresolved `var(--blue)` text.
+      const rawAccent = getComputedStyle(panel).getPropertyValue('--arrow-accent').trim();
+      let declaredAccent: string | null = null;
+      if (rawAccent) {
+        const probe = document.createElement('span');
+        probe.style.color = rawAccent;
+        panel.appendChild(probe);
+        declaredAccent = getComputedStyle(probe).color;
+        probe.remove();
+      }
+
       out.push({
         panel: [...panel.classList].find((c) => c.startsWith('panel--')) ?? '?',
         cls: [...anchor.classList].join('.') || '(bare)',
@@ -104,12 +146,19 @@ async function sampleLinks(page: Page): Promise<Sample[]> {
         rawInk: style.color,
         rawPlane,
         opacity,
+        arrow,
+        declaredAccent,
       });
     });
     return out;
   });
 }
 
+/**
+ * Composite a possibly-transparent foreground onto an opaque background.
+ * Returns an opaque color, because a contrast ratio is only meaningful
+ * between two colors that are actually painted.
+ */
 function over(foreground: ParsedColor, background: ParsedColor): ParsedColor {
   return {
     r: foreground.r * foreground.a + background.r * (1 - foreground.a),
@@ -130,6 +179,10 @@ function planeOf(sample: Sample): ParsedColor {
   return base;
 }
 
+/**
+ * A link's text contrast against the plane it renders on, with both its
+ * color alpha and any inherited element `opacity` folded in.
+ */
 function contrastOf(sample: Sample): number {
   const plane = planeOf(sample);
   const ink = parseComputedColor(sample.rawInk);
@@ -138,6 +191,11 @@ function contrastOf(sample: Sample): number {
   return contrastRatio(composited, plane);
 }
 
+/**
+ * Assert every sampled link clears the 4.5:1 text floor, reporting all the
+ * failures at once rather than stopping at the first: which links fail, and
+ * by how much, is the useful output when a plane's foreground moves.
+ */
 function assertAllClearAA(samples: Sample[], state: string): void {
   expect(samples.length, `no links sampled in ${state}`).toBeGreaterThan(0);
   const failures = samples
@@ -148,6 +206,141 @@ function assertAllClearAA(samples: Sample[], state: string): void {
         `${sample.panel} .${sample.cls} "${sample.text}" = ${ratio.toFixed(2)}:1`,
     );
   expect(failures, `interactive text below ${AA_TEXT}:1 in ${state}`).toEqual([]);
+}
+
+/* ── The accent-arrow contract (#978) ───────────────────────────────────────
+   global.css § Accent arrows states the rule; this restates it as assertions.
+   The set is editorial and cannot be derived from structure, which is why it
+   drifted across two hand-maintained allow-lists — so it is named here, and a
+   panel link that is not on one of these three lists fails the test. Adding an
+   arrow is then a deliberate edit to a named list, in two places that must
+   agree, rather than a silent consequence of picking a class.
+
+   Names are the discriminating class, not every class the anchor carries.
+   `p-name` identifies the project titles: they share `p-name-link` with the
+   résumé link and with the five article titles, and only the first two of
+   those three carry an arrow. */
+const CARRIES_ACCENT_ARROW = [
+  'about-resume-link', // prominent action
+  'availability-mailto',
+  'availability-booking',
+  'availability-resume',
+  'ribbon-exit', // exit action — About, Projects, Connect
+  'p-name', // project titles — linked entity
+  'effort-link', // organizations — linked entity
+  'blog-callout-link', // Latest Post — prominent linked entity
+];
+
+/** Deliberately arrowless: a compact article list should read as a list. */
+const CARRIES_NO_ARROW = ['writing-link'];
+
+/** Its own list-row affordance, a different element by design (#302). */
+const CARRIES_S_ARROW = ['social-row'];
+
+/**
+ * The accent each plane gives its arrows, as the contrast ratio it produces
+ * against that plane — the currency the decision was made in (#978).
+ *
+ * Ratios rather than hexes so the assertion tracks the DECISION, not the
+ * spelling of a token. Every rejected candidate lands on a different number:
+ * on black, --veil-on-black reads 10.35 where --blue-contrast reads 11.49; on
+ * blue, --blue-contrast reads 6.28 and --paper 6.91 where --cream reads 6.08;
+ * on yellow, the --ink-warm this arrow moved off reads 11.51 against 4.27. So
+ * a swap back to any of them fails here rather than passing quietly.
+ */
+const PLANE_ACCENT_RATIO: Record<string, number> = {
+  'panel--red': 4.95, // --paper. A known limitation: see the CSS note.
+  'panel--yellow': 4.27, // --blue
+  'panel--black': 11.49, // --blue-contrast
+  'panel--blue': 6.08, // --cream
+};
+
+/** Parchment, which is what any open panel shows. --blue on all four. */
+const OPEN_ACCENT_RATIO = 5.15;
+
+/** An aria-hidden glyph beside link text that names the control (WCAG 1.4.11). */
+const AA_ARROW = 3;
+
+/**
+ * Which named entries of the three lists above this link matches. Exactly one
+ * is the contract; zero means an unnamed panel link, and more than one means
+ * the lists have stopped being disjoint. Both are failures, and the caller
+ * reports them differently.
+ */
+function identify(sample: Sample): string[] {
+  const classes = sample.cls.split('.');
+  return [...CARRIES_ACCENT_ARROW, ...CARRIES_NO_ARROW, ...CARRIES_S_ARROW].filter((name) =>
+    classes.includes(name),
+  );
+}
+
+/** The arrow glyph's own contrast against the plane, composited like the link's. */
+function arrowContrast(sample: Sample): number {
+  const plane = planeOf(sample);
+  const ink = parseComputedColor(sample.arrow!.rawInk);
+  expect(ink, `Unable to parse arrow color: ${sample.arrow!.rawInk}`).not.toBeNull();
+  return contrastRatio(over({ ...ink!, a: ink!.a * sample.arrow!.opacity }, plane), plane);
+}
+
+/**
+ * The three halves of the accent-arrow contract for one panel in one state:
+ * the arrow-bearing set matches the named lists, every accent arrow resolves
+ * from the panel's `--arrow-accent` rather than inheriting, and each clears
+ * the 3:1 floor at the ratio this plane decided on.
+ */
+function assertArrowContract(samples: Sample[], state: string, expectedRatio: number): void {
+  expect(samples.length, `no links sampled in ${state}`).toBeGreaterThan(0);
+
+  // 1. Every panel link is on exactly one named list, and carries what that
+  //    list says it carries. This is the pin: a new link cannot acquire or
+  //    omit an arrow without failing here.
+  const wrong: string[] = [];
+  for (const sample of samples) {
+    const names = identify(sample);
+    const where = `${state} · ${sample.panel} .${sample.cls} "${sample.text}"`;
+    if (names.length !== 1) {
+      wrong.push(`${where}: matches ${names.length} named entries (${names.join(', ') || 'none'})`);
+      continue;
+    }
+    const [name] = names;
+    const want = CARRIES_ACCENT_ARROW.includes(name)
+      ? 'link-arrow'
+      : CARRIES_S_ARROW.includes(name)
+        ? 's-arrow'
+        : null;
+    const got = sample.arrow?.kind ?? null;
+    if (got !== want)
+      wrong.push(`${where}: expected ${want ?? 'no arrow'}, found ${got ?? 'none'}`);
+  }
+  expect(wrong, `arrow-bearing set does not match the named lists in ${state}`).toEqual([]);
+
+  // 2. Every accent arrow takes its color from the one rule, via the plane's
+  //    declared --arrow-accent. An arrow inheriting its link's ink by omission
+  //    — the defect #978 was filed for — fails here even when it looks fine.
+  const accented = samples.filter((s) => s.arrow?.kind === 'link-arrow');
+  expect(accented.length, `no accent arrows sampled in ${state}`).toBeGreaterThan(0);
+  const undeclared = [
+    ...new Set(accented.filter((s) => s.declaredAccent === null).map((s) => s.panel)),
+  ];
+  expect(undeclared, `panels declaring no --arrow-accent in ${state}`).toEqual([]);
+  const inherited = accented
+    .filter((s) => s.arrow!.rawInk !== s.declaredAccent)
+    .map((s) => `${s.panel} .${s.cls}: ${s.arrow!.rawInk} != declared ${s.declaredAccent}`);
+  expect(inherited, `accent arrows not resolved from --arrow-accent in ${state}`).toEqual([]);
+
+  // 3. The floor, and the decision. Both measured on the composited plane.
+  const failures = accented
+    .map((s) => ({ s, ratio: arrowContrast(s) }))
+    .filter(({ ratio }) => ratio < AA_ARROW)
+    .map(({ s, ratio }) => `${s.panel} .${s.cls} = ${ratio.toFixed(2)}:1`);
+  expect(failures, `accent arrows below ${AA_ARROW}:1 in ${state}`).toEqual([]);
+
+  for (const sample of accented) {
+    expect(
+      arrowContrast(sample),
+      `${state} · ${sample.panel} .${sample.cls} accent is not the one this plane decided on`,
+    ).toBeCloseTo(expectedRatio, 1);
+  }
 }
 
 test.describe('Home panel interactive text contrast', () => {
@@ -183,6 +376,66 @@ test.describe('Home panel interactive text contrast', () => {
       ).toBe(1);
       const samples = (await sampleLinks(page)).filter((s) => s.panel === panel);
       assertAllClearAA(samples, `desktop ${width}px, ${panel} open`);
+    }
+  });
+
+  test("accent arrows: the set is the named one, and each takes its plane's accent", async ({
+    page,
+  }) => {
+    await page.goto('/');
+    await page.addStyleTag({ content: KILL_MOTION });
+    const { isStack, width } = await readLayout(page);
+
+    if (isStack) {
+      expect(await page.locator('.panel.is-open').count(), 'a panel opened in stack mode').toBe(0);
+      const samples = await sampleLinks(page);
+      // Each closed panel shows its own plane, so each has its own accent.
+      for (const panel of PANELS) {
+        assertArrowContract(
+          samples.filter((s) => s.panel === panel),
+          `stack ${width}px, ${panel} closed`,
+          PLANE_ACCENT_RATIO[panel],
+        );
+      }
+      return;
+    }
+
+    for (const panel of PANELS) {
+      await page.hover(`.${panel}`);
+      await expect(page.locator(`.${panel}.is-content-visible`)).toHaveCount(1);
+      assertArrowContract(
+        (await sampleLinks(page)).filter((s) => s.panel === panel),
+        `desktop ${width}px, ${panel} open`,
+        OPEN_ACCENT_RATIO,
+      );
+    }
+  });
+
+  test('social rows keep .s-arrow, outside the accent rule', async ({ page }) => {
+    // #978 owns .link-arrow and nothing else. .s-arrow is a list-row
+    // affordance with its own layout and opacity ramp (#302), and the way to
+    // prove it did not get swept into the accent rule is that its color is not
+    // the plane's accent — not merely that the element still exists.
+    await page.goto('/');
+    await page.addStyleTag({ content: KILL_MOTION });
+    const { isStack } = await readLayout(page);
+    // The rows live in Connect, and on desktop a closed panel's content is
+    // visibility:hidden — so it has to be open before there is anything to read.
+    if (!isStack) {
+      await page.hover('.panel--blue');
+      await expect(page.locator('.panel--blue.is-content-visible')).toHaveCount(1);
+    }
+
+    const rows = (await sampleLinks(page)).filter((s) => s.cls.split('.').includes('social-row'));
+    expect(rows.length, 'no social rows rendered').toBeGreaterThan(0);
+    for (const row of rows) {
+      expect(row.arrow?.kind, `${row.text} lost its .s-arrow`).toBe('s-arrow');
+      // Precondition, stated separately so its absence cannot masquerade as a
+      // sweep: there has to BE an accent before "not the accent" means anything.
+      expect(row.declaredAccent, `${row.panel} declares no --arrow-accent`).not.toBeNull();
+      expect(row.arrow!.rawInk, `${row.text} .s-arrow was swept into the accent rule`).not.toBe(
+        row.declaredAccent,
+      );
     }
   });
 
