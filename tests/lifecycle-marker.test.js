@@ -80,7 +80,20 @@ function matchingParen(source, openIndex) {
   return -1;
 }
 
-/** A call's argument text, split on its top-level commas. */
+/**
+ * A call's argument text, split on its top-level commas.
+ *
+ * Regex literals are lexed here, unlike in `blank()`. The difference is the
+ * input: this reads the text BETWEEN a call's parentheses, which is JavaScript
+ * expression context, so the standard previous-significant-character test is
+ * safe. `blank()` reads whole `.astro` files, where that same test makes
+ * `</div>` a regex opener — measured breaking the SURFACES control, and
+ * reverted. Without lexing here, the comma in
+ * `stateMarkerClass(/a,b/.test(v) ? 'SHIPPED' : status, 'new-surface')` splits
+ * an argument in half and the fragment is reported as an unreadable surface: a
+ * false failure the containment controls cannot catch, because the bogus
+ * argument is explicitly reported (Codex, PR #973).
+ */
 function splitArguments(text) {
   const parts = [];
   let current = '';
@@ -95,6 +108,33 @@ function splitArguments(text) {
         index += 1;
       } else if (character === quote) quote = null;
       continue;
+    }
+    if (character === '/') {
+      const previous = current.replace(/\s+$/, '').slice(-1);
+      // Expression position: a `/` here opens a regex rather than dividing.
+      if (previous === '' || '(,=:[!&|?{;+-*%~^'.includes(previous)) {
+        let scan = index + 1;
+        let escaped = false;
+        let inClass = false;
+        let closed = -1;
+        for (; scan < text.length; scan += 1) {
+          const c = text[scan];
+          if (escaped) escaped = false;
+          else if (c === '\\') escaped = true;
+          else if (c === '[') inClass = true;
+          else if (c === ']') inClass = false;
+          else if (c === '\n') break;
+          else if (c === '/' && !inClass) {
+            closed = scan;
+            break;
+          }
+        }
+        if (closed !== -1) {
+          current += text.slice(index, closed + 1);
+          index = closed;
+          continue;
+        }
+      }
     }
     if (character === "'" || character === '"' || character === '`') quote = character;
     else if ('([{'.includes(character)) depth += 1;
@@ -615,7 +655,13 @@ describe('lifecycle marker — declarations', () => {
     // vocabulary emits, so the operand has to be folded before it is compared
     // (Codex, PR #973). The vocabulary is lowercase throughout, so folding the
     // operand is enough — no comparison site needs to change.
-    const folded = /i/i.test(node.flags ?? '') ? operand.toLowerCase() : operand;
+    // The flag is an identifier as well, so css-tree keeps ITS source spelling
+    // too: `[class~="X" \\69]` is a valid case-insensitive match whose flag
+    // reads as `\\69 ` (Codex, PR #973). Fifth identifier kind in this file to
+    // need the same treatment — class names, pseudo-elements, properties,
+    // attribute values, and now attribute flags.
+    const flags = csstree.ident.decode(node.flags ?? '').trim();
+    const folded = /^i$/i.test(flags) ? operand.toLowerCase() : operand;
     const tokens = folded.split(/\s+/).filter(Boolean);
     // `~=` matches ONE token in the list, so it names that class outright.
     if (node.matcher === '~=') return { exact: tokens };
@@ -1507,6 +1553,9 @@ describe('lifecycle marker — declarations', () => {
       // selects the lowercase class the vocabulary emits.
       'a case-insensitive class attribute selector':
         '[class~="STATE-MARKER--SHIPPED" i]::before{padding:9px}',
+      // The flag is an identifier too, so it can be escaped like any other.
+      'an escaped case-insensitive flag':
+        '[class~="STATE-MARKER--SHIPPED" \\69]::before{padding:9px}',
     };
 
     for (const [shape, css] of Object.entries(QUALIFIED)) {
@@ -1977,6 +2026,21 @@ describe('lifecycle marker — declarations', () => {
       ]);
       expect(surfacesOf('stateMarkerClass(status, `x-${y}`)')).toEqual([
         { readable: false, text: '`x-${y}`' },
+      ]);
+      // A regex literal in the status expression is not an argument boundary.
+      // Without lexing it, the comma inside `/a,b/` split the first argument in
+      // half and the fragment was reported as an unreadable surface — a false
+      // failure on a call whose surfaces are all literal (Codex, PR #973).
+      expect(
+        surfacesOf("stateMarkerClass(/a,b/.test(value) ? 'SHIPPED' : status, 'new-surface')"),
+      ).toEqual([{ readable: true, classes: ['new-surface'] }]);
+      expect(surfacesOf("stateMarkerClass(/[,/]/.test(v) ? a : b, 'x')")).toEqual([
+        { readable: true, classes: ['x'] },
+      ]);
+      // And a division is still a division: the character before it is not
+      // expression position, so nothing is swallowed.
+      expect(surfacesOf("stateMarkerClass(total / count > 1 ? a : b, 'y')")).toEqual([
+        { readable: true, classes: ['y'] },
       ]);
     });
 
