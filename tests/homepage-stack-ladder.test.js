@@ -26,6 +26,7 @@ import { PROJECTS_RIBBON, STACK_CAP } from '../src/lib/projects-ribbon';
 
 const DIST = resolve(__dirname, '../dist');
 const SOURCE_CSS = readFileSync(resolve(__dirname, '../src/styles/global.css'), 'utf-8');
+const SOURCE_PAGE = readFileSync(resolve(__dirname, '../src/pages/index.astro'), 'utf-8');
 
 // Read the built stylesheet too: a rule the author wrote is not the same as a
 // rule that survived Vite's minifier, and container queries are new enough here
@@ -92,6 +93,31 @@ const EXPECTED_RUNGS = {
   6: ['TypeScript', 'React', 'Firebase', 'Anthropic', 'Claude Code', 'Codex'],
 };
 
+/**
+ * The `stackLadder` array as authored in the page, in render order.
+ *
+ * Parsed from source rather than imported: it is a local `const` inside an
+ * Astro component's frontmatter, so there is nothing to import, and copying it
+ * into this file would make the rung assertions agree with a copy instead of
+ * with the page. The parse is deliberately strict — a shape it does not
+ * recognise fails here rather than yielding a short list that quietly satisfies
+ * a `filter`.
+ */
+function ladderSource() {
+  const block = SOURCE_PAGE.match(/const stackLadder = \[([\s\S]*?)\n\];/);
+  expect(block, 'the stackLadder array should be findable in src/pages/index.astro').not.toBeNull();
+
+  const entries = [...block[1].matchAll(/\{ label: '([^']+)', tier: (\d+) \}/g)].map((match) => ({
+    label: match[1],
+    tier: Number(match[2]),
+  }));
+  // Control: every non-blank line in the block has to have parsed, or a
+  // reformatted entry would silently drop out of every rung below.
+  const lines = block[1].split('\n').filter((line) => line.trim() !== '').length;
+  expect(entries, 'an entry in the ladder did not parse').toHaveLength(lines);
+  return entries;
+}
+
 /** Every shipped item, in DOM order, with the shortest rung it survives to. */
 function shippedItems() {
   return [...document.querySelectorAll('.stack-items .stack-item')].map((el) => ({
@@ -103,6 +129,20 @@ function shippedItems() {
 describe('Selected Projects STACK ladder — the rules (#930)', () => {
   // Unconditional in both modes. These are what a flip back to `stack` lands
   // on, so they are checked whether or not this build renders the ribbon.
+
+  it.each([10, 9, 8, 7, 6])('assigns tiers that produce the commissioned rung %i', (rung) => {
+    // This assertion used to read the page: all ten items shipped with their
+    // tiers in the DOM, and filtering them reproduced each rung. #984 removed
+    // that source — under 'domains' the array is not rendered at all, and
+    // under 'stack' only the rung-6 subset is — so it reads the array out of
+    // the page SOURCE instead, which is the thing that was really being
+    // checked and is the same in both modes.
+    const visible = ladderSource()
+      .filter((item) => item.tier <= rung)
+      .map((item) => item.label);
+
+    expect(visible).toEqual(EXPECTED_RUNGS[rung]);
+  });
 
   it('keeps every rung a subsequence of the one above it', () => {
     // This is the property that makes one DOM order enough. Without it a rung

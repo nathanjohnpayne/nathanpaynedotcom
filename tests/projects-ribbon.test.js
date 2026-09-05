@@ -135,7 +135,10 @@ describe(`Selected Projects footer line, mode "${PROJECTS_RIBBON}" (#984)`, () =
     const exits = panel.querySelectorAll('.ribbon-exit');
     expect(exits).toHaveLength(1);
     expect(exits[0].getAttribute('href')).toBe('/projects/');
-    expect(exits[0].closest('.ribbon-row')?.parentElement?.className).toBe(ACTIVE.ribbon.slice(1));
+    expect(
+      exits[0].closest('.ribbon-row')?.parentElement?.classList.contains(ACTIVE.ribbon.slice(1)),
+      `the exit is not on the ${ACTIVE.ribbon} row`,
+    ).toBe(true);
     expect(exits[0].closest('.ribbon-row').querySelector(ACTIVE.label)).not.toBeNull();
   });
 
@@ -185,13 +188,23 @@ describe(`Selected Projects footer line, mode "${PROJECTS_RIBBON}" (#984)`, () =
       // The ladder's own contents are tests/homepage-stack-ladder.test.js's
       // subject. What belongs here is the pair the switch controls: the cap,
       // and the intro sentence that only this mode keeps.
+      // Which items those are is pinned in tests/homepage-stack-ladder.test.js,
+      // against the hand-written rung table. What belongs here is the cap
+      // itself: nothing above it ships, so no container query decides whether
+      // an item appears. Asserted on the tier and not on the count — the two
+      // are equal for every rung of #930's ladder, which makes a count check
+      // look like it is testing the cap when it is testing a coincidence.
       const shipped = [...panel.querySelectorAll('.stack-items .stack-item')];
-      expect(shipped.length).toBeGreaterThan(0);
-      expect(shipped).toHaveLength(STACK_CAP);
       expect(
-        shipped.every((item) => Number(item.getAttribute('data-stack-tier')) <= STACK_CAP),
+        shipped.length,
+        'control: no stack items found, so the sweep is vacuous',
+      ).toBeGreaterThan(0);
+      expect(
+        shipped
+          .map((item) => Number(item.getAttribute('data-stack-tier')))
+          .filter((tier) => tier > STACK_CAP),
         'a shipped item is above the cap, so a container query decides whether it appears',
-      ).toBe(true);
+      ).toEqual([]);
       expect(panel.querySelector('.stack-label').textContent).toBe('Stack');
 
       const intro = panel.querySelector('.content-inner > p');
@@ -217,8 +230,25 @@ function readFooter([ribbonSel, itemsSel, labelSel, twin]) {
   const items = ribbon.querySelector(itemsSel);
   const range = document.createRange();
   range.selectNodeContents(items);
+  // Every geometry reading is taken here, before the ink comparison below
+  // inserts anything into the tree. The clones it inserts are removed as it
+  // goes, so reading afterwards would give the same numbers today — but then
+  // half the readings would be taken on a mutated DOM and half on a clean one,
+  // which is a difference nothing in the result would show.
   const text = range.getBoundingClientRect();
   const rowBox = row.getBoundingClientRect();
+  const geometry = {
+    rowWidth: rowBox.width,
+    textWidth: text.width,
+    // Distinct line tops, not the raw rect count: under `stack` the range spans
+    // six child spans and reports one rect each, all on the same line.
+    lines: new Set([...range.getClientRects()].map((rect) => Math.round(rect.top))).size,
+    // Positive when the line ends before the exit link's left edge.
+    clearance: exit.getBoundingClientRect().left - text.right,
+    opened: document
+      .querySelector('[data-panel="projects"]')
+      .classList.contains('is-content-visible'),
+  };
 
   /**
    * The properties the two modes must agree on, read off `el`, and read again
@@ -258,16 +288,7 @@ function readFooter([ribbonSel, itemsSel, labelSel, twin]) {
         'paddingTop',
       ]),
     },
-    rowWidth: rowBox.width,
-    textWidth: text.width,
-    // Distinct line tops, not the raw rect count: under `stack` the range spans
-    // ten child spans and reports one rect each, all on the same line.
-    lines: new Set([...range.getClientRects()].map((rect) => Math.round(rect.top))).size,
-    // Positive when the line ends before the exit link's left edge.
-    clearance: exit.getBoundingClientRect().left - text.right,
-    opened: document
-      .querySelector('[data-panel="projects"]')
-      .classList.contains('is-content-visible'),
+    ...geometry,
   };
 }
 
