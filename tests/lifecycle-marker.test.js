@@ -853,6 +853,32 @@ describe('lifecycle marker — declarations', () => {
   }
 
   /**
+   * The class a selector is the BARE `::before` primitive of, or null.
+   *
+   * Structural, not textual. `expectUnqualified` used to compare
+   * `csstree.generate()`'s output against the two literal spellings, which
+   * rejected `.state-marker\\2d \\2d shipped::before` — a valid escaped spelling
+   * of the bare selector, with no surface narrowing in it — as though it were
+   * qualified (Codex, PR #973). The identifier walkers had been taught to
+   * decode while the final comparison still read the raw serialization, which
+   * is the same half-applied fix twice over.
+   *
+   * Bare means exactly two parts: one class selector, then `::before` (or the
+   * legacy `:before` the minifier emits). Anything else — an ancestor, a second
+   * class, an attribute, a pseudo-class — is a narrowing and returns null.
+   */
+  function bareTarget(selector) {
+    const parts = selector.children.toArray();
+    if (parts.length !== 2) return null;
+    const [subject, pseudo] = parts;
+    if (subject.type !== 'ClassSelector') return null;
+    const isPseudo =
+      pseudo.type === 'PseudoElementSelector' || pseudo.type === 'PseudoClassSelector';
+    if (!isPseudo || csstree.ident.decode(pseudo.name).toLowerCase() !== 'before') return null;
+    return csstree.ident.decode(subject.name);
+  }
+
+  /**
    * The scoping root of an `@scope (<root>) [to (<limit>)]`, as selector nodes.
    *
    * Returns `null` when the prelude cannot be read, which `analyze` records as
@@ -929,6 +955,7 @@ describe('lifecycle marker — declarations', () => {
         anyClass,
         subject: subjectClassNames(selector),
         subjectAnyClass: subjectAnyClass(selector),
+        bare: bareTarget(selector),
         before: targetsBefore(selector),
         declarations,
         conditional,
@@ -1105,20 +1132,18 @@ describe('lifecycle marker — declarations', () => {
    * reject them here rather than silently ignore them.
    */
   function expectUnqualified(className) {
-    // Compared against the two literal forms rather than a regex built from
-    // the class name. Interpolating into a pattern needs escaping, escaping
-    // one metacharacter is the incomplete-sanitization shape CodeQL objects to
-    // as a technique rather than as one bad pattern (alert 28) — and `-` does
-    // not need escaping outside a character class in the first place. Two
-    // string comparisons sidestep the question, which is the same answer
-    // tests/helpers/dom.js reached about script stripping.
-    const bare = [`.${className}::before`, `.${className}:before`];
-    for (const { selector } of targeting(className)) {
+    // Asked of the parsed selector rather than of its serialization. Comparing
+    // text needed a regex built from the class name — escaping one
+    // metacharacter is the incomplete-sanitization shape CodeQL objects to as a
+    // technique (alert 28) — so it compared against the two literal spellings
+    // instead, and then rejected every OTHER valid spelling of the same bare
+    // selector. `bareTarget` answers the question the check actually has.
+    for (const rule of targeting(className)) {
       expect(
-        bare,
-        `${selector} qualifies the mark; geometry and fill belong to the bare ` +
+        rule.bare,
+        `${rule.selector} qualifies the mark; geometry and fill belong to the bare ` +
           '.state-marker primitive, not to one surface',
-      ).toContain(selector);
+      ).toBe(className);
     }
   }
 
@@ -1453,12 +1478,6 @@ describe('lifecycle marker — declarations', () => {
       // of which was a rule.
       'a comma inside an attribute value':
         '.x[data-label=","] .state-marker--shipped::before{padding:9px}',
-      // Nobody had reported this one. Both escape forms are the same class
-      // name; the old token regex stopped at the backslash and read either as
-      // the bare primitive, so a modifier override was measured against the
-      // BASE rule's expectations.
-      'an escaped class name': '.state-marker\\-\\-shipped::before{padding:9px}',
-      'a hex-escaped class name': '.state-marker\\2d \\2d shipped::before{padding:9px}',
       // Nor this one. A nested rule has no selector of its own in the flat
       // text, so a top-level `{...}` scan never reached it — and the second
       // form is the one that survived the first fix, because the modifier is on
@@ -1466,9 +1485,6 @@ describe('lifecycle marker — declarations', () => {
       // both (Codex, PR #973).
       'CSS nesting': '.resume{color:red;& .state-marker--shipped::before{padding:9px}}',
       'a nested rule two deep': '.resume{& .card{& .state-marker--shipped::before{padding:9px}}}',
-      // An escape is valid in a pseudo-element identifier too, and css-tree
-      // keeps the source spelling there as well.
-      'an escaped pseudo-element name': '.state-marker--shipped::be\\66 ore{padding:9px}',
       // The same targeting written as an attribute rather than a class, which a
       // ClassSelector-only walk does not see at all (Codex, PR #973). The two
       // exact matchers name their class literally; the predicate forms are
@@ -1750,6 +1766,45 @@ describe('lifecycle marker — declarations', () => {
         analyze('@scope { :scope::before { padding: 9px } }').unreadable.length,
         'an unreadable @scope prelude was silently treated as having no root',
       ).toBeGreaterThan(0);
+    });
+
+    it('reads an escaped bare selector as bare, and still checks what it declares', () => {
+      // These are all valid spellings of `.state-marker--shipped::before` — a
+      // BARE selector with no narrowing in it. They belong here rather than in
+      // the qualified-override table above, which is where they started: the
+      // qualification check compared serialized text, so it rejected every
+      // spelling but the two it listed, producing a false failure on a
+      // behaviour-preserving rule (Codex, PR #973).
+      //
+      // What must still hold is that they are collected and their declarations
+      // read — the escapes must not hide the rule from the fill checks either.
+      for (const [shape, css] of Object.entries({
+        'an escaped class name': '.state-marker\\-\\-shipped::before{padding:9px}',
+        'a hex-escaped class name': '.state-marker\\2d \\2d shipped::before{padding:9px}',
+        'an escaped pseudo-element name': '.state-marker--shipped::be\\66 ore{padding:9px}',
+      })) {
+        const collected = analyze(css).rules.filter(
+          (rule) => rule.before && rule.classes.includes('state-marker--shipped'),
+        );
+        expect(collected.length, `${shape} was not collected at all`).toBe(1);
+        expect(collected[0].bare, `${shape} was read as qualifying the mark`).toBe(
+          'state-marker--shipped',
+        );
+        expect(
+          collected[0].declarations.map(({ property }) => property),
+          `${shape} hid its declarations from the fill checks`,
+        ).toEqual(['padding']);
+      }
+      // And the narrowing forms are still NOT bare, escaped or not.
+      for (const css of [
+        '.resume .state-marker--shipped::before{padding:9px}',
+        '.p-status.state-marker--shipped::before{padding:9px}',
+        '.state-marker\\-\\-shipped:hover::before{padding:9px}',
+      ]) {
+        expect(analyze(css).rules[0].bare, `${css} was read as bare`).not.toBe(
+          'state-marker--shipped',
+        );
+      }
     });
 
     it('does not read an unrelated escaped class name as the primitive', () => {
