@@ -611,7 +611,12 @@ describe('lifecycle marker — declarations', () => {
         : value.type === 'Identifier'
           ? csstree.ident.decode(value.name)
           : String(value.value ?? '');
-    const tokens = operand.split(/\s+/).filter(Boolean);
+    // `[class~="STATE-MARKER--SHIPPED" i]` matches the lowercase class the
+    // vocabulary emits, so the operand has to be folded before it is compared
+    // (Codex, PR #973). The vocabulary is lowercase throughout, so folding the
+    // operand is enough — no comparison site needs to change.
+    const folded = /i/i.test(node.flags ?? '') ? operand.toLowerCase() : operand;
+    const tokens = folded.split(/\s+/).filter(Boolean);
     // `~=` matches ONE token in the list, so it names that class outright.
     if (node.matcher === '~=') return { exact: tokens };
     // `=` matches the WHOLE attribute, so its operand is the element's entire
@@ -682,6 +687,33 @@ describe('lifecycle marker — declarations', () => {
    */
   const SUBJECT_PSEUDOS = new Set(['is', 'where', 'nth-child', 'nth-last-child']);
 
+  /**
+   * The selector lists a functional pseudo-class OWNS — its own arguments, and
+   * nothing nested deeper.
+   *
+   * `csstree.walk(node, { visit: 'SelectorList' })` was the first version and
+   * it reached too far: for `:is(.p-status:not(.state-marker--shipped))` it
+   * found the inner `:not()`'s list as well and processed it at the OUTER
+   * polarity, recording the modifier as required and rejecting a rule whose
+   * unwrapped equivalent this suite explicitly allows (Codex, PR #973). A false
+   * failure, and one this file's own fixtures assert against two tests apart.
+   *
+   * Taking only the owned lists puts the nested pseudo back where it belongs:
+   * the recursive `subjectClassNames` call reaches it through its parent
+   * selector and applies that pseudo's own polarity.
+   */
+  function ownedSelectorLists(pseudo) {
+    const lists = [];
+    for (const child of pseudo.children ?? []) {
+      if (child.type === 'SelectorList') lists.push(child);
+      // `:nth-child(n of S)` keeps its list one level down, under `Nth`.
+      else if (child.type === 'Nth' && child.selector?.type === 'SelectorList') {
+        lists.push(child.selector);
+      }
+    }
+    return lists;
+  }
+
   /** The nodes after a selector's last combinator — the compound it subjects. */
   function subjectCompound(selector) {
     const parts = selector.children.toArray();
@@ -732,9 +764,8 @@ describe('lifecycle marker — declarations', () => {
       // Polarity is tracked instead: at even depth the classes inside are
       // required and count, at odd depth they are excluded and do not.
       if (pseudo === 'not') {
-        for (const child of node.children ?? []) {
-          if (child.type !== 'SelectorList') continue;
-          for (const inner of child.children) names.push(...subjectClassNames(inner, !negated));
+        for (const list of ownedSelectorLists(node)) {
+          for (const inner of list.children) names.push(...subjectClassNames(inner, !negated));
         }
         continue;
       }
@@ -744,12 +775,9 @@ describe('lifecycle marker — declarations', () => {
       // that only reads direct `SelectorList` children finds nothing and the
       // rule gets an empty subject (Codex, PR #973). The lists are collected
       // wherever they sit.
-      csstree.walk(node, {
-        visit: 'SelectorList',
-        enter(list) {
-          for (const inner of list.children) names.push(...subjectClassNames(inner, negated));
-        },
-      });
+      for (const list of ownedSelectorLists(node)) {
+        for (const inner of list.children) names.push(...subjectClassNames(inner, negated));
+      }
     }
     return names;
   }
@@ -773,14 +801,9 @@ describe('lifecycle marker — declarations', () => {
       const pseudo = csstree.ident.decode(node.name).toLowerCase();
       const recurse = pseudo === 'not' ? !negated : negated;
       if (pseudo !== 'not' && !SUBJECT_PSEUDOS.has(pseudo)) continue;
-      let found = false;
-      csstree.walk(node, {
-        visit: 'SelectorList',
-        enter(list) {
-          for (const inner of list.children) if (subjectAnyClass(inner, recurse)) found = true;
-        },
-      });
-      if (found) return true;
+      for (const list of ownedSelectorLists(node)) {
+        for (const inner of list.children) if (subjectAnyClass(inner, recurse)) return true;
+      }
     }
     return false;
   }
@@ -1376,6 +1399,10 @@ describe('lifecycle marker — declarations', () => {
         '[class~=state\\-marker\\-\\-shipped]::before{padding:9px}',
       'an unquoted exact class attribute selector':
         '[class=state\\-marker\\ state\\-marker\\-\\-shipped]::before{padding:9px}',
+      // The `i` flag makes the match case-insensitive, so an uppercase operand
+      // selects the lowercase class the vocabulary emits.
+      'a case-insensitive class attribute selector':
+        '[class~="STATE-MARKER--SHIPPED" i]::before{padding:9px}',
     };
 
     for (const [shape, css] of Object.entries(QUALIFIED)) {
@@ -1584,6 +1611,23 @@ describe('lifecycle marker — declarations', () => {
       expect(
         subjects('.p-status:not(:not(:not(.state-marker--shipped))){font-size:1.1em}')[0],
         'a triple negation was read as requiring the modifier',
+      ).not.toContain('state-marker--shipped');
+      // Composed with a functional selector, which is where the first version
+      // of this went wrong: a walk for every descendant `SelectorList` reached
+      // the inner `:not()`'s list and processed it at the OUTER polarity, so a
+      // behaviour-preserving wrapper around an explicitly-allowed selector was
+      // rejected (Codex, PR #973).
+      expect(
+        subjects(':is(.p-status:not(.state-marker--shipped)){font-size:1.1em}')[0],
+        'a negation nested inside :is() was read at the wrong polarity',
+      ).not.toContain('state-marker--shipped');
+      expect(
+        subjects(':is(.p-status:not(:not(.state-marker--shipped))){font-size:1.1em}')[0],
+        'a double negation nested inside :is() was not read as requiring the modifier',
+      ).toContain('state-marker--shipped');
+      expect(
+        subjects(':not(:is(.state-marker--shipped)){font-size:1.1em}')[0],
+        ':is() nested inside :not() was read as requiring the modifier',
       ).not.toContain('state-marker--shipped');
     });
 
