@@ -56,9 +56,9 @@ duplicate graphics nodes. `role="img"` makes that element's descendants
 presentational, which is right for a graphic and its hidden description and
 wrong for anything a sighted reader reads, so the visible caption is the
 `<figure>`'s child, not the graphic's, and assistive technology reaches it once,
-as document text. The sidebar and the body emit the same two elements; before
-#989 a sidebar caption was a sibling `<p>` outside the figure and a body fence
-had no caption at all.
+as document text. The sidebar and the body emit the same two elements. Before
+that (#989) a sidebar caption was a sibling `<p>` outside the figure, and a body
+fence had no caption at all.
 
 Diagrams therefore remain visible with JavaScript disabled, to crawlers, and in
 print. A render error produces a clean fallback containing the title and
