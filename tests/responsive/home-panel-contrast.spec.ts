@@ -154,6 +154,11 @@ async function sampleLinks(page: Page): Promise<Sample[]> {
   });
 }
 
+/**
+ * Composite a possibly-transparent foreground onto an opaque background.
+ * Returns an opaque color, because a contrast ratio is only meaningful
+ * between two colors that are actually painted.
+ */
 function over(foreground: ParsedColor, background: ParsedColor): ParsedColor {
   return {
     r: foreground.r * foreground.a + background.r * (1 - foreground.a),
@@ -174,6 +179,10 @@ function planeOf(sample: Sample): ParsedColor {
   return base;
 }
 
+/**
+ * A link's text contrast against the plane it renders on, with both its
+ * color alpha and any inherited element `opacity` folded in.
+ */
 function contrastOf(sample: Sample): number {
   const plane = planeOf(sample);
   const ink = parseComputedColor(sample.rawInk);
@@ -182,6 +191,11 @@ function contrastOf(sample: Sample): number {
   return contrastRatio(composited, plane);
 }
 
+/**
+ * Assert every sampled link clears the 4.5:1 text floor, reporting all the
+ * failures at once rather than stopping at the first: which links fail, and
+ * by how much, is the useful output when a plane's foreground moves.
+ */
 function assertAllClearAA(samples: Sample[], state: string): void {
   expect(samples.length, `no links sampled in ${state}`).toBeGreaterThan(0);
   const failures = samples
@@ -247,6 +261,12 @@ const OPEN_ACCENT_RATIO = 5.15;
 /** An aria-hidden glyph beside link text that names the control (WCAG 1.4.11). */
 const AA_ARROW = 3;
 
+/**
+ * Which named entries of the three lists above this link matches. Exactly one
+ * is the contract; zero means an unnamed panel link, and more than one means
+ * the lists have stopped being disjoint. Both are failures, and the caller
+ * reports them differently.
+ */
 function identify(sample: Sample): string[] {
   const classes = sample.cls.split('.');
   return [...CARRIES_ACCENT_ARROW, ...CARRIES_NO_ARROW, ...CARRIES_S_ARROW].filter((name) =>
@@ -254,6 +274,7 @@ function identify(sample: Sample): string[] {
   );
 }
 
+/** The arrow glyph's own contrast against the plane, composited like the link's. */
 function arrowContrast(sample: Sample): number {
   const plane = planeOf(sample);
   const ink = parseComputedColor(sample.arrow!.rawInk);
@@ -261,6 +282,12 @@ function arrowContrast(sample: Sample): number {
   return contrastRatio(over({ ...ink!, a: ink!.a * sample.arrow!.opacity }, plane), plane);
 }
 
+/**
+ * The three halves of the accent-arrow contract for one panel in one state:
+ * the arrow-bearing set matches the named lists, every accent arrow resolves
+ * from the panel's `--arrow-accent` rather than inheriting, and each clears
+ * the 3:1 floor at the ratio this plane decided on.
+ */
 function assertArrowContract(samples: Sample[], state: string, expectedRatio: number): void {
   expect(samples.length, `no links sampled in ${state}`).toBeGreaterThan(0);
 
