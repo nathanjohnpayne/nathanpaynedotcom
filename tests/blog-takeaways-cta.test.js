@@ -7,7 +7,13 @@
  *      post cannot ship without one.
  *   2. Every post ends on prev/next navigation computed from the collection
  *      in date order — omitting the missing side at the ends rather than
- *      wrapping — plus a single availability CTA with distinct PostHog events.
+ *      wrapping — plus a single author footer with distinct PostHog events.
+ *
+ * The footer's lede was an availability statement until #969; the assertions
+ * below pin the byline that replaced it and the aria-label that names the
+ * block, and they check the old lede is gone rather than only checking the
+ * new one is present — a block carrying both would satisfy a present-only
+ * assertion and would be the exact regression #969 exists to prevent.
  */
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'fs';
@@ -179,14 +185,23 @@ describe('Blog end-of-post block (#622)', () => {
     }
   });
 
-  it('renders one availability CTA per post with resume, email, and scheduling affordances', () => {
+  it('renders one author footer per post with a byline, resume, email, and scheduling affordances', () => {
     for (const post of builtPosts) {
       setupDOM(post.html);
       const ctas = document.querySelectorAll('.blog-cta');
-      expect(ctas.length, `${post.slug}: expected exactly one CTA`).toBe(1);
+      expect(ctas.length, `${post.slug}: expected exactly one footer`).toBe(1);
 
       const cta = ctas[0];
-      expect(cta.textContent).toContain('Open to senior product/platform roles');
+      expect(cta.getAttribute('aria-label'), `${post.slug}: footer aria-label`).toBe(
+        'About the author',
+      );
+      expect(cta.querySelector('.blog-cta__lede')?.textContent.replace(/\s+/g, ' ').trim()).toBe(
+        'Nathan Payne is a product manager writing about AI, software, and product development.',
+      );
+      expect(
+        cta.textContent,
+        `${post.slug}: the availability lede came back — #969 moved it off the post footer`,
+      ).not.toContain('Open to senior product/platform roles');
       expect(cta.querySelector('a[href="/resume/"][data-cta="resume"]')).not.toBeNull();
       expect(
         cta.querySelector('a[href="https://cal.com/nathanpayne"][data-cta="schedule"]'),
@@ -195,6 +210,47 @@ describe('Blog end-of-post block (#622)', () => {
 
       // The address is assembled client-side; it must not ship in the HTML.
       expect(post.html).not.toContain('hire@nathanpayne.com');
+    }
+  });
+
+  it('holds every post to the one author the footer names', () => {
+    // The footer's byline is a literal, and so are the résumé and contact
+    // links beside it. Before #969 the block claimed no authorship at all,
+    // so a guest post cost nothing; now it names Nathan under an
+    // aria-label that says "About the author". The assumption is only safe
+    // while it is true, and nothing about a guest post would fail on its
+    // own — the page would simply attribute someone else's essay to Nathan
+    // and point the reader at Nathan's résumé.
+    //
+    // Templating the name out of `author` is not the fix and this test is
+    // not asking for it: the rest of the sentence and all three links are
+    // Nathan's, so a guest would get their own name over someone else's
+    // bio. A real guest post needs the block designed. This fails first and
+    // says so.
+    const DEFAULT_AUTHOR = 'Nathan Payne';
+
+    // The schema default covers posts that omit the field, so it is half of
+    // the invariant, not context. Matched rather than searched-for, so a
+    // renamed field fails here instead of silently checking nothing.
+    const declared = configSource.match(/author:\s*z\.string\(\)\.default\('([^']*)'\)/);
+    expect(
+      declared,
+      'no `author` default found in src/content.config.ts — did the field move?',
+    ).not.toBeNull();
+    expect(declared[1], 'the schema default no longer matches the byline in BlogPost.astro').toBe(
+      DEFAULT_AUTHOR,
+    );
+
+    for (const post of sourcePosts) {
+      const author = scalar(post.raw, 'author');
+      // Absent is fine: Zod supplies the default asserted above.
+      if (author === undefined) continue;
+      expect(
+        author.replace(/^["']|["']$/g, ''),
+        `${post.slug}: authored by someone the end-of-post byline does not name. ` +
+          "The footer, its résumé link, and its contact links are all Nathan's — " +
+          'design the block for a second author rather than relaxing this.',
+      ).toBe(DEFAULT_AUTHOR);
     }
   });
 

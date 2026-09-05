@@ -268,6 +268,39 @@ describe('PostHog', () => {
     expect(posthogHomepageScript).not.toContain('window.posthog.capture');
   });
 
+  it("states an event count in the spec that matches the spec's own table", () => {
+    // The prose said "twelve" while the table listed nineteen. It had drifted
+    // long before this test — each PR that adds an event updates the table it
+    // is editing and not the sentence four screens above it, and nothing
+    // failed. Derived from the table rather than hardcoded, so adding an event
+    // fails this once, on the number, instead of going quietly stale again.
+    const spec = readFileSync(resolve(__dirname, '../specs/analytics.md'), 'utf-8');
+
+    const table = spec.match(/\| Event \| Trigger \| Properties \|\n\|[-| ]+\|\n((?:\|.*\n)+)/);
+    expect(table, 'no event table found in specs/analytics.md').not.toBeNull();
+    const rowCount = table[1].trim().split('\n').length;
+    expect(rowCount, 'event table looks empty').toBeGreaterThan(10);
+
+    const words = {
+      12: 'twelve',
+      13: 'thirteen',
+      14: 'fourteen',
+      15: 'fifteen',
+      16: 'sixteen',
+      17: 'seventeen',
+      18: 'eighteen',
+      19: 'nineteen',
+      20: 'twenty',
+    };
+    const expected = words[rowCount];
+    expect(expected, `no spelling on file for ${rowCount} — extend the map`).toBeDefined();
+    expect(
+      spec,
+      `specs/analytics.md prose should say "${expected} custom conversion/engagement events" ` +
+        `to match its own table of ${rowCount}`,
+    ).toContain(`${expected} custom conversion/engagement events`);
+  });
+
   it('wires the homepage conversion events', () => {
     for (const evt of [
       'homepage_panel_opened',
@@ -277,6 +310,7 @@ describe('PostHog', () => {
       'social_link_clicked',
       'donation_link_clicked',
       'writing_link_clicked',
+      'index_link_clicked',
     ]) {
       expect(posthogHomepageScript).toContain(evt);
     }
@@ -394,19 +428,108 @@ describe('PostHog', () => {
     expect(capture).toHaveBeenCalledWith('booking_link_clicked');
   });
 
-  it('captures resume_link_clicked from the Connect social-stack résumé row (and still social_link_clicked)', () => {
+  // #972 removed the Connect "Elsewhere" résumé row, and with it the only
+  // element that was both a résumé link and a .social-row. That row fired
+  // resume_link_clicked and social_link_clicked {platform:"resume"} together
+  // — deliberately, and documented as Behavior #3 — so the coverage that
+  // used to pin the double-fire now pins its absence, from the action-row
+  // link that replaced it as Connect's résumé affordance.
+  it('captures resume_link_clicked from the Connect action-row résumé link, and nothing else', () => {
     const capture = vi.fn();
     window.posthog = { capture };
     new Function(posthogHomepageScript)();
 
     document
-      .querySelector('.social-row--resume')
+      .querySelector('.availability-resume')
       .dispatchEvent(new MouseEvent('click', { bubbles: true }));
 
-    // Connect "Elsewhere" résumé row is both a résumé link and a .social-row,
-    // so it fires both events (see specs/analytics.md Behavior #3).
     expect(capture).toHaveBeenCalledWith('resume_link_clicked');
-    expect(capture).toHaveBeenCalledWith('social_link_clicked', { platform: 'resume' });
+    expect(
+      capture.mock.calls.filter((c) => c[0] === 'social_link_clicked'),
+      'the action-row résumé link is not a .social-row and must not report as one',
+    ).toHaveLength(0);
+  });
+
+  it('captures index_link_clicked from every panel exit, with its panel and href', () => {
+    const capture = vi.fn();
+    window.posthog = { capture };
+    new Function(posthogHomepageScript)();
+
+    const exits = [...document.querySelectorAll('.ribbon-exit')];
+    // Control: the sweep below says nothing if it swept nothing. Three panels
+    // exit to an index — Projects, About, Connect (#975).
+    expect(exits.length, 'expected three .ribbon-exit links').toBe(3);
+    for (const exit of exits) {
+      exit.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    }
+
+    const calls = capture.mock.calls.filter((c) => c[0] === 'index_link_clicked').map((c) => c[1]);
+    expect(calls.map((c) => c.panel).sort()).toEqual(['about', 'connect', 'projects']);
+    expect(calls.map((c) => c.href).sort()).toEqual(['/blog/', '/blog/', '/projects/']);
+    expect(
+      calls.some((c) => c.panel === 'unknown'),
+      'an exit is not inside a [data-panel] .panel container',
+    ).toBe(false);
+  });
+
+  it('keeps [data-panel] unique to panel containers', () => {
+    // The exits carried their own data-panel until Codex caught it on #975.
+    // It duplicated the value on the containing <article>, which is what the
+    // grid's state machine and the Playwright suite select on — and
+    // Playwright's locator is strict, so [data-panel="about"] threw instead
+    // of asserting, while document.querySelector here silently took the
+    // first match and every Vitest suite stayed green. Asserting uniqueness
+    // rather than the absence of one attribute on one element: any future
+    // element borrowing the name breaks the same selector.
+    for (const name of ['about', 'projects', 'connect', 'community']) {
+      const matches = document.querySelectorAll(`[data-panel="${name}"]`);
+      expect(matches.length, `[data-panel="${name}"] should match exactly one element`).toBe(1);
+      expect(
+        matches[0].classList.contains('panel'),
+        `[data-panel="${name}"] should be the panel container`,
+      ).toBe(true);
+    }
+  });
+
+  it('keeps writing_link_clicked to article links only', () => {
+    const capture = vi.fn();
+    window.posthog = { capture };
+    new Function(posthogHomepageScript)();
+
+    // The About exit sat inside .writing-list until #975, so its one click
+    // per quarter landed in the article-click event. It reports as
+    // index_link_clicked now and must not double-report.
+    document
+      .querySelector('[data-panel="about"] .ribbon-exit')
+      .dispatchEvent(new MouseEvent('click', { bubbles: true }));
+
+    expect(capture.mock.calls.filter((c) => c[0] === 'writing_link_clicked')).toHaveLength(0);
+
+    const article = document.querySelector('.writing-list__posts a');
+    expect(article, 'no article link found — the assertion below is vacuous').not.toBeNull();
+    article.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    expect(capture).toHaveBeenCalledWith('writing_link_clicked', {
+      href: article.getAttribute('href'),
+    });
+  });
+
+  it('no longer emits social_link_clicked with an on-site platform', () => {
+    const capture = vi.fn();
+    window.posthog = { capture };
+    new Function(posthogHomepageScript)();
+
+    const rows = [...document.querySelectorAll('.social-row')];
+    // Control: a zero-hit sweep proves nothing if the sweep found no rows.
+    expect(rows.length, 'no .social-row elements found — the sweep below is vacuous').toBe(6);
+    for (const row of rows) {
+      row.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    }
+
+    const platforms = capture.mock.calls
+      .filter((c) => c[0] === 'social_link_clicked')
+      .map((c) => c[1].platform)
+      .sort();
+    expect(platforms).toEqual(['bluesky', 'github', 'instagram', 'linkedin', 'threads', 'x']);
   });
 
   // #659 folded the RÉSUMÉ section into NOW, so the About-panel résumé link

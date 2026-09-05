@@ -127,13 +127,24 @@ describe('homepage Writing block (#523)', () => {
     expect(link?.getAttribute('href')).toBe('/blog/autofix-was-the-whole-cost/');
   });
 
-  it('closes the list with a "View all writing" link to /blog/', () => {
-    const all = [...document.querySelectorAll('.writing-list a')];
-    const last = all[all.length - 1];
-    expect(last?.getAttribute('href')).toBe('/blog/');
-    expect(last?.textContent.replace(/→/g, '').replace(/\s+/g, ' ').trim()).toBe(
-      'View all writing',
-    );
+  it('follows the list with a "View all writing" link to /blog/, on the ribbon', () => {
+    // The exit closed .writing-list itself until #975, when it joined the
+    // Projects and Connect exits on the footer ribbon row. The block still
+    // ends with a route to the index; it is a sibling of the list now rather
+    // than its last child, which is also what keeps it out of the
+    // .writing-list a article-click selector.
+    const articles = [...document.querySelectorAll('.writing-list a')];
+    expect(articles.length, 'no article links found').toBeGreaterThan(0);
+    expect(
+      articles.every((a) => a.getAttribute('href') !== '/blog/'),
+      '.writing-list still contains the index link — writing_link_clicked will count it',
+    ).toBe(true);
+
+    const exit = document.querySelector('[data-panel="about"] .ribbon-exit');
+    expect(exit, 'About panel has no .ribbon-exit').not.toBeNull();
+    expect(exit.getAttribute('href')).toBe('/blog/');
+    expect(exit.textContent.replace(/→/g, '').replace(/\s+/g, ' ').trim()).toBe('View all writing');
+    expect(exit.closest('.now-ribbon'), 'the exit is not on the About ribbon').not.toBeNull();
   });
 });
 
@@ -258,18 +269,24 @@ describe('Homepage Builds grid mirrors the projects collection (#892)', () => {
     }
   });
 
-  it('offers a route into the projects index', () => {
+  it('offers a route into the projects index, at footer weight', () => {
     setupDOM(readDistHtml('index.html'));
     const panel = document.querySelector('[data-panel="projects"]');
-    const cta = panel.querySelector('.projects-index-cta');
-    expect(cta, 'no CTA into /projects/').not.toBeNull();
-    expect(cta?.getAttribute('href')).toBe('/projects/');
-    expect(cta?.textContent).toContain('View all projects');
-    // A paper control, not a bare link: the site's grammar reserves the outlined
-    // rectangle for actions, and this is one. Status labels deliberately do NOT
-    // take this treatment — see .p-status in global.css.
-    expect(cta?.classList.contains('nav-button'), 'CTA should use the paper control style').toBe(
-      true,
-    );
+    const exit = panel.querySelector('.ribbon-exit');
+    expect(exit, 'no route into /projects/').not.toBeNull();
+    expect(exit.getAttribute('href')).toBe('/projects/');
+    expect(exit.textContent).toContain('View all projects');
+    expect(exit.closest('.ribbon-row'), 'the exit is not on the ribbon row').not.toBeNull();
+
+    // It was a .nav-button until #975 — the outlined paper control the site's
+    // grammar reserves for actions. PostHog says this is not an action: over
+    // 90 days /projects/ took 1 of its 82 views from this page. It is
+    // wayfinding, so it now carries the eyebrow-scale treatment the other two
+    // panel exits use, and no button renders on the home grid at all.
+    expect(exit.classList.contains('nav-button'), 'the exit should not be a button').toBe(false);
+    expect(
+      document.querySelectorAll('.nav-button').length,
+      'no .nav-button should render on the home page',
+    ).toBe(0);
   });
 });

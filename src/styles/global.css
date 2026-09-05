@@ -863,9 +863,24 @@ html[data-fonts-pending] .panel-label {
    It is separated by voice and by gap, not by a rule of its own. The panel
    holds exactly one horizontal rule and it belongs above LAST UPDATED — two
    rules 40px apart banded this line into a strip. */
-.writing-list .writing-list__all {
-  display: block;
-  margin-top: 0.75rem;
+/* Footer ribbons: eyebrow left, index link right. Every panel exit sits here
+   (#892 → #972 → #975). Projects reached its index by a bordered .nav-button
+   above the ribbon and Writing by a text link inside .writing-list; three
+   panels exited three ways. They are one control now.
+
+   Styled as .ribbon-row .ribbon-exit rather than a bare .ribbon-exit: the
+   descendant selector's specificity is what beats the generic link rules, so
+   flattening it would change which rule wins, not just where it applies
+   (found in #974). */
+.ribbon-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.ribbon-row .ribbon-exit {
   font-family: var(--font-body);
   font-size: 0.6rem;
   line-height: 1.2;
@@ -874,25 +889,16 @@ html[data-fonts-pending] .panel-label {
   font-weight: 500;
   text-decoration: none;
   /* The same warm ink as .about-label but at 72% rather than 50%. The
-     labels are static text; this is an interactive control at 0.6rem, and
-     50% ink on the parchment lands at ~3.4:1 — under the 4.5:1 floor.
-     72% reads as the same voice and measures ~6.5:1. */
+     labels are static text; this is the only interactive control at eyebrow
+     scale, and 50% ink on the parchment lands at ~3.4:1 — under the 4.5:1
+     floor. 72% reads as the same voice and measures ~6.5:1. */
   color: rgba(23, 19, 15, 0.72);
   transition: color var(--motion-hover) var(--ease-standard);
 }
 
-.writing-list .writing-list__all:hover,
-.writing-list .writing-list__all:focus-visible {
+.ribbon-row .ribbon-exit:hover,
+.ribbon-row .ribbon-exit:focus-visible {
   color: var(--ink);
-}
-
-/* Blue arrow matches the Builds .p-name-link convention. Only the two
-   navigational exits out of the panel carry one now — the résumé link and
-   this one — so the arrow means "leaves this panel" again (#659). */
-.writing-list__all .link-arrow,
-.about-resume-link .link-arrow {
-  color: var(--blue);
-  font-weight: 700;
 }
 
 /* Bind the résumé link's final word to its arrow. The arrow is an
@@ -993,14 +999,6 @@ html[data-fonts-pending] .panel-label {
     var(--github-green-4) 76%,
     var(--github-green-2) 100%
   );
-}
-.social-row--blog::after {
-  background: linear-gradient(90deg, var(--red) 0%, var(--yellow) 54%, var(--blue) 100%);
-}
-.social-row--resume::after {
-  /* Reversed Mondrian (blue→yellow→red) — an internal site destination
-     like Blog, distinguished from Blog's red→yellow→blue bar. */
-  background: linear-gradient(90deg, var(--blue) 0%, var(--yellow) 54%, var(--red) 100%);
 }
 .social-row--bluesky::after {
   background: linear-gradient(
@@ -1208,11 +1206,6 @@ html[data-fonts-pending] .panel-label {
    ribbon's own --ribbon-space-above, which is slightly wider than the 0.9rem
    this used to carry, so the separation this comment is about only improved.
    Left-aligned and unwidened by intent. */
-.projects-index-cta {
-  margin-top: 1.5rem;
-  font-size: clamp(0.68rem, 0.8vw, 0.78rem);
-  padding: 0.42rem 0.7rem;
-}
 
 .p-name {
   font-family: var(--font-heading);
@@ -1248,6 +1241,10 @@ html[data-fonts-pending] .panel-label {
    `text-decoration: none`, so the underline cleanly stops at the link
    text and the arrow can be transformed independently on hover.
 
+   This block owns the arrow's LAYOUT and hover motion, which every arrow on
+   the site shares. WHICH links carry one, and in what color, is a separate
+   and editorial question — see § Accent arrows immediately below (#978).
+
    .s-arrow (Connect social rows) is a sibling of .link-arrow that keeps
    its own bespoke layout (margin-left: auto inside a flex tile) but joins
    the same hover-translate selector group so the convention is uniform.
@@ -1274,6 +1271,120 @@ html[data-fonts-pending] .panel-label {
   margin-left: 0.18em;
   text-decoration: none;
   transition: transform var(--motion-hover) var(--ease-standard);
+}
+
+/* ── Accent arrows: what carries one, and in what color (#659, #978) ───────
+   THE RULE: an accent arrow marks a prominent navigational ACTION or a
+   LINKED ENTITY. Not every inline or list link.
+
+   The set below is that rule written out. It is editorial and cannot be
+   derived from structure, which is exactly why it drifted: kept as two
+   hand-maintained allow-lists in two places, it disagreed with itself and
+   with the sentence above it — that comment still claimed only the two panel
+   exits carried an arrow, long after project titles and Community org links
+   had one. One list now, here, beside the sentence, with the per-plane color
+   attached below it, pinned by tests/responsive/home-panel-contrast.spec.ts.
+
+     prominent action  .about-resume-link, .availability-mailto,
+                       .availability-booking, .availability-resume
+     exit action       .ribbon-exit (About, Projects, Connect)
+     linked entity     .p-name.p-name-link (project titles), .effort-link
+                       (organizations), .blog-callout-link (Latest Post)
+
+   Two absences, neither an omission:
+
+   - .writing-link. The five article titles share .p-name-link with the
+     résumé link, which is why project titles are named here as
+     .p-name.p-name-link and not by the class all three carry. The compact
+     article list is meant to read as a list; arrows would make it a stack of
+     buttons. "Any link that leaves the panel" was considered and rejected —
+     almost every link leaves its panel, so the rule collapses into "this is a
+     link" and the arrow stops meaning anything (#978).
+   - .social-row, which carries .s-arrow: a list-row affordance, deliberately
+     a different element with its own layout and opacity ramp (see above).
+
+   Every class named here is homepage-only, so the .link-arrow spans on the
+   résumé and blog pages keep inheriting their link's color, untouched.
+
+   font-weight rides with the color because it was the same omission: the two
+   old lists set both, and .blog-callout-link — on neither — got neither, so
+   its arrow rendered at 400 beside siblings at 700. Splitting the two would
+   mean consolidating the color while keeping a second list for the weight. */
+.about-resume-link .link-arrow,
+.availability-mailto .link-arrow,
+.availability-booking .link-arrow,
+.availability-resume .link-arrow,
+.ribbon-exit .link-arrow,
+.p-name.p-name-link .link-arrow,
+.effort-link .link-arrow,
+.blog-callout-link .link-arrow {
+  color: var(--arrow-accent);
+  font-weight: 700;
+}
+
+/* The accent, per plane. Blue cannot be it everywhere: on the blue plane it
+   resolves to the panel's own background and disappears outright at 1.00:1,
+   and on red it is near-invisible at 1.40:1. So the convention is not "the
+   blue arrow marks an exit" but "the ACCENT arrow marks a prominent action or
+   a linked entity", with the accent chosen per plane — the shape #975 already
+   gave .ribbon-exit, generalized to every arrow.
+
+   The floor is 3:1, not 4.5:1. Every arrow is
+   <span class="link-arrow" aria-hidden="true">→</span> beside link text that
+   names the control, so WCAG 1.4.3's text requirement does not independently
+   apply to it; 1.4.11's 3:1 is the conservative implementation floor.
+
+   Among colors that clear it, the tie-breaker is the one that best preserves
+   "accent" as a distinct visual role — NOT the highest ratio. An arrow that
+   matches its plane's body ink has collapsed into body text and stopped
+   meaning anything, which is the failure this rule exists to fix.
+
+     plane            body ink          accent             ratio
+     parchment/open   --ink-warm        --blue              5.15
+     red              --paper           --paper             4.95   (see below)
+     yellow           --ink-warm        --blue              4.27
+     black            --cream           --blue-contrast    11.49
+     blue             --blue-contrast   --cream             6.08
+
+   black held the one genuine contrast failure: --blue on the rendered #333
+   measures 1.83:1. --veil-on-black clears at 10.35 but is another warm
+   off-white — effectively the body ink — so it fails the tie-breaker despite
+   passing the floor. On blue, --blue-contrast clears higher at 6.28 but IS
+   the body ink there, and --paper at 6.91 is barely separable from it.
+
+   red is a known limitation, not a choice, recorded so the next reader does
+   not re-litigate it: blue fails outright, every remaining option is a
+   near-white, and so the accent cannot be kept distinct on this plane with
+   the current palette. --paper matches the body ink and is the best available.
+
+   Two consequences worth stating, because both look like mistakes:
+   - yellow's .ribbon-exit arrow moves here from --ink-warm, LOWERING it from
+     11.51 to 4.27. Intended. It clears the floor and stops reading as body ink.
+   - the project-title arrows already sat at 4.27 and must not be darkened
+     toward 4.5. That would trade a compliant arrow for a heavier one and
+     flatten the accent that carries the meaning.
+
+   Yellow's closed accent is the same --blue as parchment and is still written
+   out. It is a decision, not a fallthrough, and stating it keeps a future
+   change to the open-state accent from silently moving the closed plane. */
+.panel {
+  --arrow-accent: var(--blue);
+}
+
+.panel--red:not(.is-open) {
+  --arrow-accent: var(--paper);
+}
+
+.panel--yellow:not(.is-open) {
+  --arrow-accent: var(--blue);
+}
+
+.panel--black:not(.is-open) {
+  --arrow-accent: var(--blue-contrast);
+}
+
+.panel--blue:not(.is-open) {
+  --arrow-accent: var(--cream);
 }
 
 a:hover .link-arrow,
@@ -1332,7 +1443,12 @@ a:focus-visible .link-arrow,
 }
 
 .panel--yellow .content-inner p,
-.panel--yellow .content-inner a {
+/* Body links only. Without :not(.ribbon-exit) this (0,3,0) rule out-specifies
+   the shared .ribbon-row .ribbon-exit control (0,2,0) and sizes the Projects
+   exit at 0.85rem while the other two ribbons render it at 0.6rem — one
+   control with two sizes, and the panel-scoped rule wins even over the
+   stack-mode clamp, since specificity beats source order (#975). */
+.panel--yellow .content-inner a:not(.ribbon-exit) {
   font-size: clamp(0.78rem, min(1.7vw, 1.7vh), 0.85rem);
   line-height: 1.48;
 }
@@ -1351,12 +1467,6 @@ a:focus-visible .link-arrow,
   text-decoration: underline;
   text-decoration-thickness: 1px;
   text-underline-offset: 2px;
-}
-
-.panel--yellow .p-name-link .link-arrow,
-.panel--black .effort-link .link-arrow {
-  color: var(--blue);
-  font-weight: 700;
 }
 
 .panel--yellow .project-list {
@@ -1547,8 +1657,16 @@ a:focus-visible .link-arrow,
   color: color-mix(in srgb, var(--blue-contrast) 55%, transparent);
 }
 
+/* The Latest Post title is a link, not a label, and it took the label ink on
+   both planes: 55% --blue-contrast closed (3.02:1) and --ink-50 open (3.33:1),
+   the only interactive text on the page that failed the 4.5:1 floor in both
+   states (#979). It inherited the label treatment by sitting in a ribbon next
+   to labels. Full --blue-contrast is what the .ribbon-exit one line above it
+   already uses on this plane, so the two controls in this footer now agree.
+
+   The label beside it keeps its 55% and still recedes against the title. */
 .panel--blue .blog-callout-link {
-  color: color-mix(in srgb, var(--blue-contrast) 55%, transparent);
+  color: var(--blue-contrast);
 }
 
 /* When Connect panel is expanded, revert to dark text on cream bg */
@@ -1560,8 +1678,77 @@ a:focus-visible .link-arrow,
   color: var(--ink-50);
 }
 
+/* Open, the ribbon is parchment and the same distinction applies: --ink-50 is
+   the label voice .blog-callout-label keeps, so the title steps up to the 72%
+   warm ink the .ribbon-exit uses at this scale. Tokenized rather than restating
+   .ribbon-exit's rgba(23, 19, 15, 0.72) literal — #469 collapsed that family of
+   near-duplicate warm inks onto --ink-warm, and .panel--yellow .stack-label
+   already sets 72% of it this way. */
 .panel--blue.is-open .blog-callout-link {
-  color: var(--ink-50);
+  color: color-mix(in srgb, var(--ink-warm) 72%, transparent);
+}
+
+/* A closed panel shows its own plane, and the shared control's ink is tuned
+   for the parchment an OPEN panel shows. The exit link is the only
+   interactive control at eyebrow scale, so the 4.5:1 floor in the shared
+   rule above is the one that governs it — the 50-55% the labels beside it
+   use is for static text. Per plane, closed:
+
+     red     parchment ink 2.6:1  ->  --paper         4.95:1
+     yellow  parchment ink 5.8:1  (already clear, so no rule here)
+     blue    parchment ink 2.2:1  ->  --blue-contrast 6.28:1
+
+   Red is the tight one. The 1930 --red (#da2418) puts even pure white at
+   4.95:1, so the floor is only just reachable there and only with --paper;
+   --cream measures 4.35:1 and misses. This link takes --paper and clears it.
+   #975 left that a step apart in brightness from the six other links on the
+   plane, which were still cream; #977 brought them up to --paper too, in the
+   rule below this one, so the plane now carries one interactive foreground
+   rather than two near-identical off-whites.
+
+   These rules govern the exit link's TEXT only. #975 gave each of them a
+   matching .link-arrow declaration, because a blue arrow disappears into the
+   blue plane and is near-invisible on red; #978 moved every arrow on the page
+   onto one rule and one per-plane accent, so those declarations live in
+   § Accent arrows now and this block no longer mentions the arrow at all.
+   Yellow lost its rule here entirely as a result — its exit text was already
+   clear at 5.8:1 and only the arrow had needed one.
+
+   Written as :not(.is-open) rather than per-panel pairs reverted by
+   .is-open pairs. An open panel is parchment, where the shared control is
+   already correct, so the right open-state rule is *no rule*: these stop
+   matching and the link falls back. The reverting form would restate
+   rgba(23, 19, 15, 0.72) as a second copy of a value the shared rule owns,
+   then depend on out-specifying its own sibling to undo it.
+
+   Not scoped to the stack breakpoint, unlike the label overrides below.
+   Those can be: a closed panel hides its content outright on desktop
+   (.panel-content is visibility:hidden until .is-content-visible), so the
+   labels are only ever seen on a colored plane in stack mode. Keying this
+   on :not(.is-open) states the actual condition — the panel is showing its
+   own color — instead of depending on the breakpoint and the visibility
+   state machine continuing to agree. */
+.panel--red:not(.is-open) .ribbon-exit {
+  color: var(--paper);
+}
+
+/* The rest of the red plane's interactive text, on the same foreground (#977).
+   Six links — the résumé link and five article titles — inherited --cream from
+   .panel--red and measured 4.35:1, under the 4.5:1 floor they owe as controls,
+   while the exit above them sat at --paper and 4.95:1. Same kind of control,
+   same plane, so the same ink; --paper is not a preference here but the only
+   foreground this red admits, as the note above explains.
+
+   Anchors only, and no arrow inherits from it: .about-resume-link's takes
+   --arrow-accent from the accent-arrow rule, and .writing-link carries none by
+   design. See § Accent arrows (#978). */
+.panel--red:not(.is-open) .about-resume-link,
+.panel--red:not(.is-open) .writing-link {
+  color: var(--paper);
+}
+
+.panel--blue:not(.is-open) .ribbon-exit {
+  color: var(--blue-contrast);
 }
 
 .effort-list {
@@ -1624,8 +1811,10 @@ a:focus-visible .link-arrow,
 
 /* Parallel to .panel--yellow .content-inner a — beats the generic
    .content-inner a (0.94rem) rule on specificity so Community item-link
-   text matches Builds body-link size. (#339) */
-.panel--black .content-inner a {
+   text matches Builds body-link size. (#339) Carries the same
+   :not(.ribbon-exit) exclusion, so that if Community ever grows a footer
+   exit it inherits the shared control's size rather than this one. */
+.panel--black .content-inner a:not(.ribbon-exit) {
   font-size: 0.85rem;
   line-height: 1.48;
 }
@@ -4428,7 +4617,7 @@ svg.mermaid foreignObject p {
 }
 
 /* ── End-of-post block (#622) ───────────────────────────────────────
-   Prev/next navigation + the availability CTA, separated from the post's
+   Prev/next navigation + the author footer, separated from the post's
    closing line by a rule so the ending keeps its beat. Screen only —
    hidden in the blog print rules below.
    ────────────────────────────────────────────────────────────────── */
@@ -4542,9 +4731,9 @@ svg.mermaid foreignObject p {
 }
 
 /* ── Blog post — print ──────────────────────────────────────────────
-   The end-of-post block is navigation and a CTA: neither survives paper,
-   so it is dropped. The takeaways are content, so they print — as black
-   on white, kept whole on one page. (#621, #622)
+   The end-of-post block is navigation and the author footer: neither
+   survives paper, so it is dropped. The takeaways are content, so they
+   print — as black on white, kept whole on one page. (#621, #622)
    ────────────────────────────────────────────────────────────────── */
 @media print {
   .blog-postscript {
@@ -5080,6 +5269,7 @@ svg.mermaid foreignObject p {
 .is-scrolling .s-icon,
 .is-scrolling .s-arrow,
 .is-scrolling .effort-link,
+.is-scrolling .ribbon-exit,
 .is-scrolling .p-link {
   transition: none;
 }
@@ -5298,7 +5488,7 @@ a:focus-visible {
   .stack-label,
   .impact-label,
   .now-ribbon-label,
-  .writing-list .writing-list__all {
+  .ribbon-row .ribbon-exit {
     font-size: clamp(0.56rem, 0.52rem + 0.2vw, 0.64rem);
     letter-spacing: 0.15em;
   }
@@ -5321,10 +5511,12 @@ a:focus-visible {
     font-size: clamp(2.4rem, 9vw, 4rem);
   }
 
+  /* The exit link is no longer in this list: it is an interactive control
+     with a 4.5:1 floor, so it takes its own (higher) veil in the
+     :not(.is-open) rule above, at every width rather than only here. */
   .panel--red .about-label,
   .panel--red .now-ribbon-label,
-  .panel--red .now-ribbon-date,
-  .panel--red .writing-list .writing-list__all {
+  .panel--red .now-ribbon-date {
     color: color-mix(in srgb, var(--veil-on-red) 82%, transparent);
   }
 
@@ -5337,13 +5529,6 @@ a:focus-visible {
      color as the ribbon hairline so both rules read as one system. */
   .panel--red .writing-list__posts {
     border-left-color: color-mix(in srgb, var(--veil-on-red) 28%, transparent);
-  }
-
-  /* Dark-blue arrow is near-invisible on the red mobile base; keep it
-     cream (matching the link text) so the affordance stays legible. */
-  .panel--red .writing-list__all .link-arrow,
-  .panel--red .about-resume-link .link-arrow {
-    color: var(--cream);
   }
 
   .panel--yellow .stack-label,

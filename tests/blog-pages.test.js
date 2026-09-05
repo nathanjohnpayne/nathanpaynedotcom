@@ -28,12 +28,24 @@ describe('Blog Pages', () => {
   });
 
   it('homepage exposes a blog link in the connect panel', () => {
-    // Scoped to the Connect panel's social stack. The About panel now also
-    // carries a /blog/ link ("View all writing →", #619), so a bare
-    // a[href="/blog/"] selector no longer identifies this row.
-    const blogLink = document.querySelector('.social-row--blog[href="/blog/"]');
-    expect(blogLink).not.toBeNull();
-    expect(blogLink.textContent).toContain('Blog');
+    // The Connect panel's path to the blog index moved in #972: it was a
+    // "Blog" row in the Elsewhere social stack, which made that label wrong
+    // for an on-site destination. It is now the index link on the Latest
+    // Post footer's eyebrow row, carrying the Writing panel's label rather
+    // than a second one for the same place.
+    //
+    // Scoped to that link, not to a[href="/blog/"]: the About panel carries
+    // its own /blog/ link ("View all writing →", #619), so a bare href
+    // selector identifies neither.
+    const blogLink = document.querySelector('.blog-callout .ribbon-exit[href="/blog/"]');
+    expect(blogLink, 'Connect panel has no path to the blog index').not.toBeNull();
+    expect(blogLink.textContent.replace(/→/g, '').replace(/\s+/g, ' ').trim()).toBe(
+      'View all writing',
+    );
+    expect(
+      blogLink.closest('.ribbon-row'),
+      'the index link is not on the Latest Post eyebrow row',
+    ).not.toBeNull();
   });
 
   it('blog index page has canonical metadata and links to the generated post', () => {
