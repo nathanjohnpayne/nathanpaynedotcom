@@ -84,9 +84,17 @@ const EXPRESSION_POSITION = '(,=:[!&|?{;+-*%~^<>';
  * deliberately NOT used by `blank()`, which reads whole `.astro` files where
  * `</div>` would read as a regex opener.
  */
-function regexEnd(source, start, previous) {
+function regexEnd(source, start, previous, preceding = '') {
   if (source[start] !== '/') return -1;
-  if (previous !== '' && !EXPRESSION_POSITION.includes(previous)) return -1;
+  // A keyword operand is expression position too: `return /a,b/.test(v)` and
+  // `typeof`, `case`, `in`, `of`, `await`, `yield`, `new`, `void`, `delete`,
+  // `do`, `else` all introduce one, and none of them ends in a character the
+  // punctuation set can see (Codex, PR #973).
+  const keyword =
+    /(?:^|[^\w$])(return|typeof|case|in|of|await|yield|new|void|delete|do|else)\s*$/.test(
+      preceding,
+    );
+  if (!keyword && previous !== '' && !EXPRESSION_POSITION.includes(previous)) return -1;
   let escaped = false;
   let inClass = false;
   for (let index = start + 1; index < source.length; index += 1) {
@@ -114,7 +122,8 @@ function matchingParen(source, openIndex) {
       continue;
     }
     if (character === '/') {
-      const end = regexEnd(source, index, seen.replace(/\s+$/, '').slice(-1));
+      const trimmed = seen.replace(/\s+$/, '');
+      const end = regexEnd(source, index, trimmed.slice(-1), trimmed);
       if (end !== -1) {
         index = end;
         seen = '/';
@@ -159,7 +168,8 @@ function splitArguments(text) {
       continue;
     }
     if (character === '/') {
-      const closed = regexEnd(text, index, current.replace(/\s+$/, '').slice(-1));
+      const trimmed = current.replace(/\s+$/, '');
+      const closed = regexEnd(text, index, trimmed.slice(-1), trimmed);
       if (closed !== -1) {
         current += text.slice(index, closed + 1);
         index = closed;
@@ -746,25 +756,51 @@ describe('lifecycle marker — declarations', () => {
    */
   function classesIn(node) {
     const names = [];
+    const excluded = [];
     let anyClass = false;
-    csstree.walk(node, {
-      enter(child) {
-        if (child.type === 'ClassSelector') {
-          // `.state-marker\,y` is a class literally named `state-marker,y`, not
-          // `state-marker` — the shape the old token regex read as the primitive
-          // because it stopped at the backslash. Decoding is the parser's job
-          // and it has an API for it.
-          names.push(csstree.ident.decode(child.name));
-          return;
-        }
-        if (child.type !== 'AttributeSelector') return;
-        const attribute = classAttributeSelector(child);
-        if (!attribute) return;
+    // Two pseudo-classes do not name a target the way a bare class does, and
+    // collecting from them produced false failures on correct CSS (Codex,
+    // PR #973, corroborated by an independent adversarial pass):
+    //
+    //   `:has()` holds a DESCENDANT. `.project-card:has(.state-marker--shipped)
+    //   .title::before` styles a title, not a mark, and was read as overriding
+    //   the shipped mark. Excluded at any depth.
+    //
+    //   `:not()` FLIPS the requirement. `.p-status:not(.state-marker)::before`
+    //   explicitly excludes marks and was read as narrowing them. Polarity is
+    //   tracked rather than the pseudo being skipped, so
+    //   `:not(:not(.state-marker--shipped))` — which REQUIRES the modifier — is
+    //   still collected.
+    //
+    // `subjectClassNames` already drew both distinctions; this is that reasoning
+    // reaching the walk `targeting()` keys on.
+    const walk = (current, negated) => {
+      if (current.type === 'ClassSelector') {
+        (negated ? excluded : names).push(csstree.ident.decode(current.name));
+        return;
+      }
+      if (current.type === 'AttributeSelector') {
+        const attribute = classAttributeSelector(current);
+        if (!attribute || negated) return;
         if (attribute.any) anyClass = true;
         else names.push(...attribute.exact);
-      },
-    });
-    return { names, anyClass };
+        return;
+      }
+      if (current.type === 'PseudoClassSelector') {
+        const name = csstree.ident.decode(current.name).toLowerCase();
+        if (name === 'has') return;
+        const inner = name === 'not' ? !negated : negated;
+        for (const child of current.children ?? []) walk(child, inner);
+        return;
+      }
+      for (const child of current.children ?? []) walk(child, negated);
+    };
+    walk(node, false);
+    // A selector that NEGATES the primitive cannot match a mark: every rendered
+    // mark carries `.state-marker`. `.p-status:not(.state-marker)::before` is
+    // therefore a surface styling its non-mark elements, and rejecting it as a
+    // per-surface narrowing of the mark is a false failure.
+    return { names, anyClass, excludesMark: excluded.includes(MARK_PRIMITIVE) };
   }
 
   /**
@@ -1064,11 +1100,12 @@ describe('lifecycle marker — declarations', () => {
         value: `${csstree.generate(child.value).trim()}${child.important ? ' !important' : ''}`,
       }));
     const entry = (selector, declarations, conditional) => {
-      const { names, anyClass } = classesIn(selector);
+      const { names, anyClass, excludesMark } = classesIn(selector);
       return {
         selector: csstree.generate(selector),
         classes: names,
         anyClass,
+        excludesMark,
         subject: subjectClassNames(selector),
         subjectAnyClass: subjectAnyClass(selector),
         bare: bareTarget(selector),
@@ -1202,7 +1239,8 @@ describe('lifecycle marker — declarations', () => {
    */
   function targeting(className, rules = screenRules()) {
     return rules.filter(
-      (rule) => rule.before && (rule.anyClass || rule.classes.includes(className)),
+      (rule) =>
+        rule.before && !rule.excludesMark && (rule.anyClass || rule.classes.includes(className)),
     );
   }
 
@@ -1647,6 +1685,37 @@ describe('lifecycle marker — declarations', () => {
       modifierElementDeclarations(printed),
       'a lifecycle modifier declares something on the status element inside @media print',
     ).toEqual([]);
+  });
+
+  it('has no modifier class the vocabulary cannot emit', () => {
+    // `STATUS_MARKER` is the closed source of modifiers, so any other
+    // `.state-marker--*` in the stylesheet is either a typo for a real one — in
+    // which case that state silently lost its fill and renders as the bare
+    // outline — or dead CSS shipped to every reader. Neither is caught by the
+    // per-variant checks, which only ever look up the modifiers they expect
+    // (Codex, PR #973).
+    const emitted = new Set(MODIFIER_CLASSES);
+    const rogue = new Set();
+    for (const rule of allRules()) {
+      for (const name of rule.classes) {
+        if (name.startsWith(`${MARK_PRIMITIVE}--`) && !emitted.has(name)) rogue.add(name);
+      }
+    }
+    expect(
+      [...rogue].sort(),
+      'a .state-marker--* class appears in the stylesheet that STATUS_MARKER cannot emit — ' +
+        'either a modifier was renamed and its rule left behind, or a variant is misspelled ' +
+        'and that state now renders as the bare outline',
+    ).toEqual([]);
+
+    // The control: the walk does reach modifier classes, so an empty rogue set
+    // means "none unknown", not "none seen".
+    expect(
+      allRules()
+        .flatMap((rule) => rule.classes)
+        .filter((name) => emitted.has(name)),
+      'no known modifier class was seen anywhere, so the rogue scan is vacuous',
+    ).not.toEqual([]);
   });
 
   it('can see a declaration at all', () => {
