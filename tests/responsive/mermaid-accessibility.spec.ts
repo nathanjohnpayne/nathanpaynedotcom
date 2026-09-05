@@ -335,6 +335,31 @@ for (const { surface, route, container, minimumWidth, mustScrollBelowViewport } 
           // the caption must not be in it — it would slide out from under the
           // diagram it captions.
           graphicScrolls: graphic ? graphic.scrollWidth > graphic.clientWidth + 1 : false,
+          // Whether a reader can actually REACH that overflow, which is a
+          // different question from whether it exists (Codex P2). Both halves
+          // are needed and neither is sufficient on its own:
+          //
+          // `overflowX` alone — an `auto` container with nothing overflowing
+          // passes while proving nothing.
+          //
+          // `scrollLeft` alone — `overflow-x: hidden` is still a programmatic
+          // scroll container, so a script can move `scrollLeft` on a box no
+          // user can scroll. Losing the `auto` rule to `hidden` is the exact
+          // regression this arm exists to catch, and "move it and see if it
+          // changes" does not catch it.
+          //
+          // Together: the computed value says the scroll is offered to the
+          // reader, and the move says there is somewhere to go. `scrollLeft` is
+          // restored so the print arm below reads an untouched box.
+          graphicOverflowX: graphic ? getComputedStyle(graphic).overflowX : '',
+          graphicScrollMoves: (() => {
+            if (!graphic) return false;
+            const before = graphic.scrollLeft;
+            graphic.scrollLeft = graphic.scrollWidth;
+            const moved = graphic.scrollLeft > before;
+            graphic.scrollLeft = before;
+            return moved;
+          })(),
           // Measured together so the assertion can say "the caption kept the
           // column's width while the diagram overflowed it" rather than inferring
           // it from the DOM position alone.
@@ -370,6 +395,16 @@ for (const { surface, route, container, minimumWidth, mustScrollBelowViewport } 
       // its box and scrolls, and the caption stays at the column's width.
       if (placement.graphicScrolls) {
         scrollingCaptions += 1;
+        expect(
+          ['auto', 'scroll'],
+          `${placement.text}: the diagram overflows its box with overflow-x: ` +
+            `${placement.graphicOverflowX}, so what does not fit is unreachable ` +
+            'rather than scrollable',
+        ).toContain(placement.graphicOverflowX);
+        expect(
+          placement.graphicScrollMoves,
+          `${placement.text}: the diagram's box does not move when scrolled`,
+        ).toBe(true);
         expect(
           Math.abs(placement.captionWidth - placement.figureWidth),
           `${placement.text}: caption is ${placement.captionWidth}px inside a ` +
