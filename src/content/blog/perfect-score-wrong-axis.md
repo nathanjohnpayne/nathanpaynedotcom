@@ -24,31 +24,6 @@ pullquotes:
   - text: "The author-derived matrix passed a broken matcher; the spec-derived expansion failed it within one round."
     label: "The natural experiment"
     accent: yellow
-sidebar:
-  - type: mermaid
-    title: "Closure inside the session, and the knowledge that never crossed"
-    description: "The authoring session dispositions the threads raised before the merge, leaving a handful unmarked, and PR 797 merges clean; the escaped defect is posted afterwards and itself dispositioned, and only then does the record close at 134 threads and 122 dispositions, the escape among them; a spec-derived pass on sibling PR 791 had named the same CommonMark rule twelve hours earlier, but every review was scoped to one diff, and an unbriefed CodeRabbit re-run posts the escape 94 seconds after the merge."
-    content: |
-      graph TD
-          A["Authoring session"] --> B["Findings raised on the batch<br/>as each PR is reviewed"]
-          B --> C["Fix verification briefed<br/>from the finding list<br/>(author record)"]
-          C --> D["Threads dispositioned as raised;<br/>none rejected"]
-          D --> E["#797 merges clean;<br/>the defect ships"]
-          S["CommonMark spec"] --> F["Spec-derived pass on #791:<br/>P1 names the same rule,<br/>12 hours earlier"]
-          F -->|"brief scoped to one diff"| X["Never applied to #797"]
-          E --> G["Unbriefed re-run posts the<br/>escape 94 s after merge"]
-          G --> H["Escape dispositioned in 75 s;<br/>record closes at 134 threads,<br/>122 dispositions, zero rejected"]
-          style A fill:#e8b4b4,stroke:#993d3d,color:#333
-          style B fill:#e8b4b4,stroke:#993d3d,color:#333
-          style C fill:#e8b4b4,stroke:#993d3d,color:#333
-          style D fill:#d4a84b,stroke:#a07830,color:#333
-          style E fill:#993d3d,stroke:#993d3d,color:#fff
-          style S fill:#b8ddb8,stroke:#4a8a4d,color:#333
-          style F fill:#b8ddb8,stroke:#4a8a4d,color:#333
-          style X fill:#d4a84b,stroke:#a07830,color:#333
-          style G fill:#7bc67e,stroke:#4a8a4d,color:#333
-          style H fill:#7bc67e,stroke:#4a8a4d,color:#333
-    caption: "Two sources of review questions: briefs drawn from the session's own findings—an author record, not visible on GitHub—closed what they were asked about; the spec-derived pass that named the escape's rule ran on the sibling PR and never reached this one."
 ---
 
 A team can resolve every issue anyone raises and still ship the bug. Closing everything you found and finding everything that is there are different achievements, and only the first leaves a record. There is a harder version of the miss than not knowing: having already derived the rule the bug breaks, been blocked on it, fixed it, and validated the fix—and shipping the bug anyway, because the knowing happened on one work item and the bug on its neighbor, and nothing moved knowledge between the two.
@@ -149,6 +124,28 @@ My first diagnosis went into [the batch retrospective](https://github.com/nathan
 > Same-session verification converged on the implementation's assumptions: the verifier agents were briefed from the authoring agent's finding list using its taxonomy, so they searched the space that session had already mapped. Every round asked the same question.
 
 That diagnosis is right about the lane it describes, and the first version of this post adopted it as the whole story. The batch's own record is sharper, and it cuts the other way. The session *had* asked the right question—on [#791](https://github.com/nathanjohnpayne/mergepath/pull/791). Convergence explains why the in-session lane produced nothing new; it does not explain why a rule an external reviewer had already stated as a blocking P1, on a PR that shared a file with this one, never arrived. The eighteen passes that preceded the escape on #797 were deep—deep inside that one diff, which is all any of their briefs contained. The nineteenth posted exactly the finding a spec-first reading produces: it checked the preprocessor against CommonMark's block rules and asked the question no pass on *this PR* had asked—*does CommonMark let indented code interrupt a list item?*—the question #791's record had already answered.
+
+```mermaid title="Closure inside the session, and the knowledge that never crossed" description="The authoring session dispositions the threads raised before the merge, leaving a handful unmarked, and PR 797 merges clean; the escaped defect is posted afterwards and itself dispositioned, and only then does the record close at 134 threads and 122 dispositions, the escape among them; a spec-derived pass on sibling PR 791 had named the same CommonMark rule twelve hours earlier, but every review was scoped to one diff, and an unbriefed CodeRabbit re-run posts the escape 94 seconds after the merge."
+graph TD
+    A["Authoring session"] --> B["Findings raised on the batch<br/>as each PR is reviewed"]
+    B --> C["Fix verification briefed<br/>from the finding list<br/>(author record)"]
+    C --> D["Threads dispositioned as raised;<br/>none rejected"]
+    D --> E["#797 merges clean;<br/>the defect ships"]
+    S["CommonMark spec"] --> F["Spec-derived pass on #791:<br/>P1 names the same rule,<br/>12 hours earlier"]
+    F -->|"brief scoped to one diff"| X["Never applied to #797"]
+    E --> G["Unbriefed re-run posts the<br/>escape 94 s after merge"]
+    G --> H["Escape dispositioned in 75 s;<br/>record closes at 134 threads,<br/>122 dispositions, zero rejected"]
+    style A fill:#e8b4b4,stroke:#993d3d,color:#333
+    style B fill:#e8b4b4,stroke:#993d3d,color:#333
+    style C fill:#e8b4b4,stroke:#993d3d,color:#333
+    style D fill:#d4a84b,stroke:#a07830,color:#333
+    style E fill:#993d3d,stroke:#993d3d,color:#fff
+    style S fill:#b8ddb8,stroke:#4a8a4d,color:#333
+    style F fill:#b8ddb8,stroke:#4a8a4d,color:#333
+    style X fill:#d4a84b,stroke:#a07830,color:#333
+    style G fill:#7bc67e,stroke:#4a8a4d,color:#333
+    style H fill:#7bc67e,stroke:#4a8a4d,color:#333
+```
 
 A perfect disposition record measures how completely you closed the findings raised. It says nothing about the defects nobody raised. Closure and coverage are different axes. The batch's zero-rejections record looked like rigor, and it was—but rigor on the closure axis, over a question set fixed per-PR at briefing time and never expanded. The metric could not even represent the failure that mattered, so it did not move when the failure shipped.
 

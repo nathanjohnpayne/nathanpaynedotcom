@@ -142,7 +142,16 @@ function publishNaturalWidth(node) {
   );
 }
 
-function naturalWidth(node) {
+/**
+ * The width Mermaid drew `node` at, or 0 when the SVG carries no readable one.
+ *
+ * Exported because the sidebar needs the same number for a different question.
+ * `publishNaturalWidth` writes it out for the stylesheet to scale against;
+ * `renderSidebarMermaid` reads it to decide whether a diagram belongs in the
+ * sidebar at all (#986). Both are asking what Mermaid measured, so both read it
+ * from the same place rather than re-deriving it from the emitted style string.
+ */
+export function naturalWidth(node) {
   // `viewBox="min-x min-y width height"`, comma or whitespace separated.
   const viewBox = node.properties?.viewBox;
   if (typeof viewBox === 'string') {
@@ -275,15 +284,20 @@ export function createMermaidFigure({ sourceNode, title, description, descriptio
       role: 'img',
       ariaLabel: title,
       ariaDescribedBy: [descriptionId],
-      // The figure is a horizontal scroll container in the article column
-      // below the stacked breakpoint (#894) and in the blog sidebar at every
-      // width the sidebar is visible at (#897), and a scroll container a
-      // keyboard cannot reach is content a keyboard user cannot read. The tab
-      // stop is unconditional for the same reason Astro's code blocks ship one
+      // The figure is a horizontal scroll container in the article column below
+      // the stacked breakpoint (#894), and a scroll container a keyboard cannot
+      // reach is content a keyboard user cannot read. The tab stop is
+      // unconditional for the same reason Astro's code blocks ship one
       // unconditionally: no stylesheet can tell the build which diagrams will
       // overflow which column. The figure already carries its own accessible
       // name, so the region announces as the diagram it scrolls rather than as
       // bare scrollable furniture.
+      //
+      // It was also a scroll container in the blog sidebar until #986, which is
+      // why the reasoning above once named two columns. It now names one, and
+      // the attribute stays unconditional anyway — a sidebar figure never
+      // scrolls, so its tab stop is a stop on a diagram that fits, which costs a
+      // keyboard user one keypress and costs a misjudged width nothing.
       tabIndex: 0,
     },
     children: [

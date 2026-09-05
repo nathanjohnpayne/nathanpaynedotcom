@@ -13,7 +13,7 @@ Blog pages must be fully readable at all viewport widths from 320px to 1920px wi
 
 No rendered element's bounding rect may extend beyond `document.documentElement.clientWidth`. No horizontal scrollbar may appear at any viewport width in the range 320px–1920px.
 
-Content held inside its own horizontal scroll container is the one exception, and it is an exception to the first sentence only, never to the second: a code block or a Mermaid figure may hold content wider than itself, but the overflow belongs to that container and never reaches the page. `tests/responsive/overflow.spec.ts` encodes this by skipping any element with a scrollable ancestor. Mermaid relies on it in both directions—the article column below the stacked breakpoint (#894) and the blog sidebar at every width it is visible at (#897)—so a diagram's own rect can legitimately be several times its column's width.
+Content held inside its own horizontal scroll container is the one exception, and it is an exception to the first sentence only, never to the second: a code block or a Mermaid figure may hold content wider than itself, but the overflow belongs to that container and never reaches the page. `tests/responsive/overflow.spec.ts` encodes this by skipping any element with a scrollable ancestor. Mermaid relies on it in the article column below the stacked breakpoint (#894), so a diagram's own rect can legitimately be several times its column's width there. The blog sidebar relied on it too until #986: that column is too narrow for a wide diagram to be readable scrolled, let alone scaled, so it holds no diagram wide enough to overflow and no sidebar figure scrolls at any width.
 
 ## Requirements
 

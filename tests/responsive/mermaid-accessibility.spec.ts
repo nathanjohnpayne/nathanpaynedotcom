@@ -27,8 +27,10 @@ test('Mermaid descriptions label diagrams without becoming duplicate navigable t
         // the legibility floor, the figure holds the diagram at the width
         // Mermaid drew it and scrolls rather than scaling the labels down with
         // the graphic — the article column below the stacked breakpoint
-        // (#894), the blog sidebar at any width (#897). So a diagram may
-        // legitimately be wider than the box it sits in.
+        // (#894). So a diagram may legitimately be wider than the box it sits
+        // in. The blog sidebar did the same until #986 and now does neither:
+        // it is too narrow for a wide diagram to be readable scrolled either,
+        // so the build refuses one and the post body carries it instead.
         scrollableWidth: figure?.scrollWidth ?? 0,
         pageWidth: document.documentElement.clientWidth,
         pageScrollWidth: document.documentElement.scrollWidth,
