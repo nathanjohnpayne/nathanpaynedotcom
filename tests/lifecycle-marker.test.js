@@ -597,7 +597,20 @@ describe('lifecycle marker — declarations', () => {
    */
   function classAttributeSelector(node) {
     if (csstree.ident.decode(node.name.name).toLowerCase() !== 'class') return null;
-    const operand = String(node.value ? (node.value.value ?? node.value.name ?? '') : '');
+    // A QUOTED value is a `String` node whose `.value` is already the literal
+    // text; an UNQUOTED one is an `Identifier` whose `.name` retains CSS
+    // escapes, so `[class~=state\\-marker]` reads as `state\\-marker` and misses
+    // the class (CodeRabbit, PR #973). The fourth identifier kind in this file
+    // to need decoding, after class names, pseudo-element names and property
+    // names — decode where the node type says it is an identifier, and leave
+    // the string alone where it says it is a string.
+    const value = node.value;
+    const operand =
+      value == null
+        ? ''
+        : value.type === 'Identifier'
+          ? csstree.ident.decode(value.name)
+          : String(value.value ?? '');
     const tokens = operand.split(/\s+/).filter(Boolean);
     // `~=` matches ONE token in the list, so it names that class outright.
     if (node.matcher === '~=') return { exact: tokens };
@@ -1355,6 +1368,14 @@ describe('lifecycle marker — declarations', () => {
       'an exact class attribute selector':
         '[class="state-marker state-marker--shipped"]::before{padding:9px}',
       'a substring class attribute selector': '[class*="state-marker--"]::before{padding:9px}',
+      // Unquoted, so css-tree hands back an `Identifier` whose name keeps its
+      // escapes — the fourth identifier kind in this file to need decoding
+      // (CodeRabbit, PR #973). The escaped space in the exact form decodes to a
+      // real one, which is why the operand is decoded BEFORE it is split.
+      'an unquoted class-token attribute selector':
+        '[class~=state\\-marker\\-\\-shipped]::before{padding:9px}',
+      'an unquoted exact class attribute selector':
+        '[class=state\\-marker\\ state\\-marker\\-\\-shipped]::before{padding:9px}',
     };
 
     for (const [shape, css] of Object.entries(QUALIFIED)) {
