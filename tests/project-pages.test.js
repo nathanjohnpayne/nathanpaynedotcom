@@ -4,6 +4,7 @@ import { resolve, join, relative } from 'path';
 import { extractFrontmatter, parseFrontmatter } from '@astrojs/markdown-remark';
 import { findFilesRecursively } from '../scripts/lib/blog-file-inventory.mjs';
 import { writeSanitizedDOM } from './helpers/dom.js';
+import { PROJECTS_RIBBON } from '../src/lib/projects-ribbon';
 
 // Smoke tests for the content-collection-driven project detail pages.
 // See specs/project-pages.md and issue #156.
@@ -253,8 +254,17 @@ describe('Project Pages — routes', () => {
     // #892: the old intro claimed all seven "shipped end-to-end", which is false
     // for a paused project and an experiment, and put the method in the lead
     // where /projects/ puts the decisions.
+    //
+    // #984 moved the opening sentence to the footer under 'domains', so the
+    // paragraph is asserted whole in either mode rather than by its tail: a
+    // `toContain` on the second half would pass on a build that says the
+    // domains twice, which is the one outcome the move exists to prevent.
+    const projectsIntroLead =
+      PROJECTS_RIBBON === 'stack'
+        ? 'The projects span consumer, enterprise, finance, and developer tooling. '
+        : '';
     expect(panel.querySelector('.content-inner > p')?.textContent).toBe(
-      'The projects span consumer, enterprise, finance, and developer tooling. The case studies focus on the decisions, tradeoffs, and evidence behind them; I built each with AI agents under a review system I designed.',
+      `${projectsIntroLead}The case studies focus on the decisions, tradeoffs, and evidence behind them; I built each with AI agents under a review system I designed.`,
     );
     expect(
       projectItems.map((item) =>

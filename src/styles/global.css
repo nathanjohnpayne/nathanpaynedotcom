@@ -1513,6 +1513,7 @@ a:focus-visible .link-arrow,
    its ribbon is a flex child, so the container's gap already provides this
    space and a margin here would add to it. */
 .stack-ribbon,
+.domains-ribbon,
 .impact-ribbon,
 .now-ribbon,
 .blog-callout {
@@ -1621,7 +1622,11 @@ a:focus-visible .link-arrow,
   }
 }
 
-.impact-items {
+/* SCOPE and DOMAINS type their ` · ` separators inline, so the separator is a
+   word the line has to breathe around. STACK's are ::before pseudo-elements and
+   carry their own spaces, which is why it is not in this rule. */
+.impact-items,
+.domains-items {
   word-spacing: 0.08em;
 }
 
@@ -1629,6 +1634,7 @@ a:focus-visible .link-arrow,
    the shared .eyebrow utility (#467); they carry no layout duties. */
 
 .stack-items,
+.domains-items,
 .impact-items,
 .now-ribbon-date,
 .blog-callout-link {
@@ -5241,12 +5247,15 @@ svg.mermaid foreignObject p {
 .about-label,
 .connect-label,
 .stack-label,
+.domains-label,
 .impact-label,
 .now-ribbon-label,
 .stack-items,
+.domains-items,
 .impact-items,
 .now-ribbon-date,
 .stack-ribbon,
+.domains-ribbon,
 .impact-ribbon,
 .now-ribbon {
   transition: opacity var(--motion-fast) var(--ease-linear);
@@ -5474,6 +5483,7 @@ a:focus-visible {
   .about-label,
   .connect-label,
   .stack-label,
+  .domains-label,
   .impact-label,
   .now-ribbon-label,
   .ribbon-row .ribbon-exit {
@@ -5482,6 +5492,7 @@ a:focus-visible {
   }
 
   .stack-items,
+  .domains-items,
   .impact-items,
   .now-ribbon-date {
     font-size: clamp(0.68rem, 0.64rem + 0.24vw, 0.78rem);
@@ -5519,12 +5530,19 @@ a:focus-visible {
     border-left-color: color-mix(in srgb, var(--veil-on-red) 28%, transparent);
   }
 
+  /* DOMAINS takes STACK's inks rather than its own, on this plane and every
+     other: the two are the same line in the same footer under a build switch
+     (#984), so a separate ink would be a second contrast surface to keep in
+     step with #977–#979 for no visible difference. */
   .panel--yellow .stack-label,
-  .panel--yellow .stack-items {
+  .panel--yellow .domains-label,
+  .panel--yellow .stack-items,
+  .panel--yellow .domains-items {
     color: color-mix(in srgb, var(--ink-warm) 72%, transparent);
   }
 
-  .panel--yellow .stack-ribbon {
+  .panel--yellow .stack-ribbon,
+  .panel--yellow .domains-ribbon {
     border-top-color: color-mix(in srgb, var(--ink-warm) 22%, transparent);
   }
 

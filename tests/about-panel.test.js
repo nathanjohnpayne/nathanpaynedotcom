@@ -158,7 +158,17 @@ describe('About panel section rhythm (#659)', () => {
     // is differentiated by voice; the panel's one rule closes the content
     // before the timestamp, matching Community's and Builds' ribbons.
     expect(CSS).not.toMatch(/\.ribbon-row \.ribbon-exit \{[^}]*border-top:/);
-    expect(CSS).toMatch(/\.stack-ribbon,\n\.impact-ribbon,\n\.now-ribbon \{/);
+    // The rule that draws it, matched by the declaration rather than by the
+    // selector list alone: an earlier form of this assertion pinned
+    // `.stack-ribbon,\n.impact-ribbon,\n.now-ribbon {`, which by then was the
+    // opacity-TRANSITION group — the border rule had grown a fourth selector
+    // and no longer matched. It passed on the wrong rule for as long as the two
+    // lists happened to share a prefix, and stopped only when #984 inserted
+    // `.domains-ribbon` into one of them.
+    const ribbonRule = CSS.match(/\n((?:\.[a-z-]+,\n)*\.now-ribbon,\n\.blog-callout) \{([^}]*)\}/);
+    expect(ribbonRule, 'the shared ribbon rule should be findable').not.toBeNull();
+    expect(ribbonRule[2]).toMatch(/border-top:\s*1px solid var\(--rule\)/);
+    expect(ribbonRule[1].split(',\n')).toContain('.now-ribbon');
     // The ribbon is a sibling of .about-block, so the block's cap does not
     // reach it — without this the rule overshoots the prose it closes.
     expect(CSS).toMatch(/\.about-blocks \.now-ribbon \{[^}]*max-width:\s*var\(--about-measure\);/);
