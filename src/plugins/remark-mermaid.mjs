@@ -10,12 +10,16 @@ export default function remarkMermaidMetadata() {
       if (node.lang !== 'mermaid') return;
 
       assertSupportedContentFile(file);
-      const { title, description } = parseMermaidMetadata(node.meta);
+      const { title, description, caption } = parseMermaidMetadata(node.meta);
       node.data ??= {};
       node.data.hProperties = {
         ...node.data.hProperties,
         dataMermaidTitle: title,
         dataMermaidDescription: description,
+        // Written only when authored. An always-present empty string would
+        // reach `rehypeMermaidFigures` indistinguishable from an authored one,
+        // and the caption is the only one of the three that may be absent.
+        ...(caption ? { dataMermaidCaption: caption } : {}),
       };
     });
   };
@@ -49,6 +53,21 @@ function assertSupportedContentFile(file) {
   }
 }
 
+/**
+ * The attributes a Mermaid fence may carry, and which of them are required.
+ *
+ * `title` and `description` are the diagram's accessible name and its
+ * `aria-describedby` target; neither is ever shown to a sighted reader.
+ * `caption` is the third thing and a different thing: visible contextual text
+ * rendered as a real `<figcaption>` beside the graphic (#989). It is optional
+ * because most diagrams do not need one, and it is a fence attribute at all
+ * because a `sidebar` item has had one since the field existed while a body
+ * fence — the wider column, and since #986 the home for any diagram too wide
+ * for the sidebar — had no way to carry one.
+ */
+const FENCE_ATTRIBUTES = ['title', 'description', 'caption'];
+const REQUIRED_ATTRIBUTES = ['title', 'description'];
+
 export function parseMermaidMetadata(meta) {
   const requiredMessage = 'Mermaid code fences require title="..." description="..." metadata';
   const attributes = {};
@@ -61,13 +80,18 @@ export function parseMermaidMetadata(meta) {
     const match = pattern.exec(source);
     if (match == null || match.index !== cursor) throw new Error(requiredMessage);
     const [, key, value] = match;
-    if (key in attributes || !['title', 'description'].includes(key)) {
+    if (key in attributes || !FENCE_ATTRIBUTES.includes(key)) {
       throw new Error(requiredMessage);
     }
     attributes[key] = value.replace(/\\(["\\])/g, '$1').trim();
     cursor = pattern.lastIndex;
   }
 
-  if (!attributes.title || !attributes.description) throw new Error(requiredMessage);
+  if (REQUIRED_ATTRIBUTES.some((key) => !attributes[key])) throw new Error(requiredMessage);
+  // An authored `caption=""` is a mistake, not an omission, and dropping it
+  // silently would render the fence as though the attribute were never typed.
+  if ('caption' in attributes && !attributes.caption) {
+    throw new Error('Mermaid code fence caption="..." must not be empty');
+  }
   return attributes;
 }

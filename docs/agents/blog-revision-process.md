@@ -46,7 +46,7 @@ It also reports numbers written as words as an **advisory note**. That cannot ga
 
 **Mental states asserted where only behaviour is recorded.** "Nobody saw the invariant" claims something about two reviewers' minds; the record shows two approvals and no inline comments. State what the record shows.
 
-**Diagrams drifting from the prose they illustrate.** Twice a narrowed claim left the adjacent Mermaid diagram asserting the retracted version --- including in its `description=` attribute, which is the accessible text screen-reader users receive. When a claim changes, grep diagram titles, descriptions, and node labels too.
+**Diagrams drifting from the prose they illustrate.** Twice a narrowed claim left the adjacent Mermaid diagram asserting the retracted version --- including in its `description=` attribute, which is the accessible text screen-reader users receive. When a claim changes, grep diagram titles, descriptions, captions, and node labels too.
 
 **Semantically wrong citations.** A project page cited PR #178 for a fix delivered by #161. The number resolved, the repository was right, the link worked --- it was simply about something else. No link checker or reference cache catches this. Read the referenced PR and confirm it did the thing the sentence claims.
 

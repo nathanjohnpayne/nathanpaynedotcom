@@ -7,7 +7,9 @@ vi.mock('rehype-mermaid', () => ({
   default: () => async (tree, file) => {
     renderFiles.push(file);
     for (const figure of tree.children) {
-      figure.children[0] = {
+      // The `pre` rehype-mermaid replaces sits inside the figure's graphic
+      // wrapper, not directly inside the figure (#989).
+      figure.children[0].children[0] = {
         type: 'element',
         tagName: 'svg',
         properties: { viewBox: '0 0 1 1' },
