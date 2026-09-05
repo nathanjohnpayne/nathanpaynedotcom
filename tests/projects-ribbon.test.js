@@ -55,14 +55,15 @@ const VIEWPORTS = [
 
 /**
  * The ribbon width at which "nothing renders under the exit link" starts to be
- * geometrically available, and the measured readings that set it.
+ * geometrically available — **per mode**, because the two lines are not the
+ * same length and do not become feasible at the same width.
  *
  * The exit link sits at the right of the row above the content line and takes
  * ~136px of it, so the content line clears the link's column only when the
- * ribbon is wide enough to hold both. That is a property of the ribbon, not of
- * the words: below a certain width no four-term line clears it, whichever four
- * terms they are. Measured clearance in px, positive when the line ends before
- * the link's left edge:
+ * ribbon is wide enough to hold both. Below some width no line of this kind
+ * clears it, whichever words it holds — that is a property of the ribbon, not
+ * of the copy. Measured clearance in px, positive when the line ends before the
+ * link's left edge:
  *
  *     ribbon   viewport      domains    stack
  *      427.4   1280x700        -33.1   -109.1
@@ -73,13 +74,29 @@ const VIEWPORTS = [
  *      787.2   1503x1180      +326.7   +250.7
  *      896.8   2560x1330      +436.3   +360.3
  *
- * Both modes clear at every ribbon of 582.5px and up, and nothing measures
- * between 483.8 and 582.5, so 580 separates the two groups without landing on
- * a reading. The ribbon's width tracks viewport HEIGHT — the Mondrian square is
- * sized from it — which is why the narrowest ribbon belongs to the second
- * WIDEST desktop viewport in the set.
+ * A single floor at 580 would have been true of both columns and would have
+ * thrown away the 1024x768 reading under `domains`, where the shorter line
+ * clears by 23.3px: a later copy or typography change could have spent that
+ * margin at the stacked breakpoint with the suite still green (Codex, PR #985).
+ * So each mode takes the floor its own column supports, placed in the gap
+ * between the last reading that fails and the first that clears — 427.4/483.8
+ * for `domains`, 483.8/582.5 for `stack` — rather than on a reading.
+ *
+ * The ribbon's width tracks viewport HEIGHT, because the Mondrian square is
+ * sized from it. That is why the narrowest ribbon in the set belongs to the
+ * second WIDEST viewport, and why the floor cannot be stated as a breakpoint.
  */
-const CLEARANCE_FLOOR_PX = 580;
+const CLEARANCE_FLOOR_PX = { domains: 450, stack: 530 };
+
+/**
+ * The viewports whose ribbon falls under that floor, per mode.
+ *
+ * Pinned as a set rather than left implicit. These are the widths at which the
+ * criterion is unreachable, and naming them is what keeps the exception from
+ * widening quietly — a third viewport arriving here fails, whether it got here
+ * because the composition changed or because the line grew.
+ */
+const BELOW_FLOOR = { domains: ['1280x700'], stack: ['1024x768', '1280x700'] };
 
 /**
  * The widest fraction of the ribbon the content line may occupy, per mode.
@@ -411,15 +428,16 @@ describe.each(VIEWPORTS)('Selected Projects footer line as rendered at $name', (
 });
 
 describe('Selected Projects footer line against the exit link (#984)', () => {
-  /** Desktop readings, split by whether the ribbon can hold both at all. */
+  /** Desktop readings, split by whether this mode's line can clear at all. */
   const split = () => {
+    const floor = CLEARANCE_FLOOR_PX[PROJECTS_RIBBON];
     const desktop = VIEWPORTS.filter((viewport) => !viewport.stacked).map((viewport) => ({
       name: viewport.name,
       ...readings.get(viewport.name),
     }));
     return {
-      wide: desktop.filter((reading) => reading.rowWidth >= CLEARANCE_FLOOR_PX),
-      narrow: desktop.filter((reading) => reading.rowWidth < CLEARANCE_FLOOR_PX),
+      wide: desktop.filter((reading) => reading.rowWidth >= floor),
+      narrow: desktop.filter((reading) => reading.rowWidth < floor),
     };
   };
 
@@ -434,13 +452,11 @@ describe('Selected Projects footer line against the exit link (#984)', () => {
     }
   });
 
-  it('names the widths where the ribbon itself is too narrow for any such line', () => {
-    // Stated rather than skipped. These two are where the acceptance criterion
-    // "nothing renders under the link at desktop" is unreachable for a
-    // four-term line: the ribbon is 427px and 484px, and the exit link takes
-    // ~136px of the row above. Naming them keeps the exception from widening
-    // quietly — a third viewport arriving here is a regression, whether it got
-    // here because the composition changed or because the line grew.
-    expect(split().narrow.map((reading) => reading.name)).toEqual(['1024x768', '1280x700']);
+  it('names the widths where the ribbon itself is too narrow for this line', () => {
+    // Stated rather than skipped, and stated per mode: under `domains` only the
+    // 427px ribbon is out of reach, and under `stack` the 484px one is too. A
+    // shared list would have quietly excused a viewport the active mode can
+    // actually clear.
+    expect(split().narrow.map((reading) => reading.name)).toEqual(BELOW_FLOOR[PROJECTS_RIBBON]);
   });
 });
