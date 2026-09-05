@@ -99,7 +99,23 @@ JavaScript adds `.is-scrolling` to `<body>` during active scroll (debounced at 1
 
 Every Mermaid diagram is authored with a short accessible title and a relational description. Inline fences use whitespace-separated `title="..." description="..."` metadata; sidebar Mermaid items use required `title` and `description` frontmatter fields. Describe the relationships or conclusion conveyed by the diagram, not merely its list of nodes. Missing metadata or adjacent attributes without a separator are build errors.
 
-Both surfaces also take an **optional `caption`**, and it is a different kind of thing from the other two: `title` and `description` are hidden accessibility metadata, and the caption is visible text rendered as a `<figcaption>` under the diagram (#989). Write one only when it says something the diagram's title and the surrounding prose do not—a date the figure is accurate as of, a scope the diagram narrows to. An empty `caption=""` is a build error. It is never folded into the accessible name or description; repeat it in `title=` or `description=` if a screen reader should hear it there too.
+Both surfaces also take an **optional `caption`**, and it is a different kind of thing from the other two: `title` and `description` are hidden accessibility metadata, and the caption is visible text rendered as a `<figcaption>` under the diagram (#989). An empty `caption=""` is a build error. It is never folded into the accessible name or description; repeat it in `title=` or `description=` if a screen reader should hear it there too.
+
+**Write a caption only when it adds information the diagram's title and the surrounding prose do not carry, or when the diagram's visual form would otherwise imply a materially different claim from the one the surrounding prose makes.** The second clause is narrow on purpose (#996): it licenses a *correction to a misreading the figure itself generates*, never a summary and never context that merely happens to be useful. "Someone might skim this" is not a reason: a figure is always read out of the flow, so that argument would admit every redundant caption and bar nothing.
+
+The sentence above is the rule. The table illustrates how it applies and does not override it: a case that matches both a **No** row and a **Yes** row is a caption only if the material-misreading clause is genuinely met, because every corrective caption necessarily repeats something the prose also says.
+
+| Case | Caption |
+|---|---|
+| Restates the title, the description, or an adjacent paragraph, and the figure asserts nothing beyond the prose | No |
+| Useful context that already sits immediately above or below the figure | No |
+| "A reader might meet the figure out of the flow" | No |
+| The diagram's shape asserts something materially stronger or other than the prose claims | **Yes** |
+| A qualification that governs how to read *this figure*, correcting a claim the figure's own form makes | **Yes** |
+
+The two cases that produced this rule diverge under it, which is how you can tell it is doing work. `html-mockups-as-spec` sets a closed red cycle beside a green path that terminates in success—`A → B → C → A` against `D → E → F → G`—while the post says the attempts were sequential and establish no measured property. The asymmetry is the point: a futile loop next to a path that arrives asserts a controlled result more strongly than two like-shaped loops would, so that caption corrects an inference the figure's own geometry creates, and it stays. Because the correction has to reach the reader who *focuses* the diagram as well as the one who reads past it, the same qualification is repeated in that fence's `description=`. `six-prs-one-bug-agent-failure-modes` had a caption that, once a causal error in it was fixed, said exactly what the paragraph above it said, and the diagram made no contradictory claim of its own; that one was cut and stays cut.
+
+This is a judgement, not a check. Nothing in CI can ask whether a diagram's shape overstates its prose, so the rule lives here and is applied in review, which is where both of its founding cases were in fact caught.
 
 Every explicit Mermaid node fill and label color uses three- or six-digit hex colors whose WCAG contrast ratio is at least 4.5:1. Tests measure the rendered SVG rather than parsing Mermaid source syntax.
 
