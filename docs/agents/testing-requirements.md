@@ -28,6 +28,23 @@ Neither tool is a runtime or build dependency, and nothing ships from them—the
 
 `tests/fixtures/known-bad-resume-pre-923.pdf` is the résumé exactly as published with both defects. Every ordering and marker assertion runs against it as well as against the fresh build and **requires it to fail**—a check that passes on the broken artifact is not a check. Do not regenerate or repair that fixture.
 
+## The lifecycle marker suite parses CSS with a parser
+
+`tests/lifecycle-marker.test.js` § declarations asserts what each of the four lifecycle marks is made of by reading the emitted stylesheet, and it reads it with `css-tree`, not with regular expressions (#967). The history is the argument: thirteen of PR #964's sixteen findings were the same finding arriving five rounds running—a regex approximating the CSS selector grammar does not handle shape *X*—and PR #973 then took eight more rounds of the same shape before the analyzers were restated as invariants rather than as a list of syntax cases.
+
+**It is explainable as six invariants, and extending it means checking a change against them rather than adding a case.**
+
+1. **CSS structure comes from the AST, never from serialized text.** Rules, selectors, at-rule preludes and `@scope` roots are read as nodes. If css-tree seems not to expose something, inspect the node's *children* before concluding it—the `Scope` node carrying parsed `root`/`limit` was missed twice because only `prelude.type` and `generate()` were looked at.
+2. **One lexical rule for JavaScript, one tokenizer, every consumer a projection of it.** `scanJs` reports each span as code, string, comment or regex; call-site discovery, call bounding and literal reading all derive from it. Three hand-written scanners with subtly different notions of "string" is what made every round find a shape one of them handled and another did not.
+3. **Scanner ambiguity is reconciled by the inventory, not by more grammar.** The surface list is derived from call sites *and* from rendered marks, and `rendered ⊆ declared` is asserted—so a literal the tokenizer misses fails by name if it ships. Arguments are deliberately **not** split: surfaces are told from the status argument by the closed `STATUS_MARKER` vocabulary, so no regex or conditional can fabricate an argument boundary and with it a bogus surface.
+4. **Ownership of `::before` belongs to the subject compound.** Subject inference, broad targeting and pseudo-element ownership are different questions; conflating the last two rejected `.card:has(.state-marker--shipped) .title::before`, `.state-marker--shipped ~ .note::before` and `.p-status:not(.state-marker)::before`, none of which touches a mark. Polarity and scope are preserved through `:is()`, `:where()`, `:not()`, `:nth-child(… of …)`, nesting and `@scope`.
+5. **The lifecycle vocabulary is closed on both sides.** `STATUS_MARKER` is the only source of modifiers, and a `state-marker--*` that it cannot emit is named as an error in the stylesheet *and* on rendered elements—never filtered into whichever bucket happens to swallow it.
+6. **Screen and print share one ownership contract.** `expectCascadeOwnership` runs over both; the only difference is which properties the bare primitive may declare, which is a statement about what each medium needs rather than a second contract. Print is the medium the résumé PDF renders in, so a gap there matters more, not less.
+
+**A false failure is as serious as a miss**—this file exists partly because a tightened hand-rolled parser began rejecting behaviour-preserving CSS. So every rejecting fixture has a neighbouring must-pass one that proves the distinction is semantic rather than textual, and the suite carries its own defect table—§ *the collector rejects every shape it has been fooled by*—rebuilding each historical shape and asserting the collector finds it. A negative assertion over a stylesheet that is currently correct is not known to reject anything.
+
+When extending: probe **compositions**, not single features—nested functional pseudos, escaped identifiers combined with attribute selectors, scoped and nested rules, regex literals inside nested expressions, print rules under qualification selectors. The composition pass is what found the three false failures that the per-feature rounds did not.
+
 **Run before any PR (locally, in addition to CI):**
 
 ```bash
