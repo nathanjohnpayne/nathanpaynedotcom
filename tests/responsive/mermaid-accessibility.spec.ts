@@ -264,31 +264,41 @@ test('static Mermaid diagrams remain visible in print without JavaScript', async
 const CAPTION_ROUTES = [
   {
     surface: 'body',
-    route: '/blog/six-prs-one-bug-agent-failure-modes/',
+    // The one captioned body fence on the site, and a project page rather than
+    // a blog post — so `container` is what keeps this route table honest rather
+    // than a formality. Two rounds of review cut the other two body captions as
+    // restatements of their surrounding prose, which is the bar in
+    // docs/agents/code-modification-rules.md working as intended.
+    route: '/projects/mergepath/',
     // The surface, as a selector. Without it `surface` would be a label on a
     // query that does not honour it: the locator would take captions from every
     // visible figure on the page, so a body caption could satisfy the sidebar
     // case and hide a sidebar caption that had stopped rendering (CodeRabbit).
     // Each route asserts it found captions, so a renamed container fails here
     // rather than passing on an empty set.
-    container: '.blog-prose',
+    container: '.project-copy',
     minimumWidth: 0,
-    // Below the stacked breakpoint this route's captioned diagram is drawn far
-    // wider than the 262px column, so the scrolling arm has something to bite
-    // on. The sidebar route never scrolls at any width (#986), which is why the
-    // guard is a property of the route rather than of the test.
-    scrollsBelowStack: true,
+    // The viewport below which this route's captioned diagram MUST scroll, so
+    // the scrolling arm cannot go quiet. It is a measured property of the
+    // diagram against its column, not the stacked breakpoint: the diagram is
+    // drawn 419px wide, and `.project-copy` measures 262px at a 375px viewport,
+    // 280px at 393px, and 646px at 768px. So it scrolls on the two phone
+    // projects and legitimately fits on the tablet one, and a guard keyed to
+    // 1024px failed there for the right behaviour.
+    mustScrollBelowViewport: 500,
   },
   {
     surface: 'sidebar',
     route: '/blog/agent-approval-workflow-genesis-of-mergepath/',
     container: '.blog-sidebar-item',
     minimumWidth: 1024,
-    scrollsBelowStack: false,
+    // A sidebar figure never scrolls at any width (#986), so this arm has
+    // nothing to assert here rather than nothing to find.
+    mustScrollBelowViewport: 0,
   },
 ];
 
-for (const { surface, route, container, minimumWidth, scrollsBelowStack } of CAPTION_ROUTES) {
+for (const { surface, route, container, minimumWidth, mustScrollBelowViewport } of CAPTION_ROUTES) {
   test(`a ${surface} diagram caption is painted under its figure and announced exactly once`, async ({
     page,
   }) => {
@@ -420,10 +430,11 @@ for (const { surface, route, container, minimumWidth, scrollsBelowStack } of CAP
     // not go quiet. Below the stacked breakpoint this route's captioned diagram is
     // drawn far wider than the 262px column and must scroll; at desktop it fits,
     // and there is nothing there to assert.
-    if (scrollsBelowStack && (page.viewportSize()?.width ?? 0) < 1024) {
+    if ((page.viewportSize()?.width ?? 0) < mustScrollBelowViewport) {
       expect(
         scrollingCaptions,
-        'below 1024px the route must exercise a caption beside a scrolling diagram',
+        `below ${mustScrollBelowViewport}px the route must exercise a caption ` +
+          'beside a scrolling diagram',
       ).toBeGreaterThan(0);
     }
 
