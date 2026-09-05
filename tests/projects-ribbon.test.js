@@ -99,6 +99,48 @@ const CLEARANCE_FLOOR_PX = { domains: 450, stack: 530 };
 const BELOW_FLOOR = { domains: ['1280x700'], stack: ['1024x768', '1280x700'] };
 
 /**
+ * How much of the clearance margin is allowed to be an artefact of which font
+ * rendered, rather than of the layout.
+ *
+ * `document.fonts.ready` settles whether the faces loaded or failed, so a
+ * runner that cannot reach fonts.gstatic.com measures the fallback stack and
+ * not Inter (Codex, PR #985). Serving a local fixture would fix the determinism
+ * by measuring a typography the site does not ship — Inter is Google-hosted by
+ * design (docs/agents/code-modification-rules.md § Typography) — so the
+ * assertion is made insensitive to the difference instead.
+ *
+ * Measured with fonts.gstatic.com blocked: the DOMAINS line renders 326.2px
+ * against 323.7px loaded, 2.5px and 0.8%. Requiring the clearance to exceed 4px
+ * rather than 0 puts the whole of that delta inside the margin, so the
+ * assertion holds under either typography and fails only on a real regression.
+ * The tightest reading in the set clears by 23.3px, so this costs nothing.
+ *
+ * The ratio ceilings need no equivalent: their headroom is 0.043 against a
+ * font delta of 0.003.
+ */
+const FONT_DELTA_PX = 4;
+
+/**
+ * The ribbon width below which this mode's line is not expected to hold one
+ * line, and the viewports that fall under it.
+ *
+ * Classified by measured ribbon width rather than by layout. An earlier form of
+ * this excused BOTH stacked viewports under `stack`, and only one of them wraps
+ * — the tablet's 706px ribbon holds the capped rung on one line at 413.5px, so
+ * a spacing or typography regression that wrapped it there would have passed
+ * (Codex, PR #985). `domains` takes 0: it wraps nowhere in the set, including
+ * the 328px phone column, which is the ticket's whole claim.
+ *
+ * `stack` takes 350, between the phone's 328px row and the tablet's 706px one.
+ * #930 states rung 6 needs ~37em and calls that floor editorial rather than a
+ * fit guarantee, so the phone wrap is expected there and is not a defect.
+ */
+const ONE_LINE_FLOOR_PX = { domains: 0, stack: 350 };
+
+/** The viewports that fall under it, pinned so the exemption cannot widen. */
+const WRAPS_BELOW_FLOOR = { domains: [], stack: ['390x844'] };
+
+/**
  * The widest fraction of the ribbon the content line may occupy, per mode.
  *
  * Desktop only. Below `--bp-stack` the panel is a 328px phone column and any
@@ -265,6 +307,11 @@ function readFooter([ribbonSel, itemsSel, labelSel, twin]) {
     opened: document
       .querySelector('[data-panel="projects"]')
       .classList.contains('is-content-visible'),
+    // Recorded for diagnosis, not asserted: a runner with no route to Google
+    // Fonts is a legitimate environment, and every margin here is set wide
+    // enough to hold under either typography. What this turns into is a
+    // readable failure message when one of them does not.
+    interLoaded: document.fonts.check('1em Inter'),
   };
 
   /**
@@ -385,16 +432,16 @@ describe.each(VIEWPORTS)('Selected Projects footer line as rendered at $name', (
     expect(reading.textWidth).toBeGreaterThan(0);
   });
 
-  it.runIf(!viewport.stacked || PROJECTS_RIBBON === 'domains')('sets on one line', () => {
+  it('sets on one line, wherever the ribbon is wide enough to hold it', () => {
     // The property that makes this a line rather than a block, and the first
     // thing a fifth domain would break.
     //
-    // Below `--bp-stack` only DOMAINS holds it. STACK wraps on a phone at its
-    // rung-6 floor and always has: #930 states that floor is editorial rather
-    // than a fit guarantee, and it needs ~37em of ribbon it does not get at
-    // 390px. That is not asserted here as an expected wrap — it is the reason
-    // the stack branch is not held to this at those two widths.
-    expect(readings.get(viewport.name).lines).toBe(1);
+    // Exempted by measured ribbon width, not by layout: `domains` holds one
+    // line at every width in the set including the 328px phone column, and
+    // `stack` holds it everywhere but there.
+    const reading = readings.get(viewport.name);
+    if (reading.rowWidth < ONE_LINE_FLOOR_PX[PROJECTS_RIBBON]) return;
+    expect(reading.lines, `${reading.interLoaded ? '' : '(Inter did not load) '}wrapped`).toBe(1);
   });
 
   it.runIf(!viewport.stacked)('stays a bounded fraction of the measure', () => {
@@ -448,8 +495,21 @@ describe('Selected Projects footer line against the exit link (#984)', () => {
     // assertion would be sweeping an empty list and reporting success.
     expect(wide.length, 'no desktop reading cleared the floor').toBeGreaterThan(0);
     for (const reading of wide) {
-      expect(reading.clearance, `${reading.name} runs under the exit link`).toBeGreaterThan(0);
+      expect(
+        reading.clearance,
+        `${reading.name} runs under the exit link` +
+          (reading.interLoaded ? '' : ' (and Inter did not load, so this is fallback metrics)'),
+      ).toBeGreaterThan(FONT_DELTA_PX);
     }
+  });
+
+  it('names the widths where this line is not expected to hold one line', () => {
+    // Same shape as the clearance exemption below and pinned for the same
+    // reason: an exemption nobody enumerates is an exemption that widens.
+    const wrapping = VIEWPORTS.filter(
+      (viewport) => readings.get(viewport.name).rowWidth < ONE_LINE_FLOOR_PX[PROJECTS_RIBBON],
+    ).map((viewport) => viewport.name);
+    expect(wrapping).toEqual(WRAPS_BELOW_FLOOR[PROJECTS_RIBBON]);
   });
 
   it('names the widths where the ribbon itself is too narrow for this line', () => {
