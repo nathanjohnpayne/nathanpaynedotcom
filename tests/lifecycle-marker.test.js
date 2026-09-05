@@ -45,305 +45,273 @@ const MARK_CLASSES = [MARK_PRIMITIVE, ...MODIFIER_CLASSES];
 /**
  * Reading `stateMarkerClass()` call sites (#968).
  *
- * The scanner below is deliberately small and deliberately fails CLOSED. It
- * knows three things — brackets nest, string literals suspend that nesting, and
- * a backslash escapes the next character — and everything it cannot reduce to a
- * plain string literal is reported as `readable: false` rather than skipped.
- * That is the whole difference from the version it replaces, which collected
- * single-quoted literals anywhere inside the call and silently contributed
- * nothing for a double-quoted string, a template literal, or an identifier: a
- * surface that was never policed looked exactly like a surface that did not
- * exist. An unreadable argument now fails the lint in § declarations and names
- * itself.
+ * ## One tokenizer, three consumers
  *
- * It is not a JavaScript parser and does not need to be. The question it
- * answers is closed — *is this argument a string literal, and if so which one*
- * — and a shape it cannot read (a nested template literal, say) is an error
- * message asking for a literal, not a miss.
+ * There used to be three scanners here — a comment/string masker, a
+ * paren matcher, and an argument splitter — each with its own notion of what a
+ * string is and only two of which knew what a regex literal was. Every round of
+ * review found a shape one of them handled and another did not, because they
+ * were three approximations of the same lexical rule. `scanJs` is now that rule,
+ * stated once: it walks the source and reports each span as code, a string, a
+ * comment, or a regex, with template interpolations recursing back into code.
+ * Everything below is a projection of that one walk.
+ *
+ * ## What the inventory actually needs, and why arguments are not split
+ *
+ * The question is not "what are this call's arguments" but "which surface
+ * classes can carry a mark". Argument POSITION was only ever a proxy for
+ * telling the status argument from the base ones — and the status argument, when
+ * it is a literal at all, is a key of `STATUS_MARKER`, which is a closed set. So
+ * the literals are collected and classified by that set instead. No commas, no
+ * bracket depth, no argument boundaries, and therefore no way for a regex or a
+ * conditional expression to fabricate a boundary and with it a bogus surface.
+ * That fabrication was the source of every false failure this scanner produced.
+ *
+ * ## Where the remaining ambiguity goes
+ *
+ * A lexer without a full JavaScript grammar can still guess wrong about whether
+ * a `/` divides or opens a regex. The consequence is bounded, and it is bounded
+ * by the inventory cross-check rather than by more grammar: a missed literal
+ * removes a surface from `declared`, and § declarations asserts
+ * `rendered ⊆ declared`, so any surface that actually reaches a rendered mark
+ * fails there by name. A surface that renders nowhere has no element for a
+ * `::before` override to reach, which is the residue and it is inert.
+ *
+ * That is why the old "this argument is not a string literal" lint is gone. It
+ * could not tell a genuinely dynamic argument from a mis-split one, so it turned
+ * lexer uncertainty into a hard failure on correct code — the exact inversion
+ * this PR exists to stop.
  */
 
 /**
- * Characters after which a `/` opens a REGEX rather than dividing.
+ * Characters after which a `/` opens a REGEX rather than dividing, and the
+ * keywords that do the same without ending in punctuation.
  *
- * `>` and `<` are in the set because an arrow-function head ends in `>`:
- * `(v) => /a,b/.test(v)` puts a regex straight after one (CodeRabbit, PR #973).
+ * Stated once, used by every consumer of `scanJs`. `>` is here because an arrow
+ * head ends in one; the keyword list exists because `return`, `throw` and their
+ * peers introduce an expression and end in a letter (CodeRabbit and Codex,
+ * PR #973). Both are lexical facts about JavaScript rather than a list of
+ * reported bugs, and a miss is bounded by the cross-check described above.
  */
-const EXPRESSION_POSITION = '(,=:[!&|?{;+-*%~^<>';
+const EXPRESSION_POSITION = '(,=:[!&|?{};+-*%~^<>';
+const EXPRESSION_KEYWORDS =
+  /(?:^|[^\w$])(return|throw|yield|await|typeof|instanceof|case|in|of|new|void|delete|do|else)\s*$/;
 
 /**
- * End index of the regex literal starting at `start`, or -1 if there is none.
+ * Walk JavaScript-ish source once, reporting every span with its kind.
  *
- * Shared by both scanners below, which is the point: `splitArguments` learned
- * to lex regexes and `matchingParen` did not, so `/[(]/` still unbalanced the
- * call's parentheses and the whole invocation was reported unreadable — a false
- * failure on a call whose surfaces are all literal (Codex, PR #973). One lexer,
- * both callers.
+ * `visit(kind, from, to)` is called for each span in order, covering the whole
+ * input exactly once. Kinds: `code`, `string`, `comment`, `regex`. A template
+ * literal's `${…}` is emitted as `code`, so a call written inside one is seen.
  *
- * Both callers read JavaScript expression context — the text inside a call's
- * parentheses — so the previous-significant-character test is sound here. It is
- * deliberately NOT used by `blank()`, which reads whole `.astro` files where
- * `</div>` would read as a regex opener.
+ * Not a JavaScript parser, and it does not need to be — see the note above for
+ * what the remaining ambiguity costs and where it is caught.
  */
-function regexEnd(source, start, previous, preceding = '') {
-  if (source[start] !== '/') return -1;
-  // A keyword operand is expression position too: `return /a,b/.test(v)` and
-  // `typeof`, `case`, `in`, `of`, `await`, `yield`, `new`, `void`, `delete`,
-  // `do`, `else` all introduce one, and none of them ends in a character the
-  // punctuation set can see (Codex, PR #973).
-  const keyword =
-    /(?:^|[^\w$])(return|typeof|case|in|of|await|yield|new|void|delete|do|else)\s*$/.test(
-      preceding,
-    );
-  if (!keyword && previous !== '' && !EXPRESSION_POSITION.includes(previous)) return -1;
-  let escaped = false;
-  let inClass = false;
-  for (let index = start + 1; index < source.length; index += 1) {
-    const character = source[index];
-    if (escaped) escaped = false;
-    else if (character === '\\') escaped = true;
-    else if (character === '[') inClass = true;
-    else if (character === ']') inClass = false;
-    else if (character === '\n') return -1;
-    else if (character === '/' && !inClass) return index;
-  }
-  return -1;
-}
+function scanJs(source, visit) {
+  let index = 0;
+  let codeFrom = 0;
+  const interpolations = []; // brace depth per open `${ … }`
+  const flush = (to) => {
+    if (to > codeFrom) visit('code', codeFrom, to);
+  };
+  const emit = (kind, from, to) => {
+    visit(kind, from, to);
+    index = to;
+    codeFrom = to;
+  };
 
-/** Index of the `)` matching the `(` at `openIndex`, or -1. */
-function matchingParen(source, openIndex) {
-  let depth = 0;
-  let quote = null;
-  let seen = '';
-  for (let index = openIndex; index < source.length; index += 1) {
-    const character = source[index];
-    if (quote) {
-      if (character === '\\') index += 1;
-      else if (character === quote) quote = null;
-      continue;
-    }
-    if (character === '/') {
-      const trimmed = seen.replace(/\s+$/, '');
-      const end = regexEnd(source, index, trimmed.slice(-1), trimmed);
-      if (end !== -1) {
-        index = end;
-        seen = '/';
+  // From a backtick (or the `}` resuming one), find where this chunk ends.
+  const templateChunk = (from) => {
+    for (let j = from + 1; j < source.length; j += 1) {
+      const c = source[j];
+      if (c === '\\') {
+        j += 1;
         continue;
       }
+      if (c === '`') return { end: j + 1, interp: false };
+      if (c === '$' && source[j + 1] === '{') return { end: j, interp: true };
     }
-    if (character === "'" || character === '"' || character === '`') quote = character;
-    else if (character === '(') depth += 1;
-    else if (character === ')' && (depth -= 1) === 0) return index;
-    seen += character;
-  }
-  return -1;
-}
+    return { end: source.length, interp: false };
+  };
 
-/**
- * A call's argument text, split on its top-level commas.
- *
- * Regex literals are lexed here, unlike in `blank()`. The difference is the
- * input: this reads the text BETWEEN a call's parentheses, which is JavaScript
- * expression context, so the standard previous-significant-character test is
- * safe. `blank()` reads whole `.astro` files, where that same test makes
- * `</div>` a regex opener — measured breaking the SURFACES control, and
- * reverted. Without lexing here, the comma in
- * `stateMarkerClass(/a,b/.test(v) ? 'SHIPPED' : status, 'new-surface')` splits
- * an argument in half and the fragment is reported as an unreadable surface: a
- * false failure the containment controls cannot catch, because the bogus
- * argument is explicitly reported (Codex, PR #973).
- */
-function splitArguments(text) {
-  const parts = [];
-  let current = '';
-  let depth = 0;
-  let quote = null;
-  for (let index = 0; index < text.length; index += 1) {
-    const character = text[index];
-    if (quote) {
-      current += character;
-      if (character === '\\') {
-        current += text[index + 1] ?? '';
-        index += 1;
-      } else if (character === quote) quote = null;
+  while (index < source.length) {
+    const c = source[index];
+    const n = source[index + 1];
+    const top = interpolations.length ? interpolations[interpolations.length - 1] : null;
+
+    if (top !== null && c === '{') {
+      top.depth += 1;
+      index += 1;
       continue;
     }
-    if (character === '/') {
-      const trimmed = current.replace(/\s+$/, '');
-      const closed = regexEnd(text, index, trimmed.slice(-1), trimmed);
-      if (closed !== -1) {
-        current += text.slice(index, closed + 1);
-        index = closed;
-        continue;
-      }
-    }
-    if (character === "'" || character === '"' || character === '`') quote = character;
-    else if ('([{'.includes(character)) depth += 1;
-    else if (')]}'.includes(character)) depth -= 1;
-    else if (character === ',' && depth === 0) {
-      parts.push(current);
-      current = '';
-      continue;
-    }
-    current += character;
-  }
-  return [...parts, current].map((part) => part.trim()).filter(Boolean);
-}
-
-/**
- * `source` with every comment replaced by spaces, offsets preserved.
- *
- * Two things go wrong without it, and only one of them is loud: a
- * `stateMarkerClass(...)` written inside a comment is scanned as a call, and —
- * the dangerous one — a comment INSIDE a call ends the argument scan early.
- * a call whose first argument is followed by a block comment containing a `)`
- * closes on the comment's paren, yields an empty surface list, and never trips
- * the unreadable check, so that surface is silently unpoliced (Codex, PR #973).
- * The fixture below writes that call out; it cannot be written in this comment.
- *
- * Blanking rather than deleting keeps every offset, so the call sites are found
- * at the positions they occupy in the file. Regular-expression literals are not
- * modelled; the SURFACES control below is what would catch a blanking that ate
- * a real call, and it is asserted before anything is concluded from the result.
- */
-function blank(source, { strings = false } = {}) {
-  let out = '';
-  // A STACK, not one `quote` variable. A template literal's `${ … }` holds
-  // executable code, so masking has to suspend inside it — and the code in
-  // there can open strings of its own. With a single variable, the inner
-  // string's closing quote cleared the enclosing backtick and every later
-  // character in the file was scanned in the wrong context; the SURFACES
-  // known-positive control is what caught it.
-  //
-  // Frames are `{kind: 'string', quote}` and `{kind: 'interp', depth}`. Inside
-  // a string frame the contents are masked; inside an interp frame the scanner
-  // behaves exactly as it does at top level, nested literals included.
-  const stack = [];
-  for (let index = 0; index < source.length; index += 1) {
-    const character = source[index];
-    const frame = stack[stack.length - 1];
-
-    if (frame && frame.kind === 'string') {
-      // A `'` or `"` literal cannot span a newline in JavaScript, so an
-      // unterminated one at end-of-line was never a string — it was an
-      // apostrophe. Without this, one word of Astro prose (`<dt>Nathan's
-      // topics</dt>`) opens a frame that swallows every call after it, and the
-      // call-site walk reports a file as having no call at all. Under-scanning,
-      // and silent: the surface simply vanishes from the declared set.
-      if (character === '\n' && frame.quote !== '`') {
-        stack.pop();
-        out += character;
-        continue;
-      }
-      if (character === '\\') {
-        // Two characters either way, so offsets survive.
-        out += strings ? '  ' : character + (source[index + 1] ?? '');
+    if (top !== null && c === '}') {
+      if (top.depth > 0) {
+        top.depth -= 1;
         index += 1;
         continue;
       }
-      if (character === frame.quote) {
-        stack.pop();
-        out += character;
-        continue;
+      flush(index + 1); // the `}` closes the interpolation: still code
+      interpolations.pop();
+      const { end, interp } = templateChunk(index);
+      const to = interp ? end + 2 : end;
+      visit('string', index + 1, interp ? end : to);
+      if (interp) {
+        interpolations.push({ depth: 0 });
+        visit('code', end, end + 2);
       }
-      if (frame.quote === '`' && character === '$' && source[index + 1] === '{') {
-        stack.push({ kind: 'interp', depth: 1 });
-        out += '${';
-        index += 1;
-        continue;
-      }
-      out += strings ? ' ' : character;
+      index = to;
+      codeFrom = to;
       continue;
     }
 
-    if (frame && frame.kind === 'interp') {
-      if (character === '{') frame.depth += 1;
-      else if (character === '}') {
-        frame.depth -= 1;
-        if (frame.depth === 0) {
-          stack.pop();
-          out += character;
+    if (c === '/' && (n === '/' || n === '*')) {
+      flush(index);
+      const block = n === '*';
+      const found = block ? source.indexOf('*/', index + 2) : source.indexOf('\n', index);
+      emit('comment', index, found === -1 ? source.length : found + (block ? 2 : 0));
+      continue;
+    }
+
+    if (c === '/') {
+      const before = source.slice(0, index).replace(/\s+$/, '');
+      const last = before.slice(-1);
+      if (last === '' || EXPRESSION_POSITION.includes(last) || EXPRESSION_KEYWORDS.test(before)) {
+        let escaped = false,
+          inClass = false,
+          closed = -1;
+        for (let j = index + 1; j < source.length; j += 1) {
+          const d = source[j];
+          if (escaped) escaped = false;
+          else if (d === '\\') escaped = true;
+          else if (d === '[') inClass = true;
+          else if (d === ']') inClass = false;
+          else if (d === '\n') break;
+          else if (d === '/' && !inClass) {
+            closed = j;
+            break;
+          }
+        }
+        if (closed !== -1) {
+          flush(index);
+          emit('regex', index, closed + 1);
           continue;
         }
       }
     }
 
-    if (character === "'" || character === '"' || character === '`') {
-      stack.push({ kind: 'string', quote: character });
-      out += character;
+    if (c === "'" || c === '"') {
+      flush(index);
+      let end = source.length;
+      for (let j = index + 1; j < source.length; j += 1) {
+        const d = source[j];
+        if (d === '\\') {
+          j += 1;
+          continue;
+        }
+        if (d === c) {
+          end = j + 1;
+          break;
+        }
+        if (d === '\n') {
+          end = j;
+          break;
+        } // not a string: an apostrophe in markup
+      }
+      emit('string', index, end);
       continue;
     }
-    const block = character === '/' && source[index + 1] === '*';
-    const line = character === '/' && source[index + 1] === '/';
-    if (block || line) {
-      const end = block ? source.indexOf('*/', index + 2) : source.indexOf('\n', index);
-      const stop = end === -1 ? source.length : end + (block ? 2 : 0);
-      out += ' '.repeat(stop - index);
-      index = stop - 1;
+
+    if (c === '`') {
+      flush(index);
+      const { end, interp } = templateChunk(index);
+      visit('string', index, end);
+      if (interp) {
+        interpolations.push({ depth: 0 });
+        visit('code', end, end + 2);
+        index = end + 2;
+      } else index = end;
+      codeFrom = index;
       continue;
     }
-    out += character;
+
+    index += 1;
   }
-  return out;
+  flush(source.length);
+}
+/** `source` with every span of the given kinds replaced by spaces, offsets kept. */
+function mask(source, kinds) {
+  const out = source.split('');
+  scanJs(source, (kind, from, to) => {
+    if (!kinds.includes(kind)) return;
+    for (let i = from; i < to; i += 1) if (out[i] !== '\n') out[i] = ' ';
+  });
+  return out.join('');
 }
 
-/** `source` with every comment replaced by spaces, offsets preserved. */
-const withoutComments = (source) => blank(source);
+/** Comments blanked; string contents kept. */
+const withoutComments = (source) => mask(source, ['comment']);
 
 /**
- * `source` with comments AND the contents of every string literal blanked.
+ * Comments, string contents and regex literals blanked.
  *
- * Used only to FIND call sites, never to read their arguments. Helper text
- * quoted in a string literal — a doc example, a rendered snippet — was scanned
- * as a real call, and its `surfaceClass` argument failed the lint on code that
- * invokes nothing (Codex, PR #973). The quote characters survive so the paren
- * scan still balances; only what is inside them goes.
- *
- * The remaining limit is deliberate and stated rather than papered over: helper
- * text in Astro TEMPLATE markup is not inside a string literal and would still
- * be scanned. Telling markup from code needs an Astro parser, which is a larger
- * dependency decision than #967 authorised — and the failure is a LOUD one
- * asking for a string literal, not a silent miss, which is the direction this
- * file takes everywhere it cannot be exact.
+ * Used only to FIND call sites, never to read them: helper text quoted in a
+ * string literal or written in a comment is not an invocation.
  */
-const withoutCommentsOrStrings = (source) => blank(source, { strings: true });
+const withoutCommentsOrStrings = (source) => mask(source, ['comment', 'string', 'regex']);
 
 /**
- * A complete string literal in any of the three forms, and nothing else.
+ * Index of the `)` closing the call whose `(` is at `openIndex`, or -1.
  *
- * `$` is excluded from the template-literal form so `` `x-${y}` `` cannot pass
- * as the literal `x-${y}`; a backslash is excluded from all three so an escape
- * is never silently taken at face value. Both land in the unreadable bucket,
- * which is the safe direction.
+ * Counts parentheses in CODE spans only, so a `(` inside a string, a comment or
+ * a regex character class cannot unbalance it — the defect that made
+ * `stateMarkerClass(/[(]/.test(v) ? …)` read as an unreadable call.
  */
-const SURFACE_LITERAL = /^(?:'([^'\\\n]*)'|"([^"\\\n]*)"|`([^`\\$\n]*)`)$/;
+function matchingParen(source, openIndex) {
+  let depth = 0;
+  let close = -1;
+  scanJs(source, (kind, from, to) => {
+    if (close !== -1 || kind !== 'code') return;
+    for (let i = Math.max(from, openIndex); i < to; i += 1) {
+      if (source[i] === '(') depth += 1;
+      else if (source[i] === ')' && (depth -= 1) === 0) {
+        close = i;
+        return;
+      }
+    }
+  });
+  return close;
+}
+
+/** A complete string literal, with its delimiters, to its value. */
+const STRING_LITERAL = /^(?:'([^'\\\n]*)'|"([^"\\\n]*)"|`([^`\\$\n]*)`)$/;
 
 /**
- * The surface arguments of one `stateMarkerClass(...)` call.
+ * The surface classes named by one `stateMarkerClass(...)` call.
  *
- * Argument 0 is the status and is dropped; the rest are the `...base` classes.
- *
- * Each readable argument yields a class **list**, not one name. `stateMarkerClass(status,
- * 'post-meta project-status')` is what `/projects/` would look like written as
- * one argument, and the helper joins base strings with spaces either way — so
- * reading the literal whole recorded an alias no element ever carries, and the
- * declared-versus-rendered cross-check then failed on behaviourally identical
- * code (Codex, PR #973).
+ * Every string literal inside the call, minus the ones that are lifecycle
+ * STATUS words — which is what the first argument would be if it were a literal
+ * at all. Positions are not used; see the note at the top of this section for
+ * why the closed status vocabulary replaces argument boundaries, and where the
+ * residual lexer ambiguity is caught.
  *
  * @param {string} callText `stateMarkerClass(` through its matching `)`.
- * @returns {({readable: true, classes: string[]} | {readable: false, text: string})[]}
+ * @returns {{classes: string[], readable: boolean}}
  */
 function readSurfaceArguments(callText) {
   const open = callText.indexOf('(');
   const close = open === -1 ? -1 : matchingParen(callText, open);
-  if (close === -1) return [{ readable: false, text: callText }];
-  return splitArguments(callText.slice(open + 1, close))
-    .slice(1)
-    .map((text) => {
-      const literal = text.match(SURFACE_LITERAL);
-      if (!literal) return { readable: false, text };
-      const value = literal[1] ?? literal[2] ?? literal[3];
-      return { readable: true, classes: value.split(/\s+/).filter(Boolean) };
-    });
+  if (close === -1) return { classes: [], readable: false };
+  const inner = callText.slice(open + 1, close);
+  const classes = [];
+  scanJs(inner, (kind, from, to) => {
+    if (kind !== 'string') return;
+    const literal = inner.slice(from, to).match(STRING_LITERAL);
+    if (!literal) return;
+    const value = literal[1] ?? literal[2] ?? literal[3];
+    if (Object.hasOwn(STATUS_MARKER, value)) return;
+    classes.push(...value.split(/\s+/).filter(Boolean));
+  });
+  return { classes, readable: true };
 }
 
 /** Every `stateMarkerClass()` call site under `src/`, with its surfaces read. */
@@ -355,17 +323,15 @@ function callSites() {
     // declaration, not a call, and its parameter list is not a surface list.
     if (name === MARKER_MODULE) continue;
     const raw = readFileSync(file, 'utf-8');
-    // Two masks over the same offsets: call sites are FOUND in the one with
-    // string contents blanked, so quoted helper text is not a call; arguments
-    // are READ from the one that keeps them, so a real literal survives.
+    // Two projections of one scan, over the same offsets: call sites are FOUND
+    // where no string, comment or regex covers them, and READ from a source that
+    // still has its literals.
     const source = withoutComments(raw);
     for (const call of withoutCommentsOrStrings(raw).matchAll(/\bstateMarkerClass\s*\(/g)) {
       const close = matchingParen(source, call.index + call[0].length - 1);
       sites.push({
         file: name,
-        surfaces: readSurfaceArguments(
-          close === -1 ? call[0] : source.slice(call.index, close + 1),
-        ),
+        ...readSurfaceArguments(close === -1 ? call[0] : source.slice(call.index, close + 1)),
       });
     }
   }
@@ -381,9 +347,7 @@ function callSites() {
  * medium the résumé PDF renders in.
  */
 function surfaceAliases() {
-  const declared = callSites().flatMap(({ surfaces }) =>
-    surfaces.filter((surface) => surface.readable).flatMap(({ classes }) => classes),
-  );
+  const declared = callSites().flatMap((site) => site.classes);
   return new Set([...declared, ...renderedSurfaceClasses()]);
 }
 
@@ -395,22 +359,44 @@ function surfaceAliases() {
  * argument was written — which is the complement of what the call-site walk
  * can and cannot see.
  */
-let renderedClasses;
-function renderedSurfaceClasses() {
-  if (renderedClasses) return renderedClasses;
-  renderedClasses = new Set();
-  for (const { html } of builtPages()) {
+let renderedInventory;
+/**
+ * Every class on a rendered mark, classified against the closed vocabulary.
+ *
+ * Returns `{ surfaces, unknownModifiers }`. The primitive and the modifiers
+ * `STATUS_MARKER` can emit are accounted for; anything else spelled
+ * `state-marker--*` is an UNKNOWN modifier and is reported rather than dropped.
+ *
+ * It used to be dropped: the filter discarded every `state-marker--*` on its way
+ * to the surface list, so a modifier the vocabulary cannot emit — a rename that
+ * left its class behind, or a typo — vanished from the inventory silently while
+ * rendering on the page. A class that is neither a known modifier nor a surface
+ * has to be named, not classified into whichever bucket happens to swallow it.
+ */
+function renderedClassInventory() {
+  if (renderedInventory) return renderedInventory;
+  const surfaces = new Set();
+  const unknownModifiers = new Map();
+  const known = new Set(MARK_CLASSES);
+  for (const { route, html } of builtPages()) {
     const { document } = new JSDOM(html).window;
     for (const element of document.querySelectorAll(`.${MARK_PRIMITIVE}`)) {
       for (const name of element.classList) {
-        if (name !== MARK_PRIMITIVE && !name.startsWith(`${MARK_PRIMITIVE}--`)) {
-          renderedClasses.add(name);
+        if (known.has(name)) continue;
+        if (name.startsWith(`${MARK_PRIMITIVE}--`)) {
+          if (!unknownModifiers.has(name)) unknownModifiers.set(name, route);
+          continue;
         }
+        surfaces.add(name);
       }
     }
   }
-  return renderedClasses;
+  renderedInventory = { surfaces, unknownModifiers };
+  return renderedInventory;
 }
+
+/** Every non-mark class on an element that carries a mark, read off the build. */
+const renderedSurfaceClasses = () => renderedClassInventory().surfaces;
 
 describe('lifecycle marker vocabulary', () => {
   it('covers every status the projects collection can declare', () => {
@@ -1024,51 +1010,37 @@ describe('lifecycle marker — declarations', () => {
   }
 
   /**
-   * The scoping root of an `@scope (<root>) [to (<limit>)]`, as selector nodes.
+   * The scoping root of an `@scope`, as selector nodes — or `null` when there
+   * is no readable one.
    *
-   * Returns `null` when the prelude cannot be read, which `analyze` records as
-   * unreadable rather than as "no root" — an at-rule whose root is unknown must
-   * not quietly become an unscoped one.
+   * Read off the parsed `Scope` node. css-tree 3.2.1 exposes
+   * `{ root: SelectorList | null, limit: SelectorList | null }`, so root and
+   * limit are structurally distinct and a root containing any syntax at all —
+   * `(.a[data-x=")"])` — arrives already parsed.
    *
-   * The limit is deliberately ignored: `to (<limit>)` bounds where the scope
-   * ENDS, which can only ever narrow what the rules inside match. Narrower is
-   * the safe direction for a check that collects broadly and rejects narrowly.
+   * This replaces a scan that balanced parentheses over `csstree.generate()`
+   * output. That scan had two defects with one cause: it truncated a root whose
+   * attribute value contained `)`, and it could not tell `@scope (root)` from
+   * `@scope to (limit)` without a prefix heuristic. Both were serialized-text
+   * problems invented on top of an AST that already answered the question. An
+   * earlier reply on this PR claimed no `Scope` node exists in 3.2.1; that was
+   * wrong, and it was wrong because only `prelude.type` and `generate()` were
+   * inspected, never the prelude's children.
+   *
+   * `limit` is deliberately unread: it bounds where the scope ENDS, which can
+   * only narrow what the rules inside match, and narrower is the safe direction
+   * for a collector that collects broadly and rejects narrowly.
    */
   function scopeRoot(atrule) {
-    const prelude = atrule.prelude ? csstree.generate(atrule.prelude) : '';
-    const open = prelude.indexOf('(');
-    if (open === -1) return null;
-    // Both halves of the prelude are optional: `@scope to (.limit)` declares a
-    // LIMIT and an implicit root. Taking the first parenthesised group returned
-    // the limit as though it were the root, rewrote `:scope::before` against it,
-    // and rejected a rule that targets the implicit root rather than the mark
-    // (Codex and CodeRabbit, PR #973). Anything before the first `(` means the
-    // root was omitted, which is reported rather than guessed at.
-    if (prelude.slice(0, open).trim() !== '') return null;
-    let depth = 0;
-    let close = -1;
-    for (let index = open; index < prelude.length; index += 1) {
-      if (prelude[index] === '(') depth += 1;
-      else if (prelude[index] === ')' && (depth -= 1) === 0) {
-        close = index;
-        break;
-      }
-    }
-    if (close === -1) return null;
-    const inner = prelude.slice(open + 1, close).trim();
-    if (!inner) return null;
-    let parsed;
-    const errors = [];
-    try {
-      parsed = csstree.parse(inner, {
-        context: 'selectorList',
-        onParseError: (error) => errors.push(error),
-      });
-    } catch {
-      return null;
-    }
-    if (errors.length || parsed?.type !== 'SelectorList') return null;
-    return parsed.children.toArray();
+    if (!atrule.prelude) return null;
+    let scope = null;
+    csstree.walk(atrule.prelude, {
+      enter(node) {
+        if (node.type === 'Scope') scope = node;
+      },
+    });
+    if (!scope || scope.root?.type !== 'SelectorList') return null;
+    return scope.root.children.toArray();
   }
 
   /**
@@ -1148,9 +1120,15 @@ describe('lifecycle marker — declarations', () => {
           // inside it, exactly as a style rule does for nested ones — so its
           // root joins the same stack and `:scope` resolves against it.
           if (csstree.ident.decode(node.name).toLowerCase() === 'scope') {
+            // A rootless `@scope` — `@scope to (.limit)`, or `@scope` bare — is
+            // VALID CSS with an IMPLICIT root, not an unreadable one. It used to
+            // be reported unreadable because a text scan could not tell a root
+            // from a limit; the `Scope` node distinguishes them, so the honest
+            // answer is "there is no explicit root to resolve `:scope` against"
+            // and the rules inside are analysed on their own selectors.
             const root = scopeRoot(node);
-            if (root === null) unreadable.push(csstree.generate(node.prelude ?? node));
-            enclosing.push(root ?? []);
+            if (root === null) return;
+            enclosing.push(root);
             scoped[scoped.length - 1] = true;
             return;
           }
@@ -1208,39 +1186,38 @@ describe('lifecycle marker — declarations', () => {
   const screenRules = () => allRules().filter((rule) => !rule.conditional);
 
   /**
-   * Every `::before` rule that TARGETS one mark class, however it is qualified.
+   * Every `::before` rule whose SUBJECT carries one class — the rules that
+   * create that element's mark.
    *
-   * An exact selector comparison was the first version of this and it had the
-   * hole both reviewers found independently: `.resume-canvas
-   * .state-marker--archived::before` and `.p-status.state-marker--shipped::before`
-   * are rules that change the mark, and neither is equal to the bare selector,
-   * so their declarations were simply not collected and every assertion below
-   * passed while a surface overrode the primitive (CodeRabbit and Codex,
-   * PR #964).
+   * Ownership of a pseudo-element belongs to the compound the selector
+   * subjects, and to nothing else in the selector. This keyed on "the class
+   * appears anywhere" for several rounds, which is a different question, and
+   * every difference between the two was a false failure on correct CSS:
    *
-   * So a rule is **collected broadly and rejected narrowly**: any `::before`
-   * rule whose selector names the class at all is picked up, and
-   * `expectUnqualified` then requires it to be the bare primitive. The
-   * modifier-element rule below is the one place that needs to know which
-   * compound a selector subjects, and it asks `subject` for that; everything
-   * keyed on the mark class stays deliberately broad, because the two holes in a
-   * row here both came from trying to be clever about the subject.
+   *   `.project-card:has(.state-marker--shipped) .title::before` styles a TITLE;
+   *   `.state-marker--shipped ~ .note::before` styles a SIBLING;
+   *   `.resume .state-marker--shipped .icon::before` styles a DESCENDANT.
    *
-   * The trade is a selector naming the mark as an ANCESTOR of some other
-   * element's `::before`, which this rejects. Nothing is nested inside the mark
-   * — it is a leaf pseudo-element on the status element — so that selector
-   * cannot occur here, and failing loudly on one is the safe direction.
+   * None of them touches a mark, and all three were rejected as narrowing one.
+   * `subjectClassNames` already answered the ownership question correctly, with
+   * polarity and functional-selector handling; this is `targeting()` asking it
+   * rather than keeping a second, looser notion of the same thing.
    *
-   * Scoped to `::before` deliberately. The mark is a pseudo-element; the
-   * element itself carries the status word and each *surface* legitimately
-   * styles it (`.p-status`, `.metadata-strip__status`, `.resume-entry__status`),
-   * so policing the element in general would be asserting a rule the vocabulary
-   * does not have. A *modifier* is the exception, and has its own check below.
+   * Broad collection was the right call while the subject was computed by
+   * string manipulation — reading "the last compound" out of selector text was
+   * itself a hole twice. It is not a string question any more.
+   *
+   * Scoped to `::before` deliberately. The mark IS a pseudo-element; the status
+   * element carries the word and each surface legitimately styles it, so
+   * policing the element in general would assert a rule the vocabulary does not
+   * have. A modifier is the exception and has `modifierElementDeclarations`.
    */
   function targeting(className, rules = screenRules()) {
     return rules.filter(
       (rule) =>
-        rule.before && !rule.excludesMark && (rule.anyClass || rule.classes.includes(className)),
+        rule.before &&
+        !rule.excludesMark &&
+        (rule.subjectAnyClass || rule.subject.includes(className)),
     );
   }
 
@@ -1551,25 +1528,19 @@ describe('lifecycle marker — declarations', () => {
       ).toContain(surface);
     }
 
-    // The call-site lint (#968). An argument this cannot read is reported as
-    // unreadable, never as absent: the whole defect being fixed is a surface
-    // that contributed nothing and looked like a surface that did not exist.
-    // Failing here asks for a string literal, which costs a call site nothing
-    // and is what makes the alias set knowable from the repository.
+    // A call whose extent cannot be bounded at all is the one thing the scanner
+    // still reports as a failure, because it means no literal inside it was
+    // read and the file's contribution is unknown rather than empty. Every
+    // OTHER ambiguity is reconciled by the containment below rather than
+    // failing here — see the note at the top of the scanner for why a lint on
+    // "this argument is not a literal" could not tell a dynamic surface from a
+    // mis-split one, and so failed on correct code.
     expect(
-      sites.flatMap(({ file, surfaces }) =>
-        surfaces.filter((surface) => !surface.readable).map(({ text }) => `${file}: ${text}`),
-      ),
-      'a stateMarkerClass() surface argument is not a string literal, so the mark-override ' +
-        'check below cannot name the surface it would have to police — pass the class as a ' +
-        "literal ('p-status'), not as an identifier or an interpolation",
+      sites.filter((site) => !site.readable).map((site) => site.file),
+      'a stateMarkerClass() call could not be bounded, so no literal in it was read',
     ).toEqual([]);
 
-    const declared = new Set(
-      sites.flatMap(({ surfaces }) =>
-        surfaces.filter((surface) => surface.readable).flatMap(({ classes }) => classes),
-      ),
-    );
+    const declared = new Set(sites.flatMap((site) => site.classes));
     const rendered = renderedSurfaceClasses();
 
     // Non-empty, and a known positive on each side: "found nothing" and "there
@@ -1583,31 +1554,19 @@ describe('lifecycle marker — declarations', () => {
       'no lifecycle mark on any built page carries a surface class',
     ).toContain('p-status');
 
-    // And the two derivations have to agree in the direction that can be
-    // checked. A declared surface missing from the build is either a surface
-    // that stopped rendering or a DOM walk that stopped working, and both are
-    // worth failing on; the reverse does not hold, since the build may carry a
-    // class the call site never named.
-    expect(
-      [...declared].filter((alias) => !rendered.has(alias)).sort(),
-      'a surface class is asked for at a call site but appears on no rendered mark',
-    ).toEqual([]);
-
-    // And the same containment the OTHER way, which is what closes the
-    // dropped-call-site class rather than chasing the masker's blind spots
-    // (Codex, PR #973).
+    // The load-bearing containment, and the reason the scanner is allowed to be
+    // a lexer rather than a parser: every surface class that actually reaches a
+    // rendered mark must also be named at a call site. A literal the tokenizer
+    // misses fails HERE, by name, instead of silently shrinking the alias set.
     //
-    // The masker is not a JavaScript lexer and cannot become one here: these
-    // are `.astro` files, so a regex-literal heuristic misfires on markup —
-    // `</div>` reads as a regex opener under the standard
-    // previous-significant-character test, which was measured breaking this
-    // very control before it was reverted. So the guarantee is moved off the
-    // scanner and onto the build: every surface class that actually reaches a
-    // rendered mark must also be named at a call site. A call site the masker
-    // eats now fails HERE, by name, instead of silently shrinking the alias
-    // set — and the residue it cannot cover is bounded by construction, since
-    // a surface that renders nowhere has no element for a `::before` override
-    // to reach.
+    // The residue is bounded by construction rather than by more grammar: a
+    // surface that renders nowhere has no element for a `::before` override to
+    // reach, so it can only become live by starting to render — at which point
+    // this fires.
+    //
+    // The reverse containment is deliberately NOT asserted. A declared surface
+    // that renders on no page is ordinary — a status no project currently
+    // holds renders no mark — so requiring it would fail on correct code.
     expect(
       [...rendered].filter((alias) => !declared.has(alias)).sort(),
       'a surface class renders on a mark but is named at no stateMarkerClass() call site — ' +
@@ -1615,79 +1574,108 @@ describe('lifecycle marker — declarations', () => {
         'that bypasses the shared helper',
     ).toEqual([]);
 
-    for (const alias of new Set([...declared, ...rendered])) {
+    // The same ownership contract the print cascade is held to, applied here.
+    // One invariant, two media — the only difference is which properties the
+    // primitive may declare, and on screen that is left to the declaration
+    // checks above rather than restated.
+    expectCascadeOwnership(allRules(), { medium: 'screen' });
+  });
+
+  /**
+   * The ownership invariant, stated once and applied to both cascades.
+   *
+   * The mark is `.state-marker::before` and belongs to the primitive. Nobody —
+   * no surface, no modifier, no medium — may narrow it. Print used to have a
+   * separate, weaker contract: § declarations stripped `@media print` before
+   * parsing and § print fidelity only inspected rules declaring
+   * `print-color-adjust`, so an override inside a print block was invisible to
+   * both. Print is the medium the résumé PDF renders in, so that gap mattered
+   * more than a screen one, not less.
+   *
+   * The only difference between the two cascades is which properties the bare
+   * primitive may declare, which is a statement about what each medium NEEDS
+   * rather than a second contract.
+   *
+   * Scoped to `::before` for the reason `targeting()` is: the status ELEMENT is
+   * the surface's, and a surface legitimately restyles its own label on paper —
+   * `.resume-entry__status` really is in the print block.
+   */
+  function expectCascadeOwnership(rules, { medium, allowedOnPrimitive }) {
+    const policed = [...MARK_CLASSES, ...surfaceAliases()];
+    // The same predicate `targeting()` uses, so ownership means one thing in
+    // both cascades — including the exclusions: a selector that negates the
+    // primitive cannot match a mark, and a class that is not the subject does
+    // not own the pseudo-element.
+    const touching = policed.flatMap((name) => targeting(name, rules));
+
+    expect(
+      touching.filter((rule) => !MARK_CLASSES.includes(rule.bare)).map(({ selector }) => selector),
+      `a lifecycle mark is narrowed in the ${medium} cascade; the mark is ` +
+        '.state-marker::before and belongs to the primitive, not to one surface or one state',
+    ).toEqual([]);
+
+    if (allowedOnPrimitive) {
       expect(
-        targeting(alias, allRules()).map(({ selector }) => selector),
-        `${alias}::before restyles the lifecycle mark from one surface; the mark ` +
-          'is .state-marker::before and belongs to the primitive',
+        touching.flatMap((rule) =>
+          rule.declarations
+            .map(({ property }) => property)
+            .filter((property) => !allowedOnPrimitive.includes(property)),
+        ),
+        `the ${medium} cascade declares something on the mark beyond what that medium needs`,
       ).toEqual([]);
     }
-  });
 
-  it('lets the print cascade say only what print fidelity needs', () => {
-    // The gap between the two sections. § declarations strips `@media print`
-    // before parsing, and § print fidelity only inspects rules that declare
-    // `print-color-adjust` — so a mark override inside a print block was
-    // invisible to BOTH. `@media print{.state-marker--shipped::before{
-    // padding:9px}}` changed the cored ring on paper and nothing failed.
-    //
-    // That gap matters more than a screen-cascade one, not less: print is the
-    // medium the résumé PDF is actually rendered in, and the raster classifier
-    // in tests/helpers/pdf-oracle.js reads exactly these marks.
-    //
-    // So the print cascade gets the same treatment, with one exemption: the
-    // properties § print fidelity exists to require.
-    const PRINT_ONLY = ['print-color-adjust', '-webkit-print-color-adjust'];
+    // The element side of the same invariant: a modifier owns nothing there.
+    expect(
+      modifierElementDeclarations(rules),
+      `a lifecycle modifier declares something on the status element in the ${medium} cascade`,
+    ).toEqual([]);
+  }
+
+  it('gives the mark to the primitive in the print cascade too', () => {
     const printed = analyze(builtPrintBlocks().join('\n')).rules;
-    // Mark classes AND surface classes: `.p-status::before` narrows the mark
-    // from one surface without naming it, in the print cascade exactly as in
-    // the screen one.
-    // Mark classes AND surface classes: `.p-status::before` narrows the mark
-    // from one surface without naming it, in the print cascade exactly as in
-    // the screen one.
-    //
-    // Scoped to `::before` for the same reason `targeting()` is. The status
-    // ELEMENT is the surface's, and a surface legitimately restyles its own
-    // label on paper — `.resume-entry__status` really is in this block. What a
-    // surface may not do is reach the mark.
-    const policed = [...MARK_CLASSES, ...surfaceAliases()];
-    const marks = printed.filter(
-      (rule) => rule.before && rule.classes.some((name) => policed.includes(name)),
-    );
 
     // Control first: the print cascade really does carry the primitive's rule,
-    // so an empty offender list below means "nothing else", not "nothing read".
+    // so an empty offender list means "nothing else", not "nothing read".
     expect(
-      marks.map(({ selector }) => selector),
-      'the print cascade carries no lifecycle mark rule at all, so the scan below is vacuous',
+      printed.filter((rule) => rule.before && rule.classes.includes(MARK_PRIMITIVE)).length,
+      'the print cascade carries no lifecycle mark rule at all, so the scan is vacuous',
+    ).toBeGreaterThan(0);
+
+    expectCascadeOwnership(printed, {
+      medium: 'print',
+      // Exactly what #950 needs on paper, and nothing else. Geometry and fill
+      // belong to the screen cascade, where every other check can see them.
+      allowedOnPrimitive: ['print-color-adjust', '-webkit-print-color-adjust'],
+    });
+  });
+
+  it('has no rendered modifier class the vocabulary cannot emit', () => {
+    // The rendered half of the closed vocabulary. A `state-marker--*` on a
+    // real element that STATUS_MARKER cannot emit used to be filtered out on
+    // the way to the surface list and vanish from the inventory entirely —
+    // neither policed as a modifier nor policed as a surface.
+    const { unknownModifiers, surfaces } = renderedClassInventory();
+    expect(
+      [...unknownModifiers].map(([name, route]) => `${name} (first seen on ${route})`),
+      'a rendered lifecycle element carries a state-marker--* class STATUS_MARKER cannot emit — ' +
+        'either a modifier was renamed and a surface still applies the old one, or it is ' +
+        'misspelled and that element renders as the bare outline',
+    ).toEqual([]);
+
+    // Controls, both directions: the walk does see modifiers (or the emptiness
+    // above is vacuous), and it does not sweep surfaces into that bucket.
+    expect(
+      [...surfaces],
+      'no surface class was seen on any rendered mark, so the scan above is vacuous',
     ).not.toEqual([]);
-
     expect(
-      marks.filter((rule) => rule.bare !== MARK_PRIMITIVE).map(({ selector }) => selector),
-      'a lifecycle mark is narrowed inside @media print; the print rule belongs to the bare ' +
-        '.state-marker::before primitive, which is the whole point of #950',
-    ).toEqual([]);
-
-    expect(
-      marks.flatMap((rule) =>
-        rule.declarations
-          .map(({ property }) => property)
-          .filter((property) => !PRINT_ONLY.includes(property)),
-      ),
-      'the print cascade declares something other than print-color-adjust on the mark — ' +
-        'geometry and fill belong to the screen cascade, where every other check can see them',
-    ).toEqual([]);
-
-    // And the element side of the same rule: a MODIFIER may say nothing about
-    // the status element on paper either, which is what keeps one state from
-    // printing at a different size than the rest.
-    expect(
-      modifierElementDeclarations(printed),
-      'a lifecycle modifier declares something on the status element inside @media print',
+      [...surfaces].filter((name) => name.startsWith(`${MARK_PRIMITIVE}--`)),
+      'a modifier class was classified as a surface',
     ).toEqual([]);
   });
 
-  it('has no modifier class the vocabulary cannot emit', () => {
+  it('has no stylesheet modifier class the vocabulary cannot emit', () => {
     // `STATUS_MARKER` is the closed source of modifiers, so any other
     // `.state-marker--*` in the stylesheet is either a typo for a real one — in
     // which case that state silently lost its fill and renders as the bare
@@ -1920,56 +1908,6 @@ describe('lifecycle marker — declarations', () => {
       ).toBe(false);
     });
 
-    it('keeps template interpolations visible while masking the literal around them', () => {
-      // `${ … }` is executable code, not string content. Blanking it with the
-      // rest of the literal hid a real call: no alias, and no unreadable
-      // argument to fail on either (Codex, PR #973).
-      const interpolated = "const c = `${stateMarkerClass(status, 'new-surface')}`;";
-      const masked = withoutCommentsOrStrings(interpolated);
-      expect(masked.includes('stateMarkerClass('), 'the interpolated call was masked away').toBe(
-        true,
-      );
-      expect(masked.indexOf('stateMarkerClass(')).toBe(interpolated.indexOf('stateMarkerClass('));
-      expect(
-        readSurfaceArguments(
-          withoutComments(interpolated).slice(
-            withoutComments(interpolated).indexOf('stateMarkerClass('),
-          ),
-        ),
-        'the surface inside a template interpolation was not read',
-      ).toEqual([{ readable: true, classes: ['new-surface'] }]);
-
-      // The literal text AROUND an interpolation is still masked, so quoted
-      // helper text next to a real call does not become a second call site.
-      const mixed = "const c = `stateMarkerClass(a, b) ${stateMarkerClass(s, 'p-status')}`;";
-      expect(
-        [...withoutCommentsOrStrings(mixed).matchAll(/\bstateMarkerClass\s*\(/g)].length,
-        'the quoted helper text was scanned as a call site',
-      ).toBe(1);
-    });
-
-    it('does not read helper text quoted in a string literal as a call site', () => {
-      // A doc example or a rendered snippet is not an invocation, and treating
-      // one as an unreadable call fails the required suite on code that calls
-      // nothing (Codex, PR #973).
-      const quoted = `const example = "stateMarkerClass(status, surfaceClass)";`;
-      expect(
-        withoutCommentsOrStrings(quoted).includes('stateMarkerClass('),
-        'helper text inside a string literal was left in the call-site scan',
-      ).toBe(false);
-      // The quotes themselves survive, so the paren scan still balances, and a
-      // real call on the same line is still found at its own offset.
-      const mixed = `const s = "x)"; const c = stateMarkerClass(status, 'p-status');`;
-      const masked = withoutCommentsOrStrings(mixed);
-      expect(masked.indexOf('stateMarkerClass(')).toBe(mixed.indexOf('stateMarkerClass('));
-      expect(
-        readSurfaceArguments(
-          withoutComments(mixed).slice(withoutComments(mixed).indexOf('stateMarkerClass(')),
-        ),
-        'masking string contents lost a real literal argument',
-      ).toEqual([{ readable: true, classes: ['p-status'] }]);
-    });
-
     it('does not read an exact class value that cannot match a mark as targeting one', () => {
       // The other direction of the same matcher. `[class="p-status"]` selects
       // an element whose class attribute is EXACTLY `p-status`, and a rendered
@@ -2060,10 +1998,20 @@ describe('lifecycle marker — declarations', () => {
       // A scope root the extractor cannot read is reported, not treated as an
       // absent one — an at-rule whose root is unknown must not quietly become
       // an unscoped rule.
-      expect(
-        analyze('@scope { :scope::before { padding: 9px } }').unreadable.length,
-        'an unreadable @scope prelude was silently treated as having no root',
-      ).toBeGreaterThan(0);
+      // A rootless @scope is valid CSS with an implicit root, so it is not an
+      // error — there is simply no explicit root for `:scope` to resolve
+      // against, and the rules inside stand on their own selectors.
+      for (const rootless of [
+        '@scope { :scope::before { padding: 9px } }',
+        '@scope to (.state-marker--shipped) { .card::before { content: "x" } }',
+      ]) {
+        expect(analyze(rootless).unreadable, `${rootless} was reported unreadable`).toEqual([]);
+        expect(
+          analyze(rootless).rules.filter((rule) => rule.subject.includes('state-marker--shipped'))
+            .length,
+          `${rootless} resolved a selector against its limit`,
+        ).toBe(0);
+      }
 
       // `@scope` narrows by DOM position, not by viewport, so its rules must
       // reach the UNCONDITIONAL set — otherwise `screenRules()` drops them and
@@ -2078,15 +2026,46 @@ describe('lifecycle marker — declarations', () => {
       // Both halves of the prelude are optional, and `to (…)` is the LIMIT.
       // Reading it as the root rewrote `:scope` against the wrong selector and
       // rejected a rule targeting the implicit root.
+      // `to (…)` is the LIMIT. Reading it as the root rewrote `:scope` against
+      // the wrong selector; the `Scope` node keeps them apart structurally.
       const rootless = analyze('@scope to (.state-marker--shipped){:scope::before{padding:9px}}');
+      expect(rootless.unreadable, 'a valid rootless @scope was reported unreadable').toEqual([]);
       expect(
-        rootless.unreadable.length,
-        'a rootless @scope had its LIMIT read as the root',
-      ).toBeGreaterThan(0);
-      expect(
-        rootless.rules.filter((rule) => rule.classes.includes('state-marker--shipped')).length,
+        rootless.rules.filter((rule) => rule.subject.includes('state-marker--shipped')).length,
         'a rootless @scope resolved :scope against its limit',
       ).toBe(0);
+
+      // A root carrying syntax that a paren-balancing text scan truncates. The
+      // AST hands it back parsed, so there is nothing to balance.
+      const awkward = analyze(
+        `${PRIMITIVE}@scope (.state-marker--shipped[data-x=")"]){:scope::before{padding:9px}}`,
+      );
+      expect(awkward.errors, 'the fixture did not parse').toEqual([]);
+      expect(awkward.unreadable, 'a root containing ) was reported unreadable').toEqual([]);
+      expect(
+        awkward.rules
+          .filter((rule) => rule.before && rule.classes.includes('state-marker--shipped'))
+          .map(({ selector }) => selector),
+        'a scope root whose attribute value contains ) was truncated',
+      ).toEqual(['.state-marker--shipped::before', '.state-marker--shipped[data-x=")"]::before']);
+
+      // Neighbouring must-pass: the same awkward syntax in a root that is NOT a
+      // lifecycle class must not be attributed to one.
+      expect(
+        analyze('@scope (.card[data-x=")"]){:scope::before{padding:9px}}').rules.filter((rule) =>
+          rule.classes.includes('state-marker--shipped'),
+        ).length,
+        'an unrelated scope root was attributed to the lifecycle vocabulary',
+      ).toBe(0);
+
+      // And a multi-member root: `Scope.root` is a SelectorList, so both
+      // members resolve rather than only the first.
+      expect(
+        analyze('@scope (.a, .state-marker--shipped){:scope::before{padding:9px}}').rules.filter(
+          (rule) => rule.classes.includes('state-marker--shipped'),
+        ).length,
+        'only the first member of a multi-member scope root resolved',
+      ).toBe(1);
     });
 
     it('reads an escaped bare selector as bare, and still checks what it declares', () => {
@@ -2126,6 +2105,141 @@ describe('lifecycle marker — declarations', () => {
           'state-marker--shipped',
         );
       }
+    });
+
+    it('tokenizes one lexical rule for every consumer of it', () => {
+      // The tokenizer is the single lexical rule three things now derive from:
+      // where call sites may be found, where a call ends, and which literals it
+      // names. Asserted through the CONSUMERS rather than on span shapes, since
+      // that is what the divergence between three hand-written scanners cost.
+      const spanKinds = (source) => {
+        const kinds = [];
+        scanJs(source, (kind, from, to) => kinds.push([kind, source.slice(from, to)]));
+        return kinds;
+      };
+
+      // Total coverage: every character is reported exactly once, in order. A
+      // gap here is how a scanner silently skips a region.
+      for (const source of [
+        "const a = 'x'; // c",
+        'const t = `a${ f(`d${e}f`) }c`;',
+        "throw /a,b/.test(v) ? 'S' : s",
+        '`unterminated',
+        "<dt>Nathan's topics</dt>\nclass={x}",
+      ]) {
+        let at = 0;
+        scanJs(source, (kind, from, to) => {
+          expect(from, `span gap or overlap in ${JSON.stringify(source)}`).toBe(at);
+          at = to;
+        });
+        expect(at, `span walk stopped early on ${JSON.stringify(source)}`).toBe(source.length);
+      }
+
+      // A regex is a regex after punctuation AND after a keyword; a division is
+      // still a division. The keyword list is a lexical fact, so the must-pass
+      // neighbour matters as much as the rejecting case.
+      for (const keyword of ['return', 'throw', 'yield', 'instanceof', 'typeof', 'case']) {
+        expect(
+          spanKinds(`${keyword} /a,b/.test(v)`).some(
+            ([kind, text]) => kind === 'regex' && text === '/a,b/',
+          ),
+          `a regex after ${keyword} was not lexed`,
+        ).toBe(true);
+      }
+      expect(
+        spanKinds('total / count / 2').every(([kind]) => kind === 'code'),
+        'a division was lexed as a regex',
+      ).toBe(true);
+      expect(
+        spanKinds('doReturn / count').every(([kind]) => kind === 'code'),
+        'an identifier ending in a keyword was read as expression position',
+      ).toBe(true);
+    });
+
+    it('bounds a call the same way wherever the lexer is used', () => {
+      // `matchingParen` counts parentheses in CODE spans only, so the same
+      // tokenizer that hides a `(` from the masker hides it here. Before that,
+      // the two disagreed and a regex character class unbalanced the call.
+      const bounded = (call) => {
+        const open = call.indexOf('(');
+        const close = matchingParen(call, open);
+        return close === call.length - 1;
+      };
+      for (const call of [
+        "stateMarkerClass(/[(]/.test(v) ? 'SHIPPED' : s, 'p-status')",
+        "stateMarkerClass(f('('), 'p-status')",
+        'stateMarkerClass(/* ) */ s, `p-status`)',
+        "stateMarkerClass(throw /[)]/.test(v) ? a : b, 'p-status')",
+      ]) {
+        expect(bounded(call), `call not bounded: ${call}`).toBe(true);
+      }
+      // Must-pass neighbour: a genuinely unterminated call is still reported.
+      expect(matchingParen('stateMarkerClass(s, ', 16), 'an unbounded call was bounded').toBe(-1);
+    });
+
+    it('names surfaces by the closed status vocabulary, not by argument position', () => {
+      const surfaces = (call) => readSurfaceArguments(call).classes.sort();
+
+      // The reported forms. Position is not consulted, so a regex, a comment or
+      // a conditional in the status expression cannot fabricate a boundary.
+      expect(surfaces("stateMarkerClass(status, 'p-status')")).toEqual(['p-status']);
+      expect(surfaces('stateMarkerClass(status, "p-status")')).toEqual(['p-status']);
+      expect(surfaces('stateMarkerClass(status, `p-status`)')).toEqual(['p-status']);
+      expect(surfaces("stateMarkerClass(status, 'post-meta project-status')")).toEqual([
+        'post-meta',
+        'project-status',
+      ]);
+      expect(surfaces("stateMarkerClass(statusOf(slug), 'p-status')")).toEqual(['p-status']);
+      expect(surfaces("stateMarkerClass(/a,b/.test(v) ? 'SHIPPED' : s, 'p-status')")).toEqual([
+        'p-status',
+      ]);
+      expect(surfaces("stateMarkerClass(throw /a,b/.test(v) ? 'SHIPPED' : s, 'p-status')")).toEqual(
+        ['p-status'],
+      );
+      expect(
+        surfaces("stateMarkerClass((v) => /a,b/.test(v) ? 'SHIPPED' : s, 'p-status')"),
+      ).toEqual(['p-status']);
+      expect(surfaces("stateMarkerClass(`${x}`, 'p-status')")).toEqual(['p-status']);
+
+      // A literal STATUS word is not a surface, wherever it sits. This is what
+      // replaces argument position, so it needs its own must-pass neighbour:
+      // a class whose name merely resembles a status still counts.
+      expect(surfaces("stateMarkerClass('SHIPPED', 'p-status')")).toEqual(['p-status']);
+      expect(surfaces("stateMarkerClass('IN PROGRESS', 'p-status')")).toEqual(['p-status']);
+      expect(surfaces("stateMarkerClass(s, 'shipped')")).toEqual(['shipped']);
+
+      // A dynamic surface argument is no longer an error — it contributes
+      // nothing here and is caught by rendered-subset-declared if it ships.
+      expect(surfaces('stateMarkerClass(status, surfaceClass)')).toEqual([]);
+      expect(readSurfaceArguments('stateMarkerClass(status, surfaceClass)').readable).toBe(true);
+    });
+
+    it('finds call sites only where code is', () => {
+      const found = (source) =>
+        [...withoutCommentsOrStrings(source).matchAll(/\bstateMarkerClass\s*\(/g)].length;
+      // Quoted or commented helper text is not an invocation.
+      expect(found(`const e = "stateMarkerClass(s, x)";`), 'quoted text read as a call').toBe(0);
+      expect(
+        found('// stateMarkerClass(s, x)\nconst a = 1;'),
+        'commented text read as a call',
+      ).toBe(0);
+      expect(found('/* stateMarkerClass(s, x) */'), 'block comment read as a call').toBe(0);
+      // Must-pass neighbours: real calls, including inside an interpolation and
+      // on a line that also carries a string containing a paren.
+      expect(found("const c = stateMarkerClass(s, 'p-status');"), 'a real call was masked').toBe(1);
+      expect(found('const c = `${stateMarkerClass(s, "p-status")}`;'), 'interpolated call').toBe(1);
+      expect(
+        found(`const s = "x)"; const c = stateMarkerClass(s, 'p');`),
+        'call after string',
+      ).toBe(1);
+      // Offsets survive masking, so a call is found where it actually sits.
+      const mixed = `/* note */ stateMarkerClass(s, 'p-status')`;
+      expect(withoutCommentsOrStrings(mixed).indexOf('stateMarkerClass(')).toBe(
+        mixed.indexOf('stateMarkerClass('),
+      );
+      // And an apostrophe in markup does not swallow the line after it.
+      const prose = `<dt>Nathan's topics</dt>\nclass={stateMarkerClass(s, 'p-status')}`;
+      expect(found(prose), 'an apostrophe in prose ate the call below it').toBe(1);
     });
 
     it('does not read an unrelated escaped class name as the primitive', () => {
@@ -2262,100 +2376,6 @@ describe('lifecycle marker — declarations', () => {
         declarations('.state-marker--shipped::before{background-color:currentcolor}'),
         "a modifier's own mark rule was rejected as an element rule",
       ).toEqual([]);
-    });
-
-    it('reads every literal form a surface argument can take, and refuses the rest', () => {
-      // #967's third recorded limit, filed as #968. Single quotes were the only
-      // form the old scan read.
-      const surfacesOf = (call) => readSurfaceArguments(call);
-      expect(surfacesOf("stateMarkerClass(status, 'a')")).toEqual([
-        { readable: true, classes: ['a'] },
-      ]);
-      expect(surfacesOf('stateMarkerClass(status, "b")')).toEqual([
-        { readable: true, classes: ['b'] },
-      ]);
-      expect(surfacesOf('stateMarkerClass(status, `c`)')).toEqual([
-        { readable: true, classes: ['c'] },
-      ]);
-      // One literal carrying two classes is what the helper joins anyway, so it
-      // has to read as two aliases or the rendered cross-check fails on code
-      // that behaves identically.
-      expect(surfacesOf("stateMarkerClass(status, 'post-meta project-status')")).toEqual([
-        { readable: true, classes: ['post-meta', 'project-status'] },
-      ]);
-      expect(surfacesOf("stateMarkerClass(statusOf(slug), 'd', 'e')")).toEqual([
-        { readable: true, classes: ['d'] },
-        { readable: true, classes: ['e'] },
-      ]);
-      // A comma inside a literal is not an argument boundary.
-      expect(surfacesOf("stateMarkerClass(status, 'f,g')")).toEqual([
-        { readable: true, classes: ['f,g'] },
-      ]);
-      // And everything else is unreadable, which fails the lint above rather
-      // than contributing nothing and looking like no surface at all.
-      expect(surfacesOf('stateMarkerClass(status, surfaceClass)')).toEqual([
-        { readable: false, text: 'surfaceClass' },
-      ]);
-      expect(surfacesOf('stateMarkerClass(status, `x-${y}`)')).toEqual([
-        { readable: false, text: '`x-${y}`' },
-      ]);
-      // A regex literal in the status expression is not an argument boundary.
-      // Without lexing it, the comma inside `/a,b/` split the first argument in
-      // half and the fragment was reported as an unreadable surface — a false
-      // failure on a call whose surfaces are all literal (Codex, PR #973).
-      expect(
-        surfacesOf("stateMarkerClass(/a,b/.test(value) ? 'SHIPPED' : status, 'new-surface')"),
-      ).toEqual([{ readable: true, classes: ['new-surface'] }]);
-      expect(surfacesOf("stateMarkerClass(/[,/]/.test(v) ? a : b, 'x')")).toEqual([
-        { readable: true, classes: ['x'] },
-      ]);
-      // And a division is still a division: the character before it is not
-      // expression position, so nothing is swallowed.
-      expect(surfacesOf("stateMarkerClass(total / count > 1 ? a : b, 'y')")).toEqual([
-        { readable: true, classes: ['y'] },
-      ]);
-      // An arrow-function head ends in `>`, so a regex straight after one is
-      // still in expression position (CodeRabbit, PR #973).
-      expect(
-        surfacesOf("stateMarkerClass((v) => /a,b/.test(v) ? 'SHIPPED' : status, 'z')"),
-      ).toEqual([{ readable: true, classes: ['z'] }]);
-      // And the boundary scan needs the same lexer, or a regex containing an
-      // unbalanced paren never finds the call's closing one and the whole
-      // invocation reads as unreadable (Codex, PR #973).
-      expect(
-        surfacesOf("stateMarkerClass(/[(]/.test(value) ? 'SHIPPED' : status, 'p-status')"),
-      ).toEqual([{ readable: true, classes: ['p-status'] }]);
-    });
-
-    it('blanks comments before scanning, in both directions', () => {
-      // A block comment carrying a `)` closed the argument scan early, which
-      // produced an EMPTY surface list — no alias, and no unreadable argument
-      // to fail on either, so the surface went unpoliced silently. And a call
-      // written inside a comment was scanned as a real one (Codex, PR #973).
-      const inCall = `const c = stateMarkerClass(statusFor(slug) /${'*'} ) ${'*'}/, 'new-surface');`;
-      expect(
-        readSurfaceArguments(
-          withoutComments(inCall).slice(withoutComments(inCall).indexOf('stateMarkerClass(')),
-        ),
-        'a block comment inside the call truncated its argument list',
-      ).toEqual([{ readable: true, classes: ['new-surface'] }]);
-
-      const inComment = `// stateMarkerClass(status, surfaceClass)\nconst x = 1;`;
-      expect(
-        withoutComments(inComment).includes('stateMarkerClass('),
-        'a call written inside a comment was left in the scanned source',
-      ).toBe(false);
-
-      // Offsets are preserved, so a call after a comment is still found where
-      // it actually sits.
-      const after = `/${'*'} note ${'*'}/ stateMarkerClass(status, 'p-status')`;
-      expect(withoutComments(after).indexOf('stateMarkerClass(')).toBe(
-        after.indexOf('stateMarkerClass('),
-      );
-      // And a comment marker inside a string literal is not a comment.
-      expect(withoutComments(`const u = 'https://x/y'; // gone`).trim()).toBe(
-        "const u = 'https://x/y';",
-      );
     });
   });
 });
