@@ -87,6 +87,21 @@ const VIEWPORTS = [
  * sized from it. That is why the narrowest ribbon in the set belongs to the
  * second WIDEST viewport, and why the floor cannot be stated as a breakpoint.
  */
+/*
+ * Why 450 and not 484, the narrowest width measured to clear.
+ *
+ * This is a classifier boundary, not a measurement. The two figures either side
+ * of it are 427px (1280x700, does not clear) and 484px (1024x768, clears by
+ * 23.3px), and any boundary between them classifies every viewport in the set
+ * identically — 450 and 484 produce the same wide/narrow split today.
+ *
+ * They diverge only for a ribbon of 450-483px, which no viewport produces. At
+ * 484 that band would be EXEMPT, so a line that grew until it stopped clearing
+ * at 460px would pass; at 450 it must clear. Catching the line growing back
+ * toward the full measure is what this floor is for — the ten-item line it
+ * replaced ran 0.986 of the ribbon — so the boundary sits at the strict end of
+ * the gap rather than on the measurement (CodeRabbit, PR #1001).
+ */
 const CLEARANCE_FLOOR_PX = 450;
 
 /**
