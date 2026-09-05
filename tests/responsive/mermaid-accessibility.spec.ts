@@ -265,6 +265,13 @@ const CAPTION_ROUTES = [
   {
     surface: 'body',
     route: '/blog/six-prs-one-bug-agent-failure-modes/',
+    // The surface, as a selector. Without it `surface` would be a label on a
+    // query that does not honour it: the locator would take captions from every
+    // visible figure on the page, so a body caption could satisfy the sidebar
+    // case and hide a sidebar caption that had stopped rendering (CodeRabbit).
+    // Each route asserts it found captions, so a renamed container fails here
+    // rather than passing on an empty set.
+    container: '.blog-prose',
     minimumWidth: 0,
     // Below the stacked breakpoint this route's captioned diagram is drawn far
     // wider than the 262px column, so the scrolling arm has something to bite
@@ -275,12 +282,13 @@ const CAPTION_ROUTES = [
   {
     surface: 'sidebar',
     route: '/blog/agent-approval-workflow-genesis-of-mergepath/',
+    container: '.blog-sidebar-item',
     minimumWidth: 1024,
     scrollsBelowStack: false,
   },
 ];
 
-for (const { surface, route, minimumWidth, scrollsBelowStack } of CAPTION_ROUTES) {
+for (const { surface, route, container, minimumWidth, scrollsBelowStack } of CAPTION_ROUTES) {
   test(`a ${surface} diagram caption is painted under its figure and announced exactly once`, async ({
     page,
   }) => {
@@ -290,11 +298,12 @@ for (const { surface, route, minimumWidth, scrollsBelowStack } of CAPTION_ROUTES
     );
     await page.goto(route);
 
-    const captions = page.locator('.mermaid-figure:visible .mermaid-figure__caption');
+    const captions = page.locator(`${container} .mermaid-figure:visible .mermaid-figure__caption`);
     const captionCount = await captions.count();
-    expect(captionCount, 'the route must exercise at least one captioned diagram').toBeGreaterThan(
-      0,
-    );
+    expect(
+      captionCount,
+      `the route must exercise at least one captioned diagram in ${container}`,
+    ).toBeGreaterThan(0);
 
     const placements = await captions.evaluateAll((elements) =>
       elements.map((caption) => {
