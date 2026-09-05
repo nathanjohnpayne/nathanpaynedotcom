@@ -127,20 +127,57 @@ function splitArguments(text) {
  */
 function blank(source, { strings = false } = {}) {
   let out = '';
-  let quote = null;
+  // A STACK, not one `quote` variable. A template literal's `${ … }` holds
+  // executable code, so masking has to suspend inside it — and the code in
+  // there can open strings of its own. With a single variable, the inner
+  // string's closing quote cleared the enclosing backtick and every later
+  // character in the file was scanned in the wrong context; the SURFACES
+  // known-positive control is what caught it.
+  //
+  // Frames are `{kind: 'string', quote}` and `{kind: 'interp', depth}`. Inside
+  // a string frame the contents are masked; inside an interp frame the scanner
+  // behaves exactly as it does at top level, nested literals included.
+  const stack = [];
   for (let index = 0; index < source.length; index += 1) {
     const character = source[index];
-    if (quote) {
-      const closing = character === quote;
-      out += strings && !closing ? ' ' : character;
+    const frame = stack[stack.length - 1];
+
+    if (frame && frame.kind === 'string') {
       if (character === '\\') {
-        out += strings ? ' ' : (source[index + 1] ?? '');
+        // Two characters either way, so offsets survive.
+        out += strings ? '  ' : character + (source[index + 1] ?? '');
         index += 1;
-      } else if (closing) quote = null;
+        continue;
+      }
+      if (character === frame.quote) {
+        stack.pop();
+        out += character;
+        continue;
+      }
+      if (frame.quote === '`' && character === '$' && source[index + 1] === '{') {
+        stack.push({ kind: 'interp', depth: 1 });
+        out += '${';
+        index += 1;
+        continue;
+      }
+      out += strings ? ' ' : character;
       continue;
     }
+
+    if (frame && frame.kind === 'interp') {
+      if (character === '{') frame.depth += 1;
+      else if (character === '}') {
+        frame.depth -= 1;
+        if (frame.depth === 0) {
+          stack.pop();
+          out += character;
+          continue;
+        }
+      }
+    }
+
     if (character === "'" || character === '"' || character === '`') {
-      quote = character;
+      stack.push({ kind: 'string', quote: character });
       out += character;
       continue;
     }
@@ -560,9 +597,18 @@ describe('lifecycle marker — declarations', () => {
    */
   function classAttributeSelector(node) {
     if (csstree.ident.decode(node.name.name).toLowerCase() !== 'class') return null;
-    const operand = node.value ? (node.value.value ?? node.value.name ?? '') : '';
-    if (node.matcher === '~=' || node.matcher === '=') {
-      return { exact: String(operand).split(/\s+/).filter(Boolean) };
+    const operand = String(node.value ? (node.value.value ?? node.value.name ?? '') : '');
+    const tokens = operand.split(/\s+/).filter(Boolean);
+    // `~=` matches ONE token in the list, so it names that class outright.
+    if (node.matcher === '~=') return { exact: tokens };
+    // `=` matches the WHOLE attribute, so its operand is the element's entire
+    // class list rather than a set of independently matched names. Reading it
+    // token-wise rejected `[class="p-status"]::before` as a surface override —
+    // but a rendered mark always carries `state-marker` too, so that selector
+    // cannot match one and is styling something else entirely. A false
+    // failure, and the worse direction (Codex, PR #973).
+    if (node.matcher === '=') {
+      return tokens.includes(MARK_PRIMITIVE) ? { exact: tokens } : { exact: [] };
     }
     return { any: true };
   }
@@ -652,24 +698,34 @@ describe('lifecycle marker — declarations', () => {
    * the unwrapped form of exactly that selector is asserted to pass a few tests
    * down (Codex, PR #973).
    */
-  function subjectClassNames(selector) {
+  function subjectClassNames(selector, negated = false) {
     const names = [];
     for (const node of subjectCompound(selector)) {
       if (node.type === 'ClassSelector') {
-        names.push(csstree.ident.decode(node.name));
+        if (!negated) names.push(csstree.ident.decode(node.name));
         continue;
       }
       if (node.type === 'AttributeSelector') {
         const attribute = classAttributeSelector(node);
-        if (attribute && !attribute.any) names.push(...attribute.exact);
+        if (!negated && attribute && !attribute.any) names.push(...attribute.exact);
         continue;
       }
-      if (
-        node.type !== 'PseudoClassSelector' ||
-        !SUBJECT_PSEUDOS.has(csstree.ident.decode(node.name).toLowerCase())
-      ) {
+      if (node.type !== 'PseudoClassSelector') continue;
+      const pseudo = csstree.ident.decode(node.name).toLowerCase();
+      // `:not()` FLIPS the requirement rather than removing it. Skipping it
+      // wholesale read `.p-status:not(:not(.state-marker--shipped))` — which
+      // requires the modifier — as naming only `p-status`, so a state-specific
+      // element declaration bypassed the modifier rule (Codex, PR #973).
+      // Polarity is tracked instead: at even depth the classes inside are
+      // required and count, at odd depth they are excluded and do not.
+      if (pseudo === 'not') {
+        for (const child of node.children ?? []) {
+          if (child.type !== 'SelectorList') continue;
+          for (const inner of child.children) names.push(...subjectClassNames(inner, !negated));
+        }
         continue;
       }
+      if (!SUBJECT_PSEUDOS.has(pseudo)) continue;
       // `:nth-child(1 of .state-marker--shipped)` puts its selector list under
       // an `Nth` node rather than beside the pseudo's own children, so a walk
       // that only reads direct `SelectorList` children finds nothing and the
@@ -678,7 +734,7 @@ describe('lifecycle marker — declarations', () => {
       csstree.walk(node, {
         visit: 'SelectorList',
         enter(list) {
-          for (const inner of list.children) names.push(...subjectClassNames(inner));
+          for (const inner of list.children) names.push(...subjectClassNames(inner, negated));
         },
       });
     }
@@ -694,20 +750,21 @@ describe('lifecycle marker — declarations', () => {
    * Answered broadly, on the same trade as `targeting`: an unmodelled predicate
    * counts as possibly-a-modifier rather than as definitely-not.
    */
-  function subjectAnyClass(selector) {
+  function subjectAnyClass(selector, negated = false) {
     for (const node of subjectCompound(selector)) {
-      if (node.type === 'AttributeSelector' && classAttributeSelector(node)?.any) return true;
-      if (
-        node.type !== 'PseudoClassSelector' ||
-        !SUBJECT_PSEUDOS.has(csstree.ident.decode(node.name).toLowerCase())
-      ) {
+      if (node.type === 'AttributeSelector') {
+        if (!negated && classAttributeSelector(node)?.any) return true;
         continue;
       }
+      if (node.type !== 'PseudoClassSelector') continue;
+      const pseudo = csstree.ident.decode(node.name).toLowerCase();
+      const recurse = pseudo === 'not' ? !negated : negated;
+      if (pseudo !== 'not' && !SUBJECT_PSEUDOS.has(pseudo)) continue;
       let found = false;
       csstree.walk(node, {
         visit: 'SelectorList',
         enter(list) {
-          for (const inner of list.children) if (subjectAnyClass(inner)) found = true;
+          for (const inner of list.children) if (subjectAnyClass(inner, recurse)) found = true;
         },
       });
       if (found) return true;
@@ -768,7 +825,15 @@ describe('lifecycle marker — declarations', () => {
         property: child.property.startsWith('--')
           ? child.property
           : csstree.ident.decode(child.property).toLowerCase(),
-        value: csstree.generate(child.value).trim(),
+        // `!important` is carried INTO the value rather than dropped. css-tree
+        // stores the priority separately, so `background-color: currentcolor
+        // !important` normalised to the allowed `currentcolor` and passed the
+        // exact variant check while shipping a different cascade priority
+        // (Codex, PR #973). Every VARIANTS pattern is anchored `^…$`, so
+        // appending it makes the rule fail rather than needing its own
+        // assertion — a variant may say what its fill IS, not how hard it
+        // fights for it.
+        value: `${csstree.generate(child.value).trim()}${child.important ? ' !important' : ''}`,
       }));
     const entry = (selector, declarations, conditional) => {
       const { names, anyClass } = classesIn(selector);
@@ -1285,7 +1350,10 @@ describe('lifecycle marker — declarations', () => {
       // exact matchers name their class literally; the predicate forms are
       // treated as matching anything, so they are collected too.
       'a class-token attribute selector': '[class~="state-marker--shipped"]::before{padding:9px}',
-      'an exact class attribute selector': '[class="state-marker--shipped"]::before{padding:9px}',
+      // A COMPLETE class value: `=` matches the whole attribute, and a rendered
+      // mark always carries the primitive alongside its modifier.
+      'an exact class attribute selector':
+        '[class="state-marker state-marker--shipped"]::before{padding:9px}',
       'a substring class attribute selector': '[class*="state-marker--"]::before{padding:9px}',
     };
 
@@ -1402,6 +1470,34 @@ describe('lifecycle marker — declarations', () => {
       ).toBe(false);
     });
 
+    it('keeps template interpolations visible while masking the literal around them', () => {
+      // `${ … }` is executable code, not string content. Blanking it with the
+      // rest of the literal hid a real call: no alias, and no unreadable
+      // argument to fail on either (Codex, PR #973).
+      const interpolated = "const c = `${stateMarkerClass(status, 'new-surface')}`;";
+      const masked = withoutCommentsOrStrings(interpolated);
+      expect(masked.includes('stateMarkerClass('), 'the interpolated call was masked away').toBe(
+        true,
+      );
+      expect(masked.indexOf('stateMarkerClass(')).toBe(interpolated.indexOf('stateMarkerClass('));
+      expect(
+        readSurfaceArguments(
+          withoutComments(interpolated).slice(
+            withoutComments(interpolated).indexOf('stateMarkerClass('),
+          ),
+        ),
+        'the surface inside a template interpolation was not read',
+      ).toEqual([{ readable: true, classes: ['new-surface'] }]);
+
+      // The literal text AROUND an interpolation is still masked, so quoted
+      // helper text next to a real call does not become a second call site.
+      const mixed = "const c = `stateMarkerClass(a, b) ${stateMarkerClass(s, 'p-status')}`;";
+      expect(
+        [...withoutCommentsOrStrings(mixed).matchAll(/\bstateMarkerClass\s*\(/g)].length,
+        'the quoted helper text was scanned as a call site',
+      ).toBe(1);
+    });
+
     it('does not read helper text quoted in a string literal as a call site', () => {
       // A doc example or a rendered snippet is not an invocation, and treating
       // one as an unreadable call fails the required suite on code that calls
@@ -1422,6 +1518,52 @@ describe('lifecycle marker — declarations', () => {
         ),
         'masking string contents lost a real literal argument',
       ).toEqual([{ readable: true, classes: ['p-status'] }]);
+    });
+
+    it('does not read an exact class value that cannot match a mark as targeting one', () => {
+      // The other direction of the same matcher. `[class="p-status"]` selects
+      // an element whose class attribute is EXACTLY `p-status`, and a rendered
+      // lifecycle element always carries `state-marker` too — so that selector
+      // cannot match a mark and is styling something else. Reading the operand
+      // token-wise rejected it as a surface override: a false failure, and the
+      // worse direction (Codex, PR #973).
+      const targets = (css, className) =>
+        analyze(css).rules.filter(
+          (rule) => rule.before && (rule.anyClass || rule.classes.includes(className)),
+        ).length;
+      expect(
+        targets('[class="p-status"]::before{padding:9px}', 'p-status'),
+        'an exact class value that cannot carry a mark was read as a surface override',
+      ).toBe(0);
+      expect(
+        targets('[class="p-status state-marker"]::before{padding:9px}', 'p-status'),
+        'an exact class value that CAN carry a mark was not read as a surface override',
+      ).toBe(1);
+      // `~=` is unaffected: it matches one token among many.
+      expect(
+        targets('[class~="p-status"]::before{padding:9px}', 'p-status'),
+        'a class-token attribute selector on a surface was not collected',
+      ).toBe(1);
+    });
+
+    it('tracks polarity through nested negations', () => {
+      // `:not(:not(.x))` REQUIRES `.x`. Skipping `:not()` wholesale recorded
+      // the subject as `p-status` alone and let a state-specific element
+      // declaration through (Codex, PR #973).
+      const subjects = (css) => analyze(css).rules.map((rule) => rule.subject);
+      expect(
+        subjects('.p-status:not(:not(.state-marker--shipped)){font-size:1.1em}')[0],
+        'a double negation was not read as requiring the modifier',
+      ).toContain('state-marker--shipped');
+      // And one level of negation still excludes, as before.
+      expect(
+        subjects('.p-status:not(.state-marker--shipped){font-size:1.1em}')[0],
+        'a single negation was read as requiring the modifier',
+      ).not.toContain('state-marker--shipped');
+      expect(
+        subjects('.p-status:not(:not(:not(.state-marker--shipped))){font-size:1.1em}')[0],
+        'a triple negation was read as requiring the modifier',
+      ).not.toContain('state-marker--shipped');
     });
 
     it('does not read an unrelated escaped class name as the primitive', () => {
