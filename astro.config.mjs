@@ -13,6 +13,7 @@ import {
   rehypeMermaidSvg,
 } from './src/plugins/rehype-mermaid-accessibility.mjs';
 import rehypeFigureCaptions from './src/plugins/rehype-figure-captions.mjs';
+import rehypeFigureNumbers from './src/plugins/rehype-figure-numbers.mjs';
 import rehypeColorChips from './src/plugins/rehype-color-chips.mjs';
 
 const SITE = 'https://nathanpayne.com';
@@ -61,6 +62,9 @@ export default defineConfig({
       [rehypeMermaid, mermaidOptions],
       rehypeMermaidSvg,
       rehypeFigureCaptions,
+      // Last of the figure plugins on purpose: it numbers what the two above
+      // have finished building, in document order, in one sequence (#998).
+      rehypeFigureNumbers,
       rehypeColorChips,
     ],
     shikiConfig: {

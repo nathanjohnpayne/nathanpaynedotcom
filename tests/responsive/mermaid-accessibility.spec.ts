@@ -319,13 +319,22 @@ for (const { surface, route, container, minimumWidth, mustScrollBelowViewport } 
       elements.map((caption) => {
         const figure = caption.closest('.mermaid-figure');
         const graphic = figure?.querySelector('.mermaid-figure__graphic');
-        const captionBox = caption.getBoundingClientRect();
+        // Geometry belongs to the `<figcaption>`, text to the caption span
+        // inside it (#998). The span is inline, so its rect is the extent of
+        // its own text — measuring the column against that would compare a
+        // sentence's width to a figure's and fail on any caption short enough
+        // to fit on one line.
+        const figcaption = caption.closest('figcaption');
+        const captionBox = (figcaption ?? caption).getBoundingClientRect();
         const graphicBox = graphic?.getBoundingClientRect();
 
         return {
-          tagName: caption.tagName,
+          tagName: figcaption?.tagName ?? caption.tagName,
           text: (caption.textContent ?? '').trim(),
-          parentIsFigure: caption.parentElement === figure,
+          // The `Figure N` label the figcaption also carries, empty in the
+          // sidebar, which is not part of the article's figure sequence.
+          label: figcaption?.querySelector('.figure-label')?.textContent?.trim() ?? '',
+          parentIsFigure: figcaption?.parentElement === figure,
           insideGraphic: Boolean(caption.closest('.mermaid-figure__graphic')),
           painted: captionBox.width > 0 && captionBox.height > 0,
           // "Under the diagram" measured rather than assumed: source order alone
@@ -377,7 +386,16 @@ for (const { surface, route, container, minimumWidth, mustScrollBelowViewport } 
     let scrollingCaptions = 0;
 
     for (const placement of placements) {
-      expect(placement.tagName, 'the caption must be a real figcaption').toBe('FIGCAPTION');
+      expect(placement.tagName, 'the caption must live in a real figcaption').toBe('FIGCAPTION');
+      // An article diagram is a numbered peer of the screenshots around it; a
+      // sidebar diagram is not an article figure and carries no number (#998).
+      if (surface === 'sidebar') {
+        expect(placement.label, `${placement.text}: a sidebar diagram was numbered`).toBe('');
+      } else {
+        expect(placement.label, `${placement.text}: an article diagram lost its number`).toMatch(
+          /^Figure \d+:?$/,
+        );
+      }
       expect(placement.text, 'the caption must carry text').not.toBe('');
       expect(placement.painted, `${placement.text}: caption paints nothing`).toBe(true);
       expect(placement.belowGraphic, `${placement.text}: caption is not under the diagram`).toBe(

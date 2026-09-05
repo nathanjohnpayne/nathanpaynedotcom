@@ -117,6 +117,8 @@ The two cases that produced this rule diverge under it, which is how you can tel
 
 This is a judgement, not a check. Nothing in CI can ask whether a diagram's shape overstates its prose, so the rule lives here and is applied in review, which is where both of its founding cases were in fact caught.
 
+**A figure number is not a caption, and this rule does not govern it.** Every article diagram carries a generated `Figure N` label whether or not it has a caption (#998, `specs/figure-numbering.md`). Do not write a caption to give a diagram a number, and do not read a numbered diagram as one that needs one.
+
 Every explicit Mermaid node fill and label color uses three- or six-digit hex colors whose WCAG contrast ratio is at least 4.5:1. Tests measure the rendered SVG rather than parsing Mermaid source syntax.
 
 Mermaid is supported in blog posts under `src/content/blog/**/*.md` and in project pages under `src/content/projects/**/*.{md,mdx}` (#753). The globally registered metadata adapter rejects Mermaid fences in every other content collection and Markdown page. Adding a third collection means extending three things together, not one: the adapter's allow-list, the rendered-contrast sweep in `tests/mermaid-contrast.test.js`, and the route list in `tests/responsive/mermaid-accessibility.spec.ts`. A collection allowed in the adapter but absent from the other two ships diagrams nothing checks.

@@ -352,13 +352,27 @@ export function createMermaidFigure({ sourceNode, title, description, descriptio
           },
         ],
       },
+      // The caption text lives in its own span inside the `<figcaption>`, not
+      // as the figcaption's only content (#998). A `<figure>` may hold exactly
+      // one `<figcaption>`, and it has to carry two different things: the
+      // structural `Figure N` label that `rehype-figure-numbers.mjs` prepends,
+      // and this editorial caption. Keeping them as separate elements is what
+      // lets the label be added to a diagram that has no caption, and lets the
+      // caption keep an addressable identity of its own once it does.
       ...(captionText
         ? [
             {
               type: 'element',
               tagName: 'figcaption',
-              properties: { className: ['mermaid-figure__caption'] },
-              children: [{ type: 'text', value: captionText }],
+              properties: { className: ['mermaid-figure__figcaption'] },
+              children: [
+                {
+                  type: 'element',
+                  tagName: 'span',
+                  properties: { className: ['mermaid-figure__caption'] },
+                  children: [{ type: 'text', value: captionText }],
+                },
+              ],
             },
           ]
         : []),
