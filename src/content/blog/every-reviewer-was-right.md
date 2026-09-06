@@ -143,7 +143,7 @@ Each is a real, local piece of evidence that supports the wrong conclusion at th
 
 Classifying every finding on the two failures and three controls by the repository's own taxonomy, the share of findings that were inside the original contract does not discriminate either: 67 percent on [#1176](https://github.com/nathanjohnpayne/mergepath/pull/1176), 44 on [#1084](https://github.com/nathanjohnpayne/mergepath/pull/1084) and 10 on [#1139](https://github.com/nathanjohnpayne/mergepath/pull/1139) among the merged, against 59 on [#1189](https://github.com/nathanjohnpayne/mergepath/pull/1189) and 8 on [#1112](https://github.com/nathanjohnpayne/mergepath/pull/1112) among the closed. Two things do.
 
-| PR | Rounds | Findings | Stronger Guarantees Accepted into Scope | A Mechanism Deleted Mid-Review | Outcome |
+| PR | Codex Rounds | Findings, Both Reviewers | Stronger Guarantees Accepted into Scope | A Mechanism Deleted Mid-Review | Outcome |
 |---|---:|---:|---|---|---|
 | [#1176](https://github.com/nathanjohnpayne/mergepath/pull/1176) | 11 | 30 | 1 | yes, after round 7 | merged |
 | [#1139](https://github.com/nathanjohnpayne/mergepath/pull/1139) | 11 | 21 | 1 | yes, after round 10 | merged at +85, from a peak of +286 |
@@ -157,14 +157,14 @@ That move never happened on [#1112](https://github.com/nathanjohnpayne/mergepath
 
 The cleanest evidence is the natural experiment I did not design.
 
-```mermaid title="Same issue, two contracts" description="#1112 and #1197 implement the same issue, #1056, from the same authoring system with the same reviewers, ten days apart. #1112 opened at 35 added lines, closed at 2,136 after 19 Codex rounds and 46 findings, and was closed unmerged. #1197 was 377 lines, drew 3 findings in 2 rounds, and merged 68 minutes after opening."
+```mermaid title="Same issue, two contracts" description="#1112 and #1197 implement the same issue, #1056, from the same authoring system with the same reviewers, ten days apart. #1112 opened at 35 added lines, closed at 2,136 after 19 Codex rounds and 46 Codex findings, 51 counting CodeRabbit, and was closed unmerged. #1197 was 377 lines, drew 2 Codex findings and 1 CodeRabbit finding in 2 Codex rounds, and merged 68 minutes after opening."
 graph TD
     S["same issue, #1056<br/>same authoring system<br/>same reviewers<br/>ten days apart"]
     S --> A1["#1112, August 27<br/>first commit +35"]
-    A1 --> A2["19 Codex rounds<br/>46 findings<br/>no mechanism removed"]
+    A1 --> A2["19 Codex rounds<br/>46 Codex findings<br/>no mechanism removed"]
     A2 --> A3["closed unmerged<br/>at +2,136"]
     S --> B1["#1197, September 6<br/>owner-set contract<br/>opened at +377"]
-    B1 --> B2["2 rounds<br/>3 findings<br/>two fixed, one rebutted"]
+    B1 --> B2["2 Codex rounds<br/>2 Codex findings, 1 CodeRabbit<br/>two fixed, one rebutted"]
     B2 --> B3["merged<br/>68 minutes after opening"]
     style S fill:#d4a84b,stroke:#a07830,color:#333
     style A1 fill:#e8b4b4,stroke:#993d3d,color:#333
