@@ -5388,7 +5388,14 @@ a:focus-visible {
    with the same footer geometry to a tenth of a pixel): the composition
    cannot tell which axis constrained it, so one floor governs both. (#992) */
 @media (max-width: 1023px), (max-height: 1023px) {
-  :root {
+  /* Scoped to the homepage `<main>`, NOT :root (Codex P2, PR #1003).
+     `--line` is read by .project-detail, .frame, .hero, .blog-grid, the
+     .grid-row--* tracks, .site-footer--grid and the 404's .error-mondrian, so
+     a :root override here would thin the frames, gaps and accent borders of
+     every route at any height under 1024px — routes this breakpoint has no
+     business touching. The width-only :root override below keeps the
+     pre-existing <=1023px behaviour for all of them, unchanged. */
+  .stage {
     --line: 6px;
   }
 
@@ -5574,6 +5581,12 @@ a:focus-visible {
    The seam sits exactly where the homepage panel rules end. Anything added
    below this line is width-only; a new homepage rule belongs above it. */
 @media (max-width: 1023px) {
+  /* Unchanged from before the split: every route's line weight at narrow
+     widths. The homepage's height-triggered equivalent is scoped to .stage
+     above. */
+  :root {
+    --line: 6px;
+  }
   .project-detail {
     box-shadow: 8px 8px 0 color-mix(in srgb, var(--ink) 10%, transparent);
   }

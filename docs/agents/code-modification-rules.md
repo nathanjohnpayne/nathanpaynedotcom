@@ -163,7 +163,7 @@ Static assets (favicons, robots.txt, OG fonts) live in `public/` and are copied 
 - **Motion system:** All durations use `--motion-fast` / `--motion-hover` / `--motion-plane` / `--motion-load`. All easing uses `--ease-standard` / `--ease-sharp` / `--ease-linear`. Translation magnitude uses `--shift-small` / `--shift-medium`. No hard-coded `ms` values or bare `ease` keywords.
 - Homepage panel states are driven by `data-focus` attribute on the grid container. CSS defines `grid-template-columns` + `grid-template-rows` for each `data-focus` value.
 - Fluid sizing via `clamp()`; no fixed-breakpoint font overrides.
-- Homepage stack breakpoint at `@media (max-width: 1023px)` (token: `--bp-stack: 1024px`); see #313 / #314 for the move from the prior 920px and the wide-viewport `--mondrian-max-width: 1280px` cap.
+- Homepage stack breakpoint at `@media (max-width: 1023px), (max-height: 1023px)` (token: `--bp-stack: 1024px`), i.e. the desktop composition has a minimum viewport dimension of 1024 CSS px on BOTH axes: the square is `min(95vw, 95vh, --mondrian-max-width)`, so a short window shrinks it exactly as a narrow one does (#992). See #313 / #314 for the move from the prior 920px and the wide-viewport `--mondrian-max-width: 1280px` cap. A stack reached via the height axis on a viewport wider than 1024px is capped at `--bp-stack` and centred.
 - Respect `prefers-reduced-motion: reduce`—universal `*` selector zeroes all transition/animation durations.
 - Use `:focus-visible` (not `:focus`) for keyboard outlines.
 

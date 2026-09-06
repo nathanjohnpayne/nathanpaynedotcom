@@ -76,7 +76,7 @@ const KILL_MOTION =
  */
 async function readLayout(page: Page): Promise<{ isStack: boolean; width: number }> {
   return page.evaluate(() => ({
-    isStack: window.matchMedia('(max-width: 1023px)').matches,
+    isStack: window.matchMedia('(max-width: 1023px), (max-height: 1023px)').matches,
     width: window.innerWidth,
   }));
 }
