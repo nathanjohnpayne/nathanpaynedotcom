@@ -26,6 +26,7 @@ describe('blog chronology-only surfaces', () => {
     );
 
     expect(links).toEqual([
+      'https://nathanpayne.com/blog/every-reviewer-was-right/',
       'https://nathanpayne.com/blog/autofix-was-the-whole-cost/',
       'https://nathanpayne.com/blog/perfect-score-wrong-axis/',
       'https://nathanpayne.com/blog/two-blues-one-composition/',
