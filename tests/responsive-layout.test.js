@@ -73,10 +73,51 @@ describe('Responsive Layout', () => {
   });
 
   it('CSS contains the 1023px stack-mode breakpoint reference in inline script', () => {
-    // The inline script's matchMedia('(max-width: 1023px)') guard must stay in
-    // sync with the @media (max-width: 1023px) block in global.css and the
-    // --bp-stack token (1024px) defined on :root. See #313.
+    // The inline script's matchMedia guard must stay in sync with the
+    // @media block in global.css and the --bp-stack token (1024px) defined on
+    // :root. See #313.
     expect(panelScript).toContain('1023px');
+  });
+
+  it('guards interactions on BOTH axes, not width alone', () => {
+    // #992 gave the composition a minimum viewport dimension of 1024px on
+    // either axis. The behavioural half of this is asserted below; this is the
+    // string half, and it is here because the two can fail independently — a
+    // guard could query both axes while the CSS queried one, or the reverse.
+    expect(panelScript).toContain('max-height: 1023px');
+    expect(sourceCss).toContain('@media (max-width: 1023px), (max-height: 1023px)');
+  });
+
+  it('mobile guard prevents panel opening on a WIDE but short viewport', () => {
+    // The regression this exists to catch: reverting the guard to a width-only
+    // query. This mock answers for a 1440x900 window — wide enough that
+    // `max-width: 1023px` does NOT match, short enough that `max-height: 1023px`
+    // does — so a width-only guard would report desktop, open the panel, and
+    // fail here while the CSS around it renders the static stack.
+    //
+    // Codex raised this on PR #1003: the pre-existing mocks all key off
+    // `max-width: 1023px`, so every one of them would have stayed green
+    // through exactly that revert.
+    Object.defineProperty(window, 'matchMedia', {
+      writable: true,
+      value: vi.fn((query) => ({
+        matches: query.includes('max-height: 1023px'),
+        media: query,
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+        addListener: vi.fn(),
+        removeListener: vi.fn(),
+        onchange: null,
+        dispatchEvent: vi.fn(),
+      })),
+    });
+
+    const fn = new Function(panelScript);
+    fn();
+
+    const panel = document.querySelector('[data-panel="about"]');
+    panel.click();
+    expect(panel.classList.contains('is-open')).toBe(false);
   });
 
   it('CSS uses clamp() for fluid typography', () => {

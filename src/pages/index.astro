@@ -528,12 +528,16 @@ const homepageJsonLd = {
       // environments without it (jsdom under vitest, very old UAs).
       const matchesQuery = (q) => (typeof window.matchMedia === 'function' ? window.matchMedia(q).matches : false);
       const canHover = () => matchesQuery('(hover: hover) and (pointer: fine)');
-      // Below --bp-stack (1024px) the page renders the vertical stack
-      // and panel interactions are disabled — the stack already shows
-      // all content. Kept in sync with the @media (max-width: 1023px)
-      // block in src/styles/global.css and the matchMedia string
-      // asserted in tests/responsive-layout.test.js. Issue #313.
-      const mobile = () => matchesQuery('(max-width: 1023px)');
+      // Below --bp-stack (1024px) on EITHER axis the page renders the
+      // vertical stack and panel interactions are disabled — the stack
+      // already shows all content. Both axes because the Mondrian square
+      // is min(95vw, 95vh, …): a short window shrinks it exactly as a
+      // narrow one does, and below a 972.8px square the panel footers
+      // stop setting as designed (#992). Kept in sync with the
+      // @media (max-width: 1023px), (max-height: 1023px) block in
+      // src/styles/global.css and the matchMedia string asserted in
+      // tests/responsive-layout.test.js. Issues #313, #992.
+      const mobile = () => matchesQuery('(max-width: 1023px), (max-height: 1023px)');
 
       function readMsToken(name, fallback) {
         // prefers-reduced-motion zeroes CSS transition durations via the

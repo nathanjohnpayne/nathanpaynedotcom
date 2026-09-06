@@ -16,7 +16,7 @@ The Mondrian grid contains four expandable panels (about, projects, community, c
 3. Clicking outside all panels collapses the active panel.
 4. Hovering a panel opens it (when `(hover: hover)` media matches).
 5. Mouse-leaving a panel schedules a delayed close (120 ms).
-6. On mobile / stack viewports (max-width 1023px, below `--bp-stack`), panels do not open on click or hover.
+6. On stack viewports—below `--bp-stack` on EITHER axis, i.e. `max-width: 1023px` or `max-height: 1023px`—panels do not open on click or hover. Both axes because the Mondrian square is sized from the smaller of them, so a short desktop window (1440×900) renders the stack exactly as a narrow one does; the `mobile()` guard in `src/pages/index.astro` queries both, and `tests/responsive-layout.test.js` asserts a wide-but-short viewport opens nothing. See #992 and `specs/responsive-layout.md` requirement 12.
 7. Clicking a link inside a panel does not trigger panel open logic.
 
 ## Related specs

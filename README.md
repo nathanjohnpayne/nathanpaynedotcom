@@ -19,7 +19,7 @@ The layout is a **Mondrian-inspired grid**—four colored panels arranged in a g
 
 Narrative order: **Identity → Work → Community → Contact**
 
-On desktop, hovering or focusing a panel triggers a CSS Grid transition that expands it and reveals its content. On mobile and tablet stack mode (≤ 1023px), panels stack vertically with all content visible.
+On desktop, hovering or focusing a panel triggers a CSS Grid transition that expands it and reveals its content. In stack mode—any viewport under 1024px on either axis, so phones, tablets, and short desktop windows alike—panels stack vertically with all content visible.
 
 ### Color Palette
 
@@ -113,7 +113,7 @@ When a panel is focused, JavaScript sets `data-focus="<panel-name>"` on the grid
 
 - **Desktop (hover + fine pointer):** `mouseenter` opens a panel through the interaction state machine; `mouseleave` either switches directly to the related panel or schedules a short cancellable close.
 - **Keyboard and click:** `Enter`/`Space` opens a panel; `Escape` closes it. Focus and click paths bypass hover guards so explicit user intent works even mid-transition.
-- **Stack mode (≤ 1023px):** All interaction handlers exit early. Panels are always expanded.
+- **Stack mode (≤ 1023px on either axis):** All interaction handlers exit early. Panels are always expanded.
 - **Scroll guard:** A debounced scroll listener adds `.is-scrolling` to `<body>` during active scroll. CSS suspends hover transitions while this class is present.
 - **Analytics:** First hover on each panel fires a one-time `section_view` event to Google Analytics via `gtag` on hover-capable pointers.
 
@@ -160,7 +160,7 @@ Translation magnitude is capped at `--shift-small` (2px) for hovers and `--shift
 
 ### Responsive Behavior
 
-At `max-width: 1023px`:
+At `max-width: 1023px` or `max-height: 1023px` (the composition's minimum viewport dimension, #992):
 - Grid collapses to single-column
 - Decorative blocks are hidden
 - Panel content is always visible—no hover interaction on mobile

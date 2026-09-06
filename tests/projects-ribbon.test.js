@@ -14,19 +14,21 @@ import { serveStatic } from '../src/integrations/og-images.mjs';
  *
  * #984 shipped DOMAINS and STACK behind a build-time switch so the two could be
  * compared on the live page; #991 settled it on DOMAINS and deleted the losing
- * branch. What remains here is the surviving line's geometry — a clearance
- * floor, a one-line floor and a ratio ceiling — which is what "bounded" meant
- * all along and outlives the comparison.
+ * branch. What remains here is the surviving line's geometry — an unconditional
+ * clearance assertion, a one-line floor and a ratio ceiling — which is what
+ * "bounded" meant all along and outlives the comparison.
  *
  * ## What is measured in a browser, and why
  *
  * "Bounded" is a rendered width, and the two facts that decide it — how wide
  * the ribbon is, and how wide the text runs inside it — are both invisible to
  * JSDOM, which does no layout. The ribbon's width in particular cannot be
- * derived from the viewport: the Mondrian square is sized from viewport
- * HEIGHT, so a short-and-wide window (1280x700) gives a NARROWER ribbon than a
- * small one (1024x768). A CSS-text assertion would pin a declaration instead of
- * the behaviour, and the declaration here is just a font-size.
+ * derived from viewport WIDTH: the Mondrian square is `min(95vw, 95vh, 1280px)`,
+ * so 1440x1024 gives a 673.1px ribbon while the wider 1024x1200 gives the same
+ * one — height decides it above 1024px of width. (Before #992 that produced the
+ * inversion this suite was built around: 1280x700 gave a narrower ribbon than
+ * 1024x768. Both now stack.) A CSS-text assertion would pin a declaration
+ * instead of the behaviour, and the declaration here is just a font-size.
  *
  * The dependency is not a new one: `npm test` runs `astro build` first, and the
  * build renders Mermaid diagrams through Playwright's Chromium, so a runner
@@ -37,82 +39,66 @@ import { serveStatic } from '../src/integrations/og-images.mjs';
 /**
  * Where the readings are taken.
  *
- * The seven desktop entries are #930's measurement set — chosen because the
- * ribbon's width tracks viewport height, so they span 427px to 897px of ribbon
- * without moving in width order. The two starred entries are below
- * `--bp-stack`, where the composition is gone and the panel is full-width.
+ * `stacked` is not a property of this file's opinion — it is
+ * `min(width, height) < 1024`, the composition's minimum viewport dimension
+ * (#992). The desktop Mondrian is a square sized `min(95vw, 95vh, 1280px)`, so
+ * a short window shrinks it exactly as a narrow one does; below a 972.8px
+ * square the panel footers stop setting as designed, and the page renders the
+ * responsive composition instead.
+ *
+ * The first two entries are that floor, reached from each axis: 1024x1200 is
+ * the narrowest legal desktop window and 1440x1024 the shortest, and both
+ * produce a 972.8px square. They are the tightest desktop geometry that
+ * exists, which is what makes them the readings worth taking — the rest of the
+ * desktop set is looser by construction.
+ *
+ * The four short-window entries below were desktop readings until #992 and are
+ * kept as stacked ones. They are #930's measurement set, chosen back when the
+ * narrowest ribbon in the suite belonged to the second WIDEST viewport; that
+ * inversion was the symptom. Their assertion now is that nothing opens there.
  */
 const VIEWPORTS = [
-  { name: '1024x768', width: 1024, height: 768, stacked: false },
-  { name: '1280x700', width: 1280, height: 700, stacked: false },
-  { name: '1440x900', width: 1440, height: 900, stacked: false },
+  { name: '1024x1200', width: 1024, height: 1200, stacked: false },
+  { name: '1440x1024', width: 1440, height: 1024, stacked: false },
   { name: '1503x1180', width: 1503, height: 1180, stacked: false },
-  { name: '1728x1005', width: 1728, height: 1005, stacked: false },
   { name: '1920x1080', width: 1920, height: 1080, stacked: false },
   { name: '2560x1330', width: 2560, height: 1330, stacked: false },
+  { name: '1024x768', width: 1024, height: 768, stacked: true },
+  { name: '1280x700', width: 1280, height: 700, stacked: true },
+  { name: '1440x900', width: 1440, height: 900, stacked: true },
+  { name: '1728x1005', width: 1728, height: 1005, stacked: true },
   { name: '390x844', width: 390, height: 844, stacked: true },
   { name: '768x1024', width: 768, height: 1024, stacked: true },
 ];
 
 /**
- * The ribbon width at which "nothing renders under the exit link" starts to be
- * geometrically available — **per mode**, because the two lines are not the
- * same length and do not become feasible at the same width.
+ * The two geometries at the floor, which must measure identically.
  *
- * The exit link sits at the right of the row above the content line and takes
- * ~136px of it, so the content line clears the link's column only when the
- * ribbon is wide enough to hold both. Below some width no line of this kind
- * clears it, whichever words it holds — that is a property of the ribbon, not
- * of the copy. Measured clearance in px, positive when the line ends before the
- * link's left edge:
- *
- *     ribbon   viewport      domains    stack
- *      427.4   1280x700        -33.1   -109.1
- *      483.8   1024x768        +23.3    -52.7
- *      582.5   1440x900       +122.1    +46.1
- *      659.3   1728x1005      +198.8   +122.8
- *      714.1   1920x1080      +253.6   +177.6
- *      787.2   1503x1180      +326.7   +250.7
- *      896.8   2560x1330      +436.3   +360.3
- *
- * A single floor at 580 would have been true of both columns and would have
- * thrown away the 1024x768 reading under `domains`, where the shorter line
- * clears by 23.3px: a later copy or typography change could have spent that
- * margin at the stacked breakpoint with the suite still green (Codex, PR #985).
- * So each mode takes the floor its own column supports, placed in the gap
- * between the last reading that fails and the first that clears — 427.4/483.8
- * for `domains`, 483.8/582.5 for `stack` — rather than on a reading.
- *
- * The ribbon's width tracks viewport HEIGHT, because the Mondrian square is
- * sized from it. That is why the narrowest ribbon in the set belongs to the
- * second WIDEST viewport, and why the floor cannot be stated as a breakpoint.
+ * 1024x1200 reaches a 972.8px square by width, 1440x1024 by height. The
+ * composition cannot tell which axis constrained it — that is the whole
+ * argument for one floor governing both — so if these two ever diverge, the
+ * square has stopped being a function of `min(vw, vh)` and the breakpoint's
+ * premise is gone.
  */
-/*
- * Why 450 and not 484, the narrowest width measured to clear.
- *
- * This is a classifier boundary, not a measurement. The two figures either side
- * of it are 427px (1280x700, does not clear) and 484px (1024x768, clears by
- * 23.3px), and any boundary between them classifies every viewport in the set
- * identically — 450 and 484 produce the same wide/narrow split today.
- *
- * They diverge only for a ribbon of 450-483px, which no viewport produces. At
- * 484 that band would be EXEMPT, so a line that grew until it stopped clearing
- * at 460px would pass; at 450 it must clear. Catching the line growing back
- * toward the full measure is what this floor is for — the ten-item line it
- * replaced ran 0.986 of the ribbon — so the boundary sits at the strict end of
- * the gap rather than on the measurement (CodeRabbit, PR #1001).
- */
-const CLEARANCE_FLOOR_PX = 450;
+const FLOOR_TWINS = ['1024x1200', '1440x1024'];
 
-/**
- * The viewports whose ribbon falls under that floor, per mode.
+/*
+ * The clearance floor and its exemption list are gone with #992.
  *
- * Pinned as a set rather than left implicit. These are the widths at which the
- * criterion is unreachable, and naming them is what keeps the exception from
- * widening quietly — a third viewport arriving here fails, whether it got here
- * because the composition changed or because the line grew.
+ * They existed because the desktop composition was allowed into geometries
+ * where its own criterion could not be met: at a 665px square the ribbon is
+ * 427px, the exit link takes ~136px of the row above, and no line worth
+ * printing fits the remainder. The suite handled that by classifying such
+ * viewports as exempt — `CLEARANCE_FLOOR_PX = 450` and
+ * `BELOW_FLOOR = ['1280x700']` — which is a desktop invariant asserted against
+ * a viewport that cannot satisfy it, and then excused for not satisfying it.
+ *
+ * The minimum-dimension floor removes the geometries instead of the assertion.
+ * The tightest desktop ribbon that now exists is 673.1px, at the 972.8px square
+ * both floor twins produce, where the line clears by 212.7px. Every desktop
+ * reading clears, so the assertion below is unconditional and there is no
+ * exemption list left to keep from widening.
  */
-const BELOW_FLOOR = ['1280x700'];
 
 /**
  * How much of the clearance margin is allowed to be an artefact of which font
@@ -163,12 +149,15 @@ const WRAPS_BELOW_FLOOR = [];
  * line worth printing fills most of it; "bounded fraction of the measure" is a
  * claim about the composition, which is where the ten-item line ran 0.986.
  *
- * Measured desktop maxima, both at 1280x700 where the ribbon is narrowest:
- * 0.757 under `domains` and 0.935 under `stack`. The ceilings leave a little
- * over that and exist to catch the line growing back toward the full measure,
- * not to re-derive today's numbers.
+ * Recalibrated with #992. The old ceiling of 0.8 sat just over 0.757, the
+ * maximum measured at 1280x700 — a viewport that no longer renders the
+ * composition at all. The tightest desktop reading is now 0.481, at the 972.8px
+ * square both floor twins produce, so 0.8 would let the line run two thirds
+ * longer before failing. 0.6 keeps the same job the ceiling always had: catch
+ * the line growing back toward the full measure, where the ten-item line it
+ * replaced ran 0.986. It is not a re-derivation of today's number.
  */
-const MEASURE_CEILING = 0.8;
+const MEASURE_CEILING = 0.6;
 
 /** Selectors for the footer's content line. */
 const ACTIVE = { ribbon: '.domains-ribbon', label: '.domains-label', items: '.domains-items' };
@@ -406,26 +395,21 @@ describe.each(VIEWPORTS)('Selected Projects footer line as rendered at $name', (
 });
 
 describe('Selected Projects footer line against the exit link (#984)', () => {
-  /** Desktop readings, split by whether this mode's line can clear at all. */
-  const split = () => {
-    const floor = CLEARANCE_FLOOR_PX;
-    const desktop = VIEWPORTS.filter((viewport) => !viewport.stacked).map((viewport) => ({
+  /** Every desktop reading. No longer split — see the #992 note above. */
+  const desktop = () =>
+    VIEWPORTS.filter((viewport) => !viewport.stacked).map((viewport) => ({
       name: viewport.name,
       ...readings.get(viewport.name),
     }));
-    return {
-      wide: desktop.filter((reading) => reading.rowWidth >= floor),
-      narrow: desktop.filter((reading) => reading.rowWidth < floor),
-    };
-  };
 
-  it('ends short of the link at every ribbon wide enough to hold both', () => {
-    const { wide } = split();
-    // Control: a clean pass has to mean "checked and clear", not "nothing was
-    // wide enough to check". If the floor ever rose past the whole set this
-    // assertion would be sweeping an empty list and reporting success.
-    expect(wide.length, 'no desktop reading cleared the floor').toBeGreaterThan(0);
-    for (const reading of wide) {
+  it('ends short of the link at every desktop geometry, with no exemptions', () => {
+    const readingsToCheck = desktop();
+    // Control: a clean pass has to mean "checked and clear", not "there was
+    // nothing to check". If VIEWPORTS ever lost its desktop entries — which is
+    // exactly what the #992 reclassification did to four of them — this would
+    // sweep an empty list and report success.
+    expect(readingsToCheck.length, 'no desktop reading to check').toBeGreaterThan(0);
+    for (const reading of readingsToCheck) {
       expect(
         reading.clearance,
         `${reading.name} runs under the exit link` +
@@ -434,20 +418,25 @@ describe('Selected Projects footer line against the exit link (#984)', () => {
     }
   });
 
+  it('reaches the same geometry from either axis at the floor', () => {
+    // The breakpoint's premise, asserted rather than assumed: the square is
+    // min(95vw, 95vh, 1280px), so the narrowest legal desktop window and the
+    // shortest one are the same composition. If these diverge, a floor stated
+    // on one axis has stopped implying the other and #992's reasoning is void.
+    const [byWidth, byHeight] = FLOOR_TWINS.map((name) => readings.get(name));
+    expect(byWidth, `${FLOOR_TWINS[0]} was not read`).toBeTruthy();
+    expect(byHeight, `${FLOOR_TWINS[1]} was not read`).toBeTruthy();
+    expect(byHeight.rowWidth).toBeCloseTo(byWidth.rowWidth, 1);
+    expect(byHeight.textWidth).toBeCloseTo(byWidth.textWidth, 1);
+  });
+
   it('names the widths where this line is not expected to hold one line', () => {
-    // Same shape as the clearance exemption below and pinned for the same
-    // reason: an exemption nobody enumerates is an exemption that widens.
+    // Pinned rather than left implicit: an exemption nobody enumerates is an
+    // exemption that widens. This list is empty and has been since #991 — the
+    // line wraps nowhere in the set, including the 328px phone column.
     const wrapping = VIEWPORTS.filter(
       (viewport) => readings.get(viewport.name).rowWidth < ONE_LINE_FLOOR_PX,
     ).map((viewport) => viewport.name);
     expect(wrapping).toEqual(WRAPS_BELOW_FLOOR);
-  });
-
-  it('names the widths where the ribbon itself is too narrow for this line', () => {
-    // Stated rather than skipped, and stated per mode: under `domains` only the
-    // 427px ribbon is out of reach, and under `stack` the 484px one is too. A
-    // shared list would have quietly excused a viewport the active mode can
-    // actually clear.
-    expect(split().narrow.map((reading) => reading.name)).toEqual(BELOW_FLOOR);
   });
 });
