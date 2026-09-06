@@ -3,7 +3,6 @@ import BaseLayout from '../layouts/BaseLayout.astro';
 import { getCollection, getEntry, render } from 'astro:content';
 import { compareBlogPosts } from '../lib/blog-order';
 import { stateMarkerClass } from '../lib/lifecycle-marker';
-import { PROJECTS_RIBBON, PROJECT_DOMAINS, STACK_CAP } from '../lib/projects-ribbon';
 
 // One published collection feeds two deliberately different surfaces (#627):
 // the Writing list is editorial, while Latest Post remains chronological.
@@ -48,52 +47,21 @@ const statusClass = (slug: string) => stateMarkerClass(statusOf(slug), 'p-status
 
 const latestPost = chronologicalPosts[0];
 
-// Selected Projects STACK, as a degradation ladder rather than one fixed list
-// (#930). The Builds panel's usable width is set by the Mondrian square, and
-// that square is sized from viewport HEIGHT, not width — so the same list is
-// comfortably one line on a 1440p display and two lines on a laptop. `tier` is
-// the shortest rung an item survives to; the container queries on
-// `.stack-items` in global.css drop the highest tiers first as the line
-// narrows. Read the array in order and the ladder falls out of it: every
-// shorter rung is this sequence with the over-tier items removed, so one DOM
-// order renders all five rungs and nothing reorders on the way down.
+// The Selected Projects footer's content line: the four domains the work spans
+// (#984, settled in #991). Every other panel footer ends on a bounded line —
+// four scope terms in Community, one title in Connect, one date in About — and
+// this one used to end on ten stack items that ran the full measure and under
+// the exit link, fusing the eyebrow row and the content line into one block of
+// same-weight gray text.
 //
-//   10  TypeScript React Firebase "Cloudflare Workers" Playwright
-//       "GitHub Actions" Anthropic OpenAI "Claude Code" Codex
-//    9  drops Playwright        8  drops GitHub Actions
-//    7  drops Cloudflare Workers        6  drops OpenAI
+// DOMAINS is what shipped, and it is bounded by what it names: four domains
+// stay four, where a stack list grows with every tool adopted. It is also the
+// sentence a product screen should retain. The stack is not lost — it is on
+// every project page and on the résumé, which is the argument #984 made for
+// the swap in the first place.
 //
-// The floor is editorial, not a fit guarantee: six items need ~37em, and a
-// ribbon narrower than that (phones) wraps. Six is the point below which the
-// line stops showing range, which is the only thing it is here to do.
-const stackLadder = [
-  { label: 'TypeScript', tier: 6 },
-  { label: 'React', tier: 6 },
-  { label: 'Firebase', tier: 6 },
-  { label: 'Cloudflare Workers', tier: 8 },
-  { label: 'Playwright', tier: 10 },
-  { label: 'GitHub Actions', tier: 9 },
-  { label: 'Anthropic', tier: 6 },
-  { label: 'OpenAI', tier: 7 },
-  { label: 'Claude Code', tier: 6 },
-  { label: 'Codex', tier: 6 },
-];
-
-// Under 'stack' the ladder is capped server-side at its rung-6 floor (#984), so
-// every shipped item is a rung-6 item and the container queries above never
-// have a higher tier to re-show. The ladder array keeps all ten and its full
-// tiering: the switch is meant to be flipped, and flipping it back has to
-// restore #930 exactly rather than a trimmed copy of it.
-const cappedStackLadder = stackLadder.filter((item) => item.tier <= STACK_CAP);
-
-// Under 'domains' the footer says what the intro used to (#984), so the intro
-// stops saying it. One paragraph with a conditional opening sentence rather
-// than two copies of it — the second half is the same either way, and a second
-// copy is what drifts.
-const projectsIntroLead =
-  PROJECTS_RIBBON === 'stack'
-    ? 'The projects span consumer, enterprise, finance, and developer tooling. '
-    : '';
+// The order is the intro sentence's, which is why the intro no longer says it.
+const PROJECT_DOMAINS = ['Consumer', 'Enterprise', 'Finance', 'Developer tooling'];
 
 // Non-breaking space inside a multi-word term, exactly as .impact-items does
 // for "Campaign Building": the ` · ` separators are the only places this line
@@ -253,7 +221,7 @@ const homepageJsonLd = {
         <div class="panel-content">
           <div class="content-inner">
             <h2>Selected Projects</h2>
-            <p>{projectsIntroLead}The case studies focus on the decisions, tradeoffs, and evidence behind them; I built each with AI agents under a review system I designed.</p>
+            <p>The case studies focus on the decisions, tradeoffs, and evidence behind them; I built each with AI agents under a review system I designed.</p>
             {/* Builds grid — hand-authored, NOT generated from the projects
                 collection, so the `order` field on the project source files has
                 no effect here. This is a *selected* set: the heading says so, and
@@ -314,15 +282,12 @@ const homepageJsonLd = {
                 <p>Shared billing for recurring household costs—showing recipients the arithmetic, tracking settlement, and handling questions without requiring an account.</p>
               </div>
             </div>
-            {/* The footer's content line, DOMAINS or STACK (#984). Every other
-                panel footer ends on a bounded line — four scope terms in
-                Community, one title in Connect, one date in About — and this one
-                ended on ten stack items that ran the full measure and under the
-                exit link. DOMAINS is bounded by what it names and is the sentence
-                a product screen should retain; the stack still appears on every
-                project page and on the résumé. The switch is temporary and is
-                meant to be deleted once one of the two has been lived with; see
-                src/lib/projects-ribbon.ts.
+            {/* The footer's content line (#984, switch removed in #991).
+                Every other panel footer ends on a bounded line — four scope
+                terms in Community, one title in Connect, one date in About —
+                and this one ended on ten stack items that ran the full measure
+                and under the exit link, fusing the eyebrow row and the content
+                line into one block of same-weight gray text.
 
                 The index link moved onto this eyebrow row from a bordered
                 .nav-button above the ribbon (#892); every panel exit now sits on
@@ -331,28 +296,19 @@ const homepageJsonLd = {
                 1 of its 82 views from this page. Wayfinding, at wayfinding
                 weight.
 
-                Under 'stack': rendered from the ladder array, not typed out, so
-                the rungs cannot drift apart. The map output must stay
-                whitespace-free on one line — the ` · ` separators are ::before
-                pseudo-elements, and markup whitespace between the spans would
-                double the space before each one. #930. */}
-            {PROJECTS_RIBBON === 'domains' ? (
-              <div class="domains-ribbon">
-                <div class="ribbon-row">
-                  <span class="eyebrow domains-label">Domains</span>
-                  <a href="/projects/" class="ribbon-exit">View all projects<span class="link-arrow" aria-hidden="true">→</span></a>
-                </div>
-                <span class="domains-items">{domainsLine}</span>
+                The ` · ` separators are literal text in `domainsLine`, not
+                generated content — which is what lets a Range measure the line
+                as rendered. The STACK alternative drew its separators with
+                `.stack-item::before`, so the measured width understated what a
+                reader saw; that was the open finding (#990) and it left with
+                the branch. Keep them as text. */}
+            <div class="domains-ribbon">
+              <div class="ribbon-row">
+                <span class="eyebrow domains-label">Domains</span>
+                <a href="/projects/" class="ribbon-exit">View all projects<span class="link-arrow" aria-hidden="true">→</span></a>
               </div>
-            ) : (
-              <div class="stack-ribbon">
-                <div class="ribbon-row">
-                  <span class="eyebrow stack-label">Stack</span>
-                  <a href="/projects/" class="ribbon-exit">View all projects<span class="link-arrow" aria-hidden="true">→</span></a>
-                </div>
-                <span class="stack-items">{cappedStackLadder.map((item) => <span class="stack-item" data-stack-tier={item.tier}>{item.label}</span>)}</span>
-              </div>
-            )}
+              <span class="domains-items">{domainsLine}</span>
+            </div>
           </div>
         </div>
       </article>

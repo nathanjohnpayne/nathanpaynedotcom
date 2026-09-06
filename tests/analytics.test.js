@@ -3,7 +3,6 @@ import { readFileSync } from 'fs';
 import { resolve } from 'path';
 import { execSync } from 'child_process';
 import { readBuiltPage, writeSanitizedDOM } from './helpers/dom.js';
-import { PROJECTS_RIBBON } from '../src/lib/projects-ribbon';
 
 const rawHtml = readBuiltPage('index.html');
 
@@ -483,9 +482,8 @@ describe('PostHog', () => {
     window.posthog = { capture };
     new Function(posthogHomepageScript)();
 
-    const ribbon = PROJECTS_RIBBON === 'domains' ? '.domains-ribbon' : '.stack-ribbon';
-    const exit = document.querySelector(`[data-panel="projects"] ${ribbon} .ribbon-exit`);
-    expect(exit, `no .ribbon-exit inside ${ribbon}`).not.toBeNull();
+    const exit = document.querySelector('[data-panel="projects"] .domains-ribbon .ribbon-exit');
+    expect(exit, 'no .ribbon-exit inside .domains-ribbon').not.toBeNull();
 
     exit.dispatchEvent(new MouseEvent('click', { bubbles: true }));
 

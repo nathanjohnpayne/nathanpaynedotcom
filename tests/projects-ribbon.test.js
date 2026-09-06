@@ -1,7 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { readBuiltPage, writeSanitizedDOM } from './helpers/dom.js';
 import { serveStatic } from '../src/integrations/og-images.mjs';
-import { PROJECTS_RIBBON, PROJECT_DOMAINS, STACK_CAP } from '../src/lib/projects-ribbon';
 
 /**
  * The Selected Projects footer's content line, under the #984 build switch.
@@ -13,9 +12,11 @@ import { PROJECTS_RIBBON, PROJECT_DOMAINS, STACK_CAP } from '../src/lib/projects
  * link on the row above, so the eyebrow row and the content line fused into one
  * block of same-weight gray text.
  *
- * `PROJECTS_RIBBON` picks which line the build renders. Both branches are
- * asserted here, the inactive one by its absence, so flipping the switch is a
- * one-word change the suite validates either way.
+ * #984 shipped DOMAINS and STACK behind a build-time switch so the two could be
+ * compared on the live page; #991 settled it on DOMAINS and deleted the losing
+ * branch. What remains here is the surviving line's geometry — a clearance
+ * floor, a one-line floor and a ratio ceiling — which is what "bounded" meant
+ * all along and outlives the comparison.
  *
  * ## What is measured in a browser, and why
  *
@@ -86,7 +87,22 @@ const VIEWPORTS = [
  * sized from it. That is why the narrowest ribbon in the set belongs to the
  * second WIDEST viewport, and why the floor cannot be stated as a breakpoint.
  */
-const CLEARANCE_FLOOR_PX = { domains: 450, stack: 530 };
+/*
+ * Why 450 and not 484, the narrowest width measured to clear.
+ *
+ * This is a classifier boundary, not a measurement. The two figures either side
+ * of it are 427px (1280x700, does not clear) and 484px (1024x768, clears by
+ * 23.3px), and any boundary between them classifies every viewport in the set
+ * identically — 450 and 484 produce the same wide/narrow split today.
+ *
+ * They diverge only for a ribbon of 450-483px, which no viewport produces. At
+ * 484 that band would be EXEMPT, so a line that grew until it stopped clearing
+ * at 460px would pass; at 450 it must clear. Catching the line growing back
+ * toward the full measure is what this floor is for — the ten-item line it
+ * replaced ran 0.986 of the ribbon — so the boundary sits at the strict end of
+ * the gap rather than on the measurement (CodeRabbit, PR #1001).
+ */
+const CLEARANCE_FLOOR_PX = 450;
 
 /**
  * The viewports whose ribbon falls under that floor, per mode.
@@ -96,7 +112,7 @@ const CLEARANCE_FLOOR_PX = { domains: 450, stack: 530 };
  * widening quietly — a third viewport arriving here fails, whether it got here
  * because the composition changed or because the line grew.
  */
-const BELOW_FLOOR = { domains: ['1280x700'], stack: ['1024x768', '1280x700'] };
+const BELOW_FLOOR = ['1280x700'];
 
 /**
  * How much of the clearance margin is allowed to be an artefact of which font
@@ -135,10 +151,10 @@ const FONT_DELTA_PX = 4;
  * #930 states rung 6 needs ~37em and calls that floor editorial rather than a
  * fit guarantee, so the phone wrap is expected there and is not a defect.
  */
-const ONE_LINE_FLOOR_PX = { domains: 0, stack: 350 };
+const ONE_LINE_FLOOR_PX = 0;
 
 /** The viewports that fall under it, pinned so the exemption cannot widen. */
-const WRAPS_BELOW_FLOOR = { domains: [], stack: ['390x844'] };
+const WRAPS_BELOW_FLOOR = [];
 
 /**
  * The widest fraction of the ribbon the content line may occupy, per mode.
@@ -152,21 +168,23 @@ const WRAPS_BELOW_FLOOR = { domains: [], stack: ['390x844'] };
  * over that and exist to catch the line growing back toward the full measure,
  * not to re-derive today's numbers.
  */
-const MEASURE_CEILING = { domains: 0.8, stack: 0.96 };
+const MEASURE_CEILING = 0.8;
 
-/** Selectors for the line this build actually rendered. */
-const ACTIVE =
-  PROJECTS_RIBBON === 'domains'
-    ? { ribbon: '.domains-ribbon', label: '.domains-label', items: '.domains-items' }
-    : { ribbon: '.stack-ribbon', label: '.stack-label', items: '.stack-items' };
+/** Selectors for the footer's content line. */
+const ACTIVE = { ribbon: '.domains-ribbon', label: '.domains-label', items: '.domains-items' };
 
-/** Selectors for the branch this build did not take. */
-const INACTIVE =
-  PROJECTS_RIBBON === 'domains'
-    ? { ribbon: '.stack-ribbon', label: '.stack-label', items: '.stack-items' }
-    : { ribbon: '.domains-ribbon', label: '.domains-label', items: '.domains-items' };
+/**
+ * The four domains, in render order.
+ *
+ * Pinned as a literal here rather than imported. It used to come from
+ * `src/lib/projects-ribbon.ts`, and reading it from the module the page also
+ * reads would have asserted that the page renders whatever the array holds —
+ * true of any array. The module is gone with the switch (#991); the list now
+ * lives inline in `src/pages/index.astro` and this is its independent copy.
+ */
+const PROJECT_DOMAINS = ['Consumer', 'Enterprise', 'Finance', 'Developer tooling'];
 
-describe(`Selected Projects footer line, mode "${PROJECTS_RIBBON}" (#984)`, () => {
+describe('Selected Projects footer line (#984, switch removed in #991)', () => {
   let panel;
 
   beforeAll(() => {
@@ -175,15 +193,18 @@ describe(`Selected Projects footer line, mode "${PROJECTS_RIBBON}" (#984)`, () =
     expect(panel, 'homepage Projects panel missing from the build').not.toBeNull();
   });
 
-  it('renders one content line, and only the one this mode selects', () => {
+  it('renders exactly one content line, and no residue of the deleted branch', () => {
     expect(panel.querySelectorAll(ACTIVE.ribbon)).toHaveLength(1);
     expect(panel.querySelectorAll(ACTIVE.items)).toHaveLength(1);
-    // The branch that did not run leaves nothing behind anywhere on the page —
-    // two content lines in one footer is the failure a per-panel check would
-    // miss if the stray landed in a different panel.
-    expect(document.querySelectorAll(INACTIVE.ribbon)).toHaveLength(0);
-    expect(document.querySelectorAll(INACTIVE.items)).toHaveLength(0);
-    expect(document.querySelectorAll(INACTIVE.label)).toHaveLength(0);
+    // The STACK branch is gone (#991), and this is the residue guard for it:
+    // asserted across the whole DOCUMENT, not the panel, because a stray that
+    // landed in a different panel is exactly what a per-panel check would miss.
+    for (const selector of ['.stack-ribbon', '.stack-items', '.stack-item', '.stack-label']) {
+      expect(
+        document.querySelectorAll(selector),
+        `${selector} survives the removal of the STACK branch`,
+      ).toHaveLength(0);
+    }
   });
 
   it('keeps the panel exit on the ribbon row, in either mode', () => {
@@ -201,75 +222,32 @@ describe(`Selected Projects footer line, mode "${PROJECTS_RIBBON}" (#984)`, () =
     expect(exits[0].closest('.ribbon-row').querySelector(ACTIVE.label)).not.toBeNull();
   });
 
-  it.runIf(PROJECTS_RIBBON === 'domains')(
-    'says the four domains, in order, and stops saying them in the intro',
-    () => {
-      // Pinned as a literal as well as against the module: reading only the
-      // module would assert that the page renders whatever the array holds,
-      // which is true of any array.
-      expect([...PROJECT_DOMAINS]).toEqual([
-        'Consumer',
-        'Enterprise',
-        'Finance',
-        'Developer tooling',
-      ]);
+  it('says the four domains, in order, and stops saying them in the intro', () => {
+    const items = panel.querySelector('.domains-items');
+    // Split on the separator, then normalise the non-breaking spaces back —
+    // the terms are compared as words, and the NBSP is asserted separately
+    // below as the thing it is: a line-breaking decision.
+    const rendered = items.textContent.split(' · ').map((term) => term.replaceAll('\u00a0', ' '));
+    expect(rendered).toEqual([...PROJECT_DOMAINS]);
+    expect(panel.querySelector('.domains-label').textContent).toBe('Domains');
 
-      const items = panel.querySelector('.domains-items');
-      // Split on the separator, then normalise the non-breaking spaces back —
-      // the terms are compared as words, and the NBSP is asserted separately
-      // below as the thing it is: a line-breaking decision.
-      const rendered = items.textContent.split(' · ').map((term) => term.replaceAll('\u00a0', ' '));
-      expect(rendered).toEqual([...PROJECT_DOMAINS]);
-      expect(panel.querySelector('.domains-label').textContent).toBe('Domains');
+    // A multi-word term must not be splittable across the two lines the
+    // ribbon can produce, so its internal space is non-breaking — the same
+    // treatment Community gives "Campaign Building". Written as escapes
+    // because the two characters are indistinguishable on screen, which is
+    // the whole reason this can regress unnoticed.
+    expect(items.textContent).toContain('Developer\u00a0tooling');
+    expect(items.textContent, 'a domain broke across a breakable space').not.toContain(
+      'Developer tooling',
+    );
 
-      // A multi-word term must not be splittable across the two lines the
-      // ribbon can produce, so its internal space is non-breaking — the same
-      // treatment Community gives "Campaign Building". Written as escapes
-      // because the two characters are indistinguishable on screen, which is
-      // the whole reason this can regress unnoticed.
-      expect(items.textContent).toContain('Developer\u00a0tooling');
-      expect(items.textContent, 'a domain broke across a breakable space').not.toContain(
-        'Developer tooling',
-      );
-
-      // The line the footer now carries left the intro rather than being said
-      // twice. Asserted on the first sentence, not on the whole paragraph:
-      // tests/project-pages.test.js pins the paragraph verbatim.
-      const intro = panel.querySelector('.content-inner > p');
-      expect(intro.textContent).not.toContain('The projects span');
-      expect(intro.textContent.startsWith('The case studies focus')).toBe(true);
-    },
-  );
-
-  it.runIf(PROJECTS_RIBBON === 'stack')(
-    'says the capped stack, and keeps the sentence in the intro',
-    () => {
-      // The ladder's own contents are tests/homepage-stack-ladder.test.js's
-      // subject. What belongs here is the pair the switch controls: the cap,
-      // and the intro sentence that only this mode keeps.
-      // Which items those are is pinned in tests/homepage-stack-ladder.test.js,
-      // against the hand-written rung table. What belongs here is the cap
-      // itself: nothing above it ships, so no container query decides whether
-      // an item appears. Asserted on the tier and not on the count — the two
-      // are equal for every rung of #930's ladder, which makes a count check
-      // look like it is testing the cap when it is testing a coincidence.
-      const shipped = [...panel.querySelectorAll('.stack-items .stack-item')];
-      expect(
-        shipped.length,
-        'control: no stack items found, so the sweep is vacuous',
-      ).toBeGreaterThan(0);
-      expect(
-        shipped
-          .map((item) => Number(item.getAttribute('data-stack-tier')))
-          .filter((tier) => tier > STACK_CAP),
-        'a shipped item is above the cap, so a container query decides whether it appears',
-      ).toEqual([]);
-      expect(panel.querySelector('.stack-label').textContent).toBe('Stack');
-
-      const intro = panel.querySelector('.content-inner > p');
-      expect(intro.textContent.startsWith('The projects span consumer')).toBe(true);
-    },
-  );
+    // The line the footer now carries left the intro rather than being said
+    // twice. Asserted on the first sentence, not on the whole paragraph:
+    // tests/project-pages.test.js pins the paragraph verbatim.
+    const intro = panel.querySelector('.content-inner > p');
+    expect(intro.textContent).not.toContain('The projects span');
+    expect(intro.textContent.startsWith('The case studies focus')).toBe(true);
+  });
 });
 
 /**
@@ -281,7 +259,7 @@ describe(`Selected Projects footer line, mode "${PROJECTS_RIBBON}" (#984)`, () =
  * report 100% at every viewport in every mode, which is a number that always
  * passes and never means anything.
  */
-function readFooter([ribbonSel, itemsSel, labelSel, twin]) {
+function readFooter([ribbonSel, itemsSel]) {
   const ribbon = document.querySelector(ribbonSel);
   if (!ribbon) return null;
   const row = ribbon.querySelector('.ribbon-row');
@@ -314,46 +292,7 @@ function readFooter([ribbonSel, itemsSel, labelSel, twin]) {
     interLoaded: document.fonts.check('1em Inter'),
   };
 
-  /**
-   * The properties the two modes must agree on, read off `el`, and read again
-   * off a copy of `el` wearing the OTHER mode's class in the same position in
-   * the tree.
-   *
-   * Measured rather than compared as CSS text. The inks are `color-mix()` and
-   * `var()` values that resolve differently per plane and per open state, and
-   * a rule can name both classes and still land differently through
-   * specificity or source order — which a grep over the stylesheet cannot see.
-   * The copy is inserted as the next sibling so it inherits the same cascade,
-   * and removed before anything is measured for layout.
-   */
-  const agrees = (el, from, to, properties) => {
-    const read = (node) => {
-      const style = getComputedStyle(node);
-      return properties.map((property) => `${property}: ${style[property]}`).join('; ');
-    };
-    const clone = el.cloneNode(false);
-    clone.classList.remove(from);
-    clone.classList.add(to);
-    el.parentElement.insertBefore(clone, el.nextSibling);
-    const twinStyle = read(clone);
-    clone.remove();
-    return { own: read(el), twin: twinStyle };
-  };
-
-  const inks = ['color', 'fontSize', 'letterSpacing', 'opacity'];
-  return {
-    ink: {
-      label: agrees(ribbon.querySelector(labelSel), labelSel.slice(1), twin.label.slice(1), inks),
-      items: agrees(items, itemsSel.slice(1), twin.items.slice(1), inks),
-      ribbon: agrees(ribbon, ribbonSel.slice(1), twin.ribbon.slice(1), [
-        'borderTopColor',
-        'borderTopWidth',
-        'marginTop',
-        'paddingTop',
-      ]),
-    },
-    ...geometry,
-  };
+  return geometry;
 }
 
 const readings = new Map();
@@ -404,10 +343,7 @@ beforeAll(async () => {
       });
     }
 
-    readings.set(
-      viewport.name,
-      await page.evaluate(readFooter, [ACTIVE.ribbon, ACTIVE.items, ACTIVE.label, INACTIVE]),
-    );
+    readings.set(viewport.name, await page.evaluate(readFooter, [ACTIVE.ribbon, ACTIVE.items]));
     await page.close();
   }
 }, 180_000);
@@ -440,44 +376,39 @@ describe.each(VIEWPORTS)('Selected Projects footer line as rendered at $name', (
     // line at every width in the set including the 328px phone column, and
     // `stack` holds it everywhere but there.
     const reading = readings.get(viewport.name);
-    if (reading.rowWidth < ONE_LINE_FLOOR_PX[PROJECTS_RIBBON]) return;
+    if (reading.rowWidth < ONE_LINE_FLOOR_PX) return;
     expect(reading.lines, `${reading.interLoaded ? '' : '(Inter did not load) '}wrapped`).toBe(1);
   });
 
   it.runIf(!viewport.stacked)('stays a bounded fraction of the measure', () => {
     const { textWidth, rowWidth } = readings.get(viewport.name);
-    expect(textWidth / rowWidth).toBeLessThanOrEqual(MEASURE_CEILING[PROJECTS_RIBBON]);
+    expect(textWidth / rowWidth).toBeLessThanOrEqual(MEASURE_CEILING);
   });
 
-  it('gives DOMAINS and STACK the same inks on whatever plane is showing', () => {
-    // The two are one line in one footer under a build switch, so a second set
-    // of inks would be a second contrast surface to keep in step with
-    // #977–#979 for no visible difference. Equality is the assertion, not a
-    // ratio: the plane under this footer changes with the panel's open state
-    // and with the layout, and the pair has to agree on all of them.
-    //
-    // Measured: 5.82:1 on the yellow plane in the stacked layout and 3.33:1 on
-    // the parchment of an open panel, identical in both modes. The parchment
-    // figure is the label voice #979 kept for static text — pre-existing, and
-    // shared with SCOPE, LAST UPDATED and the rest of the footer labels.
-    //
-    // Two classes that both fall through to the same inherited value would
-    // also compare equal, so the assertion was run against a known positive:
-    // dropping `.domains-items` from one shared rule in global.css fails this
-    // at all nine viewports (16px inherited type against the ribbon's
-    // 0.68rem). It is measuring, not agreeing with itself.
-    const { ink } = readings.get(viewport.name);
-    for (const [part, reading] of Object.entries(ink)) {
-      expect(reading.own, `${part} was read as empty`).not.toBe('');
-      expect(reading.twin, `the two modes disagree on the ${part}`).toBe(reading.own);
-    }
-  });
+  /*
+   * The ink-equality check lived here and is gone with the switch (#991): it
+   * compared DOMAINS' inks against a clone of the same element wearing STACK's
+   * class, and there is no second mode left to compare against.
+   *
+   * Its CONCLUSION is worth keeping, because it is a measurement nothing else
+   * in the suite re-derives. The two lines rendered identical inks on every
+   * plane: 5.82:1 on the yellow plane in the stacked layout, and 3.33:1 on the
+   * parchment of an open panel. The parchment figure is the label voice #979
+   * kept for static text — pre-existing, and shared with SCOPE, LAST UPDATED
+   * and the rest of the footer labels, which is why DOMAINS needed no contrast
+   * work of its own when it became the only line.
+   *
+   * That the check was measuring rather than agreeing with itself was itself
+   * verified: dropping `.domains-items` from one shared rule in global.css
+   * failed it at all nine viewports, 16px inherited type against the ribbon's
+   * 0.68rem.
+   */
 });
 
 describe('Selected Projects footer line against the exit link (#984)', () => {
   /** Desktop readings, split by whether this mode's line can clear at all. */
   const split = () => {
-    const floor = CLEARANCE_FLOOR_PX[PROJECTS_RIBBON];
+    const floor = CLEARANCE_FLOOR_PX;
     const desktop = VIEWPORTS.filter((viewport) => !viewport.stacked).map((viewport) => ({
       name: viewport.name,
       ...readings.get(viewport.name),
@@ -507,9 +438,9 @@ describe('Selected Projects footer line against the exit link (#984)', () => {
     // Same shape as the clearance exemption below and pinned for the same
     // reason: an exemption nobody enumerates is an exemption that widens.
     const wrapping = VIEWPORTS.filter(
-      (viewport) => readings.get(viewport.name).rowWidth < ONE_LINE_FLOOR_PX[PROJECTS_RIBBON],
+      (viewport) => readings.get(viewport.name).rowWidth < ONE_LINE_FLOOR_PX,
     ).map((viewport) => viewport.name);
-    expect(wrapping).toEqual(WRAPS_BELOW_FLOOR[PROJECTS_RIBBON]);
+    expect(wrapping).toEqual(WRAPS_BELOW_FLOOR);
   });
 
   it('names the widths where the ribbon itself is too narrow for this line', () => {
@@ -517,6 +448,6 @@ describe('Selected Projects footer line against the exit link (#984)', () => {
     // 427px ribbon is out of reach, and under `stack` the 484px one is too. A
     // shared list would have quietly excused a viewport the active mode can
     // actually clear.
-    expect(split().narrow.map((reading) => reading.name)).toEqual(BELOW_FLOOR[PROJECTS_RIBBON]);
+    expect(split().narrow.map((reading) => reading.name)).toEqual(BELOW_FLOOR);
   });
 });
