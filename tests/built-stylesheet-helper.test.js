@@ -108,33 +108,46 @@ describe('readBuiltStylesheet (#932)', () => {
   const emittedChunks = () =>
     new Set(readdirSync(resolve(DIST, '_astro')).filter((f) => f.endsWith('.css')));
 
-  /** Chunk filenames a built page links, read by the href pattern. */
-  const linkedChunkNames = (html) =>
-    new Set([...html.matchAll(/href="\/_astro\/([^"]+\.css)"/g)].map((m) => m[1]));
+  /**
+   * `href` values of a page's stylesheet `<link>` elements, in document order.
+   *
+   * Derived from the parsed links rather than by matching `/_astro/*.css`
+   * across the whole document, because `rel` is what makes a link a
+   * stylesheet. Scanning the document instead lets any element carrying a
+   * chunk URL — `<link rel="preload">`, a download anchor — answer for a page
+   * that applies no stylesheet at all, which passed the first version of this
+   * hardening (Codex, PR #1002).
+   *
+   * It also keeps the two reads below consistent by construction: the chunk
+   * names can only ever come from hrefs that are genuinely stylesheet links,
+   * so the pair cannot disagree in the direction that passes.
+   */
+  function stylesheetHrefs(html) {
+    const parsed = new DOMParser().parseFromString(html, 'text/html');
+    return [...parsed.querySelectorAll('link[rel][href]')]
+      .filter((link) =>
+        (link.getAttribute('rel') ?? '')
+          .split(/\s+/)
+          .some((token) => token.toLowerCase() === 'stylesheet'),
+      )
+      .map((link) => link.getAttribute('href'));
+  }
 
   /**
-   * How many stylesheet `<link>` elements a page carries, read with the parser.
+   * Emitted-chunk filenames among `hrefs`.
    *
-   * Deliberately a different method from `linkedChunkNames`, because it is the
-   * control for that pattern's zero. Without it, "this page links no
-   * stylesheet" and "the pattern no longer matches how Astro writes an href"
-   * arrive as the same empty set — and the second is the one that silently
-   * disarms everything below.
+   * Deliberately strict: a chunk URL carrying a query string or written
+   * relatively does not match, so it surfaces as a blind extractor below
+   * rather than being quietly normalized into a pass.
    */
-  function stylesheetLinkCount(html) {
-    const parsed = new DOMParser().parseFromString(html, 'text/html');
-    return [...parsed.querySelectorAll('link[rel][href]')].filter((link) =>
-      (link.getAttribute('rel') ?? '')
-        .split(/\s+/)
-        .some((token) => token.toLowerCase() === 'stylesheet'),
-    ).length;
-  }
+  const chunkNamesIn = (hrefs) =>
+    new Set(hrefs.map((href) => /^\/_astro\/([^/]+\.css)$/.exec(href)?.[1]).filter(Boolean));
 
   /**
    * Assert one page links every emitted chunk.
    *
-   * A named predicate rather than a loop body, so the mutation test below can
-   * run it over markup built to carry the defect — the same reason
+   * A named predicate rather than a loop body, so the mutation tests below can
+   * run it over markup built to carry each defect — the same reason
    * `tests/lifecycle-marker.test.js` names `modifierElementDeclarations`.
    *
    * @param {string} route
@@ -142,20 +155,24 @@ describe('readBuiltStylesheet (#932)', () => {
    * @param {Set<string>} emitted
    */
   function expectPageLinksEveryChunk(route, html, emitted) {
-    const linked = linkedChunkNames(html);
-    const carried = stylesheetLinkCount(html);
-    // An empty result used to `continue`. That treated "could not look" as
-    // "nothing to look at", so any change to how Astro writes the href made
-    // every page skip and the suite pass having asserted nothing (#935).
+    const hrefs = stylesheetHrefs(html);
+    const linked = chunkNamesIn(hrefs);
+    // Both of these used to be one `if (linked.size === 0) continue;`. That
+    // treated "could not look" as "nothing to look at", so any change to how
+    // Astro writes the href made every page skip and the suite pass having
+    // asserted nothing (#935). They are separate assertions because the two
+    // causes need different fixes, and a reader must not have to guess which
+    // one they are looking at.
+    expect(
+      hrefs.length,
+      `${route} links no stylesheet at all, so this guard cannot speak for it. If a page is ` +
+        'meant to ship without CSS it needs an explicit exemption here, not a silent skip.',
+    ).toBeGreaterThan(0);
     expect(
       linked.size,
-      carried === 0
-        ? `${route} links no stylesheet at all, so this guard cannot speak for it. If a ` +
-            'page is meant to ship without CSS it needs an explicit exemption here, not a ' +
-            'silent skip.'
-        : `${route} carries ${carried} stylesheet <link> element(s), and the /_astro/ href ` +
-            'pattern matched none of them: the EXTRACTOR is blind, not the page. Everything ' +
-            'below this line asserts nothing until it is fixed — see #935.',
+      `${route} carries ${hrefs.length} stylesheet link(s) — ${JSON.stringify(hrefs)} — and ` +
+        'none matched the /_astro/ chunk pattern: the EXTRACTOR is blind, not the page. ' +
+        'Everything below this line asserts nothing until it is fixed — see #935.',
     ).toBeGreaterThan(0);
     expect(
       [...emitted].filter((chunk) => !linked.has(chunk)),
@@ -208,5 +225,24 @@ describe('readBuiltStylesheet (#932)', () => {
     expect(() => expectPageLinksEveryChunk('/bare/', bare, emittedChunks())).toThrow(
       /links no stylesheet at all/,
     );
+  });
+
+  it('does not let a non-stylesheet link answer for a page with no stylesheet', () => {
+    // A page that preloads every emitted chunk but applies none of them. The
+    // first version of this hardening scanned the whole document for
+    // `/_astro/*.css`, so the preload satisfied it and the page passed while
+    // applying no CSS at all (Codex, PR #1002).
+    const emitted = emittedChunks();
+    const preloads = [...emitted]
+      .map((chunk) => `<link rel="preload" as="style" href="/_astro/${chunk}">`)
+      .join('');
+
+    expect(() =>
+      expectPageLinksEveryChunk(
+        '/preload-only/',
+        `<!doctype html><html><head>${preloads}</head><body></body></html>`,
+        emitted,
+      ),
+    ).toThrow(/links no stylesheet at all/);
   });
 });
