@@ -59,7 +59,7 @@ A trustworthy template editor makes the same document mean the same thing everyw
 After [PR #144](https://github.com/nathanjohnpayne/friends-and-family-billing/pull/144), the architecture could not honor that:
 
 ```mermaid title="Three rendering paths from one document" description="The ProseMirror document renders directly to the editor DOM but passes through a plain-text token bridge before splitting into separate CommonMark and regex renderers, producing preview and sent-email HTML that can diverge."
-graph LR
+graph TD
     A["TipTap / ProseMirror<br/>Document"] --> B["Editor DOM"]
     A --> C["docToPlainTextWithTokens()"]
     C --> D["CommonMark<br/>Renderer"]
@@ -272,13 +272,13 @@ There is a sharper way to say it. Before #161 the test email and the invoice ema
 
 ```mermaid title="Two paths to an email body: the canonical renderer, and the bridge the invoice still takes" description="Counting outbound email bodies only: the ProseMirror document renders the editor DOM directly — a third render, not an email path — and also feeds one canonical template renderer, which produces the body for the Invoicing tab preview and for the test email. The recipient invoice does not use that renderer: the same document goes through a plain-text bridge that the Cloud Function converts with simpleMarkdownToHtml. Both sent messages are wrapped in the same envelope HTML, so they share an envelope while their bodies come from different renderers."
 graph TD
-    A["TipTap / ProseMirror<br/>Document"] --> B["Editor DOM"]
-    A --> C["Canonical Template<br/>Renderer"]
-    A --> H["Plain-text bridge<br/>then simpleMarkdownToHtml"]
+    A["TipTap /<br/>ProseMirror<br/>Document"] --> B["Editor DOM"]
+    A --> C["Canonical<br/>Template<br/>Renderer"]
+    A --> H["Plain-text bridge, then<br/>simpleMarkdown<br/>ToHtml"]
     C --> D["Preview"]
-    C --> E["Test Email<br/>(body + envelope)"]
-    H --> J["Invoice Email<br/>(body + envelope)"]
-    G["Envelope HTML"] --> E
+    C --> E["Test Email<br/>(body +<br/>envelope)"]
+    H --> J["Invoice Email<br/>(body +<br/>envelope)"]
+    G["Envelope<br/>HTML"] --> E
     G --> J
 
     style A fill:#2c5f8a,stroke:#2c5f8a,color:#fff

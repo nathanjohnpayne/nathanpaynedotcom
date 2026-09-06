@@ -49,20 +49,34 @@ import { serveStatic } from '../src/integrations/og-images.mjs';
 const DIST = resolve('dist');
 
 /**
- * The two viewports the two defects were measured at.
+ * Three viewports: the two the original defects were measured at, and the one
+ * that turned out to be worse than either.
  *
  * The phone is an iPhone SE, the narrowest viewport the Playwright suite
- * already targets and the one #894's measurements were taken at. The desktop is
+ * already targets and the one #894's measurements were taken at. `desktop` is
  * where the blog sidebar exists at all — it is `display: none` below the
  * stacked breakpoint — and is the width #897 was filed against.
  *
- * Not 1024px, though that is where the desktop composition starts and where
- * both columns are narrowest. Three article-column diagrams predating #986 paint
- * below the floor there, so adding it is a fix rather than a widening — #987.
- * The sidebar-column assertion reads 1024px on its own for a different question.
+ * `desktop-narrow` is 1024px, and it is here because those two were not enough
+ * (#987). The article column is not widest-at-the-widest-viewport and narrowest
+ * on a phone; it is 262px on a phone, **528px at 1024px**, 636px at 1280px and
+ * 632px above that. So the desktop arm was reading the article column at close
+ * to its widest, and the width where a scaled diagram is worst off had no arm at
+ * all. Three diagrams sat at 8.17–8.47px there — under the floor — while the
+ * suite stayed green, because at 1280px the same three paint 9.6–10.2px.
+ *
+ * The general lesson is worth more than the fix: **a breakpoint is not a
+ * monotonic axis.** Sampling the ends of a range only bounds it when the
+ * quantity moves in one direction across it, and a column sized by an `fr`
+ * track inside a grid that changes shape at a breakpoint does not. The width
+ * immediately above a layout switch is its own case, and it is the one a
+ * two-ended sample is guaranteed to miss.
  */
 const VIEWPORTS = [
   { name: 'phone', width: 375, height: 812 },
+  // Where the three-column composition takes over, and where the article column
+  // it introduces is at its narrowest. See the note above.
+  { name: 'desktop-narrow', width: 1024, height: 900 },
   { name: 'desktop', width: 1280, height: 900 },
 ];
 
@@ -191,9 +205,6 @@ const readings = new Map();
 const printReadings = new Map();
 let server;
 let browser;
-// Hoisted so the sidebar-column assertion can open its own 1024px page; see there
-// for why that width is read separately rather than added to VIEWPORTS.
-let port;
 
 beforeAll(async () => {
   expect(existsSync(DIST), 'dist must exist; run npm run build first').toBe(true);
@@ -202,7 +213,6 @@ beforeAll(async () => {
   const { chromium } = await import('playwright');
   const started = await serveStatic(DIST);
   server = started.server;
-  port = started.port;
   browser = await chromium.launch();
 
   for (const viewport of VIEWPORTS) {
@@ -406,22 +416,33 @@ describe('Mermaid in the blog sidebar', () => {
     // an unreadable diagram shipping.
     //
     // 1024px is the width to check it at — the sidebar's narrowest, since that
-    // is where the three-column composition takes over. It is deliberately a
-    // reading of its own rather than a third entry in VIEWPORTS: adding one
-    // would run the legibility arms there too, where three article-column
-    // diagrams predating #986 paint below the floor. That is #987, and it is a
-    // separate fix.
+    // is where the three-column composition takes over. #986 opened a page of
+    // its own for this, because running the legibility arms at 1024px would
+    // have failed on three article-column diagrams it did not move. #987 fixed
+    // those and made 1024px a real viewport, so the reading is already taken
+    // and this reads it rather than loading the page a second time.
     const { SIDEBAR_COLUMN_PX } = await import('../src/lib/render-sidebar-mermaid.mjs');
-    const route = routes.find((candidate) =>
-      readings.get(`desktop|${candidate}`).diagrams.some((d) => d.container === 'sidebar'),
-    );
+    const widths = diagramsAt(VIEWPORTS.find((candidate) => candidate.name === 'desktop-narrow'))
+      .filter((diagram) => diagram.container === 'sidebar')
+      .map((diagram) => diagram.columnWidth);
 
-    const page = await browser.newPage({ viewport: { width: 1024, height: 900 } });
-    await page.goto(`http://127.0.0.1:${port}${route}`, { waitUntil: 'domcontentloaded' });
-    const measured = await page.evaluate(
-      () => document.querySelector('.blog-sidebar-item .mermaid-figure')?.clientWidth ?? 0,
-    );
-    await page.close();
+    // Asserted before the reduction, because `Math.min()` of nothing is
+    // `Infinity`, which would clear any floor this comparison could name. The
+    // sibling assertion above proves a sidebar diagram renders at `desktop`,
+    // and a responsive change could hide it at 1024px alone — leaving the arm
+    // that matters reading an empty set and reporting success. "Nothing was
+    // measured" has to fail here, not pass; it is the same distinction the
+    // suite's other vacuity guards draw, and the reduction is where an empty
+    // read stops looking empty. #986's version queried the DOM directly and
+    // returned 0 for this, which failed by luck of the sentinel rather than by
+    // design.
+    expect(
+      widths.length,
+      'no sidebar diagram renders at 1024px, so the column-staleness check has nothing to ' +
+        'measure and cannot tell a correct SIDEBAR_COLUMN_PX from a stale one',
+    ).toBeGreaterThan(0);
+
+    const measured = Math.min(...widths);
 
     expect(
       measured,

@@ -74,13 +74,13 @@ What auto-fix produced instead of line count was most of the *trust burden*—an
 
 ```mermaid title="Where the cost actually sat" description="Detecting the style violation was trivial. Deciding what counts as prose was legitimately hard. Automatically fixing violations required proving the combined edit was safe, once per file—17% of the implementation and tests combined, and 42 of the 57 review findings named it. Cutting the capability ended the rewrite-safety findings and the pull request merged within the hour."
 graph TD
-    A["Requirement:<br/>no space beside an em dash"] --> B["Detect it<br/>~1 line"]
-    A --> C["Know what counts as prose<br/>legitimately hard"]
-    A --> D["Fix it automatically<br/>never requested, never questioned"]
+    A["Requirement: no space<br/>beside an em dash"] --> B["Detect it<br/>~1 line"]
+    A --> C["Know what counts<br/>as prose<br/>legitimately hard"]
+    A --> D["Fix it automatically<br/>never requested,<br/>never questioned"]
     D --> E["Prove the combined edit is safe"]
-    E --> F["17% of implementation and tests<br/>42 of 57 review findings"]
+    E --> F["17% of implementation<br/>and tests<br/>42 of 57 review findings"]
     D --> G["Cut this one capability"]
-    G --> H["No further rewrite-safety findings<br/>merged within the hour"]
+    G --> H["No further<br/>rewrite-safety findings<br/>merged within the hour"]
     style A fill:#d4a84b,stroke:#a07830,color:#333
     style B fill:#b8ddb8,stroke:#4a8a4d,color:#333
     style C fill:#d4a84b,stroke:#a07830,color:#333
