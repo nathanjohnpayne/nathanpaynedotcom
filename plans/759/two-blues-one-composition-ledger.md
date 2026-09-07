@@ -27,6 +27,8 @@ Every figure below was re-measured from the two JPEGs committed at `public/blog/
 
 **SUPPORTED as measurements, WRONG as "the actual red."** My independent medians on the shipped file: red `#DE2922`, blue `#015D9D`, yellow `#ECD971`. Red and blue reproduce to within one 8-bit step per channel; yellow to within three. The red median is stable at `#DE2922`–`#DE2923` across every saturation threshold from 0.1 to 0.75, which is exactly the robustness the post claims for it.
 
+The reproduction's softer yellow is measurable, but the causal gloss "aged cadmium" in issue #498 is **UNPROVABLE**. The file does not separate original pigment, ageing or restoration, illumination, capture conditions, colour processing, and display. Defensible form: "a much softer yellow in this reproduction."
+
 What does not survive is the word **actual**. These are medians of one downscaled, JPEG-recompressed, **untagged** reproduction (conventionally interpreted as sRGB—see §N.2) of a 45 × 45 cm painted surface, carrying gallery lighting, an unrecorded imaging pipeline, and ninety-six years of paint chemistry. Issue #498's own token table says as much—"treat sampled values as hue anchors"—and #742's acceptance criteria ask for exactly this substitution. Defensible form: "the median of the red plane in this reproduction is `#DE2822`." Source: `public/blog/two-blues-one-composition/img/composition-ii-red-blue-yellow-1930.jpg`; §J script.
 
 ### A2—The 1921 scan values
