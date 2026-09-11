@@ -85,50 +85,66 @@ function lockEntry(name) {
  * cannot read is a range nobody has reasoned about, and a silent `null` there
  * would read as "no ceiling" and pass the very comparison this exists to make.
  */
+/**
+ * Parse ONE range term into its bounds: `{ lo, loExclusive, hi }`, where `hi`
+ * is the exclusive upper bound (`null` = unbounded above) and `lo` the lower
+ * (`null` = unbounded below).
+ *
+ * Extracted from upperBound so `admits` below reads the SAME grammar instead
+ * of carrying a second copy of these regexes. Two parsers of one grammar drift,
+ * and the drift is silent: the pin would satisfy one reader and not the other.
+ * Throws on an unrecognized form for the reason upperBound always has — a term
+ * nobody has reasoned about must not be silently treated as permissive.
+ */
+function parseTerm(term, range) {
+  const caret = term.match(/^\^(\d+)\.(\d+)\.(\d+)(?:[-+].*)?$/);
+  const less = term.match(/^<(\d+)\.(\d+)\.(\d+)(?:[-+].*)?$/);
+  const exact = term.match(/^=?(\d+)\.(\d+)\.(\d+)(?:[-+].*)?$/);
+  const floor = term.match(/^(>=?)(\d+)\.(\d+)\.(\d+)(?:[-+].*)?$/);
+
+  if (caret) {
+    const [major, minor, patch] = caret.slice(1, 4).map(Number);
+    // npm's caret semantics: the leftmost non-zero component is what stays fixed.
+    let hi;
+    if (major > 0) hi = [major + 1, 0, 0];
+    else if (minor > 0) hi = [0, minor + 1, 0];
+    else hi = [0, 0, patch + 1];
+    return { lo: [major, minor, patch], loExclusive: false, hi };
+  }
+  if (less) return { lo: null, loExclusive: false, hi: less.slice(1, 4).map(Number) };
+  if (floor) {
+    const [major, minor, patch] = floor.slice(2, 5).map(Number);
+    return { lo: [major, minor, patch], loExclusive: floor[1] === '>', hi: null };
+  }
+  // An exact peer (`6.0.3`, `=6.0.3`) is a *bounded* range: it admits one
+  // version and nothing above it. Folding it in with `>=` would report it
+  // as unbounded and admit any declared ceiling — the silent widening this
+  // whole file exists to catch. Checked after `floor` so `>=1.2.3` is not
+  // mistaken for the exact form.
+  if (exact) {
+    const [major, minor, patch] = exact.slice(1, 4).map(Number);
+    return { lo: [major, minor, patch], loExclusive: false, hi: [major, minor, patch + 1] };
+  }
+  throw new Error(
+    `Unsupported semver range term "${term}" in "${range}". ` +
+      'tests/toolchain-pins.test.js only parses the forms this repo uses ' +
+      '(^x.y.z, <x.y.z, >x.y.z, >=x.y.z, x.y.z, =x.y.z, and || unions). ' +
+      'Extend the parser rather than loosening it.',
+  );
+}
+
 function upperBound(range) {
   const union = range.split('||').map((clause) => clause.trim());
   let widest = null;
 
   for (const clause of union) {
     let bound = null;
-
     for (const term of clause.split(/\s+/).filter(Boolean)) {
-      const caret = term.match(/^\^(\d+)\.(\d+)\.(\d+)(?:[-+].*)?$/);
-      const less = term.match(/^<(\d+)\.(\d+)\.(\d+)(?:[-+].*)?$/);
-      // An exact peer (`6.0.3`, `=6.0.3`) is a *bounded* range: it admits one
-      // version and nothing above it. Folding it in with `>=` would report it
-      // as unbounded and admit any declared ceiling — the silent widening this
-      // whole file exists to catch.
-      const exact = term.match(/^=?(\d+)\.(\d+)\.(\d+)(?:[-+].*)?$/);
-      const floor = /^>=?\d+\.\d+\.\d+(?:[-+].*)?$/.test(term);
-
-      let termBound = null;
-      if (caret) {
-        const [major, minor, patch] = caret.slice(1, 4).map(Number);
-        // npm's caret semantics: the leftmost non-zero component is what stays fixed.
-        if (major > 0) termBound = [major + 1, 0, 0];
-        else if (minor > 0) termBound = [0, minor + 1, 0];
-        else termBound = [0, 0, patch + 1];
-      } else if (less) {
-        termBound = less.slice(1, 4).map(Number);
-      } else if (exact) {
-        const [major, minor, patch] = exact.slice(1, 4).map(Number);
-        termBound = [major, minor, patch + 1]; // exclusive upper for a single version
-      } else if (!floor) {
-        throw new Error(
-          `Unsupported semver range term "${term}" in "${range}". ` +
-            'tests/toolchain-pins.test.js only parses the forms this repo uses ' +
-            '(^x.y.z, <x.y.z, >x.y.z, >=x.y.z, x.y.z, =x.y.z, and || unions). ' +
-            'Extend the parser rather than loosening it.',
-        );
-      }
-      // A recognized `>=x.y.z` / `>x.y.z` leaves termBound null: it is a floor,
-      // not a ceiling, and contributes nothing to the upper bound.
-
+      const { hi } = parseTerm(term, range);
       // Terms within a clause are ANDed: the tightest ceiling wins.
-      if (termBound && (bound === null || compare(termBound, bound) < 0)) bound = termBound;
+      // A recognized floor leaves hi null and contributes no ceiling.
+      if (hi && (bound === null || compare(hi, bound) < 0)) bound = hi;
     }
-
     // Clauses are ORed: the widest ceiling wins, and one unbounded clause
     // makes the whole union unbounded.
     if (bound === null) return null;
@@ -137,6 +153,43 @@ function upperBound(range) {
 
   return widest;
 }
+
+/**
+ * Does `version` (an exact x.y.z triple) fall inside `range`?
+ *
+ * Needed since astro 7.3.x, which loosened its optional @astrojs/markdown-remark
+ * peer from an exact version to a caret range. The pin must still be EXACT (a
+ * separate assertion enforces that, and it is what #630 turned on), so the
+ * coupling to check is now "the exact pin SATISFIES the declared peer", not
+ * "the pin string equals the peer string" — those were the same test only while
+ * upstream declared the peer exactly.
+ */
+function admits(version, range) {
+  return range
+    .split('||')
+    .map((clause) => clause.trim())
+    .some((clause) => {
+      let lo = null;
+      let loExclusive = false;
+      let hi = null;
+      for (const term of clause.split(/\s+/).filter(Boolean)) {
+        const bounds = parseTerm(term, range);
+        if (bounds.lo && (lo === null || compare(bounds.lo, lo) > 0)) {
+          lo = bounds.lo;
+          loExclusive = bounds.loExclusive;
+        }
+        if (bounds.hi && (hi === null || compare(bounds.hi, hi) < 0)) hi = bounds.hi;
+      }
+      if (lo !== null) {
+        const cmp = compare(version, lo);
+        if (cmp < 0 || (loExclusive && cmp === 0)) return false;
+      }
+      if (hi !== null && compare(version, hi) >= 0) return false;
+      return true;
+    });
+}
+
+const triple = (exactVersion) => exactVersion.split(/[-+]/)[0].split('.').map(Number);
 
 function compare(a, b) {
   for (let i = 0; i < 3; i += 1) {
@@ -259,7 +312,7 @@ describe('toolchain pins (#825)', () => {
       });
     }
 
-    it("@astrojs/markdown-remark matches astro's exact optional peer", () => {
+    it("@astrojs/markdown-remark satisfies astro's optional peer", () => {
       const astro = lockEntry('astro');
       const declaredPeer = astro?.peerDependencies?.['@astrojs/markdown-remark'];
       expect(
@@ -268,29 +321,46 @@ describe('toolchain pins (#825)', () => {
           'this asserts no longer exists upstream and the rules prose needs revisiting.',
       ).toBeTruthy();
 
+      // astro declared this peer EXACTLY until 7.3.x, when it loosened to a
+      // caret. Equality was the right assertion then and is the wrong one now:
+      // the pin must stay exact (asserted above — a caret on the pin is how
+      // #630 broke) while the peer is a range, so the two strings cannot match
+      // and the coupling to check is satisfaction.
+      const pinned = manifest.devDependencies['@astrojs/markdown-remark'];
       expect(
-        manifest.devDependencies['@astrojs/markdown-remark'],
+        admits(triple(pinned), declaredPeer),
         `astro@${astro.version} peers @astrojs/markdown-remark@"${declaredPeer}" but ` +
-          `package.json pins ${manifest.devDependencies['@astrojs/markdown-remark']}. ` +
+          `package.json pins ${pinned}, which that range does not admit. ` +
           'Bump both in the same change (#630).',
-      ).toBe(declaredPeer);
+      ).toBe(true);
     });
 
-    it("@astrojs/mdx's exact dependency matches the pinned @astrojs/markdown-remark", () => {
+    it('@astrojs/mdx\'s @astrojs/markdown-remark coupling admits the pin', () => {
       const mdx = lockEntry('@astrojs/mdx');
-      const nested = mdx?.dependencies?.['@astrojs/markdown-remark'];
+      // mdx@8 moved @astrojs/markdown-remark from a hard `dependencies` entry to
+      // a `peerDependencies` range. Both are read, and the coupling must exist
+      // in ONE of them: a hard dependency is the silent-nesting hazard the #630
+      // prose describes, while a peer is resolved against the top-level tree and
+      // announces a mismatch as ERESOLVE instead of quietly nesting a second
+      // Markdown processor. Losing the coupling entirely is the case that needs
+      // a human to revisit the prose, so it fails loudly rather than passing.
+      const nestedDep = mdx?.dependencies?.['@astrojs/markdown-remark'];
+      const peerDep = mdx?.peerDependencies?.['@astrojs/markdown-remark'];
+      const coupling = nestedDep ?? peerDep;
       expect(
-        nested,
-        `@astrojs/mdx@${mdx?.version} no longer depends on @astrojs/markdown-remark; ` +
-          'the silent-nesting failure mode this guards may no longer apply.',
+        coupling,
+        `@astrojs/mdx@${mdx?.version} neither depends on nor peers ` +
+          '@astrojs/markdown-remark; the lockstep this guards no longer exists ' +
+          'upstream and the rules prose needs revisiting.',
       ).toBeTruthy();
 
+      const pinned = manifest.devDependencies['@astrojs/markdown-remark'];
       expect(
-        manifest.devDependencies['@astrojs/markdown-remark'],
-        `@astrojs/mdx@${mdx.version} depends on @astrojs/markdown-remark@${nested} but ` +
-          `package.json pins ${manifest.devDependencies['@astrojs/markdown-remark']}. ` +
-          'npm will nest a second copy rather than error.',
-      ).toBe(nested);
+        admits(triple(pinned), coupling),
+        `@astrojs/mdx@${mdx.version} ${nestedDep ? 'depends on' : 'peers'} ` +
+          `@astrojs/markdown-remark@"${coupling}" but package.json pins ${pinned}, ` +
+          'which that range does not admit. npm will nest a second copy rather than error.',
+      ).toBe(true);
     });
 
     it('the lockfile holds no second @astrojs/markdown-remark nested under @astrojs/mdx', () => {
