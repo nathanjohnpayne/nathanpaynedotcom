@@ -98,8 +98,8 @@ The first difference: Claude didn't build the prototype. It was [Jen Simmons' Mo
 ```css
 /* ── 404 Page: Mondrian Grid ────
    Asymmetric grid inspired by Jen Simmons' Mondrian CSS Grid CodePen.
-   Content cells span multiple tracks; decorative blocks fill the remaining cells.
-   Collapses to a single column on mobile with blocks hidden. ── */
+   Content cell spans multiple tracks; decorative blocks fill remaining cells.
+   Collapses to single column on mobile with blocks hidden. ── */
 ```
 
 The second difference is less flattering. The earlier version said the page shipped in "PR #90." [#90](https://github.com/nathanjohnpayne/nathanpaynedotcom/issues/90) is an issue—an SEO best-practices task—and no pull request shipped this page. It landed in commit [`4076bf6`](https://github.com/nathanjohnpayne/nathanpaynedotcom/commit/4076bf6), a single-parent commit pushed directly to `main` that closed that issue; GitHub's API associates no PR with it. In a post about a disciplined design-to-implementation workflow, whose companion piece is about making direct pushes to `main` mechanically impossible, that line stays in: the FFB example below turns on this failure being caught in another repository, and here is an instance in my own. Two genuine pull requests then refined the page—[PR #91](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/91) removed the Firebase rewrite that had been sending every 404 to the SPA shell, which is why the site had no real 404 page until then, and [PR #92](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/92) aligned the colors with the homepage palette.

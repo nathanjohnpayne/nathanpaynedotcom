@@ -189,7 +189,7 @@ The agent does the plumbing. I ratify the judgment. Even "the agent" undersells 
 
 ## Auditing the shipped site
 
-The post-ship audit came back green where it matters, and it is reproducible—with one distinction the first version of this post blurred. **The artifact Claude fetched on 2026-06-11 was the deployed `/_astro/global.XofGYe7g.css`. The artifact checked below is a local rebuild, because the deployed file is long gone and hash-named files aren't addressable after a redeploy. So this is reconstruction evidence, not shipped evidence, and it's labeled as such.
+The post-ship audit came back green where it matters, and it is reproducible—with one distinction the first version of this post blurred. **The artifact Claude fetched on 2026-06-11 was the deployed `/_astro/global.XofGYe7g.css`. The artifact checked below is a local rebuild**, because the deployed file is long gone and hash-named files aren't addressable after a redeploy. So this is reconstruction evidence, not shipped evidence, and it's labeled as such.
 
 Reconstructed 2026-08-26 from `src/styles/global.css` at `8bebc31`, the commit PR #504 merged, with Lightning CSS 1.32.0 (via Vite 8.0.16 inside Astro 7.2.4—Astro's default CSS minifier, not esbuild):
 

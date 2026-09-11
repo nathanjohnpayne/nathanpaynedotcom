@@ -186,6 +186,6 @@ The April architecture is not today's. The figures in this section were measured
 
 **3. Fresh eyes find what familiarity misses.** Code that had survived seven review rounds in the template repo gave up seventeen new bugs when Codex met it fresh downstream. Rotate reviewers, or deploy code where it gets read from scratch.
 
-**4. Reliability is an infrastructure problem, not a capability problem. The agent that shipped clean code was the same model that pushed straight to main. What changed was the system around it.
+**4. Reliability is an infrastructure problem, not a capability problem.** The agent that shipped clean code was the same model that pushed straight to main. What changed was the system around it.
 
 The template is [open source](https://github.com/nathanjohnpayne/mergepath). The enforcement is mechanical, and its boundaries are named. The lessons cost me three weeks. Maybe they save you some of that.

@@ -108,7 +108,7 @@ The prompts that drove the six PRs come from my unpublished session log. Unlike 
 
 **Prompt 7** (second report, two screenshots):
 
-> The bold issue is still there. It doesn't get fixed by bolding and unbolding; it doesn't work at all. To add insult to injury, the app is now loading slowly or failing to reload, even after restarting the browser. Look hard this time; you keep missing something.
+> The bold issue is still there. It does not get fixed by bolding and unbolding, it doesn't work at all. To add insult to injury, the app is now loading slowly or failing to reload, even after restarting the browser. Look hard this time, you keep missing something.
 
 **Prompt 9** was prompt 7 again, verbatim—I had run out of new ways to describe the problem. Only the evidence changed: two screenshots became five, showing a full reload cycle to prove the bug survived a hard refresh. The agent had changed code between those prompts. The output had not.
 
@@ -153,7 +153,7 @@ The agent satisfied both in the simplest way available: flatten the new format i
 
 The first version of this post claimed my automated reviewer flagged the round-trip problem on this PR and the agent patched around the warning. The review record says the opposite, and the correction matters more than the original claim did. The `nathanpayne-codex` review of this PR, in full:
 
-> External re-review: APPROVED. I re-reviewed the `invoice.js` fix for the two findings in issue #145. The balanced regex now leaves one-sided `**` as literal text, and `docToPlainTextWithTokens()` preserves bold-marked tokens as `**%token%**`, so the legacy plaintext fallback round-trips correctly. Verification in a clean worktree: exact round-trip repro cases, `npm ci`, `npm --prefix functions ci`, `npm test`, and `npm run build`.
+> External re-review: APPROVED. I re-reviewed the `invoice.js` fix for the two issue #145 findings. The balanced regex now leaves one-sided `**` as literal text, and `docToPlainTextWithTokens()` preserves bold-marked tokens as `**%token%**`, so the legacy plaintext fallback round-trips correctly. Verification in a clean worktree: exact round-trip repro cases, `npm ci`, `npm --prefix functions ci`, `npm test`, and `npm run build`.
 
 Zero blocking reviews, zero inline comments, from either reviewer identity; `nathanpayne-claude` approved as well. Neither review mentions the invariant, because the PR did not attach it. The invariant existed—in a design document neither reviewer had reason to open, because nothing in this PR referenced it. The reviewers verified that the patch did exactly what it claimed, and that was never the question. Review confirms a diff against whatever standard the PR puts in front of it; without a standard, it confirms the diff against itself.
 
@@ -215,7 +215,7 @@ The prompt that produced [PR #161](https://github.com/nathanjohnpayne/friends-an
 
 It listed the prior PRs and required an audit of each before any code: of its eight steps, the first three were pure reading—understand the issue, audit the failed fixes, identify the root cause. It stated the invariant as a requirement:
 
-> There must be **one canonical rendering pipeline**. At minimum, **Preview and Sent Email must be generated from the same rendering path**.
+> There must be **one canonical rendering pipeline**. At minimum, **Preview and Sent Email must be generated from the exact same rendering path**.
 
 And it banned, by name, the moves already tried:
 
