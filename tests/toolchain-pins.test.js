@@ -335,7 +335,7 @@ describe('toolchain pins (#825)', () => {
       ).toBe(true);
     });
 
-    it('@astrojs/mdx\'s @astrojs/markdown-remark coupling admits the pin', () => {
+    it("@astrojs/mdx's @astrojs/markdown-remark coupling admits the pin", () => {
       const mdx = lockEntry('@astrojs/mdx');
       // mdx@8 moved @astrojs/markdown-remark from a hard `dependencies` entry to
       // a `peerDependencies` range. Both are read, and the coupling must exist
