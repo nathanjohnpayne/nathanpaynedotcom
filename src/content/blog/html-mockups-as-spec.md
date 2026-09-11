@@ -79,7 +79,7 @@ What survives is the move that mattered more than I understood at the time. I op
 
 > Mockup B from `mockups/B-de-stijl-index.html`. Key characteristics: featured post in the largest cell (top-left), spanning multiple rows—echoes the red panel on the homepage. Accent blocks: red (top-mid), blue with vertical "Latest" label (top-right, spanning rows), yellow (bottom-right). Older posts fill progressively smaller cells. RSS CTA: neutral block with subscribe link. 9px black grid lines between all cells.
 
-That transcription is why the design decision is still auditable. The mock-up was the working spec; the issue is that the durable record of what it specified- down to 9px grid lines- means a reader can still check against the live page.
+That transcription is why the design decision is still auditable. The mock-up was the working spec; the issue is the durable record of what it specified—down to 9px grid lines—that a reader can still check against the live page.
 
 Then I asked Claude to read the mock-up alongside `src/pages/blog/index.astro` and make the live page render like it. The result was [PR #77](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/77): the card-list blog index was replaced with a Mondrian-style row grid. The PR's title—which became the squash-commit subject—says it plainly: "Blog index: De Stijl Mondrian row grid from mockup."
 

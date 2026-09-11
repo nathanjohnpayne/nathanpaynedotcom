@@ -37,10 +37,10 @@ sidebar:
     content: |
       graph TD
           A["Hand-rolled HTML<br/>7 pages, 1 stylesheet"] --> B["Issue #28<br/>Mobile overflow"]
-          B --> C["PR #30 merged<br/>10:04am PT"]
-          C --> D["PR #47 scaffold<br/>2:11pm PT"]
+          B --> C["PR #30 merged<br/>10:04 am PT"]
+          C --> D["PR #47 scaffold<br/>2:11 pm PT"]
           D --> E["Phased ports<br/>10 phases, 8 PRs"]
-          E --> F["Phase 10 closes<br/>6:39pm PT"]
+          E --> F["Phase 10 closes<br/>6:39 pm PT"]
           F --> G["Type-safe frontmatter,<br/>OG images, RSS, sitemap"]
           style A fill:#e8b4b4,stroke:#993d3d,color:#333
           style B fill:#e8b4b4,stroke:#993d3d,color:#333
@@ -109,14 +109,14 @@ That leaves a hole in the timeline: **the moment the site actually went live on 
 
 | April 2026, Pacific time | Milestone |
 |---|---|
-| Apr 8, 7:54am | [Issue #28](https://github.com/nathanjohnpayne/nathanpaynedotcom/issues/28) filed: blog post overflows on mobile |
-| Apr 8, 10:04am | [PR #30](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/30) merges the responsive fix |
-| Apr 8, 1:50–1:55pm | Phase issues #35–#45 opened as a batch |
-| Apr 8, 2:11pm | [PR #47](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/47) merges the Phase 0 Astro scaffold |
+| Apr 8, 7:54 am | [Issue #28](https://github.com/nathanjohnpayne/nathanpaynedotcom/issues/28) filed: blog post overflows on mobile |
+| Apr 8, 10:04 am | [PR #30](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/30) merges the responsive fix |
+| Apr 8, 1:50–1:55 pm | Phase issues #35–#45 opened as a batch |
+| Apr 8, 2:11 pm | [PR #47](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/47) merges the Phase 0 Astro scaffold |
 | Apr 8, 6:39 pm | Phase 10, the last of the eleven, closes |
 | **Not recorded** | **The site actually went live on Astro.** No deploy log, smoke-test result, or ticked checklist survives for it. It plainly happened—every later phase of work builds on the Astro tree—but the date and time are not in the record |
-| Apr 8, 7:31pm | Playwright responsive suite merges ([PR #70](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/70)) |
-| Apr 8, 7:54pm | Astro v5 to v6.1 ([PR #73](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/73)) |
+| Apr 8, 7:31 pm | Playwright responsive suite merges ([PR #70](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/70)) |
+| Apr 8, 7:54 pm | Astro v5 to v6.1 ([PR #73](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/73)) |
 | Apr 9 | Blog template ([PR #76](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/76)) and index ([PR #77](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/77)) polish |
 | Apr 14 | The [LinkedIn crawler incident](https://github.com/nathanjohnpayne/nathanpaynedotcom/issues/163) and the SEO plumbing chain it set off |
 
@@ -126,7 +126,7 @@ The same-day claim has exact edges: the scaffold landed the same afternoon as th
 
 **Type-safe frontmatter.** The blog [content config](https://github.com/nathanjohnpayne/nathanpaynedotcom/blob/main/src/content.config.ts) defines a Zod schema with required fields (`title`, `description`, `date`, `tags`, `image`, and `category`), optional fields (`shortTitle`, `pullquotes`, `sidebar`), and constrained enums (`category` must be one of the declared blog categories, and pullquote `accent` is `red | yellow | blue`; nothing else). If I write a post and forget the OG image, `astro build` fails with a line number and a field name—one fewer category of bug to remember to check.
 
-**Custom Remark and Rehype plugins.** Mermaid diagrams and auto-numbered figure captions are both [build-time Markdown processors](https://github.com/nathanjohnpayne/nathanpaynedotcom/tree/main/src/plugins). Mermaid graphs in the blog body are rendered to accessible inline SVG by `rehype-mermaid`; figure captions are auto-numbered by walking the AST. Neither would have been possible in hand-rolled HTML; both are the kind of thing I would have put off forever.
+**Custom Remark and Rehype plugins.** Mermaid diagrams and auto-numbered figure captions are both [build-time Markdown processors](https://github.com/nathanjohnpayne/nathanpaynedotcom/tree/main/src/plugins). Mermaid graphs in the blog body are rendered to accessible inline SVG by `rehype-mermaid`; figure captions are auto-numbered by walking the AST. Neither was impossible in hand-rolled HTML; both are the kind of thing I would have put off forever.
 
 **Build-time OG image generation.** Every post gets a 1200×630 social card, rendered by [a Playwright integration](https://github.com/nathanjohnpayne/nathanpaynedotcom/blob/main/src/integrations/og-images.mjs) that screenshots an Astro template at build time and strips the templates from the final output. It took real debugging to stabilize—that story is below—but every new post now inherits a consistent card without me touching Figma.
 
