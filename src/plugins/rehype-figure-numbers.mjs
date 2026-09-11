@@ -54,7 +54,7 @@ export default function rehypeFigureNumbers() {
       const classes = classNames(node);
       const kind = FIGURE_KINDS.find((candidate) => classes.includes(candidate.className));
       if (!kind) return;
-      // A figure that already carries a label is skipped rather than labelled
+      // A figure that already carries a label is skipped rather than labeled
       // again, and it does not consume a number either — running twice must be
       // indistinguishable from running once, not merely non-doubling. Rehype
       // plugins run once per document, so this guards a registration mistake
@@ -62,7 +62,7 @@ export default function rehypeFigureNumbers() {
       // would be a second `Figure N` prepended silently rather than a crash.
       // `rehypeMermaidFigures` carries the same kind of guard for the same
       // reason (#989).
-      if (alreadyLabelled(node)) return;
+      if (alreadyLabeled(node)) return;
 
       figureNumber += 1;
       kind.label(node, figureNumber);
@@ -125,7 +125,7 @@ function labelMermaidFigure(node, figureNumber) {
 }
 
 /** Whether this figure has been through the numbering pass already. */
-function alreadyLabelled(node) {
+function alreadyLabeled(node) {
   let found = false;
   visitElements(node, (child) => {
     if (classNames(child).includes(LABEL_CLASS)) found = true;

@@ -12,7 +12,7 @@ export async function getStaticPaths() {
     (a, b) => b.data.date.getTime() - a.data.date.getTime(),
   );
 
-  // Neighbour summary for the end-of-post nav cards. Bare "min" matches the
+  // Neighbor summary for the end-of-post nav cards. Bare "min" matches the
   // /blog/ index cards (the post's own metadata panel uses "min read").
   const summarize = (post: CollectionEntry<'blog'> | undefined) =>
     post
@@ -27,7 +27,7 @@ export async function getStaticPaths() {
     params: { slug: post.id },
     props: {
       post,
-      // Newest-first array: the older neighbour sits after this post,
+      // Newest-first array: the older neighbor sits after this post,
       // the newer one before it. The ends omit the missing side rather
       // than wrapping around the collection.
       prevPost: summarize(posts[index + 1]),
