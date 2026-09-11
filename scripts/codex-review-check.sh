@@ -912,6 +912,7 @@ while :; do
                         conclusion
                         startedAt
                         completedAt
+                        externalId
                         isRequired(pullRequestNumber: $number)
                         checkSuite {
                           app { databaseId }
@@ -973,16 +974,76 @@ ROLLUP_JSON=$(echo "$ROLLUP_CONTEXTS" | jq '{
       # for, which the filter treats as no-opinion and falls back to name
       # matching.
       isRequired: .isRequired,
+      # Which GraphQL union member this entry came from (#1193). A required
+      # context is satisfiable by a CheckRun and by a legacy StatusContext,
+      # and GitHub evaluates each surface as its own row rather than as two
+      # reports of one thing. Carried so winner-selection below can keep the
+      # two timelines apart instead of letting whichever reported LAST speak
+      # for both surfaces — which is how a passing commit status masked a
+      # failing check run under the same required name. This separates the
+      # SURFACES only; ranking WITHIN a surface is still by recency, which is
+      # what #655 round 13 settled and what #1064 left unresolved for an
+      # any-producer rule.
+      kind: (.__typename // ""),
+      # Which PRODUCER LINEAGE this check run came from (#1215). A required
+      # context is published twice under one app: the job-native check run
+      # Actions materialises, and a Checks-API run POSTed by a gate workflow.
+      # GitHub resolves the two independently and requires the newest of each
+      # to be green -- measured on nathanjohnpayne/mergepath#828 (auto-merge
+      # withheld 35 minutes with every native run green, released 2 seconds
+      # after the API entry turned green) and #835 (withheld 13 minutes,
+      # released 1 second after), with #1119 as the control proving the
+      # partition is NOT the check suite.
+      #
+      # `externalId` is the discriminator: Actions stamps a UUID on every job
+      # run, and an API POST leaves it empty. Measured on this repo own heads,
+      # where one required context appears under both lineages within app
+      # 15368. Deliberately NOT workflowName: API POSTs coalesce into whichever
+      # suite was created first on the head, so that field reports a workflow
+      # that published nothing -- which is how the #1064 comment came to
+      # describe these two lineages as "two workflows". Deliberately NOT the
+      # check suite id either: that is finer than the rule and reintroduces the
+      # #1076 permanent deadlock, refuted by #1119.
+      #
+      # ASSUMPTION, and it is enforced by a test rather than left implicit
+      # (#1215 review round 1, Codex P1): `external_id` is an OPTIONAL field on
+      # the Checks API, so a synthetic producer that set it would be classified
+      # native and the two timelines would silently re-merge. The gate
+      # workflows that publish the affected contexts do not set it, and
+      # tests/test_codex_review_check_required_checks.sh asserts that none
+      # starts. GitHub exposes no field that names the lineage directly, so a
+      # discriminator plus a guarded assumption is the honest shape here — and
+      # the assumption is only ever relied on for the Actions app, which is the
+      # only producer this repository controls. See the app scoping below.
+      #
+      # An entry with no externalId at all collapses to one lineage, which is
+      # exactly the pre-#1215 single winner rather than an empty partition.
+      lineage: (if .__typename == "CheckRun"
+                then (if ((.externalId // "") == "") then "api" else "native" end)
+                else "" end),
       # The PRODUCING app (#1064). Branch protection requires a context from a
       # specific app — `required_status_checks.checks[] = {context, app_id}` —
-      # so (context, app) is GitHub own unit of requirement and therefore the
-      # right key to collapse duplicate runs under. Deliberately NOT the
-      # workflow: measured on nathanpaynedotcom#908, three required contexts
-      # are each emitted by TWO different workflows under the SAME app 15368
-      # (agent-review.yml republishes what the dedicated gate workflows
-      # publish), all reporting isRequired=true against a protection entry that
-      # lists each context once. Keying on workflow would demand both be green
-      # and block PRs GitHub merges.
+      # so (context, app) is the right key for SELECTING which runs a
+      # requirement applies to. It is NOT the right key for collapsing them to
+      # one verdict: within a single app the same context is published by two
+      # independent lineages, and GitHub requires the newest of each to be
+      # green. That is what `lineage` above partitions on.
+      #
+      # CORRECTED (#1215). This comment used to justify the collapse with
+      # nathanpaynedotcom#908, "three required contexts each emitted by TWO
+      # different workflows under the SAME app 15368 (agent-review.yml
+      # republishes what the dedicated gate workflows publish)". Both halves
+      # are wrong. agent-review.yml publishes no check runs at all; the entries
+      # attributed to it are Checks-API POSTs, which coalesce into whichever
+      # suite was created first on the head and inherit its workflow name. And
+      # that pull request merged with the context red on BOTH lineages, so it
+      # is a merge over a red required check rather than evidence about what
+      # GitHub permits. Keying on workflow is still wrong, but for the reason
+      # above rather than the one recorded here.
+      #
+      # Deliberately NOT the workflow, and deliberately NOT the check suite:
+      # the suite is finer than the rule and reintroduces the #1076 permanent
+      # deadlock, refuted by #1119.
       appId: ((.checkSuite.app.databaseId // "") | tostring),
       startedAt: .startedAt,
       completedAt: .completedAt,
@@ -1634,6 +1695,27 @@ else
   log "gate (a): $BASE_BRANCH requires $(printf '%s' "$REQUIRED_JSON" | jq -r 'length') status check(s) per its rule surfaces ($BRANCH_REQUIREMENTS_SURFACES): $(printf '%s' "$REQUIRED_JSON" | jq -r 'join(", ")')"
 fi
 
+# The required contexts this repository publishes through the Checks API as
+# well as natively, and therefore the ONLY ones for which the two-lineage split
+# below applies (#1215 review round 2/3). Derived by inspection of every
+# workflow that POSTs a check run: merge-clearance-gate.yml, codex-p1-gate.yml,
+# coderabbit-severity-gate.yml, codex-feedback-archive-relay.yml and
+# required-check-publisher.yml, which between them publish exactly these three
+# names. auto-clear-blocking-labels.yml also POSTs, under its own name, which
+# is not a required context; dependabot-auto-merge.yml only reads.
+#
+# Naming them is the point rather than a shortcut. The split rests on a
+# heuristic — `externalId` empty means Checks-API — that is only sound for
+# publishers this repository controls and can hold to it. Restricting the split
+# to those contexts means a context published by anyone else, including a
+# consumer-owned workflow using the same Actions token, keeps the single
+# recency winner it had before and cannot be split on a field its producer was
+# never asked to leave empty.
+#
+# tests/test_codex_review_check_required_checks.sh holds this list to the
+# workflows: it fails when a publisher starts emitting a name that is not here.
+LINEAGE_SPLIT_CONTEXTS_JSON='["Merge clearance gate","Codex P1 unresolved threads","CodeRabbit unresolved blocking findings"]'
+
 CURRENT_RUN_ID=""
 if [ "$APPROVAL_READINESS_ONLY" = "1" ] && [[ "${GITHUB_RUN_ID:-}" =~ ^[0-9]+$ ]]; then
   CURRENT_RUN_ID="$GITHUB_RUN_ID"
@@ -1644,7 +1726,8 @@ BAD_CHECKS=$(echo "$ROLLUP_JSON" | jq \
   --argjson requirements "${REQUIREMENTS_JSON:-[]}" \
   --arg requirements_state "$BRANCH_REQUIREMENTS_STATE" \
   --arg approval_readiness_only "$APPROVAL_READINESS_ONLY" \
-  --arg current_run_id "$CURRENT_RUN_ID" '
+  --arg current_run_id "$CURRENT_RUN_ID" \
+  --argjson lineage_contexts "$LINEAGE_SPLIT_CONTEXTS_JSON" '
   # Pick the entry that REPRESENTS a set of runs: a still-non-terminal entry
   # always wins over any completed sibling (a freshly-queued rerun has no
   # usable timestamp and must not be outranked by an older completed one), and
@@ -1687,6 +1770,64 @@ BAD_CHECKS=$(echo "$ROLLUP_JSON" | jq \
       else (sort_by(if .completedAt != "" then .completedAt else .startedAt end) | last)
       end;
 
+  # One required context, TWO surfaces. GitHub satisfies a required context
+  # from a check run OR a legacy commit status, and when a head carries both
+  # under one name it evaluates each as its own row and holds the merge until
+  # every row is green. `current_entry` above answers "which run represents
+  # this set", which is the right question WITHIN a surface and the wrong one
+  # across two: it ranks by recency, so the later-reporting surface decides for
+  # both and a passing StatusContext masks a failing CheckRun (#1193). The
+  # direction is what makes it urgent — the gate reports green, GitHub still
+  # blocks, and the disagreement reads as an infrastructure flake.
+  #
+  # Partition by the union member and take the current entry of each surface, so
+  # neither can speak for the other. Grouping on the OBSERVED `kind` values
+  # rather than a hard-coded CheckRun/StatusContext pair keeps this total: an
+  # entry carrying no type at all falls into a single "" partition and the
+  # result is exactly the pre-#1193 single winner, rather than an empty set
+  # that would drop the requirement out of scrutiny entirely — a fail-open
+  # strictly worse than the one being fixed.
+  # The lineage split is scoped to a SINGLE producing app, deliberately
+  # (#1215 review round 1, Codex P1 "preserve any-producer semantics across
+  # apps"). What was measured is two lineages under ONE app: the job-native
+  # check run and the Checks-API run a gate workflow POSTs. Applying the same
+  # split across apps would make a native run from one app and an API-style run
+  # from another INDEPENDENTLY mandatory, so an unrelated same-named failure
+  # could block a requirement its real producer satisfies — a false block, and
+  # on exactly the cross-app question that is still unmeasured in #1213.
+  #
+  # So: when a surface partition draws on more than one app, fall back to the
+  # single recency winner this filter used before. Cross-app selection is
+  # unchanged by this commit; only the one-app case gains the lineage split.
+  def current_entries:
+    ([.[] | (.kind // "")] | unique) as $kinds
+    | [ $kinds[] as $k
+        | (map(select((.kind // "") == $k))) as $of_kind
+        | ([$of_kind[] | (.appId // "")] | unique) as $apps
+        | ([$of_kind[] | (.label // "")] | unique) as $labels
+        # Split ONLY for the GitHub Actions app (#1215 review round 2, Codex
+        # P2 "restrict lineage splitting to controlled check producers").
+        # The two lineages exist because this repository gate workflows POST
+        # check runs with the Actions GITHUB_TOKEN, so the synthetic runs carry
+        # the SAME app as the job-native ones. No other app has that duality: a
+        # third-party app publishes through the Checks API only.
+        #
+        # Applying the heuristic to a third-party app would be worse than the
+        # bug. `external_id` is optional, so an app that sets it on one run and
+        # omits it on the next would have a stale failure and its own recovery
+        # land in different partitions, and the stale failure would block gate
+        # (a) indefinitely. That is a PERMANENT block, the failure class the
+        # #655 rounds and #1076 already produced once each, and it is strictly
+        # worse than the fail-open being closed here.
+        | (if ($apps | length) == 1 and ($apps[0] == "15368")
+              and ($labels | length) == 1
+              and (($labels[0]) as $ctx | ($lineage_contexts | index($ctx)) != null)
+           then (([$of_kind[] | (.lineage // "")] | unique)) as $lineages
+                | ($lineages[] as $l
+                   | ($of_kind | map(select((.lineage // "") == $l)) | current_entry))
+           else ($of_kind | current_entry)
+           end) ];
+
   # A check passes iff SUCCESS, SKIPPED, or NEUTRAL. Everything else —
   # FAILURE, CANCELLED, TIMED_OUT, ACTION_REQUIRED, PENDING, EXPECTED, ERROR,
   # MISSING, or unknown — blocks.
@@ -1708,7 +1849,10 @@ BAD_CHECKS=$(echo "$ROLLUP_JSON" | jq \
         startedAt: (.startedAt // .createdAt // ""),
         completedAt: (.completedAt // .createdAt // ""),
         isRequired: .isRequired,
-        appId: (.appId // "")
+        appId: (.appId // ""),
+        # #1193 / #1215 — see the projection above and current_entries below.
+        kind: (.kind // ""),
+        lineage: (.lineage // "")
       }
     # Runs GitHub does not count toward THIS PR requirements are not evidence
     # about them. Only an explicit `false` drops one: a null means GitHub
@@ -1775,7 +1919,7 @@ BAD_CHECKS=$(echo "$ROLLUP_JSON" | jq \
       # caused the #1061 revert; a blocking entry declines to clear, keeps the
       # genuinely-red checks visible alongside it, and resolves on its own when
       # the surfaces answer again.
-      (($counted | group_by(.label) | map(current_entry) | map(select(blocks)))
+      (([ ($counted | group_by(.label))[] | current_entries[] ] | map(select(blocks)))
        + (if $requirements_state == "known" then []
           else [ { label: "(requirement list unresolved)",
                    workflow: "(gate (a) could not read the branch rules)",
@@ -1830,7 +1974,7 @@ BAD_CHECKS=$(echo "$ROLLUP_JSON" | jq \
                   result: "MISSING" }
            elif ($candidates | length) == 0
            then empty
-           else ($candidates | current_entry)
+           else ($candidates | current_entries[])
            end
        ]
        | map(select(blocks))
@@ -1967,15 +2111,26 @@ else
     # ("repo-lint-local", enforced by the select() below) but group_by
     # still resolves the zero-matches case to an empty array with no extra
     # branching.
+    #
+    # #1214: group by (name, SURFACE), not by name alone. This arm is already
+    # guessing by NAME -- it exists precisely because the annex real workflow
+    # identity could not be determined -- so a legacy commit status reported
+    # under that name is exactly as plausible an annex report as a check run,
+    # and the fail-closed reading is the one consistent with that premise.
+    # Collapsing them let a green check run drop a same-named red status: the
+    # sort key here is completedAt/startedAt, which a StatusContext does not
+    # carry at all in this projection, so it sorted first and lost every tie.
+    # That asymmetry was an accident of the sort key rather than a decision,
+    # and it is the same masking #1193 removed from the required-context path.
     ANNEX_NAME_FALLBACK_BAD=$(echo "$ANNEX_SCAN_ROLLUP_JSON" | jq '
       [.statusCheckRollup[] | select((.name // .context // "") == "repo-lint-local")]
-      | group_by(.name // .context // "?")
+      | group_by([(.name // .context // "?"), (.kind // "")])
       | [
           .[]
           | (map(select(if (.status != null) then (.status != "COMPLETED") else ((.state // "") as $ann_state | ["PENDING","EXPECTED"] | index($ann_state)) end))) as $pending
           | if ($pending | length) > 0
             then $pending[0]
-            else (sort_by(.completedAt // .startedAt // "") | last)
+            else (sort_by(.completedAt // .startedAt // .createdAt // "") | last)
             end
         ] as $winners
       | [$winners[]
@@ -1998,7 +2153,15 @@ BAD_COUNT=$(echo "$BAD_CHECKS" | jq 'length')
 
 if [ "$BAD_COUNT" -gt 0 ]; then
   SUMMARY=$(echo "$BAD_CHECKS" | jq -r '
-    [.[] | (if .workflow == "" then .label else "\(.workflow)/\(.label)" end) + "=" + .result]
+    # Name the surface for a legacy commit status (#1193). Splitting the two
+    # surfaces creates a blocking cause an operator has no other way to see: a
+    # red commit status under a required name whose same-named check run is
+    # green. Unannotated, that reads as the gate contradicting a check run
+    # everyone can see is passing. CheckRun stays unannotated because it is
+    # what every pre-existing entry in this summary already was.
+    [.[] | (if .workflow == "" then .label else "\(.workflow)/\(.label)" end)
+         + (if (.kind // "") == "StatusContext" then " (commit status)" else "" end)
+         + "=" + .result]
     | unique | join(", ")
   ')
   fail_gate "CI not green: $BAD_COUNT non-passing check(s): $SUMMARY"
