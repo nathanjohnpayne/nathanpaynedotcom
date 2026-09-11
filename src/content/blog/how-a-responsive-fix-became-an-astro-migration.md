@@ -114,7 +114,7 @@ That leaves a hole in the timeline: **the moment the site actually went live on 
 | Apr 8, 1:50–1:55pm | Phase issues #35–#45 opened as a batch |
 | Apr 8, 2:11pm | [PR #47](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/47) merges the Phase 0 Astro scaffold |
 | Apr 8, 6:39 pm | Phase 10, the last of the eleven, closes |
-| **Not recorded** | **The site actually went live on Astro. **** No deploy log, smoke-test result, or ticked checklist survives for it. It plainly happened—every later phase of work builds on the Astro tree—but the date and time are not in the record |
+| **Not recorded** | **The site actually went live on Astro.** No deploy log, smoke-test result, or ticked checklist survives for it. It plainly happened—every later phase of work builds on the Astro tree—but the date and time are not in the record |
 | Apr 8, 7:31pm | Playwright responsive suite merges ([PR #70](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/70)) |
 | Apr 8, 7:54pm | Astro v5 to v6.1 ([PR #73](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/73)) |
 | Apr 9 | Blog template ([PR #76](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/76)) and index ([PR #77](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/77)) polish |
@@ -130,7 +130,7 @@ The same-day claim has exact edges: the scaffold landed the same afternoon as th
 
 **Build-time OG image generation.** Every post gets a 1200×630 social card, rendered by [a Playwright integration](https://github.com/nathanjohnpayne/nathanpaynedotcom/blob/main/src/integrations/og-images.mjs) that screenshots an Astro template at build time and strips the templates from the final output. It took real debugging to stabilize—that story is below—but every new post now inherits a consistent card without me touching Figma.
 
-**Sitemap, robots.txt, and RSS.** The `@astrojs/sitemap` integration generates the sitemap from the routes Astro already knows about. A custom integration syncs the `Sitemap:` line in `robots.txt,`, so the filename never drifts. RSS is a small endpoint file under `src/pages/rss.xml.ts`. None of those existed on the hand-rolled site.
+**Sitemap, robots.txt, and RSS.** The `@astrojs/sitemap` integration generates the sitemap from the routes Astro already knows about. A custom integration syncs the `Sitemap:` line in `robots.txt`, so the filename never drifts. RSS is a small endpoint file under `src/pages/rss.xml.ts`. None of those existed on the hand-rolled site.
 
 The outcome I care about is editorial, not technical. The post that started all this reads cleanly on a phone, and stays that way under a spec and two layers of tests rather than my memory. Publishing went from five hand steps across two files, with a drift risk spanning seven duplicated headers, to one Markdown file and a build that rejects malformed frontmatter. And the metadata surfaces that should never drift—OG cards, RSS, the sitemap, and the `Sitemap:` line inside an otherwise hand-written `robots.txt`—behave consistently because they are generated, not maintained.
 

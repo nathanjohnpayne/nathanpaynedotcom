@@ -129,7 +129,7 @@ Two spectacular failures support almost any explanation, so I ran the same analy
 
 **Findings in machinery added for earlier findings indicate divergence.** [#1139](https://github.com/nathanjohnpayne/mergepath/pull/1139) is an 85-line routing change whose author volunteered a bootstrap guard on top of it. Fifteen of its 21 findings were about the guard, seven of them successive holes in one flag extractor: "the fifth instance of one root cause," the author wrote, and then "the sixth way this extractor has validated a subset." It merged. Its share of such findings, a third, is higher than [#1189](https://github.com/nathanjohnpayne/mergepath/pull/1189)'s.
 
-**Freeze the contract and review goes quiet.** Both frozen contracts drew further valid findings: the two P1s in #1189's five guarantees and the two clean-tree violations in [#1197](https://github.com/nathanjohnpayne/mergepath/pull/1197)'s three checks. Freezing did not quiet the review; it changed the basis for accepting or rejecting a finding.
+**Freeze the contract and review goes quiet.** Both frozen contracts drew further valid findings: the two P1s in [#1189](https://github.com/nathanjohnpayne/mergepath/pull/1189)'s five guarantees and the two clean-tree violations in [#1197](https://github.com/nathanjohnpayne/mergepath/pull/1197)'s three checks. Freezing did not quiet the review; it changed the basis for accepting or rejecting a finding.
 
 **Large implementation growth explains both failures.** [#1112](https://github.com/nathanjohnpayne/mergepath/pull/1112) grew 61× from open to close, and the largest growth on any of the 19 merged high-round pull requests is 11×. That number is real and isolates [#1112](https://github.com/nathanjohnpayne/mergepath/pull/1112) alone; [#1189](https://github.com/nathanjohnpayne/mergepath/pull/1189) grew 4.3×, which is unremarkable. Its problem was a guarantee accepted at open, 275 lines for an issue whose cheapest listed option was one word, and no open-to-close measure can see a gap between the issue and the opening commit.
 
@@ -221,7 +221,7 @@ graph TD
     style D fill:#7bc67e,stroke:#4a8a4d,color:#333
 ```
 
-The facts in that figure are ones the session had but didn't report; the removal cost is my reconstruction, and the reasoning is what an escalation should include. I don't need to understand rsync --delete to notice when something is off. And a system that marks "fix" as recommended because the finding is valid has answered the engineering question and skipped the product one.
+The facts in that figure are ones the session had but didn't report; the removal cost is my reconstruction, and the reasoning is what an escalation should include. I don't need to understand `rsync --delete` to notice when something is off. And a system that marks "fix" as recommended because the finding is valid has answered the engineering question and skipped the product one.
 
 ## Where the Decision Rights Go
 

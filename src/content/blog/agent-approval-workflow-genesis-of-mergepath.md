@@ -61,7 +61,7 @@ The mergepath repository was created on March 24, 2026, and this post describes 
 
 A week of full-time Claude Code and Cursor made one thing clear: agents produce substantially better output when made to review their own work before shipping. Even the crude version—"now review what you just wrote," in the same chat—found real bugs: missing error handling, unquoted shell variables, race conditions.
 
-More surprising: posting the review under a different GitHub identity—switching from `nathanjohnpayne`, the author, to `nathanpayne-claude`, the reviewer —and submitting a PR review improved the reviews further. Same model, same context window, same code; the reviewer persona caught what the author persona missed.
+More surprising: posting the review under a different GitHub identity—switching from `nathanjohnpayne`, the author, to `nathanpayne-claude`, the reviewer—and submitting a PR review—improved the reviews further. Same model, same context window, same code; the reviewer persona caught what the author persona missed.
 
 The first version of this post oversold that claim. It is a repeated observation across Claude Code, Cursor, and Codex, not a measurement: no controlled comparison against the same-conversation review, no defect ledger, no mechanistic explanation. The pattern held across three platforms often enough that I built the account structure around it. Every agent gets a shared author identity (`nathanjohnpayne`) and its own reviewer identity (`nathanpayne-claude`, `nathanpayne-cursor`, `nathanpayne-codex`). Every PR is authored under one and reviewed under another.
 
@@ -93,7 +93,7 @@ No layer makes the wrong action impossible; the break-glass path exists precisel
 
 **Evidence after launch:** Four months on, the layering still bites—and it had grown a layer. While this post was being fact-checked, a `gh pr create` was refused because its body wrote `**Authoring-Agent:**` in bold. The refusal did not come from the hook. By then, this repository's copy of it had gained an early exit on the author-wrapper path—it recognized the wrapper and stepped aside without reading the command at all—while the wrapper had gained a body contract of its own. That contract is line-anchored, and `^ {0,3}Authoring-Agent:` does not match a line starting with `**`. So the later layer caught it, and a bolded header is precisely the input that tells a line-anchored match from a substring one—two components, two readings of the same rule, one easy to mistake for the other.
 
-I've had this backward in both directions across three revisions, and the reason is worth more than the fact. **Two repositories carry differently evolved copies of this hook. ** **** The link above points to mergepath, where, at that commit, the hook did check the command text on the wrapper path; the refusal happened here, under this repository's copy, which had already stopped. Same file name, same function, opposite behavior—and every attempt to settle it by reading "the hook" was reading whichever copy came to hand. The authorized break-glass merge that same session needed both local variables from the table above.
+I've had this backward in both directions across three revisions, and the reason is worth more than the fact. **Two repositories carry differently evolved copies of this hook.** The link above points to mergepath, where, at that commit, the hook did check the command text on the wrapper path; the refusal happened here, under this repository's copy, which had already stopped. Same file name, same function, opposite behavior—and every attempt to settle it by reading "the hook" was reading whichever copy came to hand. The authorized break-glass merge that same session needed both local variables from the table above.
 
 ## The threshold: when self-review is not enough
 
@@ -134,7 +134,7 @@ Before propagating anything, I ran five controlled scenarios—one per path thro
 
 **A—happy path ([PR #71](https://github.com/nathanjohnpayne/mergepath/pull/71)).** I never got to post the trigger. Codex auto-reviewed on open, and its 👍 landed 132 seconds after creation—the automation ahead of its operator, and the first evidence of auto-review-on-open.
 
-**B—fix and re-pass ([PR #72](https://github.com/nathanjohnpayne/mergepath/pull/72)).** A- a deliberately planted unquoted shell variable. ** ** Flagged, fixed, cleared, merged.
+**B—fix and re-pass ([PR #72](https://github.com/nathanjohnpayne/mergepath/pull/72)).** A deliberately planted unquoted shell variable. Flagged, fixed, cleared, merged.
 
 **C—disagreement ([PR #73](https://github.com/nathanjohnpayne/mergepath/pull/73)).** A `set +e` pattern I had a defensible rebuttal for. Codex flagged it; I posted the rebuttal; Codex re-flagged it with a stronger argument—its second finding said "for a valid class of inputs," countering my "bounded input space" claim. That is the repeat-after-rebuttal signal: the loop stops, an escalation comment records both positions, and the human tiebreaks. Closed without merging.
 
@@ -166,7 +166,7 @@ Three weeks from the repository's creation:
 
 - **32 PRs opened, 30 merged** on the template repo
 - **46 project items** across 5 phases in [Project #2](https://github.com/users/nathanjohnpayne/projects/2)
-- **7 fail-closed CI checks** in `scripts/ci/.`
+- **7 fail-closed CI checks** in `scripts/ci/`.
 - **5 dry-run scenarios** validated on live infrastructure
 - **17 template bugs** found during propagation, plus 1 known P1 carried forward
 
