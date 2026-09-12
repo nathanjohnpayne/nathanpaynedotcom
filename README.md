@@ -206,18 +206,14 @@ npm run test:e2e      # playwright test                      (~49s)
 npm run test:all      # both, in order                       (~68s)
 ```
 
-`npm run test:all` is the one to run before pushing. `npm test` is left fast on
-purpose—it is the loop you run constantly, and a loop that gets slow is a loop
-that gets skipped—so the browser suite rides once per push instead. A
-`pre-push` hook is available and opt-in:
+`npm run test:all` is the one to run before pushing. `npm test` is left fast on purpose—it is the loop you run constantly, and a loop that gets slow is a loop that gets skipped—so the browser suite rides once per push instead. A `pre-push` hook is available and opt-in:
 
 ```bash
 git config core.hooksPath .githooks   # once per clone
 SKIP_E2E=1 git push                   # bypass for a single push
 ```
 
-Both suites also run in CI on every pull request and every push to `main`
-(`.github/workflows/build-and-test.yml`, a required check).
+Both suites also run in CI on every pull request and every push to `main` (`.github/workflows/build-and-test.yml`, a required check).
 
 `package-lock.json` is committed; use `npm ci` for clean, reproducible installs (CI and fresh clones) and `npm install` when adding or updating dependencies. A `typecheck` script (`astro check`) and a `format` script (`prettier --write`, with `format:check` to verify) are available.
 

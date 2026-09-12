@@ -55,9 +55,7 @@ npm run test:e2e      # playwright test             (~49s)
 npm run test:all      # both, in order              (~68s)
 ```
 
-`npm run test:all` is the pre-push command, and `.githooks/pre-push` runs it for
-you after `git config core.hooksPath .githooks`. `SKIP_E2E=1 git push` bypasses
-it for one push.
+`npm run test:all` is the pre-push command, and `.githooks/pre-push` runs it for you after `git config core.hooksPath .githooks`. `SKIP_E2E=1 git push` bypasses it for one push.
 
 **Manual testing checklist (run before any PR):**
 
