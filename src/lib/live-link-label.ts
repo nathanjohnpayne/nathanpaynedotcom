@@ -17,7 +17,7 @@
  * The CTA is phrased as an instruction — "View Demo" — and a row label is not,
  * so the leading verb comes off and the noun stays. The verb list is closed and
  * short on purpose: an override that does not start with one is used whole,
- * which is the safe direction. It shortens what it recognises and never
+ * which is the safe direction. It shortens what it recognizes and never
  * silently discards what it does not.
  */
 

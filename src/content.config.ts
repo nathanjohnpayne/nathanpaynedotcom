@@ -132,7 +132,7 @@ const projects = defineCollection({
             title: z.string().trim().min(1),
             // The editorial filter this decision answers to — rendered as an
             // eyebrow beside the record's index. Optional: a page that does not
-            // organise its decisions around a thesis simply omits it.
+            // organize its decisions around a thesis simply omits it.
             lens: z.string().trim().min(1).optional(),
             context: z.string().trim().min(1),
             // What was actually chosen. Presence of this field switches the

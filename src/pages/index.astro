@@ -681,7 +681,7 @@ const homepageJsonLd = {
           if (token !== transitionToken) return;
           // Phase 2: hand off the cream surface to the next panel and
           // morph the grid into its focus state. is-open transitions
-          // colour; data-focus drives row/column tracks.
+          // color; data-focus drives row/column tracks.
           prev.classList.remove('is-open');
           showLabel(prev);
           active = nextPanel;
@@ -707,7 +707,7 @@ const homepageJsonLd = {
         setTimeout(() => {
           if (token !== transitionToken) return;
           // Phase 2: tear down focus state — grid morphs back to rest,
-          // panel colour returns to its base hue, label fades in.
+          // panel color returns to its base hue, label fades in.
           closing.classList.remove('is-open');
           showLabel(closing);
           active = null;
@@ -827,7 +827,7 @@ const homepageJsonLd = {
           }
           // Otherwise schedule a brief, cancellable close. If the cursor
           // re-enters this panel (or any other panel) before the timer
-          // fires, the close is cancelled and we either stay open or
+          // fires, the close is canceled and we either stay open or
           // switch — never a flash through idle.
           clearTimeout(leaveTimer);
           leaveTimer = setTimeout(() => requestClose(), leaveDelay);
