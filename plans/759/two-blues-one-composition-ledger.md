@@ -1,5 +1,8 @@
 # Facts ledger—#742 `two-blues-one-composition`
 
+> **Read §N before acting on any row below.** An adversarial verification pass re-derived this ledger's figures and corrected a number of them, including verdicts that were themselves wrong. Rows it revisited now say so inline, because an appendix that announces it supersedes earlier text does not correct the file: a later pass reads the row, not the appendix. That failure is not hypothetical: a drafting pass acted on §D2 of the two-blues ledger in September 2026, shipped a wrong correction to a published post, and was caught in review.
+
+
 Post source: `src/content/blog/two-blues-one-composition.md`, published `date: 2026-06-11`. Pre-revision baselines: **2,911 words** whole-file `wc -w` (the figure #742 quotes) and **2,455 words** body-only, counting from the closing frontmatter fence. Evidence repo: `nathanjohnpayne/nathanpaynedotcom`—**this** repository. Bare `#NNN` means this repo. Shared cache: `plans/759/refs.json`.
 
 Verdicts: **SUPPORTED** · **WRONG** (corrected value given) · **UNPROVABLE** (defensible weaker form given).
@@ -40,6 +43,8 @@ What does not survive is the word **actual**. These are medians of one downscale
 The same file also carries the two values the post asserts without a number: the 1921 red plane medians `#FC7C5A` (a vermilion orange-red—issue #498 records `#FC7E5A`) and the yellow `#F1DF75` (a pale lemon—issue #498 records `#F2DF75`). The post's sentence "the 1921 canvas pairs its cerulean with a vermilion orange-red and a pale lemon yellow" is therefore measurable, not impressionistic, and should carry those two numbers. Source: same file; §J script; `gh api repos/nathanjohnpayne/nathanpaynedotcom/issues/498` → `.body`, § Token specification.
 
 ### A3—"468,315 of them for the 1930 red alone"
+
+> **§N.8 revisits this row.** Read it before quoting this row: the pass corrects some rows and re-confirms others, and this one is named there.
 
 > L105
 
@@ -112,6 +117,8 @@ The corrected version is a **better** version of the post's own lesson. The `rgb
 
 ### C3—"The audit also corrected itself twice along the way"
 
+> **§N.4 revisits this row.** Read it before quoting this row: the pass corrects some rows and re-confirms others, and this one is named there.
+
 > L97
 
 **WRONG—an undercount, and the undercount hides the strongest evidence for the post's own thesis.** The record carries at least seven corrections across the two tickets:
@@ -125,6 +132,8 @@ The corrected version is a **better** version of the post's own lesson. The `rgb
 Corrected value: two corrections to the CSS extraction plus five validation amendments across the two tickets, one of which (#498 A1) would have made the palette split a no-op on every project page. Source: `gh api repos/nathanjohnpayne/nathanpaynedotcom/issues/497` → `.body` § Addendum; `.../issues/498` → `.body` §§ Revision, Amendments.
 
 ### C4—"Its first pass claimed `#223F89` was hardcoded twice; the second occurrence was actually the alpha variant"
+
+> **§N.10 revisits this row.** Read it before quoting this row: the pass corrects some rows and re-confirms others, and this one is named there.
 
 > L97
 
@@ -145,6 +154,8 @@ Corrected value: two corrections to the CSS extraction plus five validation amen
 ## D. The post-ship audit
 
 ### D1—The greens that hold
+
+> **§N.6 revisits this row.** Read it before quoting this row: the pass corrects some rows and re-confirms others, and this one is named there.
 
 > "`#dde1e5` appears exactly once, as the token definition. The old `#223f89` is gone entirely. Zero baked `rgba()` plane literals." (L136)
 
@@ -171,6 +182,8 @@ Whatever produced 74 was not precomputation. The most likely explanation is that
 Fifty-five of the 76 came from **PR #503**, a third ticket the post never mentions (§E2).
 
 ### D3—"the override scope carries `#DA2418`, `#F0C800`, and `#0A5C9E`—the museum-derived values"
+
+> **§N.5 revisits this row.** Read it before quoting this row: the pass corrects some rows and re-confirms others, and this one is named there.
 
 > L136
 
@@ -232,6 +245,8 @@ Source: `git show 8bebc31 --stat` and full diff; `git show 9d6139f:src/layouts/B
 
 ### E2—"two tickets" / "two tickets, four decisions"
 
+> **§N.3 revisits this row.** Read it before quoting this row: the pass corrects some rows and re-confirms others, and this one is named there.
+
 > L58, L128, L130, L170
 
 **WRONG as a description of the work, and the omission is load-bearing.** Four issues and four PRs shipped in that 2 h 52 m window:
@@ -260,6 +275,8 @@ Corrected value: four issues and four PRs in one evening. The two-ticket refacto
 **WRONG.** See §C3—the record carries seven, including one (#498 A1) that would have made the whole palette split a no-op on every project page. Correct the number upward; it is the post's best evidence.
 
 ### E4—Who did the plumbing
+
+> **§N.3 revisits this row.** Read it before quoting this row: the pass corrects some rows and re-confirms others, and this one is named there.
 
 > "The agent does the plumbing. I ratify the judgment." (L132)
 
@@ -303,6 +320,8 @@ Defensible form, and note this one is cheap: the *code* can keep `[data-palette=
 
 ### G1—#742 says the numbers cannot be reproduced. Most of them can, from files already in this repository.
 
+> **§N.7 revisits this row.** Read it before quoting this row: the pass corrects some rows and re-confirms others, and this one is named there.
+
 > "The post reports medians (including 468,315 red pixels) without the source image version, download URL, hash, color profile, crop/mask rule, conversion space, sampling script, or uncertainty. A reader cannot reproduce the numbers."
 
 Both museum JPEGs are committed at `public/blog/two-blues-one-composition/img/`, neither carries an embedded ICC profile (§N.2), and a nine-line script reproduces every published median to within three 8-bit steps (§A1, §A2, §J). The missing pieces are the **hash, the profile, the mask rule and the script**—all publishable in a short methods note. The one figure that genuinely does not reproduce is the pixel count (§A3).
@@ -322,6 +341,8 @@ Correct as far as it goes, but it misses two facts the files settle. The chart's
 The audit is largely reproducible from `git` and the repository's own `lightningcss`, and reproducing it turns up things #742 did not look for: the `--accent-soft` scope count is four when it should be six (§C1), the "minifier precomputes two" explanation is impossible because all 76 `color-mix()` calls take a `var()` argument (§D2), the OG cache-busting predates the whole exercise (§D4), and the "invisible to any hex search" claim is inverted for the artifact the post says was audited (§C2). #742's acceptance criterion asks for an as-of timestamp and asset hash; it should also ask for the *counts to be right*.
 
 ### G4—#742 asks to preserve "coherence can matter more than provenance." The evidence strengthens that, from an unexpected direction.
+
+> **§N.5 revisits this row.** Read it before quoting this row: the pass corrects some rows and re-confirms others, and this one is named there.
 
 The shipped 1930 yellow `#F0C800` was chosen *against* the museum sample for icon recognition (§D3), and the homepage black stayed `#333333` against a scan that reads `#151A1A`. The post's own conclusion—provenance is invisible at render time—is demonstrated twice more by decisions the post currently mislabels as museum-derived. Restoring the labels makes the thesis land harder, not softer.
 
@@ -359,7 +380,7 @@ Do not re-audit these.
 3. **§A4 and §F3 are the provenance rewrite.** Say what is visible in each file, say no calibration transform is documented for either, and fix the two captions: the 1921 figure is the DMA scan and not the poster the counter-argument used; the 1930 figure needs the Kunsthaus's own title, inventory 1987/0028, and the Alfred Roth credit line. Reuse-rights verification is a human task—flag it, do not assert it.
 4. **§C1, §C3 and §E3 all move numbers upward.** Six `--accent-soft` scopes, not four. Seven corrections, not two. These are the post's own evidence for its own thesis and it is undercounting them.
 5. **§C2 inverts a mechanism.** Source and artifact each hide a different class of drift—`rgba()` literals are invisible to a hex grep of the *source* and the minifier flattens them into hex-searchable form in the *artifact*. Rewrite "audit the built artifact, not just the source" as "grep both, they hide different things." The `keyTakeaways` entry on L15 carries the same claim and must move with it.
-6. **§D2**: 76 in source, verified; the "minifier precomputes two" explanation is impossible and must go. Either name the artifact file the 74 came from or drop the pair. And attribute the count honestly—55 of the 76 came from PR #503.
+6. **§D2** *(rewritten per §N.1, which overturned the verdict this instruction was based on)*: keep both 76 and 74 for the historical comparison at `8bebc31`; they reproduce there, and the two lost calls are identifiable. Replace only the word *precomputes* with *merges two duplicate rule bodies*. **Keep that pair separate from the artifact the post names.** §N.1 records `dist/_astro/global.CwkyM5F4.css` as the `ed24c72` build, where the gap is 74 to 72, not 76 to 74; quoting 74 against that filename restores a stale artifact claim. State which commit each pair belongs to wherever both appear. Do not drop either pair, and do not repeat the per-page-bundle speculation: `dist/_astro/*.css` is a single bundle. And attribute the count honestly—55 of the 76 came from PR #503.
 7. **§D4**: PR #504 opted the home OG card into 1930 and added a vitest lock. It did not touch the projects card and did not add cache-busting, which predates the exercise.
 8. **§E2**: four issues and four PRs. Keep the refactor-then-values sequence as the spine; fix the tallies in L58 and L170.
 9. **§B1/§B2**: give both the screenshot samples and the tokens, and say the deltas are compression. Do not quote a screenshot value and a token value for the same object without saying which is which.
