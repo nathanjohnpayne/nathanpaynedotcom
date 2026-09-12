@@ -1,5 +1,8 @@
 # Facts ledger—#743 `perfect-score-wrong-axis`
 
+> **Read §P before acting on any row below.** An adversarial verification pass re-derived this ledger's figures and corrected thirteen defects, including verdicts that were themselves wrong. Rows it revisited now say so inline, because an appendix that announces it supersedes earlier text does not correct the file: a later pass reads the row, not the appendix. That failure is not hypothetical: a drafting pass acted on §D2 of the two-blues ledger in September 2026, shipped a wrong correction to a published post, and was caught in review.
+
+
 Post source: `src/content/blog/perfect-score-wrong-axis.md`. Published `2026-07-30`. **Pre-revision baselines: 3,525 body words, 3,992 whole-file** (the epic's figure, which counts frontmatter); both recomputed here, `python3` `len(s.split())` over the file and over everything after the second `---`. Evidence repo: `nathanjohnpayne/mergepath`. Bare `#NNN` means **mergepath**, never this repository—This post cites 17 distinct numbers; a live check returns 12 that also resolve to unrelated items here, and `refs.json` records 4. (44 is the epic-wide total across all 67 references and does not apply to this post—see §P.4.) Every reference below is written repo-qualified. Local checkout for git-level facts: `~/GitHub/mergepath`. Shared cache: `plans/759/refs.json` (28 mergepath entries already resolved; `rejected_not_references` holds the five CSS hex colours—do not re-litigate them).
 
 **Quotation convention.** Every quotation below is verbatim except that spaced em dashes in the source are closed up, which is this repo's house style and what the post itself already does (see §F2).
@@ -44,6 +47,8 @@ The issue does not flag §"A footnote on volume" at all. It contains the post's 
 
 ### B1—"found in 94 seconds"
 
+> **§P.2 revisits this row.** Read it before quoting this row: the pass corrects some rows and re-confirms others, and this one is named there.
+
 > "This batch recorded 122 dispositions with zero rejections and still shipped a P1 that an unbriefed pass found in 94 seconds." (L14, `keyTakeaways`); "#809 found in<br/>94 seconds" (L38 and L130, the sidebar and body Mermaid nodes); "a separate path derived from CommonMark finds that defect in 94 seconds" (L30 and L123, both diagram `description` attributes)
 
 **UNPROVABLE per §P.2, superseding this row's original WRONG.** Ninety-four seconds is the interval between merge and posting, nothing else. `nathanjohnpayne/mergepath#797` merged at `2026-07-30T03:59:00Z`; review comment `3679855498` was created at `2026-07-30T04:00:34Z`; the difference is exactly 94 seconds. The same review was invoked at `03:52:56Z`, and elapsed wall-clock from first invocation to posting is **7 minutes 38 seconds**. **What that does not establish is which invocation produced the finding.** §P.2 withdrew this row's original reading: the two acknowledgements it rested on both terminate with "Review finished" and report nothing, so neither can be the provenance of the `04:00:35Z` review. A pre-merge start is plausible and unproven, which is the issue's own careful formulation and was right. On "unbriefed": every invocation was a bare `@coderabbitai, try again.` with no brief of any kind, so the word is defensible in the sense that matters (§P.3).
@@ -52,6 +57,8 @@ Corrected value, usable at every one of the six surfaces: **posted 94 seconds af
 
 ### B2—"finished a from-scratch pass on the merged PR"
 
+> **§P.2 revisits this row.** Read it before quoting this row: the pass corrects some rows and re-confirms others, and this one is named there.
+
 > "At 04:00:34 UTC—ninety-four seconds later—a reviewer that had been rate-limited out of most of the batch finished a from-scratch pass on the merged PR" (L54); "was therefore reviewing the merged diff from outside the batch's conversation" (L68)
 
 **WRONG on "from-scratch," on "the merged PR," and on "the merged diff."** The finding's `commit_id` and `original_commit_id` are both `76f0ded3c2b134f672ba660fef9acfd54fee4a3b`, which is `#797`'s `.head.sha`—the same tree that merged, reviewed while the PR was open. **Whether the review began before the merge is UNPROVABLE (§P.2), and this row originally asserted it.** What the artifacts do establish is the tree: the finding is pinned to the head that merged, reviewed while the PR was open. CodeRabbit's own acknowledgement in the same thread separately declares it incremental rather than from-scratch, which is what carries the "from-scratch" half of this verdict without needing a start time.
@@ -59,6 +66,8 @@ Corrected value, usable at every one of the six surfaces: **posted 94 seconds af
 Defensible form: *"a review posted its finding 94 seconds after the merge, on exactly the tree that merged."* The `commit_id` establishes which tree was reviewed, not when the pass began, so the wording stays noncausal per §P.2. An earlier version of this row recommended *"had been running since before the merge"*, which reasserted the very start-time claim the verdict withdrew. Source: `.../pulls/797/comments` → `.id == 3679855498`, fields `.commit_id`, `.original_commit_id`, `.created_at`; `.../pulls/797` → `.head.sha`.
 
 ### B3—"rate-limited out of most of the batch"
+
+> **§P.1 revisits this row.** Read it before quoting this row: the pass corrects some rows and re-confirms others, and this one is named there.
 
 > L54; "which had spent much of the batch rate-limited" (L68); "The reviewer that found the escape sat outside that loop—not by design, but by accident of a rate limit." (L145)
 
@@ -78,6 +87,8 @@ Corrected value: CodeRabbit hit its Fair Usage limit on seven of the eleven PRs,
 
 ### B5—the escape finding's text, quoted twice
 
+> **§P.1 revisits this row.** Read it before quoting this row: the pass corrects some rows and re-confirms others, and this one is named there.
+
 > "Indented list/paragraph lines are blanked as code, and no test would catch it." (L54); "only exercises fenced and inline code, so nothing fails today" (L66)
 
 **SUPPORTED, both verbatim.** Comment `3679855498` opens `_🎯 Functional Correctness_ | _🟠 Major_ | _⚡ Quick win_` then the bolded headline above, and continues *"`mp_markdown_renderable_text` treats any tab- or 4-space-indented line as an indented code block, but CommonMark forbids indented code from interrupting an open paragraph or list item—so a nested bullet like ` - See [the audit](coderabbit-audit.md)` is silently erased and check 10 goes blind in both passes. The matrix only exercises fenced and inline code, so nothing fails today."* Path: `scripts/ci/check_doc_ownership`. Source: as B1.
@@ -90,6 +101,8 @@ Corrected value: CodeRabbit hit its Fair Usage limit on seven of the eleven PRs,
 
 ### B7—"93 regression cases"
 
+> **§P.1 revisits this row.** Read it before quoting this row: the pass corrects some rows and re-confirms others, and this one is named there.
+
 > "fixed it with explicit CommonMark text-flow state tracking and merged at 04:28:05 UTC—twenty-eight minutes from finding to merged fix, with 93 regression cases behind it" (L72)
 
 **WRONG if read as new coverage; SUPPORTED as a suite total.** 93 is the **whole** `tests/test_check_doc_ownership.sh` suite at merge—`#810`'s body Validation block reads `- tests/test_check_doc_ownership.sh—93/93` and its Self-Review reads *"ownership 93/93, bootstrap mirror 123/123, and hosted lint 74/74."* `#810` itself added **8** assertions.
@@ -99,6 +112,8 @@ Corrected value: CodeRabbit hit its Fair Usage limit on seven of the eleven PRs,
 Corrected value: *"the fix added eight new regression assertions and merged with the ownership suite green at 93/93."* Source: `gh api repos/nathanjohnpayne/mergepath/pulls/810` → `.body`; `git -C ~/GitHub/mergepath show 415d3178180899e98dd32cd9177426c1f2035165 -- tests/test_check_doc_ownership.sh`.
 
 ### B8—the severity-taxonomy footnote
+
+> **§P.1 revisits this row.** Read it before quoting this row: the pass corrects some rows and re-confirms others, and this one is named there.
 
 > "CodeRabbit tagged the finding 'Functional Correctness / Major'; the repo's own approval record for the fix calls it 'the P1 from #797.'" (L72)
 
@@ -112,6 +127,8 @@ Every headline count in §"The scoreboard, re-derived" reproduces exactly, and I
 
 ### C1—268 / 134 / 116 / 18
 
+> **§P.1 revisits this row.** Read it before quoting this row: the pass corrects some rows and re-confirms others, and this one is named there.
+
 > "the record contains 268 inline review comments forming 134 top-level finding threads. Of those threads, 116 are severity-badged findings from the Codex App—12 P1, 102 P2, 2 P3—and 18 are actionable CodeRabbit comments." (L80)
 
 **SUPPORTED, exactly, on all six figures.** Across the eleven PRs: **268** review comments; **134** with no `in_reply_to_id`; of those, **116** authored by `chatgpt-codex-connector[bot]` (**P1 12, P2 102, P3 2**) and **18** by `coderabbitai[bot]`. No human posted a top-level review comment anywhere in the population.
@@ -124,6 +141,8 @@ Source: `gh api --paginate repos/nathanjohnpayne/mergepath/pulls/<N>/comments` f
 
 ### C2—the disposition table
 
+> **§P.1 revisits this row.** Read it before quoting this row: the pass corrects some rows and re-confirms others, and this one is named there.
+
 > "| Fixed (marker names the fix commit) | 111 | · | Deferred to a filed follow-up issue | 9 | · | Rebuttal recorded | 2 | · | No marker | 12 |" (L86–L91)
 
 **SUPPORTED on the counts.** Dispositions are `[mergepath-resolve: <class>]` markers in reply comments, attributed to the thread root. Across the 134 threads: `addressed-elsewhere` **111**, `deferred-to-followup` **9**, `rebuttal-recorded` **2**, no marker **12**. No thread carries two different classes, and no marker lands on a root that is not one of the 134. All 111 `addressed-elsewhere` replies match `/commit [0-9a-f]{7}/`, so "marker names the fix commit" holds for every one of them.
@@ -131,6 +150,8 @@ Source: `gh api --paginate repos/nathanjohnpayne/mergepath/pulls/<N>/comments` f
 Note for the glossary the issue asks for: the marker class is `addressed-elsewhere`, not "fixed." The post's relabelling is fair but should be declared. Source: `gh api --paginate .../pulls/<N>/comments`, replies filtered on `/\[mergepath-resolve:\s*([a-z-]+)\]/`.
 
 ### C3—"Deferred to a filed follow-up issue"
+
+> **§P.1 revisits this row.** Read it before quoting this row: the pass corrects some rows and re-confirms others, and this one is named there.
 
 **WRONG for four of the nine.** Five deferrals name a filed issue (`#797` × 2 → `#807` and `#808`; `#797` × 1 → `#809`; `#810` × 2 → `#811` and `#812`). The four on `#795` say the opposite, verbatim: *"This valid P2 is durably logged for follow-up; **no issue is opened because the task explicitly forbids issue creation**."*
 
@@ -156,6 +177,8 @@ This is a genuine improvement to the argument, not a problem: **the perfect clos
 
 ### C7—"41 review rounds against 48 trigger comments"
 
+> **§P.1 revisits this row.** Read it before quoting this row: the pass corrects some rows and re-confirms others, and this one is named there.
+
 > L80
 
 **SUPPORTED, and both matchers belong in the published ledger because neither is obvious.**
@@ -169,6 +192,8 @@ Per-PR Codex rounds (review objects): `#789` 2, `#790` 5, `#791` 4, `#794` 4, `#
 Source: `gh api --paginate .../issues/<N>/comments` with `(.body|ascii_downcase|gsub("^\\s+|\\s+$";"")) == "@codex review"`; `.../pulls/<N>/reviews` with `.user.login == "chatgpt-codex-connector[bot]"`, unioned with issue comments from the same login.
 
 ### C8—"the automated Phase 4b adapter ran 13 more loops on top"
+
+> **§P.1 revisits this row.** Read it before quoting this row: the pass corrects some rows and re-confirms others, and this one is named there.
 
 > L80
 
@@ -188,11 +213,15 @@ Corrected value: **26 Phase 4b merge-gating reviews across the eleven PRs, 16 of
 
 ### D1—"27 severity-badged findings across eight review rounds from the Codex GitHub App"
 
+> **§P.1 revisits this row.** Read it before quoting this row: the pass corrects some rows and re-confirms others, and this one is named there.
+
 > L68
 
 **SUPPORTED, exactly.** `#797` carries **27** Codex severity-badged top-level threads and **8** `chatgpt-codex-connector[bot]` review objects (`2026-07-29T04:19:14Z`, `14:23:42Z`; `2026-07-30T01:24:14Z`, `02:04:16Z`, `02:24:47Z`, `02:54:13Z`, `03:09:23Z`, `03:53:59Z`). Source: as C1 and C7, scoped to `#797`.
 
 ### D2—"two large reviews from CodeRabbit… before the rate limits hit"
+
+> **§P.4 revisits this row.** Read it before quoting this row: the pass corrects some rows and re-confirms others, and this one is named there.
 
 > L68
 
@@ -202,17 +231,23 @@ Defensible form: *"three CodeRabbit reviews before merge, two of them substantia
 
 ### D3—"five substantive reviews from the Phase 4b external reviewer… four approvals dismissed by subsequent pushes before the fifth stuck"
 
+> **§P.1 revisits this row.** Read it before quoting this row: the pass corrects some rows and re-confirms others, and this one is named there.
+
 > L68
 
 **SUPPORTED.** `nathanpayne-codex` posted exactly five non-empty-bodied reviews on `#797`: `2026-07-29T18:52:44Z` `DISMISSED`, `2026-07-30T01:19:33Z` `DISMISSED`, `03:33:25Z` `DISMISSED`, `03:40:11Z` `DISMISSED`, `03:46:44Z` `APPROVED` on head `76f0ded3…`. Every dismissed body announces an approval, so "four approvals dismissed" is right. Source: `.../pulls/797/reviews` → `.state`, `.submitted_at`, `.body`.
 
 ### D4—"Twenty commits"; "every required check green"; "the approval posted on the exact head"
 
+> **§P.4 revisits this row.** Read it before quoting this row: the pass corrects some rows and re-confirms others, and this one is named there.
+
 > L68, L52
 
 **SUPPORTED, all three.** `#797` `.commits == 20`, `.additions == 2298`. Combined status on `76f0ded3c2b134f672ba660fef9acfd54fee4a3b` is `success`; its check runs were recorded here as 14 `success`/`skipped` with zero failures—**a superseded measurement: §P.4 finds 220 check runs including six failures**, all either superseded before merge or completed after it. The combined-status conclusion stands; the histogram was one page of a paginated endpoint and should not be cited. The `03:46:44Z` `APPROVED` review names `76f0ded3c2b134f672ba660fef9acfd54fee4a3b`, which is `.head.sha`. Source: `.../pulls/797` → `.commits`, `.head.sha`; `.../commits/76f0ded3…/status`; `.../commits/76f0ded3…/check-runs`.
 
 ### D5—"ten-plus briefed passes" / "The ten-plus passes on #797"
+
+> **§P.1 revisits this row.** Read it before quoting this row: the pass corrects some rows and re-confirms others, and this one is named there.
 
 > L70 image caption; L143
 
@@ -234,6 +269,8 @@ The friction the issue names is real: the post says "nine-PR" (L52), "Nine PRs w
 
 ### E1—"nobody re-derived the finding list against the CommonMark spec"
 
+> **§P.1 revisits this row.** Read it before quoting this row: the pass corrects some rows and re-confirms others, and this one is named there.
+
 > "The session's model of `mp_markdown_renderable_text` was 'indented lines are code.' Every reviewer briefed inside that session inherited the model along with the brief. Verification validated the fixes against the finding list; nobody re-derived the finding list against the CommonMark spec." (L143); "asked the one question the session never had—*does CommonMark let indented code interrupt a list item?*" (L145)
 
 **WRONG.** `nathanjohnpayne/mergepath#791`, in this same batch, is titled **"fix(781): marker-bounded help extraction and CommonMark-correct fence and indent parsing."** Its record contains:
@@ -253,6 +290,8 @@ That is a **transfer** failure, not a coverage failure. The knowledge existed in
 Source: `gh api .../pulls/791` → `.title`, `.merged_at`; `.../pulls/791/files` → `.[].filename`; `.../pulls/797/files`; `.../pulls/791/reviews` → reviews `4810248977` and `4814102598`; `.../pulls/791/comments` → threads `3670931103`, `3674736179`, `3675809995`, `3675810003`, `3678298509`.
 
 ### E2—the adversarial verifier agents
+
+> **§P.1 revisits this row.** Read it before quoting this row: the pass corrects some rows and re-confirms others, and this one is named there.
 
 > "new for this batch, independent adversarial verifier agents re-running each PR's 'is this test actually testing anything' experiment before approval" (L76); "The adversarial verifiers this batch added were real and they earned their keep—one of them returned a *blocking* verdict on PR #791 and forced a fix before merge." (L141)
 
@@ -278,6 +317,8 @@ Every named item in this section checks out against the commits and PR bodies. T
 
 ### F1—the `gh` stub
 
+> **§P.1 revisits this row.** Read it before quoting this row: the pass corrects some rows and re-confirms others, and this one is named there.
+
 > "Real `gh api --jq` writes the error body to stdout—verified live in commit 53ae3c1, which notes two pre-existing tests 'were green against a failure mode gh does not produce.' That one stream swap was hiding the failure path that later became issue #799: fifteen call sites inferring failure from empty output, all of whose guards were dead." (L101)
 
 **SUPPORTED.** Commit `53ae3c1ead45ceabced2d3a121df0e7e033835fd` (`fix(774): stop a failed metadata read presenting as a clean fleet audit`) contains the quoted phrase and the live verification (*"a 404 on GET /repos/{owner}/{repo} prints `{"message":"Not Found",...}` to stdout, `gh: Not Found (HTTP 404)` to stderr, rc=1"*). `nathanjohnpayne/mergepath#799` is titled *"gh api --jq writes HTTP error bodies to stdout, so 15 emptiness-inference failure guards are dead"*—fifteen ✓, still `open` as of retrieval. Source: `git -C ~/GitHub/mergepath log -1 --format=%B 53ae3c1ead45`; `gh api .../issues/799` → `.title`, `.state`.
@@ -289,6 +330,8 @@ Every named item in this section checks out against the commits and PR bodies. T
 **SUPPORTED, both quotations verbatim.** `#800`'s body contains *"Stripping more than a real consumer lacks makes "both-absent" skip branches fire in simulation that never fire in reality—so a wrong model produces a *passing* test, not a failing one"* (the original has spaced em dashes; the post closes them up, which is house style). Commit `6a2fbe5ff3bc3e31391ce7105d9a3ad942ad4604` contains *"leaving the paragraphs whose job is to record the forbidden shape the only paragraphs never scanned"* and *"`exempt()` matched a GIT_IDENTITY_SCOPE_EXEMPT mention anywhere on the line. All three docs describing this check spell the marker out, so each one exempted itself."* Source: `gh api .../pulls/800` → `.body`; `git -C ~/GitHub/mergepath log -1 --format=%B 6a2fbe5ff3`.
 
 ### F3—the three-row table
+
+> **§P.1 revisits this row.** Read it before quoting this row: the pass corrects some rows and re-confirms others, and this one is named there.
 
 > L109–L113
 
@@ -318,6 +361,8 @@ The ordinal is also unstable: `3676658521` is a seventh instance caught inside t
 
 ### G1—"The backlog behind the batch was almost comically self-referential: seven issues"
 
+> **§P.1 revisits this row.** Read it before quoting this row: the pass corrects some rows and re-confirms others, and this one is named there.
+
 > L76, linking `https://github.com/nathanjohnpayne/mergepath/issues/774`
 
 **WRONG twice: the link and the count.** `nathanjohnpayne/mergepath#774` is not a backlog. It is one defect issue—*"Branch protection has drifted fleet-wide: audit-branch-protection.sh exits 3 on all 10 repos, 3 have no protection at all"*, opened `2026-07-28T14:44:17Z`. The post links that same URL twice in one sentence, once as "the backlog" and once as the branch-protection item inside it, so the first link is certainly wrong and there is no umbrella issue for it to point at.
@@ -330,6 +375,8 @@ Corrected value: *"nine issues, three of them post-review observations filed off
 
 ### G2—the three named backlog items
 
+> **§P.1 revisits this row.** Read it before quoting this row: the pass corrects some rows and re-confirms others, and this one is named there.
+
 > "branch protection that had drifted to decoration on most of the fleet [#774], a test fixture writing a fake git identity into the real repo's `.git/config` [#777], a drift guard that silently skipped quoted entries [#785]" (L76)
 
 **SUPPORTED.** `#774` title as above; `#777` *"Test fixture identity leaks into the real repo's .git/config, misattributing and unsigning local commits (already on main twice)"*; `#785` *"[Post-Review] observation from nathanjohnpayne/mergepath#783: P2 scripts/ci/check_doc_ownership:413"*, whose fix PR `#789` is titled *"fix(785,786): strip Bash quotes when check_doc_ownership reads the identity denylist"*—so "silently skipped quoted entries" is right, though it is characterised from the PR title rather than the issue title. Source: `gh api .../issues/{774,777,785}` → `.title`; `.../pulls/789` → `.title`.
@@ -341,6 +388,8 @@ Corrected value: *"nine issues, three of them post-review observations filed off
 Every number in §"The natural experiment" reproduces from git. This is the post's most defensible passage.
 
 ### H1—168 → 224 → 255 pairs
+
+> **§P.1 revisits this row.** Read it before quoting this row: the pass corrects some rows and re-confirms others, and this one is named there.
 
 > "Its matrix had 168 author-written pairs." / "the matrix was 168 pairs, then 224 at the moment the mismatch was found, then 255 at merge" / "The matrix merged at 255 pairs, seventeen patterns by fifteen refs, bracket classes included." (L153, L155, L159)
 
@@ -358,11 +407,15 @@ Source: `git -C ~/GitHub/mergepath show "<ref>:tests/test_audit_branch_protectio
 
 ### H2—the reviewer's quotation and its anchor
 
+> **§P.4 revisits this row.** Read it before quoting this row: the pass corrects some rows and re-confirms others, and this one is named there.
+
 > "In [its own words](https://github.com/nathanjohnpayne/mergepath/pull/796#pullrequestreview-4814414033): 'I found the trailing-slash fnmatch mismatch, added adversarial matrix coverage first (66 passed / 1 failed with 14 Ruby-vs-Bash mismatches), then applied the two empty-component preservation lines.'" (L155)
 
 **SUPPORTED, verbatim, and the anchor resolves correctly.** A filter for reviews on `#796` whose body matches `trailing-slash fnmatch mismatch` returns exactly one object: `id 4814414033`, `nathanpayne-codex`, `2026-07-30T01:32:13Z`, state `DISMISSED`, `commit_id 016336a360054a626e8ac8f6212b8ce4fa81917d`. That is the review the post links. **No change needed**—but note for the drafting pass that the state is `DISMISSED` (superseded by a later push), which is worth not describing as an approval. Source: `gh api --paginate .../pulls/796/reviews --jq '.[] | select(.body|test("trailing-slash fnmatch mismatch"))'`.
 
 ### H3—the root cause and the fix
+
+> **§P.4 revisits this row.** Read it before quoting this row: the pass corrects some rows and re-confirms others, and this one is named there.
 
 > "The root cause was four lines from the bottom of the harness: `IFS='/' read -r -a` silently drops a *trailing* empty field, so `release/*/` collapsed into `release/*`… The [fix commit] is two `case` statements re-appending the empty component, under a comment stating the rule." (L155)
 
@@ -379,6 +432,8 @@ Two `case` statements ✓, under a two-line comment stating the rule ✓. But th
 
 ### H4—the 1041 that does not exist
 
+> **§P.1 revisits this row.** Read it before quoting this row: the pass corrects some rows and re-confirms others, and this one is named there.
+
 > "the only '1041' anywhere in the PR's record is a line number in a `sed -n '1041,1560p'` command inside a handoff comment." (L159)
 
 **SUPPORTED on the substance, WRONG on one attribution.** A full scan of every issue comment, review, and review comment on `#796` finds exactly **one** object containing the string `1041`: issue comment `5125354092`, `coderabbitai[bot]`, `2026-07-30T01:40:41Z`, inside an auto-generated `🧩 Analysis chain` block—`echo '=== Audit script, remaining lines ===' / sed -n '1041,1560p' scripts/audit-branch-protection.sh`. That is **not a handoff comment**; it is the shell CodeRabbit itself ran to read the second half of the audit script.
@@ -386,6 +441,8 @@ Two `case` statements ✓, under a two-line comment stating the rule ✓. But th
 Correct the attribution; the point is unchanged and if anything better, since the phantom number's only ancestor in the record is a line offset inside a bot's own scratch command. Source: a `1041` scan across `.../pulls/796/{comments,reviews}` and `.../issues/796/comments`, all pages.
 
 ### H5—"written into the batch retrospective the same day" / "written by the agent that drove the batch"
+
+> **§P.1 revisits this row.** Read it before quoting this row: the pass corrects some rows and re-confirms others, and this one is named there.
 
 > L119, L159
 
@@ -398,6 +455,8 @@ Correct the attribution; the point is unchanged and if anything better, since th
 ## I. The volume footnote—the largest uncaught error in the post
 
 ### I1—"the review workflow auto-triggers a fresh review on every new head"
+
+> **§P.1 revisits this row.** Read it before quoting this row: the pass corrects some rows and re-confirms others, and this one is named there.
 
 > "Mergepath's branch protection sets `required_status_checks.strict: true`, so every merge forces every other open PR to update from `main`; the review workflow auto-triggers a fresh review on every new head; and `gh pr update-branch` mints a new head even when it changes no file content." (L165)
 
@@ -435,6 +494,8 @@ Source: `gh api --paginate .../issues/794/comments`; `gh api repos/nathanjohnpay
 
 ### I3—the `#798` quotation and the O(N²) mechanism
 
+> **§P.1 revisits this row.** Read it before quoting this row: the pass corrects some rows and re-confirms others, and this one is named there.
+
 > L165
 
 **SUPPORTED as a quotation, with the §I1 caveat attached.** `nathanjohnpayne/mergepath#798` (*"agent-review auto-triggers a full Codex review on a content-free update-branch head, livelocking concurrent PR batches"*, opened `2026-07-29T17:07:06Z`, closed `2026-08-03T21:41:30Z`) contains at body line 19: *"With N open PRs the train costs O(N²) review rounds in the worst case, none of which are responding to an actual code change."* The quotation is verbatim. But `#798`'s **title** encodes the mechanism §I1 disproves, so quoting the issue while repeating its title's causal story compounds the error. Quote the sentence; do not adopt the title. Source: `gh api .../issues/798` → `.title`, `.body`, `.created_at`, `.closed_at`.
@@ -457,11 +518,15 @@ Source: `gh api --paginate .../issues/794/comments`; `gh api repos/nathanjohnpay
 
 ### J1—the `#813` quotation
 
+> **§P.1 revisits this row.** Read it before quoting this row: the pass corrects some rows and re-confirms others, and this one is named there.
+
 > L171
 
 **SUPPORTED, verbatim**, in the body of `nathanjohnpayne/mergepath#813` (*"Create a bounded review lane: order providers, count cycles, and stop discretionary churn"*, opened `2026-07-30T04:53:38Z`, still `open`): *"Adding prose to clarify a prose rule does not converge, because each clarification is new surface to misread. This property is real and is bounded only by how much of the spec becomes executable. No item below eliminates it; the items shrink its domain. Any plan that claims to remove it is wrong."* Source: `gh api .../issues/813` → `.body`.
 
 ### J2—the constraint the retrospective states
+
+> **§P.1 revisits this row.** Read it before quoting this row: the pass corrects some rows and re-confirms others, and this one is named there.
 
 > "The retrospective states it as a constraint: 'at least one pass must derive its test matrix from the external specification rather than from prior findings.'" (L169)
 
@@ -480,6 +545,8 @@ The "one time" is a straightforward undercount, and §E1 is the disproof: `#791`
 **Use §E1 instead of a counterfactual—the true statement is stronger than the hypothesis.** *"A spec-derived pass on a Markdown preprocessor in this batch did catch exactly this class of defect, on `#791`, twelve hours earlier. Nothing carried that pass to `#797`."* That converts the weakest paragraph in the post into the strongest, and it makes the process change specific: apply the spec-derived matrix to every implementation of that spec in the batch, not to one diff. Source: §E1; comment `5133940688`.
 
 ### J4—"two production bots read its 91,000 characters and produced zero findings… three independently-briefed adversarial reviewers produced 38 defects—six of them fatal—on the same text an hour earlier"
+
+> **§P.1 revisits this row.** Read it before quoting this row: the pass corrects some rows and re-confirms others, and this one is named there.
 
 > L173
 
@@ -507,6 +574,8 @@ Source: `gh api .../issues/{813,814,815,816,817,818,819}` → `.body`, `.body|le
 
 ### K1—"an agent made competent local progress inside the wrong model for six straight PRs"
 
+> **§P.1 revisits this row.** Read it before quoting this row: the pass corrects some rows and re-confirms others, and this one is named there.
+
 > L60
 
 **WRONG, and it reinstates a framing this epic already retracted.** `#744` merged (`e0665c4`) with `src/content/blog/six-prs-one-bug-agent-failure-modes.md` L75 now reading: *"'Six failed attempts' is wrong twice over—#144 predates the bug it caused, and #154 and #155 were never aimed at it."* The corrected inclusion rule is one originating implementation (`friends-and-family-billing#144`), three attempts at the parity bug (`#146`, `#153`, `#158`), and two orthogonal fixes (`#154`, `#155`).
@@ -515,6 +584,8 @@ Corrected value for this post's one-sentence summary: *"an agent made competent 
 
 ### K2—"because nothing forced a repeated local failure to become a structural question"
 
+> **§P.4 revisits this row.** Read it before quoting this row: the pass corrects some rows and re-confirms others, and this one is named there.
+
 > L60
 
 **UNPROVABLE as a summary of the sibling post, whose conclusion changed under audit.** The corrected `#744` post now concludes that the invariant *did* exist, in a pre-`#144` design spec, and lost anyway: L308, *"prose in a design document loses to a named function with checkable behavior, and no amount of louder symptom reporting closes the gap."* The current sentence is not wrong on its own terms but no longer summarises the post it links to.
@@ -522,6 +593,8 @@ Corrected value for this post's one-sentence summary: *"an agent made competent 
 Defensible replacement, and it strengthens this post's own thesis rather than weakening it: *"a correctness standard existed in the design spec and was never attached to any piece of work anyone reviewed."* That is the same failure mode as this post's—a rule that exists in the session but is not attached to the artifact under review—which makes the arc genuinely continuous instead of merely sequential. Source: `src/content/blog/six-prs-one-bug-agent-failure-modes.md` L149, L308.
 
 ### K3—"(April)" and "two weeks later"
+
+> **§P.1 revisits this row.** Read it before quoting this row: the pass corrects some rows and re-confirms others, and this one is named there.
 
 > L60
 
