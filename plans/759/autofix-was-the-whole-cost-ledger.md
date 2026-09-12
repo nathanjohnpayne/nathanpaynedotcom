@@ -1,5 +1,8 @@
 # Facts ledger—#745 `autofix-was-the-whole-cost`
 
+> **Read §N before acting on any row below.** An adversarial verification pass re-derived this ledger's figures and corrected a number of them, including verdicts that were themselves wrong. Rows it revisited now say so inline, because an appendix that announces it supersedes earlier text does not correct the file: a later pass reads the row, not the appendix. That failure is not hypothetical: a drafting pass acted on §D2 of the two-blues ledger in September 2026, shipped a wrong correction to a published post, and was caught in review.
+
+
 Post source: `src/content/blog/autofix-was-the-whole-cost.md`, published `2026-08-24` (frontmatter `date`), added to `main` in `fe29266` (PR #746, `2026-08-24T23:07:14Z`) and revised twice since—`c10e3a8` (#749, images and Mermaid) and `7b1937a` (#780, key takeaways). Pre-revision baselines by `wc -w`: **4,133 words whole-file**, **3,294 words body-only** (everything after the closing frontmatter `---`), 839 words of frontmatter. #745 quotes a 4,014-word baseline; that figure predates #780 and is 119 words stale. Evidence repo: **this repository**, `nathanjohnpayne/nathanpaynedotcom`. Bare `#NNN` means **nathanpaynedotcom** throughout—every number the post cites resolves here. Shared cache: `plans/759/refs.json`.
 
 Verdicts: **SUPPORTED** · **WRONG** (corrected value given) · **UNPROVABLE** (defensible weaker form given).
@@ -13,6 +16,8 @@ Verdicts: **SUPPORTED** · **WRONG** (corrected value given) · **UNPROVABLE** (
 ## A. Chronology and the shape of the arc
 
 ### A1—"The seven-PR arc… about 49 hours" and "#686 itself was open about 30 hours"
+
+> **§N.5 revisits this row.** Read it before quoting this row: the pass corrects some rows and re-confirms others, and this one is named there.
 
 > #745's "Evidence to reconcile", not the post. The post itself states no arc duration.
 
@@ -40,6 +45,8 @@ The shape worth keeping: **#686 alone accounts for 62% of the arc's wall time, 4
 
 ### A3—"I wrote the full comparison into an issue before the merge"
 
+> **§N.21 revisits this row.** Read it before quoting this row: the pass corrects some rows and re-confirms others, and this one is named there.
+
 > L215
 
 **SUPPORTED, and tighter than the prose suggests.** Issue #722 was created `2026-08-24T05:41:11Z`; #721 merged `2026-08-24T05:43:06Z`. The gap is **1 minute 55 seconds**. The claim is true and the sequencing point survives, but "before the merge" is doing a lot of work for under two minutes. Source: `refs.json` → `#722.created_at`, `#721.merged_at`.
@@ -61,6 +68,8 @@ Reproduce any row with `git show "<sha>:scripts/lint-content-em-dash.mjs" | wc -
 
 ### B1—"Enforcing it on this site produced 1,513 lines of code, a 940-line test suite… Then I removed the capability responsible for the churn"
 
+> **§N.3 revisits this row.** Read it before quoting this row: the pass corrects some rows and re-confirms others, and this one is named there.
+
 > L50; and the title, "1,513 Lines for One Dash"
 
 **WRONG on the natural reading—the two figures are the post-removal state, presented in the sentence before the removal.** At its peak the tool was **1,721 lines with a 1,196-line test suite (2,917 total)**. 1,513/940 is what was left *after* auto-fix came out and the subsequent fixes landed. The lede therefore understates the thing it is about to describe cutting, by 208 script lines and 256 test lines.
@@ -71,17 +80,23 @@ The title survives either way—1,513 is a real, citable state (the tool as merg
 
 ### B2—"the linter and its test suite fell from 2,917 lines to 2,417—a net reduction of 500 lines, or 17% of the implementation and tests combined. Taken separately it is 12.6% of the linter and 23.7% of the tests"
 
+> **§N.21 revisits this row.** Read it before quoting this row: the pass corrects some rows and re-confirms others, and this one is named there.
+
 > L62
 
 **SUPPORTED, exactly, to every decimal.** Across `abe3bfb62ea7`: script 1,721 → 1,505 (−216, **12.551%**, rounds to 12.6%); tests 1,196 → 912 (−284, **23.746%**, rounds to 23.7%); combined 2,917 → 2,417 (−500, **17.14%**). 216 + 284 = 500. Source: `git show "abe3bfb62ea7^:…"` and `git show "abe3bfb62ea7:…"`.
 
 ### B3—"Two snapshots appear in this post and they are deliberately different commits… The 2,453-line figure further down is the tool as finally merged, slightly larger because later fixes landed on top of the cut"
 
+> **§N.4 revisits this row.** Read it before quoting this row: the pass corrects some rows and re-confirms others, and this one is named there.
+
 > L64
 
 **SUPPORTED for the two snapshots it names, but the post has four states and names two.** 2,417 → 2,453 is +8 script lines and +28 test lines across `c41f4f0af909`, `c1769e4f35f8`, `ee3ec7fda5cb` and `bf1309acb533`, all inside #686 after the removal commit—so "later fixes landed on top of the cut" is literally right. The two unnamed states are the 2,917 peak (§B1) and the Vale-side snapshot (§I2). #745 asks for all four; §B's table supplies them.
 
 ### B4—*(corrected: the check runs once per file on the combined candidate, not after each edit—see the article body and the Phase 4b review on #803)* "a tool that edits your files has to prove, after applying its edits, that it changed only what it meant to change… reject the whole batch if anything moved. It was also all-or-nothing—one unfixable dash in a configuration key meant every other fix in that file was abandoned too"
+
+> **§N.21 revisits this row.** Read it before quoting this row: the pass corrects some rows and re-confirms others, and this one is named there.
 
 > L105
 
@@ -99,6 +114,8 @@ If the post-fix structure comparison fails, the entire candidate is discarded an
 
 ### C1—"57 findings across 24 review rounds" and the series `3 3 3 1 3 4 3 3 2 1 2 5 2 3 3 1 1 1 1 5 2 2 1 2`
 
+> **§N.21 revisits this row.** Read it before quoting this row: the pass corrects some rows and re-confirms others, and this one is named there.
+
 > L50, L113, L116
 
 **SUPPORTED, and it reproduces exactly.** Counting rule: top-level entries in `pulls/686/comments` (`in_reply_to_id == null`), grouped by `pull_request_review_id`, ordered by `created_at`. That yields **24 groups summing to 57**, in precisely the order printed. Source: `gh api --paginate repos/nathanjohnpayne/nathanpaynedotcom/pulls/686/comments`, fields `in_reply_to_id`, `pull_request_review_id`, `created_at`.
@@ -108,6 +125,8 @@ The rule is worth publishing because "round" is not otherwise defined: #686 carr
 **One reviewer the post never names.** The 24 rounds come from three reviewers, not two: `chatgpt-codex-connector[bot]` (17 rounds, 45 findings), `coderabbitai[bot]` (6 rounds, 10 findings), and `github-advanced-security[bot]` (1 round, 2 findings—CodeQL regex-backtracking alerts on `2026-08-22T23:59:18Z`). L111 says the work went through "the Codex GitHub App and CodeRabbit". A third automated reviewer contributed round 13.
 
 ### C2—"round twenty-four still producing two" / "the review loop that had run 24 rounds without converging ended immediately" / "Deleting it ended the loop in a single commit"
+
+> **§N.9 revisits this row.** Read it before quoting this row: the pass corrects some rows and re-confirms others, and this one is named there.
 
 > L119, L151, L13
 
@@ -131,6 +150,8 @@ Source: `gh api --paginate repos/nathanjohnpayne/nathanpaynedotcom/pulls/686/com
 
 ### C3—"eighteen rounds after the series had already shown the same shape" / "reading it from round six instead of round twenty-four" / "would have ended this eighteen rounds earlier"
 
+> **§N.21 revisits this row.** Read it before quoting this row: the pass corrects some rows and re-confirms others, and this one is named there.
+
 > L13, L125, L223
 
 **WRONG once §C2 lands—the arithmetic was built on round 24.** The last round that could have told anyone anything about convergence is round **22**. Round 6 → round 22 is **sixteen** rounds, not eighteen. Corrected value: sixteen. Source: derived from §C2's table.
@@ -143,6 +164,8 @@ Source: `gh api --paginate repos/nathanjohnpayne/nathanpaynedotcom/pulls/686/com
 
 ### C5—"by my own count during the work, roughly half the later fixes were repairing the previous fix rather than closing new ground"
 
+> **§N.6 revisits this row.** Read it before quoting this row: the pass corrects some rows and re-confirms others, and this one is named there.
+
 > L119
 
 **UNPROVABLE as an author's count, but there is a mechanically checkable proxy that lands on the same number, and the post should use it instead.** **29 of the 57 findings (51%)—and 29 of Codex's 45 (64%)—contain the phrase "fresh evidence beyond…" somewhere in the body** (case-insensitive; the wording varies, and it sits mid-body in 23 of the 29), which is the reviewer explicitly stating that the finding is a follow-on against ground a previous fix had already been applied to. Findings 4, 5, 7, 14–21, 23, 24, 26–33, 40, 41, 46–50 and 53 in `created_at` order.
@@ -154,6 +177,8 @@ Defensible form: *the reviewer's own language marks it—half the findings on th
 ## D. Classifying the 57 findings—#745's central open criterion
 
 ### D1—"nearly all of the work that would not converge"
+
+> **§N.1 revisits this row.** Read it before quoting this row: the pass corrects some rows and re-confirms others, and this one is named there.
 
 > L13, L18, L52, L66, L143 (five surfaces), and `description` / `seoDescription`
 
@@ -181,6 +206,8 @@ Source: `gh api --paginate repos/nathanjohnpayne/nathanpaynedotcom/pulls/686/com
 
 ### D2—"a capability can be a modest share of a codebase and still be the reason the project cannot finish"
 
+> **§N.21 revisits this row.** Read it before quoting this row: the pass corrects some rows and re-confirms others, and this one is named there.
+
 > L66
 
 **SUPPORTED and now doubly evidenced.** 17% of the lines (§B2) against 74% of the findings (§D1). That contrast is the post's thesis and it is the single most defensible number pair in the article. It deserves to be stated as a ratio rather than left implicit.
@@ -190,6 +217,8 @@ Source: `gh api --paginate repos/nathanjohnpayne/nathanpaynedotcom/pulls/686/com
 ## E. The external-review ledger
 
 ### E1—"#668 (13 loops, 434,420 tokens), #678 (2 loops, 55,514), #681 (1 loop, 16,774), and #682 (1 loop, 17,846). 524,554 tokens across 17 review loops"
+
+> **§N.7 revisits this row.** Read it before quoting this row: the pass corrects some rows and re-confirms others, and this one is named there.
 
 > L133
 
@@ -218,11 +247,15 @@ Two things make it runnable, and both were wrong in earlier revisions. Without `
 
 ### E2—"It never completed a ledgered external-review run, so none of its cost appears in that figure"
 
+> **§N.7 revisits this row.** Read it before quoting this row: the pass corrects some rows and re-confirms others, and this one is named there.
+
 > L135, of #686
 
 **SUPPORTED, and stronger than stated.** #686 has no ledger record *and* zero reviews from `nathanpayne-codex`—it never entered the external-review lane at all, rather than entering it and failing to finish. Source: `.mergepath/phase-4b-ledger.jsonl` (no `pr: 686` record); `pulls/686/reviews` reviewer histogram.
 
 ### E3—"The 434,420 tokens belong to #668, the pull request that introduced the tool in the first place"
+
+> **§N.21 revisits this row.** Read it before quoting this row: the pass corrects some rows and re-confirms others, and this one is named there.
 
 > L135
 
@@ -230,11 +263,15 @@ Two things make it runnable, and both were wrong in earlier revisions. Without `
 
 ### E4—"it excludes the 28 reviews from the Codex GitHub App, the 63 from CodeRabbit, the 10 external-review loops on the Vale rollout (#720)"
 
+> **§N.21 revisits this row.** Read it before quoting this row: the pass corrects some rows and re-confirms others, and this one is named there.
+
 > L139
 
 **SUPPORTED, all three exact.** Across the seven PRs: `chatgpt-codex-connector[bot]` = 6 + 1 + 0 + 0 + 17 + 4 + 0 = **28**. `coderabbitai[bot]` = 2 + 1 + 0 + 0 + 27 + 33 + 0 = **63**. `nathanpayne-codex` on #720 = **10** (9 `COMMENTED`, 1 `APPROVED`). Source: `gh api --paginate repos/…/pulls/{n}/reviews`, histogram on `.user.login`.
 
 ### E5—"256 review submissions and 126 inline findings… counted from the GitHub API's `pulls/{n}/reviews` for the first and top-level entries in `pulls/{n}/comments` for the second"
+
+> **§N.21 revisits this row.** Read it before quoting this row: the pass corrects some rows and re-confirms others, and this one is named there.
 
 > L139
 
@@ -260,6 +297,8 @@ Brace expansion cannot substitute for the loop: it passes seven positional endpo
 
 ### E6—"the Codex GitHub App and CodeRabbit, both reviewing every revision"
 
+> **§N.8 revisits this row.** Read it before quoting this row: the pass corrects some rows and re-confirms others, and this one is named there.
+
 > L111
 
 **WRONG as a statement about the arc.** On **#681, #682 and #721 neither bot posted a single review**, and on #678 each posted one. Both reviewed heavily only on #686 (17 and 27) and #720 (4 and 33). **Corrected per §N.8: neither bot reviewed *every push* on either PR**—#686 carries 32 commits against 17 Codex-App and 27 CodeRabbit reviews, #720 carries 28 against 4 and 33. The stacked-base explanation below is also withdrawn; all seven PRs have `base: main`, so the known CodeRabbit skip does not apply. Publish the histogram instead. ~~This matches the known behaviour that CodeRabbit skips stacked pull requests on a non-default base. Defensible form: on the two long-running pull requests both bots reviewed every push; on the three short ones neither ran, and on #678 each posted exactly one.~~ Source: §E4's histogram.
@@ -269,6 +308,8 @@ Brace expansion cannot substitute for the loop: it passes seven positional endpo
 ## F. The token and dollar counterfactual
 
 ### F1—Internal arithmetic of the $712.66
+
+> **§N.21 revisits this row.** Read it before quoting this row: the pass corrects some rows and re-confirms others, and this one is named there.
 
 > Sidebar L36-L40; body L143
 
@@ -285,11 +326,15 @@ The Anthropic rate shape is also internally coherent: $5/M input with $10/M one-
 
 ### F2—The two Codex subtotals are not reproducible
 
+> **§N.21 revisits this row.** Read it before quoting this row: the pass corrects some rows and re-confirms others, and this one is named there.
+
 > Sidebar L36
 
 **UNPROVABLE, and #745 is right that it matters.** $60.81 and $59.95 are given as totals under three rates with no quantities, so no reader can reconstruct them. One constraint is derivable and worth stating: if the $60.81 session is one of the two associated with #686, its fresh input and output cannot exceed the body's 2.27 M and 285,100, which at $4/M and $20/M is $9.08 + $5.70 = **$14.78**. The remaining **$46.03 must be cached input—about 115 million cached tokens.** Defensible form: publish fresh-input / cached-input / output for each priced session, or state the subtotals as author-attested and drop the rate table, which currently implies a reproducibility the post does not provide.
 
 ### F3—The five-session population does not close *(verdict downgraded to UNPROVABLE—see §N.11)*
+
+> **§N.11 revisits this row.** Read it before quoting this row: the pass corrects some rows and re-confirms others, and this one is named there.
 
 > Sidebar L36-L40 against body L137
 
@@ -307,6 +352,8 @@ Defensible form—and this is exactly the privacy-safe ledger #745's acceptance 
 
 ### F5—"the review ledger records only combined totals rather than the category splits pricing needs"
 
+> **§N.7 revisits this row.** Read it before quoting this row: the pass corrects some rows and re-confirms others, and this one is named there.
+
 > Sidebar L40
 
 **SUPPORTED for the `codex-cli-stderr` loops only—scoped per §N.7.** PR #765's loop carries `source: "claude-json-envelope"` with a populated output count and cost, so the claim holds for the #668/#678/#681/#682 loops and not universally. Each of those carries `tokens: {total: <n>, input: null, output: null, cache_creation: null, cache_read: null, reasoning: null, cost_usd: null, source: "codex-cli-stderr"}`. The nulls are the claim. Every record also carries `"billed_usd": 0.0`, which independently supports "nothing was invoiced". Source: `.mergepath/phase-4b-ledger.jsonl`, any `.loops[].tokens` object.
@@ -323,6 +370,8 @@ Defensible form—and this is exactly the privacy-safe ledger #745's acceptance 
 
 ### G1—"A naive search across the site returns about 250 matches; thirteen are real"
 
+> **§N.15 revisits this row.** Read it before quoting this row: the pass corrects some rows and re-confirms others, and this one is named there.
+
 > L59
 
 **Half SUPPORTED, half UNPROVABLE for want of a stated glob.** "Thirteen are real" is exact: issue #664 (`2026-08-22T04:28:30Z`), the issue #668 implemented, opens "Thirteen occurrences across ten files" and enumerates all thirteen by file.
@@ -332,6 +381,8 @@ Defensible form—and this is exactly the privacy-safe ledger #745's acceptance 
 The illustrative list on the same line—"code samples, configuration keys, link addresses, table borders, a password-manager entry whose name contains a dash and must never be edited"—is **UNPROVABLE against this repository.** #664's actual out-of-scope breakdown is identifier-to-title link labels, one shell comment, and internal `specs/`/`docs/`/code-comment prose. No password-manager entry and no table border appears in it, and grepping `src/`, `specs/` and `docs/` for a password-manager item name finds nothing matching. Defensible form: use #664's own categories, which are more specific and are on the record.
 
 ### G2—"127 such items across 38 files, this post included. Fifty-seven of them are the pull quotes and key takeaways"
+
+> **§N.18 revisits this row.** Read it before quoting this row: the pass corrects some rows and re-confirms others, and this one is named there.
 
 > L195
 
@@ -345,6 +396,8 @@ Corrected value: **127 prose-bearing metadata list items across 14 files, of whi
 
 ### G3—"all 174 test cases… 149 matched. 25 differed—18 the new tool no longer catches, 7 it now flags where the old one stayed quiet"
 
+> **§N.21 revisits this row.** Read it before quoting this row: the pass corrects some rows and re-confirms others, and this one is named there.
+
 > L209, L211
 
 **SUPPORTED, every number, against a dated artifact with the source ref named.** Issue #722 (`2026-08-24T05:41:11Z`) records 174 assertion cases harvested from `6358402:tests/lint-content-em-dash.test.js`, a **0/174** harness-fidelity check against the legacy implementation, then 149 agreeing and 25 diverging—18 lost, 7 gained—and tabulates all 25 individually. `6358402` resolves to "docs(lint): explain the em-dash gate by what it reports, not a removed fixer (#717)", `2026-08-24T00:43:05Z`, at which the test file is 940 lines. Source: `gh api repos/nathanjohnpayne/nathanpaynedotcom/issues/722 --jq .body`.
@@ -352,6 +405,8 @@ Corrected value: **127 prose-bearing metadata list items across 14 files, of whi
 The post's "confirmed my harness reproduced the old tool's behaviour exactly" maps to #722's explicit **0/174 mismatches**, which is worth quoting because it is the step that makes the rest of the comparison mean anything.
 
 ### G4—"every affected pattern appears zero times across all 38 content files"
+
+> **§N.21 revisits this row.** Read it before quoting this row: the pass corrects some rows and re-confirms others, and this one is named there.
 
 > L213
 
@@ -369,6 +424,8 @@ Corrected value: **zero occurrences across the 37 content files as measured at `
 
 ### H1—"The gate still exits non-zero on a violation, which fails the `build-and-test` job that runs it. That job is not one of `main`'s five required status checks—those are all review-policy gates"
 
+> **§N.21 revisits this row.** Read it before quoting this row: the pass corrects some rows and re-confirms others, and this one is named there.
+
 > L157
 
 **SUPPORTED, exactly and on both halves.** `main`'s branch protection lists exactly five contexts, all review-policy gates and none of them `build-and-test`:
@@ -378,6 +435,8 @@ Corrected value: **zero occurrences across the 37 content files as measured at `
 And the gate does run in that job: `.github/workflows/build-and-test.yml:115` runs `npm run lint`, and `scripts/lint-all.sh:25` runs `run_gate prose node "$ROOT/scripts/lint-prose.mjs"`. Source: `gh api repos/nathanjohnpayne/nathanpaynedotcom/branches/main/protection --jq .required_status_checks.contexts`.
 
 ### H2—"this repository keeps a second, separately configured list at `.github/required-head-checks`, and it contains both `lint` and `build-and-test`"
+
+> **§N.21 revisits this row.** Read it before quoting this row: the pass corrects some rows and re-confirms others, and this one is named there.
 
 > L157
 
@@ -395,11 +454,15 @@ And the gate does run in that job: `.github/workflows/build-and-test.yml:115` ru
 
 ### I1—The table's arithmetic
 
+> **§N.21 revisits this row.** Read it before quoting this row: the pass corrects some rows and re-confirms others, and this one is named there.
+
 > L179-L187
 
 **SUPPORTED.** 7 + 509 + 6 + 821 = **1,343**. 1,513 + 940 = **2,453**. 2,453 − 1,343 = 1,110; 1,110 / 2,453 = **45.25%**. "A 45% reduction. Not a two-hundred-fold collapse" is right, and 1,513 / 7 = 216, so "two-hundred-fold" is the fair characterisation of the tempting summary.
 
 ### I2—"with the 'before' column being the tool as merged rather than the pre-removal snapshot above"
+
+> **§N.21 revisits this row.** Read it before quoting this row: the pass corrects some rows and re-confirms others, and this one is named there.
 
 > L177
 
@@ -418,6 +481,8 @@ The post's "after" column is the state at **`e42483b`, "fix(lint): close Vale mi
 Corrected value: name the snapshot. Either "2,453 at `aff0c23^` → 1,343 at `e42483b`, a 45% reduction once the migration follow-ups landed", or the boundary-to-boundary 50.6%. The 45% figure is the more conservative and the one already published; it just needs its commit. Source: `git show "<sha>:<path>" | wc -l` for each cell; `git log --follow -- scripts/lint-prose.mjs`.
 
 ### I3—The table's inclusion rule
+
+> **§N.16 revisits this row.** Read it before quoting this row: the pass corrects some rows and re-confirms others, and this one is named there.
 
 > L179-L185
 
@@ -445,11 +510,15 @@ Defensible form: state the rule—"implementation and tests for the prose gate i
 
 ### J1—**RETRACTED.** #745 is right about ledger coverage; the fuller statement is the post's own
 
+> **§N.12 revisits this row.** Read it before quoting this row: the pass corrects some rows and re-confirms others, and this one is named there.
+
 > #745, "Evidence still to reconcile", bullet 3
 
 The ledger holds records for exactly four of the seven pull requests—#668, #678, #681, #682—and **none** for #686, #720 or #721. The issue frames #686 as the notable omission; two thirds of the arc's later work is missing as well, including the entire Vale migration. The post's own L133 gets this right ("It covers four of the pull requests in this arc"). **Per §N.12 the issue is not wrong here**—its statement that the ledger "excludes the 24-round PR #686" is exactly correct; what it omits is that #720 and #721 are missing too. Anything the drafting pass writes about ledger coverage should follow the post, which is the fuller statement.
 
 ### J2—**REFRAMED.** #745 asks for classification buckets; it does not claim unrelated findings exist
+
+> **§N.13 revisits this row.** Read it before quoting this row: the pass corrects some rows and re-confirms others, and this one is named there.
 
 > #745, "Evidence still to reconcile", bullet 2
 
