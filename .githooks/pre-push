@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+# pre-push — run the unit and end-to-end suites before anything leaves the machine.
+#
+# Wired by #1004. `npm test` is ~19s and `npm run test:all` is ~68s; the split is
+# deliberate. The fast loop is the one that gets run constantly, and the thing you
+# run constantly is the thing you start skipping when it gets slow — so the slow
+# half lands here, once per push, rather than on every commit.
+#
+# Install (not automatic — this repo ships no dependency-managed hook runner):
+#
+#   git config core.hooksPath .githooks
+#
+# Skip a single push when you already know CI will cover it:
+#
+#   SKIP_E2E=1 git push
+#
+# Under an agent session `astro preview` daemonizes and Playwright reports
+# "Process from config.webServer exited early", so the managed-server path
+# cannot work there. Point the hook at a preview you started yourself:
+#
+#   npm run build && npm run preview &        # then, in the pushing shell:
+#   E2E_BASE_URL=http://localhost:4321 git push
+#
+# `globalSetup` compares every file in dist/ against what that server returns,
+# so an external server on a stale build fails before the first spec instead of
+# reporting on it. Build before pointing the hook at one.
+set -euo pipefail
+
+if [ "${SKIP_E2E:-}" = "1" ]; then
+  echo "pre-push: SKIP_E2E=1 — skipping npm run test:all"
+  exit 0
+fi
+
+echo "pre-push: npm run test:all (unit + e2e, ~68s)"
+npm run test:all

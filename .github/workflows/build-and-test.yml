@@ -100,9 +100,8 @@ jobs:
         # runs `astro build`, so both need a real Chromium available on the
         # runner, not just the playwright npm package. `--with-deps` also
         # pulls the OS-level shared libraries Chromium needs on the runner.
-        # This is for the build's own Playwright use, not the separate
-        # `npm run test:e2e` Playwright *test* suite (deliberately not run
-        # here — see the note below).
+        # The same Chromium also backs `npm run test:e2e` below, which this
+        # job has run since #1004 — one install serves both.
         run: npx playwright install --with-deps chromium
 
       - name: npm test (astro build && vitest run)
@@ -127,10 +126,26 @@ jobs:
         # PR via branch protection.
         run: npm run lint
 
-# Follow-up, deliberately NOT in scope here: `npm run test:e2e`
-# (Playwright end-to-end / visual regression) is not part of this
-# required workflow. It exercises real browser interactions and adds
-# meaningful wall-clock time to every PR; the brief for #632 is explicit
-# that the unit/build job is the non-negotiable part and e2e can stay a
-# manual/opt-in check. Wiring test:e2e into CI (on some slower cadence,
-# e.g. push-to-main only, or nightly) is left as separate future work.
+      - name: npm run test:e2e (Playwright)
+        # Wired in by #1004. Before it, nine spec files and 369 assertions
+        # were maintained and nothing executed them: #1003 changed the
+        # homepage stack breakpoint to bind on both axes, which would have
+        # hung a spec waiting on `--cell-h-about`, and `npm test` stayed
+        # green throughout because it does not run Playwright.
+        #
+        # Required rather than a separate optional job, on the evidence in
+        # #1004: three consecutive local runs at `retries: 0` were 369/369
+        # with no flakes, and the suite waits on explicit state instead of
+        # sleeping. At ~49s it does not meaningfully change this job.
+        # If it does flake here, demote it to its own non-required job on
+        # observed flakes — do not delete it.
+        #
+        # The managed-server path is correct for CI: `astro preview` stays
+        # in the foreground on a runner, so Playwright's `webServer` starts
+        # and owns it. The `E2E_BASE_URL` escape hatch exists for agent
+        # sessions where `astro preview` daemonizes; it is not needed here.
+        #
+        # `npm test` above already ran `astro build`, so `dist/` matches the
+        # checkout and `tests/responsive/global-setup.ts` passes. Keep this
+        # step after it for that reason.
+        run: npm run test:e2e
