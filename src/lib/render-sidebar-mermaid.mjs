@@ -175,7 +175,7 @@ function figureHtml(tree, diagrams) {
  * three of the four diagrams #986 moved lost captions that restated their
  * surrounding prose, and a fourth carried a detail that had to be folded into
  * the body by hand. A fence now takes `caption=` too, so the remedy is a
- * transcription rather than a judgement call.
+ * transcription rather than a judgment call.
  */
 function assertFitsSidebar(figures, diagrams, filePath) {
   const tooWide = figures.flatMap((figure, position) => {

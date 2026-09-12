@@ -48,9 +48,9 @@ interface Props {
     | { type: 'mermaid'; content: string; title: string; description: string; caption?: string }
     | { type: 'image' | 'text'; content: string; caption?: string }
   )[];
-  /** Older neighbour by date; null on the oldest post (no wrap). */
+  /** Older neighbor by date; null on the oldest post (no wrap). */
   prevPost?: PostLink | null;
-  /** Newer neighbour by date; null on the newest post (no wrap). */
+  /** Newer neighbor by date; null on the newest post (no wrap). */
   nextPost?: PostLink | null;
 }
 

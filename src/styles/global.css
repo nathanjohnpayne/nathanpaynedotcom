@@ -209,7 +209,7 @@
   --shift-small: 2px;
   --shift-medium: 3px;
 
-  /* Breakpoint scale (#313, formalised in #330).
+  /* Breakpoint scale (#313, formalized in #330).
      Three-tier breakpoint scale documented as CSS custom properties so the
      spec, JS, and property values (e.g. width: var(--mondrian-max-width))
      all read from one source. Tailwind-adjacent values matched to common
@@ -610,7 +610,7 @@ html[data-fonts-pending] .panel-label {
   line-height: 1.34;
   font-weight: 600;
   /* Wider than the section gap: this closes the header zone (name +
-     tagline) before the labelled sections begin. */
+     tagline) before the labeled sections begin. */
   margin-bottom: 1.5rem;
 }
 
@@ -1139,7 +1139,7 @@ html[data-fonts-pending] .panel-label {
    they all come out as the empty square PAUSED uses: right size, right place,
    vocabulary gone. That is the #925 bullet-marker failure again, one rule over.
    The word survives either way, but a mark that cannot be told from its
-   neighbour is worse than no mark at all.
+   neighbor is worse than no mark at all.
 
    This lived at `.resume-canvas .state-marker::before` from #944 until #950,
    scoped there on the reasoning that a site-wide `exact` would opt every tinted
@@ -1502,9 +1502,9 @@ a:focus-visible .link-arrow,
 
    The ribbon owns the space above itself now, so the gap no longer depends on
    what it follows. That is what fixes it rather than papering over it: a
-   margin-bottom on the neighbour COLLAPSES with this margin-top for ordinary
+   margin-bottom on the neighbor COLLAPSES with this margin-top for ordinary
    block siblings (Community, Connect), so the pair yields the larger of the
-   two and not their sum — which is why the neighbour-side fix produced 14.4px
+   two and not their sum — which is why the neighbor-side fix produced 14.4px
    there while Builds, whose CTA is an inline-block and so does not collapse,
    got 19.4px from the same declaration.
 
@@ -2060,7 +2060,7 @@ body.blog-page {
 .nav-button:focus-visible {
   /* `--accent` is set per project page and on the 404, but NOT on the homepage
      panels. Without a fallback the background stayed transparent while the
-     colour fell through to cream — cream text on cream paper, an invisible
+     color fell through to cream — cream text on cream paper, an invisible
      control (#892). Ink is the correct inverse on any surface. */
   background: var(--accent, var(--ink));
   color: var(--accent-contrast, var(--cream));
@@ -2234,7 +2234,7 @@ body.blog-page {
      `max-width: calc(... + var(--screenshot-pair-gap))` unresolved. An
      unresolved var() is invalid at computed-value time, which resets
      `max-width` to `none` rather than falling back to the earlier 320px rule —
-     the caption rendered full-bleed while the images stayed centred.
+     the caption rendered full-bleed while the images stayed centered.
 
    Declaring it on the figure puts both the wrapper and the caption inside its
    inheritance scope. */
@@ -2610,7 +2610,7 @@ body.blog-page {
   background: var(--accent);
 }
 
-/* A labelled list is one unit with the label that introduces it.
+/* A labeled list is one unit with the label that introduces it.
    `.project-copy` is a grid, so its 1.2rem row gap is the floor every child
    sits on and only a negative margin gets below it — without these rules a
    bold label sat FURTHER from its own list (27px, gap + the ul's 0.5rem)
@@ -2806,7 +2806,7 @@ body.blog-page {
 }
 
 /* Editorial filter, beside the index: "01 — COMPREHENSION". Optional, and
-   only authored by pages whose decisions organise around a stated thesis;
+   only authored by pages whose decisions organize around a stated thesis;
    the em dash is CSS so the markup carries the label alone. Same type as
    the counter so the pair reads as one eyebrow rather than two tokens. */
 .decision-ledger__lens {
@@ -3027,7 +3027,7 @@ body.blog-page {
    Fixed column counts (4-up, 2×2 under --bp-tablet) instead of
    auto-fit, so the dotted internal rules stay deterministic. */
 /* Experience Unit exhibit (#756 follow-up). One real Unit quoted from the
-   matchline evaluation corpus, rendered as a labelled record so the reader
+   matchline evaluation corpus, rendered as a labeled record so the reader
    sees what the schema above actually produces. Chrome, not prose: the
    default dl spacing is neutralized, and the label column collapses above
    the value on phones rather than squeezing it. */
@@ -4334,7 +4334,7 @@ svg.mermaid foreignObject p {
   max-width: 100%;
   height: auto;
   /* Mermaid writes its own natural width as an inline max-width, so a diagram
-     narrower than the column renders narrow. Centre it rather than leaving it
+     narrower than the column renders narrow. Center it rather than leaving it
      against the left margin with dead space beside it. */
   margin-inline: auto;
 }
@@ -4459,7 +4459,7 @@ svg.mermaid foreignObject p {
    sat in this spot and set nothing: Mermaid injects an id-scoped stylesheet
    (`#sidebar-mermaid-0 { … }`) whose specificity beats any class selector we
    can write, and the label `p` is pinned at 14px above regardless. Measured
-   before removing it — neutralising the declaration in the built page changed
+   before removing it — neutralizing the declaration in the built page changed
    no computed font size and no element's geometry. It was worth removing
    rather than leaving: it read as the sidebar's diagram type scale, which is
    the exact question #897 was about, and it answered it wrongly. Diagram type
@@ -4487,7 +4487,7 @@ svg.mermaid foreignObject p {
    title in the prose above it. That reasoning was about captions. Once both
    surfaces carry the same structural label, typing them apart would say the two
    figures sit at different levels of the document, which is the inconsistency
-   #998 exists to remove. Same size, same colour, same offset as
+   #998 exists to remove. Same size, same color, same offset as
    `.blog-figure figcaption`.
 
    `.blog-sidebar-caption` is the <p> that still serves `image` and `text`
@@ -4524,7 +4524,7 @@ svg.mermaid foreignObject p {
   margin: 0;
   /* type: text sidebar values are interpolated verbatim into one <p>, so the
      authored paragraph breaks are real newlines in the DOM that HTML would
-     otherwise collapse (#746). pre-line honours the blank lines and nothing
+     otherwise collapse (#746). pre-line honors the blank lines and nothing
      else, which is why those values are written one physical line per
      paragraph — a soft-wrapped source line would become a hard break. */
   white-space: pre-line;
@@ -5054,7 +5054,7 @@ svg.mermaid foreignObject p {
    inside a pair because the column is already halved, and both are held to a
    common height so a tall capture beside a short one does not read as ragged.
    Below the tablet breakpoint the pair stacks, which is the single-column
-   behaviour the figures already have on their own. */
+   behavior the figures already have on their own. */
 .figure-pair {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -5394,7 +5394,7 @@ a:focus-visible {
      a :root override here would thin the frames, gaps and accent borders of
      every route at any height under 1024px — routes this breakpoint has no
      business touching. The width-only :root override below keeps the
-     pre-existing <=1023px behaviour for all of them, unchanged. */
+     pre-existing <=1023px behavior for all of them, unchanged. */
   .stage {
     --line: 6px;
   }
@@ -5702,7 +5702,7 @@ a:focus-visible {
    window breaks that assumption — measured, the body copy set to a 1378px
    measure, roughly 130 characters a line.
 
-   Cap it at --bp-stack and centre it, so the stack renders at exactly the
+   Cap it at --bp-stack and center it, so the stack renders at exactly the
    width it was designed and measured for. The condition is inert in the
    case the block above was written for: at ≤1023px wide, `max-width: 1024px`
    cannot bind, so phone and tablet rendering is untouched by construction
@@ -6203,7 +6203,7 @@ body.resume-page {
 
    A float keeps the list item unpositioned, so its text paints in document
    order. It also leaves the text metrics untouched, which an inline-block
-   marker does not: an inline-block's own advance width has to be cancelled by
+   marker does not: an inline-block's own advance width has to be canceled by
    a compensating margin, and the two round to layout units independently, so
    the sum lands ~1/64px off zero and shifts every bullet's text by a subpixel.
    The float is outside the line box entirely. Its right margin edge sits left
@@ -6238,9 +6238,9 @@ body.resume-page {
 }
 
 /* Forced-colors mode (Windows High Contrast and friends) replaces author
-   background colours with the canvas colour, which would erase a square that
+   background colors with the canvas color, which would erase a square that
    is painted entirely by `background` — the marker would vanish exactly where
-   contrast matters most. System colour keywords are honoured rather than
+   contrast matters most. System color keywords are honored rather than
    overridden, so repainting it as `CanvasText` keeps it visible against
    whatever canvas the user has chosen. Screen and print rendering are
    untouched: the query matches neither (CodeRabbit, #924). */

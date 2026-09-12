@@ -318,7 +318,7 @@ function appendDeclaration(style, ...declarations) {
 export function createMermaidFigure({ sourceNode, title, description, descriptionId, caption }) {
   // Both authoring surfaces already reject an empty caption — the fence grammar
   // in `parseMermaidMetadata`, the `sidebar` schema in `src/content.config.ts`.
-  // Normalising here too keeps this function's own contract single-valued: an
+  // Normalizing here too keeps this function's own contract single-valued: an
   // absent caption and a blank one produce the same figure, so no caller can
   // ship an empty `<figcaption>` for a reader to land on.
   const captionText = typeof caption === 'string' ? caption.trim() : '';
