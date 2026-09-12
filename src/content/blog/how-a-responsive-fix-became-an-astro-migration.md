@@ -146,7 +146,7 @@ The same week brought a genuine production incident, a different bug: LinkedIn's
 
 The Astro v5 to v6.1 upgrade in [PR #73](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/73) is the quieter line item. Major-version upgrades do not exist on a hand-rolled HTML site; on Astro they arrive on Astro's schedule, and you make time whether or not you wanted to.
 
-Whether this ledger nets out positive is a judgement, not a measurement—I have no cost baseline from April to compute a break-even against. The trade itself is clear: publishing friction went down, and a dependency chain that breaks on its own schedule came aboard. A site with a flat template and one post a year should refuse that trade. A site meant to carry an editorial cadence—strict frontmatter, OG cards, RSS, a homepage that does more than list links—should take it.
+Whether this ledger nets out positive is a judgment, not a measurement—I have no cost baseline from April to compute a break-even against. The trade itself is clear: publishing friction went down, and a dependency chain that breaks on its own schedule came aboard. A site with a flat template and one post a year should refuse that trade. A site meant to carry an editorial cadence—strict frontmatter, OG cards, RSS, a homepage that does more than list links—should take it.
 
 ## What the agents changed
 

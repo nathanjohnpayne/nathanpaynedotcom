@@ -173,7 +173,7 @@ def median_neutral(path, s_max, v_lo, v_hi):
 
 Three neutral regions, not two. The ground band alone is 493,897 pixels, 41% of the image, which is canvas rather than a plane. The published black `#323137` sits five steps from the dark band. **The published gray `#DADFE5` sits three steps from the ground and forty from the mid band**, so that measurement was reading canvas. And the robustness the deleted pixel count was standing in for is better shown directly: the 1930 red median holds at `#DE2922`–`#DE2923` across every saturation threshold from 0.1 to 0.75.
 
-What none of this measures is paint. Between canvas and number sit gallery lighting at capture, each museum's unrecorded imaging and color-management pipeline, downscaling and JPEG recompression for the web, ninety-six and one hundred five years of ageing and any restoration, and the display you are reading this on. Every median above is a property of a file, not of a painting. The tickets say the same thing in four words—"treat sampled values as hue anchors"—and the shipped palette below takes them at their word.
+What none of this measures is paint. Between canvas and number sit gallery lighting at capture, each museum's unrecorded imaging and color-management pipeline, downscaling and JPEG recompression for the web, ninety-six and one hundred five years of aging and any restoration, and the display you are reading this on. Every median above is a property of a file, not of a painting. The tickets say the same thing in four words—"treat sampled values as hue anchors"—and the shipped palette below takes them at their word.
 
 ## Four decisions, in sequence
 
@@ -189,7 +189,7 @@ The agent does the plumbing. I ratify the judgment. Even "the agent" undersells 
 
 ## Auditing the shipped site
 
-The post-ship audit came back green where it matters, and it is reproducible—with one distinction the first version of this post blurred. **The artifact Claude fetched on 2026-06-11 was the deployed `/_astro/global.XofGYe7g.css`. The artifact checked below is a local rebuild**, because the deployed file is long gone and hash-named files are not addressable after a redeploy. So this is reconstruction evidence, not shipped evidence, and it is labelled that way.
+The post-ship audit came back green where it matters, and it is reproducible—with one distinction the first version of this post blurred. **The artifact Claude fetched on 2026-06-11 was the deployed `/_astro/global.XofGYe7g.css`. The artifact checked below is a local rebuild**, because the deployed file is long gone and hash-named files are not addressable after a redeploy. So this is reconstruction evidence, not shipped evidence, and it is labeled that way.
 
 Reconstructed 2026-08-26 from `src/styles/global.css` at `8bebc31`, the commit PR #504 merged, with Lightning CSS 1.32.0 (via Vite 8.0.16 inside Astro 7.2.4—Astro's default CSS minifier, not esbuild):
 

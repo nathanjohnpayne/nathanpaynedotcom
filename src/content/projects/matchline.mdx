@@ -124,7 +124,7 @@ export const ExtractedUnitV1Schema = z
   .strict();
 ```
 
-Here is one, from the repository's own evaluation corpus—a hand-labelled Unit for a synthetic candidate, quoted as the fixture stores it:
+Here is one, from the repository's own evaluation corpus—a hand-labeled Unit for a synthetic candidate, quoted as the fixture stores it:
 
 <dl class="unit-exhibit">
   <div><dt>Claim</dt><dd>Led Threadline B2B pivot from D2C-brand-as-customer to factory-as-customer, ran 38 customer development calls in six weeks; ARR per logo doubled, monthly churn dropped from 4.1% to 1.8%</dd></div>
@@ -177,7 +177,7 @@ The two orange nodes are the whole product. Note where the first one sits: unapp
 
 The quality bar was 80% extraction accuracy and 80% match accuracy. Neither was reached, and how the number moved is more interesting than where it stopped.
 
-The scorer first compared generated summaries to hand-labelled ones with string equality, and language models paraphrase, so the metric collapsed to 3.3%. Token overlap lifted it to 34%. A coefficient that gives full credit when the labelled set is covered by a longer generated one lifted it to 50.3%. Only then did a real system change—expanding the matching vocabulary from roughly 220 entries to 415—move it, by a single point, to 51.3%.
+The scorer first compared generated summaries to hand-labeled ones with string equality, and language models paraphrase, so the metric collapsed to 3.3%. Token overlap lifted it to 34%. A coefficient that gives full credit when the labeled set is covered by a longer generated one lifted it to 50.3%. Only then did a real system change—expanding the matching vocabulary from roughly 220 entries to 415—move it, by a single point, to 51.3%.
 
 ```mermaid title="Extraction accuracy: two ruler changes and one system change" description="Extraction accuracy rose from 3.3 percent to 51.3 percent across four measurements, against an 80 percent target that was never reached. Three of those four measurements came from different definitions of the scoring metric rather than from any change to the product: string equality scored 3.3 percent, token overlap 34 percent, and a coverage coefficient 50.3 percent. Only the last step was a change to the system itself, an expansion of the matching vocabulary, and it added a single point to reach 51.3 percent."
 flowchart TD
@@ -205,7 +205,7 @@ So the last working sessions went into the instrument rather than the product.
 
 ## The artifact
 
-A zero-fabrication constraint is easy to state and easy to fake: any validator that returns "looks fine" scores well on honest inputs. So the repository carries a hand-labelled adversarial case—a fabricated paragraph attached to a real résumé, claiming a multi-year x86 and Arm CPU roadmap, a hundred-million-VM fleet, a 40% throughput gain on SAP HANA, and $400M in contracts displacing a competitor. None of it traces to any Experience Unit. The fixture enumerates all four untraceable claims with the reason each fails, and records the expected validation status as failed.
+A zero-fabrication constraint is easy to state and easy to fake: any validator that returns "looks fine" scores well on honest inputs. So the repository carries a hand-labeled adversarial case—a fabricated paragraph attached to a real résumé, claiming a multi-year x86 and Arm CPU roadmap, a hundred-million-VM fleet, a 40% throughput gain on SAP HANA, and $400M in contracts displacing a competitor. None of it traces to any Experience Unit. The fixture enumerates all four untraceable claims with the reason each fails, and records the expected validation status as failed.
 
 It runs in continuous integration against the Firestore emulator, and a passing run means the export was blocked. That proves the orchestration refuses a known untraceable claim. It does not prove the model reliably detects a novel one, because the model checks are mocked in that test—its integration boundary is the database, not the model API.
 
@@ -223,7 +223,7 @@ I never wrote these criteria down while the project was live, which is itself a 
 
 **Resume it when:**
 
-- The evaluation corpus is finished and labelled.
+- The evaluation corpus is finished and labeled.
 - Measurement is trustworthy enough to distinguish improvement from noise.
 - One real application has gone through the product end to end—the condition the second build phase set for itself and never met.
 
