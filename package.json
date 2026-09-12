@@ -10,6 +10,7 @@
     "preview": "astro preview",
     "test": "astro build && vitest run",
     "test:e2e": "playwright test",
+    "test:all": "npm test && npm run test:e2e",
     "deploy": "scripts/check-deploy-env.sh && scripts/check-deploy-deps.sh && npm run build && op-firebase-deploy && scripts/cf-cache-purge.sh",
     "deploy:hosting": "scripts/check-deploy-env.sh && scripts/check-deploy-deps.sh && npm run build && op-firebase-deploy --only hosting && scripts/cf-cache-purge.sh",
     "lint": "scripts/lint-all.sh",

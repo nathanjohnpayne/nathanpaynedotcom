@@ -25,13 +25,24 @@ declare global {
 }
 
 // Skip the entire file on viewports where the state machine is disabled.
-// playwright.config.ts has 1440 as the only desktop viewport; the others
-// (375, 393, 768) fall below --bp-stack.
-test.beforeEach(async ({ page }, testInfo) => {
-  const vw = testInfo.project.use.viewport?.width ?? 0;
-  test.skip(vw < 1024, `Mondrian is stack-mode below 1024px (this viewport: ${vw}px)`);
+//
+// Since #992 the composition is stack-mode below 1024px on *either* axis, so a
+// width-only guard would fail to skip on a short desktop project and then fail
+// the spec against a page that is correctly stacked (#1004). The question goes
+// to `matchMedia` after navigation rather than to `testInfo.project.use`:
+// config can drift from what renders, and the breakpoint is then stated once,
+// in the CSS, instead of restated here. Same reasoning as
+// home-panel-contrast.spec.ts, which was moved to the two-axis query in #1003.
+//
+// The skip must still precede the `--cell-h-about` wait below, which never
+// resolves in stack mode — that hang is the failure this guard exists to avoid.
+test.beforeEach(async ({ page }) => {
   await page.goto('/');
   await page.waitForLoadState('domcontentloaded');
+  const isStack = await page.evaluate(
+    () => window.matchMedia('(max-width: 1023px), (max-height: 1023px)').matches,
+  );
+  test.skip(isStack, 'Mondrian is stack-mode below 1024px on either axis');
   // Wait for fonts.ready + measureContentHeights pass to settle.
   await page.waitForFunction(() => {
     const grid = document.getElementById('mondrian');
