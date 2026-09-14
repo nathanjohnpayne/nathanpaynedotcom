@@ -23,6 +23,18 @@ const HTML_COMMENT_OPEN_RE = /^ {0,3}<!--/;
 const BLOCKQUOTE_RE = /^ {0,3}>/;
 const BARE_LIST_MARKER_RE = /^ {0,3}(?:[-+*]|\d{1,9}[.)])(?:[ \t]|$)/;
 
+// CommonMark blankness is spaces and tabs only -- NOT JavaScript's trim()
+// whitespace set, which also strips Unicode separators such as U+2003 EM
+// SPACE, U+00A0 NO-BREAK SPACE and U+3000 IDEOGRAPHIC SPACE. A line of pure
+// U+2003 is NOT blank in CommonMark, so reading it as blank closes a
+// container's open paragraph (or ends a raw HTML block) early, and the lazy
+// continuation that follows -- a smuggled "Authoring-Agent:" line -- surfaces
+// as a live top-level declaration instead of staying quoted or hidden.
+// interruptsParagraph() already got this right and said so; the sibling
+// predicates did not. Single-sourced here so the sites that ask this one
+// question cannot drift apart again (#1192).
+const BLANK_LINE_RE = /^[ \t]*$/;
+
 // A line made of only "=" is always a setext underline; a line made of only
 // "-" is ambiguous between a setext underline and a thematic break, and one
 // made of only "_" or "*" (3+, CommonMark requires at least 3 for these two)
@@ -70,11 +82,22 @@ function opensLazyParagraph(line) {
   const blockquote = line.match(BLOCKQUOTE_RE);
   if (blockquote) {
     const remainder = line.slice(blockquote[0].length).replace(/^ /, '');
-    return remainder.trim() !== '' && !interruptsParagraph(remainder);
+    return !BLANK_LINE_RE.test(remainder) && !interruptsParagraph(remainder);
   }
-  const listItem = line.match(/^ {0,3}(?:[-+*]|\d{1,9}[.)])(?:[ \t]+(\S.*)?)?$/);
-  const remainder = (listItem?.[1] ?? '').trim();
-  return remainder !== '' && !interruptsParagraph(remainder);
+  // Neither \S nor dot preserves every CommonMark-nonblank Unicode
+  // separator: dot also drops U+2028/U+2029. Capture all content (#1192).
+  const listItem = line.match(/^( {0,3}(?:[-+*]|\d{1,9}[.)]))(?:([ \t]+)([\s\S]*))?$/);
+  const remainder = listItem?.[3] ?? '';
+  // One-to-four padding columns precede a paragraph; wider padding makes
+  // the first block indented code, which cannot have lazy continuations.
+  // Tabs advance from the physical column after the complete list marker.
+  const markerColumn = listItem?.[1].length ?? 0;
+  let padding = 0;
+  for (const char of listItem?.[2] ?? '') {
+    padding += char === '\t' ? 4 - ((markerColumn + padding) % 4) : 1;
+  }
+  if (padding > 4) return false;
+  return !BLANK_LINE_RE.test(remainder) && !interruptsParagraph(remainder);
 }
 
 // A GENUINE list item: unlike isContainerMarker() above, requires real
@@ -151,7 +174,7 @@ export function parsePrBodyContract(body) {
 
     if (htmlBlock != null) {
       if (htmlBlock === 'blank') {
-        if (rawLine.trim() === '') htmlBlock = null;
+        if (BLANK_LINE_RE.test(rawLine)) htmlBlock = null;
       } else if (htmlBlock === 'processing') {
         if (rawLine.includes('?>')) htmlBlock = null;
       } else if (htmlBlock === 'cdata') {
@@ -241,7 +264,7 @@ export function parsePrBodyContract(body) {
     // raw HTML block swallowed every line up to the next blank one -- hiding
     // the very markers this parser exists to find.
     if (/^ {0,3}<\/?[A-Za-z][A-Za-z0-9-]*(?:[ \t]+[^>]*|[ \t]*\/?)>/.test(line)) {
-      htmlBlock = line.trim() === '' ? null : 'blank';
+      htmlBlock = BLANK_LINE_RE.test(line) ? null : 'blank';
       continue;
     }
 
@@ -370,7 +393,7 @@ function interruptsParagraph(line) {
   // as one would end a code-span search early and let genuine code-span
   // content, e.g. a smuggled "Authoring-Agent:" line, surface as a live
   // top-level declaration instead of staying hidden inline code.)
-  if (/^[ \t]*$/.test(line)) return true;
+  if (BLANK_LINE_RE.test(line)) return true;
   // ATX heading, e.g. "## Self-Review" itself.
   if (/^ {0,3}#{1,6}(?:[ \t]|$)/.test(line)) return true;
   // Fenced code block opener. A backtick fence's info string cannot itself
