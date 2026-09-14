@@ -433,6 +433,19 @@ The human resolves by one of:
 
 The agent never resolves a fired escalation signal on its own.
 
+## External-clearance enforcement in this repository
+
+This repository enables `codex.external_review_gate.enabled` in `.github/review-policy.yml`. The required `Merge clearance gate` uses the trusted base policy to enforce the existing current-head external-clearance predicate for applicable threshold, protected-path, or explicitly labeled PRs, preserving verified-propagation exemptions. A missing or false switch skips this external-review arm; the separate Dependabot arm keeps its own setting. Keep the direct `codex.enabled` master switch before nested `enabled` fields so existing readers honor it; disabling Codex routes clearance through the permitted Phase 4b substitute rather than accepting a Codex bot signal.
+
+```yaml
+codex:
+  enabled: true
+  external_review_gate:
+    enabled: true
+```
+
+This activation is a prerequisite for the [owner-approved approval-count alignment](https://github.com/nathanjohnpayne/mergepath/issues/1059#issuecomment-5658411944). It does not change live protection: the approval count stays one until representative canary evidence establishes readiness. At a zero approval count, permitted current-head Codex clearance can carry Phase 4 without a GitHub `APPROVED` review; mandatory Phase 4b and all other merge gates still apply. Administrator enforcement is a separate rollout.
+
 ## Review Policy Configuration
 
 Each repository contains a `.github/review-policy.yml` file that governs review behavior. This file is read by the agent at the start of every review cycle.
