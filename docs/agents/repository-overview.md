@@ -106,3 +106,5 @@ npm run build && npm run og:refresh
 **Do not diff these as bytes.** PNG encoding varies between runs, so every file differs byte-wise from a freshly built counterpart even when the rendered card is identical—`cmp` reports drift everywhere and is useless as a staleness check. Whether a card *should* have changed is a human read (#876).
 
 ---
+
+The repository enables current-head external-review enforcement through `codex.external_review_gate.enabled`; see [the local review policy](../../REVIEW_POLICY.md#external-clearance-enforcement-in-this-repository) for activation and approval-count rollout requirements.

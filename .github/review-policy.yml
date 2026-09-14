@@ -135,6 +135,10 @@ coderabbit:
 #      See #29 for the observational evidence behind this behavior.
 codex:
   enabled: true
+  # Enforce current-head external clearance before approval-count alignment.
+  # Owner decision: nathanjohnpayne/mergepath#1059.
+  external_review_gate:
+    enabled: true
 
   # GitHub login of the Codex GitHub App bot. Reviews posted by this login
   # satisfy the external-review requirement in `.github/workflows/pr-audit.yml`.
