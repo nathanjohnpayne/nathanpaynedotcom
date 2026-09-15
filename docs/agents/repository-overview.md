@@ -108,3 +108,5 @@ npm run build && npm run og:refresh
 ---
 
 The repository enables current-head external-review enforcement through `codex.external_review_gate.enabled`; see [the local review policy](../../REVIEW_POLICY.md#external-clearance-enforcement-in-this-repository) for activation and approval-count rollout requirements.
+
+When an ordinary Codex-enabled external-clearance check blocks, it reports informational author/freshness request evidence, its linked acknowledgement, age and configured budgets, and existing provider observations ([mergepath#1276](https://github.com/nathanjohnpayne/mergepath/issues/1276)). These diagnostics bind request age and acknowledgement to an exact `@codex review` command comment; later prose mentions do not replace that evidence. The filter preserves requester deduplication, clearance, blocked exits, and the agent's responsibility to request review.
