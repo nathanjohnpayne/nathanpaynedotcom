@@ -17,28 +17,32 @@ import { serveStatic } from '../src/integrations/og-images.mjs';
  * against the built page. The viewports are browser VIEWPORTS, not screen
  * sizes, because that is what a media query sees.
  *
- * The floor is 960px tall: the lowest height at which no open panel's own text
- * is clipped by the grid. The binding panel is About, whose content track is
- * its measured text height; below 942px tall its text runs past the grid's
- * bottom edge and `.mondrian { overflow: hidden }` cuts it. The first version
- * of this file measured content against its PANEL, which grows with that track,
- * and so passed a floor of 840 at which About lost 167px of text (Codex, PR
- * #1043). Measuring against the GRID is the check that matters.
+ * The floor is 840px tall, set by Community's content, which overflows its own
+ * panel below 824px. About and Projects no longer bind: their content tracks
+ * are capped at the space the square has, and when the cap binds the panel
+ * scrolls its own text, with a fade at the bottom edge while more remains
+ * (#1044). Before that, About's text ran past the grid below 942px tall and
+ * `.mondrian { overflow: hidden }` cut it (Codex, PR #1043), and with About
+ * open the bottom band was cut at every square under ~1010px, the 1024x1200
+ * width floor included.
  *
- * Not asserted here, and tracked in #1044: with About open, the bottom band of
- * the composition is pushed past the grid — 87px at the 960 floor, and 27px at
- * the 1024x1200 width floor on main before #1042. Fixing About's row model is
- * what would let this floor come down.
+ * So the assertions are about reachability, not just geometry: after every
+ * open, every grid cell stays inside the grid, and every line of the open
+ * panel's text is either visible or reachable by scrolling the panel, with the
+ * cue shown while text remains below and cleared once the reader reaches it.
  */
 
 const DESKTOP = [
   // The window the production regression was reported from.
   { name: 'reported Chrome window 1885x987', width: 1885, height: 987 },
   { name: '1080p monitor on macOS, maximized 1920x970', width: 1920, height: 970 },
+  { name: '1080p monitor on Windows, maximized 1920x945', width: 1920, height: 945 },
   { name: '1440p monitor, maximized 2560x1300', width: 2560, height: 1300 },
   { name: '16-inch MacBook Pro 1728x1005', width: 1728, height: 1005 },
+  { name: '14-inch MacBook Pro 1512x860', width: 1512, height: 860 },
+  { name: '1440x900', width: 1440, height: 900 },
   // The height floor itself: the tightest desktop geometry there is.
-  { name: 'height floor 1440x960', width: 1440, height: 960 },
+  { name: 'height floor 1440x840', width: 1440, height: 840 },
   // The width floor.
   { name: 'width floor 1024x1200', width: 1024, height: 1200 },
 ];
@@ -46,11 +50,9 @@ const DESKTOP = [
 const STACKED = [
   // One pixel under each floor, so the floor cannot drift in either direction
   // without failing here or in the fit assertions above it.
-  { name: 'under the height floor 1440x959', width: 1440, height: 959 },
+  { name: 'under the height floor 1440x839', width: 1440, height: 839 },
   { name: 'under the width floor 1023x1200', width: 1023, height: 1200 },
-  // Real windows that stay stacked until #1044: About's text does not fit.
-  { name: '1080p monitor on Windows, maximized 1920x945', width: 1920, height: 945 },
-  { name: '14-inch MacBook Pro 1512x860', width: 1512, height: 860 },
+  { name: '1366x768 laptop, maximized 1366x657', width: 1366, height: 657 },
   { name: '1280x700 (#992)', width: 1280, height: 700 },
   { name: 'phone 390x844', width: 390, height: 844 },
 ];
@@ -169,25 +171,55 @@ async function hoverPanel(page, name, { expectOpen }) {
 }
 
 /**
- * Where the open panel's visible text ends, against the two boxes that can
- * clip it: its own panel, and the grid, which is `overflow: hidden`.
- * Positive means past the edge.
+ * Everything a reader needs from one open panel, read in the page.
+ *
+ * `band` is the furthest any grid cell runs past the grid's bottom edge. Cells
+ * normally end inside it (the grid has a border), so this is negative when the
+ * composition is intact and positive when a focus state pushed the bottom band
+ * out of the square, which `overflow: hidden` then cuts.
+ *
+ * The text check scrolls the panel's content to its end first, then requires
+ * every visible element to lie inside the panel's scroll box, the panel, and
+ * the grid. A panel that does not scroll is unaffected by the scroll, so the
+ * same check covers both.
  */
 async function readFit(page, name) {
-  return page.evaluate((panelName) => {
-    const grid = document.querySelector('.mondrian').getBoundingClientRect();
+  const before = await page.evaluate((panelName) => {
+    const ci = document.querySelector(`[data-panel="${panelName}"] .content-inner`);
+    return {
+      scrolls: ci.scrollHeight - ci.clientHeight > 1,
+      overflowY: getComputedStyle(ci).overflowY,
+      cueBefore: ci.classList.contains('has-more-below'),
+    };
+  }, name);
+  await page.evaluate((panelName) => {
+    const ci = document.querySelector(`[data-panel="${panelName}"] .content-inner`);
+    ci.scrollTop = ci.scrollHeight;
+  }, name);
+  // The scroll event that clears the cue is dispatched asynchronously.
+  await page.waitForTimeout(150);
+  const after = await page.evaluate((panelName) => {
+    const grid = document.querySelector('.mondrian');
+    const gridBox = grid.getBoundingClientRect();
     const panel = document.querySelector(`[data-panel="${panelName}"]`);
+    const panelBox = panel.getBoundingClientRect();
+    const ci = panel.querySelector('.content-inner');
+    const ciBox = ci.getBoundingClientRect();
     const text = [...panel.querySelectorAll('.panel-content *')].filter(
       (el) => el.getClientRects().length > 0 && getComputedStyle(el).visibility !== 'hidden',
     );
     const bottom = Math.max(...text.map((el) => el.getBoundingClientRect().bottom));
     return {
       textElements: text.length,
-      pastGrid: bottom - grid.bottom,
-      pastPanel: bottom - panel.getBoundingClientRect().bottom,
-      gridSquare: Math.abs(grid.height - grid.width) < 1.5,
+      textPast: bottom - Math.min(ciBox.bottom, panelBox.bottom, gridBox.bottom),
+      band:
+        Math.max(...[...grid.children].map((c) => c.getBoundingClientRect().bottom)) -
+        gridBox.bottom,
+      gridSquare: Math.abs(gridBox.height - gridBox.width) < 1.5,
+      cueAfter: ci.classList.contains('has-more-below'),
     };
   }, name);
+  return { ...before, ...after };
 }
 
 /** The composition is a square; the stack is a column far taller than wide. */
@@ -199,7 +231,7 @@ async function isComposition(page) {
 }
 
 describe.each(DESKTOP)('desktop composition at $name', (viewport) => {
-  it('renders the Mondrian square, and every panel opens with its text inside the grid', async () => {
+  it('renders the Mondrian square, and every open panel keeps the grid intact and its text reachable', async () => {
     const page = await openPage(viewport);
     try {
       expect(await isComposition(page), 'rendered the stack on a desktop window').toBe(true);
@@ -209,20 +241,30 @@ describe.each(DESKTOP)('desktop composition at $name', (viewport) => {
           `${name} did not open on hover`,
         ).toBe(true);
         const fit = await readFit(page, name);
-        // Control: an empty selection would make both bounds -Infinity and pass.
+        // Control: an empty selection would make the text bound -Infinity and pass.
         expect(fit.textElements, `${name} has no visible text to measure`).toBeGreaterThan(0);
         expect(fit.gridSquare, `the grid stopped being square with ${name} open`).toBe(true);
-        expect(fit.pastGrid, `${name} text is clipped by the grid`).toBeLessThanOrEqual(
+        expect(fit.band, `${name} pushed a grid cell past the grid`).toBeLessThanOrEqual(
           OVERFLOW_TOLERANCE_PX,
         );
-        expect(fit.pastPanel, `${name} text overflows its panel`).toBeLessThanOrEqual(
+        expect(fit.textPast, `${name} text is cut off and not reachable`).toBeLessThanOrEqual(
           OVERFLOW_TOLERANCE_PX,
         );
+        if (fit.scrolls) {
+          // Reachable means the panel really scrolls, and says so while it can.
+          expect(['auto', 'scroll'], `${name} overflows without scrolling`).toContain(
+            fit.overflowY,
+          );
+          expect(fit.cueBefore, `${name} has text below its edge but no cue`).toBe(true);
+          expect(fit.cueAfter, `${name} keeps the cue after reaching the end`).toBe(false);
+        } else {
+          expect(fit.cueBefore, `${name} shows the cue with nothing below`).toBe(false);
+        }
       }
     } finally {
       await page.close();
     }
-  }, 60_000);
+  }, 90_000);
 });
 
 describe.each(STACKED)('responsive stack at $name', (viewport) => {
