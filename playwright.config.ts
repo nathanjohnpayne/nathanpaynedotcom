@@ -60,11 +60,10 @@ export default defineConfig({
     {
       // 900 tall: an ordinary desktop window. #1003 raised this to 1024 when
       // its 1024px height floor sent 1440x900 to the stack, which moved the
-      // e2e suite off the regression instead of catching it — production
+      // e2e suite off the regression instead of catching it; production
       // served the phone stack to nearly every desktop window for 18 days
-      // (#1042).
-      // The height floor is now 840px (#992), so this is the composition
-      // again, and must stay a size real desktop readers have.
+      // (#1042). The height floor is now 840px (#992), so this is the
+      // composition again, and must stay a size real desktop readers have.
       name: 'Desktop 1440',
       use: { viewport: { width: 1440, height: 900 } },
     },
