@@ -231,6 +231,10 @@
   --bp-narrow: 480px;
   --bp-tablet: 768px;
   --bp-stack: 1024px;
+  /* Height floor for the homepage composition (#992; lowered from 1024px in
+     #1042, the regression #1003 shipped). Literal `839px` in @media, as
+     with --bp-stack above. */
+  --bp-stack-height: 840px;
   --mondrian-max-width: 1280px;
 }
 
@@ -5378,21 +5382,31 @@ a:focus-visible {
 /* 1023px is one below --bp-stack (1024px) on :root — the homepage
    stack-mode boundary. (#332)
 
-   The condition binds on BOTH axes, because the composition is a square
-   sized from the smaller of them: `.mondrian` is
-   `min(95vw, 95vh, var(--mondrian-max-width))`, so a short window shrinks
-   it exactly as a narrow one does. Enforcing the floor on width alone let
-   a 1280×700 window hold the desktop composition at a 665px square — far
-   below the 972.8px square that `max-width: 1023px` already refuses on the
-   other axis. Measured identical at 1024×1200 and 1440×1024 (both 972.8px,
-   with the same footer geometry to a tenth of a pixel): the composition
-   cannot tell which axis constrained it, so one floor governs both. (#992) */
-@media (max-width: 1023px), (max-height: 1023px) {
+   The condition also binds on HEIGHT, because the composition is a square
+   sized from the smaller axis: `.mondrian` is
+   `min(95vw, 95vh, var(--mondrian-max-width))`, so a short window shrinks it
+   as a narrow one does. At 1280×700 the square is 665px and the Projects
+   footer line runs 33px under its own exit link (#992).
+
+   The height floor is 840px (--bp-stack-height), NOT 1024px. #1003 first set
+   it to 1024px by symmetry with the width axis, and that sent nearly every
+   real desktop window to the stack: a 1080p monitor, a MacBook Pro, and any
+   maximized browser under 1024px tall once the browser's own UI is
+   subtracted (#1042). The floor is where the composition actually stops fitting,
+   measured on the built page with the panel open. The geometry is a function
+   of height alone at every width from 1280 to 2560:
+     - Community's content overflows its panel below 824px (0.4px at 823,
+       36.8px at 800) — the binding constraint;
+     - Projects' DOMAINS line meets its exit link at 740px (0.1px clearance)
+       and runs under it below.
+   840 leaves 16px over the Community crossing for font-metric variance. At
+   840 the square is 798px and Projects clears by 78px. */
+@media (max-width: 1023px), (max-height: 839px) {
   /* Scoped to the homepage `<main>`, NOT :root (Codex P2, PR #1003).
      `--line` is read by .project-detail, .frame, .hero, .blog-grid, the
      .grid-row--* tracks, .site-footer--grid and the 404's .error-mondrian, so
      a :root override here would thin the frames, gaps and accent borders of
-     every route at any height under 1024px — routes this breakpoint has no
+     every route at any height under 840px — routes this breakpoint has no
      business touching. The width-only :root override below keeps the
      pre-existing <=1023px behavior for all of them, unchanged. */
   .stage {
@@ -5707,7 +5721,7 @@ a:focus-visible {
    case the block above was written for: at ≤1023px wide, `max-width: 1024px`
    cannot bind, so phone and tablet rendering is untouched by construction
    rather than by coincidence. */
-@media (min-width: 1024px) and (max-height: 1023px) {
+@media (min-width: 1024px) and (max-height: 839px) {
   .mondrian {
     max-width: 1024px;
     margin-inline: auto;

@@ -58,15 +58,15 @@ export default defineConfig({
       use: { viewport: { width: 768, height: 1024 } },
     },
     {
-      // 1024 tall, not 900. The Mondrian composition has a minimum viewport
-      // dimension of 1024 CSS px on BOTH axes (#992), so a 1440x900 window
-      // renders the responsive stack — this project would have been asserting
-      // desktop behaviour against a page that is not desktop, and the specs
-      // that wait for --cell-h-* or hover a panel would hang. 1024 is the
-      // tightest geometry that is still the composition, which is the one
-      // worth exercising.
+      // 900 tall: an ordinary desktop window. #1003 raised this to 1024 when
+      // its 1024px height floor sent 1440x900 to the stack, which moved the
+      // e2e suite off the regression instead of catching it — production
+      // served the phone stack to nearly every desktop window for 18 days
+      // (#1042).
+      // The height floor is now 840px (#992), so this is the composition
+      // again, and must stay a size real desktop readers have.
       name: 'Desktop 1440',
-      use: { viewport: { width: 1440, height: 1024 } },
+      use: { viewport: { width: 1440, height: 900 } },
     },
   ],
   webServer: EXTERNAL_BASE_URL

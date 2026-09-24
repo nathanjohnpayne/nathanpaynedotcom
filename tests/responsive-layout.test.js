@@ -80,18 +80,25 @@ describe('Responsive Layout', () => {
   });
 
   it('guards interactions on BOTH axes, not width alone', () => {
-    // #992 gave the composition a minimum viewport dimension of 1024px on
-    // either axis. The behavioural half of this is asserted below; this is the
-    // string half, and it is here because the two can fail independently — a
-    // guard could query both axes while the CSS queried one, or the reverse.
-    expect(panelScript).toContain('max-height: 1023px');
-    expect(sourceCss).toContain('@media (max-width: 1023px), (max-height: 1023px)');
+    // #992 gave the composition a height floor as well as a width one: 1024px
+    // wide, 840px tall. The behavioural half of this is asserted below; this is
+    // the string half, and it is here because the two can fail independently —
+    // a guard could query both axes while the CSS queried one, or the reverse.
+    //
+    // The height floor was 1023px until it sent every ordinary desktop window
+    // to the stack in production; the negative assertions pin that it does not
+    // come back. Whether real desktop viewports get the composition is asserted
+    // in a browser by tests/desktop-composition.test.js.
+    expect(panelScript).toContain('max-height: 839px');
+    expect(sourceCss).toContain('@media (max-width: 1023px), (max-height: 839px)');
+    expect(panelScript).not.toContain('max-height: 1023px');
+    expect(sourceCss).not.toContain('max-height: 1023px');
   });
 
   it('mobile guard prevents panel opening on a WIDE but short viewport', () => {
     // The regression this exists to catch: reverting the guard to a width-only
-    // query. This mock answers for a 1440x900 window — wide enough that
-    // `max-width: 1023px` does NOT match, short enough that `max-height: 1023px`
+    // query. This mock answers for a 1440x800 window — wide enough that
+    // `max-width: 1023px` does NOT match, short enough that `max-height: 839px`
     // does — so a width-only guard would report desktop, open the panel, and
     // fail here while the CSS around it renders the static stack.
     //
@@ -101,7 +108,7 @@ describe('Responsive Layout', () => {
     Object.defineProperty(window, 'matchMedia', {
       writable: true,
       value: vi.fn((query) => ({
-        matches: query.includes('max-height: 1023px'),
+        matches: query.includes('max-height: 839px'),
         media: query,
         addEventListener: vi.fn(),
         removeEventListener: vi.fn(),
