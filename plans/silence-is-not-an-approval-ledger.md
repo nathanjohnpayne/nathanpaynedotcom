@@ -1,0 +1,285 @@
+# Facts ledger—`silence-is-not-an-approval`
+
+Post source: `src/content/blog/silence-is-not-an-approval.md`. Drafted `2026-09-23`, unpublished. Evidence repo: `nathanjohnpayne/mergepath`. Bare `#NNN` means **mergepath**, never this repository. Every reference below is written repo-qualified where ambiguity is possible.
+
+Verdicts: **SUPPORTED** · **WRONG** (corrected value given) · **UNPROVABLE** (defensible weaker form given).
+
+**Retrieval timestamp for every API figure below: 2026-09-23.** Figures were pulled through the GitHub read tools, not a local checkout: `github_get_pull_request` (metadata, timeline), `github_get_pull_request_diff` (`total_additions`, `total_deletions`, `total_files`), `github_get_issue` (metadata, timeline), `github_list_commits` (`[].date`, `[].message`), `github_list_issues`, `github_list_pull_requests`.
+
+**Three tool limits that shape every row below, stated once.**
+
+1. `github_get_pull_request` exposes `.metadata.merged` as a boolean but **carries no `merged_at` field**. Every merge timestamp in this ledger is either the timeline's `merged` event `created_at` or, where no such event exists, the `date` of the squash or merge commit on `main` bearing the pull request's number. Those are different fields with different meanings and the row says which one it used.
+2. Issue and pull request **timelines paginate at 30 events**. Every "referencing PRs" list below is page 1 only and is therefore a **floor, not a complete set**. Do not write "only" or "every" in front of one of these lists.
+3. There is **no issue full-text search** in this tool set. Issue population figures are title-only matches and are floors.
+
+---
+
+## A. THE CENTRAL CLAIM, AND THE ONE THING THE POST MUST NOT OVERSTATE
+
+### A1—"a reviewer that could not answer produced a value, and the caller had no way to represent 'no answer,' so it used the value"
+
+**SUPPORTED as a characterization of the cited instances. UNPROVABLE as a claim about the codebase as a whole.**
+
+The post states this as the shape of a defect family and then cites eight instances. That is defensible. What the draft must not do is assert that no representation of "no answer" exists anywhere in the codebase. The evidence for the stronger reading is `nathanjohnpayne/mergepath#878`, which says the classification rests on grepping a rendered vendor surface (§C1), and that is an argument about *how* the state is derived rather than proof that no type for it exists anywhere. Defensible weaker form, and the one the post uses: **there is no single shared representation consumed by both the waiter and the gate**, which is #878's own acceptance criterion 2, quoted verbatim in §C1.
+
+### A2—the post's most important self-criticism is verifiable, and it is the reason to publish
+
+`nathanjohnpayne/mergepath#878` body: *"Do not attempt this as a patch series. The original filing's own history—seven review rounds, fifteen valid findings, no convergence—is the argument against that."*
+
+Source: `github_get_issue(repo="nathanjohnpayne/mergepath", issue_number=878)` → `.metadata.body`.
+
+**SUPPORTED.** #878 was created `2026-08-03T19:40:44Z` (`.metadata.created_at`), is `open` (`.metadata.state`), and carries labels `size:L`, `type:debt`, `priority:high`, `area:review-sensing` (`.metadata.labels[].name`). Its own pinned decision banner names `#1271`, `#1273`, `#1274/#1279`, `#1282` and `#1283` as shipped against it and says it "stays open/high for the #956 product decision and the remaining shared classification contract."
+
+So the instruction not to do this as a patch series predates the patch series by six weeks, and the patch series is five of the pull requests this post is about. The post states this. It is the strongest claim in the piece and it is against the author.
+
+---
+
+## B. THE POPULATION FIGURES
+
+### B1—"Ninety pull requests merged into Mergepath between August 23 and September 23"
+
+**SUPPORTED as a floor. WRONG if written as an exact count.**
+
+Method: `github_list_commits(repo="nathanjohnpayne/mergepath", branch="main", page_size=100)` page 1 spans `2026-09-22T19:01:31Z` back to `2026-08-22T22:17:51Z`, so the whole window sits in one page and no pagination was required. 99 commits fall inside `2026-08-23` through `2026-09-23` inclusive. Pull request references were parsed from commit subjects (`Merge pull request #N`, or a trailing `(#N)`) and then validated against the authoritative pull request number set from `github_list_pull_requests(state="all", sort="created", direction="desc", page_size=100)` pages 1–2, covering #767–#1293.
+
+That validation is load-bearing. 91 distinct `(#N)` references appear in subjects, but **five of them reference issue #1130, not a pull request**—`test(ci): exercise tied publisher timestamps (#1130)` and four siblings. #1130 is an open issue and is absent from the pull request set. Dropping it gives 90.
+
+**Counting rule the post must state:** a rebase-merged pull request leaves no reference in its commit subject and would be missed entirely. **90 is a floor.** Two merge styles appear: 88 squash commits and two true merge commits (#1266, #1291).
+
+### B2—"Twelve of the ninety name this failure mode explicitly in their titles. Thirty-four are fail-closed in shape."
+
+**SUPPORTED, with the classification method stated. The post must not give a number between them.**
+
+Strict bucket, titles explicitly naming an absent, truncated, rate-limited, timed-out or quota/budget-exhausted reviewer, check or API response—**12 of 90**: #1084, #1105, #1121, #1170, #1179, #1248, #1263, #1274, #1279, #1285, #1291, #1293.
+
+Loose bucket, also counting fail-closed-shaped titles about stale, unreadable, silent, no-op, veto, refusal or hold behavior—**34 of 90**.
+
+**Bodies were not read for all 90.** Classification is title-only. The true figure is somewhere in 12–34 and the draft explicitly declines to pick one. By conventional-commit prefix the window is overwhelmingly `fix(...)`, with a handful of `feat` (#1084, #1106, #1111, #1119, #1124, #1138, #1169).
+
+### B3—"eleven of the 164 open issues in the repository are about a rate limit, a quota, or a timeout being mistaken for a verdict"
+
+**SUPPORTED as a floor.**
+
+Open issue total **164**: `github_list_issues(state="open", page_size=100)`, page 1 returns 100 with `has_more: true`, page 2 returns 64 with `has_more: false`.
+
+The eleven, by title match: #1305, #1245, #1223, #1186, #1185, #1130, #962, #961, #907, #826, #722. Two more are arguable on a looser reading of budget-as-quota (#816, #813), giving 11 strict and 13 loose.
+
+Matching is **title-only**; there is no issue full-text search in this tool set. An issue whose body discusses a rate limit under a title that does not is uncounted. **11 is a floor.**
+
+### B4—ages of the eleven
+
+**SUPPORTED.** Source: `github_list_issues(state="open", sort="created", direction="asc", page_size=100)` pages 1–2 → `issues[].created_at`, cross-checked for #962, #826, #722 against their individual `github_get_issue` calls, which return identical values.
+
+| Issue | created_at (UTC) | Age at 2026-09-23 |
+|---|---|---:|
+| 1305 | 2026-09-23T15:37:29Z | 0 |
+| 1245 | 2026-09-13T02:00:28Z | 10 |
+| 1223 | 2026-09-11T13:17:36Z | 12 |
+| 1186 | 2026-09-04T16:31:49Z | 19 |
+| 1185 | 2026-09-04T16:21:43Z | 19 |
+| 1130 | 2026-08-28T03:03:22Z | 26 |
+| 962 | 2026-08-13T01:52:07Z | 41 |
+| 961 | 2026-08-13T01:52:01Z | 41 |
+| 907 | 2026-08-05T00:46:39Z | 49 |
+| 826 | 2026-07-30T21:19:29Z | 55 |
+| 722 | 2026-07-07T01:24:08Z | 78 |
+
+Counting rule: age is the whole-day, date-to-date difference from the `created_at` date to 2026-09-23. **Oldest #722 at 78 days. Median, the sixth of eleven sorted, is #1130 at 26 days.** All eleven are `open`; there are no exceptions to check.
+
+**WRONG in an earlier draft:** the sentence "Some of them are a year old." No issue in the set exceeds 78 days. Corrected to "the oldest is 78 days old," which is what the table supports.
+
+### B5—"#961 and #962 were filed six seconds apart"
+
+**SUPPORTED.** `2026-08-13T01:52:01Z` and `2026-08-13T01:52:07Z` respectively (`issues[].created_at`). Both are splits from #825, which #962's title states in full: "(split from #825 option 4)". The post uses this as mechanical evidence that the enumeration is a decomposition of one filing rather than two independent discoveries. That reading is supported by the titles themselves and needs no inference.
+
+### B6—"#1305 was filed today"
+
+**SUPPORTED, and time-sensitive.** Created `2026-09-23T15:37:29Z`, title "Phase 4b barrier treats a cap-exhausted Codex arm as a self-clearing wait," and `issues[].labels` is **empty**. If this post is published on any date after 2026-09-23 the word "today" is wrong and must become the date. Flag for the pre-publish pass.
+
+---
+
+## C. THE MISSING-ABSTRACTION ARGUMENT
+
+### C1—#878 already proposes the general fix
+
+**SUPPORTED.** Verbatim from `.metadata.body`:
+
+> "They are not independent defects. They are instances of one property: **CodeRabbit's review state is inferred by grepping a rendered vendor surface, and that surface is neither stable nor machine-specified.**"
+
+> "A classification that rests on **machine-specified signals**—the per-SHA StatusContext including its `description`, review-object identity and timestamps, and the vendor's own machine tags—with rendered prose used only where no machine signal exists, and with every rung of the ladder implemented once and consumed by both the advisory waiter and the required gate."
+
+Acceptance criterion 1: "A written contract (extending `specs/coderabbit_review_sensing.md`) enumerating each observable signal, its source, and what it is permitted to prove—separating *the review ran* from *the review found nothing*."
+
+Acceptance criterion 2: "One implementation of that contract, consumed by `scripts/coderabbit-wait.sh` and `scripts/coderabbit-severity-gate.sh` alike. No predicate exists in two copies (closes the class behind #895 and #938)."
+
+The issue also states: "The 2026-09-03 audit found **39 of 138 retained issues** in `area:review-sensing`." That figure is **the issue's own claim**, quoted here as what the issue says. It was not independently re-derived from the API in this pass and the post must attribute it that way or not use it.
+
+### C2—#878's enumeration of the false-clearance cluster
+
+**SUPPORTED as quotation.** #878 names #940 (cleared on a head whose StatusContext read `success | Review rate limited`, "with no review object at all"), #956 ("cleared in one second while CodeRabbit was auto-paused"), #1034, #1037 ("a confident zero on a head carrying live blocking findings"), #955, and describes #945 as a parser that "produced a defect in every review round since it was introduced, each one created by the previous round's fix."
+
+That last clause is the strongest single sentence available for the post's convergence argument and should be quoted rather than paraphrased.
+
+### C3—#940, the opening example
+
+**SUPPORTED.** #940 is `closed`. The behavior: polling returned `status: cleared` on a head whose StatusContext read `success | Review rate limited` with no review object attached. The post's rendering of this—"the word `success` was in the payload, so the payload was read as success"—is an interpretation of the mechanism, not a quotation, and the draft does not present it as one.
+
+---
+
+## D. PER-PULL-REQUEST ROWS
+
+All diff figures: `github_get_pull_request_diff(pull_number=N, max_patch_length=0, page_size=100)` → `total_additions` / `total_deletions` / `total_files`. All round counts: `github_get_pull_request(pull_number=N)` → count of `timeline[]` entries with `event_type=="reviewed"`, all pages read unless the row says otherwise.
+
+| PR | Additions/deletions | Files | Rounds | Merge timestamp | Source of timestamp |
+|---|---:|---:|---:|---|---|
+| #1179 | +1,298 / −69 | 18 | **≥15** | 2026-09-04T14:42:28Z | timeline `merged` event |
+| #1274 | +206 / −56 | 6 | 3 | 2026-09-14T09:22:48Z | timeline `merged` event |
+| #1279 | +183 / −36 | 5 | 1 | 2026-09-15T03:17:43Z | timeline `merged` event |
+| #1282 | +104 / −1 | 5 | 1 | 2026-09-15T04:54:18Z | timeline `merged` event |
+| #1283 | +105 / −4 | 3 | 1 | 2026-09-15T05:51:20Z | timeline `merged` event |
+| #1248 | +68 / −1 | 2 | 1 | 2026-09-13T05:15:22Z | timeline `merged` event |
+| #1263 | +45 / −1 | 3 | 2 | 2026-09-14T03:20:29Z | **merge commit `date`** |
+| #1293 | +573 / −19 | 7 | 15 | 2026-09-22T18:06:20Z | timeline `merged` event |
+| #1291 | +308 / −9 | 9 | 6 | 2026-09-22T19:01:32Z | timeline `merged` event |
+| #1278 | +89 / −2 | 5 | 1 | 2026-09-15T02:52:18Z | timeline `merged` event |
+| #1169 | +15,436 / −706 | 50 | 4 | 2026-09-11T03:45:16Z | **merge commit `date`** |
+| #1232 | +163 / −4 | 6 | 4 | **never merged** | see §D3 |
+
+### D1—#1179's round and finding counts
+
+**UNPROVABLE as exact figures.** `timeline_has_more` is still `true` at `timeline_page=4`, 120 events read, so pagination was not exhausted. Reviewed events observed: **≥15**. `Actionable comments posted:` values parsed from timeline bodies: `[1,1,2,1]`, so findings **≥5**.
+
+Defensible weaker form, and the one the post uses: **"15 or more rounds."** Do not write "15 rounds" flat.
+
+### D2—#1263 and #1169 merge timestamps
+
+**UNPROVABLE from the timeline; SUPPORTED from the commit.** #1169's timeline carries **no `merged` event** even with pagination exhausted (page 2, `timeline_has_more` false, 48 events); it has only a `closed` event at `2026-09-11T03:45:16Z`. The squash commit `feat(merge): authorize exact-head native queue integration (#1169)` is dated the same instant, so the merge landed then. #1263's `merged` event is present but its exact second is taken from the merge commit `date` `2026-09-14T03:20:29Z`, against `.metadata.updated_at` of `2026-09-14T03:20:31Z`.
+
+Either row is citable as a merge date. Neither should be cited as a timeline merge event.
+
+### D3—#1232 closed unmerged
+
+**SUPPORTED, and this row corrects an earlier draft.**
+
+`.metadata.state` is `closed` and `.metadata.merged` is **`false`**. Created `2026-09-12T00:59:33Z`, closed `2026-09-12T01:51:04Z`, 51 minutes 31 seconds later. No `merged` event on the timeline. Independently corroborated by the absence of any `(#1232)` commit on `main` in `github_list_commits`. It ran 4 review rounds and drew 2 findings (`Actionable comments posted:` values `[1,1]`; timeline complete at 38 events).
+
+**WRONG in the first draft of this post**, which listed #1232 alongside #1234 as shipped work under the heading "split the token budget." It did not ship. The corrected claim appears in the body, in the `keyTakeaways`, and in the `description`. Per the revision process, all three surfaces were checked; a fix to the body alone would have left the frontmatter asserting the retracted version.
+
+Its own body scoped it honestly: "Refs #1130. Partial: this is the token half, measured and bounded. The event amplification is deliberately not in scope."
+
+### D4—#1291 spawned three open issues
+
+**SUPPORTED.** #1301, #1302 and #1303 are recorded as post-review issues arising from #1291. Note that this is a **floor** per the timeline pagination limit in the header, and the post does not write "three and only three."
+
+### D5—#1130, the largest instance
+
+**SUPPORTED.** `open`, `priority:high`, created `2026-08-28T03:03:22Z`. Body: "codex-p1-gate runs on the App installation budget (1,000/hr/repo), so an exhausted GITHUB_TOKEN deadlocks every open PR" and "every open PR in the repository becomes unmergeable regardless of its own merits."
+
+### D6—#1248 and its issue
+
+**SUPPORTED.** #1247 created `2026-09-13T04:54:39Z`; #1248 created `2026-09-13T04:55:35Z`. The gap is **56 seconds**, not the twenty-one minutes an earlier draft asserted.
+
+**WRONG in the first draft**, which said the issue was "filed twenty-one minutes before the pull request opened." Corrected value: **56 seconds**. The corrected figure is materially better for the post's argument, which is that these are small known fixes nobody had a reason to write, so the temptation to keep the rounder wrong number should be noted and resisted.
+
+Issue body, verbatim: "GitHub caps that listing at 3000 entries, and at the cap the inventory may be truncated." Pull request body, verbatim: "both fail closed to \"external review required\", because a possibly-truncated inventory cannot support either verdict."
+
+### D7—#1186 and the watermark
+
+**SUPPORTED.** #1186 is `open`, labels `risk` and `priority:high`. Body: "Wave audit has not advanced its watermark since 2026-07-28: over-budget diffs classify as 'reviewer unavailable' and chain forward, making the next range larger."
+
+Elapsed from `2026-07-28` to #1186's filing on `2026-09-04` is **38 days**. The post says "six weeks," which is 42 days and is **WRONG** as stated. Corrected: **38 days**, or the weaker "five weeks." The draft uses the exact figure.
+
+### D8—#1293 and #813
+
+**SUPPORTED.** #1293 body: "Stop additional Codex review requests after the PR consumes `codex.max_review_rounds` (default 10). Count distinct exact commands from the configured author across paginated issue-comment history before every new write, including acknowledgement retries." It implements #813, an **open** epic at `priority:high`: "Create a bounded review lane: order providers, count cycles, and stop discretionary churn."
+
+---
+
+## E. THE CONTROLS
+
+The post's thesis is that fail-open defaults are the dangerous class. A post that only stacks up fail-open defects has not tested that. These three rows are the controls.
+
+### E1—#962, the counter-case: fail-closed has its own cost
+
+**SUPPORTED, and this is the strongest control available.**
+
+Title: "A correct rate-limit block should not surface as a red failure check (split from #825 option 4)". `open`, created `2026-08-13T01:52:07Z`, labels `post-review`, `observation`, `size:M`, `type:hardening`, `priority:normal`, `area:review-sensing`, `area:merge-gating`.
+
+Verbatim from `.metadata.body`:
+
+> "When the auto-merge rate-limit gate blocks, it is usually *right* to block—neither bot has read the diff, so the PR needs a human."
+
+> "A break-glass prompt is exactly the wrong affordance for a routine provider outage: it trains the reflex on a case where nothing is actually wrong with the code."
+
+> "Branch protection treats a required check as satisfied on `neutral`, so if this check is required, downgrading the conclusion would *release* the merge rather than merely recolouring it."
+
+That third sentence is the one the post must carry, because it shows the obvious remedy for the counter-case reopening the original defect. The issue's own summary row states the distinction outright: "**#962** (this issue) | auto-merge rate-limit gate | A **correct block** presented too alarmingly. The gate means what it says; only the alarm level is wrong."
+
+Referencing pull requests observed on timeline page 1: #960, #1084, #1189, #1196. **Floor, not a complete set.**
+
+### E2—#826, the proposal that says the topology is wrong
+
+**SUPPORTED.** Title: "Proposal: rebalance the review topology—Codex primary, CodeRabbit deliberate, rate limits never blocking". `open`, created `2026-07-30T21:19:29Z`, labels include `type:decision` and `status:blocked`.
+
+Verbatim: "CodeRabbit's Fair Usage allowance is structurally too small for this fleet, and the review machinery currently spends it on the least valuable heads while making it load-bearing for merge." And: "The budget is exhausted by the system reviewing its own churn."
+
+**UNPROVABLE, quoted as the issue's own claim only:** the allowance of 5 pull request reviews per hour, 9 consumers sharing it, the `coderabbit.max_wait_seconds` ceiling of 1245s, and observed Fair Usage windows of 2109s and 2398s. These are attributed inside the issue body to `docs/agents/coderabbit-audit.md` and two captured runs. They were **not** independently re-derived here. If the post uses any of them it must write "the issue records" and not assert them directly. The current draft uses only "the budget is exhausted by the system reviewing its own churn," as a quotation.
+
+### E3—#722, the oldest instance
+
+**SUPPORTED.** `open`, created `2026-07-07T01:24:08Z`, labels `bug`, `automation`, `priority:high`. Verbatim: "The poll just keeps waiting for the full `review_timeout_seconds` window (840s default) and then exits `4` (FALLBACK_REQUIRED)—indistinguishable from a genuinely slow/no-op review." And: "…but that detection lives **only** in the retrospective audit script, never in the live gate/trigger path."
+
+**UNPROVABLE, the issue's own claim:** "17/400 historical triggers drew a rate-limit marker and 75/400 drew a not-connected marker." Self-cited to `docs/audits/codex-latency-2026-07.md`, not re-derived. Attribute or omit.
+
+### E4—the contrast set: substantial merged work in the window that is not this defect
+
+**SUPPORTED.** Three merged pull requests over 100 added lines that are not about reviewer absence, quota, timeout or truncation:
+
+- **#1250**, "fix(931): recover the policy gates by nudging their canonical producer," +1,432 / −10 across 8 files, merge commit on `main` `2026-09-13T20:24:45Z` (sha `a0c427a4`). Body: "An operator can cause `.github/workflows/pr-review-policy.yml` to re-evaluate one open PR, so that its two required contexts report on the current head."
+- **#1264**, "fix: acknowledge accounted Phase 4b approval bodies," +344 / −15 across 11 files, merge commit `2026-09-14T05:20:57Z` (sha `c38161d0`). Body: "An automated Phase 4b approval can immediately create an unaccounted review-body finding even after its optional findings have been filed."
+- **#1106**, "feat(accounting): track github-advanced-security code-scanning findings," +640 / −21 across 20 files, `.metadata.merged` true. Body: "a CodeQL finding could ride through repeated \"fully accounted\" review rounds unread." **Merge timestamp UNPROVABLE**—no `merged_at` field, and its squash commit falls outside the read page of `github_list_commits`. Cite as merged, not as merged on a date.
+
+Rejected candidates, recorded so a later pass does not re-check them: **#1119** is 29 added lines and fails the size bar. **#1228** has `.metadata.merged` false and is closed unmerged—**do not cite it as shipped work.** #1124 and #1182 are merged but their merge dates were not established.
+
+**Note what the contrast set actually shows, because it cuts against a lazier version of the post:** #1264 and #1106 are themselves about a finding riding through unread. The contrast set is thinner than the thesis wants. The honest reading, which the draft carries, is that the bulk of the 90 is neither cleanly new capability nor cleanly quota defense but correctness repair on review-sensing and merge-gating logic.
+
+### E5—#1169, the capability counterpoint
+
+**SUPPORTED.** +15,436 / −706 across 50 files, the largest in the set by an order of magnitude, merged `2026-09-11T03:45:16Z` per its squash commit. Body: "Add the fail-closed authorization boundary for a singleton native GitHub merge queue, using exact-SHA required workflows from an organization-owned public policy source."
+
+Its issue #1058 is **still open**, labels `bug`, `enhancement`, `automation`, `size:L`, `type:feature`, `priority:normal`, `area:merge-gating`, `status:blocked`. Body: "Nothing keeps an open PR in sync with `main`." And: "This repo's merge safety is **head-SHA-pinned by construction**, and a merge queue evaluates required checks on a different SHA."
+
+The detail worth the post's space: #1058 records `required_status_checks.strict` as "**unknown**—`GET /branches/main/protection` returns `403 Resource not accessible by integration`." A gate whose own configuration could not be read. That is the same defect class as the post's thesis, appearing inside the one pull request offered as the counterexample to it.
+
+---
+
+## F. THE BURST
+
+### F1—"21 commits in 32 hours and 41 minutes"
+
+**SUPPORTED with a counting rule the post must state.**
+
+Source: `github_list_commits(branch="main", page_size=100)` → `[].date`, `[].message`. Commits on `main` between `2026-09-14T00:00:00Z` and `2026-09-15T23:59:59Z`: **21**. Earliest `2026-09-14T03:20:29Z` (#1263), latest `2026-09-15T12:01:26Z` (#1287). Elapsed **32 h 40 m 57 s**.
+
+**Counting rule.** Two of the 21 rows are the same pull request: #1266 landed as a merge commit (`2026-09-14T05:47:03Z`) plus its branch commit (`2026-09-14T04:57:43Z`). On a strict distinct-changes count the window holds **20**, not 21. The post uses "twenty distinct changes across 21 commits" and states the rule in the sidebar.
+
+Coverage is complete: the next-older commit on the same page is `2026-09-13T20:24:45Z`, so nothing in the window fell past a page boundary.
+
+**The list is not strictly monotonic by timestamp**—row 18 at `04:57:43Z` appears after row 17 at `05:20:57Z`. Cite timestamps, never list order.
+
+### F2—what the burst contains
+
+**SUPPORTED.** Of the 20 distinct changes, the ones in this post's family are #1263, #1264 (contrast), #1270, #1271, #1272, #1273, #1274, #1278, #1279, #1280, #1282, #1283, #1284, #1285, #1286, #1287. The subject lines are quotable verbatim from `[].message` first lines and five of them name #878 or an issue #878 enumerates.
+
+---
+
+## G. PRE-PUBLISH CHECKLIST
+
+Per `docs/agents/blog-revision-process.md`, these must be re-checked before this post ships, and each has a specific known failure mode:
+
+1. **"Today" in §B6.** #1305 is cited as filed today. Publishing on any later date makes this false. Replace with the date.
+2. **Every corrected figure at every surface.** Three corrections landed in this ledger: #1232 did not merge (§D3), the #1247/#1248 gap is 56 seconds not twenty-one minutes (§D6), and the #1186 watermark gap is 38 days not six weeks (§D7). Grep the body, `description`, `seoDescription`, all four `keyTakeaways`, all three `pullquotes`, and both `sidebar` entries for each claim **in any wording**, not for the sentence that was edited.
+3. **Quantifier scope.** The draft contains universals about "every call site" and "no representation." §A1 is the defensible weaker form. Re-read both against it.
+4. **Attribution of issue-internal numbers.** §E2 and §E3 carry figures that are the issues' own claims. Any use must say so.
+5. **Floors stated as floors.** 90 merged pull requests, 11 open issues, and every referencing-PR list are floors per the header's three tool limits. The word "only" must not appear in front of any of them.
+6. **Brevity pass runs separately and after this.** Do not combine it with a factual pass. `scripts/verify-brevity.py BEFORE AFTER` does not catch swapped values, so read any passage that pairs a number with a pull request by hand.
