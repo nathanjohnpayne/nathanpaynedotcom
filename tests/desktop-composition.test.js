@@ -196,8 +196,21 @@ async function readFit(page, name) {
     const ci = document.querySelector(`[data-panel="${panelName}"] .content-inner`);
     ci.scrollTop = ci.scrollHeight;
   }, name);
-  // The scroll event that clears the cue is dispatched asynchronously.
-  await page.waitForTimeout(150);
+  // The scroll event that clears the cue is dispatched asynchronously, so wait
+  // for the class to clear rather than for a fixed interval (CodeRabbit, PR
+  // #1046). Bounded, and a timeout is swallowed, so a cue that never clears
+  // still reaches the `cueAfter` assertion below and fails there with its
+  // message, instead of surfacing as a bare timeout.
+  await page
+    .waitForFunction(
+      (panelName) =>
+        !document
+          .querySelector(`[data-panel="${panelName}"] .content-inner`)
+          .classList.contains('has-more-below'),
+      name,
+      { timeout: 2_000 },
+    )
+    .catch(() => {});
   const after = await page.evaluate((panelName) => {
     const grid = document.querySelector('.mondrian');
     const gridBox = grid.getBoundingClientRect();
