@@ -328,7 +328,7 @@ body {
     minmax(4.8rem, 1.08fr) var(--line);
   grid-template-rows:
     var(--line)
-    min(var(--cell-h-about, 547px), calc(100% - 4 * var(--line) - 5.4rem))
+    minmax(0px, var(--cell-h-about, 547px))
     /* track 2 — bio content height (JS-measured), capped at what the grid has */
     0 /* track 3 — line absorbed inside bio */
     0 /* track 4 — second content row absorbed */
@@ -347,7 +347,7 @@ body {
     minmax(8rem, 3.45fr) var(--line);
   grid-template-rows:
     var(--line)
-    min(var(--cell-h-projects, 676px), calc(100% - 4 * var(--line) - 4.4rem))
+    minmax(0px, var(--cell-h-projects, 676px))
     /* track 2 — Builds content height, capped at what the grid has */
     0 /* track 3 — line absorbed */
     0 /* track 4 — absorbed */
@@ -425,14 +425,21 @@ body {
 }
 
 /* About- and Projects-focus size their content track to the measured text
-   height, capped at the space the square actually has (#1044). When the cap
-   binds, the panel is shorter than its text, so the panel scrolls its own
-   content instead of overflowing past the grid, which is `overflow: hidden`
-   and would cut it. The explicit track makes the percentage heights here
-   definite; the in-flow override above still applies to the auto-sized
-   states. The measurement pass reads `scrollHeight`, which is the full text
-   height whether or not the panel scrolls, so --cell-h-* stays the uncapped
-   figure the cap compares against. */
+   height, capped at the space the square actually has (#1044). The track is
+   `minmax(0px, var(--cell-h-*))`: grid sizing grows a track with a fixed max
+   into the free space up to that max BEFORE any `fr` track expands, so on this
+   definite-height grid it resolves to min(measured text, what is left after
+   the lines and the bottom tracks' minimums) with no formula restating those
+   minimums. `minmax()` of lengths also keeps the track inside the interpolable
+   grammar the 460ms morph needs (docs/agents/operating-rules.md; Codex P1 on
+   PR #1046, which rejected an earlier `min()` form).
+
+   When the cap binds, the panel is shorter than its text, so the panel scrolls
+   its own content instead of overflowing past the grid, which is
+   `overflow: hidden` and would cut it. The in-flow override above still
+   applies to the auto-sized states. The measurement pass reads
+   `scrollHeight` with scrolling switched off (the `.is-measuring` rule below),
+   so --cell-h-* stays the uncapped figure the cap compares against. */
 .mondrian[data-focus='about'] .panel--red.is-open .panel-content,
 .mondrian[data-focus='projects'] .panel--yellow.is-open .panel-content {
   height: 100%;
@@ -443,6 +450,18 @@ body {
   height: 100%;
   overflow-y: auto;
   overscroll-behavior: contain;
+}
+
+/* Measure at the width the text will actually set at. While the measure pass
+   briefly opens each panel, a capped track would otherwise make the rule above
+   scroll, and a classic scrollbar (Chrome on Windows) narrows the text, which
+   then wraps more and measures taller than it will be once the track fits it:
+   a cream gap below the content (Codex P2 on PR #1046). Scoped to
+   `.is-measuring`, which the pass sets and clears around itself. */
+.mondrian.is-measuring[data-focus] .panel.is-open .panel-content,
+.mondrian.is-measuring[data-focus] .panel.is-open .content-inner {
+  height: auto;
+  overflow: visible;
 }
 
 /* The scroll cue. `has-more-below` is set by updateScrollCue() in
