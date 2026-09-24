@@ -444,6 +444,42 @@ describe('PostHog', () => {
     expect(body).not.toContain('matchMedia');
   });
 
+  it('waits for fonts before capturing the layout, then captures exactly once (#1045)', async () => {
+    // Real browsers take this path; JSDOM has no document.fonts, so without a
+    // stub only the immediate path is covered (CodeRabbit, PR #1047). The
+    // grid's final size depends on font metrics, so an early capture would
+    // classify a half-laid-out page.
+    let resolveFonts;
+    const ready = new Promise((resolve) => {
+      resolveFonts = resolve;
+    });
+    Object.defineProperty(document, 'fonts', { value: { ready }, configurable: true });
+    try {
+      const capture = vi.fn();
+      window.posthog = { capture };
+      const grid = document.getElementById('mondrian');
+      grid.getBoundingClientRect = () => ({
+        width: 900,
+        height: 900,
+        top: 0,
+        left: 0,
+        right: 900,
+        bottom: 900,
+      });
+      new Function(posthogHomepageScript)();
+      await tick();
+      const layouts = () => capture.mock.calls.filter((c) => c[0] === 'homepage_layout_rendered');
+      expect(layouts(), 'captured before fonts settled').toHaveLength(0);
+      resolveFonts();
+      await ready;
+      await tick();
+      expect(layouts()).toHaveLength(1);
+      expect(layouts()[0][1].layout).toBe('composition');
+    } finally {
+      delete document.fonts;
+    }
+  });
+
   it('does not capture a layout for an unrendered grid (#1045)', () => {
     expect(runWithGridRect(0, 0)).toHaveLength(0);
   });
