@@ -304,6 +304,15 @@ describe('scroll cue across a desktop resize', () => {
     const page = await openPage({ width: 1440, height: 900 });
     try {
       expect(await hoverPanel(page, 'about', { expectOpen: true })).toBe(true);
+      // Clear the cue the open already set, so the assertion below proves the
+      // measure pass put it back rather than that nothing touched it
+      // (CodeRabbit, PR #1046).
+      const cleared = await page.evaluate(() => {
+        const ci = document.querySelector('[data-panel="about"] .content-inner');
+        ci.classList.remove('has-more-below');
+        return !ci.classList.contains('has-more-below');
+      });
+      expect(cleared).toBe(true);
       await page.setViewportSize({ width: 1500, height: 920 });
       // The measure pass is debounced 150ms after resize, then ends a frame later.
       await page.waitForTimeout(IDLE_SETTLE_MS);
