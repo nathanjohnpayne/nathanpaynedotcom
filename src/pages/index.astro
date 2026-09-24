@@ -660,11 +660,26 @@ const homepageJsonLd = {
       // until a scroll starts, so the only cue that more text sits below the
       // edge is this class, which global.css turns into a fade. Recomputed on
       // reveal, on scroll, and after every measure pass (which runs on resize).
+      //
+      // A capped panel's content is also the only thing that can scroll its
+      // hidden text, so while it is scrollable it is made a keyboard focus
+      // target with an accessible name; when it fits, the extra tab stop is
+      // removed again (Codex, PR #1046).
       function updateScrollCue(panel) {
         const ci = panel && panel.querySelector('.content-inner');
         if (!ci) return;
-        const more = ci.scrollHeight - ci.clientHeight - ci.scrollTop > 1;
+        const scrollable = ci.scrollHeight - ci.clientHeight > 1;
+        const more = scrollable && ci.scrollHeight - ci.clientHeight - ci.scrollTop > 1;
         ci.classList.toggle('has-more-below', more);
+        if (scrollable) {
+          ci.setAttribute('tabindex', '0');
+          ci.setAttribute('role', 'region');
+          ci.setAttribute('aria-label', (panel.getAttribute('aria-label') || 'Panel') + ', scrollable');
+        } else {
+          ci.removeAttribute('tabindex');
+          ci.removeAttribute('role');
+          ci.removeAttribute('aria-label');
+        }
       }
 
       panels.forEach((panel) => {
@@ -673,12 +688,20 @@ const homepageJsonLd = {
       });
 
       // Each open starts at the top of the panel's text, not wherever a
-      // previous visit scrolled it to.
+      // previous visit scrolled it to. A keyboard open hands focus to the
+      // content when it scrolls: the label that had focus leaves the tab
+      // order as the panel opens (hideLabel), so otherwise the keys that
+      // scroll the text would have nowhere to go.
+      let keyboardOpenPanel = null;
       function revealContent(panel) {
         const ci = panel.querySelector('.content-inner');
         if (ci) ci.scrollTop = 0;
         panel.classList.add('is-content-visible');
         updateScrollCue(panel);
+        if (keyboardOpenPanel === panel && ci && ci.getAttribute('tabindex') === '0') {
+          ci.focus({ preventScroll: true });
+        }
+        keyboardOpenPanel = null;
       }
 
       function startOpen(panel, replayHover) {
@@ -879,6 +902,10 @@ const homepageJsonLd = {
           if (event.key === 'Escape') closePanel();
           if (event.key === 'Enter' || event.key === ' ') {
             event.preventDefault();
+            // Only for an open that will reveal content; an Enter on a panel
+            // already showing it must not leave the flag armed for a later
+            // mouse open.
+            if (!panel.classList.contains('is-content-visible')) keyboardOpenPanel = panel;
             openPanel(panel);
           }
         });

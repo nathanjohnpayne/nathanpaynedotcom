@@ -295,6 +295,59 @@ describe.each(STACKED)('responsive stack at $name', (viewport) => {
   }, 60_000);
 });
 
+describe('keyboard access to a capped panel', () => {
+  it('opens with Enter, moves focus into the scrollable text, and scrolls with PageDown', async () => {
+    // A capped panel's content is the only thing that can scroll its hidden
+    // text, so it must be reachable from the keyboard (Codex, PR #1046).
+    const page = await openPage({ width: 1440, height: 900 });
+    try {
+      await page.focus('[data-panel="about"] .panel-label');
+      await page.keyboard.press('Enter');
+      await page.waitForSelector('[data-panel="about"].is-content-visible', { timeout: 5_000 });
+      const state = await page.evaluate(() => {
+        const ci = document.querySelector('[data-panel="about"] .content-inner');
+        return {
+          focused: document.activeElement === ci,
+          tabindex: ci.getAttribute('tabindex'),
+          label: ci.getAttribute('aria-label'),
+          capped: ci.scrollHeight - ci.clientHeight > 1,
+        };
+      });
+      // Control: this viewport really caps About.
+      expect(state.capped).toBe(true);
+      expect(state.tabindex).toBe('0');
+      expect(state.label).toMatch(/scrollable$/);
+      expect(state.focused, 'focus did not move into the scrollable content').toBe(true);
+      await page.keyboard.press('PageDown');
+      await page.waitForTimeout(300);
+      const scrolled = await page.evaluate(
+        () => document.querySelector('[data-panel="about"] .content-inner').scrollTop,
+      );
+      expect(scrolled).toBeGreaterThan(0);
+    } finally {
+      await page.close();
+    }
+  }, 60_000);
+
+  it('adds no tab stop when the panel fits', async () => {
+    const page = await openPage({ width: 1920, height: 1200 });
+    try {
+      expect(await hoverPanel(page, 'about', { expectOpen: true })).toBe(true);
+      const state = await page.evaluate(() => {
+        const ci = document.querySelector('[data-panel="about"] .content-inner');
+        return {
+          tabindex: ci.getAttribute('tabindex'),
+          capped: ci.scrollHeight - ci.clientHeight > 1,
+        };
+      });
+      expect(state.capped).toBe(false);
+      expect(state.tabindex).toBeNull();
+    } finally {
+      await page.close();
+    }
+  }, 60_000);
+});
+
 describe('scroll cue across a desktop resize', () => {
   it('keeps the cue on a panel that is still capped after the measure pass', async () => {
     // A resize runs the measure pass, which switches panel scrolling off while
