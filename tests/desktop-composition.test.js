@@ -122,8 +122,31 @@ async function hoverPanel(page, name, { expectOpen }) {
     )
     .catch(() => {});
   await page.waitForTimeout(IDLE_SETTLE_MS);
-  const box = await page.locator(`[data-panel="${name}"]`).boundingBox();
-  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  // In the stack the panel can start below the fold, and a cursor sent to its
+  // off-screen midpoint hovers nothing, so "did not open" would pass without
+  // a hover ever happening (CodeRabbit, PR #1043). Scroll it into view, aim at
+  // the middle of its VISIBLE part, and refuse to proceed if that point is not
+  // on screen.
+  const panel = page.locator(`[data-panel="${name}"]`);
+  await panel.scrollIntoViewIfNeeded();
+  // Let the page's scroll guard (`body.is-scrolling`, which suspends hover)
+  // clear before the cursor arrives.
+  await page
+    .waitForFunction(() => !document.body.classList.contains('is-scrolling'), null, {
+      timeout: 5_000,
+    })
+    .catch(() => {});
+  await page.waitForTimeout(IDLE_SETTLE_MS);
+  const box = await panel.boundingBox();
+  const viewport = page.viewportSize();
+  const top = Math.max(box.y, 0);
+  const bottom = Math.min(box.y + box.height, viewport.height);
+  const x = box.x + box.width / 2;
+  const y = (top + bottom) / 2;
+  if (!(bottom > top && x > 0 && x < viewport.width)) {
+    throw new Error(`${name} is not on screen to hover (visible rows ${top}–${bottom})`);
+  }
+  await page.mouse.move(x, y);
   const selector = `[data-panel="${name}"].is-content-visible`;
   if (expectOpen) {
     return page
@@ -132,7 +155,17 @@ async function hoverPanel(page, name, { expectOpen }) {
       .catch(() => false);
   }
   await page.waitForTimeout(NO_OPEN_WAIT_MS);
-  return page.evaluate((sel) => document.querySelector(sel) !== null, selector);
+  // Any sign the state machine engaged, not just the final reveal: with the
+  // guard broken, a stacked panel takes `is-open` and the grid `data-focus`,
+  // but `is-content-visible` never arrives, so asserting on it alone passed
+  // with the guard deleted.
+  return page.evaluate(
+    ([sel, panelName]) =>
+      document.querySelector(sel) !== null ||
+      document.querySelector(`[data-panel="${panelName}"]`).classList.contains('is-open') ||
+      Boolean(document.querySelector('.mondrian').dataset.focus),
+    [selector, name],
+  );
 }
 
 /**
