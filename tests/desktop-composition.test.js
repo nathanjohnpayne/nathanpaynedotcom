@@ -17,41 +17,65 @@ import { serveStatic } from '../src/integrations/og-images.mjs';
  * against the built page. The viewports are browser VIEWPORTS, not screen
  * sizes, because that is what a media query sees.
  *
- * The floor itself is 840px tall: the height at which every open panel still
- * fits inside its cell. Measured at every width from 1280 to 2560 (the
- * geometry is a function of height alone there), Community's content overflows
- * its panel below 824px — 0.4px at 823, 36.8px at 800 — and that is the binding
- * constraint; Projects' footer line meets its exit link lower, at 740px.
+ * The floor is 960px tall: the lowest height at which no open panel's own text
+ * is clipped by the grid. The binding panel is About, whose content track is
+ * its measured text height; below 942px tall its text runs past the grid's
+ * bottom edge and `.mondrian { overflow: hidden }` cuts it. The first version
+ * of this file measured content against its PANEL, which grows with that track,
+ * and so passed a floor of 840 at which About lost 167px of text (Codex, PR
+ * #1043). Measuring against the GRID is the check that matters.
+ *
+ * Not asserted here, and tracked in #1044: with About open, the bottom band of
+ * the composition is pushed past the grid — 87px at the 960 floor, and 27px at
+ * the 1024x1200 width floor on main before #1042. Fixing About's row model is
+ * what would let this floor come down.
  */
 
 const DESKTOP = [
   // The window the production regression was reported from.
   { name: 'reported Chrome window 1885x987', width: 1885, height: 987 },
-  { name: '1080p monitor, maximized 1920x950', width: 1920, height: 950 },
+  { name: '1080p monitor on macOS, maximized 1920x970', width: 1920, height: 970 },
   { name: '1440p monitor, maximized 2560x1300', width: 2560, height: 1300 },
   { name: '16-inch MacBook Pro 1728x1005', width: 1728, height: 1005 },
-  { name: '14-inch MacBook Pro 1512x860', width: 1512, height: 860 },
-  { name: '1440x900', width: 1440, height: 900 },
   // The height floor itself: the tightest desktop geometry there is.
-  { name: 'height floor 1440x840', width: 1440, height: 840 },
+  { name: 'height floor 1440x960', width: 1440, height: 960 },
   // The width floor.
   { name: 'width floor 1024x1200', width: 1024, height: 1200 },
 ];
 
 const STACKED = [
   // One pixel under each floor, so the floor cannot drift in either direction
-  // without failing here or in the fit assertion above it.
-  { name: 'under the height floor 1440x839', width: 1440, height: 839 },
+  // without failing here or in the fit assertions above it.
+  { name: 'under the height floor 1440x959', width: 1440, height: 959 },
   { name: 'under the width floor 1023x1200', width: 1023, height: 1200 },
-  { name: '1366x768 laptop, maximized 1366x657', width: 1366, height: 657 },
+  // Real windows that stay stacked until #1044: About's text does not fit.
+  { name: '1080p monitor on Windows, maximized 1920x945', width: 1920, height: 945 },
+  { name: '14-inch MacBook Pro 1512x860', width: 1512, height: 860 },
   { name: '1280x700 (#992)', width: 1280, height: 700 },
   { name: 'phone 390x844', width: 390, height: 844 },
 ];
 
 const PANELS = ['about', 'projects', 'community', 'connect'];
 
-/** Tolerance for sub-pixel rounding; a real overflow measured 0.4px to 37px. */
+/** Tolerance for sub-pixel rounding; a real clip measured 2px to 167px. */
 const OVERFLOW_TOLERANCE_PX = 1;
+
+/**
+ * How long a hover must go unanswered before "did not open" means the guard
+ * held. The open sequence in index.astro reveals content one --motion-plane
+ * (460ms) after the grid morphs; 1.2s is well past it, and waiting out a full
+ * selector timeout instead cost 5s per stacked viewport (Codex, PR #1043).
+ */
+const NO_OPEN_WAIT_MS = 1_200;
+
+/**
+ * "Closed" is the grid back at rest (no `.is-open`, no `data-focus`) AND the
+ * state machine back to idle, which the close sequence in index.astro reaches
+ * one `--motion-plane` (460ms) after the grid resets. A hover landing before
+ * then is swallowed, which reads as "did not open" for a reason that has
+ * nothing to do with the layout.
+ */
+const IDLE_SETTLE_MS = 700;
 
 let server;
 let port;
@@ -81,20 +105,12 @@ async function openPage({ width, height }) {
 }
 
 /**
- * Hover a panel the way a reader does and report whether it opened, and how
- * far its content runs past the bottom of its cell. The cursor is parked and
- * every panel allowed to close first, because an open neighbor moves this
- * panel's cell and a box read before that would aim at the wrong place.
- *
- * "Closed" is the grid back at rest (no `.is-open`, no `data-focus`) AND the
- * state machine back to idle, which the close sequence in index.astro reaches
- * one `--motion-plane` (460ms) after the grid resets. A hover landing before
- * then is swallowed, which reads as "did not open" for a reason that has
- * nothing to do with the layout.
+ * Hover a panel the way a reader does and report whether it opened. The
+ * cursor is parked and every panel allowed to close first, because an open
+ * neighbor moves this panel's cell and a box read before that would aim at
+ * the wrong place.
  */
-const IDLE_SETTLE_MS = 700;
-
-async function hoverPanel(page, name) {
+async function hoverPanel(page, name, { expectOpen }) {
   await page.mouse.move(1, 1);
   await page
     .waitForFunction(
@@ -108,19 +124,37 @@ async function hoverPanel(page, name) {
   await page.waitForTimeout(IDLE_SETTLE_MS);
   const box = await page.locator(`[data-panel="${name}"]`).boundingBox();
   await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
-  const opened = await page
-    .waitForSelector(`[data-panel="${name}"].is-content-visible`, { timeout: 5_000 })
-    .then(() => true)
-    .catch(() => false);
-  const overflow = await page.evaluate((panelName) => {
+  const selector = `[data-panel="${name}"].is-content-visible`;
+  if (expectOpen) {
+    return page
+      .waitForSelector(selector, { timeout: 5_000 })
+      .then(() => true)
+      .catch(() => false);
+  }
+  await page.waitForTimeout(NO_OPEN_WAIT_MS);
+  return page.evaluate((sel) => document.querySelector(sel) !== null, selector);
+}
+
+/**
+ * Where the open panel's visible text ends, against the two boxes that can
+ * clip it: its own panel, and the grid, which is `overflow: hidden`.
+ * Positive means past the edge.
+ */
+async function readFit(page, name) {
+  return page.evaluate((panelName) => {
+    const grid = document.querySelector('.mondrian').getBoundingClientRect();
     const panel = document.querySelector(`[data-panel="${panelName}"]`);
-    const bottom = panel.getBoundingClientRect().bottom;
-    return Math.max(
-      0,
-      ...[...panel.querySelectorAll('*')].map((el) => el.getBoundingClientRect().bottom - bottom),
+    const text = [...panel.querySelectorAll('.panel-content *')].filter(
+      (el) => el.getClientRects().length > 0 && getComputedStyle(el).visibility !== 'hidden',
     );
+    const bottom = Math.max(...text.map((el) => el.getBoundingClientRect().bottom));
+    return {
+      textElements: text.length,
+      pastGrid: bottom - grid.bottom,
+      pastPanel: bottom - panel.getBoundingClientRect().bottom,
+      gridSquare: Math.abs(grid.height - grid.width) < 1.5,
+    };
   }, name);
-  return { opened, overflow };
 }
 
 /** The composition is a square; the stack is a column far taller than wide. */
@@ -132,14 +166,23 @@ async function isComposition(page) {
 }
 
 describe.each(DESKTOP)('desktop composition at $name', (viewport) => {
-  it('renders the Mondrian square, and every panel opens and fits', async () => {
+  it('renders the Mondrian square, and every panel opens with its text inside the grid', async () => {
     const page = await openPage(viewport);
     try {
       expect(await isComposition(page), 'rendered the stack on a desktop window').toBe(true);
       for (const name of PANELS) {
-        const { opened, overflow } = await hoverPanel(page, name);
-        expect(opened, `${name} did not open on hover`).toBe(true);
-        expect(overflow, `${name} content overflows its panel`).toBeLessThanOrEqual(
+        expect(
+          await hoverPanel(page, name, { expectOpen: true }),
+          `${name} did not open on hover`,
+        ).toBe(true);
+        const fit = await readFit(page, name);
+        // Control: an empty selection would make both bounds -Infinity and pass.
+        expect(fit.textElements, `${name} has no visible text to measure`).toBeGreaterThan(0);
+        expect(fit.gridSquare, `the grid stopped being square with ${name} open`).toBe(true);
+        expect(fit.pastGrid, `${name} text is clipped by the grid`).toBeLessThanOrEqual(
+          OVERFLOW_TOLERANCE_PX,
+        );
+        expect(fit.pastPanel, `${name} text overflows its panel`).toBeLessThanOrEqual(
           OVERFLOW_TOLERANCE_PX,
         );
       }
@@ -154,10 +197,10 @@ describe.each(STACKED)('responsive stack at $name', (viewport) => {
     const page = await openPage(viewport);
     try {
       expect(await isComposition(page), 'rendered the composition below a floor').toBe(false);
-      // Control for the negative: the panel exists and was hovered, so "did
-      // not open" means the guard held, not that nothing was there to open.
-      const { opened } = await hoverPanel(page, 'projects');
-      expect(opened).toBe(false);
+      // The panel exists and was hovered, so "did not open" means the guard
+      // held, not that nothing was there to open.
+      expect(await page.locator('[data-panel="projects"]').count()).toBe(1);
+      expect(await hoverPanel(page, 'projects', { expectOpen: false })).toBe(false);
     } finally {
       await page.close();
     }

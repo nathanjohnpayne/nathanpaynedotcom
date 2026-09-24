@@ -40,32 +40,33 @@ import { serveStatic } from '../src/integrations/og-images.mjs';
  * Where the readings are taken.
  *
  * `stacked` is not a property of this file's opinion — it is
- * `width < 1024 || height < 840`, the composition's floors (#992). The desktop
- * Mondrian is a square sized `min(95vw, 95vh, 1280px)`, so a short window
- * shrinks it as a narrow one does; below 840px tall the open panels stop
- * fitting, and the page renders the responsive composition instead.
+ * `width < 1024 || height < 960`, the composition's floors (#992, #1042). The
+ * desktop Mondrian is a square sized `min(95vw, 95vh, 1280px)`, so a short
+ * window shrinks it as a narrow one does; below 960px tall the open About
+ * panel's text is clipped by the grid, and the page renders the responsive
+ * composition instead.
  *
- * 1440x840 is the height floor and 1440x839 the pixel under it: the tightest
+ * 1440x960 is the height floor and 1440x959 the pixel under it: the tightest
  * desktop geometry that exists, and the first stacked one. 1024x1200 is the
  * width floor.
  *
- * 1440x900 and 1728x1005 are ordinary desktop windows (a 1440x900 display, and
- * a 16-inch MacBook Pro with the browser's own UI subtracted). #1003 set the
- * height floor at 1024px and reclassified both as `stacked` here, so this file
- * asserted the production regression instead of catching it (#1042): every
- * desktop window under 1024px tall rendered the phone layout. They are desktop again,
- * and tests/desktop-composition.test.js pins that class of viewport directly.
+ * 1728x1005 is a 16-inch MacBook Pro window with the browser's own UI
+ * subtracted. #1003 set the height floor at 1024px and reclassified it as
+ * `stacked` here, so this file asserted the production regression instead of
+ * catching it (#1042): every desktop window under 1024px tall rendered the
+ * phone layout. It is desktop again. 1440x900 stays stacked until #1044, and
+ * tests/desktop-composition.test.js pins the real-window cases directly.
  */
 const VIEWPORTS = [
   { name: '1024x1200', width: 1024, height: 1200, stacked: false },
-  { name: '1440x840', width: 1440, height: 840, stacked: false },
-  { name: '1440x900', width: 1440, height: 900, stacked: false },
+  { name: '1440x960', width: 1440, height: 960, stacked: false },
   { name: '1728x1005', width: 1728, height: 1005, stacked: false },
   { name: '1440x1024', width: 1440, height: 1024, stacked: false },
   { name: '1503x1180', width: 1503, height: 1180, stacked: false },
   { name: '1920x1080', width: 1920, height: 1080, stacked: false },
   { name: '2560x1330', width: 2560, height: 1330, stacked: false },
-  { name: '1440x839', width: 1440, height: 839, stacked: true },
+  { name: '1440x959', width: 1440, height: 959, stacked: true },
+  { name: '1440x900', width: 1440, height: 900, stacked: true },
   { name: '1024x768', width: 1024, height: 768, stacked: true },
   { name: '1280x700', width: 1280, height: 700, stacked: true },
   { name: '390x844', width: 390, height: 844, stacked: true },
@@ -84,12 +85,12 @@ const VIEWPORTS = [
  * a viewport that cannot satisfy it, and then excused for not satisfying it.
  *
  * The height floor removes the geometries instead of the assertion. The
- * tightest desktop ribbon that now exists is 538.7px, at the 798px square of
- * the 840px-tall floor, where the line clears by 78.2px. The Projects line
+ * tightest desktop ribbon that now exists is 626.4px, at the 912px square of
+ * the 960px-tall floor, where the line clears by 165.9px. The Projects line
  * itself would clear down to 740px tall (0.1px); the floor sits higher because
- * Community's content overflows its panel below 824px. Every desktop reading
- * clears, so the assertion below is unconditional and there is no exemption
- * list left to keep from widening.
+ * the open About panel's text is clipped by the grid below 942px (#1044).
+ * Every desktop reading clears, so the assertion below is unconditional and
+ * there is no exemption list left to keep from widening.
  */
 
 /**
@@ -107,9 +108,9 @@ const VIEWPORTS = [
  * against 323.7px loaded, 2.5px and 0.8%. Requiring the clearance to exceed 4px
  * rather than 0 puts the whole of that delta inside the margin, so the
  * assertion holds under either typography and fails only on a real regression.
- * The tightest reading in the set clears by 78.2px, so this costs nothing.
+ * The tightest reading in the set clears by 165.9px, so this costs nothing.
  *
- * The ratio ceilings need no equivalent: their headroom is 0.099 against a
+ * The ratio ceilings need no equivalent: their headroom is 0.083 against a
  * font delta of 0.003.
  */
 const FONT_DELTA_PX = 4;
@@ -141,16 +142,15 @@ const WRAPS_BELOW_FLOOR = [];
  * line worth printing fills most of it; "bounded fraction of the measure" is a
  * claim about the composition, which is where the ten-item line ran 0.986.
  *
- * The old ceiling of 0.8 sat just over 0.757, the maximum measured at
- * 1280x700 — a viewport that no longer renders the composition at all. #1003
- * cut it to 0.6 against a 1024px height floor that turned out to stack nearly
- * every desktop window; with the floor at 840px the tightest desktop reading
- * is 0.601 (538.7px ribbon, 798px square), and 0.481 at the width floor. 0.7
- * keeps the job the ceiling always had: catch the line growing back toward the
- * full measure, where the ten-item line it replaced ran 0.986. It is not a
- * re-derivation of today's number.
+ * Recalibrated with #992. The old ceiling of 0.8 sat just over 0.757, the
+ * maximum measured at 1280x700 — a viewport that no longer renders the
+ * composition at all. The tightest desktop reading is now 0.517, at the 912px
+ * square of the 960px-tall height floor (#1042), and 0.481 at the width floor.
+ * 0.6 keeps the same job the ceiling always had: catch the line growing back
+ * toward the full measure, where the ten-item line it replaced ran 0.986. It
+ * is not a re-derivation of today's number.
  */
-const MEASURE_CEILING = 0.7;
+const MEASURE_CEILING = 0.6;
 
 /** Selectors for the footer's content line. */
 const ACTIVE = { ribbon: '.domains-ribbon', label: '.domains-label', items: '.domains-items' };

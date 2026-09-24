@@ -26,7 +26,7 @@ declare global {
 
 // Skip the entire file on viewports where the state machine is disabled.
 //
-// Since #992 the composition is stack-mode below 1024px wide or 840px tall, so a
+// Since #992 the composition is stack-mode below 1024px wide or 960px tall, so a
 // width-only guard would fail to skip on a short desktop project and then fail
 // the spec against a page that is correctly stacked (#1004). The question goes
 // to `matchMedia` after navigation rather than to `testInfo.project.use`:
@@ -40,9 +40,9 @@ test.beforeEach(async ({ page }) => {
   await page.goto('/');
   await page.waitForLoadState('domcontentloaded');
   const isStack = await page.evaluate(
-    () => window.matchMedia('(max-width: 1023px), (max-height: 839px)').matches,
+    () => window.matchMedia('(max-width: 1023px), (max-height: 959px)').matches,
   );
-  test.skip(isStack, 'Mondrian is stack-mode below 1024px wide or 840px tall');
+  test.skip(isStack, 'Mondrian is stack-mode below 1024px wide or 960px tall');
   // Wait for fonts.ready + measureContentHeights pass to settle.
   await page.waitForFunction(() => {
     const grid = document.getElementById('mondrian');
