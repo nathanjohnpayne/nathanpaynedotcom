@@ -449,10 +449,18 @@ body {
    src/pages/index.astro while text remains below the panel's bottom edge,
    and cleared once the reader reaches the end. The mask is on the scroll
    container, so the fade stays pinned to the visible bottom edge while the
-   text moves under it. */
-.content-inner.has-more-below {
-  -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 3rem), transparent);
-  mask-image: linear-gradient(to bottom, #000 calc(100% - 3rem), transparent);
+   text moves under it.
+
+   Scoped to the focused panel and to the composition, not to the bare class:
+   the class is only recomputed on desktop, so a panel opened there and then
+   resized into the stack keeps it, and an unscoped mask would fade the bottom
+   of that panel's text in the stack. */
+@media (min-width: 1024px) and (min-height: 840px) {
+  .mondrian[data-focus='about'] .panel--red.is-open .content-inner.has-more-below,
+  .mondrian[data-focus='projects'] .panel--yellow.is-open .content-inner.has-more-below {
+    -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 3rem), transparent);
+    mask-image: linear-gradient(to bottom, #000 calc(100% - 3rem), transparent);
+  }
 }
 
 /* Wobble guard handled in JS (#313): the inline panel-interaction script

@@ -281,3 +281,34 @@ describe.each(STACKED)('responsive stack at $name', (viewport) => {
     }
   }, 60_000);
 });
+
+describe('scroll cue across a resize into the stack', () => {
+  it('does not fade panel text in the stack after a desktop open set the cue', async () => {
+    // The cue class is only recomputed on desktop, so a panel opened there
+    // and then resized under the floor keeps it. The fade must be scoped to
+    // the composition, or it would cover the bottom 3rem of that panel's
+    // text in the stack.
+    const page = await openPage({ width: 1440, height: 900 });
+    try {
+      expect(await hoverPanel(page, 'about', { expectOpen: true })).toBe(true);
+      const cue = () =>
+        page.evaluate(() => {
+          const ci = document.querySelector('[data-panel="about"] .content-inner');
+          return {
+            cls: ci.classList.contains('has-more-below'),
+            mask: getComputedStyle(ci).maskImage,
+          };
+        });
+      // Control: the cue is really set before the resize.
+      const before = await cue();
+      expect(before.cls).toBe(true);
+      expect(before.mask).not.toBe('none');
+      await page.setViewportSize({ width: 1440, height: 800 });
+      await page.waitForTimeout(IDLE_SETTLE_MS);
+      expect(await isComposition(page), 'did not reach the stack').toBe(false);
+      expect((await cue()).mask).toBe('none');
+    } finally {
+      await page.close();
+    }
+  }, 60_000);
+});
