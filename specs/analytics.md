@@ -12,7 +12,7 @@ The site runs two analytics systems in parallel during the PostHog transition:
 - **Google Analytics 4 (gtag)**—fires a `section_view` event once per panel on
   first hover on hover-capable (fine-pointer) devices.
 - **PostHog**—product analytics + autocapture + session replay, loaded
-  site-wide, with nineteen custom conversion/engagement events instrumented
+  site-wide, with twenty custom conversion/engagement events instrumented
   across the homepage, project pages, blog, and resume.
 
 GA4 is retained for continuity; PostHog is the forward-looking system. Either
@@ -59,6 +59,7 @@ may be removed later without affecting the other.
 | Event | Trigger | Properties |
 |---|---|---|
 | `homepage_panel_opened` | A Mondrian panel becomes focused (`data-focus` set) | `panel_name` |
+| `homepage_layout_rendered` | Once per homepage load, after fonts settle: which layout the reader actually got, classified from the grid's rendered geometry (`composition` when `.mondrian` height/width < 1.05, otherwise `stack`), not from the media query (#1045) | `layout`, `viewport_width`, `viewport_height` |
 | `contact_email_clicked` | Click on the `#availability-mailto` "Get in touch" link | — |
 | `booking_link_clicked` | Click on the `.availability-booking` Cal.com scheduling link | — |
 | `resume_link_clicked` | Click on a résumé link in the Connect/About panels | — |
@@ -108,6 +109,25 @@ may be removed later without affecting the other.
    carrying which `panel` it left from. `writing_link_clicked` counts before
    and after that change are not comparable: the earlier figure includes
    index clicks.
+
+### Layout alerting (#1045)
+
+`homepage_layout_rendered` exists so that serving the wrong homepage layout pages someone instead of going unnoticed. #1042 served the phone stack to desktop windows for 18 days, and it was found by eye. The alert lives in PostHog project 469428, as a SQL insight checked daily:
+
+```sql
+SELECT count()
+FROM events
+WHERE event = 'homepage_layout_rendered'
+  AND timestamp >= now() - INTERVAL 1 DAY
+  AND properties.layout = 'stack'
+  AND toFloat(properties.viewport_width) >= 1024
+  AND toFloat(properties.viewport_height) >= 840  -- --bp-stack-height; keep in sync
+  AND coalesce(properties.$virt_is_bot, false) = false
+```
+
+It alerts when the value is **greater than 0**. It fires on the first desktop-sized window that got the stack, so it does not depend on traffic volume. A companion alert counts `layout = 'composition'` below either floor, which catches the reverse bug.
+
+**The height literal must move with the floor.** It restates `--bp-stack-height` (840 since #1044; 960 before it; 1024 during #1042). A floor change that does not update both alerts either pages falsely or goes blind in exactly the band the change moved.
 
 ### Error Tracking
 
