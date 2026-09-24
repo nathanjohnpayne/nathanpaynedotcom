@@ -297,7 +297,11 @@ describe('Project Pages — routes', () => {
     // Since #751 the index renders `cardDescription`, not the hero deck. The
     // retraction assertions below still apply — the card is a public surface
     // and must not reassert what the #756 audit removed.
-    expect(matchlineDescription).toContain('51.3% extraction accuracy against an 80% bar');
+    // #1040: 51.3% was a single résumé × JD pair; the result of record is the
+    // four-pair, three-sample aggregate (matchline#177). Pin the aggregate and
+    // keep the single-pair figure off the card.
+    expect(matchlineDescription).toContain('48% extraction and 19% match against an 80% bar');
+    expect(matchlineDescription).not.toContain('51.3%');
     expect(matchlineDescription).toContain('Paused');
     expect(matchlineDescription).not.toContain('what the user has actually done');
     expect(matchlineDescription).not.toContain('LinkedIn');
