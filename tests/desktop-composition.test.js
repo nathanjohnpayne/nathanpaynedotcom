@@ -295,6 +295,34 @@ describe.each(STACKED)('responsive stack at $name', (viewport) => {
   }, 60_000);
 });
 
+describe('scroll cue across a desktop resize', () => {
+  it('keeps the cue on a panel that is still capped after the measure pass', async () => {
+    // A resize runs the measure pass, which switches panel scrolling off while
+    // it measures. The cue must be recomputed after that, not during it, or it
+    // reads "nothing below" and clears the fade on a still-capped panel
+    // (CodeRabbit, PR #1046).
+    const page = await openPage({ width: 1440, height: 900 });
+    try {
+      expect(await hoverPanel(page, 'about', { expectOpen: true })).toBe(true);
+      await page.setViewportSize({ width: 1500, height: 920 });
+      // The measure pass is debounced 150ms after resize, then ends a frame later.
+      await page.waitForTimeout(IDLE_SETTLE_MS);
+      const state = await page.evaluate(() => {
+        const ci = document.querySelector('[data-panel="about"] .content-inner');
+        return {
+          below: ci.scrollHeight - ci.clientHeight,
+          cue: ci.classList.contains('has-more-below'),
+        };
+      });
+      // Control: still capped, so there is text below to cue.
+      expect(state.below).toBeGreaterThan(1);
+      expect(state.cue, 'cue cleared by the measure pass on a capped panel').toBe(true);
+    } finally {
+      await page.close();
+    }
+  }, 60_000);
+});
+
 describe('scroll cue across a resize into the stack', () => {
   it('does not fade panel text in the stack after a desktop open set the cue', async () => {
     // The cue class is only recomputed on desktop, so a panel opened there

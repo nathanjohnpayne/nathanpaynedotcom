@@ -801,11 +801,18 @@ const homepageJsonLd = {
           if (restoredVisible) restoredActive.classList.add('is-content-visible');
         }
         void grid.offsetHeight;
-        if (restoredActive) updateScrollCue(restoredActive);
-        if (typeof requestAnimationFrame === 'function') {
-          requestAnimationFrame(() => grid.classList.remove('is-measuring'));
-        } else {
+        // The cue is recomputed only once `is-measuring` is gone: during the
+        // pass the panel's scrolling is switched off (global.css), so it would
+        // read "nothing below" and clear the fade on a panel that is still
+        // capped (CodeRabbit, PR #1046).
+        const endMeasuring = () => {
           grid.classList.remove('is-measuring');
+          if (restoredActive) updateScrollCue(restoredActive);
+        };
+        if (typeof requestAnimationFrame === 'function') {
+          requestAnimationFrame(endMeasuring);
+        } else {
+          endMeasuring();
         }
       }
 
