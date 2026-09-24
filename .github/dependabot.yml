@@ -22,3 +22,33 @@ updates:
         dependency-type: "production"
     commit-message:
       prefix: "deps"
+    # Mirrors the machine-readable pin block in rules/repo_rules.md
+    # § Toolchain Constraints, which tests/toolchain-pins.test.js enforces as the
+    # required `build-and-test` context (#825). Dependabot edits package.json and
+    # package-lock.json; it cannot edit that Markdown block, so a bump of any
+    # package pinned there fails the assertion the moment the PR opens and can
+    # never be made to pass. #1011, #1032 and #1036 were all lost that way, the
+    # last two to the identical four packages.
+    #
+    # Each entry below is derived from the pin it mirrors, not applied uniformly:
+    #
+    #   typescript  ">=6.0.3 <6.1.0"  — only 6.0.x patches can satisfy it, so
+    #     major AND minor are ignored while patch updates still flow. The ceiling
+    #     is re-derived from the @astrojs/check and typescript-eslint peer ranges
+    #     (typescriptPeerCeilingSources), so it moves when they do, not on its own.
+    #
+    #   astro / @astrojs/markdown-remark / @astrojs/mdx  — exact pins, and the
+    #     block declares them a markdownProcessorLockstep set. No update type can
+    #     satisfy an exact pin, and bumping one of the three alone would break the
+    #     lockstep even if it could, so all updates are ignored for each.
+    #
+    # Raising any of these is a deliberate act: edit the pin block and package.json
+    # together, per the rule the test enforces, and drop the matching entry here.
+    ignore:
+      - dependency-name: "typescript"
+        update-types:
+          - "version-update:semver-major"
+          - "version-update:semver-minor"
+      - dependency-name: "astro"
+      - dependency-name: "@astrojs/markdown-remark"
+      - dependency-name: "@astrojs/mdx"
