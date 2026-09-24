@@ -405,11 +405,22 @@ describe('scroll cue across a resize into the stack', () => {
       // Control: the cue is really set before the resize.
       const before = await cue();
       expect(before.cls).toBe(true);
+      expect(
+        await page.evaluate(() =>
+          document.querySelector('[data-panel="about"] .content-inner').getAttribute('tabindex'),
+        ),
+      ).toBe('0');
       expect(before.mask).not.toBe('none');
       await page.setViewportSize({ width: 1440, height: 800 });
       await page.waitForTimeout(IDLE_SETTLE_MS);
       expect(await isComposition(page), 'did not reach the stack').toBe(false);
       expect((await cue()).mask).toBe('none');
+      // And no leftover "scrollable" tab stop in the stack (CodeRabbit, PR #1046).
+      const attrs = await page.evaluate(() => {
+        const ci = document.querySelector('[data-panel="about"] .content-inner');
+        return { tabindex: ci.getAttribute('tabindex'), label: ci.getAttribute('aria-label') };
+      });
+      expect(attrs).toEqual({ tabindex: null, label: null });
     } finally {
       await page.close();
     }

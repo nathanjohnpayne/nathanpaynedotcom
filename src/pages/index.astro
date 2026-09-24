@@ -921,7 +921,20 @@ const homepageJsonLd = {
       });
 
       window.addEventListener('resize', () => {
-        if (mobile()) closePanel();
+        if (!mobile()) return;
+        closePanel();
+        // Entering the stack: no panel is capped there, and the measure pass
+        // (which maintains the cue) does not run in stack mode, so a capped
+        // panel opened on desktop would otherwise keep its fade class and its
+        // "scrollable" tab stop (CodeRabbit, PR #1046).
+        panels.forEach((p) => {
+          const ci = p.querySelector('.content-inner');
+          if (!ci) return;
+          ci.classList.remove('has-more-below');
+          ci.removeAttribute('tabindex');
+          ci.removeAttribute('role');
+          ci.removeAttribute('aria-label');
+        });
       });
 
       let scrollTimer = null;
