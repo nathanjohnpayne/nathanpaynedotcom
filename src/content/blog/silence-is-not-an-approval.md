@@ -2,7 +2,7 @@
 title: "Silence Is Not an Approval: 90+ Merged Pull Requests, 11+ Open Issues, One Missing Type"
 seoTitle: "Silence Is Not an Approval"
 shortTitle: "Silence Is Not an Approval"
-description: "Ninety pull requests merged into Mergepath in a month, and the ones worth writing about all fix the same defect in a different costume: a reviewer that could not answer produced a value the pipeline scored as an answer. A rate limit read as cleared. A listing truncated at 3,000 entries read as complete. An over-budget diff read as reviewer unavailable, which made the next diff bigger and stalled an audit for 38 days. At least eleven open issues still name instances, the oldest 78 days old. The issue that proposes the general fix has been open since August 3, and its first line of guidance is not to attempt this as a patch series. I attempted it as a patch series."
+description: "Ninety pull requests merged into Mergepath in a month, and the ones worth writing about all fix the same defect in a different costume: a reviewer that could not answer produced a value the pipeline scored as an answer. A rate limit read as cleared. A listing truncated at 3,000 entries read as complete. An over-budget diff read as reviewer unavailable, which made the next diff bigger and stalled an audit for 38 days. At least eleven open issues still name instances, the oldest 78 days old. The issue that proposes the general fix has been open since August 3, and since September 4 it has said not to attempt this as a patch series. Ten days later, I attempted it as a patch series."
 seoDescription: "A rate limit read as cleared, a truncated listing read as complete, a budget overage that compounds. Why fail-open defects in an AI review pipeline resist case-by-case fixes, and what the counter-case costs."
 category: "Agent Systems"
 author: "Nathan Payne"
@@ -14,7 +14,7 @@ keyTakeaways:
   - "The dangerous failure in an automated review pipeline is not a wrong finding. It is a reviewer that could not answer and a caller with no way to represent that, so it takes the nearest available value. Issue #940 records polling returning `status: cleared` against a head whose only status read `success | Review rate limited`, with no review object attached at all."
   - "Fail-open defects compound where fail-closed defects merely block. Issue #1186 records a wave audit that had not approved anything since 2026-07-28: every wave since had exited 4, failed open, and chained its unaudited range into the next, making the next range larger. It was filed 38 days later. A blocked merge gets noticed because somebody cannot merge; nothing about this one stopped anyone."
   - "The counter-case is real and the obvious remedy reopens the original defect. Issue #962 argues that a correct rate-limit block presented as a red failure check trains a break-glass reflex on a case where nothing is wrong with the code. It also notes that branch protection treats a required check as satisfied on `neutral`, so downgrading the conclusion would release the merge rather than merely recolor it."
-  - "Issue #878 already specifies the general fix, one classification contract consumed by both the waiter and the gate, and has been open since 2026-08-03 at priority:high. Its guidance reads: do not attempt this as a patch series. Between September 14 and 15 I merged twenty distinct changes in 32 hours, six of them against #878. The enumeration is the tell, and I am the one enumerating."
+  - "Issue #878 already specifies the general fix, one classification contract consumed by both the waiter and the gate, and has been open since 2026-08-03. A rewrite on 2026-09-04 raised it to priority:high and added this guidance: do not attempt this as a patch series. Between September 14 and 15 I merged twenty distinct changes in 32 hours, six of them against #878. The enumeration is the tell, and I am the one enumerating."
 pullquotes:
   - text: "A reviewer that is wrong is a cost you can price. A reviewer that is absent and counted as present is a system that will eventually pass something nobody checked, and will report that as a clean record."
     label: "The asymmetry"
@@ -22,7 +22,7 @@ pullquotes:
   - text: "The audit had not advanced its watermark since July 28. Nothing it did stopped anyone, so nothing announced it. Every wave failed open into the next, and the reason it was failing got structurally worse each time."
     label: "Compounding"
     accent: yellow
-  - text: "The issue that describes the general fix opens with an instruction not to fix it in pieces. I read it, agreed with it, and then shipped six pieces in thirty-two hours."
+  - text: "The issue that describes the general fix carries an instruction not to fix it in pieces. The instruction had been there for ten days when I shipped six pieces in thirty-two hours."
     label: "The enumeration is the tell"
     accent: blue
 sidebar:
@@ -117,7 +117,7 @@ At the time this felt like a productive day and a half. Looking at the list as a
 
 ## The Issue That Told Me Not to Do This
 
-[#878](https://github.com/nathanjohnpayne/mergepath/issues/878) is titled "Redesign coderabbit-wait classification around machine markers instead of prose greps." It was opened on **2026-08-03**, it is still open, and it carries `size:L`, `type:debt`, `priority:high`, `area:review-sensing`.
+[#878](https://github.com/nathanjohnpayne/mergepath/issues/878) is titled "Redesign coderabbit-wait classification around machine markers instead of prose greps." It was opened on **2026-08-03** and is still open. On **2026-09-04**, the day after an audit of the repository's issue backlog, it was rewritten and labeled `size:L`, `type:debt`, `priority:high`, `area:review-sensing`. Everything I quote from it below dates from that rewrite. The August filing made the same argument more briefly: case-by-case hardening of prose classification "walks an unbounded surface."
 
 It diagnoses the family better than I have:
 
@@ -129,9 +129,9 @@ And then it says this:
 
 > "Do not attempt this as a patch series. The original filing's own history—seven review rounds, fifteen valid findings, no convergence—is the argument against that."
 
-That sentence was written on August 3. On September 14 and 15 I merged a patch series. Six of its members are recorded on #878's own decision banner as shipped against it, and #878 remains open at `priority:high` for "the remaining shared classification contract."
+That sentence was added on September 4. On September 14 and 15, ten days later, I merged a patch series. Six of its members are recorded on #878's own decision banner as shipped against it, and #878 remains open at `priority:high` for "the remaining shared classification contract."
 
-It also describes a component called out in its own cluster, a parser that "produced a defect in every review round since it was introduced, each one created by the previous round's fix." I read that in August. I agreed with it. Then I spent a day and a half producing defects in review rounds, each one created by the previous round's fix, and experienced it as momentum.
+It also describes a component called out in its own cluster, a parser that "produced a defect in every review round since it was introduced, each one created by the previous round's fix." That was on the issue ten days before the burst. Then I spent a day and a half producing defects in review rounds, each one created by the previous round's fix, and experienced it as momentum.
 
 ## What Did Not Land
 
@@ -175,11 +175,11 @@ Twelve of the ninety merged pull requests name this failure mode explicitly in t
 
 **At least eleven of the 164 open issues in the repository, matching on titles alone, are about a rate limit, a quota, or a timeout being mistaken for a verdict.** The oldest is [#722](https://github.com/nathanjohnpayne/mergepath/issues/722), at 78 days, whose body describes a poll that "keeps waiting for the full `review_timeout_seconds` window (840s default) and then exits `4` (FALLBACK_REQUIRED)—indistinguishable from a genuinely slow/no-op review," and notes that the detection that would fix it "lives **only** in the retrospective audit script, never in the live gate/trigger path." The median is 26 days. The newest, [#1305](https://github.com/nathanjohnpayne/mergepath/issues/1305), was filed on September 23, carried no labels that day, and is titled "Phase 4b barrier treats a cap-exhausted Codex arm as a self-clearing wait."
 
-Truncation is the exception that proves the shape. No open issue title mentions truncation. The one instance I know of, #1247, got a 68-line pull request 56 seconds after it was filed and was closed 21 minutes after that. One known instance, one small fix, done.
+Truncation is the exception that proves the shape. No open issue title mentions truncation. The one instance I know of, #1247, got a 68-line pull request 56 seconds after it was filed and was closed 21 minutes after it was filed. One known instance, one small fix, done.
 
 The rate-limit family has at least eleven open instances because a rate limit arrives in many grammars: a status string, a comment, a missing comment, an expired notice, an aged summary, a prose paragraph the vendor writes differently this month, a silently empty array. Two of the eleven, #961 and #962, were filed **six seconds apart**, both split out of one earlier issue. That is not two discoveries. That is one problem being decomposed into tickets, which is what enumeration looks like from the inside.
 
-And that is the finding. **A defect you can only address by listing its instances is a missing abstraction.** #878 says so in plainer language than I have managed, and has said so since August 3.
+And that is the finding. **A defect you can only address by listing its instances is a missing abstraction.** #878 says so in plainer language than I have managed, and has said so, in one form or another, since August 3.
 
 ## What This Is Actually About
 
@@ -189,7 +189,7 @@ But there is a decision underneath all of this that is unambiguously mine, and I
 
 **Is reviewer availability a stated product requirement with an owner and a contract, or is it an implementation detail discovered one incident at a time?**
 
-I have been treating it as the second, and I can show you the cost. A month in which somewhere between 12 and 34 of 90 merged pull requests, by title alone, were retrofitted skepticism about values the system already trusted. A thirty-two-hour stretch that felt like progress and was a list. A design document specifying the general fix, open at high priority for fifty-one days, whose first instruction is the one I did not follow. An audit that failed open on every wave for thirty-eight days behind a transient-sounding classification. One attempt at half of the largest instance, closed unmerged after fifty-one minutes, with the instance itself still open. Eleven more waiting, each one a small pull request nobody has had a reason to write yet.
+I have been treating it as the second, and I can show you the cost. A month in which somewhere between 12 and 34 of 90 merged pull requests, by title alone, were retrofitted skepticism about values the system already trusted. A thirty-two-hour stretch that felt like progress and was a list. A design document specifying the general fix, open for fifty-one days, with an instruction not to do it in pieces that I did not follow. An audit that failed open on every wave for thirty-eight days behind a transient-sounding classification. One attempt at half of the largest instance, closed unmerged after fifty-one minutes, with the instance itself still open. Eleven more waiting, each one a small pull request nobody has had a reason to write yet.
 
 The general version costs a design pass and a hard conversation about what a signal is permitted to prove: one representation of "no answer," one rule for what callers may do with it, one implementation consumed by both the advisory path and the required gate. It is `size:L` and it is not fun.
 
