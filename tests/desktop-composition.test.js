@@ -385,6 +385,71 @@ describe('keyboard access to a capped panel', () => {
     }
   }, 60_000);
 
+  it('scrolls the focused region with Space and Shift+Space', async () => {
+    // The panel's keydown handler took Enter and Space from anywhere inside
+    // the panel, cancelled them, and then did nothing because the panel was
+    // already open, so Space never reached the focused scroll region (#1049).
+    const page = await openPage({ width: 1440, height: 900 });
+    try {
+      await page.focus('[data-panel="about"] .panel-label');
+      await page.keyboard.press('Enter');
+      await page.waitForSelector('[data-panel="about"].is-content-visible', { timeout: 5_000 });
+      // Control: Enter on the label still opened the panel and handed focus
+      // to a region that really scrolls, starting at its top.
+      const before = await page.evaluate(() => {
+        const ci = document.querySelector('[data-panel="about"] .content-inner');
+        return {
+          focused: document.activeElement === ci,
+          capped: ci.scrollHeight - ci.clientHeight > 1,
+          top: ci.scrollTop,
+        };
+      });
+      expect(before).toEqual({ focused: true, capped: true, top: 0 });
+      await page.keyboard.press('Space');
+      await page.waitForTimeout(300);
+      const down = await page.evaluate(
+        () => document.querySelector('[data-panel="about"] .content-inner').scrollTop,
+      );
+      expect(down, 'Space did not scroll the focused region').toBeGreaterThan(0);
+      await page.keyboard.press('Shift+Space');
+      await page.waitForTimeout(300);
+      const up = await page.evaluate(
+        () => document.querySelector('[data-panel="about"] .content-inner').scrollTop,
+      );
+      expect(up, 'Shift+Space did not scroll the focused region back').toBeLessThan(down);
+    } finally {
+      await page.close();
+    }
+  }, 60_000);
+
+  it('follows a link in the open text with Enter', async () => {
+    // The same handler cancelled Enter on a link inside the open panel.
+    const page = await openPage({ width: 1440, height: 900 });
+    try {
+      await page.focus('[data-panel="about"] .panel-label');
+      await page.keyboard.press('Enter');
+      await page.waitForSelector('[data-panel="about"].is-content-visible', { timeout: 5_000 });
+      await page.evaluate(() => {
+        window.__linkActivated = false;
+        const link = document.querySelector('[data-panel="about"] .about-resume-link');
+        // Record the activation and stay on the page.
+        link.addEventListener('click', (event) => {
+          window.__linkActivated = true;
+          event.preventDefault();
+        });
+        link.focus();
+      });
+      await page.keyboard.press('Enter');
+      await page.waitForTimeout(200);
+      expect(
+        await page.evaluate(() => window.__linkActivated),
+        'Enter on a link in the open panel did not activate it',
+      ).toBe(true);
+    } finally {
+      await page.close();
+    }
+  }, 60_000);
+
   it('keeps the reader scroll position across a desktop resize', async () => {
     // A guard, not a fix: the measure pass briefly switches panel scrolling
     // off, and Codex asked whether that resets a capped panel's scrollTop.

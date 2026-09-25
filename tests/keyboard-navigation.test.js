@@ -61,25 +61,45 @@ describe('Keyboard Navigation', () => {
     });
   });
 
+  // Keys are dispatched on the label, where a real keypress lands: the panel
+  // itself takes no focus, and Enter/Space open the panel only from its label
+  // (#1049).
+  const pressOnLabel = (panel, init) => {
+    const event = new KeyboardEvent('keydown', { bubbles: true, cancelable: true, ...init });
+    panel.querySelector('.panel-label').dispatchEvent(event);
+    return event;
+  };
+
   it('Enter key opens a focused panel', () => {
     const panel = document.querySelector('[data-panel="about"]');
-    panel.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    pressOnLabel(panel, { key: 'Enter' });
     expect(panel.classList.contains('is-open')).toBe(true);
     expect(document.getElementById('mondrian').dataset.focus).toBe('about');
   });
 
   it('Space key opens a focused panel and prevents default', () => {
     const panel = document.querySelector('[data-panel="projects"]');
-    const event = new KeyboardEvent('keydown', { key: ' ', bubbles: true, cancelable: true });
-    const spy = vi.spyOn(event, 'preventDefault');
-    panel.dispatchEvent(event);
+    const event = pressOnLabel(panel, { key: ' ' });
     expect(panel.classList.contains('is-open')).toBe(true);
-    expect(spy).toHaveBeenCalled();
+    expect(event.defaultPrevented).toBe(true);
+  });
+
+  it('Space and Enter inside the open text are left to the browser', () => {
+    // Space scrolls a focused capped region and Enter follows a link; the
+    // panel handler used to cancel both (#1049).
+    const panel = document.querySelector('[data-panel="about"]');
+    pressOnLabel(panel, { key: 'Enter' });
+    const inner = panel.querySelector('.content-inner');
+    for (const key of [' ', 'Enter']) {
+      const event = new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true });
+      inner.dispatchEvent(event);
+      expect(event.defaultPrevented, `${JSON.stringify(key)} was cancelled`).toBe(false);
+    }
   });
 
   it('Escape key on a panel collapses the active panel', async () => {
     const panel = document.querySelector('[data-panel="about"]');
-    panel.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    pressOnLabel(panel, { key: 'Enter' });
     expect(panel.classList.contains('is-open')).toBe(true);
 
     // Close runs through the state machine (#313): content fades out
@@ -91,7 +111,7 @@ describe('Keyboard Navigation', () => {
 
   it('Escape key on document collapses the active panel', async () => {
     const panel = document.querySelector('[data-panel="community"]');
-    panel.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    pressOnLabel(panel, { key: 'Enter' });
     expect(panel.classList.contains('is-open')).toBe(true);
 
     document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));

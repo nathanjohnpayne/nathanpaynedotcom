@@ -997,7 +997,15 @@ const homepageJsonLd = {
             if (panel.contains(document.activeElement)) escapeFocusReturn = panel;
             closePanel();
           }
-          if (event.key === 'Enter' || event.key === ' ') {
+          // Enter and Space open the panel from its label only. Taken from
+          // anywhere in the panel, they cancelled Space and Shift+Space
+          // scrolling a focused capped region, and Enter following a link in
+          // the open text, then did nothing, the panel being open (#1049).
+          if (
+            (event.key === 'Enter' || event.key === ' ') &&
+            event.target.closest &&
+            event.target.closest('.panel-label')
+          ) {
             event.preventDefault();
             // Only for an open that will reveal content; an Enter on a panel
             // already showing it must not leave the flag armed for a later
