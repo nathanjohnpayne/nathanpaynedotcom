@@ -292,6 +292,8 @@ Reclassified by title **and** the first lines of each pull request body (`pulls/
 
 8 + 2 + 3 + 7 = 20. This is a judgment classification from summaries, not full bodies, and the post states the buckets rather than one number.
 
+**Branch names, SUPPORTED.** "#1271 and #1283 carry `878` in their branch names": `GET /repos/nathanjohnpayne/mergepath/pulls/1271` → `.head.ref` is `codex/issue-878-tier-read-errors`; `pulls/1283` → `codex/878-aged-summary-status-veto` (read 2026-09-24). The other four #878-banner PRs carry their own issue numbers instead: #1273 `codex/1037-count-review-runs`, #1274 `codex/940-veto-fallback-status`, #1279 `codex/issue-940-timeout-failover`, #1282 `codex/1034-risk-marker-refusal`.
+
 ---
 
 ## G. PRE-PUBLISH CHECKLIST
