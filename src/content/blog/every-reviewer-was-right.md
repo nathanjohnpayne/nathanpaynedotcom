@@ -3,7 +3,7 @@ title: "Every Reviewer Was Right, and the Pull Request Was Still Wrong"
 seoTitle: "Every Reviewer Was Right"
 shortTitle: "Every Reviewer Was Right"
 description: "Two pull requests on the same automated review pipeline drew 72 Codex findings, and I could not find a wrong one. Both closed unmerged. One grew 61× from a 35-line first commit against an issue independently estimated small. The other opened at 275 lines for a bug whose issue already listed a one-word fix. Three healthy pull requests with as many review rounds showed what separated them: not volume, but whether anyone asked if the machinery containing the next finding belonged in the product at all. I was asked five times how to proceed. That question was never on the menu."
-seoDescription: "72 review findings I could not fault, two pull requests closed unmerged, and three healthy controls with as many rounds. Review volume was not the signal. Who owned the requirement was."
+seoDescription: "72 Codex findings I could not fault, two pull requests closed unmerged, and three healthy controls with as many rounds. Review volume was not the signal. Who owned the requirement was."
 category: "Agent Systems"
 author: "Nathan Payne"
 date: 2026-09-06
@@ -33,7 +33,7 @@ sidebar:
     caption: "Counting rules for every figure in this post."
   - type: text
     content: |
-      What was checked against what. Every pull request figure, timestamp, commit and quoted comment comes from the GitHub API, and the comment identifiers link to the source. The five prompts, my answers to them, the two lines I typed on August 27, and the messages I typed on September 6 come from the authoring session's own transcript, read directly rather than from a summary of it. An earlier summary of that transcript had claimed I typed nothing for twenty hours; the log says otherwise, and the text below follows the log. The fleet comparison covers every pull request with eight or more Codex review rounds opened between July 4 and September 6. Across the repository's full history there were 26, and the two closed pull requests here are still the only ones that did not merge. Nothing here is quoted from a pull request body without saying so, because those were written by the agents that opened them, under my account.
+      What was checked against what. Every pull request figure, timestamp, commit and quoted comment comes from the GitHub API, and the comment identifiers link to the source. The five prompts, my answers to them, the two lines I typed on August 27, and the messages I typed on September 6 come from the authoring session's own transcript, read directly rather than from a summary of it. An earlier summary of that transcript had claimed I typed nothing for twenty hours; the log says otherwise, and the text below follows the log. The fleet comparison covers every pull request with eight or more Codex review rounds opened between July 4 and September 6. Across the repository's full history at publication there were 26, and the two closed pull requests here are still the only ones that did not merge. Nothing here is quoted from a pull request body without saying so, because those were written by the agents that opened them, under my account.
     caption: "Provenance, so a reader can re-check it."
 ---
 
