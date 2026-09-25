@@ -411,9 +411,25 @@ describe('keyboard access to a capped panel', () => {
   it('does not carry an interrupted keyboard open over to a later mouse open', async () => {
     const page = await openPage({ width: 1440, height: 900 });
     try {
+      // Slow the reveal so Escape is guaranteed to interrupt it: focusing the
+      // label already starts an open, and if its reveal ran first it would
+      // clear the flag itself and this test would pass vacuously (CodeRabbit,
+      // PR #1046).
+      await page.evaluate(() =>
+        document.documentElement.style.setProperty('--motion-plane', '2000ms'),
+      );
       await page.focus('[data-panel="about"] .panel-label');
-      // Enter, then Escape before the reveal runs (it waits --motion-plane).
       await page.keyboard.press('Enter');
+      // Precondition: the reveal has not happened yet.
+      expect(
+        await page.evaluate(
+          () =>
+            !document
+              .querySelector('[data-panel="about"]')
+              .classList.contains('is-content-visible'),
+        ),
+      ).toBe(true);
+      await page.evaluate(() => document.documentElement.style.removeProperty('--motion-plane'));
       await page.keyboard.press('Escape');
       await page.waitForTimeout(IDLE_SETTLE_MS);
       await page.evaluate(() => document.activeElement && document.activeElement.blur());
