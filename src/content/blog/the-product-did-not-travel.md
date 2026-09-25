@@ -1,7 +1,5 @@
 ---
-title: "845 Squares, Then 27: The Code Generalized. The Product Didn't."
-seoTitle: "845 Squares, Then 27: The Code Generalized"
-shortTitle: "845 Squares, Then 27"
+title: "I Generalized the Code, Not the Product"
 description: "A bingo app built for one nine-night cruise logged 845 marks and 61 bingos. Two weeks and 76 pull requests later, the same code ran a weekend at Bodega Bay for a different host and logged 27 marks and no bingos, with nothing after 12:57 on Saturday. The platform work had succeeded. What made the first event work—prompts written for that sailing, a group that made it a dinner ritual, a host tuning it live—had never been in the code, and the cruise's own data said so the whole time. A second, different customer is how you find out which parts of a v1 were the product."
 seoDescription: "Same code, second event, different host: 845 marks became 27. The platform generalized; the product—occasion-fit prompts, a group that talked about it at dinner, a host tuning it live—did not."
 category: "Agent Systems"
@@ -14,7 +12,7 @@ keyTakeaways:
   - "A v1 that works is a bundle of code, content and circumstance, and usage totals will not say which part the customers were there for. A second, different customer will. Two weeks after a cruise logged 845 marks and 61 bingos, the same code ran a weekend for a different host and logged 27 marks and no bingos. The code was the part that traveled. The prompts, the ritual and the host were the product, and none of them was in the repository."
   - "The first event's data held the explanation before the second event ran. On the cruise, 41% of main-day marks were made after the next day's card had already unlocked, and 32% of all marks landed between 19:00 and 20:59. Players were marking at dinner, recalling the night before. I had read those numbers as engagement. They were a description of the product."
   - "Design the debrief so your known bugs cannot steer the answers. The host's debrief pointed at prompts written for plans that did not exist and at a game that felt like work on a weekend meant for resting. The timestamps then split the crash story in two: the guests had stopped four hours and forty-one minutes before the only crash, which plausibly ended the host's promoting and nothing else."
-  - "Six weeks of effort went against the evidence. Of 268 commits after the debrief, about 59 went to routing, sign-in and deployment and about 58 to dependencies and tooling; about 11 touched prompts and about 14 touched notifications. The next investment is not hosting infrastructure. It is occasion-fit prompts and a way for the game to stay in the conversation without the host, and the stop condition is a group still playing after day two."
+  - "Six weeks of commits went against the evidence. Of 268 commits after the debrief, about 59 went to routing, sign-in and deployment and about 58 to dependencies and tooling; about 11 touched prompts and about 14 touched notifications. The next investment is not hosting infrastructure. It is occasion-fit prompts and a way for the game to stay in the conversation without the host, and the stop condition is a group still playing after day two."
 pullquotes:
   - text: "The host was the notification system. When the host's app broke on Saturday afternoon and the host stopped reaching out, nothing else in the product was going to."
     label: "The real channel"
@@ -140,7 +138,7 @@ None of the three is in the code that generalized. Bodega Bay had the code. It h
 
 One of the decisions on the project page for this app is "Assume the connection is already gone." Its rationale reads: "The moments worth capturing are the ones furthest from a signal." I wrote it, and at the time it seemed obviously true. A ship has satellite internet and dead zones, a game that needs the network at tap time dies exactly when the group is together, and so the app queues marks offline and syncs later.
 
-The marking data does not describe that world. It describes people at a dinner table, recalling what happened yesterday. Offline support was not wasted. Some marks were made out of coverage, and the gap between Firestore and analytics on the cruise runs in the direction offline queueing predicts. But the claim that the valuable moments were the disconnected ones was a builder's story, told before there was any usage to check it against, and it was mostly wrong. The project page now says so.
+The marking data does not describe that world. It describes people at a dinner table, recalling what happened yesterday. Offline support was not wasted. Some marks may have been made out of coverage, and the gap between Firestore and analytics on the cruise runs in the direction offline queueing predicts. But the claim that the valuable moments were the disconnected ones was a builder's story, told before there was any usage to check it against, and it was mostly wrong. The project page now says so.
 
 That is a small error with a general shape. A rationale written before real use is a hypothesis, and it reads exactly like a finding. The only way to tell them apart is to go back after the event and check it against what people did.
 
@@ -154,7 +152,7 @@ Two pieces of that work do answer Kim. Six days after the debrief, the organizer
 
 The fair counterargument is that most of the plumbing is not optional. Self-service event creation, the thing that would let an organizer write prompts for their own occasion without me, is [blocked on four platform prerequisites](https://github.com/nathanjohnpayne/fiveacross/issues/785): wildcard routing, sign-in on arbitrary hostnames, and two more. Every live event so far was, in the [epic's](https://github.com/nathanjohnpayne/fiveacross/issues/786) words, "hand-seeded, hand-hosted, and hand-registered." You cannot hand prompt authorship to hosts without a surface for them to author on.
 
-I accept that argument for some of the six weeks and not for all of them. The tell is where the effort went relative to the evidence. The evidence said the platform worked and the things around it did not, and most of the next six weeks went into making the part that worked more general. The platform work was specified, reviewable and satisfying to close. The product work was none of those, and it is the work that would have moved the number.
+I accept that argument for some of the six weeks and not for all of them. The tell is where the commits went relative to the evidence. The evidence said the platform worked and the things around it did not, and platform and tooling work received several times the commits that prompts and notifications did. The platform work was specified, reviewable and satisfying to close. The product work was none of those, and it is the work that would have moved the number.
 
 ## The Stop Condition
 
