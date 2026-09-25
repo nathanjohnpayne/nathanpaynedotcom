@@ -64,9 +64,10 @@ const OVERFLOW_TOLERANCE_PX = 1;
 
 /**
  * How long a hover must go unanswered before "did not open" means the guard
- * held. The open sequence in index.astro reveals content one --motion-plane
- * (460ms) after the grid morphs; 1.2s is well past it, and waiting out a full
- * selector timeout instead cost 5s per stacked viewport (Codex, PR #1043).
+ * held. The open sequence in index.astro reveals content once the grid morph
+ * is handed back (--motion-plane + 60ms, 520ms); 1.2s is well past it, and
+ * waiting out a full selector timeout instead cost 5s per stacked viewport
+ * (Codex, PR #1043).
  */
 const NO_OPEN_WAIT_MS = 1_200;
 
@@ -900,7 +901,7 @@ describe('scroll cue across a desktop resize', () => {
 
 describe('scroll cue on a keyboard open, with the morph animating', () => {
   it('decides scrollability against the settled panel, not the morph in flight', async () => {
-    // The reveal runs one --motion-plane after the morph is committed, but the
+    // The reveal ran one --motion-plane after the morph was committed, but the
     // pixel morph's transition starts a frame later, so at the reveal the
     // tracks could still be a pixel or two short (a narrower column wrapping
     // one more line). A panel that fits by a pixel was then given the fade and
