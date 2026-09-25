@@ -612,6 +612,55 @@ describe('keyboard access to a capped panel', () => {
     }, 60_000);
   });
 
+  it('keeps the panel open and focus in place when a resize lets the focused region fit', async () => {
+    // The measure pass removed the "scrollable" tab stop from the region that
+    // held focus, the browser blurred it, and the focusout read the blur as the
+    // reader leaving and closed the panel under them (#1049).
+    const page = await openPage({ width: 1440, height: 900 });
+    try {
+      await page.focus('[data-panel="about"] .panel-label');
+      await page.keyboard.press('Enter');
+      await page.waitForSelector('[data-panel="about"].is-content-visible', { timeout: 5_000 });
+      const regionState = () =>
+        page.evaluate(() => {
+          const ci = document.querySelector('[data-panel="about"] .content-inner');
+          return {
+            focused: document.activeElement === ci,
+            below: ci.scrollHeight - ci.clientHeight,
+            tabindex: ci.getAttribute('tabindex'),
+            role: ci.getAttribute('role'),
+            open: [...document.querySelectorAll('[data-panel].is-open')].map(
+              (p) => p.dataset.panel,
+            ),
+          };
+        });
+      // Control: focus is in a region that really scrolls before the resize.
+      const before = await regionState();
+      expect(before.focused, 'the keyboard open did not put focus in the region').toBe(true);
+      expect(before.tabindex).toBe('0');
+      expect(before.below).toBeGreaterThan(1);
+      await page.setViewportSize({ width: 2560, height: 1440 });
+      await page.waitForTimeout(IDLE_SETTLE_MS + 300);
+      const after = await regionState();
+      expect(after.open, 'the resize closed the panel the reader was in').toEqual(['about']);
+      // Control: the resize really let About fit, so the tab stop had to go.
+      expect(after.below, 'About is still capped at 2560x1440').toBeLessThanOrEqual(1);
+      expect(after.focused, 'focus left the region the reader was in').toBe(true);
+      expect(after.tabindex, 'a region that fits is still a tab stop').not.toBe('0');
+      expect(after.role, 'a region that fits is still announced as scrollable').toBeNull();
+      // Once focus moves on, the region keeps no tabindex at all.
+      await page.keyboard.press('Tab');
+      expect(
+        await page.evaluate(() =>
+          document.querySelector('[data-panel="about"] .content-inner').getAttribute('tabindex'),
+        ),
+        'the region kept its tabindex after focus moved on',
+      ).toBeNull();
+    } finally {
+      await page.close();
+    }
+  }, 60_000);
+
   it('keeps the reader scroll position across a desktop resize', async () => {
     // A guard, not a fix: the measure pass briefly switches panel scrolling
     // off, and Codex asked whether that resets a capped panel's scrollTop.

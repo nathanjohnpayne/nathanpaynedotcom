@@ -676,7 +676,14 @@ const homepageJsonLd = {
           ci.setAttribute('role', 'region');
           ci.setAttribute('aria-label', (panel.getAttribute('aria-label') || 'Panel') + ', scrollable');
         } else {
-          ci.removeAttribute('tabindex');
+          // Removing the tab stop from the region that holds focus (a resize
+          // that lets the panel fit) would make the browser blur it, and a
+          // blur with nowhere to go reads as the reader leaving, which closes
+          // the panel under them (#1049). So a focused region only leaves the
+          // tab order (tabindex -1 keeps focus where it is), and the attribute
+          // is dropped once focus moves on (the blur listener below).
+          if (document.activeElement === ci) ci.setAttribute('tabindex', '-1');
+          else ci.removeAttribute('tabindex');
           ci.removeAttribute('role');
           ci.removeAttribute('aria-label');
         }
@@ -684,7 +691,11 @@ const homepageJsonLd = {
 
       panels.forEach((panel) => {
         const ci = panel.querySelector('.content-inner');
-        if (ci) ci.addEventListener('scroll', () => updateScrollCue(panel), { passive: true });
+        if (!ci) return;
+        ci.addEventListener('scroll', () => updateScrollCue(panel), { passive: true });
+        ci.addEventListener('blur', () => {
+          if (ci.getAttribute('tabindex') === '-1') ci.removeAttribute('tabindex');
+        });
       });
 
       // Each open starts at the top of the panel's text, not wherever a
