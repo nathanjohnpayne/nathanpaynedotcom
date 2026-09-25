@@ -450,6 +450,168 @@ describe('keyboard access to a capped panel', () => {
     }
   }, 60_000);
 
+  describe('a pointer close or switch while focus is in the open text', () => {
+    // A mouse leaving the panel, a click on a part of the page that takes no
+    // focus, or a hover onto another panel hid the text that held keyboard
+    // focus, and focus was left on the hidden content or the document body.
+    // Chromium also blurs a focused element it hides, and the focusout that
+    // produced turned a hover switch into a close of every panel (#1049).
+
+    /** Keyboard-open About at 1440x900, where it is capped and takes focus. */
+    async function keyboardOpenAbout(page) {
+      await page.mouse.move(1, 1);
+      await page.focus('[data-panel="about"] .panel-label');
+      await page.keyboard.press('Enter');
+      await page.waitForSelector('[data-panel="about"].is-content-visible', { timeout: 5_000 });
+      // Control: focus really is in the scroll region before the pointer acts.
+      expect(
+        await page.evaluate(
+          () =>
+            document.activeElement ===
+            document.querySelector('[data-panel="about"] .content-inner'),
+        ),
+        'the keyboard open did not put focus in the scroll region',
+      ).toBe(true);
+    }
+
+    /** Where focus is, and whether a reader can see it. */
+    function readFocus(page) {
+      return page.evaluate(() => {
+        const ae = document.activeElement;
+        const panel = ae && ae.closest('.panel');
+        const inHiddenText = Boolean(
+          panel && ae.closest('.panel-content') && !panel.classList.contains('is-content-visible'),
+        );
+        return {
+          visible: Boolean(ae) && ae !== document.body && ae.checkVisibility() && !inHiddenText,
+          on: ae === document.body ? 'body' : ae.className,
+          aboutLabel: ae === document.querySelector('[data-panel="about"] .panel-label'),
+          projectsRegion: ae === document.querySelector('[data-panel="projects"] .content-inner'),
+          open: [...document.querySelectorAll('[data-panel].is-open')].map((p) => p.dataset.panel),
+        };
+      });
+    }
+
+    /** A point beside the grid, on page background that takes no focus. */
+    async function backgroundPoint(page) {
+      const grid = await page.locator('.mondrian').boundingBox();
+      const x = grid.x / 2;
+      const y = grid.y + grid.height / 2;
+      // Control: the point is off every panel and on nothing focusable.
+      expect(
+        await page.evaluate(
+          ([px, py]) => {
+            const el = document.elementFromPoint(px, py);
+            return Boolean(el) && !el.closest('.panel') && !el.closest('a, button, [tabindex]');
+          },
+          [x, y],
+        ),
+        'the background point is on a panel or a focusable element',
+      ).toBe(true);
+      return { x, y };
+    }
+
+    it('returns focus to the label when the mouse leaves the panel', async () => {
+      const page = await openPage({ width: 1440, height: 900 });
+      try {
+        await keyboardOpenAbout(page);
+        const about = await page.locator('[data-panel="about"]').boundingBox();
+        const out = await backgroundPoint(page);
+        await page.mouse.move(about.x + about.width / 2, about.y + about.height / 2);
+        await page.waitForTimeout(200);
+        await page.mouse.move(out.x, out.y);
+        await page.waitForTimeout(IDLE_SETTLE_MS + 300);
+        const focus = await readFocus(page);
+        expect(focus.open, 'the mouse leaving did not close About').toEqual([]);
+        expect(focus.visible, `focus was left on hidden content (${focus.on})`).toBe(true);
+        expect(focus.aboutLabel, `focus is not on the About label (${focus.on})`).toBe(true);
+      } finally {
+        await page.close();
+      }
+    }, 60_000);
+
+    it('returns focus to the label when a click on the background closes the panel', async () => {
+      const page = await openPage({ width: 1440, height: 900 });
+      try {
+        await keyboardOpenAbout(page);
+        const out = await backgroundPoint(page);
+        await page.mouse.click(out.x, out.y);
+        await page.waitForTimeout(IDLE_SETTLE_MS + 300);
+        const focus = await readFocus(page);
+        expect(focus.visible, `focus was left on hidden content (${focus.on})`).toBe(true);
+        expect(focus.aboutLabel, `focus is not on the About label (${focus.on})`).toBe(true);
+        expect(focus.open, 'returning focus reopened a panel').toEqual([]);
+      } finally {
+        await page.close();
+      }
+    }, 60_000);
+
+    it('moves focus into the new panel when a hover switches to it', async () => {
+      const page = await openPage({ width: 1440, height: 900 });
+      try {
+        await keyboardOpenAbout(page);
+        const projects = await page.locator('[data-panel="projects"]').boundingBox();
+        await page.mouse.move(projects.x + projects.width / 2, projects.y + projects.height / 2);
+        await page.waitForTimeout(IDLE_SETTLE_MS + 300);
+        const focus = await readFocus(page);
+        expect(focus.open, 'the hover did not switch to Projects').toEqual(['projects']);
+        // Control: Projects is capped here, so its region is the target.
+        expect(
+          await page.evaluate(
+            () =>
+              document
+                .querySelector('[data-panel="projects"] .content-inner')
+                .getAttribute('tabindex') === '0',
+          ),
+        ).toBe(true);
+        expect(focus.visible, `focus was left on hidden content (${focus.on})`).toBe(true);
+        expect(focus.projectsRegion, `focus is not in the Projects region (${focus.on})`).toBe(
+          true,
+        );
+      } finally {
+        await page.close();
+      }
+    }, 60_000);
+
+    it('leaves focus where the reader moved it during the close', async () => {
+      const page = await openPage({ width: 1440, height: 900 });
+      try {
+        // Slow the close so the reader's own move lands inside it.
+        await page.evaluate(() =>
+          document.documentElement.style.setProperty('--motion-fast', '600ms'),
+        );
+        await keyboardOpenAbout(page);
+        const out = await backgroundPoint(page);
+        // The homepage has nothing focusable outside the grid, and a panel
+        // label would open its panel, so the visible target is a fixture.
+        await page.evaluate(() => {
+          const button = document.createElement('button');
+          button.id = 'elsewhere';
+          button.textContent = 'Elsewhere';
+          button.style.cssText = 'position:fixed;top:8px;left:8px;z-index:99';
+          document.body.append(button);
+        });
+        await page.mouse.click(out.x, out.y);
+        // Precondition: the close is still under way when the reader moves.
+        expect(
+          await page.evaluate(() =>
+            document.querySelector('[data-panel="about"]').classList.contains('is-open'),
+          ),
+        ).toBe(true);
+        // A genuine move to a visible element before the close settles.
+        await page.focus('#elsewhere');
+        await page.evaluate(() => document.documentElement.style.removeProperty('--motion-fast'));
+        await page.waitForTimeout(IDLE_SETTLE_MS + 600);
+        expect(
+          await page.evaluate(() => document.activeElement.id),
+          'the focus return overrode where the reader moved focus',
+        ).toBe('elsewhere');
+      } finally {
+        await page.close();
+      }
+    }, 60_000);
+  });
+
   it('keeps the reader scroll position across a desktop resize', async () => {
     // A guard, not a fix: the measure pass briefly switches panel scrolling
     // off, and Codex asked whether that resets a capped panel's scrollTop.

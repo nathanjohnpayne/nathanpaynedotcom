@@ -693,12 +693,36 @@ const homepageJsonLd = {
       // order as the panel opens (hideLabel), so otherwise the keys that
       // scroll the text would have nowhere to go.
       let keyboardOpenPanel = null;
-      // Escape from inside an open panel returns focus to its label once the
-      // close restores it, or keyboard users are left on hidden content or
-      // the document body (Codex, PR #1046). That programmatic focus must not
-      // reopen the panel through the focusin handler.
-      let escapeFocusReturn = null;
+      // A close or switch hides the open panel's text, and with it whatever
+      // held focus there, leaving a keyboard reader on hidden content or the
+      // document body. So focus is returned to something visible once the
+      // transition has restored it: the closing panel's label, or on a switch
+      // the new panel's scroll region (Escape: Codex, PR #1046; a pointer
+      // close or switch: #1049). `focusReturn` is the panel focus is being
+      // returned from. It is only acted on while focus is still lost, so a
+      // reader who has since moved focus somewhere visible keeps it there, and
+      // the programmatic focus must not reopen a panel through the focusin
+      // handler.
+      let focusReturn = null;
       let suppressFocusOpen = false;
+      function focusIsLost() {
+        const ae = document.activeElement;
+        if (!ae || ae === document.body) return true;
+        const panel = ae.closest('.panel');
+        return Boolean(
+          panel && ae.closest('.panel-content') && !panel.classList.contains('is-content-visible'),
+        );
+      }
+      function holdsFocusInText(panel) {
+        const ae = document.activeElement;
+        return Boolean(ae && panel.contains(ae) && ae.closest('.panel-content'));
+      }
+      function returnFocus(target) {
+        if (!target) return;
+        suppressFocusOpen = true;
+        target.focus({ preventScroll: true });
+        suppressFocusOpen = false;
+      }
       function revealContent(panel) {
         const ci = panel.querySelector('.content-inner');
         if (ci) ci.scrollTop = 0;
@@ -765,6 +789,10 @@ const homepageJsonLd = {
       function startOpen(panel, replayHover) {
         const token = ++transitionToken;
         state = 'opening';
+        // Every close and switch settles its own focus return, so one still
+        // set here is stale (a blur in the stack, where nothing is open) and
+        // must not move focus when this panel later closes.
+        focusReturn = null;
         active = panel;
         panel.classList.add('is-open');
         hideLabel(panel);
@@ -784,6 +812,7 @@ const homepageJsonLd = {
         const token = ++transitionToken;
         const prev = active;
         state = 'switching';
+        if (holdsFocusInText(prev)) focusReturn = prev;
         // Phase 1: fade previous content out.
         prev.classList.remove('is-content-visible');
         setTimeout(() => {
@@ -803,6 +832,18 @@ const homepageJsonLd = {
             if (token !== transitionToken) return;
             // Phase 3: fade the new content in once the grid is settled.
             revealContent(nextPanel);
+            // Focus lost with the previous panel's text goes to the new
+            // panel's scroll region when there is one. Otherwise it goes to
+            // the previous panel's label, visible again since phase 2: the new
+            // panel's own label is hidden and out of the tab order while its
+            // panel is open (hideLabel).
+            if (focusReturn && focusIsLost()) {
+              const ci = nextPanel.querySelector('.content-inner');
+              returnFocus(
+                ci && ci.getAttribute('tabindex') === '0' ? ci : prev.querySelector('.panel-label'),
+              );
+            }
+            focusReturn = null;
             state = 'open';
             if (replayHover) resolveHoverTarget();
           }, readMsToken('--motion-plane', 460));
@@ -818,6 +859,7 @@ const homepageJsonLd = {
         // hand-off, or a later mouse open of the panel would take focus
         // (CodeRabbit, PR #1046).
         keyboardOpenPanel = null;
+        if (holdsFocusInText(closing)) focusReturn = closing;
         // Phase 1: fade content out first.
         closing.classList.remove('is-content-visible');
         setTimeout(() => {
@@ -830,15 +872,8 @@ const homepageJsonLd = {
           morphTracks(() => {
             delete grid.dataset.focus;
           });
-          if (escapeFocusReturn === closing) {
-            const label = closing.querySelector('.panel-label');
-            if (label) {
-              suppressFocusOpen = true;
-              label.focus({ preventScroll: true });
-              suppressFocusOpen = false;
-            }
-          }
-          escapeFocusReturn = null;
+          if (focusReturn && focusIsLost()) returnFocus(closing.querySelector('.panel-label'));
+          focusReturn = null;
           setTimeout(() => {
             if (token !== transitionToken) return;
             state = 'idle';
@@ -985,7 +1020,18 @@ const homepageJsonLd = {
           openPanel(panel);
         });
         panel.addEventListener('focusout', (event) => {
-          if (!panel.contains(event.relatedTarget)) closePanel();
+          if (panel.contains(event.relatedTarget)) return;
+          if (!event.relatedTarget && event.target.closest('.panel-content')) {
+            // Focus left the open text for nothing: a click on a part of the
+            // page that takes no focus, or the browser blurring an element a
+            // close or switch has just hidden (Chromium does). Either way it
+            // is returned once the transition settles (#1049). The second is
+            // the transition itself, not the reader leaving, so it must not
+            // restart a close or turn a switch into one.
+            focusReturn = panel;
+            if (!panel.classList.contains('is-content-visible')) return;
+          }
+          closePanel();
         });
         panel.addEventListener('click', (event) => {
           if (event.target.closest('a')) return;
@@ -993,10 +1039,7 @@ const homepageJsonLd = {
           openPanel(panel);
         });
         panel.addEventListener('keydown', (event) => {
-          if (event.key === 'Escape') {
-            if (panel.contains(document.activeElement)) escapeFocusReturn = panel;
-            closePanel();
-          }
+          if (event.key === 'Escape') closePanel();
           // Enter and Space open the panel from its label only. Taken from
           // anywhere in the panel, they cancelled Space and Shift+Space
           // scrolling a focused capped region, and Enter following a link in
