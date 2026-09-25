@@ -68,6 +68,8 @@ Open issue total **164**: `github_list_issues(state="open", page_size=100)`, pag
 
 The eleven, by title match: #1305, #1245, #1223, #1186, #1185, #1130, #962, #961, #907, #826, #722. Two more are arguable on a looser reading of budget-as-quota (#816, #813), giving 11 strict and 13 loose.
 
+**WRONG in the first draft as a characterization of all eleven** ("being mistaken for a verdict"). Titles re-read 2026-09-24: #962 is "A correct rate-limit block should not surface as a red failure check", which is the post's own counter-case (§E1), and #826 is a topology proposal (§E2). Neither is a misreading. The post now says the eleven are "about how the pipeline handles a rate limit, a quota, a budget, or a timeout. Nine are defects. The other two, #962 and #826, are the controls above." The downstream surfaces ("eleven open instances", the closing "eleven more waiting", the description's "eleven open issues still name instances") now say nine defects. The age statistics (oldest #722, median #1130) are computed over all eleven title matches and are stated that way. Both controls sit mid-table, so dropping them would not change the oldest; the median over the nine is 19 days (#1186 and #1185 tie), which the post does not cite.
+
 Matching is **title-only**; there is no issue full-text search in this tool set. An issue whose body discusses a rate limit under a title that does not is uncounted. **11 is a floor.**
 
 ### B4—ages of the eleven
@@ -205,6 +207,19 @@ Further body text, verbatim except for em dash spacing, re-read 2026-09-24: "Eve
 
 **SUPPORTED.** #1293 body: "Stop additional Codex review requests after the PR consumes `codex.max_review_rounds` (default 10). Count distinct exact commands from the configured author across paginated issue-comment history before every new write, including acknowledgement retries." It implements #813, an **open** epic at `priority:high`: "Create a bounded review lane: order providers, count cycles, and stop discretionary churn."
 
+### D9—the behavior column of the opening table
+
+**SUPPORTED, from each pull request's own body** (`pulls/{n}.body`, first summary lines, re-read 2026-09-24). Each table cell paraphrases the sentence quoted here:
+
+- **#1179**: "`p4b_barrier_class_coderabbit` mapped every `--probe` rc 7 that was not head-pinned-and-corroborated to `not-yet`, and `probe.observed: \"rate_limit\"` was one of them. The barrier then returned `pending` and waited out `coderabbit.max_wait_seconds` on a state nothing in the run could change."
+- **#1274**: "A walkthrough refreshed by a push could clear CodeRabbit polling even after the same run rejected the head's pending or 'Review rate limited' status."
+- **#1279**: "When CodeRabbit reports `success / Review rate limited` without a rate-limit comment, the waiter reaches its ordinary timeout and never invokes the existing Codex fallback."
+- **#1282**: "A CodeRabbit summary edited after a push can still clear the new head when its complete `final_review_risk` block names an older commit."
+- **#1283**: "An aged CodeRabbit summary containing a blocking finding can bypass the existing pending-status refusal … The marker-selected summary takes the completed-summary escape before the trusted status is evaluated."
+- **#1248, #1263, #1293**: sourced in §D6, §D7 (via #1186), and §D8 respectively.
+
+These are the authors' descriptions of the defect each PR fixes. Most were written by coding agents (see the post's provenance sidebar), so they record what the pipeline's own authors said, not independently reproduced behavior.
+
 ---
 
 ## E. THE CONTROLS
@@ -253,11 +268,11 @@ Verbatim: "CodeRabbit's Fair Usage allowance is structurally too small for this 
 
 Rejected candidates, recorded so a later pass does not re-check them: **#1119** is 29 added lines and fails the size bar. **#1228** has `.metadata.merged` false and is closed unmerged—**do not cite it as shipped work.** #1124 and #1182 are merged but their merge dates were not established.
 
-**Note what the contrast set actually shows, because it cuts against a lazier version of the post:** #1264 and #1106 are themselves about a finding riding through unread. The contrast set is thinner than the thesis wants. The honest reading, which the draft carries, is that the bulk of the 90 is neither cleanly new capability nor cleanly quota defense but correctness repair on review-sensing and merge-gating logic.
+**Note what the contrast set actually shows, because it cuts against a lazier version of the post:** #1264 and #1106 are themselves about a finding riding through unread. The contrast set is thinner than the thesis wants. The honest reading, which the draft carries, is that correctness repair on review-sensing and merge-gating logic runs through the whole window, and that the 90 cannot be split cleanly into new capability and quota defense. No share is claimed (§B2 supports only the 12–34 title range).
 
 ### E5—#1169, the capability counterpoint
 
-**SUPPORTED.** +15,436 / −706 across 50 files, the largest in the set by an order of magnitude, merged `2026-09-11T03:45:16Z` per its squash commit. Body: "Add the fail-closed authorization boundary for a singleton native GitHub merge queue, using exact-SHA required workflows from an organization-owned public policy source."
+**SUPPORTED, against all 90.** +15,436 / −706 across 50 files. `pulls/{n}` `.additions` was read for every PR number parsed from the window's commit subjects on 2026-09-24 (91 numbers: #1130 is an issue, and the other 90 all have `.merged` true). To recheck, re-run the §B1 subject parse and read `pulls/{n}.additions` for each. The next largest are #1099 at +5,868, #1176 at +1,678, and #1121 at +1,657, so "the biggest thing merged all month" holds by additions. It merged at `2026-09-11T03:45:16Z` per its squash commit. Body: "Add the fail-closed authorization boundary for a singleton native GitHub merge queue, using exact-SHA required workflows from an organization-owned public policy source."
 
 Its issue #1058 is **still open**, labels `bug`, `enhancement`, `automation`, `size:L`, `type:feature`, `priority:normal`, `area:merge-gating`, `status:blocked`. Body: "Nothing keeps an open PR in sync with `main`." And: "This repo's merge safety is **head-SHA-pinned by construction**, and a merge queue evaluates required checks on a different SHA."
 
