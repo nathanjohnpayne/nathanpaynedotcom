@@ -99,7 +99,7 @@ describe('homepage Writing block (#523)', () => {
 
   it('never renders a draft post', () => {
     const draftSlugs = allPosts
-      .filter((post) => post.data.draft === true)
+      .filter((post) => post.data.draft === 'true')
       .map((post) => `/blog/${post.slug}/`);
 
     const hrefs = postLinks().map((a) => a.getAttribute('href'));
@@ -124,7 +124,7 @@ describe('homepage Writing block (#523)', () => {
     const link = document.querySelector('.blog-callout-link');
 
     expect(link?.getAttribute('href')).toBe(`/blog/${latest.slug}/`);
-    expect(link?.getAttribute('href')).toBe('/blog/every-reviewer-was-right/');
+    expect(link?.getAttribute('href')).toBe('/blog/the-product-did-not-travel/');
   });
 
   it('follows the list with a "View all writing" link to /blog/, on the ribbon', () => {

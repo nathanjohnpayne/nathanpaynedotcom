@@ -245,7 +245,13 @@ phase_4b_automation:
   # Declarative cap for callers that loop this one-round helper after a
   # CHANGES_REQUESTED verdict. The orchestrator performs one adapter pass per
   # invocation and does not persist round state.
-  max_review_rounds: 2
+  #
+  # TEMPORARY WAIVER (operator request 2026-09-24): the round cap is waived
+  # through 2026-10-15. 999 = effectively uncapped; keep looping automated
+  # Phase 4b after CHANGES_REQUESTED until APPROVED. On 2026-10-15 restore
+  # `max_review_rounds: 2` and delete this note. Phase 4a's
+  # codex.max_review_rounds runaway guard is NOT waived.
+  max_review_rounds: 999
 
   # An ambiguous or non-schema-conformant adapter verdict must never become an
   # APPROVED; the orchestrator falls back to the manual handoff instead.
