@@ -75,7 +75,8 @@ const NO_OPEN_WAIT_MS = 1_200;
 /**
  * "Closed" is the grid back at rest (no `.is-open`, no `data-focus`) AND the
  * state machine back to idle, which the close sequence in index.astro reaches
- * one `--motion-plane` (460ms) after the grid resets. A hover landing before
+ * when the morph back to rest settles (--motion-plane + --motion-settle,
+ * 520ms, on these transition-free pages). A hover landing before
  * then is swallowed, which reads as "did not open" for a reason that has
  * nothing to do with the layout.
  */

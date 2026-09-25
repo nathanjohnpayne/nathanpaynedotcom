@@ -959,16 +959,21 @@ const homepageJsonLd = {
           closing.classList.remove('is-open');
           showLabel(closing);
           active = null;
-          morphTracks(() => {
-            delete grid.dataset.focus;
-          });
+          // Hover stays locked until the morph back to rest settles, so a
+          // queued hover re-resolves against the grid the reader will see,
+          // as on open and switch (Codex, #1064).
+          morphTracks(
+            () => {
+              delete grid.dataset.focus;
+            },
+            () => {
+              if (token !== transitionToken) return;
+              state = 'idle';
+              if (replayHover) resolveHoverTarget();
+            },
+          );
           if (focusReturn && focusIsLost()) returnFocus(closing.querySelector('.panel-label'));
           focusReturn = null;
-          setTimeout(() => {
-            if (token !== transitionToken) return;
-            state = 'idle';
-            if (replayHover) resolveHoverTarget();
-          }, readMsToken('--motion-plane', 460));
         }, readMsToken('--motion-fast', 130));
       }
 
