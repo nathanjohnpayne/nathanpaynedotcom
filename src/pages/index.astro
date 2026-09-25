@@ -757,6 +757,11 @@ const homepageJsonLd = {
         const token = ++transitionToken;
         const closing = active;
         state = 'closing';
+        // A close that interrupts a keyboard open (Enter, then Escape before
+        // the reveal) cancels that reveal, so it must also disarm the focus
+        // hand-off, or a later mouse open of the panel would take focus
+        // (CodeRabbit, PR #1046).
+        keyboardOpenPanel = null;
         // Phase 1: fade content out first.
         closing.classList.remove('is-content-visible');
         setTimeout(() => {

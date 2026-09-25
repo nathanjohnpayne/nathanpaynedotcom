@@ -408,6 +408,30 @@ describe('keyboard access to a capped panel', () => {
     }
   }, 60_000);
 
+  it('does not carry an interrupted keyboard open over to a later mouse open', async () => {
+    const page = await openPage({ width: 1440, height: 900 });
+    try {
+      await page.focus('[data-panel="about"] .panel-label');
+      // Enter, then Escape before the reveal runs (it waits --motion-plane).
+      await page.keyboard.press('Enter');
+      await page.keyboard.press('Escape');
+      await page.waitForTimeout(IDLE_SETTLE_MS);
+      await page.evaluate(() => document.activeElement && document.activeElement.blur());
+      expect(await hoverPanel(page, 'about', { expectOpen: true })).toBe(true);
+      await page.waitForTimeout(200);
+      expect(
+        await page.evaluate(() =>
+          document
+            .querySelector('[data-panel="about"] .content-inner')
+            .contains(document.activeElement),
+        ),
+        'a mouse open took focus left armed by an interrupted keyboard open',
+      ).toBe(false);
+    } finally {
+      await page.close();
+    }
+  }, 60_000);
+
   it('adds no tab stop when the panel fits', async () => {
     const page = await openPage({ width: 1920, height: 1200 });
     try {
