@@ -611,6 +611,84 @@ describe('keyboard access to a capped panel', () => {
       }
     }, 60_000);
 
+    it('returns focus to the label when a hover switches to a panel with no scroll region', async () => {
+      // Connect fits at 1440x900, so there is no region to move focus into;
+      // the previous panel's label, visible again, takes it (the new panel's
+      // own label is hidden while it is open).
+      const page = await openPage({ width: 1440, height: 900 });
+      try {
+        await keyboardOpenAbout(page);
+        const connect = await page.locator('[data-panel="connect"]').boundingBox();
+        await page.mouse.move(connect.x + connect.width / 2, connect.y + connect.height / 2);
+        await page.waitForTimeout(IDLE_SETTLE_MS + 300);
+        const focus = await readFocus(page);
+        expect(focus.open, 'the hover did not switch to Connect').toEqual(['connect']);
+        // Control: Connect has no scroll region here, so the fallback is taken.
+        expect(
+          await page.evaluate(() =>
+            document
+              .querySelector('[data-panel="connect"] .content-inner')
+              .getAttribute('tabindex'),
+          ),
+          'Connect is capped here, so the fallback is not exercised',
+        ).toBeNull();
+        expect(focus.visible, `focus was left on hidden content (${focus.on})`).toBe(true);
+        expect(focus.aboutLabel, `focus is not on the About label (${focus.on})`).toBe(true);
+      } finally {
+        await page.close();
+      }
+    }, 60_000);
+
+    it('leaves focus where the reader moved it during a switch', async () => {
+      const page = await openPage({ width: 1440, height: 900 });
+      try {
+        await keyboardOpenAbout(page);
+        await page.evaluate(() => {
+          const button = document.createElement('button');
+          button.id = 'elsewhere';
+          button.textContent = 'Elsewhere';
+          button.style.cssText = 'position:fixed;top:8px;left:8px;z-index:99';
+          document.body.append(button);
+          // Slow the switch's last phase so the reader's move lands inside it.
+          document.documentElement.style.setProperty('--motion-plane', '2000ms');
+        });
+        const projects = await page.locator('[data-panel="projects"]').boundingBox();
+        await page.mouse.move(projects.x + projects.width / 2, projects.y + projects.height / 2);
+        // Past phase 2: Projects is open and About is not, so the move below
+        // is not focus leaving the open panel, which would close it.
+        await page.waitForFunction(
+          () =>
+            document.querySelector('[data-panel="projects"]').classList.contains('is-open') &&
+            !document.querySelector('[data-panel="about"]').classList.contains('is-open'),
+          null,
+          { timeout: 5_000 },
+        );
+        const switching = await page.evaluate(() => {
+          document.getElementById('elsewhere').focus();
+          return !document
+            .querySelector('[data-panel="projects"]')
+            .classList.contains('is-content-visible');
+        });
+        // Precondition, read after the move: the switch has not yet returned focus.
+        expect(switching, 'the move landed after the switch settled').toBe(true);
+        await page.evaluate(() => document.documentElement.style.removeProperty('--motion-plane'));
+        await page.waitForSelector('[data-panel="projects"].is-content-visible', {
+          timeout: 5_000,
+        });
+        await page.waitForTimeout(300);
+        const after = await page.evaluate(() => ({
+          id: document.activeElement.id,
+          open: [...document.querySelectorAll('[data-panel].is-open')].map((p) => p.dataset.panel),
+        }));
+        expect(after.open, 'the move closed the switch').toEqual(['projects']);
+        expect(after.id, 'the switch took focus back from where the reader moved it').toBe(
+          'elsewhere',
+        );
+      } finally {
+        await page.close();
+      }
+    }, 60_000);
+
     it('leaves focus where the reader moved it during the close', async () => {
       const page = await openPage({ width: 1440, height: 900 });
       try {
@@ -630,14 +708,16 @@ describe('keyboard access to a capped panel', () => {
           document.body.append(button);
         });
         await page.mouse.click(out.x, out.y);
-        // Precondition: the close is still under way when the reader moves.
-        expect(
-          await page.evaluate(() =>
-            document.querySelector('[data-panel="about"]').classList.contains('is-open'),
-          ),
-        ).toBe(true);
-        // A genuine move to a visible element before the close settles.
-        await page.focus('#elsewhere');
+        // A genuine move to a visible element before the close settles. The
+        // precondition is read after the move, in the same task: About loses
+        // is-open in the same timer callback that returns focus, so a move
+        // that landed after that (a stalled round trip) fails here instead of
+        // passing whether or not the guard exists.
+        const closing = await page.evaluate(() => {
+          document.getElementById('elsewhere').focus();
+          return document.querySelector('[data-panel="about"]').classList.contains('is-open');
+        });
+        expect(closing, 'the move landed after the close settled').toBe(true);
         await page.evaluate(() => document.documentElement.style.removeProperty('--motion-fast'));
         await page.waitForTimeout(IDLE_SETTLE_MS + 600);
         expect(
