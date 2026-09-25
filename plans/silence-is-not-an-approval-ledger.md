@@ -30,7 +30,9 @@ Source: `github_get_issue(repo="nathanjohnpayne/mergepath", issue_number=878)` �
 
 **SUPPORTED.** #878 was created `2026-08-03T19:40:44Z` (`.metadata.created_at`), is `open` (`.metadata.state`), and carries labels `size:L`, `type:debt`, `priority:high`, `area:review-sensing` (`.metadata.labels[].name`). Its own pinned decision banner names `#1271`, `#1273`, `#1274/#1279`, `#1282` and `#1283` as shipped against it and says it "stays open/high for the #956 product decision and the remaining shared classification contract."
 
-So the instruction not to do this as a patch series predates the patch series by six weeks, and the patch series is five of the pull requests this post is about. The post states this. It is the strongest claim in the piece and it is against the author.
+So the instruction not to do this as a patch series predates the patch series by six weeks, and the patch series is six of the pull requests this post is about.
+
+**WRONG in the first draft**, which said "five" at three surfaces (takeaway 4, pull quote 3, body). The banner names six distinct pull requests: #1271, #1273, #1274, #1279, #1282, #1283; "#1274/#1279" is two. All six merged inside the §F1 burst window (`merged_at` 2026-09-14T07:10:33Z through 2026-09-15T05:51:20Z, `pulls/{n}`, re-read 2026-09-24). Corrected to "six" at all three. The post states this. It is the strongest claim in the piece and it is against the author.
 
 ---
 
@@ -94,7 +96,7 @@ Counting rule: age is the whole-day, date-to-date difference from the `created_a
 
 ### B6—"#1305 was filed today"
 
-**SUPPORTED, and time-sensitive.** Created `2026-09-23T15:37:29Z`, title "Phase 4b barrier treats a cap-exhausted Codex arm as a self-clearing wait," and `issues[].labels` is **empty**. If this post is published on any date after 2026-09-23 the word "today" is wrong and must become the date. Flag for the pre-publish pass.
+**SUPPORTED as of 2026-09-23; corrected 2026-09-24.** Created `2026-09-23T15:37:29Z`, title "Phase 4b barrier treats a cap-exhausted Codex arm as a self-clearing wait," and `issues[].labels` was **empty** on 2026-09-23. "Today" was replaced with "on September 23" and "carries no labels yet" with "carried no labels that day," so neither depends on the publish date.
 
 ---
 
@@ -163,7 +165,7 @@ Either row is citable as a merge date. Neither should be cited as a timeline mer
 
 `.metadata.state` is `closed` and `.metadata.merged` is **`false`**. Created `2026-09-12T00:59:33Z`, closed `2026-09-12T01:51:04Z`, 51 minutes 31 seconds later. No `merged` event on the timeline. Independently corroborated by the absence of any `(#1232)` commit on `main` in `github_list_commits`. It ran 4 review rounds and drew 2 findings (`Actionable comments posted:` values `[1,1]`; timeline complete at 38 events).
 
-**WRONG in the first draft of this post**, which listed #1232 alongside #1234 as shipped work under the heading "split the token budget." It did not ship. The corrected claim appears in the body, in the `keyTakeaways`, and in the `description`. Per the revision process, all three surfaces were checked; a fix to the body alone would have left the frontmatter asserting the retracted version.
+**WRONG in the first draft of this post**, which listed #1232 alongside #1234 as shipped work under the heading "split the token budget." It did not ship. The corrected claim appears **only in the body** ("What Did Not Land" and the closing list). The `keyTakeaways` and `description` do not mention #1232 at all; they were checked, and carry no shipped-work claim to correct. The closing list originally said "The largest instance closed unmerged," which transferred #1232's outcome to #1130, an issue that is still open; corrected to "One attempt at half of the largest instance, closed unmerged … with the instance itself still open."
 
 Its own body scoped it honestly: "Refs #1130. Partial: this is the token half, measured and bounded. The event amplification is deliberately not in scope."
 
@@ -179,7 +181,11 @@ Its own body scoped it honestly: "Refs #1130. Partial: this is the token half, m
 
 **SUPPORTED.** #1247 created `2026-09-13T04:54:39Z`; #1248 created `2026-09-13T04:55:35Z`. The gap is **56 seconds**, not the twenty-one minutes an earlier draft asserted.
 
-**WRONG in the first draft**, which said the issue was "filed twenty-one minutes before the pull request opened." Corrected value: **56 seconds**. The corrected figure is materially better for the post's argument, which is that these are small known fixes nobody had a reason to write, so the temptation to keep the rounder wrong number should be noted and resisted.
+**WRONG in the first draft**, which said the issue was "filed twenty-one minutes before the pull request opened." Corrected value: **56 seconds**. The twenty-one minutes is real but belongs to a different interval: #1248 merged `2026-09-13T05:15:22Z` (`pulls/1248 .merged_at`) and #1247 closed `2026-09-13T05:15:23Z` (`issues/1247 .closed_at`), 20 min 44 s after the issue was filed.
+
+**WRONG in the second draft**, a residue of the first correction: "a 68-line pull request closed it the same minute it was filed." The PR *opened* within the minute; it *closed* the issue 21 minutes later. Corrected to "got a 68-line pull request 56 seconds after it was filed and was closed 21 minutes after that."
+
+**"Zero open truncation issues" / "exactly one" narrowed.** Discovery is title-only (header, limit 3). Open issue titles re-read 2026-09-24 (`issues?state=open`, all pages) match `truncat|3000|3,000|paginat` zero times; the one `cap` hit is #1305, which is quota, not truncation. Post now says "No open issue title mentions truncation" and "the one instance I know of." The corrected figure is materially better for the post's argument, which is that these are small known fixes nobody had a reason to write, so the temptation to keep the rounder wrong number should be noted and resisted.
 
 Issue body, verbatim: "GitHub caps that listing at 3000 entries, and at the cap the inventory may be truncated." Pull request body, verbatim: "both fail closed to \"external review required\", because a possibly-truncated inventory cannot support either verdict."
 
@@ -188,6 +194,10 @@ Issue body, verbatim: "GitHub caps that listing at 3000 entries, and at the cap 
 **SUPPORTED.** #1186 is `open`, labels `risk` and `priority:high`. Body: "Wave audit has not advanced its watermark since 2026-07-28: over-budget diffs classify as 'reviewer unavailable' and chain forward, making the next range larger."
 
 Elapsed from `2026-07-28` to #1186's filing on `2026-09-04` is **38 days**. The post says "six weeks," which is 42 days and is **WRONG** as stated. Corrected: **38 days**, or the weaker "five weeks." The draft uses the exact figure.
+
+Further body text, verbatim, re-read 2026-09-24: "Every wave since has exited 4, failed open, and chained its un-audited range into the next one — which makes the next range larger and more certain to fail the same way." Measured block in the same body: "un-audited range : 127 commits", "curated diff : 109 files, 2,242,097 bytes", "review budget : 800,000 bytes -> 2.8x over". These are the issue's own measurements, attributed as such in the post.
+
+**UNPROVABLE and removed:** "a blocked pipeline announces itself within the hour" (no evidence for any latency) and "succeeded every time / every run" (the issue says every wave *exited 4 and failed open*, which is not success). Replaced at takeaway 2, pull quote 2 and the body with the issue's own "failed open" and "a block gets noticed because somebody cannot merge; nothing about this one stopped anyone." The closing list's "reported reviewer unavailability for thirty-eight days while auditing nothing" became "failed open on every wave for thirty-eight days behind a transient-sounding classification."
 
 ### D8—#1293 and #813
 
@@ -249,7 +259,9 @@ Rejected candidates, recorded so a later pass does not re-check them: **#1119** 
 
 Its issue #1058 is **still open**, labels `bug`, `enhancement`, `automation`, `size:L`, `type:feature`, `priority:normal`, `area:merge-gating`, `status:blocked`. Body: "Nothing keeps an open PR in sync with `main`." And: "This repo's merge safety is **head-SHA-pinned by construction**, and a merge queue evaluates required checks on a different SHA."
 
-The detail worth the post's space: #1058 records `required_status_checks.strict` as "**unknown**—`GET /branches/main/protection` returns `403 Resource not accessible by integration`." A gate whose own configuration could not be read. That is the same defect class as the post's thesis, appearing inside the one pull request offered as the counterexample to it.
+The detail worth the post's space: #1058 records `required_status_checks.strict` as "**unknown**—`GET /branches/main/protection` returns `403 Resource not accessible by integration`." A gate whose own configuration could not be read.
+
+**WRONG in the first draft, as an inference.** The draft called this "the same defect class as the post's thesis, appearing inside the one pull request offered as the counterexample." It is the opposite: an unreadable value recorded as `unknown`, with its reason, is exactly the explicit "no answer" representation the post argues is missing. It is also in issue #1058's body, not in pull request #1169. Corrected: the post now presents it as the pattern done by hand in a Markdown table, and the subhead changed from "has the defect inside it" to "shows the fix, done by hand."
 
 ---
 
@@ -269,7 +281,16 @@ Coverage is complete: the next-older commit on the same page is `2026-09-13T20:2
 
 ### F2—what the burst contains
 
-**SUPPORTED.** Of the 20 distinct changes, the ones in this post's family are #1263, #1264 (contrast), #1270, #1271, #1272, #1273, #1274, #1278, #1279, #1280, #1282, #1283, #1284, #1285, #1286, #1287. The subject lines are quotable verbatim from `[].message` first lines and five of them name #878 or an issue #878 enumerates.
+**WRONG in the first draft**, which claimed "sixteen of the twenty" from a list that included #1264 (which §E4 and the post use as a *contrast* case, so it cannot also be in-family) and #1286 (a test-fixture quoting fix). The first draft's code block also showed only 17 of the 21 subject lines, omitting #1265, both #1266 commits and #1286 (the off-theme ones) while introducing the block as "the subject lines, in order." The block now shows all 21, re-read 2026-09-24 via `repos/.../commits?since=2026-09-14T00:00:00Z&until=2026-09-15T23:59:59Z`.
+
+Reclassified by title **and** the first lines of each pull request body (`pulls/{n}.body`, read 2026-09-24):
+
+- **In family, 8:** #1263, #1271 ("A failed CodeRabbit marker extractor currently returns successful absence"), #1273 (acknowledgement replies producing `cleared` with live findings), #1274, #1279, #1282, #1283, #1285.
+- **Wave-audit follow-ups, 2:** #1270 (retain the validated dry-run verdict, #1186), #1272 (show watermark annotation age, #1186 acceptance criterion 4).
+- **Arguable, 3:** #1280 (distinguish no request from an awaited one), #1284 and #1287 (a quoted or prose `@codex review` mistaken for the real request).
+- **Unrelated, 7:** #1262 (concurrency expression), #1264 (contrast), #1265 (ADR docs), #1266 (Five Across admin audit), #1267 (Unicode list parsing), #1278 (human-hold labels), #1286 (test fixture paths).
+
+8 + 2 + 3 + 7 = 20. This is a judgment classification from summaries, not full bodies, and the post states the buckets rather than one number.
 
 ---
 
@@ -277,9 +298,23 @@ Coverage is complete: the next-older commit on the same page is `2026-09-13T20:2
 
 Per `docs/agents/blog-revision-process.md`, these must be re-checked before this post ships, and each has a specific known failure mode:
 
-1. **"Today" in §B6.** #1305 is cited as filed today. Publishing on any later date makes this false. Replace with the date.
+1. **"Today" in §B6.** Done 2026-09-24; re-grep for any new relative date before publishing.
 2. **Every corrected figure at every surface.** Three corrections landed in this ledger: #1232 did not merge (§D3), the #1247/#1248 gap is 56 seconds not twenty-one minutes (§D6), and the #1186 watermark gap is 38 days not six weeks (§D7). Grep the body, `description`, `seoDescription`, all four `keyTakeaways`, all three `pullquotes`, and both `sidebar` entries for each claim **in any wording**, not for the sentence that was edited.
 3. **Quantifier scope.** The draft contains universals about "every call site" and "no representation." §A1 is the defensible weaker form. Re-read both against it.
 4. **Attribution of issue-internal numbers.** §E2 and §E3 carry figures that are the issues' own claims. Any use must say so.
 5. **Floors stated as floors.** 90 merged pull requests, 11 open issues, and every referencing-PR list are floors per the header's three tool limits. The word "only" must not appear in front of any of them.
 6. **Brevity pass runs separately and after this.** Do not combine it with a factual pass. `scripts/verify-brevity.py BEFORE AFTER` does not catch swapped values, so read any passage that pairs a number with a pull request by hand.
+
+---
+
+## H. SECOND-PASS CORRECTIONS WITH NO EARLIER ROW (2026-09-24)
+
+These claims had no row above. Each is recorded here with its source, not as a superseding appendix: none of them contradicts an earlier row.
+
+- **Mergepath's review guarantees, scoped.** The first draft said review ran "under a separate identity so no agent approves the pull request it wrote, an external reviewer holding a merge veto." Under `REVIEW_POLICY.md`, an under-threshold PR can be approved by the authoring agent's own reviewer identity, and the external-review veto applies only to Phase 4 PRs. Now reads "review under a separate reviewer identity, a second agent holding a merge veto on larger changes."
+- **#878 acceptance criterion 1, quoted in full.** The first draft dropped the parenthetical "(extending `specs/coderabbit_review_sensing.md`)" from inside a quotation, while the sidebar promises verbatim quotes. Restored. The first draft also called the distinction "the entire post in eleven words"; "separating *the review ran* from *the review found nothing*" is nine words. The word count was removed.
+- **"Eleven grammars."** The post listed seven forms under "eleven grammars," implying a one-to-one mapping to the eleven issues that was never established. Now reads "many grammars."
+- **"The largest category of a month's merged work."** Not supported by title-only classification (§B2 gives a range of 12–34, with no counts for competing categories). Now reads "somewhere between 12 and 34 of 90 merged pull requests, by title alone."
+- **"Eleven of the 164 open issues."** Now "At least eleven … matching on titles alone," per §B3.
+- **Sidebar, merge-timestamp provenance.** The sidebar said #1263 had no timeline merge event, contradicting §D2. Now separates #1169 (no event) from #1263 (event present; seconds taken from the commit).
+- **Sidebar, agent authorship.** The sidebar promised the text would say "where it matters" which quoted bodies were written by agents, and no passage did. Replaced with a blanket statement: most bodies were written by coding agents under the author's account or a bot identity, so they are the pipeline's own record, not independent testimony. Em dash spacing inside quotes is normalized to house style, and the sidebar now says so.
