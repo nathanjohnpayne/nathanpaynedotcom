@@ -24,10 +24,10 @@ import { serveStatic } from '../src/integrations/og-images.mjs';
  * the ribbon is, and how wide the text runs inside it — are both invisible to
  * JSDOM, which does no layout. The ribbon's width in particular cannot be
  * derived from viewport WIDTH: the Mondrian square is `min(95vw, 95vh, 1280px)`,
- * so 1440x1024 gives a 673.1px ribbon while the wider 1024x1200 gives the same
- * one — height decides it above 1024px of width. (Before #992 that produced the
+ * so 1440x1024 gives a 673.1px ribbon while the narrower 1024x1200 gives the
+ * same one — height decides it above 1024px of width. (Before #992 that produced the
  * inversion this suite was built around: 1280x700 gave a narrower ribbon than
- * 1024x768. Both now stack.) A CSS-text assertion would pin a declaration
+ * 1024x768. Both now stack, on the height floor.) A CSS-text assertion would pin a declaration
  * instead of the behaviour, and the declaration here is just a font-size.
  *
  * The dependency is not a new one: `npm test` runs `astro build` first, and the
@@ -40,47 +40,38 @@ import { serveStatic } from '../src/integrations/og-images.mjs';
  * Where the readings are taken.
  *
  * `stacked` is not a property of this file's opinion — it is
- * `min(width, height) < 1024`, the composition's minimum viewport dimension
- * (#992). The desktop Mondrian is a square sized `min(95vw, 95vh, 1280px)`, so
- * a short window shrinks it exactly as a narrow one does; below a 972.8px
- * square the panel footers stop setting as designed, and the page renders the
- * responsive composition instead.
+ * `width < 1024 || height < 960`, the composition's floors (#992, #1042). The
+ * desktop Mondrian is a square sized `min(95vw, 95vh, 1280px)`, so a short
+ * window shrinks it as a narrow one does; below 960px tall the open About
+ * panel's text is clipped by the grid, and the page renders the responsive
+ * composition instead.
  *
- * The first two entries are that floor, reached from each axis: 1024x1200 is
- * the narrowest legal desktop window and 1440x1024 the shortest, and both
- * produce a 972.8px square. They are the tightest desktop geometry that
- * exists, which is what makes them the readings worth taking — the rest of the
- * desktop set is looser by construction.
+ * 1440x960 is the height floor and 1440x959 the pixel under it: the tightest
+ * desktop geometry that exists, and the first stacked one. 1024x1200 is the
+ * width floor.
  *
- * The four short-window entries below were desktop readings until #992 and are
- * kept as stacked ones. They are #930's measurement set, chosen back when the
- * narrowest ribbon in the suite belonged to the second WIDEST viewport; that
- * inversion was the symptom. Their assertion now is that nothing opens there.
+ * 1728x1005 is a 16-inch MacBook Pro window with the browser's own UI
+ * subtracted. #1003 set the height floor at 1024px and reclassified it as
+ * `stacked` here, so this file asserted the production regression instead of
+ * catching it (#1042): every desktop window under 1024px tall rendered the
+ * phone layout. It is desktop again. 1440x900 stays stacked until #1044, and
+ * tests/desktop-composition.test.js pins the real-window cases directly.
  */
 const VIEWPORTS = [
   { name: '1024x1200', width: 1024, height: 1200, stacked: false },
+  { name: '1440x960', width: 1440, height: 960, stacked: false },
+  { name: '1728x1005', width: 1728, height: 1005, stacked: false },
   { name: '1440x1024', width: 1440, height: 1024, stacked: false },
   { name: '1503x1180', width: 1503, height: 1180, stacked: false },
   { name: '1920x1080', width: 1920, height: 1080, stacked: false },
   { name: '2560x1330', width: 2560, height: 1330, stacked: false },
+  { name: '1440x959', width: 1440, height: 959, stacked: true },
+  { name: '1440x900', width: 1440, height: 900, stacked: true },
   { name: '1024x768', width: 1024, height: 768, stacked: true },
   { name: '1280x700', width: 1280, height: 700, stacked: true },
-  { name: '1440x900', width: 1440, height: 900, stacked: true },
-  { name: '1728x1005', width: 1728, height: 1005, stacked: true },
   { name: '390x844', width: 390, height: 844, stacked: true },
   { name: '768x1024', width: 768, height: 1024, stacked: true },
 ];
-
-/**
- * The two geometries at the floor, which must measure identically.
- *
- * 1024x1200 reaches a 972.8px square by width, 1440x1024 by height. The
- * composition cannot tell which axis constrained it — that is the whole
- * argument for one floor governing both — so if these two ever diverge, the
- * square has stopped being a function of `min(vw, vh)` and the breakpoint's
- * premise is gone.
- */
-const FLOOR_TWINS = ['1024x1200', '1440x1024'];
 
 /*
  * The clearance floor and its exemption list are gone with #992.
@@ -93,11 +84,13 @@ const FLOOR_TWINS = ['1024x1200', '1440x1024'];
  * `BELOW_FLOOR = ['1280x700']` — which is a desktop invariant asserted against
  * a viewport that cannot satisfy it, and then excused for not satisfying it.
  *
- * The minimum-dimension floor removes the geometries instead of the assertion.
- * The tightest desktop ribbon that now exists is 673.1px, at the 972.8px square
- * both floor twins produce, where the line clears by 212.7px. Every desktop
- * reading clears, so the assertion below is unconditional and there is no
- * exemption list left to keep from widening.
+ * The height floor removes the geometries instead of the assertion. The
+ * tightest desktop ribbon that now exists is 626.4px, at the 912px square of
+ * the 960px-tall floor, where the line clears by 165.9px. The Projects line
+ * itself would clear down to 740px tall (0.1px); the floor sits higher because
+ * the open About panel's text is clipped by the grid below 942px (#1044).
+ * Every desktop reading clears, so the assertion below is unconditional and
+ * there is no exemption list left to keep from widening.
  */
 
 /**
@@ -115,9 +108,9 @@ const FLOOR_TWINS = ['1024x1200', '1440x1024'];
  * against 323.7px loaded, 2.5px and 0.8%. Requiring the clearance to exceed 4px
  * rather than 0 puts the whole of that delta inside the margin, so the
  * assertion holds under either typography and fails only on a real regression.
- * The tightest reading in the set clears by 23.3px, so this costs nothing.
+ * The tightest reading in the set clears by 165.9px, so this costs nothing.
  *
- * The ratio ceilings need no equivalent: their headroom is 0.043 against a
+ * The ratio ceilings need no equivalent: their headroom is 0.083 against a
  * font delta of 0.003.
  */
 const FONT_DELTA_PX = 4;
@@ -151,11 +144,11 @@ const WRAPS_BELOW_FLOOR = [];
  *
  * Recalibrated with #992. The old ceiling of 0.8 sat just over 0.757, the
  * maximum measured at 1280x700 — a viewport that no longer renders the
- * composition at all. The tightest desktop reading is now 0.481, at the 972.8px
- * square both floor twins produce, so 0.8 would let the line run two thirds
- * longer before failing. 0.6 keeps the same job the ceiling always had: catch
- * the line growing back toward the full measure, where the ten-item line it
- * replaced ran 0.986. It is not a re-derivation of today's number.
+ * composition at all. The tightest desktop reading is now 0.517, at the 912px
+ * square of the 960px-tall height floor (#1042), and 0.481 at the width floor.
+ * 0.6 keeps the same job the ceiling always had: catch the line growing back
+ * toward the full measure, where the ten-item line it replaced ran 0.986. It
+ * is not a re-derivation of today's number.
  */
 const MEASURE_CEILING = 0.6;
 
@@ -416,18 +409,6 @@ describe('Selected Projects footer line against the exit link (#984)', () => {
           (reading.interLoaded ? '' : ' (and Inter did not load, so this is fallback metrics)'),
       ).toBeGreaterThan(FONT_DELTA_PX);
     }
-  });
-
-  it('reaches the same geometry from either axis at the floor', () => {
-    // The breakpoint's premise, asserted rather than assumed: the square is
-    // min(95vw, 95vh, 1280px), so the narrowest legal desktop window and the
-    // shortest one are the same composition. If these diverge, a floor stated
-    // on one axis has stopped implying the other and #992's reasoning is void.
-    const [byWidth, byHeight] = FLOOR_TWINS.map((name) => readings.get(name));
-    expect(byWidth, `${FLOOR_TWINS[0]} was not read`).toBeTruthy();
-    expect(byHeight, `${FLOOR_TWINS[1]} was not read`).toBeTruthy();
-    expect(byHeight.rowWidth).toBeCloseTo(byWidth.rowWidth, 1);
-    expect(byHeight.textWidth).toBeCloseTo(byWidth.textWidth, 1);
   });
 
   it('names the widths where this line is not expected to hold one line', () => {
