@@ -786,6 +786,16 @@ const homepageJsonLd = {
         grid.style.transition = '';
       }
       function morphTracks(mutate) {
+        // The stack has its own template, set by a media query that inline
+        // tracks would override: a close run there (the stack's resize handler
+        // closes the open panel) froze the stack's rows as pixels, and a
+        // desktop morph still in flight kept a desktop-width grid in a phone
+        // viewport (#1049). There is no morph to drive in the stack.
+        if (mobile()) {
+          clearMorph();
+          mutate();
+          return;
+        }
         const token = ++morphToken;
         const cs = getComputedStyle(grid);
         const fromRows = cs.gridTemplateRows;
@@ -1098,6 +1108,10 @@ const homepageJsonLd = {
 
       window.addEventListener('resize', () => {
         if (!mobile()) return;
+        // Drop an in-flight desktop morph at once; its hand-back timer, and
+        // the measure pass that settles one on desktop, would leave its pixel
+        // tracks over the stack template for up to --motion-plane (#1049).
+        clearMorph();
         closePanel();
         // Entering the stack: no panel is capped there, and the measure pass
         // (which maintains the cue) does not run in stack mode, so a capped

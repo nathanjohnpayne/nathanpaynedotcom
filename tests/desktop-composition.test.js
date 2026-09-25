@@ -1001,6 +1001,93 @@ describe('the grid morph animates', () => {
   }, 90_000);
 });
 
+describe('the grid morph in the stack', () => {
+  // Inline pixel tracks override the stack's media-query template. The morph
+  // ran in the stack (the stack's resize handler closes the open panel), and a
+  // desktop morph still in flight on entering the stack was only cleared by
+  // its own timer, so for up to half a second the stack kept nine desktop
+  // columns, or a 986px-wide grid in a 600px viewport (#1049).
+
+  /** Record every animation frame in the stack that still has inline tracks. */
+  async function watchStack(page) {
+    await page.evaluate(() => {
+      const grid = document.querySelector('.mondrian');
+      window.__stack = { frames: 0, bad: [] };
+      const frame = () => {
+        if (matchMedia('(max-width: 1023px), (max-height: 839px)').matches) {
+          window.__stack.frames++;
+          const inline = grid.style.gridTemplateRows || grid.style.gridTemplateColumns;
+          const widest = Math.max(
+            ...[...grid.querySelectorAll('.panel')].map((p) => p.getBoundingClientRect().right),
+          );
+          if (inline || widest > window.innerWidth + 1) {
+            window.__stack.bad.push({ inline, widest, viewport: window.innerWidth });
+          }
+        }
+        requestAnimationFrame(frame);
+      };
+      requestAnimationFrame(frame);
+    });
+  }
+
+  async function openMidMorph(page) {
+    await page.evaluate(() => document.querySelector('[data-panel="about"]').click());
+    await page.waitForTimeout(100);
+    // Precondition: the desktop morph is in flight.
+    expect(
+      await page.evaluate(() => document.querySelector('.mondrian').style.gridTemplateColumns),
+      'no desktop morph was in flight',
+    ).not.toBe('');
+  }
+
+  it('leaves no pixel tracks over the stack when a resize lands mid-morph', async () => {
+    const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+    try {
+      await page.goto(`http://127.0.0.1:${port}/`, { waitUntil: 'load' });
+      await page.evaluate(() => document.fonts.ready);
+      await page.waitForTimeout(IDLE_SETTLE_MS);
+      await watchStack(page);
+      await openMidMorph(page);
+      await page.setViewportSize({ width: 900, height: 900 });
+      await page.waitForTimeout(900);
+      const seen = await page.evaluate(() => window.__stack);
+      // Control: the page really spent frames in the stack.
+      expect(seen.frames, 'never reached the stack').toBeGreaterThan(0);
+      expect(
+        seen.bad.length,
+        `the stack kept inline morph tracks: ${JSON.stringify(seen.bad[0])}`,
+      ).toBe(0);
+    } finally {
+      await page.close();
+    }
+  }, 60_000);
+
+  it('leaves no pixel tracks over the stack when an open panel is resized down through it', async () => {
+    const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+    try {
+      await page.goto(`http://127.0.0.1:${port}/`, { waitUntil: 'load' });
+      await page.evaluate(() => document.fonts.ready);
+      await page.waitForTimeout(IDLE_SETTLE_MS);
+      await page.evaluate(() => document.querySelector('[data-panel="about"]').click());
+      await page.waitForSelector('[data-panel="about"].is-content-visible', { timeout: 5_000 });
+      await page.waitForTimeout(IDLE_SETTLE_MS);
+      await watchStack(page);
+      await page.setViewportSize({ width: 1000, height: 900 });
+      await page.waitForTimeout(250);
+      await page.setViewportSize({ width: 600, height: 900 });
+      await page.waitForTimeout(900);
+      const seen = await page.evaluate(() => window.__stack);
+      expect(seen.frames, 'never reached the stack').toBeGreaterThan(0);
+      expect(
+        seen.bad.length,
+        `the stack kept inline morph tracks: ${JSON.stringify(seen.bad[0])}`,
+      ).toBe(0);
+    } finally {
+      await page.close();
+    }
+  }, 60_000);
+});
+
 describe('the on-load pulse', () => {
   async function pulsedPanels(viewport) {
     const page = await browser.newPage({ viewport });
