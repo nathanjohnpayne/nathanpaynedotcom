@@ -1,5 +1,5 @@
 ---
-title: "I Generalized the Code, Not the Product"
+title: "The Code Wasn’t the Product"
 description: "A bingo app built for one nine-night cruise logged 845 marks and 61 bingos. Two weeks and 76 pull requests later, the same code ran a weekend at Bodega Bay for a different host and logged 27 marks and no bingos, with nothing after 12:57 on Saturday. The platform work had succeeded. What made the first event work—prompts written for that sailing, a group that made it a dinner ritual, a host tuning it live—had never been in the code, and the cruise's own data said so the whole time. A second, different customer is how you find out which parts of a v1 were the product."
 seoDescription: "Same code, second event, different host: 845 marks became 27. The platform generalized; the product—occasion-fit prompts, a group that talked about it at dinner, a host tuning it live—did not."
 category: "Agent Systems"
