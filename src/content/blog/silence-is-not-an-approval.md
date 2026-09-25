@@ -1,5 +1,5 @@
 ---
-title: "Silence Is Not an Approval: 90 Merged Pull Requests, 11 Open Issues, One Missing Type"
+title: "Silence Is Not an Approval: 90+ Merged Pull Requests, 11+ Open Issues, One Missing Type"
 seoTitle: "Silence Is Not an Approval"
 shortTitle: "Silence Is Not an Approval"
 description: "Ninety pull requests merged into Mergepath in a month, and the ones worth writing about all fix the same defect in a different costume: a reviewer that could not answer produced a value the pipeline scored as an answer. A rate limit read as cleared. A listing truncated at 3,000 entries read as complete. An over-budget diff read as reviewer unavailable, which made the next diff bigger and stalled an audit for 38 days. At least eleven open issues still name instances, the oldest 78 days old. The issue that proposes the general fix has been open since August 3, and its first line of guidance is not to attempt this as a patch series. I attempted it as a patch series."
@@ -85,7 +85,7 @@ A fail-closed defect blocks, and a block gets noticed because somebody cannot me
 
 Here is the part I did not notice while it was happening.
 
-Between `2026-09-14T03:20:29Z` and `2026-09-15T12:01:26Z`, **32 hours and 41 minutes**, twenty distinct changes landed on `main` across 21 commits. Here are all 21 subject lines, in commit-date order:
+Between `2026-09-14T03:20:29Z` and `2026-09-15T12:01:26Z`, **32 hours and 41 minutes**, twenty distinct changes landed on `main` across 21 commits. Here are all 21 subject lines, in committer-date order:
 
 ```
 fix(wave-audit): refuse oversized scopes before reviewer dispatch (#1263)
@@ -163,7 +163,7 @@ And the obvious remedy reopens the original defect. From the same issue: "Branch
 
 **The contrast set is thinner than I wanted.** I pulled substantial merged work from the same window that is not about reviewer absence. [#1250](https://github.com/nathanjohnpayne/mergepath/pull/1250) is +1,432 lines to let an operator force a policy workflow to re-evaluate one open pull request "so that its two required contexts report on the current head." [#1264](https://github.com/nathanjohnpayne/mergepath/pull/1264) is +344 lines because "an automated Phase 4b approval can immediately create an unaccounted review-body finding." [#1106](https://github.com/nathanjohnpayne/mergepath/pull/1106) is +640 lines because "a CodeQL finding could ride through repeated 'fully accounted' review rounds unread."
 
-Read those last two again. A finding riding through unread is the same shape as a reviewer that never spoke. My contrast set is partly contaminated by the thing it was supposed to contrast with, and the honest reading of the window is not "defensive work versus capability work." It is that the bulk of ninety merged pull requests is correctness repair on review-sensing and merge-gating logic, and the boundary between the buckets is not clean enough to put a number on.
+Read those last two again. A finding riding through unread is the same shape as a reviewer that never spoke. My contrast set is partly contaminated by the thing it was supposed to contrast with, and the honest reading of the window is not "defensive work versus capability work." It is that correctness repair on review-sensing and merge-gating logic runs through the whole window, and the boundary between the buckets is not clean enough to put a number on.
 
 **The capability counterpoint shows the fix, done by hand.** [#1169](https://github.com/nathanjohnpayne/mergepath/pull/1169) is the biggest thing merged all month, +15,436 / −706 across 50 files, adding "the fail-closed authorization boundary for a singleton native GitHub merge queue." Real capability, not defense. Its issue [#1058](https://github.com/nathanjohnpayne/mergepath/issues/1058) is still open and `status:blocked`, because "this repo's merge safety is **head-SHA-pinned by construction**, and a merge queue evaluates required checks on a different SHA."
 

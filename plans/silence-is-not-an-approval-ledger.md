@@ -273,11 +273,11 @@ The detail worth the post's space: #1058 records `required_status_checks.strict`
 
 Source: `github_list_commits(branch="main", page_size=100)` → `[].date`, `[].message`. Commits on `main` between `2026-09-14T00:00:00Z` and `2026-09-15T23:59:59Z`: **21**. Earliest `2026-09-14T03:20:29Z` (#1263), latest `2026-09-15T12:01:26Z` (#1287). Elapsed **32 h 40 m 57 s**.
 
-**Counting rule.** Two of the 21 rows are the same pull request: #1266 landed as a merge commit (`2026-09-14T05:47:03Z`) plus its branch commit (`2026-09-14T04:57:43Z`). On a strict distinct-changes count the window holds **20**, not 21. The post uses "twenty distinct changes across 21 commits" and states the rule in the sidebar.
+**Counting rule.** Two of the 21 rows are the same pull request: #1266 landed as a merge commit (`2026-09-14T05:47:03Z`) plus its branch commit (committer date `2026-09-14T05:22:40Z`; author date `04:57:43Z`). On a strict distinct-changes count the window holds **20**, not 21. The post uses "twenty distinct changes across 21 commits" and states the rule in the sidebar.
 
 Coverage is complete: the next-older commit on the same page is `2026-09-13T20:24:45Z`, so nothing in the window fell past a page boundary.
 
-**The list is not strictly monotonic by timestamp**—row 18 at `04:57:43Z` appears after row 17 at `05:20:57Z`. Cite timestamps, never list order.
+**WRONG in the first draft of this ledger: the list is monotonic by committer date.** The earlier note said row 18 at `04:57:43Z` appeared after row 17 at `05:20:57Z`; `04:57:43Z` is the #1266 branch commit's **author** date (`.commit.author.date`), while every other row, and `github_list_commits` ordering, uses the committer date. By `.commit.committer.date` (`05:22:40Z`) the list is in order. Re-read 2026-09-24 via `repos/.../commits?sha=main&since=2026-09-14T04:00:00Z&until=2026-09-14T06:00:00Z`. The post's block says "committer-date order." Cite timestamps by named field.
 
 ### F2—what the burst contains
 
@@ -318,5 +318,7 @@ These claims had no row above. Each is recorded here with its source, not as a s
 - **"Eleven grammars."** The post listed seven forms under "eleven grammars," implying a one-to-one mapping to the eleven issues that was never established. Now reads "many grammars."
 - **"The largest category of a month's merged work."** Not supported by title-only classification (§B2 gives a range of 12–34, with no counts for competing categories). Now reads "somewhere between 12 and 34 of 90 merged pull requests, by title alone."
 - **"Eleven of the 164 open issues."** Now "At least eleven … matching on titles alone," per §B3.
+- **Headline counts.** The title is reused on the index card, RSS, and share cards without the sidebar's counting rules, so the floors are marked there too: "90+ Merged Pull Requests, 11+ Open Issues." This reverses an earlier decision to leave the title unqualified.
+- **"The bulk of ninety merged pull requests."** Same defect as "largest category," surviving in the contrast-set paragraph. Now reads "correctness repair on review-sensing and merge-gating logic runs through the whole window," with no share claimed.
 - **Sidebar, merge-timestamp provenance.** The sidebar said #1263 had no timeline merge event, contradicting §D2. Now separates #1169 (no event) from #1263 (event present; seconds taken from the commit).
 - **Sidebar, agent authorship.** The sidebar promised the text would say "where it matters" which quoted bodies were written by agents, and no passage did. Replaced with a blanket statement: most bodies were written by coding agents under the author's account or a bot identity, so they are the pipeline's own record, not independent testimony. Em dash spacing inside quotes is normalized to house style, and the sidebar now says so.
