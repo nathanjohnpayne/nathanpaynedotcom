@@ -1124,6 +1124,31 @@ const homepageJsonLd = {
         }).observe(phGrid, { attributes: true, attributeFilter: ['data-focus'] });
       }
 
+      // Rendered layout: which composition this reader actually got (#1045).
+      // Classified from the grid's rendered geometry, NOT by re-evaluating the
+      // stack media query: a query that disagrees with what renders is exactly
+      // the regression this exists to catch — #1042 served the phone stack to
+      // desktop windows for 18 days while every query-string test was green.
+      // The square composition is ~1:1; the stack is a column several times
+      // taller than wide. Once per load, after fonts settle so the grid has
+      // its final size. Alerting on it is set up in PostHog (specs/analytics.md).
+      function captureLayout() {
+        const grid = document.getElementById('mondrian');
+        if (!grid) return;
+        const rect = grid.getBoundingClientRect();
+        if (!rect.width) return;
+        window.posthog?.capture('homepage_layout_rendered', {
+          layout: rect.height / rect.width < 1.05 ? 'composition' : 'stack',
+          viewport_width: window.innerWidth,
+          viewport_height: window.innerHeight,
+        });
+      }
+      if (document.fonts && document.fonts.ready) {
+        document.fonts.ready.then(captureLayout);
+      } else {
+        captureLayout();
+      }
+
       // Contact email clicked
       const mailto = document.getElementById('availability-mailto');
       if (mailto) {
