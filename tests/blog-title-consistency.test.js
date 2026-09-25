@@ -84,9 +84,8 @@ const posts = findBlogMarkdownFiles(CONTENT_DIR).map((filePath) => {
   return { name: `${slug}.md`, slug, data };
 });
 
-// The minimal frontmatter parser returns scalars as strings, so `draft: true`
-// arrives as "true"; compare both forms or a draft is treated as published.
-const publishedPosts = posts.filter((post) => String(post.data.draft) !== 'true');
+// parseFrontmatter returns scalars as strings, so `draft: true` arrives as 'true'.
+const publishedPosts = posts.filter((post) => post.data.draft !== 'true');
 
 describe('blog title consistency (#623)', () => {
   it('finds blog posts to audit', () => {
