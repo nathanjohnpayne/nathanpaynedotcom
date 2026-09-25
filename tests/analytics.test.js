@@ -304,6 +304,7 @@ describe('PostHog', () => {
   it('wires the homepage conversion events', () => {
     for (const evt of [
       'homepage_panel_opened',
+      'homepage_layout_rendered',
       'contact_email_clicked',
       'booking_link_clicked',
       'resume_link_clicked',
@@ -390,6 +391,117 @@ describe('PostHog', () => {
 
     const opens = capture.mock.calls.filter((c) => c[0] === 'homepage_panel_opened');
     expect(opens).toHaveLength(2);
+  });
+
+  /**
+   * Run the homepage script with the grid reporting a given rendered size.
+   * JSDOM does no layout, so the rect is stubbed; `document.fonts` is absent
+   * under JSDOM, which takes the script's immediate-capture path.
+   */
+  function runWithGridRect(width, height) {
+    const capture = vi.fn();
+    window.posthog = { capture };
+    const grid = document.getElementById('mondrian');
+    grid.getBoundingClientRect = () => ({
+      width,
+      height,
+      top: 0,
+      left: 0,
+      right: width,
+      bottom: height,
+    });
+    new Function(posthogHomepageScript)();
+    return capture.mock.calls.filter((c) => c[0] === 'homepage_layout_rendered');
+  }
+
+  it('captures homepage_layout_rendered as composition when the grid is square (#1045)', () => {
+    const layouts = runWithGridRect(938, 938);
+    expect(layouts).toHaveLength(1);
+    expect(layouts[0][1]).toEqual({
+      layout: 'composition',
+      viewport_width: window.innerWidth,
+      viewport_height: window.innerHeight,
+    });
+  });
+
+  it('captures homepage_layout_rendered as stack when the grid is a tall column (#1045)', () => {
+    // The #1042 regression: a desktop-width window rendering the stack.
+    const layouts = runWithGridRect(1024, 2450);
+    expect(layouts).toHaveLength(1);
+    expect(layouts[0][1].layout).toBe('stack');
+  });
+
+  it('classifies from geometry, not from the stack media query (#1045)', () => {
+    // The whole point: a query that disagrees with what renders must not be
+    // able to hide the regression. The capture must not consult matchMedia.
+    const start = posthogHomepageScript.indexOf('function captureLayout');
+    const body = posthogHomepageScript.slice(
+      start,
+      posthogHomepageScript.indexOf('\n      }\n', start),
+    );
+    expect(start, 'captureLayout not found').toBeGreaterThan(-1);
+    expect(body).toContain('getBoundingClientRect');
+    expect(body).not.toContain('matchMedia');
+  });
+
+  it('waits for fonts before capturing the layout, then captures exactly once (#1045)', async () => {
+    // Real browsers take this path; JSDOM has no document.fonts, so without a
+    // stub only the immediate path is covered (CodeRabbit, PR #1047). The
+    // grid's final size depends on font metrics, so an early capture would
+    // classify a half-laid-out page.
+    let resolveFonts;
+    const ready = new Promise((resolve) => {
+      resolveFonts = resolve;
+    });
+    Object.defineProperty(document, 'fonts', { value: { ready }, configurable: true });
+    try {
+      const capture = vi.fn();
+      window.posthog = { capture };
+      const grid = document.getElementById('mondrian');
+      grid.getBoundingClientRect = () => ({
+        width: 900,
+        height: 900,
+        top: 0,
+        left: 0,
+        right: 900,
+        bottom: 900,
+      });
+      new Function(posthogHomepageScript)();
+      await tick();
+      const layouts = () => capture.mock.calls.filter((c) => c[0] === 'homepage_layout_rendered');
+      expect(layouts(), 'captured before fonts settled').toHaveLength(0);
+      resolveFonts();
+      await ready;
+      await tick();
+      expect(layouts()).toHaveLength(1);
+      expect(layouts()[0][1].layout).toBe('composition');
+    } finally {
+      delete document.fonts;
+    }
+  });
+
+  it('does not capture a layout for an unrendered grid (#1045)', () => {
+    expect(runWithGridRect(0, 0)).toHaveLength(0);
+  });
+
+  it('captures the layout once per load, not on panel focus changes (#1045)', async () => {
+    const capture = vi.fn();
+    window.posthog = { capture };
+    const grid = document.getElementById('mondrian');
+    grid.getBoundingClientRect = () => ({
+      width: 900,
+      height: 900,
+      top: 0,
+      left: 0,
+      right: 900,
+      bottom: 900,
+    });
+    new Function(posthogHomepageScript)();
+    grid.dataset.focus = 'about';
+    await tick();
+    delete grid.dataset.focus;
+    await tick();
+    expect(capture.mock.calls.filter((c) => c[0] === 'homepage_layout_rendered')).toHaveLength(1);
   });
 
   it('captures social_link_clicked with the platform from the row class', () => {

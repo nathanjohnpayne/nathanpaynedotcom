@@ -141,6 +141,17 @@ const imageDimensions = {
     width: 780,
     height: 1010,
   },
+  // Five Across: the app repository's marketing harness (scripts/marketing-shots.sh),
+  // the real app over a seeded emulator Event at 393x775, 2x DPR. Invented
+  // names, general-audience pools only, no photo proofs. The Bodega second-day
+  // card and zero-bingo leaderboard are the same harness moved to the main Day,
+  // marking only squares that players at the real event marked.
+  '/blog/the-product-did-not-travel/img/gcb-card.png': { width: 786, height: 1550 },
+  '/blog/the-product-did-not-travel/img/vacay-card.png': { width: 786, height: 1550 },
+  '/blog/the-product-did-not-travel/img/gcb-ranks.png': { width: 786, height: 1550 },
+  '/blog/the-product-did-not-travel/img/gcb-feed.png': { width: 786, height: 1550 },
+  '/blog/the-product-did-not-travel/img/vacay-saturday-card.png': { width: 786, height: 1550 },
+  '/blog/the-product-did-not-travel/img/vacay-bodega-ranks.png': { width: 786, height: 1550 },
 };
 
 export default function rehypeFigureCaptions() {
