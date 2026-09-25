@@ -693,6 +693,12 @@ const homepageJsonLd = {
       // order as the panel opens (hideLabel), so otherwise the keys that
       // scroll the text would have nowhere to go.
       let keyboardOpenPanel = null;
+      // Escape from inside an open panel returns focus to its label once the
+      // close restores it, or keyboard users are left on hidden content or
+      // the document body (Codex, PR #1046). That programmatic focus must not
+      // reopen the panel through the focusin handler.
+      let escapeFocusReturn = null;
+      let suppressFocusOpen = false;
       function revealContent(panel) {
         const ci = panel.querySelector('.content-inner');
         if (ci) ci.scrollTop = 0;
@@ -761,6 +767,15 @@ const homepageJsonLd = {
           showLabel(closing);
           active = null;
           delete grid.dataset.focus;
+          if (escapeFocusReturn === closing) {
+            const label = closing.querySelector('.panel-label');
+            if (label) {
+              suppressFocusOpen = true;
+              label.focus({ preventScroll: true });
+              suppressFocusOpen = false;
+            }
+          }
+          escapeFocusReturn = null;
           setTimeout(() => {
             if (token !== transitionToken) return;
             state = 'idle';
@@ -889,7 +904,20 @@ const homepageJsonLd = {
           clearTimeout(leaveTimer);
           leaveTimer = setTimeout(() => requestClose(), leaveDelay);
         });
-        panel.addEventListener('focusin', () => openPanel(panel));
+        panel.addEventListener('focusin', (event) => {
+          if (suppressFocusOpen) return;
+          // A keyboard focus (Tab) that opens the panel hands focus on to a
+          // capped panel's scroll region, as Enter does; a mouse focus does
+          // not (Codex, PR #1046).
+          if (
+            !panel.classList.contains('is-content-visible') &&
+            event.target.matches &&
+            event.target.matches(':focus-visible')
+          ) {
+            keyboardOpenPanel = panel;
+          }
+          openPanel(panel);
+        });
         panel.addEventListener('focusout', (event) => {
           if (!panel.contains(event.relatedTarget)) closePanel();
         });
@@ -899,7 +927,10 @@ const homepageJsonLd = {
           openPanel(panel);
         });
         panel.addEventListener('keydown', (event) => {
-          if (event.key === 'Escape') closePanel();
+          if (event.key === 'Escape') {
+            if (panel.contains(document.activeElement)) escapeFocusReturn = panel;
+            closePanel();
+          }
           if (event.key === 'Enter' || event.key === ' ') {
             event.preventDefault();
             // Only for an open that will reveal content; an Enter on a panel

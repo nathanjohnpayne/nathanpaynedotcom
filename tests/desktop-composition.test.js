@@ -329,6 +329,85 @@ describe('keyboard access to a capped panel', () => {
     }
   }, 60_000);
 
+  it('returns focus to the label when Escape closes the scrollable panel', async () => {
+    const page = await openPage({ width: 1440, height: 900 });
+    try {
+      await page.focus('[data-panel="about"] .panel-label');
+      await page.keyboard.press('Enter');
+      await page.waitForSelector('[data-panel="about"].is-content-visible', { timeout: 5_000 });
+      // Control: focus really is inside the scroll region before Escape.
+      expect(
+        await page.evaluate(() =>
+          document
+            .querySelector('[data-panel="about"] .content-inner')
+            .contains(document.activeElement),
+        ),
+      ).toBe(true);
+      await page.keyboard.press('Escape');
+      await page.waitForTimeout(IDLE_SETTLE_MS);
+      const after = await page.evaluate(() => ({
+        onLabel:
+          document.activeElement === document.querySelector('[data-panel="about"] .panel-label'),
+        reopened: document.querySelector('[data-panel="about"]').classList.contains('is-open'),
+      }));
+      expect(after.onLabel, 'focus was not returned to the About label').toBe(true);
+      expect(after.reopened, 'returning focus reopened the panel').toBe(false);
+    } finally {
+      await page.close();
+    }
+  }, 60_000);
+
+  it('hands focus to the scroll region when Tab opens the panel', async () => {
+    const page = await openPage({ width: 1440, height: 900 });
+    try {
+      // Reach the About label by real Tab presses, so focus is keyboard focus.
+      let onAbout = false;
+      for (let i = 0; i < 30 && !onAbout; i++) {
+        await page.keyboard.press('Tab');
+        onAbout = await page.evaluate(
+          () =>
+            document.activeElement === document.querySelector('[data-panel="about"] .panel-label'),
+        );
+      }
+      expect(onAbout, 'Tab never reached the About label').toBe(true);
+      await page.waitForSelector('[data-panel="about"].is-content-visible', { timeout: 5_000 });
+      await page.waitForTimeout(200);
+      expect(
+        await page.evaluate(
+          () =>
+            document.activeElement ===
+            document.querySelector('[data-panel="about"] .content-inner'),
+        ),
+        'focus stayed on the hidden label',
+      ).toBe(true);
+    } finally {
+      await page.close();
+    }
+  }, 60_000);
+
+  it('keeps the reader scroll position across a desktop resize', async () => {
+    // A guard, not a fix: the measure pass briefly switches panel scrolling
+    // off, and Codex asked whether that resets a capped panel's scrollTop.
+    // Measured, it does not, in Chromium, WebKit or Firefox (120 before, 120
+    // after, with the pass observed to run), so no restore code was added.
+    // This pins the behavior so a future change to the pass cannot regress it.
+    const page = await openPage({ width: 1440, height: 900 });
+    try {
+      expect(await hoverPanel(page, 'about', { expectOpen: true })).toBe(true);
+      await page.evaluate(() => {
+        document.querySelector('[data-panel="about"] .content-inner').scrollTop = 120;
+      });
+      await page.setViewportSize({ width: 1500, height: 920 });
+      await page.waitForTimeout(IDLE_SETTLE_MS);
+      const top = await page.evaluate(
+        () => document.querySelector('[data-panel="about"] .content-inner').scrollTop,
+      );
+      expect(top, 'the resize measure pass reset the scroll position').toBeGreaterThan(100);
+    } finally {
+      await page.close();
+    }
+  }, 60_000);
+
   it('adds no tab stop when the panel fits', async () => {
     const page = await openPage({ width: 1920, height: 1200 });
     try {
