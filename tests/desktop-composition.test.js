@@ -17,28 +17,32 @@ import { serveStatic } from '../src/integrations/og-images.mjs';
  * against the built page. The viewports are browser VIEWPORTS, not screen
  * sizes, because that is what a media query sees.
  *
- * The floor is 960px tall: the lowest height at which no open panel's own text
- * is clipped by the grid. The binding panel is About, whose content track is
- * its measured text height; below 942px tall its text runs past the grid's
- * bottom edge and `.mondrian { overflow: hidden }` cuts it. The first version
- * of this file measured content against its PANEL, which grows with that track,
- * and so passed a floor of 840 at which About lost 167px of text (Codex, PR
- * #1043). Measuring against the GRID is the check that matters.
+ * The floor is 840px tall, set by Community's content, which overflows its own
+ * panel below 824px. About and Projects no longer bind: their content tracks
+ * are capped at the space the square has, and when the cap binds the panel
+ * scrolls its own text, with a fade at the bottom edge while more remains
+ * (#1044). Before that, About's text ran past the grid below 942px tall and
+ * `.mondrian { overflow: hidden }` cut it (Codex, PR #1043), and with About
+ * open the bottom band was cut at every square under ~1010px, the 1024x1200
+ * width floor included.
  *
- * Not asserted here, and tracked in #1044: with About open, the bottom band of
- * the composition is pushed past the grid — 87px at the 960 floor, and 27px at
- * the 1024x1200 width floor on main before #1042. Fixing About's row model is
- * what would let this floor come down.
+ * So the assertions are about reachability, not just geometry: after every
+ * open, every grid cell stays inside the grid, and every line of the open
+ * panel's text is either visible or reachable by scrolling the panel, with the
+ * cue shown while text remains below and cleared once the reader reaches it.
  */
 
 const DESKTOP = [
   // The window the production regression was reported from.
   { name: 'reported Chrome window 1885x987', width: 1885, height: 987 },
   { name: '1080p monitor on macOS, maximized 1920x970', width: 1920, height: 970 },
+  { name: '1080p monitor on Windows, maximized 1920x945', width: 1920, height: 945 },
   { name: '1440p monitor, maximized 2560x1300', width: 2560, height: 1300 },
   { name: '16-inch MacBook Pro 1728x1005', width: 1728, height: 1005 },
+  { name: '14-inch MacBook Pro 1512x860', width: 1512, height: 860 },
+  { name: '1440x900', width: 1440, height: 900 },
   // The height floor itself: the tightest desktop geometry there is.
-  { name: 'height floor 1440x960', width: 1440, height: 960 },
+  { name: 'height floor 1440x840', width: 1440, height: 840 },
   // The width floor.
   { name: 'width floor 1024x1200', width: 1024, height: 1200 },
 ];
@@ -46,11 +50,9 @@ const DESKTOP = [
 const STACKED = [
   // One pixel under each floor, so the floor cannot drift in either direction
   // without failing here or in the fit assertions above it.
-  { name: 'under the height floor 1440x959', width: 1440, height: 959 },
+  { name: 'under the height floor 1440x839', width: 1440, height: 839 },
   { name: 'under the width floor 1023x1200', width: 1023, height: 1200 },
-  // Real windows that stay stacked until #1044: About's text does not fit.
-  { name: '1080p monitor on Windows, maximized 1920x945', width: 1920, height: 945 },
-  { name: '14-inch MacBook Pro 1512x860', width: 1512, height: 860 },
+  { name: '1366x768 laptop, maximized 1366x657', width: 1366, height: 657 },
   { name: '1280x700 (#992)', width: 1280, height: 700 },
   { name: 'phone 390x844', width: 390, height: 844 },
 ];
@@ -169,25 +171,68 @@ async function hoverPanel(page, name, { expectOpen }) {
 }
 
 /**
- * Where the open panel's visible text ends, against the two boxes that can
- * clip it: its own panel, and the grid, which is `overflow: hidden`.
- * Positive means past the edge.
+ * Everything a reader needs from one open panel, read in the page.
+ *
+ * `band` is the furthest any grid cell runs past the grid's bottom edge. Cells
+ * normally end inside it (the grid has a border), so this is negative when the
+ * composition is intact and positive when a focus state pushed the bottom band
+ * out of the square, which `overflow: hidden` then cuts.
+ *
+ * The text check scrolls the panel's content to its end first, then requires
+ * every visible element to lie inside the panel's scroll box, the panel, and
+ * the grid. A panel that does not scroll is unaffected by the scroll, so the
+ * same check covers both.
  */
 async function readFit(page, name) {
-  return page.evaluate((panelName) => {
-    const grid = document.querySelector('.mondrian').getBoundingClientRect();
+  const before = await page.evaluate((panelName) => {
+    const ci = document.querySelector(`[data-panel="${panelName}"] .content-inner`);
+    return {
+      scrolls: ci.scrollHeight - ci.clientHeight > 1,
+      overflowY: getComputedStyle(ci).overflowY,
+      cueBefore: ci.classList.contains('has-more-below'),
+    };
+  }, name);
+  await page.evaluate((panelName) => {
+    const ci = document.querySelector(`[data-panel="${panelName}"] .content-inner`);
+    ci.scrollTop = ci.scrollHeight;
+  }, name);
+  // The scroll event that clears the cue is dispatched asynchronously, so wait
+  // for the class to clear rather than for a fixed interval (CodeRabbit, PR
+  // #1046). Bounded, and a timeout is swallowed, so a cue that never clears
+  // still reaches the `cueAfter` assertion below and fails there with its
+  // message, instead of surfacing as a bare timeout.
+  await page
+    .waitForFunction(
+      (panelName) =>
+        !document
+          .querySelector(`[data-panel="${panelName}"] .content-inner`)
+          .classList.contains('has-more-below'),
+      name,
+      { timeout: 2_000 },
+    )
+    .catch(() => {});
+  const after = await page.evaluate((panelName) => {
+    const grid = document.querySelector('.mondrian');
+    const gridBox = grid.getBoundingClientRect();
     const panel = document.querySelector(`[data-panel="${panelName}"]`);
+    const panelBox = panel.getBoundingClientRect();
+    const ci = panel.querySelector('.content-inner');
+    const ciBox = ci.getBoundingClientRect();
     const text = [...panel.querySelectorAll('.panel-content *')].filter(
       (el) => el.getClientRects().length > 0 && getComputedStyle(el).visibility !== 'hidden',
     );
     const bottom = Math.max(...text.map((el) => el.getBoundingClientRect().bottom));
     return {
       textElements: text.length,
-      pastGrid: bottom - grid.bottom,
-      pastPanel: bottom - panel.getBoundingClientRect().bottom,
-      gridSquare: Math.abs(grid.height - grid.width) < 1.5,
+      textPast: bottom - Math.min(ciBox.bottom, panelBox.bottom, gridBox.bottom),
+      band:
+        Math.max(...[...grid.children].map((c) => c.getBoundingClientRect().bottom)) -
+        gridBox.bottom,
+      gridSquare: Math.abs(gridBox.height - gridBox.width) < 1.5,
+      cueAfter: ci.classList.contains('has-more-below'),
     };
   }, name);
+  return { ...before, ...after };
 }
 
 /** The composition is a square; the stack is a column far taller than wide. */
@@ -199,7 +244,7 @@ async function isComposition(page) {
 }
 
 describe.each(DESKTOP)('desktop composition at $name', (viewport) => {
-  it('renders the Mondrian square, and every panel opens with its text inside the grid', async () => {
+  it('renders the Mondrian square, and every open panel keeps the grid intact and its text reachable', async () => {
     const page = await openPage(viewport);
     try {
       expect(await isComposition(page), 'rendered the stack on a desktop window').toBe(true);
@@ -209,20 +254,30 @@ describe.each(DESKTOP)('desktop composition at $name', (viewport) => {
           `${name} did not open on hover`,
         ).toBe(true);
         const fit = await readFit(page, name);
-        // Control: an empty selection would make both bounds -Infinity and pass.
+        // Control: an empty selection would make the text bound -Infinity and pass.
         expect(fit.textElements, `${name} has no visible text to measure`).toBeGreaterThan(0);
         expect(fit.gridSquare, `the grid stopped being square with ${name} open`).toBe(true);
-        expect(fit.pastGrid, `${name} text is clipped by the grid`).toBeLessThanOrEqual(
+        expect(fit.band, `${name} pushed a grid cell past the grid`).toBeLessThanOrEqual(
           OVERFLOW_TOLERANCE_PX,
         );
-        expect(fit.pastPanel, `${name} text overflows its panel`).toBeLessThanOrEqual(
+        expect(fit.textPast, `${name} text is cut off and not reachable`).toBeLessThanOrEqual(
           OVERFLOW_TOLERANCE_PX,
         );
+        if (fit.scrolls) {
+          // Reachable means the panel really scrolls, and says so while it can.
+          expect(['auto', 'scroll'], `${name} overflows without scrolling`).toContain(
+            fit.overflowY,
+          );
+          expect(fit.cueBefore, `${name} has text below its edge but no cue`).toBe(true);
+          expect(fit.cueAfter, `${name} keeps the cue after reaching the end`).toBe(false);
+        } else {
+          expect(fit.cueBefore, `${name} shows the cue with nothing below`).toBe(false);
+        }
       }
     } finally {
       await page.close();
     }
-  }, 60_000);
+  }, 90_000);
 });
 
 describe.each(STACKED)('responsive stack at $name', (viewport) => {
@@ -234,6 +289,257 @@ describe.each(STACKED)('responsive stack at $name', (viewport) => {
       // held, not that nothing was there to open.
       expect(await page.locator('[data-panel="projects"]').count()).toBe(1);
       expect(await hoverPanel(page, 'projects', { expectOpen: false })).toBe(false);
+    } finally {
+      await page.close();
+    }
+  }, 60_000);
+});
+
+describe('keyboard access to a capped panel', () => {
+  it('opens with Enter, moves focus into the scrollable text, and scrolls with PageDown', async () => {
+    // A capped panel's content is the only thing that can scroll its hidden
+    // text, so it must be reachable from the keyboard (Codex, PR #1046).
+    const page = await openPage({ width: 1440, height: 900 });
+    try {
+      await page.focus('[data-panel="about"] .panel-label');
+      await page.keyboard.press('Enter');
+      await page.waitForSelector('[data-panel="about"].is-content-visible', { timeout: 5_000 });
+      const state = await page.evaluate(() => {
+        const ci = document.querySelector('[data-panel="about"] .content-inner');
+        return {
+          focused: document.activeElement === ci,
+          tabindex: ci.getAttribute('tabindex'),
+          label: ci.getAttribute('aria-label'),
+          capped: ci.scrollHeight - ci.clientHeight > 1,
+        };
+      });
+      // Control: this viewport really caps About.
+      expect(state.capped).toBe(true);
+      expect(state.tabindex).toBe('0');
+      expect(state.label).toMatch(/scrollable$/);
+      expect(state.focused, 'focus did not move into the scrollable content').toBe(true);
+      await page.keyboard.press('PageDown');
+      await page.waitForTimeout(300);
+      const scrolled = await page.evaluate(
+        () => document.querySelector('[data-panel="about"] .content-inner').scrollTop,
+      );
+      expect(scrolled).toBeGreaterThan(0);
+    } finally {
+      await page.close();
+    }
+  }, 60_000);
+
+  it('returns focus to the label when Escape closes the scrollable panel', async () => {
+    const page = await openPage({ width: 1440, height: 900 });
+    try {
+      await page.focus('[data-panel="about"] .panel-label');
+      await page.keyboard.press('Enter');
+      await page.waitForSelector('[data-panel="about"].is-content-visible', { timeout: 5_000 });
+      // Control: focus really is inside the scroll region before Escape.
+      expect(
+        await page.evaluate(() =>
+          document
+            .querySelector('[data-panel="about"] .content-inner')
+            .contains(document.activeElement),
+        ),
+      ).toBe(true);
+      await page.keyboard.press('Escape');
+      await page.waitForTimeout(IDLE_SETTLE_MS);
+      const after = await page.evaluate(() => ({
+        onLabel:
+          document.activeElement === document.querySelector('[data-panel="about"] .panel-label'),
+        reopened: document.querySelector('[data-panel="about"]').classList.contains('is-open'),
+      }));
+      expect(after.onLabel, 'focus was not returned to the About label').toBe(true);
+      expect(after.reopened, 'returning focus reopened the panel').toBe(false);
+    } finally {
+      await page.close();
+    }
+  }, 60_000);
+
+  it('hands focus to the scroll region when Tab opens the panel', async () => {
+    const page = await openPage({ width: 1440, height: 900 });
+    try {
+      // Reach the About label by real Tab presses, so focus is keyboard focus.
+      let onAbout = false;
+      for (let i = 0; i < 30 && !onAbout; i++) {
+        await page.keyboard.press('Tab');
+        onAbout = await page.evaluate(
+          () =>
+            document.activeElement === document.querySelector('[data-panel="about"] .panel-label'),
+        );
+      }
+      expect(onAbout, 'Tab never reached the About label').toBe(true);
+      await page.waitForSelector('[data-panel="about"].is-content-visible', { timeout: 5_000 });
+      await page.waitForTimeout(200);
+      expect(
+        await page.evaluate(
+          () =>
+            document.activeElement ===
+            document.querySelector('[data-panel="about"] .content-inner'),
+        ),
+        'focus stayed on the hidden label',
+      ).toBe(true);
+    } finally {
+      await page.close();
+    }
+  }, 60_000);
+
+  it('keeps the reader scroll position across a desktop resize', async () => {
+    // A guard, not a fix: the measure pass briefly switches panel scrolling
+    // off, and Codex asked whether that resets a capped panel's scrollTop.
+    // Measured, it does not, in Chromium, WebKit or Firefox (120 before, 120
+    // after, with the pass observed to run), so no restore code was added.
+    // This pins the behavior so a future change to the pass cannot regress it.
+    const page = await openPage({ width: 1440, height: 900 });
+    try {
+      expect(await hoverPanel(page, 'about', { expectOpen: true })).toBe(true);
+      await page.evaluate(() => {
+        document.querySelector('[data-panel="about"] .content-inner').scrollTop = 120;
+      });
+      await page.setViewportSize({ width: 1500, height: 920 });
+      await page.waitForTimeout(IDLE_SETTLE_MS);
+      const top = await page.evaluate(
+        () => document.querySelector('[data-panel="about"] .content-inner').scrollTop,
+      );
+      expect(top, 'the resize measure pass reset the scroll position').toBeGreaterThan(100);
+    } finally {
+      await page.close();
+    }
+  }, 60_000);
+
+  it('does not carry an interrupted keyboard open over to a later mouse open', async () => {
+    const page = await openPage({ width: 1440, height: 900 });
+    try {
+      // Slow the reveal so Escape is guaranteed to interrupt it: focusing the
+      // label already starts an open, and if its reveal ran first it would
+      // clear the flag itself and this test would pass vacuously (CodeRabbit,
+      // PR #1046).
+      await page.evaluate(() =>
+        document.documentElement.style.setProperty('--motion-plane', '2000ms'),
+      );
+      await page.focus('[data-panel="about"] .panel-label');
+      await page.keyboard.press('Enter');
+      // Precondition: the reveal has not happened yet.
+      expect(
+        await page.evaluate(
+          () =>
+            !document
+              .querySelector('[data-panel="about"]')
+              .classList.contains('is-content-visible'),
+        ),
+      ).toBe(true);
+      await page.evaluate(() => document.documentElement.style.removeProperty('--motion-plane'));
+      await page.keyboard.press('Escape');
+      await page.waitForTimeout(IDLE_SETTLE_MS);
+      await page.evaluate(() => document.activeElement && document.activeElement.blur());
+      expect(await hoverPanel(page, 'about', { expectOpen: true })).toBe(true);
+      await page.waitForTimeout(200);
+      expect(
+        await page.evaluate(() =>
+          document
+            .querySelector('[data-panel="about"] .content-inner')
+            .contains(document.activeElement),
+        ),
+        'a mouse open took focus left armed by an interrupted keyboard open',
+      ).toBe(false);
+    } finally {
+      await page.close();
+    }
+  }, 60_000);
+
+  it('adds no tab stop when the panel fits', async () => {
+    const page = await openPage({ width: 1920, height: 1200 });
+    try {
+      expect(await hoverPanel(page, 'about', { expectOpen: true })).toBe(true);
+      const state = await page.evaluate(() => {
+        const ci = document.querySelector('[data-panel="about"] .content-inner');
+        return {
+          tabindex: ci.getAttribute('tabindex'),
+          capped: ci.scrollHeight - ci.clientHeight > 1,
+        };
+      });
+      expect(state.capped).toBe(false);
+      expect(state.tabindex).toBeNull();
+    } finally {
+      await page.close();
+    }
+  }, 60_000);
+});
+
+describe('scroll cue across a desktop resize', () => {
+  it('keeps the cue on a panel that is still capped after the measure pass', async () => {
+    // A resize runs the measure pass, which switches panel scrolling off while
+    // it measures. The cue must be recomputed after that, not during it, or it
+    // reads "nothing below" and clears the fade on a still-capped panel
+    // (CodeRabbit, PR #1046).
+    const page = await openPage({ width: 1440, height: 900 });
+    try {
+      expect(await hoverPanel(page, 'about', { expectOpen: true })).toBe(true);
+      // Clear the cue the open already set, so the assertion below proves the
+      // measure pass put it back rather than that nothing touched it
+      // (CodeRabbit, PR #1046).
+      const cleared = await page.evaluate(() => {
+        const ci = document.querySelector('[data-panel="about"] .content-inner');
+        ci.classList.remove('has-more-below');
+        return !ci.classList.contains('has-more-below');
+      });
+      expect(cleared).toBe(true);
+      await page.setViewportSize({ width: 1500, height: 920 });
+      // The measure pass is debounced 150ms after resize, then ends a frame later.
+      await page.waitForTimeout(IDLE_SETTLE_MS);
+      const state = await page.evaluate(() => {
+        const ci = document.querySelector('[data-panel="about"] .content-inner');
+        return {
+          below: ci.scrollHeight - ci.clientHeight,
+          cue: ci.classList.contains('has-more-below'),
+        };
+      });
+      // Control: still capped, so there is text below to cue.
+      expect(state.below).toBeGreaterThan(1);
+      expect(state.cue, 'cue cleared by the measure pass on a capped panel').toBe(true);
+    } finally {
+      await page.close();
+    }
+  }, 60_000);
+});
+
+describe('scroll cue across a resize into the stack', () => {
+  it('does not fade panel text in the stack after a desktop open set the cue', async () => {
+    // The cue class is only recomputed on desktop, so a panel opened there
+    // and then resized under the floor keeps it. The fade must be scoped to
+    // the composition, or it would cover the bottom 3rem of that panel's
+    // text in the stack.
+    const page = await openPage({ width: 1440, height: 900 });
+    try {
+      expect(await hoverPanel(page, 'about', { expectOpen: true })).toBe(true);
+      const cue = () =>
+        page.evaluate(() => {
+          const ci = document.querySelector('[data-panel="about"] .content-inner');
+          return {
+            cls: ci.classList.contains('has-more-below'),
+            mask: getComputedStyle(ci).maskImage,
+          };
+        });
+      // Control: the cue is really set before the resize.
+      const before = await cue();
+      expect(before.cls).toBe(true);
+      expect(
+        await page.evaluate(() =>
+          document.querySelector('[data-panel="about"] .content-inner').getAttribute('tabindex'),
+        ),
+      ).toBe('0');
+      expect(before.mask).not.toBe('none');
+      await page.setViewportSize({ width: 1440, height: 800 });
+      await page.waitForTimeout(IDLE_SETTLE_MS);
+      expect(await isComposition(page), 'did not reach the stack').toBe(false);
+      expect((await cue()).mask).toBe('none');
+      // And no leftover "scrollable" tab stop in the stack (CodeRabbit, PR #1046).
+      const attrs = await page.evaluate(() => {
+        const ci = document.querySelector('[data-panel="about"] .content-inner');
+        return { tabindex: ci.getAttribute('tabindex'), label: ci.getAttribute('aria-label') };
+      });
+      expect(attrs).toEqual({ tabindex: null, label: null });
     } finally {
       await page.close();
     }

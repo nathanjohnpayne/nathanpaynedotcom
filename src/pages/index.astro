@@ -528,16 +528,16 @@ const homepageJsonLd = {
       // environments without it (jsdom under vitest, very old UAs).
       const matchesQuery = (q) => (typeof window.matchMedia === 'function' ? window.matchMedia(q).matches : false);
       const canHover = () => matchesQuery('(hover: hover) and (pointer: fine)');
-      // Below --bp-stack (1024px) of width, or --bp-stack-height (960px)
+      // Below --bp-stack (1024px) of width, or --bp-stack-height (840px)
       // of height, the page renders the vertical stack and panel
       // interactions are disabled — the stack already shows all content.
       // Height because the Mondrian square is min(95vw, 95vh, …): a short
-      // window shrinks it as a narrow one does, and below 960px tall the
-      // open About panel's text is clipped by the grid (#992, #1042). Kept
-      // in sync with the @media (max-width: 1023px), (max-height: 959px) block in
+      // window shrinks it as a narrow one does, and below 840px tall
+      // Community's content overflows its panel (#992, #1042, #1044). Kept
+      // in sync with the @media (max-width: 1023px), (max-height: 839px) block in
       // src/styles/global.css and the matchMedia string asserted in
       // tests/responsive-layout.test.js. Issues #313, #992.
-      const mobile = () => matchesQuery('(max-width: 1023px), (max-height: 959px)');
+      const mobile = () => matchesQuery('(max-width: 1023px), (max-height: 839px)');
 
       function readMsToken(name, fallback) {
         // prefers-reduced-motion zeroes CSS transition durations via the
@@ -655,6 +655,61 @@ const homepageJsonLd = {
         label.removeAttribute('aria-hidden');
       }
 
+      // A capped content track (#1044) makes the open panel scroll its own
+      // text when the square is too short for it. macOS hides scrollbars
+      // until a scroll starts, so the only cue that more text sits below the
+      // edge is this class, which global.css turns into a fade. Recomputed on
+      // reveal, on scroll, and after every measure pass (which runs on resize).
+      //
+      // A capped panel's content is also the only thing that can scroll its
+      // hidden text, so while it is scrollable it is made a keyboard focus
+      // target with an accessible name; when it fits, the extra tab stop is
+      // removed again (Codex, PR #1046).
+      function updateScrollCue(panel) {
+        const ci = panel && panel.querySelector('.content-inner');
+        if (!ci) return;
+        const scrollable = ci.scrollHeight - ci.clientHeight > 1;
+        const more = scrollable && ci.scrollHeight - ci.clientHeight - ci.scrollTop > 1;
+        ci.classList.toggle('has-more-below', more);
+        if (scrollable) {
+          ci.setAttribute('tabindex', '0');
+          ci.setAttribute('role', 'region');
+          ci.setAttribute('aria-label', (panel.getAttribute('aria-label') || 'Panel') + ', scrollable');
+        } else {
+          ci.removeAttribute('tabindex');
+          ci.removeAttribute('role');
+          ci.removeAttribute('aria-label');
+        }
+      }
+
+      panels.forEach((panel) => {
+        const ci = panel.querySelector('.content-inner');
+        if (ci) ci.addEventListener('scroll', () => updateScrollCue(panel), { passive: true });
+      });
+
+      // Each open starts at the top of the panel's text, not wherever a
+      // previous visit scrolled it to. A keyboard open hands focus to the
+      // content when it scrolls: the label that had focus leaves the tab
+      // order as the panel opens (hideLabel), so otherwise the keys that
+      // scroll the text would have nowhere to go.
+      let keyboardOpenPanel = null;
+      // Escape from inside an open panel returns focus to its label once the
+      // close restores it, or keyboard users are left on hidden content or
+      // the document body (Codex, PR #1046). That programmatic focus must not
+      // reopen the panel through the focusin handler.
+      let escapeFocusReturn = null;
+      let suppressFocusOpen = false;
+      function revealContent(panel) {
+        const ci = panel.querySelector('.content-inner');
+        if (ci) ci.scrollTop = 0;
+        panel.classList.add('is-content-visible');
+        updateScrollCue(panel);
+        if (keyboardOpenPanel === panel && ci && ci.getAttribute('tabindex') === '0') {
+          ci.focus({ preventScroll: true });
+        }
+        keyboardOpenPanel = null;
+      }
+
       function startOpen(panel, replayHover) {
         const token = ++transitionToken;
         state = 'opening';
@@ -665,7 +720,7 @@ const homepageJsonLd = {
         // After the grid morph settles, reveal content.
         setTimeout(() => {
           if (token !== transitionToken) return;
-          panel.classList.add('is-content-visible');
+          revealContent(panel);
           state = 'open';
           if (replayHover) resolveHoverTarget();
         }, readMsToken('--motion-plane', 460));
@@ -691,7 +746,7 @@ const homepageJsonLd = {
           setTimeout(() => {
             if (token !== transitionToken) return;
             // Phase 3: fade the new content in once the grid is settled.
-            nextPanel.classList.add('is-content-visible');
+            revealContent(nextPanel);
             state = 'open';
             if (replayHover) resolveHoverTarget();
           }, readMsToken('--motion-plane', 460));
@@ -702,6 +757,11 @@ const homepageJsonLd = {
         const token = ++transitionToken;
         const closing = active;
         state = 'closing';
+        // A close that interrupts a keyboard open (Enter, then Escape before
+        // the reveal) cancels that reveal, so it must also disarm the focus
+        // hand-off, or a later mouse open of the panel would take focus
+        // (CodeRabbit, PR #1046).
+        keyboardOpenPanel = null;
         // Phase 1: fade content out first.
         closing.classList.remove('is-content-visible');
         setTimeout(() => {
@@ -712,6 +772,15 @@ const homepageJsonLd = {
           showLabel(closing);
           active = null;
           delete grid.dataset.focus;
+          if (escapeFocusReturn === closing) {
+            const label = closing.querySelector('.panel-label');
+            if (label) {
+              suppressFocusOpen = true;
+              label.focus({ preventScroll: true });
+              suppressFocusOpen = false;
+            }
+          }
+          escapeFocusReturn = null;
           setTimeout(() => {
             if (token !== transitionToken) return;
             state = 'idle';
@@ -775,10 +844,18 @@ const homepageJsonLd = {
           if (restoredVisible) restoredActive.classList.add('is-content-visible');
         }
         void grid.offsetHeight;
-        if (typeof requestAnimationFrame === 'function') {
-          requestAnimationFrame(() => grid.classList.remove('is-measuring'));
-        } else {
+        // The cue is recomputed only once `is-measuring` is gone: during the
+        // pass the panel's scrolling is switched off (global.css), so it would
+        // read "nothing below" and clear the fade on a panel that is still
+        // capped (CodeRabbit, PR #1046).
+        const endMeasuring = () => {
           grid.classList.remove('is-measuring');
+          if (restoredActive) updateScrollCue(restoredActive);
+        };
+        if (typeof requestAnimationFrame === 'function') {
+          requestAnimationFrame(endMeasuring);
+        } else {
+          endMeasuring();
         }
       }
 
@@ -832,7 +909,20 @@ const homepageJsonLd = {
           clearTimeout(leaveTimer);
           leaveTimer = setTimeout(() => requestClose(), leaveDelay);
         });
-        panel.addEventListener('focusin', () => openPanel(panel));
+        panel.addEventListener('focusin', (event) => {
+          if (suppressFocusOpen) return;
+          // A keyboard focus (Tab) that opens the panel hands focus on to a
+          // capped panel's scroll region, as Enter does; a mouse focus does
+          // not (Codex, PR #1046).
+          if (
+            !panel.classList.contains('is-content-visible') &&
+            event.target.matches &&
+            event.target.matches(':focus-visible')
+          ) {
+            keyboardOpenPanel = panel;
+          }
+          openPanel(panel);
+        });
         panel.addEventListener('focusout', (event) => {
           if (!panel.contains(event.relatedTarget)) closePanel();
         });
@@ -842,9 +932,16 @@ const homepageJsonLd = {
           openPanel(panel);
         });
         panel.addEventListener('keydown', (event) => {
-          if (event.key === 'Escape') closePanel();
+          if (event.key === 'Escape') {
+            if (panel.contains(document.activeElement)) escapeFocusReturn = panel;
+            closePanel();
+          }
           if (event.key === 'Enter' || event.key === ' ') {
             event.preventDefault();
+            // Only for an open that will reveal content; an Enter on a panel
+            // already showing it must not leave the flag armed for a later
+            // mouse open.
+            if (!panel.classList.contains('is-content-visible')) keyboardOpenPanel = panel;
             openPanel(panel);
           }
         });
@@ -860,7 +957,20 @@ const homepageJsonLd = {
       });
 
       window.addEventListener('resize', () => {
-        if (mobile()) closePanel();
+        if (!mobile()) return;
+        closePanel();
+        // Entering the stack: no panel is capped there, and the measure pass
+        // (which maintains the cue) does not run in stack mode, so a capped
+        // panel opened on desktop would otherwise keep its fade class and its
+        // "scrollable" tab stop (CodeRabbit, PR #1046).
+        panels.forEach((p) => {
+          const ci = p.querySelector('.content-inner');
+          if (!ci) return;
+          ci.classList.remove('has-more-below');
+          ci.removeAttribute('tabindex');
+          ci.removeAttribute('role');
+          ci.removeAttribute('aria-label');
+        });
       });
 
       let scrollTimer = null;
