@@ -43,6 +43,13 @@ describe('parseFrontmatter (scripts/lib/parse-frontmatter.mjs)', () => {
     expect(parseFrontmatter(md)).toEqual({ title: 'Single Quotes' });
   });
 
+  it('returns a bare `draft: true` as the string "true", not a boolean', () => {
+    // The blog tests filter drafts by comparing against 'true'. If this
+    // ever starts returning a boolean, those filters silently stop
+    // matching and a draft post is treated as published again.
+    expect(parseFrontmatter('---\ndraft: true\n---\n')).toEqual({ draft: 'true' });
+  });
+
   it('parses inline arrays as proper arrays (the old parser stringified the whole block)', () => {
     const md = '---\ntags: ["Consumer", "Streaming", "Vanilla JS"]\n---\n';
     const data = parseFrontmatter(md);
