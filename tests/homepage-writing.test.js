@@ -99,7 +99,7 @@ describe('homepage Writing block (#523)', () => {
 
   it('never renders a draft post', () => {
     const draftSlugs = allPosts
-      .filter((post) => post.data.draft === true)
+      .filter((post) => post.data.draft === 'true')
       .map((post) => `/blog/${post.slug}/`);
 
     const hrefs = postLinks().map((a) => a.getAttribute('href'));
