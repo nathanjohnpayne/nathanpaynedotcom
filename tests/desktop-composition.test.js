@@ -573,6 +573,44 @@ describe('keyboard access to a capped panel', () => {
       }
     }, 60_000);
 
+    it('keeps the open panel open when a click in it moves focus off a closed panel label', async () => {
+      // A switch to a panel with no scroll region returns focus to the
+      // previous panel's label, so focus sits in a panel that is not open. A
+      // click on the open panel's text then blurred that label, and the
+      // label's panel ran closePanel(), which closes whichever panel is open:
+      // the one the reader had just clicked (#1049).
+      const page = await openPage({ width: 1440, height: 900 });
+      try {
+        expect(await hoverPanel(page, 'about', { expectOpen: true })).toBe(true);
+        const h1 = await page.locator('[data-panel="about"] h1').boundingBox();
+        await page.mouse.click(h1.x + h1.width / 2, h1.y + h1.height / 2);
+        // Control: the click put focus in About's scroll region.
+        expect(
+          await page.evaluate(
+            () =>
+              document.activeElement ===
+              document.querySelector('[data-panel="about"] .content-inner'),
+          ),
+          'the click on About text did not focus its scroll region',
+        ).toBe(true);
+        const connect = await page.locator('[data-panel="connect"]').boundingBox();
+        await page.mouse.move(connect.x + connect.width / 2, connect.y + connect.height / 2);
+        await page.waitForTimeout(IDLE_SETTLE_MS + 300);
+        const switched = await readFocus(page);
+        // Control: the switch left focus on About's label with Connect open.
+        expect(switched.open, 'the hover did not switch to Connect').toEqual(['connect']);
+        expect(switched.aboutLabel, `focus is not on the About label (${switched.on})`).toBe(true);
+        const h2 = await page.locator('[data-panel="connect"] h2').boundingBox();
+        await page.mouse.click(h2.x + h2.width / 2, h2.y + h2.height / 2);
+        await page.waitForTimeout(IDLE_SETTLE_MS + 300);
+        expect((await readFocus(page)).open, 'a click on the open panel closed it').toEqual([
+          'connect',
+        ]);
+      } finally {
+        await page.close();
+      }
+    }, 60_000);
+
     it('leaves focus where the reader moved it during the close', async () => {
       const page = await openPage({ width: 1440, height: 900 });
       try {

@@ -1053,6 +1053,12 @@ const homepageJsonLd = {
             focusReturn = panel;
             if (!panel.classList.contains('is-content-visible')) return;
           }
+          // Only focus leaving the open panel closes it. Focus can sit in a
+          // panel that is not open: the label a close or switch returned it to
+          // (#1049). closePanel() closes whichever panel is open, so a blur of
+          // that label (a click on the open panel's text, a link in it, or Tab
+          // into it) closed the open panel under the reader.
+          if (panel !== active) return;
           closePanel();
         });
         panel.addEventListener('click', (event) => {
