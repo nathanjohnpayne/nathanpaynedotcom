@@ -35,7 +35,7 @@ sidebar:
       The burst figure counts 21 commits on `main` between 2026-09-14T00:00:00Z and 2026-09-15T23:59:59Z. Two of those are the same pull request, #1266, landing as a merge commit plus its branch commit, so the distinct-change count is 20. Issue age is the whole-day, date-to-date difference from the issue's creation date to 2026-09-23.
   - type: text
     content: |
-      Provenance, and what is not established. Every pull request figure, issue timestamp, label and quoted sentence comes from the GitHub API, read on 2026-09-23. Quotations from issue and pull request bodies are verbatim, with em dash spacing normalized to house style. Most of those bodies were written by coding agents working under my account or a bot identity, so they are the pipeline's own record, not independent testimony.
+      Provenance, and what is not established. Every pull request figure, issue timestamp, label and quoted sentence comes from the GitHub API, read on 2026-09-23 and re-checked on 2026-09-24. Quotations from issue and pull request bodies are verbatim, with em dash spacing normalized to house style. Most of those bodies were written by coding agents working under my account or a bot identity, so they are the pipeline's own record, not independent testimony.
 
       The split between defensive hardening and new capability across all 90 is classified by title only, because 90 bodies were not read. Twelve titles explicitly name an absent, truncated, rate-limited, timed-out or budget-exhausted reviewer, check or API response. Thirty-four are fail-closed in shape. This post does not claim a number between them.
 
@@ -131,7 +131,7 @@ And then it says this:
 
 That sentence was added on September 4. On September 14 and 15, ten days later, I merged a patch series. Six of its members are recorded on #878's own decision banner as shipped against it, and #878 remains open at `priority:high` for "the remaining shared classification contract."
 
-It also describes a component called out in its own cluster, a parser that "produced a defect in every review round since it was introduced, each one created by the previous round's fix." That was on the issue ten days before the burst. Then I spent a day and a half producing defects in review rounds, each one created by the previous round's fix, and experienced it as momentum.
+It also describes a component called out in its own cluster, a parser that "produced a defect in every review round since it was introduced, each one created by the previous round's fix." That was on the issue ten days before the burst. Then I spent a day and a half fixing the family one surface at a time, which is the pattern that sentence describes, and experienced it as momentum.
 
 ## What Did Not Land
 
@@ -139,9 +139,9 @@ The honest version of this has to include the one that failed.
 
 [#1130](https://github.com/nathanjohnpayne/mergepath/issues/1130) is the largest instance of the family: the P1 gate "runs on the App installation budget (1,000/hr/repo), so an exhausted GITHUB_TOKEN deadlocks every open PR," and "every open PR in the repository becomes unmergeable regardless of its own merits." That is quota exhaustion presenting as a verdict, at repository scale, and it is the median-aged issue in this set at 26 days.
 
-I took two runs at it. [#1291](https://github.com/nathanjohnpayne/mergepath/pull/1291) merged on September 22 and handles one half, reusing proven pending checks on duplicate publisher events, +308 lines over six review rounds. It spawned three new open issues, [#1301](https://github.com/nathanjohnpayne/mergepath/issues/1301), [#1302](https://github.com/nathanjohnpayne/mergepath/issues/1302) and [#1303](https://github.com/nathanjohnpayne/mergepath/issues/1303), on its way in.
+I took two runs at it. [#1291](https://github.com/nathanjohnpayne/mergepath/pull/1291) merged on September 22 and makes the event side cheaper: it reuses proven pending checks on duplicate publisher events, +308 lines over six review rounds. By its own account it "removes no event deliveries or job executions"; it cuts what each duplicate costs. It spawned three new open issues, [#1301](https://github.com/nathanjohnpayne/mergepath/issues/1301), [#1302](https://github.com/nathanjohnpayne/mergepath/issues/1302) and [#1303](https://github.com/nathanjohnpayne/mergepath/issues/1303), on its way in.
 
-The other half, [#1232](https://github.com/nathanjohnpayne/mergepath/pull/1232), moved the read-only gate steps off the repository token budget. It ran four review rounds, drew two findings, and **closed unmerged** on September 12, fifty-one minutes after it opened. Its own body had scoped it honestly: "Partial: this is the token half, measured and bounded. The event amplification is deliberately not in scope." The event amplification is still not in scope. #1130 is still open.
+The other half, [#1232](https://github.com/nathanjohnpayne/mergepath/pull/1232), moved the read-only gate steps off the repository token budget. It ran four review rounds, drew two findings, and **closed unmerged** on September 12, fifty-one minutes after it opened. Its own body had scoped it honestly: "Partial: this is the token half, measured and bounded. The event amplification is deliberately not in scope." So the token half never landed, the event half is cheaper but not removed, and #1130 is still open.
 
 I mention the unmerged one because an earlier draft of this post listed it as shipped work, having read its title and not its state. That is the same error the post is about, at one level up: a pull request that did not answer, read as an answer.
 
@@ -189,7 +189,7 @@ But there is a decision underneath all of this that is unambiguously mine, and I
 
 **Is reviewer availability a stated product requirement with an owner and a contract, or is it an implementation detail discovered one incident at a time?**
 
-I have been treating it as the second, and I can show you the cost. A month in which somewhere between 12 and 34 of 90 merged pull requests, by title alone, were retrofitted skepticism about values the system already trusted. A thirty-two-hour stretch that felt like progress and was a list. A design document specifying the general fix, open for fifty-one days, with an instruction not to do it in pieces that I did not follow. An audit that failed open on every wave for thirty-eight days behind a transient-sounding classification. One attempt at half of the largest instance, closed unmerged after fifty-one minutes, with the instance itself still open. Eleven more waiting, each one a small pull request nobody has had a reason to write yet.
+I have been treating it as the second, and I can show you the cost. A month in which somewhere between 12 and 34 of 90 merged pull requests, by title alone, were retrofitted skepticism about values the system already trusted. A thirty-two-hour stretch that felt like progress and was a list. A design document specifying the general fix, open for fifty-one days, with an instruction not to do it in pieces that I did not follow. An audit that failed open on every wave for thirty-eight days behind a transient-sounding classification. One attempt at half of the largest instance, closed unmerged after fifty-one minutes, with the instance itself still open. At least eleven more waiting, some of them small pull requests nobody has had a reason to write yet, and two of them, #826 and #1130, not small at all.
 
 The general version costs a design pass and a hard conversation about what a signal is permitted to prove: one representation of "no answer," one rule for what callers may do with it, one implementation consumed by both the advisory path and the required gate. It is `size:L` and it is not fun.
 
