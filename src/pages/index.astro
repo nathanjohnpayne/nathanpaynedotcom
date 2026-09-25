@@ -1208,6 +1208,11 @@ const homepageJsonLd = {
       let pulseFired = false;
 
       function pulsePanel(className) {
+        // Checked again per pulse: runPulseSequence's check is made when the
+        // sequence is scheduled, and a window that snaps or is resized into
+        // the stack in the second or so before a pulse fires still pulsed
+        // every panel there (#1049).
+        if (mobile()) return;
         const target = grid.querySelector('.' + className);
         if (!target) return;
         target.classList.add('panel--pulsing');

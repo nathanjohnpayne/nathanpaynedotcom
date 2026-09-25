@@ -1117,6 +1117,42 @@ describe('the on-load pulse', () => {
     expect(await pulsedPanels({ width: 1885, height: 987 })).toHaveLength(4);
   }, 60_000);
 
+  it('does not pulse after a resize into the stack during load', async () => {
+    // The stack check was made once, when the sequence was scheduled, so a
+    // window resized into the stack before the first pulse fired still pulsed
+    // all four panels there (#1049).
+    const page = await browser.newPage({ viewport: { width: 1885, height: 987 } });
+    try {
+      await page.addInitScript(() => {
+        window.__pulsedInStack = [];
+        new MutationObserver((records) => {
+          for (const r of records) {
+            if (
+              r.target.classList &&
+              r.target.classList.contains('panel--pulsing') &&
+              matchMedia('(max-width: 1023px), (max-height: 839px)').matches
+            ) {
+              window.__pulsedInStack.push(r.target.dataset.panel);
+            }
+          }
+        }).observe(document, { subtree: true, attributes: true, attributeFilter: ['class'] });
+      });
+      await page.goto(`http://127.0.0.1:${port}/`, { waitUntil: 'domcontentloaded' });
+      // The sequence is scheduled at desktop size; the first pulse is ~300ms
+      // after fonts settle, so this resize lands before it.
+      await page.setViewportSize({ width: 900, height: 900 });
+      await page.waitForTimeout(4_500);
+      // Control: the page really is in the stack.
+      expect(await isComposition(page), 'did not reach the stack').toBe(false);
+      expect(
+        await page.evaluate(() => [...new Set(window.__pulsedInStack)]),
+        'panels pulsed in the stack',
+      ).toEqual([]);
+    } finally {
+      await page.close();
+    }
+  }, 60_000);
+
   it('does not pulse in the stack, where nothing opens', async () => {
     // It says "these tiles open"; a wide stacked page was flashing a
     // full-width block for nothing.
