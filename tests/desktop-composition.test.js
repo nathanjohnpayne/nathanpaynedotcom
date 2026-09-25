@@ -974,25 +974,65 @@ async function sampleMorph(page, action) {
       worst,
       moved,
       inlineLeft: grid.style.gridTemplateRows || grid.style.gridTemplateColumns,
+      focus: grid.dataset.focus || null,
+      open: [...document.querySelectorAll('[data-panel].is-open')].map((p) => p.dataset.panel),
     };
   }, action);
 }
 
+async function openMorphPage() {
+  const page = await browser.newPage({ viewport: { width: 1885, height: 987 } });
+  await page.goto(`http://127.0.0.1:${port}/`, { waitUntil: 'load' });
+  await page.evaluate(() => document.fonts.ready);
+  await page.waitForTimeout(IDLE_SETTLE_MS);
+  return page;
+}
+
 describe('the grid morph animates', () => {
   it('opens and closes every panel without a single-frame jump, and hands back to the stylesheet', async () => {
-    const page = await browser.newPage({ viewport: { width: 1885, height: 987 } });
+    const page = await openMorphPage();
     try {
-      await page.goto(`http://127.0.0.1:${port}/`, { waitUntil: 'load' });
-      await page.evaluate(() => document.fonts.ready);
-      await page.waitForTimeout(IDLE_SETTLE_MS);
       for (const panel of PANELS) {
         const open = await sampleMorph(page, { type: 'open', panel });
         // Control: the open really moved tracks, or "no jump" is vacuous.
         expect(open.moved, `${panel} open moved no track`).toBeGreaterThan(0);
+        expect(open.open, `${panel} did not open from rest`).toEqual([panel]);
         expect(open.worst, `${panel} open jumps`).toBeLessThan(MAX_FRAME_STEP);
         expect(open.inlineLeft, `${panel} left inline tracks after the morph`).toBe('');
         const close = await sampleMorph(page, { type: 'close' });
+        // Control: the close really happened and moved tracks. With no close,
+        // nothing moves, the worst step stays 0, and "no jump" passed, while
+        // each later "open" was really a switch.
+        expect(close.focus, `${panel} did not close: the grid kept data-focus`).toBeNull();
+        expect(close.open, `${panel} did not close: a panel kept is-open`).toEqual([]);
+        expect(close.moved, `${panel} close moved no track`).toBeGreaterThan(0);
         expect(close.worst, `${panel} close jumps`).toBeLessThan(MAX_FRAME_STEP);
+        expect(close.inlineLeft, `${panel} left inline tracks after the close`).toBe('');
+        await page.waitForTimeout(IDLE_SETTLE_MS);
+      }
+    } finally {
+      await page.close();
+    }
+  }, 90_000);
+
+  it('switches between panels without a single-frame jump, and hands back to the stylesheet', async () => {
+    // A switch is the third place the morph runs (startSwitch). Every pair
+    // except About and Projects snapped without it (a worst step of 0.9-1.35
+    // of the travel), so the chain below is made of the pairs that snapped.
+    const chain = ['about', 'community', 'connect', 'projects', 'community', 'about', 'connect'];
+    const page = await openMorphPage();
+    try {
+      const first = await sampleMorph(page, { type: 'open', panel: chain[0] });
+      expect(first.open, `${chain[0]} did not open`).toEqual([chain[0]]);
+      await page.waitForTimeout(IDLE_SETTLE_MS);
+      for (let i = 1; i < chain.length; i++) {
+        const pair = `${chain[i - 1]} -> ${chain[i]}`;
+        const sw = await sampleMorph(page, { type: 'open', panel: chain[i] });
+        // Control: the switch really landed and moved tracks.
+        expect(sw.open, `${pair} did not switch`).toEqual([chain[i]]);
+        expect(sw.moved, `${pair} moved no track`).toBeGreaterThan(0);
+        expect(sw.worst, `${pair} jumps`).toBeLessThan(MAX_FRAME_STEP);
+        expect(sw.inlineLeft, `${pair} left inline tracks after the morph`).toBe('');
         await page.waitForTimeout(IDLE_SETTLE_MS);
       }
     } finally {
