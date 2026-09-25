@@ -752,7 +752,17 @@ const homepageJsonLd = {
         if (ci) ci.scrollTop = 0;
         panel.classList.add('is-content-visible');
         updateScrollCue(panel);
-        if (keyboardOpenPanel === panel && ci && ci.getAttribute('tabindex') === '0') {
+        const label = panel.querySelector('.panel-label');
+        if (ci && label && document.activeElement === label) {
+          // The panel's label still holds focus (focus opened it, or a close
+          // or switch returned focus there), but hideLabel() has taken it out
+          // of the tab order and the accessibility tree. When the text does not
+          // scroll there was no tab stop to hand focus to, so it stayed on the
+          // hidden label (CodeRabbit, #1064). The region takes it either way; a
+          // region that fits only holds focus (tabindex -1, dropped on blur).
+          if (ci.getAttribute('tabindex') !== '0') ci.setAttribute('tabindex', '-1');
+          ci.focus({ preventScroll: true });
+        } else if (keyboardOpenPanel === panel && ci && ci.getAttribute('tabindex') === '0') {
           ci.focus({ preventScroll: true });
         }
         keyboardOpenPanel = null;

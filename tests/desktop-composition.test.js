@@ -936,6 +936,7 @@ describe('scroll cue on a keyboard open, with the morph animating', () => {
           return {
             below: ci.scrollHeight - ci.clientHeight,
             tabindex: ci.getAttribute('tabindex'),
+            role: ci.getAttribute('role'),
             cue: ci.classList.contains('has-more-below'),
             focused: document.activeElement === ci,
           };
@@ -943,9 +944,14 @@ describe('scroll cue on a keyboard open, with the morph animating', () => {
         const at = `${name} at 1920x${height} (${s.below}px below)`;
         if (s.below <= 1) {
           fitsByAPixel++;
-          expect(s.tabindex, `${at} fits but kept a "scrollable" tab stop`).toBeNull();
+          // A panel that fits is no tab stop and has no fade. Focus still
+          // leaves the hidden label for the text, which only holds it
+          // (tabindex -1), rather than being left on a hidden element
+          // (CodeRabbit, #1064).
+          expect(s.tabindex, `${at} fits but kept a "scrollable" tab stop`).not.toBe('0');
+          expect(s.role, `${at} fits but is announced as scrollable`).toBeNull();
           expect(s.cue, `${at} fits but kept the fade`).toBe(false);
-          expect(s.focused, `${at} fits but took focus into its text`).toBe(false);
+          expect(s.focused, `${at} fits but left focus on its hidden label`).toBe(true);
         } else {
           expect(s.tabindex, `${at} scrolls but has no tab stop`).toBe('0');
         }
@@ -1202,6 +1208,50 @@ describe('a switch whose target loses focus before it runs', () => {
       expect(after.on, 'focus did not leave the grid').toBeNull();
       expect(after.open, 'a panel opened after focus left it').toEqual([]);
       expect(after.focus).toBeNull();
+    } finally {
+      await page.close();
+    }
+  }, 60_000);
+});
+
+describe('focus on the label of a panel that opens and fits', () => {
+  it('moves into the panel text instead of staying on the hidden label', async () => {
+    // hideLabel() takes the opening panel's label out of the tab order and the
+    // accessibility tree. When that label held focus and the text did not
+    // scroll, nothing moved focus, so a keyboard reader was left on a hidden
+    // element (CodeRabbit, #1064).
+    const page = await openPage({ width: 1440, height: 900 });
+    try {
+      await page.evaluate(() => document.querySelector('[data-panel="about"]').click());
+      await page.waitForTimeout(IDLE_SETTLE_MS + 300);
+      await page.keyboard.press('Shift');
+      await page.focus('[data-panel="connect"] .panel-label');
+      await page.waitForSelector('[data-panel="connect"].is-content-visible', { timeout: 5_000 });
+      await page.waitForTimeout(200);
+      const s = await page.evaluate(() => {
+        const ci = document.querySelector('[data-panel="connect"] .content-inner');
+        const label = document.querySelector('[data-panel="connect"] .panel-label');
+        return {
+          onLabel: document.activeElement === label,
+          labelHidden: label.getAttribute('aria-hidden') === 'true',
+          inText: document.activeElement === ci,
+          fits: ci.scrollHeight - ci.clientHeight <= 1,
+          tabindex: ci.getAttribute('tabindex'),
+        };
+      });
+      // Control: Connect's text fits here, so there was no scroll tab stop.
+      expect(s.fits, 'Connect scrolls at 1440x900').toBe(true);
+      expect(s.labelHidden).toBe(true);
+      expect(s.onLabel, 'focus was left on the hidden Connect label').toBe(false);
+      expect(s.inText, 'focus did not move into the Connect text').toBe(true);
+      expect(s.tabindex, 'a region that fits became a tab stop').toBe('-1');
+      // Once focus moves on, the region keeps no tabindex.
+      await page.keyboard.press('Tab');
+      expect(
+        await page.evaluate(() =>
+          document.querySelector('[data-panel="connect"] .content-inner').getAttribute('tabindex'),
+        ),
+      ).toBeNull();
     } finally {
       await page.close();
     }
