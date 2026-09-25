@@ -1228,7 +1228,9 @@ describe('the on-load pulse', () => {
       await page.evaluate(() => document.fonts.ready);
       // The sequence starts ~300ms after fonts settle and steps panel by panel.
       await page.waitForTimeout(4_500);
-      return page.evaluate(() => [...new Set(window.__pulsed)]);
+      // Awaited here: a bare `return` would let the `finally` close the page
+      // before this read settles.
+      return await page.evaluate(() => [...new Set(window.__pulsed)]);
     } finally {
       await page.close();
     }
