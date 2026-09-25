@@ -724,6 +724,17 @@ const homepageJsonLd = {
         suppressFocusOpen = false;
       }
       function revealContent(panel) {
+        // The reveal is timed to the end of the morph, but the pixel morph's
+        // transition starts on the frame after it is committed, so when this
+        // runs the tracks can still be a pixel or two short of their end, and
+        // a narrower column can still wrap the text onto an extra line. The
+        // decisions below (the scroll cue, the "scrollable" tab stop, and a
+        // keyboard open's focus hand-off) must be made against the geometry
+        // the reader is left with, or a panel that fits by a pixel is given a
+        // fade and a tab stop and takes focus, and nothing corrects them until
+        // a scroll (#1049). So the morph is settled here, a step of a pixel or
+        // two that the text fading in covers.
+        clearMorph();
         const ci = panel.querySelector('.content-inner');
         if (ci) ci.scrollTop = 0;
         panel.classList.add('is-content-visible');

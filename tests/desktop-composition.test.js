@@ -731,6 +731,67 @@ describe('scroll cue across a desktop resize', () => {
   }, 60_000);
 });
 
+describe('scroll cue on a keyboard open, with the morph animating', () => {
+  it('decides scrollability against the settled panel, not the morph in flight', async () => {
+    // The reveal runs one --motion-plane after the morph is committed, but the
+    // pixel morph's transition starts a frame later, so at the reveal the
+    // tracks could still be a pixel or two short (a narrower column wrapping
+    // one more line). A panel that fits by a pixel was then given the fade and
+    // a "scrollable" tab stop, and a keyboard open moved focus into a region
+    // that does not scroll; nothing corrected it until a scroll (#1049). These
+    // heights at 1920 wide are the ones a sweep caught it at: each panel
+    // settles within a pixel of fitting.
+    const page = await browser.newPage({ viewport: { width: 1920, height: 1061 } });
+    try {
+      await page.goto(`http://127.0.0.1:${port}/`, { waitUntil: 'load' });
+      await page.evaluate(() => document.fonts.ready);
+      await page.waitForTimeout(IDLE_SETTLE_MS);
+      const cases = [
+        { height: 1061, name: 'about' },
+        { height: 1036, name: 'projects' },
+        { height: 1052, name: 'projects' },
+      ];
+      let fitsByAPixel = 0;
+      for (const { height, name } of cases) {
+        await page.setViewportSize({ width: 1920, height });
+        // The measure pass is debounced 150ms after the resize.
+        await page.waitForTimeout(IDLE_SETTLE_MS);
+        await page.focus(`[data-panel="${name}"] .panel-label`);
+        await page.keyboard.press('Enter');
+        await page.waitForSelector(`[data-panel="${name}"].is-content-visible`, { timeout: 5_000 });
+        // Past the morph's hand-back to the stylesheet (--motion-plane + 60ms).
+        await page.waitForTimeout(IDLE_SETTLE_MS);
+        const s = await page.evaluate((n) => {
+          const ci = document.querySelector(`[data-panel="${n}"] .content-inner`);
+          return {
+            below: ci.scrollHeight - ci.clientHeight,
+            tabindex: ci.getAttribute('tabindex'),
+            cue: ci.classList.contains('has-more-below'),
+            focused: document.activeElement === ci,
+          };
+        }, name);
+        const at = `${name} at 1920x${height} (${s.below}px below)`;
+        if (s.below <= 1) {
+          fitsByAPixel++;
+          expect(s.tabindex, `${at} fits but kept a "scrollable" tab stop`).toBeNull();
+          expect(s.cue, `${at} fits but kept the fade`).toBe(false);
+          expect(s.focused, `${at} fits but took focus into its text`).toBe(false);
+        } else {
+          expect(s.tabindex, `${at} scrolls but has no tab stop`).toBe('0');
+        }
+        await page.keyboard.press('Escape');
+        await page.waitForTimeout(IDLE_SETTLE_MS + 300);
+        await page.evaluate(() => document.activeElement && document.activeElement.blur());
+      }
+      // Control: the heights still put a panel within a pixel of fitting, so
+      // the fit assertions above ran.
+      expect(fitsByAPixel, 'no case settled within a pixel of fitting').toBeGreaterThan(0);
+    } finally {
+      await page.close();
+    }
+  }, 90_000);
+});
+
 describe('scroll cue across a resize into the stack', () => {
   it('does not fade panel text in the stack after a desktop open set the cue', async () => {
     // The cue class is only recomputed on desktop, so a panel opened there
