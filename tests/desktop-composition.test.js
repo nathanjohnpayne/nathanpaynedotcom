@@ -1123,6 +1123,90 @@ describe('the grid morph animates', () => {
   }, 90_000);
 });
 
+describe('a morph cut short', () => {
+  it('reveals as soon as a measure pass cancels the morph, not at the fallback', async () => {
+    // A desktop resize mid-open runs the measure pass, whose clearMorph()
+    // cancels the grid transition and snaps the grid to its target. Only
+    // transitionend settled the morph, so the reveal waited for the 2x
+    // fallback (about 1s) with the text hidden and hover locked (Codex, #1064).
+    const page = await openMorphPage();
+    try {
+      await page.evaluate(() => {
+        const grid = document.querySelector('.mondrian');
+        const about = document.querySelector('[data-panel="about"]');
+        window.__cut = { cleared: null, revealed: null };
+        new MutationObserver(() => {
+          const t = performance.now() - window.__cut.t0;
+          if (window.__cut.cleared === null && grid.style.gridTemplateColumns === '') {
+            window.__cut.cleared = t;
+          }
+          if (window.__cut.revealed === null && about.classList.contains('is-content-visible')) {
+            window.__cut.revealed = t;
+          }
+        }).observe(grid, { subtree: true, attributes: true, attributeFilter: ['style', 'class'] });
+        window.__cut.t0 = performance.now();
+        about.click();
+      });
+      await page.waitForTimeout(60);
+      await page.setViewportSize({ width: 1900, height: 1000 });
+      await page.waitForTimeout(1_500);
+      const cut = await page.evaluate(() => window.__cut);
+      // Control: the measure pass really cut the morph short.
+      expect(cut.cleared, 'the morph was not cleared mid-flight').not.toBeNull();
+      expect(cut.cleared, 'the morph ran to its end before the resize cut it').toBeLessThan(460);
+      expect(cut.revealed, 'About never revealed').not.toBeNull();
+      expect(
+        cut.revealed,
+        `the reveal waited for the fallback: ${JSON.stringify(cut)}`,
+      ).toBeLessThan(cut.cleared + 200);
+    } finally {
+      await page.close();
+    }
+  }, 60_000);
+});
+
+describe('a switch whose target loses focus before it runs', () => {
+  it('does not open a panel focus has already left', async () => {
+    // A focus-driven switch keeps the previous panel `active` for its first
+    // --motion-fast phase. A Tab off the target label in that window, with
+    // no panel focused next (Connect is the last label on the page), was
+    // ignored, and the switch then opened Connect with focus gone (Codex,
+    // #1064).
+    const page = await openPage({ width: 1440, height: 900 });
+    try {
+      await page.evaluate(() => document.querySelector('[data-panel="community"]').click());
+      await page.waitForTimeout(IDLE_SETTLE_MS + 300);
+      // A keypress first, so the programmatic focus below is :focus-visible,
+      // as a Tab would make it.
+      await page.keyboard.press('Shift');
+      await page.focus('[data-panel="connect"] .panel-label');
+      // Control: the switch to Connect has started (Community's text is fading).
+      const pending = await page.evaluate(() => ({
+        focusVisible: document.activeElement.matches(':focus-visible'),
+        communityText: document
+          .querySelector('[data-panel="community"]')
+          .classList.contains('is-content-visible'),
+        focus: document.querySelector('.mondrian').dataset.focus,
+      }));
+      expect(pending.focusVisible, 'the Connect label focus is not :focus-visible').toBe(true);
+      expect(pending.communityText, 'no switch started').toBe(false);
+      expect(pending.focus, 'the switch already ran').toBe('community');
+      await page.keyboard.press('Tab');
+      await page.waitForTimeout(IDLE_SETTLE_MS + 500);
+      const after = await page.evaluate(() => ({
+        on: document.activeElement.closest('[data-panel]')?.dataset.panel ?? null,
+        open: [...document.querySelectorAll('[data-panel].is-open')].map((p) => p.dataset.panel),
+        focus: document.querySelector('.mondrian').dataset.focus ?? null,
+      }));
+      expect(after.on, 'focus did not leave the grid').toBeNull();
+      expect(after.open, 'a panel opened after focus left it').toEqual([]);
+      expect(after.focus).toBeNull();
+    } finally {
+      await page.close();
+    }
+  }, 60_000);
+});
+
 describe('the grid morph in the stack', () => {
   // Inline pixel tracks override the stack's media-query template. The morph
   // ran in the stack (the stack's resize handler closes the open panel), and a

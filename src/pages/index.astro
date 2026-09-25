@@ -586,6 +586,8 @@ const homepageJsonLd = {
       // immediately opens B before A's morph completes). Each phase
       // checks its captured token against the current one.
       let transitionToken = 0;
+      // The panel a switch is heading to, until it becomes `active` (phase 2).
+      let switchTarget = null;
       // Brief, cancellable close delay so a normal cursor move from one
       // panel to another doesn't flash through `closing` before the
       // direct-switch shortcut in mouseleave can fire. Tuned short — long
@@ -785,7 +787,7 @@ const homepageJsonLd = {
       // comes, and the morph is over at its nominal end.
       function morphEndMs() {
         const plane = readMsToken('--motion-plane', 460);
-        return plane ? plane + 60 : 0;
+        return plane ? plane + readMsToken('--motion-settle', 60) : 0;
       }
       function morphFallbackMs() {
         return morphEndMs() * 2;
@@ -844,21 +846,32 @@ const homepageJsonLd = {
           if (done) return;
           done = true;
           grid.removeEventListener('transitionend', onEnd);
+          grid.removeEventListener('transitioncancel', onEnd);
           clearTimeout(fallback);
           if (token === morphToken) clearMorph();
           if (settled) settled();
         };
+        // A cancel also ends the morph (a measure pass or resize calls
+        // clearMorph(), which snaps the grid to its target), but only when no
+        // grid transition is left running: the cancel of a morph this one
+        // superseded arrives after this one has started, and must not end it.
         const onEnd = (e) => {
-          if (e.target === grid && e.propertyName.startsWith('grid-template')) finish();
+          if (e.target !== grid || !e.propertyName.startsWith('grid-template')) return;
+          if (e.type === 'transitioncancel' && gridTransitionRunning()) return;
+          finish();
         };
         const running = gridTransitionRunning();
-        if (running) grid.addEventListener('transitionend', onEnd);
+        if (running) {
+          grid.addEventListener('transitionend', onEnd);
+          grid.addEventListener('transitioncancel', onEnd);
+        }
         const fallback = setTimeout(finish, running ? morphFallbackMs() : morphEndMs());
       }
 
       function startOpen(panel, replayHover) {
         const token = ++transitionToken;
         state = 'opening';
+        switchTarget = null;
         // Every close and switch settles its own focus return, so one still
         // set here is stale (a blur in the stack, where nothing is open) and
         // must not move focus when this panel later closes.
@@ -884,6 +897,7 @@ const homepageJsonLd = {
         const token = ++transitionToken;
         const prev = active;
         state = 'switching';
+        switchTarget = nextPanel;
         if (holdsFocusInText(prev)) focusReturn = prev;
         // Phase 1: fade previous content out.
         prev.classList.remove('is-content-visible');
@@ -895,6 +909,7 @@ const homepageJsonLd = {
           prev.classList.remove('is-open');
           showLabel(prev);
           active = nextPanel;
+          switchTarget = null;
           nextPanel.classList.add('is-open');
           hideLabel(nextPanel);
           morphTracks(
@@ -928,6 +943,7 @@ const homepageJsonLd = {
         const token = ++transitionToken;
         const closing = active;
         state = 'closing';
+        switchTarget = null;
         // A close that interrupts a keyboard open (Enter, then Escape before
         // the reveal) cancels that reveal, so it must also disarm the focus
         // hand-off, or a later mouse open of the panel would take focus
@@ -1109,8 +1125,11 @@ const homepageJsonLd = {
           // panel that is not open: the label a close or switch returned it to
           // (#1049). closePanel() closes whichever panel is open, so a blur of
           // that label (a click on the open panel's text, a link in it, or Tab
-          // into it) closed the open panel under the reader.
-          if (panel !== active) return;
+          // into it) closed the open panel under the reader. A switch's target
+          // counts as the open panel until phase 2 makes it `active`: a Tab
+          // off it within --motion-fast, with no panel focused next, left the
+          // queued switch to open a panel focus had already left (#1049).
+          if (panel !== active && panel !== switchTarget) return;
           closePanel();
         });
         panel.addEventListener('click', (event) => {
