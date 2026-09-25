@@ -26,7 +26,7 @@ declare global {
 
 // Skip the entire file on viewports where the state machine is disabled.
 //
-// Since #992 the composition is stack-mode below 1024px wide or 960px tall, so a
+// Since #992 the composition is stack-mode below 1024px wide or 840px tall, so a
 // width-only guard would fail to skip on a short desktop project and then fail
 // the spec against a page that is correctly stacked (#1004). The question goes
 // to `matchMedia` after navigation rather than to `testInfo.project.use`:
@@ -40,9 +40,9 @@ test.beforeEach(async ({ page }) => {
   await page.goto('/');
   await page.waitForLoadState('domcontentloaded');
   const isStack = await page.evaluate(
-    () => window.matchMedia('(max-width: 1023px), (max-height: 959px)').matches,
+    () => window.matchMedia('(max-width: 1023px), (max-height: 839px)').matches,
   );
-  test.skip(isStack, 'Mondrian is stack-mode below 1024px wide or 960px tall');
+  test.skip(isStack, 'Mondrian is stack-mode below 1024px wide or 840px tall');
   // Wait for fonts.ready + measureContentHeights pass to settle.
   await page.waitForFunction(() => {
     const grid = document.getElementById('mondrian');
@@ -123,15 +123,39 @@ test('about/projects/connect panels are exactly content-sized in their focus sta
   // Tolerance for sub-pixel rounding + measurement variance.
   const TOLERANCE = 4;
 
+  // Measured on a square tall enough that no track is capped (#1044). Since
+  // #1044 the About and Projects tracks are min(content, space left), and on a
+  // shorter square the cap binds, so the panel is shorter than its content and
+  // no void can exist to catch. The project's own 1440x900 is such a square.
+  await page.setViewportSize({ width: 1920, height: 1200 });
+  await page.reload();
+  await page.waitForFunction(() => {
+    const grid = document.getElementById('mondrian');
+    return grid && grid.style.getPropertyValue('--cell-h-about').endsWith('px');
+  });
+
   for (const focus of ['about', 'projects', 'connect'] as const) {
     await openByClick(page, focus);
-    const gap = await page.evaluate((p) => {
+    const { gap, capped } = await page.evaluate((p) => {
       const panel = document.querySelector(`[data-panel="${p}"]`)!;
-      const inner = panel.querySelector('.content-inner')!;
+      const inner = panel.querySelector<HTMLElement>('.content-inner')!;
       const pr = panel.getBoundingClientRect();
-      const ir = inner.getBoundingClientRect();
-      return Math.round(pr.bottom - ir.bottom);
+      // Where the content actually ends: its last child plus the inner's own
+      // bottom padding. Not the inner's box: About and Projects give it
+      // `height: 100%` so it can scroll when capped (#1044), which makes its
+      // bottom equal the panel's by construction and would read zero however
+      // tall the track grew (Codex, PR #1046).
+      const lastBottom = Math.max(
+        ...Array.from(inner.children).map((c) => c.getBoundingClientRect().bottom),
+      );
+      const padBottom = parseFloat(getComputedStyle(inner).paddingBottom) || 0;
+      return {
+        gap: Math.round(pr.bottom - (lastBottom + padBottom)),
+        capped: inner.scrollHeight - inner.clientHeight > 1,
+      };
     }, focus);
+    // Control: at this viewport nothing may be capped, or the gap is vacuous.
+    expect(capped, `[${focus}-focus] is capped at 1920x1200`).toBe(false);
     expect(gap, `[${focus}-focus] cream gap below content`).toBeLessThanOrEqual(TOLERANCE);
 
     // Close before next iteration.

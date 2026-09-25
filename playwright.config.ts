@@ -58,14 +58,14 @@ export default defineConfig({
       use: { viewport: { width: 768, height: 1024 } },
     },
     {
-      // 960 tall: the height floor (#1042), so the tightest geometry that is
-      // still the composition. #1003 moved this to 1024 when its 1024px
-      // floor sent 1440x900 to the stack, which took the e2e suite off the
-      // regression instead of catching it; production served the phone stack
-      // to nearly every desktop window for 18 days. 900 is not the
-      // composition either until #1044, because About's text does not fit.
+      // 900 tall: an ordinary desktop window. #1003 moved this to 1024 when
+      // its 1024px floor sent 1440x900 to the stack, which took the e2e suite
+      // off the regression instead of catching it; production served the
+      // phone stack to nearly every desktop window for 18 days (#1042). With
+      // the 840px floor (#1044) 1440x900 is the composition again, and this
+      // project must stay a size real desktop readers have.
       name: 'Desktop 1440',
-      use: { viewport: { width: 1440, height: 960 } },
+      use: { viewport: { width: 1440, height: 900 } },
     },
   ],
   webServer: EXTERNAL_BASE_URL
