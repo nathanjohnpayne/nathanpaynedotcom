@@ -545,3 +545,120 @@ describe('scroll cue across a resize into the stack', () => {
     }
   }, 60_000);
 });
+
+/**
+ * The grid morph animates instead of snapping.
+ *
+ * Every focus template mixes `fr` tracks with fixed-length ones, and a track
+ * list only interpolates when each track keeps the same kind of size, so the
+ * plain CSS transition flipped the whole list at its midpoint: opening About,
+ * Projects or Connect crept a few pixels and then jumped, a single-frame step
+ * of 87-104% of the track's travel in Chromium, WebKit and Firefox alike. The
+ * state machine now drives the morph between resolved pixel track lists.
+ *
+ * Sampled every animation frame with transitions ON (openPage kills them for
+ * the geometry tests above). A real animation over the 460ms --motion-plane
+ * moves a track about 10% per frame at 60fps; 35% leaves room for a slow
+ * frame and still fails a snap by a wide margin.
+ */
+const MAX_FRAME_STEP = 0.35;
+
+async function sampleMorph(page, action) {
+  return page.evaluate(async (act) => {
+    const grid = document.querySelector('.mondrian');
+    const read = () => {
+      const cs = getComputedStyle(grid);
+      return [...cs.gridTemplateRows.split(' '), ...cs.gridTemplateColumns.split(' ')].map(
+        parseFloat,
+      );
+    };
+    const samples = [read()];
+    if (act.type === 'open') document.querySelector(`[data-panel="${act.panel}"]`).click();
+    else document.body.click();
+    const t0 = performance.now();
+    await new Promise((resolve) => {
+      const frame = () => {
+        samples.push(read());
+        if (performance.now() - t0 < 900) requestAnimationFrame(frame);
+        else resolve();
+      };
+      requestAnimationFrame(frame);
+    });
+    let worst = 0;
+    let moved = 0;
+    for (let t = 0; t < samples[0].length; t++) {
+      const travel = Math.abs(samples[samples.length - 1][t] - samples[0][t]);
+      if (travel < 20) continue;
+      moved++;
+      let step = 0;
+      for (let i = 1; i < samples.length; i++)
+        step = Math.max(step, Math.abs(samples[i][t] - samples[i - 1][t]));
+      worst = Math.max(worst, step / travel);
+    }
+    return {
+      worst,
+      moved,
+      inlineLeft: grid.style.gridTemplateRows || grid.style.gridTemplateColumns,
+    };
+  }, action);
+}
+
+describe('the grid morph animates', () => {
+  it('opens and closes every panel without a single-frame jump, and hands back to the stylesheet', async () => {
+    const page = await browser.newPage({ viewport: { width: 1885, height: 987 } });
+    try {
+      await page.goto(`http://127.0.0.1:${port}/`, { waitUntil: 'load' });
+      await page.evaluate(() => document.fonts.ready);
+      await page.waitForTimeout(IDLE_SETTLE_MS);
+      for (const panel of PANELS) {
+        const open = await sampleMorph(page, { type: 'open', panel });
+        // Control: the open really moved tracks, or "no jump" is vacuous.
+        expect(open.moved, `${panel} open moved no track`).toBeGreaterThan(0);
+        expect(open.worst, `${panel} open jumps`).toBeLessThan(MAX_FRAME_STEP);
+        expect(open.inlineLeft, `${panel} left inline tracks after the morph`).toBe('');
+        const close = await sampleMorph(page, { type: 'close' });
+        expect(close.worst, `${panel} close jumps`).toBeLessThan(MAX_FRAME_STEP);
+        await page.waitForTimeout(IDLE_SETTLE_MS);
+      }
+    } finally {
+      await page.close();
+    }
+  }, 90_000);
+});
+
+describe('the on-load pulse', () => {
+  async function pulsedPanels(viewport) {
+    const page = await browser.newPage({ viewport });
+    try {
+      await page.addInitScript(() => {
+        window.__pulsed = [];
+        new MutationObserver((records) => {
+          for (const r of records) {
+            if (r.target.classList && r.target.classList.contains('panel--pulsing')) {
+              window.__pulsed.push(r.target.dataset.panel);
+            }
+          }
+        }).observe(document, { subtree: true, attributes: true, attributeFilter: ['class'] });
+      });
+      await page.goto(`http://127.0.0.1:${port}/`, { waitUntil: 'load' });
+      await page.evaluate(() => document.fonts.ready);
+      // The sequence starts ~300ms after fonts settle and steps panel by panel.
+      await page.waitForTimeout(4_500);
+      return page.evaluate(() => [...new Set(window.__pulsed)]);
+    } finally {
+      await page.close();
+    }
+  }
+
+  it('pulses the panels in the composition, where they open', async () => {
+    // Control for the stack case: the sequence really runs on this page.
+    expect(await pulsedPanels({ width: 1885, height: 987 })).toHaveLength(4);
+  }, 60_000);
+
+  it('does not pulse in the stack, where nothing opens', async () => {
+    // It says "these tiles open"; a wide stacked page was flashing a
+    // full-width block for nothing.
+    expect(await pulsedPanels({ width: 1920, height: 800 })).toEqual([]);
+    expect(await pulsedPanels({ width: 390, height: 844 })).toEqual([]);
+  }, 60_000);
+});

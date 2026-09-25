@@ -710,13 +710,67 @@ const homepageJsonLd = {
         keyboardOpenPanel = null;
       }
 
+      // The grid morph, driven between explicit pixel track lists.
+      //
+      // Every focus template mixes flexible (`fr`) tracks with fixed-length
+      // ones, and a track list only interpolates when each track keeps the
+      // same kind of size, so a plain CSS transition from the rest template
+      // to about-, projects- or connect-focus flipped the whole list at the
+      // midpoint: the panel crept a few pixels, then jumped to full size
+      // (measured as a single-frame step of 87-104% of the track's travel in
+      // Chromium, WebKit and Firefox alike). Only community-focus, which is
+      // minmax() throughout, animated.
+      //
+      // So each focus change resolves both endpoints to pixels and lets the
+      // stylesheet's transition run between them: read the current resolved
+      // tracks (mid-transition values included, so an interrupted morph
+      // continues from where it is), apply the change with transitions off,
+      // read the target, restore the start inline, commit it, then set the
+      // target inline with transitions back on. Nothing paints between those
+      // reads. When the transition is over the inline tracks are handed back
+      // to the stylesheet, which resolves to the same pixels, with
+      // transitions off so the hand-back is not itself animated.
+      let morphToken = 0;
+      function clearMorph() {
+        morphToken++;
+        grid.style.transition = 'none';
+        grid.style.gridTemplateRows = '';
+        grid.style.gridTemplateColumns = '';
+        void grid.offsetHeight;
+        grid.style.transition = '';
+      }
+      function morphTracks(mutate) {
+        const token = ++morphToken;
+        const cs = getComputedStyle(grid);
+        const fromRows = cs.gridTemplateRows;
+        const fromCols = cs.gridTemplateColumns;
+        grid.style.transition = 'none';
+        grid.style.gridTemplateRows = '';
+        grid.style.gridTemplateColumns = '';
+        mutate();
+        const toRows = getComputedStyle(grid).gridTemplateRows;
+        const toCols = getComputedStyle(grid).gridTemplateColumns;
+        grid.style.gridTemplateRows = fromRows;
+        grid.style.gridTemplateColumns = fromCols;
+        void grid.offsetHeight;
+        grid.style.transition = '';
+        grid.style.gridTemplateRows = toRows;
+        grid.style.gridTemplateColumns = toCols;
+        setTimeout(() => {
+          if (token !== morphToken) return;
+          clearMorph();
+        }, readMsToken('--motion-plane', 460) + 60);
+      }
+
       function startOpen(panel, replayHover) {
         const token = ++transitionToken;
         state = 'opening';
         active = panel;
         panel.classList.add('is-open');
         hideLabel(panel);
-        grid.dataset.focus = panel.dataset.panel;
+        morphTracks(() => {
+          grid.dataset.focus = panel.dataset.panel;
+        });
         // After the grid morph settles, reveal content.
         setTimeout(() => {
           if (token !== transitionToken) return;
@@ -742,7 +796,9 @@ const homepageJsonLd = {
           active = nextPanel;
           nextPanel.classList.add('is-open');
           hideLabel(nextPanel);
-          grid.dataset.focus = nextPanel.dataset.panel;
+          morphTracks(() => {
+            grid.dataset.focus = nextPanel.dataset.panel;
+          });
           setTimeout(() => {
             if (token !== transitionToken) return;
             // Phase 3: fade the new content in once the grid is settled.
@@ -771,7 +827,9 @@ const homepageJsonLd = {
           closing.classList.remove('is-open');
           showLabel(closing);
           active = null;
-          delete grid.dataset.focus;
+          morphTracks(() => {
+            delete grid.dataset.focus;
+          });
           if (escapeFocusReturn === closing) {
             const label = closing.querySelector('.panel-label');
             if (label) {
@@ -817,6 +875,9 @@ const homepageJsonLd = {
       // wrap match what the user will see.
       function measureContentHeights() {
         if (mobile()) return;
+        // An in-flight morph's inline tracks would override the focus
+        // templates the pass measures against; settle it first.
+        clearMorph();
         const restoredFocus = grid.dataset.focus;
         const restoredActive = active;
         const restoredVisible = restoredActive && restoredActive.classList.contains('is-content-visible');
@@ -1061,7 +1122,9 @@ const homepageJsonLd = {
       }
 
       function runPulseSequence() {
-        if (pulseFired || reduceMotion) return;
+        // The pulse says "these tiles open"; in the stack they do not, so a
+        // wide stacked page was flashing a full-width block for nothing.
+        if (pulseFired || reduceMotion || mobile()) return;
         pulseFired = true;
         // Wait for the panel labels to settle before pulsing. Fonts.ready
         // resolves once Cormorant Garamond is loaded; the labels then
