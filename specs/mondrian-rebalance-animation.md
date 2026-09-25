@@ -52,7 +52,7 @@ fade A content out (--motion-fast)
 
 1. **Geometry and content reveal are separate concerns.** `data-focus` only moves the grid lines; content reveal is gated by an independent class (`.is-content-visible`), added late in the open sequence and removed early on close.
 2. **Content reveal must transition, not snap.** `display: none / block` cannot be transitioned, so content visibility is governed by `opacity`, `visibility`, and `pointer-events` instead.
-3. **An interaction state machine governs hover.** The states are `idle`, `opening`, `open`, `switching`, `closing`. While the state is `opening` / `switching` / `closing`, hover intent is queued, not applied. After `--motion-plane` settles, the JS re-resolves the cursor's actual target via `document.elementFromPoint(lastX, lastY)` and only then promotes a queued hover.
+3. **An interaction state machine governs hover.** The states are `idle`, `opening`, `open`, `switching`, `closing`. While the state is `opening` / `switching` / `closing`, hover intent is queued, not applied. After the morph settles, the JS re-resolves the cursor's actual target via `document.elementFromPoint(lastX, lastY)` and only then promotes a queued hover.
 4. **Click, keyboard, and focus bypass the hover-state guard.** They are deliberate user intent and must always work, including mid-morph.
 5. **Each transition phase is invalidatable.** A new transition starting mid-flight (user opens A, then immediately opens B) must not allow stale callbacks to complete on top of the new state.
 6. **No `auto` tracks during animation.** Every track size in `grid-template-rows` and `grid-template-columns` for animated rules must be an explicit, interpolable length (`var(--line)`, `minmax(...)`, or a `var(--cell-h-*)` custom property). `auto` tracks change type at animation start and produce visible 0-length frames.
@@ -60,12 +60,14 @@ fade A content out (--motion-fast)
 8. **Hover at a row-line boundary does not oscillate.** The combination of (a) hover-lock during morph and (b) `elementFromPoint` re-resolution after morph is what makes this hold. Either alone is insufficient.
 9. **Animation duration matches the curatorial intent.** `--motion-plane` is 460ms paired with `--ease-standard` (gentle in/out). The previous 280ms / `--ease-sharp` combination read as a card expanding rather than a composition shifting.
 10. **The user must never see a long-lived blank cream tile.** Cream is the reading surface; it must either contain content or be in a very short transition toward containing content.
+11. **The morph animates on every focus change (#1049).** Focus templates mix `fr` and fixed-length tracks, which do not interpolate, so a CSS transition between templates flips at its midpoint and the panel jumps. `morphTracks()` resolves both endpoints to pixel track lists and animates between those, then hands the tracks back to the stylesheet. The morph is over at the grid's own `transitionend` (or a `transitioncancel` that leaves no grid transition running); with no transition running it is over at `--motion-plane + --motion-settle`. The content reveal waits for that moment, so scroll-cue and focus decisions see the settled grid. The stack gets no pixel morph.
 
 ## Implementation references
 
 - Interaction state machine: [src/pages/index.astro](../src/pages/index.astro)—search for `state =` and `requestPanel`.
 - Content reveal class management: same file—search for `is-content-visible`.
 - Content height measurement: same file—`measureContentHeights()`.
+- Pixel-track morph and its settle: same file—`morphTracks()` / `clearMorph()`.
 - Focus-state grid templates: [src/styles/global.css](../src/styles/global.css)—`.mondrian[data-focus="..."]` rules and the comment block introducing them.
 - Panel pulse on load: same file—`@keyframes panel-pulse{,-neutral,-blue}` plus the `.panel--pulsing` selector.
 

@@ -51,6 +51,7 @@ All cells transition to a warm parchment tone when opened.
 --motion-fast:           130ms  (metadata, dividers)
 --motion-hover:          170ms  (hover states)
 --motion-plane:          460ms  (panel expand / grid morph; bumped from 280ms in #313 for a smoother row/column re-flow that reduces hover wobble at row-line boundaries)
+--motion-settle:         60ms   (frames a --motion-plane transition runs past its nominal end; the JS morph's no-transitionend settle, #1049)
 --motion-load:           300ms  (section entrance)
 --pulse-initial-delay:   300ms  (delay before on-load pulse sequence fires; removed --motion-pulse in #306)
 --pulse-interval:        370ms  (time between successive panel pulse starts)
@@ -160,7 +161,7 @@ Static assets (favicons, robots.txt, OG fonts) live in `public/` and are copied 
 
 - Design tokens in `:root`—always use or extend them.
 - **Selector naming:** loose BEM (block / `__element` / `--modifier`) with `.is-*` state classes; the canonical convention block, including the `p-`/`s-`/`e-`/`og-` prefix glossary, lives at the top of `src/styles/global.css` (#473).
-- **Motion system:** All durations use `--motion-fast` / `--motion-hover` / `--motion-plane` / `--motion-load`. All easing uses `--ease-standard` / `--ease-sharp` / `--ease-linear`. Translation magnitude uses `--shift-small` / `--shift-medium`. No hard-coded `ms` values or bare `ease` keywords.
+- **Motion system:** All durations use `--motion-fast` / `--motion-hover` / `--motion-plane` / `--motion-settle` / `--motion-load`. All easing uses `--ease-standard` / `--ease-sharp` / `--ease-linear`. Translation magnitude uses `--shift-small` / `--shift-medium`. No hard-coded `ms` values or bare `ease` keywords.
 - Homepage panel states are driven by `data-focus` attribute on the grid container. CSS defines `grid-template-columns` + `grid-template-rows` for each `data-focus` value.
 - Fluid sizing via `clamp()`; no fixed-breakpoint font overrides.
 - Homepage stack breakpoint at `@media (max-width: 1023px), (max-height: 839px)` (tokens: `--bp-stack: 1024px`, `--bp-stack-height: 840px`): the square is `min(95vw, 95vh, --mondrian-max-width)`, so a short window shrinks it as a narrow one does (#992). The height floor is where the composition stops holding with a panel open (Community overflows its own panel below 824px tall; About and Projects scroll inside their capped tracks, #1044), NOT a mirror of the width floor—a 1024px height floor sent nearly every desktop browser window to the stack in production. Never raise it without `tests/desktop-composition.test.js` passing at real desktop viewports. See #313 / #314 for the move from the prior 920px and the wide-viewport `--mondrian-max-width: 1280px` cap. A stack reached via the height axis on a viewport wider than 1024px is capped at `--bp-stack` and centered.
