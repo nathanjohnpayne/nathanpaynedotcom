@@ -64,8 +64,9 @@ const OVERFLOW_TOLERANCE_PX = 1;
 
 /**
  * How long a hover must go unanswered before "did not open" means the guard
- * held. The open sequence in index.astro reveals content once the grid morph
- * is handed back (--motion-plane + 60ms, 520ms); 1.2s is well past it, and
+ * held. The open sequence in index.astro reveals content when the grid morph
+ * ends: at its transitionend, or at --motion-plane + 60ms (520ms) when no
+ * transition runs, as on these transition-free pages; 1.2s is well past it, and
  * waiting out a full selector timeout instead cost 5s per stacked viewport
  * (Codex, PR #1043).
  */
@@ -927,7 +928,7 @@ describe('scroll cue on a keyboard open, with the morph animating', () => {
         await page.focus(`[data-panel="${name}"] .panel-label`);
         await page.keyboard.press('Enter');
         await page.waitForSelector(`[data-panel="${name}"].is-content-visible`, { timeout: 5_000 });
-        // Past the morph's hand-back to the stylesheet (--motion-plane + 60ms).
+        // Past the morph's hand-back to the stylesheet (--motion-plane + 60ms here).
         await page.waitForTimeout(IDLE_SETTLE_MS);
         const s = await page.evaluate((n) => {
           const ci = document.querySelector(`[data-panel="${n}"] .content-inner`);

@@ -743,8 +743,8 @@ const homepageJsonLd = {
         // or two short, a narrower column wrapping one more line. A panel that
         // fits by a pixel was given a fade and a tab stop and took focus, and
         // nothing corrected them until a scroll (#1049). So the reveal waits
-        // for the morph's hand-back (morphEndMs), and settles the morph itself
-        // in case the hand-back has not run.
+        // for the morph to settle (morphTracks' `settled`), and settles the
+        // morph itself in case a fallback timer got here first.
         clearMorph();
         const ci = panel.querySelector('.content-inner');
         if (ci) ci.scrollTop = 0;
@@ -777,12 +777,28 @@ const homepageJsonLd = {
       // to the stylesheet, which resolves to the same pixels, with
       // transitions off so the hand-back is not itself animated.
       let morphToken = 0;
-      // When a morph is over: its transition runs --motion-plane from the
-      // frame after it is committed, so the hand-back (and the reveal, which
-      // must see the settled grid) waits a few frames longer.
+      // The hand-back (and the reveal, which must see the settled grid) waits
+      // for the grid's own transitionend when a transition is running. A timer
+      // alone, set a few frames past --motion-plane, cancelled a morph whose
+      // frames ran late, so it never ended (#1049). With no transition running
+      // (reduced motion, transitions off, nothing to animate) no transitionend
+      // comes, and the morph is over at its nominal end.
       function morphEndMs() {
         const plane = readMsToken('--motion-plane', 460);
         return plane ? plane + 60 : 0;
+      }
+      function morphFallbackMs() {
+        return morphEndMs() * 2;
+      }
+      function gridTransitionRunning() {
+        if (!grid.getAnimations) return false;
+        return grid
+          .getAnimations()
+          .some(
+            (a) =>
+              typeof a.transitionProperty === 'string' &&
+              a.transitionProperty.startsWith('grid-template'),
+          );
       }
       function clearMorph() {
         morphToken++;
@@ -792,7 +808,10 @@ const homepageJsonLd = {
         void grid.offsetHeight;
         grid.style.transition = '';
       }
-      function morphTracks(mutate) {
+      // `settled`, when given, runs exactly once when the morph is over, even
+      // if a later morph or a clearMorph() supersedes this one, so a reveal
+      // that waits on it is never lost.
+      function morphTracks(mutate, settled) {
         // The stack has its own template, set by a media query that inline
         // tracks would override: a close run there (the stack's resize handler
         // closes the open panel) froze the stack's rows as pixels, and a
@@ -801,6 +820,7 @@ const homepageJsonLd = {
         if (mobile()) {
           clearMorph();
           mutate();
+          if (settled) setTimeout(settled, morphEndMs());
           return;
         }
         const token = ++morphToken;
@@ -819,10 +839,21 @@ const homepageJsonLd = {
         grid.style.transition = '';
         grid.style.gridTemplateRows = toRows;
         grid.style.gridTemplateColumns = toCols;
-        setTimeout(() => {
-          if (token !== morphToken) return;
-          clearMorph();
-        }, morphEndMs());
+        let done = false;
+        const finish = () => {
+          if (done) return;
+          done = true;
+          grid.removeEventListener('transitionend', onEnd);
+          clearTimeout(fallback);
+          if (token === morphToken) clearMorph();
+          if (settled) settled();
+        };
+        const onEnd = (e) => {
+          if (e.target === grid && e.propertyName.startsWith('grid-template')) finish();
+        };
+        const running = gridTransitionRunning();
+        if (running) grid.addEventListener('transitionend', onEnd);
+        const fallback = setTimeout(finish, running ? morphFallbackMs() : morphEndMs());
       }
 
       function startOpen(panel, replayHover) {
@@ -835,16 +866,18 @@ const homepageJsonLd = {
         active = panel;
         panel.classList.add('is-open');
         hideLabel(panel);
-        morphTracks(() => {
-          grid.dataset.focus = panel.dataset.panel;
-        });
         // After the grid morph settles, reveal content.
-        setTimeout(() => {
-          if (token !== transitionToken) return;
-          revealContent(panel);
-          state = 'open';
-          if (replayHover) resolveHoverTarget();
-        }, morphEndMs());
+        morphTracks(
+          () => {
+            grid.dataset.focus = panel.dataset.panel;
+          },
+          () => {
+            if (token !== transitionToken) return;
+            revealContent(panel);
+            state = 'open';
+            if (replayHover) resolveHoverTarget();
+          },
+        );
       }
 
       function startSwitch(nextPanel, replayHover) {
@@ -864,11 +897,12 @@ const homepageJsonLd = {
           active = nextPanel;
           nextPanel.classList.add('is-open');
           hideLabel(nextPanel);
-          morphTracks(() => {
-            grid.dataset.focus = nextPanel.dataset.panel;
-          });
-          setTimeout(() => {
-            if (token !== transitionToken) return;
+          morphTracks(
+            () => {
+              grid.dataset.focus = nextPanel.dataset.panel;
+            },
+            () => {
+              if (token !== transitionToken) return;
             // Phase 3: fade the new content in once the grid is settled.
             revealContent(nextPanel);
             // Focus lost with the previous panel's text goes to the new
@@ -885,7 +919,8 @@ const homepageJsonLd = {
             focusReturn = null;
             state = 'open';
             if (replayHover) resolveHoverTarget();
-          }, morphEndMs());
+            },
+          );
         }, readMsToken('--motion-fast', 130));
       }
 
