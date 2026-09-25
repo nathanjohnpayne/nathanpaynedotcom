@@ -1,5 +1,7 @@
 .DS_Store
-node_modules/
+# No trailing slash: worktrees symlink node_modules to the main checkout's, and
+# `node_modules/` matches only directories, so a symlink showed as untracked.
+node_modules
 .firebase/
 .env
 .env.*
