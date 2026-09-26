@@ -113,4 +113,4 @@ When an ordinary Codex-enabled external-clearance check blocks, it reports infor
 
 ### Published article aliases
 
-Keep `/blog/the-product-did-not-travel/` as the article's canonical route when editing its title. Firebase Hosting redirects both previous-title forms, `/blog/the-code-wasnt-the-product/` and `/blog/the-code-was-not-the-product/`, to that existing route. Preserve section anchors used by shared links; `tests/blog-shared-links.test.js` checks the title metadata, redirect declarations and original fragments.
+Keep `/blog/the-product-did-not-travel/` as the article's canonical route when editing its title; the slug never changed when the title did, so no old-title redirect exists or is needed. Preserve section anchors used by shared links: a renamed heading keeps its original id on a `<span id>` directly above it. `tests/blog-shared-links.test.js` checks the title metadata and the original fragments.
