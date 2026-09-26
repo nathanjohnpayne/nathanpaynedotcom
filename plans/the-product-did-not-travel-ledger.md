@@ -38,7 +38,7 @@ SUPPORTED below means support recorded by the original September 24 audit, not f
 
 ## Claim surfaces and shared links
 
-Revised title, description, SEO description, all four takeaways, all three pull quotes, body, figure captions, and the linked project's offline evidence, generalization narrative and closing assessment. Preserve the original counting/provenance source dates; they are not refreshed by this editorial pass. The original article remains at `/blog/the-product-did-not-travel/`, including its images and canonical URL. Both `/blog/the-code-wasnt-the-product/` and `/blog/the-code-was-not-the-product/` redirect there. Existing section fragments remain available, including anchors for the renamed debrief subsection and removed closing summary.
+Revised title, description, SEO description, all four takeaways, all three pull quotes, body, figure captions, and the linked project's offline evidence, generalization narrative and closing assessment. Preserve the original counting/provenance source dates; they are not refreshed by this editorial pass. The original article remains at `/blog/the-product-did-not-travel/`, including its images and canonical URL. The first revision added redirects from `/blog/the-code-wasnt-the-product/` and `/blog/the-code-was-not-the-product/`; the second revision below removed them, because neither route ever existed. Existing section fragments remain available, including anchors for the renamed debrief subsection and removed closing summary.
 
 Pass 2 is a separate brevity pass. Verify it with `scripts/verify-brevity.py` against the saved Pass 1 copy; this tool is not applicable to Pass 1's deliberate factual and structural changes.
 
@@ -82,7 +82,7 @@ Public source check also confirms that PR #394's “Day 4” is the third **main
 
 Read on September 26 at approximately 16:10 UTC in [NathanPayne.com, project 469428](https://us.posthog.com/project/469428). Since September 24, `blog_post_viewed` on `/blog/the-product-did-not-travel/` recorded **14 views from 12 unique recorded visitors**, applying the project's configured test-account and bot exclusions. Referring-domain view totals: direct/unknown 7, LinkedIn 5, `t.co` 1, Facebook 1. Missing referrers do not establish how a visitor found the article. These are captured analytics, not a census of readers.
 
-An additional unfiltered path check of `$pageview` and `blog_post_viewed` found ten of each on September 25 and four of each on September 26, all at the existing canonical path. Neither old-title alias had a recorded matching event in that interval. Preserve the shared canonical path despite changing the visible title; add permanent redirects for both old-title spellings and retain query strings.
+An additional unfiltered path check of `$pageview` and `blog_post_viewed` found ten of each on September 25 and four of each on September 26, all at the existing canonical path. Neither old-title alias had a recorded matching event in that interval. Preserve the shared canonical path despite changing the visible title. (The first revision also added permanent redirects for both old-title spellings; the second revision below removed them, since the slug never changed and neither alias ever served a request.)
 
 ## Second revision (September 26, later the same day)
 
