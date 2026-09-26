@@ -7,7 +7,6 @@ const root = resolve(__dirname, '..');
 const canonical = 'https://nathanpayne.com/blog/the-product-did-not-travel/';
 const html = readFileSync(resolve(root, 'dist/blog/the-product-did-not-travel/index.html'), 'utf8');
 const document = new JSDOM(html).window.document;
-const { hosting } = JSON.parse(readFileSync(resolve(root, 'firebase.json'), 'utf8'));
 
 describe('shared links survive the product article title revision', () => {
   it('serves the new title at the original canonical address across sharing metadata', () => {
@@ -22,17 +21,6 @@ describe('shared links survive the product article title revision', () => {
       );
     }
   });
-
-  it.each(['the-code-wasnt-the-product', 'the-code-was-not-the-product'])(
-    'permanently redirects the previous title variant %s to the existing article',
-    (slug) => {
-      expect(hosting.redirects).toContainEqual({
-        source: `/blog/${slug}{,/**}`,
-        destination: new URL(canonical).pathname,
-        type: 301,
-      });
-    },
-  );
 
   it('retains the original section targets for links shared with fragments', () => {
     for (const id of [

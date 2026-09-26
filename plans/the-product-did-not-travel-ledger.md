@@ -38,7 +38,7 @@ SUPPORTED below means support recorded by the original September 24 audit, not f
 
 ## Claim surfaces and shared links
 
-Revised title, description, SEO description, all four takeaways, all three pull quotes, body, figure captions, and the linked project's offline evidence, generalization narrative and closing assessment. Preserve the original counting/provenance source dates; they are not refreshed by this editorial pass. The original article remains at `/blog/the-product-did-not-travel/`, including its images and canonical URL. Both `/blog/the-code-wasnt-the-product/` and `/blog/the-code-was-not-the-product/` redirect there. Existing section fragments remain available, including anchors for the renamed debrief subsection and removed closing summary.
+Revised title, description, SEO description, all four takeaways, all three pull quotes, body, figure captions, and the linked project's offline evidence, generalization narrative and closing assessment. Preserve the original counting/provenance source dates; they are not refreshed by this editorial pass. The original article remains at `/blog/the-product-did-not-travel/`, including its images and canonical URL. The first revision added redirects from `/blog/the-code-wasnt-the-product/` and `/blog/the-code-was-not-the-product/`; the second revision below removed them, because neither route ever existed. Existing section fragments remain available, including anchors for the renamed debrief subsection and removed closing summary.
 
 Pass 2 is a separate brevity pass. Verify it with `scripts/verify-brevity.py` against the saved Pass 1 copy; this tool is not applicable to Pass 1's deliberate factual and structural changes.
 
@@ -82,4 +82,23 @@ Public source check also confirms that PR #394's “Day 4” is the third **main
 
 Read on September 26 at approximately 16:10 UTC in [NathanPayne.com, project 469428](https://us.posthog.com/project/469428). Since September 24, `blog_post_viewed` on `/blog/the-product-did-not-travel/` recorded **14 views from 12 unique recorded visitors**, applying the project's configured test-account and bot exclusions. Referring-domain view totals: direct/unknown 7, LinkedIn 5, `t.co` 1, Facebook 1. Missing referrers do not establish how a visitor found the article. These are captured analytics, not a census of readers.
 
-An additional unfiltered path check of `$pageview` and `blog_post_viewed` found ten of each on September 25 and four of each on September 26, all at the existing canonical path. Neither old-title alias had a recorded matching event in that interval. Preserve the shared canonical path despite changing the visible title; add permanent redirects for both old-title spellings and retain query strings.
+An additional unfiltered path check of `$pageview` and `blog_post_viewed` found ten of each on September 25 and four of each on September 26, all at the existing canonical path. Neither old-title alias had a recorded matching event in that interval. Preserve the shared canonical path despite changing the visible title. (The first revision also added permanent redirects for both old-title spellings; the second revision below removed them. The slug never changed, so no link the site ever published points at either alias, and the September 25–26 check above found no request at either one.)
+
+## Second revision (September 26, later the same day)
+
+Editorial pass on the revision above. No measurement changes: every SUPPORTED row is retained verbatim in value and scope, and no new evidence is introduced. `scripts/verify-brevity.py` is not applicable, because the pass deliberately restores structure and adds prose.
+
+**What changed and why.** The first revision removed the article's thesis along with its overreach. Three of the UNPROVABLE rows above were causal overclaims and stay corrected: the guests' last mark is a timestamp rather than a decision to quit; one host's answer cannot establish that nobody used email; 26 of 27 at-home marks does not prove every feasible square was marked or every line blocked. The rows on "never in the code" and "a second, different use does" were inferences stated as findings. This pass restores them as marked inference ("the best explanation the two events support is...", "that is an inference, and two events cannot isolate which of those parts mattered most") rather than deleting them, because the inference is the transferable claim and the evidence supports it as an inference.
+
+| Surface | Disposition |
+| --- | --- |
+| Opening thesis | Restored as marked inference. "None of those three came along when the software generalized" replaces "was never in the code," which the row above correctly notes is false for previous-day marking, rankings and the feed. |
+| Takeaways 1–4 | Rewritten with the retained figures; takeaway 3 carries both halves of the crash ordering (did not open the gap; may have kept anyone from closing it). |
+| Pull quote 2 | The thesis as inference, in place of "cannot, by itself, tell me which dependency to build next." |
+| "The Host Was the Notification System" heading | Renamed to "The Host Was the Channel" to match its body; the original id stays on a `<span>` for shared links. |
+| Kim's Saturday quote | Restored in full ("still need my enthusiasm to keep it going"); it is cleared for publication and the paraphrase lost the point. |
+| Connectivity evidence | Collapsed to two sentences in the body; the full query, counts and limits remain in this ledger and the provenance sidebar. |
+| "Where the Next Six Weeks Went" | Keeps the keyword-count caveat and the self-assessment it qualified: the counts show where commits went, not effort or a counterfactual. |
+| "What Transfers" | Restored as an `h2` with three lessons (neutral debrief; reread the first event; know which system is the truth). The "rigor does not make a one-off a product" lesson is not restored, per the row above. |
+| Closing line | "Less of it than I assumed was in the code that traveled," which is consistent with the software having hosted the ritual. |
+| Old-title redirects | Removed from `firebase.json`, with their test and the docs note. The file has been at `the-product-did-not-travel.md` since PR #1057 and only the display title changed, so neither route ever existed and no published link points at one; the September 25–26 traffic check above found no event at either alias. |
