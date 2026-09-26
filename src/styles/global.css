@@ -181,6 +181,11 @@
      superseded by the panel-pulse system (#305), so --motion-plane is now
      used only by the .mondrian grid transition. */
   --motion-plane: 460ms;
+  /* The frames a --motion-plane transition runs past its nominal end: it
+     starts on the frame after its change is committed. The JS morph
+     (morphTracks in src/pages/index.astro) waits this long past
+     --motion-plane before settling a morph that fires no transitionend. */
+  --motion-settle: 60ms;
   --motion-load: 300ms;
 
   /* Spec-locked motion for the on-load discoverability pulse (#305)

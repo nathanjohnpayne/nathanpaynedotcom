@@ -586,6 +586,8 @@ const homepageJsonLd = {
       // immediately opens B before A's morph completes). Each phase
       // checks its captured token against the current one.
       let transitionToken = 0;
+      // The panel a switch is heading to, until it becomes `active` (phase 2).
+      let switchTarget = null;
       // Brief, cancellable close delay so a normal cursor move from one
       // panel to another doesn't flash through `closing` before the
       // direct-switch shortcut in mouseleave can fire. Tuned short — long
@@ -676,7 +678,14 @@ const homepageJsonLd = {
           ci.setAttribute('role', 'region');
           ci.setAttribute('aria-label', (panel.getAttribute('aria-label') || 'Panel') + ', scrollable');
         } else {
-          ci.removeAttribute('tabindex');
+          // Removing the tab stop from the region that holds focus (a resize
+          // that lets the panel fit) would make the browser blur it, and a
+          // blur with nowhere to go reads as the reader leaving, which closes
+          // the panel under them (#1049). So a focused region only leaves the
+          // tab order (tabindex -1 keeps focus where it is), and the attribute
+          // is dropped once focus moves on (the blur listener below).
+          if (document.activeElement === ci) ci.setAttribute('tabindex', '-1');
+          else ci.removeAttribute('tabindex');
           ci.removeAttribute('role');
           ci.removeAttribute('aria-label');
         }
@@ -684,7 +693,11 @@ const homepageJsonLd = {
 
       panels.forEach((panel) => {
         const ci = panel.querySelector('.content-inner');
-        if (ci) ci.addEventListener('scroll', () => updateScrollCue(panel), { passive: true });
+        if (!ci) return;
+        ci.addEventListener('scroll', () => updateScrollCue(panel), { passive: true });
+        ci.addEventListener('blur', () => {
+          if (ci.getAttribute('tabindex') === '-1') ci.removeAttribute('tabindex');
+        });
       });
 
       // Each open starts at the top of the panel's text, not wherever a
@@ -693,43 +706,209 @@ const homepageJsonLd = {
       // order as the panel opens (hideLabel), so otherwise the keys that
       // scroll the text would have nowhere to go.
       let keyboardOpenPanel = null;
-      // Escape from inside an open panel returns focus to its label once the
-      // close restores it, or keyboard users are left on hidden content or
-      // the document body (Codex, PR #1046). That programmatic focus must not
-      // reopen the panel through the focusin handler.
-      let escapeFocusReturn = null;
+      // A close or switch hides the open panel's text, and with it whatever
+      // held focus there, leaving a keyboard reader on hidden content or the
+      // document body. So focus is returned to something visible once the
+      // transition has restored it: the closing panel's label, or on a switch
+      // the new panel's scroll region (Escape: Codex, PR #1046; a pointer
+      // close or switch: #1049). `focusReturn` is the panel focus is being
+      // returned from. It is only acted on while focus is still lost, so a
+      // reader who has since moved focus somewhere visible keeps it there, and
+      // the programmatic focus must not reopen a panel through the focusin
+      // handler.
+      let focusReturn = null;
       let suppressFocusOpen = false;
+      function focusIsLost() {
+        const ae = document.activeElement;
+        if (!ae || ae === document.body) return true;
+        const panel = ae.closest('.panel');
+        return Boolean(
+          panel && ae.closest('.panel-content') && !panel.classList.contains('is-content-visible'),
+        );
+      }
+      function holdsFocusInText(panel) {
+        const ae = document.activeElement;
+        return Boolean(ae && panel.contains(ae) && ae.closest('.panel-content'));
+      }
+      function returnFocus(target) {
+        if (!target) return;
+        suppressFocusOpen = true;
+        target.focus({ preventScroll: true });
+        suppressFocusOpen = false;
+      }
       function revealContent(panel) {
+        // The decisions below (the scroll cue, the "scrollable" tab stop, and
+        // a keyboard open's focus hand-off) must be made against the geometry
+        // the reader is left with. Run one --motion-plane after the morph was
+        // committed, as the reveal used to be, they saw a morph still easing
+        // out (its transition starts a frame after the commit): tracks a pixel
+        // or two short, a narrower column wrapping one more line. A panel that
+        // fits by a pixel was given a fade and a tab stop and took focus, and
+        // nothing corrected them until a scroll (#1049). So the reveal waits
+        // for the morph to settle (morphTracks' `settled`), and settles the
+        // morph itself in case a fallback timer got here first.
+        clearMorph();
         const ci = panel.querySelector('.content-inner');
         if (ci) ci.scrollTop = 0;
         panel.classList.add('is-content-visible');
         updateScrollCue(panel);
-        if (keyboardOpenPanel === panel && ci && ci.getAttribute('tabindex') === '0') {
+        const label = panel.querySelector('.panel-label');
+        if (ci && label && document.activeElement === label) {
+          // The panel's label still holds focus (focus opened it, or a close
+          // or switch returned focus there), but hideLabel() has taken it out
+          // of the tab order and the accessibility tree. When the text does not
+          // scroll there was no tab stop to hand focus to, so it stayed on the
+          // hidden label (CodeRabbit, #1064). The region takes it either way; a
+          // region that fits only holds focus (tabindex -1, dropped on blur).
+          if (ci.getAttribute('tabindex') !== '0') ci.setAttribute('tabindex', '-1');
+          ci.focus({ preventScroll: true });
+        } else if (keyboardOpenPanel === panel && ci && ci.getAttribute('tabindex') === '0') {
           ci.focus({ preventScroll: true });
         }
         keyboardOpenPanel = null;
       }
 
+      // The grid morph, driven between explicit pixel track lists.
+      //
+      // Every focus template mixes flexible (`fr`) tracks with fixed-length
+      // ones, and a track list only interpolates when each track keeps the
+      // same kind of size, so a plain CSS transition from the rest template
+      // to about-, projects- or connect-focus flipped the whole list at the
+      // midpoint: the panel crept a few pixels, then jumped to full size
+      // (measured as a single-frame step of 87-104% of the track's travel in
+      // Chromium, WebKit and Firefox alike). Only community-focus, which is
+      // minmax() throughout, animated.
+      //
+      // So each focus change resolves both endpoints to pixels and lets the
+      // stylesheet's transition run between them: read the current resolved
+      // tracks (mid-transition values included, so an interrupted morph
+      // continues from where it is), apply the change with transitions off,
+      // read the target, restore the start inline, commit it, then set the
+      // target inline with transitions back on. Nothing paints between those
+      // reads. When the transition is over the inline tracks are handed back
+      // to the stylesheet, which resolves to the same pixels, with
+      // transitions off so the hand-back is not itself animated.
+      let morphToken = 0;
+      // The hand-back (and the reveal, which must see the settled grid) waits
+      // for the grid's own transitionend when a transition is running. A timer
+      // alone, set a few frames past --motion-plane, cancelled a morph whose
+      // frames ran late, so it never ended (#1049). With no transition running
+      // (reduced motion, transitions off, nothing to animate) no transitionend
+      // comes, and the morph is over at its nominal end.
+      function morphEndMs() {
+        const plane = readMsToken('--motion-plane', 460);
+        return plane ? plane + readMsToken('--motion-settle', 60) : 0;
+      }
+      function morphFallbackMs() {
+        return morphEndMs() * 2;
+      }
+      function gridTransitionRunning() {
+        if (!grid.getAnimations) return false;
+        return grid
+          .getAnimations()
+          .some(
+            (a) =>
+              typeof a.transitionProperty === 'string' &&
+              a.transitionProperty.startsWith('grid-template'),
+          );
+      }
+      function clearMorph() {
+        morphToken++;
+        grid.style.transition = 'none';
+        grid.style.gridTemplateRows = '';
+        grid.style.gridTemplateColumns = '';
+        void grid.offsetHeight;
+        grid.style.transition = '';
+      }
+      // `settled`, when given, runs exactly once when the morph is over, even
+      // if a later morph or a clearMorph() supersedes this one, so a reveal
+      // that waits on it is never lost.
+      function morphTracks(mutate, settled) {
+        // The stack has its own template, set by a media query that inline
+        // tracks would override: a close run there (the stack's resize handler
+        // closes the open panel) froze the stack's rows as pixels, and a
+        // desktop morph still in flight kept a desktop-width grid in a phone
+        // viewport (#1049). There is no morph to drive in the stack.
+        if (mobile()) {
+          clearMorph();
+          mutate();
+          if (settled) setTimeout(settled, morphEndMs());
+          return;
+        }
+        const token = ++morphToken;
+        const cs = getComputedStyle(grid);
+        const fromRows = cs.gridTemplateRows;
+        const fromCols = cs.gridTemplateColumns;
+        grid.style.transition = 'none';
+        grid.style.gridTemplateRows = '';
+        grid.style.gridTemplateColumns = '';
+        mutate();
+        const toRows = getComputedStyle(grid).gridTemplateRows;
+        const toCols = getComputedStyle(grid).gridTemplateColumns;
+        grid.style.gridTemplateRows = fromRows;
+        grid.style.gridTemplateColumns = fromCols;
+        void grid.offsetHeight;
+        grid.style.transition = '';
+        grid.style.gridTemplateRows = toRows;
+        grid.style.gridTemplateColumns = toCols;
+        let done = false;
+        const finish = () => {
+          if (done) return;
+          done = true;
+          grid.removeEventListener('transitionend', onEnd);
+          grid.removeEventListener('transitioncancel', onEnd);
+          clearTimeout(fallback);
+          if (token === morphToken) clearMorph();
+          if (settled) settled();
+        };
+        // A cancel also ends the morph (a measure pass or resize calls
+        // clearMorph(), which snaps the grid to its target), but only when no
+        // grid transition is left running: the cancel of a morph this one
+        // superseded arrives after this one has started, and must not end it.
+        const onEnd = (e) => {
+          if (e.target !== grid || !e.propertyName.startsWith('grid-template')) return;
+          if (e.type === 'transitioncancel' && gridTransitionRunning()) return;
+          finish();
+        };
+        const running = gridTransitionRunning();
+        if (running) {
+          grid.addEventListener('transitionend', onEnd);
+          grid.addEventListener('transitioncancel', onEnd);
+        }
+        const fallback = setTimeout(finish, running ? morphFallbackMs() : morphEndMs());
+      }
+
       function startOpen(panel, replayHover) {
         const token = ++transitionToken;
         state = 'opening';
+        switchTarget = null;
+        // Every close and switch settles its own focus return, so one still
+        // set here is stale (a blur in the stack, where nothing is open) and
+        // must not move focus when this panel later closes.
+        focusReturn = null;
         active = panel;
         panel.classList.add('is-open');
         hideLabel(panel);
-        grid.dataset.focus = panel.dataset.panel;
         // After the grid morph settles, reveal content.
-        setTimeout(() => {
-          if (token !== transitionToken) return;
-          revealContent(panel);
-          state = 'open';
-          if (replayHover) resolveHoverTarget();
-        }, readMsToken('--motion-plane', 460));
+        morphTracks(
+          () => {
+            grid.dataset.focus = panel.dataset.panel;
+          },
+          () => {
+            if (token !== transitionToken) return;
+            revealContent(panel);
+            state = 'open';
+            if (replayHover) resolveHoverTarget();
+          },
+        );
       }
 
       function startSwitch(nextPanel, replayHover) {
         const token = ++transitionToken;
         const prev = active;
         state = 'switching';
+        switchTarget = nextPanel;
+        if (holdsFocusInText(prev)) focusReturn = prev;
         // Phase 1: fade previous content out.
         prev.classList.remove('is-content-visible');
         setTimeout(() => {
@@ -740,16 +919,33 @@ const homepageJsonLd = {
           prev.classList.remove('is-open');
           showLabel(prev);
           active = nextPanel;
+          switchTarget = null;
           nextPanel.classList.add('is-open');
           hideLabel(nextPanel);
-          grid.dataset.focus = nextPanel.dataset.panel;
-          setTimeout(() => {
-            if (token !== transitionToken) return;
+          morphTracks(
+            () => {
+              grid.dataset.focus = nextPanel.dataset.panel;
+            },
+            () => {
+              if (token !== transitionToken) return;
             // Phase 3: fade the new content in once the grid is settled.
             revealContent(nextPanel);
+            // Focus lost with the previous panel's text goes to the new
+            // panel's scroll region when there is one. Otherwise it goes to
+            // the previous panel's label, visible again since phase 2: the new
+            // panel's own label is hidden and out of the tab order while its
+            // panel is open (hideLabel).
+            if (focusReturn && focusIsLost()) {
+              const ci = nextPanel.querySelector('.content-inner');
+              returnFocus(
+                ci && ci.getAttribute('tabindex') === '0' ? ci : prev.querySelector('.panel-label'),
+              );
+            }
+            focusReturn = null;
             state = 'open';
             if (replayHover) resolveHoverTarget();
-          }, readMsToken('--motion-plane', 460));
+            },
+          );
         }, readMsToken('--motion-fast', 130));
       }
 
@@ -757,11 +953,13 @@ const homepageJsonLd = {
         const token = ++transitionToken;
         const closing = active;
         state = 'closing';
+        switchTarget = null;
         // A close that interrupts a keyboard open (Enter, then Escape before
         // the reveal) cancels that reveal, so it must also disarm the focus
         // hand-off, or a later mouse open of the panel would take focus
         // (CodeRabbit, PR #1046).
         keyboardOpenPanel = null;
+        if (holdsFocusInText(closing)) focusReturn = closing;
         // Phase 1: fade content out first.
         closing.classList.remove('is-content-visible');
         setTimeout(() => {
@@ -771,21 +969,21 @@ const homepageJsonLd = {
           closing.classList.remove('is-open');
           showLabel(closing);
           active = null;
-          delete grid.dataset.focus;
-          if (escapeFocusReturn === closing) {
-            const label = closing.querySelector('.panel-label');
-            if (label) {
-              suppressFocusOpen = true;
-              label.focus({ preventScroll: true });
-              suppressFocusOpen = false;
-            }
-          }
-          escapeFocusReturn = null;
-          setTimeout(() => {
-            if (token !== transitionToken) return;
-            state = 'idle';
-            if (replayHover) resolveHoverTarget();
-          }, readMsToken('--motion-plane', 460));
+          // Hover stays locked until the morph back to rest settles, so a
+          // queued hover re-resolves against the grid the reader will see,
+          // as on open and switch (Codex, #1064).
+          morphTracks(
+            () => {
+              delete grid.dataset.focus;
+            },
+            () => {
+              if (token !== transitionToken) return;
+              state = 'idle';
+              if (replayHover) resolveHoverTarget();
+            },
+          );
+          if (focusReturn && focusIsLost()) returnFocus(closing.querySelector('.panel-label'));
+          focusReturn = null;
         }, readMsToken('--motion-fast', 130));
       }
 
@@ -817,6 +1015,9 @@ const homepageJsonLd = {
       // wrap match what the user will see.
       function measureContentHeights() {
         if (mobile()) return;
+        // An in-flight morph's inline tracks would override the focus
+        // templates the pass measures against; settle it first.
+        clearMorph();
         const restoredFocus = grid.dataset.focus;
         const restoredActive = active;
         const restoredVisible = restoredActive && restoredActive.classList.contains('is-content-visible');
@@ -924,7 +1125,27 @@ const homepageJsonLd = {
           openPanel(panel);
         });
         panel.addEventListener('focusout', (event) => {
-          if (!panel.contains(event.relatedTarget)) closePanel();
+          if (panel.contains(event.relatedTarget)) return;
+          if (!event.relatedTarget && event.target.closest('.panel-content')) {
+            // Focus left the open text for nothing: a click on a part of the
+            // page that takes no focus, or the browser blurring an element a
+            // close or switch has just hidden (Chromium does). Either way it
+            // is returned once the transition settles (#1049). The second is
+            // the transition itself, not the reader leaving, so it must not
+            // restart a close or turn a switch into one.
+            focusReturn = panel;
+            if (!panel.classList.contains('is-content-visible')) return;
+          }
+          // Only focus leaving the open panel closes it. Focus can sit in a
+          // panel that is not open: the label a close or switch returned it to
+          // (#1049). closePanel() closes whichever panel is open, so a blur of
+          // that label (a click on the open panel's text, a link in it, or Tab
+          // into it) closed the open panel under the reader. A switch's target
+          // counts as the open panel until phase 2 makes it `active`: a Tab
+          // off it within --motion-fast, with no panel focused next, left the
+          // queued switch to open a panel focus had already left (#1049).
+          if (panel !== active && panel !== switchTarget) return;
+          closePanel();
         });
         panel.addEventListener('click', (event) => {
           if (event.target.closest('a')) return;
@@ -932,11 +1153,16 @@ const homepageJsonLd = {
           openPanel(panel);
         });
         panel.addEventListener('keydown', (event) => {
-          if (event.key === 'Escape') {
-            if (panel.contains(document.activeElement)) escapeFocusReturn = panel;
-            closePanel();
-          }
-          if (event.key === 'Enter' || event.key === ' ') {
+          if (event.key === 'Escape') closePanel();
+          // Enter and Space open the panel from its label only. Taken from
+          // anywhere in the panel, they cancelled Space and Shift+Space
+          // scrolling a focused capped region, and Enter following a link in
+          // the open text, then did nothing, the panel being open (#1049).
+          if (
+            (event.key === 'Enter' || event.key === ' ') &&
+            event.target.closest &&
+            event.target.closest('.panel-label')
+          ) {
             event.preventDefault();
             // Only for an open that will reveal content; an Enter on a panel
             // already showing it must not leave the flag armed for a later
@@ -958,6 +1184,10 @@ const homepageJsonLd = {
 
       window.addEventListener('resize', () => {
         if (!mobile()) return;
+        // Drop an in-flight desktop morph at once; its hand-back timer, and
+        // the measure pass that settles one on desktop, would leave its pixel
+        // tracks over the stack template for up to --motion-plane (#1049).
+        clearMorph();
         closePanel();
         // Entering the stack: no panel is capped there, and the measure pass
         // (which maintains the cue) does not run in stack mode, so a capped
@@ -1054,6 +1284,11 @@ const homepageJsonLd = {
       let pulseFired = false;
 
       function pulsePanel(className) {
+        // Checked again per pulse: runPulseSequence's check is made when the
+        // sequence is scheduled, and a window that snaps or is resized into
+        // the stack in the second or so before a pulse fires still pulsed
+        // every panel there (#1049).
+        if (mobile()) return;
         const target = grid.querySelector('.' + className);
         if (!target) return;
         target.classList.add('panel--pulsing');
@@ -1061,7 +1296,9 @@ const homepageJsonLd = {
       }
 
       function runPulseSequence() {
-        if (pulseFired || reduceMotion) return;
+        // The pulse says "these tiles open"; in the stack they do not, so a
+        // wide stacked page was flashing a full-width block for nothing.
+        if (pulseFired || reduceMotion || mobile()) return;
         pulseFired = true;
         // Wait for the panel labels to settle before pulsing. Fonts.ready
         // resolves once Cormorant Garamond is loaded; the labels then

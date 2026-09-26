@@ -107,7 +107,7 @@ The default 1921 register lives in `:root`; the homepage opts into a higher-chro
 
 The homepage uses a **9-column × 9-row CSS Grid** (defined in `src/styles/global.css`). Odd-numbered tracks are `var(--line)` (9px desktop / 6px mobile)—they render as the black dividing lines of the Mondrian composition. Even-numbered tracks hold panels and decorative blocks.
 
-When a panel is focused, JavaScript sets `data-focus="<panel-name>"` on the grid container. CSS defines a separate `grid-template-columns` + `grid-template-rows` for each `data-focus` value, and the grid transitions between them over `--motion-plane` (460ms) with `--ease-standard`.
+When a panel is focused, JavaScript sets `data-focus="<panel-name>"` on the grid container. CSS defines a separate `grid-template-columns` + `grid-template-rows` for each `data-focus` value, and the grid transitions between them over `--motion-plane` (460ms) with `--ease-standard`. Because the focus templates mix `fr` and fixed tracks, which do not interpolate, `morphTracks()` resolves each change to pixel track lists and animates between those, then hands the tracks back to the stylesheet (see `docs/agents/operating-rules.md`).
 
 ### Homepage Interactions
 

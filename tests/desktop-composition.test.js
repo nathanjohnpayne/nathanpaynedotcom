@@ -64,16 +64,19 @@ const OVERFLOW_TOLERANCE_PX = 1;
 
 /**
  * How long a hover must go unanswered before "did not open" means the guard
- * held. The open sequence in index.astro reveals content one --motion-plane
- * (460ms) after the grid morphs; 1.2s is well past it, and waiting out a full
- * selector timeout instead cost 5s per stacked viewport (Codex, PR #1043).
+ * held. The open sequence in index.astro reveals content when the grid morph
+ * ends: at its transitionend, or at --motion-plane + 60ms (520ms) when no
+ * transition runs, as on these transition-free pages; 1.2s is well past it, and
+ * waiting out a full selector timeout instead cost 5s per stacked viewport
+ * (Codex, PR #1043).
  */
 const NO_OPEN_WAIT_MS = 1_200;
 
 /**
  * "Closed" is the grid back at rest (no `.is-open`, no `data-focus`) AND the
  * state machine back to idle, which the close sequence in index.astro reaches
- * one `--motion-plane` (460ms) after the grid resets. A hover landing before
+ * when the morph back to rest settles (--motion-plane + --motion-settle,
+ * 520ms, on these transition-free pages). A hover landing before
  * then is swallowed, which reads as "did not open" for a reason that has
  * nothing to do with the layout.
  */
@@ -385,6 +388,400 @@ describe('keyboard access to a capped panel', () => {
     }
   }, 60_000);
 
+  it('scrolls the focused region with Space and Shift+Space', async () => {
+    // The panel's keydown handler took Enter and Space from anywhere inside
+    // the panel, cancelled them, and then did nothing because the panel was
+    // already open, so Space never reached the focused scroll region (#1049).
+    const page = await openPage({ width: 1440, height: 900 });
+    try {
+      await page.focus('[data-panel="about"] .panel-label');
+      await page.keyboard.press('Enter');
+      await page.waitForSelector('[data-panel="about"].is-content-visible', { timeout: 5_000 });
+      // Control: Enter on the label still opened the panel and handed focus
+      // to a region that really scrolls, starting at its top.
+      const before = await page.evaluate(() => {
+        const ci = document.querySelector('[data-panel="about"] .content-inner');
+        return {
+          focused: document.activeElement === ci,
+          capped: ci.scrollHeight - ci.clientHeight > 1,
+          top: ci.scrollTop,
+        };
+      });
+      expect(before).toEqual({ focused: true, capped: true, top: 0 });
+      await page.keyboard.press('Space');
+      await page.waitForTimeout(300);
+      const down = await page.evaluate(
+        () => document.querySelector('[data-panel="about"] .content-inner').scrollTop,
+      );
+      expect(down, 'Space did not scroll the focused region').toBeGreaterThan(0);
+      await page.keyboard.press('Shift+Space');
+      await page.waitForTimeout(300);
+      const up = await page.evaluate(
+        () => document.querySelector('[data-panel="about"] .content-inner').scrollTop,
+      );
+      expect(up, 'Shift+Space did not scroll the focused region back').toBeLessThan(down);
+    } finally {
+      await page.close();
+    }
+  }, 60_000);
+
+  it('follows a link in the open text with Enter', async () => {
+    // The same handler cancelled Enter on a link inside the open panel.
+    const page = await openPage({ width: 1440, height: 900 });
+    try {
+      await page.focus('[data-panel="about"] .panel-label');
+      await page.keyboard.press('Enter');
+      await page.waitForSelector('[data-panel="about"].is-content-visible', { timeout: 5_000 });
+      await page.evaluate(() => {
+        window.__linkActivated = false;
+        const link = document.querySelector('[data-panel="about"] .about-resume-link');
+        // Record the activation and stay on the page.
+        link.addEventListener('click', (event) => {
+          window.__linkActivated = true;
+          event.preventDefault();
+        });
+        link.focus();
+      });
+      await page.keyboard.press('Enter');
+      await page.waitForTimeout(200);
+      expect(
+        await page.evaluate(() => window.__linkActivated),
+        'Enter on a link in the open panel did not activate it',
+      ).toBe(true);
+    } finally {
+      await page.close();
+    }
+  }, 60_000);
+
+  describe('a pointer close or switch while focus is in the open text', () => {
+    // A mouse leaving the panel, a click on a part of the page that takes no
+    // focus, or a hover onto another panel hid the text that held keyboard
+    // focus, and focus was left on the hidden content or the document body.
+    // Chromium also blurs a focused element it hides, and the focusout that
+    // produced turned a hover switch into a close of every panel (#1049).
+
+    /** Keyboard-open About at 1440x900, where it is capped and takes focus. */
+    async function keyboardOpenAbout(page) {
+      await page.mouse.move(1, 1);
+      await page.focus('[data-panel="about"] .panel-label');
+      await page.keyboard.press('Enter');
+      await page.waitForSelector('[data-panel="about"].is-content-visible', { timeout: 5_000 });
+      // Control: focus really is in the scroll region before the pointer acts.
+      expect(
+        await page.evaluate(
+          () =>
+            document.activeElement ===
+            document.querySelector('[data-panel="about"] .content-inner'),
+        ),
+        'the keyboard open did not put focus in the scroll region',
+      ).toBe(true);
+    }
+
+    /** Where focus is, and whether a reader can see it. */
+    function readFocus(page) {
+      return page.evaluate(() => {
+        const ae = document.activeElement;
+        const panel = ae && ae.closest('.panel');
+        const inHiddenText = Boolean(
+          panel && ae.closest('.panel-content') && !panel.classList.contains('is-content-visible'),
+        );
+        return {
+          visible: Boolean(ae) && ae !== document.body && ae.checkVisibility() && !inHiddenText,
+          on: ae === document.body ? 'body' : ae.className,
+          aboutLabel: ae === document.querySelector('[data-panel="about"] .panel-label'),
+          projectsRegion: ae === document.querySelector('[data-panel="projects"] .content-inner'),
+          open: [...document.querySelectorAll('[data-panel].is-open')].map((p) => p.dataset.panel),
+        };
+      });
+    }
+
+    /** A point beside the grid, on page background that takes no focus. */
+    async function backgroundPoint(page) {
+      const grid = await page.locator('.mondrian').boundingBox();
+      const x = grid.x / 2;
+      const y = grid.y + grid.height / 2;
+      // Control: the point is off every panel and on nothing focusable.
+      expect(
+        await page.evaluate(
+          ([px, py]) => {
+            const el = document.elementFromPoint(px, py);
+            return Boolean(el) && !el.closest('.panel') && !el.closest('a, button, [tabindex]');
+          },
+          [x, y],
+        ),
+        'the background point is on a panel or a focusable element',
+      ).toBe(true);
+      return { x, y };
+    }
+
+    it('returns focus to the label when the mouse leaves the panel', async () => {
+      const page = await openPage({ width: 1440, height: 900 });
+      try {
+        await keyboardOpenAbout(page);
+        const about = await page.locator('[data-panel="about"]').boundingBox();
+        const out = await backgroundPoint(page);
+        await page.mouse.move(about.x + about.width / 2, about.y + about.height / 2);
+        await page.waitForTimeout(200);
+        await page.mouse.move(out.x, out.y);
+        await page.waitForTimeout(IDLE_SETTLE_MS + 300);
+        const focus = await readFocus(page);
+        expect(focus.open, 'the mouse leaving did not close About').toEqual([]);
+        expect(focus.visible, `focus was left on hidden content (${focus.on})`).toBe(true);
+        expect(focus.aboutLabel, `focus is not on the About label (${focus.on})`).toBe(true);
+      } finally {
+        await page.close();
+      }
+    }, 60_000);
+
+    it('returns focus to the label when a click on the background closes the panel', async () => {
+      const page = await openPage({ width: 1440, height: 900 });
+      try {
+        await keyboardOpenAbout(page);
+        const out = await backgroundPoint(page);
+        await page.mouse.click(out.x, out.y);
+        await page.waitForTimeout(IDLE_SETTLE_MS + 300);
+        const focus = await readFocus(page);
+        expect(focus.visible, `focus was left on hidden content (${focus.on})`).toBe(true);
+        expect(focus.aboutLabel, `focus is not on the About label (${focus.on})`).toBe(true);
+        expect(focus.open, 'returning focus reopened a panel').toEqual([]);
+      } finally {
+        await page.close();
+      }
+    }, 60_000);
+
+    it('moves focus into the new panel when a hover switches to it', async () => {
+      const page = await openPage({ width: 1440, height: 900 });
+      try {
+        await keyboardOpenAbout(page);
+        const projects = await page.locator('[data-panel="projects"]').boundingBox();
+        await page.mouse.move(projects.x + projects.width / 2, projects.y + projects.height / 2);
+        await page.waitForTimeout(IDLE_SETTLE_MS + 300);
+        const focus = await readFocus(page);
+        expect(focus.open, 'the hover did not switch to Projects').toEqual(['projects']);
+        // Control: Projects is capped here, so its region is the target.
+        expect(
+          await page.evaluate(
+            () =>
+              document
+                .querySelector('[data-panel="projects"] .content-inner')
+                .getAttribute('tabindex') === '0',
+          ),
+        ).toBe(true);
+        expect(focus.visible, `focus was left on hidden content (${focus.on})`).toBe(true);
+        expect(focus.projectsRegion, `focus is not in the Projects region (${focus.on})`).toBe(
+          true,
+        );
+      } finally {
+        await page.close();
+      }
+    }, 60_000);
+
+    it('keeps the open panel open when a click in it moves focus off a closed panel label', async () => {
+      // A switch to a panel with no scroll region returns focus to the
+      // previous panel's label, so focus sits in a panel that is not open. A
+      // click on the open panel's text then blurred that label, and the
+      // label's panel ran closePanel(), which closes whichever panel is open:
+      // the one the reader had just clicked (#1049).
+      const page = await openPage({ width: 1440, height: 900 });
+      try {
+        expect(await hoverPanel(page, 'about', { expectOpen: true })).toBe(true);
+        const h1 = await page.locator('[data-panel="about"] h1').boundingBox();
+        await page.mouse.click(h1.x + h1.width / 2, h1.y + h1.height / 2);
+        // Control: the click put focus in About's scroll region.
+        expect(
+          await page.evaluate(
+            () =>
+              document.activeElement ===
+              document.querySelector('[data-panel="about"] .content-inner'),
+          ),
+          'the click on About text did not focus its scroll region',
+        ).toBe(true);
+        const connect = await page.locator('[data-panel="connect"]').boundingBox();
+        await page.mouse.move(connect.x + connect.width / 2, connect.y + connect.height / 2);
+        await page.waitForTimeout(IDLE_SETTLE_MS + 300);
+        const switched = await readFocus(page);
+        // Control: the switch left focus on About's label with Connect open.
+        expect(switched.open, 'the hover did not switch to Connect').toEqual(['connect']);
+        expect(switched.aboutLabel, `focus is not on the About label (${switched.on})`).toBe(true);
+        const h2 = await page.locator('[data-panel="connect"] h2').boundingBox();
+        await page.mouse.click(h2.x + h2.width / 2, h2.y + h2.height / 2);
+        await page.waitForTimeout(IDLE_SETTLE_MS + 300);
+        expect((await readFocus(page)).open, 'a click on the open panel closed it').toEqual([
+          'connect',
+        ]);
+      } finally {
+        await page.close();
+      }
+    }, 60_000);
+
+    it('returns focus to the label when a hover switches to a panel with no scroll region', async () => {
+      // Connect fits at 1440x900, so there is no region to move focus into;
+      // the previous panel's label, visible again, takes it (the new panel's
+      // own label is hidden while it is open).
+      const page = await openPage({ width: 1440, height: 900 });
+      try {
+        await keyboardOpenAbout(page);
+        const connect = await page.locator('[data-panel="connect"]').boundingBox();
+        await page.mouse.move(connect.x + connect.width / 2, connect.y + connect.height / 2);
+        await page.waitForTimeout(IDLE_SETTLE_MS + 300);
+        const focus = await readFocus(page);
+        expect(focus.open, 'the hover did not switch to Connect').toEqual(['connect']);
+        // Control: Connect has no scroll region here, so the fallback is taken.
+        expect(
+          await page.evaluate(() =>
+            document
+              .querySelector('[data-panel="connect"] .content-inner')
+              .getAttribute('tabindex'),
+          ),
+          'Connect is capped here, so the fallback is not exercised',
+        ).toBeNull();
+        expect(focus.visible, `focus was left on hidden content (${focus.on})`).toBe(true);
+        expect(focus.aboutLabel, `focus is not on the About label (${focus.on})`).toBe(true);
+      } finally {
+        await page.close();
+      }
+    }, 60_000);
+
+    it('leaves focus where the reader moved it during a switch', async () => {
+      const page = await openPage({ width: 1440, height: 900 });
+      try {
+        await keyboardOpenAbout(page);
+        await page.evaluate(() => {
+          const button = document.createElement('button');
+          button.id = 'elsewhere';
+          button.textContent = 'Elsewhere';
+          button.style.cssText = 'position:fixed;top:8px;left:8px;z-index:99';
+          document.body.append(button);
+          // Slow the switch's last phase so the reader's move lands inside it.
+          document.documentElement.style.setProperty('--motion-plane', '2000ms');
+        });
+        const projects = await page.locator('[data-panel="projects"]').boundingBox();
+        await page.mouse.move(projects.x + projects.width / 2, projects.y + projects.height / 2);
+        // Past phase 2: Projects is open and About is not, so the move below
+        // is not focus leaving the open panel, which would close it.
+        await page.waitForFunction(
+          () =>
+            document.querySelector('[data-panel="projects"]').classList.contains('is-open') &&
+            !document.querySelector('[data-panel="about"]').classList.contains('is-open'),
+          null,
+          { timeout: 5_000 },
+        );
+        const switching = await page.evaluate(() => {
+          document.getElementById('elsewhere').focus();
+          return !document
+            .querySelector('[data-panel="projects"]')
+            .classList.contains('is-content-visible');
+        });
+        // Precondition, read after the move: the switch has not yet returned focus.
+        expect(switching, 'the move landed after the switch settled').toBe(true);
+        await page.evaluate(() => document.documentElement.style.removeProperty('--motion-plane'));
+        await page.waitForSelector('[data-panel="projects"].is-content-visible', {
+          timeout: 5_000,
+        });
+        await page.waitForTimeout(300);
+        const after = await page.evaluate(() => ({
+          id: document.activeElement.id,
+          open: [...document.querySelectorAll('[data-panel].is-open')].map((p) => p.dataset.panel),
+        }));
+        expect(after.open, 'the move closed the switch').toEqual(['projects']);
+        expect(after.id, 'the switch took focus back from where the reader moved it').toBe(
+          'elsewhere',
+        );
+      } finally {
+        await page.close();
+      }
+    }, 60_000);
+
+    it('leaves focus where the reader moved it during the close', async () => {
+      const page = await openPage({ width: 1440, height: 900 });
+      try {
+        // Slow the close so the reader's own move lands inside it.
+        await page.evaluate(() =>
+          document.documentElement.style.setProperty('--motion-fast', '600ms'),
+        );
+        await keyboardOpenAbout(page);
+        const out = await backgroundPoint(page);
+        // The homepage has nothing focusable outside the grid, and a panel
+        // label would open its panel, so the visible target is a fixture.
+        await page.evaluate(() => {
+          const button = document.createElement('button');
+          button.id = 'elsewhere';
+          button.textContent = 'Elsewhere';
+          button.style.cssText = 'position:fixed;top:8px;left:8px;z-index:99';
+          document.body.append(button);
+        });
+        await page.mouse.click(out.x, out.y);
+        // A genuine move to a visible element before the close settles. The
+        // precondition is read after the move, in the same task: About loses
+        // is-open in the same timer callback that returns focus, so a move
+        // that landed after that (a stalled round trip) fails here instead of
+        // passing whether or not the guard exists.
+        const closing = await page.evaluate(() => {
+          document.getElementById('elsewhere').focus();
+          return document.querySelector('[data-panel="about"]').classList.contains('is-open');
+        });
+        expect(closing, 'the move landed after the close settled').toBe(true);
+        await page.evaluate(() => document.documentElement.style.removeProperty('--motion-fast'));
+        await page.waitForTimeout(IDLE_SETTLE_MS + 600);
+        expect(
+          await page.evaluate(() => document.activeElement.id),
+          'the focus return overrode where the reader moved focus',
+        ).toBe('elsewhere');
+      } finally {
+        await page.close();
+      }
+    }, 60_000);
+  });
+
+  it('keeps the panel open and focus in place when a resize lets the focused region fit', async () => {
+    // The measure pass removed the "scrollable" tab stop from the region that
+    // held focus, the browser blurred it, and the focusout read the blur as the
+    // reader leaving and closed the panel under them (#1049).
+    const page = await openPage({ width: 1440, height: 900 });
+    try {
+      await page.focus('[data-panel="about"] .panel-label');
+      await page.keyboard.press('Enter');
+      await page.waitForSelector('[data-panel="about"].is-content-visible', { timeout: 5_000 });
+      const regionState = () =>
+        page.evaluate(() => {
+          const ci = document.querySelector('[data-panel="about"] .content-inner');
+          return {
+            focused: document.activeElement === ci,
+            below: ci.scrollHeight - ci.clientHeight,
+            tabindex: ci.getAttribute('tabindex'),
+            role: ci.getAttribute('role'),
+            open: [...document.querySelectorAll('[data-panel].is-open')].map(
+              (p) => p.dataset.panel,
+            ),
+          };
+        });
+      // Control: focus is in a region that really scrolls before the resize.
+      const before = await regionState();
+      expect(before.focused, 'the keyboard open did not put focus in the region').toBe(true);
+      expect(before.tabindex).toBe('0');
+      expect(before.below).toBeGreaterThan(1);
+      await page.setViewportSize({ width: 2560, height: 1440 });
+      await page.waitForTimeout(IDLE_SETTLE_MS + 300);
+      const after = await regionState();
+      expect(after.open, 'the resize closed the panel the reader was in').toEqual(['about']);
+      // Control: the resize really let About fit, so the tab stop had to go.
+      expect(after.below, 'About is still capped at 2560x1440').toBeLessThanOrEqual(1);
+      expect(after.focused, 'focus left the region the reader was in').toBe(true);
+      expect(after.tabindex, 'a region that fits is still a tab stop').not.toBe('0');
+      expect(after.role, 'a region that fits is still announced as scrollable').toBeNull();
+      // Once focus moves on, the region keeps no tabindex at all.
+      await page.keyboard.press('Tab');
+      expect(
+        await page.evaluate(() =>
+          document.querySelector('[data-panel="about"] .content-inner').getAttribute('tabindex'),
+        ),
+        'the region kept its tabindex after focus moved on',
+      ).toBeNull();
+    } finally {
+      await page.close();
+    }
+  }, 60_000);
+
   it('keeps the reader scroll position across a desktop resize', async () => {
     // A guard, not a fix: the measure pass briefly switches panel scrolling
     // off, and Codex asked whether that resets a capped panel's scrollTop.
@@ -504,6 +901,73 @@ describe('scroll cue across a desktop resize', () => {
   }, 60_000);
 });
 
+describe('scroll cue on a keyboard open, with the morph animating', () => {
+  it('decides scrollability against the settled panel, not the morph in flight', async () => {
+    // The reveal ran one --motion-plane after the morph was committed, but the
+    // pixel morph's transition starts a frame later, so at the reveal the
+    // tracks could still be a pixel or two short (a narrower column wrapping
+    // one more line). A panel that fits by a pixel was then given the fade and
+    // a "scrollable" tab stop, and a keyboard open moved focus into a region
+    // that does not scroll; nothing corrected it until a scroll (#1049). These
+    // heights at 1920 wide are the ones a sweep caught it at: each panel
+    // settles within a pixel of fitting.
+    const page = await browser.newPage({ viewport: { width: 1920, height: 1061 } });
+    try {
+      await page.goto(`http://127.0.0.1:${port}/`, { waitUntil: 'load' });
+      await page.evaluate(() => document.fonts.ready);
+      await page.waitForTimeout(IDLE_SETTLE_MS);
+      const cases = [
+        { height: 1061, name: 'about' },
+        { height: 1036, name: 'projects' },
+        { height: 1052, name: 'projects' },
+      ];
+      let fitsByAPixel = 0;
+      for (const { height, name } of cases) {
+        await page.setViewportSize({ width: 1920, height });
+        // The measure pass is debounced 150ms after the resize.
+        await page.waitForTimeout(IDLE_SETTLE_MS);
+        await page.focus(`[data-panel="${name}"] .panel-label`);
+        await page.keyboard.press('Enter');
+        await page.waitForSelector(`[data-panel="${name}"].is-content-visible`, { timeout: 5_000 });
+        // Past the morph's hand-back to the stylesheet (--motion-plane + 60ms here).
+        await page.waitForTimeout(IDLE_SETTLE_MS);
+        const s = await page.evaluate((n) => {
+          const ci = document.querySelector(`[data-panel="${n}"] .content-inner`);
+          return {
+            below: ci.scrollHeight - ci.clientHeight,
+            tabindex: ci.getAttribute('tabindex'),
+            role: ci.getAttribute('role'),
+            cue: ci.classList.contains('has-more-below'),
+            focused: document.activeElement === ci,
+          };
+        }, name);
+        const at = `${name} at 1920x${height} (${s.below}px below)`;
+        if (s.below <= 1) {
+          fitsByAPixel++;
+          // A panel that fits is no tab stop and has no fade. Focus still
+          // leaves the hidden label for the text, which only holds it
+          // (tabindex -1), rather than being left on a hidden element
+          // (CodeRabbit, #1064).
+          expect(s.tabindex, `${at} fits but kept a "scrollable" tab stop`).not.toBe('0');
+          expect(s.role, `${at} fits but is announced as scrollable`).toBeNull();
+          expect(s.cue, `${at} fits but kept the fade`).toBe(false);
+          expect(s.focused, `${at} fits but left focus on its hidden label`).toBe(true);
+        } else {
+          expect(s.tabindex, `${at} scrolls but has no tab stop`).toBe('0');
+        }
+        await page.keyboard.press('Escape');
+        await page.waitForTimeout(IDLE_SETTLE_MS + 300);
+        await page.evaluate(() => document.activeElement && document.activeElement.blur());
+      }
+      // Control: the heights still put a panel within a pixel of fitting, so
+      // the fit assertions above ran.
+      expect(fitsByAPixel, 'no case settled within a pixel of fitting').toBeGreaterThan(0);
+    } finally {
+      await page.close();
+    }
+  }, 90_000);
+});
+
 describe('scroll cue across a resize into the stack', () => {
   it('does not fade panel text in the stack after a desktop open set the cue', async () => {
     // The cue class is only recomputed on desktop, so a panel opened there
@@ -543,5 +1007,415 @@ describe('scroll cue across a resize into the stack', () => {
     } finally {
       await page.close();
     }
+  }, 60_000);
+});
+
+/**
+ * The grid morph animates instead of snapping.
+ *
+ * Every focus template mixes `fr` tracks with fixed-length ones, and a track
+ * list only interpolates when each track keeps the same kind of size, so the
+ * plain CSS transition flipped the whole list at its midpoint: opening About,
+ * Projects or Connect crept a few pixels and then jumped, a single-frame step
+ * of 87-104% of the track's travel in Chromium, WebKit and Firefox alike. The
+ * state machine now drives the morph between resolved pixel track lists.
+ *
+ * Sampled every animation frame with transitions ON (openPage kills them for
+ * the geometry tests above). A real animation over the 460ms --motion-plane
+ * moves a track about 10% per frame at 60fps; 35% leaves room for a slow
+ * frame and still fails a snap by a wide margin.
+ */
+const MAX_FRAME_STEP = 0.35;
+
+async function sampleMorph(page, action) {
+  return page.evaluate(async (act) => {
+    const grid = document.querySelector('.mondrian');
+    const read = () => {
+      const cs = getComputedStyle(grid);
+      return [...cs.gridTemplateRows.split(' '), ...cs.gridTemplateColumns.split(' ')].map(
+        parseFloat,
+      );
+    };
+    const samples = [read()];
+    if (act.type === 'open') document.querySelector(`[data-panel="${act.panel}"]`).click();
+    else document.body.click();
+    const t0 = performance.now();
+    await new Promise((resolve) => {
+      const frame = () => {
+        samples.push(read());
+        if (performance.now() - t0 < 900) requestAnimationFrame(frame);
+        else resolve();
+      };
+      requestAnimationFrame(frame);
+    });
+    let worst = 0;
+    let moved = 0;
+    for (let t = 0; t < samples[0].length; t++) {
+      const travel = Math.abs(samples[samples.length - 1][t] - samples[0][t]);
+      if (travel < 20) continue;
+      moved++;
+      let step = 0;
+      for (let i = 1; i < samples.length; i++)
+        step = Math.max(step, Math.abs(samples[i][t] - samples[i - 1][t]));
+      worst = Math.max(worst, step / travel);
+    }
+    return {
+      worst,
+      moved,
+      inlineLeft: grid.style.gridTemplateRows || grid.style.gridTemplateColumns,
+      focus: grid.dataset.focus || null,
+      open: [...document.querySelectorAll('[data-panel].is-open')].map((p) => p.dataset.panel),
+    };
+  }, action);
+}
+
+async function openMorphPage() {
+  const page = await browser.newPage({ viewport: { width: 1885, height: 987 } });
+  await page.goto(`http://127.0.0.1:${port}/`, { waitUntil: 'load' });
+  await page.evaluate(() => document.fonts.ready);
+  await page.waitForTimeout(IDLE_SETTLE_MS);
+  return page;
+}
+
+describe('the grid morph animates', () => {
+  it('opens and closes every panel without a single-frame jump, and hands back to the stylesheet', async () => {
+    const page = await openMorphPage();
+    try {
+      for (const panel of PANELS) {
+        const open = await sampleMorph(page, { type: 'open', panel });
+        // Control: the open really moved tracks, or "no jump" is vacuous.
+        expect(open.moved, `${panel} open moved no track`).toBeGreaterThan(0);
+        expect(open.open, `${panel} did not open from rest`).toEqual([panel]);
+        expect(open.worst, `${panel} open jumps`).toBeLessThan(MAX_FRAME_STEP);
+        expect(open.inlineLeft, `${panel} left inline tracks after the morph`).toBe('');
+        const close = await sampleMorph(page, { type: 'close' });
+        // Control: the close really happened and moved tracks. With no close,
+        // nothing moves, the worst step stays 0, and "no jump" passed, while
+        // each later "open" was really a switch.
+        expect(close.focus, `${panel} did not close: the grid kept data-focus`).toBeNull();
+        expect(close.open, `${panel} did not close: a panel kept is-open`).toEqual([]);
+        expect(close.moved, `${panel} close moved no track`).toBeGreaterThan(0);
+        expect(close.worst, `${panel} close jumps`).toBeLessThan(MAX_FRAME_STEP);
+        expect(close.inlineLeft, `${panel} left inline tracks after the close`).toBe('');
+        await page.waitForTimeout(IDLE_SETTLE_MS);
+      }
+    } finally {
+      await page.close();
+    }
+  }, 90_000);
+
+  it('switches between panels without a single-frame jump, and hands back to the stylesheet', async () => {
+    // A switch is the third place the morph runs (startSwitch). Every pair
+    // except About and Projects snapped without it (a worst step of 0.9-1.35
+    // of the travel), so the chain below is made of the pairs that snapped.
+    const chain = ['about', 'community', 'connect', 'projects', 'community', 'about', 'connect'];
+    const page = await openMorphPage();
+    try {
+      const first = await sampleMorph(page, { type: 'open', panel: chain[0] });
+      expect(first.open, `${chain[0]} did not open`).toEqual([chain[0]]);
+      await page.waitForTimeout(IDLE_SETTLE_MS);
+      for (let i = 1; i < chain.length; i++) {
+        const pair = `${chain[i - 1]} -> ${chain[i]}`;
+        const sw = await sampleMorph(page, { type: 'open', panel: chain[i] });
+        // Control: the switch really landed and moved tracks.
+        expect(sw.open, `${pair} did not switch`).toEqual([chain[i]]);
+        expect(sw.moved, `${pair} moved no track`).toBeGreaterThan(0);
+        expect(sw.worst, `${pair} jumps`).toBeLessThan(MAX_FRAME_STEP);
+        expect(sw.inlineLeft, `${pair} left inline tracks after the morph`).toBe('');
+        await page.waitForTimeout(IDLE_SETTLE_MS);
+      }
+    } finally {
+      await page.close();
+    }
+  }, 90_000);
+});
+
+describe('a morph cut short', () => {
+  it('reveals as soon as a measure pass cancels the morph, not at the fallback', async () => {
+    // A desktop resize mid-open runs the measure pass, whose clearMorph()
+    // cancels the grid transition and snaps the grid to its target. Only
+    // transitionend settled the morph, so the reveal waited for the 2x
+    // fallback (about 1s) with the text hidden and hover locked (Codex, #1064).
+    const page = await openMorphPage();
+    try {
+      await page.evaluate(() => {
+        const grid = document.querySelector('.mondrian');
+        const about = document.querySelector('[data-panel="about"]');
+        window.__cut = { cleared: null, revealed: null };
+        new MutationObserver(() => {
+          const t = performance.now() - window.__cut.t0;
+          if (window.__cut.cleared === null && grid.style.gridTemplateColumns === '') {
+            window.__cut.cleared = t;
+          }
+          if (window.__cut.revealed === null && about.classList.contains('is-content-visible')) {
+            window.__cut.revealed = t;
+          }
+        }).observe(grid, { subtree: true, attributes: true, attributeFilter: ['style', 'class'] });
+        window.__cut.t0 = performance.now();
+        about.click();
+      });
+      await page.waitForTimeout(60);
+      await page.setViewportSize({ width: 1900, height: 1000 });
+      await page.waitForTimeout(1_500);
+      const cut = await page.evaluate(() => window.__cut);
+      // Control: the measure pass really cut the morph short.
+      expect(cut.cleared, 'the morph was not cleared mid-flight').not.toBeNull();
+      expect(cut.cleared, 'the morph ran to its end before the resize cut it').toBeLessThan(460);
+      expect(cut.revealed, 'About never revealed').not.toBeNull();
+      expect(
+        cut.revealed,
+        `the reveal waited for the fallback: ${JSON.stringify(cut)}`,
+      ).toBeLessThan(cut.cleared + 200);
+    } finally {
+      await page.close();
+    }
+  }, 60_000);
+});
+
+describe('a switch whose target loses focus before it runs', () => {
+  it('does not open a panel focus has already left', async () => {
+    // A focus-driven switch keeps the previous panel `active` for its first
+    // --motion-fast phase. A Tab off the target label in that window, with
+    // no panel focused next (Connect is the last label on the page), was
+    // ignored, and the switch then opened Connect with focus gone (Codex,
+    // #1064).
+    const page = await openPage({ width: 1440, height: 900 });
+    try {
+      await page.evaluate(() => document.querySelector('[data-panel="community"]').click());
+      await page.waitForTimeout(IDLE_SETTLE_MS + 300);
+      // A keypress first, so the programmatic focus below is :focus-visible,
+      // as a Tab would make it.
+      await page.keyboard.press('Shift');
+      await page.focus('[data-panel="connect"] .panel-label');
+      // Control: the switch to Connect has started (Community's text is fading).
+      const pending = await page.evaluate(() => ({
+        focusVisible: document.activeElement.matches(':focus-visible'),
+        communityText: document
+          .querySelector('[data-panel="community"]')
+          .classList.contains('is-content-visible'),
+        focus: document.querySelector('.mondrian').dataset.focus,
+      }));
+      expect(pending.focusVisible, 'the Connect label focus is not :focus-visible').toBe(true);
+      expect(pending.communityText, 'no switch started').toBe(false);
+      expect(pending.focus, 'the switch already ran').toBe('community');
+      await page.keyboard.press('Tab');
+      await page.waitForTimeout(IDLE_SETTLE_MS + 500);
+      const after = await page.evaluate(() => ({
+        on: document.activeElement.closest('[data-panel]')?.dataset.panel ?? null,
+        open: [...document.querySelectorAll('[data-panel].is-open')].map((p) => p.dataset.panel),
+        focus: document.querySelector('.mondrian').dataset.focus ?? null,
+      }));
+      expect(after.on, 'focus did not leave the grid').toBeNull();
+      expect(after.open, 'a panel opened after focus left it').toEqual([]);
+      expect(after.focus).toBeNull();
+    } finally {
+      await page.close();
+    }
+  }, 60_000);
+});
+
+describe('focus on the label of a panel that opens and fits', () => {
+  it('moves into the panel text instead of staying on the hidden label', async () => {
+    // hideLabel() takes the opening panel's label out of the tab order and the
+    // accessibility tree. When that label held focus and the text did not
+    // scroll, nothing moved focus, so a keyboard reader was left on a hidden
+    // element (CodeRabbit, #1064).
+    const page = await openPage({ width: 1440, height: 900 });
+    try {
+      await page.evaluate(() => document.querySelector('[data-panel="about"]').click());
+      await page.waitForTimeout(IDLE_SETTLE_MS + 300);
+      await page.keyboard.press('Shift');
+      await page.focus('[data-panel="connect"] .panel-label');
+      await page.waitForSelector('[data-panel="connect"].is-content-visible', { timeout: 5_000 });
+      await page.waitForTimeout(200);
+      const s = await page.evaluate(() => {
+        const ci = document.querySelector('[data-panel="connect"] .content-inner');
+        const label = document.querySelector('[data-panel="connect"] .panel-label');
+        return {
+          onLabel: document.activeElement === label,
+          labelHidden: label.getAttribute('aria-hidden') === 'true',
+          inText: document.activeElement === ci,
+          fits: ci.scrollHeight - ci.clientHeight <= 1,
+          tabindex: ci.getAttribute('tabindex'),
+        };
+      });
+      // Control: Connect's text fits here, so there was no scroll tab stop.
+      expect(s.fits, 'Connect scrolls at 1440x900').toBe(true);
+      expect(s.labelHidden).toBe(true);
+      expect(s.onLabel, 'focus was left on the hidden Connect label').toBe(false);
+      expect(s.inText, 'focus did not move into the Connect text').toBe(true);
+      expect(s.tabindex, 'a region that fits became a tab stop').toBe('-1');
+      // Once focus moves on, the region keeps no tabindex.
+      await page.keyboard.press('Tab');
+      expect(
+        await page.evaluate(() =>
+          document.querySelector('[data-panel="connect"] .content-inner').getAttribute('tabindex'),
+        ),
+      ).toBeNull();
+    } finally {
+      await page.close();
+    }
+  }, 60_000);
+});
+
+describe('the grid morph in the stack', () => {
+  // Inline pixel tracks override the stack's media-query template. The morph
+  // ran in the stack (the stack's resize handler closes the open panel), and a
+  // desktop morph still in flight on entering the stack was only cleared by
+  // its own timer, so for up to half a second the stack kept nine desktop
+  // columns, or a 986px-wide grid in a 600px viewport (#1049).
+
+  /** Record every animation frame in the stack that still has inline tracks. */
+  async function watchStack(page) {
+    await page.evaluate(() => {
+      const grid = document.querySelector('.mondrian');
+      window.__stack = { frames: 0, bad: [] };
+      const frame = () => {
+        if (matchMedia('(max-width: 1023px), (max-height: 839px)').matches) {
+          window.__stack.frames++;
+          const inline = grid.style.gridTemplateRows || grid.style.gridTemplateColumns;
+          const widest = Math.max(
+            ...[...grid.querySelectorAll('.panel')].map((p) => p.getBoundingClientRect().right),
+          );
+          if (inline || widest > window.innerWidth + 1) {
+            window.__stack.bad.push({ inline, widest, viewport: window.innerWidth });
+          }
+        }
+        requestAnimationFrame(frame);
+      };
+      requestAnimationFrame(frame);
+    });
+  }
+
+  async function openMidMorph(page) {
+    await page.evaluate(() => document.querySelector('[data-panel="about"]').click());
+    await page.waitForTimeout(100);
+    // Precondition: the desktop morph is in flight.
+    expect(
+      await page.evaluate(() => document.querySelector('.mondrian').style.gridTemplateColumns),
+      'no desktop morph was in flight',
+    ).not.toBe('');
+  }
+
+  it('leaves no pixel tracks over the stack when a resize lands mid-morph', async () => {
+    const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+    try {
+      await page.goto(`http://127.0.0.1:${port}/`, { waitUntil: 'load' });
+      await page.evaluate(() => document.fonts.ready);
+      await page.waitForTimeout(IDLE_SETTLE_MS);
+      await watchStack(page);
+      await openMidMorph(page);
+      await page.setViewportSize({ width: 900, height: 900 });
+      await page.waitForTimeout(900);
+      const seen = await page.evaluate(() => window.__stack);
+      // Control: the page really spent frames in the stack.
+      expect(seen.frames, 'never reached the stack').toBeGreaterThan(0);
+      expect(
+        seen.bad.length,
+        `the stack kept inline morph tracks: ${JSON.stringify(seen.bad[0])}`,
+      ).toBe(0);
+    } finally {
+      await page.close();
+    }
+  }, 60_000);
+
+  it('leaves no pixel tracks over the stack when an open panel is resized down through it', async () => {
+    const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+    try {
+      await page.goto(`http://127.0.0.1:${port}/`, { waitUntil: 'load' });
+      await page.evaluate(() => document.fonts.ready);
+      await page.waitForTimeout(IDLE_SETTLE_MS);
+      await page.evaluate(() => document.querySelector('[data-panel="about"]').click());
+      await page.waitForSelector('[data-panel="about"].is-content-visible', { timeout: 5_000 });
+      await page.waitForTimeout(IDLE_SETTLE_MS);
+      await watchStack(page);
+      await page.setViewportSize({ width: 1000, height: 900 });
+      await page.waitForTimeout(250);
+      await page.setViewportSize({ width: 600, height: 900 });
+      await page.waitForTimeout(900);
+      const seen = await page.evaluate(() => window.__stack);
+      expect(seen.frames, 'never reached the stack').toBeGreaterThan(0);
+      expect(
+        seen.bad.length,
+        `the stack kept inline morph tracks: ${JSON.stringify(seen.bad[0])}`,
+      ).toBe(0);
+    } finally {
+      await page.close();
+    }
+  }, 60_000);
+});
+
+describe('the on-load pulse', () => {
+  async function pulsedPanels(viewport) {
+    const page = await browser.newPage({ viewport });
+    try {
+      await page.addInitScript(() => {
+        window.__pulsed = [];
+        new MutationObserver((records) => {
+          for (const r of records) {
+            if (r.target.classList && r.target.classList.contains('panel--pulsing')) {
+              window.__pulsed.push(r.target.dataset.panel);
+            }
+          }
+        }).observe(document, { subtree: true, attributes: true, attributeFilter: ['class'] });
+      });
+      await page.goto(`http://127.0.0.1:${port}/`, { waitUntil: 'load' });
+      await page.evaluate(() => document.fonts.ready);
+      // The sequence starts ~300ms after fonts settle and steps panel by panel.
+      await page.waitForTimeout(4_500);
+      // Awaited here: a bare `return` would let the `finally` close the page
+      // before this read settles.
+      return await page.evaluate(() => [...new Set(window.__pulsed)]);
+    } finally {
+      await page.close();
+    }
+  }
+
+  it('pulses the panels in the composition, where they open', async () => {
+    // Control for the stack case: the sequence really runs on this page.
+    expect(await pulsedPanels({ width: 1885, height: 987 })).toHaveLength(4);
+  }, 60_000);
+
+  it('does not pulse after a resize into the stack during load', async () => {
+    // The stack check was made once, when the sequence was scheduled, so a
+    // window resized into the stack before the first pulse fired still pulsed
+    // all four panels there (#1049).
+    const page = await browser.newPage({ viewport: { width: 1885, height: 987 } });
+    try {
+      await page.addInitScript(() => {
+        window.__pulsedInStack = [];
+        new MutationObserver((records) => {
+          for (const r of records) {
+            if (
+              r.target.classList &&
+              r.target.classList.contains('panel--pulsing') &&
+              matchMedia('(max-width: 1023px), (max-height: 839px)').matches
+            ) {
+              window.__pulsedInStack.push(r.target.dataset.panel);
+            }
+          }
+        }).observe(document, { subtree: true, attributes: true, attributeFilter: ['class'] });
+      });
+      await page.goto(`http://127.0.0.1:${port}/`, { waitUntil: 'domcontentloaded' });
+      // The sequence is scheduled at desktop size; the first pulse is ~300ms
+      // after fonts settle, so this resize lands before it.
+      await page.setViewportSize({ width: 900, height: 900 });
+      await page.waitForTimeout(4_500);
+      // Control: the page really is in the stack.
+      expect(await isComposition(page), 'did not reach the stack').toBe(false);
+      expect(
+        await page.evaluate(() => [...new Set(window.__pulsedInStack)]),
+        'panels pulsed in the stack',
+      ).toEqual([]);
+    } finally {
+      await page.close();
+    }
+  }, 60_000);
+
+  it('does not pulse in the stack, where nothing opens', async () => {
+    // It says "these tiles open"; a wide stacked page was flashing a
+    // full-width block for nothing.
+    expect(await pulsedPanels({ width: 1920, height: 800 })).toEqual([]);
+    expect(await pulsedPanels({ width: 390, height: 844 })).toEqual([]);
   }, 60_000);
 });
