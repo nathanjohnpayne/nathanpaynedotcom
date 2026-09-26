@@ -64,7 +64,7 @@ Those names exposed assumptions the cruise had made for me. Bodega Bay's databas
 
 </div>
 
-Bodega Bay ran under its own hostname and brand, with three new day themes and a 120-prompt general-audience pool. That demonstrated reuse. A client crash and a missing first-day email also shaped the weekend.
+Bodega Bay ran under its own hostname and brand, with three new day themes and a 120-prompt general-audience pool. That demonstrated reuse. The weekend had a client crash and a missing first-day email; their effect on participation is uncertain.
 
 ## What Did Not Travel
 
