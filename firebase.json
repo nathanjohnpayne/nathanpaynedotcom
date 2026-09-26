@@ -16,6 +16,16 @@
         "source": "/blog/agent-approval-workflow-genesis-of-ai-agent-repo-template{,/**}",
         "destination": "/blog/agent-approval-workflow-genesis-of-mergepath/",
         "type": 301
+      },
+      {
+        "source": "/blog/the-code-wasnt-the-product{,/**}",
+        "destination": "/blog/the-product-did-not-travel/",
+        "type": 301
+      },
+      {
+        "source": "/blog/the-code-was-not-the-product{,/**}",
+        "destination": "/blog/the-product-did-not-travel/",
+        "type": 301
       }
     ],
     "headers": [
