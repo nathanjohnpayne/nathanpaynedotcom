@@ -124,7 +124,7 @@ describe('homepage Writing block (#523)', () => {
     const link = document.querySelector('.blog-callout-link');
 
     expect(link?.getAttribute('href')).toBe(`/blog/${latest.slug}/`);
-    expect(link?.getAttribute('href')).toBe('/blog/the-product-did-not-travel/');
+    expect(link?.getAttribute('href')).toBe('/blog/silence-is-not-an-approval/');
   });
 
   it('follows the list with a "View all writing" link to /blog/, on the ribbon', () => {

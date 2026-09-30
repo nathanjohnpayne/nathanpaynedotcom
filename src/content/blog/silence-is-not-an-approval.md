@@ -7,7 +7,7 @@ seoDescription: "An AI code review pipeline that read a reviewer's silence as ap
 category: "Agent Systems"
 author: "Nathan Payne"
 date: 2026-10-01
-draft: true
+draft: false
 tags: ["AI", "Code Review", "Systems", "Product", "Failure Modes"]
 image: "/og/blog/silence-is-not-an-approval.png"
 keyTakeaways:
