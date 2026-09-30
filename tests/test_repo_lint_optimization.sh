@@ -114,7 +114,7 @@ else
     fail "declared dependencies must select their owning wrappers (got $selected)"
   fi
 
-  # #1276: independent helper/test changes must reach the blocked-evidence suite.
+  # #1276: independent helper/test changes must reach the real blocked-evidence suite.
   for evidence_path in scripts/lib/codex-request-evidence.sh tests/test_codex_request_evidence.sh; do
     selected=$(scope_value checks pull_request "$evidence_path")
     if jq -e 'index("check_codex_scripts") != null' <<<"$selected" >/dev/null; then
@@ -125,19 +125,56 @@ else
   done
 
   selected=$(scope_value checks pull_request scripts/lib/ci-check-modes.sh)
-  if jq -e '
-      length == 6
-      and (index("check_auto_clear_workflow") != null)
-      and (index("check_doc_ownership") != null)
-      and (index("check_coderabbit_wait") != null)
-      and (index("check_merge_clearance_gate") != null)
-      and (index("check_phase_4b_automation") != null)
-      and (index("check_phase_4b_accounting") != null)
-    ' <<<"$selected" >/dev/null 2>&1; then
+  # DERIVED from the tree, not hardcoded. The assertion's intent is "every
+  # wrapper that sources the helper is selected", and a fixed list of six
+  # names asserted a snapshot of that instead: the seventh such wrapper
+  # (#931's check_pr_review_policy_nudge) failed it while satisfying it.
+  # Comments are stripped first so a wrapper that merely mentions the helper
+  # in prose is not counted as sourcing it.
+  sourcing=$(for f in "$ROOT"/scripts/ci/check_*; do
+      # `grep -c`, not `grep -q`: under this suite's `set -o pipefail`, a
+      # quiet grep exits at the first match and `sed` takes SIGPIPE (141),
+      # which failed the `&&` and silently dropped check_doc_ownership and
+      # check_merge_clearance_gate from the derived set — leaving the subset
+      # assertion below passing for the wrong reason. Counting consumes the
+      # whole stream. `|| true` because a non-matching wrapper is the common
+      # case and its exit 1 would abort the suite under `set -e`.
+      hits=$(sed 's/[[:space:]]*#.*$//' "$f" | grep -c 'ci-check-modes\.sh' || true)
+      [ "${hits:-0}" -gt 0 ] && basename "$f" || true
+    done | sort | jq -R -s -c 'split("\n") | map(select(length > 0))')
+  # A SUBSET check, matching the assertion's own words: every sourcing wrapper
+  # must be selected. Equality would be wrong — the graph also declares this
+  # dependency for wrappers that reach the helper indirectly rather than
+  # sourcing it textually, and those are legitimately selected too.
+  if jq -e --argjson sourcing "$sourcing" \
+      '. as $sel | $sourcing | all(. as $w | $sel | index($w) != null)' \
+      <<<"$selected" >/dev/null 2>&1; then
     pass "the shared mode selector selects every wrapper that sources it"
   else
-    fail "ci-check-modes.sh must select every sourcing wrapper (got $selected)"
+    fail "ci-check-modes.sh must select every sourcing wrapper (sourcing $sourcing, selected $selected)"
   fi
+
+  # #931: the nudge wrapper owns two paths and nothing else does, so a change
+  # to either selects it alone rather than the full deep net.
+  selected=$(scope_value checks pull_request scripts/pr-review-policy-nudge.sh)
+  full=$(scope_value full pull_request scripts/pr-review-policy-nudge.sh)
+  if [ "$full" = "false" ] && [ "$selected" = '["check_pr_review_policy_nudge"]' ]; then
+    pass "a change to the nudge selects only its own wrapper"
+  else
+    fail "nudge subject should select only its wrapper (full=$full, selected=$selected)"
+  fi
+
+  # The other side of that: a SHARED helper must NOT be narrowed by one
+  # wrapper declaring it. scripts/lib/preflight-helpers.sh is sourced by
+  # coderabbit-wait.sh and phase-4b-review.sh as well, so it stays undeclared
+  # and keeps the fail-closed full deep net rather than selecting one caller.
+  for shared in scripts/lib/preflight-helpers.sh scripts/validate-pr-body.sh scripts/gh-as-author.sh; do
+    if [ "$(scope_value full pull_request "$shared")" = "true" ]; then
+      pass "$shared keeps the full deep net rather than a partial selection"
+    else
+      fail "$shared was narrowed to a partial selection; its other callers' deep suites would be skipped"
+    fi
+  done
 
   auto_clear_dependencies_ok=1
   for path in \
@@ -176,6 +213,32 @@ else
     pass "Phase 4b orchestrator changes select automation and accounting regressions"
   else
     fail "phase-4b-review.sh must select both Phase 4b wrappers (got $selected)"
+  fi
+
+  parser_routing_ok=1
+  for path in scripts/lib/pr-body-contract.mjs scripts/lib/pr-body-contract.sh \
+      scripts/lib/pr-body-contract.source.mjs scripts/lib/pr-body-contract.bundle/rebuild.mjs; do
+    selected=$(scope_value checks pull_request "$path")
+    full=$(scope_value full pull_request "$path")
+    if [ "$full" != "false" ] \
+       || ! jq -e 'index("check_gh_as_author") != null and index("check_phase_4b_automation") != null' \
+         <<<"$selected" >/dev/null 2>&1; then
+      parser_routing_ok=0
+      echo "INFO: $path full=$full selected=$selected" >&2
+    fi
+  done
+  if [ "$parser_routing_ok" -eq 1 ]; then
+    pass "shared PR-body parser implementation selects parity and Phase 4b behavioral coverage"
+  else
+    fail "every shared PR-body parser implementation input must select parity and Phase 4b automation coverage"
+  fi
+
+  selected=$(scope_value checks pull_request tests/test_required_check_publisher_summary_hold.sh)
+  full=$(scope_value full pull_request tests/test_required_check_publisher_summary_hold.sh)
+  if [ "$full" = "false" ] && [ "$selected" = '["check_required_check_publisher"]' ]; then
+    pass "publisher summary-hold suite selects only its publisher self-test"
+  else
+    fail "publisher summary-hold suite must avoid full deep fallback (full=$full, selected=$selected)"
   fi
 
   if [ "$(scope_value full pull_request scripts/ci/repo-lint-scope.sh)" = "true" ] \
@@ -306,7 +369,7 @@ else
   fi
 
   governance_modes_ok=1
-  for name in check_auto_clear_workflow check_coderabbit_wait check_merge_clearance_gate check_phase_4b_automation check_phase_4b_accounting; do
+  for name in check_auto_clear_workflow check_coderabbit_wait check_merge_clearance_gate check_required_check_publisher check_phase_4b_automation check_phase_4b_accounting; do
     name="$name" yq -e '([.jobs.lint_fast.steps[] | select(.name == strenv(name)) | .run | contains("--check")] | any) and ([.jobs.deep_safety.steps[] | select(.name == (strenv(name) + " --self-test")) | select((.if | contains("needs.scope.outputs.full")) and (.if | contains("needs.scope.outputs.checks"))) | .run | contains("--self-test")] | any)' "$REPO_LINT" >/dev/null || governance_modes_ok=0
   done
   if [ "$governance_modes_ok" -eq 1 ]; then

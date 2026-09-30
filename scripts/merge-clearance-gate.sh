@@ -75,6 +75,11 @@
 #
 # What it enforces, by PR class (evaluated on pr.head.sha):
 #
+#   Every full-gate invocation:
+#     BLOCKS on human-hold, needs-human-review, or policy-violation before
+#     class exemptions, even when both review-gate knobs are disabled (#1277).
+#     Query modes retain their narrower applicability/coverage contracts.
+#
 #   Dependabot PR (author == 'dependabot[bot]'):
 #     Gated by `dependabot.reviewer_gate.enabled` (default false; true in
 #     mergepath). When enabled, BLOCKS unless a reviewer identity in
@@ -105,7 +110,7 @@
 #     force them into Phase 4 and break the lane (#429 Codex round-2 P1).
 #
 #   Any other PR (under-threshold, non-Dependabot, or relevant knob off):
-#     CLEAN PASS (exit 0). The gate is a no-op so it can be a required
+#     CLEAN PASS (exit 0) unless a human-controlled hold is present. It can be a required
 #     check on every PR without blocking normal under-threshold merges.
 #
 # Exit codes (same contract as scripts/codex-p1-gate.sh):
@@ -154,6 +159,13 @@ fi
 # shellcheck source=lib/reviewers-helpers.sh
 . "$SCRIPT_DIR/lib/reviewers-helpers.sh"
 
+if [ ! -r "$SCRIPT_DIR/lib/blocking-labels.sh" ]; then
+  echo "ERROR: blocking-labels helper missing: $SCRIPT_DIR/lib/blocking-labels.sh" >&2
+  exit 2
+fi
+# shellcheck source=lib/blocking-labels.sh
+. "$SCRIPT_DIR/lib/blocking-labels.sh"
+
 # Shared paginated-list reader (#1008) — the fetch → capture → flatten
 # algorithm fetch_api_array below used to carry inline, alongside seven other
 # copies. Hard-required for the same reason reviewers-helpers is: the reviews
@@ -175,7 +187,8 @@ fi
 # gate protects this PR's CURRENT head: the external arm applies (intrinsic
 # threshold / protected paths / label force-on). `false` when no such gate
 # holds the merge until bot review: under threshold with no protected paths
-# and no label, a lane-exempt verified head, external gate disabled, OR a
+# and no label, a lane-exempt verified head/base pair, external gate disabled,
+# or a
 # Dependabot PR (its reviewer gate blocks on a reviewer-identity APPROVED,
 # not on Codex — and Codex does not review Dependabot PRs, so it is never a
 # bot-review gate; automated-4b P1). Every error keeps the die()/exit-2
@@ -187,7 +200,7 @@ fi
 #
 # --derive-phase-4-requiredness (#1094): QUERY mode for the final approval-
 # independence recheck. It shares the intrinsic threshold/protected-path,
-# force-on label, and exact-head propagation-lane exemption calculation below,
+# force-on label, and exact-pair propagation-lane exemption calculation below,
 # but deliberately ignores whether the optional external merge gate is
 # enabled. Phase 4 policy scope exists independently of that enforcement knob.
 #
@@ -783,14 +796,15 @@ EOF
   return 1
 }
 
-# Propagation-lane exemption (#429), HEAD-PINNED. Returns 0 (true) iff a PR
+# Propagation-lane exemption (#429), HEAD/BASE-PINNED. Returns 0 (true) iff a PR
 # comment authored by github-actions[bot] carries the propagation-lane marker
-# scoped to the CURRENT head SHA — i.e. `mergepath-propagation-lane
-# verified-head=<HEAD_SHA>`. .github/workflows/pr-review-policy.yml posts that
+# scoped to the CURRENT pair — i.e. `mergepath-propagation-lane:v2
+# verified-head=<HEAD_SHA> verified-base=<BASE_SHA>`.
+# .github/workflows/pr-review-policy.yml posts that
 # marker ONLY after mergepath@<sha>'s verify-propagation-pr.sh byte-confirms a
-# faithful mirror AT THAT HEAD, and a PR author cannot post as
-# github-actions[bot] — so it is a TRUSTED, head-scoped signal that the lane
-# already exempted THIS head from external review (REVIEW_POLICY.md §
+# faithful mirror AT THAT PAIR, and a PR author cannot post as
+# github-actions[bot] — so it is a TRUSTED, pair-scoped signal that the lane
+# already exempted THIS pair from external review (REVIEW_POLICY.md §
 # Propagation PR review lane).
 #
 # Why head-pinned (Codex round-3 P1 + nathanpayne-codex CHANGES_REQUESTED on
@@ -798,8 +812,9 @@ EOF
 # later divergent push. On the synchronize where this gate finishes before
 # pr-review-policy.yml re-adds needs-external-review, an unscoped check would
 # go GREEN on an unverified large/.github PR. Pinning the exemption to the
-# current head SHA closes that race independently of label timing: a diverged
-# (or merely newer-but-not-yet-verified) head has no matching marker, so the
+# current head/base pair closes that race independently of label timing: a
+# diverged, retargeted, or merely newer-not-yet-verified pair has no matching
+# marker, so the
 # gate does NOT exempt it and falls through to threshold/paths derivation.
 # A DIVERGED push never gets a marker at all (the lane's propagation_lane is
 # false → it posts nothing for that head). A faithful re-push is briefly
@@ -813,7 +828,9 @@ EOF
 # 4/Codex clearance, breaking the documented under-threshold lane.
 #
 # Marker contract is shared with pr-review-policy.yml — keep the
-# `mergepath-propagation-lane verified-head=<sha>` form in sync.
+# `mergepath-propagation-lane:v2 verified-head=<sha> verified-base=<sha>`
+# form in sync. Legacy head-only markers grant no current exemption because
+# they cannot prove which base the lane verified.
 # agent-review.yml's rc=5 branch consumes it indirectly through this
 # script's --derive-external-requiredness query (#620).
 lane_verified() {
@@ -828,12 +845,16 @@ lane_verified() {
   # closed to the caller, not fall through to threshold derivation (which
   # would return true for a large propagation PR).
   local comments rc=0
+  if ! [[ "$HEAD_SHA" =~ ^[0-9a-fA-F]{40}$ ]] \
+     || ! [[ "$BASE_SHA" =~ ^[0-9a-fA-F]{40}$ ]]; then
+    return 2
+  fi
   comments=$(gh api --paginate "repos/$REPO/issues/$PR_NUMBER/comments" 2>/dev/null | jq -s 'add // []' 2>/dev/null) || return 2
   # `|| rc=$?` keeps the capture correct under `set -e` regardless of call
   # context (jq -e: 0 = match, 1 = no match, >1 = parse error).
-  echo "$comments" | jq -e --arg head "$HEAD_SHA" '
+  echo "$comments" | jq -e --arg head "$HEAD_SHA" --arg base "$BASE_SHA" '
     any(.[]; (.user.login == "github-actions[bot]")
-             and ((.body // "") | contains("mergepath-propagation-lane verified-head=" + $head)))
+             and ((.body // "") | contains("<!-- mergepath-propagation-lane:v2 verified-head=" + $head + " verified-base=" + $base + " -->")))
   ' >/dev/null 2>&1 || rc=$?
   if [ "$rc" -eq 0 ]; then return 0; fi
   if [ "$rc" -eq 1 ]; then return 1; fi
@@ -993,6 +1014,18 @@ HAS_EXTERNAL_LABEL=$(echo "$PR_JSON" \
   | jq -r 'if any(.labels[]?.name; . == "needs-external-review") then "true" else "false" end')
 
 log "HEAD = $HEAD_SHA    author = $PR_AUTHOR    needs-external-review = $HAS_EXTERNAL_LABEL"
+
+# Human-controlled holds precede every clearance exemption (#1277).
+# needs-external-review keeps its existing delegated clearance semantics;
+# the derivation queries answer coverage/applicability, not merge permission.
+if [ "$DERIVE_ONLY" != "true" ] && [ "$PHASE_4_DERIVE_ONLY" != "true" ] && [ "$RATE_LIMIT_PROTECTION_ONLY" != "true" ]; then
+  HOLD_LABELS=$(printf '%s' "$PR_JSON" \
+    | jq -r '.labels[]?.name | select(. != "needs-external-review")' \
+    | mergepath_blocking_labels_csv)
+  if [ -n "$HOLD_LABELS" ]; then
+    block "human-controlled blocking labels present: $HOLD_LABELS. A human must release the hold before merge clearance."
+  fi
+fi
 
 # --- non-reviewer approval assertion (#1080) --------------------------------
 #
@@ -1196,15 +1229,15 @@ if [ "$EXTERNAL_GATE_ENABLED" = "true" ] || [ "$PHASE_4_DERIVE_ONLY" = "true" ] 
     # Label present forces the arm on (a human may add it to a small PR;
     # or the propagation lane RE-ADDED it after a divergence). Not subject
     # to the propagation exemption below — a present label means the lane's
-    # latest per-HEAD verdict is "needs review."
+    # latest per-pair verdict is "needs review."
     REQUIRES_EXTERNAL=true
     REQUIRES_REASON="needs-external-review label present"
   elif lane_verified; then
     # Verified propagation PR: a trusted github-actions[bot] lane marker
-    # scoped to THIS head SHA is present (label absent). The lane already
-    # byte-verified this exact head and exempted it from external review;
+    # scoped to THIS head/base pair is present (label absent). The lane already
+    # byte-verified this exact pair and exempted it from external review;
     # defer to it and do NOT re-derive from threshold/paths (#429).
-    log "verified propagation lane (trusted head-pinned marker for $HEAD_SHA, label absent) — exempt from external-review derivation; deferring to pr-review-policy.yml lane"
+    log "verified propagation lane (trusted pair marker for $HEAD_SHA/$BASE_SHA, label absent) — exempt from external-review derivation; deferring to pr-review-policy.yml lane"
   else
     lane_rc=$?
     # Indeterminate marker read (rc 2): in the FULL gate, falling through to
@@ -1238,7 +1271,30 @@ if [ "$EXTERNAL_GATE_ENABLED" = "true" ] || [ "$PHASE_4_DERIVE_ONLY" = "true" ] 
       | add // 0')
     LINES_CHANGED=${LINES_CHANGED:-0}
 
-    if [ "$LINES_CHANGED" -ge "$THRESHOLD" ]; then
+    # GitHub caps the pull-request files listing at 3000 entries. AT the cap the
+    # inventory may be truncated, which makes both tests below unsound: the
+    # lines total is a floor rather than the diff, and the protected-path match
+    # is reading an incomplete file list. Either can say "under threshold,
+    # nothing protected" about a PR that is neither.
+    #
+    # scripts/workflow/external_review_fingerprint.sh has forced requires_review
+    # at this bound since #427; this derivation did not, so the two
+    # implementations of the same question disagreed in the FAIL-OPEN direction
+    # on exactly the largest PRs. The live consumer is
+    # scripts/workflow/approval-independence-check.sh (#1094), which feeds this
+    # answer to the self-approval detector as `requiresExternalReview` — so a
+    # spurious `false` weakens approval independence precisely where the diff is
+    # too large to review casually.
+    #
+    # Keep this bound in step with the fingerprint helper's.
+    PR_FILES_CAP=3000
+    FILES_COUNT=$(echo "$FILES_JSON" | jq 'length')
+    FILES_COUNT=${FILES_COUNT:-0}
+
+    if [ "$FILES_COUNT" -ge "$PR_FILES_CAP" ]; then
+      REQUIRES_EXTERNAL=true
+      REQUIRES_REASON="PR files API returned $FILES_COUNT files; treating as external review required because GitHub may have capped the diff"
+    elif [ "$LINES_CHANGED" -ge "$THRESHOLD" ]; then
       REQUIRES_EXTERNAL=true
       REQUIRES_REASON="$LINES_CHANGED lines changed >= threshold $THRESHOLD"
     else

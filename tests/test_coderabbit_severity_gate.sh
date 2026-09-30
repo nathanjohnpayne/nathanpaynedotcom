@@ -286,6 +286,7 @@ if [ -n "\${CR_GATE_TEST_GREP_ERROR_ON:-}" ]; then
   case "\$*" in
     *"\$CR_GATE_TEST_GREP_ERROR_ON"*)
       echo "grep: invalid byte sequence (fixture failure on '\$CR_GATE_TEST_GREP_ERROR_ON')" >&2
+      if [ -n "\${CR_GATE_TEST_GREP_PARTIAL:-}" ]; then printf '%s\n' "\$CR_GATE_TEST_GREP_PARTIAL"; fi
       exit 2
       ;;
   esac
@@ -2881,6 +2882,55 @@ else
   echo "$OUT" | sed 's/^/      /' >&2
 fi
 
+# The summary hold cannot outrank a known inline finding before the gate reads
+# that finding's thread state. An unresolved candidate must retain rc 1 so the
+# consolidated publisher writes red. Once that same candidate is resolved, the
+# existing clean-verdict hold remains responsible for the unrecognised newer
+# run and returns rc 3.
+echo "--- Test 47d-combined (#1364): known inline finding outranks the unread-run hold until resolved"
+COMBINED_COMMENTS=$(make_single_comment_fixture "$HEAD_SHA" "$MAJOR_BODY")
+COMBINED_UNRESOLVED_THREADS=$(make_threads_fixture '[{isResolved: false, comment_ids: [2001]}]')
+set +e
+OUT=$(
+  REQUIRE_REVIEW_SUMMARY=true \
+  FIXTURE_PR="$FIXTURE_PR" \
+  FIXTURE_COMMENTS="$COMBINED_COMMENTS" \
+  FIXTURE_THREADS="$COMBINED_UNRESOLVED_THREADS" \
+  FIXTURE_ISSUE_COMMENTS="$FIXTURE_ISSUE_COMMENTS" \
+  FIXTURE_REVIEWS="$FIXTURE_REVIEWS" \
+    run_gate "$SCRATCH" 99 owner/repo 2>&1
+)
+RC=$?
+set -e
+if [ "$RC" = 1 ] && echo "$OUT" | grep -q "comment id 2001" \
+    && echo "$OUT" | grep -q "blocking-tier unresolved: 1"; then
+  pass "an unresolved known inline finding remains a failure despite the unrecognised run"
+else
+  fail "expected unresolved inline finding plus unrecognised run to exit 1; got rc=$RC"
+  echo "$OUT" | sed 's/^/      /' >&2
+fi
+
+COMBINED_RESOLVED_THREADS=$(make_threads_fixture '[{isResolved: true, comment_ids: [2001]}]')
+set +e
+OUT=$(
+  REQUIRE_REVIEW_SUMMARY=true \
+  FIXTURE_PR="$FIXTURE_PR" \
+  FIXTURE_COMMENTS="$COMBINED_COMMENTS" \
+  FIXTURE_THREADS="$COMBINED_RESOLVED_THREADS" \
+  FIXTURE_ISSUE_COMMENTS="$FIXTURE_ISSUE_COMMENTS" \
+  FIXTURE_REVIEWS="$FIXTURE_REVIEWS" \
+    run_gate "$SCRATCH" 99 owner/repo 2>&1
+)
+RC=$?
+set -e
+if [ "$RC" = 3 ] && echo "$OUT" | grep -q "later review run" \
+    && echo "$OUT" | grep -q "blocking-tier unresolved: pending"; then
+  pass "a resolved inline candidate still withholds the clean verdict for the unrecognised run"
+else
+  fail "expected resolved inline candidate plus unrecognised run to exit 3; got rc=$RC"
+  echo "$OUT" | sed 's/^/      /' >&2
+fi
+
 # The PUBLISHER is the job, not the event. Scoping REQUIRE_REVIEW_SUMMARY to
 # `pull_request_review` left the SAME job — the one that owns the native check
 # for this head — running the arrival-independent scan on its other triggers, so
@@ -4148,6 +4198,46 @@ else
   fail "#942: a grep error on the stanza-opener count cleared the gate or was misdiagnosed as a non-benign stanza; got rc=$RC_53D"
   echo "$OUT_53D" | sed 's/^/      /' >&2
 fi
+
+
+# #878: fail only the real classifier's marker extractor. A successful empty
+# scan remains covered above; an extraction error (even after partial stdout)
+# must be infrastructure exit 2, never clear or summary-pending exit 3.
+for SURFACE_878 in inline summary; do
+  for PARTIAL_878 in '' '🟠 Major'; do
+    SCRATCH=$(make_scratch_with_policy "$DEFAULT_POLICY")
+    FIXTURE_PR=$(make_pr_fixture "$HEAD_SHA")
+    FIXTURE_THREADS=$(make_threads_fixture '[{isResolved: false, comment_ids: [2001]}]')
+    if [ "$SURFACE_878" = inline ]; then
+      FIXTURE_COMMENTS=$(make_single_comment_fixture "$HEAD_SHA" "$MAJOR_BODY")
+      FIXTURE_ISSUE_COMMENTS=$(make_issue_comments_fixture '[]')
+    else
+      FIXTURE_COMMENTS=$(make_comments_fixture '[]')
+      FIXTURE_ISSUE_COMMENTS=$(make_summary_issue_comments \
+        "$(make_summary_body "$HEAD_SHA" "$SUMMARY_BLOCKING_FINDING")")
+    fi
+    set +e
+    OUT_878=$(
+      FIXTURE_PR="$FIXTURE_PR" \
+      FIXTURE_COMMENTS="$FIXTURE_COMMENTS" \
+      FIXTURE_THREADS="$FIXTURE_THREADS" \
+      FIXTURE_ISSUE_COMMENTS="$FIXTURE_ISSUE_COMMENTS" \
+      FIXTURE_REVIEWS='' \
+      CR_GATE_TEST_GREP_ERROR_ON='-oE 🟠 Major|Potential issue|⚠️|🧹 Nitpick|🔵 Trivial|Outside diff range|🟡 Minor' \
+      CR_GATE_TEST_GREP_PARTIAL="$PARTIAL_878" \
+        run_gate "$SCRATCH" 99 owner/repo 2>&1
+    )
+    RC_878=$?
+    set -e
+    if [ "$RC_878" = 2 ] \
+        && ! printf '%s' "$OUT_878" | grep -q 'CodeRabbit blocking-tier unresolved: 0'; then
+      pass "#878: $SURFACE_878 extraction failure (partial='$PARTIAL_878') exits 2, not clear or pending"
+    else
+      fail "#878: $SURFACE_878 extraction failure (partial='$PARTIAL_878') expected rc=2, got $RC_878"
+      printf '%s\n' "$OUT_878" >&2
+    fi
+  done
+done
 
 # ---------------------------------------------------------------------------
 echo

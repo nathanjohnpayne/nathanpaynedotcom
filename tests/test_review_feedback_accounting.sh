@@ -88,19 +88,19 @@ case "$endpoint" in
 esac
 
 case "$endpoint" in
-  repos/acme/widget/pulls/7)
+  repos/acme/widget*/pulls/7)
     cat "$GH_FIXTURE_DIR/pull.json"
     ;;
-  repos/acme/widget/contents/.github/review-policy.yml\?ref=*)
+  repos/acme/widget*/contents/.github/review-policy.yml\?ref=*)
     cat "$GH_FIXTURE_DIR/base-review-policy.yml"
     ;;
-  repos/acme/widget/pulls/7/comments)
+  repos/acme/widget*/pulls/7/comments)
     cat "$GH_FIXTURE_DIR/inline.json"
     ;;
-  repos/acme/widget/pulls/7/reviews)
+  repos/acme/widget*/pulls/7/reviews)
     cat "$GH_FIXTURE_DIR/reviews.json"
     ;;
-  repos/acme/widget/issues/7/comments)
+  repos/acme/widget*/issues/7/comments)
     cat "$GH_FIXTURE_DIR/issues.json"
     ;;
   repos/acme/widget/pulls/comments/*/reactions)
@@ -171,7 +171,7 @@ RUN_RC=0
 RUN_JSON=""
 RUN_ERR=""
 run_gate() {
-  local token_mode="${1:-ambient}" config_mode="${2:-override}" gate_script="${3:-$SCRIPT}" out="$TMP/out.json" err="$TMP/err.log"
+  local token_mode="${1:-ambient}" config_mode="${2:-override}" gate_script="${3:-$SCRIPT}" repo_arg="${4:-acme/widget}" out="$TMP/out.json" err="$TMP/err.log"
   local -a gate_env=(
     "PATH=$TMP/bin:$PATH"
     "GH_FIXTURE_DIR=$TMP/fixtures"
@@ -189,10 +189,10 @@ run_gate() {
       "${gate_env[@]}" \
       OP_PREFLIGHT_REVIEWER_PAT=test-token \
       OP_PREFLIGHT_CACHE_DIR="$TMP/no-cache" \
-      "$gate_script" 7 acme/widget >"$out" 2>"$err"
+      "$gate_script" 7 "$repo_arg" >"$out" 2>"$err"
   else
     env "${gate_env[@]}" GH_TOKEN=test-token \
-      "$gate_script" 7 acme/widget >"$out" 2>"$err"
+      "$gate_script" 7 "$repo_arg" >"$out" 2>"$err"
   fi
   RUN_RC=$?
   set -e
@@ -224,6 +224,14 @@ JSON
 run_gate
 assert_eq 2 "$RUN_RC" "failed fork archive relay is a persistent infrastructure block"
 assert_match 'read-only feedback archive relay.*12345' "$RUN_ERR" "relay failure names the unrecoverable source run"
+assert_match 'rerun that exact historical source run' "$RUN_ERR" "relay failure names the safe historical recovery"
+assert_match 'repos/acme/widget/actions/runs/12345/rerun' "$RUN_ERR" "relay recovery command targets the failed source run"
+assert_match 'new PR head or a different workflow run cannot' "$RUN_ERR" "relay recovery rejects unsafe substitutes"
+assert_match 'runs are rerunnable for 30 days' "$RUN_ERR" "relay recovery states the historical rerun limit"
+assert_match 'PR remains blocked and requires owner intervention' "$RUN_ERR" "unavailable relay recovery preserves the block"
+run_gate ambient override "$SCRIPT" 'acme/widget; touch /tmp/relay-command-injection'
+assert_eq 2 "$RUN_RC" "shell-sensitive repository name still blocks the relay"
+assert_match 'repos/acme/widget\\;\\ touch\\ /tmp/relay-command-injection/actions/runs/12345/rerun' "$RUN_ERR" "relay recovery shell-quotes the repository in its command"
 jq '. + [{
   "id": 3,
   "created_at": "2026-08-18T19:01:00Z",
@@ -347,6 +355,7 @@ JSON
 run_gate
 assert_eq 1 "$RUN_RC" "schema-valid flow-style policy preserves registered reviewer findings"
 assert_eq nathanpayne-release "$(printf '%s' "$RUN_JSON" | jq -r '.missing[0].reviewer')" "flow-style reviewer identity is inventoried"
+assert_eq required "$(printf '%s' "$RUN_JSON" | jq -r '.feedback_policy.priorities.p1')" "accounting exposes its parsed flow-style policy for acknowledgment decisions"
 mv "$TMP/review-policy.block-style.yml" "$TMP/review-policy.yml"
 
 reset_fixtures
@@ -394,9 +403,13 @@ cp "$TMP/review-policy.yml" "$TRUSTED_CHECKOUT/.github/review-policy.yml"
 git -C "$TRUSTED_CHECKOUT" init -q -b main
 git -C "$TRUSTED_CHECKOUT" remote add origin https://github.com/acme/widget.git
 git -C "$TRUSTED_CHECKOUT" symbolic-ref refs/remotes/origin/HEAD refs/remotes/origin/main
+cat >>"$TMP/fixtures/base-review-policy.yml" <<'YAML'
+feedback_policy: {mode: by-priority, priorities: {p2: required}}
+YAML
 run_gate ambient base "$TRUSTED_CHECKOUT/scripts/review-feedback-accounting.sh"
 assert_eq 1 "$RUN_RC" "default-branch checkout materializes the exact PR-base policy"
 assert_eq nathanpayne-release "$(printf '%s' "$RUN_JSON" | jq -r '.missing[0].reviewer')" "stale or dirty default checkout cannot omit a base reviewer"
+assert_eq required "$(printf '%s' "$RUN_JSON" | jq -r '.feedback_policy.priorities.p2')" "accounting emits the exact base policy, not stale local policy"
 
 reset_fixtures
 cat >"$TMP/fixtures/inline.json" <<'JSON'
@@ -2733,6 +2746,63 @@ JSON
 run_gate
 CALLS=$(grep -cF 'repos/acme/widget/code-scanning/alerts/40' "$TMP/gh-calls.log" || true)
 assert_eq 1 "$CALLS" "same alert number referenced by two comments is fetched only once (memoized)"
+
+# Force only the shared CodeRabbit marker read to fail after partial output.
+# Other grep users and all fixture/API reads keep their normal behavior.
+REAL_GREP=$(command -v grep) || {
+  echo "missing grep required by feedback-accounting fixture" >&2
+  exit 1
+}
+case "$REAL_GREP" in
+  /*) ;;
+  *) echo "feedback-accounting fixture requires an absolute grep path" >&2; exit 1 ;;
+esac
+printf '#!/usr/bin/env bash\nREAL_GREP=%q\n' "$REAL_GREP" >"$TMP/bin/grep"
+cat >>"$TMP/bin/grep" <<'SH'
+if [ "${CODERABBIT_EXTRACT_FAIL:-0}" = 1 ] && [ "${1:-}" = -oE ]; then
+  case "${2:-}" in
+    '🟠 Major|'*)
+      printf 'called\n' >>"$CODERABBIT_EXTRACT_FAIL_LOG"
+      printf '🟠 Major\n'
+      exit 2
+      ;;
+  esac
+fi
+exec "$REAL_GREP" "$@"
+SH
+chmod +x "$TMP/bin/grep"
+export CODERABBIT_EXTRACT_FAIL_LOG="$TMP/extract-failure.log"
+for surface in inline issues reviews; do
+  reset_fixtures
+  jq -n '[{id:87801,user:{login:"coderabbitai[bot]"},body:"_🟠 Major_",
+    created_at:"2026-09-13T01:00:00Z",updated_at:"2026-09-13T01:00:00Z",
+    submitted_at:"2026-09-13T01:00:00Z",path:"src/a.js",line:1}]' \
+    >"$TMP/fixtures/$surface.json"
+  : >"$CODERABBIT_EXTRACT_FAIL_LOG"
+  export CODERABBIT_EXTRACT_FAIL=1
+  run_gate
+  assert_eq 2 "$RUN_RC" "$surface tier read failure is accounting infrastructure error"
+  assert_eq "" "$RUN_JSON" "$surface tier read failure emits no accounting verdict"
+  assert_eq called "$(cat "$CODERABBIT_EXTRACT_FAIL_LOG")" "$surface failure reached the actual marker extractor"
+  export CODERABBIT_EXTRACT_FAIL=0
+  run_gate
+  assert_eq 1 "$RUN_RC" "$surface control: readable Major remains an unaccounted finding"
+done
+
+printf '_🟠 Major_\n' >"$TMP/failed-archive-body.txt"
+: >"$CODERABBIT_EXTRACT_FAIL_LOG"
+ARCHIVE_RC=0
+ARCHIVE_OUT=$(PATH="$TMP/bin:$PATH" CODERABBIT_EXTRACT_FAIL=1 "$RENDER_ARCHIVE" \
+  issue-comment 87802 'coderabbitai[bot]' '2026-09-13T01:00:00Z' \
+  "$TMP/failed-archive-body.txt" 2>"$TMP/failed-archive.err") || ARCHIVE_RC=$?
+assert_eq 2 "$ARCHIVE_RC" "archive tier read failure is infrastructure error"
+assert_eq "" "$ARCHIVE_OUT" "archive tier read failure emits no successful empty record"
+assert_eq called "$(cat "$CODERABBIT_EXTRACT_FAIL_LOG")" "archive failure reached the actual marker extractor"
+ARCHIVE_OUT=$(PATH="$TMP/bin:$PATH" CODERABBIT_EXTRACT_FAIL=0 "$RENDER_ARCHIVE" \
+  issue-comment 87802 'coderabbitai[bot]' '2026-09-13T01:00:00Z' "$TMP/failed-archive-body.txt")
+assert_match '^<!-- mergepath-feedback-archive:v1 ' "$ARCHIVE_OUT" "archive control: readable Major produces its history record"
+unset CODERABBIT_EXTRACT_FAIL CODERABBIT_EXTRACT_FAIL_LOG
+rm "$TMP/bin/grep"
 
 if [ "$FAIL" -ne 0 ]; then
   printf 'review-feedback-accounting: FAIL (%s failed, %s passed)\n' "$FAIL" "$PASS" >&2
