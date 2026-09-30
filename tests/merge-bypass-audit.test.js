@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   bindPushToPrs,
+  cell,
   contextStateAtMerge,
   evaluateMerge,
   issueHasMarker,
@@ -339,44 +340,84 @@ describe('review round 1 (#1072)', () => {
     base: { ref: 'main' },
     merge_commit_sha: merge,
   });
-  const bind = (before, shas, assoc) =>
+  // commits: [[sha, ...parentShas]] in compare (chronological) order.
+  const bind = (commits, assoc) =>
     bindPushToPrs({
-      before,
-      commits: shas.map((sha) => ({ sha })),
+      commits: commits.map(([sha, ...parents]) => ({
+        sha,
+        parents: parents.map((p) => ({ sha: p })),
+      })),
       associations: new Map(Object.entries(assoc)),
     });
 
-  it('binds a squash merge to its PR with the pre-push tip as base', () => {
-    const out = bind('b0', ['s1'], { s1: [pr(7, 's1')] });
+  it('binds a squash merge to its PR with its parent as base', () => {
+    const out = bind([['s1', 'b0']], { s1: [pr(7, 's1')] });
     expect(out.direct).toEqual([]);
     expect(out.groups.map((g) => [g.pr.number, g.shas, g.baseSha])).toEqual([[7, ['s1'], 'b0']]);
   });
 
   it('binds every commit of a rebase or merge-commit push to one PR', () => {
-    const rebase = bind('b0', ['r1', 'r2', 'r3'], {
-      r1: [pr(8, 'r3')],
-      r2: [pr(8, 'r3')],
-      r3: [pr(8, 'r3')],
-    });
+    const rebase = bind(
+      [
+        ['r1', 'b0'],
+        ['r2', 'r1'],
+        ['r3', 'r2'],
+      ],
+      { r1: [pr(8, 'r3')], r2: [pr(8, 'r3')], r3: [pr(8, 'r3')] },
+    );
     expect(rebase.groups.map((g) => [g.pr.number, g.shas.length, g.baseSha])).toEqual([
       [8, 3, 'b0'],
     ]);
-    const merge = bind('b0', ['c1', 'm1'], { c1: [pr(9, 'm1')], m1: [pr(9, 'm1')] });
+    const merge = bind(
+      [
+        ['c1', 'x0'],
+        ['m1', 'b0', 'c1'],
+      ],
+      { c1: [pr(9, 'm1')], m1: [pr(9, 'm1')] },
+    );
     expect(merge.groups.map((g) => [g.pr.number, g.baseSha])).toEqual([[9, 'b0']]);
     expect(merge.direct).toEqual([]);
   });
 
+  it('derives interleaved merge-commit bases from ancestry, not list order', () => {
+    // Chronological order interleaves the two PRs: a1, b1, mergeA, mergeB.
+    const out = bind(
+      [
+        ['a1', 'x0'],
+        ['b1', 'x0'],
+        ['mA', 'b0', 'a1'],
+        ['mB', 'mA', 'b1'],
+      ],
+      { a1: [pr(1, 'mA')], mA: [pr(1, 'mA')], b1: [pr(2, 'mB')], mB: [pr(2, 'mB')] },
+    );
+    expect(out.groups.map((g) => [g.pr.number, g.baseSha])).toEqual([
+      [1, 'b0'],
+      [2, 'mA'],
+    ]);
+  });
+
   it('treats a commit associated only with an older merged PR as a direct push', () => {
     // h1 was the head of #5, which squash-merged long ago as `old`.
-    const out = bind('b0', ['h1'], { h1: [pr(5, 'old')] });
+    const out = bind([['h1', 'b0']], { h1: [pr(5, 'old')] });
     expect(out.direct).toEqual(['h1']);
     expect(out.groups).toEqual([]);
   });
 
-  it('advances the base across a direct push followed by a merge', () => {
-    const out = bind('b0', ['d1', 's2'], { d1: [], s2: [pr(10, 's2')] });
+  it('bases a merge after a direct push on the direct commit', () => {
+    const out = bind(
+      [
+        ['d1', 'b0'],
+        ['s2', 'd1'],
+      ],
+      { d1: [], s2: [pr(10, 's2')] },
+    );
     expect(out.direct).toEqual(['d1']);
     expect(out.groups[0].baseSha).toBe('d1');
+  });
+
+  it('reports an unfollowable ancestry as an unknown base', () => {
+    const out = bind([['s1']], { s1: [pr(11, 's1')] });
+    expect(out.groups[0].baseSha).toBeNull();
   });
 
   it('renders a forced rewind with its own marker', () => {
@@ -489,5 +530,67 @@ describe('parseArgs (#1072 round 5)', () => {
       after: sha,
       pusher: '',
     });
+  });
+});
+
+describe('Codex round 3 (#1072)', () => {
+  it('counts a rerun queued before the merge as pending, superseding an earlier green run', () => {
+    const green = run({
+      suite: 7,
+      started: '2026-09-26T17:00:00Z',
+      completed: '2026-09-26T17:01:00Z',
+    });
+    const queued = { ...run({ suite: 7, started: null }), started_at: null, status: 'queued' };
+    const suiteCreatedAt = new Map([[7, '2026-09-26T16:59:00Z']]);
+    const result = contextStateAtMerge({
+      context: 'lint',
+      appId: ACTIONS,
+      checkRuns: [green, queued],
+      statuses: [],
+      mergedAt: MERGED,
+      suiteCreatedAt,
+    });
+    expect(result.state).toBe('pending');
+    expect(result.evidence[0].conclusion).toBe('queued');
+    // Without evidence the suite existed by the merge, the queued run is ignored.
+    expect(
+      contextStateAtMerge({
+        context: 'lint',
+        appId: ACTIONS,
+        checkRuns: [green, queued],
+        statuses: [],
+        mergedAt: MERGED,
+      }).state,
+    ).toBe('success');
+  });
+
+  it('escapes table delimiters, backslashes and line breaks in dynamic cells', () => {
+    expect(cell('a|b')).toBe('a\\|b');
+    expect(cell('a\\b')).toBe('a\\\\b');
+    expect(cell('a\nb')).toBe('a b');
+    const { body } = renderIssue(
+      {
+        kind: 'merged-pr',
+        pr: { number: 4, title: 't', merged_at: MERGED, head_sha: 'abcdef1' },
+        violations: [
+          { context: 'lint | fast', state: 'failure', evidence: [{ conclusion: 'failure' }] },
+        ],
+      },
+      { repo: 'o/r' },
+    );
+    expect(body).toContain('| lint \\| fast | **failure** | failure |');
+  });
+
+  it('names a freshness-only breach as a stale branch, not failing checks', () => {
+    const stale = {
+      kind: 'merged-pr',
+      pr: { number: 5, title: 't', merged_at: MERGED, head_sha: 'abcdef1' },
+      violations: [
+        { context: 'Branch up to date with `main` (strict)', state: 'behind', evidence: [] },
+      ],
+    };
+    const { body } = renderIssue(stale, { repo: 'o/r' });
+    expect(body).toContain('was not up to date with `main`');
+    expect(body).not.toContain('were not green');
   });
 });

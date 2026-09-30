@@ -34,7 +34,8 @@ on:
   # A push carrying `[skip ci]` or another skip instruction never starts the
   # push-triggered run, so an administrator could land a bypass and silence
   # this detector in one push. Schedules ignore skip instructions: every 30
-  # minutes, re-audit what reached main in the last 180. GitHub may delay
+  # minutes, re-audit every update of main recorded (by the repository
+  # activity API, which logs when a ref moved) in the last 180. GitHub may delay
   # or drop scheduled runs, so this is best-effort: the wide lookback rides
   # out a few missed sweeps, and the weekly pr-audit.yml stays the backstop.
   # Overlap is harmless: issues are deduplicated, and a finding that is
@@ -56,7 +57,13 @@ permissions:
   issues: write
 
 concurrency:
-  group: merge-bypass-audit-${{ github.sha }}-${{ inputs.pr || 'push' }}
+  # One repository-wide group. Issue deduplication is a lookup followed by a
+  # create, which is not atomic, so two overlapping audits of the same PR
+  # (a slow push run and a sweep, or two dispatches) could each file it.
+  # Serializing every run closes that race. GitHub keeps at most one pending
+  # run per group and cancels an older pending one; the 30-minute sweep
+  # re-audits whatever such a cancelled run would have covered.
+  group: merge-bypass-audit
   cancel-in-progress: false
 
 jobs:

@@ -56,12 +56,24 @@ export const ISSUE_LABELS = ['policy-violation', 'audit'];
 
 const byTime = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
 
+const NOT_STARTED = new Set(['queued', 'waiting', 'pending', 'requested']);
+
 /**
- * State of one check run as of `mergedAt`, or null if it had not started.
+ * State of one check run as of `mergedAt`, or null if it did not exist then.
  * ISO-8601 UTC strings compare correctly as strings.
+ *
+ * A run queued but not yet started has `started_at: null`. It still counts
+ * (as pending) when its check suite existed by the merge: a queued rerun is
+ * the newest run in its suite, and a non-admin would have seen it pending.
+ * `suiteCreatedAt` maps suite id -> created_at; without it a queued run is
+ * treated as not yet existing.
  */
-function runStateAt(run, mergedAt) {
-  if (!run.started_at || run.started_at > mergedAt) return null;
+function runStateAt(run, mergedAt, suiteCreatedAt) {
+  if (!run.started_at) {
+    const created = suiteCreatedAt?.get(run.check_suite?.id);
+    return NOT_STARTED.has(run.status) && created && created <= mergedAt ? 'pending' : null;
+  }
+  if (run.started_at > mergedAt) return null;
   if (run.status !== 'completed' || !run.completed_at || run.completed_at > mergedAt) {
     return 'pending';
   }
@@ -84,7 +96,7 @@ function statusStateAt(status) {
  * Returns { state, evidence } where state is success | failure | pending |
  * missing and evidence lists the entries that decided it.
  */
-export function contextStateAtMerge({ context, appId, checkRuns, statuses, mergedAt, countedSuites }) {
+export function contextStateAtMerge({ context, appId, checkRuns, statuses, mergedAt, countedSuites, suiteCreatedAt }) {
   const pinned = appId !== null && appId !== undefined && appId !== -1;
   const evidence = [];
 
@@ -94,19 +106,21 @@ export function contextStateAtMerge({ context, appId, checkRuns, statuses, merge
     if (run.name !== context) continue;
     if (pinned && run.app?.id !== appId) continue;
     if (countedSuites && !countedSuites.has(run.check_suite?.id)) continue;
-    if (runStateAt(run, mergedAt) === null) continue;
+    if (runStateAt(run, mergedAt, suiteCreatedAt) === null) continue;
     const suite = run.check_suite?.id ?? `run-${run.id}`;
     const prev = latestPerSuite.get(suite);
-    if (!prev || byTime(prev.started_at, run.started_at) < 0 || (prev.started_at === run.started_at && prev.id < run.id)) {
+    // A queued run (no start time yet) is the newest in its suite.
+    const key = (r) => r.started_at ?? '\uffff';
+    if (!prev || byTime(key(prev), key(run)) < 0 || (key(prev) === key(run) && prev.id < run.id)) {
       latestPerSuite.set(suite, run);
     }
   }
   for (const run of latestPerSuite.values()) {
-    const atMerge = runStateAt(run, mergedAt);
+    const atMerge = runStateAt(run, mergedAt, suiteCreatedAt);
     // Label what the run showed AT the merge. A run still going then may
     // have finished since; say so rather than print the later outcome as
     // though it were the state being judged.
-    let conclusion = atMerge === 'pending' ? 'in progress' : run.conclusion;
+    let conclusion = atMerge === 'pending' ? (run.started_at ? 'in progress' : 'queued') : run.conclusion;
     if (atMerge === 'pending' && run.status === 'completed') conclusion += `, finished later: ${run.conclusion}`;
     evidence.push({
       kind: 'check_run',
@@ -143,7 +157,7 @@ export function contextStateAtMerge({ context, appId, checkRuns, statuses, merge
  * Evaluate a merged PR against the required contexts. Returns the contexts
  * that were not green at merge; an empty array means the merge was clean.
  */
-export function evaluateMerge({ required, checkRuns, statuses, mergedAt, rollupSuites }) {
+export function evaluateMerge({ required, checkRuns, statuses, mergedAt, rollupSuites, suiteCreatedAt }) {
   if (!Array.isArray(required) || required.length === 0) {
     // An empty list would make every merge look clean. Refuse to conclude.
     throw new Error('no required status checks visible on the protected branch; cannot audit');
@@ -151,7 +165,15 @@ export function evaluateMerge({ required, checkRuns, statuses, mergedAt, rollupS
   const violations = [];
   for (const { context, app_id: appId } of required) {
     const countedSuites = rollupSuites ? (rollupSuites.get(context) ?? new Set()) : undefined;
-    const result = contextStateAtMerge({ context, appId, checkRuns, statuses, mergedAt, countedSuites });
+    const result = contextStateAtMerge({
+      context,
+      appId,
+      checkRuns,
+      statuses,
+      mergedAt,
+      countedSuites,
+      suiteCreatedAt,
+    });
     // An unpinned context can be satisfied by a commit status, and GitHub
     // may evaluate statuses on the PR's test merge commit, which cannot be
     // recovered after the merge. Its verdict is therefore from the head only.
@@ -231,11 +253,20 @@ export function rulesRequireUpToDate(rules = []) {
  * pushed directly, does not count.
  *
  * `associations` maps sha -> [PR objects from GET /commits/{sha}/pulls].
- * Returns { groups: [{ pr, shas, baseSha }], direct: [sha] } in push order,
- * where baseSha is the branch tip just before that PR's commits landed.
+ * `commits` carry `parents` ([{ sha }]) as the compare API returns them.
+ * Returns { groups: [{ pr, shas, baseSha }], direct: [sha] } in push order.
+ *
+ * baseSha is the tip of main the PR merged onto, derived from ANCESTRY, not
+ * from list position: the compare API orders commits chronologically, so
+ * two merge-commit PRs can interleave (a1, b1, mergeA, mergeB) and "the
+ * entry before" would hand B the base a1 instead of mergeA. A merge commit's
+ * first parent is the base. Otherwise (squash, rebase) walk first parents
+ * from the merge commit back past the PR's own commits. When the ancestry
+ * cannot be followed, baseSha is null and freshness is reported unaudited.
  */
-export function bindPushToPrs({ before, commits, associations }) {
+export function bindPushToPrs({ commits, associations }) {
   const pushed = new Set(commits.map((c) => c.sha));
+  const bySha = new Map(commits.map((c) => [c.sha, c]));
   const owner = new Map();
   for (const { sha } of commits) {
     const pr = (associations.get(sha) ?? []).find(
@@ -246,21 +277,32 @@ export function bindPushToPrs({ before, commits, associations }) {
   const groups = [];
   const direct = [];
   const byPr = new Map();
-  let tip = before;
   for (const { sha } of commits) {
     const pr = owner.get(sha);
     if (!pr) {
       direct.push(sha);
-      tip = sha;
       continue;
     }
     if (!byPr.has(pr.number)) {
-      const group = { pr, shas: [], baseSha: tip };
+      const group = { pr, shas: [], baseSha: null };
       byPr.set(pr.number, group);
       groups.push(group);
     }
     byPr.get(pr.number).shas.push(sha);
-    tip = sha;
+  }
+  for (const group of groups) {
+    const own = new Set(group.shas);
+    const merge = bySha.get(group.pr.merge_commit_sha);
+    const parents = merge?.parents ?? [];
+    if (parents.length >= 2) {
+      group.baseSha = parents[0].sha;
+      continue;
+    }
+    let cur = group.pr.merge_commit_sha;
+    for (let steps = 0; own.has(cur) && steps <= own.size; steps++) {
+      cur = bySha.get(cur)?.parents?.[0]?.sha ?? null;
+    }
+    group.baseSha = cur && !own.has(cur) ? cur : null;
   }
   return { groups, direct };
 }
@@ -269,6 +311,28 @@ export function markerFor(finding) {
   if (finding.kind === 'direct-push') return `${MARKER_PREFIX}commit=${finding.sha}`;
   if (finding.kind === 'force-push') return `${MARKER_PREFIX}force=${finding.before}..${finding.after}`;
   return `${MARKER_PREFIX}pr=${finding.pr.number}`;
+}
+
+/**
+ * Escape a value for a Markdown table cell: a `|` would split the cell and
+ * a line break would end the row, so the issue could no longer say which
+ * state and evidence belong to which requirement.
+ */
+export function cell(value) {
+  return String(value ?? '')
+    .replace(/\\/g, '\\\\')
+    .replace(/\|/g, '\\|')
+    .replace(/\r?\n/g, ' ');
+}
+
+/** Name what was breached: failing checks, a stale branch, or both. */
+function breach(violations, headSha) {
+  const checks = violations.filter((v) => v.state !== 'behind').length;
+  const stale = violations.some((v) => v.state === 'behind');
+  const head = `\`${headSha.slice(0, 7)}\``;
+  if (checks && stale) return `required checks on its head commit ${head} were not green and the branch was not up to date`;
+  if (stale) return `its head commit ${head} was not up to date with \`main\`, which protection requires`;
+  return `required checks on its head commit ${head} were not green`;
 }
 
 export function renderIssue(finding, { repo, enforcementLevel, backfill = false }) {
@@ -320,15 +384,15 @@ export function renderIssue(finding, { repo, enforcementLevel, backfill = false 
   const { pr, violations } = finding;
   const rows = violations.map((v) => {
     const evidence = v.evidence.length
-      ? v.evidence.map((e) => (e.url ? `[${e.conclusion}](${e.url})` : e.conclusion)).join(', ')
+      ? v.evidence.map((e) => (e.url ? `[${cell(e.conclusion)}](${e.url})` : cell(e.conclusion))).join(', ')
       : 'nothing reported';
-    return `| ${v.context}${v.headOnly ? ' (head commit only)' : ''} | **${v.state}** | ${evidence} |`;
+    return `| ${cell(v.context)}${v.headOnly ? ' (head commit only)' : ''} | **${v.state}** | ${evidence} |`;
   });
   return {
     title: `Merge bypass: #${pr.number} merged past ${violations.length} protection requirement${violations.length === 1 ? "" : "s"}`,
     body: [
       marker,
-      `#${pr.number} ("${pr.title}") merged into \`main\` at ${pr.merged_at} by \`${pr.merged_by ?? 'unknown'}\` while required checks on its head commit \`${pr.head_sha.slice(0, 7)}\` were not green. A non-admin merge would have been blocked.`,
+      `#${pr.number} ("${pr.title}") merged into \`main\` at ${pr.merged_at} by \`${pr.merged_by ?? 'unknown'}\` while ${breach(violations, pr.head_sha)}. A non-admin merge would have been blocked.`,
       '',
       '| Required check | State at merge | Runs GitHub was counting |',
       '|---|---|---|',
@@ -497,7 +561,16 @@ async function auditPr(gh, repo, pr, { required, strict, baseSha }) {
   const checkRuns = await gh.paginate(`/commits/${head}/check-runs?filter=all`, (d) => d.check_runs);
   const statuses = await gh.paginate(`/commits/${head}/statuses`);
   const rollupSuites = await rollupSuitesFor(gh, repo, pr.number, head);
-  const violations = evaluateMerge({ required, checkRuns, statuses, mergedAt: pr.merged_at, rollupSuites });
+  const suites = await gh.paginate(`/commits/${head}/check-suites`, (d) => d.check_suites);
+  const suiteCreatedAt = new Map(suites.map((cs) => [cs.id, cs.created_at]));
+  const violations = evaluateMerge({
+    required,
+    checkRuns,
+    statuses,
+    mergedAt: pr.merged_at,
+    rollupSuites,
+    suiteCreatedAt,
+  });
   let upToDate = 'not evaluated';
   if (strict && baseSha) {
     upToDate = (await containsBase(gh, baseSha, head)) ? 'yes' : 'no';
@@ -603,6 +676,88 @@ function summarize(lines) {
   for (const line of lines) console.log(line);
 }
 
+/**
+ * Audit one update of main (before -> after): classify a rewrite, bind each
+ * pushed commit to the merged PR that produced it, report direct pushes,
+ * and evaluate each merged PR. `ctx.auditMerge(pr, baseSha)` returns a
+ * finding, a clean result, or throws when PRs cannot be audited.
+ */
+async function auditPushRange(gh, { before, after, pusher, forced = false }, ctx) {
+  const findings = [];
+  let commits;
+  if (!before || /^0+$/.test(before)) {
+    // No prior tip (a new branch): audit the pushed commit alone. Its merge
+    // base comes from its own parents in bindPushToPrs.
+    const { data } = await gh.request(`/commits/${after}`);
+    commits = [data];
+  } else {
+    const compared = await compareAll(gh, before, after);
+    if (forced || compared.status === 'behind' || compared.status === 'diverged') {
+      // Not a fast-forward: history on main was rewritten.
+      findings.push({ kind: 'force-push', before, after, status: forced ? 'forced' : compared.status, pusher });
+    }
+    commits = compared.commits;
+  }
+
+  // Bind commits to the PRs that produced them. A fresh merge commit is
+  // associated with its PR almost at once; give any stragglers two short
+  // grace periods in aggregate, never per commit, so a long direct push
+  // cannot exhaust the job timeout before anything is filed.
+  const associations = new Map();
+  await associate(
+    gh,
+    commits.map((c) => c.sha),
+    associations,
+  );
+  let bound = bindPushToPrs({ commits, associations });
+  for (let attempt = 0; attempt < 2 && bound.direct.length > 0; attempt++) {
+    await new Promise((r) => setTimeout(r, 10_000));
+    await associate(gh, bound.direct, associations);
+    bound = bindPushToPrs({ commits, associations });
+  }
+
+  const messages = new Map(commits.map((c) => [c.sha, c.commit?.message?.split('\n')[0]]));
+  for (const sha of bound.direct) {
+    findings.push({ kind: 'direct-push', sha, message: messages.get(sha), pusher });
+  }
+  for (const group of bound.groups) {
+    if (ctx.seen.has(group.pr.number)) continue;
+    ctx.seen.add(group.pr.number);
+    const { data: pr } = await gh.request(`/pulls/${group.pr.number}`);
+    const result = await ctx.auditMerge(pr, group.baseSha);
+    if (result && !result.clean) findings.push(result);
+  }
+  return findings;
+}
+
+/**
+ * Every update of main that ARRIVED in the last `minutes`, from the
+ * repository activity API. Commit dates are author-controlled and say
+ * nothing about when a ref moved, so they cannot be a sweep cursor: an old
+ * commit pushed today, or a forced rewind to an old tip, would fall outside
+ * a date window. Activity records each push with its before/after SHAs and
+ * the time it happened. Newest first; paginated until the window closes.
+ */
+async function recentMainUpdates(gh, minutes) {
+  const since = new Date(Date.now() - minutes * 60_000).toISOString();
+  const updates = [];
+  let next = `/activity?ref=${encodeURIComponent('refs/heads/main')}&per_page=100`;
+  while (next) {
+    const page = await gh.request(next);
+    if (!Array.isArray(page.data)) throw new Error('activity API returned a non-array page');
+    let older = false;
+    for (const a of page.data) {
+      if (a.timestamp < since) {
+        older = true;
+        break;
+      }
+      updates.push(a);
+    }
+    next = older ? null : (page.link?.match(/<([^>]+)>;\s*rel="next"/)?.[1] ?? null);
+  }
+  return { since, updates };
+}
+
 export async function main(argv = process.argv.slice(2)) {
   const args = parseArgs(argv);
   const repo = process.env.GITHUB_REPOSITORY;
@@ -614,9 +769,6 @@ export async function main(argv = process.argv.slice(2)) {
   await assertRulesComplete(gh, repo);
   const required = requiredContexts(branch.protection, rules);
   const enforcementLevel = branch.protection?.required_status_checks?.enforcement_level;
-  if (required.length === 0) {
-    throw new Error('no required status checks visible on main; cannot audit (a clean result would be meaningless)');
-  }
   const strict = await resolveStrict(gh, rules);
 
   const notes = [];
@@ -624,80 +776,57 @@ export async function main(argv = process.argv.slice(2)) {
     notes.push('up-to-date requirement unreadable and MERGE_BYPASS_CLASSIC_STRICT unset: branch freshness not audited');
   }
 
-  const findings = [];
-  const note = (pr, result) => {
-    if (result?.clean && strict && result.upToDate === 'not evaluated') {
-      notes.push(`#${pr.number}: merge base ambiguous (multi-commit squash or rebase); branch freshness not audited`);
-    }
+  // Direct pushes and rewrites do not depend on the required-check list, so
+  // an empty list must not stop them being filed. Only merged-PR evaluation
+  // needs it; that path records the failure and the run exits 2 after
+  // filing whatever push-level findings it has.
+  let unauditable = null;
+  const ctx = {
+    seen: new Set(),
+    async auditMerge(pr, baseSha) {
+      if (required.length === 0) {
+        unauditable = `#${pr.number}: no required status checks visible on main, so its merge cannot be audited`;
+        return null;
+      }
+      const result = await auditPr(gh, repo, pr, { required, strict, baseSha });
+      if (result?.clean && strict && result.upToDate === 'not evaluated') {
+        notes.push(`#${pr.number}: merge base ambiguous (multi-commit squash or rebase); branch freshness not audited`);
+      }
+      return result;
+    },
   };
 
+  const findings = [];
   if (args.pr) {
     const { data: pr } = await gh.request(`/pulls/${args.pr}`);
     if (!pr.merged_at) throw new Error(`#${args.pr} is not merged`);
     if (pr.base?.ref !== 'main') throw new Error(`#${args.pr} merged into ${pr.base?.ref}, not main; nothing to audit`);
     const baseSha = strict ? await backfillBase(gh, pr) : null;
-    const result = await auditPr(gh, repo, pr, { required, strict, baseSha });
-    if (result?.clean) note(pr, result);
-    else if (result) findings.push(result);
+    const result = await ctx.auditMerge(pr, baseSha);
+    if (result && !result.clean) findings.push(result);
+  } else if (args.sinceMinutes) {
+    // Scheduled sweep. A push carrying `[skip ci]` never starts the
+    // push-triggered run, so an admin could bypass and silence the detector
+    // in one push. Schedules ignore skip instructions: re-audit every update
+    // of main that arrived in the window. Overlap is harmless: issues are
+    // deduped, and an already-filed finding exits 0.
+    const { since, updates } = await recentMainUpdates(gh, Number(args.sinceMinutes));
+    if (updates.length === 0) {
+      summarize([`merge-bypass-audit: sweep found no updates to main since ${since}.`]);
+      return 0;
+    }
+    for (const u of [...updates].reverse()) {
+      const forced = u.activity_type === 'force_push';
+      findings.push(
+        ...(await auditPushRange(
+          gh,
+          { before: u.before, after: u.after, pusher: u.actor?.login, forced },
+          ctx,
+        )),
+      );
+    }
   } else {
-    if (args.sinceMinutes) {
-      // Scheduled sweep. A push carrying `[skip ci]` (or any skip
-      // instruction) never starts the push-triggered run, so an admin could
-      // bypass and silence the detector in one push. Schedules ignore skip
-      // instructions: re-audit everything that reached main in the window.
-      // Overlapping windows are harmless because issues are deduped.
-      const since = new Date(Date.now() - Number(args.sinceMinutes) * 60_000).toISOString();
-      const recent = await gh.paginate(`/commits?sha=main&since=${since}`);
-      if (recent.length === 0) {
-        summarize([`merge-bypass-audit: sweep found no commits on main since ${since}.`]);
-        return 0;
-      }
-      args.after = recent[0].sha;
-      args.before = recent[recent.length - 1].parents?.[0]?.sha ?? null;
-      if (!args.before) throw new Error(`sweep: oldest commit ${recent[recent.length - 1].sha} has no parent`);
-    }
-    let commits;
-    let before = args.before;
-    if (!before || /^0+$/.test(before)) {
-      const { data } = await gh.request(`/commits/${args.after}`);
-      commits = [data];
-      before = data.parents?.[0]?.sha ?? null;
-    } else {
-      const compared = await compareAll(gh, before, args.after);
-      if (compared.status === 'behind' || compared.status === 'diverged') {
-        // Not a fast-forward: history on main was rewritten.
-        findings.push({ kind: 'force-push', before, after: args.after, status: compared.status, pusher: args.pusher });
-      }
-      commits = compared.commits;
-    }
-
-    // Bind commits to the PRs that produced them. A fresh merge commit is
-    // associated with its PR almost at once; give any stragglers two short
-    // grace periods in aggregate, never per commit, so a long direct push
-    // cannot exhaust the job timeout before anything is filed.
-    const associations = new Map();
-    await associate(
-      gh,
-      commits.map((c) => c.sha),
-      associations,
-    );
-    let bound = bindPushToPrs({ before, commits, associations });
-    for (let attempt = 0; attempt < 2 && bound.direct.length > 0; attempt++) {
-      await new Promise((r) => setTimeout(r, 10_000));
-      await associate(gh, bound.direct, associations);
-      bound = bindPushToPrs({ before, commits, associations });
-    }
-
-    const messages = new Map(commits.map((c) => [c.sha, c.commit?.message?.split('\n')[0]]));
-    for (const sha of bound.direct) {
-      findings.push({ kind: 'direct-push', sha, message: messages.get(sha), pusher: args.pusher });
-    }
-    for (const group of bound.groups) {
-      const { data: pr } = await gh.request(`/pulls/${group.pr.number}`);
-      const result = await auditPr(gh, repo, pr, { required, strict, baseSha: group.baseSha });
-      if (result?.clean) note(pr, result);
-      else if (result) findings.push(result);
-    }
+    findings.push(...(await auditPushRange(gh, { before: args.before, after: args.after, pusher: args.pusher }, ctx)));
   }
 
   const unpinned = required.filter((r) => r.app_id === null || r.app_id === undefined || r.app_id === -1);
@@ -707,18 +836,24 @@ export async function main(argv = process.argv.slice(2)) {
     );
   }
 
-  if (findings.length === 0) {
+  // Deduplicate findings reached through more than one update in a sweep.
+  const unique = [...new Map(findings.map((f) => [markerFor(f), f])).values()];
+
+  if (unique.length === 0) {
     summarize([
-      `merge-bypass-audit: clean. Every audited merge had all ${required.length} required checks green` +
-        (strict && !notes.some((n) => n.includes('freshness')) ? ' on an up-to-date branch.' : '.'),
+      unauditable
+        ? `merge-bypass-audit: no push-level bypass found, but ${unauditable}.`
+        : `merge-bypass-audit: clean. Every audited merge had all ${required.length} required checks green` +
+          (strict && !notes.some((n) => n.includes('freshness')) ? ' on an up-to-date branch.' : '.'),
       ...notes.map((n) => `- note: ${n}`),
     ]);
+    if (unauditable) throw new Error(unauditable);
     return 0;
   }
 
   let filed = 0;
-  const lines = [`merge-bypass-audit: ${findings.length} bypass finding(s).`, ...notes.map((n) => `- note: ${n}`)];
-  for (const finding of findings) {
+  const lines = [`merge-bypass-audit: ${unique.length} bypass finding(s).`, ...notes.map((n) => `- note: ${n}`)];
+  for (const finding of unique) {
     const { title, body } = renderIssue(finding, { repo, enforcementLevel, backfill: Boolean(args.pr) });
     lines.push(`- ${title}`);
     if (args.dryRun) {
@@ -739,6 +874,9 @@ export async function main(argv = process.argv.slice(2)) {
     filed++;
   }
   summarize(lines);
+  // Push-level findings are filed first; an unauditable merge still fails
+  // the run (exit 2) so it is never read as clean.
+  if (unauditable) throw new Error(unauditable);
   // Fail only on a new bypass (or any finding in a dry run). A finding that
   // is already filed stays visible in its issue; failing again on every
   // overlapping sweep would turn one bypass into a red run every half hour.
