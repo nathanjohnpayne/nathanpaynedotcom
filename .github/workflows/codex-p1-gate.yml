@@ -595,16 +595,28 @@ jobs:
           #   2 = config / usage error (CI failure, not a gate block)
           fingerprint_available=false
           if [ ! -x scripts/review-feedback-surface-fingerprint.sh ]; then
-            # One bootstrap exception is required while the introducing PR's
-            # trusted default branch predates both the helper and its manifest
-            # entry. Once the manifest declares the helper, absence is an
-            # infrastructure failure rather than a silent fence downgrade.
-            if grep -Fq 'path: scripts/review-feedback-surface-fingerprint.sh' \
-              .mergepath-sync.yml; then
+            # The trusted checkout itself distinguishes a first delivery from
+            # a broken installation. A default branch whose workflow does not
+            # yet reference the helper is in the one valid bootstrap window;
+            # once it does, a missing helper is an infrastructure failure.
+            if [ ! -e .github/workflows/codex-p1-gate.yml ] \
+              && [ ! -L .github/workflows/codex-p1-gate.yml ]; then
+              # GitHub can execute the PR's first delivery of this workflow
+              # while this trusted checkout still points at the older default
+              # branch, where neither the workflow nor helper exists yet.
+              :
+            elif [ ! -r .github/workflows/codex-p1-gate.yml ]; then
+              echo "::error::Could not read the trusted Codex P1 workflow to determine fingerprint-helper bootstrap state"
+              exit 1
+            elif grep -Fq 'scripts/review-feedback-surface-fingerprint.sh' \
+              .github/workflows/codex-p1-gate.yml; then
               echo "::error::Installed feedback-fingerprint helper is missing or not executable"
               exit 1
+            elif [ "$?" -ne 1 ]; then
+              echo "::error::Could not read the trusted Codex P1 workflow to determine fingerprint-helper bootstrap state"
+              exit 1
             fi
-            echo "::warning::Feedback-fingerprint helper is not installed on the trusted default branch yet; allowing only the manifest-absent bootstrap window"
+            echo "::warning::Feedback-fingerprint helper is not installed on the trusted default branch yet; allowing only the workflow-reference-absent bootstrap window"
             feedback_fp_before="bootstrap-unavailable"
           else
             fingerprint_available=true
@@ -790,12 +802,12 @@ jobs:
           MAX_RELAY_SOURCE_RUNS=1000
           fingerprint_available=false
           if [ ! -x scripts/review-feedback-surface-fingerprint.sh ]; then
-            if grep -Fq 'path: scripts/review-feedback-surface-fingerprint.sh' \
-              .mergepath-sync.yml; then
-              echo "::error::Installed feedback-fingerprint helper is missing or not executable"
-              exit 1
-            fi
-            echo "::warning::Feedback-fingerprint helper is not installed on the trusted default branch yet; allowing only the manifest-absent bootstrap window"
+            # Scheduled runs load this default-branch workflow and helper from
+            # the same revision, so there is no bootstrap skew to allow. Keep
+            # iterating so every readable PR head receives a terminal failure
+            # generation instead of relying on this default-branch native job.
+            echo "::error::Installed feedback-fingerprint helper is missing or not executable"
+            had_infra_error=1
           else
             fingerprint_available=true
           fi
@@ -806,15 +818,25 @@ jobs:
             # Look up the PR's head SHA so the check_run lands on the
             # branch-protection-relevant commit (NOT the schedule's
             # default-branch HEAD).
-            pr_json=$(gh api "repos/$REPO/pulls/$PR")
-            head_sha=$(jq -r '.head.sha' <<<"$pr_json")
-            is_fork=$(jq -r '.head.repo.fork // false' <<<"$pr_json")
-            pr_actor=$(jq -r '.user.login // ""' <<<"$pr_json")
+            if ! pr_json=$(gh api "repos/$REPO/pulls/$PR"); then
+              echo "::error::Could not read PR #$PR; cannot open a fail-closed lease"
+              had_infra_error=1
+              echo "::endgroup::"
+              continue
+            fi
+            if ! head_sha=$(jq -r '.head.sha' <<<"$pr_json") \
+              || ! is_fork=$(jq -r '.head.repo.fork // false' <<<"$pr_json") \
+              || ! pr_actor=$(jq -r '.user.login // ""' <<<"$pr_json") \
+              || ! pr_created_at=$(jq -r '.created_at // ""' <<<"$pr_json"); then
+              echo "::error::Could not parse PR #$PR response; cannot open a fail-closed lease"
+              had_infra_error=1
+              echo "::endgroup::"
+              continue
+            fi
             requires_relay="$is_fork"
             if [ "$pr_actor" = 'dependabot[bot]' ]; then
               requires_relay=true
             fi
-            pr_created_at=$(jq -r '.created_at // ""' <<<"$pr_json")
             if [ -z "$head_sha" ] || [ "$head_sha" = "null" ]; then
               echo "::error::Could not resolve head SHA for PR #$PR; cannot open a fail-closed lease"
               had_infra_error=1
@@ -841,10 +863,27 @@ jobs:
               continue
             fi
 
+            if [ "$fingerprint_available" != true ]; then
+              output="Installed feedback-fingerprint helper is missing or not executable; refusing scheduled clearance."
+              if ! gh api -X PATCH "repos/$REPO/check-runs/$check_id" \
+                -f status="completed" \
+                -f conclusion="failure" \
+                -f "output[title]=Codex P1 gate — fingerprint helper unavailable" \
+                -f "output[summary]=$output" \
+                >/dev/null; then
+                echo "::error::Failed to close check lease $check_id for PR #$PR; it remains pending"
+              fi
+              echo "::endgroup::"
+              continue
+            fi
+
             relay_pending=false
             relay_scan_error=false
             if [ "$requires_relay" = true ]; then
               source_runs='[]'
+              relay_source_cache="$RUNNER_TEMP/relay-source-cache-$PR"
+              rm -rf "$relay_source_cache"
+              mkdir -p "$relay_source_cache"
               # Scheduled runs and other PRs share this workflow. Query only
               # event kinds that can produce this PR's relay handoff, then
               # apply the fail-closed bound after filtering to its exact run
@@ -855,7 +894,7 @@ jobs:
               scan_source_window() {
                 local source_event="$1" window_start="$2" window_end="$3"
                 local start_iso end_iso source_page source_page_json source_total
-                local midpoint page_runs source_count
+                local midpoint matching_source_runs page_runs source_count
                 [ "$relay_scan_error" != true ] || return 0
                 start_iso=$(date -u -d "@$window_start" +%Y-%m-%dT%H:%M:%SZ)
                 end_iso=$(date -u -d "@$window_end" +%Y-%m-%dT%H:%M:%SZ)
@@ -890,9 +929,44 @@ jobs:
                       return 0
                     fi
                   fi
-                  page_runs=$(jq -c --arg title "Codex P1 Gate relay-v1 PR #$PR" \
-                    '[.workflow_runs[] | select(.display_title == $title) | .id]' \
-                    <<<"$source_page_json")
+                  page_runs='[]'
+                  if ! matching_source_runs=$(jq -cs \
+                    --arg title "Codex P1 Gate relay-v1 PR #$PR" '
+                      if length != 1 then
+                        error("expected one workflow-runs response")
+                      else .[0] end |
+                      if (.workflow_runs | type) != "array" then
+                        error("workflow_runs is not an array")
+                      else
+                        .workflow_runs[] | select(.display_title == $title)
+                      end
+                    ' <<<"$source_page_json"); then
+                    echo "::error::Workflow-runs API response is missing a valid workflow_runs array for PR #$PR"
+                    relay_scan_error=true
+                    return 0
+                  fi
+                  while IFS= read -r source_run; do
+                    [ -n "$source_run" ] || continue
+                    set +e
+                    binding=$(printf '%s' "$source_run" \
+                      | MERGEPATH_RELAY_SOURCE_CACHE_DIR="$relay_source_cache" \
+                        scripts/workflow/feedback-archive-relay-source.sh "$REPO" "$PR")
+                    bind_rc=$?
+                    set -e
+                    if [ "$bind_rc" -eq 0 ]; then
+                      if [ "$(jq -r '.requires_relay' <<<"$binding")" = true ]; then
+                        bound_run=$(jq -c '.source_run_id' <<<"$binding")
+                        page_runs=$(printf '%s\n%s\n' "$page_runs" "$bound_run" \
+                          | jq -cs '.[0] + [.[1]]')
+                      fi
+                    elif [ "$bind_rc" -ne 4 ]; then
+                      echo "::error::Could not resolve the trusted source binding for a matching run on PR #$PR"
+                      relay_scan_error=true
+                      return 0
+                    fi
+                    # rc 4 is an unbound title lookalike. It has no authority
+                    # to hold this PR's sweep, so leave it out of the inventory.
+                  done <<<"$matching_source_runs"
                   source_runs=$(printf '%s\n%s\n' "$source_runs" "$page_runs" \
                     | jq -cs '.[0] + .[1]')
                   source_count=$(jq 'length' <<<"$source_runs")
@@ -944,23 +1018,35 @@ jobs:
               rc=1
             else
               feedback_fp_before="bootstrap-unavailable"
+              fingerprint_error=false
               if [ "$fingerprint_available" = true ]; then
-                feedback_fp_before=$(scripts/review-feedback-surface-fingerprint.sh \
-                  "$PR" "$REPO")
+                if ! feedback_fp_before=$(scripts/review-feedback-surface-fingerprint.sh \
+                  "$PR" "$REPO"); then
+                  fingerprint_error=true
+                fi
               fi
-              set +e
-              output=$(scripts/codex-p1-gate.sh "$PR" "$REPO" 2>&1)
-              rc=$?
-              set -e
+              if [ "$fingerprint_error" = true ]; then
+                output="Could not read the feedback surface before evaluating PR #$PR; closing this generation as failure."
+                rc=2
+                had_infra_error=1
+              else
+                set +e
+                output=$(scripts/codex-p1-gate.sh "$PR" "$REPO" 2>&1)
+                rc=$?
+                set -e
 
-              feedback_fp_after="$feedback_fp_before"
-              if [ "$fingerprint_available" = true ]; then
-                feedback_fp_after=$(scripts/review-feedback-surface-fingerprint.sh \
-                  "$PR" "$REPO")
-                if [ "$feedback_fp_after" != "$feedback_fp_before" ]; then
-                  output="${output}"$'\n'"Feedback changed while PR #$PR was evaluated; closing this generation as failure."
-                  rc=2
-                  had_infra_error=1
+                feedback_fp_after="$feedback_fp_before"
+                if [ "$fingerprint_available" = true ]; then
+                  if ! feedback_fp_after=$(scripts/review-feedback-surface-fingerprint.sh \
+                    "$PR" "$REPO"); then
+                    output="${output}"$'\n'"Could not read the feedback surface after evaluating PR #$PR; closing this generation as failure."
+                    rc=2
+                    had_infra_error=1
+                  elif [ "$feedback_fp_after" != "$feedback_fp_before" ]; then
+                    output="${output}"$'\n'"Feedback changed while PR #$PR was evaluated; closing this generation as failure."
+                    rc=2
+                    had_infra_error=1
+                  fi
                 fi
               fi
               echo "$output"
