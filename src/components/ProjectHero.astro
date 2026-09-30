@@ -60,10 +60,10 @@ const liveCtaLabel = liveLabel || DEFAULT_LIVE_LABEL;
       <p class="deck deck--inset">{deck}</p>
       <div class="project-actions">
         {liveUrl && (
-          <a class="nav-button" href={liveUrl} target="_blank" rel="noopener noreferrer">{liveCtaLabel}</a>
+          <a class="nav-button" href={liveUrl} target="_blank" rel="noopener noreferrer" data-cta="live">{liveCtaLabel}</a>
         )}
         {githubUrl && (
-          <a class="nav-button" href={githubUrl} target="_blank" rel="noopener noreferrer">View on GitHub</a>
+          <a class="nav-button" href={githubUrl} target="_blank" rel="noopener noreferrer" data-cta="github">View on GitHub</a>
         )}
       </div>
     </div>
@@ -71,10 +71,14 @@ const liveCtaLabel = liveLabel || DEFAULT_LIVE_LABEL;
   <hr class="project-hero__rule" />
 </header>
 
+{/* CTAs are found by a fixed data-cta hook rather than by an attribute
+    selector built from the URL: frontmatter URLs are data, and quoting one
+    into a selector string turns a stray quote or bracket into a selector
+    syntax error that silently drops the click tracking. */}
 <script is:inline define:vars={{ heroLiveUrl: liveUrl, heroGithubUrl: githubUrl, heroTitle: title }}>
   (function () {
     if (heroLiveUrl) {
-      const liveBtn = document.querySelector('.project-actions a[href="' + heroLiveUrl + '"]');
+      const liveBtn = document.querySelector('.project-actions a[data-cta="live"]');
       if (liveBtn) {
         liveBtn.addEventListener('click', function () {
           window.posthog?.capture('project_live_link_clicked', {
@@ -85,7 +89,7 @@ const liveCtaLabel = liveLabel || DEFAULT_LIVE_LABEL;
       }
     }
     if (heroGithubUrl) {
-      const githubBtn = document.querySelector('.project-actions a[href="' + heroGithubUrl + '"]');
+      const githubBtn = document.querySelector('.project-actions a[data-cta="github"]');
       if (githubBtn) {
         githubBtn.addEventListener('click', function () {
           window.posthog?.capture('project_github_link_clicked', {

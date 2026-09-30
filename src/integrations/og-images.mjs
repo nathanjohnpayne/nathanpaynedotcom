@@ -28,7 +28,7 @@ import { join, dirname, basename, resolve, sep } from 'node:path';
 import { createServer } from 'node:http';
 import { createReadStream } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { generateResumePdf, RESUME_PDF_FILENAME } from './resume-pdf.mjs';
+import { blockAnalytics, generateResumePdf, RESUME_PDF_FILENAME } from './resume-pdf.mjs';
 
 /**
  * Find all index.html files under a directory using flat recursive readdir.
@@ -212,6 +212,9 @@ async function renderOgImages({ browser, baseUrl, distDir, templatePaths, logger
     viewport: { width: 1200, height: 630 },
     deviceScaleFactor: 2,
   });
+  // The OG templates carry no analytics today; blocking anyway means a future
+  // template built on BaseLayout cannot record build renders as visits.
+  await blockAnalytics(context);
 
   try {
     for (const templatePath of templatePaths) {

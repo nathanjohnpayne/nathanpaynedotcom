@@ -403,7 +403,7 @@ That graceful degradation is correct for CI and for a fresh checkout, and wrong 
 
 Mux Data for
 project hero videos does not use a build-time env var in this site: pages with
-a Mux hero load `mux-embed`, and `@mux/mux-background-video` infers the Mux Data
+a Mux hero load `mux-embed` (an npm dependency bundled into a same-origin chunk, not a CDN script), and `@mux/mux-background-video` infers the Mux Data
 env key from the public `stream.mux.com` URL at runtime.
 
 ## Deployment Steps

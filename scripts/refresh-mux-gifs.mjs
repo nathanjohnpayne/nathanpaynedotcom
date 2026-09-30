@@ -29,6 +29,8 @@ import { readFile, writeFile, readdir } from 'node:fs/promises';
 import { join, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseFrontmatter } from './lib/parse-frontmatter.mjs';
+import { containedJoin } from './lib/contain-path.mjs';
+import { isMuxPlaybackId } from './lib/mux-playback-id.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dirname, '..');
@@ -63,7 +65,7 @@ function muxGifUrl(playbackId) {
     fps: String(GIF_FPS),
     end: String(GIF_END),
   });
-  return `https://image.mux.com/${playbackId}/animated.gif?${params.toString()}`;
+  return `https://image.mux.com/${encodeURIComponent(playbackId)}/animated.gif?${params.toString()}`;
 }
 
 async function downloadGif(url, destPath) {
@@ -111,7 +113,24 @@ async function main() {
       );
       continue;
     }
-    const destPath = join(publicDir, screenshotSrc);
+    // Containment, not just shape (#456): a screenshotSrc with `..` segments
+    // would escape public/ after join() normalizes it. Same gate as
+    // refresh-hero-images.mjs.
+    const destPath = containedJoin(publicDir, screenshotSrc);
+    if (!destPath) {
+      console.warn(
+        `[refresh-mux-gifs] ${slug || file}: screenshotSrc resolves outside public/ (got "${screenshotSrc}") — skipping`,
+      );
+      continue;
+    }
+    // The content schema enforces the same shape, but this script runs before
+    // Astro validates anything.
+    if (!isMuxPlaybackId(muxPlaybackId)) {
+      console.warn(
+        `[refresh-mux-gifs] ${slug || file}: muxPlaybackId must be alphanumeric — skipping`,
+      );
+      continue;
+    }
     const url = muxGifUrl(muxPlaybackId);
     const bytes = await downloadGif(url, destPath);
     console.log(

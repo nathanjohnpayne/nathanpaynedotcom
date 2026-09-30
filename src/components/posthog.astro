@@ -15,10 +15,21 @@
 // toolbar and "open in PostHog" deep links still resolve. Both are non-secret
 // constants. The personal API key (phx_…), which can read/manage the project,
 // is never used here.
+//
+// Local hosts never initialize. A dev server, `astro preview`, the Playwright
+// suites, and the build-time resume PDF render all serve these pages from
+// localhost/127.0.0.1; with the token present in the build they would otherwise
+// report as production traffic (`resume_viewed` fires on every /resume/ load).
+// Every capture call in the site is optional-chained on `window.posthog`, so an
+// uninitialized page is a silent no-op, the same as a token-less build.
 const token = import.meta.env.PUBLIC_POSTHOG_PROJECT_TOKEN || '';
 ---
 {token && (
   <script is:inline define:vars={{ token }}>
+    const posthogHost = window.location.hostname;
+    const posthogIsLocal =
+      /^(localhost|127\.0\.0\.1|\[::1\])$/.test(posthogHost) || /\.localhost$/.test(posthogHost);
+    if (!posthogIsLocal) {
     /* eslint-disable */
     !function(t,e){var o,n,p,r;e.__SV||(window.posthog=e,e._i=[],e.init=function(i,s,a){function g(t,e){var o=e.split(".");2==o.length&&(t=t[o[0]],e=o[1]),t[e]=function(){t.push([e].concat(Array.prototype.slice.call(arguments,0)))}}(p=t.createElement("script")).type="text/javascript",p.crossOrigin="anonymous",p.async=!0,p.src=s.api_host+"/static/array.js",(r=t.getElementsByTagName("script")[0]).parentNode.insertBefore(p,r);var u=e;for(void 0!==a?u=e[a]=[]:a="posthog",u.people=u.people||[],u.toString=function(t){var e="posthog";return"posthog"!==a&&(e+="."+a),t||(e+=" (stub)"),e},u.people.toString=function(){return u.toString(1)+".people (stub)"},o="capture identify alias people.set people.set_once set_config register register_once unregister opt_out_capturing has_opted_out_capturing opt_in_capturing reset isFeatureEnabled onFeatureFlags getFeatureFlag getFeatureFlagPayload reloadFeatureFlags group updateEarlyAccessFeatureEnrollment getEarlyAccessFeatures getActiveMatchingSurveys getSurveys getNextSurveyStep onSessionId".split(" "),n=0;n<o.length;n++)g(u,o[n]);e._i.push([i,s,a])},e.__SV=1)}(document,window.posthog||[]);
     /* eslint-enable */
@@ -38,5 +49,6 @@ const token = import.meta.env.PUBLIC_POSTHOG_PROJECT_TOKEN || '';
       // because this site's traffic is tiny (~300 pageviews/90 days).
       person_profiles: 'always'
     })
+    }
   </script>
 )}
