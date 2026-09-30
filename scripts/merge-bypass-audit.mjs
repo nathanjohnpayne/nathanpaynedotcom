@@ -66,21 +66,21 @@ const NOT_STARTED = new Set(['queued', 'waiting', 'pending', 'requested']);
  * State of one check run as of `mergedAt`, or null if it did not exist then.
  * ISO-8601 UTC strings compare correctly as strings.
  *
- * A run queued but not yet started has `started_at: null`. It counts (as
- * pending) when THAT run was queued by the merge: a queued rerun is the
- * newest run in its suite, and a non-admin would have seen it pending.
- * `queuedAt` maps check-run id -> when its own attempt was queued (the
- * workflow run's `run_started_at`, which resets on rerun). The suite's
- * `created_at` is not usable: a post-merge rerun reuses a pre-merge suite
- * and would read as queued before the merge. Without a timestamp the run
- * is treated as not yet existing.
+ * A run that had been QUEUED by the merge counts as pending, whether it has
+ * not started yet (`started_at: null`) or started after the merge: a queued
+ * rerun is the newest run in its group, and a non-admin would have seen it
+ * pending. `queuedAt` maps check-run id -> when that run's own workflow
+ * attempt was queued (`run_started_at` of the attempt its job belongs to).
+ * The suite's `created_at` is not usable, since a post-merge rerun reuses a
+ * pre-merge suite, and neither is the run's latest attempt, since later
+ * reruns reset it. A run with no recorded queue time is treated as not yet
+ * existing at the merge.
  */
 function runStateAt(run, mergedAt, queuedAt) {
-  if (!run.started_at) {
-    const queued = queuedAt?.get(run.id);
-    return NOT_STARTED.has(run.status) && queued && queued <= mergedAt ? 'pending' : null;
-  }
-  if (run.started_at > mergedAt) return null;
+  const queued = queuedAt?.get(run.id);
+  const queuedByMerge = Boolean(queued && queued <= mergedAt);
+  if (!run.started_at) return NOT_STARTED.has(run.status) && queuedByMerge ? 'pending' : null;
+  if (run.started_at > mergedAt) return queuedByMerge ? 'pending' : null;
   if (run.status !== 'completed' || !run.completed_at || run.completed_at > mergedAt) {
     return 'pending';
   }
@@ -136,7 +136,8 @@ export function contextStateAtMerge({ context, appId, checkRuns, statuses, merge
     // Label what the run showed AT the merge. A run still going then may
     // have finished since; say so rather than print the later outcome as
     // though it were the state being judged.
-    let conclusion = atMerge === 'pending' ? (run.started_at ? 'in progress' : 'queued') : run.conclusion;
+    const startedByMerge = run.started_at && run.started_at <= mergedAt;
+    let conclusion = atMerge === 'pending' ? (startedByMerge ? 'in progress' : 'queued') : run.conclusion;
     if (atMerge === 'pending' && run.status === 'completed') conclusion += `, finished later: ${run.conclusion}`;
     evidence.push({
       kind: 'check_run',
@@ -587,16 +588,29 @@ export async function auditPr(gh, repo, pr, { required, strict, baseSha }) {
   const checkRuns = await gh.paginate(`/commits/${head}/check-runs?filter=all`, (d) => d.check_runs);
   const statuses = await gh.paginate(`/commits/${head}/statuses`);
   const rollupSuites = await rollupSuitesFor(gh, repo, pr.number, head);
-  // A queued run has no start time of its own; take its attempt's queue
-  // time from the Actions workflow run it belongs to. Runs from other apps
-  // have no such record and stay "not yet existing" (see runStateAt).
+  // A run that had not started by the merge (still queued, or started
+  // later) may still have been QUEUED by then. Recover when its own attempt
+  // was queued: an Actions check run's id is its job id, the job names its
+  // run_attempt, and that attempt's run_started_at is its queue time. Runs
+  // from other apps have no such record and stay "not yet existing" at the
+  // merge (see runStateAt). Only required checks in counted suites are
+  // looked up, and each attempt is fetched once.
   const queuedAt = new Map();
+  const attempts = new Map();
   for (const run of checkRuns) {
-    if (run.started_at || !NOT_STARTED.has(run.status)) continue;
-    const runId = run.details_url?.match(/\/actions\/runs\/(\d+)/)?.[1];
-    if (!runId) continue;
-    const { data: wr } = await gh.request(`/actions/runs/${runId}`);
-    if (wr.run_started_at) queuedAt.set(run.id, wr.run_started_at);
+    if (!rollupSuites.get(run.name)?.has(run.check_suite?.id)) continue;
+    const notStartedByMerge = run.started_at ? run.started_at > pr.merged_at : NOT_STARTED.has(run.status);
+    if (!notStartedByMerge || !/\/actions\/runs\/\d+/.test(run.details_url ?? '')) continue;
+    const { data: job } = await gh.request(`/actions/jobs/${run.id}`, { allow: [404] });
+    if (!job?.run_id || !job.run_attempt) continue;
+    const key = `${job.run_id}/${job.run_attempt}`;
+    if (!attempts.has(key)) {
+      const { data: attempt } = await gh.request(`/actions/runs/${job.run_id}/attempts/${job.run_attempt}`, {
+        allow: [404],
+      });
+      attempts.set(key, attempt?.run_started_at ?? null);
+    }
+    if (attempts.get(key)) queuedAt.set(run.id, attempts.get(key));
   }
   const violations = evaluateMerge({
     required,

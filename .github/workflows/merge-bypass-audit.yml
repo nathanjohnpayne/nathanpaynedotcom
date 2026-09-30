@@ -54,6 +54,9 @@ permissions:
   pull-requests: read
   checks: read
   statuses: read
+  # A queued rerun has no start time of its own; its queue time is read
+  # from GET /actions/runs/{id}, which needs actions: read.
+  actions: read
   issues: write
 
 concurrency:

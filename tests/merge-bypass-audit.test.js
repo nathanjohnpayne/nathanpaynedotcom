@@ -649,3 +649,46 @@ describe('per-event supersession (#1072 rework)', () => {
     expect(suiteGroup({ databaseId: 9, workflowRun: null })).toBe('suite:9');
   });
 });
+
+describe('reruns queued before the merge but started after it (#1072 Phase 4b round 3)', () => {
+  const older = () =>
+    run({ suite: 3, started: '2026-09-26T17:00:00Z', completed: '2026-09-26T17:01:00Z' });
+
+  it('counts the rerun as pending at the merge, even after it starts and finishes', () => {
+    const green = older();
+    // Queued 17:40, merge 17:45:27, started 17:46, finished green 17:47.
+    const rerun = run({
+      suite: 3,
+      started: '2026-09-26T17:46:00Z',
+      completed: '2026-09-26T17:47:00Z',
+    });
+    const result = contextStateAtMerge({
+      context: 'lint',
+      appId: ACTIONS,
+      checkRuns: [green, rerun],
+      statuses: [],
+      mergedAt: MERGED,
+      queuedAt: new Map([[rerun.id, '2026-09-26T17:40:00Z']]),
+    });
+    expect(result.state).toBe('pending');
+    expect(result.evidence[0].conclusion).toBe('queued, finished later: success');
+  });
+
+  it('ignores a rerun queued after the merge', () => {
+    const green = older();
+    const rerun = run({
+      suite: 3,
+      started: '2026-09-26T17:46:00Z',
+      completed: '2026-09-26T17:47:00Z',
+    });
+    const result = contextStateAtMerge({
+      context: 'lint',
+      appId: ACTIONS,
+      checkRuns: [green, rerun],
+      statuses: [],
+      mergedAt: MERGED,
+      queuedAt: new Map([[rerun.id, '2026-09-26T17:46:00Z']]),
+    });
+    expect(result.state).toBe('success');
+  });
+});
