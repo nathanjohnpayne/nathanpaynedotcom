@@ -186,6 +186,29 @@ export function requiredContexts(protection, rules = []) {
   return out;
 }
 
+/**
+ * Why a ruleset's detail leaves the viewer-scoped rules read unproven, or
+ * null if it cannot have hidden anything.
+ *
+ * `GET /rules/branches/main` returns only the rules enforced on the
+ * REQUESTING identity. A ruleset the workflow token may bypass but the
+ * merging account may not is simply absent from it, and a check it
+ * requires would never be audited. A ruleset with no bypass actors cannot
+ * be hidden from anyone, so the rules read is trusted only when every
+ * active branch ruleset reports an empty `bypass_actors` array. GitHub
+ * omits the field when the token cannot see it; absence is not emptiness.
+ * Same probe as scripts/lib/branch-requirements.sh.
+ */
+export function rulesetHidesRules(detail) {
+  if (!Array.isArray(detail?.bypass_actors)) {
+    return `ruleset ${detail?.id} did not report a bypass_actors array, so it may hide rules from this token`;
+  }
+  if (detail.bypass_actors.length > 0) {
+    return `ruleset ${detail.id} has bypass actors, so a rule binding the merging identity may be hidden from this token`;
+  }
+  return null;
+}
+
 /** True when any applicable ruleset requires an up-to-date branch. */
 export function rulesRequireUpToDate(rules = []) {
   return rules.some(
@@ -415,6 +438,27 @@ async function resolveStrict(gh, rules) {
   return null;
 }
 
+/**
+ * Throw unless the viewer-scoped rules read can be shown complete: every
+ * active branch-targeted ruleset (repository or organization) must report
+ * an empty bypass list. See rulesetHidesRules. Deliberately no ref-pattern
+ * matching: if nothing anywhere can be bypassed, nothing was hidden, and a
+ * wrong glob translation would fail open.
+ */
+async function assertRulesComplete(gh, repo) {
+  const listing = await gh.paginate('/rulesets?includes_parents=true');
+  const active = listing.filter((r) => r?.enforcement === 'active' && (r.target ?? 'branch') === 'branch');
+  for (const rs of active) {
+    let path;
+    if (rs.source_type === 'Organization') path = `https://api.github.com/orgs/${rs.source}/rulesets/${rs.id}`;
+    else if (!rs.source_type || rs.source_type === 'Repository') path = `/rulesets/${rs.id}`;
+    else throw new Error(`ruleset ${rs.id} has unreadable scope ${rs.source_type}; required checks cannot be shown complete`);
+    const { data } = await gh.request(path);
+    const reason = rulesetHidesRules(data);
+    if (reason) throw new Error(`${reason}; required checks cannot be shown complete for ${repo}`);
+  }
+}
+
 /** True when `baseSha` is an ancestor of (or equal to) `headSha`. */
 async function containsBase(gh, baseSha, headSha) {
   const { data } = await gh.request(`/compare/${baseSha}...${headSha}`);
@@ -525,7 +569,8 @@ export async function main(argv = process.argv.slice(2)) {
   const gh = makeClient(process.env.GITHUB_TOKEN, repo);
 
   const { data: branch } = await gh.request('/branches/main');
-  const { data: rules } = await gh.request('/rules/branches/main?per_page=100');
+  const rules = await gh.paginate('/rules/branches/main');
+  await assertRulesComplete(gh, repo);
   const required = requiredContexts(branch.protection, rules);
   const enforcementLevel = branch.protection?.required_status_checks?.enforcement_level;
   if (required.length === 0) {
@@ -548,6 +593,7 @@ export async function main(argv = process.argv.slice(2)) {
   if (args.pr) {
     const { data: pr } = await gh.request(`/pulls/${args.pr}`);
     if (!pr.merged_at) throw new Error(`#${args.pr} is not merged`);
+    if (pr.base?.ref !== 'main') throw new Error(`#${args.pr} merged into ${pr.base?.ref}, not main; nothing to audit`);
     const baseSha = strict ? await backfillBase(gh, pr) : null;
     const result = await auditPr(gh, repo, pr, { required, strict, baseSha });
     if (result?.clean) note(pr, result);

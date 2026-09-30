@@ -6,6 +6,7 @@ import {
   markerFor,
   renderIssue,
   requiredContexts,
+  rulesetHidesRules,
   rulesRequireUpToDate,
 } from '../scripts/merge-bypass-audit.mjs';
 
@@ -394,5 +395,16 @@ describe('review round 1 (#1072)', () => {
     const finding = { kind: 'direct-push', sha: 'abcdef1234567', message: 'm' };
     expect(renderIssue(finding, { repo: 'o/r', backfill: true }).body).toContain('Backfill caveat');
     expect(renderIssue(finding, { repo: 'o/r' }).body).not.toContain('Backfill caveat');
+  });
+});
+
+describe('review round 2 (#1072)', () => {
+  it('trusts a viewer-scoped rules read only past rulesets with an empty bypass list', () => {
+    expect(rulesetHidesRules({ id: 1, bypass_actors: [] })).toBeNull();
+    expect(rulesetHidesRules({ id: 2, bypass_actors: [{ actor_type: 'Integration' }] })).toMatch(
+      /has bypass actors/,
+    );
+    // GitHub omits the field when the token cannot see it: not the same as empty.
+    expect(rulesetHidesRules({ id: 3 })).toMatch(/did not report a bypass_actors array/);
   });
 });
