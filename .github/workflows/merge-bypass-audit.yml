@@ -34,8 +34,11 @@ on:
   # A push carrying `[skip ci]` or another skip instruction never starts the
   # push-triggered run, so an administrator could land a bypass and silence
   # this detector in one push. Schedules ignore skip instructions: every 30
-  # minutes, re-audit what reached main in the last 90. Overlap is harmless,
-  # because issues are deduplicated and an already-filed finding exits 0.
+  # minutes, re-audit what reached main in the last 180. GitHub may delay
+  # or drop scheduled runs, so this is best-effort: the wide lookback rides
+  # out a few missed sweeps, and the weekly pr-audit.yml stays the backstop.
+  # Overlap is harmless: issues are deduplicated, and a finding that is
+  # already filed exits 0.
   schedule:
     - cron: '*/30 * * * *'
   workflow_dispatch:
@@ -94,7 +97,7 @@ jobs:
           if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
             node scripts/merge-bypass-audit.mjs --pr "$PR"
           elif [ "$EVENT_NAME" = "schedule" ]; then
-            node scripts/merge-bypass-audit.mjs --since-minutes 90
+            node scripts/merge-bypass-audit.mjs --since-minutes 180
           else
             node scripts/merge-bypass-audit.mjs --before "$BEFORE" --after "$AFTER" --pusher "$PUSHER"
           fi

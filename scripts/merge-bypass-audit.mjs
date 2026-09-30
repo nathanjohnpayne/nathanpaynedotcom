@@ -565,22 +565,34 @@ async function existingIssue(gh, finding) {
   return issues.find((i) => issueHasMarker(i.body, finding)) ?? null;
 }
 
-function parseArgs(argv) {
+export function parseArgs(argv) {
   const args = { dryRun: false };
+  // A value flag with no operand, or with another flag where its operand
+  // should be, is an error, never "flag absent": a trailing `--before` would
+  // otherwise audit one commit and call the rest of the push clean.
+  const operand = (flag, i) => {
+    const value = argv[i];
+    if (value === undefined || value.startsWith('--')) throw new Error(`${flag} needs a value`);
+    return value;
+  };
   for (let i = 0; i < argv.length; i++) {
     const flag = argv[i];
     if (flag === '--dry-run') args.dryRun = true;
-    else if (['--before', '--after', '--pr', '--pusher'].includes(flag)) args[flag.slice(2)] = argv[++i];
-    else if (flag === '--since-minutes') args.sinceMinutes = argv[++i];
+    else if (['--before', '--after', '--pr', '--pusher'].includes(flag)) args[flag.slice(2)] = operand(flag, ++i);
+    else if (flag === '--since-minutes') args.sinceMinutes = operand(flag, ++i);
     else throw new Error(`unknown argument: ${flag}`);
   }
-  if (!args.pr && !args.after && !args.sinceMinutes) {
+  if (args.pr === undefined && args.after === undefined && args.sinceMinutes === undefined) {
     throw new Error('pass --pr <number>, --after <sha>, or --since-minutes <n>');
   }
-  if (args.sinceMinutes && !/^\d+$/.test(args.sinceMinutes)) throw new Error('--since-minutes must be a number');
-  if (args.pr && !/^\d+$/.test(args.pr)) throw new Error(`--pr must be a number, got ${JSON.stringify(args.pr)}`);
+  if (args.sinceMinutes !== undefined && !/^[1-9]\d*$/.test(args.sinceMinutes)) {
+    throw new Error('--since-minutes must be a positive integer');
+  }
+  if (args.pr !== undefined && !/^[1-9]\d*$/.test(args.pr)) {
+    throw new Error(`--pr must be a number, got ${JSON.stringify(args.pr)}`);
+  }
   for (const key of ['before', 'after']) {
-    if (args[key] && !/^[0-9a-f]{7,40}$/.test(args[key])) throw new Error(`--${key} must be a commit sha`);
+    if (args[key] !== undefined && !/^[0-9a-f]{7,40}$/.test(args[key])) throw new Error(`--${key} must be a commit sha`);
   }
   return args;
 }

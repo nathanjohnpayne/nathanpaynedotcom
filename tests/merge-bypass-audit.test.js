@@ -5,6 +5,7 @@ import {
   evaluateMerge,
   issueHasMarker,
   markerFor,
+  parseArgs,
   renderIssue,
   requiredContexts,
   rulesetHidesRules,
@@ -464,5 +465,29 @@ describe('review round 4 (#1072 Phase 4b)', () => {
     );
     expect(body).toContain('| external-ci (head commit only) | **missing** |');
     expect(body).toContain('| lint | **missing** |');
+  });
+});
+
+describe('parseArgs (#1072 round 5)', () => {
+  const sha = 'abcdef1234567';
+
+  it('rejects a value flag with no operand instead of treating it as absent', () => {
+    expect(() => parseArgs(['--after', sha, '--before'])).toThrow(/--before needs a value/);
+    expect(() => parseArgs(['--after', '--before', sha])).toThrow(/--after needs a value/);
+    expect(() => parseArgs(['--pr'])).toThrow(/--pr needs a value/);
+  });
+
+  it('requires a positive sweep window and PR number', () => {
+    expect(() => parseArgs(['--since-minutes', '0'])).toThrow(/positive integer/);
+    expect(() => parseArgs(['--pr', '0'])).toThrow(/must be a number/);
+    expect(parseArgs(['--since-minutes', '180']).sinceMinutes).toBe('180');
+  });
+
+  it('accepts the push invocation, including an empty pusher name', () => {
+    expect(parseArgs(['--before', sha, '--after', sha, '--pusher', ''])).toMatchObject({
+      before: sha,
+      after: sha,
+      pusher: '',
+    });
   });
 });
