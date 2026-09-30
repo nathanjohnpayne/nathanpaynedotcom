@@ -40,10 +40,12 @@
 //   GITHUB_TOKEN=... GITHUB_REPOSITORY=owner/repo \
 //     node scripts/merge-bypass-audit.mjs --before <sha> --after <sha>
 //   node scripts/merge-bypass-audit.mjs --pr <number>     # backfill one PR
+//   node scripts/merge-bypass-audit.mjs --since-minutes <n>  # scheduled sweep
 //   add --dry-run to print findings without opening issues
 //
-// Exit codes: 0 clean, 1 bypass found (issue opened or already open),
-// 2 infrastructure or usage error (nothing can be concluded).
+// Exit codes: 0 clean or every finding already filed, 1 a new bypass was
+// filed (or any finding under --dry-run), 2 infrastructure or usage error
+// (nothing can be concluded).
 
 import { appendFileSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
@@ -150,7 +152,11 @@ export function evaluateMerge({ required, checkRuns, statuses, mergedAt, rollupS
   for (const { context, app_id: appId } of required) {
     const countedSuites = rollupSuites ? (rollupSuites.get(context) ?? new Set()) : undefined;
     const result = contextStateAtMerge({ context, appId, checkRuns, statuses, mergedAt, countedSuites });
-    if (result.state !== 'success') violations.push({ context, ...result });
+    // An unpinned context can be satisfied by a commit status, and GitHub
+    // may evaluate statuses on the PR's test merge commit, which cannot be
+    // recovered after the merge. Its verdict is therefore from the head only.
+    const headOnly = appId === null || appId === undefined || appId === -1;
+    if (result.state !== 'success') violations.push({ context, ...result, ...(headOnly ? { headOnly } : {}) });
   }
   return violations;
 }
@@ -316,7 +322,7 @@ export function renderIssue(finding, { repo, enforcementLevel, backfill = false 
     const evidence = v.evidence.length
       ? v.evidence.map((e) => (e.url ? `[${e.conclusion}](${e.url})` : e.conclusion)).join(', ')
       : 'nothing reported';
-    return `| ${v.context} | **${v.state}** | ${evidence} |`;
+    return `| ${v.context}${v.headOnly ? ' (head commit only)' : ''} | **${v.state}** | ${evidence} |`;
   });
   return {
     title: `Merge bypass: #${pr.number} merged past ${violations.length} protection requirement${violations.length === 1 ? "" : "s"}`,
@@ -546,9 +552,17 @@ async function associate(gh, shas, associations) {
   }
 }
 
-async function existingIssue(gh, marker) {
+/**
+ * True when an issue body carries exactly this finding's marker. Matches the
+ * whole HTML comment, delimiters included, so `pr=1` never matches `pr=10`.
+ */
+export function issueHasMarker(body, finding) {
+  return (body ?? '').includes(`<!-- ${markerFor(finding)} -->`);
+}
+
+async function existingIssue(gh, finding) {
   const issues = await gh.paginate(`/issues?state=all&labels=${encodeURIComponent(ISSUE_LABELS[0])}`);
-  return issues.find((i) => (i.body ?? '').includes(marker)) ?? null;
+  return issues.find((i) => issueHasMarker(i.body, finding)) ?? null;
 }
 
 function parseArgs(argv) {
@@ -557,9 +571,13 @@ function parseArgs(argv) {
     const flag = argv[i];
     if (flag === '--dry-run') args.dryRun = true;
     else if (['--before', '--after', '--pr', '--pusher'].includes(flag)) args[flag.slice(2)] = argv[++i];
+    else if (flag === '--since-minutes') args.sinceMinutes = argv[++i];
     else throw new Error(`unknown argument: ${flag}`);
   }
-  if (!args.pr && !args.after) throw new Error('pass --pr <number> or --after <sha>');
+  if (!args.pr && !args.after && !args.sinceMinutes) {
+    throw new Error('pass --pr <number>, --after <sha>, or --since-minutes <n>');
+  }
+  if (args.sinceMinutes && !/^\d+$/.test(args.sinceMinutes)) throw new Error('--since-minutes must be a number');
   if (args.pr && !/^\d+$/.test(args.pr)) throw new Error(`--pr must be a number, got ${JSON.stringify(args.pr)}`);
   for (const key of ['before', 'after']) {
     if (args[key] && !/^[0-9a-f]{7,40}$/.test(args[key])) throw new Error(`--${key} must be a commit sha`);
@@ -610,6 +628,22 @@ export async function main(argv = process.argv.slice(2)) {
     if (result?.clean) note(pr, result);
     else if (result) findings.push(result);
   } else {
+    if (args.sinceMinutes) {
+      // Scheduled sweep. A push carrying `[skip ci]` (or any skip
+      // instruction) never starts the push-triggered run, so an admin could
+      // bypass and silence the detector in one push. Schedules ignore skip
+      // instructions: re-audit everything that reached main in the window.
+      // Overlapping windows are harmless because issues are deduped.
+      const since = new Date(Date.now() - Number(args.sinceMinutes) * 60_000).toISOString();
+      const recent = await gh.paginate(`/commits?sha=main&since=${since}`);
+      if (recent.length === 0) {
+        summarize([`merge-bypass-audit: sweep found no commits on main since ${since}.`]);
+        return 0;
+      }
+      args.after = recent[0].sha;
+      args.before = recent[recent.length - 1].parents?.[0]?.sha ?? null;
+      if (!args.before) throw new Error(`sweep: oldest commit ${recent[recent.length - 1].sha} has no parent`);
+    }
     let commits;
     let before = args.before;
     if (!before || /^0+$/.test(before)) {
@@ -654,6 +688,13 @@ export async function main(argv = process.argv.slice(2)) {
     }
   }
 
+  const unpinned = required.filter((r) => r.app_id === null || r.app_id === undefined || r.app_id === -1);
+  if (unpinned.length > 0) {
+    notes.push(
+      `incomplete for ${unpinned.map((r) => r.context).join(', ')}: no app pin, so GitHub may judge them on the test merge commit, whose statuses cannot be recovered after the merge; verdicts are head-only`,
+    );
+  }
+
   if (findings.length === 0) {
     summarize([
       `merge-bypass-audit: clean. Every audited merge had all ${required.length} required checks green` +
@@ -663,6 +704,7 @@ export async function main(argv = process.argv.slice(2)) {
     return 0;
   }
 
+  let filed = 0;
   const lines = [`merge-bypass-audit: ${findings.length} bypass finding(s).`, ...notes.map((n) => `- note: ${n}`)];
   for (const finding of findings) {
     const { title, body } = renderIssue(finding, { repo, enforcementLevel, backfill: Boolean(args.pr) });
@@ -671,7 +713,7 @@ export async function main(argv = process.argv.slice(2)) {
       console.log(`\n--- ${title}\n${body}\n`);
       continue;
     }
-    const open = await existingIssue(gh, markerFor(finding));
+    const open = await existingIssue(gh, finding);
     if (open) {
       lines.push(`  already filed: ${open.html_url}`);
       continue;
@@ -682,9 +724,13 @@ export async function main(argv = process.argv.slice(2)) {
     });
     lines.push(`  filed: ${issue.html_url}`);
     console.log(`::error title=Merge bypass::${title} (${issue.html_url})`);
+    filed++;
   }
   summarize(lines);
-  return 1;
+  // Fail only on a new bypass (or any finding in a dry run). A finding that
+  // is already filed stays visible in its issue; failing again on every
+  // overlapping sweep would turn one bypass into a red run every half hour.
+  return args.dryRun || filed > 0 ? 1 : 0;
 }
 
 if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) {

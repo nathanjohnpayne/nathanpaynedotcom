@@ -3,6 +3,7 @@ import {
   bindPushToPrs,
   contextStateAtMerge,
   evaluateMerge,
+  issueHasMarker,
   markerFor,
   renderIssue,
   requiredContexts,
@@ -423,5 +424,45 @@ describe('review round 3 (#1072)', () => {
     const { freshness, ...withoutNote } = finding;
     expect(freshness).toBeTruthy();
     expect(renderIssue(withoutNote, { repo: 'o/r' }).body).not.toContain('Branch freshness');
+  });
+});
+
+describe('review round 4 (#1072 Phase 4b)', () => {
+  const prFinding = (number) => ({ kind: 'merged-pr', pr: { number } });
+
+  it('matches the complete dedupe marker, never a prefix', () => {
+    const body10 = 'x\n<!-- merge-bypass-audit:pr=10 -->\ny';
+    const body1072 = '<!-- merge-bypass-audit:pr=1072 -->';
+    expect(issueHasMarker(body10, prFinding(10))).toBe(true);
+    expect(issueHasMarker(body10, prFinding(1))).toBe(false);
+    expect(issueHasMarker(body1072, prFinding(107))).toBe(false);
+    expect(issueHasMarker(body1072, prFinding(1072))).toBe(true);
+    expect(issueHasMarker(null, prFinding(1))).toBe(false);
+  });
+
+  it('marks unpinned contexts as judged on the head commit only', () => {
+    const violations = evaluateMerge({
+      required: [
+        { context: 'lint', app_id: ACTIONS },
+        { context: 'external-ci', app_id: null },
+      ],
+      checkRuns: [],
+      statuses: [],
+      mergedAt: MERGED,
+    });
+    expect(violations.map((v) => [v.context, Boolean(v.headOnly)])).toEqual([
+      ['lint', false],
+      ['external-ci', true],
+    ]);
+    const { body } = renderIssue(
+      {
+        kind: 'merged-pr',
+        pr: { number: 3, title: 't', merged_at: MERGED, head_sha: 'abcdef1' },
+        violations,
+      },
+      { repo: 'o/r' },
+    );
+    expect(body).toContain('| external-ci (head commit only) | **missing** |');
+    expect(body).toContain('| lint | **missing** |');
   });
 });

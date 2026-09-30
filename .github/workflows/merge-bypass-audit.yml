@@ -10,7 +10,8 @@ name: Merge Bypass Audit
 # weekly pr-audit.yml cron, up to seven days later. #1008 found six such
 # merges in one batch that way.
 #
-# This workflow runs on every push to `main`, rebuilds each required
+# This workflow runs on every push to `main` (and on a 30-minute sweep
+# that commit-message skip instructions cannot suppress), rebuilds each required
 # check's state as of the merge moment, and opens a `policy-violation`
 # issue within minutes when a merge would have been blocked for a
 # non-admin. A push with no merged PR behind it is reported as a direct
@@ -30,6 +31,13 @@ name: Merge Bypass Audit
 on:
   push:
     branches: [main]
+  # A push carrying `[skip ci]` or another skip instruction never starts the
+  # push-triggered run, so an administrator could land a bypass and silence
+  # this detector in one push. Schedules ignore skip instructions: every 30
+  # minutes, re-audit what reached main in the last 90. Overlap is harmless,
+  # because issues are deduplicated and an already-filed finding exits 0.
+  schedule:
+    - cron: '*/30 * * * *'
   workflow_dispatch:
     inputs:
       pr:
@@ -85,6 +93,8 @@ jobs:
         run: |
           if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
             node scripts/merge-bypass-audit.mjs --pr "$PR"
+          elif [ "$EVENT_NAME" = "schedule" ]; then
+            node scripts/merge-bypass-audit.mjs --since-minutes 90
           else
             node scripts/merge-bypass-audit.mjs --before "$BEFORE" --after "$AFTER" --pusher "$PUSHER"
           fi
