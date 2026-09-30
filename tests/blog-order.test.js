@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { BLOG_CATEGORIES, compareBlogPosts } from '../src/lib/blog-order';
+import { BLOG_CATEGORIES, compareBlogPosts, selectHomepageWriting } from '../src/lib/blog-order';
 
 function post(slug, category, date, featured = false) {
   return { slug, data: { category, date: new Date(date), featured } };
@@ -26,5 +26,21 @@ describe('blog editorial ordering', () => {
       'new-site',
       'old-site',
     ]);
+  });
+});
+
+describe('homepage Writing selection', () => {
+  const ranked = (id, homepageRank) => ({ id, data: { homepageRank } });
+
+  it('keeps only ranked posts, in rank order', () => {
+    const posts = [ranked('third', 3), ranked('unranked'), ranked('first', 1), ranked('second', 2)];
+
+    expect(selectHomepageWriting(posts).map(({ id }) => id)).toEqual(['first', 'second', 'third']);
+  });
+
+  it('refuses two posts with the same rank', () => {
+    expect(() => selectHomepageWriting([ranked('a', 2), ranked('b', 2)])).toThrow(
+      /homepageRank 2 is used by both a and b/,
+    );
   });
 });

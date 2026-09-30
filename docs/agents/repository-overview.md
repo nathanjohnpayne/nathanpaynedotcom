@@ -16,14 +16,14 @@ Astro pages, layouts, and content collections generate the full static site into
 | `src/pages/resume.astro` | Resume page rendered from resume-specific content collections and section components. |
 | `src/pages/rss.xml.ts` | RSS feed endpoint (via `@astrojs/rss`). |
 | `src/pages/404.astro` | Custom error page. |
-| `src/lib/blog-order.ts` | Shared blog category vocabulary and editorial comparator (featured, then category, then date). |
+| `src/lib/blog-order.ts` | Shared blog category vocabulary, editorial comparator (featured, then category, then date), and the `homepageRank` selector for the homepage Writing list. |
 | `src/lib/lifecycle-marker.ts` | Shared project-status → `.state-marker` modifier vocabulary. Every surface that shows lifecycle (homepage Builds row, `/projects/` card kicker, detail-page STATUS cell, and the résumé's Projects kicker) imports it; a second copy of the mapping fails `tests/lifecycle-marker.test.js`, which also pins that list of consumers so this row cannot silently fall behind it. |
 | `src/layouts/BaseLayout.astro` | Base wrapper—SEO meta, Open Graph tags, JSON-LD, GA4 snippet, font preconnects. |
 | `src/layouts/BlogPost.astro` | Blog post layout (three-column Mondrian-inspired grid with sidebar). |
 | `src/layouts/ProjectLayout.astro` | Project page layout. |
 | `src/layouts/OgCard.astro` | OG image card template (1200×630). |
 | `src/styles/global.css` | Shared styles—Mondrian homepage grid, project/blog pages, motion system, responsive, accessibility. |
-| `src/content/blog/**/*.md` | Recursively discovered Markdown blog posts with required editorial category, optional featured flag, and optional SEO-only title/description fields. |
+| `src/content/blog/**/*.md` | Recursively discovered Markdown blog posts with required editorial category, optional featured flag, optional `homepageRank` for the homepage Writing list, and optional SEO-only title/description fields. |
 | `src/content/projects/**/*.{md,mdx}` | Recursively discovered project source files—each **non-draft** file generates a project page and index entry (`getStaticPaths` filters `draft: true`). `.mdx` only where the body places a case-study component mid-prose; plain `.md` is the default and stays valid, and `projects` is the only collection whose glob accepts `.mdx`. Optional `seoDescription` keeps search snippets concise without shortening on-page case-study copy. See `specs/project-pages.md` for authoring guide. |
 | `src/components/ProjectHero.astro` | Project hero header; `variant` prop covers wide/narrow screenshot layouts (#470). |
 | `src/components/MetadataStrip.astro` | Strip-only project metadata table (topics/format/focus/status); the STATUS cell alone carries the lifecycle mark, and the screenshot surface is owned by `ProjectLayout`. |

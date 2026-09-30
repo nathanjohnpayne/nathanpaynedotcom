@@ -5,6 +5,7 @@ shortTitle: "Silence Is Not an Approval"
 description: "My AI review pipeline kept counting a reviewer that could not answer as one that had. Each fix made it safer, and none of them settled the question underneath: is reviewer availability a product requirement with an owner and a contract, or an implementation detail discovered one incident at a time? On September 24 I answered one piece of it. While CodeRabbit's current comment is a refusal, a completion status alone can no longer stand in for a real review of the commit."
 seoDescription: "An AI code review pipeline that read a reviewer's silence as approval, why case-by-case fixes did not retire the cause, and the product decision that set a rule for making progress when evidence is missing."
 category: "Agent Systems"
+homepageRank: 3
 author: "Nathan Payne"
 date: 2026-10-01
 draft: false

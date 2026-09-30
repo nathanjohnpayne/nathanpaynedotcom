@@ -3,6 +3,7 @@ title: "The Product Did Not Travel"
 description: "A bingo app built for a cruise ran a second event for a different host. By Saturday afternoon, nobody was marking squares. The host's account sent me back to the cruise data, where a dinner ritual had been hiding inside the engagement totals."
 seoDescription: "A bingo app worked on a cruise and stalled at a house weekend. The second event changed what I thought had made the first one work."
 category: "Agent Systems"
+homepageRank: 1
 author: "Nathan Payne"
 date: 2026-09-24
 draft: false

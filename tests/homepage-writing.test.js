@@ -7,12 +7,13 @@ import {
   findFilesRecursively,
 } from '../scripts/lib/blog-file-inventory.mjs';
 import { parseFrontmatter } from '../scripts/lib/parse-frontmatter.mjs';
-import { EXPECTED_BLOG_EDITORIAL_ORDER } from './helpers/blog-editorial-order.js';
+import { EXPECTED_HOMEPAGE_WRITING } from './helpers/blog-editorial-order.js';
 import { writeSanitizedDOM } from './helpers/dom.js';
 
 // Guards the homepage Writing block against the drift reported in #523. The
-// block is generated from the blog collection — the editorially ordered posts,
-// capped at WRITING_LIST_LIMIT (#619) — so:
+// block is generated from the blog collection: the published posts carrying a
+// `homepageRank`, in rank order, at most HOMEPAGE_WRITING_LIMIT of them (#619,
+// hand-curated since 2026-09-30) — so:
 //   1. it must NOT assert a hardcoded post count that can fall behind the blog
 //      collection (the old copy said "Three pieces" while five were published);
 //      the expected count is derived from the collection and the cap instead;
@@ -23,9 +24,8 @@ import { writeSanitizedDOM } from './helpers/dom.js';
 const DIST = resolve(__dirname, '../dist');
 const CONTENT_DIR = resolve(__dirname, '../src/content/blog');
 
-// The list is generated from the blog collection and capped, so the expected
-// link count is derived here rather than written down — a literal would drift
-// exactly the way the hand-typed <ul> did (#619).
+// Mirrors HOMEPAGE_WRITING_LIMIT in src/lib/blog-order.ts, which the schema
+// also enforces as the maximum `homepageRank`.
 const WRITING_LIST_LIMIT = 5;
 
 const allPosts = findBlogMarkdownFiles(CONTENT_DIR).map((filePath) => ({
@@ -35,9 +35,14 @@ const allPosts = findBlogMarkdownFiles(CONTENT_DIR).map((filePath) => ({
 
 const publishedPosts = allPosts.filter((post) => post.data.draft !== 'true');
 
-const editorialPosts = EXPECTED_BLOG_EDITORIAL_ORDER.map((slug) =>
+const curatedPosts = EXPECTED_HOMEPAGE_WRITING.map((slug) =>
   publishedPosts.find((post) => post.slug === slug),
 );
+
+// parseFrontmatter returns scalars as strings, so ranks are compared as numbers.
+const rankedPosts = publishedPosts
+  .filter((post) => post.data.homepageRank !== undefined)
+  .sort((a, b) => Number(a.data.homepageRank) - Number(b.data.homepageRank));
 
 /** Post links only — the trailing "View all writing" link is not a post. */
 function postLinks() {
@@ -89,12 +94,21 @@ describe('homepage Writing block (#523)', () => {
   // The block used to be a hand-typed <ul> that fell two posts behind the
   // collection. These assert it is generated from the collection instead.
 
-  it('lists the published posts up to the cap in editorial order', () => {
-    const expected = editorialPosts.slice(0, WRITING_LIST_LIMIT);
+  it('lists the ranked posts in homepageRank order', () => {
     const hrefs = postLinks().map((a) => a.getAttribute('href'));
 
-    expect(hrefs).toHaveLength(Math.min(publishedPosts.length, WRITING_LIST_LIMIT));
-    expect(hrefs).toEqual(expected.map((post) => `/blog/${post.slug}/`));
+    expect(curatedPosts.every(Boolean), 'a curated slug is not a published post').toBe(true);
+    expect(rankedPosts.map((post) => post.slug)).toEqual(EXPECTED_HOMEPAGE_WRITING);
+    expect(hrefs).toEqual(EXPECTED_HOMEPAGE_WRITING.map((slug) => `/blog/${slug}/`));
+  });
+
+  it('gives each ranked post a unique rank within the cap', () => {
+    const ranks = rankedPosts.map((post) => Number(post.data.homepageRank));
+
+    expect(new Set(ranks).size).toBe(ranks.length);
+    expect(
+      ranks.every((rank) => Number.isInteger(rank) && rank >= 1 && rank <= WRITING_LIST_LIMIT),
+    ).toBe(true);
   });
 
   it('never renders a draft post', () => {
@@ -109,7 +123,7 @@ describe('homepage Writing block (#523)', () => {
   });
 
   it('uses the canonical post title as the link text', () => {
-    const expected = editorialPosts.slice(0, WRITING_LIST_LIMIT);
+    const expected = curatedPosts;
     const texts = postLinks().map((a) =>
       a.textContent.replace(/→/g, '').replace(/\s+/g, ' ').trim(),
     );

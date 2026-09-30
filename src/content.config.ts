@@ -1,6 +1,6 @@
 import { defineCollection, z } from 'astro:content';
 import { glob } from 'astro/loaders';
-import { BLOG_CATEGORIES } from './lib/blog-order';
+import { BLOG_CATEGORIES, HOMEPAGE_WRITING_LIMIT } from './lib/blog-order';
 import { MUX_PLAYBACK_ID_PATTERN } from '../scripts/lib/mux-playback-id.mjs';
 
 const projects = defineCollection({
@@ -241,6 +241,9 @@ const blog = defineCollection({
     seoDescription: z.string().optional(),
     category: z.enum(BLOG_CATEGORIES),
     featured: z.boolean().default(false),
+    // Position in the homepage Writing list, 1 = first. Unranked posts are
+    // left off it; see selectHomepageWriting in src/lib/blog-order.ts.
+    homepageRank: z.number().int().min(1).max(HOMEPAGE_WRITING_LIMIT).optional(),
     author: z.string().default('Nathan Payne'),
     date: z.coerce.date(),
     tags: z.array(z.string()),
