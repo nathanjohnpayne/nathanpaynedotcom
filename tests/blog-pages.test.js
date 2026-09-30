@@ -136,10 +136,10 @@ describe('Blog Pages', () => {
       position: 1,
       item: {
         '@type': 'BlogPosting',
-        '@id': 'https://nathanpayne.com/blog/six-prs-one-bug-agent-failure-modes/',
-        url: 'https://nathanpayne.com/blog/six-prs-one-bug-agent-failure-modes/',
-        name: 'Six PRs, One Bug: What AI Agents Actually Get Wrong',
-        datePublished: '2026-04-04T00:00:00.000Z',
+        '@id': 'https://nathanpayne.com/blog/the-product-did-not-travel/',
+        url: 'https://nathanpayne.com/blog/the-product-did-not-travel/',
+        name: 'The Product Did Not Travel',
+        datePublished: '2026-09-24T00:00:00.000Z',
       },
     });
     expect(itemList.itemListElement[0].item.description.length).toBeLessThanOrEqual(160);

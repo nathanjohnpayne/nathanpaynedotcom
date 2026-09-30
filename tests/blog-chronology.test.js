@@ -8,14 +8,16 @@ const DIST = resolve(__dirname, '../dist');
 describe('blog chronology-only surfaces', () => {
   beforeEach(() => {
     writeSanitizedDOM(
-      readFileSync(resolve(DIST, 'blog/six-prs-one-bug-agent-failure-modes/index.html'), 'utf-8'),
+      readFileSync(resolve(DIST, 'blog/the-product-did-not-travel/index.html'), 'utf-8'),
     );
   });
 
   it('keeps in-post navigation chronological when the featured post moves on the index', () => {
-    expect(document.querySelector('[data-postnav="previous"]')).toBeNull();
+    expect(document.querySelector('[data-postnav="previous"]')?.getAttribute('href')).toBe(
+      '/blog/every-reviewer-was-right/',
+    );
     expect(document.querySelector('[data-postnav="next"]')?.getAttribute('href')).toBe(
-      '/blog/agent-approval-workflow-genesis-of-mergepath/',
+      '/blog/silence-is-not-an-approval/',
     );
   });
 

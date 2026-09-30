@@ -313,7 +313,7 @@ describe('Content Schema', () => {
       return fm?.featured === 'true' && fm?.draft !== 'true';
     });
 
-    expect(featured.map((file) => file.name)).toEqual(['six-prs-one-bug-agent-failure-modes.md']);
+    expect(featured.map((file) => file.name)).toEqual(['the-product-did-not-travel.md']);
   });
 
   // The literal below is deliberately NOT an import of `BLOG_CATEGORIES` from

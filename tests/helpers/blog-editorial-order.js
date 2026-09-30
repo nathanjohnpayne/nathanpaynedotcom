@@ -1,14 +1,14 @@
 // Keep this literal independent of the production comparator so rendered-order
 // tests can catch regressions in the ordering implementation.
 export const EXPECTED_BLOG_EDITORIAL_ORDER = [
-  'six-prs-one-bug-agent-failure-modes',
-  'silence-is-not-an-approval',
   'the-product-did-not-travel',
+  'silence-is-not-an-approval',
   'every-reviewer-was-right',
   'autofix-was-the-whole-cost',
   'perfect-score-wrong-axis',
   'html-mockups-as-spec',
   'agent-approval-workflow-genesis-of-mergepath',
+  'six-prs-one-bug-agent-failure-modes',
   'two-blues-one-composition',
   'how-a-responsive-fix-became-an-astro-migration',
 ];
