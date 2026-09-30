@@ -16,18 +16,22 @@
 //   - For a merged PR, every required context is rebuilt as of `merged_at`
 //     on the PR's head commit. A context is `missing` when nothing had
 //     reported, `pending` when a run had started but not finished, and
-//     `failure` when any run GitHub was still counting had failed.
+//     `failure` when the latest run of some triggering event had failed.
 //
-// "Still counting" defers to GitHub's own rollup rather than to intuition.
-// The rollup evaluates the latest run of every check suite it associates
-// with the PR, so a later green run in a different suite does NOT supersede
-// an earlier red one; only a rerun inside the same suite replaces a result.
-// Which suites it associates is GitHub's call, and it is not "every suite on
-// the commit": on #1068 three red `pull_request_review_comment` suites sat on
-// the head commit and the merge was still CLEAN. So the script reads the set
-// of counted suites from the PR's `statusCheckRollup` and uses the REST
-// check-run history only to rebuild each counted suite's state as of the
-// merge. See REVIEW_POLICY.md § Do the merge gates bind the merging identity?
+// Which runs count is measured, not assumed, and the model is the one that
+// fits every merge whose outcome is known:
+//   - Only suites in the PR's `statusCheckRollup` count. #1068 had three red
+//     `pull_request_review_comment` suites on its head and merged CLEAN.
+//   - Within those, the latest run per triggering EVENT decides. #1078
+//     merged CLEAN with a red Label Gate in an older `pull_request` suite
+//     and a green one in a newer `pull_request` suite, so a newer run of the
+//     same event supersedes. #1071 stayed BLOCKED on a red `pull_request`
+//     gate despite green `pull_request_review` runs until it was rerun, so a
+//     different event does not.
+// Suites without a workflow run (API-published, other apps) each form their
+// own group. The REST check-run history then rebuilds each group's latest
+// run as of the merge. See REVIEW_POLICY.md § Do the merge gates bind the
+// merging identity?
 //
 // When a required check is pinned to an app (`checks[].app_id`), only check
 // runs from that app count, matching how GitHub resolves it. Commit statuses
@@ -62,16 +66,19 @@ const NOT_STARTED = new Set(['queued', 'waiting', 'pending', 'requested']);
  * State of one check run as of `mergedAt`, or null if it did not exist then.
  * ISO-8601 UTC strings compare correctly as strings.
  *
- * A run queued but not yet started has `started_at: null`. It still counts
- * (as pending) when its check suite existed by the merge: a queued rerun is
- * the newest run in its suite, and a non-admin would have seen it pending.
- * `suiteCreatedAt` maps suite id -> created_at; without it a queued run is
- * treated as not yet existing.
+ * A run queued but not yet started has `started_at: null`. It counts (as
+ * pending) when THAT run was queued by the merge: a queued rerun is the
+ * newest run in its suite, and a non-admin would have seen it pending.
+ * `queuedAt` maps check-run id -> when its own attempt was queued (the
+ * workflow run's `run_started_at`, which resets on rerun). The suite's
+ * `created_at` is not usable: a post-merge rerun reuses a pre-merge suite
+ * and would read as queued before the merge. Without a timestamp the run
+ * is treated as not yet existing.
  */
-function runStateAt(run, mergedAt, suiteCreatedAt) {
+function runStateAt(run, mergedAt, queuedAt) {
   if (!run.started_at) {
-    const created = suiteCreatedAt?.get(run.check_suite?.id);
-    return NOT_STARTED.has(run.status) && created && created <= mergedAt ? 'pending' : null;
+    const queued = queuedAt?.get(run.id);
+    return NOT_STARTED.has(run.status) && queued && queued <= mergedAt ? 'pending' : null;
   }
   if (run.started_at > mergedAt) return null;
   if (run.status !== 'completed' || !run.completed_at || run.completed_at > mergedAt) {
@@ -89,34 +96,43 @@ function statusStateAt(status) {
 /**
  * Rebuild one required context as of the merge.
  *
- * `countedSuites`, when given, is the set of check-suite ids GitHub's rollup
- * counts for this context; runs in any other suite are ignored. Omitting it
- * counts every suite, which is only right for synthetic inputs.
+ * `suiteGroups`, when given, maps each check-suite id GitHub's rollup counts
+ * for this context to the group its runs compete in (see suiteGroup); runs
+ * in any other suite are ignored. The LATEST run per group decides, not the
+ * latest per suite. Measured on #1078: GitHub reported the merge CLEAN while
+ * its rollup still listed a red Label Gate from an older `pull_request`
+ * suite next to a green one from a newer `pull_request` suite, so a newer
+ * run of the same triggering event supersedes an older suite. A red run
+ * from a DIFFERENT event is not superseded (#1071 stayed BLOCKED on a red
+ * `pull_request` gate until it was rerun, despite green
+ * `pull_request_review` runs). Omitting it groups per suite, which is only
+ * right for synthetic inputs.
  *
  * Returns { state, evidence } where state is success | failure | pending |
  * missing and evidence lists the entries that decided it.
  */
-export function contextStateAtMerge({ context, appId, checkRuns, statuses, mergedAt, countedSuites, suiteCreatedAt }) {
+export function contextStateAtMerge({ context, appId, checkRuns, statuses, mergedAt, suiteGroups, queuedAt }) {
   const pinned = appId !== null && appId !== undefined && appId !== -1;
   const evidence = [];
 
-  // Latest run per check suite, among runs that had started by the merge.
-  const latestPerSuite = new Map();
+  // Latest run per group (triggering event), among runs that existed by
+  // the merge in suites the rollup counts.
+  const latestPerGroup = new Map();
   for (const run of checkRuns) {
     if (run.name !== context) continue;
     if (pinned && run.app?.id !== appId) continue;
-    if (countedSuites && !countedSuites.has(run.check_suite?.id)) continue;
-    if (runStateAt(run, mergedAt, suiteCreatedAt) === null) continue;
-    const suite = run.check_suite?.id ?? `run-${run.id}`;
-    const prev = latestPerSuite.get(suite);
+    if (suiteGroups && !suiteGroups.has(run.check_suite?.id)) continue;
+    if (runStateAt(run, mergedAt, queuedAt) === null) continue;
+    const suite = suiteGroups ? suiteGroups.get(run.check_suite?.id) : (run.check_suite?.id ?? `run-${run.id}`);
+    const prev = latestPerGroup.get(suite);
     // A queued run (no start time yet) is the newest in its suite.
     const key = (r) => r.started_at ?? '\uffff';
     if (!prev || byTime(key(prev), key(run)) < 0 || (key(prev) === key(run) && prev.id < run.id)) {
-      latestPerSuite.set(suite, run);
+      latestPerGroup.set(suite, run);
     }
   }
-  for (const run of latestPerSuite.values()) {
-    const atMerge = runStateAt(run, mergedAt, suiteCreatedAt);
+  for (const run of latestPerGroup.values()) {
+    const atMerge = runStateAt(run, mergedAt, queuedAt);
     // Label what the run showed AT the merge. A run still going then may
     // have finished since; say so rather than print the later outcome as
     // though it were the state being judged.
@@ -157,22 +173,22 @@ export function contextStateAtMerge({ context, appId, checkRuns, statuses, merge
  * Evaluate a merged PR against the required contexts. Returns the contexts
  * that were not green at merge; an empty array means the merge was clean.
  */
-export function evaluateMerge({ required, checkRuns, statuses, mergedAt, rollupSuites, suiteCreatedAt }) {
+export function evaluateMerge({ required, checkRuns, statuses, mergedAt, rollupSuites, queuedAt }) {
   if (!Array.isArray(required) || required.length === 0) {
     // An empty list would make every merge look clean. Refuse to conclude.
     throw new Error('no required status checks visible on the protected branch; cannot audit');
   }
   const violations = [];
   for (const { context, app_id: appId } of required) {
-    const countedSuites = rollupSuites ? (rollupSuites.get(context) ?? new Set()) : undefined;
+    const suiteGroups = rollupSuites ? (rollupSuites.get(context) ?? new Map()) : undefined;
     const result = contextStateAtMerge({
       context,
       appId,
       checkRuns,
       statuses,
       mergedAt,
-      countedSuites,
-      suiteCreatedAt,
+      suiteGroups,
+      queuedAt,
     });
     // An unpinned context can be satisfied by a commit status, and GitHub
     // may evaluate statuses on the PR's test merge commit, which cannot be
@@ -372,7 +388,7 @@ export function renderIssue(finding, { repo, enforcementLevel, backfill = false 
       title: `Merge bypass: commit ${finding.sha.slice(0, 7)} reached main without a pull request`,
       body: [
         marker,
-        `Commit ${finding.sha} was pushed to \`main\` and no merged pull request contains it. Branch protection requires a pull request, so only an administrator could have made this push.`,
+        `Commit ${finding.sha} was pushed to \`main\` and no pull request merge produced this update of \`main\`. (The commit may still appear in an older merged pull request; that merge did not make this push.) Branch protection requires a pull request, so only an administrator could have made it.`,
         '',
         `- Pushed by: \`${finding.pusher ?? 'unknown'}\``,
         `- Commit message: ${JSON.stringify(finding.message ?? '')}`,
@@ -399,7 +415,7 @@ export function renderIssue(finding, { repo, enforcementLevel, backfill = false 
       ...rows,
       ...(finding.freshness ? ['', `**Branch freshness:** ${finding.freshness}`] : []),
       '',
-      "`failure` means at least one check suite's latest run had failed. A later green run in a different suite does not supersede it, which is how GitHub's own rollup evaluates it. `pending` means a run had started but not finished, and `missing` means nothing had reported. `behind` means protection requires an up-to-date branch and the PR head did not contain the tip of `main` it merged onto.",
+      "`failure` means the latest run of some triggering event had failed; a newer run of the same event supersedes an older one, as GitHub's merge gate does, but a run of a different event does not. `pending` means a run had started but not finished, and `missing` means nothing had reported. `behind` means protection requires an up-to-date branch and the PR head did not contain the tip of `main` it merged onto.",
       ...footer,
     ].join('\n'),
   };
@@ -407,7 +423,7 @@ export function renderIssue(finding, { repo, enforcementLevel, backfill = false 
 
 // ---------------------------------------------------------------- GitHub I/O
 
-function makeClient(token, repo) {
+export function makeClient(token, repo) {
   const base = `https://api.github.com/repos/${repo}`;
   // `allow` lists non-2xx statuses the caller handles itself; the call
   // then returns { status, data: null } instead of throwing.
@@ -457,7 +473,7 @@ query($owner: String!, $name: String!, $pr: Int!, $after: String) {
       commits(last: 1) { nodes { commit { oid statusCheckRollup {
         contexts(first: 100, after: $after) {
           pageInfo { hasNextPage endCursor }
-          nodes { ... on CheckRun { name checkSuite { databaseId } } }
+          nodes { ... on CheckRun { name checkSuite { databaseId workflowRun { event } } } }
         }
       } } } }
     }
@@ -483,12 +499,22 @@ async function rollupSuitesFor(gh, repo, prNumber, headSha) {
     if (!contexts) break;
     for (const node of contexts.nodes) {
       if (!node?.name || !node.checkSuite) continue;
-      if (!suites.has(node.name)) suites.set(node.name, new Set());
-      suites.get(node.name).add(node.checkSuite.databaseId);
+      if (!suites.has(node.name)) suites.set(node.name, new Map());
+      suites.get(node.name).set(node.checkSuite.databaseId, suiteGroup(node.checkSuite));
     }
     after = contexts.pageInfo.hasNextPage ? contexts.pageInfo.endCursor : null;
   } while (after);
   return suites;
+}
+
+/**
+ * The group a counted suite's runs compete in: its triggering event for an
+ * Actions suite, else the suite itself (API-published or app suites carry
+ * no workflow run). See contextStateAtMerge for why events, not suites.
+ */
+export function suiteGroup(checkSuite) {
+  const event = checkSuite?.workflowRun?.event;
+  return event ? `event:${event}` : `suite:${checkSuite?.databaseId}`;
 }
 
 
@@ -551,7 +577,7 @@ async function backfillBase(gh, pr) {
   return null;
 }
 
-async function auditPr(gh, repo, pr, { required, strict, baseSha }) {
+export async function auditPr(gh, repo, pr, { required, strict, baseSha }) {
   if (!pr.merged_at) return null;
   // A merged PR's head is frozen at the merge: later pushes to the branch do
   // not attach to a closed PR (#610's branch gained a commit 34s after its
@@ -561,15 +587,24 @@ async function auditPr(gh, repo, pr, { required, strict, baseSha }) {
   const checkRuns = await gh.paginate(`/commits/${head}/check-runs?filter=all`, (d) => d.check_runs);
   const statuses = await gh.paginate(`/commits/${head}/statuses`);
   const rollupSuites = await rollupSuitesFor(gh, repo, pr.number, head);
-  const suites = await gh.paginate(`/commits/${head}/check-suites`, (d) => d.check_suites);
-  const suiteCreatedAt = new Map(suites.map((cs) => [cs.id, cs.created_at]));
+  // A queued run has no start time of its own; take its attempt's queue
+  // time from the Actions workflow run it belongs to. Runs from other apps
+  // have no such record and stay "not yet existing" (see runStateAt).
+  const queuedAt = new Map();
+  for (const run of checkRuns) {
+    if (run.started_at || !NOT_STARTED.has(run.status)) continue;
+    const runId = run.details_url?.match(/\/actions\/runs\/(\d+)/)?.[1];
+    if (!runId) continue;
+    const { data: wr } = await gh.request(`/actions/runs/${runId}`);
+    if (wr.run_started_at) queuedAt.set(run.id, wr.run_started_at);
+  }
   const violations = evaluateMerge({
     required,
     checkRuns,
     statuses,
     mergedAt: pr.merged_at,
     rollupSuites,
-    suiteCreatedAt,
+    queuedAt,
   });
   let upToDate = 'not evaluated';
   if (strict && baseSha) {
@@ -710,7 +745,10 @@ async function auditPushRange(gh, { before, after, pusher, forced = false }, ctx
     associations,
   );
   let bound = bindPushToPrs({ commits, associations });
-  for (let attempt = 0; attempt < 2 && bound.direct.length > 0; attempt++) {
+  // The grace budget is per RUN, not per update: a sweep over many direct
+  // pushes must not spend 20s on each and time out before filing anything.
+  while (ctx.grace > 0 && bound.direct.length > 0) {
+    ctx.grace--;
     await new Promise((r) => setTimeout(r, 10_000));
     await associate(gh, bound.direct, associations);
     bound = bindPushToPrs({ commits, associations });
@@ -783,6 +821,7 @@ export async function main(argv = process.argv.slice(2)) {
   let unauditable = null;
   const ctx = {
     seen: new Set(),
+    grace: 2,
     async auditMerge(pr, baseSha) {
       if (required.length === 0) {
         unauditable = `#${pr.number}: no required status checks visible on main, so its merge cannot be audited`;

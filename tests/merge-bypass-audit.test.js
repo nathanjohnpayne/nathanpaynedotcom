@@ -11,12 +11,12 @@ import {
   requiredContexts,
   rulesetHidesRules,
   rulesRequireUpToDate,
+  suiteGroup,
 } from '../scripts/merge-bypass-audit.mjs';
 
 // Synthetic fixtures for the pure half of scripts/merge-bypass-audit.mjs
-// (#1024). The I/O half was validated against real merges when it landed:
-// the six bypasses #1024 names (#1001, #973, #958, #904, #893, #885) plus
-// #1067 flag, and #1066, #1068, #1069, #1070 and #1058 come back clean.
+// (#1024). The I/O half is validated against real merges whose outcome is
+// known; the ground-truth set and results are in the #1072 PR description.
 
 const ACTIONS = 15368;
 const MERGED = '2026-09-26T17:45:27Z';
@@ -114,7 +114,7 @@ describe('contextStateAtMerge', () => {
       }),
     ];
     expect(state({ checkRuns })).toBe('failure');
-    expect(state({ checkRuns, countedSuites: new Set([1]) })).toBe('success');
+    expect(state({ checkRuns, suiteGroups: new Map([[1, 'event:pull_request']]) })).toBe('success');
   });
 
   it('judges a suite by what it showed at the merge, not by a later rerun', () => {
@@ -209,7 +209,7 @@ describe('evaluateMerge', () => {
         completed: '2026-09-26T17:05:00Z',
       }),
     ];
-    const rollupSuites = new Map([['lint', new Set([1])]]);
+    const rollupSuites = new Map([['lint', new Map([[1, 'event:pull_request']])]]);
     const violations = evaluateMerge({
       required,
       checkRuns,
@@ -290,6 +290,8 @@ describe('renderIssue', () => {
     expect(title).toBe('Merge bypass: commit abcdef1 reached main without a pull request');
     expect(body).toContain('<!-- merge-bypass-audit:commit=abcdef1234567 -->');
     expect(body).toContain('`someone`');
+    expect(body).toContain('no pull request merge produced this update');
+    expect(body).not.toContain('no merged pull request contains it');
   });
 });
 
@@ -541,18 +543,30 @@ describe('Codex round 3 (#1072)', () => {
       completed: '2026-09-26T17:01:00Z',
     });
     const queued = { ...run({ suite: 7, started: null }), started_at: null, status: 'queued' };
-    const suiteCreatedAt = new Map([[7, '2026-09-26T16:59:00Z']]);
+    // The rerun itself was queued before the merge (17:40 < 17:45:27).
+    const queuedAt = new Map([[queued.id, '2026-09-26T17:40:00Z']]);
     const result = contextStateAtMerge({
       context: 'lint',
       appId: ACTIONS,
       checkRuns: [green, queued],
       statuses: [],
       mergedAt: MERGED,
-      suiteCreatedAt,
+      queuedAt,
     });
     expect(result.state).toBe('pending');
     expect(result.evidence[0].conclusion).toBe('queued');
-    // Without evidence the suite existed by the merge, the queued run is ignored.
+    // A rerun queued AFTER the merge in the same, older suite is ignored.
+    expect(
+      contextStateAtMerge({
+        context: 'lint',
+        appId: ACTIONS,
+        checkRuns: [green, queued],
+        statuses: [],
+        mergedAt: MERGED,
+        queuedAt: new Map([[queued.id, '2026-09-26T18:00:00Z']]),
+      }).state,
+    ).toBe('success');
+    // Without a queue time for the run itself, it is ignored.
     expect(
       contextStateAtMerge({
         context: 'lint',
@@ -592,5 +606,46 @@ describe('Codex round 3 (#1072)', () => {
     const { body } = renderIssue(stale, { repo: 'o/r' });
     expect(body).toContain('was not up to date with `main`');
     expect(body).not.toContain('were not green');
+  });
+});
+
+describe('per-event supersession (#1072 rework)', () => {
+  const red = (suite, started) =>
+    run({ suite, started, completed: started.replace(/:00Z$/, ':30Z'), conclusion: 'failure' });
+  const green = (suite, started) =>
+    run({ suite, started, completed: started.replace(/:00Z$/, ':30Z') });
+
+  it('lets a newer run of the same event supersede an older suite (the #1078 shape)', () => {
+    const checkRuns = [red(1, '2026-09-26T17:00:00Z'), green(2, '2026-09-26T17:30:00Z')];
+    const suiteGroups = new Map([
+      [1, 'event:pull_request'],
+      [2, 'event:pull_request'],
+    ]);
+    expect(state({ checkRuns, suiteGroups })).toBe('success');
+  });
+
+  it('does not let a run of a different event supersede a red one (the #1071 shape)', () => {
+    const checkRuns = [red(1, '2026-09-26T17:00:00Z'), green(2, '2026-09-26T17:30:00Z')];
+    const suiteGroups = new Map([
+      [1, 'event:pull_request'],
+      [2, 'event:pull_request_review'],
+    ]);
+    expect(state({ checkRuns, suiteGroups })).toBe('failure');
+  });
+
+  it('keeps an older red run when the newer same-event run started after the merge', () => {
+    const checkRuns = [red(1, '2026-09-26T17:00:00Z'), green(2, '2026-09-26T17:50:00Z')];
+    const suiteGroups = new Map([
+      [1, 'event:pull_request'],
+      [2, 'event:pull_request'],
+    ]);
+    expect(state({ checkRuns, suiteGroups })).toBe('failure');
+  });
+
+  it('groups a suite with no workflow run by itself', () => {
+    expect(suiteGroup({ databaseId: 9, workflowRun: { event: 'pull_request' } })).toBe(
+      'event:pull_request',
+    );
+    expect(suiteGroup({ databaseId: 9, workflowRun: null })).toBe('suite:9');
   });
 });
