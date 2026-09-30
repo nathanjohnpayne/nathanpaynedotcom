@@ -335,7 +335,7 @@ Reclassified by title **and** the first lines of each pull request body (`pulls/
 
 8 + 2 + 3 + 7 = 20. This is a judgment classification from summaries, not full bodies, and the post states the buckets rather than one number.
 
-**Placement, 2026-09-30.** The 21 subject lines and these buckets moved to the appendix. The body keeps one paragraph: twenty changes in 32 hours 41 minutes, eight in family "by my reading of their titles and summaries," the #1271 quote, and "six of the twenty are recorded on #878 as shipped against it" (§A2; all six are in the eight). The earlier closing judgment "it is not productivity. It is enumeration" is **removed** as unsupported: it dismissed the fixes without showing a redesign would have been cheaper. It now reads "The fixes improved safety. They did not retire the shared cause."
+**Placement, 2026-09-30.** The 21 subject lines and these buckets moved to the appendix. The body keeps one paragraph: twenty changes in 32 hours 41 minutes, eight in family "by my reading of their titles and summaries," the #1271 quote, and "#878 records six of the twenty as shipped against it" (§A2; all six are in the eight). The earlier closing judgment "it is not productivity. It is enumeration" is **removed** as unsupported: it dismissed the fixes without showing a redesign would have been cheaper. It now reads "The fixes improved safety. They did not retire the shared cause."
 
 **Branch names, SUPPORTED.** "#1271 and #1283 carry `878` in their branch names": `GET /repos/nathanjohnpayne/mergepath/pulls/1271` → `.head.ref` is `codex/issue-878-tier-read-errors`; `pulls/1283` → `codex/878-aged-summary-status-veto` (read 2026-09-24). The other four #878-banner PRs carry their own issue numbers instead: #1273 `codex/1037-count-review-runs`, #1274 `codex/940-veto-fallback-status`, #1279 `codex/issue-940-timeout-failover`, #1282 `codex/1034-risk-marker-refusal`.
 
@@ -388,7 +388,7 @@ A Codex editorial review (relayed by the author in chat, 2026-09-30) asked for f
 
 ### I3—the decision, quoted
 
-**SUPPORTED.** `gh api repos/nathanjohnpayne/mergepath/issues/comments/5825270339`: author `nathanjohnpayne`, `created_at 2026-09-25T01:40:04Z`, heading "Decision — 2026-09-24". The post quotes its first paragraph verbatim. Its second paragraph supports "A body-less acknowledgment does not count; only a review run with a body, pinned to the current commit, clears the refusal": "A body-less acknowledgement review object is activity rather than a review run and is insufficient." The post dates the decision September 24, per its heading; the comment was posted 01:40 UTC on the 25th.
+**SUPPORTED.** `gh api repos/nathanjohnpayne/mergepath/issues/comments/5825270339`: author `nathanjohnpayne`, `created_at 2026-09-25T01:40:04Z`, heading "Decision—2026-09-24" (em dash spacing normalized). The post quotes its first paragraph verbatim. Its second paragraph supports "A body-less acknowledgment does not count; only a review run with a body, pinned to the current commit, clears the refusal": "A body-less acknowledgement review object is activity rather than a review run and is insufficient." The post dates the decision September 24, per its heading; the comment was posted 01:40 UTC on the 25th.
 
 ### I4—#1323 shipped it
 
@@ -407,3 +407,8 @@ A Codex editorial review (relayed by the author in chat, 2026-09-30) asked for f
 ### I7—states re-read 2026-09-30
 
 All still `OPEN`: #1186, #962, #826, #1058, #1130, #878. `CLOSED`: #940 (`2026-09-15T03:17:44Z`), #956. The post's "still open" for #1130 and "open since August 13" for #962 hold on that date.
+
+### I8—brevity pass (2026-09-30, after owner approval)
+
+Run separately from the factual passes, at the owner's request, so the owner could read the text that will publish. Tightening only, confined to body prose; frontmatter and the appendix's tables and code block are untouched, and the owner's three correction sentences (§D7, §I5) are verbatim. `scripts/verify-brevity.py` against the pre-pass file: PASS, with every URL, `#NNN` reference, timestamp, numeral and code span unchanged; prose 1,993 → 1,907 words (−4.3%). The advisory lost two spelled-out "one"s ("Most had one." and "one rule" → "no single rule"); neither is a count. The only ledger-quoted phrase that changed is the §F2 placement quote, updated inline above.
+

@@ -41,37 +41,37 @@ sidebar:
 
 I have written before about [automated reviewers being right and the pull request being wrong anyway](/blog/every-reviewer-was-right/). This is the opposite failure: the reviewer that never answered, and the pipeline that scored the silence.
 
-[Mergepath](/blog/agent-approval-workflow-genesis-of-mergepath/) is the repository standard my coding agents work under: canonical docs every agent reads before touching code, fail-closed CI checks, review under a separate reviewer identity, a second agent holding a merge veto on larger changes, and one-command propagation to downstream repositories. It is the thing that is supposed to make everything else I build with agents safe to build with agents.
+[Mergepath](/blog/agent-approval-workflow-genesis-of-mergepath/) is the repository standard my coding agents work under: canonical docs every agent reads before touching code, fail-closed CI checks, review under a separate reviewer identity, a second agent holding a merge veto on larger changes, and one-command propagation to downstream repositories. It exists to make everything else I build with agents safe to build with agents.
 
 ## A Clear That Was Not a Review
 
-On August 10, the helper that waits for CodeRabbit to review a pull request's current commit reported `status: cleared` on a commit CodeRabbit had not reviewed. [#940](https://github.com/nathanjohnpayne/mergepath/issues/940) records it. The commit's status read `success | Review rate limited`. CodeRabbit had queued the review, started it, and hit its limit inside six seconds, and it published no review of that commit.
+On August 10, as [#940](https://github.com/nathanjohnpayne/mergepath/issues/940) records, the helper that waits for CodeRabbit to review a pull request's current commit reported `status: cleared` on a commit CodeRabbit had not reviewed. The commit's status read `success | Review rate limited`. CodeRabbit had queued the review, started it, and hit its limit inside six seconds, then published no review of that commit.
 
-The helper did not fall for the status. Its newest guard read the description, saw that it did not name a completed review, and refused the fast path. The poll it fell through to then found CodeRabbit's walkthrough comment, created hours earlier for an older commit, whose update timestamp CodeRabbit had bumped when the push refreshed it. The comment looked fresh, graded as a review, and cleared. The evidence that should have stopped it had been read and rejected one branch earlier.
+The helper did not fall for the status: its newest guard saw that the description did not name a completed review and refused the fast path. The poll it fell through to then found CodeRabbit's walkthrough comment, written hours earlier for an older commit, whose update timestamp CodeRabbit had bumped on the push. It looked fresh, graded as a review, and cleared. The evidence that should have stopped it had been read and rejected one branch earlier.
 
-The damage was bounded, and the issue says so. The required merge gate does not consult this helper, so nothing here let a known defect through. What was lost was a review: the pull request did not get CodeRabbit's pass on that commit, and the Codex failover that should have replaced it never fired.
+The damage was bounded, as the issue notes. The required merge gate does not consult this helper, so no known defect got through. What was lost was a review: CodeRabbit never passed over that commit, and the Codex failover that should have replaced it never fired.
 
-That is not a bug in a reviewer. The pipeline had a way to say "no answer," and it used that correctly once. What it did not have was one rule for what "no answer" permits, so another path through the same script answered the question differently.
+That is not a reviewer bug. The pipeline could say "no answer," and did, correctly, once. It had no single rule for what "no answer" permits, so another path through the same script answered differently.
 
 ## The Question Underneath
 
-Which is the question this post is actually about, and the one I should have been asking all along:
+That is the question this post is about, and the one I should have asked from the start:
 
 **Is reviewer availability a stated product requirement with an owner and a contract, or is it an implementation detail discovered one incident at a time?**
 
-Through August and most of September, I treated it as the second. Each incident got a correct, local fix, and each fix taught one more code path what one more shape of silence looked like. These were not, for the most part, code paths with no concept of "no answer." Most had one. What they lacked was an agreed rule, owned by someone, for what a missing answer is allowed to prove and what the caller does next. Three cases show what that costs.
+Through August and most of September, I treated it as the second. Each incident got a correct, local fix that taught one more code path one more shape of silence. Most of those code paths already had a concept of "no answer." What they lacked was an agreed rule, owned by someone, for what a missing answer may prove and what the caller does next. Three cases show the cost.
 
 ## When No Answer Accumulates
 
 [#1186](https://github.com/nathanjohnpayne/mergepath/issues/1186), filed on September 4, reports that the wave audit, which reviews the canonical content Mergepath propagates to downstream repositories, "has not advanced its watermark since 2026-07-28: over-budget diffs classify as 'reviewer unavailable' and chain forward, making the next range larger."
 
-The audit had a word for "no answer," and it used it. The word was the wrong kind. *Reviewer unavailable* is a transient condition, and transient conditions carry forward to the next run. But a diff over the byte budget does not get smaller by waiting. The unaudited range carried into the next wave, which made the next diff larger, which made the next overage certain. In the issue's words: "Every wave since has exited 4, failed open, and chained its un-audited range into the next one." When the issue was filed, it recorded the range at 127 commits and the diff at 2.8 times the review budget.
+The audit had a word for "no answer," and it used it. The word was the wrong kind. *Reviewer unavailable* is transient, and transient conditions carry forward to the next run. But an over-budget diff does not shrink by waiting. Each unaudited range carried into the next wave, making the next diff larger and the next overage certain. In the issue's words: "Every wave since has exited 4, failed open, and chained its un-audited range into the next one." At filing, the issue recorded the range at 127 commits and the diff at 2.8 times the review budget.
 
 Thirty-eight days passed between the last approval and the filing. The fix, [#1263](https://github.com/nathanjohnpayne/mergepath/pull/1263), is 45 added lines: refuse an oversized scope before dispatching a reviewer, instead of calling it unavailability.
 
-What made this one compound is specific to it. The failure blocked no propagation; each run recorded it, but nothing aggregated those records into a warning about the growing backlog. Each run's leftover became the next run's input, so the error grew instead of repeating. And "reviewer unavailable" reads like weather, not like a defect. None of that is a law about failing open. It is what happens when a no-answer state is filed under the wrong kind and nobody owns the difference.
+What made this one compound is specific to it. The failure blocked no propagation; each run recorded it, but nothing aggregated those records into a warning about the growing backlog. Each run's leftover became the next run's input, so the error grew instead of repeating. And "reviewer unavailable" reads like weather, not a defect. None of that is a law about failing open. It is what happens when a no-answer state is filed under the wrong kind and nobody owns the difference.
 
-Blocking can cascade too. [#1130](https://github.com/nathanjohnpayne/mergepath/issues/1130), still open, describes a required gate that "runs on the App installation budget (1,000/hr/repo), so an exhausted GITHUB_TOKEN deadlocks every open PR," after which "every open PR in the repository becomes unmergeable regardless of its own merits." That is a fail-closed default doing harm at repository scale. The difference is that it announces itself, because nobody can merge.
+Blocking can cascade too. [#1130](https://github.com/nathanjohnpayne/mergepath/issues/1130), still open, describes a required gate that "runs on the App installation budget (1,000/hr/repo), so an exhausted GITHUB_TOKEN deadlocks every open PR," after which "every open PR in the repository becomes unmergeable regardless of its own merits." That is failing closed, doing harm at repository scale. The difference is that it announces itself: nobody can merge.
 
 ## When No Answer Costs a Person
 
@@ -81,29 +81,29 @@ The tempting conclusion is to fail closed everywhere and let a human sort it out
 
 > "A break-glass prompt is exactly the wrong affordance for a routine provider outage: it trains the reflex on a case where nothing is actually wrong with the code."
 
-A hold spends human attention, and a reflex trained on false alarms is the one that waves through the real one. The obvious remedy, making the alarm quieter, reopens the original defect: "Branch protection treats a required check as satisfied on `neutral`, so if this check is required, downgrading the conclusion would *release* the merge rather than merely recolouring it." Recolor the alarm and it becomes a green light.
+A hold spends human attention, and a reflex trained on false alarms is the one that waves through the real one. The obvious remedy, a quieter alarm, reopens the original defect: "Branch protection treats a required check as satisfied on `neutral`, so if this check is required, downgrading the conclusion would *release* the merge rather than merely recolouring it." Recolor the alarm and it becomes a green light.
 
-[#826](https://github.com/nathanjohnpayne/mergepath/issues/826) goes further and argues that CodeRabbit should not be load-bearing for merge at all, because "the budget is exhausted by the system reviewing its own churn." It is open, labeled as a decision, and blocked.
+[#826](https://github.com/nathanjohnpayne/mergepath/issues/826) goes further, arguing that CodeRabbit should not be load-bearing for merge at all, because "the budget is exhausted by the system reviewing its own churn." It is open, labeled as a decision, and blocked.
 
-So failing open can lose reviews quietly, and failing closed can spend people loudly. Neither is free. Choosing between them for a given kind of silence is a product decision, and I had been leaving it to whichever code path met the case first.
+Failing open can lose reviews quietly; failing closed can spend people loudly. Neither is free. Choosing between them for a given kind of silence is a product decision, and I had been leaving it to whichever code path met the case first.
 
 ## The Patch Series
 
-[#878](https://github.com/nathanjohnpayne/mergepath/issues/878) is titled "Redesign coderabbit-wait classification around machine markers instead of prose greps." It was opened on August 3. A rewrite on September 4 raised it to `priority:high` and diagnosed the family better than I have:
+[#878](https://github.com/nathanjohnpayne/mergepath/issues/878), "Redesign coderabbit-wait classification around machine markers instead of prose greps," was opened on August 3. A September 4 rewrite raised it to `priority:high` and diagnosed the family better than I have:
 
 > "They are not independent defects. They are instances of one property: **CodeRabbit's review state is inferred by grepping a rendered vendor surface, and that surface is neither stable nor machine-specified.**"
 
-Its first acceptance criterion asks for "a written contract (extending `specs/coderabbit_review_sensing.md`) enumerating each observable signal, its source, and what it is permitted to prove—separating *the review ran* from *the review found nothing*." Its second asks for one implementation of that contract, "consumed by `scripts/coderabbit-wait.sh` and `scripts/coderabbit-severity-gate.sh` alike." The same rewrite added this:
+Its first acceptance criterion asks for "a written contract (extending `specs/coderabbit_review_sensing.md`) enumerating each observable signal, its source, and what it is permitted to prove—separating *the review ran* from *the review found nothing*." Its second asks for one implementation, "consumed by `scripts/coderabbit-wait.sh` and `scripts/coderabbit-severity-gate.sh` alike." The same rewrite added:
 
 > "Do not attempt this as a patch series. The original filing's own history—seven review rounds, fifteen valid findings, no convergence—is the argument against that."
 
-Ten days later, across September 14 and 15, twenty distinct changes landed on `main` in 32 hours and 41 minutes. By my reading of their titles and summaries, eight restate one idea against a different surface: a value that meant "I could not answer" being read as an answer. [#1271](https://github.com/nathanjohnpayne/mergepath/pull/1271) says it most plainly: "A failed CodeRabbit marker extractor currently returns successful absence." Six of the twenty are recorded on #878 as shipped against it. The full list, and how I sorted it, is in the appendix.
+Ten days later, across September 14 and 15, twenty distinct changes landed on `main` in 32 hours and 41 minutes. By my reading of their titles and summaries, eight restate one idea against different surfaces: a value meaning "I could not answer," read as an answer. [#1271](https://github.com/nathanjohnpayne/mergepath/pull/1271) says it most plainly: "A failed CodeRabbit marker extractor currently returns successful absence." #878 records six of the twenty as shipped against it. The appendix has the full list and how I sorted it.
 
 The fixes improved safety. Two of them, [#1274](https://github.com/nathanjohnpayne/mergepath/pull/1274) and [#1279](https://github.com/nathanjohnpayne/mergepath/pull/1279), closed #940. They did not retire the shared cause, because the cause was not in any one code path. It was an unanswered product question, and #878 said whose it was: its banner kept it open at high priority for "the #956 product decision."
 
 ## The Decision
 
-[#956](https://github.com/nathanjohnpayne/mergepath/issues/956) had been open since August 11. On a pull request where CodeRabbit was auto-paused, the waiter cleared in one second, because the commit's status read `success | Review completed` although CodeRabbit had not reviewed that commit. Posting `@coderabbitai resume` by hand flipped the same status to `pending`, and a real review began. The question it raised was not how to parse a status. It was which evidence wins when the vendor says "paused" in one place and "completed" in another.
+[#956](https://github.com/nathanjohnpayne/mergepath/issues/956) had been open since August 11. On a pull request where CodeRabbit was auto-paused, the waiter cleared in one second, because the commit's status read `success | Review completed` although CodeRabbit had not reviewed that commit. Posting `@coderabbitai resume` by hand flipped the same status to `pending`, and a real review began. The question was not how to parse a status but which evidence wins when the vendor says "paused" in one place and "completed" in another.
 
 On September 24 I decided it, and recorded the decision on the issue:
 
@@ -111,11 +111,11 @@ On September 24 I decided it, and recorded the decision on the issue:
 
 A body-less acknowledgment does not count as that evidence; a review run with a body, pinned to the current commit, does. [#1323](https://github.com/nathanjohnpayne/mergepath/pull/1323) implemented it and merged on September 25.
 
-That rule has a cost, and I chose it knowing the cost. While CodeRabbit's current comment remains a refusal, a completion status alone no longer clears the commit. The existing resume, retry, timeout, and Codex failover rules still apply. That is slower, and some of those waits will be on commits with nothing wrong in them. It is #962's cost, accepted on purpose.
+That rule has a cost, and I chose it knowingly. While CodeRabbit's current comment remains a refusal, a completion status alone no longer clears the commit. The existing resume, retry, timeout, and Codex failover rules still apply. That is slower, and some of those waits will be on commits with nothing wrong in them. It is #962's cost, accepted on purpose.
 
-It is also not the whole answer. It settles one case: what a refusal plus a completion status is permitted to prove. #878 stays open at high priority for the rest: the shared classification contract, coverage of the remaining states, and delivery to downstream repositories. I have not done that part yet.
+It is also not the whole answer. It settles one case: what a refusal plus a completion status may prove. #878 stays open at high priority for the rest: the shared classification contract, coverage of the remaining states, and delivery to downstream repositories. I have not done that part yet.
 
-What changed is the rule for making progress when evidence is missing. Before, each code path decided for itself whether a silence was close enough to a yes, and the fixes taught them one at a time that it was not. Now there is one written rule, with an owner, for one kind of silence: while the provider's current comment remains a refusal, a completion status alone cannot substitute for a review of this commit. The remaining work is to write that kind of rule for every other kind of silence, once, and have the waiter and the gate both read it.
+What changed is the rule for making progress when evidence is missing. Before, each code path decided for itself whether a silence was close enough to a yes, and the fixes taught them one at a time that it was not. Now there is one written rule, with an owner, for one kind of silence: while the provider's current comment remains a refusal, a completion status alone cannot substitute for a review of this commit. The remaining work is to write that rule for every other kind of silence, once, and have the waiter and the gate both read it.
 
 ## Appendix: The Evidence
 
