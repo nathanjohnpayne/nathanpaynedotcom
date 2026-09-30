@@ -408,3 +408,20 @@ describe('review round 2 (#1072)', () => {
     expect(rulesetHidesRules({ id: 3 })).toMatch(/did not report a bypass_actors array/);
   });
 });
+
+describe('review round 3 (#1072)', () => {
+  it('states when branch freshness was required but not audited', () => {
+    const finding = {
+      kind: 'merged-pr',
+      pr: { number: 9, title: 't', merged_at: MERGED, merged_by: 'x', head_sha: 'abcdef1234' },
+      violations: [{ context: 'lint', state: 'failure', evidence: [] }],
+      freshness: 'not audited: ambiguous base',
+    };
+    expect(renderIssue(finding, { repo: 'o/r' }).body).toContain(
+      '**Branch freshness:** not audited: ambiguous base',
+    );
+    const { freshness, ...withoutNote } = finding;
+    expect(freshness).toBeTruthy();
+    expect(renderIssue(withoutNote, { repo: 'o/r' }).body).not.toContain('Branch freshness');
+  });
+});

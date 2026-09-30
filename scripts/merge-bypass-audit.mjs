@@ -327,6 +327,7 @@ export function renderIssue(finding, { repo, enforcementLevel, backfill = false 
       '| Required check | State at merge | Runs GitHub was counting |',
       '|---|---|---|',
       ...rows,
+      ...(finding.freshness ? ['', `**Branch freshness:** ${finding.freshness}`] : []),
       '',
       "`failure` means at least one check suite's latest run had failed. A later green run in a different suite does not supersede it, which is how GitHub's own rollup evaluates it. `pending` means a run had started but not finished, and `missing` means nothing had reported. `behind` means protection requires an up-to-date branch and the PR head did not contain the tip of `main` it merged onto.",
       ...footer,
@@ -482,6 +483,10 @@ async function backfillBase(gh, pr) {
 
 async function auditPr(gh, repo, pr, { required, strict, baseSha }) {
   if (!pr.merged_at) return null;
+  // A merged PR's head is frozen at the merge: later pushes to the branch do
+  // not attach to a closed PR (#610's branch gained a commit 34s after its
+  // merge and `head.sha` still names the pre-merge head). So this IS the
+  // commit GitHub evaluated required checks on.
   const head = pr.head.sha;
   const checkRuns = await gh.paginate(`/commits/${head}/check-runs?filter=all`, (d) => d.check_runs);
   const statuses = await gh.paginate(`/commits/${head}/statuses`);
@@ -509,6 +514,12 @@ async function auditPr(gh, repo, pr, { required, strict, baseSha }) {
       head_sha: head,
     },
     violations,
+    // Say so when freshness was required but could not be audited, so the
+    // issue never implies a check that did not run.
+    freshness:
+      strict && upToDate === 'not evaluated'
+        ? 'not audited: the merge base is ambiguous (a multi-commit squash or rebase), so this issue does not say whether the branch was up to date.'
+        : undefined,
   };
 }
 
