@@ -57,13 +57,18 @@ permissions:
   issues: write
 
 concurrency:
-  # One repository-wide group. Issue deduplication is a lookup followed by a
-  # create, which is not atomic, so two overlapping audits of the same PR
-  # (a slow push run and a sweep, or two dispatches) could each file it.
-  # Serializing every run closes that race. GitHub keeps at most one pending
-  # run per group and cancels an older pending one; the 30-minute sweep
-  # re-audits whatever such a cancelled run would have covered.
-  group: merge-bypass-audit
+  # Push and scheduled runs share one repository-wide group. Issue
+  # deduplication is a lookup followed by a create, which is not atomic,
+  # so two overlapping audits of the same update could each file it.
+  # GitHub keeps at most one pending run per group and cancels an older
+  # pending one; the 30-minute sweep re-audits whatever that covered.
+  #
+  # A manual backfill gets its own group, keyed by PR number. In the
+  # shared group a push or sweep could cancel it while pending, and no
+  # sweep would replace it: a backfilled PR is usually older than the
+  # sweep window. The dedupe race only reopens for a backfill of a PR
+  # merged in the last 180 minutes, which the sweep already covers.
+  group: ${{ github.event_name == 'workflow_dispatch' && format('merge-bypass-audit-backfill-{0}', inputs.pr) || 'merge-bypass-audit' }}
   cancel-in-progress: false
 
 jobs:
