@@ -75,6 +75,13 @@ jobs:
           AFTER: ${{ github.sha }}
           PUSHER: ${{ github.event.pusher.name }}
           PR: ${{ inputs.pr }}
+          # Classic protection's `strict` (require an up-to-date branch)
+          # needs Administration:read, which github.token lacks, so it is
+          # declared here and used only when the live read is refused.
+          # Live protection read `strict: true` on 2026-09-29 (#1024). If
+          # it is turned off, set this to "false": left stale, it can only
+          # add noisy findings, never hide a bypass.
+          MERGE_BYPASS_CLASSIC_STRICT: "true"
         run: |
           if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
             node scripts/merge-bypass-audit.mjs --pr "$PR"

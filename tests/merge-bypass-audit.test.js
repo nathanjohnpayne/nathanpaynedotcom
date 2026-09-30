@@ -1,10 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import {
+  bindPushToPrs,
   contextStateAtMerge,
   evaluateMerge,
   markerFor,
   renderIssue,
   requiredContexts,
+  rulesRequireUpToDate,
 } from '../scripts/merge-bypass-audit.mjs';
 
 // Synthetic fixtures for the pure half of scripts/merge-bypass-audit.mjs
@@ -266,7 +268,7 @@ describe('renderIssue', () => {
 
   it('carries a per-PR dedupe marker and one row per violation', () => {
     const { title, body } = renderIssue(merged, { repo: 'o/r', enforcementLevel: 'non_admins' });
-    expect(title).toBe('Merge bypass: #1067 merged past 1 required check');
+    expect(title).toBe('Merge bypass: #1067 merged past 1 protection requirement');
     expect(body).toContain(`<!-- ${markerFor(merged)} -->`);
     expect(markerFor(merged)).toBe('merge-bypass-audit:pr=1067');
     expect(body).toContain('| Label Gate | **failure** | [failure](https://x) |');
@@ -284,5 +286,113 @@ describe('renderIssue', () => {
     expect(title).toBe('Merge bypass: commit abcdef1 reached main without a pull request');
     expect(body).toContain('<!-- merge-bypass-audit:commit=abcdef1234567 -->');
     expect(body).toContain('`someone`');
+  });
+});
+
+describe('review round 1 (#1072)', () => {
+  it('labels a run by what it showed at the merge, noting a later finish', () => {
+    const checkRuns = [run({ started: '2026-09-26T17:45:00Z', completed: '2026-09-26T17:46:00Z' })];
+    const { state: s, evidence } = contextStateAtMerge({
+      context: 'lint',
+      appId: ACTIONS,
+      checkRuns,
+      statuses: [],
+      mergedAt: MERGED,
+    });
+    expect(s).toBe('pending');
+    expect(evidence[0].conclusion).toBe('in progress, finished later: success');
+  });
+
+  it('unions ruleset-required checks with classic protection', () => {
+    const protection = {
+      enabled: true,
+      required_status_checks: { checks: [{ context: 'lint', app_id: ACTIONS }] },
+    };
+    const rules = [
+      { type: 'pull_request', parameters: {} },
+      {
+        type: 'required_status_checks',
+        parameters: {
+          strict_required_status_checks_policy: true,
+          required_status_checks: [
+            { context: 'lint', integration_id: ACTIONS },
+            { context: 'deploy-preview' },
+          ],
+        },
+      },
+    ];
+    expect(requiredContexts(protection, rules)).toEqual([
+      { context: 'lint', app_id: ACTIONS },
+      { context: 'deploy-preview', app_id: null },
+    ]);
+    expect(requiredContexts(undefined, rules)).toHaveLength(2);
+    expect(rulesRequireUpToDate(rules)).toBe(true);
+    expect(rulesRequireUpToDate([])).toBe(false);
+  });
+
+  const pr = (number, merge) => ({
+    number,
+    merged_at: MERGED,
+    base: { ref: 'main' },
+    merge_commit_sha: merge,
+  });
+  const bind = (before, shas, assoc) =>
+    bindPushToPrs({
+      before,
+      commits: shas.map((sha) => ({ sha })),
+      associations: new Map(Object.entries(assoc)),
+    });
+
+  it('binds a squash merge to its PR with the pre-push tip as base', () => {
+    const out = bind('b0', ['s1'], { s1: [pr(7, 's1')] });
+    expect(out.direct).toEqual([]);
+    expect(out.groups.map((g) => [g.pr.number, g.shas, g.baseSha])).toEqual([[7, ['s1'], 'b0']]);
+  });
+
+  it('binds every commit of a rebase or merge-commit push to one PR', () => {
+    const rebase = bind('b0', ['r1', 'r2', 'r3'], {
+      r1: [pr(8, 'r3')],
+      r2: [pr(8, 'r3')],
+      r3: [pr(8, 'r3')],
+    });
+    expect(rebase.groups.map((g) => [g.pr.number, g.shas.length, g.baseSha])).toEqual([
+      [8, 3, 'b0'],
+    ]);
+    const merge = bind('b0', ['c1', 'm1'], { c1: [pr(9, 'm1')], m1: [pr(9, 'm1')] });
+    expect(merge.groups.map((g) => [g.pr.number, g.baseSha])).toEqual([[9, 'b0']]);
+    expect(merge.direct).toEqual([]);
+  });
+
+  it('treats a commit associated only with an older merged PR as a direct push', () => {
+    // h1 was the head of #5, which squash-merged long ago as `old`.
+    const out = bind('b0', ['h1'], { h1: [pr(5, 'old')] });
+    expect(out.direct).toEqual(['h1']);
+    expect(out.groups).toEqual([]);
+  });
+
+  it('advances the base across a direct push followed by a merge', () => {
+    const out = bind('b0', ['d1', 's2'], { d1: [], s2: [pr(10, 's2')] });
+    expect(out.direct).toEqual(['d1']);
+    expect(out.groups[0].baseSha).toBe('d1');
+  });
+
+  it('renders a forced rewind with its own marker', () => {
+    const finding = {
+      kind: 'force-push',
+      before: 'aaaaaaa1',
+      after: 'bbbbbbb2',
+      status: 'behind',
+      pusher: 'x',
+    };
+    const { title, body } = renderIssue(finding, { repo: 'o/r' });
+    expect(title).toBe('Merge bypass: main was rewritten from aaaaaaa to bbbbbbb');
+    expect(markerFor(finding)).toBe('merge-bypass-audit:force=aaaaaaa1..bbbbbbb2');
+    expect(body).toContain('`behind`');
+  });
+
+  it('adds the backfill caveat only to backfilled findings', () => {
+    const finding = { kind: 'direct-push', sha: 'abcdef1234567', message: 'm' };
+    expect(renderIssue(finding, { repo: 'o/r', backfill: true }).body).toContain('Backfill caveat');
+    expect(renderIssue(finding, { repo: 'o/r' }).body).not.toContain('Backfill caveat');
   });
 });

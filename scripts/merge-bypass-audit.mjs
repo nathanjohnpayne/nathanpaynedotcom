@@ -100,10 +100,16 @@ export function contextStateAtMerge({ context, appId, checkRuns, statuses, merge
     }
   }
   for (const run of latestPerSuite.values()) {
+    const atMerge = runStateAt(run, mergedAt);
+    // Label what the run showed AT the merge. A run still going then may
+    // have finished since; say so rather than print the later outcome as
+    // though it were the state being judged.
+    let conclusion = atMerge === 'pending' ? 'in progress' : run.conclusion;
+    if (atMerge === 'pending' && run.status === 'completed') conclusion += `, finished later: ${run.conclusion}`;
     evidence.push({
       kind: 'check_run',
-      state: runStateAt(run, mergedAt),
-      conclusion: run.conclusion ?? run.status,
+      state: atMerge,
+      conclusion,
       url: run.html_url,
       at: run.completed_at ?? run.started_at,
     });
@@ -149,23 +155,94 @@ export function evaluateMerge({ required, checkRuns, statuses, mergedAt, rollupS
   return violations;
 }
 
-/** Normalize the branch API's protection block into [{ context, app_id }]. */
-export function requiredContexts(protection) {
+/**
+ * Required contexts as [{ context, app_id }]: the union of classic branch
+ * protection (the branch API's `protection` block) and every active ruleset
+ * rule of type `required_status_checks` that applies to the branch
+ * (`GET /rules/branches/{branch}`). GitHub enforces both surfaces together,
+ * so reading only one would let a bypass of the other report clean.
+ */
+export function requiredContexts(protection, rules = []) {
+  const out = [];
+  const seen = new Set();
+  const add = (context, appId) => {
+    const key = `${context}\u0000${appId ?? ''}`;
+    if (!context || seen.has(key)) return;
+    seen.add(key);
+    out.push({ context, app_id: appId ?? null });
+  };
   const rsc = protection?.required_status_checks;
-  if (!protection?.enabled || !rsc) return [];
-  if (Array.isArray(rsc.checks) && rsc.checks.length > 0) {
-    return rsc.checks.map((c) => ({ context: c.context, app_id: c.app_id ?? null }));
+  if (protection?.enabled && rsc) {
+    if (Array.isArray(rsc.checks) && rsc.checks.length > 0) {
+      for (const c of rsc.checks) add(c.context, c.app_id);
+    } else {
+      for (const context of rsc.contexts ?? []) add(context, null);
+    }
   }
-  return (rsc.contexts ?? []).map((context) => ({ context, app_id: null }));
+  for (const rule of rules) {
+    if (rule?.type !== 'required_status_checks') continue;
+    for (const c of rule.parameters?.required_status_checks ?? []) add(c.context, c.integration_id);
+  }
+  return out;
+}
+
+/** True when any applicable ruleset requires an up-to-date branch. */
+export function rulesRequireUpToDate(rules = []) {
+  return rules.some(
+    (r) => r?.type === 'required_status_checks' && r.parameters?.strict_required_status_checks_policy === true,
+  );
+}
+
+/**
+ * Bind each pushed commit to the merged PR that produced it. A PR owns a
+ * push only when its merge commit is one of the pushed commits: that holds
+ * for squash (the merge commit is the squash), rebase (the merge commit is
+ * the last rebased commit) and merge commits alike. Any other association,
+ * such as an old squash-merged PR whose original head commit is being
+ * pushed directly, does not count.
+ *
+ * `associations` maps sha -> [PR objects from GET /commits/{sha}/pulls].
+ * Returns { groups: [{ pr, shas, baseSha }], direct: [sha] } in push order,
+ * where baseSha is the branch tip just before that PR's commits landed.
+ */
+export function bindPushToPrs({ before, commits, associations }) {
+  const pushed = new Set(commits.map((c) => c.sha));
+  const owner = new Map();
+  for (const { sha } of commits) {
+    const pr = (associations.get(sha) ?? []).find(
+      (p) => p.merged_at && p.base?.ref === 'main' && pushed.has(p.merge_commit_sha),
+    );
+    if (pr) owner.set(sha, pr);
+  }
+  const groups = [];
+  const direct = [];
+  const byPr = new Map();
+  let tip = before;
+  for (const { sha } of commits) {
+    const pr = owner.get(sha);
+    if (!pr) {
+      direct.push(sha);
+      tip = sha;
+      continue;
+    }
+    if (!byPr.has(pr.number)) {
+      const group = { pr, shas: [], baseSha: tip };
+      byPr.set(pr.number, group);
+      groups.push(group);
+    }
+    byPr.get(pr.number).shas.push(sha);
+    tip = sha;
+  }
+  return { groups, direct };
 }
 
 export function markerFor(finding) {
-  return finding.kind === 'direct-push'
-    ? `${MARKER_PREFIX}commit=${finding.sha}`
-    : `${MARKER_PREFIX}pr=${finding.pr.number}`;
+  if (finding.kind === 'direct-push') return `${MARKER_PREFIX}commit=${finding.sha}`;
+  if (finding.kind === 'force-push') return `${MARKER_PREFIX}force=${finding.before}..${finding.after}`;
+  return `${MARKER_PREFIX}pr=${finding.pr.number}`;
 }
 
-export function renderIssue(finding, { repo, enforcementLevel }) {
+export function renderIssue(finding, { repo, enforcementLevel, backfill = false }) {
   const marker = `<!-- ${markerFor(finding)} -->`;
   const footer = [
     '',
@@ -177,6 +254,25 @@ export function renderIssue(finding, { repo, enforcementLevel }) {
     '',
     `Opened by \`.github/workflows/merge-bypass-audit.yml\` in ${repo}.`,
   ];
+  if (backfill) {
+    footer.push(
+      '',
+      "**Backfill caveat:** this was audited on demand against today's required checks, not the set in force at the merge. A check added to protection after this merge shows as `missing`, and one removed since is not audited at all.",
+    );
+  }
+
+  if (finding.kind === 'force-push') {
+    return {
+      title: `Merge bypass: main was rewritten from ${finding.before.slice(0, 7)} to ${finding.after.slice(0, 7)}`,
+      body: [
+        marker,
+        `\`main\` moved from ${finding.before} to ${finding.after} in a push that is not a fast-forward (compare status \`${finding.status}\`). Branch protection forbids force pushes, so only an administrator could have made it, and commits reachable from the old tip may no longer be on \`main\`.`,
+        '',
+        `- Pushed by: \`${finding.pusher ?? 'unknown'}\``,
+        ...footer,
+      ].join('\n'),
+    };
+  }
 
   if (finding.kind === 'direct-push') {
     return {
@@ -200,7 +296,7 @@ export function renderIssue(finding, { repo, enforcementLevel }) {
     return `| ${v.context} | **${v.state}** | ${evidence} |`;
   });
   return {
-    title: `Merge bypass: #${pr.number} merged past ${violations.length} required check${violations.length === 1 ? '' : 's'}`,
+    title: `Merge bypass: #${pr.number} merged past ${violations.length} protection requirement${violations.length === 1 ? "" : "s"}`,
     body: [
       marker,
       `#${pr.number} ("${pr.title}") merged into \`main\` at ${pr.merged_at} by \`${pr.merged_by ?? 'unknown'}\` while required checks on its head commit \`${pr.head_sha.slice(0, 7)}\` were not green. A non-admin merge would have been blocked.`,
@@ -209,7 +305,7 @@ export function renderIssue(finding, { repo, enforcementLevel }) {
       '|---|---|---|',
       ...rows,
       '',
-      '`failure` means at least one check suite\'s latest run had failed. A later green run in a different suite does not supersede it, which is how GitHub\'s own rollup evaluates it. `pending` means a run had started but not finished, and `missing` means nothing had reported.',
+      "`failure` means at least one check suite's latest run had failed. A later green run in a different suite does not supersede it, which is how GitHub's own rollup evaluates it. `pending` means a run had started but not finished, and `missing` means nothing had reported. `behind` means protection requires an up-to-date branch and the PR head did not contain the tip of `main` it merged onto.",
       ...footer,
     ].join('\n'),
   };
@@ -219,7 +315,9 @@ export function renderIssue(finding, { repo, enforcementLevel }) {
 
 function makeClient(token, repo) {
   const base = `https://api.github.com/repos/${repo}`;
-  async function request(path, init = {}) {
+  // `allow` lists non-2xx statuses the caller handles itself; the call
+  // then returns { status, data: null } instead of throwing.
+  async function request(path, { allow = [], ...init } = {}) {
     const url = path.startsWith('https://') ? path : `${base}${path}`;
     const res = await fetch(url, {
       ...init,
@@ -232,9 +330,10 @@ function makeClient(token, repo) {
       },
     });
     if (!res.ok) {
+      if (allow.includes(res.status)) return { status: res.status, data: null, link: null };
       throw new Error(`${init.method ?? 'GET'} ${url} -> ${res.status} ${await res.text()}`);
     }
-    return { data: await res.json(), link: res.headers.get('link') };
+    return { status: res.status, data: await res.json(), link: res.headers.get('link') };
   }
   async function paginate(path, pick = (d) => d) {
     const out = [];
@@ -298,27 +397,64 @@ async function rollupSuitesFor(gh, repo, prNumber, headSha) {
   return suites;
 }
 
-async function mergedPrFor(gh, sha) {
-  // A squash merge commit is associated with its PR as soon as it exists,
-  // but give the association a moment before calling it a direct push.
-  for (let attempt = 0; attempt < 3; attempt++) {
-    const { data } = await gh.request(`/commits/${sha}/pulls`);
-    const merged = data.filter((p) => p.merged_at && p.base?.ref === 'main');
-    if (merged.length > 0) return merged[0];
-    if (attempt < 2) await new Promise((r) => setTimeout(r, 10_000));
-  }
+
+/**
+ * Whether protection requires an up-to-date branch: true, false, or null
+ * when it cannot be read. Rulesets are public; classic `strict` needs
+ * Administration:read, which GITHUB_TOKEN lacks, so the workflow declares
+ * it in MERGE_BYPASS_CLASSIC_STRICT and the script uses that only when the
+ * live read is refused.
+ */
+async function resolveStrict(gh, rules) {
+  if (rulesRequireUpToDate(rules)) return true;
+  const live = await gh.request('/branches/main/protection/required_status_checks', { allow: [401, 403, 404] });
+  if (live.status === 200) return live.data.strict === true;
+  const declared = process.env.MERGE_BYPASS_CLASSIC_STRICT;
+  if (declared === 'true') return true;
+  if (declared === 'false') return false;
   return null;
 }
 
-async function auditPr(gh, repo, prNumber, required) {
-  const { data: pr } = await gh.request(`/pulls/${prNumber}`);
+/** True when `baseSha` is an ancestor of (or equal to) `headSha`. */
+async function containsBase(gh, baseSha, headSha) {
+  const { data } = await gh.request(`/compare/${baseSha}...${headSha}`);
+  return data.status === 'ahead' || data.status === 'identical';
+}
+
+/**
+ * The tip of main a backfilled PR merged onto. Unambiguous for a merge
+ * commit (first parent) and for a one-commit PR (the commit's parent,
+ * squash or rebase alike). A multi-commit PR landed as a single-parent
+ * commit is a squash or a rebase, and the API does not say which, so the
+ * base is unknown and the up-to-date check is skipped for it.
+ */
+async function backfillBase(gh, pr) {
+  if (!pr.merge_commit_sha) return null;
+  const { data } = await gh.request(`/commits/${pr.merge_commit_sha}`);
+  const parents = data.parents ?? [];
+  if (parents.length === 2 || pr.commits === 1) return parents[0]?.sha ?? null;
+  return null;
+}
+
+async function auditPr(gh, repo, pr, { required, strict, baseSha }) {
   if (!pr.merged_at) return null;
   const head = pr.head.sha;
   const checkRuns = await gh.paginate(`/commits/${head}/check-runs?filter=all`, (d) => d.check_runs);
   const statuses = await gh.paginate(`/commits/${head}/statuses`);
   const rollupSuites = await rollupSuitesFor(gh, repo, pr.number, head);
   const violations = evaluateMerge({ required, checkRuns, statuses, mergedAt: pr.merged_at, rollupSuites });
-  if (violations.length === 0) return null;
+  let upToDate = 'not evaluated';
+  if (strict && baseSha) {
+    upToDate = (await containsBase(gh, baseSha, head)) ? 'yes' : 'no';
+    if (upToDate === 'no') {
+      violations.push({
+        context: 'Branch up to date with `main` (strict)',
+        state: 'behind',
+        evidence: [{ conclusion: `head ${head.slice(0, 7)} does not contain main@${baseSha.slice(0, 7)}` }],
+      });
+    }
+  }
+  if (violations.length === 0) return { clean: true, upToDate };
   return {
     kind: 'merged-pr',
     pr: {
@@ -330,6 +466,29 @@ async function auditPr(gh, repo, prNumber, required) {
     },
     violations,
   };
+}
+
+/** Every commit in before...after, following pagination past 250. */
+async function compareAll(gh, before, after) {
+  const first = await gh.request(`/compare/${before}...${after}?per_page=100`);
+  const commits = [...first.data.commits];
+  let next = first.link?.match(/<([^>]+)>;\s*rel="next"/)?.[1] ?? null;
+  while (next) {
+    const page = await gh.request(next);
+    commits.push(...page.data.commits);
+    next = page.link?.match(/<([^>]+)>;\s*rel="next"/)?.[1] ?? null;
+  }
+  if (commits.length !== first.data.total_commits) {
+    throw new Error(`compare ${before}...${after}: read ${commits.length} of ${first.data.total_commits} commits`);
+  }
+  return { status: first.data.status, commits };
+}
+
+async function associate(gh, shas, associations) {
+  for (const sha of shas) {
+    const { data } = await gh.request(`/commits/${sha}/pulls`);
+    associations.set(sha, data);
+  }
 }
 
 async function existingIssue(gh, marker) {
@@ -366,53 +525,90 @@ export async function main(argv = process.argv.slice(2)) {
   const gh = makeClient(process.env.GITHUB_TOKEN, repo);
 
   const { data: branch } = await gh.request('/branches/main');
-  const required = requiredContexts(branch.protection);
+  const { data: rules } = await gh.request('/rules/branches/main?per_page=100');
+  const required = requiredContexts(branch.protection, rules);
   const enforcementLevel = branch.protection?.required_status_checks?.enforcement_level;
   if (required.length === 0) {
     throw new Error('no required status checks visible on main; cannot audit (a clean result would be meaningless)');
   }
+  const strict = await resolveStrict(gh, rules);
+
+  const notes = [];
+  if (strict === null) {
+    notes.push('up-to-date requirement unreadable and MERGE_BYPASS_CLASSIC_STRICT unset: branch freshness not audited');
+  }
 
   const findings = [];
+  const note = (pr, result) => {
+    if (result?.clean && strict && result.upToDate === 'not evaluated') {
+      notes.push(`#${pr.number}: merge base ambiguous (multi-commit squash or rebase); branch freshness not audited`);
+    }
+  };
+
   if (args.pr) {
-    const finding = await auditPr(gh, repo, Number(args.pr), required);
-    if (finding) findings.push(finding);
+    const { data: pr } = await gh.request(`/pulls/${args.pr}`);
+    if (!pr.merged_at) throw new Error(`#${args.pr} is not merged`);
+    const baseSha = strict ? await backfillBase(gh, pr) : null;
+    const result = await auditPr(gh, repo, pr, { required, strict, baseSha });
+    if (result?.clean) note(pr, result);
+    else if (result) findings.push(result);
   } else {
-    const zero = /^0+$/;
     let commits;
-    if (!args.before || zero.test(args.before)) {
+    let before = args.before;
+    if (!before || /^0+$/.test(before)) {
       const { data } = await gh.request(`/commits/${args.after}`);
       commits = [data];
+      before = data.parents?.[0]?.sha ?? null;
     } else {
-      const { data } = await gh.request(`/compare/${args.before}...${args.after}`);
-      commits = data.commits;
-    }
-    const seen = new Set();
-    for (const commit of commits) {
-      const pr = await mergedPrFor(gh, commit.sha);
-      if (!pr) {
-        findings.push({
-          kind: 'direct-push',
-          sha: commit.sha,
-          message: commit.commit?.message?.split('\n')[0],
-          pusher: args.pusher,
-        });
-        continue;
+      const compared = await compareAll(gh, before, args.after);
+      if (compared.status === 'behind' || compared.status === 'diverged') {
+        // Not a fast-forward: history on main was rewritten.
+        findings.push({ kind: 'force-push', before, after: args.after, status: compared.status, pusher: args.pusher });
       }
-      if (seen.has(pr.number)) continue;
-      seen.add(pr.number);
-      const finding = await auditPr(gh, repo, pr.number, required);
-      if (finding) findings.push(finding);
+      commits = compared.commits;
+    }
+
+    // Bind commits to the PRs that produced them. A fresh merge commit is
+    // associated with its PR almost at once; give any stragglers two short
+    // grace periods in aggregate, never per commit, so a long direct push
+    // cannot exhaust the job timeout before anything is filed.
+    const associations = new Map();
+    await associate(
+      gh,
+      commits.map((c) => c.sha),
+      associations,
+    );
+    let bound = bindPushToPrs({ before, commits, associations });
+    for (let attempt = 0; attempt < 2 && bound.direct.length > 0; attempt++) {
+      await new Promise((r) => setTimeout(r, 10_000));
+      await associate(gh, bound.direct, associations);
+      bound = bindPushToPrs({ before, commits, associations });
+    }
+
+    const messages = new Map(commits.map((c) => [c.sha, c.commit?.message?.split('\n')[0]]));
+    for (const sha of bound.direct) {
+      findings.push({ kind: 'direct-push', sha, message: messages.get(sha), pusher: args.pusher });
+    }
+    for (const group of bound.groups) {
+      const { data: pr } = await gh.request(`/pulls/${group.pr.number}`);
+      const result = await auditPr(gh, repo, pr, { required, strict, baseSha: group.baseSha });
+      if (result?.clean) note(pr, result);
+      else if (result) findings.push(result);
     }
   }
 
   if (findings.length === 0) {
-    summarize([`merge-bypass-audit: clean. Every audited merge had all ${required.length} required checks green.`]);
+    summarize([
+      `merge-bypass-audit: clean. Every audited merge had all ${required.length} required checks green` +
+        (strict && !notes.some((n) => n.includes('freshness')) ? ' on an up-to-date branch.' : '.'),
+      ...notes.map((n) => `- note: ${n}`),
+    ]);
     return 0;
   }
 
-  const lines = [`merge-bypass-audit: ${findings.length} bypass finding(s).`];
+  const lines = [`merge-bypass-audit: ${findings.length} bypass finding(s).`, ...notes.map((n) => `- note: ${n}`)];
   for (const finding of findings) {
-    const { title, body } = renderIssue(finding, { repo, enforcementLevel });
+    const { title, body } = renderIssue(finding, { repo, enforcementLevel, backfill: Boolean(args.pr) });
     lines.push(`- ${title}`);
     if (args.dryRun) {
       console.log(`\n--- ${title}\n${body}\n`);
