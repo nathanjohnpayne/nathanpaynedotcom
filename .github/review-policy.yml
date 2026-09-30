@@ -152,9 +152,17 @@ codex:
   cli_login: nathanpayne-codex
 
   # Maximum number of `@codex review` rounds before escalating as runaway.
-  # The 3rd round trips the guard. Normal termination is either approval,
+  # The first round past this value trips the guard (the 3rd at the usual 2,
+  # the 4th while the raise below is live). Normal termination is either approval,
   # disagreement (repeat-after-rebuttal), or timeout → Phase 4b fallback.
-  max_review_rounds: 2
+  # Since mergepath#1293 this is also the enforced per-PR cap on
+  # author-posted `@codex review` requests, read from the base branch.
+  #
+  # TEMPORARY RAISE (operator request 2026-09-30): 3 instead of 2, so #1072
+  # can get one Codex signal on its fixed head and run Phase 4b round 2
+  # (its budget ran out with every finding fixed; phase-4b exited 8). Restore
+  # `max_review_rounds: 2` and delete this note as soon as #1072 merges.
+  max_review_rounds: 3
 
   # Poll timeout per round, in seconds, for `codex-review-request.sh`.
   # If Codex has not posted a review within this window, treat as timeout
