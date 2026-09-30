@@ -748,7 +748,8 @@ describe('Project Pages — screenshot aspect variants', () => {
     );
     const embedChunk = chunkImports
       .map((file) => readFileSync(resolve(DIST, '_astro', file), 'utf-8'))
-      .find((code) => code.includes('litix.io'));
+      // mux-embed stamps its own name and version into its beacons.
+      .find((code) => /mux_embed_version/.test(code));
     expect(embedChunk, 'bundled mux-embed chunk not found').toBeTruthy();
   });
 
@@ -1469,8 +1470,12 @@ describe('Projects index — CTA vocabulary does not compete with status (#751)'
 
 describe('Project hero CTA tracking', () => {
   function ctaScript(html) {
-    const scripts = Array.from(html.matchAll(/<script>([\s\S]*?)<\/script>/g), (m) => m[1]);
-    return scripts.find((code) => code.includes('project_live_link_clicked'));
+    // Parsed, not regex-matched: the parser owns tag case and attributes, and
+    // DOMParser never executes what it reads (see tests/helpers/dom.js).
+    const parsed = new DOMParser().parseFromString(html, 'text/html');
+    return Array.from(parsed.querySelectorAll('script:not([src])'), (el) => el.textContent).find(
+      (code) => code.includes('project_live_link_clicked'),
+    );
   }
 
   it('tags each hero CTA with a data-cta hook on every project page', () => {
