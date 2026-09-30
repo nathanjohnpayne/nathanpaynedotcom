@@ -209,10 +209,32 @@ case "$endpoint" in
     # nonzero. That is the transport failure Codex's P1 found conflated with
     # `absent` — the fixture has to be able to tell them apart before the
     # script can.
-    case "${CODERABBIT_TEST_STATUS:-absent}" in
-      success|failure|pending)
-        printf '[{"context":"CodeRabbit","state":"%s","created_at":"%s","updated_at":"%s","creator":{"login":"%s"}}]\n' \
-          "${CODERABBIT_TEST_STATUS}" "${CODERABBIT_TEST_STATUS_TIME:-$head_time}" "${CODERABBIT_TEST_STATUS_TIME:-$head_time}" "$bot"
+    printf 'read\n' >>"$state_dir/status-reads"
+    # #1335 (Codex P1 on #1340): CODERABBIT_TEST_STATUS2[_TIME|_DESCRIPTION],
+    # when set, replace the served status from the SECOND statuses read on —
+    # a run starting between the probe's first sample and its re-sample.
+    # _KEEP_OLD=true serves BOTH statuses from that read on, newest-first as
+    # the real endpoint does, in the SAME second — the tie only a status id
+    # can order (Codex P1 on #1340, 43a54a4).
+    st=${CODERABBIT_TEST_STATUS:-absent}
+    st_time=${CODERABBIT_TEST_STATUS_TIME:-$head_time}
+    st_desc=${CODERABBIT_TEST_STATUS_DESCRIPTION:-}
+    st_id=1
+    old_record=""
+    if [ -n "${CODERABBIT_TEST_STATUS2:-}" ] && [ "$(wc -l <"$state_dir/status-reads" | tr -d ' ')" -ge 2 ]; then
+      if [ "${CODERABBIT_TEST_STATUS2_KEEP_OLD:-false}" = true ]; then
+        old_record=$(printf ',{"id":1,"context":"CodeRabbit","state":"%s","created_at":"%s","updated_at":"%s","creator":{"login":"%s"},"description":%s}' \
+          "$st" "$st_time" "$st_time" "$bot" "$(json_string "$st_desc")")
+      fi
+      st=$CODERABBIT_TEST_STATUS2
+      st_time=${CODERABBIT_TEST_STATUS2_TIME:-$st_time}
+      st_desc=${CODERABBIT_TEST_STATUS2_DESCRIPTION:-$st_desc}
+      st_id=2
+    fi
+    case "$st" in
+      success|failure|pending|error)
+        printf '[{"id":%s,"context":"CodeRabbit","state":"%s","created_at":"%s","updated_at":"%s","creator":{"login":"%s"},"description":%s}%s]\n' \
+          "$st_id" "$st" "$st_time" "$st_time" "$bot" "$(json_string "$st_desc")" "$old_record"
         ;;
       unreadable)
         echo "simulated statuses endpoint failure" >&2
@@ -223,6 +245,39 @@ case "$endpoint" in
     ;;
   repos/owner/repo/pulls/999/reviews)
     case "$scenario" in
+      carry_review_appears)
+        # #1335 (independent review on #1340): the first reviews read has no
+        # run on the head; a run lands before the carry-forward re-scan.
+        n=0
+        [ ! -f "$state_dir/review-reads" ] || n=$(cat "$state_dir/review-reads")
+        n=$((n + 1)); printf '%s\n' "$n" >"$state_dir/review-reads"
+        if [ "$n" -gt 1 ]; then
+          printf '[{"id":94201,"user":{"login":"%s"},"submitted_at":"%s","commit_id":"head-sha","body":"%s"}]\n' "$bot" "$reply_time" "$run_body"
+        else
+          printf '[]\n'
+        fi
+        ;;
+      aged_marker_fresh_benign_clean_head_run)
+        # #878 control: immutable exact-head clean-run evidence stays first in
+        # the published ladder, even when an older marker summary and pending
+        # StatusContext would otherwise refuse the fallback route.
+        printf '[{"id":87803,"user":{"login":"%s"},"submitted_at":"%s","commit_id":"head-sha","body":"**Actionable comments posted: 0**"}]\n' "$bot" "$reply_time"
+        ;;
+      run_replaced_after_count|run_replaced_during_probe|run_replaced_every_count|newer_clean_run)
+        if [ "$scenario" = run_replaced_every_count ]; then
+          n=5000
+          [ ! -f "$state_dir/run-read-count" ] || n=$(cat "$state_dir/run-read-count")
+          n=$((n + 1)); printf '%s\n' "$n" >"$state_dir/run-read-count"
+          printf '[{"id":%s,"user":{"login":"%s"},"submitted_at":"%s","commit_id":"head-sha","body":"%s"}]\n' "$n" "$bot" "$reply_time" "$run_body"
+        elif [ "$scenario" = newer_clean_run ]; then
+          printf '[{"id":5001,"user":{"login":"%s"},"submitted_at":"%s","commit_id":"head-sha","body":"**Actionable comments posted: 1**"},{"id":5003,"user":{"login":"%s"},"submitted_at":"%s","commit_id":"head-sha","body":"%s"}]\n' "$bot" "$head_time" "$bot" "$reply_time" "$run_body"
+        elif [ -f "$state_dir/counted-run" ]; then
+          # The former run is deliberately absent from this later snapshot.
+          printf '[{"id":5003,"user":{"login":"%s"},"submitted_at":"%s","commit_id":"head-sha","body":"**Actionable comments posted: 1**"}]\n' "$bot" "$reply_time"
+        else
+          printf '[{"id":5001,"user":{"login":"%s"},"submitted_at":"%s","commit_id":"head-sha","body":"%s"}]\n' "$bot" "$head_time" "$run_body"
+        fi
+        ;;
       review_arrives_during_probe)
         count=0
         if [ -f "$state_dir/probe-count" ]; then
@@ -345,7 +400,7 @@ case "$endpoint" in
         # surface it without the explicit anchor-free pause read below.
         printf '[{"id":9965,"user":{"login":"%s"},"submitted_at":"%s","commit_id":"head-sha","body":"%s"}]\n' "$bot" "$reply_time" "$run_body"
         ;;
-      bodyless_ack_over_findings_run)
+      bodyless_ack_over_findings_run|bodyless_ack_silent_summary)
         # #1031: ONE head, two CodeRabbit review objects. 9401 is the findings
         # RUN — it carries the report body, and its blocking finding is inline
         # (pulls endpoint below), not in that body. 9402 is the body-LESS
@@ -372,6 +427,12 @@ case "$endpoint" in
     ;;
   repos/owner/repo/pulls/999/comments)
     case "$scenario" in
+      run_replaced_after_count|run_replaced_during_probe|newer_clean_run)
+        : >"$state_dir/counted-run"
+        finding_run=5003
+        [ "$scenario" != newer_clean_run ] || finding_run=5001
+        printf '[{"id":6001,"user":{"login":"%s"},"created_at":"%s","updated_at":"%s","commit_id":"head-sha","pull_request_review_id":%s,"in_reply_to_id":null,"body":"_🟠 Major_ A live blocking finding."}]\n' "$bot" "$head_time" "$head_time" "$finding_run"
+        ;;
       probe_finding_predates_head)
         # created_at is BEFORE head_time, i.e. before HEAD_IDENTITY_ANCHOR.
         # The anchored counter drops it; the probe must not, because commit_id
@@ -408,7 +469,7 @@ case "$endpoint" in
         # the commit_id ties it to this head.
         printf '[{"id":9732,"user":{"login":"%s"},"created_at":"2026-06-03T00:00:00Z","updated_at":"2026-06-03T00:00:00Z","commit_id":"head-sha","pull_request_review_id":9731,"in_reply_to_id":null,"body":"_⚠️ Potential issue_\\n\\nFinding on the SHA-matched review."}]\n' "$bot"
         ;;
-      bodyless_ack_over_findings_run)
+      bodyless_ack_over_findings_run|bodyless_ack_silent_summary)
         # #1031: the live blocking finding hangs off the findings run (9401) as
         # a ROOT comment; the ack (9402) owns only a REPLY to it, which every
         # counter drops as a non-root. So scoping the count to the ack yields
@@ -431,6 +492,92 @@ case "$endpoint" in
     ;;
   repos/owner/repo/issues/999/comments)
     case "$scenario" in
+      aged_marker_fresh_benign|aged_marker_fresh_benign_clean_head_run|aged_marker_fresh_benign_tier_failure)
+        # #878: the marker-selected summary is aged out of the normal polling
+        # scan, while a later ordinary comment becomes the review-arm candidate.
+        # The summary's full range still names this head, so it is the precise
+        # #851/#940 escape shape rather than a prior-head demotion.
+        old_body='<!-- This is an auto-generated comment: summarize by coderabbit.ai -->
+**Actionable comments posted: 1**
+
+_⚠️ Potential issue_ | _🟠 Major_
+
+Reviewing files between aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa and head-sha.'
+        if [ "$scenario" = aged_marker_fresh_benign_tier_failure ]; then
+          old_body='<!-- This is an auto-generated comment: summarize by coderabbit.ai -->
+**Actionable comments posted: 1**
+
+TIER_READ_FAILURE _⚠️ Potential issue_ | _🟠 Major_
+
+Reviewing files between aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa and head-sha.'
+        fi
+        fresh_body='<details>
+Fresh benign CodeRabbit activity without a summary marker.
+</details>'
+        jq -nc --arg bot "$bot" --arg old "$old_body" --arg fresh "$fresh_body" --arg old_time '2026-06-03T00:00:00Z' --arg fresh_time "$reply_time" '
+          [
+            {id:87801,user:{login:$bot},created_at:$old_time,updated_at:$old_time,body:$old},
+            {id:87802,user:{login:$bot},created_at:$fresh_time,updated_at:$fresh_time,body:$fresh}
+          ]'
+        ;;
+      carry_notice)
+        # #1335 Phase 4b P1 on #1340: a SEPARATE provider notice beside an
+        # unchanged clean summary. The notice is served from comments-read
+        # number CODERABBIT_TEST_CARRY_NOTICE_FROM on (1 = every read, i.e. a
+        # standing notice; 2 = it lands between the probe's two reads), at
+        # CODERABBIT_TEST_CARRY_NOTICE_TIME. The summary's own timestamps are
+        # CODERABBIT_TEST_CARRY_SUMMARY_TIME (default: edited at reply_time).
+        n=0
+        [ ! -f "$state_dir/comment-reads" ] || n=$(cat "$state_dir/comment-reads")
+        n=$((n + 1)); printf '%s\n' "$n" >"$state_dir/comment-reads"
+        stime=${CODERABBIT_TEST_CARRY_SUMMARY_TIME:-$reply_time}
+        if [ "$n" -ge "${CODERABBIT_TEST_CARRY_NOTICE_FROM:?}" ]; then
+          jq -nc --arg bot "$bot" --arg body "${CODERABBIT_TEST_FALLBACK_BODY:?}" --arg st "$stime" \
+            --arg nbody "${CODERABBIT_TEST_CARRY_NOTICE_BODY:?}" --arg nt "${CODERABBIT_TEST_CARRY_NOTICE_TIME:?}" \
+            '[{id:94101,user:{login:$bot},created_at:"2026-06-03T00:00:00Z",updated_at:$st,body:$body},
+              {id:94301,user:{login:$bot},created_at:$nt,updated_at:$nt,body:$nbody}]'
+        else
+          jq -nc --arg bot "$bot" --arg body "${CODERABBIT_TEST_FALLBACK_BODY:?}" --arg st "$stime" \
+            '[{id:94101,user:{login:$bot},created_at:"2026-06-03T00:00:00Z",updated_at:$st,body:$body}]'
+        fi
+        ;;
+      carry_summary_changes|carry_rescan_fails|carry_review_appears)
+        # #1335 TOCTOU (Codex P1 on #1340): the FIRST comments read serves the
+        # prior-head clean summary; every later read serves
+        # CODERABBIT_TEST_CARRY_BODY2 (a re-review published while the status
+        # flipped to success), or fails outright.
+        n=0
+        [ ! -f "$state_dir/comment-reads" ] || n=$(cat "$state_dir/comment-reads")
+        n=$((n + 1)); printf '%s\n' "$n" >"$state_dir/comment-reads"
+        if [ "$n" -gt 1 ] && [ "$scenario" = carry_rescan_fails ]; then
+          echo "simulated comments re-read failure" >&2
+          exit 42
+        fi
+        body=${CODERABBIT_TEST_FALLBACK_BODY:?}
+        [ "$n" -gt 1 ] && body=${CODERABBIT_TEST_CARRY_BODY2:?}
+        jq -nc --arg bot "$bot" --arg body "$body" --arg updated "$reply_time" \
+          '[{id:94101,user:{login:$bot},created_at:"2026-06-03T00:00:00Z",updated_at:$updated,body:$body}]'
+        ;;
+      fallback_summary|fallback_summary_during_probe)
+        # #940: the walkthrough predates HEAD; only its edit is fresh. No
+        # review object or rate-limit notice exists. The delayed variant proves
+        # the same invocation's terminal upgrade cannot restore clearance.
+        if [ "$scenario" = fallback_summary_during_probe ] && [ ! -f "$state_dir/probe-count" ]; then
+          printf '[]\n'
+        else
+          body=${CODERABBIT_TEST_FALLBACK_BODY:-'<!-- This is an auto-generated comment: summarize by coderabbit.ai -->
+No actionable comments were generated in the recent review.'}
+          jq -nc --arg bot "$bot" --arg body "$body" --arg updated "$reply_time" \
+            '[{id:94001,user:{login:$bot},created_at:"2026-06-03T00:00:00Z",updated_at:$updated,body:$body}]'
+        fi
+        ;;
+      run_replaced_after_count|run_replaced_during_probe|run_replaced_every_count|newer_clean_run)
+        if [ "$scenario" = run_replaced_during_probe ] && [ ! -f "$state_dir/probe-count" ]; then
+          printf '[]\n'
+        else
+          printf '[{"id":7001,"user":{"login":"%s"},"created_at":"%s","updated_at":"%s","body":"<!-- This is an auto-generated comment: summarize by coderabbit.ai -->\\nNo actionable comments were generated in the recent review."}]\n' "$bot" "$head_time" "$reply_time"
+        fi
+        ;;
       status_reply_after_delay)
         count=0
         if [ -f "$state_dir/probe-count" ]; then
@@ -444,6 +591,9 @@ case "$endpoint" in
         ;;
       existing_status_probe_reply)
         printf '[{"id":8802,"user":{"login":"%s"},"created_at":"%s","updated_at":"%s","body":"<!-- CodeRabbit review command invocation: prior -->\\n`@nathanjohnpayne`: Here is a summary of where things stand.\\n\\n### Open CodeRabbit Threads\\nStill checking."}]\n' "$bot" "$head_time" "$head_time"
+        ;;
+      bodyless_ack_silent_summary)
+        printf '[{"id":7943,"user":{"login":"%s"},"created_at":"%s","updated_at":"%s","body":"<!-- This is an auto-generated comment: summarize by coderabbit.ai -->\\nNo actionable comments were generated in the recent review."}]\n' "$bot" "$head_time" "$reply_time"
         ;;
       bodyless_ack_over_findings_run)
         # #1031: the #968 shape the rung was added to outrank — CodeRabbit's
@@ -1096,6 +1246,268 @@ test_446_newer_comment_suppresses_stale_status() {
 }
 
 # ---------------------------------------------------------------------------
+# #1335: same-content carry-forward EVIDENCE. On a base-only update head
+# CodeRabbit posts no review object and its summary keeps naming the last
+# CONTENT head, so the probe stays rc 7 — and must: whether that earlier review
+# is worth anything is a content question only the Phase 4b barrier answers.
+# What the probe adds is `probe.carryforward`: the commit a completed, benign,
+# marker-free summary last reviewed, plus this head's StatusContext. Every
+# case asserts the verdict is UNCHANGED (rc and observed) and 0 writes, so the
+# evidence can never become a verdict by the back door.
+test_1335_probe_carryforward_evidence() {
+  local marker='<!-- This is an auto-generated comment: summarize by coderabbit.ai -->'
+  local a=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa b=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
+  local c=cccccccccccccccccccccccccccccccccccccccc
+  local notes='<!-- This is an auto-generated comment: release notes by coderabbit.ai -->
+## Summary by CodeRabbit
+- Fixes
+<!-- end of auto-generated comment: release notes by coderabbit.ai -->'
+  local clean="$marker
+No actionable comments were generated in the recent review.
+
+Reviewing files that changed from the base of the PR and between $a and $b.
+
+$notes"
+  local bad="" dir rc
+  # <label> <trust:true|false> <status> <description> <body> <expected rc> <expected observed> <jq assertion over .probe.carryforward>
+  _cf_case() {
+    local label=$1 trust=$2 st=$3 desc=$4 body=$5 want_rc=$6 want_obs=$7 want=$8 got_obs
+    dir=$(make_case "probe-1335-$label" 600 true 30 3 2)
+    [ "$trust" = true ] && enable_trust_status_context "$dir"
+    rc=$(CODERABBIT_TEST_STATUS="$st" CODERABBIT_TEST_STATUS_DESCRIPTION="$desc" \
+      CODERABBIT_TEST_FALLBACK_BODY="$body" run_probe_case "$dir" fallback_summary)
+    got_obs=$(jq -r '.probe.observed // "MISSING"' "$dir/out.json" 2>/dev/null || echo PARSE_ERROR)
+    if [ "$rc" != "$want_rc" ] || [ "$got_obs" != "$want_obs" ] \
+       || [ "$(probe_count "$dir")" != 0 ] || [ "$(codex_invocations "$dir")" != 0 ] \
+       || ! jq -e ".probe.carryforward | $want" "$dir/out.json" >/dev/null 2>&1; then
+      bad="$bad $label(rc=$rc observed=$got_obs cf=$(jq -c '.probe.carryforward' "$dir/out.json" 2>/dev/null || echo PARSE_ERROR))"
+    fi
+  }
+
+  # 1. The #1318 shape: completed prior-head summary, this head's run finished.
+  _cf_case merge-head true success 'Review completed' "$clean" 7 summary-without-head-review \
+    ". == {reviewed_head:\"$b\", head_context_state:\"success\", head_context_description:\"Review completed\", head_context_updated_at:\"2026-06-04T00:00:00Z\", head_context_permits_clearance:true}"
+  # 2. A spurious success that names its own refusal (#891) is carried as
+  #    evidence but says it permits no clearance.
+  _cf_case ratelimited-success true success 'Review rate limited' "$clean" 7 summary-without-head-review \
+    '.reviewed_head != null and .head_context_permits_clearance == false'
+  # 3. A run still underway on this head is reported as such.
+  _cf_case run-pending true pending 'Review in progress' "$clean" 7 summary-without-head-review \
+    '.head_context_state == "pending"'
+  # 4. Trust opt-out: the status is never read, so the barrier sees null.
+  _cf_case trust-off false success 'Review completed' "$clean" 7 summary-without-head-review \
+    ".reviewed_head == \"$b\" and .head_context_state == null and .head_context_permits_clearance == null"
+  # 5. A summary-only blocking marker on the reviewed content must reach a
+  #    human; it is never evidence for carrying past it.
+  _cf_case blocking-marker true success 'Review completed' "$marker
+_⚠️ Potential issue_ carried only by this summary.
+
+Reviewing files that changed from the base of the PR and between $a and $b." 7 summary-without-head-review '. == null'
+  # 6. Two distinct range ends: a body we cannot attribute to one commit.
+  _cf_case two-ends true success 'Review completed' "$marker
+Reviewing files that changed from the base of the PR and between $a and $b.
+Reviewing files that changed from the base of the PR and between $b and $c." 7 summary-without-head-review '. == null'
+  # 7. An outcome stanza that is not a finished report (#790 failure).
+  _cf_case failure-stanza true success 'Review completed' "$marker
+<!-- This is an auto-generated comment: failure by coderabbit.ai -->
+> Review failed. Between $a and $b.
+<!-- end of auto-generated comment: failure by coderabbit.ai -->" 7 summary-without-head-review '. == null'
+  # 8. A range CodeRabbit is only QUOTING inside a fence is no range at all.
+  _cf_case fenced-range true success 'Review completed' "$marker
+No actionable comments were generated in the recent review.
+
+\`\`\`
+between $a and $b
+\`\`\`" 7 summary-without-head-review '. == null'
+  # 9. A risk block that names a different head than the range contradicts it.
+  _cf_case risk-disagrees true success 'Review completed' "$clean
+<!-- final_review_risk_start -->
+Risk assessed up to \`$c\`.
+<!-- final_review_risk_end -->" 7 summary-without-head-review '. == null'
+  # 10. A summary naming THIS head is the #851 report, not carry evidence.
+  _cf_case head-pinned true success 'Review completed' "$marker
+No actionable comments were generated in the recent review.
+
+Reviewing files that changed from the base of the PR and between $a and head-sha." 0 terminal '. == null'
+
+  # 11. TOCTOU (Codex P1 on #1340): CodeRabbit publishes a new summary between
+  #     the comments snapshot and the status read. The fresh success must not
+  #     be paired with the stale clean summary — no evidence at all.
+  local changed="$marker
+_⚠️ Potential issue_ carried only by this summary.
+
+Reviewing files that changed from the base of the PR and between $a and head-sha."
+  dir=$(make_case probe-1335-toctou 600 true 30 3 2)
+  enable_trust_status_context "$dir"
+  rc=$(CODERABBIT_TEST_STATUS=success CODERABBIT_TEST_STATUS_DESCRIPTION='Review completed' \
+    CODERABBIT_TEST_FALLBACK_BODY="$clean" CODERABBIT_TEST_CARRY_BODY2="$changed" \
+    run_probe_case "$dir" carry_summary_changes)
+  { [ "$rc" = 7 ] && jq -e '.probe.carryforward == null' "$dir/out.json" >/dev/null 2>&1 \
+      && [ "$(cat "$dir/state/comment-reads")" = 2 ] \
+      && grep -q 'summary changed after the success' "$dir/err.log"; } \
+    || bad="$bad toctou-changed(rc=$rc cf=$(jq -c '.probe.carryforward' "$dir/out.json" 2>/dev/null))"
+  # 12. A re-read that FAILS is not evidence the summary held still.
+  dir=$(make_case probe-1335-rescan-fail 600 true 30 3 2)
+  enable_trust_status_context "$dir"
+  rc=$(CODERABBIT_TEST_STATUS=success CODERABBIT_TEST_STATUS_DESCRIPTION='Review completed' \
+    CODERABBIT_TEST_FALLBACK_BODY="$clean" CODERABBIT_TEST_CARRY_BODY2="$clean" \
+    run_probe_case "$dir" carry_rescan_fails)
+  { [ "$rc" = 7 ] && jq -e '.probe.carryforward == null' "$dir/out.json" >/dev/null 2>&1; } \
+    || bad="$bad toctou-refetch-fail(rc=$rc)"
+  # 13. Control: an unchanged re-read keeps the evidence (the re-scan is not
+  #     a blanket refusal), and it is exactly ONE extra read.
+  dir=$(make_case probe-1335-rescan-stable 600 true 30 3 2)
+  enable_trust_status_context "$dir"
+  rc=$(CODERABBIT_TEST_STATUS=success CODERABBIT_TEST_STATUS_DESCRIPTION='Review completed' \
+    CODERABBIT_TEST_FALLBACK_BODY="$clean" CODERABBIT_TEST_CARRY_BODY2="$clean" \
+    run_probe_case "$dir" carry_summary_changes)
+  { [ "$rc" = 7 ] && jq -e --arg b "$b" '.probe.carryforward.reviewed_head == $b' "$dir/out.json" >/dev/null 2>&1 \
+      && [ "$(cat "$dir/state/comment-reads")" = 2 ]; } \
+    || bad="$bad toctou-stable(rc=$rc reads=$(cat "$dir/state/comment-reads" 2>/dev/null))"
+
+  # 14. A head-pinned review RUN landing in the gap (with the summary still
+  #     unchanged, as #869 records it can be) is CodeRabbit reporting here —
+  #     no carry evidence; the next probe takes the review-object branch.
+  dir=$(make_case probe-1335-run-appears 600 true 30 3 2)
+  enable_trust_status_context "$dir"
+  rc=$(CODERABBIT_TEST_STATUS=success CODERABBIT_TEST_STATUS_DESCRIPTION='Review completed' \
+    CODERABBIT_TEST_FALLBACK_BODY="$clean" CODERABBIT_TEST_CARRY_BODY2="$clean" \
+    run_probe_case "$dir" carry_review_appears)
+  { [ "$rc" = 7 ] && jq -e '.probe.carryforward == null' "$dir/out.json" >/dev/null 2>&1 \
+      && grep -q 'review run landed on' "$dir/err.log"; } \
+    || bad="$bad run-appears(rc=$rc cf=$(jq -c '.probe.carryforward' "$dir/out.json" 2>/dev/null))"
+
+  # 15-18. A SEPARATE provider notice beside an unchanged clean summary (Phase
+  #     4b P1 on #1340). A success status does not outrank a current refusal
+  #     (#956), so none of these may emit evidence.
+  local pause_note='<!-- This is an auto-generated comment: review paused by coderabbit.ai -->
+> [!NOTE]
+> ## Reviews paused
+<!-- end of auto-generated comment: review paused by coderabbit.ai -->'
+  local progress_note='<!-- This is an auto-generated comment: review in progress by coderabbit.ai -->
+> Currently processing new changes in this PR.
+<!-- end of auto-generated comment: review in progress by coderabbit.ai -->'
+  _notice_case() {  # <label> <notice-body> <notice-from-read> <notice-time> <summary-time> <want: none|evidence> <want-observed>
+    local label=$1 nbody=$2 from=$3 ntime=$4 stime=$5 want=$6 wobs=$7 got
+    dir=$(make_case "probe-1335-notice-$label" 600 true 30 3 2)
+    enable_trust_status_context "$dir"
+    rc=$(CODERABBIT_TEST_STATUS=success CODERABBIT_TEST_STATUS_DESCRIPTION='Review completed' \
+      CODERABBIT_TEST_FALLBACK_BODY="$clean" CODERABBIT_TEST_CARRY_NOTICE_BODY="$nbody" \
+      CODERABBIT_TEST_CARRY_NOTICE_FROM="$from" CODERABBIT_TEST_CARRY_NOTICE_TIME="$ntime" \
+      CODERABBIT_TEST_CARRY_SUMMARY_TIME="$stime" run_probe_case "$dir" carry_notice)
+    got=$(jq -r '.probe.observed // "MISSING"' "$dir/out.json" 2>/dev/null || echo PARSE_ERROR)
+    if [ "$want" = none ]; then
+      { [ "$rc" = 7 ] && [ "$got" = "$wobs" ] && jq -e '.probe.carryforward == null' "$dir/out.json" >/dev/null 2>&1; } \
+        || bad="$bad notice-$label(rc=$rc observed=$got cf=$(jq -c '.probe.carryforward' "$dir/out.json" 2>/dev/null))"
+    else
+      { [ "$rc" = 7 ] && [ "$got" = "$wobs" ] && jq -e --arg b "$b" '.probe.carryforward.reviewed_head == $b' "$dir/out.json" >/dev/null 2>&1; } \
+        || bad="$bad notice-$label(rc=$rc observed=$got cf=$(jq -c '.probe.carryforward' "$dir/out.json" 2>/dev/null))"
+    fi
+  }
+  # 15. A pause notice lands between the snapshot and the re-read.
+  _notice_case pause-in-gap "$pause_note" 2 2026-06-04T00:00:09Z 2026-06-04T00:00:06Z none summary-without-head-review
+  # 16. The reviewer's reproduction: a STANDALONE pause that has aged below
+  #     HEAD_ANCHOR (both it and the summary predate the head), so the
+  #     anchored triage reports observed=none — the refusal is still current.
+  _notice_case pause-aged "$pause_note" 1 2026-06-03T12:00:00Z 2026-06-03T06:00:00Z none none
+  # 17. An in-progress notice landing in the gap.
+  _notice_case progress-in-gap "$progress_note" 2 2026-06-04T00:00:09Z 2026-06-04T00:00:06Z none summary-without-head-review
+  # 18. Control: a newer NARRATION reply (the barrier's own "Already reviewed
+  #     the last commit" answer) is not provider state and must not block.
+  _notice_case narration-control '<!-- This is an auto-generated reply by CodeRabbit -->
+<!-- CodeRabbit review command invocation: v2:abc -->
+<details>
+<summary>⚠️ Action not completed</summary>
+
+Already reviewed the last commit.
+
+> Note: CodeRabbit is an incremental review system and does not re-review already reviewed commits.
+
+</details>' 1 2026-06-04T00:00:09Z 2026-06-04T00:00:06Z evidence summary-without-head-review
+  # 19-21. Which notices are CURRENT (Codex P2 on #1340). Pauses are durable
+  #     (15/16 above); a rate-limit or in-progress notice the head's later
+  #     success supersedes must not suppress the carry forever. Each notice
+  #     arrives between the probe's reads (from read 2) so the re-scan guard,
+  #     not the probe's own anchored triage, is what decides. The fake clock
+  #     reads 2000000000 (2033-05-18T03:33:20Z).
+  # 19. A stale in-progress notice, older than the success: carries.
+  _status_time=2026-06-04T00:00:30Z
+  CODERABBIT_TEST_STATUS_TIME=$_status_time _notice_case progress-superseded "$progress_note" 2 2026-06-04T00:00:09Z 2026-06-04T00:00:06Z evidence summary-without-head-review
+  # 20. A rate-limit notice whose published window EXPIRED long ago and that
+  #     the success postdates: carries.
+  CODERABBIT_TEST_STATUS_TIME=$_status_time _notice_case ratelimit-expired 'Rate limit exceeded. Please wait 1 minutes and 0 seconds before requesting another review.' 2 2026-06-04T00:00:09Z 2026-06-04T00:00:06Z evidence summary-without-head-review
+  # 21. The same notice with its window still OPEN (59 minutes from 03:30 on
+  #     the fake clock), even though the success postdates it: blocks.
+  CODERABBIT_TEST_STATUS_TIME=2033-05-18T03:31:00Z _notice_case ratelimit-open 'Rate limit exceeded. Please wait 59 minutes and 0 seconds before requesting another review.' 2 2033-05-18T03:30:00Z 2033-05-18T03:29:00Z none summary-without-head-review
+  # 24-25. Codex P1 on #1340 (71990e2): a SUCCESSFUL review-trigger
+  #     acknowledgement means a run is starting, and CodeRabbit posts it
+  #     before the status flips to pending. The selector skips it as
+  #     narration, so it needs its own check. (Case 18 above is the no-op
+  #     "Already reviewed" reply newer than the success, which still carries.)
+  local ack_note='<!-- This is an auto-generated reply by CodeRabbit -->
+<details>
+<summary>✅ Actions performed</summary>
+
+Review triggered.
+
+> Note: CodeRabbit is an incremental review system and does not re-review already reviewed commits. This command is applicable only when automatic reviews are paused.
+
+</details>'
+  # 24. Acknowledged AFTER the success sample: a run is starting — no evidence.
+  _notice_case trigger-ack-after-success "$ack_note" 1 2026-06-04T00:00:09Z 2026-06-04T00:00:06Z none summary-without-head-review
+  # 25. Acknowledged BEFORE the success: the run it started is the one that
+  #     completed — carries.
+  CODERABBIT_TEST_STATUS_TIME=2026-06-04T00:00:30Z _notice_case trigger-ack-before-success "$ack_note" 1 2026-06-04T00:00:09Z 2026-06-04T00:00:06Z evidence summary-without-head-review
+  # 26. Codex P1 on #1340 (9e5368a): an acknowledgement in the SAME second as
+  #     the success cannot be ordered before it, so a tie blocks.
+  CODERABBIT_TEST_STATUS_TIME=2026-06-04T00:00:09Z _notice_case trigger-ack-same-second "$ack_note" 1 2026-06-04T00:00:09Z 2026-06-04T00:00:06Z none summary-without-head-review
+  unset -f _notice_case
+
+  # 22. Codex P1 on #1340: the status flips between the first sample and the
+  #     re-sample (a run started, no comment or review object yet). Both
+  #     refreshed reads are unchanged, so only the status re-read catches it.
+  dir=$(make_case probe-1335-status-flips 600 true 30 3 2)
+  enable_trust_status_context "$dir"
+  rc=$(CODERABBIT_TEST_STATUS=success CODERABBIT_TEST_STATUS_DESCRIPTION='Review completed' \
+    CODERABBIT_TEST_STATUS2=pending CODERABBIT_TEST_STATUS2_DESCRIPTION='Review in progress' \
+    CODERABBIT_TEST_FALLBACK_BODY="$clean" CODERABBIT_TEST_CARRY_BODY2="$clean" \
+    run_probe_case "$dir" carry_summary_changes)
+  { [ "$rc" = 7 ] && jq -e '.probe.carryforward == null' "$dir/out.json" >/dev/null 2>&1 \
+      && grep -q 'status on head-sha changed during the carry-forward re-scan' "$dir/err.log"; } \
+    || bad="$bad status-flips(rc=$rc cf=$(jq -c '.probe.carryforward' "$dir/out.json" 2>/dev/null))"
+  # 23. A NEWER success sample (a second completed run) is still a change the
+  #     emitted evidence would misreport, so it emits nothing either.
+  dir=$(make_case probe-1335-status-refreshed 600 true 30 3 2)
+  enable_trust_status_context "$dir"
+  rc=$(CODERABBIT_TEST_STATUS=success CODERABBIT_TEST_STATUS_DESCRIPTION='Review completed' \
+    CODERABBIT_TEST_STATUS2=success CODERABBIT_TEST_STATUS2_TIME=2026-06-04T00:00:40Z \
+    CODERABBIT_TEST_FALLBACK_BODY="$clean" CODERABBIT_TEST_CARRY_BODY2="$clean" \
+    run_probe_case "$dir" carry_summary_changes)
+  { [ "$rc" = 7 ] && jq -e '.probe.carryforward == null' "$dir/out.json" >/dev/null 2>&1; } \
+    || bad="$bad status-refreshed(rc=$rc)"
+
+  # 27. Codex P1 on #1340 (43a54a4): a NEW pending status in the SAME second as
+  #     the sampled success, served newest-first beside it. Ordered by
+  #     created_at the old success wins the tie and both samples look
+  #     identical; ordered by status id the pending is the latest.
+  dir=$(make_case probe-1335-status-tie 600 true 30 3 2)
+  enable_trust_status_context "$dir"
+  rc=$(CODERABBIT_TEST_STATUS=success CODERABBIT_TEST_STATUS_DESCRIPTION='Review completed' \
+    CODERABBIT_TEST_STATUS2=pending CODERABBIT_TEST_STATUS2_DESCRIPTION='Review in progress' \
+    CODERABBIT_TEST_STATUS2_KEEP_OLD=true \
+    CODERABBIT_TEST_FALLBACK_BODY="$clean" CODERABBIT_TEST_CARRY_BODY2="$clean" \
+    run_probe_case "$dir" carry_summary_changes)
+  { [ "$rc" = 7 ] && jq -e '.probe.carryforward == null' "$dir/out.json" >/dev/null 2>&1; } \
+    || bad="$bad status-tie(rc=$rc cf=$(jq -c '.probe.carryforward' "$dir/out.json" 2>/dev/null))"
+
+  unset -f _cf_case
+  if [ -z "$bad" ]; then
+    pass "#1335 probe: prior-head summary surfaces as carry-forward evidence only when it is a completed, marker-free, single-range report; the verdict never changes"
+  else
+    fail "#1335 probe carry-forward evidence wrong:$bad"
+  fi
+}
+
 # #814 — `--probe` read-only single-scan mode.
 #
 # These live in this file because the property they guard is this file's
@@ -2021,25 +2433,25 @@ the current head per gh pr view is $h40"
        updated_at: "2026-06-04T00:01:30Z", body: $c}
     ]'
   }
-  rc=0; crw_summary_names_only_other_head "$h40" || rc=$?
+  rc=0; crw_summary_blocks_fallback_clearance "$h40" || rc=$?
   [ "$rc" = "0" ] || bad="$bad other-head-not-refused(rc=$rc)"
   # Control: the same two comments, the summary naming THIS head. Refusing
   # here would stall every PR CodeRabbit chats on.
   fixture_summary="$marker
 Reviewing files that changed from the base of the PR and between $b40 and $h40."
-  rc=0; crw_summary_names_only_other_head "$h40" || rc=$?
+  rc=0; crw_summary_blocks_fallback_clearance "$h40" || rc=$?
   [ "$rc" = "1" ] || bad="$bad current-head-refused(rc=$rc)"
 
   # No summary comment at all: a definite "nothing here claims another commit",
   # which is what keeps the caller's other freshness tests deciding (AC3).
   fetch_api_array() { printf '[]\n'; }
-  rc=0; crw_summary_names_only_other_head "$h40" || rc=$?
+  rc=0; crw_summary_blocks_fallback_clearance "$h40" || rc=$?
   [ "$rc" = "1" ] || bad="$bad no-summary-not-1(rc=$rc)"
 
   # An UNREADABLE comment list is rc 3, never rc 1. Folding it into 1 is the
   # failed-read-as-clean confusion the neighbouring reads already refuse.
   fetch_api_array() { return 3; }
-  rc=0; crw_summary_names_only_other_head "$h40" || rc=$?
+  rc=0; crw_summary_blocks_fallback_clearance "$h40" || rc=$?
   [ "$rc" = "3" ] || bad="$bad unread-not-3(rc=$rc)"
 
   # A summary body that cannot be DERIVED is rc 3 too — the selector returns a
@@ -2053,7 +2465,7 @@ Reviewing files that changed from the base of the PR and between $b40 and $h40."
   crw_select_summary_comment() { printf 'not-base64-@@@\n'; }
   # stderr silenced: the decode failure this case induces is the point, and its
   # jq diagnostic would otherwise land in the middle of the suite's output.
-  rc=0; crw_summary_names_only_other_head "$h40" 2>/dev/null || rc=$?
+  rc=0; crw_summary_blocks_fallback_clearance "$h40" 2>/dev/null || rc=$?
   [ "$rc" = "3" ] || bad="$bad bad-derive-not-3(rc=$rc)"
 
   # Restore the extracted definitions this case stubbed over, so a later unit
@@ -2358,25 +2770,9 @@ Review failed.
   fi
 }
 
-# #1031: the exact-SHA rung must credit the run the finding COUNTER graded,
-# not merely the newest run that carries a body.
-#
-# The two head-pinned selections read ONE reviews array through different
-# filters — `crw_select_head_pinned_review_run` keeps only body-BEARING
-# objects (#900), `latest_head_pinned_review` (which count_potential_issues
-# scopes its inline findings to) keeps every head-pinned object — so they part
-# company the moment the newest object carries no body. That is not an exotic
-# shape: it is the #919 wrapper GitHub puts around CodeRabbit's `🐇 ✅`
-# acknowledgement of the `[mergepath-resolve:…]` tag reply the review loop
-# posts on EVERY finding thread. The counter then reports 0 for the ack while
-# the rung credits the findings run underneath, whose own body carries no
-# marker because its findings are inline — and the #968 demotion is withdrawn
-# on a head with a live Major.
-#
-# Driven directly because the disagreement is a property of the two selectors,
-# and the id-binding conjunct is the whole of the fix; the end-to-end verdict
-# it changes is asserted by
-# test_1031_bodyless_ack_over_findings_run_does_not_clear below.
+# #1037: the counter and exact-SHA rung select the same body-bearing run.
+# A later API snapshot may still contain a newer run; it must return a distinct
+# superseded result instead of falling through as ordinary absent evidence.
 test_1031_rung_binds_to_the_graded_run() {
   local snip="$WORKDIR/rung-graded-binding.sh" bad="" rc out
   local h40 run_body ack_body reviews_both reviews_run_only reviews_ack_first
@@ -2446,28 +2842,19 @@ test_1031_rung_binds_to_the_graded_run() {
      submitted_at: "2026-06-04T00:01:00Z", body: $r}
   ]')
 
-  # THE REGRESSION. The body-less ack is the newest head-pinned object, so the
-  # counter grades IT (id 5602) and finds no root comments beneath it; the rung
-  # would otherwise credit the findings run (5601) and withdraw the demotion.
-  # The two disagree, so the rung has no counted-findings evidence and the
-  # demotion decides: rc 1.
+  # Both selectors now retain the findings run under the acknowledgement.
+  # The end-to-end case below proves the inline finding is actually counted.
   fetch_api_array() { printf '%s\n' "$reviews_both"; }
   rc=0; out=$(crw_head_pinned_clean_review_run "$h40" "$(graded_of "$reviews_both")") || rc=$?
-  [ "$rc" = "1" ] || bad="$bad ack-newer-not-1(rc=$rc,out=$out)"
+  [ "$rc" = "0" ] || bad="$bad ack-newer-not-0(rc=$rc,out=$out)"
 
-  # The refusal above must come from the DISAGREEMENT, not from the run body:
-  # remove the ack and the same run satisfies the rung outright. Without this
-  # control the case above is also passed by a helper that has simply stopped
-  # working.
+  # Removing the acknowledgement keeps the same run selected and eligible.
   fetch_api_array() { printf '%s\n' "$reviews_run_only"; }
   rc=0; out=$(crw_head_pinned_clean_review_run "$h40" "$(graded_of "$reviews_run_only")") || rc=$?
   [ "$rc" = "0" ] || bad="$bad run-alone-not-0(rc=$rc)"
   [ "$out" = "5601" ] || bad="$bad run-alone-id($out)"
 
-  # Direction check: a body-less object is not itself disqualifying. When the
-  # ack PRECEDES the run, the counter grades the run too, the two agree, and
-  # the rung is satisfied — so the binding is a co-selection test, not a
-  # blanket refusal whenever a reply exists on the head.
+  # Acknowledgements preceding the run also leave its selection unchanged.
   fetch_api_array() { printf '%s\n' "$reviews_ack_first"; }
   rc=0; out=$(crw_head_pinned_clean_review_run "$h40" "$(graded_of "$reviews_ack_first")") || rc=$?
   [ "$rc" = "0" ] || bad="$bad ack-older-not-0(rc=$rc)"
@@ -2476,9 +2863,12 @@ test_1031_rung_binds_to_the_graded_run() {
   # The two selectors must agree about the graded object on the plain shape as
   # well, or the binding above would be comparing look-alikes.
   out=$(crw_select_head_pinned_graded_review "$reviews_both" "$BOT_LOGIN" "$h40" | jq -r '.id')
-  [ "$out" = "5602" ] || bad="$bad graded-selection($out)"
+  [ "$out" = "5601" ] || bad="$bad graded-selection($out)"
   out=$(crw_select_head_pinned_review_run "$reviews_both" "$BOT_LOGIN" "$h40" | jq -r '.id')
   [ "$out" = "5601" ] || bad="$bad run-selection($out)"
+  # Acknowledgement-only evidence is no run, not a selected empty run.
+  out=$(crw_select_head_pinned_graded_review "$(jq '[.[] | select(.id == 5602)]' <<<"$reviews_both")" "$BOT_LOGIN" "$h40")
+  [ -z "$out" ] || bad="$bad acknowledgement-only-selected($out)"
 
   # ROUND 2 (Phase 4b P1). Naming one selector is not enough: the counter and
   # the rung read the live `pulls/{pr}/reviews` endpoint at DIFFERENT times, so
@@ -2497,7 +2887,7 @@ test_1031_rung_binds_to_the_graded_run() {
   ]')
   fetch_api_array() { printf '%s\n' "$reviews_newer_run"; }
   rc=0; out=$(crw_head_pinned_clean_review_run "$h40" 5601) || rc=$?
-  [ "$rc" = "1" ] || bad="$bad newer-run-after-count-not-1(rc=$rc,out=$out)"
+  [ "$rc" = "4" ] || bad="$bad newer-run-after-count-not-4(rc=$rc,out=$out)"
   # Non-vacuity: the refusal is the STALE id, not the fixture. Grading the same
   # live array the rung sees clears it.
   rc=0; out=$(crw_head_pinned_clean_review_run "$h40" "$(graded_of "$reviews_newer_run")") || rc=$?
@@ -2520,28 +2910,57 @@ test_1031_rung_binds_to_the_graded_run() {
   fi
 }
 
-# #1031 end-to-end: the same fixture through the real script. Pre-fix this
-# emitted `cleared` (exit 0) with potential_issue_count 0 on a head carrying a
-# live `_🟠 Major_ / **Potential issue**` — the counter graded the body-less
-# ack, the rung credited the findings run, and between them the #968 demotion
-# was withdrawn with nobody having looked at the finding. Post-fix the rung
-# declines, the demotion stands, and the wait holds to its advisory timeout.
+# #1037 end-to-end: an acknowledgement cannot move the count away from the
+# live finding. Even a summary naming another head must not hide that finding.
 test_1031_bodyless_ack_over_findings_run_does_not_clear() {
-  local dir rc status
-  dir=$(make_case "bodyless-ack-over-findings-run" 60 false 0 2)
-  rc=$(run_case "$dir" bodyless_ack_over_findings_run)
-  status=""
-  if [ -s "$dir/out.json" ]; then
+  local dir rc status scenario
+  for scenario in bodyless_ack_silent_summary bodyless_ack_over_findings_run; do
+    dir=$(make_case "1037-$scenario" 60 false 0 2)
+    rc=$(run_case "$dir" "$scenario")
     status=$(jq -r '.status' "$dir/out.json")
-  fi
-  if [ "$rc" = "0" ] || [ "$status" = "cleared" ]; then
-    fail "#1031 end-to-end: exit $rc status=$status — a body-less ack must not let the exact-SHA rung clear a head whose findings nothing counted; stderr=$(tail -5 "$dir/err.log")"
-  elif [ "$rc" != "4" ] || [ "$status" != "timeout" ]; then
-    fail "#1031 end-to-end: exit $rc status=$status, expected the advisory timeout (4/timeout) the #968 demotion produces; stderr=$(tail -5 "$dir/err.log")"
-  elif ! grep -q 'commits range names a different commit' "$dir/err.log"; then
-    fail "#1031 end-to-end: the #968 demotion never fired, so the verdict was reached some other way; stderr=$(tail -5 "$dir/err.log")"
+    if [ "$rc" = 2 ] && [ "$status" = findings ] && [ "$(jq -r '.potential_issue_count' "$dir/out.json")" = 1 ]; then
+      pass "#1037: $scenario retains the body-bearing run's live finding"
+    else
+      fail "#1037 $scenario: rc=$rc status=$status, expected findings/count 1"
+    fi
+  done
+}
+
+test_1037_superseded_run_paths() {
+  local scenario dir rc expected status bad=""
+  for scenario in run_replaced_after_count run_replaced_during_probe run_replaced_every_count newer_clean_run; do
+    if [ "$scenario" = run_replaced_during_probe ]; then
+      dir=$(make_case "1037-$scenario" 0 true 12 0)
+    else
+      dir=$(make_case "1037-$scenario" 60 false 0 0)
+    fi
+    rc=$(run_case "$dir" "$scenario")
+    case "$scenario" in
+      run_replaced_after_count) expected=2; status=findings ;;
+      run_replaced_during_probe|run_replaced_every_count) expected=4; status=timeout ;;
+      newer_clean_run) expected=0; status=cleared ;;
+    esac
+    [ "$rc" = "$expected" ] || bad="$bad $scenario-rc=$rc"
+    [ "$(jq -r '.status' "$dir/out.json")" = "$status" ] || bad="$bad $scenario-status"
+    case "$scenario" in
+      run_replaced_after_count)
+        [ "$(jq -r '.potential_issue_count' "$dir/out.json")" = 1 ] || bad="$bad recount-missed-finding"
+        grep -q 'superseded the counted run' "$dir/err.log" || bad="$bad no-supersession"
+        ;;
+      run_replaced_during_probe)
+        [ "$(probe_count "$dir")" = 1 ] || bad="$bad no-probe"
+        grep -q 'post-probe terminal-review check:.*superseded' "$dir/err.log" || bad="$bad wrong-post-probe-path"
+        ;;
+      run_replaced_every_count)
+        [ "$(jq -r '.waited_seconds' "$dir/out.json")" = 60 ] || bad="$bad budget-changed"
+        grep -q 'superseded the counted run' "$dir/err.log" || bad="$bad no-repeated-supersession"
+        ;;
+    esac
+  done
+  if [ -z "$bad" ]; then
+    pass "#1037: superseded counts retry within budget or retain timeout; a newer clean run can clear"
   else
-    pass "#1031: a body-less resolve-tag ack newer than the findings run leaves the #968 demotion standing instead of clearing the head"
+    fail "#1037 superseded paths:$bad"
   fi
 }
 
@@ -2938,6 +3357,187 @@ test_919_pending_status_blocks_the_terminal_verdict() {
   fi
 }
 
+test_940_fallback_status_veto() {
+  local scenario state desc expected reason dir rc bad=""
+  while IFS='|' read -r scenario state desc expected reason; do
+    dir=$(make_case "940-$scenario-$state" 15 true 1 0)
+    enable_trust_status_context "$dir"
+    rc=$(CODERABBIT_WAIT_CODEX_REQUEST_CMD="$dir/bin/codex-request-stub.sh" CODEX_STUB_LOG="$dir/state/codex-stub.log" \
+      CODERABBIT_TEST_STATUS="$state" CODERABBIT_TEST_STATUS_DESCRIPTION="$desc" run_case "$dir" "$scenario")
+    [ "$rc" = "$expected" ] || bad="$bad $scenario/$state-rc=$rc"
+    grep -q "$reason" "$dir/err.log" || bad="$bad $scenario/$state-no-reason"
+    if [ "$expected" = 4 ] || [ "$expected" = 5 ]; then
+      if [ "$expected" = 5 ]; then
+        [ "$(jq -r '.status' "$dir/out.json")" = rate_limit_stalled ] || bad="$bad not-stalled"
+        [ "$(jq -r '.codex_failover_requested' "$dir/out.json")" = true ] || bad="$bad missing-failover"
+        [ "$(codex_invocations "$dir")" = 1 ] || bad="$bad wrong-failover-count"
+        [ "$(jq -r '.rate_limit_retries' "$dir/out.json")" = 0 ] || bad="$bad invented-retry"
+      else
+        [ "$(jq -r '.status' "$dir/out.json")" = timeout ] || bad="$bad not-timeout"
+        [ "$(jq -r '.codex_failover_requested' "$dir/out.json")" = false ] || bad="$bad invented-failover"
+      fi
+      [ "$(probe_count "$dir")" = 1 ] || bad="$bad no-terminal-probe"
+      grep -q 'post-probe terminal-review check:' "$dir/err.log" || bad="$bad no-terminal-check"
+    fi
+  done <<'EOF'
+fallback_summary|success|Review rate limited|5|non-completion description 'Review rate limited'
+fallback_summary|pending|Review in progress|4|is pending
+fallback_summary_during_probe|success|Review rate limited|5|non-completion description 'Review rate limited'
+fallback_summary_during_probe|pending|Review in progress|4|is pending
+fallback_summary|unreadable||3|could not read CodeRabbit fallback
+fallback_summary_during_probe|unreadable||4|could not be read
+EOF
+  if [ -z "$bad" ]; then
+    pass "#940: status refusals and unreadable evidence cannot clear via polling or its terminal upgrade"
+  else
+    fail "#940 fallback veto:$bad"
+  fi
+}
+
+test_878_aged_marker_cannot_escape_trusted_status_veto() {
+  local dir rc status review bad=""
+
+  # Exact accepted case: the fresh benign body is the ordinary review-arm
+  # candidate, but the marker-selected summary belongs to this unchanged head.
+  # The trusted pending status must keep that marker-bearing summary from using
+  # the #851 completed-summary escape.
+  dir=$(make_case 878-aged-marker-pending 15 true 1 0)
+  enable_trust_status_context "$dir"
+  rc=$(CODERABBIT_TEST_STATUS=pending CODERABBIT_TEST_STATUS_DESCRIPTION='Review in progress' \
+    run_case "$dir" aged_marker_fresh_benign)
+  status=$(jq -r '.status // "MISSING"' "$dir/out.json" 2>/dev/null || echo PARSE_ERROR)
+  [ "$rc" = 4 ] && [ "$status" = timeout ] \
+    && grep -q 'per-SHA CodeRabbit status on head-sha is pending' "$dir/err.log" \
+    || bad="$bad pending=$rc/$status"
+
+  # Missing and opt-out statuses retain the existing non-veto behavior: this
+  # change does not make an aged marker independently authoritative.
+  dir=$(make_case 878-aged-marker-missing 15 true 1 0)
+  enable_trust_status_context "$dir"
+  rc=$(CODERABBIT_TEST_STATUS=absent run_case "$dir" aged_marker_fresh_benign)
+  [ "$rc" = 0 ] || bad="$bad missing=$rc"
+
+  dir=$(make_case 878-aged-marker-untrusted 15 true 1 0)
+  rc=$(CODERABBIT_TEST_STATUS=pending CODERABBIT_TEST_STATUS_DESCRIPTION='Review in progress' \
+    run_case "$dir" aged_marker_fresh_benign)
+  [ "$rc" = 0 ] || bad="$bad untrusted=$rc"
+
+  # The immutable exact-SHA clean-run rung remains ahead of the mutable
+  # summary/status fallback.
+  dir=$(make_case 878-aged-marker-clean-run 15 true 1 0)
+  enable_trust_status_context "$dir"
+  rc=$(CODERABBIT_TEST_STATUS=pending CODERABBIT_TEST_STATUS_DESCRIPTION='Review in progress' \
+    run_case "$dir" aged_marker_fresh_benign_clean_head_run)
+  review=$(jq -r '.review.id // "MISSING"' "$dir/out.json" 2>/dev/null || echo PARSE_ERROR)
+  [ "$rc" = 0 ] && [ "$review" = 87802 ] || bad="$bad clean-run=$rc/$review"
+
+  # The three-way marker read must not flatten extraction failure into absence.
+  dir=$(make_case 878-aged-marker-tier-failure 15 true 1 0)
+  enable_trust_status_context "$dir"
+  install_878_extraction_failure "$dir"
+  rc=$(CODERABBIT_TEST_STATUS=pending CODERABBIT_TEST_STATUS_DESCRIPTION='Review in progress' \
+    run_case "$dir" aged_marker_fresh_benign_tier_failure)
+  [ "$rc" = 3 ] \
+    && grep -q 'could not read CodeRabbit fallback summary or status evidence' "$dir/err.log" \
+    || bad="$bad tier-failure=$rc"
+
+  if [ -z "$bad" ]; then
+    pass "#878: aged marker summary cannot bypass trusted pending-status veto; missing, opt-out, clean-run, and extraction controls hold"
+  else
+    fail "#878 aged-summary status veto:$bad"
+  fi
+}
+
+
+# The summary appears only after the one status probe, so polling cannot save us.
+test_1034_terminal_risk_refusal() {
+  local mode dir body rc expected before=$FAIL head=f9c7847139881a1004e796d4ab8967b23e083baa
+  for mode in stale matching; do
+    # shellcheck disable=SC2016 # Literal provider Markdown, not substitution.
+    body='<!-- This is an auto-generated comment: summarize by coderabbit.ai -->
+**Actionable comments posted: 0**
+<!-- final_review_risk_start -->
+**Merge Risk:** _🟡 Moderate_ · up to `e192e`
+<!-- final_review_risk_end -->'
+    expected=4
+    if [ "$mode" = matching ]; then body=${body/e192e/f9c78}; expected=0; fi
+    dir=$(make_case "1034-terminal-$mode" 15 true 1 0)
+    sed -i.bak "s/head-sha/$head/g" "$dir/bin/gh"
+    rc=$(CODERABBIT_TEST_FALLBACK_BODY="$body" run_case "$dir" fallback_summary_during_probe)
+    [ "$rc" = "$expected" ] || fail "1034 terminal $mode: rc=$rc expected=$expected"
+    [ "$(probe_count "$dir")" = 1 ] || fail "1034 terminal $mode never probed"
+    if [ "$mode" = stale ]; then
+      grep -q 'final_review_risk.*different commit' "$dir/err.log" || fail '1034 terminal risk refusal absent'
+      grep -q 'post-probe terminal-review check:.*leaving the advisory timeout' "$dir/err.log" || fail '1034 terminal refusal did not retain timeout'
+    fi
+  done
+  [ "$FAIL" -ne "$before" ] || pass '#1034: late stale risk blocks the terminal upgrade; matching risk preserves it'
+}
+
+test_940_fallback_authority_and_absence() {
+  local scenario state desc trust expected reads dir rc got_reads bad="" n=0
+  while IFS='|' read -r scenario state desc trust expected reads; do
+    n=$((n + 1))
+    dir=$(make_case "940-control-$n-$scenario-$state-$trust" 15 true 1 0)
+    [ "$trust" != true ] || enable_trust_status_context "$dir"
+    rc=$(CODERABBIT_TEST_STATUS="$state" CODERABBIT_TEST_STATUS_DESCRIPTION="$desc" run_case "$dir" "$scenario")
+    [ "$rc" = "$expected" ] || bad="$bad $scenario/$state-rc=$rc"
+    got_reads=0
+    [ ! -f "$dir/state/status-reads" ] || got_reads=$(wc -l <"$dir/state/status-reads" | tr -d ' ')
+    [ "$got_reads" = "$reads" ] || bad="$bad $scenario/$state-status-reads=$got_reads"
+  done <<'EOF'
+probe_review_on_head|pending||true|0|2
+probe_review_on_head|success|Review rate limited|true|0|2
+probe_clean_incremental|pending||true|0|2
+probe_clean_incremental|success|Review rate limited|true|0|2
+badge_only_inline_finding|pending||true|2|2
+badge_only_summary_finding|pending||true|2|2
+fallback_summary|absent||true|0|3
+fallback_summary|success||true|0|1
+fallback_summary|success|Review completed|true|0|1
+fallback_summary|failure||true|0|3
+fallback_summary|error||true|0|3
+fallback_summary|pending||false|0|0
+fallback_summary_during_probe|pending||false|0|0
+EOF
+  if [ -z "$bad" ]; then
+    pass "#940: findings, run/content authority, status absence and opt-out retain their outcomes and read cost"
+  else
+    fail "#940 authority controls:$bad"
+  fi
+}
+
+test_940_summary_escape_requires_completed_own_content() {
+  local dir rc body bad="" marker='<!-- This is an auto-generated comment: summarize by coderabbit.ai -->'
+  # Same current-head content after the status request still wins over pending.
+  body="$marker
+Reviewing files between aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa and head-sha."
+  dir=$(make_case 940-terminal-content 15 true 1 0)
+  enable_trust_status_context "$dir"
+  rc=$(CODERABBIT_TEST_STATUS=pending CODERABBIT_TEST_FALLBACK_BODY="$body" run_case "$dir" fallback_summary_during_probe)
+  [ "$rc" = 0 ] && [ "$(probe_count "$dir")" = 1 ] || bad="$bad terminal-content=$rc"
+  # A head range inside an unrecognised outcome is not a completed summary.
+  body="$body
+<!-- This is an auto-generated comment: future outcome by coderabbit.ai -->"
+  dir=$(make_case 940-unknown-outcome 15 true 1 0)
+  enable_trust_status_context "$dir"
+  rc=$(CODERABBIT_TEST_STATUS=pending CODERABBIT_TEST_FALLBACK_BODY="$body" run_case "$dir" fallback_summary)
+  [ "$rc" = 4 ] || bad="$bad unknown-outcome=$rc"
+  # Preserve the existing specific other-head reason at the shared refusal site.
+  body="$marker
+Reviewing files between aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa and bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb."
+  dir=$(make_case 940-other-head-reason 15 true 1 0)
+  enable_trust_status_context "$dir"
+  rc=$(CODERABBIT_TEST_STATUS=pending CODERABBIT_TEST_FALLBACK_BODY="$body" run_case "$dir" fallback_summary)
+  [ "$rc" = 4 ] || bad="$bad other-head=$rc"
+  grep -q 'commits range names a different commit' "$dir/err.log" || bad="$bad lost-other-head-reason"
+  if [ -z "$bad" ]; then
+    pass "#940: completed own-summary content escapes at the terminal site; other refusals keep their reason"
+  else
+    fail "#940 summary content:$bad"
+  fi
+}
+
 test_936_unreadable_status_is_not_an_absent_status() {
   # Codex P1 on #936 head 18b1571. `check_status_context_record` serialized a
   # FAILED statuses read as `{state: "missing"}` — byte-identical to the record
@@ -3147,8 +3747,222 @@ test_1178_review_no_id_fails_closed() {
   fi
 }
 
+# Fail only the real tier-extraction grep, with plausible partial stdout. All
+# other grep users (provider selection, freshness, policy) remain operational.
+install_878_extraction_failure() {
+  local dir=$1 real_grep
+  real_grep=$(command -v grep) || {
+    echo "missing grep required by #878 fixture" >&2
+    return 1
+  }
+  case "$real_grep" in
+    /*) ;;
+    *) echo "grep fixture requires an absolute executable path" >&2; return 1 ;;
+  esac
+  printf '#!/usr/bin/env bash\nREAL_GREP=%q\n' "$real_grep" >"$dir/bin/grep"
+  cat >>"$dir/bin/grep" <<'EOF'
+if [ "${1:-}" = -oE ]; then
+  body=$(cat)
+  case "$body" in
+    *TIER_READ_FAILURE*)
+      if [ -f "${CODERABBIT_TEST_STATE_DIR:?}/fail-after-first" ] && [ ! -f "$CODERABBIT_TEST_STATE_DIR/first-tier-read" ]; then
+        : >"$CODERABBIT_TEST_STATE_DIR/first-tier-read"
+        exec "$REAL_GREP" "$@" <<<"$body"
+      fi
+      printf 'hit\n' >>"${CODERABBIT_TEST_STATE_DIR:?}/tier-read-failures"
+      printf '🟡 Minor\n'
+      exit 2 ;;
+  esac
+  exec "$REAL_GREP" "$@" <<<"$body"
+fi
+exec "$REAL_GREP" "$@"
+EOF
+  chmod +x "$dir/bin/grep"
+}
+
+test_878_nested_tier_errors() (
+  local snip="$WORKDIR/878-helpers.sh" block rc out body comments bad=""
+  local head=0123456789abcdef0123456789abcdef01234567
+  eval "$(grep -E '^(CR_SUMMARY_BENIGN_STANZA_RE|CR_PRE_MERGE_BLOCK_START|CR_PRE_MERGE_BLOCK_END|SUMMARY_MARKER|RATE_LIMIT_MARKER|PAUSED_MARKER|IN_PROGRESS_MARKER)=' "$ROOT/scripts/coderabbit-wait.sh")"
+  # shellcheck source=../scripts/lib/feedback-policy-helpers.sh
+  . "$ROOT/scripts/lib/feedback-policy-helpers.sh"
+  # shellcheck source=../scripts/lib/coderabbit-fence.sh
+  . "$ROOT/scripts/lib/coderabbit-fence.sh"
+  for block in comment_classifier summary_helpers rate_limit_marker_guard summary_selector count_helpers review_run_selector head_run_evidence; do
+    awk -v block="coderabbit_$block" '$0 == "# BEGIN " block {f=1;next} $0 == "# END " block {f=0} f' \
+      "$ROOT/scripts/coderabbit-wait.sh" >>"$snip"
+  done
+  # shellcheck disable=SC1090
+  . "$snip"
+  log() { :; }
+  BOT_LOGIN='coderabbitai[bot]'
+  # Read by the extracted runtime through dynamic scope.
+  # shellcheck disable=SC2034
+  REPO=owner/repo
+  # shellcheck disable=SC2034
+  PR_NUMBER=999
+  body="TIER_READ_FAILURE _🟠 Major_ between aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa and $head"
+  comments=$(jq -nc --arg b "$SUMMARY_MARKER
+$body" --arg bot "$BOT_LOGIN" '[{id:1,user:{login:$bot},body:$b,created_at:"2026-06-04T00:00:00Z"}]')
+  grep() {
+    if [ "${1:-}" = -oE ]; then
+      local input
+      input=$(cat)
+      case "$input" in *TIER_READ_FAILURE*) printf '🟡 Minor\n'; return 2 ;; esac
+      command grep "$@" <<<"$input"
+    else command grep "$@"; fi
+  }
+  for predicate in crw_body_is_blocking_finding crw_scan_has_blocking_marker summary_blocking_marker_present; do
+    rc=0; out=$("$predicate" "$body") || rc=$?
+    [ "$rc" = 2 ] && [ -z "$out" ] || bad="$bad $predicate=$rc/$out"
+    rc=0; "$predicate" 'ordinary prose' || rc=$?
+    [ "$rc" = 1 ] || bad="$bad $predicate-absence=$rc"
+  done
+  rc=0; crw_rate_limit_masks_blocking_marker rate_limit "$body" "$head" || rc=$?
+  [ "$rc" = 3 ] || bad="$bad rate-limit-mask=$rc"
+  rc=0; crw_head_summary_holds_blocking_marker "$head" "$body" || rc=$?
+  [ "$rc" = 3 ] || bad="$bad head-summary=$rc"
+  # Each surface must propagate independently, including the third surface
+  # after two genuinely clean bodies have already been read.
+  for surface in notice review summary; do
+    rc=0
+    case "$surface" in
+      notice) crw_rate_limit_hides_a_finding "$head" "$body" '' '[]' || rc=$? ;;
+      review) crw_rate_limit_hides_a_finding "$head" 'ordinary prose' "$body" '[]' || rc=$? ;;
+      summary) crw_rate_limit_hides_a_finding "$head" 'ordinary prose' 'ordinary prose' "$comments" || rc=$? ;;
+    esac
+    [ "$rc" = 3 ] || bad="$bad hidden-$surface=$rc"
+  done
+  rc=0; out=$(crw_count_blocking_bodies '["ordinary prose","TIER_READ_FAILURE _🟠 Major_"]') || rc=$?
+  [ "$rc" = 3 ] && [ -z "$out" ] || bad="$bad counter=$rc/$out"
+  rc=0; out=$(crw_count_blocking_bodies '[]') || rc=$?
+  [ "$rc" = 0 ] && [ "$out" = 0 ] || bad="$bad empty-counter=$rc/$out"
+  fetch_api_array() {
+    jq -nc --arg bot "$BOT_LOGIN" --arg h "$head" --arg b "$body" \
+      '[{id:1,user:{login:$bot},commit_id:$h,submitted_at:"2026-06-04T00:00:00Z",body:$b}]'
+  }
+  rc=0; out=$(crw_head_pinned_clean_review_run "$head" 1) || rc=$?
+  [ "$rc" = 2 ] && [ -z "$out" ] || bad="$bad clean-run-classifier=$rc/$out"
+  body='**Actionable comments posted: 0**'
+  rc=0; out=$(crw_head_pinned_clean_review_run "$head" 1) || rc=$?
+  [ "$rc" = 0 ] && [ "$out" = 1 ] || bad="$bad clean-run-control=$rc/$out"
+  fetch_api_array() { return 3; }
+  rc=0; crw_head_pinned_clean_review_run "$head" 1 >/dev/null || rc=$?
+  [ "$rc" = 3 ] || bad="$bad clean-run-api=$rc"
+  fetch_api_array() { printf '[]\n'; }
+  rc=0; crw_head_pinned_clean_review_run "$head" 1 >/dev/null || rc=$?
+  [ "$rc" = 1 ] || bad="$bad clean-run-absence=$rc"
+  # Structural-reader fallback remains a raw scan; only tier failure is new.
+  crw_unfenced_body() { return 3; }
+  rc=0; summary_blocking_marker_present '_🟠 Major_' || rc=$?
+  [ "$rc" = 0 ] || bad="$bad raw-fallback-marker=$rc"
+  rc=0; summary_blocking_marker_present 'TIER_READ_FAILURE _🟠 Major_' || rc=$?
+  [ "$rc" = 2 ] || bad="$bad raw-fallback-classifier=$rc"
+  [ -z "$bad" ] || { printf '%s\n' "$bad" >&2; exit 1; }
+)
+
+test_878_waiter_tier_errors() {
+  local route dir scenario rc expected bad=""
+  for route in poll-inline poll-summary context-inline context-summary post-inline post-summary probe-summary probe-object clean-poll clean-post-probe advisory-null api-poll api-post-probe; do
+    dir=$(make_case "878-$route" 0 true 12 0)
+    case "$route" in
+      poll-inline|context-inline|advisory-null) scenario=badge_only_inline_finding ;;
+      poll-summary|context-summary) scenario=summary_marker_only ;;
+      probe-summary) scenario=probe_clean_incremental ;;
+      probe-object) scenario=probe_review_object_premerge_warning ;;
+      clean-poll|api-poll) scenario=probe_review_on_head ;;
+      clean-post-probe|api-post-probe|post-inline|post-summary) scenario=review_arrives_during_probe ;;
+    esac
+    # Modify only fixture evidence, retaining the shipped polling/probe flow.
+    python3 - "$dir" "$route" <<'PY878'
+import pathlib, sys
+root, route = pathlib.Path(sys.argv[1]), sys.argv[2]
+gh = root / 'bin/gh'
+s = gh.read_text()
+if route in ('poll-inline', 'context-inline', 'post-inline', 'advisory-null'):
+    s = s.replace('_🟠 Major_', 'TIER_READ_FAILURE _🟠 Major_')
+elif route == 'post-summary':
+    s = s.replace('CodeRabbit review completed.', 'TIER_READ_FAILURE CodeRabbit review completed.')
+elif route in ('poll-summary', 'context-summary'):
+    s = s.replace('_⚠️ Potential issue_', 'TIER_READ_FAILURE _⚠️ Potential issue_')
+elif route in ('probe-summary', 'probe-object'):
+    s = s.replace('No actionable comments', 'TIER_READ_FAILURE No actionable comments')
+elif route.startswith('clean-'):
+    s = s.replace("run_body='**Actionable comments posted: 0**'", "run_body='**Actionable comments posted: 0** TIER_READ_FAILURE'")
+if route.endswith('post-probe') or route == 'post-summary':
+    # The existing delayed-review scenario normally has an inline finding;
+    # remove just that endpoint so the clean-run caller is actually reached.
+    s = s.replace('  repos/owner/repo/pulls/999/comments)\n', '  repos/owner/repo/pulls/999/comments)\n    printf "[]\\n"; exit 0\n')
+gh.write_text(s)
+if route.startswith('context-'):
+    waiter = root / 'scripts/coderabbit-wait.sh'
+    s = waiter.read_text().replace('emit_status_context_verdict() {', 'emit_status_context_verdict() {\n  : >"${CODERABBIT_TEST_STATE_DIR:?}/status-context-called"')
+    waiter.write_text(s)
+if route.startswith('api-'):
+    waiter = root / 'scripts/coderabbit-wait.sh'
+    s = waiter.read_text().replace('# END coderabbit_head_run_evidence', '# END coderabbit_head_run_evidence\ncrw_head_pinned_clean_review_run() { : >"${CODERABBIT_TEST_STATE_DIR:?}/api-fallback-called"; return 3; }')
+    waiter.write_text(s)
+PY878
+    install_878_extraction_failure "$dir"
+    if [ "$route" = advisory-null ]; then
+      printf '\nfeedback_policy:\n  mode: by-priority\n' >>"$dir/.github/review-policy.yml"
+      : >"$dir/state/fail-after-first"
+    fi
+    case "$route" in
+      context-*)
+        enable_trust_status_context "$dir"
+        rc=$(CODERABBIT_TEST_STATUS=success CODERABBIT_TEST_STATUS_TIME=2026-06-04T00:00:08Z run_case "$dir" "$scenario")
+        [ -f "$dir/state/status-context-called" ] || bad="$bad $route-wrong-caller"
+        ;;
+      probe-*) rc=$(run_probe_case "$dir" "$scenario") ;;
+      *) rc=$(run_case "$dir" "$scenario") ;;
+    esac
+    expected=3
+    case "$route" in advisory-null) expected=2 ;; api-*) expected=0 ;; esac
+    [ "$rc" = "$expected" ] || bad="$bad $route-rc=$rc"
+    case "$route" in
+      api-*)
+        [ -f "$dir/state/api-fallback-called" ] || bad="$bad $route-never-called"
+        [ "$(jq -r '.status' "$dir/out.json")" = cleared ] || bad="$bad $route-no-fallback"
+        ;;
+      advisory-null)
+        [ -s "$dir/state/tier-read-failures" ] || bad="$bad advisory-never-injected"
+        jq -e '.status == "findings" and .blocking_tier_unresolved == null' "$dir/out.json" >/dev/null \
+          || bad="$bad advisory-not-null"
+        ;;
+      *)
+        [ -s "$dir/state/tier-read-failures" ] || bad="$bad $route-never-injected"
+        grep -qi 'classif' "$dir/err.log" || bad="$bad $route-unrelated-error"
+        ;;
+    esac
+    case "$route" in
+      clean-*|api-*|post-*)
+        # One POST proves the delayed route ran after the probe, not before it.
+        case "$route" in *post-probe|post-*) [ "$(probe_count "$dir")" = 1 ] || bad="$bad $route-never-probed" ;; esac
+        ;;
+    esac
+  done
+  if [ -z "$bad" ]; then
+    pass "#878: extraction errors stop every waiter verdict path; advisory count is unknown and API-only fallback survives"
+  else
+    fail "#878 waiter extraction:$bad"
+  fi
+}
+
+if test_878_nested_tier_errors; then
+  pass "#878: nested marker predicates preserve extraction errors separately from absence and API failure"
+else
+  fail "#878: nested marker extraction error propagation"
+fi
+test_878_waiter_tier_errors
+
 test_900_review_run_selector_ignores_bodyless_replies
 test_919_pending_status_blocks_the_terminal_verdict
+test_940_fallback_status_veto
+test_878_aged_marker_cannot_escape_trusted_status_veto
+test_1034_terminal_risk_refusal
+test_940_fallback_authority_and_absence
+test_940_summary_escape_requires_completed_own_content
 test_936_unreadable_status_is_not_an_absent_status
 test_891_probe_open_rate_limit_window_is_not_silence
 test_884_count_bodies_fails_closed_unit
@@ -3192,10 +4006,12 @@ test_1005_classifier_pipe_buffer_unit
 test_1003_head_run_evidence_unit
 test_1031_rung_binds_to_the_graded_run
 test_1031_bodyless_ack_over_findings_run_does_not_clear
+test_1037_superseded_run_paths
 test_837_badge_only_inline_finding_is_counted
 test_837_badge_only_summary_finding_probe_is_findings
 test_824_sha_matched_review_is_honored_regardless_of_timestamp
 test_1178_review_no_id_fails_closed
+test_1335_probe_carryforward_evidence
 
 echo
 echo "Results: $PASS passed, $FAIL failed"

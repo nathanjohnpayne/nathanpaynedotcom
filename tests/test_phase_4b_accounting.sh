@@ -15,7 +15,6 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-export MERGEPATH_REVIEW_FEEDBACK_ACCOUNTING_CMD=true
 ACCT="$ROOT/scripts/phase-4b/accounting.sh"
 LIB="$ROOT/scripts/phase-4b/lib.sh"
 ORCH="$ROOT/scripts/phase-4b-review.sh"
@@ -31,6 +30,18 @@ done
 
 WORK="$(mktemp -d "${TMPDIR:-/tmp}/p4b-acct-test.XXXXXX")"
 trap 'rm -rf "$WORK"' EXIT
+
+export P4B_TEST_POSTED_REVIEW="$WORK/posted-review.json"
+cat > "$WORK/clear-feedback.sh" <<'SH'
+#!/usr/bin/env bash
+if [ -s "$P4B_TEST_POSTED_REVIEW" ]; then
+  jq '{feedback_policy:{},findings:[{kind:"review-body",review_id:1,body:.body,accounted:true}],missing:[]}' "$P4B_TEST_POSTED_REVIEW"
+else
+  printf '{"feedback_policy":{},"findings":[],"missing":[]}'
+fi
+SH
+chmod +x "$WORK/clear-feedback.sh"
+export MERGEPATH_REVIEW_FEEDBACK_ACCOUNTING_CMD="$WORK/clear-feedback.sh"
 
 PASS=0; FAIL=0
 SKIP=0
@@ -286,6 +297,18 @@ cat > "$BIN/gh" <<'SH'
 if [ "${1:-}" = "api" ]; then
   case "${2:-}" in
     repos/o/r/pulls/*)
+      # (#1143) The orchestrator reads and validates the PR body on EVERY run,
+      # not only when --author is absent. The body read and the head read hit
+      # the same endpoint and are told apart by the --jq expression.
+      for a in "$@"; do
+        case "$a" in
+          *'.body'*)
+            printf 'Authoring-Agent: %s\n\n## Self-Review\n\n- ok.\n' \
+              "${P4B_FAKE_PR_BODY_AGENT:-claude}"
+            exit 0
+            ;;
+        esac
+      done
       printf '%s\n' "${P4B_FAKE_LIVE_HEAD:-abc123}"
       exit 0
       ;;
@@ -345,6 +368,7 @@ fi
 [ "${1:-}" = "--" ] || { echo "expected wrapper separator" >&2; exit 64; }
 while [ "$#" -gt 0 ]; do
   if [ "$1" = "--input" ]; then
+    cp "${2:?}" "$P4B_TEST_POSTED_REVIEW"
     if [ -n "${P4B_WRAPPER_BODY:-}" ]; then
       jq -r '.body' "${2:?}" > "$P4B_WRAPPER_BODY"
     fi
@@ -2748,6 +2772,7 @@ out="$(env PATH="$BIN:$PATH" \
   P4B_GH_AS_REVIEWER="$BIN/fake-gh-as-reviewer" \
   P4B_FAKE_LIVE_HEAD=abc123 \
   P4B_WRAPPER_BODY="$BODY_M" \
+  P4B_FAKE_PR_BODY_AGENT=codex \
   bash "$ORCH" 213 --repo o/r --author codex --reviewer nathanpayne-claude \
     --head abc123 --diff-file "$DIFF" 2>/dev/null)"; rc=$?
 set -e
