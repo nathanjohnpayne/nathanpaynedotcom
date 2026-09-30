@@ -53,6 +53,15 @@ may be removed later without affecting the other.
    `https://us.posthog.com` (the real PostHog US app) so the toolbar and
    "open in PostHog" deep links continue to resolve. Both hosts are non-secret
    constants, not env-injected.
+6. PostHog never initializes on a local host (`localhost`, `127.0.0.1`,
+   `[::1]`, or any `*.localhost` name), so dev servers, `astro preview`, the
+   Playwright suites, and build-time renders cannot record production events
+   even when the build carried the token. `window.posthog` stays undefined
+   there, which req. 4 already makes a silent no-op.
+7. The build-time headless Chromium that renders the OG images and the résumé
+   PDF (`src/integrations/og-images.mjs`, `resume-pdf.mjs`) aborts every request
+   to an analytics host (the PostHog proxy, PostHog, Google Analytics, Google Tag
+   Manager) before loading a page, so a build never counts as a visit.
 
 ### Events
 
