@@ -47,6 +47,15 @@
         ]
       },
       {
+        "source": "/_astro/**",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "public, max-age=31536000, immutable"
+          }
+        ]
+      },
+      {
         "source": "**/*.html",
         "headers": [
           {
@@ -68,7 +77,19 @@
           },
           {
             "key": "X-XSS-Protection",
-            "value": "1; mode=block"
+            "value": "0"
+          },
+          {
+            "key": "Referrer-Policy",
+            "value": "strict-origin-when-cross-origin"
+          },
+          {
+            "key": "Permissions-Policy",
+            "value": "accelerometer=(), camera=(), display-capture=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), payment=(), usb=()"
+          },
+          {
+            "key": "Content-Security-Policy-Report-Only",
+            "value": "default-src 'self'; script-src 'self' 'unsafe-inline' https://d.nathanpayne.com https://www.googletagmanager.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://image.mux.com https://img.logo.dev https://*.google-analytics.com https://*.googletagmanager.com; media-src 'self' blob: https://*.mux.com; connect-src 'self' https://d.nathanpayne.com https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com https://*.mux.com https://*.litix.io; worker-src 'self' blob:; frame-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'self'"
           }
         ]
       }
