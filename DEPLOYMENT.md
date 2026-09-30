@@ -403,7 +403,7 @@ That graceful degradation is correct for CI and for a fresh checkout, and wrong 
 
 Mux Data for
 project hero videos does not use a build-time env var in this site: pages with
-a Mux hero load `mux-embed`, and `@mux/mux-background-video` infers the Mux Data
+a Mux hero load `mux-embed` (an npm dependency bundled into a same-origin chunk, not a CDN script), and `@mux/mux-background-video` infers the Mux Data
 env key from the public `stream.mux.com` URL at runtime.
 
 ## Deployment Steps
@@ -582,11 +582,16 @@ For Claude Code cloud scheduled tasks:
 |---------|-----------|
 | `og-image.png`, `/og/**` | 24 hours |
 | `**/*.js`, `**/*.css` | 1 hour |
+| `/_astro/**` (content-hashed build assets) | 1 year, `immutable` |
 | `**/*.html` | 1 hour |
 
 ## Security Headers
 
-Applied globally via `firebase.json`: `X-Content-Type-Options: nosniff`, `X-Frame-Options: SAMEORIGIN`, `X-XSS-Protection: 1; mode=block`.
+Applied globally via `firebase.json`: `X-Content-Type-Options: nosniff`, `X-Frame-Options: SAMEORIGIN`, `X-XSS-Protection: 0` (disables the removed legacy XSS auditor rather than opting into it), `Referrer-Policy: strict-origin-when-cross-origin`, a `Permissions-Policy` denying camera, microphone, geolocation, payment, USB, screen capture, and motion sensors, and a `Content-Security-Policy-Report-Only` policy.
+
+The CSP is report-only on purpose. Several analytics and interaction scripts are `is:inline`, so an enforcing policy would first need them hashed or moved into bundled modules; until then the report-only header logs violations to the browser console without blocking anything. Its host allowlist is derived from what the site actually loads: PostHog through the `d.nathanpayne.com` proxy, Google Analytics and Tag Manager, Google Fonts, Mux (`*.mux.com` for HLS, `image.mux.com` for posters, `*.litix.io` for Mux Data beacons), and Logo.dev images. `tests/hosting-headers.test.js` checks the policy against every external script, image, and stylesheet the built pages reference, plus the env-gated analytics and logo hosts, so adding a new third-party host without updating `firebase.json` fails `npm test`.
+
+The `/_astro/**` rule sits after the generic JS/CSS rule because Firebase applies every matching rule and the later one wins for a repeated header. Only Astro's content-hashed output lives there, so the `immutable` year-long cache can never pin a file whose name does not change with its content.
 
 ## Auth Maintenance
 

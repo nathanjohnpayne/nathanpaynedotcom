@@ -254,7 +254,8 @@ RELAY_FAILURE_RUN=$(printf '%s' "$ISSUE_COMMENTS" | jq -r '
   | first // empty
 ') || die 2 "could not validate read-only feedback archive relay state"
 if [ -n "$RELAY_FAILURE_RUN" ]; then
-  die 2 "read-only feedback archive relay failed for source run $RELAY_FAILURE_RUN; prior feedback may be unrecoverable"
+  REPO_SHELL_QUOTED=$(printf '%q' "$REPO")
+  die 2 "read-only feedback archive relay failed for source run $RELAY_FAILURE_RUN; if GitHub still permits it (runs are rerunnable for 30 days), rerun that exact historical source run with: gh api -X POST repos/$REPO_SHELL_QUOTED/actions/runs/$RELAY_FAILURE_RUN/rerun. A new PR head or a different workflow run cannot publish its completion marker. If that run is no longer rerunnable or recovery fails, the PR remains blocked and requires owner intervention; prior feedback may be unrecoverable" # NO_BARE_GH_WRITE_EXEMPT: diagnostic text for the operator, never an executed GitHub write
 fi
 
 tier_rank() {
@@ -315,7 +316,7 @@ finding_tier() {
   if [ "$login" = "$CODERABBIT_BOT" ]; then
     sanitized=$(coderabbit_finding_scan "$body") || return 2
     while IFS= read -r line; do
-      tier=$(coderabbit_tier_of "$line")
+      tier=$(coderabbit_tier_of "$line") || return 2
       if [ -n "$tier" ]; then
         printf '%s' "$tier"
         return
@@ -338,7 +339,7 @@ strongest_nonignored_finding_tier() {
     tiers=$(codex_tiers_of "$sanitized")
   elif [ "$login" = "$CODERABBIT_BOT" ]; then
     sanitized=$(coderabbit_finding_scan "$body") || return 2
-    tiers=$(coderabbit_tiers_of "$sanitized")
+    tiers=$(coderabbit_tiers_of "$sanitized") || return 2
   fi
   while IFS= read -r tier; do
     [ -n "$tier" ] || continue
@@ -363,7 +364,7 @@ while IFS= read -r comment; do
     *) registered_reviewer_login "$login" || continue ;;
   esac
   body=$(printf '%s' "$comment" | jq -r '.body // ""')
-  tier=$(finding_tier "$login" "$body")
+  tier=$(finding_tier "$login" "$body") || exit 2
   [ -n "$tier" ] || continue
   tier_is_ignored "$tier" && continue
   INLINE_CANDIDATES=$(printf '%s\n%s\n' "$INLINE_CANDIDATES" "$comment" | jq -cs \
@@ -1006,7 +1007,7 @@ while IFS= read -r issue_comment; do
   esac
   body_json=$(printf '%s' "$issue_comment" | jq -c '.body // ""')
   body=$(printf '%s' "$body_json" | jq -r '.')
-  tier=$(strongest_nonignored_finding_tier "$login" "$body")
+  tier=$(strongest_nonignored_finding_tier "$login" "$body") || exit 2
   [ -n "$tier" ] || continue
   comment_id=$(printf '%s' "$issue_comment" | jq -r '.id')
   raised_at=$(printf '%s' "$issue_comment" | jq -r '.updated_at // .created_at // ""')
@@ -1053,7 +1054,7 @@ while IFS= read -r review; do
   # the end of the body invalidates the acknowledgement too.
   body_json=$(printf '%s' "$review" | jq -c '.body // ""')
   body=$(printf '%s' "$body_json" | jq -r '.')
-  tier=$(strongest_nonignored_finding_tier "$login" "$body")
+  tier=$(strongest_nonignored_finding_tier "$login" "$body") || exit 2
   [ -n "$tier" ] || continue
   review_id=$(printf '%s' "$review" | jq -r '.id')
   submitted_at=$(printf '%s' "$review" | jq -r '.submitted_at // ""')
@@ -1119,12 +1120,13 @@ STATUS=clear
 RESULT=$(printf '%s\n%s\n' "$FINDINGS" "$MISSING" | jq -c -s \
   --arg status "$STATUS" --arg repo "$REPO" --argjson pr "$PR_NUMBER" \
   --argjson posted "$POSTED" --argjson accounted "$ACCOUNTED" \
-  --argjson missing_count "$MISSING_COUNT" '
+  --argjson missing_count "$MISSING_COUNT" --argjson policy "$POLICY_JSON" '
     .[0] as $findings | .[1] as $missing |
     {
       status: $status,
       repo: $repo,
       pr_number: $pr,
+      feedback_policy: ($policy.feedback_policy // {}),
       posted: $posted,
       accounted: $accounted,
       missing_count: $missing_count,

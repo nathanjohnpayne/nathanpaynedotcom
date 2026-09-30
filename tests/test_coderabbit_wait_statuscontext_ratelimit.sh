@@ -52,12 +52,122 @@ RATE_LIMIT_BODY_HEADREF='<!-- This is an auto-generated comment: rate limited by
 
 <!-- end of auto-generated comment: rate limited by coderabbit.ai -->'
 
+PAUSED_BODY_HEADREF='<!-- This is an auto-generated comment: review paused by coderabbit.ai -->
+
+> [!WARNING]
+> ## Reviews paused
+>
+> Reviewing files that changed between the base and head-sha.
+>
+> Reply with `@coderabbitai resume` to resume automatic reviews.
+
+<!-- end of auto-generated comment: review paused by coderabbit.ai -->'
+
 # A genuine clean review summary (class=review), no rate-limit marker.
 REVIEW_BODY_CLEAN='<!-- This is an auto-generated comment: summarize by coderabbit.ai -->
 
 **Actionable comments posted: 0**
 
 Reviewed everything up to head-sha. LGTM!'
+
+REVIEW_BODY_CLEAN_QUOTING_REFUSALS='<!-- This is an auto-generated comment: summarize by coderabbit.ai -->
+
+**Actionable comments posted: 0**
+
+Reviewed everything up to head-sha. The diff contains these literals:
+
+```
+rate limited by coderabbit.ai
+review paused by coderabbit.ai
+```'
+
+SUMMARY_BODY_WITH_RATE_LIMIT_STANZA='<!-- This is an auto-generated comment: summarize by coderabbit.ai -->
+
+**Actionable comments posted: 0**
+
+<!-- This is an auto-generated comment: rate limited by coderabbit.ai -->
+
+> [!WARNING]
+> ## Review limit reached
+>
+> **Next review available in:** **13 minutes**
+
+```
+CodeRabbit is an incremental review system.
+```'
+
+LEGACY_RATE_LIMIT_BODY='Rate limit exceeded
+
+Please wait before requesting another review.'
+
+# CodeRabbit's older notice can put the heading and retry prose on one line.
+# This must retain the same #956 provider-owned refusal status as the
+# established two-line form, without treating quoted or fenced copies as state.
+LEGACY_RATE_LIMIT_BODY_ONE_LINE='Rate limit exceeded. Please wait 10 seconds before requesting another review.'
+
+LEGACY_RATE_LIMIT_BODY_TRAILING=$'Rate limit exceeded  \r\n\r\nPlease wait before requesting another review.'
+
+LEGACY_REVIEW_LIMIT_BODY='Review limit reached
+
+Please wait before requesting another review.'
+
+LEGACY_REVIEW_LIMIT_BODY_ONE_LINE='Review limit reached: Please wait before requesting another review.'
+
+LEGACY_PAUSED_BODY='Reviews paused
+
+Reply with `@coderabbitai resume` to continue.'
+
+WRAPPED_STATUS_PROBE_BODY='<!-- This is an auto-generated reply by CodeRabbit -->
+
+<!-- CodeRabbit review command invocation: status -->
+Here is a summary of where things stand.'
+
+WRAPPED_SUMMARY_STATUS_PROBE_BODY=$'<!-- This is an auto-generated reply by CodeRabbit -->   \r\n\r\nHeRe\'s A sUmMaRy Of WhErE tHiNgS sTaNd. \r'
+
+WRAPPED_INCREMENTAL_STATUS_PROBE_BODY='<!-- This is an auto-generated reply by CodeRabbit -->
+
+Does not re-review already reviewed commits.'
+
+MENTION_STATUS_PROBE_BODY='`@nathanjohnpayne`: Here is a summary of where things stand.
+
+### Open CodeRabbit Threads
+None yet.'
+
+MENTION_APOSTROPHE_STATUS_PROBE_BODY="\`@nathanjohnpayne\`: Here's a summary of where things stand.
+
+### Open CodeRabbit Threads
+None yet."
+
+ACTIONS_PERFORMED_STATUS_PROBE_BODY='<!-- This is an auto-generated reply by CodeRabbit -->
+
+<details><summary>✅ Actions performed</summary>
+
+Review triggered.
+
+> Note: CodeRabbit is an incremental review system and does not re-review already reviewed commits.'
+
+# Same command acknowledgement with the provider's equally valid split
+# details/summary layout, no generated wrapper, mixed case, CRLF and trailing
+# whitespace. Structural narration recognition must not depend on one byte
+# rendering of the leading block.
+ACTIONS_PERFORMED_SPLIT_STATUS_PROBE_BODY=$'<DeTaIlS>  \r\n<SuMmArY>✅ AcTiOnS PeRfOrMeD</sUmMaRy>\r\n\r\nReViEw TrIgGeReD. \r\n\r\nNoTe: CoDeRaBbIt Is An InCrEmEnTaL ReViEw SyStEm and does not re-review already reviewed commits.\r'
+
+FULL_REVIEW_TRIGGER_BODY='<details><summary>✅ Actions performed</summary>
+
+Full review triggered.'
+
+FULL_REVIEW_TRIGGER_WITH_NOTE_BODY='<details><summary>✅ Actions performed</summary>
+
+Full review triggered.
+
+> Note: CodeRabbit is an incremental review system and does not re-review already reviewed commits.'
+
+REVIEW_TRIGGER_WITHOUT_NOTE_BODY='<details><summary>✅ Actions performed</summary>
+
+Review triggered.'
+
+BARE_STATUS_PROBE_BODY='CodeRabbit review command invocation
+Still checking.'
 
 # A PR-level summary that classifies as `review` and carries a blocking marker
 # ONLY in the summary body — the #535 summary-only class. There are no inline
@@ -214,6 +324,13 @@ RATE_LIMIT_BODY_LONG_WINDOW='<!-- This is an auto-generated comment: rate limite
 
 <!-- end of auto-generated comment: rate limited by coderabbit.ai -->'
 
+# The supported markerless heading with the same long published window. Once
+# it ages past the anchored scan, crw_active_rate_limit_notice is the only path
+# that can preserve its retry/stall semantics.
+LEGACY_REVIEW_LIMIT_BODY_LONG_WINDOW='Review limit reached
+
+Next review available in: 59 minutes'
+
 # make_case <name> <comment_body> [status_time] [status_description]
 #          [comment_time] [freshness_window]
 #   status_time         when the CodeRabbit StatusContext success was created
@@ -246,6 +363,9 @@ RATE_LIMIT_BODY_LONG_WINDOW='<!-- This is an auto-generated comment: rate limite
 #                       comment_time, i.e. never edited). #968 is the case
 #                       where these differ: CodeRabbit edits its summary in
 #                       place, which bumps updated_at without re-reviewing.
+#   third_body / third_time  optional third issue comment (id 7703), used to
+#                       prove a newer accepted trigger remains selected above
+#                       an older acknowledgement.
 make_case() {
   local name=$1 comment_body=$2 status_time=${3:-$STATUS_TIME}
   local status_description=${4:-} comment_time=${5:-$HEAD_TIME}
@@ -253,6 +373,7 @@ make_case() {
   local second_body=${7:-} second_time=${8:-$HEAD_TIME}
   local head_sha=${9:-head-sha}
   local comment_updated_time=${10:-$comment_time}
+  local third_body=${11:-} third_time=${12:-$HEAD_TIME}
   local dir="$WORKDIR/$name"
 
   mkdir -p "$dir/scripts/lib" "$dir/.github" "$dir/bin" "$dir/state"
@@ -271,6 +392,7 @@ make_case() {
 
   printf '%s' "$comment_body" >"$dir/state/comment-body.txt"
   printf '%s' "$second_body" >"$dir/state/comment-body-2.txt"
+  printf '%s' "$third_body" >"$dir/state/comment-body-3.txt"
 
   cat >"$dir/.github/review-policy.yml" <<EOF
 coderabbit:
@@ -308,6 +430,29 @@ printf '%s\n' $((current + duration)) >"$clock_file"
 EOF
   chmod +x "$dir/bin/sleep"
 
+  [ -e "$dir/bin/awk-real" ] || ln -s "$(command -v awk)" "$dir/bin/awk-real"
+  cat >"$dir/bin/awk" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+case "${1:-}" in
+  *'function fence_info'*)
+    if [ -n "${CODERABBIT_TEST_FAIL_STRUCTURAL_ON:-}" ]; then
+      count_file=${CODERABBIT_TEST_STATE_DIR:?}/structural-awk-count
+      count=0
+      [ ! -f "$count_file" ] || count=$(cat "$count_file")
+      count=$((count + 1))
+      printf '%s\n' "$count" >"$count_file"
+      if [ "$count" = "$CODERABBIT_TEST_FAIL_STRUCTURAL_ON" ]; then
+        echo "simulated structural reader failure on call $count" >&2
+        exit 44
+      fi
+    fi
+    ;;
+esac
+exec "$(dirname "$0")/awk-real" "$@"
+EOF
+  chmod +x "$dir/bin/awk"
+
   # gh stub. The CodeRabbit StatusContext on head-sha is `success`, created 1s
   # AFTER the (persistent, same-id) issue comment served from comment-body.txt.
   cat >"$dir/bin/gh" <<EOF
@@ -321,6 +466,7 @@ comment_time='$comment_time'
 comment_updated_time='$comment_updated_time'
 head_sha='$head_sha'
 second_time='$second_time'
+third_time='$third_time'
 state_dir=\${CODERABBIT_TEST_STATE_DIR:?}
 [ "\${1:-}" = "api" ] || { echo "unexpected gh command: \$*" >&2; exit 99; }
 shift
@@ -354,6 +500,9 @@ case "\$endpoint" in
     fi ;;
   repos/owner/repo/issues/999/timeline) printf '[]\n' ;;
   repos/owner/repo/pulls/999/reviews)
+    n=0
+    if [ -f "\$state_dir/reviews-read-count" ]; then n=\$(cat "\$state_dir/reviews-read-count"); fi
+    n=\$((n + 1)); printf '%s\n' "\$n" >"\$state_dir/reviews-read-count"
     # CODERABBIT_TEST_FAIL_REVIEWS=1: the reviews read fails. This is the
     # entry fetch of the count_potential_issues chain
     # (count_potential_issues -> head_review_finding_bodies ->
@@ -362,6 +511,10 @@ case "\$endpoint" in
     # observation: both leave the review id empty.
     if [ -n "\${CODERABBIT_TEST_FAIL_REVIEWS:-}" ]; then
       echo "simulated reviews API failure" >&2
+      exit 44
+    fi
+    if [ -n "\${CODERABBIT_TEST_FAIL_REVIEWS_AFTER:-}" ] && [ "\$n" -gt "\$CODERABBIT_TEST_FAIL_REVIEWS_AFTER" ]; then
+      echo "simulated reviews API failure after read \$CODERABBIT_TEST_FAIL_REVIEWS_AFTER" >&2
       exit 44
     fi
     # CODERABBIT_TEST_REVIEWS_OBJECT=1 (#967): a 200 whose body is a JSON
@@ -386,6 +539,14 @@ case "\$endpoint" in
       else
         printf '%s\n' "\$CODERABBIT_TEST_REVIEWS_RAW"
       fi
+      exit 0
+    fi
+    if [ -n "\${CODERABBIT_TEST_REVIEWS_AFTER_FIRST_JSON:-}" ] && [ "\$n" -gt 1 ]; then
+      printf '%s\n' "\$CODERABBIT_TEST_REVIEWS_AFTER_FIRST_JSON"
+      exit 0
+    fi
+    if [ -n "\${CODERABBIT_TEST_REVIEWS_JSON:-}" ]; then
+      printf '%s\n' "\$CODERABBIT_TEST_REVIEWS_JSON"
       exit 0
     fi
     printf '[]\n' ;;
@@ -434,13 +595,19 @@ case "\$endpoint" in
     body=\$(cat "\$state_dir/comment-body.txt")
     body2=""
     if [ -f "\$state_dir/comment-body-2.txt" ]; then body2=\$(cat "\$state_dir/comment-body-2.txt"); fi
+    body3=""
+    if [ -f "\$state_dir/comment-body-3.txt" ]; then body3=\$(cat "\$state_dir/comment-body-3.txt"); fi
     if [ -z "\$body" ]; then printf '[]\n'; else
       jq -cn --arg bot "\$bot" --arg t "\$comment_time" --arg body "\$body" \
         --arg tu "\$comment_updated_time" \
         --arg t2 "\$second_time" --arg body2 "\$body2" \
+        --arg t3 "\$third_time" --arg body3 "\$body3" \
         '[{id:7701,user:{login:\$bot},created_at:\$t,updated_at:\$tu,body:\$body}]
          + (if \$body2 == "" then []
             else [{id:7702,user:{login:\$bot},created_at:\$t2,updated_at:\$t2,body:\$body2}]
+            end)
+         + (if \$body3 == "" then []
+            else [{id:7703,user:{login:\$bot},created_at:\$t3,updated_at:\$t3,body:\$body3}]
             end)'
     fi ;;
   *) echo "unexpected gh api endpoint: \$endpoint" >&2; exit 99 ;;
@@ -468,6 +635,9 @@ run_case() {
       GH_TOKEN=test-token \
       CODERABBIT_WAIT_SKIP_IDENTITY_CHECK=1 \
       CODERABBIT_TEST_STATE_DIR="$dir/state" \
+      CODERABBIT_TEST_REVIEWS_AFTER_FIRST_JSON="${CODERABBIT_TEST_REVIEWS_AFTER_FIRST_JSON:-}" \
+      CODERABBIT_TEST_FAIL_REVIEWS_AFTER="${CODERABBIT_TEST_FAIL_REVIEWS_AFTER:-}" \
+      CODERABBIT_TEST_FAIL_STRUCTURAL_ON="${CODERABBIT_TEST_FAIL_STRUCTURAL_ON:-}" \
       CODERABBIT_WAIT_CODEX_REQUEST_CMD="$dir/bin/codex-request-stub.sh" \
       CODEX_STUB_LOG="$dir/state/codex-stub.log" \
       ./scripts/coderabbit-wait.sh 999 owner/repo \
@@ -494,23 +664,532 @@ test_headref_ratelimit_suppresses_status() {
   [ "$(jqf "$dir" '.status')" = "rate_limit_stalled" ] || fail "1: status=$(jqf "$dir" '.status'), expected rate_limit_stalled"
   [ "$(jqf "$dir" '.codex_failover_requested')" = "true" ] || fail "1: codex_failover_requested=$(jqf "$dir" '.codex_failover_requested'), expected true (failover fired after suppression)"
   [ "$(stub_calls "$dir")" = "1" ] || fail "1: Codex failover invoked $(stub_calls "$dir") time(s), expected 1"
-  grep -q 'near-simultaneous rate-limit status flip' "$dir/err.log" || fail "1: expected the #596 suppression log line; err=$(grep -i statuscontext "$dir/err.log" | tail -2)"
+  grep -q 'clearance remains suppressed' "$dir/err.log" || fail "1: expected the current-refusal suppression log line; err=$(grep -i statuscontext "$dir/err.log" | tail -2)"
   [ "$FAIL" -ne "$before" ] || pass "1: #596 — near-simultaneous StatusContext success does not clear a HEAD-referencing rate-limit notice → failover + exit 5"
 }
 
-# --- Test 3: #596 escape — a genuinely LATER success (beyond grace) clears ----
+# --- Test 3: #956 — a later status alone does not prove a review ------------
 # The comment is a HEAD-referencing rate-limit notice at T, but the success
-# StatusContext lands 2h later — well beyond STATUS_SUCCESS_GRACE_SECONDS — so
-# it is a genuine (possibly silent, per #221) re-review of HEAD and must clear.
-test_headref_later_success_clears() {
+# StatusContext lands 2h later — well beyond STATUS_SUCCESS_GRACE_SECONDS.
+# With no review run on HEAD, elapsed grace is not recovery evidence.
+test_headref_later_status_without_review_stays_refused() {
   local dir rc before=$FAIL
   dir=$(make_case "headref-later" "$RATE_LIMIT_BODY_HEADREF" "2026-06-04T02:00:00Z")
   rc=$(run_case "$dir")
-  [ "$rc" = "0" ] || fail "3: expected exit 0 (cleared) for a genuine later success, got $rc; err=$(tail -4 "$dir/err.log")"
-  [ "$(jqf "$dir" '.status')" = "cleared" ] || fail "3: status=$(jqf "$dir" '.status'), expected cleared"
-  [ "$(stub_calls "$dir")" = "0" ] || fail "3: failover should not fire on a genuine-later clearance, fired $(stub_calls "$dir")"
-  grep -q 'remains authoritative' "$dir/err.log" || fail "3: expected the authoritative-later-success log; err=$(grep -i statuscontext "$dir/err.log" | tail -2)"
-  [ "$FAIL" -ne "$before" ] || pass "3: #596 escape — a StatusContext success beyond the grace window (genuine later re-review) still clears"
+  [ "$rc" = "5" ] || fail "3: expected exit 5 (rate_limit_stalled) without an actual HEAD review, got $rc; err=$(tail -4 "$dir/err.log")"
+  [ "$(jqf "$dir" '.status')" = "rate_limit_stalled" ] || fail "3: status=$(jqf "$dir" '.status'), expected rate_limit_stalled"
+  [ "$(stub_calls "$dir")" = "1" ] || fail "3: expected failover after the refusal remained current, fired $(stub_calls "$dir") time(s)"
+  grep -q 'clearance remains suppressed' "$dir/err.log" || fail "3: expected the #956 actual-review suppression log; err=$(grep -i statuscontext "$dir/err.log" | tail -2)"
+  [ "$FAIL" -ne "$before" ] || pass "3: #956 — a later completed StatusContext alone cannot clear a current rate-limit refusal"
+}
+
+# --- Test 3b: exact-head body-bearing review run wins -----------------------
+test_current_refusal_with_actual_head_review_clears() {
+  local dir rc before=$FAIL reviews
+  dir=$(make_case "headref-actual-review" "$RATE_LIMIT_BODY_HEADREF" "2026-06-04T02:00:00Z")
+  reviews='[{"id":8801,"user":{"login":"coderabbitai[bot]"},"commit_id":"head-sha","submitted_at":"2026-06-04T01:59:59Z","body":"Review completed. No actionable comments."}]'
+  rc=$(CODERABBIT_TEST_REVIEWS_JSON="$reviews" run_case "$dir")
+  [ "$rc" = "0" ] || fail "3b: expected exit 0 with a body-bearing current-HEAD review, got $rc; err=$(tail -4 "$dir/err.log")"
+  [ "$(jqf "$dir" '.status')" = "cleared" ] || fail "3b: status=$(jqf "$dir" '.status'), expected cleared"
+  grep -q 'body-bearing review id=8801 is pinned' "$dir/err.log" || fail "3b: expected exact-head review evidence log; err=$(grep -i statuscontext "$dir/err.log" | tail -3)"
+  [ "$FAIL" -ne "$before" ] || pass "3b: #956 — a body-bearing review run pinned to HEAD outranks the marked current refusal"
+}
+
+# Keep the legacy one-line refusal under the same body-bearing exact-HEAD
+# precedence control, separately from the established marker-form regression.
+test_one_line_refusal_with_actual_head_review_clears() {
+  local dir rc before=$FAIL reviews
+  dir=$(make_case "one-line-actual-review" "$LEGACY_RATE_LIMIT_BODY_ONE_LINE" "2026-06-04T02:00:00Z")
+  reviews='[{"id":8801,"user":{"login":"coderabbitai[bot]"},"commit_id":"head-sha","submitted_at":"2026-06-04T01:59:59Z","body":"Review completed. No actionable comments."}]'
+  rc=$(CODERABBIT_TEST_REVIEWS_JSON="$reviews" run_case "$dir")
+  [ "$rc" = "0" ] || fail "3b legacy one-line: expected exit 0 with a body-bearing current-HEAD review, got $rc; err=$(tail -4 "$dir/err.log")"
+  [ "$(jqf "$dir" '.status')" = "cleared" ] || fail "3b legacy one-line: status=$(jqf "$dir" '.status'), expected cleared"
+  grep -q 'body-bearing review id=8801 is pinned' "$dir/err.log" || fail "3b legacy one-line: expected exact-head review evidence log; err=$(grep -i statuscontext "$dir/err.log" | tail -3)"
+  [ "$FAIL" -ne "$before" ] || pass "3b: #956 — a body-bearing review run pinned to HEAD also outranks the legacy one-line refusal"
+}
+
+# The #956 override selects and grades one body-bearing run before the
+# fast-path scans inline and summary surfaces. A later run on the same SHA can
+# arrive between those reads, so clearance must revalidate the selected run
+# rather than credit a superseded clean body.
+test_refusal_run_is_revalidated_before_clearance() {
+  local dir rc before=$FAIL clean superseding mutated
+  clean=$(jq -nc '[{"id":8801,"user":{"login":"coderabbitai[bot]"},"commit_id":"head-sha","submitted_at":"2026-06-04T01:59:59Z","body":"Review completed. No actionable comments."}]')
+  superseding=$(jq -nc '[
+    {"id":8801,"user":{"login":"coderabbitai[bot]"},"commit_id":"head-sha","submitted_at":"2026-06-04T01:59:59Z","body":"Review completed. No actionable comments."},
+    {"id":8802,"user":{"login":"coderabbitai[bot]"},"commit_id":"head-sha","submitted_at":"2026-06-04T02:00:00Z","body":"_🟠 Major_ | A later same-SHA review finding."}
+  ]')
+  mutated=$(jq -nc '[
+    {"id":8801,"user":{"login":"coderabbitai[bot]"},"commit_id":"head-sha","submitted_at":"2026-06-04T01:59:59Z","body":"_🟠 Major_ | The same review object now carries a blocking finding."}
+  ]')
+
+  dir=$(make_case "headref-stable-review-run" "$RATE_LIMIT_BODY_HEADREF" "2026-06-04T02:00:00Z")
+  rc=$(CODERABBIT_TEST_REVIEWS_JSON="$clean" CODERABBIT_TEST_REVIEWS_AFTER_FIRST_JSON="$clean" run_case "$dir")
+  [ "$rc" = "0" ] || fail "3b0 stable: unchanged selected review should clear, got $rc; err=$(tail -5 "$dir/err.log")"
+  [ "$(cat "$dir/state/reviews-read-count")" = "2" ] || fail "3b0 stable: expected selector revalidation read"
+
+  dir=$(make_case "headref-superseded-review-run" "$RATE_LIMIT_BODY_HEADREF" "2026-06-04T02:00:00Z")
+  rc=$(CODERABBIT_TEST_REVIEWS_JSON="$clean" CODERABBIT_TEST_REVIEWS_AFTER_FIRST_JSON="$superseding" run_case "$dir")
+  [ "$rc" = "2" ] || fail "3b0 superseded: later blocking same-SHA review must emit findings, got $rc; err=$(tail -6 "$dir/err.log")"
+  [ "$(jqf "$dir" '.status')" = "findings" ] || fail "3b0 superseded: expected findings after the newer run"
+  grep -q 'changed from id=8801 to id=8802' "$dir/err.log" || fail "3b0 superseded: expected selected-run replacement log"
+
+  dir=$(make_case "headref-mutated-review-run" "$RATE_LIMIT_BODY_HEADREF" "2026-06-04T02:00:00Z")
+  rc=$(CODERABBIT_TEST_REVIEWS_JSON="$clean" CODERABBIT_TEST_REVIEWS_AFTER_FIRST_JSON="$mutated" run_case "$dir")
+  [ "$rc" = "2" ] || fail "3b0 mutated: changed body on the selected review id must be regraded before clearance, got $rc; err=$(tail -6 "$dir/err.log")"
+  [ "$(jqf "$dir" '.status')" = "findings" ] || fail "3b0 mutated: expected findings after the selected run body changed"
+  grep -q 'body changed before clearance' "$dir/err.log" || fail "3b0 mutated: expected selected-run body-change log"
+
+  dir=$(make_case "headref-unread-revalidation" "$RATE_LIMIT_BODY_HEADREF" "2026-06-04T02:00:00Z")
+  rc=$(CODERABBIT_TEST_REVIEWS_JSON="$clean" CODERABBIT_TEST_FAIL_REVIEWS_AFTER=1 run_case "$dir")
+  [ "$rc" = "5" ] || fail "3b0 unread: unread revalidation must withhold clearance, got $rc; err=$(tail -6 "$dir/err.log")"
+  [ "$(jqf "$dir" '.status')" != "cleared" ] || fail "3b0 unread: unread revalidation cleared"
+  grep -q 'could not be re-read before clearance' "$dir/err.log" || fail "3b0 unread: expected re-read failure log"
+  [ "$FAIL" -ne "$before" ] || pass "3b0: #956 revalidates a stable clean run and withholds clearance when its id or body changes or becomes unread"
+}
+
+test_quoted_refusal_marker_is_not_current_refusal() {
+  local dir rc before=$FAIL
+  dir=$(make_case "quoted-refusal-clean-summary" "$REVIEW_BODY_CLEAN_QUOTING_REFUSALS" "2026-06-04T02:00:00Z")
+  rc=$(run_case "$dir")
+  [ "$rc" = "0" ] || fail "3b1: clean summary quoting refusal literals should clear, got $rc; err=$(tail -5 "$dir/err.log")"
+  grep -q 'grading-only because CodeRabbit' "$dir/err.log" && fail "3b1: quoted marker was treated as the provider's own refusal"
+  [ "$FAIL" -ne "$before" ] || pass "3b1: quoted or fenced refusal literals do not become the provider's current refusal"
+}
+
+test_current_refusal_with_blocking_head_review_is_findings() {
+  local dir rc before=$FAIL reviews
+  dir=$(make_case "headref-blocking-review" "$RATE_LIMIT_BODY_HEADREF" "2026-06-04T02:00:00Z")
+  reviews=$(jq -nc '[{"id":8803,"user":{"login":"coderabbitai[bot]"},"commit_id":"head-sha","submitted_at":"2026-06-04T01:59:59Z","body":"Review completed.\n\n_🟠 Major_ | **Do not clear this review finding.**"}]')
+  rc=$(CODERABBIT_TEST_REVIEWS_JSON="$reviews" run_case "$dir")
+  [ "$rc" = "2" ] || fail "3b2: blocking current-HEAD review body should emit findings, got $rc; err=$(tail -5 "$dir/err.log")"
+  [ "$(jqf "$dir" '.status')" = "findings" ] || fail "3b2: status=$(jqf "$dir" '.status'), expected findings"
+  grep -q 'body-bearing current-HEAD review id=8803 carries a blocking marker' "$dir/err.log" || fail "3b2: expected review-body grading log"
+  [ "$FAIL" -ne "$before" ] || pass "3b2: a blocking marker in the exact-HEAD review body cannot release a refusal into clearance"
+}
+
+test_summary_owned_refusal_stays_current() {
+  local dir rc before=$FAIL
+  dir=$(make_case "summary-owned-rate-limit" "$SUMMARY_BODY_WITH_RATE_LIMIT_STANZA" "2026-06-04T02:00:00Z")
+  rc=$(run_case "$dir")
+  [ "$rc" = "5" ] || fail "3b3: summary-owned refusal stanza should remain rate-limit-stalled, got $rc; err=$(tail -5 "$dir/err.log")"
+  grep -q 'grading-only because CodeRabbit.*rate_limit' "$dir/err.log" || fail "3b3: summary-owned refusal was not recognized as provider state"
+  [ "$FAIL" -ne "$before" ] || pass "3b3: an unfenced provider-owned refusal stanza inside the summary remains authoritative"
+}
+
+test_refusal_quoting_narration_outranks_older_comment() {
+  local dir rc before=$FAIL
+  dir=$(make_case "refusal-quotes-narration-over-chat" "$CHAT_REPLY_AFTER_SUMMARY" \
+    "$STATUS_AFTER_BOTH_TIME" "Review completed" "$HEAD_TIME" 999999999 \
+    "$SUMMARY_BODY_WITH_RATE_LIMIT_STANZA" "$NOTICE_AFTER_SUMMARY_TIME")
+  rc=$(run_case "$dir")
+  [ "$rc" = "5" ] || fail "3b3a: current refusal quoting narration should outrank older comment, got $rc; err=$(tail -6 "$dir/err.log")"
+  [ "$(jqf "$dir" '.status')" != "cleared" ] || fail "3b3a: polling cleared from the older comment underneath the refusal"
+
+  dir=$(make_case "refusal-quotes-narration-terminal" "$CHAT_REPLY_AFTER_SUMMARY" \
+    "$STATUS_AFTER_BOTH_TIME" "Review completed" "$HEAD_TIME" 999999999 \
+    "$SUMMARY_BODY_WITH_RATE_LIMIT_STANZA" "$NOTICE_AFTER_SUMMARY_TIME")
+  sed -i.bak 's/max_wait_seconds: 300/max_wait_seconds: 0/' "$dir/.github/review-policy.yml"
+  grep -q '^  max_wait_seconds: 0$' "$dir/.github/review-policy.yml" \
+    || fail "3b3a terminal: fixture did not set the zero-second terminal budget"
+  rc=$(run_case "$dir")
+  [ "$rc" != "0" ] || fail "3b3a terminal: post-probe upgrade cleared from the older comment underneath the refusal"
+  [ "$(jqf "$dir" '.status')" != "cleared" ] || fail "3b3a terminal: status unexpectedly cleared"
+  [ "$FAIL" -ne "$before" ] || pass "3b3a: a current refusal quoting narration survives both polling and terminal-upgrade selection"
+}
+
+test_current_refusal_with_nonbenign_head_review_stays_refused() {
+  local dir rc before=$FAIL reviews
+  dir=$(make_case "headref-nonbenign-review" "$RATE_LIMIT_BODY_HEADREF" "2026-06-04T02:00:00Z")
+  reviews=$(jq -nc '[{"id":8804,"user":{"login":"coderabbitai[bot]"},"commit_id":"head-sha","submitted_at":"2026-06-04T01:59:59Z","body":"Review completed.\n\n<!-- This is an auto-generated comment: failure by coderabbit.ai -->"}]')
+  rc=$(CODERABBIT_TEST_REVIEWS_JSON="$reviews" run_case "$dir")
+  [ "$rc" = "5" ] || fail "3b4: non-benign exact-HEAD review body should not release refusal, got $rc; err=$(tail -5 "$dir/err.log")"
+  grep -q 'non-benign generated stanza' "$dir/err.log" || fail "3b4: expected non-benign review-body refusal log"
+  [ "$FAIL" -ne "$before" ] || pass "3b4: a non-benign exact-HEAD review body cannot release the current refusal"
+}
+
+test_current_refusal_with_review_quoting_progress_clears() {
+  local dir rc before=$FAIL reviews
+  dir=$(make_case "headref-review-quotes-progress" "$RATE_LIMIT_BODY_HEADREF" "2026-06-04T02:00:00Z")
+  reviews=$(jq -nc '[{"id":8805,"user":{"login":"coderabbitai[bot]"},"commit_id":"head-sha","submitted_at":"2026-06-04T01:59:59Z","body":"Review completed. The diff quotes the phrase review in progress, but reports no findings."}]')
+  rc=$(CODERABBIT_TEST_REVIEWS_JSON="$reviews" run_case "$dir")
+  [ "$rc" = "0" ] || fail "3b5: incidental review-in-progress prose should not disqualify a completed exact-HEAD review, got $rc; err=$(tail -5 "$dir/err.log")"
+  [ "$(jqf "$dir" '.status')" = "cleared" ] || fail "3b5: status=$(jqf "$dir" '.status'), expected cleared"
+  [ "$FAIL" -ne "$before" ] || pass "3b5: incidental non-review prose does not override the structured exact-HEAD review evidence"
+}
+
+test_legacy_leading_refusal_stays_current() {
+  local mode body expected dir rc before=$FAIL
+  for mode in rate-limit rate-limit-one-line rate-limit-trailing review-limit review-limit-one-line paused; do
+    case "$mode" in
+      rate-limit) body=$LEGACY_RATE_LIMIT_BODY; expected=5 ;;
+      rate-limit-one-line) body=$LEGACY_RATE_LIMIT_BODY_ONE_LINE; expected=5 ;;
+      rate-limit-trailing) body=$LEGACY_RATE_LIMIT_BODY_TRAILING; expected=5 ;;
+      review-limit) body=$LEGACY_REVIEW_LIMIT_BODY; expected=5 ;;
+      review-limit-one-line) body=$LEGACY_REVIEW_LIMIT_BODY_ONE_LINE; expected=5 ;;
+      paused) body=$LEGACY_PAUSED_BODY; expected=6 ;;
+    esac
+    dir=$(make_case "legacy-leading-$mode-refusal" "$body" "2026-06-04T02:00:00Z")
+    rc=$(run_case "$dir")
+    [ "$rc" = "$expected" ] || fail "3b6 $mode: leading legacy refusal should remain blocked, got $rc expected $expected; err=$(tail -5 "$dir/err.log")"
+    grep -q 'grading-only because CodeRabbit' "$dir/err.log" || fail "3b6 $mode: leading legacy refusal was not recognized as provider state"
+  done
+  [ "$FAIL" -ne "$before" ] || pass "3b6: supported markerless, one-line, and trailing-whitespace legacy refusal headings remain authoritative through polling"
+}
+
+test_legacy_one_line_refusal_quote_and_fence_stay_nonprovider() {
+  local mode body dir rc before=$FAIL
+  for mode in quoted fenced; do
+    case "$mode" in
+      quoted) body="> $LEGACY_RATE_LIMIT_BODY_ONE_LINE" ;;
+      fenced) body=$(printf '```\n%s\n```' "$LEGACY_RATE_LIMIT_BODY_ONE_LINE") ;;
+    esac
+    dir=$(make_case "one-line-$mode-lookalike" "$body" "2026-06-04T02:00:00Z")
+    rc=$(run_case "$dir")
+    [ "$rc" = "0" ] || fail "3b6 $mode: quoted/fenced one-line refusal lookalike should not become provider state, got $rc; err=$(tail -5 "$dir/err.log")"
+    grep -q 'grading-only because CodeRabbit' "$dir/err.log" && fail "3b6 $mode: quoted/fenced one-line lookalike was promoted to provider state"
+  done
+  [ "$FAIL" -ne "$before" ] || pass "3b6: quoted and fenced one-line legacy refusal text remains non-provider content"
+}
+
+test_legacy_refusal_classifier_unit() {
+  local snip="$WORKDIR/legacy-refusal-classifier.sh" body class bad="" before=$FAIL
+  eval "$(grep -E '^(RATE_LIMIT_MARKER|PAUSED_MARKER|IN_PROGRESS_MARKER)=' \
+    "$ROOT/scripts/coderabbit-wait.sh")"
+  # shellcheck source=../scripts/lib/coderabbit-fence.sh
+  . "$ROOT/scripts/lib/coderabbit-fence.sh"
+  sed -n '/^crw_unfenced_body() {/,/^crw_classify_selected_comment() {/p' \
+    "$ROOT/scripts/coderabbit-wait.sh" | sed '$d' >"$snip"
+  [ -s "$snip" ] || { fail "3b6 unit: legacy refusal classifier extraction is empty"; return; }
+  # shellcheck disable=SC1090
+  . "$snip"
+
+  for body in \
+    '## Rate limit exceeded. Please wait before requesting another review.' \
+    '## Rate-limit exceeded. Please wait before requesting another review.' \
+    '## Review limit reached. Please wait before requesting another review.' \
+    '## Rate limit exceeded: Please wait before requesting another review.' \
+    '## Rate-limit exceeded: Please wait before requesting another review.' \
+    '## Review limit reached: Please wait before requesting another review.'; do
+    class=$(crw_provider_owned_refusal_class "$body") || class=""
+    [ "$class" = rate_limit ] || bad="$bad markdown-punctuation"
+  done
+  for body in \
+    'Rate limit exceeded while checking an unrelated example' \
+    '## Rate limit exceeded while checking an unrelated example'; do
+    class=$(crw_provider_owned_refusal_class "$body") || class=""
+    [ -z "$class" ] || bad="$bad generic-prefix"
+  done
+
+  [ -z "$bad" ] || fail "3b6 unit: bounded legacy refusal grammar wrong:$bad"
+  [ "$FAIL" -ne "$before" ] || pass "3b6 unit: punctuation variants stay bounded to the established legacy headings"
+}
+
+test_markerless_refusal_does_not_clear_at_terminal_probe() {
+  local dir rc before=$FAIL
+  dir=$(make_case "legacy-review-limit-terminal" "$LEGACY_REVIEW_LIMIT_BODY" "2026-06-04T02:00:00Z")
+  sed -i.bak 's/trust_status_context_for_clearance: true/trust_status_context_for_clearance: false/' "$dir/.github/review-policy.yml"
+  sed -i.bak 's/max_wait_seconds: 300/max_wait_seconds: 0/' "$dir/.github/review-policy.yml"
+  rc=$(run_case "$dir")
+  [ "$rc" != "0" ] || fail "3b6a: post-probe terminal check cleared a supported markerless refusal"
+  [ "$(jqf "$dir" '.status')" != "cleared" ] || fail "3b6a: terminal status unexpectedly cleared"
+  [ "$FAIL" -ne "$before" ] || pass "3b6a: post-probe terminal classification preserves a supported markerless refusal"
+}
+
+test_selected_comment_structural_failure_fails_closed() {
+  local dir rc before=$FAIL
+
+  dir=$(make_case "selected-comment-structural-failure-main" "$REVIEW_BODY_CLEAN")
+  sed -i.bak 's/trust_status_context_for_clearance: true/trust_status_context_for_clearance: false/' "$dir/.github/review-policy.yml"
+  rc=$(CODERABBIT_TEST_FAIL_STRUCTURAL_ON=3 run_case "$dir")
+  [ "$rc" = "3" ] || fail "3b6b main: structural classification failure must stop polling with infra, got $rc; err=$(tail -6 "$dir/err.log")"
+  grep -q 'could not structurally classify the latest CodeRabbit comment' "$dir/err.log" || fail "3b6b main: expected fail-closed structural-classification diagnostic"
+
+  dir=$(make_case "selected-comment-structural-failure-terminal" "$REVIEW_BODY_CLEAN")
+  sed -i.bak 's/trust_status_context_for_clearance: true/trust_status_context_for_clearance: false/' "$dir/.github/review-policy.yml"
+  sed -i.bak 's/max_wait_seconds: 300/max_wait_seconds: 0/' "$dir/.github/review-policy.yml"
+  rc=$(CODERABBIT_TEST_FAIL_STRUCTURAL_ON=3 run_case "$dir")
+  [ "$rc" = "4" ] || fail "3b6b terminal: structural classification failure must preserve advisory timeout, got $rc; err=$(tail -6 "$dir/err.log")"
+  grep -q 'could not be structurally classified' "$dir/err.log" || fail "3b6b terminal: expected suppressed terminal-upgrade diagnostic"
+  [ "$FAIL" -ne "$before" ] || pass "3b6b: selected-comment structural reader failure stops polling and suppresses terminal clearance"
+}
+
+test_provider_leading_nonreview_run_stays_refused() {
+  local mode body dir rc before=$FAIL reviews
+  for mode in progress narration; do
+    case "$mode" in
+      progress) body='Currently reviewing the latest changes.' ;;
+      narration) body='<!-- CodeRabbit review command invocation: status -->
+Here is a summary of where things stand.' ;;
+    esac
+    dir=$(make_case "headref-leading-$mode-run" "$RATE_LIMIT_BODY_HEADREF" "2026-06-04T02:00:00Z")
+    reviews=$(jq -nc --arg body "$body" '[{"id":8806,"user":{"login":"coderabbitai[bot]"},"commit_id":"head-sha","submitted_at":"2026-06-04T01:59:59Z","body":$body}]')
+    rc=$(CODERABBIT_TEST_REVIEWS_JSON="$reviews" run_case "$dir")
+    [ "$rc" = "5" ] || fail "3b7 $mode: provider-leading non-review body should not release refusal, got $rc; err=$(tail -5 "$dir/err.log")"
+    grep -q 'carries provider-owned' "$dir/err.log" || fail "3b7 $mode: expected provider-owned non-review log"
+  done
+  [ "$FAIL" -ne "$before" ] || pass "3b7: provider-leading in-progress and narration bodies cannot release the current refusal"
+}
+
+test_status_probe_does_not_supersede_refusal() {
+  local mode reply dir rc before=$FAIL
+  for mode in wrapped wrapped-summary-whitespace wrapped-incremental mention mention-apostrophe bare actions-performed actions-performed-split full-review full-review-note; do
+    case "$mode" in
+      wrapped) reply=$WRAPPED_STATUS_PROBE_BODY ;;
+      wrapped-summary-whitespace) reply=$WRAPPED_SUMMARY_STATUS_PROBE_BODY ;;
+      wrapped-incremental) reply=$WRAPPED_INCREMENTAL_STATUS_PROBE_BODY ;;
+      mention) reply=$MENTION_STATUS_PROBE_BODY ;;
+      mention-apostrophe) reply=$MENTION_APOSTROPHE_STATUS_PROBE_BODY ;;
+      bare) reply=$BARE_STATUS_PROBE_BODY ;;
+      actions-performed) reply=$ACTIONS_PERFORMED_STATUS_PROBE_BODY ;;
+      actions-performed-split) reply=$ACTIONS_PERFORMED_SPLIT_STATUS_PROBE_BODY ;;
+      full-review) reply=$FULL_REVIEW_TRIGGER_BODY ;;
+      full-review-note) reply=$FULL_REVIEW_TRIGGER_WITH_NOTE_BODY ;;
+    esac
+    dir=$(make_case "refusal-before-$mode-status-probe" "$RATE_LIMIT_BODY_HEADREF" \
+      "$STATUS_AFTER_BOTH_TIME" "Review completed" "$HEAD_TIME" 999999999 \
+      "$reply" "$NOTICE_AFTER_SUMMARY_TIME")
+    rc=$(run_case "$dir")
+    [ "$rc" = "5" ] || fail "3b8 $mode: status probe should not supersede current refusal, got $rc; err=$(tail -6 "$dir/err.log")"
+    [ "$(jqf "$dir" '.status')" != "cleared" ] || fail "3b8 $mode: status probe allowed status-only clearance"
+  done
+  [ "$FAIL" -ne "$before" ] || pass "3b8: wrapped, whitespace-normalized, bare and combined/split action acknowledgement CodeRabbit command replies cannot supersede the current refusal"
+}
+
+# The structural narration selector is shared with ordinary polling. Disable
+# the StatusContext fast path so these cases reach that selector directly: the
+# narration must be skipped and the older refusal retained.
+test_structural_status_probes_are_excluded_by_polling_selector() {
+  local mode reply dir rc before=$FAIL
+  for mode in wrapped-summary-whitespace wrapped-incremental mention mention-apostrophe; do
+    case "$mode" in
+      wrapped-summary-whitespace) reply=$WRAPPED_SUMMARY_STATUS_PROBE_BODY ;;
+      wrapped-incremental) reply=$WRAPPED_INCREMENTAL_STATUS_PROBE_BODY ;;
+      mention) reply=$MENTION_STATUS_PROBE_BODY ;;
+      mention-apostrophe) reply=$MENTION_APOSTROPHE_STATUS_PROBE_BODY ;;
+    esac
+    dir=$(make_case "polling-refusal-before-$mode-status-probe" "$RATE_LIMIT_BODY_HEADREF" \
+      "$STATUS_AFTER_BOTH_TIME" "Review completed" "$HEAD_TIME" 999999999 \
+      "$reply" "$NOTICE_AFTER_SUMMARY_TIME")
+    sed -i.bak 's/trust_status_context_for_clearance: true/trust_status_context_for_clearance: false/' "$dir/.github/review-policy.yml"
+    rc=$(run_case "$dir")
+    [ "$rc" = "5" ] || fail "3b9 $mode: ordinary polling must skip structural status narration and retain the refusal, got $rc; err=$(tail -6 "$dir/err.log")"
+    [ "$(jqf "$dir" '.status')" = "rate_limit_stalled" ] || fail "3b9 $mode: ordinary polling selected status narration instead of the older refusal"
+  done
+  [ "$FAIL" -ne "$before" ] || pass "3b9: ordinary polling excludes wrapped and whitespace-normalized status narration"
+}
+
+# A successful review-trigger acknowledgement is structurally narration for
+# the #956 refusal guard, but it has stronger meaning in ordinary polling: a
+# new same-head run is starting. Skipping it there exposes the older clean
+# publication underneath and can clear before the replacement report lands.
+test_trigger_ack_is_polling_in_progress() {
+  local mode reply dir rc before=$FAIL quoted fenced refusal_with_trigger
+  dir=$(make_case "polling-clean-before-trigger-ack" "$REVIEW_BODY_CLEAN" \
+    "$STATUS_AFTER_BOTH_TIME" "Review completed" "$HEAD_TIME" 999999999 \
+    "$ACTIONS_PERFORMED_SPLIT_STATUS_PROBE_BODY" "$NOTICE_AFTER_SUMMARY_TIME")
+  sed -i.bak 's/max_wait_seconds: 300/max_wait_seconds: 15/' "$dir/.github/review-policy.yml"
+  sed -i.bak 's/trust_status_context_for_clearance: true/trust_status_context_for_clearance: false/' "$dir/.github/review-policy.yml"
+  rc=$(run_case "$dir")
+  [ "$rc" = "4" ] || fail "3b10 ack: accepted trigger must keep polling instead of clearing the older summary, got $rc; err=$(tail -6 "$dir/err.log")"
+  [ "$(jqf "$dir" '.status')" = "timeout" ] || fail "3b10 ack: expected bounded timeout while the acknowledged run remains in progress"
+  grep -q 'class=in_progress' "$dir/err.log" || fail "3b10 ack: polling never classified the accepted trigger as in_progress"
+
+  # Full-review acknowledgements and the note-less regular form use the same
+  # accepted-trigger contract even though the narrower narration classifier
+  # does not classify all three shapes as status_probe.
+  for mode in full-plain full-note regular-plain; do
+    case "$mode" in
+      full-plain) reply=$FULL_REVIEW_TRIGGER_BODY ;;
+      full-note) reply=$FULL_REVIEW_TRIGGER_WITH_NOTE_BODY ;;
+      regular-plain) reply=$REVIEW_TRIGGER_WITHOUT_NOTE_BODY ;;
+    esac
+    dir=$(make_case "polling-clean-before-$mode-trigger-ack" "$REVIEW_BODY_CLEAN" \
+      "$STATUS_AFTER_BOTH_TIME" "Review completed" "$HEAD_TIME" 999999999 \
+      "$reply" "$NOTICE_AFTER_SUMMARY_TIME")
+    sed -i.bak 's/max_wait_seconds: 300/max_wait_seconds: 15/' "$dir/.github/review-policy.yml"
+    sed -i.bak 's/trust_status_context_for_clearance: true/trust_status_context_for_clearance: false/' "$dir/.github/review-policy.yml"
+    rc=$(run_case "$dir")
+    [ "$rc" = "4" ] || fail "3b10 $mode: accepted trigger must keep ordinary polling in progress, got $rc; err=$(tail -6 "$dir/err.log")"
+    grep -q 'latest CodeRabbit comment id=7702.*class=in_progress' "$dir/err.log" || fail "3b10 $mode: polling did not classify the accepted trigger as in_progress"
+    grep -q 'latest CodeRabbit comment after status-probe wait is class=in_progress; continuing timeout' "$dir/err.log" || fail "3b10 $mode: post-probe upgrade did not retain the timeout"
+  done
+
+  for mode in full-plain full-note; do
+    case "$mode" in
+      full-plain) reply=$FULL_REVIEW_TRIGGER_BODY ;;
+      full-note) reply=$FULL_REVIEW_TRIGGER_WITH_NOTE_BODY ;;
+    esac
+    dir=$(make_case "polling-refusal-before-$mode-trigger-ack" "$RATE_LIMIT_BODY_HEADREF" \
+      "$STATUS_AFTER_BOTH_TIME" "Review completed" "$HEAD_TIME" 999999999 \
+      "$reply" "$NOTICE_AFTER_SUMMARY_TIME")
+    sed -i.bak 's/trust_status_context_for_clearance: true/trust_status_context_for_clearance: false/' "$dir/.github/review-policy.yml"
+    rc=$(run_case "$dir")
+    [ "$rc" = "5" ] || fail "3b10 refusal before $mode: accepted trigger must not supersede the older refusal, got $rc; err=$(tail -6 "$dir/err.log")"
+  done
+
+  # The one-line legacy refusal is provider state too.  A newer accepted
+  # trigger starts a potential replacement review, but cannot erase the
+  # preceding refusal until a body-bearing review run supplies the evidence.
+  dir=$(make_case "polling-one-line-refusal-before-trigger-ack" "$LEGACY_RATE_LIMIT_BODY_ONE_LINE" \
+    "$STATUS_AFTER_BOTH_TIME" "Review completed" "$HEAD_TIME" 999999999 \
+    "$FULL_REVIEW_TRIGGER_BODY" "$NOTICE_AFTER_SUMMARY_TIME")
+  sed -i.bak 's/trust_status_context_for_clearance: true/trust_status_context_for_clearance: false/' "$dir/.github/review-policy.yml"
+  rc=$(run_case "$dir")
+  [ "$rc" = "5" ] || fail "3b10 one-line refusal before trigger: accepted trigger must not supersede the older one-line refusal, got $rc; err=$(tail -6 "$dir/err.log")"
+
+  # Selection is newest-first. An older accepted acknowledgement must not
+  # replace the newest one while both sit above the prior clean publication.
+  dir=$(make_case "polling-newest-trigger-ack-wins" "$REVIEW_BODY_CLEAN" \
+    "$STATUS_AFTER_BOTH_TIME" "Review completed" "$HEAD_TIME" 999999999 \
+    "$ACTIONS_PERFORMED_SPLIT_STATUS_PROBE_BODY" "2026-06-04T00:00:30Z" \
+    head-sha "$HEAD_TIME" "$ACTIONS_PERFORMED_STATUS_PROBE_BODY" \
+    "$NOTICE_AFTER_SUMMARY_TIME")
+  sed -i.bak 's/max_wait_seconds: 300/max_wait_seconds: 15/' "$dir/.github/review-policy.yml"
+  sed -i.bak 's/trust_status_context_for_clearance: true/trust_status_context_for_clearance: false/' "$dir/.github/review-policy.yml"
+  rc=$(run_case "$dir")
+  [ "$rc" = "4" ] || fail "3b10 newest ack: accepted trigger must keep polling, got $rc; err=$(tail -6 "$dir/err.log")"
+  grep -q 'latest CodeRabbit comment id=7702.*class=in_progress' "$dir/err.log" || fail "3b10 newest ack: polling did not retain the newest accepted acknowledgement"
+
+  # The trusted StatusContext fast path consumes the same selector. A trigger
+  # acknowledgement newer than the sampled success suppresses that success;
+  # a genuinely later completed publication still clears normally.
+  dir=$(make_case "fast-path-clean-before-trigger-ack" "$REVIEW_BODY_CLEAN" \
+    "$STATUS_TIME" "Review completed" "$HEAD_TIME" 999999999 \
+    "$ACTIONS_PERFORMED_SPLIT_STATUS_PROBE_BODY" "$NOTICE_AFTER_SUMMARY_TIME")
+  sed -i.bak 's/max_wait_seconds: 300/max_wait_seconds: 15/' "$dir/.github/review-policy.yml"
+  rc=$(run_case "$dir")
+  [ "$rc" = "4" ] || fail "3b10 fast ack: a post-success accepted trigger must suppress fast-path clearance, got $rc; err=$(tail -6 "$dir/err.log")"
+  grep -q 'class=in_progress.*at/after status_created' "$dir/err.log" || fail "3b10 fast ack: expected the trusted fast path to suppress its older success"
+
+  for mode in full-plain full-note; do
+    case "$mode" in
+      full-plain) reply=$FULL_REVIEW_TRIGGER_BODY ;;
+      full-note) reply=$FULL_REVIEW_TRIGGER_WITH_NOTE_BODY ;;
+    esac
+    dir=$(make_case "fast-path-clean-before-$mode-trigger-ack" "$REVIEW_BODY_CLEAN" \
+      "$STATUS_TIME" "Review completed" "$HEAD_TIME" 999999999 \
+      "$reply" "$NOTICE_AFTER_SUMMARY_TIME")
+    sed -i.bak 's/max_wait_seconds: 300/max_wait_seconds: 15/' "$dir/.github/review-policy.yml"
+    rc=$(run_case "$dir")
+    [ "$rc" = "4" ] || fail "3b10 fast $mode: accepted trigger must suppress the older StatusContext success, got $rc; err=$(tail -6 "$dir/err.log")"
+    grep -q 'class=in_progress.*at/after status_created' "$dir/err.log" || fail "3b10 fast $mode: trusted fast path did not consume the trigger classification"
+  done
+
+  dir=$(make_case "fast-path-trigger-before-completed-report" "$ACTIONS_PERFORMED_SPLIT_STATUS_PROBE_BODY" \
+    "$STATUS_AFTER_BOTH_TIME" "Review completed" "$HEAD_TIME" 999999999 \
+    "$REVIEW_BODY_CLEAN" "$NOTICE_AFTER_SUMMARY_TIME")
+  rc=$(run_case "$dir")
+  [ "$rc" = "0" ] || fail "3b10 completed control: a genuinely later clean publication must still clear, got $rc; err=$(tail -6 "$dir/err.log")"
+  [ "$(jqf "$dir" '.status')" = "cleared" ] || fail "3b10 completed control: later completed report lost ordinary clearance"
+
+  # The selector must not promote quoted or fenced copies inside a genuine
+  # review. They remain review content and preserve the existing clearance.
+  quoted="$REVIEW_BODY_CLEAN
+
+> <details><summary>✅ Actions performed</summary>
+> Full review triggered."
+  fenced="$REVIEW_BODY_CLEAN
+
+\`\`\`
+<details><summary>✅ Actions performed</summary>
+Review triggered.
+\`\`\`"
+  for mode in quoted fenced; do
+    case "$mode" in quoted) reply=$quoted ;; fenced) reply=$fenced ;; esac
+    dir=$(make_case "polling-$mode-trigger-lookalike" "$RATE_LIMIT_BODY_HEADREF" \
+      "$STATUS_AFTER_BOTH_TIME" "Review completed" "$HEAD_TIME" 999999999 \
+      "$reply" "$NOTICE_AFTER_SUMMARY_TIME")
+    sed -i.bak 's/trust_status_context_for_clearance: true/trust_status_context_for_clearance: false/' "$dir/.github/review-policy.yml"
+    rc=$(run_case "$dir")
+    [ "$rc" = "0" ] || fail "3b10 $mode: a trigger lookalike inside a genuine review must retain review behavior, got $rc; err=$(tail -6 "$dir/err.log")"
+    [ "$(jqf "$dir" '.status')" = "cleared" ] || fail "3b10 $mode: trigger lookalike was promoted to provider in-progress state"
+  done
+
+  # A genuine provider refusal remains authoritative even when its body also
+  # contains the accepted-trigger words.
+  refusal_with_trigger="$RATE_LIMIT_BODY_HEADREF
+
+<details><summary>✅ Actions performed</summary>
+Full review triggered."
+  dir=$(make_case "polling-refusal-containing-trigger-text" "$REVIEW_BODY_CLEAN" \
+    "$STATUS_AFTER_BOTH_TIME" "Review completed" "$HEAD_TIME" 999999999 \
+    "$refusal_with_trigger" "$NOTICE_AFTER_SUMMARY_TIME")
+  sed -i.bak 's/trust_status_context_for_clearance: true/trust_status_context_for_clearance: false/' "$dir/.github/review-policy.yml"
+  rc=$(run_case "$dir")
+  [ "$rc" = "5" ] || fail "3b10 refusal text: a provider refusal containing trigger text lost its rate-limit routing, got $rc; err=$(tail -6 "$dir/err.log")"
+
+  # The acknowledgement-specific structural read participates in the same
+  # fail-closed rc-3 contract as the surrounding selected-comment reader.
+  dir=$(make_case "polling-trigger-ack-decode-failure" "$REVIEW_BODY_CLEAN" \
+    "$STATUS_AFTER_BOTH_TIME" "Review completed" "$HEAD_TIME" 999999999 \
+    "$ACTIONS_PERFORMED_SPLIT_STATUS_PROBE_BODY" "$NOTICE_AFTER_SUMMARY_TIME")
+  sed -i.bak 's/trust_status_context_for_clearance: true/trust_status_context_for_clearance: false/' "$dir/.github/review-policy.yml"
+  rc=$(CODERABBIT_TEST_FAIL_STRUCTURAL_ON=2 run_case "$dir")
+  [ "$rc" = "3" ] || fail "3b10 decode: unread trigger acknowledgement must stop polling with infra, got $rc; err=$(tail -6 "$dir/err.log")"
+  [ "$FAIL" -ne "$before" ] || pass "3b10: accepted trigger acknowledgements are polling in-progress; quoted/fenced lookalikes and decode failure retain their contracts"
+}
+
+# --- Test 3c: a body-less acknowledgement is not a review run --------------
+test_current_refusal_with_bodyless_ack_stays_refused() {
+  local dir rc before=$FAIL reviews
+  dir=$(make_case "headref-bodyless-ack" "$RATE_LIMIT_BODY_HEADREF" "2026-06-04T02:00:00Z")
+  reviews='[{"id":8802,"user":{"login":"coderabbitai[bot]"},"commit_id":"head-sha","submitted_at":"2026-06-04T01:59:59Z","body":null}]'
+  rc=$(CODERABBIT_TEST_REVIEWS_JSON="$reviews" run_case "$dir")
+  [ "$rc" = "5" ] || fail "3c: expected exit 5 with only a body-less acknowledgement, got $rc; err=$(tail -4 "$dir/err.log")"
+  grep -q 'body-less acknowledgements cannot permit clearance' "$dir/err.log" || fail "3c: expected body-less acknowledgement refusal log; err=$(grep -i statuscontext "$dir/err.log" | tail -3)"
+  [ "$FAIL" -ne "$before" ] || pass "3c: #956 — a body-less exact-head acknowledgement cannot clear the current refusal"
+}
+
+test_refusal_release_waits_for_later_accepted_trigger() {
+  local dir rc before=$FAIL reviews body kind expected
+  reviews='[{"id":8801,"user":{"login":"coderabbitai[bot]"},"commit_id":"head-sha","submitted_at":"2026-06-04T00:00:10Z","body":"**Actionable comments posted: 0**"}]'
+  for kind in rate-limit paused; do
+    case "$kind" in rate-limit) body=$RATE_LIMIT_BODY_HEADREF ;; paused) body=$PAUSED_BODY_HEADREF ;; esac
+    dir=$(make_case "refusal-later-ack-$kind" "$body" "$STATUS_AFTER_BOTH_TIME" "Review completed" "$HEAD_TIME" 999999999 "$ACTIONS_PERFORMED_SPLIT_STATUS_PROBE_BODY" "$NOTICE_AFTER_SUMMARY_TIME")
+    rc=$(CODERABBIT_TEST_REVIEWS_JSON="$reviews" run_case "$dir")
+    case "$kind" in rate-limit) expected=5 ;; paused) expected=6 ;; esac
+    [ "$rc" = "$expected" ] || fail "1424 $kind: later accepted trigger expected $expected, got $rc"
+    grep -q 'acknowledged a replacement review' "$dir/err.log" \
+      || fail "1424 $kind: refusal release was not suppressed by the accepted-trigger guard"
+  done
+  reviews='[{"id":8802,"user":{"login":"coderabbitai[bot]"},"commit_id":"head-sha","submitted_at":"2026-06-04T00:00:30Z","body":"**Actionable comments posted: 0**"}]'
+  dir=$(make_case "refusal-ack-before-completed-run" "$RATE_LIMIT_BODY_HEADREF" "$STATUS_AFTER_BOTH_TIME" "Review completed" "$HEAD_TIME" 999999999 "$ACTIONS_PERFORMED_SPLIT_STATUS_PROBE_BODY" "$NOTICE_AFTER_SUMMARY_TIME")
+  rc=$(CODERABBIT_TEST_REVIEWS_JSON="$reviews" run_case "$dir")
+  [ "$rc" = "0" ] || fail "1424 control: acknowledgement before completed run should clear, got $rc"
+  [ "$FAIL" -ne "$before" ] || pass "1424: later accepted trigger suppresses refusal release; earlier trigger preserves completed-run clearance"
+}
+
+# GitHub timestamps have one-second precision. A replacement acknowledgement
+# serialized in the selected completed run's same second is indeterminate
+# ordering evidence, not proof that it predates that run. Hold clearance until
+# a later run supplies unambiguous evidence.
+test_refusal_release_holds_for_same_second_accepted_trigger() {
+  local dir rc before=$FAIL reviews
+  reviews='[{"id":8803,"user":{"login":"coderabbitai[bot]"},"commit_id":"head-sha","submitted_at":"2026-06-04T00:00:20Z","body":"**Actionable comments posted: 0**"}]'
+  dir=$(make_case "refusal-same-second-ack" "$RATE_LIMIT_BODY_HEADREF" \
+    "$STATUS_AFTER_BOTH_TIME" "Review completed" "$HEAD_TIME" 999999999 \
+    "$ACTIONS_PERFORMED_SPLIT_STATUS_PROBE_BODY" "$NOTICE_AFTER_SUMMARY_TIME")
+  rc=$(CODERABBIT_TEST_REVIEWS_JSON="$reviews" run_case "$dir")
+  if [ "$rc" != "5" ]; then
+    fail "1425 same-second: accepted trigger timestamp equal to selected run must hold rate-limit clearance, got $rc"
+  else
+    grep -q 'acknowledged a replacement review' "$dir/err.log" \
+      || fail "1425 same-second: acceptance guard did not suppress the indeterminate ordering"
+  fi
+  [ "$FAIL" -ne "$before" ] || pass "1425: same-second accepted trigger acknowledgement withholds refusal release"
+}
+
+# --- Test 3d: a current pause also requires actual review evidence ----------
+test_current_pause_with_later_status_resumes_instead_of_clearing() {
+  local dir rc before=$FAIL
+  dir=$(make_case "headref-paused-later-status" "$PAUSED_BODY_HEADREF" "2026-06-04T02:00:00Z")
+  rc=$(run_case "$dir")
+  [ "$rc" = "6" ] || fail "3d: expected exit 6 (paused) after bounded resume handling, got $rc; err=$(tail -5 "$dir/err.log")"
+  [ "$(jqf "$dir" '.status')" = "paused" ] || fail "3d: status=$(jqf "$dir" '.status'), expected paused"
+  [ "$(jqf "$dir" '.resume_retries')" != "0" ] || fail "3d: the status-only path bypassed pause resume handling"
+  grep -q 'current comment is paused' "$dir/err.log" || fail "3d: expected current-pause suppression log; err=$(grep -i statuscontext "$dir/err.log" | tail -3)"
+  [ "$FAIL" -ne "$before" ] || pass "3d: #956 — later status-only completion cannot clear a current pause and resume handling still runs"
 }
 
 # --- Test 2: control — genuine review + status success STILL clears ----------
@@ -536,7 +1215,7 @@ test_headref_within_published_window_suppresses() {
   rc=$(run_case "$dir")
   [ "$rc" = "5" ] || fail "4: expected exit 5 (suppressed within published window), got $rc; err=$(tail -4 "$dir/err.log")"
   [ "$(jqf "$dir" '.status')" = "rate_limit_stalled" ] || fail "4: status=$(jqf "$dir" '.status'), expected rate_limit_stalled"
-  grep -q 'within the 810s window' "$dir/err.log" || fail "4: expected the published-window (810s) suppression log; err=$(grep -i statuscontext "$dir/err.log" | tail -2)"
+  grep -q 'clearance remains suppressed' "$dir/err.log" || fail "4: expected the current-refusal suppression log; err=$(grep -i statuscontext "$dir/err.log" | tail -2)"
   [ "$FAIL" -ne "$before" ] || pass "4: #599 — success past the 120s base grace but inside the published 13-minute window is still suppressed (window-aware grace)"
 }
 
@@ -571,9 +1250,14 @@ test_ratelimited_description_without_notice_never_clears() {
   rc=$(run_case "$dir")
   [ "$rc" != "0" ] || fail "6: FALSE-CLEARED (exit 0) on a 'Review rate limited' success with no notice comment; err=$(tail -4 "$dir/err.log")"
   [ "$(jqf "$dir" '.status')" != "cleared" ] || fail "6: status=cleared on a head CodeRabbit declined to review"
-  [ "$rc" = "4" ] || fail "6: expected exit 4 (timeout — nothing else on the PR to verdict on), got $rc; err=$(tail -4 "$dir/err.log")"
+  [ "$rc" = "5" ] || fail "6: expected exit 5 (notice-less rate-limit stall at timeout), got $rc; err=$(tail -4 "$dir/err.log")"
   grep -q 'does not name a completed review' "$dir/err.log" || fail "6: expected the description-guard log line; err=$(grep -i statuscontext "$dir/err.log" | tail -2)"
-  [ "$FAIL" -ne "$before" ] || pass "6: #897 — a success described 'Review rate limited' is not clearance even with no notice comment"
+  [ "$(jqf "$dir" '.codex_failover_requested')" = true ] || fail "6: notice-less refusal did not engage failover"
+  [ "$(stub_calls "$dir")" = 1 ] || fail "6: expected one failover request"
+  [ "$(cat "$dir/state/fake-time")" = 2000000300 ] || fail "6: refusal changed the existing 300s wait"
+  [ "$(jqf "$dir" '.review.created_at')" = "$STATUS_TIME" ] || fail "6: source status timestamp was lost"
+  [ "$(jqf "$dir" '.rate_limit_retries')" = 0 ] || fail "6: invented a retry without a published window"
+  [ "$FAIL" -ne "$before" ] || pass "6: #940 — notice-less refusal stalls and requests Codex once at the existing timeout"
 }
 
 # --- Test 7: description guard — an UNRECOGNIZED non-empty description ------
@@ -612,38 +1296,45 @@ test_completed_description_still_clears() {
 # description fix, the second run on #909 would still have cleared had
 # CodeRabbit stamped its stale success differently.
 test_aged_notice_with_open_window_suppresses() {
-  local dir rc before=$FAIL
-  dir=$(make_case "aged-open-window" "$RATE_LIMIT_BODY_LONG_WINDOW" \
-    "$STATUS_AFTER_NOTICE" "Review completed" "$NOTICE_AGED_TIME" 1800)
-  rc=$(run_case "$dir")
-  [ "$rc" != "0" ] || fail "9: FALSE-CLEARED (exit 0) after the rate-limit notice aged out of the freshness window; err=$(tail -4 "$dir/err.log")"
-  [ "$rc" = "5" ] || fail "9: expected exit 5 (rate_limit_stalled), got $rc; err=$(tail -4 "$dir/err.log")"
-  [ "$(jqf "$dir" '.status')" = "rate_limit_stalled" ] || fail "9: status=$(jqf "$dir" '.status'), expected rate_limit_stalled"
-  # #891 acceptance 4: the failover that compensates for a lost CodeRabbit
-  # round came back `false` on the #909 false clear. It must still fire.
-  [ "$(jqf "$dir" '.codex_failover_requested')" = "true" ] || fail "9: codex_failover_requested=$(jqf "$dir" '.codex_failover_requested'), expected true"
-  [ "$(stub_calls "$dir")" = "1" ] || fail "9: Codex failover invoked $(stub_calls "$dir") time(s), expected 1"
-  grep -q 'published window has NOT expired' "$dir/err.log" || fail "9: expected the published-window suppression log; err=$(grep -i statuscontext "$dir/err.log" | tail -2)"
+  local mode body dir rc before=$FAIL
+  for mode in marked markerless; do
+    case "$mode" in
+      marked) body=$RATE_LIMIT_BODY_LONG_WINDOW ;;
+      markerless) body=$LEGACY_REVIEW_LIMIT_BODY_LONG_WINDOW ;;
+    esac
+    dir=$(make_case "aged-open-window-$mode" "$body" \
+      "$STATUS_AFTER_NOTICE" "Review completed" "$NOTICE_AGED_TIME" 1800)
+    rc=$(run_case "$dir")
+    [ "$rc" != "0" ] || fail "9 $mode: FALSE-CLEARED (exit 0) after the rate-limit notice aged out of the freshness window; err=$(tail -4 "$dir/err.log")"
+    [ "$rc" = "5" ] || fail "9 $mode: expected exit 5 (rate_limit_stalled), got $rc; err=$(tail -4 "$dir/err.log")"
+    [ "$(jqf "$dir" '.status')" = "rate_limit_stalled" ] || fail "9 $mode: status=$(jqf "$dir" '.status'), expected rate_limit_stalled"
+    # #891 acceptance 4: the failover that compensates for a lost CodeRabbit
+    # round came back `false` on the #909 false clear. It must still fire.
+    [ "$(jqf "$dir" '.codex_failover_requested')" = "true" ] || fail "9 $mode: codex_failover_requested=$(jqf "$dir" '.codex_failover_requested'), expected true"
+    [ "$(stub_calls "$dir")" = "1" ] || fail "9 $mode: Codex failover invoked $(stub_calls "$dir") time(s), expected 1"
+    grep -q 'clearance remains suppressed' "$dir/err.log" || fail "9 $mode: expected the current-refusal suppression log; err=$(grep -i statuscontext "$dir/err.log" | tail -2)"
+  done
   [ "$FAIL" -ne "$before" ] || pass "9: #891/#912 — an aged-out notice with an OPEN published window still governs → no clear, failover fires, exit 5"
 }
 
-# --- Test 10: escape — an aged-out notice whose window has EXPIRED ----------
-# The suppression is scoped by the PUBLISHED window, not by "a notice exists".
+# --- Test 10: #956 — expired window does not become review evidence --------
+# Retry scheduling remains scoped by the PUBLISHED window, but clearance while
+# the refusal is still CodeRabbit's newest comment requires an actual review.
 # Same aged timestamps as test 9, but a DIFFERENT notice body:
 # RATE_LIMIT_BODY_HEADREF, whose published window is 13 minutes (780s + 30s
-# buffer = 810s) and so long expired at 2400s elapsed. Because that body names
-# HEAD_SHA, the #596 HEAD-referencing arbitration participates here too, and
-# the head clears exactly as it did before — the boundary that keeps this rule
-# from becoming an unbounded block.
-test_aged_notice_with_expired_window_clears() {
+# buffer = 810s) and so long expired at 2400s elapsed. The window no longer
+# schedules a retry or failover, while the current refusal still prevents the
+# status-only fast path from clearing; the unchanged advisory budget therefore
+# ends at timeout.
+test_aged_notice_with_expired_window_stays_refused() {
   local dir rc before=$FAIL
   dir=$(make_case "aged-expired-window" "$RATE_LIMIT_BODY_HEADREF" \
     "$STATUS_AFTER_NOTICE" "Review completed" "$NOTICE_AGED_TIME" 1800)
   rc=$(run_case "$dir")
-  [ "$rc" = "0" ] || fail "10: expected exit 0 (cleared) once the published window expired, got $rc; err=$(tail -4 "$dir/err.log")"
-  [ "$(jqf "$dir" '.status')" = "cleared" ] || fail "10: status=$(jqf "$dir" '.status'), expected cleared"
-  [ "$(stub_calls "$dir")" = "0" ] || fail "10: failover should not fire once the window expired, fired $(stub_calls "$dir")"
-  [ "$FAIL" -ne "$before" ] || pass "10: escape — an aged notice whose published window has EXPIRED no longer suppresses (the rule is window-scoped, not notice-scoped)"
+  [ "$rc" = "4" ] || fail "10: expected exit 4 (advisory timeout) after the retry window expired but no actual HEAD review appeared, got $rc; err=$(tail -4 "$dir/err.log")"
+  [ "$(jqf "$dir" '.status')" = "timeout" ] || fail "10: status=$(jqf "$dir" '.status'), expected timeout"
+  [ "$(stub_calls "$dir")" = "0" ] || fail "10: an expired window must not invent a new rate-limit retry/failover event, fired $(stub_calls "$dir")"
+  [ "$FAIL" -ne "$before" ] || pass "10: #956 — an expired rate-limit window ends retry scheduling but cannot supply missing current-HEAD review evidence"
 }
 
 # --- Test 11: #888 — a flag-shaped REPO positional is a usage error ---------
@@ -739,25 +1430,22 @@ test_failed_summary_read_does_not_clear() {
   [ "$FAIL" -ne "$before" ] || pass "15: a failed PR-level summary read is exit 3 (infra), never a clearance"
 }
 
-# --- Test 14: the window rule is scoped to the arbitration's BLIND SPOT -----
+# --- Test 14: current refusal wins even inside the freshness floor ----------
 # Same notice and status as test 9, but with a freshness window wide enough
-# that the notice IS admitted to the anchored scan. The existing arbitration
-# then governs and reaches its own answer — here the #446 branch, where an
-# unscoped notice CREATED before the success is stale and does not suppress,
-# so the head clears. A window rule that ignored the status timestamp would
-# override that and suppress forever; scripts/ci/check_canonical_bugs_263caf3
-# catches the same regression from the other side. The defect #891/#912 report
-# is the notice going BLIND, not the arbitration being wrong.
-test_open_window_inside_freshness_defers_to_arbitration() {
+# that the notice IS admitted to the anchored scan. #956 deliberately replaces
+# the old #446 status-only escape for pause/rate-limit comments: while this is
+# still CodeRabbit's newest comment, the later status alone is not review
+# evidence. The existing open-window retry/failover path remains responsible
+# for the bounded outcome.
+test_open_window_inside_freshness_stays_refused() {
   local dir rc before=$FAIL
   dir=$(make_case "open-window-inside-freshness" "$RATE_LIMIT_BODY_LONG_WINDOW" \
     "$STATUS_AFTER_NOTICE" "Review completed" "$NOTICE_AGED_TIME" 999999999)
   rc=$(run_case "$dir")
-  [ "$rc" = "0" ] || fail "14: expected exit 0 (the #446 arbitration clears an unscoped pre-success notice), got $rc; err=$(tail -4 "$dir/err.log")"
-  [ "$(jqf "$dir" '.status')" = "cleared" ] || fail "14: status=$(jqf "$dir" '.status'), expected cleared"
-  grep -q 'remains authoritative' "$dir/err.log" || fail "14: expected the #446 arbitration to decide this, not the window rule; err=$(grep -i statuscontext "$dir/err.log" | tail -2)"
-  grep -q 'published window has NOT expired' "$dir/err.log" && fail "14: the window rule fired while the notice was inside the freshness floor — it must be scoped to the blind spot"
-  [ "$FAIL" -ne "$before" ] || pass "14: the published-window rule applies ONLY when nothing survived the freshness floor; a visible notice is still arbitrated against the status"
+  [ "$rc" = "5" ] || fail "14: expected exit 5 (rate_limit_stalled) while the current refusal has no actual HEAD review, got $rc; err=$(tail -4 "$dir/err.log")"
+  [ "$(jqf "$dir" '.status')" = "rate_limit_stalled" ] || fail "14: status=$(jqf "$dir" '.status'), expected rate_limit_stalled"
+  grep -q 'clearance remains suppressed' "$dir/err.log" || fail "14: expected the #956 current-refusal decision; err=$(grep -i statuscontext "$dir/err.log" | tail -2)"
+  [ "$FAIL" -ne "$before" ] || pass "14: #956 — a current rate-limit refusal inside the freshness floor still needs actual HEAD review evidence"
 }
 
 # --- Test 13: #912 — the fast-path verdict carries the STATUS' own time -----
@@ -855,10 +1543,10 @@ test_later_notice_does_not_mask_head_summary() {
     "$STATUS_AFTER_BOTH_TIME" "Review completed" "$SUMMARY_ON_HEAD_TIME" 999999999 \
     "$RATE_LIMIT_BODY_LONG_WINDOW" "$NOTICE_AFTER_SUMMARY_TIME")
   rc=$(run_case "$dir")
-  # Non-vacuity: the notice must be visible to the arbitration AND lose there,
-  # or this is test 5 with an extra comment and proves nothing about selection.
-  grep -q 'remains authoritative' "$dir/err.log" \
-    || fail "18: the fast path was suppressed instead of entered — the fixture no longer reaches the selection; err=$(grep -i statuscontext "$dir/err.log" | tail -3)"
+  # Non-vacuity: the current notice must force grading-only mode, which still
+  # has to surface the earlier current-head summary finding rather than hide it.
+  grep -q 'StatusContext success is grading-only' "$dir/err.log" \
+    || fail "18: the current refusal did not enter grading-only mode; err=$(grep -i statuscontext "$dir/err.log" | tail -3)"
   [ "$rc" != "0" ] || fail "18: fast-path FALSE-CLEARED (exit 0) — a later non-review notice masked the head-anchored blocking summary; err=$(tail -4 "$dir/err.log")"
   [ "$rc" = "2" ] || fail "18: expected exit 2 (findings), got $rc; err=$(tail -4 "$dir/err.log")"
   [ "$(jqf "$dir" '.status')" = "findings" ] || fail "18: status=$(jqf "$dir" '.status'), expected findings"
@@ -893,7 +1581,7 @@ test_misclassified_summary_is_still_graded() {
   # Non-vacuity: the body must actually be misclassified, or the class filter
   # selects it directly and this is test 5 with a longer fixture.
   grep -q 'class=paused' "$dir/err.log" \
-    || fail "21: the fixture no longer misclassifies — classify_comment did not grade it paused; err=$(grep -i statuscontext "$dir/err.log" | tail -2)"
+    || fail "21: the fixture no longer misclassifies — classify_comment did not grade it paused; err=$(grep -i statuscontext "$dir/err.log" | tail -3)"
   grep -q 'entering fast-path verdict' "$dir/err.log" \
     || fail "21: the fast path was suppressed instead of entered — the fixture no longer reaches the selection; err=$(grep -i statuscontext "$dir/err.log" | tail -3)"
   [ "$rc" != "0" ] || fail "21: FALSE-CLEARED (exit 0) — the class filter dropped a blocking summary it could not recognize; err=$(tail -4 "$dir/err.log")"
@@ -950,15 +1638,15 @@ test_failed_summary_derive_does_not_clear() {
 # accident. The clearance decision is the defect; the crash is the mask.
 #
 # The control run is half the test: same fixture, no injected failure, a PR
-# CodeRabbit never commented on. It must reach the advisory timeout, which is
+# CodeRabbit never commented on. It must reach the rate-limit stall, which is
 # what proves the clearance below is manufactured by the failed read rather
 # than by anything else in the fixture.
 test_failed_comment_list_read_does_not_clear() {
   local dir rc=0 ctl ctlrc before=$FAIL
   ctl=$(make_case "comment-list-control" "" "$STATUS_TIME" "Review rate limited")
   ctlrc=$(run_case "$ctl")
-  [ "$ctlrc" = "4" ] \
-    || fail "22: control expected exit 4 (timeout) on a PR with no CodeRabbit comment at all, got $ctlrc; err=$(tail -4 "$ctl/err.log")"
+  [ "$ctlrc" = "5" ] \
+    || fail "22: control expected exit 5 (notice-less rate-limit stall) on a PR with no CodeRabbit comment at all, got $ctlrc; err=$(tail -4 "$ctl/err.log")"
   if grep -q 'no high-severity markers — cleared' "$ctl/err.log"; then
     fail "22: control reached a clearance verdict with an empty comment list — the fixture, not the injected failure, is doing the work"
   fi
@@ -1108,7 +1796,7 @@ test_failed_fast_path_comment_decode_does_not_clear() {
   [ "$rc" != "0" ] || fail "25: FALSE-CLEARED (exit 0) after the fast path's comment-list decode failed"
   [ "$rc" = "5" ] || fail "25: expected exit 5 (rate_limit_stalled, same as the test-1 control), got $rc; err=$(tail -4 "$dir/err.log")"
   [ "$(jqf "$dir" '.status')" = "rate_limit_stalled" ] || fail "25: status=$(jqf "$dir" '.status'), expected rate_limit_stalled"
-  grep -q 'could not be DECODED' "$dir/err.log" \
+  grep -q 'newest CodeRabbit comment could not be decoded' "$dir/err.log" \
     || fail "25: expected the fast-path suppression message naming the failed decode; err=$(tail -4 "$dir/err.log")"
   [ "$FAIL" -ne "$before" ] || pass "25: a failed comment-list DECODE inside the StatusContext fast path suppresses it (keep polling), never clears a rate-limited head"
 }
@@ -1130,14 +1818,14 @@ test_failed_fast_path_comment_decode_does_not_clear() {
 # Same fixture as test 22's — an empty comment list and a `Review rate limited`
 # description, so the fast path is suppressed at the description guard and
 # never reads the comments. That makes read 1 the polling scan, and its control
-# (below) exits 4 (timeout) with no clearance, so only the injected malformed
+# (below) exits 5 (rate-limit stall) with no clearance, so only the injected malformed
 # payload can account for a different verdict.
 test_failed_poll_comment_decode_does_not_clear() {
   local dir rc=0 ctl ctlrc before=$FAIL
   ctl=$(make_case "poll-decode-control" "" "$STATUS_TIME" "Review rate limited")
   ctlrc=$(run_case "$ctl")
-  [ "$ctlrc" = "4" ] \
-    || fail "26: control expected exit 4 (timeout) on a PR with no CodeRabbit comment at all, got $ctlrc; err=$(tail -4 "$ctl/err.log")"
+  [ "$ctlrc" = "5" ] \
+    || fail "26: control expected exit 5 (notice-less rate-limit stall) on a PR with no CodeRabbit comment at all, got $ctlrc; err=$(tail -4 "$ctl/err.log")"
 
   dir=$(make_case "poll-decode-failure" "" "$STATUS_TIME" "Review rate limited")
   (
@@ -1306,10 +1994,8 @@ STUB
 # this case proves the predicate is still WIRED, by running the whole script
 # against a status whose description is one of them.
 #
-# The expected outcome is not "blocked" but "not cleared BY THE FAST PATH": the
-# verdict falls through to the comment-driven poll, which reaches its own answer
-# off the clean review comment. `review.endpoint` is the assertion that
-# separates the two routes.
+# The fast path must still refuse this description. #940 now also refuses the
+# unanchored comment's fallback clearance, so the existing wait ends in timeout.
 test_negated_completed_description_does_not_take_fast_path() {
   local dir rc before=$FAIL
   dir=$(make_case "desc-no-review-completed" "$REVIEW_BODY_CLEAN" "$STATUS_TIME" "No review completed")
@@ -1318,8 +2004,10 @@ test_negated_completed_description_does_not_take_fast_path() {
     || fail "20: the description guard did not fire on 'No review completed'; err=$(grep -i statuscontext "$dir/err.log" | tail -2)"
   [ "$(jqf "$dir" '.review.endpoint')" != "status_context" ] \
     || fail "20: the fast path took a status describing NO completed review as clearance evidence"
-  [ "$rc" = "0" ] || fail "20: expected the poll route to reach exit 0 off the clean review comment, got $rc; err=$(tail -4 "$dir/err.log")"
-  [ "$FAIL" -ne "$before" ] || pass "20: 'No review completed' suppresses the fast path; the verdict comes from the comment-driven poll instead"
+  [ "$rc" = "4" ] || fail "20: expected timeout after both routes refuse the non-completion status, got $rc; err=$(tail -4 "$dir/err.log")"
+  grep -q "non-completion description 'No review completed'" "$dir/err.log" \
+    || fail "20: the fallback status veto did not run after the fast-path refusal"
+  [ "$FAIL" -ne "$before" ] || pass "20: 'No review completed' suppresses both the fast path and unanchored fallback clearance"
 }
 
 # --- Test 27: #967 — a 200 whose body is a JSON OBJECT is an UNREAD list -----
@@ -1401,18 +2089,21 @@ null'; do
   [ "$FAIL" -ne "$before" ] || pass "27b: #967 ordering — a null body, an empty body and a null page are failed reads, not the empty list 'add // []' would have made of them"
 }
 
-# --- Test 28: #967 escape — a genuine empty list still clears ---------------
+# --- Test 28: #967 escape — a genuine empty list is readable ---------------
 # The control that keeps test 27 from passing for the wrong reason. Same
 # fixture, same route, the ONLY difference being that the reviews endpoint
 # serves a valid `[]`: an empty array is a real answer ("no reviews on this
-# head") and must still reach the polling arm's clearance.
-test_empty_reviews_array_still_clears() {
+# head"). #940's status veto then withholds clearance; the empty list itself
+# must not become an infrastructure error like test 27's unreadable responses.
+test_empty_reviews_array_is_readable() {
   local dir rc before=$FAIL
   dir=$(make_case "reviews-empty-array" "$REVIEW_BODY_CLEAN" "$STATUS_TIME" "Review rate limited")
   rc=$(run_case "$dir")
-  [ "$rc" = "0" ] || fail "28: expected exit 0 (cleared) for a genuinely empty reviews list, got $rc; err=$(tail -4 "$dir/err.log")"
-  [ "$(jqf "$dir" '.status')" = "cleared" ] || fail "28: status=$(jqf "$dir" '.status'), expected cleared"
-  [ "$FAIL" -ne "$before" ] || pass "28: #967 escape — a valid empty reviews array is still a readable answer and still clears"
+  [ "$rc" = "5" ] || fail "28: expected status-veto rate-limit stall, not an unreadable-list error, got $rc; err=$(tail -4 "$dir/err.log")"
+  [ "$(jqf "$dir" '.status')" = "rate_limit_stalled" ] || fail "28: status=$(jqf "$dir" '.status'), expected rate_limit_stalled"
+  grep -q "non-completion description 'Review rate limited'" "$dir/err.log" \
+    || fail "28: the readable empty list did not reach the fallback status veto"
+  [ "$FAIL" -ne "$before" ] || pass "28: #967 escape — a valid empty reviews array is readable; #940's non-completion status still withholds clearance"
 }
 
 # --- Test 29: #968 — an in-place summary EDIT is not a re-review ------------
@@ -1437,7 +2128,7 @@ test_summary_naming_other_head_does_not_clear() {
     || fail "29: the edited summary never reached the poll arm, so the fixture no longer reproduces #968; err=$(grep -i 'latest CodeRabbit comment' "$dir/err.log" | tail -2)"
   [ "$rc" != "0" ] || fail "29: FALSE-CLEARED (exit 0) on a summary whose commits range names the PREVIOUS head; err=$(tail -4 "$dir/err.log")"
   [ "$(jqf "$dir" '.status')" != "cleared" ] || fail "29: status=cleared on a verdict about a different commit"
-  [ "$rc" = "4" ] || fail "29: expected exit 4 (timeout — nothing on this head to verdict on), got $rc; err=$(tail -4 "$dir/err.log")"
+  [ "$rc" = "5" ] || fail "29: expected exit 5 (rate-limit status remains at timeout), got $rc; err=$(tail -4 "$dir/err.log")"
   grep -q 'names a different commit' "$dir/err.log" \
     || fail "29: expected a log line naming the SHA mismatch; err=$(tail -4 "$dir/err.log")"
   [ "$FAIL" -ne "$before" ] || pass "29: #968 — a summary whose commits range names another commit cannot clear this head, however recently it was edited"
@@ -1460,20 +2151,25 @@ test_summary_naming_current_head_still_clears() {
   [ "$FAIL" -ne "$before" ] || pass "30: #968 AC2 — a summary naming the current head still clears with a created_at below the HEAD-committer floor (#824 rung intact)"
 }
 
-# --- Test 31: #968 AC3 — a summary naming NO SHA is unchanged --------------
+# --- Test 31: #968 AC3 — no SHA claim does not trigger head demotion --------
 # The demotion is scoped to bodies that make a head claim. A body carrying no
 # commits range at all says nothing about which commit it covers, so the
-# `fresh_at >= HEAD_ANCHOR` floor stays the only test — exactly as before.
+# `fresh_at >= HEAD_ANCHOR` floor still admits it. #940's separate status veto
+# now refuses clearance on this same non-completion status.
 test_summary_naming_no_sha_falls_through_to_floor() {
   local dir rc before=$FAIL
   dir=$(make_case "summary-no-sha" "$SUMMARY_NAMES_NO_SHA" "$STATUS_TIME" \
     "Review rate limited" "$SUMMARY_CREATED_BEFORE_HEAD" 999999999 "" "$HEAD_TIME" \
     "$HEAD_SHA_40" "$SUMMARY_EDITED_AFTER_HEAD")
   rc=$(run_case "$dir")
-  [ "$rc" = "0" ] || fail "31: expected exit 0 (cleared) for a summary that names no SHA, got $rc; err=$(tail -4 "$dir/err.log")"
-  [ "$(jqf "$dir" '.status')" = "cleared" ] || fail "31: status=$(jqf "$dir" '.status'), expected cleared"
+  [ "$rc" = "5" ] || fail "31: expected status-veto rate-limit stall for the unanchored summary, got $rc; err=$(tail -4 "$dir/err.log")"
+  [ "$(jqf "$dir" '.status')" = "rate_limit_stalled" ] || fail "31: status=$(jqf "$dir" '.status'), expected rate_limit_stalled"
+  grep -q "fresh_at=$SUMMARY_EDITED_AFTER_HEAD" "$dir/err.log" \
+    || fail "31: the no-claim summary never passed the freshness floor"
   grep -q 'names a different commit' "$dir/err.log" && fail "31: the SHA demotion fired on a body that makes no head claim"
-  [ "$FAIL" -ne "$before" ] || pass "31: #968 AC3 — a summary carrying no commits range still falls through to the freshness floor unchanged"
+  [ "$(jqf "$dir" '.codex_failover_requested')" = true ] || fail "31: refreshed walkthrough refusal skipped failover"
+  [ "$(stub_calls "$dir")" = 1 ] || fail "31: expected one failover request"
+  [ "$FAIL" -ne "$before" ] || pass "31: #968 AC3 — a no-claim summary passes the freshness floor without head demotion; #940 status veto still applies"
 }
 
 # --- Test 32: #985 — emit_json_and_exit refuses an unusable review object ---
@@ -1575,8 +2271,8 @@ test_later_chat_reply_does_not_restore_other_head_clear() {
     || fail "33: the poll arm did not grade the chat reply, so the fixture no longer models the AC1 gap; err=$(grep -i 'latest CodeRabbit comment' "$dir/err.log" | tail -2)"
   [ "$rc" != "0" ] || fail "33: FALSE-CLEARED (exit 0) — a benign chat reply above the summary restored the #968 false clear; err=$(tail -4 "$dir/err.log")"
   [ "$(jqf "$dir" '.status')" != "cleared" ] || fail "33: status=cleared on a verdict about a different commit"
-  [ "$rc" = "4" ] || fail "33: expected exit 4 (timeout — nothing on this head to verdict on), got $rc; err=$(tail -4 "$dir/err.log")"
-  grep -q "summary comment has no blocking markers, but its commits range names a different commit" "$dir/err.log" \
+  [ "$rc" = "5" ] || fail "33: expected exit 5 (rate-limit status remains at timeout), got $rc; err=$(tail -4 "$dir/err.log")"
+  grep -q "summary's commits range names a different commit" "$dir/err.log" \
     || fail "33: the refusal is not sourced from the SUMMARY comment; err=$(tail -4 "$dir/err.log")"
   [ "$FAIL" -ne "$before" ] || pass "33: #968 AC1 — the head claim is read from the marker-selected summary, so a later benign chat reply cannot clear another commit's verdict"
 }
@@ -1669,7 +2365,7 @@ test_bodyless_ack_does_not_outrank_stale_summary() {
   [ "$rc" != "0" ] \
     || fail "36: FALSE-CLEARED (exit 0) — a body-less inline-reply review object was taken as a review run; err=$(tail -4 "$dir/err.log")"
   [ "$(jqf "$dir" '.status')" != "cleared" ] || fail "36: status=cleared on a verdict about a different commit"
-  [ "$rc" = "4" ] || fail "36: expected exit 4 (timeout), got $rc; err=$(tail -4 "$dir/err.log")"
+  [ "$rc" = "5" ] || fail "36: expected exit 5 (rate-limit stall), got $rc; err=$(tail -4 "$dir/err.log")"
   grep -q 'names a different commit' "$dir/err.log" \
     || fail "36: expected the #968 demotion to still decide; err=$(tail -4 "$dir/err.log")"
   grep -q 'exact-SHA rung wins outright' "$dir/err.log" \
@@ -1710,10 +2406,10 @@ test_quoted_range_in_chat_reply_does_not_veto_current_head() {
 # `rate_limit` into the `review` default — the one class whose arm clears.
 # Measured on the pre-fix idiom at 245894 bytes: rc 141, class `review`.
 #
-# The fixture is test 1's exactly, with a ~98 KiB tail appended. Two assertions
-# beyond the exit code, because two predicates on this route share the idiom:
-# the class must be `rate_limit` (classify_comment) AND the notice must be seen
-# to reference HEAD (the fast-path's own `grep -Fq "$HEAD_SHA"`).
+# The fixture is test 1's exactly, with a ~98 KiB tail appended. The #956
+# current-refusal rule now decides before the older HEAD-reference grace branch,
+# so the non-vacuity assertion is that the oversized body still classifies as
+# `rate_limit` and enters grading-only refusal rather than the `review` default.
 #
 # The size sits inside a WINDOW, and both ends are asserted below. The lower
 # bound is the 64 KiB pipe buffer, without which the case proves nothing. The
@@ -1740,25 +2436,121 @@ $pad"
     || fail "38: FALSE-CLEARED (exit 0) — a HEAD-referencing rate-limit notice past the pipe buffer graded as a completed review; err=$(tail -4 "$dir/err.log")"
   [ "$rc" = "5" ] || fail "38: expected exit 5 (rate_limit_stalled after suppression), got $rc; err=$(tail -4 "$dir/err.log")"
   [ "$(jqf "$dir" '.status')" = "rate_limit_stalled" ] || fail "38: status=$(jqf "$dir" '.status'), expected rate_limit_stalled"
-  grep -q 'class=rate_limit references current HEAD' "$dir/err.log" \
-    || fail "38: the large notice was not classified rate_limit AND seen to reference HEAD; err=$(grep -i statuscontext "$dir/err.log" | tail -2)"
+  grep -q 'current comment is rate_limit' "$dir/err.log" \
+    || fail "38: the large notice was not classified rate_limit; err=$(grep -i statuscontext "$dir/err.log" | tail -3)"
   [ "$FAIL" -ne "$before" ] || pass "38: #1005 — a rate-limit notice past the 64 KiB pipe buffer still classifies rate_limit and still suppresses the StatusContext fast path"
 }
 
+# Terminal-only #940 policy boundaries. Real timeout/trigger functions, with
+# provider/terminal verdict inputs stubbed so no historical observation can
+# substitute for the fresh read after the existing status-question upgrade.
+test_notice_less_timeout_contract() {
+  local snip="$WORKDIR/timeout-functions.sh" harness="$WORKDIR/timeout-harness.sh"
+  local name state desc trust enabled helper_rc pause terminal prior rc out calls
+  awk '/^# BEGIN coderabbit_status_description_helpers/{p=1} p{print} /^# END coderabbit_status_description_helpers/{p=0}' "$ROOT/scripts/coderabbit-wait.sh" >"$snip"
+  awk '/^# BEGIN coderabbit_timeout_disposition/{p=1} p{print} /^# END coderabbit_timeout_disposition/{p=0}' "$ROOT/scripts/coderabbit-wait.sh" >>"$snip"
+  cat >"$WORKDIR/timeout-codex.sh" <<'EOF'
+#!/usr/bin/env bash
+printf '%s|%s\n' "${MERGEPATH_PHASE_4A_GATED:-}" "$*" >>"$TIMEOUT_EVENTS"
+exit "${TIMEOUT_CODEX_RC:-0}"
+EOF
+  chmod +x "$WORKDIR/timeout-codex.sh"
+  cat >"$harness" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+source "$1"
+TRUST_STATUS_CONTEXT=$2; CODEX_FAILOVER_ON_RATE_LIMIT=$3
+PAUSE_OBSERVED=$4; terminal=$5; prior=$6; fixture_state=$7; fixture_desc=$8
+CODEX_FAILOVER_FIRED=false; CODEX_FAILOVER_REQUESTED=false
+PR_NUMBER=999; REPO=owner/repo
+log() { :; }
+check_status_context_record() {
+  echo status-read >>"$TIMEOUT_EVENTS"
+  jq -nc --arg state "$fixture_state" --arg desc "$fixture_desc" '{state:$state,description:$desc,created_at:"2026-06-04T00:00:01Z"}'
+}
+crw_status_record_state() { printf '%s' "$1" | jq -r '.state'; }
+run_status_probe_once() { echo status-question >>"$TIMEOUT_EVENTS"; }
+emit_terminal_review_after_probe_if_present() {
+  echo terminal-check >>"$TIMEOUT_EVENTS"
+  case "$terminal" in
+    clean) emit_json_and_exit cleared 0 null 0 ;;
+    findings) emit_json_and_exit findings 2 null 1 ;;
+  esac
+}
+emit_json_and_exit() {
+  jq -nc --arg status "$1" --argjson failover "$CODEX_FAILOVER_REQUESTED" --argjson review "$3" '{status:$status,codex_failover_requested:$failover,review:$review}'
+  exit "$2"
+}
+if [ "$prior" = true ]; then request_codex_rate_limit_failover; fi
+emit_timeout "test budget exhausted"
+EOF
+  while IFS='|' read -r name state desc trust enabled helper_rc pause terminal prior rc calls; do
+    out="$WORKDIR/timeout-$name.json"
+    : >"$WORKDIR/timeout-$name.events"
+    local actual=0 before=$FAIL
+    TIMEOUT_EVENTS="$WORKDIR/timeout-$name.events" TIMEOUT_CODEX_RC="$helper_rc" \
+      CODEX_REQUEST_CMD="$WORKDIR/timeout-codex.sh" \
+      bash "$harness" "$snip" "$trust" "$enabled" "$pause" "$terminal" "$prior" "$state" "$desc" >"$out" 2>"$WORKDIR/timeout-$name.err" || actual=$?
+    [ "$actual" = "$rc" ] || fail "940 $name: expected rc $rc, got $actual"
+    local n
+    n=$(grep -c '^true|--trigger-only 999 owner/repo$' "$WORKDIR/timeout-$name.events" || true)
+    [ "$n" = "$calls" ] || fail "940 $name: expected $calls gated Codex trigger(s), got $n"
+    if [ "$pause" = true ] || [ "$terminal" != none ] || [ "$trust" = false ]; then
+      ! grep -q '^status-read$' "$WORKDIR/timeout-$name.events" || fail "940 $name: later status read ran despite earlier precedence or opt-out"
+    else
+      [ "$(tail -n +1 "$WORKDIR/timeout-$name.events" | grep -E '^status-question$|^terminal-check$|^status-read$' | tr '\n' ',')" = 'status-question,terminal-check,status-read,' ] \
+        || fail "940 $name: did not use fresh status after question/terminal check"
+    fi
+    if [ "$helper_rc" != 0 ] || [ "$calls" = 0 ]; then
+      [ "$(jq -r '.codex_failover_requested' "$out")" = false ] || fail "940 $name: recorded a failover that did not succeed"
+    else
+      [ "$(jq -r '.codex_failover_requested' "$out")" = true ] || fail "940 $name: successful failover not recorded"
+    fi
+    [ "$FAIL" -ne "$before" ] || pass "940 timeout: $name"
+  done <<'EOF'
+refusal|success|Review rate limited|true|true|0|false|none|false|5|1
+normalized|success|  REVIEW RATE LIMITED  |true|true|0|false|none|false|5|1
+failover-off|success|Review rate limited|true|false|0|false|none|false|5|0
+failover-failed|success|Review rate limited|true|true|5|false|none|false|5|1
+already-attempted|success|Review rate limited|true|true|0|false|none|true|5|1
+already-failed|success|Review rate limited|true|true|5|false|none|true|5|1
+trust-off|success|Review rate limited|false|true|0|false|none|false|4|0
+recovered|success|Review completed|true|true|0|false|none|false|4|0
+pending|pending|Review rate limited|true|true|0|false|none|false|4|0
+missing|missing||true|true|0|false|none|false|4|0
+unreadable|unreadable||true|true|0|false|none|false|4|0
+error|error|Review rate limited|true|true|0|false|none|false|4|0
+failure|failure|Review rate limited|true|true|0|false|none|false|4|0
+unknown|success|Review quota exhausted|true|true|0|false|none|false|4|0
+extended|success|Review rate limited earlier|true|true|0|false|none|false|4|0
+empty|success||true|true|0|false|none|false|4|0
+paused|success|Review rate limited|true|true|0|true|none|false|6|0
+clean-upgrade|success|Review rate limited|true|true|0|false|clean|false|0|0
+findings-upgrade|success|Review rate limited|true|true|0|false|findings|false|2|0
+EOF
+}
+
+test_notice_less_timeout_contract
+
 test_headref_ratelimit_suppresses_status
 test_headref_review_still_clears
-test_headref_later_success_clears
+test_headref_later_status_without_review_stays_refused
+test_current_refusal_with_actual_head_review_clears
+test_one_line_refusal_with_actual_head_review_clears
+test_refusal_run_is_revalidated_before_clearance
+test_current_refusal_with_bodyless_ack_stays_refused
+test_current_pause_with_later_status_resumes_instead_of_clearing
 test_headref_within_published_window_suppresses
 test_summary_only_marker_is_findings_not_cleared
 test_ratelimited_description_without_notice_never_clears
 test_unknown_description_does_not_clear
 test_completed_description_still_clears
 test_aged_notice_with_open_window_suppresses
-test_aged_notice_with_expired_window_clears
+test_aged_notice_with_expired_window_stays_refused
 test_trailing_probe_flag_is_usage_error
 test_status_description_predicate_unit
 test_status_context_verdict_carries_status_created_at
-test_open_window_inside_freshness_defers_to_arbitration
+test_open_window_inside_freshness_stays_refused
 test_failed_summary_read_does_not_clear
 test_rate_limit_masking_a_blocking_marker_unit() {
   # #1178. classify_comment is marker-FIRST (#593), so a summarize comment that
@@ -2129,6 +2921,74 @@ _🟠 Major_ the marker is past byte 200."
   fi
 }
 
+# #1034: a short risk marker is negative evidence only, on fallback clearance.
+# shellcheck disable=SC2016 # Fixture backticks are literal provider Markdown.
+test_final_risk_marker_fallback() {
+  local mode body risk dir rc expected reviews second before=$FAIL
+  risk='<!-- final_review_risk_start -->
+**Merge Risk:** _🟡 Moderate_ · up to `e192e`
+<!-- final_review_risk_end -->'
+  for mode in stale matching unparseable incomplete absent fenced coverage chat-risk exact-run matching-rate-limit; do
+    body=$risk; expected=0; reviews='[]'; second=''
+    case "$mode" in
+      stale) expected=4 ;;
+      matching|matching-rate-limit) body=${risk/e192e/F9C78} ;;
+      unparseable) body=${risk/e192e/not-a-sha} ;;
+      incomplete) body=${risk/<!-- final_review_risk_end -->/} ;;
+      absent) body='' ;;
+      fenced) body=$(printf '```\n%s\n```' "$risk") ;;
+      coverage)
+        body=$(printf '%s\n' '<!-- final_review_risk_start -->' '**Merge Risk:** _⚪ Minimal_ · up to `f9c78`' \
+          "<!-- final_review_risk_coverage:{\"sourceCommitId\":\"$HEAD_SHA_40\",\"coveredCommitId\":\"$HEAD_SHA_40\",\"kind\":\"reviewed\"} -->" \
+          '<!-- final_review_risk_end -->') ;;
+      chat-risk) second=$risk; body='' ;;
+      exact-run)
+        reviews=$(jq -nc --arg sha "$HEAD_SHA_40" '[{id:5501,user:{login:"coderabbitai[bot]"},commit_id:$sha,submitted_at:"2026-06-04T00:01:00Z",body:"**Actionable comments posted: 0**"}]') ;;
+    esac
+    body=$(printf '%s\n\n%s\n' "$SUMMARY_NAMES_NO_SHA" "$body")
+    dir=$(make_case "1034-$mode" "$body" "$STATUS_TIME" 'Review rate limited' \
+      "$SUMMARY_CREATED_BEFORE_HEAD" 999999999 "$second" '2026-06-04T00:01:00Z' "$HEAD_SHA_40" "$SUMMARY_EDITED_AFTER_HEAD")
+    sed -i.bak 's/max_wait_seconds: 300/max_wait_seconds: 15/' "$dir/.github/review-policy.yml"
+    if [ "$mode" = matching-rate-limit ]; then
+      expected=5
+    else
+      sed -i.bak 's/trust_status_context_for_clearance: true/trust_status_context_for_clearance: false/' "$dir/.github/review-policy.yml"
+    fi
+    rc=$(CODERABBIT_TEST_REVIEWS_RAW="$reviews" run_case "$dir")
+    [ "$rc" = "$expected" ] || fail "1034 $mode: rc=$rc expected=$expected; $(tail -3 "$dir/err.log")"
+    if [ "$mode" = stale ]; then
+      grep -q "fresh_at=$SUMMARY_EDITED_AFTER_HEAD" "$dir/err.log" || fail '1034 stale never passed freshness floor'
+      grep -q 'final_review_risk.*different commit' "$dir/err.log" || fail '1034 stale did not reach risk refusal'
+      [ "$(jqf "$dir" '.status')" = timeout ] || fail '1034 stale false-cleared'
+    elif [ "$mode" = exact-run ]; then
+      grep -q 'exact-SHA rung wins outright' "$dir/err.log" || fail '1034 exact run did not supply clearance'
+    elif [ "$mode" = matching-rate-limit ]; then
+      [ "$(stub_calls "$dir")" = 1 ] || fail '1034 matching prefix manufactured authority over rate-limit status'
+    fi
+  done
+  [ "$FAIL" -ne "$before" ] || pass '#1034: stale risk refuses fallback; matching, malformed, fenced and exact-run controls preserve behavior'
+}
+
+test_final_risk_marker_fallback
+
+test_quoted_refusal_marker_is_not_current_refusal
+test_current_refusal_with_blocking_head_review_is_findings
+test_summary_owned_refusal_stays_current
+test_refusal_quoting_narration_outranks_older_comment
+test_current_refusal_with_nonbenign_head_review_stays_refused
+test_current_refusal_with_review_quoting_progress_clears
+test_legacy_leading_refusal_stays_current
+test_legacy_one_line_refusal_quote_and_fence_stay_nonprovider
+test_legacy_refusal_classifier_unit
+test_markerless_refusal_does_not_clear_at_terminal_probe
+test_selected_comment_structural_failure_fails_closed
+test_provider_leading_nonreview_run_stays_refused
+test_status_probe_does_not_supersede_refusal
+test_structural_status_probes_are_excluded_by_polling_selector
+test_trigger_ack_is_polling_in_progress
+test_refusal_release_waits_for_later_accepted_trigger
+test_refusal_release_holds_for_same_second_accepted_trigger
+
 test_aged_summary_only_marker_is_findings_not_cleared
 test_prior_head_summary_marker_does_not_block
 test_later_notice_does_not_mask_head_summary
@@ -2142,7 +3002,7 @@ test_failed_fast_path_comment_decode_does_not_clear
 test_failed_poll_comment_decode_does_not_clear
 test_non_array_reviews_body_does_not_clear
 test_fallback_manufactured_array_does_not_clear
-test_empty_reviews_array_still_clears
+test_empty_reviews_array_is_readable
 test_summary_naming_other_head_does_not_clear
 test_summary_naming_current_head_still_clears
 test_summary_naming_no_sha_falls_through_to_floor

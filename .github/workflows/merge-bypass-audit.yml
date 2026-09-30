@@ -1,0 +1,118 @@
+name: Merge Bypass Audit
+
+# Closes the detection half of #1024.
+#
+# `main`'s branch protection does not bind administrators
+# (`enforce_admins: false`, reported by the branch API as
+# `enforcement_level: non_admins`), and the account that performs every
+# merge is an administrator. So a merge can land with a required check red
+# or missing, and until this workflow the only thing that noticed was the
+# weekly pr-audit.yml cron, up to seven days later. #1008 found six such
+# merges in one batch that way.
+#
+# This workflow runs on every push to `main` (and on a 30-minute sweep
+# that commit-message skip instructions cannot suppress), rebuilds each required
+# check's state as of the merge moment, and opens a `policy-violation`
+# issue within minutes when a merge would have been blocked for a
+# non-admin. A push with no merged PR behind it is reported as a direct
+# push. The job also fails, so the commit on `main` carries a red X.
+#
+# It does not remove the escape hatch: it makes using it loud. Hard
+# enforcement is staged fleet-wide in mergepath#937 (ADR 0002), and needs
+# the stale-required-check recovery path documented in REVIEW_POLICY.md
+# first. See REVIEW_POLICY.md § Do the merge gates bind the merging
+# identity?
+#
+# Repo-owned, never propagated: pr-audit.yml is a canonical mergepath
+# mirror and an edit there would be reverted by the next sync wave.
+# Logic lives in scripts/merge-bypass-audit.mjs, tested by
+# tests/merge-bypass-audit.test.js.
+
+on:
+  push:
+    branches: [main]
+  # A push carrying `[skip ci]` or another skip instruction never starts the
+  # push-triggered run, so an administrator could land a bypass and silence
+  # this detector in one push. Schedules ignore skip instructions: every 30
+  # minutes, re-audit every update of main recorded (by the repository
+  # activity API, which logs when a ref moved) in the last 180. GitHub may delay
+  # or drop scheduled runs, so this is best-effort: the wide lookback rides
+  # out a few missed sweeps, and the weekly pr-audit.yml stays the backstop.
+  # Overlap is harmless: issues are deduplicated, and a finding that is
+  # already filed exits 0.
+  schedule:
+    - cron: '*/30 * * * *'
+  workflow_dispatch:
+    inputs:
+      pr:
+        description: Merged PR number to audit (backfill)
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  pull-requests: read
+  checks: read
+  statuses: read
+  # A queued rerun has no start time of its own; its queue time is read
+  # from GET /actions/runs/{id}, which needs actions: read.
+  actions: read
+  issues: write
+
+concurrency:
+  # Push and scheduled runs share one repository-wide group. Issue
+  # deduplication is a lookup followed by a create, which is not atomic,
+  # so two overlapping audits of the same update could each file it.
+  # GitHub keeps at most one pending run per group and cancels an older
+  # pending one; the 30-minute sweep re-audits whatever that covered.
+  #
+  # A manual backfill gets its own group, keyed by PR number. In the
+  # shared group a push or sweep could cancel it while pending, and no
+  # sweep would replace it: a backfilled PR is usually older than the
+  # sweep window. The dedupe race only reopens for a backfill of a PR
+  # merged in the last 180 minutes, which the sweep already covers.
+  group: ${{ github.event_name == 'workflow_dispatch' && format('merge-bypass-audit-backfill-{0}', inputs.pr) || 'merge-bypass-audit' }}
+  cancel-in-progress: false
+
+jobs:
+  audit:
+    name: Audit merge for bypassed required checks
+    runs-on: ubuntu-latest
+    # A dispatch runs the workflow definition from the chosen ref. Only
+    # trust the one on main.
+    if: github.ref == 'refs/heads/main'
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+
+      - name: Audit
+        # No `npm ci`: the script uses only Node built-ins. Event values
+        # pass through env, never interpolated into the shell.
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          EVENT_NAME: ${{ github.event_name }}
+          BEFORE: ${{ github.event.before }}
+          AFTER: ${{ github.sha }}
+          PUSHER: ${{ github.event.pusher.name }}
+          PR: ${{ inputs.pr }}
+          # Classic protection's `strict` (require an up-to-date branch)
+          # needs Administration:read, which github.token lacks, so it is
+          # declared here and used only when the live read is refused.
+          # Live protection read `strict: true` on 2026-09-29 (#1024). If
+          # it is turned off, set this to "false": left stale, it can only
+          # add noisy findings, never hide a bypass.
+          MERGE_BYPASS_CLASSIC_STRICT: "true"
+        run: |
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            node scripts/merge-bypass-audit.mjs --pr "$PR"
+          elif [ "$EVENT_NAME" = "schedule" ]; then
+            node scripts/merge-bypass-audit.mjs --since-minutes 180
+          else
+            node scripts/merge-bypass-audit.mjs --before "$BEFORE" --after "$AFTER" --pusher "$PUSHER"
+          fi

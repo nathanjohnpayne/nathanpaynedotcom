@@ -310,40 +310,22 @@ if (isSvgFallback) {
     playButton?.addEventListener('click', () => requestManualPlayback(video));
   }
 
-  function loadMuxEmbed() {
-    if ((globalThis as Record<string, unknown>).mux) return Promise.resolve();
+  // Mux Data (`mux-embed`) is bundled from npm rather than injected from a
+  // public CDN, so the exact code that ships is the code in package-lock.json
+  // and no third-party script host is involved. It is a separate dynamic chunk,
+  // so pages without a Mux hero never download it. The background-video
+  // component reads `globalThis.mux` when it loads a source, so it has to be
+  // set before that component is imported. Analytics are optional: if the
+  // chunk fails to load, the hero still registers without monitoring.
+  function loadMuxEmbed(): Promise<void> {
+    const scope = globalThis as Record<string, unknown>;
+    if (scope.mux) return Promise.resolve();
 
-    const existingScript = document.querySelector<HTMLScriptElement>('script[data-mux-embed]');
-    if (existingScript) {
-      if (
-        existingScript.dataset.muxEmbedStatus === 'loaded' ||
-        existingScript.dataset.muxEmbedStatus === 'error'
-      ) {
-        return Promise.resolve();
-      }
-
-      return new Promise<void>((resolve) => {
-        existingScript.addEventListener('load', () => resolve(), { once: true });
-        existingScript.addEventListener('error', () => resolve(), { once: true });
-      });
-    }
-
-    return new Promise<void>((resolve) => {
-      const script = document.createElement('script');
-      script.defer = true;
-      script.dataset.muxEmbed = 'true';
-      script.dataset.muxEmbedStatus = 'loading';
-      script.src = 'https://cdn.jsdelivr.net/npm/mux-embed@5.18.0';
-      script.addEventListener('load', () => {
-        script.dataset.muxEmbedStatus = 'loaded';
-        resolve();
-      }, { once: true });
-      script.addEventListener('error', () => {
-        script.dataset.muxEmbedStatus = 'error';
-        resolve();
-      }, { once: true });
-      document.head.append(script);
-    });
+    return import('mux-embed')
+      .then(({ default: mux }) => {
+        scope.mux = mux;
+      })
+      .catch(() => {});
   }
 
   // Register and monitor <mux-background-video> only on pages that contain one.

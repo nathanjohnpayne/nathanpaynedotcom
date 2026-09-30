@@ -49,6 +49,47 @@ export const RESUME_PDF_PATH = `/${RESUME_PDF_FILENAME}`;
 export const RESUME_PDF_MARGIN = '0.6in';
 
 /**
+ * Hosts that receive analytics traffic: the first-party PostHog proxy, PostHog
+ * itself, and Google Analytics / Tag Manager. Matched by hostname suffix so
+ * regional collectors (`region1.google-analytics.com`) are covered too.
+ */
+export const ANALYTICS_HOSTS = [
+  'd.nathanpayne.com',
+  'posthog.com',
+  'googletagmanager.com',
+  'google-analytics.com',
+  'analytics.google.com',
+];
+
+/**
+ * Whether a request URL goes to an analytics host.
+ *
+ * @param {URL} url
+ * @returns {boolean}
+ */
+export function isAnalyticsRequest(url) {
+  const host = url.hostname.toLowerCase();
+  return ANALYTICS_HOSTS.some((h) => host === h || host.endsWith(`.${h}`));
+}
+
+/**
+ * Abort every analytics request made from a build-time browser context.
+ *
+ * The build renders real pages in headless Chromium, and a build run with the
+ * analytics env vars set (every local deploy build) would otherwise load
+ * PostHog and GA with the production IDs and record the render as a visit —
+ * `/resume/` fires `resume_viewed` on load. Blocking at the network layer
+ * keeps those events out of analytics whatever the page's scripts do, and
+ * costs the render nothing: neither analytics script affects layout.
+ * Must be installed before the first `goto`.
+ *
+ * @param {import('playwright').BrowserContext} context
+ */
+export async function blockAnalytics(context) {
+  await context.route(isAnalyticsRequest, (route) => route.abort());
+}
+
+/**
  * Rewrite same-origin links in the loaded page to absolute production URLs.
  *
  * The PDF is rendered off a localhost static server, so anything root-relative
@@ -120,6 +161,7 @@ export async function generateResumePdf({ browser, baseUrl, siteUrl, outputPath,
     );
   }
   const context = await browser.newContext();
+  await blockAnalytics(context);
   const page = await context.newPage();
   try {
     await page.goto(`${baseUrl}/resume/`, { waitUntil: 'networkidle' });

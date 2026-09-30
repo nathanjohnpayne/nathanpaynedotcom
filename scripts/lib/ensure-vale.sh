@@ -52,7 +52,7 @@ if [ "$VALE_SYSTEM" != "Linux" ] || [ "$VALE_MACHINE" != "x86_64" ]; then
 fi
 
 VALE_DEST="${ENSURE_VALE_DEST:-/usr/local/bin/vale}"
-DEFAULT_SHA256="f59e7030c5d4ace6cf915497d0d076a1699d61e876142765963237e6867c9712"
+DEFAULT_SHA256="52f5cd0314a1b7384cac6aa102a68193977312f6ba9c9f3ae001b5deec8e3a10"
 if [ "$VALE_VERSION" != "v$PINNED_VALE_VERSION" ] && [ -z "${ENSURE_VALE_SHA256:-}" ]; then
   echo "ensure-vale.sh: ENSURE_VALE_SHA256 is required when overriding the pinned version" >&2
   exit 1
