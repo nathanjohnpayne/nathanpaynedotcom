@@ -4,7 +4,7 @@ Post source: `src/content/blog/silence-is-not-an-approval.md`. Drafted `2026-09-
 
 Verdicts: **SUPPORTED** · **WRONG** (corrected value given) · **UNPROVABLE** (defensible weaker form given).
 
-**Retrieval: the original snapshot was read 2026-09-23. Rows marked "re-read 2026-09-24" (or citing a 2026-09-24 call) were checked or corrected in the second pass on 2026-09-24, some through `gh api` REST and GraphQL rather than the tools named here.** Figures were pulled through the GitHub read tools, not a local checkout: `github_get_pull_request` (metadata, timeline), `github_get_pull_request_diff` (`total_additions`, `total_deletions`, `total_files`), `github_get_issue` (metadata, timeline), `github_list_commits` (`[].date`, `[].message`), `github_list_issues`, `github_list_pull_requests`.
+**Retrieval: the original snapshot was read 2026-09-23. A third pass on 2026-09-30 restructured the post (§I) and read #940, #956, #1323, #878, #962, #826, #1130, #1058 and #1186 again through `gh`; rows it touched say so. Rows marked "re-read 2026-09-24" (or citing a 2026-09-24 call) were checked or corrected in the second pass on 2026-09-24, some through `gh api` REST and GraphQL rather than the tools named here.** Figures were pulled through the GitHub read tools, not a local checkout: `github_get_pull_request` (metadata, timeline), `github_get_pull_request_diff` (`total_additions`, `total_deletions`, `total_files`), `github_get_issue` (metadata, timeline), `github_list_commits` (`[].date`, `[].message`), `github_list_issues`, `github_list_pull_requests`.
 
 **Three tool limits that shape every row below, stated once.**
 
@@ -20,7 +20,9 @@ Verdicts: **SUPPORTED** · **WRONG** (corrected value given) · **UNPROVABLE** (
 
 **SUPPORTED as a characterization of the cited instances. UNPROVABLE as a claim about the codebase as a whole.**
 
-The post states this as the shape of a defect family and then cites eight instances. That is defensible. What the draft must not do is assert that no representation of "no answer" exists anywhere in the codebase. The evidence for the stronger reading is `nathanjohnpayne/mergepath#878`, which says the classification rests on grepping a rendered vendor surface (§C1), and that is an argument about *how* the state is derived rather than proof that no type for it exists anywhere. Defensible weaker form, and the one the post uses: **there is no single shared representation consumed by both the waiter and the gate**, which is #878's own acceptance criterion 2, quoted verbatim in §C1.
+The post states this as the shape of a defect family and then cites eight instances. That is defensible. What the draft must not do is assert that no representation of "no answer" exists anywhere in the codebase. The evidence for the stronger reading is `nathanjohnpayne/mergepath#878`, which says the classification rests on grepping a rendered vendor surface (§C1), and that is an argument about *how* the state is derived rather than proof that no type for it exists anywhere. Defensible weaker form: **there is no single shared representation consumed by both the waiter and the gate**, which is #878's own acceptance criterion 2, quoted verbatim in §C1.
+
+**Superseded as the post's thesis, 2026-09-30.** The third pass dropped the sentence entirely. The cited instances themselves refute "no way to represent 'no answer'": #940's guard read `Review rate limited` and correctly refused the fast path (§C3), and the wave audit had a `reviewer unavailable` state that was the wrong kind (§D7). The post now says most code paths had a word for "no answer" and lacked **a shared rule, with an owner, for what it permits**. That is the §C1 criterion-1 contract and the question in §I1.
 
 ### A2—the post's most important self-criticism is verifiable, and it is the reason to publish
 
@@ -58,7 +60,9 @@ Strict bucket, titles explicitly naming an absent, truncated, rate-limited, time
 
 Loose bucket, also counting fail-closed-shaped titles about stale, unreadable, silent, no-op, veto, refusal or hold behavior—**34 of 90**.
 
-**Bodies were not read for all 90.** Classification is title-only. The true figure is somewhere in 12–34 and the draft explicitly declines to pick one. By conventional-commit prefix the window is overwhelmingly `fix(...)`, with a handful of `feat` (#1084, #1106, #1111, #1119, #1124, #1138, #1169).
+**Bodies were not read for all 90.** Classification is title-only.
+
+**WRONG as a range, and removed, 2026-09-30.** Earlier drafts wrote "somewhere between 12 and 34," treating the loose bucket as a ceiling; title-only classification can undercount, so neither figure bounds the true count. The loose bucket was also never enumerated here, so its 34 could not be rechecked. The post no longer uses 34 anywhere. It uses only the strict 12, in the appendix and the sidebar, called a floor. By conventional-commit prefix the window is overwhelmingly `fix(...)`, with a handful of `feat` (#1084, #1106, #1111, #1119, #1124, #1138, #1169).
 
 ### B3—"eleven of the 164 open issues in the repository are about a rate limit, a quota, or a timeout being mistaken for a verdict"
 
@@ -69,6 +73,8 @@ Open issue total **164**: `github_list_issues(state="open", page_size=100)`, pag
 The eleven, by title match: #1305, #1245, #1223, #1186, #1185, #1130, #962, #961, #907, #826, #722. Two more are arguable on a looser reading of budget-as-quota (#816, #813), giving 11 strict and 13 loose.
 
 **WRONG in the first draft as a characterization of all eleven** ("being mistaken for a verdict"). Titles re-read 2026-09-24: #962 is "A correct rate-limit block should not surface as a red failure check", which is the post's own counter-case (§E1), and #826 is a topology proposal (§E2). Neither is a misreading. The post now says the eleven are "about how the pipeline handles a rate limit, a quota, a budget, or a timeout. Nine are defects. The other two, #962 and #826, are the controls above." The downstream surfaces ("eleven open instances", the closing "eleven more waiting", the description's "eleven open issues still name instances") now say nine defects. The age statistics (oldest #722, median #1130) are computed over all eleven title matches and are stated that way. Both controls sit mid-table, so dropping them would not change the oldest; the median over the nine is 19 days (#1186 and #1185 tie), which the post does not cite.
+
+**Post use, 2026-09-30.** The count now appears only in the appendix, date-stamped "On September 23," and described as issues that "concerned how the pipeline handles a rate limit, a quota, a budget or a timeout." The body paragraph that said nine open defects exist "because a rate limit arrives in many grammars" is **removed**: it mapped a mixed set (rate limit, quota, budget, timeout) onto rate-limit mechanisms without classifying each.
 
 Matching is **title-only**; there is no issue full-text search in this tool set. An issue whose body discusses a rate limit under a title that does not is uncounted. **11 is a floor.**
 
@@ -96,7 +102,9 @@ Counting rule: age is the whole-day, date-to-date difference from the `created_a
 
 ### B5—"#961 and #962 were filed six seconds apart"
 
-**SUPPORTED.** `2026-08-13T01:52:01Z` and `2026-08-13T01:52:07Z` respectively (`issues[].created_at`). Both are splits from #825, which #962's title states in full: "(split from #825 option 4)". The post uses this as mechanical evidence that the enumeration is a decomposition of one filing rather than two independent discoveries. That reading is supported by the titles themselves and needs no inference.
+**SUPPORTED.** `2026-08-13T01:52:01Z` and `2026-08-13T01:52:07Z` respectively (`issues[].created_at`). Both are splits from #825, which #962's title states in full: "(split from #825 option 4)". The post uses this as mechanical evidence that the enumeration is a decomposition of one filing rather than two independent discoveries. That reading is supported by #962's title; **#961's title does not say it was split from #825**, and no source here shows that it was.
+
+**Removed from the post, 2026-09-30.** The six-seconds paragraph and its "one problem being decomposed into tickets" reading were cut in the restructure, so the unresolved #961 provenance no longer reaches any published surface.
 
 ### B6—"#1305 was filed today"
 
@@ -127,6 +135,8 @@ The issue also states: "The 2026-09-03 audit found **39 of 138 retained issues**
 That last clause is the strongest single sentence available for the post's convergence argument and should be quoted rather than paraphrased.
 
 ### C3—#940, the opening example
+
+**WRONG as a mechanism, corrected 2026-09-30.** Earlier drafts said "the word `success` was in the payload, and the payload was read as success." #940's body (re-read 2026-09-30) says the opposite about the status: #936's new description guard read `Review rate limited`, found it "does not name a completed review," and **refused** the fast path. The clear came two branches later, from comment `5245046684`, the walkthrough "created at `19:35:48Z` for an earlier head, whose `updated_at` CodeRabbit bumped to `22:06:52Z`" on the push; `classify_comment` graded it `review` and the `review` arm cleared. #940 also states the scope: "`scripts/coderabbit-severity-gate.sh`, the required merge-blocking gate, does not consult this helper … the damage is a lost review, not an admitted defect," and the #489 Codex failover did not fire (`codex_failover_requested: false`). The post's opening now carries exactly that: guard correct, refreshed walkthrough cleared, required gate unaffected, lost review plus skipped failover. #940 closed 2026-09-15T03:17:44Z; its banner credits #1274 and #1279.
 
 **SUPPORTED.** #940 is `closed`. The behavior: polling returned `status: cleared` on a head whose StatusContext read `success | Review rate limited` with no review object attached. The post's rendering of this—"the word `success` was in the payload, so the payload was read as success"—is an interpretation of the mechanism, not a quotation, and the draft does not present it as one.
 
@@ -197,6 +207,8 @@ Issue body, verbatim: "GitHub caps that listing at 3000 entries, and at the cap 
 
 **SUPPORTED.** #1186 is `open`, labels `risk` and `priority:high`. Body: "Wave audit has not advanced its watermark since 2026-07-28: over-budget diffs classify as 'reviewer unavailable' and chain forward, making the next range larger."
 
+Re-read 2026-09-30: the body's first line is "The wave audit (#662) has not produced an `APPROVED` since **2026-07-28**," and it describes the audit as "the mechanism that is supposed to review propagated canonical content." The post now says "38 days passed between the last approval and the filing" and describes the audit that way. #1186 is still open.
+
 Elapsed from `2026-07-28` to #1186's filing on `2026-09-04` is **38 days**. The post says "six weeks," which is 42 days and is **WRONG** as stated. Corrected: **38 days**, or the weaker "five weeks." The draft uses the exact figure.
 
 Further body text, verbatim except for em dash spacing, re-read 2026-09-24: "Every wave since has exited 4, failed open, and chained its un-audited range into the next one—which makes the next range larger and more certain to fail the same way." Measured block in the same body: "un-audited range : 127 commits", "curated diff : 109 files, 2,242,097 bytes", "review budget : 800,000 bytes -> 2.8x over". These are the issue's own measurements, attributed as such in the post.
@@ -204,6 +216,8 @@ Further body text, verbatim except for em dash spacing, re-read 2026-09-24: "Eve
 **UNPROVABLE and removed:** "a blocked pipeline announces itself within the hour" (no evidence for any latency) and "succeeded every time / every run" (the issue says every wave *exited 4 and failed open*, which is not success). Replaced at takeaway 2, pull quote 2 and the body with the issue's own "failed open" and "a block gets noticed because somebody cannot merge; nothing about this one stopped anyone." The closing list's "reported reviewer unavailability for thirty-eight days while auditing nothing" became "failed open on every wave for thirty-eight days behind a transient-sounding classification."
 
 ### D8—#1293 and #813
+
+**Table row narrowed, 2026-09-30.** The appendix row previously added that exhausted quota is "indistinguishable from a reviewer with nothing to say." Nothing below supports that clause; it is cut. The row now reads "Codex review requests with no upper bound; new requests now stop at the configured round cap," which is this row's quoted body. The table's column is now "What It Fixed," since #1293 is a bound, not a misread value.
 
 **SUPPORTED.** #1293 body: "Stop additional Codex review requests after the PR consumes `codex.max_review_rounds` (default 10). Count distinct exact commands from the configured author across paginated issue-comment history before every new write, including acknowledgement retries." It implements #813, an **open** epic at `priority:high`: "Create a bounded review lane: order providers, count cycles, and stop discretionary churn."
 
@@ -244,7 +258,13 @@ That third sentence is the one the post must carry, because it shows the obvious
 
 Referencing pull requests observed on timeline page 1: #960, #1084, #1189, #1196. **Floor, not a complete set.**
 
+### E1a—"Fail-open defects compound. Fail-closed defects merely block."
+
+**UNPROVABLE as a general law; removed 2026-09-30** from the body and takeaway 2. It generalized from one pair of cases, and blocking can cascade too: #1130 (§D5, still open 2026-09-30) makes "every open PR in the repository … unmergeable regardless of its own merits." The post now names what made #1186 compound, specific to it (blocked nothing, each run's leftover fed the next, a benign-sounding class), says "None of that is a law about failing open," and cites #1130 as a fail-closed cascade that differs only in announcing itself.
+
 ### E2—#826, the proposal that says the topology is wrong
+
+Labels re-read 2026-09-30: `size:M`, `type:decision`, `priority:normal`, `area:review-sensing`, `area:docs-policy`, `status:blocked`. The post says "open, labeled as a decision, and blocked."
 
 **SUPPORTED.** Title: "Proposal: rebalance the review topology—Codex primary, CodeRabbit deliberate, rate limits never blocking". `open`, created `2026-07-30T21:19:29Z`, labels include `type:decision` and `status:blocked`.
 
@@ -253,6 +273,8 @@ Verbatim: "CodeRabbit's Fair Usage allowance is structurally too small for this 
 **UNPROVABLE, quoted as the issue's own claim only:** the allowance of 5 pull request reviews per hour, 9 consumers sharing it, the `coderabbit.max_wait_seconds` ceiling of 1245s, and observed Fair Usage windows of 2109s and 2398s. These are attributed inside the issue body to `docs/agents/coderabbit-audit.md` and two captured runs. They were **not** independently re-derived here. If the post uses any of them it must write "the issue records" and not assert them directly. The current draft uses only "the budget is exhausted by the system reviewing its own churn," as a quotation.
 
 ### E3—#722, the oldest instance
+
+**Supporting evidence, not a control** (relabelled 2026-09-30; it sits under §E only for history). It is an instance of the family, cited in the appendix as the oldest open title match.
 
 **SUPPORTED.** `open`, created `2026-07-07T01:24:08Z`, labels `bug`, `automation`, `priority:high`. Verbatim: "The poll just keeps waiting for the full `review_timeout_seconds` window (840s default) and then exits `4` (FALLBACK_REQUIRED)—indistinguishable from a genuinely slow/no-op review." And: "…but that detection lives **only** in the retrospective audit script, never in the live gate/trigger path."
 
@@ -265,6 +287,8 @@ Verbatim: "CodeRabbit's Fair Usage allowance is structurally too small for this 
 - **#1250**, "fix(931): recover the policy gates by nudging their canonical producer," +1,432 / −10 across 8 files, merge commit on `main` `2026-09-13T20:24:45Z` (sha `a0c427a4`). Body: "An operator can cause `.github/workflows/pr-review-policy.yml` to re-evaluate one open PR, so that its two required contexts report on the current head."
 - **#1264**, "fix: acknowledge accounted Phase 4b approval bodies," +344 / −15 across 11 files, merge commit `2026-09-14T05:20:57Z` (sha `c38161d0`). Body: "An automated Phase 4b approval can immediately create an unaccounted review-body finding even after its optional findings have been filed."
 - **#1106**, "feat(accounting): track github-advanced-security code-scanning findings," +640 / −21 across 20 files, `.metadata.merged` true. Body: "a CodeQL finding could ride through repeated \"fully accounted\" review rounds unread." Merged `2026-08-27T04:14:59Z` (`pulls/1106 .merged_at`; squash commit `215176a0`, subject "feat(accounting): track github-advanced-security code-scanning findings (#1101) (#1106)", re-read 2026-09-24), inside the window. **WRONG in the first draft of this ledger**, which called the timestamp UNPROVABLE because the squash commit "falls outside the read page." That contradicted §B1, whose single page covers the whole window, and §B2, which lists #1106 among the window's `feat` commits.
+
+**Removed from the post, 2026-09-30.** The contrast-set paragraph is cut, which resolves the double classification of #1264 (contrast here, "unrelated" in §F2). #1264 now appears only in the appendix's "unrelated" bucket, and §F2's 8 + 2 + 3 + 7 = 20 stands.
 
 Rejected candidates, recorded so a later pass does not re-check them: **#1119** is 29 added lines and fails the size bar. **#1228** has `.metadata.merged` false and is closed unmerged—**do not cite it as shipped work.** #1124 and #1182 are merged but their merge dates were not established.
 
@@ -309,6 +333,8 @@ Reclassified by title **and** the first lines of each pull request body (`pulls/
 
 8 + 2 + 3 + 7 = 20. This is a judgment classification from summaries, not full bodies, and the post states the buckets rather than one number.
 
+**Placement, 2026-09-30.** The 21 subject lines and these buckets moved to the appendix. The body keeps one paragraph: twenty changes in 32 hours 41 minutes, eight in family "by my reading of their titles and summaries," the #1271 quote, and "six of the twenty are recorded on #878 as shipped against it" (§A2; all six are in the eight). The earlier closing judgment "it is not productivity. It is enumeration" is **removed** as unsupported: it dismissed the fixes without showing a redesign would have been cheaper. It now reads "The fixes improved safety. They did not retire the shared cause."
+
 **Branch names, SUPPORTED.** "#1271 and #1283 carry `878` in their branch names": `GET /repos/nathanjohnpayne/mergepath/pulls/1271` → `.head.ref` is `codex/issue-878-tier-read-errors`; `pulls/1283` → `codex/878-aged-summary-status-veto` (read 2026-09-24). The other four #878-banner PRs carry their own issue numbers instead: #1273 `codex/1037-count-review-runs`, #1274 `codex/940-veto-fallback-status`, #1279 `codex/issue-940-timeout-failover`, #1282 `codex/1034-risk-marker-refusal`.
 
 ---
@@ -322,7 +348,8 @@ Per `docs/agents/blog-revision-process.md`, these must be re-checked before this
 3. **Quantifier scope.** The draft contains universals about "every call site" and "no representation." §A1 is the defensible weaker form. Re-read both against it.
 4. **Attribution of issue-internal numbers.** §E2 and §E3 carry figures that are the issues' own claims. Any use must say so.
 5. **Floors stated as floors.** 90 merged pull requests, 11 open issues, and every referencing-PR list are floors per the header's three tool limits. The word "only" must not appear in front of any of them.
-6. **Brevity pass runs separately and after this.** Do not combine it with a factual pass. `scripts/verify-brevity.py BEFORE AFTER` does not catch swapped values, so read any passage that pairs a number with a pull request by hand.
+6. **Issue #1052's ten deferred findings (2026-09-30 status).** Resolved by the third pass: #1264 double classification (§E4), #1293 row clause (§D8), §E3 relabel, motive claims ("nobody had a reason to…", "assumed a value would mean" are gone from the post), #961 provenance (§B5, paragraph removed), headline (§H), the 34 bucket and the 12–34 range (§B2, 34 no longer used), fail-open/fail-closed universal (§E1a), and "many grammars" (§B3, removed). Nothing from the list remains open against the post.
+7. **Brevity pass runs separately and after this.** Do not combine it with a factual pass. `scripts/verify-brevity.py BEFORE AFTER` does not catch swapped values, so read any passage that pairs a number with a pull request by hand.
 
 ---
 
@@ -335,10 +362,44 @@ These claims had no row above. Each is recorded here with its source, not as a s
 - **"Eleven grammars."** The post listed seven forms under "eleven grammars," implying a one-to-one mapping to the eleven issues that was never established. Now reads "many grammars."
 - **"The largest category of a month's merged work."** Not supported by title-only classification (§B2 gives a range of 12–34, with no counts for competing categories). Now reads "somewhere between 12 and 34 of 90 merged pull requests, by title alone."
 - **"Eleven of the 164 open issues."** Now "At least eleven … matching on titles alone," per §B3.
-- **Headline counts.** The title is reused on the index card, RSS, and share cards without the sidebar's counting rules, so the floors are marked there too: "90+ Merged Pull Requests, 11+ Open Issues." This reverses an earlier decision to leave the title unqualified.
+- **Headline counts.** The title is reused on the index card, RSS, and share cards without the sidebar's counting rules, so the floors were marked there too: "90+ Merged Pull Requests, 11+ Open Issues." **Superseded 2026-09-30:** the subtitle, counts and "One Missing Type" are all removed; the title is now "Silence Is Not an Approval" alone, so no count or type claim reaches RSS or share cards.
 - **"Eleven more waiting, each one a small pull request."** A universal over a title-only population that includes #826 (a blocked topology decision) and #1130 (repository-scale). Now "at least eleven … some of them small …, and two of them, #826 and #1130, not small at all."
 - **"Producing defects in review rounds, each one created by the previous round's fix."** This transferred #945's causal history (§C2) to the whole burst, which §F establishes only as subjects and buckets. Now "fixing the family one surface at a time, which is the pattern that sentence describes."
 - **#1291 "handles one half."** `pulls/1291.body`, re-read 2026-09-24: "This reduces API demand without changing credentials, completion evaluation or the event subscription … It removes no event deliveries or job executions." So it mitigates the event side but does not remove it, and the post's "The event amplification is still not in scope" contradicted its own description. Now: "the token half never landed, the event half is cheaper but not removed, and #1130 is still open."
 - **"The bulk of ninety merged pull requests."** Same defect as "largest category," surviving in the contrast-set paragraph. Now reads "correctness repair on review-sensing and merge-gating logic runs through the whole window," with no share claimed.
 - **Sidebar, merge-timestamp provenance.** The sidebar said #1263 had no timeline merge event, contradicting §D2. Now separates #1169 (no event) from #1263 (event present; seconds taken from the commit).
 - **Sidebar, agent authorship.** The sidebar promised the text would say "where it matters" which quoted bodies were written by agents, and no passage did. Replaced with a blanket statement: most bodies were written by coding agents under the author's account or a bot identity, so they are the pipeline's own record, not independent testimony. Em dash spacing inside quotes is normalized to house style, and the sidebar now says so.
+
+---
+
+## I. THIRD PASS: RESTRUCTURE AROUND THE DECISION (2026-09-30)
+
+A Codex editorial review (relayed by the author in chat, 2026-09-30) asked for five changes: correct the #940 mechanism (§C3), move the product question to the top, end on the decision actually made, pull back two overclaims (§E1a, §F2), and move the evidence inventory to an appendix. All five are applied. The body keeps three anchor cases: false clearance (#940), the compounding backlog (#1186/#1263), and the human-attention tradeoff (#962/#826). Title, description, takeaways, pull quotes and sidebar were rewritten to match; `date` moved to `2026-10-01`, `draft` stays `true` until the author flips it. Rows new to this pass:
+
+### I1—the question now sits after the opening incident
+
+"Is reviewer availability a stated product requirement with an owner and a contract, or is it an implementation detail discovered one incident at a time?" Unchanged wording, moved from the closing section to directly after #940. It is the author's own framing, not a sourced claim. "Through August and most of September, I treated it as the second" is a statement about the author's conduct, supported by §F and by #878's banner holding for "the #956 product decision" (§A2).
+
+### I2—#956, the incident behind the decision
+
+**SUPPORTED.** `gh issue view 956 -R nathanjohnpayne/mergepath`, read 2026-09-30: created `2026-08-11T23:56:54Z`, closed `2026-09-25T21:32:40Z`. Body: on #925 `coderabbit-wait.sh` reported `status: cleared` "after **1 second**" while CodeRabbit was "**auto-paused**"; the StatusContext read "`state: success`, `description: \"Review completed\"`"; "There was no review on `f6cbeae` at all"; "Posting `@coderabbitai resume` by hand immediately flipped the same StatusContext to `pending` and a real review began." The post's "which evidence wins" paraphrases the decision's own name for it, a "precedence decision" (§I3).
+
+### I3—the decision, quoted
+
+**SUPPORTED.** `gh api repos/nathanjohnpayne/mergepath/issues/comments/5825270339`: author `nathanjohnpayne`, `created_at 2026-09-25T01:40:04Z`, heading "Decision — 2026-09-24". The post quotes its first paragraph verbatim. Its second paragraph supports "A body-less acknowledgment does not count; only a review run with a body, pinned to the current commit, clears the refusal": "A body-less acknowledgement review object is activity rather than a review run and is insufficient." The post dates the decision September 24, per its heading; the comment was posted 01:40 UTC on the 25th.
+
+### I4—#1323 shipped it
+
+**SUPPORTED.** `gh pr view 1323 -R nathanjohnpayne/mergepath`, read 2026-09-30: `MERGED`, `mergedAt 2026-09-25T21:32:38Z`, closes #956, +820 / −143. Body: "Implements the owner's precedence decision and one bounded slice of #878; the broader classification redesign and downstream delivery remain separate." The post does not cite its size or review-round count (the review list mixes seven Codex, fifteen CodeRabbit and forty-two reviewer-identity submissions, which do not reduce to one honest round figure).
+
+### I5—the cost of the rule
+
+**SUPPORTED as a description of retained behavior.** #1323 body: "pause recovery, retry timing, Codex failover and bounded terminal outcomes retain their existing behavior"; the decision: "Preserve the existing pause resume attempts, rate-limit retry/window handling, Codex failover, bounded outcomes." So a refused commit that would previously clear on status now waits through those paths. "Some of those waits will be on commits with nothing wrong in them" is a claim about what the rule permits, not a measured count; the post measures nothing about it and says it is "#962's cost, accepted on purpose," which is the author's own judgment.
+
+### I6—what remains open
+
+**SUPPORTED.** #878 read 2026-09-30: `OPEN`, labels `size:L`, `type:debt`, `priority:high`, `area:review-sensing`. Decision comment `5826499807` (author `nathanpayne-codex`, 2026-09-25): "Keep #878 open/high for the broader shared classification contract, state-space coverage, and downstream delivery. This record does not claim those remaining items are complete or change required-gate policy." The post's list, "the shared classification contract, coverage of the remaining states, and delivery to downstream repositories," is that sentence. The post does not claim the redesign is done.
+
+### I7—states re-read 2026-09-30
+
+All still `OPEN`: #1186, #962, #826, #1058, #1130, #878. `CLOSED`: #940 (`2026-09-15T03:17:44Z`), #956. The post's "still open" for #1130 and "open since August 13" for #962 hold on that date.
