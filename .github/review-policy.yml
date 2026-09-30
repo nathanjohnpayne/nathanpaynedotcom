@@ -152,7 +152,9 @@ codex:
   cli_login: nathanpayne-codex
 
   # Maximum number of `@codex review` rounds before escalating as runaway.
-  # The first round past this value trips the guard (the 6th here).
+  # Enforcement counts trigger comments (see below), so the guard trips on
+  # the first trigger comment past this value: the 6th here, which
+  # acknowledgement retries can bring before a 6th logical round.
   # Normal termination is either approval, disagreement
   # (repeat-after-rebuttal), or timeout → Phase 4b fallback.
   # Since mergepath#1293 this is also the enforced per-PR cap on
