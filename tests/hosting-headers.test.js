@@ -23,17 +23,26 @@ function headerValue(source, key) {
 
 const globalCsp = headerValue('**', 'Content-Security-Policy-Report-Only') ?? '';
 
-/** Parse a policy string into a map of directive → source list. */
+/**
+ * Parse a policy string into a map of directive → source list. Browsers honour
+ * the first occurrence of a directive and ignore repeats, so a repeat is
+ * recorded rather than allowed to overwrite what the browser would enforce.
+ */
 function parseCsp(policy) {
   const directives = new Map();
+  const duplicates = [];
   for (const part of policy.split(';')) {
     const [name, ...sources] = part.trim().split(/\s+/);
-    if (name) directives.set(name.toLowerCase(), sources);
+    if (!name) continue;
+    const key = name.toLowerCase();
+    if (directives.has(key)) duplicates.push(key);
+    else directives.set(key, sources);
   }
-  return directives;
+  return { directives, duplicates };
 }
 
-const csp = parseCsp(globalCsp);
+const { directives: csp, duplicates: duplicateDirectives } = parseCsp(globalCsp);
+const PAGE_ORIGIN = 'https://nathanpayne.com';
 
 /**
  * Whether `url` is allowed by a directive's source list (falling back to
@@ -43,9 +52,10 @@ const csp = parseCsp(globalCsp);
  */
 function allows(directive, url) {
   const sources = csp.get(directive) ?? csp.get('default-src') ?? [];
-  const { protocol, host } = new URL(url);
+  const { protocol, host, origin } = new URL(url);
   return sources.some((source) => {
-    if (source === "'self'") return host === 'nathanpayne.com';
+    // 'self' is the page's origin — scheme included, so http:// never passes.
+    if (source === "'self'") return origin === PAGE_ORIGIN;
     const match = source.match(/^(https?:)\/\/(\*\.)?([^/]+)$/);
     if (!match || match[1] !== protocol) return false;
     return match[2] ? host.endsWith(`.${match[3]}`) : host === match[3];
@@ -77,6 +87,10 @@ describe('Hosting security headers', () => {
     // report-only header records violations without breaking the page.
     expect(globalCsp).not.toBe('');
     expect(headerValue('**', 'Content-Security-Policy')).toBeUndefined();
+  });
+
+  it('declares each directive once', () => {
+    expect(duplicateDirectives).toEqual([]);
   });
 
   it('locks the structural directives down', () => {
@@ -145,12 +159,18 @@ describe('Hosting cache headers', () => {
     expect(headerValue('/_astro/**', 'Cache-Control')).toBe('public, max-age=31536000, immutable');
   });
 
+  it('keeps the one-hour policy for JS/CSS outside /_astro/', () => {
+    expect(headerValue('**/*.@(js|css)', 'Cache-Control')).toBe('public, max-age=3600');
+  });
+
   it('orders the /_astro/ rule after the generic JS/CSS rule', () => {
     // Firebase applies every matching rule, and for a repeated header the later
     // rule wins. If the order were ever reversed, hashed assets would fall back
     // to the one-hour policy rather than anything unsafe.
     const sources = headerRules.map((r) => r.source);
-    expect(sources.indexOf('/_astro/**')).toBeGreaterThan(sources.indexOf('**/*.@(js|css)'));
+    const generic = sources.indexOf('**/*.@(js|css)');
+    expect(generic, 'generic JS/CSS rule missing').toBeGreaterThan(-1);
+    expect(sources.indexOf('/_astro/**')).toBeGreaterThan(generic);
   });
 
   it('keeps immutable caching off everything that is not content-hashed', () => {
