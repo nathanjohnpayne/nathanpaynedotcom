@@ -723,7 +723,7 @@ describe('Project Pages — screenshot aspect variants', () => {
     expect(moduleSrcs.length, 'No module scripts found').toBeGreaterThan(0);
     const muxScript = moduleSrcs
       .map((src) => readFileSync(resolve(DIST, src.replace(/^\//, '')), 'utf-8'))
-      .find((code) => code.includes('https://cdn.jsdelivr.net/npm/mux-embed@5.18.0'));
+      .find((code) => /querySelector\(\s*(['"`])mux-background-video\1\s*\)/.test(code));
     expect(muxScript, 'Mux runtime module not found').toBeTruthy();
     // Vite 8's minifier re-emits plain string literals as interpolation-free
     // template literals (`` `mux-background-video` ``). Normalize those back to
@@ -738,82 +738,76 @@ describe('Project Pages — screenshot aspect variants', () => {
     expect(mux).toContain('.play()');
     expect(mux).toContain('currentTime>0');
     expect(html).not.toContain('PUBLIC_MUX_ENV_KEY');
-    // #265 regression: when the mux-embed script tag already exists in a
-    // settled (loaded/error) state, the loader must short-circuit to
-    // Promise.resolve() instead of re-attaching listeners that will never
-    // fire. Encoded via the dataset.muxEmbedStatus sentinel.
-    expect(mux).toMatch(/muxEmbedStatus===['"]loaded['"]/);
-    expect(mux).toMatch(/muxEmbedStatus===['"]error['"]/);
-    expect(mux).toContain('Promise.resolve()');
+    // mux-embed is bundled from npm into a same-origin chunk, never injected
+    // as a <script> from a public CDN.
+    expect(mux).not.toMatch(/jsdelivr|unpkg|cdnjs/);
+    expect(mux).not.toContain("createElement('script')");
+    const chunkImports = Array.from(
+      mux.matchAll(/import\((['"])\.\/([^'"]+\.js)\1\)/g),
+      (match) => match[2],
+    );
+    const embedChunk = chunkImports
+      .map((file) => readFileSync(resolve(DIST, '_astro', file), 'utf-8'))
+      // mux-embed stamps its own name and version into its beacons.
+      .find((code) => /mux_embed_version/.test(code));
+    expect(embedChunk, 'bundled mux-embed chunk not found').toBeTruthy();
   });
 
-  it.each(['loaded', 'error'])(
-    '#265 regression: loadMuxEmbed short-circuits when script[data-mux-embed] is already settled (%s)',
-    async (settledStatus) => {
-      const html = readDistHtml('projects/swipe-watch/index.html');
-      setupDOM(html);
-
-      // The bundle's top-level module logic reads `window.matchMedia`
-      // eagerly; jsdom doesn't implement it, so stub it before importing.
-      Object.defineProperty(window, 'matchMedia', {
-        writable: true,
-        value: vi.fn((query) => ({
-          matches: false,
-          media: query,
-          addEventListener: vi.fn(),
-          removeEventListener: vi.fn(),
-          addListener: vi.fn(),
-          removeListener: vi.fn(),
-          onchange: null,
-          dispatchEvent: vi.fn(),
-        })),
-      });
-
-      const moduleSrcs = Array.from(
-        html.matchAll(/<script type="module" src="([^"]+)"/g),
-        (match) => match[1],
+  it('keeps every emitted script free of third-party CDN loads', () => {
+    for (const file of readdirSync(resolve(DIST, '_astro')).filter((f) => f.endsWith('.js'))) {
+      const code = readFileSync(resolve(DIST, '_astro', file), 'utf-8');
+      expect(code, `${file} references a public script CDN`).not.toMatch(
+        /cdn\.jsdelivr\.net|unpkg\.com|cdnjs\.cloudflare\.com/,
       );
-      const muxSrc = moduleSrcs.find((src) =>
-        readFileSync(resolve(DIST, src.replace(/^\//, '')), 'utf-8').includes(
-          'https://cdn.jsdelivr.net/npm/mux-embed@5.18.0',
-        ),
-      );
-      expect(muxSrc, 'Mux runtime module not found').toBeTruthy();
+    }
+  });
 
-      // Pre-seed a settled mux-embed script tag, mirroring a page revisit
-      // where the embed already finished loading (or failed) earlier, and
-      // spy on its listener registration: a broken settled-branch check
-      // would re-attach 'load'/'error' listeners that can never fire on
-      // this inert stub tag, hanging the loader's promise forever.
-      const existingScript = document.createElement('script');
-      existingScript.setAttribute('data-mux-embed', 'true');
-      existingScript.dataset.muxEmbedStatus = settledStatus;
-      const addEventListenerSpy = vi.spyOn(existingScript, 'addEventListener');
-      document.head.appendChild(existingScript);
+  it('sets globalThis.mux from the bundled mux-embed before registering the hero', async () => {
+    const html = readDistHtml('projects/swipe-watch/index.html');
+    setupDOM(html);
 
-      // Import the built module fresh (cache-busted) so its top-level
-      // loadMuxEmbed() invocation runs against our seeded DOM state.
-      await import(
-        /* @vite-ignore */ resolve(DIST, muxSrc.replace(/^\//, '')) + `?settled-${settledStatus}`
-      );
+    // The bundle's top-level module logic reads `window.matchMedia`
+    // eagerly; jsdom doesn't implement it, so stub it before importing.
+    Object.defineProperty(window, 'matchMedia', {
+      writable: true,
+      value: vi.fn((query) => ({
+        matches: false,
+        media: query,
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+        addListener: vi.fn(),
+        removeListener: vi.fn(),
+        onchange: null,
+        dispatchEvent: vi.fn(),
+      })),
+    });
 
-      // Give the module's Promise chain a tick to settle.
-      await new Promise((r) => setTimeout(r, 0));
+    const moduleSrcs = Array.from(
+      html.matchAll(/<script type="module" src="([^"]+)"/g),
+      (match) => match[1],
+    );
+    const muxSrc = moduleSrcs.find((src) =>
+      /querySelector\(\s*(['"`])mux-background-video\1\s*\)/.test(
+        readFileSync(resolve(DIST, src.replace(/^\//, '')), 'utf-8'),
+      ),
+    );
+    expect(muxSrc, 'Mux runtime module not found').toBeTruthy();
 
-      expect(
-        addEventListenerSpy,
-        'loadMuxEmbed must not attach load/error listeners to an already-settled script',
-      ).not.toHaveBeenCalled();
+    delete globalThis.mux;
+    const scriptsBefore = document.querySelectorAll('script').length;
+    await import(/* @vite-ignore */ resolve(DIST, muxSrc.replace(/^\//, '')) + '?bundled-embed');
 
-      const muxEmbedScripts = document.querySelectorAll('script[data-mux-embed]');
-      expect(
-        muxEmbedScripts.length,
-        'loadMuxEmbed must not append a new script when one is already settled',
-      ).toBe(1);
-      expect(muxEmbedScripts[0]).toBe(existingScript);
-      expect(existingScript.dataset.muxEmbedStatus).toBe(settledStatus);
-    },
-  );
+    // mux-embed may take a few ticks to evaluate; poll rather than guess.
+    for (let i = 0; i < 50 && !globalThis.mux; i += 1) {
+      await new Promise((r) => setTimeout(r, 20));
+    }
+    expect(typeof globalThis.mux?.monitor, 'mux-embed did not set globalThis.mux').toBe('function');
+    expect(
+      document.querySelectorAll('script').length,
+      'the Mux loader must not inject a <script> element',
+    ).toBe(scriptsBefore);
+    delete globalThis.mux;
+  });
 
   it('only Swipe Watch opts into the Mux hero today', () => {
     for (const slug of projectSlugs.filter((projectSlug) => projectSlug !== 'swipe-watch')) {
@@ -1471,5 +1465,64 @@ describe('Projects index — CTA vocabulary does not compete with status (#751)'
       .sort((a, b) => a.order - b.order)
       .map((data) => data.title);
     expect(withCta).toEqual(expected);
+  });
+});
+
+describe('Project hero CTA tracking', () => {
+  function ctaScript(html) {
+    // Parsed, not regex-matched: the parser owns tag case and attributes, and
+    // DOMParser never executes what it reads (see tests/helpers/dom.js).
+    const parsed = new DOMParser().parseFromString(html, 'text/html');
+    return Array.from(parsed.querySelectorAll('script:not([src])'), (el) => el.textContent).find(
+      (code) => code.includes('project_live_link_clicked'),
+    );
+  }
+
+  it('tags each hero CTA with a data-cta hook on every project page', () => {
+    for (const slug of projectSlugs) {
+      setupDOM(readDistHtml(`projects/${slug}/index.html`));
+      for (const link of document.querySelectorAll('.project-actions a.nav-button')) {
+        expect(['live', 'github'], `${slug}: ${link.outerHTML}`).toContain(
+          link.getAttribute('data-cta'),
+        );
+      }
+    }
+  });
+
+  it('finds the CTAs by hook, never by a selector built from the URL', () => {
+    const script = ctaScript(readDistHtml('projects/swipe-watch/index.html'));
+    expect(script, 'CTA tracking script not found').toBeTruthy();
+    expect(script).toContain(`a[data-cta="live"]`);
+    expect(script).toContain(`a[data-cta="github"]`);
+    expect(script).not.toMatch(/\[href=["']\s*'\s*\+/);
+  });
+
+  it('still binds when a URL contains selector metacharacters', () => {
+    const html = readDistHtml('projects/swipe-watch/index.html');
+    setupDOM(html);
+    // A URL that would have been a selector syntax error when quoted into
+    // `a[href="…"]`: querySelector threw and the tracking never bound.
+    const hostileUrl = 'https://example.com/a"]b';
+    const live = document.querySelector('.project-actions a[data-cta="live"]');
+    expect(live, 'live CTA not found').not.toBeNull();
+    live.setAttribute('href', hostileUrl);
+    live.addEventListener('click', (event) => event.preventDefault());
+
+    const script = ctaScript(html).replace(
+      /const heroLiveUrl = "[^"]*";/,
+      `const heroLiveUrl = ${JSON.stringify(hostileUrl)};`,
+    );
+    const capture = vi.fn();
+    window.posthog = { capture };
+    try {
+      new Function(script)();
+      live.click();
+      expect(capture).toHaveBeenCalledWith('project_live_link_clicked', {
+        project_title: 'Swipe Watch',
+        url: hostileUrl,
+      });
+    } finally {
+      delete window.posthog;
+    }
   });
 });

@@ -152,17 +152,22 @@ codex:
   cli_login: nathanpayne-codex
 
   # Maximum number of `@codex review` rounds before escalating as runaway.
-  # The first round past this value trips the guard (the 3rd at the usual 2,
-  # the 4th while the raise below is live). Normal termination is either approval,
-  # disagreement (repeat-after-rebuttal), or timeout → Phase 4b fallback.
+  # Enforcement counts trigger comments (see below), so the guard trips on
+  # the first trigger comment past this value: the 6th here, which
+  # acknowledgement retries can bring before a 6th logical round.
+  # Normal termination is either approval, disagreement
+  # (repeat-after-rebuttal), or timeout → Phase 4b fallback.
   # Since mergepath#1293 this is also the enforced per-PR cap on
-  # author-posted `@codex review` requests, read from the base branch.
+  # author-posted `@codex review` trigger comments, read from the base
+  # branch. It counts comments, not rounds: an acknowledgement retry posts
+  # another trigger, so one unacknowledged round can use two of the five.
   #
-  # TEMPORARY RAISE (operator request 2026-09-30): 3 instead of 2, so #1072
-  # can get one Codex signal on its fixed head and run Phase 4b round 2
-  # (its budget ran out with every finding fixed; phase-4b exited 8). Restore
-  # `max_review_rounds: 2` and delete this note as soon as #1072 merges.
-  max_review_rounds: 3
+  # 5, not the fleet template's 2 (operator decision 2026-09-30, standing).
+  # At 2, a PR whose Phase 4b round requests changes cannot get a Codex
+  # signal on its fixed head, so phase-4b-review.sh stops with exit 8 after
+  # every finding is already fixed (#1072). Repeat-after-rebuttal still
+  # escalates on the first repeat, whatever this value is.
+  max_review_rounds: 5
 
   # Poll timeout per round, in seconds, for `codex-review-request.sh`.
   # If Codex has not posted a review within this window, treat as timeout

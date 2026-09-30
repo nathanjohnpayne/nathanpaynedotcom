@@ -50,6 +50,7 @@
     "yaml": "^2.9.1"
   },
   "dependencies": {
-    "@mux/mux-background-video": "^0.2.3"
+    "@mux/mux-background-video": "^0.2.3",
+    "mux-embed": "^5.18.0"
   }
 }

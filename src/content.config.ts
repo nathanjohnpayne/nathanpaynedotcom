@@ -1,6 +1,7 @@
 import { defineCollection, z } from 'astro:content';
 import { glob } from 'astro/loaders';
 import { BLOG_CATEGORIES } from './lib/blog-order';
+import { MUX_PLAYBACK_ID_PATTERN } from '../scripts/lib/mux-playback-id.mjs';
 
 const projects = defineCollection({
   // `projects` is the only collection that takes .mdx. A case-study page
@@ -106,8 +107,14 @@ const projects = defineCollection({
       // Mux Playback ID. When set, the project page renders a MUX video
       // in the hero slot; `screenshotSrc` still serves as the JS-disabled
       // fallback and as the OG image source. Rejects empty strings so a
-      // blank frontmatter value is a schema error, not a broken URL.
-      muxPlaybackId: z.string().trim().min(1).optional(),
+      // blank frontmatter value is a schema error, not a broken URL. The ID is
+      // interpolated into Mux URLs at build time and in the page, so it is
+      // restricted to the alphanumeric shape Mux issues.
+      muxPlaybackId: z
+        .string()
+        .trim()
+        .regex(MUX_PLAYBACK_ID_PATTERN, 'muxPlaybackId must be alphanumeric')
+        .optional(),
 
       // Case-study structured content — DecisionLedger / ConstraintStrip /
       // LearningLedger, epic #759. Flat top-level fields, deliberately NOT a
