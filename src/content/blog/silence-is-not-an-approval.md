@@ -49,7 +49,7 @@ On August 10, as [#940](https://github.com/nathanjohnpayne/mergepath/issues/940)
 
 The helper did not fall for the status: its newest guard saw that the description did not name a completed review and refused the fast path. The poll it fell through to then found CodeRabbit's walkthrough comment, written hours earlier for an older commit, whose update timestamp CodeRabbit had bumped on the push. It looked fresh, graded as a review, and cleared. The evidence that should have stopped it had been read and rejected one branch earlier.
 
-The damage was bounded, as the issue notes. The required merge gate does not consult this helper, so no known defect got through. What was lost was a review: CodeRabbit never passed over that commit, and the Codex failover that should have replaced it never fired.
+The damage was bounded, as the issue notes. This false clearance did not bypass the required merge gate, which does not consult the helper. What was lost was a review: CodeRabbit did not review that commit, and the Codex failover that should have replaced it never fired.
 
 That is not a reviewer bug. The pipeline could say "no answer," and did, correctly, once. It had no single rule for what "no answer" permits, so another path through the same script answered differently.
 
@@ -115,7 +115,7 @@ That rule has a cost, and I chose it knowingly. While CodeRabbit's current comme
 
 It is also not the whole answer. It settles one case: what a refusal plus a completion status may prove. #878 stays open at high priority for the rest: the shared classification contract, coverage of the remaining states, and delivery to downstream repositories. I have not done that part yet.
 
-What changed is the rule for making progress when evidence is missing. Before, each code path decided for itself whether a silence was close enough to a yes, and the fixes taught them one at a time that it was not. Now there is one written rule, with an owner, for one kind of silence: while the provider's current comment remains a refusal, a completion status alone cannot substitute for a review of this commit. The remaining work is to write that rule for every other kind of silence, once, and have the waiter and the gate both read it.
+What changed is the rule for making progress when evidence is missing. Before, each code path decided for itself whether a silence was close enough to a yes, and the fixes taught them one at a time that it was not. Now there is one written rule, with an owner, for one kind of silence: while the provider's current comment remains a refusal, a completion status alone cannot substitute for a review of this commit. The remaining work is to write that kind of rule for every other kind of silence, once, and have the waiter and the gate both read it.
 
 ## Appendix: The Evidence
 
