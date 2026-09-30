@@ -2,7 +2,7 @@
 title: "Silence Is Not an Approval"
 seoTitle: "Silence Is Not an Approval"
 shortTitle: "Silence Is Not an Approval"
-description: "My AI review pipeline kept counting a reviewer that could not answer as one that had. Each fix made it safer, and none of them settled the question underneath: is reviewer availability a product requirement with an owner and a contract, or an implementation detail discovered one incident at a time? On September 24 I answered one piece of it. While CodeRabbit is refusing to review, a completion status alone can no longer clear a commit; only a real review of that commit can."
+description: "My AI review pipeline kept counting a reviewer that could not answer as one that had. Each fix made it safer, and none of them settled the question underneath: is reviewer availability a product requirement with an owner and a contract, or an implementation detail discovered one incident at a time? On September 24 I answered one piece of it. While CodeRabbit's current comment is a refusal, a completion status alone can no longer stand in for a real review of the commit."
 seoDescription: "An AI code review pipeline that read a reviewer's silence as approval, why case-by-case fixes did not retire the cause, and the product decision that set a rule for making progress when evidence is missing."
 category: "Agent Systems"
 author: "Nathan Payne"
@@ -14,7 +14,7 @@ keyTakeaways:
   - "The dangerous failure in an automated review pipeline is not a wrong finding. It is a pipeline that cannot tell 'the review ran' from 'the review found nothing.' In #940 a guard correctly rejected a status reading `Review rate limited`, and a later branch of the same poll cleared anyway, on an old walkthrough comment whose timestamp the push had refreshed."
   - "Most of these code paths did have a word for 'no answer.' What they lacked was a shared rule for what that word permits. The wave audit in #1186 classified an over-budget diff as transient reviewer unavailability, so each unaudited range chained into the next, and 38 days passed between its last approval and the issue that reported it."
   - "Failing closed is not free either. #962 argues that a correct rate-limit block shown as a red failure trains a break-glass reflex, and that downgrading the check to `neutral` would release the merge instead of quieting it. #1130 shows blocking can cascade too: one exhausted token budget makes every open pull request unmergeable."
-  - "On September 24 I made the product decision the fixes had been working around: while CodeRabbit's current comment is a pause or rate-limit refusal, a completion status alone cannot clear the commit; it needs a review with a body, pinned to the current commit. #1323 shipped that on September 25. The broader contract in #878 is still open."
+  - "On September 24 I made the product decision the fixes had been working around: while CodeRabbit's current comment is a pause or rate-limit refusal, a completion status alone cannot clear the commit in place of a review with a body, pinned to the current commit. #1323 shipped that on September 25. The broader contract in #878 is still open."
 pullquotes:
   - text: "A reviewer that is wrong is a cost you can price. A reviewer that is absent and counted as present is a system that will eventually pass something nobody checked, and will report that as a clean record."
     label: "The asymmetry"
@@ -68,7 +68,7 @@ The audit had a word for "no answer," and it used it. The word was the wrong kin
 
 Thirty-eight days passed between the last approval and the filing. The fix, [#1263](https://github.com/nathanjohnpayne/mergepath/pull/1263), is 45 added lines: refuse an oversized scope before dispatching a reviewer, instead of calling it unavailability.
 
-What made this one compound is specific to it. The failure blocked nothing, so nothing announced it. Each run's leftover became the next run's input, so the error grew instead of repeating. And "reviewer unavailable" reads like weather, not like a defect. None of that is a law about failing open. It is what happens when a no-answer state is filed under the wrong kind and nobody owns the difference.
+What made this one compound is specific to it. The failure blocked no propagation; each run recorded it, but nothing aggregated those records into a warning about the growing backlog. Each run's leftover became the next run's input, so the error grew instead of repeating. And "reviewer unavailable" reads like weather, not like a defect. None of that is a law about failing open. It is what happens when a no-answer state is filed under the wrong kind and nobody owns the difference.
 
 Blocking can cascade too. [#1130](https://github.com/nathanjohnpayne/mergepath/issues/1130), still open, describes a required gate that "runs on the App installation budget (1,000/hr/repo), so an exhausted GITHUB_TOKEN deadlocks every open PR," after which "every open PR in the repository becomes unmergeable regardless of its own merits." That is a fail-closed default doing harm at repository scale. The difference is that it announces itself, because nobody can merge.
 
@@ -108,13 +108,13 @@ On September 24 I decided it, and recorded the decision on the issue:
 
 > "Require actual review evidence for the current commit while CodeRabbit's current provider comment is a pause or rate-limit refusal. A later per-SHA StatusContext reading `success | Review completed` is corroboration only in that state: it must not clear the refusal by itself, even after the existing grace interval or a published rate-limit window has expired."
 
-A body-less acknowledgment does not count; only a review run with a body, pinned to the current commit, clears the refusal. [#1323](https://github.com/nathanjohnpayne/mergepath/pull/1323) implemented it and merged on September 25.
+A body-less acknowledgment does not count as that evidence; a review run with a body, pinned to the current commit, does. [#1323](https://github.com/nathanjohnpayne/mergepath/pull/1323) implemented it and merged on September 25.
 
-That rule has a cost, and I chose it knowing the cost. A commit CodeRabbit is still refusing to review no longer clears on a status line. It waits for a real review through the existing resume and retry paths, and failing that, reaches the existing timeout and Codex failover. That is slower, and some of those waits will be on commits with nothing wrong in them. It is #962's cost, accepted on purpose.
+That rule has a cost, and I chose it knowing the cost. While CodeRabbit's current comment remains a refusal, a completion status alone no longer clears the commit. The existing resume, retry, timeout, and Codex failover rules still apply. That is slower, and some of those waits will be on commits with nothing wrong in them. It is #962's cost, accepted on purpose.
 
 It is also not the whole answer. It settles one case: what a refusal plus a completion status is permitted to prove. #878 stays open at high priority for the rest: the shared classification contract, coverage of the remaining states, and delivery to downstream repositories. I have not done that part yet.
 
-What changed is the rule for making progress when evidence is missing. Before, each code path decided for itself whether a silence was close enough to a yes, and the fixes taught them one at a time that it was not. Now there is one written rule, with an owner, for one kind of silence: a refusal stands until a review of this commit replaces it. The remaining work is to write that kind of rule for every other kind of silence, once, and have the waiter and the gate both read it.
+What changed is the rule for making progress when evidence is missing. Before, each code path decided for itself whether a silence was close enough to a yes, and the fixes taught them one at a time that it was not. Now there is one written rule, with an owner, for one kind of silence: while the provider's current comment remains a refusal, a completion status alone cannot substitute for a review of this commit. The remaining work is to write that kind of rule for every other kind of silence, once, and have the waiter and the gate both read it.
 
 ## Appendix: The Evidence
 

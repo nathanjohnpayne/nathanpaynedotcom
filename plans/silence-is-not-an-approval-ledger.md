@@ -205,6 +205,8 @@ Issue body, verbatim: "GitHub caps that listing at 3000 entries, and at the cap 
 
 ### D7—#1186 and the watermark
 
+**Corrected 2026-09-30 (author review).** The third pass wrote "The failure blocked nothing, so nothing announced it." #1186 says otherwise about the record: "the failure was legible in every run's JSON and nothing aggregated it," and "Every wave in that window fanned out on CI + lane alone." The post now reads: "The failure blocked no propagation; each run recorded it, but nothing aggregated those records into a warning about the growing backlog."
+
 **SUPPORTED.** #1186 is `open`, labels `risk` and `priority:high`. Body: "Wave audit has not advanced its watermark since 2026-07-28: over-budget diffs classify as 'reviewer unavailable' and chain forward, making the next range larger."
 
 Re-read 2026-09-30: the body's first line is "The wave audit (#662) has not produced an `APPROVED` since **2026-07-28**," and it describes the audit as "the mechanism that is supposed to review propagated canonical content." The post now says "38 days passed between the last approval and the filing" and describes the audit that way. #1186 is still open.
@@ -260,7 +262,7 @@ Referencing pull requests observed on timeline page 1: #960, #1084, #1189, #1196
 
 ### E1a—"Fail-open defects compound. Fail-closed defects merely block."
 
-**UNPROVABLE as a general law; removed 2026-09-30** from the body and takeaway 2. It generalized from one pair of cases, and blocking can cascade too: #1130 (§D5, still open 2026-09-30) makes "every open PR in the repository … unmergeable regardless of its own merits." The post now names what made #1186 compound, specific to it (blocked nothing, each run's leftover fed the next, a benign-sounding class), says "None of that is a law about failing open," and cites #1130 as a fail-closed cascade that differs only in announcing itself.
+**UNPROVABLE as a general law; removed 2026-09-30** from the body and takeaway 2. It generalized from one pair of cases, and blocking can cascade too: #1130 (§D5, still open 2026-09-30) makes "every open PR in the repository … unmergeable regardless of its own merits." The post now names what made #1186 compound, specific to it (blocked no propagation and nothing aggregated the per-run records, each run's leftover fed the next, a benign-sounding class), says "None of that is a law about failing open," and cites #1130 as a fail-closed cascade that differs only in announcing itself.
 
 ### E2—#826, the proposal that says the topology is wrong
 
@@ -374,7 +376,7 @@ These claims had no row above. Each is recorded here with its source, not as a s
 
 ## I. THIRD PASS: RESTRUCTURE AROUND THE DECISION (2026-09-30)
 
-A Codex editorial review (relayed by the author in chat, 2026-09-30) asked for five changes: correct the #940 mechanism (§C3), move the product question to the top, end on the decision actually made, pull back two overclaims (§E1a, §F2), and move the evidence inventory to an appendix. All five are applied. The body keeps three anchor cases: false clearance (#940), the compounding backlog (#1186/#1263), and the human-attention tradeoff (#962/#826). Title, description, takeaways, pull quotes and sidebar were rewritten to match; `date` moved to `2026-10-01`, `draft` stays `true` until the author flips it. Rows new to this pass:
+A Codex editorial review (relayed by the author in chat, 2026-09-30) asked for five changes: correct the #940 mechanism (§C3), move the product question to the top, end on the decision actually made, pull back two overclaims (§E1a, §F2), and move the evidence inventory to an appendix. All five are applied. The body keeps three anchor cases: false clearance (#940), the compounding backlog (#1186/#1263), and the human-attention tradeoff (#962/#826). Title, description, takeaways, pull quotes and sidebar were rewritten to match; `date` moved to `2026-10-01`. `draft` was cleared in a separate commit after the author approved the post on 2026-09-30, with the five new-post test pins updated alongside it. Rows new to this pass:
 
 ### I1—the question now sits after the opening incident
 
@@ -393,6 +395,8 @@ A Codex editorial review (relayed by the author in chat, 2026-09-30) asked for f
 **SUPPORTED.** `gh pr view 1323 -R nathanjohnpayne/mergepath`, read 2026-09-30: `MERGED`, `mergedAt 2026-09-25T21:32:38Z`, closes #956, +820 / −143. Body: "Implements the owner's precedence decision and one bounded slice of #878; the broader classification redesign and downstream delivery remain separate." The post does not cite its size or review-round count (the review list mixes seven Codex, fifteen CodeRabbit and forty-two reviewer-identity submissions, which do not reduce to one honest round figure).
 
 ### I5—the cost of the rule
+
+**Corrected 2026-09-30 (author review).** An earlier third-pass wording said a refused commit "waits for a real review through the existing resume and retry paths, and failing that, reaches the existing timeout and Codex failover," which implied every timeout ends in failover; #1323 preserves bounded terminal outcomes, including timeout without failover. The closing line "a refusal stands until a review of this commit replaces it" was also too strong: #878's decision record says "The selected contract preserves ordinary supersession by a later provider comment," so a later benign provider comment can end the refusal without a review. The same overstatement sat in three sibling surfaces (the `description`'s "only a real review of that commit can," takeaway 4's "it needs a review with a body," and "only a review run with a body … clears the refusal" in the body); all three now say a completion status cannot stand in for the review, without claiming the review is the only exit. Both now state the rule itself: while the current provider comment remains a refusal, a completion status alone cannot clear the commit or substitute for a review of it, and the existing resume, retry, timeout and Codex failover rules still apply.
 
 **SUPPORTED as a description of retained behavior.** #1323 body: "pause recovery, retry timing, Codex failover and bounded terminal outcomes retain their existing behavior"; the decision: "Preserve the existing pause resume attempts, rate-limit retry/window handling, Codex failover, bounded outcomes." So a refused commit that would previously clear on status now waits through those paths. "Some of those waits will be on commits with nothing wrong in them" is a claim about what the rule permits, not a measured count; the post measures nothing about it and says it is "#962's cost, accepted on purpose," which is the author's own judgment.
 
