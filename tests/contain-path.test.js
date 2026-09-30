@@ -62,6 +62,11 @@ describe('Mux playback IDs', () => {
     expect(check).toBeLessThan(body.indexOf('muxGifUrl(muxPlaybackId)'));
   });
 
+  it('the refresher trims the ID the way the schema does', () => {
+    const src = readFileSync(resolve(__dirname, '../scripts/refresh-mux-gifs.mjs'), 'utf-8');
+    expect(src).toMatch(/data\.muxPlaybackId\.trim\(\)/);
+  });
+
   it('the content schema enforces the same pattern', () => {
     const config = readFileSync(resolve(__dirname, '../src/content.config.ts'), 'utf-8');
     expect(config).toContain(

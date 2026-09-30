@@ -102,7 +102,11 @@ async function main() {
   }
 
   for (const { file, data } of projects) {
-    const { muxPlaybackId, screenshotSrc, slug } = data;
+    const { screenshotSrc, slug } = data;
+    // Trimmed exactly as the content schema trims it (`z.string().trim()`), so
+    // a value Astro accepts is never skipped here.
+    const muxPlaybackId =
+      typeof data.muxPlaybackId === 'string' ? data.muxPlaybackId.trim() : data.muxPlaybackId;
     // Per-project config errors are reported and skipped, not fatal.
     // Strict failure is reserved for network/API errors — a missing or
     // malformed screenshotSrc is a content problem the author can fix
