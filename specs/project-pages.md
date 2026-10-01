@@ -280,20 +280,9 @@ instruction from the owner.
 
 ### It lives in two places, and only one of them is enforced
 
-`order` drives `/projects/`—`src/pages/projects/index.astro` sorts the
-collection by it. The **homepage Builds grid does not sort by it**: its rows are
-hand-authored anchors in a fixed sequence. `src/pages/index.astro` reads the
-projects collection only to look up each listed slug's lifecycle status (#892)
-and card line (#1085), so a status or `cardDescription` edit reaches the
-homepage on its own, but editing `order` alone changes `/projects/` and silently
-leaves the homepage on its old sequence.
+`order` drives `/projects/`—`src/pages/projects/index.astro` sorts the collection by it. The **homepage Builds grid does not sort by it**: its rows are hand-authored anchors in a fixed sequence. `src/pages/index.astro` reads the projects collection only to look up each listed slug's lifecycle status (#892) and card line (#1085), so a status or `cardDescription` edit reaches the homepage on its own, but editing `order` alone changes `/projects/` and silently leaves the homepage on its old sequence.
 
-Nothing in the build catches that divergence, and it had already happened once
-before this was written. When you reorder, change both, and update the
-order-sensitive fixture in `tests/project-pages.test.js`
-(`canonicalProjectCards`, from which the homepage card-line expectation is
-derived) and
-`tests/resume.test.js`, which assert the rendered sequence on all three surfaces.
+Nothing in the build catches that divergence, and it had already happened once before this was written. When you reorder, change both, and update the order-sensitive fixture in `tests/project-pages.test.js` (`canonicalProjectCards`, from which the homepage card-line expectation is derived) and `tests/resume.test.js`, which assert the rendered sequence on all three surfaces.
 
 ---
 
