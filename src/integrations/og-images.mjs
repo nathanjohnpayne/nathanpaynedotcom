@@ -118,16 +118,18 @@ export default function ogImages() {
   // the resolved config, and the resume PDF needs the production origin to
   // absolutize its links (#683).
   let siteUrl;
-  // Where the rendered card text is recorded for tests: Astro's cache
-  // directory, not dist/, so the record is never deployed.
-  let cacheDir;
+  // Where the rendered card text is recorded for tests: the checkout's own
+  // `.astro/` directory (gitignored), not dist/, so it is never deployed, and
+  // not Astro's cacheDir, which lives in node_modules and is shared between
+  // worktrees that symlink it.
+  let recordDir;
 
   return {
     name: 'og-images',
     hooks: {
       'astro:config:done': ({ config }) => {
         siteUrl = config.site;
-        cacheDir = fileURLToPath(config.cacheDir);
+        recordDir = join(fileURLToPath(config.root), '.astro');
       },
       'astro:build:done': async ({ dir, logger }) => {
         // `dir` is a URL object. `dir.pathname` yields `/C:/path/...` on
@@ -168,7 +170,7 @@ export default function ogImages() {
               distDir,
               templatePaths,
               logger,
-              manifestPath: join(cacheDir, OG_CARD_MANIFEST),
+              manifestPath: join(recordDir, OG_CARD_MANIFEST),
             });
           }
 
@@ -268,7 +270,7 @@ export function ogFitProblems(measurement, minClearance = OG_MIN_CLEARANCE) {
  */
 /**
  * The text each card rendered, keyed by template path (`projects/<slug>`),
- * written to Astro's cache directory after every build. The template HTML is
+ * written to the checkout's `.astro/` directory after every build. The template HTML is
  * deleted from dist/ when the screenshots are done, so this is the only place
  * a test can check that a card shows what its frontmatter says (#1089).
  */
@@ -316,7 +318,9 @@ async function renderOgImages({ browser, baseUrl, distDir, templatePaths, logger
       // so one build reports every card that does not fit.
       const problems = ogFitProblems(await page.evaluate(measureOgCard));
       if (problems.length > 0) misfits.push(`${templatePath}: ${problems.join('; ')}`);
-      cards[templatePath] = await page.evaluate(readOgCardText);
+      // POSIX key on every platform: recursive readdir returns native
+      // separators, and the test looks cards up as `projects/<slug>`.
+      cards[templatePath.split(sep).join('/')] = await page.evaluate(readOgCardText);
 
       // Derive output path: og-templates/blog/slug → og/blog/slug.png
       // Special case: og-templates root pages (home, blog, projects)

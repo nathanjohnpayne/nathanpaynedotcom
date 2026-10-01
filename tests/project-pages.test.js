@@ -1561,9 +1561,11 @@ describe('Project OG cards (#1088)', () => {
   it('renders each card with its own frontmatter: title, card line and tags', () => {
     // The PNG check above proves a card exists, not what it says; a template
     // that swapped two fields would still pass it. The OG integration records
-    // each card's rendered text in Astro's cache directory (the template HTML
-    // is gone from dist/ by now), so compare that to the source (#1089).
-    const manifestPath = resolve(__dirname, '../node_modules/.astro/og-cards.json');
+    // each card's rendered text in this checkout's .astro/ directory (the
+    // template HTML is gone from dist/ by now), so compare that to the source
+    // (#1089). Expected values are trimmed: the schema trims before rendering
+    // and the record trims the DOM text, while the raw parser here does not.
+    const manifestPath = resolve(__dirname, '../.astro/og-cards.json');
     expect(existsSync(manifestPath), 'og-cards.json missing: run the build first').toBe(true);
     const cards = JSON.parse(readFileSync(manifestPath, 'utf-8'));
     for (const file of projectSourceFiles()) {
@@ -1571,9 +1573,9 @@ describe('Project OG cards (#1088)', () => {
       if (data.draft === true) continue;
       expect(cards[`projects/${data.slug}`], `${data.slug} OG card text`).toEqual({
         label: 'nathanpayne.com / projects',
-        heading: data.title,
-        description: data.ogDescription ?? data.description,
-        meta: data.tags.join(' · '),
+        heading: data.title.trim(),
+        description: (data.ogDescription ?? data.description).trim(),
+        meta: data.tags.map((tag) => tag.trim()).join(' · '),
       });
     }
   });
