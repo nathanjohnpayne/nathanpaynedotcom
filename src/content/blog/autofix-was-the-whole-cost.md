@@ -2,7 +2,7 @@
 title: "1,513 Lines for One Dash: The Requirement Nobody Questioned"
 seoTitle: "1,513 Lines for One Dash"
 shortTitle: "The Requirement Nobody Questioned"
-description: "A one-sentence style rule drew 57 review findings, and 42 named a capability nobody had asked for: auto-fix, 17% of the code and tests. Cutting it ended that churn. The off-the-shelf linter that replaced the tool had a quieter flaw: it skipped prose and reported green."
+description: "A one-sentence style rule drew 57 review findings, and 42 named a capability nobody requested: auto-fix, 17% of the code and tests. Cutting it ended that churn. The linter bought to replace the tool had a quieter flaw: it skipped list items in post metadata yet reported green."
 seoDescription: "One style rule drew 57 review findings—42 naming the never-requested auto-fix. It was 17% of the implementation and tests. Cutting it ended the rewrite-safety churn."
 category: "Agent Systems"
 homepageRank: 4
