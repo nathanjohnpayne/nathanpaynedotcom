@@ -1,16 +1,16 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro';
 import { getCollection, getEntry, render } from 'astro:content';
-import { compareBlogPosts } from '../lib/blog-order';
+import { selectHomepageWriting } from '../lib/blog-order';
 import { stateMarkerClass } from '../lib/lifecycle-marker';
 
 // One published collection feeds two deliberately different surfaces (#627):
-// the Writing list is editorial, while Latest Post remains chronological.
+// the Writing list is hand-curated by `homepageRank`, while Latest Post remains
+// chronological, so a newly published post still surfaces here unranked.
 const publishedPosts = await getCollection('blog', ({ data }) => !data.draft);
 const chronologicalPosts = [...publishedPosts].sort(
   (a, b) => b.data.date.getTime() - a.data.date.getTime(),
 );
-const editorialPosts = [...publishedPosts].sort(compareBlogPosts);
 
 // The Builds grid below is hand-authored markup (see the comment above it), so
 // its sequence is maintained by hand against the canonical order. Its lifecycle
@@ -69,16 +69,15 @@ const PROJECT_DOMAINS = ['Consumer', 'Enterprise', 'Finance', 'Developer tooling
 // the four terms are written once.
 const domainsLine = PROJECT_DOMAINS.map((domain) => domain.replace(/ /g, '\u00a0')).join(' · ');
 
-// The Mondrian About panel has finite room, so the list is capped and the
-// "View all writing" link carries the remainder. Category + featured
-// frontmatter keep this curated sequence in the collection rather than a
-// hand-maintained array literal.
-const WRITING_LIST_LIMIT = 5;
+// The Mondrian About panel has finite room, so the list is capped at
+// HOMEPAGE_WRITING_LIMIT and the "View all writing" link carries the
+// remainder. The selection and its order are each post's `homepageRank`
+// frontmatter rather than a hand-maintained array literal.
 
 // Plain title text. The per-link trailing arrow (and the .no-break span that
 // bound it to the final word) came off in #659: the arrow now marks only the
 // two navigational exits out of the panel, so a title is just a title.
-const writingLinks = editorialPosts.slice(0, WRITING_LIST_LIMIT).map((post) => ({
+const writingLinks = selectHomepageWriting(publishedPosts).map((post) => ({
   href: `/blog/${post.id}/`,
   title: post.data.title,
 }));

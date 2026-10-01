@@ -5,6 +5,7 @@ shortTitle: "Mock-up as Spec"
 description: "Pointing Claude at a page and asking for more Mondrian did not work. Neither did annotated screenshots or diagrams. What worked: have Claude build a standalone HTML mock-up first, then hand the mock-up and the live page back and say make this look like that."
 seoDescription: "How standalone HTML mockups turned vague visual direction into a concrete spec Claude Code could diff against and implement on the live site."
 category: "Agent Systems"
+homepageRank: 5
 author: "Nathan Payne"
 date: 2026-05-19
 tags: ["AI", "Product", "Design", "Engineering", "Workflow"]

@@ -52,9 +52,14 @@ describe('Content Schema', () => {
     expect(configSource).toContain('seoTitle: z.string().optional()');
     expect(configSource).toContain('description: z.string()');
     expect(configSource).toContain('seoDescription: z.string().optional()');
-    expect(configSource).toContain("import { BLOG_CATEGORIES } from './lib/blog-order'");
+    expect(configSource).toContain(
+      "import { BLOG_CATEGORIES, HOMEPAGE_WRITING_LIMIT } from './lib/blog-order'",
+    );
     expect(configSource).toContain('category: z.enum(BLOG_CATEGORIES)');
     expect(configSource).toContain('featured: z.boolean().default(false)');
+    expect(configSource).toContain(
+      'homepageRank: z.number().int().min(1).max(HOMEPAGE_WRITING_LIMIT).optional()',
+    );
     expect(configSource).toContain('date: z.coerce.date()');
     expect(configSource).toContain('tags: z.array(z.string())');
     expect(configSource).toContain('image: z.string()');
@@ -308,7 +313,7 @@ describe('Content Schema', () => {
       return fm?.featured === 'true' && fm?.draft !== 'true';
     });
 
-    expect(featured.map((file) => file.name)).toEqual(['six-prs-one-bug-agent-failure-modes.md']);
+    expect(featured.map((file) => file.name)).toEqual(['the-product-did-not-travel.md']);
   });
 
   // The literal below is deliberately NOT an import of `BLOG_CATEGORIES` from

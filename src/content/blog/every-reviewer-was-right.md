@@ -5,6 +5,7 @@ shortTitle: "Every Reviewer Was Right"
 description: "Two pull requests on the same automated review pipeline drew 72 Codex findings, and I could not find a wrong one. Both closed unmerged. One grew 61× from a 35-line first commit against an issue independently estimated small. The other opened at 275 lines for a bug whose issue already listed a one-word fix. Three healthy pull requests with as many review rounds showed what separated them: not volume, but whether anyone asked if the machinery containing the next finding belonged in the product at all. I was asked five times how to proceed. That question was never on the menu."
 seoDescription: "72 Codex findings I could not fault, two pull requests closed unmerged, and three healthy controls with as many rounds. Review volume was not the signal. Who owned the requirement was."
 category: "Agent Systems"
+homepageRank: 2
 author: "Nathan Payne"
 date: 2026-09-06
 tags: ["AI", "Product", "Decision Rights", "Code Review", "Systems"]
