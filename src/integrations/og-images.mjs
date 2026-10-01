@@ -197,6 +197,60 @@ export default function ogImages() {
 }
 
 /**
+ * Rendered-fit check for an OG card (#1088). `.og-content` is
+ * `overflow: hidden`, so a heading, description or tag line that runs long is
+ * clipped silently rather than failing anything, and a character cap in the
+ * template cannot see where a line wraps once the real fonts load. This
+ * measures the card in the browser after `document.fonts.ready`;
+ * `ogFitProblems` judges the result. Runs inside the page, so it must stay
+ * self-contained.
+ */
+export function measureOgCard() {
+  const content = document.querySelector('.og-content');
+  if (!content) return null;
+  const box = content.getBoundingClientRect();
+  const children = [...content.children].map((el) => {
+    const r = el.getBoundingClientRect();
+    return { className: String(el.className), top: r.top, bottom: r.bottom };
+  });
+  const meta = content.querySelector('.og-meta');
+  let metaLines = 0;
+  if (meta) {
+    const metaStyle = getComputedStyle(meta);
+    const lineHeight = parseFloat(metaStyle.lineHeight) || parseFloat(metaStyle.fontSize) * 1.2;
+    metaLines = Math.round(meta.getBoundingClientRect().height / lineHeight);
+  }
+  return { box: { top: box.top, bottom: box.bottom }, children, metaLines };
+}
+
+// The least space a block may leave between itself and the clipping edge.
+// Half the card's 52px padding: the padding is a target, and the projects
+// index card legitimately reaches into it, but text closer than this reads as
+// crammed against the frame, and past zero it is cut off.
+export const OG_MIN_CLEARANCE = 24;
+
+/**
+ * Judge a `measureOgCard` result. A card fits when every block keeps
+ * `OG_MIN_CLEARANCE` from the top and bottom of `.og-content` (the edge that
+ * clips) and the tag line stays on one line. Returns problems; empty = fits.
+ */
+export function ogFitProblems(measurement, minClearance = OG_MIN_CLEARANCE) {
+  if (!measurement) return ['no .og-content element to measure'];
+  const { box, children, metaLines } = measurement;
+  const problems = [];
+  for (const child of children) {
+    const name = child.className.split(' ')[0] || 'element';
+    const above = child.top - box.top;
+    const below = box.bottom - child.bottom;
+    if (above < minClearance) problems.push(`.${name} is ${Math.round(above)}px from the top edge`);
+    if (below < minClearance)
+      problems.push(`.${name} is ${Math.round(below)}px from the bottom edge`);
+  }
+  if (metaLines > 1) problems.push(`.og-meta wraps to ${metaLines} lines`);
+  return problems;
+}
+
+/**
  * Screenshot every og-template page at 1200×630 (2× DPR) into dist/og/.
  * Extracted from the hook body so the hook can also drive the resume PDF
  * over the same browser and static server (#616).
@@ -216,6 +270,7 @@ async function renderOgImages({ browser, baseUrl, distDir, templatePaths, logger
   // template built on BaseLayout cannot record build renders as visits.
   await blockAnalytics(context);
 
+  const misfits = [];
   try {
     for (const templatePath of templatePaths) {
       const page = await context.newPage();
@@ -224,6 +279,12 @@ async function renderOgImages({ browser, baseUrl, distDir, templatePaths, logger
 
       // Wait for fonts to load
       await page.evaluate(() => document.fonts.ready);
+
+      // Fit is checked against the rendered card, after fonts, so wrapping
+      // is real rather than estimated (#1088). Collected, then thrown once,
+      // so one build reports every card that does not fit.
+      const problems = ogFitProblems(await page.evaluate(measureOgCard));
+      if (problems.length > 0) misfits.push(`${templatePath}: ${problems.join('; ')}`);
 
       // Derive output path: og-templates/blog/slug → og/blog/slug.png
       // Special case: og-templates root pages (home, blog, projects)
@@ -241,6 +302,15 @@ async function renderOgImages({ browser, baseUrl, distDir, templatePaths, logger
     }
 
     logger.info(`Generated ${templatePaths.length} OG images`);
+    if (misfits.length > 0) {
+      throw new Error(
+        `OG cards that do not fit their 1200×630 frame once fonts load:\n  ${misfits.join('\n  ')}\n` +
+          'A wrapped .og-meta needs fewer tags. A block crowding an edge means the ' +
+          'content is too tall in total (it is centered, so the reported block may ' +
+          'not be the long one): shorten the description or title. For a project ' +
+          'card, edit its src/content/projects/ file, usually a shorter `ogDescription`.',
+      );
+    }
   } finally {
     await context.close();
   }
