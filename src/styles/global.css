@@ -4052,6 +4052,48 @@ a.tag:hover {
   background: var(--paper);
 }
 
+/* Crop-safe variant (OgCard `bleed`). Safari's Start Page tiles aspect-fill
+   the card into ~1.67:1, trimming ~6% (~75px here) off each side, and show it
+   ~225pt wide. So: no stage margin or shadow to get sliced, a wider red
+   column that survives the trim, a left inset deeper than the trim, a
+   heading big enough to read at tile size, and at most a one-line tagline. */
+.og-shell--bleed {
+  padding: 0;
+}
+
+.og-shell--bleed .og-card {
+  grid-template-columns: var(--line) 2.4fr var(--line) 1fr var(--line) 1.2fr var(--line) 0.75fr var(
+      --line
+    );
+  grid-template-rows: var(--line) 1fr var(--line) 4.5rem var(--line) 3rem var(--line);
+  border: 0;
+  box-shadow: none;
+}
+
+.og-shell--bleed .og-content {
+  padding: 48px 64px 48px 112px;
+}
+
+.og-shell--bleed .og-label {
+  font-size: 22px;
+  margin-bottom: 10px;
+}
+
+.og-shell--bleed .og-heading {
+  font-size: 150px;
+  line-height: 0.95;
+  margin: 0 0 22px;
+  white-space: nowrap;
+}
+
+/* One line, so it reads as a tagline rather than a paragraph shrunk to
+   tile size. Keep the homepage tagline short enough to fit unwrapped. */
+.og-shell--bleed .og-description {
+  font-size: 30px;
+  max-width: none;
+  white-space: nowrap;
+}
+
 /* ── Blog Post: Mondrian "Composition with Margins" Canvas ────
    Three-column grid: accent margin | content | sticky sidebar.
    Grid lines created by --ink background showing through gaps.
