@@ -1558,6 +1558,26 @@ describe('Project OG cards (#1088)', () => {
     }
   });
 
+  it('renders each card with its own frontmatter: title, card line and tags', () => {
+    // The PNG check above proves a card exists, not what it says; a template
+    // that swapped two fields would still pass it. The OG integration records
+    // each card's rendered text in Astro's cache directory (the template HTML
+    // is gone from dist/ by now), so compare that to the source (#1089).
+    const manifestPath = resolve(__dirname, '../node_modules/.astro/og-cards.json');
+    expect(existsSync(manifestPath), 'og-cards.json missing: run the build first').toBe(true);
+    const cards = JSON.parse(readFileSync(manifestPath, 'utf-8'));
+    for (const file of projectSourceFiles()) {
+      const data = readProjectFrontmatter(file);
+      if (data.draft === true) continue;
+      expect(cards[`projects/${data.slug}`], `${data.slug} OG card text`).toEqual({
+        label: 'nathanpayne.com / projects',
+        heading: data.title,
+        description: data.ogDescription ?? data.description,
+        meta: data.tags.join(' · '),
+      });
+    }
+  });
+
   it('renders a card PNG for every published project at the path its page names', () => {
     for (const file of projectSourceFiles()) {
       const data = readProjectFrontmatter(file);

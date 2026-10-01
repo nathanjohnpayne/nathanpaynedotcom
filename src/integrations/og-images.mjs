@@ -23,7 +23,7 @@
  * @see Issue #683 — PDF links froze at the localhost render origin
  */
 
-import { readdir, mkdir, rm, stat } from 'node:fs/promises';
+import { readdir, mkdir, rm, stat, writeFile } from 'node:fs/promises';
 import { join, dirname, basename, resolve, sep } from 'node:path';
 import { createServer } from 'node:http';
 import { createReadStream } from 'node:fs';
@@ -118,12 +118,16 @@ export default function ogImages() {
   // the resolved config, and the resume PDF needs the production origin to
   // absolutize its links (#683).
   let siteUrl;
+  // Where the rendered card text is recorded for tests: Astro's cache
+  // directory, not dist/, so the record is never deployed.
+  let cacheDir;
 
   return {
     name: 'og-images',
     hooks: {
       'astro:config:done': ({ config }) => {
         siteUrl = config.site;
+        cacheDir = fileURLToPath(config.cacheDir);
       },
       'astro:build:done': async ({ dir, logger }) => {
         // `dir` is a URL object. `dir.pathname` yields `/C:/path/...` on
@@ -158,7 +162,14 @@ export default function ogImages() {
           browser = await chromium.launch();
 
           if (templatePaths.length > 0) {
-            await renderOgImages({ browser, baseUrl, distDir, templatePaths, logger });
+            await renderOgImages({
+              browser,
+              baseUrl,
+              distDir,
+              templatePaths,
+              logger,
+              manifestPath: join(cacheDir, OG_CARD_MANIFEST),
+            });
           }
 
           // Build-time resume PDF (#616) — reuses this browser and server.
@@ -255,7 +266,26 @@ export function ogFitProblems(measurement, minClearance = OG_MIN_CLEARANCE) {
  * Extracted from the hook body so the hook can also drive the resume PDF
  * over the same browser and static server (#616).
  */
-async function renderOgImages({ browser, baseUrl, distDir, templatePaths, logger }) {
+/**
+ * The text each card rendered, keyed by template path (`projects/<slug>`),
+ * written to Astro's cache directory after every build. The template HTML is
+ * deleted from dist/ when the screenshots are done, so this is the only place
+ * a test can check that a card shows what its frontmatter says (#1089).
+ */
+export const OG_CARD_MANIFEST = 'og-cards.json';
+
+/** Runs inside the page, so it must stay self-contained. */
+export function readOgCardText() {
+  const text = (selector) => document.querySelector(selector)?.textContent.trim() ?? null;
+  return {
+    label: text('.og-label'),
+    heading: text('.og-heading'),
+    description: text('.og-description'),
+    meta: text('.og-meta'),
+  };
+}
+
+async function renderOgImages({ browser, baseUrl, distDir, templatePaths, logger, manifestPath }) {
   logger.info('Generating OG images...');
 
   // Create output directory
@@ -271,6 +301,7 @@ async function renderOgImages({ browser, baseUrl, distDir, templatePaths, logger
   await blockAnalytics(context);
 
   const misfits = [];
+  const cards = {};
   try {
     for (const templatePath of templatePaths) {
       const page = await context.newPage();
@@ -285,6 +316,7 @@ async function renderOgImages({ browser, baseUrl, distDir, templatePaths, logger
       // so one build reports every card that does not fit.
       const problems = ogFitProblems(await page.evaluate(measureOgCard));
       if (problems.length > 0) misfits.push(`${templatePath}: ${problems.join('; ')}`);
+      cards[templatePath] = await page.evaluate(readOgCardText);
 
       // Derive output path: og-templates/blog/slug → og/blog/slug.png
       // Special case: og-templates root pages (home, blog, projects)
@@ -302,6 +334,8 @@ async function renderOgImages({ browser, baseUrl, distDir, templatePaths, logger
     }
 
     logger.info(`Generated ${templatePaths.length} OG images`);
+    await mkdir(dirname(manifestPath), { recursive: true });
+    await writeFile(manifestPath, `${JSON.stringify(cards, null, 2)}\n`);
     if (misfits.length > 0) {
       throw new Error(
         `OG cards that do not fit their 1200×630 frame once fonts load:\n  ${misfits.join('\n  ')}\n` +
