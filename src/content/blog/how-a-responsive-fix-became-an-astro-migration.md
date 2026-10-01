@@ -2,7 +2,7 @@
 title: "How Making a Page Responsive Led to a Full Astro Site Implementation"
 seoTitle: "How Making a Page Responsive Led to Astro"
 shortTitle: "Responsive Fix to Astro"
-description: "A mobile overflow bug on one blog post exposed a hand-rolled chassis—seven duplicated HTML pages—whose publishing workflow could not support a real cadence. The fix led to an Astro scaffold four hours later, every tracked migration phase closed by that evening, and a dependency bill accepted knowingly."
+description: "A mobile overflow bug on one post was the first visible symptom of seven hand-maintained HTML pages duplicating the same chrome. The fix merged; four hours later, so did an Astro scaffold. Why that afternoon was the cheapest moment to decide, and what it cost."
 seoDescription: "A mobile overflow bug exposed seven duplicated HTML pages. Why this site scaffolded Astro that afternoon and closed every migration phase that day."
 category: "Building This Site"
 author: "Nathan Payne"

@@ -2,7 +2,7 @@
 title: "A Perfect Score on the Wrong Axis: 116 Review Findings, Zero Rejected, One Escape"
 seoTitle: "A Perfect Score on the Wrong Axis"
 shortTitle: "Perfect Score, Wrong Axis"
-description: "An eleven-PR review record held 134 finding threads and 122 recorded dispositions with zero rejections—and still shipped a P1, posted by CodeRabbit 94 seconds after the batch's last backlog merge. The rule the defect turned on had been raised in a blocking review on a sibling PR twelve hours earlier, then fixed and reference-validated there. The record measured closure, not coverage, and nothing carried knowledge across a PR boundary."
+description: "An eleven-PR review batch recorded 122 finding dispositions and zero rejections, then shipped a P1 anyway. The rule the defect turned on had been raised, fixed, and validated twelve hours earlier—on a sibling PR. A perfect record, measuring the wrong thing."
 seoDescription: "An AI review batch recorded 122 finding dispositions with zero rejections and still shipped a P1. Every brief was scoped to one diff, so nothing carried the rule across a PR boundary."
 category: "Agent Systems"
 author: "Nathan Payne"
