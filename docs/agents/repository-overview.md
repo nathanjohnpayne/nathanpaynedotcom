@@ -103,7 +103,9 @@ npm run build && npm run og:refresh
 
 `npm run og:refresh` mirrors every card in `dist/og/**` into `screenshots/og/`, flattening `dist/og/<section>/<slug>.png` to `<section>-<slug>.png`, and deletes references whose template no longer exists. `--dry-run` reports without writing.
 
-**Do not diff these as bytes.** PNG encoding varies between runs, so every file differs byte-wise from a freshly built counterpart even when the rendered card is identical—`cmp` reports drift everywhere and is useless as a staleness check. Whether a card *should* have changed is a human read (#876).
+**Do not diff these as bytes.** PNG encoding varies between environments, so a committed reference routinely differs byte-wise from a fresh build even when the rendered card is identical—`cmp` reports drift everywhere and is useless as a staleness check. Whether a card *should* have changed is a human read (#876).
+
+To find which cards actually changed, diff pixels instead. On the #1089 refresh, rasterization noise was 70–270 pixels per card, confined to text edges, while every real change (a new tag, a reworded description, a reading time that had moved) ran to thousands. Count pixels whose channel difference exceeds 16 and read anything far above the noise band; that is how the refresh found four references already stale before it.
 
 ---
 
