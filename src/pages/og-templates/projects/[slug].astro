@@ -8,11 +8,12 @@ import OgCard from '../../../layouts/OgCard.astro';
 // /og/projects/<slug>.png, which is what each detail page's og:image names.
 
 export async function getStaticPaths() {
-  // The longest description the card sets without crowding the meta line at
-  // 24px across its 780px measure. Fail the build rather than ship an
-  // overflowing card: a project whose `description` runs longer gives the card
-  // its own `ogDescription`, the way Matchline does. Declared here because
-  // Astro runs getStaticPaths in its own scope, without module-level bindings.
+  // An early, cheap guard with a precise fix. The authority on fit is the
+  // rendered check in src/integrations/og-images.mjs, which measures every card
+  // after fonts load; this cap fails sooner and names the remedy: a project
+  // whose `description` runs longer gives the card its own `ogDescription`, the
+  // way Matchline does. Declared here because Astro runs getStaticPaths in its
+  // own scope, without module-level bindings.
   const OG_DESCRIPTION_MAX = 180;
   const projects = await getCollection('projects', ({ data }) => !data.draft);
   return projects.map(({ data }) => {

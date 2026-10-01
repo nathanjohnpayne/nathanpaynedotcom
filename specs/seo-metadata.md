@@ -54,6 +54,7 @@ These are the invariants that distinguish "SEO tags exist" from "SEO actually wo
 4. Within a page, `og:image` and `twitter:image` point at the same URL.
 5. Within a page, `og:image:secure_url` matches `og:image` when both are present.
 6. Per-item OG cards are generated from content frontmatter, never hand-typed: blog cards by `src/pages/og-templates/blog/[...slug].astro`, project cards by `src/pages/og-templates/projects/[slug].astro` (#1088). A hand-written per-project template is what let two project cards drift from the pages they describe.
+7. Every OG card fits its frame as rendered. After `document.fonts.ready`, `src/integrations/og-images.mjs` measures each card and fails the build when a block sits closer than 24px to the clipping edge of `.og-content` or the tag line wraps. `.og-content` is `overflow: hidden`, so without this an overlong card is cut off silently. Enforced at build time; the judgment is unit-tested in `tests/og-fit.test.js`.
 
 ## Integration Requirements (Astro build hooks)
 
