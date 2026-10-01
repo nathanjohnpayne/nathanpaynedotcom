@@ -2,7 +2,7 @@
 title: "Silence Is Not an Approval"
 seoTitle: "Silence Is Not an Approval"
 shortTitle: "Silence Is Not an Approval"
-description: "My AI review pipeline kept counting a reviewer that could not answer as one that had. Each fix made it safer, and none retired the cause, because the cause was not in any one code path. It was an unanswered product question, and the answer was mine to give."
+description: "My AI review pipeline kept counting a reviewer that could not answer as one that had. Each fix made it safer, and none retired the cause. Underneath sat a product question: is reviewer availability a requirement with an owner, or an implementation detail found one incident at a time?"
 seoDescription: "An AI code review pipeline that read a reviewer's silence as approval, why case-by-case fixes did not retire the cause, and the product decision that set a rule for making progress when evidence is missing."
 category: "Agent Systems"
 homepageRank: 3

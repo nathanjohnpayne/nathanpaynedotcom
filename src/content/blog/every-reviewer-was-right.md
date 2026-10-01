@@ -2,7 +2,7 @@
 title: "Every Reviewer Was Right, and the Pull Request Was Still Wrong"
 seoTitle: "Every Reviewer Was Right"
 shortTitle: "Every Reviewer Was Right"
-description: "Two pull requests drew 72 Codex findings. I could not fault one, and both closed unmerged. One grew from 35 lines to 2,136 for a requirement that later shipped in 377. I was asked five times how to proceed. The question that mattered was never on the menu."
+description: "Two pull requests drew 72 Codex findings. I could not fault one, and both closed unmerged. One grew from 35 lines to 2,136 for a requirement that later shipped in 377. I was asked five times how to proceed, never whether the machinery under review still belonged in the product."
 seoDescription: "72 Codex findings I could not fault, two pull requests closed unmerged, and three healthy controls with as many rounds. Review volume was not the signal. Who owned the requirement was."
 category: "Agent Systems"
 homepageRank: 2
