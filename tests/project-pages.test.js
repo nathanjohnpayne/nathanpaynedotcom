@@ -1526,3 +1526,44 @@ describe('Project hero CTA tracking', () => {
     }
   });
 });
+
+// #1088 — project OG cards come from frontmatter. Seven hand-typed templates
+// used to live beside the generated one's location, and two had drifted from
+// the content files they described. These pin the shape that prevents it: one
+// generated template, no per-project copies, and a card line that fits.
+describe('Project OG cards (#1088)', () => {
+  const OG_PROJECTS = resolve(__dirname, '../src/pages/og-templates/projects');
+
+  it('generates every card from one template rather than per-project copies', () => {
+    expect(readdirSync(OG_PROJECTS).sort()).toEqual(['[slug].astro']);
+    const source = readFileSync(join(OG_PROJECTS, '[slug].astro'), 'utf-8');
+    expect(source).toMatch(/getCollection\('projects'/);
+    expect(source).toMatch(/data\.ogDescription \?\? data\.description/);
+  });
+
+  it('keeps every published card line within the template cap', () => {
+    const source = readFileSync(join(OG_PROJECTS, '[slug].astro'), 'utf-8');
+    const cap = Number(source.match(/OG_DESCRIPTION_MAX = (\d+)/)?.[1]);
+    expect(cap, 'could not read OG_DESCRIPTION_MAX from the template').toBeGreaterThan(0);
+    for (const file of projectSourceFiles()) {
+      const data = readProjectFrontmatter(file);
+      if (data.draft === true) continue;
+      const line = data.ogDescription ?? data.description;
+      expect(
+        line.length,
+        `${file} OG card line exceeds the ${cap}-character cap`,
+      ).toBeLessThanOrEqual(cap);
+    }
+  });
+
+  it('renders a card PNG for every published project at the path its page names', () => {
+    for (const file of projectSourceFiles()) {
+      const data = readProjectFrontmatter(file);
+      if (data.draft === true) continue;
+      expect(
+        existsSync(resolve(DIST, `og/projects/${data.slug}.png`)),
+        `${data.slug} OG card missing`,
+      ).toBe(true);
+    }
+  });
+});

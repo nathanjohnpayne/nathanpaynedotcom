@@ -1,0 +1,42 @@
+---
+import { getCollection } from 'astro:content';
+import OgCard from '../../../layouts/OgCard.astro';
+
+// The card is the project's frontmatter, not a second copy of it (#1088).
+// Seven hand-typed templates used to live here, and two of their descriptions
+// had drifted from the content files they described. The PNG path is still
+// /og/projects/<slug>.png, which is what each detail page's og:image names.
+
+export async function getStaticPaths() {
+  // The longest description the card sets without crowding the meta line at
+  // 24px across its 780px measure. Fail the build rather than ship an
+  // overflowing card: a project whose `description` runs longer gives the card
+  // its own `ogDescription`, the way Matchline does. Declared here because
+  // Astro runs getStaticPaths in its own scope, without module-level bindings.
+  const OG_DESCRIPTION_MAX = 180;
+  const projects = await getCollection('projects', ({ data }) => !data.draft);
+  return projects.map(({ data }) => {
+    const description = data.ogDescription ?? data.description;
+    if (description.length > OG_DESCRIPTION_MAX) {
+      throw new Error(
+        `OG card for "${data.slug}" has a ${description.length}-character description; ` +
+          `the card fits ${OG_DESCRIPTION_MAX}. Add a shorter \`ogDescription\` to ` +
+          `its file in src/content/projects/.`,
+      );
+    }
+    return {
+      params: { slug: data.slug },
+      props: { heading: data.title, description, meta: data.tags.join(' · ') },
+    };
+  });
+}
+
+const { heading, description, meta } = Astro.props;
+---
+
+<OgCard
+  label="nathanpayne.com / projects"
+  heading={heading}
+  description={description}
+  meta={meta}
+/>

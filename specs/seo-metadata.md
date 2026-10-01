@@ -53,6 +53,7 @@ These are the invariants that distinguish "SEO tags exist" from "SEO actually wo
 3. Every such URL resolves to a regular file (not a directory) in `dist/`. Path resolution uses WHATWG URL parsing with a `path.relative` containment check against the dist root, so path-traversal URLs (`../etc/passwd`) cannot escape. `?v=<hash>` cache-bust query strings are stripped before file resolution.
 4. Within a page, `og:image` and `twitter:image` point at the same URL.
 5. Within a page, `og:image:secure_url` matches `og:image` when both are present.
+6. Per-item OG cards are generated from content frontmatter, never hand-typed: blog cards by `src/pages/og-templates/blog/[...slug].astro`, project cards by `src/pages/og-templates/projects/[slug].astro` (#1088). A hand-written per-project template is what let two project cards drift from the pages they describe.
 
 ## Integration Requirements (Astro build hooks)
 
