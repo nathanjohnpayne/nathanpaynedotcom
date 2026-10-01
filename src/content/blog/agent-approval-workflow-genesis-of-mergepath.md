@@ -2,7 +2,7 @@
 title: "Agent Approval Workflow and the Genesis of Mergepath"
 seoTitle: "Agent Approval Workflow and Mergepath"
 shortTitle: "Agent Approval Workflow"
-description: "AI coding agents, like humans, will skip code review if you let them. Three weeks of watched failures turned a written rule into layered enforcement—branch rules, a local PR-creation hook, reviewer identities, automated Codex review—with every control named by where it runs and whom it binds."
+description: "AI coding agents, like humans, skip code review when nothing stops them, and instruction files did not stop them. Three weeks of watched failures built the layered enforcement behind Mergepath. The model that tried to push straight to main also shipped clean code."
 seoDescription: "How AI coding agents skip review, and the layered enforcement behind Mergepath: branch rules, reviewer identities, and automated Codex review."
 category: "Agent Systems"
 author: "Nathan Payne"
