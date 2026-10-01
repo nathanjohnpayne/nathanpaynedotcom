@@ -61,7 +61,7 @@ draft: false
 | `title` | string | yes | Page title, hero heading, JSON-LD name |
 | `slug` | string | yes | URL path segment; must match filename, and must be unique across the whole collection. `getStaticPaths` keys the route on this field, not on the file path, so two files in different directories declaring the same `slug` collide on one route—see § Slug uniqueness |
 | `description` | string | yes | Hero deck text, meta description, JSON-LD |
-| `cardDescription` | string | no | The `/projects/` index card line. Falls back to `description` when absent. Exists so the index card and the detail-page hero deck can differ: one field cannot serve both a hero paragraph and a card in a seven-up grid, and sharing it meant every hero edit was also a card edit and pushed the card spread to 107–244 characters (#751). A card line gives one reason to open the page—a decision, a constraint, an outcome—not a feature list; `stack` carries the technology roster. Guarded by `tests/project-pages.test.js` (proof-point shape, length band, status consistency) |
+| `cardDescription` | string | no | The `/projects/` index card line, and the sentence under each project on the homepage Projects panel (#1085). Falls back to `description` when absent. Exists so the index card and the detail-page hero deck can differ: one field cannot serve both a hero paragraph and a card in a seven-up grid, and sharing it meant every hero edit was also a card edit and pushed the card spread to 107–244 characters (#751). A card line gives one reason to open the page—a decision, a constraint, an outcome—not a feature list; `stack` carries the technology roster. Guarded by `tests/project-pages.test.js` (proof-point shape, length band, status consistency) |
 | `kicker` | string | yes | Source for the metadata table's `Topics` column (e.g., "AI × Finance × Theater" → renders as `AI · Finance · Theater`). Field name kept for frontmatter back-compat |
 | `order` | non-negative integer | yes | Position on the `/projects/` index grid (lower = first). Governs `/projects/` **only**—the homepage Builds grid is hand-authored markup and ignores this field. See § Canonical project ordering |
 | `screenshotAspect` | `"wide"` \| `"narrow"` | yes | Layout variant—see below |
@@ -280,17 +280,9 @@ instruction from the owner.
 
 ### It lives in two places, and only one of them is enforced
 
-`order` drives `/projects/`—`src/pages/projects/index.astro` sorts the
-collection by it. The **homepage Builds grid does not read the collection at
-all**: `src/pages/index.astro` calls `getCollection` only for `blog`, and the
-project list is hand-authored anchors. Editing `order` alone changes `/projects/`
-and silently leaves the homepage on its old sequence.
+`order` drives `/projects/`—`src/pages/projects/index.astro` sorts the collection by it. The **homepage Builds grid does not sort by it**: its rows are hand-authored anchors in a fixed sequence. `src/pages/index.astro` reads the projects collection only to look up each listed slug's lifecycle status (#892) and card line (#1085), so a status or `cardDescription` edit reaches the homepage on its own, but editing `order` alone changes `/projects/` and silently leaves the homepage on its old sequence.
 
-Nothing in the build catches that divergence, and it had already happened once
-before this was written. When you reorder, change both, and update the
-order-sensitive fixtures in `tests/project-pages.test.js`
-(`canonicalProjectCards`, `homepageProjectDescriptions`) and
-`tests/resume.test.js`, which assert the rendered sequence on all three surfaces.
+Nothing in the build catches that divergence, and it had already happened once before this was written. When you reorder, change both, and update the order-sensitive fixture in `tests/project-pages.test.js` (`canonicalProjectCards`, from which the homepage card-line expectation is derived) and `tests/resume.test.js`, which assert the rendered sequence on all three surfaces.
 
 ---
 
