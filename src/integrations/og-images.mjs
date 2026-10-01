@@ -305,8 +305,10 @@ async function renderOgImages({ browser, baseUrl, distDir, templatePaths, logger
     if (misfits.length > 0) {
       throw new Error(
         `OG cards that do not fit their 1200×630 frame once fonts load:\n  ${misfits.join('\n  ')}\n` +
-          'For a project card, give the project a shorter `ogDescription` in its ' +
-          'src/content/projects/ file; otherwise shorten the title or tags.',
+          'A wrapped .og-meta needs fewer tags. A block crowding an edge means the ' +
+          'content is too tall in total (it is centered, so the reported block may ' +
+          'not be the long one): shorten the description or title. For a project ' +
+          'card, edit its src/content/projects/ file, usually a shorter `ogDescription`.',
       );
     }
   } finally {
