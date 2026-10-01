@@ -23,11 +23,12 @@ describe('OG card bleed variant', () => {
 
     expect(source).toMatch(/^\s*bleed\s*$/m);
     // The bleed tagline is `white-space: nowrap` inside an `overflow: hidden`
-    // box, so a long one would be clipped silently rather than wrap. 60
-    // characters fits the 1200px card at 30px Inter with room to spare.
+    // box, so a long one would be clipped silently rather than wrap. At 30px
+    // Inter it runs ~14.8px a character from the 112px inset; 55 characters
+    // (~930px) stays inside the content box's ~956px right padding edge.
     const tagline = source.match(/description="([^"]*)"/);
     expect(tagline).not.toBeNull();
-    expect(tagline[1].length).toBeLessThanOrEqual(60);
+    expect(tagline[1].length).toBeLessThanOrEqual(55);
   });
 
   it("keeps the bleed text inset deeper than Safari's side trim", () => {
