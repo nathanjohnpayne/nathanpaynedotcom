@@ -25,9 +25,10 @@ const projects = defineCollection({
       // line on both surfaces simply omits it.
       cardDescription: z.string().trim().min(1).optional(),
       // The Open Graph card's line, for a project whose `description` is too
-      // long for the 1200x630 card. Falls back to `description`; the generated
-      // template (og-templates/projects/[slug].astro) fails the build past its
-      // length cap rather than shipping an overflowing card (#1088).
+      // long for the 1200x630 card. Falls back to `description`. The build fails
+      // rather than shipping an overflowing card, at either check: the template's
+      // length cap (og-templates/projects/[slug].astro) or the rendered fit
+      // check after fonts load (src/integrations/og-images.mjs) (#1088).
       ogDescription: z.string().trim().min(1).optional(),
       kicker: z.string(),
       // Non-negative integer: `accent` is derived as RAMP[order % 5], so a

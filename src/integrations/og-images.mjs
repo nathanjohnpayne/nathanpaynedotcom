@@ -304,7 +304,9 @@ async function renderOgImages({ browser, baseUrl, distDir, templatePaths, logger
     logger.info(`Generated ${templatePaths.length} OG images`);
     if (misfits.length > 0) {
       throw new Error(
-        `OG cards that do not fit their 1200×630 frame once fonts load:\n  ${misfits.join('\n  ')}`,
+        `OG cards that do not fit their 1200×630 frame once fonts load:\n  ${misfits.join('\n  ')}\n` +
+          'For a project card, give the project a shorter `ogDescription` in its ' +
+          'src/content/projects/ file; otherwise shorten the title or tags.',
       );
     }
   } finally {
