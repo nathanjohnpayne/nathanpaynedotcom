@@ -18,11 +18,16 @@ describe('OG card bleed variant', () => {
     expect(source).toMatch(/'og-shell--bleed':\s*bleed/);
   });
 
-  it('renders the homepage card as bleed, name only', () => {
+  it('renders the homepage card as bleed with a one-line tagline', () => {
     const source = readFileSync(HOME_TEMPLATE, 'utf-8');
 
     expect(source).toMatch(/^\s*bleed\s*$/m);
-    expect(source).not.toMatch(/description=/);
+    // The bleed tagline is `white-space: nowrap` inside an `overflow: hidden`
+    // box, so a long one would be clipped silently rather than wrap. 60
+    // characters fits the 1200px card at 30px Inter with room to spare.
+    const tagline = source.match(/description="([^"]*)"/);
+    expect(tagline).not.toBeNull();
+    expect(tagline[1].length).toBeLessThanOrEqual(60);
   });
 
   it("keeps the bleed text inset deeper than Safari's side trim", () => {
