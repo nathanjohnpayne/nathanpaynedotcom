@@ -21,6 +21,18 @@ const projectEntries = await getCollection('projects', ({ data }) => !data.draft
 const projectStatus = Object.fromEntries(
   projectEntries.map((project) => [project.data.slug, project.data.status]),
 );
+// Each row's sentence is the project's own card line, the same one /projects/
+// renders (`cardDescription`, falling back to `description`). Before #1085 these
+// were typed here and drifted from the #751 card lines: feature lists under a
+// lede that promises decisions, and present-tense operating verbs beside a
+// PAUSED or ARCHIVED mark. One source means the #751 length, proof-point and
+// status checks govern this surface too.
+const projectCardLine = Object.fromEntries(
+  projectEntries.map((project) => [
+    project.data.slug,
+    project.data.cardDescription ?? project.data.description,
+  ]),
+);
 // Fail closed rather than degrade. A hard-coded slug that is renamed or marked
 // draft would otherwise render a row with an empty status pointing at a page
 // `[slug].astro` no longer generates — a dead link and a missing state, both
@@ -44,6 +56,11 @@ const statusOf = (slug: string) => {
 // shared with /projects/ and the detail-page STATUS cell; see
 // src/lib/lifecycle-marker.ts for why it is one module rather than three copies.
 const statusClass = (slug: string) => stateMarkerClass(statusOf(slug), 'p-status');
+const cardLineOf = (slug: string) => {
+  // statusOf first, so an unpublished slug fails closed with its message (#893).
+  statusOf(slug);
+  return projectCardLine[slug];
+};
 
 const latestPost = chronologicalPosts[0];
 
@@ -227,8 +244,9 @@ const homepageJsonLd = {
                 a project may be omitted here while still appearing on /projects/.
                 What must hold is the relative order — whatever subset is listed
                 follows the canonical sequence in specs/project-pages.md
-                § Canonical project ordering. Lifecycle labels are looked up from
-                frontmatter rather than typed, so only the sequence is by hand.
+                § Canonical project ordering. Lifecycle labels (#892) and the row
+                sentence (#1085) are looked up from frontmatter rather than typed,
+                so only the sequence is by hand.
                 Guarded by tests/homepage-writing.test.js (#892). */}
             <div class="project-list">
               <div class="project-item">
@@ -236,49 +254,49 @@ const homepageJsonLd = {
                   <a class="p-name p-name-link" href="/projects/five-across/" aria-label="Read the Five Across project page">Five Across<span class="link-arrow" aria-hidden="true">→</span></a>
                   <span class={statusClass('five-across')}>{statusOf('five-across')}</span>
                 </div>
-                <p>A multiplayer bingo game built for a nine-night cruise, with daily themed cards, offline-first marking, live standings, and a choreographed finale.</p>
+                <p>{cardLineOf('five-across')}</p>
               </div>
               <div class="project-item">
                 <div class="p-head">
                   <a class="p-name p-name-link" href="/projects/mergepath/" aria-label="Read the Mergepath project page">Mergepath<span class="link-arrow" aria-hidden="true">→</span></a>
                   <span class={statusClass('mergepath')}>{statusOf('mergepath')}</span>
                 </div>
-                <p>A repository standard for the gap between what a fleet of AI coding agents can produce and what one operator can responsibly stand behind.</p>
+                <p>{cardLineOf('mergepath')}</p>
               </div>
               <div class="project-item">
                 <div class="p-head">
                   <a class="p-name p-name-link" href="/projects/override/" aria-label="Read the Override project page">Override<span class="link-arrow" aria-hidden="true">→</span></a>
                   <span class={statusClass('override')}>{statusOf('override')}</span>
                 </div>
-                <p>A financial operating system for Broadway productions—models capitalization and investor returns, manages ownership, and shares a read-only deal room with backers instead of spreadsheet and PDF workflows.</p>
+                <p>{cardLineOf('override')}</p>
               </div>
               <div class="project-item">
                 <div class="p-head">
                   <a class="p-name p-name-link" href="/projects/device-source-of-truth/" aria-label="Read the Device Source of Truth project page">Device Source of Truth<span class="link-arrow" aria-hidden="true">→</span></a>
                   <span class={statusClass('device-source-of-truth')}>{statusOf('device-source-of-truth')}</span>
                 </div>
-                <p>A single web application that tracks partner-device hardware, DRM, codec support, and operational readiness—unifying fragmented device data while keeping consequential changes behind human review.</p>
+                <p>{cardLineOf('device-source-of-truth')}</p>
               </div>
               <div class="project-item">
                 <div class="p-head">
                   <a class="p-name p-name-link" href="/projects/matchline/" aria-label="Read the Matchline project page">Matchline<span class="link-arrow" aria-hidden="true">→</span></a>
                   <span class={statusClass('matchline')}>{statusOf('matchline')}</span>
                 </div>
-                <p>A career CRM for one person running a serious job search—turns work history into approved evidence, maps it against a specific job&rsquo;s requirements, and blocks the export when a claim doesn&rsquo;t trace back.</p>
+                <p>{cardLineOf('matchline')}</p>
               </div>
               <div class="project-item">
                 <div class="p-head">
                   <a class="p-name p-name-link" href="/projects/swipe-watch/" aria-label="Read the Swipe Watch project page">Swipe Watch<span class="link-arrow" aria-hidden="true">→</span></a>
                   <span class={statusClass('swipe-watch')}>{statusOf('swipe-watch')}</span>
                 </div>
-                <p>A swipe-based discovery experiment for Disney+ and Hulu that turns expressing taste into a game—built in vanilla JS across three days of one week.</p>
+                <p>{cardLineOf('swipe-watch')}</p>
               </div>
               <div class="project-item">
                 <div class="p-head">
                   <a class="p-name p-name-link" href="/projects/friends-and-family-billing/" aria-label="Read the Friends and Family Billing project page">Friends &amp; Family Billing<span class="link-arrow" aria-hidden="true">→</span></a>
                   <span class={statusClass('friends-and-family-billing')}>{statusOf('friends-and-family-billing')}</span>
                 </div>
-                <p>Shared billing for recurring household costs—showing recipients the arithmetic, tracking settlement, and handling questions without requiring an account.</p>
+                <p>{cardLineOf('friends-and-family-billing')}</p>
               </div>
             </div>
             {/* The footer's content line (#984, switch removed in #991).

@@ -63,15 +63,17 @@ const canonicalProjectCards = [
   { title: 'Friends & Family Billing', href: '/projects/friends-and-family-billing/' },
 ];
 
-const homepageProjectDescriptions = [
-  'A multiplayer bingo game built for a nine-night cruise, with daily themed cards, offline-first marking, live standings, and a choreographed finale.',
-  'A repository standard for the gap between what a fleet of AI coding agents can produce and what one operator can responsibly stand behind.',
-  'A financial operating system for Broadway productions—models capitalization and investor returns, manages ownership, and shares a read-only deal room with backers instead of spreadsheet and PDF workflows.',
-  'A single web application that tracks partner-device hardware, DRM, codec support, and operational readiness—unifying fragmented device data while keeping consequential changes behind human review.',
-  'A career CRM for one person running a serious job search—turns work history into approved evidence, maps it against a specific job’s requirements, and blocks the export when a claim doesn’t trace back.',
-  'A swipe-based discovery experiment for Disney+ and Hulu that turns expressing taste into a game—built in vanilla JS across three days of one week.',
-  'Shared billing for recurring household costs—showing recipients the arithmetic, tracking settlement, and handling questions without requiring an account.',
-];
+// #1085: the homepage rows render each project's own card line, the one
+// /projects/ shows, so the expectation is read from that frontmatter rather than
+// pinned as a second copy. A pinned copy is what let the homepage keep its
+// pre-#751 blurbs after the card lines were rewritten.
+function homepageProjectCardLines() {
+  return canonicalProjectCards.map(({ href }) => {
+    const slug = href.split('/').filter(Boolean).pop();
+    const data = readProjectFrontmatter(projectSourceFor(slug));
+    return data.cardDescription ?? data.description;
+  });
+}
 
 // The canonical six-row Mondrian sequence from #733. Its geometry cycles, but
 // accent placement is boundary-aware: later `grid-row--1` entries open with
@@ -269,10 +271,10 @@ describe('Project Pages — routes', () => {
     expect(projectItems.map((item) => item.querySelector('.p-name')?.getAttribute('href'))).toEqual(
       canonicalProjectCards.map((card) => card.href),
     );
-    expect(projectItems.map((item) => item.querySelector('p')?.textContent)).toEqual(
-      homepageProjectDescriptions,
-    );
-    expect(homepageProjectDescriptions.join(' ')).not.toMatch(/\b(?:you|your)\b/i);
+    const cardLines = homepageProjectCardLines();
+    expect(cardLines.every(Boolean), 'a homepage project has no card line').toBe(true);
+    expect(projectItems.map((item) => item.querySelector('p')?.textContent)).toEqual(cardLines);
+    expect(cardLines.join(' ')).not.toMatch(/\b(?:you|your)\b/i);
   });
 
   it('the projects index renders the canonical project order and updated Matchline copy', () => {
