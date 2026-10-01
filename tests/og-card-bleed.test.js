@@ -25,13 +25,16 @@ describe('OG card bleed variant', () => {
     expect(source).not.toMatch(/description=/);
   });
 
-  it('keeps the bleed text inset deeper than Safari\'s side trim', () => {
+  it("keeps the bleed text inset deeper than Safari's side trim", () => {
     const css = readFileSync(GLOBAL_CSS, 'utf-8');
     const rule = css.match(/\.og-shell--bleed \.og-content \{([^}]*)\}/);
     expect(rule).not.toBeNull();
 
     // padding: top right bottom left — the 1200px card loses ~75px per side.
-    const [, , , left] = rule[1].match(/padding:\s*([^;]+);/)[1].trim().split(/\s+/);
+    const [, , , left] = rule[1]
+      .match(/padding:\s*([^;]+);/)[1]
+      .trim()
+      .split(/\s+/);
     expect(parseInt(left, 10)).toBeGreaterThan(75);
   });
 });
