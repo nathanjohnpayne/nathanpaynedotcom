@@ -211,7 +211,19 @@ export function measureOgCard() {
   const box = content.getBoundingClientRect();
   const children = [...content.children].map((el) => {
     const r = el.getBoundingClientRect();
-    return { className: String(el.className), top: r.top, bottom: r.bottom };
+    // Horizontal extent comes from the ink, not the block: an h1 or p
+    // stretches to the full content width, so its own box can never show a
+    // line running past the edge. A Range over the contents can (#1092).
+    const range = document.createRange();
+    range.selectNodeContents(el);
+    const ink = range.getBoundingClientRect();
+    return {
+      className: String(el.className),
+      top: r.top,
+      bottom: r.bottom,
+      inkLeft: ink.left,
+      inkRight: ink.right,
+    };
   });
   const meta = content.querySelector('.og-meta');
   let metaLines = 0;
@@ -220,7 +232,11 @@ export function measureOgCard() {
     const lineHeight = parseFloat(metaStyle.lineHeight) || parseFloat(metaStyle.fontSize) * 1.2;
     metaLines = Math.round(meta.getBoundingClientRect().height / lineHeight);
   }
-  return { box: { top: box.top, bottom: box.bottom }, children, metaLines };
+  return {
+    box: { top: box.top, bottom: box.bottom, left: box.left, right: box.right },
+    children,
+    metaLines,
+  };
 }
 
 // The least space a block may leave between itself and the clipping edge.
@@ -231,8 +247,9 @@ export const OG_MIN_CLEARANCE = 24;
 
 /**
  * Judge a `measureOgCard` result. A card fits when every block keeps
- * `OG_MIN_CLEARANCE` from the top and bottom of `.og-content` (the edge that
- * clips) and the tag line stays on one line. Returns problems; empty = fits.
+ * `OG_MIN_CLEARANCE` from all four sides of `.og-content` (the edge that
+ * clips; its ink, not its box, for left and right) and the tag line stays on
+ * one line. Returns problems; empty = fits.
  */
 export function ogFitProblems(measurement, minClearance = OG_MIN_CLEARANCE) {
   if (!measurement) return ['no .og-content element to measure'];
@@ -245,6 +262,14 @@ export function ogFitProblems(measurement, minClearance = OG_MIN_CLEARANCE) {
     if (above < minClearance) problems.push(`.${name} is ${Math.round(above)}px from the top edge`);
     if (below < minClearance)
       problems.push(`.${name} is ${Math.round(below)}px from the bottom edge`);
+    if (child.inkLeft !== undefined) {
+      const left = child.inkLeft - box.left;
+      const right = box.right - child.inkRight;
+      if (left < minClearance)
+        problems.push(`.${name} is ${Math.round(left)}px from the left edge`);
+      if (right < minClearance)
+        problems.push(`.${name} is ${Math.round(right)}px from the right edge`);
+    }
   }
   if (metaLines > 1) problems.push(`.og-meta wraps to ${metaLines} lines`);
   return problems;
@@ -305,10 +330,12 @@ async function renderOgImages({ browser, baseUrl, distDir, templatePaths, logger
     if (misfits.length > 0) {
       throw new Error(
         `OG cards that do not fit their 1200×630 frame once fonts load:\n  ${misfits.join('\n  ')}\n` +
-          'A wrapped .og-meta needs fewer tags. A block crowding an edge means the ' +
-          'content is too tall in total (it is centered, so the reported block may ' +
-          'not be the long one): shorten the description or title. For a project ' +
-          'card, edit its src/content/projects/ file, usually a shorter `ogDescription`.',
+          'A wrapped .og-meta needs fewer tags. A block crowding the left or right ' +
+          'edge is a line too wide to wrap (nowrap, or one long word): shorten it. ' +
+          'A block crowding the top or bottom means the content is too tall in total ' +
+          '(it is centered, so the reported block may not be the long one): shorten ' +
+          'the description or title. For a project card, edit its src/content/projects/ ' +
+          'file, usually a shorter `ogDescription`.',
       );
     }
   } finally {
