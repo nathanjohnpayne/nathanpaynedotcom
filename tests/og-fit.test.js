@@ -47,6 +47,41 @@ describe('ogFitProblems', () => {
     expect(ogFitProblems(crowded)).toEqual(['.og-meta is 10px from the bottom edge']);
   });
 
+  describe('horizontal clearance (#1092)', () => {
+    // Ink edges, as a Range over the block's contents reports them. The box is
+    // 0–1000 wide, so a line inked 24px or more from each side fits.
+    const wide = (children) => ({
+      box: { top: 0, bottom: 500, left: 0, right: 1000 },
+      children,
+      metaLines: 1,
+    });
+    const row = (className, inkLeft, inkRight) => ({
+      className,
+      top: 100,
+      bottom: 200,
+      inkLeft,
+      inkRight,
+    });
+
+    it('passes a line whose ink keeps the clearance on both sides', () => {
+      // #1090's home name sits 78px inside the clip edge (14px inside the
+      // padding edge): it renders correctly, so it must pass.
+      expect(ogFitProblems(wide([row('og-heading', 64, 922)]))).toEqual([]);
+    });
+
+    it('reports a nowrap line that runs past the right edge', () => {
+      expect(ogFitProblems(wide([row('og-description', 64, 1040)]))).toEqual([
+        '.og-description is -40px from the right edge',
+      ]);
+    });
+
+    it('reports a line crowding the left edge', () => {
+      expect(ogFitProblems(wide([row('og-label', 10, 400)]))).toEqual([
+        '.og-label is 10px from the left edge',
+      ]);
+    });
+  });
+
   it('reports a tag line that wraps', () => {
     expect(ogFitProblems(card([], 2))).toEqual(['.og-meta wraps to 2 lines']);
   });
