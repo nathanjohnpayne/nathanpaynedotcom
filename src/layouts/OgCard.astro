@@ -8,12 +8,12 @@
  *
  * Chromium screenshots this page during astro:build:done via Playwright.
  *
- * `bleed` drops the stage margin so the frame runs to the image edges and
- * sets the heading large enough to read at thumbnail size, with an optional
- * one-line tagline as the description. Safari's Start Page tiles crop OG
- * images to roughly 1.67:1 (about 6% off each side) and show them ~225pt
- * wide, which cut the framed card and shrank its text past legibility. The
- * homepage card opts in.
+ * `cropSafe` lays the card out for apps that crop or round the image: a
+ * thin stage margin, with room for the card's drop shadow, that keeps the
+ * frame inside rounded corners (iMessage); a layout that survives Safari's
+ * Start Page side trim (~6% a side at ~1.67:1, shown ~225pt wide); and a
+ * heading large enough to read at thumbnail size, with an optional one-line
+ * tagline as the description. The homepage card opts in.
  *
  * @see Issue #106 — Generate OG images at build time
  */
@@ -25,11 +25,11 @@ interface Props {
   description?: string;
   meta?: string;
   palette?: '1930';
-  /** Edge-to-edge frame with an oversized name, for cards that apps crop. */
-  bleed?: boolean;
+  /** Thin margin, crop-tolerant grid and an oversized name, for cards apps crop. */
+  cropSafe?: boolean;
 }
 
-const { label, heading, description, meta, palette, bleed } = Astro.props;
+const { label, heading, description, meta, palette, cropSafe } = Astro.props;
 const headingClass = [
   'og-heading',
   !description ? 'og-heading--title-only' : '',
@@ -68,7 +68,7 @@ const headingClass = [
   </style>
 </head>
 <body class="og-body" data-palette={palette}>
-  <div class:list={['og-shell', { 'og-shell--bleed': bleed }]}>
+  <div class:list={['og-shell', { 'og-shell--crop-safe': cropSafe }]}>
     <div class="og-card">
       <div class="og-content">
         <div class="og-label">{label}</div>
