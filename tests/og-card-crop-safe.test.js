@@ -56,6 +56,10 @@ describe('OG card crop-safe variant', () => {
     for (const side of [top, right, bottom, left]) {
       expect(side).toBeGreaterThanOrEqual(20);
     }
+    // The card's 14px --canvas-shadow falls right and down; those margins hold
+    // it and still leave gray beyond it for the corner to round.
+    expect(right - 14).toBeGreaterThanOrEqual(20);
+    expect(bottom - 14).toBeGreaterThanOrEqual(20);
   });
 
   it("keeps the text inset deeper than Safari's side trim", () => {
