@@ -7,7 +7,7 @@ The MUX Video Integration initiative ([Project #5](https://github.com/users/nath
 ## What this gives you
 
 - **`lib.sh`** — a sourceable library of functions: `create_parent`, `create_child`, `link_sub_issue`, `add_to_project`, `set_project_readme`, `ensure_label`, `prep_body` (placeholder substitution). Source it from a short per-initiative driver script.
-- **`move-item.sh`** — a standalone CLI that moves one issue to a named Status swimlane by discovering the project's field/option IDs at runtime. Works against any Project v2 with a `Status` single-select field.
+- **`move-item.sh`** — a standalone CLI that moves one issue to a named Status swimlane by discovering the project's field/option IDs at runtime. Works against any Project v2 with a `Status` single-select field. One GraphQL query per move, whatever the board's size.
 - **`examples/mux-video-integration/`** — a complete worked example: the driver script, body-file templates, and the output that produced issues #210–#230.
 
 ## Prerequisites
@@ -15,7 +15,7 @@ The MUX Video Integration initiative ([Project #5](https://github.com/users/nath
 - `gh` installed (via Homebrew on this machine).
 - An author PAT with `repo` + `project` scopes. Use the cached `OP_PREFLIGHT_AUTHOR_PAT` from [REVIEW_POLICY.md § PAT lookup table](../../REVIEW_POLICY.md#pat-lookup-table); these helpers verify that `GH_TOKEN` resolves to `nathanjohnpayne` before mutating issues or Project v2 items.
 - Run [scripts/op-preflight.sh](../op-preflight.sh) once per session to cache credentials.
-- The target Project v2 board must have a `Status` single-select field (the default template does). `move-item.sh` discovers the field by that exact name.
+- The target Project v2 board must have a `Status` single-select field with the canonical options `Backlog`, `Ready`, `In progress`, `In review`, `Done`. `move-item.sh` discovers the field by that exact name. GitHub's default board template does not provide these options, so edit the board's `Status` field by hand to have exactly these five. The set is the one mergepath's new-repo bootstrap gives the board it provisions with a new repo ([`scripts/bootstrap/board-and-summary.sh`](https://github.com/nathanjohnpayne/mergepath/blob/main/scripts/bootstrap/board-and-summary.sh); hub-only, so the link is absolute). That bootstrap scaffolds a whole repo, so it is not a way to create a board for an initiative.
 
 ```bash
 # Session setup — preflight populates OP_PREFLIGHT_AUTHOR_PAT in env.
@@ -27,7 +27,7 @@ export GH_TOKEN="$OP_PREFLIGHT_AUTHOR_PAT"
 
 For every initiative you want to track:
 
-1. **Create the Project v2 board** in the GitHub UI. Note its owner + number (e.g. `nathanjohnpayne / 5`). Ensure it has a `Status` single-select field — the default template does.
+1. **Create the Project v2 board** in the GitHub UI. Note its owner + number (e.g. `nathanjohnpayne / 5`). Ensure its `Status` single-select field has the canonical options (see [Prerequisites](#prerequisites)); the default template's options don't match.
 2. **Write the plan** somewhere durable (e.g. `~/.claude/plans/<name>.md`). This becomes the Project README.
 3. **Draft parent + child issue bodies** as Markdown files, using placeholders (`__PARENT_NUM__`, `__C1_NUM__`, etc.) for cross-references.
 4. **Write a one-shot driver script** that sources `lib.sh` and creates everything. See [`examples/mux-video-integration/create-issues.sh`](./examples/mux-video-integration/create-issues.sh).
@@ -67,10 +67,17 @@ read C1_URL C1_NUM _ <<<"$(create_child "Do the first thing" "$F" "myproj,phase-
 
 ```bash
 PROJECT=5 OWNER=nathanjohnpayne REPO=nathanjohnpayne/nathanpaynedotcom \
-  scripts/gh-projects/move-item.sh 211 "In Progress"
+  scripts/gh-projects/move-item.sh 211 "In progress"
 ```
 
-Valid status names are whatever options the Project's `Status` field has — typically `Todo`, `In Progress`, `In Review`, `Human`, `Done`.
+The issue must already be on the board; otherwise the script fails and says so. Pass `--add-if-missing` to add it first (`gh project item-add`, idempotent) and then move it:
+
+```bash
+PROJECT=5 OWNER=nathanjohnpayne REPO=nathanjohnpayne/nathanpaynedotcom \
+  scripts/gh-projects/move-item.sh --add-if-missing 211 "In progress"
+```
+
+Valid status names are the options on the Project's `Status` field. The canonical set is `Backlog`, `Ready`, `In progress`, `In review`, `Done` (see [Prerequisites](#prerequisites)). `move-item.sh` matches the name exactly, including case, so `"In Progress"` does not select `In progress`.
 
 ### Set the Project README
 
@@ -116,7 +123,7 @@ Note the `sub_issue_id` is the **integer database ID** of the child (from `gh ap
 - **Hook blocks heredoc in inline `gh issue create`.** The repo's `scripts/hooks/gh-pr-guard.sh` tokenizes the command with shlex and rejects heredocs. Always write body content to a file and use `--body-file`.
 - **`gh api` integer fields need `-F`.** `-f` coerces to string → 422 Invalid request.
 - **Env vars don't persist across `Bash` tool calls.** Always re-eval preflight or re-read the PAT inline at the start of each shell invocation.
-- **Project-item ID ≠ issue number.** The `Status` edit endpoint takes the project-level item ID (`PVTI_...`), which you look up via `gh project item-list --format json` and match by content URL. `move-item.sh` does this for you.
+- **Project-item ID ≠ issue number.** The `Status` edit endpoint takes the project-level item ID (`PVTI_...`). Resolve it through the issue (`repository { issue(number:) { projectItems { nodes { id project { id } } } } }`) and pick the node whose project is the board you want. `move-item.sh` does this for you. Don't page the board with `gh project item-list` to find one item: on a board of several hundred items each lookup costs a large share of the account's hourly GraphQL quota, and a batch of moves exhausts it.
 - **Project v2 `readme` field.** `gh project edit <N> --owner <owner> --readme <string>` overwrites the entire README. Pass the full rendered Markdown.
 
 ## Worked example
