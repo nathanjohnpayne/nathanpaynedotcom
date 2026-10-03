@@ -4062,7 +4062,10 @@ a.tag:hover {
    perimeter cell is a color field that runs off the edge, and the only
    lines are interior ones meeting the edge at right angles. A crop or a
    rounded corner then only trims color. Text stays inside x 100–950, y
-   ~110–350, clear of every measured crop. */
+   ~110–350, clear of every wide-card crop. Square fallbacks are a known
+   trade-off: their x 285–915 crop shows "than Payne", at ~80px where no
+   text reads anyway. The owner chose this over a centered, two-line name
+   that a square crop keeps (#1095). */
 .og-shell--crop-safe {
   display: block;
   padding: 0;
