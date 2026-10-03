@@ -4052,32 +4052,63 @@ a.tag:hover {
   background: var(--paper);
 }
 
-/* Crop-safe variant (OgCard `cropSafe`). Two crops shape it:
-   - Safari's Start Page tiles aspect-fill the card into ~1.67:1, trimming ~6%
-     (~75px here) off each side, and show it ~225pt wide. Hence a wider red
-     column that survives the trim, a left inset that clears it, a heading
-     big enough to read at tile size, and at most a one-line tagline.
-   - iMessage and other unfurls round the image's corners (~30px radius at
-     this scale; Safari's tile ~65px). A frame run to the image edge gets its
-     corners clipped, so a thin stage margin keeps the frame inside the curve.
-     It clears a corner once it exceeds ~0.3× the radius; 24px covers both.
-   The card keeps the shared --canvas-shadow (14px down-right, as on the 404),
-   so the right and bottom margins grow by that offset to leave the shadow the
-   same 24px of gray as the other sides. */
+/* Crop-safe variant (OgCard `cropSafe`). Link previews crop and round the
+   image differently: X shows 2:1 (~15px off top and bottom), LinkedIn
+   messaging ~1.8:1 (~17–33px off each side), iMessage rounds corners (~30px
+   at this scale), and square fallbacks keep only the center 630px (#1095).
+   Any frame, mat or border near the edge survives on some sides and not
+   others (#1090 clipped in iMessage; #1094's mat went lopsided on LinkedIn).
+   So there is no stage, frame or shadow: the grid fills the image, every
+   perimeter cell is a color field that runs off the edge, and the only
+   lines are interior ones meeting the edge at right angles. A crop or a
+   rounded corner then only trims color. Text stays inside x 100–950, y
+   ~110–350, clear of every wide-card crop. Square fallbacks are a known
+   trade-off: their x 285–915 crop shows "than Payne", at ~80px where no
+   text reads anyway. The owner chose this over a centered, two-line name
+   that a square crop keeps (#1095). */
 .og-shell--crop-safe {
-  padding: 24px 38px 38px 24px;
+  display: block;
+  padding: 0;
+  overflow: hidden;
 }
 
 .og-shell--crop-safe .og-card {
-  grid-template-columns: var(--line) 2.4fr var(--line) 1fr var(--line) 1.2fr var(--line) 0.75fr var(
-      --line
-    );
-  grid-template-rows: var(--line) 1fr var(--line) 4.5rem var(--line) 3rem var(--line);
+  width: 1200px;
+  height: 630px;
+  grid-template-columns: 400px var(--line) 231px var(--line) 301px var(--line) 1fr;
+  grid-template-rows: 390px var(--line) 61px var(--line) 1fr;
   border: 0;
+  box-shadow: none;
 }
 
 .og-shell--crop-safe .og-content {
-  padding: 48px 64px 48px 112px;
+  grid-column: 1 / 6;
+  grid-row: 1 / 4;
+  padding: 0 40px 0 100px;
+}
+
+.og-shell--crop-safe .og-red {
+  grid-column: 7;
+  grid-row: 1;
+}
+.og-shell--crop-safe .og-white-a {
+  grid-column: 7;
+  grid-row: 3 / 6;
+}
+.og-shell--crop-safe .og-yellow-a {
+  grid-column: 1;
+  grid-row: 5;
+}
+.og-shell--crop-safe .og-blue {
+  grid-column: 3;
+  grid-row: 5;
+}
+.og-shell--crop-safe .og-black {
+  grid-column: 5;
+  grid-row: 5;
+}
+.og-shell--crop-safe :is(.og-white-b, .og-yellow-b, .og-white-c) {
+  display: none;
 }
 
 .og-shell--crop-safe .og-label {
@@ -4093,7 +4124,7 @@ a.tag:hover {
 }
 
 /* One line, so it reads as a tagline rather than a paragraph shrunk to
-   tile size. Keep the homepage tagline short enough to fit unwrapped. */
+   thumbnail size. Keep the homepage tagline short enough to fit unwrapped. */
 .og-shell--crop-safe .og-description {
   font-size: 30px;
   max-width: none;

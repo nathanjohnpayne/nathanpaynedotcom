@@ -26,9 +26,10 @@ function paddingOf(body) {
   return [t, r, b, l];
 }
 
-// Safari's Start Page tiles crop OG images to ~1.67:1 and show them ~225pt
-// wide; iMessage rounds their corners. The homepage card uses the crop-safe
-// variant so neither crop reaches the frame or the text.
+// Link previews crop and round the image differently (#1095): X at 2:1,
+// LinkedIn messaging at ~1.8:1, iMessage with ~30px corners at this scale. A
+// frame (#1090) or a gray mat (#1094) near the edge survives on some sides and
+// not others, so the crop-safe card puts nothing that marks the edge there.
 describe('OG card crop-safe variant', () => {
   it('lets OgCard opt into the crop-safe modifier', () => {
     const source = readFileSync(OG_CARD, 'utf-8');
@@ -49,24 +50,20 @@ describe('OG card crop-safe variant', () => {
     expect(tagline[1].length).toBeLessThanOrEqual(55);
   });
 
-  it('keeps a stage margin that clears rounded preview corners', () => {
-    // A frame clears a rounded corner once the margin exceeds ~0.3× the
-    // radius: ~30px (iMessage) and ~65px (Safari tile) at the 1200px scale.
-    const [top, right, bottom, left] = paddingOf(cropSafeRule('.og-shell--crop-safe'));
-    for (const side of [top, right, bottom, left]) {
-      expect(side).toBeGreaterThanOrEqual(20);
-    }
-    // The card's 14px --canvas-shadow falls right and down; those margins hold
-    // it and still leave gray beyond it for the corner to round.
-    expect(right - 14).toBeGreaterThanOrEqual(20);
-    expect(bottom - 14).toBeGreaterThanOrEqual(20);
+  it('puts no stage margin, border or shadow at the image edge', () => {
+    expect(paddingOf(cropSafeRule('.og-shell--crop-safe'))).toEqual([0, 0, 0, 0]);
+
+    const card = cropSafeRule('.og-shell--crop-safe .og-card');
+    expect(card).toMatch(/border:\s*0;/);
+    expect(card).toMatch(/box-shadow:\s*none;/);
+    expect(card).toMatch(/width:\s*1200px;/);
+    expect(card).toMatch(/height:\s*630px;/);
   });
 
-  it("keeps the text inset deeper than Safari's side trim", () => {
-    // Safari trims ~75px off each side of the 1200px card; the text starts at
-    // the stage margin plus the content inset.
-    const [, , , margin] = paddingOf(cropSafeRule('.og-shell--crop-safe'));
-    const [, , , inset] = paddingOf(cropSafeRule('.og-shell--crop-safe .og-content'));
-    expect(margin + inset).toBeGreaterThan(75);
+  it('keeps the text inside the safe zone every preview keeps', () => {
+    // Wide-card crops take up to ~33px off a side; Slick Media's template puts
+    // text at least ~70px in. The content cell starts at the image's left edge.
+    const [, , , left] = paddingOf(cropSafeRule('.og-shell--crop-safe .og-content'));
+    expect(left).toBeGreaterThanOrEqual(70);
   });
 });

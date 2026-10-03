@@ -98,7 +98,7 @@ represents a page: `og-templates/home.astro` passes `palette="1930"` to
 `OgCard.astro`, so `home.png` matches the homepage register. Other OG cards do
 not pass a palette and stay on the 1921 `:root` default.
 
-The homepage card also passes `cropSafe`, which thins the stage margin to 24px (38px on the right and bottom, where the shared `--canvas-shadow` sits), sets the name at 144px, and replaces the three-line description with a one-line tagline. Safari's Start Page tiles crop OG images to about 1.67:1 and show them about 225pt wide, which sliced the original framed card and made its description unreadable (#1090). Running the frame to the image edge fixed that but let iMessage's rounded corners clip it, so the margin stays, just thin. The full description still reaches previews through `og:description`.
+The homepage card also passes `cropSafe`, which drops the stage, frame and shadow so the Mondrian grid fills the image edge to edge, sets the name at 144px, and replaces the three-line description with a one-line tagline. Link previews crop and round the image differently (X at 2:1, LinkedIn messaging at about 1.8:1, iMessage with about 30px corner radii at this scale), so anything that marks the edge, whether a frame (#1090) or a gray mat (#1094), survives on some sides and not others. With only color fields at the edges, a crop or rounded corner just trims color (#1095). The full description still reaches previews through `og:description`.
 
 | Page | Accent source |
 |---|---|
