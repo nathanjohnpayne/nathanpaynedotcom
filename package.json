@@ -51,6 +51,6 @@
   },
   "dependencies": {
     "@mux/mux-background-video": "^0.2.3",
-    "mux-embed": "^5.18.0"
+    "mux-embed": "^5.18.1"
   }
 }
