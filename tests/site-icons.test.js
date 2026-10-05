@@ -128,7 +128,9 @@ describe('OG card mark colors', () => {
 
   it('leaves no literal fill in the inlined mark', () => {
     const out = tokenizeMarkFills(svg);
-    expect(out).not.toMatch(/fill="#/);
+    // Any hex color, not just `fill="#…"`: a style or single-quoted fill would
+    // otherwise survive both the transform and this check.
+    expect(out).not.toMatch(/#[0-9a-fA-F]{3,8}\b/);
     for (const token of Object.values(MARK_FILL_TOKENS)) expect(out).toContain(`var(${token})`);
   });
 
