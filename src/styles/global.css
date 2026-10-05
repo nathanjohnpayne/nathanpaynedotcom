@@ -4054,7 +4054,8 @@ a.tag:hover {
 
 /* The NP mark (#1110), centered over the gray cell under the red plane: a
    fixed spot outside .og-content, so a long heading can never run into it
-   and the fit check never measures it. Its own colors in both registers. */
+   and the fit check never measures it. Its fills are palette tokens, so it
+   follows the card's register (see src/lib/og-mark.ts). */
 .og-mark {
   grid-column: 8;
   grid-row: 4;

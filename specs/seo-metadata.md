@@ -58,12 +58,13 @@ These are the invariants that distinguish "SEO tags exist" from "SEO actually wo
 
 ### Site icons
 
-1. `BaseLayout` links `/favicon.ico`, `/favicon.svg`, `/favicon-32x32.png`, `/apple-touch-icon.png`, and `/site.webmanifest`, and each resolves to a file in `dist/`.
-2. Those root files keep their paths and are byte-for-byte copies of the logo system in `public/images/brand/` (`np-favicon.ico`, `np-mark.svg`, `np-mark-32.png`, `np-mark-180.png`). The `.ico`'s 16px entry is the monogram-free tile, for clients that pick a 16px raster. Browsers that take SVG favicons draw `favicon.svg`, monogram included, at tab size; that is a known trade-off of keeping the SVG link, not a defect.
+1. `BaseLayout` links `/favicon.ico`, `/favicon-32x32.png`, `/apple-touch-icon.png`, and `/site.webmanifest`, and each resolves to a file in `dist/`. It does not link `/favicon.svg`.
+2. Those root files keep their paths and are byte-for-byte copies of the logo system in `public/images/brand/` (`np-favicon.ico`, `np-mark.svg`, `np-mark-32.png`, `np-mark-180.png`). `favicon.svg` is served for direct fetches only. The `.ico`'s 16px entry is the monogram-free tile, and that is what enforces the rule that the monogram never ships at 16px; linking the SVG would let browsers that take SVG favicons bypass it.
 3. The manifest links its 192 and 512 icons in place under `/images/brand/` rather than copying them.
 4. Every OG card carries the NP mark, inlined from `np-mark.svg`, in a grid cell outside `.og-content`, so it never collides with the heading or enters the fit check.
+5. The inlined mark's fills are palette tokens, never literal hexes (`src/lib/og-mark.ts`), so it follows the card's register: 1930 on the homepage card, 1921 elsewhere. Each token resolves to the exported hex in the 1930 register, and a fill with no token fails the build.
 
-All four are enforced by `tests/site-icons.test.js` (#1110).
+All five are enforced by `tests/site-icons.test.js` (#1110).
 
 ## Integration Requirements (Astro build hooks)
 

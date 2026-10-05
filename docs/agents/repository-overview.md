@@ -65,7 +65,7 @@ src/
   plugins/                  Custom Remark/Rehype processors
   integrations/             Custom Astro integrations (OG image generation, robots.txt sitemap auto-sync)
 public/
-  favicon.svg               SVG favicon—the NP mark, a copy of images/brand/np-mark.svg
+  favicon.svg               The NP mark, a copy of images/brand/np-mark.svg—served for direct fetches, not linked
   favicon.ico               16 (monogram-free tile), 32, 48—a copy of images/brand/np-favicon.ico
   favicon-32x32.png         Rasterized favicon (32px)—a copy of images/brand/np-mark-32.png
   apple-touch-icon.png      Apple touch icon (180px)—a copy of images/brand/np-mark-180.png

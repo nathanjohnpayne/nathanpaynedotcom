@@ -17,13 +17,15 @@
  * Every card carries the NP mark from the logo system in a fixed grid cell
  * beside the content, so it never competes with the heading or enters the
  * fit check (#1110). It is inlined from public/images/brand/np-mark.svg so
- * Playwright needs no network, and keeps its own colors in both registers:
- * the brand guide forbids recoloring the planes.
+ * Playwright needs no network, and its fills are swapped for the palette
+ * tokens (`src/lib/og-mark.ts`) so it follows the card's register: 1930 on
+ * the homepage card, 1921 everywhere else.
  *
  * @see Issue #106 — Generate OG images at build time
  */
 import fs from 'node:fs';
 import path from 'node:path';
+import { tokenizeMarkFills } from '../lib/og-mark';
 import '../styles/global.css';
 
 interface Props {
@@ -43,9 +45,8 @@ const headingClass = [
   description ? 'og-heading--with-description' : '',
   !description && heading.length > 52 ? 'og-heading--long' : '',
 ].filter(Boolean).join(' ');
-const npMark = fs.readFileSync(
-  path.join(process.cwd(), 'public', 'images', 'brand', 'np-mark.svg'),
-  'utf-8'
+const npMark = tokenizeMarkFills(
+  fs.readFileSync(path.join(process.cwd(), 'public', 'images', 'brand', 'np-mark.svg'), 'utf-8')
 );
 ---
 

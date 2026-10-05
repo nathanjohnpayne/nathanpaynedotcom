@@ -6,12 +6,15 @@
  * they are copies of files in public/images/brand/ rather than links to it.
  * A copy can drift when the brand assets are regenerated; this suite fails
  * when one does, and when a head link or manifest icon stops resolving.
+ * favicon.svg is kept for direct fetches but never linked: the .ico's tile is
+ * what enforces the no-monogram-at-16px rule, and an SVG link would bypass it.
  */
 
 import { describe, it, expect } from 'vitest';
 import { readFileSync, existsSync, statSync } from 'node:fs';
 import { resolve, join } from 'node:path';
 import { JSDOM } from 'jsdom';
+import { MARK_FILL_TOKENS, tokenizeMarkFills } from '../src/lib/og-mark';
 
 const ROOT = resolve(__dirname, '..');
 const PUBLIC = join(ROOT, 'public');
@@ -52,12 +55,14 @@ describe('site icons', () => {
     const hrefs = (selector) =>
       [...doc.querySelectorAll(selector)].map((l) => l.getAttribute('href'));
 
-    it('links the .ico, SVG, PNG, Apple touch icon, and manifest once each', () => {
-      expect(hrefs('link[rel="icon"]').sort()).toEqual(
-        ['/favicon-32x32.png', '/favicon.ico', '/favicon.svg'].sort(),
-      );
+    it('links the .ico, PNG, Apple touch icon, and manifest once each', () => {
+      expect(hrefs('link[rel="icon"]').sort()).toEqual(['/favicon-32x32.png', '/favicon.ico']);
       expect(hrefs('link[rel="apple-touch-icon"]')).toEqual(['/apple-touch-icon.png']);
       expect(hrefs('link[rel="manifest"]')).toEqual(['/site.webmanifest']);
+    });
+
+    it('does not link favicon.svg, which would draw the monogram at 16px', () => {
+      expect(doc.querySelector('link[href*="favicon.svg"], link[type="image/svg+xml"]')).toBeNull();
     });
 
     it('every icon and manifest link resolves to a file in dist/', () => {
@@ -102,5 +107,41 @@ describe('OG card mark', () => {
     const mark = source.indexOf('<div class="og-mark"');
     expect(content).toBeGreaterThan(-1);
     expect(mark).toBeGreaterThan(contentEnd);
+  });
+});
+
+describe('OG card mark colors', () => {
+  const svg = readFileSync(join(BRAND, 'np-mark.svg'), 'utf-8');
+  const css = readFileSync(join(ROOT, 'src/styles/global.css'), 'utf-8');
+  const declarations = (block) =>
+    Object.fromEntries(
+      [...block.matchAll(/(--[\w-]+):\s*(#[0-9a-fA-F]{3,8});/g)].map((m) => [
+        m[1],
+        m[2].toLowerCase(),
+      ]),
+    );
+  const rootTokens = declarations(css.match(/^:root \{([^}]*)\}/m)[1]);
+  const tokens1930 = {
+    ...rootTokens,
+    ...declarations(css.match(/^\[data-palette='1930'\] \{([^}]*)\}/m)[1]),
+  };
+
+  it('leaves no literal fill in the inlined mark', () => {
+    const out = tokenizeMarkFills(svg);
+    expect(out).not.toMatch(/fill="#/);
+    for (const token of Object.values(MARK_FILL_TOKENS)) expect(out).toContain(`var(${token})`);
+  });
+
+  it.each(Object.entries(MARK_FILL_TOKENS))(
+    '%s maps to %s, which resolves back to it in the 1930 register',
+    (hex, token) => {
+      expect(tokens1930[token]).toBe(hex);
+    },
+  );
+
+  it('fails the build on a fill with no palette token', () => {
+    expect(() => tokenizeMarkFills('<rect fill="#123456"/>')).toThrow(
+      /#123456 has no palette token/,
+    );
   });
 });

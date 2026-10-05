@@ -5,8 +5,9 @@ The logo system lives in `public/images/brand/` and is served at `https://nathan
 This document is the usage guide. The site itself switched to the mark in #1110:
 
 - **Favicons keep their stable root paths** because browsers, bookmarks, and feed readers have them cached. `public/favicon.svg`, `public/favicon-32x32.png`, `public/apple-touch-icon.png`, and `public/favicon.ico` are byte-for-byte copies of `np-mark.svg`, `np-mark-32.png`, `np-mark-180.png`, and `np-favicon.ico`. After regenerating the brand folder, copy them again; `tests/site-icons.test.js` fails until you do.
+- **The 16px tile rule is enforced by the ICO.** `BaseLayout.astro` links the `.ico`, the 32px PNG, and the Apple touch icon, and deliberately does not link `favicon.svg`: a browser that takes an SVG favicon would draw it, monogram included, at 16px. The SVG stays at its root path so direct fetches get the new mark.
 - **`public/site.webmanifest`** links `np-mark-192.png` and `np-mark-512.png` in place, with no copies, for Android home-screen icons.
-- **Every OG card carries the mark.** `src/layouts/OgCard.astro` inlines `np-mark.svg` into the gray cell under the red plane: 64px on the standard card, 128px on the crop-safe homepage card. The per-page cards are otherwise unchanged. The mark keeps its own 1930 colors on the 1921-register cards, because the planes are never recolored.
+- **Every OG card carries the mark.** `src/layouts/OgCard.astro` inlines `np-mark.svg` into the gray cell under the red plane: 64px on the standard card, 128px on the crop-safe homepage card. The per-page cards are otherwise unchanged. Its fills are swapped for the palette tokens (`src/lib/og-mark.ts`), so the homepage card shows the 1930 mark and the interior cards show a mark that matches their 1921 planes.
 
 The Google Workspace logo and the Google Account profile picture are uploaded by hand from this folder and are not wired to the site.
 
@@ -34,7 +35,7 @@ Three variants exist for specific jobs:
 | `np-lockup-compact.svg` | Mark and name only, name centered on the mark, for narrow placements where the eyebrow would be tiny. |
 | `np-google-workspace-lockup.svg` | The 320×132 Google Workspace frame itself: full-height mark on the left, the name on two lines beside it. Only for that frame. |
 
-Clear space around any lockup is the width of the red plane (one quarter of the mark's height). Do not recolor the planes, add gradients or shadows, rotate the mark, or set the name in another typeface.
+Clear space around any lockup is the width of the red plane (one quarter of the mark's height). Do not recolor the planes, add gradients or shadows, rotate the mark, or set the name in another typeface. The one exception is the site itself: on site surfaces the mark follows the page register via the palette tokens, so it reads 1921 on interior pages; the exported files stay 1930.
 
 ## Which file goes where
 
@@ -43,7 +44,7 @@ Clear space around any lockup is the width of the red plane (one quarter of the 
 | Google Workspace organization logo (Admin console, Account settings, Personalization) | `np-google-workspace-logo-320x132.png` | Exactly 320×132 as Google's help page specifies, and laid out for that frame: Google displays the whole frame, so a thin horizontal lockup inside it renders small, and this file instead fills the height with the mark and sets the name on two lines. White background, 7 KB, well inside the 30 KB limit third-party guides report. Use "Upload from device": the console's "By URL" importer refused this host with a generic security message even though the URL serves 200 to every client, so the importer, not the site, is the limit. |
 | Google Account profile picture | `np-google-profile-720.png` | 720×720 square, 12 KB. Google crops it to a circle; the monogram clears the circle with margin. Upload from device (the profile picture flow has no URL option). `np-google-profile-1024.png` is the same mark at 1024 if a larger source is wanted. |
 | Browser favicon, `.ico` | `np-favicon.ico` | Contains 16 (tile), 32, and 48 (monogram). |
-| Browser favicon, SVG | `np-mark.svg` | Browsers that take SVG favicons render the monogram at every size; pair with the ICO for the 16px case. |
+| Browser favicon, SVG | `np-mark.svg` | Browsers that take SVG favicons render the monogram at every size, including 16px. The site serves it at `/favicon.svg` but does not link it, so the ICO's tile covers 16px. |
 | Apple touch icon | `np-apple-touch-icon-180.png` | iOS rounds the corners itself; the file is square. Byte-identical to `np-mark-180.png`, which is the file the site's copy is checked against. |
 | PWA / Android icons | `np-mark-192.png`, `np-mark-512.png` | Linked in place from `public/site.webmanifest`. |
 | Account avatars (GitHub, LinkedIn, X, Bluesky, Slack, Threads) | `np-google-profile-720.png` or `np-mark-1024.png` | Square source; every platform crops to its own shape. |
