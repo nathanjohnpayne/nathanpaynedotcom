@@ -2,12 +2,13 @@
 //
 // One-off setup (none of this is a repo dependency):
 //   scripts/brand/fetch-fonts.sh            # Cormorant Garamond + Inter WOFFs → scripts/brand/.fonts/
-//   npm i --no-save opentype.js@1           # text → outlined paths
+//   npm i --no-save opentype.js@1 sharp     # text → outlined paths; sharp rasterizes (not a declared dependency,
+//                                           # it is only Astro's optional dep today, so install it explicitly)
 // Then:
 //   node scripts/brand/build-logo-assets.mjs a public/images/brand
 //
 // Direction keys: a = Composition (shipped), b = Seal, c = Rule (the two unselected 2026-10 concepts).
-// Rasterization uses sharp, which is already a dependency. See docs/brand-logo-usage.md.
+// See docs/brand-logo-usage.md.
 import fs from 'node:fs';
 import path from 'node:path';
 import { createRequire } from 'node:module';

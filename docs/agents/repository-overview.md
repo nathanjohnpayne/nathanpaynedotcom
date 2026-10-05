@@ -70,12 +70,14 @@ public/
   apple-touch-icon.png      Apple touch icon (180px)
   robots.txt                Crawl directives
   fonts/og/                 Self-hosted fonts for OG image rendering
+  images/brand/             NathanPayne.com logo system exports (see docs/brand-logo-usage.md)
 dist/                       Build output (gitignored)—deployed to Firebase
 tests/                      Vitest + Playwright tests for metadata, layout, interactions, routes
 specs/                      Feature specifications and acceptance criteria
 rules/                      Repository-level binding constraints
 plans/                      Feature rollout and migration plans
 scripts/ci/                 CI enforcement scripts
+scripts/brand/              Logo system generator (one-off authoring tool; deps installed ad hoc)
 styles/                     Repository-owned Vale rules for prose linting
 .github/workflows/build-and-test.yml
                              Runs on every PR + push to main: npm ci, npm test

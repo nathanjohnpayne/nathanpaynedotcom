@@ -46,4 +46,4 @@ Clear space around any lockup is the width of the red plane (one quarter of the 
 
 ## Regenerating
 
-The SVG masters were generated from the site's fonts with `opentype.js` (not a repo dependency) and rasterized with `sharp` (already a dependency). The generator is in `scripts/brand/`; see the header of `scripts/brand/build-logo-assets.mjs` for the one-off setup.
+The SVG masters were generated from the site's fonts with `opentype.js` and rasterized with `sharp`. Neither is declared in `package.json`: `sharp` is present today only as an optional dependency of Astro, so install both ad hoc with `npm i --no-save opentype.js@1 sharp` before regenerating. The generator is in `scripts/brand/`; see the header of `scripts/brand/build-logo-assets.mjs` for the one-off setup.
