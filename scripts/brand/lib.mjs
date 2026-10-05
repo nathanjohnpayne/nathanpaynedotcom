@@ -9,9 +9,6 @@ const require = createRequire(import.meta.url);
 const opentype = require('opentype.js');
 const here = path.dirname(fileURLToPath(import.meta.url));
 const fontsDir = path.join(here, '.fonts');
-if (!fs.existsSync(path.join(fontsDir, 'f7.woff'))) {
-  throw new Error('Fonts missing: run scripts/brand/fetch-fonts.sh first (downloads Cormorant Garamond and Inter WOFFs from Google Fonts into scripts/brand/.fonts).');
-}
 
 export const P = {
   // 1930 register (homepage) — the brand's high-chroma planes
@@ -28,15 +25,38 @@ export const P = {
   labelDark: '#b9b3a4',
 };
 
-const F = {
-  cg700: opentype.loadSync(path.join(fontsDir, 'f1.woff')),
-  cg600: opentype.loadSync(path.join(fontsDir, 'f2.woff')),
-  cg500: opentype.loadSync(path.join(fontsDir, 'f3.woff')),
-  cg400: opentype.loadSync(path.join(fontsDir, 'f4.woff')),
-  inter600: opentype.loadSync(path.join(fontsDir, 'f5.woff')),
-  inter500: opentype.loadSync(path.join(fontsDir, 'f6.woff')),
-  inter400: opentype.loadSync(path.join(fontsDir, 'f7.woff')),
+// Resolve faces from their own name/OS2 metadata, never from the filename or the
+// order Google Fonts happened to return. Every expected (family, weight) must be
+// present exactly once or we stop: a wrong face here silently regenerates every
+// master with the wrong typography.
+const EXPECTED = {
+  cg700: ['Cormorant Garamond', 700],
+  cg600: ['Cormorant Garamond', 600],
+  cg500: ['Cormorant Garamond', 500],
+  cg400: ['Cormorant Garamond', 400],
+  inter600: ['Inter', 600],
+  inter500: ['Inter', 500],
+  inter400: ['Inter', 400],
 };
+const SETUP = 'run scripts/brand/fetch-fonts.sh first (it downloads the Cormorant Garamond and Inter WOFFs into scripts/brand/.fonts).';
+const woffs = fs.existsSync(fontsDir) ? fs.readdirSync(fontsDir).filter((f) => f.endsWith('.woff')) : [];
+if (woffs.length === 0) throw new Error(`Fonts missing: ${SETUP}`);
+const F = {};
+for (const file of woffs) {
+  const font = opentype.loadSync(path.join(fontsDir, file));
+  // Google serves the family as e.g. "Cormorant Garamond Light SemiBold"; the
+  // preferred-family name field (16) carries the bare family when present.
+  const family = (font.names.preferredFamily?.en || font.names.fontFamily.en).replace(/ (Light|Medium|SemiBold|Bold)+$/, '');
+  const weight = font.tables.os2.usWeightClass;
+  const key = Object.keys(EXPECTED).find((k) => EXPECTED[k][0] === family && EXPECTED[k][1] === weight);
+  if (!key) continue;
+  if (F[key]) throw new Error(`Duplicate face for ${family} ${weight} in ${fontsDir} (${file}); clear the folder and ${SETUP}`);
+  F[key] = font;
+}
+const missing = Object.keys(EXPECTED).filter((k) => !F[k]);
+if (missing.length) {
+  throw new Error(`Faces missing: ${missing.map((k) => EXPECTED[k].join(' ')).join(', ')}; ${SETUP}`);
+}
 export const fonts = F;
 
 /** Outline `text` at `size`; returns {d, width, bbox} with baseline at y=0, origin x=0. tracking in em. */
