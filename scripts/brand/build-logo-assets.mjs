@@ -12,7 +12,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { createRequire } from 'node:module';
-import { DIRECTIONS, iconSvg, horizontal, horizontalPlain, stacked, wordmark, svg } from './concepts.mjs';
+import { DIRECTIONS, iconSvg, horizontal, horizontalPlain, workspaceBadge, stacked, wordmark, svg } from './concepts.mjs';
 import { P } from './lib.mjs';
 
 const require = createRequire(import.meta.url);
@@ -111,14 +111,19 @@ await png(sd, { w: 1200, h: 1200, pad: 150, bg: hex(P.ink), name: 'np-lockup-sta
 await png(sl, { w: 1200, h: 1200, pad: 150, name: 'np-lockup-stacked-transparent-1200.png' });
 await png(files['np-wordmark.svg'], { w: 1600, h: 400, pad: 60, name: 'np-wordmark-transparent-1600.png' });
 
+// ---------- Compact lockup (mark + name, no eyebrow) for narrow placements ----------
+const compact = horizontalPlain(markBody);
+write('np-lockup-compact.svg', svg({ ...compact, title: `${TITLE}`, desc: 'The NP monogram tile beside the name Nathan Payne.' }));
+
 // ---------- Google Workspace organization logo: exactly 320×132, JPEG/PNG/GIF ----------
-// Mark + name only (no eyebrow: at this size it would be 9px type).
-const gw = horizontalPlain(markBody);
-const gwCrop = svg({ ...gw, title: `${TITLE}`, desc: 'The NP monogram tile beside the name Nathan Payne.' });
-write('np-google-workspace-lockup.svg', gwCrop);
-await png(gwCrop, { w: 320, h: 132, pad: 10, bg: hex(P.paper), name: 'np-google-workspace-logo-320x132.png' });
-await png(gwCrop, { w: 320, h: 132, pad: 10, name: 'np-google-workspace-logo-320x132-transparent.png' });
-await png(gwCrop, { w: 640, h: 264, pad: 20, bg: hex(P.paper), name: 'np-google-workspace-logo-640x264.png' });
+// Google displays the whole frame, so the layout is native to 320×132: full-height mark,
+// two-line name. No eyebrow: at this size it would be 9px type.
+const ws = workspaceBadge(markBody);
+const wsSvg = svg({ ...ws, title: `${TITLE}`, desc: 'The NP monogram tile at full height beside the name Nathan Payne on two lines, laid out for the 320 by 132 Google Workspace logo frame.' });
+write('np-google-workspace-lockup.svg', wsSvg);
+await png(wsSvg, { w: 320, h: 132, pad: 0, bg: hex(P.paper), name: 'np-google-workspace-logo-320x132.png' });
+await png(wsSvg, { w: 320, h: 132, pad: 0, name: 'np-google-workspace-logo-320x132-transparent.png' });
+await png(wsSvg, { w: 640, h: 264, pad: 0, bg: hex(P.paper), name: 'np-google-workspace-logo-640x264.png' });
 
 // ---------- Google Account profile picture: square, cropped to a circle in display ----------
 await png(markSvg, { w: 720, h: 720, name: 'np-google-profile-720.png' });

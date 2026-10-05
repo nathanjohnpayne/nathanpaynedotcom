@@ -119,6 +119,37 @@ export function horizontalPlain(markBody, { dark = false, markSize = 64, gap = 2
   return { w: Math.ceil(tx + nameW + 4), h: markSize + 2 * padY, body };
 }
 
+/**
+ * Google Workspace organization logo, laid out for the exact 320×132 frame Google
+ * displays: the mark at full height on the left, the name on two lines beside it,
+ * so the frame is filled rather than holding a thin strip. Returns a 320×132 box.
+ */
+export function workspaceBadge(markBody, { dark = false } = {}) {
+  const W = 320, H = 132, padX = 12, padY = 14, gap = 18;
+  const markSize = H - 2 * padY; // 104
+  const colX = padX + markSize + gap;
+  const colW = W - padX - colX; // 174
+  // Largest size at which the wider word fits the column.
+  const probe = outline(fonts.cg600, 'Nathan', 100);
+  const size = Math.floor(colW / ((probe.bbox.x2 - probe.bbox.x1) / 100));
+  const l1 = outline(fonts.cg600, 'Nathan', size);
+  const l2 = outline(fonts.cg600, 'Payne', size);
+  const lineGap = Math.round(size * 0.24);
+  const blockH = l1.capHeight + lineGap + l2.capHeight; // cap-to-baseline block
+  const capTop = H / 2 - blockH / 2;
+  const base1 = capTop + l1.capHeight;
+  const base2 = base1 + lineGap + l2.capHeight;
+  const fill = dark ? P.cream : P.ink;
+  const body = [
+    `  <g transform="translate(${padX} ${padY}) scale(${markSize / 64})">`,
+    markBody,
+    `  </g>`,
+    pathEl(l1.d, fill, colX - l1.bbox.x1, base1),
+    pathEl(l2.d, fill, colX - l2.bbox.x1, base2),
+  ].join('\n');
+  return { w: W, h: H, body };
+}
+
 /** Stacked lockup: mark above centered name and eyebrow. */
 export function stacked(markBody, { dark = false, markSize = 96 } = {}) {
   const nameSize = 48;
