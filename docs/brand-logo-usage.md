@@ -2,7 +2,13 @@
 
 The logo system lives in `public/images/brand/` and is served at `https://nathanpayne.com/images/brand/<file>`. It is built from the homepage's own composition: the cream field, the 9px ink grid line, and the 1930-register planes (`--red #da2418`, `--yellow #f0c800`, `--blue #0a5c9e`, `--ink #11100d`, `--cream #f5f0e4`). The name is set in Cormorant Garamond 600 and the domain in Inter 500 small capitals, matching the site's heading and eyebrow styles. Every SVG master has its type outlined to paths, so nothing depends on an installed font.
 
-This document is the usage guide. It does not change what the site itself references: `public/favicon.svg`, `public/favicon-32x32.png`, `public/apple-touch-icon.png`, the `/og/**` cards, and `BaseLayout.astro`'s meta tags are untouched by the brand folder. Switching the site over is a separate, explicitly approved change.
+This document is the usage guide. The site itself switched to the mark in #1110:
+
+- **Favicons keep their stable root paths** because browsers, bookmarks, and feed readers have them cached. `public/favicon.svg`, `public/favicon-32x32.png`, `public/apple-touch-icon.png`, and `public/favicon.ico` are byte-for-byte copies of `np-mark.svg`, `np-mark-32.png`, `np-mark-180.png`, and `np-favicon.ico`. After regenerating the brand folder, copy them again; `tests/site-icons.test.js` fails until you do.
+- **`public/site.webmanifest`** links `np-mark-192.png` and `np-mark-512.png` in place, with no copies, for Android home-screen icons.
+- **Every OG card carries the mark.** `src/layouts/OgCard.astro` inlines `np-mark.svg` into the gray cell under the red plane: 64px on the standard card, 128px on the crop-safe homepage card. The per-page cards are otherwise unchanged. The mark keeps its own 1930 colors on the 1921-register cards, because the planes are never recolored.
+
+The Google Workspace logo and the Google Account profile picture are uploaded by hand from this folder and are not wired to the site.
 
 ## The mark
 
@@ -37,11 +43,11 @@ Clear space around any lockup is the width of the red plane (one quarter of the 
 | Google Account profile picture | `np-google-profile-720.png` | 720×720 square, 12 KB. Google crops it to a circle; the monogram clears the circle with margin. Upload from device (the profile picture flow has no URL option). `np-google-profile-1024.png` is the same mark at 1024 if a larger source is wanted. |
 | Browser favicon, `.ico` | `np-favicon.ico` | Contains 16 (tile), 32, and 48 (monogram). |
 | Browser favicon, SVG | `np-mark.svg` | Browsers that take SVG favicons render the monogram at every size; pair with the ICO for the 16px case. |
-| Apple touch icon | `np-apple-touch-icon-180.png` | iOS rounds the corners itself; the file is square. |
-| PWA / Android icons | `np-mark-192.png`, `np-mark-512.png` | |
+| Apple touch icon | `np-apple-touch-icon-180.png` | iOS rounds the corners itself; the file is square. Byte-identical to `np-mark-180.png`, which is the file the site's copy is checked against. |
+| PWA / Android icons | `np-mark-192.png`, `np-mark-512.png` | Linked in place from `public/site.webmanifest`. |
 | Account avatars (GitHub, LinkedIn, X, Bluesky, Slack, Threads) | `np-google-profile-720.png` or `np-mark-1024.png` | Square source; every platform crops to its own shape. |
 | Email signature, documents, slides | `np-lockup-horizontal-transparent-800.png` or `-1600.png` | Transparent PNG; `-light-` and `-dark-` versions have the background baked in. |
-| Social post card | `np-social-1200x630.png` | Logo-only landscape card. This is not the site's Open Graph image; the built `/og/**` cards keep that role. |
+| Social post card | `np-social-1200x630.png` | Logo-only landscape card. This is not the site's Open Graph image; the built `/og/**` cards keep that role and carry the mark themselves. |
 | Square social image | `np-social-square-1080.png` | Stacked lockup on white. |
 
 ## Regenerating

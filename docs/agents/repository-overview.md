@@ -65,9 +65,11 @@ src/
   plugins/                  Custom Remark/Rehype processors
   integrations/             Custom Astro integrations (OG image generation, robots.txt sitemap auto-sync)
 public/
-  favicon.svg               SVG favicon (red with "NP")
-  favicon-32x32.png         Rasterized favicon (32px)
-  apple-touch-icon.png      Apple touch icon (180px)
+  favicon.svg               SVG favicon—the NP mark, a copy of images/brand/np-mark.svg
+  favicon.ico               16 (monogram-free tile), 32, 48—a copy of images/brand/np-favicon.ico
+  favicon-32x32.png         Rasterized favicon (32px)—a copy of images/brand/np-mark-32.png
+  apple-touch-icon.png      Apple touch icon (180px)—a copy of images/brand/np-mark-180.png
+  site.webmanifest          Minimal web app manifest; its 192/512 icons point at images/brand/
   robots.txt                Crawl directives
   fonts/og/                 Self-hosted fonts for OG image rendering
   images/brand/             NathanPayne.com logo system exports (see docs/brand-logo-usage.md)

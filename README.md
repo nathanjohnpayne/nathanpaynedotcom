@@ -86,7 +86,9 @@ The default 1921 register lives in `:root`; the homepage opts into a higher-chro
 │       ├── og-images.mjs           # Build-time OG image generation (Playwright)
 │       └── robots-sitemap.mjs      # Auto-sync robots.txt Sitemap: URL with dist/ output
 ├── public/
-│   ├── favicon.svg                 # SVG favicon (red with "NP")
+│   ├── favicon.svg                 # SVG favicon (the NP mark, copy of images/brand/np-mark.svg)
+│   ├── favicon.ico                 # 16 (tile), 32, 48 favicon (copy of images/brand/np-favicon.ico)
+│   ├── site.webmanifest            # Minimal manifest; icons point at images/brand/
 │   ├── robots.txt                  # Crawl directives
 │   └── fonts/og/                   # Self-hosted fonts for OG rendering
 ├── dist/                           # Build output (gitignored)
