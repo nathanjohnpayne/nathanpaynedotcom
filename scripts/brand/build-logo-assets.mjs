@@ -79,6 +79,7 @@ for (const s of [16]) pngs[s] = await png(tileSvg, { w: s, h: s, name: `np-mark-
 for (const s of [32, 48, 64, 128, 180, 192, 256, 512, 1024]) pngs[s] = await png(markSvg, { w: s, h: s, name: `np-mark-${s}.png` });
 await png(files['np-mark-mono.svg'], { w: 512, h: 512, name: 'np-mark-mono-512.png' });
 await png(files['np-mark-keyline.svg'], { w: 512, h: 512, name: 'np-mark-keyline-512.png' });
+// Alias, byte-identical to np-mark-180.png: the usage guide names it by job so the file is findable.
 fs.copyFileSync(path.join(OUT, 'np-mark-180.png'), path.join(OUT, 'np-apple-touch-icon-180.png'));
 
 // ---------- ICO (16 tile, 32, 48 with NP) ----------
@@ -120,7 +121,7 @@ await png(gwCrop, { w: 640, h: 264, pad: 20, bg: hex(P.paper), name: 'np-google-
 
 // ---------- Google Account profile picture: square, cropped to a circle in display ----------
 await png(markSvg, { w: 720, h: 720, name: 'np-google-profile-720.png' });
-await png(markSvg, { w: 1024, h: 1024, name: 'np-google-profile-1024.png' });
+await png(markSvg, { w: 1024, h: 1024, name: 'np-google-profile-1024.png' }); // alias of np-mark-1024.png, kept under the job name
 
 // ---------- Social ----------
 await png(hl, { w: 1200, h: 630, pad: 120, bg: hex(P.paper), name: 'np-social-1200x630.png' });

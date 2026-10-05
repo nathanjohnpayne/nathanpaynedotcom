@@ -20,7 +20,7 @@ Three variants exist for specific jobs:
 
 | File | Use |
 |------|-----|
-| `np-lockup-horizontal.svg` | Primary lockup on white or light backgrounds: mark, "Nathan Payne", and `NATHANPAYNE.COM` beneath. Minimum width 180px, below which the eyebrow becomes unreadable; use the mark alone instead. |
+| `np-lockup-horizontal.svg` | Primary lockup on white or light backgrounds: mark, "Nathan Payne", and `NATHANPAYNE.COM` beneath. Minimum width 320px, below which the small-cap domain line drops under 10px and stops being readable; between about 160px and 320px use the mark-and-name lockup (`np-google-workspace-lockup.svg`), and below that the mark alone. |
 | `np-lockup-horizontal-dark.svg` | Same lockup with cream type for dark backgrounds. The mark does not change. |
 | `np-lockup-horizontal-mono.svg` | One-color horizontal lockup. |
 | `np-lockup-stacked.svg`, `-dark.svg`, `-mono.svg` | Stacked lockup for square and portrait placements (social posts, slide title cards, print). |
