@@ -56,6 +56,16 @@ These are the invariants that distinguish "SEO tags exist" from "SEO actually wo
 6. Per-item OG cards are generated from content frontmatter, never hand-typed: blog cards by `src/pages/og-templates/blog/[...slug].astro`, project cards by `src/pages/og-templates/projects/[slug].astro` (#1088). A hand-written per-project template is what let two project cards drift from the pages they describe. The build records each card's rendered label, heading, description and tag line in `.astro/og-cards.json` at the checkout root (gitignored and per-checkout, so it never deploys and worktrees cannot overwrite each other's record), and `tests/project-pages.test.js` asserts every project card against its frontmatter.
 7. Every OG card fits its frame as rendered. After `document.fonts.ready`, `src/integrations/og-images.mjs` measures each card and fails the build when a block sits closer than 24px to the clipping edge of `.og-content` or the tag line wraps. `.og-content` is `overflow: hidden`, so without this an overlong card is cut off silently. Enforced at build time; the judgment is unit-tested in `tests/og-fit.test.js`.
 
+### Site icons
+
+1. `BaseLayout` links `/favicon.ico`, `/favicon-32x32.png`, `/apple-touch-icon.png`, and `/site.webmanifest`, and each resolves to a file in `dist/`. It does not link `/favicon.svg`.
+2. Those root files keep their paths and are byte-for-byte copies of the logo system in `public/images/brand/` (`np-favicon.ico`, `np-mark.svg`, `np-mark-32.png`, `np-mark-180.png`). `favicon.svg` is served for direct fetches only. The `.ico`'s 16px entry is the monogram-free tile, and that is what enforces the rule that the monogram never ships at 16px; linking the SVG would let browsers that take SVG favicons bypass it.
+3. The manifest links its 192 and 512 icons in place under `/images/brand/` rather than copying them.
+4. Every OG card carries the NP mark, inlined from `np-mark.svg`, in a grid cell outside `.og-content`, so it never collides with the heading or enters the fit check.
+5. The inlined mark's fills are palette tokens, never literal hexes (`src/lib/og-mark.ts`), so it follows the card's register: 1930 on the homepage card, 1921 elsewhere. Each token resolves to the exported hex in the 1930 register, and a fill with no token fails the build.
+
+All five are enforced by `tests/site-icons.test.js` (#1110).
+
 ## Integration Requirements (Astro build hooks)
 
 1. Custom Astro integrations that consume the `dir` parameter from `astro:build:done` MUST convert it via `fileURLToPath(dir)` (from `node:url`)—never via `dir.pathname`. Using `dir.pathname` produces malformed paths on Windows (`/C:/path/...` → `C:\C:\path\...` when passed to `path.join`). See #171 and #173.
