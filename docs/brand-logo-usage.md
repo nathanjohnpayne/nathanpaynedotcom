@@ -26,12 +26,13 @@ Three variants exist for specific jobs:
 
 | File | Use |
 |------|-----|
-| `np-lockup-horizontal.svg` | Primary lockup on white or light backgrounds: mark, "Nathan Payne", and `NATHANPAYNE.COM` beneath. Minimum width 320px, below which the small-cap domain line drops under 10px and stops being readable; between about 160px and 320px use the mark-and-name lockup (`np-google-workspace-lockup.svg`), and below that the mark alone. |
+| `np-lockup-horizontal.svg` | Primary lockup on white or light backgrounds: mark, "Nathan Payne", and `NATHANPAYNE.COM` beneath. Minimum width 320px, below which the small-cap domain line drops under 10px and stops being readable; between about 160px and 320px use the mark-and-name lockup (`np-lockup-compact.svg`), and below that the mark alone. |
 | `np-lockup-horizontal-dark.svg` | Same lockup with cream type for dark backgrounds. The mark does not change. |
 | `np-lockup-horizontal-mono.svg` | One-color horizontal lockup. |
 | `np-lockup-stacked.svg`, `-dark.svg`, `-mono.svg` | Stacked lockup for square and portrait placements (social posts, slide title cards, print). |
 | `np-wordmark.svg`, `np-wordmark-dark.svg` | Name and domain without the mark, for places where the mark already appears nearby. |
-| `np-google-workspace-lockup.svg` | Mark and name only, name centered on the mark, for small badges where the eyebrow would be tiny. |
+| `np-lockup-compact.svg` | Mark and name only, name centered on the mark, for narrow placements where the eyebrow would be tiny. |
+| `np-google-workspace-lockup.svg` | The 320×132 Google Workspace frame itself: full-height mark on the left, the name on two lines beside it. Only for that frame. |
 
 Clear space around any lockup is the width of the red plane (one quarter of the mark's height). Do not recolor the planes, add gradients or shadows, rotate the mark, or set the name in another typeface.
 
@@ -39,7 +40,7 @@ Clear space around any lockup is the width of the red plane (one quarter of the 
 
 | Surface | File | Notes |
 |---------|------|-------|
-| Google Workspace organization logo (Admin console, Account settings, Personalization) | `np-google-workspace-logo-320x132.png` | Exactly 320×132 as Google's help page specifies. White background and under 5 KB, well inside the 30 KB limit third-party guides report. The Admin console offers both "Upload from device" and "By URL"; either works with this file. |
+| Google Workspace organization logo (Admin console, Account settings, Personalization) | `np-google-workspace-logo-320x132.png` | Exactly 320×132 as Google's help page specifies, and laid out for that frame: Google displays the whole frame, so a thin horizontal lockup inside it renders small, and this file instead fills the height with the mark and sets the name on two lines. White background, 7 KB, well inside the 30 KB limit third-party guides report. Use "Upload from device": the console's "By URL" importer refused this host with a generic security message even though the URL serves 200 to every client, so the importer, not the site, is the limit. |
 | Google Account profile picture | `np-google-profile-720.png` | 720×720 square, 12 KB. Google crops it to a circle; the monogram clears the circle with margin. Upload from device (the profile picture flow has no URL option). `np-google-profile-1024.png` is the same mark at 1024 if a larger source is wanted. |
 | Browser favicon, `.ico` | `np-favicon.ico` | Contains 16 (tile), 32, and 48 (monogram). |
 | Browser favicon, SVG | `np-mark.svg` | Browsers that take SVG favicons render the monogram at every size; pair with the ICO for the 16px case. |
