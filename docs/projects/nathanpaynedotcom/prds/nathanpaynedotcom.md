@@ -3,7 +3,7 @@ generated_by: scripts/project-doc-sync.sh
 do_not_edit: true
 source_repo: nathanjohnpayne/docs
 source_path: projects/nathanpaynedotcom/prds/nathanpaynedotcom.md
-source_ref: de4b144
+source_ref: 023a69b
 project: nathanpaynedotcom
 document_class: prd
 document_slug: nathanpaynedotcom
@@ -281,10 +281,11 @@ The old root-level `bugs/` folder is retired. Use:
 
 This section preserves the findings migrated from the retired June 2026 header-audit note and follow-up note. The audit was tracked in repo issue #455, closed 2026-06-10. Generated evidence now lives in the application repo at `.github/screenshots/header-audit/`.
 
-**Status (2026-10-05):** Findings 1–8 are done; findings 9 and 10 are partly done.
+**Status (2026-10-05):** Findings 1–4 and 6–8 are done; findings 5, 9, and 10 are partly done.
 
 - **Done in #458 (2026-06-09):** findings 1, 2, 6, 7, and 8.
-- **Done in #459 (2026-06-09):** finding 3 (heading-scale tokens in `:root`), finding 4 (wrap-safe heading line heights; the only sub-1.0 values left are on `nowrap` single-line text), and finding 5 (project, blog, and résumé section h2s share one token set).
+- **Done in #459 (2026-06-09):** finding 3 (heading-scale tokens in `:root`), and finding 4 (wrap-safe heading line heights; the only sub-1.0 values left are on `nowrap` single-line text).
+- **Partly done, finding 5:** #459 moved the project, blog, and résumé section h2s onto one token set, but the homepage panel h2 still has its own size and line height.
 - **Partly done, finding 9:** #483 and #485 added the `--sp-*` spacing scale and moved the `--su` declarations onto it, but ad hoc rem margins remain elsewhere in `global.css`.
 - **Partly done, finding 10:** #458 dropped Inter 300, but visitor fonts still load from Google Fonts.
 
@@ -294,7 +295,8 @@ The header-audit snapshot reports zero flags after #461. Its five checks (left d
 
 - Move the rest of the margin declarations onto the `--sp-*` scale (finding 9).
 - Decide whether to self-host the visitor fonts (finding 10). No open issue tracks it.
-- Converge the homepage panel and listing-page h2 treatments with the shared section-heading tokens; #459 aligned only the body-section h2s (finding 5).
+- Move the homepage panel h2 onto the shared section-heading tokens (finding 5).
+- Decide whether the listing-page h2s should share those tokens too; they are outside finding 5's scope.
 - Bring the homepage panel `.eyebrow` utility added in #477 (`0.56rem`, `--ink-50`) up to the finding-2 floor of `0.7rem` and a contrast-safe ink.
 
 The numbered findings below are the original audit text, kept as the record.
