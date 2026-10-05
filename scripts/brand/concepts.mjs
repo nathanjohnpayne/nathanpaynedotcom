@@ -104,10 +104,10 @@ export function horizontalPlain(markBody, { dark = false, markSize = 64, gap = 2
   const name = outline(fonts.cg600, 'Nathan Payne', 58);
   const tx = markSize + gap;
   const nameW = name.bbox.x2 - name.bbox.x1;
-  const baseline = 32 + name.capHeight / 2;
-  // Cap-height centring puts the descender of "y" below the 64-unit mark. Grow the
-  // viewport symmetrically so nothing clips and the pair stays centred (#1108).
-  const padY = Math.ceil(Math.max(0, baseline + name.bbox.y2 - 64, -(baseline + name.bbox.y1)));
+  const baseline = markSize / 2 + name.capHeight / 2;
+  // Cap-height centring puts the descender of "y" below the mark. Grow the viewport
+  // symmetrically so nothing clips and the pair stays centred (#1108).
+  const padY = Math.ceil(Math.max(0, baseline + name.bbox.y2 - markSize, -(baseline + name.bbox.y1)));
   const body = [
     `  <g transform="translate(0 ${padY})">`,
     `  <g transform="scale(${markSize / 64})">`,
