@@ -75,7 +75,8 @@ const gaId = import.meta.env.PUBLIC_GA_MEASUREMENT_ID || '';
   <title>{title}</title>
 
   <!-- Favicons: the NP mark from public/images/brand/ (#1110). The .ico's
-       16px entry is the monogram-free tile; never ship the monogram at 16px. -->
+       16px entry is the monogram-free tile; SVG-capable browsers draw
+       favicon.svg instead (see specs/seo-metadata.md § Site icons). -->
   <link rel="icon" href="/favicon.ico" sizes="16x16 32x32 48x48" />
   <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
   <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
