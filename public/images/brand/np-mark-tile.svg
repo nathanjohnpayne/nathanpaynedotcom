@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-labelledby="t d">
+  <title id="t">Nathan Payne tile</title>
+  <desc id="d">Cream field with red, yellow, black and blue planes divided by black lines, after the Mondrian grid of nathanpayne.com.</desc>
+  <rect x="0" y="0" width="64" height="64" fill="#f5f0e4"/>
+  <rect x="48" y="0" width="16" height="44" fill="#da2418"/>
+  <rect x="48" y="48" width="16" height="16" fill="#0a5c9e"/>
+  <rect x="0" y="48" width="24" height="16" fill="#f0c800"/>
+  <rect x="28" y="48" width="16" height="16" fill="#333333"/>
+  <rect x="44" y="0" width="4" height="64" fill="#1a1814"/>
+  <rect x="0" y="44" width="64" height="4" fill="#1a1814"/>
+  <rect x="24" y="48" width="4" height="16" fill="#1a1814"/>
+</svg>
