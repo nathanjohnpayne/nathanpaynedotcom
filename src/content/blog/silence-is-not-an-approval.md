@@ -65,7 +65,7 @@ Through August and most of September, I treated it as the second. Each incident 
 
 [#1186](https://github.com/nathanjohnpayne/mergepath/issues/1186), filed on September 4, reports that the wave audit, which reviews the canonical content Mergepath propagates to downstream repositories, "has not advanced its watermark since 2026-07-28: over-budget diffs classify as 'reviewer unavailable' and chain forward, making the next range larger."
 
-The audit had a word for "no answer," and it used it. The word was the wrong kind. *Reviewer unavailable* is transient, and transient conditions carry forward to the next run. But an over-budget diff does not shrink by waiting. Each unaudited range carried into the next wave, making the next diff larger and another over-budget failure more likely. In the issue's words: "Every wave since has exited 4, failed open, and chained its un-audited range into the next one." At filing, the issue recorded the range at 127 commits and the diff at 2.8 times the review budget.
+The audit had a word for "no answer," and it used it. The word was the wrong kind. *Reviewer unavailable* is transient, and transient conditions carry forward to the next run. But an over-budget diff does not shrink by waiting. In the issue's words: "Every wave since has exited 4, failed open, and chained its un-audited range into the next one." At filing, the issue recorded the range at 127 commits and the diff at 2.8 times the review budget.
 
 Thirty-eight days passed between the last approval and the filing. The first fix, [#1263](https://github.com/nathanjohnpayne/mergepath/pull/1263), is 45 added lines: refuse an oversized scope before dispatching a reviewer, instead of calling it unavailability. #1186 stays open for the backlog itself, which that fix does not split.
 
@@ -85,7 +85,7 @@ A hold spends human attention, and a reflex trained on false alarms is the one t
 
 [#826](https://github.com/nathanjohnpayne/mergepath/issues/826) goes further, arguing that CodeRabbit should not be load-bearing for merge at all, because "the budget is exhausted by the system reviewing its own churn." It is open, labeled as a decision, and blocked.
 
-Failing open can lose reviews quietly; failing closed can spend people loudly. Neither is free. Choosing between them for a given kind of silence is a product decision, and I had been leaving it to whichever code path met the case first.
+Failing open can lose reviews quietly; failing closed can spend people loudly. Choosing between them for a given kind of silence is a product decision, and I had been leaving it to whichever code path met the case first.
 
 ## The Patch Series
 
@@ -111,9 +111,9 @@ On September 24 I decided it, and recorded the decision on the issue:
 
 A body-less acknowledgment does not count as that evidence; a review run with a body, pinned to the current commit, does. [#1323](https://github.com/nathanjohnpayne/mergepath/pull/1323) implemented it and merged on September 25.
 
-That rule has a cost, and I chose it knowingly. While CodeRabbit's current comment remains a refusal, a completion status alone no longer clears the commit. The existing resume, retry, timeout, and Codex failover rules still apply. That is slower, and some of those waits will be on commits with nothing wrong in them. It is #962's cost, accepted on purpose.
+That rule has a cost, and I chose it knowingly. While CodeRabbit's current comment remains a refusal, a completion status alone no longer clears the commit. The existing resume, retry, timeout, and Codex failover rules still apply. That is slower, and some of those waits will be on commits with nothing wrong in them. It is #962's cost.
 
-It is also not the whole answer. It settles one case: what a refusal plus a completion status may prove. #878 stays open at high priority for the rest: the shared classification contract, coverage of the remaining states, and delivery to downstream repositories. I have not done that part yet.
+It settles one case: what a refusal plus a completion status may prove. #878 stays open at high priority for the rest: the shared classification contract, coverage of the remaining states, and delivery to downstream repositories. I have not done that part yet.
 
 What changed is the rule for making progress when evidence is missing. Before, each code path decided for itself whether a silence was close enough to a yes, and the fixes taught them one at a time that it was not. Now there is one written rule, with an owner, for one kind of silence: while the provider's current comment remains a refusal, a completion status alone cannot substitute for a review of this commit. The remaining work is to write that kind of rule for every other kind of silence, once, and have the waiter and the gate both read it.
 

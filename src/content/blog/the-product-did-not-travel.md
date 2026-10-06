@@ -42,7 +42,7 @@ The app was [Five Across](/projects/five-across/), a live multiplayer bingo game
 
 I had the story ready: here is what I generalized, here is the architecture, here is the second event running on it. The data does not support that story. The platform work succeeded, and the product still did not survive the trip. The best explanation the two events support is that the product was never only the code. It was prompts written for one specific sailing, a group big enough and together long enough to make the game a dinner ritual, and a host who promoted and adjusted it while it ran. None of those three came along when the software generalized. The cruise's own data described them before the second event started, and I did not read it that way until the second event failed.
 
-That is an inference, and two events cannot isolate which of those parts mattered most. But it is the inference that transfers to any v1 that worked once. A first success is a bundle of code, content and circumstance, and usage totals will not say which of the three the customers were there for. Handing the second run to a different customer gets you closer. Debrief that customer so your known bugs cannot steer the answers, then go back to the first customer's data and read it for what the product was rather than for how much of it got used. That is the order the rest of this post follows.
+That is an inference, and two events cannot isolate which of those parts mattered most. But it is the inference that transfers to any v1 that worked once. A first success is a bundle of code, content and circumstance, and usage totals will not say which of the three the customers were there for. Handing the second run to a different customer gets you closer. Debrief that customer so your known bugs cannot steer the answers, then go back to the first customer's data and read it for what the product was rather than for how much of it got used.
 
 ## Built for One Event, Then Generalized
 
@@ -60,13 +60,13 @@ The most revealing work was [a rename](https://github.com/nathanjohnpayne/fiveac
 
 </div>
 
-Bodega Bay ran under its own hostname and brand, with three new day themes and a 120-prompt general-audience pool. By its own measure, the generalization worked. The weekend also had a client crash and a missing first-day email. I will come back to both, because their effect on participation is less clear than it first looked.
+Bodega Bay ran under its own hostname and brand, with three new day themes and a 120-prompt general-audience pool. By its own measure, the generalization worked. The weekend also had a client crash and a missing first-day email. I will come back to both.
 
 ## What Did Not Travel
 
 Kim hosted the weekend at a house on the coast, Friday through Sunday. I was not there. I set up the event, dropped off laminated player and admin guides the day before, and followed from home through an account that never marked a square. Seven accounts joined: Kim, five guests and me. Four ever marked anything. Kim made 15 of the 27 marks; the three guests who played made the other twelve.
 
-The timeline is short enough to give in full. Friday's card collected thirteen marks between 18:03 and 20:13, most of them Kim's, and two more of Kim's just before 1:00. Saturday's busiest guest stretch was eight marks between 09:46 and 09:57, and no guest marked anything afterward. Kim marked four more squares at 12:56 and 12:57. Then nothing, on any card, for the rest of the event. Two accounts opened a Sunday card, one of them mine; the one guest who did opened only the wrap-up card, at 14:12. None marked a square. That is the failure I need to explain.
+Friday's card collected thirteen marks between 18:03 and 20:13, most of them Kim's, and two more of Kim's just before 1:00. Saturday's busiest guest stretch was eight marks between 09:46 and 09:57, and no guest marked anything afterward. Kim marked four more squares at 12:56 and 12:57. Two accounts opened a Sunday card, one of them mine; the one guest who did opened only the wrap-up card, at 14:12. None marked a square. That is the failure I need to explain.
 
 <span id="a-debrief-the-bugs-could-not-steer"></span>
 
@@ -90,13 +90,13 @@ Asked how people found out a new day's card was live, Kim picked "I told them in
 
 PostHog recorded fourteen client errors at 14:38 on Saturday: a Firestore internal assertion followed by three crash screens, all on one device. Kim's text independently says the app stopped working that day. A crash on the day participation died looks like the cause, and the timestamps say it was not, at least not for the guests. Their last mark preceded the recorded crash by four hours and forty-one minutes, and Kim's last mark preceded it too. The crash cannot explain a gap that opened before it.
 
-But a last mark is not a timestamp for a decision to quit. The morning pause might have ended with another invitation from Kim, and a broken host app could have prevented that invitation. Weak interest and the crash could both have contributed. The crash is worth fixing. A debrief that led with it would have let me fix it and call the weekend explained, and that is the outcome the neutral questions were there to prevent.
+But a last mark is not a timestamp for a decision to quit. The morning pause might have ended with another invitation from Kim, and a broken host app could have prevented that invitation. The crash is worth fixing. A debrief that led with it would have let me fix it and call the weekend explained, and that is the outcome the neutral questions were there to prevent.
 
 ### Prompts for Plans That Did Not Exist
 
 Kim's closing answer took responsibility: "I should've known we weren't going anywhere and had less prompts for exploration." That is generous, and not quite fair to Kim. The prompts started as an AI draft, 120 of them, written against the platform's general-audience rules, and Kim rewrote 65 of them over dinner the night before launch. When I asked beforehand whether there were plans to build the schedule around, Kim replied: "No, we have no real plans solidified bc nobody is as much of a Virgo as me." The product asked a host to write a weekend's worth of prompts for plans that did not exist yet, starting from a draft that assumed there would be some.
 
-By my rough count, about a third of the final squares required leaving the house: a walk on the dunes, a whale spout, a boat name in the harbor. Of the 27 marks recorded, 26 were for things possible at home, and the dunes walk was marked once. That is consistent with Kim's explanation. It does not show that players marked every feasible square or that every line was blocked. Showing that would take each player's actual board against what happened that weekend.
+By my rough count, about a third of the final squares required leaving the house: a walk on the dunes, a whale spout, a boat name in the harbor. Of the 27 marks recorded, 26 were for things possible at home, and the dunes walk was marked once. That is consistent with Kim's explanation. It does not show that players marked every feasible square or that every line was blocked.
 
 <div class="figure-pair">
 
@@ -148,7 +148,7 @@ The fair counterargument is that most of the plumbing is not optional. [Self-ser
 
 ## The Stop Condition
 
-It is worth being precise about what the second event did and did not test. It tested whether the platform could run an event it was not built for, and the answer was yes. It tested whether a host other than me could run it, and the answer was yes, with Kim doing by hand much of what the product should have been doing. It did not test whether the product works without me, because I seeded the event, registered the hostname, supplied the prompt draft and coached Kim by text.
+The second event tested whether the platform could run an event it was not built for, and the answer was yes. It tested whether a host other than me could run it, and the answer was yes, with Kim doing by hand much of what the product should have been doing. It did not test whether the product works without me, because I seeded the event, registered the hostname, supplied the prompt draft and coached Kim by text.
 
 The requirements document's self-service exit condition is that "an organizer can launch and run an event without developer intervention." That is a setup test, and a useful one. Sustained participation needs its own test, sized to the occasion. For a weekend, I would agree with the host in advance on the next planned opportunity to play after the introduction, then record who returns, whether the host had to invite them, whether the squares fit what happened, and what people say about playing or opting out. If people return only when invited and enjoy it, the next work is the host's tools. If they return on their own, the next work is finding out what prompted them. If they still find it work, the next work is the occasion or the format, before any reminders.
 
