@@ -24,7 +24,7 @@ pullquotes:
   - text: "Seventeen bugs in code the template's own review had already cleared. Fresh eyes found what familiarity missed."
     label: "What propagation taught me"
     accent: blue
-  - text: "The difference between a well-intentioned agent and a reliable one is not a smarter model. It is enforcement infrastructure."
+  - text: "The difference between a well-intentioned agent and a reliable one was not a smarter model. It was the system around it."
     label: "The systemic lesson"
     accent: red
 sidebar:
