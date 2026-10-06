@@ -89,12 +89,12 @@ const imageDimensions = {
     height: 1488,
   },
   // Friends & Family Billing: the Invoicing tab's two surfaces, captured from
-  // the repository's own E2E harness (VITE_E2E_MODE with the `seedPage`
-  // fixture), so the data is the fixture's invented household and the payment
-  // handle is a placeholder. Cropped to the message body and kept as two
-  // stacked figures rather than one side-by-side composite: composed, the pair
-  // was 2000px wide and rendered 233px at a 375px viewport, giving each pane
-  // ~117px and its UI text about 1.5 CSS pixels (#858 Codex round 6).
+  // the live product and cropped to the message body (the 2026-10-06
+  // correctness pass found the E2E fixture could not have produced the
+  // member counts they show). Kept as two stacked figures rather than one
+  // side-by-side composite: composed, the pair was 2000px wide and rendered
+  // 233px at a 375px viewport, giving each pane ~117px and its UI text about
+  // 1.5 CSS pixels (#858 Codex round 6).
   '/images/projects/friends-and-family-billing-edit.png': {
     width: 894,
     height: 428,

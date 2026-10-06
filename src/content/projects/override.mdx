@@ -23,7 +23,7 @@ constraints:
   - value: "Investor's seat"
     label: "the only domain access"
   - value: "1 deal room"
-    label: "in production, a demonstration"
+    label: "in production as of 2026-08-28, a demonstration"
 decisions:
   - title: "Build for a real niche, not an AI demo"
     lens: "Method"
@@ -89,7 +89,7 @@ I named it after a line in the waterfall. The override, as I learned the word, i
 
 **Structure the deal.** A producer sets the capitalization and unit price, the weekly operating nut, the house terms, eleven royalty participants and the waterfall structure. First-time users can walk it as a guided stepper; experienced ones get every section at once, which is the default. The producer and the prospective investor are both first-class here—the dashboard's primary control is a My Productions / My Investments toggle, because I built this from the side of the table that only ever sees the second view.
 
-**Model the outcome.** Broadway money moves in a fixed order, and the order is the product. Gross box office less credit-card fees and the house's cut gives adjusted gross; eleven royalty participants take their share; then the weekly nut, then the general partner's fee. What survives is operating profit, and only then does the waterfall run. Two structures ship. Under recoup-first, investors are repaid in full before anyone shares profit, and in the week the show crosses its capitalization the engine splits that week's profit at the crossing point rather than treating the whole week as one side of the line. Under share-from-dollar-one, profit sharing runs alongside recoupment from the first performance. Around both sit per-investor returns, an approximate IRR, breakeven occupancy, and a sensitivity grid that re-runs the model across a matrix of occupancy rates and run lengths.
+**Model the outcome.** Broadway money moves in a fixed order, and the order is the product. Gross box office less credit-card fees and the house's cut gives adjusted gross; eleven royalty participants take their share; then the weekly nut, then the general partner's fee. What survives is distributable profit, and only then does the waterfall run. Two structures ship. Under recoup-first, investors are repaid in full before anyone shares profit, and in the week the show crosses its capitalization the engine splits that week's profit at the crossing point rather than treating the whole week as one side of the line. Under share-from-dollar-one, profit sharing runs alongside recoupment from the first performance. Around both sit per-investor returns, an approximate IRR, breakeven occupancy, and a sensitivity grid that re-runs the model across a matrix of occupancy rates and run lengths.
 
 ![The weekly cascade as an investor sees it, computed by the same engine the producer's own model runs: gross box office down through credit-card fees and the house, royalties and the weekly nut to operating profit, then the GP's management fee, then what reaches investor recoupment.](/images/projects/override-waterfall.png)
 
@@ -106,19 +106,19 @@ These are not calls I arrived with. They are the ones that emerged as I understo
 
 <DecisionLedger decisions={props.decisions} />
 
-![Translating a contract clause into something you can see: post-recoup profit split per hundred dollars, with the GP's carve coming out of the investor pool rather than the creative pool—forty-five cents to the limited partners, five to the GP, fifty to creatives. The callout is the model declining to flatter the deal, because this demonstration never recoups.](/images/projects/override-profit-split.png)
+![Translating a contract clause into something you can see: post-recoup profit split per hundred dollars, with the GP's carve coming out of the investor pool rather than the creative pool—forty-five cents to the limited partners, five to the GP, fifty to creatives. The callout is the model declining to flatter the deal, because this demonstration does not recoup at its base-case assumptions.](/images/projects/override-profit-split.png)
 
 ## Building for financial trust
 
-Financial software needs a higher standard than "the tests pass," and what actually stands behind the arithmetic here is a calibration rather than a suite. The engine's documentation carries a check built from Hadestown's published economics—947 seats, 93% occupancy, a $155 average ticket, a $530K weekly nut, 14% royalties—together with what the model should return. I re-ran it against the shipped engine while writing this page, six months after it was written and with nothing in CI holding it in place. It reproduces exactly: $1,046,283 weekly gross, 57.0% breakeven, recoupment in week 37.
+Financial software needs a higher standard than "the tests pass," and what stands behind the arithmetic here is a calibration rather than a suite. The engine's documentation carries a check built from Hadestown's published economics—947 seats, 93% occupancy, a $155 average ticket, a $530K weekly nut, 14% royalties—together with what the model should return. I re-ran it against the shipped engine while writing this page, six months after it was written and with nothing in CI holding it in place. It reproduces exactly: $1,046,283 weekly gross, 57.0% breakeven, recoupment in week 37.
 
-The test suite is less reassuring than its green tick suggests. Eighty-six tests pass, but only eight touch the engine and every one enters through the same file, so the weekly pipeline, the phase function and the ownership rollup have no direct test at all. Two assertions check money against the inputs, both of them pool percentages; the ones that look like proof check the engine against its own output.
+The test suite is less reassuring than its green tick suggests. A hundred and nine tests pass as of 2026-10-06, up from eighty-six in August, but only eight touch the engine and every one enters through the same file, so the weekly pipeline, the phase function and the ownership rollup have no direct test. Two assertions check money against the inputs, both of them pool percentages; the ones that look like proof check the engine against its own output.
 
 Which is roughly how a real flaw survived. A producer's screen shows which phase the waterfall is in, and the obvious source is the profit-sharing toggle they just clicked. The phase function reads the deal's post-recoup investor split instead, so the badge reports the economic condition rather than a flag that can be set independently of it—the right instinct, incompletely applied. The distribution math one file over still consults the toggle, so turn the toggle off without changing the split and the badge reads "Profit Sharing Active" while the engine pays investors nothing, and the deal room shows a prospective backer a 50% investor pool for that same deal. The repository records it as a known inconsistency and says to preserve the behavior. Two sources of truth for one economic question is exactly the failure a financial tool cannot afford.
 
 What does hold is structural. The financial engine is five files with no React and no Firebase import in any of them, sealed off from both the interface and the database—a producer configures the rates and the splits, and the engine fixes the order the money moves in. But that boundary exists by convention, not enforcement. No lint rule, no import restriction, no CI check polices it; it holds because the rules files say so and reviewers read them.
 
-Most of the code is agent-written, and the whole application arrived in a single commit six days after the scaffold. The gap worth naming is the kind an agent does not catch: the repo's rules name the three engine files as its highest-risk zone, while the automated review gate watches auth and payments directories that do not exist in this repository. Which is the same failure twice, one level apart—Override knew the financial rule and did not enforce a single source of truth for it; the agent workflow knew where the risky code lived and did not enforce review there. The judgment lives in prose and the machine gate aims elsewhere.
+The whole application arrived in a single commit titled "Updates via Claude Code," six days after the scaffold. The gap worth naming is the kind an agent does not catch: the repo's rules name the three engine files as its highest-risk zone, while the automated review gate watches auth and payments directories that do not exist in this repository. Which is the same failure twice, one level apart—Override knew the financial rule and did not enforce a single source of truth for it; the agent workflow knew where the risky code lived and did not enforce review there. The judgment lives in prose and the machine gate aims elsewhere.
 
 ## What I learned
 
@@ -126,7 +126,7 @@ Theatrical financing has its own vocabulary and its own math—recoupment trigge
 
 The clearest lesson is that a domain-specific product buys precision by giving up reach, and you have to actually want that trade. A generic waterfall engine would have served film finance and real-estate syndication too. Encoding Broadway's own rules instead makes the product wrong for every other industry, and right in the small places that decide whether a producer trusts the number or checks it by hand.
 
-What I cannot tell you is whether a producer agrees. Override has never run a real deal: no real capitalization managed in it, no outside investor admitted, no deal-room link sent to a backer, and nothing in the repository or its issue history that suggests otherwise. The only deal room in production is a demonstration built with sample figures.
+What I cannot tell you is whether a producer agrees. Override has never run a real deal: no real capitalization managed in it, no outside investor admitted, no deal-room link sent to a backer, and nothing in the repository or its issue history that suggests otherwise. As of 2026-08-28, the only deal room in production is a demonstration built with sample figures.
 
 Override proved the building part. I could use AI tools to learn an unfamiliar domain, encode its rules, and turn a workflow I found frustrating into working software.
 

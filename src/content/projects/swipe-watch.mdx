@@ -18,8 +18,8 @@ metadata:
   focus: 'Discovery, recommendations, and interaction design'
 stack: 'Vanilla JavaScript · Firebase Hosting'
 constraints:
-  - value: '3 days'
-    label: 'core build'
+  - value: '13 commits'
+    label: 'core build, as the repository records it'
   - value: '106 titles'
     label: 'hand-curated'
   - value: '10 cards'
@@ -30,7 +30,7 @@ decisions:
   - title: 'No stack until the feel earns one'
     lens: 'Fidelity'
     context: 'The question was whether a swipe feels like a natural way to express taste in a streaming catalog. The default way to build a card UI is a framework scaffold—React, a bundler, a build pipeline—before the first card ever moves.'
-    chosen: 'Vanilla JavaScript, no framework, no build step. Firebase Hosting serves the repo root as-is, because there is no build output to serve.'
+    chosen: 'Vanilla JavaScript, no framework, no build step. Firebase Hosting serves the source files as-is—the repo root until 2026-09-29, a static public/ directory since—because there is no build output to serve.'
     rejected: 'A framework scaffold. The larger application projects in this portfolio use one, and for anything meant to outlive a prototype it is usually the right call.'
     rationale: 'Interaction feel was the entire question, so everything between an edit and a reload was overhead. If the swipe felt wrong, the total loss was thirteen commits.'
     cost: "The prototype cannot grow into the product. Everything the scaffold would have supplied—types, components, a build step—is still missing, so the route from here is a rewrite rather than an extension, and the thing still running today is the throwaway."
@@ -51,11 +51,11 @@ decisions:
     chosen: 'An economy. Swipes earn coins and coins unlock further discovery modes, so the end of a deck becomes a reason to keep going rather than a wall.'
     rejected: 'Keeping the prototype single-variable. A one-question experiment stays cleaner without a second untested mechanic layered on, and holding the economy back would have widened the coin-free baseline.'
     rationale: 'The price was legible—one coin per swipe makes an unlock cost exactly 25 swipes—and it was cheap to build on counters that already existed.'
-    cost: "Adding a second mechanic compromised the baseline for the first. A coin-free production window does exist, but it is short and has never been examined, so whether the swipe alone sustains attention is now a question the prototype cannot answer about itself."
+    cost: "Adding a second mechanic compromised the baseline for the first. A coin-free production window does exist—a few days to a month, depending on when the first deploy landed—but no analysis of it has been published, so whether the swipe alone sustains attention is a question the prototype cannot answer about itself."
     evidence: "Unresolved by construction. Whether the loop sustains engagement is a before-and-after question, and no flag, variant or cohort was ever set up to answer it. The mechanic's honest shape is also worth stating: an unlock opens another view over the same catalog rather than adding titles to it."
     status: 'pending'
 related:
-  - label: 'Blog: Six PRs, One Bug—What AI Agents Actually Get Wrong'
+  - label: 'Blog: Six PRs, One Bug: What AI Agents Actually Get Wrong'
     href: '/blog/six-prs-one-bug-agent-failure-modes/'
   - label: 'Project: Device Source of Truth'
     href: '/projects/device-source-of-truth/'
@@ -84,7 +84,7 @@ That is the meaningful product change on this project—not a feature added to a
 
 <div class="figure-pair">
 
-![Swipe interaction: a Disney+ title card with dismiss, save and like controls, dealt ten to a session.](/images/projects/swipe-watch-card.png)
+![Swipe interaction: a Hulu title card with dismiss, save and like controls, dealt ten to a session.](/images/projects/swipe-watch-card.png)
 
 ![The second loop: the end-of-session screen, where swipes have banked ten coins toward unlocking another discovery mode.](/images/projects/swipe-watch-end-screen.png)
 

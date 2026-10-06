@@ -2,7 +2,7 @@
 title: "Six PRs, One Bug: What AI Agents Actually Get Wrong"
 seoTitle: "Six PRs, One Bug"
 shortTitle: "Six PRs, One Bug"
-description: "Editor, preview, and sent email disagreed in a billing app, and three agent attempts at parity could not reconcile them. The rule they broke sat in the design spec the whole time, as prose no reviewer could check. What changed the outcome was a new brief, not a better patch."
+description: "Editor, preview, and sent email disagreed in a billing app, and three agent attempts at parity could not reconcile them. The rule they broke sat in the design spec the whole time, as prose no reviewer could check. What I changed was the brief, not the patch."
 seoDescription: "The rule this billing parity bug violated sat in a design spec as prose, never as anything a review could check against."
 category: "Agent Systems"
 author: "Nathan Payne"
@@ -49,7 +49,7 @@ The first version of this post told the story in the order I remembered it: I fi
 
 That inversion is the story. First PR to merged fix is twenty-two hours and six minutes—"roughly twenty hours" was a fair round number and exactly wrong about the order. [Issue #159](https://github.com/nathanjohnpayne/friends-and-family-billing/issues/159) was not the starting gun for six failed attempts. It was the concession the six forced: the moment a stream of symptoms got named as one problem, with a definition of correct attached **to the work**. The definition was a day old by then, sitting in the design spec. It had just never been attached to anything anyone was reviewing.
 
-"Six PRs" needs an inclusion rule, which the first version never stated. Six pull requests in one session on this surface: one originating implementation ([PR #144](https://github.com/nathanjohnpayne/friends-and-family-billing/pull/144)), which introduced the architecture the bug lived in; three attempts at the parity bug ([PR #146](https://github.com/nathanjohnpayne/friends-and-family-billing/pull/146), [PR #153](https://github.com/nathanjohnpayne/friends-and-family-billing/pull/153), [PR #158](https://github.com/nathanjohnpayne/friends-and-family-billing/pull/158)); and two real but orthogonal fixes ([PR #154](https://github.com/nathanjohnpayne/friends-and-family-billing/pull/154), [PR #155](https://github.com/nathanjohnpayne/friends-and-family-billing/pull/155)). "Six failed attempts" is wrong twice over—#144 predates the bug it caused, and #154 and #155 were never aimed at it.
+"Six PRs" needs an inclusion rule, which the first version never stated. The six are the ones the root-cause comment on [issue #159](https://github.com/nathanjohnpayne/friends-and-family-billing/issues/159) attributed to the arc: one originating implementation ([PR #144](https://github.com/nathanjohnpayne/friends-and-family-billing/pull/144)), which introduced the architecture the bug lived in; three attempts at the parity bug ([PR #146](https://github.com/nathanjohnpayne/friends-and-family-billing/pull/146), [PR #153](https://github.com/nathanjohnpayne/friends-and-family-billing/pull/153), [PR #158](https://github.com/nathanjohnpayne/friends-and-family-billing/pull/158)); and two real but orthogonal fixes ([PR #154](https://github.com/nathanjohnpayne/friends-and-family-billing/pull/154), [PR #155](https://github.com/nathanjohnpayne/friends-and-family-billing/pull/155)). "Six failed attempts" is wrong twice over—#144 predates the bug it caused, and #154 and #155 were never aimed at it. The same session also merged two the count leaves out: [#156](https://github.com/nathanjohnpayne/friends-and-family-billing/pull/156), a one-character loading-text fix, and [#157](https://github.com/nathanjohnpayne/friends-and-family-billing/pull/157), a migration-version re-derivation.
 
 ## What parity has to mean
 
@@ -103,7 +103,7 @@ The prompts that drove the six PRs come from my unpublished session log. Unlike 
 
 **Prompt 6** (first report, two screenshots):
 
-> The text shows bold in preview, but not in the editor.
+> The text shows bold in preview (image1), but not in the editor (image2).
 
 **Prompt 7** (second report, two screenshots):
 
@@ -121,7 +121,7 @@ By prompt 11 I was offering to throw the template away rather than keep watching
 
 Claude Code authored all six; the fix came later under the Codex identity—the rotation is visible in [PR #161](https://github.com/nathanjohnpayne/friends-and-family-billing/pull/161)'s title prefix. But the per-PR record is not a story about agent incompetence. Each PR is competent inside its frame; what no PR could supply was the frame.
 
-```mermaid title="Six PRs by role, then the issue, then the fix" description="One implementation introduces a lossy markdown bridge; three attempts patch the bridge and two orthogonal fixes land beside it; the accumulated failures get named in issue 159, and pull request 161 takes the HTML body of the preview and the test email off the bridge. The plain-text part and the invoice a recipient receives stay on it."
+```mermaid title="Six PRs by role, then the issue, then the fix" description="One implementation introduces a lossy markdown bridge; three attempts patch the bridge and two orthogonal fixes land beside it; the accumulated failures get named in issue 159, and pull request 161 takes the HTML body of the preview and the test email off the bridge. The plain-text part and the invoice a recipient receives stay on it, and on 2026-09-30 pull request 459 moves the test email back onto it, rendered server-side."
 graph TD
     PR144["#144 implementation:<br/>TipTap editor,<br/>markdown bridge kept"] --> PR146["#146 attempt:<br/>balanced token regex"]
     PR146 --> PR153["#153 attempt:<br/>marks + CSS"]
@@ -130,6 +130,7 @@ graph TD
     PR144 --> PR155["#155 orthogonal:<br/>legacy migration"]
     PR158 --> I159["Issue #159:<br/>invariant attached<br/>to the work"]
     I159 --> PR161["#161 fix:<br/>bridge removed from the<br/>preview + test email HTML"]
+    PR161 --> PR459["#459 (2026-09-30):<br/>test email back on the<br/>bridge, rendered server-side"]
     style PR144 fill:#b35937,stroke:#b35937,color:#fff
     style PR146 fill:#e8b4b4,stroke:#993d3d,color:#333
     style PR153 fill:#e8b4b4,stroke:#993d3d,color:#333
@@ -138,23 +139,24 @@ graph TD
     style PR155 fill:#d4a84b,stroke:#a07830,color:#333
     style I159 fill:#2c5f8a,stroke:#2c5f8a,color:#fff
     style PR161 fill:#7bc67e,stroke:#4a8a4d,color:#333
+    style PR459 fill:#e8b4b4,stroke:#993d3d,color:#333
 ```
 
 ### PR #144: the implementation that created the bridge
 
-[PR #144](https://github.com/nathanjohnpayne/friends-and-family-billing/pull/144) introduced the TipTap WYSIWYG editor—the feature this arc is about—twenty-one hours before the issue existed. My kickoff prompt was one line: "Read invoicing-tab-redesign.md and implement the plan." The [design spec](https://github.com/nathanjohnpayne/friends-and-family-billing/blob/main/docs/invoicing-tab-redesign.md) it pointed at was good. It chose TipTap JSON as canonical storage and described the derived output model plainly: "HTML is generated from JSON for Preview rendering. Email-safe HTML is generated from JSON for final outbound email rendering." That sentence is essentially the invariant. But the same spec also required backward compatibility: `buildInvoiceBody` had to handle both legacy plain-text templates and the new TipTap JSON format.
+[PR #144](https://github.com/nathanjohnpayne/friends-and-family-billing/pull/144) introduced the TipTap WYSIWYG editor—the feature this arc is about—twenty-one hours before the issue existed. My kickoff prompt was one line: "Read …/invoicing-tab-redesign.md and implement the plan." The [design spec](https://github.com/nathanjohnpayne/friends-and-family-billing/blob/main/docs/invoicing-tab-redesign.md) it pointed at—a file in my notes vault then, committed to the repository on 2026-04-05, after the fix—was good. It chose TipTap JSON as canonical storage and described the derived output model plainly: "HTML is generated from JSON for Preview rendering. Email-safe HTML is generated from JSON for final outbound email rendering." That sentence is essentially the invariant. But the same spec also required backward compatibility: `buildInvoiceBody` had to handle both legacy plain-text templates and the new TipTap JSON format.
 
-The agent satisfied both the simplest way available: flatten the new format into the old one via `docToPlainTextWithTokens()` and reuse the existing pipeline. That honors the spec's letter and defeats its intent—and it is not an unreasonable reading. The compatibility constraint had a named function and checkable behavior; the architectural intent was a sentence. When a spec carries both, the constraint that can be verified wins. The structured document became a temporary format on its way back to plaintext: the bug, one day early.
+The agent satisfied both the simplest way available: flatten the new format into the old one via `docToPlainTextWithTokens()` and reuse the existing pipeline. That honors the spec's letter and defeats its intent. The compatibility constraint had a named function and checkable behavior; the architectural intent was a sentence. When a spec carries both, the constraint that can be verified wins. The structured document became a temporary format on its way back to plaintext: the bug, one day early.
 
 ### PR #146: reviewed, approved, and aimed at the wrong layer
 
 [PR #146](https://github.com/nathanjohnpayne/friends-and-family-billing/pull/146) fixed bold-token round-tripping: the serializer began emitting bold-marked tokens as `**%token%**`, and the token regex learned to match both forms. A perfectly reasonable patch, if the bridge is the right architecture and merely lossy.
 
-The first version of this post claimed my automated reviewer flagged the round-trip problem on this PR and the agent patched around the warning. The review record says the opposite, and the correction matters more than the original claim did. The `nathanpayne-codex` review of this PR, in full:
+The first version of this post claimed my automated reviewer flagged the round-trip problem on this PR and the agent patched around the warning. The review record says the opposite. The `nathanpayne-codex` review of this PR, in full:
 
 > External re-review: APPROVED. I re-reviewed the `invoice.js` fix for the two issue #145 findings. The balanced regex now leaves one-sided `**` as literal text, and `docToPlainTextWithTokens()` preserves bold-marked tokens as `**%token%**`, so the legacy plaintext fallback round-trips correctly. Verification in a clean worktree: exact round-trip repro cases, `npm ci`, `npm --prefix functions ci`, `npm test`, and `npm run build`.
 
-Zero blocking reviews, zero inline comments, from either reviewer identity; `nathanpayne-claude` approved as well. Neither review mentions the invariant, because the PR did not attach it. The invariant existed—in a design document neither reviewer had reason to open, because nothing in this PR referenced it. The reviewers verified that the patch did exactly what it claimed, and what it claimed was never the question. Review confirms a diff against whatever standard the PR puts in front of it; when no standard is attached, it confirms the diff against itself.
+Zero blocking reviews, zero inline comments, from either reviewer identity; `nathanpayne-claude` approved as well. Neither review mentions the invariant, because the PR did not attach it. The invariant existed—in a design document that lived in my notes vault, outside the repository, until twelve hours after the fix merged; nothing in this PR referenced it, and no reviewer working from a clean worktree could have opened it. Review confirms a diff against whatever standard the PR puts in front of it; when no standard is attached, it confirms the diff against itself.
 
 ### PR #153: one part semantic patch, one part visual patch
 
@@ -178,7 +180,7 @@ One fix assumes the problem is markdown fidelity; the other, preview styling. Bo
 
 [PR #154](https://github.com/nathanjohnpayne/friends-and-family-billing/pull/154) fixed `useEditor` recreating the editor on every keystroke. [PR #155](https://github.com/nathanjohnpayne/friends-and-family-billing/pull/155) converted bold, italic, and links in legacy templates so they stopped rendering literally in the editor. Real fixes, both—and neither aimed at parity, which is why the inclusion rule matters: counting them as failed parity attempts, as the first version did, inflates the drama and blurs the record.
 
-They stay in the story for two reasons. Adjacent wins make progress feel like it is happening while the invariant stays broken. And [PR #155](https://github.com/nathanjohnpayne/friends-and-family-billing/pull/155) is where the reviewers actually pushed back—the beat this post previously misattached to [PR #146](https://github.com/nathanjohnpayne/friends-and-family-billing/pull/146). `nathanpayne-codex` filed three `CHANGES_REQUESTED` reviews on #155 before approving, each flagging a round-trip safety failure in the serialization layer, each answered with a scoped fix. Three blocking rounds pointing at the same lossy boundary, three patches to the boundary—and nothing in front of anyone licensing the question "should this boundary exist?" The spec had answered it a day earlier, in a document this PR did not cite.
+They stay in the story for two reasons. Adjacent wins make progress feel like it is happening while the invariant stays broken. And [PR #155](https://github.com/nathanjohnpayne/friends-and-family-billing/pull/155) is where the reviewers actually pushed back—the beat this post previously misattached to [PR #146](https://github.com/nathanjohnpayne/friends-and-family-billing/pull/146). `nathanpayne-codex` filed three `CHANGES_REQUESTED` reviews on #155 before approving, each flagging a round-trip safety failure in the serialization layer, each answered with a scoped fix. Three blocking rounds pointing at the same lossy boundary, three patches to the boundary—and nothing in front of anyone licensing the question "should this boundary exist?" The spec had answered it ten hours earlier, in a document this PR did not cite.
 
 ### PR #158: the bridge got cleaner
 
@@ -198,7 +200,7 @@ Across the six PRs, the public record holds **seven** blocking review rounds:
 | [#158](https://github.com/nathanjohnpayne/friends-and-family-billing/pull/158) | 2 |
 | **Total** | **7** |
 
-The first version said nine. Counting blocking rounds gives seven; counting every review submission gives nineteen; no counting rule I can reconstruct gives nine. Seven, with the rule stated, is the number this post now carries.
+The first version said nine, which was my session export's tally of `nathanpayne-codex` feedback items: it counted the two post-merge findings behind [issue #145](https://github.com/nathanjohnpayne/friends-and-family-billing/issues/145), a review on [#157](https://github.com/nathanjohnpayne/friends-and-family-billing/pull/157), and a post-merge comment on #158, so it spanned more than the six PRs and counted findings, not rounds. Counting blocking rounds on the six gives seven; counting every review submission gives nineteen. Seven, with the rule stated, is the number this post now carries.
 
 My session log adds figures the repository cannot—like the prompt excerpts above, author records with no public artifact behind them: eighteen user prompts across the arc, and three automated stop-hook interventions between prompts, one of which flagged that the plaintext fallback was derived from `editor.getText()` rather than from the renderer—the divergent-path problem, stated by a machine. Everything else in this post traces to public timestamps and review states.
 
@@ -210,7 +212,7 @@ Thirty-six minutes after [PR #158](https://github.com/nathanjohnpayne/friends-an
 
 The prompt that produced [PR #161](https://github.com/nathanjohnpayne/friends-and-family-billing/pull/161) was not a bug report. It was a task document—titled "Codex Task—Investigate Failed Fixes (Issue #159)"—and like the session prompts above, my artifact, quoted rather than linkable. It opened:
 
-> Multiple fixes have already been attempted by Claude Code, and **did not resolve the issue**. You MUST treat this as a **failed-fix investigation**, not a greenfield implementation.
+> Multiple fixes have already been attempted by Claude Code and **did not resolve the issue**. You MUST treat this as a **failed-fix investigation**, not a greenfield implementation.
 
 It listed the prior PRs and required an audit of each before any code: of its eight steps, the first three were pure reading—understand the issue, audit the failed fixes, identify the root cause. It stated the invariant as a requirement:
 
@@ -222,9 +224,10 @@ And it banned, by name, the moves already tried:
 > - Do NOT "fix" by overriding CSS only
 > - Do NOT leave multiple rendering paths in place
 > - Do NOT rely on regex to fix formatting
+> - …
 > - Do NOT optimize for minimal diff over correctness
 
-Every line maps to the record—the CSS patch in [#153](https://github.com/nathanjohnpayne/friends-and-family-billing/pull/153), the regex work in [#146](https://github.com/nathanjohnpayne/friends-and-family-billing/pull/146) and [#155](https://github.com/nathanjohnpayne/friends-and-family-billing/pull/155), the extra transformation layer in [#158](https://github.com/nathanjohnpayne/friends-and-family-billing/pull/158), the minimal-diff instinct throughout. Not a best-practices list: the six PRs, inverted into constraints. It also required two deliverables beyond the code: an audit explaining which prior assumptions were wrong, and regression tests proving the Preview and email outputs structurally equivalent.
+Every line maps to the record—the CSS patch in [#153](https://github.com/nathanjohnpayne/friends-and-family-billing/pull/153), the regex work in [#146](https://github.com/nathanjohnpayne/friends-and-family-billing/pull/146) and [#155](https://github.com/nathanjohnpayne/friends-and-family-billing/pull/155), the extra transformation layer in [#158](https://github.com/nathanjohnpayne/friends-and-family-billing/pull/158), the minimal-diff instinct throughout. Not a best-practices list: the six PRs, inverted into constraints. It also required deliverables beyond the code—six in all—including an audit explaining which prior assumptions were wrong and regression tests proving the Preview and email outputs structurally equivalent.
 
 ## What the fix changed
 
@@ -261,21 +264,23 @@ await queueEmail({
 });
 ```
 
-The Cloud Function now sends trusted app-generated HTML when provided instead of re-parsing markdown. The winning change did not get more sophisticated about formatting; it got simpler about boundaries.
+The Cloud Function sent trusted app-generated HTML when provided instead of re-parsing markdown. The winning change did not get more sophisticated about formatting; it got simpler about boundaries.
 
-"When provided" is the whole hinge, and it is worth following where it leads. An email carries canonical HTML only if its producer supplies an `html` field, and in the entire application exactly one producer does: the `[Test]` send above. The settlement board's per-member "Email Invoice" action passes `{ to, subject, body, uid }` and no `html`, so **the invoice a household member actually receives still renders through the markdown bridge**—`docToPlainTextWithTokens` into `simpleMarkdownToHtml`, the function this whole arc exists to have displaced. PR #161 never touched that file; `git show --stat` lists eight, and `EmailInvoiceDialog.jsx` is not among them.
+"When provided" is the whole hinge. An email carries canonical HTML only if its producer supplies an `html` field, and in the entire application exactly one producer did: the `[Test]` send above. The settlement board's per-member "Email Invoice" action passes `{ to, subject, body, uid }` and no `html`, so **the invoice a household member actually receives still renders through the markdown bridge**—`docToPlainTextWithTokens` into `simpleMarkdownToHtml`, the function this whole arc exists to have displaced. PR #161 never touched that file; `git show --stat` lists eight, and `EmailInvoiceDialog.jsx` is not among them.
 
-There is a sharper way to say it. Before #161 the test email and the invoice email rendered identically—both sent `body` with no `html`. #161 gave the test email canonical HTML and left the invoice email where it was. The fix closed the gap on the surface where the bug was observed and opened a new one between the test email and the real invoice, and that divergence has stood since 2026-04-04. I did not find this while writing the post; a later evidence audit did, which is the uncomfortable part—the post shipped asserting a parity its own screenshots could not have shown.
+Before #161 the test email and the invoice email rendered identically—both sent `body` with no `html`. #161 gave the test email canonical HTML and left the invoice email where it was. The fix closed the gap on the surface where the bug was observed and opened a new one between the test email and the real invoice, and that divergence stood from 2026-04-04 until 2026-09-30. I did not find this while writing the post; a later evidence audit did, which is the uncomfortable part—the post shipped asserting a parity its own screenshots could not have shown.
 
-"One rendering path" needs its boundary named, because stated baldly it overclaims. The editor still renders its own DOM directly from the document. The plain-text part of the email payload has its own builder, by design. The preview keeps a fallback—`previewEmailPayload.html || renderInvoiceTemplate(...)`—a second call site into the renderer, not a second renderer. The claim the merged code supports is narrower still: the **template body** in the preview and in the **test email** is produced by `renderInvoiceTemplate`, so those two surfaces cannot disagree with each other. Whether that shared output preserves the editor's formatting is a different question, and one the record does not settle: the Playwright specs assert that bold applied in the editor reaches the preview, and none of them compares preview HTML against email HTML or touches the sent message at all. Two surfaces, not three, and neither of them is the recipient's invoice. That email wraps its body in envelope HTML the preview does not show—a branded header, a container, a "Sent via Friends & Family Billing" footer—visible in the screenshots above and outside the renderer by design. That is the semantic parity [issue #159](https://github.com/nathanjohnpayne/friends-and-family-billing/issues/159) asked for, on the two surfaces it reached, and it is much narrower than "everything renders identically." Evidence and commands: `plans/759/project-pages-ledger.md` §C40.
+"One rendering path" needs its boundary named, because stated baldly it overclaims. The editor still renders its own DOM directly from the document. The plain-text part of the email payload has its own builder, by design. The claim the merged code supports is narrower still: the **template body** in the preview and in the **test email** is produced by `renderInvoiceTemplate`, so those two surfaces cannot disagree with each other. Whether that shared output preserves the editor's formatting is a different question, and one the record does not settle: the Playwright specs assert that bold applied in the editor reaches the preview, and none of them compares preview HTML against email HTML or touches the sent message at all. Two surfaces, not three, and neither of them is the recipient's invoice. That email wraps its body in envelope HTML the preview does not show—a branded header, a container, a "Sent via Friends & Family Billing" footer—visible in the screenshots above and outside the renderer by design. That is the semantic parity [issue #159](https://github.com/nathanjohnpayne/friends-and-family-billing/issues/159) asked for, on the two surfaces it reached, and it is much narrower than "everything renders identically." Evidence and commands: `plans/759/project-pages-ledger.md` §C40.
 
-```mermaid title="Two paths to an email body: the canonical renderer, and the bridge the invoice still takes" description="Counting outbound email bodies only: the ProseMirror document renders the editor DOM directly—a third render, not an email path—and also feeds one canonical template renderer, which produces the body for the Invoicing tab preview and for the test email. The recipient invoice does not use that renderer: the same document goes through a plain-text bridge that the Cloud Function converts with simpleMarkdownToHtml. Both sent messages are wrapped in the same envelope HTML, so they share an envelope while their bodies come from different renderers."
+That boundary moved again on 2026-09-30, when [friends-and-family-billing#459](https://github.com/nathanjohnpayne/friends-and-family-billing/pull/459), a security change to the mail queue, stopped clients from supplying HTML at all: `queueEmail` writes a plain-text body only, the Cloud Function always renders it with `simpleMarkdownToHtml`, and the `[Test]` send above now queues the template's markdown serialization instead of `payload.html`. The canonical renderer feeds the preview only; the test send and the invoice both render server-side from plain-text bodies their two call sites still build separately. The gap #161 opened between the two emails closed from the other side, and the gap #159 named, between what the preview shows and what any email renders, is held by a semantic parity test rather than a shared renderer.
+
+```mermaid title="Two renderers since 2026-09-30: the canonical one feeds the preview, the bridge carries both emails" description="Counting outbound email bodies only, as of 2026-09-30: the ProseMirror document renders the editor DOM directly—a third render, not an email path—and feeds one canonical template renderer, which now produces only the Invoicing tab preview. The test email, which used that renderer from 2026-04-04 until pull request 459, and the recipient invoice both go through a plain-text bridge that the Cloud Function converts with simpleMarkdownToHtml, so the two sent messages share an envelope and a renderer while the preview is the surface that differs."
 graph TD
     A["TipTap /<br/>ProseMirror<br/>Document"] --> B["Editor DOM"]
     A --> C["Canonical<br/>Template<br/>Renderer"]
-    A --> H["Plain-text bridge, then<br/>simpleMarkdown<br/>ToHtml"]
+    A --> H["Plain-text bridge, then<br/>simpleMarkdown<br/>ToHtml (server)"]
     C --> D["Preview"]
-    C --> E["Test Email<br/>(body +<br/>envelope)"]
+    H --> E["Test Email<br/>(body +<br/>envelope)"]
     H --> J["Invoice Email<br/>(body +<br/>envelope)"]
     G["Envelope<br/>HTML"] --> E
     G --> J
@@ -284,7 +289,7 @@ graph TD
     style B fill:#7bc67e,stroke:#4a8a4d,color:#333
     style C fill:#7bc67e,stroke:#4a8a4d,color:#333
     style D fill:#7bc67e,stroke:#4a8a4d,color:#333
-    style E fill:#7bc67e,stroke:#4a8a4d,color:#333
+    style E fill:#e8b4b4,stroke:#993d3d,color:#333
     style G fill:#e8e8e8,stroke:#999,color:#333
     style H fill:#e8b4b4,stroke:#993d3d,color:#333
     style J fill:#e8b4b4,stroke:#993d3d,color:#333
@@ -292,7 +297,7 @@ graph TD
 
 ## What actually varied
 
-It would be easy to read this arc as "Codex is better than Claude Code at architecture." The first version asserted the opposite—"the difference was not the model"—and the record supports neither claim. Between the failed sequence and the fix, everything changed at once: the model, the tooling, the accumulated session context, the visibility of six prior PRs to audit, and the framing of the task. No run isolated framing as the only variable, so there is no clean causal claim to make about it.
+It would be easy to read this arc as "Codex is better than Claude Code at architecture." The first version asserted the opposite—"the difference was in the prompt structure, not the model"—and the record supports neither claim. Between the failed sequence and the fix, everything changed at once: the model, the tooling, the accumulated session context, the visibility of six prior PRs to audit, and the framing of the task. No run isolated framing as the only variable, so there is no clean causal claim to make about it.
 
 What the record does support is narrower. The framing was the variable I controlled. After the kickoff prompt, every prompt in that session described a symptom, and each time the agent did what a competent developer does when someone leans over the desk and says "this looks wrong": it found the nearest code path that could explain the symptom and patched it. The brief described a pattern of failures, demanded an explanation of them before any code, stated the invariant, and banned the patch classes already tried. Forty-nine minutes after the issue was filed, the PR that ends this story was open; sixteen minutes later it was merged. Whether another agent—or the same one, re-briefed—would have converged the same way, one run cannot establish. I did not rerun the experiment; I shipped the fix.
 
@@ -306,6 +311,6 @@ After the merge I turned the arc into standing rules, each earning its keep agai
 
 **Constraint-driven prompts for cross-layer bugs.** *(Personal practice, not adopted policy.)* When a bug touches more than one layer, the prompt carries an explicit list of banned approaches derived from prior failures in this codebase—not abstract best practices. The cost: the extraction is operator work—the banned list here took reading six PRs—and an over-broad ban can exclude the right fix.
 
-**Invariants outrank backward compatibility.** *(Personal practice, not adopted policy.)* When a spec carries both a new architecture and a compatibility requirement, it now states which wins: the new rendering path is canonical on the surfaces it actually reached, and legacy format support is a migration concern, not an architectural peer. The recipient invoice is not one of those surfaces, which is the point: the rule exists because that gap survived a spec that asked for parity. The cost: the compatibility work gets more expensive and more explicit up front—which is the point, because implicit is how the bridge got built.
+**Invariants outrank backward compatibility.** *(Personal practice, not adopted policy.)* When a spec carries both a new architecture and a compatibility requirement, it now states which wins: the new rendering path is canonical on the surfaces it actually reached, and legacy format support is a migration concern, not an architectural peer. The recipient invoice was never one of those surfaces, and since 2026-09-30 the test email is not either, which is the point: the rule exists because that gap survived a spec that asked for parity. The cost: the compatibility work gets more expensive and more explicit up front—which is the point, because implicit is how the bridge got built.
 
-The bug was fixed about sixty-five minutes after it was named—on the surface where it was reported. The preview and the test email now share a renderer for their template bodies, while the recipient invoice stays on the plain-text bridge; the brief's regression tests protect that shared path, and were aimed at keeping the whole class of defect closed rather than patching one instance. What a recipient sees still does not: the invoice email was never on the canonical path, and a later evidence audit is what established that, not this fix. The expensive part was the twenty-one hours before the name existed, in which six pull requests of locally reasonable, individually reviewed work shipped against a correctness standard nobody was checking. And the standard was not missing. It was in the design spec from the start, one sentence describing exactly the output model the bug violated. What it never was, until [issue #159](https://github.com/nathanjohnpayne/friends-and-family-billing/issues/159), was a requirement attached to any piece of work anyone reviewed. That is the process failure, and it is harder than "write it down": prose in a design document loses to a named function with checkable behavior, and no amount of louder symptom reporting closes the gap.
+The bug was fixed about sixty-five minutes after it was named—on the surface where it was reported. The preview and the test email shared a renderer for their template bodies from that day until 2026-09-30, when [friends-and-family-billing#459](https://github.com/nathanjohnpayne/friends-and-family-billing/pull/459) moved the test email back onto the server-side markdown path; the canonical renderer now feeds the preview alone, and the brief's regression tests, aimed at keeping the whole class of defect closed rather than patching one instance, protected the shared path only while it lasted. What a recipient sees never shared it: the invoice email was never on the canonical path, and a later evidence audit is what established that, not this fix. The expensive part was the twenty-one hours before the name existed, in which six pull requests of locally reasonable, individually reviewed work shipped against a correctness standard nobody was checking. And the standard was not missing. It was in the design spec from the start, one sentence describing exactly the output model the bug violated. What it never was, until [issue #159](https://github.com/nathanjohnpayne/friends-and-family-billing/issues/159), was a requirement attached to any piece of work anyone reviewed. That is the process failure, and it is harder than "write it down": prose in a design document loses to a named function with checkable behavior, and no amount of louder symptom reporting closes the gap.
