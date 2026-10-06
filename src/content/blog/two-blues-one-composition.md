@@ -2,7 +2,7 @@
 title: "Two Blues, One Composition: How a Design Critique Became a Forensics Exercise"
 seoTitle: "Two Blues, One Composition"
 shortTitle: "Two Blues, One Composition"
-description: "I asked Claude to critique my projects page against Mondrian's principles, expecting adjectives. It sampled pixels instead and found two blues in one composition, one of them mine on purpose. Two reproductions later, the least reliable source was the model's memory."
+description: "I asked Claude to critique my projects page against Mondrian's principles, expecting adjectives. It sampled pixels instead and found two blues in one composition, one of them mine on purpose. Two reproductions later, the one source that could not show its work was the model's memory."
 seoDescription: "A design critique became a forensics exercise: pixel sampling, painting reproductions, and the palette rule behind this site's Mondrian-inspired pages."
 category: "Building This Site"
 author: "Nathan Payne"
@@ -11,14 +11,14 @@ tags: ["AI", "Design", "Systems", "Engineering"]
 image: "/og/blog/two-blues-one-composition.png"
 keyTakeaways:
   - "Ask an agent for data, not adjectives. A design argument that would stall on taste becomes a measurement as soon as the model samples the pixels—and the samples are themselves a reproduction, with a pipeline of their own."
-  - "Make the model cite its sources exactly where it sounds most certain: three canonical color values recalled from training data did not survive contact with two reproductions. The medians that replaced them are properties of files, not of paintings—hue anchors, not targets."
+  - "Make the model cite its sources exactly where it sounds most certain: three canonical color values recalled from training data matched neither reproduction, and nothing in the exercise could say which, if any, matched the canvas. The medians that replaced them are properties of files, not of paintings—hue anchors, not targets."
   - "Grep the source and the built artifact; each hides a class of drift the other exposes. rgba() plane literals defeat a hex search of the source, then minify into hex-searchable form—while in the artifact, the minifier quietly merges duplicate rules and moves your counts."
   - "Sequence a zero-pixel refactor with grep-able acceptance criteria ahead of the change it enables, and the agent can verify its own plumbing while the judgment calls stay with you."
 pullquotes:
   - text: "Provenance is invisible at render time. Coherence is the only thing that survives to the screen."
     label: "The design principle"
     accent: blue
-  - text: "The least reliable data in the entire exercise was the model's memory."
+  - text: "The least traceable data in the entire exercise was the model's memory."
     label: "Where the forensics pointed"
     accent: red
   - text: "The codebase had already voted for the solution; it just had not been asked the question."
@@ -32,7 +32,7 @@ pullquotes:
     accent: red
 ---
 
-On June 11, 2026, I handed Claude two screenshots of my [projects page](/projects/) and one sentence: scrutinize this layout against Mondrian colors and design principles. The page quotes Mondrian openly—black lattice, colored planes, cream field—and I wanted to know how well the quotation held up. I expected adjectives. What I got back was a Python script, a measurement—two different blues in one composition, one of which I had put there on purpose—and, once the argument settled, a product problem sharper than the one I asked about: one interface mixing two visual registers, each color's defensible pedigree doing nothing for the coherence of the whole. By the end of one evening the work had produced sampled medians from two reproductions, four issues and four pull requests, one palette architecture, and a correction record in which the most confidently wrong source was not my CSS and not my screenshots. It was the model.
+On June 11, 2026, I handed Claude two screenshots of my [projects page](/projects/) and one sentence: scrutinize this layout against Mondrian colors and design principles. The page quotes Mondrian openly—black lattice, colored planes, cream field—and I wanted to know how well the quotation held up. I expected adjectives. What I got back was a Python script, a measurement—two different blues in one composition, one of which I had put there on purpose—and, once the argument settled, a product problem sharper than the one I asked about: one interface mixing two visual registers, each color's defensible pedigree doing nothing for the coherence of the whole. By the end of one evening the work had produced sampled medians from two reproductions, four issues and four pull requests, one palette architecture, and a correction record in which the one source that could not show its work was not my CSS and not my screenshots. It was the model.
 
 ## The finding: two blues in one composition
 
@@ -120,7 +120,7 @@ graph LR
     style CY fill:#EEDB6E,stroke:#9c8f47,color:#333
 ```
 
-The least reliable data in the entire exercise was the model's memory. Not my CSS, not my screenshots, not even my marketing poster. The confidently recalled canonical values were the ones that did not survive contact with a reproduction. The fix was not a better model; it was a procedural habit. Ask where a number came from. If the answer is "everybody cites it," make the agent go find the object.
+The least traceable data in the entire exercise was the model's memory. Not my CSS, not my screenshots, not even my marketing poster. The confidently recalled canonical values matched neither reproduction—and the two reproductions disagree with each other enough that neither can stand in for the canvas, so the lesson is about provenance, not about who had the right blue. The fix was not a better model; it was a procedural habit. Ask where a number came from. If the answer is "everybody cites it," make the agent go find the object.
 
 ### The numbers, and how to reproduce them
 

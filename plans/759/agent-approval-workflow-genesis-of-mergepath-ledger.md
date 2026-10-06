@@ -201,6 +201,8 @@ All five ran on `2026-04-15` between 18:01 and 18:19 UTC. PR mapping is **SUPPOR
 
 ### E4—"142–342 seconds average Codex response time per review round"
 
+> **Superseded 2026-10-06.** Two of the eighteen rows in the table below (#64 at 03:21:09Z and #65 at 04:02:38Z) are CodeRabbit walkthrough comments that quote the trigger phrase while summarising the scripts, not operator triggers, so the population is sixteen operator-posted triggers (median 155.5 s, range 7–703 s; counting only reviews and 👍 reactions as signals, thirteen observations, median 179 s, range 113–703 s); the timestamps stand, the "Trigger" column heading does not; see `plans/correctness-pass-2026-10-06/agent-approval-workflow-genesis-of-mergepath-ledger.md` W16.
+
 > "The numbers"
 
 **WRONG as stated, and ambiguous in form—an average is one number, not a range.** Recomputed at **2026-08-26T01:35:03Z** across every `@codex review` trigger in the Phase 4a-era population (mergepath PRs #55–#79 inclusive), pairing each trigger with the earliest subsequent signal from `chatgpt-codex-connector[bot]`: an issue comment, a submitted review, or a reaction on the PR. PRs with no trigger contributed zero observations; zero-second self-matches were excluded. When an operator posted more than one trigger before the bot answered, each trigger pairs with that same next signal—visible on #64 and #78—because the API does not identify which trigger caused a response.
@@ -256,6 +258,8 @@ It is a static prediction from reading the repository's own enforcement code, no
 
 ### F2—"the remaining four repos propagated cleanly in under ten minutes"
 
+> **Superseded 2026-10-06.** The identifiable propagation PRs are the four titled `feat: propagate Phase 4a Codex external review automation (#NN)`, one per repository (friends-and-family-billing#223, device-source-of-truth#47, device-platform-reporting#48, overridebroadway#28), opened 2026-04-15T23:51Z and merged by 23:56Z, about five and a half minutes each and 61 minutes after the back-port #76 merged; the April 19 `chore(sync)` PRs #52 and #31 this row measured are a later sync wave, so "April 19" and "eleven minutes" do not stand; see `plans/correctness-pass-2026-10-06/agent-approval-workflow-genesis-of-mergepath-ledger.md` W1.
+
 **WRONG—and this row was wrong in the first draft of this ledger, which is the point of recording it.** The four `closed_at` values (`23:33:17Z`, `23:33:22Z`, `23:33:29Z`, `23:33:35Z`, an 18-second spread) establish only that four issues were **closed together**. They say nothing about when propagation started, how long it ran, or whether it was clean. Four issues can sit open for days and be closed in one sweep, which appears to be what happened.
 
 Checked against the actual propagation pull requests, the claim does not survive: `device-platform-reporting#52` ran `2026-04-19T15:17:25Z → 15:28:02Z` and `overridebroadway#31` ran `15:17:43Z → 15:28:51Z`—**about eleven minutes each, on April 19**, three days after the tracking issues were closed. An earlier attempt, `device-platform-reporting#51`, ran nearly twelve hours.
@@ -281,6 +285,8 @@ Corrected value: the tracking issues closed within eighteen seconds of one anoth
 ---
 
 ## H. Claims that stand as written
+
+> **Superseded 2026-10-06.** The PR #60 row below does not stand: `pulls/60/files` lists only `AGENTS.md` (+9/−6) and `CLAUDE.md` (+51/−4), neither of which matches `.github/**` or any other `external_review_paths` entry at its merge commit `685a830`, and the `needs-external-review` label was applied by hand one second after the manual handoff comment, so #60 was routed to external review by hand, not by path, and the `refs.json` line count this row cited never established the paths; see `plans/correctness-pass-2026-10-06/agent-approval-workflow-genesis-of-mergepath-ledger.md` W3.
 
 | Claim | Source |
 |---|---|

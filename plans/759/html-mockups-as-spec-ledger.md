@@ -10,6 +10,8 @@ Verdicts: **SUPPORTED** · **WRONG** (corrected value given) · **UNPROVABLE** (
 
 ## A. The central evidence does not exist
 
+> **Superseded 2026-10-06.** This heading is half wrong: nothing under `mockups/` was ever committed, but Mockup C (`C-composition-margins.html`, 22,484 bytes) survives as an attachment on issue #74's comment of 2026-04-09T17:41:22Z, and `blog-landing 2.html` (11,759 bytes), the file PR #77 actually implemented, survives on issue #75's comment of 20:51:15Z the same day, both downloadable with HTTP 200 on 2026-10-06, and the #75 thread records the author replacing Mockup B with that file before #77 opened; only `A-cards-grid.html`, `B-de-stijl-index.html` and `D-minimal.html` have no surviving copy; see `plans/correctness-pass-2026-10-06/html-mockups-as-spec-ledger.md` R1 and R3.
+
 ### A1—`mockups/` and its four files
 
 > "Claude produced four files—`A-cards-grid.html`, `B-de-stijl-index.html`, `C-composition-margins.html`, `D-minimal.html`—and I picked Mockup B." (L94); referenced as a live path nine more times.
