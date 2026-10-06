@@ -235,14 +235,14 @@ Three pages grew noticeably because every corrected fact needed stating: `html-m
 
 - Swipe Watch: the card and the résumé call the simulated payoff accidental ("accidentally", "inadvertently"); the page's decision ledger files the same copy under `chosen`. The record dates the copy and says nothing about intent. One framing has to go.
 - Override: "1 deal room in production" is now dated 2026-08-28; a present-tense figure needs the Firestore read the deployer credential allows.
-- Five Across: eleven cruise-side figures stay attributed to the sailing's recorded data read; the `gaycruisebingo` Firestore is unreadable from this machine.
+- Five Across: superseded by the method correction under "Second batch" below. The `gaycruisebingo` Firestore is readable through the cached deployer account; the eleven attributed figures all reproduce, and the one open item is the freeze instant recorded there.
 - Device Source of Truth: whether the `related` link to Mergepath still earns its place now that the repository has left the fleet.
 - Prior ledgers in `plans/759/` carry rows this pass found wrong (`project-pages-ledger.md` §A29/§A32, §D20, §D24; the Genesis ledger's F2/E4/H; the Perfect Score ledger's §P.2 ack note; the Autofix ledger's §N.9/§H3). Left untouched as historical records; worth a supersession note when next touched.
 - Deploy pipeline: one fetch twelve minutes after the 2026-10-06 deploy served the autofix post's body under the HTML-mockups post's head; later fetches were correct. Worth a CDN check if it recurs.
 
 ### Second batch: the two posts the first pass missed
 
-`silence-is-not-an-approval` (2026-10-01) and `the-product-did-not-travel` (2026-09-24) carry no `draft` field and were published and listed on the homepage; the first pass misread them as drafts. Both now have ledgers with `## Fixes applied`.
+`silence-is-not-an-approval` (2026-10-01) and `the-product-did-not-travel` (2026-09-24) carry `draft: false` in their frontmatter and were published and listed on the homepage; the first pass misread that value as a draft flag when listing the collection. Both now have ledgers with `## Fixes applied`.
 
 - Silence: the #1248 quotation now matches both revisions of the PR body; the sidebar states the round-counting rule the table uses (submissions with a body) and #1179 reads 15; #1263 is the first fix with #1186 still open; the #878 banner is dated September 15. A supersession note sits under §D6 of the prior ledger, which carried the misquotation.
 - Product: the Five Across rationale is attributed as the original wording; the Sunday-cards sentence matches the production record at both sites; the self-service link notes #785 closed as a historical extract with the block persisting under #786.
