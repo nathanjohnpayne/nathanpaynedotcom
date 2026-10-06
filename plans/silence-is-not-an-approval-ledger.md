@@ -195,7 +195,9 @@ Its own body scoped it honestly: "Refs #1130. Partial: this is the token half, m
 
 > **Superseded 2026-10-06.** The clause quoted below as verbatim never appeared in #1248; both revisions of its body say "cannot support either the threshold test or the protected-path match", and the post now quotes that wording; see `plans/correctness-pass-2026-10-06/silence-is-not-an-approval-ledger.md` R1.
 
-**SUPPORTED.** #1247 created `2026-09-13T04:54:39Z`; #1248 created `2026-09-13T04:55:35Z`. The gap is **56 seconds**, not the twenty-one minutes an earlier draft asserted.
+**SUPPORTED for the timestamps; WRONG, corrected 2026-10-06, for the pull-request quotation this row carried.** #1247 created `2026-09-13T04:54:39Z`; #1248 created `2026-09-13T04:55:35Z`. The gap is **56 seconds**, not the twenty-one minutes an earlier draft asserted.
+
+**WRONG in this row and in the post, corrected 2026-10-06.** Earlier revisions of this row quoted #1248's closing clause as "cannot support either verdict" and called it verbatim; neither revision of the pull request body (created `2026-09-13T04:55:35Z`, edited `04:57:23Z`) contains that phrase. The verbatim clause is the one given at the end of this row, and the post was corrected to it in the 2026-10-06 pass (new ledger R1).
 
 **WRONG in the first draft**, which said the issue was "filed twenty-one minutes before the pull request opened." Corrected value: **56 seconds**. The twenty-one minutes is real but belongs to a different interval: #1248 merged `2026-09-13T05:15:22Z` (`pulls/1248 .merged_at`) and #1247 closed `2026-09-13T05:15:23Z` (`issues/1247 .closed_at`), 20 min 44 s after the issue was filed.
 
@@ -203,7 +205,7 @@ Its own body scoped it honestly: "Refs #1130. Partial: this is the token half, m
 
 **"Zero open truncation issues" / "exactly one" narrowed.** Discovery is title-only (header, limit 3). Open issue titles re-read 2026-09-24 (`issues?state=open`, all pages) match `truncat|3000|3,000|paginat` zero times; the one `cap` hit is #1305, which is quota, not truncation. Post now says "No open issue title mentions truncation" and "the one instance I know of." The corrected figure is materially better for the post's argument, which is that these are small known fixes nobody had a reason to write, so the temptation to keep the rounder wrong number should be noted and resisted.
 
-Issue body, verbatim: "GitHub caps that listing at 3000 entries, and at the cap the inventory may be truncated." Pull request body, verbatim: "both fail closed to \"external review required\", because a possibly-truncated inventory cannot support either verdict."
+Issue body, verbatim: "GitHub caps that listing at 3000 entries, and at the cap the inventory may be truncated." Pull request body, verbatim: "both fail closed to \"external review required\", because a possibly-truncated inventory cannot support either the threshold test or the protected-path match."
 
 ### D7—#1186 and the watermark
 

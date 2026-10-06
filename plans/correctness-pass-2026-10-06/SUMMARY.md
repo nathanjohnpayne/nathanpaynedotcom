@@ -1,6 +1,6 @@
 # Correctness pass, 2026-10-06: summary
 
-Fifteen pages audited in parallel, one ledger each in this directory, against the brief in `BRIEF.md`. Site-wide checks run separately: every internal link on the built blog and project pages resolves (197), every external link returns 200 (231) except two, and no post carries a future or out-of-order date.
+Fifteen pages audited in parallel on 2026-10-06, one ledger each in this directory, against the brief in `BRIEF.md`; a second batch the same day added the two published posts the first pass had misread as drafts, for seventeen pages in all. Site-wide checks run separately: every internal link on the built blog and project pages resolves (197), every external link returns 200 (231) except two, and no post carries a future or out-of-order date.
 
 ## Site-wide findings
 
@@ -28,7 +28,7 @@ Fifteen pages audited in parallel, one ledger each in this directory, against th
 | agent-approval-workflow-genesis-of-mergepath | 16 | 0 | 5 | 36 | `agent-approval-workflow-genesis-of-mergepath-ledger.md` |
 | every-reviewer-was-right | 6 | 1 | 7 | 58 | `every-reviewer-was-right-ledger.md` |
 | silence-is-not-an-approval (audited 2026-10-06, second batch) | 3 | 1 | 3 | 35 | `silence-is-not-an-approval-ledger.md` |
-| the-product-did-not-travel (audited 2026-10-06, second batch) | 2 | 0 | 6 | 54 | `the-product-did-not-travel-ledger.md` |
+| the-product-did-not-travel (audited 2026-10-06, second batch) | 4 | 0 | 8 | 50 | `the-product-did-not-travel-ledger.md` |
 | mergepath | 9 | 3 | 4 | 37 | `mergepath-ledger.md` |
 
 ## Fix list (WRONG and STALE rows, with the decision taken)
@@ -162,7 +162,7 @@ All four headline counts reproduce exactly (134 threads, 116 Codex-badged, 122 d
 
 ### five-across
 
-Every PostHog figure reproduced exactly; the cruise-side Firestore (`gaycruisebingo`) is unreadable from here, so eleven database figures stay UNPROVABLE and attributed to PR fiveacross#820's recorded read.
+Every PostHog figure reproduced exactly. At the time of this audit the cruise-side Firestore (`gaycruisebingo`) was believed unreadable from here, so eleven database figures were left UNPROVABLE and attributed to PR fiveacross#820's recorded read; superseded the same day by the second batch's method correction below, under which all eleven reproduce from the record and the only open item is the freeze instant.
 
 - R1 hero alt "showing a Welcome Aboard bingo grid for a Trieste sailing" (line 13): the card is a Day 1 warm-up in the Neon Playground theme rendered by the marketing harness. Fix: "a Day 1 warm-up card in the Neon Playground theme for a Trieste sailing, rendered by the marketing harness".
 - R2 "Every new event needs its own Firebase project, provisioned by hand" (line 86): every event for an unrelated group; events within one community share one. Fix.
@@ -225,9 +225,9 @@ First audit of this post. Every table figure and quotation reproduced; six WRONG
 
 ## Outcome
 
-Every WRONG and STALE row on all fifteen pages was corrected on 2026-10-06; each ledger ends with a `## Fixes applied` section listing the before and after per row and the rows deliberately left, with reasons. UNPROVABLE rows were narrowed only where the wording asserted more than the record supports; rows the page already labels as the author's own testimony or hypothesis were left. Site-wide, the dead CodePen link now points at the same demo in Jen Simmons' layout lab, the Six PRs related-link label matches the post's title on all four project pages, and the `imageDimensions` comment on the two Invoicing captures records their live-product provenance.
+Every WRONG and STALE row on all seventeen pages was corrected on 2026-10-06; each ledger ends with a `## Fixes applied` section listing the before and after per row and the rows deliberately left, with reasons. UNPROVABLE rows were narrowed only where the wording asserted more than the record supports; rows the page already labels as the author's own testimony or hypothesis were left. Site-wide, the dead CodePen link now points at the same demo in Jen Simmons' layout lab, the Six PRs related-link label matches the post's title on all four project pages, and the `imageDimensions` comment on the two Invoicing captures records their live-product provenance.
 
-Totals across the fifteen pages: 92 WRONG, 32 STALE, 74 UNPROVABLE, 498 SUPPORTED.
+Totals across the first fifteen pages: 92 WRONG, 32 STALE, 74 UNPROVABLE, 498 SUPPORTED. With the second batch (3/1/3/35 and, after the review round reclassified two rows, 4/0/8/50): 99 WRONG, 33 STALE, 85 UNPROVABLE, 583 SUPPORTED across seventeen pages.
 
 Three pages grew noticeably because every corrected fact needed stating: `html-mockups-as-spec` (+7%), `six-prs-one-bug-agent-failure-modes` (+4%), `agent-approval-workflow-genesis-of-mergepath` (+4%). A separate brevity pass per `docs/agents/blog-revision-process.md` is the right follow-up; it was not attempted here so that no factual change hides inside a cut.
 
@@ -245,7 +245,7 @@ Three pages grew noticeably because every corrected fact needed stating: `html-m
 `silence-is-not-an-approval` (2026-10-01) and `the-product-did-not-travel` (2026-09-24) carry `draft: false` in their frontmatter and were published and listed on the homepage; the first pass misread that value as a draft flag when listing the collection. Both now have ledgers with `## Fixes applied`.
 
 - Silence: the #1248 quotation now matches both revisions of the PR body; the sidebar states the round-counting rule the table uses (submissions with a body) and #1179 reads 15; #1263 is the first fix with #1186 still open; the #878 banner is dated September 15. A supersession note sits under §D6 of the prior ledger, which carried the misquotation.
-- Product: the Five Across rationale is attributed as the original wording; the Sunday-cards sentence matches the production record at both sites; the self-service link notes #785 closed as a historical extract with the block persisting under #786.
+- Product: the Five Across rationale is attributed as the original wording; the Sunday-cards sentence matches the production record at both sites; the self-service link notes #785 closed as a historical extract with the block persisting under #786. The review round added: five marks at Bodega Bay rather than six (one of the six events was an unmark), the scoring policy described as written into the event data but not read by the app until 2026-08-18, the performer clause narrowed to a sailing-specific square, and the commit figures stated as roughly 270 with unrecorded matchers.
 
 **Method correction.** Both production Firestore databases (`gaycruisebingo` and `fiveacross`) are readable from the agent machine: `gcloud auth list` holds each project's deployer service account and `gcloud auth print-access-token --account=<sa>` yields a token the Firestore REST API accepts. The Five Across ledger's eleven UNPROVABLE cruise figures (R9 to R16) all reproduce from the record.
 
