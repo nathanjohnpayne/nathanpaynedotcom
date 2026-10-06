@@ -2,7 +2,7 @@
 title: "The HTML Mock-up Is the Spec: How I Got Visual Work Out of Claude Code"
 seoTitle: "The HTML Mock-up Is the Spec"
 shortTitle: "Mock-up as Spec"
-description: "Asking Claude for more Mondrian did not work. Neither did annotated screenshots or diagrams. What worked was a standalone HTML mock-up, handed back beside the live page with one instruction: make this look like that."
+description: "Claude kept giving me layouts that didn't match what I had in mind. I asked it for standalone HTML mock-ups, picked a target, then handed it back beside the live page: make this look like that. I still had to keep the decision and check what shipped."
 seoDescription: "How standalone HTML mockups turned vague visual direction into a concrete spec Claude Code could diff against and implement on the live site."
 category: "Agent Systems"
 homepageRank: 5
@@ -11,47 +11,45 @@ date: 2026-05-19
 tags: ["AI", "Product", "Design", "Engineering", "Workflow"]
 image: "/og/blog/html-mockups-as-spec.png"
 keyTakeaways:
-  - "Hand a coding agent an artifact in the same medium as its output. A standalone HTML mock-up is a file it can read and diff against; an annotated screenshot is a picture it has to interpret."
-  - "A mock-up is a temporary decision aid, not a durable spec—it holds a design steady only while the file exists. Transcribe its key characteristics into the issue, because the issue is what survives."
-  - "Matching the mock-up is design acceptance, not production acceptance. A page can match pixel for pixel and still fail contrast, responsive, real-content, or performance bars—and those bars decide what ships."
-  - "Prototype outside the production build. Design and re-implementation are different jobs, and production constraints win over design intent when an agent must do both at once."
+  - "Give the agent a small example in the same medium as its output. Claude can read and diff an HTML file; it has to interpret a screenshot."
+  - "A mock-up holds the design steady only while it exists and stays the target. Write the decision into the issue and attach the file."
+  - "Check the shipped page for accessibility, responsive behavior, real content, interactions, and performance. Matching the mock-up doesn't cover those checks."
+  - "Prototype outside the production build. Claude can work on the layout first, then deal with the real page's schema, tests, and routing."
 pullquotes:
-  - text: "I had been telling Claude what I wanted. The mock-up told it what I wanted."
-    label: "Why the pivot worked"
+  - text: "I thought \"more Mondrian, less LinkedIn\" was clear enough. The pages coming back said otherwise."
+    label: "The problem"
     accent: blue
   - text: "Pasting an annotated screenshot is asking the agent to do art criticism. Pasting an HTML file is asking it to do diffs."
     label: "The reframe"
     accent: red
-  - text: "The mock-up is unconstrained by the existing chassis, which is exactly why it can show Claude what good looks like."
-    label: "Why the prototype runs free"
+  - text: "Claude could work on the design first and re-implement it within the production constraints afterward."
+    label: "Why I prototype separately"
     accent: yellow
-  - text: "Most of the mock-ups are gone. The issues that transcribed them, and kept two, are the reason the design decisions are still auditable."
+  - text: "I deleted those working files, but issues #74 and #75 kept them, along with the decisions that explain what I built."
     label: "What survives"
     accent: blue
-  - text: "Visual acceptance and production acceptance are different bars. The 3.1 MB hero image on this post is the gap between them, live."
+  - text: "The post arguing that visual acceptance and production acceptance are different bars is itself sitting on the wrong side of one."
     label: "Beyond resemblance"
     accent: red
 ---
 
-I am not an engineer. I am a product manager, and for the first weeks of working on nathanpayne.com with Claude Code, design intent kept losing something on the way to the shipped page. I knew the look—the homepage is a Mondrian grid, and I wanted the rest of the site in that idiom—but I could not get "more Mondrian, less LinkedIn" to land as a CSS diff. The loss was not in what the agent could build. It was in the artifact carrying the intent.
+I'm a product manager, not an engineer. In the first weeks of building nathanpayne.com with Claude Code, I knew what I wanted the site to look like. The homepage was already a Mondrian grid. I wanted the rest of the site to look like it belonged there. I thought "more Mondrian, less LinkedIn" was clear enough. The pages coming back said otherwise.
 
-What unstuck me was not a better prompt or a smarter model. It was a different artifact. I stopped describing the design and started prototyping it: ask Claude to build a standalone HTML mock-up, approve it, then hand the mock-up and the existing page back and say make this look like that. The rest of this post is why the obvious moves failed, how the pattern held across four surfaces in two codebases, and why the durable record turned out to be the issue thread, with the file it kept, not the mock-up on my disk.
+What helped was giving Claude something concrete to work from. I asked it to build a standalone HTML mock-up first. Once I'd approved that, I handed it back with the existing page: make this look like that. I used the same approach on four surfaces across two codebases. Descriptions, diagrams, and annotated screenshots had all fallen short; the HTML files gave me something I could compare. Keeping the decision was a separate problem. Most of my local mock-ups are gone. The issue threads preserve what I chose, what I changed, and the files that survived.
 
 ![Piet Mondrian's grid composition with my homepage section labels dropped on top—Nathan Payne in red, Connect in yellow, Vibe Coding (now Builds) in black, Community in blue. This was the original reference; every page on the site is downstream of it.](/blog/html-mockups-as-spec/img/mondrian-inspiration.jpg)
 
 ## What I tried first
 
-The first move: point Claude at the existing page and describe the change in prose. "Make the blog index more Mondrian. Red, blue, yellow, black. Asymmetric grid. Featured post gets the largest cell." The grid came back closer to a Bootstrap card list with a red border than to a De Stijl composition, and saying "more Mondrian" louder did not help. Pointing at the homepage—already a Mondrian grid—mostly got me a copy of the homepage.
+I started by pointing Claude at the existing page and describing the change. "Make the blog index more Mondrian. Red, blue, yellow, black. Asymmetric grid. Featured post gets the largest cell." What came back looked more like a Bootstrap card list with a red border than a De Stijl composition. Asking for "more Mondrian" again didn't help. Pointing at the homepage mostly got me a copy of the homepage.
 
-The second move: diagrams. Sketch the grid in a notebook, photograph it, paste it into the chat. Claude described the diagram back accurately, down to which cell spanned two columns, then produced code that did not match its own description. I cannot say why; observably, the picture-to-code handoff lost information that the file-to-code handoff, later, did not.
+Then I tried diagrams. I sketched the grid in a notebook, photographed it, and pasted it into the chat. Claude described it accurately, down to which cell spanned two columns, then wrote code that didn't match its own description.
 
-The third move: annotated screenshots—arrows, red boxes, notes giving a width and a color. The agent treated the annotations as a punch list rather than a target state. I got the red box where the arrow pointed, and a layout otherwise untouched.
+Annotated screenshots came next: arrows, red boxes, notes giving a width and a color. Claude treated them as a list of changes to make. I got the red box where the arrow pointed, with the rest of the layout largely untouched.
 
-A caveat: these attempts were sequential, not controlled. Prompts, context, my idea of the target, and iteration counts all changed between rounds; the medium was never the only variable. This is a case series—four surfaces where switching the artifact coincided with the work landing—not a measured property of coding agents.
+These weren't controlled comparisons. I tried them in sequence, changing prompts, context, my idea of the target, and the number of iterations along the way. Four surfaces where a change of artifact coincided with the work landing make a case series, not a measured property of coding agents. In these cases, asking Claude to read and match an HTML file worked where asking it to interpret a description hadn't.
 
-The pattern: prose, diagrams, and screenshots asked the agent to interpret a description and write code to match. An HTML file asked it to read a file and produce one that resembled it. The second framing worked.
-
-```mermaid title="Prose iteration loop versus mockup-first path" description="Describing a design in prose cycles through tweaks and mismatch; building and approving a standalone mockup creates a direct specification that the live page can match. The two were tried in sequence rather than compared under control, so this is a case series and not a measured result." caption="Not a controlled comparison: the two paths were tried in sequence, and prompts, context and target all moved between rounds."
+```mermaid title="Prose iteration loop versus mockup-first path" description="Describing a design in prose cycles through tweaks and mismatch; building and approving a standalone mockup creates a direct specification that the live page can match. The two were tried in sequence rather than compared under control, so this is a case series and not a measured result."
 graph TD
     A["Describe the design<br/>in prose"] --> B["Claude tweaks the<br/>existing page"]
     B --> C["Result does not match<br/>what's in my head"]
@@ -68,33 +66,45 @@ graph TD
     style G fill:#7bc67e,stroke:#4a8a4d,color:#333
 ```
 
-## The pivot: build the mock-up first
+<span id="the-pivot-build-the-mock-up-first"></span>
 
-The unlock came with [issue #75](https://github.com/nathanjohnpayne/nathanpaynedotcom/issues/75), which asked for a Mondrian grid layout for the blog index. Instead of describing the design, I asked Claude to build candidate HTML mock-ups, each in its own file—no Astro, no Content Collections, no build pipeline, one inline style block plus a Google Fonts link, openable in a browser at desktop and mobile widths. The criteria, as best I can reconstruct them: something the agent could read rather than interpret, cheap enough that several divergent candidates were worth asking for, and concrete enough that "does the page match" became a checkable question instead of a feeling.
+## The blog index: choosing a target, then replacing it
 
-Claude produced four files—`A-cards-grid.html`, `B-de-stijl-index.html`, `C-composition-margins.html`, `D-minimal.html`—and I picked Mockup B: featured-post cell in the top left, a red accent block top middle, a blue block with a vertical "LATEST" label on the right, yellow and a neutral RSS block farther down, collapsing to a single column on mobile. Each was deliberately small—one representative example of each kind of content, the site's fonts and color tokens, the first real post as sample content—so four candidates cost less than one production page.
+For [issue #75](https://github.com/nathanjohnpayne/nathanpaynedotcom/issues/75), the Mondrian redesign of the blog index, I asked Claude to build several candidate HTML mock-ups. Each got its own file, one inline style block, and a Google Fonts link. There was no Astro, no Content Collections, and no build pipeline. I could open them in a browser at desktop and mobile widths.
 
-Those files were never committed—this repository's history contains no `mockups/` directory and no commit adding any of the four—and they lived on my disk only while the decision was open. One survives anyway, because the issue kept it: Mockup C is [attached to issue #74](https://github.com/nathanjohnpayne/nathanpaynedotcom/issues/74#issuecomment-4216265971), with a screenshot, and opens today. B is corroborated by name only, in issue #75. `A-cards-grid.html` and `D-minimal.html` appear in no surviving record: you have my memory that they existed, and nothing else.
+As best I can reconstruct it, I wanted three things: a file Claude could read, alternatives cheap enough to explore, and a design I could compare with the finished page. Asking "does the page match" would give me something more useful to work on than another request for more Mondrian.
 
-What survives is the move that mattered more than I understood at the time. I opened issue #75 and wrote the chosen mock-up's key characteristics into its design section. The issue formats them as bullets; condensed to prose:
+Claude produced four files—`A-cards-grid.html`, `B-de-stijl-index.html`, `C-composition-margins.html`, `D-minimal.html`—and I picked Mockup B. It put the featured post in the top-left cell, a red accent block in the top middle, and a blue block with a vertical "LATEST" label on the right. Yellow and a neutral RSS block sat farther down. On mobile, it collapsed to a single column. Each candidate was small: one representative example of each kind of content, the site's fonts and color tokens, and the first real post as sample content. Four candidates cost less than one production page.
+
+I wrote the chosen design's key characteristics into issue #75. The issue has them as bullets; condensed to prose:
 
 > Mockup B from `mockups/B-de-stijl-index.html`. Key characteristics: featured post in the largest cell (top-left), spanning multiple rows—echoes the red panel on the homepage. Accent blocks: red (top-mid), blue with vertical "Latest" label (top-right, spanning rows), yellow (bottom-right). Older posts fill progressively smaller cells. RSS CTA: neutral block with subscribe link. 9px black grid lines between all cells.
 
-That transcription is why the design decision is still auditable. The mock-up was the working spec; the issue is the durable record of what it specified, down to 9px grid lines a reader can still check against the live page.
+That recorded what I'd chosen, including the 9px grid lines a reader can still check on the live page. But I changed the target before I shipped it.
 
-Then I asked Claude to read the mock-up alongside `src/pages/blog/index.astro` and make the live page render like it. The result was [PR #77](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/77): the card-list blog index replaced with a Mondrian-style row grid. The PR's title—which became the squash-commit subject—says it plainly: "Blog index: De Stijl Mondrian row grid from mockup."
+Partway through the day, I posted a screenshot of a row-based mock-up as "the source of truth." Two rounds of fixes followed, the second from a twenty-item comparison. I then wrote "Still not right. Let's try another approach. Build exactly like this HTML mockup." and [attached `blog-landing 2.html`](https://github.com/nathanjohnpayne/nathanpaynedotcom/issues/75#issuecomment-4217399086). It had one post per row, one real post, and two placeholders. I asked Claude to read the mock-up alongside `src/pages/blog/index.astro` and make the live page look like it. The fresh plan an hour later named that file as its source of truth. PR #77 opened thirteen minutes after the plan.
 
-There is a turn in that chain, and the issue thread records it. Issue #75 names the chosen artifact `mockups/B-de-stijl-index.html`. PR #77's own body never mentions that file; the only mock-up it names is `blog-landing 2.html`, a different design, not the same file under two names. Partway through the day I had posted a screenshot of a row-based mock-up as "the source of truth", worked through two rounds of fixes against it, the second from a twenty-item comparison, and then written "Still not right. Let's try another approach. Build exactly like this HTML mockup."—[attaching `blog-landing 2.html`](https://github.com/nathanjohnpayne/nathanpaynedotcom/issues/75#issuecomment-4217399086): one post per row, one real post, two placeholders. The fresh plan an hour later names that file as its source of truth, and PR #77 opened thirteen minutes after the plan. So the shipped grid matches `blog-landing 2.html`, which also survives as an attachment, and it never matched Mockup B's spanning featured cell.
+This was a deliberate replacement of Mockup B. Issue #75's design section names `mockups/B-de-stijl-index.html`; PR #77's body never mentions it. The only mock-up the PR names is `blog-landing 2.html`, a different design. The shipped grid never had B's spanning featured cell. It followed the row-based file I'd attached, which also survives in the thread.
 
-The same pattern gave the post template [PR #76](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/76), driven by [issue #74](https://github.com/nathanjohnpayne/nathanpaynedotcom/issues/74) and Mockup C, the one candidate whose file survives. The issue's parallel line reads: "Mockup C from `mockups/C-composition-margins.html`. Key characteristics:". The layout rendering the post you are reading—three-column canvas, accent margin on the left, a sidebar on the right that scrolls with the page, metadata that collapses into a horizontal accent bar on narrow screens—came out of that issue.
+[PR #77](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/77) replaced the card list with a Mondrian-style row grid. Its title, which became the squash-commit subject, was "Blog index: De Stijl Mondrian row grid from mockup."
 
-Pace is harder to show than it felt. Issues #74 and #75 each opened and closed inside a single day, and PRs #76 and #77 were open for between fifteen minutes and half an hour before merging—administrative intervals that measure no design effort, since neither the mock-up round trips nor the prose attempts before them left a timed trace. The defensible claim is qualitative: once there was a file to implement against, the implementation landed essentially at once; while there wasn't, it kept not landing.
+## The post template
 
-## The 404 page: a public prototype and a private shortcut
+I used the same approach for the post template in [PR #76](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/76). [Issue #74](https://github.com/nathanjohnpayne/nathanpaynedotcom/issues/74) recorded my choice of Mockup C:
 
-The 404 page took the same shape with two differences.
+> Mockup C from `mockups/C-composition-margins.html`. Key characteristics:
 
-The first difference: the prototype was not something Claude built. It was [Jen Simmons' Mondrian Art in CSS Grid series](https://labs.jensimmons.com/2017/01-011.html)—public, self-contained examples of exactly the asymmetric composition I wanted, still open in her layout lab. The CSS comment in `src/styles/global.css` credits it as a CodePen; that pen has since been deleted, the lab pages have not:
+That became the three-column canvas you're reading: an accent margin on the left, the article in the middle, and a sidebar on the right. [PR #82](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/82) removed the original sticky sidebar the same day. The sidebar now scrolls with the page, and the metadata becomes a horizontal accent bar on narrow screens.
+
+It felt fast once there was a file to build against. Issues #74 and #75 both opened and closed within a single day; PRs #76 and #77 were open for between fifteen minutes and half an hour before merging. Those are administrative intervals. They don't measure the design effort, and neither the mock-up iterations nor the earlier prose attempts left a timed trace. Once I had a file to match, the implementation landed essentially at once. The earlier attempts hadn't gotten me there.
+
+<span id="the-404-page-a-public-prototype-and-a-private-shortcut"></span>
+
+## The 404 page
+
+For the 404 page, I used an existing public reference: [Jen Simmons' Mondrian Art in CSS Grid series](https://labs.jensimmons.com/2017/01-011.html). It had self-contained examples of the asymmetric composition I wanted. Claude didn't have to generate the reference for it to be useful; it had to be able to read it.
+
+The comment in `src/styles/global.css` credits Simmons' CodePen. That pen has since been deleted, but the examples remain in her layout lab:
 
 ```css
 /* ── 404 Page: Mondrian Grid ────
@@ -103,53 +113,92 @@ The first difference: the prototype was not something Claude built. It was [Jen 
    Collapses to single column on mobile with blocks hidden. ── */
 ```
 
-The second difference is less flattering: no pull request shipped this page. [Issue #90](https://github.com/nathanjohnpayne/nathanpaynedotcom/issues/90) is an SEO best-practices task, and the page landed in commit [`4076bf6`](https://github.com/nathanjohnpayne/nathanpaynedotcom/commit/4076bf6), a single-parent commit pushed directly to `main`, closing #90. In a post about a disciplined design-to-implementation workflow, with a companion piece on making direct pushes to `main` mechanically impossible, that stays in: the FFB example below turns on exactly this failure being caught in another repository, and here is an instance in my own. Two genuine pull requests then refined the page—[PR #91](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/91) removed the Firebase rewrite that had been sending every 404 to the SPA shell, which is why the site had no real 404 page until then, and [PR #92](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/92) aligned the colors with the homepage palette.
+This one is less flattering: the page landed through [issue #90](https://github.com/nathanjohnpayne/nathanpaynedotcom/issues/90), an SEO best-practices task, in commit [`4076bf6`](https://github.com/nathanjohnpayne/nathanpaynedotcom/commit/4076bf6). It was a single-parent commit pushed directly to `main`, closing #90. There was no pull request. My [companion piece](/blog/agent-approval-workflow-genesis-of-mergepath/) covers making direct pushes to `main` mechanically impossible. The FFB example below records the same failure, caught by that repository's post-merge review policy.
 
-What the 404 case adds: the reference does not have to be something Claude produced, only something Claude can read—and a public one can outlive its first home, as this one outlived its CodePen.
+Two pull requests refined the 404 page. [PR #91](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/91) removed the Firebase rewrite that sent every 404 to the SPA shell. Until that change, the new page wasn't reachable as a real 404 page. [PR #92](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/92) then brought its colors into line with the homepage palette.
 
-## The same trick in an app: the FFB template editor
+<span id="the-same-trick-in-an-app-the-ffb-template-editor"></span>
 
-[Friends & Family Billing](/projects/friends-and-family-billing/) (FFB) is the app I built to handle utility splits in my household. Its invoicing tab—where a user authors the email template that goes out with each invoice—needed a full visual overhaul. Prose got me the same wrong-tweaks result the blog index had, so I asked Claude for a self-contained HTML mock-up of the target editor: a single card holding the subject row, a unified token chip bar, the formatting toolbar, the body editor, and a sticky save footer, with pill-shaped Edit/Preview tabs above. Static HTML and CSS—no TipTap, no React, no token logic.
+## The FFB template editor
+
+[Friends & Family Billing](/projects/friends-and-family-billing/) (FFB) is the app I built to handle utility splits in my household. Its invoicing tab lets a user write the email template sent with each invoice. It needed a full visual overhaul, and describing the changes got me the same wrong tweaks I'd seen on the blog index.
+
+I asked Claude for a standalone HTML mock-up of the editor. The target was a single card holding the subject row, a unified token chip bar, the formatting toolbar, the body editor, and a sticky save footer. Pill-shaped Edit/Preview tabs sat above it. It was static HTML and CSS, without TipTap, React, or token logic.
 
 ![The shipped FFB invoice-template editor, not the mock-up, captured after the Save template button had moved up beside the pill-shaped Edit/Preview tabs: below them, a single card holding the subject row, the formatting toolbar, a unified token chip bar (First Name, Last Name, Household Total, and the rest), and the body editor with inline tokens and a Payment Methods block.](/blog/html-mockups-as-spec/img/ffb-editor-mockup.png)
 
-That screenshot is the result, not the artifact: the mock-up put the save control in a sticky footer, and the fix for [FFB issue #176](https://github.com/nathanjohnpayne/friends-and-family-billing/issues/176) moved it into the header three days later; the mock-up itself did not survive.
+This screenshot shows the shipped editor after a later change. The mock-up had the save control in a sticky footer; the fix for [FFB issue #176](https://github.com/nathanjohnpayne/friends-and-family-billing/issues/176) moved it into the header three days later. The mock-up itself didn't survive.
 
-I handed Claude the mock-up and the live `InvoicingTab.jsx` with its stylesheets and asked for a match. The work landed as commit [`20dcb32`](https://github.com/nathanjohnpayne/friends-and-family-billing/commit/20dcb32), titled, literally, "fix: redesign editor layout to match mockup and fix editability."
+I handed Claude the mock-up and the live `InvoicingTab.jsx` with its stylesheets. The work landed in commit [`20dcb32`](https://github.com/nathanjohnpayne/friends-and-family-billing/commit/20dcb32), titled "fix: redesign editor layout to match mockup and fix editability."
 
-The follow-up record is the most useful part. The agent pushed that commit directly to `main` without a PR—the same failure mode as the 404 commit above, caught this time by that repository's post-merge review policy, which logged it as a policy violation in [issue #145](https://github.com/nathanjohnpayne/friends-and-family-billing/issues/145). The handoff summary the authoring agent wrote for the external reviewer opens: "Restructures the InvoicingTab editor to match the target mockup," and runs through the design items—the single-card layout, the unified chip bar, the sticky save footer with its "Last saved" timestamp, the redesigned Preview tab with a footer-positioned send button—each a decision made in the mock-up rather than a sentence in a prompt. The external reviewer, who had never seen my prompts, reported two bugs in the token-migration path and said nothing about the layout. A cold reader naming the target would be a fair test of a well-specified design; this record does not supply one.
+The agent pushed it directly to `main` without a PR. FFB's post-merge review policy logged the push as a violation in [issue #145](https://github.com/nathanjohnpayne/friends-and-family-billing/issues/145) and sent it for external review.
 
-What FFB adds is surrounding complexity. The blog index and 404 page are static layouts; this editor is a TipTap-backed rich-text surface with token nodes and migration logic—room for an agent to get lost. The mock-up kept the layout decision orthogonal to all of it: the layout work stayed clean while a genuinely architectural problem lived in the same file, the markdown bridge that took a session of six pull requests and a reframed brief to remove, written up in [Six PRs, One Bug](/blog/six-prs-one-bug-agent-failure-modes/). A mock-up answers what the page should look like; an invariant answers what the system should do.
+The authoring agent's handoff began "Restructures the InvoicingTab editor to match the target mockup," then listed the single-card layout, unified chip bar, sticky save footer with its "Last saved" timestamp, and redesigned Preview tab with a footer-positioned send button. Those decisions had been made in the mock-up. The external reviewer, who hadn't seen my prompts, reported two bugs in the token-migration path and said nothing about the layout. The only evidence the layout matched is the agent's own say-so. A reviewer naming the target unprompted would have been a better test, and I don't have one.
 
-## Four surfaces, one table
+This was more complicated than the static blog and 404 layouts. The rich-text editor used TipTap, token nodes, and migration logic. The mock-up let me decide the layout separately from those concerns. The layout work stayed clean while an architectural problem remained in the same file: the markdown bridge that took a session of six pull requests and a reframed brief to remove, described in [Six PRs, One Bug](/blog/six-prs-one-bug-agent-failure-modes/). Specifying the appearance helped with the layout. The system's behavior still needed an invariant.
+
+<span id="four-surfaces-one-table"></span>
+
+## What shipped
 
 | Surface | Input artifact | Selection and acceptance | Record | Quality bar | Outcome | What a reader can inspect |
 |---|---|---|---|---|---|---|
-| Blog index | `blog-landing 2.html`—the row-grid mock-up that replaced Mockup B mid-issue; never committed, attached to issue #75 | I picked B of four candidates, replaced it with the row grid when B's rounds failed, and accepted the PR | [Issue #75](https://github.com/nathanjohnpayne/nathanpaynedotcom/issues/75) → [PR #77](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/77), whose body names `blog-landing 2.html` | Match `blog-landing 2.html`; a passing build and manual visual checks (no CI test gate existed until 2026-08-19) | Shipped and still matching that file's row geometry: one post per row, the 9px rules, row two's post column 72% wide against row one's 50% on the live [/blog/](/blog/), though the accent colours have since changed. It never matched Mockup B's spanning featured cell | Issue #75's transcription and thread, with the attached file; PR #77's body; the live [blog index](/blog/) |
+| Blog index | `blog-landing 2.html`—the row-grid mock-up that replaced Mockup B mid-issue; never committed, attached to issue #75 | I picked B of four candidates, replaced it with the row-grid target recorded in the thread, and accepted the PR | [Issue #75](https://github.com/nathanjohnpayne/nathanpaynedotcom/issues/75) → [PR #77](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/77), whose body names `blog-landing 2.html` | Match `blog-landing 2.html`; a passing build and manual visual checks (no CI test gate existed until 2026-08-19) | Shipped and still matching that file's row geometry: one post per row, the 9px rules, row two's post column 72% wide against row one's 50% on the live [/blog/](/blog/), though the accent colors have since changed. It never matched Mockup B's spanning featured cell | Issue #75's transcription and thread, with the attached file; PR #77's body; the live [blog index](/blog/) |
 | Post template | Mockup C—agent-generated local HTML, never committed, attached to issue #74 with a screenshot | I picked C and accepted the PR | [Issue #74](https://github.com/nathanjohnpayne/nathanpaynedotcom/issues/74) → [PR #76](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/76) | Match Mockup C; the same build-and-eyeball bar | Shipped; it renders the page you are reading, minus the sticky sidebar [PR #82](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/82) removed the same day | Issue #74's transcription, file and screenshot; the layout of this page |
 | 404 page | [Jen Simmons' Mondrian grid demos](https://labs.jensimmons.com/2017/01-011.html)—public, still live in her layout lab; the CodePen is gone | I chose the reference | [Issue #90](https://github.com/nathanjohnpayne/nathanpaynedotcom/issues/90) → commit [`4076bf6`](https://github.com/nathanjohnpayne/nathanpaynedotcom/commit/4076bf6), direct to `main`, no PR; refined in [PR #91](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/91) and [PR #92](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/92) | Visual target first; refinements followed | Shipped, but not reachable until #91 removed the Firebase rewrite, and the palette took one further PR, #92 | The lab demos; the CSS comment; both refinement PRs |
 | FFB editor | Agent-built HTML mock-up, not preserved; the screenshot above is the shipped page | I accepted the mock-up as the target | Commit [`20dcb32`](https://github.com/nathanjohnpayne/friends-and-family-billing/commit/20dcb32); policy review in FFB [issue #145](https://github.com/nathanjohnpayne/friends-and-family-billing/issues/145) | Match the mock-up and fix editability | Shipped and matched, per the authoring agent's handoff; the external reviewer found two migration bugs and no layout issues—and the commit bypassed review to get there | The shipped page; #145's handoff summary and external review |
 
-Two things to read out of the table. The division of labor: Claude generated the candidates and the implementations; selecting the artifact, transcribing it into the issue, and accepting the result were my calls. And the failure rate: two of the four rows record a direct push to `main`. The workflow disciplined the design; it did not, by itself, discipline the process. That class of gap is what [Mergepath](/projects/mergepath/) exists to close; branch protection now requires a pull request from every identity short of the repository administrator—an exemption the record shows still in use.
+Claude generated the candidates and wrote the implementations. I chose the targets, transcribed the decisions into the issues, and accepted the results. The mock-ups made those design decisions easier to make and check. They didn't enforce the shipping process: two of the four surfaces reached `main` through direct pushes.
 
-## Why the swap worked
+<span id="why-the-swap-worked"></span>
 
-Three things changed at once when the input became an HTML file, and I cannot separate their contributions. The medium matched the output. Pasting an annotated screenshot is asking the agent to do art criticism. Pasting an HTML file is asking it to do diffs.
+## Why the HTML helped
 
-The prototype ran outside the production build. A mock-up has no schema to satisfy, no test suite to pass, no routing to respect, so the agent could iterate on it purely as a visual artifact; production constraints became a re-implementation problem afterward rather than a design problem during. Pointed at the live page directly, the agent did both jobs at once, and the constraints it could verify kept winning over the design intent it could not.
+Three things changed together when I started handing Claude HTML files.
 
-And the mock-up forced me to commit. Once I had opened a file in a browser and said yes to it, the question shifted from "what do I want this to look like" to "why doesn't this match"—and the second is answerable with a diff.
+Pasting an annotated screenshot is asking the agent to do art criticism. Pasting an HTML file is asking it to do diffs. Claude had HTML and CSS it could read and compare with the live page.
 
-The first version of this post claimed a fourth thing, and I retract it: that the mock-up was a spec that does not drift, because the agent re-reads the file instead of remembering the conversation—"Specs that live in prose drift with every prompt. Specs that live in HTML do not." True exactly as long as the file exists and stays the target—and my working copies did neither. A deleted local file cannot be re-read on a later prompt, cannot serve as a regression oracle, and cannot be diffed against the page a year on; a replaced one specifies a page that was never built. The copies that survive on the two issues are evidence of what was decided, not a spec the agent was ever handed again. The blog index is the replaced case: its grid has not drifted off Mockup B, because it was never built to Mockup B, and its rows still follow the geometry of the file I swapped in, though the accent colours have since changed. The mock-up is a temporary decision aid—excellent at holding a design steady across the days a decision is open, gone from the workflow the day it is deleted or superseded, however long an attachment outlives it. The durable artifact in this workflow is the issue, with whatever it transcribes and whatever it keeps; that issue #75 kept both the transcription of B and the file that replaced it is what makes the blog-index decision auditable at all.
+The prototype ran outside the production build. It didn't have a schema to satisfy, tests to pass, or routes to preserve. Claude could work on the design first and re-implement it within the production constraints afterward. When I pointed it straight at the live page, it had to solve both problems at once. The constraints it could verify kept winning over the design intent it couldn't.
 
-## "Do they match" is not the whole bar
+I had to choose, too. Opening a file in a browser and approving it gave me a target. I could ask "why doesn't this match" instead of continuing to ask "what do I want this to look like." That was a question I could answer with a diff.
 
-At the time I treated one check as the whole acceptance test: open the mock-up and the production page side by side, and "that is the only acceptance criterion that matters: do they match." This repository disagrees. The required workflow runs `npm test`, `npm run lint` and, since 2026-09-12, the browser-driven Playwright responsive suite, and a page that matched its mock-up pixel for pixel would still be stopped by checks that know nothing about design intent: a test that renders the site's Mermaid diagrams and fails the build on WCAG AA contrast violations, CSS assertions pinning the responsive invariants, SEO plumbing validated at build time. Even the responsive suite is a recent gate: `npm run test:e2e` was deliberately manual and absent from CI, so a responsive regression could pass every blocking gate, until [#1022](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/1022) made it a required step. Matching the mock-up is design acceptance. Production acceptance additionally covers responsive behavior, accessibility, real-content stress—the mock-ups carried one featured post and a couple of placeholders, not a real archive—interaction correctness, and performance.
+## What the issues kept
 
-And since performance is on that list: the hero image at the top of this post is a 3.1 MB JPEG. It matched the visual intent, and nothing in "do they match" would ever flag it. It stays as the cheapest demonstration of the argument—the post that says visual acceptance and production acceptance are different bars is itself sitting on the wrong side of one.
+The first version of this post went further: "Specs that live in prose drift with every prompt. Specs that live in HTML do not." I retract that claim. It depended on the agent being able to re-read the file instead of remembering the conversation. An HTML file can hold a design steady while it exists and remains the target. My working copies were deleted or replaced.
 
-## The operating model, revised
+None of the four candidate files was committed. There's no `mockups/` directory in the repository's history and no commit adding any of them. They lived on my disk while the decision was open. Mockup C is still [attached to issue #74](https://github.com/nathanjohnpayne/nathanpaynedotcom/issues/74#issuecomment-4216265971), with a screenshot, and opens today. B is corroborated by name only in issue #75. `A-cards-grid.html` and `D-minimal.html` appear in no surviving record. You have my memory that they existed, and nothing else. The replacement row-grid file survives on its issue too.
 
-The workflow has four steps. Ask for divergent candidates: two or three self-contained HTML mock-ups, inline styles, no build dependencies, openable by double-click. Converge: open them at desktop and mobile widths and pick one, or ask for variants on the closest. Transcribe and attach: write the winner's key characteristics into the issue and attach the file, because the mock-up will not outlive the decision on its own and the issue is the record that will. Implement and verify: hand the agent the mock-up, the issue, and the live page; review the result against the mock-up for design, and against the production gates the mock-up knows nothing about for everything else.
+Deleting a local file removes that copy from later prompts, regression checks, and comparisons with the page a year on. Replacing the target leaves the old file specifying a page that was never built. The attached copies are evidence of what I decided. They weren't handed back to the agent as a continuing spec.
 
-The generalization is not "write HTML first." It is: when the target is an outcome the agent will express as code, hand it a small, self-contained artifact in the same medium as the output—and keep a durable transcription of what that artifact decided, somewhere its deletion cannot reach. For a CLI's behavior, a transcript of the exact interaction rather than a description of it. For an API's response shape, a JSON example rather than a field list. For a tone of voice, a paragraph of approved text rather than a list of adjectives. The disposable artifact does the specifying; the durable record does the remembering. This post is the case study for needing both: the two blog layouts this site still runs were specified by Mockup C and the row grid that replaced Mockup B—files I deleted, and issues #74 and #75 kept.
+The blog index still follows the row geometry I chose, though its accent colors have since changed. Issue #75 kept both the original transcription and the replacement file, so a reader can follow the decision. The mock-up was useful while I was choosing the design and Claude was implementing it. The issue preserved the choice after the local file was gone.
+
+<span id="do-they-match-is-not-the-whole-bar"></span>
+
+## What I now check before accepting a page
+
+At the time, I treated a side-by-side comparison as the whole acceptance test: "that is the only acceptance criterion that matters: do they match." Resemblance was a useful design check. It wasn't enough to decide whether the page was ready to ship.
+
+Today, the required workflow runs `npm test`, `npm run lint`, and, since 2026-09-12, the browser-driven Playwright responsive suite. They include a test that renders Mermaid diagrams and fails the build on WCAG AA contrast violations, CSS assertions for responsive behavior, and SEO plumbing validated at build time. A page could match pixel for pixel and still fail those checks.
+
+The responsive suite wasn't always required. `npm run test:e2e` was deliberately manual and absent from CI, so a responsive regression could pass every blocking gate. [#1022](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/1022) made it a required step. Those later gates weren't the bar the original blog-layout PRs shipped under; that was a passing build and manual visual checks, as the table records.
+
+I also need to check real content, interactions, and performance. The mock-ups had one featured post and a couple of placeholders. They didn't show what a full archive would do to the layout.
+
+The hero image on this post is a 3.1 MB JPEG. It matched the visual intent, and a "do they match" check wouldn't flag its weight. The post arguing that visual acceptance and production acceptance are different bars is itself sitting on the wrong side of one.
+
+The process needs its own checks too. [Mergepath](/projects/mergepath/) exists to close gaps like those direct pushes. Branch protection now requires a pull request from every identity short of the repository administrator. That exemption is still in use.
+
+<span id="the-operating-model-revised"></span>
+
+## How I use the approach now
+
+The workflow has four steps:
+
+1. Ask for two or three different HTML mock-ups. Keep them self-contained, with inline styles and no build dependencies, so they open by double-click.
+2. Open them at desktop and mobile widths. Pick one, or ask for variants of the closest candidate.
+3. Write the chosen design's key characteristics into the issue and attach the file. The local mock-up won't preserve the decision on its own.
+4. Hand the agent the mock-up, the issue, and the live page. Compare the implementation with the target, then check the responsive, accessibility, content, interaction, and performance requirements separately.
+
+The lesson isn't really about HTML: give the agent a small example in the same medium as its output. For a CLI, that could be a transcript of the exact interaction. For an API response, a JSON example carries more than a field list. For tone of voice, an approved paragraph gives it more to work with than adjectives.
+
+I also need to keep what I approved and why, somewhere deleting the working file won't erase it. This site still uses the layouts specified by Mockup C and the row grid that replaced Mockup B. I deleted those working files, but issues #74 and #75 kept them, along with the decisions that explain what I built.
