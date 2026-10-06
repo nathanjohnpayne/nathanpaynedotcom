@@ -436,6 +436,26 @@ describe.skipIf(!valeAvailable)('Vale prose lint', () => {
     expect(alerts.map((alert) => alert.Line)).toEqual([3, 6, 7, 8]);
   });
 
+  it('lints a code fence that a one-line HTML block absorbs, as the site renders it', () => {
+    // CommonMark ends a <div> HTML block only at a blank line, so a fence
+    // directly under one is raw HTML text, and Astro publishes it as visible
+    // prose rather than <pre><code>. Vale 3.24.0 reads it the same way.
+    const fixture = 'tests/fixtures/vale-em-dash/html-block-fence.md';
+    const result = spawnSync(
+      process.execPath,
+      ['scripts/lint-prose.mjs', '--output=JSON', fixture],
+      {
+        encoding: 'utf8',
+      },
+    );
+
+    expect(result.status).toBe(1);
+    const alerts = JSON.parse(result.stdout)[fixture].filter(
+      (alert) => alert.Check === 'CMOS.EmDash',
+    );
+    expect(alerts.map((alert) => alert.Line)).toEqual([1, 3]);
+  });
+
   it('lints standalone YAML prose retained from the legacy gate', () => {
     const fixture = 'tests/fixtures/vale-em-dash/standalone.yaml';
     const result = spawnSync(
