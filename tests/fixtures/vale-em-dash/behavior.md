@@ -6,6 +6,7 @@ Ordinary — violation.
 Actual — violation.
 Narrow — violation.
 <div>Raw HTML — violation.</div>
+
 ```
 fenced — code
 ```
