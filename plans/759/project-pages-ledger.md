@@ -264,6 +264,8 @@ diff <(sed -n '103p' ~/GitHub/docs/job-search/nathan-payne-resume.md) \
 
 ### A29—the four personas the ticket names are not modelled; the product has three roles
 
+> **Superseded 2026-10-06.** The loosest correct matcher returns sixty `requireRole(...)` guards, fifty of them `requireRole('admin')` alone and ten `requireRole('editor', 'admin')`, at this row's own pin `c9f66f0` as well as at `cc376a8`, so "forty of fifty" was a miscount at the pin rather than drift and the corrected value is fifty of sixty; see `plans/correctness-pass-2026-10-06/device-source-of-truth-ledger.md` R1.
+
 > Issue #755: "partner engineering, certification, support, and platform teams answer high-consequence questions"
 
 **WRONG as a statement about the artifact; defensible only as a statement about the domain.** The product models **three permission roles and no teams**: `functions/src/types/index.ts:88` and `src/lib/types.ts:82` both declare `export type UserRole = 'viewer' | 'editor' | 'admin';`, and `functions/src/routes/users.ts:8` pins the same three as `VALID_ROLES`. There is no team, department, persona or function attribute anywhere on the user record, no per-persona view, and no per-persona permission. Users enter only by Google OAuth auto-provisioning at `role: 'viewer'` (`functions/src/middleware/auth.ts:72`), and `specs/DST-054-user-role-management.md` is explicit that the story "does **not** deliver user invitation, user deletion, or manual user creation."
@@ -308,6 +310,8 @@ git grep -nIE '[0-9,]+ (devices|rows|partners)' "$S" -- specs src/pages scripts/
 The corrected supporting sentence: *no artifact states the size of Disney's production device estate, and the counts the repository does carry are a hardcoded UI literal, a spec's incidental observation about one version label, and the synthetic dataset's own scale—none of which bounds the real fleet.* The practical rule for the restructure is unchanged and now better grounded: **the page may name the source systems and the device categories; it may not name a magnitude, and it may not reach for `1,247`, `45` or `47` to supply one.**
 
 ### A32—five ingestion paths, and the one shape all of them share
+
+> **Superseded 2026-10-06.** The role-guard census this row leans on is fifty admin-only guards of sixty, not forty of fifty, because the same matcher returns 50 `requireRole('admin')` and 10 `requireRole('editor', 'admin')` at this row's pin; the reading that every commit step is admin-only stands, the count does not; see `plans/correctness-pass-2026-10-06/device-source-of-truth-ledger.md` R1.
 
 **SUPPORTED, and this is the workflow map AC 2 asks for.** §A22 established four *sources*; the artifact has five *paths*, and the extra one matters because it is where the two Datadog-derived feeds diverge. Mounted at `functions/src/index.ts:63-80`: **AllModels device inventory** via `POST /api/upload/migration` (`upload.ts:56`); **Airtable intake requests** via `POST /api/intake/preview` then `POST /api/intake/import` (`intake.ts:110`, `:351`); **Datadog partner-key mappings** via the `partnerKeys.ts` import routes; **Datadog telemetry** via the `telemetry.ts` preview/commit pair; and **partner Excel questionnaires** via `POST /api/questionnaire-intake` (`questionnaireIntake.ts:174`).
 
@@ -1698,6 +1702,8 @@ Corrected value: what is not public is the **data**, gated by sign-in and by `fi
 
 ### D20—there is no discovery evidence in the repository, of any kind
 
+> **Superseded 2026-10-06.** `specificity.denyList.ts` carries twelve banned phrases, not thirteen: the loose `grep -c 'pattern:'` also counted the `readonly pattern: string;` field on the `DenyListEntry` interface, and the file's only commit, `018cb5b`, has never held thirteen; see `plans/correctness-pass-2026-10-06/matchline-ledger.md` R1.
+
 **ABSENT, control-verified—and UNPROVABLE would be the wrong verdict here.** The ticket asks the page to "add the discovery evidence behind the thesis." There is none.
 
 Method: control first. `git grep -ci 'zero fabrication' origin/main -- specs docs README.md BRAND.md` returns hits in four files, so the search reaches the documentation surface. Then `user interview`, `competitive analysis`, `market siz`, `willingness to pay`, `persona`, `jobs to be done`, `customer discovery`, and named competitors (`Teal`, `Jobscan`, `Huntr`, `Simplify`, `Rezi`) return **zero** substantive hits. The three apparent hits are false positives and are named so this row is reproducible: `competitive analysis` is a synonym entry at `functions/src/matching/ontology/skills.seed.json:28`; `competitors` appears in a synthetic fixture résumé; `Teal` matched `s`**`teal`** inside `scripts/phase-4b/lib.sh`.
@@ -1732,6 +1738,8 @@ The decision record in this repository is squash-merge commit messages and code 
 **Three candidates that fail the bar and must not be dressed as decisions:** the Firestore-over-Postgres choice (`specs/matchline.md:284-308` states a migration-path discipline with no rejected alternative and no rationale for Firestore); the seven matching weights (`:147-159`, the most consequential numbers in the product, given without derivation or sensitivity analysis); and the model strategy (`:209-215`, stated, never argued).
 
 ### D24—the evaluation record, and what the numbers mean
+
+> **Superseded 2026-10-06.** "No eval run confirming it is recorded anywhere afterwards" is wrong: PR matchline#262, which shipped `552e421`, records a three-sample run on one fixture in its body (match accuracy mean 19.4%, range 16.7–20.8%, the per-sample span down from 12.5pp to 4.1pp), so the mapping repair was measured in its own PR; what still holds is that no four-cell run under the repaired mapping, and nothing at all after the cache (`e20c077`), is recorded; see `plans/correctness-pass-2026-10-06/matchline-ledger.md` R3.
 
 **SUPPORTED, with the metric-revision history attached, because the figures are not comparable without it.**
 

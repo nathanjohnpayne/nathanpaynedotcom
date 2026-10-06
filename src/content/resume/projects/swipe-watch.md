@@ -6,4 +6,4 @@ repo: "https://github.com/nathanjohnpayne/swipewatch"
 order: 6
 ---
 
-Swipe-based content discovery for Disney+ and Hulu. The prototype inadvertently simulated the recommendation payoff it was meant to test, making reactions to the demo impossible to separate from reactions to the concept. Demoed to Disney's EVP of Product.
+Swipe-based content discovery for Disney+ and Hulu. The prototype simulated the recommendation payoff it was meant to test, making reactions to the demo impossible to separate from reactions to the concept. Demoed to Disney's EVP of Product.

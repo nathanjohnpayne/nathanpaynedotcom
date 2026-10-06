@@ -444,6 +444,8 @@ And the gate does run in that job: `.github/workflows/build-and-test.yml:115` ru
 
 ### H3—"Turning those violations into tracked issues is the open follow-up"
 
+> **Superseded 2026-10-06.** "No issue was found tracking it" came from a search with no control: issue #715 ("lint(content): file a tracking issue when a prose violation reaches main") was opened 2026-08-23T23:27:01Z, the day before publication, describes exactly this piece, and was closed `not_planned` on 2026-09-06 by `nathanpayne-claude`, so the intention had a filed item at publication and the verdict is STALE, not UNPROVABLE; see `plans/correctness-pass-2026-10-06/autofix-was-the-whole-cost-ledger.md` R7.
+
 > L159
 
 **UNPROVABLE—no issue was found tracking it.** Not disprovable either: a stated intention is not a repository fact. Defensible form: state it as an intention rather than an "open follow-up", which implies a filed item, or file one and cite it.
@@ -616,6 +618,8 @@ An independent verifier re-derived every figure in this ledger against the same 
 **N.7—§F5's nulls claim was too broad.** PR #765's loop carries real values (`source: "claude-json-envelope"`, `output: 12559`, `cost_usd: 0.5516`). The nulls hold for the `codex-cli-stderr` loops—all of #668/#678/#681/#682—so the argument survives, but the rule must be scoped to that adapter. §E1, §E2 and §F5 must also give the absolute path `~/GitHub/nathanpaynedotcom/.mergepath/phase-4b-ledger.jsonl`.
 
 **N.8—§E6's proposed replacement was itself false.** #686 carries 32 commits against 17 Codex-App and 27 CodeRabbit reviews; #720 carries 28 commits against 4 Codex-App reviews. Neither bot reviewed every push on either PR. The stacked-base explanation is also wrong: all seven PRs have `base: main`.
+
+> **Superseded 2026-10-06.** The dependency behind finding 57, `micromark-util-decode-numeric-character-reference`, was added by `2e2b9da` on 2026-08-22T20:44:05Z, 26 h 50 m before the removal commit `abe3bfb`, and `git diff abe3bfb ee3ec7f -- package.json` is empty, so finding 57 is documentation debt raised after the cut about a dependency added before it, and "added after the cut" is wrong; see `plans/correctness-pass-2026-10-06/autofix-was-the-whole-cost-ledger.md` R1.
 
 **N.9—§C2 and §D1 disagreed about the post-cut findings.** Finding 57 concerns a dependency *added* after the cut. Corrected inline in both places to two cleanup findings plus one documentation-debt finding.
 

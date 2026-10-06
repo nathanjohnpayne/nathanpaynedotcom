@@ -725,6 +725,8 @@ This is the epic's recurring failure in a new costume: **count with the loosest 
 
 ## P.2—the pre-merge-start proof does not hold, and §A's headline verdict must come down
 
+> **Superseded 2026-10-06.** "Three of the five invocations … acknowledged and posted no visible result" draws the wrong line: all five acknowledgements carry the generic "✅ Action performed: Review finished" text, so what separates the two at `03:53:33Z` and `03:53:42Z` is that they contain a `🧩 Analysis chain` with the shell CodeRabbit ran and a no-findings conclusion, while the other three are 504–525-character bare acknowledgements with no review content; the UNPROVABLE verdict is unchanged; see `plans/correctness-pass-2026-10-06/perfect-score-wrong-axis-ledger.md` R19 (its prior-ledger crosswalk records the §P.2 verdict as landed on the page).
+
 §A cited two `🧩 Analysis chain` acknowledgements at `03:53:33Z` and `03:53:42Z` as proof that a CodeRabbit pass "was **running**" five and a half minutes before the merge. Both of them **terminate**. Verified directly against the API:
 
 - `03:53:33Z` (invocation `424c3bb2`): "…no new correctness or security blockers, and no credential-like additions… **✅ Action performed. Review finished.**"
