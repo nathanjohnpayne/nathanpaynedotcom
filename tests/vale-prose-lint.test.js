@@ -696,6 +696,25 @@ describe.skipIf(!valeAvailable)('Vale prose lint', () => {
   });
 });
 
+describe('em dash fixtures as Astro renders them', () => {
+  // The fence fixtures differ only in block structure, so that is what the
+  // site's own Markdown processor confirms here, with no Vale binary needed:
+  // a fence directly under a one-line <div> stays raw HTML text, and a fence
+  // after a blank line becomes a code block.
+  it('publishes a fence under a one-line HTML block as text, and a separated fence as code', async () => {
+    const { createMarkdownProcessor } = await import('@astrojs/markdown-remark');
+    const processor = await createMarkdownProcessor();
+    const render = async (file) => (await processor.render(readFileSync(file, 'utf8'))).code;
+
+    const absorbed = await render('tests/fixtures/vale-em-dash/html-block-fence.md');
+    expect(absorbed).not.toContain('<pre');
+    expect(absorbed).toContain('absorbed — text');
+
+    const separated = await render('tests/fixtures/vale-em-dash/behavior.md');
+    expect(separated).toMatch(/<pre[^>]*>[\s\S]*fenced — code[\s\S]*<\/pre>/u);
+  });
+});
+
 describe('Vale availability behavior', () => {
   it('rejects a multiline repository version pin', () => {
     const directory = mkdtempSync(join(process.cwd(), '.lint-prose-invalid-pin-'));
