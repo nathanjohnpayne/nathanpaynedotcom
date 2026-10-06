@@ -10,7 +10,7 @@ screenshotAspect: "narrow"
 screenshotSrc: "/images/projects/five-across-hero.png"
 screenshotSecondary:
   src: "/images/projects/five-across-gcb-hero.png"
-  alt: "Gay Cruise Bingo warm-up card on the same Five Across platform, showing a Welcome Aboard bingo grid for a Trieste sailing"
+  alt: "Gay Cruise Bingo warm-up card on the same Five Across platform, a Day 1 card in the Neon Playground theme for a Trieste sailing, rendered by the marketing harness"
   width: 786
   height: 1550
 accent: "red"
@@ -25,7 +25,7 @@ stack: "React · TypeScript · Vite · Firebase · Cloud Functions · Cloudflare
 constraints:
   - value: "8 days"
     label: "to launch"
-  - value: "Satellite"
+  - value: "Ship Wi-Fi"
     label: "connectivity"
   - value: "10 days"
     label: "live operation"
@@ -43,7 +43,7 @@ decisions:
     status: "validated"
   - title: "Assume the connection is already gone"
     lens: "Reach"
-    context: "The venue was a ship: satellite internet, dead zones at sea, a metal hull. A game that needs the network at tap time dies exactly when the group is together."
+    context: "The venue was a ship: flaky, expensive Wi-Fi and dead zones at sea. A game that needs the network at tap time dies exactly when the group is together."
     chosen: "An installable PWA over an offline-first Firestore cache. Marks queue locally through dead zones and sync on reconnect, and cold boot works without waiting on the network."
     rejected: "A plain online web app—the fastest thing to build in eight days, fine on land, and the default shape of a quick launch."
     rationale: "A game that needs the network at tap time fails whenever coverage drops, and at sea coverage drops without warning. Offline-first makes a mark land wherever the player is, and cold boot never waits on a signal."
@@ -74,17 +74,17 @@ decisions:
     chosen: "Bring the freeze forward to 23:00 that night, nine hours early, while the event was live."
     rejected: "Letting the schedule run as designed to the closing morning—defensible, and it is what the code derives for this event."
     rationale: "Disembarkation morning is packing and goodbyes; the last night is the last time the whole group is in one room. Freezing three hours after last call ended the race inside the trip instead of after it."
-    cost: "Nine hours of play disappeared from a live event, on a schedule players had already been given. Anyone holding a square for disembarkation morning lost it without notice, and marks did keep arriving after the freeze—onto a ceremonial card where, by design, they moved nothing."
+    cost: "Nine hours of play disappeared from a live event, on the schedule the app's own design derived. Anyone holding a square for disembarkation morning lost it, and marks did keep arriving after the freeze—onto a ceremonial card where, by design, they moved nothing."
     evidence: "36% of the cruise's marks landed on the final day, the biggest of the trip, and three cards claimed their first bingo hours before the freeze, days after their ports. Marks kept arriving afterward on the ceremonial farewell card, where by design they move nothing."
     status: "validated"
   - title: "The cutover is a decision, not a deploy"
     lens: "Platform"
     context: "Five Across is generalizing into a platform: one codebase, a wildcard event router built for the edge, centralized authentication with a single-use handoff. The next shape is unrelated groups sharing a backend—and tenant isolation for that shape has not shipped."
     chosen: "Hold the cutover. Separate events run on separate Firebase projects until the isolation workstream lands, and attaching the routes stays a deliberate human step."
-    rejected: "Attaching the routes now. The worker is deployed and tested, the route config is written, and cutover would be one uncommented block."
-    rationale: "Path-scoped security rules are not tenant isolation, and the repository's own specs say so. One uncommented block is exactly the kind of change that looks like a deploy and is actually a decision about other people's data."
-    cost: "Every new event needs its own Firebase project, provisioned by hand. The platform work sits built and parked, so the price of not cutting over is paid again at each event—and it grows the longer the isolation workstream waits."
-    evidence: "Not yet validated. The router fronts no production traffic and the auth handoff is implemented but not yet reachable, so there is no behavioral evidence either way. What resolves it: the tenant-isolation rules workstream, the IAM provisioning the handoff needs, and the deliberate act of attaching the routes."
+    rejected: "Attaching the routes now. The worker is deployable and tested, the route config is written, and as of 2026-10-06 cutover would be two uncommented blocks, one per zone."
+    rationale: "Path-scoped security rules are not tenant isolation, and the repository's own specs say so. Uncommenting a route block is exactly the kind of change that looks like a deploy and is actually a decision about other people's data."
+    cost: "Every new event for an unrelated group needs its own Firebase project, provisioned by hand. The platform work sits built and parked, so the price of not cutting over is paid again at each event—and it grows the longer the isolation workstream waits."
+    evidence: "Not yet validated. The router fronts no production traffic, and the auth handoff, provisioned by 2026-09-10 and live in the client as of 2026-10-06, has carried no demonstrated sign-in, because registered hosts still sign in direct; there is no behavioral evidence either way. What resolves it: the tenant-isolation rules workstream and the deliberate act of attaching the routes."
     status: "pending"
 learnings:
   - expected: "Daily novelty would keep the group marking all cruise—the fresh themed card was the draw, and marking was the core loop."
@@ -95,7 +95,7 @@ learnings:
     response: "Both figures stay on the page, named as a disagreement rather than reconciled. Where the systems diverge—845 squares in Firestore against 772 the analytics logged over the same window—each number is attributed to the system that owns it, and compared only across windows that mean the same thing."
   - expected: "The launch risk worth pre-building for was content: a moderation stack—server-side auto-hide, an admin roster, a flag-gated Vision check—was finished six days before embarkation."
     observed: "The fires were authentication and the PWA update path—the sailing's commits skew to exactly that—while the moderation stack stayed quiet in every record the repository keeps."
-    response: "After the cruise, authentication is where the platform work went: a centralized auth origin with a single-use handoff, implemented and gated on provisioning."
+    response: "After the cruise, authentication is where the platform work went: a centralized auth origin with a single-use handoff, implemented, provisioned by 2026-09-10, and live in the client as of 2026-10-06."
 related:
   - label: "Project: Swipe Watch"
     href: "/projects/swipe-watch/"
@@ -127,7 +127,7 @@ One decision needs stating without a ledger row, because its record is silence. 
 
 ## What happened
 
-The standings survived—frozen in the production Firestore at 23:00 on the last night, with the app's own final share card intact—so the bet can be scored against ten days of live play.
+The standings survived—frozen in the production Firestore at 23:00 on the last night, with the app's own final share card intact—so the bet can be scored against ten days of live play, as recorded in the sailing's own data read.
 
 The card traced a novelty arc. Firestore's day buckets credit the embark tutorial with 27 bingos from eleven players, none of them landing on embark day itself—the easy card kept paying out for days—while the next two cards managed one bingo apiece all cruise, both claimed on the final day. And here the record argues with itself: the same database's player rows count ten players holding an event-wide bingo, and PostHog independently counts ten. Eleven on one card and ten across the whole event cannot both be exact. An embark bingo counts toward a player's event-wide total, the scoring tests assert it explicitly, and that eliminates the obvious reconciliation. The two tables disagree, the disagreement is unresolved, and both numbers are printed here because that is what the evidence actually looks like.
 
@@ -141,15 +141,15 @@ Zacaria Arab took the title on 16 bingos across 124 squares. Logan Murdock out-m
 
 ## Running it at sea
 
-Ninety-six changes landed on main between embarkation and disembarkation, counting first-parent commits between the Rome midnights that bound the sailing. The log proves they landed, not that each one reached a phone mid-ocean—no deploy record survives for that window—but the reshuffle settles the question for the drops that matter: the feature did not exist until the sea day, and all seven uses sit inside the sailing, so that build demonstrably reached players while the game was live. Nothing partitions those ninety-six into fixes and features, so calling most of them firefighting would be a guess; what the log does show is a skew toward auth and the PWA update path. The freeze sits in the same column: the one instant the finale's design derived is the one overridden while the event ran.
+Ninety-six changes landed on main between embarkation and disembarkation, counting first-parent commits between the Rome midnights that bound the sailing. The log proves they landed, not that each one reached a phone mid-ocean—no deploy log survives in the repository, only an incident note recording one mid-sailing rules deploy and its two days of stale-shell fallout—but the reshuffle settles the question for the drops that matter: the feature did not exist until the sea day, and all seven uses sit inside the sailing, so that build demonstrably reached players while the game was live. Nothing partitions those ninety-six into fixes and features, so calling most of them firefighting would be a guess; what the log does show is a skew toward auth and the PWA update path. The freeze sits in the same column: the one instant the finale's design derived is the one overridden while the event ran.
 
 The build ran on agents against a fixed date, and the division of labor is in the tree rather than in this paragraph's claims about it. Specs pin behavior down to the finale's exact instants; ADRs record the calls that were hard to reverse—on-device share rendering, offline persistence, a second Firebase project as the interim tenant boundary; the test suites are acceptance criteria that execute, from contrast computed out of the shipped CSS across every theme to a launch-checklist test that pins embarkation day. The mid-cruise drops landed as reviewed pull requests. Agents expanded build, test, and review capacity under the eight-day fuse and then at sea; the product calls this page records—the trust model, the freeze, the sea-day drops, the held cutover—were the part that could not be delegated.
 
 ## From one event to a platform
 
-The engine generalized. Gay Cruise Bingo is preserved as the original and still runs as a live edition, the default one, on its own domain against its own Firebase project; Vacay Bingo is the travel edition; Five Across is the platform under both. The repository states the relationship itself, in a comment on that edition's brand record: "It is an ENDORSEMENT, not a rename: the wordmark, the cruise vocabulary, the adult posture, gaycruisebingo.com and the legacy Firebase project are all unchanged—GCB is simply one Edition of Five Across now, on the same engine as Vacay." The first non-cruise event, a Sonoma Coast weekend in August 2026 run by a different host, has since run on that build, live enough that unlock-copy fixes landed on its opening day. That demonstrated reuse, but participation stalled: four people marked 27 squares, nobody got a bingo, and the guests' last marks came on Saturday morning. The cruise combined working software, prompts written for that sailing, a group ritual and a host promoting and tuning the game live. Moving the engine to another occasion did not reproduce that combination. The two events do not isolate which contribution mattered most. The craft layer generalized too: fifteen themes shipped for the cruise—thirteen party plus two tutorial—out of twenty-two now across the platform, every one held to WCAG AA contrast by test suites that compute contrast from the CSS itself.
+The engine generalized. Gay Cruise Bingo is preserved as the original and still runs as a live edition, the default one, on its own domain against its own Firebase project; Vacay Bingo is the travel edition; Five Across is the platform under both. The repository states the relationship itself, in a comment on that edition's brand record: "It is an ENDORSEMENT, not a rename: the wordmark, the cruise vocabulary, the adult posture, gaycruisebingo.com and the legacy Firebase project are all unchanged—GCB is simply one Edition of Five Across now, on the same engine as Vacay…" The first non-cruise event, a Sonoma Coast weekend in August 2026 run by a different host, has since run on that build, live enough that unlock-copy fixes landed on its opening day. That demonstrated reuse, but participation stalled: four people marked 27 squares, nobody got a bingo, and the guests' last marks came on Saturday morning. The cruise combined working software, prompts written for that sailing, a group ritual and a host promoting and tuning the game live. Moving the engine to another occasion did not reproduce that combination. The two events do not isolate which contribution mattered most. The craft layer generalized too: fifteen themes shipped for the cruise—thirteen party plus two tutorial—out of twenty-two now across the platform, every one held to WCAG AA contrast by test suites that compute contrast from the CSS itself.
 
-What has deliberately not happened is the cutover. Two pieces sit built and parked one human step short: a wildcard event router whose routes are written but not attached, and centralized authentication with a single-use handoff, implemented but not yet reachable. Until tenant isolation ships, unrelated groups do not share a backend—separate events run on separate Firebase projects—and attaching the routes stays a decision, not a deploy.
+What has deliberately not happened is the cutover. Two pieces sit short of use: a wildcard event router whose routes are written but not attached, one human step short, and centralized authentication with a single-use handoff, live in the client as of 2026-10-06 but untraversed, because registered hosts still sign in direct. Until tenant isolation ships, unrelated groups do not share a backend—separate events run on separate Firebase projects—and attaching the routes stays a decision, not a deploy.
 
 ## What a friend-group launch proves
 

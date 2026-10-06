@@ -47,13 +47,13 @@ decisions:
   - title: "Fix the rendering model, not the preview"
     lens: "Parity"
     context: "The invoice template rendered three ways: the editor drew its own DOM with unresolved token pills, the preview ran one markdown pipeline, and the sent email ran another. Six pull requests shipped in one session on this surface across roughly twenty hours without closing it, and the three attempts at the bug itself had all converged on the same move—make the surfaces look closer."
-    chosen: "PR #161 introduced a canonical renderer—its docstring names it the single source of truth for the Invoicing preview and template email HTML—bypassed the plain-text bridge on that path, and left behind regression tests in a required check: the preview's DOM and the test email's payload must be the same HTML."
+    chosen: "PR #161 introduced a canonical renderer—its docstring names it the single source of truth for the Invoicing preview and template email HTML—bypassed the plain-text bridge on that path, and left behind a regression test in a required check that held the preview's DOM and the test email's payload to the same HTML until 2026-09-30."
     rationale: "The sent email is the source of truth, so the renderer had to become one thing rather than three things reconciled. Making Preview merely look closer was the failure mode, not the fix."
     cost: "The fix landed on the surface being watched. Before it, the test email and the invoice rendered identically; after it, the proven surface and the real one diverged—and the pull request that unified the first two never touched the file that sends the third."
-    evidence: "After the third failed attempt I rewrote the brief as an invariant, banned in writing the approach that had failed three times, and moved the task to a different agent. That produced the canonical renderer and two required tests—and both tests guard the preview against the test send. Neither checks the invoice people actually receive, so the tests encode the same incomplete definition of parity the fix did. [Six PRs, One Bug](/blog/six-prs-one-bug-agent-failure-modes/) has the chronology."
+    evidence: "After the third failed attempt I rewrote the brief as an invariant, banned in writing the approach that had failed three times, and moved the task to a different agent. That produced the canonical renderer and required tests that guard the preview against the test send—two at the time, though the set has changed since. None checks the invoice people actually receive, so the tests still encode the same incomplete definition of parity the fix did. [Six PRs, One Bug](/blog/six-prs-one-bug-agent-failure-modes/) has the chronology."
     status: "mixed"
 related:
-  - label: "Blog: Six PRs, One Bug—What AI Agents Actually Get Wrong"
+  - label: "Blog: Six PRs, One Bug: What AI Agents Actually Get Wrong"
     href: "/blog/six-prs-one-bug-agent-failure-modes/"
   - label: "Project: Override"
     href: "/projects/override/"
@@ -64,7 +64,7 @@ import DecisionLedger from '../../components/projects/DecisionLedger.astro';
 
 ## The math was never the problem
 
-My husband and I split T-Mobile, Apple One, and 1Password with my parents, my sister's family, and two friends—nine people in five households, which is the detail the product's name was carrying all along. Every year, someone would ask how much they owed, I would open a spreadsheet, re-derive the math from three billing cadences, and text them a number. Then someone else would ask, and I would do it again.
+My husband and I split T-Mobile, Apple One, and 1Password with my parents, my sister's family, and two friends—nine people in five households, which is the detail the product's name was carrying all along. Every year, someone would ask how much they owed, I would open a spreadsheet, re-derive the math for three bills, and text them a number. Then someone else would ask, and I would do it again.
 
 The arithmetic was trivial. The product problem was the coordination wrapped around it—calculate, explain, ask, remind, verify, repeat—and its social texture: asking for money feels awkward, checking feels intrusive, and both jobs default to whoever set the thing up.
 
@@ -94,13 +94,13 @@ Three decisions carry the argument, all three mixed—real support beside a real
 
 All three decisions left the same gap between the model and the surface that mattered.
 
-- **Rendering.** The preview and the test send share a canonical renderer. The invoice a household member actually receives does not: its dialog sends plain text with no HTML field, and the pull request that unified the other two never touched the file that sends it. The divergence has stood since April 2026.
+- **Rendering.** From April to September 2026 the preview and the test send shared a canonical renderer and the invoice a household member actually receives did not: its dialog sends plain text with no HTML field. A security change on 2026-09-30 (friends-and-family-billing#459) closed that gap by taking every email off the client's HTML: both sent messages now render server-side from plain-text bodies that still differ in serialization, and only the preview is on the canonical renderer.
 - **Settlement.** Overpayment exists in the model and in a subsystem behind it. The coordinator gets an `Owed to members` tile but no `Overpaid` filter to reach the household, and the share page carries no badge at all for the person whose money it is.
-- **Access.** Expiry, revocation and pruning exist in the application. The deployed data-layer rule does not fully enforce them, so a leaked link can expose the intended member's view and the design's safety rests on the application layer alone.
+- **Access.** Expiry, revocation and pruning exist in the application. The deployed data-layer rule does not fully enforce them, so a leaked link can expose the intended member's view.
 
 Different layers, one failure: the invariant stops just before the boundary where it would have mattered.
 
-```mermaid title="Three render paths, one template" description="One invoice template renders along three paths. The editor draws its own document and shows tokens unresolved, so it never matched the output on screen; the brief's ask that it reflect final output was never delivered. The canonical renderer, added by the 2026 parity fix, produces the preview and the test send, and a required regression test holds those two together. The invoice email a household member actually receives takes the third path, through the plain-text bridge into a markdown fallback, which the fix never reached—so the tested surfaces and the real one have diverged since April 2026."
+```mermaid title="Three render paths, one template" description="One invoice template renders along three paths. The editor draws its own document and shows tokens unresolved, so it never matched the output on screen; the brief's ask that it reflect final output was never delivered. The canonical renderer, added by the 2026 parity fix, produces the preview, and from April to September 2026 it produced the test send too, with a required regression test holding those two together. The invoice email a household member actually receives always took the third path, through the plain-text bridge into the server's markdown renderer, which the fix never reached; since 2026-09-30 the test send takes that path as well, so the only surface still on the canonical renderer is the one nobody receives."
 flowchart TD
     DOC["Template doc"]
     ED["Editor DOM<br/>token pills"]
@@ -108,28 +108,29 @@ flowchart TD
     PV["Preview"]
     TE["Test email"]
     BR["Plain-text bridge"]
-    MD["Markdown fallback"]
+    MD["Server markdown<br/>renderer"]
     INV["Invoice email"]
 
     DOC --> ED
     DOC --> CAN
     CAN --> PV
-    CAN --> TE
+    CAN -.->|until 2026-09-30| TE
     DOC --> BR
     BR --> MD
+    MD --> TE
     MD --> INV
 
     style DOC fill:#fffdf8,stroke:#11100d,stroke-width:1.5px,color:#11100d
     style ED fill:#dde1e5,stroke:#11100d,stroke-width:1.5px,color:#11100d
     style CAN fill:#e3d477,stroke:#11100d,stroke-width:1.5px,color:#11100d
     style PV fill:#e3d477,stroke:#11100d,stroke-width:1.5px,color:#11100d
-    style TE fill:#e3d477,stroke:#11100d,stroke-width:1.5px,color:#11100d
+    style TE fill:#e8784a,stroke:#11100d,stroke-width:1.5px,color:#11100d
     style BR fill:#e8784a,stroke:#11100d,stroke-width:1.5px,color:#11100d
     style MD fill:#e8784a,stroke:#11100d,stroke-width:1.5px,color:#11100d
     style INV fill:#11100d,stroke:#11100d,stroke-width:1.5px,color:#fffdf8
 ```
 
-Three paths out of one template. The two the parity fix unified are the two anyone tested; the third is the one that reaches a person.
+Three paths out of one template. The two the parity fix unified were the two anyone tested, and the third was the one that reaches a person; since 2026-09-30 the test send has rejoined the invoice on the bridge, leaving only the preview on the canonical renderer.
 
 ## What I learned
 

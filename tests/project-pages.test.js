@@ -1242,6 +1242,9 @@ describe('Matchline — audited claims stay retracted (#756)', () => {
     expect(source(), 'the redeploy must be dated the way the stale build was').toMatch(
       /redeployed on the evening of 2026-08-31/,
     );
+    // The 2026-10-06 correctness pass found a later redeploy (version.json
+    // buildId 2026-10-02T12:33:04Z). Each deploy the page names stays dated.
+    expect(source(), 'the later redeploy must be dated too').toMatch(/and again on 2026-10-02/);
     // The superseded staleness claim must not survive alongside the link — a
     // page that links the build and still calls it a May build is worse than
     // either state on its own.
@@ -1322,7 +1325,9 @@ describe('Matchline — audited claims stay retracted (#756)', () => {
     // or it is a mood rather than a claim.
     const surface = source();
     expect(surface, 'the restart must name the two engines that came back up').toMatch(
-      /résumé extraction and JD parsing run end to end/i,
+      // Past tense since the 2026-10-06 correctness pass dated the fix that
+      // followed; the engines named are what the assertion guards.
+      /résumé extraction and JD parsing r[au]n end to end/i,
     );
     expect(surface, 'the edge failure must be named, not summarized').toMatch(
       /missing Cloud Run invoker bindings/,
