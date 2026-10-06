@@ -13,7 +13,7 @@ keyTakeaways:
   - "Instruction files give an agent context, not compliance. Layered controls create enforceable checkpoints—but name where each one runs: no single layer binds every actor, and the combination raises the cost of the wrong action rather than making it impossible."
   - "Reviewing under a separate reviewer identity consistently beat same-conversation review across three agent platforms. Repeated observation, not controlled measurement; the cost is one GitHub account per agent."
   - "Propagating reviewed code to a new repository is implicitly a fresh-eyes review: code the template's own review had cleared gave up seventeen more bugs the first time Codex read it downstream."
-  - "The reliability gain came from the system around the agent, not from a better agent: the one that shipped clean code ran on the same tools as the one that tried to push straight to main. That does not rule capability out; it shows the mechanism was the variable I could change."
+  - "The reliability gain came with a change to the system around the agent, not to the agent: the one that shipped clean code ran on the same tools as the one that tried to push straight to main. The record cannot isolate capability; it shows the mechanism was the variable I could change."
 pullquotes:
   - text: "Bots, just like humans, require code review. Without it, bugs crop up, features are missed, and the code shipped is of lower quality."
     label: "The discovery"
