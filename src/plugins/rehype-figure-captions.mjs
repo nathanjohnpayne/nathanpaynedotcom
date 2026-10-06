@@ -132,6 +132,14 @@ const imageDimensions = {
     width: 1316,
     height: 470,
   },
+  // Mergepath: the Cockpit's local session at a 1400px viewport, 1x DPR,
+  // top-cropped to the header, the road ahead, the repository chips and the
+  // first open-PR row. Live data: every repository on it is public, so the
+  // PR titles and account names it shows are already on GitHub.
+  '/images/projects/mergepath-cockpit.png': {
+    width: 1400,
+    height: 1367,
+  },
   // Swipe Watch: live-prototype captures at a 390x844 viewport, 2x DPR.
   '/images/projects/swipe-watch-card.png': {
     width: 780,
