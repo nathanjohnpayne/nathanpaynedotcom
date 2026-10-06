@@ -1385,7 +1385,9 @@ describe('Resume — PDF reading order and markers', () => {
         ['Disney Streaming role title', 'Senior Technical Project Manager, Lead—Disney Streaming'],
         [
           'role summary',
-          'Led front-end engineering teams that built and launched Disney+ across connected devices.',
+          // Pinned as the canonical résumé writes it (synced 2026-10-06); the
+          // assertion is about order, so the pin follows the vault's wording.
+          'Led front-end engineering teams that built and launched Disney+, the fastest-growing streaming service of all time, across connected devices.',
         ],
         ['bullet 1', 'Brought Disney+ from concept to launch across living-room platforms'],
         [

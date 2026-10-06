@@ -27,6 +27,8 @@ Fifteen pages audited in parallel, one ledger each in this directory, against th
 | html-mockups-as-spec | 12 | 2 | 11 | 28 | `html-mockups-as-spec-ledger.md` |
 | agent-approval-workflow-genesis-of-mergepath | 16 | 0 | 5 | 36 | `agent-approval-workflow-genesis-of-mergepath-ledger.md` |
 | every-reviewer-was-right | 6 | 1 | 7 | 58 | `every-reviewer-was-right-ledger.md` |
+| silence-is-not-an-approval (audited 2026-10-06, second batch) | 3 | 1 | 3 | 35 | `silence-is-not-an-approval-ledger.md` |
+| the-product-did-not-travel (audited 2026-10-06, second batch) | 2 | 0 | 6 | 54 | `the-product-did-not-travel-ledger.md` |
 | mergepath | 9 | 3 | 4 | 37 | `mergepath-ledger.md` |
 
 ## Fix list (WRONG and STALE rows, with the decision taken)
@@ -237,3 +239,14 @@ Three pages grew noticeably because every corrected fact needed stating: `html-m
 - Device Source of Truth: whether the `related` link to Mergepath still earns its place now that the repository has left the fleet.
 - Prior ledgers in `plans/759/` carry rows this pass found wrong (`project-pages-ledger.md` §A29/§A32, §D20, §D24; the Genesis ledger's F2/E4/H; the Perfect Score ledger's §P.2 ack note; the Autofix ledger's §N.9/§H3). Left untouched as historical records; worth a supersession note when next touched.
 - Deploy pipeline: one fetch twelve minutes after the 2026-10-06 deploy served the autofix post's body under the HTML-mockups post's head; later fetches were correct. Worth a CDN check if it recurs.
+
+### Second batch: the two posts the first pass missed
+
+`silence-is-not-an-approval` (2026-10-01) and `the-product-did-not-travel` (2026-09-24) carry no `draft` field and were published and listed on the homepage; the first pass misread them as drafts. Both now have ledgers with `## Fixes applied`.
+
+- Silence: the #1248 quotation now matches both revisions of the PR body; the sidebar states the round-counting rule the table uses (submissions with a body) and #1179 reads 15; #1263 is the first fix with #1186 still open; the #878 banner is dated September 15. A supersession note sits under §D6 of the prior ledger, which carried the misquotation.
+- Product: the Five Across rationale is attributed as the original wording; the Sunday-cards sentence matches the production record at both sites; the self-service link notes #785 closed as a historical extract with the block persisting under #786.
+
+**Method correction.** Both production Firestore databases (`gaycruisebingo` and `fiveacross`) are readable from the agent machine: `gcloud auth list` holds each project's deployer service account and `gcloud auth print-access-token --account=<sa>` yields a token the Firestore REST API accepts. The Five Across ledger's eleven UNPROVABLE cruise figures (R9 to R16) all reproduce from the record.
+
+**Open for the owner (Five Across page).** The live `events/med-2026.frozenAt` decodes to 2026-07-24 08:00 Europe/Rome, not 23:00 on 2026-07-23 as the page says (R13, "nine hours early"). The 845-square total both pages use reproduces only against the 08:00 instant (ten marks fall between 23:00 and 08:00), and the Event document's `updateTime` is 2026-09-10, so either PR fiveacross#820 misread the instant or something rewrote it after the sailing. Re-derive before changing the page.

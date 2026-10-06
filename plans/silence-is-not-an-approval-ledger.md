@@ -193,6 +193,8 @@ Its own body scoped it honestly: "Refs #1130. Partial: this is the token half, m
 
 ### D6—#1248 and its issue
 
+> **Superseded 2026-10-06.** The clause quoted below as verbatim never appeared in #1248; both revisions of its body say "cannot support either the threshold test or the protected-path match", and the post now quotes that wording; see `plans/correctness-pass-2026-10-06/silence-is-not-an-approval-ledger.md` R1.
+
 **SUPPORTED.** #1247 created `2026-09-13T04:54:39Z`; #1248 created `2026-09-13T04:55:35Z`. The gap is **56 seconds**, not the twenty-one minutes an earlier draft asserted.
 
 **WRONG in the first draft**, which said the issue was "filed twenty-one minutes before the pull request opened." Corrected value: **56 seconds**. The twenty-one minutes is real but belongs to a different interval: #1248 merged `2026-09-13T05:15:22Z` (`pulls/1248 .merged_at`) and #1247 closed `2026-09-13T05:15:23Z` (`issues/1247 .closed_at`), 20 min 44 s after the issue was filed.

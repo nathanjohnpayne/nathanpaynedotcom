@@ -22,7 +22,7 @@ pullquotes:
   - text: "The best explanation the two events support is that the product was never only the code: prompts written for one sailing, a dinner ritual, and a host who kept it going."
     label: "The inference"
     accent: yellow
-  - text: "Three people opened Sunday's cards. None marked a square. That is the failure I need to explain."
+  - text: "Two accounts opened a Sunday card, one of them mine. None marked a square. That is the failure I need to explain."
     label: "The second event"
     accent: blue
 sidebar:
@@ -66,7 +66,7 @@ Bodega Bay ran under its own hostname and brand, with three new day themes and a
 
 Kim hosted the weekend at a house on the coast, Friday through Sunday. I was not there. I set up the event, dropped off laminated player and admin guides the day before, and followed from home through an account that never marked a square. Seven accounts joined: Kim, five guests and me. Four ever marked anything. Kim made 15 of the 27 marks; the three guests who played made the other twelve.
 
-The timeline is short enough to give in full. Friday's card collected thirteen marks between 18:03 and 20:13, most of them Kim's, and two more of Kim's just before 1:00. Saturday's busiest guest stretch was eight marks between 09:46 and 09:57, and no guest marked anything afterward. Kim marked four more squares at 12:56 and 12:57. Then nothing, on any card, for the rest of the event. Three people opened Sunday's cards. None marked a square. That is the failure I need to explain.
+The timeline is short enough to give in full. Friday's card collected thirteen marks between 18:03 and 20:13, most of them Kim's, and two more of Kim's just before 1:00. Saturday's busiest guest stretch was eight marks between 09:46 and 09:57, and no guest marked anything afterward. Kim marked four more squares at 12:56 and 12:57. Then nothing, on any card, for the rest of the event. Two accounts opened a Sunday card, one of them mine; the one guest who did opened only the wrap-up card, at 14:12. None marked a square. That is the failure I need to explain.
 
 <span id="a-debrief-the-bugs-could-not-steer"></span>
 
@@ -132,7 +132,7 @@ Put those together and the product the cruise was running on had more than one p
 
 ### A Rationale Is Not a Finding
 
-One of the decisions on the project page for this app is "Assume the connection is already gone." Its rationale reads: "The moments worth capturing are the ones furthest from a signal." I wrote it, and at the time it seemed obviously true. The marking data describes a different world: people at a dinner table, recalling what happened yesterday. Whether they had a signal while they did it, the record does not say. A fresh PostHog check found real request failures on the cruise, fifteen exception events carrying `auth/network-request-failed` across five sessions for one recorded user on July 18–19, but none of those sessions contained a mark and none of the marks that carried a retry queue fell in the dinner window. The record neither confirms nor refutes that offline support earned its keep, and the [project page](/projects/five-across/) now says so.
+One of the decisions on the project page for this app is "Assume the connection is already gone." Its original rationale read: "The moments worth capturing are the ones furthest from a signal." I wrote it, and at the time it seemed obviously true. The marking data describes a different world: people at a dinner table, recalling what happened yesterday. Whether they had a signal while they did it, the record does not say. A fresh PostHog check found real request failures on the cruise, fifteen exception events carrying `auth/network-request-failed` across five sessions for one recorded user on July 18–19, but none of those sessions contained a mark and none of the marks that carried a retry queue fell in the dinner window. The record neither confirms nor refutes that offline support earned its keep, and the [project page](/projects/five-across/) now says so.
 
 That is a small error with a general shape. A rationale written before real use is a hypothesis, and it reads exactly like a finding. The only way to tell them apart is to go back after the event and check it against what people did, and to say plainly which parts the record still cannot settle.
 
@@ -144,7 +144,7 @@ In the six weeks after Kim's debrief, the repository took 268 commits. By a roug
 
 Some of the work did answer the feedback. Six days after the debrief, the organizer-wizard spec added an [occasion matrix](https://github.com/nathanjohnpayne/fiveacross/pull/811): the first question a new host answers is what kind of occasion this is, and the answer picks starter prompts and a schedule shape. That is close to what Kim asked for. [Community prompts](https://github.com/nathanjohnpayne/fiveacross/pull/845) shipped the next day, letting players suggest squares, which three of the five cruise respondents had asked for.
 
-The fair counterargument is that most of the plumbing is not optional. [Self-service event creation](https://github.com/nathanjohnpayne/fiveacross/issues/785), the thing that would let an organizer write prompts for their own occasion without me, is blocked on platform prerequisites, and every live event so far was, in the [epic's](https://github.com/nathanjohnpayne/fiveacross/issues/786) words, "hand-seeded, hand-hosted, and hand-registered." I accept that argument for some of the six weeks and not for all of them. The platform work was specified, reviewable and satisfying to close. The product work was none of those, and none of the prerequisites stood between me and a cheaper test: a card prepared by hand with a willing host around things possible at the house, a planned group session, and a check on whether anyone came back at the next opportunity. That experiment needs a group, not wildcard routing.
+The fair counterargument is that most of the plumbing is not optional. [Self-service event creation](https://github.com/nathanjohnpayne/fiveacross/issues/785), the thing that would let an organizer write prompts for their own occasion without me, is blocked on platform prerequisites (that issue closed on 2026-10-03 as a historical record; the block persists under the epic), and every live event so far was, in the [epic's](https://github.com/nathanjohnpayne/fiveacross/issues/786) words, "hand-seeded, hand-hosted, and hand-registered." I accept that argument for some of the six weeks and not for all of them. The platform work was specified, reviewable and satisfying to close. The product work was none of those, and none of the prerequisites stood between me and a cheaper test: a card prepared by hand with a willing host around things possible at the house, a planned group session, and a check on whether anyone came back at the next opportunity. That experiment needs a group, not wildcard routing.
 
 ## The Stop Condition
 

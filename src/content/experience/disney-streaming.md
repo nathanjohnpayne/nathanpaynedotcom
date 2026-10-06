@@ -9,7 +9,7 @@ order: 2
 website: "disneyplus.com"
 ---
 
-Led front-end engineering teams that built and launched Disney+ across connected devices.
+Led front-end engineering teams that built and launched Disney+, the fastest-growing streaming service of all time, across connected devices.
 
 - Brought Disney+ from concept to launch across living-room platforms, coordinating with engineering, design, product, QA, and release stakeholders.
 - Led PlayStation prototyping that produced the first living-room Disney+ experience to launch.
