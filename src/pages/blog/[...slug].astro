@@ -3,7 +3,7 @@ import type { CollectionEntry } from 'astro:content';
 import { getCollection, render } from 'astro:content';
 import BlogPost from '../../layouts/BlogPost.astro';
 import { estimateReadingMinutes } from '../../lib/reading-time';
-import { getBlogLastUpdated, lastUpdatedFor } from '../../../scripts/lib/blog-last-updated.mjs';
+import { getLastUpdated, lastUpdatedFor } from '../../../scripts/lib/last-updated.mjs';
 
 export async function getStaticPaths() {
   // Prev/next stays newest first by date (#622, #627). The blog index now has
@@ -51,7 +51,7 @@ const readingTime = `${estimateReadingMinutes(post.body)} min read`;
 // Derived from git history, never authored (#1168, specs/last-updated.md).
 // The build fails rather than guess when the history is missing.
 if (!post.filePath) throw new Error(`Blog entry ${post.id} has no filePath to date`);
-const updated = lastUpdatedFor(getBlogLastUpdated(), post.filePath);
+const updated = lastUpdatedFor(getLastUpdated(), post.filePath);
 ---
 
 <BlogPost

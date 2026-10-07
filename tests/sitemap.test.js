@@ -1,12 +1,11 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'fs';
 import { resolve } from 'path';
+import { effectiveModified, getLastUpdated, lastUpdatedFor } from '../scripts/lib/last-updated.mjs';
 import {
-  effectiveModified,
-  getBlogLastUpdated,
-  lastUpdatedFor,
-} from '../scripts/lib/blog-last-updated.mjs';
-import { findBlogMarkdownFiles } from '../scripts/lib/blog-file-inventory.mjs';
+  findBlogMarkdownFiles,
+  findFilesRecursively,
+} from '../scripts/lib/blog-file-inventory.mjs';
 import { readSitemapFrontmatter } from '../scripts/lib/sitemap-frontmatter.mjs';
 
 const blogDirectory = resolve(__dirname, '../src/content/blog');
@@ -54,7 +53,7 @@ describe('Sitemap', () => {
     // Derived from the post files and the history helper directly, not from
     // buildBlogLastmodMap: an expectation computed by the function under test
     // passes however that function is broken.
-    const lastUpdated = getBlogLastUpdated();
+    const lastUpdated = getLastUpdated();
     const newest = findBlogMarkdownFiles(blogDirectory)
       .map((file) => ({ file, frontmatter: readSitemapFrontmatter(file) }))
       .filter(({ frontmatter }) => frontmatter.draft !== true)
@@ -75,15 +74,32 @@ describe('Sitemap', () => {
     const file = resolve(__dirname, '../src/content/blog/six-prs-one-bug-agent-failure-modes.md');
     const expected = effectiveModified(
       new Date('2026-04-04'),
-      lastUpdatedFor(getBlogLastUpdated(), file),
+      lastUpdatedFor(getLastUpdated(), file),
     ).toISOString();
     expect(
       sitemapEntryFor('https://nathanpayne.com/blog/six-prs-one-bug-agent-failure-modes/'),
     ).toContain(`<lastmod>${expected}</lastmod>`);
   });
 
+  // Project routes are dated by the project file's last change in git
+  // history since #1169; tests/last-updated.test.js checks every project.
+  it('dates the projects index with the newest project change', () => {
+    const lastUpdated = getLastUpdated();
+    const newest = findFilesRecursively(resolve(__dirname, '../src/content/projects'), (f) =>
+      /\.mdx?$/.test(f),
+    )
+      .filter((file) => readSitemapFrontmatter(file).draft !== true)
+      .map((file) => lastUpdatedFor(lastUpdated, file)?.toISOString())
+      .filter(Boolean)
+      .sort()
+      .at(-1);
+    expect(newest).toBeTruthy();
+    expect(sitemapEntryFor('https://nathanpayne.com/projects/')).toContain(
+      `<lastmod>${newest}</lastmod>`,
+    );
+  });
+
   it('does not invent lastmod values for pages without reliable content dates', () => {
-    expect(sitemapEntryFor('https://nathanpayne.com/projects/')).not.toContain('<lastmod>');
     expect(sitemapEntryFor('https://nathanpayne.com/resume/')).not.toContain('<lastmod>');
   });
 });

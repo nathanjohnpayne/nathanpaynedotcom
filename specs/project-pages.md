@@ -333,6 +333,8 @@ Unscoping it commits nothing else to paper. `print-color-adjust` affects the ele
 
 **Color comes from the label, not from a token.** The mark paints in `currentcolor`, inherited from `.metadata-strip dd`. It cannot be keyed to a palette token the label is not, so on every accent—including `[data-accent='black']`, whose dark surface is the screenshot figure below rather than the strip—the mark is exactly as legible as the word beside it. Measured across all seven pages at 1440px and 375px, mark-against-paper contrast is 14.4:1 to 16.4:1.
 
+**The cell's second line is the last-updated month, not a second mark.** Below the status, the STATUS cell shows `Updated October 2026` when the project file has changed since it was added (#1169, [specs/last-updated.md](last-updated.md)). The status is the page's main claim about the present, and the month is its "as of". It is a second `<dd>` under the same `<dt>`, in the strip's `dt` voice (small, tracked, uppercase, `--ink-62`), so the lifecycle word stays the dominant line, and the strip keeps four labels and exactly one `.state-marker`. `.metadata-strip__status` is untouched by it. The line adds one short row to the cell, so on a page where STATUS was already the tallest cell the strip grows by that line; that is the cost of putting the date where it means something, and a fifth column would have crowded the four-column grid at tablet width instead.
+
 ---
 
 ## Adding a Mux video

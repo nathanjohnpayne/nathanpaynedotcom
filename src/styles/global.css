@@ -2264,6 +2264,18 @@ body.blog-page {
   display: flex;
 }
 
+/* The STATUS cell's last-updated line (#1169): the cell's "as of", in the
+   strip's dt voice so the status stays the dominant line. Two classes, so it
+   outranks `.metadata-strip dd` without !important. */
+.metadata-strip .metadata-strip__updated {
+  margin-top: 0.3rem;
+  font-size: clamp(0.6rem, 0.7vw, 0.68rem);
+  line-height: 1.45;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink-62);
+}
+
 /* Project screenshot — figure container below the metadata strip.
    Wide variant fills the content width; narrow variant centers a
    phone-sized image. The inner wrapper constrains width so the
