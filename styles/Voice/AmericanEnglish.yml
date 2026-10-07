@@ -1,0 +1,24 @@
+extends: substitution
+message: "Use the established American English spelling '%s' instead of '%s'."
+level: error
+ignorecase: true
+swap:
+  behaviour: behavior
+  behaviours: behaviors
+  colour: color
+  colours: colors
+  coloured: colored
+  colouring: coloring
+  centre: center
+  centres: centers
+  organise: organize
+  organised: organized
+  organising: organizing
+  organisation: organization
+  organisations: organizations
+  analyse: analyze
+  analysed: analyzed
+  analysing: analyzing
+  realise: realize
+  realised: realized
+  realising: realizing

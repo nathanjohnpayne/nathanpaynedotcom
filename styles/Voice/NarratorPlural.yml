@@ -1,0 +1,7 @@
+extends: existence
+message: Narrator we/us/our needs an owner-approved attribution or a singular rewrite.
+level: error
+tokens:
+  - "(?i:we|our|ours)"
+  - "us"
+  - "Us"

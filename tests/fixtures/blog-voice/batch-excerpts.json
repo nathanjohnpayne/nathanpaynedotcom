@@ -1,0 +1,65 @@
+{
+  "cases": [
+    {
+      "name": "accountability",
+      "provenance": "Owner-approved model revision, with direct editorial feedback; not user-authored reference writing.",
+      "commit": "68827d183093fdc9500c0263b1078751067ae2fd",
+      "path": "src/content/blog/every-reviewer-was-right.md",
+      "line": 45,
+      "approved": "The reviewers were doing their job the whole time, and nobody was doing the other job, which was mine.",
+      "approvedSha256": "9bc183c25da2eabdb496014b242c87a1fade2ed14fc85360b21d72d57b09569e",
+      "historicalMutation": "The reviewers were doing their job. I hadn't been given what I needed to do mine.",
+      "mutationProvenance": "Historical failure described by owner feedback in issue #1137; a compact test mutation, not an approved article or a verbatim archived draft."
+    },
+    {
+      "name": "second-rulebook",
+      "provenance": "Owner-approved model revision, with direct editorial feedback; not user-authored reference writing.",
+      "commit": "68827d183093fdc9500c0263b1078751067ae2fd",
+      "path": "src/content/blog/every-reviewer-was-right.md",
+      "line": 235,
+      "approved": "The operating rules that followed put decision rights at the points they govern, not in a second rulebook beside the review policy.",
+      "approvedSha256": "c21a3c44e8db0d78143e088413b16d6efb49cc66a2ef6d3b4752dc6ad937498a",
+      "historicalMutation": "The operating rules put decision rights alongside the review policy.",
+      "mutationProvenance": "Historical failure described by owner feedback in issue #1137; a compact test mutation, not an approved article or a verbatim archived draft."
+    },
+    {
+      "name": "planned-post",
+      "provenance": "Owner-approved model revision, with direct editorial feedback; not user-authored reference writing.",
+      "commit": "68827d183093fdc9500c0263b1078751067ae2fd",
+      "path": "src/content/blog/two-blues-one-composition.md",
+      "line": 49,
+      "approved": "That deserves its own ticket and its own post.",
+      "approvedSha256": "5ba29d46911e3841bdab97ae77fa1f6f0cca60529e680f5bc7f2d65309b520f2",
+      "historicalMutation": "I wrote a separate ticket and post about that.",
+      "mutationProvenance": "Historical failure described by owner feedback in issue #1137; a compact test mutation, not an approved article or a verbatim archived draft."
+    },
+    {
+      "name": "causation",
+      "provenance": "Owner-approved model revision, with direct editorial feedback; not user-authored reference writing.",
+      "commit": "68827d183093fdc9500c0263b1078751067ae2fd",
+      "path": "src/content/blog/how-a-responsive-fix-became-an-astro-migration.md",
+      "line": 59,
+      "approved": "The publishing system had a separate problem: it couldn't reproduce the HTML I'd already committed.",
+      "approvedSha256": "13fa82725aa57f09c80dc80fda0a5855475800fd38791f13397c7361a888d8f4",
+      "historicalMutation": "The mobile fix caused the generator drift.",
+      "mutationProvenance": "Historical failure described by owner feedback in issue #1137; a compact test mutation, not an approved article or a verbatim archived draft."
+    },
+    {
+      "name": "dropped-thesis",
+      "provenance": "Owner-approved model revision, with direct editorial feedback; not user-authored reference writing.",
+      "commit": "68827d183093fdc9500c0263b1078751067ae2fd",
+      "path": "src/content/blog/perfect-score-wrong-axis.md",
+      "line": 35,
+      "approved": "The metric measured the wrong axis.",
+      "approvedSha256": "343d085287e99ef6c727ccb8eec138489050818c5af2b01c0a1eb991deebf9f8",
+      "historicalMutation": "I counted the review findings.",
+      "mutationProvenance": "Historical failure described by owner feedback in issue #1137; a compact test mutation, not an approved article or a verbatim archived draft."
+    }
+  ],
+  "authenticContrast": {
+    "commit": "68827d183093fdc9500c0263b1078751067ae2fd",
+    "path": "src/content/blog/autofix-was-the-whole-cost.md",
+    "line": 80,
+    "approved": "The cost was never the line count. It was the trust burden."
+  }
+}

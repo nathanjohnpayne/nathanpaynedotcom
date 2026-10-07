@@ -405,6 +405,36 @@ describe.skipIf(!valeAvailable)('Vale prose lint', () => {
     );
   });
 
+  it('suppresses only title-case advice on blog body headings, preserving other CMOS rules', () => {
+    const result = spawnSync(
+      process.execPath,
+      ['scripts/lint-prose.mjs', '--output=JSON', 'src/content/blog/autofix-was-the-whole-cost.md'],
+      { encoding: 'utf8' },
+    );
+    expect(result.status).toBe(0);
+    expect(
+      Object.values(JSON.parse(result.stdout))
+        .flat()
+        .some((alert) => alert.Check === 'CMOS.Titles'),
+    ).toBe(false);
+    const other = spawnSync(
+      process.execPath,
+      [
+        'scripts/lint-prose.mjs',
+        '--output=JSON',
+        'tests/fixtures/vale-capitalization/violations.md',
+        'tests/fixtures/vale-em-dash/behavior.md',
+      ],
+      { encoding: 'utf8' },
+    );
+    expect(other.status).toBe(1);
+    expect(
+      Object.values(JSON.parse(other.stdout))
+        .flat()
+        .map((alert) => alert.Check),
+    ).toEqual(expect.arrayContaining(['CMOS.Titles', 'CMOS.Capitalization', 'CMOS.EmDash']));
+  });
+
   it('allows technical identifiers in otherwise Chicago-cased headings and headers', () => {
     const fixture = 'tests/fixtures/vale-capitalization/technical-identifiers.md';
     const result = spawnSync(

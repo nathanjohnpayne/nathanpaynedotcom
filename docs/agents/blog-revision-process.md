@@ -92,3 +92,106 @@ State compression targets against **connective prose**, or not as a percentage a
 ## Word counts
 
 Recount immediately before merge. Review rounds add words about as often as they remove them, and the figure went stale three times on one PR before ending with the wrong sign.
+
+## Voice check and complete meaning review
+
+For a human or agent-independent walkthrough, use [Blog drafting and voice review](../blog-writing-workflow.md). Codex is not required for the checker or supplied-reference route.
+
+For future drafting and editorial review, use Codex's **Write Like Me** workflow. Use sufficient supplied references directly; retrieve relevant writing through that capability when needed and available. If the feature is unavailable, explicitly use the supplied references and direct feedback as the fallback, and do not claim the feature was used. Label **user-authored references** separately from **owner-approved model revisions**. The final October 6 batch is the latter, refined through direct owner feedback; it is not a corpus of newly user-authored writing. Do not commit retrieved private writing, a personal style profile or a retrieval cache.
+
+Codex applies the writing style. The local checker reports the rules it can check. The owner judges voice and meaning. The checker has no model/connector calls, feature-access requirement, voice score, compression target or automatic rewriting. Its output is a manual review aid, not approval or semantic proof. Rollout is manual/advisory; do not add this command as a mandatory CI gate.
+
+### Commands and exit contract
+
+Install the existing Node dependencies with `npm ci` and use the repository-pinned local Vale (`.vale-version`). The checker never installs tools itself. Run from any directory using an absolute script/input path if needed; nested blog paths work.
+
+```bash
+# New post; readable findings. A full meaning review remains required even on exit 0.
+node scripts/check-blog-voice.mjs src/content/blog/nested/new-post.md
+
+# Explicit before-file; complete before/after articles, metadata and changed passages.
+node scripts/check-blog-voice.mjs src/content/blog/post.md --before /tmp/post-before.md --packet
+
+# Local Git baseline: resolve a ref once and record the immutable commit and source hash.
+node scripts/check-blog-voice.mjs src/content/blog/post.md --base HEAD --json
+
+# A draft outside the checkout, compared with a nested repository source path.
+node scripts/check-blog-voice.mjs /tmp/draft.md --base COMMIT --base-path src/content/blog/nested/post.md --packet
+
+# Declare an unfamiliar proper name; supply the approval summary without inferring a profile.
+node scripts/check-blog-voice.mjs /tmp/draft.md --proper-noun 'Ada Lovelace' --review-context /tmp/review-context.json --json
+```
+
+`--json` always includes the complete packet. `--packet` prints it as readable text. Without either, readable findings still state the manual-review requirement. `--before` and `--base` are mutually exclusive. An explicit file baseline has a SHA-256 and `commit: null`: no Git provenance is claimed for an arbitrary file. A Git baseline records the requested ref, resolved SHA, repository path and source hash. The command only reads local Git; it never fetches or updates it. Run `--help` for the stable argument list.
+
+| Exit | Meaning |
+| --- | --- |
+| 0 | Mechanical rules passed; warnings remain advisory; complete manual meaning review still required |
+| 1 | Explicit mechanical violations |
+| 2 | Missing/invalid input, YAML, argument, context JSON or local baseline |
+| 3 | Execution/dependency failure, including missing or unpinned Vale; no partial-success claim |
+
+Findings have a stable `rule`, `severity`, `file`, `location`, `excerpt`, `reason` and `surface`. Locations are one-based lines and UTF-16 columns, with zero-based offsets and an exclusive end. They identify the **complete original source range** (paragraph, heading, table cell, image or YAML scalar), not a fabricated exact character in a decoded YAML escape or Markdown entity. For multiline metadata the entire scalar is retained, including its header and escapes.
+
+### Settled mechanical rules
+
+- Body headings use sentence case, including untouched headings. The first word of a colon-delimited subtitle may begin with a capital, as in the approved `Appendix: The evidence`. Proper names in `styles/Voice/SentenceCase.yml`, acronyms, `I`, months, weekdays, code spans and explicit fragment anchors are preserved. Use repeatable `--proper-noun NAME` declarations for other proper names. This is a capitalization exception, not a learned personal style profile. Pinned article titles and SEO fields are not recased.
+- Use straight source apostrophes and the established American-English spellings in the conservative `styles/Voice/AmericanEnglish.yml` substitution list. It is not a general dictionary or a complete grammar check.
+- Narrator `we/us/our/ours` is a mechanical violation. `US` as an acronym is preserved. Attributed quotations, prompts and code keep their source language. Unclear inline quotations and blockquotes generate `review.quotation-attribution` when relevant; the editor must decide whether the voice is attributed, hypothetical or the narrator. The checker cannot infer authorship from quotation marks alone.
+- Pullquotes must occur verbatim in one body passage after YAML decoding and Markdown formatting/whitespace equivalence. Emphasis, entities, links and code typography may be equivalent; case, punctuation and wording must match. A string present only in code, a diagram or an image caption does not satisfy the check. The intentional body/pullquote duplicate is excluded from padding warnings.
+- Use consistent ATX/setext/HTML heading conventions and consistent authored double-quotation treatment across body and metadata. Source quotations retain their treatment. The ordinary prose linter suppresses only `CMOS.Titles` advice for `src/content/blog/**/*.md` body headings; unrelated CMOS rules, table-header capitalization and heading advice on other paths remain.
+
+The CLI captures source structure with Astro's existing Markdown processor and parsed YAML nodes. It uses Vale's rule engine on an authored-prose projection, and never writes its normalized text back to the article. Tables are preserved for fidelity review while authored cells are still checked. Mermaid content, code, source quotations and fragment markup remain available in the complete packet. Raw HTML also gets a review prompt: the maintained HTML parser reads visible prose, but custom hiding, component semantics and broken markup require rendered verification. YAML aliases need manual definition/use review.
+
+### Advisory warnings and the packet
+
+`review.*` warnings surface repeated stock openings, exact repeated explanations, repeated durations, vague signposts, abstract narration, hedging and formulaic contrasts. These are judgment prompts, not quotas. Preserve necessary qualifications, intentional repetition, jokes and direct product judgments. The approved “The cost was never the line count. It was the trust burden” may trigger a contrast warning and still passes. A phrase match is not a finding that a line is bad.
+
+For revisions, the packet includes complete lossless before/after sources, their hashes, a local diff, parsed visible metadata side by side, protected source material and an explicit meaning checklist. No changed passage or metadata delta replaces reading both complete articles. Potential negation/modal changes are warnings; identical token counts can conceal changed actors, negation scope or swapped causal claims. A changed passage is always a review item even when mechanics pass.
+
+Check the thesis and title payoff; accountability and human/agent division of labor; negations and decision rights; planned versus completed work; actors, chronology and causal strength; uncertainty and validation boundaries; authentic author lines; and linked ledgers, diagrams, captions, comparisons and cross-post consistency. The October batch's accountability shift, second-rulebook inversion, nonexistent-post implication, drift-causing deck and dropped thesis are fixtures that require this review, not cases of semantic correctness established by tests.
+
+Supply `--review-context` with a JSON object containing `writingStylePass`, `structuralChoices`, `qualifications`, `validation`, `occurrenceExceptions`, `referenceProvenance` and `linkedRecords`. Each field is printed unchanged; omitted fields remain explicitly “Not supplied.” For example:
+
+```json
+{
+  "writingStylePass": {"workflow": "Write Like Me skill", "route": "supplied references", "retrievalUsed": false},
+  "structuralChoices": ["Moved later updates to one dated section."],
+  "qualifications": ["Two events do not isolate causation."],
+  "validation": ["Read complete sources and the ledger; mechanics are not semantic proof."],
+  "occurrenceExceptions": [{"class": "numerals", "reason": "Removed a duplicate mention; the original count remains with its subject."}],
+  "referenceProvenance": [{"kind": "owner-approved-model-revision", "commit": "immutable-source-sha", "path": "src/content/blog/post.md"}],
+  "linkedRecords": ["plans/path/to/ledger.md"]
+}
+```
+
+Record keep/fix plus a reason for every warning in the approval summary; optional `warningDispositions` context entries are printed unchanged and never suppress findings or attest approval. The packet keeps those questions open; it cannot attest that the reviewer read it or that the owner approved it. It supports the composing/reviewing agent's Write Like Me pass by keeping references, complete sources and qualifications together; direct owner approval remains separate.
+
+### Limits and validation
+
+Unknown proper names can produce capitalization false positives: declare them explicitly and review the declaration. Acronyms can conceal all-capitals titles. Only listed spelling variants and lexical warning patterns are covered. Paraphrased repetition, swapped actors, equal negation/modal token counts, chronology and implied causation can pass. Quotation attribution is heuristic, and apparently explicit attribution can still be wrong. Check those manually, including HTML and aliases, rather than treating absence of warnings as evidence of voice fidelity.
+
+`tests/blog-voice.test.js` tests parser boundaries, positions, packet completeness, failures and false positives, and offline execution with only Vale/read-only Git and temporary projections. Public source-pinned excerpts in `tests/fixtures/blog-voice/batch-excerpts.json` distinguish approved revisions from compact historical failure mutations. The fixtures test reviewability, not semantic proof. Keep `scripts/verify-brevity.py` and its existing protected-token contract intact; intentional structural/occurrence exceptions belong in the packet with reasons, not in weakened checkers.
+
+### How the agent invokes writing-style support
+
+This is an **agent workflow instruction**, not a call made by the CLI. When the installed Write Like Me skill is available, the composing/reviewing agent reads it and follows its workflow. Sufficient supplied examples can be used directly. If more writing evidence is needed and the app tools are available, the agent uses `write_like_me.search`, then `write_like_me.retrieve` with the returned retrieval IDs, and reads the references before composing. Tool names may have runtime prefixes. The retrieval tools require the host's authorized connector access; the skill text alone does not confer it.
+
+Record the actual route in `writingStylePass`: installed skill with supplied references, skill with retrieved references, or unavailable-feature supplied-reference fallback. Include source provenance and whether retrieval was used; do not claim a retrieved style match from titles or links alone. The packet preserves that declaration but cannot verify it. The locally inspectable package supplies instructions and tool contracts, not the retrieval backend implementation or an exportable trained voice model. Another agent can follow this repository's editorial workflow and approved public examples, and use the same independent CLI; equivalent private retrieval still requires its own authorized tools. No private writing or inferred profile is exported by this task.
+
+### Demonstrated behavior on the approved batch
+
+The initial manual demonstration uses immutable final batch source `68827d183093fdc9500c0263b1078751067ae2fd`; it performs no drafting or retrieval. Re-run these commands against that source to reproduce the same rule findings (absolute file paths in output depend on the checkout):
+
+```bash
+# Synthetic new-post input: mechanical pass, no warnings.
+node scripts/check-blog-voice.mjs tests/fixtures/blog-voice/new-post.md --json
+
+# Actual existing-post revision: mechanical pass, with nine advisory review items.
+node scripts/check-blog-voice.mjs src/content/blog/autofix-was-the-whole-cost.md --base 1d1d39ddb43c837341ecc1862d7d2818eb08ea4c --json
+
+# Owner-approved final sample: mechanical pass, five advisory review items.
+node scripts/check-blog-voice.mjs src/content/blog/autofix-was-the-whole-cost.md --packet
+```
+
+The Autofix sample's five warnings are the authentic trust-burden contrast, a quoted qualification using “perhaps,” and three ambiguous/hypothetical narrator quotations. The revision adds changed-passages, metadata-change, negation/modal-change and protected-material-change prompts. These demonstrate why warnings are advisory: approved lines can match stock-pattern rules. They do not certify meaning or owner approval. All ten final merged posts passed mechanical checks in the initial corpus sweep; future changes must be checked anew.
