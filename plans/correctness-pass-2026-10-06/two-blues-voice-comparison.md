@@ -116,11 +116,3 @@ Validation: Astro build succeeded (43 pages); existing blog pages, takeaways/CTA
 The structural critique now says it **deserves** a separate ticket and post; the first draft's past-tense “needed” could imply that post had been written. This repairs future/past meaning, not a new outcome claim. The owner-selected pullquote is “There are still two blues on the site. One per room.”; the body still carries it verbatim. “That's the whole rule” and “The order is the part I'd defend hardest” restore the author's direct judgment. The thirty-one-minute sequence drops “another.”
 
 The historical ticket's museum-derived label is unpacked as derived from the reproduction **with eye-tuning at plane scale left to the tokens**. The rewrite does not claim that undocumented eye-tuning was performed or that the file is a museum source. The yellow admission explicitly names an earlier version of this post, and the later review names mistakes in what the author published. A complete second meaning review after these edits found no changed number, provenance boundary, quote or historical outcome.
-
-## Cross-agent review corrections
-
-Applied after the owner-approved draft, in Claude's cross-agent review (#1136). Counts and excerpts above describe the draft unless they say otherwise; these changes take precedence over them.
-
-- Sampling is attributed to Claude, matching the post's division of labor: "That reading was canvas." and "the museum digitization Claude sampled later" (`4e013c1`).
-- "The minifier rewrites `rgba()` as hex" replaces "turns every `rgba()` into eight-digit hex"; lightningcss emits `rgba(255, 255, 255, 0)` as `#fff0` (`46f8eb3`).
-- The Wikimedia Commons reproduction is linked to its file page (`46f8eb3`).
