@@ -125,3 +125,9 @@ No factual question is pending. The April/September split remains, and the endin
 ## Validation
 
 Astro build passed. After the owner feedback, all 58 tests in five existing suites passed: blog pages, takeaways, content schema, figure numbering, and Mermaid diagrams. Scoped Vale lint reports no errors. All 16 original heading anchors are present in the built page, and its four screenshot embeds remain. A separate block comparison confirms that all eight fences, both tables, four image lines, and seven block quotations are unchanged. All four pullquotes appear verbatim in the body; source apostrophes are straight, and the narration contains no collective pronouns. The meaning review above is separate from these mechanical checks.
+
+## Cross-agent review corrections
+
+Applied after the owner-approved draft, in Claude's cross-agent review (#1148). Counts and excerpts above describe the draft unless they say otherwise; these changes take precedence over them.
+
+- The new brief is "given to Codex"; "Each PR was competent inside the frame it was given"; the six PRs' summary no longer implies all six chased the formatting bug; "The reviewer kept finding ways the bridge lost formatting" (one identity, R34; pullquote and body); Preview and the sent emails "now use different renderers again" (R8/R9).

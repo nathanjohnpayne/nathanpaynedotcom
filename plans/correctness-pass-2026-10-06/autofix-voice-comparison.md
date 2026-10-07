@@ -156,3 +156,10 @@ Build, unit and render checks ran sequentially in this worktree. No new tests or
 The owner approved the article, existing ledger R5 clarification and this comparison for a PR. They ship together as the article and its review record.
 
 There is no unresolved factual question requiring the owner's decision. The approved draft includes the visible metadata rewrite and relocation of the later-update paragraph.
+
+## Cross-agent review corrections
+
+Applied after the owner-approved draft, in Claude's cross-agent review (#1141 and #1148). Counts and excerpts above describe the draft unless they say otherwise; these changes take precedence over them.
+
+- "most of the review effort"; the earlier post's subject (closure vs coverage) is separated from the effort/progress error; "both sets of counters" keeps the Codex #686 counters author-attested; the recorded floor is about "a requirement nobody questioned"; the non-comparability reason matches the sidebar; "expensive" part; "56 minutes after the removal commit" (`9c78e64`).
+- Takeaway 4 keeps the no-adapter swap counterfactual (ledger R46): "A swap without the adapter would've skipped post metadata and still reported green." (#1148).

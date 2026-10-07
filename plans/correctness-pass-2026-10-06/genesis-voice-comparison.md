@@ -111,7 +111,7 @@ Baseline: main at `86b5af34ee008aa796987a3487d3e58a5339dd2a` when the rewrite be
 
 ## Cross-post correction
 
-The owner requested one word in the already-merged mock-up post: "making direct pushes to main mechanically impossible" becomes "making direct pushes to main mechanically expensive". The URL and all other article content are unchanged. R8 and R50 now support the shared cost claim and administrator limit at their summary rows, detailed entries and cross-page note. The optional filler sentence "The later changes have their own dates" is removed from Genesis; the section starts with its dated August 26 account.
+The owner requested one word in the already-merged mock-up post: "making direct pushes to main mechanically impossible" becomes "making direct pushes to main mechanically expensive". During cross-agent review the owner also chose to stop crediting FFB's post-merge policy with catching the direct push, so the mock-up post carries two more repairs: the 404 bridge ("The FFB example below records the same failure. FFB issue #145 documents the after-the-fact review.") and the FFB account ("Issue #145 logged it as a policy violation and requested external review."), with ledger R19 updated to match. Its URL and all other content are unchanged. R8 and R50 now support the shared cost claim and administrator limit at their summary rows, detailed entries and cross-page note. The optional filler sentence "The later changes have their own dates" is removed from Genesis; the section starts with its dated August 26 account.
 
 ## Visible metadata changes for owner review
 
@@ -140,6 +140,7 @@ The deck and takeaways are rewritten with the body. The first two pullquotes res
 | Token class | Removed occurrences | Added occurrences | Reason |
 |---|---|---|---|
 | URLs | https://github.com/users/nathanjohnpayne/projects/2 × 1 | None | Removed the repeated Project #2 link from the prose beneath the snapshot bullets; it remains in the project-item bullet. |
+| URLs (review fix) | https://github.com/nathanjohnpayne/mergepath/blob/main/scripts/hooks/gh-pr-guard.sh × 1 | https://github.com/nathanjohnpayne/mergepath/blob/2429e6bf8714e5998e9fa21485a5bbd057010e9e/scripts/hooks/gh-pr-guard.sh × 1 | Intentional exception added in cross-agent review: the link sits in front of "In April, it searched the command text", so it now pins the April hook (ledger's April tree) instead of the later `main` hook. The Before excerpt keeps the original URL. |
 | link destinations | https://github.com/users/nathanjohnpayne/projects/2 × 1 | None | The same duplicate Project #2 destination was removed, as requested. |
 | issue/PR refs | #2 × 1 | None | The removed #2 is that duplicate project reference, not a distinct PR. |
 | standalone months | None | April × 1 | Clarifies that the recomputed figures are the April figures and review timings, rather than the older dated August fleet counts. |
@@ -151,7 +152,7 @@ The deck and takeaways are rewritten with the body. The first two pullquotes res
 
 The spelled-out-number advisory was reviewed against its claim: all case counts, review counts, durations, scope boundaries, and the one known open P1 remain. Removed occurrences repeat facts or use number words as ordinary prose; the estimate pullquote duplicates an existing five-hour result rather than adding a measurement.
 
-Connective prose: 3,387 → 2,890 (-14.7%). Whole file: 4,260 → 3,736.
+Connective prose: 3,387 → 2,890 (-14.7%). Whole file: 4,260 → 3,738 (final merged text, after the review fixes below).
 
 ## Validation
 
@@ -162,3 +163,12 @@ The generated social-card reference is refreshed only for this post: its automat
 ## Owner judgment
 
 The two structural/voice decisions have been revised as requested: the original April self-quotations are restored, and the control table stays beside the boundary argument with the later variable dated. The requested thesis, human/agent parallel, convergence admission, and sentence-level fixes are applied. No factual question is pending; the historical qualifications described above remain in place.
+
+## Cross-agent review corrections
+
+Applied after the owner-approved draft, in Claude's cross-agent review (#1138). Counts and excerpts above describe the draft unless they say otherwise; these changes take precedence over them.
+
+- The PreToolUse hook link before "In April, it searched the command text" pins mergepath `2429e6bf` (the April tree) instead of `main` (`83f4dfd`).
+- The control-table cell dates only the second break-glass variable: "(the second added 2026-05-14)"; `BREAK_GLASS_ADMIN` was in the April hook (ledger W13) (`6051a1b`).
+- The mock-up post's FFB attribution was narrowed by owner decision (see Cross-post correction) (`77ffa93`).
+- The "selectively remember" self-quotation (S33) was kept after review.

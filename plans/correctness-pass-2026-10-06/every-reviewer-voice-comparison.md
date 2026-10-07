@@ -110,3 +110,9 @@ The initial draft passed its build and 58 rendering/content tests, but those che
 ## Owner judgment
 
 The owner approved the shorter takeaways and conditionally approved this draft after the listed repairs. All requested repairs are applied. No other draft or cross-post surface was edited. PR creation and merge are authorized for this post after repository checks and exact-head review/accounting clear.
+
+## Cross-agent review corrections
+
+Applied after the owner-approved draft, in Claude's cross-agent review (#1148). Counts and excerpts above describe the draft unless they say otherwise; these changes take precedence over them.
+
+- "the 21 of those opened"; "undermines each as a simple diagnostic"; the #1188 event is past tense (R28); the implementation "took on a guarantee" by accepting the round-4 finding (R36); "I've deliberately kept it a rule I can't automate."

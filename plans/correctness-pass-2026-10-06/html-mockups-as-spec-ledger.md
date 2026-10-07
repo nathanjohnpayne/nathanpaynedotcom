@@ -370,7 +370,7 @@ Applied 2026-10-06 to `src/content/blog/html-mockups-as-spec.md` only. Vale at e
 - R16: 'accurately—"a 3×3 grid where the top-left cell spans two columns"—then' -> "accurately, down to which cell spanned two columns, then".
 - R17: 'notes like "this column should be 22% wide and red."' -> "notes giving a width and a color."
 - R18: "for the first month" -> "for the first weeks".
-- R19: "caught this time because that repository had review machinery watching—which triggered a policy-violation review" -> "caught this time by that repository's post-merge review policy, which logged it as a policy violation". Narrowed by owner decision on 2026-10-06 (#1138): the 404 bridge now reads "The FFB example below records the same failure. FFB issue #145 documents the after-the-fact review." and the FFB account reads "Issue #145 logged it as a policy violation and requested external review."
+- R19: "caught this time because that repository had review machinery watching—which triggered a policy-violation review" -> 404 bridge: "The FFB example below records the same failure. FFB issue #145 documents the after-the-fact review."; FFB account: "Issue #145 logged it as a policy violation and requested external review." (owner decision 2026-10-06, #1138, replacing an earlier correction that credited the catch to the post-merge review policy).
 - R22: "yellow and cream farther down" -> "yellow and a neutral RSS block farther down".
 - Operating model, step 3: "Transcribe:" -> "Transcribe and attach: … and attach the file" (advice following from R1; no new claim).
 - R15 left as is: the page already presents A and D as the author's memory ("you have my memory that they existed, and nothing else").
