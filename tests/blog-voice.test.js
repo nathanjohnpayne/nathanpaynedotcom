@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, readFileSync, writeFileSync, mkdirSync, rmSync } from 'node:fs';
+import { mkdtempSync, readFileSync, writeFileSync, mkdirSync, rmSync, existsSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 import { describe, it, expect } from 'vitest';
@@ -93,6 +93,16 @@ We organised the colour.
     expect(rules(report)).not.toContain('review.quotation-attribution');
   });
 
+  it.each(['<code>', '<pre>', '<script>', '<style>'])(
+    'does not let a literal %s inside Markdown code hide the later authored prose',
+    async (tag) => {
+      const report = await check(`Use \`${tag}\` here. We organised colour.\n`);
+      expect(rules(report)).toEqual(
+        expect.arrayContaining(['voice.narrator-plural', 'voice.american-spelling']),
+      );
+    },
+  );
+
   it('surfaces ambiguous inline and blockquote attribution without silently passing it', async () => {
     const report = await check('"We chose it."\n\n> Our colour changed.\n');
     expect(report.exitCode).toBe(0);
@@ -166,6 +176,26 @@ A small change made publishing practical.
     const source =
       '---\npullquotes:\n  - text: "The chosen result."\n---\n\n```text\nThe chosen result.\n```\n\n![The chosen result.](/image)\n';
     expect(rules(await check(source))).toContain('voice.pullquote-verbatim');
+  });
+
+  it('checks raw HTML image alt text without letting it satisfy a body pullquote', async () => {
+    const source =
+      '---\npullquotes:\n  - text: "Our colour."\n---\n\n<img alt="Our colour." src="/image">\n';
+    const report = await check(source);
+    expect(rules(report)).toEqual(
+      expect.arrayContaining([
+        'voice.pullquote-verbatim',
+        'voice.american-spelling',
+        'voice.narrator-plural',
+      ]),
+    );
+    expect(
+      report.findings.find((f) => f.rule === 'voice.american-spelling' && f.surface === 'caption')
+        .excerpt,
+    ).toContain('<img');
+    expect(rules(await check('I saw <img alt="Our colour." src="/image"> there.\n'))).toContain(
+      'voice.american-spelling',
+    );
   });
 
   it('maps nested paths, escaped scalars, multiline YAML and CRLF back to complete original source ranges', async () => {
@@ -287,6 +317,18 @@ describe('source-pinned examples, advisory warnings and complete meaning review'
     });
     expect(rules(report)).not.toContain('review.negation-modal-change');
     expect(rules(report)).toContain('review.changed-passages');
+  });
+
+  it('warns on negation changes inside attributed inline quotations and blockquoted prompts', async () => {
+    for (const beforeSource of [
+      'Claude said: "We should not ship."\n',
+      'The prompt was:\n\n> We should not ship.\n',
+    ]) {
+      const report = await check(beforeSource.replace('not ', ''), { beforeSource });
+      expect(rules(report)).toContain('review.negation-modal-change');
+      expect(report.packet.before.source).toBe(beforeSource);
+      expect(errors(report)).toEqual([]);
+    }
   });
 
   it('allows the authentic trust-burden contrast and excludes pullquote duplication from padding warnings', async () => {
@@ -473,5 +515,39 @@ describe('CLI contract and read-only execution', () => {
     expect(JSON.parse(result.stdout).exitCode).toBe(0);
     expect(status()).toBe(before);
     expect(readFileSync('scripts/verify-brevity.py', 'utf8')).toBe(checkerBefore);
+  });
+
+  it.each([
+    ['process', "(await import('node:child_process')).exec('true')"],
+    ['TLS', "(await import('node:tls')).connect({port: 1})"],
+    ['sync write', "(await import('node:fs')).appendFileSync(process.argv[1], 'changed')"],
+    ['async write', "(await import('node:fs')).writeFile(process.argv[1], 'changed', () => {})"],
+    [
+      'promise write',
+      "await (await import('node:fs/promises')).writeFile(process.argv[1], 'changed')",
+    ],
+    ['copy', "(await import('node:fs')).copyFileSync('README.md', process.argv[1])"],
+  ])('the regression guard refuses an unexpected %s operation', (_, expression) => {
+    const directory = mkdtempSync(join(tmpdir(), 'voice-test-denied-'));
+    const destination = join(directory, 'forbidden.txt');
+    try {
+      const result = spawnSync(
+        process.execPath,
+        [
+          '--import',
+          resolve('tests/fixtures/blog-voice/offline-guard.mjs'),
+          '--input-type=module',
+          '--eval',
+          expression,
+          destination,
+        ],
+        { encoding: 'utf8' },
+      );
+      expect(result.status).toBe(1);
+      expect(result.stderr).toMatch(/forbidden/i);
+      expect(existsSync(destination)).toBe(false);
+    } finally {
+      rmSync(directory, { recursive: true, force: true });
+    }
   });
 });

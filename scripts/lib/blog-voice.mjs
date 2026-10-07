@@ -184,13 +184,33 @@ function htmlText(source, node) {
     };
   });
   const text = document.body.textContent ?? '';
-  const images = [...document.querySelectorAll('img')].map((n) => n.getAttribute('alt') ?? '');
+  const captions = [...document.querySelectorAll('img')].map((n) => {
+    const range = dom.nodeLocation(n);
+    const start = node.position.start.offset + range.startOffset;
+    const end = node.position.start.offset + range.endOffset;
+    return {
+      kind: 'caption',
+      field: null,
+      text: n.getAttribute('alt') ?? '',
+      excerpt: source.slice(start, end),
+      location: location(source, start, end),
+    };
+  });
   dom.window.close();
-  return { item: entry(source, node, 'html', normalize([text, ...images].join(' '))), headings };
+  return { item: entry(source, node, 'html', normalize(text)), headings, captions };
 }
 function protectedHtmlText(source, node) {
   // A maintained HTML parser supplies ranges for inline HTML code, not a tag regex.
-  const raw = rawOf(source, node);
+  let raw = rawOf(source, node);
+  const maskMarkdownCode = (child) => {
+    if (child.type === 'inlineCode' && child.position) {
+      const start = child.position.start.offset - node.position.start.offset;
+      const end = child.position.end.offset - node.position.start.offset;
+      raw = raw.slice(0, start) + raw.slice(start, end).replace(/[^\r\n]/gu, ' ') + raw.slice(end);
+    }
+    for (const descendant of child.children ?? []) maskMarkdownCode(descendant);
+  };
+  maskMarkdownCode(node);
   const dom = new JSDOM(raw, { includeNodeLocations: true });
   const ranges = [...dom.window.document.querySelectorAll('code, pre, script, style, q[cite]')]
     .map((n) => dom.nodeLocation(n))
@@ -332,6 +352,9 @@ export async function parseArticle(source, file) {
       const collectInline = (child) => {
         if (child.type === 'inlineCode' || child.type === 'html')
           protectedMaterial.push(entry(source, child, child.type, inlineText(child, true)));
+        if (child.type === 'html')
+          for (const caption of htmlText(source, child).captions)
+            surfaces.push(quotationPass(caption, context, findings, file));
         if (child.type === 'image' || child.type === 'imageReference')
           surfaces.push(
             quotationPass(
@@ -352,6 +375,8 @@ export async function parseArticle(source, file) {
         headings.push(h);
         surfaces.push(quotationPass(h, context, findings, file));
       }
+      for (const caption of html.captions)
+        surfaces.push(quotationPass(caption, context, findings, file));
       const item = html.item;
       if (item.text) {
         surfaces.push(quotationPass(item, context, findings, file));
@@ -613,7 +638,8 @@ function sourceDiff(before, after) {
 function tokenCounts(article) {
   const tokens =
     article.surfaces
-      .map((s) => s.projected)
+      .map((s) => s.text)
+      .concat(article.protectedMaterial.filter((s) => s.kind === 'blockquote').map((s) => s.text))
       .join(' ')
       .match(semanticTokens) ?? [];
   return tokens.map((t) => t.toLowerCase()).sort();
