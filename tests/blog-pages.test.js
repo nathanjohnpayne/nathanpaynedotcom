@@ -156,7 +156,13 @@ describe('Blog Pages', () => {
       'https://nathanpayne.com/og/blog/six-prs-one-bug-agent-failure-modes.png',
     );
     expect(posting.url).toBe('https://nathanpayne.com/blog/six-prs-one-bug-agent-failure-modes/');
-    expect(posting.dateModified).toBe(posting.datePublished);
+    // dateModified follows the post's last body change in git history, not
+    // the publication date (#1168). tests/last-updated.test.js checks the
+    // value for every post; this pins only that it is a real, not-earlier time.
+    expect(posting.datePublished).toBe('2026-04-04T00:00:00.000Z');
+    expect(Date.parse(posting.dateModified)).toBeGreaterThanOrEqual(
+      Date.parse(posting.datePublished),
+    );
     expect(posting.inLanguage).toBe('en-US');
     expect(posting.isAccessibleForFree).toBe(true);
   });

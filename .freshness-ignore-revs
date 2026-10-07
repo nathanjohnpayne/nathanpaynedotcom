@@ -1,0 +1,11 @@
+# Commits that change blog post bodies without updating them for readers.
+#
+# A blog post's "Updated" month, JSON-LD dateModified, article:modified_time
+# and sitemap <lastmod> come from the newest commit that changed its Markdown
+# body (specs/last-updated.md, #1168). List a commit here when that change was
+# mechanical (a repository-wide em dash or spelling sweep, a link-format pass)
+# so it does not count as an update.
+#
+# One full 40-character SHA per line, with a comment saying why. On main this
+# is the squash-merge SHA, added in a follow-up PR after the sweep merges. The
+# build fails on a malformed line or a SHA this repository does not contain.

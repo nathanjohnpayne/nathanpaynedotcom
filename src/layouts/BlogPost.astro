@@ -23,6 +23,11 @@ import BaseLayout from './BaseLayout.astro';
 import Footer from '../components/Footer.astro';
 import Breadcrumbs from '../components/Breadcrumbs.astro';
 import { renderSidebarMermaid } from '../lib/render-sidebar-mermaid.mjs';
+import {
+  effectiveModified,
+  formatUpdatedMonth,
+  showsUpdatedMonth,
+} from '../../scripts/lib/blog-last-updated.mjs';
 
 interface PostLink {
   title: string;
@@ -38,6 +43,11 @@ interface Props {
   seoDescription?: string;
   author: string;
   date: Date;
+  /**
+   * Last body change, from git history (#1168). Absent when the post has not
+   * changed since the commit that added it. See specs/last-updated.md.
+   */
+  updated?: Date;
   tags: string[];
   image: string;
   readingTime: string;
@@ -62,6 +72,7 @@ const {
   seoDescription,
   author,
   date,
+  updated,
   tags,
   image,
   readingTime,
@@ -97,6 +108,11 @@ const publishedDate = date.toLocaleDateString('en-US', {
   timeZone: 'UTC',
 });
 const isoDate = date.toISOString();
+// Search surfaces carry the exact time of the last body change; readers see
+// only its month, and only when it is later than the publication month.
+const isoModified = effectiveModified(date, updated).toISOString();
+const showUpdated = showsUpdatedMonth(date, updated);
+const updatedMonth = updated ? formatUpdatedMonth(updated) : '';
 
 // Derive OG image path from URL slug (e.g., /blog/my-post/ → /og/blog/my-post.png)
 const slug = normalizedPathname.replace(/^\/blog\//, '').replace(/\/$/, '');
@@ -147,7 +163,7 @@ const jsonLd = {
       "image": `https://nathanpayne.com${image}`,
       "url": canonical,
       "datePublished": isoDate,
-      "dateModified": isoDate,
+      "dateModified": isoModified,
       "inLanguage": "en-US",
       "isAccessibleForFree": true,
       "author": { "@type": "Person", "name": author, "url": "https://nathanpayne.com/" },
@@ -173,7 +189,12 @@ const jsonLd = {
   bodyClass="project-page blog-page"
   dataAccent="red"
   jsonLd={jsonLd}
-  articleMeta={{ published: isoDate, author, tags }}
+  articleMeta={{
+    published: isoDate,
+    modified: isoModified === isoDate ? undefined : isoModified,
+    author,
+    tags,
+  }}
 >
   <main class="page-shell">
     {/* ── Mondrian Canvas Grid ──────────────────────────────────
@@ -207,6 +228,12 @@ const jsonLd = {
       <div class="blog-sidebar-meta">
         <dl>
           <div><dt>Published</dt><dd>{publishedDate}</dd></div>
+          {showUpdated && (
+            <div class="blog-sidebar-updated">
+              <dt>Updated</dt>
+              <dd><time datetime={isoModified}>{updatedMonth}</time></dd>
+            </div>
+          )}
           <div><dt>Author</dt><dd>{author}</dd></div>
           <div><dt>Reading time</dt><dd>{readingTime}</dd></div>
           <div>
