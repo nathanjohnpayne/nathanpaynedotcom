@@ -2,6 +2,7 @@
 import '../styles/global.css';
 import PostHog from '../components/posthog.astro';
 import { serializeJsonLd } from '../lib/json-ld';
+import { getSiteCopy } from '../lib/site-copy';
 
 interface Props {
   title: string;
@@ -67,6 +68,10 @@ const ogImageUrl = ogImage.includes('?') ? `${ogImage}&v=${buildTime}` : `${ogIm
 // If unset at build time (CI, or a checkout that has not run bootstrap.sh), the
 // GA tags are not rendered and GA never loads — graceful degradation.
 const gaId = import.meta.env.PUBLIC_GA_MEASUREMENT_ID || '';
+
+// The feed-discovery link names the publication the feed carries, so a rename
+// in src/content/site-copy/blog.md reaches every page's <head> (#1166).
+const { title: feedTitle } = await getSiteCopy('blog');
 ---
 
 <!DOCTYPE html>
@@ -90,7 +95,7 @@ const gaId = import.meta.env.PUBLIC_GA_MEASUREMENT_ID || '';
   <meta name="author" content="Nathan Payne" />
   <meta name="robots" content={noindex ? "noindex, follow" : "index, follow"} />
   <link rel="canonical" href={canonical} />
-  <link rel="alternate" type="application/rss+xml" title="The AI-Augmented PM" href="/rss.xml" />
+  <link rel="alternate" type="application/rss+xml" title={feedTitle} href="/rss.xml" />
   {googleSiteVerification && (
     <meta name="google-site-verification" content={googleSiteVerification} />
   )}
