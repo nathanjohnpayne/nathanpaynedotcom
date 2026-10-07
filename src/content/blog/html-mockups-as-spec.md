@@ -35,7 +35,7 @@ pullquotes:
 
 I'm a product manager, not an engineer. In the first weeks of building nathanpayne.com with Claude Code, I knew what I wanted the site to look like. The homepage was already a Mondrian grid. I wanted the rest of the site to look like it belonged there. I thought "more Mondrian, less LinkedIn" was clear enough. The pages coming back said otherwise.
 
-What helped was giving Claude something concrete to work from. I asked it to build a standalone HTML mock-up first. Once I'd approved that, I handed it back with the existing page: make this look like that. I used the same approach on four surfaces across two codebases. Descriptions, diagrams, and annotated screenshots had all fallen short; the HTML files gave me something I could compare. Keeping the decision was a separate problem. Most of my local mock-ups are gone. The issue threads preserve what I chose, what I changed, and the files that survived.
+What helped was giving Claude something concrete to work from. I asked it to build a standalone HTML mock-up first. Once I'd approved that, I handed it back with the existing page: make this look like that. I used versions of this approach on four surfaces across two codebases; for one, the reference was a public demo rather than a mock-up Claude built. Descriptions, diagrams, and annotated screenshots had all fallen short; the HTML files gave me something I could compare. Keeping the decision was a separate problem. Most of my local mock-ups are gone. The issue threads preserve what I chose, what I changed, and the files that survived.
 
 ![Piet Mondrian's grid composition with my homepage section labels dropped on top—Nathan Payne in red, Connect in yellow, Vibe Coding (now Builds) in black, Community in blue. This was the original reference; every page on the site is downstream of it.](/blog/html-mockups-as-spec/img/mondrian-inspiration.jpg)
 
@@ -49,7 +49,7 @@ Annotated screenshots came next: arrows, red boxes, notes giving a width and a c
 
 These weren't controlled comparisons. I tried them in sequence, changing prompts, context, my idea of the target, and the number of iterations along the way. Four surfaces where a change of artifact coincided with the work landing make a case series, not a measured property of coding agents. In these cases, asking Claude to read and match an HTML file worked where asking it to interpret a description hadn't.
 
-```mermaid title="Prose iteration loop versus mockup-first path" description="Describing a design in prose cycles through tweaks and mismatch; building and approving a standalone mockup creates a direct specification that the live page can match. The two were tried in sequence rather than compared under control, so this is a case series and not a measured result."
+```mermaid title="Prose iteration loop versus mockup-first path" description="Describing a design in prose cycles through tweaks and mismatch; building and approving a standalone mockup creates a direct specification that the live page can match. The two were tried in sequence rather than compared under control, so this is a case series and not a measured result." caption="Not a controlled comparison: the two paths were tried in sequence, and prompts, context and target all moved between rounds."
 graph TD
     A["Describe the design<br/>in prose"] --> B["Claude tweaks the<br/>existing page"]
     B --> C["Result does not match<br/>what's in my head"]
@@ -94,7 +94,7 @@ I used the same approach for the post template in [PR #76](https://github.com/na
 
 > Mockup C from `mockups/C-composition-margins.html`. Key characteristics:
 
-That became the three-column canvas you're reading: an accent margin on the left, the article in the middle, and a sidebar on the right. [PR #82](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/82) removed the original sticky sidebar the same day. The sidebar now scrolls with the page, and the metadata becomes a horizontal accent bar on narrow screens.
+That became the three-column canvas you're reading: an accent margin on the left, the article in the middle, and a sidebar on the right. [PR #82](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/82) removed the sidebar's sticky positioning the same day. The sidebar now scrolls with the page, and the metadata becomes a horizontal accent bar on narrow screens.
 
 It felt fast once there was a file to build against. Issues #74 and #75 both opened and closed within a single day; PRs #76 and #77 were open for between fifteen minutes and half an hour before merging. Those are administrative intervals. They don't measure the design effort, and neither the mock-up iterations nor the earlier prose attempts left a timed trace. Once I had a file to match, the implementation landed essentially at once. The earlier attempts hadn't gotten me there.
 
@@ -133,7 +133,7 @@ I handed Claude the mock-up and the live `InvoicingTab.jsx` with its stylesheets
 
 The agent pushed it directly to `main` without a PR. [Issue #145](https://github.com/nathanjohnpayne/friends-and-family-billing/issues/145) logged it as a policy violation and requested external review.
 
-The authoring agent's handoff began "Restructures the InvoicingTab editor to match the target mockup," then listed the single-card layout, unified chip bar, sticky save footer with its "Last saved" timestamp, and redesigned Preview tab with a footer-positioned send button. Those decisions had been made in the mock-up. The external reviewer, who hadn't seen my prompts, reported two bugs in the token-migration path and said nothing about the layout. The only evidence the layout matched is the agent's own say-so. A reviewer naming the target unprompted would have been a better test, and I don't have one.
+The authoring agent's handoff began "Restructures the InvoicingTab editor to match the target mockup," then listed the single-card layout, unified chip bar, sticky save footer with its "Last saved" timestamp, and redesigned Preview tab with a footer-positioned send button. Those decisions had been made in the mock-up. The external reviewer, who hadn't seen my prompts, reported two bugs in the token-migration path and said nothing about the layout. The claim that the layout matched comes from the authoring agent's own handoff; no independent reviewer checked it. A reviewer naming the target unprompted would have been a better test, and I don't have one.
 
 This was more complicated than the static blog and 404 layouts. The rich-text editor used TipTap, token nodes, and migration logic. The mock-up let me decide the layout separately from those concerns. The layout work stayed clean while an architectural problem remained in the same file: the markdown bridge that took a session of six pull requests and a reframed brief to remove, described in [Six PRs, One Bug](/blog/six-prs-one-bug-agent-failure-modes/). Specifying the appearance helped with the layout. The system's behavior still needed an invariant.
 
@@ -154,7 +154,7 @@ Claude generated the candidates and wrote the implementations. I chose the targe
 
 ## Why the HTML helped
 
-Three things changed together when I started handing Claude HTML files.
+Three things changed together when I started handing Claude HTML files, and I can't separate their contributions.
 
 Pasting an annotated screenshot is asking the agent to do art criticism. Pasting an HTML file is asking it to do diffs. Claude had HTML and CSS it could read and compare with the live page.
 
@@ -186,7 +186,7 @@ I also need to check real content, interactions, and performance. The mock-ups h
 
 The hero image on this post is a 3.1 MB JPEG. It matched the visual intent, and a "do they match" check wouldn't flag its weight. The post arguing that visual acceptance and production acceptance are different bars is itself sitting on the wrong side of one.
 
-The process needs its own checks too. [Mergepath](/projects/mergepath/) exists to close gaps like those direct pushes. Branch protection now requires a pull request from every identity short of the repository administrator. That exemption is still in use.
+The process needs its own checks too. [Mergepath](/projects/mergepath/) exists to close gaps like those direct pushes. Branch protection now requires a pull request from every identity short of the repository administrator. The record shows that exemption still in use as late as 2026-08-28.
 
 <span id="the-operating-model-revised"></span>
 

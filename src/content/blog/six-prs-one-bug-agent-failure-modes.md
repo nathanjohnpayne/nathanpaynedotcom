@@ -21,7 +21,7 @@ pullquotes:
   - text: "The last of the six closed thirty-six minutes before I filed the issue."
     label: "The chronology, corrected"
     accent: red
-  - text: "Reviewers kept finding ways the bridge lost formatting. The fixes kept the bridge."
+  - text: "The reviewer kept finding ways the bridge lost formatting. The fixes kept the bridge."
     label: "The review record"
     accent: blue
   - text: "By prompt 11, I was offering to throw the template away."
@@ -123,7 +123,7 @@ By prompt 11, I was offering to throw the template away. I'd described the bug, 
 
 ## What the six PRs changed
 
-Claude Code authored all six. The fix came later under the Codex identity, visible in [PR #161](https://github.com/nathanjohnpayne/friends-and-family-billing/pull/161)'s title prefix. Every PR compiled, passed tests, and improved something locally. None of this was incompetence. Each PR did what it was asked to do within the frame it was given. That frame kept the architecture that allowed the formatting to change.
+Claude Code authored all six. The fix came later under the Codex identity, visible in [PR #161](https://github.com/nathanjohnpayne/friends-and-family-billing/pull/161)'s title prefix. Every PR compiled, passed tests, and improved something locally. None of this was incompetence. Each PR was competent inside the frame it was given. That frame kept the architecture that allowed the formatting to change.
 
 ```mermaid title="Six PRs by role, then the issue, then the fix" description="One implementation introduces a lossy markdown bridge; three attempts patch the bridge and two orthogonal fixes land beside it; the accumulated failures get named in issue 159, and pull request 161 takes the HTML body of the preview and the test email off the bridge. The plain-text part and the invoice a recipient receives stay on it, and on 2026-09-30 pull request 459 moves the test email back onto it, rendered server-side."
 graph TD
@@ -186,7 +186,7 @@ One patch improved markdown fidelity; the other changed Preview's styling. Both 
 
 [PR #154](https://github.com/nathanjohnpayne/friends-and-family-billing/pull/154) fixed `useEditor` recreating the editor on every keystroke. [PR #155](https://github.com/nathanjohnpayne/friends-and-family-billing/pull/155) converted bold, italic, and links in legacy templates so they stopped appearing literally in the editor. Those were real bugs, and fixing them could make the session feel productive while the formatting differences remained.
 
-[PR #155](https://github.com/nathanjohnpayne/friends-and-family-billing/pull/155) also drew the pushback that [PR #146](https://github.com/nathanjohnpayne/friends-and-family-billing/pull/146) hadn't: `nathanpayne-codex` submitted three `CHANGES_REQUESTED` reviews before approving it. Each flagged a round-trip safety failure, and each got a scoped fix. Reviewers kept finding ways the bridge lost formatting. The fixes kept the bridge. The spec had described the intended output model ten hours earlier, in a private document this PR didn't cite.
+[PR #155](https://github.com/nathanjohnpayne/friends-and-family-billing/pull/155) also drew the pushback that [PR #146](https://github.com/nathanjohnpayne/friends-and-family-billing/pull/146) hadn't: `nathanpayne-codex` submitted three `CHANGES_REQUESTED` reviews before approving it. Each flagged a round-trip safety failure, and each got a scoped fix. The reviewer kept finding ways the bridge lost formatting. The fixes kept the bridge. The spec had described the intended output model ten hours earlier, in a private document this PR didn't cite.
 
 ### PR #158: the bridge got cleaner
 
@@ -287,7 +287,7 @@ The merged code therefore supported a narrower result than the issue requested: 
 
 On 2026-09-30, [friends-and-family-billing#459](https://github.com/nathanjohnpayne/friends-and-family-billing/pull/459) changed the mail queue for security reasons. Clients could no longer supply HTML. `queueEmail` wrote only a plain-text body, and the Cloud Function always rendered it with `simpleMarkdownToHtml`. The `[Test]` send began queueing the template's markdown serialization instead of `payload.html`.
 
-Since that change, `renderInvoiceTemplate` feeds Preview only. Test and invoice emails both render server-side, from plain-text bodies their two call sites still build separately. Their gap closed by moving the test email back onto the bridge. Preview and email still use different renderers; a semantic parity test guards their agreement. The brief's regression tests protected the shared path from April only while it lasted.
+Since that change, `renderInvoiceTemplate` feeds Preview only. Test and invoice emails both render server-side, from plain-text bodies their two call sites still build separately. Their gap closed by moving the test email back onto the bridge. Preview and the sent emails now use different renderers again; a semantic parity test guards their agreement. The brief's regression tests protected the shared path from April only while it lasted.
 
 ```mermaid title="Two renderers since 2026-09-30: the canonical one feeds the preview, the bridge carries both emails" description="Counting outbound email bodies only, as of 2026-09-30: the ProseMirror document renders the editor DOM directly—a third render, not an email path—and feeds one canonical template renderer, which now produces only the Invoicing tab preview. The test email, which used that renderer from 2026-04-04 until pull request 459, and the recipient invoice both go through a plain-text bridge that the Cloud Function converts with simpleMarkdownToHtml, so the two sent messages share an envelope and a renderer while the preview is the surface that differs."
 graph TD
@@ -316,7 +316,7 @@ graph TD
 
 "Codex is better than Claude Code at architecture" would be a convenient conclusion. So would "the difference was in the prompt structure, not the model." This run can't establish either. The model, tooling, accumulated session context, visibility of the six PRs, and task framing all changed together.
 
-The framing was the part I controlled. After the kickoff, my prompts reported symptoms with increasing urgency, and the agent patched the code nearest each symptom. The new brief asked it to explain the pattern of failures before writing code, stated the invariant, and banned the approaches already tried. Forty-nine minutes after I filed the issue, the fix PR was open. Sixteen minutes later, it merged. I didn't rerun the work with the same agent or another one to isolate what helped. I shipped the fix.
+The framing was the part I controlled. After the kickoff, my prompts reported symptoms with increasing urgency, and the agent patched the code nearest each symptom. The new brief, given to Codex, asked for an explanation of the pattern of failures before any code, stated the invariant, and banned the approaches already tried. Forty-nine minutes after I filed the issue, the fix PR was open. Sixteen minutes later, it merged. I didn't rerun the work with the same agent or another one to isolate what helped. I shipped the fix.
 
 ## The rules I kept, and what they cost
 
@@ -330,6 +330,6 @@ After the merge, I kept four rules. Two are repository policies that bind every 
 
 **Say which requirement wins.** This is also personal practice. When I ask for a new architecture and backward compatibility, I now state that the new path is canonical and list every surface it has to cover. Legacy support needs an explicit migration plan. That costs more work up front. The April fix shows why naming the surfaces matters: it never reached the recipient invoice, and the September change left only Preview on the canonical renderer.
 
-The fix reached Preview and the test email, with the limits described above. The expensive part came before I filed the issue: six PRs of locally useful, reviewed work, while I kept asking for the same formatting bug to go away.
+The fix reached Preview and the test email, with the limits described above. The expensive part came before I filed the issue: six PRs of locally useful, reviewed work, and the formatting bug I kept reporting survived all of them.
 
 I'd written the intended output model into the spec from the start. Writing it down wasn't enough. The spec lost to a function with a name and a test, and reporting the symptoms louder didn't change that. The requirement had to be attached to the work a reviewer could see.
