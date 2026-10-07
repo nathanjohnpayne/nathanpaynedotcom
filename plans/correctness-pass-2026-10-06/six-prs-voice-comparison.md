@@ -112,7 +112,7 @@ Removed repeated durations from the issue introduction and closing. The body sti
 
 The spelled-out-number advisory was reviewed manually: the six PR roles, three parity attempts, two other fixes, seven blocking rounds, nine feedback items, nineteen review submissions, eighteen prompts, three stop hooks, eight task steps, six deliverables, and all durations remain. Removed occurrences repeat those facts or use number words as ordinary prose. The generic claim about anyone using an agent for “more than ten minutes” was removed; it was a rhetorical generalization, not a measured interval in this case.
 
-Prose word count: 3,358 → 2,645 (-21.2%). Whole file: 4,744 → 4,003.
+Final merged text (`main` at `68827d18`, after the #1148 review fixes): prose word count **3,358 → 2,647 (-21.2%)**; whole file 4,744 → 4,006. Owner-approved draft, kept as history: prose 3,358 → 2,645 (-21.2%); whole file 4,744 → 4,003.
 
 ## PR contents
 
