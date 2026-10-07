@@ -34,7 +34,7 @@ collections are:
 | `experience` | `src/content/experience/` | one `.md` per role | Six entries. Bullets / paragraph in the body. Optional `compact: true`—see *Experience density* below. |
 | `education` | `src/content/education/` | one `.md` | One entry (George Mason). |
 | `certifications` | `src/content/certifications/` | one `.md` per cert | Three entries. |
-| `resumeProjects` | `src/content/resume/projects/` | one `.md` per project | Seven entries. **Distinct from `projects`** (reserved for `/projects`). |
+| `resumeProjects` | `src/content/resume/projects/` | one `.md` per project | Seven entries. **Distinct from `projects`** (reserved for `/projects`). Each carries a required `claimsReviewed` stamp—see *Claims review*. |
 | `awards` (future) | `src/content/awards/` | one `.md`/`.yaml` per award | Dormant scaffold; deliberately not registered until the first entry exists, so an empty loader cannot pollute build logs (#654). |
 
 The `resumeProjects` collection must remain separate from the existing
@@ -500,13 +500,7 @@ canonical reads "Conceived and secured **approval for** an $18.1M investment in
 NCPv3." That is a paraphrase by design, and scoping the contract this way is
 what keeps it from classifying the shipped implementation as drift.
 
-The three compact pre-2016 bodies are where that distinction is load-bearing:
-they omit facts the canonical retains (see *Experience density* above, which
-names them). Those omissions are accepted, not drift. Drift would be a
-*divergent* sentence—the failure mode #850 recorded, where the canonical said
-one thing and the mirror said another—and nothing in this repository compares
-the two surfaces automatically, so it is worth knowing which failure you are
-looking at.
+The three compact pre-2016 bodies are where that distinction is load-bearing: they omit facts the canonical retains (see *Experience density* above, which names them). Those omissions are accepted, not drift. Drift would be a *divergent* sentence—the failure mode #850 recorded, where the canonical said one thing and the mirror said another—and nothing in this repository compares the two surfaces automatically, so it is worth knowing which failure you are looking at. The canonical is private, so no check here can read it. What is checked is whether each project entry has been reviewed against its case study since either last changed, which is a different question; see *Claims review* below.
 
 In particular:
 
@@ -519,6 +513,42 @@ In particular:
   the Disney NCP bullets, the Projects section) rather than deleted.
 - Six experience entries span Disney NCP (2021–2026) back to CNN
   (2002–2012).
+
+## Claims review
+
+The `resumeProjects` bodies summarize the case studies in `src/content/projects/`, and before #1165 nothing linked the two: a case study gained a qualification and the résumé kept the older, stronger claim (#1164). This section is the link. It sits beside § Content fidelity because it does not replace it; the two contracts answer different questions.
+
+**Source-of-truth roles.** Each document owns one thing:
+
+- **The project page owns the claims.** Facts, qualifiers, counts, dates and status come from `src/content/projects/<slug>.mdx`. Status and destination links already follow this rule, since `ProjectsSection` reads them from the `projects` collection (§ Projects).
+- **The canonical résumé owns the wording.** The compact résumé rendition of each project is written in the canonical, and the site copies it verbatim, per § Content fidelity.
+- **Changes flow one way: project page → canonical → site mirror.** A project-page change triggers a review of the canonical entry. Nothing in this repository writes to the canonical, and the canonical is never generated from project frontmatter. Syncing a project-owned résumé field into the canonical by script was considered and deferred; revisit it only if the Projects section stops being tailored per role, or if drift recurs with this check in place.
+
+**The stamp.** Each `src/content/resume/projects/<slug>.md` entry records the pair it was last reviewed as, in frontmatter:
+
+```yaml
+claimsReviewed:
+  caseStudy: "<sha256 of the case study>"
+  resume: "<sha256 of this entry's body>"
+  date: "<YYYY-MM-DD of the review>"
+```
+
+The entry's id is its project slug, and the case study is the file under `src/content/projects/` that declares that `slug`. `caseStudy` is the SHA-256 of that file's raw bytes, frontmatter included, since status, qualifiers and dates live there too. `resume` is the SHA-256 of the entry's Markdown body as UTF-8: everything after the line that closes the frontmatter (`---` on a line of its own), with leading and trailing whitespace removed. The body alone is hashed so that writing a new stamp, or editing `order`, `tech`, `url` or `repo`, cannot invalidate it; outer whitespace is dropped so an editor adding or removing the final newline is not a change to review. Both digests are lowercase hex. The schema in `src/content.config.ts` requires the stamp on every entry, rejects unknown keys, and requires `date` to be a real calendar date. Quote all three values: an unquoted `date` parses as a YAML timestamp and fails the schema.
+
+`tests/resume-claims-review.test.js` discovers every entry from the collection directory, never from a list of slugs, so an eighth project is covered when it lands. It fails when an entry has no matching case study, or when either hash no longer matches its stamp: a case-study edit that may have changed the evidence, or a résumé-entry edit that may have changed the claim. It does not require the reverse link. The résumé selects projects, so a case study with no résumé entry is curation rather than drift.
+
+**What a passing stamp proves, and what it does not.** A pass means the review is **current**: nobody has changed either side since a person last compared them. It does not prove the claims agree. That judgment stays with the reviewer, and the check exists to make sure the review happens. The cost is deliberate. Every edit on either side trips it, typo fixes included, and each one costs a single deliberate stamp update.
+
+**What it cannot cover.** The canonical is private and is not available in CI, so the check cannot read it. It cannot tell whether the site entry still matches the canonical word for word; that remains the manual contract in § Content fidelity. Nor can it detect a canonical edit that was never copied into the site. It sees only the two files in this repository.
+
+**The remedy.** When the check fails, the failure message names the side that changed and carries this procedure, so whoever hits it does not need the issue. The order is the same whichever side changed: an edit made directly to the site entry breaks verbatim fidelity, so the remedy starts at the canonical either way.
+
+1. Re-read the canonical's entry for the project (`job-search/nathan-payne-resume.md` in `nathanjohnpayne/docs`, checked out at `~/GitHub/docs`) against the case study.
+2. If a claim no longer holds, revise the canonical first. Edit it on disk and let the auto-commit "vault backup" job commit it; a targeted commit would sweep in the owner's unrelated edits in progress. If every claim still holds, the canonical needs no edit.
+3. Copy the canonical entry verbatim into `src/content/resume/projects/<slug>.md`.
+4. Update `claimsReviewed` with the new hashes and the date. The failure message prints the replacement stamp, computed from the files as they stand; if step 3 changed the body, rerun the test for the new `resume` hash.
+
+All seven entries were first stamped on 2026-10-07. The stamps record the state after #1164, which corrected the three entries the #1163 audit found claiming more than their case studies support (Five Across, Matchline and Mergepath); the audit compared the other four (Device Source of Truth, Friends & Family Billing, Override and Swipe Watch) against their case studies and found them consistent (#1163, finding 4), and no case study changed between that audit's baseline and the first stamp.
 
 ## Acceptance criteria
 
@@ -564,3 +594,4 @@ In particular:
    AI-augmented focus up front.
 10. AJ+, Current TV, and CNN render with `resume-entry--compact`, keep their
     full date ranges, and the CNN Magic Wall is still present.
+11. Every `resumeProjects` entry links by its id to exactly one case study and carries a `claimsReviewed` stamp whose `caseStudy` and `resume` hashes match the current files; a stale stamp fails with the side that changed, the four-step remedy, and the replacement stamp (§ Claims review).
