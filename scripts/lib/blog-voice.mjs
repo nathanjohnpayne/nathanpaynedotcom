@@ -142,7 +142,7 @@ function quotationPass(item, context, findings, file) {
   let projected = item.text;
   const quotes = [
     ...item.text.matchAll(
-      /"[^"\n]+"|“[^”]+”|(?<![\p{L}\p{N}])'(?:[^'\n]|(?<=[\p{L}\p{N}])'(?=[\p{L}\p{N}]))+'(?![\p{L}\p{N}])|(?<![\p{L}\p{N}])‘(?:[^’\n]|(?<=[\p{L}\p{N}])’(?=[\p{L}\p{N}]))+’(?![\p{L}\p{N}])/gu,
+      /"[^"]+"|“[^”]+”|(?<![\p{L}\p{N}])'(?:[^'\n]|(?<=[\p{L}\p{N}])'(?=[\p{L}\p{N}]))+'(?![\p{L}\p{N}])|(?<![\p{L}\p{N}])‘(?:[^’\n]|(?<=[\p{L}\p{N}])’(?=[\p{L}\p{N}]))+’(?![\p{L}\p{N}])/gu,
     ),
   ];
   const styles = new Set();
@@ -173,6 +173,26 @@ function quotationPass(item, context, findings, file) {
       ),
     );
   return { ...item, projected, uncertainQuotes, quoteStyles: [...styles] };
+}
+function htmlQuotations(source, node, context, dom, textWithin) {
+  return [...dom.window.document.querySelectorAll('blockquote, q')]
+    .filter((n) => !n.closest('pre, code, script, style'))
+    .map((n) => {
+      const range = dom.nodeLocation(n);
+      const start = node.position.start.offset + range.startOffset;
+      const end = node.position.start.offset + range.endOffset;
+      const text = textWithin ? textWithin(start, end) : (n.textContent ?? '');
+      return {
+        kind: 'quotation',
+        text,
+        excerpt: source.slice(start, end),
+        location: location(source, start, end),
+        attributed: Boolean(n.getAttribute('cite')) ||
+          evidenceCue.test(context.slice(-200)) ||
+          evidenceCue.test(source.slice(Math.max(0, start - 200), start)) ||
+          evidenceCue.test(text.slice(0, 160)),
+      };
+    });
 }
 function htmlText(source, node, context = '') {
   const dom = new JSDOM(node.value, { includeNodeLocations: true });
@@ -220,23 +240,7 @@ function htmlText(source, node, context = '') {
   collectPassage(document.body, false, true);
   flush();
   const semanticText = normalize(passages.map((p) => p.prose).join(' '));
-  const quotations = [...document.querySelectorAll('blockquote, q')]
-    .filter((n) => !n.closest('pre, code, script, style'))
-    .map((n) => {
-      const range = dom.nodeLocation(n);
-      const start = node.position.start.offset + range.startOffset;
-      const end = node.position.start.offset + range.endOffset;
-      return {
-        kind: 'quotation',
-        text: n.textContent ?? '',
-        excerpt: source.slice(start, end),
-        location: location(source, start, end),
-        attributed: Boolean(n.getAttribute('cite')) ||
-          evidenceCue.test(context.slice(-200)) ||
-          evidenceCue.test(source.slice(Math.max(0, start - 200), start)) ||
-          evidenceCue.test(n.textContent.slice(0, 160)),
-      };
-    });
+  const quotations = htmlQuotations(source, node, context, dom);
   document
     .querySelectorAll('script, style, pre, code, blockquote, q')
     .forEach((n) => n.replaceWith('\0'));
@@ -278,13 +282,7 @@ function htmlText(source, node, context = '') {
     quotations,
   };
 }
-function protectedHtmlText(
-  source,
-  node,
-  boundary = ' ',
-  includeQuotedText = false,
-  preserveLength = false,
-) {
+function htmlSkeleton(source, node) {
   // Only AST-classified HTML reaches the DOM parser. Escapes, code and link
   // destinations remain masked source, with original UTF-16 offsets intact.
   let raw = maskSource(rawOf(source, node));
@@ -297,7 +295,30 @@ function protectedHtmlText(
     for (const descendant of child.children ?? []) retainHtml(descendant);
   };
   retainHtml(node);
-  const dom = new JSDOM(raw, { includeNodeLocations: true });
+  return raw;
+}
+function inlineHtmlQuotations(source, node, context) {
+  const dom = new JSDOM(htmlSkeleton(source, node), { includeNodeLocations: true });
+  const textWithin = (start, end) => {
+    const collectText = (child) => {
+      if (child.children) return child.children.map(collectText).join('');
+      if (child.position.start.offset < start || child.position.end.offset > end) return '';
+      return inlineText(child, true);
+    };
+    return collectText(node);
+  };
+  const quotations = htmlQuotations(source, node, context, dom, textWithin);
+  dom.window.close();
+  return quotations;
+}
+function protectedHtmlText(
+  source,
+  node,
+  boundary = ' ',
+  includeQuotedText = false,
+  preserveLength = false,
+) {
+  const dom = new JSDOM(htmlSkeleton(source, node), { includeNodeLocations: true });
   const protectedSelector = includeQuotedText
     ? 'code, pre, script, style'
     : 'code, pre, script, style, q';
@@ -309,7 +330,7 @@ function protectedHtmlText(
     const start = child.position?.start.offset - node.position.start.offset;
     if (
       ranges.some((r) => start >= r.startOffset && start < r.endOffset) ||
-      child.type === 'inlineCode'
+      child.type === 'inlineCode' || child.type === 'code'
     )
       return preserveLength ? ' '.repeat(inlineText(child, true).length) : boundary;
     if (['image', 'imageReference'].includes(child.type)) return preserveLength ? '' : boundary;
@@ -341,6 +362,7 @@ export async function parseArticle(source, file) {
   let metadata = {};
   let yamlDocument;
   const fields = [];
+  const packetMetadata = [];
   const protectedMaterial = [];
   const findings = [];
   let body = source;
@@ -369,6 +391,7 @@ export async function parseArticle(source, file) {
           excerpt: source.slice(...node.range.slice(0, 2)),
           location: location(source, ...node.range.slice(0, 2)),
         };
+        packetMetadata.push(item);
         findings.push(
           finding(
             'review.yaml-alias',
@@ -384,22 +407,23 @@ export async function parseArticle(source, file) {
         for (const pair of node.items) walkYaml(pair.value, [...path, String(pair.key.value)]);
       } else if (isSeq(node)) {
         node.items.forEach((value, index) => walkYaml(value, [...path, index]));
-      } else if (isScalar(node) && typeof node.value === 'string') {
+      } else if (isScalar(node)) {
         const [start, end] = node.range;
         const item = {
           kind: 'metadata',
           field: path.join('.'),
-          text: node.value,
+          text: node.value ?? '',
           excerpt: source.slice(start, end),
           location: location(source, start, end),
         };
         const root = path[0];
         const last = path.at(-1);
+        packetMetadata.push(item);
         if (
-          visibleRoots.has(root) ||
+          typeof node.value === 'string' && (visibleRoots.has(root) ||
           (root === 'pullquotes' && ['text', 'label'].includes(last)) ||
           (root === 'sidebar' && ['title', 'description', 'caption'].includes(last)) ||
-          (root === 'sidebar' && last === 'content' && metadata.sidebar?.[path[1]]?.type === 'text')
+          (root === 'sidebar' && last === 'content' && metadata.sidebar?.[path[1]]?.type === 'text'))
         )
           fields.push(item);
         if (
@@ -435,9 +459,18 @@ export async function parseArticle(source, file) {
       ];
     return (node.children ?? []).flatMap(pullquotePassages);
   };
+  const quotedSemanticText = (node) => {
+    if (['heading', 'paragraph', 'tableCell'].includes(node.type))
+      return protectedHtmlText(source, node, ' ', true);
+    if (node.type === 'html') return htmlText(source, node).item.semanticText;
+    return (node.children ?? []).map(quotedSemanticText).join(' ');
+  };
   const collect = (node, context = '') => {
     if (['code', 'inlineCode', 'table', 'html', 'definition', 'blockquote'].includes(node.type))
-      protectedMaterial.push(entry(source, node, node.type, inlineText(node, true)));
+      protectedMaterial.push({
+        ...entry(source, node, node.type, inlineText(node, true)),
+        ...(node.type === 'blockquote' ? { semanticText: quotedSemanticText(node) } : {}),
+      });
     if (node.type === 'code') {
       if (node.lang === 'mermaid') {
         let attributes;
@@ -478,12 +511,14 @@ export async function parseArticle(source, file) {
       bodyText.push(...pullquotePassages(node));
       if (node.type === 'heading') headings.push(item);
       surfaces.push(quotationPass(item, context, findings, file));
+      const quotations = inlineHtmlQuotations(source, node, context);
+      protectedMaterial.push(...quotations);
+      reviewHtmlQuotations({ quotations });
       const collectInline = (child) => {
         if (child.type === 'inlineCode' || child.type === 'html')
           protectedMaterial.push(entry(source, child, child.type, inlineText(child, true)));
         if (child.type === 'html') {
           const html = htmlText(source, child, context);
-          reviewHtmlQuotations(html);
           for (const caption of html.captions)
             surfaces.push(quotationPass(caption, context, findings, file));
         }
@@ -583,7 +618,8 @@ export async function parseArticle(source, file) {
         ),
       );
   }
-  return { source, file, metadata, fields, surfaces, headings, protectedMaterial, findings };
+  packetMetadata.push(...fields.filter((item) => item.kind === 'diagram-metadata'));
+  return { source, file, metadata, fields, packetMetadata, surfaces, headings, protectedMaterial, findings };
 }
 
 function runMechanical(article, properNouns) {
@@ -775,7 +811,7 @@ function tokenCounts(article) {
   const tokens =
     article.surfaces
       .map((s) => s.semanticText ?? s.text)
-      .concat(article.protectedMaterial.filter((s) => s.kind === 'blockquote').map((s) => s.text))
+      .concat(article.protectedMaterial.filter((s) => s.kind === 'blockquote').map((s) => s.semanticText))
       .join(' ')
       .match(semanticTokens) ?? [];
   return tokens.map((t) => t.toLowerCase()).sort();
@@ -848,7 +884,7 @@ export async function checkVoice({
   const findings = [...unique.values()].sort(
     (a, b) => a.location.start.offset - b.location.start.offset || a.rule.localeCompare(b.rule),
   );
-  const fieldNames = [...new Set([...(before?.fields ?? []), ...after.fields].map((f) => f.field))];
+  const fieldNames = [...new Set([...(before?.packetMetadata ?? []), ...after.packetMetadata].map((f) => f.field))];
   const packet = {
     manualMeaningReviewRequired: true,
     responsibilities:
@@ -863,8 +899,8 @@ export async function checkVoice({
       : 'New post: review the complete article; no before article was supplied.',
     visibleMetadata: fieldNames.map((field) => ({
       field,
-      before: before?.fields.find((f) => f.field === field) ?? null,
-      after: after.fields.find((f) => f.field === field) ?? null,
+      before: before?.packetMetadata.find((f) => f.field === field) ?? null,
+      after: after.packetMetadata.find((f) => f.field === field) ?? null,
     })),
     protectedMaterial: { before: before?.protectedMaterial ?? [], after: after.protectedMaterial },
     approvalSummary: {

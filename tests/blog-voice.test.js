@@ -131,6 +131,36 @@ We organised the colour.
     }
   });
 
+  it('records complete inline HTML quotations with decoded Markdown text and source ranges', async () => {
+    const source = 'I called it <q>Our **colour**.</q> and chose color.\n';
+    const report = await check(source);
+    const excerpt = '<q>Our **colour**.</q>';
+    const quotation = report.packet.protectedMaterial.after.find((p) => p.kind === 'quotation');
+    expect(quotation.text).toBe('Our colour.');
+    expect(quotation.excerpt).toBe(excerpt);
+    expect(quotation.location.start.offset).toBe(source.indexOf('<q>'));
+    expect(quotation.location.end.offset).toBe(source.indexOf('</q>') + 4);
+    const warning = report.findings.find((f) => f.rule === 'review.quotation-attribution');
+    expect(warning.excerpt).toBe(excerpt);
+    expect(warning.location).toEqual(quotation.location);
+    expect(errors(report)).toEqual([]);
+    const attributed = await check('Claude wrote: <q>Our *colour*.</q>\n');
+    expect(rules(attributed)).not.toContain('review.quotation-attribution');
+    expect(attributed.packet.protectedMaterial.after.find((p) => p.kind === 'quotation').text).toBe(
+      'Our colour.',
+    );
+  });
+
+  it.each(['"', '“'])('preserves attributed soft-wrapped double quotations (%s)', async (open) => {
+    const close = open === '“' ? '”' : open;
+    const report = await check(`Claude wrote: ${open}We\norganised colour.${close}\n`);
+    expect(errors(report)).toEqual([]);
+    expect(rules(report)).not.toContain('review.quotation-attribution');
+    const ambiguous = await check(`I called it ${open}Our\ncolour.${close}\n`);
+    expect(errors(ambiguous)).toEqual([]);
+    expect(rules(ambiguous)).toContain('review.quotation-attribution');
+  });
+
   it('checks prose after an HTML code span at the start of a Markdown paragraph', async () => {
     const report = await check('<code>literal</code> We organised colour.\n');
     expect(rules(report)).toEqual(
@@ -444,6 +474,36 @@ describe('source-pinned examples, advisory warnings and complete meaning review'
     ).not.toContain('review.negation-modal-change');
   });
 
+  it.each([
+    '> `will not ship`\n',
+    '> ```text\n> will not ship\n> ```\n',
+    '> <code>will not ship</code>\n',
+  ])(
+    'excludes code in Markdown blockquotes from semantic token warnings (%s)',
+    async (beforeSource) => {
+      expect(rules(await check(beforeSource.replace('not ', ''), { beforeSource }))).not.toContain(
+        'review.negation-modal-change',
+      );
+    },
+  );
+
+  it('counts nested Markdown and HTML quotation prose once while retaining code evidence', async () => {
+    const beforeSource = '> We will not ship.\n';
+    const nested = '> > We will not ship.\n';
+    expect(rules(await check(nested, { beforeSource }))).not.toContain(
+      'review.negation-modal-change',
+    );
+    const htmlBefore = '> <blockquote cite="/source">We will not ship.</blockquote>\n';
+    expect(
+      rules(await check(htmlBefore.replace('not ', ''), { beforeSource: htmlBefore })),
+    ).toContain('review.negation-modal-change');
+    const code = await check('> `will ship`\n', { beforeSource: '> `will not ship`\n' });
+    expect(
+      code.packet.protectedMaterial.before.some((p) => p.excerpt.includes('`will not ship`')),
+    ).toBe(true);
+    expect(code.manualMeaningReviewRequired).toBe(true);
+  });
+
   it.each(['figcaption', 'caption'])(
     'includes visible HTML %s tokens once without admitting caption-only pullquotes or code',
     async (tag) => {
@@ -530,6 +590,29 @@ describe('source-pinned examples, advisory warnings and complete meaning review'
     expect(newPacket).toContain(newPost.packet.after.sha256);
     expect(newPacket).toContain('"before": null');
     expect(newPacket).toContain(JSON.stringify(newPost.packet.protectedMaterial, null, 2));
+  });
+
+  it('pairs non-prose frontmatter and diagram metadata without linting configuration as prose', async () => {
+    const beforeSource =
+      '---\ndate: 2026-10-06\nfeatured: false\nimage: /Our-colour.png\ndescription:\n---\n\nI chose it.\n';
+    const source = beforeSource.replace('2026-10-06', '2026-10-07').replace('false', 'true');
+    const report = await check(source, { beforeSource });
+    const date = report.packet.visibleMetadata.find((m) => m.field === 'date');
+    expect(date.before.text).toBe('2026-10-06');
+    expect(date.after.text).toBe('2026-10-07');
+    expect(date.before.location.start.line).toBe(2);
+    expect(date.after.excerpt).toBe('2026-10-07');
+    const featured = report.packet.visibleMetadata.find((m) => m.field === 'featured');
+    expect(featured.before.text).toBe('false');
+    expect(featured.after.text).toBe('true');
+    expect(report.packet.visibleMetadata.find((m) => m.field === 'description').after.text).toBe(
+      '',
+    );
+    expect(errors(report)).toEqual([]);
+    expect(rules(report)).toContain('review.metadata-change');
+    expect(readableReport(report, true)).toContain(
+      JSON.stringify(report.packet.visibleMetadata, null, 2),
+    );
   });
 });
 

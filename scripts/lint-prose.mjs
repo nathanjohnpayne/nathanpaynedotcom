@@ -386,10 +386,10 @@ function printHuman(report) {
 }
 
 function main() {
-if (!/^\d+\.\d+\.\d+$/u.test(PINNED_VALE_VERSION)) {
-  console.error('prose lint: invalid pinned version in .vale-version');
-  process.exit(2);
-}
+  if (!/^\d+\.\d+\.\d+$/u.test(PINNED_VALE_VERSION)) {
+    console.error('prose lint: invalid pinned version in .vale-version');
+    process.exit(2);
+  }
   let parsed;
   try {
     parsed = parseArguments(process.argv.slice(2));
