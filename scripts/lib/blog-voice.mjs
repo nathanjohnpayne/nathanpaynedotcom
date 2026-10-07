@@ -28,6 +28,7 @@ export const meaningChecklist = [
 const visibleRoots = new Set([
   'title',
   'shortTitle',
+  'resumeTitle',
   'description',
   'seoTitle',
   'seoDescription',
@@ -121,21 +122,47 @@ const blockContainers = new Set(['root', 'list', 'listItem', 'blockquote', 'tabl
 function joinedText(node, values) {
   return values.join(blockContainers.has(node.type) ? ' ' : '');
 }
-// HTML classification belongs to the Markdown AST. Only plain line breaks
-// have a local whitespace equivalence; other HTML is left for manual review.
+// Recognize only the site's literal conventions on existing Markdown AST nodes.
 const plainBreak = (node) => node.type === 'html' && /^<br\s*\/?>$/iu.test(node.value);
-const hasHtml = (node, opaqueOnly = false) =>
-  (node.type === 'html' && (!opaqueOnly || !plainBreak(node))) ||
-  (node.children ?? []).some((child) => hasHtml(child, opaqueOnly));
-// mdast distinguishes inline HTML in prose from block HTML leaves. Do not
-// infer whether any element is open, closed, cited or visible.
-const hasBlockHtml = (node) =>
+const emptyAnchor = /^<span id="[^"<>\r\n]+"><\/span>$/u;
+const figureOpen = /^<div class="figure-pair">$/u;
+const figureClose = /^<\/div>$/u;
+const hasHtml = (node, transparent = new Set()) =>
+  (node.type === 'html' && !transparent.has(node)) ||
+  (node.children ?? []).some((child) => hasHtml(child, transparent));
+const hasBlockHtml = (node, transparent) =>
   !['heading', 'paragraph', 'tableCell'].includes(node.type) &&
-  (node.type === 'html' ? !plainBreak(node) : (node.children ?? []).some(hasBlockHtml));
+  (node.type === 'html' ? !transparent.has(node) : (node.children ?? []).some((child) => hasBlockHtml(child, transparent)));
+function siteHtmlNodes(tree) {
+  const transparent = new Set();
+  const visit = (node) => {
+    const children = node.children ?? [];
+    for (const [index, child] of children.entries()) {
+      if (child.type === 'html') {
+        if (plainBreak(child) || emptyAnchor.test(child.value)) transparent.add(child);
+        const next = children[index + 1];
+        if (next?.type === 'html' && child.position.end.offset === next.position.start.offset && emptyAnchor.test(child.value + next.value)) {
+          transparent.add(child);
+          transparent.add(next);
+        }
+        if (figureOpen.test(child.value)) {
+          const end = children.findIndex((n, i) => i > index && n.type === 'html');
+          if (end > index && figureClose.test(children[end].value) && children.slice(index + 1, end).every((n) => !hasHtml(n))) {
+            transparent.add(child);
+            transparent.add(children[end]);
+          }
+        }
+      }
+      visit(child);
+    }
+  };
+  visit(tree);
+  return transparent;
+}
 function inlineText(node, includeCode = false, maskCode = false) {
   if (node.type === 'inlineCode' || node.type === 'code')
     return includeCode ? node.value : maskCode ? ' '.repeat(node.value.length) : ' ';
-  if (node.type === 'html') return ' ';
+  if (node.type === 'html') return plainBreak(node) ? ' ' : '';
   if (node.type === 'image' || node.type === 'imageReference') return '';
   if (node.type === 'break') return ' ';
   if (typeof node.value === 'string') return node.value;
@@ -296,10 +323,11 @@ export async function parseArticle(source, file) {
   const bodyText = [];
   const headings = [];
   let diagramIndex = 0;
-  const opaqueHtml = hasHtml(tree, true);
-  const manualBody = hasBlockHtml(tree);
+  const transparent = siteHtmlNodes(tree);
+  const opaqueHtml = hasHtml(tree, transparent);
+  const manualBody = hasBlockHtml(tree, transparent);
   const reviewRawHtml = (node) => {
-    if ((['heading', 'paragraph', 'tableCell'].includes(node.type) && hasHtml(node)) || node.type === 'html') {
+    if ((['heading', 'paragraph', 'tableCell'].includes(node.type) && hasHtml(node, transparent)) || (node.type === 'html' && !transparent.has(node))) {
       findings.push(finding(
         'review.html', 'warning', entry(source, node, node.type, ''),
         'Raw HTML present; review quotations, attribution, pullquotes and wording by hand. HTML is not analyzed; inline HTML makes its prose surface manual review; non-break block HTML makes body prose manual review because its scope is unknown.', file,
@@ -308,15 +336,16 @@ export async function parseArticle(source, file) {
   };
   reviewRawHtml(tree);
   const pullquotePassages = (node) => {
-    if (manualBody || (['heading', 'paragraph', 'tableCell'].includes(node.type) && hasHtml(node, true))) return [];
+    if (['heading', 'paragraph', 'tableCell'].includes(node.type) && hasHtml(node, transparent)) return [];
     if (['heading', 'paragraph', 'tableCell'].includes(node.type))
       return [normalizePassage(inlineText(node, true), inlineText(node, false, true))];
     return (node.children ?? []).flatMap(pullquotePassages);
   };
+  bodyText.push(...pullquotePassages(tree));
   const quotedSemanticText = (node) => {
     if (manualBody) return '';
     if (['heading', 'paragraph', 'tableCell'].includes(node.type))
-      return hasHtml(node, true) ? '' : inlineText(node);
+      return hasHtml(node, transparent) ? '' : inlineText(node);
     return (node.children ?? []).map(quotedSemanticText).join(' ');
   };
   const retainLeaves = (node) => {
@@ -349,7 +378,6 @@ export async function parseArticle(source, file) {
     if (node.type === 'definition') return;
     if (node.type === 'blockquote') {
       const item = entry(source, node, 'quotation', inlineText(node, true));
-      bodyText.push(...pullquotePassages(node));
       retainLeaves(node);
       if (manualBody) return;
       if (!evidenceCue.test(context.slice(-200)) &&
@@ -370,14 +398,13 @@ export async function parseArticle(source, file) {
       // Do not reconstruct HTML scope, rendered passages or quotation ownership.
       // Even sibling Markdown can belong to an open HTML element: leave body
       // prose to the editor when a block HTML leaf makes scope unknown.
-      if (manualBody || hasHtml(node, true)) return;
+      if (manualBody || hasHtml(node, transparent)) return;
       const item = {
         ...entry(source, node, node.type, inlineText(node)),
         semanticText: inlineText(node),
       };
-      bodyText.push(...pullquotePassages(node));
       if (node.type === 'heading') headings.push(item);
-      surfaces.push(quotationPass(item, context, findings, file));
+      if (item.text.trim()) surfaces.push(quotationPass(item, context, findings, file));
       const collectImages = (child) => {
         if (child.type === 'image' || child.type === 'imageReference')
           surfaces.push(quotationPass(entry(source, child, 'caption', child.alt ?? ''), context, findings, file));
@@ -391,7 +418,7 @@ export async function parseArticle(source, file) {
     const children = node.children ?? [];
     const contextProse = (child) => {
       if (!child || ['code', 'inlineCode', 'blockquote'].includes(child.type)) return '';
-      return hasHtml(child, true) ? '' : inlineText(child);
+      return hasHtml(child, transparent) ? '' : inlineText(child);
     };
     for (const [index, child] of children.entries()) {
       const next = children[index + 1];
@@ -432,21 +459,21 @@ export async function parseArticle(source, file) {
     );
   for (const item of fields.filter((f) => /^pullquotes\.\d+\.text$/u.test(f.field))) {
     const quote = normalize(item.text);
-    // Unexamined HTML may hold the pullquote. review.html requires the editor
-    // to establish verbatim fidelity; do not claim a mechanical pass or failure.
-    if (!opaqueHtml && (!quote || !bodyText.some(({ text, prose }) => containsVerbatim(text, quote, prose))))
+    if (!quote || !bodyText.some(({ text, prose }) => containsVerbatim(text, quote, prose)))
       findings.push(
         finding(
           'voice.pullquote-verbatim',
-          'error',
+          opaqueHtml ? 'warning' : 'error',
           item,
-          'The decoded pullquote must occur verbatim within one body passage after Markdown formatting and whitespace normalization. Punctuation, case and wording are preserved; paraphrase is not equivalent.',
+          opaqueHtml
+            ? 'The pullquote was not found verbatim in analyzed Markdown prose and may be inside opaque HTML. Check it by hand.'
+            : 'The decoded pullquote must occur verbatim within one body passage after Markdown formatting and whitespace normalization. Punctuation, case and wording are preserved; paraphrase is not equivalent.',
           file,
         ),
       );
   }
   packetMetadata.push(...fields.filter((item) => item.kind === 'diagram-metadata'));
-  return { source, file, metadata, fields, packetMetadata, surfaces, headings, protectedMaterial, findings };
+  return { source, file, metadata, fields, packetMetadata, surfaces, headings, protectedMaterial, findings, opaqueHtml, manualBody };
 }
 
 function runMechanical(article, properNouns) {
@@ -668,7 +695,7 @@ export async function checkVoice({
   const before =
     beforeSource === null ? null : await parseArticle(beforeSource, baseline.path ?? file);
   // A removed HTML surface still needs review in the complete before article.
-  after.findings.push(...(before?.findings ?? []).filter((f) => f.rule === 'review.html').map((f) => ({
+  after.findings.push(...(before?.findings ?? []).filter((f) => f.rule === 'review.html' && !after.findings.some((a) => a.rule === f.rule && a.excerpt === f.excerpt)).map((f) => ({
     ...f, sourceVersion: 'before', reason: 'Before article: ' + f.reason,
   })));
   runMechanical(after, properNouns);
@@ -688,7 +715,12 @@ export async function checkVoice({
         file,
       ),
     );
-    if (JSON.stringify(tokenCounts(before)) !== JSON.stringify(tokenCounts(after)))
+    if (before.opaqueHtml || after.opaqueHtml)
+      after.findings.push(finding(
+        'review.semantic-inventory-incomplete', 'warning', item,
+        'Opaque HTML makes one or both token inventories partial. Comparison skipped; review negation, modality and planned work by hand.', file,
+      ));
+    else if (JSON.stringify(tokenCounts(before)) !== JSON.stringify(tokenCounts(after)))
       after.findings.push(
         finding(
           'review.negation-modal-change',
@@ -709,8 +741,8 @@ export async function checkVoice({
         ),
       );
     if (
-      JSON.stringify(before.protectedMaterial.map((p) => p.excerpt)) !==
-      JSON.stringify(after.protectedMaterial.map((p) => p.excerpt))
+      JSON.stringify(before.protectedMaterial.map((p) => p.kind === 'quotation' ? p.text : p.excerpt)) !==
+      JSON.stringify(after.protectedMaterial.map((p) => p.kind === 'quotation' ? p.text : p.excerpt))
     )
       after.findings.push(
         finding(

@@ -1,6 +1,14 @@
 // @vitest-environment node
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, readFileSync, writeFileSync, mkdirSync, rmSync, existsSync } from 'node:fs';
+import {
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  writeFileSync,
+  mkdirSync,
+  rmSync,
+  existsSync,
+} from 'node:fs';
 import { join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 import { describe, it, expect } from 'vitest';
@@ -177,9 +185,139 @@ We organised the colour.
     const source = '<span id="original-anchor"></span>\n\nWe organised colour.\n';
     const report = await check(source);
     expect(rules(report)).toEqual(
-      expect.arrayContaining(['review.html', 'voice.narrator-plural', 'voice.american-spelling']),
+      expect.arrayContaining(['voice.narrator-plural', 'voice.american-spelling']),
     );
+    expect(rules(report)).not.toContain('review.html');
     expect(report.packet.after.source).toBe(source);
+  });
+
+  it('keeps the exact site conventions transparent and their Markdown prose checked', async () => {
+    const source = readFileSync('tests/fixtures/blog-voice/site-conventions.md', 'utf8');
+    const article = await parseArticle(source, file);
+    expect(article.opaqueHtml).toBe(false);
+    expect(article.manualBody).toBe(false);
+    const report = await check(source);
+    expect(rules(report)).not.toContain('review.html');
+    expect(errors(report)).toEqual([]);
+    expect(
+      rules(await check(source.replace('The **chosen** result.', 'The different result.'))),
+    ).toContain('voice.pullquote-verbatim');
+    expect(
+      rules(await check(source.replace('The **chosen** result.', 'We chose colour.'))),
+    ).toContain('voice.narrator-plural');
+  });
+
+  it.each([
+    '<span id="anchor">Content</span>',
+    '<span id="anchor" hidden></span>',
+    '<span class="anchor" id="anchor"></span>',
+    '<span id="anchor">',
+    '<div class="figure-pair" hidden>\n\nI chose it.\n\n</div>',
+    '<div class="figure-pair">\n\n<custom-note>Text</custom-note>\n\n</div>',
+    '<div class="figure-pair">\n\nI chose it.',
+    '<custom-note></custom-note>',
+  ])(
+    'leaves non-convention HTML manual instead of parsing tags or attributes (%s)',
+    async (source) => {
+      expect(rules(await check(source))).toContain('review.html');
+    },
+  );
+
+  it('keeps analyzed Markdown pullquote matches active even beside opaque block HTML', async () => {
+    const source =
+      '---\npullquotes:\n  - text: "The chosen result."\n---\n\n<custom-note></custom-note>\n\nThe chosen result.\n';
+    expect(rules(await check(source))).not.toContain('voice.pullquote-verbatim');
+    const report = await check(source.replace('\nThe chosen result.', '\nThe different result.'));
+    expect(report.findings.find((f) => f.rule === 'voice.pullquote-verbatim')).toMatchObject({
+      severity: 'warning',
+      reason: expect.stringContaining('may be inside opaque HTML'),
+    });
+    expect(report.exitCode).toBe(0);
+  });
+
+  it('checks the live corpus without disabling body surfaces or downgrading pullquotes', async () => {
+    const posts = readdirSync('src/content/blog', { recursive: true }).filter((name) =>
+      name.endsWith('.md'),
+    );
+    expect(posts.length).toBeGreaterThan(0);
+    for (const path of posts) {
+      const article = await parseArticle(
+        readFileSync(join('src/content/blog', path), 'utf8'),
+        path,
+      );
+      expect(
+        article.surfaces.filter((surface) => !surface.field && surface.text.trim()).length,
+        path,
+      ).toBeGreaterThan(0);
+      expect(article.opaqueHtml, path).toBe(false);
+      expect(article.manualBody, path).toBe(false);
+      expect(
+        article.findings.filter((f) => f.rule === 'review.html'),
+        path,
+      ).toEqual([]);
+    }
+  });
+
+  it('rejects the invented-burden mutation in the real Autofix post', async () => {
+    const fixture = JSON.parse(
+      readFileSync('tests/fixtures/blog-voice/autofix-pullquote-mutation.json', 'utf8'),
+    );
+    const original = readFileSync(fixture.path, 'utf8');
+    const mutation = original.replace(fixture.before, fixture.after);
+    expect(mutation).not.toBe(original);
+    expect(mutation.replace(fixture.after, fixture.before)).toBe(original);
+    const report = await check(mutation);
+    expect(report.exitCode).toBe(1);
+    expect(report.findings).toContainEqual(
+      expect.objectContaining({
+        rule: 'voice.pullquote-verbatim',
+        severity: 'error',
+        surface: 'pullquotes.0.text',
+      }),
+    );
+    expect(report.packet.after.source).toBe(mutation);
+  });
+
+  it('does not duplicate an unchanged HTML surface between complete before/after articles', async () => {
+    const beforeSource = '<custom-note></custom-note>\n\nI chose it.\n';
+    const report = await check(beforeSource.replace('chose', 'kept'), { beforeSource });
+    expect(report.findings.filter((f) => f.rule === 'review.html')).toHaveLength(1);
+    expect(report.packet.before.source).toBe(beforeSource);
+  });
+
+  it.each([
+    ['I <span>will not</span> ship.\n', 'I will not ship.\n'],
+    ['I will not ship.\n', 'I <span>will not</span> ship.\n'],
+  ])(
+    'skips partial semantic-token comparisons when HTML changes eligibility',
+    async (beforeSource, source) => {
+      const report = await check(source, { beforeSource });
+      expect(rules(report)).not.toContain('review.negation-modal-change');
+      expect(
+        report.findings.filter((f) => f.rule === 'review.semantic-inventory-incomplete'),
+      ).toHaveLength(1);
+      expect(report.exitCode).toBe(0);
+    },
+  );
+
+  it('compares focused quotation text without treating neighboring prose as a protected-source edit', async () => {
+    const beforeSource = 'Claude wrote: "I can ship." I agreed.\n';
+    const report = await check(beforeSource.replace('I agreed', 'I disagreed'), { beforeSource });
+    expect(rules(report)).not.toContain('review.protected-material-change');
+    expect(rules(report)).toContain('review.changed-passages');
+    expect(
+      report.packet.protectedMaterial.after.find((p) => p.kind === 'quotation').excerpt,
+    ).toContain('I disagreed');
+  });
+
+  it('checks resumeTitle as visible prose while preserving its pinned capitalization', async () => {
+    const report = await check(
+      '---\nresumeTitle: "Our Colour From The Site"\n---\n\nI chose it.\n',
+    );
+    expect(report.findings).toContainEqual(
+      expect.objectContaining({ rule: 'voice.narrator-plural', surface: 'resumeTitle' }),
+    );
+    expect(report.findings.filter((f) => f.rule === 'voice.heading-sentence-case')).toEqual([]);
   });
 
   it('does not flag a post without raw HTML', async () => {
