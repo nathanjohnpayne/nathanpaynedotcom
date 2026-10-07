@@ -4,7 +4,7 @@ import { JSDOM } from 'jsdom';
 import { isAlias, isMap, isScalar, isSeq, parseDocument } from 'yaml';
 import { createHash } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync, mkdirSync } from 'node:fs';
+import { mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync, mkdirSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -123,7 +123,7 @@ function joinedText(node, values) {
   return values.join(blockContainers.has(node.type) ? ' ' : '');
 }
 function inlineText(node, includeCode = false) {
-  if (node.type === 'inlineCode') return includeCode ? node.value : ' ';
+  if (node.type === 'inlineCode' || node.type === 'code') return includeCode ? node.value : ' ';
   if (node.type === 'html') return '';
   if (node.type === 'image' || node.type === 'imageReference') return '';
   if (node.type === 'break') return ' ';
@@ -148,7 +148,7 @@ function quotationPass(item, context, findings, file) {
   let projected = item.text;
   const quotes = [
     ...item.text.matchAll(
-      /"[^"]+"|“[^”]+”|(?<![\p{L}\p{N}])'(?:[^']|(?<=[\p{L}\p{N}])'(?=[\p{L}\p{N}]))+'(?![\p{L}\p{N}])|(?<![\p{L}\p{N}])‘(?:[^’]|(?<=[\p{L}\p{N}])’(?=[\p{L}\p{N}]))+’(?![\p{L}\p{N}])/gu,
+      /(?<!\p{N})"[^"]+"|“[^”]+”|(?<![\p{L}\p{N}])'(?:[^']|(?<=[\p{L}\p{N}])'(?=[\p{L}\p{N}]))+'(?![\p{L}\p{N}])|(?<![\p{L}\p{N}])‘(?:[^’]|(?<=[\p{L}\p{N}])’(?=[\p{L}\p{N}]))+’(?![\p{L}\p{N}])/gu,
     ),
   ];
   const styles = new Set();
@@ -181,6 +181,14 @@ function quotationPass(item, context, findings, file) {
   return { ...item, projected, uncertainQuotes, quoteStyles: [...styles] };
 }
 function htmlQuotations(source, node, context, dom, textWithin) {
+  const textNodes = [];
+  const walker = dom.window.document.createTreeWalker(dom.window.document.body, dom.window.NodeFilter.SHOW_TEXT);
+  while (walker.nextNode()) {
+    const text = walker.currentNode;
+    if (text.parentElement?.closest('pre, code, script, style, blockquote, q')) continue;
+    const range = dom.nodeLocation(text);
+    if (range) textNodes.push({ text: text.data, start: node.position.start.offset + range.startOffset, end: node.position.start.offset + range.endOffset });
+  }
   return [...dom.window.document.querySelectorAll('blockquote, q')]
     .filter((n) => !n.closest('pre, code, script, style'))
     .map((n) => {
@@ -195,8 +203,8 @@ function htmlQuotations(source, node, context, dom, textWithin) {
         location: location(source, start, end),
         attributed: Boolean(n.closest('blockquote[cite]:not([cite=""]), q[cite]:not([cite=""])')) ||
           evidenceCue.test(context.slice(-200)) ||
-          evidenceCue.test(source.slice(Math.max(0, start - 200), start)) ||
-          followingEvidenceCue.test(source.slice(end, end + 200)) ||
+          evidenceCue.test((textWithin?.(node.position.start.offset, start, false) ?? textNodes.filter((t) => t.end <= start).map((t) => t.text).join(' ')).slice(-200)) ||
+          followingEvidenceCue.test((textWithin?.(end, node.position.end.offset, false) ?? textNodes.filter((t) => t.start >= end).map((t) => t.text).join(' ')).slice(0, 200)) ||
           evidenceCue.test(text.slice(0, 160)),
       };
     });
@@ -225,6 +233,7 @@ function htmlText(source, node, context = '') {
       return;
     }
     const tag = child.localName;
+    if (child.nodeType !== 1) return;
     if (['script', 'style', 'img'].includes(tag) ||
         (!includeCaptions && ['figcaption', 'caption'].includes(tag))) {
       flush();
@@ -235,10 +244,12 @@ function htmlText(source, node, context = '') {
       passageProse += ' ';
       return;
     }
-    if (blocks.has(tag)) flush();
+    const display = blocks.has(tag) ? 'block' : dom.window.getComputedStyle(child).display;
+    const isBlock = ['block', 'list-item', 'table', 'table-row', 'table-cell', 'table-caption', 'table-row-group', 'table-header-group', 'table-footer-group', 'flow-root', 'flex', 'grid'].includes(display);
+    if (isBlock) flush();
     for (const descendant of child.childNodes)
       collectPassage(descendant, code || tag === 'code' || tag === 'pre', includeCaptions);
-    if (blocks.has(tag)) flush();
+    if (isBlock) flush();
   };
   collectPassage(document.body);
   flush();
@@ -314,7 +325,9 @@ function inlineHtmlQuotations(source, node, context) {
   const skeleton = htmlSkeleton(source, node);
   if (!skeleton.trim()) return [];
   const dom = new JSDOM(skeleton, { includeNodeLocations: true });
-  const textWithin = (start, end) => {
+  const contextRanges = [...dom.window.document.querySelectorAll('code, pre, script, style, blockquote, q')]
+    .map((n) => dom.nodeLocation(n)).filter(Boolean);
+  const textWithin = (start, end, includeCode = true) => {
     const containsRawHtml = (child) =>
       (child.type === 'html' && child.position.start.offset <= start &&
         child.position.end.offset >= end) ||
@@ -325,7 +338,10 @@ function inlineHtmlQuotations(source, node, context) {
     const collectText = (child) => {
       if (child.children) return joinedText(child, child.children.map(collectText));
       if (child.position.start.offset < start || child.position.end.offset > end) return '';
-      return inlineText(child, true);
+      if (!includeCode && contextRanges.some((range) =>
+        child.position.start.offset >= node.position.start.offset + range.startOffset &&
+        child.position.start.offset < node.position.start.offset + range.endOffset)) return ' ';
+      return inlineText(child, includeCode);
     };
     return collectText(node);
   };
@@ -485,6 +501,7 @@ export async function parseArticle(source, file) {
         ));
   };
   const pullquotePassages = (node) => {
+    if (node.type === 'html') return htmlText(source, node).passages;
     if (['heading', 'paragraph', 'tableCell'].includes(node.type))
       return [
         normalizePassage(
@@ -526,6 +543,7 @@ export async function parseArticle(source, file) {
     if (node.type === 'blockquote') {
       const item = entry(source, node, 'quotation', inlineText(node, true));
       bodyText.push(...pullquotePassages(node));
+      if (htmlSkeleton(source, node).trim()) reviewHtml(item);
       if (!evidenceCue.test(context.slice(-200)) && !evidenceCue.test(item.text.slice(0, 160)) &&
           !followingEvidenceCue.test(following.slice(0, 200)))
         findings.push(
@@ -595,30 +613,15 @@ export async function parseArticle(source, file) {
     const children = node.children ?? [];
     for (const [index, child] of children.entries()) {
       const next = children[index + 1];
-      collect(child, previous, next?.type === 'paragraph' ? inlineText(next, true) : '');
-      previous = inlineText(child, true);
+      collect(child, previous, next?.type === 'paragraph' ? inlineText(next) : '');
+      previous = inlineText(child);
     }
   };
   collect(tree);
   for (const item of fields) {
-    const fieldTree = await markdownTree(item.text);
-    // Semantic Markdown normalization uses the same parser as the body.
-    const rendered = inlineText(fieldTree, true);
-    const fieldNode = {
-      ...fieldTree,
-      position: { start: { offset: 0 }, end: { offset: item.text.length } },
-    };
-    const prose = protectedHtmlText(item.text, fieldNode);
-    const semanticText = protectedHtmlText(item.text, fieldNode, ' ', true);
-    surfaces.push(quotationPass({ ...item, text: prose, semanticText, rendered }, '', findings, file));
-    if (htmlSkeleton(item.text, fieldNode).trim()) {
-      reviewHtml(item);
-      const quotations = inlineHtmlQuotations(item.text, fieldNode, '').map((quotation) => ({
-        ...quotation, field: item.field, excerpt: item.excerpt, location: item.location,
-      }));
-      protectedMaterial.push(...quotations);
-      reviewHtmlQuotations({ quotations });
-    }
+    // BlogPost.astro escapes these expressions as plain text. Backticks,
+    // image syntax and HTML-like strings are visible characters, not markup.
+    surfaces.push(quotationPass({ ...item, semanticText: item.text, rendered: item.text }, '', findings, file));
   }
   const headingForms = new Set(
     headings.map((h) => h.convention ?? (h.excerpt.trimStart().startsWith('#') ? 'ATX' : 'setext')),
@@ -645,7 +648,7 @@ export async function parseArticle(source, file) {
       ),
     );
   for (const item of fields.filter((f) => /^pullquotes\.\d+\.text$/u.test(f.field))) {
-    const quote = normalize(inlineText(await markdownTree(item.text), true));
+    const quote = normalize(item.text);
     if (!quote || !bodyText.some(({ text, prose }) => containsVerbatim(text, quote, prose)))
       findings.push(
         finding(
@@ -684,11 +687,19 @@ function runMechanical(article, properNouns) {
     const config = join(temporary, 'vale.ini');
     writeFileSync(
       config,
-      `StylesPath = ${join(temporary, 'styles')}\nMinAlertLevel = warning\n[*.md]\nBasedOnStyles = Voice\n`,
+      `StylesPath = ${join(temporary, 'styles')}\nMinAlertLevel = warning\n[*.md]\nBasedOnStyles = Voice\n[*.txt]\nBasedOnStyles = Voice\n`,
     );
     const projection = join(temporary, 'authored.md');
     const lineMap = new Map();
+    const fileMaps = new Map();
+    const files = [];
     const lines = [];
+    const addProse = (text, item, ambiguous) => {
+      const path = join(temporary, `prose-${files.length}.txt`);
+      writeFileSync(path, normalize(text) + '\n');
+      files.push(path);
+      fileMaps.set(realpathSync(path), new Map([[1, { item, ambiguous }]]));
+    };
     for (const surface of article.surfaces) {
       const text = normalize(surface.projected);
       // The approved batch permits a capital first word in a colon-delimited subtitle.
@@ -699,25 +710,30 @@ function runMechanical(article, properNouns) {
           surface.kind === 'heading' && index > 0
             ? rawPart.replace(/^[a-z]+(?=\b)/u, (word) => word[0].toUpperCase() + word.slice(1))
             : rawPart;
-        lineMap.set(lines.length + 1, { item: surface, ambiguous: false });
-        lines.push((surface.kind === 'heading' ? '## ' : '') + escapeProse(part), '');
+        if (surface.kind === 'heading') {
+          lineMap.set(lines.length + 1, { item: surface, ambiguous: false });
+          lines.push('## ' + escapeProse(part), '');
+        } else addProse(part, surface, false);
       }
       for (const quotation of surface.uncertainQuotes ?? []) {
-        lineMap.set(lines.length + 1, { item: surface, ambiguous: true });
-        lines.push(escapeProse(normalize(quotation)), '');
+        addProse(quotation, surface, true);
       }
     }
-    writeFileSync(projection, lines.join('\n'));
-    const report = runVale([projection], { config });
+    if (lines.length) {
+      writeFileSync(projection, lines.join('\n'));
+      files.push(projection);
+      fileMaps.set(realpathSync(projection), lineMap);
+    }
+    const report = runVale(files, { config });
     const ids = {
       'Voice.SentenceCase': 'voice.heading-sentence-case',
       'Voice.AmericanEnglish': 'voice.american-spelling',
       'Voice.SourceApostrophes': 'voice.source-apostrophe',
       'Voice.NarratorPlural': 'voice.narrator-plural',
     };
-    for (const alerts of Object.values(report))
+    for (const [path, alerts] of Object.entries(report))
       for (const alert of alerts) {
-        const mapped = lineMap.get(alert.Line);
+        const mapped = fileMaps.get(realpathSync(path))?.get(alert.Line);
         if (!mapped || !ids[alert.Check])
           throw new VoiceError('Vale returned an unmapped finding', 3);
         article.findings.push(

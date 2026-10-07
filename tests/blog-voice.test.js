@@ -285,13 +285,18 @@ We organised the colour.
     '<table><tr><td>We</td><td>organised colour.</td></tr></table>',
     '<p>We</p><p>organised colour.</p>',
     '<ul><li>We</li><li>organised colour.</li></ul>',
+    '<nav>We</nav><nav>organised colour.</nav>',
+    '<figure>We</figure><figure>organised colour.</figure>',
+    '<form>We</form><form>organised colour.</form>',
+    '<details>We</details><details>organised colour.</details>',
+    '<summary>We</summary><summary>organised colour.</summary>',
   ])('preserves authored word boundaries between HTML blocks (%s)', async (source) => {
     expect(rules(await check(source + '\n'))).toEqual(
       expect.arrayContaining(['voice.narrator-plural', 'voice.american-spelling']),
     );
   });
 
-  it('preserves metadata paragraph boundaries while concatenating true inline formatting', async () => {
+  it('preserves metadata paragraph boundaries and literal formatting as the layout renders them', async () => {
     const source = '---\ndescription: |\n  We\n\n  organised colour.\n---\n\nI chose it.\n';
     const report = await check(source);
     for (const rule of ['voice.narrator-plural', 'voice.american-spelling']) {
@@ -303,25 +308,27 @@ We organised the colour.
       '---\ndescription: "Co**lor** is my choice."\n---\n\nI chose it.\n',
       file,
     );
-    expect(inline.surfaces.find((s) => s.field === 'description').text).toBe('Color is my choice.');
+    expect(inline.surfaces.find((s) => s.field === 'description').text).toBe(
+      'Co**lor** is my choice.',
+    );
     const beforeSource = '---\ndescription: |\n  I will\n\n  not ship.\n---\n\nI chose it.\n';
     expect(
       rules(await check(beforeSource.replace('I will\n\n  not', 'I will not'), { beforeSource })),
     ).not.toContain('review.negation-modal-change');
   });
 
-  it('checks standalone HTML metadata with the same DOM projections and quotation protections', async () => {
+  it('checks HTML-like metadata as escaped visible text rather than interpreting source tags', async () => {
     const beforeSource =
       '---\ndescription: |\n  <div><h2>I chose color.</h2><q cite="/source">Our colour will not ship.</q><code>We organised colour.</code></div>\n---\n\nI chose it.\n';
     const report = await check(beforeSource.replace('will not ship', 'will ship'), {
       beforeSource,
     });
-    expect(errors(report)).toEqual([]);
-    expect(rules(report)).not.toContain('review.quotation-attribution');
+    expect(rules(report)).toEqual(
+      expect.arrayContaining(['voice.narrator-plural', 'voice.american-spelling']),
+    );
+    expect(rules(report)).not.toContain('review.html');
     expect(rules(report)).toContain('review.negation-modal-change');
-    const quotation = report.packet.protectedMaterial.after.find((p) => p.kind === 'quotation');
-    expect(quotation.text).toBe('Our colour will ship.');
-    expect(quotation.location.start.line).toBe(2);
+    expect(report.packet.after.source).toContain('<q cite="/source">Our colour will ship.</q>');
     const authored = await check(
       beforeSource.replace('<h2>I chose color.</h2>', '<h2>We</h2><p>organised colour.</p>'),
     );
@@ -330,20 +337,89 @@ We organised the colour.
     );
   });
 
-  it('retains the original YAML scalar range for inline quotation provenance and HTML review', async () => {
-    const source = '---\ndescription: "I read <q>Our colour.</q>"\n---\n\nI chose it.\n';
+  it('retains the original YAML scalar range for plain-text quotation provenance', async () => {
+    const source = '---\ndescription: \'I read "Our colour."\'\n---\n\nI chose it.\n';
     const report = await check(source);
     expect(errors(report)).toEqual([]);
     const warning = report.findings.find((f) => f.rule === 'review.quotation-attribution');
     expect(warning.location.start.line).toBe(2);
-    expect(warning.excerpt).toBe('"I read <q>Our colour.</q>"');
-    expect(rules(report)).toContain('review.html');
-    const quotation = report.packet.protectedMaterial.after.find((p) => p.kind === 'quotation');
-    expect(quotation.text).toBe('Our colour.');
-    expect(quotation.location).toEqual(warning.location);
+    expect(warning.excerpt).toBe('\'I read "Our colour."\'');
+    expect(report.packet.after.source).toBe(source);
     expect(rules(await check(source.replace('I read', 'Claude wrote:')))).not.toContain(
       'review.quotation-attribution',
     );
+  });
+
+  it.each(['`Our colour`', '![Our colour](/image.png)', '**Our colour**'])(
+    'checks literal metadata syntax instead of masking it as Markdown (%s)',
+    async (value) => {
+      const source = `---\ndescription: "${value}"\nkeyTakeaways:\n  - "${value}"\nsidebar:\n  - type: text\n    content: "${value}"\n---\n\nI chose it.\n`;
+      const report = await check(source);
+      for (const surface of ['description', 'keyTakeaways.0', 'sidebar.0.content']) {
+        expect(
+          report.findings.some((f) => f.rule === 'voice.narrator-plural' && f.surface === surface),
+        ).toBe(true);
+        expect(
+          report.findings.some(
+            (f) => f.rule === 'voice.american-spelling' && f.surface === surface,
+          ),
+        ).toBe(true);
+      }
+    },
+  );
+
+  it.each([
+    '`Claude wrote:`\n\n"Our colour."\n',
+    '```text\nClaude wrote:\n```\n\n> Our colour.\n',
+    '> Our colour.\n\n`Claude wrote:`\n',
+    '<code>Claude wrote:</code> <q>Our colour.</q>\n',
+    '<div><code>Claude wrote:</code><q>Our colour.</q></div>\n',
+  ])('does not borrow quotation attribution from protected code (%s)', async (source) => {
+    expect(rules(await check(source))).toContain('review.quotation-attribution');
+  });
+
+  it('keeps inch marks out of straight-quotation masking without rejecting quoted numbers', async () => {
+    expect(rules(await check('A 6" colour panel and a 4" display.\n'))).toContain(
+      'voice.american-spelling',
+    );
+    expect(rules(await check('Claude wrote: "We chose 6".\n'))).not.toContain(
+      'voice.narrator-plural',
+    );
+  });
+
+  it('reviews raw HTML in Markdown quotations while retaining exact separated pullquote passages', async () => {
+    const source =
+      '---\npullquotes:\n  - text: "The chosen result."\n---\n\nClaude wrote:\n\n> <div>The chosen result.</div>\n';
+    const report = await check(source);
+    expect(errors(report)).toEqual([]);
+    expect(rules(report)).toContain('review.html');
+    expect(
+      rules(
+        await check(
+          source.replace(
+            '<div>The chosen result.</div>',
+            '<div>The chosen</div><div>result.</div>',
+          ),
+        ),
+      ),
+    ).toContain('voice.pullquote-verbatim');
+    expect(rules(await check('> `<custom-note>literal</custom-note>`\n'))).not.toContain(
+      'review.html',
+    );
+    expect(rules(await check('> <custom-note>source text</custom-note>\n'))).toContain(
+      'review.html',
+    );
+  });
+
+  it('matches pullquotes as YAML-decoded plain text while normalizing body Markdown formatting', async () => {
+    const source =
+      '---\npullquotes:\n  - text: "**The chosen result.**"\n---\n\n**The chosen result.**\n';
+    expect(rules(await check(source))).toContain('voice.pullquote-verbatim');
+    expect(
+      rules(
+        await check(source.replace('\n**The chosen result.**', '\n\\*\\*The chosen result.\\*\\*')),
+      ),
+    ).not.toContain('voice.pullquote-verbatim');
   });
 
   it('checks prose after an HTML code span at the start of a Markdown paragraph', async () => {
@@ -652,7 +728,7 @@ describe('source-pinned examples, advisory warnings and complete meaning review'
     '<q cite="/source">We will not ship.</q>\n',
     'Claude said: <q>We will not ship.</q>\n',
     '<blockquote cite="/source"><q>We will not ship.</q></blockquote>\n',
-    "---\ndescription: 'Claude said: <q>We will not ship.</q>'\n---\n\nI chose it.\n",
+    '---\ndescription: \'Claude said: "We will not ship."\'\n---\n\nI chose it.\n',
   ])('warns on negation changes inside parsed HTML quotations (%s)', async (beforeSource) => {
     const report = await check(beforeSource.replace('not ', ''), { beforeSource });
     expect(rules(report)).toContain('review.negation-modal-change');
