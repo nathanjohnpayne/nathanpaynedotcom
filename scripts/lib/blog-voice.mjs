@@ -168,6 +168,43 @@ function quotationPass(item, context, findings, file) {
 function htmlText(source, node) {
   const dom = new JSDOM(node.value, { includeNodeLocations: true });
   const document = dom.window.document;
+  const passages = [];
+  let passageText = '';
+  let passageProse = '';
+  const flush = () => {
+    if (passageText.trim()) passages.push(normalizePassage(passageText, passageProse));
+    passageText = passageProse = '';
+  };
+  // DOM structure supplies paragraph/cell boundaries; CSS and custom elements
+  // remain explicit manual-review limitations rather than inferred layout.
+  const blocks = new Set([
+    'p', 'div', 'section', 'article', 'main', 'aside', 'header', 'footer',
+    'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'li', 'dt', 'dd', 'th', 'td',
+    'blockquote', 'pre', 'hr',
+  ]);
+  const collectPassage = (child, code = false) => {
+    if (child.nodeType === 3) {
+      passageText += child.data;
+      passageProse += code ? ' '.repeat(child.data.length) : child.data;
+      return;
+    }
+    const tag = child.localName;
+    if (['script', 'style', 'img', 'figcaption', 'caption'].includes(tag)) {
+      flush();
+      return;
+    }
+    if (tag === 'br') {
+      passageText += ' ';
+      passageProse += ' ';
+      return;
+    }
+    if (blocks.has(tag)) flush();
+    for (const descendant of child.childNodes)
+      collectPassage(descendant, code || tag === 'code' || tag === 'pre');
+    if (blocks.has(tag)) flush();
+  };
+  collectPassage(document.body);
+  flush();
   document
     .querySelectorAll('script, style, pre, code, blockquote, q[cite]')
     .forEach((n) => n.replaceWith('\0'));
@@ -202,7 +239,7 @@ function htmlText(source, node) {
     item: entry(source, node, 'html', normalize(text.replaceAll('\0', ' '))),
     headings,
     captions,
-    passages: text.split('\0'),
+    passages,
   };
 }
 function protectedHtmlText(
@@ -424,7 +461,6 @@ export async function parseArticle(source, file) {
       const item = html.item;
       if (item.text) {
         surfaces.push(quotationPass(item, context, findings, file));
-        bodyText.push(...html.passages.map((text) => normalizePassage(text)));
         findings.push(
           finding(
             'review.html',
@@ -435,6 +471,7 @@ export async function parseArticle(source, file) {
           ),
         );
       }
+      bodyText.push(...html.passages);
       return;
     }
     let previous = context;

@@ -193,6 +193,8 @@ A small change made publishing practical.
     'The `hidden` chosen result.',
     'The <code>hidden</code> chosen result.',
     '<p>The <code>hidden</code> chosen result.</p>',
+    '<div><p>The chosen </p><p>result.</p></div>',
+    '<figure><figcaption>The chosen result.</figcaption></figure>',
     '> The chosen\n>\n> result.',
   ])('does not match code-only occurrences or bridge protected gaps (%s)', async (body) => {
     const source = '---\npullquotes:\n  - text: "The chosen result."\n---\n\n' + body + '\n';
@@ -205,10 +207,18 @@ A small change made publishing practical.
       'The `chosen` result.',
       'Claude wrote:\n\n> The **chosen** result. `unrelated`',
       '<p>The chosen result. <code>unrelated</code></p>',
+      '<p>The <code>chosen</code> result.</p>',
+      '<div><q cite="/source">The chosen result.</q></div>',
     ]) {
       const source = '---\npullquotes:\n  - text: "The chosen result."\n---\n\n' + body + '\n';
       expect(rules(await check(source))).not.toContain('voice.pullquote-verbatim');
     }
+  });
+
+  it('keeps a cited HTML quote matchable while exempting its source narrator language', async () => {
+    const source =
+      '---\npullquotes:\n  - text: "The chosen result."\n---\n\n<div><q cite="/source">We organised colour. The chosen result.</q></div>\n';
+    expect(errors(await check(source))).toEqual([]);
   });
 
   it('checks raw HTML image alt text without letting it satisfy a body pullquote', async () => {
