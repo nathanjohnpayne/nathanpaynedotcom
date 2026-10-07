@@ -217,4 +217,44 @@ describe('OG image targets (post-build)', () => {
     }
     expect(mismatches).toEqual([]);
   });
+
+  // #1161: project pages shipped their own card with the homepage card's
+  // alt text, because the route never passed ogImageAlt and BaseLayout's
+  // default filled the gap. Presence checks pass on a default, so compare
+  // against the homepage pair instead: the homepage alt is only correct
+  // on a page that shares the homepage image.
+  it('a page with its own og:image does not reuse the homepage alt text', () => {
+    const readAltPair = (htmlPath) => {
+      const doc = new JSDOM(readFileSync(htmlPath, 'utf-8')).window.document;
+      const content = (selector) => doc.querySelector(selector)?.getAttribute('content') ?? null;
+      const image = content('meta[property="og:image"]');
+      return {
+        image: image && image.replace(/\?.*$/, ''),
+        ogAlt: content('meta[property="og:image:alt"]'),
+        twitterAlt: content('meta[name="twitter:image:alt"]'),
+      };
+    };
+
+    const home = readAltPair(join(distDir, 'index.html'));
+    expect(home.ogAlt, 'The homepage should carry an og:image:alt.').toBeTruthy();
+
+    const reused = [];
+    for (const htmlPath of htmlFiles) {
+      const page = readAltPair(htmlPath);
+      if (!page.image || page.image === home.image) continue;
+      for (const [tag, alt] of [
+        ['og:image:alt', page.ogAlt],
+        ['twitter:image:alt', page.twitterAlt],
+      ]) {
+        if (alt === home.ogAlt) {
+          reused.push({ page: relative(distDir, htmlPath), tag, image: page.image, alt });
+        }
+      }
+    }
+    expect(
+      reused,
+      'These pages share their own social image but describe it with the ' +
+        "homepage card's alt text. Pass ogImageAlt from the page or layout.",
+    ).toEqual([]);
+  });
 });
