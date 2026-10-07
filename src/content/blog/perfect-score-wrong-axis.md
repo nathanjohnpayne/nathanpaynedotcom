@@ -2,7 +2,7 @@
 title: "A Perfect Score on the Wrong Axis: 116 Review Findings, Zero Rejected, One Escape"
 seoTitle: "A Perfect Score on the Wrong Axis"
 shortTitle: "Perfect Score, Wrong Axis"
-description: "An eleven-PR review batch recorded 122 dispositions and zero rejections. One of them was the P1 that shipped, deferred to follow-up 75 seconds after it was posted. The rule the defect turned on had been raised, fixed, and validated on a sibling PR twelve hours earlier."
+description: "An eleven-PR review batch recorded 122 dispositions and zero rejections. One of them was the P1 that shipped, deferred to follow-up 75 seconds after it was posted. The rule the defect turned on had been raised on a sibling PR twelve hours earlier; the implementation was then fixed and validated."
 seoDescription: "An AI review batch recorded 122 finding dispositions with zero rejections and still shipped a P1. Every brief was scoped to one diff, so nothing carried the rule across a PR boundary."
 category: "Agent Systems"
 author: "Nathan Payne"
@@ -11,7 +11,7 @@ tags: ["AI", "Engineering", "Systems", "Code Review", "Debugging"]
 image: "/og/blog/perfect-score-wrong-axis.png"
 keyTakeaways:
   - "A perfect disposition record measures closure: how completely findings were closed. It doesn't measure coverage: the defects nobody raised."
-  - "This batch recorded 122 dispositions and zero rejections. The escaped P1 was one of those dispositions, logged 75 seconds after posting. The rule it broke had been derived from the spec, corrected by external review, fixed and validated on a sibling PR twelve hours earlier."
+  - "This batch recorded 122 dispositions and zero rejections. The escaped P1 was one of those dispositions, logged 75 seconds after posting. The rule it broke had been derived from the spec and named in a blocking external review on a sibling PR twelve hours earlier. The implementation was then fixed and validated."
   - "Where a component implements an external specification, derive at least one review pass from the spec. When two implementations use the same external spec, I need the spec-derived review questions applied to both. A review scoped to one diff won't carry what its sibling learned."
   - "Per-PR counts of passes, rounds and approvals miss evidence held on another PR. Eighteen passes preceded this escape while the relevant rule sat next door, already stated, fixed and validated."
 pullquotes:
