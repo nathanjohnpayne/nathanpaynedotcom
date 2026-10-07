@@ -1,6 +1,5 @@
 /** Local mechanical rules and a lossless manual-review packet. No style inference. */
 import { createMarkdownProcessor } from '@astrojs/markdown-remark';
-import { JSDOM } from 'jsdom';
 import { isAlias, isMap, isScalar, isSeq, parseDocument } from 'yaml';
 import { createHash } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
@@ -122,13 +121,20 @@ const blockContainers = new Set(['root', 'list', 'listItem', 'blockquote', 'tabl
 function joinedText(node, values) {
   return values.join(blockContainers.has(node.type) ? ' ' : '');
 }
-function inlineText(node, includeCode = false, htmlBoundaries = new Set()) {
-  if (node.type === 'inlineCode' || node.type === 'code') return includeCode ? node.value : ' ';
-  if (node.type === 'html') return htmlBoundaries.has(node.position?.start.offset) ? ' ' : '';
+// HTML classification belongs to the Markdown AST. Only plain line breaks
+// have a local whitespace equivalence; other HTML is left for manual review.
+const plainBreak = (node) => node.type === 'html' && /^<br\s*\/?>$/iu.test(node.value);
+const hasHtml = (node, opaqueOnly = false) =>
+  (node.type === 'html' && (!opaqueOnly || !plainBreak(node))) ||
+  (node.children ?? []).some((child) => hasHtml(child, opaqueOnly));
+function inlineText(node, includeCode = false, maskCode = false) {
+  if (node.type === 'inlineCode' || node.type === 'code')
+    return includeCode ? node.value : maskCode ? ' '.repeat(node.value.length) : ' ';
+  if (node.type === 'html') return ' ';
   if (node.type === 'image' || node.type === 'imageReference') return '';
   if (node.type === 'break') return ' ';
   if (typeof node.value === 'string') return node.value;
-  return joinedText(node, (node.children ?? []).map((child) => inlineText(child, includeCode, htmlBoundaries)));
+  return joinedText(node, (node.children ?? []).map((child) => inlineText(child, includeCode, maskCode)));
 }
 async function markdownTree(source) {
   let tree;
@@ -176,232 +182,13 @@ function quotationPass(item, context, findings, file) {
     findings.push(
       finding(
         'voice.quotation-treatment',
-        'error',
+        'warning',
         item,
-        'This authored surface mixes straight and curly double quotation marks. Preserve any attributed source treatment and use one treatment for the remaining quotations.',
+        'This surface mixes straight and curly double quotation marks with uncertain attribution. Review quotation treatment by hand; preserve source language.',
         file,
       ),
     );
   return { ...item, projected, uncertainQuotes, quotations, quoteStyles: [...styles] };
-}
-function htmlQuotations(source, node, context, dom, textWithin, following = '') {
-  const textNodes = [];
-  const walker = dom.window.document.createTreeWalker(dom.window.document.body, dom.window.NodeFilter.SHOW_TEXT);
-  while (walker.nextNode()) {
-    const text = walker.currentNode;
-    if (text.parentElement?.closest('pre, code, script, style, blockquote, q')) continue;
-    const range = dom.nodeLocation(text);
-    if (range) textNodes.push({ text: text.data, start: node.position.start.offset + range.startOffset, end: node.position.start.offset + range.endOffset });
-  }
-  return [...dom.window.document.querySelectorAll('blockquote, q')]
-    .filter((n) => !n.closest('pre, code, script, style'))
-    .map((n) => {
-      const range = dom.nodeLocation(n);
-      const start = node.position.start.offset + range.startOffset;
-      const end = node.position.start.offset + range.endOffset;
-      const text = textWithin?.(start, end) ?? (n.textContent ?? '');
-      return {
-        kind: 'quotation',
-        text,
-        excerpt: source.slice(start, end),
-        location: location(source, start, end),
-        attributed: Boolean(n.closest('blockquote[cite]:not([cite=""]), q[cite]:not([cite=""])')) ||
-          evidenceCue.test(context.slice(-200)) ||
-          followingEvidenceCue.test(following.slice(0, 200)) ||
-          evidenceCue.test((textWithin?.(node.position.start.offset, start, false) ?? textNodes.filter((t) => t.end <= start).map((t) => t.text).join(' ')).slice(-200)) ||
-          followingEvidenceCue.test((textWithin?.(end, node.position.end.offset, false) ?? textNodes.filter((t) => t.start >= end).map((t) => t.text).join(' ')).slice(0, 200)) ||
-          evidenceCue.test(text.slice(0, 160)),
-      };
-    });
-}
-const blockDisplays = new Set(['block', 'list-item', 'table', 'table-row', 'table-cell', 'table-caption', 'table-row-group', 'table-header-group', 'table-footer-group', 'flow-root', 'flex', 'grid']);
-function htmlText(source, node, context = '', following = '') {
-  const dom = new JSDOM(node.value, { includeNodeLocations: true });
-  const document = dom.window.document;
-  const passages = [];
-  let passageText = '';
-  let passageProse = '';
-  const flush = () => {
-    if (passageText.trim()) passages.push(normalizePassage(passageText, passageProse));
-    passageText = passageProse = '';
-  };
-  // DOM structure supplies paragraph/cell boundaries; CSS and custom elements
-  // remain explicit manual-review limitations rather than inferred layout.
-  const blocks = new Set([
-    'p', 'div', 'section', 'article', 'main', 'aside', 'header', 'footer',
-    'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'li', 'dt', 'dd', 'th', 'td',
-    'blockquote', 'pre', 'hr', 'figcaption', 'caption',
-  ]);
-  const collectPassage = (child, code = false, includeCaptions = false) => {
-    if (child.nodeType === 3) {
-      passageText += child.data;
-      passageProse += code ? ' '.repeat(child.data.length) : child.data;
-      return;
-    }
-    const tag = child.localName;
-    if (child.nodeType !== 1) return;
-    if (['script', 'style', 'img'].includes(tag) ||
-        (!includeCaptions && ['figcaption', 'caption'].includes(tag))) {
-      flush();
-      return;
-    }
-    if (tag === 'br') {
-      passageText += ' ';
-      passageProse += ' ';
-      return;
-    }
-    const display = blocks.has(tag) ? 'block' : dom.window.getComputedStyle(child).display;
-    const isBlock = blockDisplays.has(display);
-    if (isBlock) flush();
-    for (const descendant of child.childNodes)
-      collectPassage(descendant, code || tag === 'code' || tag === 'pre', includeCaptions);
-    if (isBlock) flush();
-  };
-  collectPassage(document.body);
-  flush();
-  const bodyPassages = [...passages];
-  passages.length = 0;
-  collectPassage(document.body, false, true);
-  flush();
-  const semanticText = normalize(passages.map((p) => p.prose).join(' '));
-  const quotations = htmlQuotations(source, node, context, dom, undefined, following);
-  document
-    .querySelectorAll('script, style, pre, code, blockquote, q')
-    .forEach((n) => n.replaceWith('\0'));
-  const headings = [...document.querySelectorAll('h1,h2,h3,h4,h5,h6')].map((n) => {
-    const range = dom.nodeLocation(n);
-    const start = node.position.start.offset + range.startOffset;
-    const end = node.position.start.offset + range.endOffset;
-    return {
-      kind: 'heading',
-      convention: 'HTML',
-      field: null,
-      text: n.textContent.replaceAll('\0', ' '),
-      // The containing HTML surface retains all semantic words exactly once.
-      semanticText: '',
-      excerpt: source.slice(start, end),
-      location: location(source, start, end),
-    };
-  });
-  const captions = [...document.querySelectorAll('img')].map((n) => {
-    const range = dom.nodeLocation(n);
-    const start = node.position.start.offset + range.startOffset;
-    const end = node.position.start.offset + range.endOffset;
-    return {
-      kind: 'caption',
-      field: null,
-      text: n.getAttribute('alt') ?? '',
-      excerpt: source.slice(start, end),
-      location: location(source, start, end),
-    };
-  });
-  document.querySelectorAll('h1,h2,h3,h4,h5,h6').forEach((n) => n.replaceWith('\0'));
-  passages.length = 0;
-  collectPassage(document.body, false, true);
-  flush();
-  const text = passages.map((p) => p.prose).join(' ');
-  dom.window.close();
-  return {
-    item: {
-      ...entry(source, node, 'html', normalize(text.replaceAll('\0', ' '))),
-      semanticText,
-    },
-    headings,
-    captions,
-    passages: bodyPassages,
-    quotations,
-  };
-}
-function htmlSkeleton(source, node) {
-  // Only AST-classified HTML reaches the DOM parser. Escapes, code and link
-  // destinations remain masked source, with original UTF-16 offsets intact.
-  let raw = maskSource(rawOf(source, node));
-  const retainHtml = (child) => {
-    if (child.type === 'html' && child.position) {
-      const start = child.position.start.offset - node.position.start.offset;
-      const end = child.position.end.offset - node.position.start.offset;
-      raw = raw.slice(0, start) + rawOf(source, child) + raw.slice(end);
-    }
-    for (const descendant of child.children ?? []) retainHtml(descendant);
-  };
-  retainHtml(node);
-  return raw;
-}
-function inlineHtmlQuotations(source, node, context, following = '') {
-  const skeleton = htmlSkeleton(source, node);
-  if (!skeleton.trim()) return [];
-  const dom = new JSDOM(skeleton, { includeNodeLocations: true });
-  const contextRanges = [...dom.window.document.querySelectorAll('code, pre, script, style, blockquote, q')]
-    .map((n) => dom.nodeLocation(n)).filter(Boolean);
-  const textWithin = (start, end, includeCode = true) => {
-    const containsRawHtml = (child) =>
-      (child.type === 'html' && child.position.start.offset <= start &&
-        child.position.end.offset >= end) ||
-      (child.children ?? []).some(containsRawHtml);
-    // A complete HTML block is one AST leaf: the maintained DOM supplies its
-    // quotation text. Inline HTML still needs decoded Markdown child values.
-    if (containsRawHtml(node)) return null;
-    const collectText = (child) => {
-      if (child.children) return joinedText(child, child.children.map(collectText));
-      if (child.position.start.offset < start || child.position.end.offset > end) return '';
-      if (!includeCode && contextRanges.some((range) =>
-        child.position.start.offset >= node.position.start.offset + range.startOffset &&
-        child.position.start.offset < node.position.start.offset + range.endOffset)) return ' ';
-      return inlineText(child, includeCode);
-    };
-    return collectText(node);
-  };
-  const quotations = htmlQuotations(source, node, context, dom, textWithin, following);
-  dom.window.close();
-  return quotations;
-}
-function protectedHtmlText(
-  source,
-  node,
-  boundary = ' ',
-  includeQuotedText = false,
-  preserveLength = false,
-  includeCode = false,
-) {
-  const skeleton = htmlSkeleton(source, node);
-  const dom = skeleton.trim() ? new JSDOM(skeleton, { includeNodeLocations: true }) : null;
-  const protectedSelector = [
-    'script', 'style',
-    ...(!includeCode ? ['code', 'pre'] : []),
-    ...(!includeQuotedText ? ['blockquote', 'q'] : []),
-  ].join(', ');
-  const ranges = dom ? [...dom.window.document.querySelectorAll(protectedSelector)]
-    .map((n) => dom.nodeLocation(n))
-    .filter(Boolean) : [];
-  const htmlBoundaries = new Set();
-  if (dom) for (const element of dom.window.document.querySelectorAll('*')) {
-    if (element.localName !== 'br' && !blockDisplays.has(dom.window.getComputedStyle(element).display)) continue;
-    const range = dom.nodeLocation(element);
-    for (const tag of [range?.startTag, range?.endTag])
-      if (tag) htmlBoundaries.add(node.position.start.offset + tag.startOffset);
-  }
-  const flatten = (child, parent) => {
-    if (child.type === 'html' && blockContainers.has(parent?.type)) {
-      const html = htmlText(source, child);
-      return [
-        includeQuotedText ? html.item.semanticText : html.item.text,
-        ...(!includeQuotedText ? html.headings.map((h) => h.text) : []),
-        ...html.captions.map((caption) => caption.text),
-      ].join(' ');
-    }
-    if (child.children) return joinedText(child, child.children.map((value) => flatten(value, child)));
-    const start = child.position?.start.offset - node.position.start.offset;
-    if (
-      ranges.some((r) => start >= r.startOffset && start < r.endOffset) ||
-      (!includeCode && (child.type === 'inlineCode' || child.type === 'code'))
-    )
-      return preserveLength ? ' '.repeat(inlineText(child, true).length) : boundary;
-    if (['image', 'imageReference'].includes(child.type)) return preserveLength ? '' : boundary;
-    return inlineText(child, includeCode, htmlBoundaries);
-  };
-  const text = flatten(node);
-  dom?.window.close();
-  return text;
 }
 function normalizePassage(text, prose = text) {
   let normalized = '';
@@ -504,34 +291,32 @@ export async function parseArticle(source, file) {
   const bodyText = [];
   const headings = [];
   let diagramIndex = 0;
-  const reviewHtml = (item) => findings.push(finding(
-    'review.html', 'warning', item,
-    'Review rendered HTML and its complete source. Custom hidden elements, component semantics and broken markup need manual verification.', file,
-  ));
-  const reviewHtmlQuotations = (html) => {
-    for (const quotation of html.quotations)
-      if (!quotation.attributed)
-        findings.push(finding(
-          'review.quotation-attribution', 'warning', quotation,
-          'HTML quotation or prompt has no mechanically clear attribution. Preserve its source language and confirm provenance manually.', file,
-        ));
+  const opaqueHtml = hasHtml(tree, true);
+  const reviewRawHtml = (node) => {
+    if ((['heading', 'paragraph', 'tableCell'].includes(node.type) && hasHtml(node)) || node.type === 'html') {
+      findings.push(finding(
+        'review.html', 'warning', entry(source, node, node.type, ''),
+        'Raw HTML present; review quotations, attribution, pullquotes and wording by hand. HTML is not analyzed; non-break HTML makes body prose manual review because its scope is unknown.', file,
+      ));
+    } else for (const child of node.children ?? []) reviewRawHtml(child);
   };
+  reviewRawHtml(tree);
   const pullquotePassages = (node) => {
-    if (node.type === 'html') return htmlText(source, node).passages;
+    if (opaqueHtml) return [];
     if (['heading', 'paragraph', 'tableCell'].includes(node.type))
-      return [
-        normalizePassage(
-          protectedHtmlText(source, node, ' ', true, false, true),
-          protectedHtmlText(source, node, ' ', true, true),
-        ),
-      ];
+      return [normalizePassage(inlineText(node, true), inlineText(node, false, true))];
     return (node.children ?? []).flatMap(pullquotePassages);
   };
   const quotedSemanticText = (node) => {
+    if (opaqueHtml) return '';
     if (['heading', 'paragraph', 'tableCell'].includes(node.type))
-      return protectedHtmlText(source, node, ' ', true);
-    if (node.type === 'html') return htmlText(source, node).item.semanticText;
+      return inlineText(node);
     return (node.children ?? []).map(quotedSemanticText).join(' ');
+  };
+  const retainLeaves = (node) => {
+    if (['inlineCode', 'html'].includes(node.type))
+      protectedMaterial.push(entry(source, node, node.type, node.type === 'html' ? '' : node.value));
+    for (const child of node.children ?? []) retainLeaves(child);
   };
   const collect = (node, context = '', following = '') => {
     if (['code', 'inlineCode', 'table', 'html', 'definition', 'blockquote'].includes(node.type))
@@ -559,8 +344,9 @@ export async function parseArticle(source, file) {
     if (node.type === 'blockquote') {
       const item = entry(source, node, 'quotation', inlineText(node, true));
       bodyText.push(...pullquotePassages(node));
-      if (htmlSkeleton(source, node).trim()) reviewHtml(item);
-      if (!evidenceCue.test(context.slice(-200)) && !evidenceCue.test(item.text.slice(0, 160)) &&
+      retainLeaves(node);
+      if (opaqueHtml) return;
+      if (!evidenceCue.test(context.slice(-200)) &&
           !followingEvidenceCue.test(following.slice(0, 200)))
         findings.push(
           finding(
@@ -574,67 +360,36 @@ export async function parseArticle(source, file) {
       return;
     }
     if (node.type === 'heading' || node.type === 'paragraph' || node.type === 'tableCell') {
+      retainLeaves(node);
+      // Do not reconstruct HTML scope, rendered passages or quotation ownership.
+      // Even sibling Markdown can belong to an open HTML element: leave body
+      // prose to the editor whenever HTML scope is unknown.
+      if (opaqueHtml) return;
       const item = {
-        ...entry(source, node, node.type, protectedHtmlText(source, node)),
-        semanticText: protectedHtmlText(source, node, ' ', true),
+        ...entry(source, node, node.type, inlineText(node)),
+        semanticText: inlineText(node),
       };
       bodyText.push(...pullquotePassages(node));
       if (node.type === 'heading') headings.push(item);
       surfaces.push(quotationPass(item, context, findings, file));
-      const quotations = inlineHtmlQuotations(source, node, context, following);
-      protectedMaterial.push(...quotations);
-      reviewHtmlQuotations({ quotations });
-      let hasInlineHtml = false;
-      const collectInline = (child) => {
-        if (child.type === 'inlineCode' || child.type === 'html')
-          protectedMaterial.push(entry(source, child, child.type, inlineText(child, true)));
-        if (child.type === 'html') {
-          hasInlineHtml = true;
-          const html = htmlText(source, child, context);
-          for (const caption of html.captions)
-            surfaces.push(quotationPass(caption, context, findings, file));
-        }
+      const collectImages = (child) => {
         if (child.type === 'image' || child.type === 'imageReference')
-          surfaces.push(
-            quotationPass(
-              entry(source, child, 'caption', child.alt ?? ''),
-              context,
-              findings,
-              file,
-            ),
-          );
-        for (const grandchild of child.children ?? []) collectInline(grandchild);
+          surfaces.push(quotationPass(entry(source, child, 'caption', child.alt ?? ''), context, findings, file));
+        for (const grandchild of child.children ?? []) collectImages(grandchild);
       };
-      for (const child of node.children ?? []) collectInline(child);
-      if (hasInlineHtml) reviewHtml(item);
+      for (const child of node.children ?? []) collectImages(child);
       return;
     }
-    if (node.type === 'html') {
-      const html = htmlText(source, node, context, following);
-      reviewHtmlQuotations(html);
-      for (const h of html.headings) {
-        headings.push(h);
-        surfaces.push(quotationPass(h, context, findings, file));
-      }
-      for (const caption of html.captions)
-        surfaces.push(quotationPass(caption, context, findings, file));
-      const item = html.item;
-      if (item.text || item.semanticText)
-        surfaces.push(quotationPass(item, context, findings, file));
-      reviewHtml(item);
-      bodyText.push(...html.passages);
-      return;
-    }
+    if (node.type === 'html') return;
     let previous = context;
     const children = node.children ?? [];
     const contextProse = (child) => {
       if (!child || ['code', 'inlineCode', 'blockquote'].includes(child.type)) return '';
-      if (child.type === 'html') return htmlText(source, child).item.text;
-      return protectedHtmlText(source, child);
+      return hasHtml(child, true) ? '' : inlineText(child);
     };
     for (const [index, child] of children.entries()) {
       const next = children[index + 1];
-      collect(child, previous, ['paragraph', 'html'].includes(next?.type) ? contextProse(next) : '');
+      collect(child, previous, next?.type === 'paragraph' ? contextProse(next) : '');
       previous = contextProse(child);
     }
   };
@@ -654,7 +409,7 @@ export async function parseArticle(source, file) {
         'voice.heading-convention',
         'error',
         headings.at(-1),
-        'Body headings mix ATX, setext or HTML conventions. Preserve fragment anchors when making the convention consistent.',
+        'Markdown body headings mix ATX and setext conventions. Preserve fragment anchors when making the convention consistent.',
         file,
       ),
     );
@@ -663,15 +418,17 @@ export async function parseArticle(source, file) {
     findings.push(
       finding(
         'voice.quotation-treatment',
-        'error',
+        'warning',
         surfaces.find((s) => s.quoteStyles.includes('curly')),
-        'Body and metadata mix straight and curly double quotation treatment outside attributed source quotations.',
+        'Body and metadata mix double quotation treatment with uncertain attribution. Review consistency by hand; preserve source quotations.',
         file,
       ),
     );
   for (const item of fields.filter((f) => /^pullquotes\.\d+\.text$/u.test(f.field))) {
     const quote = normalize(item.text);
-    if (!quote || !bodyText.some(({ text, prose }) => containsVerbatim(text, quote, prose)))
+    // Unexamined HTML may hold the pullquote. review.html requires the editor
+    // to establish verbatim fidelity; do not claim a mechanical pass or failure.
+    if (!opaqueHtml && (!quote || !bodyText.some(({ text, prose }) => containsVerbatim(text, quote, prose))))
       findings.push(
         finding(
           'voice.pullquote-verbatim',
@@ -904,6 +661,10 @@ export async function checkVoice({
   const after = await parseArticle(source, file);
   const before =
     beforeSource === null ? null : await parseArticle(beforeSource, baseline.path ?? file);
+  // A removed HTML surface still needs review in the complete before article.
+  after.findings.push(...(before?.findings ?? []).filter((f) => f.rule === 'review.html').map((f) => ({
+    ...f, sourceVersion: 'before', reason: 'Before article: ' + f.reason,
+  })));
   runMechanical(after, properNouns);
   editorialWarnings(after);
   if (before && before.source !== after.source) {
