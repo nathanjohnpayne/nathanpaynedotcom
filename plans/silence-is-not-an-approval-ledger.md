@@ -1,6 +1,6 @@
 # Facts ledger—`silence-is-not-an-approval`
 
-Post source: `src/content/blog/silence-is-not-an-approval.md`. Drafted `2026-09-23`, unpublished. Evidence repo: `nathanjohnpayne/mergepath`. Bare `#NNN` means **mergepath**, never this repository. Every reference below is written repo-qualified where ambiguity is possible.
+Post source: `src/content/blog/silence-is-not-an-approval.md`. Drafted `2026-09-23`; published with `date: 2026-10-01` in nathanpaynedotcom commit `913c2933` (PR #1037). Evidence repo: `nathanjohnpayne/mergepath`. Bare `#NNN` means **mergepath**, never this repository. Every reference below is written repo-qualified where ambiguity is possible.
 
 Verdicts: **SUPPORTED** · **WRONG** (corrected value given) · **UNPROVABLE** (defensible weaker form given).
 
@@ -138,7 +138,7 @@ That last clause is the strongest single sentence available for the post's conve
 
 **WRONG as a mechanism, corrected 2026-09-30.** Earlier drafts said "the word `success` was in the payload, and the payload was read as success." #940's body (re-read 2026-09-30) says the opposite about the status: #936's new description guard read `Review rate limited`, found it "does not name a completed review," and **refused** the fast path. The clear came two branches later, from comment `5245046684`, the walkthrough "created at `19:35:48Z` for an earlier head, whose `updated_at` CodeRabbit bumped to `22:06:52Z`" on the push; `classify_comment` graded it `review` and the `review` arm cleared. #940 also states the scope: "`scripts/coderabbit-severity-gate.sh`, the required merge-blocking gate, does not consult this helper … the damage is a lost review, not an admitted defect," and the #489 Codex failover did not fire (`codex_failover_requested: false`). The post's opening now carries exactly that: guard correct, refreshed walkthrough cleared, required gate unaffected, lost review plus skipped failover. #940 closed 2026-09-15T03:17:44Z; its banner credits #1274 and #1279.
 
-**SUPPORTED.** #940 is `closed`. The behavior: polling returned `status: cleared` on a head whose StatusContext read `success | Review rate limited` with no review object attached. The post's rendering of this—"the word `success` was in the payload, so the payload was read as success"—is an interpretation of the mechanism, not a quotation, and the draft does not present it as one.
+**SUPPORTED.** #940 is `closed`. The behavior: polling returned `status: cleared` on a head whose StatusContext read `success | Review rate limited` with no review object attached. An earlier draft rendered this as "the word `success` was in the payload, so the payload was read as success." That was an interpretation, not a quotation, and it was wrong as a mechanism; the September 30 correction above replaces it with the guard-correct/old-walkthrough path.
 
 ---
 
