@@ -52,7 +52,7 @@ So my decision rule is now simple, and deliberately not automatable. When a revi
 
 After:
 
-My rule now is to fix a real error unless it concerns machinery added beyond the original requirement. Then stop and reconsider that machinery first. I've deliberately kept it a rule I can't automate. ery property its outcome needs; "beyond" means an additional commitment, not merely something the issue didn't mention. Omitting attribution on resume kept [#1056](https://github.com/nathanjohnpayne/mergepath/issues/1056)'s promise honest without a deletion engine. I have to compare the guarantee with the issue's problem, not the pull request's design. Otherwise [#1189](https://github.com/nathanjohnpayne/mergepath/pull/1189)'s clearing path counts as original and the rule catches nothing.
+My rule now is to fix a real error unless it concerns machinery added beyond the original requirement. Then stop and reconsider that machinery first. I've deliberately kept it a rule I can't automate. An issue rarely names every property its outcome needs; "beyond" means an additional commitment, not merely something the issue didn't mention. Omitting attribution on resume kept [#1056](https://github.com/nathanjohnpayne/mergepath/issues/1056)'s promise honest without a deletion engine. I have to compare the guarantee with the issue's problem, not the pull request's design. Otherwise [#1189](https://github.com/nathanjohnpayne/mergepath/pull/1189)'s clearing path counts as original and the rule catches nothing.
 
 ### My own corrections
 

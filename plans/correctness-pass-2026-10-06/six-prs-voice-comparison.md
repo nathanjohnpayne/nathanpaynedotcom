@@ -54,7 +54,7 @@ Baseline: main at `86b5af34ee008aa796987a3487d3e58a5339dd2a`. This article's byt
 
 **After**
 
-> The fix reached Preview and the test email, with the limits described above. The expensive part came before I filed the issue: six PRs of locally useful, reviewed work, and the formatting bug I kept reporting survived all of them.way.
+> The fix reached Preview and the test email, with the limits described above. The expensive part came before I filed the issue: six PRs of locally useful, reviewed work, and the formatting bug I kept reporting survived all of them.
 
 > I'd written the intended output model into the spec from the start. Writing it down wasn't enough. The spec lost to a function with a name and a test, and reporting the symptoms louder didn't change that. The requirement had to be attached to the work a reviewer could see.
 
