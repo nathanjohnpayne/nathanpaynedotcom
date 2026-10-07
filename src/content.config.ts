@@ -475,6 +475,17 @@ const education = defineCollection({
 // this site instead of opening the product. `.min(1)` then rejects a
 // whitespace-only value rather than rendering an empty destination (Codex,
 // PR #951).
+//
+// `claimsReviewed` is the two-sided claims-review stamp (#1165): the SHA-256 of
+// the case study (`src/content/projects/<slug>.mdx`, raw file bytes) and of this
+// entry's Markdown body (after the closing `---`, outer whitespace trimmed) as
+// they stood when a person last compared the two, plus the date of that review.
+// The schema only checks the shape; `tests/resume-claims-review.test.js`
+// recomputes both hashes and fails, with the remedy, when either side changed.
+// A current stamp proves the review happened, not that the claims agree. See
+// specs/resume.md § Claims review. Strict, so a misspelled key cannot pass as a
+// stamp that is merely missing a field.
+const sha256Hex = z.string().regex(/^[0-9a-f]{64}$/, 'expected a lowercase SHA-256 hex digest');
 const resumeProjects = defineCollection({
   loader: glob({ pattern: '**/*.md', base: './src/content/resume/projects' }),
   schema: z.object({
@@ -483,6 +494,11 @@ const resumeProjects = defineCollection({
     url: z.string().trim().min(1).optional(),
     repo: z.string().trim().min(1).optional(),
     order: z.number(),
+    claimsReviewed: z.strictObject({
+      caseStudy: sha256Hex,
+      resume: sha256Hex,
+      date: z.iso.date(),
+    }),
   }),
 });
 
