@@ -118,13 +118,17 @@ function containsVerbatim(text, quote, prose = text) {
   }
   return false;
 }
+const blockContainers = new Set(['root', 'list', 'listItem', 'blockquote', 'table', 'tableRow']);
+function joinedText(node, values) {
+  return values.join(blockContainers.has(node.type) ? ' ' : '');
+}
 function inlineText(node, includeCode = false) {
   if (node.type === 'inlineCode') return includeCode ? node.value : ' ';
   if (node.type === 'html') return '';
   if (node.type === 'image' || node.type === 'imageReference') return '';
   if (node.type === 'break') return ' ';
   if (typeof node.value === 'string') return node.value;
-  return (node.children ?? []).map((child) => inlineText(child, includeCode)).join('');
+  return joinedText(node, (node.children ?? []).map((child) => inlineText(child, includeCode)));
 }
 async function markdownTree(source) {
   let tree;
@@ -183,7 +187,7 @@ function htmlQuotations(source, node, context, dom, textWithin) {
       const range = dom.nodeLocation(n);
       const start = node.position.start.offset + range.startOffset;
       const end = node.position.start.offset + range.endOffset;
-      const text = textWithin ? textWithin(start, end) : (n.textContent ?? '');
+      const text = textWithin?.(start, end) ?? (n.textContent ?? '');
       return {
         kind: 'quotation',
         text,
@@ -256,11 +260,12 @@ function htmlText(source, node, context = '') {
       convention: 'HTML',
       field: null,
       text: n.textContent.replaceAll('\0', ' '),
+      // The containing HTML surface retains all semantic words exactly once.
+      semanticText: '',
       excerpt: source.slice(start, end),
       location: location(source, start, end),
     };
   });
-  const text = document.body.textContent ?? '';
   const captions = [...document.querySelectorAll('img')].map((n) => {
     const range = dom.nodeLocation(n);
     const start = node.position.start.offset + range.startOffset;
@@ -273,6 +278,11 @@ function htmlText(source, node, context = '') {
       location: location(source, start, end),
     };
   });
+  document.querySelectorAll('h1,h2,h3,h4,h5,h6').forEach((n) => n.replaceWith('\0'));
+  passages.length = 0;
+  collectPassage(document.body, false, true);
+  flush();
+  const text = passages.map((p) => p.prose).join(' ');
   dom.window.close();
   return {
     item: {
@@ -305,8 +315,15 @@ function inlineHtmlQuotations(source, node, context) {
   if (!skeleton.trim()) return [];
   const dom = new JSDOM(skeleton, { includeNodeLocations: true });
   const textWithin = (start, end) => {
+    const containsRawHtml = (child) =>
+      (child.type === 'html' && child.position.start.offset <= start &&
+        child.position.end.offset >= end) ||
+      (child.children ?? []).some(containsRawHtml);
+    // A complete HTML block is one AST leaf: the maintained DOM supplies its
+    // quotation text. Inline HTML still needs decoded Markdown child values.
+    if (containsRawHtml(node)) return null;
     const collectText = (child) => {
-      if (child.children) return child.children.map(collectText).join('');
+      if (child.children) return joinedText(child, child.children.map(collectText));
       if (child.position.start.offset < start || child.position.end.offset > end) return '';
       return inlineText(child, true);
     };
@@ -327,12 +344,20 @@ function protectedHtmlText(
   const dom = skeleton.trim() ? new JSDOM(skeleton, { includeNodeLocations: true }) : null;
   const protectedSelector = includeQuotedText
     ? 'code, pre, script, style'
-    : 'code, pre, script, style, q';
+    : 'code, pre, script, style, blockquote, q';
   const ranges = dom ? [...dom.window.document.querySelectorAll(protectedSelector)]
     .map((n) => dom.nodeLocation(n))
     .filter(Boolean) : [];
-  const flatten = (child) => {
-    if (child.children) return child.children.map(flatten).join('');
+  const flatten = (child, parent) => {
+    if (child.type === 'html' && blockContainers.has(parent?.type)) {
+      const html = htmlText(source, child);
+      return [
+        includeQuotedText ? html.item.semanticText : html.item.text,
+        ...(!includeQuotedText ? html.headings.map((h) => h.text) : []),
+        ...html.captions.map((caption) => caption.text),
+      ].join(' ');
+    }
+    if (child.children) return joinedText(child, child.children.map((value) => flatten(value, child)));
     const start = child.position?.start.offset - node.position.start.offset;
     if (
       ranges.some((r) => start >= r.startOffset && start < r.endOffset) ||
@@ -475,7 +500,7 @@ export async function parseArticle(source, file) {
     if (node.type === 'html') return htmlText(source, node).item.semanticText;
     return (node.children ?? []).map(quotedSemanticText).join(' ');
   };
-  const collect = (node, context = '') => {
+  const collect = (node, context = '', following = '') => {
     if (['code', 'inlineCode', 'table', 'html', 'definition', 'blockquote'].includes(node.type))
       protectedMaterial.push({
         ...entry(source, node, node.type, inlineText(node, true)),
@@ -501,7 +526,8 @@ export async function parseArticle(source, file) {
     if (node.type === 'blockquote') {
       const item = entry(source, node, 'quotation', inlineText(node, true));
       bodyText.push(...pullquotePassages(node));
-      if (!evidenceCue.test(context.slice(-200)) && !evidenceCue.test(item.text.slice(0, 160)))
+      if (!evidenceCue.test(context.slice(-200)) && !evidenceCue.test(item.text.slice(0, 160)) &&
+          !followingEvidenceCue.test(following.slice(0, 200)))
         findings.push(
           finding(
             'review.quotation-attribution',
@@ -559,15 +585,17 @@ export async function parseArticle(source, file) {
       for (const caption of html.captions)
         surfaces.push(quotationPass(caption, context, findings, file));
       const item = html.item;
-      if (item.text || html.quotations.length)
+      if (item.text || item.semanticText)
         surfaces.push(quotationPass(item, context, findings, file));
-      if (item.text || html.quotations.length) reviewHtml(item);
+      reviewHtml(item);
       bodyText.push(...html.passages);
       return;
     }
     let previous = context;
-    for (const child of node.children ?? []) {
-      collect(child, previous);
+    const children = node.children ?? [];
+    for (const [index, child] of children.entries()) {
+      const next = children[index + 1];
+      collect(child, previous, next?.type === 'paragraph' ? inlineText(next, true) : '');
       previous = inlineText(child, true);
     }
   };

@@ -220,6 +220,116 @@ We organised the colour.
     expect(rules(await check('I typed \\<span>literal\\</span>.\n'))).not.toContain('review.html');
   });
 
+  it.each([
+    '<img src="/image.png">',
+    '<hr>',
+    '<script>const x = 1;</script>',
+    '<custom-note></custom-note>',
+  ])('prompts for rendered verification of textless HTML blocks (%s)', async (source) => {
+    const report = await check(source + '\n');
+    const warnings = report.findings.filter((f) => f.rule === 'review.html');
+    expect(warnings).toHaveLength(1);
+    expect(warnings[0].excerpt).toBe(source);
+    expect(warnings[0].location.start.line).toBe(1);
+    expect(errors(report)).toEqual([]);
+  });
+
+  it('protects cited inline HTML blockquotes while retaining their semantic tokens', async () => {
+    const beforeSource =
+      'I read <blockquote cite="/source">Our colour will not ship.</blockquote> and chose color.\n';
+    const source = beforeSource.replace('will not ship', 'will ship');
+    const report = await check(source, { beforeSource });
+    expect(errors(report)).toEqual([]);
+    expect(rules(report)).not.toContain('review.quotation-attribution');
+    expect(rules(report)).toContain('review.negation-modal-change');
+    expect(report.packet.protectedMaterial.after.find((p) => p.kind === 'quotation').text).toBe(
+      'Our colour will ship.',
+    );
+  });
+
+  it('recognizes the immediately following attribution paragraph after a Markdown blockquote', async () => {
+    const report = await check('> Our colour.\n\nClaude wrote.\n');
+    expect(errors(report)).toEqual([]);
+    expect(rules(report)).not.toContain('review.quotation-attribution');
+    for (const following of [
+      'The release ended.\n\nClaude wrote a report.',
+      '```text\nClaude wrote.\n```',
+    ]) {
+      expect(rules(await check(`> Our colour.\n\n${following}\n`))).toContain(
+        'review.quotation-attribution',
+      );
+    }
+  });
+
+  it('checks HTML headings once and does not count a heading-to-paragraph change as a modal change', async () => {
+    const report = await check(
+      '<section>\n<h2>We chose colour.</h2>\n<p>I chose it.</p>\n</section>\n',
+    );
+    for (const rule of ['voice.narrator-plural', 'voice.american-spelling']) {
+      const findings = report.findings.filter((f) => f.rule === rule);
+      expect(findings).toHaveLength(1);
+      expect(findings[0].location.start.line).toBe(2);
+    }
+    const image = await check('<h2>I chose <img src="/image.png" alt="Our colour."></h2>\n');
+    expect(image.findings.find((f) => f.rule === 'voice.narrator-plural').surface).toBe('caption');
+    expect(
+      rules(
+        await check('<p>I will not ship</p>\n', {
+          beforeSource: '<h2>I will not ship</h2>\n',
+        }),
+      ),
+    ).not.toContain('review.negation-modal-change');
+  });
+
+  it.each([
+    '<table><tr><td>We</td><td>organised colour.</td></tr></table>',
+    '<p>We</p><p>organised colour.</p>',
+    '<ul><li>We</li><li>organised colour.</li></ul>',
+  ])('preserves authored word boundaries between HTML blocks (%s)', async (source) => {
+    expect(rules(await check(source + '\n'))).toEqual(
+      expect.arrayContaining(['voice.narrator-plural', 'voice.american-spelling']),
+    );
+  });
+
+  it('preserves metadata paragraph boundaries while concatenating true inline formatting', async () => {
+    const source = '---\ndescription: |\n  We\n\n  organised colour.\n---\n\nI chose it.\n';
+    const report = await check(source);
+    for (const rule of ['voice.narrator-plural', 'voice.american-spelling']) {
+      const item = report.findings.find((f) => f.rule === rule);
+      expect(item.surface).toBe('description');
+      expect(item.location.start.line).toBe(2);
+    }
+    const inline = await parseArticle(
+      '---\ndescription: "Co**lor** is my choice."\n---\n\nI chose it.\n',
+      file,
+    );
+    expect(inline.surfaces.find((s) => s.field === 'description').text).toBe('Color is my choice.');
+    const beforeSource = '---\ndescription: |\n  I will\n\n  not ship.\n---\n\nI chose it.\n';
+    expect(
+      rules(await check(beforeSource.replace('I will\n\n  not', 'I will not'), { beforeSource })),
+    ).not.toContain('review.negation-modal-change');
+  });
+
+  it('checks standalone HTML metadata with the same DOM projections and quotation protections', async () => {
+    const beforeSource =
+      '---\ndescription: |\n  <div><h2>I chose color.</h2><q cite="/source">Our colour will not ship.</q><code>We organised colour.</code></div>\n---\n\nI chose it.\n';
+    const report = await check(beforeSource.replace('will not ship', 'will ship'), {
+      beforeSource,
+    });
+    expect(errors(report)).toEqual([]);
+    expect(rules(report)).not.toContain('review.quotation-attribution');
+    expect(rules(report)).toContain('review.negation-modal-change');
+    const quotation = report.packet.protectedMaterial.after.find((p) => p.kind === 'quotation');
+    expect(quotation.text).toBe('Our colour will ship.');
+    expect(quotation.location.start.line).toBe(2);
+    const authored = await check(
+      beforeSource.replace('<h2>I chose color.</h2>', '<h2>We</h2><p>organised colour.</p>'),
+    );
+    expect(rules(authored)).toEqual(
+      expect.arrayContaining(['voice.narrator-plural', 'voice.american-spelling']),
+    );
+  });
+
   it('retains the original YAML scalar range for inline quotation provenance and HTML review', async () => {
     const source = '---\ndescription: "I read <q>Our colour.</q>"\n---\n\nI chose it.\n';
     const report = await check(source);
