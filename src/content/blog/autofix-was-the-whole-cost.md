@@ -14,7 +14,7 @@ keyTakeaways:
   - "One style rule contained three jobs: find mistakes, find the prose, and rewrite files. Auto-fix was the optional one, 17% of the implementation and tests, but 42 of the 57 findings named it. Cutting it ended the rewrite-safety churn; the PR merged within the hour."
   - "The arc drew 256 review submissions and 126 inline findings across seven PRs. Another automated round didn't require a separate approval or produce a line item. When the next round is nearly free, the signal to stop has to come from the shape of the series."
   - "Moving to Vale cut the tool and tests from 2,453 lines to 1,343, a 45% reduction. The rule was 7 lines, but I still had a 509-line adapter to maintain. That was the right trade; the seven-line headline hid the work I kept."
-  - "A straight swap would have skipped post metadata and reported green: at publication, 127 prose-bearing items across 14 files, including 57 pull quotes and takeaways. Running both tools exposed the gap. Replaying 174 retired cases let me record the 18 lost checks as a deliberate trade."
+  - "Vale alone skips post metadata and reports green: at publication, that metadata held 127 prose-bearing items across 14 files, including 57 pull quotes and takeaways. Running both tools exposed the gap. Replaying 174 retired cases let me record the 18 lost checks as a deliberate trade."
 pullquotes:
   - text: "Auto-fix was 17% of the implementation and tests, and 42 of the 57 findings named it. The cost was never the line count. It was the trust burden."
     label: "The trust burden"
@@ -48,7 +48,7 @@ I wanted this site to follow one Chicago rule: an em dash takes no space on eith
 
 The tool peaked at 1,721 lines of code and a 1,196-line test suite. The PR that tried to make its auto-fixer safe drew 57 findings across 24 review rounds. Twenty-two rounds and 54 findings came before I removed auto-fix. After the cut, there were no further rewrite-safety findings, and the PR merged within the hour. The 1,513 in the title is the tool as it finally merged, and the exact line count later deleted whole.
 
-I hadn't asked for a tool that rewrote files. That capability arrived with the style check, and I kept trying to make it safe. It was 17% of the implementation and tests, but three in four findings named it. The difficult part of the requirement was also the optional part.
+I hadn't asked for a tool that rewrote files. That capability arrived with the style check, and I kept trying to make it safe. It was 17% of the implementation and tests, but three in four findings named it. The expensive part of the requirement was also the optional part.
 
 <span id="three-capabilities-wearing-one-requirement"></span>
 
@@ -140,7 +140,7 @@ The findings also described how the churn happened. Twenty-nine of the 57, all f
 
 A gentle drift that never lands is not a long tail. At two findings a round, the work wouldn't finish. The query cost almost nothing. I should've read the series from round six; I waited until round twenty-two, when someone asked whether the work was converging. The answer was no.
 
-Closing findings can consume plenty of effort without making progress. I confused "we closed everything raised" with "we are getting closer to done." I'd already written [a post about that](/blog/perfect-score-wrong-axis/), and I still walked into it.
+Closing findings can consume plenty of effort without making progress. "We closed everything raised" also isn't "we're getting closer to done." I'd already written [a post about that second point](/blog/perfect-score-wrong-axis/), and I still walked into the first.
 
 <span id="the-measurable-floor"></span>
 
@@ -182,13 +182,13 @@ I didn't keep enough to meet two of the criteria in [the audit issue](https://gi
 
 The **2.27 million fresh input tokens and 285,100 output tokens**, including 99,453 reasoning tokens, are combined counters for two sessions associated with #686. One was the GPT-5.6 Sol hardening session priced at $60.81. The other was one of the two `gpt-5.3-codex-spark` sessions. My records don't say which one or what it cost. The two-session count and the one-session $60.81 therefore can't be checked against each other.
 
-The Claude session recorded **1.78 million output tokens across 1,872 assistant turns**. You'll have to take my word for these counters; none is in a published artifact.
+The Claude session recorded **1.78 million output tokens across 1,872 assistant turns**. You'll have to take my word for both sets of counters; none is in a published artifact.
 
 ### The API-cost estimate
 
 The Claude arithmetic can be checked: $0.02 fresh input + $130.61 cache writes + $416.86 cache reads + $44.41 output = **$591.90**. At $25/M, the output component gives **1.78 million output tokens**, rounded as the session counter was. The other components give 833.7 million cache reads, 13.06 million cache writes, and 0.004 million fresh input. Together they give **848.6 million tokens processed**, the sidebar's rounded 848 million. The figures reconcile at that precision; they're different views of the same telemetry, not independent evidence for it.
 
-Adding the two author-attested Codex estimates gives $60.81 + $59.95 + $591.90, or about **$712.66**, at [OpenAI](https://developers.openai.com/api/docs/models/gpt-5.6-sol) and [Anthropic](https://platform.claude.com/docs/en/about-claude/pricing) list rates published on August 24, 2026. Nothing was billed at those rates: the sessions ran under subscriptions, as I report in the sidebar. The Claude session also covered other work, so the estimate over-attributes cost to this feature. The two unpriced Spark sessions and different cache policies make this unsuitable as a model-to-model comparison.
+Adding the two author-attested Codex estimates gives $60.81 + $59.95 + $591.90, or about **$712.66**, at [OpenAI](https://developers.openai.com/api/docs/models/gpt-5.6-sol) and [Anthropic](https://platform.claude.com/docs/en/about-claude/pricing) list rates published on August 24, 2026. Nothing was billed at those rates: the sessions ran under subscriptions, as I report in the sidebar. The Claude session also covered other work, so the estimate over-attributes cost to this feature. The sessions covered different work under different cache policies, so this isn't a model-to-model comparison.
 
 ### The whole arc
 
@@ -196,7 +196,7 @@ Across all seven PRs there were **256 review submissions and 126 inline findings
 
 The arc took about 49 hours from first open to last merge. #686 took 30 of those hours: 62% of the wall time, 44% of the submissions (113 of 256), and 45% of the findings (57 of 126). Four PRs merged in under sixteen minutes each. On #681, #682, and [#721](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/721), neither review bot posted. Of the Codex App's 28 reviews and CodeRabbit's 63, the two long PRs drew 17 and 27 on #686, and 4 and 33 on #720.
 
-I haven't estimated a grand total. Multiplying uninstrumented reviews by the measured average would invent a number. The recorded floor is enough to show the cost of the unexamined capability. Nobody had to approve half a million tokens of re-review as one purchase. The ledger's 524,554 accumulated one reasonable-looking loop at a time, without a line item that made me stop.
+I haven't estimated a grand total. Multiplying uninstrumented reviews by the measured average would invent a number. The recorded floor is enough to show that a requirement nobody questioned consumed a lot of compute. Nobody had to approve half a million tokens of re-review as one purchase. The ledger's 524,554 accumulated one reasonable-looking loop at a time, without a line item that made me stop.
 
 <span id="cutting-the-capability-nobody-asked-for"></span>
 
@@ -204,7 +204,7 @@ I haven't estimated a grand total. Multiplying uninstrumented reviews by the mea
 
 I made the tool report-only. It named the violations and exited. It didn't touch the files.
 
-The cut removed a net 500 lines: the safety proof and the tests exercising it. Four more commits, two review rounds, and three findings followed. The PR merged 56 minutes later. Two findings were removal cleanup; the third was documentation debt for a dependency added on the PR's first day. None concerned rewrite safety. That class of finding stopped at the commit that removed auto-fix.
+The cut removed a net 500 lines: the safety proof and the tests exercising it. Four more commits, two review rounds, and three findings followed. The PR merged 56 minutes after the removal commit. Two findings were removal cleanup; the third was documentation debt for a dependency added on the PR's first day. None concerned rewrite safety. That class of finding stopped at the commit that removed auto-fix.
 
 A punctuation nit shouldn't block shipping. I wanted a list to clean up later, rather than a tool with permission to rewrite my published writing. Once I removed rewriting, there was nothing left for the expensive proof to protect.
 
@@ -285,4 +285,4 @@ For an expensive capability, I'd ask what it was protecting. The proof here exis
 
 During a migration, I'd run both versions, compare their output, and record the capabilities I'm giving up. A finished migration can still leave a silent coverage gap.
 
-I also need to correct my own numbers. Auto-fix was 17% of the implementation and tests, not most of the code. The honest pre-cut series was 54 findings across 22 rounds. The commit history and API record made both corrections possible, and both made the product judgment clearer: I'd spent the review effort on a capability I hadn't asked for. Removing it stopped the rewrite-safety churn. Buying a linter addressed the separate question of what I should still maintain.
+I also need to correct my own numbers. Auto-fix was 17% of the implementation and tests, not most of the code. The honest pre-cut series was 54 findings across 22 rounds. The commit history and API record made both corrections possible, and both made the product judgment clearer: I'd spent most of the review effort on a capability I hadn't asked for. Removing it stopped the rewrite-safety churn. Buying a linter addressed the separate question of what I should still maintain.

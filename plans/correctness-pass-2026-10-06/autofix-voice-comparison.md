@@ -14,7 +14,7 @@ This is a full voice revision, followed by a separate comparison of the complete
 
 **After**
 
-> I hadn't asked for a tool that rewrote files. That capability arrived with the style check, and I kept trying to make it safe. It was 17% of the implementation and tests, but three in four findings named it. The difficult part of the requirement was also the optional part.
+> I hadn't asked for a tool that rewrote files. That capability arrived with the style check, and I kept trying to make it safe. It was 17% of the implementation and tests, but three in four findings named it. The expensive part of the requirement was also the optional part.
 
 The opening now starts "I wanted this site to follow one Chicago rule." It does not turn the later report-only decision into an original request for a list of mistakes. The peak, final and deleted line counts remain separate. The 42/57 classification still covers the complete PR; it is not described as entirely pre-cut. The pre-cut population remains 22 rounds and 54 findings.
 
@@ -74,7 +74,7 @@ The unchecked swap remains a counterfactual. The rewrite does not claim the site
 
 **After**
 
-> I also need to correct my own numbers. Auto-fix was 17% of the implementation and tests, not most of the code. The honest pre-cut series was 54 findings across 22 rounds. The commit history and API record made both corrections possible, and both made the product judgment clearer: I'd spent the review effort on a capability I hadn't asked for. Removing it stopped the rewrite-safety churn. Buying a linter addressed the separate question of what I should still maintain.
+> I also need to correct my own numbers. Auto-fix was 17% of the implementation and tests, not most of the code. The honest pre-cut series was 54 findings across 22 rounds. The commit history and API record made both corrections possible, and both made the product judgment clearer: I'd spent most of the review effort on a capability I hadn't asked for. Removing it stopped the rewrite-safety churn. Buying a linter addressed the separate question of what I should still maintain.
 
 The five original lessons remain: separate capabilities, read the series, ask what the expensive capability protects, compare and record migrations, and correct the author's own numbers. The ending returns to the two decisions and their different outcomes.
 
