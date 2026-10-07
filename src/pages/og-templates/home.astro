@@ -1,11 +1,16 @@
 ---
 import OgCard from '../../layouts/OgCard.astro';
+import { getSiteCopy } from '../../lib/site-copy';
+
+// The card's own short line: the homepage description is too long for the
+// card at its size, so the image variant is a named field beside it (#1166).
+const { shareImageDescription } = await getSiteCopy('home');
 ---
 
 <OgCard
   label="nathanpayne.com"
   heading="Nathan Payne"
-  description="Product manager · AI coding agents · platform products"
+  description={shareImageDescription}
   palette="1930"
   cropSafe
 />

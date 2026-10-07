@@ -3,6 +3,8 @@ import BaseLayout from '../layouts/BaseLayout.astro';
 import { getCollection, getEntry, render } from 'astro:content';
 import { selectHomepageWriting } from '../lib/blog-order';
 import { stateMarkerClass } from '../lib/lifecycle-marker';
+import { getSiteCopy } from '../lib/site-copy';
+import { alumniOf, longLocation } from '../lib/person-json-ld';
 
 // One published collection feeds two deliberately different surfaces (#627):
 // the Writing list is hand-curated by `homepageRank`, while Latest Post remains
@@ -64,10 +66,25 @@ const cardLineOf = (slug: string) => {
 
 const latestPost = chronologicalPosts[0];
 
-const blogIndex = await getEntry('siteCopy', 'blog');
-if (!blogIndex?.data.homepageWritingDescription) {
-  throw new Error('Missing homepageWritingDescription in src/content/site-copy/blog.md');
+const blogIndex = await getSiteCopy('blog');
+// The Selected Projects introduction is the homepage rendition in
+// src/content/site-copy/projects.md, beside the /projects/ metadata and the
+// résumé's introduction (#1166).
+const projectsCopy = await getSiteCopy('projects');
+// Homepage description (meta, og, twitter, WebSite and ProfilePage JSON-LD),
+// the Person node's own description, and the profile facts the Person node
+// shares with the résumé's (#1166).
+const homeCopy = await getSiteCopy('home');
+const myself = await getEntry('myself', 'nathan-payne');
+if (!myself) {
+  throw new Error('Missing myself entry "nathan-payne" — expected at src/content/myself/nathan-payne.md');
 }
+const m = myself.data;
+const [education, experience] = await Promise.all([
+  getCollection('education'),
+  getCollection('experience'),
+]);
+const HOME_TITLE = 'Nathan Payne | Product Manager · AI Agents · San Francisco';
 
 // The Selected Projects footer's content line: the four domains the work spans
 // (#984, settled in #991). Every other panel footer ends on a bounded line —
@@ -112,6 +129,17 @@ if (!nowEntry) {
   throw new Error('Missing bio entry "now" — expected at src/content/bio/now.md');
 }
 const { Content: NowContent } = await render(nowEntry);
+// NOW is authored prose and states availability in its own sentence; that
+// sentence must be the profile's long availability statement, word for word,
+// so a change in availability cannot leave NOW saying something else (#969,
+// #1166). It stays in the paragraph rather than being injected, because the
+// résumé link folds into the end of NOW's last paragraph (#659).
+if (!nowEntry.body?.includes(m.availability.long)) {
+  throw new Error(
+    'src/content/bio/now.md must state availability exactly as `availability.long` in ' +
+      'src/content/myself/nathan-payne.md does. Update the NOW paragraph to match it.',
+  );
+}
 
 const homepageJsonLd = {
   "@context": "https://schema.org",
@@ -121,7 +149,7 @@ const homepageJsonLd = {
       "@id": "https://nathanpayne.com/#website",
       "url": "https://nathanpayne.com/",
       "name": "Nathan Payne",
-      "description": "Product manager working with AI coding agents and platform products. Previously led product work for the device platform behind Disney+, Hulu, and ESPN.",
+      "description": homeCopy.description,
       "publisher": {
         "@id": "https://nathanpayne.com/#person"
       }
@@ -130,8 +158,8 @@ const homepageJsonLd = {
       "@type": "ProfilePage",
       "@id": "https://nathanpayne.com/#webpage",
       "url": "https://nathanpayne.com/",
-      "name": "Nathan Payne | Product Manager · AI Agents · San Francisco",
-      "description": "Product manager working with AI coding agents and platform products. Previously led product work for the device platform behind Disney+, Hulu, and ESPN.",
+      "name": HOME_TITLE,
+      "description": homeCopy.description,
       "isPartOf": {
         "@id": "https://nathanpayne.com/#website"
       },
@@ -142,20 +170,17 @@ const homepageJsonLd = {
     {
       "@type": "Person",
       "@id": "https://nathanpayne.com/#person",
-      "name": "Nathan Payne",
+      "name": m.name,
       "url": "https://nathanpayne.com/",
-      "description": "Nathan Payne is a product manager working at the intersection of AI coding agents and shipped software.",
-      "alumniOf": {
-        "@type": "Organization",
-        "name": "The Walt Disney Company"
-      },
+      "description": homeCopy.personDescription,
+      "alumniOf": alumniOf(education, experience),
       "homeLocation": {
         "@type": "Place",
-        "name": "San Francisco, California, United States"
+        "name": longLocation(m.address)
       },
       "sameAs": [
-        "https://www.linkedin.com/in/nathanpayne/",
-        "https://github.com/nathanjohnpayne",
+        `https://www.linkedin.com/in/${m.linkedin}/`,
+        `https://github.com/${m.github}`,
         "https://bsky.app/profile/nathanpayne.bsky.social",
         "https://www.instagram.com/nathanpayne/",
         "https://www.threads.com/@nathanpayne",
@@ -167,8 +192,8 @@ const homepageJsonLd = {
 ---
 
 <BaseLayout
-  title="Nathan Payne | Product Manager · AI Agents · San Francisco"
-  description="Product manager working with AI coding agents and platform products. Previously led product work for the device platform behind Disney+, Hulu, and ESPN."
+  title={HOME_TITLE}
+  description={homeCopy.description}
   dataPalette="1930"
   jsonLd={homepageJsonLd}
 >
@@ -183,7 +208,7 @@ const homepageJsonLd = {
             <div class="about-blocks">
               <div class="about-block">
                 <span class="eyebrow about-label">Context</span>
-                <p>Over the past ten years, I worked on the streaming platforms behind Disney+, Hulu, and ESPN. I started at MLB.com and BAMTECH, joined Disney through the 2017 acquisition, and spent the last five years leading the Native Client Platform across PlayStation, Xbox, Amazon Fire TV, Linux set-top boxes, and smart TVs.</p>
+                <p>For ten years, I worked on the streaming platforms behind Disney+, Hulu, and ESPN. I started at MLB.com and BAMTECH, joined Disney through the 2017 acquisition, and spent five years leading the Native Client Platform across PlayStation, Xbox, Amazon Fire TV, Linux set-top boxes, and smart TVs.</p>
               </div>
               <div class="about-block">
                 <span class="eyebrow about-label">Approach</span>
@@ -207,7 +232,7 @@ const homepageJsonLd = {
               </div>
               <div class="about-block about-block--writing">
                 <span class="eyebrow about-label">Writing</span>
-                <p>{blogIndex.data.homepageWritingDescription}</p>
+                <p>{blogIndex.homepageWritingDescription}</p>
                 {/* .writing-list wraps the post list alone. It also held the
                     exit link until #975, so that the two read as one block
                     (#659); the exit now sits on the ribbon below with every
@@ -242,7 +267,7 @@ const homepageJsonLd = {
         <div class="panel-content">
           <div class="content-inner">
             <h2>Selected Projects</h2>
-            <p>The case studies focus on the decisions, tradeoffs, and evidence behind them; I built each with AI agents under a review system I designed.</p>
+            <p>{projectsCopy.homepageDescription}</p>
             {/* Builds grid — hand-authored, NOT generated from the projects
                 collection, so the `order` field on the project source files has
                 no effect here. This is a *selected* set: the heading says so, and

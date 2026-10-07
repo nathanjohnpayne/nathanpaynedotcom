@@ -2,6 +2,7 @@
 title: "The HTML Mock-up Is the Spec: How I Got Visual Work Out of Claude Code"
 seoTitle: "The HTML Mock-up Is the Spec"
 shortTitle: "Mock-up as Spec"
+resumeTitle: "The HTML Mock-up Is the Spec"
 description: "Claude kept giving me layouts that didn't match what I had in mind. I asked it for standalone HTML mock-ups, picked a target, then handed it back beside the live page: make this look like that. I still had to keep the decision and check what shipped."
 seoDescription: "How standalone HTML mockups turned vague visual direction into a concrete spec Claude Code could diff against and implement on the live site."
 category: "Agent Systems"

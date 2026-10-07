@@ -1,9 +1,14 @@
 ---
 import OgCard from '../../layouts/OgCard.astro';
+import { getSiteCopy } from '../../lib/site-copy';
+
+// The same description /resume/ publishes as its meta, og and JSON-LD
+// description (#1166), so the card and the unfurl text cannot disagree.
+const { description } = await getSiteCopy('resume');
 ---
 
 <OgCard
   label="nathanpayne.com/resume"
   heading="Nathan Payne"
-  description="Senior Platform Product Manager—20+ years across streaming, partner ecosystems, and platform infrastructure (Disney+, Hulu, ESPN), now building AI-augmented software."
+  description={description}
 />

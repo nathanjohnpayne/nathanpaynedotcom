@@ -2,14 +2,14 @@ import { defineCollection, z } from 'astro:content';
 import { glob } from 'astro/loaders';
 import { BLOG_CATEGORIES, HOMEPAGE_WRITING_LIMIT } from './lib/blog-order';
 import { MUX_PLAYBACK_ID_PATTERN } from '../scripts/lib/mux-playback-id.mjs';
+import { siteCopySchema } from './lib/site-copy-schema';
 
+// Page and publication copy that several surfaces repeat (#1166). Each entry
+// has its own strict shape; read one through getSiteCopy() in
+// src/lib/site-copy.ts, which re-parses it with the schema for its id.
 const siteCopy = defineCollection({
   loader: glob({ pattern: '**/*.md', base: './src/content/site-copy' }),
-  schema: z.object({
-    title: z.string().trim().min(1),
-    description: z.string().trim().min(1),
-    homepageWritingDescription: z.string().trim().min(1).optional(),
-  }),
+  schema: siteCopySchema,
 });
 
 const projects = defineCollection({
@@ -252,6 +252,11 @@ const blog = defineCollection({
     title: z.string(),
     seoTitle: z.string().optional(),
     shortTitle: z.string().optional(),
+    // The essay's title in the résumé's Selected essays list, when that list
+    // deliberately shortens it (#1166). Optional: the list falls back to
+    // `title`, so a retitled post reaches the résumé unless it opts out here.
+    // Like `seoTitle`, a trim of the headline, never a different one.
+    resumeTitle: z.string().trim().min(1).optional(),
     description: z.string(),
     seoDescription: z.string().optional(),
     category: z.enum(BLOG_CATEGORIES),
@@ -358,6 +363,12 @@ const bio = defineCollection({
 // scheme) and the full URL is composed in ResumeHeader/SummarySection.
 // No `phone` — the canonical resume is email-only. The two-paragraph
 // summary lives in the markdown body, rendered with render().
+//
+// It is also the profile the rest of the site reads (#1166): `title` is the
+// Person JSON-LD `jobTitle`, `address` feeds the résumé header, both Person
+// nodes and the shared footer, `blog` is the résumé Writing link text, and
+// `availability` is the one hiring statement every availability surface
+// renders.
 const myself = defineCollection({
   loader: glob({ pattern: '**/*.md', base: './src/content/myself' }),
   schema: z.object({
@@ -368,7 +379,26 @@ const myself = defineCollection({
     linkedin: z.string(),
     github: z.string(),
     blog: z.string(),
-    location: z.string(),
+    // Structured so each surface takes the form it needs: the résumé header
+    // and metadata panel print "locality, region", the footer prints the
+    // locality, and the Person JSON-LD nodes use the parts (PostalAddress on
+    // the résumé) or the spelled-out names (homeLocation on the homepage).
+    address: z.object({
+      locality: z.string().trim().min(1),
+      region: z.string().trim().min(1),
+      regionName: z.string().trim().min(1),
+      country: z.string().trim().min(1),
+      countryName: z.string().trim().min(1),
+    }),
+    // Hiring availability (#969, #1166). `long` is the résumé metadata
+    // panel's Availability row and must appear verbatim in the homepage NOW
+    // paragraph (src/content/bio/now.md), which the homepage build checks;
+    // `short` is the résumé's end-of-page CTA lede. Two renditions of one
+    // statement, not two statements: #969's count still holds.
+    availability: z.object({
+      long: z.string().trim().min(1),
+      short: z.string().trim().min(1),
+    }),
   }),
 });
 
@@ -396,6 +426,27 @@ const experience = defineCollection({
     // tighter vertical rhythm so LAYOUT, not prose, controls how much of the
     // skim they consume. Reversible — flip the flag, the copy is unchanged.
     compact: z.boolean().optional(),
+    // Résumé sidebar highlight cards (#1166). Each key names one marquee
+    // claim from this role, condensed to fit a card; `src/pages/resume.astro`
+    // selects cards by entry id and key, and fails the build on a missing
+    // one. These are deliberate paraphrases, outside the verbatim contract
+    // that binds the body (specs/resume.md § Content fidelity). Optional:
+    // most roles have no highlight.
+    highlights: z
+      .record(
+        z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, 'highlight keys are kebab-case'),
+        z.string().trim().min(1),
+      )
+      .optional(),
+    // The organization this role makes Nathan an alumnus of in the Person
+    // JSON-LD `alumniOf` list both the homepage and the résumé emit
+    // (src/lib/person-json-ld.ts, #1166). Named separately from `company`
+    // because the employing unit is not the organization worth publishing:
+    // "Disney Entertainment and ESPN Product & Technology" and "Disney
+    // Streaming" are both "The Walt Disney Company". Optional: a role without
+    // it is not listed, which keeps that list a publishing decision rather
+    // than a side effect of adding a job.
+    alumniOrganization: z.string().trim().min(1).optional(),
   }),
 });
 

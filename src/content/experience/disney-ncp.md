@@ -7,6 +7,12 @@ startYear: 2021
 endYear: 2026
 order: 1
 website: "disney.co"
+alumniOrganization: "The Walt Disney Company"
+highlights:
+  ncpv3: "Conceived and secured an $18.1M investment in NCPv3—a JavaScript/React runtime that let Disney's mature JavaScript app run across five device families, retiring the parallel Rust app and merging two teams into one."
+  vega-os: "Led Disney's launch on Amazon's Linux-based Vega OS (Kepler): Disney+, Hulu, and ESPN shipped on schedule with no measurable engagement impact."
+  pr-review-pipeline: "Introduced an AI-powered PR review pipeline that cut median PR cycle time from 7.4 to 4 days, beating the 30% Q2 OKR target."
+  device-intelligence: "Replaced 40+ partner questionnaires with a Snowflake and Looker device-intelligence system supporting AV1/HEVC compliance across Germany and Brazil."
 ---
 
 Product lead for the SDK and platform layer that runs Disney+, Hulu, and ESPN on partner devices. Scope included device certification, partner integrations, platform observability, release engineering, and cross-program alignment with player, engineering, product, and TPM teams.

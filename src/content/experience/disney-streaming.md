@@ -7,6 +7,7 @@ startYear: 2018
 endYear: 2021
 order: 2
 website: "disneyplus.com"
+alumniOrganization: "The Walt Disney Company"
 ---
 
 Led front-end engineering teams that built and launched Disney+, the fastest-growing streaming service of all time, across connected devices.
