@@ -1385,7 +1385,10 @@ describe('Resume — PDF reading order and markers', () => {
         ['Disney Streaming role title', 'Senior Technical Project Manager, Lead—Disney Streaming'],
         [
           'role summary',
-          'Led front-end engineering teams that built and launched Disney+ across connected devices.',
+          // The prefix both artifacts share: the built PDF carries the canonical
+          // sentence (synced 2026-10-06) and the known-bad fixture carries the
+          // earlier one, so the negative control still reaches the bullets.
+          'Led front-end engineering teams that built and launched Disney+',
         ],
         ['bullet 1', 'Brought Disney+ from concept to launch across living-room platforms'],
         [

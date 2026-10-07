@@ -31,10 +31,10 @@ sidebar:
     content: |
       How things are counted. The appendix's merged population is the 90 distinct pull-request references parsed from commit subjects on `main` between 2026-08-23 and 2026-09-23 inclusive, validated against the pull-request number set so that issue references in commit subjects were not miscounted as pull requests. A rebase-merged pull request leaves no reference in its subject and would be missed entirely, so 90 is a floor. The count of twelve that name the failure mode is by title only, and titles undercount, so it is a floor too.
 
-      Additions and deletions are each pull request's diff as GitHub reports it against its merge base. Review rounds are review submissions on the pull request timeline. The burst counts 21 commits on `main` between 2026-09-14T00:00:00Z and 2026-09-15T23:59:59Z; two of them are the same pull request, #1266, landing as a merge commit plus its branch commit, so the distinct-change count is 20. Issue age is the whole-day, date-to-date difference from the issue's creation date to 2026-09-23.
+      Additions and deletions are each pull request's diff as GitHub reports it against its merge base. Review rounds are review submissions on the pull request that carry a body; body-less acknowledgments are not counted. The burst counts 21 commits on `main` between 2026-09-14T00:00:00Z and 2026-09-15T23:59:59Z; two of them are the same pull request, #1266, landing as a merge commit plus its branch commit, so the distinct-change count is 20. Issue age is the whole-day, date-to-date difference from the issue's creation date to 2026-09-23.
   - type: text
     content: |
-      Provenance. Every pull request figure, issue timestamp, label and quoted sentence comes from the GitHub API. The evidence window was read on 2026-09-23 and re-checked on 2026-09-24. The #956 decision, #1323, and the current state of #878, #940, #962, #1130 and #1186 were read on 2026-09-30. Quotations from issue and pull request bodies are verbatim, with em dash spacing normalized to house style. Most of those bodies were written by coding agents working under my account or a bot identity, so they are the pipeline's own record, not independent testimony. The #956 decision is quoted from a comment I posted.
+      Provenance. Every pull request figure, issue timestamp, label and quoted sentence comes from the GitHub API. The evidence window was read on 2026-09-23 and re-checked on 2026-09-24. The #956 decision, #1323, and the current state of #878, #940, #962, #1130 and #1186 were read on 2026-09-30 and re-read on 2026-10-06. Quotations from issue and pull request bodies are verbatim, with em dash spacing normalized to house style. Most of those bodies were written by coding agents working under my account or a bot identity, so they are the pipeline's own record, not independent testimony. The #956 decision is quoted from a comment I posted.
 
       Issue timelines paginate at 30 events, so any list of referencing pull requests here is a floor. The open-issue count in the appendix is a title-only match and is likewise a floor. The 127-commit range and the 2.8-times overage are #1186's own measurements and were not independently re-derived.
 ---
@@ -65,9 +65,9 @@ Through August and most of September, I treated it as the second. Each incident 
 
 [#1186](https://github.com/nathanjohnpayne/mergepath/issues/1186), filed on September 4, reports that the wave audit, which reviews the canonical content Mergepath propagates to downstream repositories, "has not advanced its watermark since 2026-07-28: over-budget diffs classify as 'reviewer unavailable' and chain forward, making the next range larger."
 
-The audit had a word for "no answer," and it used it. The word was the wrong kind. *Reviewer unavailable* is transient, and transient conditions carry forward to the next run. But an over-budget diff does not shrink by waiting. Each unaudited range carried into the next wave, making the next diff larger and another over-budget failure more likely. In the issue's words: "Every wave since has exited 4, failed open, and chained its un-audited range into the next one." At filing, the issue recorded the range at 127 commits and the diff at 2.8 times the review budget.
+The audit had a word for "no answer," and it used it. The word was the wrong kind. *Reviewer unavailable* is transient, and transient conditions carry forward to the next run. But an over-budget diff does not shrink by waiting. In the issue's words: "Every wave since has exited 4, failed open, and chained its un-audited range into the next one." At filing, the issue recorded the range at 127 commits and the diff at 2.8 times the review budget.
 
-Thirty-eight days passed between the last approval and the filing. The fix, [#1263](https://github.com/nathanjohnpayne/mergepath/pull/1263), is 45 added lines: refuse an oversized scope before dispatching a reviewer, instead of calling it unavailability.
+Thirty-eight days passed between the last approval and the filing. The first fix, [#1263](https://github.com/nathanjohnpayne/mergepath/pull/1263), is 45 added lines: refuse an oversized scope before dispatching a reviewer, instead of calling it unavailability. #1186 stays open for the backlog itself, which that fix does not split.
 
 What made this one compound is specific to it. The failure blocked no propagation; each run recorded it, but nothing aggregated those records into a warning about the growing backlog. Each run's leftover became the next run's input, so the error grew instead of repeating. And "reviewer unavailable" reads like weather, not a defect. None of that is a law about failing open. It is what happens when a no-answer state is filed under the wrong kind and nobody owns the difference.
 
@@ -85,7 +85,7 @@ A hold spends human attention, and a reflex trained on false alarms is the one t
 
 [#826](https://github.com/nathanjohnpayne/mergepath/issues/826) goes further, arguing that CodeRabbit should not be load-bearing for merge at all, because "the budget is exhausted by the system reviewing its own churn." It is open, labeled as a decision, and blocked.
 
-Failing open can lose reviews quietly; failing closed can spend people loudly. Neither is free. Choosing between them for a given kind of silence is a product decision, and I had been leaving it to whichever code path met the case first.
+Failing open can lose reviews quietly; failing closed can spend people loudly. Choosing between them for a given kind of silence is a product decision, and I had been leaving it to whichever code path met the case first.
 
 ## The Patch Series
 
@@ -97,7 +97,7 @@ Its first acceptance criterion asks for "a written contract (extending `specs/co
 
 > "Do not attempt this as a patch series. The original filing's own history—seven review rounds, fifteen valid findings, no convergence—is the argument against that."
 
-Ten days later, across September 14 and 15, twenty distinct changes landed on `main` in 32 hours and 41 minutes. By my reading of their titles and summaries, eight restate one idea against different surfaces: a value meaning "I could not answer," read as an answer. [#1271](https://github.com/nathanjohnpayne/mergepath/pull/1271) says it most plainly: "A failed CodeRabbit marker extractor currently returns successful absence." #878 records six of the twenty as shipped against it. The appendix has the full list and how I sorted it.
+Ten days later, across September 14 and 15, twenty distinct changes landed on `main` in 32 hours and 41 minutes. By my reading of their titles and summaries, eight restate one idea against different surfaces: a value meaning "I could not answer," read as an answer. [#1271](https://github.com/nathanjohnpayne/mergepath/pull/1271) says it most plainly: "A failed CodeRabbit marker extractor currently returns successful absence." #878's September 15 banner recorded six of the twenty as shipped against it. The appendix has the full list and how I sorted it.
 
 The fixes improved safety. Two of them, [#1274](https://github.com/nathanjohnpayne/mergepath/pull/1274) and [#1279](https://github.com/nathanjohnpayne/mergepath/pull/1279), closed #940. They did not retire the shared cause, because the cause was not in any one code path. It was an unanswered product question, and #878 said whose it was: its banner kept it open at high priority for "the #956 product decision."
 
@@ -111,9 +111,9 @@ On September 24 I decided it, and recorded the decision on the issue:
 
 A body-less acknowledgment does not count as that evidence; a review run with a body, pinned to the current commit, does. [#1323](https://github.com/nathanjohnpayne/mergepath/pull/1323) implemented it and merged on September 25.
 
-That rule has a cost, and I chose it knowingly. While CodeRabbit's current comment remains a refusal, a completion status alone no longer clears the commit. The existing resume, retry, timeout, and Codex failover rules still apply. That is slower, and some of those waits will be on commits with nothing wrong in them. It is #962's cost, accepted on purpose.
+That rule has a cost, and I chose it knowingly. While CodeRabbit's current comment remains a refusal, a completion status alone no longer clears the commit. The existing resume, retry, timeout, and Codex failover rules still apply. That is slower, and some of those waits will be on commits with nothing wrong in them. It is #962's cost.
 
-It is also not the whole answer. It settles one case: what a refusal plus a completion status may prove. #878 stays open at high priority for the rest: the shared classification contract, coverage of the remaining states, and delivery to downstream repositories. I have not done that part yet.
+It settles one case: what a refusal plus a completion status may prove. #878 stays open at high priority for the rest: the shared classification contract, coverage of the remaining states, and delivery to downstream repositories. I have not done that part yet.
 
 What changed is the rule for making progress when evidence is missing. Before, each code path decided for itself whether a silence was close enough to a yes, and the fixes taught them one at a time that it was not. Now there is one written rule, with an owner, for one kind of silence: while the provider's current comment remains a refusal, a completion status alone cannot substitute for a review of this commit. The remaining work is to write that kind of rule for every other kind of silence, once, and have the waiter and the gate both read it.
 
@@ -129,7 +129,7 @@ Eight merged fixes in the family:
 
 | Pull Request | What It Fixed | Diff at Merge | Rounds |
 |---|---|---:|---:|
-| [#1179](https://github.com/nathanjohnpayne/mergepath/pull/1179) | A rate-limit probe mapped to "not yet," which then waited out the full timeout on a state nothing in the run could change | +1,298 / −69 | 15+ |
+| [#1179](https://github.com/nathanjohnpayne/mergepath/pull/1179) | A rate-limit probe mapped to "not yet," which then waited out the full timeout on a state nothing in the run could change | +1,298 / −69 | 15 |
 | [#1274](https://github.com/nathanjohnpayne/mergepath/pull/1274) | A walkthrough refreshed by a push, clearing polling after the same run had already rejected the head's pending status | +206 / −56 | 3 |
 | [#1279](https://github.com/nathanjohnpayne/mergepath/pull/1279) | A refusal with no notice attached, which reached the ordinary timeout and never triggered failover | +183 / −36 | 1 |
 | [#1282](https://github.com/nathanjohnpayne/mergepath/pull/1282) | A summary edited after a push whose risk block named an older commit | +104 / −1 | 1 |
@@ -138,7 +138,7 @@ Eight merged fixes in the family:
 | [#1263](https://github.com/nathanjohnpayne/mergepath/pull/1263) | A diff over its byte budget, classified as transient reviewer unavailability | +45 / −1 | 2 |
 | [#1293](https://github.com/nathanjohnpayne/mergepath/pull/1293) | Codex review requests with no upper bound; new requests now stop at the configured round cap | +573 / −19 | 15 |
 
-Most are small. [#1248](https://github.com/nathanjohnpayne/mergepath/pull/1248) closes [#1247](https://github.com/nathanjohnpayne/mergepath/issues/1247), filed 56 seconds before the pull request opened, whose substance is one sentence: GitHub "caps that listing at 3000 entries, and at the cap the inventory may be truncated." The fix fails closed to "external review required," because, in its own words, "a possibly-truncated inventory cannot support either verdict."
+Most are small. [#1248](https://github.com/nathanjohnpayne/mergepath/pull/1248) closes [#1247](https://github.com/nathanjohnpayne/mergepath/issues/1247), filed 56 seconds before the pull request opened, whose substance is one sentence: GitHub "caps that listing at 3000 entries, and at the cap the inventory may be truncated." The fix fails closed to "external review required," because, in its own words, "a possibly-truncated inventory cannot support either the threshold test or the protected-path match."
 
 ### The Burst
 
@@ -168,7 +168,7 @@ test: transport Codex marker fixture paths safely (#1286)
 fix: require exact Codex request evidence (#1287)
 ```
 
-Sorted by title and the first lines of each body, a judgment call rather than a measurement: eight in the family (#1263, #1271, #1273, #1274, #1279, #1282, #1283, #1285); two follow-ups on the wave audit (#1270, #1272); three arguable, about telling a real review request from something that looks like one (#1280, #1284, #1287); and seven unrelated (#1262, #1264, #1265, #1266, #1267, #1278, #1286). #878 records six of the eight as shipped against it: #1271, #1273, #1274, #1279, #1282 and #1283.
+Sorted by title and the first lines of each body, a judgment call rather than a measurement: eight in the family (#1263, #1271, #1273, #1274, #1279, #1282, #1283, #1285); two follow-ups on the wave audit (#1270, #1272); three arguable, about telling a real review request from something that looks like one (#1280, #1284, #1287); and seven unrelated (#1262, #1264, #1265, #1266, #1267, #1278, #1286). #878's September 15 banner recorded six of the eight as shipped against it: #1271, #1273, #1274, #1279, #1282 and #1283.
 
 ### What Did Not Land
 
