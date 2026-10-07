@@ -18,6 +18,7 @@ Every built page ships comprehensive SEO metadata: Open Graph, Twitter Card, JSO
 5. The Person entity includes `name`, identity/location context, and `sameAs` properties. It must not claim a current `worksFor` value unless the site owner has explicitly chosen to publish one.
 6. Search metadata can use SEO-only content fields (`seoTitle`, `seoDescription`) when visible page copy is intentionally longer than a search title or snippet should be.
 7. Every page advertises `/rss.xml` with a `rel="alternate"` RSS link.
+8. A blog post's JSON-LD `dateModified` is its last body change from git history when that is later than `datePublished`, otherwise `datePublished`. `article:modified_time` is emitted only in the first case. Both use the full timestamp; see [specs/last-updated.md](last-updated.md).
 
 ## Blog Title Hierarchy
 
@@ -44,7 +45,7 @@ These are the invariants that distinguish "SEO tags exist" from "SEO actually wo
 3. The file the URL points at actually exists in `dist/` at the final served path. Enforced by `tests/robots-sitemap.test.js`.
 4. The `Sitemap:` line is not hand-maintained—it is rewritten at build time by `src/integrations/robots-sitemap.mjs`, which scans `dist/` for the real sitemap filename (`sitemap-index.xml` → `sitemap.xml` → sorted `sitemap*.xml` fallback) and appends a fresh directive. Any existing `Sitemap:` lines in `dist/robots.txt` are stripped first. If no sitemap file exists in `dist/`, the build fails rather than shipping a broken `robots.txt`.
 5. The `User-agent:` / `Allow:` rules hand-authored in `public/robots.txt` survive the integration's rewrite intact. Enforced by `tests/robots-sitemap.test.js`.
-6. Sitemap `<lastmod>` values must be content-derived. Blog post routes use the post frontmatter `date`; the blog index uses the newest published post date. Pages without a reliable content date omit `<lastmod>` rather than using build time. Enforced by `tests/sitemap.test.js`.
+6. Sitemap `<lastmod>` values must be content-derived. A blog post route uses the post's last body change from git history when that is later than its frontmatter `date`, and the `date` otherwise ([specs/last-updated.md](last-updated.md), #1168); the blog index uses the newest of those post values. Pages without a reliable content date omit `<lastmod>` rather than using build time. Enforced by `tests/sitemap.test.js` and `tests/last-updated.test.js`.
 
 ### OG image targets
 

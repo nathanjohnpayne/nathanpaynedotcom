@@ -42,6 +42,12 @@ jobs:
           # Read-only job — never pushes, never needs the checkout token
           # past this job. Same defense-in-depth posture as repo_lint.yml.
           persist-credentials: false
+          # Full history, not the default single commit. Blog posts' "last
+          # updated" dates are read from git history at build time, and the
+          # build fails closed on a shallow clone rather than date every
+          # post from the one commit it can see (#1168,
+          # specs/last-updated.md).
+          fetch-depth: 0
 
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:

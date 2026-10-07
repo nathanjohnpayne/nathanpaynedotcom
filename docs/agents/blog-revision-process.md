@@ -92,3 +92,7 @@ State compression targets against **connective prose**, or not as a percentage a
 ## Word counts
 
 Recount immediately before merge. Review rounds add words about as often as they remove them, and the figure went stale three times on one PR before ending with the wrong sign.
+
+## Revisions move the post's "Updated" date
+
+Any merged commit that changes a post's Markdown body moves its last-updated time: the `Updated` month in the sidebar, JSON-LD `dateModified`, `article:modified_time` and the sitemap `<lastmod>` (specs/last-updated.md, #1168). That is the intended signal for a revision. A mechanical sweep that touches many bodies without changing what they say (an em dash pass, a spelling sweep, a link-format change) is not an update: after it merges, add its squash-merge SHA to `.freshness-ignore-revs` in a follow-up PR, with a comment saying why. Frontmatter-only edits never count, so a `description` or `homepageRank` change needs nothing.
