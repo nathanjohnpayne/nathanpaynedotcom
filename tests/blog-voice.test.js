@@ -178,6 +178,30 @@ A small change made publishing practical.
     expect(rules(await check(source))).toContain('voice.pullquote-verbatim');
   });
 
+  it.each([
+    '`The chosen result.`',
+    '> `The chosen result.`',
+    '| Value |\n| --- |\n| `The chosen result.` |',
+    'The `hidden` chosen result.',
+    'The <code>hidden</code> chosen result.',
+    '<p>The <code>hidden</code> chosen result.</p>',
+    '> The chosen\n>\n> result.',
+  ])('does not match code-only occurrences or bridge protected gaps (%s)', async (body) => {
+    const source = '---\npullquotes:\n  - text: "The chosen result."\n---\n\n' + body + '\n';
+    expect(rules(await check(source))).toContain('voice.pullquote-verbatim');
+  });
+
+  it('still matches formatted prose beside unrelated code and inside an attributed prompt', async () => {
+    for (const body of [
+      '**The chosen result.** `unrelated`',
+      'Claude wrote:\n\n> The **chosen** result. `unrelated`',
+      '<p>The chosen result. <code>unrelated</code></p>',
+    ]) {
+      const source = '---\npullquotes:\n  - text: "The chosen result."\n---\n\n' + body + '\n';
+      expect(rules(await check(source))).not.toContain('voice.pullquote-verbatim');
+    }
+  });
+
   it('checks raw HTML image alt text without letting it satisfy a body pullquote', async () => {
     const source =
       '---\npullquotes:\n  - text: "Our colour."\n---\n\n<img alt="Our colour." src="/image">\n';
@@ -545,6 +569,32 @@ describe('CLI contract and read-only execution', () => {
       );
       expect(result.status).toBe(1);
       expect(result.stderr).toMatch(/forbidden/i);
+      expect(existsSync(destination)).toBe(false);
+    } finally {
+      rmSync(directory, { recursive: true, force: true });
+    }
+  });
+
+  it('refuses persistent paths with lookalike temporary-directory names', () => {
+    const directory = mkdtempSync(join(process.cwd(), '.guard-persistent-'));
+    const lookalike = join(directory, 'blog-voice-escape');
+    mkdirSync(lookalike);
+    const destination = join(lookalike, 'forbidden.txt');
+    try {
+      const result = spawnSync(
+        process.execPath,
+        [
+          '--import',
+          resolve('tests/fixtures/blog-voice/offline-guard.mjs'),
+          '--input-type=module',
+          '--eval',
+          "(await import('node:fs')).writeFileSync(process.argv[1], 'changed')",
+          destination,
+        ],
+        { encoding: 'utf8' },
+      );
+      expect(result.status).toBe(1);
+      expect(result.stderr).toContain('Persistent write forbidden');
       expect(existsSync(destination)).toBe(false);
     } finally {
       rmSync(directory, { recursive: true, force: true });

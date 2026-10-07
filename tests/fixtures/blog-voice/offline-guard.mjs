@@ -6,6 +6,16 @@ import https from 'node:https';
 import net from 'node:net';
 import tls from 'node:tls';
 import { syncBuiltinESMExports } from 'node:module';
+import { tmpdir } from 'node:os';
+import { dirname, join, relative, resolve } from 'node:path';
+const temporaryRoot = fs.realpathSync(tmpdir());
+function writableTemporary(path) {
+  const candidate = resolve(String(path));
+  let ancestor = candidate;
+  while (!fs.existsSync(ancestor)) ancestor = dirname(ancestor);
+  const canonical = join(fs.realpathSync(ancestor), relative(ancestor, candidate));
+  return /^(?:blog-voice-|voice-diff-)[^/]+(?:\/|$)/u.test(relative(temporaryRoot, canonical));
+}
 const forbidden = () => {
   throw new Error('Network/model/connector call forbidden in local voice checker');
 };
@@ -52,8 +62,7 @@ for (const name of [
 ]) {
   const original = fs[name];
   fs[name] = (path, ...args) => {
-    if (!/(?:blog-voice-|voice-diff-)[^/]+(?:\/|$)/u.test(String(path)))
-      throw new Error(`Persistent write forbidden: ${path}`);
+    if (!writableTemporary(path)) throw new Error(`Persistent write forbidden: ${path}`);
     return original(path, ...args);
   };
 }
@@ -61,7 +70,7 @@ for (const name of ['rename', 'renameSync', 'copyFile', 'copyFileSync']) {
   const original = fs[name];
   fs[name] = (source, destination, ...args) => {
     const paths = name.startsWith('rename') ? [source, destination] : [destination];
-    if (paths.some((path) => !/(?:blog-voice-|voice-diff-)[^/]+(?:\/|$)/u.test(String(path))))
+    if (paths.some((path) => !writableTemporary(path)))
       throw new Error(`Persistent write forbidden: ${destination}`);
     return original(source, destination, ...args);
   };
@@ -80,9 +89,7 @@ for (const name of [
   fs.promises[name] = async (path, ...args) => {
     const destinations =
       name === 'rename' ? [path, args[0]] : name === 'copyFile' ? [args[0]] : [path];
-    if (
-      destinations.some((value) => !/(?:blog-voice-|voice-diff-)[^/]+(?:\/|$)/u.test(String(value)))
-    )
+    if (destinations.some((value) => !writableTemporary(value)))
       throw new Error(`Persistent write forbidden: ${path}`);
     return original(path, ...args);
   };

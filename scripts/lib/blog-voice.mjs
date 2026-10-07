@@ -169,7 +169,7 @@ function htmlText(source, node) {
   const document = dom.window.document;
   document
     .querySelectorAll('script, style, pre, code, blockquote, q[cite]')
-    .forEach((n) => n.remove());
+    .forEach((n) => n.replaceWith('\0'));
   const headings = [...document.querySelectorAll('h1,h2,h3,h4,h5,h6')].map((n) => {
     const range = dom.nodeLocation(n);
     const start = node.position.start.offset + range.startOffset;
@@ -178,7 +178,7 @@ function htmlText(source, node) {
       kind: 'heading',
       convention: 'HTML',
       field: null,
-      text: n.textContent,
+      text: n.textContent.replaceAll('\0', ' '),
       excerpt: source.slice(start, end),
       location: location(source, start, end),
     };
@@ -197,9 +197,14 @@ function htmlText(source, node) {
     };
   });
   dom.window.close();
-  return { item: entry(source, node, 'html', normalize(text)), headings, captions };
+  return {
+    item: entry(source, node, 'html', normalize(text.replaceAll('\0', ' '))),
+    headings,
+    captions,
+    passages: text.split('\0'),
+  };
 }
-function protectedHtmlText(source, node) {
+function protectedHtmlText(source, node, boundary = ' ', includeQuotedText = false) {
   // A maintained HTML parser supplies ranges for inline HTML code, not a tag regex.
   let raw = rawOf(source, node);
   const maskMarkdownCode = (child) => {
@@ -212,13 +217,16 @@ function protectedHtmlText(source, node) {
   };
   maskMarkdownCode(node);
   const dom = new JSDOM(raw, { includeNodeLocations: true });
-  const ranges = [...dom.window.document.querySelectorAll('code, pre, script, style, q[cite]')]
+  const protectedSelector = includeQuotedText
+    ? 'code, pre, script, style'
+    : 'code, pre, script, style, q[cite]';
+  const ranges = [...dom.window.document.querySelectorAll(protectedSelector)]
     .map((n) => dom.nodeLocation(n))
     .filter(Boolean);
   const flatten = (child) => {
     const start = child.position?.start.offset - node.position.start.offset;
-    if (ranges.some((r) => start >= r.startOffset && start < r.endOffset)) return ' ';
-    if (child.type === 'image' || child.type === 'imageReference') return ' ';
+    if (ranges.some((r) => start >= r.startOffset && start < r.endOffset)) return boundary;
+    if (['inlineCode', 'image', 'imageReference'].includes(child.type)) return boundary;
     if (child.children) return child.children.map(flatten).join('');
     return inlineText(child);
   };
@@ -309,6 +317,11 @@ export async function parseArticle(source, file) {
   const bodyText = [];
   const headings = [];
   let diagramIndex = 0;
+  const pullquotePassages = (node) => {
+    if (['heading', 'paragraph', 'tableCell'].includes(node.type))
+      return protectedHtmlText(source, node, '\0', true).split('\0');
+    return (node.children ?? []).flatMap(pullquotePassages);
+  };
   const collect = (node, context = '') => {
     if (['code', 'inlineCode', 'table', 'html', 'definition', 'blockquote'].includes(node.type))
       protectedMaterial.push(entry(source, node, node.type, inlineText(node, true)));
@@ -331,7 +344,7 @@ export async function parseArticle(source, file) {
     if (node.type === 'definition') return;
     if (node.type === 'blockquote') {
       const item = entry(source, node, 'quotation', inlineText(node, true));
-      bodyText.push(item.text);
+      bodyText.push(...pullquotePassages(node));
       if (!evidenceCue.test(context.slice(-200)) && !evidenceCue.test(item.text.slice(0, 160)))
         findings.push(
           finding(
@@ -346,7 +359,7 @@ export async function parseArticle(source, file) {
     }
     if (node.type === 'heading' || node.type === 'paragraph' || node.type === 'tableCell') {
       const item = entry(source, node, node.type, protectedHtmlText(source, node));
-      bodyText.push(inlineText(node, true));
+      bodyText.push(...pullquotePassages(node));
       if (node.type === 'heading') headings.push(item);
       surfaces.push(quotationPass(item, context, findings, file));
       const collectInline = (child) => {
@@ -380,7 +393,7 @@ export async function parseArticle(source, file) {
       const item = html.item;
       if (item.text) {
         surfaces.push(quotationPass(item, context, findings, file));
-        bodyText.push(item.text);
+        bodyText.push(...html.passages);
         findings.push(
           finding(
             'review.html',
