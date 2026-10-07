@@ -500,16 +500,7 @@ canonical reads "Conceived and secured **approval for** an $18.1M investment in
 NCPv3." That is a paraphrase by design, and scoping the contract this way is
 what keeps it from classifying the shipped implementation as drift.
 
-The three compact pre-2016 bodies are where that distinction is load-bearing:
-they omit facts the canonical retains (see *Experience density* above, which
-names them). Those omissions are accepted, not drift. Drift would be a
-*divergent* sentence—the failure mode #850 recorded, where the canonical said
-one thing and the mirror said another—and nothing in this repository compares
-the two surfaces automatically, so it is worth knowing which failure you are
-looking at. The canonical is private, so no check here can read it. What is
-checked is whether each project entry has been reviewed against its case study
-since either last changed, which is a different question; see *Claims review*
-below.
+The three compact pre-2016 bodies are where that distinction is load-bearing: they omit facts the canonical retains (see *Experience density* above, which names them). Those omissions are accepted, not drift. Drift would be a *divergent* sentence—the failure mode #850 recorded, where the canonical said one thing and the mirror said another—and nothing in this repository compares the two surfaces automatically, so it is worth knowing which failure you are looking at. The canonical is private, so no check here can read it. What is checked is whether each project entry has been reviewed against its case study since either last changed, which is a different question; see *Claims review* below.
 
 In particular:
 
