@@ -243,7 +243,29 @@ describe('last-updated: merge commits', () => {
     expect(dated(map, repo, `${BLOG}/post.md`)).toBe('2026-02-05T09:00:00.000Z');
   });
 
-  it('does not count a sync merge that only brings in commits from the other side', () => {
+  it('never dates a page by a side edit the merge discarded, however recent', () => {
+    // Codex P2 on #1195: the side edit is NEWER than main's, and the merge
+    // keeps main's version. An ancestry walk that visits both parents would
+    // report the discarded edit.
+    const repo = makeRepo();
+    repo.write(`${BLOG}/post.md`, post(FM, 'Shared.\n'));
+    repo.commit('add', '2026-01-10T09:00:00Z');
+    repo.branch('side', { create: true });
+    repo.branch('main');
+    repo.write(`${BLOG}/post.md`, post(FM, 'Main edit, kept.\n'));
+    repo.commit('main edit', '2026-02-01T09:00:00Z');
+    repo.branch('side');
+    repo.write(`${BLOG}/post.md`, post(FM, 'Side edit, discarded.\n'));
+    repo.commit('side edit', '2026-02-10T09:00:00Z');
+    repo.branch('main');
+    repo.merge('side', '2026-03-01T09:00:00Z', () =>
+      repo.write(`${BLOG}/post.md`, post(FM, 'Main edit, kept.\n')),
+    );
+    const map = computeLastUpdated({ repoRoot: repo.dir });
+    expect(dated(map, repo, `${BLOG}/post.md`)).toBe('2026-02-01T09:00:00.000Z');
+  });
+
+  it('dates an edit that arrives by merge at the merge: when it reached this line', () => {
     const repo = makeRepo();
     repo.write(`${BLOG}/post.md`, post(FM, 'Body.\n'));
     repo.commit('add', '2026-01-10T09:00:00Z');
@@ -256,9 +278,12 @@ describe('last-updated: merge commits', () => {
     repo.branch('feature');
     repo.merge('main', '2026-03-01T09:00:00Z');
 
-    // Dated by main's own commit, which the walk reaches through the merge.
+    // The build is of `feature`, and main's edit reached it with the sync
+    // merge. The first-parent walk never visits main's own commit. On
+    // squash-only main every commit is first-parent, so production dates are
+    // the squash times.
     const map = computeLastUpdated({ repoRoot: repo.dir });
-    expect(dated(map, repo, `${BLOG}/post.md`)).toBe('2026-02-05T09:00:00.000Z');
+    expect(dated(map, repo, `${BLOG}/post.md`)).toBe('2026-03-01T09:00:00.000Z');
   });
 
   it('applies the collection rule to a resolution: frontmatter-only does not count for a post', () => {

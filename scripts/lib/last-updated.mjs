@@ -163,12 +163,10 @@ function readIgnoreRevs(topLevel) {
 }
 
 /**
- * Parse `git log --raw -z --diff-merges=combined --format=%x01%H %cI` output
- * into commits, newest first, each with its file changes. An ordinary change
- * is `:<old mode> <new mode> <old blob> <new blob> <status>`; a merge's
- * combined record has one leading colon per parent, every parent's mode and
- * blob, then the result's, and lists only paths that differ from every
- * parent.
+ * Parse `git log --raw -z --format=%x01%H %cI` output into commits, newest
+ * first, each with its file changes:
+ * `:<old mode> <new mode> <old blob> <new blob> <status>`, then one path, or
+ * two for a rename or copy.
  */
 function parseRawLog(output) {
   return output
@@ -182,21 +180,7 @@ function parseRawLog(output) {
       for (let i = 0; i < tokens.length; i += 1) {
         const meta = tokens[i].replace(/^\n/, '');
         if (!meta.startsWith(':')) continue;
-        const parents = meta.match(/^:+/)[0].length;
-        const fields = meta.slice(parents).split(' ');
-        if (parents > 1) {
-          // modes ×(parents+1), blobs ×(parents+1), statuses; one path
-          const blobs = fields.slice(parents + 1, 2 * (parents + 1));
-          changes.push({
-            kind: 'merge',
-            parentBlobs: blobs.slice(0, parents),
-            newBlob: blobs[parents],
-            newPath: tokens[i + 1],
-          });
-          i += 1;
-          continue;
-        }
-        const [, , oldBlob, newBlob, status] = fields;
+        const [, , oldBlob, newBlob, status] = meta.slice(1).split(' ');
         const kind = status[0];
         if (kind === 'R' || kind === 'C') {
           changes.push({ kind, oldBlob, newBlob, oldPath: tokens[i + 1], newPath: tokens[i + 2] });
@@ -210,16 +194,13 @@ function parseRawLog(output) {
     });
 }
 
-const NULL_BLOB = /^0+$/;
-
 /** Read many blobs through one `git cat-file --batch` process. */
 function readBlobs(topLevel, blobIds) {
   const blobs = new Map();
-  const wanted = blobIds.filter((id) => !NULL_BLOB.test(id));
-  if (wanted.length === 0) return blobs;
-  const output = git(topLevel, ['cat-file', '--batch'], wanted.join('\n') + '\n');
+  if (blobIds.length === 0) return blobs;
+  const output = git(topLevel, ['cat-file', '--batch'], blobIds.join('\n') + '\n');
   let offset = 0;
-  for (const id of wanted) {
+  for (const id of blobIds) {
     const headerEnd = output.indexOf(0x0a, offset);
     const [, type, size] = output.subarray(offset, headerEnd).toString('utf8').split(' ');
     if (type !== 'blob') throw new Error(`git cat-file returned ${type} for blob ${id}`);
@@ -241,17 +222,21 @@ function collectionFor(path, collections) {
  * Compute the last-updated time of every content file committed at HEAD
  * under one of `collections`.
  *
- * One `git log` walks the whole repository's history newest first, with
- * rename detection and combined diffs for merges. It follows each current
- * file back through its renames, including a move in from outside its
- * collection's directory, until the commit that added it. One
- * `git cat-file --batch` then reads the blobs on every side of each candidate
+ * One `git log --first-parent` walks the built ref's own line of history,
+ * newest first, over the whole repository with rename detection. It follows
+ * each current file back through its renames, including a move in from
+ * outside its collection's directory, until the commit that added it. One
+ * `git cat-file --batch` then reads the blobs on both sides of each candidate
  * change, and the newest change that the file's collection counts wins.
  *
- * A merge counts only when the merged content differs from every parent's
- * under the collection's rule: that is a conflict resolution. A merge that
- * takes one side unchanged (syncing `main` into a branch, say) is not an
- * update; the commits it brings in are walked on their own.
+ * The first-parent line is what makes merges right (#1179, and Codex's P2 on
+ * #1195). Each merge is diffed against its first parent, so it counts
+ * exactly when it changed what this line carries: a conflict resolution, or
+ * an edit arriving from the other side. A side-branch edit that the merge
+ * discarded is never visited, so it cannot date the page however recent it
+ * is. An ancestry walk over both parents gets that wrong. On squash-only
+ * `main` every commit is on the line, so nothing is lost there; on a branch,
+ * a change arriving by merge is dated when it reached the branch.
  *
  * @param {object} options
  * @param {string} options.repoRoot any directory inside the repository
@@ -275,16 +260,17 @@ export function computeLastUpdated({ repoRoot, collections = COLLECTIONS, ignore
 
   const log = git(topLevel, [
     'log',
+    '--first-parent',
+    '--diff-merges=first-parent',
     '-M',
     '--raw',
     '--no-abbrev',
     '-z',
-    '--diff-merges=combined',
     '--format=%x01%H %cI',
     'HEAD',
   ]);
 
-  /** @type {Map<string, {committedAt: string, before: string[], after: string}[]>} */
+  /** @type {Map<string, {committedAt: string, before: string, after: string}[]>} */
   const candidates = new Map();
   const addCandidate = (current, committedAt, before, after) => {
     if (!candidates.has(current)) candidates.set(current, []);
@@ -295,17 +281,6 @@ export function computeLastUpdated({ repoRoot, collections = COLLECTIONS, ignore
     for (const change of commit.changes) {
       const current = lineage.get(change.newPath);
       if (!current) continue;
-      if (change.kind === 'merge') {
-        if (change.parentBlobs.every((id) => NULL_BLOB.test(id))) {
-          // Absent from every parent: the merge itself created the file.
-          lineage.delete(change.newPath);
-          continue;
-        }
-        if (!ignored.has(commit.sha)) {
-          addCandidate(current, commit.committedAt, change.parentBlobs, change.newBlob);
-        }
-        continue;
-      }
       if (change.kind === 'A' || change.kind === 'C') {
         // The commit that brought the file into being publishes it; it is
         // not an update. Older history on this path belongs to another file.
@@ -318,21 +293,20 @@ export function computeLastUpdated({ repoRoot, collections = COLLECTIONS, ignore
       }
       if (change.kind === 'D' || ignored.has(commit.sha)) continue;
       if (change.oldBlob === change.newBlob) continue;
-      addCandidate(current, commit.committedAt, [change.oldBlob], change.newBlob);
+      addCandidate(current, commit.committedAt, change.oldBlob, change.newBlob);
     }
   }
 
   const blobIds = [
-    ...new Set([...candidates.values()].flat().flatMap((c) => [...c.before, c.after])),
+    ...new Set([...candidates.values()].flat().flatMap((c) => [c.before, c.after])),
   ];
   const blobs = readBlobs(topLevel, blobIds);
-  const content = (id) => (NULL_BLOB.test(id) ? '' : blobs.get(id));
 
   const result = new Map();
   for (const [path, changes] of candidates) {
     const { counts } = tracked.get(path);
-    const view = counts === 'body' ? (id) => markdownBody(content(id)) : content;
-    const winner = changes.find((c) => c.before.every((id) => view(id) !== view(c.after)));
+    const view = counts === 'body' ? (id) => markdownBody(blobs.get(id)) : (id) => blobs.get(id);
+    const winner = changes.find((c) => view(c.before) !== view(c.after));
     if (winner) result.set(join(topLevel, path), new Date(winner.committedAt));
   }
   return result;
