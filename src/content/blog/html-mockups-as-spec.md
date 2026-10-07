@@ -113,7 +113,7 @@ The comment in `src/styles/global.css` credits Simmons' CodePen. That pen has si
    Collapses to single column on mobile with blocks hidden. ── */
 ```
 
-This one is less flattering: the page landed through [issue #90](https://github.com/nathanjohnpayne/nathanpaynedotcom/issues/90), an SEO best-practices task, in commit [`4076bf6`](https://github.com/nathanjohnpayne/nathanpaynedotcom/commit/4076bf6). It was a single-parent commit pushed directly to `main`, closing #90. There was no pull request. My [companion piece](/blog/agent-approval-workflow-genesis-of-mergepath/) covers making direct pushes to `main` mechanically impossible. The FFB example below records the same failure, caught by that repository's post-merge review policy.
+This one is less flattering: the page landed through [issue #90](https://github.com/nathanjohnpayne/nathanpaynedotcom/issues/90), an SEO best-practices task, in commit [`4076bf6`](https://github.com/nathanjohnpayne/nathanpaynedotcom/commit/4076bf6). It was a single-parent commit pushed directly to `main`, closing #90. There was no pull request. My [companion piece](/blog/agent-approval-workflow-genesis-of-mergepath/) covers making direct pushes to `main` mechanically expensive. The FFB example below records the same failure, caught by that repository's post-merge review policy.
 
 Two pull requests refined the 404 page. [PR #91](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/91) removed the Firebase rewrite that sent every 404 to the SPA shell. Until that change, the new page wasn't reachable as a real 404 page. [PR #92](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/92) then brought its colors into line with the homepage palette.
 
