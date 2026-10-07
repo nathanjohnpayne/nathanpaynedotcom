@@ -97,6 +97,7 @@ export function assertFullHistory(repoRoot) {
     throw new Error(
       `Blog last-updated dates come from git history, but git could not read ${repoRoot}. ` +
         `Build from a git checkout with git on PATH. (${error.message.split('\n')[0]})`,
+      { cause: error },
     );
   }
   if (shallow === 'true') {

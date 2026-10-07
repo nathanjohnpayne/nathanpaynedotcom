@@ -6,7 +6,10 @@ import {
   getBlogLastUpdated,
   lastUpdatedFor,
 } from '../scripts/lib/blog-last-updated.mjs';
-import { buildBlogLastmodMap } from '../scripts/lib/sitemap-lastmod.mjs';
+import { findBlogMarkdownFiles } from '../scripts/lib/blog-file-inventory.mjs';
+import { readSitemapFrontmatter } from '../scripts/lib/sitemap-frontmatter.mjs';
+
+const blogDirectory = resolve(__dirname, '../src/content/blog');
 
 const sitemapIndex = readFileSync(resolve(__dirname, '../dist/sitemap-index.xml'), 'utf-8');
 const sitemap0 = readFileSync(resolve(__dirname, '../dist/sitemap-0.xml'), 'utf-8');
@@ -48,9 +51,19 @@ describe('Sitemap', () => {
   // they move every time a post is edited; tests/last-updated.test.js checks
   // every post.
   it('uses the newest post value for the blog index lastmod', () => {
-    const newest = [...buildBlogLastmodMap().entries()]
-      .filter(([path]) => path !== '/blog/')
-      .map(([, iso]) => iso)
+    // Derived from the post files and the history helper directly, not from
+    // buildBlogLastmodMap: an expectation computed by the function under test
+    // passes however that function is broken.
+    const lastUpdated = getBlogLastUpdated();
+    const newest = findBlogMarkdownFiles(blogDirectory)
+      .map((file) => ({ file, frontmatter: readSitemapFrontmatter(file) }))
+      .filter(({ frontmatter }) => frontmatter.draft !== true)
+      .map(({ file, frontmatter }) =>
+        effectiveModified(
+          new Date(frontmatter.date),
+          lastUpdatedFor(lastUpdated, file),
+        ).toISOString(),
+      )
       .sort()
       .at(-1);
     expect(sitemapEntryFor('https://nathanpayne.com/blog/')).toContain(

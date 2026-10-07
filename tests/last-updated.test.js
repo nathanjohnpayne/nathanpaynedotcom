@@ -197,9 +197,7 @@ describe('last-updated: .freshness-ignore-revs', () => {
   it('fails on a well-formed SHA the repository does not contain', () => {
     const { repo } = sweptRepo();
     repo.write('.freshness-ignore-revs', `${'0'.repeat(40)}\n`);
-    expect(() => computeLastUpdated({ repoRoot: repo.dir })).toThrow(
-      /does not contain: 0{40}/,
-    );
+    expect(() => computeLastUpdated({ repoRoot: repo.dir })).toThrow(/does not contain: 0{40}/);
   });
 });
 
@@ -347,7 +345,10 @@ describe('last-updated: rendered surfaces', () => {
   );
 
   it('dates the blog index with the newest post value', () => {
-    const newest = builtPosts.map((p) => p.modified.toISOString()).sort().at(-1);
+    const newest = builtPosts
+      .map((p) => p.modified.toISOString())
+      .sort()
+      .at(-1);
     expect(sitemapLastmodFor('/blog/')).toBe(newest);
   });
 });
