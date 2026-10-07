@@ -1,15 +1,20 @@
 ---
 import BaseLayout from '../../layouts/BaseLayout.astro';
-import { getCollection } from 'astro:content';
+import { getCollection, getEntry } from 'astro:content';
 import { estimateReadingMinutes } from '../../lib/reading-time';
 import { getIndexGridRow } from '../../lib/index-grid';
 import { compareBlogPosts } from '../../lib/blog-order';
 import Footer from '../../components/Footer.astro';
 import Breadcrumbs from '../../components/Breadcrumbs.astro';
 
-const BLOG_TITLE = 'The AI-Augmented PM';
+const blogIndex = await getEntry('siteCopy', 'blog');
+if (!blogIndex) {
+  throw new Error('Missing blog page entry: src/content/site-copy/blog.md');
+}
+
+const BLOG_TITLE = blogIndex.data.title;
 const BLOG_PAGE_TITLE = `${BLOG_TITLE} | Nathan Payne`;
-const BLOG_DESCRIPTION = 'A product manager’s notes on shipping real systems with AI coding agents—the architecture decisions, the failure modes, and what actually works.';
+const BLOG_DESCRIPTION = blogIndex.data.description;
 
 const posts = (await getCollection('blog', ({ data }) => !data.draft))
   .sort(compareBlogPosts);
