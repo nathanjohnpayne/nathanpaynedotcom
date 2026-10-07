@@ -444,6 +444,29 @@ describe('source-pinned examples, advisory warnings and complete meaning review'
     ).not.toContain('review.negation-modal-change');
   });
 
+  it.each(['figcaption', 'caption'])(
+    'includes visible HTML %s tokens once without admitting caption-only pullquotes or code',
+    async (tag) => {
+      const parent = tag === 'figcaption' ? 'figure' : 'table';
+      const beforeSource = `<${parent}><${tag}>I will not ship.</${tag}></${parent}>\n`;
+      const report = await check(beforeSource.replace('not ', ''), { beforeSource });
+      expect(rules(report)).toContain('review.negation-modal-change');
+      expect(errors(report)).toEqual([]);
+      const quote = await check(
+        `---\npullquotes:\n  - text: "I will not ship."\n---\n\n${beforeSource}`,
+      );
+      expect(rules(quote)).toContain('voice.pullquote-verbatim');
+      const codeBefore = beforeSource.replace(
+        'I will not ship.',
+        '<q>I will not ship.</q><code>will not ship</code>',
+      );
+      const codeAfter = codeBefore.replace('<code>will not ship', '<code>will ship');
+      expect(rules(await check(codeAfter, { beforeSource: codeBefore }))).not.toContain(
+        'review.negation-modal-change',
+      );
+    },
+  );
+
   it('allows the authentic trust-burden contrast and excludes pullquote duplication from padding warnings', async () => {
     const quote = excerpts.authenticContrast.approved;
     const report = await check(`---\npullquotes:\n  - text: "${quote}"\n---\n\n${quote}\n`);

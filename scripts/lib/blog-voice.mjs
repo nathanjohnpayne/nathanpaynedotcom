@@ -189,16 +189,17 @@ function htmlText(source, node, context = '') {
   const blocks = new Set([
     'p', 'div', 'section', 'article', 'main', 'aside', 'header', 'footer',
     'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'li', 'dt', 'dd', 'th', 'td',
-    'blockquote', 'pre', 'hr',
+    'blockquote', 'pre', 'hr', 'figcaption', 'caption',
   ]);
-  const collectPassage = (child, code = false) => {
+  const collectPassage = (child, code = false, includeCaptions = false) => {
     if (child.nodeType === 3) {
       passageText += child.data;
       passageProse += code ? ' '.repeat(child.data.length) : child.data;
       return;
     }
     const tag = child.localName;
-    if (['script', 'style', 'img', 'figcaption', 'caption'].includes(tag)) {
+    if (['script', 'style', 'img'].includes(tag) ||
+        (!includeCaptions && ['figcaption', 'caption'].includes(tag))) {
       flush();
       return;
     }
@@ -209,11 +210,16 @@ function htmlText(source, node, context = '') {
     }
     if (blocks.has(tag)) flush();
     for (const descendant of child.childNodes)
-      collectPassage(descendant, code || tag === 'code' || tag === 'pre');
+      collectPassage(descendant, code || tag === 'code' || tag === 'pre', includeCaptions);
     if (blocks.has(tag)) flush();
   };
   collectPassage(document.body);
   flush();
+  const bodyPassages = [...passages];
+  passages.length = 0;
+  collectPassage(document.body, false, true);
+  flush();
+  const semanticText = normalize(passages.map((p) => p.prose).join(' '));
   const quotations = [...document.querySelectorAll('blockquote, q')]
     .filter((n) => !n.closest('pre, code, script, style'))
     .map((n) => {
@@ -264,11 +270,11 @@ function htmlText(source, node, context = '') {
   return {
     item: {
       ...entry(source, node, 'html', normalize(text.replaceAll('\0', ' '))),
-      semanticText: normalize(passages.map((p) => p.prose).join(' ')),
+      semanticText,
     },
     headings,
     captions,
-    passages,
+    passages: bodyPassages,
     quotations,
   };
 }
