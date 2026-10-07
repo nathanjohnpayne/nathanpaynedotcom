@@ -105,7 +105,7 @@ Fresh connective-prose count: **3,483 → 3,070 words, −11.9%**. Whole file: 5
 
 ## Validation
 
-The initial draft passed its build and 58 rendering/content tests, but those checks did not detect the two changed meanings the owner found. The approved repairs passed full repository lint, typecheck (zero errors/warnings) and all 1,212 unit/rendering tests in 66 suites (six existing skips). Browser checks are pending before the PR is opened. No new tests were added for a prose rewrite.
+The initial draft passed its build and 58 rendering/content tests, but those checks did not detect the two changed meanings the owner found. The approved repairs passed full repository lint, typecheck (zero errors/warnings) and all 1,212 unit/rendering tests in 66 suites (six existing skips). After rebasing to refreshed main, all 369 browser tests passed (51 existing skips) against an owned preview; global setup matched every served HTML/asset file to this worktree's build. Rendered readback confirmed all nine old anchors, all three verbatim pullquotes and the repaired negative condition. Scoped prose lint and `git diff --check` are clean at error level. The managed preview startup detached in this environment, so the documented external-preview path was used. No new tests were added for a prose rewrite.
 
 ## Owner judgment
 
