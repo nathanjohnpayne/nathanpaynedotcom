@@ -161,6 +161,81 @@ We organised the colour.
     expect(rules(ambiguous)).toContain('review.quotation-attribution');
   });
 
+  it.each(["'", '‘'])(
+    'preserves soft-wrapped single quotations and internal apostrophes (%s)',
+    async (open) => {
+      const close = open === '‘' ? '’' : open;
+      const apostrophe = open === '‘' ? '’' : "'";
+      const report = await check(
+        `Claude wrote: ${open}We can${apostrophe}t\norganise colour.${close}\n`,
+      );
+      expect(errors(report)).toEqual([]);
+      expect(rules(report)).not.toContain('review.quotation-attribution');
+      const ambiguous = await check(`I called it ${open}Our\ncolour.${close}\n`);
+      expect(errors(ambiguous)).toEqual([]);
+      expect(rules(ambiguous)).toContain('review.quotation-attribution');
+    },
+  );
+
+  it.each([
+    '“We organised colour,” Claude wrote.\n',
+    '"We organised colour," she replied.\n',
+    '<q>We organised colour.</q> Claude wrote.\n',
+    'I read <q>We organised colour.</q>, Claude wrote.\n',
+  ])(
+    'recognizes direct trailing attribution without borrowing a later sentence (%s)',
+    async (source) => {
+      const report = await check(source);
+      expect(errors(report)).toEqual([]);
+      expect(rules(report)).not.toContain('review.quotation-attribution');
+      expect(
+        rules(await check('“Our colour.” The release ended. Claude wrote a report.\n')),
+      ).toContain('review.quotation-attribution');
+    },
+  );
+
+  it.each([
+    '<blockquote cite="/source"><q>Our colour.</q></blockquote>\n',
+    'I read <q cite="/source">a <q>colour</q> sample.</q>\n',
+  ])('inherits HTML citation only from enclosing quotation elements (%s)', async (source) => {
+    const report = await check(source);
+    expect(errors(report)).toEqual([]);
+    expect(rules(report)).not.toContain('review.quotation-attribution');
+    expect(rules(await check(source.replace(' cite="/source"', '')))).toContain(
+      'review.quotation-attribution',
+    );
+  });
+
+  it('prompts for rendered verification of inline HTML once per complete source surface', async () => {
+    const source = 'I read <span hidden>Our colour.</span> and <custom-note>words</custom-note>.\n';
+    const report = await check(source);
+    const warnings = report.findings.filter((f) => f.rule === 'review.html');
+    expect(warnings).toHaveLength(1);
+    expect(warnings[0].excerpt).toBe(source.trimEnd());
+    expect(warnings[0].location.start.line).toBe(1);
+    expect(rules(report)).toContain('voice.narrator-plural');
+    expect(rules(await check('I typed `<span hidden>literal</span>`.\n'))).not.toContain(
+      'review.html',
+    );
+    expect(rules(await check('I typed \\<span>literal\\</span>.\n'))).not.toContain('review.html');
+  });
+
+  it('retains the original YAML scalar range for inline quotation provenance and HTML review', async () => {
+    const source = '---\ndescription: "I read <q>Our colour.</q>"\n---\n\nI chose it.\n';
+    const report = await check(source);
+    expect(errors(report)).toEqual([]);
+    const warning = report.findings.find((f) => f.rule === 'review.quotation-attribution');
+    expect(warning.location.start.line).toBe(2);
+    expect(warning.excerpt).toBe('"I read <q>Our colour.</q>"');
+    expect(rules(report)).toContain('review.html');
+    const quotation = report.packet.protectedMaterial.after.find((p) => p.kind === 'quotation');
+    expect(quotation.text).toBe('Our colour.');
+    expect(quotation.location).toEqual(warning.location);
+    expect(rules(await check(source.replace('I read', 'Claude wrote:')))).not.toContain(
+      'review.quotation-attribution',
+    );
+  });
+
   it('checks prose after an HTML code span at the start of a Markdown paragraph', async () => {
     const report = await check('<code>literal</code> We organised colour.\n');
     expect(rules(report)).toEqual(
@@ -446,6 +521,21 @@ describe('source-pinned examples, advisory warnings and complete meaning review'
       expect(errors(report)).toEqual([]);
     }
   });
+
+  it.each(['can’t', 'don’t', 'shouldn’t'])(
+    'counts typographic source negations without treating apostrophe typography as a token change (%s)',
+    async (contraction) => {
+      const beforeSource = `Claude said: “We ${contraction} ship.”\n`;
+      const positive = { 'can’t': 'can', 'don’t': 'do', 'shouldn’t': 'should' }[contraction];
+      const afterSource = beforeSource.replace(contraction, positive);
+      expect(rules(await check(afterSource, { beforeSource }))).toContain(
+        'review.negation-modal-change',
+      );
+      expect(rules(await check(beforeSource.replaceAll('’', "'"), { beforeSource }))).not.toContain(
+        'review.negation-modal-change',
+      );
+    },
+  );
 
   it.each([
     '<blockquote cite="/source">We will not ship.</blockquote>\n',

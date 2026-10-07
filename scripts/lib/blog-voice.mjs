@@ -39,8 +39,10 @@ const visibleRoots = new Set([
 ]);
 const evidenceCue =
   /(?:\b(?:said|wrote|asked|replied|told|reads|quoted|prompt|transcript|quotation)\b)[\s\S]{0,160}$/iu;
+const followingEvidenceCue =
+  /^[\s,;:—-]*(?:[\p{L}\p{N}_]+\s+){0,5}(?:said|wrote|asked|replied|told|reads|quoted)\b/iu;
 const semanticTokens =
-  /\b(?:not|never|no|nobody|neither|cannot|can't|could|should|would|may|might|must|will|planned|intended|deserves)\b|n't\b/giu;
+  /\b(?:not|never|no|nobody|neither|cannot|can['’]t|could|should|would|may|might|must|will|planned|intended|deserves)\b|n['’]t\b/giu;
 export const hash = (source) => createHash('sha256').update(source).digest('hex');
 
 export class VoiceError extends Error {
@@ -142,7 +144,7 @@ function quotationPass(item, context, findings, file) {
   let projected = item.text;
   const quotes = [
     ...item.text.matchAll(
-      /"[^"]+"|“[^”]+”|(?<![\p{L}\p{N}])'(?:[^'\n]|(?<=[\p{L}\p{N}])'(?=[\p{L}\p{N}]))+'(?![\p{L}\p{N}])|(?<![\p{L}\p{N}])‘(?:[^’\n]|(?<=[\p{L}\p{N}])’(?=[\p{L}\p{N}]))+’(?![\p{L}\p{N}])/gu,
+      /"[^"]+"|“[^”]+”|(?<![\p{L}\p{N}])'(?:[^']|(?<=[\p{L}\p{N}])'(?=[\p{L}\p{N}]))+'(?![\p{L}\p{N}])|(?<![\p{L}\p{N}])‘(?:[^’]|(?<=[\p{L}\p{N}])’(?=[\p{L}\p{N}]))+’(?![\p{L}\p{N}])/gu,
     ),
   ];
   const styles = new Set();
@@ -150,7 +152,7 @@ function quotationPass(item, context, findings, file) {
   for (const match of quotes) {
     const attributed = evidenceCue.test(
       (context + ' ' + item.text.slice(0, match.index)).slice(-200),
-    );
+    ) || followingEvidenceCue.test(item.text.slice(match.index + match[0].length, match.index + match[0].length + 200));
     if (!attributed) {
       if (match[0][0] === '"') styles.add('straight');
       if (match[0][0] === '“') styles.add('curly');
@@ -187,9 +189,10 @@ function htmlQuotations(source, node, context, dom, textWithin) {
         text,
         excerpt: source.slice(start, end),
         location: location(source, start, end),
-        attributed: Boolean(n.getAttribute('cite')) ||
+        attributed: Boolean(n.closest('blockquote[cite]:not([cite=""]), q[cite]:not([cite=""])')) ||
           evidenceCue.test(context.slice(-200)) ||
           evidenceCue.test(source.slice(Math.max(0, start - 200), start)) ||
+          followingEvidenceCue.test(source.slice(end, end + 200)) ||
           evidenceCue.test(text.slice(0, 160)),
       };
     });
@@ -298,7 +301,9 @@ function htmlSkeleton(source, node) {
   return raw;
 }
 function inlineHtmlQuotations(source, node, context) {
-  const dom = new JSDOM(htmlSkeleton(source, node), { includeNodeLocations: true });
+  const skeleton = htmlSkeleton(source, node);
+  if (!skeleton.trim()) return [];
+  const dom = new JSDOM(skeleton, { includeNodeLocations: true });
   const textWithin = (start, end) => {
     const collectText = (child) => {
       if (child.children) return child.children.map(collectText).join('');
@@ -318,13 +323,14 @@ function protectedHtmlText(
   includeQuotedText = false,
   preserveLength = false,
 ) {
-  const dom = new JSDOM(htmlSkeleton(source, node), { includeNodeLocations: true });
+  const skeleton = htmlSkeleton(source, node);
+  const dom = skeleton.trim() ? new JSDOM(skeleton, { includeNodeLocations: true }) : null;
   const protectedSelector = includeQuotedText
     ? 'code, pre, script, style'
     : 'code, pre, script, style, q';
-  const ranges = [...dom.window.document.querySelectorAll(protectedSelector)]
+  const ranges = dom ? [...dom.window.document.querySelectorAll(protectedSelector)]
     .map((n) => dom.nodeLocation(n))
-    .filter(Boolean);
+    .filter(Boolean) : [];
   const flatten = (child) => {
     if (child.children) return child.children.map(flatten).join('');
     const start = child.position?.start.offset - node.position.start.offset;
@@ -337,7 +343,7 @@ function protectedHtmlText(
     return inlineText(child);
   };
   const text = flatten(node);
-  dom.window.close();
+  dom?.window.close();
   return text;
 }
 function normalizePassage(text, prose = text) {
@@ -441,6 +447,10 @@ export async function parseArticle(source, file) {
   const bodyText = [];
   const headings = [];
   let diagramIndex = 0;
+  const reviewHtml = (item) => findings.push(finding(
+    'review.html', 'warning', item,
+    'Review rendered HTML and its complete source. Custom hidden elements, component semantics and broken markup need manual verification.', file,
+  ));
   const reviewHtmlQuotations = (html) => {
     for (const quotation of html.quotations)
       if (!quotation.attributed)
@@ -514,10 +524,12 @@ export async function parseArticle(source, file) {
       const quotations = inlineHtmlQuotations(source, node, context);
       protectedMaterial.push(...quotations);
       reviewHtmlQuotations({ quotations });
+      let hasInlineHtml = false;
       const collectInline = (child) => {
         if (child.type === 'inlineCode' || child.type === 'html')
           protectedMaterial.push(entry(source, child, child.type, inlineText(child, true)));
         if (child.type === 'html') {
+          hasInlineHtml = true;
           const html = htmlText(source, child, context);
           for (const caption of html.captions)
             surfaces.push(quotationPass(caption, context, findings, file));
@@ -534,6 +546,7 @@ export async function parseArticle(source, file) {
         for (const grandchild of child.children ?? []) collectInline(grandchild);
       };
       for (const child of node.children ?? []) collectInline(child);
+      if (hasInlineHtml) reviewHtml(item);
       return;
     }
     if (node.type === 'html') {
@@ -548,17 +561,7 @@ export async function parseArticle(source, file) {
       const item = html.item;
       if (item.text || html.quotations.length)
         surfaces.push(quotationPass(item, context, findings, file));
-      if (item.text || html.quotations.length) {
-        findings.push(
-          finding(
-            'review.html',
-            'warning',
-            item,
-            'Review rendered HTML and its complete source. HTML findings point to the whole source node; custom hidden elements and component semantics need manual verification.',
-            file,
-          ),
-        );
-      }
+      if (item.text || html.quotations.length) reviewHtml(item);
       bodyText.push(...html.passages);
       return;
     }
@@ -580,6 +583,14 @@ export async function parseArticle(source, file) {
     const prose = protectedHtmlText(item.text, fieldNode);
     const semanticText = protectedHtmlText(item.text, fieldNode, ' ', true);
     surfaces.push(quotationPass({ ...item, text: prose, semanticText, rendered }, '', findings, file));
+    if (htmlSkeleton(item.text, fieldNode).trim()) {
+      reviewHtml(item);
+      const quotations = inlineHtmlQuotations(item.text, fieldNode, '').map((quotation) => ({
+        ...quotation, field: item.field, excerpt: item.excerpt, location: item.location,
+      }));
+      protectedMaterial.push(...quotations);
+      reviewHtmlQuotations({ quotations });
+    }
   }
   const headingForms = new Set(
     headings.map((h) => h.convention ?? (h.excerpt.trimStart().startsWith('#') ? 'ATX' : 'setext')),
@@ -814,7 +825,7 @@ function tokenCounts(article) {
       .concat(article.protectedMaterial.filter((s) => s.kind === 'blockquote').map((s) => s.semanticText))
       .join(' ')
       .match(semanticTokens) ?? [];
-  return tokens.map((t) => t.toLowerCase()).sort();
+  return tokens.map((t) => t.toLowerCase().replaceAll('’', "'")).sort();
 }
 export async function checkVoice({
   source,
