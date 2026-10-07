@@ -30,7 +30,7 @@ pullquotes:
 sidebar:
   - type: mermaid
     title: "Seven stages in the agent review system"
-    description: "Each stage answers the failure the one before it left open, as of April 2026: instruction files were ignored, so a local hook greps the command text for the required markers; the hook binds only its own session, so server-side branch rules follow; self-review under a separate identity runs out on complex changes, so a line-count threshold triggers external review, which Codex then automates; propagation to six repositories re-reviews everything from scratch."
+    description: "Each stage answers the failure the one before it left open, as of April 2026: instruction files were ignored, so a local hook greps the command text for the required markers; the hook binds only the sessions that load it, so server-side branch rules follow; self-review under a separate identity runs out on complex changes, so a line-count threshold triggers external review, which Codex then automates; propagation to six repositories re-reviews everything from scratch."
     content: |
       graph TD
           A["Instruction files only<br/>(AGENTS.md, CLAUDE.md)"] --> B["Local hook greps the command<br/>text for the markers"]
