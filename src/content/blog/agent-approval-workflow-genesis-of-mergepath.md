@@ -13,7 +13,7 @@ keyTakeaways:
   - "An instruction file couldn't enforce the rule. I needed checks before a push, PR creation, or merge, and I needed to know whom each check could stop. Local hooks and GitHub rules have different limits."
   - "Switching to a reviewer identity consistently improved the reviews I saw across three agent platforms. I did not measure that in a controlled comparison. It costs one GitHub account per agent."
   - "The template's own reviews had cleared code that gave up seventeen bugs downstream. I treat propagation as another review, with fresh eyes and a fresh context."
-  - "Changing the system was the part I could control. The agents that skipped review and the ones that shipped clean code used the same tools; this record does not isolate capability from the review process."
+  - "Changing the system was the part I could control. The agent that skipped review and the one that shipped clean code used the same tools; this record does not isolate capability from the review process."
 pullquotes:
   - text: "Bots, just like humans, require code review. Without it, bugs crop up, features are missed, and the code shipped is of lower quality."
     label: "The discovery"
@@ -30,7 +30,7 @@ pullquotes:
 sidebar:
   - type: mermaid
     title: "Seven stages in the agent review system"
-    description: "Each stage answers the failure the one before it left open, as of April 2026: instruction files were ignored, so a local hook greps the command text for the required markers; the hook binds only its own session, so server-side branch rules follow; self-review under a separate identity runs out on complex changes, so a line-count threshold triggers external review, which Codex then automates; propagation to six repositories re-reviews everything from scratch."
+    description: "Each stage answers the failure the one before it left open, as of April 2026: instruction files were ignored, so a local hook greps the command text for the required markers; the hook binds only the sessions that load it, so server-side branch rules follow; self-review under a separate identity runs out on complex changes, so a line-count threshold triggers external review, which Codex then automates; propagation to six repositories re-reviews everything from scratch."
     content: |
       graph TD
           A["Instruction files only<br/>(AGENTS.md, CLAUDE.md)"] --> B["Local hook greps the command<br/>text for the markers"]
@@ -215,7 +215,7 @@ The first version said "30+ PRs" over "six weeks." A 2026-05-15 refresh changed 
 
 ## Four rules
 
-**1. Enforce the rule and name the boundary.** Instruction files supply context. To require PRs, block direct pushes at the server. To require self-reviews, refuse PR creation locally. To require outside review on complex changes, use a server-visible label gate. Name the limits too: a local hook binds its own sessions, server rules permit an administrator override, and break-glass variables provide a documented human exit.
+**1. Enforce the rule and name the boundary.** Instruction files supply context. To require PRs, block direct pushes at the server. To require self-reviews, refuse PR creation locally. To require outside review on complex changes, use a server-visible label gate. Name the limits too: a local hook binds only the sessions that load it, server rules permit an administrator override, and break-glass variables provide a documented human exit.
 
 **2. Switch identities for review.** Use a distinct GitHub identity when reviewing. It costs one GitHub account per agent, and I've kept paying it.
 

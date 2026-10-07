@@ -257,6 +257,6 @@ I check source and built CSS together. Source searches missed literal `rgba()` p
 
 I also separate the refactor from the visible change. The zero-pixel ticket let Codex verify its plumbing with searches before it touched the palette. Checkboxes with recommendations left the design decisions with me, instead of asking it to infer what I wanted and then making me review its guesses.
 
-The sources mattered to the decision, but they couldn't make the page look coherent. I'd deliberately shipped a brighter yellow and a softer homepage black than my samples suggested. The viewer gets the composition, not the footnotes.
+The sources mattered to the decision, but they couldn't make the page look coherent. I'd deliberately shipped a more saturated yellow and a softer homepage black than my samples suggested. The viewer gets the composition, not the footnotes.
 
 One critique, one counter-painting, two reproductions, ten corrections, four issues, four pull requests, and four decisions. I'd started by defending a blue I'd chosen. I ended with a rule for where each palette belonged, two deliberate exceptions to the sampled values, and CSS whose consistency I could check in both source and build.

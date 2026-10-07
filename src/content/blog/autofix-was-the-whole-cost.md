@@ -138,7 +138,7 @@ Twenty-two rounds produced fifty-four findings. The last round before the cut st
 
 The findings also described how the churn happened. Twenty-nine of the 57, all from the Codex App's 45, named an earlier fix they were reopening. Over those 57 top-level finding bodies, `grep -ic 'fresh evidence beyond'` returns **29**. The longer, exact-case `grep -c 'Fresh evidence beyond the resolved'` returns **25**: three findings continue the sentence differently, and one writes it in lower case. Half the findings revisited ground a previous fix had covered.
 
-A gentle drift that never lands is not a long tail. At two findings a round, the work wouldn't finish. The query cost almost nothing. I should've read the series from round six; I waited until round twenty-two, when someone asked whether the work was converging. The answer was no.
+A gentle drift that never lands is not a long tail. At two findings a round, the work wouldn't finish. The query cost almost nothing. I should've read the series from round six; I looked only at round twenty-two, when someone asked whether the work was converging. The answer was no.
 
 Closing findings can consume plenty of effort without making progress. "We closed everything raised" also isn't "we're getting closer to done." I'd already written [a post about that second point](/blog/perfect-score-wrong-axis/), and I still walked into the first.
 
@@ -257,7 +257,7 @@ The rollout made this gap visible. [#720 added Vale alongside the old tool and r
 
 ## Testing the claimed equivalence
 
-The removal was described as following a demonstration of equivalence. Both tools had been run against the current content, which was already clean. Zero findings from each didn't prove they checked the same things. I needed to check that claim even though it came from my own work.
+The removal was described as following a demonstration of equivalence. Both tools had been run against the current content, which was already clean. Zero findings from each didn't prove they checked the same things. I needed to check that claim even though it came from inside my own project.
 
 Before approving deletion, I replayed all 174 cases from the retired test suite. First I confirmed that the comparison harness reproduced the old tool exactly: zero mismatches across all 174. Then I ran the cases through Vale.
 
