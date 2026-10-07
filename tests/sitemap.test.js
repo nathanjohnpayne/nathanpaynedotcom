@@ -1,6 +1,12 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'fs';
 import { resolve } from 'path';
+import {
+  effectiveModified,
+  getBlogLastUpdated,
+  lastUpdatedFor,
+} from '../scripts/lib/blog-last-updated.mjs';
+import { buildBlogLastmodMap } from '../scripts/lib/sitemap-lastmod.mjs';
 
 const sitemapIndex = readFileSync(resolve(__dirname, '../dist/sitemap-index.xml'), 'utf-8');
 const sitemap0 = readFileSync(resolve(__dirname, '../dist/sitemap-0.xml'), 'utf-8');
@@ -36,16 +42,31 @@ describe('Sitemap', () => {
     );
   });
 
-  it('uses the newest published post date for the blog index lastmod', () => {
+  // Blog lastmod values are the last body change from git history when that
+  // is later than the frontmatter date (#1168, specs/last-updated.md). The
+  // expected values are derived the same way rather than pinned, because
+  // they move every time a post is edited; tests/last-updated.test.js checks
+  // every post.
+  it('uses the newest post value for the blog index lastmod', () => {
+    const newest = [...buildBlogLastmodMap().entries()]
+      .filter(([path]) => path !== '/blog/')
+      .map(([, iso]) => iso)
+      .sort()
+      .at(-1);
     expect(sitemapEntryFor('https://nathanpayne.com/blog/')).toContain(
-      '<lastmod>2026-10-01T00:00:00.000Z</lastmod>',
+      `<lastmod>${newest}</lastmod>`,
     );
   });
 
-  it('uses content dates for blog post lastmod values', () => {
+  it('uses content-derived dates for blog post lastmod values', () => {
+    const file = resolve(__dirname, '../src/content/blog/six-prs-one-bug-agent-failure-modes.md');
+    const expected = effectiveModified(
+      new Date('2026-04-04'),
+      lastUpdatedFor(getBlogLastUpdated(), file),
+    ).toISOString();
     expect(
       sitemapEntryFor('https://nathanpayne.com/blog/six-prs-one-bug-agent-failure-modes/'),
-    ).toContain('<lastmod>2026-04-04T00:00:00.000Z</lastmod>');
+    ).toContain(`<lastmod>${expected}</lastmod>`);
   });
 
   it('does not invent lastmod values for pages without reliable content dates', () => {

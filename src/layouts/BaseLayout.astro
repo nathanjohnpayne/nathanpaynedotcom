@@ -19,6 +19,8 @@ interface Props {
   jsonLd?: object;
   articleMeta?: {
     published: string;
+    /** Omitted when the article has not changed since publication (#1168). */
+    modified?: string;
     author: string;
     tags: string[];
   };
@@ -111,6 +113,9 @@ const gaId = import.meta.env.PUBLIC_GA_MEASUREMENT_ID || '';
   {articleMeta && (
     <>
       <meta property="article:published_time" content={articleMeta.published} />
+      {articleMeta.modified && (
+        <meta property="article:modified_time" content={articleMeta.modified} />
+      )}
       <meta property="article:author" content={articleMeta.author} />
       {articleMeta.tags.map((tag) => (
         <meta property="article:tag" content={tag} />
