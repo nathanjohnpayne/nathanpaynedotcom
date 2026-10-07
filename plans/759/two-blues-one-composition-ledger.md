@@ -109,7 +109,7 @@ The post is quoting the pre-correction number in a paragraph whose whole point i
 
 > L95
 
-**WRONG for the artifact the post says was audited, right for the source.** Re-minifying the pre-change stylesheet with `lightningcss` converts every `rgba()` to eight-digit hex and leaves **zero** `rgba(` tokens. In that artifact the four plane literals are `#c11d191f`, `#d9b1112e`, `#223f891f` and `#2080ca1f`—all of which a plain `223f89` / `c11d19` grep finds.
+**WRONG for the artifact the post says was audited, right for the source.** Re-minifying the pre-change stylesheet with `lightningcss` converts the plane-color `rgba()` literals to eight-digit hex and leaves **zero** `rgba(` tokens. *(Corrected 2026-10-06, PR #1150: not every `rgba()`; the same Lightning CSS 1.32.0 reconstruction emits `rgba(255, 255, 255, 0)` as four-digit `#fff0`, and this is a later-toolchain reconstruction, not the vanished June deployed file. See the 2026-10-06 ledger's R21, UNPROVABLE.)* In that artifact the four plane literals are `#c11d191f`, `#d9b1112e`, `#223f891f` and `#2080ca1f`—all of which a plain `223f89` / `c11d19` grep finds.
 
 The post cannot have it both ways, and says both in the same paragraph: "Search the shipped CSS for `223f89` and you find it" (true—the hover ring survives as `#223f892e`) sits four sentences from "invisible to any hex search" about literals the same minifier renders in the same form.
 
