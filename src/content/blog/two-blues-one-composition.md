@@ -52,7 +52,7 @@ It also thought the page looked like rows wearing a Mondrian skin: every horizon
 
 ## Where my blue came from
 
-The cerulean hadn't drifted in. It came from a poster of [*Composition with Large Blue Plane, Red, Black, Yellow, and Gray*](https://dma.org/art/collection/object/4348683), 1921, Dallas Museum of Art. I sent Claude that poster. It isn't published here; the image below is the museum digitization I sampled later.
+The cerulean hadn't drifted in. It came from a poster of [*Composition with Large Blue Plane, Red, Black, Yellow, and Gray*](https://dma.org/art/collection/object/4348683), 1921, Dallas Museum of Art. I sent Claude that poster. It isn't published here; the image below is the museum digitization Claude sampled later.
 
 ![Composition with Large Blue Plane, Red, Black, Yellow, and Gray, 1921. Piet Mondrian, oil on canvas, Dallas Museum of Art, accession 1984.200.FA. This is the museum's digitization—the file sampled later in this post, not the poster the argument here ran on, which is not published. Along the top edge sits the printed label bar of an X-Rite ColorChecker chart; the chart's color patches are cropped out of this copy, so it documents that a reference was present at capture, not that the file was calibrated against it.](/blog/two-blues-one-composition/img/composition-large-blue-plane-1921.jpg)
 
@@ -217,7 +217,7 @@ def median_neutral(path, s_max, v_lo, v_hi):
 #   v in [0.85, 1.01)  ->  #DDE1E6   n = 493,897
 ```
 
-The rule finds three neutral regions, not two. The ground band contains 493,897 pixels, 41% of the image: canvas rather than a colored plane. The published black `#323137` is five steps from the dark band. **The published gray `#DADFE5` is three steps from the ground and forty from the middle band.** I'd measured canvas. For the 1930 red, the median stays at `#DE2922`–`#DE2923` through every saturation threshold from 0.1 to 0.75. That says more about robustness than the deleted pixel count did.
+The rule finds three neutral regions, not two. The ground band contains 493,897 pixels, 41% of the image: canvas rather than a colored plane. The published black `#323137` is five steps from the dark band. **The published gray `#DADFE5` is three steps from the ground and forty from the middle band.** That reading was canvas. For the 1930 red, the median stays at `#DE2922`–`#DE2923` through every saturation threshold from 0.1 to 0.75. That says more about robustness than the deleted pixel count did.
 
 Every median here describes a file. Between paint and number sit gallery lighting, each source's unrecorded imaging and color-management pipeline, web downscaling and JPEG recompression, ninety-six and one hundred five years of aging and any restoration, and the display you're reading on. None of these measurements isolates paint. The palette ticket puts it in six words: "treat sampled values as hue anchors." I used them that way.
 
