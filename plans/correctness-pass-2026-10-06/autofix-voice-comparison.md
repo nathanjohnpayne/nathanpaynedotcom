@@ -26,7 +26,7 @@ The opening now starts "I wanted this site to follow one Chicago rule." It does 
 
 **After**
 
-> A gentle drift that never lands is not a long tail. At two findings a round, the work wouldn't finish. The query cost almost nothing. I should've read the series from round six; I waited until round twenty-two, when someone asked whether the work was converging. The answer was no.
+> A gentle drift that never lands is not a long tail. At two findings a round, the work wouldn't finish. The query cost almost nothing. I should've read the series from round six; I looked only at round twenty-two, when someone asked whether the work was converging. The answer was no.
 
 This keeps the missed signal and the author's account of why he finally looked. It does not turn that private account into a publicly verified comment. The exact sequence, its dip and rebound, both eleven-round averages, the round-20 comparison and both grep counts remain in the preceding paragraphs.
 
