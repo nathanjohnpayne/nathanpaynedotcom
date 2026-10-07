@@ -25,12 +25,15 @@ import WritingSection from '../components/resume/WritingSection.astro';
 // build-time generator writes to, so the link can never point at a filename
 // that isn't produced (#616).
 import { RESUME_PDF_PATH } from '../integrations/resume-pdf.mjs';
+import { getSiteCopy } from '../lib/site-copy';
+import { alumniOf, shortLocation } from '../lib/person-json-ld';
 
 const myself = await getEntry('myself', 'nathan-payne');
 if (!myself) {
   throw new Error('Missing myself entry "nathan-payne" — expected at src/content/myself/nathan-payne.md');
 }
 const m = myself.data;
+const location = shortLocation(m.address);
 
 const [skills, experience, education, certifications, resumeProjects] = await Promise.all([
   getCollection('skills'),
@@ -77,39 +80,38 @@ const toc = [
   { label: 'Writing', id: 'writing' },
 ];
 
-// Sidebar highlight cards — marquee metrics drawn from the content.
-const highlights = [
-  {
-    text: "Conceived and secured an $18.1M investment in NCPv3—a JavaScript/React runtime that let Disney's mature JavaScript app run across five device families, retiring the parallel Rust app and merging two teams into one.",
-    accent: 'red',
-  },
-  {
-    text: "Led Disney's launch on Amazon's Linux-based Vega OS (Kepler): Disney+, Hulu, and ESPN shipped on schedule with no measurable engagement impact.",
-    accent: 'yellow',
-  },
-  {
-    text: 'Introduced an AI-powered PR review pipeline that cut median PR cycle time from 7.4 to 4 days, beating the 30% Q2 OKR target.',
-    accent: 'blue',
-  },
-  {
-    text: 'Replaced 40+ partner questionnaires with a Snowflake and Looker device-intelligence system supporting AV1/HEVC compliance across Germany and Brazil.',
-    accent: 'red',
-  },
-  {
-    text: 'Conceptualized and led the CNN Magic Wall—the multi-touch platform used on-air for historical and real-time news data.',
-    accent: 'yellow',
-  },
-];
+// Sidebar highlight cards — marquee metrics, each authored as a named
+// `highlights` field on the experience entry it condenses (#1166), so the card
+// sits beside the role it summarizes rather than in this template. This list
+// owns only which cards show and in what order; accents cycle red/yellow/blue.
+// A missing entry or key fails the build rather than dropping a card.
+const HIGHLIGHT_SELECTION = [
+  ['disney-ncp', 'ncpv3'],
+  ['disney-ncp', 'vega-os'],
+  ['disney-ncp', 'pr-review-pipeline'],
+  ['disney-ncp', 'device-intelligence'],
+  ['cnn', 'magic-wall'],
+] as const;
+const HIGHLIGHT_ACCENTS = ['red', 'yellow', 'blue'] as const;
+const highlights = HIGHLIGHT_SELECTION.map(([entryId, key], i) => {
+  const text = experience.find((entry) => entry.id === entryId)?.data.highlights?.[key];
+  if (!text) {
+    throw new Error(
+      `Résumé highlight "${entryId}/${key}" not found: add highlights.${key} to src/content/experience/${entryId}.md or drop it from HIGHLIGHT_SELECTION`,
+    );
+  }
+  return { text, accent: HIGHLIGHT_ACCENTS[i % HIGHLIGHT_ACCENTS.length] };
+});
 
 // At-a-glance metadata topics (screen-only panel; contact stays in the
 // header so it prints).
 const topics = ['Connected-TV', 'Device certification', 'Subscription activation', 'Partner ecosystems', 'Observability', 'AI-augmented dev', 'Developer tools'];
 
 const title = 'Nathan Payne | Résumé';
-// Dedicated one-line OG/meta description (≤ ~160 chars) — the on-page
-// summary is two paragraphs, too long for a social card.
-const description =
-  'Senior Platform Product Manager—20+ years in streaming, partner ecosystems, and infrastructure (Disney+, Hulu, ESPN), building AI-augmented software.';
+// Dedicated one-line meta/OG/JSON-LD description (≤ ~160 chars) — the on-page
+// summary is a paragraph, too long for a social card. The résumé share card
+// (og-templates/resume.astro) reads the same field (#1166).
+const { description } = await getSiteCopy('resume');
 
 const canonical = new URL('/resume/', Astro.site).href;
 
@@ -129,20 +131,20 @@ const jsonLd = {
       '@type': 'Person',
       '@id': 'https://nathanpayne.com/#person',
       name: m.name,
-      jobTitle: 'Senior Platform Product Manager',
+      jobTitle: m.title,
       url: 'https://nathanpayne.com/',
       email: `mailto:${m.email}`,
       address: {
         '@type': 'PostalAddress',
-        addressLocality: 'San Francisco',
-        addressRegion: 'CA',
-        addressCountry: 'US',
+        addressLocality: m.address.locality,
+        addressRegion: m.address.region,
+        addressCountry: m.address.country,
       },
       sameAs: [
         `https://linkedin.com/in/${m.linkedin}`,
         `https://github.com/${m.github}`,
       ],
-      alumniOf: { '@type': 'CollegeOrUniversity', name: 'George Mason University' },
+      alumniOf: alumniOf(education, experience),
     },
   ],
 };
@@ -181,7 +183,7 @@ const jsonLd = {
         <h1 class="resume-name">{m.name}</h1>
         <p class="resume-title">{m.title}</p>
         <p class="resume-contact resume-contact--primary">
-          <span class="resume-contact__location"><ContactIcon name="mappin" />{m.location}</span>
+          <span class="resume-contact__location"><ContactIcon name="mappin" />{location}</span>
           <span class="resume-contact__sep" aria-hidden="true">·</span>
           <a href={`mailto:${m.email}`}><ContactIcon name="mail" />{m.email}</a>
         </p>
@@ -227,8 +229,8 @@ const jsonLd = {
       {/* Metadata panel (top-right; screen-only — contact lives in the header) */}
       <div class="resume-canvas-meta">
         <dl>
-          <div><dt>Location</dt><dd>{m.location}</dd></div>
-          <div><dt>Availability</dt><dd>Open to senior product and platform roles, especially where streaming infrastructure, developer tools, or AI-augmented workflows are the center of gravity</dd></div>
+          <div><dt>Location</dt><dd>{location}</dd></div>
+          <div><dt>Availability</dt><dd>{m.availability.long}</dd></div>
           <div><dt>Focus</dt><dd>Platform · Streaming · AI-augmented development</dd></div>
           <div>
             <dt>Topics</dt>
@@ -262,7 +264,7 @@ const jsonLd = {
             @media print hides it, so it stays out of the generated PDF. */}
         <aside class="resume-cta" aria-label="Availability">
           <p class="resume-cta__line">
-            <span class="resume-cta__lede">Open to senior product/platform roles.</span>
+            <span class="resume-cta__lede">{m.availability.short}</span>
             <a
               class="resume-cta__link"
               href={contactMailto}

@@ -29,9 +29,9 @@ collections are:
 
 | Collection | Dir | Shape | Notes |
 |---|---|---|---|
-| `myself` | `src/content/myself/` | single `.md` entry | Header fields + the summary in the body (a single ~55–75-word paragraph, #617). **No `phone`**—email-only. |
+| `myself` | `src/content/myself/` | single `.md` entry | Header fields + the summary in the body (a single ~55–75-word paragraph, #617). **No `phone`**—email-only. Also the profile the rest of the site reads (#1166): `title` is the Person `jobTitle`, the structured `address` feeds the header location, the metadata panel, the Person `address` and the shared footer's city, `blog` is the Writing link text, and `availability.long` / `availability.short` are the Availability row and the CTA lede. |
 | `skills` | `src/content/skills/` | one `.yaml` per category | `{ label, priority, skills[] }`. Five categories. |
-| `experience` | `src/content/experience/` | one `.md` per role | Six entries. Bullets / paragraph in the body. Optional `compact: true`—see *Experience density* below. |
+| `experience` | `src/content/experience/` | one `.md` per role | Six entries. Bullets / paragraph in the body. Optional `compact: true`—see *Experience density* below. Optional `highlights`, named sidebar cards (see *Content fidelity*), and `alumniOrganization`, the organization the Person `alumniOf` list names for the role (#1166). |
 | `education` | `src/content/education/` | one `.md` | One entry (George Mason). |
 | `certifications` | `src/content/certifications/` | one `.md` per cert | Three entries. |
 | `resumeProjects` | `src/content/resume/projects/` | one `.md` per project | Seven entries. **Distinct from `projects`** (reserved for `/projects`). Each carries a required `claimsReviewed` stamp—see *Claims review*. |
@@ -70,14 +70,11 @@ The `resumeProjects` collection must remain separate from the existing
     domain facets it used to carry (partner ecosystems, streaming
     infrastructure, AI-augmented development) live in **Skills**, which
     already names all three. See #617.
-  - **Metadata panel** (`.resume-canvas-meta`, top-right, screen-only)—a
-    `<dl>`: Location, Availability, Focus, and a few Topic pills.
+  - **Metadata panel** (`.resume-canvas-meta`, top-right, screen-only)—a `<dl>`: Location, Availability, Focus, and a few Topic pills. Location and Availability come from `myself` (`address`, `availability.long`); the long availability statement is also the one the homepage NOW paragraph must contain verbatim, so the two surfaces cannot state different terms (#1166).
   - **Content column** (`.resume-canvas-content`)—the section components,
     closed by the **availability CTA** (`.resume-cta`, screen-only) described
     below.
-  - **Sidebar** (`.resume-canvas-sidebar`, sticky, screen-only)—an
-    "In this resume" in-page ToC (`.resume-canvas-toc-list`) + several
-    (≈5) `.resume-highlight` metric cards, accents cycling red/yellow/blue.
+  - **Sidebar** (`.resume-canvas-sidebar`, sticky, screen-only)—an "In this resume" in-page ToC (`.resume-canvas-toc-list`) + several (≈5) `.resume-highlight` metric cards, accents cycling red/yellow/blue. Each card is a named `highlights` field on the `experience` entry it condenses; `src/pages/resume.astro` owns only which cards show and their order, selecting them by entry id and key, and fails the build on a missing one (#1166).
   - **Footer** (`.resume-canvas-footer`)—attribution + nav.
 - Sections compose in this order: **Summary, Skills, Experience,
   Education, Certifications, Projects, Writing.**
@@ -85,10 +82,9 @@ The `resumeProjects` collection must remain separate from the existing
   - There is **no References section.**
 - Collection bodies (summary, experience, projects) render via `render()`
   from `astro:content`.
-- **Writing** is a compact inline section (no collection) linking the blog
-  and a few selected essays.
+- **Writing** is a compact inline section (no collection of its own) linking the blog and a few selected essays. Its proposition and introduction are the `title` and `resumeDescription` in `src/content/site-copy/blog.md`, its link text is `myself.blog`, and each essay shows its post's `title`, or the post's `resumeTitle` where the list deliberately shortens it ("The HTML Mock-up Is the Spec"). The component owns only which essays appear and in what order (#1166).
 - The content column closes with the **availability CTA** (`.resume-cta`,
-  #702): a lede ("Open to senior product/platform roles.") followed by two
+  #702): a lede (`myself.availability.short`, "Open to senior product/platform roles.") followed by two
   `·`-separated arrow links—**Get in touch** and **Book a time**. A
   `::before` hairline rules it off from the Writing section above on the same
   rhythm as a `.resume-section` divider (2.1rem above the rule, 1.6rem below),
@@ -114,7 +110,7 @@ The `resumeProjects` collection must remain separate from the existing
 
   **The separator between proposition and URL is the one part they deliberately do not share.** Writing's proposition is a plain noun phrase, so a closed em dash makes the URL an interruptive continuation of it: **The AI-Augmented PM—**nathanpayne.com/blog →. The Projects proposition already contains an em dash, and a second one in the same line stops marking a break and starts reading as a typo, so it takes the site's own `·` separator instead: **Products—and the decisions behind them** · nathanpayne.com/projects →. CMOS consistency is using a mark for its function, not forcing one mark into two structurally different sentences—and the test asserts each form on its own section rather than a single shared rule.
 
-  **The proposition slot holds the claim, not the label.** Projects previously put **Selected Projects** there, which is why it had no label row and said nothing about itself. The proposition is now the `/projects/` page's own `<h1>`, imported from `src/lib/section-propositions.ts` and used by both surfaces, so the résumé says about that page exactly what the page says about itself and a copy edit to one cannot silently leave the other behind. Writing keeps its proposition authored in the component: `/blog/` is a destination rather than an index with a headline to quote, and "The AI-Augmented PM" is the publication's name.
+  **The proposition slot holds the claim, not the label.** Projects previously put **Selected Projects** there, which is why it had no label row and said nothing about itself. The proposition is now the `/projects/` page's own `<h1>`, imported from `src/lib/section-propositions.ts` and used by both surfaces, so the résumé says about that page exactly what the page says about itself and a copy edit to one cannot silently leave the other behind. Writing's proposition is not a headline: `/blog/` is a destination rather than an index with a headline to quote, and "The AI-Augmented PM" is the publication's name. It comes from `src/content/site-copy/blog.md`, the same `title` the `/blog/` page, the RSS channel and every page's feed-discovery link use, so renaming the publication is one edit (#1166). The Projects introduction is likewise the `resumeDescription` in `src/content/site-copy/projects.md`, beside the homepage's introduction to the same page.
 
   The Projects tag read **Built with Agents** until the portfolio work subordinated the implementation method to the product across `/projects/` and the homepage; the retired framing, and the retired "systems design exercise—from first commit to deploy" intro, are both pinned as negative assertions in `tests/resume.test.js` so they cannot return. That intro was also specifically wrong for a project that never launched.
 
@@ -154,9 +150,8 @@ The `resumeProjects` collection must remain separate from the existing
   each Experience role, Education degree, and Project has a semantic `<h3>`.
 - Experience entries with bullets render them as a `<ul>` of `<li>`.
 - The sidebar ToC links to every visible section id.
-- Title is `Nathan Payne | Résumé`; the page has a resolvable `og:image`
-  and a dedicated one-line meta/OG description.
-- A `Person` + `ProfilePage` JSON-LD graph is emitted.
+- Title is `Nathan Payne | Résumé`; the page has a resolvable `og:image` and a dedicated one-line meta/OG description. That description is the one field in `src/content/site-copy/resume.md`, which also feeds the ProfilePage JSON-LD and the text on the résumé share card (`og-templates/resume.astro`), so the card and the unfurl cannot disagree (#1166).
+- A `Person` + `ProfilePage` JSON-LD graph is emitted. The Person node's `jobTitle` and `address` come from `myself`, and its `alumniOf` list is built by `src/lib/person-json-ld.ts` from `education` and the `experience` entries' `alumniOrganization`, the same list the homepage Person node emits under the same `@id`.
 
 ## Dash punctuation
 
@@ -493,12 +488,7 @@ variants—not paraphrased. The contract binds the **collection-backed bodies**�
 canonical writes it, and they may carry less than the canonical does, but never
 something it does not say and never a rewording of what it does.
 
-**The sidebar highlight cards are deliberately outside it.** They are marquee
-metrics composed in `src/pages/resume.astro`, condensed to fit a card: the NCP
-card reads "Conceived and secured an $18.1M investment in NCPv3" where the
-canonical reads "Conceived and secured **approval for** an $18.1M investment in
-NCPv3." That is a paraphrase by design, and scoping the contract this way is
-what keeps it from classifying the shipped implementation as drift.
+**The sidebar highlight cards are deliberately outside it.** They are marquee metrics condensed to fit a card, and they live in each `experience` entry's `highlights` frontmatter, beside the body they summarize but not in it (#1166): the NCP card (`disney-ncp`, `highlights.ncpv3`) reads "Conceived and secured an $18.1M investment in NCPv3" where the canonical reads "Conceived and secured **approval for** an $18.1M investment in NCPv3." That is a paraphrase by design, and scoping the contract this way is what keeps it from classifying the shipped implementation as drift. Keeping a card next to its role is what makes an edit to the role's bullets visit the card too; it does not make the card a mirror of them.
 
 The three compact pre-2016 bodies are where that distinction is load-bearing: they omit facts the canonical retains (see *Experience density* above, which names them). Those omissions are accepted, not drift. Drift would be a *divergent* sentence—the failure mode #850 recorded, where the canonical said one thing and the mirror said another—and nothing in this repository compares the two surfaces automatically, so it is worth knowing which failure you are looking at. The canonical is private, so no check here can read it. What is checked is whether each project entry has been reviewed against its case study since either last changed, which is a different question; see *Claims review* below.
 

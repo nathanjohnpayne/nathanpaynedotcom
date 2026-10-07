@@ -5,6 +5,24 @@ import { writeSanitizedDOM } from './helpers/dom.js';
 
 const rawHtml = readFileSync(resolve(__dirname, '../dist/index.html'), 'utf-8');
 
+/**
+ * Both Person nodes share one `@id`, so both carry the same `alumniOf` list,
+ * generated from the education and experience collections (#1166). Assert
+ * membership rather than position or length: the list is data-driven, and the
+ * pin is that each of these two stays in it on both pages.
+ */
+function expectAlumniOf(person) {
+  expect(Array.isArray(person.alumniOf), 'alumniOf should be a list').toBe(true);
+  expect(person.alumniOf).toContainEqual({
+    '@type': 'Organization',
+    name: 'The Walt Disney Company',
+  });
+  expect(person.alumniOf).toContainEqual({
+    '@type': 'CollegeOrUniversity',
+    name: 'George Mason University',
+  });
+}
+
 function setupDOM() {
   // Scripts are removed on a detached document and the doctype preserved by
   // the shared helper — see tests/helpers/dom.js for why both matter.
@@ -124,12 +142,24 @@ describe('SEO Metadata', () => {
       const person = jsonLd['@graph'].find((e) => e['@type'] === 'Person');
       expect(person).toBeDefined();
       expect(person.name).toBe('Nathan Payne');
-      expect(person.alumniOf).toBeDefined();
-      expect(person.alumniOf.name).toBe('The Walt Disney Company');
+      expectAlumniOf(person);
       expect(person.worksFor).toBeUndefined();
       expect(person.sameAs).toBeDefined();
       expect(Array.isArray(person.sameAs)).toBe(true);
       expect(person.sameAs.length).toBeGreaterThan(0);
     });
+  });
+});
+
+describe('SEO Metadata — résumé Person', () => {
+  it('lists the same alumniOf organizations as the homepage', () => {
+    writeSanitizedDOM(readFileSync(resolve(__dirname, '../dist/resume/index.html'), 'utf-8'));
+    const graph = JSON.parse(
+      document.querySelector('script[type="application/ld+json"]').textContent,
+    )['@graph'];
+    const person = graph.find((e) => e['@type'] === 'Person');
+    expect(person).toBeDefined();
+    expectAlumniOf(person);
+    expect(person.worksFor).toBeUndefined();
   });
 });

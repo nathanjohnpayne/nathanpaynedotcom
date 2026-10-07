@@ -27,8 +27,13 @@ import { stateMarkerClass } from '../../lib/lifecycle-marker';
 import { PROJECTS_HEADING } from '../../lib/section-propositions';
 import { liveLinkLabel } from '../../lib/live-link-label';
 import { emDashJoint } from '../../lib/em-dash-joint';
+import { getSiteCopy } from '../../lib/site-copy';
 
 const { entries } = Astro.props;
+
+// The introduction is the résumé rendition in src/content/site-copy/projects.md,
+// beside the /projects/ metadata, social line and homepage introduction (#1166).
+const { resumeDescription } = await getSiteCopy('projects');
 
 // Lifecycle status, looked up by slug from the `projects` collection rather
 // than restated here — a resume entry's id is its project slug.
@@ -72,10 +77,7 @@ const rendered = await Promise.all(
 <ResumeSection type="projects" heading="Projects"><p class="resume-projects__lead">
     <strong>{PROJECTS_HEADING}</strong> · <a href="/projects/">nathanpayne.com/projects <span class="link-arrow" aria-hidden="true">→</span></a>
   </p>
-  <p class="resume-projects__desc">
-    Products across consumer, enterprise, finance, and developer tooling. Built with AI agents;
-    case studies focus on the decisions, tradeoffs, and evidence behind them.
-  </p>
+  <p class="resume-projects__desc">{resumeDescription}</p>
   <p class="resume-projects__label">Selected projects:</p>
   {rendered.map(({ entry, Content }) => {
     const d = entry.data;

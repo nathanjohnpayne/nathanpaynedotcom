@@ -15,10 +15,30 @@ Every built page ships comprehensive SEO metadata: Open Graph, Twitter Card, JSO
 2. Twitter Card tags are present: `twitter:card`, `twitter:title`, `twitter:description`, `twitter:image`.
 3. A canonical URL link element points to the built URL of the current page.
 4. JSON-LD structured data contains a `@graph` array with WebSite, ProfilePage, and Person types on the homepage; BlogPosting on blog post pages; and ItemList nodes on collection pages. Collection ItemList entries keep article/page-specific properties on a typed entity under `ListItem.item`, not on the bare ListItem node.
-5. The Person entity includes `name`, identity/location context, and `sameAs` properties. It must not claim a current `worksFor` value unless the site owner has explicitly chosen to publish one.
+5. The Person entity includes `name`, identity/location context, and `sameAs` properties. It must not claim a current `worksFor` value unless the site owner has explicitly chosen to publish one. The homepage and résumé Person nodes share one `@id`, so the facts both state come from the same content: the name, location and profile handles from `src/content/myself/nathan-payne.md`, and `alumniOf` from `src/lib/person-json-ld.ts`, which lists every `education` school (`CollegeOrUniversity`) and then every distinct `alumniOrganization` an `experience` entry names (`Organization`)—George Mason University and The Walt Disney Company today (#1166).
 6. Search metadata can use SEO-only content fields (`seoTitle`, `seoDescription`) when visible page copy is intentionally longer than a search title or snippet should be.
-7. Every page advertises `/rss.xml` with a `rel="alternate"` RSS link.
+7. Every page advertises `/rss.xml` with a `rel="alternate"` RSS link, titled with the publication name in `src/content/site-copy/blog.md`.
 8. A blog post's JSON-LD `dateModified` is its last body change from git history when that is later than `datePublished`, otherwise `datePublished`. `article:modified_time` is emitted only in the first case. Both use the full timestamp; see [specs/last-updated.md](last-updated.md).
+
+## Descriptive Copy Owners
+
+A page's description, social line, share-card text and the short introductions other pages give it each have one owner, and every surface that renders the copy reads it (#1166). Templates read site copy with `getSiteCopy('<id>')` from `src/lib/site-copy.ts`; the per-entry schemas in `src/lib/site-copy-schema.ts` make every field required, so a missing one fails the build rather than shipping an empty tag.
+
+| Owner | Field | Surfaces |
+|---|---|---|
+| `site-copy/home.md` | `description` | homepage meta, og and twitter description; WebSite and ProfilePage JSON-LD |
+| | `personDescription` | homepage Person JSON-LD description |
+| | `shareImageDescription` | homepage share card (`og/home.png`); the full description is too long for the card at its size |
+| `site-copy/resume.md` | `description` | résumé meta, og and twitter description; ProfilePage JSON-LD; résumé share card (`og/resume.png`) |
+| `site-copy/projects.md` | `description` | `/projects/` meta description and CollectionPage JSON-LD; `{count}` becomes the published project count, spelled out |
+| | `ogDescription` | `/projects/` og and twitter description; projects share card (`og/projects.png`) |
+| | `homepageDescription`, `resumeDescription` | homepage Selected Projects and résumé Projects introductions |
+| `site-copy/blog.md` | `title` | `/blog/` heading and share card, RSS channel title, every page's feed-discovery link title, résumé Writing proposition |
+| | `description` | `/blog/` deck, metadata and share card |
+| | `feedDescription` | RSS channel description |
+| | `homepageWritingDescription`, `resumeDescription` | homepage and résumé Writing introductions |
+
+Item-level copy is unchanged: projects and posts own their own descriptions in frontmatter, and their share cards are generated from it (§ OG image targets). The `/projects/` hero deck, the homepage Context, Approach and community narratives, and the blog post author byline are page-specific prose with no second rendition, so they stay in their templates. `tests/content-owners.test.js` compares each built surface against its owning field and fails when a template retypes a sentence an owner holds.
 
 ## Blog Title Hierarchy
 

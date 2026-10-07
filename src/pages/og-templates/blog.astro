@@ -1,15 +1,12 @@
 ---
 import OgCard from '../../layouts/OgCard.astro';
-import { getEntry } from 'astro:content';
+import { getSiteCopy } from '../../lib/site-copy';
 
-const blogIndex = await getEntry('siteCopy', 'blog');
-if (!blogIndex) {
-  throw new Error('Missing blog page entry: src/content/site-copy/blog.md');
-}
+const blogIndex = await getSiteCopy('blog');
 ---
 
 <OgCard
   label="nathanpayne.com / blog"
-  heading={blogIndex.data.title}
-  description={blogIndex.data.description}
+  heading={blogIndex.title}
+  description={blogIndex.description}
 />

@@ -15,6 +15,8 @@
  * hover affordance, while the color-themed project-detail footer keeps its
  * per-project accent (see `.site-footer` rules in global.css).
  */
+import { getEntry } from "astro:content";
+
 interface FooterLink {
   href: string;
   label: string;
@@ -28,7 +30,7 @@ interface FooterLink {
 }
 
 interface Props {
-  /** Name before the "· San Francisco" byline. */
+  /** Name before the "· <city>" byline. */
   attribution: string;
   /** Nav actions, left-to-right. Labels may include arrows (←/→). */
   links: FooterLink[];
@@ -40,6 +42,14 @@ interface Props {
 
 const { attribution, links, variant, class: extra } = Astro.props;
 
+// The byline's city is the profile's locality (#1166), the same field the
+// résumé header and both Person JSON-LD nodes read.
+const myself = await getEntry("myself", "nathan-payne");
+if (!myself) {
+  throw new Error('Missing myself entry "nathan-payne" — expected at src/content/myself/nathan-payne.md');
+}
+const locality = myself.data.address.locality;
+
 const classList = [
   "site-footer",
   variant ? `site-footer--${variant}` : null,
@@ -50,7 +60,7 @@ const classList = [
 ---
 
 <footer class={classList}>
-  <p class="site-footer__attribution">{attribution} &middot; San Francisco</p>
+  <p class="site-footer__attribution">{attribution} &middot; {locality}</p>
   <nav class="site-footer__nav" aria-label="Footer navigation">
     {links.map((link) => (
       <a

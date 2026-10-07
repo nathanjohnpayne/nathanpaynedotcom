@@ -28,14 +28,16 @@
  * it rather than retype it.
  *
  * It is NOT the page's meta description, and NOT the `CollectionPage` node's
- * name or description: those are built from `PROJECTS_DESCRIPTION` and
- * `PROJECTS_PAGE_TITLE`, which are derived separately and do not move when this
- * string does. An earlier revision of this comment claimed otherwise and would
+ * name or description: those are built from `PROJECTS_PAGE_TITLE` and the
+ * `description` in src/content/site-copy/projects.md (#1166), which do not move
+ * when this string does. An earlier revision of this comment claimed otherwise and would
  * have had an editor expect those fields to follow a copy change here.
  *
  * Writing has no index page of its own to quote — `/blog/` is the destination,
  * and "The AI-Augmented PM" is the publication's name rather than a headline
- * lifted from it — so that proposition stays authored in `WritingSection`.
+ * lifted from it — so that proposition does not live here. `WritingSection`
+ * reads it from src/content/site-copy/blog.md, the same
+ * `title` the RSS channel and every page's feed-discovery link use (#1166).
  */
 
 /** Headline of `/projects/`, and the résumé Projects section's proposition. */
