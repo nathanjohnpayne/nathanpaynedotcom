@@ -557,7 +557,7 @@ The entry's id is its project slug, and the case study is the file under `src/co
 3. Copy the canonical entry verbatim into `src/content/resume/projects/<slug>.md`.
 4. Update `claimsReviewed` with the new hashes and the date. The failure message prints the replacement stamp, computed from the files as they stand; if step 3 changed the body, rerun the test for the new `resume` hash.
 
-All seven entries were first stamped on 2026-10-07. The stamps record the state after #1164, which corrected the three entries the #1163 audit found claiming more than their case studies support (Five Across, Matchline and Mergepath); the other four were stamped as that audit left them.
+All seven entries were first stamped on 2026-10-07. The stamps record the state after #1164, which corrected the three entries the #1163 audit found claiming more than their case studies support (Five Across, Matchline and Mergepath); the audit compared the other four (Device Source of Truth, Friends & Family Billing, Override and Swipe Watch) against their case studies and found them consistent (#1163, finding 4), and no case study changed between that audit's baseline and the first stamp.
 
 ## Acceptance criteria
 
