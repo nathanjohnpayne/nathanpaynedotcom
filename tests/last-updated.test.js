@@ -97,8 +97,12 @@ function makeRepo() {
       try {
         git(['merge', '-q', '--no-ff', '--no-commit', branch]);
       } catch {
-        // A conflict exits non-zero and leaves the merge in progress.
+        // A conflict exits non-zero and leaves the merge in progress. Any
+        // other failure (a mistyped branch, say) leaves none, and the check
+        // below throws rather than committing a plain commit that would let
+        // a merge test pass without testing a merge.
       }
+      git(['rev-parse', '-q', '--verify', 'MERGE_HEAD']);
       resolve?.();
       return this.commit(`merge ${branch}`, when);
     },
