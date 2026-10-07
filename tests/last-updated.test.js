@@ -13,18 +13,22 @@ import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { blogSlugFromPath, findBlogMarkdownFiles } from '../scripts/lib/blog-file-inventory.mjs';
+import {
+  blogSlugFromPath,
+  findBlogMarkdownFiles,
+  findFilesRecursively,
+} from '../scripts/lib/blog-file-inventory.mjs';
 import {
   assertFullHistory,
   computeLastUpdated,
   effectiveModified,
   formatUpdatedMonth,
-  getBlogLastUpdated,
+  getLastUpdated,
   lastUpdatedFor,
   markdownBody,
   parseIgnoreRevs,
   showsUpdatedMonth,
-} from '../scripts/lib/blog-last-updated.mjs';
+} from '../scripts/lib/last-updated.mjs';
 import { readSitemapFrontmatter } from '../scripts/lib/sitemap-frontmatter.mjs';
 
 // ── Fixture repositories ─────────────────────────────────────────────
@@ -81,6 +85,27 @@ function makeRepo() {
       });
       return git(['rev-parse', 'HEAD']).trim();
     },
+    branch(name, { create = false } = {}) {
+      git(create ? ['switch', '-q', '-c', name] : ['switch', '-q', name]);
+    },
+    /**
+     * Merge `branch` into the current branch as a real merge commit at a
+     * fixed time. `resolve` runs after the merge stops, conflicted or not,
+     * so a test can write the resolution it wants.
+     */
+    merge(branch, when, resolve) {
+      try {
+        git(['merge', '-q', '--no-ff', '--no-commit', branch]);
+      } catch {
+        // A conflict exits non-zero and leaves the merge in progress. Any
+        // other failure (a mistyped branch, say) leaves none, and the check
+        // below throws rather than committing a plain commit that would let
+        // a merge test pass without testing a merge.
+      }
+      git(['rev-parse', '-q', '--verify', 'MERGE_HEAD']);
+      resolve?.();
+      return this.commit(`merge ${branch}`, when);
+    },
   };
 }
 
@@ -89,7 +114,9 @@ afterEach(() => {
 });
 
 const BLOG = 'src/content/blog';
+const PROJECTS = 'src/content/projects';
 const FM = 'title: Post\ndate: 2026-01-10';
+const dated = (map, repo, rel) => lastUpdatedFor(map, repo.path(rel))?.toISOString();
 
 describe('last-updated: which commits count', () => {
   it('counts the newest body change, never the adding commit or a frontmatter-only edit', () => {
@@ -141,6 +168,35 @@ describe('last-updated: which commits count', () => {
     );
   });
 
+  it('counts a frontmatter-only edit for a project page, where frontmatter is page content', () => {
+    const repo = makeRepo();
+    repo.write(`${PROJECTS}/app.mdx`, post('title: App\nstatus: IN PROGRESS', 'Case study.\n'));
+    repo.write(`${BLOG}/post.md`, post(FM, 'Body.\n'));
+    repo.commit('add', '2026-01-10T09:00:00Z');
+    repo.write(`${PROJECTS}/app.mdx`, post('title: App\nstatus: SHIPPED', 'Case study.\n'));
+    repo.write(`${BLOG}/post.md`, post(`${FM}\nhomepageRank: 1`, 'Body.\n'));
+    repo.commit('frontmatter only, both collections', '2026-02-10T09:00:00Z');
+
+    const map = computeLastUpdated({ repoRoot: repo.dir });
+    expect(dated(map, repo, `${PROJECTS}/app.mdx`)).toBe('2026-02-10T09:00:00.000Z');
+    // The same kind of edit on a blog post is not an update.
+    expect(dated(map, repo, `${BLOG}/post.md`)).toBeUndefined();
+  });
+
+  it('follows a post moved in from outside the content directory', () => {
+    const repo = makeRepo();
+    repo.write('drafts/essay.md', post(FM, 'Draft.\n'));
+    repo.commit('add draft', '2026-01-10T09:00:00Z');
+    repo.write('drafts/essay.md', post(FM, 'Draft, revised.\n'));
+    repo.commit('revise draft', '2026-02-02T09:00:00Z');
+    repo.move('drafts/essay.md', `${BLOG}/essay.md`);
+    repo.commit('publish by moving', '2026-03-03T09:00:00Z');
+
+    // The move is not an addition, so the earlier revision still dates it.
+    const map = computeLastUpdated({ repoRoot: repo.dir });
+    expect(dated(map, repo, `${BLOG}/essay.md`)).toBe('2026-02-02T09:00:00.000Z');
+  });
+
   it('dates each post independently and ignores files outside the content directory', () => {
     const repo = makeRepo();
     repo.write(`${BLOG}/a.md`, post(FM, 'A.\n'));
@@ -154,6 +210,93 @@ describe('last-updated: which commits count', () => {
     const map = computeLastUpdated({ repoRoot: repo.dir });
     expect([...map.keys()]).toEqual([repo.path(`${BLOG}/a.md`)]);
     expect(lastUpdatedFor(map, repo.path(`${BLOG}/b.md`))).toBeUndefined();
+  });
+});
+
+describe('last-updated: merge commits', () => {
+  // Branch from a shared post, edit both sides, merge with a resolution.
+  function forked() {
+    const repo = makeRepo();
+    repo.write(`${BLOG}/post.md`, post(FM, 'Shared.\n'));
+    repo.commit('add', '2026-01-10T09:00:00Z');
+    repo.branch('side', { create: true });
+    repo.write(`${BLOG}/post.md`, post(FM, 'Side edit.\n'));
+    repo.commit('side edit', '2026-02-01T09:00:00Z');
+    repo.branch('main');
+    repo.write(`${BLOG}/post.md`, post(FM, 'Main edit.\n'));
+    repo.commit('main edit', '2026-02-05T09:00:00Z');
+    return repo;
+  }
+
+  it('counts a conflict resolution that differs from every parent', () => {
+    const repo = forked();
+    repo.merge('side', '2026-03-01T09:00:00Z', () =>
+      repo.write(`${BLOG}/post.md`, post(FM, 'Resolved: both edits, rewritten.\n')),
+    );
+    const map = computeLastUpdated({ repoRoot: repo.dir });
+    expect(dated(map, repo, `${BLOG}/post.md`)).toBe('2026-03-01T09:00:00.000Z');
+  });
+
+  it('does not count a merge that takes one side unchanged', () => {
+    const repo = forked();
+    repo.merge('side', '2026-03-01T09:00:00Z', () =>
+      repo.write(`${BLOG}/post.md`, post(FM, 'Main edit.\n')),
+    );
+    // The newest real edit is main's, not the merge.
+    const map = computeLastUpdated({ repoRoot: repo.dir });
+    expect(dated(map, repo, `${BLOG}/post.md`)).toBe('2026-02-05T09:00:00.000Z');
+  });
+
+  it('never dates a page by a side edit the merge discarded, however recent', () => {
+    // Codex P2 on #1195: the side edit is NEWER than main's, and the merge
+    // keeps main's version. An ancestry walk that visits both parents would
+    // report the discarded edit.
+    const repo = makeRepo();
+    repo.write(`${BLOG}/post.md`, post(FM, 'Shared.\n'));
+    repo.commit('add', '2026-01-10T09:00:00Z');
+    repo.branch('side', { create: true });
+    repo.branch('main');
+    repo.write(`${BLOG}/post.md`, post(FM, 'Main edit, kept.\n'));
+    repo.commit('main edit', '2026-02-01T09:00:00Z');
+    repo.branch('side');
+    repo.write(`${BLOG}/post.md`, post(FM, 'Side edit, discarded.\n'));
+    repo.commit('side edit', '2026-02-10T09:00:00Z');
+    repo.branch('main');
+    repo.merge('side', '2026-03-01T09:00:00Z', () =>
+      repo.write(`${BLOG}/post.md`, post(FM, 'Main edit, kept.\n')),
+    );
+    const map = computeLastUpdated({ repoRoot: repo.dir });
+    expect(dated(map, repo, `${BLOG}/post.md`)).toBe('2026-02-01T09:00:00.000Z');
+  });
+
+  it('dates an edit that arrives by merge at the merge: when it reached this line', () => {
+    const repo = makeRepo();
+    repo.write(`${BLOG}/post.md`, post(FM, 'Body.\n'));
+    repo.commit('add', '2026-01-10T09:00:00Z');
+    repo.branch('feature', { create: true });
+    repo.write('notes.txt', 'unrelated\n');
+    repo.commit('feature work', '2026-02-01T09:00:00Z');
+    repo.branch('main');
+    repo.write(`${BLOG}/post.md`, post(FM, 'Body, revised on main.\n'));
+    repo.commit('main edit', '2026-02-05T09:00:00Z');
+    repo.branch('feature');
+    repo.merge('main', '2026-03-01T09:00:00Z');
+
+    // The build is of `feature`, and main's edit reached it with the sync
+    // merge. The first-parent walk never visits main's own commit. On
+    // squash-only main every commit is first-parent, so production dates are
+    // the squash times.
+    const map = computeLastUpdated({ repoRoot: repo.dir });
+    expect(dated(map, repo, `${BLOG}/post.md`)).toBe('2026-03-01T09:00:00.000Z');
+  });
+
+  it('applies the collection rule to a resolution: frontmatter-only does not count for a post', () => {
+    const repo = forked();
+    repo.merge('side', '2026-03-01T09:00:00Z', () =>
+      repo.write(`${BLOG}/post.md`, post(`${FM}\ntags: [merged]`, 'Main edit.\n')),
+    );
+    const map = computeLastUpdated({ repoRoot: repo.dir });
+    expect(dated(map, repo, `${BLOG}/post.md`)).toBe('2026-02-05T09:00:00.000Z');
   });
 });
 
@@ -197,7 +340,20 @@ describe('last-updated: .freshness-ignore-revs', () => {
   it('fails on a well-formed SHA the repository does not contain', () => {
     const { repo } = sweptRepo();
     repo.write('.freshness-ignore-revs', `${'0'.repeat(40)}\n`);
-    expect(() => computeLastUpdated({ repoRoot: repo.dir })).toThrow(/does not contain: 0{40}/);
+    expect(() => computeLastUpdated({ repoRoot: repo.dir })).toThrow(
+      /0{40} is not in this repository/,
+    );
+  });
+
+  it('fails on an annotated tag SHA and names the commit to list instead', () => {
+    const { repo, sweep } = sweptRepo();
+    repo.git(['tag', '-a', 'sweep', '-m', 'sweep', sweep]);
+    const tagObject = repo.git(['rev-parse', 'sweep']).trim();
+    expect(tagObject).not.toBe(sweep);
+    repo.write('.freshness-ignore-revs', `${tagObject}\n`);
+    expect(() => computeLastUpdated({ repoRoot: repo.dir })).toThrow(
+      new RegExp(`${tagObject} is a tag, not a commit; list the commit it points to, ${sweep}`),
+    );
   });
 });
 
@@ -280,7 +436,7 @@ describe('last-updated: body, month and time zone rules', () => {
 
 const blogDirectory = resolve(__dirname, '../src/content/blog');
 const sitemap = readFileSync(resolve(__dirname, '../dist/sitemap-0.xml'), 'utf-8');
-const liveMap = getBlogLastUpdated(resolve(__dirname, '..'));
+const liveMap = getLastUpdated(resolve(__dirname, '..'));
 
 const builtPosts = findBlogMarkdownFiles(blogDirectory)
   .map((filePath) => ({ filePath, frontmatter: readSitemapFrontmatter(filePath) }))
@@ -350,5 +506,71 @@ describe('last-updated: rendered surfaces', () => {
       .sort()
       .at(-1);
     expect(sitemapLastmodFor('/blog/')).toBe(newest);
+  });
+});
+
+const projectDirectory = resolve(__dirname, '../src/content/projects');
+const builtProjects = findFilesRecursively(projectDirectory, (f) => /\.mdx?$/.test(f))
+  .map((filePath) => ({ filePath, frontmatter: readSitemapFrontmatter(filePath) }))
+  .filter(({ frontmatter }) => frontmatter.draft !== true)
+  .map(({ filePath, frontmatter }) => ({
+    slug: frontmatter.slug,
+    updated: lastUpdatedFor(liveMap, filePath),
+  }));
+
+describe('last-updated: rendered project surfaces', () => {
+  it('has projects to check, at least one of which carries a date', () => {
+    expect(builtProjects.length).toBeGreaterThan(0);
+    expect(builtProjects.some((p) => p.updated)).toBe(true);
+  });
+
+  it.each(builtProjects.map((p) => [p.slug, p]))(
+    '%s: STATUS line, JSON-LD and sitemap agree with the history',
+    (slug, { updated }) => {
+      const htmlPath = resolve(__dirname, `../dist/projects/${slug}/index.html`);
+      expect(existsSync(htmlPath), `${slug} was not built`).toBe(true);
+      const doc = new DOMParser().parseFromString(readFileSync(htmlPath, 'utf-8'), 'text/html');
+
+      const statusItem = [...doc.querySelectorAll('.metadata-strip__item')].find(
+        (item) => item.querySelector('dt')?.textContent.trim() === 'Status',
+      );
+      expect(statusItem, `${slug}: no Status cell`).toBeTruthy();
+      const line = doc.querySelectorAll('.metadata-strip__updated');
+      const graph = JSON.parse(doc.querySelector('script[type="application/ld+json"]').textContent)[
+        '@graph'
+      ];
+      const webPage = graph.find((entry) => entry['@type'] === 'WebPage');
+      const app = graph.find((entry) => entry['@type'] === 'SoftwareApplication');
+
+      if (updated) {
+        // One line, inside the Status cell, directly after the lifecycle dd.
+        expect(line.length).toBe(1);
+        expect(statusItem.contains(line[0])).toBe(true);
+        expect(line[0].previousElementSibling.classList.contains('metadata-strip__status')).toBe(
+          true,
+        );
+        expect(line[0].querySelector('.state-marker')).toBeNull();
+        const time = line[0].querySelector('time');
+        expect(time.textContent.trim()).toBe(`Updated ${formatUpdatedMonth(updated)}`);
+        expect(time.getAttribute('datetime')).toBe(updated.toISOString());
+        expect(webPage.dateModified).toBe(updated.toISOString());
+        expect(sitemapLastmodFor(`/projects/${slug}/`)).toBe(updated.toISOString());
+      } else {
+        expect(line.length).toBe(0);
+        expect(webPage.dateModified).toBeUndefined();
+        expect(sitemapLastmodFor(`/projects/${slug}/`)).toBeUndefined();
+      }
+      // The case study's edit date is not the app's.
+      expect(app?.dateModified).toBeUndefined();
+    },
+  );
+
+  it('dates the projects index with the newest project value', () => {
+    const newest = builtProjects
+      .filter((p) => p.updated)
+      .map((p) => p.updated.toISOString())
+      .sort()
+      .at(-1);
+    expect(sitemapLastmodFor('/projects/')).toBe(newest);
   });
 });

@@ -45,6 +45,8 @@ interface Props {
   liveLabel?: string;
   githubUrl?: string;
   status: string;
+  /** Last change to the project's source, from git history (#1169). */
+  updated?: Date;
   metadata: {
     format: string;
     focus: string;
@@ -77,6 +79,7 @@ const {
   liveLabel,
   githubUrl,
   status,
+  updated,
   metadata,
   stack,
   related,
@@ -128,6 +131,7 @@ const topics = kicker.split(/\s*×\s*/).join(' · ');
           format={metadata.format}
           focus={metadata.focus}
           status={status}
+          updated={updated}
         />
         <figure
           class={`project-screenshot project-screenshot--${screenshotAspect}${

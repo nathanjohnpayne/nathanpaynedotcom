@@ -13,17 +13,25 @@
  * The mark is `em`-sized by `.state-marker`, so it tracks whatever type it sits
  * in and is deliberately NOT enlarged here: the marker-to-label ratio on this
  * page is the same 0.72em it is on /projects/.
+ *
+ * The cell's optional second line is the page's last-updated month (#1169):
+ * the status is the page's main claim about the present, and the month is
+ * its "as of". It is a second `<dd>` under the same `<dt>`, so the strip
+ * keeps four labels and one lifecycle mark. See specs/last-updated.md.
  */
 import { stateMarkerClass } from '../lib/lifecycle-marker';
+import { formatUpdatedMonth } from '../../scripts/lib/last-updated.mjs';
 
 interface Props {
   topics: string;
   format: string;
   focus: string;
   status: string;
+  /** Last change to the project's source, from git history. */
+  updated?: Date;
 }
 
-const { topics, format, focus, status } = Astro.props;
+const { topics, format, focus, status, updated } = Astro.props;
 ---
 
 <dl class="metadata-strip metadata-strip--grid-4">
@@ -42,5 +50,10 @@ const { topics, format, focus, status } = Astro.props;
   <div class="metadata-strip__item">
     <dt>Status</dt>
     <dd class={stateMarkerClass(status, 'metadata-strip__status')}>{status}</dd>
+    {updated && (
+      <dd class="metadata-strip__updated">
+        <time datetime={updated.toISOString()}>Updated {formatUpdatedMonth(updated)}</time>
+      </dd>
+    )}
   </div>
 </dl>

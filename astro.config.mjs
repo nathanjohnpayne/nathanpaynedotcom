@@ -3,7 +3,7 @@ import { defineConfig } from 'astro/config';
 import mdx from '@astrojs/mdx';
 import sitemap from '@astrojs/sitemap';
 import rehypeMermaid from 'rehype-mermaid';
-import { buildBlogLastmodMap } from './scripts/lib/sitemap-lastmod.mjs';
+import { buildSitemapLastmodMap } from './scripts/lib/sitemap-lastmod.mjs';
 import ogImages from './src/integrations/og-images.mjs';
 import robotsSitemap from './src/integrations/robots-sitemap.mjs';
 import remarkMermaid from './src/plugins/remark-mermaid.mjs';
@@ -18,7 +18,7 @@ import rehypeColorChips from './src/plugins/rehype-color-chips.mjs';
 
 const SITE = 'https://nathanpayne.com';
 
-const sitemapLastmod = buildBlogLastmodMap();
+const sitemapLastmod = buildSitemapLastmodMap();
 
 // https://astro.build/config
 export default defineConfig({
