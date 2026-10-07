@@ -54,9 +54,9 @@ sidebar:
     caption: "The scaffold merged four hours after the responsive fix; the last of the eleven phases closed the same Wednesday."
 ---
 
-On April 8, 2026, the newest post on my site couldn't be read on a phone. Screenshots at their native width pushed the content past the viewport. Text, headings, and code blocks were cut off at the right edge, with no way to scroll to them. That morning I [filed an issue](https://github.com/nathanjohnpayne/nathanpaynedotcom/issues/28): make the blog post pages responsive.
+On April 8, 2026, the newest post on my site was broken on a phone. Screenshots at their native width pushed the content past the viewport. Text, headings, and code blocks were cut off at the right edge, with no way to scroll to them. That morning I [filed an issue](https://github.com/nathanjohnpayne/nathanpaynedotcom/issues/28): make the blog post pages responsive.
 
-I intended to publish regularly. A portfolio with a blog that people couldn't read on their phones wasn't doing its job. The publishing system had a separate problem: it couldn't reproduce the HTML I'd already committed. By 10:47 that morning, I'd filed a ticket for that, too.
+I intended to publish regularly. A portfolio whose newest post broke on phones wasn't doing its job. The publishing system had a separate problem: it couldn't reproduce the HTML I'd already committed. By 10:47 that morning, I'd filed a ticket for that, too.
 
 <span id="the-chassis-the-bug-lived-in"></span>
 
@@ -135,7 +135,7 @@ The scaffold merged that afternoon, and all eleven tracked phases closed that da
 
 ## What it cost
 
-The old HTML site had few moving parts. Astro brought integrations, a Markdown processor, Remark and Rehype plugins, the OG renderer, the sitemap integration, Firebase deployment, and the Playwright responsive suite added in [PR #70](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/70). Each can break on its own schedule.
+The old HTML site had few moving parts. Now it has Astro and its integrations, a Markdown processor, Remark and Rehype plugins, the OG renderer, the sitemap integration, the Firebase deploy step, and the Playwright responsive suite added in [PR #70](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/70). Each can break on its own schedule.
 
 One early OG integration used `dir.pathname` instead of `fileURLToPath(dir)` for the output directory. On Windows, `dir.pathname` gives `/C:/path/to/dist`. Joining `og-templates` produces `\C:\path\to\dist\og-templates`, treating the drive letter as a directory name. On macOS and Linux the functions agree only for paths without URL-escaped characters. A checkout at `/tmp/site checkout` gets a `pathname` of `/tmp/site%20checkout`, which isn't a directory.
 
@@ -151,7 +151,7 @@ The same week, a different bug reached production. LinkedIn's crawler got an emp
 
 The recorded elapsed time and my estimate of the alternative are different things.
 
-The tracked migration, from scaffold to the last phase closing, took one working day and eight reviewed PRs. Claude Code authored it; every commit in those PRs has its co-author trailer. Review came from `nathanpayne-claude`, `nathanpayne-codex`, and CodeRabbit. Cursor was a registered reviewer in the policy but reviewed none of this work.
+The tracked migration, from scaffold to the last phase closing, ran inside one working day across eight reviewed PRs. Claude Code authored it; every commit in those PRs has its co-author trailer. Review came from `nathanpayne-claude`, `nathanpayne-codex`, and CodeRabbit. Cursor was a registered reviewer in the policy but reviewed none of this work.
 
 Doing it by hand would have meant learning enough Astro, porting the homepage, blog, and project pages, debugging OG generation, writing the Playwright suite, changing the Firebase deploy, and updating the documentation. My honest guess for doing this by hand was somewhere between a long weekend and a vacation week. I don't have those weeks.
 
@@ -171,7 +171,7 @@ The work had a shape the agent could follow: the #33 plan and issues #35–#45 s
 
 **Build-time OG images.** A [Playwright integration](https://github.com/nathanjohnpayne/nathanpaynedotcom/blob/main/src/integrations/og-images.mjs) screenshots an Astro template to make a 1200×630 card for every post, then removes the templates from the output. Stabilizing it took debugging. New posts now get a consistent card without a trip to Figma.
 
-**Sitemap, robots.txt, and RSS.** `@astrojs/sitemap` generates the sitemap from Astro's routes. A custom integration keeps the `Sitemap:` line in the otherwise hand-written `robots.txt` matched to its filename. RSS lives in `src/pages/rss.xml.ts`. The old site had none of them.
+**Sitemap, robots.txt, and RSS.** `@astrojs/sitemap` generates the sitemap from Astro's routes. A custom integration keeps the `Sitemap:` line in the otherwise hand-written `robots.txt` matched to its filename. RSS lives in `src/pages/rss.xml.ts`. The old site had a hand-maintained `sitemap.xml` and `robots.txt`, and no RSS.
 
 The original post now reads on a phone, with a spec and two layers of tests keeping it there. Publishing means a Markdown file and a build that rejects bad frontmatter. I no longer have a 677-line parser to keep patching or seven copies of the header behind it.
 
@@ -185,7 +185,7 @@ I don't have an April cost baseline to calculate whether the trade breaks even. 
 
 Usually, I should fix the bug someone reports and stop. Someone asking to read a post on a phone hasn't asked for a new publishing system. The responsive patch answered that request.
 
-Here, the bug was a symptom of a structural ceiling: a generator I couldn't trust to produce its own output. More posts would mean more repairs to it. I filed the drift ticket forty-three minutes after the responsive fix merged; keeping the old site after that would have been a choice.
+Here, the bug was a symptom of a structural ceiling: seven pages of pasted chrome, two of them rendered by a generator I couldn't trust to reproduce its own output. More posts would mean more repairs to that chassis. I filed the drift ticket forty-three minutes after the responsive fix merged; keeping the old site after that would have been a choice.
 
 Shipping only the patch would have been correct triage. The patch is also what made the ceiling impossible to unsee.
 
