@@ -102,6 +102,20 @@ describe('verify-brevity', () => {
     expect(run(BEFORE.replace('The run took', 'The run ran'))).toBe(0);
   });
 
+  it('keeps its occurrence contract explicit when claim attribution is swapped', () => {
+    const before = 'PR #30 merged at 10:04am Pacific; PR #47 at 2:11pm Pacific.\n';
+    const after = 'PR #47 merged at 10:04am Pacific; PR #30 at 2:11pm Pacific.\n';
+    expect(run(after, before)).toBe(0);
+    expect(output(after, before)).toContain('Complete manual meaning review remains required');
+  });
+
+  it('describes protected checks and quiet advisories accurately in help', () => {
+    const help = execFileSync('python3', [script, '--help'], { encoding: 'utf-8' });
+    expect(help).toContain('Compare protected tokens and blocks');
+    expect(help).toContain('advisory notes still print');
+    expect(help).toContain('manual meaning review');
+  });
+
   it('flags a dropped spelled-out count as advisory, not a failure', () => {
     // The defect this harness exists for: a numeral written as a word is
     // invisible to a prose-focused pass but is still evidence. It cannot

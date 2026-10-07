@@ -93,13 +93,14 @@ function finding(rule, severity, item, reason, file) {
 function normalize(text) {
   return text.replace(/\s+/gu, ' ').trim();
 }
-function containsVerbatim(text, quote) {
+function containsVerbatim(text, quote, prose = text) {
   let start = text.indexOf(quote);
   const word = (c) => c !== undefined && /[\p{L}\p{N}]/u.test(c);
   while (start !== -1) {
     if (
       !(word(quote[0]) && word(text[start - 1])) &&
-      !(word(quote.at(-1)) && word(text[start + quote.length]))
+      !(word(quote.at(-1)) && word(text[start + quote.length])) &&
+      /[\p{L}\p{N}]/u.test(prose.slice(start, start + quote.length))
     )
       return true;
     start = text.indexOf(quote, start + 1);
@@ -204,7 +205,13 @@ function htmlText(source, node) {
     passages: text.split('\0'),
   };
 }
-function protectedHtmlText(source, node, boundary = ' ', includeQuotedText = false) {
+function protectedHtmlText(
+  source,
+  node,
+  boundary = ' ',
+  includeQuotedText = false,
+  preserveLength = false,
+) {
   // A maintained HTML parser supplies ranges for inline HTML code, not a tag regex.
   let raw = rawOf(source, node);
   const maskMarkdownCode = (child) => {
@@ -224,15 +231,34 @@ function protectedHtmlText(source, node, boundary = ' ', includeQuotedText = fal
     .map((n) => dom.nodeLocation(n))
     .filter(Boolean);
   const flatten = (child) => {
-    const start = child.position?.start.offset - node.position.start.offset;
-    if (ranges.some((r) => start >= r.startOffset && start < r.endOffset)) return boundary;
-    if (['inlineCode', 'image', 'imageReference'].includes(child.type)) return boundary;
     if (child.children) return child.children.map(flatten).join('');
+    const start = child.position?.start.offset - node.position.start.offset;
+    if (
+      ranges.some((r) => start >= r.startOffset && start < r.endOffset) ||
+      child.type === 'inlineCode'
+    )
+      return preserveLength ? ' '.repeat(inlineText(child, true).length) : boundary;
+    if (['image', 'imageReference'].includes(child.type)) return preserveLength ? '' : boundary;
     return inlineText(child);
   };
   const text = flatten(node);
   dom.window.close();
   return text;
+}
+function normalizePassage(text, prose = text) {
+  let normalized = '';
+  let normalizedProse = '';
+  for (const match of text.matchAll(/\S+|\s+/gu)) {
+    const whitespace = /^\s/u.test(match[0]);
+    normalized += whitespace ? ' ' : match[0];
+    normalizedProse += whitespace ? ' ' : prose.slice(match.index, match.index + match[0].length);
+  }
+  const start = normalized.length - normalized.trimStart().length;
+  const length = normalized.trim().length;
+  return {
+    text: normalized.slice(start, start + length),
+    prose: normalizedProse.slice(start, start + length),
+  };
 }
 
 export async function parseArticle(source, file) {
@@ -319,7 +345,12 @@ export async function parseArticle(source, file) {
   let diagramIndex = 0;
   const pullquotePassages = (node) => {
     if (['heading', 'paragraph', 'tableCell'].includes(node.type))
-      return protectedHtmlText(source, node, '\0', true).split('\0');
+      return [
+        normalizePassage(
+          inlineText(node, true),
+          protectedHtmlText(source, node, ' ', true, true),
+        ),
+      ];
     return (node.children ?? []).flatMap(pullquotePassages);
   };
   const collect = (node, context = '') => {
@@ -393,7 +424,7 @@ export async function parseArticle(source, file) {
       const item = html.item;
       if (item.text) {
         surfaces.push(quotationPass(item, context, findings, file));
-        bodyText.push(...html.passages);
+        bodyText.push(...html.passages.map((text) => normalizePassage(text)));
         findings.push(
           finding(
             'review.html',
@@ -449,7 +480,7 @@ export async function parseArticle(source, file) {
     );
   for (const item of fields.filter((f) => /^pullquotes\.\d+\.text$/u.test(f.field))) {
     const quote = normalize(inlineText(await markdownTree(item.text), true));
-    if (!quote || !bodyText.some((text) => containsVerbatim(normalize(text), quote)))
+    if (!quote || !bodyText.some(({ text, prose }) => containsVerbatim(text, quote, prose)))
       findings.push(
         finding(
           'voice.pullquote-verbatim',

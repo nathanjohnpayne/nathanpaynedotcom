@@ -110,6 +110,13 @@ We organised the colour.
     expect(report.packet.warnings[0].excerpt).toContain('We chose');
   });
 
+  it('checks prose after an HTML code span at the start of a Markdown paragraph', async () => {
+    const report = await check('<code>literal</code> We organised colour.\n');
+    expect(rules(report)).toEqual(
+      expect.arrayContaining(['voice.narrator-plural', 'voice.american-spelling']),
+    );
+  });
+
   it('does not silently exempt un-attributed spelling violations inside quotation marks', async () => {
     const report = await check('I called it "colour".\n');
     expect(report.exitCode).toBe(0);
@@ -180,6 +187,7 @@ A small change made publishing practical.
 
   it.each([
     '`The chosen result.`',
+    '`The chosen result`.',
     '> `The chosen result.`',
     '| Value |\n| --- |\n| `The chosen result.` |',
     'The `hidden` chosen result.',
@@ -194,6 +202,7 @@ A small change made publishing practical.
   it('still matches formatted prose beside unrelated code and inside an attributed prompt', async () => {
     for (const body of [
       '**The chosen result.** `unrelated`',
+      'The `chosen` result.',
       'Claude wrote:\n\n> The **chosen** result. `unrelated`',
       '<p>The chosen result. <code>unrelated</code></p>',
     ]) {
