@@ -183,6 +183,38 @@ is_covered() {
 # Keep entries SPECIFIC. A pattern broad enough to swallow a real
 # consumer-wired dependency would re-open the #519/#521 gap.
 ALLOW_LIST=(
+  # Cockpit runtime and fixture suite are local hub-only tooling (#1586).
+  # check_cockpit ships in the CI kit and marker-first SKIPs on consumers.
+  "scripts/cockpit.sh"
+  "mergepath/cockpit/*"
+  "specs/cockpit_foundation.md"
+  "tests/test_cockpit_ci.py"
+  "tests/test_cockpit_ci_ui.cjs"
+  "tests/test_cockpit_logs.py"
+  "specs/cockpit_ci.md"
+  "tests/test_cockpit_prs.py"
+  "tests/test_cockpit_prs_ui.cjs"
+  "specs/cockpit_prs.md"
+  "tests/test_cockpit_fleet.py"
+  "tests/test_cockpit_fleet_ui.cjs"
+  "specs/cockpit_fleet.md"
+  "tests/test_cockpit_sync.py"
+  "tests/test_cockpit_sync_ui.cjs"
+  "specs/cockpit_sync.md"
+  "tests/test_cockpit.sh"
+  "tests/test_cockpit.py"
+  "tests/test_cockpit_ui.cjs"
+  "tests/test_cockpit_actions.py"
+  "tests/test_cockpit_actions_ui.cjs"
+  "specs/cockpit_actions.md"
+  "tests/test_cockpit_agents.py"
+  "tests/test_cockpit_agents_ui.cjs"
+  "specs/cockpit_agents.md"
+  "tests/test_cockpit_live_agents.py"
+  "tests/test_cockpit_live_agents_ui.cjs"
+  # Cockpit panel layout (#1814): reorderable panels (hub-only, like the other Cockpit suites)
+  "tests/test_cockpit_layout_ui.cjs"
+  "specs/cockpit_live_agents.md"
   # The propagation engine itself + its project-doc-mirror sibling.
   # scripts/sync-to-downstream.sh is the orchestrator — explicitly NEVER
   # propagated (see the manifest's "NOT propagated" note). Referenced
@@ -192,6 +224,9 @@ ALLOW_LIST=(
   "scripts/sync-to-downstream.sh"
   "scripts/project-doc-sync.sh"
   "tests/test_sync_to_downstream.sh"
+  "scripts/lib/sync-audit-json.sh"
+  "tests/test_sync_audit_json.sh"
+  "specs/sync_audit_json.md"
   "tests/test_sync_overrides.sh"
   "tests/test_project_doc_sync.sh"
 

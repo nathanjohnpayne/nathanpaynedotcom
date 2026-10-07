@@ -195,3 +195,7 @@ node scripts/check-blog-voice.mjs src/content/blog/autofix-was-the-whole-cost.md
 ```
 
 The Autofix sample's 14 warnings are nine rendered-HTML verification prompts, the authentic trust-burden contrast, a quoted qualification using “perhaps,” and three ambiguous/hypothetical narrator quotations. The revision adds changed-passages, metadata-change, negation/modal-change and protected-material-change prompts. These demonstrate why warnings are advisory: approved lines can match stock-pattern rules. They do not certify meaning or owner approval. All ten final merged posts passed mechanical checks in the corpus sweep; future changes must be checked anew.
+
+## Revisions move the post's "Updated" date
+
+Any merged commit that changes a post's Markdown body moves its last-updated time: the `Updated` month in the sidebar, JSON-LD `dateModified`, `article:modified_time` and the sitemap `<lastmod>` (specs/last-updated.md, #1168). That is the intended signal for a revision. A mechanical sweep that touches many bodies without changing what they say (an em dash pass, a spelling sweep, a link-format change) is not an update: after it merges, add its squash-merge SHA to `.freshness-ignore-revs` in a follow-up PR, with a comment saying why. Frontmatter-only edits never count, so a `description` or `homepageRank` change needs nothing.
