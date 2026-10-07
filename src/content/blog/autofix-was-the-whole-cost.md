@@ -2,7 +2,7 @@
 title: "1,513 Lines for One Dash: The Requirement Nobody Questioned"
 seoTitle: "1,513 Lines for One Dash"
 shortTitle: "The Requirement Nobody Questioned"
-description: "A one-sentence style rule drew 57 review findings, and 42 named a capability nobody requested: auto-fix, 17% of the code and tests. Cutting it ended that churn. The linter bought to replace the tool had a quieter flaw: it skipped list items in post metadata yet reported green."
+description: "I wanted this site to follow one Chicago rule. An unrequested auto-fixer drew 42 of 57 review findings; cutting it ended the rewrite-safety churn. Without an adapter, the replacement linter would've skipped post metadata and still reported green."
 seoDescription: "One style rule drew 57 review findings—42 naming the never-requested auto-fix. It was 17% of the implementation and tests. Cutting it ended the rewrite-safety churn."
 category: "Agent Systems"
 homepageRank: 4
@@ -11,19 +11,19 @@ date: 2026-08-24
 tags: ["Product", "Engineering", "Scope", "Decision Making", "AI"]
 image: "/og/blog/autofix-was-the-whole-cost.png"
 keyTakeaways:
-  - "The expensive part of a requirement is rarely the part it states. One sentence bundled three capabilities—detect the pattern, decide what counts as prose, rewrite the file—and the unrequested one was 17% of the implementation and tests but drew 42 of the 57 review findings by their own text. After the cut, not one further rewrite-safety finding was raised and the pull request merged within the hour—sixteen rounds after the series had already shown its shape."
-  - "Automated review removes the friction that used to stop a loop. The arc logged 256 review submissions and 126 inline findings across seven pull requests, and none of that rework needed anyone's approval or appeared as a line item. When the next round is nearly free, the signal to stop has to come from the shape of the series."
-  - "Buying instead of building relocates complexity rather than removing it. Moving to an off-the-shelf linter took the tool and its tests from 2,453 lines to 1,343—a 45% reduction, not a two-hundred-fold collapse: the rule did shrink to 7 lines, and a 509-line adapter absorbed the difference. Still the right trade, and the honest number is the one worth quoting."
-  - "A migration that reports success is not the same as a migration that works. The replacement silently skips list items in a post's metadata block—at publication, 127 prose-bearing items across 14 files, 57 of them reader-facing pull quotes and key takeaways like this one—while reporting green. Running both tools side by side caught it, and replaying all 174 retired test cases turned 18 lost checks into a recorded trade."
+  - "One style rule contained three jobs: find mistakes, find the prose, and rewrite files. Auto-fix was the optional one, 17% of the implementation and tests, but 42 of the 57 findings named it. Cutting it ended the rewrite-safety churn; the PR merged within the hour."
+  - "The arc drew 256 review submissions and 126 inline findings across seven PRs. Another automated round didn't require a separate approval or produce a line item. When the next round is nearly free, the signal to stop has to come from the shape of the series."
+  - "Moving to Vale cut the tool and tests from 2,453 lines to 1,343, a 45% reduction. The rule was 7 lines, but I still had a 509-line adapter to maintain. That was the right trade; the seven-line headline hid the work I kept."
+  - "A straight swap would have skipped post metadata and reported green: at publication, 127 prose-bearing items across 14 files, including 57 pull quotes and takeaways. Running both tools exposed the gap. Replaying 174 retired cases let me record the 18 lost checks as a deliberate trade."
 pullquotes:
   - text: "Auto-fix was 17% of the implementation and tests, and 42 of the 57 findings named it. The cost was never the line count. It was the trust burden."
-    label: "The correction"
+    label: "The trust burden"
     accent: red
-  - text: "Twenty-two rounds, fifty-four findings, and the last round before the cut still produced two. That is not a long tail approaching zero."
-    label: "The signal"
+  - text: "The detection demo is a week. The permission to act is the product."
+    label: "The permission to act"
     accent: yellow
-  - text: "You do not escape the complexity by buying it. You relocate it, and the trade is worth making when what remains is boring."
-    label: "The honest number"
+  - text: "You do not escape complexity by buying instead of building. You relocate it."
+    label: "What buying relocates"
     accent: blue
 sidebar:
   - type: text
@@ -42,25 +42,27 @@ sidebar:
     caption: "An API-equivalent counterfactual. Nothing here was invoiced."
 ---
 
-The requirement was one sentence, from the Chicago Manual of Style: an em dash takes no space on either side. [Chicago's own Q&A](https://www.chicagomanualofstyle.org/qanda/data/faq/topics/HyphensEnDashesEmDashes/faq0108.html) puts it in a single line, with the exceptions it does allow.
+I wanted this site to follow one Chicago rule: an em dash takes no space on either side. [Chicago's own Q&A](https://www.chicagomanualofstyle.org/qanda/data/faq/topics/HyphensEnDashesEmDashes/faq0108.html) states it in one line, then gives the exceptions it allows.
 
 ![Chicago's published answer on dash spacing—the whole specification this project set out to enforce. The exceptions it grants are for hyphens and en dashes; the em dash has none.](/blog/autofix-was-the-whole-cost/img/cmos-qanda-dashes.png)
 
-Enforcing it on this site peaked at 1,721 lines of code and a 1,196-line test suite, and the pull request that tried to make its auto-fixer safe drew 57 findings across 24 review rounds. Twenty-two of those rounds came before I removed the capability causing the churn, and their 54 findings dipped and rebounded without converging. After the removal, not one further rewrite-safety finding was raised, and the pull request merged within the hour. The 1,513 in the title is a third number—the tool as it finally merged, and the exact line count later deleted whole.
+The tool peaked at 1,721 lines of code and a 1,196-line test suite. The PR that tried to make its auto-fixer safe drew 57 findings across 24 review rounds. Twenty-two rounds and 54 findings came before I removed auto-fix. After the cut, there were no further rewrite-safety findings, and the PR merged within the hour. The 1,513 in the title is the tool as it finally merged, and the exact line count later deleted whole.
 
-The interesting part is not that I overbuilt something. It is *which* part was expensive, and in what currency: the requirement bundled three capabilities nobody had ever separated, and the one nobody asked for was 17% of the implementation and tests—and, by the findings' own text, three in four of the review burden.
+I hadn't asked for a tool that rewrote files. That capability arrived with the style check, and I kept trying to make it safe. It was 17% of the implementation and tests, but three in four findings named it. The difficult part of the requirement was also the optional part.
 
-## Three Capabilities Wearing One Requirement
+<span id="three-capabilities-wearing-one-requirement"></span>
 
-Written out, "enforce this style rule" meant:
+## What the requirement included
 
-1. **Recognize the forbidden pattern.** One line of pattern matching. Worked on day one, never caused a problem.
-2. **Know what counts as prose.** Legitimately hard, and unavoidable. [Issue #664](https://github.com/nathanjohnpayne/nathanpaynedotcom/issues/664), which scoped the work, counted thirteen real occurrences across ten files—and classified roughly 250 further matches as out of scope: link labels built from identifiers, a shell comment inside a fenced code block, internal prose in specs, docs, and code comments. Get this wrong and the tool cries wolf until people stop running it.
-3. **Fix violations automatically.** Never requested. Never defended. It arrived attached to the requirement, and nobody asked whether it was worth having.
+The phrase "enforce this style rule" contained three jobs:
 
-Here is what I got wrong the first time—and the wrong version is the more flattering story. I claimed auto-fix had produced *most of the code*. It had not. Across the commit that removed it, the linter and its test suite fell from 2,917 lines to 2,417—a net reduction of **500 lines, or 17% of the implementation and tests combined**. Taken separately it is 12.6% of the linter and 23.7% of the tests.
+1. **Find the forbidden pattern.** One line of pattern matching. It worked on day one and never caused a problem.
+2. **Find the prose.** This was hard, and the tool needed it. [Issue #664](https://github.com/nathanjohnpayne/nathanpaynedotcom/issues/664) counted thirteen real occurrences across ten files and put roughly 250 other matches out of scope: identifier-based link labels, a shell comment in a fenced code block, and internal prose in specs, docs, and code comments. False positives would make people stop running the check.
+3. **Fix the mistakes automatically.** I hadn't requested this. Nobody had defended it or asked whether it was worth having.
 
-All four states this story visits, each pinned to the commit that reproduces it. **The first three rows are the legacy toolchain—two files**, reproduced with `git show "<sha>:scripts/lint-content-em-dash.mjs" | wc -l` and the same for its test file. **The fourth row is a different toolchain and counts four files**, so it takes its own command; the migration table below lists those paths. The first two commits are not reachable from `main`; `git fetch origin pull/686/head` resolves them in any clone:
+An earlier draft blamed auto-fix for *most of the code*. I was wrong, and the wrong version was more flattering. Across the removal commit, the tool and its tests fell from 2,917 lines to 2,417: **500 lines, or 17% of the implementation and tests combined**. Separately, the cut was 12.6% of the linter and 23.7% of the tests.
+
+The four states below use named commits so the counts can be reproduced. **The first three rows count the legacy toolchain's two files.** Run `git show "<sha>:scripts/lint-content-em-dash.mjs" | wc -l` and the same command for the test file. **The fourth row counts four files in a different toolchain**, listed in the migration table below. The first two commits aren't reachable from `main`; `git fetch origin pull/686/head` resolves them in any clone.
 
 | State | Commit | Script | Tests | Total |
 |---|---|---:|---:|---:|
@@ -69,9 +71,13 @@ All four states this story visits, each pinned to the commit that reproduces it.
 | Legacy tool as finally merged | `a37bb51` (#720's merge) | 1,513 | 940 | **2,453** |
 | Vale replacement | `e42483b` (#725's merge) | — | — | **1,343** |
 
-The first two rows bracket the removal. The third is slightly larger because four fix commits landed on top of the cut before the merge. The fourth is itemised in the migration table further down.
+The first two rows bracket the removal. Four more fix commits landed before the merge, which is why the third row is slightly larger. The migration table accounts for the fourth.
 
-What auto-fix produced instead of line count was most of the *trust burden*—and that claim is now counted rather than felt. Sort all 57 findings on [the hardening PR](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/686) by what their own text says: **42 name the auto-fix path outright**—the `--write` flag, the rewrite, the structure-preservation proof—and six more sit in the whitespace-context and HTML-depth machinery that existed only so the fixer knew what it was allowed to touch, for 48 of 57. The residue: three findings on prose detection, three on the test harness, two CodeQL alerts on the gate's own regexes, one dependency note. Not one was unrelated to the gate. Three in four findings named a capability that was 17% of the implementation and tests, four in five counting the machinery that served it. A capability can be a modest share of a codebase and still be the reason the project cannot finish.
+The larger cost was proving the fixer could be trusted. Of all 57 findings on [PR #686](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/686), **42 name the auto-fix path outright**: `--write`, rewriting, or the structure-preservation proof. Six more concern whitespace context and HTML depth, machinery that existed only so the fixer knew what it could touch. That makes 48 of 57.
+
+The remaining findings were three on prose detection, three on the test harness, two CodeQL alerts on the gate's regexes, and one dependency note. None was unrelated to the gate. Three in four named auto-fix directly; four in five did when I included the machinery serving it.
+
+Auto-fix was 17% of the implementation and tests, and 42 of the 57 findings named it. The cost was never the line count. It was the trust burden. A small capability can keep the whole project from finishing.
 
 ```mermaid title="Where the cost actually sat" description="Detecting the style violation was trivial. Deciding what counts as prose was legitimately hard. Automatically fixing violations required proving the combined edit was safe, once per file—17% of the implementation and tests combined, and 42 of the 57 review findings named it. Cutting the capability ended the rewrite-safety findings and the pull request merged within the hour."
 graph TD
@@ -92,49 +98,59 @@ graph TD
     style H fill:#7bc67e,stroke:#4a8a4d,color:#333
 ```
 
-## Why "Just Fix It Automatically" Was the Expensive Part
+<span id="why-just-fix-it-automatically-was-the-expensive-part"></span>
 
-"Automatically fix formatting" sounds like the easy half to anyone who has not built one. [The Punctuation Guide](https://www.thepunctuationguide.com/em-dash.html) calls the em dash perhaps the most versatile punctuation mark there is—it can stand in for commas, parentheses, or a colon—which is why a rule about its spacing is worth a gate at all.
+## What made editing expensive
+
+Em-dash spacing looked like an easy thing to fix. [The Punctuation Guide](https://www.thepunctuationguide.com/em-dash.html) calls the em dash perhaps the most versatile punctuation mark: it can replace commas, parentheses, or a colon. That flexibility makes a consistent spacing rule useful.
 
 ![The Punctuation Guide on the em dash: a mark that can replace commas, parentheses, or colons, and is easily confused with the narrower en dash and hyphen.](/blog/autofix-was-the-whole-cost/img/punctuation-guide-em-dash.png)
 
-Take the text `word **—** next`. In Markdown, `**` makes text bold, so this is a bolded dash with spaces around it—a violation the tool should flag. Now let the tool fix it by closing up the spaces:
+Take `word **—** next`. Markdown uses `**` for bold, so this is a bold dash with spaces around it. The tool should flag it. Closing up the spaces produces this:
 
 ```text
 word **—** next     →     word**—**next
 ```
 
-The dash is fixed. The bold is gone. With no spaces around them, those asterisks become literal characters on the page. The tool set out to correct punctuation and silently corrupted the formatting instead.
+The spacing is fixed, but the bold is gone. Those asterisks now render literally. An automatic punctuation edit has changed the formatting.
 
-So a tool that edits your files has to prove, after applying its edits, that it changed only what it meant to change. That proof was the real product: apply every candidate fix in a file, re-parse the result once, compare the before and after structures, and reject the whole batch if anything moved. It was all-or-nothing by construction, and the construction is one line—at the peak commit, line 1,609 of the linter returns the untouched source unless the structure-preservation check accepts the candidate, so one unfixable dash in a configuration key abandoned every other fix in that file.
+The tool needed to prove that each edit changed only what it was meant to change. It applied every candidate fix in a file, reparsed the result once, compared the structures, and rejected the whole batch if anything moved. At the peak commit, line 1,609 returns the untouched source unless that structure-preservation check accepts the candidate. One unfixable dash in a configuration key could abandon every other fix in the file.
 
-**Detecting a problem is cheap. Being trusted to change someone's work is expensive.** The gap shows up outside linting: recommending an action versus taking it, flagging a charge versus reversing it, drafting a reply versus sending it. The detection demo is a week. The permission to act is the product.
+Detecting a problem is cheap. Being trusted to change someone's work is expensive. I see the same gap between recommending an action and taking it, flagging a charge and reversing it, or drafting a reply and sending it. The detection demo is a week. The permission to act is the product.
 
-## The Signal I Had and Did Not Read
+<span id="the-signal-i-had-and-did-not-read"></span>
 
-The reviewers left a record I could pull from the API instead of trusting my own notes—which mattered: the first published version argued non-convergence partly from two rounds that postdate the cut.
+## The signal I missed
 
-The counting rule first, because "round" is not otherwise defined. [#686](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/686) carries 113 review submissions; 24 included at least one top-level inline comment, and those are the rounds. Three reviewers produced them: the [Codex GitHub App](https://learn.chatgpt.com/docs/third-party/github) (17 rounds, 45 findings), [CodeRabbit](https://www.coderabbit.ai/) (6 rounds, 10 findings), and GitHub's CodeQL scanner (one round, 2 findings). Every review comment records the commit it was written against, and that field corrects the story: the auto-fix removal landed at 23:33 UTC on August 23, and rounds 23 and 24 reviewed commits after it. Their three findings are of a different kind—two are cleanup about the removal itself, the third is documentation debt: the dependency inventory had not caught up with a parser dependency the pull request added on its first day.
+I could reconstruct the review series from the API. That mattered because the first published version used two rounds after the cut as evidence that auto-fix wasn't converging. It also said the loop "ended in a single commit." Both descriptions missed the boundary between the rewrite-safety work and the cleanup that followed.
 
-So the non-convergence evidence is the 22 rounds before the cut. Findings per round, in order:
+[#686](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/686) had 113 review submissions. I count a round when a submission included at least one top-level inline comment; 24 did. The [Codex GitHub App](https://learn.chatgpt.com/docs/third-party/github) produced 17 rounds and 45 findings, [CodeRabbit](https://www.coderabbit.ai/) produced 6 rounds and 10 findings, and GitHub's CodeQL scanner produced one round and 2 findings.
+
+Every comment records the commit it reviewed. The removal landed at 23:33 UTC on August 23. Rounds 23 and 24 reviewed later commits, and their three findings had a different job: two were cleanup after the removal; the third was documentation debt because the dependency inventory hadn't caught up with a parser dependency added on the PR's first day.
+
+The non-convergence evidence is the 22 rounds before the cut. Here are their findings, in order:
 
 ```text
 3 3 3 1 3 4 3 3 2 1 2 5 2 3 3 1 1 1 1 5 2 2
 ```
 
-Fifty-four findings. The series is not literally flat—the first eleven rounds average 2.55 findings and the last eleven 2.36—but that decline is even shallower than the padded 24-round series showed, so removing the two post-removal rounds makes the argument stronger, not weaker. The series dips and rebounds rather than approaching zero: round 20 produced five findings, more than round 3, and the last round before the cut still produced two.
+Twenty-two rounds produced fifty-four findings. The last round before the cut still produced two. The series wasn't literally flat: the first eleven rounds averaged 2.55 findings and the last eleven 2.36. But it kept dipping and rebounding. Round 20 produced five findings, more than round 3. Removing the two post-cut rounds leaves a shallower decline than the padded 24-round series, so the correction strengthens the case.
 
-The reviewers' own language marks the churn. Twenty-nine of the 57 findings—all from the Codex App's 45—name, in the finding's own body, the earlier fix they are re-opening. Two queries, two numbers, both reproducible against the 57 top-level findings: `grep -ic 'fresh evidence beyond'` returns **29**, and the exact-case longer literal `grep -c 'Fresh evidence beyond the resolved'` returns **25**, because three findings continue the sentence differently and one writes it in lower case. Half the findings on the pull request are follow-ons against ground a previous fix had already covered.
+The findings also described how the churn happened. Twenty-nine of the 57, all from the Codex App's 45, named an earlier fix they were reopening. Over those 57 top-level finding bodies, `grep -ic 'fresh evidence beyond'` returns **29**. The longer, exact-case `grep -c 'Fresh evidence beyond the resolved'` returns **25**: three findings continue the sentence differently, and one writes it in lower case. Half the findings revisited ground a previous fix had covered.
 
-A gentle drift that never lands is not a long tail. Extrapolate two findings a round and the work does not finish—a burn-down chart that is not burning down. It costs one query. I should have been reading it from round six rather than round twenty-two, and I looked only when someone asked whether the work was converging. The honest answer was no, and the evidence had been in the record the whole time.
+A gentle drift that never lands is not a long tail. At two findings a round, the work wouldn't finish. The query cost almost nothing. I should've read the series from round six; I waited until round twenty-two, when someone asked whether the work was converging. The answer was no.
 
-**Effort is not progress, and "we closed everything raised" is not the same as "we are getting closer to done."** I have written [a post about the second half of that](/blog/perfect-score-wrong-axis/), and I still walked into the first half.
+Closing findings can consume plenty of effort without making progress. I confused "we closed everything raised" with "we are getting closer to done." I'd already written [a post about that](/blog/perfect-score-wrong-axis/), and I still walked into it.
 
-## The Measurable Floor
+<span id="the-measurable-floor"></span>
 
-Because agents did both jobs here—Codex CLI and Claude Code sessions wrote the code; the Codex App, CodeRabbit, and CodeQL reviewed it—the cost is unusually measurable. Here there are receipts, from three systems, each labeled as the floor or upper bound it is.
+## What I could measure
 
-The external-review lane keeps a per-run token ledger covering four of the seven pull requests in this arc—[#668](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/668) (13 loops, 434,420 tokens), [#678](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/678) (2 loops, 55,514), [#681](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/681) (1 loop, 16,774), and [#682](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/682) (1 loop, 17,846): **524,554 tokens across 17 review loops**. The ledger is a local, gitignored working file a reader cannot open—but its loop counts are independently checkable, because every ledgered loop is one review posted by the external-reviewer identity `nathanpayne-codex`, and the public API agrees on every row:
+Codex CLI and Claude Code sessions wrote the code; the Codex App, CodeRabbit, and CodeQL reviewed it. I had records from three systems. They measured different work, so each needs its own boundary.
+
+The external-review lane's local token ledger covered four of the seven PRs: [#668](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/668) had 13 loops and 434,420 tokens; [#678](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/678) had 2 loops and 55,514; [#681](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/681) had 1 loop and 16,774; [#682](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/682) had 1 loop and 17,846. The total was **524,554 tokens across 17 review loops**.
+
+The ledger is a local, gitignored working file, so a reader can't open it. Its loop counts can be checked independently: every recorded loop posted one review as `nathanpayne-codex`, and the public API matches every row.
 
 | PR | Ledgered loops | Reviews by `nathanpayne-codex`, per the API |
 |---|---:|---:|
@@ -146,11 +162,13 @@ The external-review lane keeps a per-run token ledger covering four of the seven
 | #720 | no record | 10 |
 | #721 | no record | 1 |
 
-`gh api --paginate repos/nathanjohnpayne/nathanpaynedotcom/pulls/<n>/reviews`, filtered to that login, reproduces the right-hand column—`--paginate` is load-bearing, since #686 carries 113 review submissions and #720 carries 90, well past one page. The token totals stay author-attested: the ledger's records for these four pull requests carry only combined totals, every per-category field null—and `billed_usd: 0.0` on every record, the receipt behind "nothing was invoiced."
+`gh api --paginate repos/nathanjohnpayne/nathanpaynedotcom/pulls/<n>/reviews`, filtered to that login, reproduces the right-hand column. `--paginate` matters: #686 has 113 review submissions and #720 has 90. The ledger retains only combined token totals, with every per-category field null. Those totals remain author-attested. Every record has `billed_usd: 0.0`, which records no charge for the ledgered review loops.
 
-Note which pull request the ledger does not cover. The 22-round story above is #686, and its zero in the table means it never entered the external-review lane; the 434,420 tokens belong to #668, the pull request that introduced the tool. The ledger is therefore a floor: it excludes the 28 reviews the Codex App posted across the arc, the 63 from CodeRabbit, the 10 external-review loops on the [Vale rollout](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/720), and every authoring session.
+The table's zero for #686 matters. The 22-round hardening story never entered this external-review lane. The 434,420 tokens belong to #668, which introduced the tool. The ledger's total is a floor: it excludes the Codex App's 28 reviews across the arc, CodeRabbit's 63, the 10 external-review loops on [the Vale rollout](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/720), and every authoring session.
 
-The authoring side comes from per-provider session telemetry, and the first version of this post printed a two-session token count in the body and a one-session dollar figure in the sidebar beside it, without saying the populations differed. The session accounting in full:
+### The authoring sessions
+
+My provider telemetry covered a different population. The first published version put a two-session token count in the body beside a one-session dollar figure in the sidebar, without explaining that they covered different sessions.
 
 | Session | Model | Work scope | Telemetry retained | Direction | In the dollar estimate |
 |---|---|---|---|---|---|
@@ -160,37 +178,55 @@ The authoring side comes from per-provider session telemetry, and the first vers
 | Codex CLI, session B | gpt-5.3-codex-spark | not separately recorded | totals only | — | excluded, no public API rate |
 | Claude Code | Claude Opus 5 | finishing #686, the migration, reviewing the Vale rollout, researching this post, unrelated work | full category splits | upper bound for this feature | $591.90, re-derivable |
 
-**Two of the criteria in [the audit issue](https://github.com/nathanjohnpayne/nathanpaynedotcom/issues/745) cannot be met from what I kept, and saying so is more useful than implying otherwise.** The two Spark sessions have no per-session telemetry, so neither its work scope nor its token split is recoverable; they appear as separate rows with those cells empty rather than merged into one. And the two Codex dollar subtotals are **author-attested, not reproducible**: the fresh, cached, cache-write, cache-read and output quantities the issue asks for were never recorded per session, so no formula can rebuild them. The Claude subtotal is reproducible and its derivation is above.
+I didn't keep enough to meet two of the criteria in [the audit issue](https://github.com/nathanjohnpayne/nathanpaynedotcom/issues/745). The two Spark sessions don't have the per-session telemetry needed to recover their work scope or token splits. They stay as separate rows with those cells empty. The Codex dollar subtotals are **author-attested, not reproducible**: I didn't retain the fresh, cached, cache-write, cache-read, and output quantities per session, so no formula can reconstruct them. The Claude subtotal can be rebuilt from the components in the sidebar.
 
-Two figures attach to those rows with care. The **2.27 million fresh input tokens and 285,100 output tokens** (99,453 of them reasoning) recorded for #686 are a *combined* figure across the two sessions associated with that pull request. The first is the GPT-5.6 Sol hardening session priced at $60.81 in the table above. The second is one of the two `gpt-5.3-codex-spark` sessions, which carry no retained per-session telemetry, so which of the pair it was—and therefore what it cost—is not recoverable from anything I kept. So the two-session token figure and the one-session $60.81 have different populations and cannot be checked against each other. The Claude session's **1.78 million output tokens across 1,872 assistant turns** are that provider's own counters. All are author-attested; none appears in a published artifact.
+The **2.27 million fresh input tokens and 285,100 output tokens**, including 99,453 reasoning tokens, are combined counters for two sessions associated with #686. One was the GPT-5.6 Sol hardening session priced at $60.81. The other was one of the two `gpt-5.3-codex-spark` sessions. My records don't say which one or what it cost. The two-session count and the one-session $60.81 therefore can't be checked against each other.
 
-The Claude dollar figure is the one a reader can rebuild. At the sidebar's rates, $0.02 fresh input + $130.61 cache writes + $416.86 cache reads + $44.41 output = **$591.90**. Invert the components and the quantities fall out: $44.41 at $25/M is **1.78 million output tokens**—the same figure the session counter reports; the other three invert to 833.7 million cache reads, 13.06 million cache writes, and 0.004 million fresh input. All four sum to **848.6 million tokens processed**, the sidebar's 848 million. Two figures quoted from different surfaces of the same telemetry fall out of each other exactly. With the two author-attested Codex subtotals, $60.81 + $59.95 + $591.90 comes to about **$712.66**, at [OpenAI](https://developers.openai.com/api/docs/models/gpt-5.6-sol) and [Anthropic](https://platform.claude.com/docs/en/about-claude/pricing) list rates published on August 24, 2026—priced, never billed, and over-attributed, per the sidebar's warnings.
+The Claude session recorded **1.78 million output tokens across 1,872 assistant turns**. You'll have to take my word for these counters; none is in a published artifact.
 
-Across all seven pull requests the arc drew **256 review submissions and 126 inline findings**—`pulls/{n}/reviews` for the first, top-level entries in `pulls/{n}/comments` for the second, replies excluded so a finding counts once however long its thread ran. The arc ran about 49 hours from first open to last merge, and #686 alone was open for 30 of them: 62% of the wall time, 44% of the review submissions (113 of 256), 45% of the inline findings (57 of 126). Four of the seven pull requests merged in under sixteen minutes each, and on three of them—#681, #682, and [#721](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/721)—neither review bot posted at all; of the Codex App's 28 reviews and CodeRabbit's 63, the two long-running pull requests drew 17 and 27 on #686 and 4 and 33 on #720.
+### The API-cost estimate
 
-I am not extrapolating a grand total—multiplying the uninstrumented reviews by the measured average would produce a confident-looking invention. The point survives the imprecision: **a requirement nobody questioned consumed a large amount of compute, and none of it was visible as a line item.** Nobody signs off on half a million tokens of re-review; the ledger's 524,554 accrued one reasonable-looking loop at a time, which is why the shape of the series matters more than any individual round.
+The Claude arithmetic can be checked: $0.02 fresh input + $130.61 cache writes + $416.86 cache reads + $44.41 output = **$591.90**. At $25/M, the output component gives **1.78 million output tokens**, rounded as the session counter was. The other components give 833.7 million cache reads, 13.06 million cache writes, and 0.004 million fresh input. Together they give **848.6 million tokens processed**, the sidebar's rounded 848 million. The figures reconcile at that precision; they're different views of the same telemetry, not independent evidence for it.
 
-## Cutting the Capability Nobody Asked For
+Adding the two author-attested Codex estimates gives $60.81 + $59.95 + $591.90, or about **$712.66**, at [OpenAI](https://developers.openai.com/api/docs/models/gpt-5.6-sol) and [Anthropic](https://platform.claude.com/docs/en/about-claude/pricing) list rates published on August 24, 2026. Nothing was billed at those rates: the sessions ran under subscriptions, as I report in the sidebar. The Claude session also covered other work, so the estimate over-attributes cost to this feature. The two unpriced Spark sessions and different cache policies make this unsuitable as a model-to-model comparison.
 
-The decision was to make the tool report-only. It names each violation and exits. It does not touch your files.
+### The whole arc
 
-The cut removed a net 500 lines—the proof, and the tests that exercised it. The first published version said the loop "ended in a single commit," and the record is messier and better: after the removal commit there were four more commits, two more review rounds, and three more findings, and the pull request merged 56 minutes later. But not one of those findings was about rewrite safety—two were cleanup about the removal, the third documentation debt for a dependency added on the pull request's first day. The class of finding that had driven 22 rounds stopped at the commit that removed the capability generating it.
+Across all seven PRs there were **256 review submissions and 126 inline findings**. The first count comes from `pulls/{n}/reviews`; the second from top-level `pulls/{n}/comments`, excluding replies so each finding counts once.
 
-The reasoning was not technical. A punctuation nit should not block shipping, and what I wanted was a list to clean up later—not a tool with permission to rewrite my published writing. Once "rewrite" was off the table, the expensive proof had nothing left to protect.
+The arc took about 49 hours from first open to last merge. #686 took 30 of those hours: 62% of the wall time, 44% of the submissions (113 of 256), and 45% of the findings (57 of 126). Four PRs merged in under sixteen minutes each. On #681, #682, and [#721](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/721), neither review bot posted. Of the Codex App's 28 reviews and CodeRabbit's 63, the two long PRs drew 17 and 27 on #686, and 4 and 33 on #720.
 
-Report-only did not make detection consequence-free, and I got this wrong twice before a reviewer pinned it down. The gate still exits non-zero, which fails the `build-and-test` job that runs it. In August 2026 that job was not one of `main`'s five required status checks—all review-policy gates—so branch protection would let a human merge past a red result, while a second, separately configured list at `.github/required-head-checks`, containing `lint` and `build-and-test`, was what the automated merge path verified against the head commit before arming. So a punctuation violation stopped the automated merge and could be waved through by hand—a deliberate split, unfinished because nothing recorded what was waved through. Both gaps have since closed: `build-and-test` and `lint` became required checks on 2026-09-01, and a merge-bypass audit on every push to `main` followed on 2026-09-30. Turning the violations themselves into tracked issues was filed as [#715](https://github.com/nathanjohnpayne/nathanpaynedotcom/issues/715) and closed as not planned on 2026-09-06.
+I haven't estimated a grand total. Multiplying uninstrumented reviews by the measured average would invent a number. The recorded floor is enough to show the cost of the unexamined capability. Nobody had to approve half a million tokens of re-review as one purchase. The ledger's 524,554 accumulated one reasonable-looking loop at a time, without a line item that made me stop.
 
-## The Second Decision, Which Was a Different Question
+<span id="cutting-the-capability-nobody-asked-for"></span>
 
-Cutting auto-fix ended the rewrite-safety churn. It did not address why I was maintaining a prose linter at all—a separate decision with a separate justification; conflating them makes "we replaced it with an off-the-shelf tool" sound like the fix for a convergence problem it had nothing to do with. The first decision stopped the bleeding. The second reduced what I owned.
+## The cut
 
-With auto-fixing gone, what remained was still 1,513 lines of custom code doing something a mature off-the-shelf tool already does: [Vale](https://vale.sh/), an open-source prose linter. I moved to it. The rule itself came from a style manual revised for over a century—[the Chicago Manual of Style](https://en.wikipedia.org/wiki/The_Chicago_Manual_of_Style) is in its eighteenth edition, and nobody writes their own. The tooling deserves the same instinct, and it took me 1,513 lines to apply it.
+I made the tool report-only. It named the violations and exited. It didn't touch the files.
+
+The cut removed a net 500 lines: the safety proof and the tests exercising it. Four more commits, two review rounds, and three findings followed. The PR merged 56 minutes later. Two findings were removal cleanup; the third was documentation debt for a dependency added on the PR's first day. None concerned rewrite safety. That class of finding stopped at the commit that removed auto-fix.
+
+A punctuation nit shouldn't block shipping. I wanted a list to clean up later, rather than a tool with permission to rewrite my published writing. Once I removed rewriting, there was nothing left for the expensive proof to protect.
+
+Report-only still had consequences. I got this wrong twice before a reviewer pinned it down: detection exited non-zero and failed the `build-and-test` job. In August 2026, that job wasn't among `main`'s five required status checks, which were all review-policy gates. Branch protection allowed a human to merge past the red result.
+
+The automated merge path checked a separate list, `.github/required-head-checks`, containing `lint` and `build-and-test`, against the head commit before arming. A punctuation violation stopped automated merging but could be waved through by hand. That was deliberate. The unfinished part was that nothing recorded what had been waved through.
+
+<span id="the-second-decision-which-was-a-different-question"></span>
+
+## Moving the remaining linter to Vale
+
+Cutting auto-fix ended the rewrite-safety churn. It left me maintaining a 1,513-line prose linter. Replacing that was a second decision. Saying "we replaced it with an off-the-shelf tool" doesn't explain how the convergence problem ended; that had already happened. The first decision stopped the bleeding. The second reduced what I owned.
+
+I moved to [Vale](https://vale.sh/), an open-source prose linter. The rule came from [the Chicago Manual of Style](https://en.wikipedia.org/wiki/The_Chicago_Manual_of_Style), revised for over a century and now in its eighteenth edition. Nobody writes their own style manual. It took me 1,513 lines to apply that instinct to the tool.
 
 ![The eighteenth edition of the Chicago Manual of Style. The rule being enforced is a century-old published standard; the tool enforcing it was written from scratch.](/blog/autofix-was-the-whole-cost/img/cmos-18th-edition-cover.jpg)
 
-The tempting summary is *1,513 lines became 7*—the em-dash rule in Vale is seven lines of configuration. That summary is false, and the false version is why most build-versus-buy posts are useless.
+The tempting summary is *1,513 lines became 7*. That summary is false. It's why most build-versus-buy posts are useless. The Vale rule was seven lines of configuration, but that wasn't all the code I still owned.
 
-The honest accounting, with both snapshots named. The "before" column is the legacy tool as merged, at `a37bb51`; the "after" is the Vale side at `e42483b`, [#725](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/725)'s merge—53 minutes after the old tool was deleted, once the migration follow-ups had landed, still before this post was published. The rule on both sides: the prose gate's own implementation and tests, excluding CI wiring and fixtures; the largest excluded item is the script that installs Vale, 93 lines at `e42483b`, and counting it moves the total from 1,343 to 1,436 and the reduction from 45% to about 41.5%.
+The comparison below uses the legacy tool at `a37bb51` and the Vale replacement at `e42483b`, [#725](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/725)'s merge. The latter came 53 minutes after the old tool was deleted, after migration follow-ups and before this post was published.
+
+Both columns count the gate's implementation and tests, excluding CI wiring and fixtures. The largest excluded item was the Vale installer: 93 lines at `e42483b`. Including it raises the replacement from 1,343 to 1,436 lines and changes the reduction from 45% to about 41.5%.
 
 | | Before | After |
 |---|---|---|
@@ -203,40 +239,50 @@ The honest accounting, with both snapshots named. The "before" column is the leg
 
 A 45% reduction. Not a two-hundred-fold collapse.
 
-**You do not escape complexity by buying instead of building. You relocate it.** The trade was still right—what remains is boring, well-tested glue rather than a bespoke engine with a rewrite-safety proof bolted to it. But anyone promising the headline number is selling something, and the 509-line adapter is the part worth understanding.
+You do not escape complexity by buying instead of building. You relocate it. The trade was still right: I was maintaining boring, well-tested glue instead of the bespoke engine. The 509-line adapter is what the seven-line headline leaves out.
 
-## Why the Adapter Exists, and Why It Nearly Did Not
+<span id="why-the-adapter-exists-and-why-it-nearly-did-not"></span>
 
-Vale handles most of this site's content correctly. It does not check items in bulleted lists inside a post's metadata block.
+## What the adapter had to keep checking
 
-When this post was published, 2026-08-24, that was 127 prose-bearing list items across the 14 files that carried them—tags (62), key takeaways (28), pull-quote texts (29), and sidebar content blocks (8)—and 113 across 13 at the migration itself, before this post existed. Fifty-seven of them—the pull quotes and key takeaways—render prominently on every post, including the ones at the top of this one. Not internal metadata. Published, reader-facing writing.
+Vale handled most of the site's content. It didn't check bulleted list items inside a post's metadata block.
 
-The custom tool checked those. A straight swap would have dropped them out of coverage **and reported success**, because a tool that declines to look is indistinguishable from a clean result. The risk is not specific to linting: replacing a system routinely means quietly losing an edge case the old one handled, and the failure is silent by construction.
+At publication on 2026-08-24, those lists contained 127 prose-bearing items across 14 files: tags (62), key takeaways (28), pull-quote texts (29), and sidebar content blocks (8). At the migration, before this post existed, there were 113 across 13 files. Fifty-seven items at publication were pull quotes and takeaways, prominent reader-facing writing like the ones at the top of this post.
 
-It was caught because the rollout was split in two—[add the new tool alongside the old one and run both](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/720), then [remove the old one only after comparing them](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/721). Not because anyone was clever; because the sequencing made the gap visible instead of leaving it to be noticed later, by a reader.
+The custom tool checked those items. Without the adapter, a straight swap would have lost that coverage and reported success. A tool that doesn't look at a field gives the same clean result as one that checked it and found no mistakes. Replacing a system can quietly lose an edge case the old one handled.
 
-## "Proven Equivalent" Was Not Proven
+The rollout made this gap visible. [#720 added Vale alongside the old tool and ran both](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/720); [#721 removed the old one after the comparison](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/721). The sequence caught the difference before a reader had to.
 
-The removal was described as landing after equivalence had been demonstrated. It had not been, quite—the kind of claim worth checking whether it comes from a vendor, a team, or your own earlier self. Both tools had been compared on the current content, which was already clean. Zero findings versus zero findings proves nothing.
+<span id="proven-equivalent-was-not-proven"></span>
 
-So before approving the deletion I took all 174 test cases from the suite being deleted, confirmed the comparison harness reproduced the old tool's behavior exactly—zero mismatches across all 174—and ran every case through the new one.
+## Testing the claimed equivalence
 
-**149 matched. 25 differed**—18 the new tool no longer catches, 7 it now flags where the old one stayed quiet.
+The removal was described as following a demonstration of equivalence. Both tools had been run against the current content, which was already clean. Zero findings from each didn't prove they checked the same things. I needed to check that claim even though it came from my own work.
 
-Then the number that decides what any of that is worth: every affected pattern appeared **zero times** across the 37 content files as they stood at `6358402`, the commit the comparison ran against. So this was 18 capabilities retired, not 18 defects shipped—those were exactly the cases that could not converge. One footnote keeps the claim honest: the corpus reached 38 files when this post was added, and this post reintroduced one of the retired constructs—the emphasis-wrapped dash in the worked example above, three times—once in a code span and twice inside a fenced block—all of which render literally. Nothing is broken, but "zero occurrences" is a dated measurement, not a standing guarantee.
+Before approving deletion, I replayed all 174 cases from the retired test suite. First I confirmed that the comparison harness reproduced the old tool exactly: zero mismatches across all 174. Then I ran the cases through Vale.
 
-And it is recorded. I wrote the full comparison into [an issue](https://github.com/nathanjohnpayne/nathanpaynedotcom/issues/722) before the merge—one minute and fifty-five seconds before it, which is as close as "before" gets—because the deletion destroyed the only artifact encoding the difference. A five-minute habit that turns "we think this was fine" into something a future decision can stand on.
+**149 matched. 25 differed**: 18 cases the new tool no longer caught, and 7 it flagged where the old one stayed quiet.
 
-## What Transfers
+Every affected pattern occurred **zero times** across the 37 content files at `6358402`, the commit used for the comparison. I was retiring 18 capabilities, not shipping 18 defects. Those were exactly the cases that hadn't converged.
 
-Little of this is about linting.
+Adding this post took the corpus to 38 files and reintroduced one retired construct three times: the emphasis-wrapped dash in the worked example, once in a code span and twice in the fenced block. All render literally. The example isn't broken, but the zero-occurrence measurement belongs to its dated snapshot.
 
-**Unbundle the requirement before estimating it.** One sentence contained three capabilities with different cost profiles. The one that could not converge was also the optional one, and nobody knew either fact—because nobody had listed them separately. Size and difficulty are not the same axis.
+I recorded the full comparison in [#722](https://github.com/nathanjohnpayne/nathanpaynedotcom/issues/722) before merging: one minute and fifty-five seconds before it, which is as close as "before" gets. Deleting the suite removed the only artifact encoding those differences. A five-minute habit turns "we think this was fine" into something a future decision can stand on.
 
-**Plot the thing that would tell you it is not working.** Findings per round, escaped defects per release, reopen rate. A shallow decline that never reaches zero is the dangerous shape, because it still reads as progress on any single round. The metric that would have ended this sixteen rounds earlier cost one query.
+## What changed after August
 
-**Ask what a capability is protecting.** The proof obligation that generated the findings existed solely to serve a feature nobody had defended. Cost concentrates in the parts of scope that were never argued for, precisely because nothing was ever argued about them.
+`build-and-test` and `lint` became required checks on 2026-09-01. A merge-bypass audit on every push to `main` followed on 2026-09-30. Both gaps have since closed. [#715](https://github.com/nathanjohnpayne/nathanpaynedotcom/issues/715) was the proposal to turn punctuation violations into tracked issues. It closed as not planned on 2026-09-06.
 
-**Make migrations comparable, not just complete.** Run both, diff the outputs, record what you are giving up. A silent gap in a replacement system is the default outcome, not the unlucky one.
+<span id="what-transfers"></span>
 
-**And correct your own numbers in public.** The first draft said auto-fix produced most of the code; it produced 17% of the implementation and tests. The first published version argued non-convergence partly from two review rounds that postdate the removal; the honest series—54 findings across 22 rounds—makes the case better, not worse. Both corrections came from checking against the commit history and the API record, and both times the checked version was stronger.
+## What I would carry into the next project
+
+I'd separate the capabilities before estimating the requirement. This one sentence contained three jobs with different costs. The optional one was the one that wouldn't converge, and I hadn't listed them separately. Size and difficulty aren't the same thing.
+
+I'd also plot the number that would tell me the work wasn't progressing: findings per round, escaped defects per release, or reopen rate. A shallow decline can look encouraging one round at a time. Reading this series could have brought the decision sixteen rounds earlier.
+
+For an expensive capability, I'd ask what it was protecting. The proof here existed to serve a feature nobody had defended. That was where the cost collected.
+
+During a migration, I'd run both versions, compare their output, and record the capabilities I'm giving up. A finished migration can still leave a silent coverage gap.
+
+I also need to correct my own numbers. Auto-fix was 17% of the implementation and tests, not most of the code. The honest pre-cut series was 54 findings across 22 rounds. The commit history and API record made both corrections possible, and both made the product judgment clearer: I'd spent the review effort on a capability I hadn't asked for. Removing it stopped the rewrite-safety churn. Buying a linter addressed the separate question of what I should still maintain.
