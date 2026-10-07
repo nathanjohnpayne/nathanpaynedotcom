@@ -262,7 +262,10 @@ function htmlText(source, node, context = '') {
   });
   dom.window.close();
   return {
-    item: entry(source, node, 'html', normalize(text.replaceAll('\0', ' '))),
+    item: {
+      ...entry(source, node, 'html', normalize(text.replaceAll('\0', ' '))),
+      semanticText: normalize(passages.map((p) => p.prose).join(' ')),
+    },
     headings,
     captions,
     passages,
@@ -462,7 +465,10 @@ export async function parseArticle(source, file) {
       return;
     }
     if (node.type === 'heading' || node.type === 'paragraph' || node.type === 'tableCell') {
-      const item = entry(source, node, node.type, protectedHtmlText(source, node));
+      const item = {
+        ...entry(source, node, node.type, protectedHtmlText(source, node)),
+        semanticText: protectedHtmlText(source, node, ' ', true),
+      };
       bodyText.push(...pullquotePassages(node));
       if (node.type === 'heading') headings.push(item);
       surfaces.push(quotationPass(item, context, findings, file));
@@ -499,7 +505,8 @@ export async function parseArticle(source, file) {
       for (const caption of html.captions)
         surfaces.push(quotationPass(caption, context, findings, file));
       const item = html.item;
-      if (item.text) surfaces.push(quotationPass(item, context, findings, file));
+      if (item.text || html.quotations.length)
+        surfaces.push(quotationPass(item, context, findings, file));
       if (item.text || html.quotations.length) {
         findings.push(
           finding(
@@ -525,11 +532,13 @@ export async function parseArticle(source, file) {
     const fieldTree = await markdownTree(item.text);
     // Semantic Markdown normalization uses the same parser as the body.
     const rendered = inlineText(fieldTree, true);
-    const prose = protectedHtmlText(item.text, {
+    const fieldNode = {
       ...fieldTree,
       position: { start: { offset: 0 }, end: { offset: item.text.length } },
-    });
-    surfaces.push(quotationPass({ ...item, text: prose, rendered }, '', findings, file));
+    };
+    const prose = protectedHtmlText(item.text, fieldNode);
+    const semanticText = protectedHtmlText(item.text, fieldNode, ' ', true);
+    surfaces.push(quotationPass({ ...item, text: prose, semanticText, rendered }, '', findings, file));
   }
   const headingForms = new Set(
     headings.map((h) => h.convention ?? (h.excerpt.trimStart().startsWith('#') ? 'ATX' : 'setext')),
@@ -759,7 +768,7 @@ function sourceDiff(before, after) {
 function tokenCounts(article) {
   const tokens =
     article.surfaces
-      .map((s) => s.text)
+      .map((s) => s.semanticText ?? s.text)
       .concat(article.protectedMaterial.filter((s) => s.kind === 'blockquote').map((s) => s.text))
       .join(' ')
       .match(semanticTokens) ?? [];
@@ -913,6 +922,15 @@ export function readableReport(report, packet = false) {
       ...report.packet.checklist.map((s) => `- [ ] ${s}`),
       '\n## Visible metadata together',
       JSON.stringify(report.packet.visibleMetadata, null, 2),
+      '\n## Source integrity',
+      JSON.stringify({
+        before: report.packet.before
+          ? { file: report.packet.before.file, sha256: report.packet.before.sha256 }
+          : null,
+        after: { file: report.packet.after.file, sha256: report.packet.after.sha256 },
+      }, null, 2),
+      '\n## Protected material together',
+      JSON.stringify(report.packet.protectedMaterial, null, 2),
       '\n## Changed passages',
       report.packet.changedPassages,
       '\n## Complete before article',
@@ -920,7 +938,9 @@ export function readableReport(report, packet = false) {
       '\n## Complete after article',
       report.packet.after.source,
       '\n## Warning disposition',
-      report.packet.warningDisposition,
+      typeof report.packet.warningDisposition === 'string'
+        ? report.packet.warningDisposition
+        : JSON.stringify(report.packet.warningDisposition, null, 2),
     );
   }
   return lines.join('\n') + '\n';

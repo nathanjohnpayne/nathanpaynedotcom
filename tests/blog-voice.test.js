@@ -389,6 +389,7 @@ describe('source-pinned examples, advisory warnings and complete meaning review'
       reviewContext: { warningDispositions },
     });
     expect(report.packet.warningDisposition).toEqual(warningDispositions);
+    expect(readableReport(report, true)).toContain(JSON.stringify(warningDispositions, null, 2));
     expect(rules(report)).toContain('review.defensive-hedging');
     expect(report.packet.manualMeaningReviewRequired).toBe(true);
   });
@@ -414,6 +415,33 @@ describe('source-pinned examples, advisory warnings and complete meaning review'
       expect(report.packet.before.source).toBe(beforeSource);
       expect(errors(report)).toEqual([]);
     }
+  });
+
+  it.each([
+    '<blockquote cite="/source">We will not ship.</blockquote>\n',
+    '<q cite="/source">We will not ship.</q>\n',
+    'Claude said: <q>We will not ship.</q>\n',
+    '<blockquote cite="/source"><q>We will not ship.</q></blockquote>\n',
+    "---\ndescription: 'Claude said: <q>We will not ship.</q>'\n---\n\nI chose it.\n",
+  ])('warns on negation changes inside parsed HTML quotations (%s)', async (beforeSource) => {
+    const report = await check(beforeSource.replace('not ', ''), { beforeSource });
+    expect(rules(report)).toContain('review.negation-modal-change');
+    expect(errors(report)).toEqual([]);
+    expect(report.packet.before.source).toBe(beforeSource);
+    expect(report.manualMeaningReviewRequired).toBe(true);
+  });
+
+  it('does not count nested HTML quotation text twice or code as semantic prose', async () => {
+    const beforeSource = '<blockquote cite="/source">We will not ship.</blockquote>\n';
+    const report = await check(
+      beforeSource.replace('We will not ship.', '<q>We will not ship.</q>'),
+      { beforeSource },
+    );
+    expect(rules(report)).not.toContain('review.negation-modal-change');
+    const codeBefore = '<blockquote cite="/source"><code>will not ship</code></blockquote>\n';
+    expect(
+      rules(await check(codeBefore.replace('not ', ''), { beforeSource: codeBefore })),
+    ).not.toContain('review.negation-modal-change');
   });
 
   it('allows the authentic trust-burden contrast and excludes pullquote duplication from padding warnings', async () => {
@@ -471,6 +499,14 @@ describe('source-pinned examples, advisory warnings and complete meaning review'
     expect(packet).toContain('Write Like Me');
     expect(packet).toContain('supplied-reference fallback');
     expect(packet).toContain('Complete manual meaning review remains required');
+    expect(packet).toContain(report.packet.before.sha256);
+    expect(packet).toContain(report.packet.after.sha256);
+    expect(packet).toContain(JSON.stringify(report.packet.protectedMaterial, null, 2));
+    const newPost = await check('I chose it.\n');
+    const newPacket = readableReport(newPost, true);
+    expect(newPacket).toContain(newPost.packet.after.sha256);
+    expect(newPacket).toContain('"before": null');
+    expect(newPacket).toContain(JSON.stringify(newPost.packet.protectedMaterial, null, 2));
   });
 });
 
