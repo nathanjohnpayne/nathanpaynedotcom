@@ -220,6 +220,66 @@ We organised the colour.
     expect(rules(await check('I typed \\<span>literal\\</span>.\n'))).not.toContain('review.html');
   });
 
+  it.each(['<br>', '<br/>', '<br />'])(
+    'preserves inline HTML break whitespace (%s)',
+    async (tag) => {
+      const report = await check(`We${tag}organised it.\n`);
+      expect(rules(report)).toEqual(
+        expect.arrayContaining(['voice.narrator-plural', 'voice.american-spelling']),
+      );
+      expect(
+        errors(
+          await check(
+            `---\npullquotes:\n  - text: "The chosen result."\n---\n\nThe chosen${tag}result.\n`,
+          ),
+        ),
+      ).toEqual([]);
+      expect(
+        rules(await check(`I can${tag}publish.\n`, { beforeSource: 'I publish.\n' })),
+      ).toContain('review.negation-modal-change');
+    },
+  );
+
+  it.each([
+    '<p>Claude wrote:</p>\n\n> Our colour.\n',
+    '<p>Claude wrote:</p>\n\n<blockquote>Our colour.</blockquote>\n',
+    '> Our colour.\n\n<p>Claude wrote.</p>\n',
+    '<blockquote>Our colour.</blockquote>\n\n<p>Claude wrote.</p>\n',
+  ])('recognizes prose attribution in neighboring HTML siblings (%s)', async (source) => {
+    expect(rules(await check(source))).not.toContain('review.quotation-attribution');
+    expect(
+      rules(await check(source.replace(/Claude wrote[:.]/u, '<code>Claude wrote:</code>'))),
+    ).toContain('review.quotation-attribution');
+  });
+
+  it('retains attributed prose quotations and warns when their source changes', async () => {
+    const beforeSource = 'Claude wrote: "We will not ship."\n';
+    const source = 'Claude wrote: "We will ship."\n';
+    const report = await check(source, { beforeSource });
+    for (const [side, text] of [
+      ['before', '"We will not ship."'],
+      ['after', '"We will ship."'],
+    ]) {
+      const quote = report.packet.protectedMaterial[side].find((p) => p.kind === 'quotation');
+      expect(quote.text).toBe(text);
+      expect(quote.attributed).toBe(true);
+      expect(quote.location.start.line).toBe(1);
+      expect(quote.excerpt).toContain(text);
+    }
+    expect(errors(report)).toEqual([]);
+    expect(rules(report)).toContain('review.protected-material-change');
+    expect(rules(report)).toContain('review.negation-modal-change');
+  });
+
+  it('warns about positive capability-modal changes without claiming semantic proof', async () => {
+    const report = await check('The agent publishes.\n', {
+      beforeSource: 'The agent can publish.\n',
+    });
+    expect(report.exitCode).toBe(0);
+    expect(rules(report)).toContain('review.negation-modal-change');
+    expect(report.packet.manualMeaningReviewRequired).toBe(true);
+  });
+
   it.each([
     '<img src="/image.png">',
     '<hr>',

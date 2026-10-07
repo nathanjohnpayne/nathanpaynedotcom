@@ -42,7 +42,7 @@ const evidenceCue =
 const followingEvidenceCue =
   /^[\s,;:—-]*(?:[\p{L}\p{N}_]+\s+){0,5}(?:said|wrote|asked|replied|told|reads|quoted)\b/iu;
 const semanticTokens =
-  /\b(?:not|never|no|nobody|neither|cannot|can['’]t|could|should|would|may|might|must|will|planned|intended|deserves)\b|n['’]t\b/giu;
+  /\b(?:not|never|no|nobody|neither|cannot|can['’]t|can|could|should|would|may|might|must|will|planned|intended|deserves)\b|n['’]t\b/giu;
 export const hash = (source) => createHash('sha256').update(source).digest('hex');
 
 export class VoiceError extends Error {
@@ -122,13 +122,13 @@ const blockContainers = new Set(['root', 'list', 'listItem', 'blockquote', 'tabl
 function joinedText(node, values) {
   return values.join(blockContainers.has(node.type) ? ' ' : '');
 }
-function inlineText(node, includeCode = false) {
+function inlineText(node, includeCode = false, htmlBoundaries = new Set()) {
   if (node.type === 'inlineCode' || node.type === 'code') return includeCode ? node.value : ' ';
-  if (node.type === 'html') return '';
+  if (node.type === 'html') return htmlBoundaries.has(node.position?.start.offset) ? ' ' : '';
   if (node.type === 'image' || node.type === 'imageReference') return '';
   if (node.type === 'break') return ' ';
   if (typeof node.value === 'string') return node.value;
-  return joinedText(node, (node.children ?? []).map((child) => inlineText(child, includeCode)));
+  return joinedText(node, (node.children ?? []).map((child) => inlineText(child, includeCode, htmlBoundaries)));
 }
 async function markdownTree(source) {
   let tree;
@@ -153,10 +153,14 @@ function quotationPass(item, context, findings, file) {
   ];
   const styles = new Set();
   const uncertainQuotes = [];
+  const quotations = [];
   for (const match of quotes) {
     const attributed = evidenceCue.test(
       (context + ' ' + item.text.slice(0, match.index)).slice(-200),
     ) || followingEvidenceCue.test(item.text.slice(match.index + match[0].length, match.index + match[0].length + 200));
+    // Decoded text cannot supply exact original character offsets. Retain the
+    // containing source range honestly, alongside the focused quotation text.
+    quotations.push({ ...item, kind: 'quotation', text: match[0], attributed });
     if (!attributed) {
       if (match[0][0] === '"') styles.add('straight');
       if (match[0][0] === '“') styles.add('curly');
@@ -178,9 +182,9 @@ function quotationPass(item, context, findings, file) {
         file,
       ),
     );
-  return { ...item, projected, uncertainQuotes, quoteStyles: [...styles] };
+  return { ...item, projected, uncertainQuotes, quotations, quoteStyles: [...styles] };
 }
-function htmlQuotations(source, node, context, dom, textWithin) {
+function htmlQuotations(source, node, context, dom, textWithin, following = '') {
   const textNodes = [];
   const walker = dom.window.document.createTreeWalker(dom.window.document.body, dom.window.NodeFilter.SHOW_TEXT);
   while (walker.nextNode()) {
@@ -203,13 +207,15 @@ function htmlQuotations(source, node, context, dom, textWithin) {
         location: location(source, start, end),
         attributed: Boolean(n.closest('blockquote[cite]:not([cite=""]), q[cite]:not([cite=""])')) ||
           evidenceCue.test(context.slice(-200)) ||
+          followingEvidenceCue.test(following.slice(0, 200)) ||
           evidenceCue.test((textWithin?.(node.position.start.offset, start, false) ?? textNodes.filter((t) => t.end <= start).map((t) => t.text).join(' ')).slice(-200)) ||
           followingEvidenceCue.test((textWithin?.(end, node.position.end.offset, false) ?? textNodes.filter((t) => t.start >= end).map((t) => t.text).join(' ')).slice(0, 200)) ||
           evidenceCue.test(text.slice(0, 160)),
       };
     });
 }
-function htmlText(source, node, context = '') {
+const blockDisplays = new Set(['block', 'list-item', 'table', 'table-row', 'table-cell', 'table-caption', 'table-row-group', 'table-header-group', 'table-footer-group', 'flow-root', 'flex', 'grid']);
+function htmlText(source, node, context = '', following = '') {
   const dom = new JSDOM(node.value, { includeNodeLocations: true });
   const document = dom.window.document;
   const passages = [];
@@ -245,7 +251,7 @@ function htmlText(source, node, context = '') {
       return;
     }
     const display = blocks.has(tag) ? 'block' : dom.window.getComputedStyle(child).display;
-    const isBlock = ['block', 'list-item', 'table', 'table-row', 'table-cell', 'table-caption', 'table-row-group', 'table-header-group', 'table-footer-group', 'flow-root', 'flex', 'grid'].includes(display);
+    const isBlock = blockDisplays.has(display);
     if (isBlock) flush();
     for (const descendant of child.childNodes)
       collectPassage(descendant, code || tag === 'code' || tag === 'pre', includeCaptions);
@@ -258,7 +264,7 @@ function htmlText(source, node, context = '') {
   collectPassage(document.body, false, true);
   flush();
   const semanticText = normalize(passages.map((p) => p.prose).join(' '));
-  const quotations = htmlQuotations(source, node, context, dom);
+  const quotations = htmlQuotations(source, node, context, dom, undefined, following);
   document
     .querySelectorAll('script, style, pre, code, blockquote, q')
     .forEach((n) => n.replaceWith('\0'));
@@ -321,7 +327,7 @@ function htmlSkeleton(source, node) {
   retainHtml(node);
   return raw;
 }
-function inlineHtmlQuotations(source, node, context) {
+function inlineHtmlQuotations(source, node, context, following = '') {
   const skeleton = htmlSkeleton(source, node);
   if (!skeleton.trim()) return [];
   const dom = new JSDOM(skeleton, { includeNodeLocations: true });
@@ -345,7 +351,7 @@ function inlineHtmlQuotations(source, node, context) {
     };
     return collectText(node);
   };
-  const quotations = htmlQuotations(source, node, context, dom, textWithin);
+  const quotations = htmlQuotations(source, node, context, dom, textWithin, following);
   dom.window.close();
   return quotations;
 }
@@ -355,15 +361,25 @@ function protectedHtmlText(
   boundary = ' ',
   includeQuotedText = false,
   preserveLength = false,
+  includeCode = false,
 ) {
   const skeleton = htmlSkeleton(source, node);
   const dom = skeleton.trim() ? new JSDOM(skeleton, { includeNodeLocations: true }) : null;
-  const protectedSelector = includeQuotedText
-    ? 'code, pre, script, style'
-    : 'code, pre, script, style, blockquote, q';
+  const protectedSelector = [
+    'script', 'style',
+    ...(!includeCode ? ['code', 'pre'] : []),
+    ...(!includeQuotedText ? ['blockquote', 'q'] : []),
+  ].join(', ');
   const ranges = dom ? [...dom.window.document.querySelectorAll(protectedSelector)]
     .map((n) => dom.nodeLocation(n))
     .filter(Boolean) : [];
+  const htmlBoundaries = new Set();
+  if (dom) for (const element of dom.window.document.querySelectorAll('*')) {
+    if (element.localName !== 'br' && !blockDisplays.has(dom.window.getComputedStyle(element).display)) continue;
+    const range = dom.nodeLocation(element);
+    for (const tag of [range?.startTag, range?.endTag])
+      if (tag) htmlBoundaries.add(node.position.start.offset + tag.startOffset);
+  }
   const flatten = (child, parent) => {
     if (child.type === 'html' && blockContainers.has(parent?.type)) {
       const html = htmlText(source, child);
@@ -377,11 +393,11 @@ function protectedHtmlText(
     const start = child.position?.start.offset - node.position.start.offset;
     if (
       ranges.some((r) => start >= r.startOffset && start < r.endOffset) ||
-      child.type === 'inlineCode' || child.type === 'code'
+      (!includeCode && (child.type === 'inlineCode' || child.type === 'code'))
     )
       return preserveLength ? ' '.repeat(inlineText(child, true).length) : boundary;
     if (['image', 'imageReference'].includes(child.type)) return preserveLength ? '' : boundary;
-    return inlineText(child);
+    return inlineText(child, includeCode, htmlBoundaries);
   };
   const text = flatten(node);
   dom?.window.close();
@@ -505,7 +521,7 @@ export async function parseArticle(source, file) {
     if (['heading', 'paragraph', 'tableCell'].includes(node.type))
       return [
         normalizePassage(
-          inlineText(node, true),
+          protectedHtmlText(source, node, ' ', true, false, true),
           protectedHtmlText(source, node, ' ', true, true),
         ),
       ];
@@ -565,7 +581,7 @@ export async function parseArticle(source, file) {
       bodyText.push(...pullquotePassages(node));
       if (node.type === 'heading') headings.push(item);
       surfaces.push(quotationPass(item, context, findings, file));
-      const quotations = inlineHtmlQuotations(source, node, context);
+      const quotations = inlineHtmlQuotations(source, node, context, following);
       protectedMaterial.push(...quotations);
       reviewHtmlQuotations({ quotations });
       let hasInlineHtml = false;
@@ -594,7 +610,7 @@ export async function parseArticle(source, file) {
       return;
     }
     if (node.type === 'html') {
-      const html = htmlText(source, node, context);
+      const html = htmlText(source, node, context, following);
       reviewHtmlQuotations(html);
       for (const h of html.headings) {
         headings.push(h);
@@ -611,10 +627,15 @@ export async function parseArticle(source, file) {
     }
     let previous = context;
     const children = node.children ?? [];
+    const contextProse = (child) => {
+      if (!child || ['code', 'inlineCode', 'blockquote'].includes(child.type)) return '';
+      if (child.type === 'html') return htmlText(source, child).item.text;
+      return protectedHtmlText(source, child);
+    };
     for (const [index, child] of children.entries()) {
       const next = children[index + 1];
-      collect(child, previous, next?.type === 'paragraph' ? inlineText(next) : '');
-      previous = inlineText(child);
+      collect(child, previous, ['paragraph', 'html'].includes(next?.type) ? contextProse(next) : '');
+      previous = contextProse(child);
     }
   };
   collect(tree);
@@ -623,6 +644,7 @@ export async function parseArticle(source, file) {
     // image syntax and HTML-like strings are visible characters, not markup.
     surfaces.push(quotationPass({ ...item, semanticText: item.text, rendered: item.text }, '', findings, file));
   }
+  for (const surface of surfaces) protectedMaterial.push(...surface.quotations);
   const headingForms = new Set(
     headings.map((h) => h.convention ?? (h.excerpt.trimStart().startsWith('#') ? 'ATX' : 'setext')),
   );
