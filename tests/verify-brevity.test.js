@@ -110,10 +110,23 @@ describe('verify-brevity', () => {
   });
 
   it('describes protected checks and quiet advisories accurately in help', () => {
-    const help = execFileSync('python3', [script, '--help'], { encoding: 'utf-8' });
+    const help = execFileSync('python3', [script, '--help'], { encoding: 'utf-8' }).replace(
+      /\s+/g,
+      ' ',
+    );
     expect(help).toContain('Compare protected tokens and blocks');
-    expect(help).toContain('advisory notes still print');
+    expect(help).toContain('advisory notes and manual-review reminder still print');
     expect(help).toContain('manual meaning review');
+  });
+
+  it('keeps the manual-review reminder visible in a quiet gate that misses swapped attribution', () => {
+    const before = 'PR #30 merged at 10:04am Pacific; PR #47 at 2:11pm Pacific.\n';
+    const after = 'PR #47 merged at 10:04am Pacific; PR #30 at 2:11pm Pacific.\n';
+    const [a, b] = paths(after, before);
+    const out = execFileSync('python3', [script, '--quiet', a, b], { encoding: 'utf-8' });
+    expect(out).toContain('Complete manual meaning review remains required');
+    expect(out).not.toContain('RESULT:');
+    expect(out).not.toMatch(/\b(?:words|prose) \d+ ->/);
   });
 
   it('flags a dropped spelled-out count as advisory, not a failure', () => {

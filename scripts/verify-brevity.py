@@ -27,8 +27,8 @@ commit.
     scripts/verify-brevity.py before.md after.md
     scripts/verify-brevity.py --quiet before.md after.md && git commit
 
-Advisory notes print even under --quiet, since suppressing them in the gate
-path would hide exactly what they exist to surface.
+Advisory notes and the manual-review reminder print even under --quiet, since
+suppressing them in the gate path would hide exactly what they exist to surface.
 
 Known blind spot: comparisons are global multisets, so an edit that SWAPS two
 protected values between claims passes with every count unchanged. "PR #30
@@ -408,7 +408,7 @@ def compare(before: str, after: str, quiet: bool) -> int:
         print(f"\n  words {wb} -> {wa}  (whole file, including tables and code)")
         print(f"  prose {pb} -> {pa}  ({pd:+.1f}%)  <- the figure to report")
         print(f"  RESULT: {'PASS' if not failures else str(len(failures)) + ' FAILURE(S)'}")
-        print("  Complete manual meaning review remains required; token counts do not prove meaning.")
+    print("  Complete manual meaning review remains required; token counts do not prove meaning.")
 
     return 1 if failures else 0
 
@@ -422,7 +422,7 @@ def main() -> int:
     parser.add_argument("before", type=Path, help="the file as it stood before the brevity pass")
     parser.add_argument("after", type=Path, help="the file as it stands after the brevity pass")
     parser.add_argument("--quiet", action="store_true",
-                        help="suppress per-check output; advisory notes still print")
+                        help="suppress successful checks and totals; advisory notes and manual-review reminder still print")
     args = parser.parse_args()
 
     for path in (args.before, args.after):
