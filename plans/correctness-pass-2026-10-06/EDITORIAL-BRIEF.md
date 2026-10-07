@@ -15,6 +15,7 @@ The owner reviewed #1124 and kept it: "It makes the site substantially more cred
 - Do not remove trade-offs, limitations or evidence. "Being credible doesn't require being relentlessly negative about your own work," but it does require keeping the limits that are true.
 - Do not touch frontmatter except `keyTakeaways` and `pullquotes` when a body sentence they quote has changed; keep every other field byte-identical.
 - Keep the voice. "Don't be overly pedantic; a little puffery is fine." Keep the flourishes and first-person asides that carry the author's judgment.
+- Use sentence case for every body heading, including untouched ones; preserve existing fragment anchors.
 - Em dashes closed up; prose soft-wrapped, one physical line per paragraph.
 
 ## Verification
