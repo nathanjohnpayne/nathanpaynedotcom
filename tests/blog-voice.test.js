@@ -173,6 +173,15 @@ We organised the colour.
     expect(report.packet.protectedMaterial.after.some((p) => p.kind === 'html')).toBe(true);
   });
 
+  it('keeps unrelated Markdown prose checked beside an inline fragment anchor', async () => {
+    const source = '<span id="original-anchor"></span>\n\nWe organised colour.\n';
+    const report = await check(source);
+    expect(rules(report)).toEqual(
+      expect.arrayContaining(['review.html', 'voice.narrator-plural', 'voice.american-spelling']),
+    );
+    expect(report.packet.after.source).toBe(source);
+  });
+
   it('does not flag a post without raw HTML', async () => {
     const report = await check('## A small change\n\nI chose **color** and `code`.\n');
     expect(rules(report)).not.toContain('review.html');

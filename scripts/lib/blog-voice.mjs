@@ -127,6 +127,11 @@ const plainBreak = (node) => node.type === 'html' && /^<br\s*\/?>$/iu.test(node.
 const hasHtml = (node, opaqueOnly = false) =>
   (node.type === 'html' && (!opaqueOnly || !plainBreak(node))) ||
   (node.children ?? []).some((child) => hasHtml(child, opaqueOnly));
+// mdast distinguishes inline HTML in prose from block HTML leaves. Do not
+// infer whether any element is open, closed, cited or visible.
+const hasBlockHtml = (node) =>
+  !['heading', 'paragraph', 'tableCell'].includes(node.type) &&
+  (node.type === 'html' ? !plainBreak(node) : (node.children ?? []).some(hasBlockHtml));
 function inlineText(node, includeCode = false, maskCode = false) {
   if (node.type === 'inlineCode' || node.type === 'code')
     return includeCode ? node.value : maskCode ? ' '.repeat(node.value.length) : ' ';
@@ -292,25 +297,26 @@ export async function parseArticle(source, file) {
   const headings = [];
   let diagramIndex = 0;
   const opaqueHtml = hasHtml(tree, true);
+  const manualBody = hasBlockHtml(tree);
   const reviewRawHtml = (node) => {
     if ((['heading', 'paragraph', 'tableCell'].includes(node.type) && hasHtml(node)) || node.type === 'html') {
       findings.push(finding(
         'review.html', 'warning', entry(source, node, node.type, ''),
-        'Raw HTML present; review quotations, attribution, pullquotes and wording by hand. HTML is not analyzed; non-break HTML makes body prose manual review because its scope is unknown.', file,
+        'Raw HTML present; review quotations, attribution, pullquotes and wording by hand. HTML is not analyzed; inline HTML makes its prose surface manual review; non-break block HTML makes body prose manual review because its scope is unknown.', file,
       ));
     } else for (const child of node.children ?? []) reviewRawHtml(child);
   };
   reviewRawHtml(tree);
   const pullquotePassages = (node) => {
-    if (opaqueHtml) return [];
+    if (manualBody || (['heading', 'paragraph', 'tableCell'].includes(node.type) && hasHtml(node, true))) return [];
     if (['heading', 'paragraph', 'tableCell'].includes(node.type))
       return [normalizePassage(inlineText(node, true), inlineText(node, false, true))];
     return (node.children ?? []).flatMap(pullquotePassages);
   };
   const quotedSemanticText = (node) => {
-    if (opaqueHtml) return '';
+    if (manualBody) return '';
     if (['heading', 'paragraph', 'tableCell'].includes(node.type))
-      return inlineText(node);
+      return hasHtml(node, true) ? '' : inlineText(node);
     return (node.children ?? []).map(quotedSemanticText).join(' ');
   };
   const retainLeaves = (node) => {
@@ -345,7 +351,7 @@ export async function parseArticle(source, file) {
       const item = entry(source, node, 'quotation', inlineText(node, true));
       bodyText.push(...pullquotePassages(node));
       retainLeaves(node);
-      if (opaqueHtml) return;
+      if (manualBody) return;
       if (!evidenceCue.test(context.slice(-200)) &&
           !followingEvidenceCue.test(following.slice(0, 200)))
         findings.push(
@@ -363,8 +369,8 @@ export async function parseArticle(source, file) {
       retainLeaves(node);
       // Do not reconstruct HTML scope, rendered passages or quotation ownership.
       // Even sibling Markdown can belong to an open HTML element: leave body
-      // prose to the editor whenever HTML scope is unknown.
-      if (opaqueHtml) return;
+      // prose to the editor when a block HTML leaf makes scope unknown.
+      if (manualBody || hasHtml(node, true)) return;
       const item = {
         ...entry(source, node, node.type, inlineText(node)),
         semanticText: inlineText(node),
