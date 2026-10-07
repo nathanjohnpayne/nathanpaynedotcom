@@ -141,6 +141,41 @@ const STATUS_MARK_SIZE = devicePx(0.72 * 10 + 2);
 const MARK_SPLIT = (MARKER_SIZE + STATUS_MARK_SIZE) / 2;
 
 /**
+ * The lifecycle mark's right border column, and why height alone is not enough.
+ *
+ * Height separates a whole mark from a bullet, but not a *piece* of one. The
+ * half-filled `EXPERIMENT` mark's fill ends a pixel short of the column's far
+ * edge, so whether a row reads as solid comes down to antialiasing at that edge
+ * — and that depends on where the mark lands vertically. On Linux Chromium,
+ * a résumé content edit that moved the Projects section down a few pixels split
+ * the mark into runs of 3, 3 and 6 rows, and the 6-row run counted as a bullet:
+ * 12 for 11 (#1178). macOS rendered the same edit with the fill a pixel
+ * narrower and saw no run at all, which is why it passed locally.
+ *
+ * Width settles it where height cannot. A bullet is 9 px and is followed by
+ * blank gutter until its text starts, about 12 px later. Every mark variant
+ * (solid, cored, half, hollow) has its 1 px border at this column on every
+ * row, so ink there means the run is part of a mark, whatever its height. The
+ * column is derived from `STATUS_MARK_SIZE`, the same pinned value as the
+ * height split, and a one-pixel window either side absorbs antialiasing without
+ * reaching the bullet's last column or the text's first.
+ */
+const MARK_RIGHT = MARKER_X + STATUS_MARK_SIZE - 1;
+
+/**
+ * Whether a run carries ink at the mark's right border, so is (part of) a
+ * lifecycle mark rather than a bullet. Read on the run's middle row.
+ *
+ * @param {ReturnType<typeof readPgm>} page
+ * @param {{ top: number, height: number }} run
+ */
+function onMarkBorder(page, run) {
+  const y = run.top + Math.floor(run.height / 2);
+  for (let x = MARK_RIGHT - 1; x <= MARK_RIGHT + 1; x += 1) if (page.pixel(x, y) < 100) return true;
+  return false;
+}
+
+/**
  * Parse a binary PGM (`P5`) into `{ width, height, pixel(x, y) }`.
  *
  * MuPDF writes this directly, which is why the tests need no image library:
@@ -221,7 +256,8 @@ function solidRuns(page, width) {
  * A white marker — #925, where `printBackground: false` painted the rectangles
  * in white — contributes nothing, which is the point. Runs at or above
  * `MARK_SPLIT` are the lifecycle kicker's marks sharing the same column and are
- * not bullets; see the geometry note above.
+ * not bullets, and neither is a shorter run with ink on the mark's right
+ * border, which is a piece of one; see the geometry notes above.
  *
  * @param {string} pdfPath
  * @returns {number[]} visible bullet markers, one entry per page
@@ -229,7 +265,9 @@ function solidRuns(page, width) {
 export function visibleMarkersPerPage(pdfPath) {
   return eachRenderedPage(
     pdfPath,
-    (page) => solidRuns(page, MARKER_SIZE).filter((r) => r.height < MARK_SPLIT).length,
+    (page) =>
+      solidRuns(page, MARKER_SIZE).filter((r) => r.height < MARK_SPLIT && !onMarkBorder(page, r))
+        .length,
   );
 }
 
