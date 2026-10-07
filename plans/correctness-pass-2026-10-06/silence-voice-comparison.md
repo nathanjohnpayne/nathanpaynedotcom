@@ -1,6 +1,6 @@
 # Silence Is Not an Approval: Voice Comparison
 
-Draft for individual owner approval. Baseline: `origin/main` at `6cd7f6fa02aaf030264e744ec5447fc408527f5d`, including PR #1129 (`1d1d39d`) and the newer PR #1130 corrections. The entire original article was read before editing. The original draft was read against the September ledger. While the voice work was underway, PR #1130 added `plans/correctness-pass-2026-10-06/silence-is-not-an-approval-ledger.md` and corrected the article and prior ledger. The complete updated article, new ledger and actual diff were read before reconciling this draft. Both ledgers are used; the new October 6 findings take precedence. PR #1129 does not directly edit this post or its ledger.
+Draft for individual owner approval. Baseline: `origin/main` at `6cd7f6fa02aaf030264e744ec5447fc408527f5d`, including PR #1129 (`1d1d39d`) and the newer PR #1130 corrections. The entire original article was read before editing. The original draft was read against the September ledger. While the voice work was underway, PR #1130 added `plans/correctness-pass-2026-10-06/silence-is-not-an-approval-ledger.md` and corrected the article and prior ledger. The complete updated article, new ledger and actual diff were read before reconciling this draft. Both ledgers are used; the new October 6 findings take precedence. PR #1129 does not directly edit this post or its ledger. Before opening the PR, this draft is rebased onto main `ef776be1`; its Silence source is byte-identical to the factual baseline above (SHA-256 `ae8adaf44692d36b3321ee9d699473cf638399c0acd6a6a09549fc2b351a4af4`).
 
 Complete draft: `src/content/blog/silence-is-not-an-approval.md`.
 
@@ -102,7 +102,7 @@ Fresh connective-prose count: **1,905 → 1,738 words, −8.8%**. Whole file: 3,
 
 ## Validation
 
-The initial draft passed build and 58 scoped tests. The approved repairs and current-main reconciliation are awaiting fresh full lint/typecheck/unit/browser checks and rendered readback. A malformed YAML quote in the first application of the owner's double-quote request was caught by prose lint and corrected before any build or PR. No new tests were added.
+The initial draft passed build and 58 scoped tests. The approved repairs and current-main reconciliation passed full repository lint, typecheck (zero errors/warnings), all 1,212 unit/rendering tests in 66 suites (six existing skips), and all 369 browser tests (51 existing skips). Browser global setup verified every served HTML/asset file against this worktree’s build on its owned preview port. Rendered readback confirmed all twelve old anchors and all three verbatim pullquotes. Scoped prose lint and `git diff --check` are clean at error level; capitalization warnings are advisory under the owner’s sentence-case rule. A malformed YAML quote in the first application of the owner's double-quote request was caught by prose lint and corrected before any build or PR. No new tests were added. The estimated reading time changed from 11 to 10 minutes. Both old and generated cards were visually checked; only `screenshots/og/blog-silence-is-not-an-approval.png` was refreshed from the matching build. It is a generated reference, not a build input. Embedded illustrations and unrelated card references are untouched.
 
 ## Owner Judgment
 
