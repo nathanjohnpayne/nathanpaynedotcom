@@ -110,7 +110,7 @@ By my rough count, about a third of the final squares needed people to leave the
 
 </div>
 
-The occasion was different, too. Six people resting over a weekend had less time to build a habit than sixteen together for nine nights. Even the cruise started slowly; a weekend-length trip would have ended before the fix that got it going.
+The occasion was different, too. Six people resting over a weekend had less time to build a habit than sixteen together for nine nights. Even the cruise started slowly; a weekend-length trip would have ended before the day-three changes, after which marking picked up.
 
 I'd asked Kim to arrange something small for the most bingos, first bingo, and most-liked photo, but there was not one in the end. The cruise had no real prize either. Sixteen people keeping score of one another supplied stakes of their own. Better prompts might have helped at Bodega Bay. People might also have preferred a weekend without a game.
 
