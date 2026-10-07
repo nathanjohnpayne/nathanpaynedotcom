@@ -64,6 +64,11 @@ const cardLineOf = (slug: string) => {
 
 const latestPost = chronologicalPosts[0];
 
+const blogIndex = await getEntry('siteCopy', 'blog');
+if (!blogIndex?.data.homepageWritingDescription) {
+  throw new Error('Missing homepageWritingDescription in src/content/site-copy/blog.md');
+}
+
 // The Selected Projects footer's content line: the four domains the work spans
 // (#984, settled in #991). Every other panel footer ends on a bounded line —
 // four scope terms in Community, one title in Connect, one date in About — and
@@ -202,7 +207,7 @@ const homepageJsonLd = {
               </div>
               <div class="about-block about-block--writing">
                 <span class="eyebrow about-label">Writing</span>
-                <p>Selected writing on shipping software with AI coding agents—scope, review, and the decisions that don’t show up in the diff.</p>
+                <p>{blogIndex.data.homepageWritingDescription}</p>
                 {/* .writing-list wraps the post list alone. It also held the
                     exit link until #975, so that the two read as one block
                     (#659); the exit now sits on the ribbon below with every

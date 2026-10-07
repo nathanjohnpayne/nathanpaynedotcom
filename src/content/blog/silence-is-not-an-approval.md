@@ -2,7 +2,7 @@
 title: "Silence Is Not an Approval"
 seoTitle: "Silence Is Not an Approval"
 shortTitle: "Silence Is Not an Approval"
-description: "My review pipeline kept counting a reviewer that hadn't answered as one that had. Local fixes helped, but each path still decided what silence could prove. I had to decide the rule myself, including what progress should cost when the evidence was missing."
+description: "My review pipeline kept counting a reviewer that hadn't answered as one that had. Local fixes helped, but each path still decided what silence could prove. I set a rule for one kind of silence and accepted the extra waiting. The broader contract isn't finished."
 seoDescription: "An AI code review pipeline that read a reviewer's silence as approval, why case-by-case fixes did not retire the cause, and the product decision that set a rule for making progress when evidence is missing."
 category: "Agent Systems"
 homepageRank: 3

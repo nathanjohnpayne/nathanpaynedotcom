@@ -1,9 +1,15 @@
 ---
 import OgCard from '../../layouts/OgCard.astro';
+import { getEntry } from 'astro:content';
+
+const blogIndex = await getEntry('siteCopy', 'blog');
+if (!blogIndex) {
+  throw new Error('Missing blog page entry: src/content/site-copy/blog.md');
+}
 ---
 
 <OgCard
   label="nathanpayne.com / blog"
-  heading="The AI-Augmented PM"
-  description="A product manager’s notes on shipping real systems with AI coding agents—the architecture decisions, the failure modes, and what actually works."
+  heading={blogIndex.data.title}
+  description={blogIndex.data.description}
 />

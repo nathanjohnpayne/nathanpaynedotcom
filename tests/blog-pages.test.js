@@ -3,6 +3,7 @@ import { readFileSync } from 'fs';
 import { resolve } from 'path';
 import { EXPECTED_BLOG_EDITORIAL_ORDER } from './helpers/blog-editorial-order.js';
 import { writeSanitizedDOM } from './helpers/dom.js';
+import { parseFrontmatter } from '../scripts/lib/parse-frontmatter.mjs';
 
 const homepageHtml = readFileSync(resolve(__dirname, '../dist/index.html'), 'utf-8');
 const blogIndexHtml = readFileSync(resolve(__dirname, '../dist/blog/index.html'), 'utf-8');
@@ -11,6 +12,15 @@ const blogPostHtml = readFileSync(
   'utf-8',
 );
 const firebaseConfig = JSON.parse(readFileSync(resolve(__dirname, '../firebase.json'), 'utf-8'));
+const rawBlogPageCopy = parseFrontmatter(
+  readFileSync(resolve(__dirname, '../src/content/site-copy/blog.md'), 'utf-8'),
+);
+const blogPageCopy = {
+  title: rawBlogPageCopy.title.trim(),
+  description: rawBlogPageCopy.description.trim(),
+  homepageWritingDescription: rawBlogPageCopy.homepageWritingDescription.trim(),
+};
+const ogCards = JSON.parse(readFileSync(resolve(__dirname, '../.astro/og-cards.json'), 'utf-8'));
 
 function setupDOM(html) {
   // Scripts are removed on a detached document and the doctype preserved by
@@ -59,18 +69,52 @@ describe('Blog Pages', () => {
     const ogImage = document.querySelector('meta[property="og:image"]');
     const twitterTitle = document.querySelector('meta[name="twitter:title"]');
 
-    expect(title?.textContent).toBe('The AI-Augmented PM | Nathan Payne');
-    expect(heading?.textContent).toBe('The AI-Augmented PM');
+    expect(title?.textContent).toBe(`${blogPageCopy.title} | Nathan Payne`);
+    expect(heading?.textContent).toBe(blogPageCopy.title);
     expect(canonical?.getAttribute('href')).toBe('https://nathanpayne.com/blog/');
     expect(postLink).not.toBeNull();
-    expect(ogTitle?.getAttribute('content')).toBe('The AI-Augmented PM | Nathan Payne');
-    expect(twitterTitle?.getAttribute('content')).toBe('The AI-Augmented PM | Nathan Payne');
+    expect(ogTitle?.getAttribute('content')).toBe(`${blogPageCopy.title} | Nathan Payne`);
+    expect(twitterTitle?.getAttribute('content')).toBe(`${blogPageCopy.title} | Nathan Payne`);
     // og:image carries a ?v=<hash> cache-busting query so social
     // platforms re-fetch the image after each deploy (see commit 49d2c39).
     // The base URL stays stable; only the query varies.
     expect(ogImage?.getAttribute('content')).toMatch(
       /^https:\/\/nathanpayne\.com\/og\/blog\.png\?v=[A-Za-z0-9_-]+$/,
     );
+  });
+
+  it('uses the page frontmatter description for the blog introduction and metadata', () => {
+    setupDOM(blogIndexHtml);
+
+    expect(document.querySelector('.hero .deck')?.textContent).toBe(blogPageCopy.description);
+    for (const selector of [
+      'meta[name="description"]',
+      'meta[property="og:description"]',
+      'meta[name="twitter:description"]',
+    ]) {
+      expect(document.querySelector(selector)?.getAttribute('content')).toBe(
+        blogPageCopy.description,
+      );
+    }
+    const jsonLd = JSON.parse(
+      document.querySelector('script[type="application/ld+json"]').textContent,
+    );
+    expect(jsonLd['@graph'].find((entry) => entry['@type'] === 'CollectionPage').description).toBe(
+      blogPageCopy.description,
+    );
+  });
+
+  it('uses the homepage rendition from page frontmatter for the Writing introduction', () => {
+    expect(document.querySelector('.about-block--writing p')?.textContent).toBe(
+      blogPageCopy.homepageWritingDescription,
+    );
+  });
+
+  it('renders the same frontmatter title and introduction on the blog social card', () => {
+    expect(ogCards.blog).toMatchObject({
+      heading: blogPageCopy.title,
+      description: blogPageCopy.description,
+    });
   });
 
   it('blog post page includes article metadata and screenshot embeds', () => {

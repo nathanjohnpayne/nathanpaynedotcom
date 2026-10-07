@@ -3,6 +3,15 @@ import { glob } from 'astro/loaders';
 import { BLOG_CATEGORIES, HOMEPAGE_WRITING_LIMIT } from './lib/blog-order';
 import { MUX_PLAYBACK_ID_PATTERN } from '../scripts/lib/mux-playback-id.mjs';
 
+const siteCopy = defineCollection({
+  loader: glob({ pattern: '**/*.md', base: './src/content/site-copy' }),
+  schema: z.object({
+    title: z.string().trim().min(1),
+    description: z.string().trim().min(1),
+    homepageWritingDescription: z.string().trim().min(1).optional(),
+  }),
+});
+
 const projects = defineCollection({
   // `projects` is the only collection that takes .mdx. A case-study page
   // interleaves DecisionLedger / ConstraintStrip / LearningLedger between
@@ -452,6 +461,7 @@ const certifications = defineCollection({
 });
 
 export const collections = {
+  siteCopy,
   blog,
   projects,
   bio,
