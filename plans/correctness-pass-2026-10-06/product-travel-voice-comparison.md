@@ -59,7 +59,7 @@ PostHog recorded fourteen client errors at 14:38 on Saturday: a Firestore intern
 
 At 14:38 on Saturday, PostHog recorded fourteen client errors: a Firestore internal assertion followed by three crash screens, all on one device. Kim's text separately confirms the app stopped working that day. The guests' last mark came four hours and forty-one minutes before the recorded crash. Kim's last mark came before it, too. That crash didn't open the gap in marking.
 
-A last mark doesn't tell me when someone decided to quit. Kim might have invited people back after the morning pause, and a broken host app might have prevented that. Weak interest and the crash could both have mattered. The crash still needs fixing. I don't want to fix it and call the weekend explained, which is why I kept it out of the questions.
+A last mark doesn't tell me when someone decided to quit. Kim might have invited people back after the morning pause, and a broken host app might have prevented that. Weak interest and the crash could both have mattered. The crash was worth fixing. I don't want to fix it and call the weekend explained, which is why I kept it out of the questions.
 
 ### Reading the cruise data
 
@@ -81,7 +81,7 @@ The fair counterargument is that most of the plumbing is not optional. [Self-ser
 
 **After**
 
-Some of the plumbing was necessary. [Self-service event creation](https://github.com/nathanjohnpayne/fiveacross/issues/785), which would let an organizer write prompts for their occasion without me, depends on platform prerequisites. That linked issue closed on 2026-10-03 as a historical record; the block persists under the epic. Every live event so far had been, in the [epic's](https://github.com/nathanjohnpayne/fiveacross/issues/786) words, "hand-seeded, hand-hosted, and hand-registered."
+The fair counterargument is that most of the plumbing was necessary. [Self-service event creation](https://github.com/nathanjohnpayne/fiveacross/issues/785), which would let an organizer write prompts for their occasion without me, is blocked on platform prerequisites. That linked issue closed on 2026-10-03 as a historical record; the block persists under the epic. Every live event so far had been, in the [epic's](https://github.com/nathanjohnpayne/fiveacross/issues/786) words, "hand-seeded, hand-hosted, and hand-registered."
 
 I accept that defense for some of the six weeks. Not all. The platform work had specs, reviews, and satisfying closures. The product work didn't. None of those prerequisites stopped a cheaper test: prepare a card by hand with a willing host, use things possible at the house, plan a group session, and check whether anyone returns at the next opportunity. That experiment needs a group, not wildcard routing.
 

@@ -80,7 +80,7 @@ Three days later, I sent Kim a debrief. I knew about the crash and missing email
 
 Kim gave the game three out of five for how it landed with the group. On Saturday: "Friday was the biggest day with all the excitement. The morning maybe started strong but still need my enthusiasm to keep it going. Since a lot of the prompts were outside of the house, peeps gave up a bit since everybody stayed home."
 
-The squares were "Too hard." Asked why nobody got a bingo, Kim said, "I think the prompts weren't quite right for this trip. Or maybe people wanted to just relax and this felt like work." By the end, the game was "a shared photo album." Would Kim run it again? "Yes, but only if some things changed."
+The squares were "Too hard." Asked why nobody got a bingo, Kim said, "I think the prompts weren't quite right for this trip. Or maybe people wanted to just relax and this felt like work." By the end, Kim said, the game had become "a shared photo album." Would Kim run it again? "Yes, but only if some things changed."
 
 Kim's text that afternoon, before the survey, had already put the crash second: "[Mine] stopped working on Saturday but since they didn't seem super interested, generally, I didn't end up reaching out."
 
@@ -94,11 +94,11 @@ Kim said people learned a new card was live because "I told them in person." On 
 
 At 14:38 on Saturday, PostHog recorded fourteen client errors: a Firestore internal assertion followed by three crash screens, all on one device. Kim's text separately confirms the app stopped working that day. The guests' last mark came four hours and forty-one minutes before the recorded crash. Kim's last mark came before it, too. That crash didn't open the gap in marking.
 
-A last mark doesn't tell me when someone decided to quit. Kim might have invited people back after the morning pause, and a broken host app might have prevented that. Weak interest and the crash could both have mattered. The crash still needs fixing. I don't want to fix it and call the weekend explained, which is why I kept it out of the questions.
+A last mark doesn't tell me when someone decided to quit. Kim might have invited people back after the morning pause, and a broken host app might have prevented that. Weak interest and the crash could both have mattered. The crash was worth fixing. I don't want to fix it and call the weekend explained, which is why I kept it out of the questions.
 
 ### Prompts for plans that did not exist
 
-Kim took responsibility: "I should've known we weren't going anywhere and had less prompts for exploration." That was generous, and not quite fair. The pool began with 120 AI-drafted prompts written to the platform's general-audience rules. Kim rewrote 65 over dinner the night before launch. I'd asked whether there were plans to build the schedule around. The answer was: "No, we have no real plans solidified bc nobody is as much of a Virgo as me." I'd asked a host to prepare prompts for plans that didn't exist, starting with a draft that assumed they would.
+Kim took responsibility: "I should've known we weren't going anywhere and had less prompts for exploration." That was generous, and not quite fair. The pool began with 120 AI-drafted prompts written to the platform's general-audience rules. Kim rewrote 65 over dinner the night before launch. I'd asked whether there were plans to build the schedule around. The answer was: "No, we have no real plans solidified bc nobody is as much of a Virgo as me." The product asked a host to write prompts for plans that didn't exist yet, starting from a draft that assumed there would be some.
 
 By my rough count, about a third of the final squares needed people to leave the house: a dunes walk, a whale spout, a boat name in the harbor. Of 27 recorded marks, 26 were possible at home. The dunes walk was marked once. That fits Kim's account. It doesn't establish that players marked every feasible square or that every bingo line was blocked; I'd need each actual board and what happened that weekend to show either.
 
@@ -122,7 +122,7 @@ I'd treated the cruise as a success of the build: offline marking at sea, daily 
 
 **Players often marked yesterday's card, at the table.** Of 703 main-day marks before the freeze, 288, or 41%, came after the next day's card unlocked. Of all 921 marks, 294, or 32%, landed between 19:00 and 20:59 ship time, the busiest two hours.
 
-The debrief supplied the setting. One player described "Group gatherings for lunch/dinner to recall the previous evenings activities." Another remembered sitting down to dinner after a big night out and realizing how many squares they could mark. A third learned in a group discussion that previous days' squares stayed open. One played alone "to avoid having my phone be a social distraction," joining in when people were already talking about the game.
+The debrief supplied the setting. One player described "Group gatherings for lunch/dinner to recall the previous evenings activities." Another remembered sitting down to dinner the day after a big night out and realizing how many squares they could mark. A third learned in a group discussion that previous days' squares stayed open. One played alone "to avoid having my phone be a social distraction," joining in when people were already talking about the game.
 
 **Conversation and competition both mattered.** Of six respondents asked what brought them back, four chose "People kept bringing it up in conversation," four chose "Not wanting to fall behind," and four chose "Chasing a bingo." None chose photos, the use Kim said remained at Bodega Bay. Three of those six said my group-chat posts made them open the app often or almost every time.
 
@@ -138,19 +138,19 @@ The debrief supplied the setting. One player described "Group gatherings for lun
 
 **The host adjusted the game while it ran.** The first two main cards produced one bingo each, both claimed days later. Before main day three, I shipped [an easy mix](https://github.com/nathanjohnpayne/fiveacross/pull/394) to blend easier squares into the main cards, alongside [a reshuffle](https://github.com/nathanjohnpayne/fiveacross/pull/383) for untouched cards. The third main day's cards produced eight bingos and nearly twice day two's marks.
 
-The itinerary changed as well, so the increase is a correlation. Four of five respondents noticed easier squares and said bingos suddenly felt achievable. Only one used the reshuffle.
+The itinerary changed as well, so the increase is a correlation. Four of five respondents noticed easier squares and said bingos suddenly felt achievable. Only one of them used the reshuffle.
 
-The cruise combined software for catching up on yesterday's card and comparing scores, prompts for that sailing, sixteen people meeting at dinner over nine nights, and a host who promoted the game and changed its difficulty. Bodega Bay had the software, a general-audience draft for a weekend with no plans, and six people staying home to rest. Kim supplied the enthusiasm in person, then Kim's app broke on Saturday afternoon.
+The cruise combined software for catching up on yesterday's card and comparing scores, prompts for that sailing, sixteen people meeting at dinner over nine nights, and a host who promoted the game and changed its difficulty. Bodega Bay had the software, prompts started from a general-audience draft for a weekend with no plans, and six people staying home to rest. By Kim's account, Kim supplied the enthusiasm in person, and Kim's app broke on Saturday afternoon.
 
 Those differences don't tell me which change mattered most. They do tell me I'd specified the data model more carefully than the conditions around the game. Generalizing the software didn't reproduce those conditions.
 
 ### A rationale is not a finding
 
-The [project page](/projects/five-across/) records my decision to "Assume the connection is already gone." I'd written its original rationale: "The moments worth capturing are the ones furthest from a signal." It seemed obvious before launch. The marks describe people at dinner, recalling yesterday. They don't say whether those people had a signal.
+The [project page](/projects/five-across/) records my decision to "Assume the connection is already gone." I'd written its original rationale: "The moments worth capturing are the ones furthest from a signal." At the time, it seemed obviously true. The marks describe people at dinner, recalling yesterday. They don't say whether those people had a signal.
 
 A September 26 PostHog check found fifteen cruise exception events carrying `auth/network-request-failed`, across five sessions for one recorded user on July 18–19. None of those sessions contained a mark. None of the marks carrying a retry queue fell in the dinner window. That neither confirms nor refutes whether offline support earned its keep, and the project page now says so.
 
-I'd written a rationale before real use and read it afterward as if it were a finding. Going back to the marks exposed the assumption. The record still leaves the connection question open.
+A rationale reads like a finding until it's checked against what people did. Going back to the marks exposed this one's assumption. The record still leaves the connection question open.
 
 ## Where the next six weeks went
 
@@ -158,11 +158,11 @@ This is the part I would rather not write, so it is the part I should.
 
 In the six weeks after Kim's debrief, roughly 270 commits landed. I counted keywords in their subjects, but didn't record the matchers. A re-run with fresh matchers gives different absolute counts and the same shape. In my original rough count, about 59 touched hostname routing, sign-in, the edge router, and deployment; about 58 touched dependencies, CI, and review tooling. Prompts or prompt pools appeared in about 11, email and notifications in about 14.
 
-These aren't working-time categories. They overlap, and they can't tell me what another allocation would have achieved. They do show where the commits went. The counted commits touched platform and tooling several times as often as prompts and notifications. The debrief had pointed at prompts and keeping the game in the conversation.
+These aren't working-time categories. They overlap, and they can't tell me what another allocation would have achieved. They do show where the commits went. The counted commits touched platform and tooling several times as often as prompts and notifications. The evidence had pointed at prompts and keeping the game in the conversation.
 
-Some work did answer the feedback. Six days after the debrief, the organizer-wizard spec added an [occasion matrix](https://github.com/nathanjohnpayne/fiveacross/pull/811). A host's first answer—what kind of occasion is this?—selects starter prompts and a schedule shape. That's close to what Kim needed. [Community prompts](https://github.com/nathanjohnpayne/fiveacross/pull/845) shipped the next day so players could suggest squares, as three of five cruise respondents had requested.
+Some work did answer the feedback. Six days after the debrief, the organizer-wizard spec added an [occasion matrix](https://github.com/nathanjohnpayne/fiveacross/pull/811). A host's first answer—what kind of occasion is this?—selects starter prompts and a schedule shape. That's close to what Kim asked for. [Community prompts](https://github.com/nathanjohnpayne/fiveacross/pull/845) shipped the next day so players could suggest squares, as three of five cruise respondents had requested.
 
-Some of the plumbing was necessary. [Self-service event creation](https://github.com/nathanjohnpayne/fiveacross/issues/785), which would let an organizer write prompts for their occasion without me, depends on platform prerequisites. That linked issue closed on 2026-10-03 as a historical record; the block persists under the epic. Every live event so far had been, in the [epic's](https://github.com/nathanjohnpayne/fiveacross/issues/786) words, "hand-seeded, hand-hosted, and hand-registered."
+The fair counterargument is that most of the plumbing was necessary. [Self-service event creation](https://github.com/nathanjohnpayne/fiveacross/issues/785), which would let an organizer write prompts for their occasion without me, is blocked on platform prerequisites. That linked issue closed on 2026-10-03 as a historical record; the block persists under the epic. Every live event so far had been, in the [epic's](https://github.com/nathanjohnpayne/fiveacross/issues/786) words, "hand-seeded, hand-hosted, and hand-registered."
 
 I accept that defense for some of the six weeks. Not all. The platform work had specs, reviews, and satisfying closures. The product work didn't. None of those prerequisites stopped a cheaper test: prepare a card by hand with a willing host, use things possible at the house, plan a group session, and check whether anyone returns at the next opportunity. That experiment needs a group, not wildcard routing.
 
