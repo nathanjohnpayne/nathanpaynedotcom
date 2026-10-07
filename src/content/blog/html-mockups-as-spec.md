@@ -113,7 +113,7 @@ The comment in `src/styles/global.css` credits Simmons' CodePen. That pen has si
    Collapses to single column on mobile with blocks hidden. ── */
 ```
 
-This one is less flattering: the page landed through [issue #90](https://github.com/nathanjohnpayne/nathanpaynedotcom/issues/90), an SEO best-practices task, in commit [`4076bf6`](https://github.com/nathanjohnpayne/nathanpaynedotcom/commit/4076bf6). It was a single-parent commit pushed directly to `main`, closing #90. There was no pull request. My [companion piece](/blog/agent-approval-workflow-genesis-of-mergepath/) covers making direct pushes to `main` mechanically expensive. The FFB example below records the same failure, caught by that repository's post-merge review policy.
+This one is less flattering: the page landed through [issue #90](https://github.com/nathanjohnpayne/nathanpaynedotcom/issues/90), an SEO best-practices task, in commit [`4076bf6`](https://github.com/nathanjohnpayne/nathanpaynedotcom/commit/4076bf6). It was a single-parent commit pushed directly to `main`, closing #90. There was no pull request. My [companion piece](/blog/agent-approval-workflow-genesis-of-mergepath/) covers making direct pushes to `main` mechanically expensive. The FFB example below records the same failure. FFB issue #145 documents the after-the-fact review.
 
 Two pull requests refined the 404 page. [PR #91](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/91) removed the Firebase rewrite that sent every 404 to the SPA shell. Until that change, the new page wasn't reachable as a real 404 page. [PR #92](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/92) then brought its colors into line with the homepage palette.
 
@@ -131,7 +131,7 @@ This screenshot shows the shipped editor after a later change. The mock-up had t
 
 I handed Claude the mock-up and the live `InvoicingTab.jsx` with its stylesheets. The work landed in commit [`20dcb32`](https://github.com/nathanjohnpayne/friends-and-family-billing/commit/20dcb32), titled "fix: redesign editor layout to match mockup and fix editability."
 
-The agent pushed it directly to `main` without a PR. FFB's post-merge review policy logged the push as a violation in [issue #145](https://github.com/nathanjohnpayne/friends-and-family-billing/issues/145) and sent it for external review.
+The agent pushed it directly to `main` without a PR. [Issue #145](https://github.com/nathanjohnpayne/friends-and-family-billing/issues/145) logged it as a policy violation and requested external review.
 
 The authoring agent's handoff began "Restructures the InvoicingTab editor to match the target mockup," then listed the single-card layout, unified chip bar, sticky save footer with its "Last saved" timestamp, and redesigned Preview tab with a footer-positioned send button. Those decisions had been made in the mock-up. The external reviewer, who hadn't seen my prompts, reported two bugs in the token-migration path and said nothing about the layout. The only evidence the layout matched is the agent's own say-so. A reviewer naming the target unprompted would have been a better test, and I don't have one.
 
