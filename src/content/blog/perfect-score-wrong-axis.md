@@ -2,8 +2,8 @@
 title: "A Perfect Score on the Wrong Axis: 116 Review Findings, Zero Rejected, One Escape"
 seoTitle: "A Perfect Score on the Wrong Axis"
 shortTitle: "Perfect Score, Wrong Axis"
-description: "An eleven-PR review batch recorded 122 dispositions and zero findings rejected as factually wrong. One of them was the P1 that shipped, deferred to follow-up 75 seconds after it was posted. The rule the defect turned on had been raised on a sibling PR twelve hours earlier; the implementation was then fixed and validated."
-seoDescription: "An AI review batch recorded 122 finding dispositions with zero findings rejected as factually wrong and still shipped a P1. Every brief was scoped to one diff, so nothing carried the rule across a PR boundary."
+description: "An eleven-PR review batch recorded 122 dispositions and zero findings rejected as factually wrong. The finding for the P1 that shipped was deferred to follow-up 75 seconds after it was posted. The rule the defect turned on had been raised on a sibling PR twelve hours earlier; the implementation was then fixed and validated."
+seoDescription: "An AI review batch recorded 122 finding dispositions with zero findings rejected as factually wrong and still shipped a P1. The reviews were scoped to one diff. The second implementation still broke a rule already corrected on its sibling."
 category: "Agent Systems"
 author: "Nathan Payne"
 date: 2026-07-30
@@ -11,8 +11,8 @@ tags: ["AI", "Engineering", "Systems", "Code Review", "Debugging"]
 image: "/og/blog/perfect-score-wrong-axis.png"
 keyTakeaways:
   - "A perfect disposition record measures closure: how completely findings were closed. It doesn't measure coverage: the defects nobody raised."
-  - "This batch recorded 122 dispositions and zero findings rejected as factually wrong. The escaped P1 was one of those dispositions, logged 75 seconds after posting. The rule it broke had been derived from the spec and named in a blocking external review on a sibling PR twelve hours earlier. The implementation was then fixed and validated."
-  - "Where a component implements an external specification, derive at least one review pass from the spec. When two implementations use the same external spec, I need the spec-derived review questions applied to both. A review scoped to one diff won't carry what its sibling learned."
+  - "This batch recorded 122 dispositions and zero findings rejected as factually wrong. The finding for the escaped P1 received a deferred disposition 75 seconds after it was posted. The rule it broke had been derived from the spec and named in a blocking external review on a sibling PR twelve hours earlier. The implementation was then fixed and validated."
+  - "Where a component implements an external specification, derive at least one review pass from the spec. When two implementations use the same external spec, I need the spec-derived review questions applied to both. A review scoped to one diff doesn't require it to carry what its sibling learned."
   - "Per-PR counts of passes, rounds and approvals miss evidence held on another PR. Eighteen passes preceded this escape while the relevant rule sat next door, already stated, fixed and validated."
 pullquotes:
   - text: "A perfect disposition record measures how completely you closed the findings raised. It says nothing about the defects nobody raised."
@@ -26,15 +26,15 @@ pullquotes:
     accent: yellow
 ---
 
-Resolving every finding doesn't mean I've found every bug. This batch made the difference harder to ignore: the rule the escaped defect broke had already been raised, fixed and validated on a sibling PR. The knowledge was there. No review carried it across.
+Resolving every finding doesn't mean I've found every bug. This batch made the difference harder to ignore: the rule the escaped defect broke had already been raised, fixed and validated on a sibling PR. The knowledge was there. The second implementation still broke the rule.
 
 On July 30, 2026, at 03:59:00 UTC, [PR #797](https://github.com/nathanjohnpayne/mergepath/pull/797) merged into [mergepath](https://github.com/nathanjohnpayne/mergepath). It was the last backlog PR to merge after about twenty-four hours of continuous automated review. Every required check was green, all but one finding had a recorded disposition, and the external reviewer had approved the exact head.
 
 At 04:00:34 UTC—ninety-four seconds later—CodeRabbit posted [one more finding](https://github.com/nathanjohnpayne/mergepath/pull/797#discussion_r3679855498): "Indented list/paragraph lines are blanked as code, and no test would catch it."
 
-The finding became [issue #809](https://github.com/nathanjohnpayne/mergepath/issues/809), a post-merge hotfix. Bugs ship; what interested me was the review record. Across the batch and its hotfix, 134 top-level finding threads had been raised, 116 severity-badged. Of the 122 with a recorded disposition—addressed, deferred or rebutted—not one was rejected as factually wrong. That looked like a perfect review record. It measured closure, while I needed to know about coverage. The metric measured the wrong axis. Twelve hours earlier, a blocking finding on a sibling PR had named the exact CommonMark rule this defect broke. The rule was fixed and validated there. It never reached this PR.
+The finding became [issue #809](https://github.com/nathanjohnpayne/mergepath/issues/809), a post-merge hotfix. Bugs ship; what interested me was the review record. Across the batch and its hotfix, 134 top-level finding threads had been raised, 116 severity-badged. Of the 122 with a recorded disposition—addressed, deferred or rebutted—not one was rejected as factually wrong. That looked like a perfect review record. It measured closure, while I needed to know about coverage. The metric measured the wrong axis. Twelve hours earlier, a blocking finding on a sibling PR had named the exact CommonMark rule this defect broke. The rule was fixed and validated there. This one shipped with the same defect.
 
-This is the third post in a four-month arc, and a reversal. In [Six PRs, One Bug](/blog/six-prs-one-bug-agent-failure-modes/) (April), an agent made competent local changes across six pull requests—three aimed at the same bug—while the correctness standard stayed in a design spec nobody had attached to the work under review. In [Agent Approval Workflow](/blog/agent-approval-workflow-genesis-of-mergepath/) two weeks later, I built multi-identity review, external-review thresholds and merge gates agents couldn't talk their way past. Here that infrastructure ran at full power and produced the cleanest disposition record of any batch I've measured. The bug still shipped. The same problem had moved up a level: knowledge inside the system hadn't reached the artifact under review.
+This is the third post in a four-month arc, and a reversal. In [Six PRs, One Bug](/blog/six-prs-one-bug-agent-failure-modes/) (April), an agent made competent local changes across six pull requests—three aimed at the same bug—while the correctness standard stayed in a design spec nobody had attached to the work under review. In [Agent Approval Workflow](/blog/agent-approval-workflow-genesis-of-mergepath/) two weeks later, I built multi-identity review, external-review thresholds and merge gates agents couldn't talk their way past. Here that infrastructure ran at full power and produced the cleanest disposition record of any batch I've measured. The bug still shipped. The same problem had moved up a level: the review process missed a requirement already established inside the system.
 
 ## The defect that got out
 
@@ -54,7 +54,7 @@ I filed [#809](https://github.com/nathanjohnpayne/mergepath/issues/809) one minu
 
 [PR #791](https://github.com/nathanjohnpayne/mergepath/pull/791) merged three hours and seventeen minutes before #797, in the same batch. Its title was "fix(781): marker-bounded help extraction and CommonMark-correct fence and indent parsing." Five Codex findings came from CommonMark's block rules. A Phase 4b `CHANGES_REQUESTED` included this P1: "`para` is set for every emitted nonblank line, but CommonMark's 'indented code cannot interrupt' rule only applies to paragraphs." That landed twelve hours and thirteen minutes before #797 merged. The approval then recorded "direct markdown-it-py 4.2.0 agreement on 18 adversarial fixtures": the session had checked the fix against a CommonMark reference implementation before #797 merged. Both PRs changed `tests/test_check_sync_manifest.sh`, the file named in the P1.
 
-The rule the escape turned on had been stated verbatim in a blocking review twelve hours earlier—on a sibling PR that touched a file this one also touched. The session had derived the rules, been blocked on them, fixed them and validated the fix for one Markdown preprocessor. It shipped a second preprocessor with the same defect. Each review lane was scoped to one PR's diff. None was responsible for carrying what #791 had established into #797. This was a transfer failure: spec-derived, externally corrected and reference-validated knowledge stayed on its own PR.
+The rule the escape turned on had been stated verbatim in a blocking review twelve hours earlier—on a sibling PR that touched a file this one also touched. The session had derived the rules, been blocked on them, fixed them and validated the fix for one Markdown preprocessor. It shipped a second preprocessor with the same defect. Each review lane was scoped to one PR's diff. None was responsible for carrying what #791 had established into #797. This was a transfer failure.
 
 <span id="the-scoreboard-re-derived"></span>
 
@@ -96,7 +96,7 @@ These are the dispositions across all 134 threads. I've labeled `addressed-elsew
 
 The four deferrals without an issue were all on [PR #795](https://github.com/nathanjohnpayne/mergepath/pull/795). Each said "no issue is opened because the task explicitly forbids issue creation." Both rebuttals were on [PR #796](https://github.com/nathanjohnpayne/mergepath/pull/796), declining CodeRabbit suggestions concerning a generated mirror whose header says `do_not_edit: true`. Those were process objections, not disputes over facts. None of the 122 recorded dispositions rejected a finding as incorrect. The 12 unmarked threads qualify that record: 8 CodeRabbit threads without markers, and 4 Codex findings posted on [PR #790](https://github.com/nathanjohnpayne/mergepath/pull/790) nine minutes after merge.
 
-The escaped defect is in that scoreboard. Thread `3679855498` is one of the 134 threads, one of the 18 from CodeRabbit, and one of the 122 dispositions. It was marked `deferred-to-followup`, naming [#809](https://github.com/nathanjohnpayne/mergepath/issues/809), seventy-five seconds after posting. The metric absorbed the bug that beat it by recording what happened to the finding.
+The escaped defect is in that scoreboard. Thread `3679855498` is one of the 134 threads, one of the 18 from CodeRabbit, and one of the 122 with a recorded disposition. It was marked `deferred-to-followup`, naming [#809](https://github.com/nathanjohnpayne/mergepath/issues/809), seventy-five seconds after posting. The metric absorbed the bug that beat it by recording what happened to the finding.
 
 Zero rejections could mean the findings were soft and cheap to accept. These weren't. Several caught tests that modeled what I've come to call an impossible world.
 
@@ -126,16 +126,16 @@ My first diagnosis went into [the batch retrospective](https://github.com/nathan
 
 > Same-session verification converged on the implementation's assumptions: the verifier agents were briefed from the authoring agent's finding list using its taxonomy, so they searched the space that session had already mapped. Every round asked the same question.
 
-That explains the in-session verifier lane. My first draft used it to explain the whole batch. But the session had asked the right question on [#791](https://github.com/nathanjohnpayne/mergepath/pull/791). Convergence on the author's assumptions doesn't explain why an external reviewer's blocking P1 failed to reach another PR touching the same file. The eighteen passes before #797's escape went deep into that PR's diff. The in-session verifiers were briefed from its finding list—an author record with no GitHub trace. The nineteenth checked the preprocessor against CommonMark: *does CommonMark let indented code interrupt a list item?* #791's record had already answered.
+That explains the in-session verifier lane. My first draft used it to explain the whole batch. But the session had asked the right question on [#791](https://github.com/nathanjohnpayne/mergepath/pull/791). Convergence on the author's assumptions doesn't explain why another implementation touching the same file broke a rule already named in an external reviewer's blocking P1. The eighteen passes before #797's escape went deep into that PR's diff. The in-session verifiers were briefed from its finding list—an author record with no GitHub trace. The nineteenth checked the preprocessor against CommonMark: *does CommonMark let indented code interrupt a list item?* #791's record had already answered.
 
-```mermaid title="Closure inside the session, and the knowledge that never crossed" description="The authoring session dispositions the threads raised before the merge, leaving a handful unmarked, and PR 797 merges clean; the escaped defect is posted afterward and itself dispositioned, and only then does the record close at 134 threads and 122 dispositions, the escape among them; a spec-derived pass on sibling PR 791 had named the same CommonMark rule twelve hours earlier, but every review was scoped to one diff, and an unbriefed CodeRabbit re-run posts the escape 94 seconds after the merge."
+```mermaid title="Closure inside the session, and the rule missed next door" description="The authoring session dispositions the threads raised before the merge, leaving a handful unmarked, and PR 797 merges clean; the escaped defect is posted afterward and itself dispositioned, and only then does the record close at 134 threads and 122 dispositions, the escape among them; a spec-derived pass on sibling PR 791 had named the same CommonMark rule twelve hours earlier, but the second implementation still broke it; an unbriefed CodeRabbit re-run posts the escape 94 seconds after the merge."
 graph TD
     A["Authoring session"] --> B["Findings raised on the batch<br/>as each PR is reviewed"]
     B --> C["Fix verification briefed<br/>from the finding list<br/>(author record)"]
     C --> D["Threads dispositioned as raised;<br/>none rejected"]
     D --> E["#797 merges clean;<br/>the defect ships"]
     S["CommonMark spec"] --> F["Spec-derived pass on #791:<br/>P1 names the same rule,<br/>12 hours earlier"]
-    F -->|"brief scoped to one diff"| X["Never applied to #797"]
+    F -->|"brief scoped to one diff"| X["#797 still breaks<br/>the same rule"]
     E --> G["Unbriefed re-run posts the<br/>escape 94 s after merge"]
     G --> H["Escape dispositioned in 75 s;<br/>record closes at 134 threads,<br/>122 dispositions, zero rejected"]
     style A fill:#e8b4b4,stroke:#993d3d,color:#333
@@ -150,7 +150,7 @@ graph TD
     style H fill:#7bc67e,stroke:#4a8a4d,color:#333
 ```
 
-A perfect disposition record measures how completely you closed the findings raised. It says nothing about the defects nobody raised. The batch had rigor in closing findings, against questions scoped to one PR and never expanded. Its metric couldn't represent a rule missed between PRs, so it stayed perfect when the bug shipped. Closure and coverage are different axes.
+A perfect disposition record measures how completely you closed the findings raised. It says nothing about the defects nobody raised. The batch had rigor in closing findings, against questions scoped to one PR. Its metric couldn't represent a rule missed between PRs, so it stayed perfect when the bug shipped. Closure and coverage are different axes.
 
 ## The natural experiment: where the matrix comes from
 
