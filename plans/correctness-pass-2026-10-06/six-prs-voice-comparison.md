@@ -54,7 +54,7 @@ Baseline: main at `86b5af34ee008aa796987a3487d3e58a5339dd2a`. This article's byt
 
 **After**
 
-> The fix reached Preview and the test email, with the limits described above. The expensive part came before I filed the issue: six PRs of locally useful, reviewed work, while I kept asking for the same formatting bug to go away.
+> The fix reached Preview and the test email, with the limits described above. The expensive part came before I filed the issue: six PRs of locally useful, reviewed work, and the formatting bug I kept reporting survived all of them.
 
 > I'd written the intended output model into the spec from the start. Writing it down wasn't enough. The spec lost to a function with a name and a test, and reporting the symptoms louder didn't change that. The requirement had to be attached to the work a reviewer could see.
 
@@ -125,3 +125,9 @@ No factual question is pending. The April/September split remains, and the endin
 ## Validation
 
 Astro build passed. After the owner feedback, all 58 tests in five existing suites passed: blog pages, takeaways, content schema, figure numbering, and Mermaid diagrams. Scoped Vale lint reports no errors. All 16 original heading anchors are present in the built page, and its four screenshot embeds remain. A separate block comparison confirms that all eight fences, both tables, four image lines, and seven block quotations are unchanged. All four pullquotes appear verbatim in the body; source apostrophes are straight, and the narration contains no collective pronouns. The meaning review above is separate from these mechanical checks.
+
+## Cross-agent review corrections
+
+Applied after the owner-approved draft, in Claude's cross-agent review (#1148). Counts and excerpts above describe the draft unless they say otherwise; these changes take precedence over them.
+
+- The new brief is "given to Codex"; "Each PR was competent inside the frame it was given"; the six PRs' summary no longer implies all six chased the formatting bug; "The reviewer kept finding ways the bridge lost formatting" (one identity, R34; pullquote and body); Preview and the sent emails "now use different renderers again" (R8/R9).

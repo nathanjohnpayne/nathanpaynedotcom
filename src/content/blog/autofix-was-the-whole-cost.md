@@ -14,7 +14,7 @@ keyTakeaways:
   - "One style rule contained three jobs: find mistakes, find the prose, and rewrite files. Auto-fix was the optional one, 17% of the implementation and tests, but 42 of the 57 findings named it. Cutting it ended the rewrite-safety churn; the PR merged within the hour."
   - "The arc drew 256 review submissions and 126 inline findings across seven PRs. Another automated round didn't require a separate approval or produce a line item. When the next round is nearly free, the signal to stop has to come from the shape of the series."
   - "Moving to Vale cut the tool and tests from 2,453 lines to 1,343, a 45% reduction. The rule was 7 lines, but I still had a 509-line adapter to maintain. That was the right trade; the seven-line headline hid the work I kept."
-  - "Vale alone skips post metadata and reports green: at publication, that metadata held 127 prose-bearing items across 14 files, including 57 pull quotes and takeaways. Running both tools exposed the gap. Replaying 174 retired cases let me record the 18 lost checks as a deliberate trade."
+  - "A swap without the adapter would've skipped post metadata and still reported green. At publication, that metadata held 127 prose-bearing items across 14 files, including 57 pull quotes and takeaways. Running both tools exposed the gap. Replaying 174 retired cases let me record the 18 lost checks as a deliberate trade."
 pullquotes:
   - text: "Auto-fix was 17% of the implementation and tests, and 42 of the 57 findings named it. The cost was never the line count. It was the trust burden."
     label: "The trust burden"

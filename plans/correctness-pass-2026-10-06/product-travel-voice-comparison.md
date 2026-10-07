@@ -137,3 +137,13 @@ The Sunday body and pullquote now say exactly: “Two accounts opened a Sunday c
 The owner's final optional copyedit removes only “There was no prize” before the already explicit request/outcome sentence. “I'd asked Kim to arrange something small … but there was not one in the end” and the cruise's lack of a real prize remain; no claim about Kim's effort or an in-app award is added.
 
 After the owner's four-word optional copyedit and rebase onto 3facf9f520b507390014d38e58a126bd4a56e3b9, a fresh 43-page build and all 60 existing relevant content tests passed. The compiled source preserves all twelve original fragments, exact pullquote matches and both provenance sidebars. Existing full unit/browser results precede that copyedit; mandatory CI will validate the publication head.
+
+## Cross-agent review corrections
+
+Applied after the owner-approved draft, in Claude's cross-agent review (#1143). Counts and excerpts above describe the draft unless they say otherwise; these changes take precedence over them.
+
+- The offline rationale is undated again ("At the time, it seemed obviously true"); it was added in #846 on 2026-08-28, after both events (R1), so it is not described as written before launch.
+- "The product asked a host to write prompts for plans that didn't exist yet" restores the product, not the author, as the source of the host's burden.
+- "prompts started from" the general-audience draft and "By Kim's account" on the crash are restored (R48); "the day after a big night out" (R40); "The fair counterargument is that most of the plumbing was necessary"; "is blocked on"; "The crash was worth fixing"; "Kim said"; "one of them"; "The evidence had pointed"; "asked for" (`d5e745f`).
+- "before the day-three changes, after which marking picked up" keeps the cruise pickup a correlation (`da8175a`).
+- Owner decision after review: "Kim rewrote 65 of them over dinner the night before launch" stays, resting on the owner's account (ledger R4 rates it UNPROVABLE from the seed alone). No tracking issue: the owner resolved it directly.
