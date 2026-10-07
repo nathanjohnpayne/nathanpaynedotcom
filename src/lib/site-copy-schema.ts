@@ -73,7 +73,14 @@ export const SITE_COPY_SCHEMAS = {
 export type SiteCopyId = keyof typeof SITE_COPY_SCHEMAS;
 export type SiteCopy<K extends SiteCopyId> = z.infer<(typeof SITE_COPY_SCHEMAS)[K]>;
 
-/** The collection schema: an entry must match exactly one strict member. */
+/**
+ * The collection schema. `z.union` accepts the first strict member that
+ * parses, so it guarantees only that an entry matches *some* member's exact
+ * key set; it does not enforce that the member is the one for the entry's id.
+ * Each member's keys differ today, so no entry matches two, but nothing here
+ * keeps it that way. `getSiteCopy` re-parses each entry against the schema for
+ * its own id, and that per-id check is the real guard.
+ */
 export const siteCopySchema = z.union([
   SITE_COPY_SCHEMAS.blog,
   SITE_COPY_SCHEMAS.projects,

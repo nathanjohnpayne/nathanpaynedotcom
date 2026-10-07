@@ -84,7 +84,7 @@ const [education, experience] = await Promise.all([
   getCollection('education'),
   getCollection('experience'),
 ]);
-const HOME_TITLE = 'Nathan Payne | Product Manager · AI Agents · San Francisco';
+const HOME_TITLE = `${m.name} | Product Manager · AI Agents · ${m.address.locality}`;
 
 // The Selected Projects footer's content line: the four domains the work spans
 // (#984, settled in #991). Every other panel footer ends on a bounded line —

@@ -259,9 +259,10 @@ describe('footer location (#1166)', () => {
       writeSanitizedDOM(readFileSync(page, 'utf-8'));
       for (const attribution of document.querySelectorAll('.site-footer__attribution')) {
         footers += 1;
-        expect(text(attribution), relative(ROOT, page)).toMatch(
-          new RegExp(`· ${myself.address.locality}$`),
-        );
+        expect(
+          text(attribution).endsWith(`· ${myself.address.locality}`),
+          `${relative(ROOT, page)}: "${text(attribution)}"`,
+        ).toBe(true);
       }
     }
     expect(footers, 'the walk found no footers to check').toBeGreaterThan(0);
