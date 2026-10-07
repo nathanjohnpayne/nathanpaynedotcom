@@ -1,6 +1,6 @@
 # Facts ledger, 2026-10-06 correctness pass: `two-blues-one-composition`
 
-Page source: `src/content/blog/two-blues-one-composition.md` (identical on `main` at `72d0949` and in this worktree). Surface: `https://nathanpayne.com/blog/two-blues-one-composition/` (HTTP 200; every checked phrase of the source is present on the live page). Retrieval timestamp for every API figure: 2026-10-06. Prior ledger: `plans/759/two-blues-one-composition-ledger.md` (read with its §N supersessions first; the §D2 verdict it records as overturned is the one whose correction PR #1025 repinned on 2026-09-12).
+Audited page source: `src/content/blog/two-blues-one-composition.md` on `main` at `72d0949`; quoted claims and original locations below identify that audit baseline. PR #1136 subsequently changed the voice, and its merged R20 wording is quoted separately below. R21 was rechecked during that review and is corrected inline here. Surface at that audit: `https://nathanpayne.com/blog/two-blues-one-composition/` (HTTP 200; every checked phrase of the baseline source was present on the live page). Retrieval timestamp for every API figure: 2026-10-06. Prior ledger: `plans/759/two-blues-one-composition-ledger.md` (read with its §N supersessions first; the §D2 verdict it records as overturned is the one whose correction PR #1025 repinned on 2026-09-12).
 
 Prior-ledger status check. Every WRONG and UNPROVABLE row of the #759 ledger has its correction in the post as published today: A1 "actual red" (now "medians"), A3 pixel count (removed, L127), A4 "museum-grade" (now "two files, one with a cropped chart and one with nothing", L129), B1/B2 (samples and tokens both given, L39), C1 four to six scopes (L90), C2 "invisible to any hex search" (inverted correctly, L92), C3/E3 two to ten corrections (L184), C4 "hardcoded twice" (dropped), D2 as rewritten by §N.1 and repinned by #1025 (L194–208, both pairs reproduce below), D3 narrowed to the yellow (L210), D4 OG facts (L212), E2 four issues and four PRs (L35, L186, L228), F1 hedged as a model hypothesis (L41), F2 registers named for the two files (L53, L61), F3 Kunsthaus title and credit line (L102, L104). The one correction that overshot is new: the #806 revision replaced the June original's "a high-resolution scan" with "the Kunsthaus Zürich's digitization" and added a "two museum digitizations" tally, and the committed 1930 file is a Wikimedia Commons reproduction, not a museum file (R1, R2).
 
@@ -28,7 +28,7 @@ Prior-ledger status check. Every WRONG and UNPROVABLE row of the #759 ledger has
 | R18 | register map values `#DA2418 #F0C800 #0A5C9E` / `#E8784A #E3D477 #2080CA`; "`:root` carries… override carries…" | L61–77, L210 | SUPPORTED | Same at `8bebc31` and on `main` today and in the live stylesheet | `git show 8bebc31:src/styles/global.css` L36–38, L228–232; `global.m4fkiYMR.css` |
 | R19 | "`/_astro/global.XofGYe7g.css`, fetched 2026-06-11… validated against `src/styles/global.css` on `main` at `9d6139f`" | L83, L192 | SUPPORTED | Verbatim in the ticket | #497 body L8 |
 | R20 | hover ring `rgba(34, 63, 137, 0.18)` → `#223f892e`; "Six `[data-accent=*]` scopes… `rgba()` literals"; raw `--accent` `#5B5F64` | L90 | SUPPORTED | Source writes `0.12`, the post `.12`; 0.18 × 255 = 45.9 → `2e` | `9d6139f` L2211, L1365–L1405, L1401; lightningcss 1.32.0 minify of `9d6139f`: `223f892e` × 1 |
-| R21 | minifier flattens `rgba()` to eight-digit hex; "finds `#223f891f` in the build" | L92, L15 | SUPPORTED | Minified `9d6139f`: `rgba(` 0, `223f891f` 1 | lightningcss 1.32.0 |
+| R21 | minifier flattens every `rgba()` to eight-digit hex; "finds `#223f891f` in the build" | L92, L15 | WRONG in part | The cited plane becomes eight-digit `#223f891f`, and no `rgba(` remains, but transparent white becomes four-digit `#fff0`. The merged article now says the minifier rewrites `rgba()` as hex | lightningcss 1.32.0 over `9d6139f`; `rgba(255, 255, 255, 0)` counterexample |
 | R22 | "first pass found four of the six… the other two, and the raw `--accent`, arrived in an addendum the ticket labels 'same problem class, missed by the original audit'"; three raw `background` declarations | L90, L94 | SUPPORTED | Findings 6–9 plus A1, A2, A3 under that exact heading | #497 body L21–32 |
 | R23 | "My pages already carry `data-accent` attributes that redefine `--accent` and `--accent-soft` per scope" | L96 | SUPPORTED | | `9d6139f` L1365–L1405 |
 | R24 | recalled `#DD0100`, `#0A4A9F`, `#F8D000` | L100, L108, L110–121 | SUPPORTED | All three in #498 as first posted; the revision replaced red and blue | #498 edit history, 01:12:08Z body |
@@ -57,7 +57,7 @@ Prior-ledger status check. Every WRONG and UNPROVABLE row of the #759 ledger has
 | R47 | "ten self-corrections, four issues, four pull requests, four decisions"; "two judgment calls recorded against those same sources" | L228, L226 | SUPPORTED | The "two museum digitizations" in the same sentence is R2 | R37, R38, R36, R44 |
 | R48 | earlier-version attributions: "invisible to any hex search", "precomputes two", "museum-derived", "corrected itself twice", "two tickets", "museum-grade", "468,315" | L92, L127, L129, L184, L186, L208, L210 | SUPPORTED | All in the first commit `d5d39bf` | `git log -S` per phrase |
 
-Counts: WRONG 4, STALE 0, UNPROVABLE 8, SUPPORTED 36.
+Counts: WRONG 5, STALE 0, UNPROVABLE 8, SUPPORTED 35.
 
 ## Rows
 
@@ -161,10 +161,13 @@ Counts: WRONG 4, STALE 0, UNPROVABLE 8, SUPPORTED 36.
 
 **SUPPORTED.** At `9d6139f`: L2211 `box-shadow: inset 0 0 0 2px rgba(34, 63, 137, 0.18);`; six scopes `[data-accent="red"|"yellow"|"black"|"blue"|"lightblue"|"paper"]` at L1365–L1405, each with an `rgba()` `--accent-soft`; L1401 `--accent: #5b5f64;`. Minifying that file with the repository's `lightningcss` 1.32.0 yields `#223f892e` once (0.18 × 255 = 45.9, `0x2e`). One nit: the source writes the alpha as `0.12`, the post as `.12`. Source: `git show 9d6139f:src/styles/global.css`; `lightningcss.transform({minify:true})`.
 
+Current wording merged in PR #1136, same R20 facts and verdict:
+> "The tokens confirmed I'd chosen both colors. They didn't cover every use. The `.post-card` hover ring hard-coded ultramarine as `rgba(34, 63, 137, 0.18)`, exactly 18% opacity; the minifier ships that as `#223f892e`. Six `[data-accent=*]` scopes defined `--accent-soft` with literal plane colors, including `rgba(34, 63, 137, .12)`. One scope's `--accent` was a raw `#5B5F64` with no `:root` token. Remapping the palette would have left all those colors behind."
+
 ### R21: The minifier flattens `rgba()` and exposes `#223f891f`
 > "the minifier flattens every `rgba()` to eight-digit hex, so the same grep that misses the literal in source finds `#223f891f` in the build" (line 92); keyTakeaways line 15
 
-**SUPPORTED.** The minified `9d6139f` stylesheet contains zero `rgba(` tokens and `#223f891f` once (0.12 × 255 = 30.6, `0x1f`). Source: `lightningcss` 1.32.0 over `git show 9d6139f:src/styles/global.css`.
+**WRONG in part.** The minified `9d6139f` stylesheet contains zero `rgba(` tokens and `#223f891f` once (0.12 × 255 = 30.6, `0x1f`), so the plane-color search example holds. It does not make every color eight-digit hex: that source also contains `rgba(255, 255, 255, 0)`, which Lightning CSS 1.32.0 minifies to four-digit `#fff0`. The merged article now says the minifier rewrites `rgba()` as hex, retaining the cited blue without the universal width claim. Reproduction: read the historical stylesheet with `git show 9d6139f:src/styles/global.css`, then call `lightningcss.transform({filename: "audit.css", code: Buffer.from(css), minify: true})` with dependency version 1.32.0. The isolated declaration `a{color:rgba(255, 255, 255, 0)}` yields `a{color:#fff0}` under the same transform. This is a historical-source minification check, not a retrieval of the vanished deployed file. Source: that transform over the full historical stylesheet and isolated declaration, rerun during PR #1136 review.
 
 ### R22: Four of six, the addendum heading, the three raw backgrounds
 > "Its first pass found four of the six `--accent-soft` literals; the other two, and the raw `--accent`, arrived in an addendum the ticket labels 'same problem class, missed by the original audit.'" (line 94); "the three raw `background` declarations" (line 94)
@@ -312,6 +315,7 @@ Applied 2026-10-06 on `claude/correctness-pass-2026-10-06` to `src/content/blog/
 - R6 (quotations only): L41 "ranked my red as "matching neither era"" -> "ranked my red as matching neither era"; L108 "the token that "matched neither era,"" -> "the token that matched neither era,"; the "never ran two blues" sentence left as is, already labelled a model hypothesis.
 - R9: L100 "the "commonly cited screen approximations" of classic Mondrian" -> "the commonly cited screen approximations of classic Mondrian".
 - R11: L218 "in about four seconds" -> "in seconds".
+- R21 (PR #1136 review): the universal eight-digit-hex claim was corrected to rewriting `rgba()` as hex. Zero remaining `rgba(` notation and the cited plane's `#223f891f` remain supported; the historical-source transparent-white counterexample changes the original claim's verdict and totals inline above.
 - R5: left as is; the page already gives the tokens beside the samples and attributes the deltas to compression, and "mustard" is the author's own account of the exchange.
 - R7: left as is; the author's own testimony, corroborated by #498's first body.
 - R8: left as is; the author's own testimony about the conversation, and the ticket's facts (three raw backgrounds, one `--project-bg` definition) hold.
