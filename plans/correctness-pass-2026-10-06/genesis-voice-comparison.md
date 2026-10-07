@@ -146,7 +146,7 @@ The deck and takeaways are rewritten with the body. The first two pullquotes res
 | timestamps | None | 2026-05-14 × 1 | Dates BREAK_GLASS_MERGE_STATE in the control table as added 2026-05-14; its chronology is unchanged. |
 | numerals | 2 × 2; 5 × 1; 32 × 1 | 2026 × 2; 16 × 2; 60 minutes × 1; 05 × 1; 14 × 1 | Removed repeated project/phase/repository figures from the snapshot explanation. Preserved legacy anchors add date numerals; the table date and estimate pullquote repeat existing dated facts and the sixty-minute guess. |
 | code spans | `functions/**` × 1; `gh pr merge` × 1; `set +e` × 1 | `nathanpayne-codex` × 1 | Two redundant spans were removed; the CLI identity is named explicitly. The owner requested removing incidental set +e wording so dry-run C names the actual ls finding directly. |
-| tables | No row or original cell text removed | (added 2026-05-14) in one cell | The control table returns to its original place; only the later variable’s introduction date is added. The parser-fix table is unchanged. |
+| tables | No row or original cell text removed | (the second added 2026-05-14) in one cell | The control table returns to its original place; only the later variable’s introduction date is added. The parser-fix table is unchanged. |
 
 
 The spelled-out-number advisory was reviewed against its claim: all case counts, review counts, durations, scope boundaries, and the one known open P1 remain. Removed occurrences repeat facts or use number words as ordinary prose; the estimate pullquote duplicates an existing five-hour result rather than adding a measurement.

@@ -94,7 +94,7 @@ The hook only bound sessions that loaded it. Another tool, a raw API call, or th
 | Required status checks and the Label Gate | GitHub server | Everyone, subject to admin override |
 | `scripts/ci/` checks | CI | The merge, not the push |
 | Author/reviewer identity split | Convention, backed by a `block-self-approval` CI job | The job blocks self-approval; the split itself is convention |
-| `BREAK_GLASS_ADMIN` / `BREAK_GLASS_MERGE_STATE` (added 2026-05-14) | Local: read by the hook, never sent anywhere | Nothing on GitHub's side. They only unlock the hook's own refusal |
+| `BREAK_GLASS_ADMIN` / `BREAK_GLASS_MERGE_STATE` (the second added 2026-05-14) | Local: read by the hook, never sent anywhere | Nothing on GitHub's side. They only unlock the hook's own refusal |
 | `--admin` on the merge | GitHub server | The server-side administrator bypass itself—the flag the variables above let you pass |
 
 <span id="the-threshold-when-self-review-is-not-enough"></span>
