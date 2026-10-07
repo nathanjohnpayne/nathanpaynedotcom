@@ -6,14 +6,15 @@ import Breadcrumbs from '../../components/Breadcrumbs.astro';
 import { getIndexGridRow } from '../../lib/index-grid';
 import { stateMarkerClass } from '../../lib/lifecycle-marker';
 import { PROJECTS_HEADING } from '../../lib/section-propositions';
+import { fillProjectCount, getSiteCopy } from '../../lib/site-copy';
 
 const PROJECTS_TITLE = 'Projects';
 const PROJECTS_PAGE_TITLE = `${PROJECTS_TITLE} | Nathan Payne`;
 
-const PROJECTS_DESCRIPTION_SUFFIX =
-  'built end to end—the problem each one started as, what got built, what got refused, and what the evidence said afterward.';
-const PROJECTS_OG_DESCRIPTION =
-  'The problem each one started as, what got built, what got refused, and what the evidence said afterward.';
+// Metadata and social copy live in src/content/site-copy/projects.md, which
+// also holds the homepage and résumé introductions to this page (#1166). The
+// projects share card reads the same `ogDescription`.
+const projectsCopy = await getSiteCopy('projects');
 
 const allProjects = await getCollection('projects', ({ data }) => !data.draft);
 const projects = allProjects.sort((a, b) => a.data.order - b.data.order);
@@ -25,19 +26,14 @@ const projects = allProjects.sort((a, b) => a.data.order - b.data.order);
 // mapping lives in src/lib/lifecycle-marker.ts.
 const statusClass = (status: string) =>
   stateMarkerClass(status, 'post-meta', 'project-status');
-// Spelled out because it reads mid-sentence in the meta description and the
-// CollectionPage JSON-LD below. Falls back to the numeral above nine, which the
-// portfolio is nowhere near and would be a pleasant problem to have.
-const NUMBER_WORDS = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine'];
-const asWord = (n: number) => NUMBER_WORDS[n] ?? String(n);
-// Derived rather than written, because a hand-typed count is wrong the first
-// time a project is added or drafted and nothing catches it — the failure mode
-// this epic spent #885 correcting on the Matchline page.
-const totalWord = asWord(projects.length);
-// Meta description and CollectionPage JSON-LD share the deck's derived count,
-// so a drafted or added project cannot leave a stale number on a search surface
-// while the visible page is correct.
-const PROJECTS_DESCRIPTION = `${totalWord.charAt(0).toUpperCase()}${totalWord.slice(1)} products a product manager ${PROJECTS_DESCRIPTION_SUFFIX}`;
+// The count is derived rather than written, because a hand-typed count is wrong
+// the first time a project is added or drafted and nothing catches it — the
+// failure mode this epic spent #885 correcting on the Matchline page. The
+// description carries a `{count}` placeholder, spelled out because it reads
+// mid-sentence (src/lib/site-copy.ts); the meta description and the
+// CollectionPage JSON-LD share it, so a drafted or added project cannot leave a
+// stale number on a search surface while the visible page is correct.
+const PROJECTS_DESCRIPTION = fillProjectCount(projectsCopy.description, projects.length);
 
 const jsonLd = {
   "@context": "https://schema.org",
@@ -82,7 +78,7 @@ const jsonLd = {
 <BaseLayout
   title={PROJECTS_PAGE_TITLE}
   description={PROJECTS_DESCRIPTION}
-  ogDescription={PROJECTS_OG_DESCRIPTION}
+  ogDescription={projectsCopy.ogDescription}
   ogImage="https://nathanpayne.com/og/projects.png"
   ogImageAlt={`${PROJECTS_HEADING} projects index open graph image`}
   bodyClass="project-page blog-page"

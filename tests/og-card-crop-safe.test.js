@@ -1,10 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'fs';
 import { resolve } from 'path';
+import { parseFrontmatter } from '../scripts/lib/parse-frontmatter.mjs';
 
 const ROOT = resolve(__dirname, '..');
 const OG_CARD = resolve(ROOT, 'src/layouts/OgCard.astro');
 const HOME_TEMPLATE = resolve(ROOT, 'src/pages/og-templates/home.astro');
+const HOME_COPY = resolve(ROOT, 'src/content/site-copy/home.md');
 const GLOBAL_CSS = resolve(ROOT, 'src/styles/global.css');
 
 function cropSafeRule(selector) {
@@ -45,9 +47,12 @@ describe('OG card crop-safe variant', () => {
     // The tagline is `white-space: nowrap` inside an `overflow: hidden` box, so
     // a long one is clipped rather than wrapped. The build's rendered-fit gate
     // measures this for real (#1093); the cap is the cheap early warning.
-    const tagline = source.match(/description="([^"]*)"/);
-    expect(tagline).not.toBeNull();
-    expect(tagline[1].length).toBeLessThanOrEqual(55);
+    // The tagline is the named share-card variant in site copy (#1166), so the
+    // cap applies to that field and the template must be what reads it.
+    expect(source).toMatch(/description=\{shareImageDescription\}/);
+    const tagline = parseFrontmatter(readFileSync(HOME_COPY, 'utf-8')).shareImageDescription;
+    expect(tagline).toBeTruthy();
+    expect(tagline.length).toBeLessThanOrEqual(55);
   });
 
   it('puts no stage margin, border or shadow at the image edge', () => {
