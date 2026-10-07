@@ -93,6 +93,15 @@ function finding(rule, severity, item, reason, file) {
 function normalize(text) {
   return text.replace(/\s+/gu, ' ').trim();
 }
+function escapeProse(text) {
+  // These are decoded AST values, not Markdown source. Serialize punctuation
+  // literally so Vale cannot reinterpret a tag, code span or heading.
+  return text.replace(/[\\`*_[\]()<>#!~]/gu, '\\$&');
+}
+function maskSource(text) {
+  // Preserve UTF-16 offsets, including both code units of astral characters.
+  return text.replace(/[^\r\n]/g, ' ');
+}
 function containsVerbatim(text, quote, prose = text) {
   let start = text.indexOf(quote);
   const word = (c) => c !== undefined && /[\p{L}\p{N}]/u.test(c);
@@ -165,7 +174,7 @@ function quotationPass(item, context, findings, file) {
     );
   return { ...item, projected, uncertainQuotes, quoteStyles: [...styles] };
 }
-function htmlText(source, node) {
+function htmlText(source, node, context = '') {
   const dom = new JSDOM(node.value, { includeNodeLocations: true });
   const document = dom.window.document;
   const passages = [];
@@ -205,8 +214,25 @@ function htmlText(source, node) {
   };
   collectPassage(document.body);
   flush();
+  const quotations = [...document.querySelectorAll('blockquote, q')]
+    .filter((n) => !n.closest('pre, code, script, style'))
+    .map((n) => {
+      const range = dom.nodeLocation(n);
+      const start = node.position.start.offset + range.startOffset;
+      const end = node.position.start.offset + range.endOffset;
+      return {
+        kind: 'quotation',
+        text: n.textContent ?? '',
+        excerpt: source.slice(start, end),
+        location: location(source, start, end),
+        attributed: Boolean(n.getAttribute('cite')) ||
+          evidenceCue.test(context.slice(-200)) ||
+          evidenceCue.test(source.slice(Math.max(0, start - 200), start)) ||
+          evidenceCue.test(n.textContent.slice(0, 160)),
+      };
+    });
   document
-    .querySelectorAll('script, style, pre, code, blockquote, q[cite]')
+    .querySelectorAll('script, style, pre, code, blockquote, q')
     .forEach((n) => n.replaceWith('\0'));
   const headings = [...document.querySelectorAll('h1,h2,h3,h4,h5,h6')].map((n) => {
     const range = dom.nodeLocation(n);
@@ -240,6 +266,7 @@ function htmlText(source, node) {
     headings,
     captions,
     passages,
+    quotations,
   };
 }
 function protectedHtmlText(
@@ -249,21 +276,22 @@ function protectedHtmlText(
   includeQuotedText = false,
   preserveLength = false,
 ) {
-  // A maintained HTML parser supplies ranges for inline HTML code, not a tag regex.
-  let raw = rawOf(source, node);
-  const maskMarkdownCode = (child) => {
-    if (child.type === 'inlineCode' && child.position) {
+  // Only AST-classified HTML reaches the DOM parser. Escapes, code and link
+  // destinations remain masked source, with original UTF-16 offsets intact.
+  let raw = maskSource(rawOf(source, node));
+  const retainHtml = (child) => {
+    if (child.type === 'html' && child.position) {
       const start = child.position.start.offset - node.position.start.offset;
       const end = child.position.end.offset - node.position.start.offset;
-      raw = raw.slice(0, start) + raw.slice(start, end).replace(/[^\r\n]/gu, ' ') + raw.slice(end);
+      raw = raw.slice(0, start) + rawOf(source, child) + raw.slice(end);
     }
-    for (const descendant of child.children ?? []) maskMarkdownCode(descendant);
+    for (const descendant of child.children ?? []) retainHtml(descendant);
   };
-  maskMarkdownCode(node);
+  retainHtml(node);
   const dom = new JSDOM(raw, { includeNodeLocations: true });
   const protectedSelector = includeQuotedText
     ? 'code, pre, script, style'
-    : 'code, pre, script, style, q[cite]';
+    : 'code, pre, script, style, q';
   const ranges = [...dom.window.document.querySelectorAll(protectedSelector)]
     .map((n) => dom.nodeLocation(n))
     .filter(Boolean);
@@ -312,7 +340,7 @@ export async function parseArticle(source, file) {
     const openingOffset = sourceLines.slice(0, extraction.openingLine).join('\n').length + 1;
     const closingOffset = sourceLines.slice(0, extraction.closingLine - 1).join('\n').length + 1;
     const yamlSource =
-      source.slice(0, openingOffset).replace(/[^\r\n]/gu, ' ') +
+      maskSource(source.slice(0, openingOffset)) +
       source.slice(openingOffset, closingOffset);
     try {
       metadata = parseFrontmatter(`---\n${extraction.yaml}\n---\n`);
@@ -323,7 +351,7 @@ export async function parseArticle(source, file) {
       throw new VoiceError(`${file}: invalid frontmatter: ${error.message}`);
     }
     const closeOffset = source.split('\n').slice(0, extraction.closingLine).join('\n').length;
-    body = source.slice(0, closeOffset).replace(/[^\r\n]/gu, ' ') + source.slice(closeOffset);
+    body = maskSource(source.slice(0, closeOffset)) + source.slice(closeOffset);
     const walkYaml = (node, path = []) => {
       if (isAlias(node)) {
         const item = {
@@ -380,6 +408,14 @@ export async function parseArticle(source, file) {
   const bodyText = [];
   const headings = [];
   let diagramIndex = 0;
+  const reviewHtmlQuotations = (html) => {
+    for (const quotation of html.quotations)
+      if (!quotation.attributed)
+        findings.push(finding(
+          'review.quotation-attribution', 'warning', quotation,
+          'HTML quotation or prompt has no mechanically clear attribution. Preserve its source language and confirm provenance manually.', file,
+        ));
+  };
   const pullquotePassages = (node) => {
     if (['heading', 'paragraph', 'tableCell'].includes(node.type))
       return [
@@ -433,9 +469,12 @@ export async function parseArticle(source, file) {
       const collectInline = (child) => {
         if (child.type === 'inlineCode' || child.type === 'html')
           protectedMaterial.push(entry(source, child, child.type, inlineText(child, true)));
-        if (child.type === 'html')
-          for (const caption of htmlText(source, child).captions)
+        if (child.type === 'html') {
+          const html = htmlText(source, child, context);
+          reviewHtmlQuotations(html);
+          for (const caption of html.captions)
             surfaces.push(quotationPass(caption, context, findings, file));
+        }
         if (child.type === 'image' || child.type === 'imageReference')
           surfaces.push(
             quotationPass(
@@ -451,7 +490,8 @@ export async function parseArticle(source, file) {
       return;
     }
     if (node.type === 'html') {
-      const html = htmlText(source, node);
+      const html = htmlText(source, node, context);
+      reviewHtmlQuotations(html);
       for (const h of html.headings) {
         headings.push(h);
         surfaces.push(quotationPass(h, context, findings, file));
@@ -459,8 +499,8 @@ export async function parseArticle(source, file) {
       for (const caption of html.captions)
         surfaces.push(quotationPass(caption, context, findings, file));
       const item = html.item;
-      if (item.text) {
-        surfaces.push(quotationPass(item, context, findings, file));
+      if (item.text) surfaces.push(quotationPass(item, context, findings, file));
+      if (item.text || html.quotations.length) {
         findings.push(
           finding(
             'review.html',
@@ -570,11 +610,11 @@ function runMechanical(article, properNouns) {
             ? rawPart.replace(/^[a-z]+(?=\b)/u, (word) => word[0].toUpperCase() + word.slice(1))
             : rawPart;
         lineMap.set(lines.length + 1, { item: surface, ambiguous: false });
-        lines.push((surface.kind === 'heading' ? '## ' : '') + part, '');
+        lines.push((surface.kind === 'heading' ? '## ' : '') + escapeProse(part), '');
       }
       for (const quotation of surface.uncertainQuotes ?? []) {
         lineMap.set(lines.length + 1, { item: surface, ambiguous: true });
-        lines.push(normalize(quotation), '');
+        lines.push(escapeProse(normalize(quotation)), '');
       }
     }
     writeFileSync(projection, lines.join('\n'));

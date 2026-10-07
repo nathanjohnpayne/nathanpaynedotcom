@@ -110,6 +110,27 @@ We organised the colour.
     expect(report.packet.warnings[0].excerpt).toContain('We chose');
   });
 
+  it.each(['<blockquote>Our colour changed.</blockquote>', '<q>Our colour changed.</q>'])(
+    'surfaces uncertain HTML quotation attribution (%s)',
+    async (source) => {
+      const report = await check(source + '\n');
+      expect(report.exitCode).toBe(0);
+      expect(rules(report)).toContain('review.quotation-attribution');
+    },
+  );
+
+  it('preserves clearly attributed HTML quotations and code without an attribution warning', async () => {
+    for (const source of [
+      '<blockquote cite="/source">Our colour changed.</blockquote>',
+      'Claude wrote:\n\n<blockquote>Our colour changed.</blockquote>',
+      '<pre><blockquote>Our colour changed.</blockquote></pre>',
+    ]) {
+      const report = await check(source + '\n');
+      expect(errors(report)).toEqual([]);
+      expect(rules(report)).not.toContain('review.quotation-attribution');
+    }
+  });
+
   it('checks prose after an HTML code span at the start of a Markdown paragraph', async () => {
     const report = await check('<code>literal</code> We organised colour.\n');
     expect(rules(report)).toEqual(
@@ -213,6 +234,27 @@ A small change made publishing practical.
       const source = '---\npullquotes:\n  - text: "The chosen result."\n---\n\n' + body + '\n';
       expect(rules(await check(source))).not.toContain('voice.pullquote-verbatim');
     }
+  });
+
+  it('uses AST-classified HTML rather than escaped text, code or link destinations', async () => {
+    for (const prefix of ['\\<code>', '`<code>😀`', '[a](<code>)']) {
+      const source =
+        '---\npullquotes:\n  - text: "The chosen result."\n---\n\n' +
+        prefix +
+        ' **The chosen result.** We organised colour.\n';
+      const report = await check(source);
+      expect(rules(report)).not.toContain('voice.pullquote-verbatim');
+      expect(rules(report)).toContain('voice.narrator-plural');
+    }
+  });
+
+  it('preserves source offsets after astral characters in frontmatter and inline code', async () => {
+    const source = '---\ntitle: "A 😀 title"\n---\n\n`😀` <code>literal</code> We chose colour.\n';
+    const report = await check(source);
+    const item = report.findings.find((f) => f.rule === 'voice.american-spelling');
+    expect(source.slice(item.location.start.offset, item.location.end.offset)).toBe(item.excerpt);
+    expect(item.location.start.line).toBe(5);
+    expect(item.excerpt).toContain('We chose colour');
   });
 
   it('keeps a cited HTML quote matchable while exempting its source narrator language', async () => {
