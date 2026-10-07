@@ -81,7 +81,7 @@ An agent could quote the rule back to me and still skip review. An instruction f
 
 I could keep strengthening the instructions, enforce review on GitHub, or enforce it inside the agent's session. I chose both enforcement points because they fail differently. Branch protection required PRs at the server and stopped the direct pushes I was seeing. It bound me too, with an administrator override. Then agents started opening PRs with no description or self-review and merging them on their own approval.
 
-A [PreToolUse hook](https://github.com/nathanjohnpayne/mergepath/blob/main/scripts/hooks/gh-pr-guard.sh) intercepted `gh pr create` in the local session. In April, it searched the command text for `Authoring-Agent:` and `## Self-Review` and refused creation if either was absent.
+A [PreToolUse hook](https://github.com/nathanjohnpayne/mergepath/blob/2429e6bf8714e5998e9fa21485a5bbd057010e9e/scripts/hooks/gh-pr-guard.sh) intercepted `gh pr create` in the local session. In April, it searched the command text for `Authoring-Agent:` and `## Self-Review` and refused creation if either was absent.
 
 That was a cheap check against the failure in front of me. It never read the PR body. It searched the whole shell command for two case-insensitive substrings. A command could put the markers in another argument and send a nonconforming body. A valid `--body-file` create could be refused because the file's contents weren't in the command. The check helped, but it wasn't a body contract. The division of labor changed later.
 
