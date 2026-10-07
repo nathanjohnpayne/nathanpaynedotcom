@@ -101,7 +101,7 @@ The full rewrite was compared against the original and `plans/correctness-pass-2
 
 All timestamps (30), severity identifiers (17), inline code spans (15), both tables, all four Mermaid blocks, sidebar block scalars and pinned fields pass unchanged. No quote from an external source is paraphrased. The spelled-out-number advisory was read: reductions are repeated formulations and enumeration language; every substantive count remains, including all five prompts, three deferral batches, five mechanisms and ten-day hindsight. The seven extractor findings and approximate classification are retained under the existing uncertainty rather than promoted to measured facts.
 
-Fresh connective-prose count: **3,483 → 3,070 words, −11.9%**. Whole file: 5,482 → 4,906 words. The count is for the applied draft, not an earlier pass.
+Final merged text (`main` at `68827d18`, after the #1148 and #1153 review fixes): connective prose **3,483 → 3,100 words, −11.0%**; whole file 5,482 → 4,936 words. Applied draft, kept as history: connective prose 3,483 → 3,070 (−11.9%); whole file 5,482 → 4,906.
 
 ## Validation
 

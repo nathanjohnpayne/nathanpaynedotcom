@@ -6,4 +6,4 @@ repo: "https://github.com/nathanjohnpayne/mergepath"
 order: 2
 ---
 
-Governance framework for AI-assisted software development combining repository standards, automated review workflows, multi-agent validation, and CI-enforced documentation. Deployed across a nine-repository fleet as of August 2026.
+Governance framework for AI-assisted software development combining repository standards, automated review workflows, multi-agent validation, and CI-enforced documentation. Runs across eight repositories—the hub and seven consumers—as of October 2026.

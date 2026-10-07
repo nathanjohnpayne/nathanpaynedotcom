@@ -136,7 +136,7 @@ The spelled-out-number advisory falls from 204 to 161 occurrences. The changes r
 
 The changed `description` advisory is intentional. The existing exact-description assertion covers a different post; the applicable blog-rendering and schema tests verify this draft's metadata.
 
-Whole-file words: **5,046 → 4,445**. Connective prose under the repository checker's measure: **3,625 → 3,134, a 13.5% reduction**. Tables, code, sidebars and inline code are excluded from the latter measure.
+Final merged text (`main` at `68827d18`, after the #1141 review fixes, #1148 and #1153): whole-file words **5,046 → 4,463**; connective prose under the repository checker's measure **3,625 → 3,147, a 13.2% reduction**. Owner-approved draft (`41ddda6`), kept as history: whole-file 5,046 → 4,445; connective prose 3,625 → 3,134 (13.5%). #1141's merged head (`9c78e64`, after its claim-restoration commit): whole-file 5,046 → 4,456; connective prose 3,625 → 3,145 (13.2%). Tables, code, sidebars and inline code are excluded from the latter measure.
 
 ## Validation and owner judgment
 
