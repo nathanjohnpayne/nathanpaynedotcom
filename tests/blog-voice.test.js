@@ -1537,6 +1537,24 @@ describe('quotation matching stays linear on adversarial input', () => {
     await check(source);
     expect(performance.now() - started).toBeLessThan(5000);
   }, 20000);
+
+  // #1219: a Map keyed by text embedding a 16k+ character surface excerpt hashes by length
+  // alone, so every review finding collided and 3,200 quotations took ~13 s (1,600 took 0.1 s).
+  // Linear takes ~0.1 s locally; the generous bound only fails the quadratic path.
+  it.each([3200, 6400])(
+    'bounds the time of the public check on %i quotations in one surface',
+    async (quotations) => {
+      const body = `He said "hi" and 'ok' don't “x” ‘y’ `.repeat(quotations / 4);
+      expect(body.length).toBeGreaterThan(16383);
+      const started = performance.now();
+      const report = await check(`---\ntitle: "T"\ndescription: "D"\n---\n\n${body}\n`);
+      expect(performance.now() - started).toBeLessThan(5000);
+      expect(report.findings.filter((f) => f.rule === 'review.quotation-attribution')).toHaveLength(
+        quotations,
+      );
+    },
+    20000,
+  );
 });
 
 describe('escapeProse neutralizes Markdown block structure in the Vale projection (#1172)', () => {
