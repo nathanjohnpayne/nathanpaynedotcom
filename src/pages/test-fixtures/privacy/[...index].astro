@@ -18,6 +18,14 @@ export function getStaticPaths() {
 
 const sensitiveHref =
   '/test-fixtures/privacy/?email=NP-CANARY-QUERY%40example.test&utm_source=fixture#NP-CANARY-FRAGMENT';
+// Positive controls for GA4 enhanced measurement (specs/analytics-privacy.md
+// § Test Fixture): an outbound click and a file download, each carrying the
+// sensitive query and fragment. Site search is driven by loading this page
+// with ?q=NP-CANARY-SEARCH.
+const outboundHref =
+  'https://outbound.example.test/landing?email=NP-CANARY-QUERY%40example.test&utm_source=fixture#NP-CANARY-FRAGMENT';
+const downloadHref =
+  '/test-fixtures/privacy/fixture-download.pdf?email=NP-CANARY-QUERY%40example.test#NP-CANARY-FRAGMENT';
 ---
 
 <BaseLayout
@@ -49,7 +57,19 @@ const sensitiveHref =
 
     <button id="fixture-pii-button" type="button" data-fixture-pii="NP-CANARY-ATTR@example.test">Fixture button</button>
 
+    <form id="fixture-contact-form" action="#" onsubmit="return false">
+      <label for="fixture-contact-email">Email</label>
+      <input id="fixture-contact-email" name="email" type="email" autocomplete="off" />
+      <label for="fixture-contact-phone">Phone</label>
+      <input id="fixture-contact-phone" name="phone" type="tel" autocomplete="off" />
+      <label for="fixture-contact-address">Street address</label>
+      <input id="fixture-contact-address" name="street-address" type="text" autocomplete="off" />
+      <button id="fixture-contact-submit" type="submit">Send</button>
+    </form>
+
     <p><a id="fixture-sensitive-link" href={sensitiveHref}>Sensitive link</a></p>
+    <p><a id="fixture-outbound-link" href={outboundHref} target="_blank" rel="noopener">Outbound link</a></p>
+    <p><a id="fixture-download-link" href={downloadHref} download>Download link</a></p>
     <p><a id="fixture-privacy-link" href="/privacy/">Privacy page</a></p>
   </main>
 </BaseLayout>
