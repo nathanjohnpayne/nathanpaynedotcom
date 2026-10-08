@@ -603,36 +603,112 @@
 
   // ----------------------------------------------------------------- replay
 
-  function isUrlAttribute(tag, name) {
-    switch (tag) {
-      case 'a':
-      case 'area':
-        return name === 'href';
-      case 'form':
-        return name === 'action';
-      case 'button':
-      case 'input':
-        return name === 'formaction';
-      default:
-        return false;
+  /**
+   * Attributes whose value is a single URL, on any element, HTML or SVG.
+   * Covers every attribute rrweb itself resolves as a URL (src, href,
+   * xlink:href, background, object data; rrweb-snapshot transformAttribute,
+   * v1.438.3) plus the other HTML URL attributes, and rr_src, which rrweb
+   * synthesizes from an iframe's src.
+   */
+  var REPLAY_URL_ATTRIBUTES = Object.freeze([
+    'href',
+    'src',
+    'xlink:href',
+    'action',
+    'formaction',
+    'poster',
+    'data',
+    'cite',
+    'background',
+    'longdesc',
+    'manifest',
+    'codebase',
+    'rr_src',
+  ]);
+  /** Attributes holding srcset-style candidate lists: a URL plus optional descriptors each. */
+  var REPLAY_SRCSET_ATTRIBUTES = Object.freeze(['srcset', 'imagesrcset']);
+  var SVG_NAMESPACE = 'http://www.w3.org/2000/svg';
+  var SRCSET_SEPARATORS = /^[, \t\n\r\f]+/;
+  var SRCSET_URL = /^[^ \t\n\r\f]+/;
+
+  /**
+   * Scrubs every candidate URL in a srcset and keeps its descriptors. Splits
+   * the way rrweb does (rrweb-snapshot getAbsoluteSrcsetString, after the HTML
+   * spec's srcset parser): a URL is a run of non-whitespace, so a comma inside
+   * one (a data: URL) does not split it, and descriptors run to the next comma
+   * outside parentheses.
+   */
+  function scrubSrcset(value) {
+    var out = [];
+    var pos = 0;
+    var n = value.length;
+    while (pos < n) {
+      var separators = SRCSET_SEPARATORS.exec(value.slice(pos));
+      if (separators) pos += separators[0].length;
+      if (pos >= n) break;
+      var url = SRCSET_URL.exec(value.slice(pos))[0];
+      pos += url.length;
+      if (url.slice(-1) === ',') {
+        out.push(scrubUrl(url.replace(/,+$/, '')));
+        continue;
+      }
+      var descriptors = '';
+      var inParens = false;
+      while (pos < n) {
+        var c = value.charAt(pos);
+        if (!inParens && c === ',') {
+          pos += 1;
+          break;
+        }
+        if (c === '(') inParens = true;
+        else if (c === ')') inParens = false;
+        descriptors += c;
+        pos += 1;
+      }
+      out.push((scrubUrl(url) + descriptors).trim());
     }
+    return out.join(', ');
   }
 
   /**
    * PostHog `session_recording.maskAttributeFn` (rrweb `maskAttributeFn`): called
    * for every non-empty attribute rrweb serializes, in full snapshots and
-   * mutations. Empties data-* values outside the rendering allowlist and scrubs
-   * navigation URLs; everything else, including inlined `_cssText`, passes
-   * through. Typed option, v1.438.3:
+   * mutations, after rrweb has made URLs absolute. Typed option, v1.438.3:
    * https://github.com/PostHog/posthog-js/blob/posthog-js%401.438.3/packages/types/src/posthog-config.ts
+   *
+   * - data-* values outside the rendering allowlist are emptied.
+   * - Every URL is reduced to the allowlist, whatever the element: the URL
+   *   attributes above, each srcset candidate, each `ping` URL, and any other
+   *   attribute whose whole value is an absolute http(s) URL (`<meta content>`).
+   *   Replay then refetches images, fonts, and stylesheets without their query
+   *   strings, so some third-party assets may not render in playback.
+   * - An SVG `href="#id"` is a reference to an element, not a URL, and is kept
+   *   (rrweb treats it the same way).
+   * - `style` and inlined stylesheets (`_cssText`) pass through: rrweb hands
+   *   them over as whole CSS text, and scrubbing their `url(...)` values would
+   *   take a CSS tokenizer. Recorded in specs/analytics.md § Privacy Runtime.
    */
   function maskReplayAttribute(name, value, element) {
     var attr = String(name).toLowerCase();
     if (attr.indexOf('data-') === 0) {
       return REPLAY_DATA_ATTRIBUTES.indexOf(attr) >= 0 ? value : '';
     }
-    var tag = element && element.tagName ? String(element.tagName).toLowerCase() : '';
-    return isUrlAttribute(tag, attr) ? scrubUrl(value) : value;
+    if (typeof value !== 'string' || value === '') return value;
+    if (REPLAY_URL_ATTRIBUTES.indexOf(attr) >= 0) {
+      var isSvg = !!element && element.namespaceURI === SVG_NAMESPACE;
+      if (isSvg && value.charAt(0) === '#') return value;
+      return scrubUrl(value);
+    }
+    if (REPLAY_SRCSET_ATTRIBUTES.indexOf(attr) >= 0) return scrubSrcset(value);
+    if (attr === 'ping') {
+      return value
+        .split(/[ \t\n\r\f]+/)
+        .filter(Boolean)
+        .map(scrubUrl)
+        .join(' ');
+    }
+    if (attr === 'style' || attr === '_csstext') return value;
+    return ABSOLUTE_HTTP.test(value.trim()) ? scrubUrl(value) : value;
   }
 
   /**

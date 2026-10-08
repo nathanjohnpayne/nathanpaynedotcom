@@ -266,12 +266,28 @@ test('default-on loads both SDKs and sends scrubbed, masked data only', async ()
   }
   await page.locator('#fixture-pii-button').click();
   await page.locator('#fixture-masked').click({ clickCount: 3 });
+  // URL-bearing attributes on non-link elements, added while recording: they
+  // reach replay as mutations, and the image fetches as network-timing entries.
+  await page.evaluate(() => {
+    const img = document.createElement('img');
+    img.src = '/np-asset.png?token=NP-CANARY-ASSET-SRC';
+    img.srcset =
+      '/np-asset.png?a=NP-CANARY-ASSET-SRCSET-1 1x, /np-asset@2x.png?b=NP-CANARY-ASSET-SRCSET-2 2x';
+    const video = document.createElement('video');
+    video.poster = 'https://image.mux.example/poster.webp?time=NP-CANARY-ASSET-POSTER';
+    const link = document.createElement('link');
+    link.rel = 'prefetch';
+    link.href = '/np-asset.css?sig=NP-CANARY-ASSET-LINK';
+    document.body.append(img, video, link);
+  });
   expect(
     await waitFor(
       () => eventNames(sink).includes('$snapshot') && eventNames(sink).includes('$autocapture'),
       25_000,
     ),
   ).toBe(true);
+  // Positive control: the injected image did reach replay, with its path intact.
+  expect(await waitFor(() => allText(sink).includes('/np-asset@2x.png 2x'), 15_000)).toBe(true);
   await pause(4_000);
 
   await page.locator('#fixture-sensitive-link').click();
@@ -303,6 +319,9 @@ test('default-on loads both SDKs and sends scrubbed, masked data only', async ()
   for (const canary of CANARIES) {
     expect.soft(text, `${canary} reached the sink`).not.toContain(canary);
   }
+  expect
+    .soft(text, 'an injected asset URL query reached the sink')
+    .not.toContain('NP-CANARY-ASSET');
   // Positive controls: the allowlisted parameter survives in both tools, the
   // replay really ran, and masked inputs are present as asterisks.
   // (PostHog's $referrer is the session's first referrer, $direct here; GA4's

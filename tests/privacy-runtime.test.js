@@ -849,23 +849,153 @@ describe('replay minimization (§ Capture Minimization 1–2)', () => {
     expect(gate.BLOCK_SELECTOR).toBe('form, [data-np-privacy="block"]');
   });
 
-  it('empties data-* values outside the rendering allowlist and scrubs navigation URLs', () => {
+  it('empties data-* values outside the rendering allowlist', () => {
     const { w, gate } = boot();
     const el = (tag) => w.document.createElement(tag);
     const mask = gate.maskReplayAttribute;
     expect(mask('data-fixture-pii', 'NP-CANARY-ATTR@example.test', el('button'))).toBe('');
     expect(mask('DATA-NP-PRIVACY', 'mask', el('p'))).toBe('');
     expect(mask('data-focus', 'about', el('div'))).toBe('about');
-    expect(mask('href', '/t/?email=x&utm_term=t#f', el('a'))).toBe('/t/?utm_term=t');
-    expect(mask('href', 'https://n.test/?q=1', el('area'))).toBe('https://n.test/');
-    expect(mask('action', '/submit?token=1', el('form'))).toBe('/submit');
-    expect(mask('formaction', '/go?x=1', el('button'))).toBe('/go');
-    const fonts = 'https://fonts.googleapis.com/css2?family=Inter&display=swap';
-    expect(mask('href', fonts, el('link'))).toBe(fonts);
-    expect(mask('src', '/img.png?v=1', el('img'))).toBe('/img.png?v=1');
-    expect(mask('_cssText', 'body{color:red}', el('link'))).toBe('body{color:red}');
     expect(mask('class', 'a b', el('div'))).toBe('a b');
     expect(mask('constructor', 'x', el('div'))).toBe('x');
+  });
+
+  describe('replay URL attributes, on any element', () => {
+    const setup = () => {
+      const { w, gate } = boot({ url: 'https://nathanpayne.test/resume/' });
+      const el = (tag) => w.document.createElement(tag);
+      const svg = (tag) => w.document.createElementNS('http://www.w3.org/2000/svg', tag);
+      return { mask: gate.maskReplayAttribute, el, svg };
+    };
+
+    it.each([
+      ['href', 'a', '/t/?email=x&utm_term=t#f', '/t/?utm_term=t'],
+      ['href', 'area', 'https://n.test/?q=1', 'https://n.test/'],
+      [
+        'href',
+        'link',
+        'https://fonts.googleapis.com/css2?family=Inter&display=swap',
+        'https://fonts.googleapis.com/css2',
+      ],
+      [
+        'src',
+        'img',
+        'https://img.logo.dev/example.com?token=pk_test&size=64',
+        'https://img.logo.dev/example.com',
+      ],
+      ['src', 'img', '/img.png?v=1', '/img.png'],
+      ['src', 'source', 'https://stream.mux.com/x.m3u8?token=t', 'https://stream.mux.com/x.m3u8'],
+      ['src', 'iframe', 'https://embed.example/?email=x#f', 'https://embed.example/'],
+      [
+        'src',
+        'script',
+        'https://www.googletagmanager.com/gtag/js?id=G-X',
+        'https://www.googletagmanager.com/gtag/js',
+      ],
+      [
+        'poster',
+        'video',
+        'https://image.mux.com/x/thumbnail.webp?time=3',
+        'https://image.mux.com/x/thumbnail.webp',
+      ],
+      ['action', 'form', '/submit?token=1', '/submit'],
+      ['formaction', 'button', '/go?x=1', '/go'],
+      ['data', 'object', 'https://n.test/movie.swf?user=1', 'https://n.test/movie.swf'],
+      ['cite', 'blockquote', 'https://source.example/a?ref=x#p', 'https://source.example/a'],
+      ['background', 'td', 'https://n.test/bg.png?sig=1', 'https://n.test/bg.png'],
+      ['rr_src', 'iframe', 'https://embed.example/?email=x', 'https://embed.example/'],
+      [
+        'content',
+        'meta',
+        'https://nathanpayne.com/og/home.png?v=29812345',
+        'https://nathanpayne.com/og/home.png',
+      ],
+    ])('scrubs %s on <%s>', (attr, tag, value, expected) => {
+      const { mask, el } = setup();
+      expect(mask(attr, value, el(tag))).toBe(expected);
+    });
+
+    it('scrubs every srcset candidate and keeps the descriptors', () => {
+      const { mask, el } = setup();
+      expect(
+        mask(
+          'srcset',
+          'https://img.logo.dev/a.com?token=pk_test 1x, https://img.logo.dev/a.com?token=pk_test&size=128 2x',
+          el('img'),
+        ),
+      ).toBe('https://img.logo.dev/a.com 1x, https://img.logo.dev/a.com 2x');
+      expect(
+        mask('srcset', '/a.png?x=1 480w,/b.png?y=2 (max-width: 600px) 960w', el('source')),
+      ).toBe('/a.png 480w, /b.png (max-width: 600px) 960w');
+      expect(mask('imagesrcset', '/hero.webp?v=2 1x,, /hero@2x.webp?v=2', el('link'))).toBe(
+        '/hero.webp 1x, /hero@2x.webp',
+      );
+      // A data: URL keeps its commas and passes through.
+      const dataUrl = 'data:image/png;base64,iVBORw0KGgo= 1x, /x.png?q=1 2x';
+      expect(mask('srcset', dataUrl, el('img'))).toBe(
+        'data:image/png;base64,iVBORw0KGgo= 1x, /x.png 2x',
+      );
+    });
+
+    it('scrubs each ping URL', () => {
+      const { mask, el } = setup();
+      expect(mask('ping', 'https://a.test/p?u=1 /track?id=2', el('a'))).toBe(
+        'https://a.test/p /track',
+      );
+    });
+
+    it('treats SVG references by kind: #id is kept, a URL is scrubbed', () => {
+      const { mask, svg, el } = setup();
+      expect(mask('href', '#icon-mail', svg('use'))).toBe('#icon-mail');
+      expect(mask('xlink:href', '#icon-mail', svg('use'))).toBe('#icon-mail');
+      expect(mask('href', 'https://n.test/sprite.svg?v=1#icon', svg('use'))).toBe(
+        'https://n.test/sprite.svg',
+      );
+      expect(mask('xlink:href', '/img.png?sig=1', svg('image'))).toBe('/img.png');
+      // On an HTML element a fragment-only href is still a URL: the fragment goes.
+      expect(mask('href', '#NP-CANARY-FRAGMENT', el('a'))).toBe('/resume/');
+    });
+
+    it('leaves data:, blob:, mailto:, and non-URL values alone', () => {
+      const { mask, el } = setup();
+      for (const [attr, tag, value] of [
+        ['src', 'img', 'data:image/gif;base64,R0lGOD?lhAQ'],
+        ['src', 'video', 'blob:https://nathanpayne.test/0b1c'],
+        ['href', 'a', 'mailto:hello@example.test?subject=Hi'],
+        ['rr_dataURL', 'canvas', 'data:image/webp;base64,UklGRg=='],
+        ['alt', 'img', 'A photo, not a URL'],
+        ['aria-label', 'a', 'Go to https:// later'],
+      ]) {
+        expect(mask(attr, value, el(tag)), `${attr} on ${tag}`).toBe(value);
+      }
+    });
+
+    it('passes style and inlined CSS through whole (documented residual)', () => {
+      const { mask, el } = setup();
+      const css = "body{background:url('https://n.test/bg.png?sig=1')}";
+      expect(mask('_cssText', css, el('link'))).toBe(css);
+      expect(mask('style', "background-image:url('/x.png?y=1')", el('div'))).toBe(
+        "background-image:url('/x.png?y=1')",
+      );
+    });
+
+    it('covers every URL attribute rrweb itself resolves', () => {
+      // rrweb-snapshot transformAttribute (v1.438.3) makes these absolute: src,
+      // href, xlink:href, background (table cells), srcset, object data.
+      const { mask, el } = setup();
+      for (const [attr, tag] of [
+        ['src', 'embed'],
+        ['href', 'base'],
+        ['xlink:href', 'a'],
+        ['background', 'table'],
+        ['data', 'object'],
+      ]) {
+        expect(mask(attr, 'https://n.test/x?leak=1', el(tag)), `${attr} on ${tag}`).toBe(
+          'https://n.test/x',
+        );
+      }
+      expect(mask('srcset', 'https://n.test/x?leak=1 1x', el('img'))).toBe('https://n.test/x 1x');
+    });
   });
 
   it('keeps only data attributes the site stylesheet actually selects on', () => {
