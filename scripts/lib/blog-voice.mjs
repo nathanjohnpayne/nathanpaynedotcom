@@ -592,7 +592,7 @@ function runMechanical(article, properNouns) {
 function editorialWarnings(article) {
   const seenSentences = new Map();
   const seenOpenings = new Map();
-  const seenDurations = new Map();
+  const seenTimeUnits = new Map();
   const rules = [
     [
       'review.vague-signpost',
@@ -615,11 +615,17 @@ function editorialWarnings(article) {
       'Judge this contrast in context. Authentic lines such as the trust-burden contrast are allowed; this warning never rejects prose.',
     ],
   ];
-  for (const item of article.surfaces.filter((s) => s.kind === 'paragraph')) {
+  // Reuse existing plain-text metadata surfaces, excluding attribution labels,
+  // author names, tags, configuration and hidden diagram metadata.
+  const proseMetadata = /^(?:title|shortTitle|resumeTitle|seoTitle|description|seoDescription|ogDescription|keyTakeaways\.\d+|pullquotes\.\d+\.text|sidebar\.\d+\.(?:content|caption)|body\.diagram\.\d+\.caption)$/u;
+  for (const item of article.surfaces.filter((s) => s.kind === 'paragraph' || (['metadata', 'diagram-metadata'].includes(s.kind) && proseMetadata.test(s.field)))) {
     const text = normalize(item.projected);
     for (const [rule, pattern, reason] of rules)
       if (pattern.test(text))
         article.findings.push(finding(rule, 'warning', item, reason, article.file));
+    // Titles have intentional variants and pullquotes deliberately repeat the
+    // body, so only phrase advisories apply to those metadata surfaces.
+    if (/^(?:title|shortTitle|resumeTitle|seoTitle|pullquotes\.\d+\.text)$/u.test(item.field)) continue;
     const opening = text.split(/\s+/u).slice(0, 4).join(' ').toLowerCase();
     if (
       /^(?:at first|the first|what helped|what changed|this was|the problem|i wanted)\b/iu.test(
@@ -653,20 +659,20 @@ function editorialWarnings(article) {
       else seenSentences.set(sentence, item.location.start.line);
     }
     for (const match of text.matchAll(
-      /\b(?:\d+|one|two|three|four|five|six|seven|eight|nine|ten|twelve|twenty)[ -](?:seconds?|minutes?|hours?|days?|weeks?|months?|years?)\b/giu,
+      /\b(?:seconds?|minutes?|hours?|days?|weeks?|months?|years?)\b/giu,
     )) {
-      const duration = match[0].toLowerCase();
-      if (seenDurations.has(duration))
+      const timeUnit = match[0].toLowerCase();
+      if (seenTimeUnits.has(timeUnit))
         article.findings.push(
           finding(
             'review.repeated-duration',
             'warning',
             item,
-            `Duration '${duration}' also appears at line ${seenDurations.get(duration)}. Distinct events may legitimately have the same duration.`,
+            `Time-unit wording '${timeUnit}' also appears at line ${seenTimeUnits.get(timeUnit)}. Compare the complete quantities and events, and whether repetition is intentional. Repeated units do not establish equal durations or padding.`,
             article.file,
           ),
         );
-      else seenDurations.set(duration, item.location.start.line);
+      else seenTimeUnits.set(timeUnit, item.location.start.line);
     }
   }
 }

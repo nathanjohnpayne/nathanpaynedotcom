@@ -1000,7 +1000,7 @@ describe('source-pinned examples, advisory warnings and complete meaning review'
     expect(rules(report)).not.toContain('review.repeated-explanation');
   });
 
-  it('surfaces repeated openings, explanations and durations alongside judgment prompts', async () => {
+  it('surfaces repeated openings, explanations and time-unit wording alongside judgment prompts', async () => {
     const report = await check(
       'I wanted the smaller change for this project. It took 12 hours. This highlights the landscape.\n\nI wanted the smaller change for this project. It took 12 hours. To be fair, perhaps the key takeaway matters.\n',
     );
@@ -1015,6 +1015,204 @@ describe('source-pinned examples, advisory warnings and complete meaning review'
         'review.defensive-hedging',
       ]),
     );
+  });
+
+  it('leaves the approved compound-duration quantities to manual review', async () => {
+    const fixture = JSON.parse(
+      readFileSync('tests/fixtures/blog-voice/product-duration.json', 'utf8'),
+    );
+    const source = `---\nkeyTakeaways:\n  - ${JSON.stringify(fixture.takeaway)}\n---\n\n${fixture.body}\n`;
+    const report = await check(source);
+    const warnings = report.findings.filter((f) => f.rule === 'review.repeated-duration');
+    expect(warnings).toHaveLength(2);
+    for (const warning of warnings) {
+      expect(warning).toMatchObject({ surface: 'keyTakeaways.0', severity: 'warning' });
+      expect(warning.reason).toContain('Compare the complete quantities and events');
+      expect(warning.reason).toContain('do not establish equal durations or padding');
+      expect(warning.reason).not.toContain('one minutes');
+      expect(source.slice(warning.location.start.offset, warning.location.end.offset)).toBe(
+        warning.excerpt,
+      );
+      expect(report.packet.warnings).toContainEqual(warning);
+    }
+    expect(report.exitCode).toBe(0);
+    expect(report.packet.after.source).toBe(source);
+  });
+
+  it('does not infer equal durations from repeated units with different quantities', async () => {
+    const source = 'It took 2 hours.\n\nThe other event took 9 hours.\n';
+    const report = await check(source);
+    const warnings = report.findings.filter((f) => f.rule === 'review.repeated-duration');
+    expect(warnings).toHaveLength(1);
+    expect(warnings[0].reason).toContain("Time-unit wording 'hours'");
+    expect(warnings[0].reason).toContain('whether repetition is intentional');
+    expect(warnings[0].reason).toContain('do not establish equal durations or padding');
+    expect(warnings[0].reason).not.toContain('2 hours');
+    expect(warnings[0].reason).not.toContain('9 hours');
+    expect(warnings[0].severity).toBe('warning');
+    expect(report.exitCode).toBe(0);
+    expect(report.packet.after.source).toBe(source);
+  });
+
+  it('runs existing phrase advisories on prose metadata with original YAML ranges', async () => {
+    const source = `---
+description: "Perhaps it is worth noting the result."
+keyTakeaways:
+  - At the end of the day, I chose the smaller change.
+sidebar:
+  - type: text
+    content: |
+      This highlights the decision.
+    caption: "To be fair, the result was uncertain."
+seoDescription: "Arguably this demonstrates the result."
+ogDescription: "In this post I compare the changes."
+---
+
+I chose the smaller change.
+`;
+    const report = await check(source);
+    for (const [surface, rule, line] of [
+      ['description', 'review.defensive-hedging', 2],
+      ['description', 'review.vague-signpost', 2],
+      ['keyTakeaways.0', 'review.vague-signpost', 4],
+      ['sidebar.0.content', 'review.abstract-narration', 7],
+      ['sidebar.0.caption', 'review.defensive-hedging', 9],
+      ['seoDescription', 'review.defensive-hedging', 10],
+      ['seoDescription', 'review.abstract-narration', 10],
+      ['ogDescription', 'review.vague-signpost', 11],
+    ]) {
+      const warning = report.findings.find((f) => f.surface === surface && f.rule === rule);
+      expect(warning).toMatchObject({ severity: 'warning' });
+      expect(warning.location.start.line).toBe(line);
+      expect(source.slice(warning.location.start.offset, warning.location.end.offset)).toBe(
+        warning.excerpt,
+      );
+      expect(report.packet.warnings).toContainEqual(warning);
+    }
+    expect(report.exitCode).toBe(0);
+    expect(report.packet.after.source).toBe(source);
+    expect(report.packet.manualMeaningReviewRequired).toBe(true);
+  });
+
+  it('checks repetition in prose metadata while excluding intentional pullquote duplication', async () => {
+    const sentence = 'I wanted the smaller change for this project.';
+    const source = `---\ndescription: "${sentence} It took 12 hours."\nkeyTakeaways:\n  - "${sentence} It took 12 hours."\npullquotes:\n  - text: "${sentence}"\n---\n\n${sentence} It took 12 hours.\n`;
+    const report = await check(source);
+    for (const rule of [
+      'review.repeated-opening',
+      'review.repeated-explanation',
+      'review.repeated-duration',
+    ]) {
+      expect(report.findings).toContainEqual(
+        expect.objectContaining({ rule, surface: 'description', severity: 'warning' }),
+      );
+      expect(report.findings).toContainEqual(
+        expect.objectContaining({ rule, surface: 'keyTakeaways.0', severity: 'warning' }),
+      );
+      expect(report.findings).not.toContainEqual(
+        expect.objectContaining({ rule, surface: 'pullquotes.0.text' }),
+      );
+    }
+    expect(report.exitCode).toBe(0);
+  });
+
+  it('checks visible Mermaid captions while leaving hidden diagram metadata out of phrase advisories', async () => {
+    const source =
+      '```mermaid title="Perhaps this highlights the journey" description="Perhaps this highlights the journey" caption="Perhaps this highlights the journey."\ngraph TD\n  A --> B\n```\n';
+    const report = await check(source);
+    for (const rule of ['review.defensive-hedging', 'review.abstract-narration'])
+      expect(report.findings).toContainEqual(
+        expect.objectContaining({ surface: 'body.diagram.0.caption', rule, severity: 'warning' }),
+      );
+    expect(
+      report.findings
+        .filter((f) => f.rule.startsWith('review.'))
+        .every((f) => f.surface === 'body.diagram.0.caption'),
+    ).toBe(true);
+    expect(report.exitCode).toBe(0);
+    expect(report.packet.after.source).toBe(source);
+  });
+
+  it('preserves attributed quotations in prose metadata when checking advisories', async () => {
+    const source = `---
+description: 'Claude wrote: "Perhaps this highlights the journey."'
+sidebar:
+  - type: text
+    content: 'Claude wrote: "At the end of the day, perhaps it changed."'
+---
+
+I chose the smaller change.
+`;
+    const report = await check(source);
+    expect(
+      report.findings.filter(
+        (f) => f.rule.startsWith('review.') && f.rule !== 'review.quotation-attribution',
+      ),
+    ).toEqual([]);
+    expect(
+      report.findings
+        .filter((f) => f.rule === 'review.quotation-attribution')
+        .map((f) => f.surface),
+    ).toEqual(['description', 'sidebar.0.content']);
+    expect(report.exitCode).toBe(0);
+    expect(report.packet.after.source).toBe(source);
+  });
+
+  it('checks title prose without treating intentional title variants as repetition', async () => {
+    const source = `---
+title: "Perhaps the journey took 12 hours."
+seoTitle: "Perhaps the journey took 12 hours."
+shortTitle: "Perhaps the journey took 12 hours."
+resumeTitle: "Perhaps the journey took 12 hours."
+---
+
+I chose the smaller change.
+`;
+    const report = await check(source);
+    for (const surface of ['title', 'seoTitle', 'shortTitle', 'resumeTitle'])
+      for (const rule of ['review.defensive-hedging', 'review.abstract-narration'])
+        expect(report.findings).toContainEqual(
+          expect.objectContaining({ surface, rule, severity: 'warning' }),
+        );
+    expect(report.findings.filter((f) => f.rule.startsWith('review.repeated-'))).toEqual([]);
+    expect(report.exitCode).toBe(0);
+    expect(report.packet.after.source).toBe(source);
+  });
+
+  it('excludes metadata labels and configuration while allowing authentic pullquote contrasts', async () => {
+    const quote = excerpts.authenticContrast.approved;
+    const source = `---
+author: "Perhaps the journey"
+tags: ["Perhaps the journey"]
+category: "Perhaps the journey"
+image: "Perhaps the journey"
+pullquotes:
+  - text: "${quote}"
+    label: "Perhaps the journey"
+sidebar:
+  - type: mermaid
+    title: "Perhaps the journey"
+    description: "Perhaps the journey"
+    content: "graph TD; A[Perhaps the journey]"
+  - type: image
+    content: "Perhaps the journey"
+---
+
+${quote}
+`;
+    const report = await check(source);
+    const warnings = report.findings.filter((f) => f.rule.startsWith('review.'));
+    expect(warnings).toHaveLength(2);
+    expect(warnings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ rule: 'review.formulaic-contrast', surface: 'paragraph' }),
+        expect.objectContaining({
+          rule: 'review.formulaic-contrast',
+          surface: 'pullquotes.0.text',
+        }),
+      ]),
+    );
+    expect(report.exitCode).toBe(0);
   });
 
   it('keeps complete protected evidence, metadata, changed passages and approval context together in JSON and readable packets', async () => {
