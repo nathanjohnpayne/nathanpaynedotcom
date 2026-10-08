@@ -1417,18 +1417,17 @@ const homepageJsonLd = {
       // taller than wide. Once per load, after fonts settle so the grid has
       // its final size—but never waiting past LAYOUT_FONTS_TIMEOUT_MS: a font
       // request that hangs must not drop the load from the alert denominator
-      // (#1065). The once-only flag keeps the timeout and fonts.ready (or a
-      // future re-run of this setup) from double-counting a load.
+      // (#1065). The once-only mark lives on the grid, not in this closure, so
+      // a re-run of this setup in the same document (on a bfcache restore, say)
+      // cannot double-count a load.
       // Alerting on it is set up in PostHog (specs/analytics.md).
       const LAYOUT_FONTS_TIMEOUT_MS = 3000;
-      let layoutCaptured = false;
       function captureLayout() {
-        if (layoutCaptured) return;
         const grid = document.getElementById('mondrian');
-        if (!grid) return;
+        if (!grid || grid.dataset.layoutCaptured) return;
         const rect = grid.getBoundingClientRect();
         if (!rect.width) return;
-        layoutCaptured = true;
+        grid.dataset.layoutCaptured = 'true';
         window.posthog?.capture('homepage_layout_rendered', {
           layout: rect.height / rect.width < 1.05 ? 'composition' : 'stack',
           viewport_width: window.innerWidth,

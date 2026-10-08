@@ -524,14 +524,11 @@ describe('PostHog', () => {
       expect(layouts()).toHaveLength(1);
     });
 
-    it('captures once when fonts.ready resolves after the timeout already fired', async () => {
-      let resolveFonts;
-      stubFonts(new Promise((resolve) => (resolveFonts = resolve)));
+    it('captures once when the setup runs twice in the same document', async () => {
+      stubFonts(Promise.resolve());
       const layouts = startWithGrid();
-      await vi.advanceTimersByTimeAsync(3100);
-      expect(layouts()).toHaveLength(1);
-      resolveFonts();
-      await vi.advanceTimersByTimeAsync(0);
+      new Function(posthogHomepageScript)();
+      await vi.advanceTimersByTimeAsync(5000);
       expect(layouts()).toHaveLength(1);
     });
   });
