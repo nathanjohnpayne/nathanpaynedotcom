@@ -20,6 +20,8 @@ afterwards.
 
 **Merging a PR deploys nothing.** There is no deploy workflow in `.github/workflows/`—deploys are manual. After merging a change that should be visible on the site, run a deploy alias yourself.
 
+`.github/workflows/build-artifact.yml` builds and attests a credential-free `dist/` archive on every push to `main` (#1238). No deploy consumes it yet; the aliases above still build locally, and moving them to the artifact is tracked in #1240.
+
 **Verify against the live URL, not the deploy log.** Fetch the changed page or
 asset and confirm the new bytes are being served (`curl -s <url> | md5`). A
 successful deploy plus a warm CDN edge looks exactly like a successful deploy
