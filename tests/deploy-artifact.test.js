@@ -309,6 +309,31 @@ function plantHostileFirebase(h) {
   const dir = join(h.repo, 'node_modules/.bin');
   mkdirSync(dir, { recursive: true });
   writeExec(join(dir, 'firebase'), `#!/bin/bash\ntouch "${h.log}/hostile-firebase-ran"\n`);
+  // Utilities the script itself calls: any of them running from the caller's PATH
+  // would see the full parent environment (Codex P1, PR #1244).
+  for (const tool of HOSTILE_UTILITIES) {
+    writeExec(join(dir, tool), `#!/bin/bash\ntouch "${h.log}/hostile-${tool}-ran"\n`);
+  }
+}
+
+const HOSTILE_UTILITIES = [
+  'dirname',
+  'mktemp',
+  'mkdir',
+  'find',
+  'sed',
+  'wc',
+  'cat',
+  'head',
+  'rm',
+  'awk',
+  'tr',
+];
+
+function expectNoHostileUtilityRan(h) {
+  for (const tool of HOSTILE_UTILITIES) {
+    expect(existsSync(join(h.log, `hostile-${tool}-ran`)), `hostile ${tool} ran`).toBe(false);
+  }
 }
 
 describe('deploy-artifact.sh happy path (#1239)', () => {
@@ -388,6 +413,7 @@ describe('deploy-artifact.sh happy path (#1239)', () => {
 
     expect(logs(h, 'op')).toEqual([]);
     expect(existsSync(join(h.log, 'hostile-firebase-ran'))).toBe(false);
+    expectNoHostileUtilityRan(h);
     expectTempRemoved(h);
   });
 

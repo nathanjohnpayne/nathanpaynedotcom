@@ -87,6 +87,15 @@
 # Exit codes: 0 deployed (or dry run complete), 1 refused or failed, 2 usage.
 
 set -euo pipefail
+
+# The script's own utility calls (dirname, mktemp, sed, rm, ...) run before
+# and between the `env -i` children, with the full parent environment. Pin
+# PATH to the system directories first, so a caller PATH that starts with a
+# repository-controlled directory such as node_modules/.bin cannot supply one
+# of them (Codex P1 on PR #1244). Tools the children need are resolved
+# separately from SAFE_PATH below.
+PATH=/usr/bin:/bin
+export PATH
 umask 077
 
 REPO_SLUG="nathanjohnpayne/nathanpaynedotcom"
