@@ -8,6 +8,10 @@
 import BaseLayout from '../../../layouts/BaseLayout.astro';
 import { isPrivacyTestBuild } from '../../../lib/privacy-flag';
 
+// Static even if the site ever moves to server output, so getStaticPaths
+// stays the only way this route can exist.
+export const prerender = true;
+
 export function getStaticPaths() {
   return isPrivacyTestBuild() ? [{ params: { index: undefined } }] : [];
 }

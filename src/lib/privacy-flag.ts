@@ -15,14 +15,28 @@ export const PRIVACY_CONTROLS_COMMITTED = false;
  * The Astro mode of the test-only override (`astro build --mode privacy-test`,
  * i.e. `npm run build:privacy-test`). Production builds run in mode
  * `production`, so they ignore the override by construction; nothing else —
- * no env var, file, or query string — can turn the flag on.
+ * no env var, file, query string, or caller-supplied value — can turn the
+ * flag on.
  */
 export const PRIVACY_TEST_MODE = 'privacy-test';
 
-export function isPrivacyTestBuild(mode: string = import.meta.env.MODE): boolean {
-  return mode === PRIVACY_TEST_MODE;
+/**
+ * Pure decision table for a given mode. Exported for unit tests only: no file
+ * under src/ may call it (tests/analytics-privacy.test.js fails if one does),
+ * because a caller passing its own mode could bypass the production-off
+ * invariant. Components use the parameterless gates below.
+ */
+export function flagStateForMode(mode: string): { enabled: boolean; testBuild: boolean } {
+  const testBuild = mode === PRIVACY_TEST_MODE;
+  return { enabled: PRIVACY_CONTROLS_COMMITTED || testBuild, testBuild };
 }
 
-export function privacyControlsEnabled(mode: string = import.meta.env.MODE): boolean {
-  return PRIVACY_CONTROLS_COMMITTED || isPrivacyTestBuild(mode);
+/** True when this build renders the privacy controls. */
+export function privacyControlsEnabled(): boolean {
+  return flagStateForMode(import.meta.env.MODE).enabled;
+}
+
+/** True only in the `privacy-test` build; gates the test fixture page. */
+export function isPrivacyTestBuild(): boolean {
+  return flagStateForMode(import.meta.env.MODE).testBuild;
 }

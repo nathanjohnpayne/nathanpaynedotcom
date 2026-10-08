@@ -15,7 +15,7 @@ Everything this contract adds ships behind one build-time flag, defined in `src/
 
 1. `PRIVACY_CONTROLS_COMMITTED` is the committed value. It is `false` until #1233, which is the only change allowed to set it to `true`.
 2. **Test-only override.** A build run in the Astro mode `privacy-test` (`astro build --mode privacy-test`) enables the flag regardless of the committed value. `npm run build:privacy-test` produces that build in `dist-privacy-test/` with fixed fake tokens. The override reads nothing but the Astro mode: no environment variable, file, or query string can enable it. A production build runs in mode `production`, so it ignores the override by construction, and `npm run deploy` always runs a production build.
-3. `privacyControlsEnabled()` is the only switch any component may consult. `isPrivacyTestBuild()` additionally gates the test fixture page, which must never be built in mode `production`, even after #1233.
+3. `privacyControlsEnabled()` is the only switch any component may consult. `isPrivacyTestBuild()` additionally gates the test fixture page, which must never be built in mode `production`, even after #1233. Both take no arguments and read the actual Astro mode; the mode-taking `flagStateForMode()` exists for unit tests, and no file under `src/` other than the flag module may call it.
 4. **Flag off means no change.** With the flag off, a production build differs from `main` at this contract's base commit in none of these ways:
    - no gate script, notice, controls, footer link, or `/privacy/` route
    - no scrubbing, masking, or replay-exclusion change
@@ -105,7 +105,7 @@ These apply whenever analytics load with the flag on.
 | Footer link | `<a href="/privacy/" data-np-privacy-ui="footer-link">` on every page (shared `Footer.astro`, plus the homepage and 404, which don't use it) | #1229 |
 | Controls | `<section id="np-privacy-controls" data-np-privacy-ui="controls">` on `/privacy/`; live status `[data-np-privacy-ui="status"]` (`aria-live="polite"`); buttons `[data-np-privacy-action="deny"]` and `[data-np-privacy-action="grant"]` | #1229 |
 | GPC state | `data-np-privacy-gpc` on the controls while GPC is active; the grant button is disabled with a plain explanation in `[data-np-privacy-ui="gpc-explanation"]` that analytics are off because the browser sends GPC | #1229 |
-| Page | `/privacy/`, from `src/pages/privacy/[...index].astro` whose `getStaticPaths` returns the route only when `privacyControlsEnabled()` | #1229 |
+| Page | `/privacy/`, from `src/pages/privacy/[...index].astro` with `export const prerender = true` and a `getStaticPaths` that returns the route only when `privacyControlsEnabled()`. Its description and share-card copy come from a `privacy` entry in `src/content/site-copy/` through `getSiteCopy()`, like every other public page | #1229 |
 
 The notice is non-modal, never covers content or blocks interaction, and appears only while `notice.shouldShow()` is true. Opting out takes no more steps than re-enabling. The UI calls only `window.npPrivacy`; it never touches analytics scripts.
 
@@ -133,10 +133,10 @@ No two parallel tracks edit the same file.
 
 | Sub-Issue | Owns |
 |---|---|
-| #1226 contract | this file, `src/lib/privacy-flag.ts`, the mount points in `BaseLayout.astro`, the empty `PrivacyHead.astro` and `PrivacyBody.astro`, the test fixture page, `tests/analytics-privacy.test.js`, `scripts/lib/analytics-region.mjs`, `scripts/build-flag-off.mjs`, `tests/fixtures/privacy/`, the `test` script, `.gitignore`, the `build:privacy-test` script |
+| #1226 contract | this file, `src/lib/privacy-flag.ts`, the mount points in `BaseLayout.astro`, the empty `PrivacyHead.astro` and `PrivacyBody.astro`, the test fixture page, the test fixture and flag rows in `docs/agents/repository-overview.md`, `tests/analytics-privacy.test.js`, `scripts/lib/analytics-region.mjs`, `scripts/build-flag-off.mjs`, `tests/fixtures/privacy/`, the `test` script, `.gitignore`, the `build:privacy-test` script |
 | #1227 inventory | `docs/privacy/` |
 | #1228 runtime | `src/components/posthog.astro`, `src/layouts/BaseLayout.astro` (head analytics blocks), `src/components/privacy/PrivacyHead.astro`, `src/lib/privacy/`, `specs/analytics.md`, `tests/privacy-runtime*` |
-| #1229 notice and page | `src/components/privacy/PrivacyBody.astro`, `src/components/privacy/ui/`, `src/pages/privacy/`, the footer link in `Footer.astro`, `src/pages/index.astro`, and `src/pages/404.astro`, `screenshots/privacy/`, `tests/privacy-ui*` |
+| #1229 notice and page | `src/components/privacy/PrivacyBody.astro`, `src/components/privacy/ui/`, `src/pages/privacy/`, `src/content/site-copy/privacy.md` and its schema entry, the `/privacy/` row in `docs/agents/repository-overview.md`, the footer link in `Footer.astro`, `src/pages/index.astro`, and `src/pages/404.astro`, `screenshots/privacy/`, `tests/privacy-ui*` |
 | #1230 acceptance suite | `tests/privacy/`, its Playwright config, its fixtures manifest, and its CI wiring |
 | #1233 enable | `PRIVACY_CONTROLS_COMMITTED`, and the flag-off test's replacement |
 

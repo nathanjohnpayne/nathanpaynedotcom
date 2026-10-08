@@ -20,9 +20,11 @@ import { join, resolve } from 'node:path';
 import {
   PRIVACY_CONTROLS_COMMITTED,
   PRIVACY_TEST_MODE,
+  flagStateForMode,
   isPrivacyTestBuild,
   privacyControlsEnabled,
 } from '../src/lib/privacy-flag.ts';
+import { execFileSync } from 'node:child_process';
 import {
   FLAG_OFF_ENV,
   RUNTIME_MARKERS,
@@ -49,11 +51,38 @@ describe('privacy flag', () => {
 
   it('is enabled by the privacy-test mode and by nothing else', () => {
     expect(PRIVACY_TEST_MODE).toBe('privacy-test');
-    expect(privacyControlsEnabled('privacy-test')).toBe(true);
+    expect(flagStateForMode('privacy-test')).toEqual({ enabled: true, testBuild: true });
     for (const mode of ['production', 'development', 'test', '', 'privacy-test ', 'PRIVACY-TEST']) {
-      expect(privacyControlsEnabled(mode)).toBe(false);
-      expect(isPrivacyTestBuild(mode)).toBe(false);
+      expect(flagStateForMode(mode)).toEqual({ enabled: false, testBuild: false });
     }
+  });
+
+  it('exposes parameterless gates bound to the actual Astro mode', () => {
+    // Vitest runs in mode `test`, so both gates read false here.
+    expect(privacyControlsEnabled.length).toBe(0);
+    expect(isPrivacyTestBuild.length).toBe(0);
+    expect(privacyControlsEnabled()).toBe(false);
+    expect(isPrivacyTestBuild()).toBe(false);
+  });
+
+  it('keeps the mode-taking decision table out of every component', () => {
+    // git grep exits 1 on no match; that is the expected, passing outcome.
+    const gitGrep = (...args) => {
+      try {
+        return execFileSync('git', ['grep', '--untracked', ...args, '--', 'src'], { cwd: ROOT })
+          .toString()
+          .trim()
+          .split('\n');
+      } catch (err) {
+        if (err.status === 1) return [];
+        throw err;
+      }
+    };
+    expect(gitGrep('-l', 'flagStateForMode')).toEqual(['src/lib/privacy-flag.ts']);
+    const withArgs = gitGrep('-nE', '(privacyControlsEnabled|isPrivacyTestBuild)\\([^)]').filter(
+      (line) => !line.startsWith('src/lib/privacy-flag.ts:'),
+    );
+    expect(withArgs).toEqual([]);
   });
 
   it('reads only the Astro mode, so no env var, file, or query string can override it', () => {

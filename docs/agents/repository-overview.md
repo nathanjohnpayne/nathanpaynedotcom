@@ -16,6 +16,8 @@ Astro pages, layouts, and content collections generate the full static site into
 | `src/pages/resume.astro` | Resume page rendered from resume-specific content collections and section components. |
 | `src/pages/rss.xml.ts` | RSS feed endpoint (via `@astrojs/rss`). |
 | `src/pages/404.astro` | Custom error page. |
+| `src/pages/test-fixtures/privacy/[...index].astro` | Test-only `/test-fixtures/privacy/` page for the #1079 privacy acceptance suite. `getStaticPaths` returns the route only in the `privacy-test` Astro mode (`npm run build:privacy-test`), so a production build never contains it. See specs/analytics-privacy.md § Test Fixture. |
+| `src/lib/privacy-flag.ts` | Build-time flag for the #1079 privacy controls, committed off. Components call the parameterless `privacyControlsEnabled()` / `isPrivacyTestBuild()`; see specs/analytics-privacy.md § Feature Flag. |
 | `src/lib/blog-order.ts` | Shared blog category vocabulary, editorial comparator (featured, then category, then date), and the `homepageRank` selector for the homepage Writing list. |
 | `src/lib/lifecycle-marker.ts` | Shared project-status → `.state-marker` modifier vocabulary. Every surface that shows lifecycle (homepage Builds row, `/projects/` card kicker, detail-page STATUS cell, and the résumé's Projects kicker) imports it; a second copy of the mapping fails `tests/lifecycle-marker.test.js`, which also pins that list of consumers so this row cannot silently fall behind it. |
 | `src/layouts/BaseLayout.astro` | Base wrapper—SEO meta, Open Graph tags, JSON-LD, GA4 snippet, font preconnects. |
