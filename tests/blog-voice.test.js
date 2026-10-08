@@ -683,6 +683,59 @@ A small change made publishing practical.
   });
 
   it.each([
+    'We![logo](/logo.svg)organised it.',
+    'We![logo][mark]organised it.\n\n[mark]: /logo.svg',
+    '*We![logo](/logo.svg)organised it.*',
+    '[We![logo](/logo.svg)organised it.](/details)',
+  ])('preserves authored word boundaries around an image (%s)', async (source) => {
+    const report = await check(source);
+    expect(errors(report).map((f) => f.rule)).toEqual(
+      expect.arrayContaining(['voice.narrator-plural', 'voice.american-spelling']),
+    );
+    expect(report.packet.after.source).toBe(source);
+  });
+
+  it.each([
+    'The ![diagram](/diagram.svg)chosen result.',
+    'The ![diagram][mark]chosen result.\n\n[mark]: /diagram.svg',
+    '**The ![diagram](/diagram.svg)chosen result.**',
+    '[The ![diagram](/diagram.svg)chosen result.](/details)',
+  ])('does not fabricate a verbatim pullquote across an image (%s)', async (body) => {
+    const source = `---\npullquotes:\n  - text: "The chosen result."\n---\n\n${body}\n`;
+    const report = await check(source);
+    expect(report.exitCode).toBe(1);
+    expect(report.findings).toContainEqual(
+      expect.objectContaining({ rule: 'voice.pullquote-verbatim', severity: 'error' }),
+    );
+  });
+
+  it.each([
+    '![A diagram](/diagram.svg)The **chosen** result.',
+    'The [chosen](/details) result.![A diagram](/diagram.svg)',
+    '![A diagram][mark]The chosen result.\n\n[mark]: /diagram.svg',
+    'The chosen result.![A diagram](/one.svg)![A diagram](/two.svg)',
+  ])('matches complete prose on either side of an image (%s)', async (body) => {
+    const source = `---\npullquotes:\n  - text: "The chosen result."\n---\n\n${body}\n`;
+    expect(errors(await check(source))).toEqual([]);
+  });
+
+  it('checks image alt text separately as a source-located caption', async () => {
+    const source = 'I chose it.![Our colour.](/diagram.svg)I kept it.\n';
+    const article = await parseArticle(source, file);
+    const caption = article.surfaces.find((surface) => surface.kind === 'caption');
+    expect(caption.text).toBe('Our colour.');
+    expect(source.slice(caption.location.start.offset, caption.location.end.offset)).toBe(
+      '![Our colour.](/diagram.svg)',
+    );
+    const report = await check(source);
+    expect(
+      errors(report)
+        .filter((f) => f.surface === 'caption')
+        .map((f) => f.rule),
+    ).toEqual(expect.arrayContaining(['voice.narrator-plural', 'voice.american-spelling']));
+  });
+
+  it.each([
     '`The chosen result.`',
     '`The chosen result`.',
     '> `The chosen result.`',
