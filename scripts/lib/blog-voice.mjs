@@ -192,12 +192,11 @@ function quotationPass(item, context, findings, file) {
   const styles = new Set();
   const uncertainQuotes = [];
   const quotations = [];
-  if (quotes.length)
+  for (const match of quotes) {
     findings.push(finding(
       'review.quotation-attribution', 'warning', item,
-      'Textual quotation attribution is inferred from prose cues, not proved. Preserve the quoted language and confirm the speaker, source or hypothetical use manually, including narrator pronouns and spelling.', file,
+      `Textual quotation ${quotations.length + 1} attribution is inferred from prose cues, not proved. Preserve the quoted language and confirm the speaker, source or hypothetical use manually, including narrator pronouns and spelling.`, file,
     ));
-  for (const match of quotes) {
     const attributed = evidenceCue.test(
       (context + ' ' + item.text.slice(0, match.index)).slice(-200),
     ) || followingEvidenceCue.test(item.text.slice(match.index + match[0].length, match.index + match[0].length + 200));
@@ -698,15 +697,20 @@ export async function checkVoice({
   const after = await parseArticle(source, file);
   const before =
     beforeSource === null ? null : await parseArticle(beforeSource, baseline.path ?? file);
-  // Match unchanged HTML warnings one-to-one; removed occurrences keep their
+  // Match unchanged HTML and quotation warnings one-to-one; removed occurrences keep their
   // before-side source ranges even when an identical occurrence survives.
-  const htmlOccurrences = new Map();
-  for (const item of after.findings.filter((f) => f.rule === 'review.html'))
-    htmlOccurrences.set(item.excerpt, (htmlOccurrences.get(item.excerpt) ?? 0) + 1);
+  const baselineReviewRules = new Set(['review.html', 'review.quotation-attribution']);
+  const reviewKey = (item) => JSON.stringify([item.rule, item.surface, item.excerpt, item.reason]);
+  const reviewOccurrences = new Map();
+  for (const item of after.findings.filter((f) => baselineReviewRules.has(f.rule))) {
+    const key = reviewKey(item);
+    reviewOccurrences.set(key, (reviewOccurrences.get(key) ?? 0) + 1);
+  }
   for (const item of before?.findings ?? []) {
-    if (item.rule !== 'review.html') continue;
-    const remaining = htmlOccurrences.get(item.excerpt) ?? 0;
-    if (remaining) htmlOccurrences.set(item.excerpt, remaining - 1);
+    if (!baselineReviewRules.has(item.rule)) continue;
+    const key = reviewKey(item);
+    const remaining = reviewOccurrences.get(key) ?? 0;
+    if (remaining) reviewOccurrences.set(key, remaining - 1);
     else after.findings.push({
       ...item, sourceVersion: 'before', reason: 'Before article: ' + item.reason,
     });
