@@ -206,6 +206,10 @@ function quotationPass(item, context, findings, file) {
   const uncertainQuotes = [];
   const quotations = [];
   for (const match of quotes) {
+    findings.push(finding(
+      'review.quotation-attribution', 'warning', item,
+      `Textual quotation ${quotations.length + 1} attribution is not established. Preserve the quoted language and confirm the speaker, source or hypothetical use manually, including narrator pronouns and spelling.`, file,
+    ));
     const attributed = evidenceCue.test(
       (context + ' ' + item.text.slice(0, match.index)).slice(-200),
     ) || followingEvidenceCue.test(item.text.slice(match.index + match[0].length, match.index + match[0].length + 200));
@@ -369,7 +373,7 @@ export async function parseArticle(source, file) {
       protectedMaterial.push(entry(source, node, node.type, node.type === 'html' ? '' : node.value));
     for (const child of node.children ?? []) retainLeaves(child);
   };
-  const collect = (node, context = '', following = '') => {
+  const collect = (node, context = '') => {
     if (['code', 'inlineCode', 'table', 'html', 'definition', 'blockquote'].includes(node.type))
       protectedMaterial.push({
         ...entry(source, node, node.type, inlineText(node, true)),
@@ -396,17 +400,15 @@ export async function parseArticle(source, file) {
       const item = entry(source, node, 'quotation', inlineText(node, true));
       retainLeaves(node);
       if (manualBody) return;
-      if (!evidenceCue.test(context.slice(-200)) &&
-          !followingEvidenceCue.test(following.slice(0, 200)))
-        findings.push(
-          finding(
-            'review.quotation-attribution',
-            'warning',
-            item,
-            'Block quotation or prompt has no mechanically clear attribution. Preserve it and confirm provenance manually.',
-            file,
-          ),
-        );
+      findings.push(
+        finding(
+          'review.quotation-attribution',
+          'warning',
+          item,
+          'Markdown identifies this block as a quotation or prompt, but does not establish attribution. Preserve it and confirm the speaker, source or hypothetical use manually.',
+          file,
+        ),
+      );
       return;
     }
     if (node.type === 'heading' || node.type === 'paragraph' || node.type === 'tableCell') {
@@ -436,9 +438,8 @@ export async function parseArticle(source, file) {
       if (!child || ['code', 'inlineCode', 'blockquote'].includes(child.type)) return '';
       return hasHtml(child, transparent) ? '' : inlineText(child);
     };
-    for (const [index, child] of children.entries()) {
-      const next = children[index + 1];
-      collect(child, previous, next?.type === 'paragraph' ? contextProse(next) : '');
+    for (const child of children) {
+      collect(child, previous);
       previous = contextProse(child);
     }
   };
@@ -715,15 +716,20 @@ export async function checkVoice({
   const after = await parseArticle(source, file);
   const before =
     beforeSource === null ? null : await parseArticle(beforeSource, baseline.path ?? file);
-  // Match unchanged HTML warnings one-to-one; removed occurrences keep their
+  // Match unchanged HTML and quotation warnings one-to-one; removed occurrences keep their
   // before-side source ranges even when an identical occurrence survives.
-  const htmlOccurrences = new Map();
-  for (const item of after.findings.filter((f) => f.rule === 'review.html'))
-    htmlOccurrences.set(item.excerpt, (htmlOccurrences.get(item.excerpt) ?? 0) + 1);
+  const baselineReviewRules = new Set(['review.html', 'review.quotation-attribution']);
+  const reviewKey = (item) => JSON.stringify([item.rule, item.surface, item.excerpt, item.reason]);
+  const reviewOccurrences = new Map();
+  for (const item of after.findings.filter((f) => baselineReviewRules.has(f.rule))) {
+    const key = reviewKey(item);
+    reviewOccurrences.set(key, (reviewOccurrences.get(key) ?? 0) + 1);
+  }
   for (const item of before?.findings ?? []) {
-    if (item.rule !== 'review.html') continue;
-    const remaining = htmlOccurrences.get(item.excerpt) ?? 0;
-    if (remaining) htmlOccurrences.set(item.excerpt, remaining - 1);
+    if (!baselineReviewRules.has(item.rule)) continue;
+    const key = reviewKey(item);
+    const remaining = reviewOccurrences.get(key) ?? 0;
+    if (remaining) reviewOccurrences.set(key, remaining - 1);
     else after.findings.push({
       ...item, sourceVersion: 'before', reason: 'Before article: ' + item.reason,
     });

@@ -98,7 +98,7 @@ We organised the colour.
 `;
     const report = await check(source);
     expect(errors(report)).toEqual([]);
-    expect(rules(report)).not.toContain('review.quotation-attribution');
+    expect(rules(report)).toContain('review.quotation-attribution');
   });
 
   it.each(['<code>', '<pre>', '<script>', '<style>'])(
@@ -122,7 +122,7 @@ We organised the colour.
     const close = open === '“' ? '”' : open;
     const report = await check(`Claude wrote: ${open}We\norganised colour.${close}\n`);
     expect(errors(report)).toEqual([]);
-    expect(rules(report)).not.toContain('review.quotation-attribution');
+    expect(rules(report)).toContain('review.quotation-attribution');
     const ambiguous = await check(`I called it ${open}Our\ncolour.${close}\n`);
     expect(errors(ambiguous)).toEqual([]);
     expect(rules(ambiguous)).toContain('review.quotation-attribution');
@@ -137,7 +137,7 @@ We organised the colour.
         `Claude wrote: ${open}We can${apostrophe}t\norganise colour.${close}\n`,
       );
       expect(errors(report)).toEqual([]);
-      expect(rules(report)).not.toContain('review.quotation-attribution');
+      expect(rules(report)).toContain('review.quotation-attribution');
       const ambiguous = await check(`I called it ${open}Our\ncolour.${close}\n`);
       expect(errors(ambiguous)).toEqual([]);
       expect(rules(ambiguous)).toContain('review.quotation-attribution');
@@ -149,7 +149,7 @@ We organised the colour.
     async (source) => {
       const report = await check(source);
       expect(errors(report)).toEqual([]);
-      expect(rules(report)).not.toContain('review.quotation-attribution');
+      expect(rules(report)).toContain('review.quotation-attribution');
       expect(
         rules(await check('“Our colour.” The release ended. Claude wrote a report.\n')),
       ).toContain('review.quotation-attribution');
@@ -497,10 +497,10 @@ We organised the colour.
     expect(errors(report)).toEqual([]);
   });
 
-  it('recognizes the immediately following attribution paragraph after a Markdown blockquote', async () => {
+  it('reviews attribution even with a following source paragraph after a Markdown blockquote', async () => {
     const report = await check('> Our colour.\n\nClaude wrote.\n');
     expect(errors(report)).toEqual([]);
-    expect(rules(report)).not.toContain('review.quotation-attribution');
+    expect(rules(report)).toContain('review.quotation-attribution');
     for (const following of [
       'The release ended.\n\nClaude wrote a report.',
       '```text\nClaude wrote.\n```',
@@ -560,7 +560,7 @@ We organised the colour.
     expect(warning.location.start.line).toBe(2);
     expect(warning.excerpt).toBe('\'I read "Our colour."\'');
     expect(report.packet.after.source).toBe(source);
-    expect(rules(await check(source.replace('I read', 'Claude wrote:')))).not.toContain(
+    expect(rules(await check(source.replace('I read', 'Claude wrote:')))).toContain(
       'review.quotation-attribution',
     );
   });
