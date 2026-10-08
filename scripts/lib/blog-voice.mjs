@@ -95,10 +95,17 @@ function finding(rule, severity, item, reason, file) {
 function normalize(text) {
   return text.replace(/\s+/gu, ' ').trim();
 }
-function escapeProse(text) {
+export function escapeProse(text) {
   // These are decoded AST values, not Markdown source. Serialize punctuation
   // literally so Vale cannot reinterpret a tag, code span or heading.
-  return text.replace(/[\\`*_[\]()<>#!~]/gu, '\\$&');
+  // Also neutralize table pipes and the line-leading markers that open a
+  // bullet, ordered list, setext underline or block quote. Escapes only add
+  // characters inside one projected line; findings map back by line number to
+  // the whole source surface, so no offset arithmetic depends on text length.
+  return text
+    .replace(/[\\`*_[\]()<>#!~|]/gu, '\\$&')
+    .replace(/^(\s*)([-+=])/u, '$1\\$2')
+    .replace(/^(\s*\d+)([.)])/u, '$1\\$2');
 }
 function maskSource(text) {
   // Preserve UTF-16 offsets, including both code units of astral characters.
