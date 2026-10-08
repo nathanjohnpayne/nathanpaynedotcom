@@ -192,6 +192,11 @@ function quotationPass(item, context, findings, file) {
   const styles = new Set();
   const uncertainQuotes = [];
   const quotations = [];
+  if (quotes.length)
+    findings.push(finding(
+      'review.quotation-attribution', 'warning', item,
+      'Textual quotation attribution is inferred from prose cues, not proved. Preserve the quoted language and confirm the speaker, source or hypothetical use manually, including narrator pronouns and spelling.', file,
+    ));
   for (const match of quotes) {
     const attributed = evidenceCue.test(
       (context + ' ' + item.text.slice(0, match.index)).slice(-200),
@@ -353,7 +358,7 @@ export async function parseArticle(source, file) {
       protectedMaterial.push(entry(source, node, node.type, node.type === 'html' ? '' : node.value));
     for (const child of node.children ?? []) retainLeaves(child);
   };
-  const collect = (node, context = '', following = '') => {
+  const collect = (node, context = '') => {
     if (['code', 'inlineCode', 'table', 'html', 'definition', 'blockquote'].includes(node.type))
       protectedMaterial.push({
         ...entry(source, node, node.type, inlineText(node, true)),
@@ -380,17 +385,15 @@ export async function parseArticle(source, file) {
       const item = entry(source, node, 'quotation', inlineText(node, true));
       retainLeaves(node);
       if (manualBody) return;
-      if (!evidenceCue.test(context.slice(-200)) &&
-          !followingEvidenceCue.test(following.slice(0, 200)))
-        findings.push(
-          finding(
-            'review.quotation-attribution',
-            'warning',
-            item,
-            'Block quotation or prompt has no mechanically clear attribution. Preserve it and confirm provenance manually.',
-            file,
-          ),
-        );
+      findings.push(
+        finding(
+          'review.quotation-attribution',
+          'warning',
+          item,
+          'Markdown identifies this block as a quotation or prompt, but does not establish attribution. Preserve it and confirm the speaker, source or hypothetical use manually.',
+          file,
+        ),
+      );
       return;
     }
     if (node.type === 'heading' || node.type === 'paragraph' || node.type === 'tableCell') {
@@ -420,9 +423,8 @@ export async function parseArticle(source, file) {
       if (!child || ['code', 'inlineCode', 'blockquote'].includes(child.type)) return '';
       return hasHtml(child, transparent) ? '' : inlineText(child);
     };
-    for (const [index, child] of children.entries()) {
-      const next = children[index + 1];
-      collect(child, previous, next?.type === 'paragraph' ? contextProse(next) : '');
+    for (const child of children) {
+      collect(child, previous);
       previous = contextProse(child);
     }
   };
