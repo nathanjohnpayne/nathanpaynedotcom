@@ -43,7 +43,7 @@ For an audited post, keep the repository's facts-first and separate brevity-pass
 
 ## Commands
 
-Prerequisites are the existing Node dependencies (`npm ci`), local Git when a baseline/diff is requested, and the pinned Vale version in `.vale-version`. The CLI does not install dependencies, fetch Git, rewrite sources, publish, or call models/connectors. It uses only temporary projections/diffs and removes them after the run.
+Install the existing Node dependencies with `npm ci`; the checker needs local Git for a baseline and the pinned Vale version in `.vale-version`.
 
 ```bash
 # New post: complete review still required, even when the command exits 0.
@@ -59,32 +59,7 @@ node scripts/check-blog-voice.mjs /tmp/revision.md --base COMMIT --base-path src
 python3 scripts/verify-brevity.py /tmp/original.md /tmp/revision.md
 ```
 
-`--json` includes the complete packet; `--packet` is readable output. Exit 0 means mechanical pass with advisory warnings, 1 means mechanical violations, 2 means invalid input/baseline, and 3 means execution/dependency failure. All results require complete manual meaning review. See the [stable rule, location and exception contract](agents/blog-revision-process.md#commands-and-exit-contract).
-
-Review metadata as the layout renders it: deck, takeaways, pullquotes and sidebar text are escaped plain text. Backticks, emphasis markers, image syntax and HTML-like strings there remain literal characters. For verbatim pullquotes, YAML decoding applies to the metadata and Markdown formatting equivalence applies only to the body. Source quotations need prose attribution; code that happens to say “Claude wrote” is not attribution evidence. Unknown raw body HTML is flagged for manual review, not analyzed. Plain breaks, exact empty `<span id="…"></span>` anchors, and exact figure-pair open/close tags enclosing only Markdown are transparent and do not warn. Pullquotes are always searched in analyzed Markdown: missing text is an error without opaque HTML and advisory manual review when HTML may contain it. Unknown block, inline and textless HTML produce `review.html` in the packet. Review quotations, attribution, headings, pullquotes and wording by hand; the checker does not reconstruct HTML or count its semantic tokens. Unknown inline HTML makes its containing prose surface manual review; unknown non-break block HTML makes all body prose manual review because its scope may span Markdown siblings. Plain Markdown line breaks written as `<br/>` become whitespace without a warning. Every recognized textual quotation and Markdown blockquote has an attribution advisory, including apparently direct prose attribution; prose cues cannot establish authorship. Ambiguous Markdown quotation or attribution cases remain advisory; do not extend the heuristics to silence them.
-
-Example task-specific context, supplied by the composing/reviewing operator:
-
-```json
-{
-  "writingStylePass": {
-    "workflow": "supplied-reference workflow",
-    "route": "owner-supplied examples and feedback",
-    "retrievalUsed": false
-  },
-  "referenceProvenance": [
-    {"kind": "user-authored", "reference": "Owner's supplied before/after example"},
-    {"kind": "owner-approved-model-revision", "commit": "68827d183093fdc9500c0263b1078751067ae2fd", "path": "src/content/blog/autofix-was-the-whole-cost.md"}
-  ],
-  "structuralChoices": ["Moved later updates to one dated section."],
-  "qualifications": ["The evidence does not isolate causation."],
-  "validation": ["Complete source/ledger comparison; checker output is not semantic proof."],
-  "occurrenceExceptions": [{"class": "numerals", "reason": "Removed a repeated mention; the value remains with its original subject."}],
-  "linkedRecords": ["plans/path/to/ledger.md"]
-}
-```
-
-The checker prints these declarations unchanged and cannot verify whether the operator invoked a skill, read references or performed the manual pass. Supply `warningDispositions` in the context as rule/decision/reason entries to preserve them in the packet, and keep the direct owner decision with the review records. Supplied dispositions never suppress a finding or establish approval. Do not invent completed validation to populate the context.
+Every result requires complete manual meaning review. The [Voice check and complete meaning review](agents/blog-revision-process.md#voice-check-and-complete-meaning-review) section of the blog revision process is the single source for the rest: the [command options and exit-code table](agents/blog-revision-process.md#commands-and-exit-contract), the [mechanical rules](agents/blog-revision-process.md#settled-mechanical-rules) (including metadata, raw HTML and quotation handling), the [advisory warnings, packet and `--review-context` format](agents/blog-revision-process.md#advisory-warnings-and-the-packet), and the [limits](agents/blog-revision-process.md#limits-and-validation).
 
 ## A reusable instruction for any writing agent
 
