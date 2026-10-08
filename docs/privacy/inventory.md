@@ -72,15 +72,15 @@ Every PostHog event also carries the SDK's standard properties: random `distinct
 
 ### Project Settings Read
 
-From `project-get` on project 469428 (read-only):
+From `project-get` on project `<project ID>` (read-only):
 
 - `anonymize_ips: false` ("Discard client IP data" off), `cookieless_server_hash_mode: 0`.
 - `autocapture_opt_out: null` (autocapture on), `autocapture_exceptions_opt_in: true`, `autocapture_web_vitals_opt_in: true`, `heatmaps_opt_in: true`, `capture_dead_clicks: false`, `surveys_opt_in: null`.
 - Replay settings as above; `recording_domains: null`.
-- `test_account_filters`, applied by default: exclude `$host` containing `localhost` or `web.app`, exclude cohort 360946, and require `$virt_is_bot` false. Cohort 360946, "Internal / Test users," matches person property `$internal_or_test_user = true` or person `email` containing `@nathanpayne.com` (four persons when read). These exclusions depend on person profiles, which is why `person_profiles: 'always'` is set (`src/components/posthog.astro:40-50`).
+- `test_account_filters`, applied by default: exclude `$host` containing `localhost` or `web.app`, exclude cohort `<internal cohort ID>`, and require `$virt_is_bot` false. That cohort, "Internal / Test users," matches person property `$internal_or_test_user = true` or person `email` containing `@nathanpayne.com` (four persons when read). These exclusions depend on person profiles, which is why `person_profiles: 'always'` is set (`src/components/posthog.astro:40-50`).
 - `data_attributes: ["data-attr"]` (the toolbar's selector attribute; this site uses none).
 
-Destinations and pipelines (read-only): the default **GeoIP transformation is enabled**. Four internal destinations file GitHub issues through integration 176816 (GitHub, `nathanjohnpayne`): two error-tracking alerts (`$error_tracking_issue_created`, `$error_tracking_issue_reopened`) and two layout alerts (#1045). No batch exports. The only integration is GitHub. No event data is exported to a third party beyond those issue bodies, which carry the error's name, description, and `distinct_id` (`docs/error-tracking.md:39-50`, `:58`).
+Destinations and pipelines (read-only): the default **GeoIP transformation is enabled**. Four internal destinations file GitHub issues through integration `<GitHub integration ID>` (GitHub, `nathanjohnpayne`): two error-tracking alerts (`$error_tracking_issue_created`, `$error_tracking_issue_reopened`) and two layout alerts (#1045). No batch exports. The only integration is GitHub. No event data is exported to a third party beyond those issue bodies, which carry the error's name, description, and `distinct_id` (`docs/error-tracking.md:39-50`, `:58`).
 
 ## Google Analytics 4
 
@@ -90,7 +90,7 @@ Destinations and pipelines (read-only): the default **GeoIP transformation is en
 - **Configured in the property, observed in the served tag:** enhanced measurement for page views (including history changes), scrolls (`scroll` observed), outbound clicks, site search (`q`, `s`, `search`, `query`, `keyword`), video engagement, file downloads, and form interactions. Google documents that these events carry `page_location`, `page_referrer`, `link_url`, `link_text`, `link_domain`, `file_name`, `search_term`, `form_destination`, and `video_url` (Google enhanced measurement docs). The tag also enables **user-provided data collection with automatic detection** of email, phone, and address, enables **email redaction** with no query-parameter redaction, and contains no Google Ads destination (capture, "GA4 Payload Shapes"). No user-data parameter appeared in any hit.
 - Each hit carries the client ID (`cid`), session ID and count, User-Agent Client Hints (architecture, platform and version, model, full browser version list), screen resolution, language, page title, and page URL (capture).
 - **Recipients:** `www.google-analytics.com` only. No DoubleClick, Google Ads, or `google.com/ads` request was made (capture).
-- **IP:** Google states that GA4 does not log or store IP addresses for EU, Swiss, and UK users and uses the IP only to derive location (Google IP-address docs). No GA4 setting for this exists to read.
+- **IP:** Google states that GA4 does not log or store IP addresses for EU, Swiss, and UK users and uses the IP only to derive location (Google IP-address docs). For other visitors, Google states that GA4 collects IP addresses for basic services such as spam detection and coarse location, never associates raw IPs with user identifiers, and discards them after use, and that when a Google Ads account is linked, encrypted IP data may flow to it (Google non-European IP docs). No GA4 setting for this exists to read; whether an Ads link exists is Nathan to Verify item 5.
 
 ## Cloudflare
 
@@ -98,6 +98,7 @@ Destinations and pipelines (read-only): the default **GeoIP transformation is en
 
 - **Present on production.** Every page fetched directly ends with an edge-injected `<script type="module" src="https://static.cloudflareinsights.com/beacon.min.js/…" data-cf-beacon='{…"token":"<site token>"…}'>` (capture, "Cloudflare Web Analytics Payload Shape"). The repository has no reference to it (searched `src/`, `public/`, `scripts/`, `astro.config.mjs`, and `firebase.json`).
 - **How it is injected:** the zone's `rum` setting is `on` and the Web Analytics site for the zone has `auto_install: true`, with an enabled ruleset containing no rules (Cloudflare API read). Cloudflare documents that automatic setup injects the snippet on all pages under the zone and reports to the site's own `/cdn-cgi/rum` (Cloudflare Web Analytics FAQ).
+- **IP and referrer:** Cloudflare documents that the RUM service receives the client IP as part of handling the beacon request and discards it at the nearest data center, and that the beacon reports a referrer taken from `document.referrer` (Cloudflare RUM beacon docs). Cloudflare does not document whether a referrer's query string is removed, and the capture did not test a query-bearing page as the next page's referrer, so same-origin referrer handling is **not verified** (Nathan to Verify item 13).
 - **What it sends:** one `POST /cdn-cgi/rum` per page with page-load timings, paint metrics, a page-load ID, the site token, and `location` as origin and path only, with no query string or fragment (capture). Cloudflare states that Web Analytics uses no cookies or `localStorage` and does not fingerprint visitors by IP address or user agent (Cloudflare Core Web Vitals docs), and that it does not track individual end users across sites (Cloudflare data origin and collection docs). No storage was set by the beacon in the capture.
 - **Can a client-side gate control it? No, not as deployed.** The element is static HTML that Cloudflare inserts at the end of `<body>` after the origin responds, so a script in `<head>` runs before the element exists and cannot stop its fetch. Cloudflare's controls are zone and dashboard settings: the enablement mode (including an option that drops EU visitors' data, per the Cloudflare changelog, 2025-02-25) and RUM rules by host and path. A manual install of the snippet, behind the site's gate, would put it under the opt-out, but that is a configuration change for Nathan (coordinate with #1080). The CSP report-only header does not list `static.cloudflareinsights.com` (`firebase.json:91-92`), and the browser reported the violation (capture).
 
@@ -114,6 +115,7 @@ Destinations and pipelines (read-only): the default **GeoIP transformation is en
 | Logo.dev (`img.logo.dev`) | `/resume/` | up to two image requests per logo (domain lookup, then name lookup on miss), carrying the publishable token | IP, user agent, origin-only `Referer`, and the employer or school being looked up | `src/components/resume/CompanyLogo.astro:59-63`, `:85-105`; capture (16 requests) |
 | Mux Video (`stream.mux.com`, `image.mux.com`) | `/projects/swipe-watch/` | HLS stream and poster | IP, user agent, origin-only `Referer` | `src/components/ProjectMuxPlayer.astro:42`, `:48`; `src/content/projects/swipe-watch.mdx:10`; capture |
 | Mux Data (`*.litix.io`; `inferred.litix.io` observed) | `/projects/swipe-watch/` | playback beacons from `mux-embed`, bundled same-origin and loaded only on Mux pages | viewer and playback data; sets the first-party `muxData` cookie (365 days) | `src/components/ProjectMuxPlayer.astro:313-348`; `.ai_context.md:105`; capture; Mux privacy docs |
+| GitHub (public issues in this repository) | PostHog destinations, not the browser | issue creation when an error-tracking alert fires | the exception's name and description and the visitor's `distinct_id`, copied into a public GitHub issue body | `docs/error-tracking.md:39-58`; settings read (destinations) |
 | Cal.com | links only (`src/pages/index.astro:442`, `src/pages/resume.astro:67`, `src/pages/projects/index.astro:145`) | none until a visitor clicks | nothing on page load | source |
 
 Mux documents that its cookie holds a random viewer ID, a sampling value, and session ID, start, and expiry; that it truncates IPv4 addresses to /24 after deriving country- and state-level location; and that it keeps pseudonymized view data up to 100 days (Mux privacy docs). The site only loads `mux-embed` (5.18.1) and hands it to `@mux/mux-background-video` (`src/components/ProjectMuxPlayer.astro:320-329`); that package (0.2.3, per `package-lock.json`) calls `mux.monitor` with only `debug` and player metadata, so neither `disableCookies` nor `respectDoNotTrack` is set, and Mux documents both as off by default (Mux HTML5 monitoring docs). In the capture the Mux Data beacon was attempted only at page exit, because the stream itself was blocked.
@@ -155,6 +157,7 @@ No new demographic, identity, or enrichment feature was enabled and none was dis
 | GA4 event data and user data | unknown | **Nathan to verify** |
 | Cloudflare Web Analytics | unknown | **Nathan to verify** |
 | Mux Data view data | up to 100 days, per Mux | vendor statement, account not read |
+| GitHub issues filed by error-tracking alerts | until the issue is deleted; closing does not remove it, and PostHog retention or deletion does not reach it | verified (destination config; `docs/error-tracking.md:39-58`) |
 | `ph_<token>_posthog` cookie | 365 days | verified (capture) |
 | `_ga`, `_ga_<ID>` cookies | 2 years per Google, capped at 400 days in Chrome | verified (capture; Google cookie-usage docs) |
 | `muxData` cookie | 365 days | verified (capture) |
@@ -176,7 +179,7 @@ Each item needs a dashboard read or a decision this track could not make. Paths 
 
 1. **Google signals.** GA4 Admin → Data collection and modification → Data collection → Google signals data collection, including its region settings. The served tag disallows it in all regions; confirm, because age, gender, and interests depend on it. Do not turn it on without a separate decision (owner decision item 4).
 2. **Granular location and device data collection.** Same page. The served tag does not disallow it in any region.
-3. **User-provided data collection.** GA4 Admin → Data collection and modification → Data collection → User-provided data collection. The served tag has automatic detection of email, phone, and address on. It is an existing identity feature, so it stays on unless you decide otherwise; the notice must disclose it if it stays.
+3. **User-provided data collection.** GA4 Admin → Data collection and modification → Data collection → User-provided data collection. The served tag has automatic detection of email, phone, and address on. Google documents that user-provided data is SHA-256 hashed, either by the site before sending or by the feature itself, without saying where automatic detection hashes (Google user-provided data docs); if it hashes in the browser, a payload search for a literal value would not find it. It is an existing identity feature, so it stays on unless you decide otherwise, but it is now a **#1233 release blocker**: before the flag goes on, either the acceptance suite shows no hashed fixture value is sent, or you change the setting (contract, Capture Minimization item 3, GA4 user-provided data). The notice must disclose it if it stays.
 4. **GA4 data retention.** GA4 Admin → Data collection and modification → Data retention (event data and user data).
 5. **Google Ads and other product links.** GA4 Admin → Product links → Google Ads links (and the other product links listed there). The served tag carries no Ads destination and no Ads request was made, but a GA4–Ads link is server-side and invisible to the client. If no Ads link depends on them, `gclid`, `gbraid`, `wbraid`, and `dclid` can leave the scrubbing allowlist (contract, Capture Minimization item 3).
 6. **GA4 data sharing settings.** GA4 Admin → Account settings → Account details → Data sharing settings.
@@ -190,7 +193,8 @@ Each item needs a dashboard read or a decision this track could not make. Paths 
 14. **Cloudflare NEL and Email Obfuscation.** Cloudflare dashboard → nathanpayne.com: Network → Network Error Logging (on); Scrape Shield → Email Address Obfuscation (on). Disclosure decisions.
 15. **Google Fonts and Logo.dev request logging.** Neither vendor's current page yielded a statement on what they log from end-user font or image requests; Logo.dev's privacy policy describes API request logs (IP, queried domain, timestamps) without addressing its image CDN.
 16. **Mux Data options.** Whether to keep Mux Data cookies and to pass `disableCookies` or `respectDoNotTrack`, and whether Mux Data should follow the site's opt-out (it is outside the contract's two tools).
-17. **One stray replay record.** The inventory's second browser run leaked one replay event from its test session into PostHog at 19:13:59 UTC on 2026-10-08 (capture, "Escape Incident"). The session ID is in the #1227 report, not in the repository. Deleting it is a vendor write.
+17. **Error-alert issue copies.** Error-tracking alerts copy the visitor's `distinct_id` and the exception text into public GitHub issues in this repository, a separate copy outside PostHog's retention. Decide whether the destination template should keep `distinct_id`, and whether the notice discloses GitHub as a recipient.
+18. **One stray replay record.** The inventory's second browser run leaked one replay event from its test session into PostHog at 19:13:59 UTC on 2026-10-08 (capture, "Escape Incident"). The session ID is in the #1227 report, not in the repository. Deleting it is a vendor write.
 
 ## Capture Conflicts
 
@@ -199,7 +203,7 @@ These are existing settings that conflict with the approved safeguards. None was
 - **C1. Replay console-log capture is on.** Project `capture_console_log_opt_in: true`; remote `consoleLogRecordingEnabled: true`; recorder plugin `rrweb/console@1` active. Setting: PostHog → Settings → Project → Replay → Capture console logs.
 - **C2. Replay canvas capture is on.** Project `session_replay_config.record_canvas: true`; remote `recordCanvas: true` (3 fps, quality 0.4). Setting: PostHog → Settings → Project → Replay → Canvas capture.
 - **C3. Replay network timing records full URLs.** Project `capture_performance_opt_in: true`; remote `capturePerformance.network_timing: true`; plugin `rrweb/network@1`. Headers and bodies are off, so this is not body capture, but every recorded request URL is unscrubbed: the page's own URL with its query string and fragment, every GA4 `collect` URL (carrying the GA client ID and the full page URL), and Logo.dev URLs. That conflicts with scrubbing "replay metadata" (contract, Capture Minimization item 3). Setting: PostHog → Settings → Project → Replay → Capture network performance; the client can also filter entries, which is #1228's call.
-- **C4. GA4 enhanced measurement sends URLs and terms outside `page_location`.** Outbound clicks (`link_url`), file downloads (`link_url`, `file_name`), form interactions (`form_destination`), site search (`search_term`), and video (`video_url`) are configured in the property, not in code, and the contract's scrubbing names only `page_location` and `page_referrer` for GA4. Setting: item 8 above.
+- **C4. GA4 enhanced measurement sends URLs and terms outside `page_location`.** Outbound clicks (`link_url`, `link_domain`), file downloads (`link_url`, `file_name`), form interactions (`form_destination`), site search (`search_term`), and video (`video_url`) are configured in the property, not in code. The contract's scrubbing rule applies to these parameters too (Capture Minimization item 3, GA4 enhanced measurement), but gtag offers no supported client-side hook to rewrite them, so the conflict stays open until Nathan chooses property settings (query-parameter redaction, or which events stay on); until then PRIV-2 is not verified for these payloads and blocks #1233. Setting: item 8 above.
 - **C5. Cloudflare Web Analytics is outside the opt-out.** It is injected at the edge and keeps reporting for visitors who opt out or send GPC. Copy must not say the opt-out covers it unless item 13 changes that.
 
 Existing client-side capture that the flag-on runtime (#1228) is contracted to change, listed so its tests have a baseline: PostHog `$current_url`, `$heatmap_data` keys, `$session_entry_url`, `$initial_current_url`, and the cookie's first-URL field carry query strings and fragments; GA4 `page_location` carries both; autocapture sends `data-*` attribute values and inline `style`; replay records page text unmasked.
@@ -212,7 +216,7 @@ From the moment a visitor opts out or sends GPC, PostHog and GA4 receive nothing
 - **Error-tracking alerts.** Exceptions reach PostHog only through exception autocapture (`specs/analytics.md:141-147`), so an error seen only by opted-out visitors files no GitHub issue (`docs/error-tracking.md:39-50`).
 - **Product metrics.** Pageviews, custom events, funnels, heatmaps, web vitals, and replay coverage in PostHog, and all GA4 reports, undercount by the opted-out and GPC share. That share is unknown today, because GPC is not recorded. #1059's measurement window (2026-10-01 to 2026-10-14) ends before the earliest flag-on date (2026-10-16, owner decision item 6).
 - **Internal-traffic exclusions** keep working for visitors who allow analytics. Opted-out internal visitors send nothing, so nothing needs excluding.
-- **Cloudflare Web Analytics and NEL** continue for everyone, so Cloudflare's counts will diverge from PostHog and GA4 by the opted-out share.
+- **Cloudflare Web Analytics and NEL** are outside the opt-out, so they continue for opted-out and GPC visitors. Whether Web Analytics covers every visitor depends on its enablement mode, which may exclude EU visitors and is unverified (item 13); Cloudflare's counts will differ from PostHog's and GA4's by the opted-out share and by whatever that mode excludes.
 
 ## Contract Acceptance Criteria
 
@@ -233,7 +237,7 @@ Repository files are cited inline at commit `5d688d69`.
 Captures and reads (2026-10-08):
 
 - [`capture-2026-10-08.md`](capture-2026-10-08.md): the production capture under default-deny egress, with method, payload shapes, storage, hashes, and the escape incident.
-- PostHog project 469428, read through the PostHog MCP server: `project-get`, `cohorts-retrieve` (360946), `cdp-functions-list`, `batch-exports-list`, `integrations-list`, and `execute-sql` presence counts on `events` and `raw_session_replay_events`. No write was made.
+- PostHog project `<project ID>`, read through the PostHog MCP server: `project-get`, `cohorts-retrieve` (`<internal cohort ID>`), `cdp-functions-list`, `batch-exports-list`, `integrations-list`, and `execute-sql` presence counts on `events` and `raw_session_replay_events`. No write was made.
 - Cloudflare zone `nathanpayne.com`, read through the Cloudflare API: `GET /zones/{zone}/settings/rum`, `…/settings/nel`, `…/settings/email_obfuscation`, `GET /accounts/{account}/rum/site_info/list`, and a GraphQL `rumPageloadEventsAdaptiveGroups` query. No write was made.
 - Served HTML of `/`, `/blog/`, `/projects/`, and `/resume/`, fetched directly with `curl`.
 
@@ -253,7 +257,9 @@ Vendor documentation (read 2026-10-08):
 - GA4 data retention: <https://support.google.com/analytics/answer/7667196>
 - GA4 data redaction: <https://support.google.com/analytics/answer/13544947>
 - GA4 IP addresses: <https://support.google.com/analytics/answer/12017362>
+- GA4 IP addresses outside the EU, Switzerland, and UK: <https://support.google.com/analytics/answer/16871531>
 - Cloudflare Web Analytics FAQ: <https://developers.cloudflare.com/web-analytics/faq/>
+- Cloudflare RUM beacon data collection: <https://developers.cloudflare.com/speed/observatory/rum-beacon/>
 - Cloudflare Core Web Vitals (data collected): <https://developers.cloudflare.com/web-analytics/data-metrics/core-web-vitals/>
 - Cloudflare data origin and collection: <https://developers.cloudflare.com/web-analytics/data-metrics/data-origin-and-collection/>
 - Cloudflare changelog, excluding EU visitors from RUM: <https://developers.cloudflare.com/changelog/post/2025-02-25-rum-exclude-eu/>
