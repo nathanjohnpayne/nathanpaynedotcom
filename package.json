@@ -7,6 +7,7 @@
     "prebuild": "node scripts/refresh-hero-images.mjs && node scripts/refresh-mux-gifs.mjs",
     "og:refresh": "node scripts/refresh-og-references.mjs",
     "build": "astro build",
+    "build:privacy-test": "PUBLIC_POSTHOG_PROJECT_TOKEN=phc_privacy_test_fake PUBLIC_GA_MEASUREMENT_ID=G-PRIVACYTEST PUBLIC_LOGODEV_KEY= astro build --mode privacy-test --outDir dist-privacy-test",
     "preview": "astro preview",
     "test": "astro build && vitest run",
     "test:e2e": "playwright test",

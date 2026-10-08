@@ -1,0 +1,51 @@
+---
+// #1079 privacy test fixture (specs/analytics-privacy.md § Test Fixture).
+// Built ONLY in the `privacy-test` Astro mode, never in a production build,
+// even after the flag is committed on: getStaticPaths returns no route
+// otherwise. Every NP-CANARY-* string here must never appear in a transmitted
+// event or replay payload; the acceptance suite types NP-CANARY-INPUT into the
+// fields at run time.
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+import { isPrivacyTestBuild } from '../../../lib/privacy-flag';
+
+export function getStaticPaths() {
+  return isPrivacyTestBuild() ? [{ params: { index: undefined } }] : [];
+}
+
+const sensitiveHref =
+  '/test-fixtures/privacy/?email=NP-CANARY-QUERY%40example.test&utm_source=fixture#NP-CANARY-FRAGMENT';
+---
+
+<BaseLayout
+  title="Privacy Test Fixture | Nathan Payne"
+  description="Test-only fixture for the analytics privacy acceptance suite."
+  noindex
+>
+  <main id="privacy-fixture">
+    <h1>Privacy test fixture</h1>
+
+    <label for="fixture-text">Text input</label>
+    <input id="fixture-text" name="fixture-text" type="text" autocomplete="off" />
+
+    <label for="fixture-email">Email input</label>
+    <input id="fixture-email" name="fixture-email" type="email" autocomplete="off" />
+
+    <label for="fixture-textarea">Textarea</label>
+    <textarea id="fixture-textarea" name="fixture-textarea"></textarea>
+
+    <form id="fixture-form" action="#" onsubmit="return false">
+      <input type="hidden" name="fixture-hidden" value="NP-CANARY-FORM" />
+      <label for="fixture-form-text">Form field</label>
+      <input id="fixture-form-text" name="fixture-form-text" type="text" autocomplete="off" />
+      <button id="fixture-form-submit" type="submit">Submit</button>
+    </form>
+
+    <p id="fixture-masked" data-np-privacy="mask">NP-CANARY-MASKED-TEXT</p>
+    <div id="fixture-blocked" data-np-privacy="block"><p>NP-CANARY-BLOCKED-TEXT</p></div>
+
+    <button id="fixture-pii-button" type="button" data-fixture-pii="NP-CANARY-ATTR@example.test">Fixture button</button>
+
+    <p><a id="fixture-sensitive-link" href={sensitiveHref}>Sensitive link</a></p>
+    <p><a id="fixture-privacy-link" href="/privacy/">Privacy page</a></p>
+  </main>
+</BaseLayout>

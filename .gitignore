@@ -15,6 +15,8 @@ RIPCUT_GUIDE.md
 
 # Astro build output
 dist/
+# #1079 flag-on test build (npm run build:privacy-test)
+dist-privacy-test/
 .astro/
 
 # Playwright
@@ -28,6 +30,8 @@ playwright-report/
 screenshots/*
 !screenshots/og/
 !screenshots/og/**
+!screenshots/privacy/
+!screenshots/privacy/**
 
 # Logs
 *.log
