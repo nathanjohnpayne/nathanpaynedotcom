@@ -841,6 +841,26 @@ describe('event scrubbing: PostHog before_send (§ Capture Minimization 3–4)',
     expect(out.properties.$current_url).toBe('https://nathanpayne.test/');
   });
 
+  it('scrubs nested properties and person updates on a $snapshot too', () => {
+    const { gate } = boot();
+    const data = [{ type: 4, data: { href: 'https://nathanpayne.test/?a=1' } }];
+    const out = gate.scrubEvent({
+      event: '$snapshot',
+      properties: {
+        $snapshot_data: data,
+        $set: { $current_url: 'https://nathanpayne.test/?email=x#f' },
+        nested: { $referrer: 'https://nathanpayne.test/?q=NP-CANARY-QUERY' },
+      },
+      $set: { $current_url: 'https://nathanpayne.test/?email=x' },
+      $set_once: { $initial_current_url: 'https://nathanpayne.test/?email=x&utm_source=f#frag' },
+    });
+    expect(out.properties.$snapshot_data).toBe(data);
+    expect(out.properties.$set.$current_url).toBe('https://nathanpayne.test/');
+    expect(out.properties.nested.$referrer).toBe('https://nathanpayne.test/');
+    expect(out.$set.$current_url).toBe('https://nathanpayne.test/');
+    expect(out.$set_once.$initial_current_url).toBe('https://nathanpayne.test/?utm_source=f');
+  });
+
   it('drops every event once analytics are withdrawn', () => {
     const { privacy, gate } = boot();
     expect(gate.scrubEvent({ event: 'x', properties: {} })).not.toBeNull();

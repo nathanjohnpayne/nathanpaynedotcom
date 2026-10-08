@@ -584,23 +584,29 @@
    * Replay content is minimized at its source (maskAttributeFn,
    * maskCapturedNetworkRequestFn, the masking selectors), because full
    * snapshots and mutations arrive here already gzip-compressed; for
-   * `$snapshot` only the top-level properties are scrubbed.
+   * `$snapshot` everything except `$snapshot_data` is scrubbed.
    */
   function scrubEvent(event) {
     if (withdrawn) return null;
     if (!event || typeof event !== 'object') return event;
     var ctx = { texts: null };
-    if (event.event === '$snapshot') {
-      if (isPlainObject(event.properties)) {
-        for (var key in event.properties) {
-          if (key === '$snapshot_data') continue;
-          var value = event.properties[key];
-          if (typeof value === 'string') event.properties[key] = scrubString(key, value);
+    if (event.event === '$snapshot' && isPlainObject(event.properties)) {
+      // The compressed recording is minimized at its source; every other
+      // property, and $set / $set_once below, is scrubbed as on any event.
+      var props = event.properties;
+      var hasData = Object.prototype.hasOwnProperty.call(props, '$snapshot_data');
+      var data = props.$snapshot_data;
+      var rest = {};
+      for (var key in props) {
+        if (key !== '$snapshot_data' && Object.prototype.hasOwnProperty.call(props, key)) {
+          rest[key] = props[key];
         }
       }
-      return event;
+      event.properties = scrubTree(rest, 0, '', ctx);
+      if (hasData) event.properties.$snapshot_data = data;
+    } else if (event.properties) {
+      event.properties = scrubTree(event.properties, 0, '', ctx);
     }
-    if (event.properties) event.properties = scrubTree(event.properties, 0, '', ctx);
     if (event.$set) event.$set = scrubTree(event.$set, 0, '', ctx);
     if (event.$set_once) event.$set_once = scrubTree(event.$set_once, 0, '', ctx);
     return event;
