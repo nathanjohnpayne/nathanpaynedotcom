@@ -195,13 +195,64 @@ async function markdownTree(source) {
   await processor.render(source);
   return tree;
 }
+/**
+ * Locate quotations in linear time. This reproduces the leftmost, non-overlapping
+ * matches of the four-way alternation
+ *   (?<!\p{N})"[^"]+" | “[^”]+” | (?<![\p{L}\p{N}])'(?:[^']|internal')+'(?![\p{L}\p{N}]) | the ‘…’ analogue
+ * without its cost: an unterminated opener made the regex rescan to the end of the
+ * text from every later opener (quadratic). Each opener can only close at the first
+ * terminator after it, so terminators are indexed once and found by binary search.
+ * Returns `{ 0: matchedText, index }` records, shaped like matchAll results.
+ */
+export function findQuotations(text) {
+  const positions = (pattern) => Array.from(text.matchAll(pattern), (m) => m.index);
+  // Straight and curly apostrophes between two letters or digits belong to the word.
+  const terminators = {
+    '"': positions(/"/gu),
+    '“': positions(/”/gu),
+    "'": positions(/(?<![\p{L}\p{N}])'|'(?![\p{L}\p{N}])/gu),
+    '‘': positions(/(?<![\p{L}\p{N}])’|’(?![\p{L}\p{N}])/gu),
+  };
+  const closers = { '"': '"', '“': '”', "'": "'", '‘': '’' };
+  const wordEdge = /[\p{L}\p{N}]/u;
+  const opener = /(?<!\p{N})"|“|(?<![\p{L}\p{N}])'|(?<![\p{L}\p{N}])‘/gu;
+  const matches = [];
+  let from = 0;
+  while (from < text.length) {
+    opener.lastIndex = from;
+    const found = opener.exec(text);
+    if (!found) break;
+    const start = found.index;
+    const open = found[0];
+    const list = terminators[open];
+    // The first terminator after the opener closes it, and only if the body is non-empty.
+    let low = 0;
+    let high = list.length;
+    while (low < high) {
+      const mid = (low + high) >> 1;
+      if (list[mid] < start + 1) low = mid + 1;
+      else high = mid;
+    }
+    const end = list[low];
+    const closeEnd = end === undefined ? -1 : end + 1;
+    const after = [...text.slice(closeEnd, closeEnd + 2)][0] ?? '';
+    const ok =
+      end !== undefined &&
+      end > start + 1 &&
+      ((open === '"' || open === '“') || !wordEdge.test(after)) &&
+      text[end] === closers[open];
+    if (ok) {
+      matches.push({ 0: text.slice(start, closeEnd), index: start });
+      from = closeEnd;
+    } else {
+      from = start + 1;
+    }
+  }
+  return matches;
+}
 function quotationPass(item, context, findings, file) {
   let projected = item.text;
-  const quotes = [
-    ...item.text.matchAll(
-      /(?<!\p{N})"[^"]+"|“[^”]+”|(?<![\p{L}\p{N}])'(?:[^']|(?<=[\p{L}\p{N}])'(?=[\p{L}\p{N}]))+'(?![\p{L}\p{N}])|(?<![\p{L}\p{N}])‘(?:[^’]|(?<=[\p{L}\p{N}])’(?=[\p{L}\p{N}]))+’(?![\p{L}\p{N}])/gu,
-    ),
-  ];
+  const quotes = findQuotations(item.text);
   const styles = new Set();
   const uncertainQuotes = [];
   const quotations = [];
