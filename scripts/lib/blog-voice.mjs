@@ -434,7 +434,9 @@ export async function parseArticle(source, file) {
   }
   for (const surface of surfaces) protectedMaterial.push(...surface.quotations);
   const headingForms = new Set(
-    headings.map((h) => h.convention ?? (h.excerpt.trimStart().startsWith('#') ? 'ATX' : 'setext')),
+    // The AST already identifies headings. Only a valid source ATX marker
+    // distinguishes their form; a literal hash in setext text is not a marker.
+    headings.map((h) => /^#{1,6}(?:[\t ]|$)/u.test(h.excerpt.trimStart()) ? 'ATX' : 'setext'),
   );
   if (headingForms.size > 1)
     findings.push(
