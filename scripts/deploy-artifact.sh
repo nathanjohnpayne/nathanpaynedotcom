@@ -440,6 +440,13 @@ BASH_BIN="$(resolve_tool bash)"
 if [ "$PURGE" -eq 1 ]; then
   resolve_tool curl >/dev/null
 fi
+# `op` is optional: preflight usually caches every credential. But the helper
+# (its ADC fallback) and the verified purge script (when CF_API_TOKEN is unset)
+# can both run `op read`, so an `op` the safe PATH provides must be trusted
+# before either child starts.
+if OP_BIN="$(find_on_safe_path op)"; then
+  trusted_tool "$OP_BIN" >/dev/null || die "op is not a trusted executable"
+fi
 
 # The helper lives in ~/.local/bin by convention (DEPLOYMENT.md § First-Time
 # Setup), which is not on the safe PATH. It is invoked by absolute path; the

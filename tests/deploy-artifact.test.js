@@ -679,6 +679,16 @@ describe('deploy-artifact.sh resolves firebase outside the checkout and node_mod
     expectRefusedBeforeGh(h, run(h, ['--sha', h.sha]), /inside a node_modules directory/);
   });
 
+  it('refuses an op that symlinks into the repository before any credentialed child runs', () => {
+    const h = makeHarness();
+    mkdirSync(join(h.repo, 'tools'));
+    writeExec(join(h.repo, 'tools/op'), `#!/bin/bash\ntouch "${h.log}/hostile-op-ran"\n`);
+    rmSync(join(h.bin, 'op'), { force: true });
+    symlinkSync(join(h.repo, 'tools/op'), join(h.bin, 'op'));
+    expectRefusedBeforeGh(h, run(h, ['--sha', h.sha]), /op is not a trusted executable/);
+    expect(existsSync(join(h.log, 'hostile-op-ran'))).toBe(false);
+  });
+
   it('refuses a helper that resolves inside the repository', () => {
     const h = makeHarness();
     const helper = join(h.home, '.local/bin/op-firebase-deploy');
