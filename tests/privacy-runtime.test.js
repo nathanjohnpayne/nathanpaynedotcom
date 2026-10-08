@@ -841,6 +841,29 @@ describe('event scrubbing: PostHog before_send (§ Capture Minimization 3–4)',
     expect(out.properties.$current_url).toBe('https://nathanpayne.test/');
   });
 
+  it('scrubs relative and scheme-relative URL forms and leaves sentinels alone', () => {
+    const { gate } = boot();
+    const out = gate.scrubEvent({
+      event: 'custom',
+      properties: {
+        href: 'next/?email=NP-CANARY-QUERY#NP-CANARY-FRAGMENT',
+        url: '../next/?token=NP-CANARY-QUERY',
+        destination: '//example.test/?email=NP-CANARY-QUERY&utm_source=f#NP-CANARY-FRAGMENT',
+        $referrer: '$direct',
+        to_post_href: 'mailto:x@example.test?subject=hi',
+        label: 'next/?not-a-url-key',
+        plain_url: 'none',
+      },
+    });
+    expect(JSON.stringify(out.properties.href)).not.toMatch(/NP-CANARY/);
+    expect(JSON.stringify(out.properties.url)).not.toMatch(/NP-CANARY/);
+    expect(out.properties.destination).toBe('//example.test/?utm_source=f');
+    expect(out.properties.$referrer).toBe('$direct');
+    expect(out.properties.to_post_href).toBe('mailto:x@example.test?subject=hi');
+    expect(out.properties.label).toBe('next/?not-a-url-key');
+    expect(out.properties.plain_url).toBe('none');
+  });
+
   it('scrubs a URL with surrounding whitespace in any property', () => {
     const { gate } = boot();
     const out = gate.scrubEvent({

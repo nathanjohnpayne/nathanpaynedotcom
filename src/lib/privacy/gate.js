@@ -400,8 +400,21 @@
     // Classify the trimmed value: scrubUrl trims too, so a URL with leading
     // whitespace must not slip past as plain text.
     var trimmed = value.trim();
-    if (ABSOLUTE_HTTP.test(trimmed)) return scrubUrl(value);
-    if (URL_KEY.test(key) && /^[/?#]/.test(trimmed)) return scrubUrl(value);
+    // Absolute and scheme-relative URLs are URLs under any key.
+    if (ABSOLUTE_HTTP.test(trimmed) || trimmed.slice(0, 2) === '//') return scrubUrl(value);
+    // Under a URL-shaped key, any relative form that could carry a query or
+    // fragment (`next/?x`, `../p?x`, `?x`, `#x`, `/p`) is a URL too. Values
+    // with another scheme (mailto:, data:) and `$`-prefixed sentinels such as
+    // PostHog's `$direct` are left alone, as are plain words, which have
+    // nothing to scrub.
+    if (
+      URL_KEY.test(key) &&
+      trimmed.charAt(0) !== '$' &&
+      !HAS_SCHEME.test(trimmed) &&
+      /[/?#]/.test(trimmed)
+    ) {
+      return scrubUrl(value);
+    }
     return value;
   }
 
