@@ -778,26 +778,37 @@ describe('Resume — page structure', () => {
     expect(withBoth.length, 'no project renders two destinations').toBeGreaterThan(0);
   });
 
-  it('describes NCPv3 as a runtime that retired the parallel Rust app', () => {
+  it('describes NCPv3 as a proposed runtime whose goal was retiring the Rust app', () => {
     // #947. The superseded wording said NCPv3 extended the JavaScript stack
     // "without requiring a parallel Rust implementation" — describing avoided
-    // work, when the Rust app already existed and was retired. Pinned as a
-    // negative assertion so the corrected claim cannot silently revert, on both
-    // surfaces that carry it.
+    // work, when the Rust app already existed. The wording that replaced it
+    // went too far the other way: "retiring the parallel Rust app" and
+    // "merging two teams" read as done, and NCPv3 had not reached MVP when
+    // Nathan left Disney. The canonical now states the retirement and the
+    // merge as the purpose of an approved investment. Both stale forms are
+    // pinned as negative assertions, on both surfaces that carry the claim.
     const bullet = [...document.querySelectorAll('.resume-experience .resume-prose li')].find(
       (li) => li.textContent.includes('NCPv3'),
     );
     expect(bullet, 'no NCPv3 experience bullet found').not.toBeNull();
-    expect(bullet.textContent).toContain('retiring the parallel Rust app');
-    expect(bullet.textContent).toContain('consolidating two codebases and two teams into one');
+    expect(bullet.textContent).toContain(
+      'Conceived NCPv3 and secured approval for an $18.1M investment.',
+    );
+    expect(bullet.textContent).toContain('The proposed JavaScript/React runtime would let');
+    expect(bullet.textContent).toContain(
+      'so Disney could retire the parallel Rust app and consolidate two codebases and two teams into one',
+    );
     expect(bullet.textContent).toContain('app teams choosing to build on the shared runtime');
     expect(bullet.textContent).not.toContain('without requiring a parallel');
+    expect(bullet.textContent).not.toContain('retiring the parallel Rust app');
 
     const highlight = [...document.querySelectorAll('.resume-highlight')].find((h) =>
       h.textContent.includes('NCPv3'),
     );
     expect(highlight, 'no NCPv3 highlight card found').not.toBeNull();
-    expect(highlight.textContent).toContain('retiring the parallel Rust app');
+    expect(highlight.textContent).toContain('so Disney could retire the parallel Rust app');
+    expect(highlight.textContent).not.toContain('retiring the parallel Rust app');
+    expect(highlight.textContent).not.toContain('merging two teams');
     expect(highlight.textContent).not.toContain('without requiring a parallel');
   });
 
@@ -808,7 +819,7 @@ describe('Resume — page structure', () => {
       (li) => li.textContent.includes('PR review pipeline'),
     );
     expect(bullet, 'no PR-pipeline bullet found').not.toBeNull();
-    expect(bullet.textContent).toContain('exceeding the 30% Q2 OKR target');
+    expect(bullet.textContent).toContain('beating the 30% Q2 OKR target');
     expect(bullet.textContent).toContain(
       'AI review plus two human reviewers, moving toward AI plus one',
     );
@@ -1373,7 +1384,7 @@ describe('Resume — PDF reading order and markers', () => {
     // extraction would satisfy none of them for the right reason.
     expect(emitted.built.length, 'the PDF extracted as (almost) no text').toBeGreaterThan(5000);
     expect(emitted.built, 'a known line of the résumé is missing').toContain(
-      normalizeForOrder('Conceptualized and led the CNN Magic Wall'),
+      normalizeForOrder('Conceived and led development of the CNN Magic Wall'),
     );
   });
 
@@ -1813,20 +1824,29 @@ describe('Resume — skim weighting', () => {
     expect(person?.jobTitle, 'visible title must match the JSON-LD jobTitle').toBe(visible);
   });
 
-  it('keeps the summary to 3–4 lines (~55–75 words), scale and AI focus up front', () => {
+  it('keeps the summary to two short paragraphs: scale first, AI focus leading the second', () => {
+    // #617 cut the summary to one ~55–75-word paragraph. The canonical résumé
+    // has since grown it to two paragraphs (~90 words): the first carries the
+    // Disney scale, the second opens on the AI-augmented focus. The ceiling
+    // guards against the summary regrowing into a block, not today's count.
     const summary = document.querySelector('.resume-summary .resume-prose');
     const text = summary.textContent.replace(/\s+/g, ' ').trim();
     const words = text.split(' ').filter(Boolean).length;
-    expect(words, `summary is ${words} words; target 55–75`).toBeGreaterThanOrEqual(55);
-    expect(words, `summary is ${words} words; target 55–75`).toBeLessThanOrEqual(75);
-    // Both anchors land early, not in a trailing sentence.
-    const head = text.split(' ').slice(0, 45).join(' ');
+    expect(words, `summary is ${words} words; target 55–100`).toBeGreaterThanOrEqual(55);
+    expect(words, `summary is ${words} words; target 55–100`).toBeLessThanOrEqual(100);
+    const paragraphs = [...summary.querySelectorAll('p')].map((p) =>
+      p.textContent.replace(/\s+/g, ' ').trim(),
+    );
+    expect(paragraphs.length, 'summary should be two paragraphs').toBe(2);
+    // Both anchors land early in their paragraph, not in a trailing sentence.
+    const head = paragraphs[0].split(' ').slice(0, 45).join(' ');
     expect(head, 'Disney scale should be in the opening lines').toContain(
       'Disney+, Hulu, and ESPN',
     );
-    expect(head.toLowerCase(), 'the AI-augmented focus should be in the opening lines').toContain(
-      'ai-augmented',
-    );
+    expect(
+      paragraphs[1].split(' ').slice(0, 6).join(' ').toLowerCase(),
+      'the second paragraph should open on the AI-augmented focus',
+    ).toContain('ai-augmented');
   });
 
   it('renders the pre-2016 roles as compact entries, with tenure intact', () => {
@@ -1872,12 +1892,12 @@ describe('Resume — skim weighting', () => {
     //
     //    Pin the whole distinguishing phrase, not the striking token in it:
     //    `$335K` alone passes a body that says AJ+ merely *managed* a $335K
-    //    budget, which drops the guaranteed fact (annual vendor savings) while
+    //    budget, which drops the guaranteed fact (vendor-contract savings) while
     //    keeping the number (Codex, #916).
     for (const [company, marker] of [
-      ['AJ+', '$335K in annual vendor savings'],
-      ['Current TV', 'launching three nightly shows within 30 days'],
-      ['CNN', 'Conceptualized and led the CNN Magic Wall'],
+      ['AJ+', 'Renegotiated vendor contracts for $335K in annual savings'],
+      ['Current TV', 'The War Room with Jennifer Granholm within 30 days of the acquisition'],
+      ['CNN', 'Conceived and led development of the CNN Magic Wall'],
     ]) {
       const prose = byCompany[company].querySelector('.resume-prose');
       expect(prose, `${company}: compact entry has no .resume-prose body`).toBeTruthy();
