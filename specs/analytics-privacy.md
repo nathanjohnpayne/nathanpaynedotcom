@@ -124,8 +124,12 @@ The notice is non-modal, never covers content or blocks interaction, and appears
 | `NP-CANARY-ATTR` | the value of `data-fixture-pii` (a fake email) on a clickable element |
 | `NP-CANARY-QUERY` | the `email` query parameter of the fixture's sensitive link |
 | `NP-CANARY-FRAGMENT` | the fragment of that link |
+| `NP-CANARY-SEARCH` | the `q` parameter the suite loads the page with, which GA4 site search reads |
+| `np-canary@example.test`, `+1 555 010 0199`, `1 Canary Way` | valid fake contact values the suite types into the contact form's email, phone, and street-address fields and submits; the suite searches GA4 payloads for these literally and as the SHA-256 of their normalized forms (lowercased and trimmed email; E.164 phone) |
 
 The sensitive link also carries `utm_source=fixture`, which must survive scrubbing (a positive control). The page links to `/privacy/` for the allowed-to-excluded navigation test.
+
+**Positive controls for every scrubbing rule.** An absence check proves nothing unless the event it inspects was actually sent, so the suite first shows each applicable event reaching the sink and only then asserts what it carries. On the fixture it triggers: an outbound click (`#fixture-outbound-link`, to a non-site host), a file download (`#fixture-download-link`, a `.pdf`), site search (loading the page with `?q=NP-CANARY-SEARCH`), a form interaction and submission (`#fixture-contact-form`), and, for user-provided data, the contact values above. GA4 video engagement applies only to embedded YouTube video, which the site has none of, so it is not applicable. If an event cannot be produced against the local `gtag.js` fixture, the related criterion is reported **not verified**, never pass.
 
 Browser runs against `dist-privacy-test/` serve it on a non-local hostname (for example Chromium `--host-resolver-rules` mapping `nathanpayne.test` to the local server), because PostHog skips local hosts.
 
