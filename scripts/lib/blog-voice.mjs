@@ -208,7 +208,7 @@ function quotationPass(item, context, findings, file) {
   for (const match of quotes) {
     findings.push(finding(
       'review.quotation-attribution', 'warning', item,
-      `Textual quotation ${quotations.length + 1} attribution is inferred from prose cues, not proved. Preserve the quoted language and confirm the speaker, source or hypothetical use manually, including narrator pronouns and spelling.`, file,
+      `Textual quotation ${quotations.length + 1} attribution is not established. Preserve the quoted language and confirm the speaker, source or hypothetical use manually, including narrator pronouns and spelling.`, file,
     ));
     const attributed = evidenceCue.test(
       (context + ' ' + item.text.slice(0, match.index)).slice(-200),
