@@ -18,6 +18,7 @@ import {
   parseArticle,
   hash,
   readableReport,
+  escapeProse,
 } from '../scripts/lib/blog-voice.mjs';
 
 const file = 'src/content/blog/nested/test.md';
@@ -1522,4 +1523,34 @@ describe('quotation matching stays linear on adversarial input', () => {
     await check(source);
     expect(performance.now() - started).toBeLessThan(5000);
   }, 20000);
+});
+
+describe('escapeProse neutralizes Markdown block structure in the Vale projection (#1172)', () => {
+  it.each([
+    ['- item', '\\- item'],
+    ['+ item', '\\+ item'],
+    ['1. item', '1\\. item'],
+    ['12) item', '12\\) item'],
+    ['= item', '\\= item'],
+    ['a | b', 'a \\| b'],
+    ['| a | b |', '\\| a \\| b \\|'],
+    ['plain - dash stays', 'plain - dash stays'],
+  ])('escapes %j', (input, expected) => {
+    expect(escapeProse(input)).toBe(expected);
+  });
+
+  it.each(['- ', '+ ', '1. ', '| a | b | '])(
+    'still maps a finding in a heading starting %j to its source range',
+    async (lead) => {
+      const heading = `## ${lead}Colour of the room`;
+      const source = `---\ntitle: A heading check\n---\n\n${heading}\n\nBody.\n`;
+      const report = await check(source);
+      const hits = report.findings.filter((f) => f.rule === 'voice.american-spelling');
+      expect(hits).toHaveLength(1);
+      expect(hits[0].location.start.line).toBe(5);
+      expect(source.slice(hits[0].location.start.offset, hits[0].location.end.offset)).toBe(
+        heading,
+      );
+    },
+  );
 });
