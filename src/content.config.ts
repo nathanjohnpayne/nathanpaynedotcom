@@ -416,6 +416,9 @@ const experience = defineCollection({
     team: z.string().optional(),
     location: z.string().optional(),
     startYear: z.number(),
+    // Trailing item on the canonical meta line, after the year range (e.g.
+    // "acquired by Disney 2017" on BAMTech). Optional; most roles have none.
+    metaNote: z.string().optional(),
     endYear: z.number().optional(), // omit ⇒ rendered as "Present"
     order: z.number(),
     badges: z.array(z.string()).optional(),

@@ -29,9 +29,9 @@ collections are:
 
 | Collection | Dir | Shape | Notes |
 |---|---|---|---|
-| `myself` | `src/content/myself/` | single `.md` entry | Header fields + the summary in the body (a single ~55–75-word paragraph, #617). **No `phone`**—email-only. Also the profile the rest of the site reads (#1166): `title` is the Person `jobTitle`, the structured `address` feeds the header location, the metadata panel, the Person `address` and the shared footer's city, `blog` is the Writing link text, and `availability.long` / `availability.short` are the Availability row and the CTA lede. |
+| `myself` | `src/content/myself/` | single `.md` entry | Header fields + the summary in the body (two short paragraphs, verbatim from the canonical; see § Content fidelity). **No `phone`**—email-only. Also the profile the rest of the site reads (#1166): `title` is the Person `jobTitle`, the structured `address` feeds the header location, the metadata panel, the Person `address` and the shared footer's city, `blog` is the Writing link text, and `availability.long` / `availability.short` are the Availability row and the CTA lede. |
 | `skills` | `src/content/skills/` | one `.yaml` per category | `{ label, priority, skills[] }`. Five categories. |
-| `experience` | `src/content/experience/` | one `.md` per role | Six entries. Bullets / paragraph in the body. Optional `compact: true`—see *Experience density* below. Optional `highlights`, named sidebar cards (see *Content fidelity*), and `alumniOrganization`, the organization the Person `alumniOf` list names for the role (#1166). |
+| `experience` | `src/content/experience/` | one `.md` per role | Six entries. Bullets / paragraph in the body. Optional `compact: true`—see *Experience density* below. Optional `metaNote`, a trailing item on the meta line after the year range (BAMTech's `acquired by Disney 2017`). Optional `highlights`, named sidebar cards (see *Content fidelity*), and `alumniOrganization`, the organization the Person `alumniOf` list names for the role (#1166). |
 | `education` | `src/content/education/` | one `.md` | One entry (George Mason). |
 | `certifications` | `src/content/certifications/` | one `.md` per cert | Three entries. |
 | `resumeProjects` | `src/content/resume/projects/` | one `.md` per project | Seven entries. **Distinct from `projects`** (reserved for `/projects`). Each carries a required `claimsReviewed` stamp—see *Claims review*. |
@@ -169,69 +169,21 @@ The Projects and Writing section leads differ from each other on the separator b
 
 ## Experience density
 
-Vertical space tracks relevance. Two separate mechanisms produce it, and
-conflating them is the mistake this section used to invite:
+Vertical space tracks relevance, and only through layout.
 
-1. **The `compact` flag, which is layout only** (#618). An experience entry may
-   set `compact: true` in frontmatter; the `ExperienceSection` then renders it
-   with the `resume-entry--compact` modifier (tighter gaps, a stepped-down
-   title, a 52px rather than 72px logo tile). It touches no copy, and flipping
-   it back restores full weight without editing a word.
-2. **A one-time prose compression of the three pre-2016 bodies**, applied by
-   hand in #617/#618. This is an edit to the content files, not a rendering
-   mode, and it is **not** what the flag reverses.
+**The `compact` flag is layout only** (#618). An experience entry may set `compact: true` in frontmatter; the `ExperienceSection` then renders it with the `resume-entry--compact` modifier (tighter gaps, a stepped-down title, a 52px rather than 72px logo tile). It touches no copy, and flipping it back restores full weight without editing a word.
 
-The three pre-2016 roles—AJ+ (2013–2016), Current TV (2012–2013), and CNN
-(2002–2012)—are compact, and their bodies are one to two lines each: company,
-role, years, and the most transferable accomplishment. The two Disney entries
-(7 and 4 bullets) and BAMTech keep full weight.
+The three pre-2016 roles—AJ+ (2013–2016), Current TV (2012–2013), and CNN (2002–2012)—are compact. The two Disney entries (7 and 4 bullets) and BAMTech keep full weight.
 
-**What the compression guarantees, and what it does not.** Three things are
-guaranteed, and all three are checkable in `tests/resume.test.js`:
+**The compact bodies carry the canonical text in full.** #617/#618 also compressed these three bodies by hand to one or two lines each, dropping specific facts (the Adobe CQ CMS publishing pipeline and its syndication, the $60M operating budget, the three named Current TV shows). The canonical résumé has since rewritten all three, and the site now mirrors those rewrites verbatim, so nothing the canonical says about these roles is omitted from the page. Density is a layout decision again, not a prose one.
+
+**What the tests guarantee.** Three things, all checkable in `tests/resume.test.js`:
 
 1. Every role keeps its **full date range**.
-2. The **CNN Magic Wall** stays on the page—it is the most memorable line on
-   the résumé.
-3. Every compact entry still carries **its** accomplishment, not a dated
-   one-liner. The test pins the whole distinguishing phrase for each—`$335K in
-   annual vendor savings`, `launching three nightly shows within 30 days`,
-   `Conceptualized and led the CNN Magic Wall`—plus a minimum body length so an
-   entry cannot be reduced to the phrase alone. The phrase and not the striking
-   token in it: pinning `$335K` by itself passes a body saying AJ+ merely
-   *managed* a $335K budget, which keeps the number and drops the fact. "A real accomplishment" is not something a
-   test can recognise; the specific fact each role retains is, which is why the
-   guarantee is written as three named facts rather than a quality bar.
+2. The **CNN Magic Wall** stays on the page—it is the most memorable line on the résumé.
+3. Every compact entry still carries **its** accomplishment, not a dated one-liner. The test pins the whole distinguishing phrase for each—`Renegotiated vendor contracts for $335K in annual savings`, `The War Room with Jennifer Granholm within 30 days of the acquisition`, `Conceived and led development of the CNN Magic Wall`—plus a minimum body length so an entry cannot be reduced to the phrase alone. The phrase and not the striking token in it: pinning `$335K` by itself passes a body saying AJ+ merely *managed* a $335K budget, which keeps the number and drops the fact. "A real accomplishment" is not something a test can recognize; the specific fact each role retains is, which is why the guarantee is written as three named facts rather than a quality bar.
 
-Past those three, the compressed bodies drop specific facts and not merely
-words. That is the intended trade, not a defect:
-
-- `ajplus.md` no longer names the Adobe CQ CMS publishing pipeline or its
-  syndication to YouTube and Comcast Xfinity.
-- `cnn.md` keeps the $2M project capital budgets and drops the $60M operating
-  budget they were managed against.
-- `current-tv.md` says "three nightly shows" in place of *Joy Behar: Say
-  Anything*, *The Gavin Newsom Show*, and *The War Room with Jennifer
-  Granholm*.
-
-Every one of those facts is still in the canonical resume—
-`job-search/nathan-payne-resume.md` in the private `nathanjohnpayne/docs`
-repository, checked out locally at `~/GitHub/docs/`—verified against that file
-rather than assumed; see
-*Content fidelity* below for which document is the source. The page is a
-three-page document and the pre-2016 roles are the ones whose detail earns the
-least of that space.
-
-An earlier revision of this section read "compression is emphasis, never
-erasure." It over-claimed (#735): the sentence promises something about every
-fact, while what this section guarantees—and what the tests check—is the three
-items above. The scoped statement is the honest one, and it is the one a reader
-can check.
-
-The flag is reversible in the sense given above: unset `compact: true` and the
-entry renders at full weight. That restores the *layout*, not the prose. The
-dropped facts are an editorial decision recorded here. Undoing one means
-copying it back from the canonical resume, which still holds every omitted
-fact—the canonical is the source and needs no edit.
+An earlier revision of this section read "compression is emphasis, never erasure." It over-claimed (#735): the sentence promised something about every fact, while what the tests check is the three items above.
 
 ## Downloadable PDF
 
@@ -476,6 +428,7 @@ icon-library dependency.
   document still lands on three pages, with page 3 a little lighter. The
   three-page target itself is unchanged: #420 established that forcing two
   pages over-compresses this much content.
+- Restoring the canonical pre-2016 bodies and the two-paragraph summary added about eight printed lines and spilled the last project and the Writing lead onto a fourth page. The print-only vertical gaps took a second ~20% cut (horizontal gaps, the bullet gutter, and the type scale are unchanged), which returns the Chromium-generated PDF to three full pages (52/51/50 extracted lines). Page 3 now has no slack: the next addition to the résumé will spill again, and Safari, which fits ~11% less per page, may already print four from the browser. The type size is the next dial, and it is a readability trade rather than a spacing one.
 
 ## Content fidelity
 
@@ -488,19 +441,15 @@ variants—not paraphrased. The contract binds the **collection-backed bodies**�
 canonical writes it, and they may carry less than the canonical does, but never
 something it does not say and never a rewording of what it does.
 
-**The sidebar highlight cards are deliberately outside it.** They are marquee metrics condensed to fit a card, and they live in each `experience` entry's `highlights` frontmatter, beside the body they summarize but not in it (#1166): the NCP card (`disney-ncp`, `highlights.ncpv3`) reads "Conceived and secured an $18.1M investment in NCPv3" where the canonical reads "Conceived and secured **approval for** an $18.1M investment in NCPv3." That is a paraphrase by design, and scoping the contract this way is what keeps it from classifying the shipped implementation as drift. Keeping a card next to its role is what makes an edit to the role's bullets visit the card too; it does not make the card a mirror of them.
+**The sidebar highlight cards are deliberately outside it.** They are marquee metrics condensed to fit a card, and they live in each `experience` entry's `highlights` frontmatter, beside the body they summarize but not in it (#1166): the NCP card (`disney-ncp`, `highlights.ncpv3`) compresses the bullet's device list to "five device families" and its "two codebases and two teams" to "two teams." That is a paraphrase by design, and scoping the contract this way is what keeps it from classifying the shipped implementation as drift. Keeping a card next to its role is what makes an edit to the role's bullets visit the card too; it does not make the card a mirror of them. A card may condense a claim, never strengthen it: the NCPv3 card states the Rust app's retirement and the team merge as what the investment was *for*, as the bullet does, because NCPv3 had not reached MVP when Nathan left Disney. "Retiring the parallel Rust app" and "merging two teams," which read as completed outcomes, are pinned as negative assertions on both surfaces.
 
-The three compact pre-2016 bodies are where that distinction is load-bearing: they omit facts the canonical retains (see *Experience density* above, which names them). Those omissions are accepted, not drift. Drift would be a *divergent* sentence—the failure mode #850 recorded, where the canonical said one thing and the mirror said another—and nothing in this repository compares the two surfaces automatically, so it is worth knowing which failure you are looking at. The canonical is private, so no check here can read it. What is checked is whether each project entry has been reviewed against its case study since either last changed, which is a different question; see *Claims review* below.
+Drift is a *divergent* sentence—the failure mode #850 recorded, where the canonical said one thing and the mirror said another—and nothing in this repository compares the two surfaces automatically, so it is worth knowing which failure you are looking at. The canonical is private, so no check here can read it. What is checked is whether each project entry has been reviewed against its case study since either last changed, which is a different question; see *Claims review* below.
 
 In particular:
 
 - The CSP-PO certification is attributed to **Scrum Alliance** (the
   credentialing body), not the training provider.
-- The summary opens with the 20+-years platform framing and names Disney+,
-  Hulu, and ESPN. Since #617 it is one paragraph of ~55–75 words with the
-  AI-augmented development focus in the same opening lines as the Disney
-  scale; the detail it shed is recoverable elsewhere on the page (Skills,
-  the Disney NCP bullets, the Projects section) rather than deleted.
+- The summary opens with the 20+-years platform framing and names Disney+, Hulu, and ESPN. #617 cut it to one paragraph of ~55–75 words; the canonical has since grown it to two paragraphs (~90 words), the first carrying the Disney scale and the platform method, the second opening on the AI-augmented development focus. The test holds it under 100 words in exactly two paragraphs.
 - Six experience entries span Disney NCP (2021–2026) back to CNN
   (2002–2012).
 
@@ -580,8 +529,7 @@ All seven entries were first stamped on 2026-10-07. The stamps record the state 
     `tests/fixtures/known-bad-resume-pre-923.pdf` and is required to FAIL on
     it.
 9. The visible header title is a single role title equal to the JSON-LD
-   `jobTitle`; the summary is 55–75 words naming Disney+/Hulu/ESPN and the
-   AI-augmented focus up front.
+   `jobTitle`; the summary is two paragraphs of 55–100 words, the first naming Disney+/Hulu/ESPN and the second opening on the AI-augmented focus.
 10. AJ+, Current TV, and CNN render with `resume-entry--compact`, keep their
-    full date ranges, and the CNN Magic Wall is still present.
+    full date ranges and their canonical bodies, and the CNN Magic Wall is still present.
 11. Every `resumeProjects` entry links by its id to exactly one case study and carries a `claimsReviewed` stamp whose `caseStudy` and `resume` hashes match the current files; a stale stamp fails with the side that changed, the four-step remedy, and the replacement stamp (§ Claims review).
