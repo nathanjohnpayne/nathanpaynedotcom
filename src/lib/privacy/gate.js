@@ -397,8 +397,11 @@
   }
 
   function scrubString(key, value) {
-    if (ABSOLUTE_HTTP.test(value)) return scrubUrl(value);
-    if (URL_KEY.test(key) && /^[/?#]/.test(value)) return scrubUrl(value);
+    // Classify the trimmed value: scrubUrl trims too, so a URL with leading
+    // whitespace must not slip past as plain text.
+    var trimmed = value.trim();
+    if (ABSOLUTE_HTTP.test(trimmed)) return scrubUrl(value);
+    if (URL_KEY.test(key) && /^[/?#]/.test(trimmed)) return scrubUrl(value);
     return value;
   }
 
@@ -573,7 +576,7 @@
       } else {
         value = scrubTree(value, depth + 1, key, ctx);
       }
-      mergeInto(out, ABSOLUTE_HTTP.test(key) ? scrubUrl(key) : key, value);
+      mergeInto(out, ABSOLUTE_HTTP.test(key.trim()) ? scrubUrl(key) : key, value);
     }
     return out;
   }

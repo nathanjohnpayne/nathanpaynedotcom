@@ -841,6 +841,20 @@ describe('event scrubbing: PostHog before_send (§ Capture Minimization 3–4)',
     expect(out.properties.$current_url).toBe('https://nathanpayne.test/');
   });
 
+  it('scrubs a URL with surrounding whitespace in any property', () => {
+    const { gate } = boot();
+    const out = gate.scrubEvent({
+      event: 'custom',
+      properties: {
+        destination:
+          '  https://example.test/?email=NP-CANARY-QUERY&utm_source=f#NP-CANARY-FRAGMENT',
+        tabbed: '\thttps://example.test/p?x=NP-CANARY-QUERY',
+      },
+    });
+    expect(out.properties.destination).toBe('https://example.test/?utm_source=f');
+    expect(out.properties.tabbed).toBe('https://example.test/p');
+  });
+
   it('drops a branch nested past the depth limit instead of sending it unexamined', () => {
     const { gate } = boot();
     let deep = { $current_url: 'https://nathanpayne.test/?email=NP-CANARY-QUERY' };
