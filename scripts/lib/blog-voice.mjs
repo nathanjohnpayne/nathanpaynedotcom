@@ -715,10 +715,19 @@ export async function checkVoice({
   const after = await parseArticle(source, file);
   const before =
     beforeSource === null ? null : await parseArticle(beforeSource, baseline.path ?? file);
-  // A removed HTML surface still needs review in the complete before article.
-  after.findings.push(...(before?.findings ?? []).filter((f) => f.rule === 'review.html' && !after.findings.some((a) => a.rule === f.rule && a.excerpt === f.excerpt)).map((f) => ({
-    ...f, sourceVersion: 'before', reason: 'Before article: ' + f.reason,
-  })));
+  // Match unchanged HTML warnings one-to-one; removed occurrences keep their
+  // before-side source ranges even when an identical occurrence survives.
+  const htmlOccurrences = new Map();
+  for (const item of after.findings.filter((f) => f.rule === 'review.html'))
+    htmlOccurrences.set(item.excerpt, (htmlOccurrences.get(item.excerpt) ?? 0) + 1);
+  for (const item of before?.findings ?? []) {
+    if (item.rule !== 'review.html') continue;
+    const remaining = htmlOccurrences.get(item.excerpt) ?? 0;
+    if (remaining) htmlOccurrences.set(item.excerpt, remaining - 1);
+    else after.findings.push({
+      ...item, sourceVersion: 'before', reason: 'Before article: ' + item.reason,
+    });
+  }
   runMechanical(after, properNouns);
   editorialWarnings(after);
   if (before && before.source !== after.source) {
