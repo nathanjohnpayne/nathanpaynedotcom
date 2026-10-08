@@ -214,6 +214,20 @@ We organised the colour.
     ).toContain('voice.narrator-plural');
   });
 
+  it('flags a standalone "us" but not words that contain it (#1186)', async () => {
+    // NarratorPlural relies on Vale's default word-boundary wrapping; a rule
+    // option such as `nonword: true` would start matching these substrings.
+    const article = (body) => `---\ntitle: "T"\ndescription: "D"\n---\n\n${body}\n`;
+    const narrator = async (body) =>
+      (await check(article(body))).findings.filter((f) => f.rule === 'voice.narrator-plural');
+    const substrings =
+      'Trust the bus status. Focus, thus, on campus. Usually a user, museum or virus. ' +
+      'A robust discussion, a famous consensus, a stimulus.';
+    expect(await narrator(substrings)).toEqual([]);
+    expect(await narrator('The editor told us about the change.')).toHaveLength(1);
+    expect(await narrator('Us readers noticed.')).toHaveLength(1);
+  });
+
   it.each([
     '<span id="anchor">Content</span>',
     '<span id="anchor" hidden></span>',
