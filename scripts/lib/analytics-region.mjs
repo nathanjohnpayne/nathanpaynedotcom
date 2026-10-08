@@ -53,6 +53,23 @@ export async function readTextFiles(
   );
 }
 
+/**
+ * Every runtime marker found in any emitted file, whatever its type: each
+ * file is scanned as bytes, so an SVG, a source map, or a file with an
+ * unexpected extension cannot hide a marker. Returns `path: marker` strings.
+ */
+export async function findRuntimeMarkers(dir) {
+  const needles = RUNTIME_MARKERS.map((m) => [m, Buffer.from(m, 'utf8')]);
+  const hits = [];
+  for (const f of await listFiles(dir)) {
+    const bytes = await readFile(f);
+    for (const [marker, needle] of needles) {
+      if (bytes.includes(needle)) hits.push(`${relative(dir, f)}: ${marker}`);
+    }
+  }
+  return hits;
+}
+
 /** Runs `astro build` in production mode with the fixed fake tokens. */
 export function buildFlagOff(outDir, cwd) {
   return new Promise((resolve, reject) => {

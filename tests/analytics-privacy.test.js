@@ -27,9 +27,9 @@ import {
 import { execFileSync } from 'node:child_process';
 import {
   FLAG_OFF_ENV,
-  RUNTIME_MARKERS,
   analyticsRegion,
   buildFlagOff,
+  findRuntimeMarkers,
   readTextFiles,
 } from '../scripts/lib/analytics-region.mjs';
 
@@ -158,13 +158,7 @@ describe('flag-off build is unchanged (PRIV-15)', () => {
     expect(linked).toEqual([]);
   });
 
-  it('emits no privacy runtime marker in any file', () => {
-    const hits = [];
-    for (const f of files) {
-      for (const marker of RUNTIME_MARKERS) {
-        if (f.text.includes(marker)) hits.push(`${f.path}: ${marker}`);
-      }
-    }
-    expect(hits).toEqual([]);
+  it('emits no privacy runtime marker in any file, of any type', async () => {
+    expect(await findRuntimeMarkers(outDir)).toEqual([]);
   });
 });
