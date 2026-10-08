@@ -1000,7 +1000,7 @@ describe('source-pinned examples, advisory warnings and complete meaning review'
     expect(rules(report)).not.toContain('review.repeated-explanation');
   });
 
-  it('surfaces repeated openings, explanations and durations alongside judgment prompts', async () => {
+  it('surfaces repeated openings, explanations and time-unit wording alongside judgment prompts', async () => {
     const report = await check(
       'I wanted the smaller change for this project. It took 12 hours. This highlights the landscape.\n\nI wanted the smaller change for this project. It took 12 hours. To be fair, perhaps the key takeaway matters.\n',
     );
@@ -1015,6 +1015,43 @@ describe('source-pinned examples, advisory warnings and complete meaning review'
         'review.defensive-hedging',
       ]),
     );
+  });
+
+  it('leaves the approved compound-duration quantities to manual review', async () => {
+    const fixture = JSON.parse(
+      readFileSync('tests/fixtures/blog-voice/product-duration.json', 'utf8'),
+    );
+    const source = `---\nkeyTakeaways:\n  - ${JSON.stringify(fixture.takeaway)}\n---\n\n${fixture.body}\n`;
+    const report = await check(source);
+    const warnings = report.findings.filter((f) => f.rule === 'review.repeated-duration');
+    expect(warnings).toHaveLength(2);
+    for (const warning of warnings) {
+      expect(warning).toMatchObject({ surface: 'keyTakeaways.0', severity: 'warning' });
+      expect(warning.reason).toContain('Compare the complete quantities and events');
+      expect(warning.reason).toContain('do not establish equal durations or padding');
+      expect(warning.reason).not.toContain('one minutes');
+      expect(source.slice(warning.location.start.offset, warning.location.end.offset)).toBe(
+        warning.excerpt,
+      );
+      expect(report.packet.warnings).toContainEqual(warning);
+    }
+    expect(report.exitCode).toBe(0);
+    expect(report.packet.after.source).toBe(source);
+  });
+
+  it('does not infer equal durations from repeated units with different quantities', async () => {
+    const source = 'It took 2 hours.\n\nThe other event took 9 hours.\n';
+    const report = await check(source);
+    const warnings = report.findings.filter((f) => f.rule === 'review.repeated-duration');
+    expect(warnings).toHaveLength(1);
+    expect(warnings[0].reason).toContain("Time-unit wording 'hours'");
+    expect(warnings[0].reason).toContain('whether repetition is intentional');
+    expect(warnings[0].reason).toContain('do not establish equal durations or padding');
+    expect(warnings[0].reason).not.toContain('2 hours');
+    expect(warnings[0].reason).not.toContain('9 hours');
+    expect(warnings[0].severity).toBe('warning');
+    expect(report.exitCode).toBe(0);
+    expect(report.packet.after.source).toBe(source);
   });
 
   it('runs existing phrase advisories on prose metadata with original YAML ranges', async () => {

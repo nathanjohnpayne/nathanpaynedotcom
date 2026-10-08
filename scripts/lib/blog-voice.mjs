@@ -592,7 +592,7 @@ function runMechanical(article, properNouns) {
 function editorialWarnings(article) {
   const seenSentences = new Map();
   const seenOpenings = new Map();
-  const seenDurations = new Map();
+  const seenTimeUnits = new Map();
   const rules = [
     [
       'review.vague-signpost',
@@ -659,20 +659,20 @@ function editorialWarnings(article) {
       else seenSentences.set(sentence, item.location.start.line);
     }
     for (const match of text.matchAll(
-      /\b(?:\d+|one|two|three|four|five|six|seven|eight|nine|ten|twelve|twenty)[ -](?:seconds?|minutes?|hours?|days?|weeks?|months?|years?)\b/giu,
+      /\b(?:seconds?|minutes?|hours?|days?|weeks?|months?|years?)\b/giu,
     )) {
-      const duration = match[0].toLowerCase();
-      if (seenDurations.has(duration))
+      const timeUnit = match[0].toLowerCase();
+      if (seenTimeUnits.has(timeUnit))
         article.findings.push(
           finding(
             'review.repeated-duration',
             'warning',
             item,
-            `Duration '${duration}' also appears at line ${seenDurations.get(duration)}. Distinct events may legitimately have the same duration.`,
+            `Time-unit wording '${timeUnit}' also appears at line ${seenTimeUnits.get(timeUnit)}. Compare the complete quantities and events, and whether repetition is intentional. Repeated units do not establish equal durations or padding.`,
             article.file,
           ),
         );
-      else seenDurations.set(duration, item.location.start.line);
+      else seenTimeUnits.set(timeUnit, item.location.start.line);
     }
   }
 }

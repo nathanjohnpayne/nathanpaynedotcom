@@ -1,0 +1,9 @@
+{
+  "provenance": {
+    "kind": "owner-approved-model-revision",
+    "commit": "68827d183093fdc9500c0263b1078751067ae2fd",
+    "path": "src/content/blog/the-product-did-not-travel.md"
+  },
+  "takeaway": "Ask about the experience without naming the bugs you already know. Guests stopped marking four hours and forty-one minutes before the recorded crash; the crash may still have kept the host from bringing them back.",
+  "body": "At 14:38 on Saturday, PostHog recorded fourteen client errors: a Firestore internal assertion followed by three crash screens, all on one device. Kim's text separately confirms the app stopped working that day. The guests' last mark came four hours and forty-one minutes before the recorded crash. Kim's last mark came before it, too. That crash didn't open the gap in marking."
+}
