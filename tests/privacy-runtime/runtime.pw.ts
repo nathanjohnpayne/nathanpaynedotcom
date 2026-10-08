@@ -174,6 +174,19 @@ function allText(sink: Sink): string {
   return sink.records.map((r) => r.text).join('\n');
 }
 
+/**
+ * The decoded, decompressed rrweb data of every `$snapshot` event only, not
+ * the analytics events that `allText` also holds. Network-timing entries ride
+ * in this data too (as rrweb plugin events), so a positive control for a DOM
+ * attribute should also match something only that attribute carries.
+ */
+function replayText(sink: Sink): string {
+  return posthogEvents(sink)
+    .filter((e) => e.event === '$snapshot')
+    .map((e) => JSON.stringify(props(e).$snapshot_data ?? null))
+    .join('\n');
+}
+
 async function noSdk(page: Page): Promise<void> {
   const scripts = page.locator(
     'script[src*="/static/array.js"], script[src*="googletagmanager.com"]',
@@ -286,10 +299,13 @@ test('default-on loads both SDKs and sends scrubbed, masked data only', async ()
       25_000,
     ),
   ).toBe(true);
-  // Positive control: the injected image did reach replay. Scrub-agnostic, so a
-  // negative control still reaches the canary check; the exact scrubbed form
-  // is asserted below.
-  expect(await waitFor(() => allText(sink).includes('/np-asset@2x.png'), 15_000)).toBe(true);
+  // Positive control: the injected image reached the recorded DOM. It reads
+  // only $snapshot data and requires the srcset descriptor (` 2x`), which the
+  // <img> attribute carries and a network-timing entry for the fetch does not.
+  // Scrub-agnostic, so a negative control still reaches the canary check; the
+  // exact scrubbed form is asserted below.
+  const imageInReplay = () => /np-asset@2x\.png[^"]* 2x/.test(replayText(sink));
+  expect(await waitFor(imageInReplay, 15_000)).toBe(true);
   await pause(4_000);
 
   await page.locator('#fixture-sensitive-link').click();
@@ -324,9 +340,9 @@ test('default-on loads both SDKs and sends scrubbed, masked data only', async ()
   expect
     .soft(text, 'an injected asset URL query reached the sink')
     .not.toContain('NP-CANARY-ASSET');
-  // rrweb records srcset with absolute URLs; both candidates keep their path
-  // and descriptor and lose their query.
-  expect(text).toContain(`${SITE}/np-asset.png 1x, ${SITE}/np-asset@2x.png 2x`);
+  // In the replay data, rrweb records the srcset with absolute URLs; both
+  // candidates keep their path and descriptor and lose their query.
+  expect(replayText(sink)).toContain(`${SITE}/np-asset.png 1x, ${SITE}/np-asset@2x.png 2x`);
   // Positive controls: the allowlisted parameter survives in both tools, the
   // replay really ran, and masked inputs are present as asterisks.
   // (PostHog's $referrer is the session's first referrer, $direct here; GA4's
