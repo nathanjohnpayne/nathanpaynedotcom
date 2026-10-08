@@ -631,6 +631,30 @@ We organised the colour.
     );
   });
 
+  it.each(['#hashtag', '####### literal hashes'])(
+    'recognizes %s as setext text rather than an ATX marker',
+    async (text) => {
+      const source = `${text}\n--------\n\n## An ATX heading\n`;
+      const article = await parseArticle(source, file);
+      expect(article.headings).toHaveLength(2);
+      expect(article.findings).toContainEqual(
+        expect.objectContaining({ rule: 'voice.heading-convention', severity: 'error' }),
+      );
+      expect(article.source).toBe(source);
+    },
+  );
+
+  it.each([
+    '## An ATX heading\n\n# Another heading\n',
+    '##\tAn ATX heading\n\n### Another heading\n',
+    '#hashtag\n--------\n\nAnother heading\n===\n',
+    'First line\n#hashtag\n--------\n\nAnother heading\n===\n',
+  ])('preserves a consistent AST heading convention (%s)', async (source) => {
+    const article = await parseArticle(source, file);
+    expect(article.headings).toHaveLength(2);
+    expect(article.findings.map((f) => f.rule)).not.toContain('voice.heading-convention');
+  });
+
   it('decodes escaped/multiline YAML, entities, emphasis and links for exact pullquotes', async () => {
     const source = `---
 pullquotes:
