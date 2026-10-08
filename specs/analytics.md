@@ -68,7 +68,7 @@ may be removed later without affecting the other.
 | Event | Trigger | Properties |
 |---|---|---|
 | `homepage_panel_opened` | A Mondrian panel becomes focused (`data-focus` set) | `panel_name` |
-| `homepage_layout_rendered` | Once per homepage load, after fonts settle: which layout the reader actually got, classified from the grid's rendered geometry (`composition` when `.mondrian` height/width < 1.05, otherwise `stack`), not from the media query (#1045) | `layout`, `viewport_width`, `viewport_height` |
+| `homepage_layout_rendered` | Once per homepage load, after fonts settle (or after 3 s if `document.fonts.ready` has not resolved by then, #1065): which layout the reader actually got, classified from the grid's rendered geometry (`composition` when `.mondrian` height/width < 1.05, otherwise `stack`), not from the media query (#1045) | `layout`, `viewport_width`, `viewport_height` |
 | `contact_email_clicked` | Click on the `#availability-mailto` "Get in touch" link | — |
 | `booking_link_clicked` | Click on the `.availability-booking` Cal.com scheduling link | — |
 | `resume_link_clicked` | Click on a résumé link in the Connect/About panels | — |
