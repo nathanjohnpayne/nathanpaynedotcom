@@ -24,6 +24,8 @@ export default [
     ignores: [
       "node_modules/**",
       "dist/**",
+      "dist-privacy-test/**",
+      "dist-flag-off/**",
       "build/**",
       "coverage/**",
       ".astro/**",
