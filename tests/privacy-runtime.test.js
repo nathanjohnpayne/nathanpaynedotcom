@@ -39,12 +39,15 @@ function scriptBody(src, openTag, index) {
 const POSTHOG_ON = scriptBody(POSTHOG_SRC, '<script is:inline define:vars={{ token }}>', 1);
 const GA_ON = scriptBody(LAYOUT_SRC, '<script is:inline define:vars={{ gaId }}>', 1);
 
-/** Runs an inline script the way Astro's define:vars emits it: an IIFE with const bindings. */
+/**
+ * Runs an inline script the way Astro's define:vars emits it: a function whose
+ * scope binds the variables. The body is the component's script, unmodified;
+ * the values are passed as arguments, never spliced into source. The window's
+ * own Function constructor runs it in that window's realm.
+ */
 function runDefineVars(w, vars, body) {
-  const decls = Object.entries(vars)
-    .map(([k, v]) => `const ${k} = ${JSON.stringify(v)};`)
-    .join('\n');
-  w.eval(`(function(){${decls}\n${body}\n})();`);
+  const names = Object.keys(vars);
+  new w.Function(...names, body)(...names.map((name) => vars[name]));
 }
 
 /**
@@ -680,6 +683,57 @@ describe('event scrubbing: PostHog before_send (§ Capture Minimization 3–4)',
           .properties.$elements_chain,
       ).toBe('');
     }
+  });
+
+  describe('chain values with backslashes (PostHog escapes only quotes)', () => {
+    // posthog-js 1.438.3 escapeQuotes, browser-common/src/utils/autocapture-utils.ts:
+    // a backslash before every `"`, and no escaping of `\` itself.
+    const escapeQuotes = (input) => input.replace(/"|\\"/g, '\\"');
+    const chainOf = (attrs) => `a:${attrs}nth-child="1"nth-of-type="1"`;
+    const scrub = (chain) =>
+      boot().gate.scrubEvent({ event: '$autocapture', properties: { $elements_chain: chain } })
+        .properties.$elements_chain;
+    const awkward = [
+      'plain',
+      'back\\slash',
+      'two\\\\backslashes',
+      'quote"inside',
+      'slash-quote\\"inside',
+      'slash-slash-quote\\\\"inside',
+      '"leading and trailing"',
+      'mixed \\ and " and \\" and \\\\"',
+    ];
+
+    it('leaves kept values byte-identical, including ones re-encoded after scrubbing', () => {
+      for (const value of awkward) {
+        // text is kept raw; a mailto: href is decoded, passed through scrubUrl
+        // unchanged, and re-encoded, so it exercises encode(decode(raw)).
+        const text = escapeQuotes(value);
+        const href = escapeQuotes(`mailto:x@example.test?subject=${value}`);
+        const chain = chainOf(`attr__href="${href}"href="${href}"`) + `text="${text}"`;
+        expect(scrub(chain), value).toBe(chain);
+      }
+    });
+
+    it('does not double a backslash in an href it rewrites', () => {
+      const chain = chainOf('attr__href="/p/?utm_source=a\\b&email=x"href="/p/?utm_source=a\\b"');
+      expect(scrub(chain)).toBe(
+        chainOf('attr__href="/p/?utm_source=a\\b"href="/p/?utm_source=a\\b"'),
+      );
+    });
+
+    it('drops a chain whose value ends in a backslash rather than misread what follows', () => {
+      // `\` + closing `"` is ambiguous in PostHog's format. The parser reads on
+      // to the next value's opening quote, the following key then contains a
+      // quote, and the whole chain is dropped: the data-* value never lands in
+      // a kept field.
+      const chain =
+        'a:nth-child="1"nth-of-type="1"text="ends with\\";' +
+        'div:attr__data-x="NP-SECRET"nth-child="2"nth-of-type="1"';
+      expect(scrub(chain)).toBe('');
+      const href = 'a:attr__href="/x\\"attr__data-x="NP-SECRET"nth-child="1"nth-of-type="1"';
+      expect(scrub(href)).not.toContain('NP-SECRET');
+    });
   });
 
   it('applies the same rules to the legacy $elements array', () => {

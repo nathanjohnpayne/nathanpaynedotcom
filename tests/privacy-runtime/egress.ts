@@ -159,6 +159,8 @@ export interface SinkRecord {
   url: string;
   /** Request URL and body, decoded and decompressed, for content checks. */
   text: string;
+  /** Request body, decompressed but otherwise as sent (GA4 hits stay URL-encoded). */
+  body: string;
   /** Parsed JSON payload when the body was JSON (PostHog). */
   json: unknown;
 }
@@ -193,20 +195,28 @@ function decompressDeep(value: unknown): unknown {
   return value;
 }
 
-function decodeBody(buffer: Buffer | null): { text: string; json: unknown } {
-  if (!buffer || buffer.length === 0) return { text: '', json: null };
+function decodeBody(buffer: Buffer | null): { text: string; body: string; json: unknown } {
+  if (!buffer || buffer.length === 0) return { text: '', body: '', json: null };
   let text: string;
   if (buffer[0] === 0x1f && buffer[1] === 0x8b) text = gunzipSync(buffer).toString('utf8');
   else text = buffer.toString('utf8');
+  const body = text;
   if (text.startsWith('data=')) {
     text = Buffer.from(decodeURIComponent(text.slice(5)), 'base64').toString('utf8');
   }
   try {
     const json = decompressDeep(JSON.parse(text));
-    return { text: JSON.stringify(json), json };
+    return { text: JSON.stringify(json), body, json };
   } catch {
-    return { text, json: null };
+    return { text, body, json: null };
   }
+}
+
+/** True when `host` is `domain` or a subdomain of it (label boundary, never a substring). */
+export function isHostOrSubdomain(host: string, domain: string): boolean {
+  const h = host.toLowerCase().replace(/\.$/, '');
+  const d = domain.toLowerCase();
+  return h === d || h.endsWith(`.${d}`);
 }
 
 const ANALYTICS = [
@@ -218,9 +228,10 @@ const ANALYTICS = [
   'doubleclick.net',
 ];
 
+/** `host` may carry a port (a CONNECT target or URL.host); it is ignored. */
 export function isAnalyticsHost(host: string): boolean {
-  const h = host.toLowerCase().replace(/:\d+$/, '');
-  return ANALYTICS.some((a) => h === a || h.endsWith(`.${a}`));
+  const h = host.replace(/:\d+$/, '');
+  return ANALYTICS.some((a) => isHostOrSubdomain(h, a));
 }
 
 /** The remote config this check serves, mirroring project 469428 as read on 2026-10-08 (C1–C3 on). */
@@ -336,12 +347,10 @@ export async function installDefaultDenyRoute(
       method: request.method(),
       url: request.url(),
       text: `${decodedUrl}\n${decoded.text}`,
+      body: decoded.body,
       json: decoded.json,
     });
-    if (
-      url.hostname.endsWith('google-analytics.com') ||
-      url.hostname.endsWith('analytics.google.com')
-    ) {
+    if (isGaHost(url.hostname)) {
       await route.fulfill({ status: 204, body: '' });
     } else {
       await route.fulfill({ status: 200, contentType: 'application/json', body: '{"status":1}' });
@@ -350,11 +359,18 @@ export async function installDefaultDenyRoute(
   return sink;
 }
 
+function isGaHost(hostname: string): boolean {
+  return (
+    isHostOrSubdomain(hostname, 'google-analytics.com') ||
+    isHostOrSubdomain(hostname, 'analytics.google.com')
+  );
+}
+
 /** Every PostHog event in the sink, flattened from batches. */
 export function posthogEvents(sink: Sink, since = 0): Array<Record<string, unknown>> {
   const out: Array<Record<string, unknown>> = [];
   for (const record of sink.records) {
-    if (record.at < since || !new URL(record.url).hostname.endsWith(POSTHOG_HOST)) continue;
+    if (record.at < since || new URL(record.url).hostname.toLowerCase() !== POSTHOG_HOST) continue;
     const json = record.json as { batch?: unknown[] } | unknown[] | null;
     const items = Array.isArray(json)
       ? json
@@ -370,5 +386,30 @@ export function posthogEvents(sink: Sink, since = 0): Array<Record<string, unkno
 }
 
 export function gaHits(sink: Sink, since = 0): SinkRecord[] {
-  return sink.records.filter((r) => r.at >= since && /\/g\/collect/.test(r.url));
+  return sink.records.filter((r) => {
+    if (r.at < since) return false;
+    const url = new URL(r.url);
+    return isGaHost(url.hostname) && url.pathname === '/g/collect';
+  });
+}
+
+/**
+ * The parameters of every GA4 hit in a collect request, parsed rather than
+ * pattern-matched. Shared parameters ride on the URL; a batched request adds
+ * one line of hit-specific parameters per hit in the body.
+ */
+export function gaHitParams(record: SinkRecord): URLSearchParams[] {
+  const shared = new URL(record.url).searchParams;
+  const lines = record.body.split(/\r?\n/).filter((line) => line.length > 0);
+  if (lines.length === 0) return [new URLSearchParams(shared)];
+  return lines.map((line) => {
+    const hit = new URLSearchParams(shared);
+    for (const [key, value] of new URLSearchParams(line)) hit.set(key, value);
+    return hit;
+  });
+}
+
+/** True when some GA4 hit since `since` has parameter `name` exactly equal to `value`. */
+export function gaHasParam(sink: Sink, name: string, value: string, since = 0): boolean {
+  return gaHits(sink, since).some((r) => gaHitParams(r).some((hit) => hit.get(name) === value));
 }

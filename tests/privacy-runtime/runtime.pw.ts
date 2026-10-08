@@ -25,6 +25,8 @@ import {
   POSTHOG_TOKEN,
   SITE_HOST,
   egressArgs,
+  gaHasParam,
+  gaHitParams,
   gaHits,
   installDefaultDenyRoute,
   isAnalyticsHost,
@@ -279,17 +281,20 @@ test('default-on loads both SDKs and sends scrubbed, masked data only', async ()
       (e) => e.event === '$pageview' && pattern.test(String(props(e).$current_url)),
     );
   const fixtureWithUtm = `${SITE}/test-fixtures/privacy/?utm_source=fixture`;
-  const gaHas = (needle: string) => gaHits(sink).some((r) => r.text.includes(needle));
   // GA4 batches and flushes on unload by beacon, which the proxy refuses, so
-  // each page's hit is awaited before leaving it.
-  expect(await waitFor(() => pageviewAt(/utm_source=fixture/) && gaHas('utm_source=fixture'))).toBe(
-    true,
-  );
+  // each page's hit is awaited before leaving it. The first wait accepts the
+  // fixture URL scrubbed or not, so a negative control still reaches the
+  // canary checks below.
+  const gaLandedOnFixture = () =>
+    gaHits(sink).some((r) =>
+      gaHitParams(r).some((hit) => (hit.get('dl') ?? '').includes('utm_source=fixture')),
+    );
+  expect(await waitFor(() => pageviewAt(/utm_source=fixture/) && gaLandedOnFixture())).toBe(true);
   await page.locator('#fixture-privacy-link').click();
   await page.waitForURL(`${SITE}/privacy/`);
-  expect(await waitFor(() => pageviewAt(/\/privacy\/$/) && gaHas(`dl=${SITE}/privacy/`))).toBe(
-    true,
-  );
+  expect(
+    await waitFor(() => pageviewAt(/\/privacy\/$/) && gaHasParam(sink, 'dl', `${SITE}/privacy/`)),
+  ).toBe(true);
   await pause(4_000);
   await page.goto(`${SITE}/`);
   await pause(2_000);
@@ -302,10 +307,8 @@ test('default-on loads both SDKs and sends scrubbed, masked data only', async ()
   // replay really ran, and masked inputs are present as asterisks.
   // (PostHog's $referrer is the session's first referrer, $direct here; GA4's
   // dr is per page, so the /privacy/ hit is the referrer control.)
-  const exactParam = (name: string) =>
-    new RegExp(`[?&]${name}=${fixtureWithUtm.replace(/[.?/]/g, '\\$&')}(&|$)`, 'm');
-  expect(gaHits(sink).some((r) => exactParam('dl').test(r.text))).toBe(true);
-  expect(gaHits(sink).some((r) => exactParam('dr').test(r.text))).toBe(true);
+  expect(gaHasParam(sink, 'dl', fixtureWithUtm)).toBe(true);
+  expect(gaHasParam(sink, 'dr', fixtureWithUtm)).toBe(true);
   const pageviews = posthogEvents(sink).filter((e) => e.event === '$pageview');
   expect(pageviews.map((e) => props(e).$current_url)).toContain(fixtureWithUtm);
   expect(text).toContain('"type":2');

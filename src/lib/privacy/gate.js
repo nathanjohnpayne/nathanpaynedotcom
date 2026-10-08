@@ -468,11 +468,28 @@
     return elements;
   }
 
-  function unescapeChainValue(raw) {
+  /*
+   * Chain values use posthog-js's own encoding, not a general string escape.
+   * Its escapeQuotes (`input.replace(/"|\\"/g, '\\"')`, autocapture-utils.ts
+   * at the link above) puts a backslash before every `"` and never escapes a
+   * backslash, so `\` stays a single `\` in the chain. Escaping backslashes
+   * here would therefore double them in every value PostHog reads back.
+   *
+   * The pair below is round-trip-safe on everything that format produces:
+   * parseChain only ends a value at a `"` with no backslash before it, so every
+   * `"` inside a raw value is the second half of a `\"`; decode removes exactly
+   * that backslash and encode puts it back, so encode(decode(raw)) === raw,
+   * including for `\\"` and lone backslashes. tests/privacy-runtime.test.js
+   * checks this against posthog-js's escapeQuotes. A value that itself ends in
+   * a backslash is ambiguous in PostHog's format (`\` + closing `"` reads as
+   * `\"`); parseChain then runs into the next value's opening quote and the
+   * chain is dropped whole (also tested).
+   */
+  function decodeChainValue(raw) {
     return raw.replace(/\\"/g, '"');
   }
 
-  function escapeChainValue(value) {
+  function encodeChainValue(value) {
     return String(value).replace(/"/g, '\\"');
   }
 
@@ -493,9 +510,9 @@
         var key = attrs[a].key;
         var raw = attrs[a].raw;
         if (key === 'href' || key === 'attr__href') {
-          raw = escapeChainValue(scrubUrl(unescapeChainValue(raw)));
+          raw = encodeChainValue(scrubUrl(decodeChainValue(raw)));
         } else if (key === 'text') {
-          if (isProtectedText(unescapeChainValue(raw), ctx)) continue;
+          if (isProtectedText(decodeChainValue(raw), ctx)) continue;
         } else if (key.indexOf('attr__') === 0) {
           if (STRUCTURAL_ATTRIBUTES.indexOf(key.slice(6)) < 0) continue;
         } else if (key !== 'nth-child' && key !== 'nth-of-type' && key !== 'attr_id') {
