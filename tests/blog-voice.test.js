@@ -12,7 +12,13 @@ import {
 import { join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 import { describe, it, expect } from 'vitest';
-import { checkVoice, parseArticle, hash, readableReport } from '../scripts/lib/blog-voice.mjs';
+import {
+  checkVoice,
+  findQuotations,
+  parseArticle,
+  hash,
+  readableReport,
+} from '../scripts/lib/blog-voice.mjs';
 
 const file = 'src/content/blog/nested/test.md';
 const excerpts = JSON.parse(readFileSync('tests/fixtures/blog-voice/batch-excerpts.json', 'utf8'));
@@ -1466,4 +1472,54 @@ describe('CLI contract and read-only execution', () => {
       rmSync(directory, { recursive: true, force: true });
     }
   });
+});
+
+// Regression for #1189: quotation matching must stay linear. An unterminated opener
+// once made the single regex rescan to the end of the text from every later opener.
+describe('quotation matching stays linear on adversarial input', () => {
+  // The original four-way regex, kept as the behavioral oracle for small inputs.
+  const reference = () =>
+    /(?<!\p{N})"[^"]+"|“[^”]+”|(?<![\p{L}\p{N}])'(?:[^']|(?<=[\p{L}\p{N}])'(?=[\p{L}\p{N}]))+'(?![\p{L}\p{N}])|(?<![\p{L}\p{N}])‘(?:[^’]|(?<=[\p{L}\p{N}])’(?=[\p{L}\p{N}]))+’(?![\p{L}\p{N}])/gu;
+  const shape = (matches) => matches.map((m) => [m[0], m.index]);
+
+  it('finds exactly the quotations the original regex found', () => {
+    const alphabet = ['"', '“', '”', "'", '‘', '’', ' ', 'a', 'b', '1', 'é', '😀', '\n', '.'];
+    let seed = 1189;
+    const next = () => (seed = (seed * 1103515245 + 12345) % 2147483648) / 2147483648;
+    for (let i = 0; i < 20000; i += 1) {
+      let text = '';
+      for (let j = 1 + Math.floor(next() * 14); j > 0; j -= 1)
+        text += alphabet[Math.floor(next() * alphabet.length)];
+      expect(shape(findQuotations(text)), JSON.stringify(text)).toEqual(
+        shape([...text.matchAll(reference())]),
+      );
+    }
+    const prose = `He said "hi", 'ok', don't, “x” and ‘y’, but “a ‘b’ c” and 'it's' ‘it’s’.`;
+    expect(shape(findQuotations(prose))).toEqual(shape([...prose.matchAll(reference())]));
+  });
+
+  // Quadratic matching took ~3 s at 48k characters and ~11 s at 96k; linear takes milliseconds.
+  const adversarial = {
+    'unterminated curly doubles': '“a '.repeat(50000),
+    'unterminated curly singles': '‘a '.repeat(50000),
+    'curly singles with interior apostrophes': '‘a '.repeat(30000) + 'x’y'.repeat(30000),
+    'unterminated straight doubles': '"a '.repeat(50000),
+    'unterminated straight singles': "' a ".repeat(50000),
+    'alternating quote characters': '“a ‘b '.repeat(40000),
+    'many apostrophes in words': "don't ".repeat(50000),
+  };
+  for (const [name, text] of Object.entries(adversarial)) {
+    it(`bounds the time for ${name}`, () => {
+      const started = performance.now();
+      findQuotations(text);
+      expect(performance.now() - started).toBeLessThan(2000);
+    });
+  }
+
+  it('bounds the time of the public check on a very long unterminated quotation run', async () => {
+    const source = `---\ntitle: "T"\ndescription: "D"\n---\n\n${'“a '.repeat(40000)}\n`;
+    const started = performance.now();
+    await check(source);
+    expect(performance.now() - started).toBeLessThan(5000);
+  }, 20000);
 });
