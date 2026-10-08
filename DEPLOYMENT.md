@@ -540,6 +540,8 @@ A maintained runbook with an embedded live query is kept as the PostHog notebook
 
 Deploys are manual via `npm run deploy`, which builds first, calls `op-firebase-deploy`, and purges Cloudflare. CI workflows (repo linting, review policy enforcement) run on push/PR via GitHub Actions—see `.github/workflows/`.
 
+`.github/workflows/build-artifact.yml` also builds `dist/` on every push to `main` in a job with no secrets, then attests the archive (#1238). No deploy uses that artifact yet; moving the aliases to it is tracked in #1240.
+
 If a CI pipeline is added later, prefer Workload Identity Federation or another `external_account` credential as the source credential, then let `op-firebase-deploy` impersonate the deployer service account. Do **not** store service account keys as CI secrets.
 
 ### CI/CD & Headless Deploy
