@@ -286,6 +286,59 @@ We organised the colour.
   });
 
   it.each([
+    [2, 1, 1],
+    [2, 2, 0],
+    [1, 2, 0],
+    [3, 1, 2],
+  ])(
+    'matches duplicate HTML warnings once per occurrence (%i before, %i after)',
+    async (beforeCount, afterCount, unmatchedCount) => {
+      const beforeSource = '<hr>\n\n'.repeat(beforeCount) + 'I chose it.\n';
+      const source = '<hr>\n\n'.repeat(afterCount) + 'I kept it.\n';
+      const report = await check(source, { beforeSource });
+      const warnings = report.findings.filter((f) => f.rule === 'review.html');
+      const unmatched = warnings.filter((f) => f.sourceVersion === 'before');
+      expect(warnings).toHaveLength(afterCount + unmatchedCount);
+      expect(unmatched).toHaveLength(unmatchedCount);
+      expect(unmatched.map((f) => f.location.start.line)).toEqual(
+        Array.from({ length: unmatchedCount }, (_, i) => 2 * (afterCount + i) + 1),
+      );
+      for (const warning of unmatched) {
+        expect(beforeSource.slice(warning.location.start.offset, warning.location.end.offset)).toBe(
+          warning.excerpt,
+        );
+        expect(report.packet.warnings).toContainEqual(warning);
+      }
+      expect(report.packet.before.source).toBe(beforeSource);
+      expect(report.packet.after.source).toBe(source);
+      expect(readableReport(report, true)).toContain(beforeSource);
+      expect(readableReport(report, true)).toContain(source);
+      expect(report.exitCode).toBe(0);
+    },
+  );
+
+  it('keeps repeated-HTML revision inputs byte-identical when generating a CLI packet', () => {
+    const directory = mkdtempSync(join(tmpdir(), 'voice-html-occurrences-'));
+    try {
+      const beforeFile = join(directory, 'before.md');
+      const afterFile = join(directory, 'after.md');
+      const beforeSource = '<hr>\n\n<hr>\n\nI chose it.\n';
+      const source = '<hr>\n\nI kept it.\n';
+      writeFileSync(beforeFile, beforeSource);
+      writeFileSync(afterFile, source);
+      const result = cli([afterFile, '--before', beforeFile, '--json']);
+      expect(result.status).toBe(0);
+      const report = JSON.parse(result.stdout);
+      expect(report.packet.before.source).toBe(beforeSource);
+      expect(report.packet.after.source).toBe(source);
+      expect(readFileSync(beforeFile, 'utf8')).toBe(beforeSource);
+      expect(readFileSync(afterFile, 'utf8')).toBe(source);
+    } finally {
+      rmSync(directory, { recursive: true, force: true });
+    }
+  });
+
+  it.each([
     ['I <span>will not</span> ship.\n', 'I will not ship.\n'],
     ['I will not ship.\n', 'I <span>will not</span> ship.\n'],
   ])(
