@@ -46,7 +46,7 @@ Base commit: `347401c6` (`main` when this contract was written).
 
 1. `src/components/privacy/PrivacyHead.astro` renders, when the flag is on, one synchronous `is:inline` script placed in `<head>` before `<!-- PostHog -->`. It has no imports and no network access. Before any analytics code runs, it reads storage and GPC, defines `window.npPrivacy`, and stamps `data-np-privacy="granted"|"denied"` and `data-np-privacy-reason` on `<html>`.
 2. With the flag on, the PostHog and GA4 blocks run only when `window.npPrivacy` exists and its boot decision is `granted`. If the gate is missing or threw, analytics fail closed and do not load.
-3. When the boot decision is `denied`, no PostHog or GA4 script element is created (including the `gtag/js` loader, which today is a static element and must become a conditionally created one), no SDK global is defined beyond what the page's own optional-chained calls tolerate, and no request is sent to any analytics host.
+3. When the boot decision is `denied`, no PostHog or GA4 script element is created (including the `gtag/js` loader, which today is a static element and must become a conditionally created one), no SDK global is defined beyond what the page's own optional-chained calls tolerate, and no request is sent to PostHog or GA4. The gate cannot reach Cloudflare Web Analytics, which Cloudflare injects at the edge and which keeps reporting for denied visitors (inventory, Capture Conflicts C5); copy must say so rather than imply the opt-out covers it.
 4. The localhost skip in `posthog.astro` stays. Nothing that forces initialization on a local host may ship.
 
 ## Runtime API
