@@ -1,0 +1,224 @@
+name: Build Artifact
+
+# Builds the deployable dist/ in a credential-free job and attests it (#1238,
+# part of #1104).
+#
+# #1104: the deploy aliases run `npm run build` after session preflight has
+# exported Firebase and Cloudflare credentials and the author/reviewer PATs, so
+# every build dependency and hook inherits them. The owner's decision
+# (2026-10-08) is to build in CI, where the job can be made to hold nothing,
+# and deploy that job's verified artifact in a separate step that never builds.
+# This workflow is the build half. Deploys do not consume it yet; that is
+# #1240, and until then DEPLOYMENT.md's procedure is unchanged.
+#
+# Two jobs, split by what each may hold:
+#
+#   build   contents: read, no secrets, a checkout that keeps no token, and
+#           only the three public client values. It is the only job that runs
+#           repository code or dependency code, and it asserts its own
+#           environment before any of that runs.
+#   attest  id-token: write and attestations: write. It never checks out or
+#           runs repository code: it downloads the archive, checks it against
+#           SHA256SUMS, and has GitHub sign a SLSA build-provenance statement
+#           binding the archive digest to this workflow, ref and commit.
+#
+# Verify a downloaded archive with:
+#   gh attestation verify nathanpaynedotcom-dist-<sha>.tar \
+#     --repo nathanjohnpayne/nathanpaynedotcom \
+#     --signer-workflow nathanjohnpayne/nathanpaynedotcom/.github/workflows/build-artifact.yml
+#
+# Consumer-local and never propagated, like build-and-test.yml.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+  # Only a change to this pipeline runs it on a PR, so the PR that edits the
+  # build job proves the build job on a real runner before it reaches main:
+  # the environment assertion, the client-value check, the production build
+  # and the packaging all run. Nothing is uploaded or attested for a PR (see
+  # `publish` below), so a PR build can never be mistaken for a deployable one.
+  pull_request:
+    paths:
+      - .github/workflows/build-artifact.yml
+      - scripts/check-build-env-credential-free.sh
+
+# Never cancel a main build: a run cancelled between upload and attest leaves
+# an artifact with no attestation, which the deploy must refuse anyway, but
+# there is no reason to make one. One group per commit, so a dispatch for a
+# SHA that is already building waits rather than racing it. PR runs are
+# superseded by the next push to the PR.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+# Nothing at the workflow level; each job declares exactly what it needs.
+permissions: {}
+
+jobs:
+  build:
+    name: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    env:
+      # The only values this job receives. Repository Actions VARIABLES, not
+      # secrets: all three are public client identifiers baked into the built
+      # HTML (DEPLOYMENT.md § Client-side env vars). Job-level so the
+      # environment assertion below inspects exactly what the build sees.
+      PUBLIC_POSTHOG_PROJECT_TOKEN: ${{ vars.PUBLIC_POSTHOG_PROJECT_TOKEN }}
+      PUBLIC_GA_MEASUREMENT_ID: ${{ vars.PUBLIC_GA_MEASUREMENT_ID }}
+      PUBLIC_LOGODEV_KEY: ${{ vars.PUBLIC_LOGODEV_KEY }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # No token left in .git/config for build code to find. The
+          # assertion below fails the job if one is.
+          persist-credentials: false
+          # Blog posts' "last updated" dates come from git history, and the
+          # build fails closed on a shallow clone (#1168,
+          # specs/last-updated.md).
+          fetch-depth: 0
+
+      - name: Assert the job holds no credentials
+        # Before npm ci, so it runs before any dependency code. Fails on an
+        # OIDC request capability, a GitHub token, any credential-shaped name
+        # or value other than the three PUBLIC_* values and the runner's
+        # artifact-service token, and a checkout that kept its token. The
+        # script's header lists what counts and why.
+        run: scripts/check-build-env-credential-free.sh --checkout "$GITHUB_WORKSPACE"
+
+      - name: Require the public client values
+        # Every PUBLIC_* consumer degrades gracefully when its value is empty,
+        # so a build without them exits 0 and ships a site with no analytics
+        # and no brand logos. A missing repository variable expands to an
+        # empty string, so it stops here, before anything is built.
+        run: |
+          missing=0
+          for key in PUBLIC_POSTHOG_PROJECT_TOKEN PUBLIC_GA_MEASUREMENT_ID PUBLIC_LOGODEV_KEY; do
+            if [ -z "${!key}" ]; then
+              echo "::error::Repository variable ${key} is empty or not defined."
+              missing=1
+            fi
+          done
+          [ "$missing" -eq 0 ] || exit 1
+          # The deploy guard reads its key list from .env.tpl, so a client
+          # value added there but not wired into this job fails here too.
+          scripts/check-deploy-env.sh
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          # No dependency cache in either direction. A restored cache would be
+          # build input this workflow did not produce from the lockfile.
+          package-manager-cache: false
+
+      - name: npm ci
+        run: npm ci
+
+      - name: Install Playwright's Chromium
+        # The build drives Chromium itself: Mermaid renders to static SVG, the
+        # OG integration screenshots templates, and the résumé PDF is printed.
+        run: npx playwright install --with-deps chromium
+
+      - name: Production build
+        # `npm run build`, so prebuild runs exactly as the deploy alias runs
+        # it (refresh-hero-images.mjs and refresh-mux-gifs.mjs fetch public
+        # URLs only). Astro's default mode is `production`; it is stated
+        # anyway so a later default change cannot turn this into a
+        # privacy-test build, whose output must never ship (rules/
+        # repo_rules.md § Content Invariants).
+        run: npm run build -- --mode production
+
+      - name: Check the build output
+        # The build cannot fail on a missing client value, so check that each
+        # one reached the HTML. grep -q prints nothing, values included.
+        run: |
+          test -f dist/index.html
+          test ! -e dist/test-fixtures
+          for key in PUBLIC_POSTHOG_PROJECT_TOKEN PUBLIC_GA_MEASUREMENT_ID PUBLIC_LOGODEV_KEY; do
+            if ! grep -rqF -- "${!key}" dist; then
+              echo "::error::${key} does not appear anywhere in dist/."
+              exit 1
+            fi
+          done
+
+      - name: Package dist/ deterministically
+        id: package
+        # One tar archive, byte-identical for identical dist/ contents: names
+        # sorted, owner and group fixed at 0, modes normalised, every mtime
+        # set to the commit time, and the pax atime/ctime records dropped.
+        # Uncompressed, because upload-artifact compresses the transfer and a
+        # gzip stream would make the digest depend on the gzip version too.
+        # The attestation subject is this archive, so its digest is the
+        # identity of the build.
+        env:
+          SHA: ${{ github.sha }}
+        run: |
+          out="$RUNNER_TEMP/artifact"
+          archive="nathanpaynedotcom-dist-${SHA}.tar"
+          mkdir -p "$out"
+          source_date_epoch="$(git log -1 --format=%ct HEAD)"
+          LC_ALL=C tar --sort=name --format=posix \
+            --pax-option=exthdr.name=%d/PaxHeaders/%f,delete=atime,delete=ctime \
+            --mtime="@${source_date_epoch}" --owner=0 --group=0 --numeric-owner \
+            --mode='u+rwX,go+rX,go-w' \
+            -C dist -cf "${out}/${archive}" .
+          (cd "$out" && sha256sum "$archive" > SHA256SUMS && cat SHA256SUMS)
+          echo "archive=${archive}" >> "$GITHUB_OUTPUT"
+
+      - name: Upload the artifact
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: nathanpaynedotcom-dist-${{ github.sha }}
+          path: |
+            ${{ runner.temp }}/artifact/${{ steps.package.outputs.archive }}
+            ${{ runner.temp }}/artifact/SHA256SUMS
+          if-no-files-found: error
+          # The deploy consumes this within hours of the merge. Thirty days
+          # covers a delayed deploy and a recent redeploy while keeping the
+          # set of deployable old builds small; an older rollback goes through
+          # Firebase Hosting's own release history, which needs no artifact.
+          retention-days: 30
+
+  attest:
+    name: attest
+    needs: build
+    # Only main produces a deployable artifact. A dispatch from any other ref
+    # builds but is never attested.
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+    steps:
+      # No checkout, and nothing from the repository runs here. The steps are
+      # this file's inline shell and two pinned GitHub actions.
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: nathanpaynedotcom-dist-${{ github.sha }}
+          path: ${{ runner.temp }}/artifact
+
+      - name: Verify SHA256SUMS
+        # The archive name is derived from the commit here, never read from
+        # a build-job output: the build job runs dependency code, so nothing
+        # it reports is trusted beyond the bytes it uploaded. The manifest
+        # must name exactly that one archive, and the archive must match it.
+        env:
+          SHA: ${{ github.sha }}
+        run: |
+          cd "$RUNNER_TEMP/artifact"
+          ARCHIVE="nathanpaynedotcom-dist-${SHA}.tar"
+          test "$(ls -A | LC_ALL=C sort | tr '\n' ' ')" = "SHA256SUMS ${ARCHIVE} "
+          test "$(wc -l < SHA256SUMS)" -eq 1
+          test "$(awk '{print $2}' SHA256SUMS)" = "$ARCHIVE"
+          sha256sum --strict --check SHA256SUMS
+
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: ${{ runner.temp }}/artifact/nathanpaynedotcom-dist-${{ github.sha }}.tar
