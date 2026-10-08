@@ -593,11 +593,17 @@ function editorialWarnings(article) {
       'Judge this contrast in context. Authentic lines such as the trust-burden contrast are allowed; this warning never rejects prose.',
     ],
   ];
-  for (const item of article.surfaces.filter((s) => s.kind === 'paragraph')) {
+  // Reuse existing plain-text metadata surfaces, excluding attribution labels,
+  // author names, tags, configuration and hidden diagram metadata.
+  const proseMetadata = /^(?:title|shortTitle|resumeTitle|seoTitle|description|seoDescription|ogDescription|keyTakeaways\.\d+|pullquotes\.\d+\.text|sidebar\.\d+\.(?:content|caption))$/u;
+  for (const item of article.surfaces.filter((s) => s.kind === 'paragraph' || (s.kind === 'metadata' && proseMetadata.test(s.field)))) {
     const text = normalize(item.projected);
     for (const [rule, pattern, reason] of rules)
       if (pattern.test(text))
         article.findings.push(finding(rule, 'warning', item, reason, article.file));
+    // Titles have intentional variants and pullquotes deliberately repeat the
+    // body, so only phrase advisories apply to those metadata surfaces.
+    if (/^(?:title|shortTitle|resumeTitle|seoTitle|pullquotes\.\d+\.text)$/u.test(item.field)) continue;
     const opening = text.split(/\s+/u).slice(0, 4).join(' ').toLowerCase();
     if (
       /^(?:at first|the first|what helped|what changed|this was|the problem|i wanted)\b/iu.test(
