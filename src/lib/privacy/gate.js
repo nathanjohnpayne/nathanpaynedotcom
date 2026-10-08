@@ -100,8 +100,11 @@
   // `//host`, and the backslash spellings browsers treat the same way for
   // http(s) (`\\host`, `/\host`, `\/host`).
   var SCHEME_RELATIVE = /^[\\/]{2}/;
-  // An http(s) URL embedded in longer text: link text, labels, messages.
-  var EMBEDDED_HTTP = /https?:[^\s"'<>`]+/gi;
+  // A URL embedded in longer text (link text, labels, messages): any http(s)
+  // URL, or a scheme-relative one (`//host`, `\\host`) where a URL can start,
+  // at the beginning of the text or after whitespace, a quote, or a bracket,
+  // so ordinary text such as `a//b` is left alone.
+  var EMBEDDED_URL = /(^|[\s"'(<[{])((?:https?:|[\\/]{2})[^\s"'<>`]+)/gi;
   var HAS_SCHEME = /^[a-z][a-z0-9+.-]*:/i;
   // Property keys whose relative values are URLs too ($current_url, $referrer,
   // href, attr__href, to_post_href, $session_entry_url, ...).
@@ -428,8 +431,8 @@
 
   /** Scrubs every http(s) URL embedded in a longer string, in place. */
   function scrubEmbedded(value) {
-    return value.replace(EMBEDDED_HTTP, function (match) {
-      return scrubUrl(match);
+    return value.replace(EMBEDDED_URL, function (_match, lead, url) {
+      return lead + scrubUrl(url);
     });
   }
 

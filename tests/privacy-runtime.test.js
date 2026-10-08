@@ -862,6 +862,24 @@ describe('event scrubbing: PostHog before_send (§ Capture Minimization 3–4)',
     );
   });
 
+  it('scrubs embedded scheme-relative URLs and leaves ordinary slashes alone', () => {
+    const { gate } = boot();
+    const out = gate.scrubEvent({
+      event: 'custom',
+      properties: {
+        note: 'see //example.test/?email=NP-CANARY-QUERY#NP-CANARY-FRAGMENT now',
+        quoted: 'open "\\\\example.test/p?token=NP-CANARY-QUERY"',
+        start: '//example.test/?q=NP-CANARY-QUERY then more',
+        ratio: 'a//b and 3//4 stay',
+        comment: '// a comment stays',
+      },
+    });
+    expect(JSON.stringify(out.properties)).not.toMatch(/NP-CANARY/);
+    expect(out.properties.note).toBe('see //example.test/ now');
+    expect(out.properties.ratio).toBe('a//b and 3//4 stay');
+    expect(out.properties.comment).toBe('// a comment stays');
+  });
+
   it('scrubs http(s) references written without a double slash', () => {
     const { gate } = boot();
     const out = gate.scrubEvent({
