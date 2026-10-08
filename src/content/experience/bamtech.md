@@ -5,6 +5,7 @@ team: "Connected Devices Team"
 location: "San Francisco"
 startYear: 2016
 endYear: 2018
+metaNote: "acquired by Disney 2017"
 order: 3
 website: "mlb.com"
 ---

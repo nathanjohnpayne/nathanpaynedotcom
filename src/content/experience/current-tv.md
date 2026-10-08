@@ -9,4 +9,4 @@ logo: "/images/logos/current-tv.png"
 compact: true
 ---
 
-Built ingest, play-out, on-air graphics, and live tweet-moderation systems through Current TV's pivot from user-generated content to prime-time network news, launching three nightly shows within 30 days of acquisition.
+Built ingest, playout, on-air graphics, and live-tweet moderation systems during Current TV's pivot from user-generated content to prime-time network news. Launched *Joy Behar: Say Anything*, *The Gavin Newsom Show*, and *The War Room with Jennifer Granholm* within 30 days of the acquisition.
