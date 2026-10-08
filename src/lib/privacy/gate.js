@@ -511,6 +511,11 @@
         var raw = attrs[a].raw;
         if (key === 'href' || key === 'attr__href') {
           raw = encodeChainValue(scrubUrl(decodeChainValue(raw)));
+          // Scrubbing can leave a trailing backslash a raw value never had
+          // (`?utm_source=a\&email=x` becomes `?utm_source=a\`), and `\` before
+          // the closing quote reads as `\"` in PostHog's format, so the value
+          // would run into the next attribute. Drop that attribute instead.
+          if (raw.charAt(raw.length - 1) === '\\') continue;
         } else if (key === 'text') {
           if (isProtectedText(decodeChainValue(raw), ctx)) continue;
         } else if (key.indexOf('attr__') === 0) {

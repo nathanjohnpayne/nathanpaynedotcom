@@ -685,6 +685,20 @@ describe('event scrubbing: PostHog before_send (§ Capture Minimization 3–4)',
     }
   });
 
+  it('drops a scrubbed href that would end in a backslash instead of corrupting the chain', () => {
+    const { gate } = boot();
+    const chain =
+      'a:attr__href="/p/?utm_source=a\\&email=x"href="/p/?utm_source=a\\&email=x"nth-child="1"nth-of-type="1";main:nth-child="1"';
+    const out = gate.scrubEvent({ event: '$autocapture', properties: { $elements_chain: chain } })
+      .properties.$elements_chain;
+    expect(out).toBe('a:nth-child="1"nth-of-type="1";main:nth-child="1"');
+    // The result still parses: scrubbing it again changes nothing.
+    expect(
+      gate.scrubEvent({ event: '$autocapture', properties: { $elements_chain: out } }).properties
+        .$elements_chain,
+    ).toBe(out);
+  });
+
   describe('chain values with backslashes (PostHog escapes only quotes)', () => {
     // posthog-js 1.438.3 escapeQuotes, browser-common/src/utils/autocapture-utils.ts:
     // a backslash before every `"`, and no escaping of `\` itself.
