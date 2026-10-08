@@ -27,7 +27,16 @@ describe('build-artifact workflow (#1238)', () => {
   it('runs on main, on dispatch, and on PRs that touch the pipeline', () => {
     expect(workflow.on.push.branches).toEqual(['main']);
     expect(workflow.on).toHaveProperty('workflow_dispatch');
-    expect(workflow.on.pull_request.paths).toContain('.github/workflows/build-artifact.yml');
+    // Every file only this job reads, so a PR that changes one proves the job before main.
+    expect(workflow.on.pull_request.paths).toEqual(
+      expect.arrayContaining([
+        '.github/workflows/build-artifact.yml',
+        'scripts/check-build-env-credential-free.sh',
+        'scripts/check-deploy-env.sh',
+        '.env.tpl',
+        '.nvmrc',
+      ]),
+    );
     expect(workflow.permissions).toEqual({});
   });
 

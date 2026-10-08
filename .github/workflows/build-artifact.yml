@@ -42,6 +42,11 @@ on:
     paths:
       - .github/workflows/build-artifact.yml
       - scripts/check-build-env-credential-free.sh
+      # Other inputs only this job reads: the client-value key list and its
+      # checker, and the Node version.
+      - scripts/check-deploy-env.sh
+      - .env.tpl
+      - .nvmrc
 
 # Never cancel a main build: a run cancelled between upload and attest leaves
 # an artifact with no attestation, which the deploy must refuse anyway, but
