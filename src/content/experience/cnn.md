@@ -8,7 +8,7 @@ order: 6
 website: "cnn.com"
 compact: true
 highlights:
-  magic-wall: "Conceptualized and led the CNN Magic Wall—the multi-touch platform used on-air for historical and real-time news data."
+  magic-wall: "Conceived and led the CNN Magic Wall—the multi-touch platform used on-air for historical and real-time news data."
 ---
 
-Conceptualized and led the CNN Magic Wall—the multi-touch platform used on-air for real-time and historical news data. Also built the $3M Election Express mobile video system, 36-camera virtual studios rendering live 3D "holograms" of remote reporters, and owned $2M project capital budgets.
+Streamlined technology operations in CNN's flagship bureau through automation and system upgrades. Conceived and led development of the CNN Magic Wall, a multi-touch, interactive collaboration platform for historical and real-time news data on air. Built the mobile video system for the $3M Election Express bus used in the 2008 YouTube debate. Built virtual studios in Chicago and Phoenix, using 36 HD camera feeds and computational rendering clusters to bring remote reporters on air as live 3D “holograms.” Managed $2M capital budgets per project within a $60M operating budget.

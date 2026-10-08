@@ -9,4 +9,4 @@ website: "ajplus.net"
 compact: true
 ---
 
-Ran Broadcast Engineering, Media Operations, and IT for the launch of a 24/7 digital news operation and the AJ+ social video app—including a live OTT stack (Level 3, Adobe Primetime DRM, Brightcove) and $335K in annual vendor savings.
+Ran Broadcast Engineering, Media Operations, and IT for the launch of a 24/7 digital news operation and the AJ+ social video app. Built the live OTT streaming solution with Level 3, Adobe Primetime DRM, and Brightcove. Streamlined publishing to Adobe CQ CMS and syndicated to YouTube and Comcast Xfinity. Renegotiated vendor contracts for $335K in annual savings.
