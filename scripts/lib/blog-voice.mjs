@@ -163,10 +163,23 @@ function inlineText(node, includeCode = false, maskCode = false) {
   if (node.type === 'inlineCode' || node.type === 'code')
     return includeCode ? node.value : maskCode ? ' '.repeat(node.value.length) : ' ';
   if (node.type === 'html') return plainBreak(node) ? ' ' : '';
-  if (node.type === 'image' || node.type === 'imageReference') return '';
+  if (node.type === 'image' || node.type === 'imageReference') return ' ';
   if (node.type === 'break') return ' ';
   if (typeof node.value === 'string') return node.value;
   return joinedText(node, (node.children ?? []).map((child) => inlineText(child, includeCode, maskCode)));
+}
+function imageSeparatedText(node, includeCode = false, maskCode = false) {
+  // Images separate body passages. Their alt text is checked as a caption,
+  // and removing the figure cannot manufacture a verbatim body quotation.
+  if (node.type === 'image' || node.type === 'imageReference') return ['', ''];
+  if (!node.children) return [inlineText(node, includeCode, maskCode)];
+  const passages = [''];
+  for (const child of node.children) {
+    const childPassages = imageSeparatedText(child, includeCode, maskCode);
+    passages[passages.length - 1] += childPassages[0];
+    passages.push(...childPassages.slice(1));
+  }
+  return passages;
 }
 async function markdownTree(source) {
   let tree;
@@ -193,6 +206,10 @@ function quotationPass(item, context, findings, file) {
   const uncertainQuotes = [];
   const quotations = [];
   for (const match of quotes) {
+    findings.push(finding(
+      'review.quotation-attribution', 'warning', item,
+      `Textual quotation ${quotations.length + 1} attribution is inferred from prose cues, not proved. Preserve the quoted language and confirm the speaker, source or hypothetical use manually, including narrator pronouns and spelling.`, file,
+    ));
     const attributed = evidenceCue.test(
       (context + ' ' + item.text.slice(0, match.index)).slice(-200),
     ) || followingEvidenceCue.test(item.text.slice(match.index + match[0].length, match.index + match[0].length + 200));
@@ -337,8 +354,11 @@ export async function parseArticle(source, file) {
   reviewRawHtml(tree);
   const pullquotePassages = (node) => {
     if (['heading', 'paragraph', 'tableCell'].includes(node.type) && hasHtml(node, transparent)) return [];
-    if (['heading', 'paragraph', 'tableCell'].includes(node.type))
-      return [normalizePassage(inlineText(node, true), inlineText(node, false, true))];
+    if (['heading', 'paragraph', 'tableCell'].includes(node.type)) {
+      const passages = imageSeparatedText(node, true);
+      const prose = imageSeparatedText(node, false, true);
+      return passages.map((text, index) => normalizePassage(text, prose[index]));
+    }
     return (node.children ?? []).flatMap(pullquotePassages);
   };
   bodyText.push(...pullquotePassages(tree));
@@ -353,7 +373,7 @@ export async function parseArticle(source, file) {
       protectedMaterial.push(entry(source, node, node.type, node.type === 'html' ? '' : node.value));
     for (const child of node.children ?? []) retainLeaves(child);
   };
-  const collect = (node, context = '', following = '') => {
+  const collect = (node, context = '') => {
     if (['code', 'inlineCode', 'table', 'html', 'definition', 'blockquote'].includes(node.type))
       protectedMaterial.push({
         ...entry(source, node, node.type, inlineText(node, true)),
@@ -380,17 +400,15 @@ export async function parseArticle(source, file) {
       const item = entry(source, node, 'quotation', inlineText(node, true));
       retainLeaves(node);
       if (manualBody) return;
-      if (!evidenceCue.test(context.slice(-200)) &&
-          !followingEvidenceCue.test(following.slice(0, 200)))
-        findings.push(
-          finding(
-            'review.quotation-attribution',
-            'warning',
-            item,
-            'Block quotation or prompt has no mechanically clear attribution. Preserve it and confirm provenance manually.',
-            file,
-          ),
-        );
+      findings.push(
+        finding(
+          'review.quotation-attribution',
+          'warning',
+          item,
+          'Markdown identifies this block as a quotation or prompt, but does not establish attribution. Preserve it and confirm the speaker, source or hypothetical use manually.',
+          file,
+        ),
+      );
       return;
     }
     if (node.type === 'heading' || node.type === 'paragraph' || node.type === 'tableCell') {
@@ -420,9 +438,8 @@ export async function parseArticle(source, file) {
       if (!child || ['code', 'inlineCode', 'blockquote'].includes(child.type)) return '';
       return hasHtml(child, transparent) ? '' : inlineText(child);
     };
-    for (const [index, child] of children.entries()) {
-      const next = children[index + 1];
-      collect(child, previous, next?.type === 'paragraph' ? contextProse(next) : '');
+    for (const child of children) {
+      collect(child, previous);
       previous = contextProse(child);
     }
   };
@@ -433,8 +450,13 @@ export async function parseArticle(source, file) {
     surfaces.push(quotationPass({ ...item, semanticText: item.text, rendered: item.text }, '', findings, file));
   }
   for (const surface of surfaces) protectedMaterial.push(...surface.quotations);
+  // Textual quotes are collected after the AST walk; compare artifacts in the
+  // article's source order, keeping their honest containing source ranges.
+  protectedMaterial.sort((a, b) => a.location.start.offset - b.location.start.offset);
   const headingForms = new Set(
-    headings.map((h) => h.convention ?? (h.excerpt.trimStart().startsWith('#') ? 'ATX' : 'setext')),
+    // The AST already identifies headings. Only a valid source ATX marker
+    // distinguishes their form; a literal hash in setext text is not a marker.
+    headings.map((h) => /^#{1,6}(?:[\t ]|$)/u.test(h.excerpt.trimStart()) ? 'ATX' : 'setext'),
   );
   if (headingForms.size > 1)
     findings.push(
@@ -595,8 +617,8 @@ function editorialWarnings(article) {
   ];
   // Reuse existing plain-text metadata surfaces, excluding attribution labels,
   // author names, tags, configuration and hidden diagram metadata.
-  const proseMetadata = /^(?:title|shortTitle|resumeTitle|seoTitle|description|seoDescription|ogDescription|keyTakeaways\.\d+|pullquotes\.\d+\.text|sidebar\.\d+\.(?:content|caption))$/u;
-  for (const item of article.surfaces.filter((s) => s.kind === 'paragraph' || (s.kind === 'metadata' && proseMetadata.test(s.field)))) {
+  const proseMetadata = /^(?:title|shortTitle|resumeTitle|seoTitle|description|seoDescription|ogDescription|keyTakeaways\.\d+|pullquotes\.\d+\.text|sidebar\.\d+\.(?:content|caption)|body\.diagram\.\d+\.caption)$/u;
+  for (const item of article.surfaces.filter((s) => s.kind === 'paragraph' || (['metadata', 'diagram-metadata'].includes(s.kind) && proseMetadata.test(s.field)))) {
     const text = normalize(item.projected);
     for (const [rule, pattern, reason] of rules)
       if (pattern.test(text))
@@ -700,10 +722,24 @@ export async function checkVoice({
   const after = await parseArticle(source, file);
   const before =
     beforeSource === null ? null : await parseArticle(beforeSource, baseline.path ?? file);
-  // A removed HTML surface still needs review in the complete before article.
-  after.findings.push(...(before?.findings ?? []).filter((f) => f.rule === 'review.html' && !after.findings.some((a) => a.rule === f.rule && a.excerpt === f.excerpt)).map((f) => ({
-    ...f, sourceVersion: 'before', reason: 'Before article: ' + f.reason,
-  })));
+  // Match unchanged HTML and quotation warnings one-to-one; removed occurrences keep their
+  // before-side source ranges even when an identical occurrence survives.
+  const baselineReviewRules = new Set(['review.html', 'review.quotation-attribution']);
+  const reviewKey = (item) => JSON.stringify([item.rule, item.surface, item.excerpt, item.reason]);
+  const reviewOccurrences = new Map();
+  for (const item of after.findings.filter((f) => baselineReviewRules.has(f.rule))) {
+    const key = reviewKey(item);
+    reviewOccurrences.set(key, (reviewOccurrences.get(key) ?? 0) + 1);
+  }
+  for (const item of before?.findings ?? []) {
+    if (!baselineReviewRules.has(item.rule)) continue;
+    const key = reviewKey(item);
+    const remaining = reviewOccurrences.get(key) ?? 0;
+    if (remaining) reviewOccurrences.set(key, remaining - 1);
+    else after.findings.push({
+      ...item, sourceVersion: 'before', reason: 'Before article: ' + item.reason,
+    });
+  }
   runMechanical(after, properNouns);
   editorialWarnings(after);
   if (before && before.source !== after.source) {

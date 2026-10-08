@@ -98,7 +98,7 @@ We organised the colour.
 `;
     const report = await check(source);
     expect(errors(report)).toEqual([]);
-    expect(rules(report)).not.toContain('review.quotation-attribution');
+    expect(rules(report)).toContain('review.quotation-attribution');
   });
 
   it.each(['<code>', '<pre>', '<script>', '<style>'])(
@@ -122,7 +122,7 @@ We organised the colour.
     const close = open === '“' ? '”' : open;
     const report = await check(`Claude wrote: ${open}We\norganised colour.${close}\n`);
     expect(errors(report)).toEqual([]);
-    expect(rules(report)).not.toContain('review.quotation-attribution');
+    expect(rules(report)).toContain('review.quotation-attribution');
     const ambiguous = await check(`I called it ${open}Our\ncolour.${close}\n`);
     expect(errors(ambiguous)).toEqual([]);
     expect(rules(ambiguous)).toContain('review.quotation-attribution');
@@ -137,7 +137,7 @@ We organised the colour.
         `Claude wrote: ${open}We can${apostrophe}t\norganise colour.${close}\n`,
       );
       expect(errors(report)).toEqual([]);
-      expect(rules(report)).not.toContain('review.quotation-attribution');
+      expect(rules(report)).toContain('review.quotation-attribution');
       const ambiguous = await check(`I called it ${open}Our\ncolour.${close}\n`);
       expect(errors(ambiguous)).toEqual([]);
       expect(rules(ambiguous)).toContain('review.quotation-attribution');
@@ -149,7 +149,7 @@ We organised the colour.
     async (source) => {
       const report = await check(source);
       expect(errors(report)).toEqual([]);
-      expect(rules(report)).not.toContain('review.quotation-attribution');
+      expect(rules(report)).toContain('review.quotation-attribution');
       expect(
         rules(await check('“Our colour.” The release ended. Claude wrote a report.\n')),
       ).toContain('review.quotation-attribution');
@@ -283,6 +283,59 @@ We organised the colour.
     const report = await check(beforeSource.replace('chose', 'kept'), { beforeSource });
     expect(report.findings.filter((f) => f.rule === 'review.html')).toHaveLength(1);
     expect(report.packet.before.source).toBe(beforeSource);
+  });
+
+  it.each([
+    [2, 1, 1],
+    [2, 2, 0],
+    [1, 2, 0],
+    [3, 1, 2],
+  ])(
+    'matches duplicate HTML warnings once per occurrence (%i before, %i after)',
+    async (beforeCount, afterCount, unmatchedCount) => {
+      const beforeSource = '<hr>\n\n'.repeat(beforeCount) + 'I chose it.\n';
+      const source = '<hr>\n\n'.repeat(afterCount) + 'I kept it.\n';
+      const report = await check(source, { beforeSource });
+      const warnings = report.findings.filter((f) => f.rule === 'review.html');
+      const unmatched = warnings.filter((f) => f.sourceVersion === 'before');
+      expect(warnings).toHaveLength(afterCount + unmatchedCount);
+      expect(unmatched).toHaveLength(unmatchedCount);
+      expect(unmatched.map((f) => f.location.start.line)).toEqual(
+        Array.from({ length: unmatchedCount }, (_, i) => 2 * (afterCount + i) + 1),
+      );
+      for (const warning of unmatched) {
+        expect(beforeSource.slice(warning.location.start.offset, warning.location.end.offset)).toBe(
+          warning.excerpt,
+        );
+        expect(report.packet.warnings).toContainEqual(warning);
+      }
+      expect(report.packet.before.source).toBe(beforeSource);
+      expect(report.packet.after.source).toBe(source);
+      expect(readableReport(report, true)).toContain(beforeSource);
+      expect(readableReport(report, true)).toContain(source);
+      expect(report.exitCode).toBe(0);
+    },
+  );
+
+  it('keeps repeated-HTML revision inputs byte-identical when generating a CLI packet', () => {
+    const directory = mkdtempSync(join(tmpdir(), 'voice-html-occurrences-'));
+    try {
+      const beforeFile = join(directory, 'before.md');
+      const afterFile = join(directory, 'after.md');
+      const beforeSource = '<hr>\n\n<hr>\n\nI chose it.\n';
+      const source = '<hr>\n\nI kept it.\n';
+      writeFileSync(beforeFile, beforeSource);
+      writeFileSync(afterFile, source);
+      const result = cli([afterFile, '--before', beforeFile, '--json']);
+      expect(result.status).toBe(0);
+      const report = JSON.parse(result.stdout);
+      expect(report.packet.before.source).toBe(beforeSource);
+      expect(report.packet.after.source).toBe(source);
+      expect(readFileSync(beforeFile, 'utf8')).toBe(beforeSource);
+      expect(readFileSync(afterFile, 'utf8')).toBe(source);
+    } finally {
+      rmSync(directory, { recursive: true, force: true });
+    }
   });
 
   it.each([
@@ -444,10 +497,10 @@ We organised the colour.
     expect(errors(report)).toEqual([]);
   });
 
-  it('recognizes the immediately following attribution paragraph after a Markdown blockquote', async () => {
+  it('reviews attribution even with a following source paragraph after a Markdown blockquote', async () => {
     const report = await check('> Our colour.\n\nClaude wrote.\n');
     expect(errors(report)).toEqual([]);
-    expect(rules(report)).not.toContain('review.quotation-attribution');
+    expect(rules(report)).toContain('review.quotation-attribution');
     for (const following of [
       'The release ended.\n\nClaude wrote a report.',
       '```text\nClaude wrote.\n```',
@@ -507,7 +560,7 @@ We organised the colour.
     expect(warning.location.start.line).toBe(2);
     expect(warning.excerpt).toBe('\'I read "Our colour."\'');
     expect(report.packet.after.source).toBe(source);
-    expect(rules(await check(source.replace('I read', 'Claude wrote:')))).not.toContain(
+    expect(rules(await check(source.replace('I read', 'Claude wrote:')))).toContain(
       'review.quotation-attribution',
     );
   });
@@ -631,6 +684,30 @@ We organised the colour.
     );
   });
 
+  it.each(['#hashtag', '####### literal hashes'])(
+    'recognizes %s as setext text rather than an ATX marker',
+    async (text) => {
+      const source = `${text}\n--------\n\n## An ATX heading\n`;
+      const article = await parseArticle(source, file);
+      expect(article.headings).toHaveLength(2);
+      expect(article.findings).toContainEqual(
+        expect.objectContaining({ rule: 'voice.heading-convention', severity: 'error' }),
+      );
+      expect(article.source).toBe(source);
+    },
+  );
+
+  it.each([
+    '## An ATX heading\n\n# Another heading\n',
+    '##\tAn ATX heading\n\n### Another heading\n',
+    '#hashtag\n--------\n\nAnother heading\n===\n',
+    'First line\n#hashtag\n--------\n\nAnother heading\n===\n',
+  ])('preserves a consistent AST heading convention (%s)', async (source) => {
+    const article = await parseArticle(source, file);
+    expect(article.headings).toHaveLength(2);
+    expect(article.findings.map((f) => f.rule)).not.toContain('voice.heading-convention');
+  });
+
   it('decodes escaped/multiline YAML, entities, emphasis and links for exact pullquotes', async () => {
     const source = `---
 pullquotes:
@@ -656,6 +733,59 @@ A small change made publishing practical.
     const source =
       '---\npullquotes:\n  - text: "The chosen result."\n---\n\n```text\nThe chosen result.\n```\n\n![The chosen result.](/image)\n';
     expect(rules(await check(source))).toContain('voice.pullquote-verbatim');
+  });
+
+  it.each([
+    'We![logo](/logo.svg)organised it.',
+    'We![logo][mark]organised it.\n\n[mark]: /logo.svg',
+    '*We![logo](/logo.svg)organised it.*',
+    '[We![logo](/logo.svg)organised it.](/details)',
+  ])('preserves authored word boundaries around an image (%s)', async (source) => {
+    const report = await check(source);
+    expect(errors(report).map((f) => f.rule)).toEqual(
+      expect.arrayContaining(['voice.narrator-plural', 'voice.american-spelling']),
+    );
+    expect(report.packet.after.source).toBe(source);
+  });
+
+  it.each([
+    'The ![diagram](/diagram.svg)chosen result.',
+    'The ![diagram][mark]chosen result.\n\n[mark]: /diagram.svg',
+    '**The ![diagram](/diagram.svg)chosen result.**',
+    '[The ![diagram](/diagram.svg)chosen result.](/details)',
+  ])('does not fabricate a verbatim pullquote across an image (%s)', async (body) => {
+    const source = `---\npullquotes:\n  - text: "The chosen result."\n---\n\n${body}\n`;
+    const report = await check(source);
+    expect(report.exitCode).toBe(1);
+    expect(report.findings).toContainEqual(
+      expect.objectContaining({ rule: 'voice.pullquote-verbatim', severity: 'error' }),
+    );
+  });
+
+  it.each([
+    '![A diagram](/diagram.svg)The **chosen** result.',
+    'The [chosen](/details) result.![A diagram](/diagram.svg)',
+    '![A diagram][mark]The chosen result.\n\n[mark]: /diagram.svg',
+    'The chosen result.![A diagram](/one.svg)![A diagram](/two.svg)',
+  ])('matches complete prose on either side of an image (%s)', async (body) => {
+    const source = `---\npullquotes:\n  - text: "The chosen result."\n---\n\n${body}\n`;
+    expect(errors(await check(source))).toEqual([]);
+  });
+
+  it('checks image alt text separately as a source-located caption', async () => {
+    const source = 'I chose it.![Our colour.](/diagram.svg)I kept it.\n';
+    const article = await parseArticle(source, file);
+    const caption = article.surfaces.find((surface) => surface.kind === 'caption');
+    expect(caption.text).toBe('Our colour.');
+    expect(source.slice(caption.location.start.offset, caption.location.end.offset)).toBe(
+      '![Our colour.](/diagram.svg)',
+    );
+    const report = await check(source);
+    expect(
+      errors(report)
+        .filter((f) => f.surface === 'caption')
+        .map((f) => f.rule),
+    ).toEqual(expect.arrayContaining(['voice.narrator-plural', 'voice.american-spelling']));
   });
 
   it.each([
@@ -949,6 +1079,23 @@ I chose the smaller change.
     expect(report.exitCode).toBe(0);
   });
 
+  it('checks visible Mermaid captions while leaving hidden diagram metadata out of phrase advisories', async () => {
+    const source =
+      '```mermaid title="Perhaps this highlights the journey" description="Perhaps this highlights the journey" caption="Perhaps this highlights the journey."\ngraph TD\n  A --> B\n```\n';
+    const report = await check(source);
+    for (const rule of ['review.defensive-hedging', 'review.abstract-narration'])
+      expect(report.findings).toContainEqual(
+        expect.objectContaining({ surface: 'body.diagram.0.caption', rule, severity: 'warning' }),
+      );
+    expect(
+      report.findings
+        .filter((f) => f.rule.startsWith('review.'))
+        .every((f) => f.surface === 'body.diagram.0.caption'),
+    ).toBe(true);
+    expect(report.exitCode).toBe(0);
+    expect(report.packet.after.source).toBe(source);
+  });
+
   it('preserves attributed quotations in prose metadata when checking advisories', async () => {
     const source = `---
 description: 'Claude wrote: "Perhaps this highlights the journey."'
@@ -960,7 +1107,16 @@ sidebar:
 I chose the smaller change.
 `;
     const report = await check(source);
-    expect(report.findings.filter((f) => f.rule.startsWith('review.'))).toEqual([]);
+    expect(
+      report.findings.filter(
+        (f) => f.rule.startsWith('review.') && f.rule !== 'review.quotation-attribution',
+      ),
+    ).toEqual([]);
+    expect(
+      report.findings
+        .filter((f) => f.rule === 'review.quotation-attribution')
+        .map((f) => f.surface),
+    ).toEqual(['description', 'sidebar.0.content']);
     expect(report.exitCode).toBe(0);
     expect(report.packet.after.source).toBe(source);
   });
