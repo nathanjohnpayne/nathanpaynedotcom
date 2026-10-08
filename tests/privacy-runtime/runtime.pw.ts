@@ -286,8 +286,10 @@ test('default-on loads both SDKs and sends scrubbed, masked data only', async ()
       25_000,
     ),
   ).toBe(true);
-  // Positive control: the injected image did reach replay, with its path intact.
-  expect(await waitFor(() => allText(sink).includes('/np-asset@2x.png 2x'), 15_000)).toBe(true);
+  // Positive control: the injected image did reach replay. Scrub-agnostic, so a
+  // negative control still reaches the canary check; the exact scrubbed form
+  // is asserted below.
+  expect(await waitFor(() => allText(sink).includes('/np-asset@2x.png'), 15_000)).toBe(true);
   await pause(4_000);
 
   await page.locator('#fixture-sensitive-link').click();
@@ -322,6 +324,9 @@ test('default-on loads both SDKs and sends scrubbed, masked data only', async ()
   expect
     .soft(text, 'an injected asset URL query reached the sink')
     .not.toContain('NP-CANARY-ASSET');
+  // rrweb records srcset with absolute URLs; both candidates keep their path
+  // and descriptor and lose their query.
+  expect(text).toContain(`${SITE}/np-asset.png 1x, ${SITE}/np-asset@2x.png 2x`);
   // Positive controls: the allowlisted parameter survives in both tools, the
   // replay really ran, and masked inputs are present as asterisks.
   // (PostHog's $referrer is the session's first referrer, $direct here; GA4's
