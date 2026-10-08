@@ -157,7 +157,7 @@ const privacyEnabled = privacyControlsEnabled();
   <PostHog />
 
   <!-- Google Analytics 4 — gated on PUBLIC_GA_MEASUREMENT_ID (graceful degradation) -->
-  {gaId && (
+  {gaId && (!privacyEnabled ? (
     <>
       <script async is:inline src={`https://www.googletagmanager.com/gtag/js?id=${gaId}`}></script>
       <script is:inline define:vars={{ gaId }}>
@@ -178,7 +178,51 @@ const privacyEnabled = privacyControlsEnabled();
         });
       </script>
     </>
-  )}
+  ) : (
+    <script is:inline define:vars={{ gaId }}>
+      // #1079 flag-on GA4 block (specs/analytics-privacy.md § Gate,
+      // § Withdrawal, § Capture Minimization 3). The gtag/js loader is created
+      // here, and only when the gate's boot decision and the current state are
+      // both granted; otherwise no script element, no gtag global, and no
+      // request. Without the gate it fails closed.
+      const privacy = window.npPrivacy;
+      const gate = privacy && privacy[Symbol.for('np-privacy.internal')];
+      if (gate && gate.boot.effective === 'granted' && privacy.get().effective === 'granted') {
+        // § Withdrawal 2: gtag checks this property before it sends anything.
+        // https://developers.google.com/tag-platform/security/guides/privacy#turn-off-google-analytics
+        // Google documents setting it before any gtag() call; mid-page it is
+        // verified by tests/privacy-runtime/ and backed by the gate's
+        // transport guard.
+        gate.registerTool('ga4', {
+          stop() {
+            window['ga-disable-' + gaId] = true;
+          },
+        });
+        window.dataLayer = window.dataLayer || [];
+        // Google's canonical stub pushes `arguments` (see the block above).
+        // eslint-disable-next-line prefer-rest-params
+        const gtag = function () { window.dataLayer.push(arguments); };
+        // Exposed for the homepage's `typeof gtag` guarded section_view call.
+        window.gtag = gtag;
+        gtag('js', new Date());
+        // § Capture Minimization 3: page_location and page_referrer carry
+        // origin and path plus allowlisted query parameters only.
+        const config = {
+          page_title: document.title,
+          page_location: gate.scrubUrl(window.location.href),
+        };
+        if (document.referrer) config.page_referrer = gate.scrubUrl(document.referrer);
+        gtag('config', gaId, config);
+        gate.onNavigate((url, phase) => {
+          if (phase === 'after') gtag('set', { page_location: gate.scrubUrl(url) });
+        });
+        const loader = document.createElement('script');
+        loader.async = true;
+        loader.src = 'https://www.googletagmanager.com/gtag/js?id=' + encodeURIComponent(gaId);
+        document.head.appendChild(loader);
+      }
+    </script>
+  ))}
 
   <!-- Google Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />

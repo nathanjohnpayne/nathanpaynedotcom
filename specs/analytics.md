@@ -202,3 +202,44 @@ It alerts when the value is **greater than 0**. It fires on the first desktop-si
 7. To undo either one, set the issue back to `active` in
    [error tracking](https://us.posthog.com/project/469428/error_tracking).
    Suppression is not retroactive and drops nothing already stored.
+
+## Privacy Runtime
+
+This section applies only when the #1079 flag is on (`privacyControlsEnabled()`, `src/lib/privacy-flag.ts`). With the flag off, nothing below exists and the site captures exactly what the sections above describe. The contract is `specs/analytics-privacy.md`; this section records what the runtime does with each vendor, verified against posthog-js 1.438.3 (the production version) and the vendor documentation cited in the code, and what it cannot recall.
+
+### Gate
+
+`src/lib/privacy/gate.js` is inlined by `src/components/privacy/PrivacyHead.astro` as one synchronous script in `<head>`, ahead of both analytics blocks. It reads the saved choice and Global Privacy Control, defines `window.npPrivacy`, and stamps `data-np-privacy` on `<html>`. The PostHog block (`src/components/posthog.astro`) and the GA4 block (`src/layouts/BaseLayout.astro`) run only when the gate exists and both its boot decision and the current state are `granted`. Otherwise neither creates a script element, defines a global, or sends anything. The GA4 loader, a static element with the flag off, is created by script with the flag on. The local-host skip is unchanged.
+
+### Withdrawal
+
+When the choice becomes `denied` in a page view (from the controls, from another tab through the `storage` event, or on a back/forward-cache restore), the gate stops both tools before it announces the change:
+
+1. **PostHog:** `opt_out_capturing()`, then `stopSessionRecording()`. The opt-out makes every later `capture()` return before it builds a payload, and the recorder's final buffer flush goes through `capture()`, so buffered replay is dropped rather than sent. `before_send` also returns null for every event from then on.
+2. **GA4:** `window['ga-disable-<ID>'] = true`, which gtag checks before it sends anything. Google documents setting it before any `gtag()` call; that it stops a page already sending was verified locally against gtag.js.
+3. **Transport guard:** posthog-js keeps a batch queue (flushed every 3 seconds by default) and a retry queue, sends both without rechecking consent, and has no public API to empty either. The gate therefore wraps `fetch`, `sendBeacon`, and `XMLHttpRequest` before either SDK loads; after a withdrawal it refuses every request to an analytics host, so queued events and replay snapshots are dropped, not flushed. Until a withdrawal it passes everything through.
+
+**What cannot be recalled:** everything PostHog and GA4 received before the withdrawal stays with them under their own retention; nothing is deleted. A request already handed to the network at the instant of withdrawal may still complete. Each tool's identifiers stay in the browser's storage (PostHog's cookie and `localStorage` entry, GA4's `_ga` cookies); withdrawal stops their use, not their existence. Cloudflare Web Analytics and Network Error Logging are injected at Cloudflare's edge and are not controlled by the opt-out.
+
+### Re-Enable
+
+A grant after a withdrawal is saved but loads nothing in the same page view; collection resumes on the next page load. `opt_out_capturing()` stores PostHog's own opt-out flag (`__ph_opt_in_out_<token>` in `localStorage`), so on a granted load the PostHog block clears it with `clear_opt_in_out_capturing()` before any event. That also clears an opt-out set by hand in the browser console; on this site the controls are the opt-out.
+
+### Capture Minimization
+
+- **Replay masking:** all inputs masked, `[data-np-privacy="mask"]` text masked, every `<form>` and `[data-np-privacy="block"]` region blocked. Client masking options take precedence over the project's masking settings, which are unset.
+- **Replay exclusion:** `/privacy/` and everything under it. Replay is off before capture starts on such a page and is stopped before `pushState` or `replaceState` reaches one, and re-evaluated on `popstate`, `hashchange`, and back/forward-cache restores. URL triggers are not used.
+- **URL scrubbing:** one allowlist, `ALLOWED_QUERY_PARAMS` in `gate.js` (the five UTM parameters, `gclid`, `gbraid`, `wbraid`, `dclid`); every URL keeps origin, path, and those parameters only, and never its fragment. `before_send` applies it to every URL-valued string in event properties, `$set`, and `$set_once` (`$current_url`, `$referrer`, the `$initial_*` and session-entry URLs, `$external_click_url`, custom `href` and `url` properties) and to URL-shaped keys (`$heatmap_data` is keyed by page URL). In replay, `session_recording.maskCapturedNetworkRequestFn` scrubs the page URL in replay metadata and every network-timing entry; `maskAttributeFn` scrubs link and form URLs (`href`, `action`, `formaction`) in the recorded DOM. GA4 gets scrubbed `page_location` and `page_referrer`. The first URL and referrer PostHog keeps in its own cookie (`$initial_person_info`) are rewritten to the scrubbed form at load and after each capture.
+- **Attributes:** autocapture element data keeps only `id`, `class`, `href`, `name`, `type`, `role`, and `aria-label`, plus PostHog's own position and text fields; no `data-*` value or inline `style` reaches an event. Replay keeps `data-*` values only for the five attributes the stylesheet selects on (`data-accent`, `data-focus`, `data-fonts-pending`, `data-palette`, `data-playback-state`) and empties the rest.
+- **Masked text in events:** autocapture text drawn from a masked or blocked region is dropped from the event.
+
+### Not Changed, and Why
+
+- **Remote-config capture conflicts:** the project turns on replay console logs, canvas capture, and network timing. A client `false` would override the project setting, which the owner decision reserves for Nathan, so the runtime leaves all three as configured and the conflict is reported. Network-timing URLs are still scrubbed. Request and response bodies and headers are off in both client and project.
+- **Click identifiers outside the allowlist:** PostHog copies campaign and click-identifier parameters (`fbclid`, `msclkid`, and others) into their own event properties and `$initial_*` person properties, and derives `$fbc` from `fbclid`. These are values, not URLs; removing them would disable existing attribution, which needs Nathan's approval.
+- **GA4 enhanced measurement** (`link_url`, `file_name`, `form_destination`, `search_term`, `video_url`) is configured in the GA4 property and generated inside gtag.js; no client option scrubs those parameters without turning the events off. On client-side navigations the block sets a scrubbed `page_location`; whether gtag's own history-change page views use it is not verified.
+- **`person_profiles: 'always'`** and the internal-traffic exclusions are unchanged. The "Internal / Test users" cohort matches person properties `$internal_or_test_user` and `email`, and the project's test-account filters match `$host`; scrubbing touches none of them.
+
+### Verification
+
+`tests/privacy-runtime.test.js` runs the gate's exact source and the flag-on blocks in JSDOM. `tests/privacy-runtime/` drives the flag-on test build in Chromium with the real posthog-js 1.438.3 and gtag.js, behind a local proxy that is the browser's only network path and refuses everything but the site under test; its config file says how to run it.
