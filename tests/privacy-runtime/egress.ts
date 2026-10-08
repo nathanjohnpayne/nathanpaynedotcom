@@ -138,7 +138,12 @@ export async function startEgressProxy(siteRoot: string): Promise<EgressProxy> {
   };
 }
 
-/** Chromium flags that make the proxy the only network path. */
+/**
+ * Chromium flags that make the proxy the only network path. The resolver rule
+ * fails every hostname, `nathanpayne.test` included: the proxy serves that
+ * host itself and is addressed by IP literal, so a request that somehow
+ * bypassed the proxy could not resolve anything at all.
+ */
 export function egressArgs(proxyPort: number): string[] {
   return [
     `--proxy-server=http://127.0.0.1:${proxyPort}`,

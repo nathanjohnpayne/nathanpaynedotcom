@@ -282,12 +282,12 @@ test('default-on loads both SDKs and sends scrubbed, masked data only', async ()
   const gaHas = (needle: string) => gaHits(sink).some((r) => r.text.includes(needle));
   // GA4 batches and flushes on unload by beacon, which the proxy refuses, so
   // each page's hit is awaited before leaving it.
-  expect(
-    await waitFor(() => pageviewAt(/utm_source=fixture/) && gaHas(`dl=${fixtureWithUtm}`)),
-  ).toBe(true);
+  expect(await waitFor(() => pageviewAt(/utm_source=fixture/) && gaHas('utm_source=fixture'))).toBe(
+    true,
+  );
   await page.locator('#fixture-privacy-link').click();
   await page.waitForURL(`${SITE}/privacy/`);
-  expect(await waitFor(() => pageviewAt(/\/privacy\/$/) && gaHas(`dr=${fixtureWithUtm}`))).toBe(
+  expect(await waitFor(() => pageviewAt(/\/privacy\/$/) && gaHas(`dl=${SITE}/privacy/`))).toBe(
     true,
   );
   await pause(4_000);
@@ -295,11 +295,17 @@ test('default-on loads both SDKs and sends scrubbed, masked data only', async ()
   await pause(2_000);
 
   const text = allText(sink);
-  for (const canary of CANARIES) expect(text, `${canary} reached the sink`).not.toContain(canary);
+  for (const canary of CANARIES) {
+    expect.soft(text, `${canary} reached the sink`).not.toContain(canary);
+  }
   // Positive controls: the allowlisted parameter survives in both tools, the
   // replay really ran, and masked inputs are present as asterisks.
   // (PostHog's $referrer is the session's first referrer, $direct here; GA4's
-  // dr is per page, so the /privacy/ hit above is the referrer control.)
+  // dr is per page, so the /privacy/ hit is the referrer control.)
+  const exactParam = (name: string) =>
+    new RegExp(`[?&]${name}=${fixtureWithUtm.replace(/[.?/]/g, '\\$&')}(&|$)`, 'm');
+  expect(gaHits(sink).some((r) => exactParam('dl').test(r.text))).toBe(true);
+  expect(gaHits(sink).some((r) => exactParam('dr').test(r.text))).toBe(true);
   const pageviews = posthogEvents(sink).filter((e) => e.event === '$pageview');
   expect(pageviews.map((e) => props(e).$current_url)).toContain(fixtureWithUtm);
   expect(text).toContain('"type":2');
@@ -418,6 +424,41 @@ test("set('denied') mid-visit stops every further analytics request", async () =
   for (const marker of ['np_after_withdrawal', 'NP-AFTER-WITHDRAWAL', 'after withdrawal']) {
     expect(text).not.toContain(marker);
   }
+  expect(analyticsRefusals(withdrawnAt)).toEqual([]);
+  await context.close();
+});
+
+test('a withdrawal in one tab withdraws every other open tab', async () => {
+  const { context, page, sink } = await open();
+  const other = await context.newPage();
+  await page.goto(FIXTURE);
+  await other.goto(`${SITE}/`);
+  await activate(page);
+  expect(await waitFor(() => eventNames(sink).filter((e) => e === '$pageview').length >= 2)).toBe(
+    true,
+  );
+  const withdrawnAt = Date.now();
+  await page.evaluate(() => (window as unknown as NpWindow).npPrivacy.set('denied'));
+  await other.waitForFunction(
+    () => (window as unknown as NpWindow).npPrivacy.get().effective === 'denied',
+  );
+  expect(
+    await other.evaluate(
+      (id) => (window as unknown as Record<string, unknown>)[`ga-disable-${id}`],
+      GA_ID,
+    ),
+  ).toBe(true);
+  expect(
+    await other.evaluate(() => (window as unknown as NpWindow).posthog?.has_opted_out_capturing()),
+  ).toBe(true);
+  await other.mouse.move(50, 50);
+  await other.mouse.move(500, 400);
+  await other.evaluate(() => (window as unknown as NpWindow).posthog?.capture('np_other_tab'));
+  await pause(6_000);
+  await other.goto(`${SITE}/blog/`);
+  await pause(2_000);
+  expect(sink.records.filter((r) => r.at > withdrawnAt + 1_000).map((r) => r.url)).toEqual([]);
+  expect(allText(sink)).not.toContain('np_other_tab');
   expect(analyticsRefusals(withdrawnAt)).toEqual([]);
   await context.close();
 });
