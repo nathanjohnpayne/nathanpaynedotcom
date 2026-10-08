@@ -1,6 +1,9 @@
 ---
 import '../styles/global.css';
 import PostHog from '../components/posthog.astro';
+import PrivacyHead from '../components/privacy/PrivacyHead.astro';
+import PrivacyBody from '../components/privacy/PrivacyBody.astro';
+import { privacyControlsEnabled } from '../lib/privacy-flag';
 import { serializeJsonLd } from '../lib/json-ld';
 import { getSiteCopy } from '../lib/site-copy';
 
@@ -72,6 +75,11 @@ const gaId = import.meta.env.PUBLIC_GA_MEASUREMENT_ID || '';
 // The feed-discovery link names the publication the feed carries, so a rename
 // in src/content/site-copy/blog.md reaches every page's <head> (#1166).
 const { title: feedTitle } = await getSiteCopy('blog');
+
+// #1079 privacy controls, behind a build-time flag that is off in committed
+// code (specs/analytics-privacy.md § Feature Flag). Off, neither mount renders
+// anything and the analytics blocks below are unchanged.
+const privacyEnabled = privacyControlsEnabled();
 ---
 
 <!DOCTYPE html>
@@ -143,6 +151,8 @@ const { title: feedTitle } = await getSiteCopy('blog');
     <script type="application/ld+json" set:html={serializeJsonLd(jsonLd)} />
   )}
 
+  {privacyEnabled && <PrivacyHead />}
+
   <!-- PostHog -->
   <PostHog />
 
@@ -213,5 +223,6 @@ const { title: feedTitle } = await getSiteCopy('blog');
 </head>
 <body class={bodyClass} data-accent={dataAccent} data-palette={dataPalette}>
   <slot />
+  {privacyEnabled && <PrivacyBody />}
 </body>
 </html>
