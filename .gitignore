@@ -15,8 +15,10 @@ RIPCUT_GUIDE.md
 
 # Astro build output
 dist/
-# #1079 flag-on test build (npm run build:privacy-test)
+# #1079 flag-on test build (npm run build:privacy-test) and the flag-off
+# comparison build (scripts/build-flag-off.mjs, run by npm test)
 dist-privacy-test/
+dist-flag-off/
 .astro/
 
 # Playwright

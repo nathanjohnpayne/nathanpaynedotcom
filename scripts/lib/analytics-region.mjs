@@ -1,4 +1,5 @@
-// #1079 flag-off regression helpers (specs/analytics-privacy.md § Feature Flag).
+// #1079 flag-off regression helpers, shared by scripts/build-flag-off.mjs and
+// tests/analytics-privacy.test.js (specs/analytics-privacy.md § Feature Flag).
 //
 // The "analytics region" is the run of <head> that BaseLayout emits for the
 // analytics tools: from the `<!-- PostHog -->` comment up to (not including)

@@ -9,7 +9,7 @@
     "build": "astro build",
     "build:privacy-test": "PUBLIC_POSTHOG_PROJECT_TOKEN=phc_privacy_test_fake PUBLIC_GA_MEASUREMENT_ID=G-PRIVACYTEST PUBLIC_LOGODEV_KEY= astro build --mode privacy-test --outDir dist-privacy-test",
     "preview": "astro preview",
-    "test": "astro build && vitest run",
+    "test": "node scripts/build-flag-off.mjs && astro build && NP_FLAG_OFF_DIST=dist-flag-off vitest run",
     "test:e2e": "playwright test",
     "test:all": "npm test && npm run test:e2e",
     "deploy": "scripts/check-deploy-env.sh && scripts/check-deploy-deps.sh && npm run build && op-firebase-deploy && scripts/cf-cache-purge.sh",

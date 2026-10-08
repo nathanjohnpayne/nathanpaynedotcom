@@ -20,7 +20,7 @@ Everything this contract adds ships behind one build-time flag, defined in `src/
    - no gate script, notice, controls, footer link, or `/privacy/` route
    - no scrubbing, masking, or replay-exclusion change
    - the analytics region of every page's `<head>`—from `<!-- PostHog -->` up to `<!-- Google Fonts -->`—is byte-identical to the base commit's, with the same tokens
-5. `tests/analytics-privacy.test.js` enforces item 4 inside the required `build-and-test` job. It builds the site in mode `production` with fixed fake tokens and compares each page's analytics region with `tests/fixtures/privacy/flag-off-analytics-region.html`, which was captured from the base commit. It also fails if any built file contains a runtime marker (see [Runtime API](#runtime-api)) or if `privacy/` or `test-fixtures/` exist in the output. Every PR for #1227–#1230 must pass it. #1233 replaces it with the flag-on invariants when it flips the flag; until then, nobody regenerates the fixture.
+5. `tests/analytics-privacy.test.js` enforces item 4 inside the required `build-and-test` job. `npm test` first runs `scripts/build-flag-off.mjs`, which builds the site into `dist-flag-off/` in mode `production` with fixed fake tokens, before the main build, so no build runs while other suites read `.astro/`. The test compares each page's analytics region with `tests/fixtures/privacy/flag-off-analytics-region.json`, which was captured from the base commit. It also fails if any built file contains a runtime marker (see [Runtime API](#runtime-api)) or if `privacy/` or `test-fixtures/` exist in the output. Every PR for #1227–#1230 must pass it. #1233 replaces it with the flag-on invariants when it flips the flag; until then, nobody regenerates the fixture.
 
 Base commit: `347401c6` (`main` when this contract was written).
 
@@ -61,7 +61,7 @@ window.npPrivacy = {
     persisted: boolean,          // false if the last write failed
     loadedThisPage: boolean,     // analytics were initialized in this page view
   },
-  set(choice: 'granted' | 'denied'): boolean,   // false when rejected (GPC) 
+  set(choice: 'granted' | 'denied'): boolean,   // false when rejected (GPC)
   gpc(): boolean,
   onChange(fn: (state) => void): () => void,    // returns an unsubscribe
   notice: { shouldShow(): boolean, dismiss(): void },
@@ -133,7 +133,7 @@ No two parallel tracks edit the same file.
 
 | Sub-Issue | Owns |
 |---|---|
-| #1226 contract | this file, `src/lib/privacy-flag.ts`, the mount points in `BaseLayout.astro`, the empty `PrivacyHead.astro` and `PrivacyBody.astro`, the test fixture page, `tests/analytics-privacy.test.js`, `tests/helpers/analytics-region.js`, `tests/fixtures/privacy/`, `.gitignore`, the `build:privacy-test` script |
+| #1226 contract | this file, `src/lib/privacy-flag.ts`, the mount points in `BaseLayout.astro`, the empty `PrivacyHead.astro` and `PrivacyBody.astro`, the test fixture page, `tests/analytics-privacy.test.js`, `scripts/lib/analytics-region.mjs`, `scripts/build-flag-off.mjs`, `tests/fixtures/privacy/`, the `test` script, `.gitignore`, the `build:privacy-test` script |
 | #1227 inventory | `docs/privacy/` |
 | #1228 runtime | `src/components/posthog.astro`, `src/layouts/BaseLayout.astro` (head analytics blocks), `src/components/privacy/PrivacyHead.astro`, `src/lib/privacy/`, `specs/analytics.md`, `tests/privacy-runtime*` |
 | #1229 notice and page | `src/components/privacy/PrivacyBody.astro`, `src/components/privacy/ui/`, `src/pages/privacy/`, the footer link in `Footer.astro`, `src/pages/index.astro`, and `src/pages/404.astro`, `screenshots/privacy/`, `tests/privacy-ui*` |

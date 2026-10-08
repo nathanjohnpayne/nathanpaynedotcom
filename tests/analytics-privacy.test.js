@@ -3,7 +3,7 @@
 // #1079 analytics privacy controls — the feature flag and its flag-off
 // regression check (specs/analytics-privacy.md § Feature Flag, PRIV-15).
 //
-// The flag-off check builds the site in mode `production` with fixed fake
+// The flag-off check reads a site built in mode `production` with fixed fake
 // tokens and requires the result to be indistinguishable from `main` at the
 // contract's base commit: every page's analytics region byte-identical to the
 // captured fixture, no privacy route or test fixture, and no runtime marker in
@@ -29,7 +29,7 @@ import {
   analyticsRegion,
   buildFlagOff,
   readTextFiles,
-} from './helpers/analytics-region.js';
+} from '../scripts/lib/analytics-region.mjs';
 
 const ROOT = resolve(import.meta.dirname, '..');
 const fixture = JSON.parse(
@@ -80,14 +80,25 @@ describe('flag-off build is unchanged (PRIV-15)', () => {
   let outDir;
   let files;
 
+  // `npm test` builds dist-flag-off/ before the main build and passes it in
+  // NP_FLAG_OFF_DIST, so no build runs while other suites read `.astro/`.
+  // Run on its own (vitest run tests/analytics-privacy.test.js), the suite
+  // builds a fresh copy into a temp directory instead of trusting a stale one.
+  let ownBuild = false;
+
   beforeAll(async () => {
-    outDir = await mkdtemp(join(tmpdir(), 'np-flag-off-'));
-    await buildFlagOff(outDir, ROOT);
+    if (process.env.NP_FLAG_OFF_DIST) {
+      outDir = resolve(ROOT, process.env.NP_FLAG_OFF_DIST);
+    } else {
+      outDir = await mkdtemp(join(tmpdir(), 'np-flag-off-'));
+      ownBuild = true;
+      await buildFlagOff(outDir, ROOT);
+    }
     files = await readTextFiles(outDir);
   }, 600_000);
 
   afterAll(async () => {
-    if (outDir) await rm(outDir, { recursive: true, force: true });
+    if (ownBuild) await rm(outDir, { recursive: true, force: true });
   });
 
   it('compares against an intact fixture captured with the same tokens', () => {
