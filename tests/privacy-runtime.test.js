@@ -841,6 +841,27 @@ describe('event scrubbing: PostHog before_send (§ Capture Minimization 3–4)',
     expect(out.properties.$current_url).toBe('https://nathanpayne.test/');
   });
 
+  it('scrubs URLs embedded in text and backslash scheme-relative forms', () => {
+    const { gate } = boot();
+    const out = gate.scrubEvent({
+      event: '$autocapture',
+      properties: {
+        note: 'see https://example.test/p?email=NP-CANARY-QUERY#NP-CANARY-FRAGMENT for details',
+        back: '\\\\example.test\\p?email=NP-CANARY-QUERY',
+        mixed: '/\\example.test/?email=NP-CANARY-QUERY',
+        $el_text: 'Open https://example.test/?token=NP-CANARY-QUERY now',
+        $elements: [{ tag_name: 'a', $el_text: 'go https://example.test/?q=NP-CANARY-QUERY' }],
+        $elements_chain: 'a:text="visit https://example.test/?email=NP-CANARY-QUERY"nth-child="1"',
+      },
+    });
+    expect(JSON.stringify(out.properties)).not.toMatch(/NP-CANARY/);
+    expect(out.properties.note).toBe('see https://example.test/p for details');
+    expect(out.properties.$el_text).toBe('Open https://example.test/ now');
+    expect(out.properties.$elements_chain).toBe(
+      'a:text="visit https://example.test/"nth-child="1"',
+    );
+  });
+
   it('scrubs http(s) references written without a double slash', () => {
     const { gate } = boot();
     const out = gate.scrubEvent({

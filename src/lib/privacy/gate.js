@@ -97,6 +97,11 @@
   // `http:host/?x` are valid URL references the URL parser resolves), so
   // none of them can pass through as a non-HTTP scheme.
   var ABSOLUTE_HTTP = /^https?:/i;
+  // `//host`, and the backslash spellings browsers treat the same way for
+  // http(s) (`\\host`, `/\host`, `\/host`).
+  var SCHEME_RELATIVE = /^[\\/]{2}/;
+  // An http(s) URL embedded in longer text: link text, labels, messages.
+  var EMBEDDED_HTTP = /https?:[^\s"'<>`]+/gi;
   var HAS_SCHEME = /^[a-z][a-z0-9+.-]*:/i;
   // Property keys whose relative values are URLs too ($current_url, $referrer,
   // href, attr__href, to_post_href, $session_entry_url, ...).
@@ -305,7 +310,7 @@
     var input = value.trim();
     var form;
     if (ABSOLUTE_HTTP.test(input)) form = 'absolute';
-    else if (input.slice(0, 2) === '//') form = 'scheme-relative';
+    else if (SCHEME_RELATIVE.test(input)) form = 'scheme-relative';
     else if (HAS_SCHEME.test(input)) return value;
     else form = 'relative';
     var url;
@@ -404,7 +409,7 @@
     // whitespace must not slip past as plain text.
     var trimmed = value.trim();
     // Absolute and scheme-relative URLs are URLs under any key.
-    if (ABSOLUTE_HTTP.test(trimmed) || trimmed.slice(0, 2) === '//') return scrubUrl(value);
+    if (ABSOLUTE_HTTP.test(trimmed) || SCHEME_RELATIVE.test(trimmed)) return scrubUrl(value);
     // Under a URL-shaped key, any relative form that could carry a query or
     // fragment (`next/?x`, `../p?x`, `?x`, `#x`, `/p`) is a URL too. Values
     // with another scheme (mailto:, data:) and `$`-prefixed sentinels such as
@@ -418,7 +423,14 @@
     ) {
       return scrubUrl(value);
     }
-    return value;
+    return scrubEmbedded(value);
+  }
+
+  /** Scrubs every http(s) URL embedded in a longer string, in place. */
+  function scrubEmbedded(value) {
+    return value.replace(EMBEDDED_HTTP, function (match) {
+      return scrubUrl(match);
+    });
   }
 
   /** One `$elements` entry: structural attributes only, URLs scrubbed, protected text dropped. */
@@ -435,7 +447,9 @@
       } else if (key === 'href') {
         out[key] = scrubUrl(value);
       } else if (key === '$el_text') {
-        if (!isProtectedText(value, ctx)) out[key] = value;
+        if (!isProtectedText(value, ctx)) {
+          out[key] = typeof value === 'string' ? scrubEmbedded(value) : value;
+        }
       } else {
         out[key] = value;
       }
@@ -536,7 +550,10 @@
           // would run into the next attribute. Drop that attribute instead.
           if (raw.charAt(raw.length - 1) === '\\') continue;
         } else if (key === 'text') {
-          if (isProtectedText(decodeChainValue(raw), ctx)) continue;
+          var text = decodeChainValue(raw);
+          if (isProtectedText(text, ctx)) continue;
+          raw = encodeChainValue(scrubEmbedded(text));
+          if (raw.charAt(raw.length - 1) === '\\') continue;
         } else if (key.indexOf('attr__') === 0) {
           if (STRUCTURAL_ATTRIBUTES.indexOf(key.slice(6)) < 0) continue;
         } else if (key !== 'nth-child' && key !== 'nth-of-type' && key !== 'attr_id') {
@@ -587,6 +604,7 @@
         });
       } else if (TEXT_KEYS.indexOf(key) >= 0 && typeof value === 'string') {
         if (isProtectedText(value, ctx)) continue;
+        value = scrubEmbedded(value);
       } else if (typeof value === 'string') {
         value = scrubString(key, value);
       } else {
