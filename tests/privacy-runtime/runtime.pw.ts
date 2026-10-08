@@ -319,6 +319,50 @@ test('default-on loads both SDKs and sends scrubbed, masked data only', async ()
   await context.close();
 });
 
+test('landing on a sensitive URL keeps it out of the first URL PostHog stores and sends', async () => {
+  const { context, page, sink } = await open();
+  await page.goto(
+    `${SITE}/test-fixtures/privacy/?email=NP-CANARY-QUERY%40example.test&utm_source=fixture#NP-CANARY-FRAGMENT`,
+  );
+  await activate(page);
+  expect(await waitFor(() => eventNames(sink).includes('$pageview'))).toBe(true);
+  await pause(1_000);
+  const stored = await page.evaluate(() => ({
+    cookie: document.cookie,
+    local: JSON.stringify({ ...window.localStorage }),
+    session: JSON.stringify({ ...window.sessionStorage }),
+  }));
+  expect(stored.cookie).toContain('_posthog');
+  expect(stored.cookie).not.toContain('NP-CANARY');
+  expect(decodeURIComponent(stored.cookie)).toContain(
+    '"u":"http://nathanpayne.test/test-fixtures/privacy/?utm_source=fixture"',
+  );
+  const local = JSON.parse(stored.local) as Record<string, string>;
+  const persisted = JSON.parse(local[`ph_${POSTHOG_TOKEN}_posthog`] ?? '{}') as Record<
+    string,
+    { u?: string; props?: { u?: string } }
+  >;
+  expect(persisted.$initial_person_info?.u).toBe(
+    'http://nathanpayne.test/test-fixtures/privacy/?utm_source=fixture',
+  );
+  const setOnce = posthogEvents(sink)
+    .map((e) => e.$set_once as Record<string, unknown> | undefined)
+    .find((s) => s && s.$initial_current_url);
+  expect(setOnce?.$initial_current_url).toBe(
+    'http://nathanpayne.test/test-fixtures/privacy/?utm_source=fixture',
+  );
+  expect(allText(sink)).not.toContain('NP-CANARY');
+  // The session-entry URL the SDK keeps on the device ($client_session_props
+  // in localStorage, and sessionStorage) is never transmitted and is left
+  // as the SDK wrote it; the run logs whether it holds the canary.
+  console.log(
+    `device-only session-entry copy holds a canary: localStorage ${String(
+      persisted.$client_session_props?.props?.u ?? '',
+    ).includes('NP-CANARY')}, sessionStorage ${stored.session.includes('NP-CANARY')}`,
+  );
+  await context.close();
+});
+
 test('a saved opt-out creates no SDK script element and sends zero requests', async () => {
   const { context, page, sink } = await open([saveChoice('denied')]);
   const since = Date.now();
