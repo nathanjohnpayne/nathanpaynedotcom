@@ -544,7 +544,10 @@
    * element data, and masked-region text.
    */
   function scrubTree(node, depth, parentKey, ctx) {
-    if (depth > 8 || node === null || typeof node !== 'object') return node;
+    if (node === null || typeof node !== 'object') return node;
+    // Fail closed: a branch nested past the limit is dropped, never returned
+    // unexamined, so no URL can ride below it.
+    if (depth > 8) return null;
     if (Array.isArray(node)) {
       return node.map(function (item) {
         return typeof item === 'string'
