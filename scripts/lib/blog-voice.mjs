@@ -258,7 +258,10 @@ export function findQuotations(text) {
   return matches;
 }
 function quotationPass(item, context, findings, file) {
-  let projected = item.text;
+  // Matches are ordered and non-overlapping, so the projection is assembled in one pass;
+  // splicing the whole string once per quotation was quadratic in their number (#1219).
+  const projectedParts = [];
+  let projectedFrom = 0;
   const quotes = findQuotations(item.text);
   const styles = new Set();
   const uncertainQuotes = [];
@@ -268,9 +271,13 @@ function quotationPass(item, context, findings, file) {
       'review.quotation-attribution', 'warning', item,
       `Textual quotation ${quotations.length + 1} attribution is not established. Preserve the quoted language and confirm the speaker, source or hypothetical use manually, including narrator pronouns and spelling.`, file,
     ));
-    const attributed = evidenceCue.test(
-      (context + ' ' + item.text.slice(0, match.index)).slice(-200),
-    ) || followingEvidenceCue.test(item.text.slice(match.index + match[0].length, match.index + match[0].length + 200));
+    // Only the 200 characters before the quotation matter; copying the whole prefix
+    // for every quotation was quadratic (#1219).
+    const precedingWindow =
+      match.index >= 200
+        ? item.text.slice(match.index - 200, match.index)
+        : (context + ' ' + item.text.slice(0, match.index)).slice(-200);
+    const attributed = evidenceCue.test(precedingWindow) || followingEvidenceCue.test(item.text.slice(match.index + match[0].length, match.index + match[0].length + 200));
     // Decoded text cannot supply exact original character offsets. Retain the
     // containing source range honestly, alongside the focused quotation text.
     quotations.push({ ...item, kind: 'quotation', text: match[0], attributed });
@@ -280,11 +287,11 @@ function quotationPass(item, context, findings, file) {
       uncertainQuotes.push(match[0]);
     }
     // Never silently rewrite quotations. Uncertain attribution is surfaced above.
-    projected =
-      projected.slice(0, match.index) +
-      ' '.repeat(match[0].length) +
-      projected.slice(match.index + match[0].length);
+    projectedParts.push(item.text.slice(projectedFrom, match.index), ' '.repeat(match[0].length));
+    projectedFrom = match.index + match[0].length;
   }
+  projectedParts.push(item.text.slice(projectedFrom));
+  const projected = projectedParts.join('');
   if (styles.size > 1)
     findings.push(
       finding(
@@ -783,7 +790,18 @@ export async function checkVoice({
   // Match unchanged HTML and quotation warnings one-to-one; removed occurrences keep their
   // before-side source ranges even when an identical occurrence survives.
   const baselineReviewRules = new Set(['review.html', 'review.quotation-attribution']);
-  const reviewKey = (item) => JSON.stringify([item.rule, item.surface, item.excerpt, item.reason]);
+  // V8 hashes only the length of a string past 16,383 characters, so a Map keyed by text
+  // that embeds a long surface excerpt collapses into one bucket and goes quadratic
+  // (#1219). Key on a digest of the excerpt instead, computed once per distinct excerpt.
+  const excerptDigests = new Map();
+  const excerptDigest = (excerpt) => {
+    if (typeof excerpt !== 'string') return excerpt;
+    let digest = excerptDigests.get(excerpt);
+    if (digest === undefined) excerptDigests.set(excerpt, (digest = hash(excerpt)));
+    return digest;
+  };
+  const reviewKey = (item) =>
+    JSON.stringify([item.rule, item.surface, excerptDigest(item.excerpt), item.reason]);
   const reviewOccurrences = new Map();
   for (const item of after.findings.filter((f) => baselineReviewRules.has(f.rule))) {
     const key = reviewKey(item);
