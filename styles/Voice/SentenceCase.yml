@@ -1,0 +1,51 @@
+extends: capitalization
+message: "Use sentence case: '%s'; expected: '%s'."
+level: error
+scope: heading
+match: $sentence
+exceptions:
+  - Astro
+  - Claude
+  - CodeRabbit
+  - Codex
+  - CommonMark
+  - Chicago
+  - Cloudflare
+  - Firebase
+  - Five Across
+  - Friends & Family Billing
+  - Git
+  - GitHub
+  - JavaScript
+  - Lightning CSS
+  - Markdown
+  - Mergepath
+  - Mondrian
+  - Nathan
+  - Open Graph
+  - Playwright
+  - TypeScript
+  - Vale
+  - Vitest
+  - Wikimedia Commons
+  - YAML
+  - I
+  - January
+  - February
+  - March
+  - April
+  - May
+  - June
+  - July
+  - August
+  - September
+  - October
+  - November
+  - December
+  - Monday
+  - Tuesday
+  - Wednesday
+  - Thursday
+  - Friday
+  - Saturday
+  - Sunday

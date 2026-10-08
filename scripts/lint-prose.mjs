@@ -1,8 +1,9 @@
 #!/usr/bin/env node
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { extname, join, relative, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { isScalar, parseAllDocuments, visit } from 'yaml';
 
 const MARKDOWN_EXTENSIONS = new Set(['.md', '.mdx']);
@@ -12,10 +13,7 @@ const PINNED_VALE_VERSION = readFileSync(
   new URL('../.vale-version', import.meta.url),
   'utf8',
 ).replace(/\r?\n$/u, '');
-if (!/^\d+\.\d+\.\d+$/u.test(PINNED_VALE_VERSION)) {
-  console.error('prose lint: invalid pinned version in .vale-version');
-  process.exit(2);
-}
+
 const IDENTIFIER_SEPARATOR = /\[[A-Z]{2,}[A-Z0-9_-]*-\d+[\s\p{Zs}]+—[\s\p{Zs}]+/gu;
 const PROPAGATED_MARKDOWN_FILES = new Set([
   '.github/pull_request_template.md',
@@ -118,7 +116,7 @@ function discoverProseFiles() {
     .sort();
 }
 
-function frontmatterOf(source, file) {
+export function frontmatterOf(source, file) {
   const lines = source.split(/\r?\n/);
   const openingIndex = lines.findIndex((line) => line.trim() !== '');
 
@@ -154,12 +152,12 @@ function frontmatterOf(source, file) {
   };
 }
 
-function runVale(files) {
+export function runVale(files, { config } = {}) {
   if (files.length === 0) {
     return {};
   }
 
-  const result = spawnSync('vale', ['--output=JSON', ...files], {
+  const result = spawnSync('vale', ['--output=JSON', ...(config ? [`--config=${config}`] : []), ...files], {
     encoding: 'utf8',
     maxBuffer: 20 * 1024 * 1024,
   });
@@ -388,6 +386,10 @@ function printHuman(report) {
 }
 
 function main() {
+  if (!/^\d+\.\d+\.\d+$/u.test(PINNED_VALE_VERSION)) {
+    console.error('prose lint: invalid pinned version in .vale-version');
+    process.exit(2);
+  }
   let parsed;
   try {
     parsed = parseArguments(process.argv.slice(2));
@@ -460,7 +462,11 @@ function main() {
         const scalarRanges = yamlScalarRanges(source);
         alerts = reportedAlerts.filter((alert) => yamlAlertIsProse(alert, source, scalarRanges));
       }
-      const bodyAlerts = alerts.filter(
+      const blogPath = relative(fileURLToPath(new URL('../', import.meta.url)), resolve(file)).replaceAll('\\', '/');
+      // Blog body headings use sentence case; keep table and all other CMOS rules.
+      const bodyAlerts = alerts.filter((alert) =>
+        !(blogPath.startsWith('src/content/blog/') && alert.Check === 'CMOS.Titles'),
+      ).filter(
         (alert) =>
           extraction.kind !== 'complete' ||
           alert.Line <= extraction.openingLine ||
@@ -506,4 +512,4 @@ function main() {
   process.exitCode = hasErrors ? 1 : 0;
 }
 
-main();
+if (process.argv[1] && existsSync(process.argv[1]) && realpathSync(process.argv[1]) === realpathSync(fileURLToPath(import.meta.url))) main();

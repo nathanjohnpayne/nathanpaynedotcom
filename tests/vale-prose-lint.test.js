@@ -405,6 +405,81 @@ describe.skipIf(!valeAvailable)('Vale prose lint', () => {
     );
   });
 
+  it('suppresses only title-case advice on blog body headings, preserving other CMOS rules', () => {
+    const result = spawnSync(
+      process.execPath,
+      ['scripts/lint-prose.mjs', '--output=JSON', 'src/content/blog/autofix-was-the-whole-cost.md'],
+      { encoding: 'utf8' },
+    );
+    expect(result.status).toBe(0);
+    expect(
+      Object.values(JSON.parse(result.stdout))
+        .flat()
+        .some((alert) => alert.Check === 'CMOS.Titles'),
+    ).toBe(false);
+    const other = spawnSync(
+      process.execPath,
+      [
+        'scripts/lint-prose.mjs',
+        '--output=JSON',
+        'tests/fixtures/vale-capitalization/violations.md',
+        'tests/fixtures/vale-em-dash/behavior.md',
+      ],
+      { encoding: 'utf8' },
+    );
+    expect(other.status).toBe(1);
+    expect(
+      Object.values(JSON.parse(other.stdout))
+        .flat()
+        .map((alert) => alert.Check),
+    ).toEqual(expect.arrayContaining(['CMOS.Titles', 'CMOS.Capitalization', 'CMOS.EmDash']));
+  });
+
+  it('retains table-header capitalization and em-dash rules in a nested blog path', () => {
+    const directory = mkdtempSync(join(process.cwd(), '.vale-blog-surfaces-'));
+    try {
+      mkdirSync(join(directory, 'scripts'));
+      mkdirSync(join(directory, 'styles', 'CMOS'), { recursive: true });
+      mkdirSync(join(directory, 'src', 'content', 'blog', 'nested'), { recursive: true });
+      writeFileSync(
+        join(directory, 'scripts', 'lint-prose.mjs'),
+        readFileSync('scripts/lint-prose.mjs'),
+      );
+      writeFileSync(join(directory, '.vale-version'), readFileSync('.vale-version'));
+      writeFileSync(join(directory, '.vale.ini'), readFileSync('.vale.ini'));
+      for (const rule of ['Titles', 'Capitalization', 'EmDash'])
+        writeFileSync(
+          join(directory, 'styles', 'CMOS', rule + '.yml'),
+          readFileSync('styles/CMOS/' + rule + '.yml'),
+        );
+      writeFileSync(
+        join(directory, 'src/content/blog/nested/post.md'),
+        '## A sentence heading\n\n| lower header | other header |\n| --- | --- |\n| Value | Value |\n\nA sentence — with spaces.\n',
+      );
+      const result = spawnSync(
+        process.execPath,
+        [
+          join(directory, 'scripts/lint-prose.mjs'),
+          '--output=JSON',
+          'src/content/blog/nested/post.md',
+        ],
+        { cwd: directory, encoding: 'utf8' },
+      );
+      expect(result.status).toBe(1);
+      const alerts = Object.values(JSON.parse(result.stdout)).flat();
+      expect(alerts.map((a) => a.Check)).toEqual(
+        expect.arrayContaining(['CMOS.Capitalization', 'CMOS.EmDash']),
+      );
+      expect(alerts.some((a) => a.Check === 'CMOS.Titles')).toBe(false);
+      expect(readFileSync('styles/CMOS/Titles.yml', 'utf8')).toContain('scope: heading');
+      expect(readFileSync('styles/CMOS/Capitalization.yml', 'utf8')).toContain(
+        'scope: table.header',
+      );
+    } finally {
+      rmSync(directory, { recursive: true, force: true });
+    }
+  });
+
   it('allows technical identifiers in otherwise Chicago-cased headings and headers', () => {
     const fixture = 'tests/fixtures/vale-capitalization/technical-identifiers.md';
     const result = spawnSync(

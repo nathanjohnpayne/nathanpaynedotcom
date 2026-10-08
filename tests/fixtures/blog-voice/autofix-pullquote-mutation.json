@@ -1,0 +1,7 @@
+{
+  "commit": "68827d183093fdc9500c0263b1078751067ae2fd",
+  "path": "src/content/blog/autofix-was-the-whole-cost.md",
+  "provenance": "The before sentence is from the final owner-approved model revision. The after sentence is an intentionally invalid test mutation requested for issue #1137, not approved prose.",
+  "before": "It was the trust burden.",
+  "after": "It was the invented burden."
+}

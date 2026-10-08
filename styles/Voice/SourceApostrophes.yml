@@ -1,0 +1,6 @@
+extends: existence
+message: Use a straight source apostrophe in authored prose.
+level: error
+nonword: true
+tokens:
+  - "[‘’ʼ]"

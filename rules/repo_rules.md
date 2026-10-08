@@ -90,8 +90,9 @@ The guard runs inside `npm test`, so it reports as `build-and-test`—one of the
 
   Checking only `@astrojs/check` is what makes a `6.1` bump look safe when it is
   not.
-- **`@astrojs/markdown-remark` is a required devDependency even though no source
-  file imports it.** Astro 7 made Sätteri the default Markdown processor and
+- **`@astrojs/markdown-remark` is a required devDependency.** The local blog voice
+  checker consumes its Markdown processor directly, and Astro uses it for the
+  legacy Markdown plugin configuration. Astro 7 made Sätteri the default Markdown processor and
   stopped installing `@astrojs/markdown-remark` transitively, but
   `astro.config.mjs` still uses `markdown.remarkPlugins` / `markdown.rehypePlugins`
   for the three custom plugins in `src/plugins/`. Without the explicit dependency
