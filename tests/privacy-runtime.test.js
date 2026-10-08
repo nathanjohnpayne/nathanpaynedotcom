@@ -841,6 +841,19 @@ describe('event scrubbing: PostHog before_send (§ Capture Minimization 3–4)',
     expect(out.properties.$current_url).toBe('https://nathanpayne.test/');
   });
 
+  it('scrubs http(s) references written without a double slash', () => {
+    const { gate } = boot();
+    const out = gate.scrubEvent({
+      event: 'custom',
+      properties: {
+        href: 'https:/account?email=NP-CANARY-QUERY#NP-CANARY-FRAGMENT',
+        destination: 'http:example.test/?email=NP-CANARY-QUERY&utm_source=f#NP-CANARY-FRAGMENT',
+      },
+    });
+    expect(JSON.stringify(out.properties)).not.toMatch(/NP-CANARY/);
+    expect(out.properties.destination).toBe('http://example.test/?utm_source=f');
+  });
+
   it('scrubs relative and scheme-relative URL forms and leaves sentinels alone', () => {
     const { gate } = boot();
     const out = gate.scrubEvent({

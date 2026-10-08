@@ -93,7 +93,10 @@
     'doubleclick.net',
   ]);
 
-  var ABSOLUTE_HTTP = /^https?:\/\//i;
+  // Any http(s): reference, with or without `//` (`https:/p?x` and
+  // `http:host/?x` are valid URL references the URL parser resolves), so
+  // none of them can pass through as a non-HTTP scheme.
+  var ABSOLUTE_HTTP = /^https?:/i;
   var HAS_SCHEME = /^[a-z][a-z0-9+.-]*:/i;
   // Property keys whose relative values are URLs too ($current_url, $referrer,
   // href, attr__href, to_post_href, $session_entry_url, ...).

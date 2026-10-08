@@ -116,7 +116,7 @@ const privacyEnabled = privacyControlsEnabled();
       const scrubStoredFirstUrl = (ph) => {
         const info = ph && typeof ph.get_property === 'function' ? ph.get_property('$initial_person_info') : null;
         if (!info || typeof info !== 'object') return;
-        const clean = (v) => (typeof v === 'string' && /^https?:\/\//i.test(v) ? gate.scrubUrl(v) : v);
+        const clean = (v) => (typeof v === 'string' && /^https?:/i.test(v) ? gate.scrubUrl(v) : v);
         const u = clean(info.u);
         const r = clean(info.r);
         if (u !== info.u || r !== info.r) ph.register({ $initial_person_info: { ...info, u, r } });
