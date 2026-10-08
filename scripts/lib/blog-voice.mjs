@@ -163,10 +163,23 @@ function inlineText(node, includeCode = false, maskCode = false) {
   if (node.type === 'inlineCode' || node.type === 'code')
     return includeCode ? node.value : maskCode ? ' '.repeat(node.value.length) : ' ';
   if (node.type === 'html') return plainBreak(node) ? ' ' : '';
-  if (node.type === 'image' || node.type === 'imageReference') return '';
+  if (node.type === 'image' || node.type === 'imageReference') return ' ';
   if (node.type === 'break') return ' ';
   if (typeof node.value === 'string') return node.value;
   return joinedText(node, (node.children ?? []).map((child) => inlineText(child, includeCode, maskCode)));
+}
+function imageSeparatedText(node, includeCode = false, maskCode = false) {
+  // Images separate body passages. Their alt text is checked as a caption,
+  // and removing the figure cannot manufacture a verbatim body quotation.
+  if (node.type === 'image' || node.type === 'imageReference') return ['', ''];
+  if (!node.children) return [inlineText(node, includeCode, maskCode)];
+  const passages = [''];
+  for (const child of node.children) {
+    const childPassages = imageSeparatedText(child, includeCode, maskCode);
+    passages[passages.length - 1] += childPassages[0];
+    passages.push(...childPassages.slice(1));
+  }
+  return passages;
 }
 async function markdownTree(source) {
   let tree;
@@ -337,8 +350,11 @@ export async function parseArticle(source, file) {
   reviewRawHtml(tree);
   const pullquotePassages = (node) => {
     if (['heading', 'paragraph', 'tableCell'].includes(node.type) && hasHtml(node, transparent)) return [];
-    if (['heading', 'paragraph', 'tableCell'].includes(node.type))
-      return [normalizePassage(inlineText(node, true), inlineText(node, false, true))];
+    if (['heading', 'paragraph', 'tableCell'].includes(node.type)) {
+      const passages = imageSeparatedText(node, true);
+      const prose = imageSeparatedText(node, false, true);
+      return passages.map((text, index) => normalizePassage(text, prose[index]));
+    }
     return (node.children ?? []).flatMap(pullquotePassages);
   };
   bodyText.push(...pullquotePassages(tree));
