@@ -130,6 +130,8 @@ The guard runs inside `npm test`, so it reports as `build-and-test`—one of the
 
 - **Mermaid labels must meet WCAG AA contrast.** Every explicitly styled Mermaid node, in any collection that supports Mermaid, must use measurable three- or six-digit hex fill and label colors with a contrast ratio of at least 4.5:1. Tests enforce this from rendered SVG, so Mermaid owns the grammar for `style`, `classDef`, semicolons, quoted labels, and multiline labels.
 
+- **Test-fixture pages never ship.** Anything under `src/pages/test-fixtures/` must return no route from `getStaticPaths` outside the `privacy-test` Astro mode (`isPrivacyTestBuild()` in `src/lib/privacy-flag.ts`), so a production build cannot contain it. Until #1233 commits the #1079 flag on, `tests/analytics-privacy.test.js` also fails a production build that contains `test-fixtures/`, a `/privacy/` route, or any privacy runtime marker. See `specs/analytics-privacy.md` § Feature Flag.
+
 ## CI Enforcement
 
 The structural checks live in `scripts/ci/` and are wired into `.github/workflows/repo_lint.yml`, which reports as the required `lint` check. **That workflow is the list; this file does not restate it.**
