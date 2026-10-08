@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { readFileSync } from 'fs';
 import { resolve } from 'path';
 import { execSync } from 'child_process';
@@ -478,6 +478,80 @@ describe('PostHog', () => {
     } finally {
       delete document.fonts;
     }
+  });
+
+  describe('bounded fonts wait and once-only guard (#1065)', () => {
+    function stubFonts(ready) {
+      Object.defineProperty(document, 'fonts', { value: { ready }, configurable: true });
+    }
+    function startWithGrid() {
+      const capture = vi.fn();
+      window.posthog = { capture };
+      document.getElementById('mondrian').getBoundingClientRect = () => ({
+        width: 900,
+        height: 900,
+        top: 0,
+        left: 0,
+        right: 900,
+        bottom: 900,
+      });
+      new Function(posthogHomepageScript)();
+      return () => capture.mock.calls.filter((c) => c[0] === 'homepage_layout_rendered');
+    }
+
+    beforeEach(() => vi.useFakeTimers());
+    afterEach(() => {
+      vi.useRealTimers();
+      delete document.fonts;
+    });
+
+    it('still captures after the timeout when fonts.ready never resolves', async () => {
+      stubFonts(new Promise(() => {}));
+      const layouts = startWithGrid();
+      await vi.advanceTimersByTimeAsync(2900);
+      expect(layouts(), 'captured before the timeout').toHaveLength(0);
+      await vi.advanceTimersByTimeAsync(200);
+      expect(layouts()).toHaveLength(1);
+      expect(layouts()[0][1].layout).toBe('composition');
+    });
+
+    it('captures once when fonts.ready resolves, even after the timeout elapses', async () => {
+      stubFonts(Promise.resolve());
+      const layouts = startWithGrid();
+      await vi.advanceTimersByTimeAsync(0);
+      expect(layouts()).toHaveLength(1);
+      await vi.advanceTimersByTimeAsync(5000);
+      expect(layouts()).toHaveLength(1);
+    });
+
+    it('leaves the load uncaptured when PostHog is missing, so a later run can count it', async () => {
+      stubFonts(Promise.resolve());
+      window.posthog = undefined;
+      document.getElementById('mondrian').getBoundingClientRect = () => ({
+        width: 900,
+        height: 900,
+        top: 0,
+        left: 0,
+        right: 900,
+        bottom: 900,
+      });
+      new Function(posthogHomepageScript)();
+      await vi.advanceTimersByTimeAsync(0);
+      expect(document.getElementById('mondrian').dataset.layoutCaptured).toBeUndefined();
+      const capture = vi.fn();
+      window.posthog = { capture };
+      new Function(posthogHomepageScript)();
+      await vi.advanceTimersByTimeAsync(0);
+      expect(capture.mock.calls.filter((c) => c[0] === 'homepage_layout_rendered')).toHaveLength(1);
+    });
+
+    it('captures once when the setup runs twice in the same document', async () => {
+      stubFonts(Promise.resolve());
+      const layouts = startWithGrid();
+      new Function(posthogHomepageScript)();
+      await vi.advanceTimersByTimeAsync(5000);
+      expect(layouts()).toHaveLength(1);
+    });
   });
 
   it('does not capture a layout for an unrendered grid (#1045)', () => {
