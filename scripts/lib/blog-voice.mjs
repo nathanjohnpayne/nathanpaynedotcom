@@ -433,6 +433,9 @@ export async function parseArticle(source, file) {
     surfaces.push(quotationPass({ ...item, semanticText: item.text, rendered: item.text }, '', findings, file));
   }
   for (const surface of surfaces) protectedMaterial.push(...surface.quotations);
+  // Textual quotes are collected after the AST walk; compare artifacts in the
+  // article's source order, keeping their honest containing source ranges.
+  protectedMaterial.sort((a, b) => a.location.start.offset - b.location.start.offset);
   const headingForms = new Set(
     headings.map((h) => h.convention ?? (h.excerpt.trimStart().startsWith('#') ? 'ATX' : 'setext')),
   );
