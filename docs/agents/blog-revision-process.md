@@ -122,7 +122,7 @@ node scripts/check-blog-voice.mjs /tmp/draft.md --base COMMIT --base-path src/co
 node scripts/check-blog-voice.mjs /tmp/draft.md --proper-noun 'Ada Lovelace' --review-context /tmp/review-context.json --json
 ```
 
-`--json` always includes the complete packet. `--packet` prints it as readable text. Without either, readable findings still state the manual-review requirement. `--before` and `--base` are mutually exclusive. An explicit file baseline has a SHA-256 and `commit: null`: no Git provenance is claimed for an arbitrary file. A Git baseline records the requested ref, resolved SHA, repository path and source hash. The command only reads local Git; it never fetches or updates it. Run `--help` for the stable argument list.
+`--json` always includes the complete packet. `--packet` prints it as readable text. Without either, readable findings still state the manual-review requirement. `--before` and `--base` are mutually exclusive. An explicit file baseline has a SHA-256 and `commit: null`: no Git provenance is claimed for an arbitrary file. A Git baseline records the requested ref, resolved SHA, repository path and source hash. The command only reads local Git; it never fetches or updates it, rewrites sources, publishes, or calls models/connectors. It uses only temporary projections and diffs and removes them after the run. Run `--help` for the stable argument list.
 
 | Exit | Meaning |
 | --- | --- |
@@ -165,7 +165,7 @@ Supply `--review-context` with a JSON object containing `writingStylePass`, `str
 }
 ```
 
-Record keep/fix plus a reason for every warning in the approval summary; optional `warningDispositions` context entries are printed unchanged and never suppress findings or attest approval. The packet keeps those questions open; it cannot attest that the reviewer read it or that the owner approved it. It supports the composing/reviewing agent's Write Like Me pass by keeping references, complete sources and qualifications together; direct owner approval remains separate.
+Record keep/fix plus a reason for every warning in the approval summary; optional `warningDispositions` context entries are printed unchanged and never suppress findings or attest approval. The packet keeps those questions open; it cannot attest that the reviewer read it or that the owner approved it. It supports the composing/reviewing agent's Write Like Me pass by keeping references, complete sources and qualifications together; direct owner approval remains separate. Do not invent completed validation to populate the context.
 
 ### Limits and validation
 
