@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/bin/bash
 # Deploy the attested CI build of a commit on main (#1239, part of #1104).
 #
 # #1104: the deploy aliases run `npm run build` after preflight has exported
@@ -92,7 +92,9 @@ set -euo pipefail
 # and between the `env -i` children, with the full parent environment. Pin
 # PATH to the system directories first, so a caller PATH that starts with a
 # repository-controlled directory such as node_modules/.bin cannot supply one
-# of them (Codex P1 on PR #1244). Tools the children need are resolved
+# of them (Codex P1 on PR #1244). The shebang is a fixed /bin/bash for the
+# same reason: `#!/usr/bin/env bash` would take bash itself from the caller's
+# PATH before this line runs. Tools the children need are resolved
 # separately from SAFE_PATH below.
 PATH=/usr/bin:/bin
 export PATH

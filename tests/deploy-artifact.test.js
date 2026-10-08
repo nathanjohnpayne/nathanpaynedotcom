@@ -271,7 +271,11 @@ function run(h, args, { safePath, parentPathFirst } = {}) {
     TMPDIR: h.tmp,
     DEPLOY_ARTIFACT_SAFE_PATH: safePath ?? `${h.bin}:/usr/bin:/bin`,
   };
-  const result = spawnSync('/bin/bash', [join(h.repo, 'scripts/deploy-artifact.sh'), ...args], {
+  // Executed directly, never as `bash script`, so the shebang's interpreter lookup is
+  // exercised against the hostile PATH too (Codex P1, PR #1244).
+  const script = join(h.repo, 'scripts/deploy-artifact.sh');
+  chmodSync(script, 0o755);
+  const result = spawnSync(script, args, {
     cwd: h.repo,
     env,
     encoding: 'utf-8',
@@ -317,6 +321,7 @@ function plantHostileFirebase(h) {
 }
 
 const HOSTILE_UTILITIES = [
+  'bash',
   'dirname',
   'mktemp',
   'mkdir',
