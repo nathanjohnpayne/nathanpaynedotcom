@@ -524,6 +524,27 @@ describe('PostHog', () => {
       expect(layouts()).toHaveLength(1);
     });
 
+    it('leaves the load uncaptured when PostHog is missing, so a later run can count it', async () => {
+      stubFonts(Promise.resolve());
+      window.posthog = undefined;
+      document.getElementById('mondrian').getBoundingClientRect = () => ({
+        width: 900,
+        height: 900,
+        top: 0,
+        left: 0,
+        right: 900,
+        bottom: 900,
+      });
+      new Function(posthogHomepageScript)();
+      await vi.advanceTimersByTimeAsync(0);
+      expect(document.getElementById('mondrian').dataset.layoutCaptured).toBeUndefined();
+      const capture = vi.fn();
+      window.posthog = { capture };
+      new Function(posthogHomepageScript)();
+      await vi.advanceTimersByTimeAsync(0);
+      expect(capture.mock.calls.filter((c) => c[0] === 'homepage_layout_rendered')).toHaveLength(1);
+    });
+
     it('captures once when the setup runs twice in the same document', async () => {
       stubFonts(Promise.resolve());
       const layouts = startWithGrid();

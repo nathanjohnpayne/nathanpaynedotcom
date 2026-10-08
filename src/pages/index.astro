@@ -1419,12 +1419,13 @@ const homepageJsonLd = {
       // request that hangs must not drop the load from the alert denominator
       // (#1065). The once-only mark lives on the grid, not in this closure, so
       // a re-run of this setup in the same document (on a bfcache restore, say)
-      // cannot double-count a load.
+      // cannot double-count a load. It is set only when PostHog can record the
+      // event, so a run before PostHog loads leaves the load countable.
       // Alerting on it is set up in PostHog (specs/analytics.md).
       const LAYOUT_FONTS_TIMEOUT_MS = 3000;
       function captureLayout() {
         const grid = document.getElementById('mondrian');
-        if (!grid || grid.dataset.layoutCaptured) return;
+        if (!grid || grid.dataset.layoutCaptured || !window.posthog?.capture) return;
         const rect = grid.getBoundingClientRect();
         if (!rect.width) return;
         grid.dataset.layoutCaptured = 'true';
