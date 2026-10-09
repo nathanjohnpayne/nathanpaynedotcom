@@ -1,0 +1,124 @@
+---
+/**
+ * #1079 privacy notice (specs/analytics-privacy.md § UI Hooks, row "Notice").
+ *
+ * Rendered by PrivacyBody at the end of <body>, only when
+ * privacyControlsEnabled(); notice.js moves it to the top of the body so it
+ * sits in the document flow above the page, never over it. It is an <aside>
+ * with a label, not a dialog: nothing is modal, nothing takes focus, nothing
+ * locks scroll. Both buttons call window.npPrivacy and nothing else.
+ *
+ * Every factual sentence here traces to docs/privacy/inventory.md § Summary
+ * (the two tools, and that PostHog records sessions). It names no retention
+ * period and makes no claim of anonymity or compliance (PRIV-11).
+ *
+ * Styles and the script are inlined rather than hoisted. Astro bundles a
+ * component's <style> and <script> by import graph, so a hoisted one would be
+ * emitted on every page of a flag-off build too; inline, they exist only in
+ * the HTML of a page that rendered this component, which is what
+ * tests/analytics-privacy.test.js requires of the flag-off build (PRIV-15).
+ * The same is why these rules are not in src/styles/global.css.
+ */
+import noticeSource from './notice.js?raw';
+---
+
+<style is:inline>
+  .privacy-notice {
+    background: var(--paper);
+    color: var(--ink);
+    border-bottom: var(--line) solid var(--ink);
+    font-family: var(--font-body);
+  }
+  .privacy-notice__inner {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--sp-md) var(--sp-lg);
+    max-width: 72rem;
+    margin: 0 auto;
+    padding: var(--sp-lg) clamp(1rem, 4vw, var(--page-gutter));
+  }
+  .privacy-notice__copy {
+    flex: 1 1 22rem;
+    min-width: 0;
+  }
+  .privacy-notice__title {
+    margin-bottom: var(--sp-xs);
+    font-size: 0.62rem;
+    font-weight: 600;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--ink-62);
+  }
+  .privacy-notice__text {
+    font-size: clamp(0.88rem, 0.86rem + 0.1vw, 0.95rem);
+    line-height: 1.5;
+  }
+  .privacy-notice__text a {
+    color: inherit;
+    text-decoration: underline;
+    text-decoration-thickness: 1px;
+    text-underline-offset: 0.18em;
+  }
+  .privacy-notice__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.6rem;
+  }
+  .privacy-notice .nav-button {
+    font-family: var(--font-body);
+    line-height: normal;
+    cursor: pointer;
+  }
+  .privacy-notice .nav-button:focus-visible {
+    outline: 2px solid currentColor;
+    outline-offset: 2px;
+  }
+  .privacy-notice-status {
+    padding: var(--sp-sm) clamp(1rem, 4vw, var(--page-gutter));
+    background: var(--paper);
+    color: var(--ink);
+    border-bottom: var(--line) solid var(--ink);
+    font-family: var(--font-body);
+    font-size: clamp(0.85rem, 0.83rem + 0.1vw, 0.92rem);
+    line-height: 1.5;
+    text-align: center;
+  }
+  .privacy-notice-status:empty {
+    display: none;
+  }
+  .privacy-notice-status:focus-visible {
+    outline: 2px solid currentColor;
+    outline-offset: -4px;
+  }
+  /* The homepage Connect panel's privacy row (src/pages/index.astro): one
+     exit on the right, a step below the Latest Post callout. */
+  .privacy-ribbon {
+    justify-content: flex-end;
+    margin-top: var(--sp-sm);
+  }
+</style>
+
+<aside
+  id="np-privacy-notice"
+  class="privacy-notice"
+  data-np-privacy-ui="notice"
+  aria-labelledby="np-privacy-notice-title"
+  hidden
+>
+  <div class="privacy-notice__inner">
+    <div class="privacy-notice__copy">
+      <p class="privacy-notice__title" id="np-privacy-notice-title">Analytics on this site</p>
+      <p class="privacy-notice__text">
+        This site uses PostHog, including session replay, which records how a page is used, and Google Analytics. You can turn them off now, or read what they collect and change your mind later on the <a href="/privacy/">privacy page</a>.
+      </p>
+    </div>
+    <div class="privacy-notice__actions">
+      <button type="button" class="nav-button" data-np-privacy-action="deny">Turn off analytics</button>
+      <button type="button" class="nav-button" data-np-privacy-action="dismiss">Dismiss</button>
+    </div>
+  </div>
+</aside>
+<p id="np-privacy-notice-status" class="privacy-notice-status" role="status" tabindex="-1"></p>
+
+<script is:inline set:html={noticeSource} />

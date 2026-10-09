@@ -1,5 +1,9 @@
 ---
-// #1079 notice and controls mount point. BaseLayout renders this at the end of
-// <body> only when privacyControlsEnabled(). #1229 implements the notice here
-// (specs/analytics-privacy.md § UI Hooks); until then it renders nothing.
+// #1079 notice mount point (specs/analytics-privacy.md § UI Hooks). BaseLayout
+// renders this at the end of <body> only when privacyControlsEnabled(). The
+// notice itself, its styles, and its script live in ui/PrivacyNotice.astro;
+// the controls are rendered by the /privacy/ page, not here.
+import PrivacyNotice from './ui/PrivacyNotice.astro';
 ---
+
+<PrivacyNotice />

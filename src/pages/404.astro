@@ -1,6 +1,9 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro';
 import Breadcrumbs from '../components/Breadcrumbs.astro';
+// #1079: the 404 has no shared footer, so it carries the /privacy/ link
+// itself; the component renders nothing while the privacy flag is off.
+import PrivacyLink from '../components/privacy/ui/PrivacyLink.astro';
 ---
 
 <BaseLayout
@@ -29,6 +32,7 @@ import Breadcrumbs from '../components/Breadcrumbs.astro';
           <a class="nav-button" href="/resume/">Résumé</a>
           <a class="nav-button" href="/projects/">Projects</a>
           <a class="nav-button" href="/blog/">Blog</a>
+          <PrivacyLink class="nav-button" />
         </div>
       </div>
 

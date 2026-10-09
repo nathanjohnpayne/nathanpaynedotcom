@@ -5,6 +5,11 @@ import { selectHomepageWriting } from '../lib/blog-order';
 import { stateMarkerClass } from '../lib/lifecycle-marker';
 import { getSiteCopy } from '../lib/site-copy';
 import { alumniOf, longLocation } from '../lib/person-json-ld';
+// #1079: the homepage has no shared footer, so the Connect panel carries the
+// /privacy/ link. The row and the link both render only while the privacy
+// flag is on, so the flag-off homepage is byte-identical to before.
+import PrivacyLink from '../components/privacy/ui/PrivacyLink.astro';
+import { privacyControlsEnabled } from '../lib/privacy-flag';
 
 // One published collection feeds two deliberately different surfaces (#627):
 // the Writing list is hand-curated by `homepageRank`, while Latest Post remains
@@ -65,6 +70,7 @@ const cardLineOf = (slug: string) => {
 };
 
 const latestPost = chronologicalPosts[0];
+const privacyEnabled = privacyControlsEnabled();
 
 const blogIndex = await getSiteCopy('blog');
 // The Selected Projects introduction is the homepage rendition in
@@ -542,6 +548,18 @@ const homepageJsonLd = {
                   <a href="/blog/" class="ribbon-exit">View all writing<span class="link-arrow" aria-hidden="true">→</span></a>
                 </div>
                 <a href={`/blog/${latestPost.id}/`} class="blog-callout-link">{latestPost.data.title}<span class="link-arrow" aria-hidden="true">→</span></a>
+              </div>
+            )}
+            {/* Privacy (#1079). The homepage has no footer, so the site's
+                /privacy/ link closes the Connect panel in the same ribbon
+                voice as the three panel exits (.ribbon-row .ribbon-exit,
+                #975); .panel--blue:not(.is-open) .ribbon-exit keeps it
+                legible on the closed plane. The row's own spacing is in
+                PrivacyNotice.astro's inline style, which every flag-on page
+                carries. */}
+            {privacyEnabled && (
+              <div class="ribbon-row privacy-ribbon">
+                <PrivacyLink class="ribbon-exit" arrow />
               </div>
             )}
           </div>

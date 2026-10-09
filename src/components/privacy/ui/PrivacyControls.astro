@@ -1,0 +1,93 @@
+---
+/**
+ * #1079 privacy controls (specs/analytics-privacy.md § UI Hooks, rows
+ * "Controls" and "GPC state"). Rendered on /privacy/ only.
+ *
+ * The status line is a polite live region that states the current state in
+ * plain words; controls.js fills it from window.npPrivacy and keeps it
+ * current. Opting out and re-enabling are each one button (PRIV-14). While
+ * Global Privacy Control is active the section carries data-np-privacy-gpc,
+ * the grant button is disabled, and the explanation below it is shown
+ * (PRIV-10).
+ *
+ * What the control covers and does not cover comes from
+ * docs/privacy/inventory.md § Summary and § Capture Conflicts C5 (Cloudflare
+ * Web Analytics is outside the opt-out), § Hosting and CDN, and § Other Third
+ * Parties. Inline style and script for the reason given in PrivacyNotice.astro.
+ */
+import controlsSource from './controls.js?raw';
+---
+
+<style is:inline>
+  .privacy-controls {
+    padding: clamp(1rem, 2.5vw, 1.5rem);
+    border: 1px solid var(--ink);
+    background: var(--paper);
+  }
+  .privacy-controls__status {
+    font-weight: 600;
+  }
+  .privacy-controls__gpc {
+    margin-top: var(--sp-md);
+  }
+  .privacy-controls__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    margin-top: var(--sp-lg);
+  }
+  /* The status and actions ship hidden until controls.js runs; this keeps
+     the display rules above from overriding the hidden attribute. */
+  .privacy-controls [hidden] {
+    display: none;
+  }
+  .privacy-controls .nav-button {
+    font-family: var(--font-body);
+    line-height: normal;
+    cursor: pointer;
+  }
+  .privacy-controls .nav-button:focus-visible {
+    outline: 2px solid currentColor;
+    outline-offset: 2px;
+  }
+  .privacy-controls .nav-button:disabled {
+    cursor: not-allowed;
+    opacity: 0.45;
+    transform: none;
+    background: transparent;
+    color: inherit;
+  }
+  .privacy-controls__covers {
+    margin-top: var(--sp-lg);
+  }
+  .privacy-controls__noscript {
+    margin-top: var(--sp-md);
+  }
+</style>
+
+<section
+  id="np-privacy-controls"
+  class="privacy-controls"
+  data-np-privacy-ui="controls"
+  aria-labelledby="np-privacy-controls-heading"
+>
+  <h2 id="np-privacy-controls-heading">Your choices</h2>
+  <p class="privacy-controls__status" data-np-privacy-ui="status" aria-live="polite" aria-atomic="true" hidden>
+    Reading your current setting.
+  </p>
+  <p id="np-privacy-gpc-explanation" class="privacy-controls__gpc" data-np-privacy-ui="gpc-explanation" hidden>
+    While your browser sends Global Privacy Control, analytics cannot be turned on here. You can still turn them off; once your browser saves that choice, it keeps them off if your browser stops sending the signal.
+  </p>
+  <div class="privacy-controls__actions" hidden>
+    <button type="button" class="nav-button" data-np-privacy-action="deny">Turn off analytics</button>
+    <button type="button" class="nav-button" data-np-privacy-action="grant">Turn on analytics</button>
+  </div>
+  <noscript>
+    <p class="privacy-controls__noscript">These controls need JavaScript. Without it, PostHog and Google Analytics do not load either.</p>
+  </noscript>
+  <p class="privacy-controls__covers">
+    One setting covers both tools: PostHog, including session replay, and Google Analytics 4. It does not reach data already sent, Cloudflare's edge-injected web analytics and error reporting, the servers that serve the site, or the other services named below. Turning analytics off takes effect at once; turning them back on takes effect on the next page you load, provided your browser saves the choice.
+  </p>
+</section>
+
+<script is:inline set:html={controlsSource} />
