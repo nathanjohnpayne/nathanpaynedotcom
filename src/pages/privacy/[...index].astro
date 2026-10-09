@@ -43,6 +43,14 @@ if (!myself) {
   throw new Error('Missing myself entry "nathan-payne" — expected at src/content/myself/nathan-payne.md');
 }
 const email = myself.data.email;
+// The address is assembled client-side from base64 fragments, as on the
+// homepage (#availability-mailto in src/pages/index.astro), so the plain
+// string never appears in the static HTML. The <noscript> fallback spells it.
+const [emailUser, emailDomain] = email.split('@');
+const toBase64 = (value: string) => Buffer.from(value, 'utf8').toString('base64');
+const emailUserB64 = toBase64(emailUser);
+const emailDomainB64 = toBase64(emailDomain);
+const emailSpelled = `${emailUser} [at] ${emailDomain.replace(/\./g, ' [dot] ')}`;
 
 const title = 'Privacy | Nathan Payne';
 const canonical = new URL('/privacy/', Astro.site).href;
@@ -323,8 +331,22 @@ const sections = [
 
         <h2 id="contact">Contact</h2>
         <p>
-          Questions about this page or about these tools: email <a href={`mailto:${email}`}>{email}</a>.
+          Questions about this page or about these tools: <a id="privacy-contact-mailto" href="#" data-u={emailUserB64} data-d={emailDomainB64}>email me</a>.
         </p>
+        <noscript>
+          <p>Email: {emailSpelled}</p>
+        </noscript>
+        <script is:inline>
+          (function () {
+            const el = document.getElementById('privacy-contact-mailto');
+            if (!el) return;
+            try {
+              el.href = 'mailto:' + atob(el.dataset.u) + '@' + atob(el.dataset.d);
+            } catch (_e) {
+              // Leave href as "#"; the noscript text covers the fallback.
+            }
+          })();
+        </script>
       </div>
 
       <Footer
