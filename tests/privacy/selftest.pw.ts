@@ -154,6 +154,29 @@ test.describe('the canary detector sees every encoding the SDKs use, and rejects
     expect(deepExpand(nest(500, 'plain text')).undecoded).toBe(true);
   });
 
+  test('PRIV-2 (instrument) transport URL parameters are not captured content: no URL violation, but still searched for canaries', () => {
+    const transport =
+      'https://d.nathanpayne.com/e/?ip=1&_=1791500000000&ver=1.438.3&compression=gzip-js';
+    const clean = Buffer.from(
+      JSON.stringify({ event: 'e', properties: { $current_url: 'https://a.test/p?utm_source=x' } }),
+    );
+    const decoded = decodeBody(clean, 'text/plain', transport);
+    expect(urlViolations(decoded.plain), 'SDK transport parameters are not a violation').toEqual(
+      [],
+    );
+    // A captured URL with a non-allowlisted parameter still is one.
+    const leaky = Buffer.from(
+      JSON.stringify({ event: 'e', properties: { $current_url: 'https://a.test/p?email=x' } }),
+    );
+    expect(
+      urlViolations(decodeBody(leaky, 'text/plain', transport).plain).map((v) => v.reason),
+    ).toEqual(['query parameter email']);
+    // The transport URL is still part of what canary and contact searches cover.
+    const withCanary = decodeBody(clean, 'text/plain', `${transport}&x=${canary}`);
+    expect(canaryHits(withCanary.searchable)).toEqual([canary]);
+    expect(canaryHits(withCanary.plain)).toEqual([]);
+  });
+
   test('PRIV-2 (instrument) GA4 multi-event body parses into events with the shared parameters merged in', () => {
     const events = ga4Events(
       'https://www.google-analytics.com/g/collect?v=2&tid=G-X&dl=https%3A%2F%2Fa.test%2F',

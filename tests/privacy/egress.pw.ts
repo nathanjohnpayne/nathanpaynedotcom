@@ -10,7 +10,7 @@ import { createServer } from 'node:http';
 import net from 'node:net';
 import type { AddressInfo } from 'node:net';
 import { SITE_ORIGIN } from './harness/constants';
-import { outboundGuard } from './harness/egress';
+import { outboundGuard, parseConnectTarget } from './harness/egress';
 import { loadManifest } from './harness/fixtures';
 import { expect, launchBrowser, test } from './harness/test';
 
@@ -259,6 +259,64 @@ test.describe('egress boundary', () => {
     expect(egress.sink.refusals).toEqual([]);
     expect(egress.sink.undecodedCollection()).toEqual([]);
     expect(outboundGuard.attempts).toEqual([]);
+  });
+
+  test('PRIV-4 PRIV-5 (egress) CONNECT authorities are parsed strictly: IPv6 and malformed ones parse or fail cleanly', () => {
+    expect(parseConnectTarget('nathanpayne.test:443')).toEqual({
+      host: 'nathanpayne.test',
+      port: 443,
+    });
+    expect(parseConnectTarget('D.Nathanpayne.com')).toEqual({
+      host: 'd.nathanpayne.com',
+      port: 443,
+    });
+    expect(parseConnectTarget('[::1]:443')).toEqual({ host: '::1', port: 443 });
+    expect(parseConnectTarget('[2001:db8::1]:8443')).toEqual({ host: '2001:db8::1', port: 8443 });
+    for (const bad of [
+      '[',
+      '[::1',
+      '[::1]x',
+      '::1:443',
+      ':443',
+      'host:abc',
+      'host:0',
+      'host:99999',
+      '',
+    ]) {
+      expect(parseConnectTarget(bad), `${JSON.stringify(bad)} is malformed`).toBeNull();
+    }
+  });
+
+  test('PRIV-4 PRIV-5 (egress) the live proxy refuses every unlisted or malformed CONNECT without crashing, and still serves a listed one', async ({
+    egress,
+  }) => {
+    egress.reset();
+    const connect = (authority: string): Promise<string> =>
+      new Promise((resolve) => {
+        const socket = net.connect(egress.port, '127.0.0.1');
+        let reply = '';
+        socket.on('data', (d) => {
+          reply += d.toString('latin1');
+          if (reply.includes('\r\n\r\n')) socket.destroy();
+        });
+        socket.on('close', () => resolve(reply.split('\r\n')[0] ?? ''));
+        socket.on('error', () => resolve(reply.split('\r\n')[0] ?? 'error'));
+        socket.write(`CONNECT ${authority} HTTP/1.1\r\nHost: ${authority}\r\n\r\n`);
+        setTimeout(() => socket.destroy(), 3000);
+      });
+    for (const authority of [
+      '[::1]:443',
+      '[2001:db8::1]:443',
+      '[::1',
+      'host:abc',
+      'unlisted.example.test:443',
+      'nathanpayne.test:80',
+    ]) {
+      expect(await connect(authority), `CONNECT ${authority}`).toMatch(/^HTTP\/1\.1 403/);
+    }
+    // The proxy survived all of that and still tunnels a listed host (positive control).
+    expect(await connect('nathanpayne.test:443')).toMatch(/^HTTP\/1\.1 200/);
+    expect(egress.sink.refusals.length).toBe(6);
   });
 
   test('PRIV-4 PRIV-5 (egress) the test process itself cannot open a non-loopback connection (guard control)', async ({

@@ -31,7 +31,11 @@ export interface Ga4Event {
 export interface DecodedBody {
   /** Everything searchable: decompressed text, URL-decoded variants, expanded JSON. */
   searchable: string;
-  /** The decompressed text as sent, without decoded variants (what URL checks should scan). */
+  /**
+   * The decompressed body as sent, without decoded variants and WITHOUT the request URL: what the URL-allowlist
+   * check should scan. The transport URL (SDK parameters such as ip, _, ver, compression) is not captured content;
+   * it stays in `searchable`, so canary and contact searches still cover it.
+   */
   plain: string;
   /** True when part of the body could not be decoded and so cannot be searched. */
   undecoded: boolean;
@@ -128,12 +132,12 @@ export function decodeBody(
   url: string,
 ): DecodedBody {
   const urlText = safeDecodeURIComponent(url);
-  if (body.length === 0) return { searchable: urlText, plain: url, undecoded: false };
+  if (body.length === 0) return { searchable: urlText, plain: '', undecoded: false };
 
   let bytes = body;
   if (body.subarray(0, 2).equals(GZIP_MAGIC)) {
     const inflated = tryGunzip(body);
-    if (!inflated) return { searchable: urlText, plain: url, undecoded: true };
+    if (!inflated) return { searchable: urlText, plain: '', undecoded: true };
     bytes = inflated;
   }
   let text = bytes.toString('utf8');
@@ -144,7 +148,7 @@ export function decodeBody(
     if (data) {
       const raw = Buffer.from(data, 'base64');
       const inflated = raw.subarray(0, 2).equals(GZIP_MAGIC) ? tryGunzip(raw) : raw;
-      if (!inflated) return { searchable: urlText + text, plain: url + text, undecoded: true };
+      if (!inflated) return { searchable: urlText + text, plain: text, undecoded: true };
       text = inflated.toString('utf8');
     }
   }
@@ -156,7 +160,7 @@ export function decodeBody(
       const flat = JSON.stringify(expanded.value);
       return {
         searchable: `${urlText}\n${flat}\n${safeDecodeURIComponent(flat)}`,
-        plain: `${url}\n${flat}`,
+        plain: flat,
         undecoded: expanded.undecoded,
         json: expanded.value,
       };
@@ -165,7 +169,7 @@ export function decodeBody(
       // compressed value inside it stays opaque. Flag it so an absence check refuses to pass over it.
       return {
         searchable: `${urlText}\n${text}\n${safeDecodeURIComponent(text)}`,
-        plain: `${url}\n${text}`,
+        plain: text,
         undecoded: true,
       };
     }
@@ -175,7 +179,7 @@ export function decodeBody(
   const printable = /^[\x09\x0a\x0d\x20-\x7e]*$/.test(text);
   return {
     searchable: `${urlText}\n${text}\n${safeDecodeURIComponent(text)}`,
-    plain: `${url}\n${text}`,
+    plain: text,
     undecoded: !printable,
   };
 }

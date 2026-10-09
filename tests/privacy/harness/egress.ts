@@ -312,6 +312,31 @@ export interface EgressOptions {
   transformHtml?: (html: string, path: string) => string;
 }
 
+/**
+ * Split a CONNECT authority (`host:port`, `[v6]:port`, or a bare host) into host and port. Returns null for
+ * anything malformed, which the caller refuses.
+ */
+export function parseConnectTarget(target: string): { host: string; port: number } | null {
+  let host: string;
+  let portText: string;
+  if (target.startsWith('[')) {
+    const end = target.indexOf(']');
+    if (end < 0) return null;
+    host = target.slice(1, end);
+    const rest = target.slice(end + 1);
+    if (rest !== '' && !rest.startsWith(':')) return null;
+    portText = rest.slice(1);
+  } else {
+    const colon = target.lastIndexOf(':');
+    if (colon >= 0 && target.indexOf(':') !== colon) return null; // an unbracketed IPv6 literal is ambiguous
+    host = colon >= 0 ? target.slice(0, colon) : target;
+    portText = colon >= 0 ? target.slice(colon + 1) : '';
+  }
+  const port = portText === '' ? 443 : Number(portText);
+  if (host === '' || !Number.isInteger(port) || port < 1 || port > 65535) return null;
+  return { host: host.toLowerCase(), port };
+}
+
 export class Egress {
   readonly sink = new Sink();
   readonly port: number;
@@ -379,11 +404,20 @@ export class Egress {
     // ends inside this process (the TLS server below). Nothing is relayed outward.
     this.proxy.on('connect', (req, clientSocket, head) => {
       const target = req.url ?? '';
-      const [rawHost, rawPort] = target.split(':');
-      const host = (rawHost ?? '').toLowerCase();
-      const port = Number(rawPort ?? '443');
-      const probe = new URL(`https://${host}/`);
-      const allowedHost = port === 443 && classify(probe, 'GET', this.manifestPaths) !== 'deny';
+      // A malformed or unusual authority (bracketed IPv6, no port, junk) is refused, never thrown on: this
+      // handler runs on the proxy's event loop, and an exception here would take the worker down.
+      const authority = parseConnectTarget(target);
+      let allowedHost = false;
+      if (authority && authority.port === 443) {
+        try {
+          const probe = new URL(
+            `https://${authority.host.includes(':') ? `[${authority.host}]` : authority.host}/`,
+          );
+          allowedHost = classify(probe, 'GET', this.manifestPaths) !== 'deny';
+        } catch {
+          allowedHost = false;
+        }
+      }
       this.sockets.add(clientSocket);
       clientSocket.on('close', () => this.sockets.delete(clientSocket));
       clientSocket.on('error', () => undefined);
