@@ -144,8 +144,10 @@ test.describe('egress boundary', () => {
   }) => {
     const gather = (): Promise<{ candidates: string[]; state: string }> =>
       new Promise((resolve) => {
-        // 192.0.2.1 is in a documentation range (RFC 5737): never routable, never a real server.
-        const pc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:192.0.2.1:3478' }] });
+        // No ICE servers: host candidates are gathered locally, so neither browser sends a STUN packet.
+        // The unguarded control runs without the UDP policy, and a STUN server there (even an RFC 5737
+        // address) would let packets leave outside the proxy (#1254).
+        const pc = new RTCPeerConnection({ iceServers: [] });
         const candidates: string[] = [];
         pc.onicecandidate = (e) => {
           if (e.candidate) candidates.push(e.candidate.candidate);
