@@ -172,7 +172,9 @@ describe('notice (PRIV-14, PRIV-6)', () => {
     expect(d.getElementById('np-privacy-notice').hidden).toBe(true);
     const status = d.getElementById('np-privacy-notice-status');
     expect(status.getAttribute('role')).toBe('status');
-    expect(status.textContent).toBe('Analytics are off for this site in this browser.');
+    expect(status.textContent).toBe(
+      'PostHog and Google Analytics are off for this site in this browser.',
+    );
     expect(d.activeElement).toBe(status);
   });
 
@@ -244,7 +246,9 @@ describe('notice (PRIV-14, PRIV-6)', () => {
     click(w, deny);
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(texts.join(' | ')).not.toContain('closed because your setting changed');
-    expect(status.textContent).toBe('Analytics are off for this site in this browser.');
+    expect(status.textContent).toBe(
+      'PostHog and Google Analytics are off for this site in this browser.',
+    );
     expect(d.activeElement).toBe(status);
   });
 
@@ -396,6 +400,24 @@ describe('controls (PRIV-10, PRIV-14)', () => {
     expect(privacy.get()).toMatchObject({ effective: 'granted', persisted: false });
     expect(statusOf(d)).toContain('uses whatever setting your browser last saved');
     expect(statusOf(d)).not.toMatch(/stay off|start on the next page/);
+  });
+
+  it('does not say analytics never loaded when they loaded at boot and a re-enable could not be saved', () => {
+    // Booted unset or granted: the tools loaded, then a withdrawal stopped
+    // them. A failed re-enable must not claim they did not load on this page.
+    for (const stored of [undefined, JSON.stringify({ v: 1, choice: 'granted' })]) {
+      const { w, d, privacy } = mountControls({ stored, storage: 'write-throws' });
+      // An analytics block registers its tool at boot, as BaseLayout's do.
+      privacy[Symbol.for('np-privacy.internal')].registerTool('t', { stop() {} });
+      expect(privacy.get().loadedThisPage).toBe(true);
+      click(w, d.querySelector('[data-np-privacy-action="deny"]'));
+      click(w, d.querySelector('[data-np-privacy-action="grant"]'));
+      expect(privacy.get()).toMatchObject({ effective: 'granted', persisted: false });
+      expect(statusOf(d)).toBe(
+        'Your browser did not save this choice, so it applies only to this page. Analytics stopped on this page when you turned them off and do not restart here. The next page you load uses whatever setting your browser last saved.',
+      );
+      expect(statusOf(d)).not.toContain('did not load');
+    }
   });
 
   it('ships the status and buttons hidden, for visitors without JavaScript, and reveals them', () => {

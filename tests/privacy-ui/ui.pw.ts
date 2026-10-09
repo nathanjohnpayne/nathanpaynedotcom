@@ -247,7 +247,9 @@ test('turning analytics off from the notice is one step and holds across loads; 
   await page.keyboard.press('Enter');
   await expect(notice(page)).toBeHidden();
   const announced = page.locator('#np-privacy-notice-status');
-  await expect(announced).toHaveText('Analytics are off for this site in this browser.');
+  await expect(announced).toHaveText(
+    'PostHog and Google Analytics are off for this site in this browser.',
+  );
   await expect(announced).toBeFocused();
   expect(await page.evaluate(() => document.documentElement.getAttribute('data-np-privacy'))).toBe(
     'denied',

@@ -56,8 +56,12 @@
       if (!state.persisted) {
         // A grant after a denial that could not be saved: nothing loads on
         // this page (§ Re-Enable 1), and the next load reads whatever was last
-        // saved, which this page cannot know. Predict nothing about it.
-        return 'Your browser did not save this choice, so it applies only to this page, and analytics did not load on this page. The next page you load uses whatever setting your browser last saved.';
+        // saved, which this page cannot know. Predict nothing about it. If the
+        // tools loaded at boot, they ran and were stopped, so do not say they
+        // never loaded.
+        return state.loadedThisPage
+          ? 'Your browser did not save this choice, so it applies only to this page. Analytics stopped on this page when you turned them off and do not restart here. The next page you load uses whatever setting your browser last saved.'
+          : 'Your browser did not save this choice, so it applies only to this page, and analytics did not load on this page. The next page you load uses whatever setting your browser last saved.';
       }
       parts.push('They start on the next page you load.');
     }
