@@ -571,8 +571,10 @@ ARCHIVE="${ARTIFACT}.tar"
 # --- 3. The successful build-artifact run for exactly this SHA --------------
 
 RUNS_JSON="${WORK}/runs.json"
+# gh paginates up to --limit. Repeated workflow_dispatch runs for one SHA have no
+# cap, so a low limit could hide an older successful run behind newer failures.
 gh_clean run list --repo "$REPO_SLUG" --workflow "$WORKFLOW_FILE" --branch main \
-  --commit "$SHA" --limit 50 \
+  --commit "$SHA" --limit 1000 \
   --json databaseId,headSha,headBranch,event,status,conclusion,workflowName >"$RUNS_JSON" ||
   die "could not list ${WORKFLOW_FILE} runs"
 
