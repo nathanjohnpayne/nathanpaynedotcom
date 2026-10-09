@@ -226,9 +226,11 @@ Both suites also run in CI on every pull request and every push to `main` (`.git
 The site is hosted on [Firebase Hosting](https://firebase.google.com/docs/hosting). Firebase project ID: `nathanpaynedotcom`.
 
 ```bash
-# Full deploy: build, deploy with 1Password-backed credentials, then purge Cloudflare
-npm run deploy
+# Deploy the attested CI build of origin/main (verify first with --dry-run)
+scripts/deploy-artifact.sh
 ```
+
+`npm run deploy` no longer deploys; it prints this command and exits 1. See [`DEPLOYMENT.md`](DEPLOYMENT.md) § Deployment Steps.
 
 `op-firebase-deploy` creates a short-lived impersonated credential for `firebase-deployer@nathanpaynedotcom.iam.gserviceaccount.com` from a 1Password-backed GCP ADC source credential. No routine browser login is needed. See [`DEPLOYMENT.md`](DEPLOYMENT.md) for full setup, credential bootstrap, and rollback procedures.
 

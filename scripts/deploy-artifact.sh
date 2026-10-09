@@ -682,12 +682,14 @@ if [ "$PURGE" -eq 1 ]; then
     die "scripts/cf-cache-purge.sh is missing at ${SHA}"
 fi
 
-# The script running now is the working tree's copy. Say so when it is not
-# the verified commit's copy, so a modified checkout is at least visible.
+# The script running now is the working tree's copy, and it holds the deploy
+# credentials. It must be the verified commit's copy: a modified or stale
+# checkout is refused rather than trusted. Only a commit that predates the
+# script has nothing to compare against.
 if ! committed_self="$(git_clean cat-file blob "${SHA}:scripts/deploy-artifact.sh" 2>/dev/null)"; then
   log "WARNING: ${SHA} has no scripts/deploy-artifact.sh; this run uses the working-tree copy"
 elif [ "$committed_self" != "$(cat "$0")" ]; then
-  log "WARNING: this script differs from scripts/deploy-artifact.sh at ${SHA}"
+  die "this script differs from scripts/deploy-artifact.sh at ${SHA}; check out ${SHA} or run the copy from that commit"
 fi
 
 # --- Child environments -----------------------------------------------------

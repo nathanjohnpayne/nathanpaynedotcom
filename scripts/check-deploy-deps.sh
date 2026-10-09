@@ -657,7 +657,7 @@ DRIFT_COUNT="$(printf '%s\n' "$REPORT" | grep -c . || true)"
   echo ""
   echo "   Reinstall from the lockfile, then retry:"
   echo ""
-  echo "     npm ci && npm run deploy"
+  echo "     npm ci"
   echo ""
 } >&2
 

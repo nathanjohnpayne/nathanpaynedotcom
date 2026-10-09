@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import {
+  appendFileSync,
   chmodSync,
   copyFileSync,
   existsSync,
@@ -450,6 +451,50 @@ describe('deploy-artifact.sh happy path (#1239)', () => {
     expect(readFileSync(join(h.log, 'deployed-firebase.json'), 'utf-8')).toBe(committed);
     expect(existsSync(join(h.log, 'working-tree-purge-ran'))).toBe(false);
     expect(logs(h, 'curl')).toHaveLength(1);
+  });
+
+  it('refuses a working-tree script that differs from the verified commit, before any credentialed child', () => {
+    const h = makeHarness();
+    // The harness executes the working-tree file, so the edit is what runs.
+    appendFileSync(join(h.repo, 'scripts/deploy-artifact.sh'), '\n# locally modified\n');
+    const result = run(h, ['--sha', h.sha]);
+    expect(result.status, result.output).not.toBe(0);
+    expect(result.output).toContain(`differs from scripts/deploy-artifact.sh at ${h.sha}`);
+    expect(result.output).toContain(`check out ${h.sha}`);
+    expectNothingCredentialed(h);
+    expect(existsSync(join(h.log, 'deployed-index.html'))).toBe(false);
+    expectTempRemoved(h);
+  });
+
+  it('refuses a differing working-tree script on a dry run too', () => {
+    const h = makeHarness();
+    appendFileSync(join(h.repo, 'scripts/deploy-artifact.sh'), '\n# locally modified\n');
+    const result = run(h, ['--sha', h.sha, '--dry-run']);
+    expect(result.status, result.output).not.toBe(0);
+    expect(result.output).toContain('differs from scripts/deploy-artifact.sh');
+  });
+
+  it('proceeds without a warning when the working-tree script matches the verified commit', () => {
+    const h = makeHarness();
+    const result = run(h, ['--sha', h.sha]);
+    expect(result.status, result.output).toBe(0);
+    expect(result.output).not.toContain('differs from scripts/deploy-artifact.sh');
+    expect(result.output).not.toContain('has no scripts/deploy-artifact.sh');
+  });
+
+  it('warns and proceeds when the verified commit predates the script', () => {
+    const h = makeHarness();
+    // Untrack the script in a new main commit; the working-tree file stays.
+    git(h.repo, 'rm', '--quiet', '--cached', 'scripts/deploy-artifact.sh');
+    git(h.repo, 'commit', '--quiet', '-m', 'script not yet in this commit');
+    git(h.repo, 'push', '--quiet', 'origin', 'main');
+    const sha = git(h.repo, 'rev-parse', 'HEAD');
+    setRuns(h, [{ databaseId: 102, headSha: sha }]);
+    buildArtifact(h, sha);
+    const result = run(h, ['--sha', sha]);
+    expect(result.status, result.output).toBe(0);
+    expect(result.output).toContain(`${sha} has no scripts/deploy-artifact.sh`);
+    expect(logs(h, 'firebase')).toHaveLength(1);
   });
 
   it('accepts firebase from a global npm prefix (<prefix>/bin -> <prefix>/lib/node_modules/<pkg>)', () => {

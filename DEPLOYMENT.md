@@ -399,7 +399,7 @@ Any `PUBLIC_*` env var read via `import.meta.env` during the build is baked into
 
 The current `PUBLIC_*` vars are `PUBLIC_LOGODEV_KEY` (Logo.dev publishable token—drives the `/resume` company logos via `CompanyLogo.astro`), `PUBLIC_POSTHOG_PROJECT_TOKEN` (PostHog public project ingest token—drives analytics via `posthog.astro`), and `PUBLIC_GA_MEASUREMENT_ID` (GA4 Measurement ID—drives GA4 via `BaseLayout.astro`). All three are public client identifiers resolved from 1Password via `op inject`, and all degrade gracefully when unset at build time (initials-only logos; PostHog and GA simply do not load).
 
-That graceful degradation is correct for CI and for a fresh checkout, and wrong for production, where it publishes a site with no brand logos and no analytics while the build still exits 0. `scripts/check-deploy-env.sh` draws that line: it runs at the front of both deploy aliases and fails the deploy when any of these is missing or unresolved, leaving the build itself free to degrade quietly everywhere else. See § Deployment Steps.
+That graceful degradation is correct for CI and for a fresh checkout, and wrong for production, where it publishes a site with no brand logos and no analytics while the build still exits 0. `scripts/check-deploy-env.sh` draws that line: the `Build Artifact` workflow runs it before building and fails the build when any of these is missing or unresolved, leaving the build itself free to degrade quietly everywhere else. See § Deployment Steps.
 
 Mux Data for
 project hero videos does not use a build-time env var in this site: pages with
@@ -408,19 +408,30 @@ env key from the public `stream.mux.com` URL at runtime.
 
 ## Deployment Steps
 
-All deploys use `op-firebase-deploy` for keyless, non-interactive service account impersonation. **Never run `firebase deploy` directly.** The package `deploy` script is the full production deploy entry point: it checks the client env vars via `scripts/check-deploy-env.sh`, checks installed dependencies against the lockfile via `scripts/check-deploy-deps.sh`, builds, calls the PATH-provided `op-firebase-deploy` helper, then purges Cloudflare via `scripts/cf-cache-purge.sh`.
+All deploys use `op-firebase-deploy` for keyless, non-interactive service account impersonation. **Never run `firebase deploy` directly.** Production is deployed only from the attested CI build of a commit on `main`, with `scripts/deploy-artifact.sh`. Nothing is built on the deploying machine, so no build or dependency code runs while deploy credentials exist (#1104).
 
-```bash
-# Full deploy (build, deploy, then purge Cloudflare)
-npm run deploy
+**`npm run deploy` and `npm run deploy:hosting` no longer deploy.** They remain as names so old muscle memory gets an instruction instead of "missing script": each prints the replacement command to stderr and exits 1.
 
-# Hosting only (build, deploy hosting, then purge Cloudflare)
-npm run deploy:hosting
-```
+The procedure:
 
-> **Always finish with the Cloudflare purge.** Both aliases above do it for you.
+1. **Merge to `main`.** Merging deploys nothing.
+2. **Wait for the `Build Artifact` workflow** (`.github/workflows/build-artifact.yml`) to finish on that commit. It checks the client env vars with `scripts/check-deploy-env.sh`, builds `dist/` in a job with no secrets, and attests the archive.
+3. **Run credential preflight from the main checkout at that commit.** `git pull` first, then `eval "$(scripts/op-preflight.sh --agent <agent> --mode all)"`. Deploy from `~/GitHub/nathanpaynedotcom`, not a worktree: the script refuses to run when its copy differs from the verified commit's copy, and the main checkout is where the preflight and the 1Password sign-in live.
+4. **Dry run, then deploy.**
+
+   ```bash
+   scripts/deploy-artifact.sh --dry-run        # verify origin/main's artifact; deploy nothing
+   scripts/deploy-artifact.sh                  # full deploy, then purge Cloudflare
+   scripts/deploy-artifact.sh --hosting-only   # hosting only, then purge Cloudflare
+   ```
+
+5. **Verify the live site** (§ Post-Deployment Verification). Fetch the changed page or asset and confirm the new bytes are served; a clean deploy plus a warm edge looks the same as one that reached users.
+
+Run the script directly, never through `npm run` or as `bash scripts/deploy-artifact.sh` (see § Deploying from the CI artifact for why).
+
+> **Always finish with the Cloudflare purge.** `scripts/deploy-artifact.sh` does it for you.
 >
-> The bare invocation does **not**:
+> The bare helper invocation does **not**:
 >
 > ```bash
 > op-firebase-deploy --only hosting   # INCOMPLETE — no Cloudflare purge
@@ -431,17 +442,14 @@ npm run deploy:hosting
 > sit at the edge for several hours (observed `max-age=14400` on `/images/**`),
 > which is long enough to read as "the deploy did not work."
 >
-> If you do deploy by hand, follow it with `scripts/cf-cache-purge.sh`. Then verify against the live URL rather than the deploy log—a clean deploy plus a warm edge is indistinguishable from one that reached users.
+> If you deploy by hand anyway, follow it with `scripts/cf-cache-purge.sh`. Use `--no-purge` only when you will run the purge yourself.
 >
-> **Deploy from the main checkout, not a worktree.** Both aliases run `scripts/check-deploy-env.sh` before the build and refuse to deploy when a `PUBLIC_*` client var is missing or still an unresolved `op://` reference. Only `~/GitHub/nathanpaynedotcom` has `.env.local`—`scripts/bootstrap.sh` writes it there and it is gitignored, so no worktree ever gets one.
+> **The client env check moved into CI.** `astro build` bakes each `PUBLIC_*` var into the HTML, and every consumer degrades gracefully when one is absent, so a build without them succeeds and publishes a degraded site: `/resume` falls back to styled initials instead of Logo.dev brand marks, and PostHog and GA4 stop loading site-wide. That shipped once, from a worktree build with no `.env.local`. `scripts/check-deploy-env.sh` now guards the CI build; run it from the main checkout (the only one with `.env.local`; `scripts/bootstrap.sh` writes it and it is gitignored) to check a local build. Break-glass override: `DEPLOY_ALLOW_MISSING_PUBLIC_ENV=1`.
 >
-> **Deploy from a checkout installed off the lockfile.** Both aliases also run `scripts/check-deploy-deps.sh` before the build, which compares every installed package against `package-lock.json` and refuses on any mismatch. The deploy builds from what is installed here; CI builds from `npm ci`. When those disagree, CI stays green on a SHA whose local build is broken, and the deploy publishes the broken one and reports success—`astro build` exits 0 either way. That is #900: `astro@7.2.4` against a lockfile pinning `7.2.9` dropped the inline styles rehype plugins write and shipped ~4px Mermaid labels for a fix that had already merged and gone green. `npm ls` does not catch this, because `7.2.4` satisfies the range in `package.json`; only the lockfile pins what CI actually built. Break-glass override: `DEPLOY_ALLOW_DEP_DRIFT=1`.
->
-> Without that check, a worktree deploy publishes a degraded site and reports success: `astro build` bakes each `PUBLIC_*` var into the HTML, and every consumer degrades gracefully when one is absent, so nothing fails. That is what shipped once already—`/resume` fell back to styled initials instead of Logo.dev brand marks, and PostHog and GA4 stopped loading site-wide, all from one build with no `.env.local`.
->
-> To ship without them on purpose, set `DEPLOY_ALLOW_MISSING_PUBLIC_ENV=1`. It downgrades the refusal to a warning and is break-glass only.
+> **The dependency drift check is no longer in the deploy path.** `scripts/check-deploy-deps.sh` guarded local builds against a `node_modules` that disagreed with `package-lock.json` (#900). CI builds from `npm ci`, so the deployed bytes can no longer come from a drifted checkout. The script stays for local use.
 
-The script:
+The helper's behavior, which `scripts/deploy-artifact.sh` delegates to:
+
 1. Auto-detects the Firebase project from `.firebaserc`
 2. Reads source credentials in order: `GOOGLE_APPLICATION_CREDENTIALS`, then the project SA key from `op://Firebase/nathanpaynedotcom — Firebase Deployer SA Key`, then `op://Private/c2v6emkwppjzjjaq2bdqk3wnlm/credential`, then `~/.config/gcloud/application_default_credentials.json`
 3. If the source credential is the `firebase-deployer@nathanpaynedotcom.iam.gserviceaccount.com` service account key, uses it directly (no impersonation, faster). Otherwise generates a temporary `impersonated_service_account` credential file for `firebase-deployer@nathanpaynedotcom.iam.gserviceaccount.com`
@@ -492,17 +500,14 @@ GCLOUD_BYPASS_ADC_WRAPPER=1 gcloud ...
 
 ## Rollback Procedure
 
-Firebase Hosting supports instant rollback via the CLI:
+Redeploy an earlier commit's attested artifact while it is within the 30-day artifact retention:
 
 ```bash
-# List recent releases
-firebase hosting:releases:list
-
-# Roll back by redeploying a prior release
-firebase hosting:channel:deploy live --release-id <VERSION_ID>
+scripts/deploy-artifact.sh --sha <earlier main sha> --dry-run
+scripts/deploy-artifact.sh --sha <earlier main sha>
 ```
 
-Or use the Firebase Console → Hosting → Release History → Roll back.
+The script's own copy must match that commit's copy, so check out the earlier commit's `scripts/deploy-artifact.sh` first if it has changed since (or run the copy from that commit). For a release older than the retention window, use Firebase Console → Hosting → Release History → Roll back, then run `scripts/cf-cache-purge.sh`.
 
 ## Post-Deployment Verification
 
@@ -538,11 +543,11 @@ A maintained runbook with an embedded live query is kept as the PostHog notebook
 
 ## CI/CD Integration
 
-Deploys are manual via `npm run deploy`, which builds first, calls `op-firebase-deploy`, and purges Cloudflare. CI workflows (repo linting, review policy enforcement) run on push/PR via GitHub Actions—see `.github/workflows/`.
+Deploys are manual: `scripts/deploy-artifact.sh` deploys the attested CI build of a commit on `main` (§ Deployment Steps). CI workflows (repo linting, review policy enforcement) run on push/PR via GitHub Actions—see `.github/workflows/`.
 
-`.github/workflows/build-artifact.yml` also builds `dist/` on every push to `main` in a job with no secrets, then attests the archive (#1238). The package aliases do not use that artifact yet; `scripts/deploy-artifact.sh` (#1239) can, and switching the aliases to it is tracked in #1240.
+`.github/workflows/build-artifact.yml` builds `dist/` on every push to `main` in a job with no secrets, then attests the archive (#1238). `scripts/deploy-artifact.sh` (#1239) deploys that archive, and the package `deploy` aliases no longer build or deploy (#1240).
 
-### Deploying from the CI artifact (not yet the default)
+### Deploying from the CI artifact
 
 `scripts/deploy-artifact.sh` deploys the attested CI build of a commit on `main` instead of building locally, so no build or dependency code runs on this machine while deploy credentials exist (#1104). Run it directly as `scripts/deploy-artifact.sh`. Never run it through `npm run`, which puts `node_modules/.bin` first on `PATH`, or as `bash scripts/deploy-artifact.sh`, which lets that outer `bash` read `BASH_ENV` before the script's own `#!/bin/bash -p` and `env -i` re-exec can take effect:
 
@@ -552,7 +557,7 @@ scripts/deploy-artifact.sh --sha <full-sha> --dry-run
 scripts/deploy-artifact.sh --hosting-only            # deploy origin/main, then purge Cloudflare
 ```
 
-It defaults to `origin/main` after `git fetch origin main`, and `--sha` must be a full 40-hex SHA on `main`. It finds the successful `build-artifact.yml` run for exactly that SHA, downloads the artifact into a fresh temporary directory, and requires exactly the archive plus a `SHA256SUMS` entry that names it and matches. It then runs `gh attestation verify` pinned to this repository, the `build-artifact.yml` signer workflow, `refs/heads/main` and the commit (`--source-digest`). Any failure stops it before a credential-holding process starts. It extracts only regular files and directories, then deploys from a directory holding only that `dist/` and the commit's own `firebase.json` and `.firebaserc`. Those two come from `git cat-file`, not the working tree, and a `firebase.json` with `predeploy` or `postdeploy` hooks is refused.
+It defaults to `origin/main` after `git fetch origin main`, and `--sha` must be a full 40-hex SHA on `main`. It refuses to run when its own copy differs from `scripts/deploy-artifact.sh` at that SHA (check out the SHA, or run the copy from that commit); a commit that predates the script only draws a warning. It finds the successful `build-artifact.yml` run for exactly that SHA, downloads the artifact into a fresh temporary directory, and requires exactly the archive plus a `SHA256SUMS` entry that names it and matches. It then runs `gh attestation verify` pinned to this repository, the `build-artifact.yml` signer workflow, `refs/heads/main` and the commit (`--source-digest`). Any failure stops it before a credential-holding process starts. It extracts only regular files and directories, then deploys from a directory holding only that `dist/` and the commit's own `firebase.json` and `.firebaserc`. Those two come from `git cat-file`, not the working tree, and a `firebase.json` with `predeploy` or `postdeploy` hooks is refused.
 
 `op-firebase-deploy`, `firebase` and every other tool resolve from a fixed `PATH` (`/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin`, helper from `~/.local/bin`). A tool that resolves inside any worktree of this repository or inside a `node_modules` directory is refused; the one exception is a global npm install's own package directory. Each child starts from `env -i`. The Firebase helper gets only its source-credential pointers (`GOOGLE_APPLICATION_CREDENTIALS`, the `OP_PREFLIGHT_*_TMPFILE` paths and the project, and the optional SA and 1Password-URI overrides). The purge gets only `CF_API_TOKEN` and the preflight mode flags, and it runs the verified commit's `scripts/cf-cache-purge.sh`, not the working-tree copy. Neither receives a GitHub token, author or reviewer PAT, or 1Password session token. Run preflight first (`--mode all`), or rely on the 1Password desktop-app CLI integration for the helper's and the purge's own `op` fallbacks. `--dry-run` prints the variable names each child would receive, never their values. `--no-purge` skips the purge.
 

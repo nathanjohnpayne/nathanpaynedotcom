@@ -11,7 +11,7 @@
 #
 # That is not hypothetical: it is what shipped. Only the main checkout has
 # .env.local (bootstrap.sh writes it there, and it is gitignored, so no
-# worktree has one). A `npm run deploy` from a worktree stripped all three
+# worktree has one). A local build from a worktree stripped all three
 # tokens from production at once — /resume fell back to initials and both
 # PostHog and GA4 stopped loading site-wide.
 #
@@ -210,9 +210,9 @@ fi
   echo ""
   echo "   Most likely cause: you are deploying from a git worktree. Only the"
   echo "   main checkout has .env.local — it is gitignored, so worktrees never"
-  echo "   get one. Deploy from the main checkout:"
+  echo "   get one. Run the check from the main checkout:"
   echo ""
-  echo "     cd ~/GitHub/nathanpaynedotcom && npm run deploy"
+  echo "     cd ~/GitHub/nathanpaynedotcom && scripts/check-deploy-env.sh"
   echo ""
   if [[ ${#UNPARSEABLE[@]} -gt 0 ]]; then
     echo "   An unreadable entry is one this script will not guess at: an"
