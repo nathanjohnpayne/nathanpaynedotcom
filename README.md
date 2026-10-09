@@ -36,8 +36,9 @@ The default 1921 register lives in `:root`; the homepage opts into a higher-chro
 
 ### Typography
 
-- **Headings / labels:** [Cormorant Garamond](https://fonts.google.com/specimen/Cormorant+Garamond) (serif, weights 400–700)
-- **Body / UI:** [Inter](https://fonts.google.com/specimen/Inter) (sans-serif, weights 300–700)
+- **Headings / labels:** Cormorant Garamond (serif), static weights 400, 500, 600, and 700 plus italic 400 and 600
+- **Body / UI:** Inter (sans-serif), static weights 400, 500, 600, and 700
+- Both families are self-hosted as woff2 in `public/fonts/site/` (SIL OFL; the license texts are `public/fonts/OFL-*.txt`), built from pinned upstream sources by `scripts/fonts/build-site-fonts.py`. Pages never contact Google Fonts. The [Cormorant Garamond](https://fonts.google.com/specimen/Cormorant+Garamond) and [Inter](https://fonts.google.com/specimen/Inter) specimen pages are a visual reference only, not the source of the served files.
 - Sizes use `clamp()` for fluid responsive scaling—no fixed breakpoint font overrides.
 
 ---

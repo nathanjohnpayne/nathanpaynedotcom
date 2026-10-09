@@ -281,7 +281,7 @@ The old root-level `bugs/` folder is retired. Use:
 
 This section preserves the findings migrated from the retired June 2026 header-audit note and follow-up note. The audit was tracked in repo issue #455, closed 2026-06-10. Generated evidence now lives in the application repo at `.github/screenshots/header-audit/`.
 
-**Status (2026-10-05):** Findings 1, 3, 4, and 6–8 are done; findings 2, 5, 9, and 10 are partly done.
+**Status (2026-10-05):** Findings 1, 3, 4, 6–8, and 10 are done; findings 2, 5, and 9 are partly done.
 
 - **Done in #458 (2026-06-09):** findings 1, 6, 7, and 8.
 - **Done in #459 (2026-06-09):** finding 3 (heading-scale tokens in `:root`), and finding 4 (wrap-safe heading line heights; the only sub-1.0 values left are on `nowrap` single-line text).
@@ -295,7 +295,6 @@ The header-audit snapshot reports zero flags after #461. Its five checks (left d
 **Remaining follow-ups:**
 
 - Move the rest of the margin declarations onto the `--sp-*` scale (finding 9).
-- Decide whether to self-host the visitor fonts (finding 10). No open issue tracks it.
 - Move the homepage panel h2 onto the shared section-heading tokens (finding 5).
 - Decide whether the listing-page h2s should share those tokens too; they are outside finding 5's scope.
 - Bring the homepage panel `.eyebrow` utility added in #477 (`0.56rem`, `--ink-50`) up to the finding-2 floor of `0.7rem` and a contrast-safe ink (finding 2).
