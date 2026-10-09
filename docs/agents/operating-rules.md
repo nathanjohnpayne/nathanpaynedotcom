@@ -25,7 +25,7 @@ The `/projects/` and `/blog/` indexes share the `.blog-grid` composition and the
 - **Stack mode (width ≤ 1023px, below `--bp-stack`, or height ≤ 839px, below `--bp-stack-height`):** All interactions are disabled. Panels stack vertically with content always visible. The mobile-stack `panel-content` rules in `global.css` restore `opacity: 1; visibility: visible` so the readable stack always renders content (the desktop base rule keeps it hidden for the fade-in choreography). The `mobile()` media-query check gates every interaction handler.
 
 #### Build Step
-The site uses Astro to generate static HTML into `dist/`. Run `npm run build` before deploying. The dev server (`npm run dev`) provides HMR for local development. Do not introduce additional frameworks or client-side runtimes without explicit discussion.
+The site uses Astro to generate static HTML into `dist/`. Production builds run only in CI (`build-artifact.yml`), and deploys use that attested artifact through `scripts/deploy-artifact.sh`; never build as a deploy step. Run a local `npm run build` only for development and checks, in a shell without credential preflight, because the build runs repository and dependency code (#1104). The dev server (`npm run dev`) provides HMR for local development. Do not introduce additional frameworks or client-side runtimes without explicit discussion.
 
 ### Content-to-Cell Mapping
 Panel CSS classes are color-based (controlling grid position and color). Content is assigned to cells independently:

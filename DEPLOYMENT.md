@@ -355,10 +355,10 @@ There is no staging environment. All deploys go directly to production.
 
 ## Build Process
 
-The site uses Astro to generate static HTML/CSS/JS into `dist/`. **Always build before deploying:**
+The site uses Astro to generate static HTML/CSS/JS into `dist/`. **Production builds run only in CI**: `build-artifact.yml` builds and attests `dist/` on every push to `main`, and `scripts/deploy-artifact.sh` deploys that artifact. Do not build on the deploying machine as a deploy step. A local `npm run build` is for development and checks only, and should run in a shell without credential preflight, because the build runs repository and dependency code (#1104):
 
 ```bash
-npm run build
+npm run build   # local development and checks only; never as a deploy step
 ```
 
 `npm run build` runs `prebuild` first, then `astro build`.
