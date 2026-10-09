@@ -544,7 +544,7 @@ Deploys are manual via `npm run deploy`, which builds first, calls `op-firebase-
 
 ### Deploying from the CI artifact (not yet the default)
 
-`scripts/deploy-artifact.sh` deploys the attested CI build of a commit on `main` instead of building locally, so no build or dependency code runs on this machine while deploy credentials exist (#1104). Run it directly, never through `npm run`, which puts `node_modules/.bin` first on `PATH`:
+`scripts/deploy-artifact.sh` deploys the attested CI build of a commit on `main` instead of building locally, so no build or dependency code runs on this machine while deploy credentials exist (#1104). Run it directly as `scripts/deploy-artifact.sh`. Never run it through `npm run`, which puts `node_modules/.bin` first on `PATH`, or as `bash scripts/deploy-artifact.sh`, which lets that outer `bash` read `BASH_ENV` before the script's own `#!/bin/bash -p` and `env -i` re-exec can take effect:
 
 ```bash
 scripts/deploy-artifact.sh --dry-run                 # verify origin/main's artifact; deploy nothing
