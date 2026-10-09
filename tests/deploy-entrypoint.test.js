@@ -1,7 +1,17 @@
 import { describe, expect, it } from 'vitest';
 import { spawnSync } from 'node:child_process';
-import { existsSync, readFileSync, statSync } from 'node:fs';
-import { resolve } from 'node:path';
+import {
+  chmodSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs';
+import { tmpdir } from 'node:os';
+import { dirname, join, resolve } from 'node:path';
 
 const rootDir = resolve(__dirname, '..');
 const packageJson = JSON.parse(readFileSync(resolve(rootDir, 'package.json'), 'utf-8'));
@@ -12,40 +22,53 @@ const agentsDeploymentDoc = readFileSync(
 );
 
 describe('deploy entrypoint contract', () => {
-  const aliases = {
-    deploy: 'scripts/deploy-artifact.sh',
-    'deploy:hosting': 'scripts/deploy-artifact.sh --hosting-only',
-  };
-
-  it('keeps both deploy aliases as names that fail closed and name the replacement', () => {
-    // Deploying must never build locally with credentials present (#1104), and
-    // the aliases must not run deploy-artifact.sh through npm either: npm
-    // honors a repo .npmrc script-shell and prepends node_modules/.bin. So they
-    // only print the replacement and exit 1.
-    for (const [alias, replacement] of Object.entries(aliases)) {
-      const script = packageJson.scripts[alias];
-
-      expect(script, `package.json needs a ${alias} script`).toBeDefined();
-      expect(script).toContain(replacement);
-      expect(script).toContain('--dry-run');
-      expect(script).toMatch(/>&2/);
-      expect(script).toMatch(/exit 1$/);
-      for (const forbidden of ['npm run build', 'op-firebase-deploy', 'cf-cache-purge']) {
-        expect(script, `${alias} must not contain ${forbidden}`).not.toContain(forbidden);
+  it('has no deploy or deploy:hosting npm script at all', () => {
+    // npm runs its configured script-shell before any script body executes,
+    // and a repository or untracked .npmrc can point it at checkout code, so
+    // even an alias that only echoes would hand that code the preflight
+    // environment. The only deploy command is scripts/deploy-artifact.sh.
+    expect(packageJson.scripts).not.toHaveProperty('deploy');
+    expect(packageJson.scripts).not.toHaveProperty('deploy:hosting');
+    for (const [name, body] of Object.entries(packageJson.scripts)) {
+      for (const forbidden of ['op-firebase-deploy', 'cf-cache-purge', 'deploy-artifact.sh']) {
+        expect(body, `script ${name} must not reference ${forbidden}`).not.toContain(forbidden);
       }
-      expect(script).not.toMatch(/\bfirebase\s+deploy\b/);
     }
   });
 
-  it.each(Object.keys(aliases))(
-    'exits non-zero and prints the replacement for npm run %s',
+  it.each(['deploy', 'deploy:hosting'])(
+    "npm run %s fails with npm's missing-script error and runs nothing",
     (alias) => {
-      const result = spawnSync('sh', ['-c', packageJson.scripts[alias]], { encoding: 'utf-8' });
+      const sandbox = mkdtempSync(join(tmpdir(), 'deploy-entrypoint-'));
+      try {
+        const bin = join(sandbox, 'bin');
+        const home = join(sandbox, 'home');
+        const ran = join(sandbox, 'ran');
+        mkdirSync(bin);
+        mkdirSync(home);
+        for (const tool of ['firebase', 'op-firebase-deploy', 'op']) {
+          const path = join(bin, tool);
+          writeFileSync(path, `#!/bin/sh\ntouch "${ran}"\n`);
+          chmodSync(path, 0o755);
+        }
+        const result = spawnSync('npm', ['run', alias], {
+          cwd: rootDir,
+          encoding: 'utf-8',
+          env: {
+            PATH: `${bin}:${dirname(process.execPath)}:/usr/bin:/bin`,
+            HOME: home,
+            npm_config_userconfig: join(home, '.npmrc'),
+            npm_config_globalconfig: join(home, 'global-npmrc'),
+            npm_config_update_notifier: 'false',
+          },
+        });
 
-      expect(result.status).toBe(1);
-      expect(result.stdout).toBe('');
-      expect(result.stderr).toContain(aliases[alias]);
-      expect(result.stderr).toContain('--dry-run');
+        expect(result.status).not.toBe(0);
+        expect(`${result.stdout}${result.stderr}`).toMatch(/missing script/i);
+        expect(existsSync(ran), 'a deploy tool ran').toBe(false);
+      } finally {
+        rmSync(sandbox, { recursive: true, force: true });
+      }
     },
   );
 
@@ -104,12 +127,14 @@ describe('deploy entrypoint contract', () => {
       expect(doc, label).toContain('Build Artifact');
       expect(doc, label).toContain('--mode all');
       expect(doc, label).toContain('--sha');
-      expect(doc, label).toMatch(/no longer deploy/);
+      expect(doc, label).toMatch(/no npm deploy alias|There is no npm deploy alias/);
       expect(doc, label).not.toMatch(/not yet the default/i);
     }
     expect(deploymentDoc).toContain('scripts/cf-cache-purge.sh');
     expect(deploymentDoc).toContain('op-firebase-deploy --only hosting');
     expect(deploymentDoc).toContain('never through `npm run`');
+    expect(deploymentDoc).toContain('Missing script');
+    expect(deploymentDoc).toMatch(/script-shell/);
   });
 
   it('flags the bare hosting invocation as incomplete wherever it is shown', () => {
