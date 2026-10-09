@@ -437,4 +437,9 @@ export function expectNoNewGa4Markers(s: Session): void {
     type: 'ga4-parameters',
     description: `parameter names not in the production capture: ${novel.join(', ') || 'none'}`,
   });
+  // Other drift (Google adding a parameter) is reported above; an identity or advertising marker is a failure.
+  expect(
+    novel.filter((k) => GA4_IDENTITY_OR_ADS_KEYS.test(k)),
+    'a new GA4 identity or advertising marker appeared',
+  ).toEqual([]);
 }
