@@ -35,13 +35,27 @@ const PAGE_ASTRO = read('src/pages/privacy/[...index].astro');
 /** The template half of an .astro source: the frontmatter is JS whose comments mention tags in prose. */
 const templateHalf = (source) => source.split(/^---$/m).slice(2).join('---');
 
-/** The template half, without its inline style and script. */
+/**
+ * Removes every match of `pattern`, repeating until nothing changes, so that
+ * removing one occurrence cannot leave another assembled from its pieces.
+ */
+function removeAll(text, pattern) {
+  let previous;
+  let current = text;
+  do {
+    previous = current;
+    current = current.replace(pattern, '');
+  } while (current !== previous);
+  return current;
+}
+
+/** The template half, without its inline style and script (any case). */
 function template(source) {
-  const body = templateHalf(source);
-  return body
-    .replace(/<style[\s\S]*?<\/style>/g, '')
-    .replace(/<script[^>]*\/>/g, '')
-    .replace(/<script[\s\S]*?<\/script>/g, '');
+  let body = templateHalf(source);
+  body = removeAll(body, /<style\b[\s\S]*?<\/style\b[^>]*>/gi);
+  body = removeAll(body, /<script\b[^>]*\/>/gi);
+  body = removeAll(body, /<script\b[\s\S]*?<\/script\b[^>]*>/gi);
+  return body;
 }
 
 const NOTICE_HTML = template(NOTICE_ASTRO);
@@ -97,7 +111,7 @@ describe('the UI scripts talk to window.npPrivacy and nothing else', () => {
         /posthog|gtag|dataLayer|\bfetch\(|XMLHttpRequest|sendBeacon|localStorage|sessionStorage|document\.cookie|indexedDB/,
       );
       // Inlined into HTML verbatim: no markup that would end the script early.
-      expect(src).not.toMatch(/<\/?script|<!--/);
+      expect(src).not.toMatch(/<\/?script|<!--/i);
     });
   }
 
