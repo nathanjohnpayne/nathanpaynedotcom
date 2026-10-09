@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/bash -p
 # Deploy the attested CI build of a commit on main (#1239, part of #1104).
 #
 # #1104: the deploy aliases run `npm run build` after preflight has exported
@@ -88,14 +88,48 @@
 
 set -euo pipefail
 
-# The script's own utility calls (dirname, mktemp, sed, rm, ...) run before
-# and between the `env -i` children, with the full parent environment. Pin
-# PATH to the system directories first, so a caller PATH that starts with a
-# repository-controlled directory such as node_modules/.bin cannot supply one
-# of them (Codex P1 on PR #1244). The shebang is a fixed /bin/bash for the
-# same reason: `#!/usr/bin/env bash` would take bash itself from the caller's
-# PATH before this line runs. Tools the children need are resolved
-# separately from SAFE_PATH below.
+# Entry sanitization. Codex found three ways repository-controlled code could
+# run with the caller's full environment before any later guard (PR #1244):
+# a utility such as dirname taken from a PATH led by node_modules/.bin, bash
+# itself taken from that PATH by `#!/usr/bin/env bash`, and bash startup
+# state (BASH_ENV, exported functions). Instead of guarding each one:
+#   - `#!/bin/bash -p`: a fixed interpreter, and privileged mode, which skips
+#     BASH_ENV/ENV, imports no functions and ignores SHELLOPTS/CDPATH.
+#   - The first step re-executes the script under `env -i`, keeping only the
+#     variables some child needs (ENTRY_ENV_NAMES). From then on no utility
+#     the script runs, and no later step, holds the caller's other
+#     credentials (reviewer PATs, OP_SESSION_*, GITHUB_TOKEN) or loader hooks
+#     (LD_PRELOAD).
+#   - The re-executed pass refuses any variable outside that allowlist, so
+#     setting the marker by hand cannot skip the scrub.
+# Run the script directly, never as `bash scripts/deploy-artifact.sh`: an
+# explicit `bash` reads BASH_ENV before this line can run.
+FIREBASE_ENV_NAMES="GOOGLE_APPLICATION_CREDENTIALS OP_PREFLIGHT_ADC_TMPFILE OP_PREFLIGHT_FIREBASE_SA_TMPFILE OP_PREFLIGHT_FIREBASE_PROJECT FIREBASE_DEPLOY_SA_NAME FIREBASE_DEPLOY_SA_EMAIL FIREBASE_SOURCE_CREDENTIAL_OP_URI GCP_ADC_OP_URI OP_ACCOUNT"
+PURGE_ENV_NAMES="CF_API_TOKEN OP_PREFLIGHT_DONE OP_PREFLIGHT_MODE OP_ACCOUNT"
+ENTRY_ENV_NAMES="HOME USER LOGNAME TMPDIR LANG LC_ALL TERM SSH_AUTH_SOCK GH_TOKEN GH_CONFIG_DIR XDG_CONFIG_HOME DEPLOY_ARTIFACT_SAFE_PATH ${FIREBASE_ENV_NAMES} ${PURGE_ENV_NAMES}"
+if [ "${DEPLOY_ARTIFACT_SANITIZED:-}" != "1" ]; then
+  entry_env=()
+  for name in $ENTRY_ENV_NAMES; do
+    if [ -n "${!name:-}" ]; then entry_env+=("${name}=${!name}"); fi
+  done
+  exec /usr/bin/env -i ${entry_env[@]+"${entry_env[@]}"} \
+    DEPLOY_ARTIFACT_SANITIZED=1 PATH=/usr/bin:/bin /bin/bash -p "$0" "$@"
+fi
+for name in $(compgen -e); do
+  case " ${ENTRY_ENV_NAMES} DEPLOY_ARTIFACT_SANITIZED PATH PWD OLDPWD SHLVL _ " in
+    *" ${name} "*) ;;
+    *)
+      printf '[deploy-artifact] ERROR: %s is not allowed in the sanitized environment; run the script directly\n' "$name" >&2
+      exit 1
+      ;;
+  esac
+done
+case "$-" in
+  *p*) ;;
+  *) printf '[deploy-artifact] ERROR: not running in bash privileged mode; run the script directly\n' >&2; exit 1 ;;
+esac
+# Utilities resolve only from the system directories; the tools children
+# need are resolved separately from SAFE_PATH below.
 PATH=/usr/bin:/bin
 export PATH
 umask 077
@@ -110,8 +144,6 @@ DEFAULT_SAFE_PATH="/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin"
 MAX_MEMBERS=20000
 MAX_TOTAL_BYTES=$((1024 * 1024 * 1024))
 
-FIREBASE_ENV_NAMES="GOOGLE_APPLICATION_CREDENTIALS OP_PREFLIGHT_ADC_TMPFILE OP_PREFLIGHT_FIREBASE_SA_TMPFILE OP_PREFLIGHT_FIREBASE_PROJECT FIREBASE_DEPLOY_SA_NAME FIREBASE_DEPLOY_SA_EMAIL FIREBASE_SOURCE_CREDENTIAL_OP_URI GCP_ADC_OP_URI OP_ACCOUNT"
-PURGE_ENV_NAMES="CF_API_TOKEN OP_PREFLIGHT_DONE OP_PREFLIGHT_MODE OP_ACCOUNT"
 
 # The Python programs this script runs, kept out of command substitutions
 # (bash 3.2 mis-parses a here-document inside $(...)).

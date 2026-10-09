@@ -261,7 +261,7 @@ function buildArtifact(h, sha, { members = DEFAULT_MEMBERS, digest, sumsName, ex
   if (extra) writeFileSync(join(h.artifact, extra), 'extra\n');
 }
 
-function run(h, args, { safePath, parentPathFirst } = {}) {
+function run(h, args, { safePath, parentPathFirst, extraEnv } = {}) {
   const env = {
     ...CANARY,
     // The caller's PATH is ignored by design; put a hostile firebase first
@@ -270,6 +270,7 @@ function run(h, args, { safePath, parentPathFirst } = {}) {
     HOME: h.home,
     TMPDIR: h.tmp,
     DEPLOY_ARTIFACT_SAFE_PATH: safePath ?? `${h.bin}:/usr/bin:/bin`,
+    ...extraEnv,
   };
   // Executed directly, never as `bash script`, so the shebang's interpreter lookup is
   // exercised against the hostile PATH too (Codex P1, PR #1244).
@@ -467,6 +468,38 @@ describe('deploy-artifact.sh happy path (#1239)', () => {
     const result = run(h, ['--sha', h.sha], { safePath: `${h.bin}:${prefix}/bin:/usr/bin:/bin` });
     expect(result.status, result.output).toBe(0);
     expect(logs(h, 'firebase')).toHaveLength(1);
+  });
+});
+
+describe('deploy-artifact.sh sanitizes its own environment on entry (Codex P1, PR #1244)', () => {
+  it('never sources a BASH_ENV hook', () => {
+    const h = makeHarness();
+    const hook = join(h.root, 'hook.sh');
+    writeFileSync(hook, `touch "${h.log}/bash-env-hook-ran"\n`);
+    const result = run(h, ['--sha', h.sha, '--dry-run'], {
+      extraEnv: { BASH_ENV: hook, ENV: hook },
+    });
+    expect(result.status, result.output).toBe(0);
+    expect(existsSync(join(h.log, 'bash-env-hook-ran'))).toBe(false);
+  });
+
+  it('never imports an exported function that shadows a utility', () => {
+    const h = makeHarness();
+    const result = run(h, ['--sha', h.sha, '--dry-run'], {
+      extraEnv: { 'BASH_FUNC_dirname%%': `() { touch "${h.log}/function-ran"; }` },
+    });
+    expect(result.status, result.output).toBe(0);
+    expect(existsSync(join(h.log, 'function-ran'))).toBe(false);
+  });
+
+  it('refuses a forged sanitized marker that arrives with other variables', () => {
+    const h = makeHarness();
+    const result = run(h, ['--sha', h.sha, '--dry-run'], {
+      extraEnv: { DEPLOY_ARTIFACT_SANITIZED: '1' },
+    });
+    expect(result.status).toBe(1);
+    expect(result.output).toMatch(/is not allowed in the sanitized environment/);
+    expect(logs(h, 'gh')).toEqual([]);
   });
 });
 
