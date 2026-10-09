@@ -46,8 +46,13 @@
     status.textContent = text;
   }
 
+  // True while act() changes the state itself: the gate calls onChange
+  // synchronously, and that change is not one from another tab.
+  var localChange = false;
+
   function act(action) {
     var hadFocus = notice.contains(d.activeElement);
+    localChange = true;
     if (action === 'deny') {
       privacy.set('denied');
       announce(
@@ -64,8 +69,10 @@
           : 'Notice dismissed for this page. Your browser did not save that, so it may appear again on the next page. The privacy page has the analytics controls.',
       );
     } else {
+      localChange = false;
       return;
     }
+    localChange = false;
     sync();
     // The control that had focus leaves with the notice. Land on the visible
     // announcement instead of letting focus fall back to the document.
@@ -93,6 +100,7 @@
   // the visible announcement, as a local action does, rather than leaving it
   // in a hidden subtree.
   privacy.onChange(function () {
+    if (localChange) return;
     var hadFocus = notice.contains(d.activeElement);
     sync();
     if (hadFocus && notice.hidden) {

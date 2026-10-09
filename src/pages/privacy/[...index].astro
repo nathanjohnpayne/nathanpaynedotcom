@@ -240,7 +240,7 @@ const sections = [
 
         <h3>Cloudflare Web Analytics</h3>
         <p>
-          Cloudflare inserts its Web Analytics script into every page at its edge. It is not part of this site's code, and the controls on this page do not affect it. After a page loads, the script sends Cloudflare page-load timings, a page-load ID, the page's origin and path without query string or fragment, and your browser, operating system, and device type; it sends a second request when you leave the page. Cloudflare states that it sets no cookies or local storage, does not fingerprint visitors by IP address or user agent, and discards the IP address it receives at the nearest data center.
+          Cloudflare inserts its Web Analytics script into pages at its edge. Its settings can exclude some visitors, such as those in the EU, and which setting applies here has not been verified. It is not part of this site's code, and the controls on this page do not affect it. After a page loads, the script sends Cloudflare page-load timings, a page-load ID, the page's origin and path without query string or fragment, and your browser, operating system, and device type; it sends a second request when you leave the page. Cloudflare states that it sets no cookies or local storage, does not fingerprint visitors by IP address or user agent, and discards the IP address it receives at the nearest data center.
         </p>
         <p>
           Cloudflare also asks browsers that support Network Error Logging to report failed requests to it. Such a report carries the failed address without its fragment, the referring page, and connection details. The browser sends it on its own; page code cannot stop it. On pages that show an email address, Cloudflare inserts a small script that decodes the address in the browser; no data was observed leaving the page from it.
@@ -296,7 +296,7 @@ const sections = [
         <h2 id="retention">How long it is kept</h2>
         <ul>
           <li>PostHog session recordings: 30 days.</li>
-          <li>PostHog's cookie: 365 days. Google Analytics cookies: Google documents two years, refreshed on each visit, and Chrome caps each write at 400 days. The Mux Data cookie: 365 days.</li>
+          <li>PostHog's identifiers: the cookie lasts 365 days; the same identifiers are also kept in your browser's local storage, which lasts until you clear it, and in session storage for as long as the tab is open. Google Analytics cookies: Google documents two years, refreshed on each visit, and Chrome caps each write at 400 days. The Mux Data cookie: 365 days.</li>
           <li>Cloudflare Web Analytics: Cloudflare states that it keeps raw data for 7 days and then a sample of about 10% for longer-term reporting.</li>
           <li>Mux Data playback data: up to 100 days, per Mux.</li>
           <li>Error-alert issues on GitHub: until the issue is deleted; PostHog's retention does not reach them.</li>

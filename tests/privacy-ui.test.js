@@ -230,6 +230,24 @@ describe('notice (PRIV-14, PRIV-6)', () => {
     expect(notice.hidden).toBe(true);
   });
 
+  it('never announces a local action as coming from another tab', async () => {
+    const { w, d } = mountNotice();
+    const status = d.getElementById('np-privacy-notice-status');
+    const texts = [];
+    new w.MutationObserver((records) => {
+      for (const record of records) {
+        for (const node of record.addedNodes) texts.push(node.textContent);
+      }
+    }).observe(status, { childList: true, characterData: true, subtree: true });
+    const deny = d.querySelector('[data-np-privacy-action="deny"]');
+    deny.focus();
+    click(w, deny);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(texts.join(' | ')).not.toContain('another tab');
+    expect(status.textContent).toBe('Analytics are off for this site in this browser.');
+    expect(d.activeElement).toBe(status);
+  });
+
   it('moves focus to the announcement when another tab closes the notice under it', () => {
     const { w, d } = mountNotice();
     const notice = d.getElementById('np-privacy-notice');
