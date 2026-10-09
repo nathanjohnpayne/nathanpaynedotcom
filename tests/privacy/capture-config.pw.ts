@@ -104,7 +104,7 @@ test.describe('nothing new (PRIV-16)', () => {
     // sink never saw, not just the hosts the harness recognizes as analytics vendors.
     const siteHosts = [TEST_HOST, ASSET_HOST, LOCAL_HOST_ALIAS];
     const attempted = new Set([
-      ...s.requests.map((r) => new URL(r.url).hostname),
+      ...s.attemptedHosts(), // HTTP attempts, route-aborted ones, and WebSocket attempts
       ...s.sink.requests.map((r) => r.host),
       ...s.sink.refusals.map((r) => r.target.replace(/:\d+$/, '').replace(/\/.*$/, '')),
     ]);
@@ -144,6 +144,12 @@ test.describe('nothing new (PRIV-16)', () => {
       expect(event.properties.$is_identified, `${event.event} is anonymous`).not.toBe(true);
     }
 
+    // Nothing existing was switched off: every PostHog feature the site runs today still produced its events
+    // (page views, autocapture, heatmaps, web vitals, and replay), and person profiles are still processed.
+    for (const required of ['$pageview', '$autocapture', '$$heatmap', '$web_vitals', '$snapshot']) {
+      expect(names.has(required), `${required} is still captured`).toBe(true);
+    }
+
     // GA4: report any parameter the production capture did not record (informational: gtag.js moves under us).
     if (fixtureState.gtag.available) {
       const capture = readFileSync(join(REPO_ROOT, 'docs/privacy/capture-2026-10-08.md'), 'utf8');
@@ -157,6 +163,29 @@ test.describe('nothing new (PRIV-16)', () => {
       test.info().annotations.push({
         type: 'ga4-parameters',
         description: `${observed.size} parameter names observed; not in the production capture: ${novel.join(', ') || 'none'}`,
+      });
+
+      // Existing GA4 features still on, from the values the production capture recorded (Non-identifying
+      // values seen): ads personalization allowed (npa=0), no consent-mode denial (gcd), no regional
+      // restriction signal (dma=0), and the demographic/device signals (client hints, language, screen size).
+      // A client that switched one of these off would still send ordinary page views, so a subset check on
+      // parameter names alone cannot see it.
+      const pageView = s.sink.ga4Events().find(({ event }) => event.name === 'page_view')?.event;
+      expect(pageView, 'a GA4 page_view was observed').toBeDefined();
+      const params = pageView?.params ?? {};
+      expect({ npa: params.npa, dma: params.dma, pscdl: params.pscdl, gcd: params.gcd }).toEqual({
+        npa: '0',
+        dma: '0',
+        pscdl: 'noapi',
+        gcd: '13l3l3l3l1l1',
+      });
+      for (const key of ['ul', 'sr', 'uaa', 'uab', 'uafvl', 'uap', 'uapv', 'cid', 'sid']) {
+        expect(params[key], `GA4 parameter ${key} is still sent`).toBeTruthy();
+      }
+    } else {
+      test.info().annotations.push({
+        type: 'ga4-parameters',
+        description: 'not verified: no gtag.js fixture, so GA4 feature markers were not checked',
       });
     }
   });

@@ -64,6 +64,49 @@ async function tabTo(page: Page, selector: string, limit = 60): Promise<number> 
   throw new Error(`${selector} was not reached by keyboard within ${limit} Tab presses`);
 }
 
+/**
+ * The focused element, reached by keyboard, must look different from the same element unfocused, and the
+ * difference must be a painted (non-transparent) outline or shadow. Reading only "is there a shadow" passes a
+ * permanent or transparent one, and so misses a lost `:focus-visible` treatment.
+ */
+async function expectFocusIndicator(page: Page, selector: string, label: string): Promise<void> {
+  await tabTo(page, selector, 200);
+  const paint = (): Promise<string> =>
+    page.evaluate((sel) => {
+      const el = document.querySelector(sel);
+      if (!el) return 'missing';
+      const style = getComputedStyle(el);
+      const opaque = (color: string): boolean => {
+        const m = /rgba?\(([^)]+)\)/.exec(color);
+        if (!m) return color !== 'transparent' && color !== '';
+        const parts = m[1]!.split(/[ ,/]+/).filter(Boolean);
+        return parts.length < 4 || parseFloat(parts[3]!) > 0;
+      };
+      const outline =
+        style.outlineStyle !== 'none' &&
+        parseFloat(style.outlineWidth) > 0 &&
+        opaque(style.outlineColor)
+          ? `${style.outlineStyle} ${style.outlineWidth} ${style.outlineColor} ${style.outlineOffset}`
+          : '';
+      const shadowColor = /rgba?\([^)]*\)/.exec(style.boxShadow)?.[0] ?? '';
+      const shadow = style.boxShadow !== 'none' && opaque(shadowColor) ? style.boxShadow : '';
+      return `${outline}|${shadow}`;
+    }, selector);
+  const focused = await paint();
+  await page.evaluate(
+    (sel) => (document.querySelector(sel) as HTMLElement | null)?.blur(),
+    selector,
+  );
+  const unfocused = await paint();
+  expect(focused, `${label}: focusing paints an outline or shadow`).not.toBe('|');
+  expect(focused, `${label}: the focused look differs from the unfocused look`).not.toBe(unfocused);
+  // Restore focus so the caller can keep driving the control from the keyboard.
+  await page.evaluate(
+    (sel) => (document.querySelector(sel) as HTMLElement | null)?.focus(),
+    selector,
+  );
+}
+
 interface AxeViolation {
   id: string;
   impact: string | null;
@@ -244,22 +287,9 @@ test.describe('notice', () => {
     const s = await open();
     await s.goto(FIXTURE_PATH);
     await gateReady(s.page);
-    await tabTo(s.page, `${NOTICE} ${action('deny')}`);
-    const indicator = await s.page.evaluate(() => {
-      const el = document.activeElement as HTMLElement;
-      const style = getComputedStyle(el);
-      return {
-        outlineStyle: style.outlineStyle,
-        outlineWidth: parseFloat(style.outlineWidth),
-        boxShadow: style.boxShadow,
-      };
-    });
-    const visible =
-      (indicator.outlineStyle !== 'none' && indicator.outlineWidth > 0) ||
-      indicator.boxShadow !== 'none';
-    expect(visible, `focus indicator on the deny button: ${JSON.stringify(indicator)}`).toBe(true);
-    await tabTo(s.page, `${NOTICE} ${action('dismiss')}`);
-    await s.page.keyboard.press('Enter');
+    await expectFocusIndicator(s.page, `${NOTICE} ${action('deny')}`, 'notice deny button');
+    await expectFocusIndicator(s.page, `${NOTICE} ${action('dismiss')}`, 'notice dismiss button');
+    await s.page.keyboard.press('Enter'); // dismiss still has focus
     await expect(s.page.locator(NOTICE)).toBeHidden();
     expect(await s.privacy()).toMatchObject({ saved: 'unset', effective: 'granted' });
     // Focus is not trapped: the page's own controls are still reachable afterwards.
@@ -381,7 +411,11 @@ test.describe('footer link', () => {
       await expect(link).toHaveAttribute('href', '/privacy/');
       expect((await link.innerText()).trim().length).toBeGreaterThan(0);
       await link.scrollIntoViewIfNeeded();
-      await tabTo(s.page, 'a[data-np-privacy-ui="footer-link"]', 200);
+      await expectFocusIndicator(
+        s.page,
+        'a[data-np-privacy-ui="footer-link"]',
+        `footer link on ${path}`,
+      );
     });
   }
 });
@@ -452,10 +486,10 @@ test.describe('controls on /privacy/', () => {
     const s = await open();
     await s.goto('/privacy/');
     await gateReady(s.page);
-    await tabTo(s.page, `${CONTROLS} ${action('deny')}`, 200);
+    await expectFocusIndicator(s.page, `${CONTROLS} ${action('deny')}`, 'controls deny button');
     await s.page.keyboard.press('Enter');
     expect(await s.privacy()).toMatchObject({ saved: 'denied', effective: 'denied' });
-    await tabTo(s.page, `${CONTROLS} ${action('grant')}`, 200);
+    await expectFocusIndicator(s.page, `${CONTROLS} ${action('grant')}`, 'controls grant button');
     await s.page.keyboard.press('Space');
     expect(await s.privacy()).toMatchObject({ saved: 'granted' });
   });

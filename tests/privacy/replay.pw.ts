@@ -9,6 +9,8 @@ import { neutralRemoteConfig } from './harness/egress';
 import {
   canaryHits,
   expectCollecting,
+  fillContactForm,
+  leakHits,
   findNodes,
   humanActivity,
   interactWithFixture,
@@ -65,6 +67,7 @@ test.describe('replay payloads', () => {
     await s.goto(sensitiveFixtureUrl());
     await expectCollecting(s, { ga4: false });
     await interactWithFixture(s.page);
+    await fillContactForm(s.page); // the second form, with the contact values the GA4 test also uses
     await humanActivity(s.page);
     await s.page.waitForTimeout(3500);
     await Promise.all([s.page.waitForLoadState('load'), s.page.click('#fixture-sensitive-link')]);
@@ -80,7 +83,6 @@ test.describe('replay payloads', () => {
     // --- Positive controls: what the recording does contain.
     const nodes = fullSnapshots.flatMap((i) => findNodes(i.data, () => true));
     const allText = nodes.filter((n) => n.type === 3).map((n) => String(n.textContent));
-    expect(allText, 'ordinary page text is recorded unmasked').toContain('Privacy test fixture');
     expect(allText).toContain('Fixture button');
 
     const typed = items
@@ -95,43 +97,62 @@ test.describe('replay payloads', () => {
       '*'.repeat(CANARIES.input.length),
     );
 
-    const masked = nodes.find(
-      (n) => (n.attributes as Record<string, unknown> | undefined)?.id === 'fixture-masked',
-    );
-    expect(masked, 'the [data-np-privacy="mask"] element is in the snapshot').toBeDefined();
-    expect(textOf(masked ?? {}), 'its text is replaced by mask characters of the same length').toBe(
-      '*'.repeat(CANARIES.maskedText.length),
-    );
+    // Every document's full snapshot is checked on its own: a regression that affects one form, or only the
+    // second document, must not be hidden by the other one satisfying an aggregate count.
+    const formFieldIds = [
+      'fixture-form-text',
+      'fixture-form-submit',
+      'fixture-contact-email',
+      'fixture-contact-phone',
+      'fixture-contact-address',
+      'fixture-contact-submit',
+    ];
+    for (const [index, snapshot] of fullSnapshots.entries()) {
+      const where = `full snapshot ${index + 1}`;
+      const snapshotNodes = findNodes(snapshot.data, () => true);
+      const byId = (id: string) =>
+        snapshotNodes.find((n) => (n.attributes as Record<string, unknown> | undefined)?.id === id);
+      const text = snapshotNodes.filter((n) => n.type === 3).map((n) => String(n.textContent));
+      expect(text, `${where}: ordinary page text is recorded unmasked`).toContain(
+        'Privacy test fixture',
+      );
 
-    // rrweb records a blocked element as an empty placeholder carrying only its box (rr_* attributes).
-    const blocked = nodes.filter(
-      (n) => n.type === 2 && 'rr_width' in ((n.attributes as Record<string, unknown>) ?? {}),
-    );
-    expect(
-      blocked.filter((n) => n.tagName === 'form').length,
-      'both <form> elements are blocked, not recorded',
-    ).toBeGreaterThanOrEqual(2);
-    expect(
-      blocked.filter((n) => n.tagName === 'div').length,
-      'the [data-np-privacy="block"] region is blocked',
-    ).toBeGreaterThanOrEqual(1);
-    for (const b of blocked)
-      expect(b.childNodes, 'a blocked element has no recorded children').toEqual([]);
+      const masked = byId('fixture-masked');
+      expect(masked, `${where}: the [data-np-privacy="mask"] element is present`).toBeDefined();
+      expect(textOf(masked ?? {}), `${where}: its text is replaced by mask characters`).toBe(
+        '*'.repeat(CANARIES.maskedText.length),
+      );
 
-    const link = nodes.find(
-      (n) => (n.attributes as Record<string, unknown> | undefined)?.id === 'fixture-sensitive-link',
-    );
-    expect(
-      (link?.attributes as Record<string, unknown>).href,
-      'link href in the DOM reduced, utm_source kept',
-    ).toBe(SCRUBBED_FIXTURE_URL);
-    const pii = nodes.find(
-      (n) => (n.attributes as Record<string, unknown> | undefined)?.id === 'fixture-pii-button',
-    );
-    expect(
-      (pii?.attributes as Record<string, unknown>)['data-fixture-pii'],
-      'data-* attribute values are emptied',
-    ).toBe('');
+      // rrweb records a blocked element as an empty placeholder carrying only its box (rr_* attributes).
+      const blocked = snapshotNodes.filter(
+        (n) => n.type === 2 && 'rr_width' in ((n.attributes as Record<string, unknown>) ?? {}),
+      );
+      expect(
+        blocked.filter((n) => n.tagName === 'form').length,
+        `${where}: both <form> elements are blocked placeholders`,
+      ).toBe(2);
+      expect(
+        blocked.filter((n) => n.tagName === 'div').length,
+        `${where}: the [data-np-privacy="block"] region is a blocked placeholder`,
+      ).toBeGreaterThanOrEqual(1);
+      for (const b of blocked)
+        expect(b.childNodes, `${where}: a blocked element has no recorded children`).toEqual([]);
+      // And no field of either form was recorded as an ordinary element.
+      expect(
+        formFieldIds.filter((id) => byId(id) !== undefined),
+        `${where}: no form field is in the snapshot`,
+      ).toEqual([]);
+
+      const link = byId('fixture-sensitive-link');
+      expect(
+        (link?.attributes as Record<string, unknown>).href,
+        `${where}: link href reduced, utm_source kept`,
+      ).toBe(SCRUBBED_FIXTURE_URL);
+      expect(
+        (byId('fixture-pii-button')?.attributes as Record<string, unknown>)['data-fixture-pii'],
+        `${where}: data-* attribute values are emptied`,
+      ).toBe('');
+    }
     const meta = items.filter((i) => i.type === 4).map((i) => i.data?.href);
     expect(meta, 'page URL in replay metadata is scrubbed with utm_source kept').toContain(
       SCRUBBED_FIXTURE_URL,
@@ -160,7 +181,7 @@ test.describe('replay payloads', () => {
       .join('\n');
     expect(replayText.length).toBeGreaterThan(5000);
     expect(
-      canaryHits(replayText),
+      leakHits(replayText),
       'no NP-CANARY-* string in any decompressed replay payload',
     ).toEqual([]);
     const replayPlain = s.sink
@@ -181,6 +202,7 @@ test.describe('replay payloads', () => {
     await expectCollecting(s, { ga4: false });
     await typeCanaries(s.page);
     await s.page.fill('#fixture-email', `${CANARIES.input}@example.test`);
+    await fillContactForm(s.page);
     await s.page.waitForTimeout(4000);
     await unloadAndSettle(s.page);
     await expect
@@ -193,7 +215,7 @@ test.describe('replay payloads', () => {
       .map((i) => String(i.data?.text));
     expect(typed.length).toBeGreaterThan(0);
     expect(typed.every((t) => /^\*+$/.test(t))).toBe(true);
-    expect(canaryHits(s.sink.searchableText('posthog'))).toEqual([]);
+    expect(leakHits(s.sink.searchableText('posthog'))).toEqual([]);
   });
 });
 

@@ -208,9 +208,26 @@ export class Session {
     });
   }
 
-  /** Requests the page attempted to analytics vendor hosts, whether or not they were allowed. */
+  /**
+   * Every outbound attempt the page made, over every channel the context observes: HTTP requests (including
+   * ones the default-deny route aborted) and WebSocket connections (which `routeWebSocket` closes and records
+   * separately from requests).
+   */
+  allAttempts(): RequestRecord[] {
+    return [
+      ...this.requests,
+      ...this.wsDenied.map((url) => ({ url, method: 'WS', resourceType: 'websocket' })),
+    ];
+  }
+
+  /** Hostnames of every outbound attempt. */
+  attemptedHosts(): string[] {
+    return [...new Set(this.allAttempts().map((r) => new URL(r.url).hostname))];
+  }
+
+  /** Requests and WebSocket connections the page attempted to analytics vendor hosts, allowed or not. */
   attemptedVendorRequests(): RequestRecord[] {
-    return this.requests.filter((r) => {
+    return this.allAttempts().filter((r) => {
       const host = new URL(r.url).hostname;
       return (
         host === 'd.nathanpayne.com' ||

@@ -9,6 +9,7 @@ import { CANARIES, FIXTURE_PATH, SITE_ORIGIN } from './harness/constants';
 import {
   ALLOWED_QUERY_PARAMS,
   canaryHits,
+  leakHits,
   clickOutbound,
   eventsNamed,
   expectCollecting,
@@ -134,8 +135,8 @@ test.describe('PostHog events', () => {
     // --- Absence checks, each over fully decoded payloads.
     expect(s.sink.undecodedCollection(), 'every collection body was decodable').toEqual([]);
     expect(
-      canaryHits(s.sink.searchableText('posthog')),
-      'no NP-CANARY-* string in any PostHog payload',
+      leakHits(s.sink.searchableText('posthog')),
+      'no NP-CANARY-* string and no contact value (literal or SHA-256) in any PostHog payload',
     ).toEqual([]);
     expect(
       urlViolations(s.sink.plainText('posthog')),
@@ -156,9 +157,7 @@ test.describe('PostHog events', () => {
       'PostHog set its first-party cookie (positive control)',
     ).toBeGreaterThan(0);
     for (const c of posthogCookies) {
-      expect(canaryHits(decodeURIComponent(c.value)), `cookie ${c.name} holds no canary`).toEqual(
-        [],
-      );
+      expect(leakHits(decodeURIComponent(c.value)), `cookie ${c.name} holds no canary`).toEqual([]);
       expect(
         urlViolations(decodeURIComponent(c.value)),
         `cookie ${c.name} holds only scrubbed URLs`,
@@ -185,7 +184,7 @@ test.describe('PostHog events', () => {
     expect([...url.searchParams.keys()].sort()).toEqual([...ALLOWED_QUERY_PARAMS].sort());
     expect(url.hash).toBe('');
     expect(url.origin + url.pathname).toBe(`${SITE_ORIGIN}${FIXTURE_PATH}`);
-    expect(canaryHits(s.sink.searchableText('posthog'))).toEqual([]);
+    expect(leakHits(s.sink.searchableText('posthog'))).toEqual([]);
   });
 
   test('PRIV-2 a referrer that carries a sensitive query and fragment reaches PostHog reduced, with the allowlisted parameter kept', async ({
@@ -204,7 +203,7 @@ test.describe('PostHog events', () => {
       'https://referrer.example.test/in?utm_medium=fixture',
     );
     expect(pageview?.properties.$referring_domain).toBe('referrer.example.test');
-    expect(canaryHits(s.sink.searchableText('posthog'))).toEqual([]);
+    expect(leakHits(s.sink.searchableText('posthog'))).toEqual([]);
     expect(urlViolations(s.sink.plainText('posthog'))).toEqual([]);
   });
 
@@ -216,7 +215,7 @@ test.describe('PostHog events', () => {
     await expectCollecting(s, { ga4: false });
     const pageview = eventsNamed(s.sink.posthogEvents(), '$pageview')[0];
     expect(pageview?.properties.$current_url).toBe(SCRUBBED_FIXTURE_URL);
-    expect(canaryHits(s.sink.searchableText('posthog'))).toEqual([]);
+    expect(leakHits(s.sink.searchableText('posthog'))).toEqual([]);
   });
 
   test('PRIV-2 (observation) click identifiers outside the allowlist are copied into their own properties, a documented residual', async ({

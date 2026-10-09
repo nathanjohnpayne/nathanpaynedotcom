@@ -267,6 +267,11 @@ export function canaryHits(searchable: string): string[] {
   return findLiterals(searchable, ALL_CANARIES).map((h) => h.canary);
 }
 
+/** Every fixture canary plus the contact-form values (literal and SHA-256): what no payload may carry. */
+export function leakHits(searchable: string): string[] {
+  return [...canaryHits(searchable), ...contactHits(searchable)];
+}
+
 export function contactHits(searchable: string): string[] {
   return [
     ...findLiterals(searchable, contactLiterals()).map((h) => `literal ${h.canary}`),
