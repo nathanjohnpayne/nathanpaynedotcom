@@ -265,6 +265,30 @@ describe('notice (PRIV-14, PRIV-6)', () => {
     );
   });
 
+  it('drops a stale announcement when another tab brings the notice back (#1258)', () => {
+    const { w, d } = mountNotice();
+    const notice = d.getElementById('np-privacy-notice');
+    const status = d.getElementById('np-privacy-notice-status');
+    click(w, notice.querySelector('[data-np-privacy-action="dismiss"]'));
+    expect(notice.hidden).toBe(true);
+    expect(status.textContent).toContain('Notice dismissed');
+    // Another tab clears the saved setting: the notice shows again.
+    w.localStorage.removeItem('np-privacy');
+    w.dispatchEvent(new w.StorageEvent('storage', { key: 'np-privacy' }));
+    expect(notice.hidden).toBe(false);
+    expect(status.textContent).toBe('');
+  });
+
+  it('keeps an unsaved dismissal and its announcement consistent after a back/forward restore (#1258)', () => {
+    const { w, d } = mountNotice({ storage: 'write-throws' });
+    const notice = d.getElementById('np-privacy-notice');
+    const status = d.getElementById('np-privacy-notice-status');
+    click(w, notice.querySelector('[data-np-privacy-action="dismiss"]'));
+    w.dispatchEvent(new w.PageTransitionEvent('pageshow', { persisted: true }));
+    expect(notice.hidden).toBe(true);
+    expect(status.textContent).toContain('Notice dismissed for this page');
+  });
+
   it('says so when the choice could not be saved', () => {
     const { w, d, privacy } = mountNotice({ storage: 'write-throws' });
     click(w, d.querySelector('[data-np-privacy-action="deny"]'));

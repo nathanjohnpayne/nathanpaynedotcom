@@ -1004,9 +1004,12 @@
     if (event.key === STORAGE_KEY || event.key === null) resync();
   });
   // A page restored from the back/forward cache missed every storage event
-  // while it was frozen, so it re-reads the saved choice.
+  // while it was frozen, so it re-reads the saved choice. Not when this page's
+  // last write failed: storage then lacks the choice made here, which § Storage
+  // 3 keeps for the rest of this page view, and re-reading would silently
+  // swap it for whatever was saved before (#1258).
   w.addEventListener('pageshow', function (event) {
-    if (event.persisted) resync();
+    if (event.persisted && state.persisted) resync();
   });
   w.npPrivacy = api;
 })(window);

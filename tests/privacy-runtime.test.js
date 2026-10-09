@@ -426,6 +426,26 @@ describe('withdrawal and re-enable (§ Withdrawal, § Re-Enable)', () => {
     expect(privacy.get().effective).toBe('denied');
   });
 
+  it('keeps an unsaved choice when the page is restored from the back/forward cache (#1258)', () => {
+    // § Storage 3: a failed write keeps the choice for this page view. The
+    // restore must not swap it for the older saved value.
+    const { w, privacy, gate } = boot({ storage: 'write-throws' });
+    gate.registerTool('t', { stop() {} });
+    privacy.set('denied');
+    expect(privacy.get()).toMatchObject({ effective: 'denied', persisted: false });
+    const changes = [];
+    privacy.onChange((st) => changes.push(st.effective));
+    w.dispatchEvent(new w.PageTransitionEvent('pageshow', { persisted: true }));
+    expect(privacy.get()).toMatchObject({ saved: 'denied', effective: 'denied', persisted: false });
+    expect(w.document.documentElement.getAttribute('data-np-privacy')).toBe('denied');
+    expect(changes).toEqual([]);
+    // An unsaved dismissal survives the restore the same way.
+    const other = boot({ storage: 'write-throws' });
+    other.privacy.notice.dismiss();
+    other.w.dispatchEvent(new other.w.PageTransitionEvent('pageshow', { persisted: true }));
+    expect(other.privacy.notice.shouldShow()).toBe(false);
+  });
+
   it('stops a tool at once if it registers after a withdrawal', () => {
     const { privacy, gate } = boot();
     privacy.set('denied');
