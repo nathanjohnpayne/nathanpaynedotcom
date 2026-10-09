@@ -38,6 +38,9 @@ import {
   TEST_HOST,
 } from './constants';
 
+const SITE_ORIGINS: readonly string[] = [TEST_HOST, LOCAL_HOST_ALIAS, ASSET_HOST].map(
+  (h) => `https://${h}`,
+);
 const isSiteHost = (host: string): boolean =>
   host === TEST_HOST || host === LOCAL_HOST_ALIAS || host === ASSET_HOST;
 import { decodeBody, ga4Events, postHogEvents, type Ga4Event, type PostHogEvent } from './payloads';
@@ -244,8 +247,23 @@ export const REMOTE_CONFIG = {
   surveys: false,
 };
 
-const remoteConfigScript = (config: unknown): string =>
-  `(function(){window._POSTHOG_REMOTE_CONFIG=window._POSTHOG_REMOTE_CONFIG||{};window._POSTHOG_REMOTE_CONFIG[${JSON.stringify(FAKE_POSTHOG_TOKEN)}]={config:${JSON.stringify(config)},siteApps:[]};})();`;
+/**
+ * The remote-config script PostHog serves: it assigns `{config, siteApps}` under the project token. The
+ * data is embedded as a JSON string literal that the script parses, with the characters that can end or
+ * confuse a script context (`<`, `>`, `/`, U+2028, U+2029) written as escapes, so no data value can alter
+ * the code around it.
+ */
+function escapeForScript(json: string): string {
+  return json.replace(
+    /[<>/\u2028\u2029]/g,
+    (c) => `\\u${c.charCodeAt(0).toString(16).padStart(4, '0')}`,
+  );
+}
+const remoteConfigScript = (config: unknown): string => {
+  const payload = escapeForScript(JSON.stringify(JSON.stringify({ config, siteApps: [] })));
+  const token = escapeForScript(JSON.stringify(FAKE_POSTHOG_TOKEN));
+  return `(function(){window._POSTHOG_REMOTE_CONFIG=window._POSTHOG_REMOTE_CONFIG||{};window._POSTHOG_REMOTE_CONFIG[${token}]=JSON.parse(${payload});})();`;
+};
 
 /**
  * The same remote config with the three capture features the inventory found
@@ -399,11 +417,13 @@ export class Egress {
     for await (const chunk of req) chunks.push(chunk as Buffer);
     const body = Buffer.concat(chunks);
 
-    const cors = {
-      'access-control-allow-origin': req.headers.origin ?? '*',
-      'access-control-allow-credentials': 'true',
-      'access-control-allow-headers': req.headers['access-control-request-headers'] ?? '*',
+    // CORS: allow only the harness's own origins, chosen from a fixed list (never reflected from the request),
+    // and no credentials. Every SDK request in this suite is anonymous.
+    const allowedOrigin = SITE_ORIGINS.find((o) => o === req.headers.origin);
+    const cors: Record<string, string> = {
+      'access-control-allow-headers': 'content-type, x-requested-with',
       'access-control-allow-methods': 'GET, POST, OPTIONS',
+      ...(allowedOrigin ? { 'access-control-allow-origin': allowedOrigin, vary: 'origin' } : {}),
     };
     if (method === 'OPTIONS') {
       res.writeHead(204, cors);

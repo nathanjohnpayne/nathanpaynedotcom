@@ -143,9 +143,7 @@ test.describe('GA4 page URLs', () => {
   }) => {
     const sensitiveReferrer = `https://referrer.example.test/in?email=${CANARIES.query}%40example.test&utm_medium=fixture#${CANARIES.fragment}`;
     const s = await open({
-      initScripts: [
-        `Object.defineProperty(document, 'referrer', { get: () => ${JSON.stringify(sensitiveReferrer)}, configurable: true });`,
-      ],
+      referrer: sensitiveReferrer,
     });
     await s.goto(sensitiveFixtureUrl());
     await expectCollecting(s, { ga4: true });

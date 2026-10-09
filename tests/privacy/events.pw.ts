@@ -195,9 +195,7 @@ test.describe('PostHog events', () => {
     // its full URL (Referrer-Policy: unsafe-url, or a same-origin navigation) gives the page one that is not.
     const sensitiveReferrer = `https://referrer.example.test/in?email=${CANARIES.query}%40example.test&utm_medium=fixture#${CANARIES.fragment}`;
     const s = await open({
-      initScripts: [
-        `Object.defineProperty(document, 'referrer', { get: () => ${JSON.stringify(sensitiveReferrer)}, configurable: true });`,
-      ],
+      referrer: sensitiveReferrer,
     });
     await s.goto(FIXTURE_PATH);
     await expectCollecting(s, { ga4: false });

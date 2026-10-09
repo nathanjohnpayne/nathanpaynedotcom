@@ -20,7 +20,7 @@ import {
   storedValue,
   typeCanaries,
 } from './harness/helpers';
-import { expect, test } from './harness/test';
+import { expect, test, type Session } from './harness/test';
 
 const htmlGate = (page: import('@playwright/test').Page) =>
   page.evaluate(() => ({
@@ -465,11 +465,7 @@ test.describe('storage', () => {
     fixtureState,
   }) => {
     const ga4 = fixtureState.gtag.available;
-    const blockStorage = `
-      for (const name of ['localStorage', 'sessionStorage']) {
-        Object.defineProperty(window, name, { configurable: true, get() { throw new DOMException('blocked', 'SecurityError'); } });
-      }`;
-    const s = await open({ initScripts: [blockStorage] });
+    const s = await open({ blockStorage: true });
     await s.goto(FIXTURE_PATH);
     await gateReady(s.page);
     expect(await s.privacy()).toMatchObject({

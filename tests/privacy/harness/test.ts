@@ -96,8 +96,10 @@ export interface SessionOptions {
   reducedMotion?: 'reduce' | 'no-preference';
   /** Leave the headless bot signals alone (only the bot-filter self-check uses this). */
   exposeHeadless?: boolean;
-  /** Scripts to run before any page script, in every document (for example, to make storage throw). */
-  initScripts?: string[];
+  /** Report this `document.referrer` (a source page that sends its full URL), in every document. */
+  referrer?: string;
+  /** Make `localStorage` and `sessionStorage` throw SecurityError, as blocked site data does. */
+  blockStorage?: boolean;
   /** `allow` exists only so a control can show that the default `block` is what stops registration. */
   serviceWorkers?: 'block' | 'allow';
 }
@@ -162,7 +164,24 @@ export class Session {
     });
     if (!options.exposeHeadless) await context.addInitScript(BOT_SCRUB);
     if (options.gpc) await context.addInitScript(GPC_ON);
-    for (const script of options.initScripts ?? []) await context.addInitScript(script);
+    // Values travel as arguments to a function, never spliced into script source.
+    if (options.referrer !== undefined) {
+      await context.addInitScript((value: string) => {
+        Object.defineProperty(document, 'referrer', { get: () => value, configurable: true });
+      }, options.referrer);
+    }
+    if (options.blockStorage) {
+      await context.addInitScript(() => {
+        for (const name of ['localStorage', 'sessionStorage']) {
+          Object.defineProperty(window, name, {
+            configurable: true,
+            get() {
+              throw new DOMException('blocked', 'SecurityError');
+            },
+          });
+        }
+      });
+    }
     const page = await context.newPage();
     const session = new Session(context, page, egress, denied, wsDenied);
     context.on('request', (r) =>
