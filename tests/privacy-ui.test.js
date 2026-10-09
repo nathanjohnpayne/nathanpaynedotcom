@@ -265,6 +265,44 @@ describe('notice (PRIV-14, PRIV-6)', () => {
     );
   });
 
+  it('drops a stale announcement when another tab brings the notice back (#1258)', () => {
+    const { w, d } = mountNotice();
+    const notice = d.getElementById('np-privacy-notice');
+    const status = d.getElementById('np-privacy-notice-status');
+    click(w, notice.querySelector('[data-np-privacy-action="dismiss"]'));
+    expect(notice.hidden).toBe(true);
+    expect(status.textContent).toContain('Notice dismissed');
+    // Another tab clears the saved setting: the notice shows again.
+    w.localStorage.removeItem('np-privacy');
+    w.dispatchEvent(new w.StorageEvent('storage', { key: 'np-privacy' }));
+    expect(notice.hidden).toBe(false);
+    expect(status.textContent).toBe('');
+  });
+
+  it('keeps an unsaved dismissal and its announcement consistent after a back/forward restore (#1258)', () => {
+    const { w, d } = mountNotice({ storage: 'write-throws' });
+    const notice = d.getElementById('np-privacy-notice');
+    const status = d.getElementById('np-privacy-notice-status');
+    click(w, notice.querySelector('[data-np-privacy-action="dismiss"]'));
+    w.dispatchEvent(new w.PageTransitionEvent('pageshow', { persisted: true }));
+    expect(notice.hidden).toBe(true);
+    expect(status.textContent).toContain('Notice dismissed for this page');
+  });
+
+  it('B5: an unsaved opt-out from the notice survives a back/forward restore (#1258)', () => {
+    const { w, d, privacy } = mountNotice({ storage: 'write-throws' });
+    const notice = d.getElementById('np-privacy-notice');
+    const status = d.getElementById('np-privacy-notice-status');
+    click(w, notice.querySelector('[data-np-privacy-action="deny"]'));
+    const said = status.textContent;
+    w.dispatchEvent(new w.PageTransitionEvent('pageshow', { persisted: true }));
+    expect(privacy.get()).toMatchObject({ effective: 'denied', persisted: false });
+    expect(d.documentElement.getAttribute('data-np-privacy')).toBe('denied');
+    expect(notice.hidden).toBe(true);
+    expect(status.textContent).toBe(said);
+    expect(said).toMatch(/off for this page/);
+  });
+
   it('says so when the choice could not be saved', () => {
     const { w, d, privacy } = mountNotice({ storage: 'write-throws' });
     click(w, d.querySelector('[data-np-privacy-action="deny"]'));
@@ -423,6 +461,18 @@ describe('controls (PRIV-10, PRIV-14)', () => {
     expect(privacy.get()).toMatchObject({ effective: 'granted', persisted: false });
     expect(statusOf(d)).toContain('uses whatever setting your browser last saved');
     expect(statusOf(d)).not.toMatch(/stay off|start on the next page/);
+  });
+
+  it('B3: an unsaved opt-out on /privacy/ survives a back/forward restore and the status still matches (#1258)', () => {
+    const { w, d, privacy } = mountControls({ storage: 'write-throws' });
+    click(w, d.querySelector('[data-np-privacy-action="deny"]'));
+    const said = statusOf(d);
+    expect(said).toBe(
+      'Analytics are off. You turned them off. Your browser did not save this choice, so it applies only to this page.',
+    );
+    w.dispatchEvent(new w.PageTransitionEvent('pageshow', { persisted: true }));
+    expect(privacy.get()).toMatchObject({ effective: 'denied', persisted: false });
+    expect(statusOf(d)).toBe(said);
   });
 
   it('does not say analytics never loaded when they loaded at boot and a re-enable could not be saved', () => {

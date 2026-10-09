@@ -426,6 +426,89 @@ describe('withdrawal and re-enable (§ Withdrawal, § Re-Enable)', () => {
     expect(privacy.get().effective).toBe('denied');
   });
 
+  it('keeps an unsaved choice when the page is restored from the back/forward cache (#1258)', () => {
+    // § Storage 3: a failed write keeps the choice for this page view. The
+    // restore must not swap it for the older saved value.
+    const { w, privacy, gate } = boot({ storage: 'write-throws' });
+    gate.registerTool('t', { stop() {} });
+    privacy.set('denied');
+    expect(privacy.get()).toMatchObject({ effective: 'denied', persisted: false });
+    const changes = [];
+    privacy.onChange((st) => changes.push(st.effective));
+    w.dispatchEvent(new w.PageTransitionEvent('pageshow', { persisted: true }));
+    expect(privacy.get()).toMatchObject({ saved: 'denied', effective: 'denied', persisted: false });
+    expect(w.document.documentElement.getAttribute('data-np-privacy')).toBe('denied');
+    expect(changes).toEqual([]);
+    // An unsaved dismissal survives the restore the same way.
+    const other = boot({ storage: 'write-throws' });
+    other.privacy.notice.dismiss();
+    other.w.dispatchEvent(new other.w.PageTransitionEvent('pageshow', { persisted: true }));
+    expect(other.privacy.notice.shouldShow()).toBe(false);
+  });
+
+  it('on restore, a newer choice saved by another tab still wins over an unsaved one (#1258)', () => {
+    const { w, privacy, gate } = boot();
+    const stops = [];
+    gate.registerTool('t', { stop: () => stops.push('t') });
+    const realSetItem = w.Storage.prototype.setItem;
+    w.Storage.prototype.setItem = function () {
+      throw new w.DOMException('full', 'QuotaExceededError');
+    };
+    privacy.notice.dismiss(); // fails: kept in memory only
+    expect(privacy.get().persisted).toBe(false);
+    // Another tab saves a denial while this page is frozen.
+    realSetItem.call(
+      w.localStorage,
+      'np-privacy',
+      JSON.stringify({ v: 1, choice: 'denied', noticeDismissed: false }),
+    );
+    w.dispatchEvent(new w.PageTransitionEvent('pageshow', { persisted: true }));
+    expect(privacy.get()).toMatchObject({ saved: 'denied', effective: 'denied' });
+    expect(stops).toEqual(['t']);
+  });
+
+  it('on restore, GPC turned on while the page was frozen takes precedence (#1258)', () => {
+    for (const storage of ['ok', 'write-throws']) {
+      const { w, privacy, gate } = boot({ storage });
+      const stops = [];
+      gate.registerTool('t', { stop: () => stops.push('t') });
+      privacy.notice.dismiss();
+      Object.defineProperty(w.navigator, 'globalPrivacyControl', {
+        value: true,
+        configurable: true,
+      });
+      w.dispatchEvent(new w.PageTransitionEvent('pageshow', { persisted: true }));
+      expect(privacy.get()).toMatchObject({ effective: 'denied', reason: 'gpc' });
+      expect(privacy.notice.shouldShow()).toBe(false);
+      expect(stops).toEqual(['t']);
+    }
+  });
+
+  it('on restore with storage unreadable, the in-memory choice stands (#1258)', () => {
+    const { w, privacy } = boot({ storage: 'throws' });
+    privacy.set('denied');
+    expect(privacy.get()).toMatchObject({ effective: 'denied', persisted: false });
+    w.dispatchEvent(new w.PageTransitionEvent('pageshow', { persisted: true }));
+    expect(privacy.get()).toMatchObject({ saved: 'denied', effective: 'denied', persisted: false });
+  });
+
+  it('withdrawal stays sticky through a restore that brings back a grant (#1258)', () => {
+    const { w, privacy, gate } = boot();
+    const stops = [];
+    gate.registerTool('t', { stop: () => stops.push('t') });
+    privacy.set('denied');
+    // Another tab re-grants while this page is frozen.
+    w.localStorage.setItem(
+      'np-privacy',
+      JSON.stringify({ v: 1, choice: 'granted', noticeDismissed: false }),
+    );
+    w.dispatchEvent(new w.PageTransitionEvent('pageshow', { persisted: true }));
+    expect(privacy.get()).toMatchObject({ effective: 'granted', reason: 'choice' });
+    // Re-enabling waits for the next load: nothing restarts, and a late tool is stopped at once.
+    gate.registerTool('late', { stop: () => stops.push('late') });
+    expect(stops).toEqual(['t', 'late']);
+  });
+
   it('stops a tool at once if it registers after a withdrawal', () => {
     const { privacy, gate } = boot();
     privacy.set('denied');

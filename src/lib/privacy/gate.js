@@ -134,23 +134,27 @@
   }
 
   /** § Storage 3: a read that throws is treated as unset. */
-  function readStorage() {
-    var raw;
+  /** The raw saved value, or `ok: false` when storage cannot be read. */
+  function readRaw() {
     try {
-      raw = w.localStorage.getItem(STORAGE_KEY);
+      return { ok: true, raw: w.localStorage.getItem(STORAGE_KEY) };
     } catch (_e) {
-      return unsetState();
+      return { ok: false, raw: null };
     }
-    return parseStored(raw);
+  }
+
+  function readStorage() {
+    var read = readRaw();
+    if (read.ok) knownRaw = read.raw;
+    return read.ok ? parseStored(read.raw) : unsetState();
   }
 
   /** § Storage 3: returns false when the write throws; the caller keeps the choice in memory. */
   function writeStorage(choice, noticeDismissed) {
+    var raw = JSON.stringify({ v: 1, choice: choice, noticeDismissed: noticeDismissed });
     try {
-      w.localStorage.setItem(
-        STORAGE_KEY,
-        JSON.stringify({ v: 1, choice: choice, noticeDismissed: noticeDismissed }),
-      );
+      w.localStorage.setItem(STORAGE_KEY, raw);
+      knownRaw = raw;
       return true;
     } catch (_e) {
       return false;
@@ -176,6 +180,9 @@
     return { effective: 'granted', reason: 'default' };
   }
 
+  // The saved value as of this page's last successful read or write. A failed
+  // write leaves it, and storage, unchanged (#1258).
+  var knownRaw;
   var stored = readStorage();
   var state = {
     saved: stored.choice,
@@ -1004,9 +1011,17 @@
     if (event.key === STORAGE_KEY || event.key === null) resync();
   });
   // A page restored from the back/forward cache missed every storage event
-  // while it was frozen, so it re-reads the saved choice.
+  // while it was frozen. If the saved value changed meanwhile, another tab made
+  // a newer choice, and it applies as any cross-tab change does (§ Storage 4).
+  // If it did not change, or cannot be read, the page's own state stands,
+  // including a choice whose write failed, which § Storage 3 keeps for this page
+  // view (#1258). GPC is re-checked in both cases, since it can change while
+  // the page is frozen.
   w.addEventListener('pageshow', function (event) {
-    if (event.persisted) resync();
+    if (!event.persisted) return;
+    var read = readRaw();
+    if (read.ok && read.raw !== knownRaw) resync();
+    else apply(state.saved, state.noticeDismissed);
   });
   w.npPrivacy = api;
 })(window);
