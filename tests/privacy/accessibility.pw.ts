@@ -38,6 +38,27 @@ function distContains(needle: string): boolean {
   return walk(DIST_DIR);
 }
 
+/** URL paths of every HTML page in the build under test, minus the never-deployed test fixtures. */
+function builtSitePages(): string[] {
+  const pages: string[] = [];
+  const walk = (dir: string, prefix: string): void => {
+    for (const name of readdirSync(dir)) {
+      const full = join(dir, name);
+      if (statSync(full).isDirectory()) {
+        if (!['_astro', 'og', 'images', 'fonts', 'test-fixtures'].includes(name)) {
+          walk(full, `${prefix}${name}/`);
+        }
+      } else if (name === 'index.html') {
+        pages.push(prefix);
+      } else if (name === '404.html') {
+        pages.push(`${prefix}404.html`);
+      }
+    }
+  };
+  walk(DIST_DIR, '/');
+  return pages.sort();
+}
+
 const noticeBuilt = distContains('np-privacy-notice');
 const controlsBuilt =
   existsSync(join(DIST_DIR, 'privacy', 'index.html')) && distContains('np-privacy-controls');
@@ -410,9 +431,12 @@ test.describe('notice', () => {
 test.describe('footer link', () => {
   test.beforeEach(() => needs(noticeBuilt, 'the footer link'));
 
-  // Site pages only: the test fixture is built in mode privacy-test alone and is never deployed
-  // (contract § Flag 3), so it is not one of the "every page" surfaces the link must appear on.
-  for (const path of ['/', '/blog/', '/projects/', '/resume/', '/404.html']) {
+  // Every page the build emits, enumerated from the built HTML rather than listed by hand. The site has
+  // several layouts (homepage, blog index and post, projects index and detail, résumé, 404, /privacy/) and a
+  // hand-written list goes stale the day a layout is added, which is how a blog-post or project-detail page
+  // could lose the link unnoticed. The one exclusion is the test fixture, which is built in mode privacy-test
+  // alone and is never deployed (contract § Feature Flag 3), so it is not one of the "every page" surfaces.
+  for (const path of builtSitePages()) {
     test(`PRIV-6 ${path} has the footer link to /privacy/, reachable by keyboard`, async ({
       open,
     }) => {
@@ -475,6 +499,15 @@ test.describe('controls on /privacy/', () => {
     await expect
       .poll(async () => (await status.innerText()).trim(), { message: 'status text changed again' })
       .not.toBe(denied);
+    // Re-enabling takes effect on the next load (contract § Re-Enable), so the status must say that and must
+    // not claim analytics are running now. Behavior, not exact copy.
+    const granted = (await status.innerText()).trim();
+    expect(granted, 'the grant status says collection resumes on the next page load').toMatch(
+      /next page/i,
+    );
+    expect(granted, 'the grant status makes no current-state "on" claim').not.toMatch(
+      /^Analytics are on/i,
+    );
   });
 
   test('PRIV-10 PRIV-6 with GPC active the controls show it, grant is unavailable, and the explanation is present', async ({
