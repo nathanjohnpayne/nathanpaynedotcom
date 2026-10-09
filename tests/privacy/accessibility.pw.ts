@@ -410,7 +410,9 @@ test.describe('notice', () => {
 test.describe('footer link', () => {
   test.beforeEach(() => needs(noticeBuilt, 'the footer link'));
 
-  for (const path of ['/', '/blog/', '/projects/', '/resume/', FIXTURE_PATH, '/404.html']) {
+  // Site pages only: the test fixture is built in mode privacy-test alone and is never deployed
+  // (contract § Flag 3), so it is not one of the "every page" surfaces the link must appear on.
+  for (const path of ['/', '/blog/', '/projects/', '/resume/', '/404.html']) {
     test(`PRIV-6 ${path} has the footer link to /privacy/, reachable by keyboard`, async ({
       open,
     }) => {
@@ -419,6 +421,14 @@ test.describe('footer link', () => {
       const link = s.page.locator('a[data-np-privacy-ui="footer-link"]');
       await expect(link).toHaveCount(1);
       await expect(link).toHaveAttribute('href', '/privacy/');
+      // On the desktop homepage the link sits in the Connect panel, whose content shows once the
+      // panel opens. Open it the way a keyboard visitor does (Enter on the panel label), so the
+      // check below covers the reachable path rather than reading a collapsed panel.
+      if (path === '/' && !(await link.isVisible())) {
+        await s.page.locator('[data-panel="connect"] .panel-label').focus();
+        await s.page.keyboard.press('Enter');
+        await expect(link).toBeVisible();
+      }
       expect((await link.innerText()).trim().length).toBeGreaterThan(0);
       await link.scrollIntoViewIfNeeded();
       await expectFocusIndicator(
