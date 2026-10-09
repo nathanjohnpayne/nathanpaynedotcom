@@ -588,7 +588,7 @@ scripts/deploy-artifact.sh --hosting-only
 For Claude Code cloud scheduled tasks:
 
 1. Retrieve the key: `op document get "nathanpaynedotcom — Firebase Deployer SA Key" --vault Firebase`.
-2. In the task's cloud environment, add `FIREBASE_SA_KEY=<the JSON>` and `CF_API_TOKEN=<the purge token>`.
+2. In the task's cloud environment, add `FIREBASE_SA_KEY=<the JSON>`, `CF_API_TOKEN=<the purge token>`, and `GH_TOKEN=<a token with read access to this repository's Actions artifacts and attestations>` for the artifact download and `gh attestation verify`.
 3. Add a setup script that writes the key to a private file and exports it, then deploy with `scripts/deploy-artifact.sh` as above:
    ```bash
    umask 077
