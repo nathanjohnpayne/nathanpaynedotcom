@@ -186,6 +186,16 @@ test.describe('withdrawal', () => {
     const changes = await recordedChanges(s.page);
     expect(changes.at(-1)).toMatchObject({ effective: 'denied' });
 
+    // Stricter than the arrival cutoff: no analytics request may have been INITIATED after the withdrawal (a small
+    // margin covers the delay before the context reports a request). Only requests already started when
+    // set('denied') ran may still complete.
+    expect(
+      s
+        .attemptedVendorRequests()
+        .filter((r) => (r.startedAt ?? 0) > withdrawn.at + 250)
+        .map((r) => `${r.method} ${r.url}`),
+      'no analytics request was initiated after the withdrawal',
+    ).toEqual([]);
     const late = s.sink.requests.filter(
       (r) => r.at > cutoff && (r.vendor === 'posthog' || r.vendor === 'ga4' || r.vendor === 'gtm'),
     );
@@ -457,6 +467,40 @@ test.describe('Global Privacy Control', () => {
       loadedThisPage: false,
     });
     await expectNoAnalytics(later, mark, 8000);
+  });
+});
+
+test.describe('change notifications', () => {
+  test('PRIV-5 onChange delivers the new snapshot after the DOM event, and its unsubscribe stops delivery', async ({
+    open,
+  }) => {
+    const s = await open();
+    await s.goto(FIXTURE_PATH);
+    await gateReady(s.page);
+    const log = await s.page.evaluate(() => {
+      const gate = window.npPrivacy!;
+      const order: string[] = [];
+      const kept: unknown[] = [];
+      const dropped: unknown[] = [];
+      window.addEventListener('np:privacy-change', () => order.push('event'));
+      gate.onChange((state) => {
+        order.push('callback');
+        kept.push(state);
+      });
+      const unsubscribe = gate.onChange((state) => dropped.push(state));
+      unsubscribe(); // must stop this one
+      const accepted = gate.set('denied');
+      const afterDenied = gate.get();
+      // A second change after unsubscribing: the dropped callback still hears nothing, the kept one does.
+      gate.set('granted');
+      return { accepted, order, kept, dropped, afterDenied };
+    });
+    expect(log.accepted).toBe(true);
+    expect(log.kept, 'one callback per applied change').toHaveLength(2);
+    expect(log.kept[0], 'the callback receives the get() snapshot').toEqual(log.afterDenied);
+    expect(log.dropped, 'an unsubscribed callback is never called').toEqual([]);
+    // Contract: the DOM event is dispatched first, then the onChange listeners.
+    expect(log.order.slice(0, 2)).toEqual(['event', 'callback']);
   });
 });
 

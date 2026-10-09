@@ -142,7 +142,13 @@ export function decodeBody(
         json: expanded.value,
       };
     } catch {
-      // fall through: not JSON after all
+      // A body that opens like JSON but does not parse (truncated, corrupted) cannot be searched reliably: a
+      // compressed value inside it stays opaque. Flag it so an absence check refuses to pass over it.
+      return {
+        searchable: `${urlText}\n${text}\n${safeDecodeURIComponent(text)}`,
+        plain: `${url}\n${text}`,
+        undecoded: true,
+      };
     }
   }
   // A body that is mostly non-printable and was not recognised cannot be searched.

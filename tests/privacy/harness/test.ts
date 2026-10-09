@@ -86,6 +86,8 @@ export interface RequestRecord {
   method: string;
   resourceType: string;
   failure?: string;
+  /** Wall-clock time the context reported the request starting (absent for WebSocket attempts). */
+  startedAt?: number;
 }
 
 export interface SessionOptions {
@@ -185,7 +187,12 @@ export class Session {
     const page = await context.newPage();
     const session = new Session(context, page, egress, denied, wsDenied);
     context.on('request', (r) =>
-      session.requests.push({ url: r.url(), method: r.method(), resourceType: r.resourceType() }),
+      session.requests.push({
+        url: r.url(),
+        method: r.method(),
+        resourceType: r.resourceType(),
+        startedAt: Date.now(),
+      }),
     );
     context.on('requestfailed', (r) => {
       const entry = session.requests.find((x) => x.url === r.url() && x.failure === undefined);

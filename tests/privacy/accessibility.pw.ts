@@ -251,7 +251,9 @@ test.describe('notice', () => {
     expect(await s.privacy()).toMatchObject({ saved: 'unset', effective: 'granted' });
     await expectCollectionContinues(s, { ga4: fixtureState.gtag.available });
     const mark = s.sink.mark();
-    await s.page.reload();
+    // A fresh load of the fixture, not `reload()`: the continuation helper may have unloaded this page to flush
+    // an unload-only GA4 hit, which would leave a reload on about:blank.
+    await s.goto(FIXTURE_PATH);
     await expect(s.page.locator(NOTICE)).toBeHidden();
     await expectCollecting(s, { ga4: false, mark });
   });
@@ -472,7 +474,13 @@ test.describe('controls on /privacy/', () => {
     expect(unavailable, 'the grant button is disabled').toBe(true);
     const explanation = controls.locator('[data-np-privacy-ui="gpc-explanation"]');
     await expect(explanation).toBeVisible();
-    expect((await explanation.innerText()).trim().length).toBeGreaterThan(0);
+    // Not exact copy (that belongs to #1229), but the contract's meaning: the explanation names the signal
+    // the browser sends, and it is not the same text as the ordinary status.
+    const explanationText = (await explanation.innerText()).trim();
+    expect(explanationText, 'the explanation names GPC').toMatch(/gpc|global privacy control/i);
+    expect(explanationText).not.toBe(
+      (await controls.locator('[data-np-privacy-ui="status"]').innerText()).trim(),
+    );
     expect(await s.page.evaluate(() => window.npPrivacy?.set('granted'))).toBe(false);
     // Without GPC the attribute is absent and grant is available (control).
     const plain = await open();
@@ -480,6 +488,32 @@ test.describe('controls on /privacy/', () => {
     await gateReady(plain.page);
     await expect(plain.page.locator(CONTROLS)).not.toHaveAttribute('data-np-privacy-gpc', /.*/);
     await expect(plain.page.locator(CONTROLS).locator(action('grant'))).toBeEnabled();
+  });
+
+  test('PRIV-3 PRIV-6 when storage is blocked the controls report the choice differently from a saved one', async ({
+    open,
+  }) => {
+    // The contract: a failed write still applies for this page view, and the controls tell the visitor plainly
+    // that it could not be saved and applies only to this page. Exact wording is #1229's; the behavior is that
+    // the announcement for an unsaved choice is not the one for a saved choice.
+    const statusAfterDeny = async (blockStorage: boolean): Promise<string> => {
+      const s = await open({ blockStorage });
+      await s.goto('/privacy/');
+      await gateReady(s.page);
+      const status = s.page.locator(CONTROLS).locator('[data-np-privacy-ui="status"]');
+      await s.page.locator(CONTROLS).locator(action('deny')).click();
+      expect(await s.privacy()).toMatchObject({
+        effective: 'denied',
+        persisted: !blockStorage,
+      });
+      await expect.poll(async () => (await status.innerText()).trim()).not.toBe('');
+      return (await status.innerText()).trim();
+    };
+    const saved = await statusAfterDeny(false);
+    const unsaved = await statusAfterDeny(true);
+    expect(unsaved, 'the unsaved-choice announcement differs from the saved-choice one').not.toBe(
+      saved,
+    );
   });
 
   test('PRIV-6 the controls work by keyboard alone', async ({ open }) => {

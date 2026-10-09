@@ -129,6 +129,15 @@ test.describe('the canary detector sees every encoding the SDKs use, and rejects
     expect(truncatedGzip.undecoded).toBe(true);
   });
 
+  test('PRIV-2 (instrument) a body that opens like JSON but does not parse is flagged, not searched as plain text', () => {
+    const truncated = Buffer.from('{"event":"x","properties":{"data":"abc');
+    expect(decodeBody(truncated, 'text/plain', 'https://d.nathanpayne.com/s/').undecoded).toBe(
+      true,
+    );
+    const valid = Buffer.from('{"event":"e"}');
+    expect(decodeBody(valid, 'text/plain', 'https://d.nathanpayne.com/e/').undecoded).toBe(false);
+  });
+
   test('PRIV-2 (instrument) GA4 multi-event body parses into events with the shared parameters merged in', () => {
     const events = ga4Events(
       'https://www.google-analytics.com/g/collect?v=2&tid=G-X&dl=https%3A%2F%2Fa.test%2F',
