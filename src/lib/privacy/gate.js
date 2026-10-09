@@ -436,6 +436,18 @@
     });
   }
 
+  /**
+   * A retained element attribute's value: an href is a URL and is scrubbed as
+   * one; every other kept attribute (aria-label, id, class, name, type, role)
+   * goes through scrubString, so a URL that is the whole value or embedded in
+   * it is scrubbed and anything else is returned unchanged.
+   */
+  function scrubAttributeValue(key, value) {
+    if (typeof value !== 'string') return value;
+    if (key === 'href' || key === 'attr__href') return scrubUrl(value);
+    return scrubString(key, value);
+  }
+
   /** One `$elements` entry: structural attributes only, URLs scrubbed, protected text dropped. */
   function scrubElement(element, ctx) {
     if (!isPlainObject(element)) return element;
@@ -444,15 +456,18 @@
       if (!Object.prototype.hasOwnProperty.call(element, key)) continue;
       var value = element[key];
       if (key.indexOf('attr__') === 0) {
-        var name = key.slice(6);
-        if (STRUCTURAL_ATTRIBUTES.indexOf(name) < 0) continue;
-        out[key] = name === 'href' ? scrubUrl(value) : value;
+        if (STRUCTURAL_ATTRIBUTES.indexOf(key.slice(6)) < 0) continue;
+        out[key] = scrubAttributeValue(key, value);
       } else if (key === 'href') {
-        out[key] = scrubUrl(value);
+        out[key] = scrubAttributeValue(key, value);
       } else if (key === '$el_text') {
         if (!isProtectedText(value, ctx)) {
           out[key] = typeof value === 'string' ? scrubEmbedded(value) : value;
         }
+      } else if (key === 'classes' && Array.isArray(value)) {
+        out[key] = value.map(function (name) {
+          return scrubAttributeValue('attr__class', name);
+        });
       } else {
         out[key] = value;
       }
@@ -525,15 +540,38 @@
     return raw.replace(/\\"/g, '"');
   }
 
+  /*
+   * The inverse of decodeChainValue: a backslash before every `"`, nothing
+   * else (written as split/join; the output is the same as
+   * `.replace(/"/g, '\\"')`). It is deliberately not a general string escape:
+   * PostHog's format never escapes a backslash (see above), and this must
+   * reproduce exactly the raw value decodeChainValue was given.
+   */
   function encodeChainValue(value) {
-    return String(value).replace(/"/g, '\\"');
+    return String(value).split('"').join('\\"');
+  }
+
+  /**
+   * A chain head is the tag, then `.class` for each class (posthog-js drops
+   * `"` from classes there). Class names hold no whitespace, so a URL in one
+   * is the whole class. An `http(s):` one ends the head at its colon, and the
+   * attribute parser drops what follows. A scheme-relative one (`//host/?x`,
+   * or a backslash spelling) would survive intact, and its own dots cannot be
+   * told apart from class separators, so the head is cut before it: that class
+   * and any after it leave the head (the scrubbed attr__class keeps them).
+   */
+  function scrubChainHead(head) {
+    var match = /\.[\\/]{2}/.exec(head);
+    return match ? head.slice(0, match.index) : head;
   }
 
   /**
    * Keeps the chain attributes PostHog selectors use (nth-child, nth-of-type,
-   * attr_id, text) plus structural `attr__*` ones, scrubs hrefs, and drops
-   * text from masked or blocked regions. A chain that will not parse is
-   * dropped whole: an unknown shape could carry anything.
+   * attr_id, text) plus structural `attr__*` ones, scrubs every kept value
+   * (hrefs as URLs, everything else for whole or embedded URLs), and drops
+   * text from masked or blocked regions. A value scrubbing leaves unchanged
+   * keeps its raw bytes. A chain that will not parse is dropped whole: an
+   * unknown shape could carry anything.
    */
   function scrubChain(chain, ctx) {
     var elements = parseChain(chain);
@@ -545,26 +583,32 @@
       for (var a = 0; a < attrs.length; a++) {
         var key = attrs[a].key;
         var raw = attrs[a].raw;
-        if (key === 'href' || key === 'attr__href') {
-          raw = encodeChainValue(scrubUrl(decodeChainValue(raw)));
-          // Scrubbing can leave a trailing backslash a raw value never had
+        var value = decodeChainValue(raw);
+        var scrubbed;
+        if (key === 'text') {
+          if (isProtectedText(value, ctx)) continue;
+          scrubbed = scrubEmbedded(value);
+        } else if (key === 'href' || key === 'attr_id' || key.indexOf('attr__') === 0) {
+          if (key.indexOf('attr__') === 0 && STRUCTURAL_ATTRIBUTES.indexOf(key.slice(6)) < 0) {
+            continue;
+          }
+          scrubbed = scrubAttributeValue(key, value);
+        } else if (key === 'nth-child' || key === 'nth-of-type') {
+          scrubbed = value;
+        } else {
+          continue;
+        }
+        if (scrubbed !== value) {
+          raw = encodeChainValue(scrubbed);
+          // Scrubbing can leave a trailing backslash the raw value never had
           // (`?utm_source=a\&email=x` becomes `?utm_source=a\`), and `\` before
           // the closing quote reads as `\"` in PostHog's format, so the value
           // would run into the next attribute. Drop that attribute instead.
           if (raw.charAt(raw.length - 1) === '\\') continue;
-        } else if (key === 'text') {
-          var text = decodeChainValue(raw);
-          if (isProtectedText(text, ctx)) continue;
-          raw = encodeChainValue(scrubEmbedded(text));
-          if (raw.charAt(raw.length - 1) === '\\') continue;
-        } else if (key.indexOf('attr__') === 0) {
-          if (STRUCTURAL_ATTRIBUTES.indexOf(key.slice(6)) < 0) continue;
-        } else if (key !== 'nth-child' && key !== 'nth-of-type' && key !== 'attr_id') {
-          continue;
         }
         kept += key + '="' + raw + '"';
       }
-      out.push(elements[e].head + ':' + kept);
+      out.push(scrubChainHead(elements[e].head) + ':' + kept);
     }
     return out.join(';');
   }
@@ -924,6 +968,8 @@
     scrubEvent: scrubEvent,
     maskReplayAttribute: maskReplayAttribute,
     maskNetworkRequest: maskNetworkRequest,
+    decodeChainValue: decodeChainValue,
+    encodeChainValue: encodeChainValue,
     isReplayExcluded: isReplayExcluded,
     isAnalyticsUrl: isAnalyticsUrl,
     ALLOWED_QUERY_PARAMS: ALLOWED_QUERY_PARAMS,

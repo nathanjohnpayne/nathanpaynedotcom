@@ -748,6 +748,139 @@ describe('event scrubbing: PostHog before_send (§ Capture Minimization 3–4)',
       const href = 'a:attr__href="/x\\"attr__data-x="NP-SECRET"nth-child="1"nth-of-type="1"';
       expect(scrub(href)).not.toContain('NP-SECRET');
     });
+
+    it('encodes exactly as before the split/join rewrite (#1245), and inverts decode', () => {
+      const { gate } = boot();
+      const previous = (value) => String(value).replace(/"/g, '\\"');
+      const samples = [...awkward, '', '"', '\\', '\\"', '""', '\\\\""', 'a"b"c\\"d'];
+      for (let i = 0; i < 200; i += 1) {
+        samples.push(
+          Array.from(
+            { length: 1 + (i % 9) },
+            (_, k) => ['"', '\\', 'x', ' '][(i * 7 + k * 3) % 4],
+          ).join(''),
+        );
+      }
+      for (const value of samples) {
+        expect(gate.encodeChainValue(value), JSON.stringify(value)).toBe(previous(value));
+        expect(gate.decodeChainValue(gate.encodeChainValue(value))).toBe(value);
+        const raw = escapeQuotes(value);
+        expect(gate.encodeChainValue(gate.decodeChainValue(raw))).toBe(raw);
+      }
+    });
+
+    it('matches escapeQuotes wherever no backslash precedes a quote, and round-trips where one does', () => {
+      // escapeQuotes maps both `"` and `\"` to `\"`, so it is lossy for a value
+      // holding `\"`; the encoder keeps that backslash, which is what makes
+      // encode(decode(raw)) === raw above. On every other value they agree.
+      const { gate } = boot();
+      for (const value of awkward) {
+        if (value.includes('\\"')) {
+          expect(gate.decodeChainValue(gate.encodeChainValue(value))).toBe(value);
+        } else {
+          expect(gate.encodeChainValue(value), value).toBe(escapeQuotes(value));
+        }
+      }
+    });
+  });
+
+  describe('retained attribute values (#1245)', () => {
+    const scrubEvent = (properties) =>
+      boot().gate.scrubEvent({ event: '$autocapture', properties }).properties;
+
+    it('scrubs a URL in aria-label in $elements and in $elements_chain', () => {
+      const out = scrubEvent({
+        $elements: [
+          {
+            tag_name: 'a',
+            'attr__aria-label': 'https://example.test/?email=NP-SECRET#private',
+            nth_child: 1,
+          },
+        ],
+        $elements_chain:
+          'a:attr__aria-label="https://example.test/?email=NP-SECRET#private"nth-child="1"nth-of-type="1"',
+      });
+      expect(out.$elements).toEqual([
+        { tag_name: 'a', 'attr__aria-label': 'https://example.test/', nth_child: 1 },
+      ]);
+      expect(out.$elements_chain).toBe(
+        'a:attr__aria-label="https://example.test/"nth-child="1"nth-of-type="1"',
+      );
+    });
+
+    it('scrubs URLs embedded in id and class values, wherever the class appears', () => {
+      const cls = 'card //cdn.example.test/x.png?sig=NP-SECRET-CLASS wide';
+      const out = scrubEvent({
+        $elements: [
+          {
+            tag_name: 'div',
+            attr__id: 'see https://example.test/p?token=NP-SECRET-ID now',
+            attr__class: cls,
+            classes: ['card', '//cdn.example.test/x.png?sig=NP-SECRET-CLASS', 'wide'],
+          },
+        ],
+        $elements_chain:
+          'div.//cdn.example.test/x.png?sig=NP-SECRET-CLASS.card.wide:' +
+          `attr__class="${cls}"attr__id="see https://example.test/p?token=NP-SECRET-ID now"` +
+          'attr_id="see https://example.test/p?token=NP-SECRET-ID now"nth-child="1"nth-of-type="1"',
+      });
+      expect(out.$elements).toEqual([
+        {
+          tag_name: 'div',
+          attr__id: 'see https://example.test/p now',
+          attr__class: 'card //cdn.example.test/x.png wide',
+          classes: ['card', '//cdn.example.test/x.png', 'wide'],
+        },
+      ]);
+      expect(out.$elements_chain).toBe(
+        'div:attr__class="card //cdn.example.test/x.png wide"' +
+          'attr__id="see https://example.test/p now"attr_id="see https://example.test/p now"' +
+          'nth-child="1"nth-of-type="1"',
+      );
+      expect(JSON.stringify(out)).not.toContain('NP-SECRET');
+    });
+
+    it('drops an http(s): class from the head through the parse, not the head scrub', () => {
+      // A colon in a class ends the head early, so the rest becomes an unknown
+      // key and is dropped with its value.
+      const out = scrubEvent({
+        $elements_chain:
+          'a.https://example.test/?email=NP-SECRET:attr__class="https://example.test/?email=NP-SECRET"nth-child="1"',
+      });
+      expect(out.$elements_chain).toBe('a.https:nth-child="1"');
+    });
+
+    it('drops a re-encoded retained value that would end in a backslash', () => {
+      const out = scrubEvent({
+        $elements_chain:
+          'a:attr__aria-label="https://x.test/?utm_source=a\\&email=NP-SECRET"attr__id="keep"nth-child="1"',
+      });
+      expect(out.$elements_chain).toBe('a:attr__id="keep"nth-child="1"');
+    });
+
+    it('leaves non-URL values byte-identical, quotes and backslashes included', () => {
+      const chain =
+        'button.btn.btn--primary:attr__aria-label="Say \\"hi\\" to a\\b"attr__class="btn btn--primary"' +
+        'attr__id="cta-1"attr__name="go"attr__role="button"attr__type="submit"attr_id="cta-1"' +
+        'nth-child="3"nth-of-type="2"text="Go \\\\ now"';
+      const elements = [
+        {
+          tag_name: 'button',
+          'attr__aria-label': 'Say "hi" to a\\b',
+          attr__class: 'btn btn--primary',
+          attr__id: 'cta-1',
+          attr__name: 'go',
+          attr__role: 'button',
+          attr__type: 'submit',
+          classes: ['btn', 'btn--primary'],
+          nth_child: 3,
+          nth_of_type: 2,
+        },
+      ];
+      const out = scrubEvent({ $elements_chain: chain, $elements: elements });
+      expect(out.$elements_chain).toBe(chain);
+      expect(out.$elements).toEqual(elements);
+    });
   });
 
   it('applies the same rules to the legacy $elements array', () => {
