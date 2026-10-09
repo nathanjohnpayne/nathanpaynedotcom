@@ -264,7 +264,7 @@ test('turning analytics off from the notice is one step and holds across loads; 
   await expect(status(page)).toHaveText('Analytics are off. You turned them off.');
   await controlAction(page, 'grant').click();
   await expect(status(page)).toHaveText(
-    'Analytics are on. You turned them on. They start on the next page you load.',
+    'You turned analytics back on. They stay off on this page and start on the next page you load.',
   );
   await page.reload();
   await expect(status(page)).toHaveText('Analytics are on. You turned them on.');
