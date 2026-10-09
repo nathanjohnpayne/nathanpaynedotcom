@@ -15,6 +15,7 @@ import {
   replayItems,
   sensitiveFixtureUrl,
   typeCanaries,
+  unloadAndSettle,
   urlViolations,
 } from './harness/helpers';
 import { expect, test } from './harness/test';
@@ -69,7 +70,7 @@ test.describe('replay payloads', () => {
     await Promise.all([s.page.waitForLoadState('load'), s.page.click('#fixture-sensitive-link')]);
     await humanActivity(s.page);
     await s.page.waitForTimeout(5000);
-    await s.page.goto('about:blank');
+    await unloadAndSettle(s.page);
     await expect.poll(() => s.sink.snapshotEvents().length).toBeGreaterThan(1);
 
     const items = replayItems(s);
@@ -181,7 +182,12 @@ test.describe('replay payloads', () => {
     await typeCanaries(s.page);
     await s.page.fill('#fixture-email', `${CANARIES.input}@example.test`);
     await s.page.waitForTimeout(4000);
-    await s.page.goto('about:blank');
+    await unloadAndSettle(s.page);
+    await expect
+      .poll(() => replayItems(s).filter((i) => i.type === 3 && i.data?.source === 5).length, {
+        message: 'the typing was flushed to the sink',
+      })
+      .toBeGreaterThan(0);
     const typed = replayItems(s)
       .filter((i) => i.type === 3 && i.data?.source === 5)
       .map((i) => String(i.data?.text));
@@ -210,7 +216,7 @@ test.describe('capture configuration (PRIV-13)', () => {
     await s.page.evaluate(() => console.log('np-console-probe'));
     await expectCollecting(s, { ga4: false });
     await s.page.waitForTimeout(3000);
-    await s.page.goto('about:blank');
+    await unloadAndSettle(s.page);
 
     const items = replayItems(s);
     const options = customPayload(items, '$session_options') as
@@ -255,7 +261,14 @@ test.describe('capture configuration (PRIV-13)', () => {
       'np-console-probe-with-url https://nathanpayne.test/x?email=NP-CANARY-QUERY%40example.test#NP-CANARY-FRAGMENT';
     await s.page.evaluate((m) => console.log(m), marker);
     await s.page.waitForTimeout(4000);
-    await s.page.goto('about:blank');
+    await unloadAndSettle(s.page);
+    await expect
+      .poll(
+        () =>
+          replayItems(s).filter((i) => i.type === 6 && i.data?.plugin === 'rrweb/console@1').length,
+        { message: 'the console record reached the sink' },
+      )
+      .toBeGreaterThan(0);
 
     const items = replayItems(s);
     const options = customPayload(items, '$session_options') as

@@ -7,7 +7,13 @@
  */
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { FIXTURE_PATH, LOCAL_HOST_ALIAS, REPO_ROOT, TEST_HOST } from './harness/constants';
+import {
+  ASSET_HOST,
+  FIXTURE_PATH,
+  LOCAL_HOST_ALIAS,
+  REPO_ROOT,
+  TEST_HOST,
+} from './harness/constants';
 import {
   eventsNamed,
   expectCollecting,
@@ -60,7 +66,8 @@ test.describe('PostHog identity and exclusion basis (PRIV-7)', () => {
     open,
   }) => {
     const s = await open();
-    // Positive control for the page itself: the same fixture on the non-local host initializes PostHog.
+    // On the *.localhost alias PostHog must stay uninitialized. The positive control, the same fixture on the
+    // non-local host initializing PostHog, is at the end of this test.
     await s.page.goto(`https://${LOCAL_HOST_ALIAS}${FIXTURE_PATH}`, { waitUntil: 'load' });
     await gateReady(s.page);
     expect(await s.page.evaluate(() => location.hostname)).toBe(LOCAL_HOST_ALIAS);
@@ -93,23 +100,32 @@ test.describe('nothing new (PRIV-16)', () => {
     await s.page.goto('about:blank');
     await s.page.waitForTimeout(1500);
 
-    // Hosts: only the three the site has always used.
-    const hosts = new Set(s.sink.vendorRequests().map((r) => r.host));
-    const expected = ['d.nathanpayne.com', 'www.googletagmanager.com', 'www.google-analytics.com'];
+    // Hosts: every outbound attempt the page made, including ones the default-deny route aborted and ones the
+    // sink never saw, not just the hosts the harness recognizes as analytics vendors.
+    const siteHosts = [TEST_HOST, ASSET_HOST, LOCAL_HOST_ALIAS];
+    const attempted = new Set([
+      ...s.requests.map((r) => new URL(r.url).hostname),
+      ...s.sink.requests.map((r) => r.host),
+      ...s.sink.refusals.map((r) => r.target.replace(/:\d+$/, '').replace(/\/.*$/, '')),
+    ]);
+    // The three analytics hosts the site has always used, plus the Google Fonts stylesheet host every page links
+    // (the route aborts it; it is not an analytics or advertising endpoint).
+    const expected = [
+      ...siteHosts,
+      'd.nathanpayne.com',
+      'www.googletagmanager.com',
+      'www.google-analytics.com',
+      'fonts.googleapis.com',
+    ];
     expect(
-      [...hosts].filter((h) => !expected.includes(h)),
-      'no analytics-vendor host beyond the three in use',
+      [...attempted].filter((h) => !expected.includes(h)),
+      'no host beyond the ones the site has always used',
     ).toEqual([]);
     expect(
-      [...hosts].filter((h) =>
+      [...attempted].filter((h) =>
         /doubleclick|googleadservices|googlesyndication|facebook|linkedin|twitter|tiktok/.test(h),
       ),
       'no advertising host contacted',
-    ).toEqual([]);
-    expect(
-      s
-        .attemptedVendorRequests()
-        .filter((r) => /doubleclick|googleadservices|google\.com\/(ads|pagead)/.test(r.url)),
     ).toEqual([]);
 
     // Identity: the site never calls identify(), and nothing new does.
@@ -170,6 +186,8 @@ test.describe('storage footprint', () => {
     await s.goto(FIXTURE_PATH);
     await expectCollecting(s, { ga4: fixtureState.gtag.available });
     await s.page.evaluate(() => window.npPrivacy?.set('denied'));
+    await expect.poll(async () => (await s.privacy())?.effective).toBe('denied');
+    await s.page.waitForTimeout(500); // let any vendor opt-out write land before the snapshot
     const cookies = await s.context.cookies();
     expect(cookies.length, 'the vendors set their own cookies (positive control)').toBeGreaterThan(
       0,

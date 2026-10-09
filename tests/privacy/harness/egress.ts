@@ -567,7 +567,18 @@ export class Egress {
     const headers: Record<string, string> = {};
     for (const [k, v] of Object.entries(req.headers))
       headers[k] = Array.isArray(v) ? v.join(', ') : (v ?? '');
-    const bodyText = decoded.searchable;
+    // Request headers are transmitted data too (a full-URL Referer, a Cookie): fold them into what the
+    // absence checks search, minus the headers that only describe the harness connection.
+    const headerText = Object.entries(headers)
+      .filter(
+        ([k]) =>
+          !/^(host|connection|content-length|accept|accept-encoding|accept-language|user-agent|sec-|priority|cache-control|pragma)/i.test(
+            k,
+          ),
+      )
+      .map(([k, v]) => `${k}: ${v}`)
+      .join('\n');
+    const bodyText = `${decoded.searchable}\n${headerText}`;
     this.sink.requests.push({
       seq: this.sink.next(),
       at: Date.now(),
@@ -581,7 +592,7 @@ export class Egress {
       headers,
       isCollection,
       searchable: bodyText,
-      plain: decoded.plain,
+      plain: `${decoded.plain}\n${headerText}`,
       undecoded: decoded.undecoded,
       posthog: vendor === 'posthog' && isCollection ? postHogEvents(decoded.json) : [],
       ga4:

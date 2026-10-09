@@ -51,7 +51,8 @@ export interface ScriptAudit {
   sdkScripts: string[];
   posthogGlobal: boolean;
   gtagLibraryGlobal: boolean;
-  dataLayerEntries: number;
+  /** The page-level GA bootstrap: a defined `window.gtag` function or a `window.dataLayer` array. */
+  gtagBootstrap: { gtagFunction: boolean; dataLayer: boolean; dataLayerEntries: number };
 }
 
 /** What a denied page may and may not contain (contract, Gate item 3). */
@@ -70,7 +71,11 @@ export async function auditSdk(page: Page): Promise<ScriptAudit> {
       posthogGlobal: typeof w.posthog !== 'undefined',
       // google_tag_manager is defined by the real gtag.js, not by a page-level stub.
       gtagLibraryGlobal: typeof w.google_tag_manager !== 'undefined',
-      dataLayerEntries: Array.isArray(w.dataLayer) ? (w.dataLayer as unknown[]).length : 0,
+      gtagBootstrap: {
+        gtagFunction: typeof w.gtag === 'function',
+        dataLayer: Array.isArray(w.dataLayer),
+        dataLayerEntries: Array.isArray(w.dataLayer) ? (w.dataLayer as unknown[]).length : 0,
+      },
     };
   });
 }
@@ -82,6 +87,12 @@ export async function expectNoAnalytics(s: Session, mark = 0, dwellMs = 7000): P
   expect(audit.sdkScripts, 'no PostHog or GA4 script element').toEqual([]);
   expect(audit.posthogGlobal, 'window.posthog is not defined').toBe(false);
   expect(audit.gtagLibraryGlobal, 'the gtag.js library did not run').toBe(false);
+  // A partial initialization (the page-level bootstrap without the external loader) is still GA starting up.
+  expect(audit.gtagBootstrap, 'no window.gtag function and no dataLayer were created').toEqual({
+    gtagFunction: false,
+    dataLayer: false,
+    dataLayerEntries: 0,
+  });
   expect(
     s.sink.vendorRequests(mark).map((r) => `${r.method} ${r.host}${r.path}`),
     'no request reached the sink for an analytics host',
@@ -130,6 +141,16 @@ export async function expectCollecting(
       })
       .toBe(true);
   }
+}
+
+/**
+ * Unload the page and give the SDK's last flush time to reach the sink. The final replay batch is sent while the
+ * page unloads, so a read that races it can miss the most recent activity, which is where a masking regression
+ * would show.
+ */
+export async function unloadAndSettle(page: Page, settleMs = 1500): Promise<void> {
+  await page.goto('about:blank');
+  await page.waitForTimeout(settleMs);
 }
 
 /** Pointer movement and a scroll: the minimum that makes the recorder treat the visit as attended. */
@@ -320,4 +341,37 @@ export function storageRaw(value: string) {
 
 export async function storedValue(page: Page): Promise<string | null> {
   return page.evaluate(() => localStorage.getItem('np-privacy'));
+}
+
+/**
+ * Shows that collection is still live in the CURRENT page view: a PostHog event and (with a gtag fixture) a
+ * GA4 event issued now reach the sink. Used after an action that must not stop analytics, such as dismissing
+ * the notice, where a reload would hide a regression by initializing the tools again.
+ */
+export async function expectCollectionContinues(
+  s: Session,
+  options: { ga4: boolean },
+): Promise<void> {
+  const mark = s.sink.mark();
+  await s.page.evaluate(`(() => {
+    window.posthog?.capture('np_continue_probe', { probe: 'after-action' });
+    if (typeof window.gtag === 'function') window.gtag('event', 'np_continue_probe');
+  })()`);
+  await humanActivity(s.page);
+  const posthogSeen = (): boolean =>
+    s.sink.posthogEvents(mark).some(({ event }) => event.event === 'np_continue_probe');
+  const ga4Seen = (): boolean =>
+    s.sink.ga4Events(mark).some(({ event }) => event.name === 'np_continue_probe');
+  await expect
+    .poll(posthogSeen, { message: 'a PostHog event issued now reached the sink', timeout: 15_000 })
+    .toBe(true);
+  if (options.ga4) {
+    // gtag may hold a hit until the page unloads; unloading flushes it and ends this page view last.
+    await expect
+      .poll(ga4Seen, { timeout: 8000 })
+      .toBe(true)
+      .catch(() => undefined);
+    if (!ga4Seen()) await unloadAndSettle(s.page);
+    expect(ga4Seen(), 'a GA4 event issued now reached the sink').toBe(true);
+  }
 }

@@ -82,10 +82,13 @@ test.describe('pending Nathan', () => {
       `[PRIV-2 finding] GA4 enhanced-measurement parameters produced: ${[...produced].join(', ')}`,
     );
     console.log(`[PRIV-2 finding] GA4 enhanced-measurement leaks: ${leaks.join(' | ') || 'none'}`);
-    expect(
-      produced.size,
-      'positive control: enhanced-measurement parameters were produced',
-    ).toBeGreaterThan(0);
+    // `test.fail` above covers the leak assertion only: with nothing produced there is nothing to leak, which
+    // means Nathan turned the events off (the finding is resolved) or gtag.js changed, so this skips as a
+    // changed state rather than staying green as another expected failure.
+    test.skip(
+      produced.size === 0,
+      'not verified: no enhanced-measurement parameters were produced. If the events were turned off, the finding is resolved: delete this test.fail and the skip.',
+    );
     expect(leaks, 'enhanced-measurement parameters carrying a sensitive value').toEqual([]);
   });
 
@@ -105,13 +108,16 @@ test.describe('pending Nathan', () => {
     );
     await s.page.waitForTimeout(4000);
     await s.page.goto('about:blank');
+    await s.page.waitForTimeout(1500); // let the unload flush reach the sink
     const consoleRecords = replayItems(s).filter(
       (i) => i.type === 6 && i.data?.plugin === 'rrweb/console@1',
     );
-    expect(
-      consoleRecords.length,
-      'positive control: the console probe was recorded',
-    ).toBeGreaterThan(0);
+    // As above: no console records means console capture was turned off (resolved) or the probe was not
+    // recorded, so the test skips instead of counting that as the expected failure.
+    test.skip(
+      consoleRecords.length === 0,
+      'not verified: the console probe was not recorded. If console capture was turned off in the project, the finding is resolved: delete this test.fail and the skip.',
+    );
     const text = JSON.stringify(consoleRecords);
     expect(canaryHits(text), 'sensitive URL parts in console records').toEqual([]);
   });

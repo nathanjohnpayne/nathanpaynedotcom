@@ -150,7 +150,12 @@ async function prepareGtag(manifest: Manifest, gtagPath: string): Promise<GtagSt
     let body: Buffer | undefined;
     let rawSha: string | undefined;
     for (let attempt = 0; attempt < manifest.gtag.fetchAttempts; attempt += 1) {
-      const candidate = await download(`https://www.googletagmanager.com/gtag/js?id=${id}`);
+      let candidate: Buffer;
+      try {
+        candidate = await download(`https://www.googletagmanager.com/gtag/js?id=${id}`);
+      } catch {
+        continue; // a transient failure on one attempt must not discard an earlier good download
+      }
       const candidateSha = sha256Hex(candidate);
       body = candidate;
       rawSha = candidateSha;

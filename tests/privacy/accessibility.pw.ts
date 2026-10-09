@@ -13,7 +13,13 @@ import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import type { Page } from '@playwright/test';
 import { DIST_DIR, FIXTURE_PATH } from './harness/constants';
-import { expectCollecting, expectNoAnalytics, gateReady, storageWith } from './harness/helpers';
+import {
+  expectCollecting,
+  expectCollectionContinues,
+  expectNoAnalytics,
+  gateReady,
+  storageWith,
+} from './harness/helpers';
 import { expect, test } from './harness/test';
 
 function distContains(needle: string): boolean {
@@ -145,19 +151,36 @@ test.describe('notice', () => {
       await s.goto(FIXTURE_PATH);
       await gateReady(s.page);
       await expect(s.page.locator(NOTICE)).toBeVisible();
-      // Content stays reachable: the heading and the page's own controls are not under the notice.
-      const covered = await s.page.evaluate((sel) => {
-        const notice = document.querySelector(sel);
-        const target = document.querySelector('#fixture-pii-button');
-        if (!notice || !target) return 'missing';
-        target.scrollIntoView({ block: 'center' });
-        const box = target.getBoundingClientRect();
-        const top = document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2);
-        return notice.contains(top) ? 'covered' : 'clear';
-      }, NOTICE);
-      expect(covered, `${viewport.width}px: the notice does not sit over page content`).toBe(
-        'clear',
-      );
+      // Content stays reachable: at the top and at the bottom of the page, no interactive element in view
+      // sits under the notice (a fixed bottom overlay is the usual way this fails, and only at the bottom).
+      for (const edge of ['top', 'bottom'] as const) {
+        const covered = await s.page.evaluate(
+          ({ sel, where }) => {
+            const notice = document.querySelector(sel);
+            if (!notice) return ['notice missing'];
+            window.scrollTo(0, where === 'top' ? 0 : document.documentElement.scrollHeight);
+            const n = notice.getBoundingClientRect();
+            const hits: string[] = [];
+            for (const el of document.querySelectorAll<HTMLElement>(
+              'a[href], button, input, textarea, select, summary, [tabindex]:not([tabindex="-1"])',
+            )) {
+              if (notice.contains(el)) continue;
+              const r = el.getBoundingClientRect();
+              if (r.width === 0 || r.height === 0) continue;
+              if (r.bottom < 0 || r.top > window.innerHeight) continue; // not in view at this scroll position
+              const overlaps =
+                r.left < n.right && r.right > n.left && r.top < n.bottom && r.bottom > n.top;
+              if (overlaps) hits.push(el.id || el.tagName.toLowerCase());
+            }
+            return hits;
+          },
+          { sel: NOTICE, where: edge },
+        );
+        expect(
+          covered,
+          `${viewport.width}px, scrolled to the ${edge}: nothing in view is under the notice`,
+        ).toEqual([]);
+      }
       // And the page responds while the notice is up.
       await s.page.click('#fixture-pii-button');
       await expect(s.page.locator(NOTICE)).toBeVisible();
@@ -173,15 +196,17 @@ test.describe('notice', () => {
     }
   });
 
-  test('PRIV-14 dismissing is not a choice: the notice goes away, the choice stays unset, collection continues, and it stays gone on reload', async ({
+  test('PRIV-14 dismissing is not a choice: the notice goes away, the choice stays unset, collection continues in the same page view, and it stays gone on reload', async ({
     open,
+    fixtureState,
   }) => {
     const s = await open();
     await s.goto(FIXTURE_PATH);
-    await gateReady(s.page);
+    await expectCollecting(s, { ga4: fixtureState.gtag.available });
     await s.page.locator(NOTICE).locator(action('dismiss')).click();
     await expect(s.page.locator(NOTICE)).toBeHidden();
     expect(await s.privacy()).toMatchObject({ saved: 'unset', effective: 'granted' });
+    await expectCollectionContinues(s, { ga4: fixtureState.gtag.available });
     const mark = s.sink.mark();
     await s.page.reload();
     await expect(s.page.locator(NOTICE)).toBeHidden();
@@ -195,12 +220,22 @@ test.describe('notice', () => {
     await s.goto(FIXTURE_PATH);
     await expectCollecting(s, { ga4: false });
     await s.page.locator(NOTICE).locator(action('deny')).click(); // one click
+    const cutoff = Date.now() + 1000; // a request already in flight at the click may still complete
     expect(await s.privacy()).toMatchObject({
       saved: 'denied',
       effective: 'denied',
       reason: 'choice',
     });
     await expect(s.page.locator(NOTICE)).toBeHidden();
+    // Collection really stopped, not just the saved value: activity past the grace sends nothing.
+    await s.page.fill('#fixture-text', 'after deny');
+    await s.page.mouse.move(200, 200);
+    await s.page.waitForTimeout(6000);
+    expect(
+      s.sink.requests.filter(
+        (r) => r.at > cutoff && (r.vendor === 'posthog' || r.vendor === 'ga4'),
+      ),
+    ).toEqual([]);
   });
 
   test('PRIV-6 the notice works by keyboard alone, with a visible focus indicator', async ({
@@ -244,29 +279,58 @@ test.describe('notice', () => {
     expect(await s.privacy()).toMatchObject({ saved: 'denied', effective: 'denied' });
   });
 
-  test('PRIV-6 reduced motion: nothing in the notice is animating when the visitor asks for none', async ({
+  test('PRIV-6 reduced motion: nothing in the notice animates or transitions when the visitor asks for none', async ({
     open,
   }) => {
     const s = await open({ reducedMotion: 'reduce' });
+    // Record every animation and transition that STARTS inside the notice from the first script onward, so
+    // motion shorter than any sleep cannot finish unseen.
+    await s.context.addInitScript((sel: string) => {
+      const started: string[] = [];
+      (window as unknown as { __npMotion: string[] }).__npMotion = started;
+      for (const type of ['animationstart', 'transitionrun', 'transitionstart']) {
+        window.addEventListener(
+          type,
+          (e) => {
+            const target = e.target;
+            if (target instanceof Element && target.closest(sel))
+              started.push(`${type} ${target.tagName}`);
+          },
+          true,
+        );
+      }
+    }, NOTICE);
     await s.goto(FIXTURE_PATH);
     await gateReady(s.page);
     await expect(s.page.locator(NOTICE)).toBeVisible();
-    await s.page.waitForTimeout(800);
-    const running = await s.page.evaluate((sel) => {
-      const notice = document.querySelector(sel);
-      return document
-        .getAnimations()
-        .filter((a) => {
-          const target = (a.effect as KeyframeEffect | null)?.target;
-          return (
-            a.playState === 'running' &&
-            target instanceof Element &&
-            (notice?.contains(target) ?? false)
-          );
-        })
-        .map((a) => a.constructor.name);
+    await s.page.locator(NOTICE).locator(action('dismiss')).click(); // the state change that could animate it away
+    await expect(s.page.locator(NOTICE)).toBeHidden();
+    expect(
+      await s.page.evaluate(() => (window as unknown as { __npMotion: string[] }).__npMotion),
+      'no animation or transition started in the notice',
+    ).toEqual([]);
+    // And the styles themselves declare none: every duration in the notice subtree is zero.
+    const s2 = await open({ reducedMotion: 'reduce' });
+    await s2.goto(FIXTURE_PATH);
+    await gateReady(s2.page);
+    const durations = await s2.page.evaluate((sel) => {
+      const toMs = (v: string): number[] =>
+        v.split(',').map((x) => (x.trim().endsWith('ms') ? parseFloat(x) : parseFloat(x) * 1000));
+      const found: string[] = [];
+      for (const el of [document.querySelector(sel), ...document.querySelectorAll(`${sel} *`)]) {
+        if (!el) continue;
+        const style = getComputedStyle(el);
+        const longest = Math.max(
+          ...toMs(style.transitionDuration),
+          ...toMs(style.animationDuration),
+        );
+        if (longest > 0) found.push(`${el.tagName} ${longest}ms`);
+      }
+      return found;
     }, NOTICE);
-    expect(running).toEqual([]);
+    expect(durations, 'no declared transition or animation duration under reduced motion').toEqual(
+      [],
+    );
   });
 
   test('PRIV-6 PRIV-14 the notice is absent when a choice exists, and when GPC is active', async ({

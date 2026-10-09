@@ -12,10 +12,9 @@
  * simply was not listening.
  */
 import { chromium, type Page } from '@playwright/test';
-import { CHROME_UA, EXCLUDED_PATH, FIXTURE_PATH, SITE_ORIGIN } from './harness/constants';
-import { BOT_SCRUB, chromiumArgs } from './harness/test';
+import { EXCLUDED_PATH, FIXTURE_PATH, SITE_ORIGIN } from './harness/constants';
 import { canaryHits, expectCollecting, humanActivity, replayItems } from './harness/helpers';
-import { expect, test, type Session } from './harness/test';
+import { chromiumArgs, expect, Session, test } from './harness/test';
 
 const EXCLUDED_CANARY = 'NP-CANARY-EXCLUDED-PAGE';
 /** Records stamped this soon after a navigation are the previous page's last flush, not the new page. */
@@ -150,12 +149,11 @@ test.describe('replay exclusion', () => {
     await activity(s.page, 'np-resume-probe');
     await s.page.waitForTimeout(2500);
     const resumed = recordedAfter(s, resumedAt) > 0;
-    test.info().annotations.push({
-      type: 'premise',
-      description: resumed
-        ? 'recording resumed after returning to the allowed entry'
-        : 'recording did not resume on return; popstate-to-excluded exercised without a live recording',
-    });
+    // Without a live recording at the moment of the popstate, a pass would prove nothing about the handler.
+    test.skip(
+      !resumed,
+      'not verified: recording did not resume on the allowed entry, so popstate-to-excluded was not exercised against a live recording',
+    );
     const t0 = Date.now();
     await s.page.goForward(); // popstate onto the excluded entry
     await activity(s.page, EXCLUDED_CANARY);
@@ -203,9 +201,10 @@ test.describe('replay exclusion', () => {
     if (!browser) return;
     egress.reset();
     try {
-      const context = await browser.newContext({ userAgent: CHROME_UA });
-      await context.addInitScript(BOT_SCRUB);
-      const page = await context.newPage();
+      // The same context setup as every other run: default-deny route, WebSocket close, blocked service
+      // workers, and the ordinary-visitor identity.
+      const session = await Session.open(browser, egress);
+      const { context, page } = session;
       // Playwright cannot evaluate in a document the browser restored from the cache (the call never
       // returns), so this test observes with console messages, pointer input, and the sink only.
       const logs: string[] = [];
@@ -277,6 +276,12 @@ test.describe('replay exclusion', () => {
         )
         .filter((i) => (i.timestamp ?? 0) > t0 + GRACE_MS);
       expect(late, 'no replay record after the restore').toEqual([]);
+      // The default-deny route was live in this browser too; the only request it may have aborted is the
+      // Google Fonts stylesheet every page links.
+      expect(
+        session.denied.filter((d) => !d.includes('fonts.googleapis.com')),
+        'nothing but the fonts stylesheet was denied',
+      ).toEqual([]);
     } finally {
       await browser.close();
     }

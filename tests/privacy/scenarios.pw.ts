@@ -11,6 +11,7 @@ import {
   auditSdk,
   clickOutbound,
   expectCollecting,
+  expectCollectionContinues,
   expectNoAnalytics,
   gateReady,
   recordChanges,
@@ -517,10 +518,11 @@ test.describe('storage', () => {
 
   test('PRIV-14 dismissing the notice is not a choice: it records the dismissal, leaves the choice unset, and collection continues', async ({
     open,
+    fixtureState,
   }) => {
     const s = await open();
     await s.goto(FIXTURE_PATH);
-    await gateReady(s.page);
+    await expectCollecting(s, { ga4: fixtureState.gtag.available });
     expect(await s.page.evaluate(() => window.npPrivacy?.notice.shouldShow())).toBe(true);
     await s.page.evaluate(() => window.npPrivacy?.notice.dismiss());
     expect(await s.page.evaluate(() => window.npPrivacy?.notice.shouldShow())).toBe(false);
@@ -534,5 +536,7 @@ test.describe('storage', () => {
       choice: 'unset',
       noticeDismissed: true,
     });
+    // Collection continues in this very page view (not merely after a reload re-initializes it).
+    await expectCollectionContinues(s, { ga4: fixtureState.gtag.available });
   });
 });
