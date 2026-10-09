@@ -326,6 +326,73 @@ test('when the choice cannot be saved, the controls say it applies only to this 
   await context.close();
 });
 
+test('an unsaved opt-out survives a back/forward restore, and the notice agrees with the gate (#1258)', async () => {
+  // A real bfcache restore needs full Chromium without Playwright's
+  // --disable-back-forward-cache, and documents that are not no-store. Same
+  // egress rules: refusing proxy only, resolver deny, no WebRTC UDP, default-deny
+  // route, service workers blocked.
+  const cacheable = await startEgressProxy(DIST, { cacheControl: 'no-cache' });
+  const full = await chromium.launch({
+    channel: 'chromium',
+    args: egressArgs(cacheable.port),
+    ignoreDefaultArgs: ['--disable-back-forward-cache'],
+  });
+  try {
+    const context = await full.newContext({ serviceWorkers: 'block', viewport: DESKTOP });
+    await context.route('**/*', async (route) => {
+      const url = new URL(route.request().url());
+      if (url.origin === SITE) {
+        await route.continue();
+        return;
+      }
+      aborted.push(route.request().url());
+      await route.abort('blockedbyclient');
+    });
+    await context.addInitScript({ content: STORAGE_WRITE_THROWS });
+    await context.addInitScript({
+      content:
+        "window.__restored = false; window.addEventListener('pageshow', (e) => { if (e.persisted) window.__restored = true; });",
+    });
+    const page = await context.newPage();
+    await page.goto(`${SITE}/blog/`);
+    await page.evaluate(
+      () => ((window as unknown as { __marker: string }).__marker = 'first-document'),
+    );
+    await noticeAction(page, 'deny').focus();
+    await page.keyboard.press('Enter');
+    await expect(notice(page)).toBeHidden();
+    await page.goto(`${SITE}/projects/`);
+    await page.goBack({ waitUntil: 'commit' });
+    await page.waitForTimeout(500);
+    const restored = await page.evaluate(
+      () =>
+        (window as unknown as { __restored: boolean; __marker?: string }).__restored &&
+        (window as unknown as { __marker?: string }).__marker === 'first-document',
+    );
+    test.skip(
+      !restored,
+      'not verified: this browser did not restore the page from the back/forward cache',
+    );
+    const state = await page.evaluate(() => {
+      const p = (window as unknown as { npPrivacy: { get(): Record<string, unknown> } }).npPrivacy;
+      return { get: p.get(), attr: document.documentElement.getAttribute('data-np-privacy') };
+    });
+    expect(state.get).toMatchObject({ effective: 'denied', persisted: false });
+    expect(state.attr).toBe('denied');
+    await expect(notice(page)).toBeHidden();
+    await expect(page.locator('#np-privacy-notice-status')).toHaveText(
+      /^PostHog and Google Analytics are off for this page\./,
+    );
+    await context.close();
+  } finally {
+    await full.close();
+    await cacheable.close();
+    for (const record of cacheable.log) {
+      if (record.kind === 'served') expect(record.target.startsWith(`${SITE}/`)).toBe(true);
+    }
+  }
+});
+
 test('reduced motion leaves the notice and its buttons without transitions', async () => {
   const { context, page } = await open(DESKTOP, [], { reducedMotion: 'reduce' });
   await page.goto(`${SITE}/blog/`);
