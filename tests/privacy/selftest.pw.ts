@@ -10,7 +10,7 @@ import { join } from 'node:path';
 import { gzipSync } from 'node:zlib';
 import { REPO_ROOT } from './harness/constants';
 import { loadManifest } from './harness/fixtures';
-import { canaryHits, contactHits, urlViolations } from './harness/helpers';
+import { canaryHits, contactHits, ga4MarkerViolations, urlViolations } from './harness/helpers';
 import { decodeBody, deepExpand, ga4Events, postHogEvents } from './harness/payloads';
 import { expect, test } from '@playwright/test';
 
@@ -240,6 +240,17 @@ test.describe('the canary detector sees every encoding the SDKs use, and rejects
     expect(
       urlViolations('see "https://a.test/p?utm_source=x&q=1#f",').map((v) => v.reason),
     ).toEqual(['fragment #f', 'query parameter q']);
+  });
+});
+
+test.describe('GA4 marker policy', () => {
+  test('PRIV-16 (instrument) identity markers count as event parameters too, and benign drift does not', () => {
+    expect(
+      ga4MarkerViolations(['uid', 'ep.uid', 'epn.uid', 'ep.user_id', 'up.plan', 'gclid']),
+    ).toEqual(['uid', 'ep.uid', 'epn.uid', 'ep.user_id', 'up.plan', 'gclid']);
+    expect(
+      ga4MarkerViolations(['ep.link_url', 'ep.file_name', 'epn.engagement_time_msec', 'tfd']),
+    ).toEqual([]);
   });
 });
 

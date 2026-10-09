@@ -295,9 +295,12 @@ test.describe('replay exclusion', () => {
             }>) ?? [],
         )
         .filter((i) => i.type === 4)
-        .map((i) => i.data?.href ?? '');
+        .map((i) => i.data?.href ?? '')
+        // A Meta record may lack an href, or carry a relative one: skip the empty ones and resolve the rest
+        // against the site, so a malformed record fails the content checks below, not this parse.
+        .filter((h) => h !== '');
       expect(
-        metaHrefs.filter((h) => new URL(h).pathname.startsWith(EXCLUDED_PATH)),
+        metaHrefs.filter((h) => new URL(h, SITE_ORIGIN).pathname.startsWith(EXCLUDED_PATH)),
         'no replay metadata for the excluded URL after the restore',
       ).toEqual([]);
       expect(text, 'the excluded URL is not in any replay payload after the restore').not.toContain(

@@ -412,7 +412,15 @@ export async function expectCollectionContinues(
  * advertising, or enrichment feature (PRIV-16).
  */
 export const GA4_IDENTITY_OR_ADS_KEYS =
-  /^(uid|em|ph|ud|ecid|_gaz|_uip|uip|aip|gcs|gcu|dpd|up\..*|upn\..*|gcl.*|gad.*|gac.*|gclid|gclsrc|dclid|gbraid|wbraid)$/;
+  /^(uid|user_id|em|ph|ud|ecid|_gaz|_uip|uip|aip|gcs|gcu|dpd|up\..*|upn\..*|gcl.*|gad.*|gac.*|gclid|gclsrc|dclid|gbraid|wbraid)$/;
+
+/**
+ * The identity or advertising markers among new GA4 parameter names. An event parameter (`ep.*`, `epn.*`) is
+ * matched on its name after the prefix, so `ep.uid` or `ep.user_id` counts like `uid` does.
+ */
+export function ga4MarkerViolations(novel: string[]): string[] {
+  return novel.filter((k) => GA4_IDENTITY_OR_ADS_KEYS.test(k.replace(/^(ep|epn)\./, '')));
+}
 
 /** Parameter names the production capture recorded, plus `dr` (the referrer, absent from that run). */
 export function ga4BaselineKeys(): Set<string> {
@@ -423,11 +431,15 @@ export function ga4BaselineKeys(): Set<string> {
   return baseline;
 }
 
-/** Parameter names seen in the sink that the production capture did not record (enhanced-measurement ep/epn aside). */
+/**
+ * Parameter names seen in the sink that the production capture did not record. Event parameters (`ep.*`,
+ * `epn.*`) are included: enhanced measurement adds benign ones, which are only reported, but an identity
+ * marker can also arrive as an event parameter.
+ */
 export function ga4NovelKeys(s: Session): string[] {
   const baseline = ga4BaselineKeys();
   const observed = new Set(s.sink.ga4Events().flatMap(({ event }) => Object.keys(event.params)));
-  return [...observed].filter((k) => !baseline.has(k) && !/^(ep|epn)\./.test(k));
+  return [...observed].filter((k) => !baseline.has(k));
 }
 
 /** Report novel GA4 parameters, and fail on any that is an identity or advertising marker. */
@@ -438,8 +450,7 @@ export function expectNoNewGa4Markers(s: Session): void {
     description: `parameter names not in the production capture: ${novel.join(', ') || 'none'}`,
   });
   // Other drift (Google adding a parameter) is reported above; an identity or advertising marker is a failure.
-  expect(
-    novel.filter((k) => GA4_IDENTITY_OR_ADS_KEYS.test(k)),
-    'a new GA4 identity or advertising marker appeared',
-  ).toEqual([]);
+  expect(ga4MarkerViolations(novel), 'a new GA4 identity or advertising marker appeared').toEqual(
+    [],
+  );
 }
