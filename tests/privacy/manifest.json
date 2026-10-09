@@ -56,7 +56,10 @@
     "license": "MPL-2.0",
     "tarball": "https://registry.npmjs.org/axe-core/-/axe-core-4.14.0.tgz",
     "integrity": "sha512-9WTZxEjsZ7b13TH8JPmbV2z8CHbl80/2hm3XPEG4JgNdQLK81IBRXmSxHfMAOkSqQeRxT/0dwNDz2GOm3zzpcQ==",
-    "file": { "tarballPath": "package/axe.min.js" }
+    "file": {
+      "tarballPath": "package/axe.min.js",
+      "sha256": "20c09fe157a8a34a30e241aaa1fcdade657734f08ab379ecfbeb7d45cc46e878"
+    }
   },
   "inventory": {
     "document": "docs/privacy/inventory.md",

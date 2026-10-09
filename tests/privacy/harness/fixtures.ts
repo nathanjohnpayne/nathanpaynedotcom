@@ -41,7 +41,7 @@ export interface Manifest {
     version: string;
     tarball: string;
     integrity: string;
-    file: { tarballPath: string };
+    file: { tarballPath: string; sha256: string };
   };
   inventory: { document: string; captureDocument: string };
 }
@@ -263,6 +263,15 @@ export async function prepareFixtures(): Promise<FixtureState> {
     [manifest.axe.file.tarballPath],
     axeDir,
   );
+  // fetchTarball skips the download when the file already exists, so check the
+  // extracted copy itself, as for posthog-js: an interrupted extraction or an
+  // edited cache file must not be used as a verified axe-core.
+  const axeActual = sha256Hex(readFileSync(join(axeDir, manifest.axe.file.tarballPath)));
+  if (axeActual !== manifest.axe.file.sha256) {
+    throw new Error(
+      `axe-core ${manifest.axe.version} ${manifest.axe.file.tarballPath}: SHA-256 ${axeActual} does not match the manifest's ${manifest.axe.file.sha256}`,
+    );
+  }
 
   const tlsKeyPath = join(CACHE_DIR, 'harness-key.pem');
   const tlsCertPath = join(CACHE_DIR, 'harness-cert.pem');
