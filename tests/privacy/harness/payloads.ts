@@ -144,9 +144,15 @@ export function decodeBody(
 
   // Form-encoded `data=<base64>` bodies (posthog-js's non-gzip fallback).
   if ((contentType ?? '').includes('application/x-www-form-urlencoded') && /^data=/.test(text)) {
-    const data = new URLSearchParams(text).get('data');
+    // URLSearchParams turns an unencoded `+` into a space; base64 has no spaces, so put the `+` back.
+    const data = new URLSearchParams(text).get('data')?.replace(/ /g, '+');
     if (data) {
       const raw = Buffer.from(data, 'base64');
+      // Node's decoder never throws: it skips invalid characters and accepts missing padding, so `!!!` becomes
+      // an empty buffer. Accept only canonical base64 (re-encoding gives the input back), else flag the body.
+      if (raw.toString('base64') !== data) {
+        return { searchable: urlText + text, plain: text, undecoded: true };
+      }
       const inflated = raw.subarray(0, 2).equals(GZIP_MAGIC) ? tryGunzip(raw) : raw;
       if (!inflated) return { searchable: urlText + text, plain: text, undecoded: true };
       text = inflated.toString('utf8');

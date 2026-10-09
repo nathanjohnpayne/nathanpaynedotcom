@@ -5,20 +5,14 @@
  * PRIV-16 (no new identity, advertising, or enrichment feature), the
  * local-host skip, and "no cookie is added".
  */
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
-import {
-  ASSET_HOST,
-  FIXTURE_PATH,
-  LOCAL_HOST_ALIAS,
-  REPO_ROOT,
-  TEST_HOST,
-} from './harness/constants';
+import { ASSET_HOST, FIXTURE_PATH, LOCAL_HOST_ALIAS, TEST_HOST } from './harness/constants';
 import {
   eventsNamed,
   expectCollecting,
   gateReady,
   humanActivity,
+  expectNoNewGa4Markers,
+  ga4NovelKeys,
   noteGa4Provenance,
   interactWithFixture,
   storageWith,
@@ -154,18 +148,7 @@ test.describe('nothing new (PRIV-16)', () => {
     // GA4: report any parameter the production capture did not record (informational: gtag.js moves under us).
     if (fixtureState.gtag.available) {
       noteGa4Provenance();
-      const capture = readFileSync(join(REPO_ROOT, 'docs/privacy/capture-2026-10-08.md'), 'utf8');
-      const line = /Query-string parameter names: ([^\n]+)/.exec(capture)?.[1] ?? '';
-      const baseline = new Set([...line.matchAll(/`([^`]+)`/g)].map((m) => m[1]!));
-      baseline.add('dr');
-      const observed = new Set(
-        s.sink.ga4Events().flatMap(({ event }) => Object.keys(event.params)),
-      );
-      const novel = [...observed].filter((k) => !baseline.has(k) && !/^(ep|epn|up|upn)\./.test(k));
-      test.info().annotations.push({
-        type: 'ga4-parameters',
-        description: `${observed.size} parameter names observed; not in the production capture: ${novel.join(', ') || 'none'}`,
-      });
+      expectNoNewGa4Markers(s);
 
       // Existing GA4 features still on, from the values the production capture recorded (Non-identifying
       // values seen): ads personalization allowed (npa=0), no consent-mode denial (gcd), no regional
@@ -190,6 +173,32 @@ test.describe('nothing new (PRIV-16)', () => {
         description: 'not verified: no gtag.js fixture, so GA4 feature markers were not checked',
       });
     }
+  });
+});
+
+test.describe('nothing new (PRIV-16) negative control', () => {
+  test('PRIV-16 (control) a GA4 User-ID turned on is caught as a new identity marker', async ({
+    open,
+    fixtureState,
+  }) => {
+    test.skip(!fixtureState.gtag.available, 'not verified: no gtag.js fixture');
+    noteGa4Provenance();
+    const s = await open();
+    await s.goto(FIXTURE_PATH);
+    await expectCollecting(s, { ga4: true });
+    // What turning on User-ID looks like: a user_id on the tag, sent as the uid parameter.
+    await s.page.evaluate(`(() => {
+      window.gtag('set', 'user_id', 'np-control-user');
+      window.gtag('event', 'np_user_id_control');
+    })()`);
+    await expect
+      .poll(() => s.sink.ga4Events().some(({ event }) => 'uid' in event.params), {
+        message: 'the control hit carried uid (positive control)',
+        timeout: 15_000,
+      })
+      .toBe(true);
+    expect(ga4NovelKeys(s)).toContain('uid');
+    expect(() => expectNoNewGa4Markers(s), 'the policy rejects a new uid').toThrow();
   });
 });
 

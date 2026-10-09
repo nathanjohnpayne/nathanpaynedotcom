@@ -10,7 +10,7 @@ import { join } from 'node:path';
 import { gzipSync } from 'node:zlib';
 import { REPO_ROOT } from './harness/constants';
 import { loadManifest } from './harness/fixtures';
-import { canaryHits, contactHits, urlViolations } from './harness/helpers';
+import { canaryHits, contactHits, ga4MarkerViolations, urlViolations } from './harness/helpers';
 import { decodeBody, deepExpand, ga4Events, postHogEvents } from './harness/payloads';
 import { expect, test } from '@playwright/test';
 
@@ -107,6 +107,28 @@ test.describe('the canary detector sees every encoding the SDKs use, and rejects
       'https://d.nathanpayne.com/e/',
     );
     expect(canaryHits(decoded.searchable)).toEqual([canary]);
+  });
+
+  test('PRIV-2 (instrument) an invalid or truncated base64 data= body is flagged, not decoded to nothing', () => {
+    const form = 'application/x-www-form-urlencoded';
+    const url = 'https://d.nathanpayne.com/e/';
+    for (const bad of ['!!!', 'abc', 'eyJldmVudCI6ImUifQ', 'ZZZZ====', 'ey Jl']) {
+      const decoded = decodeBody(Buffer.from(`data=${encodeURIComponent(bad)}`), form, url);
+      expect(decoded.undecoded, `data=${bad} is not valid base64`).toBe(true);
+    }
+    // Controls: a well-formed body, with and without gzip, still decodes.
+    const good = Buffer.from(JSON.stringify({ event: 'e', properties: { p: canary } })).toString(
+      'base64',
+    );
+    const plain = decodeBody(Buffer.from(`data=${encodeURIComponent(good)}`), form, url);
+    expect(plain.undecoded).toBe(false);
+    expect(canaryHits(plain.searchable)).toEqual([canary]);
+    const gz = gzipSync(JSON.stringify({ event: 'e', properties: { p: canary } })).toString(
+      'base64',
+    );
+    expect(decodeBody(Buffer.from(`data=${encodeURIComponent(gz)}`), form, url).undecoded).toBe(
+      false,
+    );
   });
 
   test('PRIV-2 (instrument) URL-encoded variants of a literal are found', () => {
@@ -218,6 +240,17 @@ test.describe('the canary detector sees every encoding the SDKs use, and rejects
     expect(
       urlViolations('see "https://a.test/p?utm_source=x&q=1#f",').map((v) => v.reason),
     ).toEqual(['fragment #f', 'query parameter q']);
+  });
+});
+
+test.describe('GA4 marker policy', () => {
+  test('PRIV-16 (instrument) identity markers count as event parameters too, and benign drift does not', () => {
+    expect(
+      ga4MarkerViolations(['uid', 'ep.uid', 'epn.uid', 'ep.user_id', 'up.plan', 'gclid']),
+    ).toEqual(['uid', 'ep.uid', 'epn.uid', 'ep.user_id', 'up.plan', 'gclid']);
+    expect(
+      ga4MarkerViolations(['ep.link_url', 'ep.file_name', 'epn.engagement_time_msec', 'tfd']),
+    ).toEqual([]);
   });
 });
 

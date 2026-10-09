@@ -174,14 +174,37 @@ test.describe('PostHog events', () => {
     open,
   }) => {
     const s = await open();
-    const allowed = [...ALLOWED_QUERY_PARAMS].map((name) => `${name}=${name}-value`).join('&');
-    await s.goto(
-      `${FIXTURE_PATH}?email=${CANARIES.query}&token=${CANARIES.query}-2&ref=${CANARIES.fragment}&${allowed}#${CANARIES.fragment}`,
+    // A distinct value per allowlisted parameter, several needing percent-encoding, so a scrubber that drops,
+    // truncates, re-encodes, or swaps values fails here and not just one that drops names.
+    const values: Record<string, string> = {
+      utm_source: 'newsletter',
+      utm_medium: 'e mail+blast',
+      utm_campaign: 'spring sale & more',
+      utm_term: 'privacy/test=1',
+      utm_content: 'caf\u00e9-link',
+      gclid: 'Cj0KCQ-gclid_123',
+      gbraid: '0AAAAA-gbraid_456',
+      wbraid: 'CjwKCA-wbraid_789',
+      dclid: 'CJz-dclid_012',
+    };
+    expect(Object.keys(values).sort(), 'the table covers the whole allowlist').toEqual(
+      [...ALLOWED_QUERY_PARAMS].sort(),
     );
+    const query = new URLSearchParams({
+      email: CANARIES.query,
+      token: `${CANARIES.query}-2`,
+      ref: CANARIES.fragment,
+      ...values,
+    });
+    await s.goto(`${FIXTURE_PATH}?${query.toString()}#${CANARIES.fragment}`);
     await expectCollecting(s, { ga4: false });
     const pageview = eventsNamed(s.sink.posthogEvents(), '$pageview')[0];
     const url = new URL(String(pageview?.properties.$current_url));
     expect([...url.searchParams.keys()].sort()).toEqual([...ALLOWED_QUERY_PARAMS].sort());
+    expect(
+      Object.fromEntries(url.searchParams),
+      'every allowlisted value survives exactly',
+    ).toEqual(values);
     expect(url.hash).toBe('');
     expect(url.origin + url.pathname).toBe(`${SITE_ORIGIN}${FIXTURE_PATH}`);
     expect(leakHits(s.sink.searchableText('posthog'))).toEqual([]);
