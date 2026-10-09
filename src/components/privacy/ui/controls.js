@@ -55,9 +55,9 @@
     if (state.effective === 'granted' && resumesNextLoad) {
       if (!state.persisted) {
         // A grant after a denial that could not be saved: nothing loads on
-        // this page (§ Re-Enable 1), and the next load reads the saved denial,
-        // so analytics stay off. Promising the next load would be false.
-        return 'Your browser did not save this choice, so analytics stay off: they did not load on this page, and the next page you load uses your earlier setting.';
+        // this page (§ Re-Enable 1), and the next load reads whatever was last
+        // saved, which this page cannot know. Predict nothing about it.
+        return 'Your browser did not save this choice, so it applies only to this page, and analytics did not load on this page. The next page you load uses whatever setting your browser last saved.';
       }
       parts.push('They start on the next page you load.');
     }

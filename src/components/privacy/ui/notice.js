@@ -52,7 +52,7 @@
       privacy.set('denied');
       announce(
         privacy.get().persisted
-          ? 'Analytics are off on this site.'
+          ? 'Analytics are off for this site in this browser.'
           : 'Analytics are off for this page. Your browser did not save the choice, so it applies only to this page.',
       );
     } else if (action === 'dismiss') {
@@ -88,8 +88,18 @@
     if (event.key === 'Escape') act('dismiss');
   });
 
-  // A choice or dismissal made in another tab arrives through the gate.
-  privacy.onChange(sync);
+  // A choice or dismissal made in another tab arrives through the gate. If
+  // that hides the notice while keyboard focus is inside it, hand focus to
+  // the visible announcement, as a local action does, rather than leaving it
+  // in a hidden subtree.
+  privacy.onChange(function () {
+    var hadFocus = notice.contains(d.activeElement);
+    sync();
+    if (hadFocus && notice.hidden) {
+      announce('The privacy notice was closed from another tab.');
+      status.focus();
+    }
+  });
 
   placeAtTop();
   sync();

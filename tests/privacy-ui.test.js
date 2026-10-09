@@ -172,7 +172,7 @@ describe('notice (PRIV-14, PRIV-6)', () => {
     expect(d.getElementById('np-privacy-notice').hidden).toBe(true);
     const status = d.getElementById('np-privacy-notice-status');
     expect(status.getAttribute('role')).toBe('status');
-    expect(status.textContent).toBe('Analytics are off on this site.');
+    expect(status.textContent).toBe('Analytics are off for this site in this browser.');
     expect(d.activeElement).toBe(status);
   });
 
@@ -228,6 +228,17 @@ describe('notice (PRIV-14, PRIV-6)', () => {
     expect(notice.hidden).toBe(false);
     otherTabWrites(w, { v: 1, choice: 'denied', noticeDismissed: false });
     expect(notice.hidden).toBe(true);
+  });
+
+  it('moves focus to the announcement when another tab closes the notice under it', () => {
+    const { w, d } = mountNotice();
+    const notice = d.getElementById('np-privacy-notice');
+    notice.querySelector('[data-np-privacy-action="dismiss"]').focus();
+    expect(notice.contains(d.activeElement)).toBe(true);
+    otherTabWrites(w, { v: 1, choice: 'denied', noticeDismissed: false });
+    expect(notice.hidden).toBe(true);
+    expect(d.activeElement).toBe(d.getElementById('np-privacy-notice-status'));
+    expect(d.activeElement.textContent).toBe('The privacy notice was closed from another tab.');
   });
 
   it('says so when the choice could not be saved', () => {
@@ -351,9 +362,20 @@ describe('controls (PRIV-10, PRIV-14)', () => {
     expect(privacy.get()).toMatchObject({ effective: 'granted', persisted: false });
     expect(stored(w).choice).toBe('denied');
     expect(statusOf(d)).toBe(
-      'Your browser did not save this choice, so analytics stay off: they did not load on this page, and the next page you load uses your earlier setting.',
+      'Your browser did not save this choice, so it applies only to this page, and analytics did not load on this page. The next page you load uses whatever setting your browser last saved.',
     );
-    expect(statusOf(d)).not.toContain('next page you load.');
+    expect(statusOf(d)).not.toMatch(/stay off|start on the next page/);
+  });
+
+  it('predicts nothing about the next load when a re-enable after an unsaved opt-out fails', () => {
+    // Nothing was ever saved: the next load reads unset and runs analytics,
+    // so the status must not claim they stay off.
+    const { w, d, privacy } = mountControls({ storage: 'write-throws' });
+    click(w, d.querySelector('[data-np-privacy-action="deny"]'));
+    click(w, d.querySelector('[data-np-privacy-action="grant"]'));
+    expect(privacy.get()).toMatchObject({ effective: 'granted', persisted: false });
+    expect(statusOf(d)).toContain('uses whatever setting your browser last saved');
+    expect(statusOf(d)).not.toMatch(/stay off|start on the next page/);
   });
 
   it('ships the status and buttons hidden, for visitors without JavaScript, and reveals them', () => {
@@ -414,9 +436,14 @@ describe('/privacy/ page and footer link (PRIV-11, PRIV-15)', () => {
   it('states retention only as the inventory verified it', () => {
     expect(PAGE_TEMPLATE).toContain('PostHog session recordings: 30 days.');
     const days = new Set([...PAGE_TEMPLATE.matchAll(/\b(\d+) days\b/g)].map((m) => m[1]));
-    // 30 (replay), 365 (PostHog and Mux cookies), 400 (Chrome's cap on _ga).
-    expect([...days].sort()).toEqual(['30', '365', '400']);
-    expect(PAGE_TEMPLATE).toContain('Other retention periods are set in each vendor');
+    // 30 (replay; Firebase's default log retention), 365 (PostHog and Mux
+    // cookies), 400 (Chrome's cap on _ga), 7 (Cloudflare Web Analytics raw
+    // data) and 100 (Mux view data), the last three as vendor statements the
+    // inventory records. Any other number is unsourced.
+    expect([...days].sort()).toEqual(['100', '30', '365', '400', '7']);
+    expect(PAGE_TEMPLATE).toContain(
+      "are set in each vendor's account, were not verified, and are not stated here",
+    );
   });
 
   it('covers every section the contract names', () => {

@@ -188,7 +188,7 @@ const sections = [
             replay exclusion. ────────────────────────────────────────── */}
         <h2 id="collected">What is collected</h2>
         <p>
-          Two analytics tools run on every page unless you turn them off here: PostHog and Google Analytics 4. Cloudflare's own web analytics runs as well, and the controls above do not reach it. This section says what each one receives.
+          Two analytics tools, PostHog and Google Analytics 4, run on every page unless you turn them off here, your browser sends Global Privacy Control, or JavaScript is off. Cloudflare's own web analytics runs as well, and the controls above do not reach it. This section says what each one receives.
         </p>
 
         <h3>PostHog</h3>
@@ -297,7 +297,11 @@ const sections = [
         <ul>
           <li>PostHog session recordings: 30 days.</li>
           <li>PostHog's cookie: 365 days. Google Analytics cookies: Google documents two years, refreshed on each visit, and Chrome caps each write at 400 days. The Mux Data cookie: 365 days.</li>
-          <li>Other retention periods are set in each vendor's account and are not stated here.</li>
+          <li>Cloudflare Web Analytics: Cloudflare states that it keeps raw data for 7 days and then a sample of about 10% for longer-term reporting.</li>
+          <li>Mux Data playback data: up to 100 days, per Mux.</li>
+          <li>Error-alert issues on GitHub: until the issue is deleted; PostHog's retention does not reach them.</li>
+          <li>Firebase Hosting request logs, if exported to Cloud Logging: 30 days by default, per Firebase.</li>
+          <li>Other retention periods (PostHog events and profiles, Google Analytics data, and Cloudflare's own logs) are set in each vendor's account, were not verified, and are not stated here.</li>
         </ul>
 
         {/* ── GPC ──────────────────────────────────────────────────────
@@ -305,7 +309,7 @@ const sections = [
             (Cloudflare continues for GPC visitors). ─────────────────────── */}
         <h2 id="gpc">Global Privacy Control</h2>
         <p>
-          Global Privacy Control is a signal a browser or extension can send to ask sites to opt you out. This site honors it: when your browser sends it, PostHog and Google Analytics are off whatever you chose here, and the "Turn on analytics" button above is unavailable. If you turn analytics off here and your browser later stops sending the signal, they stay off. The signal does not reach Cloudflare's analytics or the other services listed above.
+          Global Privacy Control is a signal a browser or extension can send to ask sites to opt you out. This site honors it: when your browser sends it, PostHog and Google Analytics are off whatever you chose here, and the "Turn on analytics" button above is unavailable. If you turn analytics off here and your browser saves that choice, they stay off after your browser stops sending the signal. The signal does not reach Cloudflare's analytics or the other services listed above.
         </p>
 
         {/* ── Limits ────────────────────────────────────────────────────
