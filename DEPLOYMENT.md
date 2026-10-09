@@ -613,6 +613,7 @@ For Claude Code cloud scheduled tasks:
 | Pattern | Cache TTL |
 |---------|-----------|
 | `og-image.png`, `/og/**` | 24 hours |
+| `/fonts/**` (self-hosted site and OG fonts; not content-hashed, so not `immutable`) | 30 days |
 | `**/*.js`, `**/*.css` | 1 hour |
 | `/_astro/**` (content-hashed build assets) | 1 year, `immutable` |
 | `**/*.html` | 1 hour |
